@@ -38,7 +38,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::warn;
+use tracing::{debug, error, warn};
 
 use super::{
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
@@ -401,7 +401,10 @@ impl Indexer {
 				.map(|WalkedEntry { iso_file_path, .. }| iso_file_path.clone()),
 		);
 
-		self.errors.extend(errors);
+		if !errors.is_empty() {
+			error!("Non critical errors while indexing: {errors:#?}");
+			self.errors.extend(errors);
+		}
 
 		let db_delete_time = Instant::now();
 		self.metadata.removed_count +=
@@ -457,6 +460,8 @@ impl Indexer {
 		])
 		.await;
 
+		debug!("Processed walk task in the indexer, took: {scan_time:?}");
+
 		Ok(handles)
 	}
 
@@ -472,6 +477,8 @@ impl Indexer {
 		self.metadata.db_write_time += save_duration;
 
 		ctx.progress_msg(format!("Saved {saved_count} files")).await;
+
+		debug!("Processed save task in the indexer, took: {save_duration:?}");
 	}
 
 	async fn process_update_output<OuterCtx: OuterContext>(
@@ -487,6 +494,8 @@ impl Indexer {
 
 		ctx.progress_msg(format!("Updated {updated_count} files"))
 			.await;
+
+		debug!("Processed update task in the indexer, took: {update_duration:?}");
 	}
 
 	async fn process_handles<OuterCtx: OuterContext>(

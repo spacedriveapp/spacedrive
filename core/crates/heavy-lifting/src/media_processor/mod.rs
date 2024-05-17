@@ -2,6 +2,8 @@ use crate::{utils::sub_path, OuterContext, UpdateEvent};
 
 use sd_core_file_path_helper::FilePathError;
 
+use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_prisma::prisma::{file_path, object};
 use sd_utils::db::MissingFieldError;
 
 use std::fmt;
@@ -87,5 +89,45 @@ impl<OuterCtx: OuterContext> NewThumbnailReporter for NewThumbnailsReporter<Oute
 	fn new_thumbnail(&self, thumb_key: ThumbKey) {
 		self.ctx
 			.report_update(UpdateEvent::NewThumbnail { thumb_key });
+	}
+}
+
+#[derive(Deserialize)]
+struct RawFilePathForMediaProcessor {
+	id: file_path::id::Type,
+	materialized_path: file_path::materialized_path::Type,
+	is_dir: file_path::is_dir::Type,
+	name: file_path::name::Type,
+	extension: file_path::extension::Type,
+	cas_id: file_path::cas_id::Type,
+	object_id: object::id::Type,
+	object_pub_id: object::pub_id::Type,
+}
+
+impl From<RawFilePathForMediaProcessor> for file_path_for_media_processor::Data {
+	fn from(
+		RawFilePathForMediaProcessor {
+			id,
+			materialized_path,
+			is_dir,
+			name,
+			extension,
+			cas_id,
+			object_id,
+			object_pub_id,
+		}: RawFilePathForMediaProcessor,
+	) -> Self {
+		Self {
+			id,
+			materialized_path,
+			is_dir,
+			name,
+			extension,
+			cas_id,
+			object: Some(file_path_for_media_processor::object::Data {
+				id: object_id,
+				pub_id: object_pub_id,
+			}),
+		}
 	}
 }

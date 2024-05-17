@@ -122,7 +122,7 @@ impl<E: RunError> Worker<E> {
 				task: new_task,
 				worktable: Arc::clone(&worktable),
 				interrupter: Arc::new(Interrupter::new(interrupt_rx)),
-				done_tx: PanicOnSenderDrop::new(done_tx),
+				done_tx: PanicOnSenderDrop::new(task_id, done_tx),
 			}))
 			.await
 			.expect("Worker channel closed trying to add task");

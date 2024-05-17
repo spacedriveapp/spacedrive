@@ -491,7 +491,7 @@ export type NonCriticalMediaDataExtractorError = { FailedToExtractImageMediaData
 
 export type NonCriticalMediaProcessorError = { media_data_extractor: NonCriticalMediaDataExtractorError } | { thumbnailer: NonCriticalThumbnailerError }
 
-export type NonCriticalThumbnailerError = { MissingCasId: number } | { FailedToExtractIsolatedFilePathData: [number, string] } | { VideoThumbnailGenerationFailed: [string, string] } | { FormatImage: [string, string] } | { WebPEncoding: [string, string] } | { PanicWhileGeneratingThumbnail: [string, string] } | { CreateShardDirectory: string } | { SaveThumbnail: [string, string] } | { ThumbnailGenerationTimeout: string }
+export type NonCriticalThumbnailerError = { MissingCasId: number } | { FailedToExtractIsolatedFilePathData: [number, string] } | { VideoThumbnailGenerationFailed: [string, string] } | { FormatImage: [string, string] } | { WebPEncoding: [string, string] } | { PanicWhileGeneratingThumbnail: [string, string] } | { CreateShardDirectory: string } | { SaveThumbnail: [string, string] }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 

@@ -219,6 +219,23 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 			.map(|()| id)
 	}
 
+	// Check if there are any active jobs for the desired `[OuterContext]`
+	/// # Panics
+	/// Panics only happen if internal channels are unexpectedly closed
+	pub async fn has_active_jobs(&self, ctx: OuterCtx) -> bool {
+		let ctx_id = ctx.id();
+
+		let (ack_tx, ack_rx) = oneshot::channel();
+		self.msgs_tx
+			.send(RunnerMessage::HasActiveJobs { ctx_id, ack_tx })
+			.await
+			.expect("runner msgs channel unexpectedly closed on has active jobs request");
+
+		ack_rx
+			.await
+			.expect("ack channel closed before receiving has active jobs response")
+	}
+
 	pub fn receive_job_outputs(
 		&self,
 	) -> impl Stream<Item = (JobId, Result<JobOutput, JobSystemError>)> {

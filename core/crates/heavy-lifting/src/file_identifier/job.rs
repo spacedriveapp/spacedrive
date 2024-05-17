@@ -35,7 +35,7 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{trace, warn};
+use tracing::{debug, error, trace, warn};
 
 use super::{
 	orphan_path_filters_deep, orphan_path_filters_shallow,
@@ -269,10 +269,22 @@ impl FileIdentifier {
 			)
 			.await?;
 
+			// Multiplying by 2 as each batch will have 2 tasks
+			self.metadata.total_tasks *= 2;
+
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(self.metadata.total_tasks),
+				ProgressUpdate::Message(format!(
+					"{} files to be identified",
+					self.metadata.total_found_orphans
+				)),
+			])
+			.await;
+
 			self.metadata.seeking_orphans_time = start.elapsed();
 		} else {
 			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
+				ProgressUpdate::TaskCount(self.metadata.total_tasks),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -336,10 +348,14 @@ impl FileIdentifier {
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<TaskHandle<Error>> {
 		self.metadata.extract_metadata_time += extract_metadata_time;
-		self.errors.extend(errors);
 
-		if identified_files.is_empty() {
-			self.metadata.completed_tasks += 1;
+		if !errors.is_empty() {
+			error!("Non critical errors while extracting metadata: {errors:#?}");
+			self.errors.extend(errors);
+		}
+
+		let maybe_task = if identified_files.is_empty() {
+			self.metadata.completed_tasks += 2; // Adding 2 as we will not have an ObjectProcessorTask
 
 			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
 				self.metadata.completed_tasks,
@@ -348,8 +364,13 @@ impl FileIdentifier {
 
 			None
 		} else {
-			ctx.progress_msg(format!("Identified {} files", identified_files.len()))
-				.await;
+			self.metadata.completed_tasks += 1;
+
+			ctx.progress(vec![
+				ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
+				ProgressUpdate::Message(format!("Identified {} files", identified_files.len())),
+			])
+			.await;
 
 			let with_priority = self.priority_tasks_ids.remove(&task_id);
 
@@ -367,7 +388,14 @@ impl FileIdentifier {
 			}
 
 			Some(task)
-		}
+		};
+
+		debug!(
+			"Processed {}/{} file identifier tasks, took: {extract_metadata_time:?}",
+			self.metadata.completed_tasks, self.metadata.total_tasks,
+		);
+
+		maybe_task
 	}
 
 	async fn process_object_processor_output<OuterCtx: OuterContext>(
@@ -408,6 +436,16 @@ impl FileIdentifier {
 				file_path_ids: file_path_ids_with_new_object,
 			});
 		}
+
+		debug!(
+			"Processed {}/{} file identifier tasks, took: {:?}",
+			self.metadata.completed_tasks,
+			self.metadata.total_tasks,
+			assign_cas_ids_time
+				+ fetch_existing_objects_time
+				+ assign_to_existing_object_time
+				+ create_object_time,
+		);
 	}
 
 	async fn dispatch_priority_identifier_tasks<OuterCtx: OuterContext>(
@@ -450,14 +488,7 @@ impl FileIdentifier {
 			*last_orphan_file_path_id =
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
-			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
-				ProgressUpdate::Message(format!(
-					"{} files to be identified",
-					self.metadata.total_found_orphans
-				)),
-			])
-			.await;
+			self.metadata.total_tasks += 1;
 
 			let priority_task = dispatcher
 				.dispatch(ExtractFileMetadataTask::new(
@@ -521,14 +552,7 @@ impl FileIdentifier {
 
 			self.metadata.total_found_orphans += orphan_paths.len() as u64;
 
-			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_found_orphans),
-				ProgressUpdate::Message(format!(
-					"{} files to be identified",
-					self.metadata.total_found_orphans
-				)),
-			])
-			.await;
+			self.metadata.total_tasks += 1;
 
 			pending_running_tasks.push(
 				dispatcher
@@ -579,6 +603,7 @@ pub struct Metadata {
 	created_objects_count: u64,
 	linked_objects_count: u64,
 	completed_tasks: u64,
+	total_tasks: u64,
 }
 
 impl From<Metadata> for Vec<ReportOutputMetadata> {
@@ -594,6 +619,7 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			created_objects_count,
 			linked_objects_count,
 			completed_tasks,
+			total_tasks,
 		}: Metadata,
 	) -> Self {
 		vec![
@@ -618,7 +644,8 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 				("total_found_orphans".into(), json!(total_found_orphans)),
 				("created_objects_count".into(), json!(created_objects_count)),
 				("linked_objects_count".into(), json!(linked_objects_count)),
-				("total_tasks".into(), json!(completed_tasks)),
+				("completed_tasks".into(), json!(completed_tasks)),
+				("total_tasks".into(), json!(total_tasks)),
 			])),
 		]
 	}

@@ -419,7 +419,10 @@ impl TaskRemoteController {
 		let is_canceled = self.worktable.has_canceled.load(Ordering::Relaxed);
 		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
 
-		trace!("Received cancel command task: <is_canceled={is_canceled}, is_done={is_done}>");
+		trace!(
+			"Received cancel command task: <id='{}', is_canceled={is_canceled}, is_done={is_done}>",
+			self.task_id
+		);
 
 		if !is_canceled && !is_done {
 			if self.worktable.is_running.load(Ordering::Relaxed) {
@@ -472,6 +475,7 @@ impl TaskRemoteController {
 			| self.worktable.has_shutdown()
 			| self.worktable.has_aborted()
 			| self.worktable.has_canceled()
+			| self.worktable.has_failed()
 	}
 }
 
@@ -585,6 +589,7 @@ pub struct TaskWorktable {
 	has_canceled: AtomicBool,
 	has_aborted: AtomicBool,
 	has_shutdown: AtomicBool,
+	has_failed: AtomicBool,
 	interrupt_tx: chan::Sender<InterruptionRequest>,
 	current_worker_id: AtomicWorkerId,
 }
@@ -599,6 +604,7 @@ impl TaskWorktable {
 			has_canceled: AtomicBool::new(false),
 			has_aborted: AtomicBool::new(false),
 			has_shutdown: AtomicBool::new(false),
+			has_failed: AtomicBool::new(false),
 			interrupt_tx,
 			current_worker_id: AtomicWorkerId::new(worker_id),
 		}
@@ -625,6 +631,11 @@ impl TaskWorktable {
 
 	pub fn set_aborted(&self) {
 		self.has_aborted.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
+	}
+
+	pub fn set_failed(&self) {
+		self.has_failed.store(true, Ordering::Relaxed);
 		self.is_running.store(false, Ordering::Relaxed);
 	}
 
@@ -660,20 +671,20 @@ impl TaskWorktable {
 				ack: tx,
 			})
 			.await
-			.expect("Worker channel closed trying to pause task");
+			.expect("Interrupter channel closed trying to pause task");
 	}
 
 	pub async fn cancel(&self, tx: oneshot::Sender<()>) {
-		self.has_canceled.store(true, Ordering::Relaxed);
-		self.is_running.store(false, Ordering::Relaxed);
-
 		self.interrupt_tx
 			.send(InterruptionRequest {
 				kind: InternalInterruptionKind::Cancel,
 				ack: tx,
 			})
 			.await
-			.expect("Worker channel closed trying to pause task");
+			.expect("Interrupter channel closed trying to pause task");
+
+		self.has_canceled.store(true, Ordering::Relaxed);
+		self.is_running.store(false, Ordering::Relaxed);
 	}
 
 	pub fn is_done(&self) -> bool {
@@ -686,6 +697,10 @@ impl TaskWorktable {
 
 	pub fn has_canceled(&self) -> bool {
 		self.has_canceled.load(Ordering::Relaxed)
+	}
+
+	pub fn has_failed(&self) -> bool {
+		self.has_failed.load(Ordering::Relaxed)
 	}
 
 	pub fn has_aborted(&self) -> bool {
@@ -706,6 +721,12 @@ pub struct TaskWorkState<E: RunError> {
 }
 
 impl<E: RunError> TaskWorkState<E> {
+	#[inline]
+	pub fn task_id(&self) -> TaskId {
+		self.task.id()
+	}
+
+	#[inline]
 	pub fn change_worker(&self, new_worker_id: WorkerId) {
 		self.worktable
 			.current_worker_id
@@ -714,20 +735,27 @@ impl<E: RunError> TaskWorkState<E> {
 }
 
 #[derive(Debug)]
-pub struct PanicOnSenderDrop<E: RunError>(
-	Option<oneshot::Sender<Result<TaskStatus<E>, SystemError>>>,
-);
+pub struct PanicOnSenderDrop<E: RunError> {
+	task_id: TaskId,
+	maybe_done_tx: Option<oneshot::Sender<Result<TaskStatus<E>, SystemError>>>,
+}
 
 impl<E: RunError> PanicOnSenderDrop<E> {
-	pub fn new(done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>) -> Self {
-		Self(Some(done_tx))
+	pub fn new(
+		task_id: TaskId,
+		done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
+	) -> Self {
+		Self {
+			task_id,
+			maybe_done_tx: Some(done_tx),
+		}
 	}
 
 	pub fn send(
 		mut self,
 		res: Result<TaskStatus<E>, SystemError>,
 	) -> Result<(), Result<TaskStatus<E>, SystemError>> {
-		self.0
+		self.maybe_done_tx
 			.take()
 			.expect("tried to send a task output twice to the same task handle")
 			.send(res)
@@ -737,8 +765,12 @@ impl<E: RunError> PanicOnSenderDrop<E> {
 impl<E: RunError> Drop for PanicOnSenderDrop<E> {
 	fn drop(&mut self) {
 		assert!(
-			self.0.is_none(),
+			self.maybe_done_tx.is_none(),
 			"TaskHandle done channel dropped before sending a result"
+		);
+		trace!(
+			"TaskWorkState of task <id='{}'> successfully dropped",
+			self.task_id
 		);
 	}
 }

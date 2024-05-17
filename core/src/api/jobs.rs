@@ -164,7 +164,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("isActive", {
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
-					Ok(node.old_jobs.has_active_workers(library.id).await)
+					let library_id = library.id;
+					Ok(node
+						.job_system
+						.has_active_jobs(NodeContext {
+							node: Arc::clone(&node),
+							library,
+						})
+						.await || node.old_jobs.has_active_workers(library_id).await)
 				})
 		})
 		.procedure("clear", {

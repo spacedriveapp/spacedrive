@@ -12,8 +12,7 @@ use crate::{
 	media_processor::{
 		self,
 		helpers::thumbnailer::{
-			generate_thumbnail, GenerateThumbnailArgs, GenerationStatus,
-			THUMBNAIL_GENERATION_TIMEOUT,
+			generate_thumbnail, GenerateThumbnailArgs, GenerationStatus, THUMBNAILER_TASK_TIMEOUT,
 		},
 		ThumbKey, ThumbnailKind,
 	},
@@ -43,7 +42,7 @@ use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use futures_concurrency::future::Race;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::time::{sleep, Instant};
+use tokio::time::Instant;
 use tracing::{error, trace};
 use uuid::Uuid;
 
@@ -77,7 +76,7 @@ impl Task<Error> for Thumbnailer {
 	}
 
 	fn with_timeout(&self) -> Option<Duration> {
-		Some(Duration::from_secs(60 * 5)) // The entire task must not take more than 5 minutes
+		Some(THUMBNAILER_TASK_TIMEOUT) // The entire task must not take more than this constant
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
@@ -105,40 +104,27 @@ impl Task<Error> for Thumbnailer {
 
 		let start = Instant::now();
 
-		let mut futures = pin!(thumbnails_to_generate
+		let futures = thumbnails_to_generate
 			.iter()
 			.map(|(id, generate_args)| {
-				let path = &generate_args.path;
-
+				generate_thumbnail(
+					thumbnails_directory_path,
+					generate_args,
+					thumbs_kind,
+					*should_regenerate,
+				)
+				.map(|res| InterruptRace::Processed((*id, res)))
+			})
+			.map(|fut| {
 				(
-					generate_thumbnail(
-						thumbnails_directory_path,
-						generate_args,
-						thumbs_kind,
-						*should_regenerate,
-					)
-					.map(|res| (*id, res)),
-					sleep(THUMBNAIL_GENERATION_TIMEOUT).map(|()| {
-						(
-							*id,
-							(
-								THUMBNAIL_GENERATION_TIMEOUT,
-								Err(NonCriticalThumbnailerError::ThumbnailGenerationTimeout(
-									path.clone(),
-								)),
-							),
-						)
-					}),
+					fut,
+					interrupter.into_future().map(InterruptRace::Interrupted),
 				)
 					.race()
-					.map(InterruptRace::Processed)
 			})
-			.map(|fut| (
-				fut,
-				interrupter.into_future().map(InterruptRace::Interrupted)
-			)
-				.race())
-			.collect::<FuturesUnordered<_>>());
+			.collect::<FuturesUnordered<_>>();
+
+		let mut futures = pin!(futures);
 
 		while let Some(race_output) = futures.next().await {
 			match race_output {
@@ -214,8 +200,6 @@ pub enum NonCriticalThumbnailerError {
 	CreateShardDirectory(String),
 	#[error("failed to save thumbnail <path='{}'>: {1}", .0.display())]
 	SaveThumbnail(PathBuf, String),
-	#[error("thumbnail generation timed out <path='{}'>", .0.display())]
-	ThumbnailGenerationTimeout(PathBuf),
 }
 
 impl Thumbnailer {

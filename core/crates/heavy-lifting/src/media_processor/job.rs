@@ -15,10 +15,10 @@ use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::extensions::Extension;
-use sd_prisma::prisma::{file_path, location, object, PrismaClient};
+use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskOutput,
-	TaskStatus,
+	TaskStatus, TaskSystemError,
 };
 use sd_utils::{db::maybe_missing, u64_to_frontend};
 
@@ -38,7 +38,7 @@ use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use super::{
 	helpers,
@@ -46,7 +46,7 @@ use super::{
 		self, media_data_extractor,
 		thumbnailer::{self, NewThumbnailReporter},
 	},
-	NewThumbnailsReporter, BATCH_SIZE,
+	NewThumbnailsReporter, RawFilePathForMediaProcessor, BATCH_SIZE,
 };
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -361,6 +361,7 @@ impl MediaProcessor {
 				}
 
 				Err(e) => {
+					error!("Task System error: {e:#?}");
 					cancel_pending_tasks(&*pending_running_tasks).await;
 
 					return Some(Err(e.into()));
@@ -396,12 +397,16 @@ impl MediaProcessor {
 			self.metadata.media_data_metrics.db_write_time += db_write_time;
 			self.metadata.media_data_metrics.total_successful_tasks += 1;
 
-			self.errors.extend(errors);
+			if !errors.is_empty() {
+				error!("Non critical errors while extracting media data: {errors:#?}");
+				self.errors.extend(errors);
+			}
 
 			debug!(
-				"Processed {}/{} media data extraction tasks",
+				"Processed {}/{} media data extraction tasks, took: {:?}",
 				self.metadata.media_data_metrics.total_successful_tasks,
-				self.total_media_data_extraction_tasks
+				self.total_media_data_extraction_tasks,
+				db_read_time + filtering_time + extraction_time + db_write_time,
 			);
 			job_ctx
 				.progress(vec![ProgressUpdate::CompletedTaskCount(
@@ -445,10 +450,13 @@ impl MediaProcessor {
 			self.metadata.thumbnailer_metrics_acc.std_dev_acc += std_dev_acc;
 			self.metadata.thumbnailer_metrics_acc.total_successful_tasks += 1;
 
-			self.errors.extend(errors);
+			if !errors.is_empty() {
+				error!("Non critical errors while generating thumbnails: {errors:#?}");
+				self.errors.extend(errors);
+			}
 
 			debug!(
-				"Processed {}/{} thumbnailer tasks",
+				"Processed {}/{} thumbnailer tasks, took: {total_time:?}",
 				self.metadata.thumbnailer_metrics_acc.total_successful_tasks,
 				self.total_thumbnailer_tasks
 			);
@@ -780,46 +788,6 @@ async fn get_all_children_files_by_extensions(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	extensions: &[Extension],
 ) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
-	#[derive(Deserialize)]
-	struct RawFilePathForMediaProcessor {
-		id: file_path::id::Type,
-		materialized_path: file_path::materialized_path::Type,
-		is_dir: file_path::is_dir::Type,
-		name: file_path::name::Type,
-		extension: file_path::extension::Type,
-		cas_id: file_path::cas_id::Type,
-		object_id: object::id::Type,
-		object_pub_id: object::pub_id::Type,
-	}
-
-	impl From<RawFilePathForMediaProcessor> for file_path_for_media_processor::Data {
-		fn from(
-			RawFilePathForMediaProcessor {
-				id,
-				materialized_path,
-				is_dir,
-				name,
-				extension,
-				cas_id,
-				object_id,
-				object_pub_id,
-			}: RawFilePathForMediaProcessor,
-		) -> Self {
-			Self {
-				id,
-				materialized_path,
-				is_dir,
-				name,
-				extension,
-				cas_id,
-				object: Some(file_path_for_media_processor::object::Data {
-					id: object_id,
-					pub_id: object_pub_id,
-				}),
-			}
-		}
-	}
-
 	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
 	// We have no data coming from the user, so this is sql injection safe
 	db._query_raw::<RawFilePathForMediaProcessor>(raw!(
@@ -893,6 +861,8 @@ async fn dispatch_thumbnailer_tasks(
 	let different_materialized_path_idx = file_paths
 		.iter()
 		.position(|file_path| file_path.materialized_path != first_materialized_path);
+
+	// TODO debug why we have more priority tasks than we should
 
 	let non_priority_tasks = different_materialized_path_idx
 		.map(|idx| {

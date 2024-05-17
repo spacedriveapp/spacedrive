@@ -44,8 +44,8 @@ pub const TARGET_PX: f32 = 1_048_576.0; // 1024x1024
 /// and is treated as a percentage (so 60% in this case, or it's the same as multiplying by `0.6`).
 pub const TARGET_QUALITY: f32 = 60.0;
 
-/// How much time we allow for the thumbnail generation process to complete before we give up.
-pub const THUMBNAIL_GENERATION_TIMEOUT: Duration = Duration::from_secs(60);
+/// How much time we allow for the thumbnailer task to complete before we give up.
+pub const THUMBNAILER_TASK_TIMEOUT: Duration = Duration::from_secs(60 * 5);
 
 pub fn get_thumbnails_directory(data_directory: impl AsRef<Path>) -> PathBuf {
 	data_directory.as_ref().join(THUMBNAIL_CACHE_DIR_NAME)

@@ -358,14 +358,14 @@ impl<E: RunError> Runner<E> {
 		false
 	}
 
-	pub(super) fn cancel_not_running_task(&mut self, task_id: TaskId) {
+	pub(super) fn cancel_not_running_task(&mut self, task_id: &TaskId) {
 		trace!(
 			"Cancel not running task request: <worker_id='{}', task_id='{task_id}'>",
 			self.worker_id
 		);
 
 		if let Some(current_task) = &self.current_task_handle {
-			if current_task.task_id == task_id {
+			if current_task.task_id == *task_id {
 				trace!(
 					"Task began to run before we managed to cancel it, run function will cancel it: \
 					<worker_id='{}', task_id='{task_id}'>",
@@ -375,8 +375,12 @@ impl<E: RunError> Runner<E> {
 			}
 		}
 
+		// We only remove from task_kinds as if the task is already running, it will be removed when we
+		// process its cancelled output later
+		self.task_kinds.remove(task_id);
+
 		if let Some(suspended_task) = &self.suspended_task {
-			if suspended_task.task.id() == task_id {
+			if suspended_task.task.id() == *task_id {
 				trace!(
 					"Task is already suspended but will be canceled: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
@@ -396,11 +400,12 @@ impl<E: RunError> Runner<E> {
 		// If the task is not found, then it's possible that the user already canceled it but still have the handle
 	}
 
-	fn cancel_task_from_queues(&mut self, task_id: TaskId) {
+	#[inline]
+	fn cancel_task_from_queues(&mut self, task_id: &TaskId) {
 		if let Some(index) = self
 			.priority_tasks
 			.iter()
-			.position(|task_work_state| task_work_state.task.id() == task_id)
+			.position(|task_work_state| task_work_state.task.id() == *task_id)
 		{
 			send_cancel_task_response(
 				self.worker_id,
@@ -415,7 +420,7 @@ impl<E: RunError> Runner<E> {
 		if let Some(index) = self
 			.tasks
 			.iter()
-			.position(|task_work_state| task_work_state.task.id() == task_id)
+			.position(|task_work_state| task_work_state.task.id() == *task_id)
 		{
 			send_cancel_task_response(
 				self.worker_id,
@@ -566,10 +571,10 @@ impl<E: RunError> Runner<E> {
 
 	pub(super) async fn force_task_abortion(
 		&mut self,
-		task_id: uuid::Uuid,
+		task_id: &TaskId,
 	) -> Result<(), SystemError> {
 		if let Some(AbortAndSuspendSignalers { abort_tx, .. }) =
-			self.abort_and_suspend_map.remove(&task_id)
+			self.abort_and_suspend_map.remove(task_id)
 		{
 			let (tx, rx) = oneshot::channel();
 
@@ -587,7 +592,7 @@ impl<E: RunError> Runner<E> {
 					// If the sender was dropped, then the task finished before we could
 					// abort it which is fine
 					Ok(Err(_)) => Ok(()),
-					Err(_) => Err(SystemError::TaskForcedAbortTimeout(task_id)),
+					Err(_) => Err(SystemError::TaskForcedAbortTimeout(*task_id)),
 				}
 			}
 		} else {
@@ -597,7 +602,7 @@ impl<E: RunError> Runner<E> {
 			);
 
 			if let Some(current_task) = &self.current_task_handle {
-				if current_task.task_id == task_id {
+				if current_task.task_id == *task_id {
 					trace!(
 					"Task began to run before we managed to abort it, run function will abort it: \
 					<worker_id='{}', task_id='{task_id}'>",
@@ -607,8 +612,10 @@ impl<E: RunError> Runner<E> {
 				}
 			}
 
+			self.task_kinds.remove(task_id);
+
 			if let Some(suspended_task) = &self.suspended_task {
-				if suspended_task.task.id() == task_id {
+				if suspended_task.task.id() == *task_id {
 					trace!(
 					"Task is already suspended but will be force aborted: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
@@ -626,7 +633,7 @@ impl<E: RunError> Runner<E> {
 			if let Some(index) = self
 				.priority_tasks
 				.iter()
-				.position(|task_work_state| task_work_state.task.id() == task_id)
+				.position(|task_work_state| task_work_state.task.id() == *task_id)
 			{
 				send_forced_abortion_task_response(
 					self.worker_id,
@@ -641,7 +648,7 @@ impl<E: RunError> Runner<E> {
 			if let Some(index) = self
 				.tasks
 				.iter()
-				.position(|task_work_state| task_work_state.task.id() == task_id)
+				.position(|task_work_state| task_work_state.task.id() == *task_id)
 			{
 				send_forced_abortion_task_response(
 					self.worker_id,
@@ -940,14 +947,14 @@ impl<E: RunError> Runner<E> {
 	}
 
 	#[inline]
-	pub(super) async fn dispatch_next_task(&mut self, finished_task_id: TaskId) {
+	pub(super) async fn dispatch_next_task(&mut self, finished_task_id: &TaskId) {
 		trace!(
 			"Task finished and will try to process a new task: \
 			<worker_id='{}', finished_task_id='{finished_task_id}'>",
 			self.worker_id
 		);
 
-		self.abort_and_suspend_map.remove(&finished_task_id);
+		self.abort_and_suspend_map.remove(finished_task_id);
 
 		let RunningTask {
 			task_id: old_task_id,
@@ -959,7 +966,7 @@ impl<E: RunError> Runner<E> {
 			.take()
 			.expect("Task handle missing, but task output received");
 
-		assert_eq!(finished_task_id, old_task_id, "Task output id mismatch");
+		assert_eq!(*finished_task_id, old_task_id, "Task output id mismatch");
 
 		trace!(
 			"Waiting task handle: <worker_id='{}', task_id='{old_task_id}'>",
@@ -997,6 +1004,11 @@ impl<E: RunError> Runner<E> {
 			self.is_idle = true;
 			self.system_comm.idle_report(self.worker_id).await;
 
+			trace!(
+				"Worker reported idle status: <worker_id='{}'>",
+				self.worker_id
+			);
+
 			if self.current_steal_task_handle.is_none() {
 				self.current_steal_task_handle = Some(dispatch_steal_request(
 					self.worker_id,
@@ -1014,7 +1026,7 @@ impl<E: RunError> Runner<E> {
 
 	pub(super) async fn process_task_output(
 		&mut self,
-		task_id: TaskId,
+		task_id: &TaskId,
 		TaskRunnerOutput {
 			task_work_state,
 			status,
@@ -1022,12 +1034,12 @@ impl<E: RunError> Runner<E> {
 	) {
 		match status {
 			InternalTaskExecStatus::Done(out) => {
-				self.task_kinds.remove(&task_id);
-				send_complete_task_response(self.worker_id, &task_id, task_work_state, out);
+				self.task_kinds.remove(task_id);
+				send_complete_task_response(self.worker_id, task_id, task_work_state, out);
 			}
 
 			InternalTaskExecStatus::Paused => {
-				self.paused_tasks.insert(task_id, task_work_state);
+				self.paused_tasks.insert(*task_id, task_work_state);
 				trace!(
 					"Task paused: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
@@ -1035,12 +1047,12 @@ impl<E: RunError> Runner<E> {
 			}
 
 			InternalTaskExecStatus::Canceled => {
-				self.task_kinds.remove(&task_id);
+				self.task_kinds.remove(task_id);
 				send_cancel_task_response(self.worker_id, task_work_state);
 			}
 
 			InternalTaskExecStatus::Error(e) => {
-				self.task_kinds.remove(&task_id);
+				self.task_kinds.remove(task_id);
 				send_error_task_response(self.worker_id, task_work_state, e);
 			}
 
@@ -1121,7 +1133,7 @@ impl<E: RunError> Runner<E> {
 		}
 
 		if self.task_kinds.capacity() > TASK_QUEUE_INITIAL_SIZE {
-			assert_eq!(self.task_kinds.len(), self.paused_tasks.len());
+			assert_eq!(self.task_kinds.len(), self.paused_tasks.len(), "If we're idle, the number of task_kinds MUST be equal to the number of paused tasks");
 			self.task_kinds.shrink_to(TASK_QUEUE_INITIAL_SIZE);
 		}
 
@@ -1175,9 +1187,9 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
-	pub(crate) fn clean_suspended_task(&mut self, task_id: uuid::Uuid) {
+	pub(crate) fn clean_suspended_task(&mut self, task_id: &TaskId) {
 		match self.waiting_suspension {
-			WaitingSuspendedTask::Task(waiting_task_id) if waiting_task_id == task_id => {
+			WaitingSuspendedTask::Task(waiting_task_id) if waiting_task_id == *task_id => {
 				trace!(
 					"Task was suspended and will be cleaned: <worker_id='{}', task_id='{task_id}'>",
 					self.worker_id
@@ -1192,6 +1204,14 @@ impl<E: RunError> Runner<E> {
 			}
 			WaitingSuspendedTask::None => {}
 		}
+	}
+
+	pub(crate) async fn clear_errored_task(&mut self, task_id: TaskId) {
+		self.task_kinds.remove(&task_id);
+
+		self.clean_suspended_task(&task_id);
+
+		self.dispatch_next_task(&task_id).await;
 	}
 }
 
@@ -1209,25 +1229,33 @@ fn handle_run_task_attempt<E: RunError>(
 		let already_canceled = worktable.has_canceled();
 		let already_aborted = worktable.has_aborted();
 
+		let early_result = if already_paused {
+			trace!(
+				"Task was paused before running: <worker_id='{worker_id}', task_id='{task_id}'>"
+			);
+
+			Some(Ok(Ok(ExecStatus::Paused)))
+		} else if already_canceled {
+			trace!(
+				"Task was canceled before running: <worker_id='{worker_id}', task_id='{task_id}'>"
+			);
+
+			Some(Ok(Ok(ExecStatus::Canceled)))
+		} else if already_aborted {
+			trace!(
+				"Task was aborted before running: <worker_id='{worker_id}', task_id='{task_id}'>"
+			);
+
+			Some(Err(SystemError::TaskAborted(task_id)))
+		} else {
+			// We can mark that the task has actually started now
+			worktable.set_started();
+			None
+		};
+
 		async move {
-			if already_paused {
-				trace!(
-					"Task was paused before running: <worker_id='{worker_id}', task_id='{task_id}'>"
-				);
-
-				(task, Ok(Ok(ExecStatus::Paused)))
-			} else if already_canceled {
-				trace!(
-					"Task was canceled before running: <worker_id='{worker_id}', task_id='{task_id}'>"
-				);
-
-				(task, Ok(Ok(ExecStatus::Canceled)))
-			} else if already_aborted {
-				trace!(
-					"Task was aborted before running: <worker_id='{worker_id}', task_id='{task_id}'>"
-				);
-
-				(task, Err(SystemError::TaskAborted(task_id)))
+			if let Some(res) = early_result {
+				(task, res)
 			} else {
 				let run_result = if let Some(timeout_duration) = task.with_timeout() {
 					(task.run(&interrupter).map(Ok), async move {
@@ -1329,12 +1357,14 @@ async fn emit_task_completed_message<E: RunError>(
 		}
 
 		(_, Err(e)) => {
-			trace!("Task had an error: <worker_id='{worker_id}', task_id='{task_id}'>");
+			error!("Task had an error: <worker_id='{worker_id}', task_id='{task_id}'>: {e:#?}");
 
 			if done_tx
 				.send(if matches!(e, SystemError::TaskAborted(_)) {
+					worktable.set_aborted();
 					Ok(TaskStatus::ForcedAbortion)
 				} else {
+					worktable.set_failed();
 					Err(e)
 				})
 				.is_err()
@@ -1368,8 +1398,6 @@ async fn run_single_task<E: RunError>(
 	}
 
 	let task_id = task.id();
-
-	worktable.set_started();
 
 	trace!("Running task: <worker_id='{worker_id}', task_id='{task_id}'>");
 
@@ -1426,6 +1454,8 @@ async fn run_single_task<E: RunError>(
 				error!("Task done channel closed while sending join error response");
 			}
 
+			worktable.set_failed();
+
 			if task_output_tx
 				.send(TaskOutputMessage(task_id, Err(())))
 				.await
@@ -1443,6 +1473,8 @@ async fn run_single_task<E: RunError>(
 			if done_tx.send(Ok(TaskStatus::ForcedAbortion)).is_err() {
 				error!("Task done channel closed while sending abort error response");
 			}
+
+			worktable.set_aborted();
 
 			if task_output_tx
 				.send(TaskOutputMessage(task_id, Err(())))

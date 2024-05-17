@@ -25,7 +25,7 @@ use std::{
 use prisma_client_rust::Select;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::{debug, trace};
+use tracing::trace;
 use uuid::Uuid;
 
 use super::IdentifiedFile;
@@ -153,7 +153,7 @@ impl Task<Error> for ObjectProcessorTask {
 					*assign_to_existing_object_time = start.elapsed();
 					*linked_objects_count = assigned_file_path_pub_ids.len() as u64;
 
-					debug!(
+					trace!(
 						"Found {} existing Objects, linked file paths to them",
 						existing_objects_by_cas_id.len()
 					);

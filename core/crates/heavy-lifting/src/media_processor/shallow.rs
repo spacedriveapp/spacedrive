@@ -32,7 +32,7 @@ use super::{
 		self, media_data_extractor,
 		thumbnailer::{self, NewThumbnailReporter},
 	},
-	NewThumbnailsReporter, BATCH_SIZE,
+	NewThumbnailsReporter, RawFilePathForMediaProcessor, BATCH_SIZE,
 };
 
 #[allow(clippy::missing_panics_doc)] // SAFETY: It doesn't actually panics
@@ -69,38 +69,70 @@ pub async fn shallow(
 
 	let mut errors = vec![];
 
-	let mut futures = dispatch_media_data_extractor_tasks(
+	let media_data_extraction_tasks = dispatch_media_data_extractor_tasks(
 		ctx.db(),
 		ctx.sync(),
 		&sub_iso_file_path,
 		&location_path,
 		dispatcher,
 	)
-	.await?
-	.into_iter()
-	.map(CancelTaskOnDrop::new)
-	.chain(
+	.await?;
+
+	let total_media_data_extraction_tasks = media_data_extraction_tasks.len();
+
+	let thumbnailer_tasks =
 		dispatch_thumbnailer_tasks(&sub_iso_file_path, false, &location_path, dispatcher, ctx)
-			.await?
-			.into_iter()
-			.map(CancelTaskOnDrop::new),
-	)
-	.collect::<FuturesUnordered<_>>();
+			.await?;
+
+	let total_thumbnailer_tasks = thumbnailer_tasks.len();
+
+	let mut futures = media_data_extraction_tasks
+		.into_iter()
+		.chain(thumbnailer_tasks.into_iter())
+		.map(CancelTaskOnDrop::new)
+		.collect::<FuturesUnordered<_>>();
+
+	let mut completed_media_data_extraction_tasks = 0;
+	let mut completed_thumbnailer_tasks = 0;
 
 	while let Some(res) = futures.next().await {
 		match res {
 			Ok(TaskStatus::Done((_, TaskOutput::Out(out)))) => {
 				if out.is::<media_data_extractor::Output>() {
-					errors.extend(
-						out.downcast::<media_data_extractor::Output>()
-							.expect("just checked")
-							.errors,
+					let media_data_extractor::Output {
+						db_read_time,
+						filtering_time,
+						extraction_time,
+						db_write_time,
+						errors: new_errors,
+						..
+					} = *out
+						.downcast::<media_data_extractor::Output>()
+						.expect("just checked");
+
+					errors.extend(new_errors);
+
+					completed_media_data_extraction_tasks += 1;
+
+					debug!(
+						"Media data extraction task {completed_media_data_extraction_tasks}/\
+					{total_media_data_extraction_tasks} completed in {:?}",
+						db_read_time + filtering_time + extraction_time + db_write_time
 					);
 				} else if out.is::<thumbnailer::Output>() {
-					errors.extend(
-						out.downcast::<thumbnailer::Output>()
-							.expect("just checked")
-							.errors,
+					let thumbnailer::Output {
+						total_time,
+						errors: new_errors,
+						..
+					} = *out.downcast::<thumbnailer::Output>().expect("just checked");
+
+					errors.extend(new_errors);
+
+					completed_thumbnailer_tasks += 1;
+
+					debug!(
+						"Thumbnailer task {completed_thumbnailer_tasks}/{total_thumbnailer_tasks} \
+						completed in {total_time:?}",
 					);
 				} else {
 					unreachable!(
@@ -189,14 +221,22 @@ async fn get_files_by_extensions(
 ) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
 	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
 	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw(raw!(
+	db._query_raw::<RawFilePathForMediaProcessor>(raw!(
 		&format!(
-			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
+			"SELECT
+				file_path.id,
+				file_path.materialized_path,
+				file_path.is_dir,
+				file_path.name,
+				file_path.extension,
+				file_path.cas_id,
+				object.id as 'object_id',
+				object.pub_id as 'object_pub_id'
 			FROM file_path
+			INNER JOIN object ON object.id = file_path.object_id
 			WHERE
 				location_id={{}}
 				AND cas_id IS NOT NULL
-				AND object_id IS NOT NULL
 				AND LOWER(extension) IN ({})
 				AND materialized_path = {{}}",
 			extensions
@@ -214,6 +254,7 @@ async fn get_files_by_extensions(
 	))
 	.exec()
 	.await
+	.map(|raw_files| raw_files.into_iter().map(Into::into).collect())
 	.map_err(Into::into)
 }
 

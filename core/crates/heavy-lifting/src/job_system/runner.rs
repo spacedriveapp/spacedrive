@@ -68,6 +68,10 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 		ack_tx: oneshot::Sender<bool>,
 	},
 	Shutdown,
+	HasActiveJobs {
+		ctx_id: Uuid,
+		ack_tx: oneshot::Sender<bool>,
+	},
 }
 
 struct JobsWorktables {
@@ -201,6 +205,9 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.collect::<Vec<_>>()
 			.try_join()
 			.await?;
+
+		handle.ctx.invalidate_query("jobs.isActive");
+		handle.ctx.invalidate_query("jobs.reports");
 
 		handles.insert(id, handle);
 
@@ -362,6 +369,9 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.await
 			.expect("job outputs channel unexpectedly closed on job completion");
 
+		handle.ctx.invalidate_query("jobs.isActive");
+		handle.ctx.invalidate_query("jobs.reports");
+
 		Ok(())
 	}
 
@@ -437,6 +447,12 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		)
 		.await
 		.map_err(|e| JobSystemError::StoredJobs(FileIOError::from((store_jobs_file, e))))
+	}
+
+	fn has_active_jobs(&self, ctx_id: Uuid) -> bool {
+		self.handles
+			.values()
+			.any(|handle| handle.ctx.id() == ctx_id)
 	}
 }
 
@@ -576,6 +592,12 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 					.expect("ack channel closed before sending new job response");
 			}
 
+			StreamMessage::RunnerMessage(RunnerMessage::HasActiveJobs { ctx_id, ack_tx }) => {
+				ack_tx
+					.send(runner.has_active_jobs(ctx_id))
+					.expect("ack channel closed before sending has active jobs response");
+			}
+
 			StreamMessage::RunnerMessage(RunnerMessage::GetActiveReports { ack_tx }) => {
 				ack_tx
 					.send(runner.get_active_reports().await)
@@ -647,9 +669,7 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 			}
 
 			// Memory cleanup tick
-			StreamMessage::CleanMemoryTick => {
-				runner.clean_memory();
-			}
+			StreamMessage::CleanMemoryTick => runner.clean_memory(),
 		}
 	}
 }

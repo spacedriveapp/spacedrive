@@ -163,7 +163,15 @@ impl<E: RunError> System<E> {
 					ack,
 				} => {
 					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					workers[worker_id].resume_task(task_id, ack).await;
+					spawn({
+						let workers = Arc::clone(&workers);
+						async move {
+							workers[worker_id].resume_task(task_id, ack).await;
+						}
+					});
+					trace!(
+						"Task system resumed task: <task_id='{task_id}', worker_id='{worker_id}'>"
+					);
 				}
 
 				SystemMessage::PauseNotRunningTask {
@@ -171,10 +179,18 @@ impl<E: RunError> System<E> {
 					worker_id,
 					ack,
 				} => {
-					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					workers[worker_id]
-						.pause_not_running_task(task_id, ack)
-						.await;
+					trace!("Task system received a task pause request: <task_id='{task_id}', worker_id='{worker_id}'>");
+					spawn({
+						let workers = Arc::clone(&workers);
+						async move {
+							workers[worker_id]
+								.pause_not_running_task(task_id, ack)
+								.await;
+						}
+					});
+					trace!(
+						"Task system paused task: <task_id='{task_id}', worker_id='{worker_id}'>"
+					);
 				}
 
 				SystemMessage::CancelNotRunningTask {
@@ -182,10 +198,19 @@ impl<E: RunError> System<E> {
 					worker_id,
 					ack,
 				} => {
-					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					workers[worker_id]
-						.cancel_not_running_task(task_id, ack)
-						.await;
+					trace!("Task system received a task cancel request: <task_id='{task_id}', worker_id='{worker_id}'>");
+					spawn({
+						let workers = Arc::clone(&workers);
+
+						async move {
+							workers[worker_id]
+								.cancel_not_running_task(task_id, ack)
+								.await;
+						}
+					});
+					trace!(
+						"Task system canceled task: <task_id='{task_id}', worker_id='{worker_id}'>"
+					);
 				}
 
 				SystemMessage::ForceAbortion {
@@ -197,7 +222,16 @@ impl<E: RunError> System<E> {
 						"Task system received a task force abortion request: \
 						<task_id='{task_id}', worker_id='{worker_id}'>"
 					);
-					workers[worker_id].force_task_abortion(task_id, ack).await;
+					spawn({
+						let workers = Arc::clone(&workers);
+
+						async move {
+							workers[worker_id].force_task_abortion(task_id, ack).await;
+						}
+					});
+					trace!(
+						"Task system aborted task: <task_id='{task_id}', worker_id='{worker_id}'>"
+					);
 				}
 
 				SystemMessage::NotifyIdleWorkers {
@@ -209,17 +243,26 @@ impl<E: RunError> System<E> {
 						<start_from='{start_from}', task_count='{task_count}'>"
 					);
 
-					for idx in (0..workers.len())
-						.cycle()
-						.skip(start_from)
-						.take(usize::min(task_count, workers.len()))
-					{
-						if idle_workers[idx].load(Ordering::Relaxed) {
-							workers[idx].wake().await;
-							// we don't mark the worker as not idle because we wait for it to
-							// successfully steal a task and then report it back as active
+					spawn({
+						let workers = Arc::clone(&workers);
+						let idle_workers = Arc::clone(&idle_workers);
+
+						async move {
+							for idx in (0..workers.len())
+								.cycle()
+								.skip(start_from)
+								.take(usize::min(task_count, workers.len()))
+							{
+								if idle_workers[idx].load(Ordering::Relaxed) {
+									trace!("Task system sending wake up request: <worker_index='{idx}'>");
+									workers[idx].wake().await;
+									trace!("Task system waked up worker: <worker_index='{idx}'>");
+									// we don't mark the worker as not idle because we wait for it to
+									// successfully steal a task and then report it back as active
+								}
+							}
 						}
-					}
+					});
 				}
 
 				SystemMessage::ShutdownRequest(tx) => {
