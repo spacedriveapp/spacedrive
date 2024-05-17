@@ -13,7 +13,7 @@ use crate::{
 
 use sd_core_indexer_rules::IndexerRuleCreateArgs;
 use sd_core_prisma_helpers::{
-	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths
+	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths,
 };
 
 use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
