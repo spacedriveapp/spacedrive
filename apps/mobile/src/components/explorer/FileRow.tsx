@@ -42,7 +42,7 @@ const FileRow = ({ data }: FileRowProps) => {
 				return (
 					<View
 					key={tag.id}
-					style={twStyle(`relative h-4 w-4 rounded-full border-2 border-black`, {
+					style={twStyle(`relative h-3.5 w-3.5 rounded-full border-2 border-black`, {
 						backgroundColor: tag.color!,
 						right: idx * 6,
 					})}
