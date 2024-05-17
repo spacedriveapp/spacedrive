@@ -1,6 +1,6 @@
+import { resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
-import { resetStore, type Ordering } from '@sd/client';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 
@@ -17,7 +17,7 @@ const state = {
 	toggleMenu: false as boolean,
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
-	listItemSize: 65,
+	listItemSize: 60,
 	newThumbnails: proxySet() as Set<string>,
 	// sorting
 	// we will display different sorting options based on the kind of explorer we are in
