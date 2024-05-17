@@ -21,21 +21,21 @@ const FileRow = ({ data }: FileRowProps) => {
 	}, [object]);
 
 	return (
+		<>
 		<View
-			style={twStyle('flex flex-row items-center justify-between px-3', {
+			style={twStyle('flex flex-row items-center px-3', {
 				height: getExplorerStore().listItemSize
 			})}
 		>
-			<View style={tw`flex-row items-center`}>
 			<FileThumb data={data} size={0.6} />
-			<View style={tw`ml-3 max-w-[68%]`}>
-				<Text numberOfLines={1} style={tw`text-center text-xs font-medium text-ink-dull`}>
+			<View style={tw`mx-2 flex-1 flex-row items-center justify-between border-b border-white/10 pb-3`}>
+			<View style={tw`max-w-[80%]`}>
+				<Text numberOfLines={1} style={tw`text-center text-sm font-medium text-ink`}>
 					{filePath?.name}
 					{filePath?.extension && `.${filePath.extension}`}
 				</Text>
 			</View>
-			</View>
-			<View style={twStyle(`mr-2 flex-row`, {
+			<View style={twStyle(`mr-1 flex-row`, {
 				left: tags.length * 6 //for every tag we add 2px to the left,
 			})}>
 			{tags.map(({tag}: {tag: Tag}, idx: number) => {
@@ -50,7 +50,9 @@ const FileRow = ({ data }: FileRowProps) => {
 				)
 				})}
 			</View>
+			</View>
 		</View>
+		</>
 	);
 };
 

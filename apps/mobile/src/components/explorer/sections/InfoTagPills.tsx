@@ -53,7 +53,7 @@ const InfoTagPills = ({ data, style, contentContainerStyle, columnCount = 3 }: P
 			<Pressable style={tw`relative z-10`} onPress={() => ref.current?.present()}>
 				<PlaceholderPill
 				icon={<Plus size={12} color={tw.color('ink-dull')}/>}
-				 text={'Add Tag'}
+				 text={'Tags'}
 				 />
 			</Pressable>
 					{/* Kind */}

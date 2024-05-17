@@ -37,7 +37,7 @@ const FileItem = ({ data }: FileItemProps) => {
 					{filePath?.extension && `.${filePath.extension}`}
 				</Text>
 			</View>
-			<View style={twStyle(`mx-auto flex-row justify-center pt-1`, {
+			<View style={twStyle(`mx-auto flex-row justify-center pt-1.5`, {
 				left: tags.length * 2 //for every tag we add 2px to the left
 			})}>
 			{tags.map(({tag}: {tag: Tag}, idx: number) => {
