@@ -16,7 +16,6 @@ const StarfieldEffect: React.FC = () => {
     };
 
     resizeCanvas();
-
     window.addEventListener('resize', resizeCanvas);
 
     canvas.style.position = 'absolute';
@@ -28,17 +27,21 @@ const StarfieldEffect: React.FC = () => {
     const center = { x: canvas.width / 2, y: canvas.height / 2 };
 
     let mouseActive = false;
-    let fov = 300;
+    let mouseDown = false;
+    let mousePos = { x: center.x, y: center.y };
+
+    let starSpeed = 20;
+    const starSpeedMin = starSpeed;
+    const starSpeedMax = 100;
+    const starDistance = 5000;
+
+    let fov = 320;
     const fovMin = 210;
     const fovMax = fov;
 
-    const starHolderCount = 2000;
+    const starHolderCount = 4000;
     const starHolder: any[] = [];
     const starBgHolder: any[] = [];
-    let starSpeed = 10;
-    const starSpeedMin = starSpeed;
-    const starSpeedMax = 100;
-    const starDistance = 8000;
 
     const backgroundColor = { r: 29, g: 28, b: 38, a: 255 };
 
@@ -100,15 +103,20 @@ const StarfieldEffect: React.FC = () => {
 
     const addParticles = () => {
       let x, y, z, colorValue, particle;
-      for (let i = 0; i < starHolderCount / 3; i++) {
-        x = Math.random() * 24000 - 12000;
-        y = Math.random() * 4500 - 2250;
-        z = Math.round(Math.random() * starDistance);
-        colorValue = 255;
-        particle = addParticle(x, y, z, x, y, z);
-        particle.color = { r: colorValue, g: colorValue, b: colorValue, a: 255 };
-        starBgHolder.push(particle);
-      }
+const addParticle = (x: number, y: number, z: number, ox: number, oy: number, oz: number) => {
+	const particle = { x, y, z, ox, oy, x2d: 0, y2d: 0, color: { r: 0, g: 0, b: 0, a: 0 }, oColor: { r: 0, g: 0, b: 0, a: 0 }, w: 0, distance: 0, distanceTotal: 0};
+	return particle;
+};
+
+for (let i = 0; i < starHolderCount / 3; i++) {
+	x = Math.random() * 24000 - 12000;
+	y = Math.random() * 4500 - 2250;
+	z = Math.round(Math.random() * starDistance);
+	colorValue = 255;
+	particle = addParticle(x, y, z, x, y, z);
+	particle.color = { r: colorValue, g: colorValue, b: colorValue, a: 255 };
+	starBgHolder.push(particle);
+}
       for (let i = 0; i < starHolderCount; i++) {
         x = Math.random() * 10000 - 5000;
         y = Math.random() * 10000 - 5000;
@@ -190,40 +198,54 @@ const StarfieldEffect: React.FC = () => {
       }
 
       ctx.putImageData(imageData, 0, 0);
+
+      center.x += (mousePos.x - center.x) * 0.015;
+      if (!mouseActive) {
+        center.x += (canvas.width / 2 - center.x) * 0.015;
+      }
     };
+
+    const getMousePos = (event: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+
+    const mouseMoveHandler = (event: MouseEvent) => {
+      mousePos = getMousePos(event);
+    };
+
+    const mouseEnterHandler = () => {
+      mouseActive = true;
+    };
+
+    const mouseLeaveHandler = () => {
+      mouseActive = false;
+      mouseDown = false;
+    };
+
+    canvas.addEventListener('mousemove', mouseMoveHandler);
+    canvas.addEventListener('mousedown', () => { mouseDown = true; });
+    canvas.addEventListener('mouseup', () => { mouseDown = false; });
+    canvas.addEventListener('mouseenter', mouseEnterHandler);
+    canvas.addEventListener('mouseleave', mouseLeaveHandler);
 
     addParticles();
     animloop();
 
-    const mouseHandler = (e: MouseEvent) => {
-      mouseActive = true;
-      mousePos = { x: e.clientX - center.x, y: e.clientY - center.y };
-    };
-
-    window.addEventListener('mousemove', mouseHandler);
-
-    window.addEventListener('mousedown', () => {
-      mouseDown = true;
-    });
-
-    window.addEventListener('mouseup', () => {
-      mouseDown = false;
-      mouseActive = false;
-    });
-
     return () => {
-      window.removeEventListener('mousemove', mouseHandler);
+      canvas.removeEventListener('mousemove', mouseMoveHandler);
+      canvas.removeEventListener('mousedown', () => { mouseDown = true; });
+      canvas.removeEventListener('mouseup', () => { mouseDown = false; });
+      canvas.removeEventListener('mouseenter', mouseEnterHandler);
+      canvas.removeEventListener('mouseleave', mouseLeaveHandler);
       window.removeEventListener('resize', resizeCanvas);
     };
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="block size-full rounded-lg border border-gray-500 hover:scale-105"
-    >
-    </canvas>
-  );
+  <canvas ref={canvasRef} className="block size-full rounded-lg border border-gray-500 hover:scale-105">
+	Drop files here to send with Spacedrop
+  </canvas>)
 };
 
 export default StarfieldEffect;

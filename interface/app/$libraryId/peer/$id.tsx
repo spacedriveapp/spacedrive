@@ -35,9 +35,10 @@ export const Component = () => {
 						{peer?.metadata.operating_system?.toString()}
 					</h3>
 					<h3 className="text-sm text-ink-dull">{nodeId}</h3>
-					<div className="hover:scale-105 transition-all relative mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-solid  border-app-line p-4 text-sm font-medium text-ink-dull">
+
+					<div className="relative mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-solid border-app-line p-4 text-sm font-medium text-ink-dull">
 						<StarfieldEffect />
-						<div className="absolute inset-0 flex items-center justify-center">
+						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 							Drop files here to send with Spacedrop
 						</div>
 					</div>
