@@ -11,8 +11,14 @@ const StarfieldEffect: React.FC = () => {
     if (!ctx) return;
 
     const resizeCanvas = () => {
-      canvas.width = canvas.parentElement?.clientWidth || 800;
-      canvas.height = canvas.parentElement?.clientHeight || 300;
+      const scale = window.devicePixelRatio || 1;
+      const width = canvas.parentElement?.clientWidth || 800;
+      const height = canvas.parentElement?.clientHeight || 300;
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.scale(scale, scale);
     };
 
     resizeCanvas();
@@ -39,11 +45,11 @@ const StarfieldEffect: React.FC = () => {
     const fovMin = 210;
     const fovMax = fov;
 
-    const starHolderCount = 4000;
+    const starHolderCount = 8000; // Increased star count
     const starHolder: any[] = [];
     const starBgHolder: any[] = [];
 
-    const backgroundColor = { r: 29, g: 28, b: 38, a: 255 };
+    const backgroundColor = { r: 28, g: 29, b: 37, a: 255 };
 
     const clearImageData = () => {
       for (let i = 0, l = pix.length; i < l; i += 4) {
@@ -97,34 +103,29 @@ const StarfieldEffect: React.FC = () => {
     };
 
     const addParticle = (x: number, y: number, z: number, ox: number, oy: number, oz: number) => {
-      const particle = { x, y, z, ox, oy, x2d: 0, y2d: 0 };
+      const particle = { x, y, z, ox, oy, x2d: 0, y2d: 0, color: { r: 0, g: 0, b: 0, a: 0 }, oColor: { r: 0, g: 0, b: 0, a: 0 }, w: 0, distance: 0, distanceTotal: 0 };
       return particle;
     };
 
     const addParticles = () => {
       let x, y, z, colorValue, particle;
-const addParticle = (x: number, y: number, z: number, ox: number, oy: number, oz: number) => {
-	const particle = { x, y, z, ox, oy, x2d: 0, y2d: 0, color: { r: 0, g: 0, b: 0, a: 0 }, oColor: { r: 0, g: 0, b: 0, a: 0 }, w: 0, distance: 0, distanceTotal: 0};
-	return particle;
-};
-
-for (let i = 0; i < starHolderCount / 3; i++) {
-	x = Math.random() * 24000 - 12000;
-	y = Math.random() * 4500 - 2250;
-	z = Math.round(Math.random() * starDistance);
-	colorValue = 255;
-	particle = addParticle(x, y, z, x, y, z);
-	particle.color = { r: colorValue, g: colorValue, b: colorValue, a: 255 };
-	starBgHolder.push(particle);
-}
+      for (let i = 0; i < starHolderCount / 3; i++) {
+        x = Math.random() * 24000 - 12000;
+        y = Math.random() * 4500 - 2250;
+        z = Math.round(Math.random() * starDistance);
+        colorValue = 185; // Adjusted color
+        particle = addParticle(x, y, z, x, y, z);
+        particle.color = { r: 171, g: 172, b: 185, a: 255 };
+        starBgHolder.push(particle);
+      }
       for (let i = 0; i < starHolderCount; i++) {
         x = Math.random() * 10000 - 5000;
         y = Math.random() * 10000 - 5000;
         z = Math.round(Math.random() * starDistance);
-        colorValue = 255;
+        colorValue = 185; // Adjusted color
         particle = addParticle(x, y, z, x, y, z);
-        particle.color = { r: colorValue, g: colorValue, b: colorValue, a: 255 };
-        particle.oColor = { r: colorValue, g: colorValue, b: colorValue, a: 255 };
+        particle.color = { r: 171, g: 172, b: 185, a: 255 };
+        particle.oColor = { r: 171, g: 172, b: 185, a: 255 };
         particle.w = 1;
         particle.distance = starDistance - z;
         particle.distanceTotal = Math.round(starDistance + fov - particle.w);
@@ -243,9 +244,10 @@ for (let i = 0; i < starHolderCount / 3; i++) {
   }, []);
 
   return (
-  <canvas ref={canvasRef} className="block size-full rounded-lg border border-gray-500 hover:scale-105">
-	Drop files here to send with Spacedrop
-  </canvas>)
+    <canvas ref={canvasRef} className="block size-full rounded-lg border border-gray-500 transition-all hover:scale-105">
+      Drop files here to send with Spacedrop
+    </canvas>
+  );
 };
 
 export default StarfieldEffect;
