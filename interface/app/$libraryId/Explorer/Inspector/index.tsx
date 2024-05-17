@@ -521,7 +521,6 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 
-	console.log(metadata, 'metadata')
 
 	return (
 		<>

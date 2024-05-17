@@ -37,7 +37,6 @@ export const GridItem = ({ children, item, index, ...props }: Props) => {
 		[explorer.selectedItems, item]
 	);
 
-	console.log(explorer.selectedItems)
 
 	const canGoBack = currentIndex !== 0;
 	const canGoForward = currentIndex !== maxIndex;
