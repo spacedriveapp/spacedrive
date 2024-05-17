@@ -3,18 +3,14 @@ import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
-
 import { TopBarPortal } from '../TopBar/Portal';
+import StarfieldEffect from './StarfieldEffect'; // Import the StarfieldEffect component
 
 export const Component = () => {
 	const { id: _nodeId } = useZodRouteParams(NodeIdParamsSchema);
-	// we encode/decode because nodeId has special characters and I'm not willing to change that rn
 	const nodeId = decodeURIComponent(_nodeId);
-
 	const peers = usePeers();
-
 	const peer = peers.get(nodeId);
-
 	const title = useRouteTitle(peer?.metadata?.name || 'Peer');
 
 	return (
@@ -39,8 +35,11 @@ export const Component = () => {
 						{peer?.metadata.operating_system?.toString()}
 					</h3>
 					<h3 className="text-sm text-ink-dull">{nodeId}</h3>
-					<div className="mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-dashed border-app-line p-4 text-sm font-medium text-ink-dull">
-						Drop files here to send with Spacedrop
+					<div className="hover:scale-105 transition-all relative mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-solid  border-app-line p-4 text-sm font-medium text-ink-dull">
+						<StarfieldEffect />
+						<div className="absolute inset-0 flex items-center justify-center">
+							Drop files here to send with Spacedrop
+						</div>
 					</div>
 				</div>
 			)}
