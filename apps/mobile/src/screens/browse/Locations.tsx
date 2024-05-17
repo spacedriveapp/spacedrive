@@ -49,7 +49,6 @@ export default function LocationsScreen({ viewStyle }: Props) {
 			<View style={tw`min-h-full`}>
 			<FlatList
 				data={filteredLocations}
-				extraData={locations}
 				contentContainerStyle={twStyle(
 					`py-6`,
 					filteredLocations.length === 0 && 'h-full items-center justify-center'
