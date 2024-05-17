@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { useRef } from 'react';
 import { IndexerRule } from '@sd/client';
 import { InfoPill } from '~/app/$libraryId/Explorer/Inspector';
+import { useLocale } from '~/hooks';
 
 import { IndexerRuleIdFieldType } from '.';
 
@@ -26,6 +27,7 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 	const value = field?.value ?? [];
 	const toggleRef = useRef<HTMLElement>(null);
 	const ruleEnabled = value.includes(rule.id);
+	const { t } = useLocale();
 
 	return (
 		<div
@@ -41,7 +43,9 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 			)}
 		>
 			<div className="w-full">
-				<p className="mb-2 truncate px-2 text-center text-sm">{rule.name}</p>
+				<p className="mb-2 truncate px-2 text-center text-sm">
+					{t(`${rule.name?.toLowerCase().split(' ').join('_')}`)}
+				</p>
 				<div className="flex flex-wrap justify-center gap-2">
 					<InfoPill
 						ref={toggleRef}
@@ -61,10 +65,10 @@ function RuleButton<T extends IndexerRuleIdFieldType>({
 							ruleEnabled ? '!bg-accent !text-white' : 'text-ink'
 						)}
 					>
-						{ruleEnabled ? 'Enabled' : 'Disabled'}
+						{ruleEnabled ? t('enabled') : t('disabled')}
 					</InfoPill>
 					{ruleIsSystem(rule) && (
-						<InfoPill className="px-2 text-ink-faint">System</InfoPill>
+						<InfoPill className="px-2 text-ink-faint">{t('system')}</InfoPill>
 					)}
 				</div>
 			</div>

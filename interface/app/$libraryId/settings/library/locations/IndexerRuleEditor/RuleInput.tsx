@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { ChangeEvent, ChangeEventHandler, forwardRef, memo } from 'react';
 import { Input, toast } from '@sd/ui';
-import { useOperatingSystem } from '~/hooks';
+import i18n from '~/app/I18n';
+import { useLocale, useOperatingSystem } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
 import { openDirectoryPickerDialog } from '../openDirectoryPickerDialog';
@@ -27,7 +28,7 @@ export const validateInput = (
 			const regex = os === 'windows' ? /^\.[^<>:"/\\|?*\u0000-\u0031]+$/ : /^\.[^/\0\s]+$/;
 			return {
 				value: regex.test(value),
-				message: value ? 'Invalid extension' : 'Value required'
+				message: value ? i18n.t('invalid_extension') : i18n.t('value_required')
 			};
 		}
 		case 'Name': {
@@ -35,7 +36,7 @@ export const validateInput = (
 			const regex = os === 'windows' ? /^[^<>:"/\\|?*\u0000-\u0031]+$/ : /^[^/\0]+$/;
 			return {
 				value: regex.test(value),
-				message: value ? 'Invalid name' : 'Value required'
+				message: value ? i18n.t('invalid_name') : i18n.t('value_required')
 			};
 		}
 		case 'Path': {
@@ -46,14 +47,14 @@ export const validateInput = (
 					: /^[^\0]+$/;
 			return {
 				value: regex?.test(value) || false,
-				message: value ? 'Invalid path' : 'Value required'
+				message: value ? i18n.t('invalid_path') : i18n.t('value_required')
 			};
 		}
 		case 'Advanced': {
 			const regex = os === 'windows' ? /^[^<>:"\u0000-\u0031]+$/ : /^[^\0]+/;
 			return {
 				value: regex.test(value),
-				message: value ? 'Invalid glob' : 'Value required'
+				message: value ? i18n.t('invalid_glob') : i18n.t('value_required')
 			};
 		}
 		default:
@@ -66,6 +67,7 @@ export const RuleInput = memo(
 		const os = useOperatingSystem(true);
 		const platform = usePlatform();
 		const isWeb = platform.platform === 'web';
+		const { t } = useLocale();
 
 		switch (props.kind) {
 			case 'Name':
@@ -79,7 +81,7 @@ export const RuleInput = memo(
 							}
 						}}
 						// TODO: The check here shouldn't be for which os the UI is running, but for which os the node is running
-						placeholder="File/Directory name"
+						placeholder={t('file_directory_name')}
 						{...props}
 					/>
 				);
@@ -93,8 +95,8 @@ export const RuleInput = memo(
 								props.onBlur?.(event);
 							}
 						}}
-						aria-label="Add a file extension to the current rule"
-						placeholder="File extension (e.g., .mp4, .jpg, .txt)"
+						aria-label={t('add_file_extension_rule')}
+						placeholder={t('file_extension_description')}
 						{...props}
 					/>
 				);
@@ -148,7 +150,7 @@ export const RuleInput = memo(
 								props.onBlur?.(event);
 							}
 						}}
-						placeholder="Glob (e.g., **/.git)"
+						placeholder={t('glob_description')}
 						{...props}
 					/>
 				);

@@ -165,7 +165,7 @@ const kinds: Record<string, string> = {
 	Code: `${i18n.t('code')}`,
 	Database: `${i18n.t('database')}`,
 	Book: `${i18n.t('book')}`,
-	Config: `${i18n.t('widget')}`,
+	Config: `${i18n.t('config')}`,
 	Dotfile: `${i18n.t('dotfile')}`,
 	Screenshot: `${i18n.t('screenshot')}`,
 	Label: `${i18n.t('label')}`

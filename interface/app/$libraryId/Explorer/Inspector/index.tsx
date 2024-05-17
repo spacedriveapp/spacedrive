@@ -34,7 +34,6 @@ import {
 	humanizeSize,
 	NonIndexedPathItem,
 	Object,
-	ObjectKindEnum,
 	ObjectWithFilePaths,
 	useBridgeQuery,
 	useItemsAsObjects,
@@ -305,7 +304,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+					value={
+						!!ephemeralPathData && ephemeralPathData.is_dir
+							? null
+							: `${size.value} ${t(`size_${size.unit.toLowerCase()}`)}`
+					}
 				/>
 
 				<MetaData
@@ -522,6 +525,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { t, dateFormat } = useLocale();
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
+	const filesSize = humanizeSize(metadata.size);
 
 	return (
 		<>
@@ -529,7 +533,11 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={metadata.size !== null ? `${humanizeSize(metadata.size)}` : null}
+					value={
+						metadata.size !== null
+							? `${filesSize.value} ${t(`size_${filesSize.unit.toLowerCase()}s`)}`
+							: null
+					}
 				/>
 				<MetaData
 					icon={Clock}
