@@ -1,6 +1,6 @@
 -- Update duplicate names to make them unique
 UPDATE "indexer_rule"
-SET "name" = CONCAT("name", '_', "id")
+SET "name" = "name" || '_' || "id"
 WHERE "name" IN (
     SELECT "name"
     FROM "indexer_rule"
