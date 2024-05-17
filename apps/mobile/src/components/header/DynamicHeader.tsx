@@ -28,12 +28,17 @@ export default function DynamicHeader({
 	const isAndroid = Platform.OS === 'android';
 	const explorerStore = useExplorerStore();
 	const searchStore = useSearchStore();
-	const params: any = headerRoute && headerRoute.route.params;
+	const params = headerRoute?.route.params as {
+		id: number;
+		color: string;
+		name: string;
+	}
 
 	//pressing the search icon will add a filter
 	//based on the screen
 
 	const searchHandler = (key: Props['kind']) => {
+		if (!params) return;
 		const keys: {
 			tags: TagItem;
 			locations: FilterItem;
