@@ -73,22 +73,22 @@ pub const fn can_extract_for_audio(audio_extension: AudioExtension) -> bool {
 #[must_use]
 pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 	use VideoExtension::{
-		Asf, Avi, Avifs, F4v, Flv, Hevc, M2ts, M2v, M4v, Mjpeg, Mkv, Mov, Mp4, Mpe, Mpeg, Mpg, Mts,
-		Mxf, Ogv, Qt, Swf, Ts, Vob, Webm, Wm, Wmv, Wtv, _3gp,
+		Asf, Avi, Avifs, F4v, Flv, Hevc, M2ts, M2v, M4v, Mjpeg, Mkv, Mov, Mp4, Mpe, Mpeg, Mpg, Mxf,
+		Ogv, Qt, Swf, Vob, Webm, Wm, Wmv, Wtv, _3gp,
 	};
 
 	matches!(
 		video_extension,
 		Avi | Avifs
 			| Qt | Mov | Swf
-			| Mjpeg | Ts | Mts
-			| Mpeg | Mxf | M2v
-			| Mpg | Mpe | M2ts
-			| Flv | Wm | _3gp
-			| M4v | Wmv | Asf
-			| Mp4 | Webm | Mkv
-			| Vob | Ogv | Wtv
-			| Hevc | F4v
+			| Mjpeg | Mpeg
+			| Mxf | M2v | Mpg
+			| Mpe | M2ts | Flv
+			| Wm | _3gp | M4v
+			| Wmv | Asf | Mp4
+			| Webm | Mkv | Vob
+			| Ogv | Wtv | Hevc
+			| F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
 	)
 }
 
