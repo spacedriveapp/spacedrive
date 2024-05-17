@@ -14,8 +14,8 @@ use axum::routing::IntoMakeService;
 
 use sd_p2p::{
 	flume::{bounded, Receiver},
-	HookId, Libp2pPeerId, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
-	UnicastStream, P2P,
+	hooks::{Libp2pPeerId, Mdns, QuicTransport, RelayServerEntry},
+	HookId, Peer, RemoteIdentity, UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
 use serde_json::json;
