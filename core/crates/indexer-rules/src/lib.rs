@@ -474,10 +474,6 @@ impl IndexerRuler {
 	pub async fn has_system(&self, rule: &SystemIndexerRule) -> bool {
 		let rules = self.rules.read().await;
 
-		rules
-			.iter()
-			.map(|rule| (rule.id, rule.name.clone()))
-			.collect::<Vec<(Option<i32>, String)>>();
 		rules.iter().any(|inner_rule| rule == inner_rule)
 	}
 }
