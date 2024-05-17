@@ -31,6 +31,9 @@ impl Serialize for RulePerKind {
 					"RejectIfChildrenDirectoriesArePresent",
 					children,
 				),
+			Self::IgnoredByGit(_, _) => {
+				unreachable!("git ignore rules are dynamic and not serialized")
+			}
 		}
 	}
 }

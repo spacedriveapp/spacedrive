@@ -64,6 +64,7 @@ impl Hash for OldIndexerJobInit {
 		}
 	}
 }
+
 /// `IndexerJobData` contains the state of the indexer job, which includes a `location_path` that
 /// is cached and casted on `PathBuf` from `local_path` column in the `location` table. It also
 /// contains some metadata for logging purposes.
@@ -207,6 +208,7 @@ impl StatefulJob for OldIndexerJobInit {
 			errors,
 			paths_and_sizes,
 		} = walk(
+			&location_path,
 			&to_walk_path,
 			&indexer_rules,
 			update_notifier_fn(ctx),
@@ -395,6 +397,7 @@ impl StatefulJob for OldIndexerJobInit {
 					errors,
 					paths_and_sizes,
 				} = keep_walking(
+					location_path,
 					to_walk_entry,
 					&data.indexer_rules,
 					update_notifier_fn(ctx),

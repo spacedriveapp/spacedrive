@@ -1,5 +1,8 @@
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
-use sd_core_indexer_rules::{IndexerRule, RuleKind};
+use sd_core_indexer_rules::{
+	seed::{GitIgnoreRules, GITIGNORE},
+	IndexerRule, RuleKind,
+};
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -9,6 +12,7 @@ use std::{
 	collections::{HashMap, HashSet, VecDeque},
 	future::Future,
 	hash::{Hash, Hasher},
+	ops::Deref,
 	path::{Path, PathBuf},
 };
 
@@ -115,7 +119,8 @@ where
 /// a list of accepted entries. There are some useful comments in the implementation of this function
 /// in case of doubts.
 pub(super) async fn walk<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	library_root: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
@@ -138,11 +143,11 @@ where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
-	let root = root.as_ref();
+	let current_dir = current_dir.as_ref();
 
 	let mut to_walk = VecDeque::with_capacity(TO_WALK_QUEUE_INITIAL_CAPACITY);
 	to_walk.push_back(ToWalkEntry {
-		path: root.to_path_buf(),
+		path: current_dir.to_path_buf(),
 		parent_dir_accepted_by_its_children: None,
 		maybe_parent: None,
 	});
@@ -156,7 +161,8 @@ where
 		let last_indexed_count = indexed_paths.len();
 
 		let (entry_size, current_to_remove) = inner_walk_single_dir(
-			root,
+			library_root.as_ref(),
+			current_dir,
 			&entry,
 			indexer_rules,
 			&to_remove_db_fetcher,
@@ -199,6 +205,7 @@ where
 }
 
 pub(super) async fn keep_walking<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
+	location_path: impl AsRef<Path>,
 	to_walk_entry: &ToWalkEntry,
 	indexer_rules: &[IndexerRule],
 	mut update_notifier: impl FnMut(&Path, usize),
@@ -227,6 +234,7 @@ where
 	let mut errors = vec![];
 
 	let (to_walk_entry_size, to_remove) = inner_walk_single_dir(
+		location_path,
 		to_walk_entry.path.clone(),
 		to_walk_entry,
 		indexer_rules,
@@ -265,7 +273,8 @@ where
 }
 
 pub(super) async fn walk_single_dir<FilePathDBFetcherFut, ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	location_path: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	indexer_rules: &[IndexerRule],
 	file_paths_db_fetcher: impl Fn(Vec<file_path::WhereParam>) -> FilePathDBFetcherFut,
 	to_remove_db_fetcher: impl Fn(
@@ -289,18 +298,18 @@ where
 	ToRemoveDbFetcherFut:
 		Future<Output = Result<Vec<file_path_pub_and_cas_ids::Data>, IndexerError>>,
 {
-	let root = root.as_ref();
+	let current_directory = current_dir.as_ref();
 
 	let mut indexed_paths = HashSet::with_capacity(WALK_SINGLE_DIR_PATHS_BUFFER_INITIAL_CAPACITY);
 
 	if add_root {
-		let metadata = fs::metadata(root)
+		let metadata = fs::metadata(current_directory)
 			.await
-			.map_err(|e| FileIOError::from((root, e)))?;
+			.map_err(|e| FileIOError::from((current_directory, e)))?;
 
 		indexed_paths.insert(WalkingEntry {
-			iso_file_path: iso_file_path_factory(root, true)?,
-			maybe_metadata: Some(FilePathMetadata::from_path(root, &metadata)?),
+			iso_file_path: iso_file_path_factory(current_directory, true)?,
+			maybe_metadata: Some(FilePathMetadata::from_path(current_directory, &metadata)?),
 		});
 	}
 
@@ -308,9 +317,10 @@ where
 	let mut errors = vec![];
 
 	let (root_size, to_remove) = inner_walk_single_dir(
-		root,
+		location_path,
+		current_directory,
 		&ToWalkEntry {
-			path: root.to_path_buf(),
+			path: current_directory.to_path_buf(),
 			parent_dir_accepted_by_its_children: None,
 			maybe_parent: None,
 		},
@@ -430,7 +440,8 @@ struct WorkingTable<'a> {
 }
 
 async fn inner_walk_single_dir<ToRemoveDbFetcherFut>(
-	root: impl AsRef<Path>,
+	library_root: impl AsRef<Path>,
+	current_dir: impl AsRef<Path>,
 	ToWalkEntry {
 		path,
 		parent_dir_accepted_by_its_children,
@@ -465,7 +476,17 @@ where
 		return (0, vec![]);
 	};
 
-	let root = root.as_ref();
+	let mut rules = indexer_rules.to_owned();
+
+	if rules.iter().any(|rule| GITIGNORE.deref() == rule) {
+		if let Some(pat) =
+			GitIgnoreRules::get_rules_if_in_git_repo(library_root.as_ref(), path).await
+		{
+			rules.extend(pat.into_iter().map(Into::into));
+		}
+	}
+
+	let current_dir = current_dir.as_ref();
 
 	// Just to make sure...
 	paths_buffer.clear();
@@ -496,7 +517,7 @@ where
 			accept_by_children_dir
 		);
 
-		let Ok(rules_per_kind) = IndexerRule::apply_all(indexer_rules, &current_path)
+		let Ok(rules_per_kind) = IndexerRule::apply_all(&rules, &current_path)
 			.await
 			.map_err(|e| errors.push(e.into()))
 		else {
@@ -513,6 +534,12 @@ where
 				current_path.display()
 			);
 			continue 'entries;
+		}
+
+		if let Some(f) = rules_per_kind.get(&RuleKind::IgnoredByGit) {
+			if f.iter().any(|s| !s) {
+				continue 'entries;
+			}
 		}
 
 		let Ok(metadata) = entry
@@ -562,6 +589,14 @@ where
 				}
 			}
 
+			// Then we check if there's a git ignore rule for it
+			if let Some(accept) = rules_per_kind.get(&RuleKind::IgnoredByGit) {
+				if !accept.iter().any(|&r| r) {
+					trace!(dir=?current_path, "ignoring files because of git ignore");
+					continue 'entries;
+				}
+			}
+
 			// Then we mark this directory the be walked in too
 			if let Some(ref mut to_walk) = maybe_to_walk {
 				to_walk.push_back(ToWalkEntry {
@@ -606,7 +641,7 @@ where
 			for ancestor in current_path
 				.ancestors()
 				.skip(1) // Skip the current directory as it was already indexed
-				.take_while(|&ancestor| ancestor != root)
+				.take_while(|&ancestor| ancestor != current_dir)
 			{
 				let Ok(iso_file_path) =
 					iso_file_path_factory(ancestor, true).map_err(|e| errors.push(e))
@@ -821,7 +856,8 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			&[],
+			root_path.to_path_buf(),
+			&mut [],
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -872,7 +908,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let only_photos_rule = &[new_indexer_rule(
+		let mut only_photos_rule = vec![new_indexer_rule(
 			"only photos".to_string(),
 			false,
 			vec![RulePerKind::AcceptFilesByGlob(
@@ -886,7 +922,8 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			only_photos_rule,
+			root_path.to_path_buf(),
+			&mut only_photos_rule,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -934,7 +971,7 @@ mod tests {
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/Cargo.toml"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/src/main.rs"), false), metadata },
-			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target"), true), metadata },
+			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug"), true), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("rust_project/target/debug/main"), false), metadata },
 			WalkedEntry { pub_id, maybe_object_id, iso_file_path: f(root_path.join("inner"), true), metadata },
@@ -950,7 +987,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos = &[new_indexer_rule(
+		let mut git_repos = vec![new_indexer_rule(
 			"git repos".to_string(),
 			false,
 			vec![RulePerKind::AcceptIfChildrenDirectoriesArePresent(
@@ -960,7 +997,8 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			git_repos,
+			root_path.to_path_buf(),
+			&mut git_repos,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -979,7 +1017,9 @@ mod tests {
 		let actual = walk_result.walked.collect::<HashSet<_>>();
 
 		if actual != expected {
-			panic!("difference: {:#?}", expected.difference(&actual));
+			let not_found = expected.difference(&actual);
+			let not_expected = actual.difference(&expected);
+			panic!("difference:\nexpected, but not found: {not_found:#?}\nfound, but not expected:{not_expected:#?}");
 		}
 	}
 
@@ -1018,7 +1058,7 @@ mod tests {
 		.into_iter()
 		.collect::<HashSet<_>>();
 
-		let git_repos_no_deps_no_build_dirs = &[
+		let mut git_repos_no_deps_no_build_dirs = vec![
 			new_indexer_rule(
 				"git repos".to_string(),
 				false,
@@ -1052,7 +1092,8 @@ mod tests {
 
 		let walk_result = walk(
 			root_path.to_path_buf(),
-			git_repos_no_deps_no_build_dirs,
+			root_path.to_path_buf(),
+			&mut git_repos_no_deps_no_build_dirs,
 			|_, _| {},
 			|_| async { Ok(vec![]) },
 			|_, _| async { Ok(vec![]) },
@@ -1071,7 +1112,9 @@ mod tests {
 		let actual = walk_result.walked.collect::<HashSet<_>>();
 
 		if actual != expected {
-			panic!("difference: {:#?}", expected.difference(&actual));
+			let not_found = expected.difference(&actual);
+			let not_expected = actual.difference(&expected);
+			panic!("difference:\nexpected, but not found: {not_found:#?}\nfound, but not expected:{not_expected:#?}");
 		}
 	}
 }
