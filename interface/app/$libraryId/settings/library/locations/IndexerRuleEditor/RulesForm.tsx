@@ -140,12 +140,12 @@ const RulesForm = ({ onSubmitted }: Props) => {
 				document.body
 			)}
 			<FormProvider {...form}>
-				<h3 className="mb-[15px] w-full text-sm font-semibold">Name</h3>
+				<h3 className="mb-[15px] w-full text-sm font-semibold">{t('name')}</h3>
 				<Input
 					className={errors.name && 'border border-red-500'}
 					form={formId}
 					size="md"
-					placeholder="Name"
+					placeholder={t('name')}
 					maxLength={18}
 					{...form.register('name')}
 				/>
@@ -186,7 +186,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 										>
 											{selectValues.map((value) => (
 												<SelectOption key={value} value={value}>
-													{value}
+													{t(`${value.toLowerCase()}`)}
 												</SelectOption>
 											))}
 										</Select>

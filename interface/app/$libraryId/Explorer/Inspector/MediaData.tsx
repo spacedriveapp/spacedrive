@@ -76,14 +76,14 @@ const ExifMediaData = (data: ExifMetadata) => {
 	return (
 		<>
 			<MetaData
-				label="Date"
+				label={t('date')}
 				tooltipValue={data.date_taken ?? null} // should show full raw value
 				// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
 				value={data.date_taken ?? null}
 			/>
-			<MetaData label="Type" value="Image" />
+			<MetaData label={t('type')} value={t('image')} />
 			<MetaData
-				label="Location"
+				label={t('location')}
 				tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
 				value={
 					data.location && (
@@ -116,16 +116,19 @@ const ExifMediaData = (data: ExifMetadata) => {
 				}
 			/>
 			<MetaData
-				label="Resolution"
+				label={t('resolution')}
 				value={`${data.resolution.width} x ${data.resolution.height}`}
 			/>
-			<MetaData label="Device" value={data.camera_data.device_make} />
-			<MetaData label="Model" value={data.camera_data.device_model} />
-			<MetaData label="Color profile" value={data.camera_data.color_profile} />
-			<MetaData label="Color space" value={data.camera_data.color_space} />
-			<MetaData label="Flash" value={data.camera_data.flash?.mode} />
+			<MetaData label={t('device')} value={data.camera_data.device_make} />
+			<MetaData label={t('model')} value={data.camera_data.device_model} />
+			<MetaData label={t('color_profile')} value={data.camera_data.color_profile} />
+			<MetaData label={t('color_space')} value={data.camera_data.color_space} />
 			<MetaData
-				label="Zoom"
+				label={t('flash')}
+				value={t(`${data.camera_data.flash?.mode.toLowerCase()}`)}
+			/>
+			<MetaData
+				label={t('zoom')}
 				value={
 					data.camera_data &&
 					data.camera_data.zoom &&
@@ -134,8 +137,8 @@ const ExifMediaData = (data: ExifMetadata) => {
 						: '--'
 				}
 			/>
-			<MetaData label="Iso" value={data.camera_data.iso} />
-			<MetaData label="Software" value={data.camera_data.software} />
+			<MetaData label="ISO" value={data.camera_data.iso} />
+			<MetaData label={t('software')} value={data.camera_data.software} />
 		</>
 	);
 };
@@ -196,7 +199,7 @@ const FFmpegMediaData = (data: FFmpegMetadata) => {
 	return (
 		<>
 			<MetaData label={t('type')} value={type} />
-			<MetaData label="Bitrate" value={`${bit_rate.value} ${bit_rate.unit}/s`} />
+			<MetaData label={t('bitrate')} value={`${bit_rate.value} ${bit_rate.unit}/s`} />
 			{duration && <MetaData label={t('duration')} value={duration.format('HH:mm:ss.SSS')} />}
 			{start_time && (
 				<MetaData label={t('start_time')} value={start_time.format('HH:mm:ss.SSS')} />
