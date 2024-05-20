@@ -179,16 +179,16 @@ const ExtensionView = ({ extensions }: { extensions: string[] }) => (
 );
 
 const TagView = ({ tags }: { tags: TagItem[] }) => (
-	<>
+	<View style={tw`mx-auto flex-row items-center justify-center`}>
 		{tags.map((tag) => (
 			<View
 				key={tag.id}
-				style={twStyle(`h-5 w-5 rounded-full`, {
-					backgroundColor: tag.color
+				style={twStyle(`h-4.5 w-4.5 relative rounded-full border-2 border-app-card`, {
+					backgroundColor: tag.color,
 				})}
 			/>
 		))}
-	</>
+	</View>
 );
 
 const LocationView = ({ locations }: { locations: FilterItemType[] }) => (
