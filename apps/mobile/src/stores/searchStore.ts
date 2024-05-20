@@ -1,5 +1,5 @@
-import { proxy, useSnapshot } from 'valtio';
 import { SearchFilterArgs } from '@sd/client';
+import { proxy, useSnapshot } from 'valtio';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
@@ -74,7 +74,7 @@ function updateArrayOrObject<T>(
 	array: T[],
 	item: any,
 	filterByKey: string = 'id',
-	isObject: boolean = false
+	isObject: boolean = false,
 ): T[] {
 	if (isObject) {
 		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
@@ -94,8 +94,10 @@ const searchStore = proxy<
 		updateFilters: <K extends keyof State['filters']>(
 			filter: K,
 			value: State['filters'][K] extends Array<infer U> ? U : State['filters'][K],
-			apply?: boolean
+			apply?: boolean,
+			keepSame?: boolean
 		) => void;
+		searchFrom: (filter: 'tags' | 'locations', value: TagItem | FilterItem) => void;
 		applyFilters: () => void;
 		setSearch: (search: string) => void;
 		resetFilter: <K extends keyof State['filters']>(filter: K, apply?: boolean) => void;
@@ -108,13 +110,15 @@ const searchStore = proxy<
 	...initialState,
 	//for updating the filters upon value selection
 	updateFilters: (filter, value, apply = false) => {
+		const currentFilter = searchStore.filters[filter];
+		const arrayCheck = Array.isArray(currentFilter);
+
 		if (filter === 'hidden') {
 			// Directly assign boolean values without an array operation
 			searchStore.filters['hidden'] = value as boolean;
 		} else {
 			// Handle array-based filters with more specific type handling
-			const currentFilter = searchStore.filters[filter];
-			if (Array.isArray(currentFilter)) {
+			if (arrayCheck) {
 				// Cast to the correct type based on the filter being updated
 				const updatedFilter = updateArrayOrObject(
 					currentFilter,
@@ -128,6 +132,21 @@ const searchStore = proxy<
 		//instead of a useEffect or subscription - we can call applyFilters directly
 		// useful when you want to apply the filters from another screen
 		if (apply) searchStore.applyFilters();
+	},
+	searchFrom: (filter, value) => {
+		//reset state first
+		searchStore.resetFilters();
+		//update the filter with the value
+		switch (filter) {
+			case 'locations':
+ 				searchStore.filters[filter] = [value] as FilterItem[]
+				break;
+			case 'tags':
+				searchStore.filters[filter] = [value] as TagItem[]
+				break;
+		}
+		//apply the filters so it shows in the UI
+		searchStore.applyFilters();
 	},
 	//for clicking add filters and applying the selection
 	applyFilters: () => {

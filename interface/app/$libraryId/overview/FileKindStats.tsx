@@ -89,8 +89,7 @@ const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: Kind
 					<h2 className="text-sm font-medium">{name}</h2>
 					{items !== undefined && (
 						<p className="text-xs text-ink-faint">
-							{formatNumber(items)}{' '}
-							{items > 1 || items === 0 ? `${t('items')}` : `${t('item')}`}
+							{t('item_with_count', { count: items })}
 						</p>
 					)}
 				</div>

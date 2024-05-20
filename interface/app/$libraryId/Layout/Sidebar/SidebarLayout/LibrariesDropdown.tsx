@@ -43,15 +43,17 @@ export default () => {
 			// Timeout because of race conditions when opening the dropdown from a open popover.
 			onOpenChange={(open) => setTimeout(() => sidebar.onLockedChange(open))}
 		>
-			{libraries.data?.map((lib) => (
-				<DropdownMenu.Item
-					to={`/${lib.uuid}`}
-					key={lib.uuid}
-					selected={lib.uuid === currentLibraryId}
-				>
-					<p className="truncate">{lib.config.name}</p>
-				</DropdownMenu.Item>
-			))}
+			{libraries.data
+				?.map((lib) => (
+					<DropdownMenu.Item
+						to={`/${lib.uuid}`}
+						key={lib.uuid}
+						selected={lib.uuid === currentLibraryId}
+					>
+						<p className="truncate">{lib.config.name}</p>
+					</DropdownMenu.Item>
+				))
+				.sort((a, b) => (a.props.selected ? -1 : 1))}
 			<DropdownMenu.Separator className="mx-0" />
 			<DropdownMenu.Item
 				label={t('new_library')}

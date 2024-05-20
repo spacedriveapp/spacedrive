@@ -1,11 +1,12 @@
+import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
 import dayjs from 'dayjs';
 import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
+import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
@@ -49,25 +50,26 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 			enablePanDownToClose={false}
 			snapPoints={['70']}
 		>
+			<VirtualizedListWrapper style={tw`flex-col p-4`} scrollEnabled={false} horizontal>
 			{data && (
-				<ModalScrollView style={tw`flex-1 p-4`}>
+				<ModalScrollView>
 					{/* Back Button */}
 					<Pressable
 						onPress={() => modalRef.current?.close()}
-						style={tw`absolute z-10 ml-4`}
+						style={tw`absolute left-2 z-10 rounded-full bg-app-button p-2`}
 					>
-						<CaretLeft color={tw.color('accent')} size={20} weight="bold" />
+						<CaretLeft color={tw.color('ink')} size={16} weight="bold" />
 					</Pressable>
-					{/* File Icon / Name */}
 					<View style={tw`items-center`}>
+					{/* File Icon / Name */}
 						<FileThumb data={data} size={1.6} />
-						<Text style={tw`mt-2 text-base font-bold text-gray-200`}>
+						<Text style={tw`text-base font-bold text-gray-200`}>
 							{filePathData?.name}
 						</Text>
-						<InfoTagPills data={data} style={tw`mt-3`} />
+						<InfoTagPills columnCount={4} contentContainerStyle={tw`mx-auto`} data={data} style={tw`mt-5 items-center`} />
 					</View>
 					{/* Details */}
-					<Divider style={tw`mb-4 mt-6`} />
+					<Divider style={tw`mb-4 mt-3`} />
 					<>
 						{/* Size */}
 						<MetaItem
@@ -113,6 +115,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 					</>
 				</ModalScrollView>
 			)}
+			</VirtualizedListWrapper>
 		</Modal>
 	);
 });

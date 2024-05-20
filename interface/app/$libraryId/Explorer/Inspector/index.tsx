@@ -12,6 +12,22 @@ import {
 	Icon as PhosphorIcon,
 	Snowflake
 } from '@phosphor-icons/react';
+import {
+	FilePath,
+	FilePathForFrontend,
+	getExplorerItemData,
+	getItemFilePath,
+	humanizeSize,
+	NonIndexedPathItem,
+	Object,
+	ObjectWithFilePaths,
+	useBridgeQuery,
+	useItemsAsObjects,
+	useLibraryQuery,
+	useSelector,
+	type ExplorerItem
+} from '@sd/client';
+import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import {
@@ -26,23 +42,6 @@ import {
 import { useLocation } from 'react-router';
 import { Link as NavLink } from 'react-router-dom';
 import Sticky from 'react-sticky-el';
-import {
-	FilePath,
-	FilePathWithObject,
-	getExplorerItemData,
-	getItemFilePath,
-	humanizeSize,
-	NonIndexedPathItem,
-	Object,
-	ObjectKindEnum,
-	ObjectWithFilePaths,
-	useBridgeQuery,
-	useItemsAsObjects,
-	useLibraryQuery,
-	useSelector,
-	type ExplorerItem
-} from '@sd/client';
-import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import { useLocale, useZodRouteParams } from '~/hooks';
@@ -172,7 +171,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 
 export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 	let objectData: Object | ObjectWithFilePaths | null = null;
-	let filePathData: FilePath | FilePathWithObject | null = null;
+	let filePathData: FilePath | FilePathForFrontend | null = null;
 	let ephemeralPathData: NonIndexedPathItem | null = null;
 
 	const { t, dateFormat } = useLocale();
@@ -305,7 +304,11 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={!!ephemeralPathData && ephemeralPathData.is_dir ? null : `${size}`}
+					value={
+						!!ephemeralPathData && ephemeralPathData.is_dir
+							? null
+							: `${size.value} ${t(`size_${size.unit.toLowerCase()}`)}`
+					}
 				/>
 
 				<MetaData
@@ -481,7 +484,6 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				(metadata, item) => {
 					const { kind, size, dateCreated, dateAccessed, dateModified, dateIndexed } =
 						getExplorerItemData(item);
-
 					if (item.type !== 'NonIndexedPath' || !item.item.is_dir) {
 						metadata.size = (metadata.size ?? 0n) + size.bytes;
 					}
@@ -522,6 +524,8 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 	const { t, dateFormat } = useLocale();
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
+	const filesSize = humanizeSize(metadata.size);
+
 
 	return (
 		<>
@@ -529,7 +533,11 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 				<MetaData
 					icon={Cube}
 					label={t('size')}
-					value={metadata.size !== null ? `${humanizeSize(metadata.size)}` : null}
+					value={
+						metadata.size !== null
+							? `${filesSize.value} ${t(`size_${filesSize.unit.toLowerCase()}s`)}`
+							: null
+					}
 				/>
 				<MetaData
 					icon={Clock}

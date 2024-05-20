@@ -11,8 +11,6 @@ const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
 		{ path: 'overview', lazy: () => import('./overview') },
-		// { path: 'labels', lazy: () => import('./labels') },
-		// { path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', children: debugRoutes }
 	]
 };
@@ -27,6 +25,7 @@ const explorerRoutes: RouteObject[] = [
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
+	{ path: 'peer/:id', lazy: () => import('./peer/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'network', lazy: () => import('./network') },
 	{ path: 'saved-search/:id', lazy: () => import('./saved-search/$id') }

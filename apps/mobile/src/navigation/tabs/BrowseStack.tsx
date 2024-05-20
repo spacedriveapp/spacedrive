@@ -34,7 +34,7 @@ export default function BrowseStack() {
 						<DynamicHeader
 							optionsRoute={optionsRoute}
 							headerRoute={route}
-							kind="location"
+							kind="locations"
 						/>
 					)
 				})}
@@ -58,7 +58,7 @@ export default function BrowseStack() {
 				component={TagScreen}
 				options={({ route: optionsRoute }) => ({
 					header: (route) => (
-						<DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tag" />
+						<DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tags" />
 					)
 				})}
 			/>
@@ -75,7 +75,7 @@ export default function BrowseStack() {
 
 export type BrowseStackParamList = {
 	Browse: undefined;
-	Location: { id: number; path?: string };
+	Location: { id: number; path?: string, name?: string };
 	Locations: undefined;
 	Tag: { id: number; color: string };
 	Tags: undefined;

@@ -132,6 +132,7 @@ const ItemSize = () => {
 	const isLocation = item.data.type === 'Location';
 	const isEphemeral = item.data.type === 'NonIndexedPath';
 	const isFolder = filePath?.is_dir;
+	const { t } = useLocale();
 
 	const showSize =
 		showBytesInGridView &&
@@ -142,8 +143,10 @@ const ItemSize = () => {
 		(!isRenaming || !item.selected);
 
 	const bytes = useMemo(
-		() => showSize && humanizeSize(filePath?.size_in_bytes_bytes),
-		[filePath?.size_in_bytes_bytes, showSize]
+		() =>
+			showSize &&
+			`${humanizeSize(filePath?.size_in_bytes_bytes).value} ${t(`size_${humanizeSize(filePath?.size_in_bytes_bytes).unit.toLowerCase()}`)}`,
+		[filePath?.size_in_bytes_bytes, showSize, t]
 	);
 
 	if (!showSize) return null;

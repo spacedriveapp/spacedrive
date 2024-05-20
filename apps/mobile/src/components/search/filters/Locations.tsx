@@ -32,14 +32,13 @@ const Locations = () => {
 			/>
 			<View>
 				<Fade color="black" width={30} height="100%">
-					<VirtualizedListWrapper contentContainerStyle={tw`w-full px-6`} horizontal>
+					<VirtualizedListWrapper contentContainerStyle={tw`px-6`} horizontal>
 						<FlatList
 							data={locations}
 							renderItem={({ item }) => <LocationFilter data={item} />}
 							numColumns={
 								locations ? Math.max(Math.ceil(locations.length / 2), 2) : 1
 							}
-							contentContainerStyle={tw`w-full`}
 							ListEmptyComponent={
 								<Empty
 									icon="Folder"

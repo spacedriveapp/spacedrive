@@ -30,20 +30,16 @@ const Tags = () => {
 				title="Tags"
 				sub="What tags would you like to filter by?"
 			/>
-			<View>
 				<Fade color="black" width={30} height="100%">
-					<VirtualizedListWrapper contentContainerStyle={tw`w-full px-6`} horizontal>
+				<VirtualizedListWrapper contentContainerStyle={tw`px-6`} horizontal>
 						<FlatList
 							data={tagsData}
 							renderItem={({ item }) => <TagFilter tag={item} />}
 							extraData={searchStore.filters.tags}
+							alwaysBounceVertical={false}
 							numColumns={tagsData ? Math.max(Math.ceil(tagsData.length / 2), 2) : 1}
 							key={tagsData ? 'tagsSearch' : '_'}
-							contentContainerStyle={tw`w-full`}
-							ListEmptyComponent={
-								<Empty icon="Tags" description="You have not created any tags" />
-							}
-							scrollEnabled={false}
+							ListEmptyComponent={<Empty icon="Tags" description="You have not created any tags" />}
 							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
 							keyExtractor={(item) => item.id.toString()}
 							showsHorizontalScrollIndicator={false}
@@ -51,7 +47,6 @@ const Tags = () => {
 						/>
 					</VirtualizedListWrapper>
 				</Fade>
-			</View>
 		</MotiView>
 	);
 };

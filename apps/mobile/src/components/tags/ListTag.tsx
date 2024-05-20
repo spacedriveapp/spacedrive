@@ -19,16 +19,16 @@ const ListTag = ({ tag, tagStyle }: ListTagProps) => {
 	return (
 		<Swipeable
 			ref={swipeRef}
-			containerStyle={tw`rounded-md border border-app-cardborder bg-app-card p-3`}
+			containerStyle={tw`h-12 flex-col justify-center rounded-md border border-app-cardborder bg-app-card`}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={(progress, _, swipeable) => (
 				<RightActions progress={progress} swipeable={swipeable} tag={tag} />
 			)}
 		>
-			<View style={twStyle('h-auto flex-row items-center justify-between', tagStyle)}>
+			<View style={twStyle('flex-row items-center justify-between px-3', tagStyle)}>
 				<View style={tw`flex-1 flex-row items-center gap-2`}>
 					<View
-						style={twStyle('h-[28px] w-[28px] rounded-full', {
+						style={twStyle('h-5 w-5 rounded-full', {
 							backgroundColor: tag.color!
 						})}
 					/>

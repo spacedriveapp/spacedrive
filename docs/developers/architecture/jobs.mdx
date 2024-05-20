@@ -4,4 +4,14 @@ index: 10
 
 # Jobs
 
-jobs are computation tasks performed by nodes in a Spacedrive network, they can be created by any node and performed by any or all nodes.
+Spacedrive's job system is designed to handle any tasks that might take time to complete, such as indexing files and generating thumbnails.
+
+A small indicator is shown in the bottom left when a job is running; clicking it reveals the job manager.
+
+The job manager allows you to see current jobs, expand them to see various tasks part of that job. Jobs with only one task, such as copying a single file, will not be expandable by clicking.
+
+Jobs can be paused, resumed and canceled. Spacedrive will always try to restart jobs that were cut off by a restart or shutdown of Spacedrive.
+
+Job history can be cleared by hitting the small trash icon on the job manager. This will not remove any ongoing jobs.
+
+Up to 3 jobs can run simultaneously, although this may be configurable in the future. More CPU-intensive jobs like thumbnailing and labelling have an upper limit for CPU usage set in the General settings page.

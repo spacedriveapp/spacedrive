@@ -32,17 +32,19 @@ use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
 };
+use seed::SystemIndexerRule;
 use serde::{Deserialize, Serialize};
 
 use std::{
 	collections::{HashMap, HashSet},
 	fs::Metadata,
-	path::Path,
+	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::TryJoin;
+use gix_ignore::{glob::pattern::Case, Search};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{decode, encode};
 use rspc::ErrorCode;
@@ -149,6 +151,9 @@ impl IndexerRuleCreateArgs {
 							parameters.into_iter().collect(),
 						))
 					}
+					RuleKind::IgnoredByGit => {
+						Ok(RulePerKind::IgnoredByGit(PathBuf::new(), Search::default()))
+					}
 				})
 				.collect::<Result<Vec<_>, _>>()?,
 		)?;
@@ -184,13 +189,14 @@ pub enum RuleKind {
 	RejectFilesByGlob = 1,
 	AcceptIfChildrenDirectoriesArePresent = 2,
 	RejectIfChildrenDirectoriesArePresent = 3,
+	IgnoredByGit = 4,
 }
 
 impl RuleKind {
 	#[must_use]
 	pub const fn variant_count() -> usize {
 		// TODO: Use https://doc.rust-lang.org/std/mem/fn.variant_count.html if it ever gets stabilized
-		4
+		5
 	}
 }
 
@@ -202,7 +208,7 @@ impl RuleKind {
 /// In case of `ParametersPerKind::AcceptIfChildrenDirectoriesArePresent` or
 /// `ParametersPerKind::RejectIfChildrenDirectoriesArePresent`
 /// first we change the data structure to a vector, then we serialize it.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RulePerKind {
 	// TODO: Add an indexer rule that filter files based on their extended attributes
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
@@ -211,6 +217,7 @@ pub enum RulePerKind {
 	RejectFilesByGlob(Vec<Glob>, GlobSet),
 	AcceptIfChildrenDirectoriesArePresent(HashSet<String>),
 	RejectIfChildrenDirectoriesArePresent(HashSet<String>),
+	IgnoredByGit(PathBuf, Search),
 }
 
 impl RulePerKind {
@@ -285,6 +292,10 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
+			Self::IgnoredByGit(git_repo, patterns) => Ok((
+				RuleKind::IgnoredByGit,
+				accept_by_gitpattern(source.as_ref(), git_repo, patterns),
+			)),
 		}
 	}
 
@@ -313,11 +324,29 @@ impl RulePerKind {
 				RuleKind::RejectFilesByGlob,
 				reject_by_glob(source, reject_glob_set),
 			)),
+			Self::IgnoredByGit(base_dir, patterns) => Ok((
+				RuleKind::IgnoredByGit,
+				accept_by_gitpattern(source.as_ref(), base_dir, patterns),
+			)),
 		}
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+fn accept_by_gitpattern(source: &Path, base_dir: &Path, search: &Search) -> bool {
+	let relative = source
+		.strip_prefix(base_dir)
+		.expect("`base_dir` should be our git repo, and `source` should be inside of it");
+
+	let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
+		return false;
+	};
+
+	search
+		.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
+		.map_or(true, |rule| rule.pattern.is_negative())
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IndexerRule {
 	pub id: Option<i32>,
 	pub name: String,
@@ -387,7 +416,6 @@ impl IndexerRule {
 
 #[derive(Debug, Clone, Default)]
 pub struct IndexerRuler {
-	// TODO(fogodev): Use this RwLock later to acquire new rules while applying rules, like from a .gitignore file
 	rules: Arc<RwLock<Vec<IndexerRule>>>,
 }
 
@@ -435,6 +463,18 @@ impl IndexerRuler {
 		}
 
 		inner(&self.rules.read().await, source.as_ref(), metadata).await
+	}
+
+	/// Extend the indexer rules with the contents from an iterator of rules
+	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule> + Send) {
+		let mut indexer = self.rules.write().await;
+		indexer.extend(iter);
+	}
+
+	pub async fn has_system(&self, rule: &SystemIndexerRule) -> bool {
+		let rules = self.rules.read().await;
+
+		rules.iter().any(|inner_rule| rule == inner_rule)
 	}
 }
 
