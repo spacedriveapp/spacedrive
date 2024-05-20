@@ -853,6 +853,10 @@ async fn dispatch_thumbnailer_tasks(
 	)
 	.await?;
 
+	if file_paths.is_empty() {
+		return Ok((0, Vec::new()));
+	}
+
 	let thumbs_count = file_paths.len() as u64;
 
 	let first_materialized_path = file_paths[0].materialized_path.clone();
