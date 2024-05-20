@@ -71,6 +71,7 @@ pub enum LibraryConfigVersion {
 	V8 = 8,
 	V9 = 9,
 	V10 = 10,
+	V11 = 11,
 }
 
 impl ManagedVersion<LibraryConfigVersion> for LibraryConfig {
@@ -444,6 +445,21 @@ impl LibraryConfig {
 								.collect::<Vec<_>>(),
 						)
 						.await?;
+					}
+
+					(LibraryConfigVersion::V10, LibraryConfigVersion::V11) => {
+						db.instance()
+							.update_many(
+								vec![],
+								vec![instance::node_remote_identity::set(Some(
+									// This is a remote identity that doesn't exist. The expectation is that:
+									// - The current node will update it's own and notice the change causing it to push the updated id to the cloud
+									// - All other instances will be updated when the regular sync process with the cloud happens
+									"SaEhml9thV088ocsOXZ17BrNjFaROB0ojwBvnPHhztI".into(),
+								))],
+							)
+							.exec()
+							.await?;
 					}
 
 					_ => {

@@ -44,6 +44,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 }
 
 mod library {
+	use std::str::FromStr;
+
+	use sd_p2p::RemoteIdentity;
+
 	use crate::util::MaybeUndefined;
 
 	use super::*;
@@ -75,6 +79,7 @@ mod library {
 							library.instance_uuid,
 							library.identity.to_remote_identity(),
 							node_config.id,
+							node_config.identity.to_remote_identity(),
 							&node.p2p.peer_metadata(),
 						)
 						.await?;
@@ -139,6 +144,7 @@ mod library {
 						library.instance_uuid,
 						library.identity.to_remote_identity(),
 						node_config.id,
+						node_config.identity.to_remote_identity(),
 						node.p2p.peer_metadata(),
 					)
 					.await?;
@@ -152,6 +158,8 @@ mod library {
 							instance.uuid,
 							instance.identity,
 							instance.node_id,
+							RemoteIdentity::from_str(&instance.node_remote_identity)
+								.expect("malformed remote identity in the DB"),
 							node.p2p.peer_metadata(),
 						)
 						.await?;
