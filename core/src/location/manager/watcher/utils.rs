@@ -1124,10 +1124,13 @@ pub(super) async fn recalculate_directories_size(
 					)
 					.await?;
 
-					error!(
-						"Reverse calculating directory sizes finished with {} non-critical errors: {non_critical_errors:#?}",
-						non_critical_errors.len()
-					);
+					if !non_critical_errors.is_empty() {
+						error!(
+							"Reverse calculating directory sizes finished with {} \
+							non-critical errors: {non_critical_errors:#?}",
+							non_critical_errors.len()
+						);
+					}
 
 					should_invalidate = true;
 				} else {

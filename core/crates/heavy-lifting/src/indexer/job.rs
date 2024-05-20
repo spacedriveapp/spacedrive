@@ -362,6 +362,8 @@ impl Indexer {
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
 
+		debug!("Scanned {directory_iso_file_path} in {scan_time:?}");
+
 		*self
 			.iso_paths_and_sizes
 			.entry(directory_iso_file_path)
@@ -447,6 +449,15 @@ impl Indexer {
 			})
 			.collect::<Vec<_>>();
 
+		debug!(
+			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{})",
+			handles.len(),
+			save_tasks.len(),
+			update_tasks.len(),
+			self.metadata.completed_tasks,
+			self.metadata.total_tasks
+		);
+
 		handles.extend(dispatcher.dispatch_many(save_tasks).await);
 		handles.extend(dispatcher.dispatch_many(update_tasks).await);
 
@@ -459,8 +470,6 @@ impl Indexer {
 			)),
 		])
 		.await;
-
-		debug!("Processed walk task in the indexer, took: {scan_time:?}");
 
 		Ok(handles)
 	}
@@ -478,7 +487,10 @@ impl Indexer {
 
 		ctx.progress_msg(format!("Saved {saved_count} files")).await;
 
-		debug!("Processed save task in the indexer, took: {save_duration:?}");
+		debug!(
+			"Processed save task in the indexer ({}/{}), took: {save_duration:?}",
+			self.metadata.completed_tasks, self.metadata.total_tasks
+		);
 	}
 
 	async fn process_update_output<OuterCtx: OuterContext>(
@@ -495,7 +507,10 @@ impl Indexer {
 		ctx.progress_msg(format!("Updated {updated_count} files"))
 			.await;
 
-		debug!("Processed update task in the indexer, took: {update_duration:?}");
+		debug!(
+			"Processed update task in the indexer ({}/{}), took: {update_duration:?}",
+			self.metadata.completed_tasks, self.metadata.total_tasks
+		);
 	}
 
 	async fn process_handles<OuterCtx: OuterContext>(
