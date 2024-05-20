@@ -306,6 +306,7 @@
   "ipv6": "IPv6 networking",
   "ipv6_description": "Allow peer-to-peer communication using IPv6 networking",
   "ipv6_listeners_error": "Error creating the IPv6 listeners. Please check your firewall settings!",
+  "relay_listeners_error": "Error creating the relay listener. Please check your firewall settings!",
   "is": "is",
   "is_not": "is not",
   "item": "item",

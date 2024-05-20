@@ -431,9 +431,9 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "Disabled" }
+export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "NotListening" }
 
-export type Listeners = { ipv4: ListenerState; ipv6: ListenerState }
+export type Listeners = { ipv4: ListenerState; ipv6: ListenerState; relay: ListenerState }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 

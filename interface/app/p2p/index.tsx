@@ -34,6 +34,13 @@ export function useP2PErrorToast() {
 					<p>{listeners.data.ipv6.error}</p>
 				</div>
 			);
+		} else if (listeners.data.relay.type === 'Error') {
+			body = (
+				<div>
+					<p>{t('relay_listeners_error')}</p>
+					<p>{listeners.data.relay.error}</p>
+				</div>
+			);
 		}
 
 		if (body) {

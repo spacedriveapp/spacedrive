@@ -18,7 +18,9 @@ use sd_p2p::{
 	HookId, Peer, RemoteIdentity, UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
+use serde::Serialize;
 use serde_json::json;
+use specta::Type;
 use std::{
 	collections::HashMap,
 	convert::Infallible,
@@ -34,10 +36,22 @@ use uuid::Uuid;
 
 use super::{P2PEvents, PeerMetadata};
 
-#[derive(Default)]
-pub struct ListenerErrors {
-	pub ipv4: Option<String>,
-	pub ipv6: Option<String>,
+#[derive(Default, Clone, Serialize, Type)]
+#[serde(tag = "type")]
+pub enum ListenerState {
+	Listening,
+	Error {
+		error: String,
+	},
+	#[default]
+	NotListening,
+}
+
+#[derive(Default, Clone, Serialize, Type)]
+pub struct Listeners {
+	ipv4: ListenerState,
+	ipv6: ListenerState,
+	relay: ListenerState,
 }
 
 pub struct P2PManager {
@@ -51,7 +65,7 @@ pub struct P2PManager {
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
 	pub libraries_hook_id: HookId,
-	pub listener_errors: Mutex<ListenerErrors>,
+	pub listeners: Mutex<Listeners>,
 }
 
 impl P2PManager {
@@ -79,7 +93,7 @@ impl P2PManager {
 			spacedrop_cancellations: Default::default(),
 			node_config,
 			libraries_hook_id,
-			listener_errors: Default::default(),
+			listeners: Default::default(),
 		});
 		this.on_node_config_change().await;
 
@@ -112,8 +126,26 @@ impl P2PManager {
 							} else {
 								match resp.json::<Vec<RelayServerEntry>>().await {
 									Ok(config) => {
-										this.quic.set_relay_config(config).await;
-										info!("Updated p2p relay configuration successfully.")
+										let no_relays = config.len();
+
+										node.p2p
+											.listeners
+											.lock()
+											.unwrap_or_else(PoisonError::into_inner)
+											.relay =
+											match this.quic.set_relay_config(config).await {
+												Ok(_) => {
+													info!("Updated p2p relay configuration successfully.");
+													if no_relays == 0 {
+														ListenerState::NotListening
+													} else {
+														ListenerState::Listening
+													}
+												}
+												Err(err) => ListenerState::Error {
+													error: err.to_string(),
+												},
+											};
 									}
 									Err(err) => {
 										error!("Failed to parse p2p relay configuration: {err:?}")
@@ -158,7 +190,10 @@ impl P2PManager {
 			"Setting quic ipv4 listener to: {:?}",
 			config.p2p.ipv4.then_some(port)
 		);
-		if let Err(err) = self
+		self.listeners
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.ipv4 = if let Err(err) = self
 			.quic
 			.set_ipv4_enabled(config.p2p.ipv4.then_some(port))
 			.await
@@ -166,17 +201,24 @@ impl P2PManager {
 			error!("Failed to enabled quic ipv4 listener: {err}");
 			self.node_config.write(|c| c.p2p.ipv4 = false).await.ok();
 
-			self.listener_errors
-				.lock()
-				.unwrap_or_else(PoisonError::into_inner)
-				.ipv4 = Some(err.to_string());
-		}
+			ListenerState::Error {
+				error: err.to_string(),
+			}
+		} else {
+			match config.p2p.ipv4 {
+				true => ListenerState::Listening,
+				false => ListenerState::NotListening,
+			}
+		};
 
 		info!(
 			"Setting quic ipv6 listener to: {:?}",
 			config.p2p.ipv6.then_some(port)
 		);
-		if let Err(err) = self
+		self.listeners
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.ipv4 = if let Err(err) = self
 			.quic
 			.set_ipv6_enabled(config.p2p.ipv6.then_some(port))
 			.await
@@ -184,11 +226,15 @@ impl P2PManager {
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config.write(|c| c.p2p.ipv6 = false).await.ok();
 
-			self.listener_errors
-				.lock()
-				.unwrap_or_else(PoisonError::into_inner)
-				.ipv6 = Some(err.to_string());
-		}
+			ListenerState::Error {
+				error: err.to_string(),
+			}
+		} else {
+			match config.p2p.ipv6 {
+				true => ListenerState::Listening,
+				false => ListenerState::NotListening,
+			}
+		};
 
 		let should_revert = match config.p2p.discovery {
 			P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly => {
@@ -276,6 +322,7 @@ impl P2PManager {
 			})).collect::<Vec<_>>(),
 			"config": node_config.p2p,
 			"relay_config": self.quic.get_relay_config(),
+			"listener_errors": self.listeners.lock().unwrap_or_else(PoisonError::into_inner).clone(),
 		})
 	}
 
