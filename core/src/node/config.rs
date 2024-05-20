@@ -80,6 +80,8 @@ pub struct NodeConfigP2P {
 	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
 	pub ipv6: bool,
 	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub relay: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
 	pub remote_access: bool,
 }
 
@@ -90,6 +92,7 @@ impl Default for NodeConfigP2P {
 			port: Port::Random,
 			ipv4: true,
 			ipv6: true,
+			relay: true,
 			remote_access: false,
 		}
 	}

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::HashMap,
+	sync::{Arc, Mutex, PoisonError},
+};
 
 use sd_p2p::{flume::bounded, HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity, P2P};
 use tracing::error;
@@ -14,12 +17,15 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 	let (tx, rx) = bounded(15);
 	let hook_id = p2p.register_hook("sd-libraries-hook", tx);
 
+	let nodes_to_instance = Arc::new(Mutex::new(HashMap::new()));
+
 	let handle = tokio::spawn(async move {
 		if let Err(err) = libraries
 			.rx
 			.clone()
 			.subscribe(|msg| {
 				let p2p = p2p.clone();
+				let nodes_to_instance = nodes_to_instance.clone();
 				async move {
 					match msg {
 						LibraryManagerEvent::InstancesModified(library)
@@ -35,8 +41,14 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								return;
 							};
 
+							let mut nodes_to_instance = nodes_to_instance
+								.lock()
+								.unwrap_or_else(PoisonError::into_inner);
+
 							for i in instances.iter() {
 								let identity = RemoteIdentity::from_bytes(&i.node_id)
+									.expect("lol: invalid DB entry");
+								let node_identity = RemoteIdentity::from_bytes(&i.node_id)
 									.expect("lol: invalid DB entry");
 
 								// Skip self
@@ -44,10 +56,18 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 									continue;
 								}
 
+								nodes_to_instance
+									.entry(identity.clone())
+									.or_insert(vec![])
+									.push(node_identity);
+
 								p2p.clone().discover_peer(
 									hook_id,
 									identity,
-									HashMap::new(), // TODO: We should probs cache this so we have something
+									serde_json::from_slice(
+										i.metadata.as_ref().expect("this is a required field"),
+									)
+									.expect("invalid metadata"),
 									[PeerConnectionCandidate::Relay].into_iter().collect(),
 								);
 							}
@@ -64,15 +84,39 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								return;
 							};
 
+							let mut nodes_to_instance = nodes_to_instance
+								.lock()
+								.unwrap_or_else(PoisonError::into_inner);
+
 							for i in instances.iter() {
-								let identity = RemoteIdentity::from_bytes(&i.remote_identity)
+								let identity = RemoteIdentity::from_bytes(&i.node_id)
+									.expect("lol: invalid DB entry");
+								let node_identity = RemoteIdentity::from_bytes(&i.node_id)
 									.expect("lol: invalid DB entry");
 
-								let peers = p2p.peers();
-								let Some(peer) = peers.get(&identity) else {
+								// Skip self
+								if identity == library.identity.to_remote_identity() {
+									continue;
+								}
+
+								// Only remove if all instances pointing to this node are removed
+								let Some(identities) = nodes_to_instance.get_mut(&identity) else {
 									continue;
 								};
-								peer.undiscover_peer(hook_id);
+								identities
+									.iter()
+									.position(|i| i == &node_identity)
+									.map(|i| {
+										identities.remove(i);
+									});
+								if identities.len() == 0 {
+									let peers = p2p.peers();
+									let Some(peer) = peers.get(&identity) else {
+										continue;
+									};
+
+									peer.undiscover_peer(hook_id);
+								}
 							}
 						}
 					}

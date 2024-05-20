@@ -75,7 +75,7 @@ pub enum LibraryConfigVersion {
 }
 
 impl ManagedVersion<LibraryConfigVersion> for LibraryConfig {
-	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V10;
+	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V11;
 
 	const KIND: Kind = Kind::Json("version");
 
