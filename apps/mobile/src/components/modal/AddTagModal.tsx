@@ -195,7 +195,7 @@ const TagItem = ({tag, select, isSelected}: Props) => {
 				})}
 			>
 				<View
-					style={twStyle(`h-4 w-4 rounded-full`, {
+					style={twStyle(`h-3.5 w-3.5 rounded-full`, {
 						backgroundColor: tag.color!
 					})}
 				/>
