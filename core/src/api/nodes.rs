@@ -22,6 +22,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_port: Option<Port>,
 				pub p2p_ipv4_enabled: Option<bool>,
 				pub p2p_ipv6_enabled: Option<bool>,
+				pub p2p_relay_enabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub image_labeler_version: Option<String>,
@@ -53,6 +54,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 						if let Some(enabled) = args.p2p_ipv6_enabled {
 							config.p2p.ipv6 = enabled;
+						};
+						if let Some(enabled) = args.p2p_relay_enabled {
+							config.p2p.relay = enabled;
 						};
 						if let Some(discovery) = args.p2p_discovery {
 							config.p2p.discovery = discovery;

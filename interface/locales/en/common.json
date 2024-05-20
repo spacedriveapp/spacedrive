@@ -192,6 +192,8 @@
   "enable_networking": "Enable Networking",
   "enable_networking_description": "Allow your node to communicate with other Spacedrive nodes around you.",
   "enable_networking_description_required": "Required for library sync or Spacedrop!",
+  "enable_relay": "Enable Relay",
+  "enable_relay_description": "Enable the relay server to allow your devices to communicate over the public internet.",
   "enable_sync": "Enable Sync",
   "enable_sync_description": "Generate sync operations for all the existing data in this library, and configure Spacedrive to generate sync operations when things happen in future.",
   "enabled": "Enabled",

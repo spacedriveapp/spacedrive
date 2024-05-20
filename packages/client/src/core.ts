@@ -168,7 +168,7 @@ export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { f
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_relay_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
@@ -472,7 +472,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
-export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean }
+export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; relay: boolean; remote_access: boolean }
 
 export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
 

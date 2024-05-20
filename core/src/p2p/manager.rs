@@ -30,7 +30,7 @@ use std::{
 use tower_service::Service;
 use tracing::error;
 
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Notify};
 use tracing::info;
 use uuid::Uuid;
 
@@ -66,6 +66,8 @@ pub struct P2PManager {
 	pub(crate) node_config: Arc<config::Manager>,
 	pub libraries_hook_id: HookId,
 	pub listeners: Mutex<Listeners>,
+	relay_config: Mutex<Vec<RelayServerEntry>>,
+	trigger_relay_config_update: Notify,
 }
 
 impl P2PManager {
@@ -94,6 +96,8 @@ impl P2PManager {
 			node_config,
 			libraries_hook_id,
 			listeners: Default::default(),
+			relay_config: Default::default(),
+			trigger_relay_config_update: Default::default(),
 		});
 		this.on_node_config_change().await;
 
@@ -126,10 +130,21 @@ impl P2PManager {
 							} else {
 								match resp.json::<Vec<RelayServerEntry>>().await {
 									Ok(config) => {
+										*node
+											.p2p
+											.relay_config
+											.lock()
+											.unwrap_or_else(PoisonError::into_inner) = config.clone();
+
+										let config =
+											if node.p2p.node_config.get().await.p2p.relay == true {
+												config
+											} else {
+												vec![]
+											};
 										let no_relays = config.len();
 
-										node.p2p
-											.listeners
+										this.listeners
 											.lock()
 											.unwrap_or_else(PoisonError::into_inner)
 											.relay =
@@ -156,7 +171,10 @@ impl P2PManager {
 						Err(err) => error!("Error pulling p2p relay configuration: {err:?}"),
 					}
 
-					tokio::time::sleep(Duration::from_secs(11 * 60)).await;
+					tokio::select! {
+						_ = this.trigger_relay_config_update.notified() => {}
+						_ = tokio::time::sleep(Duration::from_secs(11 * 60)) => {}
+					}
 				}
 			});
 		}))
@@ -168,6 +186,8 @@ impl P2PManager {
 
 	// TODO: Remove this and add a subscription system to `config::Manager`
 	pub async fn on_node_config_change(&self) {
+		self.trigger_relay_config_update.notify_waiters();
+
 		let config = self.node_config.get().await;
 
 		if config.p2p.discovery == P2PDiscoveryState::ContactsOnly {
@@ -322,7 +342,7 @@ impl P2PManager {
 			})).collect::<Vec<_>>(),
 			"config": node_config.p2p,
 			"relay_config": self.quic.get_relay_config(),
-			"listener_errors": self.listeners.lock().unwrap_or_else(PoisonError::into_inner).clone(),
+			"listeners": self.listeners.lock().unwrap_or_else(PoisonError::into_inner).clone(),
 		})
 	}
 

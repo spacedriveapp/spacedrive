@@ -1,6 +1,8 @@
 import clsx from 'clsx';
+import { PropsWithChildren } from 'react';
 import { FormProvider } from 'react-hook-form';
 import {
+	ListenerState,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
@@ -8,7 +10,7 @@ import {
 	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Slider, Switch, tw, z } from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Slider, Switch, Tooltip, tw, z } from '@sd/ui';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -21,8 +23,24 @@ const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 const u16 = () => z.number().min(0).max(65535);
 
+function RenderListenerPill(props: PropsWithChildren<{ listener?: ListenerState }>) {
+	if (props.listener?.type === 'Error') {
+		return (
+			<Tooltip label={`Error: ${props.listener.error}`}>
+				<NodePill className="bg-red-700">{props.children}</NodePill>
+			</Tooltip>
+		);
+	} else if (props.listener?.type === 'Listening') {
+		return <NodePill className="bg-green-700">{props.children}</NodePill>;
+	}
+	return null;
+}
+
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
+	const listeners = useBridgeQuery(['p2p.listeners'], {
+		refetchInterval: 1000
+	});
 	const platform = usePlatform();
 	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
@@ -42,6 +60,7 @@ export const Component = () => {
 				]),
 				p2p_ipv4_enabled: z.boolean().optional(),
 				p2p_ipv6_enabled: z.boolean().optional(),
+				p2p_relay_enabled: z.boolean().optional(),
 				p2p_discovery: z
 					.union([
 						z.literal('Everyone'),
@@ -66,6 +85,7 @@ export const Component = () => {
 			p2p_port: node.data?.p2p.port || { type: 'random' },
 			p2p_ipv4_enabled: node.data?.p2p.ipv4 || true,
 			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
+			p2p_relay_enabled: node.data?.p2p.relay || true,
 			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
 			p2p_remote_access: node.data?.p2p.remote_access || false,
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
@@ -85,6 +105,7 @@ export const Component = () => {
 				p2p_port: (value.p2p_port as any) ?? null,
 				p2p_ipv4_enabled: value.p2p_ipv4_enabled ?? null,
 				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
+				p2p_relay_enabled: value.p2p_relay_enabled ?? null,
 				p2p_discovery: value.p2p_discovery ?? null,
 				p2p_remote_access: value.p2p_remote_access ?? null,
 				image_labeler_version: value.image_labeler_version ?? null
@@ -120,16 +141,18 @@ export const Component = () => {
 					<div className="flex flex-row items-center justify-between">
 						<span className="font-semibold">{t('local_node')}</span>
 						<div className="flex flex-row space-x-1">
+							<RenderListenerPill listener={listeners.data?.ipv4}>
+								IPv4
+							</RenderListenerPill>
+							<RenderListenerPill listener={listeners.data?.ipv6}>
+								IPv6
+							</RenderListenerPill>
+							<RenderListenerPill listener={listeners.data?.relay}>
+								Relay
+							</RenderListenerPill>
 							<NodePill>
 								{connectedPeers.size} {t('peers')}
 							</NodePill>
-							{/* {node.data?.p2p_enabled === true ? (
-								<NodePill className="!bg-accent text-white">
-									{t('running')}
-								</NodePill>
-							) : (
-								<NodePill className="text-white">{t('disabled')}</NodePill>
-							)} */}
 						</div>
 					</div>
 
@@ -374,6 +397,26 @@ export const Component = () => {
 									{t('p2p_visibility_disabled')}
 								</SelectOption>
 							</Select>
+						</Setting>
+
+						<Setting
+							mini
+							title={t('enable_relay')}
+							description={
+								<>
+									<p className="text-sm text-gray-400">
+										{t('enable_relay_description')}
+									</p>
+								</>
+							}
+						>
+							<Switch
+								size="md"
+								checked={form.watch('p2p_relay_enabled')}
+								onCheckedChange={(checked) =>
+									form.setValue('p2p_relay_enabled', checked)
+								}
+							/>
 						</Setting>
 
 						{isP2PWipFeatureEnabled && (

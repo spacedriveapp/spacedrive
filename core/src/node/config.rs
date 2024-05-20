@@ -79,7 +79,7 @@ pub struct NodeConfigP2P {
 	pub ipv4: bool,
 	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
 	pub ipv6: bool,
-	#[serde(default, skip_serializing_if = "skip_if_false")]
+	#[serde(default, skip_serializing_if = "skip_if_true")]
 	pub relay: bool,
 	#[serde(default, skip_serializing_if = "skip_if_false")]
 	pub remote_access: bool,
