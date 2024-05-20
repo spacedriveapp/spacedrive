@@ -1,4 +1,3 @@
-#![recursion_limit = "256"]
 #![warn(clippy::unwrap_used, clippy::panic)]
 
 use crate::{
