@@ -283,6 +283,8 @@
   "general": "General",
   "general_settings": "General Settings",
   "general_settings_description": "General settings related to this client.",
+  "network_settings": "Network Settings",
+  "network_settings_description": "Settings related to networking and connectivity.",
   "general_shortcut_description": "General usage shortcuts",
   "generatePreviewMedia_label": "Generate preview media for this Location",
   "generate_checksums": "Generate Checksums",
