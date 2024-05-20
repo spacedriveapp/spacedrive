@@ -147,25 +147,33 @@ impl QuicTransport {
 
 	/// Configure the relay servers to use.
 	/// This method will replace any existing relay servers.
-	pub async fn set_relay_config(&self, relays: Vec<RelayServerEntry>) {
+	pub async fn set_relay_config(
+		&self,
+		relays: Vec<RelayServerEntry>,
+	) -> Result<(), QuicTransportError> {
 		let (tx, rx) = oneshot::channel();
 		let event = InternalEvent::RegisterRelays {
 			relays: relays.clone(),
 			result: tx,
 		};
 
-		let Ok(_) = self.internal_tx.send(event) else {
-			return;
-		};
-		match rx.await {
-			Ok(_) => {
-				*self
-					.relay_config
-					.lock()
-					.unwrap_or_else(PoisonError::into_inner) = relays;
-			}
-			Err(e) => error!("Failed to register relay config as the event loop has died: {e}"),
+		self.internal_tx
+			.send(event)
+			.map_err(|e| QuicTransportError::SendChannelClosed(e.to_string()))?;
+
+		let result = rx
+			.await
+			.map_err(|e| QuicTransportError::ReceiveChannelClosed(e))
+			.and_then(|r| r.map_err(|e| QuicTransportError::InternalEvent(e)));
+
+		if result.is_ok() {
+			*self
+				.relay_config
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner) = relays;
 		}
+
+		result
 	}
 
 	pub fn get_relay_config(&self) -> Vec<RelayServerEntry> {
@@ -254,6 +262,7 @@ async fn start(
 	let mut incoming = control.accept(PROTOCOL).unwrap();
 	let map = Arc::new(RwLock::new(HashMap::new()));
 	let mut relay_config = Vec::new();
+	let mut registered_relays = HashMap::new();
 
 	loop {
 		tokio::select! {
@@ -397,9 +406,8 @@ async fn start(
 					let _ = result.send(Ok(()));
 				},
 				InternalEvent::RegisterRelays { relays, result } => {
-					// TODO: Replace any existing relays
-					// TODO: Only add some of the relays???
-
+					// TODO: We should only add some of the relays - This is discussion in P2P documentation about the Relay
+					let mut err = None;
 					for relay in &relays {
 						let peer_id = match PeerId::from_str(&relay.peer_id) {
 							Ok(peer_id) => peer_id,
@@ -408,6 +416,7 @@ async fn start(
 								continue;
 							},
 						};
+
 						let addrs = relay
 							.addrs
 							.iter()
@@ -422,25 +431,41 @@ async fn start(
 							swarm.add_peer_address(peer_id, addr);
 						}
 
-						// TODO: Only do this if autonat fails
 						match swarm.listen_on(
 							Multiaddr::empty()
 								.with(Protocol::Memory(40))
 								.with(Protocol::P2p(peer_id))
 								.with(Protocol::P2pCircuit)
 						) {
-							Ok(_) => {},
+							Ok(listener_id) => {
+								for addr in &relay.addrs {
+									registered_relays.insert(*addr, listener_id);
+								}
+							},
 							Err(e) => {
-								error!("Failed to listen on relay server '{}': {e}", relay.id);
-
-								// TODO: Try again if this fails
+								err = Some(format!("Failed to listen on relay server '{}': {e}", relay.id));
+								break;
 							},
 						}
 					}
 
+					if err.is_some() {
+						let _ = result.send(Err(err.unwrap()));
+						continue;
+					}
+
+					// Cleanup connections to relays that are no longer in the config
+					// We intentionally do this after establishing new connections so we don't have a gap in connectivity
+					for (addr, listener_id) in &registered_relays {
+						if relays.iter().find(|e| e.addrs.contains(&addr)).is_some() {
+							continue;
+						}
+
+						swarm.remove_listener(*listener_id);
+					}
+
 					relay_config = relays;
 
-					// TODO: Proper error handling
 					result.send(Ok(())).ok();
 				},
 			},
