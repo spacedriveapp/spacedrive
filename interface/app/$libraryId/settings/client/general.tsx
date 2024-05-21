@@ -77,9 +77,9 @@ export const Component = () => {
 			await editNode.mutateAsync({
 				name: value.name || null,
 				p2p_port: null,
-				p2p_ipv4_enabled: null,
-				p2p_ipv6_enabled: null,
-				p2p_relay_enabled: null,
+				p2p_disabled: null,
+				p2p_ipv6_disabled: null,
+				p2p_relay_disabled: null,
 				p2p_discovery: null,
 				p2p_remote_access: null,
 				image_labeler_version: value.image_labeler_version ?? null

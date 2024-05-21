@@ -195,6 +195,7 @@ export const Component = () => {
 							/>
 						</div>
 					</Setting>
+
 					<Setting
 						mini
 						title={t('ipv6')}
