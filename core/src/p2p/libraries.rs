@@ -45,22 +45,18 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								.lock()
 								.unwrap_or_else(PoisonError::into_inner);
 
-							println!("INSERT: {:?}", instances); // TODO
-
 							for i in instances.iter() {
-								let identity = RemoteIdentity::from_bytes(
-									i.identity.as_ref().expect("identity is required"),
-								)
-								.expect("lol: invalid DB entry");
+								let identity = RemoteIdentity::from_bytes(&i.remote_identity)
+									.expect("invalid instance identity");
 								let node_identity = RemoteIdentity::from_bytes(
 									i.node_remote_identity
 										.as_ref()
 										.expect("node remote identity is required"),
 								)
-								.expect("lol: invalid DB entry");
+								.expect("invalid node remote identity");
 
 								// Skip self
-								if identity == library.identity.to_remote_identity() {
+								if i.identity.is_some() {
 									continue;
 								}
 
@@ -96,16 +92,22 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								.lock()
 								.unwrap_or_else(PoisonError::into_inner);
 
-							println!("DEL: {:?}", instances); // TODO
-
 							for i in instances.iter() {
-								let identity = RemoteIdentity::from_bytes(&i.node_id)
-									.expect("lol: invalid DB entry");
-								let node_identity = RemoteIdentity::from_bytes(&i.node_id)
-									.expect("lol: invalid DB entry");
+								let identity = RemoteIdentity::from_bytes(
+									&i.remote_identity
+										.as_ref()
+										.expect("remote identity is required"),
+								)
+								.expect("invalid remote identity");
+								let node_identity = RemoteIdentity::from_bytes(
+									&i.node_remote_identity
+										.as_ref()
+										.expect("node remote identity is required"),
+								)
+								.expect("invalid node remote identity");
 
 								// Skip self
-								if identity == library.identity.to_remote_identity() {
+								if i.identity.is_some() {
 									continue;
 								}
 
