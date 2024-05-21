@@ -313,19 +313,19 @@ function NodesPanel() {
 				<p className="text-sm text-gray-400">{t('no_nodes_found')}</p>
 			) : (
 				<div className="grid grid-cols-1 gap-2">
-					{[...peers.entries()].map(([id, node]) => (
+					{[...peers.entries()].map(([id, peer]) => (
 						<Card key={id} className="hover:bg-app-box/70">
 							<Icon size={24} name="Node" className="mr-3 size-10 self-center" />
 							<div className="grid min-w-[110px] grid-cols-1">
 								<Tooltip label={id}>
 									<h1 className="truncate pt-0.5 text-sm font-semibold">
-										{node.metadata.name}
+										{peer.metadata.name}
 									</h1>
 								</Tooltip>
 								<h2 className="truncate pt-0.5 text-sm font-semibold">
-									Spacedrive {node.metadata.version}{' '}
-									{node.metadata.operating_system
-										? `- ${node.metadata.operating_system}`
+									Spacedrive {peer.metadata.version}{' '}
+									{peer.metadata.operating_system
+										? `- ${peer.metadata.operating_system}`
 										: ''}
 								</h2>
 							</div>
@@ -355,14 +355,14 @@ function NodesPanel() {
 									Connect
 								</Button>
 
-								<NodePill>{node.discovery === 'Local' ? 'LAN' : 'Relay'}</NodePill>
+								<NodePill>{peer.discovery === 'Local' ? 'LAN' : 'Relay'}</NodePill>
 
 								<NodePill
 									className={
-										node.connection !== 'Disconnected' ? 'bg-green-400' : ''
+										peer.connection !== 'Disconnected' ? 'bg-green-400' : ''
 									}
 								>
-									{node.connection}
+									{peer.connection}
 								</NodePill>
 							</div>
 						</Card>
