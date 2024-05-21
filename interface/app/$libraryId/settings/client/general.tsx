@@ -28,7 +28,7 @@ function RenderListenerPill(props: PropsWithChildren<{ listener?: ListenerState 
 			</Tooltip>
 		);
 	} else if (props.listener?.type === 'Listening') {
-		return <NodePill className="bg-green-700">{props.children}</NodePill>;
+		return <NodePill>{props.children}</NodePill>;
 	}
 	return null;
 }
