@@ -437,7 +437,15 @@ impl Libraries {
 			.as_ref()
 			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
-		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
+		let instance_node_remote_identity = instance
+			.node_remote_identity
+			.as_ref()
+			.map(|v| RemoteIdentity::from_bytes(v).ok())
+			.flatten();
+		if instance_node_id != node_config.id
+			|| instance_node_remote_identity != Some(node_config.identity.to_remote_identity())
+			|| curr_metadata != Some(node.p2p.peer_metadata())
+		{
 			info!(
 				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
 				id, instance_node_id, node_config.id
