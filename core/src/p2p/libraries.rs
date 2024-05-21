@@ -93,12 +93,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								.unwrap_or_else(PoisonError::into_inner);
 
 							for i in instances.iter() {
-								let identity = RemoteIdentity::from_bytes(
-									&i.remote_identity
-										.as_ref()
-										.expect("remote identity is required"),
-								)
-								.expect("invalid remote identity");
+								let identity = RemoteIdentity::from_bytes(&i.remote_identity)
+									.expect("invalid remote identity");
 								let node_identity = RemoteIdentity::from_bytes(
 									&i.node_remote_identity
 										.as_ref()
