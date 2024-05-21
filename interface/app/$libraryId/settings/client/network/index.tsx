@@ -15,6 +15,7 @@ import {
 import { Button, Card, Input, Select, SelectOption, Switch, toast, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { Heading } from '../../Layout';
 import Setting from '../../Setting';
@@ -302,6 +303,7 @@ function NodesPanel() {
 	const { t } = useLocale();
 	const navigate = useNavigate();
 	const peers = usePeers();
+	const platform = usePlatform();
 
 	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
 
@@ -342,7 +344,16 @@ function NodesPanel() {
 							<div className="grow"></div>
 							<div className="flex items-center justify-center space-x-4">
 								{isP2PWipFeatureEnabled && (
-									<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+									<Button
+										onClick={() =>
+											platform.confirm(
+												'Warning: This will only work if rspc remote is enabled on the remote node and the node is online!',
+												(result) => {
+													if (result) navigate(`/remote/${id}/browse`);
+												}
+											)
+										}
+									>
 										rspc remote
 									</Button>
 								)}
