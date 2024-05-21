@@ -67,7 +67,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 
 								p2p.clone().discover_peer(
 									hook_id,
-									identity,
+									node_identity,
 									serde_json::from_slice(
 										i.metadata.as_ref().expect("this is a required field"),
 									)
@@ -119,7 +119,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 									});
 								if identities.len() == 0 {
 									let peers = p2p.peers();
-									let Some(peer) = peers.get(&identity) else {
+									let Some(peer) = peers.get(&node_identity) else {
 										continue;
 									};
 
