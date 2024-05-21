@@ -31,12 +31,18 @@ pub type TaskId = Uuid;
 /// The user will downcast it to the concrete type that the task returns. Most of the time,
 /// tasks will not return anything, so it isn't a costly abstraction, as only a heap allocation
 /// is needed when the user wants to return a [`Box<dyn AnyTaskOutput>`].
-pub trait AnyTaskOutput: Send + fmt::Debug + Downcast + 'static {}
+pub trait AnyTaskOutput: Send + Downcast + 'static {}
+
+impl fmt::Debug for Box<dyn AnyTaskOutput> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "<AnyTaskOutput>")
+	}
+}
 
 impl_downcast!(AnyTaskOutput);
 
-/// Blanket implementation for all types that implements `std::fmt::Debug + Send + 'static`
-impl<T: fmt::Debug + Send + 'static> AnyTaskOutput for T {}
+/// Blanket implementation for all types that implements `Send + 'static`
+impl<T: Send + 'static> AnyTaskOutput for T {}
 
 /// A helper trait to convert any type that implements [`AnyTaskOutput`] into a [`TaskOutput`], boxing it.
 pub trait IntoAnyTaskOutput {
@@ -129,7 +135,7 @@ impl<T: Task<E> + 'static, E: RunError> IntoTask<E> for T {
 /// We're currently using the [`async_trait`](https://docs.rs/async-trait) crate to allow dyn async traits,
 /// due to a limitation in the Rust language.
 #[async_trait]
-pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
+pub trait Task<E: RunError>: Downcast + Send + Sync + 'static {
 	/// An unique identifier for the task, it will be used to identify the task on the system and also to the user.
 	fn id(&self) -> TaskId;
 
@@ -159,6 +165,12 @@ pub trait Task<E: RunError>: fmt::Debug + Downcast + Send + Sync + 'static {
 }
 
 impl_downcast!(Task<E> where E: RunError);
+
+impl<E: RunError> fmt::Debug for Box<dyn Task<E>> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "<Task>")
+	}
+}
 
 pub trait SerializableTask<E: RunError>: Task<E>
 where
@@ -397,13 +409,18 @@ impl TaskRemoteController {
 			} else {
 				trace!("Task is not running, setting is_paused flag");
 				self.worktable.is_paused.store(true, Ordering::Relaxed);
-				return self
-					.system_comm
-					.pause_not_running_task(
-						self.task_id,
-						self.worktable.current_worker_id.load(Ordering::Relaxed),
-					)
-					.await;
+
+				let (tx, rx) = oneshot::channel();
+
+				self.system_comm.pause_not_running_task(
+					self.task_id,
+					self.worktable.current_worker_id.load(Ordering::Relaxed),
+					tx,
+				);
+
+				return rx
+					.await
+					.expect("Worker failed to ack pause not running task request");
 			}
 		}
 
@@ -436,36 +453,53 @@ impl TaskRemoteController {
 			} else {
 				trace!("Task is not running, setting is_canceled flag");
 				self.worktable.has_canceled.store(true, Ordering::Relaxed);
-				self.system_comm
-					.cancel_not_running_task(
-						self.task_id,
-						self.worktable.current_worker_id.load(Ordering::Relaxed),
-					)
-					.await;
+
+				let (tx, rx) = oneshot::channel();
+
+				self.system_comm.cancel_not_running_task(
+					self.task_id,
+					self.worktable.current_worker_id.load(Ordering::Relaxed),
+					tx,
+				);
+
+				rx.await
+					.expect("Worker failed to ack cancel not running task request");
 			}
 		}
 	}
 
 	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
+	/// # Panics
+	/// Will panic if the worker failed to ack the forced abortion request
 	pub async fn force_abortion(&self) -> Result<(), SystemError> {
 		self.worktable.set_aborted();
-		self.system_comm
-			.force_abortion(
-				self.task_id,
-				self.worktable.current_worker_id.load(Ordering::Relaxed),
-			)
-			.await
+
+		let (tx, rx) = oneshot::channel();
+
+		self.system_comm.force_abortion(
+			self.task_id,
+			self.worktable.current_worker_id.load(Ordering::Relaxed),
+			tx,
+		);
+
+		rx.await
+			.expect("Worker failed to ack force abortion request")
 	}
 
 	/// Marks the task to be resumed by the task system, the worker will start processing it if there is a slot
 	/// available or will be enqueued otherwise.
+	/// # Panics
+	/// Will panic if the worker failed to ack the resume request
 	pub async fn resume(&self) -> Result<(), SystemError> {
-		self.system_comm
-			.resume_task(
-				self.task_id,
-				self.worktable.current_worker_id.load(Ordering::Relaxed),
-			)
-			.await
+		let (tx, rx) = oneshot::channel();
+
+		self.system_comm.resume_task(
+			self.task_id,
+			self.worktable.current_worker_id.load(Ordering::Relaxed),
+			tx,
+		);
+
+		rx.await.expect("Worker failed to ack resume request")
 	}
 
 	/// Verify if the task was already completed
@@ -712,7 +746,23 @@ impl TaskWorktable {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PendingTaskKind {
+	Normal,
+	Priority,
+	Suspended,
+}
+
+impl PendingTaskKind {
+	const fn with_priority(has_priority: bool) -> Self {
+		if has_priority {
+			Self::Priority
+		} else {
+			Self::Normal
+		}
+	}
+}
+
 pub struct TaskWorkState<E: RunError> {
 	pub(crate) task: Box<dyn Task<E>>,
 	pub(crate) worktable: Arc<TaskWorktable>,
@@ -722,8 +772,17 @@ pub struct TaskWorkState<E: RunError> {
 
 impl<E: RunError> TaskWorkState<E> {
 	#[inline]
-	pub fn task_id(&self) -> TaskId {
+	pub fn id(&self) -> TaskId {
 		self.task.id()
+	}
+
+	#[inline]
+	pub fn kind(&self) -> PendingTaskKind {
+		PendingTaskKind::with_priority(self.task.with_priority())
+	}
+
+	pub fn worker_id(&self) -> WorkerId {
+		self.worktable.current_worker_id.load(Ordering::Relaxed)
 	}
 
 	#[inline]
@@ -768,9 +827,8 @@ impl<E: RunError> Drop for PanicOnSenderDrop<E> {
 			self.maybe_done_tx.is_none(),
 			"TaskHandle done channel dropped before sending a result"
 		);
-		trace!(
-			"TaskWorkState of task <id='{}'> successfully dropped",
-			self.task_id
+		trace!(task_id = %self.task_id,
+			"TaskWorkState successfully dropped"
 		);
 	}
 }

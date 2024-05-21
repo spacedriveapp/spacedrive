@@ -31,17 +31,11 @@ pub enum SystemMessage {
 		worker_id: WorkerId,
 		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
-	NotifyIdleWorkers {
-		start_from: WorkerId,
-		task_count: usize,
-	},
 	ShutdownRequest(oneshot::Sender<Result<(), SystemError>>),
 }
 
-#[derive(Debug)]
 pub enum WorkerMessage<E: RunError> {
 	NewTask(TaskWorkState<E>),
-	TaskCountRequest(oneshot::Sender<usize>),
 	ResumeTask {
 		task_id: TaskId,
 		ack: oneshot::Sender<Result<(), SystemError>>,
@@ -63,7 +57,6 @@ pub enum WorkerMessage<E: RunError> {
 		ack: oneshot::Sender<bool>,
 		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
 	},
-	WakeUp,
 }
 
 pub struct TaskRunnerOutput<E: RunError> {

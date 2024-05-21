@@ -6,7 +6,7 @@ use std::{
 
 use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, instrument, trace, warn};
 
 use super::{
 	error::{RunError, SystemError},
@@ -53,6 +53,7 @@ impl<E: RunError> WorkerBuilder<E> {
 		)
 	}
 
+	#[instrument(skip(self, system_comm, task_stealer), fields(worker_id = self.id))]
 	pub fn build(self, system_comm: SystemComm, task_stealer: WorkStealer<E>) -> Worker<E> {
 		let Self {
 			id,
@@ -64,7 +65,7 @@ impl<E: RunError> WorkerBuilder<E> {
 			let system_comm = system_comm.clone();
 
 			async move {
-				trace!("Worker <worker_id='{id}'> message processing task starting...");
+				trace!("Worker message processing task starting...");
 				while let Err(e) = spawn(run(
 					id,
 					system_comm.clone(),
@@ -75,18 +76,16 @@ impl<E: RunError> WorkerBuilder<E> {
 				{
 					if e.is_panic() {
 						error!(
-							"Worker <worker_id='{id}'> critically failed and will restart: \
+							"Worker critically failed and will restart: \
 							{e:#?}"
 						);
 					} else {
-						trace!(
-							"Worker <worker_id='{id}'> received shutdown signal and will exit..."
-						);
+						trace!("Worker received shutdown signal and will exit...");
 						break;
 					}
 				}
 
-				info!("Worker <worker_id='{id}'> gracefully shutdown");
+				info!("Worker gracefully shutdown");
 			}
 		});
 
@@ -137,18 +136,6 @@ impl<E: RunError> Worker<E> {
 		}
 	}
 
-	pub async fn task_count(&self) -> usize {
-		let (tx, rx) = oneshot::channel();
-
-		self.msgs_tx
-			.send(WorkerMessage::TaskCountRequest(tx))
-			.await
-			.expect("Worker channel closed trying to get task count");
-
-		rx.await
-			.expect("Worker channel closed trying to receive task count response")
-	}
-
 	pub async fn resume_task(
 		&self,
 		task_id: TaskId,
@@ -189,6 +176,7 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to force task abortion");
 	}
 
+	#[instrument(skip(self), fields(worker_id = self.id))]
 	pub async fn shutdown(&self) {
 		if let Some(handle) = self
 			.handle
@@ -213,13 +201,6 @@ impl<E: RunError> Worker<E> {
 		} else {
 			warn!("Trying to shutdown a worker that was already shutdown");
 		}
-	}
-
-	pub async fn wake(&self) {
-		self.msgs_tx
-			.send(WorkerMessage::WakeUp)
-			.await
-			.expect("Worker channel closed trying to wake up");
 	}
 }
 
@@ -272,9 +253,10 @@ impl<E: RunError> WorkStealer<E> {
 		}
 	}
 
+	#[instrument(skip(self, stolen_task_tx))]
 	pub async fn steal(
 		&self,
-		worker_id: WorkerId,
+		stealer_worker_id: WorkerId,
 		stolen_task_tx: &chan::Sender<Option<StoleTaskMessage<E>>>,
 	) {
 		let total_workers = self.worker_comms.len();
@@ -285,28 +267,22 @@ impl<E: RunError> WorkStealer<E> {
 			// Cycling over the workers
 			.cycle()
 			// Starting from the next worker id
-			.skip(worker_id)
+			.skip(stealer_worker_id)
 			// Taking the total amount of workers
 			.take(total_workers)
 			// Removing the current worker as we can't steal from ourselves
-			.filter(|worker_comm| worker_comm.worker_id != worker_id)
+			.filter(|worker_comm| worker_comm.worker_id != stealer_worker_id)
 		{
-			trace!(
-				"Trying to steal from worker <worker_id='{}', stealer_id='{worker_id}'>",
-				worker_comm.worker_id
-			);
+			trace!(stolen_worker_id = worker_comm.worker_id, "Trying to steal",);
 
 			if worker_comm.steal_task(stolen_task_tx.clone()).await {
-				trace!(
-					"Worker <worker_id='{}', stealer_id='{worker_id}'> successfully stole a task",
-					worker_comm.worker_id
-				);
+				trace!(stolen_worker_id = worker_comm.worker_id, "Stole a task");
 				return;
 			}
 
 			trace!(
-				"Worker <worker_id='{}', stealer_id='{worker_id}'> has no tasks to steal",
-				worker_comm.worker_id
+				stolen_worker_id = worker_comm.worker_id,
+				"No tasks to steal"
 			);
 		}
 
@@ -315,9 +291,5 @@ impl<E: RunError> WorkStealer<E> {
 			.send(None)
 			.await
 			.expect("Stolen task channel closed");
-	}
-
-	pub fn workers_count(&self) -> usize {
-		self.worker_comms.len()
 	}
 }

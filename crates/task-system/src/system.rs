@@ -15,7 +15,7 @@ use async_channel as chan;
 use futures::StreamExt;
 use futures_concurrency::future::Join;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, trace, warn};
+use tracing::{error, info, instrument, trace, warn};
 
 use super::{
 	error::{RunError, SystemError},
@@ -95,7 +95,7 @@ impl<E: RunError> System<E> {
 			}
 		});
 
-		info!("Task system online with {workers_count} workers!");
+		info!(%workers_count, "Task system online!");
 
 		Self {
 			workers: Arc::clone(&workers),
@@ -146,14 +146,12 @@ impl<E: RunError> System<E> {
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
 				SystemMessage::IdleReport(worker_id) => {
-					trace!("Task system received a worker idle report request: <worker_id='{worker_id}'>");
+					trace!(%worker_id, "Task system received a worker idle report request");
 					idle_workers[worker_id].store(true, Ordering::Relaxed);
 				}
 
 				SystemMessage::WorkingReport(worker_id) => {
-					trace!(
-						"Task system received a working report request: <worker_id='{worker_id}'>"
-					);
+					trace!(%worker_id, "Task system received a working report request");
 					idle_workers[worker_id].store(false, Ordering::Relaxed);
 				}
 
@@ -161,109 +159,25 @@ impl<E: RunError> System<E> {
 					task_id,
 					worker_id,
 					ack,
-				} => {
-					trace!("Task system received a task resume request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					spawn({
-						let workers = Arc::clone(&workers);
-						async move {
-							workers[worker_id].resume_task(task_id, ack).await;
-						}
-					});
-					trace!(
-						"Task system resumed task: <task_id='{task_id}', worker_id='{worker_id}'>"
-					);
-				}
+				} => dispatch_resume_request(&workers, task_id, worker_id, ack),
 
 				SystemMessage::PauseNotRunningTask {
 					task_id,
 					worker_id,
 					ack,
-				} => {
-					trace!("Task system received a task pause request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					spawn({
-						let workers = Arc::clone(&workers);
-						async move {
-							workers[worker_id]
-								.pause_not_running_task(task_id, ack)
-								.await;
-						}
-					});
-					trace!(
-						"Task system paused task: <task_id='{task_id}', worker_id='{worker_id}'>"
-					);
-				}
+				} => dispatch_pause_not_running_task_request(&workers, task_id, worker_id, ack),
 
 				SystemMessage::CancelNotRunningTask {
 					task_id,
 					worker_id,
 					ack,
-				} => {
-					trace!("Task system received a task cancel request: <task_id='{task_id}', worker_id='{worker_id}'>");
-					spawn({
-						let workers = Arc::clone(&workers);
-
-						async move {
-							workers[worker_id]
-								.cancel_not_running_task(task_id, ack)
-								.await;
-						}
-					});
-					trace!(
-						"Task system canceled task: <task_id='{task_id}', worker_id='{worker_id}'>"
-					);
-				}
+				} => dispatch_cancel_not_running_task_request(&workers, task_id, worker_id, ack),
 
 				SystemMessage::ForceAbortion {
 					task_id,
 					worker_id,
 					ack,
-				} => {
-					trace!(
-						"Task system received a task force abortion request: \
-						<task_id='{task_id}', worker_id='{worker_id}'>"
-					);
-					spawn({
-						let workers = Arc::clone(&workers);
-
-						async move {
-							workers[worker_id].force_task_abortion(task_id, ack).await;
-						}
-					});
-					trace!(
-						"Task system aborted task: <task_id='{task_id}', worker_id='{worker_id}'>"
-					);
-				}
-
-				SystemMessage::NotifyIdleWorkers {
-					start_from,
-					task_count,
-				} => {
-					trace!(
-						"Task system received a request to notify idle workers: \
-						<start_from='{start_from}', task_count='{task_count}'>"
-					);
-
-					spawn({
-						let workers = Arc::clone(&workers);
-						let idle_workers = Arc::clone(&idle_workers);
-
-						async move {
-							for idx in (0..workers.len())
-								.cycle()
-								.skip(start_from)
-								.take(usize::min(task_count, workers.len()))
-							{
-								if idle_workers[idx].load(Ordering::Relaxed) {
-									trace!("Task system sending wake up request: <worker_index='{idx}'>");
-									workers[idx].wake().await;
-									trace!("Task system waked up worker: <worker_index='{idx}'>");
-									// we don't mark the worker as not idle because we wait for it to
-									// successfully steal a task and then report it back as active
-								}
-							}
-						}
-					});
-				}
+				} => dispatch_force_abortion_task_request(&workers, task_id, worker_id, ack),
 
 				SystemMessage::ShutdownRequest(tx) => {
 					trace!("Task system received a shutdown request");
@@ -310,12 +224,84 @@ impl<E: RunError> System<E> {
 			}
 
 			if let Err(e) = handle.await {
-				error!("Task system failed to shutdown on handle await: {e:#?}");
+				error!(?e, "Task system failed to shutdown on handle await");
 			}
 		} else {
 			warn!("Trying to shutdown the tasks system that was already shutdown");
 		}
 	}
+}
+
+#[instrument(skip(workers, ack))]
+fn dispatch_resume_request<E: RunError>(
+	workers: &Arc<Vec<Worker<E>>>,
+	task_id: TaskId,
+	worker_id: WorkerId,
+	ack: oneshot::Sender<Result<(), SystemError>>,
+) {
+	trace!("Task system received a task resume request");
+	spawn({
+		let workers = Arc::clone(workers);
+		async move {
+			workers[worker_id].resume_task(task_id, ack).await;
+		}
+	});
+	trace!("Task system resumed task");
+}
+
+#[instrument(skip(workers, ack))]
+fn dispatch_pause_not_running_task_request<E: RunError>(
+	workers: &Arc<Vec<Worker<E>>>,
+	task_id: TaskId,
+	worker_id: WorkerId,
+	ack: oneshot::Sender<Result<(), SystemError>>,
+) {
+	trace!("Task system received a task pause request");
+	spawn({
+		let workers = Arc::clone(workers);
+		async move {
+			workers[worker_id]
+				.pause_not_running_task(task_id, ack)
+				.await;
+		}
+	});
+	trace!("Task system paused task");
+}
+
+#[instrument(skip(workers, ack))]
+fn dispatch_cancel_not_running_task_request<E: RunError>(
+	workers: &Arc<Vec<Worker<E>>>,
+	task_id: TaskId,
+	worker_id: WorkerId,
+	ack: oneshot::Sender<()>,
+) {
+	trace!("Task system received a task cancel request");
+	spawn({
+		let workers = Arc::clone(workers);
+		async move {
+			workers[worker_id]
+				.cancel_not_running_task(task_id, ack)
+				.await;
+		}
+	});
+	trace!("Task system canceled task");
+}
+
+#[instrument(skip(workers, ack))]
+fn dispatch_force_abortion_task_request<E: RunError>(
+	workers: &Arc<Vec<Worker<E>>>,
+	task_id: TaskId,
+	worker_id: WorkerId,
+	ack: oneshot::Sender<Result<(), SystemError>>,
+) {
+	trace!("Task system received a task force abortion request");
+	spawn({
+		let workers = Arc::clone(workers);
+		async move {
+			workers[worker_id].force_task_abortion(task_id, ack).await;
+		}
+	});
+	trace!("Task system aborted task");
 }
 
 /// The default implementation of the task system will create a system with a number of workers equal to the available
@@ -335,104 +321,103 @@ unsafe impl<E: RunError> Sync for System<E> {}
 pub struct SystemComm(chan::Sender<SystemMessage>);
 
 impl SystemComm {
-	pub async fn idle_report(&self, worker_id: usize) {
-		self.0
-			.send(SystemMessage::IdleReport(worker_id))
-			.await
-			.expect("System channel closed trying to report idle");
+	pub fn idle_report(&self, worker_id: usize) {
+		let system_tx = self.0.clone();
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::IdleReport(worker_id))
+				.await
+				.expect("System channel closed trying to report idle");
+		});
 	}
 
-	pub async fn working_report(&self, worker_id: usize) {
-		self.0
-			.send(SystemMessage::WorkingReport(worker_id))
-			.await
-			.expect("System channel closed trying to report working");
+	pub fn working_report(&self, worker_id: usize) {
+		let system_tx = self.0.clone();
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::WorkingReport(worker_id))
+				.await
+				.expect("System channel closed trying to report working");
+		});
 	}
 
-	pub async fn pause_not_running_task(
+	pub fn pause_not_running_task(
 		&self,
 		task_id: TaskId,
 		worker_id: WorkerId,
-	) -> Result<(), SystemError> {
-		let (tx, rx) = oneshot::channel();
-
-		self.0
-			.send(SystemMessage::PauseNotRunningTask {
-				task_id,
-				worker_id,
-				ack: tx,
-			})
-			.await
-			.expect("System channel closed trying to pause not running task");
-
-		rx.await
-			.expect("System channel closed trying receive pause not running task response")
+		res_tx: oneshot::Sender<Result<(), SystemError>>,
+	) {
+		let system_tx = self.0.clone();
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::PauseNotRunningTask {
+					task_id,
+					worker_id,
+					ack: res_tx,
+				})
+				.await
+				.expect("System channel closed trying to pause not running task");
+		});
 	}
 
-	pub async fn cancel_not_running_task(&self, task_id: TaskId, worker_id: WorkerId) {
-		let (tx, rx) = oneshot::channel();
-
-		self.0
-			.send(SystemMessage::CancelNotRunningTask {
-				task_id,
-				worker_id,
-				ack: tx,
-			})
-			.await
-			.expect("System channel closed trying to cancel a not running task");
-
-		rx.await
-			.expect("System channel closed trying receive cancel a not running task response");
-	}
-
-	pub async fn request_help(&self, worker_id: WorkerId, task_count: usize) {
-		self.0
-			.send(SystemMessage::NotifyIdleWorkers {
-				start_from: worker_id,
-				task_count,
-			})
-			.await
-			.expect("System channel closed trying to request help");
-	}
-
-	pub async fn resume_task(
+	pub fn cancel_not_running_task(
 		&self,
 		task_id: TaskId,
 		worker_id: WorkerId,
-	) -> Result<(), SystemError> {
-		let (tx, rx) = oneshot::channel();
+		res_tx: oneshot::Sender<()>,
+	) {
+		let system_tx = self.0.clone();
 
-		self.0
-			.send(SystemMessage::ResumeTask {
-				task_id,
-				worker_id,
-				ack: tx,
-			})
-			.await
-			.expect("System channel closed trying to resume task");
-
-		rx.await
-			.expect("System channel closed trying receive resume task response")
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::CancelNotRunningTask {
+					task_id,
+					worker_id,
+					ack: res_tx,
+				})
+				.await
+				.expect("System channel closed trying to cancel a not running task");
+		});
 	}
 
-	pub async fn force_abortion(
+	pub fn resume_task(
 		&self,
 		task_id: TaskId,
 		worker_id: WorkerId,
-	) -> Result<(), SystemError> {
-		let (tx, rx) = oneshot::channel();
+		res_tx: oneshot::Sender<Result<(), SystemError>>,
+	) {
+		let system_tx = self.0.clone();
 
-		self.0
-			.send(SystemMessage::ForceAbortion {
-				task_id,
-				worker_id,
-				ack: tx,
-			})
-			.await
-			.expect("System channel closed trying to resume task");
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::ResumeTask {
+					task_id,
+					worker_id,
+					ack: res_tx,
+				})
+				.await
+				.expect("System channel closed trying to resume task");
+		});
+	}
 
-		rx.await
-			.expect("System channel closed trying receive resume task response")
+	pub fn force_abortion(
+		&self,
+		task_id: TaskId,
+		worker_id: WorkerId,
+		res_tx: oneshot::Sender<Result<(), SystemError>>,
+	) {
+		let system_tx = self.0.clone();
+
+		spawn(async move {
+			system_tx
+				.send(SystemMessage::ForceAbortion {
+					task_id,
+					worker_id,
+					ack: res_tx,
+				})
+				.await
+				.expect("System channel closed trying to resume task");
+		});
 	}
 }
 
@@ -503,10 +488,8 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");
 
-		trace!(
-			"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
-			task.id()
-		);
+		trace!(%worker_id, task_id = %task.id(), "Dispatching task to worker");
+
 		let handle = self.workers[worker_id].add_task(task).await;
 
 		self.idle_workers[worker_id].store(false, Ordering::Relaxed);
@@ -518,20 +501,10 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 		&self,
 		into_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
 	) -> Vec<TaskHandle<E>> {
-		let mut workers_task_count = self
-			.workers
-			.iter()
-			.map(|worker| async move { (worker.id, worker.task_count().await) })
-			.collect::<Vec<_>>()
-			.join()
-			.await;
-
-		workers_task_count.sort_by_key(|(_id, count)| *count);
-
 		let (handles, workers_ids_set) = into_tasks
 			.into_iter()
-			.zip(workers_task_count.into_iter().cycle())
-			.map(|(task, (worker_id, _))| async move {
+			.zip((0..self.workers.len()).cycle())
+			.map(|(task, worker_id)| async move {
 				(self.workers[worker_id].add_task(task).await, worker_id)
 			})
 			.collect::<Vec<_>>()
