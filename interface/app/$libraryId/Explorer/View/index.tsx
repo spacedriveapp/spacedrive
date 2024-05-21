@@ -172,7 +172,10 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 const useExplorerShortcuts = () => {
 	const explorer = useExplorerContext();
-	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
+	const [isRenaming, tagAssignMode] = useSelector(explorerStore, (s) => [
+		s.isRenaming,
+		s.tagAssignMode
+	]);
 	const quickPreviewStore = useQuickPreviewStore();
 
 	const meta = useKeyMatcher('Meta');
@@ -184,6 +187,10 @@ const useExplorerShortcuts = () => {
 	useShortcut('cutObject', cut);
 	useShortcut('duplicateObject', duplicate);
 	useShortcut('pasteObject', paste);
+
+	useShortcut('toggleTagAssignMode', (e) => {
+		explorerStore.tagAssignMode = !tagAssignMode;
+	});
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;

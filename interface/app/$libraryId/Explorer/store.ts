@@ -136,6 +136,7 @@ type DragState =
 
 const state = {
 	tagAssignMode: false,
+	awaitingTagAssignKeypress: false,
 	showInspector: false,
 	showMoreInfo: false,
 	newLocationToRedirect: null as null | number,

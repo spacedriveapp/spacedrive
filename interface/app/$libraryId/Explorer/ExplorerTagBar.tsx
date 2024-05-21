@@ -1,62 +1,94 @@
-import { CaretRight } from '@phosphor-icons/react';
+import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { createSearchParams } from 'react-router-dom';
-import {
-	getExplorerItemData,
-	getIndexedItemFilePath,
-	useLibraryQuery,
-	useSelector
-} from '@sd/client';
-import { Icon } from '~/components';
+import { KeyboardEventHandler } from 'react';
+import { Tag, useCache, useLibraryQuery, useNodes, useSelector } from '@sd/client';
+import { Shortcut, toast } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
+import { keybindForOs } from '~/util/keybinds';
 
-import { useExplorerContext } from './Context';
-import { FileThumb } from './FilePath/Thumb';
 import { explorerStore } from './store';
-import { useExplorerDroppable } from './useExplorerDroppable';
-import { useExplorerSearchParams } from './util';
 
-export const PATH_BAR_HEIGHT = 32;
+export const TAG_BAR_HEIGHT = 64;
 
-export const ExplorerTagBar = memo(() => {
-	const [isTagAssignModeActive] = useSelector(explorerStore, (s) => [s.tagAssignMode]);
+// Capture the next keypress in the window.
+// "greedy" because we entirely cancel the keypress and intercept it for our own purposes.
+// TODO: remove if tag assign mode changes as well and reflect that in ui.
+
+function captureTagAssignKeyPress(handler: KeyboardEventHandler): void {
+	toast.info('Capturing keyup...');
+
+	function handleKeyPress(event: KeyboardEvent) {
+		// toast.success('Captured: ' + event.key);
+		window.removeEventListener('keypress', handleKeyPress);
+
+		event.preventDefault();
+		event.stopPropagation();
+	}
+
+	window.addEventListener('keypress', handleKeyPress);
+}
+
+export const ExplorerTagBar = () => {
+	const [isTagAssignModeActive, awaitingKeyPress] = useSelector(explorerStore, (s) => [
+		s.tagAssignMode,
+		s.awaitingTagAssignKeypress
+	]);
+
+	const allTagsQuery = useLibraryQuery(['tags.list']);
+
+	useNodes(allTagsQuery.data?.nodes);
+	const tagData = useCache(allTagsQuery.data?.items);
+
+	const availableTags = tagData;
 
 	return (
 		<div
-			className="flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-ink-dull backdrop-blur-lg"
-			style={{ height: PATH_BAR_HEIGHT }}
+			className={clsx(
+				'flex flex-col-reverse items-start border-t border-t-app-line bg-app/90 px-3.5 text-ink-dull backdrop-blur-lg ',
+				`h-[${TAG_BAR_HEIGHT}px]`
+			)}
 		>
-			{/* {paths.map((path) => (
-				<Path
-					key={path.pathname}
-					path={path}
-					onClick={() => handleOnClick(path)}
-					disabled={path.pathname === (searchPath ?? (location && '/'))}
-				/>
-			))} */}
+			{/* not final ui/copy, want to give some kind of on-demand help for tag assign mode. */}
+			<em className={clsx('line-clamp-1 text-sm tracking-wide')}>
+				{JSON.stringify(availableTags)}
+			</em>
 
-			{/* {selectedItem && (!queryPath || filePathname) && (
-				<div className="ml-1 flex items-center gap-1">
-					<FileThumb data={selectedItem} size={16} frame frameClassName="!border" />
-					<span className="max-w-xs truncate">
-						{getExplorerItemData(selectedItem).fullName}
-					</span>
-				</div>
-			)} */}
+			<ul className={clsx('flex list-none flex-row gap-2')}>
+				{availableTags.map((tag, i) => {
+					console.log(++i);
+
+					return (
+						<li key={tag.id}>
+							<TagItem
+								tag={tag}
+								assignKey={(++i).toString()}
+								onClick={() => {
+									// greedyCaptureNextKeyPress()
+									// 	.then()
+									// 	.catch((e) => {
+									// 		toast.error('Failed to capture keypress', e);
+									// 	});
+								}}
+							/>
+						</li>
+					);
+				})}
+			</ul>
 		</div>
 	);
-});
+};
 
 interface TagItemProps {
-	tag: { tagId: number; name: string; pathname: string };
+	tag: Tag;
+	assignKey: string;
 	onClick: () => void;
-	disabled: boolean;
 }
 
-const TagItem = ({ tag, onClick, disabled }: TagItemProps) => {
+const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
 	const isDark = useIsDark();
+
+	const os = useOperatingSystem(true);
+	const keybind = keybindForOs(os);
 
 	// const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 	// 	data: {
@@ -74,18 +106,15 @@ const TagItem = ({ tag, onClick, disabled }: TagItemProps) => {
 		<button
 			// ref={setDroppableRef}
 			className={clsx(
-				'group flex items-center gap-1 rounded px-1 py-0.5',
-				// isDroppable && [isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'],
-				!disabled && [isDark ? 'hover:bg-app-button/70' : 'hover:bg-app-darkerBox']
-				// className
+				'group flex items-center gap-1 rounded-lg border border-gray-500 bg-gray-500 px-1 py-0.5'
 			)}
-			disabled={disabled}
 			onClick={onClick}
 			tabIndex={-1}
 		>
-			<Icon name="Folder" size={16} alt="Folder" />
+			<Circle fill={tag.color ?? 'grey'} weight="fill" alt="" className="size-3" />
 			<span className="max-w-xs truncate text-ink-dull">{tag.name}</span>
-			<CaretRight weight="bold" className="text-ink-dull group-last:hidden" size={10} />
+
+			<Shortcut chars={keybind([], [assignKey])} />
 		</button>
 	);
 };
