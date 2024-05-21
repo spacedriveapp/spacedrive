@@ -150,7 +150,7 @@ export const useExplorerDroppable = ({
 							z.ZodLiteral<ExplorerItemType>,
 							...z.ZodLiteral<ExplorerItemType>[]
 						]
-				  )
+					)
 				: z.literal(allowedType)
 		});
 

@@ -83,3 +83,6 @@ spacedrive
 .github/scripts/deps
 .vite-inspect
 vite.config.ts.*
+
+/test-data
+/config.json

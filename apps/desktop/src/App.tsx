@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CacheProvider, createCache, RspcProvider } from '@sd/client';
+import { RspcProvider } from '@sd/client';
 import {
 	createRoutes,
 	ErrorPage,
@@ -56,16 +56,14 @@ export default function App() {
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<QueryClientProvider client={queryClient}>
-				<CacheProvider cache={cache}>
-					{startupError ? (
-						<ErrorPage
-							message={startupError}
-							submessage="Error occurred starting up the Spacedrive core"
-						/>
-					) : (
-						<AppInner />
-					)}
-				</CacheProvider>
+				{startupError ? (
+					<ErrorPage
+						message={startupError}
+						submessage="Error occurred starting up the Spacedrive core"
+					/>
+				) : (
+					<AppInner />
+				)}
 			</QueryClientProvider>
 		</RspcProvider>
 	);
@@ -74,9 +72,9 @@ export default function App() {
 // we have a minimum delay between creating new tabs as react router can't handle creating tabs super fast
 const TAB_CREATE_DELAY = 150;
 
-const cache = createCache();
+const routes = createRoutes(platform);
 
-const routes = createRoutes(platform, cache);
+type redirect = { pathname: string; search: string | undefined };
 
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
@@ -84,11 +82,19 @@ function AppInner() {
 
 	const selectedTab = tabs[selectedTabIndex]!;
 
-	function createTab() {
+	function createTab(redirect?: redirect) {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
 
 		const id = Math.random().toString();
+
+		// for "Open in new tab"
+		if (redirect) {
+			router.navigate({
+				pathname: redirect.pathname,
+				search: redirect.search
+			});
+		}
 
 		const dispose = router.subscribe((event) => {
 			// we don't care about non-idle events as those are artifacts of form mutations + suspense
@@ -165,13 +171,13 @@ function AppInner() {
 					tabIndex: selectedTabIndex,
 					setTabIndex: setSelectedTabIndex,
 					tabs: tabs.map(({ router, title }) => ({ router, title })),
-					createTab() {
+					createTab(redirect?: redirect) {
 						createTabPromise.current = createTabPromise.current.then(
 							() =>
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const newTab = createTab();
+											const newTab = createTab(redirect);
 											const newTabs = [...tabs, newTab];
 
 											setSelectedTabIndex(newTabs.length - 1);

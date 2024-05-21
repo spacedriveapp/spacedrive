@@ -1,0 +1,30 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "Capability for the main window",
+	"windows": ["main"],
+	"permissions": [
+		"app:default",
+		"event:default",
+		"image:default",
+		"menu:default",
+		"path:default",
+		"resources:default",
+		"window:default",
+		"tray:default",
+		"webview:default",
+		"window:default",
+		"shell:allow-open",
+		"dialog:allow-open",
+		"dialog:allow-save",
+		"dialog:allow-confirm",
+		"os:allow-os-type",
+		"window:allow-close",
+		"window:allow-create",
+		"window:allow-maximize",
+		"window:allow-minimize",
+		"window:allow-toggle-maximize",
+		"window:allow-start-dragging",
+		"webview:allow-internal-toggle-devtools"
+	]
+}

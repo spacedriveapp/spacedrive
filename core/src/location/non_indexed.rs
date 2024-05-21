@@ -8,21 +8,27 @@ use crate::{
 	Node,
 };
 
-use futures::Stream;
-use itertools::Either;
+use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
+use sd_core_indexer_rules::{
+	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
+	IndexerRule, RuleKind,
+};
+
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_file_path_helper::{path_is_hidden, MetadataExt};
 use sd_prisma::prisma::location;
 use sd_utils::{chain_optional_iter, error::FileIOError};
 
 use std::{
 	collections::HashMap,
 	io::ErrorKind,
+	ops::Deref,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
+use futures::Stream;
+use itertools::Either;
 use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;
@@ -31,13 +37,7 @@ use tokio::{io, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{error, span, warn, Level};
 
-use super::{
-	indexer::rules::{
-		seed::{no_hidden, no_os_protected},
-		IndexerRule, RuleKind,
-	},
-	normalize_path,
-};
+use super::normalize_path;
 
 #[derive(Debug, Error)]
 pub enum NonIndexedLocationError {
@@ -124,8 +124,8 @@ pub async fn walk(
 	let task = tokio::spawn(async move {
 		let path = &path;
 		let rules = chain_optional_iter(
-			[IndexerRule::from(no_os_protected())],
-			[(!with_hidden_files).then(|| IndexerRule::from(no_hidden()))],
+			[IndexerRule::from(NO_SYSTEM_FILES.deref())],
+			[(!with_hidden_files).then(|| IndexerRule::from(NO_HIDDEN.deref()))],
 		);
 
 		let mut thumbnails_to_generate = vec![];
@@ -199,7 +199,7 @@ pub async fn walk(
 					}
 				};
 
-				let thumbnail_key = if should_generate_thumbnail {
+				let (thumbnail_key, has_created_thumbnail) = if should_generate_thumbnail {
 					if let Ok(cas_id) =
 						generate_cas_id(&path, entry.metadata.len())
 							.await
@@ -222,12 +222,17 @@ pub async fn walk(
 							));
 						}
 
-						Some(get_ephemeral_thumb_key(&cas_id))
+						(
+							Some(get_ephemeral_thumb_key(&cas_id)),
+							node.ephemeral_thumbnail_exists(&cas_id)
+								.await
+								.map_err(NonIndexedLocationError::from)?,
+						)
 					} else {
-						None
+						(None, false)
 					}
 				} else {
-					None
+					(None, false)
 				};
 
 				tx.send(Ok(ExplorerItem::NonIndexedPath {
@@ -243,6 +248,7 @@ pub async fn walk(
 						date_modified: entry.metadata.modified_or_now().into(),
 						size_in_bytes_bytes: entry.metadata.len().to_be_bytes().to_vec(),
 					},
+					has_created_thumbnail,
 				}))
 				.await?;
 			}
@@ -296,6 +302,7 @@ pub async fn walk(
 						date_modified: metadata.modified_or_now().into(),
 						size_in_bytes_bytes: metadata.len().to_be_bytes().to_vec(),
 					},
+					has_created_thumbnail: false,
 				}))
 				.await?;
 			}

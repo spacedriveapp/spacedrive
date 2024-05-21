@@ -11,7 +11,7 @@ export const Component = () => {
 		<div className="w-full bg-app/80">
 			<div
 				role="alert"
-				className="flex h-full w-full flex-col items-center justify-center rounded-lg p-4"
+				className="flex size-full flex-col items-center justify-center rounded-lg p-4"
 			>
 				<p className="m-3 text-sm font-semibold uppercase text-ink-faint">Error: 404</p>
 				<h1 className="text-4xl font-bold">There's nothing here.</h1>

@@ -3,29 +3,41 @@ import { getIcon, iconNames } from '@sd/assets/util';
 import { useMemo } from 'react';
 import {
 	FilePathOrder,
+	filePathOrderingKeysSchema,
 	SearchFilterArgs,
-	useCache,
+	SearchTarget,
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
 import { Button } from '@sd/ui';
 import { SearchIdParamsSchema } from '~/app/route-schemas';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useRouteTitle, useZodParams } from '~/hooks';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { usePathsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, filePathOrderingKeysSchema } from '../Explorer/store';
+import { createDefaultExplorerSettings, explorerStore } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch, useSearchContext } from '../search';
+import {
+	SearchContextProvider,
+	SearchOptions,
+	useMemorySource,
+	useSearch,
+	useSearchContext
+} from '../search';
 import SearchBar from '../search/SearchBar';
+import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export const Component = () => {
-	const { id } = useZodRouteParams(SearchIdParamsSchema);
+	const { id } = useZodParams(SearchIdParamsSchema);
 
+	// This forces the search to throw away all data + modified search state when id changes
+	return <Inner key={id} id={id} />;
+};
+
+function Inner({ id }: { id: number }) {
 	const savedSearch = useLibraryQuery(['search.saved.get', id], {
 		suspense: true
 	});
@@ -43,24 +55,30 @@ export const Component = () => {
 
 	const rawFilters = savedSearch.data?.filters;
 
-	const dynamicFilters = useMemo(() => {
+	const filters = useMemo(() => {
 		if (rawFilters) return JSON.parse(rawFilters) as SearchFilterArgs[];
 	}, [rawFilters]);
 
 	const search = useSearch({
-		open: true,
-		search: savedSearch.data?.search ?? undefined,
-		dynamicFilters
+		source: useMemorySource({
+			initialFilters: filters ?? [],
+			initialSearch: savedSearch.data?.search ?? '',
+			initialTarget: (savedSearch.data?.target as SearchTarget) ?? undefined
+		})
 	});
 
-	const paths = usePathsExplorerQuery({
-		arg: { filters: search.allFilters, take: 50 },
-		explorerSettings
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters,
+		take: 50,
+		paths: { order: explorerSettings.useSettingsSnapshot().order },
+		onSuccess: () => explorerStore.resetCache()
 	});
 
 	const explorer = useExplorer({
-		...paths,
-		isFetchingNextPage: paths.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
 
@@ -81,7 +99,7 @@ export const Component = () => {
 				>
 					<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 					<SearchOptions>
-						{(search.dynamicFilters !== dynamicFilters ||
+						{(search.filters !== filters ||
 							search.search !== savedSearch.data?.search) && (
 							<SaveButton searchId={id} />
 						)}
@@ -92,7 +110,7 @@ export const Component = () => {
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
-						icon={<img className="h-32 w-32" src={getIcon(iconNames.FolderNoSpace)} />}
+						icon={<img className="size-32" src={getIcon(iconNames.FolderNoSpace)} />}
 						message={
 							search.search
 								? `No results found for "${search.search}"`
@@ -103,7 +121,7 @@ export const Component = () => {
 			/>
 		</ExplorerContextProvider>
 	);
-};
+}
 
 function SaveButton({ searchId }: { searchId: number }) {
 	const updateSavedSearch = useLibraryMutation(['search.saved.update']);
@@ -119,7 +137,7 @@ function SaveButton({ searchId }: { searchId: number }) {
 				updateSavedSearch.mutate([
 					searchId,
 					{
-						filters: JSON.stringify(search.dynamicFilters),
+						filters: JSON.stringify(search.filters),
 						search: search.search
 					}
 				]);

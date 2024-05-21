@@ -4,19 +4,17 @@ index: 4
 
 # Locations
 
-Locations are places Spacedrive looks for files. You can add Locations from any device to your Library, they will be scanned and monitored for filesystem changes.
+Locations are places Spacedrive looks for files. You can add Locations from any device to your Library and they will be scanned and monitored for filesystem changes.
 
 ![Spacedrive Locations from the Settings view](/locations.webp)
 
-Locations can be managed from the settings. The "online" indicator shows if that Location is currently accessible from one of your devices.
+Locations can be managed from the settings. The "connected" indicator shows if that Location is currently accessible from one of your devices.
 
-Spacedrive allows you to browse your local system before creating a Location, but it may take longer to load explorer data without the indexing process of Locations.
-
-You can convert any local path to a Location when browsing your local filesystem.
+Spacedrive allows you to browse your local filesystem before creating a Location via the [Local Explorer](/docs/product/guides/interface#Local%20Explorer), but it may take longer to load Explorer data without the indexing process of Locations. You can convert any local path to a Location when browsing your local filesystem from the top bar or the context menu.
 
 ## Scanning
 
-When a Location is added it is immediately scanned. The scan happens via several phases.
+When a Location is added it is immediately scanned. The scan happens in several phases as [Jobs](/docs/product/guides/jobs).
 
 1. The [Indexer](): directory structure is indexed and saved to your library's database.
 2. The [Identifier](): metadata is extracted and unique identifiers generated.
@@ -26,16 +24,20 @@ If any one of these jobs fail or the application is closed, the state is saved a
 
 <Notice
 	type="info"
-	text="If you wish to pause or cancel these jobs you can do so from the [Job Manager]()"
+	text="If you wish to pause or cancel these jobs you can do so from the [Job Manager](/docs/product/guides/jobs#Job%20Manager)"
 />
 
-There is a button to trigger a full re-scan of this Location. Otherwise the location will keep watch for filesystem changes automatically.
+There is a button to trigger a full re-scan of this Location. Otherwise, the location will keep watch for filesystem changes automatically.
 
-Deleting a location will remove the data from the database permanently.
+Deleting a location will remove the data from the database permanently. If you wish to keep the data but not have it in your library, you can [archive](#Archiving) the location.
 
 ## Archiving
 
-<Notice type="warning" text="This feature is WIP" />
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
 
 Locations can be archived, meaning the directory structure is extracted from the Spacedrive database
 and preserved as a standalone database file. This file can be opened by Spacedrive in the [Database]()
@@ -45,8 +47,21 @@ Archives are useful when files have been moved or deleted from a Location, but y
 
 ## Dynamic Space
 
-A slider in the Location settings allows you to allocate an amount of GB to use as redundancy for other Locations. The storage space will be filled and emptied dynamically, recent and important files will be copied as priority.
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
 
-## Encrypted Space
+A slider in the Location settings allows you to allocate an amount of GB to use as redundancy for other Locations. The storage space will be filled and emptied dynamically, with priority given to recent and important files being copied.
 
-Allocate a portion of this location to be encrypted
+## Size Limit
+
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
+A Location can be set to have a size limit, which will prevent the Location from growing beyond the set
+limit. Files will be removed from the Location based on the last accessed time, with oldest files being
+removed first.

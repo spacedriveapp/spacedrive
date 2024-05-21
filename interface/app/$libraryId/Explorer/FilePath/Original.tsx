@@ -17,7 +17,7 @@ import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { explorerStore } from '../store';
-import { ExplorerItemData } from '../util';
+import { ExplorerItemData } from '../useExplorerItemData';
 import { Image } from './Image';
 import { useBlackBars, useSize } from './utils';
 
@@ -29,6 +29,7 @@ interface OriginalRendererProps {
 	isDark: boolean;
 	childClassName?: string;
 	size?: number;
+	magnification?: number;
 	mediaControls?: boolean;
 	frame?: boolean;
 	isSidebarPreview?: boolean;
@@ -82,7 +83,7 @@ const TEXT_RENDERER: OriginalRenderer = (props) => (
 		onLoad={props.onLoad}
 		onError={props.onError}
 		className={clsx(
-			'textviewer-scroll h-full w-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
+			'textviewer-scroll size-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
 			!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
 			props.className,
 			props.frame && [props.frameClassName, '!bg-none p-2']
@@ -112,7 +113,7 @@ const ORIGINAL_RENDERERS: {
 			src={props.src}
 			onLoad={props.onLoad}
 			onError={props.onError}
-			className={clsx('h-full w-full', props.className, props.frame && props.frameClassName)}
+			className={clsx('size-full', props.className, props.frame && props.frameClassName)}
 			crossOrigin="anonymous" // Here it is ok, because it is not a react attr
 		/>
 	),
@@ -163,16 +164,23 @@ const ORIGINAL_RENDERERS: {
 		const size = useSize(ref);
 
 		return (
-			<Image
-				ref={ref}
-				src={props.src}
-				size={size}
-				onLoad={props.onLoad}
-				onError={props.onError}
-				decoding={props.size ? 'async' : 'sync'}
-				className={clsx(props.className, props.frameClassName)}
-				crossOrigin="anonymous" // Here it is ok, because it is not a react attr
-			/>
+			<div className="custom-scroll quick-preview-images-scroll flex size-full justify-center transition-all">
+				<Image
+					ref={ref}
+					src={props.src}
+					size={size}
+					style={{ transform: `scale(${props.magnification})` }}
+					onLoad={props.onLoad}
+					onError={props.onError}
+					decoding={props.size ? 'async' : 'sync'}
+					className={clsx(
+						props.className,
+						props.frameClassName,
+						'origin-center transition-transform'
+					)}
+					crossOrigin="anonymous" // Here it is ok, because it is not a react attr
+				/>
+			</div>
 		);
 	}
 };
@@ -184,10 +192,16 @@ interface VideoProps extends VideoHTMLAttributes<HTMLVideoElement> {
 }
 
 const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoProps) => {
-	const ref = useRef<HTMLVideoElement>(null);
-	const size = useSize(ref);
-	const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
 	const { t } = useLocale();
+
+	const ref = useRef<HTMLVideoElement>(null);
+
+	const size = useSize(ref);
+
+	const { style: blackBarsStyle } = useBlackBars(ref, size, {
+		size: blackBarsSize,
+		disabled: !blackBars
+	});
 
 	useEffect(() => {
 		if (!ref.current) return;
@@ -214,7 +228,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			}}
 			playsInline
 			draggable={false}
-			style={{ ...(blackBars ? blackBarsStyle : {}) }}
+			style={{ ...blackBarsStyle }}
 			className={clsx(blackBars && size.width === 0 && 'invisible', className)}
 			{...props}
 			key={props.src}

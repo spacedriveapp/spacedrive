@@ -65,7 +65,7 @@ pub(super) async fn run<E: RunError>(
 
 			StreamMessage::Commands(WorkerMessage::CancelNotRunningTask { task_id, ack }) => {
 				runner.cancel_not_running_task(task_id);
-				if ack.send(Ok(())).is_err() {
+				if ack.send(()).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
 			}

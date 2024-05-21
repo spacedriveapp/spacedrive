@@ -20,8 +20,8 @@ export const ProgressBar = memo((props: ProgressBarProps) => {
 	const percentage = props.pending
 		? 0
 		: 'percent' in props
-		? props.percent
-		: Math.round((props.value / props.total) * 100);
+			? props.percent
+			: Math.round((props.value / props.total) * 100);
 
 	if (props.pending) {
 		return (

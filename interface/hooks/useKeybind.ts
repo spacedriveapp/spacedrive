@@ -23,8 +23,8 @@ export const useKeybind = (
 		typeof options === 'object' && 'repeatable' in options
 			? options.repeatable
 			: typeof dependencies === 'object' && 'repeatable' in dependencies
-			? dependencies.repeatable
-			: false;
+				? dependencies.repeatable
+				: false;
 
 	return useHotkeys(
 		keyCombination,

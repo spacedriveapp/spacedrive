@@ -32,7 +32,7 @@ export const Item = ({ children, ...props }: ItemProps) => {
 			<RadioGroup.Item
 				id={'radio' + props.value}
 				className={clsx(
-					'peer relative mr-1 mt-1 h-4 w-4 flex-shrink-0 rounded-full border border-app-line',
+					'peer relative mr-1 mt-1 size-4 flex-shrink-0 rounded-full border border-app-line',
 					'radix-state-checked:bg-accent',
 					'radix-state-unchecked:bg-app-input',
 					'focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800'
@@ -40,7 +40,7 @@ export const Item = ({ children, ...props }: ItemProps) => {
 				{...props}
 			>
 				<RadioGroup.Indicator className="leading-0 absolute inset-0 flex items-center justify-center">
-					<div className="h-1.5 w-1.5 rounded-full bg-white"></div>
+					<div className="size-1.5 rounded-full bg-white"></div>
 				</RadioGroup.Indicator>
 			</RadioGroup.Item>
 			<label className="" htmlFor={'radio' + props.value}>

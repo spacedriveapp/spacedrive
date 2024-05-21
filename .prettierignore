@@ -32,3 +32,6 @@ interface/components/TextViewer/prism-lazy.ts
 
 # Stops from constant package.json changes showing up in commits
 package*.json
+
+# Dont format locales json
+interface/locales

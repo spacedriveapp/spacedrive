@@ -1,5 +1,5 @@
 use crate::{
-	api::{locations::object_with_file_paths, utils::library},
+	api::utils::library,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
@@ -9,25 +9,26 @@ use crate::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::media_data_image_from_prisma_data,
+		media::{exif_media_data_from_prisma_data, ffmpeg_data_from_prisma_data},
 	},
 	old_job::Job,
 };
 
-use sd_cache::{CacheNode, Model, NormalisedResult, Reference};
-use sd_file_ext::kind::ObjectKind;
-use sd_file_path_helper::{
-	file_path_to_isolate, file_path_to_isolate_with_id, FilePathError, IsolatedFilePathData,
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{
+	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+	object_with_media_data,
 };
+
+use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
-use sd_media_metadata::MediaMetadata;
+use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
-use serde_json::json;
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,
@@ -43,10 +44,27 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
 use tracing::{error, warn};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use trash;
 
 use super::{Ctx, R};
 
 const UNTITLED_FOLDER_STR: &str = "Untitled Folder";
+const UNTITLED_FILE_STR: &str = "Untitled";
+const UNTITLED_TEXT_FILE_STR: &str = "Untitled.txt";
+
+#[derive(Type, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum FileCreateContextTypes {
+	Empty,
+	Text,
+}
+
+#[derive(Serialize, Type)]
+pub(crate) enum MediaData {
+	Exif(ExifMetadata),
+	FFmpeg(FFmpegMetadata),
+}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -63,21 +81,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub note: Option<String>,
 				pub date_created: Option<DateTime<FixedOffset>>,
 				pub date_accessed: Option<DateTime<FixedOffset>>,
-				pub file_paths: Vec<Reference<file_path::Data>>,
-			}
-
-			impl Model for ObjectWithFilePaths2 {
-				fn name() -> &'static str {
-					"Object" // is a duplicate because it's the same entity but with a relation
-				}
+				pub file_paths: Vec<object_with_file_paths::file_paths::Data>,
 			}
 
 			impl ObjectWithFilePaths2 {
-				pub fn from_db(
-					nodes: &mut Vec<CacheNode>,
-					item: object_with_file_paths::Data,
-				) -> Reference<Self> {
-					let this = Self {
+				pub fn from_db(item: object_with_file_paths::Data) -> Self {
+					Self {
 						id: item.id,
 						pub_id: item.pub_id,
 						kind: item.kind,
@@ -88,20 +97,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						note: item.note,
 						date_created: item.date_created,
 						date_accessed: item.date_accessed,
-						file_paths: item
-							.file_paths
-							.into_iter()
-							.map(|i| {
-								let id = i.id.to_string();
-								nodes.push(CacheNode::new(id.clone(), i));
-								Reference::new(id)
-							})
-							.collect(),
-					};
-
-					let id = this.id.to_string();
-					nodes.push(CacheNode::new(id.clone(), this));
-					Reference::new(id)
+						file_paths: item.file_paths,
+					}
 				}
 			}
 
@@ -114,13 +111,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(object_with_file_paths::include())
 						.exec()
 						.await?
-						.map(|item| {
-							let mut nodes = Vec::new();
-							NormalisedResult {
-								item: ObjectWithFilePaths2::from_db(&mut nodes, item),
-								nodes,
-							}
-						}))
+						.map(ObjectWithFilePaths2::from_db))
 				})
 		})
 		.procedure("getMediaData", {
@@ -130,17 +121,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.db
 						.object()
 						.find_unique(object::id::equals(args))
-						.select(object::select!({ id kind media_data }))
+						.include(object_with_media_data::include())
 						.exec()
 						.await?
 						.and_then(|obj| {
 							Some(match obj.kind {
-								Some(v) if v == ObjectKind::Image as i32 => {
-									MediaMetadata::Image(Box::new(
-										media_data_image_from_prisma_data(obj.media_data?).ok()?,
+								Some(v) if v == ObjectKind::Image as i32 => MediaData::Exif(
+									exif_media_data_from_prisma_data(obj.exif_data?),
+								),
+								Some(v)
+									if v == ObjectKind::Audio as i32
+										|| v == ObjectKind::Video as i32 =>
+								{
+									MediaData::FFmpeg(ffmpeg_data_from_prisma_data(
+										obj.ffmpeg_data?,
 									))
 								}
-								_ => return None, // TODO(brxken128): audio and video
+								_ => return None, // No media data
 							})
 						})
 						.ok_or_else(|| {
@@ -204,7 +201,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::note::NAME,
-							json!(&args.note),
+							msgpack!(&args.note),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -250,7 +247,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								pub_id: object.pub_id,
 							},
 							object::favorite::NAME,
-							json!(&args.favorite),
+							msgpack!(&args.favorite),
 						),
 						db.object().update(
 							object::id::equals(args.id),
@@ -295,6 +292,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+		.procedure("createFile", {
+			#[derive(Type, Deserialize)]
+			pub struct CreateFileArgs {
+				pub location_id: location::id::Type,
+				pub sub_path: Option<PathBuf>,
+				pub name: Option<String>,
+				pub context: FileCreateContextTypes,
+			}
+			R.with2(library()).mutation(
+				|(_, library),
+				 CreateFileArgs {
+				     location_id,
+				     sub_path,
+				     context,
+				     name,
+				 }: CreateFileArgs| async move {
+					let mut path =
+						get_location_path_from_location_id(&library.db, location_id).await?;
+
+					if let Some(sub_path) = sub_path
+						.as_ref()
+						.and_then(|sub_path| sub_path.strip_prefix("/").ok())
+					{
+						path.push(sub_path);
+					}
+
+					match context {
+						FileCreateContextTypes::Empty => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_FILE_STR))
+						}
+						FileCreateContextTypes::Text => {
+							path.push(name.as_deref().unwrap_or(UNTITLED_TEXT_FILE_STR))
+						}
+					}
+
+					create_file(path, &library).await
+				},
+			)
+		})
 		.procedure("updateAccessTime", {
 			R.with2(library())
 				.mutation(|(_, library), ids: Vec<i32>| async move {
@@ -316,7 +352,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(date_accessed),
+									msgpack!(date_accessed),
 								),
 								d.id,
 							)
@@ -359,7 +395,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								sync.shared_update(
 									prisma_sync::object::SyncId { pub_id: d.pub_id },
 									object::date_accessed::NAME,
-									json!(null),
+									msgpack!(nil),
 								),
 								d.id,
 							)
@@ -458,6 +494,61 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.into())
 								}
 							}
+						}
+						_ => Job::new(args)
+							.spawn(&node, &library)
+							.await
+							.map_err(Into::into),
+					}
+				})
+		})
+		.procedure("moveToTrash", {
+			R.with2(library())
+				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						return Err(rspc::Error::new(
+							ErrorCode::MethodNotSupported,
+							"Moving to trash is not supported on this platform".to_string(),
+						));
+					}
+
+					match args.file_path_ids.len() {
+						0 => Ok(()),
+						1 => {
+							let (maybe_location, maybe_file_path) = library
+								.db
+								._batch((
+									library
+										.db
+										.location()
+										.find_unique(location::id::equals(args.location_id))
+										.select(location::select!({ path })),
+									library
+										.db
+										.file_path()
+										.find_unique(file_path::id::equals(args.file_path_ids[0]))
+										.select(file_path_to_isolate::select()),
+								))
+								.await?;
+
+							let location_path = maybe_location
+								.ok_or(LocationError::IdNotFound(args.location_id))?
+								.path
+								.ok_or(LocationError::MissingPath(args.location_id))?;
+
+							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
+								FilePathError::IdNotFound(args.file_path_ids[0]),
+							))?;
+
+							let full_path = Path::new(&location_path).join(
+								IsolatedFilePathData::try_from(&file_path)
+									.map_err(LocationError::MissingField)?,
+							);
+
+							#[cfg(not(any(target_os = "ios", target_os = "android")))]
+							trash::delete(full_path).unwrap();
+
+							Ok(())
 						}
 						_ => Job::new(args)
 							.spawn(&node, &library)
@@ -599,7 +690,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				})
 		})
-		.procedure("getConvertableImageExtensions", {
+		.procedure("getConvertibleImageExtensions", {
 			R.query(|_, _: ()| async move { Ok(sd_images::all_compatible_extensions()) })
 		})
 		.procedure("eraseFiles", {
@@ -861,6 +952,45 @@ pub(super) async fn create_directory(
 	fs::create_dir(&target_path)
 		.await
 		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create directory")))?;
+
+	invalidate_query!(library, "search.objects");
+	invalidate_query!(library, "search.paths");
+	invalidate_query!(library, "search.ephemeralPaths");
+
+	Ok(target_path
+		.file_name()
+		.expect("Failed to get file name")
+		.to_string_lossy()
+		.to_string())
+}
+
+pub(super) async fn create_file(
+	mut target_path: PathBuf,
+	library: &Library,
+) -> Result<String, rspc::Error> {
+	match fs::metadata(&target_path).await {
+		Ok(metadata) if metadata.is_file() => {
+			target_path = find_available_filename_for_duplicate(&target_path).await?;
+		}
+		Ok(_) => {
+			return Err(FileSystemJobsError::WouldOverwrite(target_path.into_boxed_path()).into())
+		}
+		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+			// Everything is awesome!
+		}
+		Err(e) => {
+			return Err(FileIOError::from((
+				target_path,
+				e,
+				"Failed to access file system and get metadata on file to be created",
+			))
+			.into())
+		}
+	};
+
+	fs::File::create(&target_path)
+		.await
+		.map_err(|e| FileIOError::from((&target_path, e, "Failed to create file")))?;
 
 	invalidate_query!(library, "search.objects");
 	invalidate_query!(library, "search.paths");

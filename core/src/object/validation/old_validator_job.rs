@@ -5,16 +5,18 @@ use crate::{
 	},
 };
 
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_object_validator, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_object_validator;
+
 use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError};
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
 
 use std::{
 	hash::{Hash, Hasher},
@@ -162,7 +164,7 @@ impl StatefulJob for OldObjectValidatorJobInit {
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::integrity_checksum::NAME,
-					json!(&checksum),
+					msgpack!(&checksum),
 				),
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),

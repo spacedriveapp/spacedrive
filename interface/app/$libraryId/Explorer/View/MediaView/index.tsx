@@ -1,9 +1,9 @@
+import { OrderingKey, getOrderingDirection, getOrderingKey } from '@sd/client';
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { getExplorerItemData } from '@sd/client';
+import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
-import { getOrderingDirection, orderingKey } from '../../store';
 import { getItemData, getItemId, uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
 import { DragSelect } from '../Grid/DragSelect';
@@ -11,15 +11,15 @@ import { GridItem } from '../Grid/Item';
 import { useKeySelection } from '../Grid/useKeySelection';
 import { DATE_HEADER_HEIGHT, DateHeader } from './DateHeader';
 import { MediaViewItem } from './Item';
-import { formatDate } from './util';
+import { formatDate, getDate } from './util';
 
-const SORT_BY_DATE_KEYS = [
-	'dateCreated',
-	'dateIndexed',
-	'dateModified',
-	'object.dateAccessed',
-	'object.mediaData.epochTime'
-];
+const SORT_BY_DATE: Partial<Record<OrderingKey, boolean>> = {
+	'dateCreated': true,
+	'dateIndexed': true,
+	'dateModified': true,
+	'object.dateAccessed': true,
+	'object.mediaData.epochTime': true
+};
 
 export const MediaView = () => {
 	const explorer = useExplorerContext();
@@ -28,10 +28,12 @@ export const MediaView = () => {
 
 	const gridRef = useRef<HTMLDivElement>(null);
 
-	const orderBy = explorerSettings.order && orderingKey(explorerSettings.order);
+	const orderBy = explorerSettings.order && getOrderingKey(explorerSettings.order);
 	const orderDirection = explorerSettings.order && getOrderingDirection(explorerSettings.order);
 
-	const isSortingByDate = orderBy && SORT_BY_DATE_KEYS.includes(orderBy);
+	const { dateFormat } = useLocale();
+
+	const isSortingByDate = orderBy && SORT_BY_DATE[orderBy];
 
 	const grid = useGrid({
 		scrollRef: explorer.scrollRef,
@@ -74,6 +76,10 @@ export const MediaView = () => {
 	const date = useMemo(() => {
 		if (!isSortingByDate || !orderBy || !orderDirection) return;
 
+		// Prevent date placeholder from showing when
+		// items are still fetching
+		if (explorer.items === null) return '';
+
 		let firstRowIndex: number | undefined = undefined;
 		let lastRowIndex: number | undefined = undefined;
 
@@ -97,53 +103,38 @@ export const MediaView = () => {
 
 		if (firstRowIndex === undefined || lastRowIndex === undefined) return;
 
-		// Get the index of the last item and exclude any total count indexes
+		let firstItemIndex = firstRowIndex * grid.columnCount;
 		let lastItemIndex = lastRowIndex * grid.columnCount + grid.columnCount;
+
+		// Exclude any total count indexes
 		if (lastItemIndex > grid.options.count - 1) lastItemIndex = grid.options.count - 1;
-
-		const firstExplorerItem = explorer.items?.[firstRowIndex * grid.columnCount];
-		const lastExplorerItem = explorer.items?.[lastItemIndex];
-
-		const firstFilePath = firstExplorerItem && getExplorerItemData(firstExplorerItem);
-		if (!firstFilePath) return;
-
-		const lastFilePath = lastExplorerItem && getExplorerItemData(lastExplorerItem);
-		if (!lastFilePath) return;
 
 		let firstFilePathDate: string | null = null;
 		let lastFilePathDate: string | null = null;
 
-		switch (orderBy) {
-			case 'dateCreated': {
-				firstFilePathDate = firstFilePath.dateCreated;
-				lastFilePathDate = lastFilePath.dateCreated;
-				break;
+		// Look for the first date
+		for (let i = firstItemIndex; i < lastItemIndex; i++) {
+			const item = explorer.items[i];
+			const date = item && getDate(item, orderBy);
+
+			if (!date) {
+				if (i !== lastItemIndex - 1) firstItemIndex++;
+				continue;
 			}
 
-			case 'dateIndexed': {
-				firstFilePathDate = firstFilePath.dateIndexed;
-				lastFilePathDate = lastFilePath.dateIndexed;
-				break;
-			}
+			firstFilePathDate = date;
+			break;
+		}
 
-			case 'dateModified': {
-				firstFilePathDate = firstFilePath.dateModified;
-				lastFilePathDate = lastFilePath.dateModified;
-				break;
-			}
+		// Look for the last date up to where the first lookup ended
+		for (let i = lastItemIndex; i > firstItemIndex; i--) {
+			const item = explorer.items[i];
+			const date = item && getDate(item, orderBy);
 
-			case 'object.dateAccessed': {
-				firstFilePathDate = firstFilePath.dateAccessed;
-				lastFilePathDate = lastFilePath.dateAccessed;
-				break;
-			}
+			if (!date) continue;
 
-			// TODO: Uncomment when we add sorting by date taken
-			// case 'object.mediaData.epochTime': {
-			// 	firstFilePathDate = firstFilePath.dateTaken;
-			// 	lastFilePathDate = lastFilePath.dateTaken;
-			// 	break;
-			// }
+			lastFilePathDate = date;
+			break;
 		}
 
 		const firstDate = firstFilePathDate
@@ -154,16 +145,23 @@ export const MediaView = () => {
 			? new Date(new Date(lastFilePathDate).setHours(0, 0, 0, 0))
 			: undefined;
 
-		if (!firstDate || !lastDate) return;
+		if (firstDate && !lastDate) return formatDate(firstDate, dateFormat);
 
-		if (firstDate.getTime() !== lastDate.getTime()) {
-			return formatDate({
-				from: orderDirection === 'Asc' ? firstDate : lastDate,
-				to: orderDirection === 'Asc' ? lastDate : firstDate
-			});
+		if (!firstDate && lastDate) return formatDate(lastDate, dateFormat);
+
+		if (firstDate && lastDate) {
+			if (firstDate.getTime() === lastDate.getTime()) {
+				return formatDate(firstDate, dateFormat);
+			}
+
+			return formatDate(
+				{
+					from: orderDirection === 'Asc' ? firstDate : lastDate,
+					to: orderDirection === 'Asc' ? lastDate : firstDate
+				},
+				dateFormat
+			);
 		}
-
-		return formatDate(firstDate);
 	}, [
 		explorer.items,
 		grid.columnCount,
@@ -176,7 +174,7 @@ export const MediaView = () => {
 		orderDirection
 	]);
 
-	const { activeItem } = useKeySelection(grid);
+	useKeySelection(grid);
 
 	return (
 		<div
@@ -187,9 +185,9 @@ export const MediaView = () => {
 				width: '100%'
 			}}
 		>
-			{isSortingByDate && <DateHeader date={date ?? ''} />}
+			{isSortingByDate && <DateHeader date={date} />}
 
-			<DragSelect grid={grid} onActiveItemChange={(item) => (activeItem.current = item)}>
+			<DragSelect grid={grid}>
 				{virtualRows.map((virtualRow) => (
 					<React.Fragment key={virtualRow.key}>
 						{columnVirtualizer.getVirtualItems().map((virtualColumn) => {

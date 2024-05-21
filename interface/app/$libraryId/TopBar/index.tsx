@@ -1,6 +1,6 @@
 import { Plus, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
@@ -9,23 +9,30 @@ import {
 	useLocale,
 	useOperatingSystem,
 	useShortcut,
-	useShowControls
+	useShowControls,
+	useWindowState
 } from '~/hooks';
-import { useRoutingContext } from '~/RoutingContext';
 import { useTabsContext } from '~/TabsContext';
 
 import { explorerStore } from '../Explorer/store';
-import { useTopBarContext } from './Layout';
+import { useLayoutStore } from '../Layout/store';
+import { useTopBarContext } from './Context';
 import { NavigationButtons } from './NavigationButtons';
 
 // million-ignore
 const TopBar = () => {
 	const transparentBg = useShowControls().transparentBg;
 	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
+
 	const ref = useRef<HTMLDivElement>(null);
 
 	const tabs = useTabsContext();
 	const ctx = useTopBarContext();
+
+	const windowState = useWindowState();
+	const platform = useOperatingSystem();
+
+	const layoutStore = useLayoutStore();
 
 	useResizeObserver({
 		ref,
@@ -35,6 +42,19 @@ const TopBar = () => {
 			ctx.setTopBarHeight(bounds.height);
 		}
 	});
+
+	//prevent default search from opening from edge webview
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'f' && e.ctrlKey) {
+				e.preventDefault();
+			}
+		};
+		document.body.addEventListener('keydown', handleKeyDown);
+		return () => {
+			document.body.removeEventListener('keydown', handleKeyDown);
+		};
+	}, []);
 
 	// when the component mounts + crucial state changes, we need to update the height _before_ the browser paints
 	// in order to avoid jank. resize observer doesn't fire early enought to account for this.
@@ -57,7 +77,11 @@ const TopBar = () => {
 				className={clsx(
 					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
-					isDragSelecting && 'pointer-events-none'
+					isDragSelecting && 'pointer-events-none',
+					platform === 'macOS' &&
+						!windowState.isFullScreen &&
+						layoutStore.sidebar.collapsed &&
+						'pl-20'
 				)}
 			>
 				<div
@@ -114,7 +138,7 @@ function Tabs() {
 						else if (e.button === 1) removeTab(index);
 					}}
 					className={clsx(
-						'duration-[50ms] group relative flex h-full min-w-[10rem] shrink-0 flex-row items-center justify-center px-8 text-center',
+						'duration-[50ms] group relative flex h-full min-w-40 shrink-0 flex-row items-center justify-center px-8 text-center',
 						ctx.tabIndex === index
 							? 'text-ink'
 							: 'top-bar-blur border-t border-sidebar-divider bg-sidebar/30 text-ink-faint/60 transition-colors hover:bg-app/50'
@@ -154,38 +178,25 @@ function Tabs() {
 
 function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void }) {
 	const ctx = useTabsContext()!;
-	const os = useOperatingSystem();
-	const { visible } = useRoutingContext();
 
 	useShortcut('newTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
+		if (e.shiftKey) return; //to prevent colliding with 'navToSettings' shortcut
 		props.addTab();
 	});
 
 	useShortcut('closeTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		props.removeTab(ctx.tabIndex);
 	});
 
 	useShortcut('nextTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		ctx.setTabIndex(Math.min(ctx.tabIndex + 1, ctx.tabs.length - 1));
 	});
 
 	useShortcut('previousTab', (e) => {
-		if (!visible) return;
-
 		e.stopPropagation();
-
 		ctx.setTabIndex(Math.max(ctx.tabIndex - 1, 0));
 	});
 }

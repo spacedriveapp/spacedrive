@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDebounce } from 'use-debounce';
-import { useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { SearchInput } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
@@ -10,16 +10,15 @@ import ListItem from './ListItem';
 
 export const Component = () => {
 	const locationsQuery = useLibraryQuery(['locations.list']);
-	useNodes(locationsQuery.data?.nodes);
-	const locations = useCache(locationsQuery.data?.items);
+	const locations = locationsQuery.data;
 
 	const [search, setSearch] = useState('');
 	const [debouncedSearch] = useDebounce(search, 200);
 
 	const filteredLocations = useMemo(
 		() =>
-			locations?.filter(
-				(location) => location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
+			locations?.filter((location) =>
+				location.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 			) ?? [],
 		[debouncedSearch, locations]
 	);
@@ -34,7 +33,7 @@ export const Component = () => {
 				rightArea={
 					<div className="flex flex-row items-center space-x-5">
 						<SearchInput
-							placeholder="Search locations"
+							placeholder={t('search_locations')}
 							className="h-[33px]"
 							onChange={(e) => setSearch(e.target.value)}
 						/>

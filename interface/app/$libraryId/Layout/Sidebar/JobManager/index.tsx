@@ -1,4 +1,4 @@
-import { Check, Trash, X } from '@phosphor-icons/react';
+import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
@@ -11,8 +11,21 @@ import {
 import { Button, PopoverClose, toast, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
+import { useSidebarContext } from '../SidebarLayout/Context';
+import { getSidebarStore, useSidebarStore } from '../store';
 import IsRunningJob from './IsRunningJob';
 import JobGroup from './JobGroup';
+
+const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
+	const aDate = dayjs(a.created_at);
+	const bDate = dayjs(b.created_at);
+	if (aDate.isBefore(bDate)) {
+		return 1;
+	} else if (bDate.isBefore(aDate)) {
+		return -1;
+	}
+	return 0;
+};
 
 function sortJobData(jobs: IJobGroup[]) {
 	const runningJobs: IJobGroup[] = [];
@@ -26,17 +39,6 @@ function sortJobData(jobs: IJobGroup[]) {
 		}
 	});
 
-	const sortByCreatedAt = (a: IJobGroup, b: IJobGroup) => {
-		const aDate = dayjs(a.created_at);
-		const bDate = dayjs(b.created_at);
-		if (aDate.isBefore(bDate)) {
-			return 1;
-		} else if (bDate.isBefore(aDate)) {
-			return -1;
-		}
-		return 0;
-	};
-
 	runningJobs.sort(sortByCreatedAt);
 	otherJobs.sort(sortByCreatedAt);
 
@@ -46,6 +48,9 @@ function sortJobData(jobs: IJobGroup[]) {
 export function JobManager() {
 	const queryClient = useQueryClient();
 	const [toggleConfirmation, setToggleConfirmation] = useState(false);
+	const store = useSidebarStore();
+
+	const sidebar = useSidebarContext();
 
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 
@@ -79,7 +84,19 @@ export function JobManager() {
 	return (
 		<div className="h-full overflow-hidden pb-10">
 			<div className="z-20 flex h-9 w-full items-center rounded-t-md border-b border-app-line/50 bg-app-button/30 px-2">
-				<span className=" ml-1.5 font-medium">{t('recent_jobs')}</span>
+				{!sidebar.collapsed && (
+					<Tooltip label={t('pin')}>
+						<Button
+							onClick={() => {
+								getSidebarStore().pinJobManager = !store.pinJobManager;
+							}}
+							size="icon"
+						>
+							<PushPin weight={store.pinJobManager ? 'fill' : 'regular'} size={16} />
+						</Button>
+					</Tooltip>
+				)}
+				<span className="ml-1 font-medium ">{t('recent_jobs')}</span>
 				<div className="grow" />
 				{toggleConfirmation ? (
 					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
@@ -87,12 +104,12 @@ export function JobManager() {
 						<PopoverClose asChild>
 							<Check
 								onClick={clearAllJobsHandler}
-								className="h-3 w-3 transition-opacity duration-300 hover:opacity-70"
+								className="size-3 transition-opacity duration-300 hover:opacity-70"
 								color={isDark ? 'white' : 'black'}
 							/>
 						</PopoverClose>
 						<X
-							className="h-3 w-3 transition-opacity hover:opacity-70"
+							className="size-3 transition-opacity hover:opacity-70"
 							onClick={() => setToggleConfirmation((t) => !t)}
 						/>
 					</div>
@@ -103,14 +120,18 @@ export function JobManager() {
 						size="icon"
 					>
 						<Tooltip label={t('clear_finished_jobs')}>
-							<Trash className="h-4 w-4" />
+							<Trash size={16} />
 						</Tooltip>
 					</Button>
 				)}
 				<PopoverClose asChild>
-					<Button className="opacity-70" size="icon">
+					<Button
+						onClick={() => (getSidebarStore().pinJobManager = false)}
+						className="opacity-70"
+						size="icon"
+					>
 						<Tooltip label={t('close')}>
-							<X className="h-4 w-4" />
+							<X size={16} />
 						</Tooltip>
 					</Button>
 				</PopoverClose>

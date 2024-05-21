@@ -1,37 +1,49 @@
+import { useState } from 'react';
+import { Outlet, useNavigate } from 'react-router';
 import {
 	useBridgeMutation,
 	useBridgeQuery,
-	useCache,
 	useConnectedPeers,
-	useDiscoveredPeers,
-	useNodes
+	useDiscoveredPeers
 } from '@sd/client';
 import { Button, toast } from '@sd/ui';
+import { useZodRouteParams, useZodSearchParams } from '~/hooks';
 
 export const Component = () => {
-	const node = useBridgeQuery(['nodeState']);
+	const navigate = useNavigate();
+	// TODO: Handle if P2P is disabled
+	// const node = useBridgeQuery(['nodeState']);
+	// {node.data?.p2p_enabled === false ? (
+	// 	<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
+	// ) : (
+	// 	<Page />
+	// )}
 
 	return (
-		<div className="p-4">
-			{/* {node.data?.p2p_enabled === false ? (
-				<h1 className="text-red-500">P2P is disabled. Please enable it in settings!</h1>
-			) : (
-				<Page />
-			)} */}
-			<Page />
+		<div>
+			<div className="flex space-x-4">
+				<Button variant="accent" onClick={() => navigate('overview')}>
+					Overview
+				</Button>
+				<Button variant="accent" onClick={() => navigate('remote')}>
+					Remote Peers
+				</Button>
+			</div>
+			<div className="p-4">
+				<Outlet />
+			</div>
 		</div>
 	);
 };
 
-function Page() {
+export function Overview() {
 	const p2pState = useBridgeQuery(['p2p.state'], {
 		refetchInterval: 1000
 	});
 	const result = useBridgeQuery(['library.list']);
 	const connectedPeers = useConnectedPeers();
 	const discoveredPeers = useDiscoveredPeers();
-	useNodes(result.data?.nodes);
-	const libraries = useCache(result.data?.items);
+	const libraries = result.data || [];
 	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
 		onSuccess: () => {
 			toast.success('Connected!');
@@ -91,5 +103,30 @@ function Page() {
 				<pre>{JSON.stringify(p2pState.data || {}, undefined, 2)}</pre>
 			</div>
 		</div>
+	);
+}
+
+export function RemotePeers() {
+	const peers = useDiscoveredPeers();
+	const navigate = useNavigate();
+
+	return (
+		<>
+			<h1>Nodes:</h1>
+			{peers.size === 0 ? (
+				<p>No peers found...</p>
+			) : (
+				<ul>
+					{[...peers.entries()].map(([id, _node]) => (
+						<li key={id}>
+							{id}
+							<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+								Open Library Browser
+							</Button>
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 }

@@ -18,7 +18,7 @@ pub use ingest::*;
 pub use manager::*;
 pub use uhlc::NTP64;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SyncMessage {
 	Ingested,
 	Created,
@@ -32,18 +32,20 @@ pub struct SharedState {
 	pub instance: uuid::Uuid,
 	pub timestamps: Timestamps,
 	pub clock: uhlc::HLC,
+	pub active: AtomicBool,
+	pub active_notify: tokio::sync::Notify,
+	pub actors: Arc<sd_actors::Actors>,
 }
 
 #[must_use]
 pub fn crdt_op_db(op: &CRDTOperation) -> crdt_operation::Create {
 	crdt_operation::Create {
-		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
-		data: serde_json::to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
-		record_id: serde_json::to_vec(&op.record_id).unwrap(),
+		data: rmp_serde::to_vec(&op.data).unwrap(),
+		model: op.model as i32,
+		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
 }
@@ -54,13 +56,12 @@ pub fn crdt_op_unchecked_db(
 	instance_id: i32,
 ) -> crdt_operation::CreateUnchecked {
 	crdt_operation::CreateUnchecked {
-		id: op.id.as_bytes().to_vec(),
 		timestamp: op.timestamp.0 as i64,
 		instance_id,
 		kind: op.kind().to_string(),
-		data: serde_json::to_vec(&op.data).unwrap(),
-		model: op.model.to_string(),
-		record_id: serde_json::to_vec(&op.record_id).unwrap(),
+		data: rmp_serde::to_vec(&op.data).unwrap(),
+		model: op.model as i32,
+		record_id: rmp_serde::to_vec(&op.record_id).unwrap(),
 		_params: vec![],
 	}
 }

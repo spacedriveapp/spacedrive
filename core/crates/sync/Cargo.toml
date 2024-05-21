@@ -7,14 +7,18 @@ edition = "2021"
 default = []
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync = { path = "../../../crates/sync" }
 sd-utils = { path = "../../../crates/utils" }
+sd-actors = { path = "../../../crates/actors" }
 
 prisma-client-rust = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
-tracing = { workspace = true }
+tracing.workspace = true
 uhlc = { workspace = true }
+rmp-serde = "1.1.2"
+rmpv = { workspace = true }

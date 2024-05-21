@@ -3,10 +3,10 @@ import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Tag, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
-import ColorPicker from '~/components/form/ColorPicker';
-import { Input } from '~/components/form/Input';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
+import ColorPicker from '~/components/primitive/ColorPicker';
+import { Input } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 

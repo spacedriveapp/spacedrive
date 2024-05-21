@@ -1,9 +1,8 @@
-import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useEffect, useMemo, useState } from 'react';
-import { byteSize } from '@sd/client';
-import { Button, Card, CircularProgress, tw } from '@sd/ui';
+import { humanizeSize } from '@sd/client';
+import { Card, CircularProgress, tw } from '@sd/ui';
 import { Icon } from '~/components';
-import { useIsDark } from '~/hooks';
+import { useIsDark, useLocale } from '~/hooks';
 
 type StatCardProps = {
 	name: string;
@@ -22,12 +21,12 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const isDark = useIsDark();
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = byteSize(stats.totalSpace);
-		const freeSpace = stats.freeSpace == null ? totalSpace : byteSize(stats.freeSpace);
+		const totalSpace = humanizeSize(stats.totalSpace);
+		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
-			usedSpaceSpace: byteSize(totalSpace.original - freeSpace.original)
+			usedSpaceSpace: humanizeSize(totalSpace.bytes - freeSpace.bytes)
 		};
 	}, [stats]);
 
@@ -36,9 +35,11 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	}, []);
 
 	const progress = useMemo(() => {
-		if (!mounted || totalSpace.original === 0n) return 0;
+		if (!mounted || totalSpace.bytes === 0n) return 0;
 		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
+
+	const { t } = useLocale();
 
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
@@ -59,23 +60,37 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						<div className="absolute text-lg font-semibold">
 							{usedSpaceSpace.value}
 							<span className="ml-0.5 text-tiny opacity-60">
-								{usedSpaceSpace.unit}
+								{t(`size_${usedSpaceSpace.unit.toLowerCase()}`)}
 							</span>
 						</div>
 					</CircularProgress>
 				)}
 				<div className="flex flex-col overflow-hidden">
-					<Icon className="-ml-1" name={icon as any} size={60} />
+					<Icon
+						className="-ml-1 min-h-[60px] min-w-[60px]"
+						name={icon as any}
+						size={60}
+					/>
 					<span className="truncate font-medium">{name}</span>
 					<span className="mt-1 truncate text-tiny text-ink-faint">
-						{freeSpace.value}
-						{freeSpace.unit} free of {totalSpace.value}
-						{totalSpace.unit}
+						{freeSpace.value !== totalSpace.value && (
+							<>
+								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
+								{t('free_of')} {totalSpace.value}{' '}
+								{t(`size_${totalSpace.unit.toLowerCase()}`)}
+							</>
+						)}
 					</span>
 				</div>
 			</div>
 			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
-				<Pill className="uppercase">{connectionType || 'Local'}</Pill>
+				{freeSpace.value === totalSpace.value && (
+					<Pill>
+						{totalSpace.value}
+						{t(`size_${totalSpace.unit.toLowerCase()}`)}
+					</Pill>
+				)}
+				<Pill className="uppercase">{connectionType || t('local')}</Pill>
 				<div className="grow" />
 				{/* <Button size="icon" variant="outline">
 					<Ellipsis className="w-3 h-3 opacity-50" />

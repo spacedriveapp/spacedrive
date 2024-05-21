@@ -1,12 +1,9 @@
 use crate::{
 	invalidate_query,
 	location::{
-		delete_location, find_location,
-		indexer::{rules::IndexerRuleCreateArgs, OldIndexerJobInit},
-		light_scan_location, location_with_indexer_rules,
-		non_indexed::NonIndexedPathItem,
-		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
-		LocationUpdateArgs,
+		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
+		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
+		LocationCreateArgs, LocationError, LocationUpdateArgs, ScanState,
 	},
 	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 	old_job::StatefulJob,
@@ -14,21 +11,23 @@ use crate::{
 	util::AbortOnDrop,
 };
 
-use sd_cache::{CacheNode, Model, Normalise, NormalisedResult, NormalisedResults, Reference};
-use sd_prisma::prisma::{
-	file_path, indexer_rule, indexer_rules_in_location, location, object, SortOrder,
+use sd_core_indexer_rules::IndexerRuleCreateArgs;
+use sd_core_prisma_helpers::{
+	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths,
 };
+
+use sd_prisma::prisma::{file_path, indexer_rule, indexer_rules_in_location, location, SortOrder};
 
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, FixedOffset, Utc};
 use directories::UserDirs;
-use rspc::{self, alpha::AlphaRouter, ErrorCode};
+use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error};
 
-use super::{labels::label_with_objects, utils::library, Ctx, R};
+use super::{utils::library, Ctx, R};
 
 // it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
 // Will be None if no thumbnail exists
@@ -38,19 +37,25 @@ pub type ThumbnailKey = Vec<String>;
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
+		// provide the frontend with the thumbnail key explicitly
 		thumbnail: Option<ThumbnailKey>,
-		item: file_path_with_object::Data,
+		// this tells the frontend if a thumbnail actually exists or not
+		has_created_thumbnail: bool,
+		// we can't actually modify data from PCR types, thats why computed properties are used on ExplorerItem
+		item: Box<file_path_for_frontend::Data>,
 	},
 	Object {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: object_with_file_paths::Data,
-	},
-	Location {
-		item: location::Data,
 	},
 	NonIndexedPath {
 		thumbnail: Option<ThumbnailKey>,
+		has_created_thumbnail: bool,
 		item: NonIndexedPathItem,
+	},
+	Location {
+		item: location::Data,
 	},
 	SpacedropPeer {
 		item: PeerMetadata,
@@ -59,14 +64,6 @@ pub enum ExplorerItem {
 		thumbnails: Vec<ThumbnailKey>,
 		item: label_with_objects::Data,
 	},
-}
-
-// TODO: Really this shouldn't be a `Model` but it's easy for now.
-// In the future we should store the inner data of the variant on behalf of it's existing model so it works cross queries.
-impl Model for ExplorerItem {
-	fn name() -> &'static str {
-		"ExplorerItem"
-	}
 }
 
 impl ExplorerItem {
@@ -116,11 +113,8 @@ impl From<UserDirs> for SystemLocations {
 impl ExplorerItem {
 	pub fn name(&self) -> &str {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data { name, .. },
-				..
-			}
-			| ExplorerItem::Location {
+			ExplorerItem::Path { item, .. } => item.name.as_deref().unwrap_or(""),
+			ExplorerItem::Location {
 				item: location::Data { name, .. },
 				..
 			} => name.as_deref().unwrap_or(""),
@@ -131,13 +125,8 @@ impl ExplorerItem {
 
 	pub fn size_in_bytes(&self) -> u64 {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data {
-					size_in_bytes_bytes,
-					..
-				},
-				..
-			} => size_in_bytes_bytes
+			ExplorerItem::Path { item, .. } => item
+				.size_in_bytes_bytes
 				.as_ref()
 				.map(|size| {
 					u64::from_be_bytes([
@@ -168,11 +157,10 @@ impl ExplorerItem {
 
 	pub fn date_created(&self) -> DateTime<Utc> {
 		match self {
-			ExplorerItem::Path {
-				item: file_path_with_object::Data { date_created, .. },
-				..
+			ExplorerItem::Path { item, .. } => {
+				item.date_created.map(Into::into).unwrap_or_default()
 			}
-			| ExplorerItem::Object {
+			ExplorerItem::Object {
 				item: object_with_file_paths::Data { date_created, .. },
 				..
 			}
@@ -197,24 +185,17 @@ impl ExplorerItem {
 	}
 }
 
-file_path::include!(file_path_with_object { object });
-object::include!(object_with_file_paths { file_paths });
-
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let locations = library
+				Ok(library
 					.db
 					.location()
 					.find_many(vec![])
 					.order_by(location::date_created::order(SortOrder::Desc))
 					.exec()
-					.await?;
-
-				let (nodes, items) = locations.normalise(|i| i.id.to_string());
-
-				Ok(NormalisedResults { items, nodes })
+					.await?)
 			})
 		})
 		.procedure("get", {
@@ -225,8 +206,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.location()
 						.find_unique(location::id::equals(location_id))
 						.exec()
-						.await?
-						.map(|i| NormalisedResult::from(i, |i| i.id.to_string())))
+						.await?)
 				})
 		})
 		.procedure("getWithRules", {
@@ -245,21 +225,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub hidden: Option<bool>,
 				pub date_created: Option<DateTime<FixedOffset>>,
 				pub instance_id: Option<i32>,
-				pub indexer_rules: Vec<Reference<indexer_rule::Data>>,
-			}
-
-			impl Model for LocationWithIndexerRule {
-				fn name() -> &'static str {
-					"Location" // This is a duplicate identifier as `location::Data` but it's fine because because they are the same entity
-				}
+				pub indexer_rules: Vec<indexer_rule::Data>,
 			}
 
 			impl LocationWithIndexerRule {
-				pub fn from_db(
-					nodes: &mut Vec<CacheNode>,
-					value: location_with_indexer_rules::Data,
-				) -> Reference<Self> {
-					let this = Self {
+				pub fn from_db(value: location_with_indexer_rules::Data) -> Self {
+					Self {
 						id: value.id,
 						pub_id: value.pub_id,
 						name: value.name,
@@ -276,18 +247,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						indexer_rules: value
 							.indexer_rules
 							.into_iter()
-							.map(|i| {
-								let id = i.indexer_rule.id.to_string();
-
-								nodes.push(CacheNode::new(id.clone(), i.indexer_rule));
-								Reference::new(id)
-							})
-							.collect(),
-					};
-
-					let id = this.id.to_string();
-					nodes.push(CacheNode::new(id.clone(), this));
-					Reference::new(id)
+							.map(|i| i.indexer_rule)
+							.collect::<Vec<_>>(),
+					}
 				}
 			}
 
@@ -300,13 +262,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.include(location_with_indexer_rules::include())
 						.exec()
 						.await?
-						.map(|location| {
-							let mut nodes = Vec::new();
-							NormalisedResult {
-								item: LocationWithIndexerRule::from_db(&mut nodes, location),
-								nodes,
-							}
-						}))
+						.map(LocationWithIndexerRule::from_db))
 				})
 		})
 		.procedure("create", {
@@ -314,7 +270,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.create(&node, &library).await? {
 						let id = Some(location.id);
-						scan_location(&node, &library, location).await?;
+						scan_location(&node, &library, location, ScanState::Pending).await?;
 						invalidate_query!(library, "locations.list");
 						Ok(id)
 					} else {
@@ -352,7 +308,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(node, library), args: LocationCreateArgs| async move {
 					if let Some(location) = args.add_library(&node, &library).await? {
 						let id = location.id;
-						scan_location(&node, &library, location).await?;
+						let location_scan_state = ScanState::try_from(location.scan_state)?;
+						scan_location(&node, &library, location, location_scan_state).await?;
 						invalidate_query!(library, "locations.list");
 						Ok(Some(id))
 					} else {
@@ -395,18 +352,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						// library.orphan_remover.invoke().await;
 					}
 
+					let location = find_location(&library, location_id)
+						.include(location_with_indexer_rules::include())
+						.exec()
+						.await?
+						.ok_or(LocationError::IdNotFound(location_id))?;
+
+					let location_scan_state = ScanState::try_from(location.scan_state)?;
+
 					// rescan location
-					scan_location(
-						&node,
-						&library,
-						find_location(&library, location_id)
-							.include(location_with_indexer_rules::include())
-							.exec()
-							.await?
-							.ok_or(LocationError::IdNotFound(location_id))?,
-					)
-					.await
-					.map_err(Into::into)
+					scan_location(&node, &library, location, location_scan_state)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})
@@ -518,7 +475,7 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 		.procedure("create", {
 			R.with2(library())
 				.mutation(|(_, library), args: IndexerRuleCreateArgs| async move {
-					if args.create(&library).await?.is_some() {
+					if args.create(&library.db).await?.is_some() {
 						invalidate_query!(library, "locations.indexer_rules.list");
 					}
 
@@ -583,34 +540,25 @@ fn mount_indexer_rule_routes() -> AlphaRouter<Ctx> {
 								format!("Indexer rule <id={indexer_rule_id}> not found"),
 							)
 						})
-						.map(|i| NormalisedResult::from(i, |i| i.id.to_string()))
 				})
 		})
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let rules = library.db.indexer_rule().find_many(vec![]).exec().await?;
-
-				let (nodes, items) = rules.normalise(|i| i.id.to_string());
-
-				Ok(NormalisedResults { items, nodes })
+				Ok(library.db.indexer_rule().find_many(vec![]).exec().await?)
 			})
 		})
 		// list indexer rules for location, returning the indexer rule
 		.procedure("listForLocation", {
 			R.with2(library())
 				.query(|(_, library), location_id: location::id::Type| async move {
-					let rules = library
+					Ok(library
 						.db
 						.indexer_rule()
 						.find_many(vec![indexer_rule::locations::some(vec![
 							indexer_rules_in_location::location_id::equals(location_id),
 						])])
 						.exec()
-						.await?;
-
-					let (nodes, items) = rules.normalise(|i| i.id.to_string());
-
-					Ok(NormalisedResults { items, nodes })
+						.await?)
 				})
 		})
 }

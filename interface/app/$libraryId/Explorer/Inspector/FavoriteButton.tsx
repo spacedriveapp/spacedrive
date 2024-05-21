@@ -30,7 +30,7 @@ export default function FavoriteButton(props: Props) {
 
 	return (
 		<Button onClick={toggleFavorite} size="icon">
-			<Heart weight={favorite ? 'fill' : 'regular'} className="h-[18px] w-[18px]" />
+			<Heart weight={favorite ? 'fill' : 'regular'} className="size-[18px]" />
 		</Button>
 	);
 }

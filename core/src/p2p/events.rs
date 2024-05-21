@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use sd_p2p2::{flume::bounded, HookEvent, RemoteIdentity, P2P};
+use sd_p2p::{flume::bounded, HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity, P2P};
 use serde::Serialize;
 use specta::Type;
 use tokio::sync::broadcast;
@@ -8,21 +8,41 @@ use uuid::Uuid;
 
 use super::PeerMetadata;
 
-/// TODO: P2P event for the frontend
+/// The method used for the connection with this peer.
+/// *Technically* you can have multiple under the hood but this simplifies things for the UX.
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum ConnectionMethod {
+	// Connected via the SD Relay
+	Relay,
+	// Connected directly via an IP address
+	Local,
+	// Not connected
+	Disconnected,
+}
+
+/// The method used for the discovery of this peer.
+/// *Technically* you can have multiple under the hood but this simplifies things for the UX.
+#[derive(Debug, Clone, Serialize, Type)]
+pub enum DiscoveryMethod {
+	// Found via the SD Relay
+	Relay,
+	// Found via mDNS or a manual IP
+	Local,
+}
+
+// This is used for synchronizing events between the backend and the frontend.
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
 pub enum P2PEvent {
-	DiscoveredPeer {
+	// An add or update event
+	PeerChange {
 		identity: RemoteIdentity,
+		connection: ConnectionMethod,
+		discovery: DiscoveryMethod,
 		metadata: PeerMetadata,
 	},
-	ExpiredPeer {
-		identity: RemoteIdentity,
-	},
-	ConnectedPeer {
-		identity: RemoteIdentity,
-	},
-	DisconnectedPeer {
+	// Delete a peer
+	PeerDelete {
 		identity: RemoteIdentity,
 	},
 	SpacedropRequest {
@@ -49,7 +69,7 @@ pub struct P2PEvents {
 }
 
 impl P2PEvents {
-	pub fn spawn(p2p: Arc<P2P>) -> Self {
+	pub fn spawn(p2p: Arc<P2P>, libraries_hook_id: HookId) -> Self {
 		let events = broadcast::channel(15);
 		let (tx, rx) = bounded(15);
 		let _ = p2p.register_hook("sd-frontend-events", tx);
@@ -60,7 +80,10 @@ impl P2PEvents {
 				let event = match event {
 					// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
 					// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)
-					HookEvent::PeerAvailable(peer) => {
+					HookEvent::PeerConnectedWith(_, peer)
+					| HookEvent::PeerAvailable(peer)
+					// This will fire for updates to the mDNS metadata which are important for UX.
+					| HookEvent::PeerDiscoveredBy(_, peer) => {
 						let metadata = match PeerMetadata::from_hashmap(&peer.metadata()) {
 							Ok(metadata) => metadata,
 							Err(e) => {
@@ -73,15 +96,26 @@ impl P2PEvents {
 							}
 						};
 
-						P2PEvent::DiscoveredPeer {
+						P2PEvent::PeerChange {
 							identity: peer.identity(),
+							connection: if peer.is_connected_with_hook(libraries_hook_id) {
+								ConnectionMethod::Relay
+							} else if peer.is_connected() {
+								ConnectionMethod::Local
+							} else {
+								ConnectionMethod::Disconnected
+							},
+							discovery: match peer
+								.connection_candidates()
+								.contains(&PeerConnectionCandidate::Relay)
+							{
+								true => DiscoveryMethod::Relay,
+								false => DiscoveryMethod::Local,
+							},
 							metadata,
 						}
 					}
-					HookEvent::PeerUnavailable(identity) => P2PEvent::ExpiredPeer { identity },
-					HookEvent::PeerConnectedWith(_, peer) => P2PEvent::ConnectedPeer {
-						identity: peer.identity(),
-					},
+					HookEvent::PeerUnavailable(identity) => P2PEvent::PeerDelete { identity },
 					HookEvent::PeerDisconnectedWith(_, identity) => {
 						let peers = p2p.peers();
 						let Some(peer) = peers.get(&identity) else {
@@ -89,7 +123,7 @@ impl P2PEvents {
 						};
 
 						if !peer.is_connected() {
-							P2PEvent::DisconnectedPeer { identity }
+							P2PEvent::PeerDelete { identity }
 						} else {
 							continue;
 						}

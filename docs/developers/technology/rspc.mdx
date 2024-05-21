@@ -1,0 +1,95 @@
+---
+title: ​rspc
+index: 13
+---
+
+# rspc
+
+We use a fork based on [rspc 0.1.4](https://docs.rs/rspc) which contains heavy modifications from the upstream.
+
+## What's different?
+
+- A super pre-release version of rspc v1's procedure syntax.
+- Upgrade to Specta v2 prelease
+- Add `Router::sd_patch_types_dangerously`
+- Expose internal type maps for the invalidation system.
+- All procedures must return a result
+- `Procedure::with2` which is a hack to properly support the middleware mapper API
+- Legacy executor system - Will require major changes to the React Native link.
+
+Removed features relied on by Spacedrive:
+
+- Argument middleware mapper API has been removed upstream
+
+## Basic usage
+
+```rust
+use rspc::{alpha::AlphaRouter};
+
+use super::{Ctx, R};
+
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		// Define a library query
+		.procedure("todo", {
+			R.with2(library())
+				.query(|(node, library), input: ()| async move {
+					Ok(todo!())
+				})
+		})
+		// Define a node query
+		.procedure("todo2", {
+			R.query(|node, input: ()| async move {
+					Ok(todo!())
+				})
+		})
+		// You can copy the above examples but use `.mutation` instead of `.query` for mutations
+
+		// Define a node subscription
+		.procedure("todo3", {
+			// You can make this a library subscription by using `R.with2(library())`
+			R.subscription(|node, _: ()| async move {
+					// You can return any `impl Stream`
+					Ok(async_stream::stream! {
+						yield "hello";
+					})
+				})
+		})
+}
+
+/// You merge this router into the main router defined in `core/src/api.rs`.
+```
+
+## Known bugs
+
+### Returning an error from a procedure can cause a panic
+
+This is due to a bug in the future that resolves requests. This was fixed [upstream in July 2023](https://github.com/oscartbeaumont/rspc/commit/f115ab22e04d59b0c9056989392215df2b7bb531).
+
+A panic will also take out the entire request which could contain a batch of multiple procedures.
+
+This will likely cause the frontend request to hang indefinitely.
+
+### Blocking
+
+#### Batching
+
+This applies to both Tauri and Axum when using the batch link (**which Spacedrive uses**). Each request within a batch is effectively run in serial. This may or may not make a major difference as the response can't be send until all items are ready but having to run them in parallel would be faster regardless.
+
+#### Tauri
+
+Minus batching everything is run in parallel.
+
+#### Axum
+
+All queries and mutations run within a single websocket connection (**which Spacedrive uses**) are run in serial.
+
+Minus batching HTTP requests are run in parallel.
+
+### Websocket reconnect
+
+If the websocket connection is dropped (due to network disruption) all subscriptions _will not_ restart upon reconnecting.
+
+This will cause the invalidation system to break and potentially other parts of the app that rely on subscriptions.
+
+Queries and mutations done during the network disruption will hang indefinitely.

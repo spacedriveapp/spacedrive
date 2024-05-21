@@ -55,7 +55,7 @@ function TrafficLight(props: TrafficLightProps) {
 		<div
 			onClick={onClick}
 			className={clsx(
-				'box-content flex h-[12px] w-[12px] items-center justify-center rounded-full border-[0.5px] border-transparent bg-[#CDCED0] dark:bg-[#2B2C2F]',
+				'box-content flex size-[12px] items-center justify-center rounded-full border-[0.5px] border-transparent bg-[#CDCED0] dark:bg-[#2B2C2F]',
 				{
 					'border-red-900 !bg-[#EC6A5E] active:hover:!bg-red-700 dark:active:hover:!bg-red-300':
 						type === 'close' && colorful,

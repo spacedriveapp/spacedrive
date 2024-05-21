@@ -27,7 +27,7 @@ export const CopyAsPathBase = (
 				} catch (error) {
 					toast.error({
 						title: t('failed_to_copy_file_path'),
-						body: `Error: ${error}.`
+						body: t('error_message', { error })
 					});
 				}
 			}}

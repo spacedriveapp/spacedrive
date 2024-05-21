@@ -59,7 +59,7 @@ function Theme(props: ThemeProps) {
 				<View
 					style={twStyle(
 						{ backgroundColor: props.insideColor, borderColor: props.highlightColor },
-						'absolute bottom-[-1px] right-[-1px] h-[60px] w-[75px] rounded-tl-xl border'
+						'absolute -bottom-px -right-px h-[60px] w-[75px] rounded-tl-xl border'
 					)}
 				>
 					<Text

@@ -1,6 +1,8 @@
 use crate::{
 	invalidate_query,
 	library::Library,
+	location::ScanState,
+	object::media::ffmpeg_metadata_extractor,
 	old_job::{
 		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobStepOutput,
 		StatefulJob, WorkerContext,
@@ -11,11 +13,13 @@ use crate::{
 #[cfg(feature = "ai")]
 use crate::old_job::JobRunErrors;
 
-use sd_file_ext::extensions::Extension;
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_media_processor, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_media_processor;
+
+use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
@@ -42,9 +46,10 @@ use tokio::time::sleep;
 use tracing::{debug, error, info, trace, warn};
 
 use super::{
-	media_data_extractor,
+	exif_metadata_extractor,
 	old_thumbnail::{self, GenerateThumbnailArgs},
-	process, BatchToProcess, MediaProcessorError, OldMediaProcessorMetadata,
+	process_audio_and_video, process_images, BatchToProcess, MediaProcessorError,
+	OldMediaProcessorMetadata,
 };
 
 const BATCH_SIZE: usize = 10;
@@ -81,7 +86,8 @@ pub struct OldMediaProcessorJobData {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum OldMediaProcessorJobStep {
-	ExtractMediaData(Vec<file_path_for_media_processor::Data>),
+	ExtractImageMediaData(Vec<file_path_for_media_processor::Data>),
+	ExtractAudioAndVideoMediaData(Vec<file_path_for_media_processor::Data>),
 	WaitThumbnails(usize),
 	#[cfg(feature = "ai")]
 	WaitLabels(usize),
@@ -105,7 +111,12 @@ impl StatefulJob for OldMediaProcessorJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		let Library { db, sync, .. } = ctx.library.as_ref();
+		let Library {
+			db,
+			#[cfg(feature = "ai")]
+			sync,
+			..
+		} = ctx.library.as_ref();
 
 		let location_id = self.location.id;
 		let location_path =
@@ -168,7 +179,10 @@ impl StatefulJob for OldMediaProcessorJobInit {
 			None
 		};
 
-		let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
+		let file_paths_to_extract_exif_data =
+			get_files_for_image_media_data_extraction(db, &iso_file_path).await?;
+		let file_paths_to_extract_ffmpeg_data =
+			get_files_for_audio_and_video_media_data_extraction(db, &iso_file_path).await?;
 
 		#[cfg(feature = "ai")]
 		let file_paths_for_labeling =
@@ -194,14 +208,23 @@ impl StatefulJob for OldMediaProcessorJobInit {
 				(uuid::Uuid::new_v4(), None)
 			};
 
-		let total_files = file_paths.len();
+		let total_files =
+			file_paths_to_extract_exif_data.len() + file_paths_to_extract_ffmpeg_data.len();
 
-		let chunked_files = file_paths
+		let chunked_files = file_paths_to_extract_exif_data
 			.into_iter()
 			.chunks(BATCH_SIZE)
 			.into_iter()
 			.map(|chunk| chunk.collect::<Vec<_>>())
-			.map(OldMediaProcessorJobStep::ExtractMediaData)
+			.map(OldMediaProcessorJobStep::ExtractImageMediaData)
+			.chain(
+				file_paths_to_extract_ffmpeg_data
+					.into_iter()
+					.chunks(BATCH_SIZE)
+					.into_iter()
+					.map(|chunk| chunk.collect::<Vec<_>>())
+					.map(OldMediaProcessorJobStep::ExtractAudioAndVideoMediaData),
+			)
 			.chain(
 				[(thumbs_to_process_count > 0).then_some(
 					OldMediaProcessorJobStep::WaitThumbnails(thumbs_to_process_count as usize),
@@ -264,7 +287,7 @@ impl StatefulJob for OldMediaProcessorJobInit {
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		match step {
-			OldMediaProcessorJobStep::ExtractMediaData(file_paths) => process(
+			OldMediaProcessorJobStep::ExtractImageMediaData(file_paths) => process_images(
 				file_paths,
 				self.location.id,
 				&data.location_path,
@@ -278,6 +301,23 @@ impl StatefulJob for OldMediaProcessorJobInit {
 			.await
 			.map(Into::into)
 			.map_err(Into::into),
+
+			OldMediaProcessorJobStep::ExtractAudioAndVideoMediaData(file_paths) => {
+				process_audio_and_video(
+					file_paths,
+					self.location.id,
+					&data.location_path,
+					&ctx.library.db,
+					&|completed_count| {
+						ctx.progress(vec![JobReportUpdate::CompletedTaskCount(
+							step_number * BATCH_SIZE + completed_count,
+						)]);
+					},
+				)
+				.await
+				.map(Into::into)
+				.map_err(Into::into)
+			}
 
 			OldMediaProcessorJobStep::WaitThumbnails(total_thumbs) => {
 				ctx.progress(vec![
@@ -409,9 +449,20 @@ impl StatefulJob for OldMediaProcessorJobInit {
 				.display()
 		);
 
-		if run_metadata.media_data.extracted > 0 {
+		if run_metadata.exif_data.extracted > 0 || run_metadata.ffmpeg_data.extracted > 0 {
 			invalidate_query!(ctx.library, "search.paths");
 		}
+
+		ctx.library
+			.db
+			.location()
+			.update(
+				location::id::equals(self.location.id),
+				vec![location::scan_state::set(ScanState::Completed as i32)],
+			)
+			.exec()
+			.await
+			.map_err(MediaProcessorError::from)?;
 
 		Ok(Some(json!({"init: ": self, "run_metadata": run_metadata})))
 	}
@@ -493,14 +544,27 @@ async fn dispatch_thumbnails_for_processing(
 	Ok(thumbs_count as u32)
 }
 
-async fn get_files_for_media_data_extraction(
+async fn get_files_for_image_media_data_extraction(
 	db: &PrismaClient,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
 	get_all_children_files_by_extensions(
 		db,
 		parent_iso_file_path,
-		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		&exif_metadata_extractor::FILTERED_IMAGE_EXTENSIONS,
+	)
+	.await
+	.map_err(Into::into)
+}
+
+async fn get_files_for_audio_and_video_media_data_extraction(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	get_all_children_files_by_extensions(
+		db,
+		parent_iso_file_path,
+		&ffmpeg_metadata_extractor::FILTERED_AUDIO_AND_VIDEO_EXTENSIONS,
 	)
 	.await
 	.map_err(Into::into)
@@ -527,7 +591,7 @@ async fn get_files_for_labeling(
 			ORDER BY materialized_path ASC",
 			// Ordering by materialized_path so we can prioritize processing the first files
 			// in the above part of the directories tree
-			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+			&exif_metadata_extractor::FILTERED_IMAGE_EXTENSIONS
 				.iter()
 				.map(|ext| format!("LOWER('{ext}')"))
 				.collect::<Vec<_>>()
@@ -538,7 +602,7 @@ async fn get_files_for_labeling(
 				""
 			}
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(format!(
 			"{}%",
 			parent_iso_file_path
@@ -576,7 +640,7 @@ async fn get_all_children_files_by_extensions(
 				.collect::<Vec<_>>()
 				.join(",")
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(format!(
 			"{}%",
 			parent_iso_file_path

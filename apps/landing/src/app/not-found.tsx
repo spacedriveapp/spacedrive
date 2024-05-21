@@ -16,7 +16,7 @@ export default function NotFound() {
 		<Markdown classNames="flex w-full justify-center">
 			<div className="m-auto flex flex-col items-center ">
 				<div className="h-32" />
-				<SmileyXEyes className="mb-3 h-44 w-44" />
+				<SmileyXEyes className="mb-3 size-44" />
 				<h1 className="mb-2 text-center">
 					In the quantum realm this page potentially exists.
 				</h1>

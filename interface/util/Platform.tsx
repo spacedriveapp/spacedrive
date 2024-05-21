@@ -10,6 +10,9 @@ export type DragAndDropEvent =
 	| { type: 'Dropped'; paths: string[]; x: number; y: number }
 	| { type: 'Cancelled' };
 
+export type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E };
+export type OpenWithApplication = { url: string; name: string };
+
 // Platform represents the underlying native layer the app is running on.
 // This could be Tauri or web.
 export type Platform = {
@@ -36,6 +39,7 @@ export type Platform = {
 	showDevtools?(): void;
 	openPath?(path: string): void;
 	openLogsDir?(): void;
+	openTrashInOsExplorer?(): void;
 	userHomeDir?(): Promise<string>;
 	// Opens a file path with a given ID
 	openFilePaths?(library: string, ids: number[]): any;
@@ -49,9 +53,12 @@ export type Platform = {
 		)[]
 	): Promise<unknown>;
 	requestFdaMacos?(): void;
-	getFilePathOpenWithApps?(library: string, ids: number[]): Promise<unknown>;
+	getFilePathOpenWithApps?(
+		library: string,
+		ids: number[]
+	): Promise<Result<OpenWithApplication[], null>>;
 	reloadWebview?(): Promise<unknown>;
-	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<unknown>;
+	getEphemeralFilesOpenWithApps?(paths: string[]): Promise<Result<OpenWithApplication[], null>>;
 	openFilePathWith?(library: string, fileIdsAndAppUrls: [number, string][]): Promise<unknown>;
 	openEphemeralFileWith?(pathsAndUrls: [string, string][]): Promise<unknown>;
 	refreshMenuBar?(): Promise<unknown>;
@@ -68,7 +75,7 @@ export type Platform = {
 	landingApiOrigin: string;
 };
 
-export type Update = { version: string; body: string | null };
+export type Update = { version: string };
 export type UpdateStore =
 	| { status: 'idle' }
 	| { status: 'loading' }

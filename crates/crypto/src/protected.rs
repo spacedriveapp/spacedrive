@@ -28,12 +28,16 @@
 //! let value = protected_data.expose();
 //! ```
 //!
-use std::{fmt::Debug, mem::swap};
-use zeroize::Zeroize;
-#[derive(Clone)]
+use std::{fmt::Debug, mem};
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(transparent)
+)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
-#[cfg_attr(any(feature = "specta", feature = "serde"), serde(transparent))]
 pub struct Protected<T>(T)
 where
 	T: Zeroize;
@@ -55,15 +59,9 @@ where
 	}
 }
 
-impl From<Vec<u8>> for Protected<Vec<u8>> {
-	fn from(value: Vec<u8>) -> Self {
+impl<T: Zeroize> From<T> for Protected<T> {
+	fn from(value: T) -> Self {
 		Self(value)
-	}
-}
-
-impl From<Protected<String>> for Protected<Vec<u8>> {
-	fn from(value: Protected<String>) -> Self {
-		Self(value.expose().as_bytes().to_vec())
 	}
 }
 
@@ -73,17 +71,8 @@ where
 {
 	pub fn into_inner(mut self) -> T {
 		let mut out = Default::default();
-		swap(&mut self.0, &mut out);
+		mem::swap(&mut self.0, &mut out);
 		out
-	}
-}
-
-impl<T> Drop for Protected<T>
-where
-	T: Zeroize,
-{
-	fn drop(&mut self) {
-		self.0.zeroize();
 	}
 }
 

@@ -1,5 +1,6 @@
 import { redirect } from 'react-router';
 import { type RouteObject } from 'react-router-dom';
+import { guessOperatingSystem } from '~/hooks';
 import { Platform } from '~/util/Platform';
 
 import { debugRoutes } from './debug';
@@ -10,8 +11,6 @@ const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
 		{ path: 'overview', lazy: () => import('./overview') },
-		// { path: 'labels', lazy: () => import('./labels') },
-		// { path: 'spaces', lazy: () => import('./spaces') },
 		{ path: 'debug', children: debugRoutes }
 	]
 };
@@ -21,21 +20,34 @@ const pageRoutes: RouteObject = {
 const explorerRoutes: RouteObject[] = [
 	{ path: 'recents', lazy: () => import('./recents') },
 	{ path: 'favorites', lazy: () => import('./favorites') },
-	{ path: 'labels', lazy: () => import('./labels') },
+	// { path: 'labels', lazy: () => import('./labels') },
 	{ path: 'search', lazy: () => import('./search') },
 	{ path: 'ephemeral/:id', lazy: () => import('./ephemeral') },
 	{ path: 'location/:id', lazy: () => import('./location/$id') },
 	{ path: 'node/:id', lazy: () => import('./node/$id') },
+	{ path: 'peer/:id', lazy: () => import('./peer/$id') },
 	{ path: 'tag/:id', lazy: () => import('./tag/$id') },
 	{ path: 'network', lazy: () => import('./network') },
 	{ path: 'saved-search/:id', lazy: () => import('./saved-search/$id') }
 ];
 
+function loadTopBarRoutes() {
+	const os = guessOperatingSystem();
+	if (os === 'windows') {
+		return [
+			...explorerRoutes,
+			pageRoutes,
+			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes },
+			{ path: 'debug', children: debugRoutes }
+		];
+	} else return [...explorerRoutes, pageRoutes];
+}
+
 // Routes that should render with the top bar - pretty much everything except
-// 404 and settings
+// 404 and settings, which are rendered only for Windows with top bar
 const topBarRoutes: RouteObject = {
 	lazy: () => import('./TopBar/Layout'),
-	children: [...explorerRoutes, pageRoutes]
+	children: loadTopBarRoutes()
 };
 
 export default (platform: Platform) =>

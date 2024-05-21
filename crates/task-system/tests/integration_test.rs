@@ -72,7 +72,7 @@ async fn cancel_test() {
 	let handle = system.dispatch(NeverTask::default()).await;
 
 	info!("issuing cancel");
-	handle.cancel().await.unwrap();
+	handle.cancel().await;
 
 	assert!(matches!(handle.await, Ok(TaskStatus::Canceled)));
 
@@ -88,7 +88,7 @@ async fn done_test() {
 
 	assert!(matches!(
 		handle.await,
-		Ok(TaskStatus::Done(TaskOutput::Empty))
+		Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
 	));
 
 	system.shutdown().await;
@@ -150,7 +150,7 @@ async fn pause_test() {
 
 	assert!(matches!(
 		handle.await,
-		Ok(TaskStatus::Done(TaskOutput::Empty))
+		Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
 	));
 
 	system.shutdown().await;
@@ -185,7 +185,7 @@ async fn steal_test() {
 	let mut pause_handles = VecDeque::from(system.dispatch_many(pause_tasks).await);
 
 	let ready_handles = system
-		.dispatch_many((0..100).map(|_| ReadyTask::default()).collect())
+		.dispatch_many((0..100).map(|_| ReadyTask::default()))
 		.await;
 
 	pause_begans

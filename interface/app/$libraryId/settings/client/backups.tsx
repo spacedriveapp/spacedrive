@@ -53,13 +53,13 @@ export const Component = () => {
 
 			{backups.data?.backups.map((backup) => (
 				<Card key={backup.id} className="hover:bg-app-box/70">
-					<Database className="mr-3 h-10 w-10 self-center" />
+					<Database className="mr-3 size-10 self-center" />
 					<div className="grid min-w-[110px] grid-cols-1">
 						<h1 className="truncate pt-0.5 text-sm font-semibold">
 							{dayjs(backup.timestamp).toString()}
 						</h1>
 						<p className="mt-0.5 select-text truncate text-sm text-ink-dull">
-							For library '{backup.library_name}'
+							{t('for_library', { name: backup.library_name })}
 						</p>
 					</div>
 					<div className="flex grow" />

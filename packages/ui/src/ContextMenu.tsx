@@ -14,8 +14,8 @@ interface ContextMenuProps extends RadixCM.MenuContentProps {
 
 export const contextMenuClassNames = clsx(
 	'z-50 max-h-[calc(100vh-20px)] overflow-y-auto',
-	'my-2 min-w-[12rem] max-w-[16rem] py-0.5',
-	'cool-shadow bg-menu',
+	'my-2 min-w-48 max-w-64 py-0.5',
+	'cool-shadow bg-menu/95 backdrop-blur-lg',
 	'border border-menu-line',
 	'cursor-default select-none rounded-md',
 	'animate-in fade-in'
@@ -156,7 +156,7 @@ const CheckboxItem = ({
 	return (
 		<RadixCM.CheckboxItem className={contextMenuItemClassNames} {...props}>
 			<ContextMenuDivItem variant={variant} className={className}>
-				<span className="flex h-3.5 w-3.5 items-center justify-center">
+				<span className="flex size-3.5 items-center justify-center">
 					<RadixCM.ItemIndicator>
 						<Check weight="bold" />
 					</RadixCM.ItemIndicator>

@@ -5,7 +5,106 @@ index: 0
 
 # Setup
 
+You can install Spacedrive on your computer, mobile device or server by following the instructions below.
+
+## Install
+
+### Desktop Installer
+
+You can download the Spacedrive desktop app from the links below.
+
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64">Apple Silicon</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64">macOS Intel</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64">Windows</a>
+- <a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64">Linux</a>
+
+### Homebrew
+
+Homebrew is a package manager for macOS and Linux. You can install Spacedrive using the following command.
+
+```bash
+brew install --cask spacedrive
+```
+
+### Docker
+
+You can run Spacedrive in a Docker container using the following command.
+
 <Notice
 	type="note"
-	text="Spacedrive is not yet released, these docs are a work in progress. Check out our [roadmap](/roadmap) to see a timeline leading to release!"
+	text="For the best performance of the docker container, we recommend to run on Linux (linux/amd64). The container is not yet optimized for other platforms."
 />
+
+```bash
+docker run -d --name spacedrive -p 8080:8080 -e SD_AUTH=admin:spacedrive -v /var/spacedrive:/var/spacedrive ghcr.io/spacedriveapp/spacedrive/server
+```
+
+#### Authentication
+
+When using the Spacedrive server you can use the `SD_AUTH` environment variable to configure authentication.
+
+Valid values:
+
+- `SD_AUTH=disabled` - Disables authentication.
+- `SD_AUTH=username:password` - Enables authentication for a single user.
+- `SD_AUTH=username:password,username1:password1` - Enables authentication with multiple users (you can add as many users as you want).
+
+### Mobile (Preview)
+
+Take your Spacedrive library on the go with our mobile apps. You can join the betas by following the links below.
+
+<Notice
+	type="warning"
+	text="Spacedrive is not yet released on mobile platforms. Check out our [roadmap](/roadmap) to see a timeline leading to release!"
+/>
+
+## App data
+
+When opening Spacedrive for the first time, a data folder is created in the following location:
+
+- macOS: `~/Library/Application Support/spacedrive`
+- Windows: `%APPDATA%\spacedrive` or `C:\Users\{username}\AppData\Roaming\spacedrive`
+- Linux: `~/.local/share/spacedrive`
+
+This folder contains the SQLite databases for each Library, configuration files, perma-cached thumbnail data and logs.
+
+## Having issues?
+
+We're still in alpha, so there are a few known issues. If you're having trouble, please check the following. You can join our [Discord](https://discord.gg/gTaF2Z44f5) server to ask for help or [report a bug on GitHub](https://github.com/spacedriveapp/spacedrive/issues).
+
+### Spacedrive is not opening
+
+We are working on fixing this issue happening at all, but for now if Spacedrive won't open, you can try the following:
+
+- Move and BACKUP your app data folder (explained above) to another location and try opening Spacedrive again. This likely means your app data is corrupted or outdated, if you have used a much earlier version of Spacedrive.
+- Run this command to clear the local storage of the webapp:
+  macOS:
+  ```bash
+  rm -rf "$HOME/Library/WebKit/Spacedrive" "$HOME/Library/Caches/Spacedrive" "$HOME/Library/WebKit/com.spacedrive.desktop" "$HOME/Library/Caches/com.spacedrive.desktop"
+  ```
+  Windows:
+  ```bash
+  rm -rf  "~/.local/share/com.spacedrive.desktop/" "~/.cache/spacedrive"
+  ```
+
+### Debugging
+
+Opening Spacedrive via the command line will reveal live debug logging in your terminal.
+
+**macOS**
+
+```bash
+~/Applications/Spacedrive.app/Contents/MacOS/Spacedrive
+```
+
+**Windows**
+
+```bash
+C:\Program Files\Spacedrive\Spacedrive.exe
+```
+
+**Linux**
+
+```bash
+/opt/Spacedrive/Spacedrive
+```

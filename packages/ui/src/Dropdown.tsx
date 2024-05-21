@@ -28,7 +28,7 @@ const itemStyles = cva(
 	}
 );
 
-const itemIconStyles = cva('mr-2 h-4 w-4', {
+const itemIconStyles = cva('mr-2 size-4', {
 	variants: {}
 });
 
@@ -77,7 +77,7 @@ export const Button = forwardRef<HTMLButtonElement, UI.ButtonProps>(
 				{children}
 				<span className="grow" />
 				<CaretDown
-					className="ml-2 w-[12px] shrink-0 translate-y-[1px] text-ink-dull transition-transform ui-open:translate-y-[-1px] ui-open:rotate-180 group-radix-state-open:translate-y-[-1px] group-radix-state-open:rotate-180"
+					className="ml-2 w-[12px] shrink-0 translate-y-px text-ink-dull transition-transform ui-open:-translate-y-px ui-open:rotate-180 group-radix-state-open:-translate-y-px group-radix-state-open:rotate-180"
 					aria-hidden="true"
 				/>
 			</UI.Button>

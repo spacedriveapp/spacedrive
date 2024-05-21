@@ -1,5 +1,6 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
 import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 
@@ -18,11 +19,11 @@ interface Props extends UseDialogProps {
 
 function getWording(dirCount: number, fileCount: number) {
 	let type = 'file';
-	let prefix = 'a';
+	let prefix = i18n.t('prefix_a');
 
 	if (dirCount == 1 && fileCount == 0) {
-		type = 'directory';
-		prefix = 'a';
+		type = i18n.t('directory');
+		prefix = i18n.t('prefix_a');
 	}
 
 	if (dirCount > 1 && fileCount == 0) {
@@ -40,22 +41,26 @@ function getWording(dirCount: number, fileCount: number) {
 		prefix = (fileCount + dirCount).toString();
 	}
 
-	return { type, prefix };
+	const translatedType = i18n.t(`${type}`);
+
+	return { type, prefix, translatedType };
 }
 
 export default (props: Props) => {
 	const { t } = useLocale();
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 	const deleteEphemeralFile = useLibraryMutation('ephemeralFiles.deleteFiles');
+	const moveToTrashFile = useLibraryMutation('files.moveToTrash');
+	const moveToTrashEphemeralFile = useLibraryMutation('ephemeralFiles.moveToTrash');
 
 	const form = useZodForm();
 	const { dirCount = 0, fileCount = 0, indexedArgs, ephemeralArgs } = props;
 
-	const { type, prefix } = getWording(dirCount, fileCount);
+	const { type, prefix, translatedType } = getWording(dirCount, fileCount);
 
 	const icon = type === 'file' || type === 'files' ? 'Document' : 'Folder';
 
-	const description = t('delete_warning', { type });
+	const description = t('delete_warning', { type: translatedType });
 
 	return (
 		<Dialog
@@ -76,23 +81,47 @@ export default (props: Props) => {
 					await deleteEphemeralFile.mutateAsync(paths);
 				}
 			})}
+			onSubmitSecond={form.handleSubmit(async () => {
+				if (indexedArgs != undefined) {
+					console.log(
+						'DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Indexed Files'
+					);
+					const { locationId, rescan, pathIds } = indexedArgs;
+					await moveToTrashFile.mutateAsync({
+						location_id: locationId,
+						file_path_ids: pathIds
+					});
+
+					rescan?.();
+				}
+
+				if (ephemeralArgs != undefined) {
+					console.log(
+						'DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Ephemeral Files'
+					);
+					const { paths } = ephemeralArgs;
+					await moveToTrashEphemeralFile.mutateAsync(paths);
+				}
+			})}
 			icon={<Icon theme="light" name={icon} size={28} />}
 			dialog={useDialog(props)}
-			title={t('delete_dialog_title', { prefix, type })}
+			title={t('delete_dialog_title', { prefix, type: translatedType })}
 			description={description}
 			loading={deleteFile.isLoading}
-			ctaLabel={t('delete')}
+			ctaLabel={t('delete_forever')}
+			ctaSecondLabel={t('move_to_trash')}
+			closeLabel={t('close')}
 			ctaDanger
 			className="w-[200px]"
 		>
-			<Tooltip label={t('coming_soon')}>
+			{/* <Tooltip label={t('coming_soon')}>
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
 					<p className="text-sm text-ink-dull">
 						Delete all matching {type.endsWith('s') ? type : type + 's'}
 					</p>
 				</div>
-			</Tooltip>
+			</Tooltip> */}
 		</Dialog>
 	);
 };

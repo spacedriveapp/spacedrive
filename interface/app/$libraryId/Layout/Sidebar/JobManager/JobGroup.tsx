@@ -41,6 +41,7 @@ export default function ({ group, progress }: JobGroupProps) {
 	}, [jobs]);
 
 	if (jobs.length === 0) return <></>;
+	const { t } = useLocale();
 
 	return (
 		<ul className="relative overflow-visible">
@@ -69,9 +70,7 @@ export default function ({ group, progress }: JobGroupProps) {
 						textItems={[
 							[
 								{
-									text: `${formatNumber(tasks.total)} ${
-										tasks.total <= 1 ? 'task' : 'tasks'
-									}`
+									text: `${formatNumber(tasks.total)} ${t('task', { count: tasks.total })}`
 								},
 								{ text: dateStarted },
 								{ text: totalGroupTime || undefined },
@@ -80,7 +79,7 @@ export default function ({ group, progress }: JobGroupProps) {
 									text: ['Queued', 'Paused', 'Canceled', 'Failed'].includes(
 										group.status
 									)
-										? group.status
+										? t(`${group.status.toLowerCase()}`)
 										: undefined
 								}
 							],
@@ -207,7 +206,7 @@ function Options({
 					variant="outline"
 				>
 					<Tooltip label={t('resume')}>
-						<Play className="h-4 w-4 cursor-pointer" />
+						<Play className="size-4 cursor-pointer" />
 					</Tooltip>
 				</Button>
 			)}
@@ -218,7 +217,7 @@ function Options({
 					button={
 						<Tooltip label={t('actions')}>
 							<Button className="!px-1" variant="outline">
-								<DotsThreeVertical className="h-4 w-4 cursor-pointer" />
+								<DotsThreeVertical className="size-4 cursor-pointer" />
 							</Button>
 						</Tooltip>
 					}
@@ -255,7 +254,7 @@ function Options({
 							size="icon"
 							variant="outline"
 						>
-							<Pause className="h-4 w-4 cursor-pointer" />
+							<Pause className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 					<Tooltip label={t('stop')}>
@@ -267,7 +266,7 @@ function Options({
 							size="icon"
 							variant="outline"
 						>
-							<Stop className="h-4 w-4 cursor-pointer" />
+							<Stop className="size-4 cursor-pointer" />
 						</Button>
 					</Tooltip>
 				</>

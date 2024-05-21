@@ -112,12 +112,12 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 				<Icon name="Spacedrop" size={56} />
 				<span className="text-lg font-bold">Spacedrop</span>
 
-				<div className="flex flex-col space-y-4 pt-2">
+				<div className="flex flex-col pt-2">
 					<p className="text-center text-ink-dull">{t('spacedrop_description')}</p>
 					{discoveredPeers.size === 0 && (
 						<div
 							className={clsx(
-								'flex items-center justify-center gap-3 rounded-md border border-dashed border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink'
+								'mt-3 flex items-center justify-center gap-3 rounded-md border border-dashed border-app-line bg-app-darkBox px-3 py-2 font-medium text-ink'
 							)}
 						>
 							<p className="text-center text-ink-faint">{t('no_nodes_found')}</p>
@@ -128,7 +128,8 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 							<Node
 								key={id}
 								id={id}
-								name={meta.name as HardwareModel}
+								name={meta.metadata.name}
+								model={meta.metadata.device_model ?? 'Other'}
 								onDropped={onDropped}
 							/>
 						))}
@@ -142,10 +143,12 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 function Node({
 	id,
 	name,
+	model,
 	onDropped
 }: {
 	id: string;
-	name: HardwareModel;
+	name: string;
+	model: HardwareModel;
 	onDropped: (id: string, files: string[]) => void;
 }) {
 	const ref = useRef<HTMLDivElement>(null);
@@ -155,6 +158,8 @@ function Node({
 		ref,
 		onDrop: (files) => onDropped(id, files)
 	});
+
+	const { t } = useLocale();
 
 	return (
 		<div
@@ -167,7 +172,7 @@ function Node({
 			)}
 			onClick={() => {
 				if (!platform.openFilePickerDialog) {
-					toast.warning('File picker not supported on this platform');
+					toast.warning(t('file_picker_not_supported'));
 					return;
 				}
 
@@ -178,7 +183,7 @@ function Node({
 				});
 			}}
 		>
-			<Icon name={hardwareModelToIcon(name)} size={20} />
+			<Icon name={hardwareModelToIcon(model)} size={20} />
 			<h1>{name}</h1>
 		</div>
 	);

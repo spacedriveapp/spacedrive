@@ -1,7 +1,7 @@
 import { PropsWithChildren, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-import { useTopBarContext } from './Layout';
+import { useTopBarContext } from './Context';
 
 interface Props extends PropsWithChildren {
 	left?: ReactNode;

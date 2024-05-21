@@ -1,17 +1,15 @@
-use crate::{
-	library::Library,
-	object::{cas::generate_cas_id, object_for_file_identifier},
-	old_job::JobError,
-};
+use crate::{library::Library, object::cas::generate_cas_id, old_job::JobError};
+
+use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::{file_path_for_file_identifier, object_for_file_identifier};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_file_path_helper::{file_path_for_file_identifier, FilePathError, IsolatedFilePathData};
 use sd_prisma::{
 	prisma::{file_path, location, object, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::{CRDTOperation, OperationFactory};
-use sd_utils::{db::maybe_missing, error::FileIOError, uuid_to_bytes};
+use sd_utils::{db::maybe_missing, error::FileIOError, msgpack, uuid_to_bytes};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -20,7 +18,6 @@ use std::{
 };
 
 use futures::future::join_all;
-use serde_json::json;
 use tokio::fs;
 use tracing::{error, trace};
 use uuid::Uuid;
@@ -165,7 +162,7 @@ async fn identifier_job_step(
 							pub_id: sd_utils::uuid_to_bytes(*pub_id),
 						},
 						file_path::cas_id::NAME,
-						json!(&metadata.cas_id),
+						msgpack!(&metadata.cas_id),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(sd_utils::uuid_to_bytes(*pub_id)),
@@ -279,11 +276,11 @@ async fn identifier_job_step(
 
 						let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 							(
-								(object::date_created::NAME, json!(date_created)),
+								(object::date_created::NAME, msgpack!(date_created)),
 								object::date_created::set(*date_created),
 							),
 							(
-								(object::kind::NAME, json!(kind)),
+								(object::kind::NAME, msgpack!(kind)),
 								object::kind::set(Some(kind)),
 							),
 						]
@@ -366,7 +363,7 @@ fn connect_file_path_to_object<'db>(
 				pub_id: sd_utils::uuid_to_bytes(file_path_id),
 			},
 			file_path::object::NAME,
-			json!(prisma_sync::object::SyncId {
+			msgpack!(prisma_sync::object::SyncId {
 				pub_id: vec_id.clone()
 			}),
 		),

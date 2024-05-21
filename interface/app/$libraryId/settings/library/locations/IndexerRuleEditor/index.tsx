@@ -2,10 +2,11 @@ import { Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { MouseEventHandler, useState } from 'react';
 import { ControllerRenderProps } from 'react-hook-form';
-import { IndexerRule, useCache, useLibraryMutation, useLibraryQuery, useNodes } from '@sd/client';
+import { IndexerRule, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Button, Divider, Label, toast } from '@sd/ui';
 import { InfoText } from '@sd/ui/src/forms';
 import { showAlertDialog } from '~/components';
+import { useLocale } from '~/hooks';
 
 import RuleButton from './RuleButton';
 import RulesForm from './RulesForm';
@@ -33,27 +34,31 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 	...props
 }: IndexerRuleEditorProps<T>) {
 	const listIndexerRules = useLibraryQuery(['locations.indexer_rules.list']);
-	useNodes(listIndexerRules.data?.nodes);
-	const indexRules = useCache(listIndexerRules.data?.items);
+	const indexRules = listIndexerRules.data;
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [selectedRule, setSelectedRule] = useState<IndexerRule | undefined>(undefined);
 	const [toggleNewRule, setToggleNewRule] = useState(false);
 	const deleteIndexerRule = useLibraryMutation(['locations.indexer_rules.delete']);
 
+	const { t } = useLocale();
+
 	const deleteRule: MouseEventHandler<HTMLButtonElement> = () => {
 		if (!selectedRule) return;
 
 		showAlertDialog({
-			title: 'Delete',
-			value: 'Are you sure you want to delete this rule?',
-			label: 'Confirm',
+			title: t('delete'),
+			value: t('delete_rule_confirmation'),
+			label: t('confirm'),
 			cancelBtn: true,
 			onSubmit: async () => {
 				setIsDeleting(true);
 				try {
 					await deleteIndexerRule.mutateAsync(selectedRule.id);
 				} catch (error) {
-					toast.error({ title: 'Failed to delete rule', body: `Error: ${error}.` });
+					toast.error({
+						title: t('failed_to_delete_rule'),
+						body: t('error_message', { error })
+					});
 				} finally {
 					setIsDeleting(false);
 					setSelectedRule(undefined);
@@ -69,7 +74,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 		<div className={props.className} onClick={() => setSelectedRule(undefined)}>
 			<div className={'flex items-start justify-between'}>
 				<div className="mb-1 grow">
-					<Label>{props.label || 'Indexer rules'}</Label>
+					<Label>{props.label || t('indexer_rules')}</Label>
 					{infoText && <InfoText className="mb-4">{infoText}</InfoText>}
 				</div>
 				{editable && (
@@ -84,8 +89,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 								disableDelete || 'border-red-500 bg-red-500'
 							)}
 						>
-							<Trash className="-mt-0.5 mr-1.5 inline h-4 w-4" />
-							Delete
+							<Trash className="-mt-0.5 mr-1.5 inline size-4" />
+							{t('delete')}
 						</Button>
 						<Button
 							size="sm"
@@ -93,7 +98,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 							onClick={() => setToggleNewRule(!toggleNewRule)}
 							className={clsx('px-5', toggleNewRule && 'opacity-50')}
 						>
-							New
+							{t('new')}
 						</Button>
 					</>
 				)}
@@ -114,7 +119,7 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 												setSelectedRule(
 													selectedRule === rule ? undefined : rule
 												);
-									  }
+										}
 									: undefined
 							}
 							className={clsx(
@@ -128,8 +133,8 @@ export default function IndexerRuleEditor<T extends IndexerRuleIdFieldType>({
 				) : (
 					<p className={clsx(listIndexerRules.isError && 'text-red-500')}>
 						{listIndexerRules.isError
-							? 'Error while retriving indexer rules'
-							: 'No indexer rules available'}
+							? `${t('indexer_rules_error')}`
+							: `${t('indexer_rules_not_available')}`}
 					</p>
 				)}
 			</div>

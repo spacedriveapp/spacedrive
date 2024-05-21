@@ -4,7 +4,7 @@ import { useLibraryContext } from '@sd/client';
 import { toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useLocale } from '~/hooks';
-import { Platform, usePlatform } from '~/util/Platform';
+import { OpenWithApplication, Platform, Result, usePlatform } from '~/util/Platform';
 
 import { ConditionalItem } from './ConditionalItem';
 import { useContextMenuContext } from './context';
@@ -79,21 +79,36 @@ const Items = ({
 
 	const ids = selectedFilePaths.map((obj) => obj.id);
 	const paths = selectedEphemeralPaths.map((obj) => obj.path);
+	const { t } = useLocale();
 
-	const items = useQuery<unknown>(
+	const { data: apps } = useQuery(
 		['openWith', ids, paths],
-		() => {
-			if (ids.length > 0) return actions.getFilePathOpenWithApps(library.uuid, ids);
-			else if (paths.length > 0) return actions.getEphemeralFilesOpenWithApps(paths);
-			else return { data: [] };
+		async () => {
+			const handleError = (res: Result<OpenWithApplication[], null>) => {
+				if (res?.status === 'error') {
+					toast.error('Failed to get applications capable to open file');
+					if (res.error) console.error(res.error);
+					return [];
+				}
+				return res?.data;
+			};
+
+			return Promise.all([
+				ids.length > 0
+					? actions.getFilePathOpenWithApps(library.uuid, ids).then(handleError)
+					: Promise.resolve([]),
+				paths.length > 0
+					? actions.getEphemeralFilesOpenWithApps(paths).then(handleError)
+					: Promise.resolve([])
+			]).then((res) => res.flat());
 		},
-		{ suspense: true }
+		{ initialData: [] }
 	);
 
 	return (
 		<>
-			{Array.isArray(items.data) && items.data.length > 0 ? (
-				items.data.map((data, index) => (
+			{apps.length > 0 ? (
+				apps.map((data, index) => (
 					<Menu.Item
 						key={index}
 						onClick={async () => {
@@ -103,13 +118,15 @@ const Items = ({
 										library.uuid,
 										ids.map((id) => [id, data.url])
 									);
-								} else if (paths.length > 0) {
+								}
+
+								if (paths.length > 0) {
 									await actions.openEphemeralFileWith(
 										paths.map((path) => [path, data.url])
 									);
 								}
 							} catch (e) {
-								toast.error(`Failed to open file, with: ${data.url}`);
+								toast.error(t('failed_to_open_file_with', { data: data.url }));
 							}
 						}}
 					>
@@ -117,7 +134,7 @@ const Items = ({
 					</Menu.Item>
 				))
 			) : (
-				<p className="w-full text-center text-sm text-gray-400"> No apps available </p>
+				<p className="w-full text-center text-sm text-gray-400">{t('no_apps_available')}</p>
 			)}
 		</>
 	);

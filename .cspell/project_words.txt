@@ -11,9 +11,11 @@ codegen
 Condvar
 dashmap
 davidmytton
+dayjs
 deel
 elon
 encryptor
+Exif
 Flac
 graps
 haden
@@ -57,8 +59,11 @@ spacetunnel
 specta
 storedkey
 stringly
+thumbstrips
 tobiaslutke
+tokio
 typecheck
+uuid
 vdfs
 vijay
 zacharysmith

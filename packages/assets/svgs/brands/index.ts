@@ -28,6 +28,9 @@ const Twitch = React.lazy(async () => ({ default: (await import('./Twitch.svg'))
 const Twitter = React.lazy(async () => ({
 	default: (await import('./Twitter.svg')).ReactComponent
 }));
+const Website = React.lazy(async () => ({
+	default: (await import('./Website.svg')).ReactComponent
+}));
 
 export {
 	Academia,
@@ -40,5 +43,6 @@ export {
 	Instagram,
 	Opencollective,
 	Twitch,
-	Twitter
+	Twitter,
+	Website
 };

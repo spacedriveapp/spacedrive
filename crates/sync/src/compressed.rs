@@ -1,10 +1,14 @@
-#[derive(Serialize, Deserialize)]
-pub struct CompressedCRDTOperations(
-	Vec<(
-		Uuid,
-		Vec<(String, Vec<(Value, Vec<CompressedCRDTOperation>)>)>,
-	)>,
-);
+use serde::{Deserialize, Serialize};
+use uhlc::NTP64;
+use uuid::Uuid;
+
+use crate::{CRDTOperation, CRDTOperationData};
+
+pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
+
+/// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct CompressedCRDTOperations(pub Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>);
 
 impl CompressedCRDTOperations {
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
@@ -19,7 +23,7 @@ impl CompressedCRDTOperations {
 		let mut instance_id = first.instance;
 		let mut instance = vec![];
 
-		let mut model_str = first.model.clone();
+		let mut model_str = first.model;
 		let mut model = vec![];
 
 		let mut record_id = first.record_id.clone();
@@ -28,7 +32,7 @@ impl CompressedCRDTOperations {
 		for op in ops_iter {
 			if instance_id != op.instance {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 				instance.push((
@@ -41,7 +45,7 @@ impl CompressedCRDTOperations {
 				));
 			} else if model_str != op.model {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 				instance.push((
@@ -50,7 +54,7 @@ impl CompressedCRDTOperations {
 				));
 			} else if record_id != op.record_id {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id),
+					std::mem::replace(&mut record_id, op.record_id.clone()),
 					std::mem::take(&mut record),
 				));
 			}
@@ -64,12 +68,62 @@ impl CompressedCRDTOperations {
 
 		Self(compressed)
 	}
+
+	pub fn first(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
+		self.0.first().and_then(|(instance, data)| {
+			data.first().and_then(|(model, data)| {
+				data.first()
+					.and_then(|(record, ops)| ops.first().map(|op| (*instance, *model, record, op)))
+			})
+		})
+	}
+
+	pub fn last(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
+		self.0.last().and_then(|(instance, data)| {
+			data.last().and_then(|(model, data)| {
+				data.last()
+					.and_then(|(record, ops)| ops.last().map(|op| (*instance, *model, record, op)))
+			})
+		})
+	}
+
+	pub fn len(&self) -> usize {
+		self.0
+			.iter()
+			.map(|(_, data)| {
+				data.iter()
+					.map(|(_, data)| data.iter().map(|(_, ops)| ops.len()).sum::<usize>())
+					.sum::<usize>()
+			})
+			.sum::<usize>()
+	}
+
+	pub fn into_ops(self) -> Vec<CRDTOperation> {
+		let mut ops = vec![];
+
+		for (instance_id, instance) in self.0 {
+			for (model_str, model) in instance {
+				for (record_id, record) in model {
+					for op in record {
+						ops.push(CRDTOperation {
+							instance: instance_id,
+							model: model_str,
+							record_id: record_id.clone(),
+							timestamp: op.timestamp,
+							data: op.data,
+						})
+					}
+				}
+			}
+		}
+
+		ops
+	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,
-	pub id: Uuid,
 	pub data: CRDTOperationData,
 }
 
@@ -77,8 +131,147 @@ impl From<CRDTOperation> for CompressedCRDTOperation {
 	fn from(value: CRDTOperation) -> Self {
 		Self {
 			timestamp: value.timestamp,
-			id: value.id,
 			data: value.data,
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn compress() {
+		let instance = Uuid::new_v4();
+
+		let uncompressed = vec![
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 0,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 0,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 0,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 1,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 1,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 0,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+			CRDTOperation {
+				instance,
+				timestamp: NTP64(0),
+				model: 0,
+				record_id: rmpv::Value::Nil,
+				data: CRDTOperationData::create(),
+			},
+		];
+
+		let CompressedCRDTOperations(compressed) = CompressedCRDTOperations::new(uncompressed);
+
+		assert_eq!(compressed[0].1[0].0, 0);
+		assert_eq!(compressed[0].1[1].0, 1);
+		assert_eq!(compressed[0].1[2].0, 0);
+
+		assert_eq!(compressed[0].1[0].1[0].1.len(), 3);
+		assert_eq!(compressed[0].1[1].1[0].1.len(), 2);
+		assert_eq!(compressed[0].1[2].1[0].1.len(), 2);
+	}
+
+	#[test]
+	fn into_ops() {
+		let compressed = CompressedCRDTOperations(vec![(
+			Uuid::new_v4(),
+			vec![
+				(
+					0,
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+						],
+					)],
+				),
+				(
+					1,
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+						],
+					)],
+				),
+				(
+					0,
+					vec![(
+						rmpv::Value::Nil,
+						vec![
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+							CompressedCRDTOperation {
+								timestamp: NTP64(0),
+								data: CRDTOperationData::create(),
+							},
+						],
+					)],
+				),
+			],
+		)]);
+
+		let uncompressed = compressed.into_ops();
+
+		assert_eq!(uncompressed.len(), 7);
+		assert_eq!(uncompressed[2].model, 0);
+		assert_eq!(uncompressed[4].model, 1);
+		assert_eq!(uncompressed[6].model, 0);
 	}
 }

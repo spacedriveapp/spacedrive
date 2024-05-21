@@ -1,7 +1,6 @@
 import clsx from 'clsx';
-import { t } from 'i18next';
 import { NavLink, useMatch } from 'react-router-dom';
-import { useCache, useLibraryQuery, useNodes, type Tag } from '@sd/client';
+import { useLibraryQuery, type Tag } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
 import { useLocale } from '~/hooks';
@@ -13,8 +12,7 @@ import { ContextMenu } from './ContextMenu';
 
 export default function TagsSection() {
 	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
-	useNodes(result.data?.nodes);
-	const tags = useCache(result.data?.items);
+	const tags = result.data;
 
 	const { t } = useLocale();
 
@@ -61,7 +59,7 @@ const Tag = ({ tag }: { tag: Tag }) => {
 				)}
 			>
 				<div
-					className="h-[12px] w-[12px] shrink-0 rounded-full"
+					className="size-[12px] shrink-0 rounded-full"
 					style={{ backgroundColor: tag.color || '#efefef' }}
 				/>
 				<span className="ml-1.5 truncate text-sm">{tag.name}</span>

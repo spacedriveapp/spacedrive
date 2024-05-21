@@ -103,14 +103,14 @@ const PackageCard = ({ features, name, price, toggle, subTitle }: Props) => {
 						<p className="text-md mb-4 uppercase text-[#A7ADD2]">{name}</p>
 						{price && (
 							<>
-								<p className="text-2xl font-bold leading-[1] text-white">
+								<p className="text-2xl font-bold leading-none text-white">
 									${toggle ? price.yearly : price.monthly}
 								</p>
 								<p className="text-md text-[#A7ADD2]">per {duration}</p>
 							</>
 						)}
 						{subTitle && (
-							<p className="text-2xl font-bold leading-[1] text-white">{subTitle}</p>
+							<p className="text-2xl font-bold leading-none text-white">{subTitle}</p>
 						)}
 					</div>
 				</div>
@@ -128,7 +128,7 @@ const PackageCard = ({ features, name, price, toggle, subTitle }: Props) => {
 						)}
 						{features.map((feature, index) => (
 							<div key={index} className="flex items-center justify-center gap-2.5">
-								<div className="flex h-5 w-5 items-center justify-center rounded-full border border-[#353252] bg-[#2A2741]">
+								<div className="flex size-5 items-center justify-center rounded-full border border-[#353252] bg-[#2A2741]">
 									<Check weight="bold" size={12} color="white" />
 								</div>
 								<p className="text-sm text-white">{feature}</p>

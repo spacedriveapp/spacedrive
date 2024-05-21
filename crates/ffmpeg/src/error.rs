@@ -1,5 +1,9 @@
-use std::path::PathBuf;
-use std::{ffi::c_int, num::TryFromIntError};
+use sd_utils::error::FileIOError;
+use std::{
+	ffi::{c_int, NulError},
+	num::TryFromIntError,
+	path::{Path, PathBuf},
+};
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -16,43 +20,48 @@ use ffmpeg_sys_next::{
 /// Error type for the library.
 #[derive(Error, Debug)]
 pub enum Error {
-	#[error("I/O Error: {0}")]
-	Io(#[from] std::io::Error),
+	#[error("Background task failed: {0}")]
+	BackgroundTaskFailed(#[from] JoinError),
+	#[error("the video is most likely corrupt and will be skipped: <path='{}'>", .0.display())]
+	CorruptVideo(Box<Path>),
+	#[error("Received an invalid quality, expected range [0.0, 100.0], received: {0}")]
+	InvalidQuality(f32),
+	#[error("Received an invalid seek percentage: {0}")]
+	InvalidSeekPercentage(f32),
+	#[error("Error while casting an integer to another integer type")]
+	IntCastError(#[from] TryFromIntError),
+	#[error("Duration for video stream is unavailable")]
+	NoVideoDuration,
+	#[error("Failed to allocate C data: {0}")]
+	NulError(#[from] NulError),
 	#[error("Path conversion error: Path: {0:#?}")]
 	PathConversion(PathBuf),
 	#[error("FFmpeg internal error: {0}")]
-	Ffmpeg(#[from] FfmpegError),
+	FFmpeg(#[from] FFmpegError),
 	#[error("FFmpeg internal error: {0}; Reason: {1}")]
-	FfmpegWithReason(FfmpegError, String),
+	FFmpegWithReason(FFmpegError, String),
 	#[error("Failed to decode video frame")]
 	FrameDecodeError,
 	#[error("Failed to seek video")]
 	SeekError,
 	#[error("Seek not allowed")]
 	SeekNotAllowed,
-	#[error("Received an invalid seek percentage: {0}")]
-	InvalidSeekPercentage(f32),
-	#[error("Received an invalid quality, expected range [0.0, 100.0], received: {0}")]
-	InvalidQuality(f32),
-	#[error("Background task failed: {0}")]
-	BackgroundTaskFailed(#[from] JoinError),
-	#[error("The video is most likely corrupt and will be skipped")]
-	CorruptVideo,
-	#[error("Error while casting an integer to another integer type")]
-	IntCastError(#[from] TryFromIntError),
+
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }
 
 /// Enum to represent possible errors from `FFmpeg` library
 ///
 /// Extracted from <https://ffmpeg.org/doxygen/trunk/group__lavu__error.html>
 #[derive(Error, Debug)]
-pub enum FfmpegError {
+pub enum FFmpegError {
 	#[error("Bitstream filter not found")]
 	BitstreamFilterNotFound,
-	#[error("Internal bug, also see AVERROR_BUG2")]
-	InternalBug,
 	#[error("Buffer too small")]
 	BufferTooSmall,
+	#[error("Context allocation error")]
+	ContextAllocation,
 	#[error("Decoder not found")]
 	DecoderNotFound,
 	#[error("Demuxer not found")]
@@ -69,6 +78,8 @@ pub enum FfmpegError {
 	FilterNotFound,
 	#[error("Invalid data found when processing input")]
 	InvalidData,
+	#[error("Internal bug, also see AVERROR_BUG2")]
+	InternalBug,
 	#[error("Muxer not found")]
 	MuxerNotFound,
 	#[error("Option not found")]
@@ -111,9 +122,13 @@ pub enum FfmpegError {
 	FilterGraphAllocation,
 	#[error("Codec Open Error")]
 	CodecOpen,
+	#[error("Data not found")]
+	NullError,
+	#[error("Resource temporarily unavailable")]
+	Again,
 }
 
-impl From<c_int> for FfmpegError {
+impl From<c_int> for FFmpegError {
 	fn from(code: c_int) -> Self {
 		match code {
 			AVERROR_BSF_NOT_FOUND => Self::BitstreamFilterNotFound,

@@ -18,7 +18,7 @@ export const Component = () => {
 	}, [data]);
 
 	return (
-		<div className="h-full w-full">
+		<div className="size-full">
 			<table>
 				<tr>
 					<th>Name</th>

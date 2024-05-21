@@ -23,7 +23,7 @@ pub enum SystemMessage {
 	CancelNotRunningTask {
 		task_id: TaskId,
 		worker_id: WorkerId,
-		ack: oneshot::Sender<Result<(), SystemError>>,
+		ack: oneshot::Sender<()>,
 	},
 	ForceAbortion {
 		task_id: TaskId,
@@ -51,7 +51,7 @@ pub enum WorkerMessage<E: RunError> {
 	},
 	CancelNotRunningTask {
 		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), SystemError>>,
+		ack: oneshot::Sender<()>,
 	},
 	ForceAbortion {
 		task_id: TaskId,

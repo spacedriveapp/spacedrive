@@ -1,3 +1,39 @@
 ---
 index: 100
 ---
+
+# Tags
+
+Tags are a simple but very powerful feature in Spacedrive. They streamline search, are easily automatable and are compatible with [Spaces]()
+
+### Adding/Removing Tags
+
+<Notice
+	type="info"
+	title="WIP"
+	text="Tags are part of the Spacedrive library, so files that are not within a Location are not able to be tagged."
+/>
+Tags can be added from the context menu - right click a file and select "Assign tags".
+
+Alternatively, the [Inspector]() which can be accessed from both the Explorer and Quick Preview has the ability to view and manage tags.
+
+We are working on a "tag assign mode" which will show relevent tags on a hotbar at the bottom of the Explorer. Each tag will be assigned a number, selecting files and pressing the number will assign the given tag to all selected files.
+
+### Managing tags
+
+![image](/images/tags.webp)
+
+The settings menu allows for managing tags in bulk, click on a tag to change the name and primary color in the UI.
+
+### Behaviour
+
+When a file is tagged, it is assigned uniquely in the context of your Library, meaning other instances of that file will also be assigned that tag. For more information on this behaviour see [Objects]().
+
+### Showing in the Explorer
+
+We are working on a way to see tags in the Explorer UI, from below the file in grid view, to a column on list view, as well as a "group by tag" sort option.
+
+### Syncing with File System
+
+It will be possible soon to import OS tags from your filesystem, it will be an option during onboarding as well as a button in the tag settings. This will include the option to keep tags synced with the underlying filesystem where possible.
+ß

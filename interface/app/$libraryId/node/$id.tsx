@@ -36,7 +36,7 @@ export const Component = () => {
 			? {
 					type: 'Node',
 					node: nodeState.data
-			  }
+				}
 			: undefined,
 		settings: explorerSettings,
 		showPathBar: false,
@@ -48,7 +48,7 @@ export const Component = () => {
 			<TopBarPortal
 				left={
 					<div className="flex items-center gap-2">
-						<Icon name="Laptop" size={24} className="mt-[-1px]" />
+						<Icon name="Laptop" size={24} className="-mt-px" />
 						<span className="truncate text-sm font-medium">{title}</span>
 					</div>
 				}

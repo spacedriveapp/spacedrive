@@ -5,7 +5,7 @@
 		"declarationDir": "dist",
 		"types": ["vite/client"]
 	},
-	"include": ["src", "src/demoData.json"],
+	"include": ["src", "src/demoData.json", ".eslintrc.cjs"],
 	"references": [
 		{
 			"path": "../../interface"

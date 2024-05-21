@@ -10,7 +10,7 @@ import { isNonEmpty } from '~/util';
 import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
 import DeleteDialog from '../../FilePath/DeleteDialog';
-import EraseDialog from '../../FilePath/EraseDialog';
+// import EraseDialog from '../../FilePath/EraseDialog';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';
 
@@ -41,13 +41,13 @@ export const Delete = new ConditionalItem({
 						locationId: selectedFilePaths[0].location_id,
 						rescan,
 						pathIds: selectedFilePaths.map((p) => p.id)
-				  }
+					}
 				: undefined;
 
 		const ephemeralArgs = isNonEmpty(selectedEphemeralPaths)
 			? {
 					paths: selectedEphemeralPaths.map((p) => p.path)
-			  }
+				}
 			: undefined;
 		const deleteKeybind = useKeysMatcher(['Meta', 'Backspace']);
 
@@ -189,37 +189,37 @@ export const Crypto = new ConditionalItem({
 	}
 });
 
-export const SecureDelete = new ConditionalItem({
-	useCondition: () => {
-		const { selectedFilePaths } = useContextMenuContext();
-		if (!isNonEmpty(selectedFilePaths)) return null;
+// export const SecureDelete = new ConditionalItem({
+// 	useCondition: () => {
+// 		const { selectedFilePaths } = useContextMenuContext();
+// 		if (!isNonEmpty(selectedFilePaths)) return null;
 
-		const locationId = selectedFilePaths[0].location_id;
-		if (locationId === null) return null;
+// 		const locationId = selectedFilePaths[0].location_id;
+// 		if (locationId === null) return null;
 
-		return { locationId, selectedFilePaths };
-	},
-	Component: ({ locationId, selectedFilePaths }) => {
-		const { t } = useLocale();
-		return (
-			<Menu.Item
-				variant="danger"
-				label={t('secure_delete')}
-				icon={TrashSimple}
-				onClick={() =>
-					dialogManager.create((dp) => (
-						<EraseDialog
-							{...dp}
-							locationId={locationId}
-							filePaths={selectedFilePaths}
-						/>
-					))
-				}
-				disabled
-			/>
-		);
-	}
-});
+// 		return { locationId, selectedFilePaths };
+// 	},
+// 	Component: ({ locationId, selectedFilePaths }) => {
+// 		const { t } = useLocale();
+// 		return (
+// 			<Menu.Item
+// 				variant="danger"
+// 				label={t('secure_delete')}
+// 				icon={TrashSimple}
+// 				onClick={() =>
+// 					dialogManager.create((dp) => (
+// 						<EraseDialog
+// 							{...dp}
+// 							locationId={locationId}
+// 							filePaths={selectedFilePaths}
+// 						/>
+// 					))
+// 				}
+// 				disabled
+// 			/>
+// 		);
+// 	}
+// });
 
 export const ParentFolderActions = new ConditionalItem({
 	useCondition: () => {
@@ -234,7 +234,7 @@ export const ParentFolderActions = new ConditionalItem({
 
 		const fullRescan = useLibraryMutation('locations.fullRescan');
 		const generateThumbnails = useLibraryMutation('jobs.generateThumbsForLocation');
-		const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
+		// const generateLabels = useLibraryMutation('jobs.generateLabelsForLocation');
 
 		const { t } = useLocale();
 
@@ -250,7 +250,7 @@ export const ParentFolderActions = new ConditionalItem({
 						} catch (error) {
 							toast.error({
 								title: t('failed_to_rescan_location'),
-								body: `Error: ${error}.`
+								body: t('error_message', { error })
 							});
 						}
 					}}
@@ -275,7 +275,7 @@ export const ParentFolderActions = new ConditionalItem({
 					label={t('regen_thumbnails')}
 					icon={Image}
 				/>
-				<ContextMenu.Item
+				{/* <ContextMenu.Item
 					onClick={async () => {
 						try {
 							await generateLabels.mutateAsync({
@@ -292,7 +292,7 @@ export const ParentFolderActions = new ConditionalItem({
 					}}
 					label={t('regen_labels')}
 					icon={Hash}
-				/>
+				/> */}
 			</>
 		);
 	}

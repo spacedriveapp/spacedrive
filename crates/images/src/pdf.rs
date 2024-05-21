@@ -1,5 +1,4 @@
 use std::{
-	borrow::ToOwned,
 	env::current_exe,
 	path::{Path, PathBuf},
 };

@@ -12,7 +12,7 @@ export function NavBar() {
 		<div className="navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition">
 			<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
 				<Link href="/" className="absolute flex flex-row items-center">
-					<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 h-8 w-8" />
+					<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 size-8" />
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</Link>
 
@@ -40,7 +40,7 @@ export function NavBar() {
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Discord className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
+						<Discord className="size-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 					<Link
 						aria-label="github"
@@ -48,13 +48,13 @@ export function NavBar() {
 						target="_blank"
 						rel="noreferrer"
 					>
-						<Github className="h-6 w-6 text-white opacity-100 duration-300 hover:opacity-50" />
+						<Github className="size-6 text-white opacity-100 duration-300 hover:opacity-50" />
 					</Link>
 				</div>
 			</div>
 			<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
-				<div className="h-[1px] w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
-				<div className="h-[1px] w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
+				<div className="h-px w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
+				<div className="h-px w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
 			</div>
 		</div>
 	);
