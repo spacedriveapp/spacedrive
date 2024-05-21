@@ -238,7 +238,7 @@ impl P2PManager {
 		self.listeners
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
-			.ipv4 = if let Err(err) = self.quic.set_ipv6_enabled(ipv6_port).await {
+			.ipv6 = if let Err(err) = self.quic.set_ipv6_enabled(ipv6_port).await {
 			error!("Failed to enabled quic ipv6 listener: {err}");
 			self.node_config
 				.write(|c| c.p2p.disable_ipv6 = false)
