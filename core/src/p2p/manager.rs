@@ -136,12 +136,16 @@ impl P2PManager {
 											.lock()
 											.unwrap_or_else(PoisonError::into_inner) = config.clone();
 
-										let config =
-											if node.p2p.node_config.get().await.p2p.relay == true {
+										let config = {
+											let node_config = node.config.get().await;
+											if !node_config.p2p.disabled
+												&& !node_config.p2p.disable_relay
+											{
 												config
 											} else {
 												vec![]
-											};
+											}
+										};
 										let no_relays = config.len();
 
 										this.listeners
@@ -206,58 +210,65 @@ impl P2PManager {
 
 		let port = config.p2p.port.get();
 
-		info!(
-			"Setting quic ipv4 listener to: {:?}",
-			config.p2p.ipv4.then_some(port)
-		);
+		let ipv4_port = (!config.p2p.disabled).then_some(port);
+		info!("Setting quic ipv4 listener to: {ipv4_port:?}");
 		self.listeners
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
-			.ipv4 = if let Err(err) = self
-			.quic
-			.set_ipv4_enabled(config.p2p.ipv4.then_some(port))
-			.await
-		{
+			.ipv4 = if let Err(err) = self.quic.set_ipv4_enabled(ipv4_port).await {
 			error!("Failed to enabled quic ipv4 listener: {err}");
-			self.node_config.write(|c| c.p2p.ipv4 = false).await.ok();
+			self.node_config
+				.write(|c| c.p2p.disabled = false)
+				.await
+				.ok();
 
 			ListenerState::Error {
 				error: err.to_string(),
 			}
 		} else {
-			match config.p2p.ipv4 {
+			match !config.p2p.disabled {
 				true => ListenerState::Listening,
 				false => ListenerState::NotListening,
 			}
 		};
 
-		info!(
-			"Setting quic ipv6 listener to: {:?}",
-			config.p2p.ipv6.then_some(port)
-		);
+		let enable_ipv6 = !config.p2p.disabled && !config.p2p.disable_ipv6;
+		let ipv6_port = enable_ipv6.then_some(port);
+		info!("Setting quic ipv6 listener to: {ipv6_port:?}");
 		self.listeners
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
-			.ipv4 = if let Err(err) = self
-			.quic
-			.set_ipv6_enabled(config.p2p.ipv6.then_some(port))
-			.await
-		{
+			.ipv4 = if let Err(err) = self.quic.set_ipv6_enabled(ipv6_port).await {
 			error!("Failed to enabled quic ipv6 listener: {err}");
-			self.node_config.write(|c| c.p2p.ipv6 = false).await.ok();
+			self.node_config
+				.write(|c| c.p2p.disable_ipv6 = false)
+				.await
+				.ok();
 
 			ListenerState::Error {
 				error: err.to_string(),
 			}
 		} else {
-			match config.p2p.ipv6 {
+			match enable_ipv6 {
 				true => ListenerState::Listening,
 				false => ListenerState::NotListening,
 			}
 		};
 
-		let should_revert = match config.p2p.discovery {
-			P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly => {
+		let should_revert = match (config.p2p.disabled, config.p2p.discovery) {
+			(false, _) | (_, P2PDiscoveryState::Disabled) => {
+				let mdns = {
+					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+					mdns.take()
+				};
+				if let Some(mdns) = mdns {
+					mdns.shutdown().await;
+					info!("mDNS shutdown successfully.");
+				}
+
+				false
+			}
+			(_, P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly) => {
 				let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
 				if mdns.is_none() {
 					match Mdns::spawn(self.p2p.clone()) {
@@ -274,18 +285,6 @@ impl P2PManager {
 				} else {
 					false
 				}
-			}
-			P2PDiscoveryState::Disabled => {
-				let mdns = {
-					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
-					mdns.take()
-				};
-				if let Some(mdns) = mdns {
-					mdns.shutdown().await;
-					info!("mDNS shutdown successfully.");
-				}
-
-				false
 			}
 		};
 

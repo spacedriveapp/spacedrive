@@ -20,9 +20,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			pub struct ChangeNodeNameArgs {
 				pub name: Option<String>,
 				pub p2p_port: Option<Port>,
-				pub p2p_ipv4_enabled: Option<bool>,
-				pub p2p_ipv6_enabled: Option<bool>,
-				pub p2p_relay_enabled: Option<bool>,
+				pub p2p_disabled: Option<bool>,
+				pub p2p_ipv6_disabled: Option<bool>,
+				pub p2p_relay_disabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub image_labeler_version: Option<String>,
@@ -49,20 +49,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(port) = args.p2p_port {
 							config.p2p.port = port;
 						};
-						if let Some(enabled) = args.p2p_ipv4_enabled {
-							config.p2p.ipv4 = enabled;
+						if let Some(enabled) = args.p2p_disabled {
+							config.p2p.disabled = enabled;
 						};
-						if let Some(enabled) = args.p2p_ipv6_enabled {
-							config.p2p.ipv6 = enabled;
+						if let Some(enabled) = args.p2p_ipv6_disabled {
+							config.p2p.disable_ipv6 = enabled;
 						};
-						if let Some(enabled) = args.p2p_relay_enabled {
-							config.p2p.relay = enabled;
+						if let Some(enabled) = args.p2p_relay_disabled {
+							config.p2p.disable_relay = enabled;
 						};
 						if let Some(discovery) = args.p2p_discovery {
 							config.p2p.discovery = discovery;
 						};
 						if let Some(remote_access) = args.p2p_remote_access {
-							config.p2p.remote_access = remote_access;
+							config.p2p.enable_remote_access = remote_access;
 						};
 
 						#[cfg(feature = "ai")]

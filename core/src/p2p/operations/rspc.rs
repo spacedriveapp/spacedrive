@@ -46,7 +46,7 @@ pub(crate) async fn receiver(
 
 	// TODO: Authentication
 	#[allow(clippy::todo)]
-	if node.config.get().await.p2p.remote_access {
+	if !node.config.get().await.p2p.enable_remote_access {
 		todo!("No way buddy!");
 	}
 

@@ -57,14 +57,6 @@ impl Port {
 	}
 }
 
-fn default_as_true() -> bool {
-	true
-}
-
-fn skip_if_true(value: &bool) -> bool {
-	*value
-}
-
 fn skip_if_false(value: &bool) -> bool {
 	!*value
 }
@@ -75,14 +67,14 @@ pub struct NodeConfigP2P {
 	pub discovery: P2PDiscoveryState,
 	#[serde(default, skip_serializing_if = "Port::is_random")]
 	pub port: Port,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv4: bool,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv6: bool,
-	#[serde(default, skip_serializing_if = "skip_if_true")]
-	pub relay: bool,
 	#[serde(default, skip_serializing_if = "skip_if_false")]
-	pub remote_access: bool,
+	pub disabled: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub disable_ipv6: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub disable_relay: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub enable_remote_access: bool,
 }
 
 impl Default for NodeConfigP2P {
@@ -90,10 +82,10 @@ impl Default for NodeConfigP2P {
 		Self {
 			discovery: P2PDiscoveryState::Everyone,
 			port: Port::Random,
-			ipv4: true,
-			ipv6: true,
-			relay: true,
-			remote_access: false,
+			disabled: true,
+			disable_ipv6: true,
+			disable_relay: true,
+			enable_remote_access: false,
 		}
 	}
 }

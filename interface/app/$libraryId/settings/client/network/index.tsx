@@ -48,45 +48,44 @@ export const Component = () => {
 	const form = useZodForm({
 		schema: z
 			.object({
-				p2p_port: z.discriminatedUnion('type', [
+				port: z.discriminatedUnion('type', [
 					z.object({ type: z.literal('random') }),
 					z.object({ type: z.literal('discrete'), value: u16() })
 				]),
-				p2p_ipv4_enabled: z.boolean().optional(),
-				p2p_ipv6_enabled: z.boolean().optional(),
-				p2p_relay_enabled: z.boolean().optional(),
-				p2p_discovery: z
+				disabled: z.boolean().optional(),
+				ipv6_disabled: z.boolean().optional(),
+				relay_disabled: z.boolean().optional(),
+				discovery: z
 					.union([
 						z.literal('Everyone'),
 						z.literal('ContactsOnly'),
 						z.literal('Disabled')
 					])
 					.optional(),
-				p2p_remote_access: z.boolean().optional()
+				enable_remote_access: z.boolean().optional()
 			})
 			.strict(),
 		reValidateMode: 'onChange',
 		defaultValues: {
-			p2p_port: node.data?.p2p.port || { type: 'random' },
-			p2p_ipv4_enabled: node.data?.p2p.ipv4 || true,
-			p2p_ipv6_enabled: node.data?.p2p.ipv6 || true,
-			p2p_relay_enabled: node.data?.p2p.relay || true,
-			p2p_discovery: node.data?.p2p.discovery || 'Everyone',
-			p2p_remote_access: node.data?.p2p.remote_access || false
+			port: node.data?.p2p.port || { type: 'random' },
+			disabled: node.data?.p2p.disabled || false,
+			ipv6_disabled: node.data?.p2p.disable_ipv6 || false,
+			relay_disabled: node.data?.p2p.disable_relay || false,
+			discovery: node.data?.p2p.discovery || 'Everyone',
+			enable_remote_access: node.data?.p2p.disable_relay || false
 		}
 	});
-	const p2p_port = form.watch('p2p_port');
 
 	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: null,
-				p2p_port: (value.p2p_port as any) ?? null,
-				p2p_ipv4_enabled: value.p2p_ipv4_enabled ?? null,
-				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
-				p2p_relay_enabled: value.p2p_relay_enabled ?? null,
-				p2p_discovery: value.p2p_discovery ?? null,
-				p2p_remote_access: value.p2p_remote_access ?? null,
+				p2p_port: (value.port as any) ?? null,
+				p2p_disabled: value.disabled ?? null,
+				p2p_ipv6_disabled: value.ipv6_disabled ?? null,
+				p2p_relay_disabled: value.relay_disabled ?? null,
+				p2p_discovery: value.discovery ?? null,
+				p2p_remote_access: value.enable_remote_access ?? null,
 				image_labeler_version: null
 			});
 		}
@@ -94,9 +93,10 @@ export const Component = () => {
 		node.refetch();
 	});
 
+	const port = form.watch('port');
 	form.watch((data) => {
-		if (data.p2p_port?.type == 'discrete' && Number(data.p2p_port.value) > 65535) {
-			form.setValue('p2p_port', { type: 'discrete', value: 65535 });
+		if (data.port?.type == 'discrete' && Number(data.port.value) > 65535) {
+			form.setValue('port', { type: 'discrete', value: 65535 });
 		}
 	});
 
@@ -153,16 +153,12 @@ export const Component = () => {
 			>
 				<Switch
 					size="md"
-					checked={form.watch('p2p_ipv4_enabled') && form.watch('p2p_ipv6_enabled')}
-					onCheckedChange={(checked) => {
-						form.setValue('p2p_ipv4_enabled', checked);
-						form.setValue('p2p_ipv6_enabled', checked);
-						form.setValue('p2p_relay_enabled', checked);
-					}}
+					checked={!form.watch('disabled')}
+					onCheckedChange={(checked) => form.setValue('disabled', !checked)}
 				/>
 			</Setting>
 
-			{form.watch('p2p_ipv4_enabled') && form.watch('p2p_ipv6_enabled') ? (
+			{!form.watch('disabled') ? (
 				<>
 					<Setting
 						mini
@@ -171,11 +167,11 @@ export const Component = () => {
 					>
 						<div className="flex h-[30px] gap-2">
 							<Select
-								value={p2p_port.type}
+								value={port.type}
 								containerClassName="h-[30px]"
 								className="h-full"
 								onChange={(type) => {
-									form.setValue('p2p_port', {
+									form.setValue('port', {
 										type: type as any
 									});
 								}}
@@ -184,14 +180,14 @@ export const Component = () => {
 								<SelectOption value="discrete">{t('custom')}</SelectOption>
 							</Select>
 							<Input
-								value={p2p_port.type === 'discrete' ? p2p_port.value : 0}
+								value={port.type === 'discrete' ? port.value : 0}
 								className={clsx(
 									'w-[66px]',
-									p2p_port.type === 'random' ? 'opacity-50' : 'opacity-100'
+									port.type === 'random' ? 'opacity-50' : 'opacity-100'
 								)}
-								disabled={p2p_port.type === 'random'}
+								disabled={port.type === 'random'}
 								onChange={(e) => {
-									form.setValue('p2p_port', {
+									form.setValue('port', {
 										type: 'discrete',
 										value: Number(e.target.value.replace(/[^0-9]/g, ''))
 									});
@@ -208,10 +204,8 @@ export const Component = () => {
 					>
 						<Switch
 							size="md"
-							checked={form.watch('p2p_ipv6_enabled')}
-							onCheckedChange={(checked) =>
-								form.setValue('p2p_ipv6_enabled', checked)
-							}
+							checked={!form.watch('ipv6_disabled')}
+							onCheckedChange={(checked) => form.setValue('ipv6_disabled', !checked)}
 						/>
 					</Setting>
 
@@ -225,10 +219,10 @@ export const Component = () => {
 						}
 					>
 						<Select
-							value={form.watch('p2p_discovery') || 'Everyone'}
+							value={form.watch('discovery') || 'Everyone'}
 							containerClassName="h-[30px]"
 							className="h-full"
-							onChange={(type) => form.setValue('p2p_discovery', type)}
+							onChange={(type) => form.setValue('discovery', type)}
 						>
 							<SelectOption value="Everyone">
 								{t('p2p_visibility_everyone')}
@@ -257,10 +251,8 @@ export const Component = () => {
 					>
 						<Switch
 							size="md"
-							checked={form.watch('p2p_relay_enabled')}
-							onCheckedChange={(checked) =>
-								form.setValue('p2p_relay_enabled', checked)
-							}
+							checked={!form.watch('relay_disabled')}
+							onCheckedChange={(checked) => form.setValue('relay_disabled', !checked)}
 						/>
 					</Setting>
 
@@ -283,9 +275,9 @@ export const Component = () => {
 							>
 								<Switch
 									size="md"
-									checked={form.watch('p2p_remote_access')}
+									checked={form.watch('enable_remote_access')}
 									onCheckedChange={(checked) =>
-										form.setValue('p2p_remote_access', checked)
+										form.setValue('enable_remote_access', checked)
 									}
 								/>
 							</Setting>
