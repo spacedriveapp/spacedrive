@@ -48,11 +48,16 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 							println!("INSERT: {:?}", instances); // TODO
 
 							for i in instances.iter() {
-								let identity = RemoteIdentity::from_bytes(&i.identity)
-									.expect("lol: invalid DB entry");
-								let node_identity =
-									RemoteIdentity::from_bytes(&i.node_remote_identity)
-										.expect("lol: invalid DB entry");
+								let identity = RemoteIdentity::from_bytes(
+									i.identity.as_ref().expect("identity is required"),
+								)
+								.expect("lol: invalid DB entry");
+								let node_identity = RemoteIdentity::from_bytes(
+									i.node_remote_identity
+										.as_ref()
+										.expect("node remote identity is required"),
+								)
+								.expect("lol: invalid DB entry");
 
 								// Skip self
 								if identity == library.identity.to_remote_identity() {
