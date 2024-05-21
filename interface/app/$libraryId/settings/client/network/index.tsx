@@ -335,7 +335,7 @@ function NodesPanel() {
 							</div>
 
 							<div className="grow"></div>
-							<div className="flex items-center justify-center space-x-4">
+							<div className="flex items-center justify-center space-x-2">
 								{isP2PWipFeatureEnabled && (
 									<Button
 										onClick={() =>
@@ -358,6 +358,8 @@ function NodesPanel() {
 								>
 									Connect
 								</Button>
+
+								<NodePill>{node.discovery === 'Local' ? 'LAN' : 'Relay'}</NodePill>
 
 								<NodePill
 									className={
