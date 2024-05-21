@@ -45,6 +45,12 @@ Within Spacedrive's settings the user is able to choose between three modes for 
 
 **Contacts only** the mDNS service will not contain the [`PeerMetadata`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) fields and instead will contain a hash of the users Spacedrive identifier. If a Spacedrive node detects another node in the local network with a hash in it's contacts, it can make a request to the node and if the remote node also has the current node in it's contacts, it will respond with the full metadata.
 
+## Integration with Spacedrive accounts
+
+To integrate with Spacedrive's account system, TODO
+
+https://linear.app/spacedriveapp/issue/ENG-1758/p2p-🤝-spacedrive-accounts
+
 ## Problems with Docker
 
 Docker can be problematic with P2P due to it applying another level of [NAT](https://en.wikipedia.org/wiki/Network_address_translation). This shouldn't cause any issues for usage with the relay but it makes mDNS cease to work.
