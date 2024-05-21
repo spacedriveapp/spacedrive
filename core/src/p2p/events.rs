@@ -84,16 +84,11 @@ impl P2PEvents {
 					| HookEvent::PeerAvailable(peer)
 					// This will fire for updates to the mDNS metadata which are important for UX.
 					| HookEvent::PeerDiscoveredBy(_, peer) => {
-						let metadata = match PeerMetadata::from_hashmap(&peer.metadata()) {
-							Ok(metadata) => metadata,
-							Err(e) => {
-								println!(
-									"Invalid metadata for peer '{}': {:?}",
-									peer.identity(),
-									e
-								);
-								continue;
-							}
+						let Ok(metadata) = PeerMetadata::from_hashmap(&peer.metadata()).map_err(|err| println!(
+							"Invalid metadata for peer '{}': {err:?}",
+							peer.identity()
+						)) else {
+							continue;
 						};
 
 						P2PEvent::PeerChange {

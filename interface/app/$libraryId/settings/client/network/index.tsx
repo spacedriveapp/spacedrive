@@ -301,12 +301,8 @@ function NodesPanel() {
 	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
 
 	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
-		onSuccess: () => {
-			toast.success('Connected!');
-		},
-		onError: (e) => {
-			toast.error(`Error connecting '${e.message}'`);
-		}
+		onSuccess: () => toast.success('Connected!'),
+		onError: (e) => toast.error(`Error connecting '${e.message}'`)
 	});
 
 	return (

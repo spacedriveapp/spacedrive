@@ -45,6 +45,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 								.lock()
 								.unwrap_or_else(PoisonError::into_inner);
 
+							println!("INSERT: {:?}", instances); // TODO
+
 							for i in instances.iter() {
 								let identity = RemoteIdentity::from_bytes(&i.node_id)
 									.expect("lol: invalid DB entry");
@@ -87,6 +89,8 @@ pub fn libraries_hook(p2p: Arc<P2P>, libraries: Arc<Libraries>) -> HookId {
 							let mut nodes_to_instance = nodes_to_instance
 								.lock()
 								.unwrap_or_else(PoisonError::into_inner);
+
+							println!("DEL: {:?}", instances); // TODO
 
 							for i in instances.iter() {
 								let identity = RemoteIdentity::from_bytes(&i.node_id)
