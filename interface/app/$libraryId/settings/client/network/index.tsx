@@ -1,32 +1,46 @@
 import clsx from 'clsx';
+import { PropsWithChildren } from 'react';
 import { FormProvider } from 'react-hook-form';
+import { useNavigate } from 'react-router';
+import { Link } from 'react-router-dom';
 import { z } from 'zod';
 import {
+	ListenerState,
 	useBridgeMutation,
 	useBridgeQuery,
-	useConnectedPeers,
-	useDebugState,
 	useFeatureFlag,
+	usePeers,
 	useZodForm
 } from '@sd/client';
-import { Input, Select, SelectOption, Switch, Tooltip } from '@sd/ui';
+import { Button, Card, Input, Select, SelectOption, Switch, toast, Tooltip } from '@sd/ui';
+import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
 
-import { Heading } from '../Layout';
-import Setting from '../Setting';
+import { Heading } from '../../Layout';
+import Setting from '../../Setting';
+import { NodePill } from '../general';
 
 const u16 = () => z.number().min(0).max(65535);
+
+function RenderListenerPill(props: PropsWithChildren<{ listener?: ListenerState }>) {
+	if (props.listener?.type === 'Error') {
+		return (
+			<Tooltip label={`Error: ${props.listener.error}`}>
+				<NodePill className="bg-red-700">{props.children}</NodePill>
+			</Tooltip>
+		);
+	} else if (props.listener?.type === 'Listening') {
+		return <NodePill className="bg-green-700">{props.children}</NodePill>;
+	}
+	return <NodePill>{props.children}</NodePill>;
+}
 
 export const Component = () => {
 	const node = useBridgeQuery(['nodeState']);
 	const listeners = useBridgeQuery(['p2p.listeners'], {
 		refetchInterval: 1000
 	});
-	const platform = usePlatform();
-	const debugState = useDebugState();
 	const editNode = useBridgeMutation('nodes.edit');
-	const connectedPeers = useConnectedPeers();
 
 	const { t } = useLocale();
 
@@ -92,10 +106,35 @@ export const Component = () => {
 			<Heading
 				title={t('network_settings')}
 				description={t('network_settings_description')}
+				rightArea={
+					<Link to="./debug" className="text-xs">
+						Advanced
+					</Link>
+				}
 			/>
 
-			{/* TODO: Card */}
-			{/* TODO: Show node name, name remote identity, etc */}
+			<Card className="flex flex-col px-5 pb-4">
+				<div className="my-2 flex w-full flex-col">
+					<div className="flex flex-row items-center justify-between">
+						<span className="font-semibold">{node.data?.name}</span>
+						<div className="flex flex-row space-x-1">
+							<RenderListenerPill listener={listeners.data?.ipv4}>
+								IPv4
+							</RenderListenerPill>
+							<RenderListenerPill listener={listeners.data?.ipv6}>
+								IPv6
+							</RenderListenerPill>
+							<RenderListenerPill listener={listeners.data?.relay}>
+								Relay
+							</RenderListenerPill>
+						</div>
+					</div>
+				</div>
+
+				<div>
+					<p>Remote Identity: {node.data?.identity}</p>
+				</div>
+			</Card>
 
 			<Setting
 				mini
@@ -117,6 +156,7 @@ export const Component = () => {
 					onCheckedChange={(checked) => {
 						form.setValue('p2p_ipv4_enabled', checked);
 						form.setValue('p2p_ipv6_enabled', checked);
+						form.setValue('p2p_relay_enabled', checked);
 					}}
 				/>
 			</Setting>
@@ -250,10 +290,83 @@ export const Component = () => {
 							</Setting>
 						</>
 					)}
+
+					<NodesPanel />
 				</>
 			) : null}
-
-			{/* TODO: Allow expanding NLM debug info */}
 		</FormProvider>
 	);
 };
+
+function NodesPanel() {
+	const { t } = useLocale();
+	const navigate = useNavigate();
+	const peers = usePeers();
+
+	const isP2PWipFeatureEnabled = useFeatureFlag('wipP2P');
+
+	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
+		onSuccess: () => {
+			toast.success('Connected!');
+		},
+		onError: (e) => {
+			toast.error(`Error connecting '${e.message}'`);
+		}
+	});
+
+	return (
+		<div className="flex flex-col gap-2">
+			<h1 className="text-lg font-bold text-ink">{t('nodes')}</h1>
+
+			{peers.size === 0 ? (
+				<p className="text-sm text-gray-400">{t('no_nodes_found')}</p>
+			) : (
+				<div className="grid grid-cols-1 gap-2">
+					{[...peers.entries()].map(([id, node]) => (
+						<Card key={id} className="hover:bg-app-box/70">
+							<Icon size={24} name="Node" className="mr-3 size-10 self-center" />
+							<div className="grid min-w-[110px] grid-cols-1">
+								<Tooltip label={id}>
+									<h1 className="truncate pt-0.5 text-sm font-semibold">
+										{node.metadata.name}
+									</h1>
+								</Tooltip>
+								<h2 className="truncate pt-0.5 text-sm font-semibold">
+									Spacedrive {node.metadata.version}{' '}
+									{node.metadata.operating_system
+										? `- ${node.metadata.operating_system}`
+										: ''}
+								</h2>
+							</div>
+
+							<div className="grow"></div>
+							<div className="flex items-center justify-center space-x-4">
+								{isP2PWipFeatureEnabled && (
+									<Button onClick={() => navigate(`/remote/${id}/browse`)}>
+										rspc remote
+									</Button>
+								)}
+
+								<Button
+									variant="accent"
+									onClick={() => debugConnect.mutate(id)}
+									disabled={debugConnect.isLoading}
+								>
+									Connect
+								</Button>
+
+								<NodePill
+									className={
+										node.connection !== 'Disconnected' ? 'bg-green-400' : ''
+									}
+								>
+									{node.connection}
+								</NodePill>
+							</div>
+						</Card>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}

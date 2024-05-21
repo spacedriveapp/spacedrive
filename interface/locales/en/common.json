@@ -285,6 +285,8 @@
   "general_settings_description": "General settings related to this client.",
   "network_settings": "Network Settings",
   "network_settings_description": "Settings related to networking and connectivity.",
+  "network_settings_advanced": "Advanced Network Overview",
+  "network_settings_advanced_description": "Advanced information about your current network setup.",
   "general_shortcut_description": "General usage shortcuts",
   "generatePreviewMedia_label": "Generate preview media for this Location",
   "generate_checksums": "Generate Checksums",

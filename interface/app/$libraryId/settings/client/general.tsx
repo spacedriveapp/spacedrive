@@ -17,7 +17,7 @@ import { usePlatform } from '~/util/Platform';
 import { Heading } from '../Layout';
 import Setting from '../Setting';
 
-const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
+export const NodePill = tw.div`px-1.5 py-[2px] rounded text-xs font-medium bg-app-selected`;
 const NodeSettingLabel = tw.div`mb-1 text-xs font-medium`;
 
 function RenderListenerPill(props: PropsWithChildren<{ listener?: ListenerState }>) {
@@ -116,9 +116,6 @@ export const Component = () => {
 							<RenderListenerPill listener={listeners.data?.relay}>
 								Relay
 							</RenderListenerPill>
-							<NodePill>
-								{connectedPeers.size} {t('peers')}
-							</NodePill>
 						</div>
 					</div>
 
