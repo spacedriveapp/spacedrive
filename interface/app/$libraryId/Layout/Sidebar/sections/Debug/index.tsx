@@ -25,10 +25,6 @@ export default function DebugSection() {
 					<Icon component={Database} />
 					Cache
 				</SidebarLink>
-				<SidebarLink to="debug/p2p/overview">
-					<Icon component={ShareNetwork} />
-					P2P
-				</SidebarLink>
 			</div>
 		</Section>
 	);
