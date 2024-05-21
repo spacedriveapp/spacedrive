@@ -82,7 +82,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 		})
 	});
 
-	useShortcuts();
+	useExplorerShortcuts();
 
 	useShortcut('explorerEscape', () => {
 		if (!selectable || explorer.selectedItems.size === 0) return;
@@ -170,7 +170,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	);
 };
 
-const useShortcuts = () => {
+const useExplorerShortcuts = () => {
 	const explorer = useExplorerContext();
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
 	const quickPreviewStore = useQuickPreviewStore();
