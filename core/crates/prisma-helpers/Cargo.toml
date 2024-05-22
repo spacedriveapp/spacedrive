@@ -1,0 +1,16 @@
+[package]
+name = "sd-core-prisma-helpers"
+version = "0.1.0"
+authors = ["Ericson Soares <ericson@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Spacedrive Sub-crates
+sd-prisma = { path = "../../../crates/prisma" }
+
+prisma-client-rust = { workspace = true }
+serde = { workspace = true }

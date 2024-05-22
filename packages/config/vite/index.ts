@@ -34,7 +34,7 @@ export default defineConfig({
 	},
 	root: 'src',
 	build: {
-		sourcemap: true,
+		sourcemap: process.env.GENERATE_SOURCEMAP === 'false' ? false : true,
 		outDir: '../dist',
 		assetsDir: '.'
 	}

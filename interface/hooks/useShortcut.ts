@@ -22,6 +22,13 @@ const shortcuts = {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
 	},
+	toggleCommandPalette: {
+		macOS: ['Meta', 'KeyK'],
+		all: ['Control', 'KeyK']
+	},
+	closeCommandPalette: {
+		all: ['Escape']
+	},
 	previousTab: {
 		macOS: ['Meta', 'Alt', 'ArrowLeft'],
 		all: ['Control', 'Alt', 'ArrowLeft']
@@ -29,6 +36,10 @@ const shortcuts = {
 	toggleJobManager: {
 		macOS: ['Meta', 'KeyJ'],
 		all: ['Control', 'KeyJ']
+	},
+	toggleTagAssignMode: {
+		macOS: ['Meta', 'Alt', 'KeyT'],
+		all: ['Control', 'Alt', 'KeyT']
 	},
 	navBackwardHistory: {
 		macOS: ['Meta', '['],
@@ -119,6 +130,9 @@ const shortcuts = {
 		macOS: ['Meta', 'KeyO'],
 		all: ['Enter']
 	},
+	closeQuickPreview: {
+		all: ['Escape']
+	},
 	delItem: {
 		macOS: ['Meta', 'Backspace'],
 		all: ['Delete']
@@ -137,6 +151,9 @@ const shortcuts = {
 	},
 	explorerRight: {
 		all: ['ArrowRight']
+	},
+	toggleSidebar: {
+		all: ['[']
 	}
 } satisfies Record<string, Shortcut>;
 
@@ -147,7 +164,11 @@ export const shortcutsStore = valtioPersist(
 	shortcuts as Record<Shortcuts, Shortcut>
 );
 
-export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => void) => {
+export const useShortcut = (
+	shortcut: Shortcuts,
+	func: (e: KeyboardEvent) => void,
+	options: Omit<Parameters<typeof useKeys>[2], 'when'> & { disabled?: boolean } = {}
+) => {
 	const os = useOperatingSystem(true);
 	const shortcuts = useSnapshot(shortcutsStore);
 	const { visible } = useRoutingContext();
@@ -158,9 +179,15 @@ export const useShortcut = (shortcut: Shortcuts, func: (e: KeyboardEvent) => voi
 	}, [os, shortcut, shortcuts, visible]);
 
 	// useKeys doesn't like readonly
-	useKeys(keys as string[], (e) => {
-		if (!visible) return;
-		if (!import.meta.env.DEV) e.preventDefault();
-		return func(e);
-	});
+	useKeys(
+		keys as string[],
+		(e) => {
+			if (!import.meta.env.DEV) e.preventDefault();
+			return func(e);
+		},
+		{
+			...options,
+			when: visible && !options.disabled
+		}
+	);
 };

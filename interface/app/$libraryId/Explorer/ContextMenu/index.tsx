@@ -47,8 +47,8 @@ const Items = ({ children }: PropsWithChildren) => {
 					FilePathItems.Crypto,
 					FilePathItems.Compress,
 					ObjectItems.ConvertObject,
-					FilePathItems.ParentFolderActions,
-					FilePathItems.SecureDelete
+					FilePathItems.ParentFolderActions
+					// FilePathItems.SecureDelete
 				]}
 			>
 				{(items) => (

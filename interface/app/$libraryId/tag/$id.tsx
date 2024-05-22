@@ -1,72 +1,62 @@
-import { useMemo } from 'react';
-import { ObjectKindEnum, ObjectOrder, useCache, useLibraryQuery, useNodes } from '@sd/client';
+import { ObjectOrder, objectOrderingKeysSchema, Tag, useLibraryQuery } from '@sd/client';
+import { useCallback, useMemo } from 'react';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useLocale, useRouteTitle, useZodRouteParams } from '~/hooks';
+import { stringify } from '~/util/uuid';
 
 import Explorer from '../Explorer';
 import { ExplorerContextProvider } from '../Explorer/Context';
-import { useObjectsExplorerQuery } from '../Explorer/queries';
-import { createDefaultExplorerSettings, objectOrderingKeysSchema } from '../Explorer/store';
+import { createDefaultExplorerSettings } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';
+import { useExplorerPreferences } from '../Explorer/useExplorerPreferences';
 import { EmptyNotice } from '../Explorer/View/EmptyNotice';
-import { SearchContextProvider, SearchOptions, useSearch } from '../search';
+import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
 import SearchBar from '../search/SearchBar';
+import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
 
 export function Component() {
 	const { id: tagId } = useZodRouteParams(LocationIdParamsSchema);
 	const result = useLibraryQuery(['tags.get', tagId], { suspense: true });
-	useNodes(result.data?.nodes);
-	const tag = useCache(result.data?.item);
+	const tag = result.data!;
+
+	const { t } = useLocale();
 
 	useRouteTitle(tag!.name ?? 'Tag');
 
-	const explorerSettings = useExplorerSettings({
-		settings: useMemo(() => {
-			return createDefaultExplorerSettings<ObjectOrder>({ order: null });
-		}, []),
-		orderingKeys: objectOrderingKeysSchema
-	});
+	const { explorerSettings, preferences } = useTagExplorerSettings(tag!);
 
-	const explorerSettingsSnapshot = explorerSettings.useSettingsSnapshot();
+	const search = useSearchFromSearchParams({ defaultTarget: 'objects' });
 
-	const fixedFilters = useMemo(
-		() => [
-			{ object: { tags: { in: [tag!.id] } } },
-			...(explorerSettingsSnapshot.layoutMode === 'media'
-				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
-				: [])
-		],
-		[tag, explorerSettingsSnapshot.layoutMode]
-	);
+	const defaultFilters = useMemo(() => [{ object: { tags: { in: [tag.id] } } }], [tag.id]);
 
-	const search = useSearch({
-		fixedFilters
-	});
-
-	const objects = useObjectsExplorerQuery({
-		arg: { take: 100, filters: search.allFilters },
-		explorerSettings
+	const items = useSearchExplorerQuery({
+		search,
+		explorerSettings,
+		filters: search.allFilters.length > 0 ? search.allFilters : defaultFilters,
+		take: 100,
+		objects: { order: explorerSettings.useSettingsSnapshot().order }
 	});
 
 	const explorer = useExplorer({
-		...objects,
-		isFetchingNextPage: objects.query.isFetchingNextPage,
+		...items,
+		isFetchingNextPage: items.query.isFetchingNextPage,
+		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
-		parent: { type: 'Tag', tag: tag! }
+		parent: { type: 'Tag', tag: tag }
 	});
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
 				<TopBarPortal
-					center={<SearchBar />}
+					center={<SearchBar defaultFilters={defaultFilters} defaultTarget="objects" />}
 					left={
 						<div className="flex flex-row items-center gap-2">
 							<div
-								className="h-[14px] w-[14px] shrink-0 rounded-full"
+								className="size-[14px] shrink-0 rounded-full"
 								style={{ backgroundColor: tag!.color || '#efefef' }}
 							/>
 							<span className="truncate text-sm font-medium">{tag?.name}</span>
@@ -83,14 +73,41 @@ export function Component() {
 				</TopBarPortal>
 			</SearchContextProvider>
 
-			<Explorer
-				emptyNotice={
-					<EmptyNotice
-						icon={<Icon name="Tags" size={128} />}
-						message="No items assigned to this tag."
-					/>
-				}
-			/>
+			{!preferences.isLoading && (
+				<Explorer
+					emptyNotice={
+						<EmptyNotice
+							icon={<Icon name="Tags" size={128} />}
+							message={t('tags_notice_message')}
+						/>
+					}
+				/>
+			)}
 		</ExplorerContextProvider>
 	);
+}
+
+function useTagExplorerSettings(tag: Tag) {
+	const preferences = useExplorerPreferences({
+		data: tag,
+		createDefaultSettings: useCallback(
+			() => createDefaultExplorerSettings<ObjectOrder>({ order: null }),
+			[]
+		),
+		getSettings: useCallback(
+			(prefs) => prefs.tag?.[stringify(tag.pub_id)]?.explorer,
+			[tag.pub_id]
+		),
+		writeSettings: (settings) => ({
+			tag: { [stringify(tag.pub_id)]: { explorer: settings } }
+		})
+	});
+
+	return {
+		preferences,
+		explorerSettings: useExplorerSettings({
+			...preferences.explorerSettingsProps,
+			orderingKeys: objectOrderingKeysSchema
+		})
+	};
 }

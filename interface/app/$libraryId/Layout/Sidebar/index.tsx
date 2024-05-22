@@ -3,11 +3,13 @@ import { LibraryContextProvider, useClientContext } from '@sd/client';
 import Debug from './sections/Debug';
 // sections
 import Devices from './sections/Devices';
+import Peers from './sections/Peers';
 import Library from './sections/Library';
 import Local from './sections/Local';
 import Locations from './sections/Locations';
 import SavedSearches from './sections/SavedSearches';
 import Tags from './sections/Tags';
+import Tools from './sections/Tools';
 import SidebarLayout from './SidebarLayout';
 
 export default function Sidebar() {
@@ -25,11 +27,12 @@ export default function Sidebar() {
 				<LibraryContextProvider library={library}>
 					<SavedSearches />
 					<Devices />
+					<Peers />
 					<Locations />
 					<Tags />
 				</LibraryContextProvider>
 			)}
-			{/* <Tools /> */}
+			<Tools />
 		</SidebarLayout>
 	);
 }

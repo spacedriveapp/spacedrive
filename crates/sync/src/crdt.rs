@@ -1,7 +1,6 @@
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use specta::Type;
 use uhlc::NTP64;
 use uuid::Uuid;
@@ -22,34 +21,42 @@ impl std::fmt::Display for OperationKind<'_> {
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug, Type)]
 pub enum CRDTOperationData {
 	#[serde(rename = "c")]
-	Create,
+	Create(#[specta(type = BTreeMap<String, serde_json::Value>)] BTreeMap<String, rmpv::Value>),
 	#[serde(rename = "u")]
-	Update { field: String, value: Value },
+	Update {
+		field: String,
+		#[specta(type = serde_json::Value)]
+		value: rmpv::Value,
+	},
 	#[serde(rename = "d")]
 	Delete,
 }
 
 impl CRDTOperationData {
+	pub fn create() -> Self {
+		Self::Create(Default::default())
+	}
+
 	pub fn as_kind(&self) -> OperationKind {
 		match self {
-			Self::Create => OperationKind::Create,
+			Self::Create(_) => OperationKind::Create,
 			Self::Update { field, .. } => OperationKind::Update(field),
 			Self::Delete => OperationKind::Delete,
 		}
 	}
 }
 
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Type)]
 pub struct CRDTOperation {
 	pub instance: Uuid,
 	#[specta(type = u32)]
 	pub timestamp: NTP64,
-	pub id: Uuid,
-	pub model: String,
-	pub record_id: Value,
+	pub model: u16,
+	#[specta(type = serde_json::Value)]
+	pub record_id: rmpv::Value,
 	pub data: CRDTOperationData,
 }
 
@@ -63,9 +70,9 @@ impl CRDTOperation {
 impl Debug for CRDTOperation {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("CRDTOperation")
-			.field("instance", &self.instance.to_string())
-			.field("timestamp", &self.timestamp.to_string())
-			// .field("typ", &self.typ)
+			.field("data", &self.data)
+			.field("model", &self.model)
+			.field("record_id", &self.record_id.to_string())
 			.finish()
 	}
 }

@@ -4,6 +4,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 	{
 		name: 'Jamie Pine',
 		role: 'Founder, Engineer & Designer',
+		location: 'Vancouver, Canada',
 		imageUrl: '/images/team/jamie.jpg',
 		socials: {
 			twitter: 'https://x.com/jamiepine',
@@ -12,28 +13,18 @@ export const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Brendan Allan',
-		role: 'Rust Engineer',
-		imageUrl: '/images/team/brendan.jpg',
+		name: 'Utku Bakır',
+		location: 'Toronto, Canada',
+		role: 'Product Manager & TypeScript Engineer',
+		imageUrl: '/images/team/utku.jpg',
 		socials: {
-			twitter: 'https://x.com/brendonovichdev',
-			twitch: 'https://twitch.tv/brendonovich',
-			github: 'https://github.com/brendonovich'
-		}
-	},
-	{
-		name: 'Oscar Beaumont',
-		role: 'Rust Engineer',
-		imageUrl: '/images/team/oscar.jpg',
-		socials: {
-			twitter: 'https://x.com/oscartbeaumont',
-			twitch: 'https://twitch.tv/oscartbeaumont',
-			github: 'https://github.com/oscartbeaumont'
+			github: 'https://github.com/utkubakir'
 		}
 	},
 	{
 		name: 'Ericson Soares',
-		role: 'Rust Engineer',
+		location: 'Rio de Janeiro, Brazil',
+		role: 'Rust Engineer - Core & VDFS',
 		imageUrl: '/images/team/ericson.jpg',
 		socials: {
 			twitter: 'https://x.com/fogodev',
@@ -41,24 +32,9 @@ export const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Utku Bakır',
-		role: 'React Native Engineer',
-		imageUrl: '/images/team/utku.jpg',
-		socials: {
-			github: 'https://github.com/utkubakir'
-		}
-	},
-	{
-		name: 'Jake Robinson',
-		role: 'Rust Engineer',
-		imageUrl: '/images/team/jake.jpg',
-		socials: {
-			github: 'https://github.com/brxken128'
-		}
-	},
-	{
 		name: 'Mihail Dounaev',
-		role: 'Graphic Designer',
+		location: 'Finland',
+		role: 'Graphic Designer - Icons & Animations',
 		imageUrl: '/images/team/mihail.jpg',
 		socials: {
 			twitter: 'https://x.com/mmmintdesign',
@@ -67,7 +43,8 @@ export const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Ameer Al Ashhab',
-		role: 'React Engineer & Designer',
+		location: 'Jordan',
+		role: 'TypeScript Engineer - Interface Design',
 		imageUrl: '/images/team/ameer.jpg',
 		socials: {
 			github: 'https://github.com/ameer2468'
@@ -75,7 +52,8 @@ export const teamMembers: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Vítor Vasconcellos',
-		role: 'React Engineer & Designer',
+		location: 'Rio de Janeiro, Brazil',
+		role: 'TypeScript Engineer',
 		imageUrl: '/images/team/vitor.jpg',
 		socials: {
 			github: 'https://github.com/HeavenVolkoff',
@@ -84,12 +62,22 @@ export const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Nik Elšnik',
-		role: 'React Engineer & Designer',
-		imageUrl: '/images/team/nikec.jpg',
+		name: 'Matthew Yung',
+		location: 'Vancouver, Canada',
+		role: 'TypeScript Engineer - Intern',
+		imageUrl: '/images/team/matthew.jpg',
 		socials: {
-			github: 'https://github.com/niikeec',
-			twitter: 'https://x.com/nikec_'
+			website: 'https://myung03.github.io'
+		}
+	},
+	{
+		name: 'Arnab Chakraborty',
+		location: 'New York, United States',
+		role: 'Full Stack Engineer - Intern',
+		imageUrl: '/images/team/arnab.jpg',
+		socials: {
+			website: 'https://rocky43007.vercel.app',
+			github: 'https://github.com/Rocky43007'
 		}
 	}
 ];

@@ -21,7 +21,8 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 	'AcceptFilesByGlob',
 	'RejectFilesByGlob',
 	'AcceptIfChildrenDirectoriesArePresent',
-	'RejectIfChildrenDirectoriesArePresent'
+	'RejectIfChildrenDirectoriesArePresent',
+    'IgnoredByGit'
 ];
 const ruleKindEnum = z.enum(ruleKinds);
 
@@ -47,9 +48,10 @@ const RulesForm = ({ onSubmitted }: Props) => {
 	const REMOTE_ERROR_FORM_FIELD = 'root.serverError';
 	const createIndexerRules = useLibraryMutation(['locations.indexer_rules.create']);
 	const formId = useId();
+	const { t } = useLocale();
 	const modeOptions: { value: RuleKind; label: string }[] = [
-		{ value: 'RejectFilesByGlob', label: 'Reject files' },
-		{ value: 'AcceptFilesByGlob', label: 'Accept files' }
+		{ value: 'RejectFilesByGlob', label: t('reject_files') },
+		{ value: 'AcceptFilesByGlob', label: t('accept_files') }
 	];
 	const form = useZodForm({
 		schema,
@@ -130,8 +132,6 @@ const RulesForm = ({ onSubmitted }: Props) => {
 		if (form.formState.isSubmitSuccessful) onSubmitted?.();
 	}, [form.formState.isSubmitSuccessful, onSubmitted]);
 
-	const { t } = useLocale();
-
 	return (
 		// The portal is required for Form because this component can be nested inside another form element
 		<>
@@ -140,17 +140,17 @@ const RulesForm = ({ onSubmitted }: Props) => {
 				document.body
 			)}
 			<FormProvider {...form}>
-				<h3 className="mb-[15px] w-full text-sm font-semibold">Name</h3>
+				<h3 className="mb-[15px] w-full text-sm font-semibold">{t('name')}</h3>
 				<Input
 					className={errors.name && 'border border-red-500'}
 					form={formId}
 					size="md"
-					placeholder="Name"
+					placeholder={t('name')}
 					maxLength={18}
 					{...form.register('name')}
 				/>
 				{errors.name && <p className="mt-2 text-sm text-red-500">{errors.name?.message}</p>}
-				<h3 className="mb-[15px] mt-[20px] w-full text-sm font-semibold">Rules</h3>
+				<h3 className="mb-[15px] mt-[20px] w-full text-sm font-semibold">{t('rules')}</h3>
 				<div
 					className={
 						'grid space-y-1 rounded-md border border-app-line/60 bg-app-input p-2'
@@ -186,7 +186,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 										>
 											{selectValues.map((value) => (
 												<SelectOption key={value} value={value}>
-													{value}
+													{t(`${value.toLowerCase()}`)}
 												</SelectOption>
 											))}
 										</Select>
@@ -252,7 +252,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 								/>
 								{index !== 0 && (
 									<Button
-										className="flex h-[32px] w-[32px] items-center justify-self-end"
+										className="flex size-[32px] items-center justify-self-end"
 										variant="gray"
 										onClick={() => remove(index)}
 									>

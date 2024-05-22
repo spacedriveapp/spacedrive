@@ -1,13 +1,13 @@
 import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat'; // import plugin
-
-import utc from 'dayjs/plugin/utc'; // import plugin
-
 import {
+	capitalize,
 	CoordinatesFormat,
-	MediaDate,
+	ExifMetadata,
+	FFmpegMetadata,
+	humanizeSize,
+	int32ArrayToBigInt,
 	MediaLocation,
-	MediaMetadata,
+	MediaData as RemoteMediaData,
 	useSelector,
 	useUnitFormatStore
 } from '@sd/client';
@@ -17,38 +17,6 @@ import { Platform, usePlatform } from '~/util/Platform';
 
 import { explorerStore } from '../store';
 import { MetaData } from './index';
-
-interface Props {
-	data: MediaMetadata;
-}
-
-// const DateFormatWithTz = 'YYYY-MM-DD HH:mm:ss ZZ';
-// const DateFormatWithoutTz = 'YYYY-MM-DD HH:mm:ss';
-
-// const formatMediaDate = (datetime: MediaDate): { formatted: string; raw: string } | undefined => {
-// 	dayjs.extend(customParseFormat);
-// 	dayjs.extend(utc);
-
-// 	// dayjs.tz.setDefault(dayjs.tz.guess());
-
-// 	const getTzData = (dt: string): [string, number] => {
-// 		if (dt.includes('+'))
-// 			return [DateFormatWithTz, Number.parseInt(dt.substring(dt.indexOf('+'), 3))];
-// 		return [DateFormatWithoutTz, 0];
-// 	};
-
-// 	const [tzFormat, tzOffset] = getTzData(datetime);
-
-// 	console.log({
-// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
-// 		raw: datetime
-// 	});
-
-// 	return {
-// 		formatted: dayjs(datetime, tzFormat).utcOffset(tzOffset).format('HH:mm:ss, MMM Do YYYY'),
-// 		raw: datetime
-// 	};
-// };
 
 const formatLocationDD = (loc: MediaLocation, dp?: number): string => {
 	// the lack of a + here will mean that coordinates may have padding at the end
@@ -99,24 +67,157 @@ const UrlMetadataValue = (props: { text: string; url: string; platform: Platform
 	</a>
 );
 
-// const orientations = {
-// 	Normal: 'Normal',
-// 	MirroredHorizontal: 'Horizontally mirrored',
-// 	MirroredHorizontalAnd90CW: 'Mirrored horizontally and rotated 90° clockwise',
-// 	MirroredHorizontalAnd270CW: 'Mirrored horizontally and rotated 270° clockwise',
-// 	MirroredVertical: 'Vertically mirrored',
-// 	CW90: 'Rotated 90° clockwise',
-// 	CW180: 'Rotated 180° clockwise',
-// 	CW270: 'Rotated 270° clockwise'
-// };
-
-const MediaData = ({ data }: Props) => {
+const ExifMediaData = (data: ExifMetadata) => {
 	const platform = usePlatform();
 	const { t } = useLocale();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
 	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
-	return data.type === 'Image' ? (
+	return (
+		<>
+			<MetaData
+				label={t('date')}
+				tooltipValue={data.date_taken ?? null} // should show full raw value
+				// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
+				value={data.date_taken ?? null}
+			/>
+			<MetaData label={t('type')} value={t('image')} />
+			<MetaData
+				label={t('location')}
+				tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
+				value={
+					data.location && (
+						<UrlMetadataValue
+							url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+								formatLocation(data.location, 'dd')
+							)}`}
+							text={formatLocation(
+								data.location,
+								coordinatesFormat,
+								coordinatesFormat === 'dd' ? 4 : 0
+							)}
+							platform={platform}
+						/>
+					)
+				}
+			/>
+			<MetaData
+				label="Plus Code"
+				value={
+					data.location?.pluscode && (
+						<UrlMetadataValue
+							url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+								data.location.pluscode
+							)}`}
+							text={data.location.pluscode}
+							platform={platform}
+						/>
+					)
+				}
+			/>
+			<MetaData
+				label={t('resolution')}
+				value={`${data.resolution.width} x ${data.resolution.height}`}
+			/>
+			<MetaData label={t('device')} value={data.camera_data.device_make} />
+			<MetaData label={t('model')} value={data.camera_data.device_model} />
+			<MetaData label={t('color_profile')} value={data.camera_data.color_profile} />
+			<MetaData label={t('color_space')} value={data.camera_data.color_space} />
+			<MetaData
+				label={t('flash')}
+				value={t(`${data.camera_data.flash?.mode.toLowerCase()}`)}
+			/>
+			<MetaData
+				label={t('zoom')}
+				value={
+					data.camera_data &&
+					data.camera_data.zoom &&
+					!Number.isNaN(data.camera_data.zoom)
+						? `${data.camera_data.zoom.toFixed(2) + 'x'}`
+						: '--'
+				}
+			/>
+			<MetaData label="ISO" value={data.camera_data.iso} />
+			<MetaData label={t('software')} value={data.camera_data.software} />
+		</>
+	);
+};
+
+const FFmpegMediaData = (data: FFmpegMetadata) => {
+	const { t } = useLocale();
+
+	const streamKinds = new Set(
+		data.programs.flatMap((program) => program.streams.map((stream) => stream.codec?.kind))
+	);
+	const type = streamKinds.has('video')
+		? 'Video'
+		: streamKinds.has('audio')
+			? 'Audio'
+			: capitalize(streamKinds.values().next().value) ?? 'Unknown';
+
+	const bit_rate = humanizeSize(int32ArrayToBigInt(data.bit_rate), {
+		is_bit: true,
+		base_unit: 'binary',
+		use_plural: false
+	});
+
+	const duration_ms = data.duration ? int32ArrayToBigInt(data.duration) / 1000n : null;
+	const duration = duration_ms
+		? dayjs.duration(
+				Number(duration_ms / 1000n) + Number(duration_ms % 1000n) / 1000,
+				'seconds'
+			)
+		: null;
+
+	const start_time_ms = data.start_time ? int32ArrayToBigInt(data.start_time) / 1000n : null;
+	const start_time = start_time_ms
+		? dayjs.duration(
+				Number(start_time_ms / 1000n) + Number(start_time_ms % 1000n) / 1000,
+				'seconds'
+			)
+		: null;
+
+	const chapters = data.chapters
+		.map((chapter) => {
+			const num = BigInt(chapter.time_base_num);
+			const den = BigInt(chapter.time_base_den);
+
+			const start = dayjs.duration(
+				Number((int32ArrayToBigInt(chapter.start) * num) / den),
+				'seconds'
+			);
+
+			const end = dayjs.duration(
+				Number((int32ArrayToBigInt(chapter.end) * num) / den),
+				'seconds'
+			);
+
+			return `${start.format('HH:mm:ss')} - ${end.format('HH:mm:ss')}`;
+		})
+		.join('\n');
+
+	return (
+		<>
+			<MetaData label={t('type')} value={type} />
+			<MetaData label={t('bitrate')} value={`${bit_rate.value} ${bit_rate.unit}/s`} />
+			{duration && <MetaData label={t('duration')} value={duration.format('HH:mm:ss.SSS')} />}
+			{start_time && (
+				<MetaData label={t('start_time')} value={start_time.format('HH:mm:ss.SSS')} />
+			)}
+			{chapters && <MetaData label={t('chapters')} value={chapters} />}
+		</>
+	);
+};
+
+interface Props {
+	data: RemoteMediaData;
+}
+
+export const MediaData = ({ data }: Props) => {
+	const { t } = useLocale();
+	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
+
+	return (
 		<div className="flex flex-col gap-0 py-2">
 			<Accordion
 				isOpen={showMoreInfo}
@@ -124,70 +225,10 @@ const MediaData = ({ data }: Props) => {
 				variant="apple"
 				title={t('more_info')}
 			>
-				<MetaData
-					label="Date"
-					tooltipValue={data.date_taken ?? null} // should show full raw value
-					// should show localised, utc-offset value or plain value with tooltip mentioning that we don't have the timezone metadata
-					value={data.date_taken ?? null}
-				/>
-				<MetaData label="Type" value={data.type} />
-				<MetaData
-					label="Location"
-					tooltipValue={data.location && formatLocation(data.location, coordinatesFormat)}
-					value={
-						data.location && (
-							<UrlMetadataValue
-								url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-									formatLocation(data.location, 'dd')
-								)}`}
-								text={formatLocation(
-									data.location,
-									coordinatesFormat,
-									coordinatesFormat === 'dd' ? 4 : 0
-								)}
-								platform={platform}
-							/>
-						)
-					}
-				/>
-				<MetaData
-					label="Plus Code"
-					value={
-						data.location?.pluscode && (
-							<UrlMetadataValue
-								url={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-									data.location.pluscode
-								)}`}
-								text={data.location.pluscode}
-								platform={platform}
-							/>
-						)
-					}
-				/>
-				<MetaData
-					label="Resolution"
-					value={`${data.resolution.width} x ${data.resolution.height}`}
-				/>
-				<MetaData label="Device" value={data.camera_data.device_make} />
-				<MetaData label="Model" value={data.camera_data.device_model} />
-				<MetaData label="Color profile" value={data.camera_data.color_profile} />
-				<MetaData label="Color space" value={data.camera_data.color_space} />
-				<MetaData label="Flash" value={data.camera_data.flash?.mode} />
-				<MetaData
-					label="Zoom"
-					value={
-						data.camera_data &&
-						data.camera_data.zoom &&
-						!Number.isNaN(data.camera_data.zoom)
-							? `${data.camera_data.zoom.toFixed(2) + 'x'}`
-							: '--'
-					}
-				/>
-				<MetaData label="Iso" value={data.camera_data.iso} />
-				<MetaData label="Software" value={data.camera_data.software} />
+				{'Exif' in data ? ExifMediaData(data.Exif) : FFmpegMediaData(data.FFmpeg)}
 			</Accordion>
 		</div>
-	) : null;
+	);
 };
 
 export default MediaData;

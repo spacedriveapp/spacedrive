@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 #![warn(clippy::unwrap_used, clippy::panic)]
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
 
 #[cfg(feature = "ai")]
 use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
+use sd_utils::error::FileIOError;
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use chrono::{DateTime, Utc};
@@ -22,7 +24,7 @@ use std::{
 };
 
 use thiserror::Error;
-use tokio::{fs, sync::broadcast};
+use tokio::{fs, io, sync::broadcast};
 use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
@@ -32,6 +34,8 @@ use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod cloud;
+#[cfg(feature = "crypto")]
+pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;
@@ -48,6 +52,8 @@ pub(crate) mod volume;
 
 pub use env::Env;
 
+use object::media::old_thumbnail::get_ephemeral_thumbnail_path;
+
 pub(crate) use sd_core_sync as sync;
 
 /// Represents a single running instance of the Spacedrive core.
@@ -62,7 +68,6 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub thumbnailer: OldThumbnailer,
-	pub files_over_p2p_flag: Arc<AtomicBool>,
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
@@ -133,7 +138,6 @@ impl Node {
 			config,
 			event_bus,
 			libraries,
-			files_over_p2p_flag: Arc::new(AtomicBool::new(false)),
 			cloud_sync_flag: Arc::new(AtomicBool::new(false)),
 			http: reqwest::Client::new(),
 			env,
@@ -264,6 +268,16 @@ impl Node {
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
 			warn!("Error sending event to event bus: {e:?}");
+		}
+	}
+
+	pub async fn ephemeral_thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
+		let thumb_path = get_ephemeral_thumbnail_path(self, cas_id);
+
+		match fs::metadata(&thumb_path).await {
+			Ok(_) => Ok(true),
+			Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+			Err(e) => Err(FileIOError::from((thumb_path, e))),
 		}
 	}
 

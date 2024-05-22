@@ -130,8 +130,8 @@ export const useRanges = ({ ranges, rows }: UseRangesProps) => {
 				options.direction === 'down'
 					? _ranges[targetRangeIndex + 1]
 					: options.direction === 'up'
-					? _ranges[targetRangeIndex - 1]
-					: _ranges[targetRangeIndex + 1] || _ranges[targetRangeIndex - 1];
+						? _ranges[targetRangeIndex - 1]
+						: _ranges[targetRangeIndex + 1] || _ranges[targetRangeIndex - 1];
 
 			if (!closestRange) return;
 

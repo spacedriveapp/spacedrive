@@ -1,9 +1,9 @@
 import { Text, View } from 'react-native';
 import { useBridgeQuery, useDebugState } from '@sd/client';
-import { Input } from '~/components/form/Input';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Divider } from '~/components/primitive/Divider';
+import { Input } from '~/components/primitive/Input';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -17,13 +17,15 @@ const GeneralSettingsScreen = ({ navigation }: SettingsStackScreenProps<'General
 
 	return (
 		<ScreenContainer style={tw`justify-start gap-0 px-6`} scrollview={false}>
-			<Card style={tw`bg-app-box`}>
+			<Card>
 				{/* Card Header */}
 				<View style={tw`flex flex-row justify-between`}>
 					<Text style={tw`font-semibold text-ink`}>Connected Node</Text>
 					<View style={tw`flex flex-row`}>
 						{/* Peers */}
-						<View style={tw`mr-2 self-start rounded bg-app-highlight px-1.5 py-[2px]`}>
+						<View
+							style={tw`mr-2 self-start rounded border border-app-lightborder bg-app-highlight px-1.5 py-[2px]`}
+						>
 							<Text style={tw`text-xs font-semibold text-ink`}>0 Peers</Text>
 						</View>
 						{/* Status */}

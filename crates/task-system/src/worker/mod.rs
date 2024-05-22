@@ -8,6 +8,8 @@ use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
+use crate::task::TaskRemoteController;
+
 use super::{
 	error::{RunError, SystemError},
 	message::WorkerMessage,
@@ -127,10 +129,12 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to add task");
 
 		TaskHandle {
-			worktable,
 			done_rx,
-			system_comm: self.system_comm.clone(),
-			task_id,
+			controller: TaskRemoteController {
+				worktable,
+				system_comm: self.system_comm.clone(),
+				task_id,
+			},
 		}
 	}
 
@@ -168,11 +172,7 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to pause a not running task");
 	}
 
-	pub async fn cancel_not_running_task(
-		&self,
-		task_id: TaskId,
-		ack: oneshot::Sender<Result<(), SystemError>>,
-	) {
+	pub async fn cancel_not_running_task(&self, task_id: TaskId, ack: oneshot::Sender<()>) {
 		self.msgs_tx
 			.send(WorkerMessage::CancelNotRunningTask { task_id, ack })
 			.await

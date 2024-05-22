@@ -1,17 +1,16 @@
 use tauri::{plugin::TauriPlugin, Manager, Runtime};
+use tauri_plugin_updater::{Update as TauriPluginUpdate, UpdaterExt};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, specta::Type, serde::Serialize)]
 pub struct Update {
 	pub version: String,
-	pub body: Option<String>,
 }
 
 impl Update {
-	fn new(update: &tauri::updater::UpdateResponse<impl tauri::Runtime>) -> Self {
+	fn new(update: &TauriPluginUpdate) -> Self {
 		Self {
-			version: update.latest_version().to_string(),
-			body: update.body().map(ToString::to_string),
+			version: update.version.clone(),
 		}
 	}
 }
@@ -21,11 +20,11 @@ pub struct State {
 	install_lock: Mutex<()>,
 }
 
-async fn get_update(
-	app: tauri::AppHandle,
-) -> Result<tauri::updater::UpdateResponse<impl tauri::Runtime>, String> {
-	tauri::updater::builder(app)
+async fn get_update(app: tauri::AppHandle) -> Result<Option<TauriPluginUpdate>, String> {
+	app.updater_builder()
 		.header("X-Spacedrive-Version", "stable")
+		.map_err(|e| e.to_string())?
+		.build()
 		.map_err(|e| e.to_string())?
 		.check()
 		.await
@@ -45,19 +44,19 @@ pub enum UpdateEvent {
 #[tauri::command]
 #[specta::specta]
 pub async fn check_for_update(app: tauri::AppHandle) -> Result<Option<Update>, String> {
-	app.emit_all("updater", UpdateEvent::Loading).ok();
+	app.emit("updater", UpdateEvent::Loading).ok();
 
 	let update = match get_update(app.clone()).await {
 		Ok(update) => update,
 		Err(e) => {
-			app.emit_all("updater", UpdateEvent::Error(e.clone())).ok();
+			app.emit("updater", UpdateEvent::Error(e.clone())).ok();
 			return Err(e);
 		}
 	};
 
-	let update = update.is_update_available().then(|| Update::new(&update));
+	let update = update.map(|update| Update::new(&update));
 
-	app.emit_all(
+	app.emit(
 		"updater",
 		update
 			.clone()
@@ -81,11 +80,12 @@ pub async fn install_update(
 		Err(_) => return Err("Update already installing".into()),
 	};
 
-	app.emit_all("updater", UpdateEvent::Installing).ok();
+	app.emit("updater", UpdateEvent::Installing).ok();
 
 	get_update(app.clone())
 		.await?
-		.download_and_install()
+		.ok_or_else(|| "No update required".to_string())?
+		.download_and_install(|_, _| {}, || {})
 		.await
 		.map_err(|e| e.to_string())?;
 
@@ -98,11 +98,8 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 	tauri::plugin::Builder::new("sd-updater")
 		.on_page_load(|window, _| {
 			#[cfg(target_os = "linux")]
-			let updater_available = {
-				let env = window.env();
+			let updater_available = false;
 
-				env.appimage.is_some()
-			};
 			#[cfg(not(target_os = "linux"))]
 			let updater_available = true;
 

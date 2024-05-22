@@ -8,8 +8,12 @@ use crate::{
 	},
 	object::{
 		media::{
-			media_data_extractor::{can_extract_media_data_for_image, extract_media_data},
-			media_data_image_to_query_params,
+			exif_data_image_to_query_params,
+			exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+			ffmpeg_metadata_extractor::{
+				can_extract_ffmpeg_data_for_audio, can_extract_ffmpeg_data_for_video,
+				extract_ffmpeg_data, save_ffmpeg_data,
+			},
 			old_thumbnail::get_indexed_thumbnail_path,
 		},
 		old_file_identifier::FileMetadata,
@@ -18,29 +22,34 @@ use crate::{
 	Node,
 };
 
-use sd_file_ext::{extensions::ImageExtension, kind::ObjectKind};
-use sd_file_path_helper::{
-	check_file_path_exists, file_path_with_object, filter_existing_file_path_params,
+use sd_core_file_path_helper::{
+	check_file_path_exists, filter_existing_file_path_params,
 	isolated_file_path_data::extract_normalized_materialized_path_str,
 	loose_find_existing_file_path_params, path_is_hidden, FilePathError, FilePathMetadata,
 	IsolatedFilePathData, MetadataExt,
 };
+use sd_core_prisma_helpers::file_path_with_object;
+
+use sd_file_ext::{
+	extensions::{AudioExtension, ImageExtension, VideoExtension},
+	kind::ObjectKind,
+};
 use sd_prisma::{
-	prisma::{file_path, location, media_data, object},
+	prisma::{exif_data, file_path, location, object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
-	uuid_to_bytes,
+	msgpack, uuid_to_bytes,
 };
 
 #[cfg(target_family = "unix")]
-use sd_file_path_helper::get_inode;
+use sd_core_file_path_helper::get_inode;
 
 #[cfg(target_family = "windows")]
-use sd_file_path_helper::get_inode_from_path;
+use sd_core_file_path_helper::get_inode_from_path;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -53,7 +62,6 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use notify::Event;
-use serde_json::json;
 use tokio::{
 	fs,
 	io::{self, ErrorKind},
@@ -121,7 +129,7 @@ pub(super) async fn create_dir(
 		library,
 		iso_file_path.to_parts(),
 		None,
-		FilePathMetadata::from_path(&path, metadata).await?,
+		FilePathMetadata::from_path(path, metadata)?,
 	)
 	.await?;
 
@@ -178,7 +186,7 @@ async fn inner_create_file(
 	let iso_file_path_parts = iso_file_path.to_parts();
 	let extension = iso_file_path_parts.extension.to_string();
 
-	let metadata = FilePathMetadata::from_path(&path, metadata).await?;
+	let metadata = FilePathMetadata::from_path(path, metadata)?;
 
 	// First we check if already exist a file with this same inode number
 	// if it does, we just update it
@@ -273,8 +281,8 @@ async fn inner_create_file(
 						pub_id: pub_id.clone(),
 					},
 					[
-						(object::date_created::NAME, json!(date_created)),
-						(object::kind::NAME, json!(int_kind)),
+						(object::date_created::NAME, msgpack!(date_created)),
+						(object::kind::NAME, msgpack!(int_kind)),
 					],
 				),
 				db.object()
@@ -298,7 +306,7 @@ async fn inner_create_file(
 				pub_id: created_file.pub_id.clone(),
 			},
 			file_path::object::NAME,
-			json!(prisma_sync::object::SyncId {
+			msgpack!(prisma_sync::object::SyncId {
 				pub_id: object_pub_id.clone()
 			}),
 		),
@@ -311,62 +319,99 @@ async fn inner_create_file(
 	)
 	.await?;
 
-	if !extension.is_empty() && matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+	if !extension.is_empty()
+		&& matches!(
+			kind,
+			ObjectKind::Image | ObjectKind::Video | ObjectKind::Audio
+		) {
 		// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
+		if matches!(kind, ObjectKind::Image | ObjectKind::Video) {
+			if let Some(cas_id) = cas_id {
+				spawn({
+					let extension = extension.clone();
+					let path = path.to_path_buf();
+					let node = node.clone();
+					let library_id = *library_id;
 
-		if let Some(cas_id) = cas_id {
-			spawn({
-				let extension = extension.clone();
-				let path = path.to_path_buf();
-				let node = node.clone();
-				let library_id = *library_id;
-
-				async move {
-					if let Err(e) = node
-						.thumbnailer
-						.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
-						.await
-					{
-						error!("Failed to generate thumbnail in the watcher: {e:#?}");
+					async move {
+						if let Err(e) = node
+							.thumbnailer
+							.generate_single_indexed_thumbnail(&extension, cas_id, path, library_id)
+							.await
+						{
+							error!("Failed to generate thumbnail in the watcher: {e:#?}");
+						}
 					}
-				}
-			});
+				});
+			}
 		}
 
-		// TODO: Currently we only extract media data for images, remove this if later
-		if matches!(kind, ObjectKind::Image) {
-			if let Ok(image_extension) = ImageExtension::from_str(&extension) {
-				if can_extract_media_data_for_image(&image_extension) {
-					if let Ok(media_data) = extract_media_data(path)
-						.await
-						.map_err(|e| error!("Failed to extract media data: {e:#?}"))
-					{
-						let (sync_params, db_params) = media_data_image_to_query_params(media_data);
+		match kind {
+			ObjectKind::Image => {
+				if let Ok(image_extension) = ImageExtension::from_str(&extension) {
+					if can_extract_exif_data_for_image(&image_extension) {
+						if let Ok(Some(exif_data)) = extract_exif_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							let (sync_params, db_params) =
+								exif_data_image_to_query_params(exif_data);
 
-						sync.write_ops(
-							db,
-							(
-								sync.shared_create(
-									prisma_sync::media_data::SyncId {
-										object: prisma_sync::object::SyncId {
-											pub_id: object_pub_id.clone(),
+							sync.write_ops(
+								db,
+								(
+									sync.shared_create(
+										prisma_sync::exif_data::SyncId {
+											object: prisma_sync::object::SyncId {
+												pub_id: object_pub_id.clone(),
+											},
 										},
-									},
-									sync_params,
-								),
-								db.media_data().upsert(
-									media_data::object_id::equals(object_id),
-									media_data::create(
-										object::id::equals(object_id),
-										db_params.clone(),
+										sync_params,
 									),
-									db_params,
+									db.exif_data().upsert(
+										exif_data::object_id::equals(object_id),
+										exif_data::create(
+											object::id::equals(object_id),
+											db_params.clone(),
+										),
+										db_params,
+									),
 								),
-							),
-						)
-						.await?;
+							)
+							.await?;
+						}
 					}
 				}
+			}
+
+			ObjectKind::Audio => {
+				if let Ok(audio_extension) = AudioExtension::from_str(&extension) {
+					if can_extract_ffmpeg_data_for_audio(&audio_extension) {
+						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+						}
+					}
+				}
+			}
+
+			ObjectKind::Video => {
+				if let Ok(video_extension) = VideoExtension::from_str(&extension) {
+					if can_extract_ffmpeg_data_for_video(&video_extension) {
+						if let Ok(ffmpeg_data) = extract_ffmpeg_data(path)
+							.await
+							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+						{
+							save_ffmpeg_data([(ffmpeg_data, object_id)], db).await?;
+						}
+					}
+				}
+			}
+
+			_ => {
+				// Do nothing
 			}
 		}
 	}
@@ -475,13 +520,13 @@ async fn inner_update_file(
 
 			[
 				(
-					(cas_id::NAME, json!(file_path.cas_id)),
+					(cas_id::NAME, msgpack!(file_path.cas_id)),
 					Some(cas_id::set(file_path.cas_id.clone())),
 				),
 				(
 					(
 						size_in_bytes_bytes::NAME,
-						json!(fs_metadata.len().to_be_bytes().to_vec()),
+						msgpack!(fs_metadata.len().to_be_bytes().to_vec()),
 					),
 					Some(size_in_bytes_bytes::set(Some(
 						fs_metadata.len().to_be_bytes().to_vec(),
@@ -491,7 +536,7 @@ async fn inner_update_file(
 					let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
 
 					(
-						(date_modified::NAME, json!(date)),
+						(date_modified::NAME, msgpack!(date)),
 						Some(date_modified::set(Some(date))),
 					)
 				},
@@ -509,28 +554,28 @@ async fn inner_update_file(
 					};
 
 					(
-						(integrity_checksum::NAME, json!(checksum)),
+						(integrity_checksum::NAME, msgpack!(checksum)),
 						Some(integrity_checksum::set(checksum)),
 					)
 				},
 				{
 					if current_inode != inode {
 						(
-							(inode::NAME, json!(inode)),
+							(inode::NAME, msgpack!(inode)),
 							Some(inode::set(Some(inode_to_db(inode)))),
 						)
 					} else {
-						((inode::NAME, serde_json::Value::Null), None)
+						((inode::NAME, msgpack!(nil)), None)
 					}
 				},
 				{
 					if is_hidden != file_path.hidden.unwrap_or_default() {
 						(
-							(hidden::NAME, json!(inode)),
+							(hidden::NAME, msgpack!(inode)),
 							Some(hidden::set(Some(is_hidden))),
 						)
 					} else {
-						((hidden::NAME, serde_json::Value::Null), None)
+						((hidden::NAME, msgpack!(nil)), None)
 					}
 				},
 			]
@@ -582,7 +627,7 @@ async fn inner_update_file(
 								pub_id: object.pub_id.clone(),
 							},
 							object::kind::NAME,
-							json!(int_kind),
+							msgpack!(int_kind),
 						),
 						db.object().update(
 							object::id::equals(object.id),
@@ -604,8 +649,8 @@ async fn inner_update_file(
 								pub_id: pub_id.clone(),
 							},
 							[
-								(object::date_created::NAME, json!(date_created)),
-								(object::kind::NAME, json!(int_kind)),
+								(object::date_created::NAME, msgpack!(date_created)),
+								(object::kind::NAME, msgpack!(int_kind)),
 							],
 						),
 						db.object().create(
@@ -626,7 +671,7 @@ async fn inner_update_file(
 							pub_id: file_path.pub_id.clone(),
 						},
 						file_path::object::NAME,
-						json!(prisma_sync::object::SyncId {
+						msgpack!(prisma_sync::object::SyncId {
 							pub_id: pub_id.clone()
 						}),
 					),
@@ -679,42 +724,73 @@ async fn inner_update_file(
 				}
 			}
 
-			// TODO: Change this if to include ObjectKind::Video in the future
-			if let Some(ext) = &file_path.extension {
-				if let Ok(image_extension) = ImageExtension::from_str(ext) {
-					if can_extract_media_data_for_image(&image_extension)
-						&& matches!(kind, ObjectKind::Image)
-					{
-						if let Ok(media_data) = extract_media_data(full_path)
-							.await
-							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
-						{
-							let (sync_params, db_params) =
-								media_data_image_to_query_params(media_data);
+			if let Some(extension) = &file_path.extension {
+				match kind {
+					ObjectKind::Image => {
+						if let Ok(image_extension) = ImageExtension::from_str(extension) {
+							if can_extract_exif_data_for_image(&image_extension) {
+								if let Ok(Some(exif_data)) = extract_exif_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									let (sync_params, db_params) =
+										exif_data_image_to_query_params(exif_data);
 
-							sync.write_ops(
-								db,
-								(
-									sync.shared_create(
-										prisma_sync::media_data::SyncId {
-											object: prisma_sync::object::SyncId {
-												pub_id: object.pub_id.clone(),
-											},
-										},
-										sync_params,
-									),
-									db.media_data().upsert(
-										media_data::object_id::equals(object.id),
-										media_data::create(
-											object::id::equals(object.id),
-											db_params.clone(),
+									sync.write_ops(
+										db,
+										(
+											sync.shared_create(
+												prisma_sync::exif_data::SyncId {
+													object: prisma_sync::object::SyncId {
+														pub_id: object.pub_id.clone(),
+													},
+												},
+												sync_params,
+											),
+											db.exif_data().upsert(
+												exif_data::object_id::equals(object.id),
+												exif_data::create(
+													object::id::equals(object.id),
+													db_params.clone(),
+												),
+												db_params,
+											),
 										),
-										db_params,
-									),
-								),
-							)
-							.await?;
+									)
+									.await?;
+								}
+							}
 						}
+					}
+
+					ObjectKind::Audio => {
+						if let Ok(audio_extension) = AudioExtension::from_str(extension) {
+							if can_extract_ffmpeg_data_for_audio(&audio_extension) {
+								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+								}
+							}
+						}
+					}
+
+					ObjectKind::Video => {
+						if let Ok(video_extension) = VideoExtension::from_str(extension) {
+							if can_extract_ffmpeg_data_for_video(&video_extension) {
+								if let Ok(ffmpeg_data) = extract_ffmpeg_data(full_path)
+									.await
+									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
+								{
+									save_ffmpeg_data([(ffmpeg_data, object.id)], db).await?;
+								}
+							}
+						}
+					}
+
+					_ => {
+						// Do nothing
 					}
 				}
 			}
@@ -731,7 +807,7 @@ async fn inner_update_file(
 						pub_id: file_path.pub_id.clone(),
 					},
 					file_path::hidden::NAME,
-					json!(is_hidden),
+					msgpack!(is_hidden),
 				)],
 				db.file_path().update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),
@@ -828,7 +904,7 @@ pub(super) async fn rename(
 						sync.shared_update(
 							sd_prisma::prisma_sync::file_path::SyncId { pub_id },
 							file_path::materialized_path::NAME,
-							json!(&new_path),
+							msgpack!(&new_path),
 						),
 						db.file_path().update(
 							file_path::id::equals(id),
@@ -851,24 +927,24 @@ pub(super) async fn rename(
 			(
 				(
 					file_path::materialized_path::NAME,
-					json!(new_path_materialized_str),
+					msgpack!(new_path_materialized_str),
 				),
 				file_path::materialized_path::set(Some(new_path_materialized_str)),
 			),
 			(
-				(file_path::name::NAME, json!(new_parts.name)),
+				(file_path::name::NAME, msgpack!(new_parts.name)),
 				file_path::name::set(Some(new_parts.name.to_string())),
 			),
 			(
-				(file_path::extension::NAME, json!(new_parts.extension)),
+				(file_path::extension::NAME, msgpack!(new_parts.extension)),
 				file_path::extension::set(Some(new_parts.extension.to_string())),
 			),
 			(
-				(file_path::date_modified::NAME, json!(&date_modified)),
+				(file_path::date_modified::NAME, msgpack!(&date_modified)),
 				file_path::date_modified::set(Some(date_modified)),
 			),
 			(
-				(file_path::hidden::NAME, json!(is_hidden)),
+				(file_path::hidden::NAME, msgpack!(is_hidden)),
 				file_path::hidden::set(Some(is_hidden)),
 			),
 		]

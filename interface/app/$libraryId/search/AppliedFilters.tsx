@@ -2,6 +2,7 @@ import { MagnifyingGlass, X } from '@phosphor-icons/react';
 import { forwardRef } from 'react';
 import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { useSearchContext } from '.';
 import HorizontalScroll from '../overview/Layout/HorizontalScroll';
@@ -24,12 +25,12 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 			className="flex h-full items-center rounded-r border-l border-app-darkerBox/70 px-1.5 py-0.5 text-sm hover:bg-app-lightBox/30"
 			onClick={onClick}
 		>
-			<RenderIcon className="h-3 w-3" icon={X} />
+			<RenderIcon className="size-3" icon={X} />
 		</div>
 	);
 });
 
-export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }) => {
+export const AppliedFilters = () => {
 	const search = useSearchContext();
 
 	return (
@@ -37,15 +38,15 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 			{search.search && (
 				<FilterContainer>
 					<StaticSection>
-						<RenderIcon className="h-4 w-4" icon={MagnifyingGlass} />
+						<RenderIcon className="size-4" icon={MagnifyingGlass} />
 						<FilterText>{search.search}</FilterText>
 					</StaticSection>
-					{allowRemove && <CloseTab onClick={() => search.setSearch('')} />}
+					{search.setSearch && <CloseTab onClick={() => search.setSearch?.('')} />}
 				</FilterContainer>
 			)}
 			<div className="group w-full">
 				<HorizontalScroll className="!mb-0 !pl-0">
-					{search.mergedFilters.map(({ arg, removalIndex }, index) => {
+					{search.mergedFilters?.map(({ arg, removalIndex }, index) => {
 						const filter = filterRegistry.find((f) => f.extract(arg));
 						if (!filter) return;
 						return (
@@ -53,16 +54,14 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 								<FilterArg
 									arg={arg}
 									onDelete={
-										removalIndex !== null && allowRemove
+										removalIndex !== null && search.setFilters
 											? () => {
-													search.updateDynamicFilters(
-														(dyanmicFilters) => {
-															dyanmicFilters.splice(removalIndex, 1);
+													search.setFilters?.((filters) => {
+														filters?.splice(removalIndex, 1);
 
-															return dyanmicFilters;
-														}
-													);
-											  }
+														return filters;
+													});
+												}
 											: undefined
 									}
 								/>
@@ -77,6 +76,7 @@ export const AppliedFilters = ({ allowRemove = true }: { allowRemove?: boolean }
 
 export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?: () => void }) {
 	const searchStore = useSearchStore();
+	const { t } = useLocale();
 
 	const filter = filterRegistry.find((f) => f.extract(arg));
 	if (!filter) return;
@@ -86,53 +86,64 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 		searchStore.filterOptions
 	);
 
+	function isFilterDescriptionDisplayed() {
+		if (filter?.translationKey === 'hidden' || filter?.translationKey === 'favorite') {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
 	return (
 		<FilterContainer>
 			<StaticSection>
-				<RenderIcon className="h-4 w-4" icon={filter.icon} />
+				<RenderIcon className="size-4" icon={filter.icon} />
 				<FilterText>{filter.name}</FilterText>
 			</StaticSection>
-			<InteractiveSection className="border-l">
-				{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
+			{isFilterDescriptionDisplayed() && (
+				<>
+					<InteractiveSection className="border-l">
+						{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
                             <div key={value}>{displayName}</div>
                         ))} */}
-				{(filter.conditions as any)[filter.getCondition(filter.extract(arg) as any) as any]}
-			</InteractiveSection>
+						{
+							(filter.conditions as any)[
+								filter.getCondition(filter.extract(arg) as any) as any
+							]
+						}
+					</InteractiveSection>
 
-			<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
-				{activeOptions && (
-					<>
-						{activeOptions.length === 1 ? (
-							<RenderIcon className="h-4 w-4" icon={activeOptions[0]!.icon} />
-						) : (
-							<div className="relative flex gap-0.5 self-center">
-								{activeOptions.map((option, index) => (
-									<div
-										key={index}
-										style={{
-											zIndex: activeOptions.length - index
-										}}
-									>
-										<RenderIcon className="h-4 w-4" icon={option.icon} />
+					<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
+						{activeOptions && (
+							<>
+								{activeOptions.length === 1 ? (
+									<RenderIcon className="size-4" icon={activeOptions[0]!.icon} />
+								) : (
+									<div className="relative flex gap-0.5 self-center">
+										{activeOptions.map((option, index) => (
+											<div
+												key={index}
+												style={{
+													zIndex: activeOptions.length - index
+												}}
+											>
+												<RenderIcon className="size-4" icon={option.icon} />
+											</div>
+										))}
 									</div>
-								))}
-							</div>
+								)}
+								<span className="max-w-[150px] truncate">
+									{activeOptions.length > 1
+										? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
+										: activeOptions[0]?.name}
+								</span>
+							</>
 						)}
-						<span className="max-w-[150px] truncate">
-							{activeOptions.length > 1
-								? `${activeOptions.length} ${pluralize(filter.name)}`
-								: activeOptions[0]?.name}
-						</span>
-					</>
-				)}
-			</InteractiveSection>
+					</InteractiveSection>
+				</>
+			)}
 
 			{onDelete && <CloseTab onClick={onDelete} />}
 		</FilterContainer>
 	);
-}
-
-function pluralize(word?: string) {
-	if (word?.endsWith('s')) return word;
-	return `${word}s`;
 }

@@ -15,7 +15,7 @@ export const ColorPicker = <T extends FieldValues>({ className, ...props }: Prop
 			popover={usePopover()}
 			trigger={
 				<div
-					className={clsx('h-4 w-4 rounded-full shadow', className)}
+					className={clsx('size-4 rounded-full shadow', className)}
 					style={{ backgroundColor: field.value }}
 				/>
 			}

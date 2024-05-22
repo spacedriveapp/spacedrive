@@ -2,6 +2,8 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	DotsThree,
+	MagnifyingGlassMinus,
+	MagnifyingGlassPlus,
 	Plus,
 	SidebarSimple,
 	Slideshow,
@@ -47,6 +49,8 @@ import ExplorerContextMenu, {
 import { Conditional } from '../ContextMenu/ConditionalItem';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
+import { explorerStore } from '../store';
+import { useExplorerViewContext } from '../View/Context';
 import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 
@@ -73,11 +77,13 @@ export const QuickPreview = () => {
 	const { openFilePaths, openEphemeralFiles } = usePlatform();
 	const explorerLayoutStore = useExplorerLayoutStore();
 	const explorer = useExplorerContext();
+	const explorerView = useExplorerViewContext();
 	const { open, itemIndex } = useQuickPreviewStore();
 
 	const thumb = createRef<HTMLDivElement>();
 	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
+	const [magnification, setMagnification] = useState<number>(1);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
@@ -146,6 +152,7 @@ export const QuickPreview = () => {
 	useEffect(() => {
 		setNewName(null);
 		setThumbErrorToast(undefined);
+		setMagnification(1);
 
 		if (open || item) return;
 
@@ -153,6 +160,14 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
 	}, [item, open]);
+
+	useEffect(() => {
+		if (open) explorerView.updateActiveItem(null, { updateFirstItem: true });
+
+		// "open" is excluded, as we only want this to trigger when hashes change,
+		// that way we don't have to manually update the active item.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [explorer.selectedItemHashes, explorerView.updateActiveItem]);
 
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
@@ -192,6 +207,13 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().itemIndex = 0;
 	});
 
+	//close quick preview
+	useShortcut('closeQuickPreview', (e) => {
+		if (explorerStore.isCMDPOpen) return;
+		e.preventDefault();
+		getQuickPreviewStore().open = false;
+	});
+
 	// Toggle metadata
 	useShortcut('toggleMetaData', () => setShowMetadata(!showMetadata));
 
@@ -211,8 +233,8 @@ export const QuickPreview = () => {
 			}
 		} catch (error) {
 			toast.error({
-				title: 'Failed to open file',
-				body: `Couldn't open file, due to an error: ${error}`
+				title: t('failed_to_open_file_title'),
+				body: t('failed_to_open_file_body', { error: error })
 			});
 		}
 	});
@@ -232,7 +254,7 @@ export const QuickPreview = () => {
 				<Dialog.Portal forceMount>
 					<Dialog.Overlay
 						className={clsx(
-							'absolute inset-0 z-50',
+							'absolute inset-0 z-[100]',
 							'radix-state-open:animate-in radix-state-open:fade-in-0',
 							isDark ? 'bg-black/80' : 'bg-black/60'
 						)}
@@ -240,7 +262,7 @@ export const QuickPreview = () => {
 					/>
 
 					<Dialog.Content
-						className="fixed inset-[5%] z-50 outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
+						className="fixed inset-[5%] z-[100] outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
 						onOpenAutoFocus={(e) => e.preventDefault()}
 						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
 						onContextMenu={(e) => e.preventDefault()}
@@ -386,8 +408,11 @@ export const QuickPreview = () => {
 														setNewName(newName);
 													} catch (e) {
 														toast.error({
-															title: `Could not rename ${itemData.fullName} to ${newName}`,
-															body: `Error: ${e}.`
+															title: t('failed_to_rename_file', {
+																oldName: itemData.fullName,
+																newName
+															}),
+															body: t('error_message', { error: e })
 														});
 													}
 												}}
@@ -405,6 +430,35 @@ export const QuickPreview = () => {
 									</div>
 
 									<div className="flex flex-1 items-center justify-end gap-1">
+										<Tooltip label={t('zoom_in')}>
+											<IconButton
+												onClick={() =>
+													setMagnification(
+														(currentMagnification) =>
+															currentMagnification +
+															currentMagnification * 0.2
+													)
+												}
+												// this is same formula as intrest calculation
+											>
+												<MagnifyingGlassPlus />
+											</IconButton>
+										</Tooltip>
+
+										<Tooltip label={t('zoom_out')}>
+											<IconButton
+												onClick={() =>
+													setMagnification(
+														(currentMagnification) =>
+															currentMagnification / (1 + 0.2)
+													)
+												}
+												// this is same formula as intrest calculation
+											>
+												<MagnifyingGlassMinus />
+											</IconButton>
+										</Tooltip>
+
 										<DropdownMenu.Root
 											trigger={
 												<div className="flex">
@@ -441,8 +495,8 @@ export const QuickPreview = () => {
 														FilePathItems.CopyAsPath,
 														FilePathItems.Crypto,
 														FilePathItems.Compress,
-														ObjectItems.ConvertObject,
-														FilePathItems.SecureDelete
+														ObjectItems.ConvertObject
+														// FilePathItems.SecureDelete
 													]}
 												>
 													{(items) => (
@@ -519,6 +573,7 @@ export const QuickPreview = () => {
 										!icon && 'h-full',
 										textKinds.includes(kind) && 'select-text'
 									)}
+									magnification={magnification}
 								/>
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
@@ -605,8 +660,8 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 					quickPreview.background
 						? 'border-white/[.12] bg-white/10 backdrop-blur-sm'
 						: isDark
-						? 'border-app-line bg-app-input'
-						: 'border-black/[.075] bg-black/[.075]'
+							? 'border-app-line bg-app-input'
+							: 'border-black/[.075] bg-black/[.075]'
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
@@ -632,7 +687,7 @@ const IconButton = ({
 	return (
 		<button
 			className={clsx(
-				'text-md inline-flex h-[30px] w-[30px] items-center justify-center rounded opacity-80 outline-none',
+				'text-md inline-flex size-[30px] items-center justify-center rounded opacity-80 outline-none',
 				'hover:opacity-100',
 				'focus:opacity-100',
 				'disabled:pointer-events-none disabled:opacity-40',

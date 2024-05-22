@@ -7,6 +7,7 @@ use sd_utils::uuid_to_bytes;
 use std::{
 	cmp::Ordering,
 	collections::HashMap,
+	fmt,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -18,10 +19,18 @@ use tokio::sync::{broadcast, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
+/// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
-	shared: Arc<SharedState>,
+	pub shared: Arc<SharedState>,
+	pub timestamp_lock: tokio::sync::Semaphore,
+}
+
+impl fmt::Debug for Manager {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("SyncManager").finish()
+	}
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
@@ -37,11 +46,12 @@ pub struct New {
 
 impl Manager {
 	#[allow(clippy::new_ret_no_self)]
-	pub fn new(
+	pub async fn new(
 		db: &Arc<PrismaClient>,
 		instance: Uuid,
 		emit_messages_flag: &Arc<AtomicBool>,
 		timestamps: HashMap<Uuid, NTP64>,
+		actors: &Arc<sd_actors::Actors>,
 	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
@@ -53,12 +63,20 @@ impl Manager {
 			clock,
 			timestamps: Arc::new(RwLock::new(timestamps)),
 			emit_messages_flag: emit_messages_flag.clone(),
+			active: Default::default(),
+			active_notify: Default::default(),
+			actors: actors.clone(),
 		});
 
-		let ingest = ingest::Actor::spawn(shared.clone());
+		let ingest = ingest::Actor::declare(shared.clone()).await;
 
 		New {
-			manager: Self { tx, ingest, shared },
+			manager: Self {
+				tx,
+				ingest,
+				shared,
+				timestamp_lock: tokio::sync::Semaphore::new(1),
+			},
 			rx,
 		}
 	}
@@ -70,19 +88,35 @@ impl Manager {
 	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		(_ops, queries): (Vec<CRDTOperation>, I),
+		(mut ops, queries): (Vec<CRDTOperation>, I),
 	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
+			let lock = self.timestamp_lock.acquire().await;
+
+			ops.iter_mut().for_each(|op| {
+				op.timestamp = *self.get_clock().new_timestamp().get_time();
+			});
+
 			let (res, _) = tx
 				._batch((
 					queries,
-					_ops.iter()
+					ops.iter()
 						.map(|op| crdt_op_db(op).to_query(tx))
 						.collect::<Vec<_>>(),
 				))
 				.await?;
 
+			if let Some(last) = ops.last() {
+				self.shared
+					.timestamps
+					.write()
+					.await
+					.insert(self.instance, last.timestamp);
+			}
+
 			self.tx.send(SyncMessage::Created).ok();
+
+			drop(lock);
 
 			res
 		} else {
@@ -96,20 +130,58 @@ impl Manager {
 	pub async fn write_op<'item, Q: prisma_client_rust::BatchItem<'item>>(
 		&self,
 		tx: &PrismaClient,
-		op: CRDTOperation,
+		mut op: CRDTOperation,
 		query: Q,
 	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
+			let lock = self.timestamp_lock.acquire().await;
+
+			op.timestamp = *self.get_clock().new_timestamp().get_time();
+
 			let ret = tx._batch((crdt_op_db(&op).to_query(tx), query)).await?.1;
 
 			self.tx.send(SyncMessage::Created).ok();
+
+			drop(lock);
 
 			ret
 		} else {
 			tx._batch(vec![query]).await?.remove(0)
 		};
 
+		self.shared
+			.timestamps
+			.write()
+			.await
+			.insert(self.instance, op.timestamp);
+
 		Ok(ret)
+	}
+
+	pub async fn get_instance_ops(
+		&self,
+		count: u32,
+		instance_uuid: Uuid,
+		timestamp: NTP64,
+	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
+		let db = &self.db;
+
+		Ok(db
+			.crdt_operation()
+			.find_many(vec![
+				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
+					instance_uuid,
+				))]),
+				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
+			])
+			.take(i64::from(count))
+			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
+			.include(crdt_include::include())
+			.exec()
+			.await?
+			.into_iter()
+			.map(|o| o.into_operation())
+			.collect())
 	}
 
 	pub async fn get_ops(

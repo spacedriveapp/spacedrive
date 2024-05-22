@@ -1,11 +1,11 @@
-use crate::p2p::{operations, Header, P2PEvent, PeerMetadata};
+use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
-use sd_p2p2::RemoteIdentity;
+use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::PoisonError};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
@@ -19,17 +19,29 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				let mut queued = Vec::new();
 
-				for (identity, peer, metadata) in
-					node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
-						PeerMetadata::from_hashmap(&p.metadata())
-							.ok()
-							.map(|m| (i, p, m))
-					}) {
-					let identity = *identity;
-					match peer.is_connected() {
-						true => queued.push(P2PEvent::ConnectedPeer { identity }),
-						false => queued.push(P2PEvent::DiscoveredPeer { identity, metadata }),
-					}
+				for (_, peer, metadata) in node.p2p.p2p.peers().iter().filter_map(|(i, p)| {
+					PeerMetadata::from_hashmap(&p.metadata())
+						.ok()
+						.map(|m| (i, p, m))
+				}) {
+					queued.push(P2PEvent::PeerChange {
+						identity: peer.identity(),
+						connection: if peer.is_connected_with_hook(node.p2p.libraries_hook_id) {
+							ConnectionMethod::Relay
+						} else if peer.is_connected() {
+							ConnectionMethod::Local
+						} else {
+							ConnectionMethod::Disconnected
+						},
+						discovery: match peer
+							.connection_candidates()
+							.contains(&PeerConnectionCandidate::Relay)
+						{
+							true => DiscoveryMethod::Relay,
+							false => DiscoveryMethod::Local,
+						},
+						metadata,
+					});
 				}
 
 				Ok(async_stream::stream! {
@@ -46,13 +58,61 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("state", {
 			R.query(|node, _: ()| async move { Ok(node.p2p.state().await) })
 		})
+		.procedure("listeners", {
+			#[derive(Serialize, Type)]
+			#[serde(tag = "type")]
+			pub enum ListenerState {
+				Listening,
+				Error { error: String },
+				Disabled,
+			}
+
+			#[derive(Serialize, Type)]
+			pub struct Listeners {
+				ipv4: ListenerState,
+				ipv6: ListenerState,
+			}
+
+			R.query(|node, _: ()| async move {
+				let addrs = node
+					.p2p
+					.p2p
+					.listeners()
+					.iter()
+					.flat_map(|l| l.addrs.clone())
+					.collect::<Vec<_>>();
+
+				let errors = node
+					.p2p
+					.listener_errors
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner);
+
+				Ok(Listeners {
+					ipv4: match errors.ipv4 {
+						Some(ref err) => ListenerState::Error { error: err.clone() },
+						None => match addrs.iter().any(|f| f.is_ipv4()) {
+							true => ListenerState::Listening,
+							false => ListenerState::Disabled,
+						},
+					},
+					ipv6: match errors.ipv6 {
+						Some(ref err) => ListenerState::Error { error: err.clone() },
+						None => match addrs.iter().any(|f| f.is_ipv6()) {
+							true => ListenerState::Listening,
+							false => ListenerState::Disabled,
+						},
+					},
+				})
+			})
+		})
 		.procedure("debugConnect", {
 			R.mutation(|node, identity: RemoteIdentity| async move {
 				let peer = { node.p2p.p2p.peers().get(&identity).cloned() };
 				let mut stream = peer
 					.ok_or(rspc::Error::new(
 						ErrorCode::InternalServerError,
-						"big man, offline".into(),
+						"big man, not found".into(),
 					))?
 					.new_stream()
 					.await
@@ -93,8 +153,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.collect::<Vec<_>>(),
 				)
 				.await
-				.map_err(|_err| {
-					rspc::Error::new(ErrorCode::InternalServerError, "todo: error".into())
+				.map_err(|spacedrop_err| {
+					rspc::Error::new(ErrorCode::InternalServerError, spacedrop_err.to_string())
 				})
 			})
 		})

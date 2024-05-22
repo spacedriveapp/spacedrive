@@ -1,10 +1,7 @@
+import { capitalize } from '@sd/client';
 import { keySymbols, ModifierKeys, modifierSymbols } from '@sd/ui';
 
 import { OperatingSystem } from '../util/Platform';
-
-function capitalize<T extends string>(string: T): Capitalize<T> {
-	return (string.charAt(0).toUpperCase() + string.slice(1)) as Capitalize<T>;
-}
 
 export function keybind<T extends string>(
 	modifers: ModifierKeys[],

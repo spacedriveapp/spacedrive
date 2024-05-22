@@ -1,8 +1,8 @@
-import { CaretRight, Pen, Trash } from 'phosphor-react-native';
+import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Animated, FlatList, Text, View } from 'react-native';
+import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LibraryConfigWrapped, useBridgeQuery, useCache, useNodes } from '@sd/client';
+import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -49,11 +49,14 @@ function LibraryItem({
 		);
 	};
 
+	const swipeRef = useRef<Swipeable>(null);
+
 	return (
 		<Swipeable
+			ref={swipeRef}
 			containerStyle={twStyle(
 				index !== 0 && 'mt-2',
-				'rounded-lg border border-app-line bg-app-overlay px-4 py-3'
+				'rounded-lg border border-app-cardborder bg-app-card px-4 py-3'
 			)}
 			enableTrackpadTwoFingerGesture
 			renderRightActions={renderRightActions}
@@ -63,7 +66,13 @@ function LibraryItem({
 					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
 					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
-				<CaretRight color={tw.color('ink')} size={20} />
+				<Pressable onPress={() => swipeRef.current?.openRight()}>
+					<DotsThreeOutlineVertical
+						weight="fill"
+						size={20}
+						color={tw.color('ink-dull')}
+					/>
+				</Pressable>
 			</View>
 		</Swipeable>
 	);
@@ -71,8 +80,7 @@ function LibraryItem({
 
 const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const libraryList = useBridgeQuery(['library.list']);
-	useNodes(libraryList.data?.nodes);
-	const libraries = useCache(libraryList.data?.items);
+	const libraries = libraryList.data;
 
 	useEffect(() => {
 		navigation.setOptions({
@@ -96,7 +104,7 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 			<Fade
 				fadeSides="top-bottom"
 				orientation="vertical"
-				color="mobile-screen"
+				color="black"
 				width={30}
 				height="100%"
 			>

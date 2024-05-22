@@ -9,7 +9,11 @@ use crate::{
 	Node,
 };
 
-use sd_file_path_helper::{filter_existing_file_path_params, IsolatedFilePathData};
+use sd_core_file_path_helper::{
+	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
+};
+use sd_core_prisma_helpers::location_with_indexer_rules;
+
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
 	prisma_sync,
@@ -18,10 +22,8 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	uuid_to_bytes,
+	msgpack,
 };
-
-use sd_file_path_helper::IsolatedFilePathDataParts;
 
 use std::{
 	collections::HashSet,
@@ -33,11 +35,11 @@ use chrono::Utc;
 use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod error;
@@ -53,10 +55,28 @@ use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationPubId = Uuid;
 
-// Location includes!
-location::include!(location_with_indexer_rules {
-	indexer_rules: select { indexer_rule }
-});
+#[repr(i32)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]
+pub enum ScanState {
+	Pending = 0,
+	Indexed = 1,
+	FilesIdentified = 2,
+	Completed = 3,
+}
+
+impl TryFrom<i32> for ScanState {
+	type Error = LocationError;
+
+	fn try_from(value: i32) -> Result<Self, Self::Error> {
+		Ok(match value {
+			0 => Self::Pending,
+			1 => Self::Indexed,
+			2 => Self::FilesIdentified,
+			3 => Self::Completed,
+			_ => return Err(LocationError::InvalidScanStateValue(value)),
+		})
+	}
+}
 
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
@@ -176,8 +196,10 @@ impl LocationCreateArgs {
 			})
 			.await
 			{
-				delete_location(node, library, location.data.id).await?;
-				Err(err)?;
+				// DISABLED TO FAIL SILENTLY - HOTFIX FOR LACK OF WRITE PERMISSION PREVENTING LOCATION CREATION
+				error!("Failed to write .spacedrive file: {:?}", err);
+				// delete_location(node, library, location.data.id).await?;
+				// Err(err)?;
 			}
 
 			info!("Created location: {:?}", &location.data);
@@ -296,31 +318,31 @@ impl LocationUpdateArgs {
 				.filter(|name| location.name.as_ref() != Some(name))
 				.map(|v| {
 					(
-						(location::name::NAME, json!(v)),
+						(location::name::NAME, msgpack!(v)),
 						location::name::set(Some(v)),
 					)
 				}),
 			self.generate_preview_media.map(|v| {
 				(
-					(location::generate_preview_media::NAME, json!(v)),
+					(location::generate_preview_media::NAME, msgpack!(v)),
 					location::generate_preview_media::set(Some(v)),
 				)
 			}),
 			self.sync_preview_media.map(|v| {
 				(
-					(location::sync_preview_media::NAME, json!(v)),
+					(location::sync_preview_media::NAME, msgpack!(v)),
 					location::sync_preview_media::set(Some(v)),
 				)
 			}),
 			self.hidden.map(|v| {
 				(
-					(location::hidden::NAME, json!(v)),
+					(location::hidden::NAME, msgpack!(v)),
 					location::hidden::set(Some(v)),
 				)
 			}),
 			self.path.clone().map(|v| {
 				(
-					(location::path::NAME, json!(v)),
+					(location::path::NAME, msgpack!(v)),
 					location::path::set(Some(v)),
 				)
 			}),
@@ -443,6 +465,7 @@ pub async fn scan_location(
 	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
+	location_scan_state: ScanState,
 ) -> Result<(), JobManagerError> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
@@ -451,25 +474,61 @@ pub async fn scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(OldIndexerJobInit {
-		location,
-		sub_path: None,
-	})
-	.with_action("scan_location")
-	.with_metadata(json!({"location": location_base_data.clone()}))
-	.build()
-	.queue_next(OldFileIdentifierJobInit {
-		location: location_base_data.clone(),
-		sub_path: None,
-	})
-	.queue_next(OldMediaProcessorJobInit {
-		location: location_base_data,
-		sub_path: None,
-		regenerate_thumbnails: false,
-		regenerate_labels: false,
-	})
-	.spawn(node, library)
-	.await
+	debug!("Scanning location with state: {location_scan_state:?}");
+
+	match location_scan_state {
+		ScanState::Pending | ScanState::Completed => {
+			JobBuilder::new(OldIndexerJobInit {
+				location,
+				sub_path: None,
+			})
+			.with_action("scan_location")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::Indexed => {
+			JobBuilder::new(OldFileIdentifierJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+			})
+			.with_action("scan_location_already_indexed")
+			.with_metadata(json!({"location": location_base_data.clone()}))
+			.build()
+			.queue_next(OldMediaProcessorJobInit {
+				location: location_base_data,
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.spawn(node, library)
+			.await
+		}
+		ScanState::FilesIdentified => {
+			JobBuilder::new(OldMediaProcessorJobInit {
+				location: location_base_data.clone(),
+				sub_path: None,
+				regenerate_thumbnails: false,
+				regenerate_labels: false,
+			})
+			.with_action("scan_location_files_already_identified")
+			.with_metadata(json!({"location": location_base_data}))
+			.build()
+			.spawn(node, library)
+			.await
+		}
+	}
 	.map_err(Into::into)
 }
 
@@ -567,7 +626,7 @@ pub async fn relink_location(
 				pub_id: pub_id.clone(),
 			},
 			location::path::NAME,
-			json!(path),
+			msgpack!(path),
 		),
 		db.location().update(
 			location::pub_id::equals(pub_id.clone()),
@@ -685,15 +744,15 @@ async fn create_location(
 						pub_id: location_pub_id.as_bytes().to_vec(),
 					},
 					[
-						(location::name::NAME, json!(&name)),
-						(location::path::NAME, json!(&path)),
-						(location::date_created::NAME, json!(date_created)),
-						(
-							location::instance::NAME,
-							json!(prisma_sync::instance::SyncId {
-								pub_id: uuid_to_bytes(sync.instance)
-							}),
-						),
+						(location::name::NAME, msgpack!(&name)),
+						(location::path::NAME, msgpack!(&path)),
+						(location::date_created::NAME, msgpack!(date_created)),
+						// (
+						// 	location::instance::NAME,
+						// 	msgpack!(prisma_sync::instance::SyncId {
+						// 		pub_id: uuid_to_bytes(sync.instance)
+						// 	}),
+						// ),
 					],
 				),
 				db.location()
@@ -865,52 +924,6 @@ pub async fn delete_directory(
 	Ok(())
 }
 
-impl From<location_with_indexer_rules::Data> for location::Data {
-	fn from(data: location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id,
-			path: data.path,
-			instance_id: data.instance_id,
-			name: data.name,
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			is_archived: data.is_archived,
-			size_in_bytes: data.size_in_bytes,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
-}
-
-impl From<&location_with_indexer_rules::Data> for location::Data {
-	fn from(data: &location_with_indexer_rules::Data) -> Self {
-		Self {
-			id: data.id,
-			pub_id: data.pub_id.clone(),
-			path: data.path.clone(),
-			instance_id: data.instance_id,
-			name: data.name.clone(),
-			total_capacity: data.total_capacity,
-			available_capacity: data.available_capacity,
-			size_in_bytes: data.size_in_bytes.clone(),
-			is_archived: data.is_archived,
-			generate_preview_media: data.generate_preview_media,
-			sync_preview_media: data.sync_preview_media,
-			hidden: data.hidden,
-			date_created: data.date_created,
-			file_paths: None,
-			indexer_rules: None,
-			instance: None,
-		}
-	}
-}
-
 async fn check_nested_location(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
@@ -1047,8 +1060,8 @@ pub async fn create_file_path(
 		..
 	}: IsolatedFilePathDataParts<'_>,
 	cas_id: Option<String>,
-	metadata: sd_file_path_helper::FilePathMetadata,
-) -> Result<file_path::Data, sd_file_path_helper::FilePathError> {
+	metadata: sd_core_file_path_helper::FilePathMetadata,
+) -> Result<file_path::Data, sd_core_file_path_helper::FilePathError> {
 	use sd_utils::db::inode_to_db;
 
 	use sd_prisma::prisma;
@@ -1061,7 +1074,7 @@ pub async fn create_file_path(
 		.select(location::select!({ id pub_id }))
 		.exec()
 		.await?
-		.ok_or(sd_file_path_helper::FilePathError::LocationNotFound(
+		.ok_or(sd_core_file_path_helper::FilePathError::LocationNotFound(
 			location_id,
 		))?;
 
@@ -1072,48 +1085,48 @@ pub async fn create_file_path(
 			(
 				(
 					location::NAME,
-					json!(prisma_sync::location::SyncId {
+					msgpack!(prisma_sync::location::SyncId {
 						pub_id: location.pub_id
 					}),
 				),
 				location::connect(prisma::location::id::equals(location.id)),
 			),
-			((cas_id::NAME, json!(cas_id)), cas_id::set(cas_id)),
+			((cas_id::NAME, msgpack!(cas_id)), cas_id::set(cas_id)),
 			(
-				(materialized_path::NAME, json!(materialized_path)),
+				(materialized_path::NAME, msgpack!(materialized_path)),
 				materialized_path::set(Some(materialized_path.into())),
 			),
-			((name::NAME, json!(name)), name::set(Some(name.into()))),
+			((name::NAME, msgpack!(name)), name::set(Some(name.into()))),
 			(
-				(extension::NAME, json!(extension)),
+				(extension::NAME, msgpack!(extension)),
 				extension::set(Some(extension.into())),
 			),
 			(
 				(
 					size_in_bytes_bytes::NAME,
-					json!(metadata.size_in_bytes.to_be_bytes().to_vec()),
+					msgpack!(metadata.size_in_bytes.to_be_bytes().to_vec()),
 				),
 				size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
 			),
 			(
-				(inode::NAME, json!(metadata.inode.to_le_bytes())),
+				(inode::NAME, msgpack!(metadata.inode.to_le_bytes())),
 				inode::set(Some(inode_to_db(metadata.inode))),
 			),
-			((is_dir::NAME, json!(is_dir)), is_dir::set(Some(is_dir))),
+			((is_dir::NAME, msgpack!(is_dir)), is_dir::set(Some(is_dir))),
 			(
-				(date_created::NAME, json!(metadata.created_at)),
+				(date_created::NAME, msgpack!(metadata.created_at)),
 				date_created::set(Some(metadata.created_at.into())),
 			),
 			(
-				(date_modified::NAME, json!(metadata.modified_at)),
+				(date_modified::NAME, msgpack!(metadata.modified_at)),
 				date_modified::set(Some(metadata.modified_at.into())),
 			),
 			(
-				(date_indexed::NAME, json!(indexed_at)),
+				(date_indexed::NAME, msgpack!(indexed_at)),
 				date_indexed::set(Some(indexed_at.into())),
 			),
 			(
-				(hidden::NAME, json!(metadata.hidden)),
+				(hidden::NAME, msgpack!(metadata.hidden)),
 				hidden::set(Some(metadata.hidden)),
 			),
 		]

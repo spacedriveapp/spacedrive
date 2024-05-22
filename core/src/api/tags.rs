@@ -1,12 +1,11 @@
 use crate::{invalidate_query, library::Library, object::tag::TagCreateArgs};
 
-use sd_cache::{CacheNode, Normalise, NormalisedResult, NormalisedResults, Reference};
 use sd_prisma::{
 	prisma::{file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::uuid_to_bytes;
+use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;
 
@@ -14,7 +13,6 @@ use chrono::{DateTime, Utc};
 use itertools::{Either, Itertools};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use uuid::Uuid;
 
@@ -24,40 +22,26 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let tags = library.db.tag().find_many(vec![]).exec().await?;
-
-				let (nodes, items) = tags.normalise(|i| i.id.to_string());
-
-				Ok(NormalisedResults { nodes, items })
+				Ok(library.db.tag().find_many(vec![]).exec().await?)
 			})
 		})
 		.procedure("getForObject", {
 			R.with2(library())
 				.query(|(_, library), object_id: i32| async move {
-					let tags = library
+					Ok(library
 						.db
 						.tag()
 						.find_many(vec![tag::tag_objects::some(vec![
 							tag_on_object::object_id::equals(object_id),
 						])])
 						.exec()
-						.await?;
-
-					let (nodes, items) = tags.normalise(|i| i.id.to_string());
-
-					Ok(NormalisedResults { nodes, items })
+						.await?)
 				})
 		})
 		.procedure("getWithObjects", {
 			#[derive(Serialize, Type)]
-			pub struct GetWithObjectsResult {
-				pub data: BTreeMap<u32, Vec<Reference<tag::Data>>>,
-				pub nodes: Vec<CacheNode>,
-			}
-
-			#[derive(Serialize, Type)]
 			pub struct ObjectWithDateCreated {
-				object: Reference<object::Data>,
+				object: object::Data,
 				date_created: DateTime<Utc>,
 			}
 
@@ -98,8 +82,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.tag()
 						.find_unique(tag::id::equals(tag_id))
 						.exec()
-						.await?
-						.map(|tag| NormalisedResult::from(tag, |i| i.id.to_string())))
+						.await?)
 				})
 		})
 		.procedure("create", {
@@ -234,7 +217,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										pub_id: fp.pub_id.clone(),
 									},
 									file_path::object::NAME,
-									json!(id),
+									msgpack!(id),
 								));
 
 								(
@@ -329,8 +312,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						db,
 						(
 							[
-								args.name.as_ref().map(|v| (tag::name::NAME, json!(v))),
-								args.color.as_ref().map(|v| (tag::color::NAME, json!(v))),
+								args.name.as_ref().map(|v| (tag::name::NAME, msgpack!(v))),
+								args.color.as_ref().map(|v| (tag::color::NAME, msgpack!(v))),
 							]
 							.into_iter()
 							.flatten()

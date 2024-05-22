@@ -1,6 +1,8 @@
 use std::{
 	cell::RefCell,
 	collections::HashSet,
+	fmt,
+	future::Future,
 	num::NonZeroUsize,
 	pin::pin,
 	sync::{
@@ -30,7 +32,7 @@ use super::{
 pub struct System<E: RunError> {
 	workers: Arc<Vec<Worker<E>>>,
 	msgs_tx: chan::Sender<SystemMessage>,
-	dispatcher: Dispatcher<E>,
+	dispatcher: BaseDispatcher<E>,
 	handle: RefCell<Option<JoinHandle<()>>>,
 }
 
@@ -94,7 +96,7 @@ impl<E: RunError> System<E> {
 		Self {
 			workers: Arc::clone(&workers),
 			msgs_tx,
-			dispatcher: Dispatcher {
+			dispatcher: BaseDispatcher {
 				workers,
 				idle_workers,
 				last_worker_id: Arc::new(AtomicWorkerId::new(0)),
@@ -115,12 +117,18 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
+	pub async fn dispatch_many<I: IntoIterator<Item = impl IntoTask<E>> + Send>(
+		&self,
+		into_tasks: I,
+	) -> Vec<TaskHandle<E>>
+	where
+		<I as IntoIterator>::IntoIter: Send,
+	{
 		self.dispatcher.dispatch_many(into_tasks).await
 	}
 
 	/// Returns a dispatcher that can be used to remotely dispatch tasks to the system.
-	pub fn get_dispatcher(&self) -> Dispatcher<E> {
+	pub fn get_dispatcher(&self) -> BaseDispatcher<E> {
 		self.dispatcher.clone()
 	}
 
@@ -314,11 +322,7 @@ impl SystemComm {
 			.expect("System channel closed trying receive pause not running task response")
 	}
 
-	pub async fn cancel_not_running_task(
-		&self,
-		task_id: TaskId,
-		worker_id: WorkerId,
-	) -> Result<(), SystemError> {
+	pub async fn cancel_not_running_task(&self, task_id: TaskId, worker_id: WorkerId) {
 		let (tx, rx) = oneshot::channel();
 
 		self.0
@@ -331,7 +335,7 @@ impl SystemComm {
 			.expect("System channel closed trying to cancel a not running task");
 
 		rx.await
-			.expect("System channel closed trying receive cancel a not running task response")
+			.expect("System channel closed trying receive cancel a not running task response");
 	}
 
 	pub async fn request_help(&self, worker_id: WorkerId, task_count: usize) {
@@ -390,13 +394,45 @@ impl SystemComm {
 /// It can be used to dispatch tasks to the system from other threads or tasks.
 /// It uses [`Arc`] internally so it can be cheaply cloned and put inside tasks so tasks can dispatch other tasks.
 #[derive(Debug)]
-pub struct Dispatcher<E: RunError> {
+pub struct BaseDispatcher<E: RunError> {
 	workers: Arc<Vec<Worker<E>>>,
 	idle_workers: Arc<Vec<AtomicBool>>,
 	last_worker_id: Arc<AtomicWorkerId>,
 }
 
-impl<E: RunError> Clone for Dispatcher<E> {
+pub trait Dispatcher<E: RunError>: fmt::Debug + Clone + Send + Sync + 'static {
+	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
+	fn dispatch(&self, into_task: impl IntoTask<E>) -> impl Future<Output = TaskHandle<E>> + Send {
+		self.dispatch_boxed(into_task.into_task())
+	}
+
+	/// Dispatches an already boxed task to the system, the task will be assigned to a worker and executed as
+	/// soon as possible.
+	fn dispatch_boxed(
+		&self,
+		boxed_task: Box<dyn Task<E>>,
+	) -> impl Future<Output = TaskHandle<E>> + Send;
+
+	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
+	fn dispatch_many<I: IntoIterator<Item = impl IntoTask<E>> + Send>(
+		&self,
+		into_tasks: I,
+	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send
+	where
+		<I as IntoIterator>::IntoIter: Send,
+	{
+		self.dispatch_many_boxed(into_tasks.into_iter().map(IntoTask::into_task))
+	}
+
+	/// Dispatches many already boxed tasks to the system, the tasks will be assigned to workers and executed as
+	/// soon as possible.
+	fn dispatch_many_boxed(
+		&self,
+		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
+	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send;
+}
+
+impl<E: RunError> Clone for BaseDispatcher<E> {
 	fn clone(&self) -> Self {
 		Self {
 			workers: Arc::clone(&self.workers),
@@ -406,33 +442,35 @@ impl<E: RunError> Clone for Dispatcher<E> {
 	}
 }
 
-impl<E: RunError> Dispatcher<E> {
-	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
-	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
-		async fn inner<E: RunError>(this: &Dispatcher<E>, task: Box<dyn Task<E>>) -> TaskHandle<E> {
-			let worker_id = this
+impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
+	async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
+		self.dispatch_boxed(into_task.into_task()).await
+	}
+
+	#[allow(clippy::missing_panics_doc)]
+	async fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> TaskHandle<E> {
+		let worker_id = self
 				.last_worker_id
 				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
-					Some((last_worker_id + 1) % this.workers.len())
+					Some((last_worker_id + 1) % self.workers.len())
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");
 
-			trace!(
-				"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
-				task.id()
-			);
-			let handle = this.workers[worker_id].add_task(task).await;
+		trace!(
+			"Dispatching task to worker: <worker_id='{worker_id}', task_id='{}'>",
+			task.id()
+		);
+		let handle = self.workers[worker_id].add_task(task).await;
 
-			this.idle_workers[worker_id].store(false, Ordering::Relaxed);
+		self.idle_workers[worker_id].store(false, Ordering::Relaxed);
 
-			handle
-		}
-
-		inner(self, into_task.into_task()).await
+		handle
 	}
 
-	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	pub async fn dispatch_many(&self, into_tasks: Vec<impl IntoTask<E>>) -> Vec<TaskHandle<E>> {
+	async fn dispatch_many_boxed(
+		&self,
+		into_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
+	) -> Vec<TaskHandle<E>> {
 		let mut workers_task_count = self
 			.workers
 			.iter()
@@ -445,7 +483,6 @@ impl<E: RunError> Dispatcher<E> {
 
 		let (handles, workers_ids_set) = into_tasks
 			.into_iter()
-			.map(IntoTask::into_task)
 			.zip(workers_task_count.into_iter().cycle())
 			.map(|(task, (worker_id, _))| async move {
 				(self.workers[worker_id].add_task(task).await, worker_id)
@@ -462,7 +499,9 @@ impl<E: RunError> Dispatcher<E> {
 
 		handles
 	}
+}
 
+impl<E: RunError> BaseDispatcher<E> {
 	/// Returns the number of workers in the system.
 	#[must_use]
 	pub fn workers_count(&self) -> usize {

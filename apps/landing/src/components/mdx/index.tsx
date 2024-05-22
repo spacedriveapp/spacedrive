@@ -3,6 +3,7 @@ import NextImage, { ImageProps } from 'next/image';
 import { env } from '~/env';
 
 import Notice from './Notice';
+import Pre from './Pre';
 import Video from './Video';
 
 const Image = (props: ImageProps) => (
@@ -15,8 +16,9 @@ const Image = (props: ImageProps) => (
 
 export const BlogMDXComponents = {
 	img: Image, // we remap 'img' to 'Image'
+	pre: Pre,
 	Image,
 	Video
 } as MDXComponents;
 
-export const DocMDXComponents = { img: Image, Image, Notice, Video } as MDXComponents;
+export const DocMDXComponents = { img: Image, Image, Notice, Video, pre: Pre } as MDXComponents;

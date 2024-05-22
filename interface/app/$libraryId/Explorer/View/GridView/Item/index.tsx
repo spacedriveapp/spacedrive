@@ -1,8 +1,8 @@
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
 import {
-	byteSize,
 	getItemFilePath,
+	humanizeSize,
 	useLibraryQuery,
 	useSelector,
 	type ExplorerItem
@@ -35,7 +35,7 @@ export const GridViewItem = memo((props: GridViewItemProps) => {
 
 	return (
 		<GridViewItemContext.Provider value={props}>
-			<ViewItem data={props.data} className={clsx('h-full w-full', isHidden && 'opacity-50')}>
+			<ViewItem data={props.data} className={clsx('size-full', isHidden && 'opacity-50')}>
 				<ExplorerDroppable
 					droppable={{
 						data: { type: 'explorer-item', data: props.data },
@@ -110,8 +110,9 @@ const ItemMetadata = () => {
 		<ExplorerDraggable draggable={{ data: item.data, disabled: isRenaming }}>
 			<RenamableItemText
 				item={item.data}
-				style={{ maxHeight: 40, textAlign: 'center' }}
+				style={{ textAlign: 'center' }}
 				lines={2}
+				editLines={3}
 				highlight={isDroppable}
 				selected={item.selected}
 			/>
@@ -131,6 +132,7 @@ const ItemSize = () => {
 	const isLocation = item.data.type === 'Location';
 	const isEphemeral = item.data.type === 'NonIndexedPath';
 	const isFolder = filePath?.is_dir;
+	const { t } = useLocale();
 
 	const showSize =
 		showBytesInGridView &&
@@ -141,14 +143,16 @@ const ItemSize = () => {
 		(!isRenaming || !item.selected);
 
 	const bytes = useMemo(
-		() => showSize && byteSize(filePath?.size_in_bytes_bytes),
-		[filePath?.size_in_bytes_bytes, showSize]
+		() =>
+			showSize &&
+			`${humanizeSize(filePath?.size_in_bytes_bytes).value} ${t(`size_${humanizeSize(filePath?.size_in_bytes_bytes).unit.toLowerCase()}`)}`,
+		[filePath?.size_in_bytes_bytes, showSize, t]
 	);
 
 	if (!showSize) return null;
 
 	return (
-		<div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
+		<div className="truncate rounded-md px-1.5 py-px text-center text-tiny text-ink-dull">
 			{`${bytes}`}
 		</div>
 	);
@@ -162,11 +166,7 @@ function LabelItemCount({ data }: { data: Extract<ExplorerItem, { type: 'Label' 
 		{
 			filters: [
 				{
-					object: {
-						labels: {
-							in: [data.item.id]
-						}
-					}
+					object: { labels: { in: [data.item.id] } }
 				}
 			]
 		}
@@ -175,7 +175,7 @@ function LabelItemCount({ data }: { data: Extract<ExplorerItem, { type: 'Label' 
 	if (count.data === undefined) return;
 
 	return (
-		<div className="truncate rounded-md px-1.5 py-[1px] text-center text-tiny text-ink-dull">
+		<div className="truncate rounded-md px-1.5 py-px text-center text-tiny text-ink-dull">
 			{t('item_with_count', { count: count.data })}
 		</div>
 	);

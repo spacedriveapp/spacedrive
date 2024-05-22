@@ -15,7 +15,7 @@ import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerItemData } from '../util';
+import { useExplorerItemData } from '../useExplorerItemData';
 import { Image, ImageProps } from './Image';
 import LayeredFileIcon from './LayeredFileIcon';
 import { Original } from './Original';
@@ -40,6 +40,7 @@ export interface ThumbProps {
 	childClassName?: string | ((type: ThumbType) => string | undefined);
 	isSidebarPreview?: boolean;
 	childProps?: HTMLAttributes<HTMLElement>;
+	magnification?: number;
 }
 
 type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant: 'icon' };
@@ -152,7 +153,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 								? [
 										'min-h-full min-w-full object-cover object-center',
 										_childClassName
-								  ]
+									]
 								: className,
 							props.frame && !(itemData.kind === 'Video' && props.blackBars)
 								? frameClassName
@@ -200,7 +201,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 			className={clsx(
 				'relative flex shrink-0 items-center justify-center',
 				// !loaded && 'invisible',
-				!props.size && 'h-full w-full',
+				!props.size && 'size-full',
 				props.cover && 'overflow-hidden',
 				props.className
 			)}
@@ -217,6 +218,7 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 						isDark={isDark}
 						childClassName={childClassName}
 						size={props.size}
+						magnification={props.magnification}
 						mediaControls={props.mediaControls}
 						frame={props.frame}
 						isSidebarPreview={props.isSidebarPreview}
@@ -240,10 +242,7 @@ interface ThumbnailProps extends Omit<ImageProps, 'blackBarsStyle' | 'size'> {
 }
 
 const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
-	(
-		{ crossOrigin, blackBars, blackBarsSize, extension, cover, className, style, ...props },
-		_ref
-	) => {
+	({ blackBars, blackBarsSize, extension, cover, className, style, ...props }, _ref) => {
 		const ref = useRef<HTMLImageElement>(null);
 		useImperativeHandle<HTMLImageElement | null, HTMLImageElement | null>(
 			_ref,
@@ -252,30 +251,28 @@ const Thumbnail = forwardRef<HTMLImageElement, ThumbnailProps>(
 
 		const size = useSize(ref);
 
-		const { style: blackBarsStyle } = useBlackBars(size, blackBarsSize);
+		const { style: blackBarsStyle } = useBlackBars(ref, size, {
+			size: blackBarsSize,
+			disabled: !blackBars
+		});
 
 		return (
 			<>
 				<Image
 					{...props}
-					{...{
-						className: clsx(
-							className,
-							blackBarsStyle && size.width === 0 && 'invisible'
-						),
-						style: { ...style, ...(blackBars ? blackBarsStyle : undefined) },
-						size,
-						ref
-					}}
+					className={clsx(className, blackBars && size.width === 0 && 'invisible')}
+					style={{ ...style, ...blackBarsStyle }}
+					size={size}
+					ref={ref}
 				/>
-				{(cover || (size && size.width > 80)) && extension && (
+
+				{(cover || size.width > 80) && extension && (
 					<div
 						style={{
-							...(!cover &&
-								size && {
-									marginTop: Math.floor(size.height / 2) - 2,
-									marginLeft: Math.floor(size.width / 2) - 2
-								})
+							...(!cover && {
+								marginTop: Math.floor(size.height / 2) - 2,
+								marginLeft: Math.floor(size.width / 2) - 2
+							})
 						}}
 						className={clsx(
 							'pointer-events-none absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',

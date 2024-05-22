@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Divider, TextArea } from '@sd/ui';
+import { useLocale } from '~/hooks';
 
 import { MetaContainer, MetaTitle } from '../Inspector';
 
@@ -27,12 +28,13 @@ export default function Note(props: Props) {
 	useEffect(() => () => flush.current?.(), []);
 
 	const [cachedNote, setCachedNote] = useState(props.data.note);
+	const { t } = useLocale();
 
 	return (
 		<>
 			<Divider />
 			<MetaContainer>
-				<MetaTitle>Note</MetaTitle>
+				<MetaTitle>{t('note')}</MetaTitle>
 				<TextArea
 					className="mb-1 mt-2 !py-2 text-xs leading-snug"
 					value={cachedNote ?? ''}

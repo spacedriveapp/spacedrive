@@ -10,22 +10,19 @@ import { useExplorerContext } from './Context';
 
 const MediaViewIcon = () => {
 	return (
-		<div className="relative ml-3 mr-10 h-14 w-14 shrink-0">
+		<div className="relative ml-3 mr-10 size-14 shrink-0">
 			<Icon
 				name="Image"
-				className="absolute -top-1 left-6 h-14 w-14 rotate-6 overflow-hidden"
+				className="absolute -top-1 left-6 size-14 rotate-6 overflow-hidden"
 			/>
-			<Icon
-				name="Video"
-				className="absolute top-2 z-10 h-14 w-14 -rotate-6 overflow-hidden"
-			/>
+			<Icon name="Video" className="absolute top-2 z-10 size-14 -rotate-6 overflow-hidden" />
 		</div>
 	);
 };
 
 const CollectionIcon = () => {
 	return (
-		<div className="ml-3 mr-4 h-14 w-14 shrink-0">
+		<div className="ml-3 mr-4 size-14 shrink-0">
 			<Icon name="Collection" />
 		</div>
 	);
@@ -53,7 +50,7 @@ const notices = {
 	},
 	media: {
 		key: 'mediaView',
-		title: 'Media View',
+		title: i18n.t('media_view'),
 		description: i18n.t('media_view_notice_description'),
 		icon: <MediaViewIcon />
 	}

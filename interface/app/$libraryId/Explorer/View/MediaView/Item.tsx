@@ -21,7 +21,7 @@ export const MediaViewItem = memo(({ data, selected, cut, cover }: Props) => {
 		<ViewItem
 			data={data}
 			className={clsx(
-				'group relative h-full w-full border-2 hover:bg-app-selectedItem',
+				'group relative size-full border-2 hover:bg-app-selectedItem',
 				selected ? 'border-accent bg-app-selectedItem' : 'border-transparent'
 			)}
 		>

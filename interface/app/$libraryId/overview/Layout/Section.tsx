@@ -33,7 +33,7 @@ const OverviewSection = ({
 			{/* {title && <div className="mx-7 mb-3 h-[1px] w-full bg-app-line/50" />} */}
 
 			<HorizontalScroll>{children}</HorizontalScroll>
-			<div className="my-2 h-[1px] w-full " />
+			<div className="my-2 h-px w-full " />
 		</div>
 	);
 };

@@ -1,3 +1,10 @@
+import {
+	getIndexedItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useLibraryMutation,
+	useLibraryQuery
+} from '@sd/client';
 import dayjs from 'dayjs';
 import {
 	Copy,
@@ -13,13 +20,6 @@ import {
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
-import {
-	byteSize,
-	getIndexedItemFilePath,
-	getItemObject,
-	useLibraryMutation,
-	useLibraryQuery
-} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
@@ -34,7 +34,7 @@ type ActionsContainerProps = PropsWithChildren<{
 }>;
 
 const ActionsContainer = ({ children, style }: ActionsContainerProps) => (
-	<View style={twStyle('rounded-lg bg-app-box py-3.5', style)}>{children}</View>
+	<View style={twStyle('rounded-lg border border-app-box bg-app py-3.5', style)}>{children}</View>
 );
 
 type ActionsItemProps = {
@@ -61,7 +61,7 @@ const ActionsItem = ({ icon, onPress, title, isDanger = false }: ActionsItemProp
 	);
 };
 
-const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-line/80`} />;
+const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-box`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
@@ -72,7 +72,6 @@ export const ActionsModal = () => {
 	const filePath = data && getIndexedItemFilePath(data);
 
 	// Open
-
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
 		enabled: filePath != null
@@ -100,15 +99,18 @@ export const ActionsModal = () => {
 			<Modal ref={modalRef} snapPoints={['60', '90']}>
 				{data && (
 					<View style={tw`flex-1 px-4`}>
-						<View style={tw`flex flex-row items-center`}>
+						<View style={tw`flex flex-row`}>
 							{/* Thumbnail/Icon */}
-							<Pressable onPress={() => fileInfoRef.current?.present()}>
+							<Pressable
+								onPress={handleOpen}
+								onLongPress={() => fileInfoRef.current?.present()}
+							>
 								<FileThumb data={data} size={1} />
 							</Pressable>
 							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text
-									style={tw`text-base font-bold text-gray-200`}
+									style={tw`max-w-[220px] text-base font-bold text-gray-200`}
 									numberOfLines={1}
 								>
 									{filePath?.name}
@@ -116,7 +118,7 @@ export const ActionsModal = () => {
 								</Text>
 								<View style={tw`flex flex-row`}>
 									<Text style={tw`text-xs text-ink-faint`}>
-										{`${byteSize(filePath?.size_in_bytes_bytes)}`},
+										{`${humanizeSize(filePath?.size_in_bytes_bytes)}`},
 									</Text>
 									<Text style={tw`text-xs text-ink-faint`}>
 										{' '}
@@ -125,9 +127,9 @@ export const ActionsModal = () => {
 								</View>
 								<InfoTagPills data={data} />
 							</View>
-							{objectData && <FavoriteButton style={tw`mr-4`} data={objectData} />}
+							{objectData && <FavoriteButton style={tw`mr-1 mt-2`} data={objectData} />}
 						</View>
-						<View style={tw`my-3`} />
+						<View />
 						{/* Actions */}
 						<ActionsContainer>
 							<ActionsItem title="Open" onPress={handleOpen} />

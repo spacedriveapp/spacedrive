@@ -80,7 +80,7 @@ export default ({ items, headerArea }: SelectorProps) => {
 								>
 									{item.color && (
 										<div
-											className="mr-0.5 h-[15px] w-[15px] shrink-0 rounded-full border"
+											className="mr-0.5 size-[15px] shrink-0 rounded-full border"
 											style={{
 												backgroundColor: item.selected
 													? item.color

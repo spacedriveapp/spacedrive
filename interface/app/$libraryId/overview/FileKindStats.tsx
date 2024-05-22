@@ -4,6 +4,9 @@ import { useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { formatNumber, SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components';
+import { useLocale } from '~/hooks';
+
+import { translateKindName } from '../Explorer/util';
 
 export default () => {
 	const ref = useRef<HTMLDivElement>(null);
@@ -38,7 +41,7 @@ export default () => {
 						>
 							<KindItem
 								kind={kind}
-								name={name}
+								name={translateKindName(name)}
 								icon={icon}
 								items={count}
 								onClick={() => {}}
@@ -61,6 +64,7 @@ interface KindItemProps {
 }
 
 const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: KindItemProps) => {
+	const { t } = useLocale();
 	return (
 		<Link
 			to={{
@@ -80,12 +84,12 @@ const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: Kind
 					disabled && 'cursor-not-allowed opacity-30'
 				)}
 			>
-				<Icon name={icon as any} className="mr-3 h-12 w-12" />
+				<Icon name={icon as any} className="mr-3 size-12" />
 				<div className="pr-5">
 					<h2 className="text-sm font-medium">{name}</h2>
 					{items !== undefined && (
 						<p className="text-xs text-ink-faint">
-							{formatNumber(items)} Item{(items > 1 || items === 0) && 's'}
+							{t('item_with_count', { count: items })}
 						</p>
 					)}
 				</div>

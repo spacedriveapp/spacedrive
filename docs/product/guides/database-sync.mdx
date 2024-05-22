@@ -3,3 +3,38 @@ index: 100
 ---
 
 # Database sync
+
+<Notice
+	type="note"
+	title="WIP"
+	text="This feature is not available yet, please check our [roadmap](/roadmap)."
+/>
+
+Spacedrive Libraries are just databases shared among multiple instances. When these instances connect, either via Spacedrive Cloud or peer-to-peer, the changes to each instance's local database are synchronized.
+The technical details of this process are covered in the [Developer docs](/docs/developers/architecture/sync).
+
+Database sync is a feature that allows you to sync your library database between devices. Synchronizing happens in real-time, so you can see changes made on one device reflected on another device almost instantly.
+
+We have been working tirelessly on this feature to make sure it is as seamless as possible. We are excited to share it with you soon.
+
+## Sync Indicator
+
+Alongside the job indicator, a small sync icon will appear when a sync is in progress. Clicking it will reveal the sync manager.
+
+## Sync Manager
+
+The sync manager allows you to see the current sync status, and any errors that may have occured. You can also see the last time a sync was completed.
+
+## Cloud Sync
+
+When connected to Spacedrive Cloud, a Spacedrive Instance will send its changes to be stored in the Cloud in an encrypted format.
+When another instance connects to the Cloud, it will download these changes and apply them to its local database.
+
+This process does not require multiple instances to be connected at the same time.
+Spacedrive Cloud will store the changes for when other instances connect.
+
+## Peer-To-Peer Sync
+
+When connected over peer-to-peer, two instances will exchange their database changess directly.
+The contents of the database changes are not encrypted themselves,
+instead the connection between the two instances will ensure that they are encrypted during transit.

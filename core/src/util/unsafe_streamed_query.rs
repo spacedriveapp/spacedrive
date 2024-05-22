@@ -3,7 +3,7 @@ use std::pin::pin;
 use async_stream::stream;
 use futures::{Stream, StreamExt};
 use serde::Serialize;
-use specta::{reference::Reference, DataType, Type, TypeMap};
+use specta::{reference::Reference, DataType, Generics, Type, TypeMap};
 
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -13,12 +13,8 @@ pub enum Output<T> {
 }
 
 impl<T: Type> Type for Output<T> {
-	fn inline(type_map: &mut TypeMap, generics: &[DataType]) -> DataType {
+	fn inline(type_map: &mut TypeMap, generics: Generics) -> DataType {
 		T::inline(type_map, generics)
-	}
-
-	fn definition(type_map: &mut TypeMap) -> DataType {
-		T::definition(type_map)
 	}
 
 	fn reference(type_map: &mut TypeMap, generics: &[DataType]) -> Reference {

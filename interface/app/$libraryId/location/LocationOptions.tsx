@@ -24,7 +24,7 @@ import {
 	tw,
 	usePopover
 } from '@sd/ui';
-import { useLocale } from '~/hooks';
+import { useLocale, useOperatingSystem } from '~/hooks';
 
 import TopBarButton from '../TopBar/TopBarButton';
 
@@ -34,6 +34,7 @@ export default function LocationOptions({ location, path }: { location: Location
 	const navigate = useNavigate();
 
 	const { t } = useLocale();
+	const os = useOperatingSystem();
 
 	const [copied, setCopied] = useState(false);
 
@@ -48,6 +49,8 @@ export default function LocationOptions({ location, path }: { location: Location
 		? currentPath.substring(0, currentPath.length - 1)
 		: currentPath;
 
+	const osPath = os === 'windows' ? currentPath?.replace(/\//g, '\\') : currentPath;
+
 	return (
 		<div className="opacity-30 group-hover:opacity-70">
 			<IconContext.Provider value={{ size: 20, className: 'r-1 h-4 w-4 opacity-60' }}>
@@ -55,7 +58,7 @@ export default function LocationOptions({ location, path }: { location: Location
 					popover={usePopover()}
 					trigger={
 						<Button className="!p-[5px]" variant="subtle">
-							<Ellipsis className="h-3 w-3" />
+							<Ellipsis className="size-3" />
 						</Button>
 					}
 				>
@@ -64,7 +67,7 @@ export default function LocationOptions({ location, path }: { location: Location
 							<Input
 								readOnly
 								className="mb-2"
-								value={currentPath ?? ''}
+								value={osPath ?? ''}
 								right={
 									<Tooltip
 										label={copied ? t('copied') : t('copy_path_to_clipboard')}

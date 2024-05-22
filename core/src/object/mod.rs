@@ -15,12 +15,6 @@ pub mod validation;
 // Some Objects are purely virtual, unless they have one or more associated Paths, which refer to a file found in a Location
 // Objects are what can be added to Spaces
 
-// Object selectables!
-object::select!(object_for_file_identifier {
-	pub_id
-	file_paths: select { pub_id cas_id extension is_dir materialized_path name }
-});
-
 // The response to provide the Explorer when looking at Objects
 #[derive(Debug, Serialize, Deserialize, Type)]
 pub struct ObjectsForExplorer {

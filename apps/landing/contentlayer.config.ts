@@ -98,7 +98,7 @@ export const Document = defineDocumentType(() => ({
 								.replace(/^.+?(\/)/, '')
 								.split('/')
 								.slice(-1)[0]
-					  )
+						)
 		},
 		section: {
 			type: 'string',

@@ -58,6 +58,13 @@ To quickly run only the desktop app after `prep`, you can use:
   Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
+You can download a bundle with sample files to test the app by running:
+
+- `pnpm test-data`
+
+  Only for Linux and macOS (Requires curl and tar).
+  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
+
 To run the web app:
 
 - `pnpm dev:web`
@@ -68,15 +75,23 @@ You can launch these individually if you'd prefer:
 - `cargo run -p sd-server` (server)
 - `pnpm web dev` (web interface)
 
+To run the e2e tests for the web app:
+
+- `pnpm web test:e2e`
+
+If you are developing a new test, you can execute Cypress in interactive mode with:
+
+- `pnpm web test:interactive`
+
 To run the landing page:
 
 - `pnpm landing dev`
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
-- Rust version: **1.75.0**
-- Node version: **18.17**
-- Pnpm version: **8.0.0**
+- Rust version: **1.78**
+- Node version: **18.18**
+- Pnpm version: **9.0.6**
 
 After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
 
@@ -104,10 +119,6 @@ To run the mobile app:
   - `pnpm mobile ios` (runs on iOS Emulator)
     - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
   - `pnpm mobile start` (runs the metro bundler only)
-
-##### AppImage
-
-Specific instructions on how to build an AppImage release are located [here](scripts/appimage/README.md)
 
 ### Pull Request
 
@@ -153,6 +164,10 @@ Ensure that macOS is fully updated, and that you have Xcode installed (via the a
 Once that has completed, run `xcode-select --install` in the terminal to install the command line tools. If they are already installed, ensure that you update macOS to the latest version available.
 
 Also ensure that Rosetta is installed, as a few of our dependencies require it. You can install Rosetta with `softwareupdate --install-rosetta --agree-to-license`.
+
+### Translations
+
+Check out the [i18n README](interface/locales/README.md) for more information on how to contribute to translations.
 
 ### Credits
 

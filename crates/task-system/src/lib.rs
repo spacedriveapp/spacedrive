@@ -94,8 +94,11 @@ mod task;
 mod worker;
 
 pub use error::{RunError, SystemError as TaskSystemError};
-pub use system::{Dispatcher as TaskDispatcher, System as TaskSystem};
+pub use system::{
+	BaseDispatcher as BaseTaskDispatcher, Dispatcher as TaskDispatcher, System as TaskSystem,
+};
 pub use task::{
-	AnyTaskOutput, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind, IntoAnyTaskOutput,
-	IntoTask, Task, TaskHandle, TaskId, TaskOutput, TaskStatus,
+	AnyTaskOutput, CancelTaskOnDrop, ExecStatus, Interrupter, InterrupterFuture, InterruptionKind,
+	IntoAnyTaskOutput, IntoTask, SerializableTask, Task, TaskHandle, TaskId, TaskOutput,
+	TaskRemoteController, TaskStatus,
 };

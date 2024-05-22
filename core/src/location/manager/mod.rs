@@ -4,7 +4,8 @@ use crate::{
 	Node,
 };
 
-use sd_file_path_helper::FilePathError;
+use sd_core_file_path_helper::FilePathError;
+
 use sd_prisma::prisma::location;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
@@ -18,11 +19,9 @@ use futures::executor::block_on;
 use thiserror::Error;
 use tokio::sync::{
 	broadcast::{self, Receiver},
-	oneshot, RwLock,
+	mpsc, oneshot, RwLock,
 };
 use tracing::{debug, error};
-
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 mod watcher;

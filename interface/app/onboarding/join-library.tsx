@@ -61,7 +61,7 @@ function CloudLibraries() {
 
 							queryClient.setQueryData(['library.list'], (libraries: any) => {
 								// The invalidation system beat us to it
-								if (libraries.find((l: any) => l.uuid === library.uuid))
+								if ((libraries || []).find((l: any) => l.uuid === library.uuid))
 									return libraries;
 
 								return [...(libraries || []), library];

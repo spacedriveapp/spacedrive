@@ -6,7 +6,7 @@ import { changeTwTheme, tw } from '~/lib/tailwind';
 
 export function useTheme() {
 	// Enables screen size breakpoints, etc. for tailwind
-	useDeviceContext(tw, { withDeviceColorScheme: false });
+	useDeviceContext(tw, { initialColorScheme: 'light', observeDeviceColorSchemeChanges: false });
 
 	const [_, forceUpdate] = useReducer((x) => x + 1, 0);
 

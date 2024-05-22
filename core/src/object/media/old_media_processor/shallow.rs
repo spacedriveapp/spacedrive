@@ -1,16 +1,17 @@
 use crate::{
 	invalidate_query,
 	library::Library,
-	object::media::old_thumbnail::GenerateThumbnailArgs,
 	old_job::{JobError, JobRunMetadata},
 	Node,
 };
 
-use sd_file_ext::extensions::Extension;
-use sd_file_path_helper::{
+use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	file_path_for_media_processor, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
+use sd_core_prisma_helpers::file_path_for_media_processor;
+
+use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::db::maybe_missing;
 
@@ -30,8 +31,8 @@ use tracing::{debug, error};
 use futures::StreamExt;
 
 use super::{
-	media_data_extractor::{self, process},
-	old_thumbnail::{self, BatchToProcess},
+	exif_metadata_extractor, ffmpeg_metadata_extractor,
+	old_thumbnail::{self, BatchToProcess, GenerateThumbnailArgs},
 	MediaProcessorError, OldMediaProcessorMetadata,
 };
 
@@ -40,7 +41,12 @@ const BATCH_SIZE: usize = 10;
 pub async fn old_shallow(
 	location: &location::Data,
 	sub_path: &PathBuf,
-	library @ Library { db, sync, .. }: &Library,
+	library @ Library {
+		db,
+		#[cfg(feature = "ai")]
+		sync,
+		..
+	}: &Library,
 	#[cfg(feature = "ai")] regenerate_labels: bool,
 	node: &Node,
 ) -> Result<(), JobError> {
@@ -85,7 +91,10 @@ pub async fn old_shallow(
 	)
 	.await?;
 
-	let file_paths = get_files_for_media_data_extraction(db, &iso_file_path).await?;
+	let file_paths_to_extract_exif_data =
+		get_files_for_exif_media_data_extraction(db, &iso_file_path).await?;
+	let file_paths_to_extract_ffmpeg_data =
+		get_files_for_ffmpeg_media_data_extraction(db, &iso_file_path).await?;
 
 	#[cfg(feature = "ai")]
 	let file_paths_for_labelling =
@@ -94,9 +103,17 @@ pub async fn old_shallow(
 	#[cfg(feature = "ai")]
 	let has_labels = !file_paths_for_labelling.is_empty();
 
-	let total_files = file_paths.len();
+	let total_files =
+		file_paths_to_extract_exif_data.len() + file_paths_to_extract_ffmpeg_data.len();
 
-	let chunked_files = file_paths
+	let chunked_files_to_extract_exif_data = file_paths_to_extract_exif_data
+		.into_iter()
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.map(Iterator::collect)
+		.collect::<Vec<Vec<_>>>();
+
+	let chunked_files_to_extract_ffmpeg_data = file_paths_to_extract_ffmpeg_data
 		.into_iter()
 		.chunks(BATCH_SIZE)
 		.into_iter()
@@ -105,7 +122,7 @@ pub async fn old_shallow(
 
 	debug!(
 		"Preparing to process {total_files} files in {} chunks",
-		chunked_files.len()
+		chunked_files_to_extract_exif_data.len() + chunked_files_to_extract_ffmpeg_data.len()
 	);
 
 	#[cfg(feature = "ai")]
@@ -124,21 +141,35 @@ pub async fn old_shallow(
 
 	let mut run_metadata = OldMediaProcessorMetadata::default();
 
-	for files in chunked_files {
-		let (more_run_metadata, errors) = process(&files, location.id, &location_path, db, &|_| {})
-			.await
-			.map_err(MediaProcessorError::from)?;
+	for files in chunked_files_to_extract_exif_data {
+		let (more_run_metadata, errors) =
+			exif_metadata_extractor::process(&files, location.id, &location_path, db, &|_| {})
+				.await
+				.map_err(MediaProcessorError::from)?;
 
 		run_metadata.update(more_run_metadata.into());
 
 		if !errors.is_empty() {
-			error!("Errors processing chunk of media data shallow extraction:\n{errors}");
+			error!("Errors processing chunk of image media data shallow extraction:\n{errors}");
+		}
+	}
+
+	for files in chunked_files_to_extract_ffmpeg_data {
+		let (more_run_metadata, errors) =
+			ffmpeg_metadata_extractor::process(&files, location.id, &location_path, db, &|_| {})
+				.await
+				.map_err(MediaProcessorError::from)?;
+
+		run_metadata.update(more_run_metadata.into());
+
+		if !errors.is_empty() {
+			error!("Errors processing chunk of audio or video media data shallow extraction:\n{errors}");
 		}
 	}
 
 	debug!("Media shallow processor run metadata: {run_metadata:?}");
 
-	if run_metadata.media_data.extracted > 0 {
+	if run_metadata.exif_data.extracted > 0 || run_metadata.ffmpeg_data.extracted > 0 {
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
 	}
@@ -176,14 +207,27 @@ pub async fn old_shallow(
 	Ok(())
 }
 
-async fn get_files_for_media_data_extraction(
+async fn get_files_for_exif_media_data_extraction(
 	db: &PrismaClient,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 ) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
 	get_files_by_extensions(
 		db,
 		parent_iso_file_path,
-		&media_data_extractor::FILTERED_IMAGE_EXTENSIONS,
+		&exif_metadata_extractor::FILTERED_IMAGE_EXTENSIONS,
+	)
+	.await
+	.map_err(Into::into)
+}
+
+async fn get_files_for_ffmpeg_media_data_extraction(
+	db: &PrismaClient,
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+) -> Result<Vec<file_path_for_media_processor::Data>, MediaProcessorError> {
+	get_files_by_extensions(
+		db,
+		parent_iso_file_path,
+		&ffmpeg_metadata_extractor::FILTERED_AUDIO_AND_VIDEO_EXTENSIONS,
 	)
 	.await
 	.map_err(Into::into)
@@ -207,7 +251,7 @@ async fn get_files_for_labeling(
 				AND LOWER(extension) IN ({})
 				AND materialized_path = {{}}
 				{}",
-			&media_data_extractor::FILTERED_IMAGE_EXTENSIONS
+			&exif_metadata_extractor::FILTERED_IMAGE_EXTENSIONS
 				.iter()
 				.map(|ext| format!("LOWER('{ext}')"))
 				.collect::<Vec<_>>()
@@ -218,7 +262,7 @@ async fn get_files_for_labeling(
 				""
 			}
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(
 			parent_iso_file_path
 				.materialized_path_for_children()
@@ -310,7 +354,7 @@ async fn get_files_by_extensions(
 				.collect::<Vec<_>>()
 				.join(",")
 		),
-		PrismaValue::Int(parent_iso_file_path.location_id() as i64),
+		PrismaValue::Int(parent_iso_file_path.location_id()),
 		PrismaValue::String(
 			parent_iso_file_path
 				.materialized_path_for_children()

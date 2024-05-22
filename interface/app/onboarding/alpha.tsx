@@ -22,7 +22,7 @@ export default function OnboardingAlpha() {
 				/>
 				<div className="relative z-10 flex flex-col gap-5">
 					<div className="mb-5 flex w-full items-center justify-center gap-2">
-						<img src={AppLogo} alt="Spacedrive" className="h-8 w-8" />
+						<img src={AppLogo} alt="Spacedrive" className="size-8" />
 						<h1 className="text-[25px] font-semibold">Spacedrive</h1>
 					</div>
 					<h1 className="text-[40px] font-bold">{t('alpha_release_title')}</h1>
@@ -35,7 +35,7 @@ export default function OnboardingAlpha() {
 							className="flex gap-2"
 							variant="gray"
 						>
-							<Discord className="h-4 w-4 fill-ink" />
+							<Discord className="size-4 fill-ink" />
 							{t('join_discord')}
 						</Button>
 						<ButtonLink to="../new-library" replace variant="accent">

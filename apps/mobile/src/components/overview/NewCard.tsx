@@ -35,12 +35,12 @@ export default function NewCard({
 	return (
 		<View
 			style={twStyle(
-				'flex w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-line p-4',
+				'flex w-[280px] shrink-0 flex-col justify-between rounded border border-dashed border-app-lightborder p-4',
 				style
 			)}
 		>
 			<View style={tw`flex flex-row items-start justify-between`}>
-				<Fade height={'100%'} width={70} color="mobile-screen">
+				<Fade height={'100%'} width={70} color="black">
 					<View style={twStyle(`flex flex-row`)}>
 						{icons.map((iconName, index) => (
 							<View key={index}>

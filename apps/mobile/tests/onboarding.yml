@@ -2,4 +2,14 @@ appId: com.spacedrive.app
 ---
 - launchApp:
     clearState: true
+# Wait onboarding screen
+- waitForAnimationToEnd:
+    timeout: 5000
 - tapOn: 'Get Started'
+- tapOn:
+    id: 'library-name'
+- inputText: 'TestLib'
+- tapOn: 'New Library'
+- tapOn:
+    id: 'share-minimal'
+- tapOn: 'Continue'

@@ -1,3 +1,14 @@
 appId: com.spacedrive.app
 ---
 - launchApp
+- tapOn:
+    id: 'browse-tab'
+- waitForAnimationToEnd
+- tapOn:
+    id: 'navigate-tags-screen'
+- tapOn:
+    id: 'create-tag-modal'
+- inputText: 'MyTag'
+- tapOn:
+    text: 'Create'
+- assertVisible: 'MyTag'

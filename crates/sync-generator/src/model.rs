@@ -22,7 +22,11 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 		});
 
 		let model_stuff = match sync_type {
-			ModelSyncType::Relation { item, group } => {
+			ModelSyncType::Relation {
+				item,
+				group,
+				model_id,
+			} => {
 				let item_name_snake = snake_ident(item.name());
 				let item_model_name_snake = snake_ident(item.related_model().name());
 
@@ -42,21 +46,33 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 						}
 					}
 
+					pub const MODEL_ID: u16 = #model_id;
+
+					impl sd_sync::SyncModel for #model_name_snake::Types {
+						const MODEL_ID: u16 = MODEL_ID;
+					}
+
 					impl sd_sync::RelationSyncModel for #model_name_snake::Types {
 						type SyncId = SyncId;
 					}
 				})
 			}
-			ModelSyncType::Shared { .. } => Some(quote! {
-				   impl sd_sync::SharedSyncModel for #model_name_snake::Types {
-					   type SyncId = SyncId;
-				   }
+			ModelSyncType::Shared { model_id, .. } => Some(quote! {
+					pub const MODEL_ID: u16 = #model_id;
+
+					impl sd_sync::SyncModel for #model_name_snake::Types {
+						const MODEL_ID: u16 = MODEL_ID;
+					}
+
+					impl sd_sync::SharedSyncModel for #model_name_snake::Types {
+					  type SyncId = SyncId;
+					}
 			}),
 			_ => None,
 		};
 
 		quote! {
-			#[derive(serde::Serialize, serde::Deserialize, Clone)]
+			#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 			pub struct SyncId {
 				#(#fields),*
 			}
@@ -71,41 +87,47 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 
 	let set_param_impl = {
 		let field_matches = model.fields().filter_map(|field| {
-				let field_name_snake = snake_ident(field.name());
+			let field_name_snake = snake_ident(field.name());
 
-				match field.refine() {
-					RefinedFieldWalker::Scalar(scalar_field) => {
-						(!scalar_field.is_in_required_relation()).then(|| quote! {
-							#model_name_snake::#field_name_snake::set(::serde_json::from_value(val).unwrap()),
-						})
-					},
-					RefinedFieldWalker::Relation(relation_field) => {
-						let relation_model_name_snake = snake_ident(relation_field.related_model().name());
-
-						match relation_field.referenced_fields() {
-							Some(i)  => {
-								if i.count() == 1 {
-									Some(quote! {{
-										let val: std::collections::HashMap<String, ::serde_json::Value> = ::serde_json::from_value(val).unwrap();
-										let val = val.into_iter().next().unwrap();
-
-										#model_name_snake::#field_name_snake::connect(
-											#relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
-										)
-									}})
-								} else { None }
-							},
-							_ => None
+			match field.refine() {
+				RefinedFieldWalker::Scalar(scalar_field) => {
+					(!scalar_field.is_in_required_relation()).then(|| {
+						quote! {
+							#model_name_snake::#field_name_snake::set(::rmpv::ext::from_value(val).unwrap()),
 						}
-					},
-				}.map(|body| quote!(#model_name_snake::#field_name_snake::NAME => #body))
-			});
+					})
+				}
+				RefinedFieldWalker::Relation(relation_field) => {
+					let relation_model_name_snake =
+						snake_ident(relation_field.related_model().name());
+
+					match relation_field.referenced_fields() {
+						Some(i) => {
+							if i.count() == 1 {
+								Some(quote! {{
+									let val: std::collections::HashMap<String, rmpv::Value> = ::rmpv::ext::from_value(val).unwrap();
+									let val = val.into_iter().next().unwrap();
+
+									#model_name_snake::#field_name_snake::connect(
+										#relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
+									)
+								}})
+							} else {
+								None
+							}
+						}
+						_ => None,
+					}
+				}
+			}
+			.map(|body| quote!(#model_name_snake::#field_name_snake::NAME => #body))
+		});
 
 		match field_matches.clone().count() {
 			0 => quote!(),
 			_ => quote! {
 				impl #model_name_snake::SetParam {
-					pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
+					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
 						Some(match field {
 							#(#field_matches)*
 							_ => return None
@@ -125,7 +147,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 
 					Some(quote!(#model_name_snake::#field_name_snake::NAME =>
 						#model_name_snake::#field_name_snake::equals(
-							::serde_json::from_value(val).unwrap()
+							::rmpv::ext::from_value(val).unwrap()
 						),
 					))
 				}
@@ -137,7 +159,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 			0 => quote!(),
 			_ => quote! {
 				impl #model_name_snake::UniqueWhereParam {
-					pub fn deserialize(field: &str, val: ::serde_json::Value) -> Option<Self> {
+					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
 						Some(match field {
 							#(#field_matches)*
 							_ => return None
@@ -152,6 +174,7 @@ pub fn module((model, sync_type): ModelWithSyncType) -> Module {
 		model.name(),
 		quote! {
 			use super::prisma::*;
+			use prisma_client_rust::scalar_types::*;
 
 			#sync_id
 

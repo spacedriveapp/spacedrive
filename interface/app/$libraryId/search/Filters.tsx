@@ -2,25 +2,21 @@ import {
 	CircleDashed,
 	Cube,
 	Folder,
+	Heart,
 	Icon,
 	SelectionSlash,
 	Tag,
 	Textbox
 } from '@phosphor-icons/react';
 import { useState } from 'react';
-import {
-	InOrNotIn,
-	ObjectKind,
-	SearchFilterArgs,
-	TextMatch,
-	useCache,
-	useLibraryQuery,
-	useNodes
-} from '@sd/client';
+import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { Icon as SDIcon } from '~/components';
+import { useLocale } from '~/hooks';
 
 import { SearchOptionItem, SearchOptionSubMenu } from '.';
+import { translateKindName } from '../Explorer/util';
 import { AllKeys, FilterOption, getKey } from './store';
 import { UseSearch } from './useSearch';
 import { FilterTypeCondition, filterTypeCondition } from './util';
@@ -31,6 +27,7 @@ export interface SearchFilter<
 	name: string;
 	icon: Icon;
 	conditions: TConditions;
+	translationKey?: string;
 }
 
 export interface SearchFilterCRUD<
@@ -55,13 +52,13 @@ export interface RenderSearchFilter<
 	Render: (props: {
 		filter: SearchFilterCRUD<TConditions>;
 		options: (FilterOption & { type: string })[];
-		search: UseSearch;
+		search: UseSearch<any>;
 	}) => JSX.Element;
 	// Apply is responsible for applying the filter to the search args
 	useOptions: (props: { search: string }) => FilterOption[];
 }
 
-export function useToggleOptionSelected({ search }: { search: UseSearch }) {
+export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {
 	return ({
 		filter,
 		option,
@@ -71,28 +68,25 @@ export function useToggleOptionSelected({ search }: { search: UseSearch }) {
 		option: FilterOption;
 		select: boolean;
 	}) => {
-		search.updateDynamicFilters((dynamicFilters) => {
-			const key = getKey({ ...option, type: filter.name });
-			if (search.fixedFiltersKeys?.has(key)) return dynamicFilters;
-
-			const rawArg = dynamicFilters.find((arg) => filter.extract(arg));
+		search.setFilters?.((filters = []) => {
+			const rawArg = filters.find((arg) => filter.extract(arg));
 
 			if (!rawArg) {
 				const arg = filter.create(option.value);
-				dynamicFilters.push(arg);
+				filters.push(arg);
 			} else {
-				const rawArgIndex = dynamicFilters.findIndex((arg) => filter.extract(arg))!;
+				const rawArgIndex = filters.findIndex((arg) => filter.extract(arg))!;
 
 				const arg = filter.extract(rawArg)!;
 
 				if (select) {
 					if (rawArg) filter.applyAdd(arg, option);
 				} else {
-					if (!filter.applyRemove(arg, option)) dynamicFilters.splice(rawArgIndex, 1);
+					if (!filter.applyRemove(arg, option)) filters.splice(rawArgIndex, 1);
 				}
 			}
 
-			return dynamicFilters;
+			return filters;
 		});
 	};
 }
@@ -105,7 +99,7 @@ const FilterOptionList = ({
 }: {
 	filter: SearchFilterCRUD;
 	options: FilterOption[];
-	search: UseSearch;
+	search: UseSearch<any>;
 	empty?: () => JSX.Element;
 }) => {
 	const { allFiltersKeys } = search;
@@ -138,12 +132,18 @@ const FilterOptionList = ({
 								{option.name}
 							</SearchOptionItem>
 						);
-				  })}
+					})}
 		</SearchOptionSubMenu>
 	);
 };
 
-const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search: UseSearch }) => {
+const FilterOptionText = ({
+	filter,
+	search
+}: {
+	filter: SearchFilterCRUD;
+	search: UseSearch<any>;
+}) => {
 	const [value, setValue] = useState('');
 
 	const { allFiltersKeys } = search;
@@ -153,35 +153,33 @@ const FilterOptionText = ({ filter, search }: { filter: SearchFilterCRUD; search
 		value
 	});
 
+	const { t } = useLocale();
+
 	return (
 		<SearchOptionSubMenu className="!p-1.5" name={filter.name} icon={filter.icon}>
 			<form
 				className="flex gap-1.5"
 				onSubmit={(e) => {
 					e.preventDefault();
-					search.updateDynamicFilters((dynamicFilters) => {
-						if (allFiltersKeys.has(key)) return dynamicFilters;
+					search.setFilters?.((filters) => {
+						if (allFiltersKeys.has(key)) return filters;
 
 						const arg = filter.create(value);
-						dynamicFilters.push(arg);
+						filters?.push(arg);
 						setValue('');
 
-						return dynamicFilters;
+						return filters;
 					});
 				}}
 			>
-				<Input
-					className="w-[75%]"
-					value={value}
-					onChange={(e) => setValue(e.target.value)}
-				/>
+				<Input className="w-3/4" value={value} onChange={(e) => setValue(e.target.value)} />
 				<Button
 					disabled={value.length === 0 || allFiltersKeys.has(key)}
 					variant="accent"
 					className="w-full"
 					type="submit"
 				>
-					Apply
+					{t('apply')}
 				</Button>
 			</form>
 		</SearchOptionSubMenu>
@@ -193,9 +191,9 @@ const FilterOptionBoolean = ({
 	search
 }: {
 	filter: SearchFilterCRUD;
-	search: UseSearch;
+	search: UseSearch<any>;
 }) => {
-	const { fixedFiltersKeys, allFiltersKeys } = search;
+	const { allFiltersKeys } = search;
 
 	const key = getKey({
 		type: filter.name,
@@ -208,19 +206,17 @@ const FilterOptionBoolean = ({
 			icon={filter.icon}
 			selected={allFiltersKeys?.has(key)}
 			setSelected={() => {
-				search.updateDynamicFilters((dynamicFilters) => {
-					if (fixedFiltersKeys?.has(key)) return dynamicFilters;
-
-					const index = dynamicFilters.findIndex((f) => filter.extract(f) !== undefined);
+				search.setFilters?.((filters = []) => {
+					const index = filters.findIndex((f) => filter.extract(f) !== undefined);
 
 					if (index !== -1) {
-						dynamicFilters.splice(index, 1);
+						filters.splice(index, 1);
 					} else {
 						const arg = filter.create(true);
-						dynamicFilters.push(arg);
+						filters.push(arg);
 					}
 
-					return dynamicFilters;
+					return filters;
 				});
 			}}
 		>
@@ -418,7 +414,8 @@ function createBooleanFilter(
 
 export const filterRegistry = [
 	createInOrNotInFilter({
-		name: 'Location',
+		name: i18n.t('location'),
+		translationKey: 'location',
 		icon: Folder, // Phosphor folder icon
 		extract: (arg) => {
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
@@ -440,8 +437,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
-			useNodes(query.data?.nodes);
-			const locations = useCache(query.data?.items);
+			const locations = query.data;
 
 			return (locations ?? []).map((location) => ({
 				name: location.name!,
@@ -454,7 +450,8 @@ export const filterRegistry = [
 		)
 	}),
 	createInOrNotInFilter({
-		name: 'Tags',
+		name: i18n.t('tags'),
+		translationKey: 'tag',
 		icon: CircleDashed,
 		extract: (arg) => {
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
@@ -476,8 +473,7 @@ export const filterRegistry = [
 		},
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list']);
-			useNodes(query.data?.nodes);
-			const tags = useCache(query.data?.items);
+			const tags = query.data;
 			return (tags ?? []).map((tag) => ({
 				name: tag.name!,
 				value: tag.id,
@@ -490,8 +486,8 @@ export const filterRegistry = [
 					empty={() => (
 						<div className="flex flex-col items-center justify-center gap-2 p-2">
 							<SDIcon name="Tags" size={32} />
-							<p className="w-[80%] text-center text-xs text-ink-dull">
-								You have not created any tags
+							<p className="w-4/5 text-center text-xs text-ink-dull">
+								{i18n.t('no_tags')}
 							</p>
 						</div>
 					)}
@@ -503,7 +499,8 @@ export const filterRegistry = [
 		}
 	}),
 	createInOrNotInFilter({
-		name: 'Kind',
+		name: i18n.t('kind'),
+		translationKey: 'kind',
 		icon: Cube,
 		extract: (arg) => {
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
@@ -527,9 +524,9 @@ export const filterRegistry = [
 			Object.keys(ObjectKind)
 				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
 				.map((key) => {
-					const kind = ObjectKind[Number(key)];
+					const kind = ObjectKind[Number(key)] as string;
 					return {
-						name: kind as string,
+						name: translateKindName(kind),
 						value: Number(key),
 						icon: kind + '20'
 					};
@@ -539,7 +536,8 @@ export const filterRegistry = [
 		)
 	}),
 	createTextMatchFilter({
-		name: 'Name',
+		name: i18n.t('name'),
+		translationKey: 'name',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
@@ -549,7 +547,8 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createInOrNotInFilter({
-		name: 'Extension',
+		name: i18n.t('extension'),
+		translationKey: 'extension',
 		icon: Textbox,
 		extract: (arg) => {
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
@@ -566,7 +565,8 @@ export const filterRegistry = [
 		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
 	createBooleanFilter({
-		name: 'Hidden',
+		name: i18n.t('hidden'),
+		translationKey: 'hidden',
 		icon: SelectionSlash,
 		extract: (arg) => {
 			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
@@ -583,43 +583,62 @@ export const filterRegistry = [
 		},
 		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	}),
-	createInOrNotInFilter({
-		name: 'Label',
-		icon: Tag,
+	createBooleanFilter({
+		name: i18n.t('favorite'),
+		translationKey: 'favorite',
+		icon: Heart,
 		extract: (arg) => {
-			if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
+			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
 		},
-		create: (labels) => ({ object: { labels } }),
-		argsToOptions(values, options) {
-			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
-
-					if (!option) return;
-
-					return {
-						...option,
-						type: this.name
-					};
-				})
-				.filter(Boolean) as any;
-		},
+		create: (favorite) => ({ object: { favorite } }),
 		useOptions: () => {
-			const query = useLibraryQuery(['labels.list']);
-
-			return (query.data ?? []).map((label) => ({
-				name: label.name!,
-				value: label.id
-			}));
+			return [
+				{
+					name: 'Favorite',
+					value: true,
+					icon: 'Heart' // Spacedrive folder icon
+				}
+			];
 		},
-		Render: ({ filter, options, search }) => (
-			<FilterOptionList filter={filter} options={options} search={search} />
-		)
+		Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
 	})
+	// createInOrNotInFilter({
+	// 	name: i18n.t('label'),
+	// 	icon: Tag,
+	// 	extract: (arg) => {
+	// 		if ('object' in arg && 'labels' in arg.object) return arg.object.labels;
+	// 	},
+	// 	create: (labels) => ({ object: { labels } }),
+	// 	argsToOptions(values, options) {
+	// 		return values
+	// 			.map((value) => {
+	// 				const option = options.get(this.name)?.find((o) => o.value === value);
+
+	// 				if (!option) return;
+
+	// 				return {
+	// 					...option,
+	// 					type: this.name
+	// 				};
+	// 			})
+	// 			.filter(Boolean) as any;
+	// 	},
+	// 	useOptions: () => {
+	// 		const query = useLibraryQuery(['labels.list']);
+
+	// 		return (query.data ?? []).map((label) => ({
+	// 			name: label.name!,
+	// 			value: label.id
+	// 		}));
+	// 	},
+	// 	Render: ({ filter, options, search }) => (
+	// 		<FilterOptionList filter={filter} options={options} search={search} />
+	// 	)
+	// })
 	// idk how to handle this rn since include_descendants is part of 'path' now
 	//
 	// createFilter({
-	// 	name: 'WithDescendants',
+	// 	name: i18n.t('with_descendants'),
 	// 	icon: SelectionSlash,
 	// 	conditions: filterTypeCondition.trueOrFalse,
 	// 	setCondition: (args, condition: 'true' | 'false') => {

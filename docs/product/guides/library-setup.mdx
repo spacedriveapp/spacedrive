@@ -4,28 +4,32 @@ index: 0
 
 # Library Setup
 
-A Library is where all your Spacedrive data lives, but not the files themselves.
+A Library is where all your Spacedrive data lives (but not the files themselves).
 
-For the convenience of finding, organizing and sharing files even when you don't have access; directory structures, metadata and preview media are extracted and stored within the Spacedrive Library.
+For the convenience of finding, organizing and sharing files even when you don't have access, we've designed the Spacedrive library to extract and store directory structures, metadata and preview media within Spacedrive itself.
 
-This data is heavily compressed and very portable, you can have multiple libraries and even lock and encrypt them.
+This data is heavily compressed and very portable, so you can have multiple libraries and even lock and encrypt them\*.
 
-## Library Sync
+_\*Locking and encryption coming in a later update._
 
-<Notice type="warning" text="This feature is WIP" />
+## Exporting a Library
 
-When you connect another device, it happens via the Library. The two [Nodes]() are connected via this Library and the data is synced automatically between them.
+For now, this is not possible to do in-app. However, you can find your [app data](/docs/product/getting-started/setup#app-data) folder and copy the library from the libraries folder and back it up somewhere safe. Don't forget to include the preview media found in the `thumbnails` directory, which name matches the UUID of the library.
 
-## Encrypting a Library
+Eventually the export feature will create a single file with this data self contiained.
 
-<Notice type="warning" text="This feature is WIP" />
+To import a library, simply copy the library folder back to the libraries directory and restart the app.
 
-You can encrypt a Library by clicking the Lock icon button in the Library Settings, once you have set a master password, the Library will be encrypted. If a library is locked, you will be prompted to enter the password when you try to open it. You can set an expiration time for the password, after which you will be prompted to enter it again.
+## Creating multiple Libraries
 
-When a library is encrypted, the data is encrypted on disk, but the files themselves are not encrypted. This means that if you have a library that is not encrypted, and you encrypt it, the files will not be re-encrypted, only the metadata will be encrypted.
-
-If you wish to learn about encrypting files, see [File Encryption](#).
+It is possible to create multiple libraries. If you do so, they will exist completely seperate of eachother and will not share any data. You can choose to create a new library through the Library switcher dropdown in the top left corner of the app.
 
 ## Deleting a Library
 
-A Library can be deleted by clicking the Trash icon button in the Library Settings. Deleting a library will permanently the database, the files themselves will not be deleted.
+A Library can be deleted by clicking the Trash icon button in the Library Settings. Deleting a library will permanently the database, but the files themselves will not be deleted.
+
+## Library Sync
+
+<Notice type="warning" text="This feature is currently in testing and will be released soon." />
+
+When you connect another device, it happens via a Library. The two [Nodes]() are connected via this Library and the data is synced automatically between them.

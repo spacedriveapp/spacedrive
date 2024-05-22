@@ -1,21 +1,18 @@
 import React from 'react';
 import { View, ViewProps } from 'react-native';
+import { ClassInput } from 'twrnc';
 import { twStyle } from '~/lib/tailwind';
 
-type CardProps = {
+interface CardProps extends Omit<ViewProps, 'style'> {
 	children: React.ReactNode;
-} & ViewProps;
+	style?: ClassInput;
+}
 
-const Card = ({ children, ...props }: CardProps) => {
-	const { style, ...otherProps } = props;
-
+const Card = ({ children, style, ...props }: CardProps) => {
 	return (
 		<View
-			style={twStyle(
-				'rounded-lg border border-app-line bg-app-overlay px-4 py-5',
-				style as string
-			)}
-			{...otherProps}
+			{...props}
+			style={twStyle('rounded-lg border border-app-cardborder bg-app-card p-2', style)}
 		>
 			{children}
 		</View>

@@ -12,7 +12,7 @@ export const Slider = (props: SliderPrimitive.SliderProps) => (
 			<SliderPrimitive.Range className="absolute h-full rounded-full bg-accent outline-none" />
 		</SliderPrimitive.Track>
 		<SliderPrimitive.Thumb
-			className="z-50 block h-5 w-5 rounded-full bg-accent font-bold shadow-lg shadow-black/20 outline-none ring-accent/30 transition focus:ring-4"
+			className="z-50 block size-5 rounded-full bg-accent font-bold shadow-lg shadow-black/20 outline-none ring-accent/30 transition focus:ring-4"
 			data-tip="1.0"
 		/>
 	</SliderPrimitive.Root>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useLibraryQuery, useSelector } from '@sd/client';
 import { explorerStore } from '~/app/$libraryId/Explorer/store';
@@ -29,8 +30,10 @@ export const useRedirectToNewLocation = () => {
 				(j.completed_task_count > 0 || j.completed_at != null)
 		);
 
-	if (hasIndexerJob) {
-		navigate(`/${libraryId}/location/${newLocation}`);
-		explorerStore.newLocationToRedirect = null;
-	}
+	useEffect(() => {
+		if (hasIndexerJob) {
+			navigate(`/${libraryId}/location/${newLocation}`);
+			explorerStore.newLocationToRedirect = null;
+		}
+	}, [hasIndexerJob, libraryId, newLocation, navigate]);
 };

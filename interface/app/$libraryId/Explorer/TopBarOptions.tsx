@@ -12,7 +12,6 @@ import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
 import { ExplorerLayout, useSelector } from '@sd/client';
-import { toast } from '@sd/ui';
 import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
@@ -49,7 +48,7 @@ export const useExplorerTopBarOptions = () => {
 
 					const option = {
 						layout,
-						toolTipLabel: t(`${layout} View`),
+						toolTipLabel: t(`${layout}_view`),
 						icon: <Icon className={TOP_BAR_ICON_CLASSLIST} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
@@ -74,14 +73,14 @@ export const useExplorerTopBarOptions = () => {
 
 	const controlOptions: ToolOption[] = [
 		{
-			toolTipLabel: 'Explorer display',
+			toolTipLabel: t('explorer_settings'),
 			icon: <SlidersHorizontal className={TOP_BAR_ICON_CLASSLIST} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
 			showAtResolution: 'sm:flex'
 		},
 		{
-			toolTipLabel: 'Show Inspector',
+			toolTipLabel: t('show_inspector'),
 			keybinds: [controlIcon, 'I'],
 			onClick: () => {
 				explorerStore.showInspector = !showInspector;
@@ -89,7 +88,7 @@ export const useExplorerTopBarOptions = () => {
 			icon: (
 				<SidebarSimple
 					weight={showInspector ? 'fill' : 'regular'}
-					className={clsx(TOP_BAR_ICON_CLASSLIST, 'scale-x-[-1]')}
+					className={clsx(TOP_BAR_ICON_CLASSLIST, '-scale-x-100')}
 				/>
 			),
 			individual: true,
@@ -142,6 +141,18 @@ export const useExplorerTopBarOptions = () => {
 			individual: true,
 			showAtResolution: 'xl:flex'
 		}
+		// {
+		// 	toolTipLabel: 'Tag Assign Mode',
+		// 	icon: (
+		// 		<Tag weight={tagAssignMode ? 'fill' : 'regular'} className={TOP_BAR_ICON_STYLE} />
+		// 	),
+		// 	// TODO: Assign tag mode is not yet implemented!
+		// 	// onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
+		// 	onClick: () => toast.info(t('coming_soon)),
+		// 	topBarActive: tagAssignMode,
+		// 	individual: true,
+		// 	showAtResolution: 'xl:flex'
+		// }
 	] satisfies ToolOption[];
 
 	return {

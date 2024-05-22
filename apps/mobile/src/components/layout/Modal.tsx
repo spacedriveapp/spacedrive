@@ -10,7 +10,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { X } from 'phosphor-react-native';
 import { forwardRef, ReactNode } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -28,8 +28,8 @@ interface ModalHandle extends BottomSheetHandleProps {
 const ModalHandle = (props: ModalHandle) => (
 	<BottomSheetHandle
 		{...props}
-		style={tw`items-end rounded-t-2xl bg-app`}
-		indicatorStyle={tw`bg-app-highlight/60`}
+		style={tw`items-end rounded-t-2xl bg-app-modal`}
+		indicatorStyle={tw`bg-app-lightborder`}
 	>
 		{props.showCloseButton && (
 			<Pressable
@@ -59,9 +59,15 @@ export const Modal = forwardRef<ModalRef, ModalProps>((props, ref) => {
 	return (
 		<BottomSheetModal
 			ref={modalRef}
-			backgroundStyle={tw`bg-app`}
+			backgroundStyle={tw`bg-app-modal`}
 			backdropComponent={ModalBackdrop}
 			handleComponent={(props) => ModalHandle({ modalRef, showCloseButton, ...props })}
+			// Overriding the default value for iOS to fix Maestro issue.
+			// https://github.com/app-dev-inc/maestro/issues/1493
+			accessible={Platform.select({
+				// setting it to false on Android seems to cause issues with TalkBack instead
+				ios: false
+			})}
 			{...otherProps}
 		>
 			{title && <Text style={tw`text-center text-base font-medium text-ink`}>{title}</Text>}
@@ -118,7 +124,7 @@ export const ConfirmModal = forwardRef<ModalRef, ConfirmModalProps>((props, ref)
 			)}
 			<BottomSheetModal
 				ref={modalRef}
-				backgroundStyle={tw`bg-app`}
+				backgroundStyle={tw`bg-app-modal`}
 				backdropComponent={ModalBackdrop}
 				handleComponent={(props) =>
 					ModalHandle({ modalRef, showCloseButton: false, ...props })

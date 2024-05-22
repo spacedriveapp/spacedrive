@@ -1,4 +1,4 @@
-use sd_file_path_helper::FilePathError;
+use sd_core_file_path_helper::FilePathError;
 use sd_utils::error::FileIOError;
 
 use std::path::Path;

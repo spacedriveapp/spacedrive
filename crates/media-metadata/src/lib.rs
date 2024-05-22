@@ -11,30 +11,28 @@
 	clippy::unwrap_used,
 	unused_qualifications,
 	rust_2018_idioms,
-	clippy::expect_used,
 	trivial_casts,
 	trivial_numeric_casts,
 	unused_allocation,
-	clippy::as_conversions,
-	clippy::dbg_macro
+	clippy::unnecessary_cast,
+	clippy::cast_lossless,
+	clippy::cast_possible_truncation,
+	clippy::cast_possible_wrap,
+	clippy::cast_precision_loss,
+	clippy::cast_sign_loss,
+	clippy::dbg_macro,
+	clippy::deprecated_cfg_attr,
+	clippy::separated_literal_suffix,
+	deprecated
 )]
+#![forbid(deprecated_in_future)]
 #![forbid(unsafe_code)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-pub mod audio;
 mod error;
-pub mod image;
-pub mod video;
+pub mod exif;
+pub mod ffmpeg;
 
-pub use audio::AudioMetadata;
 pub use error::{Error, Result};
-pub use image::ImageMetadata;
-pub use video::VideoMetadata;
-
-#[derive(Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(tag = "type")]
-pub enum MediaMetadata {
-	Image(Box<ImageMetadata>),
-	Video(Box<VideoMetadata>),
-	Audio(Box<AudioMetadata>),
-}
+pub use exif::ExifMetadata;
+pub use ffmpeg::FFmpegMetadata;

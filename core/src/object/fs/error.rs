@@ -1,6 +1,7 @@
 use crate::location::LocationError;
 
-use sd_file_path_helper::FilePathError;
+use sd_core_file_path_helper::FilePathError;
+
 use sd_prisma::prisma::file_path;
 use sd_utils::{
 	db::MissingFieldError,

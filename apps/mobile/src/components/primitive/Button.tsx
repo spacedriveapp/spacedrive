@@ -7,12 +7,13 @@ import { twStyle } from '~/lib/tailwind';
 const button = cva(['items-center justify-center rounded-md border shadow-sm'], {
 	variants: {
 		variant: {
-			danger: ['border-red-800 bg-red-600'],
-			gray: ['border-app-line bg-app-button'],
-			darkGray: ['border-app-box bg-app'],
+			danger: ['border-red-800 bg-red-600 shadow-none'],
+			gray: ['border-app-lightborder bg-app-button shadow-none'],
+			darkgray: ['border-app-box bg-app shadow-none'],
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
-			outline: ['border-sidebar-line/60 bg-mobile-screen'],
-			transparent: ['border-0 bg-mobile-screen shadow-none']
+			outline: ['border-sidebar-line/60 bg-black shadow-none'],
+			transparent: ['border-0 bg-black shadow-none'],
+			dashed: ['border border-dashed border-app-line bg-transparent shadow-none']
 		},
 		size: {
 			default: ['py-1.5', 'px-3'],

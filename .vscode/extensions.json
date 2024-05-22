@@ -7,7 +7,7 @@
 		"bradlc.vscode-tailwindcss", // Provides Tailwind CSS IntelliSense
 		"prisma.prisma", // Prisma is an open-source database toolkit
 		"dbaeumer.vscode-eslint", // Integrates ESLint JavaScript into VS Code
-		"esbenp.prettier-vscode", // Code formatter using prettier
-		"inlang.vs-code-extension" // Improved i18n DX (Internationalization Developer Experience)
+		"esbenp.prettier-vscode", // Code formatter using prettier,
+		"lokalise.i18n-ally" // i18n-ally is an all-in-one i18n (internationalization) extension for VS Code
 	]
 }
