@@ -303,8 +303,14 @@ macro_rules! check_interruption {
 		let interrupter: &Interrupter = $interrupter;
 
 		match interrupter.try_check_interrupt() {
-			Some($crate::InterruptionKind::Cancel) => return Ok($crate::ExecStatus::Canceled),
-			Some($crate::InterruptionKind::Pause) => return Ok($crate::ExecStatus::Paused),
+			Some($crate::InterruptionKind::Cancel) => {
+				::tracing::trace!("Task was canceled by the user");
+				return Ok($crate::ExecStatus::Canceled);
+			}
+			Some($crate::InterruptionKind::Pause) => {
+				::tracing::trace!("Task was paused by the user or suspended by the task system");
+				return Ok($crate::ExecStatus::Paused);
+			}
 			None => { /* Everything is Awesome! */ }
 		}
 	};
@@ -317,11 +323,13 @@ macro_rules! check_interruption {
 		match interrupter.try_check_interrupt() {
 			Some($crate::InterruptionKind::Cancel) => {
 				*duration_accumulator += instant.elapsed();
+				::tracing::trace!("Task was canceled by the user");
 
 				return Ok($crate::ExecStatus::Canceled);
 			}
 			Some($crate::InterruptionKind::Pause) => {
 				*duration_accumulator += instant.elapsed();
+				::tracing::trace!("Task was paused by the user or suspended by the task system");
 
 				return Ok($crate::ExecStatus::Paused);
 			}

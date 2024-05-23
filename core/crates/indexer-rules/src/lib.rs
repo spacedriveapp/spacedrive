@@ -294,7 +294,7 @@ impl RulePerKind {
 			)),
 			Self::IgnoredByGit(git_repo, patterns) => Ok((
 				RuleKind::IgnoredByGit,
-				accept_by_gitpattern(source.as_ref(), git_repo, patterns),
+				accept_by_git_pattern(source.as_ref(), git_repo, patterns),
 			)),
 		}
 	}
@@ -326,13 +326,13 @@ impl RulePerKind {
 			)),
 			Self::IgnoredByGit(base_dir, patterns) => Ok((
 				RuleKind::IgnoredByGit,
-				accept_by_gitpattern(source.as_ref(), base_dir, patterns),
+				accept_by_git_pattern(source.as_ref(), base_dir, patterns),
 			)),
 		}
 	}
 }
 
-fn accept_by_gitpattern(source: &Path, base_dir: &Path, search: &Search) -> bool {
+fn accept_by_git_pattern(source: &Path, base_dir: &Path, search: &Search) -> bool {
 	let relative = source
 		.strip_prefix(base_dir)
 		.expect("`base_dir` should be our git repo, and `source` should be inside of it");
@@ -414,25 +414,29 @@ impl IndexerRule {
 	}
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct IndexerRuler {
-	rules: Arc<RwLock<Vec<IndexerRule>>>,
+	base: Arc<Vec<IndexerRule>>,
+	extra: Vec<IndexerRule>,
+}
+
+impl Clone for IndexerRuler {
+	fn clone(&self) -> Self {
+		Self {
+			base: Arc::clone(&self.base),
+			// Each instance of IndexerRules MUST have its own extra rules no clones allowed!
+			extra: Vec::new(),
+		}
+	}
 }
 
 impl IndexerRuler {
 	#[must_use]
 	pub fn new(rules: Vec<IndexerRule>) -> Self {
 		Self {
-			rules: Arc::new(RwLock::new(rules)),
+			base: Arc::new(rules),
+			extra: Vec::new(),
 		}
-	}
-
-	pub async fn serialize(&self) -> Result<Vec<u8>, encode::Error> {
-		rmp_serde::to_vec_named(&*self.rules.read().await)
-	}
-
-	pub fn deserialize(data: &[u8]) -> Result<Self, decode::Error> {
-		rmp_serde::from_slice(data).map(Self::new)
 	}
 
 	pub async fn apply_all(
@@ -441,12 +445,13 @@ impl IndexerRuler {
 		metadata: &impl MetadataForIndexerRules,
 	) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
 		async fn inner(
-			rules: &[IndexerRule],
+			base: &[IndexerRule],
+			extra: &[IndexerRule],
 			source: &Path,
 			metadata: &impl MetadataForIndexerRules,
 		) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
-			rules
-				.iter()
+			base.iter()
+				.chain(extra.iter())
 				.map(|rule| rule.apply_with_metadata(source, metadata))
 				.collect::<Vec<_>>()
 				.try_join()
@@ -462,19 +467,20 @@ impl IndexerRuler {
 				})
 		}
 
-		inner(&self.rules.read().await, source.as_ref(), metadata).await
+		inner(&self.base, &self.extra, source.as_ref(), metadata).await
 	}
 
 	/// Extend the indexer rules with the contents from an iterator of rules
-	pub async fn extend(&self, iter: impl IntoIterator<Item = IndexerRule> + Send) {
-		let mut indexer = self.rules.write().await;
-		indexer.extend(iter);
+	pub fn extend(&mut self, iter: impl IntoIterator<Item = IndexerRule> + Send) {
+		self.extra.extend(iter);
 	}
 
-	pub async fn has_system(&self, rule: &SystemIndexerRule) -> bool {
-		let rules = self.rules.read().await;
-
-		rules.iter().any(|inner_rule| rule == inner_rule)
+	#[must_use]
+	pub fn has_system(&self, rule: &SystemIndexerRule) -> bool {
+		self.base
+			.iter()
+			.chain(self.extra.iter())
+			.any(|inner_rule| rule == inner_rule)
 	}
 }
 

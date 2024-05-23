@@ -148,25 +148,25 @@ impl Task<Error> for Thumbnailer {
 
 		output.total_time += start.elapsed();
 
-		#[allow(clippy::cast_precision_loss)]
-		// SAFETY: we're probably won't have 2^52 thumbnails being generated on a single task for this cast to have
-		// a precision loss issue
-		let total = (output.generated + output.skipped) as f64;
+		if output.generated > 1 {
+			#[allow(clippy::cast_precision_loss)]
+			// SAFETY: we're probably won't have 2^52 thumbnails being generated on a single task for this cast to have
+			// a precision loss issue
+			let total = (output.generated + output.skipped) as f64;
+			let mean_generation_time_f64 = output.mean_time_acc / total;
 
-		let mean_generation_time = output.mean_time_acc / total;
-
-		let generation_time_std_dev = Duration::from_secs_f64(
-			(mean_generation_time.mul_add(-mean_generation_time, output.std_dev_acc / total))
-				.sqrt(),
-		);
-
-		trace!(
-			"{{generated: {generated}, skipped: {skipped}}} thumbnails; \
-			mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?}",
-			generated = output.generated,
-			skipped = output.skipped,
-			mean_generation_time = Duration::from_secs_f64(mean_generation_time)
-		);
+			trace!(
+				generated = output.generated,
+				skipped = output.skipped,
+				"mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?}",
+				mean_generation_time = Duration::from_secs_f64(mean_generation_time_f64),
+				generation_time_std_dev = Duration::from_secs_f64(
+					(mean_generation_time_f64
+						.mul_add(-mean_generation_time_f64, output.std_dev_acc / total))
+					.sqrt(),
+				)
+			);
+		}
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
 	}

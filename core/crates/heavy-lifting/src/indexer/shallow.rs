@@ -55,6 +55,7 @@ pub async fn shallow(
 		to_create,
 		to_update,
 		to_remove,
+		non_indexed_paths,
 		mut errors,
 		directory_iso_file_path,
 		total_size,
@@ -70,6 +71,9 @@ pub async fn shallow(
 	else {
 		return Ok(vec![]);
 	};
+
+	// TODO use non_indexed_paths here in the future, sending it to frontend, showing then alongside the indexed files from db
+	debug!("Non indexed paths count: {}", non_indexed_paths.len());
 
 	let removed_count = remove_non_existing_file_paths(to_remove, db, sync).await?;
 

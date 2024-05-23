@@ -1,4 +1,10 @@
-use crate::{indexer, Error, NonCriticalError};
+use crate::{
+	indexer::{
+		self,
+		tasks::walker::rules::{apply_indexer_rules, process_rules_results},
+	},
+	Error, NonCriticalError,
+};
 
 use sd_core_file_path_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{
@@ -9,95 +15,36 @@ use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
-	check_interruption, BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput,
-	SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
+	check_interruption, BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput, Task,
+	TaskDispatcher, TaskHandle, TaskId,
 };
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	fmt,
-	fs::Metadata,
 	future::Future,
-	hash::{Hash, Hasher},
 	mem,
 	path::{Path, PathBuf},
 	sync::Arc,
 	time::Duration,
 };
 
-use chrono::{DateTime, Duration as ChronoDuration, FixedOffset, Utc};
+use chrono::{DateTime, Duration as ChronoDuration, FixedOffset};
 use futures_concurrency::future::Join;
-use serde::{Deserialize, Serialize};
 use tokio::{fs, time::Instant};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
-use tracing::trace;
-use uuid::Uuid;
+use tracing::{instrument, trace};
 
-/// `WalkedEntry` represents a single path in the filesystem
-#[derive(Debug, Serialize, Deserialize)]
-pub struct WalkedEntry {
-	pub pub_id: Uuid,
-	pub maybe_object_id: file_path::object_id::Type,
-	pub iso_file_path: IsolatedFilePathData<'static>,
-	pub metadata: FilePathMetadata,
-}
+mod entry;
+mod metadata;
+mod rules;
+mod save_state;
 
-impl PartialEq for WalkedEntry {
-	fn eq(&self, other: &Self) -> bool {
-		self.iso_file_path == other.iso_file_path
-	}
-}
+pub use entry::{ToWalkEntry, WalkedEntry};
 
-impl Eq for WalkedEntry {}
-
-impl Hash for WalkedEntry {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.iso_file_path.hash(state);
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct WalkingEntry {
-	iso_file_path: IsolatedFilePathData<'static>,
-	metadata: FilePathMetadata,
-}
-
-impl From<WalkingEntry> for WalkedEntry {
-	fn from(
-		WalkingEntry {
-			iso_file_path,
-			metadata,
-		}: WalkingEntry,
-	) -> Self {
-		Self {
-			pub_id: Uuid::new_v4(),
-			maybe_object_id: None,
-			iso_file_path,
-			metadata,
-		}
-	}
-}
-
-impl From<(Uuid, file_path::object_id::Type, WalkingEntry)> for WalkedEntry {
-	fn from(
-		(
-			pub_id,
-			maybe_object_id,
-			WalkingEntry {
-				iso_file_path,
-				metadata,
-			},
-		): (Uuid, file_path::object_id::Type, WalkingEntry),
-	) -> Self {
-		Self {
-			pub_id,
-			maybe_object_id,
-			iso_file_path,
-			metadata,
-		}
-	}
-}
+use entry::WalkingEntry;
+use metadata::InnerMetadata;
 
 pub trait IsoFilePathFactory: Clone + Send + Sync + fmt::Debug + 'static {
 	fn build(
@@ -122,19 +69,25 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	> + Send;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ToWalkEntry {
-	path: PathBuf,
-	parent_dir_accepted_by_its_children: Option<bool>,
-}
-
-impl<P: AsRef<Path>> From<P> for ToWalkEntry {
-	fn from(path: P) -> Self {
-		Self {
-			path: path.as_ref().into(),
-			parent_dir_accepted_by_its_children: None,
-		}
-	}
+#[derive(Debug)]
+pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
+where
+	DBProxy: WalkerDBProxy,
+	IsoPathFactory: IsoFilePathFactory,
+	Dispatcher: TaskDispatcher<Error>,
+{
+	id: TaskId,
+	entry: ToWalkEntry,
+	root: Arc<PathBuf>,
+	entry_iso_file_path: IsolatedFilePathData<'static>,
+	indexer_ruler: IndexerRuler,
+	iso_file_path_factory: IsoPathFactory,
+	db_proxy: DBProxy,
+	stage: WalkerStage,
+	maybe_dispatcher: Option<Dispatcher>,
+	errors: Vec<NonCriticalError>,
+	scan_time: Duration,
+	is_shallow: bool,
 }
 
 #[derive(Debug)]
@@ -142,6 +95,7 @@ pub struct WalkTaskOutput {
 	pub to_create: Vec<WalkedEntry>,
 	pub to_update: Vec<WalkedEntry>,
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
+	pub non_indexed_paths: Vec<PathBuf>,
 	pub accepted_ancestors: HashSet<WalkedEntry>,
 	pub errors: Vec<NonCriticalError>,
 	pub directory_iso_file_path: IsolatedFilePathData<'static>,
@@ -150,58 +104,265 @@ pub struct WalkTaskOutput {
 	pub scan_time: Duration,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct InnerMetadata {
-	pub is_dir: bool,
-	pub is_symlink: bool,
-	pub inode: u64,
-	pub size_in_bytes: u64,
-	pub hidden: bool,
-	pub created_at: DateTime<Utc>,
-	pub modified_at: DateTime<Utc>,
-}
-
-impl InnerMetadata {
-	fn new(
-		path: impl AsRef<Path>,
-		metadata: &Metadata,
-	) -> Result<Self, indexer::NonCriticalIndexerError> {
-		let FilePathMetadata {
-			inode,
-			size_in_bytes,
-			created_at,
-			modified_at,
-			hidden,
-		} = FilePathMetadata::from_path(path, metadata)
-			.map_err(|e| indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string()))?;
-
-		Ok(Self {
-			is_dir: metadata.is_dir(),
-			is_symlink: metadata.is_symlink(),
-			inode,
-			size_in_bytes,
-			hidden,
-			created_at,
-			modified_at,
-		})
+#[async_trait::async_trait]
+impl<DBProxy, IsoPathFactory, Dispatcher> Task<Error>
+	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
+where
+	DBProxy: WalkerDBProxy,
+	IsoPathFactory: IsoFilePathFactory,
+	Dispatcher: TaskDispatcher<Error>,
+{
+	fn id(&self) -> TaskId {
+		self.id
 	}
-}
 
-impl MetadataForIndexerRules for InnerMetadata {
-	fn is_dir(&self) -> bool {
-		self.is_dir
+	fn with_priority(&self) -> bool {
+		// If we're running in shallow mode, then we want priority
+		self.is_shallow
 	}
-}
 
-impl From<InnerMetadata> for FilePathMetadata {
-	fn from(metadata: InnerMetadata) -> Self {
-		Self {
-			inode: metadata.inode,
-			size_in_bytes: metadata.size_in_bytes,
-			hidden: metadata.hidden,
-			created_at: metadata.created_at,
-			modified_at: metadata.modified_at,
-		}
+	#[instrument(skip(self, interrupter), fields(task_id = %self.id, walked_entry = %self.entry.path.display()))]
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+		let Self {
+			root,
+			entry: ToWalkEntry {
+				path,
+				parent_dir_accepted_by_its_children,
+			},
+			entry_iso_file_path,
+			iso_file_path_factory,
+			indexer_ruler,
+			db_proxy,
+			stage,
+			maybe_dispatcher,
+			errors,
+			scan_time,
+			..
+		} = self;
+
+		let start_time = Instant::now();
+
+		let (
+			to_create,
+			to_update,
+			to_remove,
+			non_indexed_paths,
+			accepted_ancestors,
+			total_size,
+			handles,
+		) = loop {
+			match stage {
+				WalkerStage::Start => {
+					trace!("Preparing git indexer rules for walking root");
+					if indexer_ruler.has_system(&GITIGNORE) {
+						if let Some(rules) =
+							GitIgnoreRules::get_rules_if_in_git_repo(root.as_ref(), path).await
+						{
+							indexer_ruler.extend(rules.map(Into::into));
+						}
+					}
+
+					*stage = WalkerStage::Walking {
+						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
+							|e| {
+								indexer::Error::FileIO(
+									(&path, e, "Failed to open directory to read its entries")
+										.into(),
+								)
+							},
+						)?),
+						found_paths: Vec::new(),
+					};
+					trace!("Starting to walk!");
+				}
+
+				WalkerStage::Walking {
+					read_dir_stream,
+					found_paths,
+				} => {
+					trace!("Walking...");
+					while let Some(res) = read_dir_stream.next().await {
+						match res {
+							Ok(dir_entry) => {
+								found_paths.push(dir_entry.path());
+								trace!(
+									new_path = %dir_entry.path().display(),
+									total_paths = found_paths.len(),
+									"Found path"
+								);
+							}
+							Err(e) => {
+								errors.push(NonCriticalError::Indexer(
+									indexer::NonCriticalIndexerError::FailedDirectoryEntry(
+										FileIOError::from((&path, e)).to_string(),
+									),
+								));
+							}
+						}
+
+						check_interruption!(interrupter, start_time, scan_time);
+					}
+
+					trace!(total_paths = found_paths.len(), "Finished walking!");
+
+					*stage = WalkerStage::CollectingMetadata {
+						found_paths: mem::take(found_paths),
+					};
+
+					check_interruption!(interrupter, start_time, scan_time);
+				}
+
+				WalkerStage::CollectingMetadata { found_paths } => {
+					trace!("Collecting metadata for found paths");
+					*stage = WalkerStage::CheckingIndexerRules {
+						paths_and_metadatas: collect_metadata(found_paths, errors).await,
+					};
+					trace!("Finished collecting metadata!");
+
+					check_interruption!(interrupter, start_time, scan_time);
+				}
+
+				WalkerStage::CheckingIndexerRules {
+					paths_and_metadatas,
+				} => {
+					trace!("Checking indexer rules for found paths");
+					*stage = WalkerStage::ProcessingRulesResults {
+						paths_metadatas_and_acceptance: apply_indexer_rules(
+							paths_and_metadatas,
+							indexer_ruler,
+							errors,
+						)
+						.await,
+					};
+					trace!("Finished checking indexer rules!");
+
+					check_interruption!(interrupter, start_time, scan_time);
+				}
+
+				WalkerStage::ProcessingRulesResults {
+					paths_metadatas_and_acceptance,
+				} => {
+					trace!("Processing rules results");
+					let mut maybe_to_keep_walking = maybe_dispatcher.is_some().then(Vec::new);
+					let (accepted_paths, accepted_ancestors, rejected_paths) =
+						process_rules_results(
+							root,
+							iso_file_path_factory,
+							*parent_dir_accepted_by_its_children,
+							paths_metadatas_and_acceptance,
+							&mut maybe_to_keep_walking,
+							self.is_shallow,
+							errors,
+						)
+						.await;
+					trace!(
+						total_accepted_paths = accepted_paths.len(),
+						total_accepted_ancestors = accepted_ancestors.len(),
+						collect_rejected_paths = self.is_shallow,
+						total_rejected_paths = rejected_paths.len(),
+						"Finished processing rules results!"
+					);
+
+					*stage = WalkerStage::GatheringFilePathsToRemove {
+						accepted_paths,
+						maybe_to_keep_walking,
+						accepted_ancestors,
+						non_indexed_paths: rejected_paths,
+					};
+
+					check_interruption!(interrupter, start_time, scan_time);
+				}
+
+				WalkerStage::GatheringFilePathsToRemove {
+					accepted_paths,
+					maybe_to_keep_walking,
+					accepted_ancestors,
+					non_indexed_paths,
+				} => {
+					trace!("Gathering file paths to remove");
+					let (walking_entries, to_remove_entries) = gather_file_paths_to_remove(
+						accepted_paths,
+						entry_iso_file_path,
+						iso_file_path_factory,
+						db_proxy,
+						errors,
+					)
+					.await;
+					trace!("Finished gathering file paths to remove!");
+
+					*stage = WalkerStage::Finalize {
+						walking_entries,
+						to_remove_entries,
+						maybe_to_keep_walking: mem::take(maybe_to_keep_walking),
+						accepted_ancestors: mem::take(accepted_ancestors),
+						non_indexed_paths: mem::take(non_indexed_paths),
+					};
+
+					check_interruption!(interrupter, start_time, scan_time);
+				}
+
+				// From this points onwards, we will not allow to be interrupted anymore
+				WalkerStage::Finalize {
+					walking_entries,
+					to_remove_entries,
+					maybe_to_keep_walking,
+					accepted_ancestors,
+					non_indexed_paths,
+				} => {
+					trace!("Segregating creates and updates");
+					let (to_create, to_update, total_size) =
+						segregate_creates_and_updates(walking_entries, db_proxy).await?;
+					trace!(
+						total_to_create = to_create.len(),
+						total_to_update = to_update.len(),
+						total_to_remove = to_remove_entries.len(),
+						total_non_indexed_paths = non_indexed_paths.len(),
+						total_size,
+						"Finished segregating creates and updates!"
+					);
+
+					let handles = keep_walking(
+						root,
+						indexer_ruler,
+						iso_file_path_factory,
+						db_proxy,
+						maybe_to_keep_walking.as_mut(),
+						maybe_dispatcher.as_ref(),
+						errors,
+					)
+					.await;
+
+					break (
+						to_create,
+						to_update,
+						mem::take(to_remove_entries),
+						mem::take(non_indexed_paths),
+						mem::take(accepted_ancestors),
+						total_size,
+						handles,
+					);
+				}
+			}
+		};
+
+		*scan_time += start_time.elapsed();
+
+		// Taking out some data as the task is finally complete
+		Ok(ExecStatus::Done(
+			WalkTaskOutput {
+				to_create,
+				to_update,
+				to_remove,
+				non_indexed_paths,
+				accepted_ancestors,
+				errors: mem::take(errors),
+				directory_iso_file_path: mem::take(entry_iso_file_path),
+				total_size,
+				handles,
+				scan_time: *scan_time,
+			}
+			.into_output(),
+		))
 	}
 }
 
@@ -226,155 +387,15 @@ enum WalkerStage {
 		accepted_paths: HashMap<PathBuf, InnerMetadata>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
 		accepted_ancestors: HashSet<WalkedEntry>,
+		non_indexed_paths: Vec<PathBuf>,
 	},
 	Finalize {
 		walking_entries: Vec<WalkingEntry>,
 		accepted_ancestors: HashSet<WalkedEntry>,
 		to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
 		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
+		non_indexed_paths: Vec<PathBuf>,
 	},
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct WalkDirSaveState {
-	id: TaskId,
-	entry: ToWalkEntry,
-	root: Arc<PathBuf>,
-	entry_iso_file_path: IsolatedFilePathData<'static>,
-	stage: WalkerStageSaveState,
-	errors: Vec<NonCriticalError>,
-	scan_time: Duration,
-	is_shallow: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-enum WalkerStageSaveState {
-	Start,
-	CollectingMetadata {
-		found_paths: Vec<PathBuf>,
-	},
-	CheckingIndexerRules {
-		paths_and_metadatas: HashMap<PathBuf, InnerMetadata>,
-	},
-	ProcessingRulesResults {
-		paths_metadatas_and_acceptance:
-			HashMap<PathBuf, (InnerMetadata, HashMap<RuleKind, Vec<bool>>)>,
-	},
-	GatheringFilePathsToRemove {
-		accepted_paths: HashMap<PathBuf, InnerMetadata>,
-		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
-		accepted_ancestors: HashSet<WalkedEntry>,
-	},
-	Finalize {
-		walking_entries: Vec<WalkingEntry>,
-		accepted_ancestors: HashSet<WalkedEntry>,
-		to_remove_entries: Vec<file_path_pub_and_cas_ids::Data>,
-		maybe_to_keep_walking: Option<Vec<ToWalkEntry>>,
-	},
-}
-
-impl From<WalkerStage> for WalkerStageSaveState {
-	fn from(stage: WalkerStage) -> Self {
-		match stage {
-			// We can't store the current state of `ReadDirStream` so we start again from the beginning
-			WalkerStage::Start | WalkerStage::Walking { .. } => Self::Start,
-			WalkerStage::CollectingMetadata { found_paths } => {
-				Self::CollectingMetadata { found_paths }
-			}
-			WalkerStage::CheckingIndexerRules {
-				paths_and_metadatas,
-			} => Self::CheckingIndexerRules {
-				paths_and_metadatas,
-			},
-			WalkerStage::ProcessingRulesResults {
-				paths_metadatas_and_acceptance,
-			} => Self::ProcessingRulesResults {
-				paths_metadatas_and_acceptance,
-			},
-			WalkerStage::GatheringFilePathsToRemove {
-				accepted_paths,
-				maybe_to_keep_walking,
-				accepted_ancestors,
-			} => Self::GatheringFilePathsToRemove {
-				accepted_paths,
-				maybe_to_keep_walking,
-				accepted_ancestors,
-			},
-			WalkerStage::Finalize {
-				walking_entries,
-				accepted_ancestors,
-				to_remove_entries,
-				maybe_to_keep_walking,
-			} => Self::Finalize {
-				walking_entries,
-				accepted_ancestors,
-				to_remove_entries,
-				maybe_to_keep_walking,
-			},
-		}
-	}
-}
-
-impl From<WalkerStageSaveState> for WalkerStage {
-	fn from(value: WalkerStageSaveState) -> Self {
-		match value {
-			WalkerStageSaveState::Start => Self::Start,
-			WalkerStageSaveState::CollectingMetadata { found_paths } => {
-				Self::CollectingMetadata { found_paths }
-			}
-			WalkerStageSaveState::CheckingIndexerRules {
-				paths_and_metadatas,
-			} => Self::CheckingIndexerRules {
-				paths_and_metadatas,
-			},
-			WalkerStageSaveState::ProcessingRulesResults {
-				paths_metadatas_and_acceptance,
-			} => Self::ProcessingRulesResults {
-				paths_metadatas_and_acceptance,
-			},
-			WalkerStageSaveState::GatheringFilePathsToRemove {
-				accepted_paths,
-				maybe_to_keep_walking,
-				accepted_ancestors,
-			} => Self::GatheringFilePathsToRemove {
-				accepted_paths,
-				maybe_to_keep_walking,
-				accepted_ancestors,
-			},
-			WalkerStageSaveState::Finalize {
-				walking_entries,
-				accepted_ancestors,
-				to_remove_entries,
-				maybe_to_keep_walking,
-			} => Self::Finalize {
-				walking_entries,
-				accepted_ancestors,
-				to_remove_entries,
-				maybe_to_keep_walking,
-			},
-		}
-	}
-}
-
-#[derive(Debug)]
-pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
-where
-	DBProxy: WalkerDBProxy,
-	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
-{
-	id: TaskId,
-	entry: ToWalkEntry,
-	root: Arc<PathBuf>,
-	entry_iso_file_path: IsolatedFilePathData<'static>,
-	indexer_ruler: IndexerRuler,
-	iso_file_path_factory: IsoPathFactory,
-	db_proxy: DBProxy,
-	stage: WalkerStage,
-	maybe_dispatcher: Option<Dispatcher>,
-	errors: Vec<NonCriticalError>,
-	scan_time: Duration,
-	is_shallow: bool,
 }
 
 impl<DBProxy, IsoPathFactory, Dispatcher> WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
@@ -436,286 +457,6 @@ where
 			errors: Vec::new(),
 			scan_time: Duration::ZERO,
 		})
-	}
-}
-
-impl<DBProxy, IsoPathFactory, Dispatcher> SerializableTask<Error>
-	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
-where
-	DBProxy: WalkerDBProxy,
-	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
-{
-	type SerializeError = rmp_serde::encode::Error;
-	type DeserializeError = rmp_serde::decode::Error;
-	type DeserializeCtx = (IndexerRuler, DBProxy, IsoPathFactory, Dispatcher);
-
-	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
-		let Self {
-			id,
-			entry,
-			root,
-			entry_iso_file_path,
-			stage,
-			errors,
-			scan_time,
-			is_shallow,
-			..
-		} = self;
-		rmp_serde::to_vec_named(&WalkDirSaveState {
-			id,
-			entry,
-			root,
-			entry_iso_file_path,
-			stage: stage.into(),
-			errors,
-			scan_time,
-			is_shallow,
-		})
-	}
-
-	async fn deserialize(
-		data: &[u8],
-		(indexer_ruler, db_proxy, iso_file_path_factory, dispatcher): Self::DeserializeCtx,
-	) -> Result<Self, Self::DeserializeError> {
-		rmp_serde::from_slice(data).map(
-			|WalkDirSaveState {
-			     id,
-			     entry,
-			     root,
-			     entry_iso_file_path,
-			     stage,
-			     errors,
-			     scan_time,
-			     is_shallow,
-			 }| Self {
-				id,
-				entry,
-				root,
-				entry_iso_file_path,
-				indexer_ruler,
-				iso_file_path_factory,
-				db_proxy,
-				stage: stage.into(),
-				maybe_dispatcher: is_shallow.then_some(dispatcher),
-				errors,
-				scan_time,
-				is_shallow,
-			},
-		)
-	}
-}
-
-#[async_trait::async_trait]
-impl<DBProxy, IsoPathFactory, Dispatcher> Task<Error>
-	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
-where
-	DBProxy: WalkerDBProxy,
-	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
-{
-	fn id(&self) -> TaskId {
-		self.id
-	}
-
-	fn with_priority(&self) -> bool {
-		// If we're running in shallow mode, then we want priority
-		self.is_shallow
-	}
-
-	#[allow(clippy::too_many_lines)]
-	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
-		let Self {
-			root,
-			entry: ToWalkEntry {
-				path,
-				parent_dir_accepted_by_its_children,
-			},
-			entry_iso_file_path,
-			iso_file_path_factory,
-			indexer_ruler,
-			db_proxy,
-			stage,
-			maybe_dispatcher,
-			errors,
-			scan_time,
-			..
-		} = self;
-
-		let start_time = Instant::now();
-
-		let (to_create, to_update, total_size, to_remove, accepted_ancestors, handles) = loop {
-			match stage {
-				WalkerStage::Start => {
-					if indexer_ruler.has_system(&GITIGNORE).await {
-						if let Some(rules) =
-							GitIgnoreRules::get_rules_if_in_git_repo(root.as_ref(), path).await
-						{
-							indexer_ruler.extend(rules.map(Into::into)).await;
-						}
-					}
-
-					*stage = WalkerStage::Walking {
-						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
-							|e| {
-								indexer::Error::FileIO(
-									(&path, e, "Failed to open directory to read its entries")
-										.into(),
-								)
-							},
-						)?),
-						found_paths: Vec::new(),
-					};
-				}
-
-				WalkerStage::Walking {
-					read_dir_stream,
-					found_paths,
-				} => {
-					while let Some(res) = read_dir_stream.next().await {
-						match res {
-							Ok(dir_entry) => {
-								found_paths.push(dir_entry.path());
-							}
-							Err(e) => {
-								errors.push(NonCriticalError::Indexer(
-									indexer::NonCriticalIndexerError::FailedDirectoryEntry(
-										FileIOError::from((&path, e)).to_string(),
-									),
-								));
-							}
-						}
-
-						check_interruption!(interrupter, start_time, scan_time);
-					}
-
-					*stage = WalkerStage::CollectingMetadata {
-						found_paths: mem::take(found_paths),
-					};
-
-					check_interruption!(interrupter, start_time, scan_time);
-				}
-
-				WalkerStage::CollectingMetadata { found_paths } => {
-					*stage = WalkerStage::CheckingIndexerRules {
-						paths_and_metadatas: collect_metadata(found_paths, errors).await,
-					};
-
-					check_interruption!(interrupter, start_time, scan_time);
-				}
-
-				WalkerStage::CheckingIndexerRules {
-					paths_and_metadatas,
-				} => {
-					*stage = WalkerStage::ProcessingRulesResults {
-						paths_metadatas_and_acceptance: apply_indexer_rules(
-							paths_and_metadatas,
-							indexer_ruler,
-							errors,
-						)
-						.await,
-					};
-
-					check_interruption!(interrupter, start_time, scan_time);
-				}
-
-				WalkerStage::ProcessingRulesResults {
-					paths_metadatas_and_acceptance,
-				} => {
-					let mut maybe_to_keep_walking = maybe_dispatcher.is_some().then(Vec::new);
-					let (accepted_paths, accepted_ancestors) = process_rules_results(
-						root,
-						iso_file_path_factory,
-						*parent_dir_accepted_by_its_children,
-						paths_metadatas_and_acceptance,
-						&mut maybe_to_keep_walking,
-						errors,
-					)
-					.await;
-
-					*stage = WalkerStage::GatheringFilePathsToRemove {
-						accepted_paths,
-						maybe_to_keep_walking,
-						accepted_ancestors,
-					};
-
-					check_interruption!(interrupter, start_time, scan_time);
-				}
-
-				WalkerStage::GatheringFilePathsToRemove {
-					accepted_paths,
-					maybe_to_keep_walking,
-					accepted_ancestors,
-				} => {
-					let (walking_entries, to_remove_entries) = gather_file_paths_to_remove(
-						accepted_paths,
-						entry_iso_file_path,
-						iso_file_path_factory,
-						db_proxy,
-						errors,
-					)
-					.await;
-
-					*stage = WalkerStage::Finalize {
-						walking_entries,
-						to_remove_entries,
-						maybe_to_keep_walking: mem::take(maybe_to_keep_walking),
-						accepted_ancestors: mem::take(accepted_ancestors),
-					};
-
-					check_interruption!(interrupter, start_time, scan_time);
-				}
-
-				// From this points onwards, we will not allow to be interrupted anymore
-				WalkerStage::Finalize {
-					walking_entries,
-					to_remove_entries,
-					maybe_to_keep_walking,
-					accepted_ancestors,
-				} => {
-					let (to_create, to_update, total_size) =
-						segregate_creates_and_updates(walking_entries, db_proxy).await?;
-
-					let handles = keep_walking(
-						root,
-						indexer_ruler,
-						iso_file_path_factory,
-						db_proxy,
-						maybe_to_keep_walking,
-						maybe_dispatcher,
-						errors,
-					)
-					.await;
-
-					break (
-						to_create,
-						to_update,
-						total_size,
-						mem::take(to_remove_entries),
-						mem::take(accepted_ancestors),
-						handles,
-					);
-				}
-			}
-		};
-
-		*scan_time += start_time.elapsed();
-
-		// Taking out some data as the task is finally complete
-		Ok(ExecStatus::Done(
-			WalkTaskOutput {
-				to_create,
-				to_update,
-				to_remove,
-				accepted_ancestors,
-				errors: mem::take(errors),
-				directory_iso_file_path: mem::take(entry_iso_file_path),
-				total_size,
-				handles,
-				scan_time: *scan_time,
-			}
-			.into_output(),
-		))
 	}
 }
 
@@ -802,8 +543,8 @@ async fn keep_walking(
 	indexer_ruler: &IndexerRuler,
 	iso_file_path_factory: &impl IsoFilePathFactory,
 	db_proxy: &impl WalkerDBProxy,
-	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-	dispatcher: &Option<impl TaskDispatcher<Error>>,
+	maybe_to_keep_walking: Option<&mut Vec<ToWalkEntry>>,
+	dispatcher: Option<&impl TaskDispatcher<Error>>,
 	errors: &mut Vec<NonCriticalError>,
 ) -> Vec<TaskHandle<Error>> {
 	if let (Some(dispatcher), Some(to_keep_walking)) = (dispatcher, maybe_to_keep_walking) {
@@ -857,241 +598,6 @@ async fn collect_metadata(
 		.into_iter()
 		.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
 		.collect()
-}
-
-async fn apply_indexer_rules(
-	paths_and_metadatas: &mut HashMap<PathBuf, InnerMetadata>,
-	indexer_ruler: &IndexerRuler,
-	errors: &mut Vec<NonCriticalError>,
-) -> HashMap<PathBuf, (InnerMetadata, HashMap<RuleKind, Vec<bool>>)> {
-	paths_and_metadatas
-		.drain()
-		// TODO: Hard ignoring symlinks for now, but this should be configurable
-		.filter(|(_, metadata)| !metadata.is_symlink)
-		.map(|(current_path, metadata)| async {
-			indexer_ruler
-				.apply_all(&current_path, &metadata)
-				.await
-				.map(|acceptance_per_rule_kind| {
-					(current_path, (metadata, acceptance_per_rule_kind))
-				})
-				.map_err(|e| indexer::NonCriticalIndexerError::IndexerRule(e.to_string()))
-		})
-		.collect::<Vec<_>>()
-		.join()
-		.await
-		.into_iter()
-		.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
-		.collect()
-}
-
-async fn process_rules_results(
-	root: &Arc<PathBuf>,
-	iso_file_path_factory: &impl IsoFilePathFactory,
-	parent_dir_accepted_by_its_children: Option<bool>,
-	paths_metadatas_and_acceptance: &mut HashMap<
-		PathBuf,
-		(InnerMetadata, HashMap<RuleKind, Vec<bool>>),
-	>,
-	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-	errors: &mut Vec<NonCriticalError>,
-) -> (HashMap<PathBuf, InnerMetadata>, HashSet<WalkedEntry>) {
-	let root = root.as_ref();
-
-	let (accepted, accepted_ancestors) = paths_metadatas_and_acceptance.drain().fold(
-		(HashMap::new(), HashMap::new()),
-		|(mut accepted, mut accepted_ancestors),
-		 (current_path, (metadata, acceptance_per_rule_kind))| {
-			// Accept by children has three states,
-			// None if we don't now yet or if this check doesn't apply
-			// Some(true) if this check applies and it passes
-			// Some(false) if this check applies and it was rejected
-			// and we pass the current parent state to its children
-			let mut accept_by_children_dir = parent_dir_accepted_by_its_children;
-
-			if rejected_by_reject_glob(&acceptance_per_rule_kind) {
-				trace!(
-					"Path {} rejected by `RuleKind::RejectFilesByGlob`",
-					current_path.display()
-				);
-
-				return (accepted, accepted_ancestors);
-			}
-
-			let is_dir = metadata.is_dir();
-
-			if is_dir
-				&& process_and_maybe_reject_by_directory_rules(
-					&current_path,
-					&acceptance_per_rule_kind,
-					&mut accept_by_children_dir,
-					maybe_to_keep_walking,
-				) {
-				trace!(
-					"Path {} rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`",
-					current_path.display(),
-				);
-				return (accepted, accepted_ancestors);
-			}
-
-			if rejected_by_accept_glob(&acceptance_per_rule_kind) {
-				trace!(
-					"Path {} reject because it didn't passed in any AcceptFilesByGlob rules",
-					current_path.display()
-				);
-				return (accepted, accepted_ancestors);
-			}
-
-			if accept_by_children_dir.unwrap_or(true) {
-				accept_ancestors(
-					current_path,
-					metadata,
-					root,
-					&mut accepted,
-					iso_file_path_factory,
-					&mut accepted_ancestors,
-					errors,
-				);
-			}
-
-			(accepted, accepted_ancestors)
-		},
-	);
-
-	(
-		accepted,
-		accepted_ancestors
-			.into_iter()
-			.map(|(ancestor_iso_file_path, ancestor_path)| async move {
-				fs::metadata(&ancestor_path)
-					.await
-					.map_err(|e| {
-						indexer::NonCriticalIndexerError::Metadata(
-							FileIOError::from((&ancestor_path, e)).to_string(),
-						)
-					})
-					.and_then(|metadata| {
-						FilePathMetadata::from_path(&ancestor_path, &metadata)
-							.map(|metadata| {
-								WalkingEntry {
-									iso_file_path: ancestor_iso_file_path,
-									metadata,
-								}
-								.into()
-							})
-							.map_err(|e| {
-								indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string())
-							})
-					})
-			})
-			.collect::<Vec<_>>()
-			.join()
-			.await
-			.into_iter()
-			.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
-			.collect(),
-	)
-}
-
-fn process_and_maybe_reject_by_directory_rules(
-	current_path: &Path,
-	acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
-	accept_by_children_dir: &mut Option<bool>,
-	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
-) -> bool {
-	// If it is a directory, first we check if we must reject it and its children entirely
-	if rejected_by_children_directories(acceptance_per_rule_kind) {
-		return true;
-	}
-
-	// Then we check if we must accept it and its children
-	if let Some(accepted_by_children_rules) =
-		acceptance_per_rule_kind.get(&RuleKind::AcceptIfChildrenDirectoriesArePresent)
-	{
-		if accepted_by_children_rules.iter().any(|accept| *accept) {
-			*accept_by_children_dir = Some(true);
-		}
-
-		// If it wasn't accepted then we mark as rejected
-		if accept_by_children_dir.is_none() {
-			trace!(
-				"Path {} rejected because it didn't passed in any AcceptIfChildrenDirectoriesArePresent rule",
-				current_path.display()
-			);
-			*accept_by_children_dir = Some(false);
-		}
-	}
-
-	// Then we mark this directory to maybe be walked in too
-	if let Some(ref mut to_keep_walking) = maybe_to_keep_walking {
-		to_keep_walking.push(ToWalkEntry {
-			path: current_path.to_path_buf(),
-			parent_dir_accepted_by_its_children: *accept_by_children_dir,
-		});
-	}
-
-	false
-}
-
-fn accept_ancestors(
-	current_path: PathBuf,
-	metadata: InnerMetadata,
-	root: &Path,
-	accepted: &mut HashMap<PathBuf, InnerMetadata>,
-	iso_file_path_factory: &impl IsoFilePathFactory,
-	accepted_ancestors: &mut HashMap<IsolatedFilePathData<'static>, PathBuf>,
-	errors: &mut Vec<NonCriticalError>,
-) {
-	// If the ancestors directories wasn't indexed before, now we do
-	for ancestor in current_path
-		.ancestors()
-		.skip(1) // Skip the current directory as it was already indexed
-		.take_while(|&ancestor| ancestor != root)
-	{
-		if let Ok(iso_file_path) = iso_file_path_factory.build(ancestor, true).map_err(|e| {
-			errors.push(indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
-		}) {
-			match accepted_ancestors.entry(iso_file_path) {
-				Entry::Occupied(_) => {
-					// If we already accepted this ancestor, then it will contain
-					// also all if its ancestors too, so we can stop here
-					break;
-				}
-				Entry::Vacant(entry) => {
-					trace!("Accepted ancestor {}", ancestor.display());
-					entry.insert(ancestor.to_path_buf());
-				}
-			}
-		}
-	}
-
-	accepted.insert(current_path, metadata);
-}
-
-fn rejected_by_accept_glob(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
-	acceptance_per_rule_kind
-		.get(&RuleKind::AcceptFilesByGlob)
-		.map_or(false, |accept_rules| {
-			accept_rules.iter().all(|accept| !accept)
-		})
-}
-
-fn rejected_by_children_directories(
-	acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
-) -> bool {
-	acceptance_per_rule_kind
-		.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
-		.map_or(false, |reject_results| {
-			reject_results.iter().any(|reject| !reject)
-		})
-}
-
-fn rejected_by_reject_glob(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
-	acceptance_per_rule_kind
-		.get(&RuleKind::RejectFilesByGlob)
-		.map_or(false, |reject_results| {
-			reject_results.iter().any(|reject| !reject)
-		})
 }
 
 async fn gather_file_paths_to_remove(
@@ -1152,6 +658,7 @@ mod tests {
 	use tokio::{fs, io::AsyncWriteExt};
 	use tracing::debug;
 	use tracing_test::traced_test;
+	use uuid::Uuid;
 
 	#[derive(Debug, Clone)]
 	struct DummyIsoPathFactory {
@@ -1203,6 +710,7 @@ mod tests {
 		}
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	async fn prepare_location() -> TempDir {
 		// root
 		// |__ rust_project

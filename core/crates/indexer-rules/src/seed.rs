@@ -1,16 +1,16 @@
-use std::path::{Path, PathBuf};
-
-use futures_concurrency::future::Join;
-use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
+use std::path::{Path, PathBuf};
+
 use chrono::Utc;
+use futures_concurrency::future::Join;
+use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
+use once_cell::sync::Lazy;
 use thiserror::Error;
 use tokio::fs;
 use uuid::Uuid;
 
 use super::{IndexerRule, IndexerRuleError, RulePerKind};
-use once_cell::sync::Lazy;
 
 #[derive(Error, Debug)]
 pub enum SeederError {
@@ -19,7 +19,7 @@ pub enum SeederError {
 	#[error("An error occurred with the database while applying migrations: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Failed to parse indexer rules based on external system")]
-	InhirentedExternalRules,
+	InheritedExternalRules,
 }
 
 #[derive(Debug)]
@@ -29,7 +29,7 @@ pub struct GitIgnoreRules {
 
 impl GitIgnoreRules {
 	pub async fn get_rules_if_in_git_repo(
-		library_root: &Path,
+		location_root: &Path,
 		current: &Path,
 	) -> Option<Result<Self, SeederError>> {
 		let mut git_repo = None;
@@ -38,7 +38,7 @@ impl GitIgnoreRules {
 
 		for ancestor in current
 			.ancestors()
-			.take_while(|&path| path.starts_with(library_root))
+			.take_while(|&path| path.starts_with(location_root))
 		{
 			let git_ignore = ancestor.join(".gitignore");
 
@@ -54,13 +54,16 @@ impl GitIgnoreRules {
 		}
 
 		let git_repo = git_repo?;
-		Some(Self::parse_gitrepo(git_repo, ignores).await)
+		Some(Self::parse_git_repo(git_repo, ignores).await)
 	}
 
-	async fn parse_gitrepo(git_repo: &Path, gitignores: Vec<PathBuf>) -> Result<Self, SeederError> {
+	async fn parse_git_repo(
+		git_repo: &Path,
+		git_ignores: Vec<PathBuf>,
+	) -> Result<Self, SeederError> {
 		let mut search = Search::default();
 
-		let gitignores = gitignores
+		let git_ignores = git_ignores
 			.into_iter()
 			.map(Self::parse_git_ignore)
 			.collect::<Vec<_>>()
@@ -68,7 +71,7 @@ impl GitIgnoreRules {
 			.await;
 		search
 			.patterns
-			.extend(gitignores.into_iter().filter_map(Result::ok));
+			.extend(git_ignores.into_iter().filter_map(Result::ok));
 
 		let git_exclude_rules = Self::parse_git_exclude(git_repo.join(".git")).await;
 		if let Ok(rules) = git_exclude_rules {
@@ -86,11 +89,11 @@ impl GitIgnoreRules {
 			if let Ok(Some(patterns)) = List::from_file(gitignore, None, true, &mut buf) {
 				Ok(patterns)
 			} else {
-				Err(SeederError::InhirentedExternalRules)
+				Err(SeederError::InheritedExternalRules)
 			}
 		})
 		.await
-		.map_err(|_| SeederError::InhirentedExternalRules)?
+		.map_err(|_| SeederError::InheritedExternalRules)?
 	}
 
 	async fn parse_git_exclude(dot_git: PathBuf) -> Result<Vec<List<Ignore>>, SeederError> {
@@ -98,10 +101,10 @@ impl GitIgnoreRules {
 			let mut buf = Vec::new();
 			Search::from_git_dir(dot_git.as_ref(), None, &mut buf)
 				.map(|search| search.patterns)
-				.map_err(|_| SeederError::InhirentedExternalRules)
+				.map_err(|_| SeederError::InheritedExternalRules)
 		})
 		.await
-		.map_err(|_| SeederError::InhirentedExternalRules)?
+		.map_err(|_| SeederError::InheritedExternalRules)?
 	}
 
 	async fn is_git_repo(path: &Path) -> bool {

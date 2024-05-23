@@ -24,7 +24,7 @@ use sd_task_system::{
 use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{HashMap, HashSet, VecDeque},
 	hash::{Hash, Hasher},
 	mem,
 	path::PathBuf,
@@ -38,7 +38,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, trace, warn};
 
 use super::{
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
@@ -62,6 +62,11 @@ pub struct Indexer {
 	ancestors_needing_indexing: HashSet<WalkedEntry>,
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
+
+	processing_first_directory: bool,
+
+	to_create_buffer: VecDeque<WalkedEntry>,
+	to_update_buffer: VecDeque<WalkedEntry>,
 
 	errors: Vec<NonCriticalError>,
 
@@ -147,47 +152,24 @@ impl Job for Indexer {
 			return res;
 		}
 
+		if let Some(res) = self
+			.dispatch_last_save_and_update_tasks(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			return res;
+		}
+
+		if let Some(res) = self
+			.index_pending_ancestors(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			return res;
+		}
+
 		if !self.tasks_for_shutdown.is_empty() {
 			return Ok(ReturnStatus::Shutdown(
 				SerializableJob::<OuterCtx>::serialize(self).await,
 			));
-		}
-
-		if !self.ancestors_needing_indexing.is_empty() {
-			let save_tasks = self
-				.ancestors_needing_indexing
-				.drain()
-				.chunks(BATCH_SIZE)
-				.into_iter()
-				.map(|chunk| {
-					let chunked_saves = chunk.collect::<Vec<_>>();
-					self.metadata.total_paths += chunked_saves.len() as u64;
-					self.metadata.total_save_steps += 1;
-
-					SaveTask::new_deep(
-						self.location.id,
-						self.location.pub_id.clone(),
-						chunked_saves,
-						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
-					)
-				})
-				.collect::<Vec<_>>();
-
-			pending_running_tasks.extend(dispatcher.dispatch_many(save_tasks).await);
-
-			if let Some(res) = self
-				.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
-				.await
-			{
-				return res;
-			}
-
-			if !self.tasks_for_shutdown.is_empty() {
-				return Ok(ReturnStatus::Shutdown(
-					SerializableJob::<OuterCtx>::serialize(self).await,
-				));
-			}
 		}
 
 		// From here onward, job will not be interrupted anymore
@@ -283,6 +265,12 @@ impl Indexer {
 			location,
 			sub_path,
 			metadata: Metadata::default(),
+
+			processing_first_directory: true,
+
+			to_create_buffer: VecDeque::new(),
+			to_update_buffer: VecDeque::new(),
+
 			errors: Vec::new(),
 
 			pending_tasks_on_resume: Vec::new(),
@@ -354,6 +342,7 @@ impl Indexer {
 			total_size,
 			mut handles,
 			scan_time,
+			..
 		}: WalkTaskOutput,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
@@ -413,41 +402,8 @@ impl Indexer {
 			remove_non_existing_file_paths(to_remove, ctx.db(), ctx.sync()).await?;
 		self.metadata.db_write_time += db_delete_time.elapsed();
 
-		let save_tasks = to_create
-			.into_iter()
-			.chunks(BATCH_SIZE)
-			.into_iter()
-			.map(|chunk| {
-				let chunked_saves = chunk.collect::<Vec<_>>();
-				self.metadata.total_paths += chunked_saves.len() as u64;
-				self.metadata.total_save_steps += 1;
-
-				SaveTask::new_deep(
-					self.location.id,
-					self.location.pub_id.clone(),
-					chunked_saves,
-					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
-				)
-			})
-			.collect::<Vec<_>>();
-
-		let update_tasks = to_update
-			.into_iter()
-			.chunks(BATCH_SIZE)
-			.into_iter()
-			.map(|chunk| {
-				let chunked_updates = chunk.collect::<Vec<_>>();
-				self.metadata.total_updated_paths += chunked_updates.len() as u64;
-				self.metadata.total_update_steps += 1;
-
-				UpdateTask::new_deep(
-					chunked_updates,
-					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
-				)
-			})
-			.collect::<Vec<_>>();
+		let (save_tasks, update_tasks) =
+			self.prepare_save_and_update_tasks(to_create, to_update, ctx);
 
 		debug!(
 			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{})",
@@ -625,6 +581,207 @@ impl Indexer {
 
 		Ok(())
 	}
+
+	async fn dispatch_last_save_and_update_tasks<OuterCtx: OuterContext>(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+		ctx: &impl JobContext<OuterCtx>,
+		dispatcher: &JobTaskDispatcher,
+	) -> Option<Result<ReturnStatus, Error>> {
+		if !self.to_create_buffer.is_empty() || !self.to_update_buffer.is_empty() {
+			if !self.to_create_buffer.is_empty() {
+				assert!(
+					self.to_create_buffer.len() <= BATCH_SIZE,
+					"last save task must be less than BATCH_SIZE paths"
+				);
+
+				self.metadata.total_paths += self.to_create_buffer.len() as u64;
+				self.metadata.total_save_steps += 1;
+
+				pending_running_tasks.push(
+					dispatcher
+						.dispatch(SaveTask::new_deep(
+							self.location.id,
+							self.location.pub_id.clone(),
+							self.to_create_buffer.drain(..).collect(),
+							Arc::clone(ctx.db()),
+							Arc::clone(ctx.sync()),
+						))
+						.await,
+				);
+			}
+
+			if !self.to_update_buffer.is_empty() {
+				assert!(
+					self.to_update_buffer.len() <= BATCH_SIZE,
+					"last update task must be less than BATCH_SIZE paths"
+				);
+
+				self.metadata.total_updated_paths += self.to_update_buffer.len() as u64;
+				self.metadata.total_update_steps += 1;
+
+				pending_running_tasks.push(
+					dispatcher
+						.dispatch(UpdateTask::new_deep(
+							self.to_update_buffer.drain(..).collect(),
+							Arc::clone(ctx.db()),
+							Arc::clone(ctx.sync()),
+						))
+						.await,
+				);
+			}
+
+			self.process_handles(pending_running_tasks, ctx, dispatcher)
+				.await
+		} else {
+			None
+		}
+	}
+
+	async fn index_pending_ancestors<OuterCtx: OuterContext>(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+		ctx: &impl JobContext<OuterCtx>,
+		dispatcher: &JobTaskDispatcher,
+	) -> Option<Result<ReturnStatus, Error>> {
+		if self.ancestors_needing_indexing.is_empty() {
+			return None;
+		}
+
+		let save_tasks = self
+			.ancestors_needing_indexing
+			.drain()
+			.chunks(BATCH_SIZE)
+			.into_iter()
+			.map(|chunk| {
+				let chunked_saves = chunk.collect::<Vec<_>>();
+				self.metadata.total_paths += chunked_saves.len() as u64;
+				self.metadata.total_save_steps += 1;
+
+				SaveTask::new_deep(
+					self.location.id,
+					self.location.pub_id.clone(),
+					chunked_saves,
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
+				)
+			})
+			.collect::<Vec<_>>();
+
+		pending_running_tasks.extend(dispatcher.dispatch_many(save_tasks).await);
+
+		self.process_handles(pending_running_tasks, ctx, dispatcher)
+			.await
+	}
+
+	fn prepare_save_and_update_tasks<OuterCtx: OuterContext>(
+		&mut self,
+		to_create: Vec<WalkedEntry>,
+		to_update: Vec<WalkedEntry>,
+		ctx: &impl JobContext<OuterCtx>,
+	) -> (Vec<SaveTask>, Vec<UpdateTask>) {
+		if self.processing_first_directory {
+			// If we are processing the first directory, we dispatch shallow tasks with higher priority
+			// this way we provide a faster feedback loop to the user
+			self.processing_first_directory = false;
+
+			let save_tasks = to_create
+				.into_iter()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(|chunk| {
+					let chunked_saves = chunk.collect::<Vec<_>>();
+					self.metadata.total_paths += chunked_saves.len() as u64;
+					self.metadata.total_save_steps += 1;
+
+					SaveTask::new_shallow(
+						self.location.id,
+						self.location.pub_id.clone(),
+						chunked_saves,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					)
+				})
+				.collect::<Vec<_>>();
+
+			let update_tasks = to_update
+				.into_iter()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(|chunk| {
+					let chunked_updates = chunk.collect::<Vec<_>>();
+					self.metadata.total_updated_paths += chunked_updates.len() as u64;
+					self.metadata.total_update_steps += 1;
+
+					UpdateTask::new_shallow(
+						chunked_updates,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					)
+				})
+				.collect::<Vec<_>>();
+
+			(save_tasks, update_tasks)
+		} else {
+			self.to_create_buffer.extend(to_create);
+
+			let save_tasks = if self.to_create_buffer.len() > BATCH_SIZE {
+				let chunks_count = self.to_create_buffer.len() / BATCH_SIZE;
+				let mut save_tasks = Vec::with_capacity(chunks_count);
+
+				for _ in 0..chunks_count {
+					let chunked_saves = self
+						.to_create_buffer
+						.drain(..BATCH_SIZE)
+						.collect::<Vec<_>>();
+
+					self.metadata.total_paths += chunked_saves.len() as u64;
+					self.metadata.total_save_steps += 1;
+
+					save_tasks.push(SaveTask::new_deep(
+						self.location.id,
+						self.location.pub_id.clone(),
+						chunked_saves,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					));
+				}
+				save_tasks
+			} else {
+				trace!("Not enough entries to dispatch a new saver task");
+				vec![]
+			};
+
+			self.to_update_buffer.extend(to_update);
+
+			let update_tasks = if self.to_update_buffer.len() > BATCH_SIZE {
+				let chunks_count = self.to_update_buffer.len() / BATCH_SIZE;
+				let mut update_tasks = Vec::with_capacity(chunks_count);
+
+				for _ in 0..chunks_count {
+					let chunked_updates = self
+						.to_update_buffer
+						.drain(..BATCH_SIZE)
+						.collect::<Vec<_>>();
+
+					self.metadata.total_updated_paths += chunked_updates.len() as u64;
+					self.metadata.total_update_steps += 1;
+
+					update_tasks.push(UpdateTask::new_deep(
+						chunked_updates,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					));
+				}
+				update_tasks
+			} else {
+				trace!("Not enough entries to dispatch a new updater task");
+				vec![]
+			};
+
+			(save_tasks, update_tasks)
+		}
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -693,11 +850,16 @@ struct SaveState {
 	metadata: Metadata,
 
 	iso_file_path_factory: IsoFilePathFactory,
-	indexer_ruler_bytes: Vec<u8>,
+	indexer_ruler: IndexerRuler,
 	walker_root_path: Option<Arc<PathBuf>>,
 	ancestors_needing_indexing: HashSet<WalkedEntry>,
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
-	paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
+	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
+
+	processing_first_directory: bool,
+
+	to_create_buffer: VecDeque<WalkedEntry>,
+	to_update_buffer: VecDeque<WalkedEntry>,
 
 	errors: Vec<NonCriticalError>,
 
@@ -715,7 +877,10 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			walker_root_path,
 			ancestors_needing_indexing,
 			ancestors_already_indexed,
-			iso_paths_and_sizes: paths_and_sizes,
+			iso_paths_and_sizes,
+			processing_first_directory,
+			to_create_buffer,
+			to_update_buffer,
 			errors,
 			tasks_for_shutdown,
 			..
@@ -726,11 +891,15 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			sub_path,
 			metadata,
 			iso_file_path_factory,
-			indexer_ruler_bytes: indexer_ruler.serialize().await?,
+			indexer_ruler,
 			walker_root_path,
 			ancestors_needing_indexing,
 			ancestors_already_indexed,
-			paths_and_sizes,
+			iso_paths_and_sizes,
+			processing_first_directory,
+			to_create_buffer,
+			to_update_buffer,
+			errors,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
 					.into_iter()
@@ -765,7 +934,6 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 					.try_join()
 					.await?,
 			)?)),
-			errors,
 		})
 		.map(Some)
 	}
@@ -779,16 +947,17 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			sub_path,
 			metadata,
 			iso_file_path_factory,
-			indexer_ruler_bytes,
+			indexer_ruler,
 			walker_root_path,
 			ancestors_needing_indexing,
 			ancestors_already_indexed,
-			paths_and_sizes,
+			iso_paths_and_sizes,
+			processing_first_directory,
+			to_create_buffer,
+			to_update_buffer,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
-
-		let indexer_ruler = IndexerRuler::deserialize(&indexer_ruler_bytes)?;
 
 		Ok(Some((
 			Self {
@@ -800,7 +969,10 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 				walker_root_path,
 				ancestors_needing_indexing,
 				ancestors_already_indexed,
-				iso_paths_and_sizes: paths_and_sizes,
+				iso_paths_and_sizes,
+				processing_first_directory,
+				to_create_buffer,
+				to_update_buffer,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
 				tasks_for_shutdown: Vec::new(),
