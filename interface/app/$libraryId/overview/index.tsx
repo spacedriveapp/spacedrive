@@ -16,6 +16,8 @@ import NewCard from './NewCard';
 import StatisticItem from './StatCard';
 
 export const Component = () => {
+
+
 	useRouteTitle('Overview');
 	const os = useOperatingSystem();
 
@@ -75,10 +77,8 @@ export const Component = () => {
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
-						<LibraryStatistics />
-					</OverviewSection>
-					<OverviewSection>
-						<FileKindStatistics />
+					<LibraryStatistics></LibraryStatistics>
+					<FileKindStatistics />
 					</OverviewSection>
 					<OverviewSection count={1} title={t('devices')}>
 						{node && (
