@@ -89,7 +89,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.with2(library())
 				.mutation(|(_, library), args: TagCreateArgs| async move {
 					// Check if tag with the same name already exists
-					let existing_tag = library.db
+					let existing_tag = library
+						.db
 						.tag()
 						.find_many(vec![tag::name::equals(Some(args.name.clone()))])
 						.select(tag::select!({ id }))
