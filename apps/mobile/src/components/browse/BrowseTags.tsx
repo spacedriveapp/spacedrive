@@ -37,6 +37,7 @@ const BrowseTags = () => {
 						<Text style={tw`text-xs text-ink`}>{showAll ? 'Show less' : 'Show all'} ({tagData?.length})</Text>
 					</Button>
 					<Button
+						testID='create-tag-button'
 						onPress={() => modalRef.current?.present()}
 						style={tw`flex-row gap-1 rounded-full`}
 						variant="gray"
