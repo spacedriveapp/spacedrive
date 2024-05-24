@@ -26,19 +26,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}) {
 					queued.push(P2PEvent::PeerChange {
 						identity: peer.identity(),
-						connection: if node.p2p.quic.is_relayed(peer.identity()) {
-							ConnectionMethod::Relay
-						} else if peer.is_connected() {
-							ConnectionMethod::Local
+						connection: if peer.is_connected() {
+							if node.p2p.quic.is_relayed(peer.identity()) {
+								ConnectionMethod::Relay
+							} else {
+								ConnectionMethod::Local
+							}
 						} else {
 							ConnectionMethod::Disconnected
 						},
-						discovery: match peer
+						discovery: match !peer
 							.connection_candidates()
 							.contains(&PeerConnectionCandidate::Relay)
 						{
-							true => DiscoveryMethod::Relay,
-							false => DiscoveryMethod::Local,
+							true => DiscoveryMethod::Local,
+							false => DiscoveryMethod::Relay,
 						},
 						metadata,
 					});

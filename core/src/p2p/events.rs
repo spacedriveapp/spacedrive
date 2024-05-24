@@ -95,19 +95,21 @@ impl P2PEvents {
 
 							P2PEvent::PeerChange {
 								identity: peer.identity(),
-								connection: if quic.is_relayed(peer.identity()) {
-									ConnectionMethod::Relay
-								} else if peer.is_connected() {
-									ConnectionMethod::Local
+								connection: if peer.is_connected() {
+									if quic.is_relayed(peer.identity()) {
+										ConnectionMethod::Relay
+									} else {
+										ConnectionMethod::Local
+									}
 								} else {
 									ConnectionMethod::Disconnected
 								},
-								discovery: match peer
+								discovery: match !peer
 									.connection_candidates()
 									.contains(&PeerConnectionCandidate::Relay)
 								{
-									true => DiscoveryMethod::Relay,
-									false => DiscoveryMethod::Local,
+									true => DiscoveryMethod::Local,
+									false => DiscoveryMethod::Relay,
 								},
 								metadata,
 							}
