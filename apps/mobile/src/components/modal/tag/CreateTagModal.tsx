@@ -1,12 +1,12 @@
-import { forwardRef, useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import ColorPicker from 'react-native-wheel-color-picker';
 import {
 	ToastDefautlColor,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useRspcLibraryContext
 } from '@sd/client';
+import { forwardRef, useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import ColorPicker from 'react-native-wheel-color-picker';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
@@ -57,7 +57,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	return (
 		<Modal
 			ref={modalRef}
-			snapPoints={['25']}
+			snapPoints={['22']}
 			title="Create Tag"
 			onDismiss={() => {
 				// Resets form onDismiss
@@ -94,7 +94,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 				<Button
 					variant="accent"
 					onPress={() => createTag({ color: tagColor, name: tagName })}
-					style={tw`mt-6`}
+					style={tw`mt-2`}
 					disabled={tagName.length === 0}
 				>
 					<Text style={tw`text-sm font-medium text-white`}>Create</Text>

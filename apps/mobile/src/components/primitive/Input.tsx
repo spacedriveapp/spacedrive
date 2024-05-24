@@ -1,7 +1,7 @@
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { cva, VariantProps } from 'class-variance-authority';
 import { Eye, EyeSlash } from 'phosphor-react-native';
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { Pressable, TextInputProps as RNTextInputProps, TextInput, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -23,28 +23,32 @@ const input = cva(['rounded-md border text-sm leading-tight shadow-sm'], {
 
 type InputProps = VariantProps<typeof input> & RNTextInputProps;
 
-export const Input = ({ variant, size, ...props }: InputProps) => {
-	const { style, ...otherProps } = props;
+export const Input = forwardRef<TextInput, InputProps>((props, ref) => {
+	const { style, variant, size, ...otherProps } = props;
 	return (
 		<TextInput
+			ref={ref}
+			selectionColor={tw.color('accent')}
 			placeholderTextColor={tw.color('ink-faint')}
 			style={twStyle(input({ variant, size }), style as string)}
 			{...otherProps}
 		/>
 	);
-};
+})
 
 // To use in modals (for keyboard handling)
-export const ModalInput = ({ variant, size, ...props }: InputProps) => {
-	const { style, ...otherProps } = props;
+export const ModalInput = forwardRef<any, InputProps>((props, ref) => {
+	const { style, variant, size, ...otherProps } = props;
 	return (
 		<BottomSheetTextInput
+			ref={ref}
+			selectionColor={tw.color('accent')}
 			placeholderTextColor={tw.color('ink-faint')}
 			style={twStyle(input({ variant, size }), style as string)}
 			{...otherProps}
 		/>
 	);
-};
+})
 
 // Same as Input but configured with password props & show/hide password button
 
