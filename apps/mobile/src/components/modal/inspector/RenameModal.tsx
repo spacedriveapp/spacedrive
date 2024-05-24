@@ -5,6 +5,7 @@ import { TextInput } from 'react-native-gesture-handler';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { ModalInput } from '~/components/primitive/Input';
+import { toast } from '~/components/primitive/Toast';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
@@ -25,7 +26,10 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onSuccess: () => {
 			modalRef.current?.dismiss();
-			return rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries(['search.paths']);
+		},
+		onError: () => {
+			toast.error('Failed to rename object');
 		}
 	});
 
@@ -35,7 +39,6 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 	}, [props.objectName]);
 
 	const textRenameHandler = async () => {
-		try {
 			switch (data?.type) {
 				case 'Path':
 				case 'Object': {
@@ -57,9 +60,6 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 					break;
 				}
 			}
-		} catch (e) {
-			console.error(e);
-		}
 	};
 
 	return (
