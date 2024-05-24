@@ -350,7 +350,9 @@ function NodesPanel() {
 								<Button
 									variant="accent"
 									onClick={() => debugConnect.mutate(id)}
-									disabled={debugConnect.isLoading}
+									disabled={
+										peer.connection === 'Disconnected' || debugConnect.isLoading
+									}
 								>
 									Connect
 								</Button>
