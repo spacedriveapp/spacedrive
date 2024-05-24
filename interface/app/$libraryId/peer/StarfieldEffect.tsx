@@ -85,7 +85,8 @@ const StarfieldEffect: React.FC = () => {
       let lx = x1;
       let ly = y1;
 
-      while (true) {
+	  const continueLoop = true
+      while (continueLoop) {
         if (lx > 0 && lx < canvas.width && ly > 0 && ly < canvas.height) {
           setPixel(lx, ly, r, g, b, a);
         }
