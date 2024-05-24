@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
 use sd_p2p::{
-	flume::bounded, hooks::QuicHandle, HookEvent, HookId, PeerConnectionCandidate, RemoteIdentity,
-	P2P,
+	flume::bounded, hooks::QuicHandle, HookEvent, PeerConnectionCandidate, RemoteIdentity, P2P,
 };
 use serde::Serialize;
 use specta::Type;
