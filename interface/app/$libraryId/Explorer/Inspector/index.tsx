@@ -12,6 +12,20 @@ import {
 	Icon as PhosphorIcon,
 	Snowflake
 } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import dayjs from 'dayjs';
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+	type HTMLAttributes,
+	type ReactNode
+} from 'react';
+import { useLocation } from 'react-router';
+import { Link as NavLink } from 'react-router-dom';
+import Sticky from 'react-sticky-el';
 import {
 	FilePath,
 	FilePathForFrontend,
@@ -28,20 +42,6 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
-import clsx from 'clsx';
-import dayjs from 'dayjs';
-import {
-	forwardRef,
-	useCallback,
-	useEffect,
-	useMemo,
-	useState,
-	type HTMLAttributes,
-	type ReactNode
-} from 'react';
-import { useLocation } from 'react-router';
-import { Link as NavLink } from 'react-router-dom';
-import Sticky from 'react-sticky-el';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import { useLocale, useZodRouteParams } from '~/hooks';
@@ -231,6 +231,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePathData?.id ?? -1], {
 		enabled: filePathData != null && readyToFetch
+	});
+
+	const duplicateFilePaths = useLibraryQuery(['files.getDuplicates', objectData?.id ?? -1], {
+		enabled: objectData != null && readyToFetch
 	});
 
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
@@ -525,7 +529,6 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 
 	const onlyNonIndexed = metadata.types.has('NonIndexedPath') && metadata.types.size === 1;
 	const filesSize = humanizeSize(metadata.size);
-
 
 	return (
 		<>
