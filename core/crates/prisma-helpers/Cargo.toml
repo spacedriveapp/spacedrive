@@ -11,6 +11,8 @@ edition = { workspace = true }
 [dependencies]
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
+sd-utils = { path = "../../../crates/utils" }
 
 prisma-client-rust = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+uuid = { workspace = true, features = ["v4", "serde"] }

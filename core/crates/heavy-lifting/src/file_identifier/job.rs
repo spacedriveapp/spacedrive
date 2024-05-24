@@ -89,7 +89,7 @@ impl Job for FileIdentifier {
 							TaskKind::ExtractFileMetadata => {
 								<ExtractFileMetadataTask as SerializableTask<Error>>::deserialize(
 									&task_bytes,
-									(),
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 								)
 								.await
 								.map(IntoTask::into_task)

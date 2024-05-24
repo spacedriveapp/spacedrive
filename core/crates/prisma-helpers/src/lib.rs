@@ -29,6 +29,12 @@
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 use sd_prisma::prisma::{file_path, job, label, location, object};
+use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 // File Path selectables!
 file_path::select!(file_path_pub_id { pub_id });
@@ -138,6 +144,10 @@ file_path::select!(file_path_to_full_path {
 		id
 		path
 	}
+});
+file_path::select!(file_path_to_create_object {
+	pub_id
+	date_created
 });
 
 // File Path includes!
@@ -286,3 +296,173 @@ label::include!((take: i64) => label_with_objects {
 		}
 	}
 });
+
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+pub struct CasId(String);
+
+impl From<CasId> for file_path::cas_id::Type {
+	fn from(cas_id: CasId) -> Self {
+		Some(cas_id.0)
+	}
+}
+
+impl From<&CasId> for file_path::cas_id::Type {
+	fn from(cas_id: &CasId) -> Self {
+		Some(cas_id.0.clone())
+	}
+}
+
+impl From<&str> for CasId {
+	fn from(cas_id: &str) -> Self {
+		Self(cas_id.to_string())
+	}
+}
+
+impl From<String> for CasId {
+	fn from(cas_id: String) -> Self {
+		Self(cas_id)
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+#[repr(transparent)]
+pub struct FilePathPubId(PubId);
+
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[serde(transparent)]
+#[repr(transparent)]
+pub struct ObjectPubId(PubId);
+
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+enum PubId {
+	Uuid(Uuid),
+	Vec(Vec<u8>),
+}
+
+impl PubId {
+	fn new() -> Self {
+		Self::Uuid(Uuid::new_v4())
+	}
+
+	fn to_db(&self) -> Vec<u8> {
+		match self {
+			Self::Uuid(uuid) => uuid_to_bytes(uuid),
+			Self::Vec(bytes) => bytes.clone(),
+		}
+	}
+}
+
+impl Default for PubId {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+impl From<Uuid> for PubId {
+	fn from(uuid: Uuid) -> Self {
+		Self::Uuid(uuid)
+	}
+}
+
+impl From<Vec<u8>> for PubId {
+	fn from(bytes: Vec<u8>) -> Self {
+		Self::Vec(bytes)
+	}
+}
+
+impl From<&[u8]> for PubId {
+	fn from(bytes: &[u8]) -> Self {
+		Self::Vec(bytes.to_vec())
+	}
+}
+
+impl From<PubId> for Vec<u8> {
+	fn from(pub_id: PubId) -> Self {
+		match pub_id {
+			PubId::Uuid(uuid) => uuid_to_bytes(&uuid),
+			PubId::Vec(bytes) => bytes,
+		}
+	}
+}
+
+impl From<PubId> for Uuid {
+	fn from(pub_id: PubId) -> Self {
+		match pub_id {
+			PubId::Uuid(uuid) => uuid,
+			PubId::Vec(bytes) => from_bytes_to_uuid(&bytes),
+		}
+	}
+}
+
+impl fmt::Display for PubId {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Uuid(uuid) => write!(f, "{uuid}"),
+			Self::Vec(bytes) => write!(f, "{}", from_bytes_to_uuid(bytes)),
+		}
+	}
+}
+
+macro_rules! delegate_pub_id {
+	($($type_name:ty),+ $(,)?) => {
+		$(
+			impl From<::uuid::Uuid> for $type_name {
+				fn from(uuid: ::uuid::Uuid) -> Self {
+					Self(uuid.into())
+				}
+			}
+
+			impl From<Vec<u8>> for $type_name {
+				fn from(bytes: Vec<u8>) -> Self {
+					Self(bytes.into())
+				}
+			}
+
+			impl From<&[u8]> for $type_name {
+				fn from(bytes: &[u8]) -> Self {
+					Self(bytes.into())
+				}
+			}
+
+			impl From<$type_name> for Vec<u8> {
+				fn from(pub_id: $type_name) -> Self {
+					pub_id.0.into()
+				}
+			}
+
+			impl From<$type_name> for ::uuid::Uuid {
+				fn from(pub_id: $type_name) -> Self {
+					pub_id.0.into()
+				}
+			}
+
+			impl ::std::fmt::Display for $type_name {
+				fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+					write!(f, "{}", self.0)
+				}
+			}
+
+			impl $type_name {
+				#[must_use]
+				pub fn new() -> Self {
+					Self(PubId::new())
+				}
+
+				#[must_use]
+				pub fn to_db(&self) -> Vec<u8> {
+					self.0.to_db()
+				}
+			}
+
+			impl Default for $type_name {
+				fn default() -> Self {
+					Self::new()
+				}
+			}
+		)+
+	};
+}
+
+delegate_pub_id!(FilePathPubId, ObjectPubId);

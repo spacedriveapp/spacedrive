@@ -264,11 +264,13 @@ pub async fn generate_thumbnail(
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(extension) {
+			trace!("Generating image thumbnail for {}", path.display());
 			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 				return (start.elapsed(), Err(e));
 			}
 		}
 	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
+		trace!("Generating document thumbnail for {}", path.display());
 		if can_generate_thumbnail_for_document(extension) {
 			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 				return (start.elapsed(), Err(e));
@@ -282,6 +284,7 @@ pub async fn generate_thumbnail(
 		use sd_file_ext::extensions::VideoExtension;
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {
+			trace!("Generating image thumbnail for {}", path.display());
 			if can_generate_thumbnail_for_video(extension) {
 				if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
 					return (start.elapsed(), Err(e));

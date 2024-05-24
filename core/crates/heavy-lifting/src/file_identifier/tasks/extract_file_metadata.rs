@@ -4,13 +4,21 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_for_file_identifier;
+use sd_core_prisma_helpers::{
+	file_path_for_file_identifier, file_path_to_create_object, CasId, FilePathPubId,
+};
+use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::prisma::location;
+use sd_file_ext::kind::ObjectKind;
+use sd_prisma::{
+	prisma::{file_path, location, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::error::FileIOError;
+use sd_utils::{error::FileIOError, msgpack};
 
 use std::{
 	collections::HashMap, future::IntoFuture, mem, path::PathBuf, pin::pin, sync::Arc,
@@ -18,61 +26,36 @@ use std::{
 };
 
 use futures::stream::{self, FuturesUnordered, StreamExt};
-use futures_concurrency::stream::Merge;
+use futures_concurrency::{future::TryJoin, stream::Merge};
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::{error, trace};
-use uuid::Uuid;
+use tracing::{error, instrument, trace, Level};
 
-use super::IdentifiedFile;
+use super::{create_objects, IdentifiedFile, ObjectToCreateOrLink};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct ExtractFileMetadataTask {
 	id: TaskId,
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
-	file_paths_by_id: HashMap<Uuid, file_path_for_file_identifier::Data>,
-	identified_files: HashMap<Uuid, IdentifiedFile>,
-	extract_metadata_time: Duration,
-	errors: Vec<NonCriticalError>,
+	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
+	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
+	file_paths_without_cas_id: Vec<(file_path_to_create_object::Data, ObjectKind)>,
 	with_priority: bool,
+
+	output: Output,
+
+	db: Arc<PrismaClient>,
+	sync: Arc<SyncManager>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Output {
-	pub identified_files: HashMap<Uuid, IdentifiedFile>,
+	pub file_path_pub_ids_and_kinds_by_cas_id: HashMap<CasId, Vec<ObjectToCreateOrLink>>,
 	pub extract_metadata_time: Duration,
+	pub save_db_time: Duration,
+	pub created_objects_count: u64,
 	pub errors: Vec<NonCriticalError>,
-}
-
-impl ExtractFileMetadataTask {
-	#[must_use]
-	pub fn new(
-		location: Arc<location::Data>,
-		location_path: Arc<PathBuf>,
-		file_paths: Vec<file_path_for_file_identifier::Data>,
-		with_priority: bool,
-	) -> Self {
-		Self {
-			id: TaskId::new_v4(),
-			location,
-			location_path,
-			identified_files: HashMap::with_capacity(file_paths.len()),
-			file_paths_by_id: file_paths
-				.into_iter()
-				.map(|file_path| {
-					// SAFETY: This should never happen
-					(
-						Uuid::from_slice(&file_path.pub_id).expect("file_path.pub_id is invalid!"),
-						file_path,
-					)
-				})
-				.collect(),
-			extract_metadata_time: Duration::ZERO,
-			errors: Vec::new(),
-			with_priority,
-		}
-	}
 }
 
 #[async_trait::async_trait]
@@ -85,38 +68,49 @@ impl Task<Error> for ExtractFileMetadataTask {
 		self.with_priority
 	}
 
+	#[instrument(
+		skip(self, interrupter),
+		fields(
+			task_id = %self.id,
+			location_id = %self.location.id,
+			location_path = %self.location_path.display(),
+			files_count = %self.file_paths_by_id.len(),
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
+	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		// `Processed` is larger than `Interrupt`, but it's much more common
 		// so we ignore the size difference to optimize for usage
 		#[allow(clippy::large_enum_variant)]
 		enum StreamMessage {
-			Processed(Uuid, Result<FileMetadata, FileIOError>),
+			Processed(FilePathPubId, Result<FileMetadata, FileIOError>),
 			Interrupt(InterruptionKind),
 		}
 
 		let Self {
-			id,
 			location,
 			location_path,
 			file_paths_by_id,
+			file_paths_without_cas_id,
 			identified_files,
-			extract_metadata_time,
-			errors,
+			output,
 			..
 		} = self;
 
-		let start_time = Instant::now();
-
 		if !file_paths_by_id.is_empty() {
+			let start_time = Instant::now();
+
 			let extraction_futures = file_paths_by_id
 				.iter()
 				.filter_map(|(file_path_id, file_path)| {
 					try_iso_file_path_extraction(
 						location.id,
-						*file_path_id,
+						file_path_id.clone(),
 						file_path,
 						Arc::clone(location_path),
-						errors,
+						&mut output.errors,
 					)
 				})
 				.map(|(file_path_id, iso_file_path, location_path)| async move {
@@ -140,39 +134,59 @@ impl Task<Error> for ExtractFileMetadataTask {
 							.remove(&file_path_pub_id)
 							.expect("file_path must be here");
 
-						trace!("Processed file <file_path_pub_id='{file_path_pub_id}'>, {} files remaining", file_paths_by_id.len());
+						trace!(
+							files_remaining = file_paths_by_id.len(),
+							%file_path_pub_id,
+							"Processed file",
+						);
 
 						match res {
-							Ok(FileMetadata { cas_id, kind, .. }) => {
+							Ok(FileMetadata {
+								cas_id: Some(cas_id),
+								kind,
+								..
+							}) => {
 								identified_files.insert(
 									file_path_pub_id,
-									IdentifiedFile {
-										file_path,
-										cas_id,
-										kind,
-									},
+									IdentifiedFile::new(file_path, cas_id, kind),
 								);
+							}
+							Ok(FileMetadata {
+								cas_id: None, kind, ..
+							}) => {
+								let file_path_for_file_identifier::Data {
+									pub_id,
+									date_created,
+									..
+								} = file_path;
+								file_paths_without_cas_id.push((
+									file_path_to_create_object::Data {
+										pub_id,
+										date_created,
+									},
+									kind,
+								));
 							}
 							Err(e) => {
 								handle_non_critical_errors(
-									location.id,
 									file_path_pub_id,
 									&e,
-									errors,
+									&mut output.errors,
 								);
 							}
 						}
 
 						if file_paths_by_id.is_empty() {
-							// All files have been processed so we can end this merged stream and don't keep waiting an
-							// interrupt signal
+							trace!("All files have been processed");
+							// All files have been processed so we can end this merged stream
+							// and don't keep waiting an interrupt signal
 							break;
 						}
 					}
 
 					StreamMessage::Interrupt(kind) => {
-						trace!("Task received interrupt {kind:?}: <task_id={id}>");
-						*extract_metadata_time += start_time.elapsed();
+						trace!(?kind, "Interrupted");
+						output.extract_metadata_time += start_time.elapsed();
 						return Ok(match kind {
 							InterruptionKind::Pause => ExecStatus::Paused,
 							InterruptionKind::Cancel => ExecStatus::Canceled,
@@ -180,27 +194,125 @@ impl Task<Error> for ExtractFileMetadataTask {
 					}
 				}
 			}
+
+			output.extract_metadata_time = start_time.elapsed();
+
+			trace!(
+				identified_files_count = identified_files.len(),
+				"All files have been processed, saving cas_ids to db..."
+			);
+			let start_time = Instant::now();
+			// Assign cas_id to each file path
+			let (_, created) = (
+				assign_cas_id_to_file_paths(identified_files, &self.db, &self.sync),
+				create_objects(file_paths_without_cas_id.iter(), &self.db, &self.sync),
+			)
+				.try_join()
+				.await?;
+
+			output.save_db_time = start_time.elapsed();
+			output.created_objects_count = created;
+			output.file_path_pub_ids_and_kinds_by_cas_id = identified_files.drain().fold(
+				HashMap::new(),
+				|mut map,
+				 (
+					file_path_pub_id,
+					IdentifiedFile {
+						cas_id,
+						kind,
+						file_path,
+					},
+				)| {
+					map.entry(cas_id)
+						.or_insert_with(|| Vec::with_capacity(1))
+						.push(ObjectToCreateOrLink {
+							file_path_pub_id,
+							kind,
+							created_at: file_path.date_created,
+						});
+
+					map
+				},
+			);
+
+			trace!(save_db_time = ?output.save_db_time, "Cas_ids saved to db");
 		}
 
-		Ok(ExecStatus::Done(
-			Output {
-				identified_files: mem::take(identified_files),
-				extract_metadata_time: *extract_metadata_time + start_time.elapsed(),
-				errors: mem::take(errors),
-			}
-			.into_output(),
-		))
+		Ok(ExecStatus::Done(mem::take(output).into_output()))
 	}
 }
 
+impl ExtractFileMetadataTask {
+	#[must_use]
+	pub fn new(
+		location: Arc<location::Data>,
+		location_path: Arc<PathBuf>,
+		file_paths: Vec<file_path_for_file_identifier::Data>,
+		with_priority: bool,
+		db: Arc<PrismaClient>,
+		sync: Arc<SyncManager>,
+	) -> Self {
+		Self {
+			id: TaskId::new_v4(),
+			location,
+			location_path,
+			identified_files: HashMap::with_capacity(file_paths.len()),
+			file_paths_without_cas_id: Vec::with_capacity(file_paths.len()),
+			file_paths_by_id: file_paths
+				.into_iter()
+				.map(|file_path| (file_path.pub_id.as_slice().into(), file_path))
+				.collect(),
+			output: Output::default(),
+			with_priority,
+			db,
+			sync,
+		}
+	}
+}
+
+#[instrument(skip_all, err, fields(identified_files_count = identified_files.len()))]
+async fn assign_cas_id_to_file_paths(
+	identified_files: &HashMap<FilePathPubId, IdentifiedFile>,
+	db: &PrismaClient,
+	sync: &SyncManager,
+) -> Result<(), file_identifier::Error> {
+	// Assign cas_id to each file path
+	sync.write_ops(
+		db,
+		identified_files
+			.iter()
+			.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
+				(
+					sync.shared_update(
+						prisma_sync::file_path::SyncId {
+							pub_id: pub_id.to_db(),
+						},
+						file_path::cas_id::NAME,
+						msgpack!(cas_id),
+					),
+					db.file_path()
+						.update(
+							file_path::pub_id::equals(pub_id.to_db()),
+							vec![file_path::cas_id::set(cas_id.into())],
+						)
+						// We don't need any data here, just the id avoids receiving the entire object
+						// as we can't pass an empty select macro call
+						.select(file_path::select!({ id })),
+				)
+			})
+			.unzip::<_, _, _, Vec<_>>(),
+	)
+	.await?;
+
+	Ok(())
+}
+
+#[instrument(skip(errors))]
 fn handle_non_critical_errors(
-	location_id: location::id::Type,
-	file_path_pub_id: Uuid,
+	file_path_pub_id: FilePathPubId,
 	e: &FileIOError,
 	errors: &mut Vec<NonCriticalError>,
 ) {
-	error!("Failed to extract file metadata <location_id={location_id}, file_path_pub_id='{file_path_pub_id}'>: {e:#?}");
-
 	let formatted_error = format!("<file_path_pub_id='{file_path_pub_id}', error={e}>");
 
 	#[cfg(target_os = "windows")]
@@ -234,18 +346,26 @@ fn handle_non_critical_errors(
 	}
 }
 
+#[instrument(
+	skip(location_id, file_path, location_path, errors),
+	fields(
+		file_path_id = file_path.id,
+		materialized_path = ?file_path.materialized_path,
+		name = ?file_path.name,
+		extension = ?file_path.extension,
+	)
+)]
 fn try_iso_file_path_extraction(
 	location_id: location::id::Type,
-	file_path_pub_id: Uuid,
+	file_path_pub_id: FilePathPubId,
 	file_path: &file_path_for_file_identifier::Data,
 	location_path: Arc<PathBuf>,
 	errors: &mut Vec<NonCriticalError>,
-) -> Option<(Uuid, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
+) -> Option<(FilePathPubId, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
 	IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
-		.map(|iso_file_path| (file_path_pub_id, iso_file_path, location_path))
 		.map_err(|e| {
-			error!("Failed to extract isolated file path data: {e:#?}");
+			error!(?e, "Failed to extract isolated file path data");
 			errors.push(
 				file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
 					"<file_path_pub_id='{file_path_pub_id}', error={e}>"
@@ -253,7 +373,20 @@ fn try_iso_file_path_extraction(
 				.into(),
 			);
 		})
+		.map(|iso_file_path| (file_path_pub_id, iso_file_path, location_path))
 		.ok()
+}
+
+#[derive(Serialize, Deserialize)]
+struct SaveState {
+	id: TaskId,
+	location: Arc<location::Data>,
+	location_path: Arc<PathBuf>,
+	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
+	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
+	file_paths_without_cas_id: Vec<(file_path_to_create_object::Data, ObjectKind)>,
+	output: Output,
+	with_priority: bool,
 }
 
 impl SerializableTask<Error> for ExtractFileMetadataTask {
@@ -261,16 +394,58 @@ impl SerializableTask<Error> for ExtractFileMetadataTask {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = ();
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
-		rmp_serde::to_vec_named(&self)
+		let Self {
+			id,
+			location,
+			location_path,
+			file_paths_by_id,
+			identified_files,
+			file_paths_without_cas_id,
+			output,
+			with_priority,
+			..
+		} = self;
+		rmp_serde::to_vec_named(&SaveState {
+			id,
+			location,
+			location_path,
+			file_paths_by_id,
+			identified_files,
+			file_paths_without_cas_id,
+			output,
+			with_priority,
+		})
 	}
 
 	async fn deserialize(
 		data: &[u8],
-		(): Self::DeserializeCtx,
+		(db, sync): Self::DeserializeCtx,
 	) -> Result<Self, Self::DeserializeError> {
-		rmp_serde::from_slice(data)
+		rmp_serde::from_slice::<SaveState>(data).map(
+			|SaveState {
+			     id,
+			     location,
+			     location_path,
+			     file_paths_by_id,
+			     identified_files,
+			     file_paths_without_cas_id,
+			     output,
+			     with_priority,
+			 }| Self {
+				id,
+				location,
+				location_path,
+				file_paths_by_id,
+				identified_files,
+				file_paths_without_cas_id,
+				output,
+				with_priority,
+				db,
+				sync,
+			},
+		)
 	}
 }

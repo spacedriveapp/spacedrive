@@ -68,7 +68,7 @@ pub const fn i64_to_frontend(num: i64) -> (i32, u32) {
 
 #[inline]
 #[must_use]
-pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
+pub fn uuid_to_bytes(uuid: &Uuid) -> Vec<u8> {
 	uuid.as_bytes().to_vec()
 }
 

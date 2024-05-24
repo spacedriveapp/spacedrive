@@ -167,7 +167,7 @@ impl IndexerRuleCreateArgs {
 		Ok(Some(
 			db.indexer_rule()
 				.create(
-					sd_utils::uuid_to_bytes(generate_pub_id()),
+					sd_utils::uuid_to_bytes(&generate_pub_id()),
 					vec![
 						name::set(Some(self.name)),
 						rules_per_kind::set(Some(rules_data)),

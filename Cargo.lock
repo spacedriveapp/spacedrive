@@ -9263,7 +9263,9 @@ version = "0.1.0"
 dependencies = [
  "prisma-client-rust",
  "sd-prisma",
+ "sd-utils",
  "serde",
+ "uuid",
 ]
 
 [[package]]
