@@ -6,4 +6,4 @@ mod mdns;
 mod quic;
 
 pub use mdns::Mdns;
-pub use quic::{Libp2pPeerId, QuicTransport, RelayServerEntry};
+pub use quic::{Libp2pPeerId, QuicHandle, QuicTransport, RelayServerEntry};

@@ -26,7 +26,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}) {
 					queued.push(P2PEvent::PeerChange {
 						identity: peer.identity(),
-						connection: if peer.is_connected_with_hook(node.p2p.libraries_hook_id) {
+						connection: if node.p2p.quic.is_relayed(peer.identity()) {
 							ConnectionMethod::Relay
 						} else if peer.is_connected() {
 							ConnectionMethod::Local

@@ -26,8 +26,11 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
-use super::utils::{
-	identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
+use super::{
+	handle::QuicHandle,
+	utils::{
+		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
+	},
 };
 use crate::{
 	identity::REMOTE_IDENTITY_LEN, ConnectionRequest, HookEvent, ListenerId,
@@ -100,6 +103,7 @@ pub struct QuicTransport {
 	p2p: Arc<P2P>,
 	internal_tx: Sender<InternalEvent>,
 	relay_config: Mutex<Vec<RelayServerEntry>>,
+	handle: Arc<QuicHandle>,
 }
 
 impl QuicTransport {
@@ -137,9 +141,15 @@ impl QuicTransport {
 		Ok((
 			Self {
 				id,
-				p2p,
+				p2p: p2p.clone(),
 				internal_tx,
 				relay_config: Mutex::new(Vec::new()),
+				handle: Arc::new(QuicHandle {
+					shutdown: Default::default(),
+					p2p,
+					hook_id: id.into(),
+					nodes: Default::default(),
+				}),
 			},
 			libp2p_peer_id,
 		))
@@ -241,6 +251,10 @@ impl QuicTransport {
 			.and_then(|r| r.map_err(QuicTransportError::InternalEvent))
 	}
 
+	pub fn handle(&self) -> Arc<QuicHandle> {
+		self.handle.clone()
+	}
+
 	pub async fn shutdown(self) {
 		self.p2p.unregister_hook(self.id.into()).await;
 	}
@@ -313,6 +327,7 @@ async fn start(
 			Some((peer_id, mut stream)) = incoming.next() => {
 				let p2p = p2p.clone();
 				let map = map.clone();
+
 				tokio::spawn(async move {
 					let mut actual = [0; REMOTE_IDENTITY_LEN];
 					match stream.read_exact(&mut actual).await {
@@ -359,19 +374,19 @@ async fn start(
 				});
 			},
 			event = swarm.select_next_some() => if let SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } = event {
-					let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
-						warn!("Tried to remove a peer that wasn't in the map.");
-						continue;
-					};
+				let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
+					warn!("Tried to remove a peer that wasn't in the map.");
+					continue;
+				};
 
-					let peers = p2p.peers.read().unwrap_or_else(PoisonError::into_inner);
-					let Some(peer) = peers.get(&identity) else {
-						warn!("Tried to remove a peer that wasn't in the P2P system.");
-						continue;
-					};
+				let peers = p2p.peers.read().unwrap_or_else(PoisonError::into_inner);
+				let Some(peer) = peers.get(&identity) else {
+					warn!("Tried to remove a peer that wasn't in the P2P system.");
+					continue;
+				};
 
-					peer.disconnected_from(id);
-			},
+				peer.disconnected_from(id);
+		},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
 					match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {
