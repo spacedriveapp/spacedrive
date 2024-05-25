@@ -9,4 +9,6 @@ appId: com.spacedrive.app
 - inputText: 'MyTag'
 - tapOn:
     text: 'Create'
+- tapOn:
+    id: 'show-all-tags-button'
 - assertVisible: 'MyTag'
