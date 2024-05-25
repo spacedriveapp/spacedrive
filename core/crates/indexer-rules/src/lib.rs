@@ -51,7 +51,7 @@ use rspc::ErrorCode;
 
 use specta::Type;
 use thiserror::Error;
-use tokio::{fs, sync::RwLock};
+use tokio::fs;
 use tracing::debug;
 use uuid::Uuid;
 

@@ -149,9 +149,9 @@ mod library {
 							&library.db,
 							&library.sync,
 							&node.libraries,
-							instance.uuid,
+							&instance.uuid,
 							instance.identity,
-							instance.node_id,
+							&instance.node_id,
 							node.p2p.peer_metadata(),
 						)
 						.await?;

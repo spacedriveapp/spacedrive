@@ -647,7 +647,7 @@ pub async fn relink_location(
 
 	metadata.relink(*id, location_path).await?;
 
-	let pub_id = uuid_to_bytes(metadata.location_pub_id(*id)?);
+	let pub_id = uuid_to_bytes(&metadata.location_pub_id(*id)?);
 	let path = location_path
 		.to_str()
 		.map(str::to_string)
@@ -1168,7 +1168,7 @@ pub async fn create_file_path(
 		.unzip()
 	};
 
-	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
+	let pub_id = sd_utils::uuid_to_bytes(&Uuid::new_v4());
 
 	let created_path = sync
 		.write_ops(

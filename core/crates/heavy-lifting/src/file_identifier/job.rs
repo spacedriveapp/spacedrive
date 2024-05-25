@@ -12,7 +12,7 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_for_file_identifier;
+use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
 
 use sd_prisma::prisma::{file_path, location, SortOrder};
 use sd_task_system::{
@@ -23,6 +23,7 @@ use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
 	collections::{HashMap, HashSet},
+	fmt,
 	hash::{Hash, Hasher},
 	mem,
 	path::PathBuf,
@@ -35,28 +36,61 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use super::{
-	orphan_path_filters_deep, orphan_path_filters_shallow,
-	tasks::{
-		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
-	},
+	accumulate_file_paths_by_cas_id, dispatch_object_processor_tasks, orphan_path_filters_deep,
+	orphan_path_filters_shallow,
+	tasks::{self, identifier, object_processor, FilePathToCreateOrLinkObject},
 	CHUNK_SIZE,
 };
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+enum Phase {
+	IdentifyingFiles,
+	ProcessingObjects,
+}
+
+impl Default for Phase {
+	fn default() -> Self {
+		Self::IdentifyingFiles
+	}
+}
+
+impl fmt::Display for Phase {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::IdentifyingFiles => write!(f, "identifying_files"),
+			Self::ProcessingObjects => write!(f, "processing_objects"),
+		}
+	}
+}
+
+impl From<Phase> for String {
+	fn from(phase: Phase) -> Self {
+		phase.to_string()
+	}
+}
+
 #[derive(Debug)]
 pub struct FileIdentifier {
+	// Received arguments
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
 
+	// Inner state
+	file_paths_accumulator: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
+
+	// Job control
+	phase: Phase,
+
+	// Run data
 	metadata: Metadata,
-
-	priority_tasks_ids: HashSet<TaskId>,
-
 	errors: Vec<NonCriticalError>,
 
+	// On shutdown data
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
@@ -86,16 +120,14 @@ impl Job for FileIdentifier {
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
-							TaskKind::ExtractFileMetadata => {
-								<ExtractFileMetadataTask as SerializableTask<Error>>::deserialize(
-									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
-								)
-								.await
-								.map(IntoTask::into_task)
-							}
+							TaskKind::Identifier => tasks::Identifier::deserialize(
+								&task_bytes,
+								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+							)
+							.await
+							.map(IntoTask::into_task),
 
-							TaskKind::ObjectProcessor => ObjectProcessorTask::deserialize(
+							TaskKind::ObjectProcessor => tasks::ObjectProcessor::deserialize(
 								&task_bytes,
 								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 							)
@@ -126,12 +158,10 @@ impl Job for FileIdentifier {
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					if let Some(new_object_processor_task) = self
-						.process_task_output(task_id, out, &ctx, &dispatcher)
-						.await
-					{
-						pending_running_tasks.push(new_object_processor_task);
-					};
+					pending_running_tasks.extend(
+						self.process_task_output(task_id, out, &ctx, &dispatcher)
+							.await,
+					);
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
@@ -208,8 +238,10 @@ impl FileIdentifier {
 				.map(Arc::new)?,
 			location: Arc::new(location),
 			sub_path,
+			file_paths_accumulator: HashMap::new(),
+			file_paths_ids_with_priority: HashSet::new(),
+			phase: Phase::default(),
 			metadata: Metadata::default(),
-			priority_tasks_ids: HashSet::new(),
 			errors: Vec::new(),
 			pending_tasks_on_resume: Vec::new(),
 			tasks_for_shutdown: Vec::new(),
@@ -247,17 +279,16 @@ impl FileIdentifier {
 
 			// First we dispatch some shallow priority tasks to quickly identify orphans in the location
 			// root directory or in the desired sub-path
-			let file_paths_already_identifying = self
-				.dispatch_priority_identifier_tasks(
-					&mut last_orphan_file_path_id,
-					maybe_sub_iso_file_path
-						.as_ref()
-						.unwrap_or(&location_root_iso_file_path),
-					ctx,
-					dispatcher,
-					pending_running_tasks,
-				)
-				.await?;
+			self.dispatch_priority_identifier_tasks(
+				&mut last_orphan_file_path_id,
+				maybe_sub_iso_file_path
+					.as_ref()
+					.unwrap_or(&location_root_iso_file_path),
+				ctx,
+				dispatcher,
+				pending_running_tasks,
+			)
+			.await?;
 
 			self.dispatch_deep_identifier_tasks(
 				&mut last_orphan_file_path_id,
@@ -265,15 +296,11 @@ impl FileIdentifier {
 				ctx,
 				dispatcher,
 				pending_running_tasks,
-				&file_paths_already_identifying,
 			)
 			.await?;
 
-			// Multiplying by 2 as each batch will have 2 tasks
-			self.metadata.total_tasks *= 2;
-
 			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_tasks),
+				ProgressUpdate::TaskCount(self.metadata.total_identifier_tasks),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -284,7 +311,11 @@ impl FileIdentifier {
 			self.metadata.seeking_orphans_time = start.elapsed();
 		} else {
 			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_tasks),
+				ProgressUpdate::TaskCount(if matches!(self.phase, Phase::IdentifyingFiles) {
+					self.metadata.total_identifier_tasks
+				} else {
+					self.metadata.total_object_processor_tasks
+				}),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -308,13 +339,13 @@ impl FileIdentifier {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Option<TaskHandle<Error>> {
-		if any_task_output.is::<extract_file_metadata::Output>() {
+	) -> Vec<TaskHandle<Error>> {
+		if any_task_output.is::<identifier::Output>() {
 			return self
-				.process_extract_file_metadata_output(
+				.process_identifier_output(
 					task_id,
 					*any_task_output
-						.downcast::<extract_file_metadata::Output>()
+						.downcast::<identifier::Output>()
 						.expect("just checked"),
 					ctx,
 					dispatcher,
@@ -333,77 +364,104 @@ impl FileIdentifier {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
 
-		None
+		vec![]
 	}
 
-	async fn process_extract_file_metadata_output<OuterCtx: OuterContext>(
+	#[instrument(
+		skip_all,
+		fields(
+			%task_id,
+			?extract_metadata_time,
+			?save_db_time,
+			created_objects_count,
+			total_identified_files,
+			errors_count = errors.len()
+		)
+	)]
+	async fn process_identifier_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
-		extract_file_metadata::Output {
-			identified_files,
+		identifier::Output {
+			file_path_ids_with_new_object,
+			file_paths_by_cas_id,
 			extract_metadata_time,
+			save_db_time,
+			created_objects_count,
+			total_identified_files,
 			errors,
-		}: extract_file_metadata::Output,
+		}: identifier::Output,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Option<TaskHandle<Error>> {
+	) -> Vec<TaskHandle<Error>> {
 		self.metadata.extract_metadata_time += extract_metadata_time;
+		self.metadata.mean_save_db_time_on_identifier_tasks += save_db_time;
+		self.metadata.created_objects_count += created_objects_count;
+
+		let file_paths_with_new_object_to_report = file_path_ids_with_new_object
+			.into_iter()
+			.filter_map(|id| self.file_paths_ids_with_priority.take(&id))
+			.collect::<Vec<_>>();
+
+		if !file_paths_with_new_object_to_report.is_empty() {
+			ctx.report_update(UpdateEvent::NewIdentifiedObjects {
+				file_path_ids: file_paths_with_new_object_to_report,
+			});
+		}
 
 		if !errors.is_empty() {
-			error!("Non critical errors while extracting metadata: {errors:#?}");
+			error!(?errors, "Non critical errors while extracting metadata");
 			self.errors.extend(errors);
 		}
 
-		let maybe_task = if identified_files.is_empty() {
-			self.metadata.completed_tasks += 2; // Adding 2 as we will not have an ObjectProcessorTask
+		accumulate_file_paths_by_cas_id(file_paths_by_cas_id, &mut self.file_paths_accumulator);
 
-			ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
-				self.metadata.completed_tasks,
-			)])
+		self.metadata.completed_identifier_tasks += 1;
+
+		ctx.progress(vec![
+			ProgressUpdate::CompletedTaskCount(self.metadata.completed_identifier_tasks),
+			ProgressUpdate::Message(format!(
+				"Identified {total_identified_files} of {} files",
+				self.metadata.total_found_orphans
+			)),
+		])
+		.await;
+
+		debug!(
+			"Processed ({}/{}) identifier tasks, took: {extract_metadata_time:?}",
+			self.metadata.completed_identifier_tasks, self.metadata.total_identifier_tasks,
+		);
+
+		// If we completed all identifier tasks, then we dispatch the object processor tasks
+		if self.metadata.completed_identifier_tasks == self.metadata.total_identifier_tasks {
+			let tasks = dispatch_object_processor_tasks(
+				self.file_paths_accumulator.drain(),
+				ctx,
+				dispatcher,
+				false,
+			)
 			.await;
 
-			None
-		} else {
-			self.metadata.completed_tasks += 1;
+			self.metadata.total_object_processor_tasks = tasks.len() as u64;
 
 			ctx.progress(vec![
-				ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
-				ProgressUpdate::Message(format!("Identified {} files", identified_files.len())),
+				ProgressUpdate::TaskCount(self.metadata.total_object_processor_tasks),
+				ProgressUpdate::CompletedTaskCount(0),
+				ProgressUpdate::phase(self.phase),
 			])
 			.await;
 
-			let with_priority = self.priority_tasks_ids.remove(&task_id);
-
-			let task = dispatcher
-				.dispatch(ObjectProcessorTask::new(
-					identified_files,
-					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
-					with_priority,
-				))
-				.await;
-
-			if with_priority {
-				self.priority_tasks_ids.insert(task.task_id());
-			}
-
-			Some(task)
-		};
-
-		debug!(
-			"Processed {}/{} file identifier tasks, took: {extract_metadata_time:?}",
-			self.metadata.completed_tasks, self.metadata.total_tasks,
-		);
-
-		maybe_task
+			tasks
+		} else {
+			vec![]
+		}
 	}
 
+	#[instrument(skip(self, file_path_ids_with_new_object, ctx))]
 	async fn process_object_processor_output<OuterCtx: OuterContext>(
 		&mut self,
 		task_id: TaskId,
 		object_processor::Output {
 			file_path_ids_with_new_object,
-			assign_cas_ids_time,
 			fetch_existing_objects_time,
 			assign_to_existing_object_time,
 			create_object_time,
@@ -412,17 +470,16 @@ impl FileIdentifier {
 		}: object_processor::Output,
 		ctx: &impl JobContext<OuterCtx>,
 	) {
-		self.metadata.assign_cas_ids_time += assign_cas_ids_time;
 		self.metadata.fetch_existing_objects_time += fetch_existing_objects_time;
 		self.metadata.assign_to_existing_object_time += assign_to_existing_object_time;
 		self.metadata.create_object_time += create_object_time;
 		self.metadata.created_objects_count += created_objects_count;
 		self.metadata.linked_objects_count += linked_objects_count;
 
-		self.metadata.completed_tasks += 1;
+		self.metadata.completed_object_processor_tasks += 1;
 
 		ctx.progress(vec![
-			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
+			ProgressUpdate::CompletedTaskCount(self.metadata.completed_object_processor_tasks),
 			ProgressUpdate::Message(format!(
 				"Processed {} of {} objects",
 				self.metadata.created_objects_count + self.metadata.linked_objects_count,
@@ -431,20 +488,22 @@ impl FileIdentifier {
 		])
 		.await;
 
-		if self.priority_tasks_ids.remove(&task_id) {
+		let file_paths_with_new_object_to_report = file_path_ids_with_new_object
+			.into_iter()
+			.filter_map(|id| self.file_paths_ids_with_priority.take(&id))
+			.collect::<Vec<_>>();
+
+		if !file_paths_with_new_object_to_report.is_empty() {
 			ctx.report_update(UpdateEvent::NewIdentifiedObjects {
-				file_path_ids: file_path_ids_with_new_object,
+				file_path_ids: file_paths_with_new_object_to_report,
 			});
 		}
 
 		debug!(
-			"Processed {}/{} file identifier tasks, took: {:?}",
-			self.metadata.completed_tasks,
-			self.metadata.total_tasks,
-			assign_cas_ids_time
-				+ fetch_existing_objects_time
-				+ assign_to_existing_object_time
-				+ create_object_time,
+			"Processed ({}/{}) object processor tasks, took: {:?}",
+			self.metadata.completed_object_processor_tasks,
+			self.metadata.total_object_processor_tasks,
+			fetch_existing_objects_time + assign_to_existing_object_time + create_object_time,
 		);
 	}
 
@@ -455,10 +514,8 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<HashSet<file_path::id::Type>, file_identifier::Error> {
+	) -> Result<(), file_identifier::Error> {
 		let db = ctx.db();
-
-		let mut file_paths_already_identifying = HashSet::new();
 
 		loop {
 			#[allow(clippy::cast_possible_wrap)]
@@ -482,29 +539,33 @@ impl FileIdentifier {
 				break;
 			}
 
-			file_paths_already_identifying.extend(orphan_paths.iter().map(|path| path.id));
+			self.file_paths_ids_with_priority.extend(
+				orphan_paths
+					.iter()
+					.map(|file_path_for_file_identifier::Data { id, .. }| *id),
+			);
 
 			self.metadata.total_found_orphans += orphan_paths.len() as u64;
 			*last_orphan_file_path_id =
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
-			self.metadata.total_tasks += 1;
+			self.metadata.total_identifier_tasks += 1;
 
-			let priority_task = dispatcher
-				.dispatch(ExtractFileMetadataTask::new(
-					Arc::clone(&self.location),
-					Arc::clone(&self.location_path),
-					orphan_paths,
-					true,
-				))
-				.await;
-
-			self.priority_tasks_ids.insert(priority_task.task_id());
-
-			pending_running_tasks.push(priority_task);
+			pending_running_tasks.push(
+				dispatcher
+					.dispatch(tasks::Identifier::new(
+						Arc::clone(&self.location),
+						Arc::clone(&self.location_path),
+						orphan_paths,
+						true,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					))
+					.await,
+			);
 		}
 
-		Ok(file_paths_already_identifying)
+		Ok(())
 	}
 
 	async fn dispatch_deep_identifier_tasks<OuterCtx: OuterContext>(
@@ -514,7 +575,6 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-		file_paths_already_identifying: &HashSet<file_path::id::Type>,
 	) -> Result<(), file_identifier::Error> {
 		let db = ctx.db();
 
@@ -543,7 +603,9 @@ impl FileIdentifier {
 			*last_orphan_file_path_id =
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
-			orphan_paths.retain(|path| !file_paths_already_identifying.contains(&path.id));
+			orphan_paths.retain(|file_path_for_file_identifier::Data { id, .. }| {
+				!self.file_paths_ids_with_priority.contains(id)
+			});
 
 			// If we don't have any new orphan paths after filtering out, we can skip this iteration
 			if orphan_paths.is_empty() {
@@ -552,15 +614,17 @@ impl FileIdentifier {
 
 			self.metadata.total_found_orphans += orphan_paths.len() as u64;
 
-			self.metadata.total_tasks += 1;
+			self.metadata.total_identifier_tasks += 1;
 
 			pending_running_tasks.push(
 				dispatcher
-					.dispatch(ExtractFileMetadataTask::new(
+					.dispatch(tasks::Identifier::new(
 						Arc::clone(&self.location),
 						Arc::clone(&self.location_path),
 						orphan_paths,
 						false,
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
 					))
 					.await,
 			);
@@ -572,7 +636,7 @@ impl FileIdentifier {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum TaskKind {
-	ExtractFileMetadata,
+	Identifier,
 	ObjectProcessor,
 }
 
@@ -582,9 +646,11 @@ struct SaveState {
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
 
-	metadata: Metadata,
+	file_paths_accumulator: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
 
-	priority_tasks_ids: HashSet<TaskId>,
+	phase: Phase,
+	metadata: Metadata,
 
 	errors: Vec<NonCriticalError>,
 
@@ -594,7 +660,7 @@ struct SaveState {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Metadata {
 	extract_metadata_time: Duration,
-	assign_cas_ids_time: Duration,
+	mean_save_db_time_on_identifier_tasks: Duration,
 	fetch_existing_objects_time: Duration,
 	assign_to_existing_object_time: Duration,
 	create_object_time: Duration,
@@ -602,15 +668,17 @@ pub struct Metadata {
 	total_found_orphans: u64,
 	created_objects_count: u64,
 	linked_objects_count: u64,
-	completed_tasks: u64,
-	total_tasks: u64,
+	total_identifier_tasks: u64,
+	completed_identifier_tasks: u64,
+	total_object_processor_tasks: u64,
+	completed_object_processor_tasks: u64,
 }
 
 impl From<Metadata> for Vec<ReportOutputMetadata> {
 	fn from(
 		Metadata {
 			extract_metadata_time,
-			assign_cas_ids_time,
+			mean_save_db_time_on_identifier_tasks,
 			fetch_existing_objects_time,
 			assign_to_existing_object_time,
 			create_object_time,
@@ -618,8 +686,10 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			total_found_orphans,
 			created_objects_count,
 			linked_objects_count,
-			completed_tasks,
-			total_tasks,
+			total_identifier_tasks,
+			completed_identifier_tasks,
+			total_object_processor_tasks,
+			completed_object_processor_tasks,
 		}: Metadata,
 	) -> Self {
 		vec![
@@ -630,7 +700,10 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			},
 			ReportOutputMetadata::Metrics(HashMap::from([
 				("extract_metadata_time".into(), json!(extract_metadata_time)),
-				("assign_cas_ids_time".into(), json!(assign_cas_ids_time)),
+				(
+					"mean_save_db_time_on_identifier_tasks".into(),
+					json!(mean_save_db_time_on_identifier_tasks),
+				),
 				(
 					"fetch_existing_objects_time".into(),
 					json!(fetch_existing_objects_time),
@@ -644,8 +717,22 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 				("total_found_orphans".into(), json!(total_found_orphans)),
 				("created_objects_count".into(), json!(created_objects_count)),
 				("linked_objects_count".into(), json!(linked_objects_count)),
-				("completed_tasks".into(), json!(completed_tasks)),
-				("total_tasks".into(), json!(total_tasks)),
+				(
+					"total_identifier_tasks".into(),
+					json!(total_identifier_tasks),
+				),
+				(
+					"completed_identifier_tasks".into(),
+					json!(completed_identifier_tasks),
+				),
+				(
+					"total_object_processor_tasks".into(),
+					json!(total_object_processor_tasks),
+				),
+				(
+					"completed_object_processor_tasks".into(),
+					json!(completed_object_processor_tasks),
+				),
 			])),
 		]
 	}
@@ -657,8 +744,10 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			location,
 			location_path,
 			sub_path,
+			file_paths_accumulator,
+			file_paths_ids_with_priority,
+			phase,
 			metadata,
-			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown,
 			..
@@ -668,22 +757,23 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			location,
 			location_path,
 			sub_path,
+			file_paths_accumulator,
+			file_paths_ids_with_priority,
+			phase,
 			metadata,
-			priority_tasks_ids,
+			errors,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
 					.into_iter()
 					.map(|task| async move {
-						if task.is::<ExtractFileMetadataTask>() {
+						if task.is::<tasks::Identifier>() {
 							SerializableTask::serialize(
-								*task
-									.downcast::<ExtractFileMetadataTask>()
-									.expect("just checked"),
+								*task.downcast::<tasks::Identifier>().expect("just checked"),
 							)
 							.await
-							.map(|bytes| (TaskKind::ExtractFileMetadata, bytes))
-						} else if task.is::<ObjectProcessorTask>() {
-							task.downcast::<ObjectProcessorTask>()
+							.map(|bytes| (TaskKind::Identifier, bytes))
+						} else if task.is::<tasks::ObjectProcessor>() {
+							task.downcast::<tasks::ObjectProcessor>()
 								.expect("just checked")
 								.serialize()
 								.await
@@ -696,7 +786,6 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 					.try_join()
 					.await?,
 			)?)),
-			errors,
 		})
 		.map(Some)
 	}
@@ -709,8 +798,10 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			location,
 			location_path,
 			sub_path,
+			file_paths_accumulator,
+			file_paths_ids_with_priority,
+			phase,
 			metadata,
-			priority_tasks_ids,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;
@@ -720,8 +811,10 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 				location,
 				location_path,
 				sub_path,
+				file_paths_accumulator,
+				file_paths_ids_with_priority,
+				phase,
 				metadata,
-				priority_tasks_ids,
 				errors,
 				pending_tasks_on_resume: Vec::new(),
 				tasks_for_shutdown: Vec::new(),

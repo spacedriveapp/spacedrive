@@ -155,6 +155,7 @@ impl Task<Error> for MediaDataExtractor {
 		false
 	}
 
+	#[allow(clippy::too_many_lines)]
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		loop {
 			match &mut self.stage {
@@ -174,8 +175,7 @@ impl Task<Error> for MediaDataExtractor {
 				Stage::FetchedObjectsAlreadyWithMediaData(objects_already_with_media_data) => {
 					let filtering_start = Instant::now();
 					if self.file_paths.len() == objects_already_with_media_data.len() {
-						// All files already have media data, skipping
-						self.output.skipped = self.file_paths.len() as u64;
+						self.output.skipped = self.file_paths.len() as u64; // Files already have media data, skipping
 
 						break;
 					}

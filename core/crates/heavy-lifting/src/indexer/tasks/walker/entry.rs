@@ -1,5 +1,6 @@
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathData};
 
+use sd_core_prisma_helpers::FilePathPubId;
 use sd_prisma::prisma::file_path;
 
 use std::{
@@ -8,12 +9,11 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// `WalkedEntry` represents a single path in the filesystem
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WalkedEntry {
-	pub pub_id: Uuid,
+	pub pub_id: FilePathPubId,
 	pub maybe_object_id: file_path::object_id::Type,
 	pub iso_file_path: IsolatedFilePathData<'static>,
 	pub metadata: FilePathMetadata,
@@ -47,7 +47,7 @@ impl From<WalkingEntry> for WalkedEntry {
 		}: WalkingEntry,
 	) -> Self {
 		Self {
-			pub_id: Uuid::new_v4(),
+			pub_id: FilePathPubId::new(),
 			maybe_object_id: None,
 			iso_file_path,
 			metadata,
@@ -55,7 +55,9 @@ impl From<WalkingEntry> for WalkedEntry {
 	}
 }
 
-impl From<(Uuid, file_path::object_id::Type, WalkingEntry)> for WalkedEntry {
+impl<PubId: Into<FilePathPubId>> From<(PubId, file_path::object_id::Type, WalkingEntry)>
+	for WalkedEntry
+{
 	fn from(
 		(
 			pub_id,
@@ -64,10 +66,10 @@ impl From<(Uuid, file_path::object_id::Type, WalkingEntry)> for WalkedEntry {
 				iso_file_path,
 				metadata,
 			},
-		): (Uuid, file_path::object_id::Type, WalkingEntry),
+		): (PubId, file_path::object_id::Type, WalkingEntry),
 	) -> Self {
 		Self {
-			pub_id,
+			pub_id: pub_id.into(),
 			maybe_object_id,
 			iso_file_path,
 			metadata,

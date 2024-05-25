@@ -165,63 +165,74 @@ impl Task<Error> for SaveTask {
 
 		let (sync_stuff, paths): (Vec<_>, Vec<_>) = walked_entries
 			.drain(..)
-			.map(|entry| {
-				let IsolatedFilePathDataParts {
-					materialized_path,
-					is_dir,
-					name,
-					extension,
-					..
-				} = entry.iso_file_path.to_parts();
+			.map(
+				|WalkedEntry {
+				     pub_id,
+				     maybe_object_id,
+				     iso_file_path,
+				     metadata,
+				 }| {
+					let IsolatedFilePathDataParts {
+						materialized_path,
+						is_dir,
+						name,
+						extension,
+						..
+					} = iso_file_path.to_parts();
 
-				let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
+					assert!(
+						maybe_object_id.is_none(),
+						"Object ID must be None as this tasks only created \
+						new file_paths and they were not identified yet"
+					);
 
-				let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-					(
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 						(
-							location::NAME,
-							msgpack!(prisma_sync::location::SyncId {
-								pub_id: location_pub_id.clone()
-							}),
+							(
+								location::NAME,
+								msgpack!(prisma_sync::location::SyncId {
+									pub_id: location_pub_id.clone()
+								}),
+							),
+							location_id::set(Some(*location_id)),
 						),
-						location_id::set(Some(*location_id)),
-					),
-					sync_db_entry!(materialized_path.to_string(), materialized_path),
-					sync_db_entry!(name.to_string(), name),
-					sync_db_entry!(is_dir, is_dir),
-					sync_db_entry!(extension.to_string(), extension),
-					sync_db_entry!(
-						entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-						size_in_bytes_bytes
-					),
-					sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
-					{
-						let v = entry.metadata.created_at.into();
-						sync_db_entry!(v, date_created)
-					},
-					{
-						let v = entry.metadata.modified_at.into();
-						sync_db_entry!(v, date_modified)
-					},
-					{
-						let v = Utc::now().into();
-						sync_db_entry!(v, date_indexed)
-					},
-					sync_db_entry!(entry.metadata.hidden, hidden),
-				]
-				.into_iter()
-				.unzip();
-
-				(
-					sync.shared_create(
-						prisma_sync::file_path::SyncId {
-							pub_id: sd_utils::uuid_to_bytes(entry.pub_id),
+						sync_db_entry!(materialized_path.to_string(), materialized_path),
+						sync_db_entry!(name.to_string(), name),
+						sync_db_entry!(is_dir, is_dir),
+						sync_db_entry!(extension.to_string(), extension),
+						sync_db_entry!(
+							metadata.size_in_bytes.to_be_bytes().to_vec(),
+							size_in_bytes_bytes
+						),
+						sync_db_entry!(inode_to_db(metadata.inode), inode),
+						{
+							let v = metadata.created_at.into();
+							sync_db_entry!(v, date_created)
 						},
-						sync_params,
-					),
-					create_unchecked(pub_id, db_params),
-				)
-			})
+						{
+							let v = metadata.modified_at.into();
+							sync_db_entry!(v, date_modified)
+						},
+						{
+							let v = Utc::now().into();
+							sync_db_entry!(v, date_indexed)
+						},
+						sync_db_entry!(metadata.hidden, hidden),
+					]
+					.into_iter()
+					.unzip();
+
+					(
+						sync.shared_create(
+							prisma_sync::file_path::SyncId {
+								pub_id: pub_id.to_db(),
+							},
+							sync_params,
+						),
+						create_unchecked(pub_id.into(), db_params),
+					)
+				},
+			)
 			.unzip();
 
 		#[allow(clippy::cast_sign_loss)]

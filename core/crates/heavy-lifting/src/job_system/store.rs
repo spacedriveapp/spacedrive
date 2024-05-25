@@ -81,7 +81,7 @@ pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 					     ..
 					 }| { iter::once(*id).chain(next_jobs.iter().map(|StoredJob { id, .. }| *id)) },
 				)
-				.map(uuid_to_bytes)
+				.map(|job_id| uuid_to_bytes(&job_id))
 				.collect::<Vec<_>>(),
 		)])
 		.exec()

@@ -264,7 +264,7 @@ async fn inner_create_file(
 	} = if let Some(object) = existing_object {
 		object
 	} else {
-		let pub_id = uuid_to_bytes(Uuid::new_v4());
+		let pub_id = uuid_to_bytes(&Uuid::new_v4());
 		let date_created: DateTime<FixedOffset> =
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
@@ -618,7 +618,7 @@ async fn inner_update_file(
 					.await?;
 				}
 			} else {
-				let pub_id = uuid_to_bytes(Uuid::new_v4());
+				let pub_id = uuid_to_bytes(&Uuid::new_v4());
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 

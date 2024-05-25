@@ -37,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // File Path selectables!
+file_path::select!(file_path_id { id });
 file_path::select!(file_path_pub_id { pub_id });
 file_path::select!(file_path_pub_and_cas_ids { id pub_id cas_id });
 file_path::select!(file_path_just_pub_id_materialized_path {
@@ -146,6 +147,7 @@ file_path::select!(file_path_to_full_path {
 	}
 });
 file_path::select!(file_path_to_create_object {
+	id
 	pub_id
 	date_created
 });
@@ -302,14 +304,14 @@ label::include!((take: i64) => label_with_objects {
 pub struct CasId(String);
 
 impl From<CasId> for file_path::cas_id::Type {
-	fn from(cas_id: CasId) -> Self {
-		Some(cas_id.0)
+	fn from(CasId(cas_id): CasId) -> Self {
+		Some(cas_id)
 	}
 }
 
 impl From<&CasId> for file_path::cas_id::Type {
-	fn from(cas_id: &CasId) -> Self {
-		Some(cas_id.0.clone())
+	fn from(CasId(cas_id): &CasId) -> Self {
+		Some(cas_id.clone())
 	}
 }
 
@@ -319,9 +321,27 @@ impl From<&str> for CasId {
 	}
 }
 
+impl From<&String> for CasId {
+	fn from(cas_id: &String) -> Self {
+		Self(cas_id.clone())
+	}
+}
+
 impl From<String> for CasId {
 	fn from(cas_id: String) -> Self {
 		Self(cas_id)
+	}
+}
+
+impl From<CasId> for String {
+	fn from(CasId(cas_id): CasId) -> Self {
+		cas_id
+	}
+}
+
+impl From<&CasId> for String {
+	fn from(CasId(cas_id): &CasId) -> Self {
+		cas_id.clone()
 	}
 }
 
@@ -372,6 +392,12 @@ impl From<Vec<u8>> for PubId {
 	}
 }
 
+impl From<&Vec<u8>> for PubId {
+	fn from(bytes: &Vec<u8>) -> Self {
+		Self::Vec(bytes.clone())
+	}
+}
+
 impl From<&[u8]> for PubId {
 	fn from(bytes: &[u8]) -> Self {
 		Self::Vec(bytes.to_vec())
@@ -416,6 +442,12 @@ macro_rules! delegate_pub_id {
 
 			impl From<Vec<u8>> for $type_name {
 				fn from(bytes: Vec<u8>) -> Self {
+					Self(bytes.into())
+				}
+			}
+
+			impl From<&Vec<u8>> for $type_name {
+				fn from(bytes: &Vec<u8>) -> Self {
 					Self(bytes.into())
 				}
 			}

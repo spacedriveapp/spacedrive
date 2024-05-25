@@ -55,7 +55,7 @@ pub async fn run_actor(
 							.map(|id| {
 								db.cloud_crdt_operation()
 									.find_first(vec![cloud_crdt_operation::instance::is(vec![
-										instance::pub_id::equals(uuid_to_bytes(*id)),
+										instance::pub_id::equals(uuid_to_bytes(id)),
 									])])
 									.order_by(cloud_crdt_operation::timestamp::order(
 										SortOrder::Desc,
@@ -164,9 +164,9 @@ pub async fn run_actor(
 							&db,
 							&sync,
 							&libraries,
-							collection.instance_uuid,
+							&collection.instance_uuid,
 							instance.identity,
-							instance.node_id,
+							&instance.node_id,
 							node.p2p.peer_metadata(),
 						)
 						.await
@@ -244,9 +244,9 @@ pub async fn upsert_instance(
 	db: &PrismaClient,
 	sync: &sd_core_sync::Manager,
 	libraries: &Libraries,
-	uuid: Uuid,
+	uuid: &Uuid,
 	identity: RemoteIdentity,
-	node_id: Uuid,
+	node_id: &Uuid,
 	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
 	db.instance()
@@ -267,7 +267,7 @@ pub async fn upsert_instance(
 		.exec()
 		.await?;
 
-	sync.timestamps.write().await.entry(uuid).or_default();
+	sync.timestamps.write().await.entry(*uuid).or_default();
 
 	// Called again so the new instances are picked up
 	libraries.update_instances_by_id(library_id).await;

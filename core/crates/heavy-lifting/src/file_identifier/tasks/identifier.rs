@@ -4,9 +4,7 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::{
-	file_path_for_file_identifier, file_path_to_create_object, CasId, FilePathPubId,
-};
+use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId, FilePathPubId};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
@@ -31,35 +29,65 @@ use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 use tracing::{error, instrument, trace, Level};
 
-use super::{create_objects, IdentifiedFile, ObjectToCreateOrLink};
+use super::{create_objects_and_update_file_paths, FilePathToCreateOrLinkObject};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct IdentifiedFile {
+	file_path: file_path_for_file_identifier::Data,
+	cas_id: CasId,
+	kind: ObjectKind,
+}
+
+impl IdentifiedFile {
+	pub fn new(
+		file_path: file_path_for_file_identifier::Data,
+		cas_id: impl Into<CasId>,
+		kind: ObjectKind,
+	) -> Self {
+		Self {
+			file_path,
+			cas_id: cas_id.into(),
+			kind,
+		}
+	}
+}
 
 #[derive(Debug)]
-pub struct ExtractFileMetadataTask {
+pub struct Identifier {
+	// Task control
 	id: TaskId,
+	with_priority: bool,
+
+	// Received args
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
-	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
-	file_paths_without_cas_id: Vec<(file_path_to_create_object::Data, ObjectKind)>,
-	with_priority: bool,
 
+	// Inner state
+	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
+	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
+
+	// Out
 	output: Output,
 
+	// Dependencies
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Output {
-	pub file_path_pub_ids_and_kinds_by_cas_id: HashMap<CasId, Vec<ObjectToCreateOrLink>>,
+	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
+	pub file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
 	pub extract_metadata_time: Duration,
 	pub save_db_time: Duration,
 	pub created_objects_count: u64,
+	pub total_identified_files: u64,
 	pub errors: Vec<NonCriticalError>,
 }
 
 #[async_trait::async_trait]
-impl Task<Error> for ExtractFileMetadataTask {
+impl Task<Error> for Identifier {
 	fn id(&self) -> TaskId {
 		self.id
 	}
@@ -155,17 +183,17 @@ impl Task<Error> for ExtractFileMetadataTask {
 								cas_id: None, kind, ..
 							}) => {
 								let file_path_for_file_identifier::Data {
+									id,
 									pub_id,
 									date_created,
 									..
 								} = file_path;
-								file_paths_without_cas_id.push((
-									file_path_to_create_object::Data {
-										pub_id,
-										date_created,
-									},
+								file_paths_without_cas_id.push(FilePathToCreateOrLinkObject {
+									id,
+									file_path_pub_id: pub_id.into(),
 									kind,
-								));
+									created_at: date_created,
+								});
 							}
 							Err(e) => {
 								handle_non_critical_errors(
@@ -197,22 +225,31 @@ impl Task<Error> for ExtractFileMetadataTask {
 
 			output.extract_metadata_time = start_time.elapsed();
 
+			output.total_identified_files =
+				identified_files.len() as u64 + file_paths_without_cas_id.len() as u64;
+
 			trace!(
 				identified_files_count = identified_files.len(),
 				"All files have been processed, saving cas_ids to db..."
 			);
 			let start_time = Instant::now();
 			// Assign cas_id to each file path
-			let (_, created) = (
+			let ((), file_path_ids_with_new_object) = (
 				assign_cas_id_to_file_paths(identified_files, &self.db, &self.sync),
-				create_objects(file_paths_without_cas_id.iter(), &self.db, &self.sync),
+				create_objects_and_update_file_paths(
+					file_paths_without_cas_id.drain(..),
+					&self.db,
+					&self.sync,
+				),
 			)
 				.try_join()
 				.await?;
 
 			output.save_db_time = start_time.elapsed();
-			output.created_objects_count = created;
-			output.file_path_pub_ids_and_kinds_by_cas_id = identified_files.drain().fold(
+			output.created_objects_count = file_path_ids_with_new_object.len() as u64;
+			output.file_path_ids_with_new_object = file_path_ids_with_new_object;
+
+			output.file_paths_by_cas_id = identified_files.drain().fold(
 				HashMap::new(),
 				|mut map,
 				 (
@@ -220,15 +257,19 @@ impl Task<Error> for ExtractFileMetadataTask {
 					IdentifiedFile {
 						cas_id,
 						kind,
-						file_path,
+						file_path:
+							file_path_for_file_identifier::Data {
+								id, date_created, ..
+							},
 					},
 				)| {
 					map.entry(cas_id)
 						.or_insert_with(|| Vec::with_capacity(1))
-						.push(ObjectToCreateOrLink {
+						.push(FilePathToCreateOrLinkObject {
+							id,
 							file_path_pub_id,
 							kind,
-							created_at: file_path.date_created,
+							created_at: date_created,
 						});
 
 					map
@@ -242,7 +283,7 @@ impl Task<Error> for ExtractFileMetadataTask {
 	}
 }
 
-impl ExtractFileMetadataTask {
+impl Identifier {
 	#[must_use]
 	pub fn new(
 		location: Arc<location::Data>,
@@ -384,12 +425,12 @@ struct SaveState {
 	location_path: Arc<PathBuf>,
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
-	file_paths_without_cas_id: Vec<(file_path_to_create_object::Data, ObjectKind)>,
+	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
 	output: Output,
 	with_priority: bool,
 }
 
-impl SerializableTask<Error> for ExtractFileMetadataTask {
+impl SerializableTask<Error> for Identifier {
 	type SerializeError = rmp_serde::encode::Error;
 
 	type DeserializeError = rmp_serde::decode::Error;
@@ -436,13 +477,13 @@ impl SerializableTask<Error> for ExtractFileMetadataTask {
 			     with_priority,
 			 }| Self {
 				id,
+				with_priority,
 				location,
 				location_path,
 				file_paths_by_id,
 				identified_files,
 				file_paths_without_cas_id,
 				output,
-				with_priority,
 				db,
 				sync,
 			},

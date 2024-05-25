@@ -158,62 +158,69 @@ impl Task<Error> for UpdateTask {
 
 		let (sync_stuff, paths_to_update) = walked_entries
 			.drain(..)
-			.map(|entry| {
-				let IsolatedFilePathDataParts { is_dir, .. } = &entry.iso_file_path.to_parts();
+			.map(
+				|WalkedEntry {
+				     pub_id,
+				     maybe_object_id,
+				     iso_file_path,
+				     metadata,
+				 }| {
+					let IsolatedFilePathDataParts { is_dir, .. } = &iso_file_path.to_parts();
 
-				let pub_id = sd_utils::uuid_to_bytes(entry.pub_id);
+					let should_unlink_object = maybe_object_id.map_or(false, |object_id| {
+						object_ids_that_should_be_unlinked.contains(&object_id)
+					});
 
-				let should_unlink_object = entry.maybe_object_id.map_or(false, |object_id| {
-					object_ids_that_should_be_unlinked.contains(&object_id)
-				});
+					let (sync_params, db_params) = chain_optional_iter(
+						[
+							((cas_id::NAME, msgpack!(nil)), cas_id::set(None)),
+							sync_db_entry!(*is_dir, is_dir),
+							sync_db_entry!(
+								metadata.size_in_bytes.to_be_bytes().to_vec(),
+								size_in_bytes_bytes
+							),
+							sync_db_entry!(inode_to_db(metadata.inode), inode),
+							{
+								let v = metadata.created_at.into();
+								sync_db_entry!(v, date_created)
+							},
+							{
+								let v = metadata.modified_at.into();
+								sync_db_entry!(v, date_modified)
+							},
+							sync_db_entry!(metadata.hidden, hidden),
+						],
+						[
+							// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
+							// So this file_path will be updated at file identifier job
+							should_unlink_object.then_some((
+								(object_id::NAME, msgpack!(nil)),
+								object::disconnect(),
+							)),
+						],
+					)
+					.into_iter()
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
-				let (sync_params, db_params) = chain_optional_iter(
-					[
-						((cas_id::NAME, msgpack!(nil)), cas_id::set(None)),
-						sync_db_entry!(*is_dir, is_dir),
-						sync_db_entry!(
-							entry.metadata.size_in_bytes.to_be_bytes().to_vec(),
-							size_in_bytes_bytes
-						),
-						sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
-						{
-							let v = entry.metadata.created_at.into();
-							sync_db_entry!(v, date_created)
-						},
-						{
-							let v = entry.metadata.modified_at.into();
-							sync_db_entry!(v, date_modified)
-						},
-						sync_db_entry!(entry.metadata.hidden, hidden),
-					],
-					[
-						// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null
-						// So this file_path will be updated at file identifier job
-						should_unlink_object
-							.then_some(((object_id::NAME, msgpack!(nil)), object::disconnect())),
-					],
-				)
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>();
-
-				(
-					sync_params
-						.into_iter()
-						.map(|(field, value)| {
-							sync.shared_update(
-								prisma_sync::file_path::SyncId {
-									pub_id: pub_id.clone(),
-								},
-								field,
-								value,
-							)
-						})
-						.collect::<Vec<_>>(),
-					db.file_path()
-						.update(file_path::pub_id::equals(pub_id), db_params)
-						.select(file_path::select!({ id })),
-				)
-			})
+					(
+						sync_params
+							.into_iter()
+							.map(|(field, value)| {
+								sync.shared_update(
+									prisma_sync::file_path::SyncId {
+										pub_id: pub_id.to_db(),
+									},
+									field,
+									value,
+								)
+							})
+							.collect::<Vec<_>>(),
+						db.file_path()
+							.update(file_path::pub_id::equals(pub_id.into()), db_params)
+							.select(file_path::select!({ id })),
+					)
+				},
+			)
 			.unzip::<_, _, Vec<_>, Vec<_>>();
 
 		let updated = sync

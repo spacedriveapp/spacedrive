@@ -8,24 +8,22 @@ use sd_core_prisma_helpers::file_path_for_file_identifier;
 
 use sd_prisma::prisma::{file_path, location, SortOrder};
 use sd_task_system::{
-	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskOutput, TaskStatus,
+	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskHandle, TaskOutput, TaskStatus,
 };
 use sd_utils::db::maybe_missing;
 
 use std::{
+	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
 
-use futures_concurrency::future::FutureGroup;
-use lending_stream::{LendingStream, StreamExt};
+use futures::{stream::FuturesUnordered, StreamExt};
 use tracing::{debug, warn};
 
 use super::{
-	orphan_path_filters_shallow,
-	tasks::{
-		extract_file_metadata, object_processor, ExtractFileMetadataTask, ObjectProcessorTask,
-	},
+	accumulate_file_paths_by_cas_id, dispatch_object_processor_tasks, orphan_path_filters_shallow,
+	tasks::{self, identifier, object_processor},
 	CHUNK_SIZE,
 };
 
@@ -60,7 +58,7 @@ pub async fn shallow(
 	let mut orphans_count = 0;
 	let mut last_orphan_file_path_id = None;
 
-	let mut pending_running_tasks = FutureGroup::new();
+	let mut identifier_tasks = vec![];
 
 	loop {
 		#[allow(clippy::cast_possible_wrap)]
@@ -87,16 +85,18 @@ pub async fn shallow(
 		orphans_count += orphan_paths.len() as u64;
 		last_orphan_file_path_id = Some(last_orphan.id);
 
-		pending_running_tasks.insert(CancelTaskOnDrop::new(
+		identifier_tasks.push(
 			dispatcher
-				.dispatch(ExtractFileMetadataTask::new(
+				.dispatch(tasks::Identifier::new(
 					Arc::clone(&location),
 					Arc::clone(&location_path),
 					orphan_paths,
 					true,
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
 				))
 				.await,
-		));
+		);
 	}
 
 	if orphans_count == 0 {
@@ -108,49 +108,66 @@ pub async fn shallow(
 		return Ok(vec![]);
 	}
 
-	let errors = process_tasks(pending_running_tasks, dispatcher, ctx).await?;
+	let errors = process_tasks(identifier_tasks, dispatcher, ctx).await?;
 
 	Ok(errors)
 }
 
 async fn process_tasks(
-	pending_running_tasks: FutureGroup<CancelTaskOnDrop<Error>>,
+	identifier_tasks: Vec<TaskHandle<Error>>,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
-	let mut pending_running_tasks = pending_running_tasks.lend_mut();
+	let total_identifier_tasks = identifier_tasks.len();
 
-	let db = ctx.db();
-	let sync = ctx.sync();
+	let mut pending_running_tasks = identifier_tasks
+		.into_iter()
+		.map(CancelTaskOnDrop::new)
+		.collect::<FuturesUnordered<_>>();
 
 	let mut errors = vec![];
+	let mut completed_identifier_tasks = 0;
+	let mut file_paths_accumulator = HashMap::new();
 
-	while let Some((pending_running_tasks, task_result)) = pending_running_tasks.next().await {
+	while let Some(task_result) = pending_running_tasks.next().await {
 		match task_result {
 			Ok(TaskStatus::Done((_, TaskOutput::Out(any_task_output)))) => {
 				// We only care about ExtractFileMetadataTaskOutput because we need to dispatch further tasks
 				// and the ObjectProcessorTask only gives back some metrics not much important for
 				// shallow file identifier
-				if any_task_output.is::<extract_file_metadata::Output>() {
-					let extract_file_metadata::Output {
-						identified_files,
+				if any_task_output.is::<identifier::Output>() {
+					let identifier::Output {
+						file_path_ids_with_new_object,
+						file_paths_by_cas_id,
 						errors: more_errors,
 						..
 					} = *any_task_output.downcast().expect("just checked");
 
+					completed_identifier_tasks += 1;
+
+					ctx.report_update(crate::UpdateEvent::NewIdentifiedObjects {
+						file_path_ids: file_path_ids_with_new_object,
+					});
+
+					accumulate_file_paths_by_cas_id(
+						file_paths_by_cas_id,
+						&mut file_paths_accumulator,
+					);
+
 					errors.extend(more_errors);
 
-					if !identified_files.is_empty() {
-						pending_running_tasks.insert(CancelTaskOnDrop::new(
-							dispatcher
-								.dispatch(ObjectProcessorTask::new(
-									identified_files,
-									Arc::clone(db),
-									Arc::clone(sync),
-									true,
-								))
-								.await,
-						));
+					if total_identifier_tasks == completed_identifier_tasks {
+						pending_running_tasks.extend(
+							dispatch_object_processor_tasks(
+								file_paths_accumulator.drain(),
+								ctx,
+								dispatcher,
+								true,
+							)
+							.await
+							.into_iter()
+							.map(CancelTaskOnDrop::new),
+						);
 					}
 				} else {
 					let object_processor::Output {

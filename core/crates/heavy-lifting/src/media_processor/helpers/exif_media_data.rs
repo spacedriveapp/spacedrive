@@ -120,7 +120,7 @@ pub async fn save(
 					sync.shared_create(
 						prisma_sync::exif_data::SyncId {
 							object: prisma_sync::object::SyncId {
-								pub_id: uuid_to_bytes(object_pub_id),
+								pub_id: uuid_to_bytes(&object_pub_id),
 							},
 						},
 						sync_params,

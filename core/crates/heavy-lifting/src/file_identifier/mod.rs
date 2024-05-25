@@ -1,12 +1,20 @@
-use crate::utils::sub_path;
+use crate::{utils::sub_path, OuterContext};
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_prisma_helpers::CasId;
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::{file_path, location};
+use sd_task_system::{TaskDispatcher, TaskHandle};
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
-use std::{fs::Metadata, path::Path};
+use std::{
+	collections::{hash_map::Entry, HashMap},
+	fs::Metadata,
+	mem,
+	path::Path,
+	sync::Arc,
+};
 
 use prisma_client_rust::{or, QueryError};
 use rspc::ErrorCode;
@@ -24,6 +32,8 @@ use cas_id::generate_cas_id;
 
 pub use job::FileIdentifier;
 pub use shallow::shallow;
+
+use tasks::FilePathToCreateOrLinkObject;
 
 // we break these tasks into chunks of 100 to improve performance
 const CHUNK_SIZE: usize = 100;
@@ -172,4 +182,91 @@ fn orphan_path_filters_deep(
 			}),
 		],
 	)
+}
+
+async fn dispatch_object_processor_tasks<Iter>(
+	file_paths_by_cas_id: Iter,
+	ctx: &impl OuterContext,
+	dispatcher: &impl TaskDispatcher<crate::Error>,
+	with_priority: bool,
+) -> Vec<TaskHandle<crate::Error>>
+where
+	Iter: IntoIterator<Item = (CasId, Vec<FilePathToCreateOrLinkObject>)> + Send,
+	Iter::IntoIter: Send,
+{
+	let mut current_batch = HashMap::<_, Vec<_>>::new();
+	let mut tasks = vec![];
+
+	let mut current_batch_size = 0;
+
+	for (cas_id, objects_to_create_or_link) in file_paths_by_cas_id {
+		if objects_to_create_or_link.len() >= CHUNK_SIZE {
+			tasks.push(
+				dispatcher
+					.dispatch(tasks::ObjectProcessor::new(
+						HashMap::from([(cas_id, objects_to_create_or_link)]),
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+						with_priority,
+					))
+					.await,
+			);
+		} else {
+			current_batch_size += objects_to_create_or_link.len();
+			match current_batch.entry(cas_id) {
+				Entry::Occupied(entry) => {
+					entry.into_mut().extend(objects_to_create_or_link);
+				}
+				Entry::Vacant(entry) => {
+					entry.insert(objects_to_create_or_link);
+				}
+			}
+
+			if current_batch_size >= CHUNK_SIZE {
+				tasks.push(
+					dispatcher
+						.dispatch(tasks::ObjectProcessor::new(
+							mem::take(&mut current_batch),
+							Arc::clone(ctx.db()),
+							Arc::clone(ctx.sync()),
+							with_priority,
+						))
+						.await,
+				);
+
+				current_batch_size = 0;
+			}
+		}
+	}
+
+	if !current_batch.is_empty() {
+		tasks.push(
+			dispatcher
+				.dispatch(tasks::ObjectProcessor::new(
+					current_batch,
+					Arc::clone(ctx.db()),
+					Arc::clone(ctx.sync()),
+					with_priority,
+				))
+				.await,
+		);
+	}
+
+	tasks
+}
+
+fn accumulate_file_paths_by_cas_id(
+	input: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	accumulator: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+) {
+	for (cas_id, file_paths) in input {
+		match accumulator.entry(cas_id) {
+			Entry::<_, Vec<_>>::Occupied(entry) => {
+				entry.into_mut().extend(file_paths);
+			}
+			Entry::Vacant(entry) => {
+				entry.insert(file_paths);
+			}
+		}
+	}
 }

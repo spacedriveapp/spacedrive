@@ -347,7 +347,8 @@ async fn compute_sizes(
 	db: &PrismaClient,
 	errors: &mut Vec<crate::NonCriticalError>,
 ) -> Result<(), QueryError> {
-	db.file_path()
+	for file_path in db
+		.file_path()
 		.find_many(vec![
 			file_path::location_id::equals(Some(location_id)),
 			file_path::materialized_path::in_vec(materialized_paths),
@@ -355,30 +356,29 @@ async fn compute_sizes(
 		.select(file_path::select!({ pub_id materialized_path size_in_bytes_bytes }))
 		.exec()
 		.await?
-		.into_iter()
-		.for_each(|file_path| {
-			if let Some(materialized_path) = file_path.materialized_path {
-				if let Some((_, size)) =
-					pub_id_by_ancestor_materialized_path.get_mut(&materialized_path)
-				{
-					*size += file_path.size_in_bytes_bytes.map_or_else(
-						|| {
-							warn!("Got a directory missing its size in bytes");
-							0
-						},
-						|size_in_bytes_bytes| size_in_bytes_from_db(&size_in_bytes_bytes),
-					);
-				}
-			} else {
-				errors.push(
-					NonCriticalIndexerError::MissingFilePathData(format!(
+	{
+		if let Some(materialized_path) = file_path.materialized_path {
+			if let Some((_, size)) =
+				pub_id_by_ancestor_materialized_path.get_mut(&materialized_path)
+			{
+				*size += file_path.size_in_bytes_bytes.map_or_else(
+					|| {
+						warn!("Got a directory missing its size in bytes");
+						0
+					},
+					|size_in_bytes_bytes| size_in_bytes_from_db(&size_in_bytes_bytes),
+				);
+			}
+		} else {
+			errors.push(
+				NonCriticalIndexerError::MissingFilePathData(format!(
 						"Corrupt database possessing a file_path entry without materialized_path: <pub_id='{:#?}'>",
 						from_bytes_to_uuid(&file_path.pub_id)
 					))
-					.into(),
-				);
-			}
-		});
+				.into(),
+			);
+		}
+	}
 
 	Ok(())
 }

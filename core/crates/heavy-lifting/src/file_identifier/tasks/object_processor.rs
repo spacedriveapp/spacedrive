@@ -1,59 +1,50 @@
 use crate::{file_identifier, Error};
 
-use sd_core_prisma_helpers::{
-	file_path_for_file_identifier, file_path_pub_id, object_for_file_identifier,
-};
+use sd_core_prisma_helpers::{object_for_file_identifier, CasId, ObjectPubId};
 use sd_core_sync::Manager as SyncManager;
 
-use sd_prisma::{
-	prisma::{file_path, object, PrismaClient},
-	prisma_sync,
-};
-use sd_sync::{CRDTOperation, OperationFactory};
+use sd_prisma::prisma::{file_path, object, PrismaClient};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::{msgpack, uuid_to_bytes};
 
-use std::{
-	collections::{HashMap, HashSet},
-	mem,
-	sync::Arc,
-	time::Duration,
-};
+use std::{collections::HashMap, mem, sync::Arc, time::Duration};
 
-use prisma_client_rust::Select;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::trace;
-use uuid::Uuid;
+use tracing::{instrument, trace, Level};
 
-use super::IdentifiedFile;
+use super::{
+	connect_file_path_to_object, create_objects_and_update_file_paths, FilePathToCreateOrLinkObject,
+};
 
 #[derive(Debug)]
-pub struct ObjectProcessorTask {
+pub struct ObjectProcessor {
 	id: TaskId,
+	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+
+	stage: Stage,
+
+	output: Output,
+
+	with_priority: bool,
+
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
-	identified_files: HashMap<Uuid, IdentifiedFile>,
-	output: Output,
-	stage: Stage,
-	with_priority: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct SaveState {
-	id: TaskId,
-	identified_files: HashMap<Uuid, IdentifiedFile>,
-	output: Output,
-	stage: Stage,
-	with_priority: bool,
+enum Stage {
+	Starting,
+	AssignFilePathsToExistingObjects {
+		existing_objects_by_cas_id: HashMap<CasId, ObjectPubId>,
+	},
+	CreateObjects,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Output {
 	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
-	pub assign_cas_ids_time: Duration,
 	pub fetch_existing_objects_time: Duration,
 	pub assign_to_existing_object_time: Duration,
 	pub create_object_time: Duration,
@@ -61,38 +52,8 @@ pub struct Output {
 	pub linked_objects_count: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-enum Stage {
-	Starting,
-	FetchExistingObjects,
-	AssignFilePathsToExistingObjects {
-		existing_objects_by_cas_id: HashMap<String, object_for_file_identifier::Data>,
-	},
-	CreateObjects,
-}
-
-impl ObjectProcessorTask {
-	#[must_use]
-	pub fn new(
-		identified_files: HashMap<Uuid, IdentifiedFile>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-		with_priority: bool,
-	) -> Self {
-		Self {
-			id: TaskId::new_v4(),
-			db,
-			sync,
-			identified_files,
-			stage: Stage::Starting,
-			output: Output::default(),
-			with_priority,
-		}
-	}
-}
-
 #[async_trait::async_trait]
-impl Task<Error> for ObjectProcessorTask {
+impl Task<Error> for ObjectProcessor {
 	fn id(&self) -> TaskId {
 		self.id
 	}
@@ -101,16 +62,25 @@ impl Task<Error> for ObjectProcessorTask {
 		self.with_priority
 	}
 
+	#[instrument(
+		skip(self, interrupter),
+		fields(
+			task_id = %self.id,
+			cas_ids_count = %self.file_paths_by_cas_id.len(),
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
+	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		let Self {
 			db,
 			sync,
-			identified_files,
+			file_paths_by_cas_id,
 			stage,
 			output:
 				Output {
 					file_path_ids_with_new_object,
-					assign_cas_ids_time,
 					fetch_existing_objects_time,
 					assign_to_existing_object_time,
 					create_object_time,
@@ -123,17 +93,17 @@ impl Task<Error> for ObjectProcessorTask {
 		loop {
 			match stage {
 				Stage::Starting => {
-					let start = Instant::now();
-					assign_cas_id_to_file_paths(identified_files, db, sync).await?;
-					*assign_cas_ids_time = start.elapsed();
-					*stage = Stage::FetchExistingObjects;
-				}
-
-				Stage::FetchExistingObjects => {
+					trace!("Starting object processor task");
 					let start = Instant::now();
 					let existing_objects_by_cas_id =
-						fetch_existing_objects_by_cas_id(identified_files, db).await?;
+						fetch_existing_objects_by_cas_id(file_paths_by_cas_id.keys(), db).await?;
 					*fetch_existing_objects_time = start.elapsed();
+
+					trace!(
+						elapsed_time = ?fetch_existing_objects_time,
+						existing_objects_count = existing_objects_by_cas_id.len(),
+						"Fetched existing Objects",
+					);
 					*stage = Stage::AssignFilePathsToExistingObjects {
 						existing_objects_by_cas_id,
 					};
@@ -142,48 +112,49 @@ impl Task<Error> for ObjectProcessorTask {
 				Stage::AssignFilePathsToExistingObjects {
 					existing_objects_by_cas_id,
 				} => {
+					trace!("Assigning file paths to existing Objects");
 					let start = Instant::now();
-					let assigned_file_path_pub_ids = assign_existing_objects_to_file_paths(
-						identified_files,
+					*linked_objects_count = assign_existing_objects_to_file_paths(
+						file_paths_by_cas_id,
 						existing_objects_by_cas_id,
 						db,
 						sync,
 					)
 					.await?;
 					*assign_to_existing_object_time = start.elapsed();
-					*linked_objects_count = assigned_file_path_pub_ids.len() as u64;
 
 					trace!(
-						"Found {} existing Objects, linked file paths to them",
-						existing_objects_by_cas_id.len()
+						existing_objects_to_link = existing_objects_by_cas_id.len(),
+						%linked_objects_count,
+						"Found existing Objects, linked file paths to them",
 					);
-
-					for file_path_pub_id::Data { pub_id } in assigned_file_path_pub_ids {
-						let pub_id = Uuid::from_slice(&pub_id).expect("uuid bytes are invalid");
-						trace!("Assigned file path <file_path_pub_id={pub_id}> to existing object");
-
-						identified_files
-							.remove(&pub_id)
-							.expect("file_path must be here");
-					}
 
 					*stage = Stage::CreateObjects;
 
-					if identified_files.is_empty() {
+					if file_paths_by_cas_id.is_empty() {
+						trace!("No more objects to be created, finishing task");
 						// No objects to be created, we're good to finish already
 						break;
 					}
 				}
 
 				Stage::CreateObjects => {
+					trace!(
+						creating_count = file_paths_by_cas_id.len(),
+						"Creating new Objects"
+					);
 					let start = Instant::now();
-					*created_objects_count = create_objects(identified_files, db, sync).await?;
+					*file_path_ids_with_new_object = create_objects_and_update_file_paths(
+						mem::take(file_paths_by_cas_id).into_values().flatten(),
+						db,
+						sync,
+					)
+					.await?;
 					*create_object_time = start.elapsed();
 
-					*file_path_ids_with_new_object = identified_files
-						.values()
-						.map(|IdentifiedFile { file_path, .. }| file_path.id)
-						.collect();
+					*created_objects_count = file_path_ids_with_new_object.len() as u64;
+
+					trace!(%created_objects_count, ?create_object_time, "Created new Objects");
 
 					break;
 				}
@@ -196,225 +167,114 @@ impl Task<Error> for ObjectProcessorTask {
 	}
 }
 
-async fn assign_cas_id_to_file_paths(
-	identified_files: &HashMap<Uuid, IdentifiedFile>,
-	db: &PrismaClient,
-	sync: &SyncManager,
-) -> Result<(), file_identifier::Error> {
-	// Assign cas_id to each file path
-	sync.write_ops(
-		db,
-		identified_files
-			.iter()
-			.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
-				(
-					sync.shared_update(
-						prisma_sync::file_path::SyncId {
-							pub_id: uuid_to_bytes(*pub_id),
-						},
-						file_path::cas_id::NAME,
-						msgpack!(cas_id),
-					),
-					db.file_path()
-						.update(
-							file_path::pub_id::equals(uuid_to_bytes(*pub_id)),
-							vec![file_path::cas_id::set(cas_id.clone())],
-						)
-						// We don't need any data here, just the id avoids receiving the entire object
-						// as we can't pass an empty select macro call
-						.select(file_path::select!({ id })),
-				)
-			})
-			.unzip::<_, _, _, Vec<_>>(),
-	)
-	.await?;
-
-	Ok(())
+impl ObjectProcessor {
+	#[must_use]
+	pub fn new(
+		file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+		db: Arc<PrismaClient>,
+		sync: Arc<SyncManager>,
+		with_priority: bool,
+	) -> Self {
+		Self {
+			id: TaskId::new_v4(),
+			db,
+			sync,
+			file_paths_by_cas_id,
+			stage: Stage::Starting,
+			output: Output::default(),
+			with_priority,
+		}
+	}
 }
 
-async fn fetch_existing_objects_by_cas_id(
-	identified_files: &HashMap<Uuid, IdentifiedFile>,
+/// Retrieves objects that are already connected to file paths with the same cas_id
+#[instrument(skip_all, err)]
+async fn fetch_existing_objects_by_cas_id<'cas_id, Iter>(
+	cas_ids: Iter,
 	db: &PrismaClient,
-) -> Result<HashMap<String, object_for_file_identifier::Data>, file_identifier::Error> {
-	// Retrieves objects that are already connected to file paths with the same id
-	db.object()
-		.find_many(vec![object::file_paths::some(vec![
-			file_path::cas_id::in_vec(
-				identified_files
-					.values()
-					.filter_map(|IdentifiedFile { cas_id, .. }| cas_id.as_ref())
-					.cloned()
-					.collect::<HashSet<_>>()
+) -> Result<HashMap<CasId, ObjectPubId>, file_identifier::Error>
+where
+	Iter: IntoIterator<Item = &'cas_id CasId> + Send,
+	Iter::IntoIter: Send,
+{
+	async fn inner(
+		stringed_cas_ids: Vec<String>,
+		db: &PrismaClient,
+	) -> Result<HashMap<CasId, ObjectPubId>, file_identifier::Error> {
+		db.object()
+			.find_many(vec![object::file_paths::some(vec![
+				file_path::cas_id::in_vec(stringed_cas_ids),
+				file_path::object_id::not(None),
+			])])
+			.select(object_for_file_identifier::select())
+			.exec()
+			.await
+			.map_err(Into::into)
+			.map(|objects| {
+				objects
 					.into_iter()
-					.collect(),
-			),
-		])])
-		.select(object_for_file_identifier::select())
-		.exec()
-		.await
-		.map_err(Into::into)
-		.map(|objects| {
-			objects
-				.into_iter()
-				.filter_map(|object| {
-					object
-						.file_paths
-						.first()
-						.and_then(|file_path| file_path.cas_id.clone())
-						.map(|cas_id| (cas_id, object))
-				})
-				.collect()
-		})
+					.filter_map(|object_for_file_identifier::Data { pub_id, file_paths }| {
+						file_paths
+							.first()
+							.and_then(|file_path| file_path.cas_id.as_ref())
+							.map(|cas_id| (cas_id.into(), pub_id.into()))
+					})
+					.collect()
+			})
+	}
+
+	inner(cas_ids.into_iter().map(Into::into).collect::<Vec<_>>(), db).await
 }
 
+/// Attempt to associate each file path with an object that has been
+/// connected to file paths with the same cas_id
+#[instrument(skip_all, err, fields(identified_files_count = file_paths_by_cas_id.len()))]
 async fn assign_existing_objects_to_file_paths(
-	identified_files: &HashMap<Uuid, IdentifiedFile>,
-	objects_by_cas_id: &HashMap<String, object_for_file_identifier::Data>,
+	file_paths_by_cas_id: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	objects_by_cas_id: &HashMap<CasId, ObjectPubId>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<Vec<file_path_pub_id::Data>, file_identifier::Error> {
-	// Attempt to associate each file path with an object that has been
-	// connected to file paths with the same cas_id
+) -> Result<u64, file_identifier::Error> {
 	sync.write_ops(
 		db,
-		identified_files
+		objects_by_cas_id
 			.iter()
-			.filter_map(|(pub_id, IdentifiedFile { cas_id, .. })| {
-				objects_by_cas_id
-					// Filtering out files without cas_id due to being empty
-					.get(cas_id.as_ref()?)
-					.map(|object| (*pub_id, object))
-			})
-			.map(|(pub_id, object)| {
-				connect_file_path_to_object(
-					pub_id,
-					// SAFETY: This pub_id is generated by the uuid lib, but we have to store bytes in sqlite
-					Uuid::from_slice(&object.pub_id).expect("uuid bytes are invalid"),
-					sync,
-					db,
-				)
+			.flat_map(|(cas_id, object_pub_id)| {
+				file_paths_by_cas_id
+					.remove(cas_id)
+					.map(|file_paths| {
+						file_paths.into_iter().map(
+							|FilePathToCreateOrLinkObject {
+							     file_path_pub_id, ..
+							 }| {
+								connect_file_path_to_object(
+									&file_path_pub_id,
+									object_pub_id,
+									db,
+									sync,
+								)
+							},
+						)
+					})
+					.expect("must be here")
 			})
 			.unzip::<_, _, Vec<_>, Vec<_>>(),
 	)
 	.await
+	.map(|file_paths| file_paths.len() as u64)
 	.map_err(Into::into)
 }
 
-fn connect_file_path_to_object<'db>(
-	file_path_pub_id: Uuid,
-	object_pub_id: Uuid,
-	sync: &SyncManager,
-	db: &'db PrismaClient,
-) -> (CRDTOperation, Select<'db, file_path_pub_id::Data>) {
-	trace!("Connecting <file_path_pub_id={file_path_pub_id}> to <object_pub_id={object_pub_id}'>");
-
-	let vec_id = object_pub_id.as_bytes().to_vec();
-
-	(
-		sync.shared_update(
-			prisma_sync::file_path::SyncId {
-				pub_id: uuid_to_bytes(file_path_pub_id),
-			},
-			file_path::object::NAME,
-			msgpack!(prisma_sync::object::SyncId {
-				pub_id: vec_id.clone()
-			}),
-		),
-		db.file_path()
-			.update(
-				file_path::pub_id::equals(uuid_to_bytes(file_path_pub_id)),
-				vec![file_path::object::connect(object::pub_id::equals(vec_id))],
-			)
-			.select(file_path_pub_id::select()),
-	)
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SaveState {
+	id: TaskId,
+	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	stage: Stage,
+	output: Output,
+	with_priority: bool,
 }
 
-async fn create_objects(
-	identified_files: &HashMap<Uuid, IdentifiedFile>,
-	db: &PrismaClient,
-	sync: &SyncManager,
-) -> Result<u64, file_identifier::Error> {
-	trace!("Creating {} new Objects", identified_files.len(),);
-
-	let (object_create_args, file_path_update_args) = identified_files
-		.iter()
-		.map(
-			|(
-				file_path_pub_id,
-				IdentifiedFile {
-					file_path: file_path_for_file_identifier::Data { date_created, .. },
-					kind,
-					..
-				},
-			)| {
-				let object_pub_id = Uuid::new_v4();
-
-				let kind = *kind as i32;
-
-				let (sync_params, db_params) = [
-					(
-						(object::date_created::NAME, msgpack!(date_created)),
-						object::date_created::set(*date_created),
-					),
-					(
-						(object::kind::NAME, msgpack!(kind)),
-						object::kind::set(Some(kind)),
-					),
-				]
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>();
-
-				(
-					(
-						sync.shared_create(
-							prisma_sync::object::SyncId {
-								pub_id: uuid_to_bytes(object_pub_id),
-							},
-							sync_params,
-						),
-						object::create_unchecked(uuid_to_bytes(object_pub_id), db_params),
-					),
-					connect_file_path_to_object(*file_path_pub_id, object_pub_id, sync, db),
-				)
-			},
-		)
-		.unzip::<_, _, Vec<_>, Vec<_>>();
-
-	// create new object records with assembled values
-	let total_created_files = sync
-		.write_ops(db, {
-			let (sync, db_params) = object_create_args
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>();
-
-			(
-				sync.into_iter().flatten().collect(),
-				db.object().create_many(db_params),
-			)
-		})
-		.await?;
-
-	trace!("Created {total_created_files} new Objects");
-
-	if total_created_files > 0 {
-		trace!("Updating file paths with created objects");
-
-		sync.write_ops(
-			db,
-			file_path_update_args
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>(),
-		)
-		.await?;
-
-		trace!("Updated file paths with created objects");
-	}
-
-	#[allow(clippy::cast_sign_loss)] // SAFETY: We're sure the value is positive
-	Ok(total_created_files as u64)
-}
-
-impl SerializableTask<Error> for ObjectProcessorTask {
+impl SerializableTask<Error> for ObjectProcessor {
 	type SerializeError = rmp_serde::encode::Error;
 
 	type DeserializeError = rmp_serde::decode::Error;
@@ -424,18 +284,18 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
 			id,
-			identified_files,
-			output,
+			file_paths_by_cas_id,
 			stage,
+			output,
 			with_priority,
 			..
 		} = self;
 
 		rmp_serde::to_vec_named(&SaveState {
 			id,
-			identified_files,
-			output,
+			file_paths_by_cas_id,
 			stage,
+			output,
 			with_priority,
 		})
 	}
@@ -447,18 +307,18 @@ impl SerializableTask<Error> for ObjectProcessorTask {
 		rmp_serde::from_slice(data).map(
 			|SaveState {
 			     id,
-			     identified_files,
-			     output,
+			     file_paths_by_cas_id,
 			     stage,
+			     output,
 			     with_priority,
 			 }| Self {
 				id,
+				file_paths_by_cas_id,
+				stage,
+				output,
+				with_priority,
 				db,
 				sync,
-				identified_files,
-				output,
-				stage,
-				with_priority,
 			},
 		)
 	}

@@ -129,7 +129,7 @@ impl LibraryConfig {
 									db.indexer_rule().update_many(
 										vec![indexer_rule::name::equals(Some(name))],
 										vec![indexer_rule::pub_id::set(sd_utils::uuid_to_bytes(
-											Uuid::from_u128(i as u128),
+											&Uuid::from_u128(i as u128),
 										))],
 									)
 								})

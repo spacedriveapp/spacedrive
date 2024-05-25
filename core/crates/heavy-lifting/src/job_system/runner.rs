@@ -25,7 +25,7 @@ use tokio::{
 	time::{interval_at, Instant},
 };
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -256,6 +256,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		})
 	}
 
+	#[instrument(skip(self))]
 	async fn process_return_status(
 		&mut self,
 		job_id: JobId,
@@ -573,9 +574,8 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 		match msg {
 			// Job return status messages
 			StreamMessage::ReturnStatus((job_id, status)) => {
-				trace!("Received return status for job: <id='{job_id}', status='{status:#?}'>");
 				if let Err(e) = runner.process_return_status(job_id, status).await {
-					error!("Failed to process return status: {e:#?}");
+					error!(?e, "Failed to process return status");
 				}
 			}
 
@@ -611,12 +611,11 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				serialized_tasks,
 				ack_tx,
 			}) => {
+				let res = runner
+					.new_job(id, location_id, dyn_job, ctx, serialized_tasks)
+					.await;
 				ack_tx
-					.send(
-						runner
-							.new_job(id, location_id, dyn_job, ctx, serialized_tasks)
-							.await,
-					)
+					.send(res)
 					.expect("ack channel closed before sending resume job response");
 			}
 

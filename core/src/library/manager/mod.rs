@@ -627,9 +627,9 @@ impl Libraries {
 											&library.db,
 											&library.sync,
 											&node.libraries,
-											instance.uuid,
+											&instance.uuid,
 											instance.identity,
-											instance.node_id,
+											&instance.node_id,
 											instance.metadata,
 										)
 										.await
