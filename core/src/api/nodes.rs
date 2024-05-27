@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
 	invalidate_query,
 	node::config::{P2PDiscoveryState, Port},
@@ -25,6 +27,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_relay_disabled: Option<bool>,
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
+				pub p2p_manual_peers: Option<HashSet<String>>,
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
@@ -63,6 +66,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 						if let Some(remote_access) = args.p2p_remote_access {
 							config.p2p.enable_remote_access = remote_access;
+						};
+						if let Some(manual_peers) = args.p2p_manual_peers {
+							config.p2p.manual_peers = manual_peers;
 						};
 
 						#[cfg(feature = "ai")]

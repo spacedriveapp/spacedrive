@@ -1,5 +1,5 @@
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError, RwLock},
@@ -60,6 +60,9 @@ enum InternalEvent {
 	RegisterRelays {
 		relays: Vec<RelayServerEntry>,
 		result: oneshot::Sender<Result<(), String>>,
+	},
+	RegisterPeerAddr {
+		addrs: HashSet<SocketAddr>,
 	},
 }
 
@@ -206,6 +209,12 @@ impl QuicTransport {
 			.clone()
 	}
 
+	pub fn set_manual_peer_addrs(&self, addrs: HashSet<SocketAddr>) {
+		self.internal_tx
+			.send(InternalEvent::RegisterPeerAddr { addrs })
+			.ok();
+	}
+
 	// `None` on the port means disabled. Use `0` for random port.
 	pub async fn set_ipv4_enabled(&self, port: Option<u16>) -> Result<(), QuicTransportError> {
 		self.setup_listener(
@@ -291,6 +300,8 @@ async fn start(
 	let map = Arc::new(RwLock::new(HashMap::new()));
 	let mut relay_config = Vec::new();
 	let mut registered_relays = HashMap::new();
+	let mut manual_addrs = HashSet::new();
+	let mut interval = tokio::time::interval(Duration::from_secs(15));
 
 	loop {
 		tokio::select! {
@@ -513,6 +524,9 @@ async fn start(
 
 					result.send(Ok(())).ok();
 				},
+				InternalEvent::RegisterPeerAddr { addrs } => {
+					manual_addrs = addrs;
+				}
 			},
 			Some(req) = connect_rx.recv() => {
 				let mut control = control.clone();
@@ -557,6 +571,17 @@ async fn start(
 						},
 					}
 				});
+			}
+			_ = interval.tick() => {
+				let addrs = manual_addrs.clone();
+
+				for addr in addrs {
+					let err = swarm.dial(socketaddr_to_quic_multiaddr(&addr));
+					debug!("Attempting connection to {:?} {}", addr, match err {
+						Ok(_) => "successfully".into(),
+						Err(err) => format!("with error: {err}"),
+					});
+				}
 			}
 		}
 	}

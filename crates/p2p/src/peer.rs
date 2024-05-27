@@ -179,6 +179,20 @@ impl Peer {
 			.collect()
 	}
 
+	pub fn addrs(&self) -> HashSet<SocketAddr> {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.values()
+			.flatten()
+			.filter_map(|addr| match addr {
+				PeerConnectionCandidate::SocketAddr(addr) => Some(*addr),
+				_ => None,
+			})
+			.collect()
+	}
+
 	/// Construct a new Quic stream to the peer.
 	pub async fn new_stream(&self) -> Result<UnicastStream, NewStreamError> {
 		let (addrs, connect_tx) = {

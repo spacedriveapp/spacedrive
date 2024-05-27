@@ -45,6 +45,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							DiscoveryMethod::Local
 						},
 						metadata,
+						addrs: peer.addrs(),
 					});
 				}
 

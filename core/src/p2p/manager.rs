@@ -22,13 +22,13 @@ use serde::Serialize;
 use serde_json::json;
 use specta::Type;
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	convert::Infallible,
 	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError},
 	time::Duration,
 };
 use tower_service::Service;
-use tracing::error;
+use tracing::{error, warn};
 
 use tokio::sync::{oneshot, Notify};
 use tracing::info;
@@ -259,6 +259,24 @@ impl P2PManager {
 				false => ListenerState::NotListening,
 			}
 		};
+
+		let mut addrs = HashSet::new();
+		for addr in config.p2p.manual_peers {
+			// TODO: We should probs track these errors for the UI
+			let Ok(addr) = tokio::net::lookup_host(&addr)
+				.await
+				.map_err(|err| {
+					warn!("Failed to parse manual peer address '{addr}': {err}");
+				})
+				.and_then(|mut i| i.next().ok_or(()))
+			else {
+				continue;
+			};
+
+			addrs.insert(addr);
+		}
+
+		self.quic_transport.set_manual_peer_addrs(addrs);
 
 		let should_revert = match (config.p2p.disabled, config.p2p.discovery) {
 			(true, _) | (_, P2PDiscoveryState::Disabled) => {
