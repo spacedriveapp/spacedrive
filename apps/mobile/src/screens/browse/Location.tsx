@@ -1,4 +1,4 @@
-import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
@@ -18,6 +18,13 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	.filter((x) => x !== '')
 	.pop();
 	}, [path])
+
+	// makes sure that the location shows newest/modified objects
+	// when a location is opened
+	useLibrarySubscription(
+		['locations.quickRescan', { sub_path: path ?? '', location_id: id }],
+		{ onData() {} }
+	);
 
 	const paths = usePathsExplorerQuery({
 		arg: {

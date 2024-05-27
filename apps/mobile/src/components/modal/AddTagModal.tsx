@@ -1,4 +1,4 @@
-import { Tag, getItemObject, useLibraryMutation, useLibraryQuery, useRspcContext } from "@sd/client";
+import { Tag, getItemObject, useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from "@sd/client";
 import { CaretLeft, Plus } from "phosphor-react-native";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, NativeScrollEvent, Pressable, Text, View } from "react-native";
@@ -24,7 +24,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const [startedScrolling, setStartedScrolling] = useState(false);
 	const [reachedBottom, setReachedBottom] = useState(true); // needs to be set to true for initial rendering fade to be correct
 
-	const rspc = useRspcContext();
+	const rspc = useRspcLibraryContext();
 	const tagsQuery = useLibraryQuery(['tags.list']);
 	const tagsObjectQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1]);
 	const mutation = useLibraryMutation(['tags.assign'], {

@@ -8,10 +8,10 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 	variants: {
 		variant: {
 			danger: ['border-red-800 bg-red-600 shadow-none'],
-			gray: ['border-app-lightborder bg-app-button shadow-none'],
+			gray: ['border-app-box bg-app shadow-none'],
 			darkgray: ['border-app-box bg-app shadow-none'],
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
-			outline: ['border-sidebar-line/60 bg-black shadow-none'],
+			outline: ['border-app-lightborder bg-black shadow-none'],
 			transparent: ['border-0 bg-black shadow-none'],
 			dashed: ['border border-dashed border-app-line bg-transparent shadow-none']
 		},
