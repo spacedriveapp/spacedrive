@@ -34,7 +34,7 @@ pub enum PeerConnectionCandidate {
 #[derive(Debug, Default)]
 pub(crate) struct State {
 	/// Active connections with the remote
-	pub(crate) active_connections: HashMap<ListenerId, oneshot::Sender<()>>,
+	pub(crate) active_connections: HashSet<ListenerId>,
 	/// Methods for establishing an active connections with the remote
 	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
 	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<ConnectionRequest>>,
@@ -148,7 +148,7 @@ impl Peer {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
-			.contains_key(&ListenerId(hook_id.0))
+			.contains(&ListenerId(hook_id.0))
 	}
 
 	pub fn is_connected_with(&self, listener_id: ListenerId) -> bool {
@@ -156,7 +156,7 @@ impl Peer {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
-			.contains_key(&listener_id)
+			.contains(&listener_id)
 	}
 
 	pub fn connection_methods(&self) -> HashSet<ListenerId> {

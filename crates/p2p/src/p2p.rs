@@ -9,7 +9,7 @@ use flume::Sender;
 use hash_map_diff::hash_map_diff;
 use libp2p::futures::future::join_all;
 use stable_vec::StableVec;
-use tokio::{sync::oneshot, time::timeout};
+use tokio::time::timeout;
 use tracing::info;
 
 use crate::{
@@ -166,14 +166,10 @@ impl P2P {
 		listener: ListenerId,
 		metadata: HashMap<String, String>,
 		stream: UnicastStream,
-		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
-		let peer = self.clone().connected_to_outgoing(
-			listener,
-			metadata,
-			stream.remote_identity(),
-			shutdown_tx,
-		);
+		let peer = self
+			.clone()
+			.connected_to_outgoing(listener, metadata, stream.remote_identity());
 		let _ = self.handler_tx.send(stream);
 		peer
 	}
@@ -183,7 +179,6 @@ impl P2P {
 		listener: ListenerId,
 		metadata: HashMap<String, String>,
 		identity: RemoteIdentity,
-		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
@@ -197,7 +192,7 @@ impl P2P {
 
 		{
 			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.active_connections.insert(listener, shutdown_tx);
+			state.active_connections.insert(listener);
 		}
 
 		peer.metadata_mut().extend(metadata);
@@ -345,10 +340,7 @@ impl P2P {
 				let mut peers_to_remove = HashSet::new(); // We are mutate while iterating
 				for (identity, peer) in peers.iter_mut() {
 					let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-					if let Some(active_connection) =
-						state.active_connections.remove(&ListenerId(id.0))
-					{
-						let _ = active_connection.send(());
+					if state.active_connections.remove(&ListenerId(id.0)) {
 						hooks.iter().for_each(|(_, hook)| {
 							hook.send(HookEvent::PeerDisconnectedWith(
 								ListenerId(id.0),

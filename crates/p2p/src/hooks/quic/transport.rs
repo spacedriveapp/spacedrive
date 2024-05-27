@@ -370,21 +370,33 @@ async fn start(
 					}
 					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
 
-					// TODO: Sync metadata
-					let metadata = HashMap::new();
+					let remote_metadata = {
+						let mut len = [0; 8];
+						stream.read_exact(&mut len).await.unwrap();
+						let len = u64::from_le_bytes(len);
+						if len > 1000 {
+							panic!("Metadata too large");
+						}
+						let mut buf = vec![0; len as usize];
+						stream.read_exact(&mut buf).await.unwrap();
+						rmp_serde::decode::from_slice(&buf).unwrap()
+					};
+
+					{
+						let metadata = p2p.metadata().clone();
+						let result = rmp_serde::encode::to_vec_named(&metadata).unwrap();
+						stream.write_all(&(result.len() as u64).to_le_bytes()).await.unwrap();
+						stream.write_all(&result).await.unwrap();
+					}
 
 					let stream = UnicastStream::new(identity, stream.compat());
-					let (shutdown_tx, shutdown_rx) = oneshot::channel();
 					p2p.connected_to_incoming(
 						id,
-						metadata,
+						remote_metadata,
 						stream,
-						shutdown_tx,
 					);
 
 					debug!("established inbound stream with '{}'", identity);
-
-					let _todo = shutdown_rx; // TODO: Handle `shutdown_rx`
 				});
 			},
 			event = swarm.select_next_some() => match event {
@@ -534,12 +546,26 @@ async fn start(
 								Ok(_) => {
 									debug!("Established outbound stream with '{}'", req.to);
 
-									let metadata = HashMap::new(); // TODO
+									{
+										let metadata = p2p.metadata().clone();
+										let result = rmp_serde::encode::to_vec_named(&metadata).unwrap();
+										stream.write_all(&(result.len() as u64).to_le_bytes()).await.unwrap();
+										stream.write_all(&result).await.unwrap();
+									}
 
-									let (shutdown_tx, shutdown_rx) = oneshot::channel();
-									p2p.connected_to_outgoing(id, metadata, req.to, shutdown_tx);
+									let remote_metadata = {
+										let mut len = [0; 8];
+										stream.read_exact(&mut len).await.unwrap();
+										let len = u64::from_le_bytes(len);
+										if len > 1000 {
+											panic!("Metadata too large");
+										}
+										let mut buf = vec![0; len as usize];
+										stream.read_exact(&mut buf).await.unwrap();
+										rmp_serde::decode::from_slice(&buf).unwrap()
+									};
 
-									let _ = shutdown_rx; // TODO: Handle `shutdown_rx`
+									p2p.connected_to_outgoing(id, remote_metadata, req.to);
 
 									let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
 								},
