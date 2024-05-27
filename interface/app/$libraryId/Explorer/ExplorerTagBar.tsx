@@ -1,7 +1,7 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { KeyboardEventHandler } from 'react';
-import { Tag, useCache, useLibraryQuery, useNodes, useSelector } from '@sd/client';
+import { Tag, useLibraryQuery, useSelector } from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
 import { useIsDark, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
@@ -34,12 +34,7 @@ export const ExplorerTagBar = () => {
 		s.awaitingTagAssignKeypress
 	]);
 
-	const allTagsQuery = useLibraryQuery(['tags.list']);
-
-	useNodes(allTagsQuery.data?.nodes);
-	const tagData = useCache(allTagsQuery.data?.items);
-
-	const availableTags = tagData;
+	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
 
 	return (
 		<div
@@ -50,11 +45,11 @@ export const ExplorerTagBar = () => {
 		>
 			{/* not final ui/copy, want to give some kind of on-demand help for tag assign mode. */}
 			<em className={clsx('line-clamp-1 text-sm tracking-wide')}>
-				{JSON.stringify(availableTags)}
+				{JSON.stringify(allTags)}
 			</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
-				{availableTags.map((tag, i) => {
+				{allTags.map((tag, i) => {
 					console.log(++i);
 
 					return (
