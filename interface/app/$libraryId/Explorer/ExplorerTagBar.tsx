@@ -1,7 +1,7 @@
-import { Tag, useLibraryQuery, useSelector } from '@sd/client';
-import { toast } from '@sd/ui';
 import clsx from 'clsx';
 import { KeyboardEventHandler } from 'react';
+import { Tag, useLibraryQuery, useSelector } from '@sd/client';
+import { toast } from '@sd/ui';
 import { useKeybind } from '~/hooks';
 
 import { explorerStore } from './store';
@@ -26,6 +26,7 @@ function captureTagAssignKeyPress(handler: KeyboardEventHandler): void {
 	window.addEventListener('keypress', handleKeyPress);
 }
 
+// @million-ignore
 export const ExplorerTagBar = () => {
 	const [isTagAssignModeActive, awaitingKeyPress] = useSelector(explorerStore, (s) => [
 		s.tagAssignMode,
@@ -79,6 +80,7 @@ interface TagItemProps {
 	onClick: () => void;
 }
 
+// @million-ignore
 const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
 	// const isDark = useIsDark();
 
