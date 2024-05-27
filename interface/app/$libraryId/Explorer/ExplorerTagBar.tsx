@@ -1,10 +1,8 @@
-import { Circle } from '@phosphor-icons/react';
+import { Tag, useLibraryQuery, useSelector } from '@sd/client';
+import { toast } from '@sd/ui';
 import clsx from 'clsx';
 import { KeyboardEventHandler } from 'react';
-import { Tag, useLibraryQuery, useSelector } from '@sd/client';
-import { Shortcut, toast } from '@sd/ui';
-import { useIsDark, useOperatingSystem } from '~/hooks';
-import { keybindForOs } from '~/util/keybinds';
+import { useKeybind } from '~/hooks';
 
 import { explorerStore } from './store';
 
@@ -36,6 +34,15 @@ export const ExplorerTagBar = () => {
 
 	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
 
+	// This will automagically listen for any keypress 1-9 while the tag bar is visible.
+	// These listeners will unmount when ExplorerTagBar is unmounted.
+	useKeybind(
+		[['Key1'], ['Key2'], ['Key3'], ['Key4'], ['Key5'], ['Key6'], ['Key7'], ['Key8'], ['Key9']],
+		(e) => {
+			// TODO: actually do tag assignment once pressed
+		}
+	);
+
 	return (
 		<div
 			className={clsx(
@@ -43,31 +50,24 @@ export const ExplorerTagBar = () => {
 				`h-[${TAG_BAR_HEIGHT}px]`
 			)}
 		>
-			{/* not final ui/copy, want to give some kind of on-demand help for tag assign mode. */}
-			<em className={clsx('line-clamp-1 text-sm tracking-wide')}>
-				{JSON.stringify(allTags)}
-			</em>
+			<em>{JSON.stringify(allTags)}</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
-				{allTags.map((tag, i) => {
-					console.log(++i);
-
-					return (
-						<li key={tag.id}>
-							<TagItem
-								tag={tag}
-								assignKey={(++i).toString()}
-								onClick={() => {
-									// greedyCaptureNextKeyPress()
-									// 	.then()
-									// 	.catch((e) => {
-									// 		toast.error('Failed to capture keypress', e);
-									// 	});
-								}}
-							/>
-						</li>
-					);
-				})}
+				{allTags.map((tag, i) => (
+					<li key={tag.id}>
+						<TagItem
+							tag={tag}
+							assignKey={(++i).toString()}
+							onClick={() => {
+								// greedyCaptureNextKeyPress()
+								// 	.then()
+								// 	.catch((e) => {
+								// 		toast.error('Failed to capture keypress', e);
+								// 	});
+							}}
+						/>
+					</li>
+				))}
 			</ul>
 		</div>
 	);
@@ -80,10 +80,10 @@ interface TagItemProps {
 }
 
 const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
-	const isDark = useIsDark();
+	// const isDark = useIsDark();
 
-	const os = useOperatingSystem(true);
-	const keybind = keybindForOs(os);
+	// const os = useOperatingSystem(true);
+	// const keybind = keybindForOs(os);
 
 	// const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
 	// 	data: {
@@ -98,18 +98,18 @@ const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
 	// });
 
 	return (
-		<button
-			// ref={setDroppableRef}
-			className={clsx(
-				'group flex items-center gap-1 rounded-lg border border-gray-500 bg-gray-500 px-1 py-0.5'
-			)}
-			onClick={onClick}
-			tabIndex={-1}
-		>
-			<Circle fill={tag.color ?? 'grey'} weight="fill" alt="" className="size-3" />
-			<span className="max-w-xs truncate text-ink-dull">{tag.name}</span>
+		<span className="max-w-xs truncate text-ink-dull">{tag.name}</span>
+		// <button
+		// ref={setDroppableRef}
+		// className={clsx(
+		// 	'group flex items-center gap-1 rounded-lg border border-gray-500 bg-gray-500 px-1 py-0.5'
+		// )}
+		// onClick={onClick}
+		// tabIndex={-1}
+		// >
+		// {/* <Circle fill={tag.color ?? 'grey'} weight="fill" alt="" className="size-3" /> */}
 
-			<Shortcut chars={keybind([], [assignKey])} />
-		</button>
+		// {/* <Shortcut chars={keybind([], [assignKey])} /> */}
+		// {/* </button> */}
 	);
 };
