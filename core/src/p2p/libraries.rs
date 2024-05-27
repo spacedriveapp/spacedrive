@@ -63,7 +63,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, quic: Arc<QuicHandle>, libraries: Arc<Libra
 									}
 
 									nodes_to_instance
-										.entry(identity.clone())
+										.entry(identity)
 										.or_insert(vec![])
 										.push(node_identity);
 
@@ -96,7 +96,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, quic: Arc<QuicHandle>, libraries: Arc<Libra
 									let identity = RemoteIdentity::from_bytes(&i.remote_identity)
 										.expect("invalid remote identity");
 									let node_identity = RemoteIdentity::from_bytes(
-										&i.node_remote_identity
+										i.node_remote_identity
 											.as_ref()
 											.expect("node remote identity is required"),
 									)
@@ -112,13 +112,12 @@ pub fn libraries_hook(p2p: Arc<P2P>, quic: Arc<QuicHandle>, libraries: Arc<Libra
 									else {
 										continue;
 									};
-									identities
-										.iter()
-										.position(|i| i == &node_identity)
-										.map(|i| {
-											identities.remove(i);
-										});
-									if identities.len() == 0 {
+									if let Some(i) =
+										identities.iter().position(|i| i == &node_identity)
+									{
+										identities.remove(i);
+									}
+									if identities.is_empty() {
 										quic.untrack_peer(node_identity);
 									}
 								}

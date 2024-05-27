@@ -36,7 +36,7 @@ impl QuicHandle {
 		self.nodes
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
-			.insert(identity.clone(), metadata.clone());
+			.insert(identity, metadata.clone());
 
 		if self.enabled.load(Ordering::Relaxed) {
 			self.p2p.clone().discover_peer(
@@ -58,10 +58,9 @@ impl QuicHandle {
 			.remove(&identity);
 
 		if self.enabled.load(Ordering::Relaxed) {
-			self.p2p
-				.peers()
-				.get(&identity)
-				.map(|peer| peer.undiscover_peer(self.hook_id));
+			if let Some(peer) = self.p2p.peers().get(&identity) {
+				peer.undiscover_peer(self.hook_id)
+			}
 		}
 	}
 
@@ -69,10 +68,9 @@ impl QuicHandle {
 	pub fn untrack_all(&self) {
 		let mut nodes = self.nodes.lock().unwrap_or_else(PoisonError::into_inner);
 		for (node, _) in nodes.drain() {
-			self.p2p
-				.peers()
-				.get(&node)
-				.map(|peer| peer.undiscover_peer(self.hook_id));
+			if let Some(peer) = self.p2p.peers().get(&node) {
+				peer.undiscover_peer(self.hook_id)
+			}
 		}
 	}
 
@@ -90,7 +88,7 @@ impl QuicHandle {
 		{
 			self.p2p.clone().discover_peer(
 				self.hook_id,
-				identity.clone(),
+				*identity,
 				metadata.clone(),
 				[PeerConnectionCandidate::Relay].into_iter().collect(),
 			);
@@ -107,10 +105,9 @@ impl QuicHandle {
 			.unwrap_or_else(PoisonError::into_inner)
 			.iter()
 		{
-			self.p2p
-				.peers()
-				.get(identity)
-				.map(|peer| peer.undiscover_peer(self.hook_id));
+			if let Some(peer) = self.p2p.peers().get(identity) {
+				peer.undiscover_peer(self.hook_id)
+			}
 		}
 	}
 

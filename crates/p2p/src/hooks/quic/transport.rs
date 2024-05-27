@@ -13,7 +13,7 @@ use libp2p::{
 	multiaddr::Protocol,
 	noise, relay,
 	swarm::{NetworkBehaviour, SwarmEvent},
-	yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
+	yamux, Multiaddr, PeerId, Stream, StreamProtocol, Swarm, SwarmBuilder,
 };
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -186,8 +186,8 @@ impl QuicTransport {
 
 		let result = rx
 			.await
-			.map_err(|e| QuicTransportError::ReceiveChannelClosed(e))
-			.and_then(|r| r.map_err(|e| QuicTransportError::InternalEvent(e)));
+			.map_err(QuicTransportError::ReceiveChannelClosed)
+			.and_then(|r| r.map_err(QuicTransportError::InternalEvent));
 
 		if result.is_ok() {
 			*self
@@ -370,24 +370,13 @@ async fn start(
 					}
 					map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
 
-					let remote_metadata = {
-						let mut len = [0; 8];
-						stream.read_exact(&mut len).await.unwrap();
-						let len = u64::from_le_bytes(len);
-						if len > 1000 {
-							panic!("Metadata too large");
-						}
-						let mut buf = vec![0; len as usize];
-						stream.read_exact(&mut buf).await.unwrap();
-						rmp_serde::decode::from_slice(&buf).unwrap()
+					let remote_metadata = match read_metadata(&mut stream, &p2p).await {
+						Ok(metadata) => metadata,
+						Err(e) => {
+							warn!("Failed to read metadata from '{}': {e}", identity);
+							return;
+						},
 					};
-
-					{
-						let metadata = p2p.metadata().clone();
-						let result = rmp_serde::encode::to_vec_named(&metadata).unwrap();
-						stream.write_all(&(result.len() as u64).to_le_bytes()).await.unwrap();
-						stream.write_all(&result).await.unwrap();
-					}
 
 					let stream = UnicastStream::new(identity, stream.compat());
 					p2p.connected_to_incoming(
@@ -408,7 +397,7 @@ async fn start(
 							.find(|(i, _)| remote_identity_to_libp2p_peerid(i) == peer_id) {
 								handle.connected_via_relay.lock()
 									.unwrap_or_else(PoisonError::into_inner)
-									.insert(remote_identity.clone());
+									.insert(*remote_identity);
 								}
 					}
 				}
@@ -505,15 +494,15 @@ async fn start(
 						}
 					}
 
-					if err.is_some() {
-						let _ = result.send(Err(err.unwrap()));
+					if let Some(err) = err {
+						let _ = result.send(Err(err));
 						continue;
 					}
 
 					// Cleanup connections to relays that are no longer in the config
 					// We intentionally do this after establishing new connections so we don't have a gap in connectivity
 					for (addr, listener_id) in &registered_relays {
-						if relays.iter().find(|e| e.addrs.contains(&addr)).is_some() {
+						if relays.iter().any(|e| e.addrs.contains(addr)) {
 							continue;
 						}
 
@@ -546,23 +535,12 @@ async fn start(
 								Ok(_) => {
 									debug!("Established outbound stream with '{}'", req.to);
 
-									{
-										let metadata = p2p.metadata().clone();
-										let result = rmp_serde::encode::to_vec_named(&metadata).unwrap();
-										stream.write_all(&(result.len() as u64).to_le_bytes()).await.unwrap();
-										stream.write_all(&result).await.unwrap();
-									}
-
-									let remote_metadata = {
-										let mut len = [0; 8];
-										stream.read_exact(&mut len).await.unwrap();
-										let len = u64::from_le_bytes(len);
-										if len > 1000 {
-											panic!("Metadata too large");
-										}
-										let mut buf = vec![0; len as usize];
-										stream.read_exact(&mut buf).await.unwrap();
-										rmp_serde::decode::from_slice(&buf).unwrap()
+									let remote_metadata = match send_metadata(&mut stream, &p2p).await {
+										Ok(metadata) => metadata,
+										Err(e) => {
+											let _ = req.tx.send(Err(e));
+											return;
+										},
 									};
 
 									p2p.connected_to_outgoing(id, remote_metadata, req.to);
@@ -582,6 +560,81 @@ async fn start(
 			}
 		}
 	}
+}
+
+async fn send_metadata(
+	stream: &mut Stream,
+	p2p: &Arc<P2P>,
+) -> Result<HashMap<String, String>, String> {
+	{
+		let metadata = p2p.metadata().clone();
+		let result = rmp_serde::encode::to_vec_named(&metadata)
+			.map_err(|err| format!("Error encoding metadata: {err:?}"))?;
+		stream
+			.write_all(&(result.len() as u64).to_le_bytes())
+			.await
+			.map_err(|err| format!("Error writing metadata length: {err:?}"))?;
+		stream
+			.write_all(&result)
+			.await
+			.map_err(|err| format!("Error writing metadata: {err:?}"))?;
+	}
+
+	let mut len = [0; 8];
+	stream
+		.read_exact(&mut len)
+		.await
+		.map_err(|err| format!("Error reading metadata length: {err:?}"))?;
+	let len = u64::from_le_bytes(len);
+	if len > 1000 {
+		return Err("Error metadata too large".into());
+	}
+	let mut buf = vec![0; len as usize];
+	stream
+		.read_exact(&mut buf)
+		.await
+		.map_err(|err| format!("Error reading metadata length: {err:?}"))?;
+	rmp_serde::decode::from_slice(&buf).map_err(|err| format!("Error decoding metadata: {err:?}"))
+}
+
+async fn read_metadata(
+	stream: &mut Stream,
+	p2p: &Arc<P2P>,
+) -> Result<HashMap<String, String>, String> {
+	let metadata = {
+		let mut len = [0; 8];
+		stream
+			.read_exact(&mut len)
+			.await
+			.map_err(|err| format!("Error reading metadata length: {err:?}"))?;
+		let len = u64::from_le_bytes(len);
+		if len > 1000 {
+			return Err("Error metadata too large".into());
+		}
+		let mut buf = vec![0; len as usize];
+		stream
+			.read_exact(&mut buf)
+			.await
+			.map_err(|err| format!("Error reading metadata length: {err:?}"))?;
+		rmp_serde::decode::from_slice(&buf)
+			.map_err(|err| format!("Error decoding metadata: {err:?}"))?
+	};
+
+	{
+		let metadata = p2p.metadata().clone();
+		let result = rmp_serde::encode::to_vec_named(&metadata)
+			.map_err(|err| format!("Error encoding metadata: {err:?}"))?;
+		stream
+			.write_all(&(result.len() as u64).to_le_bytes())
+			.await
+			.map_err(|err| format!("Error writing metadata length: {err:?}"))?;
+		stream
+			.write_all(&result)
+			.await
+			.map_err(|err| format!("Error writing metadata: {err:?}"))?;
+	}
+
+	Ok(metadata)
 }
 
 fn get_addrs<'a>(

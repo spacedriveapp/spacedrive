@@ -440,8 +440,7 @@ impl Libraries {
 		let instance_node_remote_identity = instance
 			.node_remote_identity
 			.as_ref()
-			.map(|v| RemoteIdentity::from_bytes(v).ok())
-			.flatten();
+			.and_then(|v| RemoteIdentity::from_bytes(v).ok());
 		if instance_node_id != node_config.id
 			|| instance_node_remote_identity != Some(node_config.identity.to_remote_identity())
 			|| curr_metadata != Some(node.p2p.peer_metadata())

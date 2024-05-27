@@ -130,11 +130,11 @@ impl P2PManager {
 							} else {
 								match resp.json::<Vec<RelayServerEntry>>().await {
 									Ok(config) => {
-										*node
-											.p2p
+										node.p2p
 											.relay_config
 											.lock()
-											.unwrap_or_else(PoisonError::into_inner) = config.clone();
+											.unwrap_or_else(PoisonError::into_inner)
+											.clone_from(&config);
 
 										let config = {
 											let node_config = node.config.get().await;
