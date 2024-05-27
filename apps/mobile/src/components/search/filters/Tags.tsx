@@ -76,7 +76,7 @@ const TagFilter = memo(({ tag }: Props) => {
 				})}
 			>
 				<View
-					style={twStyle(`h-5 w-5 rounded-full`, {
+					style={twStyle(`h-3.5 w-3.5 rounded-full`, {
 						backgroundColor: tag.color!
 					})}
 				/>
