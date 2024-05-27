@@ -1,6 +1,7 @@
-import { useRef } from 'react';
 import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
+import { useRef } from 'react';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
+import { toast } from '~/components/primitive/Toast';
 
 type Props = {
 	tagId: number;
@@ -19,6 +20,7 @@ const DeleteTagModal = ({ trigger, onSubmit, tagId, triggerStyle }: Props) => {
 			submitPlausibleEvent({ event: { type: 'tagDelete' } });
 			onSubmit?.();
 			rspc.queryClient.invalidateQueries(['tags.list']);
+			toast.success('Tag deleted successfully');
 		},
 		onSettled: () => {
 			modalRef.current?.close();

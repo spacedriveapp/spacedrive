@@ -1,6 +1,7 @@
-import { useRef } from 'react';
 import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
+import { useRef } from 'react';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
+import { toast } from '~/components/primitive/Toast';
 
 type Props = {
 	locationId: number;
@@ -20,6 +21,10 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 			onSuccess: () => {
 				submitPlausibleEvent({ event: { type: 'locationDelete' } });
 				onSubmit?.();
+				toast.success('Location deleted successfully');
+			},
+			onError: (error) => {
+				toast.error(error.message);
 			},
 			onSettled: () => {
 				modalRef.current?.close();
