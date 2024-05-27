@@ -157,8 +157,12 @@ impl P2PManager {
 													"Updated p2p relay configuration successfully."
 												);
 												if no_relays == 0 {
+													this.quic.disable();
+
 													ListenerState::NotListening
 												} else {
+													this.quic.enable();
+
 													ListenerState::Listening
 												}
 											}

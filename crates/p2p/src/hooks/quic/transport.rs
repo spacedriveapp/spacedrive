@@ -2,7 +2,7 @@ use std::{
 	collections::HashMap,
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
-	sync::{Arc, Mutex, PoisonError, RwLock},
+	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError, RwLock},
 	time::Duration,
 };
 
@@ -142,6 +142,7 @@ impl QuicTransport {
 			p2p: p2p.clone(),
 			hook_id: id.into(),
 			nodes: Default::default(),
+			enabled: AtomicBool::new(true),
 			connected_via_relay: Default::default(),
 		});
 
@@ -374,7 +375,7 @@ async fn start(
 
 					let stream = UnicastStream::new(identity, stream.compat());
 					let (shutdown_tx, shutdown_rx) = oneshot::channel();
-					p2p.connected_to(
+					p2p.connected_to_incoming(
 						id,
 						metadata,
 						stream,
@@ -389,15 +390,14 @@ async fn start(
 			event = swarm.select_next_some() => match event {
 				SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
 					if endpoint.is_relayed() {
-						if let Some(remote_identity) = handle.nodes.lock()
+						if let Some((remote_identity, _)) = handle.nodes.lock()
 							.unwrap_or_else(PoisonError::into_inner)
 							.iter()
-							.find(|i| remote_identity_to_libp2p_peerid(i) == peer_id) {
+							.find(|(i, _)| remote_identity_to_libp2p_peerid(i) == peer_id) {
 								handle.connected_via_relay.lock()
-								.unwrap_or_else(PoisonError::into_inner)
-								.insert(remote_identity.clone());
-							}
-
+									.unwrap_or_else(PoisonError::into_inner)
+									.insert(remote_identity.clone());
+								}
 					}
 				}
 				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } => {
@@ -517,6 +517,7 @@ async fn start(
 				let mut control = control.clone();
 				let self_remote_identity = p2p.identity().to_remote_identity();
 				let map = map.clone();
+				let p2p = p2p.clone();
 				let peer_id = remote_identity_to_libp2p_peerid(&req.to);
 				let addrs = get_addrs(peer_id, &relay_config, req.addrs.iter());
 
@@ -532,6 +533,14 @@ async fn start(
 							match stream.write_all(&self_remote_identity.get_bytes()).await {
 								Ok(_) => {
 									debug!("Established outbound stream with '{}'", req.to);
+
+									let metadata = HashMap::new(); // TODO
+
+									let (shutdown_tx, shutdown_rx) = oneshot::channel();
+									p2p.connected_to_outgoing(id, metadata, req.to, shutdown_tx);
+
+									let _ = shutdown_rx; // TODO: Handle `shutdown_rx`
+
 									let _ = req.tx.send(Ok(UnicastStream::new(req.to, stream.compat())));
 								},
 								Err(e) => {

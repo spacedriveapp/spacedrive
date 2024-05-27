@@ -79,91 +79,56 @@ impl P2PEvents {
 		let events_tx = events.0.clone();
 		tokio::spawn(async move {
 			while let Ok(event) = rx.recv_async().await {
-				let event = match event {
-						HookEvent::PeerExpiredBy(_, identity) => {
+				let peer = match event {
+					 	HookEvent::PeerDisconnectedWith(_, identity)
+						| HookEvent::PeerExpiredBy(_, identity) => {
 							let peers = p2p.peers();
 							let Some(peer) = peers.get(&identity) else {
+								let _ = events_tx.send(P2PEvent::PeerDelete { identity });
 								continue;
 							};
 
-							let Ok(metadata) = PeerMetadata::from_hashmap(&peer.metadata()).map_err(|err| println!(
-								"Invalid metadata for peer '{}': {err:?}",
-								peer.identity()
-							)) else {
-								continue;
-							};
-
-							P2PEvent::PeerChange {
-								identity: peer.identity(),
-								connection: if peer.is_connected() {
-									if quic.is_relayed(peer.identity()) {
-										ConnectionMethod::Relay
-									} else {
-										ConnectionMethod::Local
-									}
-								} else {
-									ConnectionMethod::Disconnected
-								},
-								discovery: peer
-									.connection_candidates()
-									.iter()
-									.all(|c| *c == PeerConnectionCandidate::Relay)
-									.then(|| DiscoveryMethod::Relay)
-									.unwrap_or(DiscoveryMethod::Local),
-								metadata,
-							}
+							peer.clone()
 						},
 						// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
 						// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)
 						HookEvent::PeerConnectedWith(_, peer)
 						| HookEvent::PeerAvailable(peer)
 						// This will fire for updates to the mDNS metadata which are important for UX.
-						| HookEvent::PeerDiscoveredBy(_, peer) => {
-							let Ok(metadata) = PeerMetadata::from_hashmap(&peer.metadata()).map_err(|err| println!(
-								"Invalid metadata for peer '{}': {err:?}",
-								peer.identity()
-							)) else {
-								continue;
-							};
-
-							P2PEvent::PeerChange {
-								identity: peer.identity(),
-								connection: if peer.is_connected() {
-									if quic.is_relayed(peer.identity()) {
-										ConnectionMethod::Relay
-									} else {
-										ConnectionMethod::Local
-									}
-								} else {
-									ConnectionMethod::Disconnected
-								},
-								discovery: peer
-									.connection_candidates()
-									.iter()
-									.all(|c| *c == PeerConnectionCandidate::Relay)
-									.then(|| DiscoveryMethod::Relay)
-									.unwrap_or(DiscoveryMethod::Local),
-								metadata,
-							}
-						}
-						HookEvent::PeerUnavailable(identity) => P2PEvent::PeerDelete { identity },
-						HookEvent::PeerDisconnectedWith(_, identity) => {
-							let peers = p2p.peers();
-							let Some(peer) = peers.get(&identity) else {
-								continue;
-							};
-
-							if !peer.is_connected() {
-								P2PEvent::PeerDelete { identity }
-							} else {
-								continue;
-							}
-						}
+						| HookEvent::PeerDiscoveredBy(_, peer) => peer,
+						HookEvent::PeerUnavailable(identity) => {
+							let _ = events_tx.send(P2PEvent::PeerDelete { identity });
+							continue;
+						},
 						HookEvent::Shutdown { _guard } => break,
 						_ => continue,
 					};
 
-				let _ = events_tx.send(event);
+				let Ok(metadata) = PeerMetadata::from_hashmap(&peer.metadata()).map_err(|err| {
+					println!("Invalid metadata for peer '{}': {err:?}", peer.identity())
+				}) else {
+					continue;
+				};
+
+				let _ = events_tx.send(P2PEvent::PeerChange {
+					identity: peer.identity(),
+					connection: if peer.is_connected() {
+						if quic.is_relayed(peer.identity()) {
+							ConnectionMethod::Relay
+						} else {
+							ConnectionMethod::Local
+						}
+					} else {
+						ConnectionMethod::Disconnected
+					},
+					discovery: peer
+						.connection_candidates()
+						.iter()
+						.all(|c| *c == PeerConnectionCandidate::Relay)
+						.then(|| DiscoveryMethod::Relay)
+						.unwrap_or(DiscoveryMethod::Local),
+					metadata,
+				});
 			}
 		});
 

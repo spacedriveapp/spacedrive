@@ -161,14 +161,30 @@ impl P2P {
 		peer
 	}
 
-	pub fn connected_to(
+	pub fn connected_to_incoming(
 		self: Arc<Self>,
 		listener: ListenerId,
 		metadata: HashMap<String, String>,
 		stream: UnicastStream,
 		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
-		let identity = stream.remote_identity();
+		let peer = self.clone().connected_to_outgoing(
+			listener,
+			metadata,
+			stream.remote_identity(),
+			shutdown_tx,
+		);
+		let _ = self.handler_tx.send(stream);
+		peer
+	}
+
+	pub fn connected_to_outgoing(
+		self: Arc<Self>,
+		listener: ListenerId,
+		metadata: HashMap<String, String>,
+		identity: RemoteIdentity,
+		shutdown_tx: oneshot::Sender<()>,
+	) -> Arc<Peer> {
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
 		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
@@ -199,8 +215,6 @@ impl P2P {
 				hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
 			});
 		}
-
-		let _ = self.handler_tx.send(stream);
 
 		peer
 	}
@@ -335,9 +349,19 @@ impl P2P {
 						state.active_connections.remove(&ListenerId(id.0))
 					{
 						let _ = active_connection.send(());
+						hooks.iter().for_each(|(_, hook)| {
+							hook.send(HookEvent::PeerDisconnectedWith(
+								ListenerId(id.0),
+								peer.identity(),
+							));
+						});
 					}
 					state.connection_methods.remove(&ListenerId(id.0));
 					state.discovered.remove(&id);
+
+					hooks.iter().for_each(|(_, hook)| {
+						hook.send(HookEvent::PeerExpiredBy(id, peer.identity()));
+					});
 
 					if state.connection_methods.is_empty() && state.discovered.is_empty() {
 						peers_to_remove.insert(*identity);

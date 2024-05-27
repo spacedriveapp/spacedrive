@@ -1,6 +1,9 @@
 use std::{
 	collections::{HashMap, HashSet},
-	sync::{Arc, Mutex, PoisonError},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc, Mutex, PoisonError,
+	},
 };
 
 use tokio::sync::Notify;
@@ -15,7 +18,8 @@ pub struct QuicHandle {
 	pub(super) shutdown: Notify,
 	pub(super) p2p: Arc<P2P>,
 	pub(super) hook_id: HookId,
-	pub(super) nodes: Mutex<HashSet<RemoteIdentity>>,
+	pub(super) nodes: Mutex<HashMap<RemoteIdentity, HashMap<String, String>>>,
+	pub(super) enabled: AtomicBool,
 	pub(super) connected_via_relay: Mutex<HashSet<RemoteIdentity>>,
 }
 
@@ -32,14 +36,16 @@ impl QuicHandle {
 		self.nodes
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
-			.insert(identity.clone());
+			.insert(identity.clone(), metadata.clone());
 
-		self.p2p.clone().discover_peer(
-			self.hook_id,
-			identity,
-			metadata,
-			[PeerConnectionCandidate::Relay].into_iter().collect(),
-		);
+		if self.enabled.load(Ordering::Relaxed) {
+			self.p2p.clone().discover_peer(
+				self.hook_id,
+				identity,
+				metadata,
+				[PeerConnectionCandidate::Relay].into_iter().collect(),
+			);
+		}
 	}
 
 	/// remove a peer from being tracked.
@@ -51,10 +57,61 @@ impl QuicHandle {
 			.unwrap_or_else(PoisonError::into_inner)
 			.remove(&identity);
 
-		self.p2p
-			.peers()
-			.get(&identity)
-			.map(|peer| peer.undiscover_peer(self.hook_id));
+		if self.enabled.load(Ordering::Relaxed) {
+			self.p2p
+				.peers()
+				.get(&identity)
+				.map(|peer| peer.undiscover_peer(self.hook_id));
+		}
+	}
+
+	/// remove all peers from being tracked.
+	pub fn untrack_all(&self) {
+		let mut nodes = self.nodes.lock().unwrap_or_else(PoisonError::into_inner);
+		for (node, _) in nodes.drain() {
+			self.p2p
+				.peers()
+				.get(&node)
+				.map(|peer| peer.undiscover_peer(self.hook_id));
+		}
+	}
+
+	/// enabled the track peers from being registered to the P2P system.
+	///
+	/// This allows easily removing them when the relay is disabled.
+	pub fn enable(&self) {
+		self.enabled.store(true, Ordering::Relaxed);
+
+		for (identity, metadata) in self
+			.nodes
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+		{
+			self.p2p.clone().discover_peer(
+				self.hook_id,
+				identity.clone(),
+				metadata.clone(),
+				[PeerConnectionCandidate::Relay].into_iter().collect(),
+			);
+		}
+	}
+
+	/// disabled tracking the peers from being registered to the P2P system.
+	pub fn disable(&self) {
+		self.enabled.store(false, Ordering::Relaxed);
+
+		for (identity, _) in self
+			.nodes
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+		{
+			self.p2p
+				.peers()
+				.get(identity)
+				.map(|peer| peer.undiscover_peer(self.hook_id));
+		}
 	}
 
 	/// check if a peer is being relayed.
