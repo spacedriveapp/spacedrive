@@ -37,7 +37,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 				hidden: isLoading
 			})}
 		>
-			<Text style={tw`text-sm font-bold text-zinc-400`}>{title}</Text>
+			<Text style={tw`text-xs font-bold text-zinc-400`}>{title}</Text>
 			<View style={tw`mt-1 flex-row items-baseline`}>
 				<Text style={twStyle('text-xl font-bold tabular-nums text-white')}>{count}</Text>
 				<Text style={tw`ml-1 text-sm text-zinc-400`}>{unit}</Text>
@@ -104,7 +104,7 @@ const OverviewStats = ({ stats }: Props) => {
 	};
 
 	return (
-		<View style={tw`px-6`}>
+		<View style={tw`px-5`}>
 			<Text style={tw`pb-3 text-lg font-bold text-white`}>Statistics</Text>
 			<View style={tw`flex-row gap-2`}>
 				<View style={tw`h-full flex-1 flex-col gap-2`}>

@@ -1,8 +1,9 @@
+import { Location } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable } from 'react-native';
-import { Location } from '@sd/client';
 import { twStyle } from '~/lib/tailwind';
 
+import { ClassInput } from 'twrnc';
 import { ModalRef } from '../layout/Modal';
 import { LocationModal } from '../modal/location/LocationModal';
 import GridLocation from './GridLocation';
@@ -13,19 +14,21 @@ type LocationItemProps = {
 	onPress: () => void;
 	viewStyle?: 'grid' | 'list';
 	editLocation: () => void;
+	style?: ClassInput;
 };
 
 export const LocationItem = ({
 	location,
 	onPress,
 	editLocation,
-	viewStyle = 'grid'
+	viewStyle = 'grid',
+	style
 }: LocationItemProps) => {
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<>
 			<Pressable
-				style={twStyle(viewStyle === 'grid' ? `w-[31.5%]` : `flex-1`)}
+				style={twStyle(viewStyle === 'grid' ? `m-1 w-[112px]` : `flex-1`, style)}
 				onPress={onPress}
 			>
 				{viewStyle === 'grid' ? (

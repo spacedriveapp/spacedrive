@@ -60,7 +60,7 @@ export function useFiltersSearch(search: string) {
 		const filters = [] as SearchFilterArgs[];
 
 		//It's a global search if no locations have been selected
-		if (searchStore.filters.locations.length === 0 || !name || !ext) {
+		if (searchStore.filters.locations.length === 0) {
 			const locationIds = locations.data?.map((l) => l.id);
 			if (locationIds) filters.push({ filePath: { locations: { in: locationIds } } });
 		}
