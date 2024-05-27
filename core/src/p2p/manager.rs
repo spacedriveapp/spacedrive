@@ -257,7 +257,7 @@ impl P2PManager {
 		};
 
 		let should_revert = match (config.p2p.disabled, config.p2p.discovery) {
-			(false, _) | (_, P2PDiscoveryState::Disabled) => {
+			(true, _) | (_, P2PDiscoveryState::Disabled) => {
 				let mdns = {
 					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
 					mdns.take()
