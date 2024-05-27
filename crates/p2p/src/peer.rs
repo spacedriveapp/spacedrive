@@ -239,12 +239,28 @@ impl Peer {
 			.insert(hook, addrs);
 	}
 
-	pub fn listener_available(&self, listener: ListenerId, tx: mpsc::Sender<ConnectionRequest>) {
+	pub fn listener_available(
+		self: Arc<Self>,
+		listener: ListenerId,
+		tx: mpsc::Sender<ConnectionRequest>,
+	) {
 		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connection_methods
 			.insert(listener, tx);
+
+		let Some(p2p) = self.p2p.upgrade() else {
+			return;
+		};
+
+		p2p.hooks
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+			.for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerDiscoveredBy(listener.into(), self.clone()));
+			});
 	}
 
 	pub fn undiscover_peer(&self, hook_id: HookId) {

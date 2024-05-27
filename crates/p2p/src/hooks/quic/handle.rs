@@ -16,6 +16,7 @@ pub struct QuicHandle {
 	pub(super) p2p: Arc<P2P>,
 	pub(super) hook_id: HookId,
 	pub(super) nodes: Mutex<HashSet<RemoteIdentity>>,
+	pub(super) connected_via_relay: Mutex<HashSet<RemoteIdentity>>,
 }
 
 impl QuicHandle {
@@ -58,7 +59,7 @@ impl QuicHandle {
 
 	/// check if a peer is being relayed.
 	pub fn is_relayed(&self, identity: RemoteIdentity) -> bool {
-		self.nodes
+		self.connected_via_relay
 			.lock()
 			.unwrap_or_else(PoisonError::into_inner)
 			.get(&identity)

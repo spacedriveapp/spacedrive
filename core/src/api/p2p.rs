@@ -35,13 +35,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						} else {
 							ConnectionMethod::Disconnected
 						},
-						discovery: match !peer
+						discovery: peer
 							.connection_candidates()
-							.contains(&PeerConnectionCandidate::Relay)
-						{
-							true => DiscoveryMethod::Local,
-							false => DiscoveryMethod::Relay,
-						},
+							.iter()
+							.all(|c| *c == PeerConnectionCandidate::Relay)
+							.then(|| DiscoveryMethod::Relay)
+							.unwrap_or(DiscoveryMethod::Local),
 						metadata,
 					});
 				}

@@ -118,7 +118,8 @@ impl QuicTransport {
 		let (connect_tx, connect_rx) = mpsc::channel(15);
 		let id = p2p.register_listener("libp2p-quic", tx, move |listener_id, peer, _addrs| {
 			// TODO: I don't love this always being registered. Really it should only show up if the other device is online (do a ping-type thing)???
-			peer.listener_available(listener_id, connect_tx.clone());
+			peer.clone()
+				.listener_available(listener_id, connect_tx.clone());
 		});
 
 		let swarm = SwarmBuilder::with_existing_identity(keypair)
@@ -136,20 +137,31 @@ impl QuicTransport {
 			.with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
 			.build();
 
-		tokio::spawn(start(p2p.clone(), id, swarm, rx, internal_rx, connect_rx));
+		let handle = Arc::new(QuicHandle {
+			shutdown: Default::default(),
+			p2p: p2p.clone(),
+			hook_id: id.into(),
+			nodes: Default::default(),
+			connected_via_relay: Default::default(),
+		});
+
+		tokio::spawn(start(
+			p2p.clone(),
+			id,
+			swarm,
+			rx,
+			internal_rx,
+			connect_rx,
+			handle.clone(),
+		));
 
 		Ok((
 			Self {
 				id,
-				p2p: p2p.clone(),
+				p2p,
 				internal_tx,
 				relay_config: Mutex::new(Vec::new()),
-				handle: Arc::new(QuicHandle {
-					shutdown: Default::default(),
-					p2p,
-					hook_id: id.into(),
-					nodes: Default::default(),
-				}),
+				handle,
 			},
 			libp2p_peer_id,
 		))
@@ -267,6 +279,7 @@ async fn start(
 	rx: Receiver<HookEvent>,
 	internal_rx: Receiver<InternalEvent>,
 	mut connect_rx: mpsc::Receiver<ConnectionRequest>,
+	handle: Arc<QuicHandle>,
 ) {
 	let mut ipv4_listener = None;
 	let mut ipv6_listener = None;
@@ -373,20 +386,36 @@ async fn start(
 					let _todo = shutdown_rx; // TODO: Handle `shutdown_rx`
 				});
 			},
-			event = swarm.select_next_some() => if let SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } = event {
-				let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
-					warn!("Tried to remove a peer that wasn't in the map.");
-					continue;
-				};
+			event = swarm.select_next_some() => match event {
+				SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+					if endpoint.is_relayed() {
+						if let Some(remote_identity) = handle.nodes.lock()
+							.unwrap_or_else(PoisonError::into_inner)
+							.iter()
+							.find(|i| remote_identity_to_libp2p_peerid(i) == peer_id) {
+								handle.connected_via_relay.lock()
+								.unwrap_or_else(PoisonError::into_inner)
+								.insert(remote_identity.clone());
+							}
 
-				let peers = p2p.peers.read().unwrap_or_else(PoisonError::into_inner);
-				let Some(peer) = peers.get(&identity) else {
-					warn!("Tried to remove a peer that wasn't in the P2P system.");
-					continue;
-				};
+					}
+				}
+				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } => {
+					let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
+						warn!("Tried to remove a peer that wasn't in the map.");
+						continue;
+					};
 
-				peer.disconnected_from(id);
-		},
+					let peers = p2p.peers.read().unwrap_or_else(PoisonError::into_inner);
+					let Some(peer) = peers.get(&identity) else {
+						warn!("Tried to remove a peer that wasn't in the P2P system.");
+						continue;
+					};
+
+					peer.disconnected_from(id);
+				},
+				_ => {}
+			},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
 					match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {

@@ -80,6 +80,39 @@ impl P2PEvents {
 		tokio::spawn(async move {
 			while let Ok(event) = rx.recv_async().await {
 				let event = match event {
+						HookEvent::PeerExpiredBy(_, identity) => {
+							let peers = p2p.peers();
+							let Some(peer) = peers.get(&identity) else {
+								continue;
+							};
+
+							let Ok(metadata) = PeerMetadata::from_hashmap(&peer.metadata()).map_err(|err| println!(
+								"Invalid metadata for peer '{}': {err:?}",
+								peer.identity()
+							)) else {
+								continue;
+							};
+
+							P2PEvent::PeerChange {
+								identity: peer.identity(),
+								connection: if peer.is_connected() {
+									if quic.is_relayed(peer.identity()) {
+										ConnectionMethod::Relay
+									} else {
+										ConnectionMethod::Local
+									}
+								} else {
+									ConnectionMethod::Disconnected
+								},
+								discovery: peer
+									.connection_candidates()
+									.iter()
+									.all(|c| *c == PeerConnectionCandidate::Relay)
+									.then(|| DiscoveryMethod::Relay)
+									.unwrap_or(DiscoveryMethod::Local),
+								metadata,
+							}
+						},
 						// We use `HookEvent::PeerUnavailable`/`HookEvent::PeerAvailable` over `HookEvent::PeerExpiredBy`/`HookEvent::PeerDiscoveredBy` so that having an active connection is treated as "discovered".
 						// It's possible to have an active connection without mDNS data (which is what Peer*By` are for)
 						HookEvent::PeerConnectedWith(_, peer)
@@ -104,13 +137,12 @@ impl P2PEvents {
 								} else {
 									ConnectionMethod::Disconnected
 								},
-								discovery: match !peer
+								discovery: peer
 									.connection_candidates()
-									.contains(&PeerConnectionCandidate::Relay)
-								{
-									true => DiscoveryMethod::Local,
-									false => DiscoveryMethod::Relay,
-								},
+									.iter()
+									.all(|c| *c == PeerConnectionCandidate::Relay)
+									.then(|| DiscoveryMethod::Relay)
+									.unwrap_or(DiscoveryMethod::Local),
 								metadata,
 							}
 						}

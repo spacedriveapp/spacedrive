@@ -33,6 +33,22 @@ impl Mdns {
 		Ok(Self { p2p, hook_id })
 	}
 
+	// pub fn is_discovered_by(&self, identity: &RemoteIdentity) -> bool {
+	// 	self.p2p
+	// 		.peers()
+	// 		.get(identity)
+	// 		.map(|p| p.discovered_by().contains(&self.hook_id))
+	// 		.unwrap_or(false)
+	// }
+
+	// pub fn is_connected_with(&self, identity: &RemoteIdentity) -> bool {
+	// 	self.p2p
+	// 		.peers()
+	// 		.get(identity)
+	// 		.map(|p| p.is_connected_with_hook(self.hook_id))
+	// 		.unwrap_or(false)
+	// }
+
 	pub async fn shutdown(self) {
 		self.p2p.unregister_hook(self.hook_id).await;
 	}
