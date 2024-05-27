@@ -160,7 +160,7 @@ mod library {
 							instance.node_id,
 							RemoteIdentity::from_str(&instance.node_remote_identity)
 								.expect("malformed remote identity in the DB"),
-							node.p2p.peer_metadata(),
+							instance.metadata,
 						)
 						.await?;
 					}
