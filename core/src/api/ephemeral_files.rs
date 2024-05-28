@@ -11,6 +11,7 @@ use crate::{
 	},
 };
 
+use futures::stream::FuturesUnordered;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::exif_media_data;
 
@@ -20,16 +21,19 @@ use sd_file_ext::{
 };
 use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
+use tokio_util::io::ReaderStream;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 
-use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::{fs, io};
+use tokio::{
+	fs,
+	io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
+};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
@@ -481,7 +485,6 @@ impl EphemeralFileSystemOps {
 		Ok(())
 	}
 
-	#[async_recursion]
 	async fn copy(self, library: &Library) -> Result<(), rspc::Error> {
 		self.check().await?;
 
@@ -517,7 +520,54 @@ impl EphemeralFileSystemOps {
 			.into_iter()
 			.partition::<Vec<_>, _>(|(_, _, is_dir)| *is_dir);
 
-		files_to_copy
+		let copiers = FuturesUnordered::new();
+
+		for (source, target, _) in files_to_copy.into_iter() {
+			copiers.push(async move {
+				let target = match fs::metadata(&target).await {
+					Ok(_) => find_available_filename_for_duplicate(target).await,
+					Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(target),
+					Err(e) => Err(FileSystemJobsError::FileIO(FileIOError::from((
+						target,
+						e,
+						"Failed to get target file metadata",
+					)))),
+				}?;
+
+				let source = fs::File::open(&source).await.unwrap();
+				let mut stream = ReaderStream::with_capacity(source, 1024);
+
+				let error = |e| {
+					FileSystemJobsError::FileIO(FileIOError::from((
+						target.clone(),
+						e,
+						"Failed to copy file",
+					)))
+				};
+
+				let mut target = fs::File::create(&target).await.map_err(|e| {
+					FileSystemJobsError::CreateFileOrFolder(FileIOError::from((
+						target.clone(),
+						e,
+						"Failed to create file",
+					)))
+				})?;
+				// TODO(matheus-consoli): emit the events related to progress
+				while let Some(chunk) = stream.next().await {
+					target
+						.write_all(&chunk.map_err(error)?)
+						.await
+						.map_err(error)?;
+				}
+
+				Ok::<_, FileSystemJobsError>(())
+			});
+		}
+
+		// TODO(matheus-consoli): handle errors?
+		_ = copiers.collect::<Vec<_>>().await;
+
+		directories_to_create
 			.into_iter()
 			.map(|(source, mut target, _)| async move {
 				match fs::metadata(&target).await {
@@ -534,70 +584,40 @@ impl EphemeralFileSystemOps {
 					}
 				}
 
-				fs::copy(&source, target).await.map_err(|e| {
-					FileSystemJobsError::FileIO(FileIOError::from((
-						source,
+				fs::create_dir_all(&target)
+					.await
+					.map_err(|e| FileIOError::from((&target, e, "Failed to create directory")))?;
+
+				let more_files = ReadDirStream::new(fs::read_dir(&source).await.map_err(|e| {
+					FileIOError::from((&source, e, "Failed to read directory to be copied"))
+				})?)
+				.map(|read_dir| match read_dir {
+					Ok(dir_entry) => Ok(dir_entry.path()),
+					Err(e) => Err(FileIOError::from((
+						&source,
 						e,
-						"Failed to copy file",
-					)))
+						"Failed to read directory to be copied",
+					))),
 				})
+				.collect::<Result<Vec<_>, _>>()
+				.await?;
+
+				if !more_files.is_empty() {
+					tracing::debug!("cloning more");
+					Self {
+						sources: more_files,
+						target_dir: target,
+					}
+					.copy(library)
+					.await
+				} else {
+					tracing::debug!("no more clones");
+					Ok(())
+				}
 			})
 			.collect::<Vec<_>>()
 			.try_join()
 			.await?;
-
-		if !directories_to_create.is_empty() {
-			directories_to_create
-				.into_iter()
-				.map(|(source, mut target, _)| async move {
-					match fs::metadata(&target).await {
-						Ok(_) => target = find_available_filename_for_duplicate(&target).await?,
-						Err(e) if e.kind() == io::ErrorKind::NotFound => {
-							// Everything is awesome!
-						}
-						Err(e) => {
-							return Err(rspc::Error::from(FileIOError::from((
-								target,
-								e,
-								"Failed to get target file metadata",
-							))));
-						}
-					}
-
-					fs::create_dir_all(&target).await.map_err(|e| {
-						FileIOError::from((&target, e, "Failed to create directory"))
-					})?;
-
-					let more_files =
-						ReadDirStream::new(fs::read_dir(&source).await.map_err(|e| {
-							FileIOError::from((&source, e, "Failed to read directory to be copied"))
-						})?)
-						.map(|read_dir| match read_dir {
-							Ok(dir_entry) => Ok(dir_entry.path()),
-							Err(e) => Err(FileIOError::from((
-								&source,
-								e,
-								"Failed to read directory to be copied",
-							))),
-						})
-						.collect::<Result<Vec<_>, _>>()
-						.await?;
-
-					if !more_files.is_empty() {
-						Self {
-							sources: more_files,
-							target_dir: target,
-						}
-						.copy(library)
-						.await
-					} else {
-						Ok(())
-					}
-				})
-				.collect::<Vec<_>>()
-				.try_join()
-				.await?;
-		}
 
 		invalidate_query!(library, "search.ephemeralPaths");
 
