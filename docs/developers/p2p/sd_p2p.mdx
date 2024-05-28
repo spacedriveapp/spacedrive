@@ -9,7 +9,7 @@ index: 22
 
 The P2P crate was designed from the ground up to be modular.
 
-The `P2P` struct is the core of the system, and suprisingly doesn't actually do any P2P functionality. It's a state manager and event bus which exposes a hook system for other components of the P2P system to register themselves.
+The `P2P` struct is the core of the system, but doesn't actually do any P2P functionality. It's a state manager and event bus which exposes a hook system for other components of the P2P system to register themselves.
 
 This modular design helps with separation of concerns which significantly helps with comprehending the entire system and streamlines testing.
 
