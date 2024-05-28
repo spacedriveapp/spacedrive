@@ -55,7 +55,7 @@ https://linear.app/spacedriveapp/issue/ENG-1758/p2p-🤝-spacedrive-accounts
 
 Docker can be problematic with P2P due to it applying another level of [NAT](https://en.wikipedia.org/wiki/Network_address_translation). This shouldn't cause any issues for usage with the relay but it makes mDNS cease to work.
 
-I've [seen people online](https://medium.com/@andrejtaneski/using-mdns-from-a-docker-container-b516a408a66b) exposing the mDNS daemon of the host machine into the container, and it's possible we could look into doing something similar, however i'm not sure if [`mdns-sd`](https://docs.rs/mdns-sd) uses the OS's daemon and if `avahi` is used by all host Linux distributions we want to support.
+It is possible to [expose the mDNS daemon](https://medium.com/@andrejtaneski/using-mdns-from-a-docker-container-b516a408a66b) of the host machine into the container, and we could potentially implement something similar, however it's unclear if [`mdns-sd`](https://docs.rs/mdns-sd) uses the OS's daemon and if `avahi` is used by all host Linux distributions we want to support.
 
 When `sd-server` is run from Docker the `Dockerfile` sets the environment variable `SD_DOCKER=true` which is picked up by the core and it exposes P2P on port `7373` instead of a random port like the default configuration.
 
