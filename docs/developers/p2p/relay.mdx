@@ -27,7 +27,7 @@ We store the relays in Redis with a TTL so if the relay server is shutdown and d
 
 We register a listen for each relay that is returned from the discovery server. When a connection is established we will attempt to connect to the relay server. We also attempt to establish connections with peers that we already know about through the active libraries.
 
-Currently we connect to every relay server that is returned from the discovery server. This is obviously not ideal but if two nodes were to connect to the different relay servers we would need someway of communicating between them which is a complicated problem to solve.
+Currently we connect to every relay server that is returned from the discovery server. This is obviously not ideal but if two nodes were to connect to the different relay servers we would need some way of communicating between them (which is a complicated problem to solve).
 
 The issue of connecting to every relay server is tracked as [ENG-1672](https://linear.app/spacedriveapp/issue/ENG-1672/mesh-relays).
 
