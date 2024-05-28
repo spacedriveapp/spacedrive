@@ -59,7 +59,7 @@ I've [seen people online](https://medium.com/@andrejtaneski/using-mdns-from-a-do
 
 When `sd-server` is run from Docker the `Dockerfile` sets the environment variable `SD_DOCKER=true` which is picked up by the core and it exposes P2P on port `7373` instead of a random port like the default configuration.
 
-This allows the administrator to use the `-p 7373:7373` flag when running the container to expose the P2P port to the host machine. This can then be paired with manually entering the IP address and port of the node into the P2P settings of the other node and a connection can be established. This definitely suboptimal but it acts as a workaround for the time being.
+This allows the administrator to use the `-p 7373:7373` flag when running the container to expose the P2P port to the host machine. This can then be paired with manually entering the IP address and port of the node into the P2P settings of the other node and a connection can be established. Although this is suboptimal, it serves as an alternative for the time being.
 
 This issued is tracked as [ENG-1343](https://linear.app/spacedriveapp/issue/ENG-1343/docker-support-for-p2p).
 
