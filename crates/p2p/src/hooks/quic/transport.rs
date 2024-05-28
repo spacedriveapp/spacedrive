@@ -31,12 +31,12 @@ use uuid::Uuid;
 use super::{
 	handle::QuicHandle,
 	utils::{
-		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_quic_multiaddr,
+		identity_to_libp2p_keypair, remote_identity_to_libp2p_peerid, socketaddr_to_multiaddr,
 	},
 };
 use crate::{
-	identity::REMOTE_IDENTITY_LEN, ConnectionRequest, HookEvent, ListenerId,
-	PeerConnectionCandidate, RemoteIdentity, UnicastStream, P2P,
+	hooks::quic::utils::multiaddr_to_socketaddr, identity::REMOTE_IDENTITY_LEN, ConnectionRequest,
+	HookEvent, ListenerId, PeerConnectionCandidate, RemoteIdentity, UnicastStream, P2P,
 };
 
 const PROTOCOL: StreamProtocol = StreamProtocol::new("/sdp2p/1");
@@ -360,6 +360,7 @@ async fn start(
 	let mut manual_addr_dial_attempts = HashMap::new();
 	let (manual_peers_dial_tx, mut manual_peers_dial_rx) = mpsc::channel(15);
 	let mut interval = tokio::time::interval(Duration::from_secs(60));
+	let mut peer_id_to_addrs: HashMap<PeerId, HashSet<SocketAddr>> = HashMap::new();
 
 	loop {
 		tokio::select! {
@@ -410,6 +411,7 @@ async fn start(
 			Some((peer_id, mut stream)) = incoming.next() => {
 				let p2p = p2p.clone();
 				let map = map.clone();
+				let peer_id_to_addrs = peer_id_to_addrs.clone();
 
 				tokio::spawn(async move {
 					let mut mode = [0; 1];
@@ -483,6 +485,8 @@ async fn start(
 							remote_metadata,
 							stream,
 						);
+					} else {
+						p2p.discover_peer(id.into(), identity, remote_metadata, peer_id_to_addrs.get(&peer_id).into_iter().flatten().map(|v| PeerConnectionCandidate::SocketAddr(*v)).collect());
 					}
 
 					debug!("established inbound stream with '{}'", identity);
@@ -490,6 +494,10 @@ async fn start(
 			},
 			event = swarm.select_next_some() => match event {
 				SwarmEvent::ConnectionEstablished { peer_id, endpoint, connection_id, .. } => {
+					if let Some(addr) = multiaddr_to_socketaddr(endpoint.get_remote_address()) {
+						peer_id_to_addrs.entry(peer_id).or_insert_with(|| HashSet::default()).insert(addr);
+					}
+
 					if let Some((addr, socket_addr)) = manual_addr_dial_attempts.remove(&connection_id) {
 						let mut control = control.clone();
 						let map = map.clone();
@@ -502,7 +510,7 @@ async fn start(
 							match control.open_stream_with_addrs(
 								peer_id,
 								PROTOCOL,
-								vec![socketaddr_to_quic_multiaddr(&socket_addr)]
+								vec![socketaddr_to_multiaddr(&socket_addr)]
 							).await {
 								Ok(mut stream) => {
 									match stream.write_all(&[1]).await {
@@ -574,7 +582,11 @@ async fn start(
 								}
 					}
 				}
-				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, connection_id, .. } => {
+				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, connection_id, endpoint, .. } => {
+					if let Some(addr) = multiaddr_to_socketaddr(endpoint.get_remote_address()) {
+						peer_id_to_addrs.entry(peer_id).or_insert_with(HashSet::new).remove(&addr);
+					}
+
 					if let Some((addr, _)) = manual_addr_dial_attempts.remove(&connection_id) {
 						warn!("Failed to establish manual connection with '{addr}'");
 					}
@@ -596,7 +608,7 @@ async fn start(
 			},
 			Ok(event) = internal_rx.recv_async() => match event {
 				InternalEvent::RegisterListener { id, ipv4, addr, result } => {
-					match swarm.listen_on(socketaddr_to_quic_multiaddr(&addr)) {
+					match swarm.listen_on(socketaddr_to_multiaddr(&addr)) {
 						Ok(libp2p_listener_id) => {
 							let this = match ipv4 {
 								true => &mut ipv4_listener,
@@ -642,7 +654,7 @@ async fn start(
 						let addrs = relay
 							.addrs
 							.iter()
-							.map(socketaddr_to_quic_multiaddr)
+							.map(socketaddr_to_multiaddr)
 							.collect::<Vec<_>>();
 
 						for addr in addrs {
@@ -745,7 +757,7 @@ async fn start(
 			}
 			Some((addr, socket_addr)) = manual_peers_dial_rx.recv() => {
 				let opts = DialOpts::unknown_peer_id()
-					.address(socketaddr_to_quic_multiaddr(&socket_addr))
+					.address(socketaddr_to_multiaddr(&socket_addr))
 					.build();
 
 				manual_addr_dial_attempts.insert(opts.connection_id(), (addr, socket_addr));
@@ -863,7 +875,7 @@ fn get_addrs<'a>(
 ) -> Vec<Multiaddr> {
 	addrs
 		.flat_map(|v| match v {
-			PeerConnectionCandidate::SocketAddr(addr) => vec![socketaddr_to_quic_multiaddr(addr)],
+			PeerConnectionCandidate::SocketAddr(addr) => vec![socketaddr_to_multiaddr(addr)],
 			PeerConnectionCandidate::Relay => relay_config
 				.iter()
 				.filter_map(|e| match PeerId::from_str(&e.peer_id) {
@@ -875,7 +887,7 @@ fn get_addrs<'a>(
 				})
 				.flatten()
 				.map(|(relay_peer_id, addr)| {
-					let mut addr = socketaddr_to_quic_multiaddr(addr);
+					let mut addr = socketaddr_to_multiaddr(addr);
 					addr.push(Protocol::P2p(relay_peer_id));
 					addr.push(Protocol::P2pCircuit);
 					addr.push(Protocol::P2p(peer_id));
