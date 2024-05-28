@@ -244,15 +244,20 @@ mod responder {
 
 			let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
 
+			let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
+
 			ingest
 				.event_tx
 				.send(Event::Messages(MessagesEvent {
 					instance_id: library.sync.instance,
 					has_more: ops.len() == OPS_PER_REQUEST as usize,
 					messages: ops,
+					wait_tx: None,
 				}))
 				.await
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+
+			wait_rx.await.unwrap()
 		}
 
 		debug!("Sync responder done");

@@ -128,6 +128,7 @@ impl Instance {
 										messages: CompressedCRDTOperations::new(messages),
 										has_more: false,
 										instance_id: instance1.id,
+										wait_tx: None,
 									}))
 									.await
 									.unwrap();

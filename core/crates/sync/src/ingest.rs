@@ -129,6 +129,10 @@ impl Actor {
 					}
 				}
 
+				if let Some(tx) = event.wait_tx {
+					tx.send(()).ok();
+				}
+
 				match event.has_more {
 					true => State::RetrievingMessages,
 					false => {
@@ -445,6 +449,7 @@ pub struct MessagesEvent {
 	pub instance_id: Uuid,
 	pub messages: CompressedCRDTOperations,
 	pub has_more: bool,
+	pub wait_tx: Option<oneshot::Sender<()>>,
 }
 
 impl ActorTypes for Actor {
