@@ -3,6 +3,7 @@ import { PropsWithChildren, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
+import { match } from 'ts-pattern';
 import { z } from 'zod';
 import {
 	ListenerState,
@@ -136,6 +137,17 @@ export const Component = () => {
 							<RenderListenerPill listener={listeners.data?.ipv6}>
 								IPv6
 							</RenderListenerPill>
+							{match(node.data?.p2p.discovery || 'Disabled')
+								.with('Disabled', () => <NodePill>LAN</NodePill>)
+								.with('ContactsOnly', () => (
+									<Tooltip label="Only discoverable by contacts">
+										<NodePill className="bg-orange-700">LAN</NodePill>
+									</Tooltip>
+								))
+								.with('Everyone', () => (
+									<NodePill className="bg-green-700">LAN</NodePill>
+								))
+								.exhaustive()}
 							<RenderListenerPill listener={listeners.data?.relay}>
 								Relay
 							</RenderListenerPill>
