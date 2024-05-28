@@ -137,7 +137,11 @@ export const Component = () => {
 							<RenderListenerPill listener={listeners.data?.ipv6}>
 								IPv6
 							</RenderListenerPill>
-							{match(node.data?.p2p.discovery || 'Disabled')
+							{match(
+								node.data?.p2p.disabled
+									? 'Disabled'
+									: node.data?.p2p.discovery || 'Disabled'
+							)
 								.with('Disabled', () => <NodePill>LAN</NodePill>)
 								.with('ContactsOnly', () => (
 									<Tooltip label="Only discoverable by contacts">
