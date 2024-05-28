@@ -18,23 +18,23 @@ Finally, use `sync.shared/relation_create` depending on if you're creating a sta
 
 ```rs
 let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-	sync_db_entry!(self.name, tag::name),
-	sync_db_entry!(self.color, tag::color),
-	sync_db_entry!(false, tag::is_hidden),
-	sync_db_entry!(date_created, tag::date_created),
+  sync_db_entry!(self.name, tag::name),
+  sync_db_entry!(self.color, tag::color),
+  sync_db_entry!(false, tag::is_hidden),
+  sync_db_entry!(date_created, tag::date_created),
 ]
 .into_iter()
 .unzip();
 
 sync.write_ops(
-	db,
-	(
-		sync.shared_create(
-			prisma_sync::tag::SyncId { pub_id },
-			sync_params,
-		),
-		db.tag().create(pub_id, db_params),
-	),
+  db,
+  (
+    sync.shared_create(
+      prisma_sync::tag::SyncId { pub_id },
+      sync_params,
+    ),
+    db.tag().create(pub_id, db_params),
+  ),
 )
 ```
 
@@ -44,18 +44,18 @@ This follows a similar process to creation, but with `sync.shared/relation_creat
 
 ```rs
 let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-	sync_db_entry!(name, tag::name),
-	sync_db_entry!(color, tag::color),
+  sync_db_entry!(name, tag::name),
+  sync_db_entry!(color, tag::color),
 ]
 .into_iter()
 .unzip();
 
 sync.write_ops(
-	db,
-	(
-		sync.shared_update(prisma_sync::tag::SyncId { pub_id }, k, v),
-		db.tag().update(tag::id::equals(id), db_params);
-	)
+  db,
+  (
+    sync.shared_update(prisma_sync::tag::SyncId { pub_id }, k, v),
+    db.tag().update(tag::id::equals(id), db_params);
+  )
 )
 ```
 
@@ -65,9 +65,9 @@ This only requires a sync ID.
 
 ```rs
 sync.write_op(
-	db,
-	sync.shared_delete(prisma_sync::tag::SyncId { pub_id }),
-	db.tag().delete(tag::id::equals(id));
+  db,
+  sync.shared_delete(prisma_sync::tag::SyncId { pub_id }),
+  db.tag().delete(tag::id::equals(id));
 )
 ```
 
@@ -78,26 +78,26 @@ Apart from that they're basically the same as shared operations.
 
 ```rs
 let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-	sync_db_entry!(date_created, tag_on_object::date_created)
+  sync_db_entry!(date_created, tag_on_object::date_created)
 ]
 .into_iter()
 .unzip();
 
 sync.write_ops(
-	db,
-	(
-		sync.relation_create(
-			prisma_sync::tag_on_object::SyncId {
-				tag: prisma_sync::tag::SyncId { pub_id: tag_pub_id },
-				object: prisma_sync::object::SyncId { pub_id: object_pub_id },
-			},
-			sync_params
-		),
-		db.tag_on_object().create(
-				object::id::equals(object_id),
-				tag::id::equals(tag_id),
-				db_params
-		)
-	)
+  db,
+  (
+    sync.relation_create(
+      prisma_sync::tag_on_object::SyncId {
+        tag: prisma_sync::tag::SyncId { pub_id: tag_pub_id },
+        object: prisma_sync::object::SyncId { pub_id: object_pub_id },
+      },
+      sync_params
+    ),
+    db.tag_on_object().create(
+        object::id::equals(object_id),
+        tag::id::equals(tag_id),
+        db_params
+    )
+  )
 )
 ```
