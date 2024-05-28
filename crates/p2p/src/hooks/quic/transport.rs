@@ -495,7 +495,7 @@ async fn start(
 			event = swarm.select_next_some() => match event {
 				SwarmEvent::ConnectionEstablished { peer_id, endpoint, connection_id, .. } => {
 					if let Some(addr) = multiaddr_to_socketaddr(endpoint.get_remote_address()) {
-						peer_id_to_addrs.entry(peer_id).or_insert_with(|| HashSet::default()).insert(addr);
+						peer_id_to_addrs.entry(peer_id).or_default().insert(addr);
 					}
 
 					if let Some((addr, socket_addr)) = manual_addr_dial_attempts.remove(&connection_id) {
@@ -565,7 +565,6 @@ async fn start(
 								},
 								Err(e) => {
 									warn!("Failed to open stream with manual peer '{addr}': {e}");
-									return;
 								},
 							}
 						});
@@ -584,7 +583,7 @@ async fn start(
 				}
 				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, connection_id, endpoint, .. } => {
 					if let Some(addr) = multiaddr_to_socketaddr(endpoint.get_remote_address()) {
-						peer_id_to_addrs.entry(peer_id).or_insert_with(HashSet::new).remove(&addr);
+						peer_id_to_addrs.entry(peer_id).or_default().remove(&addr);
 					}
 
 					if let Some((addr, _)) = manual_addr_dial_attempts.remove(&connection_id) {
@@ -904,7 +903,7 @@ fn get_addrs<'a>(
 /// `dns_lookup::lookup_host` does allow IP addresses but not socket addresses (ports) so we split them out and handle them separately.
 ///
 fn parse_manual_addr(addr: String) -> io::Result<SocketAddr> {
-	let mut addr = addr.split(":").peekable();
+	let mut addr = addr.split(':').peekable();
 
 	match (addr.next(), addr.next(), addr.peek()) {
 		(Some(host), None, _) => dns_lookup::lookup_host(host).and_then(|addr| {
