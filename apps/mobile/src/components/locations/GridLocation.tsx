@@ -20,7 +20,7 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 			<View style={tw`w-full flex-col justify-between gap-1`}>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View style={tw`relative`}>
-						<FolderIcon size={42} />
+						<FolderIcon size={36} />
 						<View
 							style={twStyle(
 								'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',

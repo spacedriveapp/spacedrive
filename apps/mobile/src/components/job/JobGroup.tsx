@@ -216,7 +216,7 @@ function Options({ activeJob, group, setShowChildJobs, showChildJobs }: OptionsP
 			{/* TODO: This should remove the job from panel */}
 			{!activeJob !== undefined ? (
 				<Menu
-				containerStyle={tw`max-w-32 `}
+				containerStyle={tw`max-w-25`}
 				trigger={
 				<View style={tw`flex h-7 w-7 flex-row items-center justify-center rounded-md border border-app-inputborder`}>
 					<DotsThreeVertical size={16} color="white" />

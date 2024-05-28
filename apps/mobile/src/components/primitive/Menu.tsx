@@ -38,16 +38,16 @@ export const MenuItem = ({ icon, textStyle, iconStyle, style, ...props }: MenuIt
 	const Icon = icon;
 
 	return (
-		<View style={twStyle(`flex-1 flex-row items-center px-2`, style)}>
+		<View style={twStyle(`flex-1 flex-row items-center px-2 py-1`, style)}>
 			{Icon && (
-					<Icon size={16} style={twStyle(`text-ink-dull`, iconStyle)} />
+					<Icon size={14} style={twStyle(`text-ink-dull`, iconStyle)} />
 			)}
 			<MenuOption
 				{...props}
 				customStyles={{
-					optionText: twStyle(`w-full py-1 text-sm font-medium text-ink-dull`, textStyle)
+					optionText: twStyle(`text-sm font-medium text-ink-dull`, textStyle)
 				}}
-				style={tw`flex flex-row items-center`}
+				style={tw`flex flex-row`}
 			/>
 		</View>
 	);
