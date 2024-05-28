@@ -48,7 +48,7 @@ export default function Header({ route, navBack, title, search = false }: Props)
 							}}
 						>
 							<MagnifyingGlass
-								size={24}
+								size={20}
 								weight="bold"
 								color={tw.color('text-zinc-300')}
 							/>

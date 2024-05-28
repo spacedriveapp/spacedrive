@@ -17,7 +17,6 @@ export function useFiltersSearch(search: string) {
 
 	const locations = useLibraryQuery(['locations.list'], {
 		keepPreviousData: true,
-		enabled: (name || ext) ? true : false,
 	});
 
 	const filterFactory = (key: SearchFilters, value: Filters[keyof Filters])  => {
