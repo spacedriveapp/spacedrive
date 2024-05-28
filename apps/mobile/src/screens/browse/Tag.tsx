@@ -38,7 +38,6 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 		includeHeaderHeight
 		icon={'Tags'}
 		style={tw`flex-1 items-center justify-center border-0`}
-		textSize="text-md"
 		iconSize={100}
 		description={'No items assigned to this tag'}
 	/>} {...objects} />;

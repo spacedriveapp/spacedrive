@@ -1,5 +1,5 @@
 import { useIsFocused } from '@react-navigation/native';
-import { usePathsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
@@ -23,6 +23,8 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const deferredSearch = useDeferredValue(search);
 	const order = useSortBy();
 
+	const locations = useLibraryQuery(['locations.list']).data ?? [];
+
 	const objects = usePathsExplorerQuery({
 		order,
 		arg: {
@@ -42,6 +44,13 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	// Check if there are no objects or no search
 	const noObjects = objects.items?.length === 0 || !objects.items;
 	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
+
+	const searchIcon =
+	locations.length > 0 && noObjects && noSearch ? 'FolderNoSpace' :
+	noSearch && noObjects ? 'Search' : 'FolderNoSpace';
+
+	const searchDescription = locations.length === 0 ? 'You have not added any locations to search' : noObjects
+	|| noSearch ? 'No files found' : 'No results found for this search';
 
 	return (
 		<View
@@ -117,12 +126,12 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 					emptyComponent={
 						<Empty
 						includeHeaderHeight
-						icon={noSearch ? 'Search' : 'FolderNoSpace'}
+						icon={searchIcon}
+						description={searchDescription}
 						style={tw`flex-1 items-center justify-center border-0`}
-						textSize="text-md"
+						textStyle={tw`max-w-[220px]`}
 						iconSize={100}
-						description={noSearch ? 'Add filters or type to search for files' : 'No files found'}
-					/>
+						/>
 					}
 					tabHeight={false} />
 				</Suspense>

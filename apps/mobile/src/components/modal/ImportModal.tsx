@@ -27,6 +27,8 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			//custom message handling
 			if (error.message.startsWith("location already exists")) {
 				return toast.error('This location has already been added');
+			} else if (error.message.startsWith("nested location currently")) {
+				return toast.error('Nested locations are currently not supported');
 			}
 			switch (error.message) {
 				case 'NEED_RELINK':
