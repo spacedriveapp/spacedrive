@@ -568,7 +568,11 @@ async fn start(
 								}
 					}
 				}
-				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } => {
+				SwarmEvent::ConnectionClosed { peer_id, num_established: 0, connection_id, .. } => {
+					if let Some((addr, _)) = manual_addr_dial_attempts.remove(&connection_id) {
+						warn!("Failed to establish manual connection with '{addr}'");
+					}
+
 					let Some(identity) = map.write().unwrap_or_else(PoisonError::into_inner).remove(&peer_id) else {
 						warn!("Tried to remove a peer that wasn't in the map.");
 						continue;
