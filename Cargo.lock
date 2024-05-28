@@ -9464,6 +9464,7 @@ dependencies = [
  "base91",
  "ed25519-dalek",
  "flume 0.11.0",
+ "futures",
  "futures-core",
  "hash_map_diff",
  "if-watch",

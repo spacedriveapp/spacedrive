@@ -7,12 +7,13 @@ use std::{
 };
 
 use flume::{bounded, Receiver, Sender};
+use futures::future::join_all;
 use libp2p::{
 	autonat, dcutr,
 	futures::{AsyncReadExt, AsyncWriteExt, StreamExt},
 	multiaddr::Protocol,
 	noise, relay,
-	swarm::{NetworkBehaviour, SwarmEvent},
+	swarm::{dial_opts::DialOpts, NetworkBehaviour, SwarmEvent},
 	yamux, Multiaddr, PeerId, Stream, StreamProtocol, Swarm, SwarmBuilder,
 };
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,7 @@ use tokio::{
 	time::timeout,
 };
 use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{
@@ -62,7 +63,8 @@ enum InternalEvent {
 		result: oneshot::Sender<Result<(), String>>,
 	},
 	RegisterPeerAddr {
-		addrs: HashSet<SocketAddr>,
+		// These can be socket addr's or FQDN's
+		addrs: HashSet<String>,
 	},
 }
 
@@ -225,7 +227,7 @@ impl QuicTransport {
 			.clone()
 	}
 
-	pub fn set_manual_peer_addrs(&self, addrs: HashSet<SocketAddr>) {
+	pub fn set_manual_peer_addrs(&self, addrs: HashSet<String>) {
 		self.internal_tx
 			.send(InternalEvent::RegisterPeerAddr { addrs })
 			.ok();
@@ -354,6 +356,8 @@ async fn start(
 	let mut relay_config = Vec::new();
 	let mut registered_relays = HashMap::new();
 	let mut manual_addrs = HashSet::new();
+	let mut manual_addr_dial_attempts = HashMap::new();
+	let (manual_peers_dial_tx, mut manual_peers_dial_rx) = mpsc::channel(15);
 	let mut interval = tokio::time::interval(Duration::from_secs(15));
 
 	loop {
@@ -407,6 +411,34 @@ async fn start(
 				let map = map.clone();
 
 				tokio::spawn(async move {
+					let mut mode = [0; 1];
+					match stream.read_exact(&mut mode).await {
+						Ok(_) => {},
+						Err(e) => {
+							warn!("Failed to read mode with libp2p::PeerId({peer_id:?}): {e:?}");
+							return;
+						}
+					}
+
+					match mode[0] {
+						// This is the regular mode for relay or mDNS
+						0 => {},
+						// Used for manual peers to discover the peers identity.
+						1 => {
+							match stream.write_all(&p2p.identity().to_remote_identity().get_bytes()).await {
+								Ok(_) => {},
+								Err(e) => {
+									warn!("Failed to write remote identity in mode 1 with libp2p::PeerId({peer_id:?}): {e:?}");
+									return;
+								}
+							}
+						}
+						mode => {
+							warn!("Peer libp2p::PeerId({peer_id:?}) attempted to use invalid mode '{mode}'");
+							return;
+						}
+					}
+
 					let mut actual = [0; REMOTE_IDENTITY_LEN];
 					match stream.read_exact(&mut actual).await {
 						Ok(_) => {},
@@ -453,7 +485,78 @@ async fn start(
 				});
 			},
 			event = swarm.select_next_some() => match event {
-				SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+				SwarmEvent::ConnectionEstablished { peer_id, endpoint, connection_id, .. } => {
+					if let Some((addr, socket_addr)) = manual_addr_dial_attempts.remove(&connection_id) {
+						let mut control = control.clone();
+						let self_remote_identity = p2p.identity().to_remote_identity();
+						debug!("Successfully dialled manual peer '{addr}' found peer '{peer_id}'. Opening stream to get peer information...");
+
+
+						tokio::spawn(async move {
+							match control.open_stream_with_addrs(
+								peer_id,
+								PROTOCOL,
+								vec![socketaddr_to_quic_multiaddr(&socket_addr)]
+							).await {
+								Ok(mut stream) => {
+									match stream.write_all(&[1]).await {
+										Ok(_) => {},
+										Err(e) => {
+											warn!("Failed to write mode 1 to manual peer '{addr}': {e}");
+											return;
+										},
+									}
+
+									let mut identity = [0; REMOTE_IDENTITY_LEN];
+									match stream.read_exact(&mut identity).await {
+										Ok(_) => {},
+										Err(e) => {
+											warn!("Failed to read remote identity from manual peer '{addr}': {e}");
+											return;
+										},
+									}
+									let identity = match RemoteIdentity::from_bytes(&identity) {
+										Ok(i) => i,
+										Err(e) => {
+											warn!("Failed to parse remote identity from manual peer '{addr}': {e}");
+											return;
+										},
+									};
+
+									info!("Successfully connected with manual peer '{addr}' and found peer '{identity}'");
+
+									map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, identity);
+
+									match stream.write_all(&self_remote_identity.get_bytes()).await {
+										Ok(_) => {
+											debug!("Established manual connection with '{identity}'");
+
+											let remote_metadata = match send_metadata(&mut stream, &p2p).await {
+												Ok(metadata) => metadata,
+												Err(e) => {
+													warn!("Failed to send metadata to manual peer '{identity}': {e}");
+													return;
+												},
+											};
+
+											p2p.connected_to_outgoing(id, remote_metadata, identity);
+										},
+										Err(e) => {
+											warn!("Failed to write remote identity to manual peer '{identity}': {e}");
+											return;
+										},
+									}
+								},
+								Err(e) => {
+									warn!("Failed to open stream with manual peer '{addr}': {e}");
+									return;
+								},
+							}
+						});
+
+						todo!();
+					}
+
 					if endpoint.is_relayed() {
 						if let Some((remote_identity, _)) = handle.nodes.lock()
 							.unwrap_or_else(PoisonError::into_inner)
@@ -598,7 +701,11 @@ async fn start(
 						Ok(mut stream) => {
 							map.write().unwrap_or_else(PoisonError::into_inner).insert(peer_id, req.to);
 
-							match stream.write_all(&self_remote_identity.get_bytes()).await {
+							// We are in mode `0` so we send a 0 before the remote identity.
+							let mut buf = [0; REMOTE_IDENTITY_LEN + 1];
+							buf[1..].copy_from_slice(&self_remote_identity.get_bytes());
+
+							match stream.write_all(&buf).await {
 								Ok(_) => {
 									debug!("Established outbound stream with '{}'", req.to);
 
@@ -625,16 +732,46 @@ async fn start(
 					}
 				});
 			}
+			Some((addr, socket_addr)) = manual_peers_dial_rx.recv() => {
+				let opts = DialOpts::unknown_peer_id()
+					.address(socketaddr_to_quic_multiaddr(&socket_addr))
+					.build();
+
+				manual_addr_dial_attempts.insert(opts.connection_id(), (addr, socket_addr));
+				match swarm.dial(socketaddr_to_quic_multiaddr(&socket_addr)) {
+					Ok(_) => {
+						debug!("Dialling manual peer '{socket_addr}'");
+					},
+					Err(err) => {
+						warn!("Failed to dial manual peer '{socket_addr}': {err}");
+					},
+				}
+			}
 			_ = interval.tick() => {
 				let addrs = manual_addrs.clone();
+				let manual_peers_dial_tx = manual_peers_dial_tx.clone();
 
-				for addr in addrs {
-					let err = swarm.dial(socketaddr_to_quic_multiaddr(&addr));
-					debug!("Attempting connection to {:?} {}", addr, match err {
-						Ok(_) => "successfully".into(),
-						Err(err) => format!("with error: {err}"),
-					});
-				}
+				// Off loop we resolve the IP's and message them back to the main loop, for it to dial as the `swarm` can't be moved.
+				tokio::spawn(async move {
+					join_all(addrs.into_iter().map(|addr| {
+						let manual_peers_dial_tx = manual_peers_dial_tx.clone();
+						async move {
+							// TODO: We should probs track these errors for the UI
+							let Ok(socket_addr) = tokio::net::lookup_host(&addr)
+								.await
+								.map_err(|err| {
+									warn!("Failed to parse manual peer address '{addr}': {err}");
+								})
+								.and_then(|mut i| i.next()
+								.ok_or(())) else {
+									return;
+								};
+
+							manual_peers_dial_tx.send((addr, socket_addr)).await.ok();
+						}
+					})).await;
+				});
+
 			}
 		}
 	}
