@@ -13,7 +13,7 @@ This crate allows for creating implementations faster than other common options,
 
 Before building, the performance of both [msgpack](https://docs.rs/rmp-serde) and [bincode](https://docs.rs/bincode) was compared against manual implementations using `AsyncRead`. It was found that over the network using asynchronous deserialization was faster.
 
-This makes logically makes sense as if you want to use a synchronous serializer you will do the following:
+This logically follows as if you want to use a synchronous serializer, you will do the following:
 
  - Send the total length of the message
  - Allocate a buffer for the message
