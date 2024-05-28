@@ -136,10 +136,7 @@ impl P2P {
 
 		let addrs = {
 			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			let a = state
-				.discovered
-				.entry(hook_id)
-				.or_insert_with(Default::default);
+			let a = state.discovered.entry(hook_id).or_default();
 			a.extend(addrs);
 			a.clone()
 		};
