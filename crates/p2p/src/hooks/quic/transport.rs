@@ -766,8 +766,6 @@ async fn start(
 						async move {
 							// TODO: We should probs track these errors for the UI
 							let Ok(socket_addr) = dns_lookup::lookup_host(&addr)
-
-								.await
 								.map_err(|err| {
 									warn!("Failed to parse manual peer address '{addr}': {err}");
 								})
