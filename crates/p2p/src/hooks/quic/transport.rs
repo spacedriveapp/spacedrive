@@ -553,6 +553,8 @@ async fn start(
 											return;
 										},
 									}
+
+									stream.close().await.ok();
 								},
 								Err(e) => {
 									warn!("Failed to open stream with manual peer '{addr}': {e}");
