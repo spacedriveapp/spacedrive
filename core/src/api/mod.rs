@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodeConfigP2P, NodePreferences},
+		config::{DeletePreferences, DeletePromptOptions, NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -94,6 +94,7 @@ pub struct SanitisedNodeConfig {
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 	pub image_labeler_version: Option<String>,
+	pub delete_prompt: DeletePreferences,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -106,6 +107,7 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			features: value.features,
 			preferences: value.preferences,
 			image_labeler_version: value.image_labeler_version,
+			delete_prompt: value.delete_prompt,
 		}
 	}
 }

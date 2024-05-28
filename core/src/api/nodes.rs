@@ -1,6 +1,6 @@
 use crate::{
 	invalidate_query,
-	node::config::{P2PDiscoveryState, Port},
+	node::config::{DeletePromptOptions, P2PDiscoveryState, Port},
 };
 
 use sd_prisma::prisma::{instance, location};
@@ -25,6 +25,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub image_labeler_version: Option<String>,
+				pub delete_prompt: Option<DeletePromptOptions>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
@@ -60,6 +61,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(remote_access) = args.p2p_remote_access {
 							config.p2p.remote_access = remote_access;
 						};
+
+						if let Some(delete_prompt) = args.delete_prompt {
+							config.delete_prompt.set_option(delete_prompt);
+						}
 
 						#[cfg(feature = "ai")]
 						if let Some(version) = args.image_labeler_version {

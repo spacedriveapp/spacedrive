@@ -124,6 +124,9 @@ pub struct NodeConfig {
 	pub preferences: NodePreferences,
 	// Model version for the image labeler
 	pub image_labeler_version: Option<String>,
+	// Delete preferences
+	#[serde(default)]
+	pub delete_prompt: DeletePreferences,
 
 	version: NodeConfigVersion,
 }
@@ -149,6 +152,30 @@ mod identity_serde {
 
 	pub fn to_string(identity: &Identity) -> String {
 		String::from_utf8_lossy(&base91::slice_encode(&identity.to_bytes())).to_string()
+	}
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Type, Default)]
+pub enum DeletePromptOptions {
+	#[default]
+	ShowPrompt,
+	SendTrash,
+	DeleteInstantly,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Type, Default)]
+pub struct DeletePreferences {
+	option: DeletePromptOptions,
+}
+
+impl DeletePreferences {
+	pub fn delete_prompt(&self) -> DeletePromptOptions {
+		self.option
+	}
+
+	pub fn set_option(&mut self, mut delete_prompt: DeletePromptOptions) -> &mut Self {
+		self.option = delete_prompt;
+		self
 	}
 }
 
@@ -201,6 +228,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			sd_api_origin: None,
 			preferences: NodePreferences::default(),
 			image_labeler_version,
+			delete_prompt: DeletePreferences::default(),
 		})
 	}
 }

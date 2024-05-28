@@ -32,6 +32,9 @@ export const Component = () => {
 
 	const { t } = useLocale();
 
+	console.log(node.data);
+	// console.log(node.data?.delete_prompt);
+
 	const form = useZodForm({
 		schema: z
 			.object({
@@ -57,7 +60,12 @@ export const Component = () => {
 					})
 					.int()
 					.nonnegative()
-					.lte(100)
+					.lte(100),
+				delete_prompt: z.union([
+					z.literal('ShowPrompt'),
+					z.literal('SendTrash'),
+					z.literal('DeleteInstantly')
+				])
 			})
 			.strict(),
 		reValidateMode: 'onChange',
@@ -70,7 +78,8 @@ export const Component = () => {
 			p2p_remote_access: node.data?.p2p.remote_access || false,
 			image_labeler_version: node.data?.image_labeler_version ?? undefined,
 			background_processing_percentage:
-				node.data?.preferences.thumbnailer.background_processing_percentage || 50
+				node.data?.preferences.thumbnailer.background_processing_percentage || 50,
+			delete_prompt: node.data?.delete_prompt.option || 'ShowPrompt'
 		}
 	});
 	const p2p_port = form.watch('p2p_port');
@@ -87,7 +96,8 @@ export const Component = () => {
 				p2p_ipv6_enabled: value.p2p_ipv6_enabled ?? null,
 				p2p_discovery: value.p2p_discovery ?? null,
 				p2p_remote_access: value.p2p_remote_access ?? null,
-				image_labeler_version: value.image_labeler_version ?? null
+				image_labeler_version: value.image_labeler_version ?? null,
+				delete_prompt: value.delete_prompt ?? "ShowPrompt"
 			});
 
 			if (value.background_processing_percentage != undefined) {
@@ -405,6 +415,30 @@ export const Component = () => {
 						)}
 					</>
 				) : null}
+			</div>
+			<div className="flex flex-col gap-4">
+				<h1 className="mb-3 text-lg font-bold text-ink">{t('delete_settings')}</h1>
+
+				<Setting
+					mini
+					title={t('delete_show_prompt')}
+					description={
+						<p className="text-sm text-gray-400">
+							{t('delete_show_prompt_description')}
+						</p>
+					}
+				>
+					<Select
+						value={form.watch('delete_prompt') || 'ShowPrompt'}
+						containerClassName="h-[30px]"
+						className="h-full"
+						onChange={(type) => form.setValue('delete_prompt', type)}
+					>
+						<SelectOption value="ShowPrompt">{'Show Prompt'}</SelectOption>
+						<SelectOption value="SendTrash">{'Send to Trash'}</SelectOption>
+						<SelectOption value="DeleteInstantly">{'Delete Instantly'}</SelectOption>
+					</Select>
+				</Setting>
 			</div>
 		</FormProvider>
 	);
