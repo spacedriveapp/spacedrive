@@ -704,7 +704,7 @@ async fn start(
 				},
 				InternalEvent::RegisterPeerAddr { addrs } => {
 					manual_addrs = addrs;
-					interval.reset();
+					interval.reset_immediately();
 				}
 			},
 			Some(req) = connect_rx.recv() => {
