@@ -747,13 +747,9 @@ async fn start(
 					.build();
 
 				manual_addr_dial_attempts.insert(opts.connection_id(), (addr, socket_addr));
-				match swarm.dial(socketaddr_to_quic_multiaddr(&socket_addr)) {
-					Ok(_) => {
-						debug!("Dialling manual peer '{socket_addr}'");
-					},
-					Err(err) => {
-						warn!("Failed to dial manual peer '{socket_addr}': {err}");
-					},
+				match swarm.dial(opts) {
+					Ok(_) => debug!("Dialling manual peer '{socket_addr}'"),
+					Err(err) => warn!("Failed to dial manual peer '{socket_addr}': {err}"),
 				}
 			}
 			_ = interval.tick() => {
