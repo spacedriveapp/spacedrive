@@ -134,10 +134,15 @@ impl P2P {
 			})
 			.clone();
 
-		{
+		let addrs = {
 			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.discovered.insert(hook_id, addrs.clone());
-		}
+			let a = state
+				.discovered
+				.entry(hook_id)
+				.or_insert_with(Default::default);
+			a.extend(addrs);
+			a.clone()
+		};
 
 		peer.metadata_mut().extend(metadata);
 

@@ -32,6 +32,12 @@ pub enum PeerConnectionCandidate {
 	// Custom(String),
 }
 
+impl ToString for PeerConnectionCandidate {
+	fn to_string(&self) -> String {
+		format!("{self:?}")
+	}
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct State {
 	/// Active connections with the remote

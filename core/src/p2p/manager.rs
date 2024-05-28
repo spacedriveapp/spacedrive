@@ -341,7 +341,7 @@ impl P2PManager {
 				"active_connections": p.active_connections(),
 				"connection_methods": p.connection_methods().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
 				"discovered_by": p.discovered_by().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
-				"addrs": p.addrs().iter().map(|a| a.to_string()).collect::<Vec<_>>(),
+				"candidates": p.connection_candidates().iter().map(|a| a.to_string()).collect::<Vec<_>>(),
 			})).collect::<Vec<_>>(),
 			"hooks": self.p2p.hooks().iter().map(|(id, name)| json!({
 				"id": format!("{:?}", id),
