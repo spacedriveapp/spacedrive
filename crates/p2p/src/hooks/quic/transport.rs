@@ -553,8 +553,6 @@ async fn start(
 								},
 							}
 						});
-
-						todo!();
 					}
 
 					if endpoint.is_relayed() {
