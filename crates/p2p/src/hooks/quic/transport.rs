@@ -1,5 +1,5 @@
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeSet, HashMap, HashSet},
 	io::{self, ErrorKind},
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
@@ -486,7 +486,7 @@ async fn start(
 							stream,
 						);
 					} else {
-						p2p.discover_peer(id.into(), identity, remote_metadata, peer_id_to_addrs.get(&peer_id).into_iter().flatten().map(|v| PeerConnectionCandidate::SocketAddr(*v)).collect());
+						p2p.discover_peer(id.into(), identity, remote_metadata, peer_id_to_addrs.get(&peer_id).into_iter().flatten().map(|v| PeerConnectionCandidate::Manual(*v)).collect());
 					}
 
 					debug!("established inbound stream with '{}'", identity);
@@ -553,7 +553,7 @@ async fn start(
 												},
 											};
 
-											p2p.connected_to_outgoing(id, remote_metadata, identity);
+											p2p.discover_peer(id.into(), identity, remote_metadata, BTreeSet::from([PeerConnectionCandidate::Manual(socket_addr)]));
 										},
 										Err(e) => {
 											warn!("Failed to write remote identity to manual peer '{identity}': {e}");
@@ -876,6 +876,7 @@ fn get_addrs<'a>(
 	addrs
 		.flat_map(|v| match v {
 			PeerConnectionCandidate::SocketAddr(addr) => vec![socketaddr_to_multiaddr(addr)],
+			PeerConnectionCandidate::Manual(addr) => vec![socketaddr_to_multiaddr(addr)],
 			PeerConnectionCandidate::Relay => relay_config
 				.iter()
 				.filter_map(|e| match PeerId::from_str(&e.peer_id) {

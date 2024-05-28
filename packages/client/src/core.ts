@@ -228,7 +228,7 @@ export type DefaultLocations = { desktop: boolean; documents: boolean; downloads
  * The method used for the discovery of this peer.
  * *Technically* you can have multiple under the hood but this simplifies things for the UX.
  */
-export type DiscoveryMethod = "Relay" | "Local"
+export type DiscoveryMethod = "Relay" | "Local" | "Manual"
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 

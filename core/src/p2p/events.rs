@@ -30,6 +30,8 @@ pub enum DiscoveryMethod {
 	Relay,
 	// Found via mDNS or a manual IP
 	Local,
+	// Found via manual entry on either node
+	Manual,
 }
 
 // This is used for synchronizing events between the backend and the frontend.
@@ -128,6 +130,12 @@ impl P2PEvents {
 						.all(|c| *c == PeerConnectionCandidate::Relay)
 					{
 						DiscoveryMethod::Relay
+					} else if peer
+						.connection_candidates()
+						.iter()
+						.all(|c| matches!(c, PeerConnectionCandidate::Manual(_)))
+					{
+						DiscoveryMethod::Manual
 					} else {
 						DiscoveryMethod::Local
 					},

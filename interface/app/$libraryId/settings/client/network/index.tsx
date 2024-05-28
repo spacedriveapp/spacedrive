@@ -349,12 +349,6 @@ export const Component = () => {
 										<h1 className="truncate pt-0.5 text-sm font-semibold">
 											{socket}
 										</h1>
-
-										<h2 className="truncate pt-0.5 text-sm font-semibold">
-											{[...connectedPeers.values()].find((peer) =>
-												peer.addrs.includes(socket)
-											)?.metadata?.name || t('offline')}
-										</h2>
 									</div>
 								</div>
 

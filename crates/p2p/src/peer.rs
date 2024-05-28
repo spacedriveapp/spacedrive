@@ -28,6 +28,7 @@ pub struct Peer {
 pub enum PeerConnectionCandidate {
 	SocketAddr(SocketAddr),
 	Relay,
+	Manual(SocketAddr),
 	// Custom(String),
 }
 
