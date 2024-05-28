@@ -6,6 +6,7 @@ import {
 	JobProgressEvent,
 	JobReport,
 	useLibraryMutation,
+	useRspcLibraryContext,
 	useTotalElapsedTimeText
 } from '@sd/client';
 import dayjs from 'dayjs';
@@ -15,7 +16,6 @@ import { Animated, Pressable, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { tw, twStyle } from '~/lib/tailwind';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { AnimatedHeight } from '../animation/layout';
 import { ProgressBar } from '../animation/ProgressBar';
 import { Button } from '../primitive/Button';
@@ -169,12 +169,12 @@ interface OptionsProps {
 
 function Options({ activeJob, group, setShowChildJobs, showChildJobs }: OptionsProps) {
 
-	const queryClient = useQueryClient();
+	const rspc = useRspcLibraryContext();
 
 	const clearJob = useLibraryMutation(
 		['jobs.clear'], {
 			onSuccess: () => {
-				queryClient.invalidateQueries(['jobs.reports']);
+				rspc.queryClient.invalidateQueries(['jobs.reports']);
 			}
 		})
 
