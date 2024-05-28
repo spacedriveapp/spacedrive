@@ -1,5 +1,6 @@
 use std::{
 	collections::{HashMap, HashSet},
+	io::{self, ErrorKind},
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
 	sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard, PoisonError, RwLock},
@@ -765,12 +766,10 @@ async fn start(
 						let manual_peers_dial_tx = manual_peers_dial_tx.clone();
 						async move {
 							// TODO: We should probs track these errors for the UI
-							let Ok(socket_addr) = dns_lookup::lookup_host(&addr)
+							let Ok(socket_addr) = parse_manual_addr(addr.clone())
 								.map_err(|err| {
 									warn!("Failed to parse manual peer address '{addr}': {err}");
-								})
-								.and_then(|mut i| i.next()
-								.ok_or(())) else {
+								}) else {
 									return;
 								};
 
@@ -887,4 +886,33 @@ fn get_addrs<'a>(
 				.collect::<Vec<_>>(),
 		})
 		.collect::<Vec<_>>()
+}
+
+/// Parse the user's input into and do DNS resolution if required.
+///
+/// `dns_lookup::lookup_host` does allow IP addresses but not socket addresses (ports) so we split them out and handle them separately.
+///
+fn parse_manual_addr(addr: String) -> io::Result<SocketAddr> {
+	let mut addr = addr.split(":").peekable();
+
+	match (addr.next(), addr.next(), addr.peek()) {
+		(Some(host), None, _) => dns_lookup::lookup_host(host).and_then(|addr| {
+			addr.into_iter()
+				.next()
+				.map(|ip| SocketAddr::new(ip, 7373))
+				.ok_or(io::Error::new(ErrorKind::Other, "Invalid address"))
+		}),
+		(Some(host), Some(port), None) => {
+			let port = port
+				.parse::<u16>()
+				.map_err(|_| io::Error::new(ErrorKind::Other, "Invalid port number"))?;
+			dns_lookup::lookup_host(host).and_then(|addr| {
+				addr.into_iter()
+					.next()
+					.map(|ip| SocketAddr::new(ip, port))
+					.ok_or(io::Error::new(ErrorKind::Other, "Invalid address"))
+			})
+		}
+		(_, _, _) => Err(io::Error::new(ErrorKind::Other, "Invalid address")),
+	}
 }
