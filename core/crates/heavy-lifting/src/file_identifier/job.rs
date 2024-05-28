@@ -36,7 +36,7 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, instrument, trace, warn};
+use tracing::{debug, error, instrument, trace, warn, Level};
 
 use super::{
 	accumulate_file_paths_by_cas_id, dispatch_object_processor_tasks, orphan_path_filters_deep,
@@ -145,6 +145,16 @@ impl Job for FileIdentifier {
 		Ok(())
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			location_id = self.location.id,
+			location_path = %self.location_path.display(),
+			sub_path = ?self.sub_path.as_ref().map(|path| path.display()),
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
 	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
@@ -165,7 +175,7 @@ impl Job for FileIdentifier {
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-					warn!("Task <id='{task_id}'> returned an empty output");
+					warn!(%task_id, "Task returned an empty output");
 				}
 
 				Ok(TaskStatus::Shutdown(task)) => {
@@ -300,7 +310,7 @@ impl FileIdentifier {
 			.await?;
 
 			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_identifier_tasks),
+				ProgressUpdate::TaskCount(u64::from(self.metadata.total_identifier_tasks)),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -312,9 +322,9 @@ impl FileIdentifier {
 		} else {
 			ctx.progress(vec![
 				ProgressUpdate::TaskCount(if matches!(self.phase, Phase::IdentifyingFiles) {
-					self.metadata.total_identifier_tasks
+					u64::from(self.metadata.total_identifier_tasks)
 				} else {
-					self.metadata.total_object_processor_tasks
+					u64::from(self.metadata.total_object_processor_tasks)
 				}),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
@@ -322,6 +332,10 @@ impl FileIdentifier {
 				)),
 			])
 			.await;
+			debug!(
+				resuming_tasks_count = self.pending_tasks_on_resume.len(),
+				"Resuming tasks for FileIdentifier job",
+			);
 			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
 
@@ -393,7 +407,7 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Vec<TaskHandle<Error>> {
-		self.metadata.extract_metadata_time += extract_metadata_time;
+		self.metadata.mean_extract_metadata_time += extract_metadata_time;
 		self.metadata.mean_save_db_time_on_identifier_tasks += save_db_time;
 		self.metadata.created_objects_count += created_objects_count;
 
@@ -418,7 +432,7 @@ impl FileIdentifier {
 		self.metadata.completed_identifier_tasks += 1;
 
 		ctx.progress(vec![
-			ProgressUpdate::CompletedTaskCount(self.metadata.completed_identifier_tasks),
+			ProgressUpdate::CompletedTaskCount(u64::from(self.metadata.completed_identifier_tasks)),
 			ProgressUpdate::Message(format!(
 				"Identified {total_identified_files} of {} files",
 				self.metadata.total_found_orphans
@@ -441,10 +455,14 @@ impl FileIdentifier {
 			)
 			.await;
 
-			self.metadata.total_object_processor_tasks = tasks.len() as u64;
+			#[allow(clippy::cast_possible_truncation)]
+			{
+				// SAFETY: we know that `tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
+				self.metadata.total_object_processor_tasks = tasks.len() as u32;
+			}
 
 			ctx.progress(vec![
-				ProgressUpdate::TaskCount(self.metadata.total_object_processor_tasks),
+				ProgressUpdate::TaskCount(u64::from(self.metadata.total_object_processor_tasks)),
 				ProgressUpdate::CompletedTaskCount(0),
 				ProgressUpdate::phase(self.phase),
 			])
@@ -470,16 +488,18 @@ impl FileIdentifier {
 		}: object_processor::Output,
 		ctx: &impl JobContext<OuterCtx>,
 	) {
-		self.metadata.fetch_existing_objects_time += fetch_existing_objects_time;
-		self.metadata.assign_to_existing_object_time += assign_to_existing_object_time;
-		self.metadata.create_object_time += create_object_time;
+		self.metadata.mean_fetch_existing_objects_time += fetch_existing_objects_time;
+		self.metadata.mean_assign_to_existing_object_time += assign_to_existing_object_time;
+		self.metadata.mean_create_object_time += create_object_time;
 		self.metadata.created_objects_count += created_objects_count;
 		self.metadata.linked_objects_count += linked_objects_count;
 
 		self.metadata.completed_object_processor_tasks += 1;
 
 		ctx.progress(vec![
-			ProgressUpdate::CompletedTaskCount(self.metadata.completed_object_processor_tasks),
+			ProgressUpdate::CompletedTaskCount(u64::from(
+				self.metadata.completed_object_processor_tasks,
+			)),
 			ProgressUpdate::Message(format!(
 				"Processed {} of {} objects",
 				self.metadata.created_objects_count + self.metadata.linked_objects_count,
@@ -533,7 +553,7 @@ impl FileIdentifier {
 				.exec()
 				.await?;
 
-			trace!("Found {} orphan paths", orphan_paths.len());
+			trace!(orphans_count = orphan_paths.len(), "Found orphan paths");
 
 			if orphan_paths.is_empty() {
 				break;
@@ -659,29 +679,29 @@ struct SaveState {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Metadata {
-	extract_metadata_time: Duration,
+	mean_extract_metadata_time: Duration,
 	mean_save_db_time_on_identifier_tasks: Duration,
-	fetch_existing_objects_time: Duration,
-	assign_to_existing_object_time: Duration,
-	create_object_time: Duration,
+	mean_fetch_existing_objects_time: Duration,
+	mean_assign_to_existing_object_time: Duration,
+	mean_create_object_time: Duration,
 	seeking_orphans_time: Duration,
 	total_found_orphans: u64,
 	created_objects_count: u64,
 	linked_objects_count: u64,
-	total_identifier_tasks: u64,
-	completed_identifier_tasks: u64,
-	total_object_processor_tasks: u64,
-	completed_object_processor_tasks: u64,
+	total_identifier_tasks: u32,
+	completed_identifier_tasks: u32,
+	total_object_processor_tasks: u32,
+	completed_object_processor_tasks: u32,
 }
 
 impl From<Metadata> for Vec<ReportOutputMetadata> {
 	fn from(
 		Metadata {
-			extract_metadata_time,
-			mean_save_db_time_on_identifier_tasks,
-			fetch_existing_objects_time,
-			assign_to_existing_object_time,
-			create_object_time,
+			mut mean_extract_metadata_time,
+			mut mean_save_db_time_on_identifier_tasks,
+			mut mean_fetch_existing_objects_time,
+			mut mean_assign_to_existing_object_time,
+			mut mean_create_object_time,
 			seeking_orphans_time,
 			total_found_orphans,
 			created_objects_count,
@@ -692,6 +712,13 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			completed_object_processor_tasks,
 		}: Metadata,
 	) -> Self {
+		mean_extract_metadata_time /= total_identifier_tasks;
+		mean_save_db_time_on_identifier_tasks /= total_identifier_tasks;
+
+		mean_fetch_existing_objects_time /= total_object_processor_tasks;
+		mean_assign_to_existing_object_time /= total_object_processor_tasks;
+		mean_create_object_time /= total_object_processor_tasks;
+
 		vec![
 			ReportOutputMetadata::FileIdentifier {
 				total_orphan_paths: u64_to_frontend(total_found_orphans),
@@ -699,20 +726,26 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 				total_objects_linked: u64_to_frontend(linked_objects_count),
 			},
 			ReportOutputMetadata::Metrics(HashMap::from([
-				("extract_metadata_time".into(), json!(extract_metadata_time)),
+				(
+					"mean_extract_metadata_time".into(),
+					json!(mean_extract_metadata_time),
+				),
 				(
 					"mean_save_db_time_on_identifier_tasks".into(),
 					json!(mean_save_db_time_on_identifier_tasks),
 				),
 				(
-					"fetch_existing_objects_time".into(),
-					json!(fetch_existing_objects_time),
+					"mean_fetch_existing_objects_time".into(),
+					json!(mean_fetch_existing_objects_time),
 				),
 				(
-					"assign_to_existing_object_time".into(),
-					json!(assign_to_existing_object_time),
+					"mean_assign_to_existing_object_time".into(),
+					json!(mean_assign_to_existing_object_time),
 				),
-				("create_object_time".into(), json!(create_object_time)),
+				(
+					"mean_create_object_time".into(),
+					json!(mean_create_object_time),
+				),
 				("seeking_orphans_time".into(), json!(seeking_orphans_time)),
 				("total_found_orphans".into(), json!(total_found_orphans)),
 				("created_objects_count".into(), json!(created_objects_count)),

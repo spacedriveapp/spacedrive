@@ -58,7 +58,7 @@ pub struct Identifier {
 	id: TaskId,
 	with_priority: bool,
 
-	// Received args
+	// Received input args
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
@@ -67,7 +67,7 @@ pub struct Identifier {
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
 	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
 
-	// Out
+	// Out collector
 	output: Output,
 
 	// Dependencies
@@ -75,14 +75,29 @@ pub struct Identifier {
 	sync: Arc<SyncManager>,
 }
 
+/// Output from the `[Identifier]` task
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Output {
+	/// To send to frontend for priority reporting of new objects
 	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
+
+	/// Files that need to be aggregate between many identifier tasks to be processed by the
+	/// object processor tasks
 	pub file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+
+	/// Collected metric about time elapsed extracting metadata from file system
 	pub extract_metadata_time: Duration,
+
+	/// Collected metric about time spent saving objects on disk
 	pub save_db_time: Duration,
+
+	/// Total number of objects already created as they didn't have `cas_id`, like directories or empty files
 	pub created_objects_count: u64,
+
+	/// Total number of files that we were able to identify
 	pub total_identified_files: u64,
+
+	/// Non critical errors that happened during the task execution
 	pub errors: Vec<NonCriticalError>,
 }
 

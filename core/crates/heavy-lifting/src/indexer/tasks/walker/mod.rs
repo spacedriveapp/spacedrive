@@ -34,7 +34,7 @@ use chrono::{DateTime, Duration as ChronoDuration, FixedOffset};
 use futures_concurrency::future::Join;
 use tokio::{fs, time::Instant};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
-use tracing::{instrument, trace};
+use tracing::{instrument, trace, Level};
 
 mod entry;
 mod metadata;
@@ -70,43 +70,65 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 }
 
 #[derive(Debug)]
-pub struct WalkDirTask<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
+pub struct Walker<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
 	Dispatcher: TaskDispatcher<Error>,
 {
+	// Task control
 	id: TaskId,
+	is_shallow: bool,
+
+	// Received input args
 	entry: ToWalkEntry,
 	root: Arc<PathBuf>,
 	entry_iso_file_path: IsolatedFilePathData<'static>,
 	indexer_ruler: IndexerRuler,
+
+	// Inner state
+	stage: WalkerStage,
+
+	// Dependencies
 	iso_file_path_factory: IsoPathFactory,
 	db_proxy: DBProxy,
-	stage: WalkerStage,
 	maybe_dispatcher: Option<Dispatcher>,
+
+	// Non critical errors that happened during the task execution
 	errors: Vec<NonCriticalError>,
+
+	// Time spent walking through the received directory
 	scan_time: Duration,
-	is_shallow: bool,
 }
 
+/// [`Walker`] Task output
 #[derive(Debug)]
-pub struct WalkTaskOutput {
+pub struct Output {
+	/// Entries found in the file system that need to be created in database
 	pub to_create: Vec<WalkedEntry>,
+	/// Entries found in the file system that need to be updated in database
 	pub to_update: Vec<WalkedEntry>,
+	/// Entries found in the file system that need to be removed from database
 	pub to_remove: Vec<file_path_pub_and_cas_ids::Data>,
+	/// Entries found in the file system that will not be indexed
 	pub non_indexed_paths: Vec<PathBuf>,
+	/// Ancestors of entries that were indexed
 	pub accepted_ancestors: HashSet<WalkedEntry>,
+	/// Errors that happened during the task execution
 	pub errors: Vec<NonCriticalError>,
+	/// Directory that was indexed
 	pub directory_iso_file_path: IsolatedFilePathData<'static>,
+	/// Total size of the directory that was indexed
 	pub total_size: u64,
+	/// Task handles that were dispatched to run `WalkDir` tasks for inner directories
 	pub handles: Vec<TaskHandle<Error>>,
+	/// Time spent walking through the received directory
 	pub scan_time: Duration,
 }
 
 #[async_trait::async_trait]
 impl<DBProxy, IsoPathFactory, Dispatcher> Task<Error>
-	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
+	for Walker<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -121,7 +143,17 @@ where
 		self.is_shallow
 	}
 
-	#[instrument(skip(self, interrupter), fields(task_id = %self.id, walked_entry = %self.entry.path.display()))]
+	#[instrument(
+		skip_all,
+		fields(
+			task_id = %self.id,
+			walked_entry = %self.entry.path.display(),
+			is_shallow = self.is_shallow,
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
+	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
 		let Self {
 			root,
@@ -158,6 +190,7 @@ where
 						if let Some(rules) =
 							GitIgnoreRules::get_rules_if_in_git_repo(root.as_ref(), path).await
 						{
+							trace!("Found gitignore rules to follow");
 							indexer_ruler.extend(rules.map(Into::into));
 						}
 					}
@@ -349,7 +382,7 @@ where
 
 		// Taking out some data as the task is finally complete
 		Ok(ExecStatus::Done(
-			WalkTaskOutput {
+			Output {
 				to_create,
 				to_update,
 				to_remove,
@@ -398,7 +431,7 @@ enum WalkerStage {
 	},
 }
 
-impl<DBProxy, IsoPathFactory, Dispatcher> WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
+impl<DBProxy, IsoPathFactory, Dispatcher> Walker<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -430,7 +463,7 @@ where
 	}
 }
 
-impl<DBProxy, IsoPathFactory> WalkDirTask<DBProxy, IsoPathFactory, BaseTaskDispatcher<Error>>
+impl<DBProxy, IsoPathFactory> Walker<DBProxy, IsoPathFactory, BaseTaskDispatcher<Error>>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -460,6 +493,11 @@ where
 	}
 }
 
+#[instrument(
+	skip_all,
+	fields(entries_count = walking_entries.len()),
+	err,
+)]
 async fn segregate_creates_and_updates(
 	walking_entries: &mut Vec<WalkingEntry>,
 	db_proxy: &impl WalkerDBProxy,
@@ -483,58 +521,67 @@ async fn segregate_creates_and_updates(
 			.collect::<HashMap<_, _>>();
 
 		Ok(walking_entries.drain(..).fold(
-				(Vec::new(), Vec::new(), 0),
-				|(mut to_create, mut to_update, mut total_size), entry| {
-					let WalkingEntry{iso_file_path, metadata} = &entry;
+			(Vec::new(), Vec::new(), 0),
+			|(mut to_create, mut to_update, mut total_size), entry| {
+				let WalkingEntry {
+					iso_file_path,
+					metadata,
+				} = &entry;
 
-					total_size += metadata.size_in_bytes;
+				total_size += metadata.size_in_bytes;
 
-					if let Some(file_path) = iso_paths_already_in_db.get(iso_file_path) {
-						if let (Some(inode), Some(date_modified)) = (
-						&file_path.inode,
-						&file_path.date_modified,
-					) {
+				if let Some(file_path) = iso_paths_already_in_db.get(iso_file_path) {
+					if let (Some(inode), Some(date_modified)) =
+						(&file_path.inode, &file_path.date_modified)
+					{
 						if (
-								inode_from_db(&inode[0..8]) != metadata.inode
-								// Datetimes stored in DB loses a bit of precision, so we need to check against a delta
-								// instead of using != operator
-								|| DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
-									> ChronoDuration::milliseconds(1) || file_path.hidden.is_none() || metadata.hidden != file_path.hidden.unwrap_or_default()
-							)
-							// We ignore the size of directories because it is not reliable, we need to
-							// calculate it ourselves later
-							&& !(
-								iso_file_path.to_parts().is_dir
-								&& metadata.size_in_bytes
-									!= file_path
-										.size_in_bytes_bytes
-										.as_ref()
-										.map(|size_in_bytes_bytes| {
-											u64::from_be_bytes([
-												size_in_bytes_bytes[0],
-												size_in_bytes_bytes[1],
-												size_in_bytes_bytes[2],
-												size_in_bytes_bytes[3],
-												size_in_bytes_bytes[4],
-												size_in_bytes_bytes[5],
-												size_in_bytes_bytes[6],
-												size_in_bytes_bytes[7],
-											])
-										})
-										.unwrap_or_default()
+									inode_from_db(&inode[0..8]) != metadata.inode
+									// Datetimes stored in DB loses a bit of precision,
+									// so we need to check against a delta
+									// instead of using != operator
+									|| (
+										DateTime::<FixedOffset>::from(metadata.modified_at) - *date_modified
+											> ChronoDuration::milliseconds(1)
+										)
+									|| file_path.hidden.is_none()
+									|| metadata.hidden != file_path.hidden.unwrap_or_default()
+								)
+								// We ignore the size of directories because it is not reliable, we need to
+								// calculate it ourselves later
+								&& !(
+									iso_file_path.to_parts().is_dir
+									&& metadata.size_in_bytes
+										!= file_path
+											.size_in_bytes_bytes
+											.as_ref()
+											.map(|size_in_bytes_bytes| {
+												u64::from_be_bytes([
+													size_in_bytes_bytes[0],
+													size_in_bytes_bytes[1],
+													size_in_bytes_bytes[2],
+													size_in_bytes_bytes[3],
+													size_in_bytes_bytes[4],
+													size_in_bytes_bytes[5],
+													size_in_bytes_bytes[6],
+													size_in_bytes_bytes[7],
+												])
+											})
+											.unwrap_or_default()
 								) {
-							to_update.push(
-								WalkedEntry::from((&file_path.pub_id, file_path.object_id, entry)),
-							);
+							to_update.push(WalkedEntry::from((
+								&file_path.pub_id,
+								file_path.object_id,
+								entry,
+							)));
 						}
 					}
-					} else {
-						to_create.push(WalkedEntry::from(entry));
-					}
-
-					(to_create, to_update, total_size)
+				} else {
+					to_create.push(WalkedEntry::from(entry));
 				}
-			))
+
+				(to_create, to_update, total_size)
+			},
+		))
 	}
 }
 
@@ -553,7 +600,7 @@ async fn keep_walking(
 				to_keep_walking
 					.drain(..)
 					.map(|entry| {
-						WalkDirTask::new_deep(
+						Walker::new_deep(
 							entry,
 							Arc::clone(root),
 							indexer_ruler.clone(),
@@ -832,7 +879,7 @@ mod tests {
 
 		let handle = system
 			.dispatch(
-				WalkDirTask::new_deep(
+				Walker::new_deep(
 					root_path.to_path_buf(),
 					Arc::new(root_path.to_path_buf()),
 					indexer_ruler,
@@ -861,13 +908,13 @@ mod tests {
 				panic!("unexpected task output")
 			};
 
-			let WalkTaskOutput {
+			let Output {
 				to_create,
 				accepted_ancestors,
 				errors,
 				handles,
 				..
-			} = *output.downcast::<WalkTaskOutput>().unwrap();
+			} = *output.downcast::<Output>().unwrap();
 
 			assert!(errors.is_empty(), "errors: {errors:#?}");
 

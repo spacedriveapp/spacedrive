@@ -38,38 +38,43 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, instrument, trace, warn, Level};
 
 use super::{
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	tasks::{
-		saver::{SaveTask, SaveTaskOutput},
-		updater::{UpdateTask, UpdateTaskOutput},
-		walker::{WalkDirTask, WalkTaskOutput, WalkedEntry},
+		self, saver, updater,
+		walker::{self, WalkedEntry},
 	},
 	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
 #[derive(Debug)]
 pub struct Indexer {
+	// Received arguments
 	location: location_with_indexer_rules::Data,
 	sub_path: Option<PathBuf>,
-	metadata: Metadata,
 
+	// Derived from received arguments
 	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler: IndexerRuler,
 	walker_root_path: Option<Arc<PathBuf>>,
+
+	// Inner state
 	ancestors_needing_indexing: HashSet<WalkedEntry>,
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
+	// Optimizations
 	processing_first_directory: bool,
-
 	to_create_buffer: VecDeque<WalkedEntry>,
 	to_update_buffer: VecDeque<WalkedEntry>,
 
+	// Run data
+	metadata: Metadata,
 	errors: Vec<NonCriticalError>,
 
+	// On shutdown data
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
@@ -95,7 +100,7 @@ impl Job for Indexer {
 						let iso_file_path_factory = self.iso_file_path_factory.clone();
 						async move {
 							match task_kind {
-								TaskKind::Walk => WalkDirTask::deserialize(
+								TaskKind::Walk => tasks::Walker::deserialize(
 									&task_bytes,
 									(
 										indexer_ruler.clone(),
@@ -110,13 +115,13 @@ impl Job for Indexer {
 								.await
 								.map(IntoTask::into_task),
 
-								TaskKind::Save => SaveTask::deserialize(
+								TaskKind::Save => tasks::Saver::deserialize(
 									&task_bytes,
 									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 								)
 								.await
 								.map(IntoTask::into_task),
-								TaskKind::Update => UpdateTask::deserialize(
+								TaskKind::Update => tasks::Updater::deserialize(
 									&task_bytes,
 									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 								)
@@ -135,6 +140,16 @@ impl Job for Indexer {
 		Ok(())
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			location_id = self.location.id,
+			location_path = ?self.location.path,
+			sub_path = ?self.sub_path.as_ref().map(|path| path.display()),
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
 	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
@@ -205,7 +220,7 @@ impl Job for Indexer {
 
 			update_location_size(location.id, ctx.db(), &ctx).await?;
 
-			metadata.db_write_time += start_size_update_time.elapsed();
+			metadata.mean_db_write_time += start_size_update_time.elapsed();
 		}
 
 		if metadata.removed_count > 0 {
@@ -297,28 +312,28 @@ impl Indexer {
 		)])
 		.await;
 
-		if any_task_output.is::<WalkTaskOutput>() {
+		if any_task_output.is::<walker::Output>() {
 			return self
 				.process_walk_output(
 					*any_task_output
-						.downcast::<WalkTaskOutput>()
+						.downcast::<walker::Output>()
 						.expect("just checked"),
 					ctx,
 					dispatcher,
 				)
 				.await;
-		} else if any_task_output.is::<SaveTaskOutput>() {
+		} else if any_task_output.is::<saver::Output>() {
 			self.process_save_output(
 				*any_task_output
-					.downcast::<SaveTaskOutput>()
+					.downcast::<saver::Output>()
 					.expect("just checked"),
 				ctx,
 			)
 			.await;
-		} else if any_task_output.is::<UpdateTaskOutput>() {
+		} else if any_task_output.is::<updater::Output>() {
 			self.process_update_output(
 				*any_task_output
-					.downcast::<UpdateTaskOutput>()
+					.downcast::<updater::Output>()
 					.expect("just checked"),
 				ctx,
 			)
@@ -330,9 +345,22 @@ impl Indexer {
 		Ok(Vec::new())
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			to_create_count = to_create.len(),
+			to_update_count = to_update.len(),
+			to_remove_count = to_remove.len(),
+			accepted_ancestors_count = accepted_ancestors.len(),
+			directory_iso_file_path = %directory_iso_file_path.as_ref().display(),
+			more_walker_tasks_count = handles.len(),
+			%total_size,
+			?scan_time,
+		)
+	)]
 	async fn process_walk_output<OuterCtx: OuterContext>(
 		&mut self,
-		WalkTaskOutput {
+		walker::Output {
 			to_create,
 			to_update,
 			to_remove,
@@ -343,15 +371,19 @@ impl Indexer {
 			mut handles,
 			scan_time,
 			..
-		}: WalkTaskOutput,
+		}: walker::Output,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
-		self.metadata.scan_read_time += scan_time;
+		self.metadata.mean_scan_read_time += scan_time;
+		// Initially the handles vec only have walker tasks, but we will add saver and updater tasks later
+		#[allow(clippy::cast_possible_truncation)]
+		// SAFETY: we know that `handles.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
+		{
+			self.metadata.total_walk_tasks += handles.len() as u32;
+		}
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
-
-		debug!("Scanned {directory_iso_file_path} in {scan_time:?}");
 
 		*self
 			.iso_paths_and_sizes
@@ -397,11 +429,12 @@ impl Indexer {
 			self.errors.extend(errors);
 		}
 
-		let db_delete_time = Instant::now();
-		self.metadata.removed_count +=
-			remove_non_existing_file_paths(to_remove, ctx.db(), ctx.sync()).await?;
-		self.metadata.db_write_time += db_delete_time.elapsed();
-
+		if !to_remove.is_empty() {
+			let db_delete_time = Instant::now();
+			self.metadata.removed_count +=
+				remove_non_existing_file_paths(to_remove, ctx.db(), ctx.sync()).await?;
+			self.metadata.mean_db_write_time += db_delete_time.elapsed();
+		}
 		let (save_tasks, update_tasks) =
 			self.prepare_save_and_update_tasks(to_create, to_update, ctx);
 
@@ -430,41 +463,43 @@ impl Indexer {
 		Ok(handles)
 	}
 
+	#[instrument(skip(self, ctx))]
 	async fn process_save_output<OuterCtx: OuterContext>(
 		&mut self,
-		SaveTaskOutput {
+		saver::Output {
 			saved_count,
 			save_duration,
-		}: SaveTaskOutput,
+		}: saver::Output,
 		ctx: &impl JobContext<OuterCtx>,
 	) {
 		self.metadata.indexed_count += saved_count;
-		self.metadata.db_write_time += save_duration;
+		self.metadata.mean_db_write_time += save_duration;
 
 		ctx.progress_msg(format!("Saved {saved_count} files")).await;
 
 		debug!(
-			"Processed save task in the indexer ({}/{}), took: {save_duration:?}",
+			"Processed save task in the indexer ({}/{})",
 			self.metadata.completed_tasks, self.metadata.total_tasks
 		);
 	}
 
+	#[instrument(skip(self, ctx))]
 	async fn process_update_output<OuterCtx: OuterContext>(
 		&mut self,
-		UpdateTaskOutput {
+		updater::Output {
 			updated_count,
 			update_duration,
-		}: UpdateTaskOutput,
+		}: updater::Output,
 		ctx: &impl JobContext<OuterCtx>,
 	) {
 		self.metadata.updated_count += updated_count;
-		self.metadata.db_write_time += update_duration;
+		self.metadata.mean_db_write_time += update_duration;
 
 		ctx.progress_msg(format!("Updated {updated_count} files"))
 			.await;
 
 		debug!(
-			"Processed update task in the indexer ({}/{}), took: {update_duration:?}",
+			"Processed update task in the indexer ({}/{})",
 			self.metadata.completed_tasks, self.metadata.total_tasks
 		);
 	}
@@ -494,7 +529,7 @@ impl Indexer {
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-					warn!("Task <id='{task_id}'> returned an empty output");
+					warn!(%task_id, "Task returned an empty output");
 				}
 
 				Ok(TaskStatus::Shutdown(task)) => {
@@ -544,7 +579,7 @@ impl Indexer {
 
 			pending_running_tasks.push(
 				dispatcher
-					.dispatch(WalkDirTask::new_deep(
+					.dispatch(tasks::Walker::new_deep(
 						walker_root_path.as_ref(),
 						Arc::clone(&walker_root_path),
 						self.indexer_ruler.clone(),
@@ -559,6 +594,7 @@ impl Indexer {
 			);
 
 			self.metadata.total_tasks = 1;
+			self.metadata.total_walk_tasks = 1;
 
 			let updates = vec![
 				ProgressUpdate::TaskCount(self.metadata.total_tasks),
@@ -596,11 +632,11 @@ impl Indexer {
 				);
 
 				self.metadata.total_paths += self.to_create_buffer.len() as u64;
-				self.metadata.total_save_steps += 1;
+				self.metadata.total_save_tasks += 1;
 
 				pending_running_tasks.push(
 					dispatcher
-						.dispatch(SaveTask::new_deep(
+						.dispatch(tasks::Saver::new_deep(
 							self.location.id,
 							self.location.pub_id.clone(),
 							self.to_create_buffer.drain(..).collect(),
@@ -618,11 +654,11 @@ impl Indexer {
 				);
 
 				self.metadata.total_updated_paths += self.to_update_buffer.len() as u64;
-				self.metadata.total_update_steps += 1;
+				self.metadata.total_update_tasks += 1;
 
 				pending_running_tasks.push(
 					dispatcher
-						.dispatch(UpdateTask::new_deep(
+						.dispatch(tasks::Updater::new_deep(
 							self.to_update_buffer.drain(..).collect(),
 							Arc::clone(ctx.db()),
 							Arc::clone(ctx.sync()),
@@ -656,9 +692,9 @@ impl Indexer {
 			.map(|chunk| {
 				let chunked_saves = chunk.collect::<Vec<_>>();
 				self.metadata.total_paths += chunked_saves.len() as u64;
-				self.metadata.total_save_steps += 1;
+				self.metadata.total_save_tasks += 1;
 
-				SaveTask::new_deep(
+				tasks::Saver::new_deep(
 					self.location.id,
 					self.location.pub_id.clone(),
 					chunked_saves,
@@ -679,7 +715,7 @@ impl Indexer {
 		to_create: Vec<WalkedEntry>,
 		to_update: Vec<WalkedEntry>,
 		ctx: &impl JobContext<OuterCtx>,
-	) -> (Vec<SaveTask>, Vec<UpdateTask>) {
+	) -> (Vec<tasks::Saver>, Vec<tasks::Updater>) {
 		if self.processing_first_directory {
 			// If we are processing the first directory, we dispatch shallow tasks with higher priority
 			// this way we provide a faster feedback loop to the user
@@ -692,9 +728,9 @@ impl Indexer {
 				.map(|chunk| {
 					let chunked_saves = chunk.collect::<Vec<_>>();
 					self.metadata.total_paths += chunked_saves.len() as u64;
-					self.metadata.total_save_steps += 1;
+					self.metadata.total_save_tasks += 1;
 
-					SaveTask::new_shallow(
+					tasks::Saver::new_shallow(
 						self.location.id,
 						self.location.pub_id.clone(),
 						chunked_saves,
@@ -711,9 +747,9 @@ impl Indexer {
 				.map(|chunk| {
 					let chunked_updates = chunk.collect::<Vec<_>>();
 					self.metadata.total_updated_paths += chunked_updates.len() as u64;
-					self.metadata.total_update_steps += 1;
+					self.metadata.total_update_tasks += 1;
 
-					UpdateTask::new_shallow(
+					tasks::Updater::new_shallow(
 						chunked_updates,
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
@@ -736,9 +772,9 @@ impl Indexer {
 						.collect::<Vec<_>>();
 
 					self.metadata.total_paths += chunked_saves.len() as u64;
-					self.metadata.total_save_steps += 1;
+					self.metadata.total_save_tasks += 1;
 
-					save_tasks.push(SaveTask::new_deep(
+					save_tasks.push(tasks::Saver::new_deep(
 						self.location.id,
 						self.location.pub_id.clone(),
 						chunked_saves,
@@ -765,9 +801,9 @@ impl Indexer {
 						.collect::<Vec<_>>();
 
 					self.metadata.total_updated_paths += chunked_updates.len() as u64;
-					self.metadata.total_update_steps += 1;
+					self.metadata.total_update_tasks += 1;
 
-					update_tasks.push(UpdateTask::new_deep(
+					update_tasks.push(tasks::Updater::new_deep(
 						chunked_updates,
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
@@ -786,14 +822,15 @@ impl Indexer {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Metadata {
-	db_write_time: Duration,
-	scan_read_time: Duration,
+	mean_db_write_time: Duration,
+	mean_scan_read_time: Duration,
 	total_tasks: u64,
 	completed_tasks: u64,
 	total_paths: u64,
 	total_updated_paths: u64,
-	total_save_steps: u64,
-	total_update_steps: u64,
+	total_walk_tasks: u32,
+	total_save_tasks: u32,
+	total_update_tasks: u32,
 	indexed_count: u64,
 	updated_count: u64,
 	removed_count: u64,
@@ -802,32 +839,37 @@ pub struct Metadata {
 impl From<Metadata> for Vec<ReportOutputMetadata> {
 	fn from(
 		Metadata {
-			db_write_time,
-			scan_read_time,
+			mut mean_db_write_time,
+			mut mean_scan_read_time,
 			total_tasks,
 			completed_tasks,
 			total_paths,
 			total_updated_paths,
-			total_save_steps,
-			total_update_steps,
+			total_walk_tasks,
+			total_save_tasks,
+			total_update_tasks,
 			indexed_count,
 			updated_count,
 			removed_count,
 		}: Metadata,
 	) -> Self {
+		mean_scan_read_time /= total_walk_tasks;
+		mean_db_write_time /= total_save_tasks + total_update_tasks + 1; // +1 to update directories sizes
+
 		vec![
 			ReportOutputMetadata::Indexer {
 				total_paths: u64_to_frontend(total_paths),
 			},
 			ReportOutputMetadata::Metrics(HashMap::from([
-				("db_write_time".into(), json!(db_write_time)),
-				("scan_read_time".into(), json!(scan_read_time)),
+				("mean_scan_read_time".into(), json!(mean_scan_read_time)),
+				("mean_db_write_time".into(), json!(mean_db_write_time)),
 				("total_tasks".into(), json!(total_tasks)),
 				("completed_tasks".into(), json!(completed_tasks)),
 				("total_paths".into(), json!(total_paths)),
 				("total_updated_paths".into(), json!(total_updated_paths)),
-				("total_save_steps".into(), json!(total_save_steps)),
-				("total_update_steps".into(), json!(total_update_steps)),
+				("total_walk_tasks".into(), json!(total_walk_tasks)),
+				("total_save_tasks".into(), json!(total_save_tasks)),
+				("total_update_tasks".into(), json!(total_update_tasks)),
 				("indexed_count".into(), json!(indexed_count)),
 				("updated_count".into(), json!(updated_count)),
 				("removed_count".into(), json!(removed_count)),
@@ -847,20 +889,20 @@ enum TaskKind {
 struct SaveState {
 	location: location_with_indexer_rules::Data,
 	sub_path: Option<PathBuf>,
-	metadata: Metadata,
 
 	iso_file_path_factory: IsoFilePathFactory,
 	indexer_ruler: IndexerRuler,
 	walker_root_path: Option<Arc<PathBuf>>,
+
 	ancestors_needing_indexing: HashSet<WalkedEntry>,
 	ancestors_already_indexed: HashSet<IsolatedFilePathData<'static>>,
 	iso_paths_and_sizes: HashMap<IsolatedFilePathData<'static>, u64>,
 
 	processing_first_directory: bool,
-
 	to_create_buffer: VecDeque<WalkedEntry>,
 	to_update_buffer: VecDeque<WalkedEntry>,
 
+	metadata: Metadata,
 	errors: Vec<NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
@@ -889,7 +931,6 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 		rmp_serde::to_vec_named(&SaveState {
 			location,
 			sub_path,
-			metadata,
 			iso_file_path_factory,
 			indexer_ruler,
 			walker_root_path,
@@ -899,29 +940,30 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			processing_first_directory,
 			to_create_buffer,
 			to_update_buffer,
+			metadata,
 			errors,
 			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
 				&tasks_for_shutdown
 					.into_iter()
 					.map(|task| async move {
 						if task
-							.is::<WalkDirTask<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
+							.is::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
 							) {
 							task
-							.downcast::<WalkDirTask<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
+							.downcast::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
 							)
 							.expect("just checked")
 							.serialize()
 							.await
 							.map(|bytes| (TaskKind::Walk, bytes))
-						} else if task.is::<SaveTask>() {
-							task.downcast::<SaveTask>()
+						} else if task.is::<tasks::Saver>() {
+							task.downcast::<tasks::Saver>()
 								.expect("just checked")
 								.serialize()
 								.await
 								.map(|bytes| (TaskKind::Save, bytes))
-						} else if task.is::<UpdateTask>() {
-							task.downcast::<UpdateTask>()
+						} else if task.is::<tasks::Updater>() {
+							task.downcast::<tasks::Updater>()
 								.expect("just checked")
 								.serialize()
 								.await
@@ -945,7 +987,6 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 		let SaveState {
 			location,
 			sub_path,
-			metadata,
 			iso_file_path_factory,
 			indexer_ruler,
 			walker_root_path,
@@ -955,6 +996,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			processing_first_directory,
 			to_create_buffer,
 			to_update_buffer,
+			metadata,
 			errors,
 			tasks_for_shutdown_bytes,
 		} = rmp_serde::from_slice::<SaveState>(serialized_job)?;

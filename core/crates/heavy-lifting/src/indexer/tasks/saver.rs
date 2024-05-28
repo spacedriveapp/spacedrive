@@ -16,127 +16,37 @@ use std::{sync::Arc, time::Duration};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::trace;
+use tracing::{instrument, trace, Level};
 
 use super::walker::WalkedEntry;
 
 #[derive(Debug)]
-pub struct SaveTask {
+pub struct Saver {
+	// Task control
 	id: TaskId,
+	is_shallow: bool,
+
+	// Received input args
 	location_id: location::id::Type,
 	location_pub_id: location::pub_id::Type,
 	walked_entries: Vec<WalkedEntry>,
+
+	// Dependencies
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
-	is_shallow: bool,
 }
 
-impl SaveTask {
-	#[must_use]
-	pub fn new_deep(
-		location_id: location::id::Type,
-		location_pub_id: location::pub_id::Type,
-		walked_entries: Vec<WalkedEntry>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self {
-			id: TaskId::new_v4(),
-			location_id,
-			location_pub_id,
-			walked_entries,
-			db,
-			sync,
-			is_shallow: false,
-		}
-	}
-
-	#[must_use]
-	pub fn new_shallow(
-		location_id: location::id::Type,
-		location_pub_id: location::pub_id::Type,
-		walked_entries: Vec<WalkedEntry>,
-		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
-	) -> Self {
-		Self {
-			id: TaskId::new_v4(),
-			location_id,
-			location_pub_id,
-			walked_entries,
-			db,
-			sync,
-			is_shallow: true,
-		}
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct SaveTaskSaveState {
-	id: TaskId,
-	location_id: location::id::Type,
-	location_pub_id: location::pub_id::Type,
-	walked_entries: Vec<WalkedEntry>,
-	is_shallow: bool,
-}
-
-impl SerializableTask<Error> for SaveTask {
-	type SerializeError = rmp_serde::encode::Error;
-
-	type DeserializeError = rmp_serde::decode::Error;
-
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
-
-	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
-		let Self {
-			id,
-			location_id,
-			location_pub_id,
-			walked_entries,
-			is_shallow,
-			..
-		} = self;
-		rmp_serde::to_vec_named(&SaveTaskSaveState {
-			id,
-			location_id,
-			location_pub_id,
-			walked_entries,
-			is_shallow,
-		})
-	}
-
-	async fn deserialize(
-		data: &[u8],
-		(db, sync): Self::DeserializeCtx,
-	) -> Result<Self, Self::DeserializeError> {
-		rmp_serde::from_slice(data).map(
-			|SaveTaskSaveState {
-			     id,
-			     location_id,
-			     location_pub_id,
-			     walked_entries,
-			     is_shallow,
-			 }| Self {
-				id,
-				location_id,
-				location_pub_id,
-				walked_entries,
-				db,
-				sync,
-				is_shallow,
-			},
-		)
-	}
-}
-
+/// [`Save`] Task output
 #[derive(Debug)]
-pub struct SaveTaskOutput {
+pub struct Output {
+	/// Number of records inserted on database
 	pub saved_count: u64,
+	/// Time spent saving records
 	pub save_duration: Duration,
 }
 
 #[async_trait::async_trait]
-impl Task<Error> for SaveTask {
+impl Task<Error> for Saver {
 	fn id(&self) -> TaskId {
 		self.id
 	}
@@ -146,6 +56,18 @@ impl Task<Error> for SaveTask {
 		self.is_shallow
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			task_id = %self.id,
+			location_id = %self.location_id,
+			to_save_count = %self.walked_entries.len(),
+			is_shallow = self.is_shallow,
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
+	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, _: &Interrupter) -> Result<ExecStatus, Error> {
 		use file_path::{
 			create_unchecked, date_created, date_indexed, date_modified, extension, hidden, inode,
@@ -247,14 +169,115 @@ impl Task<Error> for SaveTask {
 			.await
 			.map_err(indexer::Error::from)? as u64;
 
-		trace!("Inserted {saved_count} records");
+		let save_duration = start_time.elapsed();
+
+		trace!(saved_count, "Inserted records");
 
 		Ok(ExecStatus::Done(
-			SaveTaskOutput {
+			Output {
 				saved_count,
-				save_duration: start_time.elapsed(),
+				save_duration,
 			}
 			.into_output(),
 		))
+	}
+}
+
+impl Saver {
+	#[must_use]
+	pub fn new_deep(
+		location_id: location::id::Type,
+		location_pub_id: location::pub_id::Type,
+		walked_entries: Vec<WalkedEntry>,
+		db: Arc<PrismaClient>,
+		sync: Arc<SyncManager>,
+	) -> Self {
+		Self {
+			id: TaskId::new_v4(),
+			location_id,
+			location_pub_id,
+			walked_entries,
+			db,
+			sync,
+			is_shallow: false,
+		}
+	}
+
+	#[must_use]
+	pub fn new_shallow(
+		location_id: location::id::Type,
+		location_pub_id: location::pub_id::Type,
+		walked_entries: Vec<WalkedEntry>,
+		db: Arc<PrismaClient>,
+		sync: Arc<SyncManager>,
+	) -> Self {
+		Self {
+			id: TaskId::new_v4(),
+			location_id,
+			location_pub_id,
+			walked_entries,
+			db,
+			sync,
+			is_shallow: true,
+		}
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SaveState {
+	id: TaskId,
+	is_shallow: bool,
+
+	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
+	walked_entries: Vec<WalkedEntry>,
+}
+
+impl SerializableTask<Error> for Saver {
+	type SerializeError = rmp_serde::encode::Error;
+
+	type DeserializeError = rmp_serde::decode::Error;
+
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+
+	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
+		let Self {
+			id,
+			is_shallow,
+			location_id,
+			location_pub_id,
+			walked_entries,
+			..
+		} = self;
+		rmp_serde::to_vec_named(&SaveState {
+			id,
+			is_shallow,
+			location_id,
+			location_pub_id,
+			walked_entries,
+		})
+	}
+
+	async fn deserialize(
+		data: &[u8],
+		(db, sync): Self::DeserializeCtx,
+	) -> Result<Self, Self::DeserializeError> {
+		rmp_serde::from_slice(data).map(
+			|SaveState {
+			     id,
+			     is_shallow,
+			     location_id,
+			     location_pub_id,
+			     walked_entries,
+			 }| Self {
+				id,
+				is_shallow,
+				location_id,
+				location_pub_id,
+				walked_entries,
+				db,
+				sync,
+			},
+		)
 	}
 }

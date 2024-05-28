@@ -18,18 +18,26 @@ use std::{
 
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use super::{
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
 	tasks::{
-		saver::{SaveTask, SaveTaskOutput},
-		updater::{UpdateTask, UpdateTaskOutput},
-		walker::{ToWalkEntry, WalkDirTask, WalkTaskOutput, WalkedEntry},
+		self, saver, updater,
+		walker::{self, ToWalkEntry, WalkedEntry},
 	},
 	update_directory_sizes, update_location_size, IsoFilePathFactory, WalkerDBProxy, BATCH_SIZE,
 };
 
+#[instrument(
+	skip_all,
+	fields(
+		location_id = location.id,
+		location_path = ?location.path,
+		sub_path = %sub_path.as_ref().display()
+	)
+	err,
+)]
 pub async fn shallow(
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path> + Send,
@@ -51,7 +59,7 @@ pub async fn shallow(
 			.map_err(indexer::Error::from)?,
 	);
 
-	let Some(WalkTaskOutput {
+	let Some(walker::Output {
 		to_create,
 		to_update,
 		to_remove,
@@ -123,15 +131,19 @@ pub async fn shallow(
 	Ok(errors)
 }
 
+#[instrument(
+	skip_all,
+	fields(to_walk_path = %to_walk_path.display())
+)]
 async fn walk(
 	location: &location_with_indexer_rules::Data,
 	location_path: Arc<PathBuf>,
 	to_walk_path: Arc<PathBuf>,
 	db: Arc<PrismaClient>,
 	dispatcher: &BaseTaskDispatcher<Error>,
-) -> Result<Option<WalkTaskOutput>, Error> {
+) -> Result<Option<walker::Output>, Error> {
 	match dispatcher
-		.dispatch(WalkDirTask::new_shallow(
+		.dispatch(tasks::Walker::new_shallow(
 			ToWalkEntry::from(&*to_walk_path),
 			to_walk_path,
 			location
@@ -155,7 +167,7 @@ async fn walk(
 	{
 		sd_task_system::TaskStatus::Done((_, TaskOutput::Out(data))) => Ok(Some(
 			*data
-				.downcast::<WalkTaskOutput>()
+				.downcast::<walker::Output>()
 				.expect("we just dispatched this task"),
 		)),
 		sd_task_system::TaskStatus::Done((_, TaskOutput::Empty)) => {
@@ -192,7 +204,7 @@ async fn save_and_update(
 		.chunks(BATCH_SIZE)
 		.into_iter()
 		.map(|chunk| {
-			SaveTask::new_shallow(
+			tasks::Saver::new_shallow(
 				location.id,
 				location.pub_id.clone(),
 				chunk.collect::<Vec<_>>(),
@@ -207,7 +219,7 @@ async fn save_and_update(
 				.chunks(BATCH_SIZE)
 				.into_iter()
 				.map(|chunk| {
-					UpdateTask::new_shallow(
+					tasks::Updater::new_shallow(
 						chunk.collect::<Vec<_>>(),
 						Arc::clone(&db),
 						Arc::clone(&sync),
@@ -233,14 +245,14 @@ async fn save_and_update(
 	{
 		match task_status {
 			sd_task_system::TaskStatus::Done((_, TaskOutput::Out(data))) => {
-				if data.is::<SaveTaskOutput>() {
+				if data.is::<saver::Output>() {
 					metadata.indexed_count += data
-						.downcast::<SaveTaskOutput>()
+						.downcast::<saver::Output>()
 						.expect("just checked")
 						.saved_count;
 				} else {
 					metadata.updated_count += data
-						.downcast::<UpdateTaskOutput>()
+						.downcast::<updater::Output>()
 						.expect("just checked")
 						.updated_count;
 				}

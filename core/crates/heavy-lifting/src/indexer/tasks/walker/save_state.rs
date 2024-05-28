@@ -17,19 +17,22 @@ use serde::{Deserialize, Serialize};
 use super::{
 	entry::{ToWalkEntry, WalkingEntry},
 	metadata::InnerMetadata,
-	IsoFilePathFactory, WalkDirTask, WalkedEntry, WalkerDBProxy, WalkerStage,
+	IsoFilePathFactory, WalkedEntry, Walker, WalkerDBProxy, WalkerStage,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct WalkDirSaveState {
 	id: TaskId,
+	is_shallow: bool,
+
 	entry: ToWalkEntry,
 	root: Arc<PathBuf>,
 	entry_iso_file_path: IsolatedFilePathData<'static>,
+
 	stage: WalkerStageSaveState,
+
 	errors: Vec<NonCriticalError>,
 	scan_time: Duration,
-	is_shallow: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -152,7 +155,7 @@ impl From<WalkerStageSaveState> for WalkerStage {
 }
 
 impl<DBProxy, IsoPathFactory, Dispatcher> SerializableTask<Error>
-	for WalkDirTask<DBProxy, IsoPathFactory, Dispatcher>
+	for Walker<DBProxy, IsoPathFactory, Dispatcher>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -176,13 +179,13 @@ where
 		} = self;
 		rmp_serde::to_vec_named(&WalkDirSaveState {
 			id,
+			is_shallow,
 			entry,
 			root,
 			entry_iso_file_path,
 			stage: stage.into(),
 			errors,
 			scan_time,
-			is_shallow,
 		})
 	}
 
@@ -209,7 +212,7 @@ where
 				iso_file_path_factory,
 				db_proxy,
 				stage: stage.into(),
-				maybe_dispatcher: is_shallow.then_some(dispatcher),
+				maybe_dispatcher: (!is_shallow).then_some(dispatcher),
 				errors,
 				scan_time,
 				is_shallow,

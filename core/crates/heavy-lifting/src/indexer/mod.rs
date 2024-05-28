@@ -31,7 +31,7 @@ use prisma_client_rust::{operator::or, QueryError, Select};
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tracing::warn;
+use tracing::{instrument, warn};
 
 pub mod job;
 mod shallow;
@@ -154,10 +154,12 @@ async fn update_directory_sizes(
 					file_path::size_in_bytes_bytes::NAME,
 					msgpack!(size_bytes),
 				),
-				db.file_path().update(
-					file_path::pub_id::equals(file_path.pub_id),
-					vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
-				),
+				db.file_path()
+					.update(
+						file_path::pub_id::equals(file_path.pub_id),
+						vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
+					)
+					.select(file_path::select!({ id })),
 			))
 		})
 		.collect::<Result<Vec<_>, Error>>()?
@@ -241,6 +243,14 @@ async fn remove_non_existing_file_paths(
 	.map_err(Into::into)
 }
 
+#[instrument(
+	skip(base_path, location_path, db, sync, errors),
+	fields(
+		base_path = %base_path.as_ref().display(),
+		location_path = %location_path.as_ref().display(),
+	),
+	err,
+)]
 #[allow(clippy::missing_panics_doc)] // Can't actually panic as we only deal with directories
 pub async fn reverse_update_directories_sizes(
 	base_path: impl AsRef<Path> + Send,

@@ -1,6 +1,6 @@
 use crate::{
 	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error,
-	NonCriticalError, OuterContext,
+	NonCriticalError, OuterContext, UpdateEvent,
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
@@ -19,7 +19,7 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use tracing::{debug, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use super::{
 	accumulate_file_paths_by_cas_id, dispatch_object_processor_tasks, orphan_path_filters_shallow,
@@ -27,6 +27,15 @@ use super::{
 	CHUNK_SIZE,
 };
 
+#[instrument(
+	skip_all,
+	fields(
+		location_id = location.id,
+		location_path = ?location.path,
+		sub_path = %sub_path.as_ref().display()
+	)
+	err,
+)]
 pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
@@ -100,17 +109,11 @@ pub async fn shallow(
 	}
 
 	if orphans_count == 0 {
-		debug!(
-			"No orphans found on <location_id={}, sub_path='{}'>",
-			location.id,
-			sub_path.display()
-		);
+		trace!("No orphans found");
 		return Ok(vec![]);
 	}
 
-	let errors = process_tasks(identifier_tasks, dispatcher, ctx).await?;
-
-	Ok(errors)
+	process_tasks(identifier_tasks, dispatcher, ctx).await
 }
 
 async fn process_tasks(
@@ -145,7 +148,7 @@ async fn process_tasks(
 
 					completed_identifier_tasks += 1;
 
-					ctx.report_update(crate::UpdateEvent::NewIdentifiedObjects {
+					ctx.report_update(UpdateEvent::NewIdentifiedObjects {
 						file_path_ids: file_path_ids_with_new_object,
 					});
 
@@ -175,21 +178,21 @@ async fn process_tasks(
 						..
 					} = *any_task_output.downcast().expect("just checked");
 
-					ctx.report_update(crate::UpdateEvent::NewIdentifiedObjects {
+					ctx.report_update(UpdateEvent::NewIdentifiedObjects {
 						file_path_ids: file_path_ids_with_new_object,
 					});
 				}
 			}
 
 			Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-				warn!("Task <id='{task_id}'> returned an empty output");
+				warn!(%task_id, "Task returned an empty output");
 			}
 
 			Ok(TaskStatus::Shutdown(_)) => {
 				debug!(
 					"Spacedrive is shutting down while a shallow file identifier was in progress"
 				);
-				return Ok(vec![]);
+				return Ok(errors);
 			}
 
 			Ok(TaskStatus::Error(e)) => {
@@ -198,7 +201,7 @@ async fn process_tasks(
 
 			Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
 				warn!("Task was cancelled or aborted on shallow file identifier");
-				return Ok(vec![]);
+				return Ok(errors);
 			}
 
 			Err(e) => {

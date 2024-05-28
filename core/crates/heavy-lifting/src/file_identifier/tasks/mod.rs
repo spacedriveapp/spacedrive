@@ -22,6 +22,7 @@ pub mod object_processor;
 pub use identifier::Identifier;
 pub use object_processor::ObjectProcessor;
 
+/// This object has all needed data to create a new `object` for a `file_path` or link an existing one.
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct FilePathToCreateOrLinkObject {
 	id: file_path::id::Type,
@@ -67,8 +68,7 @@ async fn create_objects_and_update_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
-	trace!("Creating new Objects!");
-
+	trace!("Preparing objects");
 	let (object_create_args, file_path_update_args) = files_and_kinds
 		.into_iter()
 		.map(
@@ -110,6 +110,11 @@ async fn create_objects_and_update_file_paths(
 			},
 		)
 		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	trace!(
+		new_objects_count = object_create_args.len(),
+		"Creating new Objects!",
+	);
 
 	// create new object records with assembled values
 	let created_objects_count = sync

@@ -451,7 +451,7 @@ pub trait Dispatcher<E: RunError>: fmt::Debug + Clone + Send + Sync + 'static {
 		into_tasks: I,
 	) -> impl Future<Output = Vec<TaskHandle<E>>> + Send
 	where
-		<I as IntoIterator>::IntoIter: Send,
+		I::IntoIter: Send,
 	{
 		self.dispatch_many_boxed(into_tasks.into_iter().map(IntoTask::into_task))
 	}

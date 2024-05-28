@@ -20,15 +20,20 @@ use super::{
 
 #[derive(Debug)]
 pub struct ObjectProcessor {
+	// Task control
 	id: TaskId,
-	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
-
-	stage: Stage,
-
-	output: Output,
-
 	with_priority: bool,
 
+	// Received input args
+	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+
+	// Inner state
+	stage: Stage,
+
+	// Out collector
+	output: Output,
+
+	// Dependencies
 	db: Arc<PrismaClient>,
 	sync: Arc<SyncManager>,
 }
@@ -42,13 +47,25 @@ enum Stage {
 	CreateObjects,
 }
 
+/// Output from the `[ObjectProcessor]` task
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct Output {
+	/// To send to frontend for priority reporting of new objects
 	pub file_path_ids_with_new_object: Vec<file_path::id::Type>,
+
+	/// Time elapsed fetching existing `objects` from db to be linked to `file_paths`
 	pub fetch_existing_objects_time: Duration,
+
+	/// Time spent linking `file_paths` to already existing `objects`
 	pub assign_to_existing_object_time: Duration,
+
+	/// Time spent creating new `objects`
 	pub create_object_time: Duration,
+
+	/// Number of new `objects` created
 	pub created_objects_count: u64,
+
+	/// Number of `objects` that were linked to `file_paths`
 	pub linked_objects_count: u64,
 }
 
@@ -112,7 +129,10 @@ impl Task<Error> for ObjectProcessor {
 				Stage::AssignFilePathsToExistingObjects {
 					existing_objects_by_cas_id,
 				} => {
-					trace!("Assigning file paths to existing Objects");
+					trace!(
+						existing_objects_to_link = existing_objects_by_cas_id.len(),
+						"Assigning file paths to existing Objects",
+					);
 					let start = Instant::now();
 					*linked_objects_count = assign_existing_objects_to_file_paths(
 						file_paths_by_cas_id,
@@ -223,7 +243,14 @@ where
 			})
 	}
 
-	inner(cas_ids.into_iter().map(Into::into).collect::<Vec<_>>(), db).await
+	let stringed_cas_ids = cas_ids.into_iter().map(Into::into).collect::<Vec<_>>();
+
+	trace!(
+		cas_ids_count = stringed_cas_ids.len(),
+		"Fetching existing objects by cas_ids",
+	);
+
+	inner(stringed_cas_ids, db).await
 }
 
 /// Attempt to associate each file path with an object that has been
@@ -313,10 +340,10 @@ impl SerializableTask<Error> for ObjectProcessor {
 			     with_priority,
 			 }| Self {
 				id,
+				with_priority,
 				file_paths_by_cas_id,
 				stage,
 				output,
-				with_priority,
 				db,
 				sync,
 			},

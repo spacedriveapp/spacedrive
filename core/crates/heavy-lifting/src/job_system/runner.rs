@@ -256,7 +256,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		})
 	}
 
-	#[instrument(skip(self))]
+	#[instrument(skip_all, fields(%job_id))]
 	async fn process_return_status(
 		&mut self,
 		job_id: JobId,
@@ -309,7 +309,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 							let db = handle.ctx.db();
 							let mut report = handle.ctx.report_mut().await;
 							if let Err(e) = report.update(db).await {
-								error!("failed to update report on job shutdown: {e:#?}");
+								error!(?e, "failed to update report on job shutdown");
 							}
 							report.name
 						};
@@ -334,18 +334,18 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 								.unwrap_or_default(),
 							});
 
-						debug!("Job was shutdown and serialized: <id='{job_id}', name='{name}'>");
+						debug!(%name, "Job was shutdown and serialized");
 					}
 
 					Ok(None) => {
 						debug!(
 							"Job was shutdown but didn't returned any serialized data, \
-							probably it isn't resumable job: <id='{job_id}'>"
+							probably it isn't resumable job"
 						);
 					}
 
 					Err(e) => {
-						error!("Failed to serialize job: {e:#?}");
+						error!(?e, "Failed to serialize job");
 					}
 				}
 
@@ -457,6 +457,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	}
 }
 
+#[instrument(skip(next_jobs))]
 async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	parent_job_id: JobId,
 	parent_job_name: JobName,
@@ -478,10 +479,7 @@ async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobCont
 					})
 				})
 				.map_err(|e| {
-					error!(
-						"Failed to serialize next job: <parent_id='{parent_job_id}', parent_name='{parent_job_name}', \
-						next_id='{next_id}', next_name='{next_name}'>: {e:#?}"
-					);
+					error!(%next_id, %next_name, ?e, "Failed to serialize next job");
 				})
 		})
 		.collect::<Vec<_>>()
@@ -493,6 +491,15 @@ async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobCont
 		.ok()
 }
 
+#[instrument(
+	skip_all,
+	fields(
+		job_id = %handle.id,
+		next_jobs_count = handle.next_jobs.len(),
+		location_id = %location_id,
+		total_running_jobs = handles.len(),
+	)
+)]
 async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	handle: &mut JobHandle<OuterCtx, JobCtx>,
 	location_id: location::id::Type,
@@ -514,10 +521,8 @@ async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterC
 
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
-			trace!(
-				"Dispatching next job: <id='{next_id}', name='{}'>",
-				next.job_name()
-			);
+			trace!(%next_id, %next_name, "Dispatching next job");
+
 			job_hashes_by_id.insert(next_id, next_hash);
 			running_jobs_by_job_id.insert(next_id, (next_name, location_id));
 			running_jobs_set.insert((next_name, location_id));
@@ -538,7 +543,7 @@ async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterC
 
 			handles.insert(next_id, next_handle);
 		} else {
-			warn!("Unexpectedly found a job with the same hash as the next job: <id='{next_id}', name='{}'>", next.job_name());
+			warn!(%next_id, %next_name, "Unexpectedly found a job with the same hash as the next job");
 		}
 	} else {
 		trace!("No next jobs to dispatch");
@@ -638,19 +643,19 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 					let mut job_return_status_stream = pin!(job_return_status_rx_to_shutdown);
 
 					debug!(
-						"Waiting for {} jobs to shutdown before shutting down the job system...",
-						runner.total_jobs()
+						total_jobs = runner.total_jobs(),
+						"Waiting for jobs to shutdown before shutting down the job system...",
 					);
 
 					while let Some((job_id, status)) = job_return_status_stream.next().await {
 						if let Err(e) = runner.process_return_status(job_id, status).await {
-							error!("Failed to process return status before shutting down: {e:#?}");
+							error!(?e, "Failed to process return status before shutting down");
 						}
 					}
 
 					// Now the runner can shutdown
 					if let Err(e) = runner.save_jobs(store_jobs_file).await {
-						error!("Failed to save jobs before shutting down: {e:#?}");
+						error!(?e, "Failed to save jobs before shutting down");
 					}
 				}
 

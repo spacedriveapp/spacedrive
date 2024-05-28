@@ -98,10 +98,14 @@ impl FileMetadata {
 			.await
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
-		assert!(
-			!fs_metadata.is_dir(),
-			"We can't generate cas_id for directories"
-		);
+		if fs_metadata.is_dir() {
+			trace!(path = %path.display(), "Skipping directory");
+			return Ok(Self {
+				cas_id: None,
+				kind: ObjectKind::Folder,
+				fs_metadata,
+			});
+		}
 
 		// derive Object kind
 		let kind = Extension::resolve_conflicting(&path, false)
@@ -119,8 +123,10 @@ impl FileMetadata {
 		};
 
 		trace!(
-			"Analyzed file: <path='{}', cas_id={cas_id:?}, object_kind={kind}>",
-			path.display()
+			path = %path.display(),
+			?cas_id,
+			%kind,
+			"Analyzed file",
 		);
 
 		Ok(Self {

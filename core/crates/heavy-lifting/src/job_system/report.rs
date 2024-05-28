@@ -1,3 +1,5 @@
+use crate::NonCriticalError;
+
 use sd_prisma::prisma::{job, location, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
@@ -8,9 +10,6 @@ use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum::ParseError;
-use tracing::error;
-
-use crate::NonCriticalError;
 
 use super::{job::JobName, JobId};
 
