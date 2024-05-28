@@ -1,7 +1,6 @@
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useJobProgress, useLibraryQuery } from '@sd/client';
-import { forwardRef, useCallback, useEffect } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { forwardRef, useEffect } from 'react';
 import JobGroup from '~/components/job/JobGroup';
 import Empty from '~/components/layout/Empty';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -32,10 +31,6 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		}
 	}, [jobGroups, modalRef]);
 
-	const handleRefresh = useCallback(() => {
-		jobGroups.refetch();
-	}, [jobGroups]);
-
 	return (
 		<Modal
 		ref={modalRef}
@@ -43,14 +38,11 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		title="Recent Jobs"
 		showCloseButton
 		  >
-			{jobGroups.isFetching && <ActivityIndicator style={tw`mt-3`}/>}
 			<BottomSheetFlatList
 				data={jobGroups.data}
 				style={tw`flex-1`}
 				keyExtractor={(i) => i.id}
 				contentContainerStyle={tw`mt-4`}
-				refreshing={jobGroups.isRefetching}
-				onRefresh={handleRefresh}
 				renderItem={({ item }) => <JobGroup group={item} progress={progress} />}
 				ListEmptyComponent={
 					<Empty style="border-0" description='No jobs.'/>
