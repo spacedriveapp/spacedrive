@@ -488,6 +488,8 @@ async fn start(
 				SwarmEvent::ConnectionEstablished { peer_id, endpoint, connection_id, .. } => {
 					if let Some((addr, socket_addr)) = manual_addr_dial_attempts.remove(&connection_id) {
 						let mut control = control.clone();
+						let map = map.clone();
+						let p2p = p2p.clone();
 						let self_remote_identity = p2p.identity().to_remote_identity();
 						debug!("Successfully dialled manual peer '{addr}' found peer '{peer_id}'. Opening stream to get peer information...");
 
