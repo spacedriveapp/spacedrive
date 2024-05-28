@@ -1,12 +1,15 @@
-import clsx from 'clsx';
-import { memo, useMemo } from 'react';
 import {
+	Tag,
 	getItemFilePath,
+	getItemObject,
 	humanizeSize,
+	useExplorerLayoutStore,
 	useLibraryQuery,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
+import clsx from 'clsx';
+import { memo, useMemo } from 'react';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../../Context';
@@ -52,7 +55,6 @@ export const GridViewItem = memo((props: GridViewItemProps) => {
 const InnerDroppable = () => {
 	const item = useGridViewItemContext();
 	const { isDroppable } = useExplorerDroppableContext();
-
 	return (
 		<>
 			<div
@@ -63,7 +65,6 @@ const InnerDroppable = () => {
 			>
 				<ItemFileThumb />
 			</div>
-
 			<ItemMetadata />
 		</>
 	);
@@ -103,6 +104,7 @@ const ItemFileThumb = () => {
 const ItemMetadata = () => {
 	const item = useGridViewItemContext();
 	const { isDroppable } = useExplorerDroppableContext();
+	const explorerLayout = useExplorerLayoutStore();
 
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
 
@@ -117,10 +119,34 @@ const ItemMetadata = () => {
 				selected={item.selected}
 			/>
 			<ItemSize />
+			{explorerLayout.showTags && <ItemTags />}
 			{item.data.type === 'Label' && <LabelItemCount data={item.data} />}
 		</ExplorerDraggable>
 	);
 };
+
+const ItemTags = () => {
+	const item = useGridViewItemContext();
+	const object = getItemObject(item.data);
+	const filePath = getItemFilePath(item.data);
+	const data = object || filePath;
+	const tags = data && 'tags' in data ? data.tags : [];
+	return (
+<div
+			className='relative mt-1 flex w-full flex-row items-center justify-center'
+			style={{
+				left: tags.length * 1
+			}}
+			>
+			{tags?.slice(0, 3).map((tag: {tag: Tag}, i: number) => (
+				<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
+					backgroundColor: tag.tag.color!,
+					right: i * 4,
+				}}/>
+			))}
+		</div>
+	);
+}
 
 const ItemSize = () => {
 	const item = useGridViewItemContext();

@@ -174,6 +174,15 @@ export default () => {
 							explorerLayout.showPathBar = value;
 						}}
 					/>
+					<RadixCheckbox
+						checked={layoutStore.showTags}
+						label={'Show Tags'}
+						name="showTags"
+						onCheckedChange={(value) => {
+							if (typeof value !== 'boolean') return;
+							explorerLayout.showTags = value;
+						}}
+					/>
 
 					{settings.layoutMode === 'grid' && (
 						<RadixCheckbox

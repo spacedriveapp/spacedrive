@@ -1,4 +1,14 @@
 import {
+	Tag,
+	getExplorerItemData,
+	getIndexedItemFilePath,
+	getItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useSelector,
+	type ExplorerItem
+} from '@sd/client';
+import {
 	CellContext,
 	functionalUpdate,
 	getCoreRowModel,
@@ -9,15 +19,6 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
-import {
-	getExplorerItemData,
-	getIndexedItemFilePath,
-	getItemFilePath,
-	getItemObject,
-	humanizeSize,
-	useSelector,
-	type ExplorerItem
-} from '@sd/client';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
@@ -49,6 +50,11 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
 
+	const object = getItemObject(item);
+	const filePath = getItemFilePath(item);
+	const data = object || filePath;
+	const tags = data && 'tags' in data ? data.tags : [];
+
 	return (
 		<div className="flex">
 			<FileThumb
@@ -61,6 +67,7 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 			/>
 
 			<div className="relative flex-1">
+				<div className='flex h-full items-center justify-evenly gap-2'>
 				<RenamableItemText
 					item={item}
 					selected={selected}
@@ -70,6 +77,20 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 					idleClassName="!w-full"
 					editLines={3}
 				/>
+							<div
+			className='relative flex flex-row items-center'
+			style={{
+				left: tags.length * 1
+			}}
+			>
+			{tags?.slice(0, 3).map((tag: {tag: Tag}, i: number) => (
+				<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
+					backgroundColor: tag.tag.color!,
+					right: i * 4,
+				}}/>
+			))}
+		</div>
+		</div>
 			</div>
 		</div>
 	);
