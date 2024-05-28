@@ -359,7 +359,7 @@ async fn start(
 	let mut manual_addrs = HashSet::new();
 	let mut manual_addr_dial_attempts = HashMap::new();
 	let (manual_peers_dial_tx, mut manual_peers_dial_rx) = mpsc::channel(15);
-	let mut interval = tokio::time::interval(Duration::from_secs(15));
+	let mut interval = tokio::time::interval(Duration::from_secs(60));
 
 	loop {
 		tokio::select! {
@@ -475,12 +475,15 @@ async fn start(
 						},
 					};
 
-					let stream = UnicastStream::new(identity, stream.compat());
-					p2p.connected_to_incoming(
-						id,
-						remote_metadata,
-						stream,
-					);
+					// For mode 1 the stream will be dropped now
+					if mode[0] != 1 {
+						let stream = UnicastStream::new(identity, stream.compat());
+						p2p.connected_to_incoming(
+							id,
+							remote_metadata,
+							stream,
+						);
+					}
 
 					debug!("established inbound stream with '{}'", identity);
 				});
@@ -689,6 +692,7 @@ async fn start(
 				},
 				InternalEvent::RegisterPeerAddr { addrs } => {
 					manual_addrs = addrs;
+					interval.reset();
 				}
 			},
 			Some(req) = connect_rx.recv() => {
