@@ -475,7 +475,13 @@ function NodesPanel() {
 									Connect
 								</Button>
 
-								<NodePill>{peer.discovery === 'Local' ? 'LAN' : 'Relay'}</NodePill>
+								<NodePill>
+									{peer.discovery === 'Manual'
+										? 'Manual'
+										: peer.discovery === 'Local'
+											? 'LAN'
+											: 'Relay'}
+								</NodePill>
 
 								<NodePill
 									className={
