@@ -361,6 +361,7 @@ async fn start(
 	let mut interval = tokio::time::interval(Duration::from_secs(15));
 
 	loop {
+		println!("LOOP"); // TODO
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::PeerExpiredBy(_, identity) => {
