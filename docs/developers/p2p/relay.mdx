@@ -21,7 +21,7 @@ Each client will regularly make requests to [https://app.spacedrive.com/api/p2p/
 
 Each relay server will register itself with the discovery server automatically when started. This requires an authentication token so it can only be done by Spacedrive ran servers.
 
-We store the relays in Redis with a TTL so if the relay server is shutdown and does not do it's regular checkin it will automatically be removed from the pool.
+We store the relays in Redis with a TTL. This is so if the relay server is shutdown and does not do its regular check-in, it will be automatically removed from the pool.
 
 ## How it works
 
