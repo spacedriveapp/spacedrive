@@ -362,7 +362,6 @@ async fn start(
 	let mut interval = tokio::time::interval(Duration::from_secs(15));
 
 	loop {
-		println!("LOOP"); // TODO
 		tokio::select! {
 			Ok(event) = rx.recv_async() => match event {
 				HookEvent::PeerExpiredBy(_, identity) => {
@@ -486,10 +485,7 @@ async fn start(
 					debug!("established inbound stream with '{}'", identity);
 				});
 			},
-			event = swarm.select_next_some() => match {
-				println!("{:?}", event); // TODO
-				event
-			} {
+			event = swarm.select_next_some() => match event {
 				SwarmEvent::ConnectionEstablished { peer_id, endpoint, connection_id, .. } => {
 					if let Some((addr, socket_addr)) = manual_addr_dial_attempts.remove(&connection_id) {
 						let mut control = control.clone();
