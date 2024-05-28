@@ -252,7 +252,7 @@ mod responder {
 					instance_id: library.sync.instance,
 					has_more: ops.len() == OPS_PER_REQUEST as usize,
 					messages: ops,
-					wait_tx: None,
+					wait_tx: Some(wait_tx),
 				}))
 				.await
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
