@@ -11,8 +11,8 @@ const button = cva(['items-center justify-center rounded-md border shadow-sm'], 
 			gray: ['border-app-box bg-app shadow-none'],
 			darkgray: ['border-app-box bg-app shadow-none'],
 			accent: ['border-accent-deep bg-accent shadow-md shadow-app-shade/10'],
-			outline: ['border-app-lightborder bg-black shadow-none'],
-			transparent: ['border-0 bg-black shadow-none'],
+			outline: ['border border-app-inputborder bg-transparent shadow-none'],
+			transparent: ['border-0 bg-transparent shadow-none'],
 			dashed: ['border border-dashed border-app-line bg-transparent shadow-none']
 		},
 		size: {

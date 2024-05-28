@@ -5,13 +5,13 @@ import Toast, { ToastConfig } from 'react-native-toast-message';
 import { tw } from '~/lib/tailwind';
 
 const baseStyles = 'max-w-[340px] flex-row gap-1 items-center justify-center overflow-hidden rounded-md border p-3 shadow-lg bg-app-input border-app-inputborder';
-const containerStyle = 'flex-row items-start gap-2'
+const containerStyle = 'flex-row items-start gap-1.5'
 
 const toastConfig: ToastConfig = {
 	success: ({ text1, ...rest }) => (
 		<View style={tw.style(baseStyles)}>
 			<View style={tw.style(containerStyle)}>
-			<CheckCircle size={24} weight="fill" color={tw.color("text-green-500")} />
+			<CheckCircle size={20} weight="fill" color={tw.color("text-green-500")} />
 			<Text style={tw`self-center text-left text-sm font-medium text-ink`} numberOfLines={3}>
 				{text1}
 			</Text>
@@ -21,7 +21,7 @@ const toastConfig: ToastConfig = {
 	error: ({ text1, ...rest }) => (
 		<View style={tw.style(baseStyles)}>
 			<View style={tw.style(containerStyle)}>
-			<WarningCircle size={24} weight="fill" color={tw.color("text-red-500")} />
+			<WarningCircle size={20} weight="fill" color={tw.color("text-red-500")} />
 			<Text style={tw`self-center text-left text-sm font-medium text-ink`} numberOfLines={3}>
 				{text1}
 			</Text>
@@ -31,7 +31,7 @@ const toastConfig: ToastConfig = {
 	info: ({ text1, ...rest }) => (
 		<View style={tw.style(baseStyles)}>
 			<View style={tw.style(containerStyle)}>
-			<Info size={24} weight="fill" color={tw.color("text-accent")} />
+			<Info size={20} weight="fill" color={tw.color("text-accent")} />
 			<Text style={tw`self-center text-left text-sm font-medium text-ink`} numberOfLines={3}>
 				{text1}
 			</Text>

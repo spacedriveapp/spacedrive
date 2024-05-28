@@ -1,40 +1,51 @@
-import { forwardRef } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { useJobProgress, useLibraryQuery } from '@sd/client';
+import { forwardRef, useEffect } from 'react';
 import JobGroup from '~/components/job/JobGroup';
+import Empty from '~/components/layout/Empty';
 import { Modal, ModalRef } from '~/components/layout/Modal';
+import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 
-// TODO:
-// - When there is no job, make modal height smaller
-// - Add clear all jobs button
+//TODO: Handle data fetching better when modal is opened
 
 export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
-	// const queryClient = useQueryClient();
-
+	// const rspc = useRspcLibraryContext();
 	const jobGroups = useLibraryQuery(['jobs.reports']);
 	const progress = useJobProgress(jobGroups.data);
+	const modalRef = useForwardedRef(ref);
+
+	//TODO: Add clear all jobs button
 	// const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
 	// 	onError: () => {
-	// 		// TODO: Show error toast
+	// 		toast.error('Failed to clear all jobs.');
 	// 	},
 	// 	onSuccess: () => {
 	// 		queryClient.invalidateQueries(['jobs.reports ']);
 	// 	}
 	// });
 
+	useEffect(() => {
+		if (jobGroups.data?.length === 0) {
+			modalRef.current?.snapToPosition('20');
+		}
+	}, [jobGroups, modalRef]);
+
 	return (
-		<Modal ref={ref} snapPoints={['60']} title="Recent Jobs" showCloseButton>
-			<FlatList
+		<Modal
+		ref={modalRef}
+		snapPoints={['60']}
+		title="Recent Jobs"
+		showCloseButton
+		  >
+			<BottomSheetFlatList
 				data={jobGroups.data}
 				style={tw`flex-1`}
 				keyExtractor={(i) => i.id}
 				contentContainerStyle={tw`mt-4`}
 				renderItem={({ item }) => <JobGroup group={item} progress={progress} />}
 				ListEmptyComponent={
-					<View style={tw`flex h-60 items-center justify-center`}>
-						<Text style={tw`text-center text-base text-ink-dull`}>No jobs.</Text>
-					</View>
+					<Empty style="border-0" description='No jobs.'/>
 				}
 			/>
 		</Modal>

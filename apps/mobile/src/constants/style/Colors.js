@@ -79,7 +79,7 @@ module.exports = {
 			// shadow
 			shade: `hsla(${DARK_HUE}, 15%, 0%, ${ALPHA})`,
 			// menu
-			menu: `hsla(${DARK_HUE}, 25%, 5%, ${ALPHA})`
+			menu: `hsla(${DARK_HUE}, 10%, 5%, ${ALPHA})`
 		},
 		sidebar: {
 			box: `hsla(${DARK_HUE}, 15%, 16%, ${ALPHA})`,
