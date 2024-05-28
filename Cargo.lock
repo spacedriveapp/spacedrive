@@ -2684,6 +2684,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dns-lookup"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5766087c2235fec47fafa4cfecc81e494ee679d0fd4a59887ea0919bfb0e4fc"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "socket2 0.5.5",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9462,6 +9474,7 @@ version = "0.2.0"
 dependencies = [
  "base64 0.21.7",
  "base91",
+ "dns-lookup",
  "ed25519-dalek",
  "flume 0.11.0",
  "futures",
