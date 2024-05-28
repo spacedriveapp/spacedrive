@@ -38,7 +38,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						discovery: if peer
 							.connection_candidates()
 							.iter()
-							.all(|c| matches!(c, PeerConnectionCandidate::Manual(_)))
+							.any(|c| matches!(c, PeerConnectionCandidate::Manual(_)))
 						{
 							DiscoveryMethod::Manual
 						} else if peer
