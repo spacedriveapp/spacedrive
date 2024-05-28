@@ -2,7 +2,7 @@ use std::{
 	collections::{HashMap, HashSet},
 	net::{Ipv4Addr, Ipv6Addr, SocketAddr},
 	str::FromStr,
-	sync::{atomic::AtomicBool, Arc, Mutex, PoisonError, RwLock},
+	sync::{atomic::AtomicBool, Arc, Mutex, MutexGuard, PoisonError, RwLock},
 	time::Duration,
 };
 
@@ -106,7 +106,21 @@ pub struct QuicTransport {
 	p2p: Arc<P2P>,
 	internal_tx: Sender<InternalEvent>,
 	relay_config: Mutex<Vec<RelayServerEntry>>,
+	ipv4_listener: Mutex<ListenerInfo>,
+	ipv6_listener: Mutex<ListenerInfo>,
 	handle: Arc<QuicHandle>,
+}
+
+#[derive(Debug, Clone, Default)]
+enum ListenerInfo {
+	/// The listener is disabled.
+	#[default]
+	Disabled,
+	/// The user requested a specific port.
+	Absolute(SocketAddr),
+	/// The user requested a random port.
+	/// The value contains the selected port.
+	Random(SocketAddr),
 }
 
 impl QuicTransport {
@@ -165,6 +179,8 @@ impl QuicTransport {
 				p2p,
 				internal_tx,
 				relay_config: Mutex::new(Vec::new()),
+				ipv4_listener: Default::default(),
+				ipv6_listener: Default::default(),
 				handle,
 			},
 			libp2p_peer_id,
@@ -220,6 +236,11 @@ impl QuicTransport {
 		self.setup_listener(
 			port.map(|p| SocketAddr::from((Ipv4Addr::UNSPECIFIED, p))),
 			true,
+			|this| {
+				this.ipv4_listener
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner)
+			},
 		)
 		.await
 	}
@@ -228,6 +249,11 @@ impl QuicTransport {
 		self.setup_listener(
 			port.map(|p| SocketAddr::from((Ipv6Addr::UNSPECIFIED, p))),
 			false,
+			|this| {
+				this.ipv6_listener
+					.lock()
+					.unwrap_or_else(PoisonError::into_inner)
+			},
 		)
 		.await
 	}
@@ -236,31 +262,54 @@ impl QuicTransport {
 		&self,
 		addr: Option<SocketAddr>,
 		ipv4: bool,
+		get_listener: impl Fn(&Self) -> MutexGuard<ListenerInfo>,
 	) -> Result<(), QuicTransportError> {
-		let (tx, rx) = oneshot::channel();
-		let event = if let Some(mut addr) = addr {
-			if addr.port() == 0 {
-				addr.set_port(
-					TcpListener::bind(addr)
-						.await
-						.map_err(QuicTransportError::ListenerSetup)?
-						.local_addr()
-						.map_err(QuicTransportError::ListenerSetup)?
-						.port(),
-				);
-			}
+		let mut desired = match addr {
+			Some(addr) if addr.port() == 0 => ListenerInfo::Random(addr),
+			Some(addr) => ListenerInfo::Absolute(addr),
+			None => ListenerInfo::Disabled,
+		};
 
-			InternalEvent::RegisterListener {
-				id: self.id,
-				ipv4,
-				addr,
-				result: tx,
-			}
-		} else {
-			InternalEvent::UnregisterListener {
-				id: self.id,
-				ipv4,
-				result: tx,
+		let (tx, rx) = oneshot::channel();
+		let event = {
+			let listener_state = get_listener(self).clone();
+
+			match (listener_state, &mut desired) {
+				// Desired state is the same as current state
+				// This is designed to preserve the random port that was determined earlier, making this operation idempotent.
+				(ListenerInfo::Disabled, ListenerInfo::Disabled)
+				| (ListenerInfo::Absolute(_), ListenerInfo::Absolute(_))
+				| (ListenerInfo::Random(_), ListenerInfo::Random(_)) => return Ok(()),
+
+				// We are enabled and want to be disabled
+				(_, ListenerInfo::Disabled) => InternalEvent::UnregisterListener {
+					id: self.id,
+					ipv4,
+					result: tx,
+				},
+
+				// We are any state (but not the same as the desired state) and want to be enabled
+				(_, ListenerInfo::Random(ref mut addr))
+				| (_, ListenerInfo::Absolute(ref mut addr)) => {
+					// We mutable assign back to `desired` so it can be saved if this operation succeeds.
+					if addr.port() == 0 {
+						addr.set_port(
+							TcpListener::bind(*addr)
+								.await
+								.map_err(QuicTransportError::ListenerSetup)?
+								.local_addr()
+								.map_err(QuicTransportError::ListenerSetup)?
+								.port(),
+						);
+					}
+
+					InternalEvent::RegisterListener {
+						id: self.id,
+						ipv4,
+						addr: *addr,
+						result: tx,
+					}
+				}
 			}
 		};
 
@@ -270,7 +319,11 @@ impl QuicTransport {
 
 		rx.await
 			.map_err(QuicTransportError::ReceiveChannelClosed)
-			.and_then(|r| r.map_err(QuicTransportError::InternalEvent))
+			.and_then(|r| r.map_err(QuicTransportError::InternalEvent))?;
+
+		*get_listener(self) = desired;
+
+		Ok(())
 	}
 
 	pub fn handle(&self) -> Arc<QuicHandle> {
