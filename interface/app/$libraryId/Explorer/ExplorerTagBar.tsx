@@ -158,7 +158,13 @@ const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
 			onClick={onClick}
 			tabIndex={-1}
 		>
-			<Circle fill={tag.color ?? 'grey'} weight="fill" alt="" className="size-3" />
+			<Circle
+				fill={tag.color ?? 'grey'}
+				weight="fill"
+				alt=""
+				aria-hidden
+				className="size-3"
+			/>
 			<span className="max-w-xs truncate text-ink-dull">{tag.name}</span>
 
 			<Shortcut chars={keybind([], [assignKey])} />
