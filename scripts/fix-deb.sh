@@ -89,6 +89,8 @@ tar -xzf "${_tmp}/control.tar.gz" -C "${_tmp}/control"
 # Fix files owner
 chown -R root:root "$_tmp"
 
+ls -lahcR "$_tmp"
+
 # Create doc directory
 mkdir -p "$_tmp"/data/usr/share/{doc/spacedrive,man/man1}
 
