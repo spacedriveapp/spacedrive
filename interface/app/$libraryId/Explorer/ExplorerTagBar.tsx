@@ -1,6 +1,6 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { Tag, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { ExplorerItem, Tag, Target, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
 import { useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
@@ -9,17 +9,21 @@ import { useExplorerContext } from './Context';
 
 export const TAG_BAR_HEIGHT = 64;
 
-// TODO: replace any with proper type here
-const toTarget = (data: any) =>
-	data &&
-	'id' in data.item &&
-	(data.type === 'Object'
-		? {
-				Object: data.item.id
-			}
-		: {
-				FilePath: data.item.id
-			});
+// TODO: hoist this to somewhere higher as a utility function
+const toTarget = (data: ExplorerItem): Target => {
+	if (!data || !('id' in data.item))
+		throw new Error('Tried to convert an invalid object to Target.');
+
+	return (
+		data.type === 'Object'
+			? {
+					Object: data.item.id
+				}
+			: {
+					FilePath: data.item.id
+				}
+	) satisfies Target;
+};
 
 // million-ignore
 // TODO: implement proper custom ordering of tags
@@ -44,19 +48,29 @@ export const ExplorerTagBar = (props: {}) => {
 	useKeybind(
 		[['Key1'], ['Key2'], ['Key3'], ['Key4'], ['Key5'], ['Key6'], ['Key7'], ['Key8'], ['Key9']],
 		async (e) => {
+			const targets = Array.from(explorer.selectedItems.entries()).map((item) =>
+				toTarget(item[0])
+			);
+
+			// TODO: remove "!" and do proper conditional run
+			const tag = allTags[+e.key - 1]!;
+
 			try {
 				await mutation.mutateAsync({
-					targets: Array.from(explorer.selectedItems.entries()).map((item) =>
-						toTarget(item[0])
-					),
-					// TODO: remove "!" and do proper conditional run
-					tag_id: allTags[+e.key - 1]!.id,
+					targets,
+					tag_id: tag.id,
 					unassign: false
 				});
 
-				toast(`Assigned {tag} to {#} files.`, {
-					type: 'success'
-				});
+				toast(
+					t('tags_bulk_assigned', {
+						tag_name: tag.name,
+						file_count: targets.length
+					}),
+					{
+						type: 'success'
+					}
+				);
 			} catch (err) {
 				let msg: string = 'An unknown error occurred.';
 
@@ -67,9 +81,16 @@ export const ExplorerTagBar = (props: {}) => {
 					msg = err;
 				}
 
-				toast(`Could not assign tag {s} to {#} files: ${msg}`, {
-					type: 'error'
-				});
+				toast(
+					t('tags_bulk_assigned', {
+						tag_name: tag.name,
+						file_count: targets.length,
+						error_message: msg
+					}),
+					{
+						type: 'error'
+					}
+				);
 			}
 		}
 	);
@@ -81,7 +102,7 @@ export const ExplorerTagBar = (props: {}) => {
 				`h-[${TAG_BAR_HEIGHT}px]`
 			)}
 		>
-			<em>{t('tag_assign_mode_description')}</em>
+			<em>{t('tags_bulk_instructions')}</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
 				{allTags.map((tag, i) => (
