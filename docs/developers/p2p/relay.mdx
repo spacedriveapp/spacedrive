@@ -37,7 +37,7 @@ Currently the relay service is completly unauthenticated. To prevent abuse we ar
 
 libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) usecase which is all open. This will likely require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
 
-This issued is tracked as [ENG-1652](https://linear.app/spacedriveapp/issue/ENG-1652/relay-authentication).
+This issue is tracked as [ENG-1652](https://linear.app/spacedriveapp/issue/ENG-1652/relay-authentication).
 
 ## Billing
 
@@ -45,7 +45,7 @@ Currently the relay service has no method of tracking usage based on the connect
 
 libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) use case, which is all open. This will likely require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
 
-This issued is tracked as [ENG-1667](https://linear.app/spacedriveapp/issue/ENG-1667/relay-metering).
+This issue is tracked as [ENG-1667](https://linear.app/spacedriveapp/issue/ENG-1667/relay-metering).
 
 ## Rate limiting
 
@@ -74,6 +74,11 @@ WebRTC also has a built in system for authentication via the SDP object that nee
 libp2p *does* have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
 
 ### Hosting the Relay server
+
+<Notice
+	type="note"
+	text="Be careful running this on your local machine as it will expose your public IP address to all Spacedrive users."
+/>
 
 1. Set up the server using the following command:
 

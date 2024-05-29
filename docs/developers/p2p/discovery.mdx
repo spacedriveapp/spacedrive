@@ -27,11 +27,10 @@ This table summarises the differences between the methods:
 |   Requires upfront knowledge of existence of peer                       |   No    |   Yes    |   Yes     |
 |   Knows connection info (metadata, RemoteIdentity) ahead of connection  |   Yes   |   Yes    |   No      |
 
-## Manually provided
+## Manually provided peers
 
 The user can manually provide a set of [`SocketAddr`](https://doc.rust-lang.org/std/net/enum.SocketAddr.html)'s or [FQDN](https://en.wikipedia.org/wiki/Fully_qualified_domain_name)'s and the P2P system will attempt to connect to them. If a domain is provided the P2P system will resolve it to an IP address and then attempt to connect to that address.
 
 This feature primarily exists for usage with Docker as mDNS discovery does not work correctly, however it could be useful for working around difficult network setups. It's important to note that you *must* use [port forwarding](https://en.wikipedia.org/wiki/Port_forwarding) and set a static port for the node when using this feature.
 
 When you add a manual peer it will *not* show up in the nodes list until the P2P system is able to establish a connection. This is because without having established a connection the system is unable to determine the remote nodes identity or metadata which is required for it to be considered discovered.
-

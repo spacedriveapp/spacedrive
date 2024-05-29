@@ -47,9 +47,15 @@ Within Spacedrive's settings the user is able to choose between three modes for 
 
 ## Integration with Spacedrive accounts
 
-To integrate with Spacedrive's account system, TODO
+P2P is currently *not* integrated with Spacedrive accounts and we will integrate it in the future for better security.
 
-https://linear.app/spacedriveapp/issue/ENG-1758/p2p-🤝-spacedrive-accounts
+Right now we use a remote identity to identify the remote device, however tihs is not very user friendly. If a [MITM](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)-style attack is preformed the remote identity will show up with the attacker's device but this isn't going to be particularly noticable by the user.
+
+To combat this issue we can integrate with Spacedrive accounts so the user can be presented with the users name and verified email. This allows the user to prove the remote device is who they expect in a more user friendly way.
+
+The Spacedrive account information will need to be put into the peer metadata and we can use cryptographic signatures to verify the account is linked with the remote device without a network connection.
+
+This issue is tracked as [ENG-1758](https://linear.app/spacedriveapp/issue/ENG-1758/p2p-🤝-spacedrive-accounts)
 
 ## Problems with Docker
 
@@ -61,17 +67,17 @@ When `sd-server` is run from Docker the `Dockerfile` sets the environment variab
 
 This allows the administrator to use the `-p 7373:7373` flag when running the container to expose the P2P port to the host machine. This can then be paired with manually entering the IP address and port of the node into the P2P settings of the other node and a connection can be established. Although this is suboptimal, it serves as an alternative for the time being.
 
-This issued is tracked as [ENG-1343](https://linear.app/spacedriveapp/issue/ENG-1343/docker-support-for-p2p).
+This issue is tracked as [ENG-1343](https://linear.app/spacedriveapp/issue/ENG-1343/docker-support-for-p2p).
 
 ## Problems with mobile
 
 mDNS discovery does not work on mobile at the moment. To prevent this affecting other devices, we patch [`if-watch`](https://docs.rs/if-watch) using the fork [spacedriveapp/if-watch](https://github.com/spacedriveapp/if-watch). This fork basically implements a *no-op* for mobile so that the core is able to compile.
 
-This issued is tracked as [ENG-1108](https://linear.app/spacedriveapp/issue/ENG-1108/mdns-working-on-ios).
+This issue is tracked as [ENG-1108](https://linear.app/spacedriveapp/issue/ENG-1108/mdns-working-on-ios).
 
 ## Problems on Linux
 
 It was reported on Discord that opening Spacedrive would cause excessive network activity. This is possibly a bug with the mDNS system; it was not able to be reproduced on macOS.
 
-This issued is tracked as [ENG-1319](https://linear.app/spacedriveapp/issue/ENG-1319/excessive-mdns-pings).
+This issue is tracked as [ENG-1319](https://linear.app/spacedriveapp/issue/ENG-1319/excessive-mdns-pings).
 
