@@ -195,18 +195,9 @@ impl Task<Error> for SaveTask {
 						size_in_bytes_bytes
 					),
 					sync_db_entry!(inode_to_db(entry.metadata.inode), inode),
-					{
-						let v = entry.metadata.created_at.into();
-						sync_db_entry!(v, date_created)
-					},
-					{
-						let v = entry.metadata.modified_at.into();
-						sync_db_entry!(v, date_modified)
-					},
-					{
-						let v = Utc::now().into();
-						sync_db_entry!(v, date_indexed)
-					},
+					sync_db_entry!(entry.metadata.created_at.into(), date_created),
+					sync_db_entry!(entry.metadata.modified_at.into(), date_modified),
+					sync_db_entry!(Utc::now().into(), date_indexed),
 					sync_db_entry!(entry.metadata.hidden, hidden),
 				]
 				.into_iter()

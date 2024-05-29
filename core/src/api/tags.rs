@@ -4,7 +4,7 @@ use sd_prisma::{
 	prisma::{file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{option_sync_db_entry, option_sync_entry, sync_entry, OperationFactory};
 use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;
@@ -324,29 +324,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
+					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+						option_sync_db_entry!(args.name, tag::name),
+						option_sync_db_entry!(args.color, tag::color),
+					]
+					.into_iter()
+					.flatten()
+					.unzip();
+
 					sync.write_ops(
 						db,
 						(
-							[
-								args.name.as_ref().map(|v| (tag::name::NAME, msgpack!(v))),
-								args.color.as_ref().map(|v| (tag::color::NAME, msgpack!(v))),
-							]
-							.into_iter()
-							.flatten()
-							.map(|(k, v)| {
-								sync.shared_update(
-									prisma_sync::tag::SyncId {
-										pub_id: tag.pub_id.clone(),
-									},
-									k,
-									v,
-								)
-							})
-							.collect(),
-							db.tag().update(
-								tag::id::equals(args.id),
-								vec![tag::name::set(args.name), tag::color::set(args.color)],
-							),
+							sync_params
+								.into_iter()
+								.map(|(k, v)| {
+									sync.shared_update(
+										prisma_sync::tag::SyncId {
+											pub_id: tag.pub_id.clone(),
+										},
+										k,
+										v,
+									)
+								})
+								.collect(),
+							db.tag().update(tag::id::equals(args.id), db_params),
 						),
 					)
 					.await?;
