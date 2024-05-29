@@ -30,6 +30,46 @@ This issued is tracked as [ENG-431](https://linear.app/spacedriveapp/issue/ENG-4
 
 ## Example
 
+### UUID
+
 ```rust
-# TODO
+let uuid: uuid::Uuid = todo!();
+
+// Encode
+let mut bytes = vec![];
+encode::uuid(&mut bytes, uuid);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let uuid = decode::uuid(&mut stream).await.unwrap();
+```
+
+### String
+
+```rust
+let string = format!("Hello, World!");
+
+// Encode
+let mut bytes = vec![];
+encode::string(&mut bytes, string);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let string = decode::string(&mut stream).await.unwrap();
+```
+
+### Buffer
+
+This may seem redundant but it is required for dynamically sized buffers as it is not possible to know the length of the buffer in advance so when decoding, so we must send the length of the buffer too.
+
+```rust
+let buf = b"Hello, World!".to_vec();
+
+// Encode
+let mut bytes = vec![];
+encode::buf(&mut bytes, buf);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let buf = decode::buf(&mut stream).await.unwrap();
 ```
