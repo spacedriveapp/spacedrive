@@ -1,7 +1,6 @@
 {
 	"$schema": "https://github.com/tauri-apps/tauri/raw/tauri-v2.0.0-beta.17/core/tauri-config-schema/schema.json",
 	"productName": "Spacedrive",
-	"version": "0.2.13",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
 		"beforeDevCommand": "pnpm dev",
