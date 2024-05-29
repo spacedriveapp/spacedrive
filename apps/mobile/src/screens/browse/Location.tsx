@@ -1,7 +1,9 @@
-import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
+import { useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
 import Explorer from '~/components/explorer/Explorer';
+import Empty from '~/components/layout/Empty';
 import { useSortBy } from '~/hooks/useSortBy';
+import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { getExplorerStore } from '~/stores/explorerStore';
 
@@ -16,6 +18,13 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	.filter((x) => x !== '')
 	.pop();
 	}, [path])
+
+	// makes sure that the location shows newest/modified objects
+	// when a location is opened
+	useLibrarySubscription(
+		['locations.quickRescan', { sub_path: path ?? '', location_id: id }],
+		{ onData() {} }
+	);
 
 	const paths = usePathsExplorerQuery({
 		arg: {
@@ -62,5 +71,14 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer {...paths} />;
+	return <Explorer
+		isEmpty={paths.count === 0}
+		emptyComponent={<Empty
+		includeHeaderHeight
+		icon={'FolderNoSpace'}
+		style={tw`flex-1 items-center justify-center border-0`}
+		iconSize={100}
+		description={'No files found'}
+	/>}
+	{...paths} />
 }

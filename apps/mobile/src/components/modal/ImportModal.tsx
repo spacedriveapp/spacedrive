@@ -1,14 +1,15 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
+import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 
 import { Icon } from '../icons/Icon';
+import { toast } from '../primitive/Toast';
 
 // import * as ML from 'expo-media-library';
 
@@ -22,16 +23,28 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const createLocation = useLibraryMutation('locations.create', {
 		onError: (error, variables) => {
+			modalRef.current?.close();
+			//custom message handling
+			if (error.message.startsWith("location already exists")) {
+				return toast.error('This location has already been added');
+			} else if (error.message.startsWith("nested location currently")) {
+				return toast.error('Nested locations are currently not supported');
+			}
 			switch (error.message) {
 				case 'NEED_RELINK':
 					if (!variables.dry_run) relinkLocation.mutate(variables.path);
+					toast.info('Please relink the location');
 					break;
 				case 'ADD_LIBRARY':
 					addLocationToLibrary.mutate(variables);
 					break;
 				default:
+					toast.error(error.message);
 					throw new Error('Unimplemented custom remote error handling');
 			}
+		},
+		onSuccess: () => {
+			toast.success('Location added successfully');
 		},
 		onSettled: () => {
 			rspc.queryClient.invalidateQueries(['locations.list']);

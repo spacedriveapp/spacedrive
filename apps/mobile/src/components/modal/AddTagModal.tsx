@@ -1,11 +1,12 @@
-import { Tag, getItemObject, useLibraryMutation, useLibraryQuery, useRspcContext } from "@sd/client";
+import { Tag, getItemObject, useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from "@sd/client";
 import { CaretLeft, Plus } from "phosphor-react-native";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { FlatList, NativeScrollEvent, Pressable, Text, View } from "react-native";
 import useForwardedRef from "~/hooks/useForwardedRef";
 import { tw, twStyle } from "~/lib/tailwind";
 import { useActionsModalStore } from "~/stores/modalStore";
 import Card from "../layout/Card";
+import Fade from "../layout/Fade";
 import { Modal, ModalRef } from "../layout/Modal";
 import { Button } from "../primitive/Button";
 import CreateTagModal from "./tag/CreateTagModal";
@@ -20,8 +21,10 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const modalRef = useForwardedRef(ref);
 	const newTagRef = useRef<ModalRef>(null);
+	const [startedScrolling, setStartedScrolling] = useState(false);
+	const [reachedBottom, setReachedBottom] = useState(true); // needs to be set to true for initial rendering fade to be correct
 
-	const rspc = useRspcContext();
+	const rspc = useRspcLibraryContext();
 	const tagsQuery = useLibraryQuery(['tags.list']);
 	const tagsObjectQuery = useLibraryQuery(['tags.getForObject', objectData?.id ?? -1]);
 	const mutation = useLibraryMutation(['tags.assign'], {
@@ -98,6 +101,15 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	);
 	}
 
+		// Fade the tags when scrolling
+		const fadeScroll = ({ layoutMeasurement, contentOffset, contentSize }: NativeScrollEvent) => {
+			const isScrolling = contentOffset.y > 0;
+			setStartedScrolling(isScrolling);
+
+			const hasReachedBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height;
+			setReachedBottom(hasReachedBottom);
+		}
+
 	return (
 		<>
 		<Modal
@@ -115,18 +127,37 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					>
 						<CaretLeft color={tw.color('ink')} size={16} weight="bold" />
 					</Pressable>
+					<View onLayout={(e) => {
+				if (e.nativeEvent.layout.height >= 80) {
+					setReachedBottom(false);
+				} else {
+					setReachedBottom(true);
+				}
+			}} style={twStyle(`relative mt-4 h-[70%]`)}>
+					<Fade
+				fadeSides="top-bottom"
+				orientation="vertical"
+				color="bg-app-modal"
+				width={20}
+				topFadeStyle={twStyle(startedScrolling ? 'mt-0 h-6' : 'h-0')}
+				bottomFadeStyle={twStyle(reachedBottom ? 'h-0' : 'h-6')}
+				height="100%"
+				>
 					<FlatList
 						data={tagsData}
 						numColumns={3}
+						onScroll={(e) => fadeScroll(e.nativeEvent)}
 						extraData={selectedTags}
 						key={tagsData ? 'tags' : '_'}
 						keyExtractor={(item) => item.id.toString()}
-						contentContainerStyle={tw`mx-auto mt-4 p-4 pb-10`}
+						contentContainerStyle={tw`mx-auto p-4 pb-6`}
 						ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 						renderItem={({ item }) => (
 							<TagItem isSelected={() => isSelected(item.id)} select={() => selectTag(item.id)} tag={item} />
 						)}
 					/>
+					</Fade>
+					</View>
 			<View style={tw`flex-row gap-2 px-5`}>
 			<Button
 			onPress={() =>	newTagRef.current?.present()}
@@ -164,7 +195,7 @@ const TagItem = ({tag, select, isSelected}: Props) => {
 				})}
 			>
 				<View
-					style={twStyle(`h-4 w-4 rounded-full`, {
+					style={twStyle(`h-3.5 w-3.5 rounded-full`, {
 						backgroundColor: tag.color!
 					})}
 				/>
