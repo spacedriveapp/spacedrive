@@ -32,7 +32,7 @@ use serde::Deserialize;
 use specta::Type;
 use tokio::{
 	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt, BufReader},
+	io::{self, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
 };
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
@@ -520,104 +520,62 @@ impl EphemeralFileSystemOps {
 			.into_iter()
 			.partition::<Vec<_>, _>(|(_, _, is_dir)| *is_dir);
 
-		let copiers = FuturesUnordered::new();
+		FileCopier::new(files_to_copy.into_iter().map(|(a, b, _)| (a, b)))
+			.copy()
+			.await;
 
-		for (source, target, _) in files_to_copy.into_iter() {
-			copiers.push(async move {
-				let target = match fs::metadata(&target).await {
-					Ok(_) => find_available_filename_for_duplicate(target).await,
-					Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(target),
-					Err(e) => Err(FileSystemJobsError::FileIO(FileIOError::from((
-						target,
-						e,
-						"Failed to get target file metadata",
-					)))),
-				}?;
+		if !directories_to_create.is_empty() {
+			directories_to_create
+				.into_iter()
+				.map(|(source, mut target, _)| async move {
+					match fs::metadata(&target).await {
+						Ok(_) => target = find_available_filename_for_duplicate(&target).await?,
+						Err(e) if e.kind() == io::ErrorKind::NotFound => {
+							// Everything is awesome!
+						}
+						Err(e) => {
+							return Err(rspc::Error::from(FileIOError::from((
+								target,
+								e,
+								"Failed to get target file metadata",
+							))));
+						}
+					}
 
-				let source = fs::File::open(&source).await.unwrap();
-				let mut stream = ReaderStream::with_capacity(source, 1024);
+					fs::create_dir_all(&target).await.map_err(|e| {
+						FileIOError::from((&target, e, "Failed to create directory"))
+					})?;
 
-				let error = |e| {
-					FileSystemJobsError::FileIO(FileIOError::from((
-						target.clone(),
-						e,
-						"Failed to copy file",
-					)))
-				};
+					let more_files =
+						ReadDirStream::new(fs::read_dir(&source).await.map_err(|e| {
+							FileIOError::from((&source, e, "Failed to read directory to be copied"))
+						})?)
+						.map(|read_dir| match read_dir {
+							Ok(dir_entry) => Ok(dir_entry.path()),
+							Err(e) => Err(FileIOError::from((
+								&source,
+								e,
+								"Failed to read directory to be copied",
+							))),
+						})
+						.collect::<Result<Vec<_>, _>>()
+						.await?;
 
-				let mut target = fs::File::create(&target).await.map_err(|e| {
-					FileSystemJobsError::CreateFileOrFolder(FileIOError::from((
-						target.clone(),
-						e,
-						"Failed to create file",
-					)))
-				})?;
-				// TODO(matheus-consoli): emit the events related to progress
-				while let Some(chunk) = stream.next().await {
-					target
-						.write_all(&chunk.map_err(error)?)
+					if !more_files.is_empty() {
+						Self {
+							sources: more_files,
+							target_dir: target,
+						}
+						.copy(library)
 						.await
-						.map_err(error)?;
-				}
-
-				Ok::<_, FileSystemJobsError>(())
-			});
-		}
-
-		// TODO(matheus-consoli): handle errors?
-		_ = copiers.collect::<Vec<_>>().await;
-
-		directories_to_create
-			.into_iter()
-			.map(|(source, mut target, _)| async move {
-				match fs::metadata(&target).await {
-					Ok(_) => target = find_available_filename_for_duplicate(&target).await?,
-					Err(e) if e.kind() == io::ErrorKind::NotFound => {
-						// Everything is awesome!
+					} else {
+						Ok(())
 					}
-					Err(e) => {
-						return Err(FileSystemJobsError::FileIO(FileIOError::from((
-							target,
-							e,
-							"Failed to get target file metadata",
-						))));
-					}
-				}
-
-				fs::create_dir_all(&target)
-					.await
-					.map_err(|e| FileIOError::from((&target, e, "Failed to create directory")))?;
-
-				let more_files = ReadDirStream::new(fs::read_dir(&source).await.map_err(|e| {
-					FileIOError::from((&source, e, "Failed to read directory to be copied"))
-				})?)
-				.map(|read_dir| match read_dir {
-					Ok(dir_entry) => Ok(dir_entry.path()),
-					Err(e) => Err(FileIOError::from((
-						&source,
-						e,
-						"Failed to read directory to be copied",
-					))),
 				})
-				.collect::<Result<Vec<_>, _>>()
+				.collect::<Vec<_>>()
+				.try_join()
 				.await?;
-
-				if !more_files.is_empty() {
-					tracing::debug!("cloning more");
-					Self {
-						sources: more_files,
-						target_dir: target,
-					}
-					.copy(library)
-					.await
-				} else {
-					tracing::debug!("no more clones");
-					Ok(())
-				}
-			})
-			.collect::<Vec<_>>()
-			.try_join()
-			.await?;
+		}
 
 		invalidate_query!(library, "search.ephemeralPaths");
 
@@ -675,6 +633,72 @@ impl EphemeralFileSystemOps {
 			.await?;
 
 		invalidate_query!(library, "search.ephemeralPaths");
+
+		Ok(())
+	}
+}
+
+const FILE_CHUNK: usize = 1024 * 1024 * 16; // 16 MB
+
+#[derive(Debug)]
+struct FileCopy {
+	source: PathBuf,
+	destiny: PathBuf,
+}
+
+#[derive(Debug)]
+struct FileCopier {
+	map: Vec<FileCopy>,
+}
+
+impl FileCopier {
+	#[must_use = "creating a FileCopier does nothing unless called"]
+	fn new(map: impl IntoIterator<Item = (PathBuf, PathBuf)>) -> Self {
+		let map = map
+			.into_iter()
+			.map(|(source, destiny)| FileCopy { source, destiny })
+			.collect();
+		Self { map }
+	}
+
+	async fn copy(&self) -> Result<(), rspc::Error> {
+		use tracing::debug;
+
+		debug!("initiating copy of files");
+
+		let map = self.map.iter().map(|file| async {
+			let dest = match fs::try_exists(&file.destiny).await {
+				Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
+				Ok(false) => Ok(file.destiny.clone()),
+				Err(_) => todo!(),
+			}
+			.unwrap();
+
+			let source = fs::File::open(&file.source).await?;
+			let metadata = source.metadata().await.unwrap();
+			let mut stream = ReaderStream::with_capacity(source, FILE_CHUNK);
+
+			let destiny = fs::File::create(dest).await?; // experiment with buffered writer
+            // TODO(matheus-consoli): move bellow
+			destiny
+				.set_permissions(metadata.permissions())
+				.await
+				.unwrap();
+			let mut destiny = BufWriter::with_capacity(FILE_CHUNK, destiny);
+
+			while let Some(chunk) = stream.next().await {
+				destiny.write_all(&chunk?).await?;
+			}
+
+			Ok(())
+		});
+
+		let a = FuturesUnordered::from_iter(map)
+			.collect::<Vec<Result<(), io::Error>>>()
+			.await;
+
+		let e = a.into_iter().any(|e| e.is_err());
+		debug!(any_error = e, "copied");
 
 		Ok(())
 	}
