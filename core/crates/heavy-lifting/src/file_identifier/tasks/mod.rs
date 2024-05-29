@@ -11,6 +11,8 @@ use sd_prisma::{
 use sd_sync::{CRDTOperation, OperationFactory};
 use sd_utils::msgpack;
 
+use std::collections::{HashMap, HashSet};
+
 use chrono::{DateTime, FixedOffset};
 use prisma_client_rust::Select;
 use serde::{Deserialize, Serialize};
@@ -67,16 +69,16 @@ async fn create_objects_and_update_file_paths(
 	files_and_kinds: impl IntoIterator<Item = FilePathToCreateOrLinkObject> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
+) -> Result<HashMap<file_path::id::Type, ObjectPubId>, file_identifier::Error> {
 	trace!("Preparing objects");
-	let (object_create_args, file_path_update_args) = files_and_kinds
+	let (object_create_args, file_path_args) = files_and_kinds
 		.into_iter()
 		.map(
 			|FilePathToCreateOrLinkObject {
+			     id,
 			     file_path_pub_id,
-			     created_at,
 			     kind,
-			     ..
+			     created_at,
 			 }| {
 				let object_pub_id = ObjectPubId::new();
 
@@ -105,11 +107,19 @@ async fn create_objects_and_update_file_paths(
 						),
 						object::create_unchecked(object_pub_id.to_db(), db_params),
 					),
-					connect_file_path_to_object(&file_path_pub_id, &object_pub_id, db, sync),
+					(
+						(id, object_pub_id.clone()),
+						connect_file_path_to_object(&file_path_pub_id, &object_pub_id, db, sync),
+					),
 				)
 			},
 		)
 		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	let (mut object_pub_id_by_file_path_id, file_path_update_args) = file_path_args
+		.into_iter()
+		.unzip::<_, _, HashMap<_, _>, Vec<_>>(
+	);
 
 	trace!(
 		new_objects_count = object_create_args.len(),
@@ -135,22 +145,27 @@ async fn create_objects_and_update_file_paths(
 	if created_objects_count > 0 {
 		trace!("Updating file paths with created objects");
 
-		sync.write_ops(
-			db,
-			file_path_update_args
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>(),
-		)
-		.await
-		.map(|file_paths| {
-			file_paths
-				.into_iter()
-				.map(|file_path_id::Data { id }| id)
-				.collect()
-		})
-		.map_err(Into::into)
+		let updated_file_path_ids = sync
+			.write_ops(
+				db,
+				file_path_update_args
+					.into_iter()
+					.unzip::<_, _, Vec<_>, Vec<_>>(),
+			)
+			.await
+			.map(|file_paths| {
+				file_paths
+					.into_iter()
+					.map(|file_path_id::Data { id }| id)
+					.collect::<HashSet<_>>()
+			})?;
+
+		object_pub_id_by_file_path_id
+			.retain(|file_path_id, _| updated_file_path_ids.contains(file_path_id));
+
+		Ok(object_pub_id_by_file_path_id)
 	} else {
 		trace!("No objects created, skipping file path updates");
-		Ok(vec![])
+		Ok(HashMap::new())
 	}
 }

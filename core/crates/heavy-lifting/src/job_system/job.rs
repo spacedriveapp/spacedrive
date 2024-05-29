@@ -15,6 +15,7 @@ use std::{
 	path::Path,
 	pin::pin,
 	sync::Arc,
+	time::Duration,
 };
 
 use async_channel as chan;
@@ -30,6 +31,7 @@ use strum::{Display, EnumString};
 use tokio::{
 	spawn,
 	sync::{watch, Mutex},
+	time::Instant,
 };
 use tracing::{debug, error, info, instrument, trace, warn};
 use uuid::Uuid;
@@ -141,6 +143,7 @@ where
 		Box::new(JobHolder {
 			id,
 			job: self,
+			run_time: Duration::ZERO,
 			report: ReportBuilder::new(id, J::NAME).build(),
 			next_jobs: VecDeque::new(),
 			_ctx: PhantomData,
@@ -304,6 +307,7 @@ where
 		Box::new(JobHolder {
 			id: self.id,
 			job: self.job,
+			run_time: Duration::ZERO,
 			report: self.report_builder.build(),
 			next_jobs: self.next_jobs,
 			_ctx: self._ctx,
@@ -365,12 +369,15 @@ where
 	pub(super) id: JobId,
 	pub(super) job: J,
 	pub(super) report: Report,
+	pub(super) run_time: Duration,
 	pub(super) next_jobs: VecDeque<Box<dyn DynJob<OuterCtx, JobCtx>>>,
 	pub(super) _ctx: PhantomData<OuterCtx>,
 }
 
 pub struct JobHandle<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	pub(crate) id: JobId,
+	pub(crate) start_time: Instant,
+	pub(crate) run_time: Duration,
 	pub(crate) next_jobs: VecDeque<Box<dyn DynJob<OuterCtx, JobCtx>>>,
 	pub(crate) ctx: JobCtx,
 	pub(crate) commands_tx: chan::Sender<Command>,
@@ -680,6 +687,8 @@ where
 
 		JobHandle {
 			id: self.id,
+			start_time: Instant::now(),
+			run_time: Duration::ZERO,
 			next_jobs: self.next_jobs,
 			ctx,
 			commands_tx,
@@ -719,6 +728,8 @@ where
 		JobHandle {
 			id: self.id,
 			next_jobs: self.next_jobs,
+			start_time: Instant::now(),
+			run_time: self.run_time,
 			ctx,
 			commands_tx,
 		}

@@ -1,16 +1,14 @@
 use crate::media_processor::thumbnailer;
 
-use image::{imageops, DynamicImage, GenericImageView};
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
-
-#[cfg(feature = "ffmpeg")]
-use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 use sd_images::{format_image, scale_dimensions, ConvertibleExtension};
 use sd_media_metadata::exif::Orientation;
 use sd_utils::error::FileIOError;
-use webp::Encoder;
+
+#[cfg(feature = "ffmpeg")]
+use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
 	ops::Deref,
@@ -19,17 +17,19 @@ use std::{
 	time::Duration,
 };
 
+use image::{imageops, DynamicImage, GenericImageView};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
 	fs, io,
-	sync::Mutex,
+	sync::{oneshot, Mutex},
 	task::spawn_blocking,
 	time::{sleep, Instant},
 };
-use tracing::{error, trace};
+use tracing::{error, instrument, trace};
 use uuid::Uuid;
+use webp::Encoder;
 
 // Files names constants
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
@@ -214,11 +214,13 @@ pub const fn can_generate_thumbnail_for_document(document_extension: DocumentExt
 	matches!(document_extension, Pdf)
 }
 
+#[derive(Debug)]
 pub enum GenerationStatus {
 	Generated,
 	Skipped,
 }
 
+#[instrument(skip(thumbnails_directory, cas_id, should_regenerate, kind))]
 pub async fn generate_thumbnail(
 	thumbnails_directory: &Path,
 	GenerateThumbnailArgs {
@@ -232,7 +234,7 @@ pub async fn generate_thumbnail(
 	Duration,
 	Result<(ThumbKey, GenerationStatus), thumbnailer::NonCriticalThumbnailerError>,
 ) {
-	trace!("Generating thumbnail for {}", path.display());
+	trace!("Generating thumbnail");
 	let start = Instant::now();
 
 	let mut output_path = match kind {
@@ -247,15 +249,13 @@ pub async fn generate_thumbnail(
 	if let Err(e) = fs::metadata(&*output_path).await {
 		if e.kind() != io::ErrorKind::NotFound {
 			error!(
-				"Failed to check if thumbnail exists, but we will try to generate it anyway: {e:#?}"
+				?e,
+				"Failed to check if thumbnail exists, but we will try to generate it anyway"
 			);
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it
 	} else if !should_regenerate {
-		trace!(
-			"Skipping thumbnail generation for {} because it already exists",
-			path.display()
-		);
+		trace!("Skipping thumbnail generation because it already exists");
 		return (
 			start.elapsed(),
 			Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Skipped)),
@@ -264,17 +264,19 @@ pub async fn generate_thumbnail(
 
 	if let Ok(extension) = ImageExtension::from_str(extension) {
 		if can_generate_thumbnail_for_image(extension) {
-			trace!("Generating image thumbnail for {}", path.display());
+			trace!("Generating image thumbnail");
 			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 				return (start.elapsed(), Err(e));
 			}
+			trace!("Generated image thumbnail");
 		}
 	} else if let Ok(extension) = DocumentExtension::from_str(extension) {
-		trace!("Generating document thumbnail for {}", path.display());
 		if can_generate_thumbnail_for_document(extension) {
+			trace!("Generating document thumbnail");
 			if let Err(e) = generate_image_thumbnail(&path, &output_path).await {
 				return (start.elapsed(), Err(e));
 			}
+			trace!("Generating document thumbnail");
 		}
 	}
 
@@ -284,16 +286,17 @@ pub async fn generate_thumbnail(
 		use sd_file_ext::extensions::VideoExtension;
 
 		if let Ok(extension) = VideoExtension::from_str(extension) {
-			trace!("Generating image thumbnail for {}", path.display());
 			if can_generate_thumbnail_for_video(extension) {
+				trace!("Generating video thumbnail");
 				if let Err(e) = generate_video_thumbnail(&path, &output_path).await {
 					return (start.elapsed(), Err(e));
 				}
+				trace!("Generated video thumbnail");
 			}
 		}
 	}
 
-	trace!("Generated thumbnail for {}", path.display());
+	trace!("Generated thumbnail");
 
 	(
 		start.elapsed(),
@@ -301,70 +304,92 @@ pub async fn generate_thumbnail(
 	)
 }
 
+fn inner_generate_image_thumbnail(
+	file_path: PathBuf,
+) -> Result<Vec<u8>, thumbnailer::NonCriticalThumbnailerError> {
+	let mut img = format_image(&file_path).map_err(|e| {
+		thumbnailer::NonCriticalThumbnailerError::FormatImage(file_path.clone(), e.to_string())
+	})?;
+
+	let (w, h) = img.dimensions();
+
+	#[allow(clippy::cast_precision_loss)]
+	let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
+
+	// Optionally, resize the existing photo and convert back into DynamicImage
+	if w != w_scaled && h != h_scaled {
+		img = DynamicImage::ImageRgba8(imageops::resize(
+			&img,
+			w_scaled,
+			h_scaled,
+			imageops::FilterType::Triangle,
+		));
+	}
+
+	// this corrects the rotation/flip of the image based on the *available* exif data
+	// not all images have exif data, so we don't error. we also don't rotate HEIF as that's against the spec
+	if let Some(orientation) = Orientation::from_path(&file_path) {
+		if ConvertibleExtension::try_from(file_path.as_ref())
+			.expect("we already checked if the image was convertible")
+			.should_rotate()
+		{
+			img = orientation.correct_thumbnail(img);
+		}
+	}
+
+	// Create the WebP encoder for the above image
+	let encoder = Encoder::from_image(&img).map_err(|reason| {
+		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(file_path, reason.to_string())
+	})?;
+
+	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
+	// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
+	// which implies on a unwanted clone...
+	Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
+}
+
+#[instrument(
+	skip_all,
+	fields(
+		input_path = %file_path.as_ref().display(),
+		output_path = %output_path.as_ref().display()
+	)
+)]
 async fn generate_image_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
 ) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
-	let webp = spawn_blocking({
+	let (tx, rx) = oneshot::channel();
+
+	// Using channel instead of waiting the JoinHandle as for some reason
+	// the JoinHandle can take some extra time to complete
+	let handle = spawn_blocking({
 		let file_path = file_path.clone();
 
-		move || -> Result<_, thumbnailer::NonCriticalThumbnailerError> {
-			let mut img = format_image(&file_path).map_err(|e| {
-				thumbnailer::NonCriticalThumbnailerError::FormatImage(
-					file_path.clone(),
-					e.to_string(),
-				)
-			})?;
-
-			let (w, h) = img.dimensions();
-
-			#[allow(clippy::cast_precision_loss)]
-			let (w_scaled, h_scaled) = scale_dimensions(w as f32, h as f32, TARGET_PX);
-
-			// Optionally, resize the existing photo and convert back into DynamicImage
-			if w != w_scaled && h != h_scaled {
-				img = DynamicImage::ImageRgba8(imageops::resize(
-					&img,
-					w_scaled,
-					h_scaled,
-					imageops::FilterType::Triangle,
-				));
-			}
-
-			// this corrects the rotation/flip of the image based on the *available* exif data
-			// not all images have exif data, so we don't error. we also don't rotate HEIF as that's against the spec
-			if let Some(orientation) = Orientation::from_path(&file_path) {
-				if ConvertibleExtension::try_from(file_path.as_ref())
-					.expect("we already checked if the image was convertible")
-					.should_rotate()
-				{
-					img = orientation.correct_thumbnail(img);
-				}
-			}
-
-			// Create the WebP encoder for the above image
-			let encoder = Encoder::from_image(&img).map_err(|reason| {
-				thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
-					file_path,
-					reason.to_string(),
-				)
-			})?;
-
-			// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
-			// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
-			// which implies on a unwanted clone...
-			Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
+		move || {
+			// Handling error on receiver side
+			let _ = tx.send(inner_generate_image_thumbnail(file_path));
 		}
-	})
-	.await
-	.map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
-			file_path.clone(),
-			e.to_string(),
-		)
-	})??;
+	});
+
+	let webp = if let Ok(res) = rx.await {
+		res?
+	} else {
+		error!("Failed to generate thumbnail");
+		return Err(
+			thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
+				file_path,
+				handle
+					.await
+					.expect_err("as the channel was closed, then the spawned task panicked")
+					.to_string(),
+			),
+		);
+	};
+
+	trace!("Generated thumbnail bytes");
 
 	let output_path = output_path.as_ref();
 
@@ -375,20 +400,29 @@ async fn generate_image_thumbnail(
 			)
 		})?;
 	} else {
-		error!(
-			"Failed to get parent directory of '{}' for sharding parent directory",
-			output_path.display()
-		);
+		error!("Failed to get parent directory for sharding parent directory");
 	}
 
-	fs::write(output_path, &webp).await.map_err(|e| {
+	trace!("Created shard directory and writing it to disk");
+
+	let res = fs::write(output_path, &webp).await.map_err(|e| {
 		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
 			file_path,
 			FileIOError::from((output_path, e)).to_string(),
 		)
-	})
+	});
+
+	trace!("Wrote thumbnail to disk");
+	res
 }
 
+#[instrument(
+	skip_all,
+	fields(
+		input_path = %file_path.as_ref().display(),
+		output_path = %output_path.as_ref().display()
+	)
+)]
 #[cfg(feature = "ffmpeg")]
 async fn generate_video_thumbnail(
 	file_path: impl AsRef<Path> + Send,
@@ -413,7 +447,7 @@ async fn generate_video_thumbnail(
 	})
 }
 
-const ONE_SEC: Duration = Duration::from_secs(1);
+const HALF_SEC: Duration = Duration::from_millis(500);
 static LAST_SINGLE_THUMB_GENERATED_LOCK: Lazy<Mutex<Instant>> =
 	Lazy::new(|| Mutex::new(Instant::now()));
 
@@ -428,10 +462,10 @@ pub async fn generate_single_thumbnail(
 	let mut last_single_thumb_generated_guard = LAST_SINGLE_THUMB_GENERATED_LOCK.lock().await;
 
 	let elapsed = Instant::now() - *last_single_thumb_generated_guard;
-	if elapsed < ONE_SEC {
+	if elapsed < HALF_SEC {
 		// This will choke up in case someone try to use this method in a loop, otherwise
 		// it will consume all the machine resources like a gluton monster from hell
-		sleep(ONE_SEC - elapsed).await;
+		sleep(HALF_SEC - elapsed).await;
 	}
 
 	let (_duration, res) = generate_thumbnail(

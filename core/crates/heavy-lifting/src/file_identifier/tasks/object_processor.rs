@@ -1,6 +1,6 @@
 use crate::{file_identifier, Error};
 
-use sd_core_prisma_helpers::{object_for_file_identifier, CasId, ObjectPubId};
+use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::prisma::{file_path, object, PrismaClient};
@@ -134,7 +134,7 @@ impl Task<Error> for ObjectProcessor {
 						"Assigning file paths to existing Objects",
 					);
 					let start = Instant::now();
-					*linked_objects_count = assign_existing_objects_to_file_paths(
+					let more_file_path_ids_with_new_object = assign_existing_objects_to_file_paths(
 						file_paths_by_cas_id,
 						existing_objects_by_cas_id,
 						db,
@@ -142,6 +142,8 @@ impl Task<Error> for ObjectProcessor {
 					)
 					.await?;
 					*assign_to_existing_object_time = start.elapsed();
+					file_path_ids_with_new_object.extend(more_file_path_ids_with_new_object);
+					*linked_objects_count += file_path_ids_with_new_object.len() as u64;
 
 					trace!(
 						existing_objects_to_link = existing_objects_by_cas_id.len(),
@@ -164,13 +166,12 @@ impl Task<Error> for ObjectProcessor {
 						"Creating new Objects"
 					);
 					let start = Instant::now();
-					*file_path_ids_with_new_object = create_objects_and_update_file_paths(
-						mem::take(file_paths_by_cas_id).into_values().flatten(),
-						db,
-						sync,
-					)
-					.await?;
+					let (more_file_paths_with_new_object, more_linked_objects_count) =
+						assign_objects_to_duplicated_orphans(file_paths_by_cas_id, db, sync)
+							.await?;
 					*create_object_time = start.elapsed();
+					file_path_ids_with_new_object.extend(more_file_paths_with_new_object);
+					*linked_objects_count += more_linked_objects_count;
 
 					*created_objects_count = file_path_ids_with_new_object.len() as u64;
 
@@ -261,7 +262,7 @@ async fn assign_existing_objects_to_file_paths(
 	objects_by_cas_id: &HashMap<CasId, ObjectPubId>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<u64, file_identifier::Error> {
+) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
 	sync.write_ops(
 		db,
 		objects_by_cas_id
@@ -288,8 +289,69 @@ async fn assign_existing_objects_to_file_paths(
 			.unzip::<_, _, Vec<_>, Vec<_>>(),
 	)
 	.await
-	.map(|file_paths| file_paths.len() as u64)
+	.map(|file_paths| {
+		file_paths
+			.into_iter()
+			.map(|file_path_id::Data { id }| id)
+			.collect()
+	})
 	.map_err(Into::into)
+}
+
+async fn assign_objects_to_duplicated_orphans(
+	file_paths_by_cas_id: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	db: &PrismaClient,
+	sync: &SyncManager,
+) -> Result<(Vec<file_path::id::Type>, u64), file_identifier::Error> {
+	// at least 1 file path per cas_id
+	let mut selected_file_paths = Vec::with_capacity(file_paths_by_cas_id.len());
+	let mut cas_ids_by_file_path_id = HashMap::with_capacity(file_paths_by_cas_id.len());
+
+	file_paths_by_cas_id.retain(|cas_id, file_paths| {
+		let file_path = file_paths.pop().expect("file_paths can't be empty");
+		let has_more_file_paths = !file_paths.is_empty();
+
+		if has_more_file_paths {
+			cas_ids_by_file_path_id.insert(file_path.id, cas_id.clone());
+		}
+		selected_file_paths.push(file_path);
+
+		has_more_file_paths
+	});
+
+	let (mut file_paths_with_new_object, objects_by_cas_id) =
+		create_objects_and_update_file_paths(selected_file_paths, db, sync)
+			.await?
+			.into_iter()
+			.map(|(file_path_id, object_pub_id)| {
+				(
+					file_path_id,
+					cas_ids_by_file_path_id
+						.remove(&file_path_id)
+						.map(|cas_id| (cas_id, object_pub_id)),
+				)
+			})
+			.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	let more_file_paths_ids_with_new_object = assign_existing_objects_to_file_paths(
+		file_paths_by_cas_id,
+		&objects_by_cas_id.into_iter().flatten().collect(),
+		db,
+		sync,
+	)
+	.await?;
+
+	// Sanity check
+	assert!(
+		file_paths_by_cas_id.is_empty(),
+		"We MUST have processed all pending `file_paths` by now"
+	);
+
+	let linked_objects_count = more_file_paths_ids_with_new_object.len() as u64;
+
+	file_paths_with_new_object.extend(more_file_paths_ids_with_new_object);
+
+	Ok((file_paths_with_new_object, linked_objects_count))
 }
 
 #[derive(Debug, Serialize, Deserialize)]

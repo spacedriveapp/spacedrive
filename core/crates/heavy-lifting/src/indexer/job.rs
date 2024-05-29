@@ -307,11 +307,6 @@ impl Indexer {
 	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
 		self.metadata.completed_tasks += 1;
 
-		ctx.progress(vec![ProgressUpdate::CompletedTaskCount(
-			self.metadata.completed_tasks,
-		)])
-		.await;
-
 		if any_task_output.is::<walker::Output>() {
 			return self
 				.process_walk_output(
@@ -454,6 +449,7 @@ impl Indexer {
 
 		ctx.progress(vec![
 			ProgressUpdate::TaskCount(self.metadata.total_tasks),
+			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
 			ProgressUpdate::message(format!(
 				"Found {to_create_count} new files and {to_update_count} to update"
 			)),
@@ -475,7 +471,11 @@ impl Indexer {
 		self.metadata.indexed_count += saved_count;
 		self.metadata.mean_db_write_time += save_duration;
 
-		ctx.progress_msg(format!("Saved {saved_count} files")).await;
+		ctx.progress(vec![
+			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
+			ProgressUpdate::message(format!("Saved {} files", self.metadata.indexed_count)),
+		])
+		.await;
 
 		debug!(
 			"Processed save task in the indexer ({}/{})",
@@ -495,8 +495,11 @@ impl Indexer {
 		self.metadata.updated_count += updated_count;
 		self.metadata.mean_db_write_time += update_duration;
 
-		ctx.progress_msg(format!("Updated {updated_count} files"))
-			.await;
+		ctx.progress(vec![
+			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
+			ProgressUpdate::message(format!("Updated {} files", self.metadata.updated_count)),
+		])
+		.await;
 
 		debug!(
 			"Processed update task in the indexer ({}/{})",

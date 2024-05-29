@@ -205,7 +205,7 @@ impl LocationCreateArgs {
 				// Err(err)?;
 			}
 
-			info!("Created location: {:?}", &location.data);
+			info!("Created location: {:?}", location.data.name);
 
 			Ok(Some(location.data))
 		} else {

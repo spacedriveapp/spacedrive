@@ -8,6 +8,7 @@ use std::{
 	future::Future,
 	iter,
 	marker::PhantomData,
+	time::Duration,
 };
 
 use futures_concurrency::future::TryJoin;
@@ -47,6 +48,7 @@ where
 pub struct StoredJob {
 	pub(super) id: JobId,
 	pub(super) name: JobName,
+	pub(super) run_time: Duration,
 	pub(super) serialized_job: Vec<u8>,
 }
 
@@ -170,6 +172,7 @@ macro_rules! match_deserialize_job {
 		let StoredJob {
 			id,
 			name,
+			run_time,
 			serialized_job,
 		} = $stored_job;
 
@@ -187,6 +190,7 @@ macro_rules! match_deserialize_job {
 								Box::new(JobHolder {
 									id,
 									job,
+									run_time,
 									report: $report,
 									next_jobs: VecDeque::new(),
 									_ctx: PhantomData,

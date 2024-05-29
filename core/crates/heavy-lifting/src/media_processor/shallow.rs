@@ -4,10 +4,8 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_sync::Manager as SyncManager;
 
-use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskHandle, TaskOutput,
@@ -23,16 +21,16 @@ use std::{
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
-use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, warn};
 
 use super::{
+	get_direct_children_files_by_extensions,
 	helpers::{self, exif_media_data, ffmpeg_media_data, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
 	tasks::{
 		self, media_data_extractor,
 		thumbnailer::{self, NewThumbnailReporter},
 	},
-	NewThumbnailsReporter, RawFilePathForMediaProcessor, BATCH_SIZE,
+	NewThumbnailsReporter, BATCH_SIZE,
 };
 
 #[allow(clippy::missing_panics_doc)] // SAFETY: It doesn't actually panics
@@ -163,15 +161,15 @@ async fn dispatch_media_data_extractor_tasks(
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
 	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
-		get_files_by_extensions(
-			db,
+		get_direct_children_files_by_extensions(
 			parent_iso_file_path,
 			&exif_media_data::AVAILABLE_EXTENSIONS,
-		),
-		get_files_by_extensions(
 			db,
+		),
+		get_direct_children_files_by_extensions(
 			parent_iso_file_path,
 			&ffmpeg_media_data::AVAILABLE_EXTENSIONS,
+			db,
 		),
 	)
 		.try_join()
@@ -214,50 +212,6 @@ async fn dispatch_media_data_extractor_tasks(
 	Ok(dispatcher.dispatch_many_boxed(tasks).await)
 }
 
-async fn get_files_by_extensions(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	extensions: &[Extension],
-) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
-	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw::<RawFilePathForMediaProcessor>(raw!(
-		&format!(
-			"SELECT
-				file_path.id,
-				file_path.materialized_path,
-				file_path.is_dir,
-				file_path.name,
-				file_path.extension,
-				file_path.cas_id,
-				object.id as 'object_id',
-				object.pub_id as 'object_pub_id'
-			FROM file_path
-			INNER JOIN object ON object.id = file_path.object_id
-			WHERE
-				location_id={{}}
-				AND cas_id IS NOT NULL
-				AND LOWER(extension) IN ({})
-				AND materialized_path = {{}}",
-			extensions
-				.iter()
-				.map(|ext| format!("LOWER('{ext}')"))
-				.collect::<Vec<_>>()
-				.join(",")
-		),
-		PrismaValue::Int(parent_iso_file_path.location_id()),
-		PrismaValue::String(
-			parent_iso_file_path
-				.materialized_path_for_children()
-				.expect("sub path iso_file_path must be a directory")
-		)
-	))
-	.exec()
-	.await
-	.map(|raw_files| raw_files.into_iter().map(Into::into).collect())
-	.map_err(Into::into)
-}
-
 async fn dispatch_thumbnailer_tasks(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	should_regenerate: bool,
@@ -273,10 +227,10 @@ async fn dispatch_thumbnailer_tasks(
 	let reporter: Arc<dyn NewThumbnailReporter> =
 		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
-	let file_paths = get_files_by_extensions(
-		db,
+	let file_paths = get_direct_children_files_by_extensions(
 		parent_iso_file_path,
 		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
+		db,
 	)
 	.await?;
 

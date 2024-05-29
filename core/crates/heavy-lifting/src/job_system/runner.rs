@@ -19,6 +19,7 @@ use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
 };
+use serde_json::json;
 use tokio::{
 	fs,
 	sync::oneshot,
@@ -30,7 +31,7 @@ use uuid::Uuid;
 
 use super::{
 	job::{DynJob, JobHandle, JobName, JobOutput, OuterContext, ReturnStatus},
-	report,
+	report::{self, ReportMetadata, ReportOutputMetadata},
 	store::{StoredJob, StoredJobEntry},
 	Command, JobId, JobSystemError, SerializedTasks,
 };
@@ -286,6 +287,16 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		assert!(worktables.job_hashes.remove(&job_hash).is_some());
 
 		let mut handle = handles.remove(&job_id).expect("it must be here");
+		handle.run_time += handle.start_time.elapsed();
+
+		handle
+			.ctx
+			.report_mut()
+			.await
+			.metadata
+			.push(ReportMetadata::Output(ReportOutputMetadata::Metrics(
+				HashMap::from([("job_run_time".into(), json!(handle.run_time))]),
+			)));
 
 		let res = match status {
 			Ok(ReturnStatus::Completed(job_return)) => {
@@ -322,6 +333,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 								location_id,
 								root_job: StoredJob {
 									id: job_id,
+									run_time: handle.start_time.elapsed(),
 									name,
 									serialized_job,
 								},
@@ -474,6 +486,7 @@ async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobCont
 				.map(|maybe_serialized_job| {
 					maybe_serialized_job.map(|serialized_job| StoredJob {
 						id: next_id,
+						run_time: Duration::ZERO,
 						name: next_name,
 						serialized_job,
 					})

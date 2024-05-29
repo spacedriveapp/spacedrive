@@ -409,6 +409,7 @@ impl FileIdentifier {
 	) -> Vec<TaskHandle<Error>> {
 		self.metadata.mean_extract_metadata_time += extract_metadata_time;
 		self.metadata.mean_save_db_time_on_identifier_tasks += save_db_time;
+		self.metadata.total_identified_files += total_identified_files;
 		self.metadata.created_objects_count += created_objects_count;
 
 		let file_paths_with_new_object_to_report = file_path_ids_with_new_object
@@ -434,8 +435,8 @@ impl FileIdentifier {
 		ctx.progress(vec![
 			ProgressUpdate::CompletedTaskCount(u64::from(self.metadata.completed_identifier_tasks)),
 			ProgressUpdate::Message(format!(
-				"Identified {total_identified_files} of {} files",
-				self.metadata.total_found_orphans
+				"Identified {} of {} files",
+				self.metadata.total_identified_files, self.metadata.total_found_orphans
 			)),
 		])
 		.await;
@@ -571,6 +572,15 @@ impl FileIdentifier {
 
 			self.metadata.total_identifier_tasks += 1;
 
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(u64::from(self.metadata.total_identifier_tasks)),
+				ProgressUpdate::Message(format!(
+					"Found {} orphan paths",
+					self.metadata.total_found_orphans
+				)),
+			])
+			.await;
+
 			pending_running_tasks.push(
 				dispatcher
 					.dispatch(tasks::Identifier::new(
@@ -636,6 +646,15 @@ impl FileIdentifier {
 
 			self.metadata.total_identifier_tasks += 1;
 
+			ctx.progress(vec![
+				ProgressUpdate::TaskCount(u64::from(self.metadata.total_identifier_tasks)),
+				ProgressUpdate::Message(format!(
+					"Found {} orphan paths",
+					self.metadata.total_found_orphans
+				)),
+			])
+			.await;
+
 			pending_running_tasks.push(
 				dispatcher
 					.dispatch(tasks::Identifier::new(
@@ -686,6 +705,7 @@ pub struct Metadata {
 	mean_create_object_time: Duration,
 	seeking_orphans_time: Duration,
 	total_found_orphans: u64,
+	total_identified_files: u64,
 	created_objects_count: u64,
 	linked_objects_count: u64,
 	total_identifier_tasks: u32,
@@ -704,6 +724,7 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			mut mean_create_object_time,
 			seeking_orphans_time,
 			total_found_orphans,
+			total_identified_files,
 			created_objects_count,
 			linked_objects_count,
 			total_identifier_tasks,
@@ -748,6 +769,10 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 				),
 				("seeking_orphans_time".into(), json!(seeking_orphans_time)),
 				("total_found_orphans".into(), json!(total_found_orphans)),
+				(
+					"total_identified_files".into(),
+					json!(total_identified_files),
+				),
 				("created_objects_count".into(), json!(created_objects_count)),
 				("linked_objects_count".into(), json!(linked_objects_count)),
 				(

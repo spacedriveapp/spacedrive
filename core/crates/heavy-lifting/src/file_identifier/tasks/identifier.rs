@@ -262,7 +262,8 @@ impl Task<Error> for Identifier {
 
 			output.save_db_time = start_time.elapsed();
 			output.created_objects_count = file_path_ids_with_new_object.len() as u64;
-			output.file_path_ids_with_new_object = file_path_ids_with_new_object;
+			output.file_path_ids_with_new_object =
+				file_path_ids_with_new_object.into_keys().collect();
 
 			output.file_paths_by_cas_id = identified_files.drain().fold(
 				HashMap::new(),

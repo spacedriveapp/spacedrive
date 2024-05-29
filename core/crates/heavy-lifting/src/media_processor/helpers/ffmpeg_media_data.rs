@@ -1,6 +1,7 @@
 use crate::media_processor::{self, media_data_extractor};
 
 use sd_core_prisma_helpers::object_with_media_data;
+
 use sd_file_ext::extensions::{
 	AudioExtension, Extension, VideoExtension, ALL_AUDIO_EXTENSIONS, ALL_VIDEO_EXTENSIONS,
 };
@@ -188,9 +189,9 @@ async fn create_ffmpeg_data(
 				)),
 				ffmpeg_data::metadata::set(
 					serde_json::to_vec(&metadata)
-						.map_err(|err| {
-							error!("Error reading FFmpegData metadata: {err:#?}");
-							err
+						.map_err(|e| {
+							error!(?e, "Error reading FFmpegData metadata");
+							e
 						})
 						.ok(),
 				),
@@ -232,9 +233,9 @@ async fn create_ffmpeg_chapters(
 						ffmpeg_data_id,
 						_params: vec![ffmpeg_media_chapter::metadata::set(
 							serde_json::to_vec(&metadata)
-								.map_err(|err| {
-									error!("Error reading FFmpegMediaChapter metadata: {err:#?}");
-									err
+								.map_err(|e| {
+									error!(?e, "Error reading FFmpegMediaChapter metadata");
+									e
 								})
 								.ok(),
 						)],
@@ -252,37 +253,36 @@ async fn create_ffmpeg_programs(
 	programs: Vec<Program>,
 	db: &PrismaClient,
 ) -> Result<Vec<(ffmpeg_media_program::program_id::Type, Vec<Stream>)>, QueryError> {
-	let (creates, streams_by_program_id) =
-		programs
-			.into_iter()
-			.map(
-				|Program {
-				     id: program_id,
-				     name,
-				     metadata,
-				     streams,
-				 }| {
-					(
-						ffmpeg_media_program::CreateUnchecked {
-							program_id,
-							ffmpeg_data_id: data_id,
-							_params: vec![
-								ffmpeg_media_program::name::set(name),
-								ffmpeg_media_program::metadata::set(
-									serde_json::to_vec(&metadata)
-										.map_err(|err| {
-											error!("Error reading FFmpegMediaProgram metadata: {err:#?}");
-											err
-										})
-										.ok(),
-								),
-							],
-						},
-						(program_id, streams),
-					)
-				},
-			)
-			.unzip::<_, _, Vec<_>, Vec<_>>();
+	let (creates, streams_by_program_id) = programs
+		.into_iter()
+		.map(
+			|Program {
+			     id: program_id,
+			     name,
+			     metadata,
+			     streams,
+			 }| {
+				(
+					ffmpeg_media_program::CreateUnchecked {
+						program_id,
+						ffmpeg_data_id: data_id,
+						_params: vec![
+							ffmpeg_media_program::name::set(name),
+							ffmpeg_media_program::metadata::set(
+								serde_json::to_vec(&metadata)
+									.map_err(|e| {
+										error!(?e, "Error reading FFmpegMediaProgram metadata");
+										e
+									})
+									.ok(),
+							),
+						],
+					},
+					(program_id, streams),
+				)
+			},
+		)
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 	db.ffmpeg_media_program()
 		.create_many(creates)
@@ -341,9 +341,9 @@ async fn create_ffmpeg_streams(
 								ffmpeg_media_stream::language::set(metadata.language.clone()),
 								ffmpeg_media_stream::metadata::set(
 									serde_json::to_vec(&metadata)
-										.map_err(|err| {
-											error!("Error reading FFmpegMediaStream metadata: {err:#?}");
-											err
+										.map_err(|e| {
+											error!(?e, "Error reading FFmpegMediaStream metadata");
+											e
 										})
 										.ok(),
 								),

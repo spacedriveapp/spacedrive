@@ -23,7 +23,7 @@ use sd_task_system::{
 use sd_utils::{db::maybe_missing, u64_to_frontend};
 
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	fmt,
 	hash::{Hash, Hasher},
 	mem,
@@ -38,10 +38,10 @@ use itertools::Itertools;
 use prisma_client_rust::{raw, PrismaValue};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, instrument, trace, warn, Level};
 
 use super::{
-	helpers,
+	get_direct_children_files_by_extensions, helpers,
 	tasks::{
 		self, media_data_extractor,
 		thumbnailer::{self, NewThumbnailReporter},
@@ -80,22 +80,24 @@ impl fmt::Display for Phase {
 
 #[derive(Debug)]
 pub struct MediaProcessor {
+	// Received arguments
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
 	regenerate_thumbnails: bool,
 
+	// Job control
 	total_media_data_extraction_files: u64,
 	total_media_data_extraction_tasks: u64,
 	total_thumbnailer_tasks: u64,
 	total_thumbnailer_files: u64,
-
 	phase: Phase,
 
+	// Run data
 	metadata: Metadata,
-
 	errors: Vec<crate::NonCriticalError>,
 
+	// On shutdown data
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
 	tasks_for_shutdown: Vec<Box<dyn Task<Error>>>,
 }
@@ -148,6 +150,17 @@ impl Job for MediaProcessor {
 		Ok(())
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			location_id = self.location.id,
+			location_path = ?self.location.path,
+			sub_path = ?self.sub_path.as_ref().map(|path| path.display()),
+			regenerate_thumbnails = self.regenerate_thumbnails,
+		),
+		ret(level = Level::TRACE),
+		err,
+	)]
 	async fn run<OuterCtx: OuterContext>(
 		mut self,
 		dispatcher: JobTaskDispatcher,
@@ -248,18 +261,14 @@ impl MediaProcessor {
 				Ok,
 			)?;
 
-			debug!(
-				"Searching for media files in location {location_id} at directory \"{iso_file_path}\""
-			);
-
 			// First we will dispatch all tasks for media data extraction so we have a nice reporting
 			let (total_media_data_extraction_files, task_handles) =
 				dispatch_media_data_extractor_tasks(
-					job_ctx.db(),
-					job_ctx.sync(),
 					&iso_file_path,
 					&self.location_path,
 					dispatcher,
+					job_ctx.db(),
+					job_ctx.sync(),
 				)
 				.await?;
 			self.total_media_data_extraction_files = total_media_data_extraction_files;
@@ -341,7 +350,7 @@ impl MediaProcessor {
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-					warn!("Task <id='{task_id}'> returned an empty output");
+					warn!(%task_id, "Task returned an empty output");
 				}
 
 				Ok(TaskStatus::Shutdown(task)) => {
@@ -358,6 +367,19 @@ impl MediaProcessor {
 					cancel_pending_tasks(&*pending_running_tasks).await;
 
 					return Some(Ok(ReturnStatus::Canceled));
+				}
+
+				Err(TaskSystemError::TaskTimeout(task_id)) => {
+					warn!(
+						%task_id,
+						"Thumbnailer task timed out, we will keep processing the rest of the tasks"
+					);
+					self.errors.push(
+						media_processor::NonCriticalMediaProcessorError::Thumbnailer(
+							media_processor::NonCriticalThumbnailerError::TaskTimeout(task_id),
+						)
+						.into(),
+					);
 				}
 
 				Err(e) => {
@@ -391,10 +413,10 @@ impl MediaProcessor {
 
 			self.metadata.media_data_metrics.extracted += extracted;
 			self.metadata.media_data_metrics.skipped += skipped;
-			self.metadata.media_data_metrics.db_read_time += db_read_time;
-			self.metadata.media_data_metrics.filtering_time += filtering_time;
-			self.metadata.media_data_metrics.extraction_time += extraction_time;
-			self.metadata.media_data_metrics.db_write_time += db_write_time;
+			self.metadata.media_data_metrics.mean_db_read_time += db_read_time;
+			self.metadata.media_data_metrics.mean_filtering_time += filtering_time;
+			self.metadata.media_data_metrics.mean_extraction_time += extraction_time;
+			self.metadata.media_data_metrics.mean_db_write_time += db_write_time;
 			self.metadata.media_data_metrics.total_successful_tasks += 1;
 
 			if !errors.is_empty() {
@@ -403,7 +425,7 @@ impl MediaProcessor {
 			}
 
 			debug!(
-				"Processed {}/{} media data extraction tasks, took: {:?}",
+				"Processed ({}/{}) media data extraction tasks, took: {:?}",
 				self.metadata.media_data_metrics.total_successful_tasks,
 				self.total_media_data_extraction_tasks,
 				db_read_time + filtering_time + extraction_time + db_write_time,
@@ -445,7 +467,7 @@ impl MediaProcessor {
 
 			self.metadata.thumbnailer_metrics_acc.generated += generated;
 			self.metadata.thumbnailer_metrics_acc.skipped += skipped;
-			self.metadata.thumbnailer_metrics_acc.total_time += total_time;
+			self.metadata.thumbnailer_metrics_acc.mean_total_time += total_time;
 			self.metadata.thumbnailer_metrics_acc.mean_time_acc += mean_time_acc;
 			self.metadata.thumbnailer_metrics_acc.std_dev_acc += std_dev_acc;
 			self.metadata.thumbnailer_metrics_acc.total_successful_tasks += 1;
@@ -456,7 +478,7 @@ impl MediaProcessor {
 			}
 
 			debug!(
-				"Processed {}/{} thumbnailer tasks, took: {total_time:?}",
+				"Processed ({}/{}) thumbnailer tasks, took: {total_time:?}",
 				self.metadata.thumbnailer_metrics_acc.total_successful_tasks,
 				self.total_thumbnailer_tasks
 			);
@@ -535,10 +557,10 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 struct MediaExtractorMetrics {
 	extracted: u64,
 	skipped: u64,
-	db_read_time: Duration,
-	filtering_time: Duration,
-	extraction_time: Duration,
-	db_write_time: Duration,
+	mean_db_read_time: Duration,
+	mean_filtering_time: Duration,
+	mean_extraction_time: Duration,
+	mean_db_write_time: Duration,
 	total_successful_tasks: u64,
 }
 
@@ -546,7 +568,7 @@ struct MediaExtractorMetrics {
 struct ThumbnailerMetricsAccumulator {
 	generated: u64,
 	skipped: u64,
-	total_time: Duration,
+	mean_total_time: Duration,
 	mean_time_acc: f64,
 	std_dev_acc: f64,
 	total_successful_tasks: u64,
@@ -556,7 +578,7 @@ struct ThumbnailerMetricsAccumulator {
 struct ThumbnailerMetrics {
 	generated: u64,
 	skipped: u64,
-	total_generation_time: Duration,
+	mean_total_time: Duration,
 	mean_generation_time: Duration,
 	std_dev: Duration,
 	total_successful_tasks: u64,
@@ -567,7 +589,7 @@ impl From<ThumbnailerMetricsAccumulator> for ThumbnailerMetrics {
 		ThumbnailerMetricsAccumulator {
 			generated,
 			skipped,
-			total_time: total_generation_time,
+			mean_total_time,
 			mean_time_acc: mean_generation_time_acc,
 			std_dev_acc,
 			total_successful_tasks,
@@ -579,19 +601,240 @@ impl From<ThumbnailerMetricsAccumulator> for ThumbnailerMetrics {
 		let total = (generated + skipped) as f64;
 		let mean_generation_time = mean_generation_time_acc / total;
 
-		let std_dev = Duration::from_secs_f64(
-			(mean_generation_time.mul_add(-mean_generation_time, std_dev_acc / total)).sqrt(),
-		);
+		let std_dev = if generated > 1 {
+			Duration::from_secs_f64(
+				(mean_generation_time.mul_add(-mean_generation_time, std_dev_acc / total)).sqrt(),
+			)
+		} else {
+			Duration::ZERO
+		};
 
 		Self {
 			generated,
 			skipped,
-			total_generation_time,
-			mean_generation_time: Duration::from_secs_f64(mean_generation_time),
+			mean_total_time,
+			mean_generation_time: Duration::from_secs_f64(if generated > 1 {
+				mean_generation_time
+			} else {
+				mean_generation_time_acc
+			}),
 			std_dev,
 			total_successful_tasks,
 		}
 	}
+}
+
+#[instrument(skip_all, fields(parent_iso_file_path = %parent_iso_file_path.as_ref().display()))]
+async fn dispatch_media_data_extractor_tasks(
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	location_path: &Arc<PathBuf>,
+	dispatcher: &JobTaskDispatcher,
+	db: &Arc<PrismaClient>,
+	sync: &Arc<SyncManager>,
+) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
+	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
+		get_all_children_files_by_extensions(
+			parent_iso_file_path,
+			&helpers::exif_media_data::AVAILABLE_EXTENSIONS,
+			db,
+		),
+		get_all_children_files_by_extensions(
+			parent_iso_file_path,
+			&helpers::ffmpeg_media_data::AVAILABLE_EXTENSIONS,
+			db,
+		),
+	)
+		.try_join()
+		.await?;
+
+	let files_count = (extract_exif_file_paths.len() + extract_ffmpeg_file_paths.len()) as u64;
+
+	let tasks = extract_exif_file_paths
+		.into_iter()
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.map(Iterator::collect::<Vec<_>>)
+		.map(|chunked_file_paths| {
+			tasks::MediaDataExtractor::new_exif(
+				&chunked_file_paths,
+				parent_iso_file_path.location_id(),
+				Arc::clone(location_path),
+				Arc::clone(db),
+				Arc::clone(sync),
+			)
+		})
+		.map(IntoTask::into_task)
+		.chain(
+			extract_ffmpeg_file_paths
+				.into_iter()
+				.chunks(BATCH_SIZE)
+				.into_iter()
+				.map(Iterator::collect::<Vec<_>>)
+				.map(|chunked_file_paths| {
+					tasks::MediaDataExtractor::new_ffmpeg(
+						&chunked_file_paths,
+						parent_iso_file_path.location_id(),
+						Arc::clone(location_path),
+						Arc::clone(db),
+						Arc::clone(sync),
+					)
+				})
+				.map(IntoTask::into_task),
+		)
+		.collect::<Vec<_>>();
+
+	trace!(
+		tasks_count = tasks.len(),
+		%files_count,
+		"Dispatching media data extraction tasks",
+	);
+
+	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await))
+}
+
+async fn get_all_children_files_by_extensions(
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	extensions: &[Extension],
+	db: &PrismaClient,
+) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
+	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
+	// We have no data coming from the user, so this is sql injection safe
+	let unique_by_object_id = db
+		._query_raw::<RawFilePathForMediaProcessor>(raw!(
+			&format!(
+				"SELECT
+				file_path.id,
+				file_path.materialized_path,
+				file_path.is_dir,
+				file_path.name,
+				file_path.extension,
+				file_path.cas_id,
+				object.id as 'object_id',
+				object.pub_id as 'object_pub_id'
+			FROM file_path
+			INNER JOIN object ON object.id = file_path.object_id
+			WHERE
+				file_path.location_id={{}}
+				AND file_path.cas_id IS NOT NULL
+				AND LOWER(file_path.extension) IN ({})
+				AND file_path.materialized_path LIKE {{}}
+			ORDER BY materialized_path ASC, name ASC",
+				// Ordering by materialized_path so we can prioritize processing the first files
+				// in the above part of the directories tree
+				extensions
+					.iter()
+					.map(|ext| format!("LOWER('{ext}')"))
+					.collect::<Vec<_>>()
+					.join(",")
+			),
+			PrismaValue::Int(parent_iso_file_path.location_id()),
+			PrismaValue::String(format!(
+				"{}%",
+				parent_iso_file_path
+					.materialized_path_for_children()
+					.expect("sub path iso_file_path must be a directory")
+			))
+		))
+		.exec()
+		.await?
+		.into_iter()
+		.map(|raw_file_path| (raw_file_path.object_id, raw_file_path))
+		.collect::<HashMap<_, _>>();
+
+	Ok(unique_by_object_id.into_values().map(Into::into).collect())
+}
+
+async fn dispatch_thumbnailer_tasks(
+	parent_iso_file_path: &IsolatedFilePathData<'_>,
+	should_regenerate: bool,
+	location_path: &PathBuf,
+	dispatcher: &JobTaskDispatcher,
+	ctx: &impl OuterContext,
+) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
+	let thumbnails_directory_path =
+		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
+	let location_id = parent_iso_file_path.location_id();
+	let library_id = ctx.id();
+	let db = ctx.db();
+	let reporter: Arc<dyn NewThumbnailReporter> =
+		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+
+	let priority_file_paths = get_direct_children_files_by_extensions(
+		parent_iso_file_path,
+		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
+		db,
+	)
+	.await?;
+
+	let priority_file_path_ids = priority_file_paths
+		.iter()
+		.map(|file_path| file_path.id)
+		.collect::<HashSet<_>>();
+
+	let mut file_paths = get_all_children_files_by_extensions(
+		parent_iso_file_path,
+		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
+		db,
+	)
+	.await?;
+
+	file_paths.retain(|file_path| !priority_file_path_ids.contains(&file_path.id));
+
+	if priority_file_path_ids.is_empty() && file_paths.is_empty() {
+		return Ok((0, Vec::new()));
+	}
+
+	let thumbs_count = (priority_file_paths.len() + file_paths.len()) as u64;
+
+	let priority_tasks = priority_file_paths
+		.into_iter()
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.map(|chunk| {
+			tasks::Thumbnailer::new_indexed(
+				Arc::clone(&thumbnails_directory_path),
+				&chunk.collect::<Vec<_>>(),
+				(location_id, location_path),
+				library_id,
+				should_regenerate,
+				true,
+				Arc::clone(&reporter),
+			)
+		})
+		.map(IntoTask::into_task)
+		.collect::<Vec<_>>();
+
+	let non_priority_tasks = file_paths
+		.into_iter()
+		.chunks(BATCH_SIZE)
+		.into_iter()
+		.map(|chunk| {
+			tasks::Thumbnailer::new_indexed(
+				Arc::clone(&thumbnails_directory_path),
+				&chunk.collect::<Vec<_>>(),
+				(location_id, location_path),
+				library_id,
+				should_regenerate,
+				false,
+				Arc::clone(&reporter),
+			)
+		})
+		.map(IntoTask::into_task)
+		.collect::<Vec<_>>();
+
+	debug!(
+		%thumbs_count,
+		priority_tasks_count = priority_tasks.len(),
+		non_priority_tasks_count = non_priority_tasks.len(),
+		"Dispatching thumbnails to be processed",
+	);
+
+	Ok((
+		thumbs_count,
+		dispatcher
+			.dispatch_many_boxed(priority_tasks.into_iter().chain(non_priority_tasks))
+			.await,
+	))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -720,204 +963,4 @@ impl Hash for MediaProcessor {
 			sub_path.hash(state);
 		}
 	}
-}
-
-async fn dispatch_media_data_extractor_tasks(
-	db: &Arc<PrismaClient>,
-	sync: &Arc<SyncManager>,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	location_path: &Arc<PathBuf>,
-	dispatcher: &JobTaskDispatcher,
-) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
-	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
-		get_all_children_files_by_extensions(
-			db,
-			parent_iso_file_path,
-			&helpers::exif_media_data::AVAILABLE_EXTENSIONS,
-		),
-		get_all_children_files_by_extensions(
-			db,
-			parent_iso_file_path,
-			&helpers::ffmpeg_media_data::AVAILABLE_EXTENSIONS,
-		),
-	)
-		.try_join()
-		.await?;
-
-	let files_count = (extract_exif_file_paths.len() + extract_ffmpeg_file_paths.len()) as u64;
-
-	let tasks = extract_exif_file_paths
-		.into_iter()
-		.chunks(BATCH_SIZE)
-		.into_iter()
-		.map(Iterator::collect::<Vec<_>>)
-		.map(|chunked_file_paths| {
-			tasks::MediaDataExtractor::new_exif(
-				&chunked_file_paths,
-				parent_iso_file_path.location_id(),
-				Arc::clone(location_path),
-				Arc::clone(db),
-				Arc::clone(sync),
-			)
-		})
-		.map(IntoTask::into_task)
-		.chain(
-			extract_ffmpeg_file_paths
-				.into_iter()
-				.chunks(BATCH_SIZE)
-				.into_iter()
-				.map(Iterator::collect::<Vec<_>>)
-				.map(|chunked_file_paths| {
-					tasks::MediaDataExtractor::new_ffmpeg(
-						&chunked_file_paths,
-						parent_iso_file_path.location_id(),
-						Arc::clone(location_path),
-						Arc::clone(db),
-						Arc::clone(sync),
-					)
-				})
-				.map(IntoTask::into_task),
-		)
-		.collect::<Vec<_>>();
-
-	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await))
-}
-
-async fn get_all_children_files_by_extensions(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	extensions: &[Extension],
-) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
-	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw::<RawFilePathForMediaProcessor>(raw!(
-		&format!(
-			"SELECT
-				file_path.id,
-				file_path.materialized_path,
-				file_path.is_dir,
-				file_path.name,
-				file_path.extension,
-				file_path.cas_id,
-				object.id as 'object_id',
-				object.pub_id as 'object_pub_id'
-			FROM file_path
-			INNER JOIN object ON object.id = file_path.object_id
-			WHERE
-				file_path.location_id={{}}
-				AND file_path.cas_id IS NOT NULL
-				AND LOWER(file_path.extension) IN ({})
-				AND file_path.materialized_path LIKE {{}}
-			ORDER BY materialized_path ASC",
-			// Ordering by materialized_path so we can prioritize processing the first files
-			// in the above part of the directories tree
-			extensions
-				.iter()
-				.map(|ext| format!("LOWER('{ext}')"))
-				.collect::<Vec<_>>()
-				.join(",")
-		),
-		PrismaValue::Int(parent_iso_file_path.location_id()),
-		PrismaValue::String(format!(
-			"{}%",
-			parent_iso_file_path
-				.materialized_path_for_children()
-				.expect("sub path iso_file_path must be a directory")
-		))
-	))
-	.exec()
-	.await
-	.map(|raw_files| raw_files.into_iter().map(Into::into).collect())
-	.map_err(Into::into)
-}
-
-async fn dispatch_thumbnailer_tasks(
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	should_regenerate: bool,
-	location_path: &PathBuf,
-	dispatcher: &JobTaskDispatcher,
-	ctx: &impl OuterContext,
-) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
-	let thumbnails_directory_path =
-		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
-	let location_id = parent_iso_file_path.location_id();
-	let library_id = ctx.id();
-	let db = ctx.db();
-	let reporter: Arc<dyn NewThumbnailReporter> =
-		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
-
-	let mut file_paths = get_all_children_files_by_extensions(
-		db,
-		parent_iso_file_path,
-		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
-	)
-	.await?;
-
-	if file_paths.is_empty() {
-		return Ok((0, Vec::new()));
-	}
-
-	let thumbs_count = file_paths.len() as u64;
-
-	let first_materialized_path = file_paths[0].materialized_path.clone();
-
-	// Only the first materialized_path should be processed with priority as the user must see the thumbnails ASAP
-	let different_materialized_path_idx = file_paths
-		.iter()
-		.position(|file_path| file_path.materialized_path != first_materialized_path);
-
-	// TODO debug why we have more priority tasks than we should
-
-	let non_priority_tasks = different_materialized_path_idx
-		.map(|idx| {
-			file_paths
-				.drain(idx..)
-				.chunks(BATCH_SIZE)
-				.into_iter()
-				.map(|chunk| {
-					tasks::Thumbnailer::new_indexed(
-						Arc::clone(&thumbnails_directory_path),
-						&chunk.collect::<Vec<_>>(),
-						(location_id, location_path),
-						library_id,
-						should_regenerate,
-						false,
-						Arc::clone(&reporter),
-					)
-				})
-				.map(IntoTask::into_task)
-				.collect::<Vec<_>>()
-		})
-		.unwrap_or_default();
-
-	let priority_tasks = file_paths
-		.into_iter()
-		.chunks(BATCH_SIZE)
-		.into_iter()
-		.map(|chunk| {
-			tasks::Thumbnailer::new_indexed(
-				Arc::clone(&thumbnails_directory_path),
-				&chunk.collect::<Vec<_>>(),
-				(location_id, location_path),
-				library_id,
-				should_regenerate,
-				true,
-				Arc::clone(&reporter),
-			)
-		})
-		.map(IntoTask::into_task)
-		.collect::<Vec<_>>();
-
-	debug!(
-		"Dispatching {thumbs_count} thumbnails to be processed, {} with priority and {} without priority tasks",
-		priority_tasks.len(),
-		non_priority_tasks.len()
-	);
-
-	Ok((
-		thumbs_count,
-		dispatcher
-			.dispatch_many_boxed(priority_tasks.into_iter().chain(non_priority_tasks))
-			.await,
-	))
 }

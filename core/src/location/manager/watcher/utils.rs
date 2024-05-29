@@ -23,7 +23,7 @@ use sd_core_heavy_lifting::{
 		ThumbnailKind,
 	},
 };
-use sd_core_prisma_helpers::file_path_with_object;
+use sd_core_prisma_helpers::{file_path_with_object, ObjectPubId};
 
 use sd_file_ext::{
 	extensions::{AudioExtension, ImageExtension, VideoExtension},
@@ -37,7 +37,7 @@ use sd_sync::OperationFactory;
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
-	from_bytes_to_uuid, msgpack, uuid_to_bytes,
+	msgpack,
 };
 
 #[cfg(target_family = "unix")]
@@ -64,7 +64,6 @@ use tokio::{
 	time::Instant,
 };
 use tracing::{debug, error, trace, warn};
-use uuid::Uuid;
 
 use super::{INode, HUNDRED_MILLIS};
 
@@ -264,7 +263,7 @@ async fn inner_create_file(
 	} = if let Some(object) = existing_object {
 		object
 	} else {
-		let pub_id = uuid_to_bytes(&Uuid::new_v4());
+		let pub_id: ObjectPubId = ObjectPubId::new();
 		let date_created: DateTime<FixedOffset> =
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
@@ -273,7 +272,7 @@ async fn inner_create_file(
 			(
 				sync.shared_create(
 					prisma_sync::object::SyncId {
-						pub_id: pub_id.clone(),
+						pub_id: pub_id.to_db(),
 					},
 					[
 						(object::date_created::NAME, msgpack!(date_created)),
@@ -282,7 +281,7 @@ async fn inner_create_file(
 				),
 				db.object()
 					.create(
-						pub_id.to_vec(),
+						pub_id.into(),
 						vec![
 							object::date_created::set(Some(date_created)),
 							object::kind::set(Some(int_kind)),
@@ -355,7 +354,7 @@ async fn inner_create_file(
 							.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 						{
 							exif_media_data::save(
-								[(exif_data, object_id, from_bytes_to_uuid(&object_pub_id))],
+								[(exif_data, object_id, object_pub_id.into())],
 								db,
 								sync,
 							)
@@ -618,7 +617,7 @@ async fn inner_update_file(
 					.await?;
 				}
 			} else {
-				let pub_id = uuid_to_bytes(&Uuid::new_v4());
+				let pub_id = ObjectPubId::new();
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 
@@ -627,7 +626,7 @@ async fn inner_update_file(
 					(
 						sync.shared_create(
 							prisma_sync::object::SyncId {
-								pub_id: pub_id.clone(),
+								pub_id: pub_id.to_db(),
 							},
 							[
 								(object::date_created::NAME, msgpack!(date_created)),
@@ -635,7 +634,7 @@ async fn inner_update_file(
 							],
 						),
 						db.object().create(
-							pub_id.to_vec(),
+							pub_id.to_db(),
 							vec![
 								object::date_created::set(Some(date_created)),
 								object::kind::set(Some(int_kind)),
@@ -653,12 +652,14 @@ async fn inner_update_file(
 						},
 						file_path::object::NAME,
 						msgpack!(prisma_sync::object::SyncId {
-							pub_id: pub_id.clone()
+							pub_id: pub_id.to_db()
 						}),
 					),
 					db.file_path().update(
 						file_path::pub_id::equals(file_path.pub_id.clone()),
-						vec![file_path::object::connect(object::pub_id::equals(pub_id))],
+						vec![file_path::object::connect(object::pub_id::equals(
+							pub_id.into(),
+						))],
 					),
 				)
 				.await?;
@@ -720,11 +721,7 @@ async fn inner_update_file(
 									.map_err(|e| error!("Failed to extract media data: {e:#?}"))
 								{
 									exif_media_data::save(
-										[(
-											exif_data,
-											object.id,
-											from_bytes_to_uuid(&object.pub_id),
-										)],
+										[(exif_data, object.id, object.pub_id.as_slice().into())],
 										db,
 										sync,
 									)

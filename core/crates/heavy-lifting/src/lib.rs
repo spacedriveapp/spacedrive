@@ -28,8 +28,6 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use file_identifier::NonCriticalFileIdentifierError;
-use indexer::NonCriticalIndexerError;
 use sd_prisma::prisma::file_path;
 use sd_task_system::TaskSystemError;
 
@@ -43,7 +41,7 @@ pub mod job_system;
 pub mod media_processor;
 pub mod utils;
 
-use media_processor::{NonCriticalMediaProcessorError, ThumbKey};
+use media_processor::ThumbKey;
 
 pub use job_system::{
 	job::{
@@ -85,11 +83,11 @@ impl From<Error> for rspc::Error {
 pub enum NonCriticalError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
-	Indexer(#[from] NonCriticalIndexerError),
+	Indexer(#[from] indexer::NonCriticalIndexerError),
 	#[error(transparent)]
-	FileIdentifier(#[from] NonCriticalFileIdentifierError),
+	FileIdentifier(#[from] file_identifier::NonCriticalFileIdentifierError),
 	#[error(transparent)]
-	MediaProcessor(#[from] NonCriticalMediaProcessorError),
+	MediaProcessor(#[from] media_processor::NonCriticalMediaProcessorError),
 }
 
 #[repr(i32)]

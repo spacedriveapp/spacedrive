@@ -1,6 +1,6 @@
 use crate::media_processor::{self, media_data_extractor};
 
-use prisma_client_rust::QueryError;
+use sd_core_prisma_helpers::ObjectPubId;
 use sd_core_sync::Manager as SyncManager;
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
@@ -10,13 +10,13 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::{option_sync_db_entry, OperationFactory};
-use sd_utils::{chain_optional_iter, uuid_to_bytes};
-use uuid::Uuid;
+use sd_utils::chain_optional_iter;
 
 use std::path::Path;
 
 use futures_concurrency::future::TryJoin;
 use once_cell::sync::Lazy;
+use prisma_client_rust::QueryError;
 
 use super::from_slice_option_to_option;
 
@@ -104,7 +104,7 @@ pub async fn extract(
 }
 
 pub async fn save(
-	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, Uuid)> + Send,
+	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, ObjectPubId)> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<u64, QueryError> {
@@ -120,7 +120,7 @@ pub async fn save(
 					sync.shared_create(
 						prisma_sync::exif_data::SyncId {
 							object: prisma_sync::object::SyncId {
-								pub_id: uuid_to_bytes(&object_pub_id),
+								pub_id: object_pub_id.into(),
 							},
 						},
 						sync_params,

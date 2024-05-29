@@ -1,4 +1,3 @@
-use rspc::ErrorCode;
 use sd_core_file_path_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	FilePathError, IsolatedFilePathData,
@@ -9,6 +8,7 @@ use sd_prisma::prisma::{location, PrismaClient};
 use std::path::{Path, PathBuf};
 
 use prisma_client_rust::QueryError;
+use rspc::ErrorCode;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
