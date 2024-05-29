@@ -9,7 +9,7 @@ ADD --chmod=644 --checksum=sha256:8bea540b2cd1a47c94555e746c75fd41a42847a46d8c8c
 	https://gist.githubusercontent.com/HeavenVolkoff/ff7b77b9087f956b8df944772e93c071/raw \
 	/etc/apt/apt.conf.d/99docker-apt-config
 
-RUN ["/bin/sh", "-c", "echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections"]
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
 RUN rm -f /etc/apt/apt.conf.d/docker-clean
 
