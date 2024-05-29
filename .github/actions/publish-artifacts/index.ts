@@ -2,6 +2,7 @@ import client from '@actions/artifact';
 import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as io from '@actions/io';
+import { exists } from '@actions/io/lib/io-util';
 
 type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
@@ -43,6 +44,7 @@ const PROFILE = core.getInput('profile');
 const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
 const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
+const FRONT_END_BUNDLE = 'apps/desktop/dist.tar.xz';
 const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
 const FRONTEND_ARCHIVE_NAME = `Spacedrive-frontend-${OS}-${ARCH}`;
 
@@ -52,14 +54,12 @@ async function globFiles(pattern: string) {
 }
 
 async function uploadFrontend() {
-	const files = await globFiles(`apps/desktop/dist.{tar.gz,tar.xz,zip}`);
-	const file = files[0];
-	if (!file) {
+	if (!(await exists(FRONT_END_BUNDLE))) {
 		console.error(`Frontend archive not found`);
 		return;
 	}
 
-	await client.uploadArtifact(FRONTEND_ARCHIVE_NAME, [file], 'apps/desktop');
+	await client.uploadArtifact(FRONTEND_ARCHIVE_NAME, [FRONT_END_BUNDLE], 'apps/desktop');
 }
 
 async function uploadUpdater(updater: BuildTarget['updater']) {
