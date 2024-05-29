@@ -25,6 +25,7 @@ const SortByMenu = () => {
 	return (
 		<View style={tw`flex-row items-center gap-1.5`}>
 		<Menu
+			containerStyle={tw`max-w-44`}
 			trigger={<Trigger activeOption={sortOptions[searchStore.sort.by]} />}
 
 		>
@@ -40,6 +41,7 @@ const SortByMenu = () => {
 			))}
 		</Menu>
 		<Menu
+			containerStyle={tw`max-w-40`}
 			trigger={<Trigger
 				triggerIcon={searchStore.sort.direction === 'Asc' ? ArrowUpIcon : ArrowDownIcon}
 				activeOption={searchStore.sort.direction}

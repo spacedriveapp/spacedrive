@@ -61,10 +61,10 @@ const ListLocation = ({ location }: ListLocationProps) => {
 						</Text>
 					</View>
 				</View>
-				<View style={tw`flex-row items-center gap-3`}>
-					<View style={tw`rounded-md border border-app-box bg-app p-1.5`}>
+				<View style={tw`flex-row items-center gap-1.5`}>
+					<View style={tw`rounded-md border border-app-box/70 bg-app/70 px-1.5 py-1`}>
 						<Text
-							style={tw`text-left text-xs font-medium text-ink-dull`}
+							style={tw`text-xs font-bold text-ink-dull`}
 							numberOfLines={1}
 						>
 							{`${humanizeSize(location.size_in_bytes)}`}

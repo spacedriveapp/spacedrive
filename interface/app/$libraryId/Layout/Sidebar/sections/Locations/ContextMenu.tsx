@@ -42,6 +42,7 @@ export const ContextMenu = ({
 								/>
 							));
 						}
+
 					} catch (error) {
 						toast.error(t('error_message', { error }));
 					}
@@ -66,7 +67,10 @@ export const ContextMenu = ({
 					dialogManager.create((dp) => (
 						<DeleteDialog
 							{...dp}
-							onSuccess={() => navigate('settings/library/locations')}
+							onSuccess={() => {
+								toast.success(t('location_deleted_successfully'));
+								navigate('settings/library/locations');
+							}}
 							locationId={locationId}
 						/>
 					));

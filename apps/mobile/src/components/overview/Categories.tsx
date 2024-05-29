@@ -14,17 +14,17 @@ export default function CategoriesScreen() {
 	const kinds = useLibraryQuery(['library.kindStatistics']);
 	const navigation = useNavigation<OverviewStackScreenProps<'Overview'>['navigation']>();
 	return (
-		<View style={tw`px-6`}>
+		<View style={tw`px-5`}>
 			<View style={tw`flex-row items-center justify-between pb-5`}>
 				<Text style={tw`text-lg font-bold text-white`}>Categories</Text>
 				<Button
 					onPress={() => {
 						navigation.navigate('Categories');
 					}}
-					style={tw`h-9 w-9 rounded-full`}
+					style={tw`h-8 w-8 rounded-full`}
 					variant="gray"
 				>
-					<DotsThree weight='bold' size={20} color={'white'} />
+					<DotsThree weight='bold' size={18} color={'white'} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>

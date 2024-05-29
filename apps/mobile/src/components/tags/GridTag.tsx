@@ -16,7 +16,7 @@ const GridTag = ({ tag, modalRef }: GridTagProps) => {
 		<Card style={twStyle(`h-auto w-full flex-col justify-center gap-3`)}>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View
-					style={twStyle('h-[28px] w-[28px] rounded-full', {
+					style={twStyle('h-5 w-5 rounded-full', {
 						backgroundColor: tag.color!
 					})}
 				/>
