@@ -654,6 +654,8 @@
   "tags": "Tags",
   "tags_description": "Manage your tags.",
   "tags_notice_message": "No items assigned to this tag.",
+  "tag_assign_mode_active": "Tag assign mode is enabled.",
+  "tag_assign_mode_description": "Select one or more files and press a key to assign the corresponding tag.",
   "task": "task",
   "task_one": "task",
   "task_other": "tasks",
