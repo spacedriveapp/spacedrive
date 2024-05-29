@@ -3,6 +3,10 @@ name: Server release
 on:
   release:
     types: [published]
+  pull_request:
+    paths:
+      - '.github/workflows/server.yml'
+      - 'apps/server/docker/*'
   workflow_dispatch:
 
 jobs:
