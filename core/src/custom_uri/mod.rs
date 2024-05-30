@@ -4,7 +4,7 @@ use crate::{
 	object::media::old_thumbnail::{
 		get_ephemeral_thumb_key, get_indexed_thumb_key, WEBP_EXTENSION,
 	},
-	p2p::operations::{self, request_file},
+	p2p::operations::{self, library::LibraryFileRequest, request_file},
 	util::InfallibleResponse,
 	Node,
 };
@@ -78,7 +78,6 @@ pub enum ServeFrom {
 	Remote {
 		library_identity: RemoteIdentity,
 		node_identity: RemoteIdentity,
-		library: Arc<Library>,
 	},
 }
 
@@ -208,7 +207,6 @@ async fn get_or_init_lru_entry(
 				ServeFrom::Remote {
 					library_identity,
 					node_identity,
-					library: library.clone(),
 				}
 			},
 		};
@@ -229,10 +227,42 @@ pub fn base_router() -> Router<LocalState> {
 				|State(state): State<LocalState>,
 				 extract::Path((library_id, cas_id)): extract::Path<(String, String)>,
 				 request: Request<Body>| async move {
-					let path = if library_id == "ephemeral" {
-						get_ephemeral_thumb_key(&cas_id)
+					let (path, home_node) = if library_id == "ephemeral" {
+						(get_ephemeral_thumb_key(&cas_id), None)
 					} else {
-						get_indexed_thumb_key(&cas_id, Uuid::from_str(&library_id).map_err(bad_request)?)
+						let library_id = Uuid::from_str(&library_id).map_err(bad_request)?;
+						let library = state
+							.node
+							.libraries
+							.get_library(&library_id)
+							.await
+							.ok_or_else(|| internal_server_error(()))?;
+
+						let home_node = library.db
+							.location()
+							.find_first(vec![])
+							.with(location::file_paths::fetch(vec![file_path::cas_id::equals(Some(cas_id.clone()))]))
+							.with(location::instance::fetch())
+							.exec()
+							.await
+							.map_err(internal_server_error)?
+							.and_then(|loc| loc.instance.expect("fetched"))
+							.map(|loc| loc.node_remote_identity.expect("required"));
+
+						let home_node = match home_node {
+							Some(home_node) => {
+								let identity = RemoteIdentity::from_bytes(&home_node).map_err(internal_server_error)?;
+
+								if identity == library.identity.to_remote_identity() {
+									None
+								} else {
+									Some((library, identity))
+								}
+							},
+							_ => None,
+						};
+
+						(get_indexed_thumb_key(&cas_id, library_id), home_node)
 					};
 
 					let thumbnail_path = state.node.config.data_directory().join("thumbnails");
@@ -249,6 +279,47 @@ pub fn base_router() -> Router<LocalState> {
 						&& path.extension() == Some(WEBP_EXTENSION.as_ref()))
 					.then_some(())
 					.ok_or_else(|| not_found(()))?;
+
+					let file = match (File::open(&path).await, home_node) {
+						(Ok(file), _) => file,
+						(Err(err), Some((library, home_node))) if err.kind() == io::ErrorKind::NotFound => {
+							// TODO: Support `Range` requests and `ETag` headers
+
+							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+							request_file(
+								state.node.p2p.p2p.clone(),
+								home_node,
+								&library.id,
+								&library.identity,
+								LibraryFileRequest::Thumbnail { cas_id: cas_id.clone() },
+								Range::Full,
+								MpscToAsyncWrite::new(PollSender::new(tx)),
+							)
+							.await
+							.map_err(|err| {
+								error!("Error requesting thumbnail {cas_id:?} from node {:?}: {err:?}", library.identity.to_remote_identity());
+								internal_server_error(())
+							})?;
+
+							// TODO: Content Type
+							return Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
+								body::boxed(StreamBody::new(stream! {
+									while let Some(item) = rx.recv().await {
+										yield item;
+									}
+								})),
+							))
+						}
+						(Err(err), _) => {
+							return Err(InfallibleResponse::builder()
+							.status(if err.kind() == io::ErrorKind::NotFound {
+								StatusCode::NOT_FOUND
+							} else {
+								StatusCode::INTERNAL_SERVER_ERROR
+							})
+							.body(body::boxed(Full::from(""))));
+						}
+					};
 
 					let file = File::open(&path).await.map_err(|err| {
 						InfallibleResponse::builder()
@@ -322,7 +393,6 @@ pub fn base_router() -> Router<LocalState> {
 						ServeFrom::Remote {
 							library_identity: _,
 							node_identity,
-							library,
 						} => {
 							// TODO: Support `Range` requests and `ETag` headers
 
@@ -332,7 +402,7 @@ pub fn base_router() -> Router<LocalState> {
 								node_identity,
 								&library.id,
 								&library.identity,
-								file_path_pub_id,
+								LibraryFileRequest::File { file_path_id: file_path_pub_id },
 								Range::Full,
 								MpscToAsyncWrite::new(PollSender::new(tx)),
 							)

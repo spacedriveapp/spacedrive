@@ -433,18 +433,15 @@ async fn start(
 
 					error!("Failed to handling rspc request with '{remote}': {err:?}");
 				}
-				Header::LibraryFile {
-					file_path_id,
-					range,
-				} => {
+				Header::LibraryFile { req, range } => {
 					let remote = stream.remote_identity();
 					let Err(err) =
-						operations::library::receiver(stream, file_path_id, range, &node).await
+						operations::library::receiver(stream, req.clone(), range, &node).await
 					else {
 						return;
 					};
 
-					error!("Failed to handling library file request with {remote:?} for {file_path_id}: {err:?}");
+					error!("Failed to handling library file request with {remote:?} for {req}: {err:?}");
 				}
 			};
 		});
