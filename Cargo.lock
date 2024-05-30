@@ -9546,8 +9546,10 @@ name = "sd-p2p-tunnel"
 version = "0.1.0"
 dependencies = [
  "sd-p2p",
+ "sd-p2p-proto",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

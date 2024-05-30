@@ -2,18 +2,23 @@ use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
 	object::media::old_thumbnail::WEBP_EXTENSION,
-	p2p::operations,
+	p2p::operations::{self, request_file},
 	util::InfallibleResponse,
 	Node,
 };
 
+use async_stream::stream;
+use bytes::Bytes;
+use mpsc_to_async_write::MpscToAsyncWrite;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_to_handle_custom_uri;
 
 use sd_file_ext::text::is_text;
 use sd_p2p::{RemoteIdentity, P2P};
+use sd_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
+use tokio_util::sync::PollSender;
 
 use std::{
 	cmp::min,
@@ -26,7 +31,7 @@ use std::{
 };
 
 use axum::{
-	body::{self, Body, BoxBody, Full},
+	body::{self, Body, BoxBody, Full, StreamBody},
 	extract::{self, State},
 	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
@@ -240,19 +245,16 @@ pub fn base_router() -> Router<LocalState> {
 		.route(
 			"/file/:lib_id/:loc_id/:path_id",
 			get(
-				|State(state): State<LocalState>,
-				 path: ExtractedPath,
-				 mut request: Request<Body>| async move {
-					let part_parts = path.0.clone();
+				|State(state): State<LocalState>, path: ExtractedPath, request: Request<Body>| async move {
 					let (
 						CacheValue {
 							name: file_path_full_path,
 							ext: extension,
-							file_path_pub_id: _file_path_pub_id,
+							file_path_pub_id,
 							serve_from,
 							..
 						},
-						_library,
+						library,
 					) = get_or_init_lru_entry(&state, path).await?;
 
 					match serve_from {
@@ -289,17 +291,32 @@ pub fn base_router() -> Router<LocalState> {
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
 						ServeFrom::Remote(identity) => {
-							*request.uri_mut() =
-								format!("/file/{}/{}/{}", part_parts.0, part_parts.1, part_parts.2)
-									.parse()
-									.expect("url was validated by Axum");
+							// TODO: Support `Range` requests and `ETag` headers
 
-							Ok(request_to_remote_node(
+							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
+							request_file(
 								state.node.p2p.p2p.clone(),
 								identity,
-								request,
+								&library.id,
+								&library.identity,
+								file_path_pub_id,
+								Range::Full,
+								MpscToAsyncWrite::new(PollSender::new(tx)),
 							)
-							.await)
+							.await
+							.map_err(|err| {
+								error!("Error requesting file {file_path_pub_id:?} from node {identity:?}: {err:?}");
+								internal_server_error(())
+							})?;
+
+							// TODO: Content Type
+							Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
+								body::boxed(StreamBody::new(stream! {
+									while let Some(item) = rx.recv().await {
+										yield item;
+									}
+								})),
+							))
 						}
 					}
 				},
