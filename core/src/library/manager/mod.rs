@@ -732,7 +732,7 @@ async fn sync_rx_actor(
 				InvalidateOperationEvent::all(),
 			)),
 			SyncMessage::Created => {
-				p2p::sync::originator(library.id, &library.sync, &node.p2p).await
+				p2p::sync::originator(library.clone(), &library.sync, &node.p2p).await
 			}
 		}
 	}

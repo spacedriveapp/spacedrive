@@ -387,12 +387,13 @@ async fn start(
 
 					error!("Failed to handle Spacedrop request");
 				}
-				Header::Sync(library_id) => {
+				Header::Sync => {
 					let Ok(mut tunnel) = Tunnel::responder(stream).await.map_err(|err| {
 						error!("Failed `Tunnel::responder`: {}", err);
 					}) else {
 						return;
 					};
+					let library_id = tunnel.library_id();
 
 					let Ok(msg) = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
 						error!("Failed `SyncMessage::from_stream`: {}", err);
@@ -431,6 +432,19 @@ async fn start(
 					};
 
 					error!("Failed to handling rspc request with '{remote}': {err:?}");
+				}
+				Header::LibraryFile {
+					file_path_id,
+					range,
+				} => {
+					let remote = stream.remote_identity();
+					let Err(err) =
+						operations::library::receiver(stream, file_path_id, range, &node).await
+					else {
+						return;
+					};
+
+					error!("Failed to handling library file request with {remote:?} for {file_path_id}: {err:?}");
 				}
 			};
 		});
