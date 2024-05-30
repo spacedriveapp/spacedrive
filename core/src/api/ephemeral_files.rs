@@ -22,6 +22,7 @@ use sd_file_ext::{
 use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
 use tokio_util::io::ReaderStream;
+use tracing::instrument;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 
@@ -647,8 +648,16 @@ struct FileCopy {
 }
 
 #[derive(Debug)]
+enum Progress {
+	Started(usize),
+	Advanced(usize),
+	Finished(Result<(), Box<dyn std::error::Error>>),
+}
+
+#[derive(Debug)]
 struct FileCopier {
 	map: Vec<FileCopy>,
+	progress: async_channel::Sender<Progress>,
 }
 
 impl FileCopier {
@@ -658,9 +667,11 @@ impl FileCopier {
 			.into_iter()
 			.map(|(source, destiny)| FileCopy { source, destiny })
 			.collect();
-		Self { map }
+		let (progress, _) = async_channel::unbounded();
+		Self { map, progress }
 	}
 
+	#[instrument(skip_all)]
 	async fn copy(&self) -> Result<(), rspc::Error> {
 		use tracing::debug;
 
@@ -670,7 +681,7 @@ impl FileCopier {
 			let dest = match fs::try_exists(&file.destiny).await {
 				Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
 				Ok(false) => Ok(file.destiny.clone()),
-				Err(_) => todo!(),
+				Err(_) => todo!(), //  TODO(matheus-consoli)
 			}
 			.unwrap();
 
@@ -679,16 +690,31 @@ impl FileCopier {
 			let mut stream = ReaderStream::with_capacity(source, FILE_CHUNK);
 
 			let destiny = fs::File::create(dest).await?; // experiment with buffered writer
-            // TODO(matheus-consoli): move bellow
+
 			destiny
 				.set_permissions(metadata.permissions())
 				.await
 				.unwrap();
 			let mut destiny = BufWriter::with_capacity(FILE_CHUNK, destiny);
 
+			self.progress
+				.send(Progress::Started(metadata.len() as usize))
+				.await
+				.unwrap();
+
 			while let Some(chunk) = stream.next().await {
-				destiny.write_all(&chunk?).await?;
+				let chunk = chunk?;
+				destiny.write_all(&chunk).await?;
+				self.progress
+					.send(Progress::Advanced(chunk.len()))
+					.await
+					.unwrap();
 			}
+
+			self.progress
+				.send(Progress::Finished(Ok(())))
+				.await
+				.unwrap();
 
 			Ok(())
 		});
