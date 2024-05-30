@@ -377,7 +377,7 @@ export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateO
 
 export type JobGroup = { id: string; action: string | null; status: Status; created_at: string; jobs: Report[] }
 
-export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor"
+export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
 
@@ -580,7 +580,7 @@ export type ReportInputMetadata = { type: "location"; data: Location } | { type:
 
 export type ReportMetadata = { type: "input"; metadata: ReportInputMetadata } | { type: "output"; metadata: ReportOutputMetadata }
 
-export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: JsonValue } } | { type: "indexer"; data: { total_paths: [number, number] } } | { type: "file_identifier"; data: { total_orphan_paths: [number, number]; total_objects_created: [number, number]; total_objects_linked: [number, number] } } | { type: "media_processor"; data: { media_data_extracted: [number, number]; media_data_skipped: [number, number]; thumbnails_generated: [number, number]; thumbnails_skipped: [number, number] } }
+export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: JsonValue } } | { type: "indexer"; data: { total_paths: [number, number] } } | { type: "file_identifier"; data: { total_orphan_paths: [number, number]; total_objects_created: [number, number]; total_objects_linked: [number, number] } } | { type: "media_processor"; data: { media_data_extracted: [number, number]; media_data_skipped: [number, number]; thumbnails_generated: [number, number]; thumbnails_skipped: [number, number] } } | { type: "copier"; data: { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string } } | { type: "mover"; data: { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string } } | { type: "deleter"; data: { location_id: number; file_path_ids: number[] } } | { type: "eraser"; data: { location_id: number; file_path_ids: number[]; passes: number } } | { type: "file_validator"; data: { location_id: number; sub_path: string | null } }
 
 export type RescanArgs = { location_id: number; sub_path: string }
 

@@ -232,39 +232,38 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 			};
 		}
 
-		// TODO(fogodev): put these back in when they're implemented
-		// case 'file_copier':
-		// 	return {
-		// 		...data,
-		// 		name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
-		// 			isRunning ? completedTaskCount + 1 : completedTaskCount
-		// 		} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
-		// 		textItems: [[{ text: job.status }]]
-		// 	};
-		// case 'file_deleter':
-		// 	return {
-		// 		...data,
-		// 		name: `${
-		// 			isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
-		// 		} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
-		// 		textItems: [[{ text: job.status }]]
-		// 	};
-		// case 'file_cutter':
-		// 	return {
-		// 		...data,
-		// 		name: `${
-		// 			isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
-		// 		} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
-		// 		textItems: [[{ text: job.status }]]
-		// 	};
-		// case 'object_validator':
-		// 	return {
-		// 		...data,
-		// 		name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
-		// 			!isQueued ? completedTaskCount : ''
-		// 		} ${plural(completedTaskCount, 'object')}`,
-		// 		textItems: [[{ text: job.status }]]
-		// 	};
+		case 'Copy':
+			return {
+				...data,
+				name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
+					isRunning ? completedTaskCount + 1 : completedTaskCount
+				} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'Delete':
+			return {
+				...data,
+				name: `${
+					isQueued ? 'Delete' : isRunning ? 'Deleting' : 'Deleted'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'Move':
+			return {
+				...data,
+				name: `${
+					isQueued ? 'Cut' : isRunning ? 'Cutting' : 'Cut'
+				} ${completedTaskCount} ${plural(completedTaskCount, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
+		case 'FileValidator':
+			return {
+				...data,
+				name: `${isQueued ? 'Validate' : isRunning ? 'Validating' : 'Validated'} ${
+					!isQueued ? completedTaskCount : ''
+				} ${plural(completedTaskCount, 'file')}`,
+				textItems: [[{ text: job.status }]]
+			};
 		default:
 			return {
 				...data,

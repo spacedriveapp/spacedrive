@@ -24,7 +24,7 @@ use tokio::sync::{mpsc, oneshot, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{JobIdentity, JobManagerError, JobReport, JobStatus, StatefulJob};
+use super::{JobIdentity, JobManagerError, JobStatus, OldJobReport, StatefulJob};
 
 const MAX_WORKERS: usize = 5;
 
@@ -281,7 +281,7 @@ impl OldJobs {
 			.exec()
 			.await?
 			.into_iter()
-			.map(JobReport::try_from);
+			.map(OldJobReport::try_from);
 
 		for job in all_jobs {
 			let job = job?;
@@ -315,7 +315,7 @@ impl OldJobs {
 	}
 
 	// get all active jobs, including paused jobs organized by job id
-	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, JobReport> {
+	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, OldJobReport> {
 		self.running_workers
 			.read()
 			.await
@@ -328,7 +328,7 @@ impl OldJobs {
 	}
 
 	// get all running jobs, excluding paused jobs organized by action
-	pub async fn get_running_reports(&self) -> HashMap<String, JobReport> {
+	pub async fn get_running_reports(&self) -> HashMap<String, OldJobReport> {
 		self.running_workers
 			.read()
 			.await
@@ -378,7 +378,7 @@ mod macros {
 }
 /// This function is used to initialize a  DynJob from a job report.
 fn initialize_resumable_job(
-	job_report: JobReport,
+	job_report: OldJobReport,
 	next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 ) -> Result<Box<dyn DynJob>, JobError> {
 	dispatch_call_to_job_by_name!(

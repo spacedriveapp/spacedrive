@@ -31,7 +31,7 @@ use uuid::Uuid;
 
 use super::{
 	job::{DynJob, JobHandle, JobName, JobOutput, OuterContext, ReturnStatus},
-	report::{self, ReportMetadata, ReportOutputMetadata},
+	report::{self, ReportOutputMetadata},
 	store::{StoredJob, StoredJobEntry},
 	Command, JobId, JobSystemError, SerializedTasks,
 };
@@ -293,10 +293,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.ctx
 			.report_mut()
 			.await
-			.metadata
-			.push(ReportMetadata::Output(ReportOutputMetadata::Metrics(
-				HashMap::from([("job_run_time".into(), json!(handle.run_time))]),
-			)));
+			.push_metadata(ReportOutputMetadata::Metrics(HashMap::from([(
+				"job_run_time".into(),
+				json!(handle.run_time),
+			)])));
 
 		let res = match status {
 			Ok(ReturnStatus::Completed(job_return)) => {

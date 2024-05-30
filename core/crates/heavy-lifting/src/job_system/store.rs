@@ -200,6 +200,9 @@ macro_rules! match_deserialize_job {
 						}
 					))
 					.map_err(Into::into),)+
+
+			// TODO(fogodev): this is temporary until we can get rid of the old job system
+			_ => unimplemented!("Job not implemented"),
 		}
 	}};
 }

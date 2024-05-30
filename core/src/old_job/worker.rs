@@ -28,8 +28,8 @@ use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	DynJob, JobError, JobIdentity, JobReport, JobReportUpdate, JobRunErrors, JobRunOutput,
-	JobStatus, OldJobs,
+	DynJob, JobError, JobIdentity, JobReportUpdate, JobRunErrors, JobRunOutput, JobStatus,
+	OldJobReport, OldJobs,
 };
 
 const FIVE_SECS: Duration = Duration::from_secs(5);
@@ -114,8 +114,8 @@ impl WorkerContext {
 pub struct Worker {
 	pub(super) library_id: Uuid,
 	commands_tx: chan::Sender<WorkerCommand>,
-	report_watch_tx: Arc<watch::Sender<JobReport>>,
-	report_watch_rx: watch::Receiver<JobReport>,
+	report_watch_tx: Arc<watch::Sender<OldJobReport>>,
+	report_watch_rx: watch::Receiver<OldJobReport>,
 	paused: AtomicBool,
 }
 
@@ -123,7 +123,7 @@ impl Worker {
 	pub async fn new(
 		id: Uuid,
 		mut job: Box<dyn DynJob>,
-		mut report: JobReport,
+		mut report: OldJobReport,
 		library: Arc<Library>,
 		node: Arc<Node>,
 		job_manager: Arc<OldJobs>,
@@ -255,7 +255,7 @@ impl Worker {
 		}
 	}
 
-	pub fn report(&self) -> JobReport {
+	pub fn report(&self) -> OldJobReport {
 		self.report_watch_rx.borrow().clone()
 	}
 
@@ -264,9 +264,9 @@ impl Worker {
 	}
 
 	fn track_progress(
-		report: &mut JobReport,
+		report: &mut OldJobReport,
 		last_report_watch_update: &mut Instant,
-		report_watch_tx: &watch::Sender<JobReport>,
+		report_watch_tx: &watch::Sender<OldJobReport>,
 		start_time: DateTime<Utc>,
 		updates: Vec<JobReportUpdate>,
 		library: &Library,
@@ -348,7 +348,7 @@ impl Worker {
 			hash,
 			mut report,
 		}: JobWorkTable,
-		report_watch_tx: Arc<watch::Sender<JobReport>>,
+		report_watch_tx: Arc<watch::Sender<OldJobReport>>,
 		start_time: DateTime<Utc>,
 		(commands_tx, commands_rx): (chan::Sender<WorkerCommand>, chan::Receiver<WorkerCommand>),
 		library: Arc<Library>,
@@ -505,7 +505,7 @@ impl Worker {
 	async fn process_job_output(
 		mut job: Box<dyn DynJob>,
 		job_result: Result<JobRunOutput, JobError>,
-		report: &mut JobReport,
+		report: &mut OldJobReport,
 		library: &Library,
 	) -> Option<Box<dyn DynJob>> {
 		// Run the job and handle the result
@@ -651,7 +651,7 @@ struct JobWorkTable {
 	job: Box<dyn DynJob>,
 	manager: Arc<OldJobs>,
 	hash: u64,
-	report: JobReport,
+	report: OldJobReport,
 }
 
 fn invalidate_queries(library: &Library) {

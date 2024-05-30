@@ -3,12 +3,12 @@ use crate::{
 	invalidate_query,
 	location::{find_location, LocationError},
 	object::validation::old_validator_job::OldObjectValidatorJobInit,
-	old_job::{JobStatus, OldJob, OldJobs},
+	old_job::{JobStatus, OldJob, OldJobReport},
 };
 
 use sd_core_heavy_lifting::{
 	file_identifier::FileIdentifier, job_system::report, media_processor::job::MediaProcessor,
-	JobId, Report,
+	JobId, JobSystemError, Report,
 };
 
 use sd_prisma::prisma::{job, location, SortOrder};
@@ -101,16 +101,30 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?
 						.into_iter()
-						.flat_map(Report::try_from)
+						.flat_map(|job| {
+							if let Ok(report) = Report::try_from(job.clone()) {
+								Some(report)
+							} else {
+								// TODO(fogodev): this is a temporary fix for the old job system
+								OldJobReport::try_from(job).map(Into::into).ok()
+							}
+						})
 						.collect();
 
-					let active_reports_by_id = node.job_system.get_active_reports().await;
+					let mut active_reports_by_id = node.job_system.get_active_reports().await;
+					active_reports_by_id.extend(
+						node.old_jobs
+							.get_active_reports_with_id()
+							.await
+							.into_iter()
+							.map(|(id, old_report)| (id, old_report.into())),
+					);
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_action_name_and_group_key();
 
-						trace!("job {job:#?}, action_name {action_name}, group_key {group_key:?}",);
+						trace!(?job, %action_name, ?group_key);
 
 						// if the job is running, use the in-memory report
 						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
@@ -211,30 +225,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::pause(&node.old_jobs, id).await.map_err(Into::into);
+				.mutation(|(node, library), id: JobId| async move {
+					if let Err(e) = node.job_system.pause(id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.pause(id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
 				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::resume(&node.old_jobs, id)
-						.await
-						.map_err(Into::into);
+					if let Err(e) = node.job_system.resume(id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.resume(id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("cancel", {
 			R.with2(library())
 				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::cancel(&node.old_jobs, id)
-						.await
-						.map_err(Into::into);
+					if let Err(e) = node.job_system.cancel(id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.cancel(id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("generateThumbsForLocation", {

@@ -1,6 +1,6 @@
 use crate::NonCriticalError;
 
-use sd_prisma::prisma::{job, location, PrismaClient};
+use sd_prisma::prisma::{file_path, job, location, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
 use std::{collections::HashMap, fmt, path::PathBuf, str::FromStr};
@@ -86,6 +86,43 @@ pub enum ReportOutputMetadata {
 		thumbnails_generated: (u32, u32),
 		thumbnails_skipped: (u32, u32),
 	},
+	Copier {
+		source_location_id: location::id::Type,
+		target_location_id: location::id::Type,
+		sources_file_path_ids: Vec<file_path::id::Type>,
+		target_location_relative_directory_path: PathBuf,
+	},
+	Mover {
+		source_location_id: location::id::Type,
+		target_location_id: location::id::Type,
+		sources_file_path_ids: Vec<file_path::id::Type>,
+		target_location_relative_directory_path: PathBuf,
+	},
+	Deleter {
+		location_id: location::id::Type,
+		file_path_ids: Vec<file_path::id::Type>,
+	},
+	Eraser {
+		location_id: location::id::Type,
+		file_path_ids: Vec<file_path::id::Type>,
+		passes: u32,
+	},
+	FileValidator {
+		location_id: location::id::Type,
+		sub_path: Option<PathBuf>,
+	},
+}
+
+impl From<ReportInputMetadata> for ReportMetadata {
+	fn from(value: ReportInputMetadata) -> Self {
+		Self::Input(value)
+	}
+}
+
+impl From<ReportOutputMetadata> for ReportMetadata {
+	fn from(value: ReportOutputMetadata) -> Self {
+		Self::Output(value)
+	}
 }
 
 #[derive(Debug, Serialize, Type, Clone)]
@@ -127,38 +164,53 @@ impl fmt::Display for Report {
 impl TryFrom<job::Data> for Report {
 	type Error = ReportError;
 
-	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
+	fn try_from(
+		job::Data {
+			id,
+			name,
+			action,
+			status,
+			errors_text: _, // Deprecated
+			critical_error,
+			non_critical_errors,
+			data: _, // Deprecated
+			metadata,
+			parent_id,
+			task_count,
+			completed_task_count,
+			date_estimated_completion,
+			date_created,
+			date_started,
+			date_completed,
+			..
+		}: job::Data,
+	) -> Result<Self, Self::Error> {
 		Ok(Self {
-			id: JobId::from_slice(&data.id).expect("corrupted database"),
-			name: JobName::from_str(&maybe_missing(data.name, "job.name")?)?,
-			action: data.action,
-
-			metadata: if let Some(metadata) = data.metadata {
+			id: JobId::from_slice(&id).expect("corrupted database"),
+			name: JobName::from_str(&maybe_missing(name, "job.name")?)?,
+			action,
+			metadata: if let Some(metadata) = metadata {
 				serde_json::from_slice(&metadata)?
 			} else {
 				vec![]
 			},
-			critical_error: data.critical_error,
-			non_critical_errors: if let Some(non_critical_errors) = data.non_critical_errors {
+			critical_error,
+			non_critical_errors: if let Some(non_critical_errors) = non_critical_errors {
 				serde_json::from_slice(&non_critical_errors)?
 			} else {
 				vec![]
 			},
-			created_at: data.date_created.map(DateTime::into),
-			started_at: data.date_started.map(DateTime::into),
-			completed_at: data.date_completed.map(DateTime::into),
-			parent_id: data
-				.parent_id
-				.map(|id| JobId::from_slice(&id).expect("corrupted database")),
-			status: Status::try_from(maybe_missing(data.status, "job.status")?)
+			created_at: date_created.map(DateTime::into),
+			started_at: date_started.map(DateTime::into),
+			completed_at: date_completed.map(DateTime::into),
+			parent_id: parent_id.map(|id| JobId::from_slice(&id).expect("corrupted database")),
+			status: Status::try_from(maybe_missing(status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: data.task_count.unwrap_or(0),
-			completed_task_count: data.completed_task_count.unwrap_or(0),
+			task_count: task_count.unwrap_or(0),
+			completed_task_count: completed_task_count.unwrap_or(0),
 			phase: String::new(),
 			message: String::new(),
-			estimated_completion: data
-				.date_estimated_completion
-				.map_or_else(Utc::now, DateTime::into),
+			estimated_completion: date_estimated_completion.map_or_else(Utc::now, DateTime::into),
 		})
 	}
 }
@@ -184,6 +236,10 @@ impl Report {
 			message: String::new(),
 			estimated_completion: Utc::now(),
 		}
+	}
+
+	pub fn push_metadata(&mut self, metadata: ReportOutputMetadata) {
+		self.metadata.push(metadata.into());
 	}
 
 	#[must_use]
@@ -355,7 +411,7 @@ impl ReportBuilder {
 
 	#[must_use]
 	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
-		self.metadata.push(ReportMetadata::Input(metadata));
+		self.metadata.push(metadata.into());
 		self
 	}
 

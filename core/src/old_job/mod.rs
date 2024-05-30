@@ -133,8 +133,8 @@ pub trait StatefulJob:
 pub trait DynJob: Send + Sync {
 	fn id(&self) -> Uuid;
 	fn parent_id(&self) -> Option<Uuid>;
-	fn report(&self) -> &Option<JobReport>;
-	fn report_mut(&mut self) -> &mut Option<JobReport>;
+	fn report(&self) -> &Option<OldJobReport>;
+	fn report_mut(&mut self) -> &mut Option<OldJobReport>;
 	fn name(&self) -> &'static str;
 	async fn run(
 		&mut self,
@@ -152,7 +152,7 @@ pub trait DynJob: Send + Sync {
 pub struct OldJob<SJob: StatefulJob> {
 	id: Uuid,
 	hash: u64,
-	report: Option<JobReport>,
+	report: Option<OldJobReport>,
 	state: Option<JobState<SJob>>,
 	next_jobs: VecDeque<Box<dyn DynJob>>,
 }
@@ -177,7 +177,7 @@ impl<SJob: StatefulJob> OldJob<SJob> {
 
 	// this function returns an ingestible job instance from a job report
 	pub fn new_from_report(
-		mut report: JobReport,
+		mut report: OldJobReport,
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 	) -> Result<Box<dyn DynJob>, JobError> {
 		let state = rmp_serde::from_slice::<JobState<SJob>>(
@@ -393,11 +393,11 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		self.report.as_ref().and_then(|r| r.parent_id)
 	}
 
-	fn report(&self) -> &Option<JobReport> {
+	fn report(&self) -> &Option<OldJobReport> {
 		&self.report
 	}
 
-	fn report_mut(&mut self) -> &mut Option<JobReport> {
+	fn report_mut(&mut self) -> &mut Option<OldJobReport> {
 		&mut self.report
 	}
 

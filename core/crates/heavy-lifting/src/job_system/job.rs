@@ -52,6 +52,11 @@ pub enum JobName {
 	FileIdentifier,
 	MediaProcessor,
 	// TODO: Add more job names as needed
+	Copy,
+	Move,
+	Delete,
+	Erase,
+	FileValidator,
 }
 
 #[derive(Debug)]
@@ -261,9 +266,7 @@ impl JobOutput {
 			);
 		}
 
-		report
-			.metadata
-			.extend(metadata.into_iter().map(ReportMetadata::Output));
+		report.metadata.extend(metadata.into_iter().map(Into::into));
 
 		report.completed_at = Some(Utc::now());
 
