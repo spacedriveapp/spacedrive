@@ -73,7 +73,11 @@ pub enum ServeFrom {
 	/// Serve from the local filesystem
 	Local,
 	/// Serve from a specific instance
-	Remote(RemoteIdentity),
+	Remote {
+		library_identity: RemoteIdentity,
+		node_identity: RemoteIdentity,
+		library: Arc<Library>,
+	},
 }
 
 #[derive(Clone)]
@@ -181,17 +185,29 @@ async fn get_or_init_lru_entry(
 		let path = Path::new(path)
 			.join(IsolatedFilePathData::try_from((location_id, &file_path)).map_err(not_found)?);
 
-		let identity =
+		let library_identity =
 			RemoteIdentity::from_bytes(&instance.remote_identity).map_err(internal_server_error)?;
+
+		let node_identity = RemoteIdentity::from_bytes(
+			instance
+				.node_remote_identity
+				.as_ref()
+				.expect("node_remote_identity is required"),
+		)
+		.map_err(internal_server_error)?;
 
 		let lru_entry = CacheValue {
 			name: path,
 			ext: maybe_missing(file_path.extension, "extension").map_err(not_found)?,
 			file_path_pub_id: Uuid::from_slice(&file_path.pub_id).map_err(internal_server_error)?,
-			serve_from: if identity == library.identity.to_remote_identity() {
+			serve_from: if library_identity == library.identity.to_remote_identity() {
 				ServeFrom::Local
 			} else {
-				ServeFrom::Remote(identity)
+				ServeFrom::Remote {
+					library_identity,
+					node_identity,
+					library: library.clone(),
+				}
 			},
 		};
 
@@ -290,13 +306,17 @@ pub fn base_router() -> Router<LocalState> {
 
 							serve_file(file, Ok(metadata), request.into_parts().0, resp).await
 						}
-						ServeFrom::Remote(identity) => {
+						ServeFrom::Remote {
+							library_identity: _,
+							node_identity,
+							library,
+						} => {
 							// TODO: Support `Range` requests and `ETag` headers
 
 							let (tx, mut rx) = tokio::sync::mpsc::channel::<io::Result<Bytes>>(150);
 							request_file(
 								state.node.p2p.p2p.clone(),
-								identity,
+								node_identity,
 								&library.id,
 								&library.identity,
 								file_path_pub_id,
@@ -305,7 +325,7 @@ pub fn base_router() -> Router<LocalState> {
 							)
 							.await
 							.map_err(|err| {
-								error!("Error requesting file {file_path_pub_id:?} from node {identity:?}: {err:?}");
+								error!("Error requesting file {file_path_pub_id:?} from node {:?}: {err:?}", library.identity.to_remote_identity());
 								internal_server_error(())
 							})?;
 
