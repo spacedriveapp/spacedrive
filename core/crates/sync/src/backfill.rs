@@ -70,6 +70,12 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 						.find_many(vec![location::id::gt(cursor)])
 						.order_by(location::id::order(SortOrder::Asc))
 						.take(1000)
+						.include(location::include!({
+							instance: select {
+								id
+								pub_id
+							}
+						}))
 						.exec()
 				},
 				|location| location.id,
@@ -108,6 +114,14 @@ pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager, insta
 												),
 												option_sync_entry!(l.hidden, hidden),
 												option_sync_entry!(l.date_created, date_created),
+												option_sync_entry!(
+													l.instance.map(|i| {
+														prisma_sync::instance::SyncId {
+															pub_id: i.pub_id,
+														}
+													}),
+													instance
+												),
 											],
 										),
 									)

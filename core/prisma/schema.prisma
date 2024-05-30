@@ -68,7 +68,7 @@ model Node {
 
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
 // A `LibraryInstance` is always owned by a single `Node` but it's possible for that node to change (or two to be owned by a single node).
-/// @local
+/// @local(id: pub_id)
 model Instance {
   id              Int    @id @default(autoincrement()) // This is is NOT globally unique
   pub_id          Bytes  @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
@@ -148,8 +148,7 @@ model Location {
 
   scan_state Int @default(0) // Enum: sd_core::location::ScanState
 
-  /// @local
-  // this is just a client side cache which is annoying but oh well (@brendan)
+  // this should just be a local-only cache but it's too much effort to broadcast online locations rn (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
@@ -627,7 +626,7 @@ model IndexerRule {
   id     Int   @id @default(autoincrement())
   pub_id Bytes @unique
 
-  name           String? @unique
+  name           String?   @unique
   default        Boolean?
   rules_per_kind Bytes?
   date_created   DateTime?
