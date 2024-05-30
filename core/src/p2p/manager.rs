@@ -441,7 +441,7 @@ async fn start(
 						return;
 					};
 
-					error!("Failed to handling library file request with {remote:?} for {req}: {err:?}");
+					error!("Failed to handling library file request with {remote:?} for {req:?}: {err:?}");
 				}
 			};
 		});
