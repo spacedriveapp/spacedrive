@@ -53,14 +53,7 @@ export const ExplorerTagBar = (props: {}) => {
 	const [tagListeningForKeyPress, setTagListeningForKeyPress] = useState<number | undefined>();
 
 	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
-	const mutation = useLibraryMutation(['tags.assign'], {
-		onSuccess: () => {
-			// this makes sure that the tags are updated in the UI
-			// rspc.queryClient.invalidateQueries(['tags.getForObject'])
-			// rspc.queryClient.invalidateQueries(['search.paths'])
-			// modalRef.current?.dismiss();
-		}
-	});
+	const mutation = useLibraryMutation(['tags.assign']);
 
 	const { t } = useLocale();
 
