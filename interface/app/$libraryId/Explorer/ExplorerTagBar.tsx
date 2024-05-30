@@ -1,6 +1,6 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
 	ExplorerItem,
 	Tag,
@@ -200,21 +200,28 @@ const TagItem = ({
 	onKeyPress,
 	onClick
 }: TagItemProps) => {
+	const buttonRef = useRef<HTMLButtonElement>(null);
 	const isDark = useIsDark();
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
 
-	useKeybind(NUMBER_KEYCODES, onKeyPress, {
-		enabled: isAwaitingKeyPress
-	});
+	useKeybind(
+		NUMBER_KEYCODES,
+		(e) => {
+			return onKeyPress(e);
+		},
+		{
+			enabled: isAwaitingKeyPress
+		}
+	);
 
 	return (
 		<button
 			className={clsx('group flex items-center gap-1 rounded-lg border px-1 py-0.5', {
 				['border-gray-500 bg-gray-500']: isDark,
-				['bg-blue-700']: isAwaitingKeyPress && isDark,
-				['bg-blue-300']: isAwaitingKeyPress
+				['border-blue-500 bg-blue-700']: isAwaitingKeyPress && isDark,
+				['border-blue-500 bg-blue-200']: isAwaitingKeyPress && !isDark
 			})}
 			onClick={onClick}
 			tabIndex={-1}
