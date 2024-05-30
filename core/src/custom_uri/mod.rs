@@ -320,16 +320,6 @@ pub fn base_router() -> Router<LocalState> {
 							.body(body::boxed(Full::from(""))));
 						}
 					};
-
-					let file = File::open(&path).await.map_err(|err| {
-						InfallibleResponse::builder()
-							.status(if err.kind() == io::ErrorKind::NotFound {
-								StatusCode::NOT_FOUND
-							} else {
-								StatusCode::INTERNAL_SERVER_ERROR
-							})
-							.body(body::boxed(Full::from("")))
-					})?;
 					let metadata = file.metadata().await;
 					serve_file(
 						file,
