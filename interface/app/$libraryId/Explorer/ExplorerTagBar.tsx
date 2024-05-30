@@ -46,7 +46,6 @@ const toTarget = (data: ExplorerItem): Target => {
 };
 
 // million-ignore
-// TODO: implement proper custom ordering of tags
 export const ExplorerTagBar = (props: {}) => {
 	const [tagBulkAssignHotkeys] = useSelector(explorerStore, (s) => [s.tagBulkAssignHotkeys]);
 	const explorer = useExplorerContext();
