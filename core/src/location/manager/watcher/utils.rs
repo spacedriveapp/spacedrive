@@ -6,7 +6,7 @@ use crate::{
 		indexer::reverse_update_directories_sizes, location_with_indexer_rules,
 		manager::LocationManagerError, scan_location_sub_path, update_location_size,
 	},
-	object::{media::get_indexed_thumbnail_path, validation::hash::file_checksum},
+	object::validation::hash::file_checksum,
 	Node,
 };
 
@@ -23,7 +23,7 @@ use sd_core_heavy_lifting::{
 		ThumbnailKind,
 	},
 };
-use sd_core_prisma_helpers::{file_path_with_object, ObjectPubId};
+use sd_core_prisma_helpers::{file_path_with_object, CasId, ObjectPubId};
 
 use sd_file_ext::{
 	extensions::{AudioExtension, ImageExtension, VideoExtension},
@@ -250,7 +250,7 @@ async fn inner_create_file(
 	let existing_object = db
 		.object()
 		.find_first(vec![object::file_paths::some(vec![
-			file_path::cas_id::equals(cas_id.clone()),
+			file_path::cas_id::equals(cas_id.clone().map(Into::into)),
 			file_path::pub_id::not(created_file.pub_id.clone()),
 		])])
 		.select(object_ids::select())
@@ -494,7 +494,7 @@ async fn inner_update_file(
 	};
 
 	let is_hidden = path_is_hidden(full_path, &fs_metadata);
-	if file_path.cas_id != cas_id {
+	if file_path.cas_id.as_deref() != cas_id.as_ref().map(CasId::as_str) {
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = {
 			use file_path::*;
 
@@ -665,16 +665,17 @@ async fn inner_update_file(
 				.await?;
 			}
 
-			if let Some(old_cas_id) = &file_path.cas_id {
+			if let Some(old_cas_id) = file_path.cas_id.as_ref().map(CasId::from) {
 				// if this file had a thumbnail previously, we update it to match the new content
-				if library.thumbnail_exists(node, old_cas_id).await? {
+				if library.thumbnail_exists(node, &old_cas_id).await? {
 					if let Some(ext) = file_path.extension.clone() {
 						// Running in a detached task as thumbnail generation can take a while and we don't want to block the watcher
 						if let Some(cas_id) = cas_id {
 							let node = Arc::clone(node);
 							let path = full_path.to_path_buf();
 							let library_id = library.id;
-							let old_cas_id = old_cas_id.clone();
+							let old_cas_id = old_cas_id.to_owned();
+
 							spawn(async move {
 								let thumbnails_directory =
 									get_thumbnails_directory(node.config.data_directory());
@@ -696,8 +697,8 @@ async fn inner_update_file(
 								// so we overwrote our previous thumbnail, so we can't remove it
 								if !was_overwritten {
 									// remove the old thumbnail as we're generating a new one
-									let thumb_path =
-										get_indexed_thumbnail_path(&node, &old_cas_id, library_id);
+									let thumb_path = ThumbnailKind::Indexed(library_id)
+										.compute_path(node.config.data_directory(), &old_cas_id);
 									if let Err(e) = fs::remove_file(&thumb_path).await {
 										error!(
 											"Failed to remove old thumbnail: {:#?}",

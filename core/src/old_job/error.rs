@@ -56,12 +56,6 @@ pub enum JobError {
 	Critical(&'static str),
 
 	// Specific job errors
-	// #[error(transparent)]
-	// Indexer(#[from] IndexerError),
-	// #[error(transparent)]
-	// MediaProcessor(#[from] MediaProcessorError),
-	// #[error(transparent)]
-	// FileIdentifier(#[from] FileIdentifierJobError),
 	#[error(transparent)]
 	Validator(#[from] ValidatorError),
 	#[error(transparent)]

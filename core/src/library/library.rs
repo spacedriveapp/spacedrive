@@ -1,7 +1,8 @@
-use crate::{api::CoreEvent, cloud, object::media::get_indexed_thumbnail_path, sync, Node};
+use crate::{api::CoreEvent, cloud, sync, Node};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_to_full_path;
+use sd_core_heavy_lifting::media_processor::ThumbnailKind;
+use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
 
 use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
@@ -123,8 +124,13 @@ impl Library {
 		}
 	}
 
-	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_indexed_thumbnail_path(node, cas_id, self.id);
+	pub async fn thumbnail_exists(
+		&self,
+		node: &Node,
+		cas_id: &CasId<'_>,
+	) -> Result<bool, FileIOError> {
+		let thumb_path =
+			ThumbnailKind::Indexed(self.id).compute_path(node.config.data_directory(), cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),

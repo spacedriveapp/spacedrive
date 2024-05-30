@@ -167,6 +167,8 @@ export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { f
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
+export type CasId = string
+
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
@@ -642,7 +644,7 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  * This type is used to pass the relevant data to the frontend so it can request the thumbnail.
  * Tt supports extending the shard hex to support deeper directory structures in the future
  */
-export type ThumbKey = { shard_hex: string; cas_id: string; base_directory_str: string }
+export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
 export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
 

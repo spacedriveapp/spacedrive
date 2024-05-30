@@ -80,7 +80,7 @@ pub struct FileIdentifier {
 	sub_path: Option<PathBuf>,
 
 	// Inner state
-	file_paths_accumulator: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_accumulator: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
 
 	// Job control
@@ -685,7 +685,7 @@ struct SaveState {
 	location_path: Arc<PathBuf>,
 	sub_path: Option<PathBuf>,
 
-	file_paths_accumulator: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_accumulator: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
 
 	phase: Phase,

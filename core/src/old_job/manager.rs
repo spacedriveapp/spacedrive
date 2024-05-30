@@ -1,13 +1,10 @@
 use crate::{
 	library::Library,
-	// location::indexer::old_indexer_job::OldIndexerJobInit,
 	object::{
 		fs::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		// media::old_media_processor::OldMediaProcessorJobInit,
-		// old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
 	old_job::{worker::Worker, DynJob, JobError, OldJob},
@@ -66,9 +63,8 @@ impl Actor {
 	}
 }
 
-/// JobManager handles queueing and executing jobs using the `DynJob`
-/// Handling persisting JobReports to the database, pause/resuming, and
-///
+/// JobManager handles queueing and executing jobs using the [`DynJob`]
+/// Handling persisting JobReports to the database, pause/resuming
 pub struct OldJobs {
 	current_jobs_hashes: RwLock<HashSet<u64>>,
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
@@ -396,9 +392,6 @@ fn initialize_resumable_job(
 			Err(JobError::UnknownJobName(job_report.id, job_report.name))
 		},
 		jobs = [
-			// OldMediaProcessorJobInit,
-			// OldIndexerJobInit,
-			// OldFileIdentifierJobInit,
 			OldObjectValidatorJobInit,
 			OldFileCutterJobInit,
 			OldFileCopierJobInit,

@@ -4,11 +4,10 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	// object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
 
-use futures_concurrency::future::Join;
-use sd_core_heavy_lifting::JobSystem;
+use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
+use sd_core_prisma_helpers::CasId;
 
 #[cfg(feature = "ai")]
 use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
@@ -16,18 +15,15 @@ use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
 
-use api::notifications::{Notification, NotificationData, NotificationId};
-use chrono::{DateTime, Utc};
-use node::config;
-use notifications::Notifications;
-use reqwest::{RequestBuilder, Response};
-
 use std::{
 	fmt,
 	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
 };
 
+use chrono::{DateTime, Utc};
+use futures_concurrency::future::Join;
+use reqwest::{RequestBuilder, Response};
 use thiserror::Error;
 use tokio::{fs, io, sync::broadcast};
 use tracing::{error, info, warn};
@@ -58,8 +54,10 @@ pub(crate) mod volume;
 
 pub use env::Env;
 
+use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
-use object::media::get_ephemeral_thumbnail_path;
+use node::config;
+use notifications::Notifications;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -74,7 +72,6 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	// pub thumbnailer: OldThumbnailer,
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
@@ -141,13 +138,6 @@ impl Node {
 			locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
-			// thumbnailer: OldThumbnailer::new(
-			// 	data_dir,
-			// 	libraries.clone(),
-			// 	event_bus.0.clone(),
-			// 	config.preferences_watcher(),
-			// )
-			// .await,
 			config,
 			event_bus,
 			libraries,
@@ -250,7 +240,15 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
+				format!(
+					"info,\
+					sd_core={level},\
+					sd_p2p=debug,\
+					sd_core::location::manager=info,\
+					sd_core_heavy_lifting=debug,\
+					sd_task_system=debug,\
+					sd_ai={level}"
+				),
 			);
 		}
 
@@ -310,12 +308,16 @@ impl Node {
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
-			warn!("Error sending event to event bus: {e:?}");
+			warn!(?e, "Error sending event to event bus");
 		}
 	}
 
-	pub async fn ephemeral_thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_ephemeral_thumbnail_path(self, cas_id);
+	pub async fn ephemeral_thumbnail_exists(
+		&self,
+		cas_id: &CasId<'_>,
+	) -> Result<bool, FileIOError> {
+		let thumb_path =
+			ThumbnailKind::Ephemeral.compute_path(self.config.data_directory(), cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
@@ -340,8 +342,8 @@ impl Node {
 			Ok(_) => {
 				self.notifications._internal_send(notification);
 			}
-			Err(err) => {
-				error!("Error saving notification to config: {:?}", err);
+			Err(e) => {
+				error!(?e, "Error saving notification to config");
 			}
 		}
 	}

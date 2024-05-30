@@ -325,19 +325,4 @@ impl JobReportBuilder {
 			parent_id: None,
 		}
 	}
-
-	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
-		self.action = Some(action.as_ref().to_string());
-		self
-	}
-
-	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-		self.metadata = Some(metadata);
-		self
-	}
-
-	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
-		self.parent_id = Some(parent_id);
-		self
-	}
 }

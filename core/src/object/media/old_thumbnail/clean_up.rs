@@ -11,6 +11,8 @@ use tracing::{debug, error};
 
 use super::{ThumbnailerError, EPHEMERAL_DIR, WEBP_EXTENSION};
 
+// TODO(fogodev) Introduce a task using the new task system to clean up the thumbnails from time to time.
+
 pub(super) async fn process_ephemeral_clean_up(
 	thumbnails_directory: Arc<PathBuf>,
 	existing_ephemeral_thumbs: HashSet<OsString>,

@@ -1,3 +1,5 @@
+use sd_core_prisma_helpers::CasId;
+
 use std::path::Path;
 
 use blake3::Hasher;
@@ -33,7 +35,7 @@ const_assert!(SAMPLE_SIZE > HEADER_OR_FOOTER_SIZE);
 pub async fn generate_cas_id(
 	path: impl AsRef<Path> + Send,
 	size: u64,
-) -> Result<String, io::Error> {
+) -> Result<CasId<'static>, io::Error> {
 	let mut hasher = Hasher::new();
 	hasher.update(&size.to_le_bytes());
 
@@ -74,5 +76,5 @@ pub async fn generate_cas_id(
 		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
 	}
 
-	Ok(hasher.finalize().to_hex()[..16].to_string())
+	Ok(hasher.finalize().to_hex()[..16].to_string().into())
 }

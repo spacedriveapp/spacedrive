@@ -1,5 +1,7 @@
 use crate::media_processor::thumbnailer;
 
+use sd_core_prisma_helpers::CasId;
+
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
@@ -94,16 +96,16 @@ pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
 pub struct ThumbKey {
 	pub shard_hex: String,
-	pub cas_id: String,
+	pub cas_id: CasId<'static>,
 	pub base_directory_str: String,
 }
 
 impl ThumbKey {
 	#[must_use]
-	pub fn new(cas_id: &str, kind: &ThumbnailKind) -> Self {
+	pub fn new(cas_id: CasId<'static>, kind: &ThumbnailKind) -> Self {
 		Self {
-			shard_hex: get_shard_hex(cas_id).to_string(),
-			cas_id: cas_id.to_string(),
+			shard_hex: get_shard_hex(&cas_id).to_string(),
+			cas_id,
 			base_directory_str: match kind {
 				ThumbnailKind::Ephemeral => String::from(EPHEMERAL_DIR),
 				ThumbnailKind::Indexed(library_id) => library_id.to_string(),
@@ -112,19 +114,19 @@ impl ThumbKey {
 	}
 
 	#[must_use]
-	pub fn new_indexed(cas_id: &str, library_id: Uuid) -> Self {
+	pub fn new_indexed(cas_id: CasId<'static>, library_id: Uuid) -> Self {
 		Self {
-			shard_hex: get_shard_hex(cas_id).to_string(),
-			cas_id: cas_id.to_string(),
+			shard_hex: get_shard_hex(&cas_id).to_string(),
+			cas_id,
 			base_directory_str: library_id.to_string(),
 		}
 	}
 
 	#[must_use]
-	pub fn new_ephemeral(cas_id: &str) -> Self {
+	pub fn new_ephemeral(cas_id: CasId<'static>) -> Self {
 		Self {
-			shard_hex: get_shard_hex(cas_id).to_string(),
-			cas_id: cas_id.to_string(),
+			shard_hex: get_shard_hex(&cas_id).to_string(),
+			cas_id,
 			base_directory_str: String::from(EPHEMERAL_DIR),
 		}
 	}
@@ -137,7 +139,7 @@ pub enum ThumbnailKind {
 }
 
 impl ThumbnailKind {
-	pub fn compute_path(&self, data_directory: impl AsRef<Path>, cas_id: &str) -> PathBuf {
+	pub fn compute_path(&self, data_directory: impl AsRef<Path>, cas_id: &CasId<'_>) -> PathBuf {
 		let mut thumb_path = get_thumbnails_directory(data_directory);
 		match self {
 			Self::Ephemeral => thumb_path.push(EPHEMERAL_DIR),
@@ -146,7 +148,7 @@ impl ThumbnailKind {
 			}
 		}
 		thumb_path.push(get_shard_hex(cas_id));
-		thumb_path.push(cas_id);
+		thumb_path.push(cas_id.as_str());
 		thumb_path.set_extension(WEBP_EXTENSION);
 
 		thumb_path
@@ -154,15 +156,15 @@ impl ThumbnailKind {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct GenerateThumbnailArgs {
+pub struct GenerateThumbnailArgs<'cas_id> {
 	pub extension: String,
-	pub cas_id: String,
+	pub cas_id: CasId<'cas_id>,
 	pub path: PathBuf,
 }
 
-impl GenerateThumbnailArgs {
+impl<'cas_id> GenerateThumbnailArgs<'cas_id> {
 	#[must_use]
-	pub const fn new(extension: String, cas_id: String, path: PathBuf) -> Self {
+	pub const fn new(extension: String, cas_id: CasId<'cas_id>, path: PathBuf) -> Self {
 		Self {
 			extension,
 			cas_id,
@@ -182,9 +184,9 @@ impl GenerateThumbnailArgs {
 /// named 000 to fff.
 #[inline]
 #[must_use]
-pub fn get_shard_hex(cas_id: &str) -> &str {
+pub fn get_shard_hex<'cas_id>(cas_id: &'cas_id CasId<'cas_id>) -> &'cas_id str {
 	// Use the first three characters of the hash as the directory name
-	&cas_id[0..3]
+	&cas_id.as_str()[0..3]
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -227,7 +229,7 @@ pub async fn generate_thumbnail(
 		extension,
 		cas_id,
 		path,
-	}: &GenerateThumbnailArgs,
+	}: &GenerateThumbnailArgs<'_>,
 	kind: &ThumbnailKind,
 	should_regenerate: bool,
 ) -> (
@@ -243,7 +245,7 @@ pub async fn generate_thumbnail(
 	};
 
 	output_path.push(get_shard_hex(cas_id));
-	output_path.push(cas_id);
+	output_path.push(cas_id.as_str());
 	output_path.set_extension(WEBP_EXTENSION);
 
 	if let Err(e) = fs::metadata(&*output_path).await {
@@ -258,7 +260,10 @@ pub async fn generate_thumbnail(
 		trace!("Skipping thumbnail generation because it already exists");
 		return (
 			start.elapsed(),
-			Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Skipped)),
+			Ok((
+				ThumbKey::new(cas_id.to_owned(), kind),
+				GenerationStatus::Skipped,
+			)),
 		);
 	}
 
@@ -300,7 +305,10 @@ pub async fn generate_thumbnail(
 
 	(
 		start.elapsed(),
-		Ok((ThumbKey::new(cas_id, kind), GenerationStatus::Generated)),
+		Ok((
+			ThumbKey::new(cas_id.to_owned(), kind),
+			GenerationStatus::Generated,
+		)),
 	)
 }
 
@@ -455,7 +463,7 @@ static LAST_SINGLE_THUMB_GENERATED_LOCK: Lazy<Mutex<Instant>> =
 pub async fn generate_single_thumbnail(
 	thumbnails_directory: impl AsRef<Path> + Send,
 	extension: String,
-	cas_id: String,
+	cas_id: CasId<'static>,
 	path: impl AsRef<Path> + Send,
 	kind: ThumbnailKind,
 ) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {

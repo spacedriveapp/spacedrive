@@ -27,6 +27,8 @@ use super::{
 	VERSION_FILE, WEBP_EXTENSION,
 };
 
+// TODO(fogodev): Move this logic to be used alongside the NodeConfig or other Node part to run at app startup
+
 #[derive(
 	IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr,
 )]

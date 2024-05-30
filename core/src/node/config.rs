@@ -155,6 +155,7 @@ mod identity_serde {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
 pub struct NodePreferences {
 	// pub thumbnailer: ThumbnailerPreferences,
+	// TODO(fogodev): introduce preferences to choose how many worker the task system should have
 }
 
 #[derive(
@@ -361,11 +362,6 @@ impl Manager {
 	/// get will return the current NodeConfig in a read only state.
 	pub(crate) async fn get(&self) -> NodeConfig {
 		self.config.read().await.clone()
-	}
-
-	/// get a node config preferences watcher receiver
-	pub(crate) fn preferences_watcher(&self) -> watch::Receiver<NodePreferences> {
-		self.preferences_watcher_tx.subscribe()
 	}
 
 	/// data_directory returns the path to the directory storing the configuration data.

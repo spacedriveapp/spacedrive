@@ -9,6 +9,8 @@ use tokio::{
 };
 use tracing::{error, trace};
 
+// TODO(fogodev): To be rewritten using new task system
+
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const ONE_MINUTE: Duration = Duration::from_secs(60);
 

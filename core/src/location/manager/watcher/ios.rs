@@ -100,7 +100,7 @@ impl<'lib> EventHandler<'lib> for IosEventHandler<'lib> {
 			| EventKind::Modify(ModifyKind::Metadata(
 				MetadataKind::WriteTime | MetadataKind::Extended,
 			)) => {
-				// When we receive a create, modify data or metadata events of the abore kinds
+				// When we receive a create, modify data or metadata events of the above kinds
 				// we just mark the file to be updated in a near future
 				// each consecutive event of these kinds that we receive for the same file
 				// we just store the path again in the map below, with a new instant

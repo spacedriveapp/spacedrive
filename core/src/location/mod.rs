@@ -2,7 +2,6 @@ use crate::{
 	context::NodeContext,
 	invalidate_query,
 	library::Library,
-	// old_job::{JobBuilder, JobError, JobManagerError},
 	Node,
 };
 
@@ -16,7 +15,7 @@ use sd_core_heavy_lifting::{
 	media_processor::{self, job::MediaProcessor},
 	JobEnqueuer, JobId, JobSystemError,
 };
-use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_prisma_helpers::{location_with_indexer_rules, CasId};
 
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
@@ -46,13 +45,11 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 mod error;
-// pub mod indexer;
 mod manager;
 pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
-// use indexer::OldIndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -604,18 +601,6 @@ pub async fn light_scan_location(
 
 	let location_base_data = location::Data::from(&location);
 
-	// indexer::old_shallow(&location, &sub_path, &node, &library).await?;
-	// old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
-	// old_media_processor::old_shallow(
-	// 	&location_base_data,
-	// 	&sub_path,
-	// 	&library,
-	// 	#[cfg(feature = "ai")]
-	// 	false,
-	// 	&node,
-	// )
-	// .await?;
-
 	let dispatcher = node.task_system.get_dispatcher();
 	let ctx = NodeContext { node, library };
 
@@ -1093,7 +1078,7 @@ pub async fn create_file_path(
 		extension,
 		..
 	}: IsolatedFilePathDataParts<'_>,
-	cas_id: Option<String>,
+	cas_id: Option<CasId<'_>>,
 	metadata: sd_core_file_path_helper::FilePathMetadata,
 ) -> Result<file_path::Data, sd_core_file_path_helper::FilePathError> {
 	use sd_utils::db::inode_to_db;
@@ -1125,7 +1110,10 @@ pub async fn create_file_path(
 				),
 				location::connect(prisma::location::id::equals(location.id)),
 			),
-			((cas_id::NAME, msgpack!(cas_id)), cas_id::set(cas_id)),
+			(
+				(cas_id::NAME, msgpack!(cas_id)),
+				cas_id::set(cas_id.map(Into::into)),
+			),
 			(
 				(materialized_path::NAME, msgpack!(materialized_path)),
 				materialized_path::set(Some(materialized_path.into())),

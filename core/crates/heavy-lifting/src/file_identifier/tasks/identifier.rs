@@ -34,14 +34,14 @@ use super::{create_objects_and_update_file_paths, FilePathToCreateOrLinkObject};
 #[derive(Debug, Serialize, Deserialize)]
 struct IdentifiedFile {
 	file_path: file_path_for_file_identifier::Data,
-	cas_id: CasId,
+	cas_id: CasId<'static>,
 	kind: ObjectKind,
 }
 
 impl IdentifiedFile {
 	pub fn new(
 		file_path: file_path_for_file_identifier::Data,
-		cas_id: impl Into<CasId>,
+		cas_id: impl Into<CasId<'static>>,
 		kind: ObjectKind,
 	) -> Self {
 		Self {
@@ -83,7 +83,7 @@ pub struct Output {
 
 	/// Files that need to be aggregate between many identifier tasks to be processed by the
 	/// object processor tasks
-	pub file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	pub file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 
 	/// Collected metric about time elapsed extracting metadata from file system
 	pub extract_metadata_time: Duration,

@@ -9265,6 +9265,7 @@ dependencies = [
  "sd-prisma",
  "sd-utils",
  "serde",
+ "specta",
  "uuid",
 ]
 

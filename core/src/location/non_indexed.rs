@@ -1,18 +1,12 @@
-use crate::{
-	api::locations::ExplorerItem,
-	context::NodeContext,
-	library::Library,
-	object::{
-		cas::generate_cas_id,
-		// media::old_thumbnail::{get_ephemeral_thumb_key, BatchToProcess, GenerateThumbnailArgs},
-	},
-	Node,
-};
+use crate::{api::locations::ExplorerItem, context::NodeContext, library::Library, Node};
 
 use sd_core_file_path_helper::{path_is_hidden, MetadataExt};
-use sd_core_heavy_lifting::media_processor::{
-	self, get_thumbnails_directory, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs,
-	NewThumbnailsReporter, ThumbKey,
+use sd_core_heavy_lifting::{
+	file_identifier::generate_cas_id,
+	media_processor::{
+		self, get_thumbnails_directory, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs,
+		NewThumbnailsReporter, ThumbKey,
+	},
 };
 use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
@@ -227,12 +221,12 @@ pub async fn walk(
 							));
 						}
 
-						(
-							Some(ThumbKey::new_ephemeral(&cas_id)),
-							node.ephemeral_thumbnail_exists(&cas_id)
-								.await
-								.map_err(NonIndexedLocationError::from)?,
-						)
+						let thumb_exists = node
+							.ephemeral_thumbnail_exists(&cas_id)
+							.await
+							.map_err(NonIndexedLocationError::from)?;
+
+						(Some(ThumbKey::new_ephemeral(cas_id)), thumb_exists)
 					} else {
 						(None, false)
 					}

@@ -25,7 +25,7 @@ pub struct ObjectProcessor {
 	with_priority: bool,
 
 	// Received input args
-	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 
 	// Inner state
 	stage: Stage,
@@ -42,7 +42,7 @@ pub struct ObjectProcessor {
 enum Stage {
 	Starting,
 	AssignFilePathsToExistingObjects {
-		existing_objects_by_cas_id: HashMap<CasId, ObjectPubId>,
+		existing_objects_by_cas_id: HashMap<CasId<'static>, ObjectPubId>,
 	},
 	CreateObjects,
 }
@@ -191,7 +191,7 @@ impl Task<Error> for ObjectProcessor {
 impl ObjectProcessor {
 	#[must_use]
 	pub fn new(
-		file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+		file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
 		with_priority: bool,
@@ -213,15 +213,15 @@ impl ObjectProcessor {
 async fn fetch_existing_objects_by_cas_id<'cas_id, Iter>(
 	cas_ids: Iter,
 	db: &PrismaClient,
-) -> Result<HashMap<CasId, ObjectPubId>, file_identifier::Error>
+) -> Result<HashMap<CasId<'static>, ObjectPubId>, file_identifier::Error>
 where
-	Iter: IntoIterator<Item = &'cas_id CasId> + Send,
+	Iter: IntoIterator<Item = &'cas_id CasId<'cas_id>> + Send,
 	Iter::IntoIter: Send,
 {
 	async fn inner(
 		stringed_cas_ids: Vec<String>,
 		db: &PrismaClient,
-	) -> Result<HashMap<CasId, ObjectPubId>, file_identifier::Error> {
+	) -> Result<HashMap<CasId<'static>, ObjectPubId>, file_identifier::Error> {
 		db.object()
 			.find_many(vec![object::file_paths::some(vec![
 				file_path::cas_id::in_vec(stringed_cas_ids),
@@ -237,8 +237,14 @@ where
 					.filter_map(|object_for_file_identifier::Data { pub_id, file_paths }| {
 						file_paths
 							.first()
-							.and_then(|file_path| file_path.cas_id.as_ref())
-							.map(|cas_id| (cas_id.into(), pub_id.into()))
+							.and_then(|file_path| {
+								file_path
+									.cas_id
+									.as_ref()
+									.map(CasId::from)
+									.map(CasId::into_owned)
+							})
+							.map(|cas_id| (cas_id, pub_id.into()))
 					})
 					.collect()
 			})
@@ -258,8 +264,8 @@ where
 /// connected to file paths with the same cas_id
 #[instrument(skip_all, err, fields(identified_files_count = file_paths_by_cas_id.len()))]
 async fn assign_existing_objects_to_file_paths(
-	file_paths_by_cas_id: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
-	objects_by_cas_id: &HashMap<CasId, ObjectPubId>,
+	file_paths_by_cas_id: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
+	objects_by_cas_id: &HashMap<CasId<'static>, ObjectPubId>,
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
@@ -299,7 +305,7 @@ async fn assign_existing_objects_to_file_paths(
 }
 
 async fn assign_objects_to_duplicated_orphans(
-	file_paths_by_cas_id: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_by_cas_id: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<(Vec<file_path::id::Type>, u64), file_identifier::Error> {
@@ -357,7 +363,7 @@ async fn assign_objects_to_duplicated_orphans(
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveState {
 	id: TaskId,
-	file_paths_by_cas_id: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	stage: Stage,
 	output: Output,
 	with_priority: bool,

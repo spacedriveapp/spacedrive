@@ -28,7 +28,7 @@ pub mod job;
 mod shallow;
 mod tasks;
 
-use cas_id::generate_cas_id;
+pub use cas_id::generate_cas_id;
 
 pub use job::FileIdentifier;
 pub use shallow::shallow;
@@ -77,7 +77,7 @@ pub enum NonCriticalFileIdentifierError {
 
 #[derive(Debug, Clone)]
 pub struct FileMetadata {
-	pub cas_id: Option<String>,
+	pub cas_id: Option<CasId<'static>>,
 	pub kind: ObjectKind,
 	pub fs_metadata: Metadata,
 }
@@ -197,7 +197,7 @@ async fn dispatch_object_processor_tasks<Iter>(
 	with_priority: bool,
 ) -> Vec<TaskHandle<crate::Error>>
 where
-	Iter: IntoIterator<Item = (CasId, Vec<FilePathToCreateOrLinkObject>)> + Send,
+	Iter: IntoIterator<Item = (CasId<'static>, Vec<FilePathToCreateOrLinkObject>)> + Send,
 	Iter::IntoIter: Send,
 {
 	let mut current_batch = HashMap::<_, Vec<_>>::new();
@@ -262,8 +262,8 @@ where
 }
 
 fn accumulate_file_paths_by_cas_id(
-	input: HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
-	accumulator: &mut HashMap<CasId, Vec<FilePathToCreateOrLinkObject>>,
+	input: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
+	accumulator: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 ) {
 	for (cas_id, file_paths) in input {
 		match accumulator.entry(cas_id) {

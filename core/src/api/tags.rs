@@ -4,7 +4,7 @@ use sd_prisma::{
 	prisma::{file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
-use sd_sync::{option_sync_db_entry, option_sync_entry, sync_entry, OperationFactory};
+use sd_sync::{option_sync_db_entry, OperationFactory};
 use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;

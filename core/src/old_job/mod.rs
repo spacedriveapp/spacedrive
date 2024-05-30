@@ -149,54 +149,6 @@ pub trait DynJob: Send + Sync {
 	async fn cancel_children(&mut self, library: &Library) -> Result<(), JobError>;
 }
 
-pub struct JobBuilder<SJob: StatefulJob> {
-	id: Uuid,
-	init: SJob,
-	report_builder: JobReportBuilder,
-}
-
-impl<SJob: StatefulJob> JobBuilder<SJob> {
-	pub fn build(self) -> Box<OldJob<SJob>> {
-		Box::new(OldJob::<SJob> {
-			id: self.id,
-			hash: <SJob as StatefulJob>::hash(&self.init),
-			report: Some(self.report_builder.build()),
-			state: Some(JobState {
-				init: self.init,
-				data: None,
-				steps: VecDeque::new(),
-				step_number: 0,
-				run_metadata: Default::default(),
-			}),
-			next_jobs: VecDeque::new(),
-		})
-	}
-
-	pub fn new(init: SJob) -> Self {
-		let id = Uuid::new_v4();
-		Self {
-			id,
-			init,
-			report_builder: JobReportBuilder::new(id, SJob::NAME.to_string()),
-		}
-	}
-
-	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
-		self.report_builder = self.report_builder.with_action(action);
-		self
-	}
-
-	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
-		self.report_builder = self.report_builder.with_parent_id(parent_id);
-		self
-	}
-
-	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-		self.report_builder = self.report_builder.with_metadata(metadata);
-		self
-	}
-}
-
 pub struct OldJob<SJob: StatefulJob> {
 	id: Uuid,
 	hash: u64,
@@ -207,27 +159,20 @@ pub struct OldJob<SJob: StatefulJob> {
 
 impl<SJob: StatefulJob> OldJob<SJob> {
 	pub fn new(init: SJob) -> Box<Self> {
-		JobBuilder::new(init).build()
-	}
-
-	pub fn queue_next<NextSJob>(mut self: Box<Self>, init: NextSJob) -> Box<Self>
-	where
-		NextSJob: StatefulJob + 'static,
-	{
-		let next_job_order = self.next_jobs.len() + 1;
-
-		let mut child_job_builder = JobBuilder::new(init).with_parent_id(self.id);
-
-		if let Some(parent_report) = self.report() {
-			if let Some(parent_action) = &parent_report.action {
-				child_job_builder =
-					child_job_builder.with_action(format!("{parent_action}-{next_job_order}"));
-			}
-		}
-
-		self.next_jobs.push_back(child_job_builder.build());
-
-		self
+		let id = Uuid::new_v4();
+		Box::new(OldJob::<SJob> {
+			id,
+			hash: <SJob as StatefulJob>::hash(&init),
+			report: Some(JobReportBuilder::new(id, SJob::NAME.to_string()).build()),
+			state: Some(JobState {
+				init,
+				data: None,
+				steps: VecDeque::new(),
+				step_number: 0,
+				run_metadata: Default::default(),
+			}),
+			next_jobs: VecDeque::new(),
+		})
 	}
 
 	// this function returns an ingestible job instance from a job report

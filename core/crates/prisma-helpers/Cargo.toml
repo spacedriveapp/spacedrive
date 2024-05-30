@@ -15,4 +15,5 @@ sd-utils = { path = "../../../crates/utils" }
 
 prisma-client-rust = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }

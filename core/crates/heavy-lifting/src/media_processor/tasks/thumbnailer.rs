@@ -20,7 +20,7 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_prisma_helpers::{file_path_for_media_processor, CasId};
 
 use sd_prisma::prisma::{file_path, location};
 use sd_task_system::{
@@ -61,7 +61,7 @@ pub struct Thumbnailer {
 	// Received input args
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
-	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
+	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs<'static>>,
 	should_regenerate: bool,
 
 	// Inner state
@@ -231,7 +231,7 @@ impl Thumbnailer {
 	fn new(
 		thumbs_kind: ThumbnailKind,
 		thumbnails_directory_path: Arc<PathBuf>,
-		thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
+		thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs<'static>>,
 		errors: Vec<crate::NonCriticalError>,
 		should_regenerate: bool,
 		with_priority: bool,
@@ -256,7 +256,7 @@ impl Thumbnailer {
 	#[must_use]
 	pub fn new_ephemeral(
 		thumbnails_directory_path: Arc<PathBuf>,
-		thumbnails_to_generate: Vec<GenerateThumbnailArgs>,
+		thumbnails_to_generate: Vec<GenerateThumbnailArgs<'static>>,
 		reporter: Arc<dyn NewThumbnailReporter>,
 	) -> Self {
 		Self::new(
@@ -299,7 +299,12 @@ impl Thumbnailer {
 			file_paths
 				.iter()
 				.filter_map(|file_path| {
-					if let Some(cas_id) = file_path.cas_id.as_ref() {
+					if let Some(cas_id) = file_path
+						.cas_id
+						.as_ref()
+						.map(CasId::from)
+						.map(CasId::into_owned)
+					{
 						let file_path_id = file_path.id;
 						IsolatedFilePathData::try_from((location_id, file_path))
 							.map_err(|e| {
@@ -335,7 +340,7 @@ impl Thumbnailer {
 							file_path_id as u32,
 							GenerateThumbnailArgs::new(
 								iso_file_path.extension().to_string(),
-								cas_id.clone(),
+								cas_id,
 								full_path,
 							),
 						)
@@ -406,7 +411,7 @@ struct SaveState {
 	id: TaskId,
 	thumbs_kind: ThumbnailKind,
 	thumbnails_directory_path: Arc<PathBuf>,
-	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs>,
+	thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs<'static>>,
 	should_regenerate: bool,
 	with_priority: bool,
 	output: Output,

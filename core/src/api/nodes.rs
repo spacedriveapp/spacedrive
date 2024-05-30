@@ -179,12 +179,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				|node, UpdateThumbnailerPreferences { .. }: UpdateThumbnailerPreferences| async move {
 					node.config
 						.update_preferences(|_| {
-							// TODO(fogodev): remove this crap
-							// preferences
-							// 	.thumbnailer
-							// 	.set_background_processing_percentage(
-							// 		background_processing_percentage,
-							// 	);
+							// TODO(fogodev): introduce configurable workers count to task system
 						})
 						.await
 						.map_err(|e| {

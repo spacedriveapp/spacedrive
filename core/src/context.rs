@@ -147,13 +147,13 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 				}
 
 				ProgressUpdate::Message(message) => {
-					trace!("job {} message: {}", report.id, message);
+					trace!(job_id = %report.id, %message, "job message");
 					report.message = message;
 				}
 				ProgressUpdate::Phase(phase) => {
 					trace!(
-						"changing Job <id='{}'> phase: {} -> {phase}",
-						report.id,
+						job_id = %report.id,
+						"changing phase: {} -> {phase}",
 						report.phase
 					);
 					report.phase = phase;
@@ -168,7 +168,10 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 		let task_count = report.task_count as usize;
 		let completed_task_count = report.completed_task_count as usize;
 		let remaining_task_count = task_count.saturating_sub(completed_task_count);
-		let remaining_time_per_task = elapsed / (completed_task_count + 1) as i32; // Adding 1 to avoid division by zero
+
+		// Adding 1 to avoid division by zero
+		let remaining_time_per_task = elapsed / (completed_task_count + 1) as i32;
+
 		let remaining_time = remaining_time_per_task * remaining_task_count as i32;
 
 		// Update the report with estimated remaining time
@@ -189,7 +192,8 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 				async move {
 					if let Err(e) = report.update(&db).await {
 						error!(
-							"Failed to update job report on debounced job progress event: {e:#?}"
+							?e,
+							"Failed to update job report on debounced job progress event"
 						);
 					}
 				}
