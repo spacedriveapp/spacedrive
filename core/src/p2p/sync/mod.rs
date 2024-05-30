@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
-use uuid::Uuid;
 
 use super::P2PManager;
 
@@ -58,6 +57,7 @@ mod originator {
 		#[tokio::test]
 		async fn test() {
 			use sd_sync::CRDTOperation;
+			use uuid::Uuid;
 
 			{
 				let original = Operations(CompressedCRDTOperations::new(vec![]));
@@ -84,27 +84,32 @@ mod originator {
 	}
 
 	/// REMEMBER: This only syncs one direction!
-	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
-		for (remote_identity, peer) in p2p.get_library_instances(&library_id) {
+	pub async fn run(
+		library: Arc<Library>,
+		sync: &Arc<sync::Manager>,
+		p2p: &Arc<super::P2PManager>,
+	) {
+		for (remote_identity, peer) in p2p.get_library_instances(&library.id) {
 			if !peer.is_connected() {
 				continue;
 			};
 
 			let sync = sync.clone();
 
+			let library = library.clone();
 			tokio::spawn(async move {
 				debug!(
-					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
+					"Alerting peer {remote_identity:?} of new sync events for library {:?}",
+					library.id
 				);
 
 				let mut stream = peer.new_stream().await.unwrap();
 
-				stream
-					.write_all(&Header::Sync(library_id).to_bytes())
+				stream.write_all(&Header::Sync.to_bytes()).await.unwrap();
+
+				let mut tunnel = Tunnel::initiator(stream, &library.id, &library.identity)
 					.await
 					.unwrap();
-
-				let mut tunnel = Tunnel::initiator(stream).await.unwrap();
 
 				tunnel
 					.write_all(&SyncMessage::NewOperations.to_bytes())
