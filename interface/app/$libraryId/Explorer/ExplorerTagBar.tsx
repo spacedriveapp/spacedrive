@@ -221,7 +221,7 @@ const TagItem = ({
 		<button
 			className={clsx('group flex items-center gap-1 rounded-lg border px-1 py-0.5', {
 				['border-gray-500 bg-gray-500']: isDark,
-				['border-blue-500 bg-blue-700']: isAwaitingKeyPress && isDark,
+				['border-blue-400 bg-blue-800']: isAwaitingKeyPress && isDark,
 				['border-blue-500 bg-blue-200']: isAwaitingKeyPress && !isDark
 			})}
 			ref={buttonRef}
