@@ -5,7 +5,7 @@ index: 21
 
 # Usage
 
-This is a high-level guide of how to build features within Spacedrive on top of the peer-to-peer system. I would recommend referring to this [example PR](#todo) alongside this guide as a practical reference.
+This is a high-level guide of how to build features within Spacedrive on top of the peer-to-peer system. I would recommend referring to this [example PR](https://github.com/spacedriveapp/spacedrive/pull/2523) alongside this guide as a practical reference.
 
 Start by adding a new variant to [`Header` enum](https://github.com/spacedriveapp/spacedrive/blob/main/core/src/p2p/protocol.rs) and adjusting the `Header::from_stream` and `Header::to_bytes` implementation to support it.
 
@@ -75,3 +75,9 @@ let metadata = PeerMetadata::from_hashmap(&peer.metadata()).unwrap();
 // You could use the `semver` crate to compare versions
 let is_running_version_0_1_0 = metadata.version.as_deref() == Some("0.1.0");
 ```
+
+## Security
+
+If your devices are sending library scoped data you should ensure you use `sd_p2p_tunnel::Tunnel` to authenticate the library on the remote node.
+
+Refer to [it's docs](/docs/developers/p2p/sd_p2p_tunnel) for more information.
