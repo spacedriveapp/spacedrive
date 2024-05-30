@@ -108,7 +108,7 @@ export const ExplorerTagBar = (props: {}) => {
 					}
 				);
 			} catch (err) {
-				let msg: string = 'An unknown error occurred.';
+				let msg: string = t('error_unknown');
 
 				if (err instanceof Error || (typeof err === 'object' && err && 'message' in err)) {
 					msg = err.message as string;
