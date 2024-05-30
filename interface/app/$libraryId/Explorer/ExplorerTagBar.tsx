@@ -165,6 +165,13 @@ export const ExplorerTagBar = (props: {}) => {
 								setTagListeningForKeyPress(tag.id);
 							}}
 							onKeyPress={(e) => {
+								if (e.key === 'Escape') {
+									setTagListeningForKeyPress(undefined);
+									return void console.log(
+										'Tag hotkey assignment cancelled via escape key'
+									);
+								}
+
 								explorerStore.tagBulkAssignHotkeys =
 									explorerStore.tagBulkAssignHotkeys
 										.filter(
@@ -207,8 +214,9 @@ const TagItem = ({
 	const keybind = keybindForOs(os);
 
 	useKeybind(
-		NUMBER_KEYCODES,
+		[...NUMBER_KEYCODES, ['Escape']],
 		(e) => {
+			buttonRef.current?.blur();
 			return onKeyPress(e);
 		},
 		{
@@ -223,8 +231,15 @@ const TagItem = ({
 				['border-blue-500 bg-blue-700']: isAwaitingKeyPress && isDark,
 				['border-blue-500 bg-blue-200']: isAwaitingKeyPress && !isDark
 			})}
+			ref={buttonRef}
 			onClick={onClick}
 			tabIndex={-1}
+			aria-live={isAwaitingKeyPress ? 'assertive' : 'off'}
+			aria-label={
+				isAwaitingKeyPress
+					? `Type a number to map it to the "${tag.name}" tag. Press escape to cancel.`
+					: undefined
+			}
 		>
 			<Circle
 				fill={tag.color ?? 'grey'}
