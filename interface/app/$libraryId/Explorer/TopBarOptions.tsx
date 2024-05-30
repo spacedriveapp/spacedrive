@@ -30,7 +30,7 @@ const layoutIcons: Record<ExplorerLayout, Icon> = {
 export const useExplorerTopBarOptions = () => {
 	const [showInspector, tagAssignMode] = useSelector(explorerStore, (s) => [
 		s.showInspector,
-		s.tagAssignMode
+		s.isTagAssignModeActive
 	]);
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
@@ -134,7 +134,8 @@ export const useExplorerTopBarOptions = () => {
 				/>
 			),
 			// TODO: Assign tag mode is not yet implemented!
-			onClick: () => (explorerStore.tagAssignMode = !explorerStore.tagAssignMode),
+			onClick: () =>
+				(explorerStore.isTagAssignModeActive = !explorerStore.isTagAssignModeActive),
 			// TODO: remove once tag-assign-mode impl complete
 			// onClick: () => toast.info('Coming soon!'),
 			topBarActive: tagAssignMode,

@@ -196,7 +196,7 @@ const useExplorerShortcuts = () => {
 	const explorer = useExplorerContext();
 	const [isRenaming, tagAssignMode] = useSelector(explorerStore, (s) => [
 		s.isRenaming,
-		s.tagAssignMode
+		s.isTagAssignModeActive
 	]);
 	const quickPreviewStore = useQuickPreviewStore();
 
@@ -211,7 +211,7 @@ const useExplorerShortcuts = () => {
 	useShortcut('pasteObject', paste);
 
 	useShortcut('toggleTagAssignMode', (e) => {
-		explorerStore.tagAssignMode = !tagAssignMode;
+		explorerStore.isTagAssignModeActive = !tagAssignMode;
 	});
 
 	useShortcut('toggleQuickPreview', (e) => {

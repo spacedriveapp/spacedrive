@@ -1,13 +1,33 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { ExplorerItem, Tag, Target, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { useState } from 'react';
+import {
+	ExplorerItem,
+	Tag,
+	Target,
+	useLibraryMutation,
+	useLibraryQuery,
+	useSelector
+} from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
-import { useKeybind, useLocale, useOperatingSystem } from '~/hooks';
+import { useIsDark, useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useExplorerContext } from './Context';
+import { explorerStore } from './store';
 
-export const TAG_BAR_HEIGHT = 64;
+export const TAG_BAR_HEIGHT = 128;
+const NUMBER_KEYCODES = [
+	['Key1'],
+	['Key2'],
+	['Key3'],
+	['Key4'],
+	['Key5'],
+	['Key6'],
+	['Key7'],
+	['Key8'],
+	['Key9']
+];
 
 // TODO: hoist this to somewhere higher as a utility function
 const toTarget = (data: ExplorerItem): Target => {
@@ -28,10 +48,12 @@ const toTarget = (data: ExplorerItem): Target => {
 // million-ignore
 // TODO: implement proper custom ordering of tags
 export const ExplorerTagBar = (props: {}) => {
-	// const [isTagAssignModeActive] = useSelector(explorerStore, (s) => [s.tagAssignMode]);
+	const [tagBulkAssignHotkeys] = useSelector(explorerStore, (s) => [s.tagBulkAssignHotkeys]);
+	const explorer = useExplorerContext();
+
+	const [tagListeningForKeyPress, setTagListeningForKeyPress] = useState<number | undefined>();
 
 	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
-	const explorer = useExplorerContext();
 	const mutation = useLibraryMutation(['tags.assign'], {
 		onSuccess: () => {
 			// this makes sure that the tags are updated in the UI
@@ -46,14 +68,28 @@ export const ExplorerTagBar = (props: {}) => {
 	// This will automagically listen for any keypress 1-9 while the tag bar is visible.
 	// These listeners will unmount when ExplorerTagBar is unmounted.
 	useKeybind(
-		[['Key1'], ['Key2'], ['Key3'], ['Key4'], ['Key5'], ['Key6'], ['Key7'], ['Key8'], ['Key9']],
+		NUMBER_KEYCODES,
 		async (e) => {
 			const targets = Array.from(explorer.selectedItems.entries()).map((item) =>
 				toTarget(item[0])
 			);
 
-			// TODO: remove "!" and do proper conditional run
-			const tag = allTags[+e.key - 1]!;
+			if (targets.length < 1) return;
+
+			const key = e.key;
+
+			let tag: Tag | undefined;
+
+			findTag: {
+				const tagId = tagBulkAssignHotkeys.find(({ hotkey }) => hotkey === key)?.tagId;
+				const foundTag = allTags.find((t) => t.id === tagId);
+
+				if (!foundTag) break findTag;
+
+				tag = foundTag;
+			}
+
+			if (!tag) return;
 
 			try {
 				await mutation.mutateAsync({
@@ -74,48 +110,71 @@ export const ExplorerTagBar = (props: {}) => {
 			} catch (err) {
 				let msg: string = 'An unknown error occurred.';
 
-				if (err instanceof Error) {
-					msg = err.message;
-					console.error('Tag assignment failed with error', err);
+				if (err instanceof Error || (typeof err === 'object' && err && 'message' in err)) {
+					msg = err.message as string;
 				} else if (typeof err === 'string') {
 					msg = err;
 				}
 
-				toast(
-					t('tags_bulk_assigned', {
+				console.error('Tag assignment failed with error', err);
+
+				let failedToastMessage: string = t('tags_bulk_failed_without_tag', {
+					file_count: targets.length,
+					error_message: msg
+				});
+
+				if (tag)
+					failedToastMessage = t('tags_bulk_failed_with_tag', {
 						tag_name: tag.name,
 						file_count: targets.length,
 						error_message: msg
-					}),
-					{
-						type: 'error'
-					}
-				);
+					});
+
+				toast(failedToastMessage, {
+					type: 'error'
+				});
 			}
+		},
+		{
+			enabled: typeof tagListeningForKeyPress !== 'number'
 		}
 	);
 
 	return (
 		<div
 			className={clsx(
-				'flex flex-col-reverse items-start border-t border-t-app-line bg-app/90 px-3.5 text-ink-dull backdrop-blur-lg ',
+				'flex flex-col-reverse content-center items-start border-t border-t-app-line bg-app/90 px-3.5 py-1 text-ink-dull backdrop-blur-lg ',
 				`h-[${TAG_BAR_HEIGHT}px]`
 			)}
 		>
-			<em>{t('tags_bulk_instructions')}</em>
+			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
+			<em>{JSON.stringify(tagBulkAssignHotkeys)}</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
 				{allTags.map((tag, i) => (
 					<li key={tag.id}>
 						<TagItem
 							tag={tag}
-							assignKey={(++i).toString()}
+							assignKey={
+								tagBulkAssignHotkeys.find(({ hotkey, tagId }) => tagId === tag.id)
+									?.hotkey
+							}
+							isListeningForKeypress={tagListeningForKeyPress === tag.id}
 							onClick={() => {
-								// greedyCaptureNextKeyPress()
-								// 	.then()
-								// 	.catch((e) => {
-								// 		toast.error('Failed to capture keypress', e);
-								// 	});
+								setTagListeningForKeyPress(tag.id);
+							}}
+							onKeyPress={(e) => {
+								explorerStore.tagBulkAssignHotkeys =
+									explorerStore.tagBulkAssignHotkeys
+										.filter(
+											({ hotkey, tagId }) =>
+												hotkey !== e.key && tagId !== tag.id
+										)
+										.concat({
+											hotkey: e.key,
+											tagId: tag.id
+										});
+								setTagListeningForKeyPress(undefined);
 							}}
 						/>
 					</li>
@@ -127,34 +186,33 @@ export const ExplorerTagBar = (props: {}) => {
 
 interface TagItemProps {
 	tag: Tag;
-	assignKey: string;
+	assignKey?: string;
+	isListeningForKeypress: boolean;
+	onKeyPress: (e: KeyboardEvent) => void;
 	onClick: () => void;
 }
 
-const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
-	// const isDark = useIsDark();
+const TagItem = ({
+	tag,
+	assignKey,
+	isListeningForKeypress = false,
+	onKeyPress,
+	onClick
+}: TagItemProps) => {
+	const isDark = useIsDark();
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
 
-	// const { setDroppableRef, className, isDroppable } = useExplorerDroppable({
-	// 	data: {
-	// 		type: 'tag',
-	// 		path: tag.pathname,
-	// 		// data: { id: tag.tagId , }
-	// 		data: undefined
-	// 	},
-	// 	allow: ['Path', 'NonIndexedPath', 'Object'],
-	// 	navigateTo: onClick,
-	// 	disabled
-	// });
+	useKeybind(NUMBER_KEYCODES, onKeyPress, {
+		enabled: isListeningForKeypress
+	});
 
 	return (
 		<button
-			// ref={setDroppableRef}
-			className={clsx(
-				'group flex items-center gap-1 rounded-lg border border-gray-500 bg-gray-500 px-1 py-0.5'
-			)}
+			className={clsx('group flex items-center gap-1 rounded-lg border px-1 py-0.5', {
+				['border-gray-500 bg-gray-500']: isDark
+			})}
 			onClick={onClick}
 			tabIndex={-1}
 		>
@@ -165,9 +223,11 @@ const TagItem = ({ tag, assignKey, onClick }: TagItemProps) => {
 				aria-hidden
 				className="size-3"
 			/>
-			<span className="max-w-xs truncate text-ink-dull">{tag.name}</span>
+			<span className="max-w-xs truncate text-sm font-semibold text-ink-dull">
+				{tag.name}
+			</span>
 
-			<Shortcut chars={keybind([], [assignKey])} />
+			{assignKey && <Shortcut chars={keybind([], [assignKey])} />}
 		</button>
 	);
 };

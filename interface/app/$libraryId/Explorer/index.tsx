@@ -43,7 +43,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const layoutStore = useExplorerLayoutStore();
 	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
 		s.showInspector,
-		s.tagAssignMode
+		s.isTagAssignModeActive
 	]);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
