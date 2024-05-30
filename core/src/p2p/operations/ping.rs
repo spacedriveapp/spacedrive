@@ -1,7 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use sd_p2p::{RemoteIdentity, UnicastStream, P2P};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::debug;
 
 use crate::p2p::Header;
@@ -16,11 +16,22 @@ pub async fn ping(p2p: Arc<P2P>, identity: RemoteIdentity) -> Result<(), Box<dyn
 		.clone();
 	let mut stream = peer.new_stream().await?;
 
-	stream.write_all(&Header::Http.to_bytes()).await?;
+	stream.write_all(&Header::Ping.to_bytes()).await?;
+
+	let mut result = [0; 4];
+	let _ = stream.read_exact(&mut result).await?;
+	if result != *b"PONG" {
+		return Err("Failed to receive pong".into());
+	}
 
 	Ok(())
 }
 
-pub(crate) async fn receiver(stream: UnicastStream) {
+pub(crate) async fn receiver(mut stream: UnicastStream) {
 	debug!("Received ping from peer '{}'", stream.remote_identity());
+
+	stream
+		.write_all(b"PONG")
+		.await
+		.expect("Failed to send pong");
 }
