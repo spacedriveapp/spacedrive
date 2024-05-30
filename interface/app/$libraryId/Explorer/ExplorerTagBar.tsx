@@ -17,7 +17,7 @@ import { useExplorerContext } from './Context';
 import { explorerStore } from './store';
 
 export const TAG_BAR_HEIGHT = 128;
-const NUMBER_KEYCODES = [
+const NUMBER_KEYCODES: string[][] = [
 	['Key1'],
 	['Key2'],
 	['Key3'],
@@ -74,14 +74,17 @@ export const ExplorerTagBar = (props: {}) => {
 				toTarget(item[0])
 			);
 
+			// Silent fail if no files are selected
 			if (targets.length < 1) return;
 
-			const key = e.key;
+			const keyPressed = e.key;
 
 			let tag: Tag | undefined;
 
 			findTag: {
-				const tagId = tagBulkAssignHotkeys.find(({ hotkey }) => hotkey === key)?.tagId;
+				const tagId = tagBulkAssignHotkeys.find(
+					({ hotkey }) => hotkey === keyPressed
+				)?.tagId;
 				const foundTag = allTags.find((t) => t.id === tagId);
 
 				if (!foundTag) break findTag;
@@ -148,7 +151,6 @@ export const ExplorerTagBar = (props: {}) => {
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
-			<em>{JSON.stringify(tagBulkAssignHotkeys)}</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
 				{allTags.map((tag, i) => (
@@ -159,7 +161,7 @@ export const ExplorerTagBar = (props: {}) => {
 								tagBulkAssignHotkeys.find(({ hotkey, tagId }) => tagId === tag.id)
 									?.hotkey
 							}
-							isListeningForKeypress={tagListeningForKeyPress === tag.id}
+							isAwaitingKeyPress={tagListeningForKeyPress === tag.id}
 							onClick={() => {
 								setTagListeningForKeyPress(tag.id);
 							}}
@@ -187,7 +189,7 @@ export const ExplorerTagBar = (props: {}) => {
 interface TagItemProps {
 	tag: Tag;
 	assignKey?: string;
-	isListeningForKeypress: boolean;
+	isAwaitingKeyPress: boolean;
 	onKeyPress: (e: KeyboardEvent) => void;
 	onClick: () => void;
 }
@@ -195,7 +197,7 @@ interface TagItemProps {
 const TagItem = ({
 	tag,
 	assignKey,
-	isListeningForKeypress = false,
+	isAwaitingKeyPress = false,
 	onKeyPress,
 	onClick
 }: TagItemProps) => {
@@ -205,13 +207,15 @@ const TagItem = ({
 	const keybind = keybindForOs(os);
 
 	useKeybind(NUMBER_KEYCODES, onKeyPress, {
-		enabled: isListeningForKeypress
+		enabled: isAwaitingKeyPress
 	});
 
 	return (
 		<button
 			className={clsx('group flex items-center gap-1 rounded-lg border px-1 py-0.5', {
-				['border-gray-500 bg-gray-500']: isDark
+				['border-gray-500 bg-gray-500']: isDark,
+				['bg-blue-700']: isAwaitingKeyPress && isDark,
+				['bg-blue-300']: isAwaitingKeyPress
 			})}
 			onClick={onClick}
 			tabIndex={-1}
