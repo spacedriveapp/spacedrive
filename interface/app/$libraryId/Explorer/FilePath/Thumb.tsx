@@ -67,9 +67,9 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 
 		if (thumbType === 'thumbnail')
 			if (
-				loadState.thumbnail !== 'error' &&
-				itemData.hasLocalThumbnail &&
-				itemData.thumbnailKey.length > 0
+				loadState.thumbnail !== 'error' // &&
+				// itemData.hasLocalThumbnail &&
+				// itemData.thumbnailKey.length > 0
 			)
 				return { variant: 'thumbnail' };
 
