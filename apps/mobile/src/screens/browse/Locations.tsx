@@ -60,7 +60,6 @@ export default function LocationsScreen({ viewStyle }: Props) {
 					<Empty
 						icon="Folder"
 						style={'border-0'}
-						textSize="text-md"
 						iconSize={84}
 						description="You have not added any locations"
 					/>

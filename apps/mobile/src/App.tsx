@@ -4,6 +4,19 @@ import {
 	NavigationContainer,
 	useNavigationContainerRef
 } from '@react-navigation/native';
+import {
+	ClientContextProvider,
+	LibraryContextProvider,
+	P2PContextProvider,
+	RspcProvider,
+	initPlausible,
+	useBridgeQuery,
+	useClientContext,
+	useInvalidateQuery,
+	usePlausibleEvent,
+	usePlausiblePageViewMonitor,
+	usePlausiblePingMonitor
+} from '@sd/client';
 import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -17,19 +30,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
-import {
-	ClientContextProvider,
-	initPlausible,
-	LibraryContextProvider,
-	P2PContextProvider,
-	RspcProvider,
-	useBridgeQuery,
-	useClientContext,
-	useInvalidateQuery,
-	usePlausibleEvent,
-	usePlausiblePageViewMonitor,
-	usePlausiblePingMonitor
-} from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
 import { Toast, toastConfig } from './components/primitive/Toast';
@@ -55,12 +55,16 @@ function AppNavigation() {
 	const plausibleEvent = usePlausibleEvent();
 	const buildInfo = useBridgeQuery(['buildInfo']);
 
-	initPlausible({ platformType: 'mobile', buildInfo: buildInfo?.data });
-
 	const navRef = useNavigationContainerRef();
 	const routeNameRef = useRef<string>();
 
 	const [currentPath, setCurrentPath] = useState<string>('/');
+
+	useEffect(() => {
+		if (buildInfo?.data) {
+			initPlausible({ platformType: 'mobile', buildInfo: buildInfo.data });
+		}
+	}, [buildInfo]);
 
 	usePlausiblePageViewMonitor({ currentPath });
 	usePlausiblePingMonitor({ currentPath });
@@ -73,9 +77,11 @@ function AppNavigation() {
 		return () => clearInterval(interval);
 	}, [plausibleEvent]);
 
-	if (library === null && libraries.data) {
-		currentLibraryStore.id = libraries.data[0]?.uuid ?? null;
-	}
+	useEffect(() => {
+		if (library === null && libraries.data) {
+			currentLibraryStore.id = libraries.data[0]?.uuid ?? null;
+		}
+	}, [library, libraries]);
 
 	return (
 		<NavigationContainer

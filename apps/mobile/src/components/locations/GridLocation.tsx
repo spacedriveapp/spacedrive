@@ -1,6 +1,6 @@
+import { Location, arraysEqual, humanizeSize, useOnlineLocations } from '@sd/client';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
-import { arraysEqual, humanizeSize, Location, useOnlineLocations } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import FolderIcon from '../icons/FolderIcon';
@@ -16,11 +16,11 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 	const onlineLocations = useOnlineLocations();
 	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
 	return (
-		<Card style={'h-auto flex-col justify-center gap-3'}>
+		<Card style={'h-auto flex-col items-start justify-center gap-3'}>
 			<View style={tw`w-full flex-col justify-between gap-1`}>
 				<View style={tw`flex-row items-center justify-between`}>
 					<View style={tw`relative`}>
-						<FolderIcon size={42} />
+						<FolderIcon size={36} />
 						<View
 							style={twStyle(
 								'z-5 absolute bottom-[6px] right-[2px] h-2 w-2 rounded-full',
@@ -46,9 +46,11 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 					{location.path}
 				</Text>
 			</View>
-			<Text style={tw`text-left text-[13px] font-bold text-ink-dull`} numberOfLines={1}>
+			<View style={tw`rounded-md border border-app-box/70 bg-app/70 px-1 py-0.5`}>
+			<Text style={tw`text-xs font-bold text-ink-dull`} numberOfLines={1}>
 				{`${humanizeSize(location.size_in_bytes)}`}
 			</Text>
+			</View>
 		</Card>
 	);
 };

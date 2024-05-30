@@ -65,7 +65,6 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 					<Empty
 						icon="Tags"
 						style={'border-0'}
-						textSize="text-md"
 						iconSize={84}
 						description="You have not created any tags"
 					/>

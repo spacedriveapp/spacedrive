@@ -1,9 +1,4 @@
 import { Folder } from '@sd/assets/icons';
-import dayjs from 'dayjs';
-import { DotsThreeVertical, Pause, Play, Stop } from 'phosphor-react-native';
-import { useMemo, useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
 import {
 	getJobNiceActionName,
 	getTotalTasks,
@@ -11,13 +6,20 @@ import {
 	JobProgressEvent,
 	JobReport,
 	useLibraryMutation,
+	useRspcLibraryContext,
 	useTotalElapsedTimeText
 } from '@sd/client';
-import { tw } from '~/lib/tailwind';
+import dayjs from 'dayjs';
+import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from 'phosphor-react-native';
+import { SetStateAction, useMemo, useState } from 'react';
+import { Animated, Pressable, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { tw, twStyle } from '~/lib/tailwind';
 
 import { AnimatedHeight } from '../animation/layout';
 import { ProgressBar } from '../animation/ProgressBar';
 import { Button } from '../primitive/Button';
+import { Menu, MenuItem } from '../primitive/Menu';
 import { toast } from '../primitive/Toast';
 import Job from './Job';
 import JobContainer from './JobContainer';
@@ -58,11 +60,11 @@ export default function ({ group, progress }: JobGroupProps) {
 		return (
 			<Animated.View
 				style={[
-					tw`flex flex-row items-center pr-4`,
+					tw`mt-5 flex flex-row items-start pr-4`,
 					{ transform: [{ translateX: translate }] }
 				]}
 			>
-				<Options activeJob={runningJob} group={group} />
+				<Options showChildJobs={showChildJobs} setShowChildJobs={setShowChildJobs} activeJob={runningJob} group={group} />
 			</Animated.View>
 		);
 	};
@@ -158,8 +160,23 @@ const toastErrorSuccess = (
 	};
 };
 
-function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup }) {
-	// const queryClient = useQueryClient();
+interface OptionsProps {
+	activeJob?: JobReport;
+	group: JobGroup;
+	showChildJobs: boolean;
+	setShowChildJobs: React.Dispatch<SetStateAction<boolean>>
+}
+
+function Options({ activeJob, group, setShowChildJobs, showChildJobs }: OptionsProps) {
+
+	const rspc = useRspcLibraryContext();
+
+	const clearJob = useLibraryMutation(
+		['jobs.clear'], {
+			onSuccess: () => {
+				rspc.queryClient.invalidateQueries(['jobs.reports']);
+			}
+		})
 
 	const resumeJob = useLibraryMutation(
 		['jobs.resume'],
@@ -179,32 +196,45 @@ function Options({ activeJob, group }: { activeJob?: JobReport; group: JobGroup 
 		[group.jobs]
 	);
 
-	// const clearJob = useLibraryMutation(
-	// 	['jobs.clear'],
-	// 	toastErrorSuccess('failed_to_remove_job', undefined, () => {
-	// 		queryClient.invalidateQueries(['jobs.reports']);
-	// 	})
-	// );
+	const clearJobHandler = () => {
+		group.jobs.forEach((job) => {
+			clearJob.mutate(job.id);
+			//only one toast for all jobs
+			if (job.id === group.id)
+				toast.success('Job has been removed');
+		});
+	};
 
 	return (
 		<>
 			{/* Resume */}
 			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
-				<Button variant="outline" size="sm" onPress={() => resumeJob.mutate(group.id)}>
-					<Play size={18} color="white" />
+				<Button style={tw`h-7 w-7`} variant="outline" size="sm" onPress={() => resumeJob.mutate(group.id)}>
+					<Play size={16} color="white" />
 				</Button>
 			)}
 			{/* TODO: This should remove the job from panel */}
 			{!activeJob !== undefined ? (
-				<Button variant="outline" size="sm">
+				<Menu
+				containerStyle={tw`max-w-25`}
+				trigger={
+				<View style={tw`flex h-7 w-7 flex-row items-center justify-center rounded-md border border-app-inputborder`}>
 					<DotsThreeVertical size={16} color="white" />
-				</Button>
+				</View>
+					}
+				>
+				<MenuItem
+				style={twStyle(showChildJobs ? 'rounded bg-app-screen/50' : 'bg-transparent')}
+				onSelect={() => setShowChildJobs(!showChildJobs)}
+				text="Expand" icon={Eye}/>
+				<MenuItem onSelect={clearJobHandler} text='Remove' icon={Trash}/>
+				</Menu>
 			) : (
 				<View style={tw`flex flex-row gap-2`}>
-					<Button variant="outline" size="sm" onPress={() => pauseJob.mutate(group.id)}>
+					<Button style={tw`h-7 w-7`} variant="outline" size="sm" onPress={() => pauseJob.mutate(group.id)}>
 						<Pause size={16} color="white" />
 					</Button>
-					<Button variant="outline" size="sm" onPress={() => cancelJob.mutate(group.id)}>
+					<Button style={tw`h-7 w-7`} variant="outline" size="sm" onPress={() => cancelJob.mutate(group.id)}>
 						<Stop size={16} color="white" />
 					</Button>
 				</View>

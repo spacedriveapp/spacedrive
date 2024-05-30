@@ -14,13 +14,14 @@ type MenuProps = {
 	trigger: React.ReactNode;
 	children: React.ReactNode[] | React.ReactNode;
 	triggerStyle?: ClassInput;
+	containerStyle?: ClassInput;
 };
 
 // TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
 		<PMenu style={twStyle(props.triggerStyle)}>
 			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions optionsContainerStyle={tw`rounded-md border border-app-cardborder bg-app-menu p-1`}>
+			<MenuOptions optionsContainerStyle={twStyle(`rounded-md border border-app-cardborder bg-app-menu p-1`, props.containerStyle)}>
 				{props.children}
 			</MenuOptions>
 		</PMenu>
@@ -28,24 +29,25 @@ export const Menu = (props: MenuProps) => (
 
 type MenuItemProps = {
 	icon?: Icon;
+	textStyle?: ClassInput;
+	iconStyle?: ClassInput;
+	style?: ClassInput;
 } & MenuOptionProps;
 
-export const MenuItem = ({ icon, ...props }: MenuItemProps) => {
+export const MenuItem = ({ icon, textStyle, iconStyle, style, ...props }: MenuItemProps) => {
 	const Icon = icon;
 
 	return (
-		<View style={tw`flex flex-1 flex-row items-center`}>
+		<View style={twStyle(`flex-1 flex-row items-center px-2 py-1`, style)}>
 			{Icon && (
-				<View style={tw`ml-1`}>
-					<Icon size={16} style={tw`text-ink`} />
-				</View>
+					<Icon size={14} style={twStyle(`text-ink-dull`, iconStyle)} />
 			)}
 			<MenuOption
 				{...props}
 				customStyles={{
-					optionText: tw`w-full py-1 text-sm font-medium text-ink`
+					optionText: twStyle(`text-sm font-medium text-ink-dull`, textStyle)
 				}}
-				style={tw`flex flex-row items-center`}
+				style={tw`flex flex-row`}
 			/>
 		</View>
 	);
