@@ -81,3 +81,11 @@ It was reported on Discord that opening Spacedrive would cause excessive network
 
 This issue is tracked as [ENG-1319](https://linear.app/spacedriveapp/issue/ENG-1319/excessive-mdns-pings).
 
+## Tracking
+
+When information about the device is exposed to the local network we introduce the risk that this information is used for tracking users.
+
+The intention is for the contacts only mode to mitigate this risk as the device will only be discoverable by other devices that are in the users contacts and all information will be unintelligible.
+
+Apple outline some information about how they combat this for AirDrop [here](https://support.apple.com/en-au/guide/security/sec2261183f4/web) and we can do something similar.
+

@@ -73,6 +73,10 @@ WebRTC also has a built in system for authentication via the SDP object that nee
 
 libp2p *does* have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
 
+### Security
+
+The relay works through encrypted communication so we can not read the data that is being relayed. The relay servers currently must be owned by Spacedrive to work, however it's possible we can allow the community to run their own relays in the future.
+
 ### Hosting the Relay server
 
 <Notice
