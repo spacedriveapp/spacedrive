@@ -12,7 +12,7 @@ pub enum Header {
 	Spacedrop(SpaceblockRequests),
 	Sync(Uuid),
 	// A HTTP server used for rspc requests and streaming files
-	Http,
+	RspcRemote,
 }
 
 #[derive(Debug, Error)]
@@ -44,7 +44,7 @@ impl Header {
 					.await
 					.map_err(HeaderError::SyncRequest)?,
 			)),
-			5 => Ok(Self::Http),
+			5 => Ok(Self::RspcRemote),
 			d => Err(HeaderError::DiscriminatorInvalid(d)),
 		}
 	}
@@ -62,7 +62,7 @@ impl Header {
 				encode::uuid(&mut bytes, uuid);
 				bytes
 			}
-			Self::Http => vec![5],
+			Self::RspcRemote => vec![5],
 		}
 	}
 }

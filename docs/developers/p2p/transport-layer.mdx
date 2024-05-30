@@ -1,0 +1,16 @@
+---
+title: Transport layer
+index: 28
+---
+
+# Transport Layer
+
+We use [QUIC](https://en.wikipedia.org/wiki/QUIC) as our transport layer for peer to peer communication. QUIC is the perfect protocol for our use cases as it's fast, has built in stream multiplexing and has TLS built in so we can encryption out of the box.
+
+## TLS authentication
+
+Quic comes with built in TLS authentication with we make use of. Each node is issued a keypair ([`Identity`](https://github.com/spacedriveapp/spacedrive/blob/518d5836f6585a5f597c3ae5a0d27d084adc0a63/crates/p2p/src/identity.rs#L29)) which is stored in the node configuration.
+
+This certificate ensures the communication between our node and the remote node can't be intercepted or tampered with, however it provides no assurances about the identity of the remote node.
+
+An attacker could still do an [MITM](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) by sitting in the middle and presenting it's certificate to each side. To combat this we also have library certificates that allow us to verify and encrypt the libraries traffic so it can only be decoded by another node within the library.

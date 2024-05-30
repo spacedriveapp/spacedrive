@@ -1,0 +1,91 @@
+---
+title: Local Network Discovery
+index: 26
+---
+
+# Local Network Discovery
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/mdns.rs)
+
+Our local network discovery uses [DNS-Based Service Discovery](https://www.rfc-editor.org/rfc/rfc6763.html) which itself is built around [Multicast DNS (mDNS)](https://datatracker.ietf.org/doc/html/rfc6762). This is a really well established technology and is used in [Spotify Connect](https://support.spotify.com/au/article/spotify-connect/), [Apple Airplay](https://www.apple.com/au/airplay/) and many other services you use every day.
+
+We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
+
+## Service Structure
+
+The following is an example of what would be broadcast from a single Spacedrive node:
+```toml
+# {remote_identity_of_self}._sd._udp.local.
+
+name=Oscars Laptop        # Shown to the user to select a device
+operating_system=macos    # Used for UI purposes
+device_model=MacBook Pro  # Used for UI purposes
+version=0.0.1 						# Spacedrive version
+
+# For each library that's active on the Spacedrive node:
+# {library_uuid}={remote_identity_of_self}
+d66ed0c3-03ac-4f9b-a374-a927830dfd5b=0l9vTOWu+5aJs0cyWxdfJEGtloEepGRAXcEuDeTDRPk
+```
+
+Within `sd-core` this is defined in two parts. The [`PeerMetadata` struct](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) takes care of the node metadata and libraries are inserted by the [`libraries_hook`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/libraries.rs#L13).
+
+## Modes
+
+<Notice
+	type="note"
+	text="This section discusses 'Contacts Only' which is not yet fully implemented (refer to ENG-1197)."
+/>
+
+Within Spacedrive's settings the user is able to choose between three modes for local network discovery:
+ - **Contacts only**: Only devices that are in your contacts list will be able to see your device.
+ - **Enabled**: All devices on the local network will be able to see your device.
+ - **Disabled**: No devices on the local network will be able to see your device.
+
+**Enabled** and **Disabled** are implemented by spawning and shutting down the [`sd_p2p::Mdns`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/crates/p2p/src/mdns.rs#L17) service as required within `sd-core`.
+
+**Contacts only** the mDNS service will not contain the [`PeerMetadata`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/core/src/p2p/metadata.rs#L9) fields and instead will contain a hash of the users Spacedrive identifier. If a Spacedrive node detects another node in the local network with a hash in it's contacts, it can make a request to the node and if the remote node also has the current node in it's contacts, it will respond with the full metadata.
+
+## Integration with Spacedrive accounts
+
+P2P is currently *not* integrated with Spacedrive accounts and we will integrate it in the future for better security.
+
+Right now we use a remote identity to identify the remote device, however tihs is not very user friendly. If a [MITM](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)-style attack is preformed the remote identity will show up with the attacker's device but this isn't going to be particularly noticable by the user.
+
+To combat this issue we can integrate with Spacedrive accounts so the user can be presented with the users name and verified email. This allows the user to prove the remote device is who they expect in a more user friendly way.
+
+The Spacedrive account information will need to be put into the peer metadata and we can use cryptographic signatures to verify the account is linked with the remote device without a network connection.
+
+This issue is tracked as [ENG-1758](https://linear.app/spacedriveapp/issue/ENG-1758/p2p-🤝-spacedrive-accounts)
+
+## Problems with Docker
+
+Docker can be problematic with P2P due to it applying another level of [NAT](https://en.wikipedia.org/wiki/Network_address_translation). This shouldn't cause any issues for usage with the relay but it makes mDNS cease to work.
+
+It is possible to [expose the mDNS daemon](https://medium.com/@andrejtaneski/using-mdns-from-a-docker-container-b516a408a66b) of the host machine into the container, and we could potentially implement something similar, however it's unclear if [`mdns-sd`](https://docs.rs/mdns-sd) uses the OS's daemon and if `avahi` is used by all host Linux distributions we want to support.
+
+When `sd-server` is run from Docker the `Dockerfile` sets the environment variable `SD_DOCKER=true` which is picked up by the core and it exposes P2P on port `7373` instead of a random port like the default configuration.
+
+This allows the administrator to use the `-p 7373:7373` flag when running the container to expose the P2P port to the host machine. This can then be paired with manually entering the IP address and port of the node into the P2P settings of the other node and a connection can be established. Although this is suboptimal, it serves as an alternative for the time being.
+
+This issue is tracked as [ENG-1343](https://linear.app/spacedriveapp/issue/ENG-1343/docker-support-for-p2p).
+
+## Problems with mobile
+
+mDNS discovery does not work on mobile at the moment. To prevent this affecting other devices, we patch [`if-watch`](https://docs.rs/if-watch) using the fork [spacedriveapp/if-watch](https://github.com/spacedriveapp/if-watch). This fork basically implements a *no-op* for mobile so that the core is able to compile.
+
+This issue is tracked as [ENG-1108](https://linear.app/spacedriveapp/issue/ENG-1108/mdns-working-on-ios).
+
+## Problems on Linux
+
+It was reported on Discord that opening Spacedrive would cause excessive network activity. This is possibly a bug with the mDNS system; it was not able to be reproduced on macOS.
+
+This issue is tracked as [ENG-1319](https://linear.app/spacedriveapp/issue/ENG-1319/excessive-mdns-pings).
+
+## Tracking
+
+When information about the device is exposed to the local network we introduce the risk that this information is used for tracking users.
+
+The intention is for the contacts only mode to mitigate this risk as the device will only be discoverable by other devices that are in the users contacts and all information will be unintelligible.
+
+Apple outline some information about how they combat this for AirDrop [here](https://support.apple.com/en-au/guide/security/sec2261183f4/web) and we can do something similar.
+

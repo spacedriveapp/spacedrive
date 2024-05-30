@@ -77,8 +77,11 @@ model Instance {
   // Enum: sd_core::node::RemoteIdentity
   remote_identity Bytes
 
-  node_id  Bytes
-  metadata Bytes? // TODO: This should not be optional
+  // Enum: uuid::Uuid
+  node_id              Bytes
+  // Enum: sd_core::node::RemoteIdentity
+  node_remote_identity Bytes? // TODO: This should not be optional
+  metadata             Bytes? // TODO: This should not be optional
 
   last_seen    DateTime // Time core started for owner, last P2P message for P2P node
   date_created DateTime

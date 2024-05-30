@@ -9,7 +9,7 @@ use crate::{
 };
 
 use sd_core_sync::SyncMessage;
-use sd_p2p::Identity;
+use sd_p2p::{Identity, RemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
 use sd_utils::{
 	db,
@@ -437,7 +437,14 @@ impl Libraries {
 			.as_ref()
 			.map(|metadata| serde_json::from_slice(metadata).expect("invalid metadata"));
 		let instance_node_id = Uuid::from_slice(&instance.node_id)?;
-		if instance_node_id != node_config.id || curr_metadata != Some(node.p2p.peer_metadata()) {
+		let instance_node_remote_identity = instance
+			.node_remote_identity
+			.as_ref()
+			.and_then(|v| RemoteIdentity::from_bytes(v).ok());
+		if instance_node_id != node_config.id
+			|| instance_node_remote_identity != Some(node_config.identity.to_remote_identity())
+			|| curr_metadata != Some(node.p2p.peer_metadata())
+		{
 			info!(
 				"Detected that the library '{}' has changed node from '{}' to '{}'. Reconciling node data...",
 				id, instance_node_id, node_config.id
@@ -450,6 +457,13 @@ impl Libraries {
 					instance::id::equals(instance.id),
 					vec![
 						instance::node_id::set(node_config.id.as_bytes().to_vec()),
+						instance::node_remote_identity::set(Some(
+							node_config
+								.identity
+								.to_remote_identity()
+								.get_bytes()
+								.to_vec(),
+						)),
 						instance::metadata::set(Some(
 							serde_json::to_vec(&node.p2p.peer_metadata())
 								.expect("invalid peer metadata"),
@@ -581,7 +595,13 @@ impl Libraries {
 													.expect("invalid metadata")
 											});
 										let should_update = this_instance.node_id != node_config.id
-											|| curr_metadata != Some(node.p2p.peer_metadata());
+											|| RemoteIdentity::from_str(
+												&this_instance.node_remote_identity,
+											)
+											.ok() != Some(
+												node_config.identity.to_remote_identity(),
+											) || curr_metadata
+											!= Some(node.p2p.peer_metadata());
 
 										if should_update {
 											warn!("Library instance on cloud is outdated. Updating...");
@@ -592,6 +612,7 @@ impl Libraries {
 													library.id,
 													this_instance.uuid,
 													Some(node_config.id),
+													Some(node_config.identity.to_remote_identity()),
 													Some(node.p2p.peer_metadata()),
 												)
 												.await
@@ -630,6 +651,10 @@ impl Libraries {
 											instance.uuid,
 											instance.identity,
 											instance.node_id,
+											RemoteIdentity::from_str(
+												&instance.node_remote_identity,
+											)
+											.expect("malformed remote identity from API"),
 											instance.metadata,
 										)
 										.await
