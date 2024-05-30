@@ -423,7 +423,7 @@ async fn start(
 						}
 					};
 				}
-				Header::Http => {
+				Header::RspcRemote => {
 					let remote = stream.remote_identity();
 					let Err(err) = operations::rspc::receiver(stream, &mut service, &node).await
 					else {

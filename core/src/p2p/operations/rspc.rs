@@ -22,7 +22,7 @@ pub async fn remote_rspc(
 		.clone();
 	let mut stream = peer.new_stream().await?;
 
-	stream.write_all(&Header::Http.to_bytes()).await?;
+	stream.write_all(&Header::RspcRemote.to_bytes()).await?;
 
 	let (mut sender, conn) = hyper::client::conn::handshake(stream).await?;
 	tokio::task::spawn(async move {
