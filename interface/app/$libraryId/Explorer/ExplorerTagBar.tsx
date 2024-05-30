@@ -226,7 +226,6 @@ const TagItem = ({
 			})}
 			ref={buttonRef}
 			onClick={onClick}
-			tabIndex={-1}
 			aria-live={isAwaitingKeyPress ? 'assertive' : 'off'}
 			aria-label={
 				isAwaitingKeyPress
