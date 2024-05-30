@@ -1,7 +1,9 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	object::media::old_thumbnail::WEBP_EXTENSION,
+	object::media::old_thumbnail::{
+		get_ephemeral_thumb_key, get_indexed_thumb_key, WEBP_EXTENSION,
+	},
 	p2p::operations::{self, request_file},
 	util::InfallibleResponse,
 	Node,
@@ -222,13 +224,24 @@ async fn get_or_init_lru_entry(
 pub fn base_router() -> Router<LocalState> {
 	Router::new()
 		.route(
-			"/thumbnail/*path",
+			"/thumbnail/:lib_id/:cas_id",
 			get(
 				|State(state): State<LocalState>,
-				 extract::Path(path): extract::Path<String>,
+				 extract::Path((library_id, cas_id)): extract::Path<(String, String)>,
 				 request: Request<Body>| async move {
+					let path = if library_id == "ephemeral" {
+						get_ephemeral_thumb_key(&cas_id)
+					} else {
+						get_indexed_thumb_key(&cas_id, Uuid::from_str(&library_id).map_err(bad_request)?)
+					};
+
 					let thumbnail_path = state.node.config.data_directory().join("thumbnails");
-					let path = thumbnail_path.join(path);
+					let path = {
+						let mut p = thumbnail_path.clone();
+						p.extend(path);
+						p.set_extension("webp");
+						p
+					};
 
 					// Prevent directory traversal attacks (Eg. requesting `../../../etc/passwd`)
 					// For now we only support `webp` thumbnails.

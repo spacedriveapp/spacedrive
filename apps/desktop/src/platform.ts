@@ -45,9 +45,9 @@ function constructServerUrl(urlSuffix: string) {
 
 export const platform = {
 	platform: 'tauri',
-	getThumbnailUrlByThumbKey: (keyParts) =>
+	getThumbnailUrlByThumbKey: (library_id, cas_id) =>
 		constructServerUrl(
-			`/thumbnail/${keyParts.map((i) => encodeURIComponent(i)).join('/')}.webp`
+			`/thumbnail/${encodeURIComponent(library_id)}/${encodeURIComponent(cas_id)}`
 		),
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),

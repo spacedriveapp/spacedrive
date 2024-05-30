@@ -87,8 +87,8 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 				break;
 
 			case 'thumbnail':
-				if (itemData.thumbnailKey.length > 0)
-					return platform.getThumbnailUrlByThumbKey(itemData.thumbnailKey);
+				if (itemData.casId)
+					return platform.getThumbnailUrlByThumbKey(library.uuid, itemData.casId);
 
 				break;
 			case 'icon':
