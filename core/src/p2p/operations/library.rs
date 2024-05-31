@@ -23,7 +23,6 @@ use crate::{p2p::Header, Node};
 pub async fn request_file(
 	p2p: Arc<P2P>,
 	identity: RemoteIdentity,
-	library_id: &Uuid,
 	library_identity: &Identity,
 	file_path_id: Uuid,
 	range: Range,
@@ -42,7 +41,7 @@ pub async fn request_file(
 		)
 		.await?;
 
-	let mut stream = sd_p2p_tunnel::Tunnel::initiator(stream, library_id, library_identity).await?;
+	let mut stream = sd_p2p_tunnel::Tunnel::initiator(stream, library_identity).await?;
 
 	let block_size = BlockSize::from_stream(&mut stream).await?;
 	let size = stream.read_u64_le().await?;
@@ -82,9 +81,9 @@ pub(crate) async fn receiver(
 
 	let library = node
 		.libraries
-		.get_library(&stream.library_id())
+		.get_library_for_instance(&stream.library_remote_identity())
 		.await
-		.ok_or_else(|| format!("Library not found: {:?}", stream.library_id()))?;
+		.ok_or_else(|| format!("Library not found: {:?}", stream.library_remote_identity()))?;
 
 	let file_path = library
 		.db
@@ -93,12 +92,7 @@ pub(crate) async fn receiver(
 		.select(file_path_to_handle_p2p_serve_file::select())
 		.exec()
 		.await?
-		.ok_or_else(|| {
-			format!(
-				"File path {file_path_id:?} not found in {:?}",
-				stream.library_id()
-			)
-		})?;
+		.ok_or_else(|| format!("File path {file_path_id:?} not found in {:?}", library.id))?;
 
 	let location = file_path.location.as_ref().expect("included in query");
 	let location_path = location.path.as_ref().expect("included in query");

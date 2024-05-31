@@ -107,9 +107,7 @@ mod originator {
 
 				stream.write_all(&Header::Sync.to_bytes()).await.unwrap();
 
-				let mut tunnel = Tunnel::initiator(stream, &library.id, &library.identity)
-					.await
-					.unwrap();
+				let mut tunnel = Tunnel::initiator(stream, &library.identity).await.unwrap();
 
 				tunnel
 					.write_all(&SyncMessage::NewOperations.to_bytes())

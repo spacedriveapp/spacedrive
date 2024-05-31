@@ -11,8 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 
 use thiserror::Error;
 
-use sd_p2p::{Identity, RemoteIdentity, UnicastStream};
-use uuid::Uuid;
+use sd_p2p::{Identity, IdentityErr, RemoteIdentity, UnicastStream};
 
 #[derive(Debug, Error)]
 pub enum TunnelError {
@@ -24,8 +23,10 @@ pub enum TunnelError {
 	InvalidDiscriminator,
 	#[error("Error sending library id: {0:?}")]
 	ErrorSendingLibraryId(io::Error),
-	#[error("Error receiving library id: {0:?}")]
-	ErrorReceivingLibraryId(decode::Error),
+	#[error("Error receiving library identity: {0:?}")]
+	ErrorReceivingLibraryIdentity(decode::Error),
+	#[error("Error decoding library identity: {0:?}")]
+	ErrorDecodingLibraryIdentity(IdentityErr),
 }
 
 /// An encrypted tunnel between two libraries.
@@ -40,7 +41,6 @@ pub enum TunnelError {
 pub struct Tunnel {
 	stream: UnicastStream,
 	library_remote_id: RemoteIdentity,
-	library_id: Uuid,
 }
 
 impl Tunnel {
@@ -49,7 +49,6 @@ impl Tunnel {
 	/// This should be used by the node that initiated the request which this tunnel is used for.
 	pub async fn initiator(
 		mut stream: UnicastStream,
-		library_id: &Uuid,
 		library_identity: &Identity,
 	) -> Result<Self, TunnelError> {
 		stream
@@ -58,17 +57,16 @@ impl Tunnel {
 			.map_err(|_| TunnelError::DiscriminatorWriteError)?;
 
 		let mut buf = vec![];
-		encode::uuid(&mut buf, library_id);
+		encode::buf(&mut buf, &library_identity.to_remote_identity().get_bytes());
 		stream
 			.write_all(&buf)
 			.await
 			.map_err(TunnelError::ErrorSendingLibraryId)?;
 
-		// TODO: Do encryption tings
+		// TODO: Do encryption things
 
 		Ok(Self {
 			stream,
-			library_id: *library_id,
 			library_remote_id: library_identity.to_remote_identity(),
 		})
 	}
@@ -85,24 +83,20 @@ impl Tunnel {
 			return Err(TunnelError::InvalidDiscriminator);
 		}
 
-		let library_id = decode::uuid(&mut stream)
+		// TODO: Blindly decoding this from the stream is not secure. We need a cryptographic handshake here to prove the peer on the other ends is holding the private key.
+		let library_remote_id = decode::buf(&mut stream)
 			.await
-			.map_err(TunnelError::ErrorReceivingLibraryId)?;
+			.map_err(TunnelError::ErrorReceivingLibraryIdentity)?;
 
-		// TODO: Do encryption tings
+		let library_remote_id = RemoteIdentity::from_bytes(&library_remote_id)
+			.map_err(TunnelError::ErrorDecodingLibraryIdentity)?;
+
+		// TODO: Do encryption things
 
 		Ok(Self {
-			// TODO: This is wrong but it's fine for now cause we don't use it.
-			// TODO: Will fix this in a follow up PR when I add encryption
-			library_remote_id: stream.remote_identity(),
+			library_remote_id,
 			stream,
-			library_id,
 		})
-	}
-
-	/// The the ID of the library being tunneled.
-	pub fn library_id(&self) -> Uuid {
-		self.library_id
 	}
 
 	/// Get the `RemoteIdentity` of the peer on the other end of the tunnel.
