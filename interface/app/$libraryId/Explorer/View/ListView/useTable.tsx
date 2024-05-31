@@ -1,5 +1,4 @@
 import {
-	Tag,
 	getExplorerItemData,
 	getIndexedItemFilePath,
 	getItemFilePath,
@@ -52,14 +51,6 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 	const explorerSettings = explorer.useSettingsSnapshot();
 	const explorerLayout = useExplorerLayoutStore();
 
-	const object = getItemObject(item);
-	const filePath = getItemFilePath(item);
-
-	const data = object || filePath;
-
-	const tags = data && 'tags' in data ? data.tags : [];
-	const threeTags = tags.slice(0, 3);
-
 	return (
 		<div className="flex">
 			<FileThumb
@@ -82,24 +73,34 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 					editLines={3}
 				/>
 			{explorerLayout.showTags && (
-			<div
-			className='relative flex size-full flex-row items-center justify-end self-center'
-			style={{
-				marginLeft: threeTags.length * 4
-			}}
-			>
-				{threeTags.map((tag: {tag: Tag}, i: number) => (
-					<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
-						backgroundColor: tag.tag.color!,
-						right: i * 4
-					}}/>
-				))}
-		</div>
+				<Tags item={item}/>
 			)}
 			</div>
 		</div>
 	);
 });
+
+const Tags = ({item}: {item: ExplorerItem}) => {
+	const object = getItemObject(item);
+	const filePath = getItemFilePath(item);
+	const data = object || filePath;
+	const tags = data && 'tags' in data ? data.tags : [];
+ return (
+	<div
+	className='relative flex size-full flex-row items-center justify-end self-center'
+	style={{
+		marginLeft: tags.length * 4
+	}}
+	>
+		{tags.map(({tag}, i: number) => (
+			<div key={tag.id} className='relative size-2.5 rounded-full border border-app' style={{
+				backgroundColor: tag.color || 'transparent',
+				right: i * 4
+			}}/>
+		))}
+</div>
+ )
+}
 
 
 const KindCell = ({ kind }: { kind: string }) => {
