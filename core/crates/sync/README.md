@@ -109,7 +109,7 @@ usually because the scalar fields are local and disconnected from the Sync ID.
 ```rs
 let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 	sync_db_entry!(
-		prisma_sync::object::SyncId { pub_idk: object_pub_id },
+		prisma_sync::object::SyncId { pub_id: object_pub_id },
 		file_path::object
 	)
 ].into_iter().unzip();
