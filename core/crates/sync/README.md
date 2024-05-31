@@ -2,8 +2,6 @@
 
 Spacedrive's sync system. Consumes types and helpers from `sd-sync`.
 
-## Using Sync
-
 ### Creating Records
 
 Prepare a sync id by creating or obtaining its value,
@@ -99,5 +97,36 @@ sync.write_ops(
         db_params
     )
   )
+)
+```
+
+### Setting Relation Fields
+
+Setting relation fields requires providing the Sync ID of the relation.
+Setting the relation field's scalar fields instead will not properly sync then relation,
+usually because the scalar fields are local and disconnected from the Sync ID.
+
+```rs
+let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+	sync_db_entry!(
+		prisma_sync::object::SyncId { pub_id: object_pub_id },
+		file_path::object
+	)
+].into_iter().unzip();
+
+sync.write_ops(
+	db,
+	(
+		sync.shared_update(
+			prisma_sync::file_path::SyncId {
+				pub_id: file_path_pub_id
+			},
+			sync_params
+		),
+		db.file_path().update(
+			file_path::id::equals(file_path_id),
+			db_params
+		)
+	)
 )
 ```
