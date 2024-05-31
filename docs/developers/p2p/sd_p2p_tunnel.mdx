@@ -1,0 +1,24 @@
+---
+title: sd-p2p-tunnel
+index: 24
+---
+
+# `sd-p2p-tunnel`
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/tunnel)
+
+<Notice type="warning" text="The cryptography has not been implemented for this abstraction. It does not provide any security at this time but it should still be used so when it is implemented we can benefit from it." />
+
+You can wrap an `UnicastStream` with a `sd_p2p_tunnel::Tunnel` to authenticate that the remote peer is who they say they are and to encrypt the data being sent between the two peers.
+
+By default all communication is encrypted between the nodes, however we don't check that the remote peer is who they say they are, or are paired.
+
+So an attacker could setup a modified version of Spacedrive which presents it's own certificate but proxies all traffic between two nodes. This would allow them to view or modify the library data sent over the network. With mDNS being very easy to spoof getting a MITM attack like this is not a far feteched idea.
+
+Using `Tunnel` will prevent this attack by cryptographically verifying the remote peer holds the private key for the library instance they are advertising. This process also acts as an authentication mechanism for the remote peer to ensure they are allowed to request data within the library.
+
+You **should** use this is your communicating with a library on a remote node (Eg. sync, request file) but if you're talking with the node  (Eg. Spacedrop) you don't need it.
+
+## Example
+
+Refer to [the tests](#todo) to see an example of how to use the protocol.

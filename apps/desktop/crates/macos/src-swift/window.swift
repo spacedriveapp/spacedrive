@@ -1,10 +1,39 @@
 import AppKit
+import SwiftRs
 
 @objc
 public enum AppThemeType: Int {
   case auto = -1
   case light = 0
   case dark = 1
+}
+
+var activity: NSObjectProtocol?
+
+@_cdecl("disable_app_nap")
+public func disableAppNap(reason: SRString) -> Bool {
+    // Check if App Nap is already disabled
+    guard activity == nil else {
+        return false
+    }
+
+    activity = ProcessInfo.processInfo.beginActivity(
+        options: .userInitiatedAllowingIdleSystemSleep,
+        reason: reason.toString()
+    )
+    return true
+}
+
+@_cdecl("enable_app_nap")
+public func enableAppNap() -> Bool {
+    // Check if App Nap is already enabled
+    guard let pinfo = activity else {
+        return false
+    }
+
+    ProcessInfo.processInfo.endActivity(pinfo)
+    activity = nil
+    return true
 }
 
 @_cdecl("lock_app_theme")

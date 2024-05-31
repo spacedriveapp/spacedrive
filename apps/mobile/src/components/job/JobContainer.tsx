@@ -1,8 +1,8 @@
+import { TextItems } from '@sd/client';
 import { Image } from 'expo-image';
 import { Icon } from 'phosphor-react-native';
 import { Fragment } from 'react';
 import { Text, View, ViewStyle } from 'react-native';
-import { TextItems } from '@sd/client';
 import { styled, tw, twStyle } from '~/lib/tailwind';
 
 type JobContainerProps = {
@@ -25,7 +25,7 @@ export default function JobContainer(props: JobContainerProps) {
 		<View
 			style={twStyle(
 				'flex flex-row justify-center',
-				'border-b border-app-line/50 px-8 py-4',
+				'border-b border-app-line/30 px-8 py-4',
 				isChild && 'my-1.5 border-b-0 p-2 pl-12',
 				restProps.containerStyle
 			)}

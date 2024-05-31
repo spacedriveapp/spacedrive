@@ -14,11 +14,13 @@ use axum::routing::IntoMakeService;
 
 use sd_p2p::{
 	flume::{bounded, Receiver},
-	HookId, Libp2pPeerId, Mdns, Peer, QuicTransport, RelayServerEntry, RemoteIdentity,
-	UnicastStream, P2P,
+	hooks::{Libp2pPeerId, Mdns, QuicHandle, QuicTransport, RelayServerEntry},
+	Peer, RemoteIdentity, UnicastStream, P2P,
 };
 use sd_p2p_tunnel::Tunnel;
+use serde::Serialize;
 use serde_json::json;
+use specta::Type;
 use std::{
 	collections::HashMap,
 	convert::Infallible,
@@ -28,30 +30,44 @@ use std::{
 use tower_service::Service;
 use tracing::error;
 
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, Notify};
 use tracing::info;
 use uuid::Uuid;
 
 use super::{P2PEvents, PeerMetadata};
 
-#[derive(Default)]
-pub struct ListenerErrors {
-	pub ipv4: Option<String>,
-	pub ipv6: Option<String>,
+#[derive(Default, Clone, Serialize, Type)]
+#[serde(tag = "type")]
+pub enum ListenerState {
+	Listening,
+	Error {
+		error: String,
+	},
+	#[default]
+	NotListening,
+}
+
+#[derive(Default, Clone, Serialize, Type)]
+pub struct Listeners {
+	ipv4: ListenerState,
+	ipv6: ListenerState,
+	relay: ListenerState,
 }
 
 pub struct P2PManager {
 	pub(crate) p2p: Arc<P2P>,
 	mdns: Mutex<Option<Mdns>>,
-	quic: QuicTransport,
+	quic_transport: QuicTransport,
+	pub quic: Arc<QuicHandle>,
 	// The `libp2p::PeerId`. This is for debugging only, use `RemoteIdentity` instead.
 	lp2p_peer_id: Libp2pPeerId,
 	pub(crate) events: P2PEvents,
 	pub(super) spacedrop_pairing_reqs: Arc<Mutex<HashMap<Uuid, oneshot::Sender<Option<String>>>>>,
 	pub(super) spacedrop_cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 	pub(crate) node_config: Arc<config::Manager>,
-	pub libraries_hook_id: HookId,
-	pub listener_errors: Mutex<ListenerErrors>,
+	pub listeners: Mutex<Listeners>,
+	relay_config: Mutex<Vec<RelayServerEntry>>,
+	trigger_relay_config_update: Notify,
 }
 
 impl P2PManager {
@@ -68,18 +84,20 @@ impl P2PManager {
 		let (tx, rx) = bounded(25);
 		let p2p = P2P::new(SPACEDRIVE_APP_ID, node_config.get().await.identity, tx);
 		let (quic, lp2p_peer_id) = QuicTransport::spawn(p2p.clone()).map_err(|e| e.to_string())?;
-		let libraries_hook_id = libraries_hook(p2p.clone(), libraries);
+		libraries_hook(p2p.clone(), quic.handle(), libraries);
 		let this = Arc::new(Self {
 			p2p: p2p.clone(),
 			lp2p_peer_id,
 			mdns: Mutex::new(None),
-			quic,
-			events: P2PEvents::spawn(p2p.clone(), libraries_hook_id),
+			events: P2PEvents::spawn(p2p.clone(), quic.handle()),
+			quic: quic.handle(),
+			quic_transport: quic,
 			spacedrop_pairing_reqs: Default::default(),
 			spacedrop_cancellations: Default::default(),
 			node_config,
-			libraries_hook_id,
-			listener_errors: Default::default(),
+			listeners: Default::default(),
+			relay_config: Default::default(),
+			trigger_relay_config_update: Default::default(),
 		});
 		this.on_node_config_change().await;
 
@@ -112,8 +130,46 @@ impl P2PManager {
 							} else {
 								match resp.json::<Vec<RelayServerEntry>>().await {
 									Ok(config) => {
-										this.quic.set_relay_config(config).await;
-										info!("Updated p2p relay configuration successfully.")
+										node.p2p
+											.relay_config
+											.lock()
+											.unwrap_or_else(PoisonError::into_inner)
+											.clone_from(&config);
+
+										let config = {
+											let node_config = node.config.get().await;
+											if !node_config.p2p.disabled
+												&& !node_config.p2p.disable_relay
+											{
+												config
+											} else {
+												vec![]
+											}
+										};
+										let no_relays = config.len();
+
+										this.listeners
+											.lock()
+											.unwrap_or_else(PoisonError::into_inner)
+											.relay = match this.quic_transport.set_relay_config(config).await {
+											Ok(_) => {
+												info!(
+													"Updated p2p relay configuration successfully."
+												);
+												if no_relays == 0 {
+													this.quic.disable();
+
+													ListenerState::NotListening
+												} else {
+													this.quic.enable();
+
+													ListenerState::Listening
+												}
+											}
+											Err(err) => ListenerState::Error {
+												error: err.to_string(),
+											},
+										};
 									}
 									Err(err) => {
 										error!("Failed to parse p2p relay configuration: {err:?}")
@@ -124,7 +180,10 @@ impl P2PManager {
 						Err(err) => error!("Error pulling p2p relay configuration: {err:?}"),
 					}
 
-					tokio::time::sleep(Duration::from_secs(11 * 60)).await;
+					tokio::select! {
+						_ = this.trigger_relay_config_update.notified() => {}
+						_ = tokio::time::sleep(Duration::from_secs(11 * 60)) => {}
+					}
 				}
 			});
 		}))
@@ -136,6 +195,8 @@ impl P2PManager {
 
 	// TODO: Remove this and add a subscription system to `config::Manager`
 	pub async fn on_node_config_change(&self) {
+		self.trigger_relay_config_update.notify_waiters();
+
 		let config = self.node_config.get().await;
 
 		if config.p2p.discovery == P2PDiscoveryState::ContactsOnly {
@@ -154,44 +215,68 @@ impl P2PManager {
 
 		let port = config.p2p.port.get();
 
-		info!(
-			"Setting quic ipv4 listener to: {:?}",
-			config.p2p.ipv4.then_some(port)
-		);
-		if let Err(err) = self
-			.quic
-			.set_ipv4_enabled(config.p2p.ipv4.then_some(port))
-			.await
-		{
+		let ipv4_port = (!config.p2p.disabled).then_some(port);
+		info!("Setting quic ipv4 listener to: {ipv4_port:?}");
+		self.listeners
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.ipv4 = if let Err(err) = self.quic_transport.set_ipv4_enabled(ipv4_port).await {
 			error!("Failed to enabled quic ipv4 listener: {err}");
-			self.node_config.write(|c| c.p2p.ipv4 = false).await.ok();
+			self.node_config
+				.write(|c| c.p2p.disabled = false)
+				.await
+				.ok();
 
-			self.listener_errors
-				.lock()
-				.unwrap_or_else(PoisonError::into_inner)
-				.ipv4 = Some(err.to_string());
-		}
+			ListenerState::Error {
+				error: err.to_string(),
+			}
+		} else {
+			match !config.p2p.disabled {
+				true => ListenerState::Listening,
+				false => ListenerState::NotListening,
+			}
+		};
 
-		info!(
-			"Setting quic ipv6 listener to: {:?}",
-			config.p2p.ipv6.then_some(port)
-		);
-		if let Err(err) = self
-			.quic
-			.set_ipv6_enabled(config.p2p.ipv6.then_some(port))
-			.await
-		{
+		let enable_ipv6 = !config.p2p.disabled && !config.p2p.disable_ipv6;
+		let ipv6_port = enable_ipv6.then_some(port);
+		info!("Setting quic ipv6 listener to: {ipv6_port:?}");
+		self.listeners
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.ipv6 = if let Err(err) = self.quic_transport.set_ipv6_enabled(ipv6_port).await {
 			error!("Failed to enabled quic ipv6 listener: {err}");
-			self.node_config.write(|c| c.p2p.ipv6 = false).await.ok();
+			self.node_config
+				.write(|c| c.p2p.disable_ipv6 = false)
+				.await
+				.ok();
 
-			self.listener_errors
-				.lock()
-				.unwrap_or_else(PoisonError::into_inner)
-				.ipv6 = Some(err.to_string());
-		}
+			ListenerState::Error {
+				error: err.to_string(),
+			}
+		} else {
+			match enable_ipv6 {
+				true => ListenerState::Listening,
+				false => ListenerState::NotListening,
+			}
+		};
 
-		let should_revert = match config.p2p.discovery {
-			P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly => {
+		self.quic_transport
+			.set_manual_peer_addrs(config.p2p.manual_peers);
+
+		let should_revert = match (config.p2p.disabled, config.p2p.discovery) {
+			(true, _) | (_, P2PDiscoveryState::Disabled) => {
+				let mdns = {
+					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
+					mdns.take()
+				};
+				if let Some(mdns) = mdns {
+					mdns.shutdown().await;
+					info!("mDNS shutdown successfully.");
+				}
+
+				false
+			}
+			(_, P2PDiscoveryState::Everyone | P2PDiscoveryState::ContactsOnly) => {
 				let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
 				if mdns.is_none() {
 					match Mdns::spawn(self.p2p.clone()) {
@@ -208,18 +293,6 @@ impl P2PManager {
 				} else {
 					false
 				}
-			}
-			P2PDiscoveryState::Disabled => {
-				let mdns = {
-					let mut mdns = self.mdns.lock().unwrap_or_else(PoisonError::into_inner);
-					mdns.take()
-				};
-				if let Some(mdns) = mdns {
-					mdns.shutdown().await;
-					info!("mDNS shutdown successfully.");
-				}
-
-				false
 			}
 		};
 
@@ -268,6 +341,7 @@ impl P2PManager {
 				"active_connections": p.active_connections(),
 				"connection_methods": p.connection_methods().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
 				"discovered_by": p.discovered_by().iter().map(|id| format!("{:?}", id)).collect::<Vec<_>>(),
+				"candidates": p.connection_candidates().iter().map(|a| format!("{a:?}")).collect::<Vec<_>>(),
 			})).collect::<Vec<_>>(),
 			"hooks": self.p2p.hooks().iter().map(|(id, name)| json!({
 				"id": format!("{:?}", id),
@@ -275,7 +349,8 @@ impl P2PManager {
 				"listener_addrs": listeners.iter().find(|l| l.is_hook_id(*id)).map(|l| l.addrs.clone()),
 			})).collect::<Vec<_>>(),
 			"config": node_config.p2p,
-			"relay_config": self.quic.get_relay_config(),
+			"relay_config": self.quic_transport.get_relay_config(),
+			"listeners": self.listeners.lock().unwrap_or_else(PoisonError::into_inner).clone(),
 		})
 	}
 
@@ -312,7 +387,7 @@ async fn start(
 
 					error!("Failed to handle Spacedrop request");
 				}
-				Header::Sync(library_id) => {
+				Header::Sync => {
 					let Ok(mut tunnel) = Tunnel::responder(stream).await.map_err(|err| {
 						error!("Failed `Tunnel::responder`: {}", err);
 					}) else {
@@ -325,15 +400,15 @@ async fn start(
 						return;
 					};
 
-					let Ok(library) =
-						node.libraries
-							.get_library(&library_id)
-							.await
-							.ok_or_else(|| {
-								error!("Failed to get library '{library_id}'");
+					let Ok(library) = node
+						.libraries
+						.get_library_for_instance(&tunnel.library_remote_identity())
+						.await
+						.ok_or_else(|| {
+							error!("Failed to get library {}", tunnel.library_remote_identity());
 
-								// TODO: Respond to remote client with warning!
-							})
+							// TODO: Respond to remote client with warning!
+						})
 					else {
 						return;
 					};
@@ -348,7 +423,7 @@ async fn start(
 						}
 					};
 				}
-				Header::Http => {
+				Header::RspcRemote => {
 					let remote = stream.remote_identity();
 					let Err(err) = operations::rspc::receiver(stream, &mut service, &node).await
 					else {
@@ -356,6 +431,19 @@ async fn start(
 					};
 
 					error!("Failed to handling rspc request with '{remote}': {err:?}");
+				}
+				Header::LibraryFile {
+					file_path_id,
+					range,
+				} => {
+					let remote = stream.remote_identity();
+					let Err(err) =
+						operations::library::receiver(stream, file_path_id, range, &node).await
+					else {
+						return;
+					};
+
+					error!("Failed to handling library file request with {remote:?} for {file_path_id}: {err:?}");
 				}
 			};
 		});

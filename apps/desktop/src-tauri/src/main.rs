@@ -289,7 +289,10 @@ async fn main() -> tauri::Result<()> {
 								sd_desktop_macos::set_titlebar_style(
 									&window.ns_window().expect("NSWindows must exist on macOS"),
 									false,
-								)
+								);
+								sd_desktop_macos::disable_app_nap(
+									&"File indexer needs to run unimpeded".into(),
+								);
 							};
 						}
 					});

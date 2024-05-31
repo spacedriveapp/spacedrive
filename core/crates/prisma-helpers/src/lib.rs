@@ -112,6 +112,7 @@ file_path::select!(file_path_to_handle_custom_uri {
 		instance: select {
 			identity
 			remote_identity
+			node_remote_identity
 		}
 	}
 });

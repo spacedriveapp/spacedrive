@@ -77,7 +77,6 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		includeHeaderHeight
 		icon={'FolderNoSpace'}
 		style={tw`flex-1 items-center justify-center border-0`}
-		textSize="text-md"
 		iconSize={100}
 		description={'No files found'}
 	/>}

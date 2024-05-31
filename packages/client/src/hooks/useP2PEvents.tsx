@@ -15,6 +15,7 @@ type Peer = {
 	connection: ConnectionMethod;
 	discovery: DiscoveryMethod;
 	metadata: PeerMetadata;
+	addrs: string[];
 };
 
 type Context = {
@@ -38,7 +39,8 @@ export function P2PContextProvider({ children }: PropsWithChildren) {
 				peers.set(data.identity, {
 					connection: data.connection,
 					discovery: data.discovery,
-					metadata: data.metadata
+					metadata: data.metadata,
+					addrs: data.addrs
 				});
 				setPeers([peers]);
 			} else if (data.type === 'PeerDelete') {

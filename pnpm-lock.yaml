@@ -19,7 +19,7 @@ patchedDependencies:
     hash: 3ozd223mr7o4cioyf7af7qd56a
     path: patches/@oscartbeaumont-sd__rspc-tauri@0.0.0-main-dc31e5b2.patch
   '@remix-run/router@1.13.1':
-    hash: wdk5klbkacqsve2yzdckjvtjz4
+    hash: rgixflaa47ddt4t677o2d275p4
     path: patches/@remix-run__router@1.13.1.patch
 
 importers:
@@ -92,7 +92,7 @@ importers:
         version: 0.0.0-main-dc31e5b2(patch_hash=3ozd223mr7o4cioyf7af7qd56a)(@tauri-apps/api@2.0.0-beta.12)
       '@remix-run/router':
         specifier: '=1.13.1'
-        version: 1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)
+        version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -720,7 +720,7 @@ importers:
         version: 3.3.0(redux@5.0.1)
       '@remix-run/router':
         specifier: '=1.13.1'
-        version: 1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)
+        version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
       '@sd/assets':
         specifier: workspace:*
         version: link:../packages/assets
@@ -8305,16 +8305,20 @@ packages:
 
   glob@6.0.4:
     resolution: {integrity: sha512-MKZeRNyYZAVVVG1oZeLaWie1uweH40m9AZwIwxyPbTSX4hHrVYSzLg0Ro5Z5R7XKkIX+Cc6oD1rqeDJnwsB8/A==}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   glob@7.1.6:
     resolution: {integrity: sha512-LwaxwyZ72Lk7vZINtNNrywX0ZuLyStrdDtabefZKAY5ZGJhVtgdznluResxNmPitE0SAO+O26sWTHeKSI2wMBA==}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   glob@8.1.0:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
     engines: {node: '>=12'}
+    deprecated: Glob versions prior to v9 are no longer supported
 
   glob@9.3.5:
     resolution: {integrity: sha512-e1LleDykUz2Iu+MTYdkSsuWX8lvAjAcs0Xef0lNIu0S2wOAzuTxCJtcd9S3cijlwYF18EsU3rzb8jPVobxDh9Q==}
@@ -17565,7 +17569,7 @@ snapshots:
       immutable: 4.3.5
       redux: 5.0.1
 
-  '@remix-run/router@1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)': {}
+  '@remix-run/router@1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)': {}
 
   '@rnx-kit/console@1.0.12':
     dependencies:
@@ -26506,14 +26510,14 @@ snapshots:
 
   react-router-dom@6.20.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
-      '@remix-run/router': 1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)
+      '@remix-run/router': 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       react-router: 6.20.1(react@18.2.0)
 
   react-router@6.20.1(react@18.2.0):
     dependencies:
-      '@remix-run/router': 1.13.1(patch_hash=wdk5klbkacqsve2yzdckjvtjz4)
+      '@remix-run/router': 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
       react: 18.2.0
 
   react-selecto@1.26.3:

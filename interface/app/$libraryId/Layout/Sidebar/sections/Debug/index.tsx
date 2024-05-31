@@ -13,21 +13,9 @@ export default function DebugSection() {
 	return (
 		<Section name="Debug">
 			<div className="space-y-0.5">
-				<SidebarLink to="debug/sync">
-					<Icon component={ArrowsClockwise} />
-					Sync
-				</SidebarLink>
 				<SidebarLink to="debug/cloud">
 					<Icon component={Cloud} />
 					Cloud
-				</SidebarLink>
-				<SidebarLink to="debug/cache">
-					<Icon component={Database} />
-					Cache
-				</SidebarLink>
-				<SidebarLink to="debug/p2p/overview">
-					<Icon component={ShareNetwork} />
-					P2P
 				</SidebarLink>
 			</div>
 		</Section>

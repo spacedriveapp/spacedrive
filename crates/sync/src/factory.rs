@@ -21,7 +21,10 @@ pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
 	fn get_instance(&self) -> Uuid;
 
-	fn new_op<TSyncId: SyncId>(&self, id: &TSyncId, data: CRDTOperationData) -> CRDTOperation {
+	fn new_op<TSyncId: SyncId>(&self, id: &TSyncId, data: CRDTOperationData) -> CRDTOperation
+	where
+		TSyncId::Model: crate::SyncModel,
+	{
 		let timestamp = self.get_clock().new_timestamp();
 
 		CRDTOperation {

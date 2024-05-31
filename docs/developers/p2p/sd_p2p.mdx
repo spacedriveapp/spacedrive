@@ -1,0 +1,34 @@
+---
+title: sd-p2p
+index: 22
+---
+
+# `sd_p2p` crate
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p)
+
+The P2P crate was designed from the ground up to be modular.
+
+The `P2P` struct is the core of the system, but doesn't actually do any P2P functionality. It's a state manager and event bus which exposes a hook system for other components of the P2P system to register themselves.
+
+This modular design helps with separation of concerns which significantly helps with comprehending the entire system and streamlines testing.
+
+## What are hooks?
+
+A hook is very similar to an actor. It's a component which can be registered with the P2P system and it is allowed to listen and react to events.
+
+A hook allows for processing events from the P2P system and also ensures when the P2P system shuts down, the hook is also shutdown.
+
+There are special hooks called listeners. These are implemented as a superset of a regular hook and are able to create and accept connections.
+
+## Default hooks?
+
+The `sd_p2p` crate comes with a few default hooks:
+ - `Mdns` - Local network discovery using mDNS
+ - `Quic` - Quic transport layer built on top of `libp2p`
+
+Spacedrive implements some of it's own hooks within the `core/src/p2p` directory to deal with libraries correctly.
+
+## Lazy vs eager connection
+
+The P2P system is designed to lazily connect to peers. This is intentional to preserve battery life and reduce network usage. When the clients attempts to connect to a remote peer it will establish a connection and automatically close it after a period of inactivity.

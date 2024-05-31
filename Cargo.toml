@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-  "core",
-  "core/crates/*",
-  "crates/*",
-  "apps/cli",
-  "apps/p2p-relay",
-  "apps/desktop/src-tauri",
-  "apps/desktop/crates/*",
-  "apps/mobile/modules/sd-core/core",
-  "apps/mobile/modules/sd-core/android/crate",
-  "apps/mobile/modules/sd-core/ios/crate",
-  "apps/server",
+	"core",
+	"core/crates/*",
+	"crates/*",
+	"apps/cli",
+	"apps/p2p-relay",
+	"apps/desktop/src-tauri",
+	"apps/desktop/crates/*",
+	"apps/mobile/modules/sd-core/core",
+	"apps/mobile/modules/sd-core/android/crate",
+	"apps/mobile/modules/sd-core/ios/crate",
+	"apps/server",
 ]
 
 [workspace.package]
@@ -21,19 +21,19 @@ repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
 prisma-client-rust = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "migrations",
-  "specta",
-  "sqlite",
-  "sqlite-create-many",
+	"migrations",
+	"specta",
+	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-cli = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "migrations",
-  "specta",
-  "sqlite",
-  "sqlite-create-many",
+	"migrations",
+	"specta",
+	"sqlite",
+	"sqlite-create-many",
 ], default-features = false }
 prisma-client-rust-sdk = { git = "https://github.com/brendonovich/prisma-client-rust", rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab", features = [
-  "sqlite",
+	"sqlite",
 ], default-features = false }
 
 rspc = { version = "0.1.4" }
@@ -89,7 +89,7 @@ webp = "0.3.0"
 
 [patch.crates-io]
 # Proper IOS Support
-if-watch = { git = "https://github.com/oscartbeaumont/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
+if-watch = { git = "https://github.com/spacedriveapp/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
 
 # We hack it to the high heavens
 rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "ab12964b140991e0730c3423693533fba71efb03" }

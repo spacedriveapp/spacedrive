@@ -7,7 +7,7 @@ use libp2p::{identity::Keypair, multiaddr::Protocol, Multiaddr, PeerId};
 use crate::{Identity, RemoteIdentity};
 
 #[must_use]
-pub(crate) fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
+pub(crate) fn socketaddr_to_multiaddr(m: &SocketAddr) -> Multiaddr {
 	let mut addr = Multiaddr::empty();
 	match m {
 		SocketAddr::V4(ip) => addr.push(Protocol::Ip4(*ip.ip())),
@@ -16,6 +16,21 @@ pub(crate) fn socketaddr_to_quic_multiaddr(m: &SocketAddr) -> Multiaddr {
 	addr.push(Protocol::Udp(m.port()));
 	addr.push(Protocol::QuicV1);
 	addr
+}
+
+#[must_use]
+pub(crate) fn multiaddr_to_socketaddr(m: &Multiaddr) -> Option<SocketAddr> {
+	let mut iter = m.iter();
+	let ip = match iter.next()? {
+		Protocol::Ip4(ip) => ip.into(),
+		Protocol::Ip6(ip) => ip.into(),
+		_ => return None,
+	};
+	let port = match iter.next()? {
+		Protocol::Tcp(port) | Protocol::Udp(port) => port,
+		_ => return None,
+	};
+	Some(SocketAddr::new(ip, port))
 }
 
 // This is sketchy, but it makes the whole system a lot easier to work with

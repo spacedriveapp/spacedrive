@@ -1,0 +1,83 @@
+---
+title: usage
+index: 21
+---
+
+# Usage
+
+This is a high-level guide of how to build features within Spacedrive on top of the peer-to-peer system. I would recommend referring to this [example PR](https://github.com/spacedriveapp/spacedrive/pull/2523) alongside this guide as a practical reference.
+
+Start by adding a new variant to [`Header` enum](https://github.com/spacedriveapp/spacedrive/blob/main/core/src/p2p/protocol.rs) and adjusting the `Header::from_stream` and `Header::to_bytes` implementation to support it.
+
+Next create a new file for the features code in [`core/src/p2p/operations`](https://github.com/spacedriveapp/spacedrive/tree/main/core/src/p2p/operations) like the following:
+
+```rust
+use std::{error::Error, sync::Arc};
+
+use sd_p2p::{RemoteIdentity, UnicastStream, P2P};
+use tokio::io::AsyncWriteExt;
+use tracing::debug;
+
+use crate::p2p::Header;
+
+/// This method can be called to send a ping to a remote peer.
+/// The P2P system will take care of finding the peer and establishing a connection.
+pub async fn ping(p2p: Arc<P2P>, identity: RemoteIdentity) -> Result<(), Box<dyn Error>> {
+	let peer = p2p
+		.peers()
+		.get(&identity)
+		.ok_or("Peer not found, has it been discovered?")?
+		.clone();
+	let mut stream = peer.new_stream().await?;
+
+	stream.write_all(&Header::NameOfYourNewHeaderVariant.to_bytes()).await?;
+
+	Ok(())
+}
+
+/// This method is called when a ping `Header` is found on the incoming request.
+/// You must call this from the `match header` on the incoming handler.
+pub(crate) async fn receiver(stream: UnicastStream) {
+	debug!("Received communication from peer '{}'", stream.remote_identity());
+}
+```
+
+Next you need to setup an incoming handler [here](https://github.com/spacedriveapp/spacedrive/blob/4a62d268efea7dd6ff573531b1e2b2970c7ba562/core/src/p2p/manager.rs#L306) to define how your new `Header` variant should be handled when received. It should look something like:
+
+```rust
+match header {
+	...
+	Header::NameOfYourNewHeaderVariant => operations::name_of_your_new_file::receiver(stream).await;
+}
+```
+
+Finally, you can use the `UnicastStream` stream which implements [`AsyncRead`](https://docs.rs/tokio/latest/tokio/io/trait.AsyncRead.html) + [`AsyncWrite`](https://docs.rs/tokio/latest/tokio/io/trait.AsyncWrite.html) to send data back and forth between peers to implement any application functionality.
+
+## Version compatibility and breaking changes
+
+It is the responsibility of the developer to ensure the protocol does not go through any breaking changes, as this would cause communication errors when multiple devices are running different versions of the software.
+
+However, sometimes a breaking change may be required so we keep track of the Spacedrive version of each node within the peer metadata which can be used to coordinate breaking changes.
+
+In the sending code you will already have access to the `Peer` so you can access the metadata directly. If your in the receiver code you can use the following to get the `Peer`:
+
+```rust
+let peer = p2p.peers().get(&stream.remote_identity()).unwrap();
+```
+
+Then you can access the version from the metadata like so:
+
+```rust
+// If your in the receiver method you've got the `peer` if not you can get it from the P2P system:
+
+let metadata = PeerMetadata::from_hashmap(&peer.metadata()).unwrap();
+
+// You could use the `semver` crate to compare versions
+let is_running_version_0_1_0 = metadata.version.as_deref() == Some("0.1.0");
+```
+
+## Security
+
+If your devices are sending library scoped data you should ensure you use `sd_p2p_tunnel::Tunnel` to authenticate the library on the remote node.
+
+Refer to [it's docs](/docs/developers/p2p/sd_p2p_tunnel) for more information.
