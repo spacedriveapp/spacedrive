@@ -1,5 +1,25 @@
 import React, { useState } from 'react';
 import { Tooltip } from '@sd/ui'; // Ensure you import your Tooltip component correctly
+import { humanizeSize } from '@sd/client';
+import { useIsDark} from '~/hooks';
+
+// Function to lighten color
+const lightenColor = (color: string, percent: number) => {
+  const num = parseInt(color.replace("#", ""), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = (num >> 16) + amt;
+  const G = ((num >> 8) & 0x00ff) + amt;
+  const B = (num & 0x0000ff) + amt;
+  return `#${(
+    0x1000000 +
+    (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+    (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+    (B < 255 ? (B < 1 ? 0 : B) : 255)
+  )
+    .toString(16)
+    .slice(1)
+    .toUpperCase()}`;
+};
 
 interface Section {
   name: string;
@@ -14,44 +34,51 @@ interface StorageBarProps {
 }
 
 const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
+  const isDark = useIsDark();
   const [hoveredSectionIndex, setHoveredSectionIndex] = useState<number | null>(null);
 
   const getPercentage = (value: number) => {
-    const percentage = (value / totalSpace) * 100;
-    return `${percentage.toFixed(2)}%`;
+    const percentage = (value / totalSpace);
+    const pixvalue = 450 * percentage;
+    return `${pixvalue.toFixed(2)}px`;
   };
 
   const usedSpace = sections.reduce((acc, section) => acc + section.value, 0);
   const unusedSpace = totalSpace - usedSpace;
 
   return (
-    <div className="w-full p-4">
-      <div className="relative flex h-5 w-full overflow-hidden rounded bg-[#1C1D25]">
-        {sections.map((section, index) => (
-          <div
-            key={index}
-            className={`relative h-full ${
-              hoveredSectionIndex === index ? 'rounded-sm border border-white' : ''
-            }`}
-            style={{
-              width: getPercentage(section.value),
-              minWidth: '3px', // Ensure very small sections are visible
-              backgroundColor: section.color,
-              marginRight: index < sections.length - 1 ? '1px' : '0', // Add space between sections
-            }}
-          />
-        ))}
+    <div className="w-[450px] p-4">
+      <div className="relative my-3 flex h-5 w-full overflow-hidden rounded">
+        {sections.map((section, index) => {
+          const humanizedValue = humanizeSize(section.value);
+          const isHovered = hoveredSectionIndex === index;
+          return (
+            <Tooltip key={index} label={`${humanizedValue.value} ${humanizedValue.unit}`} position="top">
+              <div
+                className={`relative h-full`}
+                style={{
+                  width: getPercentage(section.value),
+                  minWidth: '2px', // Ensure very small sections are visible
+                  backgroundColor: isHovered ? lightenColor(section.color, 30) : section.color,
+                  transition: 'background-color 0.3s ease-in-out',
+                }}
+                onMouseEnter={() => setHoveredSectionIndex(index)}
+                onMouseLeave={() => setHoveredSectionIndex(null)}
+              />
+            </Tooltip>
+          );
+        })}
         {unusedSpace > 0 && (
           <div
-            className="relative h-full grow"
+            className="relative h-full"
             style={{
               width: getPercentage(unusedSpace),
-              backgroundColor: '#1C1D25',
+              backgroundColor: isDark ? '#1C1D25' : '#D3D3D3',
             }}
           />
         )}
       </div>
-      <div className="mt-1 flex flex-wrap text-ink-dull">
+      <div className={`mt-1 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>
         {sections.map((section, index) => (
           <Tooltip key={index} label={section.tooltip} position="top">
             <div

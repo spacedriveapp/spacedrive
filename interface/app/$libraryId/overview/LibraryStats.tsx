@@ -33,7 +33,7 @@ const StatItem = (props: StatItemProps) => {
   return (
     <div
       className={clsx(
-        'group/stat flex w-32 shrink-0 flex-col duration-75',
+        'group/stat flex w-36 shrink-0 flex-col duration-75',
         !bytes && 'hidden'
       )}
     >
@@ -84,10 +84,10 @@ const LibraryStats = () => {
   };
 
   const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+	total_library_bytes: t('library_bytes_description'),
+	library_db_size: t('library_db_size_description'),
     total_local_bytes_capacity: t('total_bytes_capacity_description'),
     total_library_preview_media_bytes: t('preview_media_bytes_description'),
-    total_library_bytes: t('library_bytes_description'),
-    library_db_size: t('library_db_size_description'),
     total_local_bytes_free: t('total_bytes_free_description'),
     total_local_bytes_used: t('total_bytes_used_description')
   };
@@ -105,29 +105,29 @@ const LibraryStats = () => {
 
   const sections = [
     {
-      name: t('library_db_size'),
+      name: StatItemNames.library_db_size,
       value: Number(statistics.library_db_size),
       color: '#FE9BFE',
-      tooltip: humanizeSize(statistics.library_db_size).toString()
+      tooltip: StatDescriptions.library_db_size,
     },
     {
-      name: t('preview_media_bytes'),
+      name: StatItemNames.total_library_preview_media_bytes,
       value: Number(statistics.total_library_preview_media_bytes),
       color: '#401773',
-      tooltip: humanizeSize(statistics.total_library_preview_media_bytes).toString()
+      tooltip: StatDescriptions.total_library_preview_media_bytes,
     },
     {
-      name: t('total_bytes_used'),
+      name: StatItemNames.total_local_bytes_used,
       value: Number(statistics.total_local_bytes_used),
       color: '#742AEA',
-      tooltip: humanizeSize(statistics.total_local_bytes_used).toString()
+      tooltip: StatDescriptions.total_local_bytes_used,
     },
   ];
 
   const excludedKeys = ['library_db_size', 'total_library_preview_media_bytes', 'total_local_bytes_used'];
 
   return (
-    <Card className="flex w-full flex-col bg-app-box p-4">
+    <Card className="flex h-[180px] w-[500px] flex-col bg-app-box/50 p-4">
       <div className="flex gap-3 overflow-hidden p-3">
         {Object.entries(statistics)
           .filter(([key]) => !excludedKeys.includes(key))
