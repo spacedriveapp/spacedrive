@@ -50,16 +50,30 @@ From my ([oscartbeaumont](https://github.com/oscartbeaumont)'s) perspective this
 
 ## Sync
 
-Unimplemented
+[Implementation](https://github.com/spacedriveapp/spacedrive/blob/main/core/src/p2p/sync/mod.rs)
 
-In an earlier version of the P2P system we had a method for sending sync messages to other nodes over the peer to peer connection, however this was removed during some refactoring of the sync system.
+This protocol takes care of sending sync messages between nodes. This is an alternative to the Cloud-based system.
 
-The code for it could be taken from [here](https://github.com/spacedriveapp/spacedrive/blob/aa72c083c2e5f6cf33f3c1fb66283e5fe0d1ba3b/core/src/p2p/pairing/mod.rs) and upgraded to account for changes to the sync and P2P system to bring back this functionality.
+This protocol uses [`sd_p2p_tunnel::Tunnel`](/docs/developers/p2p/sd_p2p_tunnel) so ensure the recipient is paired into the library.
 
-## Loading remote files
+## Loading thumbnails and files remotely
 
-TODO - Loading file within location over P2P
+[Implementation](https://github.com/spacedriveapp/spacedrive/blob/main/core/src/p2p/operations/library.rs)
+
+This protocol takes care of loading both thumbnails and files remotely. This is used when the media is not available on the local mode.
+
+This protocol transparently extends the custom URI protocol and uses information in the database to determine the node responsible for the file.
+
+This protocol uses [`sd_p2p_tunnel::Tunnel`](/docs/developers/p2p/sd_p2p_tunnel) so ensure the recipient is paired into the library.
+
+### Design issues
+
+Right now the system relies on the `instance_id` column on the `Location` to table to determine which node to route the media request to. This is a suboptimal solution as a location may move nodes, a good example of this is a USB drive.
+
+A better design would be to have an in-memory table of `HashMap<LocationId, NodeRemoteIdentity>` and then using another P2P protocol which sends a message to all connected nodes when a location comes online/offline on the current node.
 
 ## Sync preview media
 
-https://linear.app/spacedriveapp/issue/ENG-910/sync-preview-media
+Unimplemented
+
+Tracked by [ENG-910](https://linear.app/spacedriveapp/issue/ENG-910/sync-preview-media)

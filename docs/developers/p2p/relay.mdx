@@ -31,6 +31,10 @@ Currently we connect to every relay server that is returned from the discovery s
 
 The issue of connecting to every relay server is tracked as [ENG-1672](https://linear.app/spacedriveapp/issue/ENG-1672/mesh-relays).
 
+## Connection upgrades
+
+The relay will attempt to upgrade the connection between any peers to a direct connection if possible. If the firewall conditions are too challenging the relay will proxy the encrypted traffic between the two peers as a fallback.
+
 ## Authentication
 
 Currently the relay service is completly unauthenticated. To prevent abuse we are planning to restrict the relays to Spacedrive accounts.

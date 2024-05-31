@@ -393,7 +393,6 @@ async fn start(
 					}) else {
 						return;
 					};
-					let library_id = tunnel.library_id();
 
 					let Ok(msg) = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
 						error!("Failed `SyncMessage::from_stream`: {}", err);
@@ -401,15 +400,15 @@ async fn start(
 						return;
 					};
 
-					let Ok(library) =
-						node.libraries
-							.get_library(&library_id)
-							.await
-							.ok_or_else(|| {
-								error!("Failed to get library '{library_id}'");
+					let Ok(library) = node
+						.libraries
+						.get_library_for_instance(&tunnel.library_remote_identity())
+						.await
+						.ok_or_else(|| {
+							error!("Failed to get library {}", tunnel.library_remote_identity());
 
-								// TODO: Respond to remote client with warning!
-							})
+							// TODO: Respond to remote client with warning!
+						})
 					else {
 						return;
 					};
