@@ -11,7 +11,6 @@ use crate::{
 	},
 };
 
-use futures::stream::FuturesUnordered;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::exif_media_data;
 
@@ -21,20 +20,15 @@ use sd_file_ext::{
 };
 use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
-use tokio_util::io::ReaderStream;
-use tracing::instrument;
 
-use std::{ffi::OsStr, path::PathBuf, str::FromStr};
+use std::{ffi::OsStr, path::PathBuf, str::FromStr, time::Duration};
 
-use futures_concurrency::future::TryJoin;
+use futures_concurrency::future::{Join, TryJoin};
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
 use specta::Type;
-use tokio::{
-	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
-};
+use tokio::{fs, io};
 use tokio_stream::{wrappers::ReadDirStream, StreamExt};
 use tracing::{error, warn};
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
@@ -649,9 +643,9 @@ struct FileCopy {
 
 #[derive(Debug)]
 enum Progress {
-	Started(usize),
-	Advanced(usize),
-	Finished(Result<(), Box<dyn std::error::Error>>),
+	Started(u64),
+	Advanced(u64, u64),
+	Finished(Result<(), Box<dyn std::error::Error + Send>>),
 }
 
 #[derive(Debug)]
@@ -667,64 +661,77 @@ impl FileCopier {
 			.into_iter()
 			.map(|(source, destiny)| FileCopy { source, destiny })
 			.collect();
-		let (progress, _) = async_channel::unbounded();
+		let (progress, report) = async_channel::unbounded();
+
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(Duration::from_micros(50));
+			loop {
+				interval.tick().await;
+				match report.recv().await.unwrap() {
+					Progress::Started(_) => tracing::debug!("started progressing"),
+					Progress::Advanced(total, partial) => {
+						tracing::debug!(total, partial, "progress")
+					}
+					Progress::Finished(_) => {
+						tracing::debug!("finished");
+						break;
+					}
+				}
+			}
+		});
+
 		Self { map, progress }
 	}
 
-	#[instrument(skip_all)]
-	async fn copy(&self) -> Result<(), rspc::Error> {
-		use tracing::debug;
+	#[tracing::instrument(skip_all)]
+	async fn copy(self) -> Result<(), rspc::Error> {
+		let _map = self
+			.map
+			.into_iter()
+			.map(|mut file| {
+				let report = self.progress.clone();
+				async move {
+					let new_name = match fs::try_exists(&file.destiny).await {
+						Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
+						Ok(false) => Ok(file.destiny),
+						Err(_) => todo!(),
+					};
+					file.destiny = new_name.unwrap();
 
-		debug!("initiating copy of files");
+					let source = file.source.clone();
 
-		let map = self.map.iter().map(|file| async {
-			let dest = match fs::try_exists(&file.destiny).await {
-				Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
-				Ok(false) => Ok(file.destiny.clone()),
-				Err(_) => todo!(), //  TODO(matheus-consoli)
-			}
-			.unwrap();
+					let destiny = file.destiny.clone();
+					let copy = tokio::spawn(fs::copy(source, destiny));
 
-			let source = fs::File::open(&file.source).await?;
-			let metadata = source.metadata().await.unwrap();
-			let mut stream = ReaderStream::with_capacity(source, FILE_CHUNK);
+					let source_size = fs::metadata(&file.source).await.unwrap().len();
 
-			let destiny = fs::File::create(dest).await?; // experiment with buffered writer
+					let check = tokio::spawn(async move {
+						let mut interval = tokio::time::interval(Duration::from_micros(100));
 
-			destiny
-				.set_permissions(metadata.permissions())
-				.await
-				.unwrap();
-			let mut destiny = BufWriter::with_capacity(FILE_CHUNK, destiny);
+						loop {
+							interval.tick().await;
+							tokio::time::sleep(Duration::from_micros(100)).await;
+							match fs::metadata(&file.destiny).await {
+								Ok(metadata) => {
+									let len = metadata.len();
+									if len == source_size {
+										report.send(Progress::Finished(Ok(()))).await;
+										break;
+									}
+									report.send(Progress::Advanced(source_size, len)).await;
+								}
+								Err(_) => (),
+							}
+						}
+						Ok::<_, io::Error>(())
+					});
 
-			self.progress
-				.send(Progress::Started(metadata.len() as usize))
-				.await
-				.unwrap();
-
-			while let Some(chunk) = stream.next().await {
-				let chunk = chunk?;
-				destiny.write_all(&chunk).await?;
-				self.progress
-					.send(Progress::Advanced(chunk.len()))
-					.await
-					.unwrap();
-			}
-
-			self.progress
-				.send(Progress::Finished(Ok(())))
-				.await
-				.unwrap();
-
-			Ok(())
-		});
-
-		let a = FuturesUnordered::from_iter(map)
-			.collect::<Vec<Result<(), io::Error>>>()
+					(copy, check).try_join().await;
+				}
+			})
+			.collect::<Vec<_>>()
+			.join()
 			.await;
-
-		let e = a.into_iter().any(|e| e.is_err());
-		debug!(any_error = e, "copied");
 
 		Ok(())
 	}
