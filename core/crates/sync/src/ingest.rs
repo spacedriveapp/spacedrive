@@ -31,7 +31,7 @@ pub enum Request {
 		timestamps: Vec<(Uuid, NTP64)>,
 		tx: oneshot::Sender<()>,
 	},
-	Ingested,
+	// Ingested,
 	FinishedIngesting,
 }
 
@@ -425,7 +425,7 @@ impl Actor {
 
 		self.timestamps.write().await.insert(instance, new_ts);
 
-		self.io.req_tx.send(Request::Ingested).await.ok();
+		// self.io.req_tx.send(Request::Ingested).await.ok();
 
 		Ok(())
 	}

@@ -133,9 +133,9 @@ impl Instance {
 									.await
 									.unwrap();
 							}
-							ingest::Request::Ingested => {
-								instance2.sync.tx.send(SyncMessage::Ingested).ok();
-							}
+							// ingest::Request::Ingested => {
+							// 	instance2.sync.tx.send(SyncMessage::Ingested).ok();
+							// }
 							ingest::Request::FinishedIngesting => {}
 						}
 					}
