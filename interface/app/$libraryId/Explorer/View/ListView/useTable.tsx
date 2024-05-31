@@ -5,6 +5,7 @@ import {
 	getItemFilePath,
 	getItemObject,
 	humanizeSize,
+	useExplorerLayoutStore,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
@@ -49,11 +50,15 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
+	const explorerLayout = useExplorerLayoutStore();
 
 	const object = getItemObject(item);
 	const filePath = getItemFilePath(item);
+
 	const data = object || filePath;
+
 	const tags = data && 'tags' in data ? data.tags : [];
+	const threeTags = tags.slice(0, 3);
 
 	return (
 		<div className="flex">
@@ -67,34 +72,35 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 			/>
 
 			<div className="relative flex-1">
-				<div className='flex h-full items-center justify-evenly gap-2'>
 				<RenamableItemText
 					item={item}
 					selected={selected}
 					allowHighlight={false}
 					style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
-					className="absolute top-1/2 z-10 max-w-full -translate-y-1/2"
-					idleClassName="!w-full"
+					className="absolute top-1/2 z-10 -translate-y-1/2"
+					idleClassName={clsx(explorerLayout.showTags ? '!w-4/5' : '!w-full')}
 					editLines={3}
 				/>
-							<div
-			className='relative flex flex-row items-center'
+			{explorerLayout.showTags && (
+			<div
+			className='relative flex size-full flex-row items-center justify-end self-center'
 			style={{
-				left: tags.length * 1
+				marginLeft: threeTags.length * 4
 			}}
 			>
-			{tags?.slice(0, 3).map((tag: {tag: Tag}, i: number) => (
-				<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
-					backgroundColor: tag.tag.color!,
-					right: i * 4,
-				}}/>
-			))}
+				{threeTags.map((tag: {tag: Tag}, i: number) => (
+					<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
+						backgroundColor: tag.tag.color!,
+						right: i * 4
+					}}/>
+				))}
 		</div>
-		</div>
+			)}
 			</div>
 		</div>
 	);
 });
+
 
 const KindCell = ({ kind }: { kind: string }) => {
 	const explorer = useExplorerContext();
