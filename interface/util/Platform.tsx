@@ -17,7 +17,7 @@ export type OpenWithApplication = { url: string; name: string };
 // This could be Tauri or web.
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
-	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
+	getThumbnailUrlByThumbKey: (library_id: 'ephemeral' | string, cas_id: string) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
 	getFileUrlByPath: (path: string) => string;
 	getRemoteRspcEndpoint: (remote_identity: string) => {

@@ -2,7 +2,8 @@ use sd_p2p_block::{Range, SpaceblockRequests, SpaceblockRequestsError};
 use sd_p2p_proto::{decode, encode};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt};
-use uuid::Uuid;
+
+use super::operations::library::LibraryFileRequest;
 
 /// TODO
 #[derive(Debug, PartialEq, Eq)]
@@ -18,7 +19,7 @@ pub enum Header {
 	// Request a file within a library
 	// We don't include a library ID here as it's taken care of by `sd_p2p_tunnel::Tunnel`.
 	LibraryFile {
-		file_path_id: Uuid,
+		req: LibraryFileRequest,
 		range: Range,
 	},
 }
@@ -33,6 +34,8 @@ pub enum HeaderError {
 	SpacedropRequest(#[from] SpaceblockRequestsError),
 	#[error("error with library file decode '{0}'")]
 	LibraryFileDecodeError(decode::Error),
+	#[error("error with library file deserializing '{0}'")]
+	LibraryFileDeserializeError(rmp_serde::decode::Error),
 	#[error("error with library file io '{0}'")]
 	LibraryFileIoError(std::io::Error),
 	#[error("invalid range discriminator for library file req '{0}'")]
@@ -54,9 +57,12 @@ impl Header {
 			3 => Ok(Self::Sync),
 			5 => Ok(Self::RspcRemote),
 			6 => Ok(Self::LibraryFile {
-				file_path_id: decode::uuid(stream)
-					.await
-					.map_err(HeaderError::LibraryFileDecodeError)?,
+				req: {
+					let buf = decode::buf(stream)
+						.await
+						.map_err(HeaderError::LibraryFileDecodeError)?;
+					rmp_serde::from_slice(&buf).map_err(HeaderError::LibraryFileDeserializeError)?
+				},
 				range: match stream
 					.read_u8()
 					.await
@@ -91,12 +97,12 @@ impl Header {
 			Self::Ping => vec![1],
 			Self::Sync => vec![3],
 			Self::RspcRemote => vec![5],
-			Self::LibraryFile {
-				file_path_id,
-				range,
-			} => {
+			Self::LibraryFile { req, range } => {
 				let mut buf = vec![6];
-				encode::uuid(&mut buf, file_path_id);
+				encode::buf(
+					&mut buf,
+					&rmp_serde::to_vec(req).expect("it is a valid serde type"),
+				);
 				buf.extend_from_slice(&range.to_bytes());
 				buf
 			}
