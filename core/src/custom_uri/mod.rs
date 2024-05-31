@@ -317,7 +317,6 @@ pub fn base_router() -> Router<LocalState> {
 							request_file(
 								state.node.p2p.p2p.clone(),
 								node_identity,
-								&library.id,
 								&library.identity,
 								file_path_pub_id,
 								Range::Full,

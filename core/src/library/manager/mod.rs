@@ -8,6 +8,7 @@ use crate::{
 	Node,
 };
 
+use futures::future::join_all;
 use sd_core_sync::SyncMessage;
 use sd_p2p::{Identity, RemoteIdentity};
 use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
@@ -380,6 +381,39 @@ impl Libraries {
 	// get_ctx will return the library context for the given library id.
 	pub async fn get_library(&self, library_id: &Uuid) -> Option<Arc<Library>> {
 		self.libraries.read().await.get(library_id).cloned()
+	}
+
+	// will return the library context for the given instance
+	pub async fn get_library_for_instance(
+		&self,
+		instance: &RemoteIdentity,
+	) -> Option<Arc<Library>> {
+		join_all(
+			self.libraries
+				.read()
+				.await
+				.iter()
+				.map(|(_, library)| async move {
+					library
+						.db
+						.instance()
+						.find_many(vec![instance::remote_identity::equals(
+							instance.get_bytes().to_vec(),
+						)])
+						.exec()
+						.await
+						.ok()
+						.iter()
+						.flatten()
+						.filter_map(|i| RemoteIdentity::from_bytes(&i.remote_identity).ok())
+						.into_iter()
+						.any(|i| i == *instance)
+						.then(|| Arc::clone(library))
+				}),
+		)
+		.await
+		.into_iter()
+		.find_map(|v| v)
 	}
 
 	// get_ctx will return the library context for the given library id.
