@@ -5,9 +5,10 @@ import {
 	ToastDefautlColor,
 	useLibraryMutation,
 	usePlausibleEvent,
+	useRspcLibraryContext,
 	useZodForm
 } from '@sd/client';
-import { Dialog, InputField, useDialog, UseDialogProps, z } from '@sd/ui';
+import { Dialog, InputField, UseDialogProps, useDialog, z } from '@sd/ui';
 import { ColorPicker } from '~/components';
 import { useLocale } from '~/hooks';
 
@@ -22,10 +23,12 @@ export type AssignTagItems = Array<
 
 export function useAssignItemsToTag() {
 	const submitPlausibleEvent = usePlausibleEvent();
+	const rspc = useRspcLibraryContext();
 
 	const mutation = useLibraryMutation(['tags.assign'], {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagAssign' } });
+			rspc.queryClient.invalidateQueries(['search.paths']);
 		}
 	});
 

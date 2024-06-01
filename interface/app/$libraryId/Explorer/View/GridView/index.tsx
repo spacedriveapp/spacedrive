@@ -1,6 +1,7 @@
 import { Grid, useGrid } from '@virtual-grid/react';
 import { useCallback } from 'react';
 
+import { useExplorerLayoutStore } from '@sd/client';
 import { useExplorerContext } from '../../Context';
 import { getItemData, getItemId, uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
@@ -15,10 +16,12 @@ export const GridView = () => {
 	const explorer = useExplorerContext();
 	const explorerView = useExplorerViewContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
+	const layoutStore = useExplorerLayoutStore();
 
-	const itemDetailsHeight = 44 + (explorerSettings.showBytesInGridView ? 20 : 0);
+	const itemDetailsHeight = (layoutStore.showTags ? 60 : 44) + (explorerSettings.showBytesInGridView ? 20 : 0);
 	const itemHeight = explorerSettings.gridItemSize + itemDetailsHeight;
 
+	const BOTTOM_PADDING = layoutStore.showTags ? 16 : 12;
 	const grid = useGrid({
 		scrollRef: explorer.scrollRef,
 		count: explorer.items?.length ?? 0,
@@ -26,7 +29,7 @@ export const GridView = () => {
 		columns: 'auto',
 		size: { width: explorerSettings.gridItemSize, height: itemHeight },
 		padding: {
-			bottom: PADDING + (explorerView.scrollPadding?.bottom ?? 0),
+			bottom: BOTTOM_PADDING + (explorerView.scrollPadding?.bottom ?? 0),
 			x: PADDING,
 			y: PADDING
 		},
