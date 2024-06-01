@@ -7,6 +7,7 @@ export const explorerLayout = createPersistedMutable(
 	'sd-explorer-layout',
 	createMutable({
 		showPathBar: true,
+		showTags: true,
 		showImageSlider: true,
 		// might move this to a store called settings
 		defaultView: 'grid' as ExplorerLayout
