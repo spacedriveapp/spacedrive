@@ -198,7 +198,6 @@ pub fn filter_existing_file_path_params(
 /// With this function we try to do a loose filtering of file paths, to avoid having to do check
 /// twice for directories and for files. This is because directories have a trailing `/` or `\` in
 /// the materialized path
-#[allow(unused)]
 pub fn loose_find_existing_file_path_params(
 	location_id: location::id::Type,
 	location_path: impl AsRef<Path>,
