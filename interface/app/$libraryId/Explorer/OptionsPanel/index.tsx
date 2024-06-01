@@ -176,7 +176,7 @@ export default () => {
 					/>
 					<RadixCheckbox
 						checked={layoutStore.showTags}
-						label={'Show Tags'}
+						label={t('show_tags')}
 						name="showTags"
 						onCheckedChange={(value) => {
 							if (typeof value !== 'boolean') return;
