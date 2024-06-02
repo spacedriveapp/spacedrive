@@ -121,7 +121,7 @@ export const Component = () => {
 				description={t('network_settings_description')}
 				rightArea={
 					<Link to="./debug" className="text-xs">
-						Advanced
+						{t('advanced')}
 					</Link>
 				}
 			/>
@@ -160,7 +160,9 @@ export const Component = () => {
 				</div>
 
 				<div>
-					<p>Remote Identity: {node.data?.identity}</p>
+					<p>
+						{t('remote_identity')}: {node.data?.identity}
+					</p>
 				</div>
 			</Card>
 
