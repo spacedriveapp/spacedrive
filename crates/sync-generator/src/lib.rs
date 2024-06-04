@@ -17,7 +17,6 @@ enum Error {}
 #[derive(serde::Deserialize)]
 struct SDSyncGenerator {}
 
-#[allow(unused)]
 #[derive(Clone)]
 pub enum ModelSyncType<'a> {
 	Local {
