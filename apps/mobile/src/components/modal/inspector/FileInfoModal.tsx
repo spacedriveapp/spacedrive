@@ -1,6 +1,6 @@
-import { getItemFilePath, humanizeSize, type ExplorerItem } from '@sd/client';
+import { getItemFilePath, getItemObject, humanizeSize, type ExplorerItem } from '@sd/client';
 import dayjs from 'dayjs';
-import { Barcode, CaretLeft, Clock, Cube, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
+import { Barcode, CaretLeft, Clock, Cube, FolderOpen, Icon, SealCheck, Snowflake } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import FileThumb from '~/components/explorer/FileThumb';
@@ -42,7 +42,7 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 	const { data } = props;
 	const modalRef = useForwardedRef(ref);
 	const filePathData = data && getItemFilePath(data);
-
+	const objectData = data && getItemObject(data);
 	return (
 		<Modal
 			ref={modalRef}
@@ -85,6 +85,15 @@ const FileInfoModal = forwardRef<ModalRef, FileInfoModalProps>((props, ref) => {
 								value={dayjs(data.item.date_created).format('MMM Do YYYY')}
 							/>
 						)}
+
+						{/* Accessed */}
+							<MetaItem
+								icon={FolderOpen}
+								title="Accessed"
+								value={objectData?.date_accessed ? dayjs(objectData.date_accessed).format('MMM Do YYYY') : '--'}
+							/>
+
+						{/* Modified */}
 
 						{filePathData && 'cas_id' in filePathData && (
 							<>
