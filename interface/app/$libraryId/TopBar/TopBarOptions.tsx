@@ -193,7 +193,7 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				active={false}
 				onClick={() => appWindow.minimize()}
 			>
-				<Minus weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+				<Minus weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
 			</TopBarButton>
 			<TopBarButton
 				rounding="both"
@@ -204,9 +204,9 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				}}
 			>
 				{maximized ? (
-					<Cards weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+					<Cards weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
 				) : (
-					<Square weight="regular" className={clsx(TOP_BAR_ICON_STYLE)} />
+					<Square weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
 				)}
 			</TopBarButton>
 			<TopBarButton
@@ -215,7 +215,7 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				active={false}
 				onClick={() => appWindow.close()}
 			>
-				<X weight="regular" className={clsx(TOP_BAR_ICON_STYLE, 'hover:text-white')} />
+				<X weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST, 'hover:text-white')} />
 			</TopBarButton>
 		</div>
 	);
