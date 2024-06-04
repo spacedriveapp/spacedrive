@@ -16,7 +16,7 @@ import { keybindForOs } from '~/util/keybinds';
 import { useExplorerContext } from './Context';
 import { explorerStore } from './store';
 
-export const TAG_BAR_HEIGHT = 128;
+export const TAG_BAR_HEIGHT = 64;
 const NUMBER_KEYCODES: string[][] = [
 	['Key1'],
 	['Key2'],
@@ -44,6 +44,35 @@ const toTarget = (data: ExplorerItem): Target => {
 				}
 	) satisfies Target;
 };
+
+type TagBulkAssignHotkeys = typeof explorerStore.tagBulkAssignHotkeys;
+function getHotkeysWithNewAssignment(
+	hotkeys: TagBulkAssignHotkeys,
+	options:
+		| {
+				unassign?: false;
+				tagId: number;
+				hotkey: string;
+		  }
+		| {
+				unassign: true;
+				tagId: number;
+				hotkey?: string;
+		  }
+): TagBulkAssignHotkeys {
+	const hotkeysWithoutCurrentTag = hotkeys.filter(
+		({ hotkey, tagId }) => !(tagId === options.tagId || hotkey === options.hotkey)
+	);
+
+	if (options.unassign) {
+		return hotkeysWithoutCurrentTag;
+	}
+
+	return hotkeysWithoutCurrentTag.concat({
+		hotkey: options.hotkey,
+		tagId: options.tagId
+	});
+}
 
 // million-ignore
 export const ExplorerTagBar = (props: {}) => {
@@ -138,48 +167,65 @@ export const ExplorerTagBar = (props: {}) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col-reverse content-center items-start border-t border-t-app-line bg-app/90 px-3.5 py-1 text-ink-dull backdrop-blur-lg ',
-				`h-[${TAG_BAR_HEIGHT}px]`
+				'flex flex-col-reverse items-start justify-center border-t border-t-app-line bg-app/90 px-3.5 py-1 text-ink-dull backdrop-blur-lg ',
+				`h-[64px]`
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
 
 			<ul className={clsx('flex list-none flex-row gap-2')}>
-				{allTags.map((tag, i) => (
-					<li key={tag.id}>
-						<TagItem
-							tag={tag}
-							assignKey={
-								tagBulkAssignHotkeys.find(({ hotkey, tagId }) => tagId === tag.id)
-									?.hotkey
-							}
-							isAwaitingKeyPress={tagListeningForKeyPress === tag.id}
-							onClick={() => {
-								setTagListeningForKeyPress(tag.id);
-							}}
-							onKeyPress={(e) => {
-								if (e.key === 'Escape') {
-									setTagListeningForKeyPress(undefined);
-									return void console.log(
-										'Tag hotkey assignment cancelled via escape key'
-									);
-								}
+				{/* Did not want to write a .toSorted() predicate for this so lazy spreading things with hotkeys first then the rest after */}
+				{allTags
+					.toSorted((tagA, tagB) => {
+						// Sort this array by hotkeys 1-9 first, then unasssigned tags. I know, it's terrible.
+						// This 998/999 bit is likely terrible for sorting. I'm bad at writing sort predicates.
+						// Improvements (probably much simpler than this anyway) are much welcome <3
+						// -- iLynxcat 3/jun/2024
 
-								explorerStore.tagBulkAssignHotkeys =
-									explorerStore.tagBulkAssignHotkeys
-										.filter(
-											({ hotkey, tagId }) =>
-												hotkey !== e.key && tagId !== tag.id
-										)
-										.concat({
-											hotkey: e.key,
-											tagId: tag.id
+						const hotkeyA = +(
+							tagBulkAssignHotkeys.find((k) => k.tagId === tagA.id)?.hotkey ?? 998
+						);
+						const hotkeyB = +(
+							tagBulkAssignHotkeys.find((k) => k.tagId === tagB.id)?.hotkey ?? 999
+						);
+
+						return hotkeyA - hotkeyB;
+					})
+					.map((tag, i) => (
+						<li key={tag.id}>
+							<TagItem
+								tag={tag}
+								assignKey={
+									tagBulkAssignHotkeys.find(({ tagId }) => tagId === tag.id)
+										?.hotkey
+								}
+								isAwaitingKeyPress={tagListeningForKeyPress === tag.id}
+								onClick={() => {
+									setTagListeningForKeyPress(tag.id);
+								}}
+								onKeyPress={(e) => {
+									if (e.key === 'Escape') {
+										explorerStore.tagBulkAssignHotkeys =
+											getHotkeysWithNewAssignment(tagBulkAssignHotkeys, {
+												unassign: true,
+												tagId: tag.id
+											});
+
+										setTagListeningForKeyPress(undefined);
+
+										return;
+									}
+
+									explorerStore.tagBulkAssignHotkeys =
+										getHotkeysWithNewAssignment(tagBulkAssignHotkeys, {
+											tagId: tag.id,
+											hotkey: e.key
 										});
-								setTagListeningForKeyPress(undefined);
-							}}
-						/>
-					</li>
-				))}
+									setTagListeningForKeyPress(undefined);
+								}}
+							/>
+						</li>
+					))}
 			</ul>
 		</div>
 	);
@@ -209,7 +255,7 @@ const TagItem = ({
 	useKeybind(
 		[...NUMBER_KEYCODES, ['Escape']],
 		(e) => {
-			buttonRef.current?.blur();
+			buttonRef.current?.blur(); // Hides the focus ring after Escape is pressed to cancel assignment
 			return onKeyPress(e);
 		},
 		{
@@ -219,8 +265,8 @@ const TagItem = ({
 
 	return (
 		<button
-			className={clsx('group flex items-center gap-1 rounded-lg border px-1 py-0.5', {
-				['border-gray-500 bg-gray-500']: isDark,
+			className={clsx('group flex items-center gap-1 rounded-lg border px-2.5 py-0.5', {
+				['border-gray-500 bg-gray-500']: !isAwaitingKeyPress && isDark,
 				['border-blue-400 bg-blue-800']: isAwaitingKeyPress && isDark,
 				['border-blue-500 bg-blue-200']: isAwaitingKeyPress && !isDark
 			})}
@@ -240,7 +286,7 @@ const TagItem = ({
 				aria-hidden
 				className="size-3"
 			/>
-			<span className="max-w-xs truncate text-sm font-semibold text-ink-dull">
+			<span className="max-w-xs truncate py-0.5 text-sm font-semibold text-ink-dull">
 				{tag.name}
 			</span>
 
