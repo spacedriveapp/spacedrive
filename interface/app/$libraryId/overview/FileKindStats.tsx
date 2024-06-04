@@ -4,7 +4,7 @@ import ForceGraph2D from 'react-force-graph-2d';
 import { useLibraryQuery } from '@sd/client';
 import { useIsDark } from '~/hooks';
 import { getIcon } from '@sd/assets/util';
-import * as icons from '../../../../packages/assets/icons'; // Adjust the import path for your icons
+import * as icons from '../../../../packages/assets/icons';
 
 interface KindStatistic {
   kind: number;
@@ -71,17 +71,19 @@ const FileKindStatistics: React.FC = () => {
       const radius = 25;
       ctx.beginPath();
       ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-      ctx.fillStyle = isDark ? 'rgb(28, 29, 37)' : 'white';
+      ctx.fillStyle = isDark ? 'rgb(32, 33, 44)' : 'white';
       ctx.fill();
-      ctx.strokeStyle = isDark ? 'rgb(28, 29, 37)' : 'white';
+      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'; // Border color same as link color
+      ctx.lineWidth = 0.5; // Border thickness
       ctx.stroke();
 
-      ctx.fillStyle = isDark ? 'white' : 'black';
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 1)' : 'rgba(0, 0, 0, 0.8)';
       ctx.font = `bold ${fontSize * 2}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
-      ctx.fillText(node.val, node.x, node.y - fontSize * 11);
+      ctx.fillText(node.val, node.x, node.y - fontSize * 9); // Adjusted the y position to shift down
 
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.8)';
       ctx.font = `500 ${fontSize}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
-      ctx.fillText(node.name, node.x, node.y + fontSize * 13);
+      ctx.fillText(node.name, node.x, node.y + fontSize * 20);
     } else {
       const label = node.name;
       const iconName = node.name as keyof typeof icons;
@@ -92,7 +94,7 @@ const FileKindStatistics: React.FC = () => {
         ctx.drawImage(iconImg, node.x - iconSize / 2, node.y - iconSize / 2, iconSize, iconSize);
       }
 
-      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.8)';
       ctx.fillText(node.val, node.x, node.y + iconSize / 1.3); // Number above the text
       ctx.fillText(label, node.x, node.y - iconSize / 1.3 + fontSize); // File type text
     }
@@ -129,7 +131,7 @@ const FileKindStatistics: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-[200px] bottom-16 right-64" ref={containerRef}>
+    <div className="relative bottom-16 right-64 h-[200px] w-full" ref={containerRef}>
       {data ? (
         <ForceGraph2D
           ref={fgRef}
