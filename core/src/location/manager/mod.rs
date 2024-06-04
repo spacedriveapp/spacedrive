@@ -29,14 +29,12 @@ mod watcher;
 mod helpers;
 
 #[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
 enum ManagementMessageAction {
 	Add,
 	Remove,
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct LocationManagementMessage {
 	location_id: location::id::Type,
 	library: Arc<Library>,
@@ -45,7 +43,6 @@ pub struct LocationManagementMessage {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 enum WatcherManagementMessageAction {
 	Stop,
 	Reinit,
@@ -53,7 +50,6 @@ enum WatcherManagementMessageAction {
 }
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct WatcherManagementMessage {
 	location_id: location::id::Type,
 	library: Arc<Library>,
