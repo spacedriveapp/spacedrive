@@ -1,8 +1,10 @@
 name: Release
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
   workflow_dispatch:
-# NOTE: For Linux builds, we can only build with Ubuntu. It should be the oldest base system we intend to support. See PR-759 & https://tauri.app/v1/guides/building/linux for reference.
 
 # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
 env:
@@ -111,6 +113,12 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Package frontend
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          set -eux
+          XZ_OPT='-T0 -7' tar -cJf apps/desktop/dist.tar.xz -C apps/desktop/dist .
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
