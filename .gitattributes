@@ -1,2 +1,3 @@
 pnpm-lock.yaml -diff
 package-lock.json -diff
+.github/actions/publish-artifacts/dist/index.js -diff

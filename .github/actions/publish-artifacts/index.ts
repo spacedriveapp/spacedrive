@@ -2,6 +2,7 @@ import client from '@actions/artifact';
 import * as core from '@actions/core';
 import * as glob from '@actions/glob';
 import * as io from '@actions/io';
+import { exists } from '@actions/io/lib/io-util';
 
 type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
@@ -43,11 +44,22 @@ const PROFILE = core.getInput('profile');
 const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
 const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
+const FRONT_END_BUNDLE = 'apps/desktop/dist.tar.xz';
 const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
+const FRONTEND_ARCHIVE_NAME = `Spacedrive-frontend-${OS}-${ARCH}`;
 
 async function globFiles(pattern: string) {
 	const globber = await glob.create(pattern);
 	return await globber.glob();
+}
+
+async function uploadFrontend() {
+	if (!(await exists(FRONT_END_BUNDLE))) {
+		console.error(`Frontend archive not found`);
+		return;
+	}
+
+	await client.uploadArtifact(FRONTEND_ARCHIVE_NAME, [FRONT_END_BUNDLE], 'apps/desktop');
 }
 
 async function uploadUpdater(updater: BuildTarget['updater']) {
@@ -57,7 +69,7 @@ async function uploadUpdater(updater: BuildTarget['updater']) {
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
 
 	const updaterPath = files.find((file) => file.endsWith(fullExt));
-	if (!updaterPath) return console.error(`Updater path not found. Files: ${files}`);
+	if (!updaterPath) throw new Error(`Updater path not found. Files: ${files}`);
 
 	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${archiveExt}`;
 
@@ -76,7 +88,7 @@ async function uploadStandalone({ bundle, ext }: TargetConfig) {
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
 
 	const standalonePath = files.find((file) => file.endsWith(ext));
-	if (!standalonePath) return console.error(`Standalone path not found. Files: ${files}`);
+	if (!standalonePath) throw new Error(`Standalone path not found. Files: ${files}`);
 
 	const artifactName = `${ARTIFACT_BASE}.${ext}`;
 	const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
@@ -90,10 +102,10 @@ async function run() {
 
 	const { updater, standalone } = OS_TARGETS[OS];
 
-	await uploadUpdater(updater);
-
-	for (const config of standalone) {
-		await uploadStandalone(config);
-	}
+	await Promise.all([
+		uploadUpdater(updater),
+		uploadFrontend(),
+		...standalone.map((config) => uploadStandalone(config))
+	]);
 }
 run();
