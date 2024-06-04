@@ -292,17 +292,14 @@ impl OldJobs {
 
 			match initialize_resumable_job(job.clone(), None) {
 				Ok(resumable_job) => {
-					info!("Resuming job: {} with uuid {}", job.name, job.id);
+					info!(name = job.name, id = %job.id, "resuming job");
 					Arc::clone(&self)
 						.dispatch(node, library, resumable_job)
 						.await;
 				}
 				Err(err) => {
-					warn!(
-						"Failed to initialize job: {} with uuid {}, error: {:?}",
-						job.name, job.id, err
-					);
-					info!("Cancelling job: {} with uuid {}", job.name, job.id);
+					warn!(name = job.name, id = %job.id, error=?err, "failed to initialize job");
+					info!(name = job.name, id = %job.id, "cancelling job");
 					library
 						.db
 						.job()

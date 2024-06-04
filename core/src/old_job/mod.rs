@@ -230,7 +230,7 @@ impl<SJob: StatefulJob> Job<SJob> {
 		self
 	}
 
-	// this function returns an ingestible job instance from a job report
+	/// Create an ingestible job instance from a [`JobReport`]
 	pub fn new_from_report(
 		mut report: JobReport,
 		next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
