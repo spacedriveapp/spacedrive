@@ -3,6 +3,10 @@ name: Server release
 on:
   release:
     types: [published]
+  pull_request:
+    paths:
+      - '.github/workflows/server.yml'
+      - 'apps/server/docker/*'
   workflow_dispatch:
 
 jobs:
@@ -26,6 +30,15 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Update Podman & crun
+        run: |
+          sudo apt-get remove crun podman
+          brew install crun podman
 
       - name: Update buildah
         shell: bash
@@ -57,6 +70,12 @@ jobs:
           curl -SsJLO "https://passt.top/builds/latest/x86_64/${deb}"
           sudo dpkg -i "${deb}"
 
+      - name: Basic sanity check
+        run: |
+          crun --version
+          podman version
+          buildah --version
+
       - name: Determine image name & tag
         id: image_info
         shell: bash
@@ -76,6 +95,11 @@ jobs:
           echo "name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
           echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
           echo "repo_ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: 'arm64'
 
       - name: Build image
         id: build-image

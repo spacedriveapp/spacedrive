@@ -1,4 +1,14 @@
 import {
+	getExplorerItemData,
+	getIndexedItemFilePath,
+	getItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useExplorerLayoutStore,
+	useSelector,
+	type ExplorerItem
+} from '@sd/client';
+import {
 	CellContext,
 	functionalUpdate,
 	getCoreRowModel,
@@ -9,15 +19,6 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
-import {
-	getExplorerItemData,
-	getIndexedItemFilePath,
-	getItemFilePath,
-	getItemObject,
-	humanizeSize,
-	useSelector,
-	type ExplorerItem
-} from '@sd/client';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
@@ -48,6 +49,7 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 
 	const explorer = useExplorerContext();
 	const explorerSettings = explorer.useSettingsSnapshot();
+	const explorerLayout = useExplorerLayoutStore();
 
 	return (
 		<div className="flex">
@@ -66,14 +68,40 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 					selected={selected}
 					allowHighlight={false}
 					style={{ fontSize: LIST_VIEW_TEXT_SIZES[explorerSettings.listViewTextSize] }}
-					className="absolute top-1/2 z-10 max-w-full -translate-y-1/2"
-					idleClassName="!w-full"
+					className="absolute top-1/2 z-10 -translate-y-1/2"
+					idleClassName={clsx(explorerLayout.showTags ? '!w-4/5' : '!w-full')}
 					editLines={3}
 				/>
+			{explorerLayout.showTags && (
+				<Tags item={item}/>
+			)}
 			</div>
 		</div>
 	);
 });
+
+const Tags = ({item}: {item: ExplorerItem}) => {
+	const object = getItemObject(item);
+	const filePath = getItemFilePath(item);
+	const data = object || filePath;
+	const tags = data && 'tags' in data ? data.tags : [];
+ return (
+	<div
+	className='relative flex size-full flex-row items-center justify-end self-center'
+	style={{
+		marginLeft: tags.length * 4
+	}}
+	>
+		{tags.map(({tag}, i: number) => (
+			<div key={tag.id} className='relative size-2.5 rounded-full border border-app' style={{
+				backgroundColor: tag.color || 'transparent',
+				right: i * 4
+			}}/>
+		))}
+</div>
+ )
+}
+
 
 const KindCell = ({ kind }: { kind: string }) => {
 	const explorer = useExplorerContext();

@@ -2,7 +2,7 @@ use prisma_client_rust::ModelTypes;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub trait SyncId: Serialize + DeserializeOwned {
-	type Model: SyncModel;
+	type Model;
 }
 
 pub trait SyncModel: ModelTypes {

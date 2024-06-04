@@ -22,7 +22,7 @@ pub async fn remote_rspc(
 		.clone();
 	let mut stream = peer.new_stream().await?;
 
-	stream.write_all(&Header::Http.to_bytes()).await?;
+	stream.write_all(&Header::RspcRemote.to_bytes()).await?;
 
 	let (mut sender, conn) = hyper::client::conn::handshake(stream).await?;
 	tokio::task::spawn(async move {
@@ -46,7 +46,7 @@ pub(crate) async fn receiver(
 
 	// TODO: Authentication
 	#[allow(clippy::todo)]
-	if node.config.get().await.p2p.remote_access {
+	if !node.config.get().await.p2p.enable_remote_access {
 		todo!("No way buddy!");
 	}
 

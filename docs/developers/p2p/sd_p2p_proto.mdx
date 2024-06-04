@@ -1,0 +1,75 @@
+---
+title: sd-p2p-proto
+index: 23
+---
+
+# `sd_p2p_proto`
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/proto)
+
+This crate provides utilities for implementing asynchronous deserializers and matching synchronous serializers. The goal of these implementations is to rapidly send and receive Rust structs over the network.
+
+This crate allows for creating implementations faster than other common options, at the cost of some developer experience.
+
+Before building, the performance of both [msgpack](https://docs.rs/rmp-serde) and [bincode](https://docs.rs/bincode) was compared against manual implementations using `AsyncRead`. It was found that over the network using asynchronous deserialization was faster.
+
+This logically follows as if you use a synchronous serializer, you will do the following:
+
+ - Send the total length of the message
+ - Allocate a buffer for the message
+ - Wait asynchronously for the buffer to be filled
+ - Synchronously copy from the buffer into each of the struct fields
+
+When using an asynchronous serializer you can skip sending the messages length and allocating the intermediate buffer as we can rely on the known length of each field while decoding - this is a win for performance and memory usage.
+
+This crate provides utilities to make the implementations less error prone. However, long term it would be great to replace this with a derive macro similar to how crates like [serde](https://serde.rs) work.
+
+From my ([oscartbeaumont](https://github.com/oscartbeaumont)'s) research no crate exists that meets these requirements. I attempted the implementation of one called [binario](https://github.com/oscartbeaumont/binario), however it is still incomplete as juggling async and lifetimes is pretty challenging. The recent stablisation of [RPITIT](https://blog.rust-lang.org/2023/12/21/async-fn-rpit-in-traits.html) would likely make this much easier if it were to be implemented today.
+
+This issue is tracked as [ENG-431](https://linear.app/spacedriveapp/issue/ENG-431/binary-handling-abstraction).
+
+## Example
+
+### UUID
+
+```rust
+let uuid: uuid::Uuid = todo!();
+
+// Encode
+let mut bytes = vec![];
+encode::uuid(&mut bytes, uuid);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let uuid = decode::uuid(&mut stream).await.unwrap();
+```
+
+### String
+
+```rust
+let string = format!("Hello, World!");
+
+// Encode
+let mut bytes = vec![];
+encode::string(&mut bytes, string);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let string = decode::string(&mut stream).await.unwrap();
+```
+
+### Buffer
+
+This may seem redundant but it is required for dynamically sized buffers as it is not possible to know the length of the buffer in advance so when decoding, so we must send the length of the buffer too.
+
+```rust
+let buf = b"Hello, World!".to_vec();
+
+// Encode
+let mut bytes = vec![];
+encode::buf(&mut bytes, buf);
+
+// Decode
+let stream: impl AsyncRead + Unpin = todo!(); // This will commonly be a `sd_p2p::UnicastStream`
+let buf = decode::buf(&mut stream).await.unwrap();
+```

@@ -1,0 +1,57 @@
+---
+title: sd-p2p-block
+index: 24
+---
+
+# `sd_p2p_block`
+
+[Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/block)
+
+This crate contains utilities focused on moving large arrays of bytes (files) between two peers reliabily and quickly. It's implementation is heavily inspired by [SyncThing Block Exchange Protocol v1](https://docs.syncthing.net/specs/bep-v1.html).
+
+## Rewrite?
+
+[Tracking issue](https://linear.app/spacedriveapp/issue/ENG-1760/block-protocol-v2)
+
+The current implementation is a bit of a mess and is definitely not as performant as it could be. A rewrite is probally a good idea to improve it and as it is a small component of the overall networking system it should be a fairly easy undertaking.
+
+Below I have outlined some of my thoughts on how to build an improved version:
+
+### Progress tracking
+
+Currently the protocol works like the following:
+ - Send block of file
+ - Wait for ack
+ - Send next block
+
+This is obviously not ideal as it means the sender is waiting for the receiver to ack each block before sending the next one.
+
+I originally added this to combat the fact that the progress indicator's were not the same on both sides, however I don't think this was worth the trade off. I was also generally testing on the same machine at this stage so it's entirely possible in the real world the progress is actually close enough without requiring acknowledgements.
+
+We can either, remove acknowledgements or send them less frequently, some testing would be required to determine the best approach.
+
+### Integrity checking
+
+[Tracking issue](https://linear.app/spacedriveapp/issue/ENG-1312/spaceblock-file-checksum)
+
+I think the new version of the protocol should compute a [Blake3](https://en.wikipedia.org/wiki/BLAKE_(hash_function)) hash on both the sender and the receiver and ensure they much before the transfer is considered complete. This ensures both any data corruption or bugs in the Spacedrop protocol don't result in data loss for the user. The current protocol lacks this feature.
+
+### Cancellation
+
+Currently the protocol has a custom system built into the acknowledgements that allows each side to cancel an in-progress transfer. A more efficent system could just close the Quic connection and rely on an [`ErrorKind::UnexpectedEof`](https://doc.rust-lang.org/stable/std/io/enum.ErrorKind.html#variant.UnexpectedEof) on the other side to detect the shutdown condition.
+
+### Remove file names
+
+[Tracking issue](https://linear.app/spacedriveapp/issue/ENG-1292/spaceblock-abstract-name-from-spaceblockrequest)
+
+It doesn't make a lot of sense for `SpaceblockRequests` to have the `name` field as you may send an unnamed buffer. Where it should go instead is still undecided.
+
+### File name overflows
+
+[Tracking issue](https://linear.app/spacedriveapp/issue/ENG-572/spaceblock-file-name-overflow)
+
+Right now it's possible for a file name's length to overflow. Linux allows for bigger file names than Windows so a transfer from Linux to Windows with a long file name will cause an issue on the Windows side. We can probally prompt the user to pick a shorter name if we detect an overflow.
+
+## Example
+
+Refer to [the tests](https://github.com/spacedriveapp/spacedrive/blob/0392c781d75d8f8a571ed43a61ce90e11c7d73d5/crates/p2p/crates/block/src/lib.rs#L227) to see an example of how to use the protocol.

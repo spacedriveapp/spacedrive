@@ -49,6 +49,7 @@ pub struct Instance {
 	pub identity: RemoteIdentity,
 	#[serde(rename = "nodeId")]
 	pub node_id: Uuid,
+	pub node_remote_identity: String,
 	pub metadata: HashMap<String, String>,
 }
 
@@ -209,6 +210,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
+			node_remote_identity: RemoteIdentity,
 			metadata: &HashMap<String, String>,
 		) -> Result<CreateResult, Error> {
 			let Some(auth_token) = config.auth_token else {
@@ -226,6 +228,7 @@ pub mod library {
 					"instanceUuid": instance_uuid,
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
+					"nodeRemoteIdentity": node_remote_identity,
 					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
@@ -277,6 +280,7 @@ pub mod library {
 			library_id: Uuid,
 			instance_id: Uuid,
 			node_id: Option<Uuid>,
+			node_remote_identity: Option<RemoteIdentity>,
 			metadata: Option<HashMap<String, String>>,
 		) -> Result<(), Error> {
 			let Some(auth_token) = config.auth_token else {
@@ -291,6 +295,7 @@ pub mod library {
 				))
 				.json(&json!({
 					"nodeId": node_id,
+					"nodeRemoteIdentity": node_remote_identity,
 					"metadata": metadata,
 				}))
 				.with_auth(auth_token)
@@ -311,6 +316,7 @@ pub mod library {
 			instance_uuid: Uuid,
 			instance_identity: RemoteIdentity,
 			node_id: Uuid,
+			node_remote_identity: RemoteIdentity,
 			metadata: HashMap<String, String>,
 		) -> Result<Vec<Instance>, Error> {
 			let Some(auth_token) = config.auth_token else {
@@ -326,6 +332,7 @@ pub mod library {
 				.json(&json!({
 					"instanceIdentity": instance_identity,
 					"nodeId": node_id,
+					"nodeRemoteIdentity": node_remote_identity,
 					"metadata": metadata,
 				}))
 				.with_auth(auth_token)

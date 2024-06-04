@@ -28,13 +28,14 @@ pub struct Peer {
 pub enum PeerConnectionCandidate {
 	SocketAddr(SocketAddr),
 	Relay,
+	Manual(SocketAddr),
 	// Custom(String),
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct State {
 	/// Active connections with the remote
-	pub(crate) active_connections: HashMap<ListenerId, oneshot::Sender<()>>,
+	pub(crate) active_connections: HashSet<ListenerId>,
 	/// Methods for establishing an active connections with the remote
 	/// These should be inject by `Listener::acceptor` which is called when a new peer is discovered.
 	pub(crate) connection_methods: HashMap<ListenerId, mpsc::Sender<ConnectionRequest>>,
@@ -148,7 +149,7 @@ impl Peer {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
-			.contains_key(&ListenerId(hook_id.0))
+			.contains(&ListenerId(hook_id.0))
 	}
 
 	pub fn is_connected_with(&self, listener_id: ListenerId) -> bool {
@@ -156,7 +157,7 @@ impl Peer {
 			.read()
 			.unwrap_or_else(PoisonError::into_inner)
 			.active_connections
-			.contains_key(&listener_id)
+			.contains(&listener_id)
 	}
 
 	pub fn connection_methods(&self) -> HashSet<ListenerId> {
@@ -176,6 +177,20 @@ impl Peer {
 			.discovered
 			.keys()
 			.copied()
+			.collect()
+	}
+
+	pub fn addrs(&self) -> HashSet<SocketAddr> {
+		self.state
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.discovered
+			.values()
+			.flatten()
+			.filter_map(|addr| match addr {
+				PeerConnectionCandidate::SocketAddr(addr) => Some(*addr),
+				_ => None,
+			})
 			.collect()
 	}
 
@@ -239,12 +254,28 @@ impl Peer {
 			.insert(hook, addrs);
 	}
 
-	pub fn listener_available(&self, listener: ListenerId, tx: mpsc::Sender<ConnectionRequest>) {
+	pub fn listener_available(
+		self: Arc<Self>,
+		listener: ListenerId,
+		tx: mpsc::Sender<ConnectionRequest>,
+	) {
 		self.state
 			.write()
 			.unwrap_or_else(PoisonError::into_inner)
 			.connection_methods
 			.insert(listener, tx);
+
+		let Some(p2p) = self.p2p.upgrade() else {
+			return;
+		};
+
+		p2p.hooks
+			.read()
+			.unwrap_or_else(PoisonError::into_inner)
+			.iter()
+			.for_each(|(_, hook)| {
+				hook.send(HookEvent::PeerDiscoveredBy(listener.into(), self.clone()));
+			});
 	}
 
 	pub fn undiscover_peer(&self, hook_id: HookId) {
