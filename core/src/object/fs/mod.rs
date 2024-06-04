@@ -49,6 +49,7 @@ pub struct FileData {
 	pub full_path: PathBuf,
 }
 
+/// Get the [`FileData`] related to every `file_path_id`
 pub async fn get_many_files_datas(
 	db: &PrismaClient,
 	location_path: impl AsRef<Path>,
@@ -81,7 +82,7 @@ pub async fn get_many_files_datas(
 				})
 			})
 	})
-	.collect::<Result<Vec<_>, _>>()
+	.collect()
 }
 
 pub async fn get_file_data_from_isolated_file_path(
