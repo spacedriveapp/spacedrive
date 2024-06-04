@@ -6,7 +6,6 @@ use crate::{
 
 use sd_core_file_path_helper::FilePathError;
 
-use sd_core_heavy_lifting::{indexer, JobSystemError};
 use sd_prisma::prisma::location;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
@@ -26,7 +25,6 @@ use tracing::{debug, error};
 use uuid::Uuid;
 
 mod watcher;
-
 mod helpers;
 
 #[derive(Clone, Copy, Debug)]
@@ -105,9 +103,7 @@ pub enum LocationManagerError {
 	MissingField(#[from] MissingFieldError),
 
 	#[error(transparent)]
-	Indexer(#[from] indexer::Error),
-	#[error(transparent)]
-	JobSystem(#[from] JobSystemError),
+	JobSystem(#[from] sd_core_heavy_lifting::Error),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }

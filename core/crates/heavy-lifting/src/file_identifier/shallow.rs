@@ -42,7 +42,6 @@ pub async fn shallow(
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
-	let sub_path = sub_path.as_ref();
 	let db = ctx.db();
 
 	let location_path = maybe_missing(&location.path, "location.path")
@@ -52,17 +51,20 @@ pub async fn shallow(
 
 	let location = Arc::new(location);
 
-	let sub_iso_file_path =
-		maybe_get_iso_file_path_from_sub_path(location.id, &Some(sub_path), &*location_path, db)
-			.await
-			.map_err(file_identifier::Error::from)?
-			.map_or_else(
-				|| {
-					IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-						.map_err(file_identifier::Error::from)
-				},
-				Ok,
-			)?;
+	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<file_identifier::Error>(
+		location.id,
+		Some(sub_path.as_ref()),
+		&*location_path,
+		db,
+	)
+	.await?
+	.map_or_else(
+		|| {
+			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
+				.map_err(file_identifier::Error::from)
+		},
+		Ok,
+	)?;
 
 	let mut orphans_count = 0;
 	let mut last_orphan_file_path_id = None;
@@ -104,7 +106,8 @@ pub async fn shallow(
 					Arc::clone(ctx.db()),
 					Arc::clone(ctx.sync()),
 				))
-				.await,
+				.await
+				.expect("infallible"),
 		);
 	}
 
@@ -168,6 +171,7 @@ async fn process_tasks(
 								true,
 							)
 							.await
+							.expect("infallible")
 							.into_iter()
 							.map(CancelTaskOnDrop::new),
 						);

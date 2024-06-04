@@ -1,9 +1,9 @@
 use std::{
 	fmt,
 	future::{Future, IntoFuture},
-	pin::Pin,
+	pin::{pin, Pin},
 	sync::{
-		atomic::{AtomicBool, AtomicU8, Ordering},
+		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
 	task::{Context, Poll},
@@ -13,8 +13,9 @@ use std::{
 use async_channel as chan;
 use async_trait::async_trait;
 use downcast_rs::{impl_downcast, Downcast};
+use futures::StreamExt;
 use tokio::{spawn, sync::oneshot};
-use tracing::{error, trace, warn};
+use tracing::{error, instrument, trace, warn, Instrument};
 use uuid::Uuid;
 
 use super::{
@@ -193,7 +194,6 @@ where
 pub struct InterrupterFuture<'recv> {
 	#[pin]
 	fut: chan::Recv<'recv, InterruptionRequest>,
-	has_interrupted: &'recv AtomicU8,
 }
 
 impl Future for InterrupterFuture<'_> {
@@ -204,6 +204,7 @@ impl Future for InterrupterFuture<'_> {
 
 		match this.fut.poll(cx) {
 			Poll::Ready(Ok(InterruptionRequest { kind, ack })) => {
+				trace!(?kind, "Running task received interruption request");
 				if ack.send(()).is_err() {
 					warn!("TaskInterrupter ack channel closed");
 				}
@@ -213,7 +214,6 @@ impl Future for InterrupterFuture<'_> {
 
 				let kind = kind.into();
 
-				this.has_interrupted.store(kind as u8, Ordering::Relaxed);
 				Poll::Ready(kind)
 			}
 			Poll::Ready(Err(chan::RecvError)) => {
@@ -237,7 +237,6 @@ impl<'recv> IntoFuture for &'recv Interrupter {
 	fn into_future(self) -> Self::IntoFuture {
 		InterrupterFuture {
 			fut: self.interrupt_rx.recv(),
-			has_interrupted: &self.has_interrupted,
 		}
 	}
 }
@@ -247,53 +246,68 @@ impl<'recv> IntoFuture for &'recv Interrupter {
 #[derive(Debug)]
 pub struct Interrupter {
 	interrupt_rx: chan::Receiver<InterruptionRequest>,
-	has_interrupted: AtomicU8,
+}
+
+impl Drop for Interrupter {
+	fn drop(&mut self) {
+		if !self.interrupt_rx.is_closed() {
+			self.close();
+		}
+	}
 }
 
 impl Interrupter {
 	pub(crate) fn new(interrupt_tx: chan::Receiver<InterruptionRequest>) -> Self {
 		Self {
 			interrupt_rx: interrupt_tx,
-			has_interrupted: AtomicU8::new(0),
 		}
 	}
 
 	/// Check if the user requested a pause or a cancel, returning the kind of interruption that was requested
 	/// in a non-blocking manner.
 	pub fn try_check_interrupt(&self) -> Option<InterruptionKind> {
-		InterruptionKind::load(&self.has_interrupted).map_or_else(
-			|| {
-				if let Ok(InterruptionRequest { kind, ack }) = self.interrupt_rx.try_recv() {
-					if ack.send(()).is_err() {
-						warn!("TaskInterrupter ack channel closed");
-					}
+		if let Ok(InterruptionRequest { kind, ack }) = self.interrupt_rx.try_recv() {
+			trace!(?kind, "Interrupter received interruption request");
 
-					if let InternalInterruptionKind::Suspend(has_suspended) = &kind {
-						has_suspended.store(true, Ordering::SeqCst);
-					}
+			if let InternalInterruptionKind::Suspend(has_suspended) = &kind {
+				has_suspended.store(true, Ordering::SeqCst);
+			}
 
-					let kind = kind.into();
+			let kind = kind.into();
 
-					self.has_interrupted.store(kind as u8, Ordering::Relaxed);
+			if ack.send(()).is_err() {
+				warn!("TaskInterrupter ack channel closed");
+			}
 
-					Some(kind)
-				} else {
-					None
-				}
-			},
-			Some,
-		)
+			Some(kind)
+		} else {
+			None
+		}
 	}
 
-	pub(super) fn reset(&self) {
-		self.has_interrupted
-			.compare_exchange(
-				InterruptionKind::Pause as u8,
-				0,
-				Ordering::Release,
-				Ordering::Relaxed,
-			)
-			.expect("we must only reset paused tasks");
+	pub(super) fn close(&self) {
+		self.interrupt_rx.close();
+		if !self.interrupt_rx.is_empty() {
+			trace!("Pending interruption requests were not handled");
+			spawn({
+				let interrupt_rx = self.interrupt_rx.clone();
+
+				async move {
+					let mut interrupt_stream = pin!(interrupt_rx);
+
+					while let Some(InterruptionRequest { kind, ack }) =
+						interrupt_stream.next().await
+					{
+						trace!(
+							?kind,
+							"Interrupter received interruption request after task was completed"
+						);
+						ack.send(()).expect("Interrupter ack channel closed");
+					}
+				}
+				.in_current_span()
+			});
+		}
 	}
 }
 
@@ -340,20 +354,9 @@ macro_rules! check_interruption {
 
 /// The kind of interruption that can be requested by the user, a pause or a cancel
 #[derive(Debug, Clone, Copy)]
-#[repr(u8)]
 pub enum InterruptionKind {
-	Pause = 1,
-	Cancel = 2,
-}
-
-impl InterruptionKind {
-	fn load(kind: &AtomicU8) -> Option<Self> {
-		match kind.load(Ordering::Relaxed) {
-			1 => Some(Self::Pause),
-			2 => Some(Self::Cancel),
-			_ => None,
-		}
-	}
+	Pause,
+	Cancel,
 }
 
 #[derive(Debug, Clone)]
@@ -398,31 +401,37 @@ impl TaskRemoteController {
 	/// # Panics
 	///
 	/// Will panic if the worker failed to ack the pause request
+	#[instrument(skip(self), fields(task_id = %self.task_id), err)]
 	pub async fn pause(&self) -> Result<(), SystemError> {
-		let is_paused = self.worktable.is_paused.load(Ordering::Relaxed);
-		let is_canceled = self.worktable.has_canceled.load(Ordering::Relaxed);
-		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
+		if self.worktable.is_finalized() {
+			trace!("Task is finalized, will not pause");
+			return Ok(());
+		}
 
-		trace!("Received pause command task: <is_canceled={is_canceled}, is_done={is_done}>");
+		let is_paused = self.worktable.is_paused.load(Ordering::Acquire);
+		let is_canceled = self.worktable.has_canceled.load(Ordering::Acquire);
+		let is_done = self.worktable.is_done.load(Ordering::Acquire);
+
+		trace!(%is_canceled, %is_done, "Received pause command task");
 
 		if !is_paused && !is_canceled && !is_done {
-			if self.worktable.is_running.load(Ordering::Relaxed) {
+			if self.worktable.is_running.load(Ordering::Acquire) {
 				let (tx, rx) = oneshot::channel();
 
 				trace!("Task is running, sending pause request");
 
-				self.worktable.pause(tx).await;
+				self.worktable.pause(tx);
 
 				rx.await.expect("Worker failed to ack pause request");
 			} else {
-				trace!("Task is not running, setting is_paused flag");
-				self.worktable.is_paused.store(true, Ordering::Relaxed);
+				trace!("Task is not running, setting is_paused flag and communicating with system");
+				self.worktable.is_paused.store(true, Ordering::Release);
 
 				let (tx, rx) = oneshot::channel();
 
 				self.system_comm.pause_not_running_task(
 					self.task_id,
-					self.worktable.current_worker_id.load(Ordering::Relaxed),
+					Arc::clone(&self.worktable),
 					tx,
 				);
 
@@ -440,55 +449,68 @@ impl TaskRemoteController {
 	/// # Panics
 	///
 	/// Will panic if the worker failed to ack the cancel request
-	pub async fn cancel(&self) {
-		let is_canceled = self.worktable.has_canceled.load(Ordering::Relaxed);
-		let is_done = self.worktable.is_done.load(Ordering::Relaxed);
+	#[instrument(skip(self), fields(task_id = %self.task_id))]
+	pub async fn cancel(&self) -> Result<(), SystemError> {
+		if self.worktable.is_finalized() {
+			trace!("Task is finalized, will not cancel");
+			return Ok(());
+		}
 
-		trace!(
-			"Received cancel command task: <id='{}', is_canceled={is_canceled}, is_done={is_done}>",
-			self.task_id
-		);
+		let is_canceled = self.worktable.has_canceled();
+		let is_done = self.worktable.is_done();
+
+		trace!(%is_canceled, %is_done, "Received cancel command task");
 
 		if !is_canceled && !is_done {
-			if self.worktable.is_running.load(Ordering::Relaxed) {
+			if self.worktable.is_running() {
 				let (tx, rx) = oneshot::channel();
 
 				trace!("Task is running, sending cancel request");
 
-				self.worktable.cancel(tx).await;
+				self.worktable.cancel(tx);
 
 				rx.await.expect("Worker failed to ack cancel request");
 			} else {
-				trace!("Task is not running, setting is_canceled flag");
-				self.worktable.has_canceled.store(true, Ordering::Relaxed);
+				trace!(
+					"Task is not running, setting is_canceled flag and communicating with system"
+				);
+				self.worktable.has_canceled.store(true, Ordering::Release);
 
 				let (tx, rx) = oneshot::channel();
 
 				self.system_comm.cancel_not_running_task(
 					self.task_id,
-					self.worktable.current_worker_id.load(Ordering::Relaxed),
+					Arc::clone(&self.worktable),
 					tx,
 				);
 
-				rx.await
+				return rx
+					.await
 					.expect("Worker failed to ack cancel not running task request");
 			}
 		}
+
+		Ok(())
 	}
 
 	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
+	///
 	/// # Panics
+	///
 	/// Will panic if the worker failed to ack the forced abortion request
+	#[instrument(skip(self), fields(task_id = %self.task_id), err)]
 	pub async fn force_abortion(&self) -> Result<(), SystemError> {
+		if self.worktable.is_finalized() {
+			trace!("Task is finalized, will not force abortion");
+			return Ok(());
+		}
+		trace!("Received force abortion command task");
 		self.worktable.set_aborted();
 
 		let (tx, rx) = oneshot::channel();
 
-		self.system_comm.force_abortion(
-			self.task_id,
-			self.worktable.current_worker_id.load(Ordering::Relaxed),
-			tx,
-		);
+		self.system_comm
+			.force_abortion(self.task_id, Arc::clone(&self.worktable), tx);
 
 		rx.await
 			.expect("Worker failed to ack force abortion request")
@@ -496,16 +518,22 @@ impl TaskRemoteController {
 
 	/// Marks the task to be resumed by the task system, the worker will start processing it if there is a slot
 	/// available or will be enqueued otherwise.
+	///
 	/// # Panics
+	///
 	/// Will panic if the worker failed to ack the resume request
+	#[instrument(skip(self), fields(task_id = %self.task_id), err)]
 	pub async fn resume(&self) -> Result<(), SystemError> {
+		if self.worktable.is_finalized() {
+			trace!("Task is finalized, will not resume");
+			return Ok(());
+		}
+		trace!("Received resume command task");
+
 		let (tx, rx) = oneshot::channel();
 
-		self.system_comm.resume_task(
-			self.task_id,
-			self.worktable.current_worker_id.load(Ordering::Relaxed),
-			tx,
-		);
+		self.system_comm
+			.resume_task(self.task_id, Arc::clone(&self.worktable), tx);
 
 		rx.await.expect("Worker failed to ack resume request")
 	}
@@ -547,21 +575,13 @@ impl<E: RunError> TaskHandle<E> {
 	}
 
 	/// Gracefully pause the task at a safe point defined by the user using the [`Interrupter`]
-	///
-	/// # Panics
-	///
-	/// Will panic if the worker failed to ack the pause request
 	pub async fn pause(&self) -> Result<(), SystemError> {
 		self.controller.pause().await
 	}
 
 	/// Gracefully cancel the task at a safe point defined by the user using the [`Interrupter`]
-	///
-	/// # Panics
-	///
-	/// Will panic if the worker failed to ack the cancel request
-	pub async fn cancel(&self) {
-		self.controller.cancel().await;
+	pub async fn cancel(&self) -> Result<(), SystemError> {
+		self.controller.cancel().await
 	}
 
 	/// Forcefully abort the task, this can lead to corrupted data or inconsistent states, so use it with caution.
@@ -617,7 +637,7 @@ impl<E: RunError> Drop for CancelTaskOnDrop<E> {
 	fn drop(&mut self) {
 		// FIXME: We should use async drop when it becomes stable
 		if let Some(handle) = self.0.take() {
-			spawn(async move { handle.cancel().await });
+			spawn(async move { handle.cancel().await }.in_current_span());
 		}
 	}
 }
@@ -633,6 +653,7 @@ pub struct TaskWorktable {
 	has_shutdown: AtomicBool,
 	has_failed: AtomicBool,
 	interrupt_tx: chan::Sender<InterruptionRequest>,
+	finalized: AtomicBool,
 	current_worker_id: AtomicWorkerId,
 }
 
@@ -647,9 +668,21 @@ impl TaskWorktable {
 			has_aborted: AtomicBool::new(false),
 			has_shutdown: AtomicBool::new(false),
 			has_failed: AtomicBool::new(false),
+			finalized: AtomicBool::new(false),
 			interrupt_tx,
 			current_worker_id: AtomicWorkerId::new(worker_id),
 		}
+	}
+
+	#[inline]
+	pub fn worker_id(&self) -> WorkerId {
+		self.current_worker_id.load(Ordering::Acquire)
+	}
+
+	#[inline]
+	pub fn change_worker(&self, new_worker_id: WorkerId) {
+		self.current_worker_id
+			.store(new_worker_id, Ordering::Release);
 	}
 
 	pub fn set_started(&self) {
@@ -686,71 +719,139 @@ impl TaskWorktable {
 		self.is_running.store(false, Ordering::Relaxed);
 	}
 
-	pub async fn pause(&self, tx: oneshot::Sender<()>) {
-		self.is_paused.store(true, Ordering::Relaxed);
-		self.is_running.store(false, Ordering::Relaxed);
-
-		trace!("Sending pause signal to Interrupter object on task");
-
-		self.interrupt_tx
-			.send(InterruptionRequest {
-				kind: InternalInterruptionKind::Pause,
-				ack: tx,
-			})
-			.await
-			.expect("Worker channel closed trying to pause task");
+	pub fn set_finalized(&self) {
+		self.finalized.store(true, Ordering::Release);
 	}
 
-	pub async fn suspend(&self, tx: oneshot::Sender<()>, has_suspended: Arc<AtomicBool>) {
-		self.is_paused.store(true, Ordering::Relaxed);
-		self.is_running.store(false, Ordering::Relaxed);
+	pub fn pause(self: &Arc<Self>, outer_tx: oneshot::Sender<()>) {
+		spawn({
+			let this = Arc::clone(self);
 
-		trace!("Sending pause signal to Interrupter object on task");
+			trace!("Sending pause signal to Interrupter object on task");
 
-		self.interrupt_tx
-			.send(InterruptionRequest {
-				kind: InternalInterruptionKind::Suspend(has_suspended),
-				ack: tx,
-			})
-			.await
-			.expect("Interrupter channel closed trying to pause task");
+			async move {
+				let (tx, rx) = oneshot::channel();
+
+				if this
+					.interrupt_tx
+					.send(InterruptionRequest {
+						kind: InternalInterruptionKind::Pause,
+						ack: tx,
+					})
+					.await
+					.is_ok()
+				{
+					rx.await.expect("Task failed to ack pause request");
+
+					this.is_paused.store(true, Ordering::Release);
+					this.is_running.store(false, Ordering::Release);
+				}
+
+				trace!("Sent pause signal to Interrupter object on task");
+
+				outer_tx
+					.send(())
+					.expect("Worker channel closed trying to pause task");
+			}
+			.in_current_span()
+		});
 	}
 
-	pub async fn cancel(&self, tx: oneshot::Sender<()>) {
-		self.interrupt_tx
-			.send(InterruptionRequest {
-				kind: InternalInterruptionKind::Cancel,
-				ack: tx,
-			})
-			.await
-			.expect("Interrupter channel closed trying to pause task");
+	pub fn suspend(
+		self: &Arc<Self>,
+		outer_tx: oneshot::Sender<()>,
+		has_suspended: Arc<AtomicBool>,
+	) {
+		trace!("Sending suspend signal to Interrupter object on task");
+		spawn({
+			let this = Arc::clone(self);
 
-		self.has_canceled.store(true, Ordering::Relaxed);
-		self.is_running.store(false, Ordering::Relaxed);
+			async move {
+				let (tx, rx) = oneshot::channel();
+
+				if this
+					.interrupt_tx
+					.send(InterruptionRequest {
+						kind: InternalInterruptionKind::Suspend(has_suspended),
+						ack: tx,
+					})
+					.await
+					.is_ok()
+				{
+					rx.await.expect("Task failed to ack suspend request");
+
+					this.is_paused.store(true, Ordering::Release);
+					this.is_running.store(false, Ordering::Release);
+				}
+
+				outer_tx
+					.send(())
+					.expect("Worker channel closed trying to suspend task");
+			}
+			.in_current_span()
+		});
+	}
+
+	pub fn cancel(self: &Arc<Self>, outer_tx: oneshot::Sender<()>) {
+		trace!("Sending cancel signal to Interrupter object on task");
+		spawn({
+			let this = Arc::clone(self);
+			async move {
+				let (tx, rx) = oneshot::channel();
+
+				if this
+					.interrupt_tx
+					.send(InterruptionRequest {
+						kind: InternalInterruptionKind::Cancel,
+						ack: tx,
+					})
+					.await
+					.is_ok()
+				{
+					rx.await.expect("Task failed to ack cancel request");
+
+					this.has_canceled.store(true, Ordering::Release);
+					this.is_running.store(false, Ordering::Release);
+				}
+
+				outer_tx
+					.send(())
+					.expect("Worker channel closed trying to cancel task");
+			}
+			.in_current_span()
+		});
 	}
 
 	pub fn is_done(&self) -> bool {
-		self.is_done.load(Ordering::Relaxed)
+		self.is_done.load(Ordering::Acquire)
+	}
+
+	pub fn is_running(&self) -> bool {
+		self.is_running.load(Ordering::Acquire)
 	}
 
 	pub fn is_paused(&self) -> bool {
-		self.is_paused.load(Ordering::Relaxed)
+		self.is_paused.load(Ordering::Acquire)
 	}
 
 	pub fn has_canceled(&self) -> bool {
-		self.has_canceled.load(Ordering::Relaxed)
+		self.has_canceled.load(Ordering::Acquire)
 	}
 
 	pub fn has_failed(&self) -> bool {
-		self.has_failed.load(Ordering::Relaxed)
+		self.has_failed.load(Ordering::Acquire)
 	}
 
 	pub fn has_aborted(&self) -> bool {
-		self.has_aborted.load(Ordering::Relaxed)
+		self.has_aborted.load(Ordering::Acquire)
 	}
 
 	pub fn has_shutdown(&self) -> bool {
-		self.has_shutdown.load(Ordering::Relaxed)
+		self.has_shutdown.load(Ordering::Acquire)
+	}
+
+	pub fn is_finalized(&self) -> bool {
+		self.finalized.load(Ordering::Acquire)
 	}
 }
 
@@ -788,17 +889,6 @@ impl<E: RunError> TaskWorkState<E> {
 	pub fn kind(&self) -> PendingTaskKind {
 		PendingTaskKind::with_priority(self.task.with_priority())
 	}
-
-	pub fn worker_id(&self) -> WorkerId {
-		self.worktable.current_worker_id.load(Ordering::Relaxed)
-	}
-
-	#[inline]
-	pub fn change_worker(&self, new_worker_id: WorkerId) {
-		self.worktable
-			.current_worker_id
-			.store(new_worker_id, Ordering::Relaxed);
-	}
 }
 
 #[derive(Debug)]
@@ -830,10 +920,13 @@ impl<E: RunError> PanicOnSenderDrop<E> {
 }
 
 impl<E: RunError> Drop for PanicOnSenderDrop<E> {
+	#[track_caller]
 	fn drop(&mut self) {
+		trace!(task_id = %self.task_id, "Dropping TaskWorkState");
 		assert!(
 			self.maybe_done_tx.is_none(),
-			"TaskHandle done channel dropped before sending a result"
+			"TaskHandle done channel dropped before sending a result: {}",
+			std::panic::Location::caller()
 		);
 		trace!(task_id = %self.task_id,
 			"TaskWorkState successfully dropped"

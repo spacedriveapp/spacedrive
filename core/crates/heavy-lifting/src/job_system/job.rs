@@ -9,6 +9,7 @@ use sd_task_system::{
 
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
+	fmt,
 	hash::{Hash, Hasher},
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
@@ -30,13 +31,14 @@ use specta::Type;
 use strum::{Display, EnumString};
 use tokio::{
 	spawn,
-	sync::{watch, Mutex},
+	sync::{oneshot, watch, Mutex},
 	time::Instant,
 };
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn, Instrument, Level};
 use uuid::Uuid;
 
 use super::{
+	error::JobCanceledError,
 	report::{
 		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
 	},
@@ -59,11 +61,20 @@ pub enum JobName {
 	FileValidator,
 }
 
-#[derive(Debug)]
 pub enum ReturnStatus {
 	Completed(JobReturn),
 	Shutdown(Result<Option<Vec<u8>>, rmp_serde::encode::Error>),
-	Canceled,
+	Canceled(JobReturn),
+}
+
+impl fmt::Debug for ReturnStatus {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Completed(job_return) => f.debug_tuple("Completed").field(job_return).finish(),
+			Self::Shutdown(_) => f.write_str("Shutdown(<Maybe Serialized Tasks Data>)"),
+			Self::Canceled(job_return) => f.debug_tuple("Canceled").field(job_return).finish(),
+		}
+	}
 }
 
 pub enum ProgressUpdate {
@@ -95,11 +106,14 @@ pub trait OuterContext: Send + Sync + Clone + 'static {
 
 pub trait JobContext<OuterCtx: OuterContext>: OuterContext {
 	fn new(report: Report, ctx: OuterCtx) -> Self;
-	fn progress(&self, updates: Vec<ProgressUpdate>) -> impl Future<Output = ()> + Send;
+	fn progress(
+		&self,
+		updates: impl IntoIterator<Item = ProgressUpdate> + Send,
+	) -> impl Future<Output = ()> + Send;
 	fn progress_msg(&self, msg: impl Into<String>) -> impl Future<Output = ()> + Send {
 		let msg = msg.into();
 		async move {
-			self.progress(vec![ProgressUpdate::Message(msg)]).await;
+			self.progress([ProgressUpdate::Message(msg)]).await;
 		}
 	}
 	fn report(&self) -> impl Future<Output = impl Deref<Target = Report> + Send> + Send;
@@ -381,28 +395,75 @@ pub struct JobHandle<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	pub(crate) id: JobId,
 	pub(crate) start_time: Instant,
 	pub(crate) run_time: Duration,
+	pub(crate) is_running: bool,
 	pub(crate) next_jobs: VecDeque<Box<dyn DynJob<OuterCtx, JobCtx>>>,
 	pub(crate) ctx: JobCtx,
-	pub(crate) commands_tx: chan::Sender<Command>,
+	pub(crate) commands_tx: chan::Sender<(Command, oneshot::Sender<()>)>,
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, JobCtx> {
-	#[instrument(skip(self), fields(id = %self.id), err)]
-	pub async fn send_command(&mut self, command: Command) -> Result<(), JobSystemError> {
+	#[instrument(skip(self, outer_ack_tx), fields(job_id = %self.id))]
+	pub async fn send_command(
+		&mut self,
+		command: Command,
+		outer_ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
+	) {
 		trace!("JobHandle sending command");
-		if self.commands_tx.send(command).await.is_err() {
+
+		let (ack_tx, ack_rx) = oneshot::channel();
+
+		let res = if self.commands_tx.send((command, ack_tx)).await.is_err() {
 			warn!("Tried to send command to a job that was already completed");
 
 			Ok(())
 		} else {
-			self.command_children(command).await
+			ack_rx
+				.await
+				.expect("inner ack channel closed before sending response to handle a job command");
+
+			match self.execute_command(command).await {
+				Ok(()) => self.command_children(command).await,
+				Err(e) => Err(e),
+			}
+		};
+
+		if res.is_ok() {
+			match command {
+				Command::Pause | Command::Cancel => self.is_running = false,
+				Command::Resume => self.is_running = true,
+			}
 		}
+
+		outer_ack_tx
+			.send(res)
+			.unwrap_or_else(|_| panic!("ack channel closed before sending {command:?} response"));
 	}
 
+	#[instrument(skip_all, err)]
+	async fn execute_command(&mut self, command: Command) -> Result<(), JobSystemError> {
+		let (new_status, completed_at) = match command {
+			Command::Pause => (Status::Paused, None),
+			Command::Resume => (Status::Running, None),
+			Command::Cancel => (Status::Canceled, Some(Utc::now())),
+		};
+
+		{
+			let mut report = self.ctx.report_mut().await;
+
+			report.status = new_status;
+			report.completed_at = completed_at;
+
+			report.update(self.ctx.db()).await?;
+		}
+
+		Ok(())
+	}
+
+	#[instrument(skip_all, err)]
 	async fn command_children(&mut self, command: Command) -> Result<(), JobSystemError> {
 		let (new_status, completed_at) = match command {
 			Command::Pause => (Status::Paused, None),
-			Command::Resume => return Ok(()),
+			Command::Resume => (Status::Queued, None),
 			Command::Cancel => (Status::Canceled, Some(Utc::now())),
 		};
 
@@ -427,7 +488,12 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			.map_err(Into::into)
 	}
 
-	#[instrument(skip(self), fields(id = %self.id), err)]
+	#[instrument(
+		skip(self),
+		fields(job_id = %self.id),
+		ret(level = Level::TRACE),
+		err,
+	)]
 	pub async fn register_start(
 		&mut self,
 		start_time: DateTime<Utc>,
@@ -435,35 +501,41 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		trace!("JobHandle registering start of job");
 
 		let Self { next_jobs, ctx, .. } = self;
-
-		let mut report = ctx.report_mut().await;
-
-		report.status = Status::Running;
-		if report.started_at.is_none() {
-			report.started_at = Some(start_time);
-		}
-
 		let db = ctx.db();
 
-		// If the report doesn't have a created_at date, it's a new report
-		if report.created_at.is_none() {
-			report.create(db).await?;
-		} else {
-			// Otherwise it can be a job being resumed or a children job that was already been created
-			report.update(db).await?;
+		let now = Utc::now();
+
+		{
+			let mut report = ctx.report_mut().await;
+
+			report.status = Status::Running;
+			if report.started_at.is_none() {
+				report.started_at = Some(start_time);
+			}
+
+			// If the report doesn't have a created_at date, it's a new report
+			if report.created_at.is_none() {
+				report.create(db, now).await?;
+			} else {
+				// Otherwise it can be a job being resumed or a children job that was already been created
+				report.update(db).await?;
+			}
 		}
 
 		// Registering children jobs
-		next_jobs
+		let res = next_jobs
 			.iter_mut()
-			.map(|dyn_job| dyn_job.report_mut())
-			.map(|next_job_report| async {
+			.enumerate()
+			.map(|(idx, dyn_job)| (idx, dyn_job.report_mut()))
+			.map(|(idx, next_job_report)| async move {
 				trace!(
 					%next_job_report.id,
 					"Parent job registering children ",
 				);
 				if next_job_report.created_at.is_none() {
-					next_job_report.create(db).await
+					next_job_report
+						.create(db, now + Duration::from_secs((idx + 1) as u64))
+						.await
 				} else {
 					Ok(())
 				}
@@ -472,7 +544,12 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			.try_join()
 			.await
 			.map(|_| ())
-			.map_err(Into::into)
+			.map_err(Into::into);
+
+		ctx.invalidate_query("jobs.isActive");
+		ctx.invalidate_query("jobs.reports");
+
+		res
 	}
 
 	#[instrument(
@@ -569,27 +646,47 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		),
 		err
 	)]
-	pub async fn cancel_job(&mut self) -> Result<(), JobSystemError> {
+	pub async fn cancel_job(
+		&mut self,
+		JobReturn {
+			data,
+			metadata,
+			non_critical_errors,
+		}: JobReturn,
+	) -> Result<JobOutput, JobSystemError> {
 		trace!("JobHandle canceling job");
 		let db = self.ctx.db();
 
-		{
+		let output = {
 			let mut report = self.ctx.report_mut().await;
 
-			info!(
+			debug!(
 				job_name = %report.name,
 				"Job canceled, we will cancel all children jobs",
 			);
 
 			report.status = Status::Canceled;
+			report.non_critical_errors.extend(non_critical_errors);
+			report.metadata.extend(metadata.into_iter().map(Into::into));
 			report.completed_at = Some(Utc::now());
 
 			report.update(db).await?;
-		}
+
+			JobOutput {
+				id: report.id,
+				status: report.status,
+				job_name: report.name,
+				data,
+				metadata: report.metadata.clone(),
+				non_critical_errors: report.non_critical_errors.clone(),
+			}
+		};
 
 		trace!("JobHandle sending cancel command to children");
 
-		self.command_children(Command::Cancel).await
+		self.command_children(Command::Cancel).await?;
+
+		Ok(output)
 	}
 }
 
@@ -691,6 +788,7 @@ where
 		JobHandle {
 			id: self.id,
 			start_time: Instant::now(),
+			is_running: true,
 			run_time: Duration::ZERO,
 			next_jobs: self.next_jobs,
 			ctx,
@@ -730,23 +828,24 @@ where
 
 		JobHandle {
 			id: self.id,
-			next_jobs: self.next_jobs,
 			start_time: Instant::now(),
+			is_running: true,
 			run_time: self.run_time,
+			next_jobs: self.next_jobs,
 			ctx,
 			commands_tx,
 		}
 	}
 }
 
-#[instrument(skip_all, fields(id = %id, name = %J::NAME))]
+#[instrument(name = "job_executor", skip_all, fields(%job_id, name = %J::NAME))]
 async fn to_spawn_job<OuterCtx, JobCtx, J>(
-	id: JobId,
+	job_id: JobId,
 	mut job: J,
 	ctx: JobCtx,
 	existing_tasks: Option<SerializedTasks>,
 	base_dispatcher: BaseTaskDispatcher<Error>,
-	commands_rx: chan::Receiver<Command>,
+	commands_rx: chan::Receiver<(Command, oneshot::Sender<()>)>,
 	done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
 ) where
 	OuterCtx: OuterContext,
@@ -754,7 +853,7 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 	J: Job,
 {
 	enum StreamMessage {
-		Commands(Command),
+		Commands((Command, oneshot::Sender<()>)),
 		NewRemoteController(TaskRemoteController),
 		Done(Result<ReturnStatus, Error>),
 	}
@@ -764,12 +863,12 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 	let (running_state_tx, running_state_rx) = watch::channel(JobRunningState::Running);
 
 	let (dispatcher, remote_controllers_rx) =
-		JobTaskDispatcher::new(base_dispatcher, running_state_rx);
+		JobTaskDispatcher::new(job_id, base_dispatcher, running_state_rx);
 
 	if let Some(existing_tasks) = existing_tasks {
 		if let Err(e) = job.resume_tasks(&dispatcher, &ctx, existing_tasks).await {
 			done_tx
-				.send((id, Err(e)))
+				.send((job_id, Err(e)))
 				.await
 				.expect("jobs done tx closed on error at resume_tasks");
 
@@ -777,25 +876,53 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 		}
 	}
 
+	let (tx, rx) = chan::bounded(1);
+
+	spawn(
+		async move {
+			tx.send(job.run::<OuterCtx>(dispatcher, ctx).await)
+				.await
+				.expect("job run channel closed");
+		}
+		.in_current_span(),
+	);
+
+	let commands_rx_to_close = commands_rx.clone();
+
 	let mut msgs_stream = pin!((
 		commands_rx.map(StreamMessage::Commands),
-		remote_controllers_rx.map(StreamMessage::NewRemoteController),
-		stream::once(job.run::<OuterCtx>(dispatcher, ctx)).map(StreamMessage::Done),
+		remote_controllers_rx
+			.clone()
+			.map(StreamMessage::NewRemoteController),
+		stream::once({
+			let rx = rx.clone();
+			async move { rx.recv().await.expect("job run rx closed") }
+		})
+		.map(StreamMessage::Done),
 	)
 		.merge());
 
 	while let Some(msg) = msgs_stream.next().await {
 		match msg {
 			StreamMessage::NewRemoteController(remote_controller) => {
+				trace!("new remote controller received");
 				remote_controllers.push(remote_controller);
+				trace!("added new remote controller");
 			}
-			StreamMessage::Commands(command) => {
+			StreamMessage::Commands((command, ack_tx)) => {
+				// Add any possible pending remote controllers to the list
+				while let Ok(remote_controller) = remote_controllers_rx.try_recv() {
+					remote_controllers.push(remote_controller);
+				}
+
 				remote_controllers.retain(|controller| !controller.is_done());
 
 				match command {
 					Command::Pause => {
 						trace!("Pausing job");
 						running_state_tx.send_modify(|state| *state = JobRunningState::Paused);
+						trace!(tasks_count = remote_controllers.len(), "pausing tasks");
+
 						remote_controllers
 							.iter()
 							.map(TaskRemoteController::pause)
@@ -807,13 +934,18 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 								if let Err(e) = res {
 									assert!(matches!(e, TaskSystemError::TaskNotFound(_)));
 
-									warn!("Tried to pause a task that was already completed");
+									trace!("Tried to pause a task that was already completed");
 								}
 							});
+
+						ack_tx.send(()).expect("ack channel closed");
+						trace!("paused job");
 					}
+
 					Command::Resume => {
 						trace!("Resuming job");
 						running_state_tx.send_modify(|state| *state = JobRunningState::Running);
+						trace!(tasks_count = remote_controllers.len(), "resuming tasks");
 
 						remote_controllers
 							.iter()
@@ -826,47 +958,85 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 								if let Err(e) = res {
 									assert!(matches!(e, TaskSystemError::TaskNotFound(_)));
 
-									warn!("Tried to resume a task that was already completed");
+									trace!("Tried to resume a task that was already completed");
 								}
 							});
+
+						ack_tx.send(()).expect("ack channel closed");
+						trace!("resumed job");
 					}
+
 					Command::Cancel => {
 						trace!("Canceling job");
+						running_state_tx.send_modify(|state| *state = JobRunningState::Canceled);
+						trace!(tasks_count = remote_controllers.len(), "canceling tasks");
+
 						remote_controllers
 							.iter()
 							.map(TaskRemoteController::cancel)
 							.collect::<Vec<_>>()
 							.join()
-							.await;
-
-						return done_tx
-							.send((id, Ok(ReturnStatus::Canceled)))
 							.await
-							.expect("jobs done tx closed");
+							.into_iter()
+							.for_each(|res| {
+								if let Err(e) = res {
+									assert!(matches!(e, TaskSystemError::TaskNotFound(_)));
+
+									trace!("Tried to cancel a task that was already completed");
+								}
+							});
+
+						trace!("canceled job");
+
+						commands_rx_to_close.close();
+						trace!("Finishing job");
+						let res = rx.recv().await.expect("job run rx closed");
+						ack_tx.send(()).expect("ack channel closed");
+						trace!("Job cancellation done");
+
+						return finish_job(job_id, res, remote_controllers, done_tx).await;
 					}
 				}
 			}
 
 			StreamMessage::Done(res) => {
 				trace!("Job done");
-				#[cfg(debug_assertions)]
-				{
-					// Just a sanity check to make sure we don't have any pending tasks left
-					remote_controllers.retain(|controller| !controller.is_done());
-					assert!(remote_controllers.is_empty());
-					// Using #[cfg(debug_assertions)] to don't pay this retain cost in release builds
-				}
-
-				return done_tx.send((id, res)).await.expect("jobs done tx closed");
+				commands_rx_to_close.close();
+				return finish_job(job_id, res, remote_controllers, done_tx).await;
 			}
 		}
 	}
+}
+
+#[instrument(skip(remote_controllers, done_tx))]
+async fn finish_job(
+	job_id: JobId,
+	job_result: Result<ReturnStatus, Error>,
+	mut remote_controllers: Vec<TaskRemoteController>,
+	done_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
+) {
+	trace!("Checking remove controllers");
+	#[cfg(debug_assertions)]
+	{
+		// Just a sanity check to make sure we don't have any pending tasks left
+		remote_controllers.retain(|controller| !controller.is_done());
+		assert!(remote_controllers.is_empty());
+		// Using #[cfg(debug_assertions)] to don't pay this retain cost in release builds
+	}
+
+	trace!("Sending job done message");
+
+	done_tx
+		.send((job_id, job_result))
+		.await
+		.expect("jobs done tx closed");
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum JobRunningState {
 	Running,
 	Paused,
+	Canceled,
 }
 
 impl Default for JobRunningState {
@@ -877,32 +1047,56 @@ impl Default for JobRunningState {
 
 #[derive(Debug, Clone)]
 pub struct JobTaskDispatcher {
+	job_id: JobId,
 	dispatcher: BaseTaskDispatcher<Error>,
 	remote_controllers_tx: chan::Sender<TaskRemoteController>,
 	running_state: Arc<Mutex<watch::Receiver<JobRunningState>>>,
 }
 
 impl TaskDispatcher<Error> for JobTaskDispatcher {
-	async fn dispatch_boxed(&self, boxed_task: Box<dyn Task<Error>>) -> TaskHandle<Error> {
-		self.wait_for_dispatch_approval().await;
+	type DispatchError = JobCanceledError;
 
-		let handle = self.dispatcher.dispatch_boxed(boxed_task).await;
+	async fn dispatch_boxed(
+		&self,
+		boxed_task: Box<dyn Task<Error>>,
+	) -> Result<TaskHandle<Error>, Self::DispatchError> {
+		if matches!(
+			self.wait_for_dispatch_approval().await,
+			DispatchApproval::Canceled
+		) {
+			return Err(JobCanceledError(self.job_id));
+		}
+
+		let handle = self
+			.dispatcher
+			.dispatch_boxed(boxed_task)
+			.await
+			.expect("infallible");
 
 		self.remote_controllers_tx
 			.send(handle.remote_controller())
 			.await
 			.expect("remote controllers tx closed");
 
-		handle
+		Ok(handle)
 	}
 
 	async fn dispatch_many_boxed(
 		&self,
 		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<Error>>> + Send,
-	) -> Vec<TaskHandle<Error>> {
-		self.wait_for_dispatch_approval().await;
+	) -> Result<Vec<TaskHandle<Error>>, Self::DispatchError> {
+		if matches!(
+			self.wait_for_dispatch_approval().await,
+			DispatchApproval::Canceled
+		) {
+			return Err(JobCanceledError(self.job_id));
+		}
 
-		let handles = self.dispatcher.dispatch_many_boxed(boxed_tasks).await;
+		let handles = self
+			.dispatcher
+			.dispatch_many_boxed(boxed_tasks)
+			.await
+			.expect("infallible");
 
 		handles
 			.iter()
@@ -912,12 +1106,18 @@ impl TaskDispatcher<Error> for JobTaskDispatcher {
 			.await
 			.expect("remote controllers tx closed");
 
-		handles
+		Ok(handles)
 	}
+}
+
+enum DispatchApproval {
+	Approved,
+	Canceled,
 }
 
 impl JobTaskDispatcher {
 	fn new(
+		job_id: JobId,
 		dispatcher: BaseTaskDispatcher<Error>,
 		running_state_rx: watch::Receiver<JobRunningState>,
 	) -> (Self, chan::Receiver<TaskRemoteController>) {
@@ -925,6 +1125,7 @@ impl JobTaskDispatcher {
 
 		(
 			Self {
+				job_id,
 				dispatcher,
 				remote_controllers_tx,
 				running_state: Arc::new(Mutex::new(running_state_rx)),
@@ -933,12 +1134,28 @@ impl JobTaskDispatcher {
 		)
 	}
 
-	async fn wait_for_dispatch_approval(&self) {
-		self.running_state
-			.lock()
-			.await
-			.wait_for(|state| *state == JobRunningState::Running)
-			.await
-			.expect("job running state watch channel unexpectedly closed");
+	async fn wait_for_dispatch_approval(&self) -> DispatchApproval {
+		{
+			let mut running_state_rx = self.running_state.lock().await;
+
+			if running_state_rx
+				.has_changed()
+				.expect("job running state watch channel unexpectedly closed")
+			{
+				trace!("waiting for job running state to change");
+				running_state_rx
+					.wait_for(|state| {
+						*state == JobRunningState::Running || *state == JobRunningState::Canceled
+					})
+					.await
+					.expect("job running state watch channel unexpectedly closed");
+
+				if matches!(*running_state_rx.borrow(), JobRunningState::Canceled) {
+					return DispatchApproval::Canceled;
+				}
+			}
+		}
+
+		DispatchApproval::Approved
 	}
 }

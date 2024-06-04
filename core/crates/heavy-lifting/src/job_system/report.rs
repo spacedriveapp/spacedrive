@@ -261,9 +261,11 @@ impl Report {
 		(action_name, Some(group_key))
 	}
 
-	pub async fn create(&mut self, db: &PrismaClient) -> Result<(), ReportError> {
-		let now = Utc::now();
-
+	pub async fn create(
+		&mut self,
+		db: &PrismaClient,
+		created_at: DateTime<Utc>,
+	) -> Result<(), ReportError> {
 		db.job()
 			.create(
 				self.id.as_bytes().to_vec(),
@@ -271,7 +273,7 @@ impl Report {
 					[
 						job::name::set(Some(self.name.to_string())),
 						job::action::set(self.action.clone()),
-						job::date_created::set(Some(now.into())),
+						job::date_created::set(Some(created_at.into())),
 						job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(Into::into)),
@@ -288,7 +290,7 @@ impl Report {
 			.map_err(ReportError::Create)?;
 
 		// Only setting created_at after we successfully created the job in DB
-		self.created_at = Some(now);
+		self.created_at = Some(created_at);
 
 		Ok(())
 	}

@@ -6,7 +6,7 @@ use crate::{
 		},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
-		SerializableJob, SerializedTasks,
+		JobCanceledError, JobErrorOrJobCanceledError, SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::get_full_path_from_sub_path,
 	Error, LocationScanState, NonCriticalError, OuterContext,
@@ -90,7 +90,7 @@ impl Job for Indexer {
 	) -> Result<(), Error> {
 		let location_id = self.location.id;
 
-		self.pending_tasks_on_resume = dispatcher
+		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
 					.map_err(indexer::Error::from)?
@@ -109,7 +109,6 @@ impl Job for Indexer {
 											db: Arc::clone(ctx.db()),
 										},
 										iso_file_path_factory.clone(),
-										dispatcher.clone(),
 									),
 								)
 								.await
@@ -135,7 +134,12 @@ impl Job for Indexer {
 					.await
 					.map_err(indexer::Error::from)?,
 			)
-			.await;
+			.await
+		{
+			self.pending_tasks_on_resume = tasks;
+		} else {
+			warn!("Failed to dispatch tasks to resume as job was already canceled");
+		}
 
 		Ok(())
 	}
@@ -157,8 +161,18 @@ impl Job for Indexer {
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
-		self.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
-			.await?;
+		match self
+			.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			Ok(()) => { /* Everything is awesome! */ }
+			Err(JobErrorOrJobCanceledError::JobError(e)) => {
+				return Err(e.into());
+			}
+			Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+				return Ok(self.cancel_job(&mut pending_running_tasks).await);
+			}
+		}
 
 		if let Some(res) = self
 			.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
@@ -304,14 +318,14 @@ impl Indexer {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrJobCanceledError<indexer::Error>> {
 		self.metadata.completed_tasks += 1;
 
-		if any_task_output.is::<walker::Output>() {
+		if any_task_output.is::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>() {
 			return self
 				.process_walk_output(
 					*any_task_output
-						.downcast::<walker::Output>()
+						.downcast::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>()
 						.expect("just checked"),
 					ctx,
 					dispatcher,
@@ -348,7 +362,7 @@ impl Indexer {
 			to_remove_count = to_remove.len(),
 			accepted_ancestors_count = accepted_ancestors.len(),
 			directory_iso_file_path = %directory_iso_file_path.as_ref().display(),
-			more_walker_tasks_count = handles.len(),
+			more_walker_tasks_count = keep_walking_tasks.len(),
 			%total_size,
 			?scan_time,
 		)
@@ -363,20 +377,21 @@ impl Indexer {
 			errors,
 			directory_iso_file_path,
 			total_size,
-			mut handles,
+			keep_walking_tasks,
 			scan_time,
 			..
-		}: walker::Output,
+		}: walker::Output<WalkerDBProxy, IsoFilePathFactory>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, indexer::Error> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrJobCanceledError<indexer::Error>> {
 		self.metadata.mean_scan_read_time += scan_time;
-		// Initially the handles vec only have walker tasks, but we will add saver and updater tasks later
 		#[allow(clippy::cast_possible_truncation)]
-		// SAFETY: we know that `handles.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
+		// SAFETY: we know that `keep_walking_tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
 		{
-			self.metadata.total_walk_tasks += handles.len() as u32;
+			self.metadata.total_walk_tasks += keep_walking_tasks.len() as u32;
 		}
+
+		let mut handles = dispatcher.dispatch_many(keep_walking_tasks).await?;
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
 
@@ -442,8 +457,8 @@ impl Indexer {
 			self.metadata.total_tasks
 		);
 
-		handles.extend(dispatcher.dispatch_many(save_tasks).await);
-		handles.extend(dispatcher.dispatch_many(update_tasks).await);
+		handles.extend(dispatcher.dispatch_many(save_tasks).await?);
+		handles.extend(dispatcher.dispatch_many(update_tasks).await?);
 
 		self.metadata.total_tasks += handles.len() as u64;
 
@@ -521,10 +536,13 @@ impl Indexer {
 						.await
 					{
 						Ok(more_handles) => more_handles,
-						Err(e) => {
-							cancel_pending_tasks(&*pending_running_tasks).await;
+						Err(JobErrorOrJobCanceledError::JobError(e)) => {
+							cancel_pending_tasks(pending_running_tasks).await;
 
 							return Some(Err(e.into()));
+						}
+						Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+							return Some(Ok(self.cancel_job(pending_running_tasks).await));
 						}
 					};
 
@@ -540,19 +558,17 @@ impl Indexer {
 				}
 
 				Ok(TaskStatus::Error(e)) => {
-					cancel_pending_tasks(&*pending_running_tasks).await;
+					cancel_pending_tasks(pending_running_tasks).await;
 
 					return Some(Err(e));
 				}
 
 				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
-					cancel_pending_tasks(&*pending_running_tasks).await;
-
-					return Some(Ok(ReturnStatus::Canceled));
+					return Some(Ok(self.cancel_job(pending_running_tasks).await));
 				}
 
 				Err(e) => {
-					cancel_pending_tasks(&*pending_running_tasks).await;
+					cancel_pending_tasks(pending_running_tasks).await;
 
 					return Some(Err(e.into()));
 				}
@@ -567,13 +583,13 @@ impl Indexer {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), indexer::Error> {
+	) -> Result<(), JobErrorOrJobCanceledError<indexer::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		let updates = if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
-				get_full_path_from_sub_path(
+				get_full_path_from_sub_path::<indexer::Error>(
 					self.location.id,
-					&self.sub_path,
+					self.sub_path.as_ref(),
 					&*self.iso_file_path_factory.location_path,
 					ctx.db(),
 				)
@@ -591,9 +607,8 @@ impl Indexer {
 							location_id: self.location.id,
 							db: Arc::clone(ctx.db()),
 						},
-						dispatcher.clone(),
 					)?)
-					.await,
+					.await?,
 			);
 
 			self.metadata.total_tasks = 1;
@@ -634,20 +649,23 @@ impl Indexer {
 					"last save task must be less than BATCH_SIZE paths"
 				);
 
+				self.metadata.total_tasks += 1;
 				self.metadata.total_paths += self.to_create_buffer.len() as u64;
 				self.metadata.total_save_tasks += 1;
 
-				pending_running_tasks.push(
-					dispatcher
-						.dispatch(tasks::Saver::new_deep(
-							self.location.id,
-							self.location.pub_id.clone(),
-							self.to_create_buffer.drain(..).collect(),
-							Arc::clone(ctx.db()),
-							Arc::clone(ctx.sync()),
-						))
-						.await,
-				);
+				if let Err(JobCanceledError(_)) = dispatcher
+					.dispatch(tasks::Saver::new_deep(
+						self.location.id,
+						self.location.pub_id.clone(),
+						self.to_create_buffer.drain(..).collect(),
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					))
+					.await
+					.map(|task_handle| pending_running_tasks.push(task_handle))
+				{
+					return Some(Ok(self.cancel_job(pending_running_tasks).await));
+				}
 			}
 
 			if !self.to_update_buffer.is_empty() {
@@ -656,18 +674,21 @@ impl Indexer {
 					"last update task must be less than BATCH_SIZE paths"
 				);
 
+				self.metadata.total_tasks += 1;
 				self.metadata.total_updated_paths += self.to_update_buffer.len() as u64;
 				self.metadata.total_update_tasks += 1;
 
-				pending_running_tasks.push(
-					dispatcher
-						.dispatch(tasks::Updater::new_deep(
-							self.to_update_buffer.drain(..).collect(),
-							Arc::clone(ctx.db()),
-							Arc::clone(ctx.sync()),
-						))
-						.await,
-				);
+				if let Err(JobCanceledError(_)) = dispatcher
+					.dispatch(tasks::Updater::new_deep(
+						self.to_update_buffer.drain(..).collect(),
+						Arc::clone(ctx.db()),
+						Arc::clone(ctx.sync()),
+					))
+					.await
+					.map(|task_handle| pending_running_tasks.push(task_handle))
+				{
+					return Some(Ok(self.cancel_job(pending_running_tasks).await));
+				}
 			}
 
 			self.process_handles(pending_running_tasks, ctx, dispatcher)
@@ -694,6 +715,7 @@ impl Indexer {
 			.into_iter()
 			.map(|chunk| {
 				let chunked_saves = chunk.collect::<Vec<_>>();
+
 				self.metadata.total_paths += chunked_saves.len() as u64;
 				self.metadata.total_save_tasks += 1;
 
@@ -707,7 +729,15 @@ impl Indexer {
 			})
 			.collect::<Vec<_>>();
 
-		pending_running_tasks.extend(dispatcher.dispatch_many(save_tasks).await);
+		self.metadata.total_tasks += save_tasks.len() as u64;
+
+		if let Err(JobCanceledError(_)) = dispatcher
+			.dispatch_many(save_tasks)
+			.await
+			.map(|task_handles| pending_running_tasks.extend(task_handles))
+		{
+			return Some(Ok(self.cancel_job(pending_running_tasks).await));
+		};
 
 		self.process_handles(pending_running_tasks, ctx, dispatcher)
 			.await
@@ -730,6 +760,7 @@ impl Indexer {
 				.into_iter()
 				.map(|chunk| {
 					let chunked_saves = chunk.collect::<Vec<_>>();
+
 					self.metadata.total_paths += chunked_saves.len() as u64;
 					self.metadata.total_save_tasks += 1;
 
@@ -749,6 +780,7 @@ impl Indexer {
 				.into_iter()
 				.map(|chunk| {
 					let chunked_updates = chunk.collect::<Vec<_>>();
+
 					self.metadata.total_updated_paths += chunked_updates.len() as u64;
 					self.metadata.total_update_tasks += 1;
 
@@ -820,6 +852,20 @@ impl Indexer {
 
 			(save_tasks, update_tasks)
 		}
+	}
+
+	async fn cancel_job(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+	) -> ReturnStatus {
+		cancel_pending_tasks(pending_running_tasks).await;
+
+		ReturnStatus::Canceled(
+			JobReturn::builder()
+				.with_metadata(mem::take(&mut self.metadata))
+				.with_non_critical_errors(mem::take(&mut self.errors))
+				.build(),
+		)
 	}
 }
 
@@ -949,16 +995,12 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 				&tasks_for_shutdown
 					.into_iter()
 					.map(|task| async move {
-						if task
-							.is::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
-							) {
-							task
-							.downcast::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory, JobTaskDispatcher>>(
-							)
-							.expect("just checked")
-							.serialize()
-							.await
-							.map(|bytes| (TaskKind::Walk, bytes))
+						if task.is::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>() {
+							task.downcast::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>()
+								.expect("just checked")
+								.serialize()
+								.await
+								.map(|bytes| (TaskKind::Walk, bytes))
 						} else if task.is::<tasks::Saver>() {
 							task.downcast::<tasks::Saver>()
 								.expect("just checked")

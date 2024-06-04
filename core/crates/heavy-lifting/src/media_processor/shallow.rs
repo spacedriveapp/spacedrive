@@ -49,14 +49,13 @@ pub async fn shallow(
 
 	let location = Arc::new(location);
 
-	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path(
+	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<media_processor::Error>(
 		location.id,
-		&Some(sub_path),
+		Some(sub_path),
 		&*location_path,
 		ctx.db(),
 	)
-	.await
-	.map_err(media_processor::Error::from)?
+	.await?
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
@@ -159,7 +158,7 @@ async fn dispatch_media_data_extractor_tasks(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
-) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
+) -> Result<Vec<TaskHandle<Error>>, Error> {
 	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
 		get_direct_children_files_by_extensions(
 			parent_iso_file_path,
@@ -209,7 +208,10 @@ async fn dispatch_media_data_extractor_tasks(
 		)
 		.collect::<Vec<_>>();
 
-	Ok(dispatcher.dispatch_many_boxed(tasks).await)
+	Ok(dispatcher
+		.dispatch_many_boxed(tasks)
+		.await
+		.expect("infallible"))
 }
 
 async fn dispatch_thumbnailer_tasks(
@@ -218,7 +220,7 @@ async fn dispatch_thumbnailer_tasks(
 	location_path: &PathBuf,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
-) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
+) -> Result<Vec<TaskHandle<Error>>, Error> {
 	let thumbnails_directory_path =
 		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
 	let location_id = parent_iso_file_path.location_id();
@@ -259,5 +261,8 @@ async fn dispatch_thumbnailer_tasks(
 		tasks.len(),
 	);
 
-	Ok(dispatcher.dispatch_many_boxed(tasks).await)
+	Ok(dispatcher
+		.dispatch_many_boxed(tasks)
+		.await
+		.expect("infallible"))
 }

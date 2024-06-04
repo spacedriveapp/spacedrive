@@ -1,5 +1,3 @@
-use crate::Error;
-
 use sd_utils::error::FileIOError;
 
 use prisma_client_rust::QueryError;
@@ -17,9 +15,6 @@ pub enum JobSystemError {
 		already_running_id: JobId,
 	},
 
-	#[error("job canceled: <id='{0}'>")]
-	Canceled(JobId),
-
 	#[error("failed to load job reports from database to resume jobs: {0}")]
 	LoadReportsForResume(#[from] QueryError),
 
@@ -34,9 +29,6 @@ pub enum JobSystemError {
 
 	#[error(transparent)]
 	Report(#[from] ReportError),
-
-	#[error(transparent)]
-	Processing(#[from] Error),
 }
 
 impl From<JobSystemError> for rspc::Error {
@@ -45,17 +37,26 @@ impl From<JobSystemError> for rspc::Error {
 			JobSystemError::NotFound(_) => {
 				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
 			}
+
 			JobSystemError::AlreadyRunning { .. } => {
 				Self::with_cause(rspc::ErrorCode::Conflict, e.to_string(), e)
 			}
 
-			JobSystemError::Canceled(_) => {
-				Self::with_cause(rspc::ErrorCode::ClientClosedRequest, e.to_string(), e)
-			}
-			JobSystemError::Processing(e) => e.into(),
 			JobSystemError::Report(e) => e.into(),
 
 			_ => Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("job canceled: <id='{0}'>")]
+pub struct JobCanceledError(pub JobId);
+
+#[derive(Debug, thiserror::Error)]
+pub enum JobErrorOrJobCanceledError<JobError: Into<crate::Error>> {
+	#[error(transparent)]
+	JobError(#[from] JobError),
+	#[error(transparent)]
+	JobCanceled(#[from] JobCanceledError),
 }

@@ -11,7 +11,6 @@ use crate::{
 	Node,
 };
 
-use sd_core_heavy_lifting::JobSystemError;
 use sd_prisma::prisma::location;
 use sd_utils::error::FileIOError;
 
@@ -77,7 +76,7 @@ pub enum InitConfigError {
 	CurrentDir(io::Error),
 
 	#[error(transparent)]
-	JobSystem(#[from] JobSystemError),
+	Processing(#[from] sd_core_heavy_lifting::Error),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }

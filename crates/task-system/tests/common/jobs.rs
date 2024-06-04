@@ -41,6 +41,7 @@ impl SampleJob {
 			task_dispatcher
 				.dispatch_many(initial_steps)
 				.await
+				.expect("infallible")
 				.into_iter(),
 		)
 		.lend_mut();
@@ -108,7 +109,8 @@ impl Task<SampleError> for SampleJobTask {
 							expected_children: self.expected_children - 1,
 							task_dispatcher: self.task_dispatcher.clone(),
 						})
-						.await,
+						.await
+						.expect("infallible"),
 				}
 				.into_output(),
 			))

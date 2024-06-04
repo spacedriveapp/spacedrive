@@ -243,10 +243,10 @@ impl Node {
 				format!(
 					"info,\
 					sd_core={level},\
-					sd_p2p=debug,\
+					sd_p2p={level},\
 					sd_core::location::manager=info,\
-					sd_core_heavy_lifting=debug,\
-					sd_task_system=debug,\
+					sd_core_heavy_lifting={level},\
+					sd_task_system={level},\
 					sd_ai={level}"
 				),
 			);

@@ -339,7 +339,7 @@ pub async fn reverse_update_directories_sizes(
 					),
 				))
 			} else {
-				warn!("Got a missing ancestor for a file_path in the database, maybe we have a corruption");
+				warn!("Got a missing ancestor for a file_path in the database, ignoring...");
 				None
 			}
 		})

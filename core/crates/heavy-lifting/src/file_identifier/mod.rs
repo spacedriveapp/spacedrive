@@ -190,15 +190,16 @@ fn orphan_path_filters_deep(
 	)
 }
 
-async fn dispatch_object_processor_tasks<Iter>(
+async fn dispatch_object_processor_tasks<Iter, Dispatcher>(
 	file_paths_by_cas_id: Iter,
 	ctx: &impl OuterContext,
-	dispatcher: &impl TaskDispatcher<crate::Error>,
+	dispatcher: &Dispatcher,
 	with_priority: bool,
-) -> Vec<TaskHandle<crate::Error>>
+) -> Result<Vec<TaskHandle<crate::Error>>, Dispatcher::DispatchError>
 where
 	Iter: IntoIterator<Item = (CasId<'static>, Vec<FilePathToCreateOrLinkObject>)> + Send,
 	Iter::IntoIter: Send,
+	Dispatcher: TaskDispatcher<crate::Error>,
 {
 	let mut current_batch = HashMap::<_, Vec<_>>::new();
 	let mut tasks = vec![];
@@ -215,7 +216,7 @@ where
 						Arc::clone(ctx.sync()),
 						with_priority,
 					))
-					.await,
+					.await?,
 			);
 		} else {
 			current_batch_size += objects_to_create_or_link.len();
@@ -237,7 +238,7 @@ where
 							Arc::clone(ctx.sync()),
 							with_priority,
 						))
-						.await,
+						.await?,
 				);
 
 				current_batch_size = 0;
@@ -254,11 +255,11 @@ where
 					Arc::clone(ctx.sync()),
 					with_priority,
 				))
-				.await,
+				.await?,
 		);
 	}
 
-	tasks
+	Ok(tasks)
 }
 
 fn accumulate_file_paths_by_cas_id(

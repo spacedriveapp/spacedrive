@@ -375,7 +375,7 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
-export type JobGroup = { id: string; action: string | null; status: Status; created_at: string; jobs: Report[] }
+export type JobGroup = { id: string; running_job_id: string | null; action: string | null; status: Status; created_at: string; jobs: Report[] }
 
 export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 

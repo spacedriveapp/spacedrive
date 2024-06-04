@@ -3,10 +3,10 @@ use crate::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
-		SerializableJob, SerializedTasks,
+		JobErrorOrJobCanceledError, SerializableJob, SerializedTasks,
 	},
 	media_processor::{self, helpers::thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
-	utils::sub_path::{self, maybe_get_iso_file_path_from_sub_path},
+	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
 	Error, JobContext, JobName, LocationScanState, OuterContext, ProgressUpdate,
 };
 
@@ -17,8 +17,8 @@ use sd_core_sync::Manager as SyncManager;
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
-	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskOutput,
-	TaskStatus, TaskSystemError,
+	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
+	TaskOutput, TaskStatus, TaskSystemError,
 };
 use sd_utils::{db::maybe_missing, u64_to_frontend};
 
@@ -114,7 +114,7 @@ impl Job for MediaProcessor {
 		let reporter: Arc<dyn NewThumbnailReporter> =
 			Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
-		self.pending_tasks_on_resume = dispatcher
+		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
 					.map_err(media_processor::Error::from)?
@@ -145,7 +145,12 @@ impl Job for MediaProcessor {
 					.await
 					.map_err(media_processor::Error::from)?,
 			)
-			.await;
+			.await
+		{
+			self.pending_tasks_on_resume = tasks;
+		} else {
+			warn!("Failed to dispatch tasks to resume as job was already canceled");
+		}
 
 		Ok(())
 	}
@@ -168,8 +173,18 @@ impl Job for MediaProcessor {
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
-		self.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
-			.await?;
+		match self
+			.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			Ok(()) => { /* Everything is awesome! */ }
+			Err(JobErrorOrJobCanceledError::JobError(e)) => {
+				return Err(e.into());
+			}
+			Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+				return Ok(self.cancel_job(&mut pending_running_tasks).await);
+			}
+		}
 
 		if let Some(res) = self.process_handles(&mut pending_running_tasks, &ctx).await {
 			return res;
@@ -240,15 +255,15 @@ impl MediaProcessor {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		job_ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), media_processor::Error> {
+	) -> Result<(), JobErrorOrJobCanceledError<media_processor::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let location_id = self.location.id;
 			let location_path = &*self.location_path;
 
-			let iso_file_path = maybe_get_iso_file_path_from_sub_path(
+			let iso_file_path = maybe_get_iso_file_path_from_sub_path::<media_processor::Error>(
 				location_id,
-				&self.sub_path,
+				self.sub_path.as_ref(),
 				&*self.location_path,
 				job_ctx.db(),
 			)
@@ -256,7 +271,7 @@ impl MediaProcessor {
 			.map_or_else(
 				|| {
 					IsolatedFilePathData::new(location_id, location_path, location_path, true)
-						.map_err(sub_path::Error::from)
+						.map_err(media_processor::Error::from)
 				},
 				Ok,
 			)?;
@@ -358,21 +373,19 @@ impl MediaProcessor {
 				}
 
 				Ok(TaskStatus::Error(e)) => {
-					cancel_pending_tasks(&*pending_running_tasks).await;
+					cancel_pending_tasks(pending_running_tasks).await;
 
 					return Some(Err(e));
 				}
 
 				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
-					cancel_pending_tasks(&*pending_running_tasks).await;
-
-					return Some(Ok(ReturnStatus::Canceled));
+					return Some(Ok(self.cancel_job(pending_running_tasks).await));
 				}
 
 				Err(TaskSystemError::TaskTimeout(task_id)) => {
 					warn!(
 						%task_id,
-						"Thumbnailer task timed out, we will keep processing the rest of the tasks"
+						"Thumbnailer task timed out, we will keep processing the rest of the tasks",
 					);
 					self.errors.push(
 						media_processor::NonCriticalMediaProcessorError::Thumbnailer(
@@ -383,8 +396,8 @@ impl MediaProcessor {
 				}
 
 				Err(e) => {
-					error!("Task System error: {e:#?}");
-					cancel_pending_tasks(&*pending_running_tasks).await;
+					error!(?e, "Task System error");
+					cancel_pending_tasks(pending_running_tasks).await;
 
 					return Some(Err(e.into()));
 				}
@@ -396,7 +409,7 @@ impl MediaProcessor {
 
 	async fn process_task_output<OuterCtx: OuterContext>(
 		&mut self,
-		task_id: uuid::Uuid,
+		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
 		job_ctx: &impl JobContext<OuterCtx>,
 	) {
@@ -511,6 +524,20 @@ impl MediaProcessor {
 		} else {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
+	}
+
+	async fn cancel_job(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+	) -> ReturnStatus {
+		cancel_pending_tasks(pending_running_tasks).await;
+
+		ReturnStatus::Canceled(
+			JobReturn::builder()
+				.with_metadata(mem::take(&mut self.metadata))
+				.with_non_critical_errors(mem::take(&mut self.errors))
+				.build(),
+		)
 	}
 }
 
@@ -631,7 +658,7 @@ async fn dispatch_media_data_extractor_tasks(
 	dispatcher: &JobTaskDispatcher,
 	db: &Arc<PrismaClient>,
 	sync: &Arc<SyncManager>,
-) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
+) -> Result<(u64, Vec<TaskHandle<Error>>), JobErrorOrJobCanceledError<media_processor::Error>> {
 	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
 		get_all_children_files_by_extensions(
 			parent_iso_file_path,
@@ -689,7 +716,7 @@ async fn dispatch_media_data_extractor_tasks(
 		"Dispatching media data extraction tasks",
 	);
 
-	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await))
+	Ok((files_count, dispatcher.dispatch_many_boxed(tasks).await?))
 }
 
 async fn get_all_children_files_by_extensions(
@@ -750,7 +777,7 @@ async fn dispatch_thumbnailer_tasks(
 	location_path: &PathBuf,
 	dispatcher: &JobTaskDispatcher,
 	ctx: &impl OuterContext,
-) -> Result<(u64, Vec<TaskHandle<Error>>), media_processor::Error> {
+) -> Result<(u64, Vec<TaskHandle<Error>>), JobErrorOrJobCanceledError<media_processor::Error>> {
 	let thumbnails_directory_path =
 		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
 	let location_id = parent_iso_file_path.location_id();
@@ -833,7 +860,7 @@ async fn dispatch_thumbnailer_tasks(
 		thumbs_count,
 		dispatcher
 			.dispatch_many_boxed(priority_tasks.into_iter().chain(non_priority_tasks))
-			.await,
+			.await?,
 	))
 }
 

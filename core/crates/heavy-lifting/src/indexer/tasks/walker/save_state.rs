@@ -11,7 +11,7 @@ use std::{
 	time::Duration,
 };
 
-use sd_task_system::{SerializableTask, TaskDispatcher, TaskId};
+use sd_task_system::{SerializableTask, TaskId};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -154,16 +154,14 @@ impl From<WalkerStageSaveState> for WalkerStage {
 	}
 }
 
-impl<DBProxy, IsoPathFactory, Dispatcher> SerializableTask<Error>
-	for Walker<DBProxy, IsoPathFactory, Dispatcher>
+impl<DBProxy, IsoPathFactory> SerializableTask<Error> for Walker<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
 {
 	type SerializeError = rmp_serde::encode::Error;
 	type DeserializeError = rmp_serde::decode::Error;
-	type DeserializeCtx = (IndexerRuler, DBProxy, IsoPathFactory, Dispatcher);
+	type DeserializeCtx = (IndexerRuler, DBProxy, IsoPathFactory);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
@@ -191,7 +189,7 @@ where
 
 	async fn deserialize(
 		data: &[u8],
-		(indexer_ruler, db_proxy, iso_file_path_factory, dispatcher): Self::DeserializeCtx,
+		(indexer_ruler, db_proxy, iso_file_path_factory): Self::DeserializeCtx,
 	) -> Result<Self, Self::DeserializeError> {
 		rmp_serde::from_slice(data).map(
 			|WalkDirSaveState {
@@ -212,7 +210,6 @@ where
 				iso_file_path_factory,
 				db_proxy,
 				stage: stage.into(),
-				maybe_dispatcher: (!is_shallow).then_some(dispatcher),
 				errors,
 				scan_time,
 				is_shallow,

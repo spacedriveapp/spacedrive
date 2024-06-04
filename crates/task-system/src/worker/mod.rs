@@ -6,7 +6,7 @@ use std::{
 
 use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, instrument, trace, warn};
+use tracing::{error, info, instrument, trace, warn, Instrument};
 
 use super::{
 	error::{RunError, SystemError},
@@ -87,6 +87,7 @@ impl<E: RunError> WorkerBuilder<E> {
 
 				info!("Worker gracefully shutdown");
 			}
+			.in_current_span()
 		});
 
 		Worker {
@@ -158,7 +159,11 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to pause a not running task");
 	}
 
-	pub async fn cancel_not_running_task(&self, task_id: TaskId, ack: oneshot::Sender<()>) {
+	pub async fn cancel_not_running_task(
+		&self,
+		task_id: TaskId,
+		ack: oneshot::Sender<Result<(), SystemError>>,
+	) {
 		self.msgs_tx
 			.send(WorkerMessage::CancelNotRunningTask { task_id, ack })
 			.await
@@ -217,12 +222,14 @@ pub struct WorkerComm<E: RunError> {
 impl<E: RunError> WorkerComm<E> {
 	pub async fn steal_task(
 		&self,
+		stealer_id: WorkerId,
 		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
 	) -> bool {
 		let (tx, rx) = oneshot::channel();
 
 		self.msgs_tx
 			.send(WorkerMessage::StealRequest {
+				stealer_id,
 				ack: tx,
 				stolen_task_tx,
 			})
@@ -256,7 +263,7 @@ impl<E: RunError> WorkStealer<E> {
 	#[instrument(skip(self, stolen_task_tx))]
 	pub async fn steal(
 		&self,
-		stealer_worker_id: WorkerId,
+		stealer_id: WorkerId,
 		stolen_task_tx: &chan::Sender<Option<StoleTaskMessage<E>>>,
 	) {
 		let total_workers = self.worker_comms.len();
@@ -267,26 +274,21 @@ impl<E: RunError> WorkStealer<E> {
 			// Cycling over the workers
 			.cycle()
 			// Starting from the next worker id
-			.skip(stealer_worker_id)
+			.skip(stealer_id)
 			// Taking the total amount of workers
 			.take(total_workers)
 			// Removing the current worker as we can't steal from ourselves
-			.filter(|worker_comm| worker_comm.worker_id != stealer_worker_id)
+			.filter(|worker_comm| worker_comm.worker_id != stealer_id)
 		{
-			trace!(stolen_worker_id = worker_comm.worker_id, "Trying to steal",);
-
-			if worker_comm.steal_task(stolen_task_tx.clone()).await {
+			if worker_comm
+				.steal_task(stealer_id, stolen_task_tx.clone())
+				.await
+			{
 				trace!(stolen_worker_id = worker_comm.worker_id, "Stole a task");
 				return;
 			}
-
-			trace!(
-				stolen_worker_id = worker_comm.worker_id,
-				"No tasks to steal"
-			);
 		}
 
-		trace!("No workers have tasks to steal");
 		stolen_task_tx
 			.send(None)
 			.await

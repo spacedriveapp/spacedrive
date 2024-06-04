@@ -63,6 +63,9 @@ pub enum Error {
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
+
+	#[error(transparent)]
+	JobSystem(#[from] JobSystemError),
 }
 
 impl From<Error> for rspc::Error {
@@ -74,6 +77,7 @@ impl From<Error> for rspc::Error {
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
+			Error::JobSystem(e) => e.into(),
 		}
 	}
 }

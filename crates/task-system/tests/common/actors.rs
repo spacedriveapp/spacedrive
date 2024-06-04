@@ -83,6 +83,7 @@ impl SampleActor {
 							paused_count,
 						))
 						.await
+						.expect("infallible")
 				} else {
 					task_dispatcher
 						.dispatch(SampleActorTask::with_id(
@@ -92,6 +93,7 @@ impl SampleActor {
 							paused_count,
 						))
 						.await
+						.expect("infallible")
 				})
 				.await
 				.expect("Task handle receiver dropped");
@@ -121,8 +123,12 @@ impl SampleActor {
 				self.task_dispatcher
 					.dispatch(self.new_priority_task(duration))
 					.await
+					.expect("infallible")
 			} else {
-				self.task_dispatcher.dispatch(self.new_task(duration)).await
+				self.task_dispatcher
+					.dispatch(self.new_task(duration))
+					.await
+					.expect("infallible")
 			})
 			.await
 			.expect("Task handle receiver dropped");

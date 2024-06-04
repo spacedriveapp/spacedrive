@@ -1,17 +1,22 @@
-use std::{future::pending, time::Duration};
+use std::{
+	future::{pending, IntoFuture},
+	time::Duration,
+};
 
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, Task, TaskId, TaskOutput,
 };
 
+use async_channel as chan;
 use async_trait::async_trait;
+use futures::FutureExt;
 use futures_concurrency::future::Race;
 use thiserror::Error;
 use tokio::{
 	sync::oneshot,
 	time::{sleep, Instant},
 };
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 #[derive(Debug, Error)]
 pub enum SampleError {
@@ -215,6 +220,7 @@ impl Task<SampleError> for PauseOnceTask {
 		self.id
 	}
 
+	#[instrument(skip(self, interrupter), fields(task_id = %self.id))]
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
 		if let Some(began_tx) = self.began_tx.take() {
 			if began_tx.send(()).is_err() {
@@ -224,6 +230,7 @@ impl Task<SampleError> for PauseOnceTask {
 
 		if !self.has_paused {
 			self.has_paused = true;
+			info!("waiting for pause");
 			match interrupter.await {
 				InterruptionKind::Pause => {
 					info!("Pausing PauseOnceTask <id='{}'>", self.id);
@@ -274,5 +281,61 @@ impl Task<SampleError> for BrokenTask {
 		}
 
 		pending().await
+	}
+}
+
+#[derive(Debug)]
+pub struct WaitSignalTask {
+	id: TaskId,
+	signal_rx: chan::Receiver<()>,
+}
+
+impl WaitSignalTask {
+	pub fn new() -> (Self, chan::Sender<()>) {
+		let (signal_tx, signal_rx) = chan::bounded(1);
+		(
+			Self {
+				id: TaskId::new_v4(),
+				signal_rx,
+			},
+			signal_tx,
+		)
+	}
+}
+
+#[async_trait]
+impl Task<SampleError> for WaitSignalTask {
+	fn id(&self) -> TaskId {
+		self.id
+	}
+
+	#[instrument(skip(self, interrupter), fields(task_id = %self.id))]
+	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
+		enum RaceOutput {
+			Signal,
+			Interrupt(InterruptionKind),
+		}
+
+		let race = (
+			self.signal_rx.recv().map(|res| {
+				res.unwrap();
+				RaceOutput::Signal
+			}),
+			interrupter.into_future().map(RaceOutput::Interrupt),
+		);
+
+		match race.race().await {
+			RaceOutput::Signal => Ok(ExecStatus::Done(TaskOutput::Empty)),
+			RaceOutput::Interrupt(kind) => match kind {
+				InterruptionKind::Pause => {
+					info!("Paused");
+					Ok(ExecStatus::Paused)
+				}
+				InterruptionKind::Cancel => {
+					info!("Canceled");
+					Ok(ExecStatus::Canceled)
+				}
+			},
+		}
 	}
 }

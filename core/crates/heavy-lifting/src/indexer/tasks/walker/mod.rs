@@ -15,8 +15,7 @@ use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
-	check_interruption, BaseTaskDispatcher, ExecStatus, Interrupter, IntoAnyTaskOutput, Task,
-	TaskDispatcher, TaskHandle, TaskId,
+	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
 };
 use sd_utils::{db::inode_from_db, error::FileIOError};
 
@@ -70,11 +69,10 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 }
 
 #[derive(Debug)]
-pub struct Walker<DBProxy, IsoPathFactory, Dispatcher = BaseTaskDispatcher<Error>>
+pub struct Walker<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
 {
 	// Task control
 	id: TaskId,
@@ -92,7 +90,6 @@ where
 	// Dependencies
 	iso_file_path_factory: IsoPathFactory,
 	db_proxy: DBProxy,
-	maybe_dispatcher: Option<Dispatcher>,
 
 	// Non critical errors that happened during the task execution
 	errors: Vec<NonCriticalError>,
@@ -103,7 +100,11 @@ where
 
 /// [`Walker`] Task output
 #[derive(Debug)]
-pub struct Output {
+pub struct Output<DBProxy, IsoPathFactory>
+where
+	DBProxy: WalkerDBProxy,
+	IsoPathFactory: IsoFilePathFactory,
+{
 	/// Entries found in the file system that need to be created in database
 	pub to_create: Vec<WalkedEntry>,
 	/// Entries found in the file system that need to be updated in database
@@ -121,18 +122,16 @@ pub struct Output {
 	/// Total size of the directory that was indexed
 	pub total_size: u64,
 	/// Task handles that were dispatched to run `WalkDir` tasks for inner directories
-	pub handles: Vec<TaskHandle<Error>>,
+	pub keep_walking_tasks: Vec<Walker<DBProxy, IsoPathFactory>>,
 	/// Time spent walking through the received directory
 	pub scan_time: Duration,
 }
 
 #[async_trait::async_trait]
-impl<DBProxy, IsoPathFactory, Dispatcher> Task<Error>
-	for Walker<DBProxy, IsoPathFactory, Dispatcher>
+impl<DBProxy, IsoPathFactory> Task<Error> for Walker<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
 {
 	fn id(&self) -> TaskId {
 		self.id
@@ -155,6 +154,7 @@ where
 	)]
 	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+		let is_shallow = self.is_shallow;
 		let Self {
 			root,
 			entry: ToWalkEntry {
@@ -166,7 +166,6 @@ where
 			indexer_ruler,
 			db_proxy,
 			stage,
-			maybe_dispatcher,
 			errors,
 			scan_time,
 			..
@@ -181,7 +180,7 @@ where
 			non_indexed_paths,
 			accepted_ancestors,
 			total_size,
-			handles,
+			keep_walking_tasks,
 		) = loop {
 			match stage {
 				WalkerStage::Start => {
@@ -276,7 +275,7 @@ where
 					paths_metadatas_and_acceptance,
 				} => {
 					trace!("Processing rules results");
-					let mut maybe_to_keep_walking = maybe_dispatcher.is_some().then(Vec::new);
+					let mut maybe_to_keep_walking = (!is_shallow).then(Vec::new);
 					let (accepted_paths, accepted_ancestors, rejected_paths) =
 						process_rules_results(
 							root,
@@ -284,10 +283,11 @@ where
 							*parent_dir_accepted_by_its_children,
 							paths_metadatas_and_acceptance,
 							&mut maybe_to_keep_walking,
-							self.is_shallow,
+							is_shallow,
 							errors,
 						)
 						.await;
+
 					trace!(
 						total_accepted_paths = accepted_paths.len(),
 						total_accepted_ancestors = accepted_ancestors.len(),
@@ -354,16 +354,14 @@ where
 						"Finished segregating creates and updates!"
 					);
 
-					let handles = keep_walking(
+					let keep_walking_tasks = keep_walking(
 						root,
 						indexer_ruler,
 						iso_file_path_factory,
 						db_proxy,
 						maybe_to_keep_walking.as_mut(),
-						maybe_dispatcher.as_ref(),
 						errors,
-					)
-					.await;
+					);
 
 					break (
 						to_create,
@@ -372,7 +370,7 @@ where
 						mem::take(non_indexed_paths),
 						mem::take(accepted_ancestors),
 						total_size,
-						handles,
+						keep_walking_tasks,
 					);
 				}
 			}
@@ -391,7 +389,7 @@ where
 				errors: mem::take(errors),
 				directory_iso_file_path: mem::take(entry_iso_file_path),
 				total_size,
-				handles,
+				keep_walking_tasks,
 				scan_time: *scan_time,
 			}
 			.into_output(),
@@ -431,11 +429,10 @@ enum WalkerStage {
 	},
 }
 
-impl<DBProxy, IsoPathFactory, Dispatcher> Walker<DBProxy, IsoPathFactory, Dispatcher>
+impl<DBProxy, IsoPathFactory> Walker<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
-	Dispatcher: TaskDispatcher<Error>,
 {
 	pub fn new_deep(
 		entry: impl Into<ToWalkEntry> + Send,
@@ -443,7 +440,6 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-		dispatcher: Dispatcher,
 	) -> Result<Self, indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
@@ -455,7 +451,6 @@ where
 			db_proxy,
 			stage: WalkerStage::Start,
 			entry,
-			maybe_dispatcher: Some(dispatcher),
 			is_shallow: false,
 			errors: Vec::new(),
 			scan_time: Duration::ZERO,
@@ -463,7 +458,7 @@ where
 	}
 }
 
-impl<DBProxy, IsoPathFactory> Walker<DBProxy, IsoPathFactory, BaseTaskDispatcher<Error>>
+impl<DBProxy, IsoPathFactory> Walker<DBProxy, IsoPathFactory>
 where
 	DBProxy: WalkerDBProxy,
 	IsoPathFactory: IsoFilePathFactory,
@@ -485,7 +480,6 @@ where
 			db_proxy,
 			stage: WalkerStage::Start,
 			entry,
-			maybe_dispatcher: None,
 			is_shallow: true,
 			errors: Vec::new(),
 			scan_time: Duration::ZERO,
@@ -585,39 +579,38 @@ async fn segregate_creates_and_updates(
 	}
 }
 
-async fn keep_walking(
+fn keep_walking<DBProxy, IsoPathFactory>(
 	root: &Arc<PathBuf>,
 	indexer_ruler: &IndexerRuler,
-	iso_file_path_factory: &impl IsoFilePathFactory,
-	db_proxy: &impl WalkerDBProxy,
+	iso_file_path_factory: &IsoPathFactory,
+	db_proxy: &DBProxy,
 	maybe_to_keep_walking: Option<&mut Vec<ToWalkEntry>>,
-	dispatcher: Option<&impl TaskDispatcher<Error>>,
 	errors: &mut Vec<NonCriticalError>,
-) -> Vec<TaskHandle<Error>> {
-	if let (Some(dispatcher), Some(to_keep_walking)) = (dispatcher, maybe_to_keep_walking) {
-		dispatcher
-			.dispatch_many(
-				to_keep_walking
-					.drain(..)
-					.map(|entry| {
-						Walker::new_deep(
-							entry,
-							Arc::clone(root),
-							indexer_ruler.clone(),
-							iso_file_path_factory.clone(),
-							db_proxy.clone(),
-							dispatcher.clone(),
-						)
-						.map_err(|e| {
-							indexer::NonCriticalIndexerError::DispatchKeepWalking(e.to_string())
-						})
+) -> Vec<Walker<DBProxy, IsoPathFactory>>
+where
+	DBProxy: WalkerDBProxy,
+	IsoPathFactory: IsoFilePathFactory,
+{
+	maybe_to_keep_walking
+		.map(|to_keep_walking| {
+			to_keep_walking
+				.drain(..)
+				.map(|entry| {
+					Walker::new_deep(
+						entry,
+						Arc::clone(root),
+						indexer_ruler.clone(),
+						iso_file_path_factory.clone(),
+						db_proxy.clone(),
+					)
+					.map_err(|e| {
+						indexer::NonCriticalIndexerError::DispatchKeepWalking(e.to_string())
 					})
-					.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok()),
-			)
-			.await
-	} else {
-		Vec::new()
-	}
+				})
+				.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+				.collect()
+		})
+		.unwrap_or_default()
 }
 
 async fn collect_metadata(
@@ -887,7 +880,6 @@ mod tests {
 						root_path: Arc::new(root_path.to_path_buf()),
 					},
 					DummyDBProxy,
-					system.get_dispatcher(),
 				)
 				.unwrap(),
 			)
@@ -912,18 +904,18 @@ mod tests {
 				to_create,
 				accepted_ancestors,
 				errors,
-				handles,
+				keep_walking_tasks,
 				..
-			} = *output.downcast::<Output>().unwrap();
+			} = *output
+				.downcast::<Output<DummyDBProxy, DummyIsoPathFactory>>()
+				.unwrap();
 
 			assert!(errors.is_empty(), "errors: {errors:#?}");
 
 			actual_set.extend(to_create);
 			ancestors.extend(accepted_ancestors);
 
-			for handle in handles {
-				group.push(handle);
-			}
+			group.extend(system.dispatch_many(keep_walking_tasks).await);
 		}
 
 		for actual in &actual_set {

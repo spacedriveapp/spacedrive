@@ -68,15 +68,12 @@ pub(super) async fn run<E: RunError>(
 				if ack.send(runner.pause_not_running_task(task_id)).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
-				trace!(%task_id, "Paused not running task response sent");
 			}
 
 			StreamMessage::Commands(WorkerMessage::CancelNotRunningTask { task_id, ack }) => {
-				runner.cancel_not_running_task(&task_id);
-				if ack.send(()).is_err() {
+				if ack.send(runner.cancel_not_running_task(&task_id)).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
-				trace!(%task_id, "Cancel not running task response sent");
 			}
 
 			StreamMessage::Commands(WorkerMessage::ForceAbortion { task_id, ack }) => {
@@ -95,24 +92,21 @@ pub(super) async fn run<E: RunError>(
 			}
 
 			StreamMessage::Commands(WorkerMessage::StealRequest {
+				stealer_id,
 				ack,
 				stolen_task_tx,
 			}) => {
-				trace!("Steal task request received");
 				if ack
-					.send(runner.steal_request(stolen_task_tx).await)
+					.send(runner.steal_request(stealer_id, stolen_task_tx).await)
 					.is_err()
 				{
 					debug!("Steal request attempt aborted before sending ack");
 				}
-				trace!("Steal task request completed");
 			}
 
 			// Runner messages
 			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Ok(output))) => {
-				trace!(%task_id, "Process task output request received");
 				runner.process_task_output(&task_id, output).await;
-				trace!(%task_id, "Processed task output");
 			}
 
 			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Err(()))) => {
@@ -123,14 +117,7 @@ pub(super) async fn run<E: RunError>(
 			}
 
 			StreamMessage::Steal(maybe_stolen_task) => {
-				trace!(
-					maybe_task_id = ?maybe_stolen_task
-						.as_ref()
-						.map(|StoleTaskMessage(task_work_state)| task_work_state.id()),
-					"Received stolen task request"
-				);
 				runner.process_stolen_task(maybe_stolen_task).await;
-				trace!("Processed stolen task");
 			}
 
 			// Idle checking to steal some work

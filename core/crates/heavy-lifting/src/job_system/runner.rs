@@ -41,14 +41,14 @@ const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
 
 pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	NewJob {
-		id: JobId,
+		job_id: JobId,
 		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	ResumeStoredJob {
-		id: JobId,
+		job_id: JobId,
 		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
@@ -56,14 +56,14 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	Command {
-		id: JobId,
+		job_id: JobId,
 		command: Command,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	GetActiveReports {
 		ack_tx: oneshot::Sender<HashMap<JobId, report::Report>>,
 	},
-	CheckIfJobAreRunning {
+	CheckIfJobsAreRunning {
 		job_names: Vec<JobName>,
 		location_id: location::id::Type,
 		ack_tx: oneshot::Sender<bool>,
@@ -89,14 +89,14 @@ pub(super) struct JobSystemRunner<OuterCtx: OuterContext, JobCtx: JobContext<Out
 	handles: HashMap<JobId, JobHandle<OuterCtx, JobCtx>>,
 	worktables: JobsWorktables,
 	job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
-	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
+	job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, Error>)>,
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<OuterCtx, JobCtx> {
 	pub(super) fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
 		job_return_status_tx: chan::Sender<(JobId, Result<ReturnStatus, Error>)>,
-		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, JobSystemError>)>,
+		job_outputs_tx: chan::Sender<(JobId, Result<JobOutput, Error>)>,
 	) -> Self {
 		Self {
 			on_shutdown_mode: false,
@@ -116,7 +116,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 	async fn new_job(
 		&mut self,
-		id: JobId,
+		job_id: JobId,
 		location_id: location::id::Type,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
@@ -137,25 +137,22 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			..
 		} = self;
 
-		let db = ctx.db();
 		let job_name = dyn_job.job_name();
 
 		let job_hash = dyn_job.hash();
 		if let Some(&already_running_id) = job_hashes.get(&job_hash) {
 			return Err(JobSystemError::AlreadyRunning {
-				new_id: id,
+				new_id: job_id,
 				already_running_id,
 				job_name,
 			});
 		}
 
-		running_jobs_by_job_id.insert(id, (job_name, location_id));
+		running_jobs_by_job_id.insert(job_id, (job_name, location_id));
 		running_jobs_set.insert((job_name, location_id));
 
-		job_hashes.insert(job_hash, id);
-		job_hashes_by_id.insert(id, job_hash);
-
-		let start_time = Utc::now();
+		job_hashes.insert(job_hash, job_id);
+		job_hashes_by_id.insert(job_id, job_hash);
 
 		let mut handle = if maybe_existing_tasks.is_some() {
 			dyn_job.resume(
@@ -174,43 +171,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 		handle.register_start(Utc::now()).await?;
 
-		{
-			let mut report = handle.ctx.report_mut().await;
-
-			report.status = report::Status::Running;
-			if report.started_at.is_none() {
-				report.started_at = Some(start_time);
-			}
-
-			// If the report doesn't have a created_at date, it's a new report
-			if report.created_at.is_none() {
-				report.create(db).await?;
-			} else {
-				// Otherwise it can be a job being resumed or a children job that was already been created
-				report.update(db).await?;
-			}
-		}
-
-		// Registering children jobs
-		handle
-			.next_jobs
-			.iter_mut()
-			.map(|dyn_job| dyn_job.report_mut())
-			.map(|next_job_report| async {
-				if next_job_report.created_at.is_none() {
-					next_job_report.create(ctx.db()).await
-				} else {
-					Ok(())
-				}
-			})
-			.collect::<Vec<_>>()
-			.try_join()
-			.await?;
-
-		handle.ctx.invalidate_query("jobs.isActive");
-		handle.ctx.invalidate_query("jobs.reports");
-
-		handles.insert(id, handle);
+		handles.insert(job_id, handle);
 
 		Ok(())
 	}
@@ -226,12 +187,46 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.collect()
 	}
 
-	async fn process_command(&mut self, id: JobId, command: Command) -> Result<(), JobSystemError> {
-		if let Some(handle) = self.handles.get_mut(&id) {
-			handle.send_command(command).await?;
-			Ok(())
+	async fn process_command(
+		&mut self,
+		job_id: JobId,
+		command: Command,
+		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
+	) {
+		if let Some(handle) = self.handles.get_mut(&job_id) {
+			match (command, handle.is_running) {
+				(Command::Pause, false) => {
+					warn!("Tried to pause a job already paused");
+					return ack_tx.send(Ok(())).expect(
+						"ack channel closed before sending response to already paused job",
+					);
+				}
+				(Command::Resume, true) => {
+					warn!("Tried to resume a job already running");
+					return ack_tx.send(Ok(())).expect(
+						"ack channel closed before sending response to already running job",
+					);
+				}
+				_ => {}
+			}
+			match command {
+				Command::Pause | Command::Cancel => {
+					handle.is_running = false;
+				}
+				Command::Resume => {
+					handle.is_running = true;
+				}
+			}
+			handle.send_command(command, ack_tx).await;
+			handle.ctx.invalidate_query("jobs.isActive");
+			handle.ctx.invalidate_query("jobs.reports");
 		} else {
-			Err(JobSystemError::NotFound(id))
+			error!("Job not found");
+			ack_tx
+				.send(Err(JobSystemError::NotFound(job_id)))
+				.unwrap_or_else(|_| {
+					panic!("ack channel closed before sending {command:?} response")
+				});
 		}
 	}
 
@@ -245,7 +240,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 		self.handles.len()
 	}
 
-	fn check_if_job_are_running(
+	fn check_if_jobs_are_running(
 		&self,
 		job_names: Vec<JobName>,
 		location_id: location::id::Type,
@@ -310,7 +305,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 				)
 				.await?;
 
-				handle.complete_job(job_return).await
+				handle.complete_job(job_return).await.map_err(Into::into)
 			}
 
 			Ok(ReturnStatus::Shutdown(res)) => {
@@ -369,12 +364,14 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 				return Ok(());
 			}
 
-			Ok(ReturnStatus::Canceled) => handle
-				.cancel_job()
+			Ok(ReturnStatus::Canceled(job_return)) => {
+				handle.cancel_job(job_return).await.map_err(Into::into)
+			}
+			Err(e) => handle
+				.failed_job(&e)
 				.await
-				.and_then(|()| Err(JobSystemError::Canceled(job_id))),
-
-			Err(e) => handle.failed_job(&e).await.and_then(|()| Err(e.into())),
+				.map_err(Into::into)
+				.and_then(|()| Err(e)),
 		};
 
 		job_outputs_tx
@@ -465,7 +462,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	fn has_active_jobs(&self, ctx_id: Uuid) -> bool {
 		self.handles
 			.values()
-			.any(|handle| handle.ctx.id() == ctx_id)
+			.any(|handle| handle.ctx.id() == ctx_id && handle.is_running)
 	}
 }
 
@@ -539,11 +536,13 @@ async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterC
 			job_hashes_by_id.insert(next_id, next_hash);
 			running_jobs_by_job_id.insert(next_id, (next_name, location_id));
 			running_jobs_set.insert((next_name, location_id));
+
 			let mut next_handle = next.dispatch(
 				base_dispatcher,
 				handle.ctx.get_outer_ctx(),
 				job_return_status_tx,
 			);
+
 			next_handle.register_start(Utc::now()).await?;
 
 			assert!(
@@ -569,7 +568,7 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	mut runner: JobSystemRunner<OuterCtx, JobCtx>,
 	store_jobs_file: impl AsRef<Path> + Send,
 	msgs_rx: chan::Receiver<RunnerMessage<OuterCtx, JobCtx>>,
-	job_return_status_rx: chan::Receiver<(JobId, Result<ReturnStatus, Error>)>,
+	job_done_rx: chan::Receiver<(JobId, Result<ReturnStatus, Error>)>,
 ) {
 	enum StreamMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 		ReturnStatus((JobId, Result<ReturnStatus, Error>)),
@@ -579,11 +578,11 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 
 	let memory_cleanup_interval = interval_at(Instant::now() + FIVE_MINUTES, FIVE_MINUTES);
 
-	let job_return_status_rx_to_shutdown = job_return_status_rx.clone();
+	let job_return_status_rx_to_shutdown = job_done_rx.clone();
 
 	let mut msg_stream = pin!((
 		msgs_rx.map(StreamMessage::RunnerMessage),
-		job_return_status_rx.map(StreamMessage::ReturnStatus),
+		job_done_rx.map(StreamMessage::ReturnStatus),
 		IntervalStream::new(memory_cleanup_interval).map(|_| StreamMessage::CleanMemoryTick),
 	)
 		.merge());
@@ -599,14 +598,18 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 
 			// Runner messages
 			StreamMessage::RunnerMessage(RunnerMessage::NewJob {
-				id,
+				job_id,
 				location_id,
 				dyn_job,
 				ctx,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.new_job(id, location_id, dyn_job, ctx, None).await)
+					.send(
+						runner
+							.new_job(job_id, location_id, dyn_job, ctx, None)
+							.await,
+					)
 					.expect("ack channel closed before sending new job response");
 			}
 
@@ -622,32 +625,27 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 					.expect("ack channel closed before sending active reports response");
 			}
 			StreamMessage::RunnerMessage(RunnerMessage::ResumeStoredJob {
-				id,
+				job_id,
 				location_id,
 				dyn_job,
 				ctx,
 				serialized_tasks,
 				ack_tx,
 			}) => {
-				let res = runner
-					.new_job(id, location_id, dyn_job, ctx, serialized_tasks)
-					.await;
 				ack_tx
-					.send(res)
+					.send(
+						runner
+							.new_job(job_id, location_id, dyn_job, ctx, serialized_tasks)
+							.await,
+					)
 					.expect("ack channel closed before sending resume job response");
 			}
 
 			StreamMessage::RunnerMessage(RunnerMessage::Command {
-				id,
+				job_id: id,
 				command,
 				ack_tx,
-			}) => {
-				ack_tx
-					.send(runner.process_command(id, command).await)
-					.unwrap_or_else(|_| {
-						panic!("ack channel closed before sending {command:?} response")
-					});
-			}
+			}) => runner.process_command(id, command, ack_tx).await,
 
 			StreamMessage::RunnerMessage(RunnerMessage::Shutdown) => {
 				runner.on_shutdown_mode = true;
@@ -675,13 +673,13 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				return;
 			}
 
-			StreamMessage::RunnerMessage(RunnerMessage::CheckIfJobAreRunning {
+			StreamMessage::RunnerMessage(RunnerMessage::CheckIfJobsAreRunning {
 				job_names,
 				location_id,
 				ack_tx,
 			}) => {
 				ack_tx
-					.send(runner.check_if_job_are_running(job_names, location_id))
+					.send(runner.check_if_jobs_are_running(job_names, location_id))
 					.expect("ack channel closed before sending resume job response");
 			}
 

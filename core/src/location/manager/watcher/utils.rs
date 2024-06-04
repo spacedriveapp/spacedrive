@@ -1120,7 +1120,8 @@ pub(super) async fn recalculate_directories_size(
 						&library.sync,
 						&mut non_critical_errors,
 					)
-					.await?;
+					.await
+					.map_err(sd_core_heavy_lifting::Error::from)?;
 
 					if !non_critical_errors.is_empty() {
 						error!(

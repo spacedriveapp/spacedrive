@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use async_channel as chan;
 use tokio::sync::oneshot;
 
 use super::{
 	error::{RunError, SystemError},
-	task::{InternalTaskExecStatus, TaskId, TaskWorkState},
+	task::{InternalTaskExecStatus, TaskId, TaskWorkState, TaskWorktable},
 	worker::WorkerId,
 };
 
@@ -13,22 +15,22 @@ pub enum SystemMessage {
 	WorkingReport(WorkerId),
 	ResumeTask {
 		task_id: TaskId,
-		worker_id: WorkerId,
+		task_work_table: Arc<TaskWorktable>,
 		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	PauseNotRunningTask {
 		task_id: TaskId,
-		worker_id: WorkerId,
+		task_work_table: Arc<TaskWorktable>,
 		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	CancelNotRunningTask {
 		task_id: TaskId,
-		worker_id: WorkerId,
-		ack: oneshot::Sender<()>,
+		task_work_table: Arc<TaskWorktable>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ForceAbortion {
 		task_id: TaskId,
-		worker_id: WorkerId,
+		task_work_table: Arc<TaskWorktable>,
 		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ShutdownRequest(oneshot::Sender<Result<(), SystemError>>),
@@ -46,7 +48,7 @@ pub enum WorkerMessage<E: RunError> {
 	},
 	CancelNotRunningTask {
 		task_id: TaskId,
-		ack: oneshot::Sender<()>,
+		ack: oneshot::Sender<Result<(), SystemError>>,
 	},
 	ForceAbortion {
 		task_id: TaskId,
@@ -54,6 +56,7 @@ pub enum WorkerMessage<E: RunError> {
 	},
 	ShutdownRequest(oneshot::Sender<()>),
 	StealRequest {
+		stealer_id: WorkerId,
 		ack: oneshot::Sender<bool>,
 		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
 	},

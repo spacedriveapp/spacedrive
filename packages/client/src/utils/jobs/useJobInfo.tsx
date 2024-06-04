@@ -22,7 +22,7 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 		isPaused = job.status === 'Paused',
 		taskCount = realtimeUpdate?.task_count || job.task_count,
 		completedTaskCount = realtimeUpdate?.completed_task_count || job.completed_task_count,
-		phase = realtimeUpdate?.phase;
+		phase = realtimeUpdate?.phase || job.phase;
 
 	const output: ReportOutputMetadata[] = [];
 	let indexedPath: string | undefined;
@@ -154,7 +154,9 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 							parsedOutput.mediaDataExtracted + parsedOutput.mediaDataSkipped;
 
 						return totalThumbs === 0n && totalMediaFiles === 0n
-							? [{ text: 'None processed' }]
+							? taskCount === 0
+								? [{ text: 'Queued' }]
+								: [{ text: 'None processed' }]
 							: [
 									{
 										text: `Extracted ${formatNumber(totalMediaFiles)} ${plural(
@@ -199,13 +201,34 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 				}
 			}
 
+			const generatePausedText = () => {
+				switch (phase) {
+					case 'searching_orphans': {
+						return { text: `Found ${formatNumber(taskCount * 100)} orphans paths` };
+					}
+					case 'identifying_files': {
+						return {
+							text: `Identified ${formatNumber(completedTaskCount * 100)} of ${formatNumber(taskCount * 100)} files`
+						};
+					}
+					case 'processing_objects': {
+						return {
+							text: `Processed ${formatNumber(completedTaskCount * 100)} of ${formatNumber(taskCount * 100)} objects`
+						};
+					}
+					default: {
+						return { text: 'No files changed' };
+					}
+				}
+			};
+
 			return {
 				...data,
 				name: `${isQueued ? 'Extract' : isRunning ? 'Extracting' : 'Extracted'} metadata`,
 				textItems: [
 					!isRunning
 						? parsedOutput.totalOrphanPaths === 0n
-							? [{ text: 'No files changed' }]
+							? [generatePausedText()]
 							: [
 									{
 										text: `${formatNumber(parsedOutput.totalOrphanPaths)} ${plural(

@@ -44,7 +44,6 @@ pub async fn shallow(
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
-	let sub_path = sub_path.as_ref();
 	let db = ctx.db();
 	let sync = ctx.sync();
 
@@ -54,9 +53,13 @@ pub async fn shallow(
 		.map_err(indexer::Error::from)?;
 
 	let to_walk_path = Arc::new(
-		get_full_path_from_sub_path(location.id, &Some(sub_path), &*location_path, db)
-			.await
-			.map_err(indexer::Error::from)?,
+		get_full_path_from_sub_path::<indexer::Error>(
+			location.id,
+			Some(sub_path.as_ref()),
+			&*location_path,
+			db,
+		)
+		.await?,
 	);
 
 	let Some(walker::Output {
@@ -141,7 +144,7 @@ async fn walk(
 	to_walk_path: Arc<PathBuf>,
 	db: Arc<PrismaClient>,
 	dispatcher: &BaseTaskDispatcher<Error>,
-) -> Result<Option<walker::Output>, Error> {
+) -> Result<Option<walker::Output<WalkerDBProxy, IsoFilePathFactory>>, Error> {
 	match dispatcher
 		.dispatch(tasks::Walker::new_shallow(
 			ToWalkEntry::from(&*to_walk_path),
@@ -163,11 +166,12 @@ async fn walk(
 			},
 		)?)
 		.await
+		.expect("infallible")
 		.await?
 	{
 		sd_task_system::TaskStatus::Done((_, TaskOutput::Out(data))) => Ok(Some(
 			*data
-				.downcast::<walker::Output>()
+				.downcast::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>()
 				.expect("we just dispatched this task"),
 		)),
 		sd_task_system::TaskStatus::Done((_, TaskOutput::Empty)) => {
@@ -237,6 +241,7 @@ async fn save_and_update(
 	for task_status in dispatcher
 		.dispatch_many_boxed(save_and_update_tasks)
 		.await
+		.expect("infallible")
 		.into_iter()
 		.map(CancelTaskOnDrop::new)
 		.collect::<Vec<_>>()

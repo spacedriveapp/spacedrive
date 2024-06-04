@@ -4,7 +4,7 @@ use crate::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
-		SerializableJob, SerializedTasks,
+		JobCanceledError, JobErrorOrJobCanceledError, SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
 	Error, JobContext, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
@@ -47,19 +47,21 @@ use super::{
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum Phase {
+	SearchingOrphans,
 	IdentifyingFiles,
 	ProcessingObjects,
 }
 
 impl Default for Phase {
 	fn default() -> Self {
-		Self::IdentifyingFiles
+		Self::SearchingOrphans
 	}
 }
 
 impl fmt::Display for Phase {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
+			Self::SearchingOrphans => write!(f, "searching_orphans"),
 			Self::IdentifyingFiles => write!(f, "identifying_files"),
 			Self::ProcessingObjects => write!(f, "processing_objects"),
 		}
@@ -113,7 +115,7 @@ impl Job for FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		SerializedTasks(serialized_tasks): SerializedTasks,
 	) -> Result<(), Error> {
-		self.pending_tasks_on_resume = dispatcher
+		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
 					.map_err(file_identifier::Error::from)?
@@ -140,7 +142,12 @@ impl Job for FileIdentifier {
 					.await
 					.map_err(file_identifier::Error::from)?,
 			)
-			.await;
+			.await
+		{
+			self.pending_tasks_on_resume = tasks;
+		} else {
+			warn!("Failed to dispatch tasks to resume as job was already canceled");
+		}
 
 		Ok(())
 	}
@@ -162,16 +169,30 @@ impl Job for FileIdentifier {
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
-		self.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
-			.await?;
+		match self
+			.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
+			.await
+		{
+			Ok(()) => { /* Everything is awesome! */ }
+			Err(JobErrorOrJobCanceledError::JobError(e)) => {
+				return Err(e.into());
+			}
+			Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+				return Ok(self.cancel_job(&mut pending_running_tasks).await);
+			}
+		}
 
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					pending_running_tasks.extend(
-						self.process_task_output(task_id, out, &ctx, &dispatcher)
-							.await,
-					);
+					let Ok(tasks) = self
+						.process_task_output(task_id, out, &ctx, &dispatcher)
+						.await
+					else {
+						return Ok(self.cancel_job(&mut pending_running_tasks).await);
+					};
+
+					pending_running_tasks.extend(tasks);
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
@@ -183,19 +204,17 @@ impl Job for FileIdentifier {
 				}
 
 				Ok(TaskStatus::Error(e)) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
+					cancel_pending_tasks(&mut pending_running_tasks).await;
 
 					return Err(e);
 				}
 
 				Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
-
-					return Ok(ReturnStatus::Canceled);
+					return Ok(self.cancel_job(&mut pending_running_tasks).await);
 				}
 
 				Err(e) => {
-					cancel_pending_tasks(&pending_running_tasks).await;
+					cancel_pending_tasks(&mut pending_running_tasks).await;
 
 					return Err(e.into());
 				}
@@ -263,17 +282,18 @@ impl FileIdentifier {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), file_identifier::Error> {
+	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let db = ctx.db();
-			let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path(
-				self.location.id,
-				&self.sub_path,
-				&*self.location_path,
-				db,
-			)
-			.await?;
+			let maybe_sub_iso_file_path =
+				maybe_get_iso_file_path_from_sub_path::<file_identifier::Error>(
+					self.location.id,
+					self.sub_path.as_ref(),
+					&*self.location_path,
+					db,
+				)
+				.await?;
 
 			let mut last_orphan_file_path_id = None;
 
@@ -286,6 +306,8 @@ impl FileIdentifier {
 				true,
 			)
 			.map_err(file_identifier::Error::from)?;
+
+			ctx.progress([ProgressUpdate::phase(self.phase)]).await;
 
 			// First we dispatch some shallow priority tasks to quickly identify orphans in the location
 			// root directory or in the desired sub-path
@@ -309,8 +331,11 @@ impl FileIdentifier {
 			)
 			.await?;
 
+			self.phase = Phase::IdentifyingFiles;
+
 			ctx.progress(vec![
 				ProgressUpdate::TaskCount(u64::from(self.metadata.total_identifier_tasks)),
+				ProgressUpdate::phase(self.phase),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -353,7 +378,7 @@ impl FileIdentifier {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Vec<TaskHandle<Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobCanceledError> {
 		if any_task_output.is::<identifier::Output>() {
 			return self
 				.process_identifier_output(
@@ -378,7 +403,7 @@ impl FileIdentifier {
 			unreachable!("Unexpected task output type: <id='{task_id}'>");
 		}
 
-		vec![]
+		Ok(vec![])
 	}
 
 	#[instrument(
@@ -406,7 +431,7 @@ impl FileIdentifier {
 		}: identifier::Output,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Vec<TaskHandle<Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobCanceledError> {
 		self.metadata.mean_extract_metadata_time += extract_metadata_time;
 		self.metadata.mean_save_db_time_on_identifier_tasks += save_db_time;
 		self.metadata.total_identified_files += total_identified_files;
@@ -448,13 +473,14 @@ impl FileIdentifier {
 
 		// If we completed all identifier tasks, then we dispatch the object processor tasks
 		if self.metadata.completed_identifier_tasks == self.metadata.total_identifier_tasks {
+			self.phase = Phase::ProcessingObjects;
 			let tasks = dispatch_object_processor_tasks(
 				self.file_paths_accumulator.drain(),
 				ctx,
 				dispatcher,
 				false,
 			)
-			.await;
+			.await?;
 
 			#[allow(clippy::cast_possible_truncation)]
 			{
@@ -469,9 +495,9 @@ impl FileIdentifier {
 			])
 			.await;
 
-			tasks
+			Ok(tasks)
 		} else {
-			vec![]
+			Ok(vec![])
 		}
 	}
 
@@ -535,10 +561,12 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), file_identifier::Error> {
+	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
+			let start = Instant::now();
+
 			#[allow(clippy::cast_possible_wrap)]
 			// SAFETY: we know that CHUNK_SIZE is a valid i64
 			let orphan_paths = db
@@ -552,7 +580,8 @@ impl FileIdentifier {
 				.take(CHUNK_SIZE as i64)
 				.select(file_path_for_file_identifier::select())
 				.exec()
-				.await?;
+				.await
+				.map_err(file_identifier::Error::from)?;
 
 			trace!(orphans_count = orphan_paths.len(), "Found orphan paths");
 
@@ -591,7 +620,14 @@ impl FileIdentifier {
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
 					))
-					.await,
+					.await?,
+			);
+
+			debug!(
+				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				self.metadata.completed_identifier_tasks,
+				self.metadata.total_identifier_tasks,
+				start.elapsed(),
 			);
 		}
 
@@ -605,10 +641,12 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), file_identifier::Error> {
+	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
+			let start = Instant::now();
+
 			#[allow(clippy::cast_possible_wrap)]
 			// SAFETY: we know that CHUNK_SIZE is a valid i64
 			let mut orphan_paths = db
@@ -622,7 +660,8 @@ impl FileIdentifier {
 				.take(CHUNK_SIZE as i64)
 				.select(file_path_for_file_identifier::select())
 				.exec()
-				.await?;
+				.await
+				.map_err(file_identifier::Error::from)?;
 
 			// No other orphans to identify, we can break the loop
 			if orphan_paths.is_empty() {
@@ -665,11 +704,32 @@ impl FileIdentifier {
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
 					))
-					.await,
+					.await?,
+			);
+
+			debug!(
+				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				self.metadata.completed_identifier_tasks,
+				self.metadata.total_identifier_tasks,
+				start.elapsed(),
 			);
 		}
 
 		Ok(())
+	}
+
+	async fn cancel_job(
+		&mut self,
+		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
+	) -> ReturnStatus {
+		cancel_pending_tasks(pending_running_tasks).await;
+
+		ReturnStatus::Canceled(
+			JobReturn::builder()
+				.with_metadata(mem::take(&mut self.metadata))
+				.with_non_critical_errors(mem::take(&mut self.errors))
+				.build(),
+		)
 	}
 }
 

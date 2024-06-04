@@ -1,9 +1,4 @@
-use crate::{
-	context::NodeContext,
-	invalidate_query,
-	library::Library,
-	Node,
-};
+use crate::{context::NodeContext, invalidate_query, library::Library, Node};
 
 use sd_core_file_path_helper::{
 	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
@@ -13,7 +8,7 @@ use sd_core_heavy_lifting::{
 	indexer::{self, job::Indexer},
 	job_system::report::ReportInputMetadata,
 	media_processor::{self, job::MediaProcessor},
-	JobEnqueuer, JobId, JobSystemError,
+	JobEnqueuer, JobId,
 };
 use sd_core_prisma_helpers::{location_with_indexer_rules, CasId};
 
@@ -466,7 +461,7 @@ pub async fn scan_location(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	location_scan_state: ScanState,
-) -> Result<Option<JobId>, JobSystemError> {
+) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
 		return Ok(None);
@@ -486,19 +481,11 @@ pub async fn scan_location(
 		ScanState::Pending | ScanState::Completed => {
 			node.job_system
 				.dispatch(
-					JobEnqueuer::new(
-						Indexer::new(location, None).map_err(sd_core_heavy_lifting::Error::from)?,
-					)
-					.with_action("scan_location")
-					.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
-					.enqueue_next(
-						FileIdentifier::new(location_base_data.clone(), None)
-							.map_err(sd_core_heavy_lifting::Error::from)?,
-					)
-					.enqueue_next(
-						MediaProcessor::new(location_base_data, None, false)
-							.map_err(sd_core_heavy_lifting::Error::from)?,
-					),
+					JobEnqueuer::new(Indexer::new(location, None)?)
+						.with_action("scan_location")
+						.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+						.enqueue_next(FileIdentifier::new(location_base_data.clone(), None)?)
+						.enqueue_next(MediaProcessor::new(location_base_data, None, false)?),
 					location_id,
 					ctx.clone(),
 				)
@@ -507,16 +494,10 @@ pub async fn scan_location(
 		ScanState::Indexed => {
 			node.job_system
 				.dispatch(
-					JobEnqueuer::new(
-						FileIdentifier::new(location_base_data.clone(), None)
-							.map_err(sd_core_heavy_lifting::Error::from)?,
-					)
-					.with_action("scan_location_already_indexed")
-					.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
-					.enqueue_next(
-						MediaProcessor::new(location_base_data, None, false)
-							.map_err(sd_core_heavy_lifting::Error::from)?,
-					),
+					JobEnqueuer::new(FileIdentifier::new(location_base_data.clone(), None)?)
+						.with_action("scan_location_already_indexed")
+						.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+						.enqueue_next(MediaProcessor::new(location_base_data, None, false)?),
 					location_id,
 					ctx.clone(),
 				)
@@ -525,10 +506,11 @@ pub async fn scan_location(
 		ScanState::FilesIdentified => {
 			node.job_system
 				.dispatch(
-					JobEnqueuer::new(
-						MediaProcessor::new(location_base_data.clone(), None, false)
-							.map_err(sd_core_heavy_lifting::Error::from)?,
-					)
+					JobEnqueuer::new(MediaProcessor::new(
+						location_base_data.clone(),
+						None,
+						false,
+					)?)
 					.with_action("scan_location_files_already_identified")
 					.with_metadata(ReportInputMetadata::Location(location_base_data)),
 					location_id,
@@ -546,7 +528,7 @@ pub async fn scan_location_sub_path(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<Option<JobId>, JobSystemError> {
+) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -564,25 +546,24 @@ pub async fn scan_location_sub_path(
 
 	node.job_system
 		.dispatch(
-			JobEnqueuer::new(
-				Indexer::new(location, Some(sub_path.clone()))
-					.map_err(sd_core_heavy_lifting::Error::from)?,
-			)
-			.with_action("scan_location")
-			.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
-			.with_metadata(ReportInputMetadata::SubPath(sub_path.clone()))
-			.enqueue_next(
-				FileIdentifier::new(location_base_data.clone(), Some(sub_path.clone()))
-					.map_err(sd_core_heavy_lifting::Error::from)?,
-			)
-			.enqueue_next(
-				MediaProcessor::new(location_base_data, Some(sub_path), false)
-					.map_err(sd_core_heavy_lifting::Error::from)?,
-			),
+			JobEnqueuer::new(Indexer::new(location, Some(sub_path.clone()))?)
+				.with_action("scan_location")
+				.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+				.with_metadata(ReportInputMetadata::SubPath(sub_path.clone()))
+				.enqueue_next(FileIdentifier::new(
+					location_base_data.clone(),
+					Some(sub_path.clone()),
+				)?)
+				.enqueue_next(MediaProcessor::new(
+					location_base_data,
+					Some(sub_path),
+					false,
+				)?),
 			location_id,
 			ctx.clone(),
 		)
 		.await
+		.map_err(Into::into)
 		.map(Some)
 }
 

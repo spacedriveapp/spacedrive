@@ -1,4 +1,4 @@
-use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
+use sd_task_system::{TaskHandle, TaskOutput, TaskStatus, TaskSystem};
 
 use std::{collections::VecDeque, time::Duration};
 
@@ -6,13 +6,16 @@ use futures_concurrency::future::Join;
 use rand::Rng;
 use tempfile::tempdir;
 use tracing::info;
+use tracing_subscriber::EnvFilter;
 use tracing_test::traced_test;
 
 mod common;
 
 use common::{
 	actors::SampleActor,
-	tasks::{BogusTask, BrokenTask, NeverTask, PauseOnceTask, ReadyTask, SampleError},
+	tasks::{
+		BogusTask, BrokenTask, NeverTask, PauseOnceTask, ReadyTask, SampleError, WaitSignalTask,
+	},
 };
 
 use crate::common::jobs::SampleJob;
@@ -72,7 +75,7 @@ async fn cancel_test() {
 	let handle = system.dispatch(NeverTask::default()).await;
 
 	info!("issuing cancel");
-	handle.cancel().await;
+	handle.cancel().await.unwrap();
 
 	assert!(matches!(handle.await, Ok(TaskStatus::Canceled)));
 
@@ -154,6 +157,83 @@ async fn pause_test() {
 	));
 
 	system.shutdown().await;
+}
+
+#[test]
+fn many_pauses_test() {
+	std::env::set_var("RUST_LOG", "info,sd_task_system=error");
+
+	tracing_subscriber::fmt()
+		.with_file(true)
+		.with_line_number(true)
+		.with_env_filter(EnvFilter::from_default_env())
+		.init();
+
+	std::thread::spawn(|| {
+		tokio::runtime::Builder::new_multi_thread()
+			.enable_all()
+			.build()
+			.unwrap()
+			.block_on(async move {
+				let system = TaskSystem::<SampleError>::new();
+
+				let (tasks, signalers) = (0..50)
+					.map(|_| WaitSignalTask::new())
+					.unzip::<_, _, Vec<_>, Vec<_>>();
+
+				info!(total_tasks = %tasks.len());
+
+				let handles = system.dispatch_many(tasks).await;
+
+				info!("all tasks dispatched");
+
+				for i in 1..=20 {
+					handles
+						.iter()
+						.map(TaskHandle::pause)
+						.collect::<Vec<_>>()
+						.join()
+						.await;
+
+					info!(%i, "all tasks paused");
+
+					handles
+						.iter()
+						.map(TaskHandle::resume)
+						.collect::<Vec<_>>()
+						.join()
+						.await;
+
+					info!(%i, "all tasks resumed");
+				}
+
+				signalers
+					.into_iter()
+					.enumerate()
+					.map(|(task_idx, signal_tx)| async move {
+						signal_tx.send(()).await.unwrap_or_else(|e| {
+							panic!("failed to send signal for task {task_idx}: {e:#?}")
+						})
+					})
+					.collect::<Vec<_>>()
+					.join()
+					.await;
+
+				info!("all tasks signaled for completion");
+
+				assert!(handles
+					.join()
+					.await
+					.into_iter()
+					.all(|res| matches!(res, Ok(TaskStatus::Done((_task_id, TaskOutput::Empty))))));
+
+				info!("all tasks done");
+
+				system.shutdown().await;
+			})
+	})
+	.join()
+	.unwrap();
 }
 
 #[tokio::test]

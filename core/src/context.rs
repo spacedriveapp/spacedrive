@@ -129,13 +129,15 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 		}
 	}
 
-	async fn progress(&self, updates: Vec<ProgressUpdate>) {
+	async fn progress(&self, updates: impl IntoIterator<Item = ProgressUpdate> + Send) {
 		let mut report = self.report.write().await;
 
 		// protect against updates if job is not running
 		if report.status != Status::Running {
 			return;
 		};
+
+		let mut changed_phase = false;
 
 		for update in updates {
 			match update {
@@ -157,6 +159,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 						report.phase
 					);
 					report.phase = phase;
+					changed_phase = true;
 				}
 			}
 		}
@@ -183,7 +186,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 
 		let counter = self.report_update_counter.fetch_add(1, Ordering::AcqRel);
 
-		if counter == 50 || counter == 0 {
+		if counter == 50 || counter == 0 || changed_phase {
 			self.report_update_counter.store(1, Ordering::Release);
 
 			spawn({

@@ -81,7 +81,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// - TODO: refactor grouping system to a many-to-many table
 			#[derive(Debug, Clone, Serialize, Type)]
 			pub struct JobGroup {
-				id: Uuid,
+				id: JobId,
+				running_job_id: Option<JobId>,
 				action: Option<String>,
 				status: report::Status,
 				created_at: DateTime<Utc>,
@@ -136,6 +137,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Vacant(entry) => {
 									entry.insert(JobGroup {
 										id: job.parent_id.unwrap_or(job.id),
+										running_job_id: (job.status == report::Status::Running
+											|| job.status == report::Status::Paused)
+											.then_some(job.id),
 										action: Some(action_name),
 										status: job.status,
 										jobs: [report.clone()].into_iter().collect(),
@@ -146,8 +150,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Occupied(mut entry) => {
 									let group = entry.get_mut();
 
-									// protect paused status from being overwritten
-									if report.status != report::Status::Paused {
+									if report.status == report::Status::Running
+										|| report.status == report::Status::Paused
+									{
+										group.running_job_id = Some(report.id);
 										group.status = report.status;
 									}
 
@@ -160,6 +166,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								job.id.to_string(),
 								JobGroup {
 									id: job.id,
+									running_job_id: Some(job.id),
 									action: None,
 									status: job.status,
 									jobs: [report.clone()].into_iter().collect(),
@@ -225,16 +232,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(node, library), id: JobId| async move {
-					if let Err(e) = node.job_system.pause(id).await {
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.pause(job_id).await {
 						if matches!(e, JobSystemError::NotFound(_)) {
 							// If the job is not found, it can be a job from the old job system
-							node.old_jobs.pause(id).await?;
+							node.old_jobs.pause(job_id).await?;
 						} else {
 							return Err(e.into());
 						}
 					}
 
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
 
 					Ok(())
@@ -242,16 +250,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("resume", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					if let Err(e) = node.job_system.resume(id).await {
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.resume(job_id).await {
 						if matches!(e, JobSystemError::NotFound(_)) {
 							// If the job is not found, it can be a job from the old job system
-							node.old_jobs.resume(id).await?;
+							node.old_jobs.resume(job_id).await?;
 						} else {
 							return Err(e.into());
 						}
 					}
 
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
 
 					Ok(())
@@ -259,16 +268,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("cancel", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					if let Err(e) = node.job_system.cancel(id).await {
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.cancel(job_id).await {
 						if matches!(e, JobSystemError::NotFound(_)) {
 							// If the job is not found, it can be a job from the old job system
-							node.old_jobs.cancel(id).await?;
+							node.old_jobs.cancel(job_id).await?;
 						} else {
 							return Err(e.into());
 						}
 					}
 
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
 
 					Ok(())
@@ -372,14 +382,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let Some(location) = find_location(&library, id).exec().await? else {
 						return Err(LocationError::IdNotFound(id).into());
 					};
-
-					// OldJob::new(OldFileIdentifierJobInit {
-					// 	location,
-					// 	sub_path: Some(args.path),
-					// })
-					// .spawn(&node, &library)
-					// .await
-					// .map_err(Into::into)
 
 					node.job_system
 						.dispatch(
