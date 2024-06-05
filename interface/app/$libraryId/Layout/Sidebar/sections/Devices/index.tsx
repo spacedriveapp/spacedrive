@@ -1,5 +1,5 @@
 import { HardwareModel, useBridgeQuery } from '@sd/client';
-import { Button, dialogManager } from '@sd/ui';
+import { Button, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -15,7 +15,7 @@ export default function DevicesSection() {
     return (
         <Section name={t('devices')}>
             {node && (
-                <SidebarLink className="relative w-full group" to={`node/${node.id}`} key={node.id}>
+                <SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
                     {node.device_model ? (
                         <Icon
                             name={hardwareModelToIcon(node.device_model as HardwareModel)}
@@ -29,15 +29,18 @@ export default function DevicesSection() {
                     <span className="truncate">{node.name}</span>
                 </SidebarLink>
             )}
-            <Button
-                onClick={() => dialogManager.create((dp) => (
+			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
+            <Button disabled={!import.meta.env.DEV}
+                onClick={() => dialogManager.create((dp: any) => (
 					<AddDeviceDialog {...dp} />
 				))}
                 variant="dotted"
-                className="w-full mt-1 opacity-70"
+                className="mt-1 w-full opacity-70"
             >
                 {t('add_device')}
             </Button>
+			</Tooltip>
         </Section>
+
     );
 }
