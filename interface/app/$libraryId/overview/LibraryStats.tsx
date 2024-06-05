@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { humanizeSize, Statistics, useLibraryContext, useLibraryQuery } from '@sd/client';
 import { Tooltip, Card } from '@sd/ui';
-import { useCounter, useLocale } from '~/hooks';
+import { useCounter, useLocale, useIsDark } from '~/hooks';
 import StorageBar from './StorageBar';
 
 interface StatItemProps {
@@ -12,6 +12,14 @@ interface StatItemProps {
   isLoading: boolean;
   info?: string;
 }
+
+interface Section {
+	name: string;
+	value: number;
+	color: string;
+	tooltip: string;
+  }
+
 
 let mounted = false;
 
@@ -66,6 +74,7 @@ const StatItem = (props: StatItemProps) => {
 };
 
 const LibraryStats = () => {
+const isDark = useIsDark();
   const { library } = useLibraryContext();
   const stats = useLibraryQuery(['library.statistics']);
   const { t } = useLocale();
@@ -103,25 +112,44 @@ const LibraryStats = () => {
   const { statistics } = stats.data;
   const totalSpace = Number(statistics.total_local_bytes_capacity);
 
-  const sections = [
-    {
-      name: StatItemNames.library_db_size,
-      value: Number(statistics.library_db_size),
-      color: '#FE9BFE',
-      tooltip: StatDescriptions.library_db_size,
-    },
-    {
-      name: StatItemNames.total_library_preview_media_bytes,
-      value: Number(statistics.total_library_preview_media_bytes),
-      color: '#401773',
-      tooltip: StatDescriptions.total_library_preview_media_bytes,
-    },
-    {
-      name: StatItemNames.total_local_bytes_used,
-      value: Number(statistics.total_local_bytes_used),
-      color: '#742AEA',
-      tooltip: StatDescriptions.total_local_bytes_used,
-    },
+  const sections = isDark ? [
+	{
+	  name: StatItemNames.library_db_size,
+	  value: Number(statistics.library_db_size),
+	  color: '#FE9BFE', // Dark mode color
+	  tooltip: StatDescriptions.library_db_size,
+	},
+	{
+	  name: StatItemNames.total_library_preview_media_bytes,
+	  value: Number(statistics.total_library_preview_media_bytes),
+	  color: '#401773', // Dark mode color
+	  tooltip: StatDescriptions.total_library_preview_media_bytes,
+	},
+	{
+	  name: StatItemNames.total_local_bytes_used,
+	  value: Number(statistics.total_local_bytes_used),
+	  color: '#742AEA', // Dark mode color
+	  tooltip: StatDescriptions.total_local_bytes_used,
+	},
+  ] : [
+	{
+	  name: StatItemNames.library_db_size,
+	  value: Number(statistics.library_db_size),
+	  color: '#75B1F9', // Light mode gradient start
+	  tooltip: StatDescriptions.library_db_size,
+	},
+	{
+	  name: StatItemNames.total_library_preview_media_bytes,
+	  value: Number(statistics.total_library_preview_media_bytes),
+	  color: '#004C99',
+	  tooltip: StatDescriptions.total_library_preview_media_bytes,
+	},
+	{
+	  name: StatItemNames.total_local_bytes_used,
+	  value: Number(statistics.total_local_bytes_used),
+	  color: '#3A7ECC',
+	  tooltip: StatDescriptions.total_local_bytes_used,
+	},
   ];
 
   const excludedKeys = ['library_db_size', 'total_library_preview_media_bytes', 'total_local_bytes_used'];
@@ -142,7 +170,7 @@ const LibraryStats = () => {
               <StatItem
                 key={`${library.uuid} ${key}`}
                 title={StatItemNames[key as keyof Statistics]!}
-                bytes={BigInt(value)}
+                bytes={BigInt(value as number)}
                 isLoading={stats.isLoading}
                 info={StatDescriptions[key as keyof Statistics]}
               />
@@ -150,7 +178,7 @@ const LibraryStats = () => {
           })}
       </div>
       <div>
-        <StorageBar sections={sections} totalSpace={totalSpace} />
+        <StorageBar sections={sections  as Section[]} totalSpace={totalSpace} />
       </div>
     </Card>
   );

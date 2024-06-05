@@ -76,9 +76,9 @@ export const Component = () => {
 					}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
-					<div className="flex w-full gap-3 px-7 py-3">
-    <LibraryStatistics/>
-    <FileKindStatistics />
+					<div className="flex w-full px-7 py-3">
+					<LibraryStatistics/>
+					<FileKindStatistics />
 </div>
 
 					<OverviewSection count={1} title={t('devices')}>

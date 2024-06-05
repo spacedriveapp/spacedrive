@@ -67,38 +67,74 @@ const FileKindStatistics: React.FC = () => {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    const darkColor = 'rgb(34, 34, 45)';
+    const lightColor = 'rgb(252, 252, 254)';
+
     if (node.name === 'Total Files') {
-      const radius = 25;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-      ctx.fillStyle = isDark ? 'rgb(32, 33, 44)' : 'white';
-      ctx.fill();
-      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'; // Border color same as link color
-      ctx.lineWidth = 0.5; // Border thickness
-      ctx.stroke();
+        const radius = 25;
+        const borderWidth = 0.5;
 
-      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 1)' : 'rgba(0, 0, 0, 0.8)';
-      ctx.font = `bold ${fontSize * 2}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
-      ctx.fillText(node.val, node.x, node.y - fontSize * 9); // Adjusted the y position to shift down
+        // Create linear gradient for light mode
+        const lightGradient = ctx.createLinearGradient(node.x - radius, node.y - radius, node.x + radius, node.y + radius);
+        lightGradient.addColorStop(0, 'rgb(117, 177, 249)');
+        lightGradient.addColorStop(1, 'rgb(0, 76, 153)');
 
-      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.8)';
-      ctx.font = `500 ${fontSize}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
-      ctx.fillText(node.name, node.x, node.y + fontSize * 20);
+        // Create linear gradient for dark mode
+        const darkGradient = ctx.createLinearGradient(node.x - radius, node.y - radius, node.x + radius, node.y + radius);
+        darkGradient.addColorStop(0, 'rgb(204, 67, 181)');
+        darkGradient.addColorStop(1, 'rgb(123, 72, 188)');
+
+        // Draw filled circle with gradient border
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = isDark ? darkGradient : lightGradient;
+        ctx.fill();
+
+        // Draw inner circle to create the border effect
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius - borderWidth, 0, 2 * Math.PI, false);
+        ctx.fillStyle = isDark ? darkColor : lightColor;
+        ctx.fill();
+
+        // Draw text
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 1)' : 'rgba(10, 10, 10, 0.8)';
+        ctx.font = `bold ${fontSize * 2}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
+        ctx.fillText(node.val, node.x, node.y - fontSize * 9); // Adjusted the y position to shift down
+
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(10, 10, 10, 0.8)';
+        ctx.font = `400 ${fontSize * 1.1}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
+        ctx.fillText(node.name, node.x, node.y + fontSize * 25);
     } else {
-      const label = node.name;
-      const iconName = node.name as keyof typeof icons;
-      const iconImg = iconsRef.current[iconName];
-      const iconSize = 30 / globalScale;
+        const iconName = node.name as keyof typeof icons;
+        const iconImg = iconsRef.current[iconName];
+        const iconSize = 25 / globalScale;
+        const textYPos = node.y + iconSize; // Position text below the icon
 
-      if (iconImg) {
-        ctx.drawImage(iconImg, node.x - iconSize / 2, node.y - iconSize / 2, iconSize, iconSize);
-      }
+        // Draw shadow
+        ctx.shadowColor = isDark ? 'rgba(230,230,230, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 0.5;
+        ctx.shadowOffsetX = -0.5;
+        ctx.shadowOffsetY = -2;
 
-      ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.8)';
-      ctx.fillText(node.val, node.x, node.y + iconSize / 1.3); // Number above the text
-      ctx.fillText(label, node.x, node.y - iconSize / 1.3 + fontSize); // File type text
+        // Draw node circle
+        const radius = 20;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+        ctx.fillStyle = isDark ? darkColor : lightColor;
+        ctx.fill();
+        ctx.shadowColor = 'transparent'; // Disable shadow for the next drawing steps
+
+        if (iconImg) {
+            ctx.drawImage(iconImg, node.x - iconSize / 2, node.y - iconSize, iconSize, iconSize);
+        }
+
+        ctx.fillStyle = isDark ? 'white' : 'black';
+        ctx.fillText(node.name, node.x, textYPos - 8); // File type name in the middle
+
+        ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.5)';
+        ctx.fillText(node.val, node.x, textYPos - fontSize * 2); // Number of files at the bottom
     }
-  };
+};
 
   const handleNodeClick = (node: any) => {
     if (node.id !== 'center') {
@@ -116,7 +152,7 @@ const FileKindStatistics: React.FC = () => {
   const constrainNodePosition = (node: any) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const margin = 20;
+    const margin = 30;
 
     node.x = Math.max(margin, Math.min(rect.width - margin, node.x));
     node.y = Math.max(margin, Math.min(rect.height - margin, node.y));
@@ -131,7 +167,7 @@ const FileKindStatistics: React.FC = () => {
   };
 
   return (
-    <div className="relative bottom-16 right-64 h-[200px] w-full" ref={containerRef}>
+    <div className="relative bottom-24 right-56 h-[200px] w-full" ref={containerRef}>
       {data ? (
         <ForceGraph2D
           ref={fgRef}
@@ -140,7 +176,7 @@ const FileKindStatistics: React.FC = () => {
           linkSource="source"
           linkTarget="target"
           width={1200}
-          height={300}
+          height={400}
           backgroundColor="transparent"
           nodeCanvasObject={paintNode}
           linkWidth={0.5}
@@ -151,8 +187,8 @@ const FileKindStatistics: React.FC = () => {
           onNodeDrag={(node) => constrainNodePosition(node)}
           enableZoomInteraction={false}
           enablePanInteraction={false}
-          dagLevelDistance={70}
-          maxZoom={1.5}
+          dagLevelDistance={80}
+          maxZoom={1.8}
           warmupTicks={200}
           nodePointerAreaPaint={paintPointerArea}
         />
