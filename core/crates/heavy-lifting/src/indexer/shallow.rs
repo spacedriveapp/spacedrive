@@ -145,7 +145,7 @@ async fn walk(
 	db: Arc<PrismaClient>,
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Option<walker::Output<WalkerDBProxy, IsoFilePathFactory>>, Error> {
-	match dispatcher
+	let Ok(task_handle) = dispatcher
 		.dispatch(tasks::Walker::new_shallow(
 			ToWalkEntry::from(&*to_walk_path),
 			to_walk_path,
@@ -166,9 +166,12 @@ async fn walk(
 			},
 		)?)
 		.await
-		.expect("infallible")
-		.await?
-	{
+	else {
+		debug!("Task system is shutting down while a shallow indexer was in progress");
+		return Ok(None);
+	};
+
+	match task_handle.await? {
 		sd_task_system::TaskStatus::Done((_, TaskOutput::Out(data))) => Ok(Some(
 			*data
 				.downcast::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>()
@@ -238,10 +241,12 @@ async fn save_and_update(
 		updated_count: 0,
 	};
 
-	for task_status in dispatcher
-		.dispatch_many_boxed(save_and_update_tasks)
-		.await
-		.expect("infallible")
+	let Ok(tasks_handles) = dispatcher.dispatch_many_boxed(save_and_update_tasks).await else {
+		debug!("Task system is shutting down while a shallow indexer was in progress");
+		return Ok(None);
+	};
+
+	for task_status in tasks_handles
 		.into_iter()
 		.map(CancelTaskOnDrop::new)
 		.collect::<Vec<_>>()

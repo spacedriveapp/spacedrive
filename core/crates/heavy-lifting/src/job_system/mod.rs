@@ -26,7 +26,7 @@ mod runner;
 mod store;
 pub mod utils;
 
-pub use error::{JobCanceledError, JobSystemError, JobErrorOrJobCanceledError};
+pub use error::{DispatcherError, JobErrorOrDispatcherError, JobSystemError};
 use job::{IntoJob, Job, JobName, JobOutput, OuterContext};
 use report::Report;
 use runner::{run, JobSystemRunner, RunnerMessage};
@@ -43,6 +43,7 @@ pub enum Command {
 	Pause,
 	Resume,
 	Cancel,
+	Shutdown,
 }
 
 pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {

@@ -4,7 +4,7 @@ use crate::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
-		JobCanceledError, JobErrorOrJobCanceledError, SerializableJob, SerializedTasks,
+		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
 	Error, JobContext, JobName, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
@@ -47,6 +47,7 @@ use super::{
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 enum Phase {
+	SearchingOrphansWithPriority,
 	SearchingOrphans,
 	IdentifyingFiles,
 	ProcessingObjects,
@@ -54,14 +55,16 @@ enum Phase {
 
 impl Default for Phase {
 	fn default() -> Self {
-		Self::SearchingOrphans
+		Self::SearchingOrphansWithPriority
 	}
 }
 
 impl fmt::Display for Phase {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::SearchingOrphans => write!(f, "searching_orphans"),
+			Self::SearchingOrphans | Self::SearchingOrphansWithPriority => {
+				write!(f, "searching_orphans")
+			}
 			Self::IdentifyingFiles => write!(f, "identifying_files"),
 			Self::ProcessingObjects => write!(f, "processing_objects"),
 		}
@@ -84,6 +87,7 @@ pub struct FileIdentifier {
 	// Inner state
 	file_paths_accumulator: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
+	last_orphan_file_path_id: Option<i32>,
 
 	// Job control
 	phase: Phase,
@@ -174,25 +178,40 @@ impl Job for FileIdentifier {
 			.await
 		{
 			Ok(()) => { /* Everything is awesome! */ }
-			Err(JobErrorOrJobCanceledError::JobError(e)) => {
+			Err(JobErrorOrDispatcherError::JobError(e)) => {
 				return Err(e.into());
 			}
-			Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+			Err(JobErrorOrDispatcherError::Dispatcher(DispatcherError::JobCanceled(_))) => {
 				return Ok(self.cancel_job(&mut pending_running_tasks).await);
+			}
+			Err(JobErrorOrDispatcherError::Dispatcher(DispatcherError::Shutdown(tasks))) => {
+				self.tasks_for_shutdown.extend(tasks);
+
+				if pending_running_tasks.is_empty() {
+					// If no task managed to be dispatched, we can just shutdown
+					// otherwise we have to process handles below and wait for them to be shutdown too
+					return Ok(ReturnStatus::Shutdown(
+						SerializableJob::<OuterCtx>::serialize(self).await,
+					));
+				}
 			}
 		}
 
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					let Ok(tasks) = self
+					match self
 						.process_task_output(task_id, out, &ctx, &dispatcher)
 						.await
-					else {
-						return Ok(self.cancel_job(&mut pending_running_tasks).await);
-					};
-
-					pending_running_tasks.extend(tasks);
+					{
+						Ok(tasks) => pending_running_tasks.extend(tasks),
+						Err(DispatcherError::JobCanceled(_)) => {
+							return Ok(self.cancel_job(&mut pending_running_tasks).await);
+						}
+						Err(DispatcherError::Shutdown(tasks)) => {
+							self.tasks_for_shutdown.extend(tasks);
+						}
+					}
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
@@ -269,6 +288,7 @@ impl FileIdentifier {
 			sub_path,
 			file_paths_accumulator: HashMap::new(),
 			file_paths_ids_with_priority: HashSet::new(),
+			last_orphan_file_path_id: None,
 			phase: Phase::default(),
 			metadata: Metadata::default(),
 			errors: Vec::new(),
@@ -277,42 +297,40 @@ impl FileIdentifier {
 		})
 	}
 
+	#[allow(clippy::too_many_lines)]
 	async fn init_or_resume<OuterCtx: OuterContext>(
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
 		// if we don't have any pending task, then this is a fresh job
-		if self.pending_tasks_on_resume.is_empty() {
-			let db = ctx.db();
-			let maybe_sub_iso_file_path =
-				maybe_get_iso_file_path_from_sub_path::<file_identifier::Error>(
-					self.location.id,
-					self.sub_path.as_ref(),
-					&*self.location_path,
-					db,
-				)
-				.await?;
-
-			let mut last_orphan_file_path_id = None;
-
-			let start = Instant::now();
-
-			let location_root_iso_file_path = IsolatedFilePathData::new(
+		let db = ctx.db();
+		let maybe_sub_iso_file_path =
+			maybe_get_iso_file_path_from_sub_path::<file_identifier::Error>(
 				self.location.id,
+				self.sub_path.as_ref(),
 				&*self.location_path,
-				&*self.location_path,
-				true,
+				db,
 			)
-			.map_err(file_identifier::Error::from)?;
+			.await?;
 
+		let start = Instant::now();
+
+		let location_root_iso_file_path = IsolatedFilePathData::new(
+			self.location.id,
+			&*self.location_path,
+			&*self.location_path,
+			true,
+		)
+		.map_err(file_identifier::Error::from)?;
+
+		if self.pending_tasks_on_resume.is_empty() {
 			ctx.progress([ProgressUpdate::phase(self.phase)]).await;
 
 			// First we dispatch some shallow priority tasks to quickly identify orphans in the location
 			// root directory or in the desired sub-path
 			self.dispatch_priority_identifier_tasks(
-				&mut last_orphan_file_path_id,
 				maybe_sub_iso_file_path
 					.as_ref()
 					.unwrap_or(&location_root_iso_file_path),
@@ -322,8 +340,11 @@ impl FileIdentifier {
 			)
 			.await?;
 
+			self.phase = Phase::SearchingOrphans;
+			// Resetting the last orphan file path id for deep search
+			self.last_orphan_file_path_id = None;
+
 			self.dispatch_deep_identifier_tasks(
-				&mut last_orphan_file_path_id,
 				&maybe_sub_iso_file_path,
 				ctx,
 				dispatcher,
@@ -331,6 +352,7 @@ impl FileIdentifier {
 			)
 			.await?;
 
+			self.last_orphan_file_path_id = None;
 			self.phase = Phase::IdentifyingFiles;
 
 			ctx.progress(vec![
@@ -345,12 +367,61 @@ impl FileIdentifier {
 
 			self.metadata.seeking_orphans_time = start.elapsed();
 		} else {
+			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
+
+			// For these 2 phases, we need to keep dispatching tasks until we have no more orphans to identify
+			// as we could have receive a shutdown command before being able to run through all orphans
+			match self.phase {
+				Phase::SearchingOrphansWithPriority => {
+					self.dispatch_priority_identifier_tasks(
+						maybe_sub_iso_file_path
+							.as_ref()
+							.unwrap_or(&location_root_iso_file_path),
+						ctx,
+						dispatcher,
+						pending_running_tasks,
+					)
+					.await?;
+
+					self.phase = Phase::SearchingOrphans;
+					// Resetting the last orphan file path id for deep search
+					self.last_orphan_file_path_id = None;
+
+					self.dispatch_deep_identifier_tasks(
+						&maybe_sub_iso_file_path,
+						ctx,
+						dispatcher,
+						pending_running_tasks,
+					)
+					.await?;
+
+					self.last_orphan_file_path_id = None;
+					self.phase = Phase::IdentifyingFiles;
+				}
+
+				Phase::SearchingOrphans => {
+					self.dispatch_deep_identifier_tasks(
+						&maybe_sub_iso_file_path,
+						ctx,
+						dispatcher,
+						pending_running_tasks,
+					)
+					.await?;
+
+					self.last_orphan_file_path_id = None;
+					self.phase = Phase::IdentifyingFiles;
+				}
+
+				_ => {}
+			}
+
 			ctx.progress(vec![
 				ProgressUpdate::TaskCount(if matches!(self.phase, Phase::IdentifyingFiles) {
 					u64::from(self.metadata.total_identifier_tasks)
 				} else {
 					u64::from(self.metadata.total_object_processor_tasks)
 				}),
+				ProgressUpdate::phase(self.phase),
 				ProgressUpdate::Message(format!(
 					"{} files to be identified",
 					self.metadata.total_found_orphans
@@ -361,7 +432,6 @@ impl FileIdentifier {
 				resuming_tasks_count = self.pending_tasks_on_resume.len(),
 				"Resuming tasks for FileIdentifier job",
 			);
-			pending_running_tasks.extend(mem::take(&mut self.pending_tasks_on_resume));
 		}
 
 		Ok(())
@@ -378,7 +448,7 @@ impl FileIdentifier {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobCanceledError> {
+	) -> Result<Vec<TaskHandle<Error>>, DispatcherError> {
 		if any_task_output.is::<identifier::Output>() {
 			return self
 				.process_identifier_output(
@@ -431,7 +501,7 @@ impl FileIdentifier {
 		}: identifier::Output,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobCanceledError> {
+	) -> Result<Vec<TaskHandle<Error>>, DispatcherError> {
 		self.metadata.mean_extract_metadata_time += extract_metadata_time;
 		self.metadata.mean_save_db_time_on_identifier_tasks += save_db_time;
 		self.metadata.total_identified_files += total_identified_files;
@@ -474,18 +544,25 @@ impl FileIdentifier {
 		// If we completed all identifier tasks, then we dispatch the object processor tasks
 		if self.metadata.completed_identifier_tasks == self.metadata.total_identifier_tasks {
 			self.phase = Phase::ProcessingObjects;
-			let tasks = dispatch_object_processor_tasks(
+			let (tasks_count, res) = match dispatch_object_processor_tasks(
 				self.file_paths_accumulator.drain(),
 				ctx,
 				dispatcher,
 				false,
 			)
-			.await?;
+			.await
+			{
+				Ok(task_handles) => (task_handles.len(), Ok(task_handles)),
+				Err(DispatcherError::Shutdown(tasks)) => {
+					(tasks.len(), Err(DispatcherError::Shutdown(tasks)))
+				}
+				Err(e) => return Err(e),
+			};
 
 			#[allow(clippy::cast_possible_truncation)]
 			{
 				// SAFETY: we know that `tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
-				self.metadata.total_object_processor_tasks = tasks.len() as u32;
+				self.metadata.total_object_processor_tasks = tasks_count as u32;
 			}
 
 			ctx.progress(vec![
@@ -495,7 +572,7 @@ impl FileIdentifier {
 			])
 			.await;
 
-			Ok(tasks)
+			res
 		} else {
 			Ok(vec![])
 		}
@@ -556,12 +633,11 @@ impl FileIdentifier {
 
 	async fn dispatch_priority_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
-		last_orphan_file_path_id: &mut Option<i32>,
 		sub_iso_file_path: &IsolatedFilePathData<'static>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
@@ -573,7 +649,7 @@ impl FileIdentifier {
 				.file_path()
 				.find_many(orphan_path_filters_shallow(
 					self.location.id,
-					*last_orphan_file_path_id,
+					self.last_orphan_file_path_id,
 					sub_iso_file_path,
 				))
 				.order_by(file_path::id::order(SortOrder::Asc))
@@ -596,7 +672,7 @@ impl FileIdentifier {
 			);
 
 			self.metadata.total_found_orphans += orphan_paths.len() as u64;
-			*last_orphan_file_path_id =
+			self.last_orphan_file_path_id =
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
 			self.metadata.total_identifier_tasks += 1;
@@ -610,6 +686,13 @@ impl FileIdentifier {
 			])
 			.await;
 
+			debug!(
+				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				self.metadata.completed_identifier_tasks,
+				self.metadata.total_identifier_tasks,
+				start.elapsed(),
+			);
+
 			pending_running_tasks.push(
 				dispatcher
 					.dispatch(tasks::Identifier::new(
@@ -622,13 +705,6 @@ impl FileIdentifier {
 					))
 					.await?,
 			);
-
-			debug!(
-				"Dispatched ({}/{}) identifier tasks, took: {:?}",
-				self.metadata.completed_identifier_tasks,
-				self.metadata.total_identifier_tasks,
-				start.elapsed(),
-			);
 		}
 
 		Ok(())
@@ -636,12 +712,11 @@ impl FileIdentifier {
 
 	async fn dispatch_deep_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
-		last_orphan_file_path_id: &mut Option<file_path::id::Type>,
 		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrJobCanceledError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
@@ -653,7 +728,7 @@ impl FileIdentifier {
 				.file_path()
 				.find_many(orphan_path_filters_deep(
 					self.location.id,
-					*last_orphan_file_path_id,
+					self.last_orphan_file_path_id,
 					maybe_sub_iso_file_path,
 				))
 				.order_by(file_path::id::order(SortOrder::Asc))
@@ -669,7 +744,7 @@ impl FileIdentifier {
 			}
 
 			// We grab the last id to use as a starting point for the next iteration, in case we skip this one
-			*last_orphan_file_path_id =
+			self.last_orphan_file_path_id =
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
 			orphan_paths.retain(|file_path_for_file_identifier::Data { id, .. }| {
@@ -694,6 +769,13 @@ impl FileIdentifier {
 			])
 			.await;
 
+			debug!(
+				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				self.metadata.completed_identifier_tasks,
+				self.metadata.total_identifier_tasks,
+				start.elapsed(),
+			);
+
 			pending_running_tasks.push(
 				dispatcher
 					.dispatch(tasks::Identifier::new(
@@ -705,13 +787,6 @@ impl FileIdentifier {
 						Arc::clone(ctx.sync()),
 					))
 					.await?,
-			);
-
-			debug!(
-				"Dispatched ({}/{}) identifier tasks, took: {:?}",
-				self.metadata.completed_identifier_tasks,
-				self.metadata.total_identifier_tasks,
-				start.elapsed(),
 			);
 		}
 
@@ -747,6 +822,7 @@ struct SaveState {
 
 	file_paths_accumulator: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	file_paths_ids_with_priority: HashSet<file_path::id::Type>,
+	last_orphan_file_path_id: Option<i32>,
 
 	phase: Phase,
 	metadata: Metadata,
@@ -864,6 +940,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			sub_path,
 			file_paths_accumulator,
 			file_paths_ids_with_priority,
+			last_orphan_file_path_id,
 			phase,
 			metadata,
 			errors,
@@ -871,39 +948,46 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			..
 		} = self;
 
+		let serialized_tasks = tasks_for_shutdown
+			.into_iter()
+			.map(|task| async move {
+				if task.is::<tasks::Identifier>() {
+					SerializableTask::serialize(
+						*task.downcast::<tasks::Identifier>().expect("just checked"),
+					)
+					.await
+					.map(|bytes| (TaskKind::Identifier, bytes))
+				} else if task.is::<tasks::ObjectProcessor>() {
+					task.downcast::<tasks::ObjectProcessor>()
+						.expect("just checked")
+						.serialize()
+						.await
+						.map(|bytes| (TaskKind::ObjectProcessor, bytes))
+				} else {
+					unreachable!("Unexpected task type")
+				}
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+
+		let tasks_for_shutdown_bytes = if serialized_tasks.is_empty() {
+			None
+		} else {
+			Some(SerializedTasks(rmp_serde::to_vec_named(&serialized_tasks)?))
+		};
+
 		rmp_serde::to_vec_named(&SaveState {
 			location,
 			location_path,
 			sub_path,
 			file_paths_accumulator,
 			file_paths_ids_with_priority,
+			last_orphan_file_path_id,
 			phase,
 			metadata,
 			errors,
-			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
-				&tasks_for_shutdown
-					.into_iter()
-					.map(|task| async move {
-						if task.is::<tasks::Identifier>() {
-							SerializableTask::serialize(
-								*task.downcast::<tasks::Identifier>().expect("just checked"),
-							)
-							.await
-							.map(|bytes| (TaskKind::Identifier, bytes))
-						} else if task.is::<tasks::ObjectProcessor>() {
-							task.downcast::<tasks::ObjectProcessor>()
-								.expect("just checked")
-								.serialize()
-								.await
-								.map(|bytes| (TaskKind::ObjectProcessor, bytes))
-						} else {
-							unreachable!("Unexpected task type")
-						}
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await?,
-			)?)),
+			tasks_for_shutdown_bytes,
 		})
 		.map(Some)
 	}
@@ -918,6 +1002,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 			sub_path,
 			file_paths_accumulator,
 			file_paths_ids_with_priority,
+			last_orphan_file_path_id,
 			phase,
 			metadata,
 			errors,
@@ -931,6 +1016,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for FileIdentifier {
 				sub_path,
 				file_paths_accumulator,
 				file_paths_ids_with_priority,
+				last_orphan_file_path_id,
 				phase,
 				metadata,
 				errors,

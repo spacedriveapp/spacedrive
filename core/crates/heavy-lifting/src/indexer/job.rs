@@ -6,7 +6,7 @@ use crate::{
 		},
 		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
-		JobCanceledError, JobErrorOrJobCanceledError, SerializableJob, SerializedTasks,
+		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
 	},
 	utils::sub_path::get_full_path_from_sub_path,
 	Error, LocationScanState, NonCriticalError, OuterContext,
@@ -166,11 +166,27 @@ impl Job for Indexer {
 			.await
 		{
 			Ok(()) => { /* Everything is awesome! */ }
-			Err(JobErrorOrJobCanceledError::JobError(e)) => {
+			Err(JobErrorOrDispatcherError::JobError(e)) => {
 				return Err(e.into());
 			}
-			Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
+			Err(JobErrorOrDispatcherError::Dispatcher(DispatcherError::JobCanceled(_))) => {
 				return Ok(self.cancel_job(&mut pending_running_tasks).await);
+			}
+			Err(JobErrorOrDispatcherError::Dispatcher(DispatcherError::Shutdown(tasks))) => {
+				self.tasks_for_shutdown.extend(tasks);
+
+				if pending_running_tasks.is_empty() {
+					assert_eq!(
+						self.tasks_for_shutdown.len() as u64,
+						self.metadata.total_tasks - self.metadata.completed_tasks,
+						"Shutting down a job without collecting all pending tasks"
+					);
+					// If no task managed to be dispatched, we can just shutdown
+					// otherwise we have to process handles below and wait for them to be shutdown too
+					return Ok(ReturnStatus::Shutdown(
+						SerializableJob::<OuterCtx>::serialize(self).await,
+					));
+				}
 			}
 		}
 
@@ -196,6 +212,11 @@ impl Job for Indexer {
 		}
 
 		if !self.tasks_for_shutdown.is_empty() {
+			assert_eq!(
+				self.tasks_for_shutdown.len() as u64,
+				self.metadata.total_tasks - self.metadata.completed_tasks,
+				"Shutting down a job without collecting all pending tasks"
+			);
 			return Ok(ReturnStatus::Shutdown(
 				SerializableJob::<OuterCtx>::serialize(self).await,
 			));
@@ -318,7 +339,7 @@ impl Indexer {
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrJobCanceledError<indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
 		self.metadata.completed_tasks += 1;
 
 		if any_task_output.is::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>() {
@@ -383,15 +404,13 @@ impl Indexer {
 		}: walker::Output<WalkerDBProxy, IsoFilePathFactory>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrJobCanceledError<indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
 		self.metadata.mean_scan_read_time += scan_time;
 		#[allow(clippy::cast_possible_truncation)]
 		// SAFETY: we know that `keep_walking_tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
 		{
 			self.metadata.total_walk_tasks += keep_walking_tasks.len() as u32;
 		}
-
-		let mut handles = dispatcher.dispatch_many(keep_walking_tasks).await?;
 
 		let (to_create_count, to_update_count) = (to_create.len(), to_update.len());
 
@@ -448,20 +467,6 @@ impl Indexer {
 		let (save_tasks, update_tasks) =
 			self.prepare_save_and_update_tasks(to_create, to_update, ctx);
 
-		debug!(
-			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{})",
-			handles.len(),
-			save_tasks.len(),
-			update_tasks.len(),
-			self.metadata.completed_tasks,
-			self.metadata.total_tasks
-		);
-
-		handles.extend(dispatcher.dispatch_many(save_tasks).await?);
-		handles.extend(dispatcher.dispatch_many(update_tasks).await?);
-
-		self.metadata.total_tasks += handles.len() as u64;
-
 		ctx.progress(vec![
 			ProgressUpdate::TaskCount(self.metadata.total_tasks),
 			ProgressUpdate::CompletedTaskCount(self.metadata.completed_tasks),
@@ -471,7 +476,28 @@ impl Indexer {
 		])
 		.await;
 
-		Ok(handles)
+		self.metadata.total_tasks +=
+			(keep_walking_tasks.len() + save_tasks.len() + update_tasks.len()) as u64;
+
+		debug!(
+			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{})",
+			keep_walking_tasks.len(),
+			save_tasks.len(),
+			update_tasks.len(),
+			self.metadata.completed_tasks,
+			self.metadata.total_tasks
+		);
+
+		dispatcher
+			.dispatch_many_boxed(
+				keep_walking_tasks
+					.into_iter()
+					.map(IntoTask::into_task)
+					.chain(save_tasks.into_iter().map(IntoTask::into_task))
+					.chain(update_tasks.into_iter().map(IntoTask::into_task)),
+			)
+			.await
+			.map_err(Into::into)
 	}
 
 	#[instrument(skip(self, ctx))]
@@ -531,31 +557,31 @@ impl Indexer {
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
-					let more_handles = match self
+					match self
 						.process_task_output(task_id, out, ctx, dispatcher)
 						.await
 					{
-						Ok(more_handles) => more_handles,
-						Err(JobErrorOrJobCanceledError::JobError(e)) => {
+						Ok(more_handles) => pending_running_tasks.extend(more_handles),
+						Err(JobErrorOrDispatcherError::JobError(e)) => {
 							cancel_pending_tasks(pending_running_tasks).await;
 
 							return Some(Err(e.into()));
 						}
-						Err(JobErrorOrJobCanceledError::JobCanceled(_)) => {
-							return Some(Ok(self.cancel_job(pending_running_tasks).await));
-						}
-					};
+						Err(JobErrorOrDispatcherError::Dispatcher(
+							DispatcherError::JobCanceled(_),
+						)) => return Some(Ok(self.cancel_job(pending_running_tasks).await)),
 
-					pending_running_tasks.extend(more_handles);
+						Err(JobErrorOrDispatcherError::Dispatcher(DispatcherError::Shutdown(
+							tasks,
+						))) => self.tasks_for_shutdown.extend(tasks),
+					};
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
 					warn!(%task_id, "Task returned an empty output");
 				}
 
-				Ok(TaskStatus::Shutdown(task)) => {
-					self.tasks_for_shutdown.push(task);
-				}
+				Ok(TaskStatus::Shutdown(task)) => self.tasks_for_shutdown.push(task),
 
 				Ok(TaskStatus::Error(e)) => {
 					cancel_pending_tasks(pending_running_tasks).await;
@@ -583,7 +609,7 @@ impl Indexer {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrJobCanceledError<indexer::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<indexer::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		let updates = if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
@@ -643,6 +669,8 @@ impl Indexer {
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		if !self.to_create_buffer.is_empty() || !self.to_update_buffer.is_empty() {
+			let mut tasks = Vec::with_capacity(2);
+
 			if !self.to_create_buffer.is_empty() {
 				assert!(
 					self.to_create_buffer.len() <= BATCH_SIZE,
@@ -653,19 +681,16 @@ impl Indexer {
 				self.metadata.total_paths += self.to_create_buffer.len() as u64;
 				self.metadata.total_save_tasks += 1;
 
-				if let Err(JobCanceledError(_)) = dispatcher
-					.dispatch(tasks::Saver::new_deep(
+				tasks.push(
+					tasks::Saver::new_deep(
 						self.location.id,
 						self.location.pub_id.clone(),
 						self.to_create_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
-					))
-					.await
-					.map(|task_handle| pending_running_tasks.push(task_handle))
-				{
-					return Some(Ok(self.cancel_job(pending_running_tasks).await));
-				}
+					)
+					.into_task(),
+				);
 			}
 
 			if !self.to_update_buffer.is_empty() {
@@ -678,16 +703,26 @@ impl Indexer {
 				self.metadata.total_updated_paths += self.to_update_buffer.len() as u64;
 				self.metadata.total_update_tasks += 1;
 
-				if let Err(JobCanceledError(_)) = dispatcher
-					.dispatch(tasks::Updater::new_deep(
+				tasks.push(
+					tasks::Updater::new_deep(
 						self.to_update_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
 						Arc::clone(ctx.sync()),
-					))
-					.await
-					.map(|task_handle| pending_running_tasks.push(task_handle))
-				{
+					)
+					.into_task(),
+				);
+			}
+
+			ctx.progress(vec![ProgressUpdate::TaskCount(self.metadata.total_tasks)])
+				.await;
+
+			match dispatcher.dispatch_many_boxed(tasks).await {
+				Ok(task_handles) => pending_running_tasks.extend(task_handles),
+				Err(DispatcherError::JobCanceled(_)) => {
 					return Some(Ok(self.cancel_job(pending_running_tasks).await));
+				}
+				Err(DispatcherError::Shutdown(tasks)) => {
+					self.tasks_for_shutdown.extend(tasks);
 				}
 			}
 
@@ -731,13 +766,15 @@ impl Indexer {
 
 		self.metadata.total_tasks += save_tasks.len() as u64;
 
-		if let Err(JobCanceledError(_)) = dispatcher
-			.dispatch_many(save_tasks)
-			.await
-			.map(|task_handles| pending_running_tasks.extend(task_handles))
-		{
-			return Some(Ok(self.cancel_job(pending_running_tasks).await));
-		};
+		match dispatcher.dispatch_many(save_tasks).await {
+			Ok(task_handles) => pending_running_tasks.extend(task_handles),
+			Err(DispatcherError::JobCanceled(_)) => {
+				return Some(Ok(self.cancel_job(pending_running_tasks).await));
+			}
+			Err(DispatcherError::Shutdown(tasks)) => {
+				self.tasks_for_shutdown.extend(tasks);
+			}
+		}
 
 		self.process_handles(pending_running_tasks, ctx, dispatcher)
 			.await
@@ -977,6 +1014,41 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			..
 		} = self;
 
+		let serialized_tasks = tasks_for_shutdown
+			.into_iter()
+			.map(|task| async move {
+				if task.is::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>() {
+					task.downcast::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>()
+						.expect("just checked")
+						.serialize()
+						.await
+						.map(|bytes| (TaskKind::Walk, bytes))
+				} else if task.is::<tasks::Saver>() {
+					task.downcast::<tasks::Saver>()
+						.expect("just checked")
+						.serialize()
+						.await
+						.map(|bytes| (TaskKind::Save, bytes))
+				} else if task.is::<tasks::Updater>() {
+					task.downcast::<tasks::Updater>()
+						.expect("just checked")
+						.serialize()
+						.await
+						.map(|bytes| (TaskKind::Update, bytes))
+				} else {
+					unreachable!("Unexpected task type")
+				}
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+
+		let tasks_for_shutdown_bytes = if serialized_tasks.is_empty() {
+			None
+		} else {
+			Some(SerializedTasks(rmp_serde::to_vec_named(&serialized_tasks)?))
+		};
+
 		rmp_serde::to_vec_named(&SaveState {
 			location,
 			sub_path,
@@ -991,36 +1063,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			to_update_buffer,
 			metadata,
 			errors,
-			tasks_for_shutdown_bytes: Some(SerializedTasks(rmp_serde::to_vec_named(
-				&tasks_for_shutdown
-					.into_iter()
-					.map(|task| async move {
-						if task.is::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>() {
-							task.downcast::<tasks::Walker<WalkerDBProxy, IsoFilePathFactory>>()
-								.expect("just checked")
-								.serialize()
-								.await
-								.map(|bytes| (TaskKind::Walk, bytes))
-						} else if task.is::<tasks::Saver>() {
-							task.downcast::<tasks::Saver>()
-								.expect("just checked")
-								.serialize()
-								.await
-								.map(|bytes| (TaskKind::Save, bytes))
-						} else if task.is::<tasks::Updater>() {
-							task.downcast::<tasks::Updater>()
-								.expect("just checked")
-								.serialize()
-								.await
-								.map(|bytes| (TaskKind::Update, bytes))
-						} else {
-							unreachable!("Unexpected task type")
-						}
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await?,
-			)?)),
+			tasks_for_shutdown_bytes,
 		})
 		.map(Some)
 	}

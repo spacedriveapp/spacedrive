@@ -21,6 +21,8 @@ use super::{
 };
 
 #[derive(Debug, Serialize, Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
 pub struct SerializedTasks(pub Vec<u8>);
 
 pub trait SerializableJob<OuterCtx: OuterContext>: 'static
@@ -182,7 +184,7 @@ macro_rules! match_deserialize_job {
 					&serialized_job,
 					$outer_ctx,
 				).await
-					.map(|maybe_job| maybe_job.map(|(job, tasks)| -> (
+					.map(|maybe_job| maybe_job.map(|(job, maybe_tasks)| -> (
 							Box<dyn DynJob<$outer_ctx_type, $job_ctx_type>>,
 							Option<SerializedTasks>
 						) {
@@ -195,7 +197,9 @@ macro_rules! match_deserialize_job {
 									next_jobs: VecDeque::new(),
 									_ctx: PhantomData,
 								}),
-								tasks,
+								maybe_tasks.and_then(
+									|tasks| (!tasks.0.is_empty()).then_some(tasks)
+								),
 							)
 						}
 					))

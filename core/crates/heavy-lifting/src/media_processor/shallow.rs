@@ -208,10 +208,13 @@ async fn dispatch_media_data_extractor_tasks(
 		)
 		.collect::<Vec<_>>();
 
-	Ok(dispatcher
-		.dispatch_many_boxed(tasks)
-		.await
-		.expect("infallible"))
+	dispatcher.dispatch_many_boxed(tasks).await.map_or_else(
+		|_| {
+			debug!("Task system is shutting down while a shallow media processor was in progress");
+			Ok(vec![])
+		},
+		Ok,
+	)
 }
 
 async fn dispatch_thumbnailer_tasks(
@@ -261,8 +264,11 @@ async fn dispatch_thumbnailer_tasks(
 		tasks.len(),
 	);
 
-	Ok(dispatcher
-		.dispatch_many_boxed(tasks)
-		.await
-		.expect("infallible"))
+	dispatcher.dispatch_many_boxed(tasks).await.map_or_else(
+		|_| {
+			debug!("Task system is shutting down while a shallow media processor was in progress");
+			Ok(vec![])
+		},
+		Ok,
+	)
 }

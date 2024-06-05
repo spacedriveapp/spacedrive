@@ -34,7 +34,7 @@ use specta::Type;
 use thiserror::Error;
 use tokio::{io, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{error, span, warn, Level};
+use tracing::{debug, error, span, warn, Level};
 
 use super::normalize_path;
 
@@ -263,7 +263,8 @@ pub async fn walk(
 			},
 		});
 
-		node.task_system
+		if node
+			.task_system
 			.dispatch_many(
 				thumbnails_to_generate
 					.into_iter()
@@ -278,7 +279,11 @@ pub async fn walk(
 					})
 					.collect::<Vec<_>>(),
 			)
-			.await;
+			.await
+			.is_err()
+		{
+			debug!("task system shutting down");
+		}
 
 		let mut locations = library
 			.db

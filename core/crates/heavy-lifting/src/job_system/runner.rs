@@ -210,7 +210,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 				_ => {}
 			}
 			match command {
-				Command::Pause | Command::Cancel => {
+				Command::Pause | Command::Cancel | Command::Shutdown => {
 					handle.is_running = false;
 				}
 				Command::Resume => {
@@ -464,6 +464,27 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.values()
 			.any(|handle| handle.ctx.id() == ctx_id && handle.is_running)
 	}
+
+	async fn dispatch_shutdown_command_to_jobs(&mut self) {
+		self.handles
+			.values_mut()
+			.map(|handle| async move {
+				let (tx, rx) = oneshot::channel();
+
+				handle.send_command(Command::Shutdown, tx).await;
+
+				rx.await.expect("Worker failed to ack shutdown request")
+			})
+			.collect::<Vec<_>>()
+			.join()
+			.await
+			.into_iter()
+			.for_each(|res| {
+				if let Err(e) = res {
+					error!(?e, "Failed to shutdown job");
+				}
+			});
+	}
 }
 
 #[instrument(skip(next_jobs))]
@@ -652,6 +673,8 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				// Consuming all pending return status messages
 				if !runner.is_empty() {
 					let mut job_return_status_stream = pin!(job_return_status_rx_to_shutdown);
+
+					runner.dispatch_shutdown_command_to_jobs().await;
 
 					debug!(
 						total_jobs = runner.total_jobs(),

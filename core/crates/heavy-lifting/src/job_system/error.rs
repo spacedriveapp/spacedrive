@@ -1,3 +1,4 @@
+use sd_task_system::{DispatcherShutdownError, Task};
 use sd_utils::error::FileIOError;
 
 use prisma_client_rust::QueryError;
@@ -50,13 +51,23 @@ impl From<JobSystemError> for rspc::Error {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("job canceled: <id='{0}'>")]
-pub struct JobCanceledError(pub JobId);
+pub enum DispatcherError {
+	#[error("job canceled: <id='{0}'>")]
+	JobCanceled(JobId),
+	#[error("system entered on shutdown mode <task_count={}>", .0.len())]
+	Shutdown(Vec<Box<dyn Task<crate::Error>>>),
+}
 
 #[derive(Debug, thiserror::Error)]
-pub enum JobErrorOrJobCanceledError<JobError: Into<crate::Error>> {
+pub enum JobErrorOrDispatcherError<JobError: Into<crate::Error>> {
 	#[error(transparent)]
 	JobError(#[from] JobError),
 	#[error(transparent)]
-	JobCanceled(#[from] JobCanceledError),
+	Dispatcher(#[from] DispatcherError),
+}
+
+impl From<DispatcherShutdownError<crate::Error>> for DispatcherError {
+	fn from(DispatcherShutdownError(tasks): DispatcherShutdownError<crate::Error>) -> Self {
+		Self::Shutdown(tasks)
+	}
 }

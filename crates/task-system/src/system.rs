@@ -1,7 +1,6 @@
 use std::{
 	cell::RefCell,
 	collections::HashSet,
-	convert::Infallible,
 	fmt,
 	future::Future,
 	num::NonZeroUsize,
@@ -19,7 +18,7 @@ use tokio::{spawn, sync::oneshot, task::JoinHandle};
 use tracing::{error, info, instrument, trace, warn, Instrument};
 
 use super::{
-	error::{RunError, SystemError},
+	error::{DispatcherShutdownError, RunError, SystemError},
 	message::SystemMessage,
 	task::{IntoTask, Task, TaskHandle, TaskId, TaskWorktable},
 	worker::{AtomicWorkerId, WorkStealer, Worker, WorkerBuilder},
@@ -35,6 +34,7 @@ pub struct System<E: RunError> {
 	msgs_tx: chan::Sender<SystemMessage>,
 	dispatcher: BaseDispatcher<E>,
 	handle: RefCell<Option<JoinHandle<()>>>,
+	has_shutdown: Arc<AtomicBool>,
 }
 
 impl<E: RunError> System<E> {
@@ -98,6 +98,8 @@ impl<E: RunError> System<E> {
 
 		info!(%workers_count, "Task system online!");
 
+		let has_shutdown = Arc::new(AtomicBool::new(false));
+
 		Self {
 			workers: Arc::clone(&workers),
 			msgs_tx,
@@ -105,9 +107,10 @@ impl<E: RunError> System<E> {
 				workers,
 				idle_workers,
 				last_worker_id: Arc::new(AtomicWorkerId::new(0)),
+				has_shutdown: Arc::clone(&has_shutdown),
 			},
-
 			handle: RefCell::new(Some(handle)),
+			has_shutdown,
 		}
 	}
 
@@ -117,27 +120,24 @@ impl<E: RunError> System<E> {
 	}
 
 	/// Dispatches a task to the system, the task will be assigned to a worker and executed as soon as possible.
-	#[allow(clippy::missing_panics_doc)] // SAFETY: doesn't panic
-	pub async fn dispatch(&self, into_task: impl IntoTask<E>) -> TaskHandle<E> {
-		self.dispatcher
-			.dispatch(into_task)
-			.await
-			.expect("infallible")
+	#[allow(clippy::missing_panics_doc)]
+	pub async fn dispatch(
+		&self,
+		into_task: impl IntoTask<E>,
+	) -> Result<TaskHandle<E>, DispatcherShutdownError<E>> {
+		self.dispatcher.dispatch(into_task).await
 	}
 
 	/// Dispatches many tasks to the system, the tasks will be assigned to workers and executed as soon as possible.
-	#[allow(clippy::missing_panics_doc)] // SAFETY: doesn't panic
+	#[allow(clippy::missing_panics_doc)]
 	pub async fn dispatch_many<I: IntoIterator<Item = impl IntoTask<E>> + Send>(
 		&self,
 		into_tasks: I,
-	) -> Vec<TaskHandle<E>>
+	) -> Result<Vec<TaskHandle<E>>, DispatcherShutdownError<E>>
 	where
 		<I as IntoIterator>::IntoIter: Send,
 	{
-		self.dispatcher
-			.dispatch_many(into_tasks)
-			.await
-			.expect("infallible")
+		self.dispatcher.dispatch_many(into_tasks).await
 	}
 
 	/// Returns a dispatcher that can be used to remotely dispatch tasks to the system.
@@ -214,6 +214,7 @@ impl<E: RunError> System<E> {
 	/// If the system message channel is closed for some unknown reason or if we fail to respond to
 	/// oneshot channel with shutdown response.
 	pub async fn shutdown(&self) {
+		self.has_shutdown.store(true, Ordering::Release);
 		if let Some(handle) = self
 			.handle
 			.try_borrow_mut()
@@ -558,6 +559,7 @@ pub struct BaseDispatcher<E: RunError> {
 	workers: Arc<Vec<Worker<E>>>,
 	idle_workers: Arc<Vec<AtomicBool>>,
 	last_worker_id: Arc<AtomicWorkerId>,
+	has_shutdown: Arc<AtomicBool>,
 }
 
 /// A trait that represents a dispatcher that can be used to dispatch tasks to the system.
@@ -610,19 +612,23 @@ impl<E: RunError> Clone for BaseDispatcher<E> {
 			workers: Arc::clone(&self.workers),
 			idle_workers: Arc::clone(&self.idle_workers),
 			last_worker_id: Arc::clone(&self.last_worker_id),
+			has_shutdown: Arc::clone(&self.has_shutdown),
 		}
 	}
 }
 
 impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
-	type DispatchError = Infallible;
-
-	async fn dispatch(&self, into_task: impl IntoTask<E>) -> Result<TaskHandle<E>, Infallible> {
-		self.dispatch_boxed(into_task.into_task()).await
-	}
+	type DispatchError = DispatcherShutdownError<E>;
 
 	#[allow(clippy::missing_panics_doc)]
-	async fn dispatch_boxed(&self, task: Box<dyn Task<E>>) -> Result<TaskHandle<E>, Infallible> {
+	async fn dispatch_boxed(
+		&self,
+		task: Box<dyn Task<E>>,
+	) -> Result<TaskHandle<E>, Self::DispatchError> {
+		if self.has_shutdown.load(Ordering::Acquire) {
+			return Err(DispatcherShutdownError(vec![task]));
+		}
+
 		let worker_id = self
 				.last_worker_id
 				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
@@ -642,7 +648,11 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 	async fn dispatch_many_boxed(
 		&self,
 		into_tasks: impl IntoIterator<Item = Box<dyn Task<E>>> + Send,
-	) -> Result<Vec<TaskHandle<E>>, Infallible> {
+	) -> Result<Vec<TaskHandle<E>>, Self::DispatchError> {
+		if self.has_shutdown.load(Ordering::Acquire) {
+			return Err(DispatcherShutdownError(into_tasks.into_iter().collect()));
+		}
+
 		let (handles, workers_ids_set) = into_tasks
 			.into_iter()
 			.zip((0..self.workers.len()).cycle())

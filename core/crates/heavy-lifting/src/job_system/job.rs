@@ -34,11 +34,11 @@ use tokio::{
 	sync::{oneshot, watch, Mutex},
 	time::Instant,
 };
-use tracing::{debug, error, info, instrument, trace, warn, Instrument, Level};
+use tracing::{debug, error, instrument, trace, warn, Instrument, Level};
 use uuid::Uuid;
 
 use super::{
-	error::JobCanceledError,
+	error::DispatcherError,
 	report::{
 		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
 	},
@@ -429,7 +429,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 		if res.is_ok() {
 			match command {
-				Command::Pause | Command::Cancel => self.is_running = false,
+				Command::Pause | Command::Cancel | Command::Shutdown => self.is_running = false,
 				Command::Resume => self.is_running = true,
 			}
 		}
@@ -445,6 +445,10 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			Command::Pause => (Status::Paused, None),
 			Command::Resume => (Status::Running, None),
 			Command::Cancel => (Status::Canceled, Some(Utc::now())),
+			Command::Shutdown => {
+				// We don't need to do anything here, we will handle when the job returns its output
+				return Ok(());
+			}
 		};
 
 		{
@@ -462,7 +466,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 	#[instrument(skip_all, err)]
 	async fn command_children(&mut self, command: Command) -> Result<(), JobSystemError> {
 		let (new_status, completed_at) = match command {
-			Command::Pause => (Status::Paused, None),
+			Command::Pause | Command::Shutdown => (Status::Paused, None),
 			Command::Resume => (Status::Queued, None),
 			Command::Cancel => (Status::Canceled, Some(Utc::now())),
 		};
@@ -608,35 +612,6 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		trace!("JobHandle sending cancel command to children due to failure");
 
 		self.command_children(Command::Cancel).await
-	}
-
-	#[instrument(
-		skip(self),
-		fields(
-			id = %self.id,
-		),
-		err
-	)]
-	// TODO use this
-	pub async fn shutdown_pause_job(&mut self) -> Result<(), JobSystemError> {
-		trace!("JobHandle pausing job on shutdown");
-
-		let db = self.ctx.db();
-
-		{
-			let mut report = self.ctx.report_mut().await;
-
-			info!(
-				job_name = %report.name,
-				"Job paused due to system shutdown, we will pause all children jobs",
-			);
-
-			report.status = Status::Paused;
-
-			report.update(db).await?;
-		}
-
-		self.command_children(Command::Pause).await
 	}
 
 	#[instrument(
@@ -989,10 +964,26 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 						trace!("canceled job");
 
 						commands_rx_to_close.close();
-						trace!("Finishing job");
 						let res = rx.recv().await.expect("job run rx closed");
 						ack_tx.send(()).expect("ack channel closed");
 						trace!("Job cancellation done");
+
+						return finish_job(job_id, res, remote_controllers, done_tx).await;
+					}
+
+					Command::Shutdown => {
+						trace!("Shutting down job");
+						running_state_tx.send_modify(|state| *state = JobRunningState::Shutdown);
+						debug!(
+							tasks_count = remote_controllers.len(),
+							"shutting down tasks"
+						);
+
+						commands_rx_to_close.close();
+						// Just need to wait for the job to finish with the shutdown status
+						let res = rx.recv().await.expect("job run rx closed");
+						ack_tx.send(()).expect("ack channel closed");
+						trace!("Job shutdown done");
 
 						return finish_job(job_id, res, remote_controllers, done_tx).await;
 					}
@@ -1037,6 +1028,7 @@ enum JobRunningState {
 	Running,
 	Paused,
 	Canceled,
+	Shutdown,
 }
 
 impl Default for JobRunningState {
@@ -1054,65 +1046,58 @@ pub struct JobTaskDispatcher {
 }
 
 impl TaskDispatcher<Error> for JobTaskDispatcher {
-	type DispatchError = JobCanceledError;
+	type DispatchError = DispatcherError;
 
 	async fn dispatch_boxed(
 		&self,
 		boxed_task: Box<dyn Task<Error>>,
 	) -> Result<TaskHandle<Error>, Self::DispatchError> {
-		if matches!(
-			self.wait_for_dispatch_approval().await,
-			DispatchApproval::Canceled
-		) {
-			return Err(JobCanceledError(self.job_id));
+		match self.wait_for_dispatch_approval().await {
+			DispatchApproval::Canceled => Err(DispatcherError::JobCanceled(self.job_id)),
+			DispatchApproval::Shutdown => Err(DispatcherError::Shutdown(vec![boxed_task])),
+			DispatchApproval::Approved => {
+				let handle = self.dispatcher.dispatch_boxed(boxed_task).await?;
+
+				self.remote_controllers_tx
+					.send(handle.remote_controller())
+					.await
+					.expect("remote controllers tx closed");
+
+				Ok(handle)
+			}
 		}
-
-		let handle = self
-			.dispatcher
-			.dispatch_boxed(boxed_task)
-			.await
-			.expect("infallible");
-
-		self.remote_controllers_tx
-			.send(handle.remote_controller())
-			.await
-			.expect("remote controllers tx closed");
-
-		Ok(handle)
 	}
 
 	async fn dispatch_many_boxed(
 		&self,
 		boxed_tasks: impl IntoIterator<Item = Box<dyn Task<Error>>> + Send,
 	) -> Result<Vec<TaskHandle<Error>>, Self::DispatchError> {
-		if matches!(
-			self.wait_for_dispatch_approval().await,
-			DispatchApproval::Canceled
-		) {
-			return Err(JobCanceledError(self.job_id));
+		match self.wait_for_dispatch_approval().await {
+			DispatchApproval::Canceled => Err(DispatcherError::JobCanceled(self.job_id)),
+			DispatchApproval::Shutdown => {
+				Err(DispatcherError::Shutdown(boxed_tasks.into_iter().collect()))
+			}
+			DispatchApproval::Approved => {
+				let handles = self.dispatcher.dispatch_many_boxed(boxed_tasks).await?;
+
+				handles
+					.iter()
+					.map(|handle| self.remote_controllers_tx.send(handle.remote_controller()))
+					.collect::<Vec<_>>()
+					.try_join()
+					.await
+					.expect("remote controllers tx closed");
+
+				Ok(handles)
+			}
 		}
-
-		let handles = self
-			.dispatcher
-			.dispatch_many_boxed(boxed_tasks)
-			.await
-			.expect("infallible");
-
-		handles
-			.iter()
-			.map(|handle| self.remote_controllers_tx.send(handle.remote_controller()))
-			.collect::<Vec<_>>()
-			.try_join()
-			.await
-			.expect("remote controllers tx closed");
-
-		Ok(handles)
 	}
 }
 
 enum DispatchApproval {
 	Approved,
 	Canceled,
+	Shutdown,
 }
 
 impl JobTaskDispatcher {
@@ -1145,13 +1130,21 @@ impl JobTaskDispatcher {
 				trace!("waiting for job running state to change");
 				running_state_rx
 					.wait_for(|state| {
-						*state == JobRunningState::Running || *state == JobRunningState::Canceled
+						matches!(
+							*state,
+							JobRunningState::Running
+								| JobRunningState::Canceled | JobRunningState::Shutdown
+						)
 					})
 					.await
 					.expect("job running state watch channel unexpectedly closed");
 
-				if matches!(*running_state_rx.borrow(), JobRunningState::Canceled) {
-					return DispatchApproval::Canceled;
+				let state = { *running_state_rx.borrow() };
+
+				match state {
+					JobRunningState::Shutdown => return DispatchApproval::Shutdown,
+					JobRunningState::Canceled => return DispatchApproval::Canceled,
+					_ => {}
 				}
 			}
 		}

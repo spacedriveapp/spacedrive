@@ -883,7 +883,8 @@ mod tests {
 				)
 				.unwrap(),
 			)
-			.await;
+			.await
+			.unwrap();
 
 		let group = FuturesUnordered::new();
 
@@ -915,7 +916,7 @@ mod tests {
 			actual_set.extend(to_create);
 			ancestors.extend(accepted_ancestors);
 
-			group.extend(system.dispatch_many(keep_walking_tasks).await);
+			group.extend(system.dispatch_many(keep_walking_tasks).await.unwrap());
 		}
 
 		for actual in &actual_set {

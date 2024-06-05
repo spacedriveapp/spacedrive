@@ -96,19 +96,22 @@ pub async fn shallow(
 		orphans_count += orphan_paths.len() as u64;
 		last_orphan_file_path_id = Some(last_orphan.id);
 
-		identifier_tasks.push(
-			dispatcher
-				.dispatch(tasks::Identifier::new(
-					Arc::clone(&location),
-					Arc::clone(&location_path),
-					orphan_paths,
-					true,
-					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
-				))
-				.await
-				.expect("infallible"),
-		);
+		let Ok(tasks) = dispatcher
+			.dispatch(tasks::Identifier::new(
+				Arc::clone(&location),
+				Arc::clone(&location_path),
+				orphan_paths,
+				true,
+				Arc::clone(ctx.db()),
+				Arc::clone(ctx.sync()),
+			))
+			.await
+		else {
+			debug!("Task system is shutting down while a shallow file identifier was in progress");
+			return Ok(vec![]);
+		};
+
+		identifier_tasks.push(tasks);
 	}
 
 	if orphans_count == 0 {
@@ -163,18 +166,19 @@ async fn process_tasks(
 					errors.extend(more_errors);
 
 					if total_identifier_tasks == completed_identifier_tasks {
-						pending_running_tasks.extend(
-							dispatch_object_processor_tasks(
-								file_paths_accumulator.drain(),
-								ctx,
-								dispatcher,
-								true,
-							)
-							.await
-							.expect("infallible")
-							.into_iter()
-							.map(CancelTaskOnDrop::new),
-						);
+						let Ok(tasks) = dispatch_object_processor_tasks(
+							file_paths_accumulator.drain(),
+							ctx,
+							dispatcher,
+							true,
+						)
+						.await
+						else {
+							debug!("Task system is shutting down while a shallow file identifier was in progress");
+							continue;
+						};
+
+						pending_running_tasks.extend(tasks.into_iter().map(CancelTaskOnDrop::new));
 					}
 				} else {
 					let object_processor::Output {
@@ -196,7 +200,7 @@ async fn process_tasks(
 				debug!(
 					"Spacedrive is shutting down while a shallow file identifier was in progress"
 				);
-				return Ok(errors);
+				continue;
 			}
 
 			Ok(TaskStatus::Error(e)) => {

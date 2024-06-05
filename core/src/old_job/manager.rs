@@ -293,6 +293,14 @@ impl OldJobs {
 						.dispatch(node, library, resumable_job)
 						.await;
 				}
+				Err(JobError::UnknownJobName(_, job_name))
+					if matches!(
+						job_name.as_str(),
+						"indexer" | "file_identifier" | "media_processor"
+					) =>
+				{
+					debug!(%job_name, "Moved to new job system");
+				}
 				Err(err) => {
 					warn!(
 						"Failed to initialize job: {} with uuid {}, error: {:?}",

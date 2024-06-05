@@ -60,7 +60,7 @@ async fn test_actor() {
 async fn shutdown_test() {
 	let system = TaskSystem::new();
 
-	let handle = system.dispatch(NeverTask::default()).await;
+	let handle = system.dispatch(NeverTask::default()).await.unwrap();
 
 	system.shutdown().await;
 
@@ -72,7 +72,7 @@ async fn shutdown_test() {
 async fn cancel_test() {
 	let system = TaskSystem::new();
 
-	let handle = system.dispatch(NeverTask::default()).await;
+	let handle = system.dispatch(NeverTask::default()).await.unwrap();
 
 	info!("issuing cancel");
 	handle.cancel().await.unwrap();
@@ -87,7 +87,7 @@ async fn cancel_test() {
 async fn done_test() {
 	let system = TaskSystem::new();
 
-	let handle = system.dispatch(ReadyTask::default()).await;
+	let handle = system.dispatch(ReadyTask::default()).await.unwrap();
 
 	assert!(matches!(
 		handle.await,
@@ -104,7 +104,7 @@ async fn abort_test() {
 
 	let (task, began_rx) = BrokenTask::new();
 
-	let handle = system.dispatch(task).await;
+	let handle = system.dispatch(task).await.unwrap();
 
 	began_rx.await.unwrap();
 
@@ -120,7 +120,7 @@ async fn abort_test() {
 async fn error_test() {
 	let system = TaskSystem::new();
 
-	let handle = system.dispatch(BogusTask::default()).await;
+	let handle = system.dispatch(BogusTask::default()).await.unwrap();
 
 	assert!(matches!(
 		handle.await,
@@ -137,7 +137,7 @@ async fn pause_test() {
 
 	let (task, began_rx) = PauseOnceTask::new();
 
-	let handle = system.dispatch(task).await;
+	let handle = system.dispatch(task).await.unwrap();
 
 	info!("Task dispatched, now we wait for it to begin...");
 
@@ -183,7 +183,7 @@ fn many_pauses_test() {
 
 				info!(total_tasks = %tasks.len());
 
-				let handles = system.dispatch_many(tasks).await;
+				let handles = system.dispatch_many(tasks).await.unwrap();
 
 				info!("all tasks dispatched");
 
@@ -262,11 +262,12 @@ async fn steal_test() {
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 	// With this, all workers will be busy
-	let mut pause_handles = VecDeque::from(system.dispatch_many(pause_tasks).await);
+	let mut pause_handles = VecDeque::from(system.dispatch_many(pause_tasks).await.unwrap());
 
 	let ready_handles = system
 		.dispatch_many((0..100).map(|_| ReadyTask::default()))
-		.await;
+		.await
+		.unwrap();
 
 	pause_begans
 		.into_iter()
