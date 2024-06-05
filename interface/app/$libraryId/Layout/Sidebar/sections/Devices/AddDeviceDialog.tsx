@@ -28,10 +28,10 @@ const AddDeviceDialog = ({node, ...dialogProps}: Props) => {
 		ctaLabel="Add"
 		closeLabel="Close"
 		>
-			<div className="flex flex-col items-center mt-4">
-				<div className="bg-gray-600 rounded-lg shadow-lg size-32" />
+			<div className="mt-4 flex flex-col items-center">
+				<div className="size-32 rounded-lg bg-gray-600 shadow-lg" />
 			</div>
-			<div className="flex items-center my-5 space-x-3">
+			<div className="my-5 flex items-center space-x-3">
 				<Divider className="grow" />
 				<span className="my-1 text-xs text-ink-faint">OR</span>
 				<Divider className="grow" />
