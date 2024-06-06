@@ -1,5 +1,5 @@
 import { HardwareModel, useBridgeQuery } from '@sd/client';
-import { Button, dialogManager, Tooltip } from '@sd/ui';
+import { Button, Tooltip, dialogManager } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -31,7 +31,7 @@ export default function DevicesSection() {
             )}
 			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
             <Button disabled={!import.meta.env.DEV}
-                onClick={() => dialogManager.create((dp: any) => (
+                onClick={() => dialogManager.create((dp) => (
 					<AddDeviceDialog {...dp} />
 				))}
                 variant="dotted"
