@@ -207,16 +207,13 @@ pub fn is_flatpak() -> bool {
 
 // Check if system uses a nvidia card to render
 #[gl_headless]
-fn is_nvidia() -> String {
-	let Some(raw_vendor) = (unsafe { gl::GetString(gl::VENDOR).as_mut() }) else {
+fn is_nvidia() -> bool {
+	let raw_vendor = unsafe { gl::GetString(gl::VENDOR) as *const i8 };
+
+	if raw_vendor.is_null() {
 		return false;
 	};
-	let vendor = unsafe {
-		CStr::from_ptr(raw_vendor);
-	};
-	return vendor
-		.to_str()
-		.unwrap_or("")
-		.to_lowercase()
-		.contains("nvidia");
+
+	let vendor = unsafe { CStr::from_ptr(raw_vendor) };
+	return vendor.to_string_lossy().to_lowercase().contains("nvidia");
 }
