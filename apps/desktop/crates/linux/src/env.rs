@@ -8,6 +8,8 @@ use std::{
 	ptr,
 };
 
+use gl_headless::gl_headless;
+
 pub fn get_current_user_home() -> Option<PathBuf> {
 	use libc::{getpwuid_r, getuid, passwd, ERANGE};
 
@@ -175,6 +177,10 @@ pub fn normalize_environment() {
 		],
 	)
 	.expect("PATH must be successfully normalized");
+
+	if is_nvidia() {
+		env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+	}
 }
 
 // Check if snap by looking if SNAP is set and not empty and that the SNAP directory exists
@@ -197,4 +203,20 @@ pub fn is_flatpak() -> bool {
 	}
 
 	false
+}
+
+// Check if system uses a nvidia card to render
+#[gl_headless]
+fn is_nvidia() -> String {
+	let Some(raw_vendor) = (unsafe { gl::GetString(gl::VENDOR).as_mut() }) else {
+		return false;
+	};
+	let vendor = unsafe {
+		CStr::from_ptr(raw_vendor);
+	};
+	return vendor
+		.to_str()
+		.unwrap_or("")
+		.to_lowercase()
+		.contains("nvidia");
 }
