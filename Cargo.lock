@@ -5075,7 +5075,6 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06085512b750d640299b79be4bad3d2fa90a9c00b1fd9e1b46364f66f0485c72"
 dependencies = [
- "cc",
  "pkg-config",
 ]
 
@@ -6710,15 +6709,15 @@ dependencies = [
 
 [[package]]
 name = "opener"
-version = "0.6.1"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c62dcb6174f9cb326eac248f07e955d5d559c272730b6c03e396b443b562788"
+checksum = "f8df34be653210fbe9ffaff41d3b92721c56ce82dfee58ee684f9afb5e3a90c0"
 dependencies = [
  "bstr",
  "dbus",
  "normpath",
  "url",
- "winapi",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -9386,6 +9385,7 @@ name = "sd-desktop"
 version = "0.3.1"
 dependencies = [
  "axum",
+ "dbus",
  "directories 5.0.1",
  "futures",
  "http 0.2.11",

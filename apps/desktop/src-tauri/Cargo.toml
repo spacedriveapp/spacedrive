@@ -28,9 +28,10 @@ tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
 uuid = { workspace = true, features = ["serde"] }
 thiserror.workspace = true
-directories = "5.0.1"
 
-opener = { version = "0.6.1", features = ["reveal"] }
+dbus = { version = "0.9", features = ["stdfd"] }
+directories = "5.0.1"
+opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
 	"unstable",
