@@ -4,6 +4,7 @@ import NotFoundScreen from '~/screens/NotFound';
 
 import DrawerNavigator, { DrawerNavParamList } from './DrawerNavigator';
 import SearchStack, { SearchStackParamList } from './SearchStack';
+import BackfillWaiting from '~/screens/settings/library/BackfillWaiting';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 // This is the main navigator we nest everything under.
@@ -20,6 +21,7 @@ export default function RootNavigator() {
 				component={SearchStack}
 				options={{ headerShown: false }}
 			/>
+			<Stack.Screen name="BackfillWaiting" component={BackfillWaiting} options={{ headerShown: false }} />
 			<Stack.Screen name="NotFound" component={NotFoundScreen} options={{ title: 'Oops!' }} />
 		</Stack.Navigator>
 	);
@@ -28,6 +30,7 @@ export default function RootNavigator() {
 export type RootStackParamList = {
 	Root: NavigatorScreenParams<DrawerNavParamList>;
 	SearchStack: NavigatorScreenParams<SearchStackParamList>;
+	BackfillWaiting: undefined;
 	NotFound: undefined;
 };
 

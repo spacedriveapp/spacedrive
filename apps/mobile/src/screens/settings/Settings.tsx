@@ -1,4 +1,5 @@
 import {
+	ArrowsClockwise,
 	Books,
 	FlyingSaucer,
 	Gear,
@@ -86,6 +87,11 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 				icon: TagSimple,
 				navigateTo: 'TagsSettings',
 				title: 'Tags',
+			},
+			{
+				icon: ArrowsClockwise,
+				navigateTo: 'SyncSettings',
+				title: 'Sync',
 				rounded: 'bottom'
 			}
 			// {
