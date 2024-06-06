@@ -25,10 +25,6 @@ patchedDependencies:
 importers:
 
   .:
-    dependencies:
-      react-force-graph-2d:
-        specifier: ^1.25.5
-        version: 1.25.5(react@18.2.0)
     devDependencies:
       '@babel/plugin-syntax-import-assertions':
         specifier: ^7.24.1
@@ -797,6 +793,9 @@ importers:
       react-error-boundary:
         specifier: ^4.0.11
         version: 4.0.13(react@18.2.0)
+      react-force-graph-2d:
+        specifier: ^1.25.5
+        version: 1.25.5(react@18.2.0)
       react-hook-form:
         specifier: ^7.47.0
         version: 7.51.1(react@18.2.0)

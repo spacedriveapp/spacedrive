@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import ForceGraph2D from 'react-force-graph-2d';
-import { useLibraryQuery } from '@sd/client';
-import { useIsDark } from '~/hooks';
 import { getIcon } from '@sd/assets/util';
+import { useLibraryQuery } from '@sd/client';
+import React, { useEffect, useRef, useState } from 'react';
+import ForceGraph2D from 'react-force-graph-2d';
+import { useNavigate } from 'react-router-dom';
+import { useIsDark } from '~/hooks';
 import * as icons from '../../../../packages/assets/icons';
 
 interface KindStatistic {
@@ -71,7 +71,7 @@ const FileKindStatistics: React.FC = () => {
     const lightColor = 'rgb(252, 252, 254)';
 
     if (node.name === 'Total Files') {
-        const radius = 25;
+        const radius = 30;
         const borderWidth = 0.5;
 
         // Create linear gradient for light mode
@@ -81,8 +81,8 @@ const FileKindStatistics: React.FC = () => {
 
         // Create linear gradient for dark mode
         const darkGradient = ctx.createLinearGradient(node.x - radius, node.y - radius, node.x + radius, node.y + radius);
-        darkGradient.addColorStop(0, 'rgb(204, 67, 181)');
-        darkGradient.addColorStop(1, 'rgb(123, 72, 188)');
+        darkGradient.addColorStop(0, 'rgb(255,13, 202)');
+        darkGradient.addColorStop(1, 'rgb(128,0,255)');
 
         // Draw filled circle with gradient border
         ctx.beginPath();
@@ -95,6 +95,19 @@ const FileKindStatistics: React.FC = () => {
         ctx.arc(node.x, node.y, radius - borderWidth, 0, 2 * Math.PI, false);
         ctx.fillStyle = isDark ? darkColor : lightColor;
         ctx.fill();
+
+// Add inner shadow
+// Create a radial gradient for the inner shadow
+const shadowGradient = ctx.createRadialGradient(node.x, node.y, radius * 0.5, node.x, node.y, radius);
+
+shadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0)'); // Darker at the center
+shadowGradient.addColorStop(1, isDark ? 'rgba(255,93,234,0.1' : 'rgba(66,97,255, 0.05)'); // Transparent at the edges
+
+ctx.globalCompositeOperation = 'source-atop'; // Ensure the shadow is only within the circle
+ctx.beginPath();
+ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+ctx.fillStyle = shadowGradient;
+ctx.fill();
 
         // Draw text
         ctx.fillStyle = isDark ? 'rgba(255, 255, 255, 1)' : 'rgba(10, 10, 10, 0.8)';
@@ -111,7 +124,7 @@ const FileKindStatistics: React.FC = () => {
         const textYPos = node.y + iconSize; // Position text below the icon
 
         // Draw shadow
-        ctx.shadowColor = isDark ? 'rgba(230,230,230, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowColor = isDark ? 'rgb(44,45,58)' : 'rgba(0, 0, 0, 0.1)';
         ctx.shadowBlur = 0.5;
         ctx.shadowOffsetX = -0.5;
         ctx.shadowOffsetY = -2;
@@ -144,7 +157,6 @@ const FileKindStatistics: React.FC = () => {
           filters: JSON.stringify([{ object: { kind: { in: [node.id] } } }])
         }).toString()
       };
-      console.log('Navigating to:', path);
       navigate(path);
     }
   };
@@ -182,7 +194,7 @@ const FileKindStatistics: React.FC = () => {
           linkWidth={0.5}
           dagMode="td"
           nodeLabel=""
-          linkColor={() => isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'}
+          linkColor={() => isDark ? '#2C2D3A' : 'rgba(0, 0, 0, 0.2)'}
           onNodeClick={handleNodeClick}
           onNodeDrag={(node) => constrainNodePosition(node)}
           enableZoomInteraction={false}
