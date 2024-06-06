@@ -78,7 +78,7 @@ export const SearchOptionSubMenu = (
 					<SearchOptionItemInternals {...props}>{props.name}</SearchOptionItemInternals>
 				</ContextMenuDivItem>
 			}
-			className={clsx(MENU_STYLES, 'max-h-80 explorer-scroll -mt-1.5', props.className)}
+			className={clsx(MENU_STYLES, 'explorer-scroll -mt-1.5 max-h-80', props.className)}
 		>
 			{props.children}
 		</DropdownMenu.SubMenu>
