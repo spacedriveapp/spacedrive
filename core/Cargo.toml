@@ -151,7 +151,7 @@ trash = "4.1.0"
 trash = "4.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-icrate = { version = "0.1.0", features = [
+icrate = { version = "0.1.2", features = [
 	"Foundation",
 	"Foundation_NSFileManager",
 	"Foundation_NSString",
