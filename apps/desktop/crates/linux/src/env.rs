@@ -205,22 +205,29 @@ pub fn is_flatpak() -> bool {
 }
 
 fn has_nvidia() -> bool {
-	use glutin::api::egl::device::Device;
+	use wgpu::{
+		Backends, DeviceType, Dx12Compiler, Gles3MinorVersion, Instance, InstanceDescriptor,
+		InstanceFlags,
+	};
 
-	Device::query_devices()
-		.map(|devices| {
-			for device in devices {
-				if device
-					.vendor()
-					.unwrap_or("")
-					.to_lowercase()
-					.contains("nvidia")
-				{
+	let instance = Instance::new(InstanceDescriptor {
+		flags: InstanceFlags::empty(),
+		backends: Backends::VULKAN | Backends::GL,
+		gles_minor_version: Gles3MinorVersion::Automatic,
+		dx12_shader_compiler: Dx12Compiler::default(),
+	});
+	for adapter in instance.enumerate_adapters(Backends::all()) {
+		let info = adapter.get_info();
+		match info.device_type {
+			DeviceType::DiscreteGpu | DeviceType::IntegratedGpu | DeviceType::VirtualGpu => {
+				// Nvidia PCI id
+				if info.vendor == 0x10de {
 					return true;
 				}
 			}
+			_ => {}
+		}
+	}
 
-			false
-		})
-		.unwrap_or(false);
+	false
 }
