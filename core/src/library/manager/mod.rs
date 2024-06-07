@@ -406,7 +406,6 @@ impl Libraries {
 						.iter()
 						.flatten()
 						.filter_map(|i| RemoteIdentity::from_bytes(&i.remote_identity).ok())
-						.into_iter()
 						.any(|i| i == *instance)
 						.then(|| Arc::clone(library))
 				}),
