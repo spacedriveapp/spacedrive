@@ -16,7 +16,6 @@ sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
 axum = { workspace = true, features = ["headers", "query"] }
-hyper = "0.14.28"
 futures = { workspace = true }
 http = { workspace = true }
 prisma-client-rust = { workspace = true }
@@ -34,6 +33,8 @@ uuid = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
 directories = "5.0.1"
+hyper = "0.14.28"
+opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
 	"unstable",
@@ -46,7 +47,6 @@ tauri-plugin-shell = "2.0.0-beta"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = { version = "0.9", features = ["stdfd"] }
-opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 sd-desktop-linux = { path = "../crates/linux" }
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L86
 webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }
