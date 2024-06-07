@@ -7,9 +7,10 @@ edition = { workspace = true }
 
 [dependencies]
 tokio = { workspace = true, features = ["fs"] }
-libc =  { workspace = true }
+libc = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+wgpu = { version = "0.20.0", default-features = false }
 # WARNING: gtk should follow the same version used by tauri
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L85C1-L85C51
-gtk = { version = "0.18", features = [ "v3_24" ] }
+gtk = { version = "0.18", features = ["v3_24"] }
