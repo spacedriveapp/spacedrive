@@ -12,7 +12,7 @@ import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
 import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
-import BackfillWaiting from '~/screens/settings/library/BackfillWaiting';
+import Cloud from '~/screens/settings/library/Cloud';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
@@ -95,9 +95,9 @@ export default function SettingsStack() {
 				options={{ header: () => <Header navBack title="Sync" /> }}
 			/>
 			<Stack.Screen
-				name="BackfillWaiting"
-				component={BackfillWaiting}
-				options={{ header: () => <></> }}
+				name="Cloud"
+				component={Cloud}
+				options={{ header: () => <Header navBack title="Cloud" /> }}
 			/>
 			{/* <Stack.Screen
 				name="KeysSettings"
@@ -144,7 +144,7 @@ export type SettingsStackParamList = {
 	TagsSettings: undefined;
 	KeysSettings: undefined;
 	SyncSettings: undefined;
-	BackfillWaiting: undefined;
+	Cloud: undefined;
 	// Info
 	About: undefined;
 	Support: undefined;

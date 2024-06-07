@@ -36,13 +36,13 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 
 	useLibrarySubscription(['library.actors'], { onData: setData });
 
-	const cloudSync = useFeatureFlag('cloudSync');
-
 	useEffect(() => {
 		if (startBackfill === true) {
 			console.log('Starting Backfill!');
 
-			navigation.navigate('BackfillWaiting');
+			navigation.navigate('BackfillWaitingStack', {
+				screen: 'BackfillWaiting'
+			});
 
 			// Force re-render?
 		}
@@ -61,7 +61,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 				</Button>
 			) : (
 				<View>
-					{/* <Text
+					<Text
 						style={tw`flex flex-col items-center justify-center text-left text-white`}
 					>
 						Ingester
@@ -73,7 +73,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 						) : (
 							<StartButton name={ACTORS.Ingest} />
 						)}
-					</View> */}
+					</View>
 					<Text
 						style={tw`flex flex-col items-center justify-center text-left text-white`}
 					>
@@ -85,6 +85,32 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 							<StopButton name={ACTORS.CloudSend} />
 						) : (
 							<StartButton name={ACTORS.CloudSend} />
+						)}
+					</View>
+					<Text
+						style={tw`flex flex-col items-center justify-center text-left text-white`}
+					>
+						Receiver
+						<OnlineIndicator online={data[ACTORS.CloudReceive] ?? false} />
+					</Text>
+					<View>
+						{data[ACTORS.CloudReceive] ? (
+							<StopButton name={ACTORS.CloudReceive} />
+						) : (
+							<StartButton name={ACTORS.CloudReceive} />
+						)}
+					</View>
+					<Text
+						style={tw`flex flex-col items-center justify-center text-left text-white`}
+					>
+						Cloud Ingester
+						<OnlineIndicator online={data[ACTORS.CloudIngest] ?? false} />
+					</Text>
+					<View>
+						{data[ACTORS.CloudReceive] ? (
+							<StopButton name={ACTORS.CloudIngest} />
+						) : (
+							<StartButton name={ACTORS.CloudIngest} />
 						)}
 					</View>
 				</View>

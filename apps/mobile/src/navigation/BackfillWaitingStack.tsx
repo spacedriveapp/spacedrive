@@ -1,17 +1,26 @@
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
-import DynamicHeader from '~/components/header/DynamicHeader';
-import Header from '~/components/header/Header';
-import LocationScreen from '~/screens/browse/Location';
-import FiltersScreen from '~/screens/search/Filters';
-import SearchScreen from '~/screens/search/Search';
+import BackfillWaiting from '~/screens/BackfillWaiting';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<BackfillWaitingStackParamList>();
 
 export default function BackfillWaitingStack() {
 	return (
 		<Stack.Navigator initialRouteName="BackfillWaiting">
-			<></>
+			<Stack.Screen
+				name="BackfillWaiting"
+				component={BackfillWaiting}
+				options={{
+					headerShown: false
+				}}
+			/>
 		</Stack.Navigator>
 	);
 }
+
+export type BackfillWaitingStackParamList = {
+	BackfillWaiting: undefined;
+};
+
+export type BackfillWaitingStackScreenProps<Screen extends keyof BackfillWaitingStackParamList> =
+	NativeStackScreenProps<BackfillWaitingStackParamList, Screen>;

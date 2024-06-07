@@ -1,6 +1,7 @@
 import {
 	ArrowsClockwise,
 	Books,
+	Cloud,
 	FlyingSaucer,
 	Gear,
 	GearSix,
@@ -87,6 +88,11 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 				icon: TagSimple,
 				navigateTo: 'TagsSettings',
 				title: 'Tags',
+			},
+			{
+				icon: Cloud,
+				navigateTo: 'Cloud',
+				title: 'Cloud',
 			},
 			{
 				icon: ArrowsClockwise,
