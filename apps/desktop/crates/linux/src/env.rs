@@ -8,8 +8,6 @@ use std::{
 	ptr,
 };
 
-use gl_headless::gl_headless;
-
 pub fn get_current_user_home() -> Option<PathBuf> {
 	use libc::{getpwuid_r, getuid, passwd, ERANGE};
 
@@ -178,7 +176,8 @@ pub fn normalize_environment() {
 	)
 	.expect("PATH must be successfully normalized");
 
-	if is_nvidia() {
+	if has_nvidia() {
+		// Workaround for: https://github.com/tauri-apps/tauri/issues/9304
 		env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 	}
 }
@@ -205,15 +204,23 @@ pub fn is_flatpak() -> bool {
 	false
 }
 
-// Check if system uses a nvidia card to render
-#[gl_headless]
-fn is_nvidia() -> bool {
-	let raw_vendor = unsafe { gl::GetString(gl::VENDOR) as *const i8 };
+fn has_nvidia() -> bool {
+	use glutin::api::egl::device::Device;
 
-	if raw_vendor.is_null() {
-		return false;
-	};
+	Device::query_devices()
+		.map(|devices| {
+			for device in devices {
+				if device
+					.vendor()
+					.unwrap_or("")
+					.to_lowercase()
+					.contains("nvidia")
+				{
+					return true;
+				}
+			}
 
-	let vendor = unsafe { CStr::from_ptr(raw_vendor) };
-	return vendor.to_string_lossy().to_lowercase().contains("nvidia");
+			false
+		})
+		.unwrap_or(false);
 }

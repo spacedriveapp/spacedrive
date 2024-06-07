@@ -1402,12 +1402,22 @@ dependencies = [
 
 [[package]]
 name = "block2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15b55663a85f33501257357e6421bb33e769d5c9ffb5ba0921c975a123e35e68"
+dependencies = [
+ "block-sys",
+ "objc2 0.4.1",
+]
+
+[[package]]
+name = "block2"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e58aa60e59d8dbfcc36138f5f18be5f24394d33b38b24f7fd0b1caa33095f22f"
 dependencies = [
  "block-sys",
- "objc2",
+ "objc2 0.5.2",
 ]
 
 [[package]]
@@ -1707,9 +1717,24 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
+
+[[package]]
+name = "cfg_aliases"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e53693616d3075149f4ead59bdeecd204ac6b8192d8969757601b74bddf00f"
+
+[[package]]
+name = "cgl"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ced0551234e87afee12411d535648dd89d2e7f34c78b753395567aff3d447ff"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "chacha20"
@@ -1847,15 +1872,6 @@ name = "clap_lex"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
-
-[[package]]
-name = "cmake"
-version = "0.1.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31c789563b815f77f4250caee12365734369f942439b7defd71e18a48197130"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "cmov"
@@ -3768,37 +3784,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f924267408915fddcd558e3f37295cc7d6a3e50f8bd8b606cee0808c3915157e"
 
 [[package]]
-name = "gl"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a94edab108827d67608095e269cf862e60d920f144a5026d3dbcfd8b877fb404"
-dependencies = [
- "gl_generator",
-]
-
-[[package]]
-name = "gl-headless"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2a15605d075e3ca0eb9840d9945ce21168c3f66c0422fa929e69b6bdf15a930"
-dependencies = [
- "gl",
- "gl-headless-macros",
- "glfw",
-]
-
-[[package]]
-name = "gl-headless-macros"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "912d61fc34c2002bfb42bbd3509f2dc7002534b23bb3f6f5bdade6de1317e60f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.60",
-]
-
-[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3807,28 +3792,6 @@ dependencies = [
  "khronos_api",
  "log",
  "xml-rs",
-]
-
-[[package]]
-name = "glfw"
-version = "0.51.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "919ebc7bdbf60a529689a5e58f80d9dcde27e3d2ab4f2f7ce711ec439fe789c5"
-dependencies = [
- "bitflags 1.3.2",
- "glfw-sys",
- "objc",
- "raw-window-handle 0.5.2",
- "winapi",
-]
-
-[[package]]
-name = "glfw-sys"
-version = "4.0.0+3.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5abed6d39a50226676aab893d6b4ad154da7e93fcdfed90d7696758a1b477ed1"
-dependencies = [
- "cmake",
 ]
 
 [[package]]
@@ -3896,6 +3859,59 @@ dependencies = [
  "regex-automata 0.4.5",
  "regex-syntax 0.8.2",
  "serde",
+]
+
+[[package]]
+name = "glutin"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18fcd4ae4e86d991ad1300b8f57166e5be0c95ef1f63f3f5b827f8a164548746"
+dependencies = [
+ "bitflags 2.4.1",
+ "cfg_aliases 0.1.1",
+ "cgl",
+ "core-foundation",
+ "dispatch",
+ "glutin_egl_sys",
+ "glutin_glx_sys",
+ "glutin_wgl_sys",
+ "icrate 0.0.4",
+ "libloading 0.8.1",
+ "objc2 0.4.1",
+ "once_cell",
+ "raw-window-handle 0.5.2",
+ "wayland-sys",
+ "windows-sys 0.48.0",
+ "x11-dl",
+]
+
+[[package]]
+name = "glutin_egl_sys"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77cc5623f5309ef433c3dd4ca1223195347fe62c413da8e2fdd0eb76db2d9bcd"
+dependencies = [
+ "gl_generator",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "glutin_glx_sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a165fd686c10dcc2d45380b35796e577eacfd43d4660ee741ec8ebe2201b3b4f"
+dependencies = [
+ "gl_generator",
+ "x11-dl",
+]
+
+[[package]]
+name = "glutin_wgl_sys"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c8098adac955faa2d31079b65dc48841251f69efd3ac25477903fc424362ead"
+dependencies = [
+ "gl_generator",
 ]
 
 [[package]]
@@ -4467,12 +4483,23 @@ dependencies = [
 
 [[package]]
 name = "icrate"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99d3aaff8a54577104bafdf686ff18565c3b6903ca5782a2026ef06e2c7aa319"
+dependencies = [
+ "block2 0.3.0",
+ "dispatch",
+ "objc2 0.4.1",
+]
+
+[[package]]
+name = "icrate"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e286f4b975ac6c054971a0600a9b76438b332edace54bff79c71c9d3adfc9772"
 dependencies = [
- "block2",
- "objc2",
+ "block2 0.4.0",
+ "objc2 0.5.2",
 ]
 
 [[package]]
@@ -6622,25 +6649,41 @@ dependencies = [
 
 [[package]]
 name = "objc-sys"
-version = "0.3.2"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7c71324e4180d0899963fc83d9d241ac39e699609fc1025a850aadac8257459"
+checksum = "cdb91bdd390c7ce1a8607f35f3ca7151b65afc0ff5ff3b34fa350f7d7c7e4310"
 
 [[package]]
 name = "objc2"
-version = "0.5.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a9c7f0d511a4ce26b078183179dca908171cfc69f88986fe36c5138e1834476"
+checksum = "559c5a40fdd30eb5e344fbceacf7595a81e242529fb4e21cf5f43fb4f11ff98d"
 dependencies = [
  "objc-sys",
- "objc2-encode",
+ "objc2-encode 3.0.0",
+]
+
+[[package]]
+name = "objc2"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46a785d4eeff09c14c487497c162e92766fbb3e4059a71840cecc03d9a50b804"
+dependencies = [
+ "objc-sys",
+ "objc2-encode 4.0.3",
 ]
 
 [[package]]
 name = "objc2-encode"
-version = "4.0.0"
+version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ff06a6505cde0766484f38d8479ac8e6d31c66fbc2d5492f65ca8c091456379"
+checksum = "d079845b37af429bfe5dfa76e6d087d788031045b25cfc6fd898486fd9847666"
+
+[[package]]
+name = "objc2-encode"
+version = "4.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7891e71393cd1f227313c9379a26a584ff3d7e6e7159e988851f0934c993f0f8"
 
 [[package]]
 name = "objc_exception"
@@ -9152,7 +9195,7 @@ dependencies = [
  "http-body 0.4.6",
  "http-range",
  "hyper 0.14.28",
- "icrate",
+ "icrate 0.1.0",
  "image",
  "int-enum",
  "itertools 0.12.0",
@@ -9423,8 +9466,7 @@ dependencies = [
 name = "sd-desktop-linux"
 version = "0.1.0"
 dependencies = [
- "gl",
- "gl-headless",
+ "glutin",
  "gtk",
  "libc",
  "tokio",
@@ -10254,7 +10296,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61d5d17f23326fe0d9b0af282f73f3af666699420fd5f42629efd9c6e7dc166f"
 dependencies = [
  "bytemuck",
- "cfg_aliases",
+ "cfg_aliases 0.2.0",
  "cocoa",
  "core-graphics",
  "foreign-types 0.5.0",
@@ -12284,6 +12326,7 @@ checksum = "15a0c8eaff5216d07f226cb7a549159267f3467b289d9a2e52fd3ef5aae2b7af"
 dependencies = [
  "dlib",
  "log",
+ "once_cell",
  "pkg-config",
 ]
 
