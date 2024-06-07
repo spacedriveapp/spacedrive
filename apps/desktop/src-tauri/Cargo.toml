@@ -34,6 +34,7 @@ uuid = { workspace = true, features = ["serde"] }
 # Specific Desktop dependencies
 directories = "5.0.1"
 hyper = "0.14.28"
+# WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
@@ -46,6 +47,7 @@ tauri-plugin-os = "2.0.0-beta"
 tauri-plugin-shell = "2.0.0-beta"
 
 [target.'cfg(target_os = "linux")'.dependencies]
+# WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
 dbus = { version = "0.9", features = ["stdfd"] }
 sd-desktop-linux = { path = "../crates/linux" }
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L86
