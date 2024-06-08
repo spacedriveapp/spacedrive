@@ -25,9 +25,7 @@ pub enum Error {
 impl From<Error> for rspc::Error {
 	fn from(e: Error) -> Self {
 		match e {
-			Error::SubPathNotFound(_) => {
-				Self::with_cause(ErrorCode::NotFound, e.to_string(), e)
-			}
+			Error::SubPathNotFound(_) => Self::with_cause(ErrorCode::NotFound, e.to_string(), e),
 
 			_ => Self::with_cause(ErrorCode::InternalServerError, e.to_string(), e),
 		}

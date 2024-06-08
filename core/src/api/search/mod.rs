@@ -339,16 +339,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.map(|cas_id| cas_id.to_owned());
 
 						let has_created_thumbnail = if let Some(cas_id) = &cas_id {
-							library
-								.thumbnail_exists(&node, cas_id)
-								.await
-								.map_err(|e| {
-									rspc::Error::with_cause(
-										ErrorCode::InternalServerError,
-										"Failed to check that thumbnail exists".to_string(),
-										e,
-									)
-								})?
+							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
+								rspc::Error::with_cause(
+									ErrorCode::InternalServerError,
+									"Failed to check that thumbnail exists".to_string(),
+									e,
+								)
+							})?
 						} else {
 							false
 						};

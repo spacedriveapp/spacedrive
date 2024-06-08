@@ -135,9 +135,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						cfg.notifications = vec![];
 					})
 					.await
-					.map_err(|e| {
-						rspc::Error::new(ErrorCode::InternalServerError, e.to_string())
-					})?;
+					.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
 
 				join_all(
 					node.libraries

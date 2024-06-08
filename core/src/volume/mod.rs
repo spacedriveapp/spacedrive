@@ -129,11 +129,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 			// Ensure disk has a valid device path
 			let real_path = match tokio::fs::canonicalize(disk_name).await {
 				Err(e) => {
-					error!(
-						disk_name = %disk_name.display(),
-						?e,
-						"Failed to canonicalize disk path;",
-					);
+					error!(?disk_name, ?e, "Failed to canonicalize disk path;",);
 					continue;
 				}
 				Ok(real_path) => real_path,

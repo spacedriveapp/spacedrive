@@ -100,9 +100,7 @@ impl From<LocationError> for rspc::Error {
 
 			// Custom error message is used to differentiate these errors in the frontend
 			// TODO: A better solution would be for rspc to support sending custom data alongside errors
-			NeedRelink { .. } => {
-				Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), e)
-			}
+			NeedRelink { .. } => Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), e),
 			AddLibraryToMetadata(_) => {
 				Self::with_cause(ErrorCode::Conflict, "ADD_LIBRARY".to_owned(), e)
 			}

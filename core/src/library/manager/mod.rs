@@ -654,16 +654,15 @@ impl Libraries {
 										if should_update {
 											warn!("Library instance on cloud is outdated. Updating...");
 
-											if let Err(e) =
-												sd_cloud_api::library::update_instance(
-													node.cloud_api_config().await,
-													library.id,
-													this_instance.uuid,
-													Some(node_config.id),
-													Some(node_config.identity.to_remote_identity()),
-													Some(node.p2p.peer_metadata()),
-												)
-												.await
+											if let Err(e) = sd_cloud_api::library::update_instance(
+												node.cloud_api_config().await,
+												library.id,
+												this_instance.uuid,
+												Some(node_config.id),
+												Some(node_config.identity.to_remote_identity()),
+												Some(node.p2p.peer_metadata()),
+											)
+											.await
 											{
 												error!(
 													instance_uuid = %this_instance.uuid,

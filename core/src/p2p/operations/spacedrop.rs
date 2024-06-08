@@ -122,8 +122,8 @@ pub async fn spacedrop(
 				p2p.events.send(P2PEvent::SpacedropRejected { id }).ok();
 				return;
 			}
-			Ok(1) => {}                     // Okay
-			Ok(_) => todo!(),               // TODO: Proper error
+			Ok(1) => {}                 // Okay
+			Ok(_) => todo!(),           // TODO: Proper error
 			Err(e) => todo!("{:?}", e), // TODO: Proper error
 		}
 
