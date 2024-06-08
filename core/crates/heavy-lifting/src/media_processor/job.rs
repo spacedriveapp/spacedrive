@@ -487,7 +487,7 @@ impl MediaProcessor {
 			self.metadata.media_data_metrics.total_successful_tasks += 1;
 
 			if !errors.is_empty() {
-				error!(?errors, "Non critical errors while extracting media data;");
+				warn!(?errors, "Non critical errors while extracting media data;");
 				self.errors.extend(errors);
 			}
 
@@ -540,7 +540,7 @@ impl MediaProcessor {
 			self.metadata.thumbnailer_metrics_acc.total_successful_tasks += 1;
 
 			if !errors.is_empty() {
-				error!(?errors, "Non critical errors while generating thumbnails;");
+				warn!(?errors, "Non critical errors while generating thumbnails;");
 				self.errors.extend(errors);
 			}
 

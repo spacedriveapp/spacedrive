@@ -38,7 +38,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, instrument, trace, warn, Level};
+use tracing::{debug, instrument, trace, warn, Level};
 
 use super::{
 	remove_non_existing_file_paths, reverse_update_directories_sizes,
@@ -454,7 +454,7 @@ impl Indexer {
 		);
 
 		if !errors.is_empty() {
-			error!(?errors, "Non critical errors while indexing;");
+			warn!(?errors, "Non critical errors while indexing;");
 			self.errors.extend(errors);
 		}
 

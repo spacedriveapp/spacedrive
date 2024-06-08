@@ -36,7 +36,7 @@ use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::time::Instant;
-use tracing::{debug, error, instrument, trace, warn, Level};
+use tracing::{debug, instrument, trace, warn, Level};
 
 use super::{
 	accumulate_file_paths_by_cas_id, dispatch_object_processor_tasks, orphan_path_filters_deep,
@@ -519,7 +519,7 @@ impl FileIdentifier {
 		}
 
 		if !errors.is_empty() {
-			error!(?errors, "Non critical errors while extracting metadata;");
+			warn!(?errors, "Non critical errors while extracting metadata;");
 			self.errors.extend(errors);
 		}
 

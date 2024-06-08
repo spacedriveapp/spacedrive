@@ -379,7 +379,7 @@ pub(super) async fn run(
 			}
 			StreamMessage::CheckLocations => {
 				if let Err(errors) = runner.check_locations(&mut locations_to_check_buffer).await {
-					error!(?errors, "Errors while checking locations;");
+					warn!(?errors, "Errors while checking locations;");
 				}
 			}
 			StreamMessage::Stop => {
