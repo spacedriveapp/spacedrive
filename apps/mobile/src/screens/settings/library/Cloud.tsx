@@ -1,12 +1,12 @@
 import { Linking, Text, View } from 'react-native';
-import { auth } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { cancel, login, useAuthStateSnapshot } from '~/stores/auth';
 
 const Cloud = ({ navigation }: SettingsStackScreenProps<'Cloud'>) => {
-	const authState = auth.useStateSnapshot();
+	const authState = useAuthStateSnapshot();
 
 	const authSensitiveChild = () => {
 		if (authState.status === 'loggedIn') return <Authenticated />;
@@ -32,7 +32,7 @@ const Authenticated = () => {
 };
 
 const Login = () => {
-	const authState = auth.useStateSnapshot();
+	const authState = useAuthStateSnapshot();
 
 	return (
 		<View style={tw`flex flex-col items-center justify-center gap-2`}>
@@ -40,8 +40,7 @@ const Login = () => {
 				variant="accent"
 				disabled={authState.status === 'loggingIn'}
 				onPress={async () => {
-					await Linking.openURL('http://localhost:3000/login');
-					auth.set_logged_in();
+					await login();
 				}}
 			>
 				{authState.status !== 'loggingIn' ? <Text>Login</Text> : <Text>Logging In</Text>}
@@ -51,7 +50,7 @@ const Login = () => {
 					variant="accent"
 					onPress={(e) => {
 						e.preventDefault();
-						auth.cancel();
+						cancel();
 					}}
 					style={tw`text-sm text-ink-faint`}
 				>
