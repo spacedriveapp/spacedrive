@@ -1,12 +1,8 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{consts::SVG_TARGET_PX, scale_dimensions, Error, ImageHandler, Result};
 use image::DynamicImage;
-use resvg::{
-	tiny_skia::{self},
-	usvg,
-};
-use usvg::fontdb;
+use resvg::{tiny_skia, usvg};
 
 #[derive(PartialEq, Eq)]
 pub struct SvgHandler {}
@@ -20,9 +16,28 @@ impl ImageHandler for SvgHandler {
 	)]
 	fn handle_image(&self, path: &Path) -> Result<DynamicImage> {
 		let data = self.get_data(path)?;
-		let mut fontdb = fontdb::Database::new();
+
+		let mut fontdb = usvg::fontdb::Database::new();
 		fontdb.load_system_fonts();
-		let rtree = usvg::Tree::from_data(&data, &usvg::Options::default(), &fontdb)?;
+
+		let options = usvg::Options {
+			resources_dir: None,
+			dpi: 96.0,
+			// Default font is user-agent dependent so we can use whichever we like.
+			font_family: "Times New Roman".to_owned(),
+			font_size: 12.0,
+			languages: vec!["en".to_string()],
+			shape_rendering: usvg::ShapeRendering::default(),
+			text_rendering: usvg::TextRendering::default(),
+			image_rendering: usvg::ImageRendering::default(),
+			#[allow(clippy::expect_used)]
+			default_size: usvg::Size::from_wh(100.0, 100.0).expect("Must be a valid size"),
+			image_href_resolver: usvg::ImageHrefResolver::default(),
+			font_resolver: usvg::FontResolver::default(),
+			fontdb: Arc::new(fontdb),
+		};
+
+		let rtree = usvg::Tree::from_data(&data, &options)?;
 
 		let (scaled_w, scaled_h) =
 			scale_dimensions(rtree.size().width(), rtree.size().height(), SVG_TARGET_PX);

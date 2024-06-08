@@ -5,10 +5,8 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-[dependencies]
-
 [target.'cfg(target_os = "macos")'.dependencies]
-swift-rs = { workspace = true, features = ["serde"] }
+swift-rs = { version = "1.0.6", features = ["serde"] }
 
 [target.'cfg(target_os = "macos")'.build-dependencies]
-swift-rs = { workspace = true, features = ["build"] }
+swift-rs = { version = "1.0.6", features = ["build"] }

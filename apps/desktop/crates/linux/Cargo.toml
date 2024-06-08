@@ -6,8 +6,8 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-tokio = { workspace = true, features = ["fs"] }
 libc = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "0.20.0", default-features = false }

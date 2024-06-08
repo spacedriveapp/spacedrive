@@ -145,14 +145,6 @@ export default () => {
 						<Icon component={Receipt} />
 						{t('changelog')}
 					</SidebarLink>
-					{/* <SidebarLink to="resources/dependencies">
-						<Icon component={Graph} />
-						Dependencies
-					</SidebarLink>
-					<SidebarLink to="resources/support">
-						<Icon component={Heart} />
-						Support
-					</SidebarLink> */}
 				</Section>
 			</div>
 		</div>
