@@ -181,7 +181,7 @@ impl Task<Error> for Thumbnailer {
 			trace!(
 				generated = output.generated,
 				skipped = output.skipped,
-				"mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?}",
+				"mean generation time: {mean_generation_time:?} ± {generation_time_std_dev:?};",
 				mean_generation_time = Duration::from_secs_f64(mean_generation_time_f64),
 				generation_time_std_dev = Duration::from_secs_f64(
 					(mean_generation_time_f64

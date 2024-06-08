@@ -84,13 +84,13 @@ pub enum Error {
 }
 
 impl From<Error> for rspc::Error {
-	fn from(err: Error) -> Self {
-		match err {
+	fn from(e: Error) -> Self {
+		match e {
 			Error::InvalidRuleKindInt(_) | Error::Glob(_) | Error::NonUtf8Path(_) => {
-				Self::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+				Self::with_cause(ErrorCode::BadRequest, e.to_string(), e)
 			}
 
-			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+			_ => Self::with_cause(ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
 }
@@ -111,18 +111,17 @@ pub struct IndexerRuleCreateArgs {
 }
 
 impl IndexerRuleCreateArgs {
+	#[instrument(skip_all, fields(name = %self.name, rules = ?self.rules), err)]
 	pub async fn create(self, db: &PrismaClient) -> Result<Option<indexer_rule::Data>, Error> {
 		use indexer_rule::{date_created, date_modified, name, rules_per_kind};
 
 		debug!(
-			"{} a new indexer rule (name = {}, params = {:?})",
+			"{} a new indexer rule",
 			if self.dry_run {
 				"Dry run: Would create"
 			} else {
 				"Trying to create"
 			},
-			self.name,
-			self.rules
 		);
 
 		let rules_data = rmp_serde::to_vec_named(

@@ -340,8 +340,12 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 								) => {
 									let key = match to_key(&(key, arg)) {
 										Ok(key) => key,
-										Err(err) => {
-											warn!("Error deriving key for invalidate operation '{:?}': {:?}", first_event, err);
+										Err(e) => {
+											warn!(
+												?first_event,
+												?e,
+												"Error deriving key for invalidate operation;"
+											);
 											continue;
 										}
 									};
@@ -361,7 +365,10 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 								}
 								event = event_bus_rx.recv() => {
 									let Ok(event) = event else {
-										warn!("Shutting down invalidation manager thread due to the core event bus being dropped!");
+										warn!(
+											"Shutting down invalidation manager thread \
+											due to the core event bus being dropped!"
+										);
 										break;
 									};
 
@@ -375,8 +382,12 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 												Ok(key) => {
 													buf.insert(key, op);
 												},
-												Err(err) => {
-													warn!("Error deriving key for invalidate operation '{:?}': {:?}", op, err);
+												Err(e) => {
+													warn!(
+														?op,
+														?e,
+														"Error deriving key for invalidate operation;",
+													);
 												},
 											}
 										},
@@ -399,7 +410,10 @@ pub(crate) fn mount_invalidate() -> AlphaRouter<Ctx> {
 							Ok(_) => {}
 							// All receivers are shutdown means that all clients are disconnected.
 							Err(_) => {
-								debug!("Shutting down invalidation manager! This is normal if all clients disconnects.");
+								debug!(
+									"Shutting down invalidation manager! \
+									This is normal if all clients disconnects."
+								);
 								manager_thread_active.swap(false, Ordering::Relaxed);
 								break;
 							}

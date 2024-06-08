@@ -93,8 +93,8 @@ async fn request_to_remote_node(
 
 	let mut response = match operations::remote_rspc(p2p.clone(), identity, request).await {
 		Ok(v) => v,
-		Err(err) => {
-			warn!("Error doing remote rspc query with '{identity}': {err:?}");
+		Err(e) => {
+			warn!(%identity, ?e, "Error doing remote rspc query with;");
 			return StatusCode::BAD_GATEWAY.into_response();
 		}
 	};
@@ -111,21 +111,21 @@ async fn request_to_remote_node(
 		};
 
 		tokio::spawn(async move {
-			let Ok(mut request_upgraded) = request_upgraded.await.map_err(|err| {
-				warn!("Error upgrading websocket request: {err}");
+			let Ok(mut request_upgraded) = request_upgraded.await.map_err(|e| {
+				warn!(?e, "Error upgrading websocket request;");
 			}) else {
 				return;
 			};
-			let Ok(mut response_upgraded) = response_upgraded.await.map_err(|err| {
-				warn!("Error upgrading websocket response: {err}");
+			let Ok(mut response_upgraded) = response_upgraded.await.map_err(|e| {
+				warn!(?e, "Error upgrading websocket response;");
 			}) else {
 				return;
 			};
 
 			copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
 				.await
-				.map_err(|err| {
-					warn!("Error upgrading websocket response: {err}");
+				.map_err(|e| {
+					warn!(?e, "Error upgrading websocket response;");
 				})
 				.ok();
 		});
@@ -216,9 +216,9 @@ pub fn base_router() -> Router<LocalState> {
 					.then_some(())
 					.ok_or_else(|| not_found(()))?;
 
-					let file = File::open(&path).await.map_err(|err| {
+					let file = File::open(&path).await.map_err(|e| {
 						InfallibleResponse::builder()
-							.status(if err.kind() == io::ErrorKind::NotFound {
+							.status(if e.kind() == io::ErrorKind::NotFound {
 								StatusCode::NOT_FOUND
 							} else {
 								StatusCode::INTERNAL_SERVER_ERROR
@@ -265,9 +265,9 @@ pub fn base_router() -> Router<LocalState> {
 								.ok_or_else(|| not_found(()))?;
 
 							let mut file =
-								File::open(&file_path_full_path).await.map_err(|err| {
+								File::open(&file_path_full_path).await.map_err(|e| {
 									InfallibleResponse::builder()
-										.status(if err.kind() == io::ErrorKind::NotFound {
+										.status(if e.kind() == io::ErrorKind::NotFound {
 											StatusCode::NOT_FOUND
 										} else {
 											StatusCode::INTERNAL_SERVER_ERROR
@@ -280,8 +280,8 @@ pub fn base_router() -> Router<LocalState> {
 								HeaderValue::from_str(
 									&infer_the_mime_type(&extension, &mut file, &metadata).await?,
 								)
-								.map_err(|err| {
-									error!("Error converting mime-type into header value: {}", err);
+								.map_err(|e| {
+									error!(?e, "Error converting mime-type into header value;");
 									internal_server_error(())
 								})?,
 							);
@@ -316,9 +316,9 @@ pub fn base_router() -> Router<LocalState> {
 						.then_some(())
 						.ok_or_else(|| not_found(()))?;
 
-					let mut file = File::open(&path).await.map_err(|err| {
+					let mut file = File::open(&path).await.map_err(|e| {
 						InfallibleResponse::builder()
-							.status(if err.kind() == io::ErrorKind::NotFound {
+							.status(if e.kind() == io::ErrorKind::NotFound {
 								StatusCode::NOT_FOUND
 							} else {
 								StatusCode::INTERNAL_SERVER_ERROR
@@ -332,8 +332,8 @@ pub fn base_router() -> Router<LocalState> {
 							None => "text/plain".to_string(),
 							Some(ext) => infer_the_mime_type(ext, &mut file, &metadata).await?,
 						})
-						.map_err(|err| {
-							error!("Error converting mime-type into header value: {}", err);
+						.map_err(|e| {
+							error!(?e, "Error converting mime-type into header value;");
 							internal_server_error(())
 						})?,
 					);
@@ -387,8 +387,8 @@ pub fn router(node: Arc<Node>) -> Router<()> {
 				 mut request: Request<Body>| async move {
 					let identity = match RemoteIdentity::from_str(&identity) {
 						Ok(identity) => identity,
-						Err(err) => {
-							warn!("Error parsing identity '{}': {}", identity, err);
+						Err(e) => {
+							warn!(%identity, ?e, "Error parsing identity;");
 							return (StatusCode::BAD_REQUEST, HeaderMap::new(), vec![])
 								.into_response();
 						}

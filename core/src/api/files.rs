@@ -477,8 +477,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Ok(()) => Ok(()),
 								Err(e) if e.kind() == io::ErrorKind::NotFound => {
 									warn!(
-										"File not found in the file system, will remove from database: {}",
-										full_path.display()
+										path = %full_path.display(),
+										"File not found in the file system, will remove from database;",
 									);
 									library
 										.db
@@ -639,10 +639,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})
 					.await
 					.map_err(|e| {
-						error!("{e:#?}");
-						rspc::Error::new(
+						error!(?e, "Failed to convert image;");
+						rspc::Error::with_cause(
 							ErrorCode::InternalServerError,
 							"Had an internal problem converting image".to_string(),
+							e,
 						)
 					})??;
 
@@ -875,10 +876,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									} else {
 										fs::rename(&from, &to).await.map_err(|e| {
 											error!(
-													"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
-													from.display(),
-													to.display()
-												);
+												from = %from.display(),
+												to = %to.display(),
+												?e,
+												"Failed to rename file;",
+											);
 											rspc::Error::with_cause(
 												ErrorCode::Conflict,
 												"Failed to rename file".to_string(),

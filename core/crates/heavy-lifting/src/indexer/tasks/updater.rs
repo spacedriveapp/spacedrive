@@ -167,7 +167,7 @@ impl Task<Error> for Updater {
 
 		let update_duration = start_time.elapsed();
 
-		trace!(?updated, "Updated records");
+		trace!(?updated, "Updated records;");
 
 		Ok(ExecStatus::Done(
 			Output {

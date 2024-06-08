@@ -224,7 +224,7 @@ where
 								trace!(
 									new_path = %dir_entry.path().display(),
 									total_paths = found_paths.len(),
-									"Found path"
+									"Found path;"
 								);
 							}
 							Err(e) => {
@@ -239,7 +239,7 @@ where
 						check_interruption!(interrupter, start_time, scan_time);
 					}
 
-					trace!(total_paths = found_paths.len(), "Finished walking!");
+					trace!(total_paths = found_paths.len(), "Finished walking!;");
 
 					*stage = WalkerStage::CollectingMetadata {
 						found_paths: mem::take(found_paths),
@@ -297,7 +297,7 @@ where
 						total_accepted_ancestors = accepted_ancestors.len(),
 						collect_rejected_paths = self.is_shallow,
 						total_rejected_paths = rejected_paths.len(),
-						"Finished processing rules results!"
+						"Finished processing rules results!;"
 					);
 
 					*stage = WalkerStage::GatheringFilePathsToRemove {
@@ -355,7 +355,7 @@ where
 						total_to_remove = to_remove_entries.len(),
 						total_non_indexed_paths = non_indexed_paths.len(),
 						total_size,
-						"Finished segregating creates and updates!"
+						"Finished segregating creates and updates!;"
 					);
 
 					let keep_walking_tasks = keep_walking(
@@ -932,7 +932,7 @@ mod tests {
 		}
 
 		if !ancestors.is_empty() {
-			debug!("Adding ancestors to actual: {:#?}", ancestors);
+			debug!(?ancestors, "Adding ancestors to actual");
 			actual_set.extend(ancestors);
 		}
 

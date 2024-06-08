@@ -314,7 +314,7 @@ async fn inner_create_file(
 	if !parent_iso_file_path.is_root()
 		&& !check_file_path_exists::<FilePathError>(&parent_iso_file_path, db).await?
 	{
-		warn!(%iso_file_path, "Watcher found a file without parent");
+		warn!(%iso_file_path, "Watcher found a file without parent;");
 
 		return Ok(());
 	};

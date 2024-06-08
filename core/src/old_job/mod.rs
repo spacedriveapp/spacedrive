@@ -20,7 +20,7 @@ use tokio::{
 	spawn,
 	task::{JoinError, JoinHandle},
 };
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use uuid::Uuid;
 
 mod error;
@@ -405,6 +405,8 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		<SJob as StatefulJob>::NAME
 	}
 
+	#[instrument(skip_all, fields(job_name = %self.name(), job_id = %self.id()), err)]
+	#[allow(clippy::blocks_in_conditions)] // Due to `err` on instrument above
 	async fn run(
 		&mut self,
 		ctx: WorkerContext,
@@ -413,7 +415,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		let job_name = self.name();
 		let job_id = self.id;
 		let mut errors = vec![];
-		info!("Starting Job <id='{job_id}', name='{job_name}'>");
+		info!("Starting Job");
 
 		let JobState {
 			init,
@@ -487,7 +489,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 					run_metadata.update(new_run_metadata);
 				}
 				Err(e @ JobError::EarlyFinish { .. }) => {
-					info!("{e}");
+					info!(%e);
 					job_should_run = false;
 				}
 				Err(e) => return Err(e),
@@ -599,16 +601,16 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 						}
 
 						if !new_errors.is_empty() {
-							warn!("Job<id='{job_id}', name='{job_name}'> had a step with errors");
-							new_errors.iter().for_each(|err| {
-								warn!("Job<id='{job_id}', name='{job_name}'> error: {:?}", err);
+							warn!("Job had a step with errors");
+							new_errors.iter().for_each(|e| {
+								warn!(?e, "Job error;");
 							});
 
 							errors.extend(new_errors);
 						}
 					}
 					Err(e @ JobError::EarlyFinish { .. }) => {
-						info!("{e}");
+						info!(%e);
 						break;
 					}
 					Err(e) => return Err(e),
@@ -617,14 +619,11 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 				step_number += 1;
 			}
 
-			debug!(
-				"Total job run time {:?} Job <id='{job_id}', name='{job_name}'>",
-				job_init_time.elapsed()
-			);
+			debug!(job_init_time = ?job_init_time.elapsed(), "Total job run time;");
 
 			Some(Arc::try_unwrap(working_data_arc).expect("job already ran, no more refs"))
 		} else {
-			warn!("Tried to run a job without data Job <id='{job_id}', name='{job_name}'>");
+			warn!("Tried to run a job without data");
 			None
 		};
 
@@ -637,9 +636,10 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 			errors: errors.into(),
 			next_job: next_jobs.pop_front().map(|mut next_job| {
 				debug!(
-					"Job<id='{job_id}', name='{job_name}'> requesting to spawn '{}' now that it's complete!",
-					next_job.name()
+					next_job_name = %next_job.name(),
+					"Job requesting to spawn next job now that it's complete!;",
 				);
+
 				next_job.set_next_jobs(next_jobs);
 
 				next_job
@@ -768,16 +768,13 @@ async fn handle_init_phase<SJob: StatefulJob>(
 		match msg {
 			StreamMessage::InitResult(Err(join_error)) => {
 				error!(
-					"Job <id='{id}', name='{name}'> \
-							 failed to initialize due to an internal error: {join_error:#?}",
+					?join_error,
+					"Job failed to initialize due to an internal error;"
 				);
 				return Err(join_error.into());
 			}
 			StreamMessage::InitResult(Ok((stateful_job, maybe_data, output))) => {
-				debug!(
-					"Init phase took {:?} Job <id='{id}', name='{name}'>",
-					init_time.elapsed()
-				);
+				debug!(init_phase_time = ?init_time.elapsed(), "Init phase completed;");
 
 				return Ok(InitPhaseOutput {
 					stateful_job,
@@ -799,10 +796,7 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				}
 			}
 			StreamMessage::NewCommand(WorkerCommand::Pause(when)) => {
-				debug!(
-					"Pausing Job at init phase <id='{id}', name='{name}'> took {:?}",
-					when.elapsed()
-				);
+				debug!(pausing_time = ?when.elapsed(), "Pausing Job at init phase;");
 
 				// Notify the worker's work task that now we're paused
 				worker_ctx.pause();
@@ -828,13 +822,11 @@ async fn handle_init_phase<SJob: StatefulJob>(
 						}
 						WorkerCommand::Resume(when) => {
 							debug!(
-								"Resuming Job at init phase <id='{id}', name='{name}'> took {:?}",
-								when.elapsed()
+								resuming_time = ?when.elapsed(),
+								paused_time = ?paused_time.elapsed(),
+								"Resuming Job at init phase;",
 							);
-							debug!(
-								"Total paused time {:?} Job <id='{id}', name='{name}'>",
-								paused_time.elapsed()
-							);
+
 							status = JobStatus::Running;
 
 							continue 'messages;
@@ -844,12 +836,11 @@ async fn handle_init_phase<SJob: StatefulJob>(
 							init_abort_handle.abort();
 
 							debug!(
-								"Shuting down Job at init phase <id='{id}', name='{name}'> \
-									took {:?} after running for {:?}",
-								when.elapsed(),
-								init_time.elapsed(),
+								shutting_down_time = ?when.elapsed(),
+								paused_time = ?paused_time.elapsed(),
+								total_running_time = ?init_time.elapsed(),
+								"Shuting down Job at init phase;",
 							);
-							debug!("Total paused time {:?}", paused_time.elapsed());
 
 							// Shutting down at init phase will abort the job
 							return Err(JobError::Canceled(signal_tx));
@@ -857,25 +848,19 @@ async fn handle_init_phase<SJob: StatefulJob>(
 						WorkerCommand::Cancel(when, signal_tx) => {
 							init_abort_handle.abort();
 							debug!(
-								"Canceling Job at init phase <id='{id}', name='{name}'> \
-									took {:?} after running for {:?}",
-								when.elapsed(),
-								init_time.elapsed(),
+								canceling_time = ?when.elapsed(),
+								paused_time = ?paused_time.elapsed(),
+								total_running_time = ?init_time.elapsed(),
+								"Canceling Job at init phase;",
 							);
-							debug!(
-								"Total paused time {:?} Job <id='{id}', name='{name}'>",
-								paused_time.elapsed()
-							);
+
 							return Err(JobError::Canceled(signal_tx));
 						}
 						WorkerCommand::Pause(_) => {
 							// We continue paused lol
 						}
 						WorkerCommand::Timeout(elapsed, tx) => {
-							error!(
-								"Job <id='{id}', name='{name}'> \
-								timed out at init phase after {elapsed:?} without updates"
-							);
+							error!(elapsed_time = ?elapsed, "Job timed out at init phase;");
 							tx.send(()).ok();
 							return Err(JobError::Timeout(elapsed));
 						}
@@ -883,10 +868,7 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				}
 
 				if commands_rx.is_closed() {
-					error!(
-						"Job <id='{id}', name='{name}'> \
-						closed the command channel while paused"
-					);
+					error!("Job closed the command channel while paused");
 					return Err(JobError::Critical(
 						"worker command channel closed while job was paused",
 					));
@@ -899,10 +881,9 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				init_abort_handle.abort();
 
 				debug!(
-					"Shuting down at init phase Job <id='{id}', name='{name}'> took {:?} \
-					after running for {:?}",
-					when.elapsed(),
-					init_time.elapsed(),
+					shutting_down_time = ?when.elapsed(),
+					total_running_time = ?init_time.elapsed(),
+					"Shuting down at init phase;",
 				);
 
 				// Shutting down at init phase will abort the job
@@ -912,18 +893,17 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				init_abort_handle.abort();
 
 				debug!(
-					"Canceling at init phase Job <id='{id}', name='{name}'> took {:?} \
-					after running for {:?}",
-					when.elapsed(),
-					init_time.elapsed()
+					canceling_time = ?when.elapsed(),
+					total_running_time = ?init_time.elapsed(),
+					"Canceling at init phase;",
 				);
 
 				return Err(JobError::Canceled(signal_tx));
 			}
 			StreamMessage::NewCommand(WorkerCommand::Timeout(elapsed, tx)) => {
 				error!(
-					"Job <id='{id}', name='{name}'> \
-					timed out at init phase after {elapsed:?} without updates"
+					elapsed_time = ?elapsed,
+					"Job timed out at init phase;",
 				);
 				tx.send(()).ok();
 				return Err(JobError::Timeout(elapsed));
@@ -959,6 +939,7 @@ type StepArcs<SJob> = (
 	Arc<SJob>,
 );
 
+#[instrument(skip_all, fields(job_id = %id, job_name = %name, %step_number))]
 #[inline]
 async fn handle_single_step<SJob: StatefulJob>(
 	JobRunWorkTable {
@@ -975,7 +956,7 @@ async fn handle_single_step<SJob: StatefulJob>(
 		step,
 		mut step_task,
 	}: JobStepDataWorkTable<SJob>,
-	mut commands_rx: chan::Receiver<WorkerCommand>,
+	commands_rx: chan::Receiver<WorkerCommand>,
 ) -> Result<JobStepsPhaseOutput<SJob>, JobError> {
 	enum StreamMessage<SJob: StatefulJob> {
 		NewCommand(WorkerCommand),
@@ -995,17 +976,11 @@ async fn handle_single_step<SJob: StatefulJob>(
 	'messages: while let Some(msg) = msg_stream.next().await {
 		match msg {
 			StreamMessage::StepResult(Err(join_error)) => {
-				error!(
-					"Job <id='{id}', name='{name}'> \
-					failed to run step #{step_number} due to an internal error: {join_error:#?}",
-				);
+				error!(?join_error, "Failed to run step due to an internal error;");
 				return Err(join_error.into());
 			}
 			StreamMessage::StepResult(Ok(output)) => {
-				trace!(
-					"Step finished in {:?} Job <id='{id}', name='{name}'>",
-					init_time.elapsed(),
-				);
+				trace!(elapsed = ?init_time.elapsed(), "Step finished;");
 
 				return Ok(JobStepsPhaseOutput {
 					steps,
@@ -1027,10 +1002,7 @@ async fn handle_single_step<SJob: StatefulJob>(
 				}
 			}
 			StreamMessage::NewCommand(WorkerCommand::Pause(when)) => {
-				debug!(
-					"Pausing Job <id='{id}', name='{name}'> took {:?}",
-					when.elapsed()
-				);
+				debug!(elapsed = ?when.elapsed(), "Pausing Job;");
 
 				worker_ctx.pause();
 
@@ -1054,14 +1026,8 @@ async fn handle_single_step<SJob: StatefulJob>(
 							}
 						}
 						WorkerCommand::Resume(when) => {
-							debug!(
-								"Resuming Job <id='{id}', name='{name}'> took {:?}",
-								when.elapsed(),
-							);
-							debug!(
-								"Total paused time {:?} Job <id='{id}', name='{name}'>",
-								paused_time.elapsed(),
-							);
+							debug!(elapsed = ?when.elapsed(), "Resuming Job;");
+							debug!(paused_time = ?paused_time.elapsed(), "Total paused time;");
 							status = JobStatus::Running;
 
 							continue 'messages;
@@ -1072,15 +1038,11 @@ async fn handle_single_step<SJob: StatefulJob>(
 							let _ = step_task.await;
 
 							debug!(
-								"Shuting down Job <id='{id}', name='{name}'> took {:?} \
-								after running for {:?}",
-								when.elapsed(),
-								job_init_time.elapsed(),
+								elapsed_time_to_shutdown = ?when.elapsed(),
+								job_run_time = ?job_init_time.elapsed(),
+								"Shuting down;",
 							);
-							debug!(
-								"Total paused time {:?} Job <id='{id}', name='{name}'>",
-								paused_time.elapsed(),
-							);
+							debug!(paused_time = ?paused_time.elapsed(), "Total paused time;");
 
 							// Taking back the last step, so it can run to completion later
 							steps.push_front(
@@ -1107,15 +1069,11 @@ async fn handle_single_step<SJob: StatefulJob>(
 							step_task.abort();
 							let _ = step_task.await;
 							debug!(
-								"Canceling Job <id='{id}', name='{name}'> \
-								took {:?} after running for {:?}",
-								when.elapsed(),
-								job_init_time.elapsed(),
+								canceling_time = ?when.elapsed(),
+								job_run_time = ?job_init_time.elapsed(),
+								"Canceling Job;",
 							);
-							debug!(
-								"Total paused time {:?} Job <id='{id}', name='{name}'>",
-								paused_time.elapsed(),
-							);
+							debug!(paused_time = ?paused_time.elapsed(), "Total paused time;");
 							return Err(JobError::Canceled(signal_tx));
 						}
 						WorkerCommand::Pause(_) => {
@@ -1123,10 +1081,7 @@ async fn handle_single_step<SJob: StatefulJob>(
 						}
 
 						WorkerCommand::Timeout(elapsed, tx) => {
-							error!(
-								"Job <id='{id}', name='{name}'> \
-								timed out at step #{step_number} after {elapsed:?} without updates"
-							);
+							error!(?elapsed, "Step timed out;");
 							tx.send(()).ok();
 							return Err(JobError::Timeout(elapsed));
 						}
@@ -1134,10 +1089,7 @@ async fn handle_single_step<SJob: StatefulJob>(
 				}
 
 				if commands_rx.is_closed() {
-					error!(
-						"Job <id='{id}', name='{name}'> \
-						closed the command channel while paused"
-					);
+					error!("Closed the command channel while paused");
 					return Err(JobError::Critical(
 						"worker command channel closed while job was paused",
 					));
@@ -1151,10 +1103,9 @@ async fn handle_single_step<SJob: StatefulJob>(
 				let _ = step_task.await;
 
 				debug!(
-					"Shuting down Job <id='{id}', name='{name}'> took {:?} \
-					after running for {:?}",
-					when.elapsed(),
-					job_init_time.elapsed(),
+					elapsed = ?when.elapsed(),
+					job_run_time = ?job_init_time.elapsed(),
+					"Shutting down Job;",
 				);
 
 				// Taking back the last step, so it can run to completion later
@@ -1182,18 +1133,15 @@ async fn handle_single_step<SJob: StatefulJob>(
 				step_task.abort();
 				let _ = step_task.await;
 				debug!(
-					"Canceling Job <id='{id}', name='{name}'> took {:?} \
-										 after running for {:?}",
-					when.elapsed(),
-					job_init_time.elapsed(),
+					cancel_time = ?when.elapsed(),
+					job_run_time = ?job_init_time.elapsed(),
+					"Canceling Job;",
 				);
+
 				return Err(JobError::Canceled(signal_tx));
 			}
 			StreamMessage::NewCommand(WorkerCommand::Timeout(elapsed, tx)) => {
-				error!(
-					"Job <id='{id}', name='{name}'> \
-					timed out at step #{step_number} after {elapsed:?} without updates"
-				);
+				error!(?elapsed, "Job timed out without updates;");
 				tx.send(()).ok();
 				return Err(JobError::Timeout(elapsed));
 			}

@@ -174,7 +174,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.await
 						.map(|_| true)
 				}
-				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
+				.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
 
 				match feature {
 					BackendFeature::CloudSync => {

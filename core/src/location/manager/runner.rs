@@ -66,7 +66,7 @@ impl Runner {
 					LocationWatcher::new(location, Arc::clone(&library), Arc::clone(&self.node))
 						.map(|mut watcher| {
 							if is_online {
-								trace!(%location_id, "Location is online, watching it!");
+								trace!(%location_id, "Location is online, watching it!;");
 								watcher.watch();
 								self.locations_watched
 									.insert((location_id, library.id), watcher);
@@ -125,7 +125,7 @@ impl Runner {
 		library_id: LibraryId,
 		reason: &'static str,
 	) {
-		warn!("{reason}");
+		warn!(%reason);
 		if let Some(mut watcher) = self.locations_watched.remove(&(location_id, library_id)) {
 			watcher.unwatch();
 		} else {
@@ -379,7 +379,7 @@ pub(super) async fn run(
 			}
 			StreamMessage::CheckLocations => {
 				if let Err(errors) = runner.check_locations(&mut locations_to_check_buffer).await {
-					error!(?errors, "Errors while checking locations:");
+					error!(?errors, "Errors while checking locations;");
 				}
 			}
 			StreamMessage::Stop => {
@@ -436,7 +436,7 @@ pub(super) async fn check_online(
 			Err(e) => {
 				error!(
 					?e,
-					"Failed to check if location is online, will consider as offline"
+					"Failed to check if location is online, will consider as offline;"
 				);
 				Ok(false)
 			}

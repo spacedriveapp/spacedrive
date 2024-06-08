@@ -96,7 +96,7 @@ impl Node {
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
-		info!("Starting core with data directory '{}'", data_dir.display());
+		info!(data_directory = %data_dir.display(), "Starting core;");
 
 		let env = Arc::new(env);
 
@@ -151,7 +151,10 @@ impl Node {
 			)
 			.await
 			.map_err(|e| {
-				error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+				error!(
+					?e,
+					"Failed to initialize image labeller. AI features will be disabled;"
+				);
 			})
 			.ok(),
 		});
@@ -214,7 +217,7 @@ impl Node {
 				.into_make_service(),
 		);
 
-		info!("Spacedrive online.");
+		info!("Spacedrive online!");
 		Ok((node, router))
 	}
 
@@ -307,7 +310,7 @@ impl Node {
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
-			warn!(?e, "Error sending event to event bus");
+			warn!(?e, "Error sending event to event bus;");
 		}
 	}
 
@@ -342,7 +345,7 @@ impl Node {
 				self.notifications._internal_send(notification);
 			}
 			Err(e) => {
-				error!(?e, "Error saving notification to config");
+				error!(?e, "Error saving notification to config;");
 			}
 		}
 	}

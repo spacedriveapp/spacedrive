@@ -119,7 +119,7 @@ impl Task<Error> for ObjectProcessor {
 					trace!(
 						elapsed_time = ?fetch_existing_objects_time,
 						existing_objects_count = existing_objects_by_cas_id.len(),
-						"Fetched existing Objects",
+						"Fetched existing Objects;",
 					);
 					*stage = Stage::AssignFilePathsToExistingObjects {
 						existing_objects_by_cas_id,
@@ -131,7 +131,7 @@ impl Task<Error> for ObjectProcessor {
 				} => {
 					trace!(
 						existing_objects_to_link = existing_objects_by_cas_id.len(),
-						"Assigning file paths to existing Objects",
+						"Assigning file paths to existing Objects;",
 					);
 					let start = Instant::now();
 					let more_file_path_ids_with_new_object = assign_existing_objects_to_file_paths(
@@ -148,7 +148,7 @@ impl Task<Error> for ObjectProcessor {
 					trace!(
 						existing_objects_to_link = existing_objects_by_cas_id.len(),
 						%linked_objects_count,
-						"Found existing Objects, linked file paths to them",
+						"Found existing Objects, linked file paths to them;",
 					);
 
 					*stage = Stage::CreateObjects;
@@ -163,7 +163,7 @@ impl Task<Error> for ObjectProcessor {
 				Stage::CreateObjects => {
 					trace!(
 						creating_count = file_paths_by_cas_id.len(),
-						"Creating new Objects"
+						"Creating new Objects;"
 					);
 					let start = Instant::now();
 					let (more_file_paths_with_new_object, more_linked_objects_count) =
@@ -175,7 +175,7 @@ impl Task<Error> for ObjectProcessor {
 
 					*created_objects_count = file_path_ids_with_new_object.len() as u64;
 
-					trace!(%created_objects_count, ?create_object_time, "Created new Objects");
+					trace!(%created_objects_count, ?create_object_time, "Created new Objects;");
 
 					break;
 				}
@@ -254,7 +254,7 @@ where
 
 	trace!(
 		cas_ids_count = stringed_cas_ids.len(),
-		"Fetching existing objects by cas_ids",
+		"Fetching existing objects by cas_ids;",
 	);
 
 	inner(stringed_cas_ids, db).await

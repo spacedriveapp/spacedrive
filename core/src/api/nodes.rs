@@ -72,8 +72,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								new_model = sd_ai::old_image_labeler::YoloV8::model(Some(&version))
 									.map_err(|e| {
 										error!(
-											"Failed to crate image_detection model: '{}'; Error: {e:#?}",
-											&version,
+											%version,
+											?e,
+											"Failed to crate image_detection model;",
 										);
 									})
 									.ok();
@@ -84,8 +85,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						}
 					})
 					.await
-					.map_err(|err| {
-						error!("Failed to write config: {}", err);
+					.map_err(|e| {
+						error!(?e, "Failed to write config;");
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							"error updating config".into(),
@@ -183,7 +184,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.await
 						.map_err(|e| {
-							error!("failed to update thumbnailer preferences: {e:#?}");
+							error!(?e, "Failed to update thumbnailer preferences;");
 							rspc::Error::with_cause(
 								ErrorCode::InternalServerError,
 								"Failed to update thumbnailer preferences".to_string(),

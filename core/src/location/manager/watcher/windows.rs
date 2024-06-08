@@ -370,7 +370,7 @@ impl EventHandler {
 
 				should_invalidate = true;
 
-				trace!("Removed file_path due timeout: {}", path.display());
+				trace!(path = %path.display(), "Removed file_path due timeout;");
 			} else {
 				self.files_to_remove_buffer.push((inode, (instant, path)));
 			}

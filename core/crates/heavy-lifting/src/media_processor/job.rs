@@ -419,7 +419,7 @@ impl MediaProcessor {
 				}
 
 				Ok(TaskStatus::Done((task_id, TaskOutput::Empty))) => {
-					warn!(%task_id, "Task returned an empty output");
+					warn!(%task_id, "Task returned an empty output;");
 				}
 
 				Ok(TaskStatus::Shutdown(task)) => {
@@ -439,7 +439,7 @@ impl MediaProcessor {
 				Err(TaskSystemError::TaskTimeout(task_id)) => {
 					warn!(
 						%task_id,
-						"Thumbnailer task timed out, we will keep processing the rest of the tasks",
+						"Thumbnailer task timed out, we will keep processing the rest of the tasks;",
 					);
 					self.errors.push(
 						media_processor::NonCriticalMediaProcessorError::Thumbnailer(
@@ -450,7 +450,7 @@ impl MediaProcessor {
 				}
 
 				Err(e) => {
-					error!(?e, "Task System error");
+					error!(?e, "Task System error;");
 					cancel_pending_tasks(pending_running_tasks).await;
 
 					return Some(Err(e.into()));
@@ -487,12 +487,12 @@ impl MediaProcessor {
 			self.metadata.media_data_metrics.total_successful_tasks += 1;
 
 			if !errors.is_empty() {
-				error!("Non critical errors while extracting media data: {errors:#?}");
+				error!(?errors, "Non critical errors while extracting media data;");
 				self.errors.extend(errors);
 			}
 
 			debug!(
-				"Processed ({}/{}) media data extraction tasks, took: {:?}",
+				"Processed ({}/{}) media data extraction tasks, took: {:?};",
 				self.metadata.media_data_metrics.total_successful_tasks,
 				self.total_media_data_extraction_tasks,
 				db_read_time + filtering_time + extraction_time + db_write_time,
@@ -540,7 +540,7 @@ impl MediaProcessor {
 			self.metadata.thumbnailer_metrics_acc.total_successful_tasks += 1;
 
 			if !errors.is_empty() {
-				error!("Non critical errors while generating thumbnails: {errors:#?}");
+				error!(?errors, "Non critical errors while generating thumbnails;");
 				self.errors.extend(errors);
 			}
 
@@ -658,7 +658,7 @@ impl MediaProcessor {
 		trace!(
 			tasks_count = tasks.len(),
 			%files_count,
-			"Dispatching media data extraction tasks",
+			"Dispatching media data extraction tasks;",
 		);
 
 		self.total_media_data_extraction_files = files_count;
@@ -763,7 +763,7 @@ impl MediaProcessor {
 			%thumbs_count,
 			priority_tasks_count = priority_tasks.len(),
 			non_priority_tasks_count = non_priority_tasks.len(),
-			"Dispatching thumbnails to be processed",
+			"Dispatching thumbnails to be processed;",
 		);
 
 		self.total_thumbnailer_tasks = (priority_tasks.len() + non_priority_tasks.len()) as u64;
@@ -858,14 +858,14 @@ impl From<ThumbnailerMetricsAccumulator> for ThumbnailerMetrics {
 		}: ThumbnailerMetricsAccumulator,
 	) -> Self {
 		if generated + skipped == 0 {
-			return Self{
+			return Self {
 				generated,
 				skipped,
 				mean_total_time,
 				mean_generation_time: Duration::ZERO,
 				std_dev: Duration::ZERO,
 				total_successful_tasks,
-			}
+			};
 		}
 
 		#[allow(clippy::cast_precision_loss)]

@@ -63,12 +63,12 @@ impl<T> From<mpsc::error::SendError<T>> for NonIndexedLocationError {
 }
 
 impl From<NonIndexedLocationError> for rspc::Error {
-	fn from(err: NonIndexedLocationError) -> Self {
-		match err {
+	fn from(e: NonIndexedLocationError) -> Self {
+		match e {
 			NonIndexedLocationError::NotFound(_) => {
-				rspc::Error::with_cause(ErrorCode::NotFound, err.to_string(), err)
+				rspc::Error::with_cause(ErrorCode::NotFound, e.to_string(), e)
 			}
-			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+			_ => rspc::Error::with_cause(ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
 }
@@ -169,7 +169,7 @@ pub async fn walk(
 					.file_stem()
 					.and_then(|s| s.to_str().map(str::to_string))
 				else {
-					warn!("Failed to extract name from path: {}", &entry_path);
+					warn!(%entry_path, "Failed to extract name from path;");
 					continue;
 				};
 
@@ -282,7 +282,7 @@ pub async fn walk(
 			.await
 			.is_err()
 		{
-			debug!("task system shutting down");
+			debug!("Task system shutting down");
 		}
 
 		let mut locations = library
@@ -338,7 +338,7 @@ pub async fn walk(
 			Ok(Err(e)) => {
 				let _ = tx2.send(Err(Either::Left(e.into()))).await;
 			}
-			Err(e) => error!("error joining tokio task: {}", e),
+			Err(e) => error!(?e, "error joining tokio task"),
 		}
 	});
 

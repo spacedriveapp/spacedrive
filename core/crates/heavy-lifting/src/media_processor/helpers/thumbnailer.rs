@@ -252,7 +252,7 @@ pub async fn generate_thumbnail(
 		if e.kind() != io::ErrorKind::NotFound {
 			error!(
 				?e,
-				"Failed to check if thumbnail exists, but we will try to generate it anyway"
+				"Failed to check if thumbnail exists, but we will try to generate it anyway;"
 			);
 		}
 	// Otherwise we good, thumbnail doesn't exist so we can generate it

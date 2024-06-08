@@ -83,6 +83,7 @@ mod originator {
 		}
 	}
 
+	#[instrument(skip(sync, p2p))]
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
 		for (remote_identity, peer) in p2p.get_library_instances(&library_id) {
@@ -94,7 +95,8 @@ mod originator {
 
 			tokio::spawn(async move {
 				debug!(
-					"Alerting peer '{remote_identity:?}' of new sync events for library '{library_id:?}'"
+					?remote_identity,
+					"Alerting peer of new sync events for library;"
 				);
 
 				let mut stream = peer.new_stream().await.unwrap();
@@ -223,7 +225,7 @@ mod responder {
 				_ => continue,
 			};
 
-			debug!("Getting ops for timestamps {timestamps:?}");
+			debug!(?timestamps, "Getting ops for timestamps;");
 
 			stream
 				.write_all(

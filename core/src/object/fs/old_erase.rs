@@ -155,9 +155,9 @@ impl StatefulJob for OldFileEraserJobInit {
 				// 	.len();
 
 				trace!(
-					"Overwriting file: {} with {} passes",
-					step.full_path.display(),
-					init.passes
+					path = %step.full_path.display(),
+					passes = init.passes,
+					"Overwriting file;",
 				);
 
 				#[cfg(feature = "crypto")]

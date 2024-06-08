@@ -250,7 +250,7 @@ fn accept_path_and_ancestors(
 					break;
 				}
 				Entry::Vacant(entry) => {
-					trace!("Accepted ancestor {}", ancestor.display());
+					trace!(ancestor = %ancestor.display(), "Accepted ancestor");
 					entry.insert(ancestor.to_path_buf());
 				}
 			}

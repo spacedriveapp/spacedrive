@@ -24,7 +24,7 @@ use tokio::{
 	time::{interval, timeout, Instant, MissedTickBehavior},
 };
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 use uuid::Uuid;
 
 use super::{
@@ -263,6 +263,7 @@ impl Worker {
 		self.paused.load(Ordering::Relaxed)
 	}
 
+	#[instrument(skip_all, fields(job_id = %report.id, job_name = %report.name))]
 	fn track_progress(
 		report: &mut OldJobReport,
 		last_report_watch_update: &mut Instant,
@@ -286,14 +287,14 @@ impl Worker {
 				}
 
 				JobReportUpdate::Message(message) => {
-					trace!("job {} message: {}", report.id, message);
+					trace!(?message);
 					report.message = message;
 				}
 				JobReportUpdate::Phase(phase) => {
 					trace!(
-						"changing Job <id='{}'> phase: {} -> {phase}",
-						report.id,
-						report.phase
+						old_phase = %report.phase,
+						new_phase = %phase,
+						"Changing Job phase;",
 					);
 					report.phase = phase;
 				}
@@ -308,8 +309,8 @@ impl Worker {
 		let completed_task_count = report.completed_task_count as usize;
 		let remaining_task_count = task_count.saturating_sub(completed_task_count);
 
-		// Adding 1 to avoid division by zero
-		let remaining_time_per_task = elapsed / (completed_task_count + 1) as i32;
+		// To avoid division by zero
+		let remaining_time_per_task = elapsed / (usize::max(completed_task_count, 1) as i32);
 		let remaining_time = remaining_time_per_task * remaining_task_count as i32;
 
 		// Update the report with estimated remaining time
@@ -340,6 +341,16 @@ impl Worker {
 		}));
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			job_id = %report.id,
+			job_name = %report.name,
+			worker_id = %worker_id,
+			%start_time,
+			library_id = %library.id,
+		),
+	)]
 	async fn do_work(
 		worker_id: Uuid,
 		JobWorkTable {
@@ -406,7 +417,7 @@ impl Worker {
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
 				StreamMessage::JobResult(Err(join_error)) => {
-					error!("Worker<id='{worker_id}'> had a critical error: {join_error:#?}");
+					error!(?join_error, "Critical error;");
 					break;
 				}
 				StreamMessage::JobResult(Ok((job, job_result))) => {
@@ -432,10 +443,7 @@ impl Worker {
 
 					report_watch_tx.send(report.clone()).ok();
 
-					debug!(
-						"Worker<id='{worker_id}'> completed Job<id='{}', name='{}'>",
-						report.id, report.name
-					);
+					debug!("Worker completed Job");
 
 					return manager.complete(&library, worker_id, hash, next_job).await;
 				}
@@ -462,8 +470,9 @@ impl Worker {
 						let elapsed = last_update_received_at.elapsed();
 						if elapsed > FIVE_MINUTES {
 							error!(
-							"Worker<id='{worker_id}'> has not received any updates for {elapsed:?}"
-						);
+								time_without_updates = ?elapsed,
+								"Worker has not received any updates;",
+							);
 
 							let (tx, rx) = oneshot::channel();
 							if commands_tx
@@ -471,15 +480,16 @@ impl Worker {
 								.await
 								.is_err()
 							{
-								error!("Worker<id='{worker_id}'> failed to send timeout step command to a running job");
+								error!("Failed to send timeout step command to a running job");
 							} else if timeout(FIVE_SECS, rx).await.is_err() {
-								error!("Worker<id='{worker_id}'> failed to receive timeout step answer from a running job");
+								error!("Failed to receive timeout step answer from a running job");
 							}
 
 							// As we already sent a timeout command, we can safely join as the job is over
-							let Ok((job, job_result)) = run_task.await.map_err(|join_error| {
-								error!("Worker<id='{worker_id}'> had a critical error: {join_error:#?}")
-							}) else {
+							let Ok((job, job_result)) = run_task
+								.await
+								.map_err(|join_error| error!(?join_error, "Had a critical error;"))
+							else {
 								break;
 							};
 
@@ -487,10 +497,7 @@ impl Worker {
 
 							report_watch_tx.send(report.clone()).ok();
 
-							error!(
-								"Worker<id='{worker_id}'> timed out Job<id='{}', name='{}'>",
-								report.id, report.name
-							);
+							error!("Timed out");
 
 							break;
 						}
@@ -529,10 +536,10 @@ impl Worker {
 				};
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
-					error!("failed to update job report: {:#?}", e);
+					error!(?e, "Failed to update job report;");
 				}
 
-				debug!("{report}");
+				debug!(?report);
 
 				invalidate_queries(library);
 
@@ -544,10 +551,7 @@ impl Worker {
 				errors: JobRunErrors(errors),
 				next_job,
 			}) => {
-				warn!(
-					"Job<id='{}', name='{}'> completed with errors",
-					report.id, report.name
-				);
+				warn!("Completed with errors");
 				report.status = JobStatus::CompletedWithErrors;
 				report.errors_text = errors;
 				report.data = None;
@@ -562,10 +566,10 @@ impl Worker {
 				};
 				report.completed_at = Some(Utc::now());
 				if let Err(e) = report.update(library).await {
-					error!("failed to update job report: {:#?}", e);
+					error!(?e, "Failed to update job report;");
 				}
 
-				debug!("{report}");
+				debug!(?report);
 
 				invalidate_queries(library);
 
@@ -573,12 +577,9 @@ impl Worker {
 			}
 			// -> Job paused
 			Err(JobError::Paused(state, signal_tx)) => {
-				info!(
-					"Job<id='{}', name='{}'> paused, we will pause all children jobs",
-					report.id, report.name
-				);
+				info!("Job paused, we will pause all children jobs");
 				if let Err(e) = job.pause_children(library).await {
-					error!("Failed to pause children jobs: {e:#?}");
+					error!(?e, "Failed to pause children jobs;");
 				}
 
 				debug!("Setting worker status to paused");
@@ -587,23 +588,20 @@ impl Worker {
 				report.data = Some(state);
 
 				if let Err(e) = report.update(library).await {
-					error!("failed to update job report: {:#?}", e);
+					error!(?e, "Failed to update job report;");
 				}
 
-				debug!("{report}");
+				debug!(?report);
 
 				invalidate_queries(library);
 
 				signal_tx.send(()).ok();
 			}
-			// -> Job paused
+			// -> Job canceled
 			Err(JobError::Canceled(signal_tx)) => {
-				info!(
-					"Job<id='{}', name='{}'> canceled, we will cancel all children jobs",
-					report.id, report.name
-				);
+				info!("Job canceled, we will cancel all children jobs");
 				if let Err(e) = job.cancel_children(library).await {
-					error!("Failed to pause children jobs: {e:#?}");
+					error!(?e, "Failed to pause children jobs;");
 				}
 
 				debug!("Setting worker status to paused");
@@ -612,10 +610,10 @@ impl Worker {
 				report.data = None;
 
 				if let Err(e) = report.update(library).await {
-					error!("failed to update job report: {:#?}", e);
+					error!(?e, "Failed to update job report;");
 				}
 
-				debug!("{report}");
+				debug!(?report);
 
 				invalidate_queries(library);
 
@@ -623,21 +621,18 @@ impl Worker {
 			}
 			// -> Job failed
 			Err(e) => {
-				error!(
-					"Job<id='{}', name='{}'> failed with error: {e:#?};",
-					report.id, report.name
-				);
+				error!(?e, "Job failed with error;");
 				if let Err(e) = job.cancel_children(library).await {
-					error!("Failed to cancel children jobs: {e:#?}");
+					error!(?e, "Failed to cancel children jobs;");
 				}
 
 				report.status = JobStatus::Failed;
 				report.data = None;
 				if let Err(e) = report.update(library).await {
-					error!("failed to update job report: {:#?}", e);
+					error!(?e, "Failed to update job report;");
 				}
 
-				warn!("{report}");
+				warn!(?report);
 
 				invalidate_queries(library);
 			}

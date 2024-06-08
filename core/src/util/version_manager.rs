@@ -157,9 +157,9 @@ impl<
 			Ok(version) => version,
 			Err(VersionManagerError::VersionFileDoesNotExist) => {
 				warn!(
-					"Config file for {} does not exist, trying to create a new one with version -> {}",
-					type_name::<Config>(),
-					Config::LATEST_VERSION
+					config = %type_name::<Config>(),
+					latest_version = %Config::LATEST_VERSION,
+					"Config file for does not exist, trying to create a new one with latest version;",
 				);
 
 				let Some(latest_config) = Config::from_latest_version() else {
@@ -198,8 +198,10 @@ impl<
 				);
 
 				info!(
-					"Running {} migrator: {current} -> {next}",
-					type_name::<Config>()
+					config = %type_name::<Config>(),
+					%current,
+					%next,
+					"Running migrator;",
 				);
 				migrate_fn(current, next).await?;
 			}
@@ -207,7 +209,7 @@ impl<
 			this.set_version(version_file_path, Config::LATEST_VERSION)
 				.await?;
 		} else {
-			debug!("No migration required for {}", type_name::<Config>());
+			debug!(config = %type_name::<Config>(), "No migration required;");
 		}
 
 		fs::read(version_file_path)

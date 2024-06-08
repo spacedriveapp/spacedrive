@@ -149,13 +149,13 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 				}
 
 				ProgressUpdate::Message(message) => {
-					trace!(job_id = %report.id, %message, "job message");
+					trace!(job_id = %report.id, %message, "job message;");
 					report.message = message;
 				}
 				ProgressUpdate::Phase(phase) => {
 					trace!(
 						job_id = %report.id,
-						"changing phase: {} -> {phase}",
+						"changing phase: {} -> {phase};",
 						report.phase
 					);
 					report.phase = phase;
@@ -196,7 +196,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 					if let Err(e) = report.update(&db).await {
 						error!(
 							?e,
-							"Failed to update job report on debounced job progress event"
+							"Failed to update job report on debounced job progress event;"
 						);
 					}
 				}

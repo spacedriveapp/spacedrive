@@ -112,8 +112,8 @@ pub async fn shallow(
 					completed_media_data_extraction_tasks += 1;
 
 					debug!(
-						"Media data extraction task {completed_media_data_extraction_tasks}/\
-					{total_media_data_extraction_tasks} completed in {:?}",
+						"Media data extraction task ({completed_media_data_extraction_tasks}/\
+					{total_media_data_extraction_tasks}) completed in {:?};",
 						db_read_time + filtering_time + extraction_time + db_write_time
 					);
 				} else if out.is::<thumbnailer::Output>() {
@@ -128,8 +128,8 @@ pub async fn shallow(
 					completed_thumbnailer_tasks += 1;
 
 					debug!(
-						"Thumbnailer task {completed_thumbnailer_tasks}/{total_thumbnailer_tasks} \
-						completed in {total_time:?}",
+						"Thumbnailer task ({completed_thumbnailer_tasks}/{total_thumbnailer_tasks}) \
+						completed in {total_time:?};",
 					);
 				} else {
 					unreachable!(
@@ -259,10 +259,7 @@ async fn dispatch_thumbnailer_tasks(
 		.map(IntoTask::into_task)
 		.collect::<Vec<_>>();
 
-	debug!(
-		"Dispatching {thumbs_count} thumbnails to be processed, in {} priority tasks",
-		tasks.len(),
-	);
+	debug!(%thumbs_count, priority_tasks_count = tasks.len(), "Dispatching thumbnails to be processed;");
 
 	dispatcher.dispatch_many_boxed(tasks).await.map_or_else(
 		|_| {

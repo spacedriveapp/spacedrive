@@ -84,9 +84,10 @@ impl StatefulJob for OldFileDeleterJobInit {
 			Ok(()) => { /*	Everything is awesome! */ }
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
 				warn!(
-					"File not found in the file system, will remove from database: {}",
-					step.full_path.display()
+					path = %step.full_path.display(),
+					"File not found in the file system, will remove from database;",
 				);
+
 				sync.write_op(
 					db,
 					sync.shared_delete(prisma_sync::file_path::SyncId {

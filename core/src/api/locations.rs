@@ -342,7 +342,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?;
 
-						debug!("Disconnected {count} file paths from objects");
+						debug!(%count, "Disconnected file paths from objects;");
 
 						// library.orphan_remover.invoke().await;
 					}
@@ -430,7 +430,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let handle = tokio::spawn(async move {
 						if let Err(e) = light_scan_location(node, library, location, sub_path).await
 						{
-							error!("light scan error: {e:#?}");
+							error!(?e, "Light scan error;");
 						}
 					});
 

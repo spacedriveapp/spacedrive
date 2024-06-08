@@ -54,11 +54,11 @@ pub enum Error {
 }
 
 impl From<Error> for rspc::Error {
-	fn from(err: Error) -> Self {
-		match err {
+	fn from(e: Error) -> Self {
+		match e {
 			Error::SubPath(sub_path_err) => sub_path_err.into(),
 
-			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+			_ => Self::with_cause(ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
 }
@@ -99,7 +99,7 @@ impl FileMetadata {
 			.map_err(|e| FileIOError::from((&path, e)))?;
 
 		if fs_metadata.is_dir() {
-			trace!(path = %path.display(), "Skipping directory");
+			trace!(path = %path.display(), "Skipping directory;");
 			return Ok(Self {
 				cas_id: None,
 				kind: ObjectKind::Folder,
@@ -126,7 +126,7 @@ impl FileMetadata {
 			path = %path.display(),
 			?cas_id,
 			%kind,
-			"Analyzed file",
+			"Analyzed file;",
 		);
 
 		Ok(Self {

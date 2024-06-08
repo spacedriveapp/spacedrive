@@ -76,8 +76,8 @@ pub fn handle_core_msg(
 
 					let new_node = match Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await {
 						Ok(node) => node,
-						Err(err) => {
-							error!("failed to initialise node: {}", err);
+						Err(e) => {
+							error!(?e, "Failed to initialize node;");
 							callback(Err(query));
 							return;
 						}
@@ -94,8 +94,8 @@ pub fn handle_core_msg(
 			false => from_value::<Request>(v).map(|v| vec![v]),
 		}) {
 			Ok(v) => v,
-			Err(err) => {
-				error!("failed to decode JSON-RPC request: {}", err); // Don't use tracing here because it's before the `Node` is initialised which sets that config!
+			Err(e) => {
+				error!(?e, "Failed to decode JSON-RPC request;");
 				callback(Err(query));
 				return;
 			}
@@ -133,8 +133,8 @@ pub fn spawn_core_event_listener(callback: impl Fn(String) + Send + 'static) {
 		while let Some(event) = rx.next().await {
 			let data = match to_string(&event) {
 				Ok(json) => json,
-				Err(err) => {
-					error!("Failed to serialize event: {err}");
+				Err(e) => {
+					error!(?e, "Failed to serialize event;");
 					continue;
 				}
 			};

@@ -148,7 +148,7 @@ impl Task<Error> for MediaDataExtractor {
 					self.output.db_read_time = db_read_start.elapsed();
 					trace!(
 						object_ids_count = object_ids.len(),
-						"Fetched objects already with media data",
+						"Fetched objects already with media data;",
 					);
 
 					self.stage = Stage::FetchedObjectsAlreadyWithMediaData(object_ids);
@@ -173,7 +173,7 @@ impl Task<Error> for MediaDataExtractor {
 
 					trace!(
 						paths_needing_media_data_extraction_count = paths_by_id.len(),
-						"Filtered files to extract media data",
+						"Filtered files to extract media data;",
 					);
 
 					self.stage = Stage::ExtractingMediaData {

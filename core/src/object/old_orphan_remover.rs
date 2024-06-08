@@ -75,7 +75,7 @@ impl OrphanRemoverActor {
 						.map(|object| object.id)
 						.collect::<Vec<_>>()
 				})
-				.map_err(|e| error!("Failed to fetch orphaned objects: {e:#?}"))
+				.map_err(|e| error!(?e, "Failed to fetch orphaned objects;"))
 			else {
 				break;
 			};
@@ -84,7 +84,10 @@ impl OrphanRemoverActor {
 				break;
 			}
 
-			trace!("Removing {} orphaned objects", objects_ids.len());
+			trace!(
+				orphans_count = objects_ids.len(),
+				"Removing orphaned objects;"
+			);
 
 			if let Err(e) = db
 				._batch((
@@ -95,7 +98,7 @@ impl OrphanRemoverActor {
 				))
 				.await
 			{
-				error!("Failed to remove orphaned objects: {e:#?}");
+				error!(?e, "Failed to remove orphaned objects;");
 				break;
 			}
 		}

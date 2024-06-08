@@ -90,14 +90,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				Ok(Listeners {
 					ipv4: match errors.ipv4 {
-						Some(ref err) => ListenerState::Error { error: err.clone() },
+						Some(ref e) => ListenerState::Error { error: e.clone() },
 						None => match addrs.iter().any(|f| f.is_ipv4()) {
 							true => ListenerState::Listening,
 							false => ListenerState::Disabled,
 						},
 					},
 					ipv6: match errors.ipv6 {
-						Some(ref err) => ListenerState::Error { error: err.clone() },
+						Some(ref e) => ListenerState::Error { error: e.clone() },
 						None => match addrs.iter().any(|f| f.is_ipv6()) {
 							true => ListenerState::Listening,
 							false => ListenerState::Disabled,
@@ -116,20 +116,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					))?
 					.new_stream()
 					.await
-					.map_err(|err| {
+					.map_err(|e| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("error in peer.new_stream: {:?}", err),
+							format!("error in peer.new_stream: {:?}", e),
 						)
 					})?;
 
 				stream
 					.write_all(&Header::Ping.to_bytes())
 					.await
-					.map_err(|err| {
+					.map_err(|e| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("error sending ping header: {:?}", err),
+							format!("error sending ping header: {:?}", e),
 						)
 					})?;
 

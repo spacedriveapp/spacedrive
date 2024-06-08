@@ -224,7 +224,7 @@ impl TryFrom<job::Data> for OldJobReport {
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
+					error!(?e, "Failed to deserialize job metadata;");
 					None
 				})
 			}),
@@ -265,7 +265,7 @@ impl TryFrom<job_without_data::Data> for OldJobReport {
 			data: None,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
+					error!(?e, "Failed to deserialize job metadata;");
 					None
 				})
 			}),

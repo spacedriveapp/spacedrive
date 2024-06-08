@@ -75,8 +75,10 @@ pub async fn run_actor(
 						let cloud_timestamp = d.map(|d| d.timestamp).unwrap_or_default() as u64;
 
 						debug!(
-							"Instance {id}, Sync Timestamp {}, Cloud Timestamp {cloud_timestamp}",
-							sync_timestamp.as_u64()
+							instance_id = %id,
+							sync_timestamp = sync_timestamp.as_u64(),
+							%cloud_timestamp,
+							"Comparing sync timestamps",
 						);
 
 						let max_timestamp = Ord::max(cloud_timestamp, sync_timestamp.as_u64());
@@ -117,7 +119,10 @@ pub async fn run_actor(
 				.await
 			);
 
-			info!("Received {} collections", collections.len());
+			info!(
+				collections_count = collections.len(),
+				"Received collections;",
+			);
 
 			if collections.is_empty() {
 				break;
@@ -182,14 +187,10 @@ pub async fn run_actor(
 				let operations = compressed_operations.into_ops();
 
 				debug!(
-					"Processing collection. Instance {}, Start {:?}, End {:?}",
-					&collection.instance_uuid,
-					operations
-						.first()
-						.map(|operation| operation.timestamp.as_u64()),
-					operations
-						.last()
-						.map(|operation| operation.timestamp.as_u64()),
+					instance_id = %collection.instance_uuid,
+					start = ?operations.first().map(|operation| operation.timestamp.as_u64()),
+					end = ?operations.last().map(|operation| operation.timestamp.as_u64()),
+					"Processing collection",
 				);
 
 				err_break!(write_cloud_ops_to_db(operations, &db).await);

@@ -315,7 +315,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 							let db = handle.ctx.db();
 							let mut report = handle.ctx.report_mut().await;
 							if let Err(e) = report.update(db).await {
-								error!(?e, "failed to update report on job shutdown");
+								error!(?e, "Failed to update report on job shutdown;");
 							}
 							report.name
 						};
@@ -341,7 +341,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 								.unwrap_or_default(),
 							});
 
-						debug!(%name, "Job was shutdown and serialized");
+						debug!(%name, "Job was shutdown and serialized;");
 					}
 
 					Ok(None) => {
@@ -352,7 +352,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 					}
 
 					Err(e) => {
-						error!(?e, "Failed to serialize job");
+						error!(?e, "Failed to serialize job;");
 					}
 				}
 
@@ -481,7 +481,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 			.into_iter()
 			.for_each(|res| {
 				if let Err(e) = res {
-					error!(?e, "Failed to shutdown job");
+					error!(?e, "Failed to shutdown job;");
 				}
 			});
 	}
@@ -510,7 +510,7 @@ async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobCont
 					})
 				})
 				.map_err(|e| {
-					error!(%next_id, %next_name, ?e, "Failed to serialize next job");
+					error!(%next_id, %next_name, ?e, "Failed to serialize next job;");
 				})
 		})
 		.collect::<Vec<_>>()
@@ -552,7 +552,7 @@ async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterC
 
 		if let Entry::Vacant(e) = job_hashes.entry(next_hash) {
 			e.insert(next_id);
-			trace!(%next_id, %next_name, "Dispatching next job");
+			trace!(%next_id, %next_name, "Dispatching next job;");
 
 			job_hashes_by_id.insert(next_id, next_hash);
 			running_jobs_by_job_id.insert(next_id, (next_name, location_id));
@@ -576,7 +576,7 @@ async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterC
 
 			handles.insert(next_id, next_handle);
 		} else {
-			warn!(%next_id, %next_name, "Unexpectedly found a job with the same hash as the next job");
+			warn!(%next_id, %next_name, "Unexpectedly found a job with the same hash as the next job;");
 		}
 	} else {
 		trace!("No next jobs to dispatch");
@@ -613,7 +613,7 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 			// Job return status messages
 			StreamMessage::ReturnStatus((job_id, status)) => {
 				if let Err(e) = runner.process_return_status(job_id, status).await {
-					error!(?e, "Failed to process return status");
+					error!(?e, "Failed to process return status;");
 				}
 			}
 
@@ -678,18 +678,18 @@ pub(super) async fn run<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 
 					debug!(
 						total_jobs = runner.total_jobs(),
-						"Waiting for jobs to shutdown before shutting down the job system...",
+						"Waiting for jobs to shutdown before shutting down the job system...;",
 					);
 
 					while let Some((job_id, status)) = job_return_status_stream.next().await {
 						if let Err(e) = runner.process_return_status(job_id, status).await {
-							error!(?e, "Failed to process return status before shutting down");
+							error!(?e, "Failed to process return status before shutting down;");
 						}
 					}
 
 					// Now the runner can shutdown
 					if let Err(e) = runner.save_jobs(store_jobs_file).await {
-						error!(?e, "Failed to save jobs before shutting down");
+						error!(?e, "Failed to save jobs before shutting down;");
 					}
 				}
 

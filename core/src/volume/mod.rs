@@ -128,11 +128,11 @@ pub async fn get_volumes() -> Vec<Volume> {
 
 			// Ensure disk has a valid device path
 			let real_path = match tokio::fs::canonicalize(disk_name).await {
-				Err(real_path) => {
+				Err(e) => {
 					error!(
-						"Failed to canonicalize disk path {}: {:#?}",
-						disk_name.to_string_lossy(),
-						real_path
+						disk_name = %disk_name.display(),
+						?e,
+						"Failed to canonicalize disk path;",
 					);
 					continue;
 				}
@@ -306,7 +306,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 		.args(["info", "-plist"])
 		.output()
 		.await
-		.map_err(|err| error!("Failed to execute hdiutil: {err:#?}"))
+		.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
 		.ok()
 		.and_then(|wmic_process| {
 			use std::str::FromStr;
@@ -314,8 +314,8 @@ pub async fn get_volumes() -> Vec<Volume> {
 			if wmic_process.status.success() {
 				let info: Result<HDIUtilInfo, _> = plist::from_bytes(&wmic_process.stdout);
 				match info {
-					Err(err) => {
-						error!("Failed to parse hdiutil output: {err:#?}");
+					Err(e) => {
+						error!(?e, "Failed to parse hdiutil output;");
 						None
 					}
 					Ok(info) => Some(
@@ -396,7 +396,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 					])
 					.output()
 					.await
-					.map_err(|err| error!("Failed to execute hdiutil: {err:#?}"))
+					.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
 					.ok()
 					.and_then(|wmic_process| {
 						if wmic_process.status.success() {
@@ -413,7 +413,7 @@ pub async fn get_volumes() -> Vec<Volume> {
 						.trim()
 						.parse::<u64>()
 					{
-						Err(err) => error!("Failed to parse wmic output: {err:#?}"),
+						Err(e) => error!(?e, "Failed to parse wmic output;"),
 						Ok(n) => total_capacity = n,
 					}
 				}

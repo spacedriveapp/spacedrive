@@ -107,7 +107,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					match STATISTICS_UPDATERS.lock().await.entry(library.id) {
 						Entry::Occupied(entry) => {
 							if entry.get().send(Instant::now()).await.is_err() {
-								error!("Failed to send statistics update request");
+								error!("Failed to send statistics update request;");
 							}
 						}
 						Entry::Vacant(entry) => {
@@ -272,7 +272,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 				.fold(&mut maybe_error, |maybe_error, res| {
 					if let Err(e) = res {
-						error!("Failed to create default location: {e:#?}");
+						error!(?e, "Failed to create default location;");
 						*maybe_error = Some(e);
 					}
 					maybe_error
@@ -297,7 +297,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let library = node.libraries.create(name, None, &node).await?;
 
-					debug!("Created library {}", library.id);
+					debug!(%library.id, "Created library;");
 
 					if let Some(locations) = default_locations {
 						create_default_locations_on_library_creation(
@@ -382,16 +382,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					for _ in 0..5 {
 						match library.db._execute_raw(raw!("VACUUM;")).exec().await {
 							Ok(_) => break,
-							Err(err) => {
+							Err(e) => {
 								warn!(
-									"Failed to vacuum DB for library '{}', retrying...: {err:#?}",
-									library.id
+									%library.id,
+									?e,
+									"Failed to vacuum DB for library, retrying...;",
 								);
 								tokio::time::sleep(Duration::from_millis(500)).await;
 							}
 						}
 					}
-					info!("Successfully vacuumed DB for library '{}'", library.id);
+
+					info!(%library.id, "Successfully vacuumed DB;");
+
 					Ok(())
 				}),
 		)
@@ -422,7 +425,7 @@ async fn update_statistics_loop(
 			Message::Tick => {
 				if last_received_at.elapsed() < FIVE_MINUTES {
 					if let Err(e) = update_library_statistics(&node, &library).await {
-						error!("Failed to update library statistics: {e:#?}");
+						error!(?e, "Failed to update library statistics;");
 					} else {
 						invalidate_query!(&library, "library.statistics");
 					}

@@ -120,7 +120,7 @@ impl Library {
 	// TODO: Remove this once we replace the old invalidation system
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus_tx.send(event) {
-			warn!("Error sending event to event bus: {e:?}");
+			warn!(?e, "Error sending event to event bus;");
 		}
 	}
 
@@ -186,7 +186,7 @@ impl Library {
 
 	pub fn do_cloud_sync(&self) {
 		if let Err(e) = self.do_cloud_sync.send(()) {
-			warn!("Error sending cloud resync message: {e:?}");
+			warn!(?e, "Error sending cloud resync message;");
 		}
 	}
 }

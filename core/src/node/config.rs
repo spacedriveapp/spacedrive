@@ -179,7 +179,11 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 			Ok(hostname) => hostname.to_string_lossy().into_owned(),
 			Err(e) => {
-				error!("Falling back to default node name as an error occurred getting your systems hostname: '{e:#?}'");
+				error!(
+					?e,
+					"Falling back to default node name as an error occurred getting your systems hostname;",
+				);
+
 				"my-spacedrive".into()
 			}
 		};
@@ -295,7 +299,7 @@ impl NodeConfig {
 					}
 
 					_ => {
-						error!("Node config version is not handled: {:?}", current);
+						error!(current_version = ?current, "Node config version is not handled;");
 						return Err(VersionManagerError::UnexpectedMigration {
 							current_version: current.int_value(),
 							next_version: next.int_value(),

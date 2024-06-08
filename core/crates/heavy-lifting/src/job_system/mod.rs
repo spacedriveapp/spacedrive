@@ -93,7 +93,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 				.await
 				{
 					if e.is_panic() {
-						error!(?e, "Job system panicked");
+						error!(?e, "Job system panicked;");
 					} else {
 						trace!("JobSystemRunner received shutdown signal and will exit...");
 						break;
@@ -187,7 +187,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 
 			if let Err(e) = handle.await {
 				if e.is_panic() {
-					error!("JobSystem panicked: {e:#?}");
+					error!(?e, "JobSystem panicked;");
 				}
 			}
 			info!("JobSystem gracefully shutdown");
@@ -319,7 +319,7 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 		.filter_map(|(ctx_id, entries)| {
 			previously_existing_job_contexts.get(&ctx_id).map_or_else(
 				|| {
-					warn!(%ctx_id, "Found stored jobs for a database that doesn't exist anymore");
+					warn!(%ctx_id, "Found stored jobs for a database that doesn't exist anymore;");
 					None
 				},
 				|ctx| Some((entries, ctx.clone())),
@@ -335,7 +335,7 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 		.await
 		.into_iter()
 		.filter_map(|res| {
-			res.map_err(|e| error!(?e, "Failed to load stored jobs"))
+			res.map_err(|e| error!(?e, "Failed to load stored jobs;"))
 				.ok()
 		})
 		.flat_map(|(stored_jobs, ctx)| {

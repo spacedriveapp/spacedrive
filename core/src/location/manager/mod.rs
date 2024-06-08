@@ -115,7 +115,7 @@ impl LocationManagerActor {
 			let node = node.clone();
 			let rx = node.libraries.rx.clone();
 			async move {
-				if let Err(err) = rx
+				if let Err(e) = rx
 					.subscribe(|event| {
 						let node = node.clone();
 						async move {
@@ -129,17 +129,18 @@ impl LocationManagerActor {
 										.await
 										.unwrap_or_else(|e| {
 											error!(
-													"Failed to get locations from database for location manager: {:#?}",
-													e
-												);
+												?e,
+												"Failed to get locations from database for location manager;",
+											);
+
 											vec![]
 										}) {
 										if let Err(e) =
 											node.locations.add(location.id, library.clone()).await
 										{
 											error!(
-												"Failed to add location to location manager: {:#?}",
-												e
+												?e,
+												"Failed to add location to location manager;",
 											);
 										}
 									}
@@ -155,7 +156,11 @@ impl LocationManagerActor {
 					})
 					.await
 				{
-					error!("Core may become unstable! LocationManager's library manager subscription aborted with error: {err:?}");
+					error!(
+						?e,
+						"Core may become unstable! LocationManager's \
+						library manager subscription aborted with error;",
+					);
 				}
 			}
 		});
@@ -180,7 +185,7 @@ impl LocationManagerActor {
 				.await
 				{
 					if e.is_panic() {
-						error!(?e, "Location manager panicked");
+						error!(?e, "Location manager panicked;");
 					} else {
 						trace!("Location manager received shutdown signal and will exit...");
 						break;
@@ -418,7 +423,7 @@ impl Drop for PauseWatcherGuard<'_> {
 			self.location_id,
 			self.library.take().expect("library should be set"),
 		)) {
-			error!("Failed to reinit watcher on stop watcher guard drop: {e}");
+			error!(?e, "Failed to resume watcher on stop watcher guard drop;");
 		}
 	}
 }
@@ -442,7 +447,7 @@ impl Drop for IgnoreEventsForPathGuard<'_> {
 				ignore: false,
 			},
 		)) {
-			error!("Failed to un-ignore path on watcher guard drop: {e}");
+			error!(?e, "Failed to un-ignore path on watcher guard drop;");
 		}
 	}
 }

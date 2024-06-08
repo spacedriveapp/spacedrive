@@ -430,7 +430,7 @@ impl FileIdentifier {
 			.await;
 			debug!(
 				resuming_tasks_count = self.pending_tasks_on_resume.len(),
-				"Resuming tasks for FileIdentifier job",
+				"Resuming tasks for FileIdentifier job;",
 			);
 		}
 
@@ -519,7 +519,7 @@ impl FileIdentifier {
 		}
 
 		if !errors.is_empty() {
-			error!(?errors, "Non critical errors while extracting metadata");
+			error!(?errors, "Non critical errors while extracting metadata;");
 			self.errors.extend(errors);
 		}
 
@@ -537,7 +537,7 @@ impl FileIdentifier {
 		.await;
 
 		debug!(
-			"Processed ({}/{}) identifier tasks, took: {extract_metadata_time:?}",
+			"Processed ({}/{}) identifier tasks, took: {extract_metadata_time:?};",
 			self.metadata.completed_identifier_tasks, self.metadata.total_identifier_tasks,
 		);
 
@@ -624,7 +624,7 @@ impl FileIdentifier {
 		}
 
 		debug!(
-			"Processed ({}/{}) object processor tasks, took: {:?}",
+			"Processed ({}/{}) object processor tasks, took: {:?};",
 			self.metadata.completed_object_processor_tasks,
 			self.metadata.total_object_processor_tasks,
 			fetch_existing_objects_time + assign_to_existing_object_time + create_object_time,
@@ -659,7 +659,7 @@ impl FileIdentifier {
 				.await
 				.map_err(file_identifier::Error::from)?;
 
-			trace!(orphans_count = orphan_paths.len(), "Found orphan paths");
+			trace!(orphans_count = orphan_paths.len(), "Found orphan paths;");
 
 			if orphan_paths.is_empty() {
 				break;
@@ -687,7 +687,7 @@ impl FileIdentifier {
 			.await;
 
 			debug!(
-				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				"Dispatched ({}/{}) identifier tasks, took: {:?};",
 				self.metadata.completed_identifier_tasks,
 				self.metadata.total_identifier_tasks,
 				start.elapsed(),
@@ -770,7 +770,7 @@ impl FileIdentifier {
 			.await;
 
 			debug!(
-				"Dispatched ({}/{}) identifier tasks, took: {:?}",
+				"Dispatched ({}/{}) identifier tasks, took: {:?};",
 				self.metadata.completed_identifier_tasks,
 				self.metadata.total_identifier_tasks,
 				start.elapsed(),

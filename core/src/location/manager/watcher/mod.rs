@@ -121,10 +121,10 @@ impl LocationWatcher {
 				if !events_tx.is_closed() {
 					// SAFETY: we are not blocking the thread as this is an unbounded channel
 					if events_tx.send_blocking(result).is_err() {
-						error!(%location_id, "Unable to send watcher event to location manager");
+						error!(%location_id, "Unable to send watcher event to location manager;");
 					}
 				} else {
-					error!(%location_id, "Tried to send file system events to a closed channel");
+					error!(%location_id, "Tried to send file system events to a closed channel;");
 				}
 			},
 			Config::default(),
@@ -150,7 +150,7 @@ impl LocationWatcher {
 				.await
 				{
 					if e.is_panic() {
-						error!(?e, "Location watcher panicked");
+						error!(?e, "Location watcher panicked;");
 					} else {
 						trace!("Location watcher received shutdown signal and will exit...");
 						break;
@@ -223,7 +223,7 @@ impl LocationWatcher {
 					)
 					.await
 					{
-						error!(?e, "Failed to get indexer ruler");
+						error!(?e, "Failed to get indexer ruler;");
 					}
 
 					last_event_at = Instant::now();
@@ -239,11 +239,11 @@ impl LocationWatcher {
 					)
 					.await
 					{
-						error!(?e, "Failed to handle location file system event");
+						error!(?e, "Failed to handle location file system event;");
 					}
 				}
 
-				StreamMessage::NewEvent(Err(e)) => error!(?e, "Watcher error"),
+				StreamMessage::NewEvent(Err(e)) => error!(?e, "Watcher error;"),
 
 				StreamMessage::NewIgnorePath((path, should_ignore)) => {
 					if should_ignore {
@@ -318,7 +318,7 @@ impl LocationWatcher {
 			.watcher
 			.watch(self.location_path.as_path(), RecursiveMode::Recursive)
 		{
-			error!(?e, "Unable to watch location");
+			error!(?e, "Unable to watch location;");
 		} else {
 			trace!("Now watching location");
 		}
@@ -338,7 +338,7 @@ impl LocationWatcher {
 			 * and we try to unwatch the parent directory then we have to check the implications   *
 			 * of unwatch error for this case.   												   *
 			 **************************************************************************************/
-			error!(?e, "Unable to unwatch location");
+			error!(?e, "Unable to unwatch location;");
 		} else {
 			trace!("Stop watching location");
 		}
@@ -357,7 +357,7 @@ impl Drop for LocationWatcher {
 					.expect("Location watcher stop channel closed");
 
 				if let Err(e) = handle.await {
-					error!(?e, "Failed to join watcher task");
+					error!(?e, "Failed to join watcher task;");
 				}
 			});
 		}
@@ -520,26 +520,23 @@ mod tests {
 		expected_event: EventKind,
 	) {
 		let path = path.as_ref();
-		debug!(
-			"Expecting event: {expected_event:#?} at path: {}",
-			path.display()
-		);
+		debug!(?expected_event, path = %path.display());
 		let mut tries = 0;
 		loop {
 			match events_rx.try_recv() {
 				Ok(maybe_event) => {
 					let event = maybe_event.expect("Failed to receive event");
-					debug!("Received event: {event:#?}");
+					debug!(?event, "Received event;");
 					// Using `ends_with` and removing root path here due to a weird edge case on CI tests at MacOS
 					if event.paths[0].ends_with(path.iter().skip(1).collect::<PathBuf>())
 						&& event.kind == expected_event
 					{
-						debug!("Received expected event: {expected_event:#?}");
+						debug!("Received expected event");
 						break;
 					}
 				}
 				Err(e) => {
-					debug!("No event yet: {e:#?}");
+					debug!(?e, "No event yet;");
 					tries += 1;
 					sleep(Duration::from_millis(100)).await;
 				}
@@ -559,7 +556,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		let file_path = root_dir.path().join("test.txt");
 		fs::write(&file_path, "test").await.unwrap();
@@ -583,9 +580,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -597,7 +594,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		let dir_path = root_dir.path().join("inner");
 		fs::create_dir(&dir_path)
@@ -613,9 +610,9 @@ mod tests {
 		#[cfg(target_os = "linux")]
 		expect_event(events_rx, &dir_path, EventKind::Create(CreateKind::Folder)).await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -630,7 +627,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		let mut file = fs::OpenOptions::new()
 			.append(true)
@@ -664,9 +661,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -681,7 +678,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		let new_file_name = root_dir.path().join("test2.txt");
 
@@ -713,9 +710,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -732,7 +729,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		let new_dir_name = root_dir.path().join("inner2");
 
@@ -764,9 +761,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -781,7 +778,7 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		fs::remove_file(&file_path)
 			.await
@@ -804,9 +801,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 
@@ -831,11 +828,11 @@ mod tests {
 		watcher
 			.watch(root_dir.path(), notify::RecursiveMode::Recursive)
 			.expect("Failed to watch root directory");
-		debug!("Now watching {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Now watching;");
 
 		debug!("First unwatching the inner directory before removing it");
 		if let Err(e) = watcher.unwatch(&dir_path) {
-			error!("Failed to unwatch inner directory: {e:#?}");
+			error!(?e, "Failed to unwatch inner directory;");
 		}
 
 		fs::remove_dir(&dir_path)
@@ -859,9 +856,9 @@ mod tests {
 		)
 		.await;
 
-		debug!("Unwatching root directory: {}", root_dir.path().display());
+		debug!(root = %root_dir.path().display(), "Unwatching root directory;");
 		if let Err(e) = watcher.unwatch(root_dir.path()) {
-			error!("Failed to unwatch root directory: {e:#?}");
+			error!(?e, "Failed to unwatch root directory;");
 		}
 	}
 }

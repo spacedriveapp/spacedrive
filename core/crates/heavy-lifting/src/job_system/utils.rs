@@ -18,16 +18,18 @@ pub async fn cancel_pending_tasks(pending_tasks: &mut FuturesUnordered<TaskHandl
 
 	while let Some(task_result) = pending_tasks.next().await {
 		match task_result {
-			Ok(TaskStatus::Done((task_id, _))) => trace!(%task_id, "canceled a completed task"),
+			Ok(TaskStatus::Done((task_id, _))) => trace!(
+				%task_id,
+				"tasks cancellation received a completed task;",
+			),
 
 			Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion | TaskStatus::Shutdown(_)) => {
-				trace!("job canceled task");
 				// Job canceled task
 			}
 
-			Ok(TaskStatus::Error(e)) => error!(%e, "job canceled an errored task"),
+			Ok(TaskStatus::Error(e)) => error!(%e, "job canceled an errored task;"),
 
-			Err(e) => error!(%e, "task system failed to cancel a task"),
+			Err(e) => error!(%e, "task system failed to cancel a task;"),
 		}
 	}
 }

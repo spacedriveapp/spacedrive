@@ -75,9 +75,8 @@ impl<E: RunError> WorkerBuilder<E> {
 				.await
 				{
 					if e.is_panic() {
-						error!(
-							"Worker critically failed and will restart: \
-							{e:#?}"
+						error!(?e,
+							"Worker critically failed and will restart;"
 						);
 					} else {
 						trace!("Worker received shutdown signal and will exit...");

@@ -84,10 +84,10 @@ impl P2PManager {
 		this.on_node_config_change().await;
 
 		info!(
-			"Node RemoteIdentity('{}') libp2p::PeerId('{:?}') is now online listening at addresses: {:?}",
-			this.p2p.remote_identity(),
-			this.lp2p_peer_id,
-			this.p2p.listeners()
+			remote_identity = %this.p2p.remote_identity(),
+			peer_id = ?this.lp2p_peer_id,
+			addresses = ?this.p2p.listeners(),
+			"Node is now online listening;",
 		);
 
 		Ok((this.clone(), |node: Arc<Node>, router| {
@@ -115,13 +115,13 @@ impl P2PManager {
 										this.quic.set_relay_config(config).await;
 										info!("Updated p2p relay configuration successfully.")
 									}
-									Err(err) => {
-										error!("Failed to parse p2p relay configuration: {err:?}")
+									Err(e) => {
+										error!(?e, "Failed to parse p2p relay configuration;")
 									}
 								}
 							}
 						}
-						Err(err) => error!("Error pulling p2p relay configuration: {err:?}"),
+						Err(e) => error!(?e, "Error pulling p2p relay configuration;"),
 					}
 
 					tokio::time::sleep(Duration::from_secs(11 * 60)).await;
@@ -155,39 +155,41 @@ impl P2PManager {
 		let port = config.p2p.port.get();
 
 		info!(
-			"Setting quic ipv4 listener to: {:?}",
-			config.p2p.ipv4.then_some(port)
+			to_port = ?config.p2p.ipv4.then_some(port),
+			"Setting quic ipv4 listener;",
 		);
-		if let Err(err) = self
+
+		if let Err(e) = self
 			.quic
 			.set_ipv4_enabled(config.p2p.ipv4.then_some(port))
 			.await
 		{
-			error!("Failed to enabled quic ipv4 listener: {err}");
+			error!(?e, "Failed to enabled quic ipv4 listener;");
 			self.node_config.write(|c| c.p2p.ipv4 = false).await.ok();
 
 			self.listener_errors
 				.lock()
 				.unwrap_or_else(PoisonError::into_inner)
-				.ipv4 = Some(err.to_string());
+				.ipv4 = Some(e.to_string());
 		}
 
 		info!(
-			"Setting quic ipv6 listener to: {:?}",
-			config.p2p.ipv6.then_some(port)
+			to_port = ?config.p2p.ipv4.then_some(port),
+			"Setting quic ipv6 listener;",
 		);
-		if let Err(err) = self
+
+		if let Err(e) = self
 			.quic
 			.set_ipv6_enabled(config.p2p.ipv6.then_some(port))
 			.await
 		{
-			error!("Failed to enabled quic ipv6 listener: {err}");
+			error!(?e, "Failed to enabled quic ipv6 listener;");
 			self.node_config.write(|c| c.p2p.ipv6 = false).await.ok();
 
 			self.listener_errors
 				.lock()
 				.unwrap_or_else(PoisonError::into_inner)
-				.ipv6 = Some(err.to_string());
+				.ipv6 = Some(e.to_string());
 		}
 
 		let should_revert = match config.p2p.discovery {
@@ -200,8 +202,8 @@ impl P2PManager {
 							*mdns = Some(m);
 							false
 						}
-						Err(err) => {
-							error!("Failed to start mDNS: {err}");
+						Err(e) => {
+							error!(?e, "Failed to start mDNS;");
 							true
 						}
 					}
@@ -297,8 +299,8 @@ async fn start(
 		let mut service = unwrap_infallible(service.call(()).await);
 
 		tokio::spawn(async move {
-			let Ok(header) = Header::from_stream(&mut stream).await.map_err(|err| {
-				error!("Failed to read header from stream: {}", err);
+			let Ok(header) = Header::from_stream(&mut stream).await.map_err(|e| {
+				error!(?e, "Failed to read header from stream;");
 			}) else {
 				return;
 			};
@@ -313,14 +315,14 @@ async fn start(
 					error!("Failed to handle Spacedrop request");
 				}
 				Header::Sync(library_id) => {
-					let Ok(mut tunnel) = Tunnel::responder(stream).await.map_err(|err| {
-						error!("Failed `Tunnel::responder`: {}", err);
+					let Ok(mut tunnel) = Tunnel::responder(stream).await.map_err(|e| {
+						error!(?e, "Failed `Tunnel::responder`;");
 					}) else {
 						return;
 					};
 
-					let Ok(msg) = SyncMessage::from_stream(&mut tunnel).await.map_err(|err| {
-						error!("Failed `SyncMessage::from_stream`: {}", err);
+					let Ok(msg) = SyncMessage::from_stream(&mut tunnel).await.map_err(|e| {
+						error!(?e, "Failed `SyncMessage::from_stream`;");
 					}) else {
 						return;
 					};
@@ -330,7 +332,7 @@ async fn start(
 							.get_library(&library_id)
 							.await
 							.ok_or_else(|| {
-								error!("Failed to get library '{library_id}'");
+								error!(%library_id, "Failed to get library;");
 
 								// TODO: Respond to remote client with warning!
 							})
@@ -350,12 +352,12 @@ async fn start(
 				}
 				Header::Http => {
 					let remote = stream.remote_identity();
-					let Err(err) = operations::rspc::receiver(stream, &mut service, &node).await
+					let Err(e) = operations::rspc::receiver(stream, &mut service, &node).await
 					else {
 						return;
 					};
 
-					error!("Failed to handling rspc request with '{remote}': {err:?}");
+					error!(%remote, ?e, "Failed to handling rspc request;");
 				}
 			};
 		});
@@ -367,6 +369,6 @@ async fn start(
 fn unwrap_infallible<T>(result: Result<T, Infallible>) -> T {
 	match result {
 		Ok(value) => value,
-		Err(err) => match err {},
+		Err(e) => match e {},
 	}
 }

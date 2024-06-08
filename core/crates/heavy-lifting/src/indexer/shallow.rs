@@ -84,7 +84,7 @@ pub async fn shallow(
 	};
 
 	// TODO use non_indexed_paths here in the future, sending it to frontend, showing then alongside the indexed files from db
-	debug!("Non indexed paths count: {}", non_indexed_paths.len());
+	debug!(non_indexed_paths_count = non_indexed_paths.len());
 
 	let removed_count = remove_non_existing_file_paths(to_remove, db, sync).await?;
 

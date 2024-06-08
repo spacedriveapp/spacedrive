@@ -162,7 +162,7 @@ impl Task<Error> for Saver {
 
 		let save_duration = start_time.elapsed();
 
-		trace!(saved_count, "Inserted records");
+		trace!(saved_count, "Inserted records;");
 
 		Ok(ExecStatus::Done(
 			Output {

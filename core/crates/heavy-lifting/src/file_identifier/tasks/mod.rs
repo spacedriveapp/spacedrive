@@ -123,7 +123,7 @@ async fn create_objects_and_update_file_paths(
 
 	trace!(
 		new_objects_count = object_create_args.len(),
-		"Creating new Objects!",
+		"Creating new Objects!;",
 	);
 
 	// create new object records with assembled values
@@ -140,7 +140,7 @@ async fn create_objects_and_update_file_paths(
 		})
 		.await?;
 
-	trace!(%created_objects_count, "Created new Objects");
+	trace!(%created_objects_count, "Created new Objects;");
 
 	if created_objects_count > 0 {
 		trace!("Updating file paths with created objects");

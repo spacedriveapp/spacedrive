@@ -296,8 +296,8 @@ mod locations {
 						.body(ByteStream::from_body_0_4(Full::from("Hello, world!")))
 						.send()
 						.await
-						.map_err(|err| {
-							tracing::error!("S3 error: {err:?}");
+						.map_err(|e| {
+							tracing::error!(?e, "S3 error;");
 							rspc::Error::new(
 								rspc::ErrorCode::InternalServerError,
 								"Failed to upload to S3".to_string(),

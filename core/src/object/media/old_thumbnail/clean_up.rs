@@ -53,9 +53,10 @@ pub(super) async fn process_ephemeral_clean_up(
 					{
 						to_remove.push(async move {
 							debug!(
-								"Removing stale ephemeral thumbnail: {}",
-								thumb_path.display()
+								thumb_path = %thumb_path.display(),
+								"Removing stale ephemeral thumbnail;",
 							);
+
 							fs::remove_file(&thumb_path).await.map_err(|e| {
 								ThumbnailerError::FileIO(FileIOError::from((thumb_path, e)))
 							})
@@ -69,14 +70,14 @@ pub(super) async fn process_ephemeral_clean_up(
 	})
 	.await
 	.map_or_else(
-		|e| error!("Join error on ephemeral clean up: {e:#?}",),
+		|e| error!(?e, "Join error on ephemeral clean up;",),
 		|fetching_res| {
 			fetching_res.map_or_else(
-				|e| error!("Error fetching ephemeral thumbs to be removed: {e:#?}"),
+				|e| error!(?e, "Error fetching ephemeral thumbs to be removed;"),
 				|remove_results| {
 					remove_results.into_iter().for_each(|remove_res| {
 						if let Err(e) = remove_res {
-							error!("Error on ephemeral clean up: {e:#?}");
+							error!(?e, "Error on ephemeral clean up;");
 						}
 					})
 				},
@@ -142,9 +143,10 @@ pub(super) async fn process_indexed_clean_up(
 							{
 								to_remove.push(async move {
 									debug!(
-										"Removing stale indexed thumbnail: {}",
-										thumb_path.display()
+										thumb_path = %thumb_path.display(),
+										"Removing stale indexed thumbnail;",
 									);
+
 									fs::remove_file(&thumb_path).await.map_err(|e| {
 										ThumbnailerError::FileIO(FileIOError::from((thumb_path, e)))
 									})
@@ -163,18 +165,18 @@ pub(super) async fn process_indexed_clean_up(
 		.into_iter()
 		.filter_map(|join_res| {
 			join_res
-				.map_err(|e| error!("Join error on indexed clean up: {e:#?}"))
+				.map_err(|e| error!(?e, "Join error on indexed clean up;"))
 				.ok()
 		})
 		.filter_map(|fetching_res| {
 			fetching_res
-				.map_err(|e| error!("Error fetching indexed thumbs to be removed: {e:#?}"))
+				.map_err(|e| error!(?e, "Error fetching indexed thumbs to be removed;"))
 				.ok()
 		})
 		.for_each(|remove_results| {
 			remove_results.into_iter().for_each(|remove_res| {
 				if let Err(e) = remove_res {
-					error!("Error on indexed clean up: {e:#?}");
+					error!(?e, "Error on indexed clean up;");
 				}
 			})
 		})

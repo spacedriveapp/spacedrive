@@ -454,7 +454,7 @@ impl Indexer {
 		);
 
 		if !errors.is_empty() {
-			error!("Non critical errors while indexing: {errors:#?}");
+			error!(?errors, "Non critical errors while indexing;");
 			self.errors.extend(errors);
 		}
 
@@ -480,7 +480,7 @@ impl Indexer {
 			(keep_walking_tasks.len() + save_tasks.len() + update_tasks.len()) as u64;
 
 		debug!(
-			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{})",
+			"Dispatching more ({}W/{}S/{}U) tasks, completed ({}/{});",
 			keep_walking_tasks.len(),
 			save_tasks.len(),
 			update_tasks.len(),
@@ -519,7 +519,7 @@ impl Indexer {
 		.await;
 
 		debug!(
-			"Processed save task in the indexer ({}/{})",
+			"Processed save task in the indexer ({}/{});",
 			self.metadata.completed_tasks, self.metadata.total_tasks
 		);
 	}
@@ -543,7 +543,7 @@ impl Indexer {
 		.await;
 
 		debug!(
-			"Processed update task in the indexer ({}/{})",
+			"Processed update task in the indexer ({}/{});",
 			self.metadata.completed_tasks, self.metadata.total_tasks
 		);
 	}
@@ -856,7 +856,7 @@ impl Indexer {
 				}
 				save_tasks
 			} else {
-				trace!("Not enough entries to dispatch a new saver task");
+				trace!("Not enough entries to dispatch a new saver task;");
 				vec![]
 			};
 
@@ -883,7 +883,7 @@ impl Indexer {
 				}
 				update_tasks
 			} else {
-				trace!("Not enough entries to dispatch a new updater task");
+				trace!("Not enough entries to dispatch a new updater task;");
 				vec![]
 			};
 

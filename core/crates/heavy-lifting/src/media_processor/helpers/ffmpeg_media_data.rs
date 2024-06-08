@@ -190,7 +190,7 @@ async fn create_ffmpeg_data(
 				ffmpeg_data::metadata::set(
 					serde_json::to_vec(&metadata)
 						.map_err(|e| {
-							error!(?e, "Error reading FFmpegData metadata");
+							error!(?e, "Error reading FFmpegData metadata;");
 							e
 						})
 						.ok(),
@@ -234,7 +234,7 @@ async fn create_ffmpeg_chapters(
 						_params: vec![ffmpeg_media_chapter::metadata::set(
 							serde_json::to_vec(&metadata)
 								.map_err(|e| {
-									error!(?e, "Error reading FFmpegMediaChapter metadata");
+									error!(?e, "Error reading FFmpegMediaChapter metadata;");
 									e
 								})
 								.ok(),
@@ -271,7 +271,7 @@ async fn create_ffmpeg_programs(
 							ffmpeg_media_program::metadata::set(
 								serde_json::to_vec(&metadata)
 									.map_err(|e| {
-										error!(?e, "Error reading FFmpegMediaProgram metadata");
+										error!(?e, "Error reading FFmpegMediaProgram metadata;");
 										e
 									})
 									.ok(),
@@ -342,7 +342,7 @@ async fn create_ffmpeg_streams(
 								ffmpeg_media_stream::metadata::set(
 									serde_json::to_vec(&metadata)
 										.map_err(|e| {
-											error!(?e, "Error reading FFmpegMediaStream metadata");
+											error!(?e, "Error reading FFmpegMediaStream metadata;");
 											e
 										})
 										.ok(),

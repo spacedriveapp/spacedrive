@@ -180,7 +180,7 @@ impl Task<Error> for Identifier {
 						trace!(
 							files_remaining = file_paths_by_id.len(),
 							%file_path_pub_id,
-							"Processed file",
+							"Processed file;",
 						);
 
 						match res {
@@ -228,7 +228,7 @@ impl Task<Error> for Identifier {
 					}
 
 					StreamMessage::Interrupt(kind) => {
-						trace!(?kind, "Interrupted");
+						trace!(?kind, "Interrupted;");
 						output.extract_metadata_time += start_time.elapsed();
 						return Ok(match kind {
 							InterruptionKind::Pause => ExecStatus::Paused,
@@ -245,7 +245,7 @@ impl Task<Error> for Identifier {
 
 			trace!(
 				identified_files_count = identified_files.len(),
-				"All files have been processed, saving cas_ids to db..."
+				"All files have been processed, saving cas_ids to db...;"
 			);
 			let start_time = Instant::now();
 			// Assign cas_id to each file path
@@ -292,7 +292,7 @@ impl Task<Error> for Identifier {
 				},
 			);
 
-			trace!(save_db_time = ?output.save_db_time, "Cas_ids saved to db");
+			trace!(save_db_time = ?output.save_db_time, "Cas_ids saved to db;");
 		}
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
@@ -422,7 +422,7 @@ fn try_iso_file_path_extraction(
 	IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
 		.map_err(|e| {
-			error!(?e, "Failed to extract isolated file path data");
+			error!(?e, "Failed to extract isolated file path data;");
 			errors.push(
 				file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
 					"<file_path_pub_id='{file_path_pub_id}', error={e}>"

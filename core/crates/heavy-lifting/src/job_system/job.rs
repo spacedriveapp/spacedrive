@@ -276,7 +276,7 @@ impl JobOutput {
 
 			warn!(
 				non_critical_errors = ?report.non_critical_errors,
-				"Job completed with errors",
+				"Job completed with errors;",
 			);
 		}
 
@@ -480,7 +480,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 				trace!(
 					%next_job_report.id,
-					"Parent job sent command to children job",
+					"Parent job sent command to children job;",
 				);
 
 				next_job_report.update(self.ctx.db()).await
@@ -534,7 +534,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			.map(|(idx, next_job_report)| async move {
 				trace!(
 					%next_job_report.id,
-					"Parent job registering children ",
+					"Parent job registering children;",
 				);
 				if next_job_report.created_at.is_none() {
 					next_job_report
@@ -599,7 +599,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 			error!(
 				job_name = %report.name,
-				"Job failed with a critical error",
+				"Job failed with a critical error;",
 			);
 
 			report.status = Status::Failed;
@@ -637,7 +637,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 
 			debug!(
 				job_name = %report.name,
-				"Job canceled, we will cancel all children jobs",
+				"Job canceled, we will cancel all children jobs;",
 			);
 
 			report.status = Status::Canceled;
@@ -896,7 +896,7 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 					Command::Pause => {
 						trace!("Pausing job");
 						running_state_tx.send_modify(|state| *state = JobRunningState::Paused);
-						trace!(tasks_count = remote_controllers.len(), "pausing tasks");
+						trace!(tasks_count = remote_controllers.len(), "pausing tasks;");
 
 						remote_controllers
 							.iter()
@@ -944,7 +944,7 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 					Command::Cancel => {
 						trace!("Canceling job");
 						running_state_tx.send_modify(|state| *state = JobRunningState::Canceled);
-						trace!(tasks_count = remote_controllers.len(), "canceling tasks");
+						trace!(tasks_count = remote_controllers.len(), "canceling tasks;");
 
 						remote_controllers
 							.iter()
@@ -976,7 +976,7 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 						running_state_tx.send_modify(|state| *state = JobRunningState::Shutdown);
 						debug!(
 							tasks_count = remote_controllers.len(),
-							"shutting down tasks"
+							"shutting down tasks;"
 						);
 
 						commands_rx_to_close.close();

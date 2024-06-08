@@ -66,7 +66,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						let image_extension = ImageExtension::from_str(extension).map_err(|e| {
-							error!("Failed to parse image extension: {e:#?}");
+							error!(?e, "Failed to parse image extension;");
 							rspc::Error::new(
 								ErrorCode::BadRequest,
 								"Invalid image extension".to_string(),
@@ -93,7 +93,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Some(v) if v == ObjectKind::Audio || v == ObjectKind::Video => {
 						let ffmpeg_data = MediaData::FFmpeg(
 							FFmpegMetadata::from_path(full_path).await.map_err(|e| {
-								error!("{e:#?}");
+								error!(?e, "Failed to extract ffmpeg metadata;");
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									e.to_string(),
@@ -383,9 +383,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							fs::rename(&old_path, &new_path).await.map_err(|e| {
 								error!(
-									"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
-									old_path.display(),
-									new_path.display()
+									old_path = %old_path.display(),
+									new_path = %new_path.display(),
+									?e,
+									"Failed to rename file;",
 								);
 								let e = FileIOError::from((old_path, e, "Failed to rename file"));
 								rspc::Error::with_cause(ErrorCode::Conflict, e.to_string(), e)
@@ -492,7 +493,7 @@ impl EphemeralFileSystemOps {
 					let target = target_dir.join(name);
 					Some((source, target))
 				} else {
-					warn!("Skipping file with no name: '{}'", source.display());
+					warn!(source = %source.display(), "Skipping file with no name;");
 					None
 				}
 			})
@@ -614,7 +615,7 @@ impl EphemeralFileSystemOps {
 					let target = target_dir.join(name);
 					Some((source, target))
 				} else {
-					warn!("Skipping file with no name: '{}'", source.display());
+					warn!(source = %source.display(), "Skipping file with no name;");
 					None
 				}
 			})
