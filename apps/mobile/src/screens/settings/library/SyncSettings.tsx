@@ -107,7 +107,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 						<OnlineIndicator online={data[ACTORS.CloudIngest] ?? false} />
 					</Text>
 					<View>
-						{data[ACTORS.CloudReceive] ? (
+						{data[ACTORS.CloudIngest] ? (
 							<StopButton name={ACTORS.CloudIngest} />
 						) : (
 							<StartButton name={ACTORS.CloudIngest} />
