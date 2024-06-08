@@ -8,6 +8,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	str::FromStr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -172,6 +173,8 @@ pub async fn run_actor(
 							&collection.instance_uuid,
 							instance.identity,
 							&instance.node_id,
+							RemoteIdentity::from_str(&instance.node_remote_identity)
+								.expect("malformed remote identity in the DB"),
 							node.p2p.peer_metadata(),
 						)
 						.await
@@ -248,6 +251,7 @@ pub async fn upsert_instance(
 	uuid: &Uuid,
 	identity: RemoteIdentity,
 	node_id: &Uuid,
+	node_remote_identity: RemoteIdentity,
 	metadata: HashMap<String, String>,
 ) -> prisma_client_rust::Result<()> {
 	db.instance()
@@ -259,9 +263,14 @@ pub async fn upsert_instance(
 				node_id.as_bytes().to_vec(),
 				Utc::now().into(),
 				Utc::now().into(),
-				vec![instance::metadata::set(Some(
-					serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
-				))],
+				vec![
+					instance::node_remote_identity::set(Some(
+						node_remote_identity.get_bytes().to_vec(),
+					)),
+					instance::metadata::set(Some(
+						serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
+					)),
+				],
 			),
 			vec![],
 		)

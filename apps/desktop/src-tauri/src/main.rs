@@ -260,7 +260,7 @@ async fn main() -> tauri::Result<()> {
 
 					handle.windows().iter().for_each(|(_, window)| {
 						if should_clear_localstorage {
-							println!("bruh?");
+							println!("cleaning localStorage");
 							for webview in window.webviews() {
 								webview.eval("localStorage.clear();").ok();
 							}

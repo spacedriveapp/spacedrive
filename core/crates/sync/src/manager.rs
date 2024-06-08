@@ -246,7 +246,7 @@ impl Manager {
 	pub async fn get_cloud_ops(
 		&self,
 		args: GetOpsArgs,
-	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
+	) -> prisma_client_rust::Result<Vec<(i32, CRDTOperation)>> {
 		let db = &self.db;
 
 		macro_rules! db_args {

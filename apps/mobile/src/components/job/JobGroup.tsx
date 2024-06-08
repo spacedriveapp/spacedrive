@@ -131,14 +131,22 @@ export default function ({ group, progress }: JobGroupProps) {
 						</JobContainer>
 					</Pressable>
 					{showChildJobs && (
-						<AnimatedHeight style={tw`mb-4`}>
-							{jobs.map((job) => (
+						<AnimatedHeight>
+							{jobs.map((job, i) => (
+								<View style={tw`relative`} key={job.id}>
+									<View style={twStyle(`absolute bottom-0 left-9 top-0.5 w-px bg-app-button`, {
+										height: i === jobs.length - 1 ? 28 : '100%',
+									})}/>
+								<View
+									style={tw`top-7.5 absolute left-9 h-px w-4 bg-app-button`}
+								/>
 								<Job
+									containerStyle={tw`ml-5`}
 									isChild={jobs.length > 1}
-									key={job.id}
 									job={job}
 									progress={progress[job.id] ?? null}
 								/>
+								</View>
 							))}
 						</AnimatedHeight>
 					)}

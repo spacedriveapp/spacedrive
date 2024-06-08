@@ -31,7 +31,7 @@ pub enum Request {
 		timestamps: Vec<(Uuid, NTP64)>,
 		tx: oneshot::Sender<()>,
 	},
-	Ingested,
+	// Ingested,
 	FinishedIngesting,
 }
 
@@ -127,6 +127,10 @@ impl Actor {
 								.expect("sync ingest failed");
 						}
 					}
+				}
+
+				if let Some(tx) = event.wait_tx {
+					tx.send(()).ok();
 				}
 
 				match event.has_more {
@@ -421,7 +425,7 @@ impl Actor {
 
 		self.timestamps.write().await.insert(instance, new_ts);
 
-		self.io.req_tx.send(Request::Ingested).await.ok();
+		// self.io.req_tx.send(Request::Ingested).await.ok();
 
 		Ok(())
 	}
@@ -445,6 +449,7 @@ pub struct MessagesEvent {
 	pub instance_id: Uuid,
 	pub messages: CompressedCRDTOperations,
 	pub has_more: bool,
+	pub wait_tx: Option<oneshot::Sender<()>>,
 }
 
 impl ActorTypes for Actor {

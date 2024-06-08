@@ -1,7 +1,7 @@
 use crate::{
 	invalidate_query,
 	node::{
-		config::{NodeConfig, NodeConfigP2P, NodePreferences},
+		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -117,6 +117,7 @@ struct NodeState {
 	config: SanitisedNodeConfig,
 	data_path: String,
 	device_model: Option<String>,
+	is_in_docker: bool,
 }
 
 pub(crate) fn mount() -> Arc<Router> {
@@ -152,6 +153,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.expect("Found non-UTF-8 path")
 						.to_string(),
 					device_model: Some(device_model),
+					is_in_docker: is_in_docker(),
 				})
 			})
 		})

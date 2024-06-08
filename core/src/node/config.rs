@@ -8,6 +8,7 @@ use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
+	collections::HashSet,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
@@ -46,23 +47,23 @@ pub enum Port {
 
 impl Port {
 	pub fn get(&self) -> u16 {
+		if is_in_docker() {
+			return 7373;
+		}
+
 		match self {
 			Port::Random => 0,
 			Port::Discrete(port) => *port,
 		}
 	}
 
-	pub fn is_random(&self) -> bool {
+	pub fn is_default(&self) -> bool {
 		matches!(self, Port::Random)
 	}
 }
 
-fn default_as_true() -> bool {
-	true
-}
-
-fn skip_if_true(value: &bool) -> bool {
-	*value
+pub fn is_in_docker() -> bool {
+	std::env::var("SD_DOCKER").as_deref() == Ok("true")
 }
 
 fn skip_if_false(value: &bool) -> bool {
@@ -73,14 +74,26 @@ fn skip_if_false(value: &bool) -> bool {
 pub struct NodeConfigP2P {
 	#[serde(default)]
 	pub discovery: P2PDiscoveryState,
-	#[serde(default, skip_serializing_if = "Port::is_random")]
+	#[serde(default, skip_serializing_if = "Port::is_default")]
 	pub port: Port,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv4: bool,
-	#[serde(default = "default_as_true", skip_serializing_if = "skip_if_true")]
-	pub ipv6: bool,
 	#[serde(default, skip_serializing_if = "skip_if_false")]
-	pub remote_access: bool,
+	pub disabled: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub disable_ipv6: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub disable_relay: bool,
+	#[serde(default, skip_serializing_if = "skip_if_false")]
+	pub enable_remote_access: bool,
+	/// A list of peer addresses to try and manually connect to, instead of relying on discovery.
+	///
+	/// All of these are valid values:
+	///  - `localhost`
+	///  - `otbeaumont.me` or `otbeaumont.me:3000`
+	///  - `127.0.0.1` or `127.0.0.1:300`
+	///  - `[::1]` or `[::1]:3000`
+	/// which is why we use `String` not `SocketAddr`
+	#[serde(default)]
+	pub manual_peers: HashSet<String>,
 }
 
 impl Default for NodeConfigP2P {
@@ -88,9 +101,11 @@ impl Default for NodeConfigP2P {
 		Self {
 			discovery: P2PDiscoveryState::Everyone,
 			port: Port::Random,
-			ipv4: true,
-			ipv6: true,
-			remote_access: false,
+			disabled: true,
+			disable_ipv6: true,
+			disable_relay: true,
+			enable_remote_access: false,
+			manual_peers: Default::default(),
 		}
 	}
 }

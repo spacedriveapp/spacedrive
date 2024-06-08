@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::*;
-use uuid::Uuid;
 
 use super::P2PManager;
 
@@ -58,6 +57,7 @@ mod originator {
 		#[tokio::test]
 		async fn test() {
 			use sd_sync::CRDTOperation;
+			use uuid::Uuid;
 
 			{
 				let original = Operations(CompressedCRDTOperations::new(vec![]));
@@ -85,28 +85,31 @@ mod originator {
 
 	#[instrument(skip(sync, p2p))]
 	/// REMEMBER: This only syncs one direction!
-	pub async fn run(library_id: Uuid, sync: &Arc<sync::Manager>, p2p: &Arc<super::P2PManager>) {
-		for (remote_identity, peer) in p2p.get_library_instances(&library_id) {
+	pub async fn run(
+		library: Arc<Library>,
+		sync: &Arc<sync::Manager>,
+		p2p: &Arc<super::P2PManager>,
+	) {
+		for (remote_identity, peer) in p2p.get_library_instances(&library.id) {
 			if !peer.is_connected() {
 				continue;
 			};
 
 			let sync = sync.clone();
 
+			let library = library.clone();
 			tokio::spawn(async move {
 				debug!(
 					?remote_identity,
+					%library.id,
 					"Alerting peer of new sync events for library;"
 				);
 
 				let mut stream = peer.new_stream().await.unwrap();
 
-				stream
-					.write_all(&Header::Sync(library_id).to_bytes())
-					.await
-					.unwrap();
+				stream.write_all(&Header::Sync.to_bytes()).await.unwrap();
 
-				let mut tunnel = Tunnel::initiator(stream).await.unwrap();
+				let mut tunnel = Tunnel::initiator(stream, &library.identity).await.unwrap();
 
 				tunnel
 					.write_all(&SyncMessage::NewOperations.to_bytes())
@@ -222,7 +225,6 @@ mod responder {
 			let timestamps = match req {
 				Request::FinishedIngesting => break,
 				Request::Messages { timestamps, .. } => timestamps,
-				_ => continue,
 			};
 
 			debug!(?timestamps, "Getting ops for timestamps;");
@@ -241,15 +243,20 @@ mod responder {
 
 			let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
 
+			let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
+
 			ingest
 				.event_tx
 				.send(Event::Messages(MessagesEvent {
 					instance_id: library.sync.instance,
 					has_more: ops.len() == OPS_PER_REQUEST as usize,
 					messages: ops,
+					wait_tx: Some(wait_tx),
 				}))
 				.await
 				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+
+			wait_rx.await.unwrap()
 		}
 
 		debug!("Sync responder done");

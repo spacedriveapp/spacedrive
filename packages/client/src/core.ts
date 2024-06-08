@@ -169,11 +169,11 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type CasId = string
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_ipv4_enabled: boolean | null; p2p_ipv6_enabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null; image_labeler_version: string | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; metadata: { [key in string]: string } }
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeRemoteIdentity: string; metadata: { [key in string]: string } }
 
 export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
@@ -229,7 +229,7 @@ export type DefaultLocations = { desktop: boolean; documents: boolean; downloads
  * The method used for the discovery of this peer.
  * *Technically* you can have multiple under the hood but this simplifies things for the UX.
  */
-export type DiscoveryMethod = "Relay" | "Local"
+export type DiscoveryMethod = "Relay" | "Local" | "Manual"
 
 export type DiskType = "SSD" | "HDD" | "Removable"
 
@@ -418,7 +418,7 @@ instance_id: number;
  */
 cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion }
 
-export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10"
+export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10" | "V11"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
@@ -428,9 +428,9 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
-export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "Disabled" }
+export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "NotListening" }
 
-export type Listeners = { ipv4: ListenerState; ipv6: ListenerState }
+export type Listeners = { ipv4: ListenerState; ipv6: ListenerState; relay: ListenerState }
 
 export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
 
@@ -469,7 +469,18 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
-export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; ipv4: boolean; ipv6: boolean; remote_access: boolean }
+export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
+/**
+ * A list of peer addresses to try and manually connect to, instead of relying on discovery.
+ * 
+ * All of these are valid values:
+ * - `localhost`
+ * - `otbeaumont.me` or `otbeaumont.me:3000`
+ * - `127.0.0.1` or `127.0.0.1:300`
+ * - `[::1]` or `[::1]:3000`
+ * which is why we use `String` not `SocketAddr`
+ */
+manual_peers?: string[] }
 
 export type NodePreferences = Record<string, never>
 
@@ -481,7 +492,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
@@ -550,7 +561,7 @@ export type Orientation = "Normal" | "CW90" | "CW180" | "CW270" | "MirroredVerti
 
 export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
-export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
+export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata; addrs: string[] } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
 export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
 

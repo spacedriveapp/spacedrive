@@ -239,8 +239,6 @@ impl Node {
 				"info"
 			};
 
-			// let level = "debug"; // Exists for now to debug the location manager
-
 			std::env::set_var(
 				"RUST_LOG",
 				format!(
@@ -273,12 +271,20 @@ impl Node {
 			.init();
 
 		std::panic::set_hook(Box::new(move |panic| {
+			use std::backtrace::{Backtrace, BacktraceStatus};
+			let backtrace = Backtrace::capture();
 			if let Some(location) = panic.location() {
 				tracing::error!(
 					message = %panic,
 					panic.file = format!("{}:{}", location.file(), location.line()),
 					panic.column = location.column(),
 				);
+				if backtrace.status() == BacktraceStatus::Captured {
+					// NOTE(matheus-consoli): it seems that `tauri` is messing up the stack-trace
+					// and it doesn't capture anything, even when `RUST_BACKTRACE=full`,
+					// so in the current architecture, this is emitting an empty event.
+					tracing::error!(message = %backtrace);
+				}
 			} else {
 				tracing::error!(message = %panic);
 			}

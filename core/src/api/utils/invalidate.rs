@@ -55,7 +55,6 @@ impl InvalidateOperationEvent {
 
 /// a request to invalidate a specific resource
 #[derive(Debug)]
-#[allow(dead_code)]
 pub(crate) struct InvalidationRequest {
 	pub key: &'static str,
 	pub arg_ty: Option<DataType>,
@@ -65,13 +64,11 @@ pub(crate) struct InvalidationRequest {
 
 /// invalidation request for a specific resource
 #[derive(Debug, Default)]
-#[allow(dead_code)]
 pub(crate) struct InvalidRequests {
 	pub queries: Vec<InvalidationRequest>,
 }
 
 impl InvalidRequests {
-	#[allow(unused)]
 	const fn new() -> Self {
 		Self {
 			queries: Vec::new(),

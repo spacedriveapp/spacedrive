@@ -9,11 +9,11 @@ use flume::Sender;
 use hash_map_diff::hash_map_diff;
 use libp2p::futures::future::join_all;
 use stable_vec::StableVec;
-use tokio::{sync::oneshot, time::timeout};
+use tokio::time::timeout;
 use tracing::info;
 
 use crate::{
-	hooks::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
+	hook::{HandlerFn, Hook, HookEvent, ListenerData, ListenerId, ShutdownGuard},
 	smart_guards::SmartWriteGuard,
 	HookId, Identity, Peer, PeerConnectionCandidate, RemoteIdentity, UnicastStream,
 };
@@ -134,11 +134,12 @@ impl P2P {
 			})
 			.clone();
 
-		{
-			let mut state: std::sync::RwLockWriteGuard<'_, crate::peer::State> =
-				peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.discovered.insert(hook_id, addrs.clone());
-		}
+		let addrs = {
+			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
+			let a = state.discovered.entry(hook_id).or_default();
+			a.extend(addrs);
+			a.clone()
+		};
 
 		peer.metadata_mut().extend(metadata);
 
@@ -162,14 +163,25 @@ impl P2P {
 		peer
 	}
 
-	pub fn connected_to(
+	pub fn connected_to_incoming(
 		self: Arc<Self>,
 		listener: ListenerId,
 		metadata: HashMap<String, String>,
 		stream: UnicastStream,
-		shutdown_tx: oneshot::Sender<()>,
 	) -> Arc<Peer> {
-		let identity = stream.remote_identity();
+		let peer = self
+			.clone()
+			.connected_to_outgoing(listener, metadata, stream.remote_identity());
+		let _ = self.handler_tx.send(stream);
+		peer
+	}
+
+	pub fn connected_to_outgoing(
+		self: Arc<Self>,
+		listener: ListenerId,
+		metadata: HashMap<String, String>,
+		identity: RemoteIdentity,
+	) -> Arc<Peer> {
 		let mut peers = self.peers.write().unwrap_or_else(PoisonError::into_inner);
 		let peer = peers.entry(identity);
 		let was_peer_inserted = matches!(peer, Entry::Vacant(_));
@@ -182,7 +194,7 @@ impl P2P {
 
 		{
 			let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-			state.active_connections.insert(listener, shutdown_tx);
+			state.active_connections.insert(listener);
 		}
 
 		peer.metadata_mut().extend(metadata);
@@ -200,8 +212,6 @@ impl P2P {
 				hook.send(HookEvent::PeerConnectedWith(listener, peer.clone()))
 			});
 		}
-
-		let _ = self.handler_tx.send(stream);
 
 		peer
 	}
@@ -332,13 +342,20 @@ impl P2P {
 				let mut peers_to_remove = HashSet::new(); // We are mutate while iterating
 				for (identity, peer) in peers.iter_mut() {
 					let mut state = peer.state.write().unwrap_or_else(PoisonError::into_inner);
-					if let Some(active_connection) =
-						state.active_connections.remove(&ListenerId(id.0))
-					{
-						let _ = active_connection.send(());
+					if state.active_connections.remove(&ListenerId(id.0)) {
+						hooks.iter().for_each(|(_, hook)| {
+							hook.send(HookEvent::PeerDisconnectedWith(
+								ListenerId(id.0),
+								peer.identity(),
+							));
+						});
 					}
 					state.connection_methods.remove(&ListenerId(id.0));
 					state.discovered.remove(&id);
+
+					hooks.iter().for_each(|(_, hook)| {
+						hook.send(HookEvent::PeerExpiredBy(id, peer.identity()));
+					});
 
 					if state.connection_methods.is_empty() && state.discovered.is_empty() {
 						peers_to_remove.insert(*identity);
