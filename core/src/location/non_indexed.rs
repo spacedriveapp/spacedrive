@@ -10,7 +10,7 @@ use sd_core_heavy_lifting::{
 };
 use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
-	IndexerRule, RuleKind,
+	IndexerRule, IndexerRuler, RulerDecision,
 };
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
@@ -32,7 +32,7 @@ use rspc::ErrorCode;
 use serde::Serialize;
 use specta::Type;
 use thiserror::Error;
-use tokio::{io, sync::mpsc, task::JoinError};
+use tokio::{io, spawn, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{debug, error, span, warn, Level};
 
@@ -120,12 +120,12 @@ pub async fn walk(
 	let tx2 = tx.clone();
 
 	// We wanna process and let the caller use the stream.
-	let task = tokio::spawn(async move {
+	let task = spawn(async move {
 		let path = &path;
-		let rules = chain_optional_iter(
+		let indexer_ruler = IndexerRuler::new(chain_optional_iter(
 			[IndexerRule::from(NO_SYSTEM_FILES.deref())],
 			[(!with_hidden_files).then(|| IndexerRule::from(NO_HIDDEN.deref()))],
-		);
+		));
 
 		let mut thumbnails_to_generate = vec![];
 		// Generating thumbnails for PDFs is kinda slow, so we're leaving them for last in the batch
@@ -144,21 +144,21 @@ pub async fn walk(
 				}
 			};
 
-			match IndexerRule::apply_all(&rules, &entry_path).await {
-				Ok(rule_results) => {
-					// No OS Protected and No Hidden rules, must always be from this kind, should panic otherwise
-					if rule_results[&RuleKind::RejectFilesByGlob]
-						.iter()
-						.any(|reject| !reject)
-					{
-						continue;
-					}
+			match indexer_ruler
+				.evaluate_path(&entry_path, &entry.metadata)
+				.await
+			{
+				Ok(RulerDecision::Accept) => { /* Everything is awesome! */ }
+
+				Ok(RulerDecision::Reject) => {
+					continue;
 				}
+
 				Err(e) => {
 					tx.send(Err(Either::Left(e.into()))).await?;
 					continue;
 				}
-			};
+			}
 
 			if entry.metadata.is_dir() {
 				directories.push((entry_path, name, entry.metadata));
@@ -332,7 +332,7 @@ pub async fn walk(
 		Ok::<_, NonIndexedLocationError>(())
 	});
 
-	tokio::spawn(async move {
+	spawn(async move {
 		match task.await {
 			Ok(Ok(())) => {}
 			Ok(Err(e)) => {

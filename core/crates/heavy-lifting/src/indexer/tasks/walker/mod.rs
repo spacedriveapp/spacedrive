@@ -17,7 +17,10 @@ use sd_prisma::prisma::file_path;
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, Task, TaskId,
 };
-use sd_utils::{db::inode_from_db, error::FileIOError};
+use sd_utils::{
+	db::{inode_from_db, inode_to_db},
+	error::FileIOError,
+};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -62,6 +65,7 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths_to_remove(
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
+		existing_inodes: HashSet<Vec<u8>>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
 	) -> impl Future<
 		Output = Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError>,
@@ -647,6 +651,8 @@ async fn gather_file_paths_to_remove(
 	db_proxy: &impl WalkerDBProxy,
 	errors: &mut Vec<NonCriticalError>,
 ) -> (Vec<WalkingEntry>, Vec<file_path_pub_and_cas_ids::Data>) {
+	let mut existing_inodes = HashSet::new();
+
 	let (walking, to_delete_params) = accepted_paths
 		.drain()
 		.filter_map(|(path, metadata)| {
@@ -654,6 +660,7 @@ async fn gather_file_paths_to_remove(
 				.build(&path, metadata.is_dir())
 				.map(|iso_file_path| {
 					let params = file_path::WhereParam::from(&iso_file_path);
+					existing_inodes.insert(inode_to_db(metadata.inode));
 
 					(
 						WalkingEntry {
@@ -675,7 +682,7 @@ async fn gather_file_paths_to_remove(
 	// the DB will have old `file_path`s but at least this is better than
 	// don't adding the newly indexed paths
 	let to_remove_entries = db_proxy
-		.fetch_file_paths_to_remove(entry_iso_file_path, to_delete_params)
+		.fetch_file_paths_to_remove(entry_iso_file_path, existing_inodes, to_delete_params)
 		.await
 		.map_err(|e| errors.push(e.into()))
 		.unwrap_or_default();
@@ -729,6 +736,7 @@ mod tests {
 		async fn fetch_file_paths_to_remove(
 			&self,
 			_: &IsolatedFilePathData<'_>,
+			_: HashSet<Vec<u8>>,
 			_: Vec<file_path::WhereParam>,
 		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError> {
 			Ok(vec![])

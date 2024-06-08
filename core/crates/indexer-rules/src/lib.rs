@@ -52,14 +52,14 @@ use rspc::ErrorCode;
 use specta::Type;
 use thiserror::Error;
 use tokio::fs;
-use tracing::debug;
+use tracing::{debug, instrument, trace};
 use uuid::Uuid;
 
 pub mod seed;
 mod serde_impl;
 
 #[derive(Error, Debug)]
-pub enum IndexerRuleError {
+pub enum Error {
 	// User errors
 	#[error("invalid indexer rule kind integer: {0}")]
 	InvalidRuleKindInt(i32),
@@ -83,12 +83,10 @@ pub enum IndexerRuleError {
 	MissingField(#[from] MissingFieldError),
 }
 
-impl From<IndexerRuleError> for rspc::Error {
-	fn from(err: IndexerRuleError) -> Self {
+impl From<Error> for rspc::Error {
+	fn from(err: Error) -> Self {
 		match err {
-			IndexerRuleError::InvalidRuleKindInt(_)
-			| IndexerRuleError::Glob(_)
-			| IndexerRuleError::NonUtf8Path(_) => {
+			Error::InvalidRuleKindInt(_) | Error::Glob(_) | Error::NonUtf8Path(_) => {
 				Self::with_cause(ErrorCode::BadRequest, err.to_string(), err)
 			}
 
@@ -113,10 +111,7 @@ pub struct IndexerRuleCreateArgs {
 }
 
 impl IndexerRuleCreateArgs {
-	pub async fn create(
-		self,
-		db: &PrismaClient,
-	) -> Result<Option<indexer_rule::Data>, IndexerRuleError> {
+	pub async fn create(self, db: &PrismaClient) -> Result<Option<indexer_rule::Data>, Error> {
 		use indexer_rule::{date_created, date_modified, name, rules_per_kind};
 
 		debug!(
@@ -224,7 +219,7 @@ impl RulePerKind {
 	fn new_files_by_globs_str_and_kind(
 		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
 		kind_fn: impl Fn(Vec<Glob>, GlobSet) -> Self,
-	) -> Result<Self, IndexerRuleError> {
+	) -> Result<Self, Error> {
 		globs_str
 			.into_iter()
 			.map(|s| s.as_ref().parse::<Glob>())
@@ -245,13 +240,13 @@ impl RulePerKind {
 
 	pub fn new_accept_files_by_globs_str(
 		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
-	) -> Result<Self, IndexerRuleError> {
+	) -> Result<Self, Error> {
 		Self::new_files_by_globs_str_and_kind(globs_str, Self::AcceptFilesByGlob)
 	}
 
 	pub fn new_reject_files_by_globs_str(
 		globs_str: impl IntoIterator<Item = impl AsRef<str>>,
-	) -> Result<Self, IndexerRuleError> {
+	) -> Result<Self, Error> {
 		Self::new_files_by_globs_str_and_kind(globs_str, Self::RejectFilesByGlob)
 	}
 }
@@ -267,51 +262,19 @@ impl MetadataForIndexerRules for Metadata {
 }
 
 impl RulePerKind {
-	#[deprecated = "Use `[apply_with_metadata]` instead"]
 	async fn apply(
 		&self,
 		source: impl AsRef<Path> + Send,
-	) -> Result<(RuleKind, bool), IndexerRuleError> {
-		match self {
-			Self::AcceptIfChildrenDirectoriesArePresent(children) => {
-				accept_dir_for_its_children(source, children)
-					.await
-					.map(|accepted| (RuleKind::AcceptIfChildrenDirectoriesArePresent, accepted))
-			}
-			Self::RejectIfChildrenDirectoriesArePresent(children) => {
-				reject_dir_for_its_children(source, children)
-					.await
-					.map(|rejected| (RuleKind::RejectIfChildrenDirectoriesArePresent, rejected))
-			}
-
-			Self::AcceptFilesByGlob(_globs, accept_glob_set) => Ok((
-				RuleKind::AcceptFilesByGlob,
-				accept_by_glob(source, accept_glob_set),
-			)),
-			Self::RejectFilesByGlob(_globs, reject_glob_set) => Ok((
-				RuleKind::RejectFilesByGlob,
-				reject_by_glob(source, reject_glob_set),
-			)),
-			Self::IgnoredByGit(git_repo, patterns) => Ok((
-				RuleKind::IgnoredByGit,
-				accept_by_git_pattern(source.as_ref(), git_repo, patterns),
-			)),
-		}
-	}
-
-	async fn apply_with_metadata(
-		&self,
-		source: impl AsRef<Path> + Send,
 		metadata: &impl MetadataForIndexerRules,
-	) -> Result<(RuleKind, bool), IndexerRuleError> {
+	) -> Result<(RuleKind, bool), Error> {
 		match self {
 			Self::AcceptIfChildrenDirectoriesArePresent(children) => {
-				accept_dir_for_its_children_with_metadata(source, metadata, children)
+				accept_dir_for_its_children(source, metadata, children)
 					.await
 					.map(|accepted| (RuleKind::AcceptIfChildrenDirectoriesArePresent, accepted))
 			}
 			Self::RejectIfChildrenDirectoriesArePresent(children) => {
-				reject_dir_for_its_children_with_metadata(source, metadata, children)
+				reject_dir_for_its_children(source, metadata, children)
 					.await
 					.map(|rejected| (RuleKind::RejectIfChildrenDirectoriesArePresent, rejected))
 			}
@@ -326,24 +289,32 @@ impl RulePerKind {
 			)),
 			Self::IgnoredByGit(base_dir, patterns) => Ok((
 				RuleKind::IgnoredByGit,
-				accept_by_git_pattern(source.as_ref(), base_dir, patterns),
+				accept_by_git_pattern(source, base_dir, patterns),
 			)),
 		}
 	}
 }
 
-fn accept_by_git_pattern(source: &Path, base_dir: &Path, search: &Search) -> bool {
-	let relative = source
-		.strip_prefix(base_dir)
-		.expect("`base_dir` should be our git repo, and `source` should be inside of it");
+fn accept_by_git_pattern(
+	source: impl AsRef<Path>,
+	base_dir: impl AsRef<Path>,
+	search: &Search,
+) -> bool {
+	fn inner(source: &Path, base_dir: &Path, search: &Search) -> bool {
+		let relative = source
+			.strip_prefix(base_dir)
+			.expect("`base_dir` should be our git repo, and `source` should be inside of it");
 
-	let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
-		return false;
-	};
+		let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
+			return false;
+		};
 
-	search
-		.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
-		.map_or(true, |rule| rule.pattern.is_negative())
+		search
+			.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
+			.map_or(true, |rule| rule.pattern.is_negative())
+	}
+
+	inner(source.as_ref(), base_dir.as_ref(), search)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -357,32 +328,19 @@ pub struct IndexerRule {
 }
 
 impl IndexerRule {
-	#[deprecated = "Use `[apply_with_metadata]` instead"]
 	pub async fn apply(
 		&self,
 		source: impl AsRef<Path> + Send,
-	) -> Result<Vec<(RuleKind, bool)>, IndexerRuleError> {
-		self.rules
-			.iter()
-			.map(|rule| rule.apply(source.as_ref()))
-			.collect::<Vec<_>>()
-			.try_join()
-			.await
-	}
-
-	pub async fn apply_with_metadata(
-		&self,
-		source: impl AsRef<Path> + Send,
 		metadata: &impl MetadataForIndexerRules,
-	) -> Result<Vec<(RuleKind, bool)>, IndexerRuleError> {
+	) -> Result<Vec<(RuleKind, bool)>, Error> {
 		async fn inner(
 			rules: &[RulePerKind],
 			source: &Path,
 			metadata: &impl MetadataForIndexerRules,
-		) -> Result<Vec<(RuleKind, bool)>, IndexerRuleError> {
+		) -> Result<Vec<(RuleKind, bool)>, Error> {
 			rules
 				.iter()
-				.map(|rule| rule.apply_with_metadata(source, metadata))
+				.map(|rule| rule.apply(source, metadata))
 				.collect::<Vec<_>>()
 				.try_join()
 				.await
@@ -390,28 +348,12 @@ impl IndexerRule {
 
 		inner(&self.rules, source.as_ref(), metadata).await
 	}
+}
 
-	#[deprecated = "Use `[IndexerRuler::apply_all]` instead"]
-	pub async fn apply_all(
-		rules: &[Self],
-		source: impl AsRef<Path> + Send,
-	) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
-		rules
-			.iter()
-			.map(|rule| rule.apply(source.as_ref()))
-			.collect::<Vec<_>>()
-			.try_join()
-			.await
-			.map(|results| {
-				results.into_iter().flatten().fold(
-					HashMap::<_, Vec<_>>::with_capacity(RuleKind::variant_count()),
-					|mut map, (kind, result)| {
-						map.entry(kind).or_default().push(result);
-						map
-					},
-				)
-			})
-	}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RulerDecision {
+	Accept,
+	Reject,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -439,20 +381,46 @@ impl IndexerRuler {
 		}
 	}
 
+	pub async fn evaluate_path(
+		&self,
+		source: impl AsRef<Path> + Send,
+		metadata: &impl MetadataForIndexerRules,
+	) -> Result<RulerDecision, Error> {
+		async fn inner(
+			this: &IndexerRuler,
+			source: &Path,
+			metadata: &impl MetadataForIndexerRules,
+		) -> Result<RulerDecision, Error> {
+			Ok(
+				if IndexerRuler::reject_path(
+					source,
+					metadata.is_dir(),
+					&this.apply_all(source, metadata).await?,
+				) {
+					RulerDecision::Reject
+				} else {
+					RulerDecision::Accept
+				},
+			)
+		}
+
+		inner(self, source.as_ref(), metadata).await
+	}
+
 	pub async fn apply_all(
 		&self,
 		source: impl AsRef<Path> + Send,
 		metadata: &impl MetadataForIndexerRules,
-	) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
+	) -> Result<HashMap<RuleKind, Vec<bool>>, Error> {
 		async fn inner(
 			base: &[IndexerRule],
 			extra: &[IndexerRule],
 			source: &Path,
 			metadata: &impl MetadataForIndexerRules,
-		) -> Result<HashMap<RuleKind, Vec<bool>>, IndexerRuleError> {
+		) -> Result<HashMap<RuleKind, Vec<bool>>, Error> {
 			base.iter()
 				.chain(extra.iter())
-				.map(|rule| rule.apply_with_metadata(source, metadata))
+				.map(|rule| rule.apply(source, metadata))
 				.collect::<Vec<_>>()
 				.try_join()
 				.await
@@ -482,10 +450,84 @@ impl IndexerRuler {
 			.chain(self.extra.iter())
 			.any(|inner_rule| rule == inner_rule)
 	}
+
+	#[instrument(skip_all, fields(current_path = %current_path.display()))]
+	fn reject_path(
+		current_path: &Path,
+		is_dir: bool,
+		acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
+	) -> bool {
+		Self::rejected_by_reject_glob(acceptance_per_rule_kind)
+			|| Self::rejected_by_git_ignore(acceptance_per_rule_kind)
+			|| (is_dir && Self::rejected_by_children_directories(acceptance_per_rule_kind))
+			|| Self::rejected_by_accept_glob(acceptance_per_rule_kind)
+	}
+
+	pub fn rejected_by_accept_glob(
+		acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
+	) -> bool {
+		let res = acceptance_per_rule_kind
+			.get(&RuleKind::AcceptFilesByGlob)
+			.map_or(false, |accept_rules| {
+				accept_rules.iter().all(|accept| !accept)
+			});
+
+		if res {
+			trace!("Reject because it didn't passed in any `RuleKind::AcceptFilesByGlob` rules");
+		}
+
+		res
+	}
+
+	pub fn rejected_by_children_directories(
+		acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
+	) -> bool {
+		let res = acceptance_per_rule_kind
+			.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
+			.map_or(false, |reject_results| {
+				reject_results.iter().any(|reject| !reject)
+			});
+
+		if res {
+			trace!("Rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`");
+		}
+
+		res
+	}
+
+	pub fn rejected_by_reject_glob(
+		acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
+	) -> bool {
+		let res = acceptance_per_rule_kind
+			.get(&RuleKind::RejectFilesByGlob)
+			.map_or(false, |reject_results| {
+				reject_results.iter().any(|reject| !reject)
+			});
+
+		if res {
+			trace!("Rejected by `RuleKind::RejectFilesByGlob`");
+		}
+
+		res
+	}
+
+	pub fn rejected_by_git_ignore(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
+		let res = acceptance_per_rule_kind
+			.get(&RuleKind::IgnoredByGit)
+			.map_or(false, |reject_results| {
+				reject_results.iter().any(|reject| !reject)
+			});
+
+		if res {
+			trace!("Rejected by `RuleKind::IgnoredByGit`");
+		}
+
+		res
+	}
 }
 
 impl TryFrom<&indexer_rule::Data> for IndexerRule {
-	type Error = IndexerRuleError;
+	type Error = Error;
 
 	fn try_from(data: &indexer_rule::Data) -> Result<Self, Self::Error> {
 		Ok(Self {
@@ -503,7 +545,7 @@ impl TryFrom<&indexer_rule::Data> for IndexerRule {
 }
 
 impl TryFrom<indexer_rule::Data> for IndexerRule {
-	type Error = IndexerRuleError;
+	type Error = Error;
 
 	fn try_from(data: indexer_rule::Data) -> Result<Self, Self::Error> {
 		Self::try_from(&data)
@@ -518,140 +560,56 @@ fn reject_by_glob(source: impl AsRef<Path>, reject_glob_set: &GlobSet) -> bool {
 	!accept_by_glob(source.as_ref(), reject_glob_set)
 }
 
-#[deprecated = "Use `[accept_dir_for_its_children_with_metadata]` instead"]
 async fn accept_dir_for_its_children(
 	source: impl AsRef<Path> + Send,
-	children: &HashSet<String>,
-) -> Result<bool, IndexerRuleError> {
-	let source = source.as_ref();
-
-	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
-	if !fs::metadata(source)
-		.await
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
-		.is_dir()
-	{
-		return Ok(false);
-	}
-
-	let mut read_dir = fs::read_dir(source)
-		.await // TODO: Check NotADirectory error here when available
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?;
-	while let Some(entry) = read_dir
-		.next_entry()
-		.await
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
-	{
-		let entry_name = entry
-			.file_name()
-			.to_str()
-			.ok_or_else(|| NonUtf8PathError(entry.path().into()))?
-			.to_string();
-
-		if entry
-			.metadata()
-			.await
-			.map_err(|e| {
-				IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e)))
-			})?
-			.is_dir() && children.contains(&entry_name)
-		{
-			return Ok(true);
-		}
-	}
-
-	Ok(false)
-}
-
-async fn accept_dir_for_its_children_with_metadata(
-	source: impl AsRef<Path> + Send,
 	metadata: &impl MetadataForIndexerRules,
 	children: &HashSet<String>,
-) -> Result<bool, IndexerRuleError> {
-	let source = source.as_ref();
-
-	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
-	if !metadata.is_dir() {
-		return Ok(false);
-	}
-
-	let mut read_dir = fs::read_dir(source)
-		.await // TODO: Check NotADirectory error here when available
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?;
-	while let Some(entry) = read_dir
-		.next_entry()
-		.await
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
-	{
-		let entry_name = entry
-			.file_name()
-			.to_str()
-			.ok_or_else(|| NonUtf8PathError(entry.path().into()))?
-			.to_string();
-
-		if entry
-			.metadata()
-			.await
-			.map_err(|e| {
-				IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e)))
-			})?
-			.is_dir() && children.contains(&entry_name)
-		{
-			return Ok(true);
-		}
-	}
-
-	Ok(false)
-}
-
-#[deprecated = "Use `[reject_dir_for_its_children_with_metadata]` instead"]
-async fn reject_dir_for_its_children(
-	source: impl AsRef<Path> + Send,
-	children: &HashSet<String>,
-) -> Result<bool, IndexerRuleError> {
-	let source = source.as_ref();
-
-	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
-	if !fs::metadata(source)
-		.await
-		.map_err(|e| IndexerRuleError::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
-		.is_dir()
-	{
-		return Ok(true);
-	}
-
-	let mut read_dir = fs::read_dir(source)
-		.await // TODO: Check NotADirectory error here when available
-		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?;
-	while let Some(entry) = read_dir
-		.next_entry()
-		.await
-		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?
-	{
-		if entry
-			.metadata()
-			.await
-			.map_err(|e| {
-				IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e)))
-			})?
-			.is_dir() && children.contains(
-			entry
-				.file_name()
-				.to_str()
-				.ok_or_else(|| NonUtf8PathError(entry.path().into()))?,
-		) {
+) -> Result<bool, Error> {
+	async fn inner(
+		source: &Path,
+		metadata: &impl MetadataForIndexerRules,
+		children: &HashSet<String>,
+	) -> Result<bool, Error> {
+		// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
+		if !metadata.is_dir() {
 			return Ok(false);
 		}
+
+		let mut read_dir = fs::read_dir(source)
+			.await // TODO: Check NotADirectory error here when available
+			.map_err(|e| Error::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?;
+		while let Some(entry) = read_dir
+			.next_entry()
+			.await
+			.map_err(|e| Error::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
+		{
+			let entry_name = entry
+				.file_name()
+				.to_str()
+				.ok_or_else(|| NonUtf8PathError(entry.path().into()))?
+				.to_string();
+
+			if entry
+				.metadata()
+				.await
+				.map_err(|e| Error::AcceptByItsChildrenFileIO(FileIOError::from((source, e))))?
+				.is_dir() && children.contains(&entry_name)
+			{
+				return Ok(true);
+			}
+		}
+
+		Ok(false)
 	}
 
-	Ok(true)
+	inner(source.as_ref(), metadata, children).await
 }
 
-async fn reject_dir_for_its_children_with_metadata(
+async fn reject_dir_for_its_children(
 	source: impl AsRef<Path> + Send,
 	metadata: &impl MetadataForIndexerRules,
 	children: &HashSet<String>,
-) -> Result<bool, IndexerRuleError> {
+) -> Result<bool, Error> {
 	let source = source.as_ref();
 
 	// FIXME(fogodev): Just check for io::ErrorKind::NotADirectory error instead (feature = "io_error_more", issue = "86442")
@@ -661,18 +619,16 @@ async fn reject_dir_for_its_children_with_metadata(
 
 	let mut read_dir = fs::read_dir(source)
 		.await // TODO: Check NotADirectory error here when available
-		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?;
+		.map_err(|e| Error::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?;
 	while let Some(entry) = read_dir
 		.next_entry()
 		.await
-		.map_err(|e| IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?
+		.map_err(|e| Error::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?
 	{
 		if entry
 			.metadata()
 			.await
-			.map_err(|e| {
-				IndexerRuleError::RejectByItsChildrenFileIO(FileIOError::from((source, e)))
-			})?
+			.map_err(|e| Error::RejectByItsChildrenFileIO(FileIOError::from((source, e))))?
 			.is_dir() && children.contains(
 			entry
 				.file_name()
@@ -716,9 +672,37 @@ mod tests {
 		}
 	}
 
-	async fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path> + Send) -> bool {
+	fn check_rule(indexer_rule: &IndexerRule, path: impl AsRef<Path>) -> bool {
+		let path = path.as_ref();
 		indexer_rule
-			.apply(path)
+			.rules
+			.iter()
+			.map(|rule| match rule {
+				RulePerKind::AcceptFilesByGlob(_globs, accept_glob_set) => (
+					RuleKind::AcceptFilesByGlob,
+					accept_by_glob(path, accept_glob_set),
+				),
+				RulePerKind::RejectFilesByGlob(_globs, reject_glob_set) => (
+					RuleKind::RejectFilesByGlob,
+					reject_by_glob(path, reject_glob_set),
+				),
+				RulePerKind::IgnoredByGit(git_repo, patterns) => (
+					RuleKind::IgnoredByGit,
+					accept_by_git_pattern(path, git_repo, patterns),
+				),
+
+				_ => unimplemented!("can't use simple `apply` for this rule: {:?}", rule),
+			})
+			.all(|(_kind, res)| res)
+	}
+
+	async fn check_rule_with_metadata(
+		indexer_rule: &IndexerRule,
+		path: impl AsRef<Path> + Send,
+		metadata: &impl MetadataForIndexerRules,
+	) -> bool {
+		indexer_rule
+			.apply(path.as_ref(), metadata)
 			.await
 			.unwrap()
 			.into_iter()
@@ -745,12 +729,12 @@ mod tests {
 			)],
 		);
 
-		assert!(!check_rule(&rule, hidden).await);
-		assert!(check_rule(&rule, normal).await);
-		assert!(!check_rule(&rule, hidden_inner_dir).await);
-		assert!(!check_rule(&rule, hidden_inner_file).await);
-		assert!(check_rule(&rule, normal_inner_dir).await);
-		assert!(check_rule(&rule, normal_inner_file).await);
+		assert!(!check_rule(&rule, hidden));
+		assert!(check_rule(&rule, normal));
+		assert!(!check_rule(&rule, hidden_inner_dir));
+		assert!(!check_rule(&rule, hidden_inner_file));
+		assert!(check_rule(&rule, normal_inner_dir));
+		assert!(check_rule(&rule, normal_inner_file));
 	}
 
 	#[tokio::test]
@@ -771,9 +755,9 @@ mod tests {
 			)],
 		);
 
-		assert!(check_rule(&rule, project_file).await);
-		assert!(!check_rule(&rule, project_build_dir).await);
-		assert!(!check_rule(&rule, project_build_dir_inner).await);
+		assert!(check_rule(&rule, project_file));
+		assert!(!check_rule(&rule, project_build_dir));
+		assert!(!check_rule(&rule, project_build_dir_inner));
 	}
 
 	#[tokio::test]
@@ -801,16 +785,16 @@ mod tests {
 			)],
 		);
 
-		assert!(!check_rule(&rule, text).await);
-		assert!(check_rule(&rule, png).await);
-		assert!(check_rule(&rule, jpg).await);
-		assert!(check_rule(&rule, jpeg).await);
-		assert!(!check_rule(&rule, inner_text).await);
-		assert!(check_rule(&rule, inner_png).await);
-		assert!(check_rule(&rule, inner_jpg).await);
-		assert!(check_rule(&rule, inner_jpeg).await);
-		assert!(!check_rule(&rule, many_inner_dirs_text).await);
-		assert!(check_rule(&rule, many_inner_dirs_png).await);
+		assert!(!check_rule(&rule, text));
+		assert!(check_rule(&rule, png));
+		assert!(check_rule(&rule, jpg));
+		assert!(check_rule(&rule, jpeg));
+		assert!(!check_rule(&rule, inner_text));
+		assert!(check_rule(&rule, inner_png));
+		assert!(check_rule(&rule, inner_jpg));
+		assert!(check_rule(&rule, inner_jpeg));
+		assert!(!check_rule(&rule, many_inner_dirs_text));
+		assert!(check_rule(&rule, many_inner_dirs_png));
 	}
 
 	#[tokio::test]
@@ -839,9 +823,22 @@ mod tests {
 			)],
 		);
 
-		assert!(check_rule(&rule, project1).await);
-		assert!(check_rule(&rule, project2).await);
-		assert!(!check_rule(&rule, not_project).await);
+		assert!(
+			!check_rule_with_metadata(&rule, &project1, &fs::metadata(&project1).await.unwrap())
+				.await
+		);
+		assert!(
+			!check_rule_with_metadata(&rule, &project2, &fs::metadata(&project2).await.unwrap())
+				.await
+		);
+		assert!(
+			check_rule_with_metadata(
+				&rule,
+				&not_project,
+				&fs::metadata(&not_project).await.unwrap()
+			)
+			.await
+		);
 	}
 
 	#[tokio::test]
@@ -870,9 +867,22 @@ mod tests {
 			)],
 		);
 
-		assert!(!check_rule(&rule, project1).await);
-		assert!(!check_rule(&rule, project2).await);
-		assert!(check_rule(&rule, not_project).await);
+		assert!(
+			!check_rule_with_metadata(&rule, &project1, &fs::metadata(&project1).await.unwrap())
+				.await
+		);
+		assert!(
+			!check_rule_with_metadata(&rule, &project2, &fs::metadata(&project2).await.unwrap())
+				.await
+		);
+		assert!(
+			check_rule_with_metadata(
+				&rule,
+				&not_project,
+				&fs::metadata(&not_project).await.unwrap()
+			)
+			.await
+		);
 	}
 
 	impl PartialEq for RulePerKind {

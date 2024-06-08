@@ -6,16 +6,15 @@ use chrono::Utc;
 use futures_concurrency::future::Join;
 use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
 use once_cell::sync::Lazy;
-use thiserror::Error;
 use tokio::fs;
 use uuid::Uuid;
 
-use super::{IndexerRule, IndexerRuleError, RulePerKind};
+use super::{Error, IndexerRule, RulePerKind};
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum SeederError {
 	#[error("Failed to run indexer rules seeder: {0}")]
-	IndexerRules(#[from] IndexerRuleError),
+	IndexerRules(#[from] Error),
 	#[error("An error occurred with the database while applying migrations: {0}")]
 	DatabaseError(#[from] prisma_client_rust::QueryError),
 	#[error("Failed to parse indexer rules based on external system")]
@@ -183,7 +182,7 @@ pub async fn new_or_existing_library(db: &PrismaClient) -> Result<(), SeederErro
 	.enumerate()
 	{
 		let pub_id = sd_utils::uuid_to_bytes(&Uuid::from_u128(i as u128));
-		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(IndexerRuleError::from)?;
+		let rules = rmp_serde::to_vec_named(&rule.rules).map_err(Error::from)?;
 
 		let data = vec![
 			name::set(Some(rule.name.to_string())),

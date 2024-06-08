@@ -196,7 +196,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							match fs::metadata(&path).await {
 								Ok(_) => {
 									#[cfg(not(any(target_os = "ios", target_os = "android")))]
-									trash::delete(&path).unwrap();
+									if let Err(e) = trash::delete(&path) {
+										return Err(rspc::Error::with_cause(
+											ErrorCode::InternalServerError,
+											"Failed to delete file".into(),
+											e,
+										));
+									}
 
 									Ok(())
 								}
@@ -205,7 +211,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									path,
 									e,
 									"Failed to get file metadata for deletion",
-								))),
+								))
+								.into()),
 							}
 						})
 						.collect::<Vec<_>>()

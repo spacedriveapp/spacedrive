@@ -84,7 +84,7 @@ impl<E: RunError> System<E> {
 				.await
 				{
 					if e.is_panic() {
-						error!("Job system panicked: {e:#?}");
+						error!(?e, "Task system panicked");
 					} else {
 						trace!("Task system received shutdown signal and will exit...");
 						break;

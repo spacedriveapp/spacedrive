@@ -172,6 +172,7 @@ file_path::include!(file_path_for_frontend {
 });
 
 // Object selectables!
+object::select!(object_ids { id pub_id });
 object::select!(object_for_file_identifier {
 	pub_id
 	file_paths: select { pub_id cas_id extension is_dir materialized_path name }
@@ -235,6 +236,14 @@ job::select!(job_without_data {
 	task_count
 	completed_task_count
 	date_estimated_completion
+});
+
+// Location selectables!
+location::select!(location_ids_and_path {
+	id
+	pub_id
+	instance_id
+	path
 });
 
 // Location includes!

@@ -53,7 +53,7 @@ impl<E: RunError> WorkerBuilder<E> {
 		)
 	}
 
-	#[instrument(skip(self, system_comm, task_stealer), fields(worker_id = self.id))]
+	#[instrument(name = "task_system_worker", skip(self, system_comm, task_stealer), fields(worker_id = self.id))]
 	pub fn build(self, system_comm: SystemComm, task_stealer: WorkStealer<E>) -> Worker<E> {
 		let Self {
 			id,

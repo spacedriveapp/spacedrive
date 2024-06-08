@@ -857,6 +857,17 @@ impl From<ThumbnailerMetricsAccumulator> for ThumbnailerMetrics {
 			total_successful_tasks,
 		}: ThumbnailerMetricsAccumulator,
 	) -> Self {
+		if generated + skipped == 0 {
+			return Self{
+				generated,
+				skipped,
+				mean_total_time,
+				mean_generation_time: Duration::ZERO,
+				std_dev: Duration::ZERO,
+				total_successful_tasks,
+			}
+		}
+
 		#[allow(clippy::cast_precision_loss)]
 		// SAFETY: we're probably won't have 2^52 thumbnails being generated on a single job for this cast to have
 		// a precision loss issue

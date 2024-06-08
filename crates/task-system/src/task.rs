@@ -784,9 +784,9 @@ impl TaskWorktable {
 					this.is_running.store(false, Ordering::Release);
 				}
 
-				outer_tx
-					.send(())
-					.expect("Worker channel closed trying to suspend task");
+				if outer_tx.send(()).is_err() {
+					trace!("Task suspend channel closed trying to suspend task, maybe task manage to be completed");
+				}
 			}
 			.in_current_span()
 		});

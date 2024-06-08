@@ -939,7 +939,7 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			removed_count,
 		}: Metadata,
 	) -> Self {
-		mean_scan_read_time /= total_walk_tasks;
+		mean_scan_read_time /= u32::max(total_walk_tasks, 1); // To avoid division by zero
 		mean_db_write_time /= total_save_tasks + total_update_tasks + 1; // +1 to update directories sizes
 
 		vec![

@@ -869,12 +869,13 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			completed_object_processor_tasks,
 		}: Metadata,
 	) -> Self {
-		mean_extract_metadata_time /= total_identifier_tasks;
-		mean_save_db_time_on_identifier_tasks /= total_identifier_tasks;
+		// To avoid division by zero
+		mean_extract_metadata_time /= u32::max(total_identifier_tasks, 1);
+		mean_save_db_time_on_identifier_tasks /= u32::max(total_identifier_tasks, 1);
 
-		mean_fetch_existing_objects_time /= total_object_processor_tasks;
-		mean_assign_to_existing_object_time /= total_object_processor_tasks;
-		mean_create_object_time /= total_object_processor_tasks;
+		mean_fetch_existing_objects_time /= u32::max(total_object_processor_tasks, 1);
+		mean_assign_to_existing_object_time /= u32::max(total_object_processor_tasks, 1);
+		mean_create_object_time /= u32::max(total_object_processor_tasks, 1);
 
 		vec![
 			ReportOutputMetadata::FileIdentifier {

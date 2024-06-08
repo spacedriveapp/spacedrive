@@ -1,7 +1,6 @@
 use crate::{utils::sub_path, OuterContext};
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_indexer_rules::IndexerRuleError;
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
 };
@@ -68,7 +67,7 @@ pub enum Error {
 
 	// Mixed errors
 	#[error(transparent)]
-	Rules(#[from] IndexerRuleError),
+	Rules(#[from] sd_core_indexer_rules::Error),
 }
 
 impl From<Error> for rspc::Error {
@@ -444,54 +443,73 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 	async fn fetch_file_paths_to_remove(
 		&self,
 		parent_iso_file_path: &IsolatedFilePathData<'_>,
+		mut existing_inodes: HashSet<Vec<u8>>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
 	) -> Result<Vec<file_path_pub_and_cas_ids::Data>, NonCriticalIndexerError> {
 		// NOTE: This batch size can be increased if we wish to trade memory for more performance
 		const BATCH_SIZE: i64 = 1000;
 
-		let founds_ids = self
-			.db
-			._batch(
-				unique_location_id_materialized_path_name_extension_params
-					.into_iter()
-					.chunks(200)
-					.into_iter()
-					.map(|unique_params| {
-						self.db
-							.file_path()
-							.find_many(vec![or(unique_params.collect())])
-							.select(file_path::select!({ id }))
-					})
-					.collect::<Vec<_>>(),
-			)
-			.await
-			.map(|founds_chunk| {
-				founds_chunk
-					.into_iter()
-					.flat_map(|file_paths| file_paths.into_iter().map(|file_path| file_path.id))
-					.collect::<HashSet<_>>()
-			})
-			.map_err(|e| NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string()))?;
+		let founds_ids = {
+			let found_chunks = self
+				.db
+				._batch(
+					unique_location_id_materialized_path_name_extension_params
+						.into_iter()
+						.chunks(200)
+						.into_iter()
+						.map(|unique_params| {
+							self.db
+								.file_path()
+								.find_many(vec![or(unique_params.collect())])
+								.select(file_path::select!({ id inode }))
+						})
+						.collect::<Vec<_>>(),
+				)
+				.await
+				.map_err(|e| {
+					NonCriticalIndexerError::FetchAlreadyExistingFilePathIds(e.to_string())
+				})?;
+
+			found_chunks
+				.into_iter()
+				.flatten()
+				.map(|file_path| {
+					if let Some(inode) = file_path.inode {
+						existing_inodes.remove(&inode);
+					}
+					file_path.id
+				})
+				.collect::<HashSet<_>>()
+		};
 
 		let mut to_remove = vec![];
 		let mut cursor = 1;
 
 		loop {
+			let materialized_path_param = file_path::materialized_path::equals(Some(
+				parent_iso_file_path
+					.materialized_path_for_children()
+					.expect("the received isolated file path must be from a directory"),
+			));
+
 			let found = self
 				.db
 				.file_path()
 				.find_many(vec![
 					file_path::location_id::equals(Some(self.location_id)),
-					file_path::materialized_path::equals(Some(
-						parent_iso_file_path
-							.materialized_path_for_children()
-							.expect("the received isolated file path must be from a directory"),
-					)),
+					if existing_inodes.is_empty() {
+						materialized_path_param
+					} else {
+						or(vec![
+							materialized_path_param,
+							file_path::inode::in_vec(existing_inodes.iter().cloned().collect()),
+						])
+					},
 				])
 				.order_by(file_path::id::order(SortOrder::Asc))
 				.take(BATCH_SIZE)
 				.cursor(file_path::id::equals(cursor))
-				.select(file_path_pub_and_cas_ids::select())
+				.select(file_path::select!({ id pub_id cas_id inode }))
 				.exec()
 				.await
 				.map_err(|e| NonCriticalIndexerError::FetchFilePathsToRemove(e.to_string()))?;
@@ -505,11 +523,17 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				break;
 			}
 
-			to_remove.extend(
-				found
-					.into_iter()
-					.filter(|file_path| !founds_ids.contains(&file_path.id)),
-			);
+			to_remove.extend(found.into_iter().filter_map(|file_path| {
+				if let Some(inode) = file_path.inode {
+					existing_inodes.remove(&inode);
+				}
+
+				(!founds_ids.contains(&file_path.id)).then_some(file_path_pub_and_cas_ids::Data {
+					id: file_path.id,
+					pub_id: file_path.pub_id,
+					cas_id: file_path.cas_id,
+				})
+			}));
 
 			if should_stop {
 				break;

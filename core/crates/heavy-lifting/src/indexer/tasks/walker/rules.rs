@@ -174,15 +174,15 @@ fn reject_path(
 	accept_by_children_dir: &mut Option<bool>,
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
 ) -> bool {
-	rejected_by_reject_glob(acceptance_per_rule_kind)
-		|| rejected_by_git_ignore(acceptance_per_rule_kind)
+	IndexerRuler::rejected_by_reject_glob(acceptance_per_rule_kind)
+		|| IndexerRuler::rejected_by_git_ignore(acceptance_per_rule_kind)
 		|| (metadata.is_dir()
 			&& process_and_maybe_reject_by_directory_rules(
 				current_path,
 				acceptance_per_rule_kind,
 				accept_by_children_dir,
 				maybe_to_keep_walking,
-			)) || rejected_by_accept_glob(acceptance_per_rule_kind)
+			)) || IndexerRuler::rejected_by_accept_glob(acceptance_per_rule_kind)
 }
 
 fn process_and_maybe_reject_by_directory_rules(
@@ -192,7 +192,7 @@ fn process_and_maybe_reject_by_directory_rules(
 	maybe_to_keep_walking: &mut Option<Vec<ToWalkEntry>>,
 ) -> bool {
 	// If it is a directory, first we check if we must reject it and its children entirely
-	if rejected_by_children_directories(acceptance_per_rule_kind) {
+	if IndexerRuler::rejected_by_children_directories(acceptance_per_rule_kind) {
 		return true;
 	}
 
@@ -258,62 +258,4 @@ fn accept_path_and_ancestors(
 	}
 
 	accepted.insert(current_path, metadata);
-}
-
-fn rejected_by_accept_glob(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
-	let res = acceptance_per_rule_kind
-		.get(&RuleKind::AcceptFilesByGlob)
-		.map_or(false, |accept_rules| {
-			accept_rules.iter().all(|accept| !accept)
-		});
-
-	if res {
-		trace!("Reject because it didn't passed in any `RuleKind::AcceptFilesByGlob` rules");
-	}
-
-	res
-}
-
-fn rejected_by_children_directories(
-	acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>,
-) -> bool {
-	let res = acceptance_per_rule_kind
-		.get(&RuleKind::RejectIfChildrenDirectoriesArePresent)
-		.map_or(false, |reject_results| {
-			reject_results.iter().any(|reject| !reject)
-		});
-
-	if res {
-		trace!("Rejected by rule `RuleKind::RejectIfChildrenDirectoriesArePresent`");
-	}
-
-	res
-}
-
-fn rejected_by_reject_glob(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
-	let res = acceptance_per_rule_kind
-		.get(&RuleKind::RejectFilesByGlob)
-		.map_or(false, |reject_results| {
-			reject_results.iter().any(|reject| !reject)
-		});
-
-	if res {
-		trace!("Rejected by `RuleKind::RejectFilesByGlob`");
-	}
-
-	res
-}
-
-fn rejected_by_git_ignore(acceptance_per_rule_kind: &HashMap<RuleKind, Vec<bool>>) -> bool {
-	let res = acceptance_per_rule_kind
-		.get(&RuleKind::IgnoredByGit)
-		.map_or(false, |reject_results| {
-			reject_results.iter().any(|reject| !reject)
-		});
-
-	if res {
-		trace!("Rejected by `RuleKind::IgnoredByGit`");
-	}
-
-	res
 }
