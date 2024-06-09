@@ -25,10 +25,6 @@ patchedDependencies:
 importers:
 
   .:
-    dependencies:
-      d3-force:
-        specifier: ^3.0.0
-        version: 3.0.0
     devDependencies:
       '@babel/plugin-syntax-import-assertions':
         specifier: ^7.24.1
@@ -764,6 +760,9 @@ importers:
       crypto-random-string:
         specifier: ^5.0.0
         version: 5.0.0
+      d3-force:
+        specifier: ^3.0.0
+        version: 3.0.0
       dayjs:
         specifier: ^1.11.10
         version: 1.11.10
@@ -870,6 +869,9 @@ importers:
       '@sd/config':
         specifier: workspace:*
         version: link:../packages/config
+      '@types/d3-force':
+        specifier: ^3.0.9
+        version: 3.0.9
       '@types/node':
         specifier: '>18.18.x'
         version: 20.11.29
@@ -5375,6 +5377,9 @@ packages:
 
   '@types/cross-spawn@6.0.6':
     resolution: {integrity: sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==}
+
+  '@types/d3-force@3.0.9':
+    resolution: {integrity: sha512-IKtvyFdb4Q0LWna6ymywQsEYjK/94SGhPrMfEr1TIc5OBeziTi+1jcCvttts8e0UWZIxpasjnQk9MNk/3iS+kA==}
 
   '@types/debug@4.1.12':
     resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
@@ -19184,6 +19189,8 @@ snapshots:
   '@types/cross-spawn@6.0.6':
     dependencies:
       '@types/node': 20.11.29
+
+  '@types/d3-force@3.0.9': {}
 
   '@types/debug@4.1.12':
     dependencies:
