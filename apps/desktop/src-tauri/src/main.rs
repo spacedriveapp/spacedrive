@@ -155,8 +155,10 @@ async fn open_trash_in_os_explorer() -> Result<(), ()> {
 
 	#[cfg(target_os = "linux")]
 	{
+		let linux_path = format!("{}/.local/share/Trash", std::env::var("HOME").unwrap());
+
 		Command::new("xdg-open")
-			.arg("~/.local/share/Trash/")
+			.arg(linux_path)
 			.spawn()
 			.map_err(|err| error!("Error opening trash: {err:#?}"))?
 			.wait()
