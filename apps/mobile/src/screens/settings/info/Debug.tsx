@@ -46,9 +46,9 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 							origin.data === 'https://app.spacedrive.com'
 								? 'http://localhost:3000'
 								: 'https://app.spacedrive.com';
-						setOrigin.mutateAsync(url).then(() => {
-							auth.logout();
-							queryClient.invalidateQueries();
+						setOrigin.mutateAsync(url).then(async () => {
+							await auth.logout();
+							await queryClient.invalidateQueries();
 						});
 					}}
 				>
@@ -63,6 +63,13 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 					}}
 				>
 					<Text style={tw`text-ink`}>Go to Backfill Waiting Page</Text>
+				</Button>
+				<Button
+					onPress={() => {
+						auth.logout();
+					}}
+				>
+					<Text style={tw`text-ink`}>Logout</Text>
 				</Button>
 			</Card>
 		</View>

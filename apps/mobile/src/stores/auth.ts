@@ -93,8 +93,8 @@ export function logout() {
 	store.state = { status: 'notLoggedIn' };
 }
 
-export function cancel() {
-	loginCallbacks.forEach((cb) => cb('cancel'));
-	loginCallbacks.clear();
+export async function cancel() {
+	await loginCallbacks.forEach(async (cb) => await cb('cancel'));
+	await loginCallbacks.clear();
 	store.state = { status: 'notLoggedIn' };
 }

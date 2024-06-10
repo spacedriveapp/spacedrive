@@ -105,7 +105,8 @@ const Login = () => {
 			<Button
 				variant="accent"
 				disabled={authState.status === 'loggingIn'}
-				onPress={async () => {
+				onPress={async (e) => {
+					e.preventDefault();
 					await login();
 				}}
 			>
@@ -114,9 +115,9 @@ const Login = () => {
 			{authState.status === 'loggingIn' && (
 				<Button
 					variant="accent"
-					onPress={(e) => {
+					onPress={async (e) => {
 						e.preventDefault();
-						cancel();
+						await cancel();
 					}}
 					style={tw`text-sm text-ink-faint`}
 				>

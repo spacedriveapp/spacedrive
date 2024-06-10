@@ -32,13 +32,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				async_stream::stream! {
+					let device_type = if cfg!(target_arch = "wasm32") {
+						"web".to_string()
+					} else if cfg!(target_os = "ios") || cfg!(target_os = "android") {
+						"mobile".to_string()
+					} else {
+						"desktop".to_string()
+					};
+
 					let auth_response = match match node
 						.http
 						.post(&format!(
 							"{}/login/device/code",
 							&node.env.api_url.lock().await
 						))
-						.form(&[("client_id", &node.env.client_id)])
+						.form(&[("client_id", &node.env.client_id), ("device", &device_type)])
 						.send()
 						.await
 						.map_err(|e| e.to_string())
