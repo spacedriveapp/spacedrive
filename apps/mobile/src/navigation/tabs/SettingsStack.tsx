@@ -12,7 +12,6 @@ import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
 import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
-import Cloud from '~/screens/settings/library/Cloud';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
@@ -21,6 +20,7 @@ import SyncSettingsScreen from '~/screens/settings/library/SyncSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
+import CloudSettings from '~/screens/settings/library/CloudSettings';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -95,8 +95,8 @@ export default function SettingsStack() {
 				options={{ header: () => <Header navBack title="Sync" /> }}
 			/>
 			<Stack.Screen
-				name="Cloud"
-				component={Cloud}
+				name="CloudSettings"
+				component={CloudSettings}
 				options={{ header: () => <Header navBack title="Cloud" /> }}
 			/>
 			{/* <Stack.Screen
@@ -144,7 +144,7 @@ export type SettingsStackParamList = {
 	TagsSettings: undefined;
 	KeysSettings: undefined;
 	SyncSettings: undefined;
-	Cloud: undefined;
+	CloudSettings: undefined;
 	// Info
 	About: undefined;
 	Support: undefined;

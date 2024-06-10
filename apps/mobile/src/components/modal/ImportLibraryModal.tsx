@@ -1,132 +1,136 @@
-import { useNavigation } from '@react-navigation/native';
-import { useQueryClient } from '@tanstack/react-query';
-import { forwardRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
+import { NavigationProp, useNavigation } from '@react-navigation/native';
 import {
-	insertLibrary,
+	CloudLibrary,
 	useBridgeMutation,
 	useBridgeQuery,
 	useClientContext,
-	usePlausibleEvent
+	useRspcContext
 } from '@sd/client';
+import { forwardRef } from 'react';
+import { Text, View } from 'react-native';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
-import { ModalInput } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
+import { RootStackParamList } from '~/navigation';
 import { currentLibraryStore } from '~/utils/nav';
-import Card from '../layout/Card';
+import Empty from '../layout/Empty';
+import Fade from '../layout/Fade';
 
 const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
-	const navigation = useNavigation();
+	const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 	const modalRef = useForwardedRef(ref);
 
-	const queryClient = useQueryClient();
 	const { libraries } = useClientContext();
 
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
-	const joinLibrary = useBridgeMutation(['cloud.library.join']);
-
-	if (cloudLibraries.isLoading)
-		return (
-			<Modal
-				ref={modalRef}
-				snapPoints={['30']}
-				title="Join a Cloud Library"
-				description="Connect to one of your cloud libraries."
-				showCloseButton
-				// Disable panning gestures
-				enableHandlePanningGesture={false}
-				enableContentPanningGesture={false}
-			>
-				<View style={tw`px-4`}>
-					<Text>Loading...</Text>
-					<Button
-						variant="accent"
-						onPress={() => console.log('TODO')}
-						style={tw`mt-4`}
-						disabled
-					>
-						<Text style={tw`text-sm font-medium text-white`}>Import</Text>
-					</Button>
-				</View>
-			</Modal>
-		);
+	const cloudLibrariesData = cloudLibraries.data?.filter(
+		(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
+	)
 
 	return (
 		<Modal
 			ref={modalRef}
-			snapPoints={['30']}
+			snapPoints={cloudLibrariesData?.length !== 0 ? ['30', '50'] : ['30']}
 			title="Join a Cloud Library"
-			description="Connect to one of your cloud libraries."
 			showCloseButton
-			// Disable panning gestures
-			enableHandlePanningGesture={false}
-			enableContentPanningGesture={false}
 		>
-			<View style={tw`gap-y-2 px-4`}>
-				{cloudLibraries.data
-					?.filter(
-						(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
-					)
-					.map((cloudLibrary) => (
-						<Card
-							key={cloudLibrary.uuid}
-							style={tw`flex flex-row items-center gap-2 rounded-lg bg-gray-600 p-2`}
-						>
-							<Text style={tw`text-lg font-bold text-ink`}>{cloudLibrary.name}</Text>
-							<View style={tw`flex flex-row gap-2`}>
-								<Button
-									variant="accent"
-									disabled={joinLibrary.isLoading}
-									onPress={async () => {
-										const library = await joinLibrary.mutateAsync(
-											cloudLibrary.uuid
-										);
-
-										queryClient.setQueryData(
-											['library.list'],
-											(libraries: any) => {
-												// The invalidation system beat us to it
-												if (
-													(libraries || []).find(
-														(l: any) => l.uuid === library.uuid
-													)
-												)
-													return libraries;
-
-												return [...(libraries || []), library];
-											}
-										);
-
-										currentLibraryStore.id = library.uuid;
-
-										navigation.navigate('Root', {
-											screen: 'Home',
-											params: {
-												screen: 'OverviewStack',
-												params: {
-													screen: 'Overview'
-												}
-											}
-										});
-
-										modalRef.current?.dismiss();
-									}}
-								>
-									<Text style={tw`text-sm font-medium text-white`}>
-										{joinLibrary.isLoading &&
-										joinLibrary.variables === cloudLibrary.uuid
-											? 'Joining...'
-											: 'Join'}
-									</Text>
-								</Button>
-							</View>
-						</Card>
-					))}
-			</View>
+			<View style={tw`relative flex-1`}>
+			<Fade width={20} height="100%" fadeSides="top-bottom" orientation="vertical" color="bg-app-modal"
+			>
+				<BottomSheetFlatList
+					data={cloudLibrariesData}
+					contentContainerStyle={tw`px-4 pb-6 pt-5`}
+					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
+					ListEmptyComponent={
+						<Empty
+						icon="Drive"
+						style={tw`mt-2 border-0`}
+						iconSize={46}
+						description="You don't have any cloud libraries"
+						/>
+					}
+					keyExtractor={(item) => item.uuid}
+					showsVerticalScrollIndicator={false}
+					renderItem={({ item }) => (
+						<CloudLibraryCard
+						data={item}
+						navigation={navigation}
+						modalRef={modalRef}
+						/>
+					)}
+					/>
+				</Fade>
+				</View>
 		</Modal>
 	);
 });
+
+
+interface Props {
+	data: CloudLibrary
+	modalRef: React.RefObject<ModalRef>
+	navigation: NavigationProp<RootStackParamList>
+}
+
+const CloudLibraryCard = ({data, modalRef, navigation}: Props) => {
+	const rspc = useRspcContext().queryClient;
+	const joinLibrary = useBridgeMutation(['cloud.library.join']);
+return (
+	<View
+	key={data.uuid}
+	style={tw`flex flex-row items-center justify-between gap-2 rounded-md border border-app-box bg-app p-2`}
+>
+	<Text numberOfLines={1} style={tw`max-w-[80%] text-sm font-bold text-ink`}>{data.name}</Text>
+		<Button
+			size="sm"
+			variant="accent"
+			disabled={joinLibrary.isLoading}
+			onPress={async () => {
+				const library = await joinLibrary.mutateAsync(
+					data.uuid
+				);
+
+				rspc.setQueryData(
+					['library.list'],
+					(libraries: any) => {
+						// The invalidation system beat us to it
+						if (
+							(libraries || []).find(
+								(l: any) => l.uuid === library.uuid
+							)
+						)
+							return libraries;
+
+						return [...(libraries || []), library];
+					}
+				);
+
+				currentLibraryStore.id = library.uuid;
+
+				navigation.navigate('Root', {
+					screen: 'Home',
+					params: {
+						screen: 'OverviewStack',
+						params: {
+							screen: 'Overview'
+						}
+					}
+				});
+
+				modalRef.current?.dismiss();
+			}}
+		>
+			<Text style={tw`text-sm font-medium text-white`}>
+				{joinLibrary.isLoading &&
+				joinLibrary.variables === data.uuid
+					? 'Joining...'
+					: 'Join'}
+			</Text>
+		</Button>
+</View>
+)
+}
 
 export default ImportModalLibrary;
