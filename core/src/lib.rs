@@ -138,7 +138,9 @@ impl Node {
 			config,
 			event_bus,
 			libraries,
-			cloud_sync_flag: Arc::new(AtomicBool::new(cfg!(target_os = "ios") || cfg!(target_os = "android"))),
+			cloud_sync_flag: Arc::new(AtomicBool::new(
+				cfg!(target_os = "ios") || cfg!(target_os = "android"),
+			)),
 			http: reqwest::Client::new(),
 			env,
 			#[cfg(feature = "ai")]
