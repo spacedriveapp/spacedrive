@@ -28,6 +28,7 @@ const DrawerLibraryManager = () => {
 	const navigation = useNavigation();
 
 	const modalRef = useRef<ModalRef>(null);
+	const modalRef_import = useRef<ModalRef>(null);
 
 	return (
 		<View>
@@ -94,12 +95,12 @@ const DrawerLibraryManager = () => {
 					<CreateLibraryModal ref={modalRef} />
 					<Pressable
 						style={tw`flex flex-row items-center px-1.5 py-[8px]`}
-						onPress={() => modalRef.current?.present()}
+						onPress={() => modalRef_import.current?.present()}
 					>
 						<CloudArrowDown size={18} weight="bold" color="white" style={tw`mr-2`} />
 						<Text style={tw`text-sm font-semibold text-white`}>Import Library</Text>
 					</Pressable>
-					<ImportModalLibrary ref={modalRef} />
+					<ImportModalLibrary ref={modalRef_import} />
 					{/* Manage Library */}
 					<Pressable
 						onPress={() => {
