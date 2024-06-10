@@ -11,14 +11,16 @@ edition = { workspace = true }
 # Spacedrive Sub-crates
 sd-sync = { path = ".." }
 
+# Workspace dependencies
 axum = { workspace = true }
-rspc = { workspace = true, features = ["axum"] }
-tokio = { workspace = true, features = ["full"] }
+http = { workspace = true }
 prisma-client-rust = { workspace = true }
+rspc = { workspace = true, features = ["axum"] }
 serde_json = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["full"] }
 uuid = { workspace = true, features = ["v4"] }
 
+# Specific Core dependencies
 dotenv = "0.15.0"
-tower-http = { version = "0.3.4", features = ["cors"] }
-http = "0.2.8"
+tower-http = { version = "0.4.4", features = ["cors"] } # Update blocked by http

@@ -3,12 +3,11 @@ name = "sd-utils"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Spacedrive Sub-crates
 sd-prisma = { path = "../prisma" }
 
+# Workspace dependencies
 prisma-client-rust = { workspace = true }
 rspc = { workspace = true, features = ["unstable"] }
 thiserror = { workspace = true }

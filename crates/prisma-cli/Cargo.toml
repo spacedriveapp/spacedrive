@@ -9,4 +9,5 @@ edition = { workspace = true }
 # Spacedrive Sub-crates
 sd-sync-generator = { path = "../sync-generator" }
 
+# Workspace dependencies
 prisma-client-rust-cli = { workspace = true }

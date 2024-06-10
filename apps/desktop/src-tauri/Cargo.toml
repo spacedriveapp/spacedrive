@@ -16,7 +16,9 @@ sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
 axum = { workspace = true, features = ["headers", "query"] }
+directories = { workspace = true }
 futures = { workspace = true }
+hyper = { workspace = true }
 http = { workspace = true }
 prisma-client-rust = { workspace = true }
 rand = { workspace = true }
@@ -27,41 +29,46 @@ specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
-tauri-specta = { workspace = true, features = ["typescript"] }
 thiserror = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
-directories = "5.0.1"
-hyper = "0.14.28"
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
 	"unstable",
 	"linux-libxdo",
-] }
+] } # Update blocked by rspc
 tauri-plugin-updater = "2.0.0-beta"
 tauri-plugin-dialog = "2.0.0-beta"
 tauri-plugin-os = "2.0.0-beta"
 tauri-plugin-shell = "2.0.0-beta"
+tauri-runtime  = { version = "=2.0.0-beta.15" } # Update blocked by tauri
+tauri-specta = { version = "=2.0.0-rc.8", features = ["typescript"] }
+tauri-utils = { version = "=2.0.0-beta.16" } # Update blocked by tauri
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
-dbus = { version = "0.9", features = ["stdfd"] }
+# Spacedrive Sub-crates
 sd-desktop-linux = { path = "../crates/linux" }
+
+# Specific Desktop dependencies
+# WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
+dbus = { version = "0.9.7", features = ["stdfd"] }
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L86
 webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+# Spacedrive Sub-crates
 sd-desktop-macos = { path = "../crates/macos" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
+# Spacedrive Sub-crates
 sd-desktop-windows = { path = "../crates/windows" }
-webview2-com = "0.19.1"
 
 [build-dependencies]
-tauri-build = "=2.0.0-beta.13"
+# Specific Desktop dependencies
+tauri-build = "2.0.0-beta"
 
 [features]
 default = ["custom-protocol"]

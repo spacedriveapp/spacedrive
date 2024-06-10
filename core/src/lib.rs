@@ -34,8 +34,6 @@ use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod cloud;
-#[cfg(feature = "crypto")]
-pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;

@@ -13,8 +13,10 @@ repository = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
+# Spacedrive Sub-crates
 sd-utils = { path = "../utils" }
 
+# Workspace dependencies
 chrono = { workspace = true, features = ["serde"] }
 image = { workspace = true }
 libc = { workspace = true }
@@ -23,7 +25,8 @@ tokio = { workspace = true, features = ["fs", "rt"] }
 tracing = { workspace = true }
 webp = { workspace = true }
 
-ffmpeg-sys-next = "6.0.1"
+# Specific FFmpeg dependencies
+ffmpeg-sys-next = "7.0"
 
 [dev-dependencies]
 tempfile = { workspace = true }
