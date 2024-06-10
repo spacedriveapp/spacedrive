@@ -7,9 +7,10 @@ edition = "2021"
 # Spacedrive Sub-crates
 sd-sync = { path = "../sync" }
 
+# Workspace dependencies
 prisma-client-rust = { workspace = true }
+rmpv = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-rmp-serde = "1.1.2"
-rmpv.workspace = true
 uuid = { workspace = true }

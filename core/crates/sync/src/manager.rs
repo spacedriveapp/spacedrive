@@ -8,6 +8,7 @@ use std::{
 	cmp::Ordering,
 	collections::HashMap,
 	fmt,
+	num::NonZeroU128,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -55,7 +56,11 @@ impl Manager {
 	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
-		let clock = HLCBuilder::new().with_id(instance.into()).build();
+		let clock = HLCBuilder::new()
+			.with_id(uhlc::ID::from(
+				NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
+			))
+			.build();
 
 		let shared = Arc::new(SharedState {
 			db: db.clone(),

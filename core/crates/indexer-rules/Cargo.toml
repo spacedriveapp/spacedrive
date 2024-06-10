@@ -9,15 +9,15 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
 sd-utils = { path = "../../../crates/utils" }
 
+# Workspace dependencies
 chrono = { workspace = true }
 futures-concurrency = { workspace = true }
+gix-ignore = { workspace = true, features = ["serde"] }
 globset = { workspace = true, features = ["serde1"] }
 once_cell = { workspace = true }
 prisma-client-rust = { workspace = true }
@@ -29,7 +29,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-gix-ignore = { version = "0.11.2", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }

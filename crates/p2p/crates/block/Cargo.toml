@@ -11,6 +11,7 @@ repository.workspace = true
 sd-p2p = { path = "../../" }
 sd-p2p-proto = { path = "../proto" }
 
+# Workspace dependencies
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

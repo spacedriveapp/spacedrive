@@ -10,4 +10,5 @@ prisma-client-rust-sdk = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
+# Specific Sync Generator dependencies
 nom = "7.1.3"

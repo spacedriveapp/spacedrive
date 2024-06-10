@@ -547,12 +547,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							);
 
 							#[cfg(not(any(target_os = "ios", target_os = "android")))]
-							trash::delete(full_path).map_err(|e| {
-								rspc::Error::with_cause(
-									ErrorCode::InternalServerError,
-									"Failed to delete file".into(),
-									e,
-								)
+							trash::delete(&full_path).map_err(|e| {
+								FileIOError::from((
+									full_path,
+									match e {
+										#[cfg(all(unix, not(target_os = "macos")))]
+										trash::Error::FileSystem { path: _, source: e } => e,
+										_ => io::Error::other(e),
+									},
+									"Failed to delete file",
+								))
 							})?;
 
 							Ok(())
