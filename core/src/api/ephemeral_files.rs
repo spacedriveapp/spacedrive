@@ -208,7 +208,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										))
 									})?;
 
-									Ok(())
+									Ok::<_, rspc::Error>(())
 								}
 								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
 								Err(e) => Err(FileIOError::from((
