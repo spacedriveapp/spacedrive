@@ -7,8 +7,8 @@ edition = { workspace = true }
 
 [dependencies]
 prisma-client-rust = { workspace = true }
-rmp = "0.8.12"
-rmp-serde = "1.1.2"
+rmp = { workspace = true }
+rmp-serde = { workspace = true }
 rmpv = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -9,6 +9,7 @@ repository.workspace = true
 # Spacedrive Sub-crates
 sd-p2p = { path = "../p2p" }
 
+# Workspace dependencies
 base64 = { workspace = true }
 reqwest = { workspace = true, features = ["native-tls-vendored"] }
 rmpv = { workspace = true }

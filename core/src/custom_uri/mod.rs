@@ -270,7 +270,7 @@ pub fn base_router() -> Router<LocalState> {
 							serve_from,
 							..
 						},
-						library,
+						..
 					) = get_or_init_lru_entry(&state, path).await?;
 
 					match serve_from {

@@ -10,6 +10,7 @@ use normpath::PathExt;
 use windows::{
 	core::{HSTRING, PCWSTR},
 	Win32::{
+		Foundation::E_FAIL,
 		System::Com::{
 			CoInitializeEx, CoUninitialize, IDataObject, COINIT_APARTMENTTHREADED,
 			COINIT_DISABLE_OLE1DDE,
@@ -97,11 +98,15 @@ pub fn open_file_path_with(path: impl AsRef<Path>, url: &str) -> Result<()> {
 	ensure_com_initialized();
 	let path = path.as_ref();
 
-	let ext = path.extension().ok_or(Error::OK)?;
+	let ext = path
+		.extension()
+		.ok_or(Error::new(E_FAIL, "No file extension"))?;
 	for handler in list_apps_associated_with_ext(ext)?.iter() {
 		let name = unsafe { handler.GetName()?.to_string()? };
 		if name == url {
-			let path = path.normalize_virtually().map_err(|_| Error::OK)?;
+			let path = path
+				.normalize_virtually()
+				.map_err(|e| Error::new(E_FAIL, e.to_string()))?;
 			let wide_path = path
 				.as_os_str()
 				.encode_wide()
@@ -116,5 +121,8 @@ pub fn open_file_path_with(path: impl AsRef<Path>, url: &str) -> Result<()> {
 		}
 	}
 
-	Err(Error::OK)
+	Err(Error::new(
+		E_FAIL,
+		"No available handler for the given path",
+	))
 }
