@@ -25,12 +25,6 @@ const ACTORS = {
 const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettings'>) => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
-	const backfillSync = useLibraryMutation(['sync.backfill'], {
-		onSuccess: async () => {
-			await syncEnabled.refetch();
-		}
-	});
-
 	const [data, setData] = useState<inferSubscriptionResult<Procedures, 'library.actors'>>({});
 	const [startBackfill, setStart] = useState(false);
 
@@ -43,8 +37,6 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 			navigation.navigate('BackfillWaitingStack', {
 				screen: 'BackfillWaiting'
 			});
-
-			// Force re-render?
 		}
 	}, [startBackfill, navigation]);
 
