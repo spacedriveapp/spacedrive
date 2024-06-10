@@ -5,6 +5,7 @@ import {
 	Database,
 	FlyingSaucer,
 	GearSix,
+	GlobeSimple,
 	HardDrive,
 	Key,
 	KeyReturn,
@@ -81,6 +82,10 @@ export default () => {
 					<SidebarLink to="client/appearance">
 						<Icon component={PaintBrush} />
 						{t('appearance')}
+					</SidebarLink>
+					<SidebarLink to="client/network">
+						<Icon component={GlobeSimple} />
+						{t('network')}
 					</SidebarLink>
 					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
 						<Icon component={Database} />

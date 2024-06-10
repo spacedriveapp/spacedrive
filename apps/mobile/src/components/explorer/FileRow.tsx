@@ -27,7 +27,7 @@ const FileRow = ({ data }: FileRowProps) => {
 				height: getExplorerStore().listItemSize
 			})}
 		>
-			<FileThumb data={data} size={0.6} />
+			<FileThumb data={data} size={0.5} />
 			<View style={tw`mx-2 flex-1 flex-row items-center justify-between border-b border-white/10 pb-3`}>
 			<View style={tw`max-w-[80%]`}>
 				<Text numberOfLines={1} style={tw`text-center text-sm font-medium text-ink`}>

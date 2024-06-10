@@ -1,6 +1,6 @@
 [package]
 name = "sd-core"
-version = "0.2.15"
+version = "0.3.1"
 description = "Virtual distributed filesystem engine that powers Spacedrive."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 rust-version = "1.78"
@@ -151,7 +151,7 @@ trash = "4.1.0"
 trash = "4.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-icrate = { version = "0.1.0", features = [
+icrate = { version = "0.1.2", features = [
 	"Foundation",
 	"Foundation_NSFileManager",
 	"Foundation_NSString",

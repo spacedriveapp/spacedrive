@@ -1,6 +1,6 @@
 [package]
 name = "sd-desktop"
-version = "0.2.15"
+version = "0.3.1"
 description = "The universal file manager."
 authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
 default-run = "sd-desktop"
@@ -14,23 +14,28 @@ sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
 sd-fda = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
+# Workspace dependencies
 axum = { workspace = true, features = ["headers", "query"] }
-hyper = "0.14.28"
 futures = { workspace = true }
 http = { workspace = true }
 prisma-client-rust = { workspace = true }
 rand = { workspace = true }
 rspc = { workspace = true, features = ["tauri", "tracing"] }
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tauri-specta = { workspace = true, features = ["typescript"] }
+thiserror = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
-thiserror.workspace = true
-directories = "5.0.1"
 
-opener = { version = "0.6.1", features = ["reveal"] }
+# Specific Desktop dependencies
+directories = "5.0.1"
+hyper = "0.14.28"
+# WARNING: Do NOT enable default features, as that vendors dbus (see below)
+opener = { version = "0.7.1", features = ["reveal"], default-features = false }
 tauri = { version = "=2.0.0-beta.17", features = [
 	"macos-private-api",
 	"unstable",
@@ -40,10 +45,10 @@ tauri-plugin-updater = "2.0.0-beta"
 tauri-plugin-dialog = "2.0.0-beta"
 tauri-plugin-os = "2.0.0-beta"
 tauri-plugin-shell = "2.0.0-beta"
-serde_json.workspace = true
-strum = { workspace = true, features = ["derive"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+# WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
+dbus = { version = "0.9", features = ["stdfd"] }
 sd-desktop-linux = { path = "../crates/linux" }
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-beta.17/core/tauri/Cargo.toml#L86
 webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }

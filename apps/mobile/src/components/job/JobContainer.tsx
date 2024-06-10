@@ -1,8 +1,8 @@
+import { TextItems } from '@sd/client';
 import { Image } from 'expo-image';
 import { Icon } from 'phosphor-react-native';
 import { Fragment } from 'react';
 import { Text, View, ViewStyle } from 'react-native';
-import { TextItems } from '@sd/client';
 import { styled, tw, twStyle } from '~/lib/tailwind';
 
 type JobContainerProps = {
@@ -24,14 +24,14 @@ export default function JobContainer(props: JobContainerProps) {
 	return (
 		<View
 			style={twStyle(
-				'flex flex-row justify-center',
-				'border-b border-app-line/50 px-8 py-4',
-				isChild && 'my-1.5 border-b-0 p-2 pl-12',
+				'relative z-40 flex-row justify-center',
+				'border-b border-app-line/30 px-8 py-4',
+				isChild && 'border-b-0 pl-12',
 				restProps.containerStyle
 			)}
 		>
 			{typeof Icon === 'number' ? (
-				<Image source={Icon} style={tw`ml-4 mr-1 h-8 w-8`} />
+				<Image source={Icon} style={tw`relative z-40 ml-4 mr-1 h-8 w-8`} />
 			) : (
 				Icon && (
 					<View
@@ -51,22 +51,24 @@ export default function JobContainer(props: JobContainerProps) {
 					return (
 						<Text
 							key={index}
-							style={tw`mt-[2px] pl-1.5 text-[13px] text-ink-faint`}
+							style={tw`ml-1.5 mt-0.5 text-sm text-ink-faint`}
 							numberOfLines={1}
 						>
 							{filteredItems.map((item, index) => {
 								const Icon = item?.icon;
 								return (
 									<Fragment key={index}>
+										<View style={tw`flex-row gap-1`}>
 										{Icon && (
 											<Icon
 												weight="fill"
-												// TODO: this might be ugly
-												style={tw`-mt-0.5 ml-[5px] inline`}
+												size={14}
+												color={tw.color('ink-faint')}
 											/>
 										)}
-										<Text key={index}>{item?.text}</Text>
-										{index < filteredItems.length - 1 && <Text> • </Text>}
+										<Text style={tw`text-xs text-ink-faint`} key={index}>{item?.text}</Text>
+										{index < filteredItems.length - 1 && <Text style={tw`text-ink-faint`}>• </Text>}
+										</View>
 									</Fragment>
 								);
 							})}

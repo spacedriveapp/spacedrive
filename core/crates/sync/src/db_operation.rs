@@ -41,14 +41,17 @@ impl cloud_crdt_include::Data {
 		Uuid::from_slice(&self.instance.pub_id).unwrap()
 	}
 
-	pub fn into_operation(self) -> CRDTOperation {
-		CRDTOperation {
-			instance: self.instance(),
-			timestamp: self.timestamp(),
-			record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
-			model: self.model as u16,
-			data: serde_json::from_slice(&self.data).unwrap(),
-		}
+	pub fn into_operation(self) -> (i32, CRDTOperation) {
+		(
+			self.id,
+			CRDTOperation {
+				instance: self.instance(),
+				timestamp: self.timestamp(),
+				record_id: rmp_serde::from_slice(&self.record_id).unwrap(),
+				model: self.model as u16,
+				data: serde_json::from_slice(&self.data).unwrap(),
+			},
+		)
 	}
 }
 

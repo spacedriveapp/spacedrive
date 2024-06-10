@@ -7,7 +7,7 @@
 		"lint": "eslint . --cache"
 	},
 	"dependencies": {
-		"@actions/artifact": "^2.1.3",
+		"@actions/artifact": "^2.1.7",
 		"@actions/core": "^1.10.1",
 		"@actions/glob": "^0.4.0",
 		"@actions/io": "^1.1.3"

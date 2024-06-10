@@ -3,7 +3,8 @@ import {
 	getItemObject,
 	humanizeSize,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	useRspcContext
 } from '@sd/client';
 import dayjs from 'dayjs';
 import {
@@ -27,7 +28,9 @@ import { Modal, ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import { toast } from '~/components/primitive/Toast';
 import FileInfoModal from './FileInfoModal';
+import RenameModal from './RenameModal';
 
 type ActionsContainerProps = PropsWithChildren<{
 	style?: ViewStyle;
@@ -65,16 +68,29 @@ const ActionDivider = () => <View style={tw`my-3.5 h-[0.5px] bg-app-box`} />;
 
 export const ActionsModal = () => {
 	const fileInfoRef = useRef<ModalRef>(null);
+	const renameRef = useRef<ModalRef>(null);
 
 	const { modalRef, data } = useActionsModalStore();
+	const rspc = useRspcContext();
 
 	const objectData = data && getItemObject(data);
 	const filePath = data && getIndexedItemFilePath(data);
 
 	// Open
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime');
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
+		onSuccess: () => {
+			rspc.queryClient.invalidateQueries(['search.paths']);
+		}
+	});
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
 		enabled: filePath != null
+	});
+
+	const deleteFile = useLibraryMutation('files.deleteFiles', {
+		onSuccess: () => {
+			rspc.queryClient.invalidateQueries(['search.paths'])
+			modalRef.current?.dismiss();
+		}
 	});
 
 	async function handleOpen() {
@@ -88,9 +104,9 @@ export const ActionsModal = () => {
 			});
 			filePath &&
 				filePath.object_id &&
-				updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
+			await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
 		} catch (error) {
-			// TODO: Handle Error & toast message
+			toast.error("Error opening object")
 		}
 	}
 
@@ -141,7 +157,9 @@ export const ActionsModal = () => {
 							/>
 						</ActionsContainer>
 						<ActionsContainer style={tw`mt-2`}>
-							<ActionsItem icon={Pencil} title="Rename" />
+							<ActionsItem onPress={() => {
+								renameRef.current?.present();
+							}} icon={Pencil} title="Rename" />
 							<ActionDivider />
 							<ActionsItem icon={Copy} title="Duplicate" />
 							<ActionDivider />
@@ -154,11 +172,19 @@ export const ActionsModal = () => {
 							<ActionDivider />
 							<ActionsItem icon={Package} title="Compress" />
 							<ActionDivider />
-							<ActionsItem icon={TrashSimple} title="Delete" isDanger />
+							<ActionsItem icon={TrashSimple} title="Delete" isDanger onPress={async () => {
+								if (filePath && filePath.location_id) {
+									await deleteFile.mutateAsync({
+										location_id: filePath.location_id,
+										file_path_ids: [filePath.id]
+									});
+								}
+							}} />
 						</ActionsContainer>
 					</View>
 				)}
 			</Modal>
+			<RenameModal ref={renameRef} />
 			<FileInfoModal ref={fileInfoRef} data={data} />
 		</>
 	);

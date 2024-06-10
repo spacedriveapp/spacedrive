@@ -5,10 +5,10 @@ appId: com.spacedrive.app
     id: 'browse-tab'
 - waitForAnimationToEnd
 - tapOn:
-    id: 'navigate-tags-screen'
-- tapOn:
-    id: 'create-tag-modal'
+    id: 'create-tag-button'
 - inputText: 'MyTag'
 - tapOn:
     text: 'Create'
+- tapOn:
+    id: 'show-all-tags-button'
 - assertVisible: 'MyTag'

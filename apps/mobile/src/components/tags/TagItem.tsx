@@ -1,8 +1,9 @@
+import { Tag } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable } from 'react-native';
-import { Tag } from '@sd/client';
 import { twStyle } from '~/lib/tailwind';
 
+import { ClassInput } from 'twrnc';
 import { ModalRef } from '../layout/Modal';
 import { TagModal } from '../modal/tag/TagModal';
 import GridTag from './GridTag';
@@ -12,14 +13,15 @@ type TagItemProps = {
 	tag: Tag;
 	onPress: () => void;
 	viewStyle?: 'grid' | 'list';
+	style?: ClassInput;
 };
 
-export const TagItem = ({ tag, onPress, viewStyle = 'grid' }: TagItemProps) => {
+export const TagItem = ({ tag, onPress, style, viewStyle = 'grid' }: TagItemProps) => {
 	const modalRef = useRef<ModalRef>(null);
 	return (
 		<>
 			<Pressable
-				style={twStyle(viewStyle === 'grid' ? `w-[31.5%]` : `flex-1`)}
+				style={twStyle(viewStyle === 'grid' ? `m-1 w-[112px]` : `flex-1`, style)}
 				onPress={onPress}
 				testID="browse-tag"
 			>

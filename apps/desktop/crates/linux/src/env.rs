@@ -175,6 +175,11 @@ pub fn normalize_environment() {
 		],
 	)
 	.expect("PATH must be successfully normalized");
+
+	if has_nvidia() {
+		// Workaround for: https://github.com/tauri-apps/tauri/issues/9304
+		env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+	}
 }
 
 // Check if snap by looking if SNAP is set and not empty and that the SNAP directory exists
@@ -193,6 +198,34 @@ pub fn is_flatpak() -> bool {
 	if let Some(flatpak_id) = std::env::var_os("FLATPAK_ID") {
 		if !flatpak_id.is_empty() && PathBuf::from("/.flatpak-info").is_file() {
 			return true;
+		}
+	}
+
+	false
+}
+
+fn has_nvidia() -> bool {
+	use wgpu::{
+		Backends, DeviceType, Dx12Compiler, Gles3MinorVersion, Instance, InstanceDescriptor,
+		InstanceFlags,
+	};
+
+	let instance = Instance::new(InstanceDescriptor {
+		flags: InstanceFlags::empty(),
+		backends: Backends::VULKAN | Backends::GL,
+		gles_minor_version: Gles3MinorVersion::Automatic,
+		dx12_shader_compiler: Dx12Compiler::default(),
+	});
+	for adapter in instance.enumerate_adapters(Backends::all()) {
+		let info = adapter.get_info();
+		match info.device_type {
+			DeviceType::DiscreteGpu | DeviceType::IntegratedGpu | DeviceType::VirtualGpu => {
+				// Nvidia PCI id
+				if info.vendor == 0x10de {
+					return true;
+				}
+			}
+			_ => {}
 		}
 	}
 

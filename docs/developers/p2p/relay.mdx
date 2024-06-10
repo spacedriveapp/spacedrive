@@ -1,0 +1,106 @@
+---
+title: relay
+index: 27
+---
+
+# Relay
+
+To establish connections outside of your local network we rely on an external relay to help with coordinating connections and also to proxy traffic between peers if the network conditions are not favourable.
+
+## Implementation
+
+We make use of [libp2p](https://libp2p.io)'s [Direct Connection Upgrade through Relay](https://github.com/libp2p/specs/blob/master/relay/DCUtR.md) and [Circuit Relay](https://github.com/libp2p/specs/blob/master/relay/README.md) protocols for our relay system.
+
+[Client Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/src/hooks/quic/transport.rs)
+·
+[Server Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/apps/p2p-relay)
+
+## Relay discovery
+
+Each client will regularly make requests to [https://app.spacedrive.com/api/p2p/relays](https://app.spacedrive.com/api/p2p/relays) to get the list of currently active relay servers.
+
+Each relay server will register itself with the discovery server automatically when started. This requires an authentication token so it can only be done by Spacedrive ran servers.
+
+We store the relays in Redis with a TTL. This is so if the relay server is shutdown and does not do its regular check-in, it will be automatically removed from the pool.
+
+## How it works
+
+We register a listen for each relay that is returned from the discovery server. When a connection is established we will attempt to connect to the relay server. We also attempt to establish connections with peers that we already know about through the active libraries.
+
+Currently we connect to every relay server that is returned from the discovery server. This is obviously not ideal but if two nodes were to connect to the different relay servers we would need some way of communicating between them (which is a complicated problem to solve).
+
+The issue of connecting to every relay server is tracked as [ENG-1672](https://linear.app/spacedriveapp/issue/ENG-1672/mesh-relays).
+
+## Connection upgrades
+
+The relay will attempt to upgrade the connection between any peers to a direct connection if possible. If the firewall conditions are too challenging the relay will proxy the encrypted traffic between the two peers as a fallback.
+
+## Authentication
+
+Currently the relay service is completly unauthenticated. To prevent abuse we are planning to restrict the relays to Spacedrive accounts.
+
+libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) usecase which is all open. This will likely require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
+
+This issue is tracked as [ENG-1652](https://linear.app/spacedriveapp/issue/ENG-1652/relay-authentication).
+
+## Billing
+
+Currently the relay service has no method of tracking usage based on the connected peers.
+
+libp2p doesn't have a ready-made solution for this as it's heavily designed around the [IPFS](https://ipfs.tech) use case, which is all open. This will likely require a custom network behavior to be implemented in libp2p which will be a decent undertaking.
+
+This issue is tracked as [ENG-1667](https://linear.app/spacedriveapp/issue/ENG-1667/relay-metering).
+
+## Rate limiting
+
+We should rate limit connection being opened with the Relay to ensure denial of service attacks for not possible.
+
+libp2p has a built-in [RateLimiter](https://docs.rs/libp2p/latest/libp2p/relay/trait.RateLimiter.html) trait which we can implement. The rate limiting information should be stored to Redis so it shared between all relays.
+
+## Alternative design
+
+Our relay system is currently built on top of [libp2p](https://libp2p.io)'s system for relays. Given all of the limitations of the current design discussed above I don't think libp2p's relay system was really designed for private relays so it could be worth dropping it entirely and investigating another solution.
+
+I have done some digging into [WebRTC](https://webrtc.org) (specially [STUN](https://en.wikipedia.org/wiki/STUN) and [TURN](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT)) and it does seem like a really solid alternative.
+
+Given the core of the `sd_p2p` crate is decoupled from libp2p we could easily implement an alternative connection system based on WebRTC while keeping libp2p for the quic-based transport for local networks.
+
+The major advantage to using WebRTC would be the ability to use a SaSS solution for hosting the relay infrastructure. WebRTC is based on [STUN](https://en.wikipedia.org/wiki/STUN) and [TURN](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT) which are very ubiquitous protocols. The following is a comparison of some webrtc services:
+
+|                                                                   | Pricing (per GB ) | Has Billing API |
+|-------------------------------------------------------------------|-------------------|-----------------|
+| [Cloudflare Calls](https://developers.cloudflare.com/calls/turn/) | 0.05$             | No              |
+| [Twilio](https://www.twilio.com/stun-turn)                        | 0.40$ to 0.80$    | No              |
+| [Metered](https://www.metered.ca/stun-turn)                       | 0.40$ to 0.10$    | Yes             |
+
+WebRTC also has a built in system for authentication via the SDP object that needs to be exchanged between peers for a valid connection to be established. For an explaination of webrtc checkout [this Fireship video](https://www.youtube.com/watch?v=WmR9IMUD_CY).
+
+libp2p *does* have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
+
+### Security
+
+The relay works through encrypted communication so we can not read the data that is being relayed. The relay servers currently must be owned by Spacedrive to work, however it's possible we can allow the community to run their own relays in the future.
+
+### Hosting the Relay server
+
+<Notice
+	type="note"
+	text="Be careful running this on your local machine as it will expose your public IP address to all Spacedrive users."
+/>
+
+1. Set up the server using the following command:
+
+    ```bash
+    cargo run -p sd-p2p-relay init
+    # You will be prompted to enter the p2p secret.
+    # It can be found in the `spacedrive-api` Vercel project as the `P2P_SECRET` environment variable.
+    ```
+
+2. Now that you have set up the server, you can run the relay server using the following command:
+
+    ```bash
+    cargo run -p sd-p2p-relay
+    ```
+
+*Note that you will need to ensure port `7373` is exposed through your firewall for this to work.*
+
