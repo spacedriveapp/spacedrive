@@ -6,7 +6,6 @@ import { useIsDark } from '~/hooks';
 import ForceGraph2D from 'react-force-graph-2d';
 import { useNavigate } from 'react-router';
 import * as d3 from 'd3-force';
-import * as icons from '../../../../packages/assets/icons';
 
 const canvasWidth = 700;
 const canvasHeight = 600;
@@ -74,7 +73,7 @@ const FileKindStatistics: React.FC = () => {
 
       // Preload icons, this is for rendering purposes
       statistics.forEach(item => {
-        const iconName = item.name as keyof typeof icons;
+        const iconName = item.name;
         if (!iconsRef.current[iconName]) {
           const img = new Image();
           img.src = getIcon(iconName, isDark);
@@ -150,7 +149,7 @@ const FileKindStatistics: React.FC = () => {
       ctx.font = `400 ${fontSize * 1.1}em ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`;
       ctx.fillText(node.name, node.x, node.y + fontSize * 25);
     } else {
-      const iconName = node.name as keyof typeof icons;
+      const iconName = node.name;
       const iconImg = iconsRef.current[iconName];
       const iconSize = 25 / globalScale;
       const textYPos = node.y + iconSize;
