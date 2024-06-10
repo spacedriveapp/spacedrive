@@ -8,10 +8,9 @@ import { useNavigate } from 'react-router';
 import * as d3 from 'd3-force';
 import * as icons from '../../../../packages/assets/icons';
 
-// NOTE -> tried a lot to keep the nodes within the canvas... including adding d3 forces (basically "rules" to determine node physics/behaviour),
-	// replacing the node that's off screen and rerendering the graph (this causes the whole graph to shift over for some reason), and changing the y
-	// value of the node directly. it looks like changing the node.y value in the onNodeDragEnd does not mutate the object itself when I console log it...
-	// i.e trying to "fix" the y value doesn't actually change the object properly. not sure what else to try and have been pulling my hair out about this!!
+const canvasWidth = 700;
+const canvasHeight = 600;
+
 interface KindStatistic {
   kind: number;
   name: string;
@@ -19,11 +18,30 @@ interface KindStatistic {
   total_bytes: string;
 }
 
+interface Node {
+  id: string | number;
+  name: string;
+  val: number;
+  fx?: number;
+  x?: number;
+  y?: number;
+}
+
+interface Link {
+  source: string | number;
+  target: string | number;
+}
+
+interface GraphData {
+  nodes: Node[];
+  links: Link[];
+}
+
 const FileKindStatistics: React.FC = () => {
   const isDark = useIsDark();
   const navigate = useNavigate();
   const { data } = useLibraryQuery(['library.kindStatistics']);
-  const [graphData, setGraphData] = useState({ nodes: [], links: [] });
+  const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] });
   const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -64,22 +82,12 @@ const FileKindStatistics: React.FC = () => {
       });
 
       // d3 stuff for changing physics of the nodes
-      fgRef.current.d3Force('link').distance(80); // Adjust link distance to make links shorter
-      fgRef.current.d3Force('charge').strength(-1200); // Adjust charge strength
-      fgRef.current.d3Force('collision', d3.forceCollide().radius(19)); // Add collision force with radius. Should be a little larger than radius of nodes.
+      fgRef.current.d3Force('link').distance(100); // Adjust link distance to make links shorter
+      fgRef.current.d3Force('charge').strength(-50); // how hard the nodes repel
+      fgRef.current.d3Force('center').strength(10); // Adjust center strength for stability
+      fgRef.current.d3Force('collision', d3.forceCollide().radius(25)); // Add collision force with radius. Should be a little larger than radius of nodes.
+      fgRef.current.d3Force('y', d3.forceY(canvasHeight / 10).strength((1))); // strong force to ensure nodes don't spill out of canvas
 
-	  const boundaryForce = () => {
-        const width = 1200;
-        const height = 100;
-        return (alpha: any) => {
-          graphData.nodes.forEach((node: any) => {
-            node.x = Math.max(-width / 2, Math.min(width / 2, node.x));
-            node.y = Math.max(-height / 2, Math.min(height / 2, node.y));
-          });
-        };
-      };
-
-      fgRef.current.d3Force('boundary', boundaryForce());
     }
   }, [data, isDark]);
 
@@ -187,23 +195,28 @@ const FileKindStatistics: React.FC = () => {
     }
   };
 
-  const replaceNodeIfOutOfBound = (node: any, translation: any) => {
-	console.log('Before:', node);
-
-	// Directly update the node's y value
-	node.y = 100;
-	console.log('After:', node);
+  const replaceNodeIfOutOfBound = (node: any) => {
+    console.log(node);
   };
 
+  useEffect(() => {
+    if (fgRef.current) {
+      fgRef.current.d3Force('center', d3.forceCenter());
+    }
+  }, []);
+
   const paintPointerArea = (node: any, color: string, ctx: CanvasRenderingContext2D, globalScale: number) => {
-    const size = 30 / globalScale; // Adjust this size to match the node size
+    const size = 30 / globalScale;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
     ctx.fill();
   };
+
+
+
   return (
-    <div className="relative bottom-24 right-36 h-[200px] w-full" ref={containerRef}>
+    <div className="relative bottom-48 right-10 h-[200px] w-full" ref={containerRef}>
       {data ? (
         <ForceGraph2D
           ref={fgRef}
@@ -211,20 +224,22 @@ const FileKindStatistics: React.FC = () => {
           nodeId="id"
           linkSource="source"
           linkTarget="target"
-          width={1200}
-          height={400}
+          width={canvasWidth}
+          height={canvasHeight}
           backgroundColor="transparent"
           nodeCanvasObject={paintNode}
           linkWidth={0.5}
           nodeLabel=""
-		  dagMode="td"
+		      dagMode="radialout"
           linkColor={() => isDark ? '#2C2D3A' : 'rgba(0, 0, 0, 0.2)'}
           onNodeClick={handleNodeClick}
-          onNodeDragEnd={(node, translation) => replaceNodeIfOutOfBound(node, translation)}
+          onNodeDragEnd={(node) => replaceNodeIfOutOfBound(node)}
           enableZoomInteraction={false}
           enablePanInteraction={false}
-          dagLevelDistance={60}
-          warmupTicks={300}
+          dagLevelDistance={100}
+          warmupTicks={500}
+          d3AlphaDecay={0.05}
+          d3VelocityDecay={0.9}
           nodePointerAreaPaint={paintPointerArea}
         />
       ) : (
