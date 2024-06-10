@@ -195,10 +195,6 @@ const FileKindStatistics: React.FC = () => {
     }
   };
 
-  const replaceNodeIfOutOfBound = (node: any) => {
-    console.log(node);
-  };
-
   useEffect(() => {
     if (fgRef.current) {
       fgRef.current.d3Force('center', d3.forceCenter());
@@ -233,7 +229,6 @@ const FileKindStatistics: React.FC = () => {
 		      dagMode="radialout"
           linkColor={() => isDark ? '#2C2D3A' : 'rgba(0, 0, 0, 0.2)'}
           onNodeClick={handleNodeClick}
-          onNodeDragEnd={(node) => replaceNodeIfOutOfBound(node)}
           enableZoomInteraction={false}
           enablePanInteraction={false}
           dagLevelDistance={100}
