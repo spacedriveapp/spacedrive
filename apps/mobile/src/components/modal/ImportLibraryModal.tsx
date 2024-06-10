@@ -15,6 +15,7 @@ import { ModalInput } from '~/components/primitive/Input';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
+import Card from '../layout/Card';
 
 const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 	const navigation = useNavigation();
@@ -22,33 +23,9 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const queryClient = useQueryClient();
 	const { libraries } = useClientContext();
-	const [libName, setLibName] = useState('');
-
-	const submitPlausibleEvent = usePlausibleEvent();
 
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
 	const joinLibrary = useBridgeMutation(['cloud.library.join']);
-
-	// const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
-	// 	'library.create',
-	// 	{
-	// 		onSuccess: (lib) => {
-	// 			// Reset form
-	// 			setLibName('');
-
-	// 			// We do this instead of invalidating the query because it triggers a full app re-render??
-	// 			insertLibrary(queryClient, lib);
-
-	// 			// Switch to the new library
-	// 			currentLibraryStore.id = lib.uuid;
-
-	// 			submitPlausibleEvent({ event: { type: 'libraryCreate' } });
-	// 		},
-	// 		onSettled: () => {
-	// 			modalRef.current?.dismiss();
-	// 		}
-	// 	}
-	// );
 
 	if (cloudLibraries.isLoading)
 		return (
@@ -57,10 +34,6 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 				snapPoints={['30']}
 				title="Join a Cloud Library"
 				description="Connect to one of your cloud libraries."
-				onDismiss={() => {
-					// Resets form onDismiss
-					setLibName('');
-				}}
 				showCloseButton
 				// Disable panning gestures
 				enableHandlePanningGesture={false}
@@ -86,10 +59,6 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 			snapPoints={['30']}
 			title="Join a Cloud Library"
 			description="Connect to one of your cloud libraries."
-			onDismiss={() => {
-				// Resets form onDismiss
-				setLibName('');
-			}}
 			showCloseButton
 			// Disable panning gestures
 			enableHandlePanningGesture={false}
@@ -101,11 +70,11 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 						(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
 					)
 					.map((cloudLibrary) => (
-						<View
+						<Card
 							key={cloudLibrary.uuid}
 							style={tw`flex flex-row items-center gap-2 rounded-lg bg-gray-600 p-2`}
 						>
-							<Text style={tw`text-xl font-bold text-ink`}>{cloudLibrary.name}</Text>
+							<Text style={tw`text-lg font-bold text-ink`}>{cloudLibrary.name}</Text>
 							<View style={tw`flex flex-row gap-2`}>
 								<Button
 									variant="accent"
@@ -153,7 +122,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									</Text>
 								</Button>
 							</View>
-						</View>
+						</Card>
 					))}
 			</View>
 		</Modal>
