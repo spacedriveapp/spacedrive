@@ -9,7 +9,7 @@ import { SettingsTitle } from '~/components/settings/SettingsContainer';
 import { styled, tw } from '~/lib/tailwind';
 import { cancel, login, useAuthStateSnapshot } from '~/stores/auth';
 
-const InfoBox = styled(View, 'rounded-md border border-app-inputborder bg-app-input p-2');
+const InfoBox = styled(View, 'rounded-md border border-app bg-transparent p-2');
 
 const CloudSettings = () => {
 	return (
@@ -48,11 +48,11 @@ const Authenticated = () => {
 				<View style={tw`flex-col items-start gap-5`}>
 					<Card style={tw`w-full`}>
 					<Text style={tw`font-semibold text-ink`}>Library</Text>
-					<Divider style={tw`mb-4 mt-2`}/>
+					<Divider style={tw`mt-2 mb-4`}/>
 						<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
-						<View style={tw`rounded-md border border-app-inputborder bg-app-input p-2`}>
+						<InfoBox>
 							<Text style={tw`text-ink`}>{cloudLibrary.data.name}</Text>
-						</View>
+						</InfoBox>
 					<Button
 						disabled={syncLibrary.isLoading}
 						variant="accent"
@@ -61,22 +61,23 @@ const Authenticated = () => {
 							syncLibrary.mutateAsync(null);
 						}}
 					>
-						<Text style={tw`text-xs font-bold text-ink`}>Sync Library</Text>
+						<Text style={tw`text-xs font-medium text-ink`}>Sync Library</Text>
 					</Button>
 					</Card>
 					{thisInstance && (
 						<Card style={tw`w-full`}>
 							<Text style={tw`font-semibold text-ink`}>This Instance</Text>
-							<Divider style={tw`mb-4 mt-2`}/>
+							<Divider style={tw`mt-2 mb-4`}/>
 							<SettingsTitle style={tw`mb-1 text-ink`}>Id</SettingsTitle>
 							<InfoBox>
+
 								<Text style={tw`text-ink-dull`}>{thisInstance.id}</Text>
 							</InfoBox>
-							<SettingsTitle style={tw`mb-1 mt-4`}>UUID</SettingsTitle>
+							<SettingsTitle style={tw`mt-4 mb-1`}>UUID</SettingsTitle>
 							<InfoBox>
 								<Text style={tw`text-ink-dull`}>{thisInstance.uuid}</Text>
 							</InfoBox>
-							<SettingsTitle style={tw`mb-1 mt-4`}>Public Key</SettingsTitle>
+							<SettingsTitle style={tw`mt-4 mb-1`}>Public Key</SettingsTitle>
 							<InfoBox>
 								<Text numberOfLines={1} style={tw`text-ink-dull`}>{thisInstance.identity}</Text>
 							</InfoBox>
@@ -91,13 +92,14 @@ const Authenticated = () => {
 						</View>
 						<Text style={tw`font-semibold text-ink`}>Instances</Text>
 						</View>
-						<Divider style={tw`mb-4 mt-2`}/>
-						<VirtualizedListWrapper contentContainerStyle={tw`flex-1`} horizontal>
+						<Divider style={tw`mt-2 mb-4`}/>
+						<VirtualizedListWrapper scrollEnabled={false} contentContainerStyle={tw`flex-1`} horizontal>
 							<FlatList
 								data={cloudInstances}
 								scrollEnabled={false}
+								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`}/>}
-								columnWrapperStyle={tw`w-full justify-between`}
+								columnWrapperStyle={tw`justify-between w-full`}
 								renderItem={({ item }) => <Instance data={item} />}
 								keyExtractor={(item) => item.id}
 								numColumns={2}
@@ -109,9 +111,7 @@ const Authenticated = () => {
 				<View style={tw`relative`}>
 					<Button
 						disabled={createLibrary.isLoading}
-						onPress={() => {
-							createLibrary.mutateAsync(null);
-						}}
+						onPress={async () => await createLibrary.mutateAsync(null)}
 					>
 						{createLibrary.isLoading ? (
 							<Text style={tw`text-ink`}>Connecting library to Spacedrive Cloud...</Text>
@@ -136,11 +136,11 @@ const Instance = ({data}: Props) => {
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.id}</Text>
 				</InfoBox>
-				<SettingsTitle style={tw`mb-1 mt-4`}>UUID</SettingsTitle>
+				<SettingsTitle style={tw`mt-4 mb-1`}>UUID</SettingsTitle>
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.uuid}</Text>
 				</InfoBox>
-				<SettingsTitle style={tw`mb-1 mt-4`}>Public Key</SettingsTitle>
+				<SettingsTitle style={tw`mt-4 mb-1`}>Public Key</SettingsTitle>
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.identity}</Text>
 				</InfoBox>
