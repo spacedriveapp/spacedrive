@@ -6,7 +6,7 @@ import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
 import { SettingsTitle } from '~/components/settings/SettingsContainer';
-import { styled, tw } from '~/lib/tailwind';
+import { styled, tw, twStyle } from '~/lib/tailwind';
 import { cancel, login, useAuthStateSnapshot } from '~/stores/auth';
 
 const InfoBox = styled(View, 'rounded-md border border-app bg-transparent p-2');
@@ -48,7 +48,7 @@ const Authenticated = () => {
 				<View style={tw`flex-col items-start gap-5`}>
 					<Card style={tw`w-full`}>
 					<Text style={tw`font-semibold text-ink`}>Library</Text>
-					<Divider style={tw`mt-2 mb-4`}/>
+					<Divider style={tw`mb-4 mt-2`}/>
 						<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 						<InfoBox>
 							<Text style={tw`text-ink`}>{cloudLibrary.data.name}</Text>
@@ -67,17 +67,17 @@ const Authenticated = () => {
 					{thisInstance && (
 						<Card style={tw`w-full`}>
 							<Text style={tw`font-semibold text-ink`}>This Instance</Text>
-							<Divider style={tw`mt-2 mb-4`}/>
+							<Divider style={tw`mb-4 mt-2`}/>
 							<SettingsTitle style={tw`mb-1 text-ink`}>Id</SettingsTitle>
 							<InfoBox>
 
 								<Text style={tw`text-ink-dull`}>{thisInstance.id}</Text>
 							</InfoBox>
-							<SettingsTitle style={tw`mt-4 mb-1`}>UUID</SettingsTitle>
+							<SettingsTitle style={tw`mb-1 mt-4`}>UUID</SettingsTitle>
 							<InfoBox>
 								<Text style={tw`text-ink-dull`}>{thisInstance.uuid}</Text>
 							</InfoBox>
-							<SettingsTitle style={tw`mt-4 mb-1`}>Public Key</SettingsTitle>
+							<SettingsTitle style={tw`mb-1 mt-4`}>Public Key</SettingsTitle>
 							<InfoBox>
 								<Text numberOfLines={1} style={tw`text-ink-dull`}>{thisInstance.identity}</Text>
 							</InfoBox>
@@ -92,17 +92,17 @@ const Authenticated = () => {
 						</View>
 						<Text style={tw`font-semibold text-ink`}>Instances</Text>
 						</View>
-						<Divider style={tw`mt-2 mb-4`}/>
+						<Divider style={tw`mb-4 mt-2`}/>
 						<VirtualizedListWrapper scrollEnabled={false} contentContainerStyle={tw`flex-1`} horizontal>
 							<FlatList
 								data={cloudInstances}
 								scrollEnabled={false}
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`}/>}
-								columnWrapperStyle={tw`justify-between w-full`}
-								renderItem={({ item }) => <Instance data={item} />}
+								renderItem={({ item }) => <Instance data={item} length={cloudInstances?.length ?? 0} />}
 								keyExtractor={(item) => item.id}
-								numColumns={2}
+								numColumns={(cloudInstances?.length ?? 0) > 1 ? 2 : 1}
+								{...(cloudInstances?.length ?? 0) > 1 ? {columnWrapperStyle: tw`w-full justify-between`} : {}}
 								/>
 						</VirtualizedListWrapper>
 					</Card>
@@ -127,20 +127,21 @@ const Authenticated = () => {
 
 interface Props {
 	data: CloudInstance;
+	length: number;
 }
 
-const Instance = ({data}: Props) => {
+const Instance = ({data, length}: Props) => {
 	return (
-		<InfoBox style={tw`w-[49%]`}>
+		<InfoBox style={twStyle(length > 1 ? 'w-[49%]' : 'w-full')}>
 				<SettingsTitle style={tw`mb-1`}>Id</SettingsTitle>
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.id}</Text>
 				</InfoBox>
-				<SettingsTitle style={tw`mt-4 mb-1`}>UUID</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-4`}>UUID</SettingsTitle>
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.uuid}</Text>
 				</InfoBox>
-				<SettingsTitle style={tw`mt-4 mb-1`}>Public Key</SettingsTitle>
+				<SettingsTitle style={tw`mb-1 mt-4`}>Public Key</SettingsTitle>
 				<InfoBox>
 					<Text numberOfLines={1} style={tw`text-ink-dull`}>{data.identity}</Text>
 				</InfoBox>
