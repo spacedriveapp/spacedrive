@@ -71,16 +71,16 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 export default SyncSettingsScreen;
 
 function OnlineIndicator({ online }: { online: boolean }) {
-	const size = 8;
+	const size = 6;
 	return (
 	<View style={tw`items-center justify-center w-6 h-6 p-2 mb-1 border rounded-full border-app-inputborder bg-app-input`}>
 	{online ? (
 		<View style={tw`relative items-center justify-center`}>
 			<MotiView
-				from={{ scale: 0 }}
-				animate={{ scale: 1.5, opacity: 0 }}
-				transition={{ type: 'timing', duration: 500, loop: true, delay: 500}}
-			 style={tw`absolute z-10 items-center justify-center w-2 h-2 bg-red-500 rounded-full`} />
+				from={{ scale: 0, opacity: 1 }}
+				animate={{ scale: 3, opacity: 0}}
+				transition={{ type: 'timing', duration: 1500, loop: true, repeatReverse: false, delay: 1000}}
+			 style={tw`absolute z-10 items-center justify-center w-2 h-2 bg-green-500 rounded-full`} />
 			<View style={tw`w-2 h-2 bg-green-500 rounded-full`} />
 		</View>
 	) : (

@@ -1,6 +1,7 @@
 import { CloudInstance, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { FlatList, Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
+import Empty from '~/components/layout/Empty';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { Button } from '~/components/primitive/Button';
@@ -122,6 +123,11 @@ const Authenticated = () => {
 							<FlatList
 								data={cloudInstances}
 								scrollEnabled={false}
+								ListEmptyComponent={<Empty
+									textStyle={tw`my-0`}
+									description='No instances found'
+								/>}
+								contentContainerStyle={twStyle(cloudInstances?.length === 0 && 'flex-row')}
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`}/>}
 								renderItem={({ item }) => <Instance data={item} length={cloudInstances?.length ?? 0} />}
