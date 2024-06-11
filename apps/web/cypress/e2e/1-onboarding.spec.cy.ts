@@ -39,7 +39,7 @@ describe('Onboarding', () => {
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
-		cy.get('@winOpen').should('match', /https:\/\/discord.gg\/.+/);
+		cy.get('@winOpen').should('be.calledWithMatch', /https:\/\/discord.gg\/.+/);
 
 		// Check we have a button to continue to the Library creation
 		cy.get('a')
