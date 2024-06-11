@@ -5,6 +5,7 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+import { MotiView } from 'moti';
 import { Circle } from 'phosphor-react-native';
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -20,7 +21,9 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 
 	const [startBackfill, setStart] = useState(false);
 
-	useLibrarySubscription(['library.actors'], { onData: setData });
+	useLibrarySubscription(['library.actors'], { onData: (data) => {
+		setData(data);
+	} });
 
 	useEffect(() => {
 		if (startBackfill === true) {
@@ -43,11 +46,11 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 				<View style={tw`flex-row flex-wrap gap-2`}>
 					{Object.keys(data).map((key) => {
 						return (
-							<Card style={tw`w-[48%] flex-col gap-2`} key={key}>
+							<Card style={tw`w-[48%]`} key={key}>
 							<OnlineIndicator online={data[key] ?? false} />
 							<Text
 								key={key}
-								style={tw`flex flex-col items-center justify-center text-left text-white`}
+								style={tw`flex-col items-center justify-center mt-1 mb-3 text-left text-white`}
 							>
 								{key}
 							</Text>
@@ -68,11 +71,18 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 export default SyncSettingsScreen;
 
 function OnlineIndicator({ online }: { online: boolean }) {
-	const size = 10;
+	const size = 8;
 	return (
 	<View style={tw`items-center justify-center w-6 h-6 p-2 mb-1 border rounded-full border-app-inputborder bg-app-input`}>
 	{online ? (
-		<Circle size={size} color={tw.color('green-400')} weight="fill" />
+		<View style={tw`relative items-center justify-center`}>
+			<MotiView
+				from={{ scale: 0 }}
+				animate={{ scale: 1.5, opacity: 0 }}
+				transition={{ type: 'timing', duration: 500, loop: true, delay: 500}}
+			 style={tw`absolute z-10 items-center justify-center w-2 h-2 bg-red-500 rounded-full`} />
+			<View style={tw`w-2 h-2 bg-green-500 rounded-full`} />
+		</View>
 	) : (
 		<Circle size={size} color={tw.color('red-400')} weight="fill" />
 	)}
@@ -85,10 +95,11 @@ function StartButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
+			size="sm"
 			disabled={startActor.isLoading}
 			onPress={() => startActor.mutate(name)}
 		>
-			<Text style={tw`font-medium text-ink`}>
+			<Text style={tw`text-xs font-medium text-ink`}>
 				{startActor.isLoading ? 'Starting' : 'Start'}
 			</Text>
 			{startActor.isLoading ? <Text>Starting</Text> : <Text>Start</Text>}
@@ -101,10 +112,11 @@ function StopButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
+			size="sm"
 			disabled={stopActor.isLoading}
 			onPress={() => stopActor.mutate(name)}
 		>
-			<Text style={tw`font-medium text-ink`}>
+			<Text style={tw`text-xs font-medium text-ink`}>
 				{stopActor.isLoading ? 'Stopping' : 'Stop'}
 			</Text>
 		</Button>

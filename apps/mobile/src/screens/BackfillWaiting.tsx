@@ -1,9 +1,9 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { useNavigation } from '@react-navigation/native';
 import { AppLogo } from '@sd/assets/images';
+import { useLibraryMutation } from '@sd/client';
 import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Text, View } from 'react-native';
 import Animated, {
 	Easing,
 	useAnimatedStyle,
@@ -12,9 +12,7 @@ import Animated, {
 	withTiming
 } from 'react-native-reanimated';
 import { Circle, Defs, RadialGradient, Stop, Svg } from 'react-native-svg';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { BackfillWaitingStackScreenProps } from '~/navigation/BackfillWaitingStack';
-import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { tw, twStyle } from '~/lib/tailwind';
 
 const { width } = Dimensions.get('window');
 
@@ -36,29 +34,33 @@ const BackfillWaiting = () => {
 		};
 	});
 
-	const enableSync = useLibraryMutation(['sync.backfill'], {});
+	const enableSync = useLibraryMutation(['sync.backfill'], {
+		onSuccess: () => {
+			navigation.navigate('Root', {
+				screen: 'Home',
+				params: {
+					screen: 'SettingsStack',
+					params: {
+						screen: 'SyncSettings'
+					}
+				}
+			});
+		}
+	});
 
 	useEffect(() => {
-		async function _() {
-			await enableSync.mutateAsync(null).then(() =>
-				navigation.navigate('Root', {
-					screen: 'Home',
-					params: {
-						screen: 'SettingsStack',
-						params: {
-							screen: 'SyncSettings'
-						}
-					}
-				})
-			);
-		}
-
-		_();
+		 (async () => {
+			await enableSync.mutateAsync(null);
+		})();
 	}, []);
 
 	return (
-		<View style={styles.container}>
-			<Animated.View style={[styles.gradientContainer, animatedStyle]}>
+		<View style={tw`flex-1 items-center justify-center bg-black`}>
+			<Animated.View style={[twStyle(`absolute items-center justify-center`, {
+				width: width * 2,
+				height: width * 2,
+				borderRadius: (width * 0.8) / 2,
+			}), animatedStyle]}>
 				<Svg height="100%" width="100%" viewBox="0 0 100 100">
 					<Defs>
 						<RadialGradient id="grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
@@ -69,47 +71,14 @@ const BackfillWaiting = () => {
 					<Circle cx="50" cy="50" r="50" fill="url(#grad)" />
 				</Svg>
 			</Animated.View>
-			<Image source={AppLogo} style={styles.icon} />
-			<Text style={styles.text}>
+			<Image source={AppLogo} style={tw`mb-4 h-[100px] w-[100px]`} />
+			<Text style={tw`mx-10 mb-4 text-center text-md leading-6 text-ink`}>
 				Library is being backfilled right now for Sync!
-				<Text style={styles.boldText}> Please hold </Text>
+				<Text style={tw`font-bold`}> Please hold </Text>
 				while this process takes place.
 			</Text>
 		</View>
 	);
 };
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: '#000000', // Black background
-		alignItems: 'center',
-		justifyContent: 'center'
-	},
-	gradientContainer: {
-		position: 'absolute',
-		width: width * 2, // Adjust the size of the circular gradient
-		height: width * 2, // Keep the aspect ratio to make it circular
-		borderRadius: (width * 0.8) / 2,
-		alignItems: 'center',
-		justifyContent: 'center'
-	},
-	icon: {
-		width: 100,
-		height: 100,
-		marginBottom: 20
-	},
-	text: {
-		color: '#FFFFFF',
-		textAlign: 'center',
-		marginHorizontal: 40,
-		marginBottom: 20,
-		fontSize: 16,
-		lineHeight: 24
-	},
-	boldText: {
-		fontWeight: 'bold'
-	}
-});
 
 export default BackfillWaiting;
