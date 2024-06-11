@@ -447,17 +447,20 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 
 					if let Ok(res) = res.as_ref() {
 						if !<SJob as StatefulJob>::IS_BATCHED {
+							debug!(len = res.steps.len(), "========= IS_BATCHED");
+							// tell the reporter how much work there is
 							ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
 						}
 					}
 
+					// res: Result<JobInitOutput>: steps
 					(stateful_job, new_data, res)
 				})
 			};
 
 			let InitPhaseOutput {
 				stateful_job: returned_stateful_job,
-				maybe_data,
+				maybe_data, // Option<OldIndexerData>
 				output,
 			} = handle_init_phase::<SJob>(
 				JobRunWorkTable {
@@ -480,6 +483,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 					steps: new_steps,
 					errors: JobRunErrors(new_errors),
 				}) => {
+					debug!(?new_steps, "new steps"); // testing this now
 					steps = new_steps;
 					errors.extend(new_errors);
 					run_metadata.update(new_run_metadata);
@@ -498,16 +502,19 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		let data = if let Some(working_data) = working_data {
 			let mut working_data_arc = Arc::new(working_data);
 
+			debug!("initiating the loop");
+
 			// Job run phase
 			while job_should_run && !steps.is_empty() {
 				let steps_len: usize = steps.len();
 
 				let mut run_metadata_arc = Arc::new(run_metadata);
+				// TODO(matheus-consoli): instead of pop_front just one element, chunk it
+				// get a batch of files
 				let step = Arc::new(steps.pop_front().expect("just checked that we have steps"));
 
 				let init_time = Instant::now();
 
-				// JoinHandle<Result<JobStepOutput<SJob::Step, SJob::RunMetadata>, JobError>>
 				let step_task = {
 					// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
 					let ctx = Arc::clone(&ctx);
@@ -593,6 +600,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 						}
 
 						if !<SJob as StatefulJob>::IS_BATCHED {
+							debug!("====== IS_BATCHED - sending events");
 							ctx.progress(events);
 						}
 
@@ -771,6 +779,9 @@ async fn handle_init_phase<SJob: StatefulJob>(
 			}
 			StreamMessage::InitResult(Ok((stateful_job, maybe_data, output))) => {
 				debug!(init_phase_time = ?init_time.elapsed(), "Init phase completed;");
+
+				// maybe_data: Option<<SJob as StatefulJob>::Data>
+				// maybe_data: Option<OldIndexerJobData>
 
 				return Ok(InitPhaseOutput {
 					stateful_job,
