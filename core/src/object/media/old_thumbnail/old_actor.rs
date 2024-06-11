@@ -75,8 +75,8 @@ impl OldThumbnailer {
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		libraries_manager: Arc<Libraries>,
-		reporter: broadcast::Sender<CoreEvent>,
-		node_preferences_rx: watch::Receiver<NodePreferences>,
+		reporter: broadcast::Sender<CoreEvent>, // same thing
+		node_preferences_rx: watch::Receiver<NodePreferences>, // will this be necessary?
 	) -> Self {
 		let data_dir = data_dir.as_ref();
 		let thumbnails_directory = Arc::new(
