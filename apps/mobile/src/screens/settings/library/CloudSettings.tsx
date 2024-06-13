@@ -1,4 +1,6 @@
 import { CloudInstance, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { CheckCircle } from 'phosphor-react-native';
+import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
@@ -37,23 +39,30 @@ const Authenticated = () => {
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
 	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
 
-	const thisInstance = cloudLibrary.data?.instances.find(
+	const thisInstance = useMemo(() => cloudLibrary.data?.instances.find(
 		(instance) => instance.uuid === library.instance_id
-	);
-	const cloudInstances = cloudLibrary.data?.instances.filter(
-		(instance) => instance.uuid !== library.instance_id
-	);
+	), [cloudLibrary.data, library.instance_id]);
+
+	const cloudInstances = useMemo(() =>
+		cloudLibrary.data?.instances.filter(
+			(instance) => instance.uuid !== library.instance_id
+	), [cloudLibrary.data, library.instance_id]);
+
+	const isLibrarySynced = useMemo(() =>
+		cloudLibrary.data?.instances.some(
+			(instance) => instance.uuid === library.instance_id
+	),[cloudLibrary.data, library]);
 
 	if (cloudLibrary.isLoading) {
 		return (
-			<View style={tw`items-center justify-center flex-1`}>
+			<View style={tw`flex-1 items-center justify-center`}>
 				<ActivityIndicator size="small"/>
 			</View>
 		);
 	}
 
 	return (
-		<ScreenContainer tabHeight={false}>
+		<ScreenContainer  tabHeight={false}>
 			{cloudLibrary.data ? (
 				<View style={tw`flex-col items-start gap-5`}>
 					<Card style={tw`w-full`}>
@@ -69,18 +78,23 @@ const Authenticated = () => {
 					</Button>
 					)}
 					</View>
-					<Divider style={tw`mt-2 mb-4`}/>
-						<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
+					<Divider style={tw`mb-4 mt-2`}/>
+						<SettingsTitle style={tw`mb-2`}>Name</SettingsTitle>
 						<InfoBox>
 							<Text style={tw`text-ink`}>{cloudLibrary.data.name}</Text>
 						</InfoBox>
 						<Button
 							disabled={syncLibrary.isLoading}
-							variant="accent"
-							style={tw`mt-2`}
+							variant={isLibrarySynced ? 'dashed' : 'accent'}
+							style={tw`mt-2 flex-row gap-1 py-2`}
 							onPress={() => syncLibrary.mutateAsync(null)}
 						>
-							<Text style={tw`text-xs font-semibold text-ink`}>Sync Library</Text>
+							{isLibrarySynced && <CheckCircle size={13} weight="fill" color={tw.color('green-500')}/>}
+							<Text style={tw`text-xs font-semibold text-ink`}>{
+								isLibrarySynced
+								? 'Library synced'
+								: 'Sync library'
+							}</Text>
 						</Button>
 					</Card>
 					{thisInstance && (
@@ -122,7 +136,7 @@ const Authenticated = () => {
 							</View>
 							<Text style={tw`font-semibold text-ink`}>Instances</Text>
 						</View>
-						<Divider style={tw`mt-2 mb-4`} />
+						<Divider style={tw`mb-4 mt-2`} />
 						<VirtualizedListWrapper
 							scrollEnabled={false}
 							contentContainerStyle={tw`flex-1`}
@@ -141,26 +155,27 @@ const Authenticated = () => {
 								renderItem={({ item }) => <Instance data={item} length={cloudInstances?.length ?? 0} />}
 								keyExtractor={(item) => item.id}
 								numColumns={(cloudInstances?.length ?? 0) > 1 ? 2 : 1}
-								{...(cloudInstances?.length ?? 0) > 1 ? {columnWrapperStyle: tw`justify-between w-full`} : {}}
+								{...(cloudInstances?.length ?? 0) > 1 ? {columnWrapperStyle: tw`w-full justify-between`} : {}}
 								/>
 						</VirtualizedListWrapper>
 					</Card>
 				</View>
 			) : (
-				<View style={tw`relative`}>
+				<Card style={tw`relative py-10`}>
 					<Button
-						disabled={createLibrary.isLoading}
-						onPress={async () => await createLibrary.mutateAsync(null)}
+					style={tw`mx-auto max-w-[82%]`}
+					disabled={createLibrary.isLoading}
+					onPress={async () => await createLibrary.mutateAsync(null)}
 					>
 						{createLibrary.isLoading ? (
 							<Text style={tw`text-ink`}>
 								Connecting library to Spacedrive Cloud...
 							</Text>
 						) : (
-							<Text style={tw`text-ink`}>Connect library to Spacedrive Cloud</Text>
+							<Text style={tw`font-medium text-ink`}>Connect library to Spacedrive Cloud</Text>
 						)}
 					</Button>
-				</View>
+				</Card>
 			)}
 		</ScreenContainer>
 	);
@@ -203,8 +218,8 @@ const Login = () => {
 		loggingIn: 'Cancel',
 	}
 	return (
-		<View style={tw`flex-col items-center justify-center flex-1 gap-2`}>
-			<Card style={tw`items-center justify-center w-full p-6`}>
+		<View style={tw`flex-1 flex-col items-center justify-center gap-2`}>
+			<Card style={tw`w-full items-center justify-center p-6`}>
 				<Text style={tw`mb-4 max-w-[60%] text-center text-ink`}>
 					To access cloud related features, please login
 				</Text>

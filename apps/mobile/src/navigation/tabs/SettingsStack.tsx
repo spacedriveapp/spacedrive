@@ -94,11 +94,11 @@ export default function SettingsStack() {
 				component={SyncSettingsScreen}
 				options={{ header: () => <Header navBack title="Sync" /> }}
 			/>
-			<Stack.Screen
+			{/* <Stack.Screen
 				name="CloudSettings"
 				component={CloudSettings}
 				options={{ header: () => <Header navBack title="Cloud" /> }}
-			/>
+			/> */}
 			{/* <Stack.Screen
 				name="KeysSettings"
 				component={KeysSettingsScreen}

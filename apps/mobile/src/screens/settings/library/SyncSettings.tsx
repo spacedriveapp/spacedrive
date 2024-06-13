@@ -48,7 +48,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 							<OnlineIndicator online={data[key] ?? false} />
 							<Text
 								key={key}
-								style={tw`mb-3 mt-1 flex-col items-center justify-center text-left text-white`}
+								style={tw`mb-3 mt-1 flex-col items-center justify-center text-left text-xs text-white`}
 							>
 								{key}
 							</Text>
@@ -100,7 +100,6 @@ function StartButton({ name }: { name: string }) {
 			<Text style={tw`text-xs font-medium text-ink`}>
 				{startActor.isLoading ? 'Starting' : 'Start'}
 			</Text>
-			{startActor.isLoading ? <Text>Starting</Text> : <Text>Start</Text>}
 		</Button>
 	);
 }
