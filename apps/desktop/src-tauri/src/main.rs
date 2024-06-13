@@ -156,7 +156,7 @@ async fn open_trash_in_os_explorer() -> Result<(), ()> {
 	#[cfg(target_os = "linux")]
 	{
 		Command::new("xdg-open")
-			.arg("~/.local/share/Trash/")
+			.arg("trash://")
 			.spawn()
 			.map_err(|err| error!("Error opening trash: {err:#?}"))?
 			.wait()

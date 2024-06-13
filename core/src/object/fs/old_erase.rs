@@ -160,11 +160,8 @@ impl StatefulJob for OldFileEraserJobInit {
 					init.passes
 				);
 
-				#[cfg(feature = "crypto")]
-				// sd_crypto::fs::erase::erase_async(&mut file, file_len as usize, init.passes).await?;
-				#[cfg(not(feature = "crypto"))]
-				warn!("File not fully erased due to missing crypto module");
-
+				// TODO: File is only being truncated and not actually erased,
+				// we should provide a way for securely overwriting the file with random data
 				file.set_len(0)
 					.await
 					.map_err(|e| FileIOError::from((&step.full_path, e)))?;

@@ -613,7 +613,7 @@ pub async fn relink_location(
 
 	metadata.relink(*id, location_path).await?;
 
-	let pub_id = metadata.location_pub_id(*id)?.as_ref().to_vec();
+	let pub_id = <Uuid as AsRef<[u8]>>::as_ref(&metadata.location_pub_id(*id)?).to_vec();
 	let path = location_path
 		.to_str()
 		.map(str::to_string)

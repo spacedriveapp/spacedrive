@@ -9,8 +9,6 @@ use crate::{
 	Error, Result,
 };
 use exif::Tag;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha20Rng;
 use std::ops::Neg;
 
 #[derive(Default, Clone, PartialEq, Debug, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -106,26 +104,6 @@ impl MediaLocation {
 				)
 			})
 			.ok_or(Error::MediaLocationParse)
-	}
-
-	#[must_use]
-	pub fn generate() -> Self {
-		let mut rng = ChaCha20Rng::from_entropy();
-		let latitude = rng.gen_range(-LAT_MAX_POS..=LAT_MAX_POS);
-		let longitude = rng.gen_range(-LONG_MAX_POS..=LONG_MAX_POS);
-
-		let pluscode = PlusCode::new(latitude, longitude);
-
-		let altitude = Some(rng.gen_range(ALT_MIN_HEIGHT..=ALT_MAX_HEIGHT));
-		let direction = Some(rng.gen_range(0..=DIRECTION_MAX));
-
-		Self {
-			latitude,
-			longitude,
-			pluscode,
-			altitude,
-			direction,
-		}
 	}
 
 	/// This returns the contained coordinates as `(latitude, longitude)`

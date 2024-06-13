@@ -31,7 +31,7 @@ export default function OnboardingAlpha() {
 					</p>
 					<div className="mt-0 flex w-full items-center justify-center gap-2">
 						<Button
-							onClick={() => platform.openLink('https://discord.gg/ukRnWSnAbG')}
+							onClick={() => platform.openLink('https://discord.gg/gTaF2Z44f5')}
 							className="flex gap-2"
 							variant="gray"
 						>

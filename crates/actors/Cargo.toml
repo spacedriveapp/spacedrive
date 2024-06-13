@@ -5,8 +5,6 @@ license.workspace = true
 edition.workspace = true
 repository.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-futures.workspace = true
-tokio.workspace = true
+futures = { workspace = true }
+tokio = { workspace = true }

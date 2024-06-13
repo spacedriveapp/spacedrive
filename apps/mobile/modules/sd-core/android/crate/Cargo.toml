@@ -14,8 +14,8 @@ crate-type = ["cdylib"]
 # Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }
 
-# FFI
-jni = "0.21.1"
-
-# Other
+# Workspace dependencies
 tracing = { workspace = true }
+
+# Specific Mobile Android dependencies
+jni = "0.21.1"

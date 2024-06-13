@@ -1,6 +1,6 @@
 [package]
 name = "sd-images"
-version = "0.0.0"
+version = "0.1.0"
 authors = [
 	"Jake Robinson <jake@spacedrive.com>",
 	"Vítor Vasconcellos <vitor@spacedrive.com>",
@@ -13,6 +13,7 @@ edition = { workspace = true }
 heif = ["dep:libheif-rs", "dep:libheif-sys"]
 
 [dependencies]
+# Workspace dependencies
 image = { workspace = true }
 once_cell = { workspace = true }
 rspc = { workspace = true, optional = true }                         # error conversion
@@ -21,18 +22,17 @@ serde = { workspace = true, optional = true, features = ["derive"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
-bincode = { version = "2.0.0-rc.3", features = [
+# Specific Images dependencies
+bincode = { version = "=2.0.0-rc.3", features = [
 	"derive",
 	"alloc",
 ], optional = true }
-resvg = "0.40.0"
-
-# both of these added *default* bindgen features in 0.22.0 and 2.0.0 respectively
-# this broke builds as we build our own liibheif, so i disabled their default features
-libheif-rs = { version = "0.22.0", default-features = false, optional = true }
-libheif-sys = { version = "2.0.0", default-features = false, optional = true }
+# Disable defaults for libheif* to avoid bindgen and use pre-compiled headers
+libheif-rs = { version = "1.0", default-features = false, optional = true }
+libheif-sys = { version = "2.1", default-features = false, optional = true }
 pdfium-render = { version = "0.8.15", features = [
 	"sync",
 	"image",
 	"thread_safe",
 ] }
+resvg = "0.42.0"
