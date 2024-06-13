@@ -15,7 +15,7 @@ use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{fmt, hash::Hash, path::PathBuf};
 
-use futures_concurrency::future::TryJoin;
+use futures_concurrency::future::{Join, TryJoin};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -27,6 +27,8 @@ use super::{
 	find_available_filename_for_duplicate, get_file_data_from_isolated_file_path,
 	get_many_files_datas, FileData,
 };
+
+const CHUNKS_SIZE: usize = 2;
 
 // spawn one job
 // this job will receive the data from a channel
@@ -86,8 +88,7 @@ impl OldFileCopierJobInit {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OldFileCopierJobStep {
 	pub source_file_data: Vec<FileData>,
-	pub target_full_path: Vec<PathBuf>, // deal with the errors now :D
-	// todo: more info about the transfer
+	pub target_full_path: Vec<PathBuf>,
 	#[serde(skip)]
 	respond_to: Option<async_channel::Sender<Msg>>,
 }
@@ -123,29 +124,48 @@ impl StatefulJob for OldFileCopierJobInit {
 			)
 			.await?;
 
-		// maybe it's here that we are f* things up
 		let steps = get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids)
 			.await?
+			.chunks(CHUNKS_SIZE)
 			.into_iter()
-			.map(|source_file_data| async {
-				// add the currently viewed subdirectory to the location root
-				let mut target_full_path = join_location_relative_path(
-					&targets_location_path,
-					&init.target_location_relative_directory_path,
-				);
+			.map(|source_file_data| {
+				let targets_location_path = &targets_location_path;
+				let rx = rx.clone();
+				async move {
+					// add the currently viewed subdirectory to the location root
+					let bulk = source_file_data
+						.into_iter()
+						.map(|file| async move {
+							let mut target_full_path = join_location_relative_path(
+								targets_location_path,
+								&init.target_location_relative_directory_path,
+							);
 
-				target_full_path.push(construct_target_filename(&source_file_data)?);
+							target_full_path.push(construct_target_filename(&file)?);
 
-				if source_file_data.full_path == target_full_path {
-					target_full_path =
-						find_available_filename_for_duplicate(target_full_path).await?;
+							if file.full_path == target_full_path {
+								target_full_path =
+									find_available_filename_for_duplicate(target_full_path).await?;
+							}
+							Ok::<(FileData, _), _>((file.clone(), target_full_path))
+						})
+						.collect::<Vec<_>>()
+						.join()
+						.await;
+
+					let bulk = bulk
+						.into_iter()
+						.collect::<Result<Vec<_>, FileSystemJobsError>>()
+						.unwrap();
+
+					let (source_file_data, target_full_path) = bulk.into_iter().unzip();
+
+					Ok::<_, FileSystemJobsError>(OldFileCopierJobStep {
+						source_file_data,
+						target_full_path,
+						respond_to: Some(rx),
+					})
 				}
-
-				Ok::<_, FileSystemJobsError>(OldFileCopierJobStep {
-					source_file_data,
-					target_full_path,
-					respond_to: Some(rx.clone()),
-				})
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -161,71 +181,57 @@ impl StatefulJob for OldFileCopierJobInit {
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
-		CurrentStep {
-			step:
-				OldFileCopierJobStep {
-					source_file_data,
-					target_full_path,
-					respond_to,
-				},
-			..
-		}: CurrentStep<'_, Self::Step>,
+		step: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
 		_: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
 		let init = self;
 
-		debug!("executing_step");
+		let source_file_data = step.step.source_file_data;
+		let target_full_path = step.step.target_full_path;
 
-		// this is called at every file
+		debug!(
+			bulk_len = source_file_data.len(),
+			"||||||||| executing_step"
+		);
 
-		if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
-			let mut more_steps = Vec::new();
+		// continue bulking here
+		// init is already bulking
 
-			fs::create_dir_all(target_full_path)
-				.await
-				.map_err(|e| FileIOError::from((target_full_path, e)))?;
+		// the following steps are thinking about a single file
+		// let's make it do multiple files
 
-			let mut read_dir = fs::read_dir(&source_file_data.full_path)
-				.await
-				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
+		// TODO(matheus-consoli): use futures-concurrency `.co` feature instead
+		for (source_file_data, target_full_path) in source_file_data
+			.into_iter()
+			.zip(target_full_path.into_iter())
+		{
+			if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir").unwrap() {
+				todo!()
+			} else {
+				match fs::metadata(target_full_path).await {
+					Ok(_) => {
+						// Already exist a file with this name, so we need to find an available name
+						match find_available_filename_for_duplicate(target_full_path).await {
+							Ok(new_path) => {
+								fs::copy(&source_file_data.full_path, &new_path)
+									.await
+									// Using the ? here because we don't want to increase the completed task
+									// count in case of file system errors
+									.map_err(|e| FileIOError::from((new_path, e)))?;
 
-			while let Some(children_entry) = read_dir
-				.next_entry()
-				.await
-				.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?
-			{
-				let children_path = children_entry.path();
-				let target_children_full_path = target_full_path.join(
-                    children_path
-                        .strip_prefix(&source_file_data.full_path)
-                        .expect("We got the children path from the read_dir, so it should be a child of the source path"),
-                );
+								Ok(().into())
+							}
 
-				match get_file_data_from_isolated_file_path(
-					&ctx.library.db,
-					&data.sources_location_path,
-					&IsolatedFilePathData::new(
-						init.source_location_id,
-						&data.sources_location_path,
-						&children_path,
-						children_entry
-							.metadata()
-							.await
-							.map_err(|e| FileIOError::from((&children_path, e)))?
-							.is_dir(),
-					)
-					.map_err(FileSystemJobsError::from)?,
-				)
-				.await
-				{
-					Ok(source_file_data) => {
-						// Currently not supporting file_name suffixes children files in a directory being copied
-						more_steps.push(OldFileCopierJobStep {
-							target_full_path: target_children_full_path,
-							source_file_data,
-							respond_to: respond_to.clone(),
-						});
+							Err(FileSystemJobsError::FailedToFindAvailableName(path)) => {
+								Ok(JobRunErrors(vec![
+									FileSystemJobsError::WouldOverwrite(path).to_string()
+								])
+								.into())
+							}
+
+							Err(e) => Err(e.into()),
+						}
 					}
 					Err(FileSystemJobsError::FilePathNotFound(path)) => {
 						// FilePath doesn't exist in the database, it possibly wasn't indexed, so we skip it
@@ -233,55 +239,125 @@ impl StatefulJob for OldFileCopierJobInit {
 							path = %path.display(),
 							"Skipping duplicating as it wasn't indexed;",
 						);
+
+						fs::copy(&source_file_data.full_path, &target_full_path)
+							.await
+							// Using the ? here because we don't want to increase the completed task
+							// count in case of file system errors
+							.map_err(|e| FileIOError::from((target_full_path, e)))?;
+
+						Ok(().into())
 					}
-					Err(e) => return Err(e.into()),
+					Err(e) => Err(FileIOError::from((target_full_path, e)).into()),
 				}
-			}
-
-			Ok(more_steps.into())
-		} else {
-			match fs::metadata(target_full_path).await {
-				Ok(_) => {
-					// Already exist a file with this name, so we need to find an available name
-					match find_available_filename_for_duplicate(target_full_path).await {
-						Ok(new_path) => {
-							fs::copy(&source_file_data.full_path, &new_path)
-								.await
-								// Using the ? here because we don't want to increase the completed task
-								// count in case of file system errors
-								.map_err(|e| FileIOError::from((new_path, e)))?;
-
-							Ok(().into())
-						}
-
-						Err(FileSystemJobsError::FailedToFindAvailableName(path)) => {
-							Ok(JobRunErrors(vec![
-								FileSystemJobsError::WouldOverwrite(path).to_string()
-							])
-							.into())
-						}
-
-						Err(e) => Err(e.into()),
-					}
-				}
-				Err(e) if e.kind() == io::ErrorKind::NotFound => {
-					trace!(
-						source = %source_file_data.full_path.display(),
-						target = %target_full_path.display(),
-						"Copying source -> target;",
-					);
-
-					fs::copy(&source_file_data.full_path, &target_full_path)
-						.await
-						// Using the ? here because we don't want to increase the completed task
-						// count in case of file system errors
-						.map_err(|e| FileIOError::from((target_full_path, e)))?;
-
-					Ok(().into())
-				}
-				Err(e) => Err(FileIOError::from((target_full_path, e)).into()),
 			}
 		}
+
+		// if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir")? {
+		// 	let mut more_steps = Vec::new();
+
+		// 	fs::create_dir_all(target_full_path)
+		// 		.await
+		// 		.map_err(|e| FileIOError::from((target_full_path, e)))?;
+
+		// 	let mut read_dir = fs::read_dir(&source_file_data.full_path)
+		// 		.await
+		// 		.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?;
+
+		// 	while let Some(children_entry) = read_dir
+		// 		.next_entry()
+		// 		.await
+		// 		.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))?
+		// 	{
+		// 		let children_path = children_entry.path();
+		// 		let target_children_full_path = target_full_path.join(
+        //             children_path
+        //                 .strip_prefix(&source_file_data.full_path)
+        //                 .expect("We got the children path from the read_dir, so it should be a child of the source path"),
+        //         );
+
+		// 		let iso_file_path = IsolatedFilePathData::new(
+		// 			init.source_location_id,
+		// 			&data.sources_location_path,
+		// 			&children_path,
+		// 			children_entry
+		// 				.metadata()
+		// 				.await
+		// 				.map_err(|e| FileIOError::from((&children_path, e)))?
+		// 				.is_dir(),
+		// 		)
+		// 		.map_err(FileSystemJobsError::from)?;
+		// 		match get_file_data_from_isolated_file_path(
+		// 			&ctx.library.db,
+		// 			&data.sources_location_path,
+		// 			&iso_file_path,
+		// 		)
+		// 		.await
+		// 		{
+		// 			Ok(source_file_data) => {
+		// 				// Currently not supporting file_name suffixes children files in a directory being copied
+		// 				more_steps.push(OldFileCopierJobStep {
+		// 					target_full_path: vec![target_children_full_path],
+		// 					source_file_data: vec![source_file_data],
+		// 					respond_to: respond_to.clone(),
+		// 				});
+		// 			}
+		// 			Err(FileSystemJobsError::FilePathNotFound(path)) => {
+		// 				// FilePath doesn't exist in the database, it possibly wasn't indexed, so we skip it
+		// 				warn!(
+		// 					"Skipping duplicating {} as it wasn't indexed",
+		// 					path.display()
+		// 				);
+		// 			}
+		// 			Err(e) => return Err(e.into()),
+		// 		}
+		// 	}
+
+		// 	Ok(more_steps.into())
+		// } else {
+		// 	// the copying event itself
+		// 	match fs::metadata(target_full_path).await {
+		// 		Ok(_) => {
+		// 			// Already exist a file with this name, so we need to find an available name
+		// 			match find_available_filename_for_duplicate(target_full_path).await {
+		// 				Ok(new_path) => {
+		// 					fs::copy(&source_file_data.full_path, &new_path)
+		// 						.await
+		// 						// Using the ? here because we don't want to increase the completed task
+		// 						// count in case of file system errors
+		// 						.map_err(|e| FileIOError::from((new_path, e)))?;
+
+		// 					Ok(().into())
+		// 				}
+
+		// 				Err(FileSystemJobsError::FailedToFindAvailableName(path)) => {
+		// 					Ok(JobRunErrors(vec![
+		// 						FileSystemJobsError::WouldOverwrite(path).to_string()
+		// 					])
+		// 					.into())
+		// 				}
+
+		// 				Err(e) => Err(e.into()),
+		// 			}
+		// 		}
+		// 		Err(e) if e.kind() == io::ErrorKind::NotFound => {
+		// 			trace!(
+		// 				"Copying from {} to {}",
+		// 				source_file_data.full_path.display(),
+		// 				target_full_path.display()
+		// 			);
+
+		// 			fs::copy(&source_file_data.full_path, &target_full_path)
+		// 				.await
+		// 				// Using the ? here because we don't want to increase the completed task
+		// 				// count in case of file system errors
+		// 				.map_err(|e| FileIOError::from((target_full_path, e)))?;
+
+		// 			Ok(().into())
+		// 		}
+		// 		Err(e) => Err(FileIOError::from((target_full_path, e)).into()),
+		// 	}
+		// }
 	}
 
 	async fn finalize(

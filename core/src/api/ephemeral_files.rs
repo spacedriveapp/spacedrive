@@ -714,7 +714,7 @@ impl FileCopier {
 					let new_name = match fs::try_exists(&file.destiny).await {
 						Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
 						Ok(false) => Ok(file.destiny),
-						Err(_) => todo!(),
+						Err(_) => todo!(), //  TODO(matheus-consoli):  todo!()
 					};
 					file.destiny = new_name.unwrap();
 
