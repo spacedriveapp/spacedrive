@@ -8,6 +8,7 @@ use sd_utils::{
 	db::maybe_missing,
 	error::{FileIOError, NonUtf8PathError},
 };
+use tracing::trace;
 
 use std::{
 	ffi::OsStr,
@@ -43,7 +44,7 @@ pub enum ObjectType {
 	Directory,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileData {
 	pub file_path: file_path_with_object::Data,
 	pub full_path: PathBuf,
@@ -208,6 +209,7 @@ pub async fn find_available_filename_for_duplicate(
 				continue;
 			}
 			Err(e) if e.kind() == io::ErrorKind::NotFound => {
+				trace!(old_name=?target_path, new_name=?new_file_full_path_candidate, "duplicated file name, file renamed");
 				return Ok(new_file_full_path_candidate);
 			}
 			Err(e) => return Err(FileIOError::from((new_file_full_path_candidate, e)).into()),
