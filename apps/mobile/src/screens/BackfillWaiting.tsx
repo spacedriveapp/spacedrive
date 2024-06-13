@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { AppLogo } from '@sd/assets/images';
-import { useLibraryMutation } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
 import { Dimensions, Text, View } from 'react-native';
@@ -36,6 +36,7 @@ const BackfillWaiting = () => {
 
 	const enableSync = useLibraryMutation(['sync.backfill'], {
 		onSuccess: () => {
+			syncEnabled.refetch();
 			navigation.navigate('Root', {
 				screen: 'Home',
 				params: {
@@ -47,6 +48,8 @@ const BackfillWaiting = () => {
 			});
 		}
 	});
+
+	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	useEffect(() => {
 		 (async () => {
