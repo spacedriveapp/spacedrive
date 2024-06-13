@@ -1,15 +1,16 @@
 import { Circle } from '@phosphor-icons/react';
-import clsx from 'clsx';
-import { useRef, useState } from 'react';
 import {
 	ExplorerItem,
 	Tag,
 	Target,
 	useLibraryMutation,
 	useLibraryQuery,
+	useRspcContext,
 	useSelector
 } from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
+import clsx from 'clsx';
+import { useRef, useState } from 'react';
 import { useIsDark, useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -75,14 +76,17 @@ function getHotkeysWithNewAssignment(
 }
 
 // million-ignore
-export const ExplorerTagBar = (props: {}) => {
+export const ExplorerTagBar = () => {
 	const [tagBulkAssignHotkeys] = useSelector(explorerStore, (s) => [s.tagBulkAssignHotkeys]);
 	const explorer = useExplorerContext();
+	const rspc = useRspcContext();
 
 	const [tagListeningForKeyPress, setTagListeningForKeyPress] = useState<number | undefined>();
 
 	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
-	const mutation = useLibraryMutation(['tags.assign']);
+	const mutation = useLibraryMutation(['tags.assign'], {
+		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+	});
 
 	const { t } = useLocale();
 
@@ -167,8 +171,8 @@ export const ExplorerTagBar = (props: {}) => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col-reverse items-start justify-center border-t border-t-app-line bg-app/90 px-3.5 py-1 text-ink-dull backdrop-blur-lg ',
-				`h-[64px]`
+				'flex flex-col items-center justify-between gap-2 border-t border-t-app-line bg-app/90 px-3.5 py-3 text-ink-dull backdrop-blur-lg ',
+				`h-auto`
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
@@ -191,7 +195,7 @@ export const ExplorerTagBar = (props: {}) => {
 
 						return hotkeyA - hotkeyB;
 					})
-					.map((tag, i) => (
+					.map((tag) => (
 						<li key={tag.id}>
 							<TagItem
 								tag={tag}
@@ -266,9 +270,9 @@ const TagItem = ({
 	return (
 		<button
 			className={clsx('group flex items-center gap-1 rounded-lg border px-2.5 py-0.5', {
-				['border-gray-500 bg-gray-500']: !isAwaitingKeyPress && isDark,
-				['border-blue-400 bg-blue-800']: isAwaitingKeyPress && isDark,
-				['border-blue-500 bg-blue-200']: isAwaitingKeyPress && !isDark
+				['bg-app-box border border-app-line']: !isAwaitingKeyPress && isDark,
+				['border-accent bg-app-box']: isAwaitingKeyPress && isDark,
+				['border-accent bg-app-lightBox']: isAwaitingKeyPress && !isDark
 			})}
 			ref={buttonRef}
 			onClick={onClick}
@@ -284,7 +288,7 @@ const TagItem = ({
 				weight="fill"
 				alt=""
 				aria-hidden
-				className="size-3"
+				className="size-2.5"
 			/>
 			<span className="max-w-xs truncate py-0.5 text-sm font-semibold text-ink-dull">
 				{tag.name}
