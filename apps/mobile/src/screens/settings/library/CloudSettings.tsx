@@ -1,5 +1,5 @@
 import { CloudInstance, useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
-import { FlatList, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -32,7 +32,7 @@ const Authenticated = () => {
 	const { library } = useLibraryContext();
 	const authState = useAuthStateSnapshot();
 
-	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
+	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { retry: false });
 
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
 	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
@@ -43,6 +43,14 @@ const Authenticated = () => {
 	const cloudInstances = cloudLibrary.data?.instances.filter(
 		(instance) => instance.uuid !== library.instance_id
 	);
+
+	if (cloudLibrary.isLoading) {
+		return (
+			<View style={tw`items-center justify-center flex-1`}>
+				<ActivityIndicator size="small"/>
+			</View>
+		);
+	}
 
 	return (
 		<ScreenContainer tabHeight={false}>
@@ -61,7 +69,7 @@ const Authenticated = () => {
 					</Button>
 					)}
 					</View>
-					<Divider style={tw`mb-4 mt-2`}/>
+					<Divider style={tw`mt-2 mb-4`}/>
 						<SettingsTitle style={tw`mb-1`}>Name</SettingsTitle>
 						<InfoBox>
 							<Text style={tw`text-ink`}>{cloudLibrary.data.name}</Text>
@@ -114,7 +122,7 @@ const Authenticated = () => {
 							</View>
 							<Text style={tw`font-semibold text-ink`}>Instances</Text>
 						</View>
-						<Divider style={tw`mb-4 mt-2`} />
+						<Divider style={tw`mt-2 mb-4`} />
 						<VirtualizedListWrapper
 							scrollEnabled={false}
 							contentContainerStyle={tw`flex-1`}
@@ -133,7 +141,7 @@ const Authenticated = () => {
 								renderItem={({ item }) => <Instance data={item} length={cloudInstances?.length ?? 0} />}
 								keyExtractor={(item) => item.id}
 								numColumns={(cloudInstances?.length ?? 0) > 1 ? 2 : 1}
-								{...(cloudInstances?.length ?? 0) > 1 ? {columnWrapperStyle: tw`w-full justify-between`} : {}}
+								{...(cloudInstances?.length ?? 0) > 1 ? {columnWrapperStyle: tw`justify-between w-full`} : {}}
 								/>
 						</VirtualizedListWrapper>
 					</Card>
@@ -195,8 +203,8 @@ const Login = () => {
 		loggingIn: 'Cancel',
 	}
 	return (
-		<View style={tw`flex-1 flex-col items-center justify-center gap-2`}>
-			<Card style={tw`w-full items-center justify-center p-6`}>
+		<View style={tw`flex-col items-center justify-center flex-1 gap-2`}>
+			<Card style={tw`items-center justify-center w-full p-6`}>
 				<Text style={tw`mb-4 max-w-[60%] text-center text-ink`}>
 					To access cloud related features, please login
 				</Text>

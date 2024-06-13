@@ -21,9 +21,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 
 	const [startBackfill, setStart] = useState(false);
 
-	useLibrarySubscription(['library.actors'], { onData: (data) => {
-		setData(data);
-	} });
+	useLibrarySubscription(['library.actors'], { onData: setData});
 
 	useEffect(() => {
 		if (startBackfill === true) {
