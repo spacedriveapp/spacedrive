@@ -65,8 +65,8 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 					<Text style={tw`text-ink`}>Go to Backfill Waiting Page</Text>
 				</Button>
 				<Button
-					onPress={() => {
-						auth.logout();
+					onPress={async () => {
+						await auth.logout();
 					}}
 				>
 					<Text style={tw`text-ink`}>Logout</Text>
