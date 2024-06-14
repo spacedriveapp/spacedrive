@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { useOnboardingContext } from '~/components/context/OnboardingContext';
@@ -12,7 +13,10 @@ import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './G
 const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {
 	const form = useOnboardingContext().forms.useForm('NewLibrary');
 
-	const handleNewLibrary = form.handleSubmit(() => navigation.navigate('Privacy'));
+	const handleNewLibrary = form.handleSubmit(() => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+		navigation.navigate('Privacy');
+	});
 
 	const handleImport = () => {
 		Alert.alert('TODO');
