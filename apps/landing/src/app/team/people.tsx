@@ -13,22 +13,48 @@ export const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Utku Bakır',
-		location: 'Toronto, Canada',
-		role: 'Product Manager & TypeScript Engineer',
-		imageUrl: '/images/team/utku.jpg',
-		socials: {
-			github: 'https://github.com/utkubakir'
-		}
+		name: 'Valerie Wong',
+		location: 'Vancouver, Canada',
+		role: 'Director of Operations',
+		imageUrl: '/images/team/valerie.jpeg',
 	},
 	{
 		name: 'Ericson Soares',
 		location: 'Rio de Janeiro, Brazil',
-		role: 'Rust Engineer - Core & VDFS',
+		role: 'Head of Engineering - Rust',
 		imageUrl: '/images/team/ericson.jpg',
 		socials: {
 			twitter: 'https://x.com/fogodev',
 			github: 'https://github.com/fogodev'
+		}
+	},
+	{
+		name: 'Ameer Al Ashhab',
+		location: 'Amman, Jordan',
+		role: 'Product Manager & TypeScript Engineer - Interface Design',
+		imageUrl: '/images/team/ameer.jpg',
+		socials: {
+			github: 'https://github.com/ameer2468'
+		}
+	},
+	{
+		name: 'Matheus Consoli',
+		location: 'São Paulo, Brazil',
+		role: 'Rust Engineer',
+		imageUrl: '/images/team/matheus.jpg',
+		socials: {
+			github: 'https://github.com/matheus-consoli',
+		}
+	},
+	{
+		name: 'Vítor Vasconcellos',
+		location: 'Rio de Janeiro, Brazil',
+		role: 'Fullstack Devops Engineer',
+		imageUrl: '/images/team/vitor.jpg',
+		socials: {
+			github: 'https://github.com/HeavenVolkoff',
+			gitlab: 'https://gitlab.com/VitorVasconcellos',
+			twitter: 'https://x.com/vasvas10'
 		}
 	},
 	{
@@ -39,26 +65,6 @@ export const teamMembers: Array<TeamMemberProps> = [
 		socials: {
 			twitter: 'https://x.com/mmmintdesign',
 			dribbble: 'https://dribbble.com/mmmint'
-		}
-	},
-	{
-		name: 'Ameer Al Ashhab',
-		location: 'Jordan',
-		role: 'TypeScript Engineer - Interface Design',
-		imageUrl: '/images/team/ameer.jpg',
-		socials: {
-			github: 'https://github.com/ameer2468'
-		}
-	},
-	{
-		name: 'Vítor Vasconcellos',
-		location: 'Rio de Janeiro, Brazil',
-		role: 'TypeScript Engineer',
-		imageUrl: '/images/team/vitor.jpg',
-		socials: {
-			github: 'https://github.com/HeavenVolkoff',
-			gitlab: 'https://gitlab.com/VitorVasconcellos',
-			twitter: 'https://x.com/vasvas10'
 		}
 	},
 	{
