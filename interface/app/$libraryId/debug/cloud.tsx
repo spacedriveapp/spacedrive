@@ -13,7 +13,7 @@ import { Button, Card, Loader, tw } from '@sd/ui';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { LoginButton } from '~/components/LoginButton';
-import { useRouteTitle } from '~/hooks';
+import { useLocale, useRouteTitle } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 
 export const Component = () => {
@@ -46,6 +46,7 @@ function Authenticated() {
 	const { library } = useLibraryContext();
 	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
+	const { t } = useLocale();
 
 	const thisInstance = useMemo(() => {
 		if (!cloudLibrary.data) return undefined;
@@ -79,8 +80,8 @@ function Authenticated() {
 						}}
 					>
 						{createLibrary.isLoading
-							? 'Connecting library to Spacedrive Cloud...'
-							: 'Connect library to Spacedrive Cloud'}
+							? t('connecting_library_to_cloud')
+							: t('connect_library_to_cloud')}
 					</Button>
 				</div>
 			)}
