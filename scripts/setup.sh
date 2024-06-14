@@ -143,7 +143,7 @@ case "$(uname)" in
 
       # Tauri dependencies
       set -- build-essential curl wget file openssl libssl-dev libgtk-3-dev librsvg2-dev \
-        libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev
+        libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libxdo-dev libdbus-1-dev
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
@@ -161,7 +161,7 @@ case "$(uname)" in
       echo "Installing dependencies with pacman..."
 
       # Tauri dependencies
-      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk-4.1 libayatana-appindicator xdotool
+      set -- base-devel curl wget file openssl gtk3 librsvg webkit2gtk-4.1 libayatana-appindicator xdotool dbus
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base gst-plugins-good gst-plugins-ugly
@@ -185,7 +185,7 @@ case "$(uname)" in
       fi
 
       # Tauri dependencies
-      set -- openssl webkit2gtk4.1-devel openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel
+      set -- openssl webkit2gtk4.1-devel openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good \
@@ -205,7 +205,7 @@ case "$(uname)" in
 
       # Tauri dependencies
       set -- build-base curl wget file openssl-dev gtk+3.0-dev librsvg-dev \
-        webkit2gtk-4.1-dev libayatana-indicator-dev xdotool
+        webkit2gtk-4.1-dev libayatana-indicator-dev xdotool-dev dbus-dev
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gst-plugins-base-dev gst-plugins-good gst-plugins-ugly

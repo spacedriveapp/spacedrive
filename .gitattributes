@@ -1,2 +1,4 @@
 pnpm-lock.yaml -diff
 package-lock.json -diff
+Cargo.lock -diff
+.github/actions/publish-artifacts/dist/index.js -diff

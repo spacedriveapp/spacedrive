@@ -34,8 +34,6 @@ use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod cloud;
-#[cfg(feature = "crypto")]
-pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;
@@ -212,8 +210,6 @@ impl Node {
 				"info"
 			};
 
-			// let level = "debug"; // Exists for now to debug the location manager
-
 			std::env::set_var(
 				"RUST_LOG",
 				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
@@ -239,12 +235,20 @@ impl Node {
 			.init();
 
 		std::panic::set_hook(Box::new(move |panic| {
+			use std::backtrace::{Backtrace, BacktraceStatus};
+			let backtrace = Backtrace::capture();
 			if let Some(location) = panic.location() {
 				tracing::error!(
 					message = %panic,
 					panic.file = format!("{}:{}", location.file(), location.line()),
 					panic.column = location.column(),
 				);
+				if backtrace.status() == BacktraceStatus::Captured {
+					// NOTE(matheus-consoli): it seems that `tauri` is messing up the stack-trace
+					// and it doesn't capture anything, even when `RUST_BACKTRACE=full`,
+					// so in the current architecture, this is emitting an empty event.
+					tracing::error!(message = %backtrace);
+				}
 			} else {
 				tracing::error!(message = %panic);
 			}

@@ -16,6 +16,7 @@ sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-utils = { path = "../../../crates/utils" }
 
+# Workspace dependencies
 chrono = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
 regex = { workspace = true }
@@ -24,5 +25,5 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tracing = { workspace = true }
 
-[target.'cfg(windows)'.dependencies.winapi-util]
-version = "0.1.6"
+[target.'cfg(windows)'.dependencies]
+winapi-util = "0.1.8"

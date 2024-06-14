@@ -10,11 +10,8 @@ import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 
-interface Props {
-	objectName: string;
-}
 
-const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
+const RenameModal = forwardRef<ModalRef>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 	const [newName, setNewName] = useState('');
 	const rspc = useRspcLibraryContext();
@@ -22,6 +19,9 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 	const inputRef = useRef<TextInput>(null);
 
 	const filePathData = data && getIndexedItemFilePath(data);
+	const fileName = filePathData?.name ?? '';
+	const fileExtension = filePathData?.extension ?? '';
+	const combined = `${fileName}${fileExtension ? `.${fileExtension}` : ''}`;
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onSuccess: () => {
@@ -35,8 +35,9 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 
 	// set input value to object name on initial render
 	useEffect(() => {
-		setNewName(props.objectName);
-	}, [props.objectName]);
+		if (!fileName) return;
+		setNewName(combined);
+	}, [fileName, combined]);
 
 	const textRenameHandler = async () => {
 			switch (data?.type) {
@@ -66,7 +67,7 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 		<Modal
 			ref={modalRef}
 			title="Rename"
-			onDismiss={() => setNewName(props.objectName)}
+			onDismiss={() => setNewName(combined)}
 			enableContentPanningGesture={false}
 			enablePanDownToClose={false}
 			snapPoints={['20']}
@@ -75,11 +76,11 @@ const RenameModal = forwardRef<ModalRef, Props>((props, ref) => {
 				<ModalInput
 					ref={inputRef}
 					autoFocus
-					onFocus={() => inputRef.current?.setSelection(0, newName.length)}
+					onFocus={() => inputRef.current?.setSelection(0, fileName.length)}
 					value={newName}
 					onChangeText={(t) => setNewName(t)}
 				/>
-				<Button disabled={newName.length === 0 || props.objectName === newName} onPress={textRenameHandler} variant="accent">
+				<Button disabled={newName.length === 0 || fileName === newName} onPress={textRenameHandler} variant="accent">
 					<Text style={tw`font-medium text-ink`}>Save</Text>
 				</Button>
 			</View>

@@ -9,7 +9,6 @@ use tracing::debug;
 use crate::{p2p::Header, Node};
 
 /// Transfer an rspc query to a remote node.
-#[allow(unused)]
 pub async fn remote_rspc(
 	p2p: Arc<P2P>,
 	identity: RemoteIdentity,

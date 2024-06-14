@@ -89,6 +89,17 @@ tar -xzf "${_tmp}/control.tar.gz" -C "${_tmp}/control"
 # Fix files owner
 chown -R root:root "$_tmp"
 
+# Rename sd-desktop to spacedrive
+find "${_tmp}" -name 'sd-desktop' -o \( -type f -name 'sd-desktop.*' \) | while IFS= read -r file
+do
+  filename="$(basename "$file")"
+  if [ "$filename" = "sd-desktop" ]; then
+    mv "$file" "$(dirname "$file")/spacedrive"
+  else
+    mv "$file" "$(dirname "$file")/spacedrive.${filename#*.}"
+  fi
+done
+
 # Create doc directory
 mkdir -p "$_tmp"/data/usr/share/{doc/spacedrive,man/man1}
 

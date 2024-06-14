@@ -156,7 +156,7 @@ async fn open_trash_in_os_explorer() -> Result<(), ()> {
 	#[cfg(target_os = "linux")]
 	{
 		Command::new("xdg-open")
-			.arg("~/.local/share/Trash/")
+			.arg("trash://")
 			.spawn()
 			.map_err(|err| error!("Error opening trash: {err:#?}"))?
 			.wait()
@@ -260,7 +260,7 @@ async fn main() -> tauri::Result<()> {
 
 					handle.windows().iter().for_each(|(_, window)| {
 						if should_clear_localstorage {
-							println!("bruh?");
+							println!("cleaning localStorage");
 							for webview in window.webviews() {
 								webview.eval("localStorage.clear();").ok();
 							}
