@@ -1,7 +1,5 @@
-import { useRef } from 'react';
-import { useNavigate } from 'react-router';
-import { useBridgeQuery, useClientContext, useFeatureFlag, useLibraryContext, useZodForm } from '@sd/client';
-import { Button, Dialog, dialogManager, useDialog, z } from '@sd/ui';
+import { useBridgeQuery, useClientContext, useFeatureFlag, useLibraryContext } from '@sd/client';
+import { Button, dialogManager } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
@@ -11,9 +9,7 @@ import ListItem from './ListItem';
 
 export const Component = () => {
 	const librariesQuery = useBridgeQuery(['library.list']);
-	const cloudLibrariesQuery = useBridgeQuery(['cloud.library.list']);
 	const libraries = librariesQuery.data;
-	const cloudLibraries = cloudLibrariesQuery.data;
 
 	const cloudEnabled = useFeatureFlag('cloudSync');
 
@@ -41,10 +37,12 @@ export const Component = () => {
 						</Button>
 						{cloudEnabled && (
 							<Button
-								variant="accent"
+								variant="outline"
 								size="sm"
 								onClick={() => {
-									dialogManager.create((dp) => <JoinDialog librariesCtx={librariesCtxData} {...dp} />);
+									dialogManager.create((dp) => (
+										<JoinDialog librariesCtx={librariesCtxData} {...dp} />
+									));
 								}}
 							>
 								{t('join_library')}
@@ -65,22 +63,6 @@ export const Component = () => {
 							current={lib.uuid === library.uuid}
 							key={lib.uuid}
 							library={lib}
-						/>
-					))}
-			</div>
-			<div className="space-y-2">
-				<Heading title={'Cloud Libraries'} description={'Cloud Libraries'} />
-				{cloudLibraries
-					?.sort((a, b) => {
-						if (a.uuid === library.uuid) return -1;
-						if (b.uuid === library.uuid) return 1;
-						return 0;
-					})
-					.map((lib) => (
-						<ListItem
-							current={lib.uuid === library.uuid}
-							key={lib.uuid}
-							library={library}
 						/>
 					))}
 			</div>
