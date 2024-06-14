@@ -11,7 +11,7 @@ export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 		case 'IPhone':
 			return 'Mobile';
 		case 'Android':
-			return 'Mobile-Android';
+			return 'MobileAndroid';
 		case 'MacMini':
 			return 'MiniSilverBox';
 		case 'Other':
