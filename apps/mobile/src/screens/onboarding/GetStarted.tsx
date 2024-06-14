@@ -2,6 +2,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { AppLogo, BloomOne } from '@sd/assets/images';
 import SdMobIntro from '@sd/assets/videos/SdMobIntro.mp4';
 import { ResizeMode, Video } from 'expo-av';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { MotiView } from 'moti';
 import { CaretLeft } from 'phosphor-react-native';
@@ -111,7 +112,13 @@ const GetStartedScreen = ({ navigation }: OnboardingStackScreenProps<'GetStarted
 			</FadeInUpAnimation>
 			{/* Get Started Button */}
 			<FadeInUpAnimation delay={1200} style={tw`mt-8`}>
-				<AnimatedButton variant="accent" onPress={() => navigation.push('NewLibrary')}>
+				<AnimatedButton
+					variant="accent"
+					onPress={() => {
+						Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+						navigation.push('NewLibrary');
+					}}
+				>
 					<Text style={tw`text-center text-base font-medium text-ink`}>Get Started</Text>
 				</AnimatedButton>
 			</FadeInUpAnimation>
