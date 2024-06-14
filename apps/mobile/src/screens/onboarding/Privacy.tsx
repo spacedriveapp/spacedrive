@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { ArrowRight } from 'phosphor-react-native';
 import React from 'react';
 import { Controller } from 'react-hook-form';
@@ -80,7 +81,15 @@ const PrivacyScreen = () => {
 					)}
 				/>
 			</View>
-			<Button variant="accent" size="sm" onPress={form.handleSubmit(submit)} style={tw`mt-6`}>
+			<Button
+				variant="accent"
+				size="sm"
+				onPress={() => {
+					Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+					form.handleSubmit(submit)();
+				}}
+				style={tw`mt-6`}
+			>
 				<Text style={tw`text-center text-base font-medium text-ink`}>Continue</Text>
 			</Button>
 			<Pressable
