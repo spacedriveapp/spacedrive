@@ -8,6 +8,10 @@ export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 			return 'Laptop';
 		case 'MacStudio':
 			return 'SilverBox';
+		case 'IPhone':
+			return 'Mobile';
+		case 'Android':
+			return 'Mobile-Android';
 		case 'MacMini':
 			return 'MiniSilverBox';
 		case 'Other':
