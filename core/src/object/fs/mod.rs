@@ -78,7 +78,7 @@ pub async fn get_many_files_datas(
 			.ok_or(FileSystemJobsError::FilePathIdNotFound(*file_path_id))
 			.and_then(|path_data| {
 				Ok(FileData {
-					full_path: location_path.join(IsolatedFilePathData::try_from(&path_data)?),
+					full_path: location_path.join(IsolatedFilePathData::try_from(&path_data)?), // MAYBE: do we need this? maybe we can deduce the full path later?
 					file_path: path_data,
 				})
 			})

@@ -715,6 +715,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(node, library), args: OldFileCopierJobInit| async move {
+					tracing::debug!("copyFiles");
 					Job::new(args)
 						.spawn(&node, &library)
 						.await

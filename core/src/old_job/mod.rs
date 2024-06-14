@@ -500,6 +500,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 				let ctx = Arc::clone(&ctx);
 				spawn(async move {
 					let mut new_data = None;
+					debug!("about to call stateful_job.init");
 					let res = stateful_job.init(&ctx, &mut new_data).await;
 
 					if let Ok(res) = res.as_ref() {
@@ -517,7 +518,7 @@ impl<SJob: StatefulJob> DynJob for Job<SJob> {
 
 			let InitPhaseOutput {
 				stateful_job: returned_stateful_job,
-				maybe_data, // Option<OldIndexerData>
+				maybe_data,
 				output,
 			} = handle_init_phase::<SJob>(
 				JobRunWorkTable {

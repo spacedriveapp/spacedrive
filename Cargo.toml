@@ -1,3 +1,5 @@
+cargo-features = ["codegen-backend"]
+
 [workspace]
 resolver = "2"
 members = [
@@ -107,21 +109,22 @@ pdfium-render = { git = "https://github.com/fogodev/pdfium-render.git", rev = "e
 [profile.dev]
 # Make compilation faster on macOS
 split-debuginfo = "unpacked"
-opt-level = 0
-debug = 0
-strip = "none"
-lto = false
+#codegen-backend = "cranelift"
 codegen-units = 256
+debug = 0
 incremental = true
+lto = false
+opt-level = 0
+strip = "none"
 
 # Set the settings for build scripts and proc-macros.
-[profile.dev.build-override]
-opt-level = 3
+#[profile.dev.build-override]
+#opt-level = 3
 
 # Set the default for dependencies, except workspace members.
-[profile.dev.package."*"]
-opt-level = 3
-incremental = false
+#[profile.dev.package."*"]
+#opt-level = 3
+#incremental = false
 
 # Optimize release builds
 [profile.release]
