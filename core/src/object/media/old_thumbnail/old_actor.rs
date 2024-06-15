@@ -71,18 +71,19 @@ pub struct OldThumbnailer {
 }
 
 impl OldThumbnailer {
+	/// Spawn thumbnailer actors/background jobs to create and clean thumbnails as needed
 	pub async fn new(
 		data_dir: impl AsRef<Path>,
 		libraries_manager: Arc<Libraries>,
-		reporter: broadcast::Sender<CoreEvent>,
-		node_preferences_rx: watch::Receiver<NodePreferences>,
+		reporter: broadcast::Sender<CoreEvent>, // same thing
+		node_preferences_rx: watch::Receiver<NodePreferences>, // will this be necessary?
 	) -> Self {
 		let data_dir = data_dir.as_ref();
 		let thumbnails_directory = Arc::new(
 			init_thumbnail_dir(data_dir, Arc::clone(&libraries_manager))
 				.await
 				.unwrap_or_else(|e| {
-					error!("Failed to initialize thumbnail directory: {e:#?}");
+					error!(error = ?e, "failed to initialize thumbnail directory");
 					data_dir.join(THUMBNAIL_CACHE_DIR_NAME)
 				}),
 		);
@@ -97,13 +98,14 @@ impl OldThumbnailer {
 		AVAILABLE_PARALLELISM
 			.set(std::thread::available_parallelism().map_or_else(
 				|e| {
-					error!("Failed to get available parallelism: {e:#?}");
+					error!(error = ?e, "failed to get available parallelism");
 					4
 				},
 				|non_zero| non_zero.get(),
 			))
 			.ok();
 
+		// spawn thumbnail cleaner
 		spawn({
 			let progress_management_rx = progress_management_rx.clone();
 			let cancel_rx = cancel_rx.clone();
@@ -138,6 +140,7 @@ impl OldThumbnailer {
 			}
 		});
 
+		// spawn thumbnail creator
 		spawn({
 			let rx = libraries_manager.rx.clone();
 			let thumbnails_directory = Arc::clone(&thumbnails_directory);
@@ -147,7 +150,7 @@ impl OldThumbnailer {
 					.subscribe(|event| {
 						let databases_tx = databases_tx.clone();
 
-						let thumbnails_directory = &thumbnails_directory;
+						let thumbnails_directory = thumbnails_directory.as_ref();
 
 						async move {
 							match event {

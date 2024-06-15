@@ -292,17 +292,14 @@ impl OldJobs {
 
 			match initialize_resumable_job(job.clone(), None) {
 				Ok(resumable_job) => {
-					info!("Resuming job: {} with uuid {}", job.name, job.id);
+					info!(name = job.name, id = %job.id, "resuming job");
 					Arc::clone(&self)
 						.dispatch(node, library, resumable_job)
 						.await;
 				}
 				Err(err) => {
-					warn!(
-						"Failed to initialize job: {} with uuid {}, error: {:?}",
-						job.name, job.id, err
-					);
-					info!("Cancelling job: {} with uuid {}", job.name, job.id);
+					warn!(name = job.name, id = %job.id, error=?err, "failed to initialize job");
+					info!(name = job.name, id = %job.id, "cancelling job");
 					library
 						.db
 						.job()
@@ -347,13 +344,11 @@ impl OldJobs {
 
 	/// Check if the manager currently has some active workers.
 	pub async fn has_active_workers(&self, library_id: Uuid) -> bool {
-		for worker in self.running_workers.read().await.values() {
-			if worker.library_id == library_id && !worker.is_paused() {
-				return true;
-			}
-		}
-
-		false
+		self.running_workers
+			.read()
+			.await
+			.values()
+			.any(|worker| worker.library_id == library_id && !worker.is_paused())
 	}
 
 	pub async fn has_job_running(&self, predicate: impl Fn(JobIdentity) -> bool) -> bool {
