@@ -1,8 +1,11 @@
-use prisma_client_rust::{migrations::*, NewClientError};
-use sd_prisma::prisma::{self, PrismaClient};
+use prisma_client_rust::{
+	migrations::{DbPushError, MigrateDeployError},
+	NewClientError,
+};
+use sd_prisma::prisma::PrismaClient;
 use thiserror::Error;
 
-/// MigrationError represents an error that occurring while opening a initialising and running migrations on the database.
+/// `[MigrationError]` represents an error that occurring while opening a initialising and running migrations on the database.
 #[derive(Error, Debug)]
 pub enum MigrationError {
 	#[error("An error occurred while initialising a new database connection: {0}")]
@@ -14,9 +17,9 @@ pub enum MigrationError {
 	DbPushFailed(#[from] DbPushError),
 }
 
-/// load_and_migrate will load the database from the given path and migrate it to the latest version of the schema.
+/// `[load_and_migrate]` will load the database from the given path and migrate it to the latest version of the schema.
 pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationError> {
-	let client = prisma::PrismaClient::_builder()
+	let client = PrismaClient::_builder()
 		.with_url(db_url.to_string())
 		.build()
 		.await
@@ -57,25 +60,41 @@ pub async fn load_and_migrate(db_url: &str) -> Result<PrismaClient, MigrationErr
 	Ok(client)
 }
 
-pub fn inode_from_db(db_inode: &[u8]) -> u64 {
-	u64::from_le_bytes(db_inode.try_into().expect("corrupted inode in database"))
+/// Construct back an inode after storing it in database
+#[must_use]
+pub const fn inode_from_db(db_inode: &[u8]) -> u64 {
+	u64::from_le_bytes([
+		db_inode[0],
+		db_inode[1],
+		db_inode[2],
+		db_inode[3],
+		db_inode[4],
+		db_inode[5],
+		db_inode[6],
+		db_inode[7],
+	])
 }
 
+/// Constructs a database representation of an inode
+#[must_use]
 pub fn inode_to_db(inode: u64) -> Vec<u8> {
 	inode.to_le_bytes().to_vec()
 }
 
+#[must_use]
 pub fn ffmpeg_data_field_to_db(field: i64) -> Vec<u8> {
 	field.to_be_bytes().to_vec()
 }
 
-pub fn ffmpeg_data_field_from_db(field: &[u8]) -> i64 {
+#[must_use]
+pub const fn ffmpeg_data_field_from_db(field: &[u8]) -> i64 {
 	i64::from_be_bytes([
 		field[0], field[1], field[2], field[3], field[4], field[5], field[6], field[7],
 	])
 }
 
-pub fn size_in_bytes_from_db(db_size_in_bytes: &[u8]) -> u64 {
+#[must_use]
+pub const fn size_in_bytes_from_db(db_size_in_bytes: &[u8]) -> u64 {
 	u64::from_be_bytes([
 		db_size_in_bytes[0],
 		db_size_in_bytes[1],
@@ -88,6 +107,7 @@ pub fn size_in_bytes_from_db(db_size_in_bytes: &[u8]) -> u64 {
 	])
 }
 
+#[must_use]
 pub fn size_in_bytes_to_db(size: u64) -> Vec<u8> {
 	size.to_be_bytes().to_vec()
 }
@@ -105,7 +125,7 @@ impl MissingFieldError {
 
 impl From<MissingFieldError> for rspc::Error {
 	fn from(value: MissingFieldError) -> Self {
-		rspc::Error::with_cause(
+		Self::with_cause(
 			rspc::ErrorCode::InternalServerError,
 			"Missing crucial data in the database".to_string(),
 			value,
@@ -122,7 +142,7 @@ pub trait OptionalField: Sized {
 impl<T> OptionalField for Option<T> {
 	type Out = T;
 
-	fn transform(self) -> Option<T> {
+	fn transform(self) -> Self {
 		self
 	}
 }

@@ -8,6 +8,7 @@ use crate::{
 
 use futures::StreamExt;
 use prisma_client_rust::raw;
+use sd_core_heavy_lifting::JobId;
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{indexer_rule, object, statistics};
@@ -106,7 +107,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					match STATISTICS_UPDATERS.lock().await.entry(library.id) {
 						Entry::Occupied(entry) => {
 							if entry.get().send(Instant::now()).await.is_err() {
-								error!("Failed to send statistics update request");
+								error!("Failed to send statistics update request;");
 							}
 						}
 						Entry::Vacant(entry) => {
@@ -181,13 +182,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}: DefaultLocations,
 				node: Arc<Node>,
 				library: Arc<Library>,
-			) -> Result<(), rspc::Error> {
+			) -> Result<Option<JobId>, rspc::Error> {
 				// If all of them are false, we skip
 				if [!desktop, !documents, !downloads, !pictures, !music, !videos]
 					.into_iter()
 					.all(identity)
 				{
-					return Ok(());
+					return Ok(None);
 				}
 
 				let Some(default_locations_paths) = UserDirs::new() else {
@@ -242,7 +243,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.await
 							.map_err(rspc::Error::from)?
 							else {
-								return Ok(());
+								return Ok(None);
 							};
 
 							let scan_state = ScanState::try_from(location.scan_state)?;
@@ -271,7 +272,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 				.fold(&mut maybe_error, |maybe_error, res| {
 					if let Err(e) = res {
-						error!("Failed to create default location: {e:#?}");
+						error!(?e, "Failed to create default location;");
 						*maybe_error = Some(e);
 					}
 					maybe_error
@@ -283,7 +284,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				debug!("Created default locations");
 
-				Ok(())
+				Ok(None)
 			}
 
 			R.mutation(
@@ -296,7 +297,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let library = node.libraries.create(name, None, &node).await?;
 
-					debug!("Created library {}", library.id);
+					debug!(%library.id, "Created library;");
 
 					if let Some(locations) = default_locations {
 						create_default_locations_on_library_creation(
@@ -381,16 +382,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					for _ in 0..5 {
 						match library.db._execute_raw(raw!("VACUUM;")).exec().await {
 							Ok(_) => break,
-							Err(err) => {
+							Err(e) => {
 								warn!(
-									"Failed to vacuum DB for library '{}', retrying...: {err:#?}",
-									library.id
+									%library.id,
+									?e,
+									"Failed to vacuum DB for library, retrying...;",
 								);
 								tokio::time::sleep(Duration::from_millis(500)).await;
 							}
 						}
 					}
-					info!("Successfully vacuumed DB for library '{}'", library.id);
+
+					info!(%library.id, "Successfully vacuumed DB;");
+
 					Ok(())
 				}),
 		)
@@ -421,7 +425,7 @@ async fn update_statistics_loop(
 			Message::Tick => {
 				if last_received_at.elapsed() < FIVE_MINUTES {
 					if let Err(e) = update_library_statistics(&node, &library).await {
-						error!("Failed to update library statistics: {e:#?}");
+						error!(?e, "Failed to update library statistics;");
 					} else {
 						invalidate_query!(&library, "library.statistics");
 					}

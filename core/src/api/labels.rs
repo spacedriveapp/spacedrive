@@ -1,8 +1,7 @@
-use crate::{
-	invalidate_query, library::Library, object::media::old_thumbnail::get_indexed_thumb_key,
-};
+use crate::{invalidate_query, library::Library};
 
-use sd_core_prisma_helpers::label_with_objects;
+use sd_core_heavy_lifting::media_processor::ThumbKey;
+use sd_core_prisma_helpers::{label_with_objects, CasId};
 
 use sd_prisma::{
 	prisma::{label, label_on_object, object, SortOrder},
@@ -49,7 +48,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									file_path_data
 										.cas_id
 										.as_ref()
-										.map(|cas_id| get_indexed_thumb_key(cas_id, library.id))
+										.map(CasId::from)
+										.map(CasId::into_owned)
+										.map(|cas_id| ThumbKey::new_indexed(cas_id, library.id))
 								}) // Filter out None values and transform each element to Vec<Vec<String>>
 								.collect::<Vec<_>>(), // Collect into Vec<Vec<Vec<String>>>
 						})

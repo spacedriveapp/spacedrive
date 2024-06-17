@@ -2,12 +2,12 @@ use crate::{
 	api::{locations::ExplorerItem, utils::library},
 	library::Library,
 	location::{non_indexed, LocationError},
-	object::media::old_thumbnail::get_indexed_thumb_key,
 	util::{unsafe_streamed_query, BatchedStream},
 };
 
 use prisma_client_rust::Operator;
-use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths};
+use sd_core_heavy_lifting::media_processor::ThumbKey;
+use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths, CasId};
 use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;
@@ -217,21 +217,23 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let mut items = Vec::with_capacity(file_paths.len());
 
 					for file_path in file_paths {
-						let has_created_thumbnail = if let Some(cas_id) = &file_path.cas_id {
-							library
-								.thumbnail_exists(&node, cas_id)
-								.await
-								.map_err(LocationError::from)?
-						} else {
-							false
-						};
+						let has_created_thumbnail =
+							if let Some(cas_id) = file_path.cas_id.as_ref().map(CasId::from) {
+								library
+									.thumbnail_exists(&node, &cas_id)
+									.await
+									.map_err(LocationError::from)?
+							} else {
+								false
+							};
 
 						items.push(ExplorerItem::Path {
 							thumbnail: file_path
 								.cas_id
 								.as_ref()
-								// .filter(|_| thumbnail_exists_locally)
-								.map(|i| get_indexed_thumb_key(i, library.id)),
+								.map(CasId::from)
+								.map(CasId::into_owned)
+								.map(|cas_id| ThumbKey::new_indexed(cas_id, library.id)),
 							has_created_thumbnail,
 							item: Box::new(file_path),
 						})
@@ -332,9 +334,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							.file_paths
 							.iter()
 							.map(|fp| fp.cas_id.as_ref())
-							.find_map(|c| c);
+							.find_map(|c| c)
+							.map(CasId::from)
+							.map(|cas_id| cas_id.to_owned());
 
-						let has_created_thumbnail = if let Some(cas_id) = cas_id {
+						let has_created_thumbnail = if let Some(cas_id) = &cas_id {
 							library.thumbnail_exists(&node, cas_id).await.map_err(|e| {
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
@@ -348,8 +352,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 						items.push(ExplorerItem::Object {
 							thumbnail: cas_id
-								// .filter(|_| thumbnail_exists_locally)
-								.map(|cas_id| get_indexed_thumb_key(cas_id, library.id)),
+								.map(|cas_id| ThumbKey::new_indexed(cas_id, library.id)),
 							item: object,
 							has_created_thumbnail,
 						});

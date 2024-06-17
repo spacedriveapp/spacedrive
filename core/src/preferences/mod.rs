@@ -38,7 +38,7 @@ where
 			.into_iter()
 			.filter_map(|(key, entry)| {
 				Uuid::parse_str(&key)
-					.map_err(|e| error!("{e:#?}"))
+					.map_err(|e| error!(?e))
 					.ok()
 					.map(|uuid| (uuid, entry.expect_value()))
 			})

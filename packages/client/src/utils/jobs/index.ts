@@ -1,11 +1,11 @@
 import { ForwardRefExoticComponent } from 'react';
 
-import { JobReport } from '../../core';
+import { Report } from '../../core';
 
+export * from './context';
 export * from './useGroupJobTimeText';
 export * from './useJobInfo';
 export * from './useJobProgress';
-export * from './context';
 
 // NOTE: This type is also used on mobile except for the tooltip, Be careful when changing it.
 
@@ -19,7 +19,7 @@ export interface TextItem {
 // first array for lines, second array for items separated by " • ".
 export type TextItems = (TextItem | undefined)[][];
 
-export function getTotalTasks(jobs: JobReport[]) {
+export function getTotalTasks(jobs: Report[]) {
 	const tasks = { completed: 0, total: 0, timeOfLastFinishedJob: '' };
 
 	jobs?.forEach(({ task_count, status, completed_at, completed_task_count }) => {
@@ -33,8 +33,17 @@ export function getTotalTasks(jobs: JobReport[]) {
 	return tasks;
 }
 
-export function getJobNiceActionName(action: string, completed: boolean, job?: JobReport) {
-	const name = (job?.metadata?.location as any)?.name || 'Unknown';
+export function getJobNiceActionName(action: string, completed: boolean, job?: Report) {
+	let name = 'Unknown';
+	if (job != null) {
+		for (const metadata of job.metadata) {
+			if (metadata.type === 'input' && metadata.metadata.type === 'location') {
+				name = metadata.metadata.data.name ?? name;
+				break;
+			}
+		}
+	}
+
 	switch (action) {
 		case 'scan_location':
 			return completed ? `Added location "${name}"` : `Adding location "${name}"`;

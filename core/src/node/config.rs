@@ -1,6 +1,6 @@
 use crate::{
 	api::{notifications::Notification, BackendFeature},
-	object::media::old_thumbnail::preferences::ThumbnailerPreferences,
+	/*object::media::old_thumbnail::preferences::ThumbnailerPreferences,*/
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
@@ -169,7 +169,8 @@ mod identity_serde {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
 pub struct NodePreferences {
-	pub thumbnailer: ThumbnailerPreferences,
+	// pub thumbnailer: ThumbnailerPreferences,
+	// TODO(fogodev): introduce preferences to choose how many worker the task system should have
 }
 
 #[derive(
@@ -193,7 +194,11 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
 			Ok(hostname) => hostname.to_string_lossy().into_owned(),
 			Err(e) => {
-				error!("Falling back to default node name as an error occurred getting your systems hostname: '{e:#?}'");
+				error!(
+					?e,
+					"Falling back to default node name as an error occurred getting your systems hostname;",
+				);
+
 				"my-spacedrive".into()
 			}
 		};
@@ -309,7 +314,7 @@ impl NodeConfig {
 					}
 
 					_ => {
-						error!("Node config version is not handled: {:?}", current);
+						error!(current_version = ?current, "Node config version is not handled;");
 						return Err(VersionManagerError::UnexpectedMigration {
 							current_version: current.int_value(),
 							next_version: next.int_value(),
@@ -376,11 +381,6 @@ impl Manager {
 	/// get will return the current NodeConfig in a read only state.
 	pub(crate) async fn get(&self) -> NodeConfig {
 		self.config.read().await.clone()
-	}
-
-	/// get a node config preferences watcher receiver
-	pub(crate) fn preferences_watcher(&self) -> watch::Receiver<NodePreferences> {
-		self.preferences_watcher_tx.subscribe()
 	}
 
 	/// data_directory returns the path to the directory storing the configuration data.

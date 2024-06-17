@@ -93,9 +93,8 @@ export type Procedures = {
         { key: "jobs.cancel", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clear", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.clearAll", input: LibraryArgs<null>, result: null } | 
-        { key: "jobs.generateLabelsForLocation", input: LibraryArgs<GenerateLabelsForLocationArgs>, result: null } | 
-        { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: null } | 
-        { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: null } | 
+        { key: "jobs.generateThumbsForLocation", input: LibraryArgs<GenerateThumbsForLocationArgs>, result: string } | 
+        { key: "jobs.identifyUniqueFiles", input: LibraryArgs<IdentifyUniqueFilesArgs>, result: string } | 
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
@@ -109,11 +108,11 @@ export type Procedures = {
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: null } | 
+        { key: "locations.fullRescan", input: LibraryArgs<FullRescanArgs>, result: string | null } | 
         { key: "locations.indexer_rules.create", input: LibraryArgs<IndexerRuleCreateArgs>, result: null } | 
         { key: "locations.indexer_rules.delete", input: LibraryArgs<number>, result: null } | 
         { key: "locations.relink", input: LibraryArgs<string>, result: number } | 
-        { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: null } | 
+        { key: "locations.subPathRescan", input: LibraryArgs<RescanArgs>, result: string | null } | 
         { key: "locations.update", input: LibraryArgs<LocationUpdateArgs>, result: null } | 
         { key: "nodes.edit", input: ChangeNodeNameArgs, result: null } | 
         { key: "nodes.updateThumbnailerPreferences", input: UpdateThumbnailerPreferences, result: null } | 
@@ -135,7 +134,7 @@ export type Procedures = {
         { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
-        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: string[] } | 
+        { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
         { key: "locations.online", input: never, result: number[][] } | 
@@ -167,6 +166,8 @@ export type CRDTOperation = { instance: string; timestamp: number; model: number
 export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { field: string; value: JsonValue } } | "d"
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
+
+export type CasId = string
 
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null; image_labeler_version: string | null }
 
@@ -265,7 +266,7 @@ export type ExifDataOrder = { field: "epochTime"; value: SortOrder }
 
 export type ExifMetadata = { resolution: Resolution; date_taken: MediaDate | null; location: MediaLocation | null; camera_data: CameraData; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null }
 
-export type ExplorerItem = { type: "Path"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: FilePathForFrontend } | { type: "Object"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: string[] | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: string[][]; item: LabelWithObjects }
+export type ExplorerItem = { type: "Path"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: FilePathForFrontend } | { type: "Object"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: ThumbKey[]; item: LabelWithObjects }
 
 export type ExplorerLayout = "grid" | "list" | "media"
 
@@ -348,8 +349,6 @@ export type FromPattern = { pattern: string; replace_all: boolean }
 
 export type FullRescanArgs = { location_id: number; reidentify_objects: boolean }
 
-export type GenerateLabelsForLocationArgs = { id: number; path: string; regenerate?: boolean }
-
 export type GenerateThumbsForLocationArgs = { id: number; path: string; regenerate?: boolean }
 
 export type GetAll = { backups: Backup[]; directory: string }
@@ -376,13 +375,11 @@ export type IndexerRuleCreateArgs = { name: string; dry_run: boolean; rules: ([R
 
 export type InvalidateOperationEvent = { type: "single"; data: SingleInvalidateOperationEvent } | { type: "all" }
 
-export type JobGroup = { id: string; action: string | null; status: JobStatus; created_at: string; jobs: JobReport[] }
+export type JobGroup = { id: string; running_job_id: string | null; action: string | null; status: Status; created_at: string; jobs: Report[] }
+
+export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
-
-export type JobReport = { id: string; name: string; action: string | null; data: number[] | null; metadata: { [key in string]: JsonValue } | null; errors_text: string[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: JobStatus; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
-
-export type JobStatus = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
@@ -485,7 +482,7 @@ export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disable
  */
 manual_peers?: string[] }
 
-export type NodePreferences = { thumbnailer: ThumbnailerPreferences }
+export type NodePreferences = Record<string, never>
 
 export type NodeState = ({ 
 /**
@@ -496,6 +493,18 @@ id: string;
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
 name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+
+export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
+
+export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: string }
+
+export type NonCriticalIndexerError = { failed_directory_entry: string } | { metadata: string } | { indexer_rule: string } | { file_path_metadata: string } | { fetch_already_existing_file_path_ids: string } | { fetch_file_paths_to_remove: string } | { iso_file_path: string } | { dispatch_keep_walking: string } | { missing_file_path_data: string }
+
+export type NonCriticalMediaDataExtractorError = { FailedToExtractImageMediaData: [string, string] } | { FilePathMissingObjectId: number } | { FailedToConstructIsolatedFilePathData: [number, string] }
+
+export type NonCriticalMediaProcessorError = { media_data_extractor: NonCriticalMediaDataExtractorError } | { thumbnailer: NonCriticalThumbnailerError }
+
+export type NonCriticalThumbnailerError = { MissingCasId: number } | { FailedToExtractIsolatedFilePathData: [number, string] } | { VideoThumbnailGenerationFailed: [string, string] } | { FormatImage: [string, string] } | { WebPEncoding: [string, string] } | { PanicWhileGeneratingThumbnail: [string, string] } | { CreateShardDirectory: string } | { SaveThumbnail: [string, string] } | { TaskTimeout: string }
 
 export type NonIndexedPathItem = { path: string; name: string; extension: string; kind: number; is_dir: boolean; date_created: string; date_modified: string; size_in_bytes_bytes: number[]; hidden: boolean }
 
@@ -576,6 +585,14 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 
 export type RenameOne = { from_file_path_id: number; to: string }
 
+export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+
+export type ReportInputMetadata = { type: "location"; data: Location } | { type: "sub_path"; data: string }
+
+export type ReportMetadata = { type: "input"; metadata: ReportInputMetadata } | { type: "output"; metadata: ReportOutputMetadata }
+
+export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: JsonValue } } | { type: "indexer"; data: { total_paths: [number, number] } } | { type: "file_identifier"; data: { total_orphan_paths: [number, number]; total_objects_created: [number, number]; total_objects_linked: [number, number] } } | { type: "media_processor"; data: { media_data_extracted: [number, number]; media_data_skipped: [number, number]; thumbnails_generated: [number, number]; thumbnails_skipped: [number, number] } } | { type: "copier"; data: { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string } } | { type: "mover"; data: { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string } } | { type: "deleter"; data: { location_id: number; file_path_ids: number[] } } | { type: "eraser"; data: { location_id: number; file_path_ids: number[]; passes: number } } | { type: "file_validator"; data: { location_id: number; sub_path: string | null } }
+
 export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
@@ -610,6 +627,8 @@ export type Statistics = { id: number; date_captured: string; total_object_count
 
 export type StatisticsResponse = { statistics: Statistics | null }
 
+export type Status = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" | "Paused" | "CompletedWithErrors"
+
 export type Stream = { id: number; name: string | null; codec: Codec | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string[]; metadata: Metadata }
 
 export type SubtitleProps = { width: number; height: number }
@@ -632,7 +651,11 @@ export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
-export type ThumbnailerPreferences = { background_processing_percentage: number }
+/**
+ * This type is used to pass the relevant data to the frontend so it can request the thumbnail.
+ * Tt supports extending the shard hex to support deeper directory structures in the future
+ */
+export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
 export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
 

@@ -238,7 +238,11 @@ function RemoteLayout() {
 				getThumbnailUrlByThumbKey: (thumbKey) =>
 					platform.constructRemoteRspcPath(
 						params.node,
-						`thumbnail/${thumbKey.map((i) => encodeURIComponent(i)).join('/')}.webp`
+						`thumbnail/${encodeURIComponent(
+							thumbKey.base_directory_str
+						)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(
+							thumbKey.cas_id
+						)}.webp`
 					),
 				getFileUrl: (libraryId, locationLocalId, filePathId) =>
 					platform.constructRemoteRspcPath(

@@ -1,5 +1,7 @@
 use crate::media_processor::{self, media_data_extractor};
 
+use sd_core_prisma_helpers::object_with_media_data;
+
 use sd_file_ext::extensions::{
 	AudioExtension, Extension, VideoExtension, ALL_AUDIO_EXTENSIONS, ALL_VIDEO_EXTENSIONS,
 };
@@ -19,7 +21,10 @@ use sd_prisma::prisma::{
 	ffmpeg_data, ffmpeg_media_audio_props, ffmpeg_media_chapter, ffmpeg_media_codec,
 	ffmpeg_media_program, ffmpeg_media_stream, ffmpeg_media_video_props, object, PrismaClient,
 };
-use sd_utils::db::ffmpeg_data_field_to_db;
+use sd_utils::{
+	db::{ffmpeg_data_field_from_db, ffmpeg_data_field_to_db},
+	i64_to_frontend,
+};
 
 use std::{collections::HashMap, path::Path};
 
@@ -27,6 +32,8 @@ use futures_concurrency::future::TryJoin;
 use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
 use tracing::error;
+
+use super::from_slice_option_to_option;
 
 pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	ALL_AUDIO_EXTENSIONS
@@ -44,6 +51,7 @@ pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
+#[must_use]
 pub const fn can_extract_for_audio(audio_extension: AudioExtension) -> bool {
 	use AudioExtension::{
 		Aac, Adts, Aif, Aiff, Amr, Aptx, Ast, Caf, Flac, Loas, M4a, Mid, Mp2, Mp3, Oga, Ogg, Opus,
@@ -63,34 +71,35 @@ pub const fn can_extract_for_audio(audio_extension: AudioExtension) -> bool {
 	)
 }
 
+#[must_use]
 pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 	use VideoExtension::{
-		Asf, Avi, Avifs, F4v, Flv, Hevc, M2ts, M2v, M4v, Mjpeg, Mkv, Mov, Mp4, Mpe, Mpeg, Mpg, Mts,
-		Mxf, Ogv, Qt, Swf, Ts, Vob, Webm, Wm, Wmv, Wtv, _3gp,
+		Asf, Avi, Avifs, F4v, Flv, Hevc, M2ts, M2v, M4v, Mjpeg, Mkv, Mov, Mp4, Mpe, Mpeg, Mpg, Mxf,
+		Ogv, Qt, Swf, Vob, Webm, Wm, Wmv, Wtv, _3gp,
 	};
 
 	matches!(
 		video_extension,
 		Avi | Avifs
 			| Qt | Mov | Swf
-			| Mjpeg | Ts | Mts
-			| Mpeg | Mxf | M2v
-			| Mpg | Mpe | M2ts
-			| Flv | Wm | _3gp
-			| M4v | Wmv | Asf
-			| Mp4 | Webm | Mkv
-			| Vob | Ogv | Wtv
-			| Hevc | F4v
+			| Mjpeg | Mpeg
+			| Mxf | M2v | Mpg
+			| Mpe | M2ts | Flv
+			| Wm | _3gp | M4v
+			| Wmv | Asf | Mp4
+			| Webm | Mkv | Vob
+			| Ogv | Wtv | Hevc
+			| F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
 	)
 }
 
 pub async fn extract(
 	path: impl AsRef<Path> + Send,
-) -> Result<FFmpegMetadata, media_processor::NonCriticalError> {
+) -> Result<FFmpegMetadata, media_processor::NonCriticalMediaProcessorError> {
 	let path = path.as_ref();
 
 	FFmpegMetadata::from_path(&path).await.map_err(|e| {
-		media_data_extractor::NonCriticalError::FailedToExtractImageMediaData(
+		media_data_extractor::NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
 			path.to_path_buf(),
 			e.to_string(),
 		)
@@ -101,7 +110,7 @@ pub async fn extract(
 pub async fn save(
 	ffmpeg_datas: impl IntoIterator<Item = (FFmpegMetadata, object::id::Type)> + Send,
 	db: &PrismaClient,
-) -> Result<u64, media_processor::Error> {
+) -> Result<u64, QueryError> {
 	ffmpeg_datas
 		.into_iter()
 		.map(
@@ -180,9 +189,9 @@ async fn create_ffmpeg_data(
 				)),
 				ffmpeg_data::metadata::set(
 					serde_json::to_vec(&metadata)
-						.map_err(|err| {
-							error!("Error reading FFmpegData metadata: {err:#?}");
-							err
+						.map_err(|e| {
+							error!(?e, "Error reading FFmpegData metadata;");
+							e
 						})
 						.ok(),
 				),
@@ -224,9 +233,9 @@ async fn create_ffmpeg_chapters(
 						ffmpeg_data_id,
 						_params: vec![ffmpeg_media_chapter::metadata::set(
 							serde_json::to_vec(&metadata)
-								.map_err(|err| {
-									error!("Error reading FFmpegMediaChapter metadata: {err:#?}");
-									err
+								.map_err(|e| {
+									error!(?e, "Error reading FFmpegMediaChapter metadata;");
+									e
 								})
 								.ok(),
 						)],
@@ -244,37 +253,36 @@ async fn create_ffmpeg_programs(
 	programs: Vec<Program>,
 	db: &PrismaClient,
 ) -> Result<Vec<(ffmpeg_media_program::program_id::Type, Vec<Stream>)>, QueryError> {
-	let (creates, streams_by_program_id) =
-		programs
-			.into_iter()
-			.map(
-				|Program {
-				     id: program_id,
-				     name,
-				     metadata,
-				     streams,
-				 }| {
-					(
-						ffmpeg_media_program::CreateUnchecked {
-							program_id,
-							ffmpeg_data_id: data_id,
-							_params: vec![
-								ffmpeg_media_program::name::set(name),
-								ffmpeg_media_program::metadata::set(
-									serde_json::to_vec(&metadata)
-										.map_err(|err| {
-											error!("Error reading FFmpegMediaProgram metadata: {err:#?}");
-											err
-										})
-										.ok(),
-								),
-							],
-						},
-						(program_id, streams),
-					)
-				},
-			)
-			.unzip::<_, _, Vec<_>, Vec<_>>();
+	let (creates, streams_by_program_id) = programs
+		.into_iter()
+		.map(
+			|Program {
+			     id: program_id,
+			     name,
+			     metadata,
+			     streams,
+			 }| {
+				(
+					ffmpeg_media_program::CreateUnchecked {
+						program_id,
+						ffmpeg_data_id: data_id,
+						_params: vec![
+							ffmpeg_media_program::name::set(name),
+							ffmpeg_media_program::metadata::set(
+								serde_json::to_vec(&metadata)
+									.map_err(|e| {
+										error!(?e, "Error reading FFmpegMediaProgram metadata;");
+										e
+									})
+									.ok(),
+							),
+						],
+					},
+					(program_id, streams),
+				)
+			},
+		)
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 	db.ffmpeg_media_program()
 		.create_many(creates)
@@ -333,9 +341,9 @@ async fn create_ffmpeg_streams(
 								ffmpeg_media_stream::language::set(metadata.language.clone()),
 								ffmpeg_media_stream::metadata::set(
 									serde_json::to_vec(&metadata)
-										.map_err(|err| {
-											error!("Error reading FFmpegMediaStream metadata: {err:#?}");
-											err
+										.map_err(|e| {
+											error!(?e, "Error reading FFmpegMediaStream metadata;");
+											e
 										})
 										.ok(),
 								),
@@ -569,4 +577,208 @@ async fn create_ffmpeg_video_props(
 		.exec()
 		.await
 		.map(|_| ())
+}
+
+pub fn from_prisma_data(
+	object_with_media_data::ffmpeg_data::Data {
+		formats,
+		duration,
+		start_time,
+		bit_rate,
+		metadata,
+		chapters,
+		programs,
+		..
+	}: object_with_media_data::ffmpeg_data::Data,
+) -> FFmpegMetadata {
+	FFmpegMetadata {
+		formats: formats.split(',').map(String::from).collect::<Vec<_>>(),
+		duration: duration.map(|duration| i64_to_frontend(ffmpeg_data_field_from_db(&duration))),
+		start_time: start_time
+			.map(|start_time| i64_to_frontend(ffmpeg_data_field_from_db(&start_time))),
+		bit_rate: i64_to_frontend(ffmpeg_data_field_from_db(&bit_rate)),
+		chapters: chapters_from_prisma_data(chapters),
+		programs: programs_from_prisma_data(programs),
+		metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+	}
+}
+
+#[inline]
+fn chapters_from_prisma_data(chapters: Vec<ffmpeg_media_chapter::Data>) -> Vec<Chapter> {
+	chapters
+		.into_iter()
+		.map(
+			|ffmpeg_media_chapter::Data {
+			     chapter_id,
+			     start,
+			     end,
+			     time_base_den,
+			     time_base_num,
+			     metadata,
+			     ..
+			 }| Chapter {
+				id: chapter_id,
+				start: i64_to_frontend(ffmpeg_data_field_from_db(&start)),
+				end: i64_to_frontend(ffmpeg_data_field_from_db(&end)),
+				time_base_den,
+				time_base_num,
+				metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+			},
+		)
+		.collect()
+}
+
+#[inline]
+fn programs_from_prisma_data(
+	programs: Vec<object_with_media_data::ffmpeg_data::programs::Data>,
+) -> Vec<Program> {
+	programs
+		.into_iter()
+		.map(
+			|object_with_media_data::ffmpeg_data::programs::Data {
+			     program_id,
+			     name,
+			     metadata,
+			     streams,
+			     ..
+			 }| Program {
+				id: program_id,
+				name,
+				streams: streams_from_prisma_data(streams),
+				metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+			},
+		)
+		.collect()
+}
+
+fn streams_from_prisma_data(
+	streams: Vec<object_with_media_data::ffmpeg_data::programs::streams::Data>,
+) -> Vec<Stream> {
+	streams
+		.into_iter()
+		.map(
+			|object_with_media_data::ffmpeg_data::programs::streams::Data {
+			     stream_id,
+			     name,
+			     aspect_ratio_num,
+			     aspect_ratio_den,
+			     frames_per_second_num,
+			     frames_per_second_den,
+			     time_base_real_den,
+			     time_base_real_num,
+			     dispositions,
+			     metadata,
+			     codec,
+			     ..
+			 }| {
+				Stream {
+					id: stream_id,
+					name,
+					codec: codec_from_prisma_data(codec),
+					aspect_ratio_num,
+					aspect_ratio_den,
+					frames_per_second_num,
+					frames_per_second_den,
+					time_base_real_den,
+					time_base_real_num,
+					dispositions: dispositions
+						.map(|dispositions| {
+							dispositions
+								.split(',')
+								.map(String::from)
+								.collect::<Vec<_>>()
+						})
+						.unwrap_or_default(),
+					metadata: from_slice_option_to_option(metadata).unwrap_or_default(),
+				}
+			},
+		)
+		.collect()
+}
+
+fn codec_from_prisma_data(
+	codec: Option<object_with_media_data::ffmpeg_data::programs::streams::codec::Data>,
+) -> Option<Codec> {
+	codec.map(
+		|object_with_media_data::ffmpeg_data::programs::streams::codec::Data {
+		     kind,
+		     sub_kind,
+		     tag,
+		     name,
+		     profile,
+		     bit_rate,
+		     audio_props,
+		     video_props,
+		     ..
+		 }| Codec {
+			kind,
+			sub_kind,
+			tag,
+			name,
+			profile,
+			bit_rate,
+			props: match (audio_props, video_props) {
+				(
+					Some(ffmpeg_media_audio_props::Data {
+						delay,
+						padding,
+						sample_rate,
+						sample_format,
+						bit_per_sample,
+						channel_layout,
+						..
+					}),
+					None,
+				) => Some(Props::Audio(AudioProps {
+					delay,
+					padding,
+					sample_rate,
+					sample_format,
+					bit_per_sample,
+					channel_layout,
+				})),
+				(
+					None,
+					Some(ffmpeg_media_video_props::Data {
+						pixel_format,
+						color_range,
+						bits_per_channel,
+						color_space,
+						color_primaries,
+						color_transfer,
+						field_order,
+						chroma_location,
+						width,
+						height,
+						aspect_ratio_num,
+						aspect_ratio_den,
+						properties,
+						..
+					}),
+				) => Some(Props::Video(VideoProps {
+					pixel_format,
+					color_range,
+					bits_per_channel,
+					color_space,
+					color_primaries,
+					color_transfer,
+					field_order,
+					chroma_location,
+					width,
+					height,
+					aspect_ratio_num,
+					aspect_ratio_den,
+					properties: properties
+						.map(|dispositions| {
+							dispositions
+								.split(',')
+								.map(String::from)
+								.collect::<Vec<_>>()
+						})
+						.unwrap_or_default(),
+				})),
+				_ => None,
+			},
+		},
+	)
 }

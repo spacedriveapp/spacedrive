@@ -5,34 +5,42 @@ use futures::StreamExt;
 use futures_concurrency::stream::Merge;
 use tokio::time::{interval_at, Instant};
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{error, warn};
+use tracing::{debug, error, instrument, trace, warn};
 
 use super::{
-	super::{error::RunError, message::WorkerMessage, system::SystemComm},
+	super::{
+		error::RunError,
+		message::{StoleTaskMessage, TaskOutputMessage, WorkerMessage},
+		system::SystemComm,
+	},
 	runner::Runner,
-	RunnerMessage, WorkStealer, WorkerId, ONE_SECOND,
+	WorkStealer, WorkerId, ONE_SECOND,
 };
 
+enum StreamMessage<E: RunError> {
+	Commands(WorkerMessage<E>),
+	Steal(Option<StoleTaskMessage<E>>),
+	TaskOutput(TaskOutputMessage<E>),
+	IdleCheck,
+}
+
+#[instrument(skip(system_comm, work_stealer, msgs_rx))]
 pub(super) async fn run<E: RunError>(
-	id: WorkerId,
+	worker_id: WorkerId,
 	system_comm: SystemComm,
 	work_stealer: WorkStealer<E>,
 	msgs_rx: chan::Receiver<WorkerMessage<E>>,
 ) {
-	enum StreamMessage<E: RunError> {
-		Commands(WorkerMessage<E>),
-		RunnerMsg(RunnerMessage<E>),
-		IdleCheck,
-	}
-
-	let (mut runner, runner_rx) = Runner::new(id, work_stealer, system_comm);
+	let (mut runner, stole_task_rx, task_output_rx) =
+		Runner::new(worker_id, work_stealer, system_comm);
 
 	let mut idle_checker_interval = interval_at(Instant::now(), ONE_SECOND);
 	idle_checker_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
 	let mut msg_stream = pin!((
 		msgs_rx.map(StreamMessage::Commands),
-		runner_rx.map(StreamMessage::RunnerMsg),
+		stole_task_rx.map(StreamMessage::Steal),
+		task_output_rx.map(StreamMessage::TaskOutput),
 		IntervalStream::new(idle_checker_interval).map(|_| StreamMessage::IdleCheck),
 	)
 		.merge());
@@ -41,20 +49,19 @@ pub(super) async fn run<E: RunError>(
 		match msg {
 			// Worker messages
 			StreamMessage::Commands(WorkerMessage::NewTask(task_work_state)) => {
+				let task_id = task_work_state.id();
 				runner.abort_steal_task();
-				runner.new_task(task_work_state).await;
-			}
-
-			StreamMessage::Commands(WorkerMessage::TaskCountRequest(tx)) => {
-				if tx.send(runner.total_tasks()).is_err() {
-					warn!("Task count request channel closed before sending task count");
-				}
+				trace!(%task_id, "New task received");
+				runner.new_task(task_id, task_work_state.kind(), task_work_state);
+				trace!(%task_id, "New task added");
 			}
 
 			StreamMessage::Commands(WorkerMessage::ResumeTask { task_id, ack }) => {
-				if ack.send(runner.resume_task(task_id).await).is_err() {
+				trace!(%task_id, "Resume task request received");
+				if ack.send(runner.resume_task(task_id)).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
+				trace!(%task_id, "Resumed task");
 			}
 
 			StreamMessage::Commands(WorkerMessage::PauseNotRunningTask { task_id, ack }) => {
@@ -64,41 +71,53 @@ pub(super) async fn run<E: RunError>(
 			}
 
 			StreamMessage::Commands(WorkerMessage::CancelNotRunningTask { task_id, ack }) => {
-				runner.cancel_not_running_task(task_id);
-				if ack.send(()).is_err() {
+				if ack.send(runner.cancel_not_running_task(&task_id)).is_err() {
 					warn!("Resume task channel closed before sending ack");
 				}
 			}
 
 			StreamMessage::Commands(WorkerMessage::ForceAbortion { task_id, ack }) => {
-				if ack.send(runner.force_task_abortion(task_id).await).is_err() {
+				trace!(%task_id, "Force abortion task request received");
+				if ack
+					.send(runner.force_task_abortion(&task_id).await)
+					.is_err()
+				{
 					warn!("Force abortion channel closed before sending ack");
 				}
+				trace!(%task_id, "Force aborted task response sent");
 			}
 
 			StreamMessage::Commands(WorkerMessage::ShutdownRequest(tx)) => {
 				return runner.shutdown(tx).await;
 			}
 
-			StreamMessage::Commands(WorkerMessage::StealRequest(tx)) => runner.steal_request(tx),
-
-			StreamMessage::Commands(WorkerMessage::WakeUp) => runner.wake_up(),
+			StreamMessage::Commands(WorkerMessage::StealRequest {
+				stealer_id,
+				ack,
+				stolen_task_tx,
+			}) => {
+				if ack
+					.send(runner.steal_request(stealer_id, stolen_task_tx).await)
+					.is_err()
+				{
+					debug!("Steal request attempt aborted before sending ack");
+				}
+			}
 
 			// Runner messages
-			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Ok(output))) => {
-				runner.process_task_output(task_id, output).await;
+			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Ok(output))) => {
+				runner.process_task_output(&task_id, output).await;
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::TaskOutput(task_id, Err(()))) => {
-				error!("Task failed <worker_id='{id}', task_id='{task_id}'>");
+			StreamMessage::TaskOutput(TaskOutputMessage(task_id, Err(()))) => {
+				error!(%task_id, "Task failed");
 
-				runner.clean_suspended_task(task_id);
-
-				runner.dispatch_next_task(task_id).await;
+				runner.clear_errored_task(task_id).await;
+				trace!(%task_id, "Failed task cleared");
 			}
 
-			StreamMessage::RunnerMsg(RunnerMessage::StoleTask(maybe_new_task)) => {
-				runner.process_stolen_task(maybe_new_task).await;
+			StreamMessage::Steal(maybe_stolen_task) => {
+				runner.process_stolen_task(maybe_stolen_task).await;
 			}
 
 			// Idle checking to steal some work

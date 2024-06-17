@@ -130,7 +130,7 @@ impl LibraryConfig {
 									db.indexer_rule().update_many(
 										vec![indexer_rule::name::equals(Some(name))],
 										vec![indexer_rule::pub_id::set(sd_utils::uuid_to_bytes(
-											Uuid::from_u128(i as u128),
+											&Uuid::from_u128(i as u128),
 										))],
 									)
 								})
@@ -221,7 +221,7 @@ impl LibraryConfig {
 									maybe_missing(path.size_in_bytes, "file_path.size_in_bytes")
 										.map_or_else(
 											|e| {
-												error!("{e:#?}");
+												error!(?e);
 												None
 											},
 											Some,
@@ -232,9 +232,11 @@ impl LibraryConfig {
 													Some(size.to_be_bytes().to_vec())
 												} else {
 													error!(
-														"File path <id='{}'> had invalid size: '{}'",
-														path.id, size_in_bytes
+														file_path_id = %path.id,
+														size = %size_in_bytes,
+														"File path had invalid size;",
 													);
+
 													None
 												};
 
@@ -463,7 +465,8 @@ impl LibraryConfig {
 					}
 
 					_ => {
-						error!("Library config version is not handled: {:?}", current);
+						error!(current_version = ?current, "Library config version is not handled;");
+
 						return Err(VersionManagerError::UnexpectedMigration {
 							current_version: current.int_value(),
 							next_version: next.int_value(),

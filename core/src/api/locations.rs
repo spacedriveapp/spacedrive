@@ -1,16 +1,15 @@
 use crate::{
 	invalidate_query,
 	location::{
-		delete_location, find_location, indexer::OldIndexerJobInit, light_scan_location,
-		non_indexed::NonIndexedPathItem, relink_location, scan_location, scan_location_sub_path,
-		LocationCreateArgs, LocationError, LocationUpdateArgs, ScanState,
+		delete_location, find_location, light_scan_location, non_indexed::NonIndexedPathItem,
+		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
+		LocationUpdateArgs, ScanState,
 	},
-	object::old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
-	old_job::StatefulJob,
 	p2p::PeerMetadata,
 	util::AbortOnDrop,
 };
 
+use sd_core_heavy_lifting::{media_processor::ThumbKey, JobName};
 use sd_core_indexer_rules::IndexerRuleCreateArgs;
 use sd_core_prisma_helpers::{
 	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths,
@@ -29,28 +28,24 @@ use tracing::{debug, error};
 
 use super::{utils::library, Ctx, R};
 
-// it includes the shard hex formatted as ([["f02", "cab34a76fbf3469f"]])
-// Will be None if no thumbnail exists
-pub type ThumbnailKey = Vec<String>;
-
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]
 pub enum ExplorerItem {
 	Path {
 		// provide the frontend with the thumbnail key explicitly
-		thumbnail: Option<ThumbnailKey>,
+		thumbnail: Option<ThumbKey>,
 		// this tells the frontend if a thumbnail actually exists or not
 		has_created_thumbnail: bool,
 		// we can't actually modify data from PCR types, thats why computed properties are used on ExplorerItem
 		item: Box<file_path_for_frontend::Data>,
 	},
 	Object {
-		thumbnail: Option<ThumbnailKey>,
+		thumbnail: Option<ThumbKey>,
 		has_created_thumbnail: bool,
 		item: object_with_file_paths::Data,
 	},
 	NonIndexedPath {
-		thumbnail: Option<ThumbnailKey>,
+		thumbnail: Option<ThumbKey>,
 		has_created_thumbnail: bool,
 		item: NonIndexedPathItem,
 	},
@@ -61,7 +56,7 @@ pub enum ExplorerItem {
 		item: PeerMetadata,
 	},
 	Label {
-		thumbnails: Vec<ThumbnailKey>,
+		thumbnails: Vec<ThumbKey>,
 		item: label_with_objects::Data,
 	},
 }
@@ -347,7 +342,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.exec()
 							.await?;
 
-						debug!("Disconnected {count} file paths from objects");
+						debug!(%count, "Disconnected file paths from objects;");
 
 						// library.orphan_remover.invoke().await;
 					}
@@ -409,13 +404,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				     sub_path,
 				 }: LightScanArgs| async move {
 					if node
-						.old_jobs
-						.has_job_running(|job_identity| {
-							job_identity.target_location == location_id
-								&& (job_identity.name == <OldIndexerJobInit as StatefulJob>::NAME
-									|| job_identity.name
-										== <OldFileIdentifierJobInit as StatefulJob>::NAME)
-						})
+						.job_system
+						.check_running_jobs(
+							vec![
+								JobName::Indexer,
+								JobName::FileIdentifier,
+								JobName::MediaProcessor,
+							],
+							location_id,
+						)
 						.await
 					{
 						return Err(rspc::Error::new(
@@ -433,7 +430,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let handle = tokio::spawn(async move {
 						if let Err(e) = light_scan_location(node, library, location, sub_path).await
 						{
-							error!("light scan error: {e:#?}");
+							error!(?e, "Light scan error;");
 						}
 					});
 

@@ -27,6 +27,8 @@ use super::{
 	VERSION_FILE, WEBP_EXTENSION,
 };
 
+// TODO(fogodev): Move this logic to be used alongside the NodeConfig or other Node part to run at app startup
+
 #[derive(
 	IntEnum, Debug, Clone, Copy, Eq, PartialEq, strum::Display, Serialize_repr, Deserialize_repr,
 )]
@@ -56,7 +58,7 @@ pub(super) async fn init_thumbnail_dir(
 	debug!("Initializing thumbnail directory");
 	let thumbnails_directory = data_dir.as_ref().join(THUMBNAIL_CACHE_DIR_NAME);
 
-	debug!("Thumbnail directory: {:?}", thumbnails_directory);
+	debug!(thumbnails_directory = %thumbnails_directory.display());
 
 	// create thumbnails base directory
 	fs::create_dir_all(&thumbnails_directory)
@@ -89,7 +91,7 @@ pub(super) async fn init_thumbnail_dir(
 			};
 
 			if let Err(e) = process_migration(thumbnails_directory, databases).await {
-				error!("Failed to migrate thumbnails: {e:#?}");
+				error!(?e, "Failed to migrate thumbnails;");
 			}
 		}
 	});
@@ -133,7 +135,8 @@ async fn process_migration(
 					}
 
 					_ => {
-						error!("Thumbnail version is not handled: {:?}", current);
+						error!(current_version = ?current, "Thumbnail version is not handled;");
+
 						Err(VersionManagerError::UnexpectedMigration {
 							current_version: current.int_value(),
 							next_version: next.int_value(),
@@ -187,10 +190,7 @@ async fn move_to_shards(thumbnails_directory: impl AsRef<Path>) -> Result<(), Th
 		}
 	}
 
-	info!(
-		"Moved {} webp files to their respective shard folders.",
-		count
-	);
+	info!(%count, "Moved webp files to their respective shard folders;");
 
 	Ok(())
 }
@@ -237,9 +237,9 @@ async fn segregate_thumbnails_by_library(
 
 						async move {
 							trace!(
-								"Moving thumbnail from old location to new location: {} -> {}",
-								old.display(),
-								new.display()
+								old_location = %old.display(),
+								new_location = %new.display(),
+								"Moving thumbnail from old location to new location;",
 							);
 
 							match fs::rename(&old, new).await {
@@ -271,8 +271,10 @@ async fn segregate_thumbnails_by_library(
 				let moved_count = to_move.try_join().await?.into_iter().sum::<u64>();
 
 				info!(
-					"Created {shards_created_count} shards and moved {moved_count} \
-					thumbnails to library folder {library_id}"
+					%shards_created_count,
+					%moved_count,
+					%library_id
+					"Created shards and moved thumbnails to library folder;",
 				);
 
 				Ok::<_, ThumbnailerError>(())
@@ -332,9 +334,9 @@ async fn segregate_thumbnails_by_library(
 
 					to_move.push(async move {
 						trace!(
-							"Moving thumbnail from old location to new location: {} -> {}",
-							thumb_path.display(),
-							new_ephemeral_shard.display()
+							old_location = %thumb_path.display(),
+							new_location = %new_ephemeral_shard.display(),
+							"Moving thumbnail from old location to new location;"
 						);
 
 						fs::rename(&thumb_path, &new_ephemeral_shard)
@@ -361,7 +363,7 @@ async fn segregate_thumbnails_by_library(
 
 	let moved_shard = to_move.try_join().await?.len();
 
-	info!("Moved {moved_shard} shards to the ephemeral directory");
+	info!(%moved_shards, "Moved shards to the ephemeral directory;");
 
 	empty_shards
 		.into_iter()
@@ -369,7 +371,7 @@ async fn segregate_thumbnails_by_library(
 			path.file_name()
 				.map_or(false, |name| name.len() == 2)
 				.then_some(async move {
-					trace!("Removing empty shard directory: {}", path.display());
+					trace!(path = path.display(), "Removing empty shard directory;");
 					fs::remove_dir(&path)
 						.await
 						.map_err(|e| FileIOError::from((path, e)))

@@ -1,14 +1,15 @@
-use sd_prisma::prisma::{job, PrismaClient};
+use crate::NonCriticalError;
+
+use sd_prisma::prisma::{file_path, job, location, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::{collections::HashMap, fmt, str::FromStr};
+use std::{collections::HashMap, fmt, path::PathBuf, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::QueryError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use strum::ParseError;
-use tracing::error;
 
 use super::{job::JobName, JobId};
 
@@ -22,10 +23,8 @@ pub enum ReportError {
 	InvalidJobStatusInt(i32),
 	#[error("job not found in database: <id='{0}'>")]
 	MissingReport(JobId),
-	#[error("serialization error: {0}")]
-	Serialization(#[from] rmp_serde::encode::Error),
-	#[error("deserialization error: {0}")]
-	Deserialization(#[from] rmp_serde::decode::Error),
+	#[error("json error: {0}")]
+	Json(#[from] serde_json::Error),
 	#[error(transparent)]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to parse job name from database: {0}")]
@@ -44,10 +43,7 @@ impl From<ReportError> for rspc::Error {
 			ReportError::MissingReport(_) => {
 				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
 			}
-			ReportError::Serialization(_)
-			| ReportError::Deserialization(_)
-			| ReportError::MissingField(_)
-			| ReportError::JobNameParse(_) => {
+			ReportError::Json(_) | ReportError::MissingField(_) | ReportError::JobNameParse(_) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
 		}
@@ -55,21 +51,78 @@ impl From<ReportError> for rspc::Error {
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "metadata")]
 pub enum ReportMetadata {
 	Input(ReportInputMetadata),
 	Output(ReportOutputMetadata),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "data")]
 pub enum ReportInputMetadata {
-	Placeholder,
-	// TODO: Add more types
+	// TODO: Add more variants as needed
+	Location(location::Data),
+	SubPath(PathBuf),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", content = "data")]
 pub enum ReportOutputMetadata {
 	Metrics(HashMap<String, serde_json::Value>),
-	// TODO: Add more types
+	Indexer {
+		total_paths: (u32, u32),
+	},
+	FileIdentifier {
+		total_orphan_paths: (u32, u32),
+		total_objects_created: (u32, u32),
+		total_objects_linked: (u32, u32),
+	},
+	MediaProcessor {
+		media_data_extracted: (u32, u32),
+		media_data_skipped: (u32, u32),
+		thumbnails_generated: (u32, u32),
+		thumbnails_skipped: (u32, u32),
+	},
+	Copier {
+		source_location_id: location::id::Type,
+		target_location_id: location::id::Type,
+		sources_file_path_ids: Vec<file_path::id::Type>,
+		target_location_relative_directory_path: PathBuf,
+	},
+	Mover {
+		source_location_id: location::id::Type,
+		target_location_id: location::id::Type,
+		sources_file_path_ids: Vec<file_path::id::Type>,
+		target_location_relative_directory_path: PathBuf,
+	},
+	Deleter {
+		location_id: location::id::Type,
+		file_path_ids: Vec<file_path::id::Type>,
+	},
+	Eraser {
+		location_id: location::id::Type,
+		file_path_ids: Vec<file_path::id::Type>,
+		passes: u32,
+	},
+	FileValidator {
+		location_id: location::id::Type,
+		sub_path: Option<PathBuf>,
+	},
+}
+
+impl From<ReportInputMetadata> for ReportMetadata {
+	fn from(value: ReportInputMetadata) -> Self {
+		Self::Input(value)
+	}
+}
+
+impl From<ReportOutputMetadata> for ReportMetadata {
+	fn from(value: ReportOutputMetadata) -> Self {
+		Self::Output(value)
+	}
 }
 
 #[derive(Debug, Serialize, Type, Clone)]
@@ -80,7 +133,7 @@ pub struct Report {
 
 	pub metadata: Vec<ReportMetadata>,
 	pub critical_error: Option<String>,
-	pub non_critical_errors: Vec<String>,
+	pub non_critical_errors: Vec<NonCriticalError>,
 
 	pub created_at: Option<DateTime<Utc>>,
 	pub started_at: Option<DateTime<Utc>>,
@@ -111,46 +164,53 @@ impl fmt::Display for Report {
 impl TryFrom<job::Data> for Report {
 	type Error = ReportError;
 
-	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
+	fn try_from(
+		job::Data {
+			id,
+			name,
+			action,
+			status,
+			errors_text: _, // Deprecated
+			critical_error,
+			non_critical_errors,
+			data: _, // Deprecated
+			metadata,
+			parent_id,
+			task_count,
+			completed_task_count,
+			date_estimated_completion,
+			date_created,
+			date_started,
+			date_completed,
+			..
+		}: job::Data,
+	) -> Result<Self, Self::Error> {
 		Ok(Self {
-			id: JobId::from_slice(&data.id).expect("corrupted database"),
-			name: JobName::from_str(&maybe_missing(data.name, "job.name")?)?,
-			action: data.action,
-
-			metadata: data
-				.metadata
-				.map(|m| {
-					rmp_serde::from_slice(&m).unwrap_or_else(|e| {
-						error!("Failed to deserialize job metadata: {e:#?}");
-						vec![]
-					})
-				})
-				.unwrap_or_default(),
-			critical_error: data.critical_error,
-			non_critical_errors: data.non_critical_errors.map_or_else(
-				Default::default,
-				|non_critical_errors| {
-					serde_json::from_slice(&non_critical_errors).unwrap_or_else(|e| {
-						error!("Failed to deserialize job non-critical errors: {e:#?}");
-						vec![]
-					})
-				},
-			),
-			created_at: data.date_created.map(DateTime::into),
-			started_at: data.date_started.map(DateTime::into),
-			completed_at: data.date_completed.map(DateTime::into),
-			parent_id: data
-				.parent_id
-				.map(|id| JobId::from_slice(&id).expect("corrupted database")),
-			status: Status::try_from(maybe_missing(data.status, "job.status")?)
+			id: JobId::from_slice(&id).expect("corrupted database"),
+			name: JobName::from_str(&maybe_missing(name, "job.name")?)?,
+			action,
+			metadata: if let Some(metadata) = metadata {
+				serde_json::from_slice(&metadata)?
+			} else {
+				vec![]
+			},
+			critical_error,
+			non_critical_errors: if let Some(non_critical_errors) = non_critical_errors {
+				serde_json::from_slice(&non_critical_errors)?
+			} else {
+				vec![]
+			},
+			created_at: date_created.map(DateTime::into),
+			started_at: date_started.map(DateTime::into),
+			completed_at: date_completed.map(DateTime::into),
+			parent_id: parent_id.map(|id| JobId::from_slice(&id).expect("corrupted database")),
+			status: Status::try_from(maybe_missing(status, "job.status")?)
 				.expect("corrupted database"),
-			task_count: data.task_count.unwrap_or(0),
-			completed_task_count: data.completed_task_count.unwrap_or(0),
+			task_count: task_count.unwrap_or(0),
+			completed_task_count: completed_task_count.unwrap_or(0),
 			phase: String::new(),
 			message: String::new(),
-			estimated_completion: data
-				.date_estimated_completion
-				.map_or_else(Utc::now, DateTime::into),
+			estimated_completion: date_estimated_completion.map_or_else(Utc::now, DateTime::into),
 		})
 	}
 }
@@ -178,6 +238,10 @@ impl Report {
 		}
 	}
 
+	pub fn push_metadata(&mut self, metadata: ReportOutputMetadata) {
+		self.metadata.push(metadata.into());
+	}
+
 	#[must_use]
 	pub fn get_action_name_and_group_key(&self) -> (String, Option<String>) {
 		// actions are formatted like "added_location" or "added_location-1"
@@ -197,9 +261,11 @@ impl Report {
 		(action_name, Some(group_key))
 	}
 
-	pub async fn create(&mut self, db: &PrismaClient) -> Result<(), ReportError> {
-		let now = Utc::now();
-
+	pub async fn create(
+		&mut self,
+		db: &PrismaClient,
+		created_at: DateTime<Utc>,
+	) -> Result<(), ReportError> {
 		db.job()
 			.create(
 				self.id.as_bytes().to_vec(),
@@ -207,11 +273,11 @@ impl Report {
 					[
 						job::name::set(Some(self.name.to_string())),
 						job::action::set(self.action.clone()),
-						job::date_created::set(Some(now.into())),
-						job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
+						job::date_created::set(Some(created_at.into())),
+						job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(Into::into)),
-						job::task_count::set(Some(1)),
+						job::task_count::set(Some(0)),
 						job::completed_task_count::set(Some(0)),
 					],
 					[self
@@ -224,7 +290,7 @@ impl Report {
 			.map_err(ReportError::Create)?;
 
 		// Only setting created_at after we successfully created the job in DB
-		self.created_at = Some(now);
+		self.created_at = Some(created_at);
 
 		Ok(())
 	}
@@ -236,10 +302,10 @@ impl Report {
 				vec![
 					job::status::set(Some(self.status as i32)),
 					job::critical_error::set(self.critical_error.clone()),
-					job::non_critical_errors::set(Some(rmp_serde::to_vec(
+					job::non_critical_errors::set(Some(serde_json::to_vec(
 						&self.non_critical_errors,
 					)?)),
-					job::metadata::set(Some(rmp_serde::to_vec(&self.metadata)?)),
+					job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 					job::task_count::set(Some(self.task_count)),
 					job::completed_task_count::set(Some(self.completed_task_count)),
 					job::date_started::set(self.started_at.map(Into::into)),
@@ -347,7 +413,7 @@ impl ReportBuilder {
 
 	#[must_use]
 	pub fn with_metadata(mut self, metadata: ReportInputMetadata) -> Self {
-		self.metadata.push(ReportMetadata::Input(metadata));
+		self.metadata.push(metadata.into());
 		self
 	}
 

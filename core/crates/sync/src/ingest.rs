@@ -114,10 +114,10 @@ impl Actor {
 			}
 			State::Ingesting(event) => {
 				debug!(
-					"ingesting {} operations: {} to {}",
-					event.messages.len(),
-					event.messages.first().unwrap().3.timestamp.as_u64(),
-					event.messages.last().unwrap().3.timestamp.as_u64(),
+					messages_count = event.messages.len(),
+					first_message = event.messages.first().unwrap().3.timestamp.as_u64(),
+					last_message = event.messages.last().unwrap().3.timestamp.as_u64(),
+					"Ingesting operations;",
 				);
 
 				for (instance, data) in event.messages.0 {

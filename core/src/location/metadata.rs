@@ -56,10 +56,12 @@ impl SpacedriveLocationMetadataFile {
 						#[cfg(debug_assertions)]
 						{
 							error!(
+								metadata_file_name = %metadata_file_name.display(),
+								?e,
 								"Failed to deserialize corrupted metadata file, \
-								we will remove it and create a new one; File: {}; Error: {e}",
-								metadata_file_name.display()
+								we will remove it and create a new one;",
 							);
+
 							fs::remove_file(&metadata_file_name).await.map_err(|e| {
 								LocationMetadataError::Delete(
 									e,

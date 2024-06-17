@@ -1,4 +1,4 @@
-import type { ExplorerItem } from '../core';
+import type { ExplorerItem, ThumbKey } from '../core';
 import { getItemFilePath, getItemLocation, getItemObject } from '../utils';
 import { humanizeSize } from './humanizeSize';
 import { ObjectKind, ObjectKindKey } from './objectKind';
@@ -19,8 +19,8 @@ export interface ItemData {
 	dateModified: string | null;
 	dateAccessed: string | null;
 	dateTaken: string | null;
-	thumbnailKey: string[]; // default behavior is to render a single thumbnail
-	thumbnailKeys?: string[][]; // if set, we can render multiple thumbnails
+	thumbnailKey: ThumbKey | null; // default behavior is to render a single thumbnail
+	thumbnailKeys?: ThumbKey[]; // if set, we can render multiple thumbnails
 	hasLocalThumbnail: boolean; // this is overwritten when new thumbnails are generated
 	customIcon: string | null;
 }
@@ -102,7 +102,7 @@ export function getExplorerItemData(data?: ExplorerItem | null): ItemData {
 		case 'Label': {
 			itemData.name = data.item.name;
 			itemData.customIcon = 'Tag';
-			itemData.thumbnailKey = data.thumbnails[0] ?? [];
+			itemData.thumbnailKey = data.thumbnails[0] ?? null;
 			itemData.thumbnailKeys = data.thumbnails;
 			itemData.hasLocalThumbnail = !!data.thumbnails;
 			itemData.kind = 'Label';
@@ -135,7 +135,7 @@ function getDefaultItemData(kind: ObjectKindKey = 'Unknown'): ItemData {
 		dateModified: null,
 		dateAccessed: null,
 		dateTaken: null,
-		thumbnailKey: [],
+		thumbnailKey: null,
 		hasLocalThumbnail: false,
 		customIcon: null
 	};

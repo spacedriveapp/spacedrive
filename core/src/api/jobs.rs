@@ -1,21 +1,22 @@
 use crate::{
+	context::NodeContext,
 	invalidate_query,
 	location::{find_location, LocationError},
-	object::{
-		media::OldMediaProcessorJobInit,
-		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
-		validation::old_validator_job::OldObjectValidatorJobInit,
-	},
-	old_job::{Job, JobReport, JobStatus, OldJobs},
+	object::validation::old_validator_job::OldObjectValidatorJobInit,
+	old_job::{JobStatus, OldJob, OldJobReport},
 };
 
-use sd_core_prisma_helpers::job_without_data;
+use sd_core_heavy_lifting::{
+	file_identifier::FileIdentifier, job_system::report, media_processor::job::MediaProcessor,
+	JobId, JobSystemError, Report,
+};
 
 use sd_prisma::prisma::{job, location, SortOrder};
 
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, VecDeque},
 	path::PathBuf,
+	sync::Arc,
 	time::Instant,
 };
 
@@ -30,6 +31,8 @@ use uuid::Uuid;
 
 use super::{utils::library, CoreEvent, Ctx, R};
 
+const TEN_MINUTES: Duration = Duration::from_secs(60 * 10);
+
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("progress", {
@@ -41,7 +44,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.subscription(|(node, _), _: ()| async move {
 					let mut event_bus_rx = node.event_bus.0.subscribe();
 					// debounce per-job
-					let mut intervals = BTreeMap::<Uuid, Instant>::new();
+					let mut intervals = BTreeMap::<JobId, Instant>::new();
 
 					async_stream::stream! {
 						loop {
@@ -62,6 +65,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							yield progress_event;
 
 							*instant = Instant::now();
+
+							// remove stale jobs that didn't receive a progress for more than 10 minutes
+							intervals.retain(|_, instant| instant.elapsed() < TEN_MINUTES);
 						}
 					}
 				})
@@ -73,44 +79,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			//	  this is to ensure the client will always get the correct initial state
 			// - jobs are sorted in to groups by their action
 			// - TODO: refactor grouping system to a many-to-many table
-			#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+			#[derive(Debug, Clone, Serialize, Type)]
 			pub struct JobGroup {
-				id: Uuid,
+				id: JobId,
+				running_job_id: Option<JobId>,
 				action: Option<String>,
-				status: JobStatus,
+				status: report::Status,
 				created_at: DateTime<Utc>,
-				jobs: VecDeque<JobReport>,
+				jobs: VecDeque<Report>,
 			}
 
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
-					let job_reports: Vec<JobReport> = library
+					let job_reports: Vec<Report> = library
 						.db
 						.job()
 						.find_many(vec![])
 						.order_by(job::date_created::order(SortOrder::Desc))
 						.take(100)
-						.select(job_without_data::select())
 						.exec()
 						.await?
 						.into_iter()
-						.flat_map(JobReport::try_from)
+						.flat_map(|job| {
+							if let Ok(report) = Report::try_from(job.clone()) {
+								Some(report)
+							} else {
+								// TODO(fogodev): this is a temporary fix for the old job system
+								OldJobReport::try_from(job).map(Into::into).ok()
+							}
+						})
 						.collect();
 
-					let active_reports_by_id = node.old_jobs.get_active_reports_with_id().await;
+					let mut active_reports_by_id = node.job_system.get_active_reports().await;
+					active_reports_by_id.extend(
+						node.old_jobs
+							.get_active_reports_with_id()
+							.await
+							.into_iter()
+							.map(|(id, old_report)| (id, old_report.into())),
+					);
 
 					for job in job_reports {
 						// action name and group key are computed from the job data
-						let (action_name, group_key) = job.get_meta();
+						let (action_name, group_key) = job.get_action_name_and_group_key();
 
-						trace!(
-							"job {:#?}, action_name {}, group_key {:?}",
-							job,
-							action_name,
-							group_key
-						);
+						trace!(?job, %action_name, ?group_key);
 
 						// if the job is running, use the in-memory report
 						let report = active_reports_by_id.get(&job.id).unwrap_or(&job);
@@ -122,7 +137,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Vacant(entry) => {
 									entry.insert(JobGroup {
 										id: job.parent_id.unwrap_or(job.id),
-										action: Some(action_name.clone()),
+										running_job_id: (job.status == report::Status::Running
+											|| job.status == report::Status::Paused)
+											.then_some(job.id),
+										action: Some(action_name),
 										status: job.status,
 										jobs: [report.clone()].into_iter().collect(),
 										created_at: job.created_at.unwrap_or(Utc::now()),
@@ -132,8 +150,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								Entry::Occupied(mut entry) => {
 									let group = entry.get_mut();
 
-									// protect paused status from being overwritten
-									if report.status != JobStatus::Paused {
+									if report.status == report::Status::Running
+										|| report.status == report::Status::Paused
+									{
+										group.running_job_id = Some(report.id);
 										group.status = report.status;
 									}
 
@@ -146,6 +166,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								job.id.to_string(),
 								JobGroup {
 									id: job.id,
+									running_job_id: Some(job.id),
 									action: None,
 									status: job.status,
 									jobs: [report.clone()].into_iter().collect(),
@@ -164,7 +185,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("isActive", {
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
-					Ok(node.old_jobs.has_active_workers(library.id).await)
+					let library_id = library.id;
+					Ok(node
+						.job_system
+						.has_active_jobs(NodeContext {
+							node: Arc::clone(&node),
+							library,
+						})
+						.await || node.old_jobs.has_active_workers(library_id).await)
 				})
 		})
 		.procedure("clear", {
@@ -204,30 +232,56 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// pause job
 		.procedure("pause", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::pause(&node.old_jobs, id).await.map_err(Into::into);
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.pause(job_id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.pause(job_id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("resume", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::resume(&node.old_jobs, id)
-						.await
-						.map_err(Into::into);
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.resume(job_id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.resume(job_id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("cancel", {
 			R.with2(library())
-				.mutation(|(node, library), id: Uuid| async move {
-					let ret = OldJobs::cancel(&node.old_jobs, id)
-						.await
-						.map_err(Into::into);
+				.mutation(|(node, library), job_id: JobId| async move {
+					if let Err(e) = node.job_system.cancel(job_id).await {
+						if matches!(e, JobSystemError::NotFound(_)) {
+							// If the job is not found, it can be a job from the old job system
+							node.old_jobs.cancel(job_id).await?;
+						} else {
+							return Err(e.into());
+						}
+					}
+
+					invalidate_query!(library, "jobs.isActive");
 					invalidate_query!(library, "jobs.reports");
-					ret
+
+					Ok(())
 				})
 		})
 		.procedure("generateThumbsForLocation", {
@@ -250,50 +304,50 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(OldMediaProcessorJobInit {
-						location,
-						sub_path: Some(path),
-						regenerate_thumbnails: regenerate,
-						regenerate_labels: false,
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
+					node.job_system
+						.dispatch(
+							MediaProcessor::new(location, Some(path), regenerate)?,
+							id,
+							NodeContext {
+								node: Arc::clone(&node),
+								library,
+							},
+						)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})
-		.procedure("generateLabelsForLocation", {
-			#[derive(Type, Deserialize)]
-			pub struct GenerateLabelsForLocationArgs {
-				pub id: location::id::Type,
-				pub path: PathBuf,
-				#[serde(default)]
-				pub regenerate: bool,
-			}
-
-			R.with2(library()).mutation(
-				|(node, library),
-				 GenerateLabelsForLocationArgs {
-				     id,
-				     path,
-				     regenerate,
-				 }: GenerateLabelsForLocationArgs| async move {
-					let Some(location) = find_location(&library, id).exec().await? else {
-						return Err(LocationError::IdNotFound(id).into());
-					};
-
-					Job::new(OldMediaProcessorJobInit {
-						location,
-						sub_path: Some(path),
-						regenerate_thumbnails: false,
-						regenerate_labels: regenerate,
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
-				},
-			)
-		})
+		// .procedure("generateLabelsForLocation", {
+		// 	#[derive(Type, Deserialize)]
+		// 	pub struct GenerateLabelsForLocationArgs {
+		// 		pub id: location::id::Type,
+		// 		pub path: PathBuf,
+		// 		#[serde(default)]
+		// 		pub regenerate: bool,
+		// 	}
+		// 	R.with2(library()).mutation(
+		// 		|(node, library),
+		// 		 GenerateLabelsForLocationArgs {
+		// 		     id,
+		// 		     path,
+		// 		     regenerate,
+		// 		 }: GenerateLabelsForLocationArgs| async move {
+		// 			let Some(location) = find_location(&library, id).exec().await? else {
+		// 				return Err(LocationError::IdNotFound(id).into());
+		// 			};
+		// 			OldJob::new(OldMediaProcessorJobInit {
+		// 				location,
+		// 				sub_path: Some(path),
+		// 				regenerate_thumbnails: false,
+		// 				regenerate_labels: regenerate,
+		// 			})
+		// 			.spawn(&node, &library)
+		// 			.await
+		// 			.map_err(Into::into)
+		// 		},
+		// 	)
+		// })
 		.procedure("objectValidator", {
 			#[derive(Type, Deserialize)]
 			pub struct ObjectValidatorArgs {
@@ -307,7 +361,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Err(LocationError::IdNotFound(args.id).into());
 					};
 
-					Job::new(OldObjectValidatorJobInit {
+					OldJob::new(OldObjectValidatorJobInit {
 						location,
 						sub_path: Some(args.path),
 					})
@@ -324,18 +378,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 
 			R.with2(library()).mutation(
-				|(node, library), args: IdentifyUniqueFilesArgs| async move {
-					let Some(location) = find_location(&library, args.id).exec().await? else {
-						return Err(LocationError::IdNotFound(args.id).into());
+				|(node, library), IdentifyUniqueFilesArgs { id, path }: IdentifyUniqueFilesArgs| async move {
+					let Some(location) = find_location(&library, id).exec().await? else {
+						return Err(LocationError::IdNotFound(id).into());
 					};
 
-					Job::new(OldFileIdentifierJobInit {
-						location,
-						sub_path: Some(args.path),
-					})
-					.spawn(&node, &library)
-					.await
-					.map_err(Into::into)
+					node.job_system
+						.dispatch(
+							FileIdentifier::new(location, Some(path))?,
+							id,
+							NodeContext {
+								node: Arc::clone(&node),
+								library,
+							},
+						)
+						.await
+						.map_err(Into::into)
 				},
 			)
 		})

@@ -37,8 +37,8 @@ pub async fn update_library_statistics(
 		.find_many(vec![])
 		.exec()
 		.await
-		.unwrap_or_else(|err| {
-			error!("Failed to get locations: {:#?}", err);
+		.unwrap_or_else(|e| {
+			error!(?e, "Failed to get locations;");
 			vec![]
 		})
 		.into_iter()
@@ -79,7 +79,7 @@ pub async fn update_library_statistics(
 		.exec()
 		.await?;
 
-	info!("Updated library statistics: {:?}", stats);
+	info!(?stats, "Updated library statistics;");
 
 	Ok(stats)
 }
