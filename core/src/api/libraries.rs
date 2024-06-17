@@ -131,9 +131,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Serialize, Deserialize, Type, Default)]
 			pub struct KindStatistics {
 				statistics: Vec<KindStatistic>,
+				total_identified_files: i32,
+				total_unidentified_files: i32,
 			}
 			R.with2(library()).query(|(_, library), _: ()| async move {
 				let mut statistics: Vec<KindStatistic> = vec![];
+
+				let total_unidentified_files = library.db.file_path().count(vec![]).exec().await?;
+
+				let total_identified_files = library.db.object().count(vec![]).exec().await?;
+
 				for kind in ObjectKind::iter() {
 					let count = library
 						.db
@@ -150,7 +157,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					});
 				}
 
-				Ok(KindStatistics { statistics })
+				Ok(KindStatistics {
+					statistics,
+					total_identified_files: total_identified_files as i32,
+					total_unidentified_files: total_unidentified_files as i32,
+				})
 			})
 		})
 		.procedure("create", {

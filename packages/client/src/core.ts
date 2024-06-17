@@ -388,7 +388,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key 
 
 export type KindStatistic = { kind: number; name: string; count: number; total_bytes: string }
 
-export type KindStatistics = { statistics: KindStatistic[] }
+export type KindStatistics = { statistics: KindStatistic[]; total_identified_files: number; total_unidentified_files: number }
 
 export type Label = { id: number; name: string; date_created: string | null; date_modified: string | null }
 
