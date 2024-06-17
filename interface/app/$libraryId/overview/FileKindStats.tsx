@@ -50,7 +50,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
     if (containerRef.current) {
       let factor;
       if (window.innerWidth > 2000) {
-        factor = 0.60;
+        factor = 0.45;
       } else if (window.innerWidth > 1600) {
         factor = 0.50;
       } else {
@@ -96,7 +96,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
         const iconName = item.name;
         if (!iconsRef.current[iconName]) {
           const img = new Image();
-          img.src = getIcon(iconName, isDark);
+          img.src = getIcon(iconName + "20", isDark);
           iconsRef.current[iconName] = img;
         }
       });
@@ -167,7 +167,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     <img
                       src={icon.src}
                       alt={fileKind.kind}
-                      className="relative bottom-1 size-6 transition-all duration-500"
+                      className="relative bottom-1 size-4 transition-all duration-500 mb-1"
                     />
                   )}
                   <div
