@@ -6,6 +6,7 @@ import { useLibraryQuery } from '@sd/client';
 import { useNavigate } from 'react-router';
 import { useLocale } from '~/hooks';
 import { Info } from '@phosphor-icons/react';
+import { motion } from 'framer-motion';
 
 const interpolateColor = (color1: string, color2: string, factor: number) => {
   const hex = (color: string) => parseInt(color.slice(1), 16);
@@ -36,25 +37,33 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   const navigate = useNavigate();
   const { t } = useLocale();
   const { data } = useLibraryQuery(['library.kindStatistics']);
-  const [fileKinds, setFileKinds] = useState<FileKind[]>([]);
+  const [fileKinds, setFileKinds] = useState<FileKind[]>([
+    { kind: 'Documents', count: 500, id: 1 },
+    { kind: 'Images', count: 300, id: 2 },
+    { kind: 'Videos', count: 100, id: 3 },
+  ]);
   const [cardWidth, setCardWidth] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-  const BARHEIGHT = 140;
-  const BARCOLOR_START = isDark ? '#742AEA' : '#75B1F9';
-  const BARCOLOR_END = isDark ? '#FE9BFE' : '#3A7ECC';
+  const BARHEIGHT = 100;
+  const BARCOLOR_START = isDark ? '#3A7ECC' : '#004C99';
+  const BARCOLOR_END = isDark ? '#004C99' : '#3A7ECC';
 
-  console.log(data);
+  const formatCount = (count: number) => {
+    if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'k';
+    }
+    return count.toString();
+  };
+
   const handleResize = useCallback(() => {
     if (containerRef.current) {
       let factor;
-      if (window.innerWidth > 2000) {
-        factor = 0.45;
-      } else if (window.innerWidth > 1600) {
-        factor = 0.50;
+      if (window.innerWidth > 1500) {
+        factor = 0.35;
       } else {
-        factor = 0.45;
+        factor = 0.4;
       }
       setCardWidth(window.innerWidth * factor);
     }
@@ -123,13 +132,13 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 
   return (
     <div className="flex justify-center">
-      <Card ref={containerRef} className="group flex h-[220px] w-full min-w-[400px] max-w-full shrink-0 flex-col bg-app-box/50">
-        <div className="flex items-center justify-end whitespace-nowrap text-sm font-medium text-ink-dull">
-          <div><span className={isDark ? "text-white" : "text-black"}>{totalFiles + " "}</span>{t("total_files")}</div>
+      <Card ref={containerRef} className="max-w-1/2 group flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
+        <div className="mb-4 mt-2 flex items-center whitespace-nowrap text-sm font-medium text-ink-dull">
+          <div><span className={isDark ? "mr-1 text-xl text-white" : "text-black"}>{totalFiles + " "}</span>{t("total_files")}</div>
           <Tooltip label={t("bar_graph_info")}>
             <Info
               weight="fill"
-              className="mb-1 ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity duration-300 group-hover:opacity-70"
+              className="ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity duration-300 group-hover:opacity-70"
             />
           </Tooltip>
         </div>
@@ -167,25 +176,28 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     <img
                       src={icon.src}
                       alt={fileKind.kind}
-                      className="relative bottom-1 size-4 transition-all duration-500 mb-1"
+                      className="relative bottom-1 mb-1 size-4 transition-all duration-500"
                     />
                   )}
-                  <div
+                  <motion.div
                     className="flex w-full flex-col items-center rounded transition-all duration-500"
+					initial={{ height: 0 }}
+                    animate={{ height: getPercentage(fileKind.count)}}
+                    transition={{ duration: 0.4 }}
                     style={{
                       height: getPercentage(fileKind.count),
                       minHeight: '2px',
                       backgroundColor: barColor,
                     }}
                   >
-                  </div>
+                  </motion.div>
                   <div
                     className="sm my-1 text-[10px] font-medium text-ink-faint"
                     style={{
                       borderRadius: '3px',
                     }}
                   >
-                    {fileKind.count}
+                    {formatCount(fileKind.count)}
                   </div>
                 </div>
               </Tooltip>

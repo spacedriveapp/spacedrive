@@ -112,26 +112,7 @@ const isDark = useIsDark();
   const { statistics } = stats.data;
   const totalSpace = Number(statistics.total_local_bytes_capacity);
 
-  const sections = isDark ? [
-	{
-	  name: StatItemNames.library_db_size,
-	  value: Number(statistics.library_db_size),
-	  color: '#FE9BFE', // Dark mode color
-	  tooltip: StatDescriptions.library_db_size,
-	},
-	{
-	  name: StatItemNames.total_library_preview_media_bytes,
-	  value: Number(statistics.total_library_preview_media_bytes),
-	  color: '#401773', // Dark mode color
-	  tooltip: StatDescriptions.total_library_preview_media_bytes,
-	},
-	{
-	  name: StatItemNames.total_local_bytes_used,
-	  value: Number(statistics.total_local_bytes_used),
-	  color: '#742AEA', // Dark mode color
-	  tooltip: StatDescriptions.total_local_bytes_used,
-	},
-  ] : [
+  const sections = [
 	{
 	  name: StatItemNames.library_db_size,
 	  value: Number(statistics.library_db_size),
@@ -141,13 +122,13 @@ const isDark = useIsDark();
 	{
 	  name: StatItemNames.total_library_preview_media_bytes,
 	  value: Number(statistics.total_library_preview_media_bytes),
-	  color: '#004C99',
+	  color: '#3A7ECC',
 	  tooltip: StatDescriptions.total_library_preview_media_bytes,
 	},
 	{
 	  name: StatItemNames.total_local_bytes_used,
 	  value: Number(statistics.total_local_bytes_used),
-	  color: '#3A7ECC',
+	  color: '#004C99',
 	  tooltip: StatDescriptions.total_local_bytes_used,
 	},
   ];
