@@ -3,6 +3,9 @@ import { Tooltip } from '@sd/ui'; // Ensure you import your Tooltip component co
 import { humanizeSize } from '@sd/client';
 import { useIsDark} from '~/hooks';
 
+//change this to dynamically change the width of the bar (needed since each section's width is calculated independently)
+const BARWIDTH = 510
+
 // Function to lighten color
 const lightenColor = (color: string, percent: number) => {
   const num = parseInt(color.replace("#", ""), 16);
@@ -39,7 +42,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
 
   const getPercentage = (value: number) => {
     const percentage = (value / totalSpace);
-    const pixvalue = 450 * percentage;
+    const pixvalue = BARWIDTH * percentage;
     return `${pixvalue.toFixed(2)}px`;
   };
 
@@ -47,11 +50,12 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
   const unusedSpace = totalSpace - usedSpace;
 
   return (
-    <div className="w-[450px] p-4">
-      <div className="relative my-3 flex h-5 w-full overflow-hidden rounded">
+    <div className="w-[510px] p-3">
+      <div className="relative mt-1 flex h-6 overflow-hidden rounded">
         {sections.map((section, index) => {
           const humanizedValue = humanizeSize(section.value);
           const isHovered = hoveredSectionIndex === index;
+
           return (
             <Tooltip key={index} label={`${humanizedValue.value} ${humanizedValue.unit}`} position="top">
               <div
@@ -70,7 +74,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
         })}
         {unusedSpace > 0 && (
           <div
-            className="relative h-full"
+            className="relative h-full rounded-r "
             style={{
               width: getPercentage(unusedSpace),
               backgroundColor: isDark ? '#1C1D25' : '#D3D3D3',
@@ -78,11 +82,11 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
           />
         )}
       </div>
-      <div className={`mt-1 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>
+      <div className={`mt-6 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>
         {sections.map((section, index) => (
           <Tooltip key={index} label={section.tooltip} position="top">
             <div
-              className="mb-2 mr-4 flex items-center"
+              className="mb-2 mr-6 flex items-center"
               onMouseEnter={() => setHoveredSectionIndex(index)}
               onMouseLeave={() => setHoveredSectionIndex(null)}
             >

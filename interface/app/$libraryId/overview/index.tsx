@@ -76,10 +76,10 @@ export const Component = () => {
 					}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
-					<div className="flex w-full px-7 py-3">
+					<OverviewSection>
 					<LibraryStatistics/>
 					<FileKindStatistics />
-</div>
+					</OverviewSection>
 
 					<OverviewSection count={1} title={t('devices')}>
 						{node && (

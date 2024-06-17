@@ -51,7 +51,7 @@ const StatItem = (props: StatItemProps) => {
           <Tooltip label={props.info}>
             <Info
               weight="fill"
-              className="-mt-0.5 ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity group-hover/stat:opacity-70"
+              className="-mt-0.5 ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity duration-300 group-hover/stat:opacity-70"
             />
           </Tooltip>
         )}
@@ -155,8 +155,8 @@ const isDark = useIsDark();
   const excludedKeys = ['library_db_size', 'total_library_preview_media_bytes', 'total_local_bytes_used'];
 
   return (
-    <Card className="flex h-[180px] w-[500px] flex-col bg-app-box/50 p-4">
-      <div className="flex gap-3 overflow-hidden p-3">
+    <Card className="flex h-[220px] w-[572px] shrink-0 flex-col bg-app-box/50">
+      <div className="mb-1 flex gap-4 overflow-hidden p-4">
         {Object.entries(statistics)
           .filter(([key]) => !excludedKeys.includes(key))
           // sort the stats by the order of the displayableStatItems
