@@ -171,8 +171,7 @@ export const ExplorerTagBar = () => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-col items-center justify-between gap-2 border-t border-t-app-line bg-app/90 px-3.5 py-3 text-ink-dull backdrop-blur-lg ',
-				`h-auto`
+				'flex items-center justify-between gap-2 border-t border-t-app-line bg-app/90 px-3.5 py-3 text-ink-dull backdrop-blur-lg'
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>

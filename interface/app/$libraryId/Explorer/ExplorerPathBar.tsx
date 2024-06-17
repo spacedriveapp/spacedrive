@@ -124,10 +124,11 @@ export const ExplorerPathBar = memo(() => {
 				`h-[${PATH_BAR_HEIGHT}px]`
 			)}
 		>
-			{paths.map((path) => (
+			{paths.map((path, idx) => (
 				<Path
 					key={path.pathname}
 					path={path}
+					isLast={idx === paths.length - 1}
 					locationPath={location?.path ?? ''}
 					onClick={() => handleOnClick(path)}
 					disabled={path.pathname === (searchPath ?? (location && '/'))}
@@ -135,7 +136,7 @@ export const ExplorerPathBar = memo(() => {
 			))}
 
 			{selectedItem && (!queryPath || filePathname) && (
-				<div className="ml-1 flex items-center gap-1">
+				<div className="flex items-center gap-1 ml-1">
 					<FileThumb data={selectedItem} size={16} frame frameClassName="!border" />
 					<span className="max-w-xs truncate">
 						{getExplorerItemData(selectedItem).fullName}
@@ -151,9 +152,10 @@ interface PathProps {
 	onClick: () => void;
 	disabled: boolean;
 	locationPath: string;
+	isLast: boolean;
 }
 
-const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
+const Path = ({ path, onClick, disabled, locationPath, isLast }: PathProps) => {
 	const isDark = useIsDark();
 	const { revealItems } = usePlatform();
 	const { library } = useLibraryContext();
@@ -195,7 +197,7 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 				<button
 					ref={setDroppableRef}
 					className={clsx(
-						'group flex items-center gap-1 rounded px-1 py-0.5',
+						'flex items-center gap-1 rounded p-1',
 						(isDroppable || contextMenuOpen) && [
 							isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'
 						],
@@ -208,11 +210,11 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 				>
 					<Icon name="Folder" size={16} alt="Folder" />
 					<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
-					<CaretRight
+				{!isLast && <CaretRight
 						weight="bold"
-						className="text-ink-dull group-last:hidden"
+						className="text-ink-dull"
 						size={10}
-					/>
+					/>}
 				</button>
 			}
 		>
