@@ -1,14 +1,20 @@
-use crate::library::Library;
+use crate::{
+	library::Library,
+	object::{
+		fs::{
+			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
+			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
+		},
+		validation::old_validator_job::OldObjectValidatorJobInit,
+	},
+};
 
 use sd_core_prisma_helpers::job_without_data;
 
 use sd_prisma::prisma::job;
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::{
-	collections::HashMap,
-	fmt::{Display, Formatter},
-};
+use std::fmt::{Display, Formatter};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,15 +32,15 @@ pub enum JobReportUpdate {
 	Phase(String),
 }
 
-#[derive(Debug, Serialize, Deserialize, Type, Clone)]
-pub struct JobReport {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OldJobReport {
 	pub id: Uuid,
 	pub name: String,
 	pub action: Option<String>,
 	pub data: Option<Vec<u8>>,
-	// In Typescript `any | null` is just `any` so we don't get prompted for null checks
-	// TODO(@Oscar): This will be fixed
-	#[specta(type = Option<HashMap<String, serde_json::Value>>)]
+	// // In Typescript `any | null` is just `any` so we don't get prompted for null checks
+	// // TODO(@Oscar): This will be fixed
+	// #[specta(type = Option<HashMap<String, serde_json::Value>>)]
 	pub metadata: Option<serde_json::Value>,
 	pub errors_text: Vec<String>,
 
@@ -53,7 +59,150 @@ pub struct JobReport {
 	pub estimated_completion: DateTime<Utc>,
 }
 
-impl Display for JobReport {
+impl From<OldJobReport> for sd_core_heavy_lifting::job_system::report::Report {
+	fn from(
+		OldJobReport {
+			id,
+			name,
+			action,
+			data: _, // Not used in the new job system
+			metadata,
+			errors_text: _, // New job system uses type-safe errors
+			created_at,
+			started_at,
+			completed_at,
+			parent_id,
+			status,
+			task_count,
+			completed_task_count,
+			phase,
+			message,
+			estimated_completion,
+		}: OldJobReport,
+	) -> Self {
+		use sd_core_heavy_lifting::{job_system::report::ReportOutputMetadata, JobName};
+
+		let mut new_metadata = Vec::new();
+
+		if let Some(metadata) = metadata {
+			if let Some(metadata) = metadata.as_object() {
+				if let Some(metadata) = metadata.get("output") {
+					if let Some(metadata) = metadata.as_object() {
+						if let Some(metadata) = metadata.get("init") {
+							if let Ok(OldFileCopierJobInit {
+								source_location_id,
+								target_location_id,
+								sources_file_path_ids,
+								target_location_relative_directory_path,
+							}) = serde_json::from_value::<OldFileCopierJobInit>(metadata.clone())
+							{
+								new_metadata.push(
+									ReportOutputMetadata::Copier {
+										source_location_id,
+										target_location_id,
+										sources_file_path_ids,
+										target_location_relative_directory_path,
+									}
+									.into(),
+								);
+							} else if let Ok(OldFileCutterJobInit {
+								source_location_id,
+								target_location_id,
+								sources_file_path_ids,
+								target_location_relative_directory_path,
+							}) =
+								serde_json::from_value::<OldFileCutterJobInit>(metadata.clone())
+							{
+								new_metadata.push(
+									ReportOutputMetadata::Mover {
+										source_location_id,
+										target_location_id,
+										sources_file_path_ids,
+										target_location_relative_directory_path,
+									}
+									.into(),
+								);
+							} else if let Ok(OldFileDeleterJobInit {
+								location_id,
+								file_path_ids,
+							}) =
+								serde_json::from_value::<OldFileDeleterJobInit>(metadata.clone())
+							{
+								new_metadata.push(
+									ReportOutputMetadata::Deleter {
+										location_id,
+										file_path_ids,
+									}
+									.into(),
+								);
+							} else if let Ok(OldFileEraserJobInit {
+								location_id,
+								file_path_ids,
+								passes,
+							}) =
+								serde_json::from_value::<OldFileEraserJobInit>(metadata.clone())
+							{
+								new_metadata.push(
+									ReportOutputMetadata::Eraser {
+										location_id,
+										file_path_ids,
+										passes: passes as u32,
+									}
+									.into(),
+								);
+							} else if let Ok(OldObjectValidatorJobInit { location, sub_path }) =
+								serde_json::from_value::<OldObjectValidatorJobInit>(
+									metadata.clone(),
+								) {
+								new_metadata.push(
+									ReportOutputMetadata::FileValidator {
+										location_id: location.id,
+										sub_path,
+									}
+									.into(),
+								);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		Self {
+			id,
+			name: match name.as_str() {
+				"file_copier" => JobName::Copy,
+				"file_cutter" => JobName::Move,
+				"file_deleter" => JobName::Delete,
+				"file_eraser" => JobName::Erase,
+				"object_validator" => JobName::FileValidator,
+
+				// Already implemented in the new job system
+				"indexer" => JobName::Indexer,
+				"file_identifier" => JobName::FileIdentifier,
+				"media_processor" => JobName::MediaProcessor,
+
+				unexpected_job => unimplemented!("Job {unexpected_job} not implemented"),
+			},
+			action,
+			metadata: new_metadata,
+			critical_error: None,
+			non_critical_errors: Vec::new(),
+			created_at,
+			started_at,
+			completed_at,
+			parent_id,
+			status: status.into(),
+			task_count,
+			completed_task_count,
+			phase,
+			message,
+			estimated_completion,
+		}
+	}
+}
+
+impl Display for OldJobReport {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
@@ -64,7 +213,7 @@ impl Display for JobReport {
 }
 
 // convert database struct into a resource struct
-impl TryFrom<job::Data> for JobReport {
+impl TryFrom<job::Data> for OldJobReport {
 	type Error = MissingFieldError;
 
 	fn try_from(data: job::Data) -> Result<Self, Self::Error> {
@@ -75,7 +224,7 @@ impl TryFrom<job::Data> for JobReport {
 			data: data.data,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
+					error!(?e, "Failed to deserialize job metadata;");
 					None
 				})
 			}),
@@ -105,7 +254,7 @@ impl TryFrom<job::Data> for JobReport {
 // I despise having to write this twice, but it seems to be the only way to
 // remove the data field from the struct
 // would love to get this DRY'd up
-impl TryFrom<job_without_data::Data> for JobReport {
+impl TryFrom<job_without_data::Data> for OldJobReport {
 	type Error = MissingFieldError;
 
 	fn try_from(data: job_without_data::Data) -> Result<Self, Self::Error> {
@@ -116,7 +265,7 @@ impl TryFrom<job_without_data::Data> for JobReport {
 			data: None,
 			metadata: data.metadata.and_then(|m| {
 				serde_json::from_slice(&m).unwrap_or_else(|e| -> Option<serde_json::Value> {
-					error!("Failed to deserialize job metadata: {}", e);
+					error!(?e, "Failed to deserialize job metadata;");
 					None
 				})
 			}),
@@ -144,7 +293,7 @@ impl TryFrom<job_without_data::Data> for JobReport {
 	}
 }
 
-impl JobReport {
+impl OldJobReport {
 	pub fn new(uuid: Uuid, name: String) -> Self {
 		Self {
 			id: uuid,
@@ -286,6 +435,21 @@ impl TryFrom<i32> for JobStatus {
 	}
 }
 
+// TODO(fogodev): this is temporary until we can get rid of the old job system
+impl From<JobStatus> for sd_core_heavy_lifting::job_system::report::Status {
+	fn from(value: JobStatus) -> Self {
+		match value {
+			JobStatus::Queued => Self::Queued,
+			JobStatus::Running => Self::Running,
+			JobStatus::Completed => Self::Completed,
+			JobStatus::Canceled => Self::Canceled,
+			JobStatus::Failed => Self::Failed,
+			JobStatus::Paused => Self::Paused,
+			JobStatus::CompletedWithErrors => Self::CompletedWithErrors,
+		}
+	}
+}
+
 pub struct JobReportBuilder {
 	pub id: Uuid,
 	pub name: String,
@@ -295,8 +459,8 @@ pub struct JobReportBuilder {
 }
 
 impl JobReportBuilder {
-	pub fn build(self) -> JobReport {
-		JobReport {
+	pub fn build(self) -> OldJobReport {
+		OldJobReport {
 			id: self.id,
 			name: self.name,
 			action: self.action,
@@ -324,20 +488,5 @@ impl JobReportBuilder {
 			metadata: None,
 			parent_id: None,
 		}
-	}
-
-	pub fn with_action(mut self, action: impl AsRef<str>) -> Self {
-		self.action = Some(action.as_ref().to_string());
-		self
-	}
-
-	pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
-		self.metadata = Some(metadata);
-		self
-	}
-
-	pub fn with_parent_id(mut self, parent_id: Uuid) -> Self {
-		self.parent_id = Some(parent_id);
-		self
 	}
 }

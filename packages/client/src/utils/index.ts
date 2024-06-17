@@ -123,7 +123,7 @@ export type UnionToTuple<T> =
 		? [...UnionToTuple<Exclude<T, W>>, W]
 		: [];
 
-export function formatNumber(n: number) {
+export function formatNumber(n: number | bigint) {
 	if (!n) return '0';
 	return Intl.NumberFormat().format(n);
 }
@@ -140,6 +140,11 @@ export function insertLibrary(queryClient: QueryClient, library: LibraryConfigWr
 export function int32ArrayToBigInt([high, low]: [number, number]) {
 	// Note: These magic shift operations internally convert high into i32 and low into u32
 	return (BigInt(high | 0) << 32n) | BigInt(low >>> 0);
+}
+
+export function uint32ArrayToBigInt([high, low]: [number, number]) {
+	// Note: These magic shift operations internally convert high into u32 and low into u32
+	return (BigInt(high >>> 0) << 32n) | BigInt(low >>> 0);
 }
 
 export function capitalize<T extends string>(string: T): Capitalize<T> {

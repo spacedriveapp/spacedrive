@@ -189,13 +189,10 @@ impl StatefulJob for OldObjectValidatorJobInit {
 			.expect("critical error: missing data on job state");
 
 		info!(
-			"finalizing validator job at {}{}: {} tasks",
-			data.location_path.display(),
-			init.sub_path
-				.as_ref()
-				.map(|p| format!("{}", p.display()))
-				.unwrap_or_default(),
-			data.task_count
+			location_path = %data.location_path.display(),
+			sub_path = ?init.sub_path.as_ref().map(|p| p.display()),
+			task_count = data.task_count,
+			"finalizing validator job;",
 		);
 
 		Ok(Some(json!({ "init": init })))

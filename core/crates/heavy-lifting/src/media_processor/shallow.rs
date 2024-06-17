@@ -4,9 +4,8 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_sync::Manager as SyncManager;
 
-use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskHandle, TaskOutput,
@@ -19,15 +18,18 @@ use std::{
 	sync::Arc,
 };
 
-use futures::StreamExt;
-use futures_concurrency::future::{FutureGroup, TryJoin};
+use futures::{stream::FuturesUnordered, StreamExt};
+use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
-use prisma_client_rust::{raw, PrismaValue};
 use tracing::{debug, warn};
 
 use super::{
+	get_direct_children_files_by_extensions,
 	helpers::{self, exif_media_data, ffmpeg_media_data, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
-	tasks::{self, media_data_extractor, thumbnailer},
+	tasks::{
+		self, media_data_extractor,
+		thumbnailer::{self, NewThumbnailReporter},
+	},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
 
@@ -35,8 +37,8 @@ use super::{
 pub async fn shallow(
 	location: location::Data,
 	sub_path: impl AsRef<Path> + Send,
-	dispatcher: BaseTaskDispatcher<Error>,
-	ctx: impl OuterContext,
+	dispatcher: &BaseTaskDispatcher<Error>,
+	ctx: &impl OuterContext,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let sub_path = sub_path.as_ref();
 
@@ -47,14 +49,13 @@ pub async fn shallow(
 
 	let location = Arc::new(location);
 
-	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path(
+	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<media_processor::Error>(
 		location.id,
-		&Some(sub_path),
+		Some(sub_path),
 		&*location_path,
 		ctx.db(),
 	)
-	.await
-	.map_err(media_processor::Error::from)?
+	.await?
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
@@ -65,37 +66,70 @@ pub async fn shallow(
 
 	let mut errors = vec![];
 
-	let mut futures = dispatch_media_data_extractor_tasks(
+	let media_data_extraction_tasks = dispatch_media_data_extractor_tasks(
 		ctx.db(),
+		ctx.sync(),
 		&sub_iso_file_path,
 		&location_path,
-		&dispatcher,
+		dispatcher,
 	)
-	.await?
-	.into_iter()
-	.map(CancelTaskOnDrop)
-	.chain(
-		dispatch_thumbnailer_tasks(&sub_iso_file_path, false, &location_path, &dispatcher, &ctx)
-			.await?
-			.into_iter()
-			.map(CancelTaskOnDrop),
-	)
-	.collect::<FutureGroup<_>>();
+	.await?;
+
+	let total_media_data_extraction_tasks = media_data_extraction_tasks.len();
+
+	let thumbnailer_tasks =
+		dispatch_thumbnailer_tasks(&sub_iso_file_path, false, &location_path, dispatcher, ctx)
+			.await?;
+
+	let total_thumbnailer_tasks = thumbnailer_tasks.len();
+
+	let mut futures = media_data_extraction_tasks
+		.into_iter()
+		.chain(thumbnailer_tasks.into_iter())
+		.map(CancelTaskOnDrop::new)
+		.collect::<FuturesUnordered<_>>();
+
+	let mut completed_media_data_extraction_tasks = 0;
+	let mut completed_thumbnailer_tasks = 0;
 
 	while let Some(res) = futures.next().await {
 		match res {
 			Ok(TaskStatus::Done((_, TaskOutput::Out(out)))) => {
 				if out.is::<media_data_extractor::Output>() {
-					errors.extend(
-						out.downcast::<media_data_extractor::Output>()
-							.expect("just checked")
-							.errors,
+					let media_data_extractor::Output {
+						db_read_time,
+						filtering_time,
+						extraction_time,
+						db_write_time,
+						errors: new_errors,
+						..
+					} = *out
+						.downcast::<media_data_extractor::Output>()
+						.expect("just checked");
+
+					errors.extend(new_errors);
+
+					completed_media_data_extraction_tasks += 1;
+
+					debug!(
+						"Media data extraction task ({completed_media_data_extraction_tasks}/\
+					{total_media_data_extraction_tasks}) completed in {:?};",
+						db_read_time + filtering_time + extraction_time + db_write_time
 					);
 				} else if out.is::<thumbnailer::Output>() {
-					errors.extend(
-						out.downcast::<thumbnailer::Output>()
-							.expect("just checked")
-							.errors,
+					let thumbnailer::Output {
+						total_time,
+						errors: new_errors,
+						..
+					} = *out.downcast::<thumbnailer::Output>().expect("just checked");
+
+					errors.extend(new_errors);
+
+					completed_thumbnailer_tasks += 1;
+
+					debug!(
+						"Thumbnailer task ({completed_thumbnailer_tasks}/{total_thumbnailer_tasks}) \
+						completed in {total_time:?};",
 					);
 				} else {
 					unreachable!(
@@ -120,20 +154,21 @@ pub async fn shallow(
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
+	sync: &Arc<SyncManager>,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
-) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
+) -> Result<Vec<TaskHandle<Error>>, Error> {
 	let (extract_exif_file_paths, extract_ffmpeg_file_paths) = (
-		get_files_by_extensions(
-			db,
+		get_direct_children_files_by_extensions(
 			parent_iso_file_path,
 			&exif_media_data::AVAILABLE_EXTENSIONS,
-		),
-		get_files_by_extensions(
 			db,
+		),
+		get_direct_children_files_by_extensions(
 			parent_iso_file_path,
 			&ffmpeg_media_data::AVAILABLE_EXTENSIONS,
+			db,
 		),
 	)
 		.try_join()
@@ -150,6 +185,7 @@ async fn dispatch_media_data_extractor_tasks(
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
 				Arc::clone(db),
+				Arc::clone(sync),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -165,47 +201,20 @@ async fn dispatch_media_data_extractor_tasks(
 						parent_iso_file_path.location_id(),
 						Arc::clone(location_path),
 						Arc::clone(db),
+						Arc::clone(sync),
 					)
 				})
 				.map(IntoTask::into_task),
 		)
 		.collect::<Vec<_>>();
 
-	Ok(dispatcher.dispatch_many_boxed(tasks).await)
-}
-
-async fn get_files_by_extensions(
-	db: &PrismaClient,
-	parent_iso_file_path: &IsolatedFilePathData<'_>,
-	extensions: &[Extension],
-) -> Result<Vec<file_path_for_media_processor::Data>, media_processor::Error> {
-	// FIXME: Had to use format! macro because PCR doesn't support IN with Vec for SQLite
-	// We have no data coming from the user, so this is sql injection safe
-	db._query_raw(raw!(
-		&format!(
-			"SELECT id, materialized_path, is_dir, name, extension, cas_id, object_id
-			FROM file_path
-			WHERE
-				location_id={{}}
-				AND cas_id IS NOT NULL
-				AND LOWER(extension) IN ({})
-				AND materialized_path = {{}}",
-			extensions
-				.iter()
-				.map(|ext| format!("LOWER('{ext}')"))
-				.collect::<Vec<_>>()
-				.join(",")
-		),
-		PrismaValue::Int(parent_iso_file_path.location_id()),
-		PrismaValue::String(
-			parent_iso_file_path
-				.materialized_path_for_children()
-				.expect("sub path iso_file_path must be a directory")
-		)
-	))
-	.exec()
-	.await
-	.map_err(Into::into)
+	dispatcher.dispatch_many_boxed(tasks).await.map_or_else(
+		|_| {
+			debug!("Task system is shutting down while a shallow media processor was in progress");
+			Ok(vec![])
+		},
+		Ok,
+	)
 }
 
 async fn dispatch_thumbnailer_tasks(
@@ -214,18 +223,19 @@ async fn dispatch_thumbnailer_tasks(
 	location_path: &PathBuf,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
-) -> Result<Vec<TaskHandle<Error>>, media_processor::Error> {
+) -> Result<Vec<TaskHandle<Error>>, Error> {
 	let thumbnails_directory_path =
 		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
 	let location_id = parent_iso_file_path.location_id();
 	let library_id = ctx.id();
 	let db = ctx.db();
-	let reporter = Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
+	let reporter: Arc<dyn NewThumbnailReporter> =
+		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
-	let file_paths = get_files_by_extensions(
-		db,
+	let file_paths = get_direct_children_files_by_extensions(
 		parent_iso_file_path,
 		&helpers::thumbnailer::ALL_THUMBNAILABLE_EXTENSIONS,
+		db,
 	)
 	.await?;
 
@@ -249,10 +259,13 @@ async fn dispatch_thumbnailer_tasks(
 		.map(IntoTask::into_task)
 		.collect::<Vec<_>>();
 
-	debug!(
-		"Dispatching {thumbs_count} thumbnails to be processed, in {} priority tasks",
-		tasks.len(),
-	);
+	debug!(%thumbs_count, priority_tasks_count = tasks.len(), "Dispatching thumbnails to be processed;");
 
-	Ok(dispatcher.dispatch_many_boxed(tasks).await)
+	dispatcher.dispatch_many_boxed(tasks).await.map_or_else(
+		|_| {
+			debug!("Task system is shutting down while a shallow media processor was in progress");
+			Ok(vec![])
+		},
+		Ok,
+	)
 }

@@ -32,7 +32,7 @@ async fn app_ready(app_handle: AppHandle) {
 
 #[tauri::command(async)]
 #[specta::specta]
-// If this erorrs, we don't have FDA and we need to re-prompt for it
+// If this errors, we don't have FDA and we need to re-prompt for it
 async fn request_fda_macos() {
 	DiskAccess::request_fda().expect("Unable to request full disk access");
 }

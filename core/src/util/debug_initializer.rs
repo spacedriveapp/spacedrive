@@ -28,7 +28,7 @@ use tokio::{
 	fs::{self, metadata},
 	time::sleep,
 };
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -76,6 +76,8 @@ pub enum InitConfigError {
 	CurrentDir(io::Error),
 
 	#[error(transparent)]
+	Processing(#[from] sd_core_heavy_lifting::Error),
+	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }
 
@@ -107,18 +109,19 @@ impl InitConfig {
 		Ok(None)
 	}
 
+	#[instrument(skip_all, fields(path = %self.path.display()), err)]
 	pub async fn apply(
 		self,
 		library_manager: &Arc<Libraries>,
 		node: &Arc<Node>,
 	) -> Result<(), InitConfigError> {
-		info!("Initializing app from file: {:?}", self.path);
+		info!("Initializing app from file");
 
 		for lib in self.libraries {
 			let name = lib.name.to_string();
 			let _guard = AbortOnDrop(tokio::spawn(async move {
 				loop {
-					info!("Initializing library '{name}' from 'sd_init.json'...");
+					info!(library_name = %name, "Initializing library from 'sd_init.json'...;");
 					sleep(Duration::from_secs(1)).await;
 				}
 			}));
@@ -145,7 +148,7 @@ impl InitConfig {
 				let locations = library.db.location().find_many(vec![]).exec().await?;
 
 				for location in locations {
-					warn!("deleting location: {:?}", location.path);
+					warn!(location_path = ?location.path, "deleting location;");
 					delete_location(node, &library, location.id).await?;
 				}
 			}
@@ -158,7 +161,7 @@ impl InitConfig {
 					.exec()
 					.await?
 				{
-					warn!("deleting location: {:?}", location.path);
+					warn!(location_path = ?location.path, "deleting location;");
 					delete_location(node, &library, location.id).await?;
 				}
 
@@ -166,7 +169,7 @@ impl InitConfig {
 
 				if let Err(e) = fs::remove_file(sd_file).await {
 					if e.kind() != io::ErrorKind::NotFound {
-						warn!("failed to remove '.spacedrive' file: {:?}", e);
+						warn!(?e, "failed to remove '.spacedrive' file;");
 					}
 				}
 
@@ -181,14 +184,14 @@ impl InitConfig {
 					scan_location(node, &library, location, ScanState::Pending).await?;
 				} else {
 					warn!(
-						"Debug init error: location '{}' was not found after being created!",
-						loc.path
+						location_path = ?loc.path,
+						"Debug init error: location was not found after being created!",
 					);
 				}
 			}
 		}
 
-		info!("Initialized app from file: {}", self.path.display());
+		info!("Initialized app from file");
 
 		Ok(())
 	}

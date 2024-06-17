@@ -82,7 +82,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									// https://docs.rs/serde/latest/serde/de/struct.IgnoredAny.html
 
 									if let Err(e) = serde_json::from_str::<IgnoredAny>(&s) {
-										error!("failed to parse filters: {e:#?}");
+										error!(?e, "Failed to parse filters;");
 										None
 									} else {
 										Some(s)

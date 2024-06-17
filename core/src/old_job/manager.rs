@@ -1,16 +1,13 @@
 use crate::{
 	library::Library,
-	location::indexer::old_indexer_job::OldIndexerJobInit,
 	object::{
 		fs::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
 			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 		},
-		media::old_media_processor::OldMediaProcessorJobInit,
-		old_file_identifier::old_file_identifier_job::OldFileIdentifierJobInit,
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
-	old_job::{worker::Worker, DynJob, Job, JobError},
+	old_job::{worker::Worker, DynJob, JobError, OldJob},
 	Node,
 };
 
@@ -24,10 +21,10 @@ use std::{
 use futures::future::join_all;
 use prisma_client_rust::operator::or;
 use tokio::sync::{mpsc, oneshot, RwLock};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
-use super::{JobIdentity, JobManagerError, JobReport, JobStatus, StatefulJob};
+use super::{JobIdentity, JobManagerError, JobStatus, OldJobReport, StatefulJob};
 
 const MAX_WORKERS: usize = 5;
 
@@ -66,9 +63,8 @@ impl Actor {
 	}
 }
 
-/// JobManager handles queueing and executing jobs using the `DynJob`
-/// Handling persisting JobReports to the database, pause/resuming, and
-///
+/// JobManager handles queueing and executing jobs using the [`DynJob`]
+/// Handling persisting JobReports to the database, pause/resuming
 pub struct OldJobs {
 	current_jobs_hashes: RwLock<HashSet<u64>>,
 	job_queue: RwLock<VecDeque<Box<dyn DynJob>>>,
@@ -97,12 +93,17 @@ impl OldJobs {
 		)
 	}
 
+	#[instrument(
+		skip_all,
+		fields(library_id = %library.id, job_name = %job.name(), job_hash = %job.hash()),
+		err,
+	)]
 	/// Ingests a new job and dispatches it if possible, queues it otherwise.
 	pub async fn ingest(
 		self: Arc<Self>,
 		node: &Arc<Node>,
 		library: &Arc<Library>,
-		job: Box<Job<impl StatefulJob>>,
+		job: Box<OldJob<impl StatefulJob>>,
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
@@ -113,17 +114,17 @@ impl OldJobs {
 			});
 		}
 
-		debug!(
-			"Ingesting job: <name='{}', hash='{}'>",
-			job.name(),
-			job_hash
-		);
+		debug!("Ingesting job;");
 
 		self.current_jobs_hashes.write().await.insert(job_hash);
 		self.dispatch(node, library, job).await;
 		Ok(())
 	}
 
+	#[instrument(
+		skip_all,
+		fields(library_id = %library.id, job_name = %job.name(), job_hash = %job.hash()),
+	)]
 	/// Dispatches a job to a worker if under MAX_WORKERS limit, queues it otherwise.
 	async fn dispatch(
 		self: Arc<Self>,
@@ -138,7 +139,7 @@ impl OldJobs {
 			.expect("critical error: missing job on worker");
 
 		if running_workers.len() < MAX_WORKERS {
-			info!("Running job: {:?}", job.name());
+			info!("Running job");
 
 			let worker_id = job_report.parent_id.unwrap_or(job_report.id);
 
@@ -153,21 +154,17 @@ impl OldJobs {
 			.await
 			.map_or_else(
 				|e| {
-					error!("Error spawning worker: {:#?}", e);
+					error!(?e, "Error spawning worker;");
 				},
 				|worker| {
 					running_workers.insert(worker_id, worker);
 				},
 			);
 		} else {
-			debug!(
-				"Queueing job: <name='{}', hash='{}'>",
-				job.name(),
-				job.hash()
-			);
+			debug!("Queueing job");
 			if let Err(e) = job_report.create(library).await {
 				// It's alright to just log here, as will try to create the report on run if it wasn't created before
-				error!("Error creating job report: {:#?}", e);
+				error!(?e, "Error creating job report;");
 			}
 
 			// Put the report back, or it will be lost forever
@@ -218,11 +215,12 @@ impl OldJobs {
 		});
 	}
 
+	#[instrument(skip(self))]
 	/// Pause a specific job.
 	pub async fn pause(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Pausing job: {:#?}", worker.report());
+			debug!(report = ?worker.report(), "Pausing job;");
 
 			// Set the pause signal in the worker.
 			worker.pause().await;
@@ -236,7 +234,7 @@ impl OldJobs {
 	pub async fn resume(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Resuming job: {:?}", worker.report());
+			debug!(report = ?worker.report(), "Resuming job;");
 
 			// Set the pause signal in the worker.
 			worker.resume().await;
@@ -251,7 +249,7 @@ impl OldJobs {
 	pub async fn cancel(&self, job_id: Uuid) -> Result<(), JobManagerError> {
 		// Look up the worker for the given job ID.
 		if let Some(worker) = self.running_workers.read().await.get(&job_id) {
-			debug!("Canceling job: {:#?}", worker.report());
+			debug!(report = ?worker.report(), "Canceling job;");
 
 			// Set the cancel signal in the worker.
 			worker.cancel().await;
@@ -285,24 +283,36 @@ impl OldJobs {
 			.exec()
 			.await?
 			.into_iter()
-			.map(JobReport::try_from);
+			.map(OldJobReport::try_from);
 
 		for job in all_jobs {
 			let job = job?;
 
 			match initialize_resumable_job(job.clone(), None) {
 				Ok(resumable_job) => {
-					info!("Resuming job: {} with uuid {}", job.name, job.id);
+					info!(%job.name, %job.id, "Resuming job;");
 					Arc::clone(&self)
 						.dispatch(node, library, resumable_job)
 						.await;
 				}
-				Err(err) => {
+				Err(JobError::UnknownJobName(_, job_name))
+					if matches!(
+						job_name.as_str(),
+						"indexer" | "file_identifier" | "media_processor"
+					) =>
+				{
+					debug!(%job_name, "Moved to new job system");
+				}
+				Err(e) => {
 					warn!(
-						"Failed to initialize job: {} with uuid {}, error: {:?}",
-						job.name, job.id, err
+						%job.name,
+						%job.id,
+						?e,
+						"Failed to initialize job;",
 					);
-					info!("Cancelling job: {} with uuid {}", job.name, job.id);
+
+					info!(%job.name, %job.id, "Cancelling job;");
+
 					library
 						.db
 						.job()
@@ -319,7 +329,7 @@ impl OldJobs {
 	}
 
 	// get all active jobs, including paused jobs organized by job id
-	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, JobReport> {
+	pub async fn get_active_reports_with_id(&self) -> HashMap<Uuid, OldJobReport> {
 		self.running_workers
 			.read()
 			.await
@@ -332,7 +342,7 @@ impl OldJobs {
 	}
 
 	// get all running jobs, excluding paused jobs organized by action
-	pub async fn get_running_reports(&self) -> HashMap<String, JobReport> {
+	pub async fn get_running_reports(&self) -> HashMap<String, OldJobReport> {
 		self.running_workers
 			.read()
 			.await
@@ -382,23 +392,21 @@ mod macros {
 }
 /// This function is used to initialize a  DynJob from a job report.
 fn initialize_resumable_job(
-	job_report: JobReport,
+	job_report: OldJobReport,
 	next_jobs: Option<VecDeque<Box<dyn DynJob>>>,
 ) -> Result<Box<dyn DynJob>, JobError> {
 	dispatch_call_to_job_by_name!(
 		job_report.name.as_str(),
-		T -> Job::<T>::new_from_report(job_report, next_jobs),
+		T -> OldJob::<T>::new_from_report(job_report, next_jobs),
 		default = {
 			error!(
-				"Unknown job type: {}, id: {}",
-				job_report.name, job_report.id
+				%job_report.name,
+				%job_report.id,
+				"Unknown job type;",
 			);
 			Err(JobError::UnknownJobName(job_report.id, job_report.name))
 		},
 		jobs = [
-			OldMediaProcessorJobInit,
-			OldIndexerJobInit,
-			OldFileIdentifierJobInit,
 			OldObjectValidatorJobInit,
 			OldFileCutterJobInit,
 			OldFileCopierJobInit,

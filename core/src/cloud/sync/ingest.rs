@@ -42,7 +42,6 @@ pub async fn run_actor(
 							break;
 						}
 						Request::Messages { timestamps, .. } => timestamps,
-						_ => continue,
 					};
 
 					let (ops_ids, ops): (Vec<_>, Vec<_>) = err_break!(
@@ -60,10 +59,10 @@ pub async fn run_actor(
 					}
 
 					debug!(
-						"Sending {} messages ({:?} to {:?}) to ingester",
-						ops.len(),
-						ops.first().map(|operation| operation.timestamp.as_u64()),
-						ops.last().map(|operation| operation.timestamp.as_u64()),
+						messages_count = ops.len(),
+						first_message = ?ops.first().map(|operation| operation.timestamp.as_u64()),
+						last_message = ?ops.last().map(|operation| operation.timestamp.as_u64()),
+						"Sending messages to ingester",
 					);
 
 					let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();

@@ -56,12 +56,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.find_many(vec![])
 							.exec()
 							.await
-							.map_err(|err| {
+							.map_err(|e| {
 								rspc::Error::new(
 									ErrorCode::InternalServerError,
 									format!(
 										"Failed to get notifications for library '{}': {}",
-										library.id, err
+										library.id, e
 									),
 								)
 							})?
@@ -69,12 +69,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map(|n| {
 								Ok(Notification {
 									id: NotificationId::Library(library.id, n.id as u32),
-									data: rmp_serde::from_slice(&n.data).map_err(|err| {
+									data: rmp_serde::from_slice(&n.data).map_err(|e| {
 										rspc::Error::new(
 											ErrorCode::InternalServerError,
 											format!(
 												"Failed to get notifications for library '{}': {}",
-												library.id, err
+												library.id, e
 											),
 										)
 									})?,
@@ -108,8 +108,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.delete_many(vec![notification::id::equals(id as i32)])
 							.exec()
 							.await
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							.map_err(|e| {
+								rspc::Error::new(ErrorCode::InternalServerError, e.to_string())
 							})?;
 					}
 					NotificationId::Node(id) => {
@@ -119,8 +119,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.retain(|n| n.id != NotificationId::Node(id));
 							})
 							.await
-							.map_err(|err| {
-								rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
+							.map_err(|e| {
+								rspc::Error::new(ErrorCode::InternalServerError, e.to_string())
 							})?;
 					}
 				}
@@ -135,9 +135,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						cfg.notifications = vec![];
 					})
 					.await
-					.map_err(|err| {
-						rspc::Error::new(ErrorCode::InternalServerError, err.to_string())
-					})?;
+					.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
 
 				join_all(
 					node.libraries

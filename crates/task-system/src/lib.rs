@@ -93,7 +93,7 @@ mod system;
 mod task;
 mod worker;
 
-pub use error::{RunError, SystemError as TaskSystemError};
+pub use error::{DispatcherShutdownError, RunError, SystemError as TaskSystemError};
 pub use system::{
 	BaseDispatcher as BaseTaskDispatcher, Dispatcher as TaskDispatcher, System as TaskSystem,
 };

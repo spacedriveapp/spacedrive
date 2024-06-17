@@ -9,6 +9,8 @@ use tokio::{
 };
 use tracing::{error, trace};
 
+// TODO(fogodev): To be rewritten using new task system
+
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const ONE_MINUTE: Duration = Duration::from_secs(60);
 
@@ -73,7 +75,7 @@ impl OrphanRemoverActor {
 						.map(|object| object.id)
 						.collect::<Vec<_>>()
 				})
-				.map_err(|e| error!("Failed to fetch orphaned objects: {e:#?}"))
+				.map_err(|e| error!(?e, "Failed to fetch orphaned objects;"))
 			else {
 				break;
 			};
@@ -82,7 +84,10 @@ impl OrphanRemoverActor {
 				break;
 			}
 
-			trace!("Removing {} orphaned objects", objects_ids.len());
+			trace!(
+				orphans_count = objects_ids.len(),
+				"Removing orphaned objects;"
+			);
 
 			if let Err(e) = db
 				._batch((
@@ -93,7 +98,7 @@ impl OrphanRemoverActor {
 				))
 				.await
 			{
-				error!("Failed to remove orphaned objects: {e:#?}");
+				error!(?e, "Failed to remove orphaned objects;");
 				break;
 			}
 		}

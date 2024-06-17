@@ -6,10 +6,9 @@ import {
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
-	useFeatureFlag,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Select, SelectOption, Slider, Switch, Tooltip, tw, z } from '@sd/ui';
+import { Button, Card, Input, Switch, Tooltip, tw, z } from '@sd/ui';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -64,9 +63,9 @@ export const Component = () => {
 		reValidateMode: 'onChange',
 		defaultValues: {
 			name: node.data?.name,
-			image_labeler_version: node.data?.image_labeler_version ?? undefined,
-			background_processing_percentage:
-				node.data?.preferences.thumbnailer.background_processing_percentage || 50
+			image_labeler_version: node.data?.image_labeler_version ?? undefined
+			// background_processing_percentage:
+			// 	node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
 	});
 
@@ -198,7 +197,7 @@ export const Component = () => {
 				/>
 			</Setting>
 			{/* Background Processing */}
-			<Setting
+			{/* <Setting
 				mini
 				registerName="background_processing_percentage"
 				title={t('thumbnailer_cpu_usage')}
@@ -229,7 +228,7 @@ export const Component = () => {
 						})}
 					/>
 				</div>
-			</Setting>
+			</Setting> */}
 			{/* Image Labeler */}
 			{/* <Setting
 				mini

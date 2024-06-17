@@ -52,8 +52,8 @@ pub async fn run_actor(
 			use sd_cloud_api::library::message_collections::do_add;
 
 			debug!(
-				"Preparing to send {} instances' operations to cloud",
-				req_adds.len()
+				total_operations = req_adds.len(),
+				"Preparing to send instance's operations to cloud;"
 			);
 
 			// gets new operations for each instance to send to cloud
@@ -84,10 +84,7 @@ pub async fn run_actor(
 
 				use base64::prelude::*;
 
-				debug!(
-					"Instance {}: {} to {}",
-					req_add.instance_uuid, start_time, end_time
-				);
+				debug!(instance_id = %req_add.instance_uuid, %start_time, %end_time);
 
 				instances.push(do_add::Input {
 					uuid: req_add.instance_uuid,

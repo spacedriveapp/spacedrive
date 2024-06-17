@@ -85,7 +85,7 @@ pub(super) async fn spawned_processing(
 	let mut queue = file_paths
 		.into_iter()
 		.filter_map(|file_path| {
-			if file_path.object_id.is_none() {
+			if file_path.object.is_none() {
 				errors.push((
 					file_path.id,
 					ImageLabelerError::IsolateFilePathData(MissingFieldError::new(
@@ -201,7 +201,7 @@ pub(super) async fn spawned_processing(
 
 				let ids = (
 					file_path.id,
-					file_path.object_id.expect("already checked above"),
+					file_path.object.as_ref().expect("already checked above").id,
 				);
 
 				if output_tx.is_closed() {

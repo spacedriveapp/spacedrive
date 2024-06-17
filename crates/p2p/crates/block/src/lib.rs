@@ -257,7 +257,7 @@ mod tests {
 				tx.send(()).unwrap();
 				Transfer::new(&req, |_| {}, &Default::default())
 					.send(&mut client, file)
-					.await;
+					.await
 			}
 		});
 
@@ -266,7 +266,8 @@ mod tests {
 		let mut result = Vec::new();
 		Transfer::new(&req, |_| {}, &Default::default())
 			.receive(&mut server, &mut result)
-			.await;
+			.await
+			.unwrap();
 		assert_eq!(result, data);
 	}
 
@@ -298,7 +299,7 @@ mod tests {
 				tx.send(()).unwrap();
 				Transfer::new(&req, |_| {}, &Default::default())
 					.send(&mut client, file)
-					.await;
+					.await
 			}
 		});
 
@@ -307,7 +308,9 @@ mod tests {
 		let mut result = Vec::new();
 		Transfer::new(&req, |_| {}, &Default::default())
 			.receive(&mut server, &mut result)
-			.await;
+			.await
+			.unwrap();
+
 		assert_eq!(result, data);
 	}
 
@@ -339,14 +342,14 @@ mod tests {
 
 				Transfer::new(&req, |_| {}, &Arc::new(AtomicBool::new(true)))
 					.send(&mut client, file)
-					.await;
+					.await
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		Transfer::new(&req, |_| {}, &Default::default())
+		let _ = Transfer::new(&req, |_| {}, &Default::default())
 			.receive(&mut server, &mut result)
 			.await;
 		assert_eq!(result, Vec::<u8>::new()); // Cancelled by sender so no data
@@ -380,14 +383,14 @@ mod tests {
 
 				Transfer::new(&req, |_| {}, &Default::default())
 					.send(&mut client, file)
-					.await;
+					.await
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		Transfer::new(&req, |_| {}, &Arc::new(AtomicBool::new(true)))
+		let _ = Transfer::new(&req, |_| {}, &Arc::new(AtomicBool::new(true)))
 			.receive(&mut server, &mut result)
 			.await;
 		assert_eq!(result, Vec::<u8>::new()); // Cancelled by sender so no data
@@ -422,14 +425,14 @@ mod tests {
 
 				Transfer::new(&req, |_| {}, &Default::default())
 					.send(&mut client, file)
-					.await;
+					.await
 			}
 		});
 
 		rx.await.unwrap();
 
 		let mut result = Vec::new();
-		Transfer::new(&req, |_| {}, &Default::default())
+		let _ = Transfer::new(&req, |_| {}, &Default::default())
 			.receive(&mut server, &mut result)
 			.await;
 		assert_eq!(result, Vec::<u8>::new()); // Cancelled by sender so no data

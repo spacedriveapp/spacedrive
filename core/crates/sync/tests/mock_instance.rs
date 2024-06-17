@@ -36,7 +36,7 @@ impl Instance {
 
 		db.instance()
 			.create(
-				uuid_to_bytes(id),
+				uuid_to_bytes(&id),
 				vec![],
 				vec![],
 				Utc::now().into(),
@@ -73,7 +73,7 @@ impl Instance {
 			left.db
 				.instance()
 				.create(
-					uuid_to_bytes(right.id),
+					uuid_to_bytes(&right.id),
 					vec![],
 					vec![],
 					Utc::now().into(),

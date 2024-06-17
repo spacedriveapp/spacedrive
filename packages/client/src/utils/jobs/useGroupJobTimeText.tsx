@@ -2,20 +2,20 @@ import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import { useEffect, useMemo } from 'react';
 
-import { JobReport } from '../../core';
+import { Report } from '../../core';
 import { useForceUpdate } from '../../hooks';
 
 dayjs.extend(duration);
 
 // TODO: refactor this, its a mess.
-export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
+export function useTotalElapsedTimeText(jobs: Report[] = []) {
 	const forceUpdate = useForceUpdate();
 
 	const elapsedTimeText = useMemo(() => {
 		let total = 0;
 		let text: string | null = '';
 
-		const groupedJobs = jobs.reduce((acc: Record<string, JobReport[]>, job) => {
+		const groupedJobs = jobs.reduce((acc: Record<string, Report[]>, job) => {
 			const parentId = String(job.parent_id);
 			if (!acc[parentId]) {
 				acc[parentId] = [];
@@ -24,7 +24,7 @@ export function useTotalElapsedTimeText(jobs: JobReport[] = []) {
 			return acc;
 		}, {});
 
-		Object.values(groupedJobs).forEach((group: JobReport[]) => {
+		Object.values(groupedJobs).forEach((group: Report[]) => {
 			let groupTotal = 0;
 			group.forEach((job) => {
 				const start = dayjs(job.started_at);
