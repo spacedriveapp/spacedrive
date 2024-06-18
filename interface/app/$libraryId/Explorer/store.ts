@@ -1,3 +1,6 @@
+import { proxy } from 'valtio';
+import { proxySet } from 'valtio/utils';
+import { z } from 'zod';
 import {
 	ThumbKey,
 	resetStore,
@@ -7,9 +10,6 @@ import {
 	type ExplorerSettings,
 	type Ordering
 } from '@sd/client';
-import { proxy } from 'valtio';
-import { proxySet } from 'valtio/utils';
-import { z } from 'zod';
 import i18n from '~/app/I18n';
 
 import {
@@ -98,7 +98,6 @@ type DragState =
 	  };
 
 const state = {
-	tagAssignMode: false,
 	showInspector: false,
 	showMoreInfo: false,
 	newLocationToRedirect: null as null | number,
@@ -106,12 +105,15 @@ const state = {
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
 	drag: null as null | DragState,
+	isTagAssignModeActive: false,
 	isDragSelecting: false,
 	isRenaming: false,
 	// Used for disabling certain keyboard shortcuts when command palette is open
 	isCMDPOpen: false,
 	isContextMenuOpen: false,
-	quickRescanLastRun: Date.now() - 200
+	quickRescanLastRun: Date.now() - 200,
+	// Map = { hotkey: '0'...'9', tagId: 1234 }
+	tagBulkAssignHotkeys: [] as Array<{ hotkey: string; tagId: number }>
 };
 
 export function flattenThumbnailKey(thumbKey: ThumbKey) {

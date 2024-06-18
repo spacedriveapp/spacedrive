@@ -28,6 +28,7 @@ export const useIsLocationIndexing = (locationId: number): boolean => {
 				) {
 					return job.completed_task_count === 0;
 				}
+				return false;
 			})
 		) || false;
 

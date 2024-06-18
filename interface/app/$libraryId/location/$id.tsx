@@ -35,7 +35,7 @@ import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from 
 import SearchBar from '../search/SearchBar';
 import { useSearchExplorerQuery } from '../search/useSearchExplorerQuery';
 import { TopBarPortal } from '../TopBar/Portal';
-import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
+import { TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
 import LocationOptions from './LocationOptions';
 
 export const Component = () => {
@@ -151,7 +151,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 								{
 									toolTipLabel: t('reload'),
 									onClick: () => rescan(location.id),
-									icon: <ArrowClockwise className={TOP_BAR_ICON_STYLE} />,
+									icon: <ArrowClockwise className={TOP_BAR_ICON_CLASSLIST} />,
 									individual: true,
 									showAtResolution: 'xl:flex'
 								}

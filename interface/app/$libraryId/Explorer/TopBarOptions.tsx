@@ -5,7 +5,8 @@ import {
 	Rows,
 	SidebarSimple,
 	SlidersHorizontal,
-	SquaresFour
+	SquaresFour,
+	Tag
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMemo } from 'react';
@@ -15,7 +16,7 @@ import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import { Spacedrop, SpacedropButton } from '../Spacedrop';
-import TopBarOptions, { ToolOption, TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
+import TopBarOptions, { ToolOption, TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
@@ -29,7 +30,7 @@ const layoutIcons: Record<ExplorerLayout, Icon> = {
 export const useExplorerTopBarOptions = () => {
 	const [showInspector, tagAssignMode] = useSelector(explorerStore, (s) => [
 		s.showInspector,
-		s.tagAssignMode
+		s.isTagAssignModeActive
 	]);
 	const explorer = useExplorerContext();
 	const controlIcon = useKeyMatcher('Meta').icon;
@@ -48,7 +49,7 @@ export const useExplorerTopBarOptions = () => {
 					const option = {
 						layout,
 						toolTipLabel: t(`${layout}_view`),
-						icon: <Icon className={TOP_BAR_ICON_STYLE} />,
+						icon: <Icon className={TOP_BAR_ICON_CLASSLIST} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
 							!explorer.isLoadingPreferences && settings.layoutMode === layout,
@@ -73,7 +74,7 @@ export const useExplorerTopBarOptions = () => {
 	const controlOptions: ToolOption[] = [
 		{
 			toolTipLabel: t('explorer_settings'),
-			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
+			icon: <SlidersHorizontal className={TOP_BAR_ICON_CLASSLIST} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
 			showAtResolution: 'sm:flex'
@@ -87,7 +88,7 @@ export const useExplorerTopBarOptions = () => {
 			icon: (
 				<SidebarSimple
 					weight={showInspector ? 'fill' : 'regular'}
-					className={clsx(TOP_BAR_ICON_STYLE, '-scale-x-100')}
+					className={clsx(TOP_BAR_ICON_CLASSLIST, '-scale-x-100')}
 				/>
 			),
 			individual: true,
@@ -118,9 +119,26 @@ export const useExplorerTopBarOptions = () => {
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: t('key_manager'),
-			icon: <Key className={TOP_BAR_ICON_STYLE} />,
+			toolTipLabel: 'Key Manager',
+			icon: <Key className={TOP_BAR_ICON_CLASSLIST} />,
 			popOverComponent: <KeyManager />,
+			individual: true,
+			showAtResolution: 'xl:flex'
+		},
+		{
+			toolTipLabel: 'Assign tags',
+			icon: (
+				<Tag
+					weight={tagAssignMode ? 'fill' : 'regular'}
+					className={TOP_BAR_ICON_CLASSLIST}
+				/>
+			),
+			// TODO: Assign tag mode is not yet implemented!
+			onClick: () =>
+				(explorerStore.isTagAssignModeActive = !explorerStore.isTagAssignModeActive),
+			// TODO: remove once tag-assign-mode impl complete
+			// onClick: () => toast.info('Coming soon!'),
+			topBarActive: tagAssignMode,
 			individual: true,
 			showAtResolution: 'xl:flex'
 		}
