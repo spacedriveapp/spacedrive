@@ -1,6 +1,6 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
 	ExplorerItem,
 	Tag,
@@ -80,6 +80,34 @@ export const ExplorerTagBar = () => {
 	const [tagBulkAssignHotkeys] = useSelector(explorerStore, (s) => [s.tagBulkAssignHotkeys]);
 	const explorer = useExplorerContext();
 	const rspc = useRspcContext();
+	const tagsRef = useRef<HTMLUListElement | null>(null);
+	const [isTagsOverflowing, setIsTagsOverflowing] = useState(false);
+
+	const updateOverflowState = () => {
+		const element = tagsRef.current;
+		if (element) {
+			setIsTagsOverflowing(
+				element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth
+			);
+		}
+	}
+
+	useEffect(() => {
+		const element = tagsRef.current;
+		if (!element) return;
+		//handles initial render when not resizing
+		setIsTagsOverflowing(element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)
+		//make sure state updates when window resizing
+		window.addEventListener('resize', () => {
+			updateOverflowState();
+		})
+		//remove listeners on unmount
+		return () => {
+			window.removeEventListener('resize', () => {
+				updateOverflowState();
+			})
+		}
+	}, [tagsRef])
 
 	const [tagListeningForKeyPress, setTagListeningForKeyPress] = useState<number | undefined>();
 
@@ -171,17 +199,19 @@ export const ExplorerTagBar = () => {
 	return (
 		<div
 			className={clsx(
-				'flex flex-row flex-wrap-reverse items-center justify-between gap-1 border-t border-t-app-line bg-app/90 px-3.5 pb-2 pt-2 text-ink-dull backdrop-blur-lg'
+				'flex flex-row flex-wrap-reverse items-center justify-between gap-1 border-t border-t-app-line bg-app/90 px-3.5 py-2 text-ink-dull backdrop-blur-lg',
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
 
 			<ul
+				ref={tagsRef}
 				// TODO: I want to replace this `overlay-scroll` style with a better system for non-horizontral-scroll mouse users, but
 				// for now this style looks the least disgusting. Probably will end up going for a left/right arrows button that dynamically
 				// shows/hides depending on scroll position.
 				className={clsx(
-					'flex-0 overlay-scroll my-1 flex max-w-full list-none flex-row gap-2 overflow-x-auto'
+					'flex-0 explorer-scroll my-1 flex max-w-full list-none flex-row gap-2 overflow-x-auto',
+					isTagsOverflowing ? 'pb-2' : 'pb-0'
 				)}
 			>
 				{/* Did not want to write a .toSorted() predicate for this so lazy spreading things with hotkeys first then the rest after */}
