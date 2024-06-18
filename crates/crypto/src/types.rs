@@ -326,7 +326,7 @@ where
 	I: ArrayLength<u8>,
 {
 	fn from(value: &Key) -> Self {
-		value.expose().iter().copied().collect() // TODO(brxken128): streamline this?
+		GenericArray::clone_from_slice(value.expose())
 	}
 }
 

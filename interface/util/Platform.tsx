@@ -1,5 +1,5 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
-import { auth } from '@sd/client';
+import { ThumbKey, auth } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 
@@ -17,7 +17,7 @@ export type OpenWithApplication = { url: string; name: string };
 // This could be Tauri or web.
 export type Platform = {
 	platform: 'web' | 'tauri'; // This represents the specific platform implementation
-	getThumbnailUrlByThumbKey: (thumbKey: string[]) => string;
+	getThumbnailUrlByThumbKey: (thumbKey: ThumbKey) => string;
 	getFileUrl: (libraryId: string, locationLocalId: number, filePathId: number) => string;
 	getFileUrlByPath: (path: string) => string;
 	getRemoteRspcEndpoint: (remote_identity: string) => {

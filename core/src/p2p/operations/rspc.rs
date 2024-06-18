@@ -25,8 +25,8 @@ pub async fn remote_rspc(
 
 	let (mut sender, conn) = hyper::client::conn::handshake(stream).await?;
 	tokio::task::spawn(async move {
-		if let Err(err) = conn.await {
-			println!("Connection error: {:?}", err);
+		if let Err(e) = conn.await {
+			println!("Connection error: {:?}", e);
 		}
 	});
 
@@ -39,8 +39,8 @@ pub(crate) async fn receiver(
 	node: &Node,
 ) -> Result<(), Box<dyn Error>> {
 	debug!(
-		"Received http request from peer '{}'",
-		stream.remote_identity(),
+		peer = %stream.remote_identity(),
+		"Received http request from;",
 	);
 
 	// TODO: Authentication

@@ -6,16 +6,15 @@ use std::{
 
 use async_channel as chan;
 use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{error, info, trace, warn};
-
-use crate::task::TaskRemoteController;
+use tracing::{error, info, instrument, trace, warn, Instrument};
 
 use super::{
 	error::{RunError, SystemError},
-	message::WorkerMessage,
+	message::{StoleTaskMessage, TaskRunnerOutput, WorkerMessage},
 	system::SystemComm,
 	task::{
-		InternalTaskExecStatus, Interrupter, Task, TaskHandle, TaskId, TaskWorkState, TaskWorktable,
+		Interrupter, PanicOnSenderDrop, Task, TaskHandle, TaskId, TaskRemoteController,
+		TaskWorkState, TaskWorktable,
 	},
 };
 
@@ -54,6 +53,7 @@ impl<E: RunError> WorkerBuilder<E> {
 		)
 	}
 
+	#[instrument(name = "task_system_worker", skip(self, system_comm, task_stealer), fields(worker_id = self.id))]
 	pub fn build(self, system_comm: SystemComm, task_stealer: WorkStealer<E>) -> Worker<E> {
 		let Self {
 			id,
@@ -65,7 +65,7 @@ impl<E: RunError> WorkerBuilder<E> {
 			let system_comm = system_comm.clone();
 
 			async move {
-				trace!("Worker <worker_id='{id}'> message processing task starting...");
+				trace!("Worker message processing task starting...");
 				while let Err(e) = spawn(run(
 					id,
 					system_comm.clone(),
@@ -75,20 +75,16 @@ impl<E: RunError> WorkerBuilder<E> {
 				.await
 				{
 					if e.is_panic() {
-						error!(
-							"Worker <worker_id='{id}'> critically failed and will restart: \
-							{e:#?}"
-						);
+						error!(?e, "Worker critically failed and will restart;");
 					} else {
-						trace!(
-							"Worker <worker_id='{id}'> received shutdown signal and will exit..."
-						);
+						trace!("Worker received shutdown signal and will exit...");
 						break;
 					}
 				}
 
-				info!("Worker <worker_id='{id}'> gracefully shutdown");
+				info!("Worker gracefully shutdown");
 			}
+			.in_current_span()
 		});
 
 		Worker {
@@ -123,7 +119,7 @@ impl<E: RunError> Worker<E> {
 				task: new_task,
 				worktable: Arc::clone(&worktable),
 				interrupter: Arc::new(Interrupter::new(interrupt_rx)),
-				done_tx,
+				done_tx: PanicOnSenderDrop::new(task_id, done_tx),
 			}))
 			.await
 			.expect("Worker channel closed trying to add task");
@@ -136,18 +132,6 @@ impl<E: RunError> Worker<E> {
 				task_id,
 			},
 		}
-	}
-
-	pub async fn task_count(&self) -> usize {
-		let (tx, rx) = oneshot::channel();
-
-		self.msgs_tx
-			.send(WorkerMessage::TaskCountRequest(tx))
-			.await
-			.expect("Worker channel closed trying to get task count");
-
-		rx.await
-			.expect("Worker channel closed trying to receive task count response")
 	}
 
 	pub async fn resume_task(
@@ -172,7 +156,11 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to pause a not running task");
 	}
 
-	pub async fn cancel_not_running_task(&self, task_id: TaskId, ack: oneshot::Sender<()>) {
+	pub async fn cancel_not_running_task(
+		&self,
+		task_id: TaskId,
+		ack: oneshot::Sender<Result<(), SystemError>>,
+	) {
 		self.msgs_tx
 			.send(WorkerMessage::CancelNotRunningTask { task_id, ack })
 			.await
@@ -190,6 +178,7 @@ impl<E: RunError> Worker<E> {
 			.expect("Worker channel closed trying to force task abortion");
 	}
 
+	#[instrument(skip(self), fields(worker_id = self.id))]
 	pub async fn shutdown(&self) {
 		if let Some(handle) = self
 			.handle
@@ -215,13 +204,6 @@ impl<E: RunError> Worker<E> {
 			warn!("Trying to shutdown a worker that was already shutdown");
 		}
 	}
-
-	pub async fn wake(&self) {
-		self.msgs_tx
-			.send(WorkerMessage::WakeUp)
-			.await
-			.expect("Worker channel closed trying to wake up");
-	}
 }
 
 /// SAFETY: Due to usage of refcell we lost `Sync` impl, but we only use it to have a shutdown method
@@ -235,26 +217,24 @@ pub struct WorkerComm<E: RunError> {
 }
 
 impl<E: RunError> WorkerComm<E> {
-	pub async fn steal_task(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
+	pub async fn steal_task(
+		&self,
+		stealer_id: WorkerId,
+		stolen_task_tx: chan::Sender<Option<StoleTaskMessage<E>>>,
+	) -> bool {
 		let (tx, rx) = oneshot::channel();
 
 		self.msgs_tx
-			.send(WorkerMessage::StealRequest(tx))
+			.send(WorkerMessage::StealRequest {
+				stealer_id,
+				ack: tx,
+				stolen_task_tx,
+			})
 			.await
 			.expect("Worker channel closed trying to steal task");
 
 		rx.await
 			.expect("Worker channel closed trying to steal task")
-			.map(|task_work_state| {
-				trace!(
-					"Worker stole task: \
-					<worker_id='{worker_id}', stolen_worker_id='{}', task_id='{}'>",
-					self.worker_id,
-					task_work_state.task.id()
-				);
-				task_work_state.change_worker(worker_id);
-				task_work_state
-			})
 	}
 }
 
@@ -277,7 +257,12 @@ impl<E: RunError> WorkStealer<E> {
 		}
 	}
 
-	pub async fn steal(&self, worker_id: WorkerId) -> Option<TaskWorkState<E>> {
+	#[instrument(skip(self, stolen_task_tx))]
+	pub async fn steal(
+		&self,
+		stealer_id: WorkerId,
+		stolen_task_tx: &chan::Sender<Option<StoleTaskMessage<E>>>,
+	) {
 		let total_workers = self.worker_comms.len();
 
 		for worker_comm in self
@@ -286,41 +271,24 @@ impl<E: RunError> WorkStealer<E> {
 			// Cycling over the workers
 			.cycle()
 			// Starting from the next worker id
-			.skip(worker_id)
+			.skip(stealer_id)
 			// Taking the total amount of workers
 			.take(total_workers)
 			// Removing the current worker as we can't steal from ourselves
-			.filter(|worker_comm| worker_comm.worker_id != worker_id)
+			.filter(|worker_comm| worker_comm.worker_id != stealer_id)
 		{
-			trace!(
-				"Trying to steal from worker <worker_id='{}', stealer_id='{worker_id}'>",
-				worker_comm.worker_id
-			);
-
-			if let Some(task) = worker_comm.steal_task(worker_id).await {
-				return Some(task);
+			if worker_comm
+				.steal_task(stealer_id, stolen_task_tx.clone())
+				.await
+			{
+				trace!(stolen_worker_id = worker_comm.worker_id, "Stole a task");
+				return;
 			}
-
-			trace!(
-				"Worker <worker_id='{}', stealer_id='{worker_id}'> has no tasks to steal",
-				worker_comm.worker_id
-			);
 		}
 
-		None
+		stolen_task_tx
+			.send(None)
+			.await
+			.expect("Stolen task channel closed");
 	}
-
-	pub fn workers_count(&self) -> usize {
-		self.worker_comms.len()
-	}
-}
-
-struct TaskRunnerOutput<E: RunError> {
-	task_work_state: TaskWorkState<E>,
-	status: InternalTaskExecStatus<E>,
-}
-
-enum RunnerMessage<E: RunError> {
-	TaskOutput(TaskId, Result<TaskRunnerOutput<E>, ()>),
-	StoleTask(Option<TaskWorkState<E>>),
 }

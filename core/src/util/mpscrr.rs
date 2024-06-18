@@ -110,7 +110,7 @@ impl<T: Clone, U> Sender<T, U> {
 		.await
 		.into_iter()
 		.filter_map(|x| {
-			x.map_err(|err| match err {
+			x.map_err(|e| match e {
 				SenderError::Finished(key) => {
 					self.0
 						.write()

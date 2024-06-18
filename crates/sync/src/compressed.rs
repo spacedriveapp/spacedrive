@@ -87,6 +87,7 @@ impl CompressedCRDTOperations {
 		})
 	}
 
+	#[must_use]
 	pub fn len(&self) -> usize {
 		self.0
 			.iter()
@@ -96,6 +97,11 @@ impl CompressedCRDTOperations {
 					.sum::<usize>()
 			})
 			.sum::<usize>()
+	}
+
+	#[must_use]
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
 	}
 
 	pub fn into_ops(self) -> Vec<CRDTOperation> {

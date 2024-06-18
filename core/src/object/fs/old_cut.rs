@@ -99,8 +99,8 @@ impl StatefulJob for OldFileCutterJobInit {
 			match fs::metadata(&full_output).await {
 				Ok(_) => {
 					warn!(
-						"Skipping {} as it would be overwritten",
-						full_output.display()
+						output_path = %full_output.display(),
+						"Skipping as it would be overwritten;",
 					);
 
 					Ok(JobRunErrors(vec![FileSystemJobsError::WouldOverwrite(
@@ -111,9 +111,9 @@ impl StatefulJob for OldFileCutterJobInit {
 				}
 				Err(e) if e.kind() == io::ErrorKind::NotFound => {
 					trace!(
-						"Cutting {} to {}",
-						file_data.full_path.display(),
-						full_output.display()
+						source = %file_data.full_path.display(),
+						target = %full_output.display(),
+						"Cutting source -> target;",
 					);
 
 					fs::rename(&file_data.full_path, &full_output)

@@ -74,43 +74,43 @@ pub async fn spacedrop(
 	let total_length: u64 = requests.iter().map(|req| req.size).sum();
 
 	let id = Uuid::new_v4();
-	debug!("({id}): starting Spacedrop with peer '{identity}");
+	debug!(spacedrop_id = %id, peer = %identity, "Starting Spacedrop;");
 	let peer = p2p
 		.p2p
 		.peers()
 		.get(&identity)
 		.ok_or_else(|| {
-			debug!("({id}): failed to find connection method with '{identity}'");
+			debug!(spacedrop_id = %id, peer = %identity, "Failed to find connection method;");
 			SpacedropError::FailedPeerConnection
 		})?
 		.clone();
 
-	let mut stream = peer.new_stream().await.map_err(|err| {
-		debug!("({id}): failed to connect to '{identity}': {err:?}");
-		SpacedropError::FailedNewStream(err)
+	let mut stream = peer.new_stream().await.map_err(|e| {
+		debug!(spacedrop_id = %id, peer = %identity, ?e, "Failed to connect");
+		SpacedropError::FailedNewStream(e)
 	})?;
 
 	tokio::spawn(async move {
-		debug!("({id}): connected, sending header");
+		debug!(spacedrop_id = %id, "Connected, sending header");
 		let header = Header::Spacedrop(SpaceblockRequests {
 			id,
 			block_size: BlockSize::from_file_size(total_length),
 			requests,
 		});
-		if let Err(err) = stream.write_all(&header.to_bytes()).await {
-			debug!("({id}): failed to send header: {err}");
+		if let Err(e) = stream.write_all(&header.to_bytes()).await {
+			debug!(spacedrop_id = %id, ?e, "Failed to send header");
 			return;
 		}
 		let Header::Spacedrop(requests) = header else {
 			unreachable!();
 		};
 
-		debug!("({id}): waiting for response");
+		debug!(spacedrop_id = %id, "Waiting for response");
 		let result = tokio::select! {
 		  result = stream.read_u8() => result,
 		  // Add 5 seconds incase the user responded on the deadline and slow network
 		   _ = sleep(SPACEDROP_TIMEOUT + Duration::from_secs(5)) => {
-				debug!("({id}): timed out, cancelling");
+				debug!(spacedrop_id = %id, "Timed out, cancelling");
 				p2p.events.send(P2PEvent::SpacedropTimedOut { id }).ok();
 				return;
 			},
@@ -118,13 +118,13 @@ pub async fn spacedrop(
 
 		match result {
 			Ok(0) => {
-				debug!("({id}): Spacedrop was rejected from peer '{identity}'");
+				debug!(spacedrop_id = %id, peer = %identity, "Spacedrop was rejected from;");
 				p2p.events.send(P2PEvent::SpacedropRejected { id }).ok();
 				return;
 			}
-			Ok(1) => {}                     // Okay
-			Ok(_) => todo!(),               // TODO: Proper error
-			Err(err) => todo!("{:?}", err), // TODO: Proper error
+			Ok(1) => {}                 // Okay
+			Ok(_) => todo!(),           // TODO: Proper error
+			Err(e) => todo!("{:?}", e), // TODO: Proper error
 		}
 
 		let cancelled = Arc::new(AtomicBool::new(false));
@@ -133,7 +133,7 @@ pub async fn spacedrop(
 			.unwrap_or_else(PoisonError::into_inner)
 			.insert(id, cancelled.clone());
 
-		debug!("({id}): starting transfer");
+		debug!(spacedrop_id = %id, "Starting transfer");
 		let i = Instant::now();
 
 		let mut transfer = Transfer::new(
@@ -147,10 +147,20 @@ pub async fn spacedrop(
 		);
 
 		for (file_id, (path, file)) in files.into_iter().enumerate() {
-			debug!("({id}): transmitting '{file_id}' from '{path:?}'");
+			debug!(
+				spacedrop_id = %id,
+				%file_id,
+				path = %path.display(),
+				"Transmitting;",
+			);
+
 			let file = BufReader::new(file);
-			if let Err(err) = transfer.send(&mut stream, file).await {
-				debug!("({id}): failed to send file '{file_id}': {err}");
+			if let Err(e) = transfer.send(&mut stream, file).await {
+				debug!(
+					spacedrop_id = %id,
+					%file_id,
+					?e,
+					"Failed to send file;");
 				// TODO: Error to frontend
 				// p2p.events
 				// 	.send(P2PEvent::SpacedropFailed { id, file_id })
@@ -159,7 +169,7 @@ pub async fn spacedrop(
 			}
 		}
 
-		debug!("({id}): finished; took '{:?}", i.elapsed());
+		debug!(spacedrop_id = %id, elapsed_time = ?i.elapsed(), "Finished;");
 	});
 
 	Ok(id)
@@ -175,8 +185,8 @@ impl P2PManager {
 			.remove(&id)
 		{
 			chan.send(Some(path))
-				.map_err(|err| {
-					warn!("error accepting Spacedrop '{id:?}': '{err:?}'");
+				.map_err(|e| {
+					warn!(spacedrop_id = %id, ?e, "Error accepting Spacedrop;");
 				})
 				.ok();
 		}
@@ -190,8 +200,8 @@ impl P2PManager {
 			.remove(&id)
 		{
 			chan.send(None)
-				.map_err(|err| {
-					warn!("error rejecting Spacedrop '{id:?}': '{err:?}'");
+				.map_err(|e| {
+					warn!(spacedrop_id = %id, ?e, "Error rejecting Spacedrop;");
 				})
 				.ok();
 		}
@@ -218,10 +228,11 @@ pub(crate) async fn receiver(
 	let (tx, rx) = oneshot::channel();
 
 	info!(
-		"({id}): received '{}' files from peer '{}' with block size '{:?}'",
-		req.requests.len(),
-		stream.remote_identity(),
-		req.block_size
+		spacedrop_id = %id,
+		files_count = req.requests.len(),
+		peer = %stream.remote_identity(),
+		block_size = ?req.block_size,
+		"Receiving spacedrop files;",
 	);
 	this.spacedrop_pairing_reqs
 		.lock()
@@ -258,19 +269,19 @@ pub(crate) async fn receiver(
 
 	tokio::select! {
 		_ = sleep(SPACEDROP_TIMEOUT) => {
-			info!("({id}): timeout, rejecting!");
+			info!(spacedrop_id = %id, "Timeout, rejecting!;");
 
-			stream.write_all(&[0]).await.map_err(|err| {
-				error!("({id}): error reject bit: '{err:?}'");
+			stream.write_all(&[0]).await.map_err(|e| {
+				error!(spacedrop_id = %id, ?e, "Error reject bit;");
 			})?;
-			stream.flush().await.map_err(|err| {
-				error!("({id}): error flushing reject bit: '{err:?}'");
+			stream.flush().await.map_err(|e| {
+				error!(spacedrop_id = %id, ?e, "Error flushing reject bit;");
 			})?;
 		}
 		file_path = rx => {
 			match file_path {
 				Ok(Some(file_path)) => {
-					info!("({id}): accepted saving to '{:?}'", file_path);
+					info!(spacedrop_id = %id, saving_to = %file_path, "Accepted;");
 
 					let cancelled = Arc::new(AtomicBool::new(false));
 					this.spacedrop_cancellations
@@ -278,8 +289,8 @@ pub(crate) async fn receiver(
 						.unwrap_or_else(PoisonError::into_inner)
 						.insert(id, cancelled.clone());
 
-					stream.write_all(&[1]).await.map_err(|err| {
-						error!("({id}): error sending continuation bit: '{err:?}'");
+					stream.write_all(&[1]).await.map_err(|e| {
+						error!(spacedrop_id = %id, ?e, "Error sending continuation bit;");
 
 						// TODO: Send error to the frontend
 
@@ -301,11 +312,20 @@ pub(crate) async fn receiver(
 							path.push(&file_name);
 						}
 
-						debug!("({id}): accepting '{file_name}' and saving to '{:?}'", path);
+						debug!(
+							spacedrop_id = %id,
+							%file_name,
+							saving_to = %path.display(),
+							"Accepting;",
+						);
 
 						if let Some(parent) = path.parent() {
-						  create_dir_all(&parent).await.map_err(|err| {
-								error!("({id}): error creating parent directory '{parent:?}': '{err:?}'");
+						  create_dir_all(&parent).await.map_err(|e| {
+								error!(
+									spacedrop_id = %id,
+									parent = %parent.display(),
+									?e,
+									"Error creating parent directory;");
 
 								// TODO: Send error to the frontend
 
@@ -313,16 +333,25 @@ pub(crate) async fn receiver(
 							})?;
 						}
 
-						let f = File::create(&path).await.map_err(|err| {
-							error!("({id}): error creating file at '{path:?}': '{err:?}'");
+						let f = File::create(&path).await.map_err(|e| {
+							error!(
+								spacedrop_id = %id,
+								creating_file_at = %path.display(),
+								?e,
+								"Error creating file;",
+							);
 
 							// TODO: Send error to the frontend
 
 							// TODO: Send error to remote peer
 						})?;
 						let f = BufWriter::new(f);
-						if let Err(err) = transfer.receive(&mut stream, f).await {
-							error!("({id}): error receiving file '{file_name}': '{err:?}'");
+						if let Err(e) = transfer.receive(&mut stream, f).await {
+							error!(
+								spacedrop_id = %id,
+								%file_name,
+								?e,
+								"Error receiving file;");
 
 							// TODO: Send error to frontend
 
@@ -330,20 +359,20 @@ pub(crate) async fn receiver(
 						}
 					}
 
-					info!("({id}): complete");
+					info!(spacedrop_id = %id, "Completed;");
 				}
 				Ok(None) => {
-					info!("({id}): rejected");
+					info!(spacedrop_id = %id, "Rejected;");
 
-					stream.write_all(&[0]).await.map_err(|err| {
-					   error!("({id}): error sending rejection: '{err:?}'");
+					stream.write_all(&[0]).await.map_err(|e| {
+					   error!(spacedrop_id = %id, ?e, "Error sending rejection;");
 					})?;
-					stream.flush().await.map_err(|err| {
-					   error!("({id}): error flushing rejection: '{err:?}'");
+					stream.flush().await.map_err(|e| {
+					   error!(spacedrop_id = %id, ?e, "Error flushing rejection;");
 					})?;
 				}
 				Err(_) => {
-					warn!("({id}): error with Spacedrop pairing request receiver!");
+					warn!(spacedrop_id = %id, "Error with Spacedrop pairing request receiver!;");
 				}
 			}
 		}

@@ -81,35 +81,33 @@ pub enum LocationError {
 }
 
 impl From<LocationError> for rspc::Error {
-	fn from(err: LocationError) -> Self {
+	fn from(e: LocationError) -> Self {
 		use LocationError::*;
 
-		match err {
+		match e {
 			// Not found errors
 			PathNotFound(_)
 			| UuidNotFound(_)
 			| IdNotFound(_)
 			| FilePath(FilePathError::IdNotFound(_) | FilePathError::NotFound(_)) => {
-				Self::with_cause(ErrorCode::NotFound, err.to_string(), err)
+				Self::with_cause(ErrorCode::NotFound, e.to_string(), e)
 			}
 
 			// User's fault errors
 			NotDirectory(_) | NestedLocation(_) | LocationAlreadyExists(_) => {
-				Self::with_cause(ErrorCode::BadRequest, err.to_string(), err)
+				Self::with_cause(ErrorCode::BadRequest, e.to_string(), e)
 			}
 
 			// Custom error message is used to differentiate these errors in the frontend
 			// TODO: A better solution would be for rspc to support sending custom data alongside errors
-			NeedRelink { .. } => {
-				Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), err)
-			}
+			NeedRelink { .. } => Self::with_cause(ErrorCode::Conflict, "NEED_RELINK".to_owned(), e),
 			AddLibraryToMetadata(_) => {
-				Self::with_cause(ErrorCode::Conflict, "ADD_LIBRARY".to_owned(), err)
+				Self::with_cause(ErrorCode::Conflict, "ADD_LIBRARY".to_owned(), e)
 			}
 
 			// Internal errors
 			MissingField(missing_error) => missing_error.into(),
-			_ => Self::with_cause(ErrorCode::InternalServerError, err.to_string(), err),
+			_ => Self::with_cause(ErrorCode::InternalServerError, e.to_string(), e),
 		}
 	}
 }

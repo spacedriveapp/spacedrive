@@ -38,3 +38,4 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "test-util", "fs"] }
 tracing-test = { workspace = true, features = ["no-env-filter"] }
 uuid = { workspace = true, features = ["serde"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

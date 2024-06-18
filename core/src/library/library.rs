@@ -1,9 +1,8 @@
-use crate::{
-	api::CoreEvent, cloud, object::media::old_thumbnail::get_indexed_thumbnail_path, sync, Node,
-};
+use crate::{api::CoreEvent, cloud, sync, Node};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_to_full_path;
+use sd_core_heavy_lifting::media_processor::ThumbnailKind;
+use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
 
 use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
@@ -121,12 +120,17 @@ impl Library {
 	// TODO: Remove this once we replace the old invalidation system
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus_tx.send(event) {
-			warn!("Error sending event to event bus: {e:?}");
+			warn!(?e, "Error sending event to event bus;");
 		}
 	}
 
-	pub async fn thumbnail_exists(&self, node: &Node, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_indexed_thumbnail_path(node, cas_id, self.id);
+	pub async fn thumbnail_exists(
+		&self,
+		node: &Node,
+		cas_id: &CasId<'_>,
+	) -> Result<bool, FileIOError> {
+		let thumb_path =
+			ThumbnailKind::Indexed(self.id).compute_path(node.config.data_directory(), cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
@@ -182,7 +186,7 @@ impl Library {
 
 	pub fn do_cloud_sync(&self) {
 		if let Err(e) = self.do_cloud_sync.send(()) {
-			warn!("Error sending cloud resync message: {e:?}");
+			warn!(?e, "Error sending cloud resync message;");
 		}
 	}
 }

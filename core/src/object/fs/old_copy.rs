@@ -172,8 +172,8 @@ impl StatefulJob for OldFileCopierJobInit {
 					Err(FileSystemJobsError::FilePathNotFound(path)) => {
 						// FilePath doesn't exist in the database, it possibly wasn't indexed, so we skip it
 						warn!(
-							"Skipping duplicating {} as it wasn't indexed",
-							path.display()
+							path = %path.display(),
+							"Skipping duplicating as it wasn't indexed;",
 						);
 					}
 					Err(e) => return Err(e.into()),
@@ -208,9 +208,9 @@ impl StatefulJob for OldFileCopierJobInit {
 				}
 				Err(e) if e.kind() == io::ErrorKind::NotFound => {
 					trace!(
-						"Copying from {} to {}",
-						source_file_data.full_path.display(),
-						target_full_path.display()
+						source = %source_file_data.full_path.display(),
+						target = %target_full_path.display(),
+						"Copying source -> target;",
 					);
 
 					fs::copy(&source_file_data.full_path, &target_full_path)

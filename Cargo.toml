@@ -114,6 +114,17 @@ lto = false
 codegen-units = 256
 incremental = true
 
+[profile.dev-debug]
+inherits = "dev"
+# Enables debugger
+split-debuginfo = "none"
+opt-level = 0
+debug = "full"
+strip = "none"
+lto = "off"
+codegen-units = 256
+incremental = true
+
 # Set the settings for build scripts and proc-macros.
 [profile.dev.build-override]
 opt-level = 3
@@ -121,6 +132,13 @@ opt-level = 3
 # Set the default for dependencies, except workspace members.
 [profile.dev.package."*"]
 opt-level = 3
+incremental = false
+
+# Set the default for dependencies, except workspace members.
+[profile.dev-debug.package."*"]
+inherits = "dev"
+opt-level = 3
+debug = "full"
 incremental = false
 
 # Optimize release builds

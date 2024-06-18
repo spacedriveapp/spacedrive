@@ -1,4 +1,4 @@
-use crate::{file_identifier, indexer, media_processor};
+use crate::{file_identifier, indexer, media_processor, JobContext};
 
 use sd_prisma::prisma::{job, location};
 use sd_utils::uuid_to_bytes;
@@ -8,6 +8,7 @@ use std::{
 	future::Future,
 	iter,
 	marker::PhantomData,
+	time::Duration,
 };
 
 use futures_concurrency::future::TryJoin;
@@ -20,9 +21,11 @@ use super::{
 };
 
 #[derive(Debug, Serialize, Deserialize)]
+#[repr(transparent)]
+#[serde(transparent)]
 pub struct SerializedTasks(pub Vec<u8>);
 
-pub trait SerializableJob<Ctx: OuterContext>: 'static
+pub trait SerializableJob<OuterCtx: OuterContext>: 'static
 where
 	Self: Sized,
 {
@@ -35,7 +38,7 @@ where
 	#[allow(unused_variables)]
 	fn deserialize(
 		serialized_job: &[u8],
-		ctx: &Ctx,
+		ctx: &OuterCtx,
 	) -> impl Future<
 		Output = Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error>,
 	> + Send {
@@ -47,6 +50,7 @@ where
 pub struct StoredJob {
 	pub(super) id: JobId,
 	pub(super) name: JobName,
+	pub(super) run_time: Duration,
 	pub(super) serialized_job: Vec<u8>,
 }
 
@@ -57,13 +61,13 @@ pub struct StoredJobEntry {
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
-pub async fn load_jobs<Ctx: OuterContext>(
+pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	entries: Vec<StoredJobEntry>,
-	ctx: &Ctx,
+	ctx: &OuterCtx,
 ) -> Result<
 	Vec<(
 		location::id::Type,
-		Box<dyn DynJob<Ctx>>,
+		Box<dyn DynJob<OuterCtx, JobCtx>>,
 		Option<SerializedTasks>,
 	)>,
 	JobSystemError,
@@ -81,7 +85,7 @@ pub async fn load_jobs<Ctx: OuterContext>(
 					     ..
 					 }| { iter::once(*id).chain(next_jobs.iter().map(|StoredJob { id, .. }| *id)) },
 				)
-				.map(uuid_to_bytes)
+				.map(|job_id| uuid_to_bytes(&job_id))
 				.collect::<Vec<_>>(),
 		)])
 		.exec()
@@ -166,50 +170,58 @@ pub async fn load_jobs<Ctx: OuterContext>(
 }
 
 macro_rules! match_deserialize_job {
-	($stored_job:ident, $report:ident, $ctx:ident, $ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
+	($stored_job:ident, $report:ident, $outer_ctx:ident, $outer_ctx_type:ty, $job_ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
 		let StoredJob {
 			id,
 			name,
+			run_time,
 			serialized_job,
 		} = $stored_job;
 
 
 		match name {
-			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$ctx_type>>::deserialize(
+			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$outer_ctx_type>>::deserialize(
 					&serialized_job,
-					$ctx,
+					$outer_ctx,
 				).await
-					.map(|maybe_job| maybe_job.map(|(job, tasks)| -> (
-							Box<dyn DynJob<$ctx_type>>,
+					.map(|maybe_job| maybe_job.map(|(job, maybe_tasks)| -> (
+							Box<dyn DynJob<$outer_ctx_type, $job_ctx_type>>,
 							Option<SerializedTasks>
 						) {
 							(
 								Box::new(JobHolder {
 									id,
 									job,
+									run_time,
 									report: $report,
 									next_jobs: VecDeque::new(),
 									_ctx: PhantomData,
 								}),
-								tasks,
+								maybe_tasks.and_then(
+									|tasks| (!tasks.0.is_empty()).then_some(tasks)
+								),
 							)
 						}
 					))
 					.map_err(Into::into),)+
+
+			// TODO(fogodev): this is temporary until we can get rid of the old job system
+			_ => unimplemented!("Job not implemented"),
 		}
 	}};
 }
 
-async fn load_job<Ctx: OuterContext>(
+async fn load_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	stored_job: StoredJob,
 	report: Report,
-	ctx: &Ctx,
-) -> Result<Option<(Box<dyn DynJob<Ctx>>, Option<SerializedTasks>)>, JobSystemError> {
+	ctx: &OuterCtx,
+) -> Result<Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>, JobSystemError> {
 	match_deserialize_job!(
 		stored_job,
 		report,
 		ctx,
-		Ctx,
+		OuterCtx,
+		JobCtx,
 		[
 			indexer::job::Indexer,
 			file_identifier::job::FileIdentifier,

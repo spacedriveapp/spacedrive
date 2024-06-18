@@ -2,6 +2,7 @@ import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
+	ThumbKey,
 	resetStore,
 	type DoubleClickAction,
 	type ExplorerItem,
@@ -115,14 +116,14 @@ const state = {
 	tagBulkAssignHotkeys: [] as Array<{ hotkey: string; tagId: number }>
 };
 
-export function flattenThumbnailKey(thumbKey: string[]) {
-	return thumbKey.join('/');
+export function flattenThumbnailKey(thumbKey: ThumbKey) {
+	return `${thumbKey.base_directory_str}/${thumbKey.shard_hex}/${thumbKey.cas_id}`;
 }
 
 export const explorerStore = proxy({
 	...state,
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
-	addNewThumbnail: (thumbKey: string[]) => {
+	addNewThumbnail: (thumbKey: ThumbKey) => {
 		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
 	resetCache: () => {

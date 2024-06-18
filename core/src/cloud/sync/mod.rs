@@ -97,7 +97,7 @@ macro_rules! err_break {
 		match $e {
 			Ok(d) => d,
 			Err(e) => {
-				tracing::error!("{e}");
+				tracing::error!(?e);
 				break;
 			}
 		}

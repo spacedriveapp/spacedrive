@@ -44,8 +44,12 @@ pub mod utils;
 use media_processor::ThumbKey;
 
 pub use job_system::{
-	job::{IntoJob, JobBuilder, JobName, JobOutput, JobOutputData, OuterContext, ProgressUpdate},
-	JobId, JobSystem,
+	job::{
+		IntoJob, JobContext, JobEnqueuer, JobName, JobOutput, JobOutputData, OuterContext,
+		ProgressUpdate,
+	},
+	report::Report,
+	JobId, JobSystem, JobSystemError,
 };
 
 #[derive(Error, Debug)]
@@ -59,6 +63,9 @@ pub enum Error {
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
+
+	#[error(transparent)]
+	JobSystem(#[from] JobSystemError),
 }
 
 impl From<Error> for rspc::Error {
@@ -70,19 +77,21 @@ impl From<Error> for rspc::Error {
 			Error::TaskSystem(e) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
+			Error::JobSystem(e) => e.into(),
 		}
 	}
 }
 
-#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type)]
+#[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum NonCriticalError {
 	// TODO: Add variants as needed
 	#[error(transparent)]
-	Indexer(#[from] indexer::NonCriticalError),
+	Indexer(#[from] indexer::NonCriticalIndexerError),
 	#[error(transparent)]
-	FileIdentifier(#[from] file_identifier::NonCriticalError),
+	FileIdentifier(#[from] file_identifier::NonCriticalFileIdentifierError),
 	#[error(transparent)]
-	MediaProcessor(#[from] media_processor::NonCriticalError),
+	MediaProcessor(#[from] media_processor::NonCriticalMediaProcessorError),
 }
 
 #[repr(i32)]
@@ -96,7 +105,7 @@ pub enum LocationScanState {
 
 #[derive(Debug, Serialize, Type)]
 pub enum UpdateEvent {
-	NewThumbnailEvent {
+	NewThumbnail {
 		thumb_key: ThumbKey,
 	},
 	NewIdentifiedObjects {

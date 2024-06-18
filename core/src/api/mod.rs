@@ -8,6 +8,7 @@ use crate::{
 	Node,
 };
 
+use sd_core_heavy_lifting::media_processor::ThumbKey;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::file_path;
 
@@ -54,7 +55,7 @@ pub type Router = rspc::Router<Ctx>;
 #[derive(Debug, Clone, Serialize, Type)]
 pub enum CoreEvent {
 	NewThumbnail {
-		thumb_key: Vec<String>,
+		thumb_key: ThumbKey,
 	},
 	NewIdentifiedObjects {
 		file_path_ids: Vec<file_path::id::Type>,
@@ -175,7 +176,7 @@ pub(crate) fn mount() -> Arc<Router> {
 						.await
 						.map(|_| true)
 				}
-				.map_err(|err| rspc::Error::new(ErrorCode::InternalServerError, err.to_string()))?;
+				.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
 
 				match feature {
 					BackendFeature::CloudSync => {
