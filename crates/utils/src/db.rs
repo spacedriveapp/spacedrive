@@ -155,6 +155,7 @@ impl<'a, T> OptionalField for &'a Option<T> {
 }
 
 /// If `data` is `Some(t)` returns `Ok(t)`, otherwise returns a `MissingFieldError(field)`
+#[inline(always)]
 pub fn maybe_missing<T: OptionalField>(
 	data: T,
 	field: &'static str,
