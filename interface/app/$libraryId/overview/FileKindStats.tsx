@@ -8,6 +8,10 @@ import { useLocale } from '~/hooks';
 import { Info } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
+const INFO_ICON_CLASS = "inline size-3 text-ink-faint opacity-70";
+const TOTAL_FILES_CLASS = "mb-2 flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull";
+const UNIDENTIFIED_FILES_CLASS = "relative flex items-center text-xs text-ink-faint";
+
 const interpolateColor = (color1: string, color2: string, factor: number) => {
   const hex = (color: string) => parseInt(color.slice(1), 16);
   const r = Math.round((1 - factor) * (hex(color1) >> 16) + factor * (hex(color2) >> 16));
@@ -28,43 +32,27 @@ interface FileKind {
   id: number;
 }
 
-interface FileKindStatsProps {
-  // Define the props for your component here
-}
+interface FileKindStatsProps {}
 
 const FileKindStats: React.FC<FileKindStatsProps> = () => {
   const isDark = useIsDark();
   const navigate = useNavigate();
   const { t } = useLocale();
   const { data } = useLibraryQuery(['library.kindStatistics']);
-  const [fileKinds, setFileKinds] = useState<FileKind[]>([
-    { kind: 'Documents', count: 500, id: 1 },
-    { kind: 'Images', count: 300, id: 2 },
-    { kind: 'Videos', count: 100, id: 3 },
-  ]);
+  const [fileKinds, setFileKinds] = useState<FileKind[]>([]);
   const [cardWidth, setCardWidth] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-  const BARHEIGHT = 100;
+  const BARHEIGHT = 110;
   const BARCOLOR_START = isDark ? '#3A7ECC' : '#004C99';
   const BARCOLOR_END = isDark ? '#004C99' : '#3A7ECC';
 
-  const formatCount = (count: number) => {
-    if (count >= 1000) {
-      return (count / 1000).toFixed(1) + 'k';
-    }
-    return count.toString();
-  };
+  const formatCount = (count: number) => (count >= 1000 ? (count / 1000).toFixed(0) + 'k' : count.toString());
 
   const handleResize = useCallback(() => {
     if (containerRef.current) {
-      let factor;
-      if (window.innerWidth > 1500) {
-        factor = 0.35;
-      } else {
-        factor = 0.4;
-      }
+      const factor = window.innerWidth > 1500 ? 0.35 : 0.4;
       setCardWidth(window.innerWidth * factor);
     }
   }, []);
@@ -96,12 +84,12 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   useEffect(() => {
     if (data) {
       const statistics: KindStatistic[] = data.statistics
-        .filter((item: KindStatistic) => item.count !== 0)
-        .sort((a: KindStatistic, b: KindStatistic) => b.count - a.count);
+        .filter((item) => item.count !== 0)
+        .sort((a, b) => b.count - a.count);
 
-      setFileKinds(statistics.map(item => ({ kind: item.name, count: item.count, id: item.kind })));
+      setFileKinds(statistics.map((item) => ({ kind: item.name, count: item.count, id: item.kind })));
 
-      statistics.forEach(item => {
+      statistics.forEach((item) => {
         const iconName = item.name;
         if (!iconsRef.current[iconName]) {
           const img = new Image();
@@ -112,55 +100,55 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
     }
   }, [data, isDark]);
 
-  const totalFiles = fileKinds.reduce((acc, fileKind) => acc + fileKind.count, 0);
   const sortedFileKinds = [...fileKinds].sort((a, b) => b.count - a.count);
   let maxFileCount: number;
   if (sortedFileKinds && sortedFileKinds[0]) {
-    maxFileCount = sortedFileKinds.length > 0 ? sortedFileKinds[0].count : 0;
+  maxFileCount = sortedFileKinds.length > 0 ? sortedFileKinds[0].count : 0;
   }
 
-  const getPercentage = (value: number) => {
-    const percentage = (value / maxFileCount);
-    const pixvalue = BARHEIGHT * percentage;
-    return `${pixvalue.toFixed(2)}px`;
-  };
+  const getPercentage = (value: number) => `${((value / maxFileCount) * BARHEIGHT).toFixed(2)}px`;
 
   const barGap = 12;
   const barCount = sortedFileKinds.length;
   const totalGapWidth = barGap * (barCount - 5);
   const barWidth = barCount > 0 ? (cardWidth - totalGapWidth) / barCount : 0;
 
+  const formatNumberWithCommas = (number: number) => number.toLocaleString();
+
+  const handleBarClick = (fileKind: FileKind): MouseEventHandler<HTMLDivElement> | undefined => () => {
+    const path = {
+      pathname: '../search',
+      search: new URLSearchParams({
+        filters: JSON.stringify([{ object: { kind: { in: [fileKind.id] } } }])
+      }).toString()
+    };
+    navigate(path);
+  };
+
   return (
     <div className="flex justify-center">
       <Card ref={containerRef} className="max-w-1/2 group flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
-        <div className="mb-4 mt-2 flex items-center whitespace-nowrap text-sm font-medium text-ink-dull">
-          <div><span className={isDark ? "mr-1 text-xl text-white" : "text-black"}>{totalFiles + " "}</span>{t("total_files")}</div>
-          <Tooltip label={t("bar_graph_info")}>
-            <Info
-              weight="fill"
-              className="ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity duration-300 group-hover:opacity-70"
-            />
+        <div className={TOTAL_FILES_CLASS}>
+          <Tooltip className="flex items-center" label={t("bar_graph_info")}>
+            <div className="mt-1">
+              <span className={`${isDark ? "text-white" : "text-black"} mr-1 text-xl`}>
+                {data?.total_identified_files ? formatNumberWithCommas(data.total_identified_files) : "0"}{" "}
+              </span>
+              {t("total_files")}
+            </div>
+            <Info weight="fill" className={`ml-1 mt-1 ${INFO_ICON_CLASS} opacity-0 transition-opacity duration-300 group-hover:opacity-70`} />
           </Tooltip>
+          <div className={UNIDENTIFIED_FILES_CLASS}>
+            <Tooltip label={t("unidentified_files_info")}>
+              <span>{data?.total_unidentified_files} unidentified files</span>
+            </Tooltip>
+          </div>
         </div>
         <div className="relative flex grow items-end justify-center">
           {sortedFileKinds.map((fileKind, index) => {
             const icon = iconsRef.current[fileKind.kind];
-
             const colorFactor = index / (barCount - 1);
             const barColor = interpolateColor(BARCOLOR_START, BARCOLOR_END, colorFactor);
-
-            const handleBarClick = (kind: any): MouseEventHandler<HTMLDivElement> | undefined => {
-              console.log(kind);
-              console.log(fileKind.id);
-              const path = {
-                pathname: '../search',
-                search: new URLSearchParams({
-                  filters: JSON.stringify([{ object: { kind: { in: [fileKind.id] } } }])
-                }).toString()
-              };
-              navigate(path);
-              return;
-            }
 
             return (
               <Tooltip key={fileKind.kind} label={fileKind.kind} position="left">
@@ -170,7 +158,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     width: `${barWidth}px`,
                     marginLeft: index === 0 ? 0 : `${barGap}px`,
                   }}
-                  onDoubleClick={handleBarClick}
+                  onDoubleClick={handleBarClick(fileKind)}
                 >
                   {icon && (
                     <img
@@ -180,19 +168,18 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     />
                   )}
                   <motion.div
-                    className="flex w-full flex-col items-center rounded transition-all duration-500"
-					initial={{ height: 0 }}
-                    animate={{ height: getPercentage(fileKind.count)}}
-                    transition={{ duration: 0.4 }}
+                    className="flex mb-1 w-full flex-col items-center rounded transition-all duration-500"
+                    initial={{ height: 0 }}
+                    animate={{ height: getPercentage(fileKind.count) }}
+                    transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
                     style={{
                       height: getPercentage(fileKind.count),
                       minHeight: '2px',
                       backgroundColor: barColor,
                     }}
-                  >
-                  </motion.div>
+                  ></motion.div>
                   <div
-                    className="sm my-1 text-[10px] font-medium text-ink-faint"
+                    className="sm mt-1 text-[10px] font-medium text-ink-faint"
                     style={{
                       borderRadius: '3px',
                     }}
