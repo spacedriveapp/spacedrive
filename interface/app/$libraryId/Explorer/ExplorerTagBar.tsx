@@ -1,4 +1,6 @@
 import { Circle } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { useRef, useState } from 'react';
 import {
 	ExplorerItem,
 	Tag,
@@ -9,8 +11,6 @@ import {
 	useSelector
 } from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
-import clsx from 'clsx';
-import { useRef, useState } from 'react';
 import { useIsDark, useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
@@ -171,12 +171,19 @@ export const ExplorerTagBar = () => {
 	return (
 		<div
 			className={clsx(
-				'flex items-center justify-between gap-2 border-t border-t-app-line bg-app/90 px-3.5 py-3 text-ink-dull backdrop-blur-lg'
+				'flex flex-row flex-wrap-reverse items-center justify-between gap-1 border-t border-t-app-line bg-app/90 px-3.5 pb-2 pt-2 text-ink-dull backdrop-blur-lg'
 			)}
 		>
 			<em className="text-sm tracking-wide">{t('tags_bulk_instructions')}</em>
 
-			<ul className={clsx('flex list-none flex-row gap-2')}>
+			<ul
+				// TODO: I want to replace this `overlay-scroll` style with a better system for non-horizontral-scroll mouse users, but
+				// for now this style looks the least disgusting. Probably will end up going for a left/right arrows button that dynamically
+				// shows/hides depending on scroll position.
+				className={clsx(
+					'flex-0 overlay-scroll my-1 flex max-w-full list-none flex-row gap-2 overflow-x-auto'
+				)}
+			>
 				{/* Did not want to write a .toSorted() predicate for this so lazy spreading things with hotkeys first then the rest after */}
 				{allTags
 					.toSorted((tagA, tagB) => {
@@ -269,7 +276,7 @@ const TagItem = ({
 	return (
 		<button
 			className={clsx('group flex items-center gap-1 rounded-lg border px-2.5 py-0.5', {
-				['bg-app-box border border-app-line']: !isAwaitingKeyPress && isDark,
+				['border border-app-line bg-app-box']: !isAwaitingKeyPress && isDark,
 				['border-accent bg-app-box']: isAwaitingKeyPress && isDark,
 				['border-accent bg-app-lightBox']: isAwaitingKeyPress && !isDark
 			})}

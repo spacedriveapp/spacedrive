@@ -136,7 +136,7 @@ export const ExplorerPathBar = memo(() => {
 			))}
 
 			{selectedItem && (!queryPath || filePathname) && (
-				<div className="flex items-center gap-1 ml-1">
+				<div className="ml-1 flex items-center gap-1">
 					<FileThumb data={selectedItem} size={16} frame frameClassName="!border" />
 					<span className="max-w-xs truncate">
 						{getExplorerItemData(selectedItem).fullName}
@@ -210,11 +210,7 @@ const Path = ({ path, onClick, disabled, locationPath, isLast }: PathProps) => {
 				>
 					<Icon name="Folder" size={16} alt="Folder" />
 					<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
-				{!isLast && <CaretRight
-						weight="bold"
-						className="text-ink-dull"
-						size={10}
-					/>}
+					{!isLast && <CaretRight weight="bold" className="text-ink-dull" size={10} />}
 				</button>
 			}
 		>
