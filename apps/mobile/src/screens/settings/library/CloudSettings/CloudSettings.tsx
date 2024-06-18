@@ -1,6 +1,6 @@
+import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
-import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -15,7 +15,7 @@ import Library from './Library';
 import Login from './Login';
 import ThisInstance from './ThisInstance';
 
-export const InfoBox = styled(View, 'rounded-md border border-app bg-transparent p-2');
+export const InfoBox = styled(View, 'rounded-md border gap-1 border-app bg-transparent p-2');
 
 const CloudSettings = () => {
 	return (
@@ -60,7 +60,6 @@ const Authenticated = () => {
 				<View style={tw`flex-col items-start gap-5`}>
 					<Library cloudLibrary={cloudLibrary.data} />
 					<ThisInstance cloudLibrary={cloudLibrary.data} />
-
 					<Card style={tw`w-full`}>
 						<View style={tw`flex-row items-center gap-2`}>
 							<View
@@ -90,13 +89,10 @@ const Authenticated = () => {
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 								renderItem={({ item }) => (
-									<Instance data={item} length={cloudInstances?.length ?? 0} />
+									<Instance data={item} />
 								)}
 								keyExtractor={(item) => item.id}
-								numColumns={(cloudInstances?.length ?? 0) > 1 ? 2 : 1}
-								{...((cloudInstances?.length ?? 0) > 1
-									? { columnWrapperStyle: tw`w-full justify-between` }
-									: {})}
+								numColumns={1}
 							/>
 						</VirtualizedListWrapper>
 					</Card>
