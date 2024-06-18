@@ -158,7 +158,7 @@ const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 	return (
 		<div className="flex flex-col gap-3">
 			<p className="font-bold text-medium">Library</p>
-			<Card className="flex-row items-center gap-10">
+			<Card className="flex-row items-center gap-10 !px-2">
 				<p className="font-medium">
 					Name: <span className="font-normal text-ink-dull">{cloudLibrary.name}</span>
 				</p>
