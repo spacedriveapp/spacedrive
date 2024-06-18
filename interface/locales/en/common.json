@@ -699,7 +699,7 @@
   "total_bytes_free_description": "Free space available on all nodes connected to the library.",
   "total_bytes_used": "Total used space",
   "total_bytes_used_description": "Total space used on all nodes connected to the library.",
-  "total_files": "Total Files",
+  "total_files": "Total files",
   "trash": "Trash",
   "type": "Type",
   "ui_animations": "UI Animations",

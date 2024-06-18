@@ -4,7 +4,7 @@ import { humanizeSize } from '@sd/client';
 import { useIsDark} from '~/hooks';
 
 //change this to dynamically change the width of the bar (needed since each section's width is calculated independently)
-const BARWIDTH = 510
+const BARWIDTH = 520
 
 // Function to lighten color
 const lightenColor = (color: string, percent: number) => {
@@ -50,7 +50,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
   const unusedSpace = totalSpace - usedSpace;
 
   return (
-    <div className="w-[510px] p-3">
+    <div className="w-auto p-3">
       <div className="relative mt-1 flex h-6 overflow-hidden rounded">
         {sections.map((section, index) => {
           const humanizedValue = humanizeSize(section.value);
@@ -74,7 +74,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
         })}
         {unusedSpace > 0 && (
           <div
-            className="relative h-full rounded-r "
+            className="relative h-full rounded-r"
             style={{
               width: getPercentage(unusedSpace),
               backgroundColor: isDark ? '#1C1D25' : '#D3D3D3',

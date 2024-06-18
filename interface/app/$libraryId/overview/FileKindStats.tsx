@@ -9,7 +9,7 @@ import { Info } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
 const INFO_ICON_CLASS = "inline size-3 text-ink-faint opacity-0";
-const TOTAL_FILES_CLASS = "mb-2 flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull";
+const TOTAL_FILES_CLASS = "flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1";
 const UNIDENTIFIED_FILES_CLASS = "relative flex items-center text-xs text-ink-faint";
 
 const interpolateColor = (color1: string, color2: string, factor: number) => {
@@ -44,7 +44,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-  const BARHEIGHT = 110;
+  const BARHEIGHT = 115;
   const BARCOLOR_START = '#3A7ECC';
   const BARCOLOR_END = '#004C99';
 
@@ -127,16 +127,18 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 
   return (
     <div className="flex justify-center">
-      <Card ref={containerRef} className="max-w-1/2 group flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
+      <Card ref={containerRef} className="max-w-1/2 group mx-1 flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
         <div className={TOTAL_FILES_CLASS}>
           <Tooltip className="flex items-center" label={t("bar_graph_info")}>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span className={`${isDark ? "text-white" : "text-black"} text-xl font-black`}>
                 {data?.total_identified_files ? formatNumberWithCommas(data.total_identified_files) : "0"}{" "}
               </span>
-              {t("total_files")}
+			  <div className="flex items-center">
+			  {t("total_files")}
+			  <Info weight="fill" className={`ml-1 ${INFO_ICON_CLASS} opacity-0 transition-opacity duration-300 group-hover:opacity-70`} />
+			  </div>
             </div>
-            <Info weight="fill" className={`ml-1 mt-1 ${INFO_ICON_CLASS} opacity-0 transition-opacity duration-300 group-hover:opacity-70`} />
           </Tooltip>
           <div className={UNIDENTIFIED_FILES_CLASS}>
             <Tooltip label={t("unidentified_files_info")}>
@@ -151,9 +153,9 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
             const barColor = interpolateColor(BARCOLOR_START, BARCOLOR_END, colorFactor);
 
             return (
-              <Tooltip key={fileKind.kind} label={fileKind.kind} position="left">
+              <Tooltip key={fileKind.kind} label={formatNumberWithCommas(fileKind.count) + " " + fileKind.kind + "s"} position="left">
                 <div
-                  className="relative flex grow cursor-pointer flex-col items-center transition-all duration-500"
+                  className="relative flex min-w-6 max-w-10 grow cursor-pointer flex-col items-center"
                   style={{
                     width: `${barWidth}px`,
                     marginLeft: index === 0 ? 0 : `${barGap}px`,
@@ -164,11 +166,11 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     <img
                       src={icon.src}
                       alt={fileKind.kind}
-                      className="relative bottom-1 mb-1 size-4 transition-all duration-500"
+                      className="relative mb-1 size-4 duration-500"
                     />
                   )}
                   <motion.div
-                    className="mb-1 flex w-full flex-col items-center rounded transition-all duration-500"
+                    className="flex w-full flex-col items-center rounded transition-all duration-500"
                     initial={{ height: 0 }}
                     animate={{ height: getPercentage(fileKind.count) }}
                     transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
