@@ -32,7 +32,7 @@ const ScreenContainer = ({
 				}}
 				contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
 				style={twStyle(
-					'flex-1 bg-black',
+					'bg-black',
 					tabHeight && { marginBottom: bottomTabBarHeight }
 				)}
 			>

@@ -1,16 +1,10 @@
 import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
+import { nonLibraryClient, useSolidStore } from '@sd/client';
+import { Linking } from 'react-native';
 import { createMutable } from 'solid-js/store';
-
-import { nonLibraryClient } from '../rspc';
-import { useSolidStore } from '../solid';
 
 interface Store {
 	state: { status: 'loading' | 'notLoggedIn' | 'loggingIn' | 'loggedIn' | 'loggingOut' };
-}
-
-export interface ProviderConfig {
-	start(key: string): any;
-	finish?(ret: any): void;
 }
 
 // inner object so we can overwrite it in one assignment
@@ -20,7 +14,7 @@ const store = createMutable<Store>({
 	}
 });
 
-export function useStateSnapshot() {
+export function useAuthStateSnapshot() {
 	return useSolidStore(store).state;
 }
 
@@ -30,6 +24,7 @@ nonLibraryClient
 	.catch((e) => {
 		if (e instanceof RSPCError && e.code === 401) {
 			// TODO: handle error?
+			console.error("error", e);
 		}
 		store.state = { status: 'notLoggedIn' };
 	});
@@ -41,7 +36,7 @@ function onError(error: string) {
 	loginCallbacks.forEach((cb) => cb({ error }));
 }
 
-export async function login(config: ProviderConfig) {
+export function login() {
 	if (store.state.status !== 'notLoggedIn') return;
 
 	store.state = { status: 'loggingIn' };
@@ -49,13 +44,14 @@ export async function login(config: ProviderConfig) {
 	let authCleanup = nonLibraryClient.addSubscription(['auth.loginSession'], {
 		onData(data) {
 			if (data === 'Complete') {
-				config.finish?.(authCleanup);
 				loginCallbacks.forEach((cb) => cb('success'));
 			} else if ('Error' in data) {
+				console.error('[auth] error: ', data.Error);
 				onError(data.Error);
 			} else {
+				console.log('[auth] verification url: ', data.Start.verification_url_complete);
 				Promise.resolve()
-					.then(() => config.start(data.Start.verification_url_complete))
+					.then(() => Linking.openURL(data.Start.verification_url_complete))
 					.then(
 						(res) => {
 							authCleanup = res;
@@ -86,15 +82,19 @@ export async function login(config: ProviderConfig) {
 	});
 }
 
-export async function logout() {
+export function set_logged_in() {
+	store.state = { status: 'loggedIn' };
+}
+
+export function logout() {
 	store.state = { status: 'loggingOut' };
-	await nonLibraryClient.mutation(['auth.logout']);
-	await nonLibraryClient.query(['auth.me']);
+	nonLibraryClient.mutation(['auth.logout']);
+	nonLibraryClient.query(['auth.me']);
 	store.state = { status: 'notLoggedIn' };
 }
 
-export function cancel() {
-	loginCallbacks.forEach((cb) => cb('cancel'));
-	loginCallbacks.clear();
+export async function cancel() {
+	await loginCallbacks.forEach(async (cb) => await cb('cancel'));
+	await loginCallbacks.clear();
 	store.state = { status: 'notLoggedIn' };
 }

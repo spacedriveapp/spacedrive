@@ -12,10 +12,12 @@ import PrivacySettingsScreen from '~/screens/settings/client/PrivacySettings';
 import AboutScreen from '~/screens/settings/info/About';
 import DebugScreen from '~/screens/settings/info/Debug';
 import SupportScreen from '~/screens/settings/info/Support';
+import CloudSettings from '~/screens/settings/library/CloudSettings/CloudSettings';
 import EditLocationSettingsScreen from '~/screens/settings/library/EditLocationSettings';
 import LibraryGeneralSettingsScreen from '~/screens/settings/library/LibraryGeneralSettings';
 import LocationSettingsScreen from '~/screens/settings/library/LocationSettings';
 import NodesSettingsScreen from '~/screens/settings/library/NodesSettings';
+import SyncSettingsScreen from '~/screens/settings/library/SyncSettings';
 import TagsSettingsScreen from '~/screens/settings/library/TagsSettings';
 import SettingsScreen from '~/screens/settings/Settings';
 
@@ -87,6 +89,16 @@ export default function SettingsStack() {
 				component={TagsSettingsScreen}
 				options={{ header: () => <Header navBack title="Tags" /> }}
 			/>
+			<Stack.Screen
+				name="SyncSettings"
+				component={SyncSettingsScreen}
+				options={{ header: () => <Header navBack title="Sync" /> }}
+			/>
+			<Stack.Screen
+				name="CloudSettings"
+				component={CloudSettings}
+				options={{ header: () => <Header navBack title="Cloud" /> }}
+			/>
 			{/* <Stack.Screen
 				name="KeysSettings"
 				component={KeysSettingsScreen}
@@ -131,6 +143,8 @@ export type SettingsStackParamList = {
 	NodesSettings: undefined;
 	TagsSettings: undefined;
 	KeysSettings: undefined;
+	SyncSettings: undefined;
+	CloudSettings: undefined;
 	// Info
 	About: undefined;
 	Support: undefined;

@@ -1,16 +1,21 @@
-import { useBridgeQuery, useLibraryContext } from '@sd/client';
+import { useBridgeQuery, useClientContext, useFeatureFlag, useLibraryContext } from '@sd/client';
 import { Button, dialogManager } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
 import CreateDialog from './CreateDialog';
+import JoinDialog from './JoinDialog';
 import ListItem from './ListItem';
 
 export const Component = () => {
 	const librariesQuery = useBridgeQuery(['library.list']);
 	const libraries = librariesQuery.data;
 
+	const cloudEnabled = useFeatureFlag('cloudSync');
+
 	const { library } = useLibraryContext();
+	const { libraries: librariesCtx } = useClientContext();
+	const librariesCtxData = librariesCtx.data;
 
 	const { t } = useLocale();
 
@@ -30,10 +35,22 @@ export const Component = () => {
 						>
 							{t('add_library')}
 						</Button>
+						{cloudEnabled && (
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => {
+									dialogManager.create((dp) => (
+										<JoinDialog librariesCtx={librariesCtxData} {...dp} />
+									));
+								}}
+							>
+								{t('join_library')}
+							</Button>
+						)}
 					</div>
 				}
 			/>
-
 			<div className="space-y-2">
 				{libraries
 					?.sort((a, b) => {
