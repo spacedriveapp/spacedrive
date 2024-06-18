@@ -8,7 +8,7 @@ import { useLocale } from '~/hooks';
 import { Info } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
-const INFO_ICON_CLASS = "inline size-3 text-ink-faint opacity-70";
+const INFO_ICON_CLASS = "inline size-3 text-ink-faint opacity-0";
 const TOTAL_FILES_CLASS = "mb-2 flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull";
 const UNIDENTIFIED_FILES_CLASS = "relative flex items-center text-xs text-ink-faint";
 
@@ -45,8 +45,8 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
   const BARHEIGHT = 110;
-  const BARCOLOR_START = isDark ? '#3A7ECC' : '#004C99';
-  const BARCOLOR_END = isDark ? '#004C99' : '#3A7ECC';
+  const BARCOLOR_START = '#3A7ECC';
+  const BARCOLOR_END = '#004C99';
 
   const formatCount = (count: number) => (count >= 1000 ? (count / 1000).toFixed(0) + 'k' : count.toString());
 
@@ -84,7 +84,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   useEffect(() => {
     if (data) {
       const statistics: KindStatistic[] = data.statistics
-        .filter((item) => item.count !== 0)
+        .filter((item) => item.kind !== 0 && item.count !== 0)
         .sort((a, b) => b.count - a.count);
 
       setFileKinds(statistics.map((item) => ({ kind: item.name, count: item.count, id: item.kind })));
@@ -130,8 +130,8 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
       <Card ref={containerRef} className="max-w-1/2 group flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
         <div className={TOTAL_FILES_CLASS}>
           <Tooltip className="flex items-center" label={t("bar_graph_info")}>
-            <div className="mt-1">
-              <span className={`${isDark ? "text-white" : "text-black"} mr-1 text-xl`}>
+            <div className="mt-1 flex items-center gap-2">
+              <span className={`${isDark ? "text-white" : "text-black"} text-xl font-black`}>
                 {data?.total_identified_files ? formatNumberWithCommas(data.total_identified_files) : "0"}{" "}
               </span>
               {t("total_files")}
@@ -140,7 +140,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
           </Tooltip>
           <div className={UNIDENTIFIED_FILES_CLASS}>
             <Tooltip label={t("unidentified_files_info")}>
-              <span>{data?.total_unidentified_files} unidentified files</span>
+              <span>{data?.total_unidentified_files ? formatNumberWithCommas(data.total_unidentified_files - data.total_identified_files) : "0"} unidentified files</span>
             </Tooltip>
           </div>
         </div>
@@ -168,7 +168,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
                     />
                   )}
                   <motion.div
-                    className="flex mb-1 w-full flex-col items-center rounded transition-all duration-500"
+                    className="mb-1 flex w-full flex-col items-center rounded transition-all duration-500"
                     initial={{ height: 0 }}
                     animate={{ height: getPercentage(fileKind.count) }}
                     transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}

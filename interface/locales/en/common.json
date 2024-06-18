@@ -704,7 +704,7 @@
   "type": "Type",
   "ui_animations": "UI Animations",
   "ui_animations_description": "Dialogs and other UI elements will animate when opening and closing.",
-  "unidentified_files_info": "These are files that Spacedrive has been unable to identify.",
+  "unidentified_files_info": "Files that Spacedrive has been unable to identify.",
   "unknown": "Unknown",
   "unnamed_location": "Unnamed Location",
   "update": "Update",
