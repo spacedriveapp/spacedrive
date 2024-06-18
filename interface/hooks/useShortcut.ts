@@ -37,6 +37,10 @@ const shortcuts = {
 		macOS: ['Meta', 'KeyJ'],
 		all: ['Control', 'KeyJ']
 	},
+	toggleTagAssignMode: {
+		macOS: ['Meta', 'Alt', 'KeyT'],
+		all: ['Control', 'Alt', 'KeyT']
+	},
 	navBackwardHistory: {
 		macOS: ['Meta', '['],
 		all: ['Control', '[']

@@ -94,7 +94,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	const activeItem = useActiveItem();
 
-	useShortcuts();
+	useExplorerShortcuts();
 
 	useShortcut('explorerEscape', () => explorer.resetSelectedItems([]), {
 		disabled: !selectable || explorer.selectedItems.size === 0
@@ -192,9 +192,12 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	);
 };
 
-const useShortcuts = () => {
+const useExplorerShortcuts = () => {
 	const explorer = useExplorerContext();
-	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
+	const [isRenaming, tagAssignMode] = useSelector(explorerStore, (s) => [
+		s.isRenaming,
+		s.isTagAssignModeActive
+	]);
 	const quickPreviewStore = useQuickPreviewStore();
 
 	const meta = useKeyMatcher('Meta');
@@ -206,6 +209,10 @@ const useShortcuts = () => {
 	useShortcut('cutObject', cut);
 	useShortcut('duplicateObject', duplicate);
 	useShortcut('pasteObject', paste);
+
+	useShortcut('toggleTagAssignMode', (e) => {
+		explorerStore.isTagAssignModeActive = !tagAssignMode;
+	});
 
 	useShortcut('toggleQuickPreview', (e) => {
 		if (isRenaming || dialogManager.isAnyDialogOpen()) return;

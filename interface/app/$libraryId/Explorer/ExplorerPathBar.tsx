@@ -21,9 +21,10 @@ import { lookup } from './RevealInNativeExplorer';
 import { useExplorerDroppable } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';
 
+// todo: ENTIRELY replace with computed combined pathbar+tagbar height
 export const PATH_BAR_HEIGHT = 32;
 
-export const ExplorerPath = memo(() => {
+export const ExplorerPathBar = memo(() => {
 	const os = useOperatingSystem(true);
 	const navigate = useNavigate();
 	const [{ path: searchPath }] = useExplorerSearchParams();
@@ -118,13 +119,16 @@ export const ExplorerPath = memo(() => {
 
 	return (
 		<div
-			className="group absolute inset-x-0 bottom-0 z-50 flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg"
-			style={{ height: PATH_BAR_HEIGHT }}
+			className={clsx(
+				'group flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg',
+				`h-[${PATH_BAR_HEIGHT}px]`
+			)}
 		>
-			{paths.map((path) => (
+			{paths.map((path, idx) => (
 				<Path
 					key={path.pathname}
 					path={path}
+					isLast={idx === paths.length - 1}
 					locationPath={location?.path ?? ''}
 					onClick={() => handleOnClick(path)}
 					disabled={path.pathname === (searchPath ?? (location && '/'))}
@@ -148,9 +152,10 @@ interface PathProps {
 	onClick: () => void;
 	disabled: boolean;
 	locationPath: string;
+	isLast: boolean;
 }
 
-const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
+const Path = ({ path, onClick, disabled, locationPath, isLast }: PathProps) => {
 	const isDark = useIsDark();
 	const { revealItems } = usePlatform();
 	const { library } = useLibraryContext();
@@ -192,7 +197,7 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 				<button
 					ref={setDroppableRef}
 					className={clsx(
-						'group flex items-center gap-1 rounded px-1 py-0.5',
+						'flex items-center gap-1 rounded p-1',
 						(isDroppable || contextMenuOpen) && [
 							isDark ? 'bg-app-button/70' : 'bg-app-darkerBox'
 						],
@@ -205,11 +210,7 @@ const Path = ({ path, onClick, disabled, locationPath }: PathProps) => {
 				>
 					<Icon name="Folder" size={16} alt="Folder" />
 					<span className="max-w-xs truncate text-ink-dull">{path.name}</span>
-					<CaretRight
-						weight="bold"
-						className="text-ink-dull group-last:hidden"
-						size={10}
-					/>
+					{!isLast && <CaretRight weight="bold" className="text-ink-dull" size={10} />}
 				</button>
 			}
 		>

@@ -15,7 +15,7 @@ import { useDropzone, useLocale, useOnDndLeave } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 import { usePlatform } from '~/util/Platform';
 
-import { TOP_BAR_ICON_STYLE } from '../TopBar/TopBarOptions';
+import { TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
 import { useIncomingSpacedropToast, useSpacedropProgressToast } from './toast';
 
 // TODO: This is super hacky so should probs be rewritten but for now it works.
@@ -57,7 +57,7 @@ export function SpacedropButton({ triggerOpen }: { triggerOpen: () => void }) {
 
 	return (
 		<div ref={ref} className={dndState === 'active' && !isPanelOpen ? 'animate-bounce' : ''}>
-			<Planet className={TOP_BAR_ICON_STYLE} />
+			<Planet className={TOP_BAR_ICON_CLASSLIST} />
 		</div>
 	);
 }
