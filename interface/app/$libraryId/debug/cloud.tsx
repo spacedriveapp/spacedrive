@@ -1,15 +1,15 @@
 import { CheckCircle, XCircle } from '@phosphor-icons/react';
-import { Suspense, useMemo } from 'react';
 import {
-	auth,
 	CloudInstance,
 	CloudLibrary,
 	HardwareModel,
+	auth,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Card, Loader, tw } from '@sd/ui';
+import { Suspense, useMemo } from 'react';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { LoginButton } from '~/components/LoginButton';
@@ -25,7 +25,7 @@ export const Component = () => {
 		if (authState.status === 'loggedIn') return <Authenticated />;
 		if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
 			return (
-				<div className="flex items-center justify-center size-full">
+				<div className="flex size-full items-center justify-center">
 					<Card className="flex flex-col gap-4 !p-6">
 						<p>To access cloud related features, please login</p>
 						<LoginButton />
@@ -36,12 +36,13 @@ export const Component = () => {
 		return null;
 	};
 
-	return <div className="flex flex-col items-start p-4 size-full">{authSensitiveChild()}</div>;
+	return <div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>;
 };
 
 const DataBox = tw.div`max-w-[300px] rounded-md border border-app-line/50 bg-app-lightBox/20 p-2`;
 const Count = tw.div`min-w-[20px] flex h-[20px] px-1 items-center justify-center rounded-full border border-app-button/40 text-[9px]`;
 
+// million-ignore
 function Authenticated() {
 	const { library } = useLibraryContext();
 	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
@@ -58,7 +59,7 @@ function Authenticated() {
 	return (
 		<Suspense
 			fallback={
-				<div className="flex items-center justify-center size-full">
+				<div className="flex size-full items-center justify-center">
 					<Loader />
 				</div>
 			}
@@ -70,7 +71,7 @@ function Authenticated() {
 					<Instances instances={cloudLibrary.data.instances} />
 				</div>
 			) : (
-				<div className="relative flex flex-col items-center justify-center size-full">
+				<div className="relative flex size-full flex-col items-center justify-center">
 					<AuthRequiredOverlay />
 					<Button
 						disabled={createLibrary.isLoading}
@@ -89,20 +90,21 @@ function Authenticated() {
 	);
 }
 
+// million-ignore
 const Instances = ({ instances }: { instances: CloudInstance[] }) => {
 	const { library } = useLibraryContext();
 	const filteredInstances = instances.filter((instance) => instance.uuid !== library.instance_id);
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-row items-center gap-3">
-				<p className="font-bold text-medium">Instances</p>
+				<p className="text-medium font-bold">Instances</p>
 				<Count>{filteredInstances.length}</Count>
 			</div>
 			<div className="flex flex-row flex-wrap gap-2">
 				{filteredInstances.map((instance) => (
 					<Card
 						key={instance.id}
-						className="flex-row items-center gap-8 bg-app-box/50 !p-5"
+						className="flex-col items-center gap-4 bg-app-box/50 !p-5"
 					>
 						<div className="flex flex-col items-center gap-2">
 							<Icon
@@ -113,19 +115,19 @@ const Instances = ({ instances }: { instances: CloudInstance[] }) => {
 								}
 								size={70}
 							/>
-							<p className="max-w-[160px] truncate text-xs font-medium">
+							<p className="max-w-[250px] truncate text-xs font-medium">
 								{instance.metadata.name}
 							</p>
 						</div>
 						<div className="flex flex-col gap-1.5">
 							<DataBox>
-								<p className="text-xs font-medium truncate">
+								<p className="truncate text-xs font-medium">
 									Id:{' '}
 									<span className="font-normal text-ink-dull">{instance.id}</span>
 								</p>
 							</DataBox>
 							<DataBox>
-								<p className="text-xs font-medium truncate">
+								<p className="truncate text-xs font-medium">
 									UUID:{' '}
 									<span className="font-normal text-ink-dull">
 										{instance.uuid}
@@ -133,7 +135,7 @@ const Instances = ({ instances }: { instances: CloudInstance[] }) => {
 								</p>
 							</DataBox>
 							<DataBox>
-								<p className="text-xs font-medium truncate">
+								<p className="truncate text-xs font-medium">
 									Public Key:{' '}
 									<span className="font-normal text-ink-dull">
 										{instance.identity}
@@ -153,12 +155,13 @@ interface LibraryProps {
 	thisInstance: CloudInstance | undefined;
 }
 
+// million-ignore
 const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
 	return (
 		<div className="flex flex-col gap-3">
-			<p className="font-bold text-medium">Library</p>
-			<Card className="flex-row items-center gap-10 !px-2">
+			<p className="text-medium font-bold">Library</p>
+			<Card className="flex-row items-center gap-6 !px-2">
 				<p className="font-medium">
 					Name: <span className="font-normal text-ink-dull">{cloudLibrary.name}</span>
 				</p>
@@ -173,7 +176,7 @@ const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 					) : (
 						<CheckCircle weight="fill" size={15} className="text-green-400" />
 					)}
-					{thisInstance === undefined ? 'Sync Library' : 'Library is synced'}
+					{thisInstance === undefined ? 'Sync Library' : 'Library synced'}
 				</Button>
 			</Card>
 		</div>
@@ -184,11 +187,12 @@ interface ThisInstanceProps {
 	instance: CloudInstance;
 }
 
+// million-ignore
 const ThisInstance = ({ instance }: ThisInstanceProps) => {
 	return (
 		<div className="flex flex-col gap-3">
-			<p className="font-bold text-medium">This Instance</p>
-			<Card className="flex-row items-center gap-8 bg-app-box/50 !p-5">
+			<p className="text-medium font-bold">This Instance</p>
+			<Card className="flex-col items-center gap-4 bg-app-box/50 !p-5">
 				<div className="flex flex-col items-center gap-2">
 					<Icon
 						name={
@@ -204,17 +208,17 @@ const ThisInstance = ({ instance }: ThisInstanceProps) => {
 				</div>
 				<div className="flex flex-col gap-1.5">
 					<DataBox>
-						<p className="text-xs font-medium truncate">
+						<p className="truncate text-xs font-medium">
 							Id: <span className="font-normal text-ink-dull">{instance.id}</span>
 						</p>
 					</DataBox>
 					<DataBox>
-						<p className="text-xs font-medium truncate">
+						<p className="truncate text-xs font-medium">
 							UUID: <span className="font-normal text-ink-dull">{instance.uuid}</span>
 						</p>
 					</DataBox>
 					<DataBox>
-						<p className="text-xs font-medium truncate">
+						<p className="truncate text-xs font-medium">
 							Public Key:{' '}
 							<span className="font-normal text-ink-dull">{instance.identity}</span>
 						</p>

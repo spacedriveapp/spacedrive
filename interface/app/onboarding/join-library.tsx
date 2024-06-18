@@ -27,7 +27,7 @@ export function JoinLibrary() {
 
 			<div className="mt-2">
 				<span>Cloud Libraries</span>
-				<ul className="relative flex flex-col w-48 h-32 p-2 border rounded border-app-frame">
+				<ul className="relative flex h-32 w-48 flex-col rounded border border-app-frame p-2">
 					<CloudLibraries />
 					<AuthRequiredOverlay />
 				</ul>
