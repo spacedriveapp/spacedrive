@@ -138,7 +138,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let mut statistics: Vec<KindStatistic> = vec![];
 
 				let total_unidentified_files = library.db.file_path().count(vec![]).exec().await?;
-
 				let total_identified_files = library.db.object().count(vec![]).exec().await?;
 
 				for kind in ObjectKind::iter() {
