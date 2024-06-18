@@ -1,7 +1,5 @@
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
-import { forwardRef } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
 import {
 	CloudLibrary,
 	useBridgeMutation,
@@ -9,6 +7,8 @@ import {
 	useClientContext,
 	useRspcContext
 } from '@sd/client';
+import { forwardRef } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -36,6 +36,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 			snapPoints={cloudLibrariesData?.length !== 0 ? ['30', '50'] : ['30']}
 			title="Join a Cloud Library"
 			showCloseButton
+			onDismiss={() => cloudLibraries.refetch()}
 		>
 			<View style={tw`relative flex-1`}>
 				{cloudLibraries.isLoading ? (
@@ -59,7 +60,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									icon="Drive"
 									style={tw`mt-2 border-0`}
 									iconSize={46}
-									description="You don't have any cloud libraries"
+									description="No cloud libraries available to join"
 								/>
 							}
 							keyExtractor={(item) => item.uuid}

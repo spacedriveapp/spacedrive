@@ -1,7 +1,7 @@
+import { CloudLibrary, useLibraryContext, useLibraryMutation } from '@sd/client';
 import { CheckCircle, XCircle } from 'phosphor-react-native';
 import { useMemo } from 'react';
 import { Text, View } from 'react-native';
-import { CloudLibrary, useLibraryContext, useLibraryMutation } from '@sd/client';
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { Divider } from '~/components/primitive/Divider';
@@ -41,21 +41,21 @@ const Library = ({ cloudLibrary }: LibraryProps) => {
 			</InfoBox>
 			<Button
 				disabled={syncLibrary.isLoading || thisInstance !== undefined}
-				variant={thisInstance ? 'dashed' : 'accent'}
+				variant={thisInstance ? 'gray' : 'accent'}
 				onPress={() => syncLibrary.mutate(null)}
 				style={tw`mt-2 flex-row gap-1 py-2`}
 			>
 				{thisInstance ? (
-					<CheckCircle size={13} weight="fill" color={tw.color('green-500')} />
+					<CheckCircle size={16} weight="fill" color={tw.color('green-400')} />
 				) : (
 					<XCircle
 						style={tw`rounded-full`}
-						size={13}
+						size={16}
 						weight="fill"
 						color={tw.color('red-500')}
 					/>
 				)}
-				<Text style={tw`text-xs font-semibold text-ink`}>
+				<Text style={tw`text-sm font-semibold text-ink`}>
 					{thisInstance !== undefined ? 'Library synced' : 'Library not synced'}
 				</Text>
 			</Button>
