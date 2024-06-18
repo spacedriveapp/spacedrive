@@ -20,46 +20,41 @@ use std::{
 	sync::Arc,
 };
 
-use async_trait::async_trait;
 use notify::{
 	event::{CreateKind, ModifyKind, RenameMode},
 	Event, EventKind,
 };
 use tokio::{fs, time::Instant};
-use tracing::{error, trace};
+use tracing::{error, instrument, trace};
 
 use super::{
 	utils::{
 		create_dir, extract_inode_from_path, recalculate_directories_size, remove, rename,
 		update_file,
 	},
-	EventHandler, INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
+	INode, InstantAndPath, HUNDRED_MILLIS, ONE_SECOND,
 };
 
 /// Windows file system event handler
 #[derive(Debug)]
-pub(super) struct WindowsEventHandler<'lib> {
+pub(super) struct EventHandler {
 	location_id: location::id::Type,
-	library: &'lib Arc<Library>,
-	node: &'lib Arc<Node>,
+	library: Arc<Library>,
+	node: Arc<Node>,
 	last_events_eviction_check: Instant,
 	rename_from_map: BTreeMap<INode, InstantAndPath>,
 	rename_to_map: BTreeMap<INode, InstantAndPath>,
 	files_to_remove: HashMap<INode, InstantAndPath>,
-	files_to_remove_buffer: Vec<(INode, InstantAndPath)>,
 	files_to_update: HashMap<PathBuf, Instant>,
 	reincident_to_update_files: HashMap<PathBuf, Instant>,
 	to_recalculate_size: HashMap<PathBuf, Instant>,
+
 	path_and_instant_buffer: Vec<(PathBuf, Instant)>,
+	files_to_remove_buffer: Vec<(INode, InstantAndPath)>,
 }
 
-#[async_trait]
-impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
-	fn new(
-		location_id: location::id::Type,
-		library: &'lib Arc<Library>,
-		node: &'lib Arc<Node>,
-	) -> Self
+impl super::EventHandler for EventHandler {
+	fn new(location_id: location::id::Type, library: Arc<Library>, node: Arc<Node>) -> Self
 	where
 		Self: Sized,
 	{
@@ -71,33 +66,51 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 			rename_from_map: BTreeMap::new(),
 			rename_to_map: BTreeMap::new(),
 			files_to_remove: HashMap::new(),
-			files_to_remove_buffer: Vec::new(),
 			files_to_update: HashMap::new(),
 			reincident_to_update_files: HashMap::new(),
 			to_recalculate_size: HashMap::new(),
 			path_and_instant_buffer: Vec::new(),
+			files_to_remove_buffer: Vec::new(),
 		}
 	}
 
+	#[instrument(
+		skip_all,
+		fields(
+			location_id = %self.location_id,
+			library_id = %self.library.id,
+			rename_from_map_count = %self.rename_from_map.len(),
+			rename_to_map_count = %self.rename_to_map.len(),
+			files_to_remove_map = %self.files_to_remove.len(),
+			waiting_update_count = %self.files_to_update.len(),
+			reincident_to_update_files_count = %self.reincident_to_update_files.len(),
+			waiting_size_count = %self.to_recalculate_size.len(),
+		),
+	)]
 	async fn handle_event(&mut self, event: Event) -> Result<(), LocationManagerError> {
-		trace!("Received Windows event: {:#?}", event);
+		trace!("Received Windows event");
+
 		let Event {
 			kind, mut paths, ..
 		} = event;
 
 		match kind {
 			EventKind::Create(CreateKind::Any) => {
-				let inode = match get_inode_from_path(&paths[0]).await {
+				let path = paths.remove(0);
+
+				let inode = match get_inode_from_path(&path).await {
 					Ok(inode) => inode,
+
 					Err(FilePathError::FileIO(FileIOError { source, .. }))
 						if source.raw_os_error() == Some(32) =>
 					{
 						// This is still being manipulated by another process, so we can just ignore it for now
 						// as we will probably receive update events later
-						self.files_to_update.insert(paths.remove(0), Instant::now());
+						self.files_to_update.insert(path, Instant::now());
 
 						return Ok(());
 					}
+
 					Err(e) => {
 						return Err(e.into());
 					}
@@ -109,24 +122,23 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					// so we can treat if just as a file rename, like in other OSes
 
 					trace!(
-						"Got a rename instead of remove/create: {} -> {}",
-						old_path.display(),
-						paths[0].display(),
+						old_path = %old_path.display(),
+						new_path = %path.display(),
+						"Got a rename instead of remove/create;",
 					);
 
 					// We found a new path for this old path, so we can rename it instead of removing and creating it
 					rename(
 						self.location_id,
-						&paths[0],
+						&path,
 						&old_path,
-						fs::metadata(&paths[0])
+						fs::metadata(&path)
 							.await
-							.map_err(|e| FileIOError::from((&paths[0], e)))?,
-						self.library,
+							.map_err(|e| FileIOError::from((&path, e)))?,
+						&self.library,
 					)
 					.await?;
 				} else {
-					let path = paths.remove(0);
 					let metadata = fs::metadata(&path)
 						.await
 						.map_err(|e| FileIOError::from((&path, e)))?;
@@ -134,7 +146,7 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					if metadata.is_dir() {
 						// Don't need to dispatch a recalculate directory event as `create_dir` dispatches
 						// a `scan_location_sub_path` function, which recalculates the size already
-						create_dir(self.location_id, path, &metadata, self.node, self.library)
+						create_dir(self.location_id, path, &metadata, &self.node, &self.library)
 							.await?;
 					} else if self.files_to_update.contains_key(&path) {
 						if let Some(old_instant) =
@@ -149,8 +161,10 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					}
 				}
 			}
+
 			EventKind::Modify(ModifyKind::Any) => {
 				let path = paths.remove(0);
+
 				if self.files_to_update.contains_key(&path) {
 					if let Some(old_instant) =
 						self.files_to_update.insert(path.clone(), Instant::now())
@@ -163,10 +177,11 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					self.files_to_update.insert(path, Instant::now());
 				}
 			}
+
 			EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
 				let path = paths.remove(0);
 
-				let inode = extract_inode_from_path(self.location_id, &path, self.library).await?;
+				let inode = extract_inode_from_path(self.location_id, &path, &self.library).await?;
 
 				if let Some((_, new_path)) = self.rename_to_map.remove(&inode) {
 					// We found a new path for this old path, so we can rename it
@@ -177,13 +192,14 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 						fs::metadata(&new_path)
 							.await
 							.map_err(|e| FileIOError::from((&new_path, e)))?,
-						self.library,
+						&self.library,
 					)
 					.await?;
 				} else {
 					self.rename_from_map.insert(inode, (Instant::now(), path));
 				}
 			}
+
 			EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
 				let path = paths.remove(0);
 
@@ -198,23 +214,25 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 						fs::metadata(&path)
 							.await
 							.map_err(|e| FileIOError::from((&path, e)))?,
-						self.library,
+						&self.library,
 					)
 					.await?;
 				} else {
 					self.rename_to_map.insert(inode, (Instant::now(), path));
 				}
 			}
+
 			EventKind::Remove(_) => {
 				let path = paths.remove(0);
+
 				self.files_to_remove.insert(
-					extract_inode_from_path(self.location_id, &path, self.library).await?,
+					extract_inode_from_path(self.location_id, &path, &self.library).await?,
 					(Instant::now(), path),
 				);
 			}
 
-			other_event_kind => {
-				trace!("Other Windows event that we don't handle for now: {other_event_kind:#?}");
+			_ => {
+				trace!("Other Windows event that we don't handle for now");
 			}
 		}
 
@@ -224,26 +242,34 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 	async fn tick(&mut self) {
 		if self.last_events_eviction_check.elapsed() > HUNDRED_MILLIS {
 			if let Err(e) = self.handle_to_update_eviction().await {
-				error!("Error while handling recently created or update files eviction: {e:#?}");
+				error!(
+					?e,
+					"Error while handling recently created or update files eviction;"
+				);
 			}
 
 			self.rename_from_map.retain(|_, (created_at, path)| {
 				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
+
 				if !to_retain {
-					trace!("Removing from rename from map: {:#?}", path.display())
+					trace!(path = %path.display(), "Removing from rename from map;")
 				}
+
 				to_retain
 			});
+
 			self.rename_to_map.retain(|_, (created_at, path)| {
 				let to_retain = created_at.elapsed() < HUNDRED_MILLIS;
+
 				if !to_retain {
-					trace!("Removing from rename to map: {:#?}", path.display())
+					trace!(path = %path.display(), "Removing from rename to map;")
 				}
+
 				to_retain
 			});
 
 			if let Err(e) = self.handle_removes_eviction().await {
-				error!("Failed to remove file_path: {e:#?}");
+				error!(?e, "Failed to remove file_path;");
 			}
 
 			if !self.to_recalculate_size.is_empty() {
@@ -251,11 +277,11 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 					&mut self.to_recalculate_size,
 					&mut self.path_and_instant_buffer,
 					self.location_id,
-					self.library,
+					&self.library,
 				)
 				.await
 				{
-					error!("Failed to recalculate directories size: {e:#?}");
+					error!(?e, "Failed to recalculate directories size;");
 				}
 			}
 
@@ -264,9 +290,10 @@ impl<'lib> EventHandler<'lib> for WindowsEventHandler<'lib> {
 	}
 }
 
-impl WindowsEventHandler<'_> {
+impl EventHandler {
 	async fn handle_to_update_eviction(&mut self) -> Result<(), LocationManagerError> {
 		self.path_and_instant_buffer.clear();
+
 		let mut should_invalidate = false;
 
 		for (path, created_at) in self.files_to_update.drain() {
@@ -274,14 +301,16 @@ impl WindowsEventHandler<'_> {
 				self.path_and_instant_buffer.push((path, created_at));
 			} else {
 				self.reincident_to_update_files.remove(&path);
+
 				handle_update(
 					self.location_id,
 					&path,
-					self.node,
+					&self.node,
 					&mut self.to_recalculate_size,
-					self.library,
+					&self.library,
 				)
 				.await?;
+
 				should_invalidate = true;
 			}
 		}
@@ -299,14 +328,16 @@ impl WindowsEventHandler<'_> {
 				self.path_and_instant_buffer.push((path, created_at));
 			} else {
 				self.files_to_update.remove(&path);
+
 				handle_update(
 					self.location_id,
 					&path,
-					self.node,
+					&self.node,
 					&mut self.to_recalculate_size,
-					self.library,
+					&self.library,
 				)
 				.await?;
+
 				should_invalidate = true;
 			}
 		}
@@ -323,6 +354,7 @@ impl WindowsEventHandler<'_> {
 
 	async fn handle_removes_eviction(&mut self) -> Result<(), LocationManagerError> {
 		self.files_to_remove_buffer.clear();
+
 		let mut should_invalidate = false;
 
 		for (inode, (instant, path)) in self.files_to_remove.drain() {
@@ -333,9 +365,12 @@ impl WindowsEventHandler<'_> {
 							.insert(parent.to_path_buf(), Instant::now());
 					}
 				}
-				remove(self.location_id, &path, self.library).await?;
+
+				remove(self.location_id, &path, &self.library).await?;
+
 				should_invalidate = true;
-				trace!("Removed file_path due timeout: {}", path.display());
+
+				trace!(path = %path.display(), "Removed file_path due timeout;");
 			} else {
 				self.files_to_remove_buffer.push((inode, (instant, path)));
 			}
@@ -344,30 +379,31 @@ impl WindowsEventHandler<'_> {
 			invalidate_query!(self.library, "search.paths");
 		}
 
-		for (key, value) in self.files_to_remove_buffer.drain(..) {
-			self.files_to_remove.insert(key, value);
-		}
+		self.files_to_remove
+			.extend(self.files_to_remove_buffer.drain(..));
 
 		Ok(())
 	}
 }
 
-async fn handle_update<'lib>(
+async fn handle_update(
 	location_id: location::id::Type,
 	path: &PathBuf,
-	node: &'lib Arc<Node>,
+	node: &Arc<Node>,
 	to_recalculate_size: &mut HashMap<PathBuf, Instant>,
-	library: &'lib Arc<Library>,
+	library: &Arc<Library>,
 ) -> Result<(), LocationManagerError> {
 	let metadata = fs::metadata(&path)
 		.await
 		.map_err(|e| FileIOError::from((&path, e)))?;
+
 	if metadata.is_file() {
 		if let Some(parent) = path.parent() {
 			if parent != Path::new("") {
 				to_recalculate_size.insert(parent.to_path_buf(), Instant::now());
 			}
 		}
+
 		update_file(location_id, path, node, library).await?;
 	}
 

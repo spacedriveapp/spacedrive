@@ -89,20 +89,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					))?
 					.new_stream()
 					.await
-					.map_err(|err| {
+					.map_err(|e| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("error in peer.new_stream: {:?}", err),
+							format!("error in peer.new_stream: {:?}", e),
 						)
 					})?;
 
 				stream
 					.write_all(&Header::Ping.to_bytes())
 					.await
-					.map_err(|err| {
+					.map_err(|e| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
-							format!("error sending ping header: {:?}", err),
+							format!("error sending ping header: {:?}", e),
 						)
 					})?;
 

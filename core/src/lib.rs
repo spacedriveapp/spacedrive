@@ -4,18 +4,16 @@
 use crate::{
 	api::{CoreEvent, Router},
 	location::LocationManagerError,
-	object::media::old_thumbnail::old_actor::OldThumbnailer,
 };
+
+use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
+use sd_core_prisma_helpers::CasId;
 
 #[cfg(feature = "ai")]
 use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
-use sd_utils::error::FileIOError;
 
-use api::notifications::{Notification, NotificationData, NotificationId};
-use chrono::{DateTime, Utc};
-use node::config;
-use notifications::Notifications;
-use reqwest::{RequestBuilder, Response};
+use sd_task_system::TaskSystem;
+use sd_utils::error::FileIOError;
 
 use std::{
 	fmt,
@@ -23,6 +21,9 @@ use std::{
 	sync::{atomic::AtomicBool, Arc},
 };
 
+use chrono::{DateTime, Utc};
+use futures_concurrency::future::Join;
+use reqwest::{RequestBuilder, Response};
 use thiserror::Error;
 use tokio::{fs, io, sync::broadcast};
 use tracing::{error, info, warn};
@@ -34,6 +35,9 @@ use tracing_subscriber::{filter::FromEnvError, prelude::*, EnvFilter};
 
 pub mod api;
 mod cloud;
+mod context;
+#[cfg(feature = "crypto")]
+pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;
@@ -50,7 +54,10 @@ pub(crate) mod volume;
 
 pub use env::Env;
 
-use object::media::old_thumbnail::get_ephemeral_thumbnail_path;
+use api::notifications::{Notification, NotificationData, NotificationId};
+use context::{JobContext, NodeContext};
+use node::config;
+use notifications::Notifications;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -65,10 +72,11 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub thumbnailer: OldThumbnailer,
 	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
+	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
+	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
 	#[cfg(feature = "ai")]
 	pub old_image_labeller: Option<OldImageLabeler>,
 }
@@ -88,7 +96,7 @@ impl Node {
 	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
-		info!("Starting core with data directory '{}'", data_dir.display());
+		info!(data_directory = %data_dir.display(), "Starting core;");
 
 		let env = Arc::new(env);
 
@@ -117,22 +125,19 @@ impl Node {
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
+		let task_system = TaskSystem::new();
+
 		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
 			.await
 			.map_err(NodeError::P2PManager)?;
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
+			job_system: JobSystem::new(task_system.get_dispatcher(), data_dir),
+			task_system,
 			old_jobs,
 			locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
-			thumbnailer: OldThumbnailer::new(
-				data_dir,
-				libraries.clone(),
-				event_bus.0.clone(),
-				config.preferences_watcher(),
-			)
-			.await,
 			config,
 			event_bus,
 			libraries,
@@ -148,7 +153,10 @@ impl Node {
 			)
 			.await
 			.map_err(|e| {
-				error!("Failed to initialize image labeller. AI features will be disabled: {e:#?}");
+				error!(
+					?e,
+					"Failed to initialize image labeller. AI features will be disabled;"
+				);
 			})
 			.ok(),
 		});
@@ -170,6 +178,27 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
+
+		node.job_system
+			.init(
+				&node
+					.libraries
+					.get_all()
+					.await
+					.into_iter()
+					.map(|library| {
+						(
+							library.id,
+							NodeContext {
+								library,
+								node: Arc::clone(&node),
+							},
+						)
+					})
+					.collect(),
+			)
+			.await?;
+
 		start_p2p(
 			node.clone(),
 			axum::Router::new()
@@ -190,7 +219,7 @@ impl Node {
 				.into_make_service(),
 		);
 
-		info!("Spacedrive online.");
+		info!("Spacedrive online!");
 		Ok((node, router))
 	}
 
@@ -214,7 +243,14 @@ impl Node {
 
 			std::env::set_var(
 				"RUST_LOG",
-				format!("info,sd_core={level},sd_p2p=debug,sd_core::location::manager=info,sd_ai={level}"),
+				format!(
+					"info,\
+					sd_core={level},\
+					sd_p2p={level},\
+					sd_core_heavy_lifting={level},\
+					sd_task_system={level},\
+					sd_ai={level}"
+				),
 			);
 		}
 
@@ -261,9 +297,18 @@ impl Node {
 
 	pub async fn shutdown(&self) {
 		info!("Spacedrive shutting down...");
-		self.thumbnailer.shutdown().await;
-		self.old_jobs.shutdown().await;
-		self.p2p.shutdown().await;
+
+		// Let's shutdown the task system first, as the job system will receive tasks to save
+		self.task_system.shutdown().await;
+
+		(
+			self.old_jobs.shutdown(),
+			self.p2p.shutdown(),
+			self.job_system.shutdown(),
+		)
+			.join()
+			.await;
+
 		#[cfg(feature = "ai")]
 		if let Some(image_labeller) = &self.old_image_labeller {
 			image_labeller.shutdown().await;
@@ -273,12 +318,16 @@ impl Node {
 
 	pub(crate) fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
-			warn!("Error sending event to event bus: {e:?}");
+			warn!(?e, "Error sending event to event bus;");
 		}
 	}
 
-	pub async fn ephemeral_thumbnail_exists(&self, cas_id: &str) -> Result<bool, FileIOError> {
-		let thumb_path = get_ephemeral_thumbnail_path(self, cas_id);
+	pub async fn ephemeral_thumbnail_exists(
+		&self,
+		cas_id: &CasId<'_>,
+	) -> Result<bool, FileIOError> {
+		let thumb_path =
+			ThumbnailKind::Ephemeral.compute_path(self.config.data_directory(), cas_id);
 
 		match fs::metadata(&thumb_path).await {
 			Ok(_) => Ok(true),
@@ -303,8 +352,8 @@ impl Node {
 			Ok(_) => {
 				self.notifications._internal_send(notification);
 			}
-			Err(err) => {
-				error!("Error saving notification to config: {:?}", err);
+			Err(e) => {
+				error!(?e, "Error saving notification to config;");
 			}
 		}
 	}
@@ -377,6 +426,9 @@ pub enum NodeError {
 	InitConfig(#[from] util::debug_initializer::InitConfigError),
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
+	#[error(transparent)]
+	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
+
 	#[cfg(feature = "ai")]
 	#[error("ai error: {0}")]
 	AI(#[from] sd_ai::Error),

@@ -30,11 +30,11 @@ async fn write_test_location(
 			(
 				instance.sync.shared_create(
 					prisma_sync::location::SyncId {
-						pub_id: uuid_to_bytes(id),
+						pub_id: uuid_to_bytes(&id),
 					},
 					sync_ops,
 				),
-				instance.db.location().create(uuid_to_bytes(id), db_ops),
+				instance.db.location().create(uuid_to_bytes(&id), db_ops),
 			)
 		})
 		.await?)

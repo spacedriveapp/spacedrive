@@ -10,7 +10,7 @@ import {
 	getTotalTasks,
 	JobGroup,
 	JobProgressEvent,
-	JobReport,
+	Report,
 	useLibraryMutation,
 	useTotalElapsedTimeText
 } from '@sd/client';
@@ -153,7 +153,7 @@ function Options({
 	setShowChildJobs,
 	showChildJobs
 }: {
-	activeJob?: JobReport;
+	activeJob?: Report;
 	group: JobGroup;
 	setShowChildJobs: () => void;
 	showChildJobs: boolean;
@@ -201,7 +201,11 @@ function Options({
 			{(group.status === 'Queued' || group.status === 'Paused' || isJobPaused) && (
 				<Button
 					className="cursor-pointer"
-					onClick={() => resumeJob.mutate(group.id)}
+					onClick={() =>
+						resumeJob.mutate(
+							group.running_job_id != null ? group.running_job_id : group.id
+						)
+					}
 					size="icon"
 					variant="outline"
 				>
@@ -250,7 +254,11 @@ function Options({
 					<Tooltip label={t('pause')}>
 						<Button
 							className="cursor-pointer"
-							onClick={() => pauseJob.mutate(group.id)}
+							onClick={() =>
+								pauseJob.mutate(
+									group.running_job_id != null ? group.running_job_id : group.id
+								)
+							}
 							size="icon"
 							variant="outline"
 						>
@@ -261,7 +269,9 @@ function Options({
 						<Button
 							className="cursor-pointer"
 							onClick={() => {
-								cancelJob.mutate(group.id);
+								cancelJob.mutate(
+									group.running_job_id != null ? group.running_job_id : group.id
+								);
 							}}
 							size="icon"
 							variant="outline"

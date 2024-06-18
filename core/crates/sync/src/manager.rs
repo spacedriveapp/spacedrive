@@ -175,7 +175,7 @@ impl Manager {
 			.crdt_operation()
 			.find_many(vec![
 				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-					instance_uuid,
+					&instance_uuid,
 				))]),
 				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
 			])
@@ -204,7 +204,7 @@ impl Manager {
 						.map(|(instance_id, timestamp)| {
 							prisma_client_rust::and![
 								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									*instance_id
+									instance_id
 								))]),
 								$op::timestamp::gt(timestamp.as_u64() as i64)
 							]
@@ -216,7 +216,7 @@ impl Manager {
 										.clocks
 										.iter()
 										.map(|(instance_id, _)| {
-											uuid_to_bytes(*instance_id)
+											uuid_to_bytes(instance_id)
 										})
 										.collect()
 								)
@@ -263,7 +263,7 @@ impl Manager {
 						.map(|(instance_id, timestamp)| {
 							prisma_client_rust::and![
 								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									*instance_id
+									instance_id
 								))]),
 								$op::timestamp::gt(timestamp.as_u64() as i64)
 							]
@@ -275,7 +275,7 @@ impl Manager {
 										.clocks
 										.iter()
 										.map(|(instance_id, _)| {
-											uuid_to_bytes(*instance_id)
+											uuid_to_bytes(instance_id)
 										})
 										.collect()
 								)

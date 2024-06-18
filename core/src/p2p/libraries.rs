@@ -20,7 +20,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, quic: Arc<QuicHandle>, libraries: Arc<Libra
 		let quic = quic.clone();
 
 		async move {
-			if let Err(err) = libraries
+			if let Err(e) = libraries
 				.rx
 				.clone()
 				.subscribe(|msg| {
@@ -127,7 +127,7 @@ pub fn libraries_hook(p2p: Arc<P2P>, quic: Arc<QuicHandle>, libraries: Arc<Libra
 				})
 				.await
 			{
-				error!("Core may become unstable! `LibraryServices::start` manager aborted with error: {err:?}");
+				error!(?e, "Core may become unstable! `LibraryServices::start` manager aborted with error;");
 			}
 		}
 	});

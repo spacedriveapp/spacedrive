@@ -47,6 +47,7 @@ sd-p2p-proto = { path = "../crates/p2p/crates/proto" }
 sd-p2p-tunnel = { path = "../crates/p2p/crates/tunnel" }
 sd-prisma = { path = "../crates/prisma" }
 sd-sync = { path = "../crates/sync" }
+sd-task-system = { path = "../crates/task-system" }
 sd-utils = { path = "../crates/utils" }
 
 # Workspace dependencies

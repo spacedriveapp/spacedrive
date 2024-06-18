@@ -83,6 +83,7 @@ mod originator {
 		}
 	}
 
+	#[instrument(skip(sync, p2p))]
 	/// REMEMBER: This only syncs one direction!
 	pub async fn run(
 		library: Arc<Library>,
@@ -99,8 +100,9 @@ mod originator {
 			let library = library.clone();
 			tokio::spawn(async move {
 				debug!(
-					"Alerting peer {remote_identity:?} of new sync events for library {:?}",
-					library.id
+					?remote_identity,
+					%library.id,
+					"Alerting peer of new sync events for library;"
 				);
 
 				let mut stream = peer.new_stream().await.unwrap();
@@ -223,10 +225,9 @@ mod responder {
 			let timestamps = match req {
 				Request::FinishedIngesting => break,
 				Request::Messages { timestamps, .. } => timestamps,
-				_ => continue,
 			};
 
-			debug!("Getting ops for timestamps {timestamps:?}");
+			debug!(?timestamps, "Getting ops for timestamps;");
 
 			stream
 				.write_all(

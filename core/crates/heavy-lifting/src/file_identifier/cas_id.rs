@@ -1,3 +1,5 @@
+use sd_core_prisma_helpers::CasId;
+
 use std::path::Path;
 
 use blake3::Hasher;
@@ -6,6 +8,7 @@ use tokio::{
 	fs::{self, File},
 	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
+use tracing::{instrument, trace, Level};
 
 const SAMPLE_COUNT: u64 = 4;
 const SAMPLE_SIZE: u64 = 1024 * 10;
@@ -20,20 +23,29 @@ const_assert!((HEADER_OR_FOOTER_SIZE * 2 + SAMPLE_COUNT * SAMPLE_SIZE) < MINIMUM
 // Asserting that the sample size is larger than header/footer size, as the same buffer is used for both
 const_assert!(SAMPLE_SIZE > HEADER_OR_FOOTER_SIZE);
 
+#[instrument(
+	skip(path),
+	ret(level = Level::TRACE),
+	err,
+	fields(path = %path.as_ref().display()
+))]
 // SAFETY: Casts here are safe, they're hardcoded values we have some const assertions above to make sure they're correct
 #[allow(clippy::cast_possible_truncation)]
 #[allow(clippy::cast_possible_wrap)]
 pub async fn generate_cas_id(
 	path: impl AsRef<Path> + Send,
 	size: u64,
-) -> Result<String, io::Error> {
+) -> Result<CasId<'static>, io::Error> {
 	let mut hasher = Hasher::new();
 	hasher.update(&size.to_le_bytes());
 
 	if size <= MINIMUM_FILE_SIZE {
+		trace!("File is small, hashing the whole file");
 		// For small files, we hash the whole file
 		hasher.update(&fs::read(path).await?);
 	} else {
+		trace!("File bigger than threshold, hashing samples");
+
 		let mut file = File::open(path).await?;
 		let mut buf = vec![0; SAMPLE_SIZE as usize].into_boxed_slice();
 
@@ -64,5 +76,5 @@ pub async fn generate_cas_id(
 		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
 	}
 
-	Ok(hasher.finalize().to_hex()[..16].to_string())
+	Ok(hasher.finalize().to_hex()[..16].to_string().into())
 }
