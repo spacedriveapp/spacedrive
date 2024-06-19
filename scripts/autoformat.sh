@@ -39,7 +39,7 @@ __dirname="$(CDPATH='' cd "$(dirname "$0")" && pwd -P)"
 cd "$__dirname/.."
 
 if [ -n "$(git diff --name-only HEAD)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-  echo "Uncommitted changes found. Please commit your changes before running this script." >&2
+  echo "Uncommitted changes found. Please commit or stash your changes before running this script." >&2
   exit 1
 fi
 
