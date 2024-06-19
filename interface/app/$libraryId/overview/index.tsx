@@ -75,8 +75,8 @@ export const Component = () => {
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
-					<LibraryStatistics/>
-					<FileKindStatistics />
+						<LibraryStatistics />
+						<FileKindStatistics />
 					</OverviewSection>
 
 					<OverviewSection count={1} title={t('devices')}>

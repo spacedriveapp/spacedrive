@@ -284,7 +284,6 @@ export const Component = () => {
 // 		}
 //   }
 
-
 //   useEffect(() => {
 //     if (fgRef.current) {
 //       fgRef.current.d3Force('center', d3.forceCenter());
@@ -298,7 +297,6 @@ export const Component = () => {
 //     ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
 //     ctx.fill();
 //   }, []);
-
 
 //   return (
 //     <div className="relative bottom-48 h-[200px] w-full" ref={containerRef}>
