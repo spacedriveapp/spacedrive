@@ -41,7 +41,8 @@ fi
 # Run the linter and formatter for frontend
 pnpm run -r lint --fix &
 wait
-pnpm run format
+pnpm run format &
+wait
 
 # Run clippy and formatter for backend
 cargo clippy --fix --all --all-targets --all-features --allow-dirty --allow-staged
