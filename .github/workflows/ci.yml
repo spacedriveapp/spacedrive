@@ -65,7 +65,7 @@ jobs:
   cypress:
     name: Cypress
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions: {}
     steps:
       - name: Checkout repository
