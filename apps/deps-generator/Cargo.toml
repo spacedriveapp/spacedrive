@@ -1,0 +1,19 @@
+[package]
+name = "sd-deps-generator"
+version = "0.0.0"
+authors = ["Jake Robinson <jake@spacedrive.com>"]
+description = "A tool to compile all Spacedrive dependencies and their respective licenses"
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[dependencies]
+# Workspace dependencies
+reqwest = { workspace = true, features = ["blocking", "native-tls-vendored"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Specific Deps Generator dependencies
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+cargo_metadata = "0.18.1"

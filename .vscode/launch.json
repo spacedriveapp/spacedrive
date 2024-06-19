@@ -11,6 +11,7 @@
 			"cargo": {
 				"args": [
 					"build",
+					"--profile=dev-debug",
 					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
 					"--no-default-features"
 				],

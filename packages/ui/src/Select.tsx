@@ -65,7 +65,7 @@ export const Select = forwardRef(
 				</RS.Trigger>
 
 				<RS.Portal>
-					<RS.Content className="z-50 rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
+					<RS.Content className="z-[100] rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
 						<RS.Viewport className="p-1">{props.children}</RS.Viewport>
 					</RS.Content>
 				</RS.Portal>

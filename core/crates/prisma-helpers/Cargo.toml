@@ -6,11 +6,13 @@ license = { workspace = true }
 repository = { workspace = true }
 edition = { workspace = true }
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
+sd-utils = { path = "../../../crates/utils" }
 
+# Workspace dependencies
 prisma-client-rust = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }

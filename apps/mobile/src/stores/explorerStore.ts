@@ -1,4 +1,4 @@
-import { resetStore } from '@sd/client';
+import { ThumbKey, resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
 
@@ -26,14 +26,14 @@ const state = {
 	orderDirection: 'Asc' as 'Asc' | 'Desc'
 };
 
-export function flattenThumbnailKey(thumbKey: string[]) {
-	return thumbKey.join('/');
+export function flattenThumbnailKey(thumbKey: ThumbKey) {
+	return `${thumbKey.base_directory_str}/${thumbKey.shard_hex}/${thumbKey.cas_id}`;
 }
 
 const store = proxy({
 	...state,
 	reset: () => resetStore(store, state),
-	addNewThumbnail: (thumbKey: string[]) => {
+	addNewThumbnail: (thumbKey: ThumbKey) => {
 		store.newThumbnails.add(flattenThumbnailKey(thumbKey));
 	},
 	// this should be done when the explorer query is refreshed

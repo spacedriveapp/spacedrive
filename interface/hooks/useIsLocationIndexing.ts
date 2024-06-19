@@ -14,13 +14,21 @@ export const useIsLocationIndexing = (locationId: number): boolean => {
 	const isLocationIndexing =
 		jobGroups?.some((group) =>
 			group.jobs.some((job) => {
+				let jobLocationId: number | undefined;
+				for (const metadata of job.metadata) {
+					if (metadata.type === 'input' && metadata.metadata.type === 'location') {
+						jobLocationId = metadata.metadata.data.id;
+						break;
+					}
+				}
 				if (
-					job.name === 'indexer' &&
-					(job.metadata as any)?.location.id === locationId &&
+					job.name === 'Indexer' &&
+					jobLocationId === locationId &&
 					(job.status === 'Running' || job.status === 'Queued')
 				) {
 					return job.completed_task_count === 0;
 				}
+				return false;
 			})
 		) || false;
 

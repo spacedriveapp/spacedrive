@@ -1,18 +1,16 @@
-use crate::{
-	invalidate_query,
-	library::Library,
-	object::{
-		media::{old_media_processor, OldMediaProcessorJobInit},
-		old_file_identifier::{self, old_file_identifier_job::OldFileIdentifierJobInit},
-	},
-	old_job::{JobBuilder, JobError, JobManagerError},
-	Node,
-};
+use crate::{context::NodeContext, invalidate_query, library::Library, Node};
 
 use sd_core_file_path_helper::{
 	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
 };
-use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_heavy_lifting::{
+	file_identifier::{self, FileIdentifier},
+	indexer::{self, job::Indexer},
+	job_system::report::ReportInputMetadata,
+	media_processor::{self, job::MediaProcessor},
+	JobEnqueuer, JobId,
+};
+use sd_core_prisma_helpers::{location_with_indexer_rules, CasId};
 
 use sd_prisma::{
 	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
@@ -22,7 +20,7 @@ use sd_sync::*;
 use sd_utils::{
 	db::{maybe_missing, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	msgpack,
+	msgpack, uuid_to_bytes,
 };
 
 use std::{
@@ -36,20 +34,17 @@ use futures::future::TryFutureExt;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use specta::Type;
 use tokio::{fs, io, time::Instant};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
 mod error;
-pub mod indexer;
 mod manager;
 pub mod metadata;
 pub mod non_indexed;
 
 pub use error::LocationError;
-use indexer::OldIndexerJobInit;
 pub use manager::{LocationManagerError, Locations};
 use metadata::SpacedriveLocationMetadataFile;
 
@@ -81,7 +76,7 @@ impl TryFrom<i32> for ScanState {
 /// `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
 /// It has the actual path and a vector of indexer rules ids, to create many-to-many relationships
 /// between the location and indexer rules.
-#[derive(Type, Deserialize)]
+#[derive(Debug, Type, Deserialize)]
 pub struct LocationCreateArgs {
 	pub path: PathBuf,
 	pub dry_run: bool,
@@ -89,6 +84,7 @@ pub struct LocationCreateArgs {
 }
 
 impl LocationCreateArgs {
+	#[instrument(skip(node, library), err)]
 	pub async fn create(
 		self,
 		node: &Node,
@@ -159,13 +155,12 @@ impl LocationCreateArgs {
 		}
 
 		debug!(
-			"{} new location for '{}'",
+			"{} new location",
 			if self.dry_run {
 				"Dry run: Would create"
 			} else {
 				"Trying to create"
-			},
-			self.path.display()
+			}
 		);
 
 		let uuid = Uuid::new_v4();
@@ -180,8 +175,10 @@ impl LocationCreateArgs {
 		.await?;
 
 		if let Some(location) = location {
+			info!(location_name = ?location.name, "Created location;");
+
 			// Write location metadata to a .spacedrive file
-			if let Err(err) = SpacedriveLocationMetadataFile::create_and_save(
+			if let Err(e) = SpacedriveLocationMetadataFile::create_and_save(
 				library.id,
 				uuid,
 				&self.path,
@@ -197,12 +194,10 @@ impl LocationCreateArgs {
 			.await
 			{
 				// DISABLED TO FAIL SILENTLY - HOTFIX FOR LACK OF WRITE PERMISSION PREVENTING LOCATION CREATION
-				error!("Failed to write .spacedrive file: {:?}", err);
+				error!(?e, "Failed to write .spacedrive file;");
 				// delete_location(node, library, location.data.id).await?;
-				// Err(err)?;
+				// Err(e)?;
 			}
-
-			info!("Created location: {:?}", &location.data);
 
 			Ok(Some(location.data))
 		} else {
@@ -210,6 +205,7 @@ impl LocationCreateArgs {
 		}
 	}
 
+	#[instrument(skip(node, library), fields(library_id = %library.id), err)]
 	pub async fn add_library(
 		self,
 		node: &Node,
@@ -242,14 +238,12 @@ impl LocationCreateArgs {
 		}
 
 		debug!(
-			"{} a new Library <id='{}'> to an already existing location '{}'",
+			"{} a new Library to an already existing location",
 			if self.dry_run {
 				"Dry run: Would add"
 			} else {
 				"Trying to add"
 			},
-			library.id,
-			self.path.display()
 		);
 
 		let uuid = Uuid::new_v4();
@@ -272,10 +266,7 @@ impl LocationCreateArgs {
 				.add(location.data.id, library.clone())
 				.await?;
 
-			info!(
-				"Added library (library_id = {}) to location: {:?}",
-				library.id, &location.data
-			);
+			info!(location_id = %location.data.id, "Added library to location;");
 
 			Ok(Some(location.data))
 		} else {
@@ -461,151 +452,192 @@ async fn link_location_and_indexer_rules(
 	Ok(())
 }
 
+#[instrument(
+	skip(node, library, location),
+	fields(library_id = %library.id, location_id = %location.id),
+	err,
+)]
 pub async fn scan_location(
 	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	location_scan_state: ScanState,
-) -> Result<(), JobManagerError> {
+) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
-		return Ok(());
+		warn!("Tried to scan a location on a different instance");
+		return Ok(None);
 	}
+
+	let location_id = location.id;
+	let ctx = NodeContext {
+		node: Arc::clone(node),
+		library: Arc::clone(library),
+	};
 
 	let location_base_data = location::Data::from(&location);
 
-	debug!("Scanning location with state: {location_scan_state:?}");
+	debug!("Scanning location");
 
-	match location_scan_state {
+	let job_id = match location_scan_state {
 		ScanState::Pending | ScanState::Completed => {
-			JobBuilder::new(OldIndexerJobInit {
-				location,
-				sub_path: None,
-			})
-			.with_action("scan_location")
-			.with_metadata(json!({"location": location_base_data.clone()}))
-			.build()
-			.queue_next(OldFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.queue_next(OldMediaProcessorJobInit {
-				location: location_base_data,
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(Indexer::new(location, None)?)
+						.with_action("scan_location")
+						.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+						.enqueue_next(FileIdentifier::new(location_base_data.clone(), None)?)
+						.enqueue_next(MediaProcessor::new(location_base_data, None, false)?),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
 		ScanState::Indexed => {
-			JobBuilder::new(OldFileIdentifierJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-			})
-			.with_action("scan_location_already_indexed")
-			.with_metadata(json!({"location": location_base_data.clone()}))
-			.build()
-			.queue_next(OldMediaProcessorJobInit {
-				location: location_base_data,
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(FileIdentifier::new(location_base_data.clone(), None)?)
+						.with_action("scan_location_already_indexed")
+						.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+						.enqueue_next(MediaProcessor::new(location_base_data, None, false)?),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
 		ScanState::FilesIdentified => {
-			JobBuilder::new(OldMediaProcessorJobInit {
-				location: location_base_data.clone(),
-				sub_path: None,
-				regenerate_thumbnails: false,
-				regenerate_labels: false,
-			})
-			.with_action("scan_location_files_already_identified")
-			.with_metadata(json!({"location": location_base_data}))
-			.build()
-			.spawn(node, library)
-			.await
+			node.job_system
+				.dispatch(
+					JobEnqueuer::new(MediaProcessor::new(
+						location_base_data.clone(),
+						None,
+						false,
+					)?)
+					.with_action("scan_location_files_already_identified")
+					.with_metadata(ReportInputMetadata::Location(location_base_data)),
+					location_id,
+					ctx.clone(),
+				)
+				.await?
 		}
-	}
-	.map_err(Into::into)
+	};
+
+	Ok(Some(job_id))
 }
 
+#[instrument(
+	skip_all,
+	fields(
+		library_id = %library.id,
+		location_id = %location.id,
+		sub_path = %sub_path.as_ref().display(),
+	),
+	err,
+)]
 pub async fn scan_location_sub_path(
 	node: &Arc<Node>,
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
-	sub_path: impl AsRef<Path>,
-) -> Result<(), JobManagerError> {
+	sub_path: impl AsRef<Path> + Send,
+) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
-		return Ok(());
+		warn!("Tried to scan a location on a different instance");
+		return Ok(None);
 	}
+
+	let location_id = location.id;
+	let ctx = NodeContext {
+		node: Arc::clone(node),
+		library: Arc::clone(library),
+	};
 
 	let location_base_data = location::Data::from(&location);
 
-	JobBuilder::new(OldIndexerJobInit {
-		location,
-		sub_path: Some(sub_path.clone()),
-	})
-	.with_action("scan_location_sub_path")
-	.with_metadata(json!({
-		"location": location_base_data.clone(),
-		"sub_path": sub_path.clone(),
-	}))
-	.build()
-	.queue_next(OldFileIdentifierJobInit {
-		location: location_base_data.clone(),
-		sub_path: Some(sub_path.clone()),
-	})
-	.queue_next(OldMediaProcessorJobInit {
-		location: location_base_data,
-		sub_path: Some(sub_path),
-		regenerate_thumbnails: false,
-		regenerate_labels: false,
-	})
-	.spawn(node, library)
-	.await
-	.map_err(Into::into)
+	debug!("Scanning location on a sub path");
+
+	node.job_system
+		.dispatch(
+			JobEnqueuer::new(Indexer::new(location, Some(sub_path.clone()))?)
+				.with_action("scan_location")
+				.with_metadata(ReportInputMetadata::Location(location_base_data.clone()))
+				.with_metadata(ReportInputMetadata::SubPath(sub_path.clone()))
+				.enqueue_next(FileIdentifier::new(
+					location_base_data.clone(),
+					Some(sub_path.clone()),
+				)?)
+				.enqueue_next(MediaProcessor::new(
+					location_base_data,
+					Some(sub_path),
+					false,
+				)?),
+			location_id,
+			ctx.clone(),
+		)
+		.await
+		.map_err(Into::into)
+		.map(Some)
 }
 
+#[instrument(
+	skip_all,
+	fields(
+		library_id = %library.id,
+		location_id = %location.id,
+		sub_path = %sub_path.as_ref().display(),
+	),
+	err,
+)]
 pub async fn light_scan_location(
 	node: Arc<Node>,
 	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), JobError> {
+) -> Result<(), sd_core_heavy_lifting::Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
+		warn!("Tried to scan a location on a different instance");
 		return Ok(());
 	}
 
 	let location_base_data = location::Data::from(&location);
 
-	indexer::old_shallow(&location, &sub_path, &node, &library).await?;
-	old_file_identifier::old_shallow(&location_base_data, &sub_path, &library).await?;
-	old_media_processor::old_shallow(
-		&location_base_data,
-		&sub_path,
-		&library,
-		#[cfg(feature = "ai")]
-		false,
-		&node,
-	)
-	.await?;
+	let dispatcher = node.task_system.get_dispatcher();
+	let ctx = NodeContext { node, library };
+
+	for e in indexer::shallow(location, &sub_path, &dispatcher, &ctx).await? {
+		error!(?e, "Shallow indexer errors;");
+	}
+
+	for e in
+		file_identifier::shallow(location_base_data.clone(), &sub_path, &dispatcher, &ctx).await?
+	{
+		error!(?e, "Shallow file identifier errors;");
+	}
+
+	for e in media_processor::shallow(location_base_data, &sub_path, &dispatcher, &ctx).await? {
+		error!(?e, "Shallow media processor errors;");
+	}
 
 	Ok(())
 }
 
+#[instrument(
+	skip_all,
+	fields(
+		library_id = %id,
+		location_path = %location_path.as_ref().display(),
+	),
+	err,
+)]
 pub async fn relink_location(
 	Library { db, id, sync, .. }: &Library,
 	location_path: impl AsRef<Path>,
-) -> Result<i32, LocationError> {
+) -> Result<location::id::Type, LocationError> {
 	let location_path = location_path.as_ref();
 	let mut metadata = SpacedriveLocationMetadataFile::try_load(&location_path)
 		.await?
@@ -613,7 +645,7 @@ pub async fn relink_location(
 
 	metadata.relink(*id, location_path).await?;
 
-	let pub_id = metadata.location_pub_id(*id)?.as_ref().to_vec();
+	let pub_id = uuid_to_bytes(&metadata.location_pub_id(*id)?);
 	let path = location_path
 		.to_str()
 		.map(str::to_string)
@@ -794,6 +826,7 @@ async fn create_location(
 	}))
 }
 
+#[instrument(skip(node, library), fields(library_id = %library.id), err)]
 pub async fn delete_location(
 	node: &Node,
 	library: &Arc<Library>,
@@ -803,17 +836,11 @@ pub async fn delete_location(
 
 	let start = Instant::now();
 	node.locations.remove(location_id, library.clone()).await?;
-	debug!(
-		"Elapsed time to remove location from node: {:?}",
-		start.elapsed()
-	);
+	debug!(elapsed_time = ?start.elapsed(), "Removed location from node;");
 
 	let start = Instant::now();
 	delete_directory(library, location_id, None).await?;
-	debug!(
-		"Elapsed time to delete location file paths: {:?}",
-		start.elapsed()
-	);
+	debug!(elapsed_time = ?start.elapsed(), "Deleted location file paths;");
 
 	let location = library
 		.db
@@ -846,10 +873,7 @@ pub async fn delete_location(
 			}
 		}
 	}
-	debug!(
-		"Elapsed time to remove location metadata: {:?}",
-		start.elapsed()
-	);
+	debug!(elapsed_time = ?start.elapsed(), "Removed location metadata;");
 
 	let start = Instant::now();
 
@@ -861,10 +885,7 @@ pub async fn delete_location(
 		)])
 		.exec()
 		.await?;
-	debug!(
-		"Elapsed time to delete indexer rules in location: {:?}",
-		start.elapsed()
-	);
+	debug!(elapsed_time = ?start.elapsed(), "Deleted indexer rules in location;");
 
 	let start = Instant::now();
 
@@ -877,20 +898,18 @@ pub async fn delete_location(
 	)
 	.await?;
 
-	debug!(
-		"Elapsed time to delete location from db: {:?}",
-		start.elapsed()
-	);
+	debug!(elapsed_time = ?start.elapsed(), "Deleted location from db;");
 
 	invalidate_query!(library, "locations.list");
 
-	info!("Location {location_id} deleted");
+	info!("Location deleted");
 
 	Ok(())
 }
 
 /// Will delete a directory recursively with Objects if left as orphans
 /// this function is used to delete a location and when ingesting directory deletion events
+#[instrument(skip_all, err)]
 pub async fn delete_directory(
 	library: &Library,
 	location_id: location::id::Type,
@@ -924,6 +943,7 @@ pub async fn delete_directory(
 	Ok(())
 }
 
+#[instrument(skip_all, err)]
 async fn check_nested_location(
 	location_path: impl AsRef<Path>,
 	db: &PrismaClient,
@@ -956,8 +976,8 @@ async fn check_nested_location(
 	let is_a_child_location = potential_children.into_iter().any(|v| {
 		let Some(location_path) = v.path else {
 			warn!(
-				"Missing location path on location <id='{}'> at check nested location",
-				v.id
+				location_id = %v.id,
+				"Missing location path on location at check nested location",
 			);
 			return false;
 		};
@@ -980,6 +1000,7 @@ async fn check_nested_location(
 	Ok(parents_count > 0 || is_a_child_location)
 }
 
+#[instrument(skip_all, err)]
 pub async fn update_location_size(
 	location_id: location::id::Type,
 	library: &Library,
@@ -1028,6 +1049,7 @@ pub async fn update_location_size(
 	Ok(())
 }
 
+#[instrument(skip_all, err)]
 pub async fn get_location_path_from_location_id(
 	db: &PrismaClient,
 	location_id: file_path::id::Type,
@@ -1049,6 +1071,7 @@ pub async fn get_location_path_from_location_id(
 		})
 }
 
+#[instrument(skip_all, err)]
 pub async fn create_file_path(
 	crate::location::Library { db, sync, .. }: &crate::location::Library,
 	IsolatedFilePathDataParts {
@@ -1059,7 +1082,7 @@ pub async fn create_file_path(
 		extension,
 		..
 	}: IsolatedFilePathDataParts<'_>,
-	cas_id: Option<String>,
+	cas_id: Option<CasId<'_>>,
 	metadata: sd_core_file_path_helper::FilePathMetadata,
 ) -> Result<file_path::Data, sd_core_file_path_helper::FilePathError> {
 	use sd_utils::db::inode_to_db;
@@ -1091,7 +1114,10 @@ pub async fn create_file_path(
 				),
 				location::connect(prisma::location::id::equals(location.id)),
 			),
-			((cas_id::NAME, msgpack!(cas_id)), cas_id::set(cas_id)),
+			(
+				(cas_id::NAME, msgpack!(cas_id)),
+				cas_id::set(cas_id.map(Into::into)),
+			),
 			(
 				(materialized_path::NAME, msgpack!(materialized_path)),
 				materialized_path::set(Some(materialized_path.into())),
@@ -1134,7 +1160,7 @@ pub async fn create_file_path(
 		.unzip()
 	};
 
-	let pub_id = sd_utils::uuid_to_bytes(Uuid::new_v4());
+	let pub_id = sd_utils::uuid_to_bytes(&Uuid::new_v4());
 
 	let created_path = sync
 		.write_ops(

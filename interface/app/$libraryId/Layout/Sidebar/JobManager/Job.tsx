@@ -9,7 +9,7 @@ import {
 	Trash
 } from '@phosphor-icons/react';
 import { memo } from 'react';
-import { JobProgressEvent, JobReport, useJobInfo } from '@sd/client';
+import { JobProgressEvent, Report, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useLocale } from '~/hooks';
@@ -17,7 +17,7 @@ import { useLocale } from '~/hooks';
 import JobContainer from './JobContainer';
 
 interface JobProps {
-	job: JobReport;
+	job: Report;
 	className?: string;
 	isChild?: boolean;
 	progress: JobProgressEvent | null;
@@ -41,12 +41,13 @@ function Job({ job, className, isChild, progress }: JobProps) {
 	if (job.status === 'CompletedWithErrors') {
 		const JobError = (
 			<pre className="custom-scroll inspector-scroll max-h-[300px] rounded border border-app-darkBox bg-app-darkBox/80 p-3">
-				{job.errors_text.map((error, i) => (
+				{job.non_critical_errors.map((error, i) => (
 					<p
 						className="mb-1 w-full overflow-auto whitespace-normal break-words text-sm"
 						key={i}
 					>
-						{error.trim()}
+						{/* TODO: Report errors in a nicer way */}
+						{JSON.stringify(error)}
 					</p>
 				))}
 			</pre>

@@ -13,7 +13,7 @@ import { useTopBarContext } from '../TopBar/Context';
 import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
-import { ExplorerPath, PATH_BAR_HEIGHT } from './ExplorerPath';
+import { ExplorerPathBar, PATH_BAR_HEIGHT } from './ExplorerPathBar';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
 import { getQuickPreviewStore } from './QuickPreview/store';
@@ -24,6 +24,9 @@ import { EmptyNotice } from './View/EmptyNotice';
 
 import 'react-slidedown/lib/slidedown.css';
 
+import clsx from 'clsx';
+
+import { ExplorerTagBar } from './ExplorerTagBar';
 import { useExplorerDnd } from './useExplorerDnd';
 
 interface Props {
@@ -38,7 +41,10 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const showInspector = useSelector(explorerStore, (s) => s.showInspector);
+	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
+		s.showInspector,
+		s.isTagAssignModeActive
+	]);
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 	const rspc = useRspcLibraryContext();
@@ -117,14 +123,20 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				</div>
 			</ExplorerContextMenu>
 
-			{showPathBar && <ExplorerPath />}
+			{/* TODO: wrap path bar and tag bar in nice wrapper, ideally animate tag bar in/out directly above path bar */}
+			<div className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
+				{showTagBar && <ExplorerTagBar />}
+				{showPathBar && <ExplorerPathBar />}
+			</div>
 
 			{showInspector && (
 				<Inspector
-					className="no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5"
+					className={clsx(
+						'no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5',
+						showPathBar && `b-[${PATH_BAR_HEIGHT}px]`
+					)}
 					style={{
-						paddingTop: topBar.topBarHeight + 12,
-						bottom: showPathBar ? PATH_BAR_HEIGHT : 0
+						paddingTop: topBar.topBarHeight + 12
 					}}
 				/>
 			)}

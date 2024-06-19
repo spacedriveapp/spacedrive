@@ -54,6 +54,7 @@ mod extract_data {
 		FFmpegAudioProps, FFmpegChapter, FFmpegCodec, FFmpegMediaData, FFmpegMetadata,
 		FFmpegProgram, FFmpegProps, FFmpegStream, FFmpegSubtitleProps, FFmpegVideoProps,
 	};
+	use sd_utils::i64_to_frontend;
 
 	impl From<FFmpegMediaData> for super::FFmpegMetadata {
 		fn from(
@@ -69,27 +70,9 @@ mod extract_data {
 		) -> Self {
 			Self {
 				formats,
-				duration: duration.map(|duration| {
-					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((duration >> 32) as i32, duration as u32)
-					}
-				}),
-				start_time: start_time.map(|start_time| {
-					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start_time >> 32) as i32, start_time as u32)
-					}
-				}),
-				bit_rate: {
-					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((bit_rate >> 32) as i32, bit_rate as u32)
-					}
-				},
+				duration: duration.map(i64_to_frontend),
+				start_time: start_time.map(i64_to_frontend),
+				bit_rate: i64_to_frontend(bit_rate),
 				chapters: chapters.into_iter().map(Into::into).collect(),
 				programs: programs.into_iter().map(Into::into).collect(),
 				metadata: metadata.into(),
@@ -117,20 +100,8 @@ mod extract_data {
 					}
 				},
 				// TODO: FIX these 2 when rspc/specta supports bigint
-				start: {
-					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((start >> 32) as i32, start as u32)
-					}
-				},
-				end: {
-					#[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-					{
-						// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
-						((end >> 32) as i32, end as u32)
-					}
-				},
+				start: i64_to_frontend(start),
+				end: i64_to_frontend(end),
 				time_base_num,
 				time_base_den,
 				metadata: metadata.into(),

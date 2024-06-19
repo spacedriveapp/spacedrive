@@ -8,6 +8,7 @@ use std::{
 	cmp::Ordering,
 	collections::HashMap,
 	fmt,
+	num::NonZeroU128,
 	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -55,7 +56,11 @@ impl Manager {
 	) -> New {
 		let (tx, rx) = broadcast::channel(64);
 
-		let clock = HLCBuilder::new().with_id(instance.into()).build();
+		let clock = HLCBuilder::new()
+			.with_id(uhlc::ID::from(
+				NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
+			))
+			.build();
 
 		let shared = Arc::new(SharedState {
 			db: db.clone(),
@@ -170,7 +175,7 @@ impl Manager {
 			.crdt_operation()
 			.find_many(vec![
 				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-					instance_uuid,
+					&instance_uuid,
 				))]),
 				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
 			])
@@ -199,7 +204,7 @@ impl Manager {
 						.map(|(instance_id, timestamp)| {
 							prisma_client_rust::and![
 								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									*instance_id
+									instance_id
 								))]),
 								$op::timestamp::gt(timestamp.as_u64() as i64)
 							]
@@ -211,7 +216,7 @@ impl Manager {
 										.clocks
 										.iter()
 										.map(|(instance_id, _)| {
-											uuid_to_bytes(*instance_id)
+											uuid_to_bytes(instance_id)
 										})
 										.collect()
 								)
@@ -258,7 +263,7 @@ impl Manager {
 						.map(|(instance_id, timestamp)| {
 							prisma_client_rust::and![
 								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									*instance_id
+									instance_id
 								))]),
 								$op::timestamp::gt(timestamp.as_u64() as i64)
 							]
@@ -270,7 +275,7 @@ impl Manager {
 										.clocks
 										.iter()
 										.map(|(instance_id, _)| {
-											uuid_to_bytes(*instance_id)
+											uuid_to_bytes(instance_id)
 										})
 										.collect()
 								)

@@ -110,7 +110,7 @@ impl<T: Clone, U> Sender<T, U> {
 		.await
 		.into_iter()
 		.filter_map(|x| {
-			x.map_err(|err| match err {
+			x.map_err(|e| match e {
 				SenderError::Finished(key) => {
 					self.0
 						.write()
@@ -240,7 +240,7 @@ impl<'a> Drop for Bomb<'a> {
 mod tests {
 	use std::{sync::Arc, time::Duration};
 
-	use aovec::Aovec;
+	use boxcar;
 
 	// Not using super because `use super as mpscrr` doesn't work :(
 	use crate::util::mpscrr;
@@ -255,7 +255,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_mpscrr() {
-		let stack = Arc::new(Aovec::new(5));
+		let stack = Arc::new(boxcar::Vec::new());
 
 		let (tx, rx) = mpscrr::unbounded_channel::<u8, u8>();
 
@@ -315,16 +315,12 @@ mod tests {
 		assert_eq!(result, vec![1, 2]);
 		// Check the order of operations
 		assert_eq!(
-			&aovec_to_vec(&stack),
+			&to_vec(&stack),
 			&[Step::Send, Step::RecvA, Step::RecvB, Step::SendComplete,]
 		)
 	}
 
-	fn aovec_to_vec<T: Clone>(a: &Aovec<T>) -> Vec<T> {
-		let mut v = Vec::with_capacity(a.len());
-		for i in 0..a.len() {
-			v.push(a.get(i).unwrap().clone());
-		}
-		v
+	fn to_vec<T: Clone>(a: &boxcar::Vec<T>) -> Vec<T> {
+		a.iter().map(|(_, entry)| entry).cloned().collect()
 	}
 }

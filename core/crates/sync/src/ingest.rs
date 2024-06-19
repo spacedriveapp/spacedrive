@@ -1,5 +1,6 @@
 use std::{
 	collections::BTreeMap,
+	num::NonZeroU128,
 	ops::Deref,
 	sync::{atomic::Ordering, Arc},
 };
@@ -113,10 +114,10 @@ impl Actor {
 			}
 			State::Ingesting(event) => {
 				debug!(
-					"ingesting {} operations: {} to {}",
-					event.messages.len(),
-					event.messages.first().unwrap().3.timestamp.as_u64(),
-					event.messages.last().unwrap().3.timestamp.as_u64(),
+					messages_count = event.messages.len(),
+					first_message = event.messages.first().unwrap().3.timestamp.as_u64(),
+					last_message = event.messages.last().unwrap().3.timestamp.as_u64(),
+					"Ingesting operations;",
 				);
 
 				for (instance, data) in event.messages.0 {
@@ -201,7 +202,10 @@ impl Actor {
 		// first, we update the HLC's timestamp with the incoming one.
 		// this involves a drift check + sets the last time of the clock
 		self.clock
-			.update_with_timestamp(&Timestamp::new(new_timestamp, instance.into()))
+			.update_with_timestamp(&Timestamp::new(
+				new_timestamp,
+				uhlc::ID::from(NonZeroU128::new(instance.to_u128_le()).expect("Non zero id")),
+			))
 			.expect("timestamp has too much drift!");
 
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
@@ -471,7 +475,11 @@ mod test {
 		let shared = Arc::new(SharedState {
 			db: sd_prisma::test_db().await,
 			instance,
-			clock: HLCBuilder::new().with_id(instance.into()).build(),
+			clock: HLCBuilder::new()
+				.with_id(uhlc::ID::from(
+					NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
+				))
+				.build(),
 			timestamps: Default::default(),
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
 			active: Default::default(),

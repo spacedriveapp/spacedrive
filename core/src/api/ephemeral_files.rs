@@ -7,11 +7,13 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{error::FileSystemJobsError, find_available_filename_for_duplicate},
-		media::exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
+		// media::exif_metadata_extractor::{can_extract_exif_data_for_image, extract_exif_data},
 	},
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_heavy_lifting::media_processor::exif_media_data;
+
 use sd_file_ext::{
 	extensions::{Extension, ImageExtension},
 	kind::ObjectKind,
@@ -64,18 +66,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						};
 
 						let image_extension = ImageExtension::from_str(extension).map_err(|e| {
-							error!("Failed to parse image extension: {e:#?}");
+							error!(?e, "Failed to parse image extension;");
 							rspc::Error::new(
 								ErrorCode::BadRequest,
 								"Invalid image extension".to_string(),
 							)
 						})?;
 
-						if !can_extract_exif_data_for_image(&image_extension) {
+						if !exif_media_data::can_extract(image_extension) {
 							return Ok(None);
 						}
 
-						let exif_data = extract_exif_data(full_path)
+						let exif_data = exif_media_data::extract(full_path)
 							.await
 							.map_err(|e| {
 								rspc::Error::with_cause(
@@ -91,7 +93,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Some(v) if v == ObjectKind::Audio || v == ObjectKind::Video => {
 						let ffmpeg_data = MediaData::FFmpeg(
 							FFmpegMetadata::from_path(full_path).await.map_err(|e| {
-								error!("{e:#?}");
+								error!(?e, "Failed to extract ffmpeg metadata;");
 								rspc::Error::with_cause(
 									ErrorCode::InternalServerError,
 									e.to_string(),
@@ -194,16 +196,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							match fs::metadata(&path).await {
 								Ok(_) => {
 									#[cfg(not(any(target_os = "ios", target_os = "android")))]
-									trash::delete(&path).unwrap();
+									trash::delete(&path).map_err(|e| {
+										FileIOError::from((
+											path,
+											match e {
+												#[cfg(all(unix, not(target_os = "macos")))]
+												trash::Error::FileSystem { path: _, source: e } => e,
+												_ => io::Error::other(e),
+											},
+											"Failed to delete file",
+										))
+									})?;
 
-									Ok(())
+									Ok::<_, rspc::Error>(())
 								}
 								Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
 								Err(e) => Err(FileIOError::from((
 									path,
 									e,
 									"Failed to get file metadata for deletion",
-								))),
+								))
+								.into()),
 							}
 						})
 						.collect::<Vec<_>>()
@@ -374,9 +387,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							fs::rename(&old_path, &new_path).await.map_err(|e| {
 								error!(
-									"Failed to rename file from: '{}' to: '{}'; Error: {e:#?}",
-									old_path.display(),
-									new_path.display()
+									old_path = %old_path.display(),
+									new_path = %new_path.display(),
+									?e,
+									"Failed to rename file;",
 								);
 								let e = FileIOError::from((old_path, e, "Failed to rename file"));
 								rspc::Error::with_cause(ErrorCode::Conflict, e.to_string(), e)
@@ -483,7 +497,7 @@ impl EphemeralFileSystemOps {
 					let target = target_dir.join(name);
 					Some((source, target))
 				} else {
-					warn!("Skipping file with no name: '{}'", source.display());
+					warn!(source = %source.display(), "Skipping file with no name;");
 					None
 				}
 			})
@@ -605,7 +619,7 @@ impl EphemeralFileSystemOps {
 					let target = target_dir.join(name);
 					Some((source, target))
 				} else {
-					warn!("Skipping file with no name: '{}'", source.display());
+					warn!(source = %source.display(), "Skipping file with no name;");
 					None
 				}
 			})

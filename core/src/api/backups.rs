@@ -150,15 +150,19 @@ async fn start_backup(node: Arc<Node>, library: Arc<Library>) -> Uuid {
 		match do_backup(bkp_id, &node, &library).await {
 			Ok(path) => {
 				info!(
-					"Backup '{bkp_id}' for library '{}' created at '{path:?}'!",
-					library.id
+					backup_id = %bkp_id,
+					library_id = %library.id,
+					path = %path.display(),
+					"Backup created!;",
 				);
 				invalidate_query!(library, "backups.getAll");
 			}
 			Err(e) => {
 				error!(
-					"Error with backup '{bkp_id}' for library '{}': {e:?}",
-					library.id
+					backup_id = %bkp_id,
+					library_id = %library.id,
+					?e,
+					"Error with backup for library;",
 				);
 
 				// TODO: Alert user something went wrong
@@ -282,10 +286,10 @@ async fn do_backup(id: Uuid, node: &Node, library: &Library) -> Result<PathBuf, 
 async fn start_restore(node: Arc<Node>, path: PathBuf) {
 	match restore_backup(&node, &path).await {
 		Ok(Header { id, library_id, .. }) => {
-			info!("Restored to '{id}' for library '{library_id}'!",);
+			info!(%id, %library_id, "Restored backup for library!");
 		}
 		Err(e) => {
-			error!("Error restoring backup '{}': {e:#?}", path.display());
+			error!(path = %path.display(), ?e, "Error restoring backup;");
 
 			// TODO: Alert user something went wrong
 		}

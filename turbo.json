@@ -16,5 +16,5 @@
 			"cache": false
 		}
 	},
-	"globalEnv": ["PORT", "NODE_ENV", "GENERATE_SOURCEMAP"]
+	"globalEnv": ["PORT", "NODE_ENV", "GENERATE_SOURCEMAP", "DEV"]
 }

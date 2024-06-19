@@ -1,4 +1,4 @@
-import { discordUrl, libraryName, privacyUrl } from '../fixtures/onboarding.json';
+import { libraryName, privacyUrl } from '../fixtures/onboarding.json';
 import {
 	libraryRegex,
 	newLibraryRegex,
@@ -39,7 +39,7 @@ describe('Onboarding', () => {
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
-		cy.get('@winOpen').should('be.calledWith', discordUrl);
+		cy.get('@winOpen').should('be.calledWithMatch', /https:\/\/discord.gg\/.+/);
 
 		// Check we have a button to continue to the Library creation
 		cy.get('a')

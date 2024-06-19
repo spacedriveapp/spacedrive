@@ -41,7 +41,7 @@ function onError(error: string) {
 	loginCallbacks.forEach((cb) => cb({ error }));
 }
 
-export function login(config: ProviderConfig) {
+export async function login(config: ProviderConfig) {
 	if (store.state.status !== 'notLoggedIn') return;
 
 	store.state = { status: 'loggingIn' };
@@ -86,10 +86,10 @@ export function login(config: ProviderConfig) {
 	});
 }
 
-export function logout() {
+export async function logout() {
 	store.state = { status: 'loggingOut' };
-	nonLibraryClient.mutation(['auth.logout']);
-	nonLibraryClient.query(['auth.me']);
+	await nonLibraryClient.mutation(['auth.logout']);
+	await nonLibraryClient.query(['auth.me']);
 	store.state = { status: 'notLoggedIn' };
 }
 

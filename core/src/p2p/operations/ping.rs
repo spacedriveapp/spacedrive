@@ -28,7 +28,7 @@ pub async fn ping(p2p: Arc<P2P>, identity: RemoteIdentity) -> Result<(), Box<dyn
 }
 
 pub(crate) async fn receiver(mut stream: UnicastStream) {
-	debug!("Received ping from peer '{}'", stream.remote_identity());
+	debug!(peer = %stream.remote_identity(), "Received ping from;");
 
 	stream
 		.write_all(b"PONG")

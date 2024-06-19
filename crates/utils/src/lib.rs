@@ -1,3 +1,32 @@
+#![warn(
+	clippy::all,
+	clippy::pedantic,
+	clippy::correctness,
+	clippy::perf,
+	clippy::style,
+	clippy::suspicious,
+	clippy::complexity,
+	clippy::nursery,
+	clippy::unwrap_used,
+	unused_qualifications,
+	rust_2018_idioms,
+	trivial_casts,
+	trivial_numeric_casts,
+	unused_allocation,
+	clippy::unnecessary_cast,
+	clippy::cast_lossless,
+	clippy::cast_possible_truncation,
+	clippy::cast_possible_wrap,
+	clippy::cast_precision_loss,
+	clippy::cast_sign_loss,
+	clippy::dbg_macro,
+	clippy::deprecated_cfg_attr,
+	clippy::separated_literal_suffix,
+	deprecated
+)]
+#![forbid(deprecated_in_future)]
+#![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
+
 use uuid::Uuid;
 
 pub mod db;
@@ -17,11 +46,36 @@ pub fn chain_optional_iter<T>(
 		.collect()
 }
 
+#[inline]
 #[must_use]
-pub fn uuid_to_bytes(uuid: Uuid) -> Vec<u8> {
+pub const fn u64_to_frontend(num: u64) -> (u32, u32) {
+	#[allow(clippy::cast_possible_truncation)]
+	{
+		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
+		((num >> 32) as u32, num as u32)
+	}
+}
+
+#[inline]
+#[must_use]
+pub const fn i64_to_frontend(num: i64) -> (i32, u32) {
+	#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+	{
+		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
+		((num >> 32) as i32, num as u32)
+	}
+}
+
+#[inline]
+#[must_use]
+pub fn uuid_to_bytes(uuid: &Uuid) -> Vec<u8> {
 	uuid.as_bytes().to_vec()
 }
 
+/// Converts a byte slice to a `Uuid`
+/// # Panics
+/// Panics if the byte slice is not a valid `Uuid` which means we have a corrupted database
+#[inline]
 #[must_use]
 pub fn from_bytes_to_uuid(bytes: &[u8]) -> Uuid {
 	Uuid::from_slice(bytes).expect("corrupted uuid in database")
@@ -43,6 +97,8 @@ macro_rules! msgpack {
 // Only used for testing purposes. Do not use in production code.
 use std::any::type_name;
 
+#[inline]
+#[must_use]
 pub fn test_type_of<T>(_: T) -> &'static str {
 	type_name::<T>()
 }

@@ -37,7 +37,7 @@ impl LibraryPreferences {
 			kvs.into_iter()
 				.filter_map(|data| {
 					rmpv::decode::read_value(&mut data.value?.as_slice())
-						.map_err(|e| error!("{e:#?}"))
+						.map_err(|e| error!(?e))
 						.ok()
 						.map(|value| {
 							(
