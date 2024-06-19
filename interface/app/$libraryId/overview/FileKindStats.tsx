@@ -128,7 +128,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
   return (
     <div className="flex justify-center">
       <Card ref={containerRef} className="max-w-1/2 group mx-1 flex h-[220px] w-full min-w-[400px] shrink-0 flex-col bg-app-box/50">
-        <div className={TOTAL_FILES_CLASS}>
+        <div className={TOTAL_FILES_CLASSLIST}>
           <Tooltip className="flex items-center" label={t("bar_graph_info")}>
             <div className="flex items-center gap-2">
               <span className={`${isDark ? "text-white" : "text-black"} text-xl font-black`}>
@@ -136,11 +136,11 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
               </span>
 			  <div className="flex items-center">
 			  {t("total_files")}
-			  <Info weight="fill" className={`ml-1 ${INFO_ICON_CLASS} opacity-0 transition-opacity duration-300 group-hover:opacity-70`} />
+			  <Info weight="fill" className={`ml-1 ${INFO_ICON_CLASSLIST} opacity-0 transition-opacity duration-300 group-hover:opacity-70`} />
 			  </div>
             </div>
           </Tooltip>
-          <div className={UNIDENTIFIED_FILES_CLASS}>
+          <div className={UNIDENTIFIED_FILES_CLASSLIST}>
             <Tooltip label={t("unidentified_files_info")}>
               <span>{data?.total_unidentified_files ? formatNumberWithCommas(data.total_unidentified_files - data.total_identified_files) : "0"} unidentified files</span>
             </Tooltip>
