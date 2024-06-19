@@ -16,8 +16,6 @@ import NewCard from './NewCard';
 import StatisticItem from './StatCard';
 
 export const Component = () => {
-
-
 	useRouteTitle('Overview');
 	const os = useOperatingSystem();
 

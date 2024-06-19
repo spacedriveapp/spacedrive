@@ -8,9 +8,9 @@ import { useLocale } from '~/hooks';
 import { Info } from '@phosphor-icons/react';
 import { motion } from 'framer-motion';
 
-const INFO_ICON_CLASS = "inline size-3 text-ink-faint opacity-0";
-const TOTAL_FILES_CLASS = "flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1";
-const UNIDENTIFIED_FILES_CLASS = "relative flex items-center text-xs text-ink-faint";
+const INFO_ICON_CLASSLIST = "inline size-3 text-ink-faint opacity-0";
+const TOTAL_FILES_CLASSLIST = "flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1";
+const UNIDENTIFIED_FILES_CLASSLIST = "relative flex items-center text-xs text-ink-faint";
 
 const interpolateColor = (color1: string, color2: string, factor: number) => {
   const hex = (color: string) => parseInt(color.slice(1), 16);
