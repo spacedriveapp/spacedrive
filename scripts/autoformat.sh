@@ -44,7 +44,9 @@ if [ -n "$(git diff --name-only HEAD)" ] || [ -n "$(git ls-files --others --excl
 fi
 
 # Find the common ancestor of the current branch and main
-if ! ancestor="$(git merge-base HEAD origin/main)"; then
+if [ -n "${CI:-}" ]; then
+  ancestor="HEAD"
+elif ! ancestor="$(git merge-base HEAD origin/main)"; then
   echo "Failed to find the common ancestor of the current branch and main." >&2
   exit 1
 fi
