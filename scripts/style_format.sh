@@ -2,11 +2,21 @@
 
 set -Eeumo pipefail
 
-has () {
+has() {
   command -v "$1" >/dev/null 2>&1
 }
 
-cleanup () {
+exit() {
+  _exit=$?
+  set +e
+  trap '' SIGINT
+  if [ "$_exit" -ne 0 ]; then
+    git restore --staged .
+    git restore .
+  fi
+}
+
+cleanup() {
   set +e
   trap '' SIGINT
   git restore --staged .
@@ -15,6 +25,7 @@ cleanup () {
   kill -- -$$ 2>/dev/null
 }
 
+trap 'exit' EXIT
 trap 'cleanup' SIGINT
 
 if ! has git pnpm; then
@@ -49,7 +60,7 @@ cargo clippy --fix --all --all-targets --all-features --allow-dirty --allow-stag
 cargo fmt --all
 
 # Add all fixes for changes made in this branch
-git diff --cached --name-only  "$ancestor" | xargs git add
+git diff --cached --name-only "$ancestor" | xargs git add
 
 # Restore unrelated changes
 git restore .
