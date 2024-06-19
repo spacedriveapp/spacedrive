@@ -188,12 +188,13 @@ where
 	) -> impl Future<Output = Result<Self, Self::DeserializeError>> + Send;
 }
 
-/// Intermediate struct to wait until a pause or a cancel commands are sent by the user.
-#[must_use = "`InterrupterFuture` does nothing unless polled"]
-#[pin_project::pin_project]
-pub struct InterrupterFuture<'recv> {
-	#[pin]
-	fut: chan::Recv<'recv, InterruptionRequest>,
+pin_project_lite::pin_project! {
+	/// Intermediate struct to wait until a pause or a cancel commands are sent by the user.
+	#[must_use = "`InterrupterFuture` does nothing unless polled"]
+	pub struct InterrupterFuture<'recv> {
+		#[pin]
+		fut: chan::Recv<'recv, InterruptionRequest>,
+	}
 }
 
 impl Future for InterrupterFuture<'_> {

@@ -115,30 +115,31 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					if let Some(model) = new_model {
 						let version = model.version().to_string();
 						tokio::spawn(async move {
-							let notification =
-								if let Some(image_labeller) = node.old_image_labeller.as_ref() {
-									if let Err(e) = image_labeller.change_model(model).await {
-										NotificationData {
-											title: String::from(
-												"Failed to change image detection model",
-											),
-											content: format!("Error: {e}"),
-											kind: NotificationKind::Error,
-										}
-									} else {
-										NotificationData {
-											title: String::from("Model download completed"),
-											content: format!("Sucessfuly loaded model: {version}"),
-											kind: NotificationKind::Success,
-										}
+							let notification = if let Some(image_labeller) =
+								node.old_image_labeller.as_ref()
+							{
+								if let Err(e) = image_labeller.change_model(model).await {
+									NotificationData {
+										title: String::from(
+											"Failed to change image detection model",
+										),
+										content: format!("Error: {e}"),
+										kind: NotificationKind::Error,
 									}
 								} else {
 									NotificationData {
+										title: String::from("Model download completed"),
+										content: format!("Successfully loaded model: {version}"),
+										kind: NotificationKind::Success,
+									}
+								}
+							} else {
+								NotificationData {
 									title: String::from("Failed to change image detection model"),
 									content: "The AI system is disabled due to a previous error. Contact support for help.".to_string(),
 									kind: NotificationKind::Success,
 								}
-								};
+							};
 
 							node.emit_notification(notification, None).await;
 						});
@@ -184,7 +185,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("updateThumbnailerPreferences", {
 			#[derive(Deserialize, Type)]
 			pub struct UpdateThumbnailerPreferences {
-				pub background_processing_percentage: u8, // 0-100
+				// pub background_processing_percentage: u8, // 0-100
 			}
 			R.mutation(
 				|node, UpdateThumbnailerPreferences { .. }: UpdateThumbnailerPreferences| async move {
