@@ -55,9 +55,11 @@ wait
 pnpm run format &
 wait
 
-# Run clippy and formatter for backend
-cargo clippy --fix --all --all-targets --all-features --allow-dirty --allow-staged
-cargo fmt --all
+if [ "${1:-}" != "only-frontend" ]; then
+  # Run clippy and formatter for backend
+  cargo clippy --fix --all --all-targets --all-features --allow-dirty --allow-staged
+  cargo fmt --all
+fi
 
 # Add all fixes for changes made in this branch
 git diff --cached --name-only "$ancestor" | xargs git add
