@@ -241,6 +241,7 @@ jobs:
               - 'extensions/*/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
 
       - name: Setup System and Rust
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
