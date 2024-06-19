@@ -169,8 +169,11 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 							<span>
 								{data?.total_unidentified_files
 									? formatNumberWithCommas(
-											data.total_unidentified_files -
-												data.total_identified_files
+											Math.max(
+												data.total_unidentified_files -
+													data.total_identified_files,
+												data.total_unidentified_files
+											)
 										)
 									: '0'}{' '}
 								unidentified files
