@@ -22,7 +22,7 @@ jobs:
   typescript:
     name: Type and style check
     runs-on: ubuntu-22.04
-    timeout-minutes: 3
+    timeout-minutes: 7
     permissions: {}
     steps:
       - name: Checkout repository
