@@ -383,7 +383,7 @@ export type JobProgressEvent = { id: string; library_id: string; task_count: num
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
-export type KindStatistic = { kind: number; name: string; count: number; total_bytes: string }
+export type KindStatistic = { kind: number; name: string; count: [number, number]; total_bytes: [number, number] }
 
 export type KindStatistics = { statistics: KindStatistic[]; total_identified_files: number; total_unidentified_files: number }
 

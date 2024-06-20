@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import React, { MouseEventHandler, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useLibraryQuery } from '@sd/client';
+import { KindStatistic, uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
 import { Card, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
@@ -13,10 +13,10 @@ const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1';
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
 
-const mapFractionalValue = (numerator: number, denominator: number, maxValue: number): string =>
-	((numerator / denominator) * maxValue).toFixed(2);
+const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string =>
+	((numerator / denominator) * maxValue).toString();
 
-const formatNumberWithCommas = (number: number) => number.toLocaleString();
+const formatNumberWithCommas = (number: number | bigint) => number.toLocaleString();
 
 const interpolateHexColor = (color1: string, color2: string, factor: number): string => {
 	const hex = (color: string) => parseInt(color.slice(1), 16);
@@ -30,15 +30,9 @@ const interpolateHexColor = (color1: string, color2: string, factor: number): st
 	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
 };
 
-interface KindStatistic {
-	kind: number;
-	name: string;
-	count: number;
-}
-
 interface FileKind {
 	kind: string;
-	count: number;
+	count: bigint;
 	id: number;
 }
 
@@ -54,12 +48,15 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-	const BAR_MAX_HEIGHT = 115;
+	const BAR_MAX_HEIGHT = 115n;
 	const BAR_COLOR_START = '#3A7ECC';
 	const BAR_COLOR_END = '#004C99';
 
-	const formatCount = (count: number) =>
-		count >= 1000 ? (count / 1000).toFixed(0) + 'K' : count.toString();
+	const formatCount = (count: number | bigint): string => {
+		const bigIntCount = typeof count === 'number' ? BigInt(count) : count;
+
+		return bigIntCount >= 1000n ? `${bigIntCount / 1000n}K` : count.toString();
+	};
 
 	const handleResize = useCallback(() => {
 		if (containerRef.current) {
@@ -95,11 +92,20 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	useEffect(() => {
 		if (data) {
 			const statistics: KindStatistic[] = data.statistics
-				.filter((item) => item.kind !== 0 && item.count !== 0)
-				.sort((a, b) => b.count - a.count);
+				.filter((item) => item.kind !== 0 && uint32ArrayToBigInt(item.count) !== 0n)
+				.sort((a, b) => {
+					const aCount = uint32ArrayToBigInt(a.count);
+					const bCount = uint32ArrayToBigInt(b.count);
+					if (aCount === bCount) return 0;
+					return aCount > bCount ? -1 : 1;
+				});
 
 			setFileKinds(
-				statistics.map((item) => ({ kind: item.name, count: item.count, id: item.kind }))
+				statistics.map((item) => ({
+					kind: item.name,
+					count: uint32ArrayToBigInt(item.count),
+					id: item.kind
+				}))
 			);
 
 			statistics.forEach((item) => {
@@ -113,11 +119,12 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		}
 	}, [data, isDark]);
 
-	const sortedFileKinds = [...fileKinds].sort((a, b) => b.count - a.count);
-	let maxFileCount: number;
-	if (sortedFileKinds && sortedFileKinds[0]) {
-		maxFileCount = sortedFileKinds.length > 0 ? sortedFileKinds[0].count : 0;
-	}
+	const sortedFileKinds = [...fileKinds].sort((a, b) => {
+		if (a.count === b.count) return 0;
+		return a.count > b.count ? -1 : 1;
+	});
+
+	const maxFileCount = sortedFileKinds && sortedFileKinds[0] ? sortedFileKinds[0].count : 0n;
 
 	const barGap = 12;
 	const barCount = sortedFileKinds.length;
@@ -168,10 +175,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 						<Tooltip label={t('unidentified_files_info')}>
 							<span>
 								{data?.total_unidentified_files
-									? formatNumberWithCommas(
-											data.total_unidentified_files -
-												data.total_identified_files
-										)
+									? formatNumberWithCommas(data.total_unidentified_files)
 									: '0'}{' '}
 								unidentified files
 							</span>

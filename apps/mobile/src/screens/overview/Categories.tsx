@@ -1,7 +1,7 @@
-import { useLibraryQuery } from '@sd/client';
 import { useMemo } from 'react';
 import { FlatList, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
+import { uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import CategoryItem from '~/components/overview/CategoryItem';
@@ -22,7 +22,14 @@ const CategoriesScreen = () => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<FlatList
-				data={filteredKinds?.sort((a, b) => b.count - a.count).filter((i) => i.kind !== 0)}
+				data={filteredKinds
+					?.sort((a, b) => {
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
+						if (aCount === bCount) return 0;
+						return aCount > bCount ? -1 : 1;
+					})
+					.filter((i) => i.kind !== 0)}
 				numColumns={3}
 				contentContainerStyle={tw`py-6`}
 				keyExtractor={(item) => item.name}
@@ -46,7 +53,7 @@ const CategoriesScreen = () => {
 							kind={kind}
 							name={name}
 							icon={icon}
-							items={count}
+							items={uint32ArrayToBigInt(count)}
 						/>
 					);
 				}}
