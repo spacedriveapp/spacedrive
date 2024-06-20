@@ -252,10 +252,7 @@ impl Actor {
 								.race()
 								.await,
 							Race::Ticked
-						) {
-							/* Everything is Awesome! */
-						}
-
+						) { /* Everything is Awesome! */ }
 					}
 				},
 				true,
