@@ -28,6 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub p2p_manual_peers: Option<HashSet<String>>,
+				#[cfg(feature = "ai")]
 				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {

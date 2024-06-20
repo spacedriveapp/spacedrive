@@ -170,7 +170,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type CasId = string
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
