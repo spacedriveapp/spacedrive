@@ -215,6 +215,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				}
 
+				// This is a workaround for the fact that we don't assign object to directories yet
+				if let Some(count_and_size) =
+					statistics_by_kind.get_mut(&(ObjectKind::Folder as i32))
+				{
+					count_and_size.count = library
+						.db
+						.file_path()
+						.count(vec![file_path::is_dir::equals(Some(true))])
+						.exec()
+						.await? as u64;
+				}
+
 				Ok(KindStatistics {
 					statistics: ObjectKind::iter()
 						.map(|kind| {
