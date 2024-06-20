@@ -97,6 +97,8 @@ After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `car
 
 Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
 
+After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
+
 ##### Mobile App
 
 To run the mobile app:
