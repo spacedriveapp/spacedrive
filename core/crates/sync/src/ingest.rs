@@ -207,7 +207,9 @@ impl Actor {
 		}
 
 		if let Some(tx) = event.wait_tx {
-			tx.send(()).ok();
+			if tx.send(()).is_err() {
+				warn!("Failed to send wait_tx signal");
+			}
 		}
 
 		if event.has_more {

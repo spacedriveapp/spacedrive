@@ -205,8 +205,7 @@ async fn no_update_after_delete() -> Result<(), Box<dyn std::error::Error>> {
 			),
 			instance1.db.location().find_many(vec![]),
 		)
-		.await
-		.ok();
+		.await?;
 
 	// one spare update operation that actually gets ignored by instance 2
 	assert_eq!(instance1.db.crdt_operation().count(vec![]).exec().await?, 5);

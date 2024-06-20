@@ -146,7 +146,7 @@ impl Instance {
 								}
 							}
 							ingest::Request::FinishedIngesting => {
-								right.sync.tx.send(SyncMessage::Ingested).ok();
+								right.sync.tx.send(SyncMessage::Ingested).unwrap();
 							}
 						}
 					}
