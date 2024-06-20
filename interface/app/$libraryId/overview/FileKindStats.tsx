@@ -13,8 +13,10 @@ const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1';
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
 
-const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string =>
-	((numerator / denominator) * maxValue).toString();
+const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
+	const result = ((numerator * maxValue) / denominator).toString();
+	return result;
+};
 
 const formatNumberWithCommas = (number: number | bigint) => number.toLocaleString();
 
@@ -129,8 +131,6 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const barGap = 12;
 	const barCount = sortedFileKinds.length;
 	const totalGapWidth = barGap * (barCount - 5);
-	const barWidth = barCount > 0 ? (cardWidth - totalGapWidth) / barCount : 0;
-
 	const makeBarClickHandler =
 		(fileKind: FileKind): MouseEventHandler<HTMLDivElement> | undefined =>
 		() => {
@@ -193,7 +193,6 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 
 						const barHeight =
 							mapFractionalValue(fileKind.count, maxFileCount, BAR_MAX_HEIGHT) + 'px';
-
 						return (
 							<>
 								<Tooltip
