@@ -7,6 +7,7 @@ import { useIsDark } from '~/hooks';
 //change this to dynamically change the width of the bar (needed since each section's width is calculated independently)
 const BARWIDTH = 520;
 
+//TODO: possibly change in the future to use base tailwind styling?
 const lightenColor = (color: string, percent: number) => {
 	const num = parseInt(color.replace('#', ''), 16);
 	const amt = Math.round(2.55 * percent);
