@@ -63,7 +63,7 @@ export async function createModal(
 								type: 'plain_text',
 								text: 'View Commit'
 							},
-							url: `${github.REPO_API}/commit/${commit}`
+							url: `${github.REPO_API}/commits/${commit}`
 						},
 						text: {
 							type: 'mrkdwn',
