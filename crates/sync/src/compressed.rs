@@ -1,3 +1,5 @@
+use std::mem;
+
 use serde::{Deserialize, Serialize};
 use uhlc::NTP64;
 use uuid::Uuid;
@@ -6,11 +8,12 @@ use crate::{CRDTOperation, CRDTOperationData};
 
 pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
 
-/// Stores a bunch of CRDTOperations in a more memory-efficient form for sending to the cloud.
+/// Stores a bunch of [`CRDTOperation`]s in a more memory-efficient form for sending to the cloud.
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct CompressedCRDTOperations(pub Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>);
 
 impl CompressedCRDTOperations {
+	#[must_use]
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
 		let mut compressed = vec![];
 
@@ -32,34 +35,34 @@ impl CompressedCRDTOperations {
 		for op in ops_iter {
 			if instance_id != op.instance {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id.clone()),
-					std::mem::take(&mut record),
+					mem::replace(&mut record_id, op.record_id.clone()),
+					mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model),
-					std::mem::take(&mut model),
+					mem::replace(&mut model_str, op.model),
+					mem::take(&mut model),
 				));
 				compressed.push((
-					std::mem::replace(&mut instance_id, op.instance),
-					std::mem::take(&mut instance),
+					mem::replace(&mut instance_id, op.instance),
+					mem::take(&mut instance),
 				));
 			} else if model_str != op.model {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id.clone()),
-					std::mem::take(&mut record),
+					mem::replace(&mut record_id, op.record_id.clone()),
+					mem::take(&mut record),
 				));
 				instance.push((
-					std::mem::replace(&mut model_str, op.model),
-					std::mem::take(&mut model),
+					mem::replace(&mut model_str, op.model),
+					mem::take(&mut model),
 				));
 			} else if record_id != op.record_id {
 				model.push((
-					std::mem::replace(&mut record_id, op.record_id.clone()),
-					std::mem::take(&mut record),
+					mem::replace(&mut record_id, op.record_id.clone()),
+					mem::take(&mut record),
 				));
 			}
 
-			record.push(CompressedCRDTOperation::from(op))
+			record.push(CompressedCRDTOperation::from(op));
 		}
 
 		model.push((record_id, record));
@@ -69,6 +72,7 @@ impl CompressedCRDTOperations {
 		Self(compressed)
 	}
 
+	#[must_use]
 	pub fn first(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
 		self.0.first().and_then(|(instance, data)| {
 			data.first().and_then(|(model, data)| {
@@ -78,6 +82,7 @@ impl CompressedCRDTOperations {
 		})
 	}
 
+	#[must_use]
 	pub fn last(&self) -> Option<(Uuid, u16, &rmpv::Value, &CompressedCRDTOperation)> {
 		self.0.last().and_then(|(instance, data)| {
 			data.last().and_then(|(model, data)| {
@@ -104,6 +109,7 @@ impl CompressedCRDTOperations {
 		self.len() == 0
 	}
 
+	#[must_use]
 	pub fn into_ops(self) -> Vec<CRDTOperation> {
 		let mut ops = vec![];
 
@@ -117,7 +123,7 @@ impl CompressedCRDTOperations {
 							record_id: record_id.clone(),
 							timestamp: op.timestamp,
 							data: op.data,
-						})
+						});
 					}
 				}
 			}
