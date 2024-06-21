@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { humanizeSize } from '@sd/client';
-import { Tooltip } from '@sd/ui'; // Ensure you import your Tooltip component correctly
-
+import { Tooltip } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 
-//change this to dynamically change the width of the bar (needed since each section's width is calculated independently)
-const BARWIDTH = 520;
+const BARWIDTH = 700;
 
-//TODO: possibly change in the future to use base tailwind styling?
 const lightenColor = (color: string, percent: number) => {
 	const num = parseInt(color.replace('#', ''), 16);
 	const amt = Math.round(2.55 * percent);
@@ -50,10 +47,13 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
 	const usedSpace = sections.reduce((acc, section) => acc + section.value, 0);
 	const unusedSpace = totalSpace - usedSpace;
 
+	const nonSystemSections = sections.filter((section) => section.name !== 'System Data');
+	const systemSection = sections.find((section) => section.name === 'System Data');
+
 	return (
 		<div className="w-auto p-3">
 			<div className="relative mt-1 flex h-6 overflow-hidden rounded">
-				{sections.map((section, index) => {
+				{nonSystemSections.map((section, index) => {
 					const humanizedValue = humanizeSize(section.value);
 					const isHovered = hoveredSectionIndex === index;
 
@@ -81,12 +81,28 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
 				})}
 				{unusedSpace > 0 && (
 					<div
-						className="relative h-full rounded-r"
+						className="relative h-full"
 						style={{
 							width: getPercentage(unusedSpace),
 							backgroundColor: isDark ? '#1C1D25' : '#D3D3D3'
 						}}
 					/>
+				)}
+				{systemSection && (
+					<Tooltip
+						label={`${humanizeSize(systemSection.value).value} ${humanizeSize(systemSection.value).unit}`}
+						position="top"
+					>
+						<div
+							className="relative h-full rounded-r"
+							style={{
+								width: getPercentage(systemSection.value),
+								minWidth: '2px',
+								backgroundColor: systemSection.color,
+								transition: 'background-color 0.3s ease-in-out'
+							}}
+						/>
+					</Tooltip>
 				)}
 			</div>
 			<div className={`mt-6 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>

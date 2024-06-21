@@ -77,6 +77,9 @@ const LibraryStats = () => {
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
 	const stats = useLibraryQuery(['library.statistics']);
+	const storageBarData = useLibraryQuery(['library.kindStatistics']).data?.statistics;
+	console.log(storageBarData);
+	console.log(stats);
 	const { t } = useLocale();
 
 	useEffect(() => {
@@ -84,21 +87,19 @@ const LibraryStats = () => {
 	}, [stats.isLoading]);
 
 	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
+		total_local_bytes_capacity: t('total_bytes_capacity'),
+		total_local_bytes_free: t('total_bytes_free'),
 		total_library_bytes: t('library_bytes'),
 		library_db_size: t('library_db_size'),
-		total_local_bytes_capacity: t('total_bytes_capacity'),
-		total_library_preview_media_bytes: t('preview_media_bytes'),
-		total_local_bytes_free: t('total_bytes_free'),
-		total_local_bytes_used: t('total_bytes_used')
+		total_library_preview_media_bytes: t('preview_media_bytes')
 	};
 
 	const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+		total_local_bytes_capacity: t('total_bytes_capacity_description'),
+		total_local_bytes_free: t('total_bytes_free_description'),
 		total_library_bytes: t('library_bytes_description'),
 		library_db_size: t('library_db_size_description'),
-		total_local_bytes_capacity: t('total_bytes_capacity_description'),
-		total_library_preview_media_bytes: t('preview_media_bytes_description'),
-		total_local_bytes_free: t('total_bytes_free_description'),
-		total_local_bytes_used: t('total_bytes_used_description')
+		total_library_preview_media_bytes: t('preview_media_bytes_description')
 	};
 
 	const displayableStatItems = Object.keys(
@@ -111,40 +112,63 @@ const LibraryStats = () => {
 
 	const { statistics } = stats.data;
 	const totalSpace = Number(statistics.total_local_bytes_capacity);
+	const totalUsedSpace = Number(statistics.total_local_bytes_used);
 
-	const sections = [
-		{
-			name: StatItemNames.library_db_size,
-			value: Number(statistics.library_db_size),
-			color: '#75B1F9', // Light mode gradient start
-			tooltip: StatDescriptions.library_db_size
+	// Define the major categories and aggregate the "Other" category
+	const majorCategories = ['Document', 'Text', 'Image', 'Video'];
+	const aggregatedData = (storageBarData ?? []).reduce(
+		(acc, curr) => {
+			const category = majorCategories.includes(curr.name) ? curr.name : 'Other';
+			if (!acc[category]) {
+				acc[category] = { total_bytes: 0 };
+			}
+			acc[category]!.total_bytes += curr.total_bytes[1];
+			return acc;
 		},
-		{
-			name: StatItemNames.total_library_preview_media_bytes,
-			value: Number(statistics.total_library_preview_media_bytes),
-			color: '#3A7ECC',
-			tooltip: StatDescriptions.total_library_preview_media_bytes
-		},
-		{
-			name: StatItemNames.total_local_bytes_used,
-			value: Number(statistics.total_local_bytes_used),
-			color: '#004C99',
-			tooltip: StatDescriptions.total_local_bytes_used
-		}
-	];
+		{} as Record<string, { total_bytes: number }>
+	);
 
-	const excludedKeys = [
-		'library_db_size',
-		'total_library_preview_media_bytes',
-		'total_local_bytes_used'
-	];
+	// Calculate the used space and determine the System Data
+	const usedSpace = Object.values(aggregatedData).reduce(
+		(acc, curr) => acc + curr.total_bytes,
+		0
+	);
+	const systemDataBytes = totalUsedSpace - usedSpace;
+
+	if (!aggregatedData['Other']) {
+		aggregatedData['Other'] = { total_bytes: 0 };
+	}
+
+	const sections: Section[] = Object.entries(aggregatedData).map(([name, data], index) => {
+		const colors = [
+			'#3A7ECC', // Slightly Darker Blue 400
+			'#AAAAAA', // Gray
+			'#004C99', // Tailwind Blue 700
+			'#2563EB', // Tailwind Blue 500
+			'#00274D' // Dark Navy Blue,
+		];
+
+		const color = colors[index % colors.length] || '#8F8F8F'; // Use a default color if colors array is empty
+		return {
+			name,
+			value: data.total_bytes,
+			color,
+			tooltip: `${name}`
+		};
+	});
+
+	// Add System Data section
+	sections.push({
+		name: 'System Data',
+		value: systemDataBytes,
+		color: '#707070', // Gray for System Data
+		tooltip: 'System data that exists outside of your Spacedrive library'
+	});
 
 	return (
-		<Card className="flex h-[220px] w-[572px] shrink-0 flex-col bg-app-box/50">
-			<div className="mb-1 flex gap-4 overflow-hidden p-4">
+		<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
+			<div className="mb-1 flex overflow-hidden p-4">
 				{Object.entries(statistics)
-					.filter(([key]) => !excludedKeys.includes(key))
-					// sort the stats by the order of the displayableStatItems
 					.sort(
 						([a], [b]) =>
 							displayableStatItems.indexOf(a) - displayableStatItems.indexOf(b)
@@ -163,7 +187,7 @@ const LibraryStats = () => {
 					})}
 			</div>
 			<div>
-				<StorageBar sections={sections as Section[]} totalSpace={totalSpace} />
+				<StorageBar sections={sections} totalSpace={totalSpace} />
 			</div>
 		</Card>
 	);

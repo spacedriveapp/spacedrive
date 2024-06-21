@@ -94,8 +94,11 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	useEffect(() => {
 		if (data) {
 			const statistics: KindStatistic[] = data.statistics
-				.filter((item) => item.kind !== 0 && uint32ArrayToBigInt(item.count) !== 0n)
-				.sort((a, b) => {
+				.filter(
+					(item: { kind: number; count: any }) =>
+						item.kind !== 0 && uint32ArrayToBigInt(item.count) !== 0n
+				)
+				.sort((a: { count: any }, b: { count: any }) => {
 					const aCount = uint32ArrayToBigInt(a.count);
 					const bCount = uint32ArrayToBigInt(b.count);
 					if (aCount === bCount) return 0;
