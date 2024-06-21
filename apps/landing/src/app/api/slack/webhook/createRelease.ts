@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { env } from '~/env';
 
 import * as github from './github';
-import { createSlashCommand, createViewSubmission, USER_REF } from './utils';
+import { createBlockActions, createSlashCommand, createViewSubmission, USER_REF } from './utils';
 
 export const callbackId = 'createReleaseModal' as const;
 export const fields = {
@@ -17,7 +17,7 @@ export const fields = {
 } as const;
 
 export const COMMAND_NAME = '/release' as const;
-export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME), createViewSubmission()] as const;
+export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME), createViewSubmission(), createBlockActions()] as const;
 
 export async function createModal(
 	trigger_id: string,

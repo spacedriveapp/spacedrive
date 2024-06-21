@@ -19,6 +19,8 @@ export async function POST(req: Request) {
 	console.log('Parsed body:', Object.fromEntries([...new URLSearchParams(body)]));
 
 	const parsedBody = BODY.safeParse(Object.fromEntries([...new URLSearchParams(body)]));
+	console.log('Parsed body (zod):', parsedBody);
+
 	if (!parsedBody.success) {
 		console.log(parsedBody.error);
 		return new Response('Unexpected request', { status: 400 });
