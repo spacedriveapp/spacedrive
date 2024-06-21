@@ -141,7 +141,6 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 				} else {
 					source = { uri: src };
 				}
-				console.log(source, 'source')
 				return <Image source={source} style={{ width: 70 * size, height: 70 * size }} />;
 			})()}
 		</FileThumbWrapper>
