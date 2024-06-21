@@ -15,11 +15,7 @@ export async function POST(req: Request) {
 	const isValid = await isValidSlackRequest(req.headers, body);
 	if (!isValid.valid) return new Response(isValid.error, { status: 400 });
 
-	console.log('Received request:', body);
-	console.log('Parsed body:', Object.fromEntries([...new URLSearchParams(body)]));
-
 	const parsedBody = BODY.safeParse(Object.fromEntries([...new URLSearchParams(body)]));
-	console.log('Parsed body (zod):', parsedBody);
 
 	if (!parsedBody.success) {
 		console.log(parsedBody.error);

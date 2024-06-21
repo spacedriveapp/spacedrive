@@ -185,8 +185,6 @@ export async function handleSubmission(
 
 	const { tag, commit, responseUrl } = JSON.parse(privateMetadata);
 
-	console.log("Creating release", { tag, commit, responseUrl, tagline });
-
 	const createTag = await fetch(`${github.REPO_API}/git/tags`, {
 		method: 'POST',
 		body: JSON.stringify({
@@ -198,8 +196,6 @@ export async function handleSubmission(
 		headers: github.HEADERS
 	}).then((r) => r.json());
 
-	console.log("Created tag", createTag);
-
 	const getRef = await fetch(`${github.REPO_API}/git/refs`, {
 		method: 'POST',
 		body: JSON.stringify({
@@ -208,8 +204,6 @@ export async function handleSubmission(
 		}),
 		headers: github.HEADERS
 	}).then((r) => r.json());
-
-	console.log("Created ref", getRef);
 
 	const createRelease = fetch(`${github.REPO_API}/releases`, {
 		method: 'POST',
@@ -231,9 +225,6 @@ export async function handleSubmission(
 		headers: github.HEADERS
 	}).then((r) => r.json());
 
-	console.log("Created release", createRelease);
-
-
 	const dispatchWorkflowRun = fetch(
 		`${github.REPO_API}/actions/workflows/release.yml/dispatches`,
 		{
@@ -243,11 +234,7 @@ export async function handleSubmission(
 		}
 	);
 
-	console.log("Dispatched workflow run", dispatchWorkflowRun);
-
 	const [release] = await Promise.all([createRelease, dispatchWorkflowRun]);
-
-	console.log("Release created after workflow", release);
 
 	await fetch(responseUrl, {
 		method: 'POST',
