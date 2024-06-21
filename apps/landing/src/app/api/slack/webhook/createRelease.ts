@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { object, z } from 'zod';
 import { env } from '~/env';
 
 import * as github from './github';
@@ -184,6 +184,17 @@ export async function handleSubmission(
 	const tagline = values[fields.tagline.blockId][fields.tagline.actionId].value;
 
 	const { tag, commit, responseUrl } = JSON.parse(privateMetadata);
+
+	await fetch(`${github.REPO_API}/git/tags`, {
+		method: 'POST',
+		body: JSON.stringify({
+			tag,
+			message: tagline,
+			object: commit,
+			type: 'commit'
+		}),
+		headers: github.HEADERS
+	});
 
 	await fetch(`${github.REPO_API}/git/refs`, {
 		method: 'POST',
