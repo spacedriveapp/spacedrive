@@ -106,6 +106,7 @@ export const ActionsModal = () => {
 				filePath.object_id &&
 			await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
 		} catch (error) {
+			console.log(error);
 			toast.error("Error opening object")
 		}
 	}
