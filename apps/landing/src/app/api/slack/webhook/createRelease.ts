@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import { object, z } from 'zod';
 import { env } from '~/env';
 
 import * as github from './github';
-import { createSlashCommand, createViewSubmission, USER_REF } from './utils';
+import { createBlockActions, createSlashCommand, createViewSubmission, USER_REF } from './utils';
 
 export const callbackId = 'createReleaseModal' as const;
 export const fields = {
@@ -17,7 +17,7 @@ export const fields = {
 } as const;
 
 export const COMMAND_NAME = '/release' as const;
-export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME), createViewSubmission()] as const;
+export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME), createViewSubmission(), createBlockActions()] as const;
 
 export async function createModal(
 	trigger_id: string,
@@ -63,7 +63,7 @@ export async function createModal(
 								type: 'plain_text',
 								text: 'View Commit'
 							},
-							url: `${github.REPO_API}/commit/${commit}`
+							url: `${github.REPO_API}/commits/${commit}`
 						},
 						text: {
 							type: 'mrkdwn',
@@ -185,7 +185,18 @@ export async function handleSubmission(
 
 	const { tag, commit, responseUrl } = JSON.parse(privateMetadata);
 
-	await fetch(`${github.REPO_API}/git/refs`, {
+	const createTag = await fetch(`${github.REPO_API}/git/tags`, {
+		method: 'POST',
+		body: JSON.stringify({
+			tag,
+			message: tagline,
+			object: commit,
+			type: 'commit'
+		}),
+		headers: github.HEADERS
+	}).then((r) => r.json());
+
+	const getRef = await fetch(`${github.REPO_API}/git/refs`, {
 		method: 'POST',
 		body: JSON.stringify({
 			ref: `refs/tags/${tag}`,
@@ -222,6 +233,7 @@ export async function handleSubmission(
 			headers: github.HEADERS
 		}
 	);
+
 	const [release] = await Promise.all([createRelease, dispatchWorkflowRun]);
 
 	await fetch(responseUrl, {
@@ -267,7 +279,7 @@ export async function handleSubmission(
 								type: 'plain_text',
 								text: 'View Commit'
 							},
-							url: `https://github.com/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commit/${commit}`
+							url: `https://github.com/${env.GITHUB_ORG}/${env.GITHUB_REPO}/commits/${commit}`
 						}
 					]
 				}

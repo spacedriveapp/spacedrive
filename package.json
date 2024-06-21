@@ -31,7 +31,8 @@
 		"lint:fix": "turbo run lint -- --fix",
 		"clean": "cargo clean; git clean -qfX .",
 		"test-data": "./scripts/test-data.sh",
-		"i18n:sync": "npx i18next-locales-sync -p en -s $(find ./interface/locales -wholename '*/common.json' | awk -F'/' '$4 != \"en\" { ORS=\" \"; print $4 }') -l ./interface/locales"
+		"i18n:sync": "npx i18next-locales-sync -p en -s $(find ./interface/locales -wholename '*/common.json' | awk -F'/' '$4 != \"en\" { ORS=\" \"; print $4 }') -l ./interface/locales",
+		"autoformat": "./scripts/autoformat.sh"
 	},
 	"pnpm": {
 		"patchedDependencies": {
