@@ -42,11 +42,18 @@ export function createViewSubmission() {
 
 export function createSlashCommand<T extends string>(command: T) {
 	return z.object({
-		command: z.literal(command),
+		token: z.string(),
+		team_id: z.string(),
+		team_domain: z.string(),
 		channel_id: z.string(),
-		text: z.string().transform((s) => s.split(' ')),
+		channel_name: z.string(),
 		user_id: z.string(),
-		trigger_id: z.string(),
-		response_url: z.string()
+		user_name: z.string(),
+		command: z.literal(command),
+		text: z.string().transform((s) => s.split(' ')),
+		api_app_id: z.string(),
+		is_enterprise_install: z.union([z.literal('false'), z.literal('true')]).transform((v) => v === 'true'),
+		response_url: z.string(),
+		trigger_id: z.string()
 	});
 }
