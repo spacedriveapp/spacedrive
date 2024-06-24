@@ -103,7 +103,7 @@ export const Inspector = forwardRef<HTMLDivElement, Props>(
 		return (
 			<div ref={ref} style={{ width: INSPECTOR_WIDTH, ...style }} {...props}>
 				<Sticky
-					scrollElement={explorer.scrollRef.current || undefined}
+					scrollElement=".explorer-inspector-scroll"
 					stickyClassName="!top-[40px]"
 					topOffset={-40}
 				>

@@ -8,15 +8,15 @@ import {
 	SquaresFour,
 	Tag
 } from '@phosphor-icons/react';
+import { ExplorerLayout, useSelector } from '@sd/client';
 import clsx from 'clsx';
 import { useMemo } from 'react';
 import { useDocumentEventListener } from 'rooks';
-import { ExplorerLayout, useSelector } from '@sd/client';
 import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import { Spacedrop, SpacedropButton } from '../Spacedrop';
-import TopBarOptions, { ToolOption, TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
+import TopBarOptions, { TOP_BAR_ICON_CLASSLIST, ToolOption } from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
@@ -83,7 +83,7 @@ export const useExplorerTopBarOptions = () => {
 			toolTipLabel: t('show_inspector'),
 			keybinds: [controlIcon, 'I'],
 			onClick: () => {
-				explorerStore.showInspector = !showInspector;
+				explorerStore.showInspector = !explorerStore.showInspector
 			},
 			icon: (
 				<SidebarSimple

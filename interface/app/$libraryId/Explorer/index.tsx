@@ -1,5 +1,4 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -7,6 +6,7 @@ import {
 	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
+import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';
@@ -26,7 +26,7 @@ import 'react-slidedown/lib/slidedown.css';
 
 import clsx from 'clsx';
 
-import { ExplorerTagBar } from './ExplorerTagBar';
+import { ExplorerTagBar, TAG_BAR_HEIGHT } from './ExplorerTagBar';
 import { useExplorerDnd } from './useExplorerDnd';
 
 interface Props {
@@ -92,11 +92,11 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			<ExplorerContextMenu>
 				<div
 					ref={explorer.scrollRef}
-					className="custom-scroll explorer-scroll flex flex-1 flex-col overflow-x-hidden"
+					className="explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-x-hidden"
 					style={
 						{
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
-							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT : 0}px`,
+							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0}px`,
 							'paddingTop': topBar.topBarHeight,
 							'paddingRight': showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties
@@ -117,7 +117,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						listViewOptions={{ hideHeaderBorder: true }}
 						scrollPadding={{
 							top: topBar.topBarHeight,
-							bottom: showPathBar ? PATH_BAR_HEIGHT : undefined
+							bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : undefined
 						}}
 					/>
 				</div>
@@ -132,11 +132,11 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			{showInspector && (
 				<Inspector
 					className={clsx(
-						'no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5',
-						showPathBar && `b-[${PATH_BAR_HEIGHT}px]`
+						'no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5'
 					)}
 					style={{
-						paddingTop: topBar.topBarHeight + 12
+						paddingTop: topBar.topBarHeight + 12,
+						bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0
 					}}
 				/>
 			)}
