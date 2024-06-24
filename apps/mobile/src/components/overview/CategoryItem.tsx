@@ -1,16 +1,16 @@
-import { formatNumber } from '@sd/client';
+import { useNavigation } from '@react-navigation/native';
 import { Pressable, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc';
+import { formatNumber } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
-
-import { useNavigation } from '@react-navigation/native';
 import { useSearchStore } from '~/stores/searchStore';
+
 import { Icon, IconName } from '../icons/Icon';
 
 interface CategoryItemProps {
 	kind: number;
 	name: string;
-	items: number;
+	items: bigint | number;
 	icon: IconName;
 	selected?: boolean;
 	onClick?: () => void;
@@ -29,14 +29,18 @@ const CategoryItem = ({ name, icon, items, style, kind }: CategoryItemProps) => 
 				style
 			)}
 			onPress={() => {
-				searchStore.updateFilters('kind', {
-					name,
-					icon: icon + '20' as IconName,
-					id: kind
-				}, true);
+				searchStore.updateFilters(
+					'kind',
+					{
+						name,
+						icon: (icon + '20') as IconName,
+						id: kind
+					},
+					true
+				);
 				navigation.navigate('SearchStack', {
-					screen: 'Search',
-				})
+					screen: 'Search'
+				});
 			}}
 		>
 			<Icon name={icon} size={56} />

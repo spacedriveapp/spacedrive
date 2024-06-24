@@ -1,99 +1,252 @@
+import { Info } from '@phosphor-icons/react';
+import { getIcon } from '@sd/assets/util';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { formatNumber, SearchFilterArgs, useLibraryQuery } from '@sd/client';
-import { Icon } from '~/components';
-import { useLocale } from '~/hooks';
+import React, { MouseEventHandler, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { KindStatistic, uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
+import { Card, Tooltip } from '@sd/ui';
+import { useIsDark, useLocale } from '~/hooks';
 
-import { translateKindName } from '../Explorer/util';
+const INFO_ICON_CLASSLIST = 'inline size-3 text-ink-faint opacity-0';
+const TOTAL_FILES_CLASSLIST =
+	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1';
+const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
 
-export default () => {
-	const ref = useRef<HTMLDivElement>(null);
-
-	const kinds = useLibraryQuery(['library.kindStatistics']);
-
-	return (
-		<>
-			{/* This is awful, will replace icons accordingly and memo etc */}
-			{kinds.data?.statistics
-				?.sort((a, b) => b.count - a.count)
-				.filter((i) => i.kind !== 0)
-				.map(({ kind, name, count }) => {
-					let icon = name;
-					switch (name) {
-						case 'Code':
-							icon = 'Terminal';
-							break;
-						case 'Unknown':
-							icon = 'Undefined';
-							break;
-					}
-					return (
-						<motion.div
-							viewport={{
-								root: ref,
-								// WARNING: Edge breaks if the values are not postfixed with px or %
-								margin: '0% -120px 0% 0%'
-							}}
-							className={clsx('min-w-fit')}
-							key={kind}
-						>
-							<KindItem
-								kind={kind}
-								name={translateKindName(name)}
-								icon={icon}
-								items={count}
-								onClick={() => {}}
-							/>
-						</motion.div>
-					);
-				})}
-		</>
-	);
+const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
+	const result = ((numerator * maxValue) / denominator).toString();
+	return result;
 };
 
-interface KindItemProps {
-	kind: number;
-	name: string;
-	items: number;
-	icon: string;
-	selected?: boolean;
-	onClick?: () => void;
-	disabled?: boolean;
+const formatNumberWithCommas = (number: number | bigint) => number.toLocaleString();
+
+const interpolateHexColor = (color1: string, color2: string, factor: number): string => {
+	const hex = (color: string) => parseInt(color.slice(1), 16);
+	const r = Math.round((1 - factor) * (hex(color1) >> 16) + factor * (hex(color2) >> 16));
+	const g = Math.round(
+		(1 - factor) * ((hex(color1) >> 8) & 0x00ff) + factor * ((hex(color2) >> 8) & 0x00ff)
+	);
+	const b = Math.round(
+		(1 - factor) * (hex(color1) & 0x0000ff) + factor * (hex(color2) & 0x0000ff)
+	);
+	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+};
+
+interface FileKind {
+	kind: string;
+	count: bigint;
+	id: number;
 }
 
-const KindItem = ({ kind, name, icon, items, selected, onClick, disabled }: KindItemProps) => {
+interface FileKindStatsProps {}
+
+const FileKindStats: React.FC<FileKindStatsProps> = () => {
+	const isDark = useIsDark();
+	const navigate = useNavigate();
 	const { t } = useLocale();
-	return (
-		<Link
-			to={{
+	const { data } = useLibraryQuery(['library.kindStatistics']);
+	const [fileKinds, setFileKinds] = useState<FileKind[]>([]);
+	const [cardWidth, setCardWidth] = useState<number>(0);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
+
+	const BAR_MAX_HEIGHT = 115n;
+	const BAR_COLOR_START = '#3A7ECC';
+	const BAR_COLOR_END = '#004C99';
+
+	const formatCount = (count: number | bigint): string => {
+		const bigIntCount = typeof count === 'number' ? BigInt(count) : count;
+
+		return bigIntCount >= 1000n ? `${bigIntCount / 1000n}K` : count.toString();
+	};
+
+	const handleResize = useCallback(() => {
+		if (containerRef.current) {
+			const factor = window.innerWidth > 1500 ? 0.35 : 0.4;
+			setCardWidth(window.innerWidth * factor);
+		}
+	}, []);
+
+	useEffect(() => {
+		window.addEventListener('resize', handleResize);
+		handleResize();
+
+		const containerElement = containerRef.current;
+		if (containerElement) {
+			const observer = new MutationObserver(handleResize);
+			observer.observe(containerElement, {
+				attributes: true,
+				childList: true,
+				subtree: true,
+				attributeFilter: ['style']
+			});
+
+			return () => {
+				observer.disconnect();
+			};
+		}
+
+		return () => {
+			window.removeEventListener('resize', handleResize);
+		};
+	}, [handleResize]);
+
+	useEffect(() => {
+		if (data) {
+			const statistics: KindStatistic[] = data.statistics
+				.filter(
+					(item: { kind: number; count: any }) => uint32ArrayToBigInt(item.count) !== 0n
+				)
+				.sort((a: { count: any }, b: { count: any }) => {
+					const aCount = uint32ArrayToBigInt(a.count);
+					const bCount = uint32ArrayToBigInt(b.count);
+					if (aCount === bCount) return 0;
+					return aCount > bCount ? -1 : 1;
+				});
+
+			setFileKinds(
+				statistics.map((item) => ({
+					kind: item.name,
+					count: uint32ArrayToBigInt(item.count),
+					id: item.kind
+				}))
+			);
+
+			statistics.forEach((item) => {
+				const iconName = item.name;
+				if (!iconsRef.current[iconName]) {
+					const img = new Image();
+					img.src = getIcon(iconName + '20', isDark);
+					iconsRef.current[iconName] = img;
+				}
+			});
+		}
+	}, [data, isDark]);
+
+	const sortedFileKinds = [...fileKinds].sort((a, b) => {
+		if (a.count === b.count) return 0;
+		return a.count > b.count ? -1 : 1;
+	});
+
+	const maxFileCount = sortedFileKinds && sortedFileKinds[0] ? sortedFileKinds[0].count : 0n;
+
+	const barGap = 12;
+	const barCount = sortedFileKinds.length;
+	const totalGapWidth = barGap * (barCount - 5);
+	const makeBarClickHandler =
+		(fileKind: FileKind): MouseEventHandler<HTMLDivElement> | undefined =>
+		() => {
+			const path = {
 				pathname: '../search',
 				search: new URLSearchParams({
-					filters: JSON.stringify([
-						{ object: { kind: { in: [kind] } } }
-					] as SearchFilterArgs[])
+					filters: JSON.stringify([{ object: { kind: { in: [fileKind.id] } } }])
 				}).toString()
-			}}
-		>
-			<div
-				onClick={onClick}
-				className={clsx(
-					'flex shrink-0 items-center rounded-lg py-1 text-sm outline-none focus:bg-app-selectedItem/50',
-					selected && 'bg-app-selectedItem',
-					disabled && 'cursor-not-allowed opacity-30'
-				)}
+			};
+			navigate(path);
+		};
+
+	return (
+		<div className="flex justify-center">
+			<Card
+				ref={containerRef}
+				className="max-w-1/2 group mx-1  flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"
 			>
-				<Icon name={icon as any} className="mr-3 size-12" />
-				<div className="pr-5">
-					<h2 className="text-sm font-medium">{name}</h2>
-					{items !== undefined && (
-						<p className="text-xs text-ink-faint">
-							{t('item_with_count', { count: items })}
-						</p>
-					)}
+				<div className={TOTAL_FILES_CLASSLIST}>
+					<Tooltip className="flex items-center" label={t('bar_graph_info')}>
+						<div className="flex items-center gap-2">
+							<span
+								className={clsx(
+									'text-xl font-black',
+									isDark ? 'text-white' : 'text-black'
+								)}
+							>
+								{data?.total_identified_files
+									? formatNumberWithCommas(data.total_identified_files)
+									: '0'}{' '}
+							</span>
+							<div className="flex items-center">
+								{t('total_files')}
+								<Info
+									weight="fill"
+									className={`ml-1 ${INFO_ICON_CLASSLIST} opacity-0 transition-opacity duration-300 group-hover:opacity-70`}
+								/>
+							</div>
+						</div>
+					</Tooltip>
+					<div className={UNIDENTIFIED_FILES_CLASSLIST}>
+						<Tooltip label={t('unidentified_files_info')}>
+							<span>
+								{data?.total_unidentified_files
+									? formatNumberWithCommas(data.total_unidentified_files)
+									: '0'}{' '}
+								unidentified files
+							</span>
+						</Tooltip>
+					</div>
 				</div>
-			</div>
-		</Link>
+				<div className="relative mx-2.5 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] items-end justify-items-center gap-x-1.5 gap-y-1 self-stretch">
+					{sortedFileKinds.map((fileKind, index) => {
+						const iconImage = iconsRef.current[fileKind.kind];
+						const barColor = interpolateHexColor(
+							BAR_COLOR_START,
+							BAR_COLOR_END,
+							index / (barCount - 1)
+						);
+
+						const barHeight =
+							mapFractionalValue(fileKind.count, maxFileCount, BAR_MAX_HEIGHT) + 'px';
+						return (
+							<>
+								<Tooltip
+									asChild
+									key={fileKind.kind}
+									label={
+										formatNumberWithCommas(fileKind.count) +
+										' ' +
+										fileKind.kind +
+										's'
+									}
+									position="left"
+								>
+									<div
+										className="relative flex w-full min-w-8 max-w-10 grow cursor-pointer flex-col items-center"
+										onDoubleClick={makeBarClickHandler(fileKind)}
+									>
+										{iconImage && (
+											<img
+												src={iconImage.src}
+												alt={fileKind.kind}
+												className="relative mb-1 size-4 duration-500"
+											/>
+										)}
+										<motion.div
+											className="flex w-full flex-col items-center rounded transition-all duration-500"
+											initial={{ height: 0 }}
+											animate={{ height: barHeight }}
+											transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
+											style={{
+												height: barHeight,
+												minHeight: '2px',
+												backgroundColor: barColor
+											}}
+										></motion.div>
+									</div>
+								</Tooltip>
+								<div
+									className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint"
+									style={{
+										borderRadius: '3px'
+									}}
+								>
+									{formatCount(fileKind.count)}
+								</div>
+							</>
+						);
+					})}
+				</div>
+			</Card>
+		</div>
 	);
 };
+
+export default FileKindStats;

@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { DotsThree } from 'phosphor-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
@@ -24,12 +24,17 @@ export default function CategoriesScreen() {
 					style={tw`h-8 w-8 rounded-full`}
 					variant="gray"
 				>
-					<DotsThree weight='bold' size={18} color={'white'} />
+					<DotsThree weight="bold" size={18} color={'white'} />
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>
 				{kinds.data?.statistics
-					?.sort((a, b) => b.count - a.count)
+					?.sort((a, b) => {
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
+						if (aCount === bCount) return 0;
+						return aCount > bCount ? -1 : 1;
+					})
 					.filter((i) => i.kind !== 0)
 					.slice(0, 6)
 					.map((item) => {
@@ -49,7 +54,7 @@ export default function CategoriesScreen() {
 								kind={kind}
 								name={name}
 								icon={icon}
-								items={count}
+								items={uint32ArrayToBigInt(count)}
 							/>
 						);
 					})}

@@ -1,11 +1,12 @@
 use crate::{api::utils::get_size, library::Library, volume::get_volumes, Node};
 
 use sd_prisma::prisma::statistics;
+use sd_utils::db::size_in_bytes_from_db;
 
 use chrono::Utc;
+use tracing::{error, info};
 
 use super::LibraryManagerError;
-use tracing::{error, info};
 
 pub async fn update_library_statistics(
 	node: &Node,
@@ -45,7 +46,7 @@ pub async fn update_library_statistics(
 		.map(|location| {
 			location
 				.size_in_bytes
-				.map(|bytes| bytes.iter().fold(0, |acc, &x| acc * 256 + x as u64))
+				.map(|size| size_in_bytes_from_db(&size))
 				.unwrap_or(0)
 		})
 		.sum::<u64>();
