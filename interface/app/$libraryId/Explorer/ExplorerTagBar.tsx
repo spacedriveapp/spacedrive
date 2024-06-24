@@ -1,6 +1,4 @@
 import { Circle } from '@phosphor-icons/react';
-import clsx from 'clsx';
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
 	ExplorerItem,
 	Tag,
@@ -11,13 +9,15 @@ import {
 	useSelector
 } from '@sd/client';
 import { Shortcut, toast } from '@sd/ui';
+import clsx from 'clsx';
+import { useEffect, useRef, useState } from 'react';
 import { useIsDark, useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
 import { useExplorerContext } from './Context';
 import { explorerStore } from './store';
 
-export const TAG_BAR_HEIGHT = 64;
+export const TAG_BAR_HEIGHT = 54;
 const NUMBER_KEYCODES: string[][] = [
 	['Key1'],
 	['Key2'],
