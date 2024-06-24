@@ -153,7 +153,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	const debugState = useDebugState();
 
 	return (
-		<ScreenContainer tabHeight={false} scrollview={false} style={tw`gap-0 px-6 py-0`}>
+		<ScreenContainer tabHeight={false} style={tw`gap-0 px-5 py-0`}>
 			<SectionList
 				contentContainerStyle={tw`py-6`}
 				sections={sections(debugState)}
@@ -165,6 +165,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 						rounded={item.rounded}
 					/>
 				)}
+				scrollEnabled={false}
 				renderSectionHeader={renderSectionHeader}
 				ListFooterComponent={<FooterComponent />}
 				showsVerticalScrollIndicator={false}
