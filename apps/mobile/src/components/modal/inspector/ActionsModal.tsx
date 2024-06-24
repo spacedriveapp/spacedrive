@@ -123,7 +123,7 @@ export const ActionsModal = () => {
 							>
 								<FileThumb data={data} size={1} />
 							</Pressable>
-							<View style={tw`flex-1 ml-2`}>
+							<View style={tw`ml-2 flex-1`}>
 								{/* Name + Extension */}
 								<Text
 									style={tw`max-w-[220px] text-base font-bold text-gray-200`}
@@ -143,7 +143,7 @@ export const ActionsModal = () => {
 								</View>
 								<InfoTagPills data={data} />
 							</View>
-							{objectData && <FavoriteButton style={tw`mt-2 mr-1`} data={objectData} />}
+							{objectData && <FavoriteButton style={tw`mr-1 mt-2`} data={objectData} />}
 						</View>
 						<View />
 						{/* Actions */}
