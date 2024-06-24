@@ -76,10 +76,9 @@ export const Component = () => {
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>
 						<LibraryStatistics />
-					</OverviewSection>
-					<OverviewSection>
 						<FileKindStatistics />
 					</OverviewSection>
+
 					<OverviewSection count={1} title={t('devices')}>
 						{node && (
 							<StatisticItem
@@ -93,46 +92,6 @@ export const Component = () => {
 								connectionType={null}
 							/>
 						)}
-						{/* <StatisticItem
-							name="Jamie's MacBook"
-							icon="Laptop"
-							total_space="4098046511104"
-							free_space="969004651119"
-							color="#0362FF"
-							connection_type="p2p"
-						/>
-						<StatisticItem
-							name="Jamie's iPhone"
-							icon="Mobile"
-							total_space="500046511104"
-							free_space="39006511104"
-							color="#0362FF"
-							connection_type="p2p"
-						/>
-						<StatisticItem
-							name="Titan NAS"
-							icon="Server"
-							total_space="60000046511104"
-							free_space="43000046511104"
-							color="#0362FF"
-							connection_type="p2p"
-						/>
-						<StatisticItem
-							name="Jamie's iPad"
-							icon="Tablet"
-							total_space="1074077906944"
-							free_space="121006553275"
-							color="#0362FF"
-							connection_type="lan"
-						/>
-						<StatisticItem
-							name="Jamie's Air"
-							icon="Laptop"
-							total_space="4098046511104"
-							free_space="969004651119"
-							color="#0362FF"
-							connection_type="p2p"
-						/> */}
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text={t('connect_device_description')}
@@ -164,23 +123,6 @@ export const Component = () => {
 					</OverviewSection>
 
 					<OverviewSection count={0} title={t('cloud_drives')}>
-						{/* <StatisticItem
-							name="James Pine"
-							icon="DriveDropbox"
-							total_space="104877906944"
-							free_space="074877906944"
-							color="#0362FF"
-							connection_type="cloud"
-						/>
-						<StatisticItem
-							name="Spacedrive S3"
-							icon="DriveAmazonS3"
-							total_space="1074877906944"
-							free_space="704877906944"
-							color="#0362FF"
-							connection_type="cloud"
-						/> */}
-
 						<NewCard
 							icons={[
 								'DriveAmazonS3',
@@ -193,22 +135,6 @@ export const Component = () => {
 							// buttonText={t('connect_cloud)}
 						/>
 					</OverviewSection>
-
-					{/* <OverviewSection title="Locations">
-						<div className="flex flex-row gap-2">
-							{locations.map((location) => (
-								<div
-									key={location.id}
-									className="flex w-[100px] flex-col items-center gap-2"
-								>
-									<Icon size={80} name="Folder" />
-									<span className="text-xs font-medium truncate">
-										{location.name}
-									</span>
-								</div>
-							))}
-						</div>
-					</OverviewSection> */}
 				</div>
 			</div>
 		</SearchContextProvider>

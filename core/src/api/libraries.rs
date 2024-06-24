@@ -6,17 +6,15 @@ use crate::{
 	Node,
 };
 
-use futures::StreamExt;
-use prisma_client_rust::raw;
 use sd_core_heavy_lifting::JobId;
+
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
-use sd_prisma::prisma::{indexer_rule, object, statistics};
-use tokio_stream::wrappers::IntervalStream;
-use tracing::{info, warn};
+use sd_prisma::prisma::{file_path, indexer_rule, object, statistics};
+use sd_utils::{db::size_in_bytes_from_db, u64_to_frontend};
 
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{hash_map::Entry, BTreeMap, HashMap},
 	convert::identity,
 	pin::pin,
 	sync::Arc,
@@ -25,8 +23,13 @@ use std::{
 
 use async_channel as chan;
 use directories::UserDirs;
-use futures_concurrency::{future::Join, stream::Merge};
+use futures::StreamExt;
+use futures_concurrency::{
+	future::{Join, TryJoin},
+	stream::Merge,
+};
 use once_cell::sync::Lazy;
+use prisma_client_rust::{and, or, raw};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -36,7 +39,8 @@ use tokio::{
 	sync::Mutex,
 	time::{interval, Instant},
 };
-use tracing::{debug, error};
+use tokio_stream::wrappers::IntervalStream;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::{utils::library, Ctx, R};
@@ -122,36 +126,125 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("kindStatistics", {
-			#[derive(Serialize, Deserialize, Type, Default)]
+			#[derive(Debug, Serialize, Deserialize, Type, Default)]
 			pub struct KindStatistic {
 				kind: i32,
 				name: String,
-				count: i32,
-				total_bytes: String,
+				count: (u32, u32),
+				total_bytes: (u32, u32),
 			}
-			#[derive(Serialize, Deserialize, Type, Default)]
+			#[derive(Debug, Serialize, Deserialize, Type, Default)]
 			pub struct KindStatistics {
 				statistics: Vec<KindStatistic>,
+				total_identified_files: i32,
+				total_unidentified_files: i32,
 			}
+
+			#[derive(Default)]
+			struct CountAndSize {
+				count: u64,
+				size: u64,
+			}
+
 			R.with2(library()).query(|(_, library), _: ()| async move {
-				let mut statistics: Vec<KindStatistic> = vec![];
-				for kind in ObjectKind::iter() {
-					let count = library
+				let (total_unidentified_files, total_identified_files) = (
+					library
+						.db
+						.file_path()
+						.count(vec![
+							file_path::is_dir::equals(Some(false)),
+							file_path::cas_id::equals(None),
+							file_path::object_id::equals(None),
+						])
+						.exec(),
+					library
+						.db
+						.file_path()
+						.count(vec![or!(
+							file_path::is_dir::equals(Some(true)),
+							and!(
+								file_path::cas_id::not(None),
+								file_path::object_id::not(None),
+							),
+						)])
+						.exec(),
+				)
+					.try_join()
+					.await?;
+
+				let mut statistics_by_kind = BTreeMap::from_iter(
+					ObjectKind::iter().map(|kind| (kind as i32, CountAndSize::default())),
+				);
+
+				let mut last_object_id = 0;
+
+				loop {
+					let objects = library
 						.db
 						.object()
-						.count(vec![object::kind::equals(Some(kind as i32))])
+						.find_many(vec![object::id::gt(last_object_id)])
+						.take(1000)
+						.select(
+							object::select!({ id kind file_paths: select { size_in_bytes_bytes } }),
+						)
 						.exec()
 						.await?;
 
-					statistics.push(KindStatistic {
-						kind: kind as i32,
-						name: kind.to_string(),
-						count: count as i32,
-						total_bytes: "0".to_string(),
-					});
+					if let Some(last) = objects.last() {
+						last_object_id = last.id;
+					} else {
+						break; // No more objects
+					}
+
+					for object in objects {
+						if let Some(kind) = object.kind {
+							statistics_by_kind.entry(kind).and_modify(|count_and_size| {
+								count_and_size.count += object.file_paths.len() as u64;
+								count_and_size.size += object
+									.file_paths
+									.into_iter()
+									.map(|file_path| {
+										file_path
+											.size_in_bytes_bytes
+											.map(|size| size_in_bytes_from_db(&size))
+											.unwrap_or(0)
+									})
+									.sum::<u64>();
+							});
+						}
+					}
 				}
 
-				Ok(KindStatistics { statistics })
+				// This is a workaround for the fact that we don't assign object to directories yet
+				if let Some(count_and_size) =
+					statistics_by_kind.get_mut(&(ObjectKind::Folder as i32))
+				{
+					count_and_size.count = library
+						.db
+						.file_path()
+						.count(vec![file_path::is_dir::equals(Some(true))])
+						.exec()
+						.await? as u64;
+				}
+
+				Ok(KindStatistics {
+					statistics: ObjectKind::iter()
+						.map(|kind| {
+							let int_kind = kind as i32;
+							let CountAndSize { count, size } =
+								statistics_by_kind.get(&int_kind).expect("can't fail");
+
+							KindStatistic {
+								kind: int_kind,
+								name: kind.to_string(),
+								count: u64_to_frontend(*count),
+								total_bytes: u64_to_frontend(*size),
+							}
+						})
+						.collect(),
+					total_identified_files: total_identified_files as i32,
+					total_unidentified_files: total_unidentified_files as i32,
+				})
 			})
 		})
 		.procedure("create", {
