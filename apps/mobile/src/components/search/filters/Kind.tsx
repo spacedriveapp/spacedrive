@@ -1,12 +1,11 @@
 import { IconTypes } from '@sd/assets/util';
+import { ObjectKind } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
-import { ObjectKind } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
-import Fade from '~/components/layout/Fade';
 import SectionTitle from '~/components/layout/SectionTitle';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -40,12 +39,11 @@ const Kind = () => {
 				sub="What kind of objects should be searched?"
 			/>
 			<View>
-				<Fade color="black" width={30} height="100%">
 					<VirtualizedListWrapper horizontal>
 						<FlatList
 							data={kinds}
 							renderItem={({ item }) => <KindFilter data={item} />}
-							contentContainerStyle={tw`pl-6`}
+							contentContainerStyle={tw`px-6`}
 							numColumns={kinds && Math.ceil(Number(kinds.length) / 2)}
 							key={kinds ? 'kindsSearch' : '_'}
 							scrollEnabled={false}
@@ -56,7 +54,6 @@ const Kind = () => {
 							style={tw`flex-row`}
 						/>
 					</VirtualizedListWrapper>
-				</Fade>
 			</View>
 		</MotiView>
 	);

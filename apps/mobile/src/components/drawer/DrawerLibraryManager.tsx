@@ -1,18 +1,18 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
+import { useClientContext } from '@sd/client';
 import { MotiView } from 'moti';
 import { CaretRight, CloudArrowDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 
 import { AnimatedHeight } from '../animation/layout';
 import { ModalRef } from '../layout/Modal';
 import CreateLibraryModal from '../modal/CreateLibraryModal';
-import { Divider } from '../primitive/Divider';
 import ImportModalLibrary from '../modal/ImportLibraryModal';
+import { Divider } from '../primitive/Divider';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
@@ -24,7 +24,6 @@ const DrawerLibraryManager = () => {
 	}, [isDrawerOpen]);
 
 	const { library: currentLibrary, libraries } = useClientContext();
-
 	const navigation = useNavigation();
 
 	const modalRef = useRef<ModalRef>(null);
@@ -58,7 +57,6 @@ const DrawerLibraryManager = () => {
 				>
 					{/* Libraries */}
 					{libraries.data?.map((library) => {
-						// console.log('library', library);
 						return (
 							<Pressable
 								key={library.uuid}

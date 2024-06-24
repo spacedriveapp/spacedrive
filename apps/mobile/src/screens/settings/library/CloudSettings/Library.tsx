@@ -41,7 +41,7 @@ const Library = ({ cloudLibrary }: LibraryProps) => {
 			</InfoBox>
 			<Button
 				disabled={syncLibrary.isLoading || thisInstance !== undefined}
-				variant={thisInstance ? 'gray' : 'accent'}
+				variant="gray"
 				onPress={() => syncLibrary.mutate(null)}
 				style={tw`mt-2 flex-row gap-1 py-2`}
 			>

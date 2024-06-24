@@ -45,7 +45,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 							)}
 						/>
 					</View>
-					<Text style={twStyle('text-xs font-medium text-ink')} numberOfLines={1}>
+					<Text style={twStyle('max-w-[150px] text-xs font-medium text-ink')} numberOfLines={1}>
 						{location.name ?? ''}
 					</Text>
 				</View>

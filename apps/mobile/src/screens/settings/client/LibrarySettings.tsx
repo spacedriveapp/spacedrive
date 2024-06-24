@@ -1,9 +1,8 @@
+import { LibraryConfigWrapped, useBridgeQuery, useLibraryContext } from '@sd/client';
 import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
-import Fade from '~/components/layout/Fade';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
@@ -14,10 +13,12 @@ import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 function LibraryItem({
 	library,
 	index,
-	navigation
+	navigation,
+	current
 }: {
 	library: LibraryConfigWrapped;
 	index: number;
+	current: boolean;
 	navigation: SettingsStackScreenProps<'LibrarySettings'>['navigation'];
 }) {
 	const renderRightActions = (
@@ -63,8 +64,15 @@ function LibraryItem({
 		>
 			<View style={tw`flex-row items-center justify-between`}>
 				<View>
+					<View style={tw`flex-row items-center gap-2`}>
 					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
-					<Text style={tw`mt-1 text-xs text-ink-dull`}>{library.uuid}</Text>
+					{current && (
+						<View style={tw`rounded-md bg-accent px-1.5 py-[2px]`}>
+							<Text style={tw`text-xs font-semibold text-white`}>Current</Text>
+						</View>
+					)}
+					</View>
+					<Text style={tw`mt-1.5 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
 				<Pressable onPress={() => swipeRef.current?.openRight()}>
 					<DotsThreeOutlineVertical
@@ -81,6 +89,7 @@ function LibraryItem({
 const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'LibrarySettings'>) => {
 	const libraryList = useBridgeQuery(['library.list']);
 	const libraries = libraryList.data;
+	const { library } = useLibraryContext();
 
 	useEffect(() => {
 		navigation.setOptions({
@@ -101,22 +110,19 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 
 	return (
 		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`} scrollview={false}>
-			<Fade
-				fadeSides="top-bottom"
-				orientation="vertical"
-				color="black"
-				width={30}
-				height="100%"
-			>
 				<FlatList
 					data={libraries}
 					contentContainerStyle={tw`py-5`}
 					keyExtractor={(item) => item.uuid}
 					renderItem={({ item, index }) => (
-						<LibraryItem navigation={navigation} library={item} index={index} />
+						<LibraryItem
+						 current={item.uuid === library.uuid}
+						 navigation={navigation}
+						 library={item}
+						 index={index}
+						  />
 					)}
 				/>
-			</Fade>
 		</ScreenContainer>
 	);
 };
