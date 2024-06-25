@@ -102,6 +102,7 @@ tokio = { workspace = true, features = [
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
+tracing-android = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
