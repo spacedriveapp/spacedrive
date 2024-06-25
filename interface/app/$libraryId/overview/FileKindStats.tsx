@@ -14,8 +14,11 @@ const TOTAL_FILES_CLASSLIST =
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
-	const result = ((numerator * maxValue) / denominator).toString();
-	return result;
+	if (denominator === 0n) return '0';
+	let result = (numerator * maxValue) / denominator;
+	// ensures min width except for empty bars (numerator = 0)
+	if (numerator != 0n && result < 1) return '1';
+	return result.toString();
 };
 
 const formatNumberWithCommas = (number: number | bigint) => number.toLocaleString();
@@ -39,6 +42,27 @@ interface FileKind {
 }
 
 interface FileKindStatsProps {}
+
+const defaultFileKinds: FileKind[] = [
+	{ kind: 'Package', count: 0n, id: 4 },
+	{ kind: 'Archive', count: 0n, id: 8 },
+	{ kind: 'Executable', count: 0n, id: 9 },
+	{ kind: 'Encrypted', count: 0n, id: 11 },
+	{ kind: 'Key', count: 0n, id: 12 },
+	{ kind: 'Link', count: 0n, id: 13 },
+	{ kind: 'WebPageArchive', count: 0n, id: 14 },
+	{ kind: 'Widget', count: 0n, id: 15 },
+	{ kind: 'Album', count: 0n, id: 16 },
+	{ kind: 'Collection', count: 0n, id: 17 },
+	{ kind: 'Font', count: 0n, id: 18 },
+	{ kind: 'Mesh', count: 0n, id: 19 },
+	{ kind: 'Code', count: 0n, id: 20 },
+	{ kind: 'Database', count: 0n, id: 21 },
+	{ kind: 'Book', count: 0n, id: 22 },
+	{ kind: 'Config', count: 0n, id: 23 },
+	{ kind: 'Dotfile', count: 0n, id: 24 },
+	{ kind: 'Screenshot', count: 0n, id: 25 }
+];
 
 const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const isDark = useIsDark();
@@ -111,8 +135,15 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 					id: item.kind
 				}))
 			);
+			if (statistics.length < 10) {
+				const additionalKinds = defaultFileKinds.filter(
+					(defaultKind) => !statistics.some((stat) => stat.kind === defaultKind.kind)
+				);
+				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.length);
+				setFileKinds((prevKinds) => [...prevKinds, ...kindsToAdd]);
+			}
 
-			statistics.forEach((item) => {
+			data.statistics.forEach((item: { name: string }) => {
 				const iconName = item.name;
 				if (!iconsRef.current[iconName]) {
 					const img = new Image();
@@ -129,10 +160,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	});
 
 	const maxFileCount = sortedFileKinds && sortedFileKinds[0] ? sortedFileKinds[0].count : 0n;
-
-	const barGap = 12;
 	const barCount = sortedFileKinds.length;
-	const totalGapWidth = barGap * (barCount - 5);
 	const makeBarClickHandler =
 		(fileKind: FileKind): MouseEventHandler<HTMLDivElement> | undefined =>
 		() => {
@@ -226,7 +254,6 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 											transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
 											style={{
 												height: barHeight,
-												minHeight: '2px',
 												backgroundColor: barColor
 											}}
 										></motion.div>

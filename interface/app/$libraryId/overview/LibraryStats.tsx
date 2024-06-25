@@ -78,8 +78,6 @@ const LibraryStats = () => {
 	const { library } = useLibraryContext();
 	const stats = useLibraryQuery(['library.statistics']);
 	const storageBarData = useLibraryQuery(['library.kindStatistics']).data?.statistics;
-	console.log(storageBarData);
-	console.log(stats);
 	const { t } = useLocale();
 
 	useEffect(() => {
@@ -87,17 +85,17 @@ const LibraryStats = () => {
 	}, [stats.isLoading]);
 
 	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
+		total_library_bytes: t('library_bytes'),
 		total_local_bytes_capacity: t('total_bytes_capacity'),
 		total_local_bytes_free: t('total_bytes_free'),
-		total_library_bytes: t('library_bytes'),
 		library_db_size: t('library_db_size'),
 		total_library_preview_media_bytes: t('preview_media_bytes')
 	};
 
 	const StatDescriptions: Partial<Record<keyof Statistics, string>> = {
+		total_library_bytes: t('library_bytes_description'),
 		total_local_bytes_capacity: t('total_bytes_capacity_description'),
 		total_local_bytes_free: t('total_bytes_free_description'),
-		total_library_bytes: t('library_bytes_description'),
 		library_db_size: t('library_db_size_description'),
 		total_library_preview_media_bytes: t('preview_media_bytes_description')
 	};
