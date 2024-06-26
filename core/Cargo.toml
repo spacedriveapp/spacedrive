@@ -159,6 +159,9 @@ icrate = { version = "0.1.2", features = [
 	"Foundation_NSNumber",
 ] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+tracing-android = "0.2.0"
+
 [dev-dependencies]
 # Workspace dependencies
 globset = { workspace = true }
