@@ -235,13 +235,11 @@ impl Node {
 
 		// Set a default if the user hasn't set an override
 		if std::env::var("RUST_LOG") == Err(std::env::VarError::NotPresent) {
-			// let level = if cfg!(debug_assertions) {
-			// 	"debug"
-			// } else {
-			// 	"info"
-			// };
-
-			let level = "debug";
+			let level = if cfg!(debug_assertions) {
+				"debug"
+			} else {
+				"info"
+			};
 
 			std::env::set_var(
 				"RUST_LOG",
