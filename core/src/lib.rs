@@ -262,7 +262,7 @@ impl Node {
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
-					.with_target(false)
+					.with_target(true)
 					.with_writer(logfile)
 					.with_filter(EnvFilter::from_default_env()),
 			)
