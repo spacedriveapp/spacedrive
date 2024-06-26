@@ -159,7 +159,7 @@ const LibraryStats = () => {
 	sections.push({
 		name: 'System Data',
 		value: systemDataBytes,
-		color: '#707070', // Gray for System Data
+		color: '#2F3038', // Gray for System Data
 		tooltip: 'System data that exists outside of your Spacedrive library'
 	});
 

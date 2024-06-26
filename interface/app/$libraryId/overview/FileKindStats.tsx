@@ -8,14 +8,17 @@ import { KindStatistic, uint32ArrayToBigInt, useLibraryQuery } from '@sd/client'
 import { Card, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
-const INFO_ICON_CLASSLIST = 'inline size-3 text-ink-faint opacity-0';
+const INFO_ICON_CLASSLIST =
+	'inline size-3 text-ink-faint opacity-0 ml-1 transition-opacity duration-300 group-hover:opacity-70';
 const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1';
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
+const BARS_CONTAINER_CLASSLIST =
+	'relative mx-2.5 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] items-end justify-items-center gap-x-1.5 gap-y-1 self-stretch';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
-	let result = (numerator * maxValue) / denominator;
+	const result = (numerator * maxValue) / denominator;
 	// ensures min width except for empty bars (numerator = 0)
 	if (numerator != 0n && result < 1) return '1';
 	return result.toString();
@@ -137,7 +140,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 			);
 			if (statistics.length < 10) {
 				const additionalKinds = defaultFileKinds.filter(
-					(defaultKind) => !statistics.some((stat) => stat.kind === defaultKind.kind)
+					(defaultKind) => !statistics.some((stat) => stat.kind === defaultKind.id)
 				);
 				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.length);
 				setFileKinds((prevKinds) => [...prevKinds, ...kindsToAdd]);
@@ -194,10 +197,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 							</span>
 							<div className="flex items-center">
 								{t('total_files')}
-								<Info
-									weight="fill"
-									className={`ml-1 ${INFO_ICON_CLASSLIST} opacity-0 transition-opacity duration-300 group-hover:opacity-70`}
-								/>
+								<Info weight="fill" className={INFO_ICON_CLASSLIST} />
 							</div>
 						</div>
 					</Tooltip>
@@ -212,7 +212,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 						</Tooltip>
 					</div>
 				</div>
-				<div className="relative mx-2.5 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] items-end justify-items-center gap-x-1.5 gap-y-1 self-stretch">
+				<div className={BARS_CONTAINER_CLASSLIST}>
 					{sortedFileKinds.map((fileKind, index) => {
 						const iconImage = iconsRef.current[fileKind.kind];
 						const barColor = interpolateHexColor(
@@ -259,12 +259,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 										></motion.div>
 									</div>
 								</Tooltip>
-								<div
-									className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint"
-									style={{
-										borderRadius: '3px'
-									}}
-								>
+								<div className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint">
 									{formatCount(fileKind.count)}
 								</div>
 							</>

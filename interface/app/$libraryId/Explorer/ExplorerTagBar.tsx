@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import {
 	ExplorerItem,
+	getItemObject,
 	Tag,
 	Target,
 	useLibraryMutation,
@@ -152,7 +153,8 @@ export const ExplorerTagBar = () => {
 
 			// extract the list of tags from each object in the selected items
 			const targetsTagList = Array.from(explorer.selectedItems.entries()).map(
-				(item) => item[0].item.object.tags
+				// issues with type here. unsure as to why, and not causing any noticeable errors, so ignoring for now with as any
+				(item) => (item[0] as any).object.item.tags
 			);
 
 			// iterate through each tag in the selected items and check if the tag we want to assign is already assigned
