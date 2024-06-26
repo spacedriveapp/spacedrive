@@ -432,14 +432,15 @@ export const QuickPreview = () => {
 									<div className="flex flex-1 items-center justify-end gap-1">
 										<Tooltip label={t('zoom_in')}>
 											<IconButton
-												onClick={() =>
-													setMagnification(
-														(currentMagnification) =>
-															currentMagnification +
-															currentMagnification * 0.2
-													)
-												}
-												// this is same formula as intrest calculation
+												onClick={() => {
+													magnification < 2 &&
+														setMagnification(
+															(currentMagnification) =>
+																currentMagnification +
+																currentMagnification * 0.2
+														);
+												}}
+												// this is same formula as interest calculation
 											>
 												<MagnifyingGlassPlus />
 											</IconButton>
@@ -447,13 +448,14 @@ export const QuickPreview = () => {
 
 										<Tooltip label={t('zoom_out')}>
 											<IconButton
-												onClick={() =>
-													setMagnification(
-														(currentMagnification) =>
-															currentMagnification / (1 + 0.2)
-													)
-												}
-												// this is same formula as intrest calculation
+												onClick={() => {
+													magnification > 0.5 &&
+														setMagnification(
+															(currentMagnification) =>
+																currentMagnification / (1 + 0.2)
+														);
+												}}
+												// this is same formula as interest calculation
 											>
 												<MagnifyingGlassMinus />
 											</IconButton>
