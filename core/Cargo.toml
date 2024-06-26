@@ -102,7 +102,6 @@ tokio = { workspace = true, features = [
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
-tracing-android = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 webp = { workspace = true }
@@ -159,6 +158,9 @@ icrate = { version = "0.1.2", features = [
 	"Foundation_NSString",
 	"Foundation_NSNumber",
 ] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+tracing-android = "0.2.0"
 
 [dev-dependencies]
 # Workspace dependencies

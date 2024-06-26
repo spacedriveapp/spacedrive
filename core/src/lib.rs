@@ -258,16 +258,14 @@ impl Node {
 
 		let registry = registry();
 
-		#[cfg(target_os = "android")]
-		let registry = registry.with(tracing_android::layer("com.spacedrive.app").unwrap());
-
 		let registry = registry
 			.with(
 				tracing_subscriber::fmt::layer()
 					.with_file(true)
 					.with_line_number(true)
 					.with_ansi(false)
-					// .with_writer(logfile)
+					.with_target(false)
+					.with_writer(logfile)
 					.with_filter(EnvFilter::from_default_env()),
 			)
 			.with(
@@ -277,6 +275,9 @@ impl Node {
 					.with_writer(std::io::stdout)
 					.with_filter(EnvFilter::from_default_env()),
 			);
+
+		#[cfg(target_os = "android")]
+		let registry = registry.with(tracing_android::layer("com.spacedrive.app").unwrap());
 
 		registry.init();
 
