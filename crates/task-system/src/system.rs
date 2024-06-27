@@ -44,7 +44,7 @@ impl<E: RunError> System<E> {
 		let workers_count = usize::max(
 			std::thread::available_parallelism().map_or_else(
 				|e| {
-					error!("Failed to get available parallelism in the job system: {e:#?}");
+					error!(?e, "Failed to get available parallelism in the job system");
 					1
 				},
 				NonZeroUsize::get,

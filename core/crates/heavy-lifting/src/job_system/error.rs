@@ -30,6 +30,9 @@ pub enum JobSystemError {
 
 	#[error(transparent)]
 	Report(#[from] ReportError),
+
+	#[error("internal job panic! <id='{0}'>")]
+	Panic(JobId),
 }
 
 impl From<JobSystemError> for rspc::Error {

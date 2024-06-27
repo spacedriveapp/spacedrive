@@ -14,6 +14,7 @@ use sd_file_ext::extensions::{VideoExtension, ALL_VIDEO_EXTENSIONS};
 
 use std::{
 	ops::Deref,
+	panic,
 	path::{Path, PathBuf},
 	str::FromStr,
 	time::Duration,
@@ -313,9 +314,9 @@ pub async fn generate_thumbnail(
 }
 
 fn inner_generate_image_thumbnail(
-	file_path: PathBuf,
+	file_path: &PathBuf,
 ) -> Result<Vec<u8>, thumbnailer::NonCriticalThumbnailerError> {
-	let mut img = format_image(&file_path).map_err(|e| {
+	let mut img = format_image(file_path).map_err(|e| {
 		thumbnailer::NonCriticalThumbnailerError::FormatImage(file_path.clone(), e.to_string())
 	})?;
 
@@ -336,7 +337,7 @@ fn inner_generate_image_thumbnail(
 
 	// this corrects the rotation/flip of the image based on the *available* exif data
 	// not all images have exif data, so we don't error. we also don't rotate HEIF as that's against the spec
-	if let Some(orientation) = Orientation::from_path(&file_path) {
+	if let Some(orientation) = Orientation::from_path(file_path) {
 		if ConvertibleExtension::try_from(file_path.as_ref())
 			.expect("we already checked if the image was convertible")
 			.should_rotate()
@@ -347,7 +348,10 @@ fn inner_generate_image_thumbnail(
 
 	// Create the WebP encoder for the above image
 	let encoder = Encoder::from_image(&img).map_err(|reason| {
-		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(file_path, reason.to_string())
+		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
+			file_path.clone(),
+			reason.to_string(),
+		)
 	})?;
 
 	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
@@ -378,7 +382,19 @@ async fn generate_image_thumbnail(
 
 		move || {
 			// Handling error on receiver side
-			let _ = tx.send(inner_generate_image_thumbnail(file_path));
+
+			let _ = tx.send(
+				panic::catch_unwind(|| inner_generate_image_thumbnail(&file_path)).unwrap_or_else(
+					move |_| {
+						Err(
+							thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
+								file_path,
+								"Internal panic on third party crate".to_string(),
+							),
+						)
+					},
+				),
+			);
 		}
 	});
 

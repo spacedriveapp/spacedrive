@@ -13,6 +13,7 @@ use std::{
 	hash::{Hash, Hasher},
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
+	panic::AssertUnwindSafe,
 	path::Path,
 	pin::pin,
 	sync::Arc,
@@ -21,7 +22,7 @@ use std::{
 
 use async_channel as chan;
 use chrono::{DateTime, Utc};
-use futures::{stream, Future, StreamExt};
+use futures::{stream, Future, FutureExt, StreamExt};
 use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
@@ -750,15 +751,29 @@ where
 
 		trace!("Dispatching job");
 
-		spawn(to_spawn_job::<OuterCtx, _, _>(
-			self.id,
-			self.job,
-			ctx.clone(),
-			None,
-			base_dispatcher,
-			commands_rx,
-			done_tx,
-		));
+		spawn({
+			let id = self.id;
+			let job = self.job;
+			let ctx = ctx.clone();
+
+			async move {
+				if AssertUnwindSafe(to_spawn_job::<OuterCtx, _, _>(
+					id,
+					job,
+					ctx,
+					None,
+					base_dispatcher,
+					commands_rx,
+					done_tx,
+				))
+				.catch_unwind()
+				.await
+				.is_err()
+				{
+					error!("job panicked");
+				}
+			}
+		});
 
 		JobHandle {
 			id: self.id,
@@ -791,15 +806,29 @@ where
 
 		trace!("Resuming job");
 
-		spawn(to_spawn_job::<OuterCtx, _, _>(
-			self.id,
-			self.job,
-			ctx.clone(),
-			serialized_tasks,
-			base_dispatcher,
-			commands_rx,
-			done_tx,
-		));
+		spawn({
+			let id = self.id;
+			let job = self.job;
+			let ctx = ctx.clone();
+
+			async move {
+				if AssertUnwindSafe(to_spawn_job::<OuterCtx, _, _>(
+					id,
+					job,
+					ctx,
+					serialized_tasks,
+					base_dispatcher,
+					commands_rx,
+					done_tx,
+				))
+				.catch_unwind()
+				.await
+				.is_err()
+				{
+					error!("job panicked");
+				}
+			}
+		});
 
 		JobHandle {
 			id: self.id,
@@ -855,9 +884,14 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 
 	spawn(
 		async move {
-			tx.send(job.run::<OuterCtx>(dispatcher, ctx).await)
-				.await
-				.expect("job run channel closed");
+			tx.send(
+				AssertUnwindSafe(job.run::<OuterCtx>(dispatcher, ctx))
+					.catch_unwind()
+					.await
+					.unwrap_or(Err(Error::JobSystem(JobSystemError::Panic(job_id)))),
+			)
+			.await
+			.expect("job run channel closed");
 		}
 		.in_current_span(),
 	);
