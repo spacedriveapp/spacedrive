@@ -153,7 +153,7 @@ function usePlausible() {
 	useEffect(() => {
 		const interval = setInterval(() => {
 			plausibleEvent({ event: { type: 'ping' } });
-		}, 270 * 1000);
+		}, 600 * 1000); // 10 minutes
 
 		return () => clearInterval(interval);
 	}, [plausibleEvent]);
