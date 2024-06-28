@@ -35,6 +35,8 @@ import Collection from './Collection.png';
 import CollectionSparkle_Light from './CollectionSparkle_Light.png';
 import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
+import Database_cloud_blue from './Database_cloud_blue.png';
+import Database_cloud_grey from './Database_cloud_grey.png';
 import Database_Light from './Database_Light.png';
 import Database20 from './Database-20.png';
 import Database from './Database.png';
@@ -164,6 +166,7 @@ import SilverBox from './SilverBox.png';
 import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
+import Sync from './Sync.png';
 import Tablet_Light from './Tablet_Light.png';
 import Tablet from './Tablet.png';
 import Tags_Light from './Tags_Light.png';
@@ -228,6 +231,8 @@ export {
 	Database20,
 	Database,
 	Database_Light,
+	Database_cloud_blue,
+	Database_cloud_grey,
 	DeleteLocation,
 	Document20,
 	Document,
@@ -353,6 +358,7 @@ export {
 	Spacedrop1,
 	Spacedrop,
 	Spacedrop_Light,
+	Sync,
 	Tablet,
 	Tablet_Light,
 	Tags,
