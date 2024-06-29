@@ -36,7 +36,7 @@ gix-ignore = "0.11.2"
 globset = "0.4.14"
 http = "0.2"                                          # Update blocked by axum
 hyper = "0.14"                                        # Update blocked due to API breaking changes
-image = "0.24.9"
+image = "0.24.9"                                      # Update blocked due to https://github.com/image-rs/image/issues/2230
 itertools = "0.13.0"
 lending-stream = "1.0"
 libc = "0.2"
@@ -66,7 +66,7 @@ tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
 uhlc = "0.6.0"                                        # Must follow version used by specta
 uuid = "1.8"
-webp = "0.2.6"
+webp = "0.2.6"                                        # Update blocked by image
 
 [workspace.dependencies.prisma-client-rust]
 git = "https://github.com/brendonovich/prisma-client-rust"
