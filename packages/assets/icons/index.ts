@@ -28,6 +28,8 @@ import Book20 from './Book-20.png';
 import Book from './Book.png';
 import BookBlue from './BookBlue.png';
 import Box from './Box.png';
+import CloudSync_Light from './CloudSync_Light.png';
+import CloudSync from './CloudSync.png';
 import Code20 from './Code-20.png';
 import Collection_Light from './Collection_Light.png';
 import Collection20 from './Collection-20.png';
@@ -35,9 +37,6 @@ import Collection from './Collection.png';
 import CollectionSparkle_Light from './CollectionSparkle_Light.png';
 import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
-import Database_cloud_blue from './Database_cloud_blue.png';
-import Database_cloud_grey from './Database_cloud_grey.png';
-import Database_Light from './Database_Light.png';
 import Database20 from './Database-20.png';
 import Database from './Database.png';
 import DAV from './DAV.png';
@@ -166,6 +165,7 @@ import SilverBox from './SilverBox.png';
 import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
+import Sync_Light from './Sync_Light.png';
 import Sync from './Sync.png';
 import Tablet_Light from './Tablet_Light.png';
 import Tablet from './Tablet.png';
@@ -220,6 +220,8 @@ export {
 	BookBlue,
 	Book_Light,
 	Box,
+	CloudSync,
+	CloudSync_Light,
 	Code20,
 	Collection20,
 	Collection,
@@ -230,9 +232,6 @@ export {
 	DAV,
 	Database20,
 	Database,
-	Database_Light,
-	Database_cloud_blue,
-	Database_cloud_grey,
 	DeleteLocation,
 	Document20,
 	Document,
@@ -359,6 +358,7 @@ export {
 	Spacedrop,
 	Spacedrop_Light,
 	Sync,
+	Sync_Light,
 	Tablet,
 	Tablet_Light,
 	Tags,
