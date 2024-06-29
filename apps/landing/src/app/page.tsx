@@ -40,7 +40,7 @@ export default async function Page() {
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-8" />
 				<NewBanner
-					headline="Alpha 0.2 is here!"
+					headline="Alpha 0.3 is here!"
 					href="/blog/alpha-zero-two-release"
 					link="Read post"
 					className="mt-[50px] lg:mt-0"
