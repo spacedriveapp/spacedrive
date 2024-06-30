@@ -1,6 +1,8 @@
 use std::{
+	any::Any,
 	collections::{HashMap, VecDeque},
 	future::pending,
+	panic::AssertUnwindSafe,
 	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -53,7 +55,7 @@ struct AbortAndSuspendSignalers {
 struct RunningTask {
 	id: TaskId,
 	kind: PendingTaskKind,
-	handle: JoinHandle<()>,
+	handle: JoinHandle<Result<(), Box<dyn Any + Send>>>,
 }
 
 enum WaitingSuspendedTask {
@@ -150,7 +152,7 @@ impl<E: RunError> Runner<E> {
 		&mut self,
 		task_id: TaskId,
 		task_work_state: TaskWorkState<E>,
-	) -> JoinHandle<()> {
+	) -> JoinHandle<Result<(), Box<dyn Any + Send>>> {
 		let (abort_tx, abort_rx) = oneshot::channel();
 		let (suspend_tx, suspend_rx) = oneshot::channel();
 
@@ -163,13 +165,16 @@ impl<E: RunError> Runner<E> {
 		);
 
 		let handle = spawn(
-			run_single_task(
-				task_work_state,
-				self.task_output_tx.clone(),
-				suspend_rx,
-				abort_rx,
+			AssertUnwindSafe(
+				run_single_task(
+					task_work_state,
+					self.task_output_tx.clone(),
+					suspend_rx,
+					abort_rx,
+				)
+				.in_current_span(),
 			)
-			.in_current_span(),
+			.catch_unwind(),
 		);
 
 		trace!("Task runner spawned");
@@ -624,8 +629,14 @@ impl<E: RunError> Runner<E> {
 					}
 				}
 
-				if let Err(e) = handle.await {
-					error!(%task_id, ?e, "Task failed to join");
+				match handle.await {
+					Ok(Ok(())) => { /* Everything is Awesome! */ }
+					Ok(Err(_)) => {
+						error!(%task_id, "Task panicked");
+					}
+					Err(e) => {
+						error!(%task_id, ?e, "Task failed to join");
+					}
 				}
 
 				stolen_task_tx.close();
@@ -806,8 +817,14 @@ impl<E: RunError> Runner<E> {
 
 		assert_eq!(*finished_task_id, old_task_id, "Task output id mismatch"); // Sanity check
 
-		if let Err(e) = handle.await {
-			error!(?e, "Task failed to join");
+		match handle.await {
+			Ok(Ok(())) => { /* Everything is Awesome! */ }
+			Ok(Err(_)) => {
+				error!("Task panicked");
+			}
+			Err(e) => {
+				error!(?e, "Task failed to join");
+			}
 		}
 
 		if let Some((next_task_kind, task_work_state)) = self.get_next_task() {
