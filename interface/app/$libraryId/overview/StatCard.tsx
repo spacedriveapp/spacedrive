@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { humanizeSize } from '@sd/client';
-import { Card, CircularProgress, tw } from '@sd/ui';
+import { Card, CircularProgress, cva, tw } from '@sd/ui';
 import { Icon } from '~/components';
 import { useIsDark, useLocale } from '~/hooks';
 
@@ -20,14 +20,23 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const isDark = useIsDark();
 
+	// Returns the value in a simpler form and unit i.e 2.5 TB
+	const totalSpaceSingle = humanizeSize(stats.totalSpace);
+
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = humanizeSize(stats.totalSpace);
+
+		// Returns the value in thousands format
+		const totalSpace = humanizeSize(stats.totalSpace, {
+			return_thousands: true
+		});
+
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 		return {
 			totalSpace,
 			freeSpace,
 			usedSpaceSpace: humanizeSize(totalSpace.bytes - freeSpace.bytes)
 		};
+
 	}, [stats]);
 
 	useEffect(() => {
@@ -50,7 +59,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						progress={progress}
 						strokeWidth={6}
 						trackStrokeWidth={6}
-						strokeColor={progress > 90 ? '#E14444' : '#2599FF'}
+						strokeColor={progress >= 90 ? '#E14444' : progress >= 75 ? 'darkorange' : progress >= 60 ? 'yellow' : '#2599FF'}
 						fillColor="transparent"
 						trackStrokeColor={isDark ? '#252631' : '#efefef'}
 						strokeLinecap="square"
@@ -76,7 +85,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						{freeSpace.value !== totalSpace.value && (
 							<>
 								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
-								{t('free_of')} {totalSpace.value}{' '}
+								{t('free_of')} {totalSpaceSingle.value}{' '}
 								{t(`size_${totalSpace.unit.toLowerCase()}`)}
 							</>
 						)}
