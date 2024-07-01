@@ -82,7 +82,7 @@ export const Component = () => {
 				p2p_discovery: null,
 				p2p_remote_access: null,
 				p2p_manual_peers: null,
-				image_labeler_version: value.image_labeler_version ?? null
+				// image_labeler_version: value.image_labeler_version ?? null
 			});
 
 			if (value.background_processing_percentage != null) {
