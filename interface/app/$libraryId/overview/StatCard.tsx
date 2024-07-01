@@ -23,7 +23,9 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
 
-		const totalSpace = humanizeSize(stats.totalSpace);
+		const totalSpace = humanizeSize(stats.totalSpace, {
+			no_thousands: false
+		});
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 
 		return {

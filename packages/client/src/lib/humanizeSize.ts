@@ -86,6 +86,7 @@ export interface ByteSizeOpts {
 	precision?: number;
 	base_unit?: 'decimal' | 'binary';
 	use_plural?: boolean;
+	no_thousands?: boolean;
 }
 
 /**
@@ -98,6 +99,7 @@ export interface ByteSizeOpts {
  * @param options.precision - Number of decimal places. Defaults to `1`.
  * @param options.base_unit - The base unit to use. Defaults to `'decimal'`.
  * @param options.use_plural - Use plural unit names when necessary. Defaults to `true`.
+ * @param options.no_thousands - Do not convert TB to thousands. Defaults to `true`.
  */
 export const humanizeSize = (
 	value: null | string | number | bigint | string[] | number[] | bigint[] | undefined,
@@ -106,7 +108,8 @@ export const humanizeSize = (
 		precision = 1,
 		locales,
 		base_unit = 'decimal',
-		use_plural = true
+		use_plural = true,
+		no_thousands = true
 	}: ByteSizeOpts = {}
 ) => {
 	if (value == null) value = 0n;
@@ -137,7 +140,7 @@ export const humanizeSize = (
 
 	// Convert to thousands when short is TB to show correct progress value
 	//i.e 2.5 TB = 2500
-	if (unit.short === "TB") {
+	if (unit.short === "TB" && !no_thousands) {
 		value = value * 1000;
 	}
 
