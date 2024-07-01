@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { humanizeSize } from '@sd/client';
-import { Card, CircularProgress, cva, tw } from '@sd/ui';
+import { Card, CircularProgress, tw } from '@sd/ui';
 import { Icon } from '~/components';
 import { useIsDark, useLocale } from '~/hooks';
 
@@ -20,17 +20,12 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const isDark = useIsDark();
 
-	// Returns the value in a simpler form and unit i.e 2.5 TB
-	const totalSpaceSingle = humanizeSize(stats.totalSpace);
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
 
-		// Returns the value in thousands format
-		const totalSpace = humanizeSize(stats.totalSpace, {
-			return_thousands: true
-		});
-
+		const totalSpace = humanizeSize(stats.totalSpace);
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
+
 		return {
 			totalSpace,
 			freeSpace,
@@ -85,7 +80,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						{freeSpace.value !== totalSpace.value && (
 							<>
 								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
-								{t('free_of')} {totalSpaceSingle.value}{' '}
+								{t('free_of')} {totalSpace.value}{' '}
 								{t(`size_${totalSpace.unit.toLowerCase()}`)}
 							</>
 						)}

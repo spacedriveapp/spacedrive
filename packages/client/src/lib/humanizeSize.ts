@@ -86,7 +86,6 @@ export interface ByteSizeOpts {
 	precision?: number;
 	base_unit?: 'decimal' | 'binary';
 	use_plural?: boolean;
-	return_thousands?: boolean;
 }
 
 /**
@@ -99,7 +98,6 @@ export interface ByteSizeOpts {
  * @param options.precision - Number of decimal places. Defaults to `1`.
  * @param options.base_unit - The base unit to use. Defaults to `'decimal'`.
  * @param options.use_plural - Use plural unit names when necessary. Defaults to `true`.
- * @param options.return_thousands - Return the value in thousands. Defaults to `false`.
  */
 export const humanizeSize = (
 	value: null | string | number | bigint | string[] | number[] | bigint[] | undefined,
@@ -108,8 +106,7 @@ export const humanizeSize = (
 		precision = 1,
 		locales,
 		base_unit = 'decimal',
-		use_plural = true,
-		return_thousands = false
+		use_plural = true
 	}: ByteSizeOpts = {}
 ) => {
 	if (value == null) value = 0n;
@@ -138,11 +135,17 @@ export const humanizeSize = (
 			: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor;
 	const plural = use_plural && value !== 1 ? 's' : '';
 
+	// Convert to thousands when short is TB to show correct progress value
+	//i.e 2.5 TB = 2500
+	if (unit.short === "TB") {
+		value = value * 1000;
+	}
+
 	return {
 		unit: is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short,
 		long: is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long,
 		bytes,
-		value: (isNegative ? -1 : 1) * (return_thousands ? value * 1000 : value),
+		value: (isNegative ? -1 : 1) * value,
 		toString() {
 			return `${defaultFormat.format(this.value)} ${this.unit}${plural}`;
 		}
