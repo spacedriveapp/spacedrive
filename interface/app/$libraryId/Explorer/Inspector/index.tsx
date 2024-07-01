@@ -229,6 +229,10 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 		enabled: filePathData != null && readyToFetch
 	});
 
+	const duplicateFilePaths = useLibraryQuery(['files.getDuplicates', objectData?.id ?? -1], {
+		enabled: objectData != null && readyToFetch
+	});
+
 	const filesMediaData = useLibraryQuery(['files.getMediaData', objectData?.id ?? -1], {
 		enabled: objectData != null && readyToFetch
 	});
