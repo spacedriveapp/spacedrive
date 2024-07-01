@@ -20,6 +20,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const isDark = useIsDark();
 
+	//TODO: Improve this
+	const totalSpaceSingleValue = humanizeSize(stats.totalSpace);
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
 
@@ -82,7 +84,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						{freeSpace.value !== totalSpace.value && (
 							<>
 								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
-								{t('free_of')} {totalSpace.value}{' '}
+								{t('free_of')} {totalSpaceSingleValue.value}{' '}
 								{t(`size_${totalSpace.unit.toLowerCase()}`)}
 							</>
 						)}

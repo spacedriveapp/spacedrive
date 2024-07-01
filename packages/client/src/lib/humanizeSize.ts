@@ -138,6 +138,7 @@ export const humanizeSize = (
 			: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor;
 	const plural = use_plural && value !== 1 ? 's' : '';
 
+	//TODO: Improve this
 	// Convert to thousands when short is TB to show correct progress value
 	//i.e 2.5 TB = 2500
 	if (unit.short === "TB" && !no_thousands) {
