@@ -30,7 +30,7 @@ pub const HEIF_EXTENSIONS: [&str; 8] = [
 /// This is the target pixel count for all SVG images to be rendered at.
 ///
 /// It is 512x512, but if the SVG has a non-1:1 aspect ratio we need to account for that.
-pub const SVG_TARGET_PX: f32 = 262_144_f32;
+pub const SVG_TARGET_PX: f32 = 262_144f32;
 
 /// The size that PDF pages are rendered at.
 ///

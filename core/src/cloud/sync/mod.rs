@@ -42,7 +42,10 @@ pub async fn declare_actors(
 				let active = state.send_active.clone();
 				let active_notifier = state.notifier.clone();
 
-				move || send::run_actor(library_id, sync, node, active, active_notifier)
+				move |_stop| {
+					// FIXME: Properly use the stop actor
+					send::run_actor(library_id, sync, node, active, active_notifier)
+				}
 			},
 			autorun,
 		)
@@ -58,7 +61,8 @@ pub async fn declare_actors(
 				let active_notifier = state.notifier.clone();
 				let active = state.receive_active.clone();
 
-				move || {
+				move |_stop| {
+					// FIXME: Properly use the stop actor
 					receive::run_actor(
 						node.libraries.clone(),
 						db.clone(),
@@ -83,7 +87,10 @@ pub async fn declare_actors(
 				let active = state.ingest_active.clone();
 				let active_notifier = state.notifier.clone();
 
-				move || ingest::run_actor(sync.clone(), ingest_notify, active, active_notifier)
+				move |_stop| {
+					// FIXME: Properly use the stop actor
+					ingest::run_actor(sync.clone(), ingest_notify, active, active_notifier)
+				}
 			},
 			autorun,
 		)

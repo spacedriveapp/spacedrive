@@ -1,6 +1,6 @@
 use crate::{indexer, Error};
 
-use sd_core_file_path_helper::IsolatedFilePathDataParts;
+use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::{
@@ -11,7 +11,11 @@ use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::{chain_optional_iter, db::inode_to_db, msgpack};
+use sd_utils::{
+	chain_optional_iter,
+	db::{inode_to_db, size_in_bytes_to_db},
+	msgpack,
+};
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
@@ -96,7 +100,14 @@ impl Task<Error> for Updater {
 				     pub_id,
 				     maybe_object_id,
 				     iso_file_path,
-				     metadata,
+				     metadata:
+				         FilePathMetadata {
+				             inode,
+				             size_in_bytes,
+				             created_at,
+				             modified_at,
+				             hidden,
+				         },
 				 }| {
 					let IsolatedFilePathDataParts { is_dir, .. } = &iso_file_path.to_parts();
 
@@ -108,20 +119,11 @@ impl Task<Error> for Updater {
 						[
 							((cas_id::NAME, msgpack!(nil)), cas_id::set(None)),
 							sync_db_entry!(*is_dir, is_dir),
-							sync_db_entry!(
-								metadata.size_in_bytes.to_be_bytes().to_vec(),
-								size_in_bytes_bytes
-							),
-							sync_db_entry!(inode_to_db(metadata.inode), inode),
-							{
-								let v = metadata.created_at.into();
-								sync_db_entry!(v, date_created)
-							},
-							{
-								let v = metadata.modified_at.into();
-								sync_db_entry!(v, date_modified)
-							},
-							sync_db_entry!(metadata.hidden, hidden),
+							sync_db_entry!(size_in_bytes_to_db(size_in_bytes), size_in_bytes_bytes),
+							sync_db_entry!(inode_to_db(inode), inode),
+							sync_db_entry!(created_at, date_created),
+							sync_db_entry!(modified_at, date_modified),
+							sync_db_entry!(hidden, hidden),
 						],
 						[
 							// As this file was updated while Spacedrive was offline, we mark the object_id and cas_id as null

@@ -338,7 +338,17 @@ impl Task<SampleError> for SampleActorTask {
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, SampleError> {
 		info!("Actor data: {:#?}", self.actor_data);
-		self.timed_task.run(interrupter).await
+		let out = self.timed_task.run(interrupter).await?;
+		if let ExecStatus::Done(TaskOutput::Out(out)) = &out {
+			info!(
+				"Task completed with {} pauses",
+				out.downcast_ref::<TimedTaskOutput>()
+					.expect("we know the task type")
+					.pauses_count
+			);
+		}
+
+		Ok(out)
 	}
 
 	fn with_priority(&self) -> bool {

@@ -1,13 +1,10 @@
-use crate::{crdt_op_db, db_operation::*, ingest, SharedState, SyncMessage, NTP64};
-
 use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::{CRDTOperation, OperationFactory};
-use sd_utils::uuid_to_bytes;
+use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
+use tracing::warn;
 
 use std::{
-	cmp::Ordering,
-	collections::HashMap,
-	fmt,
+	cmp, fmt,
 	num::NonZeroU128,
 	ops::Deref,
 	sync::{
@@ -16,16 +13,23 @@ use std::{
 	},
 };
 
-use tokio::sync::{broadcast, RwLock};
+use prisma_client_rust::{and, operator::or};
+use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
+
+use super::{
+	crdt_op_db,
+	db_operation::{cloud_crdt_with_instance, crdt_with_instance},
+	ingest, Error, SharedState, SyncMessage, NTP64,
+};
 
 /// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncMessage>,
 	pub ingest: ingest::Handler,
 	pub shared: Arc<SharedState>,
-	pub timestamp_lock: tokio::sync::Semaphore,
+	pub timestamp_lock: Mutex<()>,
 }
 
 impl fmt::Debug for Manager {
@@ -40,74 +44,122 @@ pub struct GetOpsArgs {
 	pub count: u32,
 }
 
-pub struct New {
-	pub manager: Manager,
-	pub rx: broadcast::Receiver<SyncMessage>,
-}
-
 impl Manager {
-	#[allow(clippy::new_ret_no_self)]
+	/// Creates a new manager that can be used to read and write CRDT operations.
+	/// Sync messages are received on the returned [`broadcast::Receiver<SyncMessage>`].
 	pub async fn new(
-		db: &Arc<PrismaClient>,
-		instance: Uuid,
-		emit_messages_flag: &Arc<AtomicBool>,
-		timestamps: HashMap<Uuid, NTP64>,
-		actors: &Arc<sd_actors::Actors>,
-	) -> New {
+		db: Arc<PrismaClient>,
+		current_instance_uuid: Uuid,
+		emit_messages_flag: Arc<AtomicBool>,
+		actors: Arc<sd_actors::Actors>,
+	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
+		let existing_instances = db.instance().find_many(vec![]).exec().await?;
+
+		Self::with_existing_instances(
+			db,
+			current_instance_uuid,
+			emit_messages_flag,
+			&existing_instances,
+			actors,
+		)
+		.await
+	}
+
+	/// Creates a new manager that can be used to read and write CRDT operations from a list of existing instances.
+	/// Sync messages are received on the returned [`broadcast::Receiver<SyncMessage>`].
+	///
+	/// # Panics
+	/// Panics if the `current_instance_id` UUID is zeroed.
+	pub async fn with_existing_instances(
+		db: Arc<PrismaClient>,
+		current_instance_uuid: Uuid,
+		emit_messages_flag: Arc<AtomicBool>,
+		existing_instances: &[instance::Data],
+		actors: Arc<sd_actors::Actors>,
+	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
+		let timestamps = db
+			._batch(
+				existing_instances
+					.iter()
+					.map(|i| {
+						db.crdt_operation()
+							.find_first(vec![crdt_operation::instance::is(vec![
+								instance::id::equals(i.id),
+							])])
+							.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
+					})
+					.collect::<Vec<_>>(),
+			)
+			.await?
+			.into_iter()
+			.zip(existing_instances)
+			.map(|(op, i)| {
+				(
+					from_bytes_to_uuid(&i.pub_id),
+					#[allow(clippy::cast_sign_loss)]
+					// SAFETY: we had to store using i64 due to SQLite limitations
+					NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
+				)
+			})
+			.collect();
+
 		let (tx, rx) = broadcast::channel(64);
 
 		let clock = HLCBuilder::new()
 			.with_id(uhlc::ID::from(
-				NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
+				NonZeroU128::new(current_instance_uuid.to_u128_le()).expect("Non zero id"),
 			))
 			.build();
 
 		let shared = Arc::new(SharedState {
-			db: db.clone(),
-			instance,
+			db,
+			instance: current_instance_uuid,
 			clock,
 			timestamps: Arc::new(RwLock::new(timestamps)),
-			emit_messages_flag: emit_messages_flag.clone(),
-			active: Default::default(),
-			active_notify: Default::default(),
-			actors: actors.clone(),
+			emit_messages_flag,
+			active: AtomicBool::default(),
+			active_notify: Notify::default(),
+			actors,
 		});
 
 		let ingest = ingest::Actor::declare(shared.clone()).await;
 
-		New {
-			manager: Self {
+		Ok((
+			Self {
 				tx,
 				ingest,
 				shared,
-				timestamp_lock: tokio::sync::Semaphore::new(1),
+				timestamp_lock: Mutex::default(),
 			},
 			rx,
-		}
+		))
 	}
 
 	pub fn subscribe(&self) -> broadcast::Receiver<SyncMessage> {
 		self.tx.subscribe()
 	}
 
-	pub async fn write_ops<'item, I: prisma_client_rust::BatchItem<'item>>(
+	pub async fn write_ops<'item, Q>(
 		&self,
 		tx: &PrismaClient,
-		(mut ops, queries): (Vec<CRDTOperation>, I),
-	) -> prisma_client_rust::Result<<I as prisma_client_rust::BatchItemParent>::ReturnValue> {
+		(mut ops, queries): (Vec<CRDTOperation>, Q),
+	) -> Result<Q::ReturnValue, Error>
+	where
+		Q: prisma_client_rust::BatchItem<'item, ReturnValue: Send> + Send,
+	{
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
-			let lock = self.timestamp_lock.acquire().await;
+			let lock = self.timestamp_lock.lock().await;
 
-			ops.iter_mut().for_each(|op| {
+			for op in &mut ops {
 				op.timestamp = *self.get_clock().new_timestamp().get_time();
-			});
+			}
 
 			let (res, _) = tx
 				._batch((
 					queries,
 					ops.iter()
-						.map(|op| crdt_op_db(op).to_query(tx))
-						.collect::<Vec<_>>(),
+						.map(|op| crdt_op_db(op).map(|q| q.to_query(tx)))
+						.collect::<Result<Vec<_>, _>>()?,
 				))
 				.await?;
 
@@ -119,7 +171,9 @@ impl Manager {
 					.insert(self.instance, last.timestamp);
 			}
 
-			self.tx.send(SyncMessage::Created).ok();
+			if self.tx.send(SyncMessage::Created).is_err() {
+				warn!("failed to send created message on `write_ops`");
+			}
 
 			drop(lock);
 
@@ -131,21 +185,25 @@ impl Manager {
 		Ok(ret)
 	}
 
-	#[allow(unused_variables)]
-	pub async fn write_op<'item, Q: prisma_client_rust::BatchItem<'item>>(
+	pub async fn write_op<'item, Q>(
 		&self,
 		tx: &PrismaClient,
 		mut op: CRDTOperation,
 		query: Q,
-	) -> prisma_client_rust::Result<<Q as prisma_client_rust::BatchItemParent>::ReturnValue> {
+	) -> Result<Q::ReturnValue, Error>
+	where
+		Q: prisma_client_rust::BatchItem<'item, ReturnValue: Send> + Send,
+	{
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
-			let lock = self.timestamp_lock.acquire().await;
+			let lock = self.timestamp_lock.lock().await;
 
 			op.timestamp = *self.get_clock().new_timestamp().get_time();
 
-			let ret = tx._batch((crdt_op_db(&op).to_query(tx), query)).await?.1;
+			let ret = tx._batch((crdt_op_db(&op)?.to_query(tx), query)).await?.1;
 
-			self.tx.send(SyncMessage::Created).ok();
+			if self.tx.send(SyncMessage::Created).is_err() {
+				warn!("failed to send created message on `write_op`");
+			}
 
 			drop(lock);
 
@@ -168,143 +226,121 @@ impl Manager {
 		count: u32,
 		instance_uuid: Uuid,
 		timestamp: NTP64,
-	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
-		let db = &self.db;
-
-		Ok(db
+	) -> Result<Vec<CRDTOperation>, Error> {
+		self.db
 			.crdt_operation()
 			.find_many(vec![
 				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
 					&instance_uuid,
 				))]),
+				#[allow(clippy::cast_possible_wrap)]
 				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
 			])
 			.take(i64::from(count))
 			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(crdt_include::include())
+			.include(crdt_with_instance::include())
 			.exec()
 			.await?
 			.into_iter()
-			.map(|o| o.into_operation())
-			.collect())
+			.map(crdt_with_instance::Data::into_operation)
+			.collect()
 	}
 
-	pub async fn get_ops(
-		&self,
-		args: GetOpsArgs,
-	) -> prisma_client_rust::Result<Vec<CRDTOperation>> {
-		let db = &self.db;
-
-		macro_rules! db_args {
-			($args:ident, $op:ident) => {
-				vec![prisma_client_rust::operator::or(
-					$args
-						.clocks
-						.iter()
-						.map(|(instance_id, timestamp)| {
-							prisma_client_rust::and![
-								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									instance_id
-								))]),
-								$op::timestamp::gt(timestamp.as_u64() as i64)
-							]
-						})
-						.chain([
-							$op::instance::is_not(vec![
-								instance::pub_id::in_vec(
-									$args
-										.clocks
-										.iter()
-										.map(|(instance_id, _)| {
-											uuid_to_bytes(instance_id)
-										})
-										.collect()
-								)
-							])
-						])
-						.collect(),
-				)]
-			};
-		}
-
-		let mut ops = db
+	pub async fn get_ops(&self, args: GetOpsArgs) -> Result<Vec<CRDTOperation>, Error> {
+		let mut ops = self
+			.db
 			.crdt_operation()
-			.find_many(db_args!(args, crdt_operation))
+			.find_many(vec![or(args
+				.clocks
+				.iter()
+				.map(|(instance_id, timestamp)| {
+					and![
+						crdt_operation::instance::is(vec![instance::pub_id::equals(
+							uuid_to_bytes(instance_id)
+						)]),
+						crdt_operation::timestamp::gt({
+							#[allow(clippy::cast_possible_wrap)]
+							// SAFETY: we had to store using i64 due to SQLite limitations
+							{
+								timestamp.as_u64() as i64
+							}
+						})
+					]
+				})
+				.chain([crdt_operation::instance::is_not(vec![
+					instance::pub_id::in_vec(
+						args.clocks
+							.iter()
+							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
+							.collect(),
+					),
+				])])
+				.collect())])
 			.take(i64::from(args.count))
 			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(crdt_include::include())
+			.include(crdt_with_instance::include())
 			.exec()
 			.await?;
 
 		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
-			Ordering::Equal => a.instance().cmp(&b.instance()),
+			cmp::Ordering::Equal => a.instance().cmp(&b.instance()),
 			o => o,
 		});
 
-		Ok(ops
-			.into_iter()
+		ops.into_iter()
 			.take(args.count as usize)
-			.map(|o| o.into_operation())
-			.collect())
+			.map(crdt_with_instance::Data::into_operation)
+			.collect()
 	}
 
 	pub async fn get_cloud_ops(
 		&self,
 		args: GetOpsArgs,
-	) -> prisma_client_rust::Result<Vec<(i32, CRDTOperation)>> {
-		let db = &self.db;
-
-		macro_rules! db_args {
-			($args:ident, $op:ident) => {
-				vec![prisma_client_rust::operator::or(
-					$args
-						.clocks
-						.iter()
-						.map(|(instance_id, timestamp)| {
-							prisma_client_rust::and![
-								$op::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-									instance_id
-								))]),
-								$op::timestamp::gt(timestamp.as_u64() as i64)
-							]
-						})
-						.chain([
-							$op::instance::is_not(vec![
-								instance::pub_id::in_vec(
-									$args
-										.clocks
-										.iter()
-										.map(|(instance_id, _)| {
-											uuid_to_bytes(instance_id)
-										})
-										.collect()
-								)
-							])
-						])
-						.collect(),
-				)]
-			};
-		}
-
-		let mut ops = db
+	) -> Result<Vec<(i32, CRDTOperation)>, Error> {
+		let mut ops = self
+			.db
 			.cloud_crdt_operation()
-			.find_many(db_args!(args, cloud_crdt_operation))
+			.find_many(vec![or(args
+				.clocks
+				.iter()
+				.map(|(instance_id, timestamp)| {
+					and![
+						cloud_crdt_operation::instance::is(vec![instance::pub_id::equals(
+							uuid_to_bytes(instance_id)
+						)]),
+						cloud_crdt_operation::timestamp::gt({
+							#[allow(clippy::cast_possible_wrap)]
+							// SAFETY: we had to store using i64 due to SQLite limitations
+							{
+								timestamp.as_u64() as i64
+							}
+						})
+					]
+				})
+				.chain([cloud_crdt_operation::instance::is_not(vec![
+					instance::pub_id::in_vec(
+						args.clocks
+							.iter()
+							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
+							.collect(),
+					),
+				])])
+				.collect())])
 			.take(i64::from(args.count))
 			.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(cloud_crdt_include::include())
+			.include(cloud_crdt_with_instance::include())
 			.exec()
 			.await?;
 
 		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
-			Ordering::Equal => a.instance().cmp(&b.instance()),
+			cmp::Ordering::Equal => a.instance().cmp(&b.instance()),
 			o => o,
 		});
 
-		Ok(ops
-			.into_iter()
+		ops.into_iter()
 			.take(args.count as usize)
-			.map(|o| o.into_operation())
-			.collect())
+			.map(cloud_crdt_with_instance::Data::into_operation)
+			.collect()
 	}
 }
 

@@ -55,6 +55,8 @@ pub enum Error {
 	FilePathError(#[from] FilePathError),
 	#[error(transparent)]
 	SubPath(#[from] sub_path::Error),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 impl From<Error> for rspc::Error {

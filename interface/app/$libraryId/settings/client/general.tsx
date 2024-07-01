@@ -69,7 +69,7 @@ export const Component = () => {
 		}
 	});
 
-	const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
+	// const watchBackgroundProcessingPercentage = form.watch('background_processing_percentage');
 
 	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
@@ -82,12 +82,12 @@ export const Component = () => {
 				p2p_discovery: null,
 				p2p_remote_access: null,
 				p2p_manual_peers: null,
-				image_labeler_version: value.image_labeler_version ?? null
+				// image_labeler_version: value.image_labeler_version ?? null
 			});
 
-			if (value.background_processing_percentage != undefined) {
+			if (value.background_processing_percentage != null) {
 				await updateThumbnailerPreferences.mutateAsync({
-					background_processing_percentage: value.background_processing_percentage
+					// background_processing_percentage: value.background_processing_percentage
 				});
 			}
 		}

@@ -11,6 +11,7 @@ edition = { workspace = true }
 [dependencies]
 # Inner Core Sub-crates
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-sync = { path = "../sync" }
 
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }

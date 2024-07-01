@@ -46,6 +46,8 @@ pub enum LibraryManagerError {
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	LibraryConfig(#[from] LibraryConfigError),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 impl From<LibraryManagerError> for rspc::Error {

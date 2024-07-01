@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -11,8 +11,8 @@ pub enum OperationKind<'a> {
 	Delete,
 }
 
-impl std::fmt::Display for OperationKind<'_> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for OperationKind<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			OperationKind::Create => write!(f, "c"),
 			OperationKind::Update(field) => write!(f, "u:{field}"),
@@ -36,11 +36,13 @@ pub enum CRDTOperationData {
 }
 
 impl CRDTOperationData {
+	#[must_use]
 	pub fn create() -> Self {
-		Self::Create(Default::default())
+		Self::Create(BTreeMap::default())
 	}
 
-	pub fn as_kind(&self) -> OperationKind {
+	#[must_use]
+	pub fn as_kind(&self) -> OperationKind<'_> {
 		match self {
 			Self::Create(_) => OperationKind::Create,
 			Self::Update { field, .. } => OperationKind::Update(field),
@@ -62,17 +64,17 @@ pub struct CRDTOperation {
 
 impl CRDTOperation {
 	#[must_use]
-	pub fn kind(&self) -> OperationKind {
+	pub fn kind(&self) -> OperationKind<'_> {
 		self.data.as_kind()
 	}
 }
 
-impl Debug for CRDTOperation {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for CRDTOperation {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("CRDTOperation")
 			.field("data", &self.data)
 			.field("model", &self.model)
 			.field("record_id", &self.record_id.to_string())
-			.finish()
+			.finish_non_exhaustive()
 	}
 }

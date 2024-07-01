@@ -135,7 +135,10 @@ mod originator {
 
 pub use responder::run as responder;
 mod responder {
+	use std::pin::pin;
+
 	use super::*;
+	use futures::StreamExt;
 	use originator::tx as rx;
 
 	pub mod tx {
@@ -196,30 +199,15 @@ mod responder {
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		library: Arc<Library>,
 	) -> Result<(), ()> {
-		let ingest = &library.sync.ingest;
-
-		async fn early_return(stream: &mut (impl AsyncRead + AsyncWrite + Unpin)) {
-			// TODO: Proper error returned to remote instead of this.
-			// TODO: We can't just abort the connection when the remote is expecting data.
-			stream
-				.write_all(&tx::MainRequest::Done.to_bytes())
-				.await
-				.unwrap();
-			stream.flush().await.unwrap();
-		}
-
-		let Ok(mut rx) = ingest.req_rx.try_lock() else {
-			warn!("Rejected sync due to libraries lock being held!");
-
-			early_return(stream).await;
-			return Ok(());
-		};
-
 		use sync::ingest::*;
+
+		let ingest = &library.sync.ingest;
 
 		ingest.event_tx.send(Event::Notification).await.unwrap();
 
-		while let Some(req) = rx.recv().await {
+		let mut rx = pin!(ingest.req_rx.clone());
+
+		while let Some(req) = rx.next().await {
 			const OPS_PER_REQUEST: u32 = 1000;
 
 			let timestamps = match req {
@@ -244,6 +232,10 @@ mod responder {
 			let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
 
 			let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
+
+			// FIXME: If there are exactly a multiple of OPS_PER_REQUEST operations,
+			// then this will bug, as we sent `has_more` as true, but we don't have
+			// more operations to send.
 
 			ingest
 				.event_tx

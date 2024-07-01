@@ -152,7 +152,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				|(_, library), (id, args): (saved_search::id::Type, Args)| async move {
 					let Library { db, sync, .. } = library.as_ref();
-					let updated_at = Utc::now().into();
+					let updated_at = Utc::now();
 
 					let search = db
 						.saved_search()

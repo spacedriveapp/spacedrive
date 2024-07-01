@@ -16,7 +16,6 @@ use std::path::Path;
 
 use futures_concurrency::future::TryJoin;
 use once_cell::sync::Lazy;
-use prisma_client_rust::QueryError;
 
 use super::from_slice_option_to_option;
 
@@ -107,7 +106,7 @@ pub async fn save(
 	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, ObjectPubId)> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<u64, QueryError> {
+) -> Result<u64, sd_core_sync::Error> {
 	exif_datas
 		.into_iter()
 		.map(|(exif_data, object_id, object_pub_id)| async move {

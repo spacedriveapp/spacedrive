@@ -8,14 +8,12 @@ use crate::{
 	Node,
 };
 
-use futures::future::join_all;
 use sd_core_sync::SyncMessage;
 use sd_p2p::{Identity, RemoteIdentity};
-use sd_prisma::prisma::{crdt_operation, instance, location, SortOrder};
+use sd_prisma::prisma::{instance, location};
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
-	from_bytes_to_uuid,
 };
 
 use std::{
@@ -32,7 +30,7 @@ use std::{
 use chrono::Utc;
 use futures_concurrency::future::{Join, TryJoin};
 use tokio::{
-	fs, io,
+	fs, io, spawn,
 	sync::{broadcast, RwLock},
 	time::sleep,
 };
@@ -392,31 +390,31 @@ impl Libraries {
 		&self,
 		instance: &RemoteIdentity,
 	) -> Option<Arc<Library>> {
-		join_all(
-			self.libraries
-				.read()
-				.await
-				.iter()
-				.map(|(_, library)| async move {
-					library
-						.db
-						.instance()
-						.find_many(vec![instance::remote_identity::equals(
-							instance.get_bytes().to_vec(),
-						)])
-						.exec()
-						.await
-						.ok()
-						.iter()
-						.flatten()
-						.filter_map(|i| RemoteIdentity::from_bytes(&i.remote_identity).ok())
-						.any(|i| i == *instance)
-						.then(|| Arc::clone(library))
-				}),
-		)
-		.await
-		.into_iter()
-		.find_map(|v| v)
+		self.libraries
+			.read()
+			.await
+			.iter()
+			.map(|(_, library)| async move {
+				library
+					.db
+					.instance()
+					.find_many(vec![instance::remote_identity::equals(
+						instance.get_bytes().to_vec(),
+					)])
+					.exec()
+					.await
+					.ok()
+					.iter()
+					.flatten()
+					.filter_map(|i| RemoteIdentity::from_bytes(&i.remote_identity).ok())
+					.any(|i| i == *instance)
+					.then(|| Arc::clone(library))
+			})
+			.collect::<Vec<_>>()
+			.join()
+			.await
+			.into_iter()
+			.find_map(|v| v)
 	}
 
 	// get_ctx will return the library context for the given library id.
@@ -529,38 +527,15 @@ impl Libraries {
 
 		let actors = Default::default();
 
-		let sync = sync::Manager::new(
-			&db,
+		let (sync, sync_rx) = sync::Manager::with_existing_instances(
+			Arc::clone(&db),
 			instance_id,
-			&config.generate_sync_operations,
-			{
-				db._batch(
-					instances
-						.iter()
-						.map(|i| {
-							db.crdt_operation()
-								.find_first(vec![crdt_operation::instance::is(vec![
-									instance::id::equals(i.id),
-								])])
-								.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
-						})
-						.collect::<Vec<_>>(),
-				)
-				.await?
-				.into_iter()
-				.zip(&instances)
-				.map(|(op, i)| {
-					(
-						from_bytes_to_uuid(&i.pub_id),
-						sd_sync::NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
-					)
-				})
-				.collect()
-			},
-			&actors,
+			Arc::clone(&config.generate_sync_operations),
+			&instances,
+			Arc::clone(&actors),
 		)
-		.await;
-		let sync_manager = Arc::new(sync.manager);
+		.await?;
+		let sync_manager = Arc::new(sync);
 
 		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
@@ -581,7 +556,7 @@ impl Libraries {
 		.await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
-		tokio::spawn(sync_rx_actor(library.clone(), node.clone(), sync.rx));
+		spawn(sync_rx_actor(library.clone(), node.clone(), sync_rx));
 
 		self.tx
 			.emit(LibraryManagerEvent::Load(library.clone()))
@@ -616,7 +591,7 @@ impl Libraries {
 			error!(?e, "Failed to resume jobs for library;");
 		}
 
-		tokio::spawn({
+		spawn({
 			let this = self.clone();
 			let node = node.clone();
 			let library = library.clone();

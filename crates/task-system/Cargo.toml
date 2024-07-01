@@ -13,6 +13,7 @@ async-channel = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
+pin-project-lite = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
 	"sync",
@@ -26,7 +27,6 @@ uuid = { workspace = true, features = ["v4"] }
 
 # Specific Task System dependencies
 downcast-rs = "1.2"
-pin-project = "1.1"
 
 [dev-dependencies]
 lending-stream = { workspace = true }

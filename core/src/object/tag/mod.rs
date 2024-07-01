@@ -3,7 +3,7 @@ use crate::library::Library;
 use sd_prisma::{prisma::tag, prisma_sync};
 use sd_sync::*;
 
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::Utc;
 use serde::Deserialize;
 use specta::Type;
 use uuid::Uuid;
@@ -20,15 +20,14 @@ impl TagCreateArgs {
 	pub async fn exec(
 		self,
 		Library { db, sync, .. }: &Library,
-	) -> prisma_client_rust::Result<tag::Data> {
+	) -> Result<tag::Data, sd_core_sync::Error> {
 		let pub_id = Uuid::new_v4().as_bytes().to_vec();
-		let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
 			sync_db_entry!(self.name, tag::name),
 			sync_db_entry!(self.color, tag::color),
 			sync_db_entry!(false, tag::is_hidden),
-			sync_db_entry!(date_created, tag::date_created),
+			sync_db_entry!(Utc::now(), tag::date_created),
 		]
 		.into_iter()
 		.unzip();

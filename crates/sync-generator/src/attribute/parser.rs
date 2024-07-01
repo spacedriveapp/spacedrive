@@ -1,11 +1,11 @@
 use nom::{
 	branch::alt,
-	bytes::complete::*,
-	character::complete::*,
-	combinator::*,
+	bytes::complete::{is_not, tag},
+	character::complete::{alpha1, char, multispace0},
+	combinator::{map, opt},
 	error::{ErrorKind, ParseError},
-	multi::*,
-	sequence::*,
+	multi::separated_list1,
+	sequence::{delimited, separated_pair},
 	AsChar, IResult, InputTakeAtPosition,
 };
 
@@ -24,7 +24,7 @@ fn parens(input: &str) -> IResult<&str, &str> {
 	delimited(char('('), is_not(")"), char(')'))(input)
 }
 
-fn single_value<T, E: ParseError<T>>(i: T) -> IResult<T, T, E>
+fn single_value<T, E: ParseError<T>>(i: &T) -> IResult<T, T, E>
 where
 	T: InputTakeAtPosition,
 	<T as InputTakeAtPosition>::Item: AsChar,
@@ -41,19 +41,19 @@ where
 fn list_value(input: &str) -> IResult<&str, Vec<&str>> {
 	delimited(
 		char('['),
-		separated_list1(char(','), remove_ws(single_value)),
+		separated_list1(char(','), remove_ws(|a| single_value(&a))),
 		char(']'),
 	)(input)
 }
 
-fn attribute_field_value(input: &str) -> IResult<&str, AttributeFieldValue> {
+fn attribute_field_value(input: &str) -> IResult<&str, AttributeFieldValue<'_>> {
 	remove_ws(alt((
-		map(list_value, AttributeFieldValue::List),
-		map(single_value, AttributeFieldValue::Single),
+		map(|a| list_value(a), AttributeFieldValue::List),
+		map(|a| single_value(&a), AttributeFieldValue::Single),
 	)))(input)
 }
 
-fn attribute_field(input: &str) -> IResult<&str, (&str, AttributeFieldValue)> {
+fn attribute_field(input: &str) -> IResult<&str, (&str, AttributeFieldValue<'_>)> {
 	remove_ws(separated_pair(
 		remove_ws(is_not(":")),
 		char(':'),
@@ -61,11 +61,11 @@ fn attribute_field(input: &str) -> IResult<&str, (&str, AttributeFieldValue)> {
 	))(input)
 }
 
-fn attribute_fields(input: &str) -> IResult<&str, Vec<(&str, AttributeFieldValue)>> {
+fn attribute_fields(input: &str) -> IResult<&str, Vec<(&str, AttributeFieldValue<'_>)>> {
 	separated_list1(char(','), attribute_field)(input)
 }
 
-pub fn parse(input: &str) -> IResult<&str, Attribute> {
+pub fn parse(input: &str) -> IResult<&str, Attribute<'_>> {
 	let (input, _) = remove_ws(tag("@"))(input)?;
 	let (input, name) = alpha1(input)?;
 	let (input, values_str) = opt(remove_ws(parens))(input)?;
@@ -86,7 +86,7 @@ mod test {
 	fn marker() {
 		let s = "@local";
 
-		let (remaining, attribute) = super::parse(s).unwrap();
+		let (remaining, attribute) = parse(s).unwrap();
 
 		assert_eq!(remaining, "");
 		assert_eq!(attribute.name, "local");
@@ -97,7 +97,7 @@ mod test {
 	fn single() {
 		let s = "@local(foo: bar)";
 
-		let (remaining, attribute) = super::parse(s).unwrap();
+		let (remaining, attribute) = parse(s).unwrap();
 
 		assert_eq!(remaining, "");
 		assert_eq!(attribute.name, "local");
@@ -113,7 +113,7 @@ mod test {
 	fn list() {
 		let s = "@local(foo: [bar, baz])";
 
-		let (remaining, attribute) = match super::parse(s) {
+		let (remaining, attribute) = match parse(s) {
 			Ok(v) => v,
 			Err(e) => panic!("{}", e),
 		};
@@ -136,7 +136,7 @@ mod test {
 	fn multiple() {
 		let s = "@local(foo: bar, baz: qux)";
 
-		let (remaining, attribute) = super::parse(s).unwrap();
+		let (remaining, attribute) = parse(s).unwrap();
 
 		assert_eq!(remaining, "");
 		assert_eq!(attribute.name, "local");

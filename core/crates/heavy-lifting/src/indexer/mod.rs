@@ -60,6 +60,8 @@ pub enum Error {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error(transparent)]
 	IsoFilePath(#[from] FilePathError),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 	#[error("missing field on database: {0}")]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to deserialized stored tasks for job resume: {0}")]

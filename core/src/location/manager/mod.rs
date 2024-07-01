@@ -94,6 +94,8 @@ pub enum LocationManagerError {
 	JobSystem(#[from] sd_core_heavy_lifting::Error),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 type OnlineLocations = BTreeSet<Vec<u8>>;
