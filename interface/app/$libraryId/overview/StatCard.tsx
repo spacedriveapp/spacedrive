@@ -20,14 +20,22 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const isDark = useIsDark();
 
+	//TODO: Improve this
+	const totalSpaceSingleValue = humanizeSize(stats.totalSpace);
+
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = humanizeSize(stats.totalSpace);
+
+		const totalSpace = humanizeSize(stats.totalSpace, {
+			no_thousands: false
+		});
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
+
 		return {
 			totalSpace,
 			freeSpace,
 			usedSpaceSpace: humanizeSize(totalSpace.bytes - freeSpace.bytes)
 		};
+
 	}, [stats]);
 
 	useEffect(() => {
@@ -50,7 +58,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						progress={progress}
 						strokeWidth={6}
 						trackStrokeWidth={6}
-						strokeColor={progress > 90 ? '#E14444' : '#2599FF'}
+						strokeColor={progress >= 90 ? '#E14444' : progress >= 75 ? 'darkorange' : progress >= 60 ? 'yellow' : '#2599FF'}
 						fillColor="transparent"
 						trackStrokeColor={isDark ? '#252631' : '#efefef'}
 						strokeLinecap="square"
@@ -76,7 +84,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 						{freeSpace.value !== totalSpace.value && (
 							<>
 								{freeSpace.value} {t(`size_${freeSpace.unit.toLowerCase()}`)}{' '}
-								{t('free_of')} {totalSpace.value}{' '}
+								{t('free_of')} {totalSpaceSingleValue.value}{' '}
 								{t(`size_${totalSpace.unit.toLowerCase()}`)}
 							</>
 						)}

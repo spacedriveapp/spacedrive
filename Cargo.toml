@@ -36,7 +36,7 @@ gix-ignore = "0.11.2"
 globset = "0.4.14"
 http = "0.2"                                          # Update blocked by axum
 hyper = "0.14"                                        # Update blocked due to API breaking changes
-image = "0.25.1"
+image = "0.24.9"                                      # Update blocked due to https://github.com/image-rs/image/issues/2230
 itertools = "0.13.0"
 lending-stream = "1.0"
 libc = "0.2"
@@ -66,7 +66,7 @@ tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
 uhlc = "0.6.0"                                        # Must follow version used by specta
 uuid = "1.8"
-webp = "0.3.0"
+webp = "0.2.6"                                        # Update blocked by image
 
 [workspace.dependencies.prisma-client-rust]
 git = "https://github.com/brendonovich/prisma-client-rust"
@@ -101,8 +101,6 @@ libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev 
 
 blake3 = { git = "https://github.com/spacedriveapp/blake3.git", rev = "d3aab416c12a75c2bfabce33bcd594e428a79069" }
 
-# Due to image crate version bump
-pdfium-render = { git = "https://github.com/fogodev/pdfium-render.git", rev = "e7aa1111f441c49e857cebda15b4e51b24356aaa" }
 
 [profile.dev]
 # Make compilation faster on macOS
@@ -143,7 +141,7 @@ incremental = false
 
 # Optimize release builds
 [profile.release]
-panic = "abort"   # Strip expensive panic clean-up logic
+panic = "unwind"  # Sadly we need unwind to avoid unexpected crashes on third party crates
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
 lto = true        # Enables link to optimizations
 opt-level = "s"   # Optimize for binary size
