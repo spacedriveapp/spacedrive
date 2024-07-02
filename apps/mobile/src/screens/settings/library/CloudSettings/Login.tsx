@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native';
+import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
@@ -12,14 +13,17 @@ const Login = () => {
 	};
 	return (
 		<View style={tw`flex-1 flex-col items-center justify-center gap-2`}>
-			<Card style={tw`w-full items-center justify-center p-6`}>
+			<Card style={tw`w-full items-center justify-center py-6`}>
+				<View style={tw`flex-col items-center gap-2`}>
+				<Icon name="CloudSync" size={64} />
 				<Text style={tw`mb-4 max-w-[60%] text-center text-ink`}>
 					To access cloud related features, please login
 				</Text>
+				</View>
 				{(authState.status === 'notLoggedIn' || authState.status === 'loggingIn') && (
 					<Button
 						variant="accent"
-						style={tw`mx-auto max-w-[50%]`}
+						style={tw`mx-auto mt-1 max-w-[50%]`}
 						onPress={async (e) => {
 							e.preventDefault();
 							if (authState.status === 'loggingIn') {

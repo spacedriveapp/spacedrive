@@ -16,6 +16,9 @@ import { LoginButton } from '~/components/LoginButton';
 import { useLocale, useRouteTitle } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 
+const DataBox = tw.div`max-w-[300px] rounded-md border border-app-line/50 bg-app-lightBox/20 p-2`;
+const Count = tw.div`min-w-[20px] flex h-[20px] px-1 items-center justify-center rounded-full border border-app-button/40 text-[9px]`;
+
 export const Component = () => {
 	useRouteTitle('Cloud');
 
@@ -26,10 +29,13 @@ export const Component = () => {
 		if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
 			return (
 				<div className="flex size-full items-center justify-center">
-					<Card className="flex flex-col gap-4 !p-6">
-						<p>To access cloud related features, please login</p>
+					<DataBox className="flex flex-col items-center gap-5 !p-6">
+						<div className='flex flex-col items-center gap-1'>
+						<Icon name="Sync" size={60}/>
+						<p className='max-w-[75%] text-center text-sm'>To access cloud related features, please login</p>
+						</div>
 						<LoginButton />
-					</Card>
+					</DataBox>
 				</div>
 			);
 
@@ -39,8 +45,6 @@ export const Component = () => {
 	return <div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>;
 };
 
-const DataBox = tw.div`max-w-[300px] rounded-md border border-app-line/50 bg-app-lightBox/20 p-2`;
-const Count = tw.div`min-w-[20px] flex h-[20px] px-1 items-center justify-center rounded-full border border-app-button/40 text-[9px]`;
 
 // million-ignore
 function Authenticated() {
@@ -73,7 +77,13 @@ function Authenticated() {
 			) : (
 				<div className="relative flex size-full flex-col items-center justify-center">
 					<AuthRequiredOverlay />
+					<DataBox className='flex min-w-[400px] flex-col items-center gap-5 p-6'>
+					<div className='flex flex-col items-center gap-2'>
+					<Icon name="CloudSync" size={60} />
+					<p className='max-w-[60%] text-center text-sm text-ink'>{t("cloud_connect_description")}</p>
+					</div>
 					<Button
+						className='h-8'
 						disabled={createLibrary.isLoading}
 						variant="accent"
 						onClick={() => {
@@ -81,9 +91,13 @@ function Authenticated() {
 						}}
 					>
 						{createLibrary.isLoading
-							? t('connecting_library_to_cloud')
-							: t('connect_library_to_cloud')}
+							? <div className='flex h-4 flex-row items-center gap-2'>
+								<Loader className='w-5' color="white"/>
+								<p className='text-xs'>{t('Connecting' + '...')}</p>
+							</div>
+							: t('Connect')}
 					</Button>
+					</DataBox>
 				</div>
 			)}
 		</Suspense>

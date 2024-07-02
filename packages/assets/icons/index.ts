@@ -28,6 +28,8 @@ import Book20 from './Book-20.png';
 import Book from './Book.png';
 import BookBlue from './BookBlue.png';
 import Box from './Box.png';
+import CloudSync_Light from './CloudSync_Light.png';
+import CloudSync from './CloudSync.png';
 import Code20 from './Code-20.png';
 import Collection_Light from './Collection_Light.png';
 import Collection20 from './Collection-20.png';
@@ -164,6 +166,8 @@ import SilverBox from './SilverBox.png';
 import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
+import Sync_Light from './Sync_Light.png';
+import Sync from './Sync.png';
 import Tablet_Light from './Tablet_Light.png';
 import Tablet from './Tablet.png';
 import Tags_Light from './Tags_Light.png';
@@ -217,6 +221,8 @@ export {
 	BookBlue,
 	Book_Light,
 	Box,
+	CloudSync,
+	CloudSync_Light,
 	Code20,
 	Collection20,
 	Collection,
@@ -353,6 +359,8 @@ export {
 	Spacedrop1,
 	Spacedrop,
 	Spacedrop_Light,
+	Sync,
+	Sync_Light,
 	Tablet,
 	Tablet_Light,
 	Tags,
