@@ -21,7 +21,7 @@ export default function CategoriesScreen() {
 					onPress={() => {
 						navigation.navigate('Categories');
 					}}
-					style={tw`w-8 h-8 rounded-full`}
+					style={tw`h-8 w-8 rounded-full`}
 					variant="gray"
 				>
 					<DotsThree weight="bold" size={18} color={'white'} />

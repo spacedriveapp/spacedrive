@@ -12,10 +12,10 @@ const Login = () => {
 		loggingIn: 'Cancel'
 	};
 	return (
-		<View style={tw`flex-col items-center justify-center flex-1 gap-2`}>
-			<Card style={tw`items-center justify-center w-full p-6`}>
+		<View style={tw`flex-1 flex-col items-center justify-center gap-2`}>
+			<Card style={tw`w-full items-center justify-center py-6`}>
 				<View style={tw`flex-col items-center gap-2`}>
-				<Icon name="Database_cloud_blue" size={80} />
+				<Icon name="CloudSync" size={64} />
 				<Text style={tw`mb-4 max-w-[60%] text-center text-ink`}>
 					To access cloud related features, please login
 				</Text>
@@ -23,7 +23,7 @@ const Login = () => {
 				{(authState.status === 'notLoggedIn' || authState.status === 'loggingIn') && (
 					<Button
 						variant="accent"
-						style={tw`mx-auto max-w-[50%] mt-1`}
+						style={tw`mx-auto mt-1 max-w-[50%]`}
 						onPress={async (e) => {
 							e.preventDefault();
 							if (authState.status === 'loggingIn') {

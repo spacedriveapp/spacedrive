@@ -35,11 +35,11 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 	return (
 		<ScreenContainer scrollview={false} style={tw`gap-0 px-6`}>
 			{syncEnabled.data === false ? (
-				<View style={tw`justify-center flex-1`}>
-					<Card style={tw`relative flex-col items-center gap-5 py-10`}>
+				<View style={tw`flex-1 justify-center`}>
+					<Card style={tw`relative flex-col items-center gap-5 py-6`}>
 					<View style={tw`flex-col items-center gap-2`}>
-					<Icon name="Sync" size={80} />
-					<Text style={tw`text-center text-ink max-w-[70%] leading-5`}>
+					<Icon name="Sync" size={64} />
+					<Text style={tw`max-w-[70%] text-center leading-5 text-ink`}>
 						To enable sync, please start the backfill operations
 					</Text>
 					</View>
@@ -62,7 +62,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 								<OnlineIndicator online={data[key] ?? false} />
 								<Text
 									key={key}
-									style={tw`flex-col items-center justify-center mt-1 mb-3 text-xs text-left text-white`}
+									style={tw`mb-3 mt-1 flex-col items-center justify-center text-left text-xs text-white`}
 								>
 									{key}
 								</Text>
@@ -82,7 +82,7 @@ function OnlineIndicator({ online }: { online: boolean }) {
 	const size = 6;
 	return (
 		<View
-			style={tw`items-center justify-center w-6 h-6 p-2 mb-1 border rounded-full border-app-inputborder bg-app-input`}
+			style={tw`mb-1 h-6 w-6 items-center justify-center rounded-full border border-app-inputborder bg-app-input p-2`}
 		>
 			{online ? (
 				<View style={tw`relative items-center justify-center`}>
@@ -96,9 +96,9 @@ function OnlineIndicator({ online }: { online: boolean }) {
 							repeatReverse: false,
 							delay: 1000
 						}}
-						style={tw`absolute z-10 items-center justify-center w-2 h-2 bg-green-500 rounded-full`}
+						style={tw`absolute z-10 h-2 w-2 items-center justify-center rounded-full bg-green-500`}
 					/>
-					<View style={tw`w-2 h-2 bg-green-500 rounded-full`} />
+					<View style={tw`h-2 w-2 rounded-full bg-green-500`} />
 				</View>
 			) : (
 				<Circle size={size} color={tw.color('red-400')} weight="fill" />

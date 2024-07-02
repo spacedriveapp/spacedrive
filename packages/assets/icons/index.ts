@@ -37,6 +37,7 @@ import Collection from './Collection.png';
 import CollectionSparkle_Light from './CollectionSparkle_Light.png';
 import CollectionSparkle from './CollectionSparkle.png';
 import Config20 from './Config-20.png';
+import Database_Light from './Database_Light.png';
 import Database20 from './Database-20.png';
 import Database from './Database.png';
 import DAV from './DAV.png';
@@ -232,6 +233,7 @@ export {
 	DAV,
 	Database20,
 	Database,
+	Database_Light,
 	DeleteLocation,
 	Document20,
 	Document,
