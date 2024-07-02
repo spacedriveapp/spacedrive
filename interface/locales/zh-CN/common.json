@@ -1,4 +1,6 @@
 {
+  "Connect": "连接",
+  "Connecting": "正在连接",
   "about": "关于",
   "about_vision_text": "我们很多人拥有不止一个云账户，磁盘没有备份，数据也有丢失的风险。我们依赖于像 Google 相册、iCloud 这样的云服务，但是它们容量有限，且互操作性几乎为零，云服务和操作系统之间也无法协作。我们的照片不应该困在单一一种生态系统中，也不应该被用于广告营销而被收割，它们应该与操作系统无关、永久保存、由我们自己所有。我们创造的数据是我们的遗产，它们的寿命会比我们还要长，无限地定义了我们的生活，而开源技术是唯一能确保我们绝对控制这些数据的方式",
   "about_vision_title": "项目远景",
@@ -69,6 +71,7 @@
   "close_command_palette": "关闭命令面板",
   "close_current_tab": "关闭当前标签页",
   "cloud": "雲",
+  "cloud_connect_description": "您想将您的图书馆连接到云端吗？",
   "cloud_drives": "云盘",
   "cloud_sync": "云同步",
   "cloud_sync_description": "管理将您的库与 Spacedrive Cloud 同步的流程",

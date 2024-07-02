@@ -1,4 +1,6 @@
 {
+  "Connect": "Bağlamak",
+  "Connecting": "Bağlanıyor",
   "about": "Hakkında",
   "about_vision_text": "Birçoğumuzun birden fazla bulut hesabı, yedeklenmemiş sürücüleri ve kaybolma riski taşıyan verileri var. Google Fotoğraflar ve iCloud gibi bulut hizmetlerine bağımlıyız, ancak sınırlı kapasiteyle ve hizmetler ile işletim sistemleri arasında neredeyse sıfır geçiş yapabilirlikle kısıtlanmış durumdayız. Fotoğraf albümleri bir cihaz ekosisteminde sıkışıp kalmamalı veya reklam verileri için kullanılmamalıdır. OS bağımsız, kalıcı ve kişisel olarak sahip olunmalıdır. Oluşturduğumuz veriler, bizden uzun süre yaşayacak mirasımızdır - verilerimiz üzerinde mutlak kontrol sağlamak için açık kaynak teknolojisi tek yoludur, sınırsız ölçekte.",
   "about_vision_title": "Vizyon",
@@ -69,6 +71,7 @@
   "close_command_palette": "Komut paletini kapat",
   "close_current_tab": "Geçerli sekmeyi kapat",
   "cloud": "Bulut",
+  "cloud_connect_description": "Kütüphanenizi buluta bağlamak ister misiniz?",
   "cloud_drives": "Bulut Sürücüler",
   "cloud_sync": "Bulut Senkronizasyonu",
   "cloud_sync_description": "Kitaplığınızı Spacedrive Cloud ile senkronize eden süreçleri yönetin",

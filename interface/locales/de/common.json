@@ -1,4 +1,6 @@
 {
+  "Connect": "Verbinden",
+  "Connecting": "Verbinden",
   "about": "Über",
   "about_vision_text": "Viele von uns haben mehrere Cloud-Konten, Laufwerke, die nicht gesichert sind, und Daten, die von Verlust bedroht sind. Wir verlassen uns auf Cloud-Dienste wie Google Fotos und iCloud, sind aber mit begrenzter Kapazität eingesperrt und haben fast keine Interoperabilität zwischen Diensten und Betriebssystemen. Fotoalben sollten nicht in einem Geräte-Ökosystem feststecken oder für Werbedaten geerntet werden. Du solltest betriebssystemunabhängig, dauerhaft und persönlich besessen sein. Daten, die wir erstellen, sind unser Erbe, das uns lange überleben wird - Open-Source-Technologie ist der einzige Weg, um sicherzustellen, dass wir absolute Kontrolle über die Daten behalten, die unser Leben definieren, in unbegrenztem Maßstab.",
   "about_vision_title": "Vision",
@@ -69,6 +71,7 @@
   "close_command_palette": "Befehlspalette schließen",
   "close_current_tab": "Aktuellen Tab schließen",
   "cloud": "Cloud",
+  "cloud_connect_description": "Möchten Sie Ihre Bibliothek mit der Cloud verbinden?",
   "cloud_drives": "Cloud-Laufwerke",
   "cloud_sync": "Cloud-Synchronisierung",
   "cloud_sync_description": "Verwalten Sie die Prozesse, die Ihre Bibliothek mit Spacedrive Cloud synchronisieren",

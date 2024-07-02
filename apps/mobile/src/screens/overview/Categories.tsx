@@ -24,8 +24,8 @@ const CategoriesScreen = () => {
 			<FlatList
 				data={filteredKinds
 					?.sort((a, b) => {
-						const aCount = uint32ArrayToBigInt(a.count);
-						const bCount = uint32ArrayToBigInt(b.count);
+						const aCount = Number(a.count);
+						const bCount = Number(b.count);
 						if (aCount === bCount) return 0;
 						return aCount > bCount ? -1 : 1;
 					})
@@ -53,7 +53,7 @@ const CategoriesScreen = () => {
 							kind={kind}
 							name={name}
 							icon={icon}
-							items={uint32ArrayToBigInt(count)}
+							items={Number(count)}
 						/>
 					);
 				}}

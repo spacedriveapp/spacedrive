@@ -1,4 +1,6 @@
 {
+  "Connect": "Aansluiten",
+  "Connecting": "Verbinden",
   "about": "Over",
   "about_vision_text": "Veel van ons hebben meerdere cloud accounts, schijven waarvan geen back-ups worden gemaakt en gegevens die het risico lopen verloren te gaan. We zijn afhankelijk van clouddiensten als Google Photos en iCloud, maar zitten vast met een beperkte capaciteit en vrijwel geen interoperabiliteit tussen diensten en besturingssystemen. Fotoalbums mogen niet vastzitten in het ecosysteem van een apparaat, of worden gebruikt voor advertentiegegevens. Ze moeten OS-agnostisch, permanent en persoonlijk eigendom zijn. De gegevens die we creëren zijn onze erfenis, die ons nog lang zal overleven. Open source-technologie is de enige manier om ervoor te zorgen dat we de absolute controle behouden over de gegevens die ons leven bepalen, op onbeperkte schaal.",
   "about_vision_title": "Visie",
@@ -69,6 +71,7 @@
   "close_command_palette": "Sluit het opdrachtpalet",
   "close_current_tab": "Huidig tabblad sluiten",
   "cloud": "Cloud",
+  "cloud_connect_description": "Wilt u uw bibliotheek verbinden met de cloud?",
   "cloud_drives": "Cloud Drives",
   "cloud_sync": "Cloudsynchronisatie",
   "cloud_sync_description": "Beheer de processen die uw bibliotheek synchroniseren met Spacedrive Cloud",
