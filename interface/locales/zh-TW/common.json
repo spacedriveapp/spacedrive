@@ -1,4 +1,6 @@
 {
+  "Connect": "連接",
+  "Connecting": "連接中",
   "about": "關於",
   "about_vision_text": "我們中的許多人都擁有數個雲帳戶，這些雲帳戶中的硬碟未備份且資料面臨丟失的風險。我們依賴諸如Google照片和iCloud之類的雲服務，但這些服務容量有限且幾乎不能在不同的服務及作業系統間進行互通。相簿不應僅限於某個裝置生態系統內，或被用於收集廣告數據。它們應該是與作業系統無關，永久且屬於個人所有的。我們創建的數據是我們的遺產，它們將比我們存活得更久——開源技術是確保我們對定義我們生活的數據擁有絕對控制權的唯一方式，並且無限規模地延伸。",
   "about_vision_title": "遠景",
@@ -69,6 +71,7 @@
   "close_command_palette": "關閉命令面板",
   "close_current_tab": "關閉目前分頁",
   "cloud": "雲",
+  "cloud_connect_description": "您想將您的圖書館連接到雲端嗎？",
   "cloud_drives": "雲端硬碟",
   "cloud_sync": "雲端同步",
   "cloud_sync_description": "管理將您的庫與 Spacedrive Cloud 同步的流程",

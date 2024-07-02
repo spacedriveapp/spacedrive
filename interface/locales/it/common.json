@@ -1,4 +1,6 @@
 {
+  "Connect": "Collegare",
+  "Connecting": "Connessione",
   "about": "Su di noi",
   "about_vision_text": "Molti di noi hanno più account cloud, dischi di cui non è stato eseguito il backup e dati a rischio di essere persi. Dipendiamo da servizi cloud come Google Photos e iCloud, che sono limitati dalla loro capacità e scarsissima interoperabilità tra servizi e sistemi operativi. Gli album fotografici non dovrebbero essere bloccati in un ecosistema di dispositivi, o essere usati per raccogliere dati. Dovrebbero essere agnostici dal sistema operativo, e detenuti permanentemente e personalmente. I dati che creiamo sono la nostra eredità, che sopravviverà molto più a lungo di noi. La tecnologia open source è l'unico modo per assicurarci di conservare il controllo assoluto sui dati che definisce le nostre vite, a scala illimitata.",
   "about_vision_title": "Visione",
@@ -69,6 +71,7 @@
   "close_command_palette": "Chiudi la tavolozza dei comandi",
   "close_current_tab": "Chiudi scheda corrente",
   "cloud": "Cloud",
+  "cloud_connect_description": "Vorresti connettere la tua libreria al cloud?",
   "cloud_drives": "Unità cloud",
   "cloud_sync": "Sincronizzazione nel cloud",
   "cloud_sync_description": "Gestisci i processi che sincronizzano la tua libreria con Spacedrive Cloud",
