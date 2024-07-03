@@ -1,7 +1,7 @@
-import { getItemFilePath, useSelector, type ExplorerItem } from '@sd/client';
 import { flexRender, type Cell } from '@tanstack/react-table';
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
+import { getItemFilePath, useSelector, type ExplorerItem } from '@sd/client';
 
 import { TABLE_PADDING_X } from '.';
 import { useExplorerContext } from '../../Context';

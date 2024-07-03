@@ -1,11 +1,13 @@
-import { type Row } from '@tanstack/react-table';
+import { flexRender, type Cell, type Row } from '@tanstack/react-table';
 import clsx from 'clsx';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { type ExplorerItem } from '@sd/client';
 
 import { TABLE_PADDING_X } from '.';
 import { useExplorerContext } from '../../Context';
-import { ListViewItem } from './Item';
+import { RowViewItem } from '../RowViewItem';
+import { useTableContext } from './context';
+import { LIST_VIEW_TEXT_SIZES } from './useTable';
 
 interface Props {
 	row: Row<ExplorerItem>;
@@ -30,7 +32,9 @@ export const TableRow = ({ row, previousRow, nextRow }: Props) => {
 		return explorer.selectedItems.has(nextRow.original);
 	}, [explorer.selectedItems, nextRow]);
 
-	const cells = row.getVisibleCells();
+	const cells = row
+		.getVisibleCells()
+		.map((cell) => <CellComponent key={cell.id} cell={cell} selected={selected} />);
 
 	return (
 		<>
@@ -51,7 +55,47 @@ export const TableRow = ({ row, previousRow, nextRow }: Props) => {
 				)}
 			</div>
 
-			<ListViewItem data={row.original} selected={selected} cells={cells} />
+			<RowViewItem data={row.original} selected={selected} cells={cells} />
 		</>
 	);
 };
+
+const CellComponent = ({
+	cell,
+	selected
+}: {
+	cell: Cell<ExplorerItem, unknown>;
+	selected: boolean;
+}) => {
+	useTableContext(); // Force re-render for column sizing
+
+	const explorer = useExplorerContext();
+	const explorerSetting = explorer.useSettingsSnapshot();
+
+	return (
+		<div
+			className={clsx(
+				'table-cell px-4 py-1.5 text-ink-dull',
+				cell.column.id !== 'name' && 'truncate',
+				cell.column.columnDef.meta?.className
+			)}
+			style={{
+				width: cell.column.getSize(),
+				fontSize: LIST_VIEW_TEXT_SIZES[explorerSetting.listViewTextSize]
+			}}
+		>
+			<InnerCell cell={cell} selected={selected} />
+		</div>
+	);
+};
+
+const InnerCell = memo((props: { cell: Cell<ExplorerItem, unknown>; selected: boolean }) => {
+	const value = useMemo(() => props.cell.getValue(), [props.cell]);
+
+	if (value !== undefined && value !== null) return `${value}`;
+
+	return flexRender(props.cell.column.columnDef.cell, {
+		...props.cell.getContext(),
+		selected: props.selected
+	});
+});
