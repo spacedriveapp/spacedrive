@@ -39,9 +39,11 @@ jobs:
       - name: Perform style check
         run: |-
           set -eux
-          pnpm autoformat only-frontend
-          if [ -n "$(git diff --name-only --cached)" ]; then
-            echo "Some files are not correctly formatted. Please run 'pnpm autoformat' and commit the changes." >&2
+          pnpm autoformat only-frontend >/dev/null
+          _files="$(git diff --name-only --cached)"
+          if [ -n "$_files" ]; then
+            echo "The following files are not correctly formatted. Please run 'pnpm autoformat' and commit the changes." >&2
+            echo "$_files" >&2
             exit 1
           fi
 
