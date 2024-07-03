@@ -45,7 +45,7 @@ fi
 
 # Find the common ancestor of the current branch and main
 if [ -n "${CI:-}" ]; then
-  ancestor="HEAD"
+  : # Skip ancestor check in CI
 elif ! ancestor="$(git merge-base HEAD origin/main)"; then
   echo "Failed to find the common ancestor of the current branch and main." >&2
   exit 1
@@ -68,8 +68,13 @@ if [ "${1:-}" != "only-frontend" ]; then
   cargo fmt --all
 fi
 
-# Add all fixes for changes made in this branch
-git diff --cached --name-only "$ancestor" | xargs git add
+if [ -n "${CI:-}" ]; then
+  # Add all files when running in CI
+  git add -A .
+else
+  # Add all fixes for changes made in this branch
+  git diff --cached --name-only "${ancestor:?Ancestor is not set}" | xargs git add
+fi
 
 # Restore unrelated changes
 git restore .
