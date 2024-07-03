@@ -6,7 +6,7 @@ import {
 	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { CSSProperties, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';

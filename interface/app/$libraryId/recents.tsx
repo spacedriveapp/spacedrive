@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ObjectOrder, objectOrderingKeysSchema } from '@sd/client';
 import { Icon } from '~/components';
 import { useLocale, useRouteTitle } from '~/hooks';
@@ -16,6 +16,8 @@ import { TopBarPortal } from './TopBar/Portal';
 
 export function Component() {
 	useRouteTitle('Recents');
+
+	const [_, setForceRender] = useState(false);
 
 	const explorerSettings = useExplorerSettings({
 		settings: useMemo(() => {
@@ -48,6 +50,12 @@ export function Component() {
 		settings: explorerSettings
 	});
 
+	//this forces a re-render so that the explorer can update and show the objects
+	//since this is a recents page issue only - this is sufficient unless otherwise
+	useEffect(() => {
+		setForceRender((prev) => !prev);
+	  }, [items.query.isFetching]);
+
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
@@ -68,8 +76,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-
-			<Explorer
+					<Explorer
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Collection" size={128} />}
