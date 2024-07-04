@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { SearchData, isPath, type ExplorerItem } from '@sd/client';
+import { SearchData, getIndexedItemFilePath, isPath, useLibraryMutation, useLibraryQuery, useRspcContext, type ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import { ActivityIndicator, Pressable } from 'react-native';
@@ -7,6 +7,8 @@ import Layout from '~/constants/Layout';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
+import FileViewer from 'react-native-file-viewer';
+
 
 import * as Haptics from 'expo-haptics';
 import { tw } from '~/lib/tailwind';
@@ -14,6 +16,7 @@ import ScreenContainer from '../layout/ScreenContainer';
 import FileItem from './FileItem';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
+import { toast } from '../primitive/Toast';
 
 type ExplorerProps = {
 	tabHeight?: boolean;
@@ -37,21 +40,55 @@ ExplorerProps
 const Explorer = (props: Props) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 	const store = useExplorerStore();
-	const { modalRef, setData } = useActionsModalStore();
+	const { modalRef, setData, data } = useActionsModalStore();
+	const rspc = useRspcContext();
 
-	function handlePress(data: ExplorerItem) {
+	const filePath = data && getIndexedItemFilePath(data);
+
+	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
+		enabled: filePath != null
+	});
+	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
+		onSuccess: () => {
+			rspc.queryClient.invalidateQueries(['search.paths']);
+		}
+	});
+
+	async function handlePress(data: ExplorerItem) {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+		// If it's a directory, navigate to it
 		if (isPath(data) && data.item.is_dir && data.item.location_id !== null) {
 				navigation.push('Location', {
 					id: data.item.location_id,
 					path: `${data.item.materialized_path}${data.item.name}/`
 				});
 		} else {
+			// Open file with native api
 			setData(data);
-			modalRef.current?.present();
+			await handleOpen();
 		}
 	}
 
+	//Open file with native api
+	async function handleOpen() {
+		const absolutePath = queriedFullPath.data;
+		if (!absolutePath) return;
+		try {
+			await FileViewer.open(absolutePath, {
+				// Android only
+				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
+				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
+			});
+			filePath &&
+				filePath.object_id &&
+			await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
+		} catch (error) {
+			toast.error("Error opening object")
+		}
+	}
+
+
+	//Long press to show actions modal
 	function handleLongPress(data: ExplorerItem) {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 		setData(data);
