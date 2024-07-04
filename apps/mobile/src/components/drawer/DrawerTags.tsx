@@ -1,8 +1,8 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
-import { Tag, useLibraryQuery } from '@sd/client';
 import { useRef } from 'react';
 import { ColorValue, Pressable, Text, View } from 'react-native';
+import { Tag, useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -90,9 +90,12 @@ interface TagColumnProps {
 const TagColumn = ({ tags, dataAmount }: TagColumnProps) => {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	return (
-		<View style={twStyle(`gap-1`,
-			tags && tags.length > 2 ? 'w-[49%] flex-col' : 'flex-1 flex-row'
-		)}>
+		<View
+			style={twStyle(
+				`gap-1`,
+				tags && tags.length > 2 ? 'w-[49%] flex-col' : 'flex-1 flex-row'
+			)}
+		>
 			{tags?.slice(dataAmount[0], dataAmount[1]).map((tag: Tag) => (
 				<DrawerTagItem
 					key={tag.id}

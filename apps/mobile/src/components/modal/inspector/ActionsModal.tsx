@@ -1,11 +1,3 @@
-import {
-	getIndexedItemFilePath,
-	getItemObject,
-	humanizeSize,
-	useLibraryMutation,
-	useLibraryQuery,
-	useRspcContext
-} from '@sd/client';
 import dayjs from 'dayjs';
 import {
 	Copy,
@@ -21,14 +13,22 @@ import {
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
+import {
+	getIndexedItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useLibraryMutation,
+	useLibraryQuery,
+	useRspcContext
+} from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import FavoriteButton from '~/components/explorer/sections/FavoriteButton';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
 import { Modal, ModalRef } from '~/components/layout/Modal';
+import { toast } from '~/components/primitive/Toast';
 import { tw, twStyle } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
 
-import { toast } from '~/components/primitive/Toast';
 import FileInfoModal from './FileInfoModal';
 import RenameModal from './RenameModal';
 
@@ -88,7 +88,7 @@ export const ActionsModal = () => {
 
 	const deleteFile = useLibraryMutation('files.deleteFiles', {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths'])
+			rspc.queryClient.invalidateQueries(['search.paths']);
 			modalRef.current?.dismiss();
 		}
 	});
@@ -104,9 +104,9 @@ export const ActionsModal = () => {
 			});
 			filePath &&
 				filePath.object_id &&
-			await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
+				(await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error));
 		} catch (error) {
-			toast.error("Error opening object")
+			toast.error('Error opening object');
 		}
 	}
 
@@ -143,7 +143,9 @@ export const ActionsModal = () => {
 								</View>
 								<InfoTagPills data={data} />
 							</View>
-							{objectData && <FavoriteButton style={tw`mr-1 mt-2`} data={objectData} />}
+							{objectData && (
+								<FavoriteButton style={tw`mr-1 mt-2`} data={objectData} />
+							)}
 						</View>
 						<View />
 						{/* Actions */}
@@ -157,9 +159,13 @@ export const ActionsModal = () => {
 							/>
 						</ActionsContainer>
 						<ActionsContainer style={tw`mt-2`}>
-							<ActionsItem onPress={() => {
-								renameRef.current?.present();
-							}} icon={Pencil} title="Rename" />
+							<ActionsItem
+								onPress={() => {
+									renameRef.current?.present();
+								}}
+								icon={Pencil}
+								title="Rename"
+							/>
 							<ActionDivider />
 							<ActionsItem icon={Copy} title="Duplicate" />
 							<ActionDivider />
@@ -172,14 +178,19 @@ export const ActionsModal = () => {
 							<ActionDivider />
 							<ActionsItem icon={Package} title="Compress" />
 							<ActionDivider />
-							<ActionsItem icon={TrashSimple} title="Delete" isDanger onPress={async () => {
-								if (filePath && filePath.location_id) {
-									await deleteFile.mutateAsync({
-										location_id: filePath.location_id,
-										file_path_ids: [filePath.id]
-									});
-								}
-							}} />
+							<ActionsItem
+								icon={TrashSimple}
+								title="Delete"
+								isDanger
+								onPress={async () => {
+									if (filePath && filePath.location_id) {
+										await deleteFile.mutateAsync({
+											location_id: filePath.location_id,
+											file_path_ids: [filePath.id]
+										});
+									}
+								}}
+							/>
 						</ActionsContainer>
 					</View>
 				)}

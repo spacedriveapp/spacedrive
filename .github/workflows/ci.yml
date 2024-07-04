@@ -25,8 +25,14 @@ jobs:
     timeout-minutes: 7
     permissions: {}
     steps:
-      - name: Checkout repository
+      - name: 'PR commits + 1'
+        run: echo "PR_FETCH_DEPTH=$(( ${{ github.event.pull_request.commits }} + 1 ))" >> "${GITHUB_ENV}"
+
+      - name: 'Checkout PR branch and all PR commits'
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: ${{ env.PR_FETCH_DEPTH }}
 
       - name: Setup Node.js, pnpm and dependencies
         uses: ./.github/actions/setup-pnpm
@@ -38,10 +44,18 @@ jobs:
 
       - name: Perform style check
         run: |-
-          set -eux
-          pnpm autoformat only-frontend
-          if [ -n "$(git diff --name-only --cached)" ]; then
+          set -eu
+
+          pnpm autoformat only-frontend >/dev/null
+
+          _files="$(git diff --name-only --cached)"
+          if [ -n "$_files" ]; then
             echo "Some files are not correctly formatted. Please run 'pnpm autoformat' and commit the changes." >&2
+
+            while IFS= read -r _file || [ -n "$_file" ]; do
+              echo "::error file=${_file},title=Incorrectly formatted file::Please run 'pnpm autoformat' and commit the changes."
+            done < <(printf '%s' "$_files")
+
             exit 1
           fi
 

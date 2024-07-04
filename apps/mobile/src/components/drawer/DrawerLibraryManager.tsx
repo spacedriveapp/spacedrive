@@ -1,10 +1,10 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
-import { useClientContext } from '@sd/client';
 import { MotiView } from 'moti';
 import { CaretRight, CloudArrowDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
+import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 

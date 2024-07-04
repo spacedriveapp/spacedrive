@@ -14,6 +14,7 @@ We make use of the [mdns-sd](https://docs.rs/mdns-sd) crate.
 ## Service Structure
 
 The following is an example of what would be broadcast from a single Spacedrive node:
+
 ```toml
 # {remote_identity_of_self}._sd._udp.local.
 
@@ -37,9 +38,10 @@ Within `sd-core` this is defined in two parts. The [`PeerMetadata` struct](https
 />
 
 Within Spacedrive's settings the user is able to choose between three modes for local network discovery:
- - **Contacts only**: Only devices that are in your contacts list will be able to see your device.
- - **Enabled**: All devices on the local network will be able to see your device.
- - **Disabled**: No devices on the local network will be able to see your device.
+
+- **Contacts only**: Only devices that are in your contacts list will be able to see your device.
+- **Enabled**: All devices on the local network will be able to see your device.
+- **Disabled**: No devices on the local network will be able to see your device.
 
 **Enabled** and **Disabled** are implemented by spawning and shutting down the [`sd_p2p::Mdns`](https://github.com/spacedriveapp/spacedrive/blob/44478207e72495b3777e294660d78939711b544f/crates/p2p/src/mdns.rs#L17) service as required within `sd-core`.
 
@@ -47,7 +49,7 @@ Within Spacedrive's settings the user is able to choose between three modes for 
 
 ## Integration with Spacedrive accounts
 
-P2P is currently *not* integrated with Spacedrive accounts and we will integrate it in the future for better security.
+P2P is currently _not_ integrated with Spacedrive accounts and we will integrate it in the future for better security.
 
 Right now we use a remote identity to identify the remote device, however tihs is not very user friendly. If a [MITM](https://en.wikipedia.org/wiki/Man-in-the-middle_attack)-style attack is preformed the remote identity will show up with the attacker's device but this isn't going to be particularly noticable by the user.
 
@@ -71,7 +73,7 @@ This issue is tracked as [ENG-1343](https://linear.app/spacedriveapp/issue/ENG-1
 
 ## Problems with mobile
 
-mDNS discovery does not work on mobile at the moment. To prevent this affecting other devices, we patch [`if-watch`](https://docs.rs/if-watch) using the fork [spacedriveapp/if-watch](https://github.com/spacedriveapp/if-watch). This fork basically implements a *no-op* for mobile so that the core is able to compile.
+mDNS discovery does not work on mobile at the moment. To prevent this affecting other devices, we patch [`if-watch`](https://docs.rs/if-watch) using the fork [spacedriveapp/if-watch](https://github.com/spacedriveapp/if-watch). This fork basically implements a _no-op_ for mobile so that the core is able to compile.
 
 This issue is tracked as [ENG-1108](https://linear.app/spacedriveapp/issue/ENG-1108/mdns-working-on-ios).
 
@@ -88,4 +90,3 @@ When information about the device is exposed to the local network we introduce t
 The intention is for the contacts only mode to mitigate this risk as the device will only be discoverable by other devices that are in the users contacts and all information will be unintelligible.
 
 Apple outline some information about how they combat this for AirDrop [here](https://support.apple.com/en-au/guide/security/sec2261183f4/web) and we can do something similar.
-

@@ -9,14 +9,14 @@ Our peer-to-peer technology works at the heart of Spacedrive allowing all of you
 
 ## Terminology
 
- - **Node**: An application running Spacedrive's network stack.
- 	- This could be the Spacedrive app or the P2P relay.
-	- If you have multiple Spacedrive installations open on your computer, each one is an independent node.
- - **Library**: A logical collection of your data within Spacedrive.
-	- Conceptually, a library is the conflict resolved state of one or more **instances**, although a lot of the time we don't strictly treat it that way.
- - **Instance**: An instance of a library running on a particular node.
- 	- An instance correlates directly to each SQLite file.
-	- You could *technically* have more than one instance for a library on a single node, although our core would fall apart as we identify traffic by library.
- - [`Identity`](https://github.com/spacedriveapp/spacedrive/blob/518d5836f6585a5f597c3ae5a0d27d084adc0a63/crates/p2p/src/identity.rs#L29) - A public/private keypair which represents the library or node.
- - [`RemoteIdentity`](https://github.com/spacedriveapp/spacedrive/blob/518d5836f6585a5f597c3ae5a0d27d084adc0a63/crates/p2p/src/identity.rs#L70) - A public key which represents the library or node.
- - [`PeerId`](https://docs.rs/libp2p/latest/libp2p/struct.PeerId.html) - The identifier libp2p uses. Can be derived from a `RemoteIdentity`.
+- **Node**: An application running Spacedrive's network stack.
+  - This could be the Spacedrive app or the P2P relay.
+  - If you have multiple Spacedrive installations open on your computer, each one is an independent node.
+- **Library**: A logical collection of your data within Spacedrive.
+  - Conceptually, a library is the conflict resolved state of one or more **instances**, although a lot of the time we don't strictly treat it that way.
+- **Instance**: An instance of a library running on a particular node.
+  - An instance correlates directly to each SQLite file.
+  - You could _technically_ have more than one instance for a library on a single node, although our core would fall apart as we identify traffic by library.
+- [`Identity`](https://github.com/spacedriveapp/spacedrive/blob/518d5836f6585a5f597c3ae5a0d27d084adc0a63/crates/p2p/src/identity.rs#L29) - A public/private keypair which represents the library or node.
+- [`RemoteIdentity`](https://github.com/spacedriveapp/spacedrive/blob/518d5836f6585a5f597c3ae5a0d27d084adc0a63/crates/p2p/src/identity.rs#L70) - A public key which represents the library or node.
+- [`PeerId`](https://docs.rs/libp2p/latest/libp2p/struct.PeerId.html) - The identifier libp2p uses. Can be derived from a `RemoteIdentity`.

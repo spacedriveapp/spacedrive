@@ -1,9 +1,9 @@
 import { IconTypes } from '@sd/assets/util';
-import { ObjectKind } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
+import { ObjectKind } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
@@ -39,21 +39,21 @@ const Kind = () => {
 				sub="What kind of objects should be searched?"
 			/>
 			<View>
-					<VirtualizedListWrapper horizontal>
-						<FlatList
-							data={kinds}
-							renderItem={({ item }) => <KindFilter data={item} />}
-							contentContainerStyle={tw`px-6`}
-							numColumns={kinds && Math.ceil(Number(kinds.length) / 2)}
-							key={kinds ? 'kindsSearch' : '_'}
-							scrollEnabled={false}
-							extraData={searchStore.filters.kind}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
-							keyExtractor={(item) => item.value.toString()}
-							showsHorizontalScrollIndicator={false}
-							style={tw`flex-row`}
-						/>
-					</VirtualizedListWrapper>
+				<VirtualizedListWrapper horizontal>
+					<FlatList
+						data={kinds}
+						renderItem={({ item }) => <KindFilter data={item} />}
+						contentContainerStyle={tw`px-6`}
+						numColumns={kinds && Math.ceil(Number(kinds.length) / 2)}
+						key={kinds ? 'kindsSearch' : '_'}
+						scrollEnabled={false}
+						extraData={searchStore.filters.kind}
+						ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+						keyExtractor={(item) => item.value.toString()}
+						showsHorizontalScrollIndicator={false}
+						style={tw`flex-row`}
+					/>
+				</VirtualizedListWrapper>
 			</View>
 		</MotiView>
 	);

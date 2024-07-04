@@ -15,10 +15,10 @@ Before building, the performance of both [msgpack](https://docs.rs/rmp-serde) an
 
 This logically follows as if you use a synchronous serializer, you will do the following:
 
- - Send the total length of the message
- - Allocate a buffer for the message
- - Wait asynchronously for the buffer to be filled
- - Synchronously copy from the buffer into each of the struct fields
+- Send the total length of the message
+- Allocate a buffer for the message
+- Wait asynchronously for the buffer to be filled
+- Synchronously copy from the buffer into each of the struct fields
 
 When using an asynchronous serializer you can skip sending the messages length and allocating the intermediate buffer as we can rely on the known length of each field while decoding - this is a win for performance and memory usage.
 

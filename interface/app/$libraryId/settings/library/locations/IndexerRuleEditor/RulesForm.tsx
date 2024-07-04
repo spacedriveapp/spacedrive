@@ -22,7 +22,7 @@ const ruleKinds: UnionToTuple<RuleKind> = [
 	'RejectFilesByGlob',
 	'AcceptIfChildrenDirectoriesArePresent',
 	'RejectIfChildrenDirectoriesArePresent',
-    'IgnoredByGit'
+	'IgnoredByGit'
 ];
 const ruleKindEnum = z.enum(ruleKinds);
 
