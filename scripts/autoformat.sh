@@ -47,7 +47,7 @@ fi
 if ! {
   if [ -n "${CI:-}" ]; then
     # On CI use custom variable
-    ancestor="$(git merge-base HEAD "HEAD~${PR_FETCH_DEPTH:?Missing PR_FETCH_DEPTH}")"
+    ancestor="$(git merge-base HEAD "HEAD~$((${PR_FETCH_DEPTH:?Missing PR_FETCH_DEPTH} - 1))")"
   else
     ancestor="$(git merge-base HEAD origin/main)"
   fi
