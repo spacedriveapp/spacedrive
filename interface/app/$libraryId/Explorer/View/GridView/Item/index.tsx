@@ -1,15 +1,15 @@
+import clsx from 'clsx';
+import { memo, useMemo } from 'react';
 import {
-	Tag,
 	getItemFilePath,
 	getItemObject,
 	humanizeSize,
+	Tag,
 	useExplorerLayoutStore,
 	useLibraryQuery,
 	useSelector,
 	type ExplorerItem
 } from '@sd/client';
-import clsx from 'clsx';
-import { memo, useMemo } from 'react';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../../Context';
@@ -132,21 +132,25 @@ const ItemTags = () => {
 	const data = object || filePath;
 	const tags = data && 'tags' in data ? data.tags : [];
 	return (
-<div
-			className='relative mt-1 flex w-full flex-row items-center justify-center'
+		<div
+			className="relative mt-1 flex w-full flex-row items-center justify-center"
 			style={{
 				left: tags.length * 1
 			}}
-			>
-			{tags?.slice(0, 3).map((tag: {tag: Tag}, i: number) => (
-				<div key={tag.tag.id} className='relative size-2.5 rounded-full border border-app' style={{
-					backgroundColor: tag.tag.color!,
-					right: i * 4,
-				}}/>
+		>
+			{tags?.slice(0, 3).map((tag: { tag: Tag }, i: number) => (
+				<div
+					key={tag.tag.id}
+					className="relative size-2.5 rounded-full border border-app"
+					style={{
+						backgroundColor: tag.tag.color!,
+						right: i * 4
+					}}
+				/>
 			))}
 		</div>
 	);
-}
+};
 
 const ItemSize = () => {
 	const item = useGridViewItemContext();

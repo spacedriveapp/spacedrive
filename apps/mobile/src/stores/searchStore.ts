@@ -1,5 +1,5 @@
-import { SearchFilterArgs } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
+import { SearchFilterArgs } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 
 export type SearchFilters = 'locations' | 'tags' | 'name' | 'extension' | 'hidden' | 'kind';
@@ -74,7 +74,7 @@ function updateArrayOrObject<T>(
 	array: T[],
 	item: any,
 	filterByKey: string = 'id',
-	isObject: boolean = false,
+	isObject: boolean = false
 ): T[] {
 	if (isObject) {
 		const index = (array as any).findIndex((i: any) => i.id === item[filterByKey]);
@@ -139,10 +139,10 @@ const searchStore = proxy<
 		//update the filter with the value
 		switch (filter) {
 			case 'locations':
- 				searchStore.filters[filter] = [value] as FilterItem[]
+				searchStore.filters[filter] = [value] as FilterItem[];
 				break;
 			case 'tags':
-				searchStore.filters[filter] = [value] as TagItem[]
+				searchStore.filters[filter] = [value] as TagItem[];
 				break;
 		}
 		//apply the filters so it shows in the UI

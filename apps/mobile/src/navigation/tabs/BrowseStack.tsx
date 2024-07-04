@@ -16,9 +16,7 @@ const Stack = createNativeStackNavigator<BrowseStackParamList>();
 
 export default function BrowseStack() {
 	return (
-		<Stack.Navigator
-		initialRouteName="Browse"
-		>
+		<Stack.Navigator initialRouteName="Browse">
 			<Stack.Screen
 				name="Browse"
 				component={BrowseScreen}
@@ -58,7 +56,11 @@ export default function BrowseStack() {
 				component={TagScreen}
 				options={({ route: optionsRoute }) => ({
 					header: (route) => (
-						<DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="tags" />
+						<DynamicHeader
+							optionsRoute={optionsRoute}
+							headerRoute={route}
+							kind="tags"
+						/>
 					)
 				})}
 			/>
@@ -75,7 +77,7 @@ export default function BrowseStack() {
 
 export type BrowseStackParamList = {
 	Browse: undefined;
-	Location: { id: number; path?: string, name?: string };
+	Location: { id: number; path?: string; name?: string };
 	Locations: undefined;
 	Tag: { id: number; color: string };
 	Tags: undefined;

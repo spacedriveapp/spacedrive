@@ -19,12 +19,17 @@ type MenuProps = {
 
 // TODO: Still looks a bit off...
 export const Menu = (props: MenuProps) => (
-		<PMenu style={twStyle(props.triggerStyle)}>
-			<MenuTrigger>{props.trigger}</MenuTrigger>
-			<MenuOptions optionsContainerStyle={twStyle(`rounded-md border border-app-cardborder bg-app-menu p-1`, props.containerStyle)}>
-				{props.children}
-			</MenuOptions>
-		</PMenu>
+	<PMenu style={twStyle(props.triggerStyle)}>
+		<MenuTrigger>{props.trigger}</MenuTrigger>
+		<MenuOptions
+			optionsContainerStyle={twStyle(
+				`rounded-md border border-app-cardborder bg-app-menu p-1`,
+				props.containerStyle
+			)}
+		>
+			{props.children}
+		</MenuOptions>
+	</PMenu>
 );
 
 type MenuItemProps = {
@@ -39,9 +44,7 @@ export const MenuItem = ({ icon, textStyle, iconStyle, style, ...props }: MenuIt
 
 	return (
 		<View style={twStyle(`flex-1 flex-row items-center px-2 py-1`, style)}>
-			{Icon && (
-					<Icon size={14} style={twStyle(`text-ink-dull`, iconStyle)} />
-			)}
+			{Icon && <Icon size={14} style={twStyle(`text-ink-dull`, iconStyle)} />}
 			<MenuOption
 				{...props}
 				customStyles={{

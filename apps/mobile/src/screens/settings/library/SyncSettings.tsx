@@ -1,14 +1,14 @@
 import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
+import { MotiView } from 'moti';
+import { Circle } from 'phosphor-react-native';
+import React, { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 import {
 	Procedures,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
-import { MotiView } from 'moti';
-import { Circle } from 'phosphor-react-native';
-import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -37,20 +37,18 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 			{syncEnabled.data === false ? (
 				<View style={tw`flex-1 justify-center`}>
 					<Card style={tw`relative flex-col items-center gap-5 py-6`}>
-					<View style={tw`flex-col items-center gap-2`}>
-					<Icon name="Sync" size={64} />
-					<Text style={tw`max-w-[70%] text-center leading-5 text-ink`}>
-						To enable sync, please start the backfill operations
-					</Text>
-					</View>
+						<View style={tw`flex-col items-center gap-2`}>
+							<Icon name="Sync" size={64} />
+							<Text style={tw`max-w-[70%] text-center leading-5 text-ink`}>
+								To enable sync, please start the backfill operations
+							</Text>
+						</View>
 						<Button
 							variant={'accent'}
 							style={tw`mx-auto max-w-[82%]`}
 							onPress={() => setStart(true)}
 						>
-							<Text style={tw`font-medium text-white`}>
-								Start backfill
-							</Text>
+							<Text style={tw`font-medium text-white`}>Start backfill</Text>
 						</Button>
 					</Card>
 				</View>

@@ -48,8 +48,8 @@ export const platform = {
 	getThumbnailUrlByThumbKey: (thumbKey) =>
 		constructServerUrl(
 			`/thumbnail/${encodeURIComponent(
-			thumbKey.base_directory_str
-		)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(thumbKey.cas_id)}.webp`
+				thumbKey.base_directory_str
+			)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(thumbKey.cas_id)}.webp`
 		),
 	getFileUrl: (libraryId, locationLocalId, filePathId) =>
 		constructServerUrl(`/file/${libraryId}/${locationLocalId}/${filePathId}`),

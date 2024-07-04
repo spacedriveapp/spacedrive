@@ -1,14 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
+import { MotiView } from 'moti';
+import { MotiPressable } from 'moti/interactions';
+import { X } from 'phosphor-react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import {
 	SavedSearch as ISavedSearch,
 	useLibraryMutation,
 	useLibraryQuery,
 	useRspcLibraryContext
 } from '@sd/client';
-import { MotiView } from 'moti';
-import { MotiPressable } from 'moti/interactions';
-import { X } from 'phosphor-react-native';
-import { FlatList, Pressable, Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
@@ -40,7 +40,10 @@ const SavedSearches = () => {
 						ListEmptyComponent={() => {
 							return (
 								<Empty
-								 icon="Folder" description="No saved searches" style={tw`w-full`} />
+									icon="Folder"
+									description="No saved searches"
+									style={tw`w-full`}
+								/>
 							);
 						}}
 						renderItem={({ item }) => <SavedSearch search={item} />}
@@ -67,7 +70,7 @@ const SavedSearch = ({ search }: Props) => {
 	const navigation = useNavigation();
 	const dataForSearch = useSavedSearch(search);
 	const rspc = useRspcLibraryContext();
-	const deleteSearch = useLibraryMutation('search.saved.delete',  {
+	const deleteSearch = useLibraryMutation('search.saved.delete', {
 		onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
 	});
 	return (
@@ -83,9 +86,7 @@ const SavedSearch = ({ search }: Props) => {
 			}}
 		>
 			<Card style={tw`mr-2 w-auto flex-row items-center gap-2 p-2.5`}>
-				<Pressable
-					onPress={async () => await deleteSearch.mutateAsync(search.id)}
-				>
+				<Pressable onPress={async () => await deleteSearch.mutateAsync(search.id)}>
 					<X size={14} color={tw.color('text-ink-dull')} />
 				</Pressable>
 				<Icon name="Folder" size={20} />

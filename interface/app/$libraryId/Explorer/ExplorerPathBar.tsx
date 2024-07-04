@@ -1,4 +1,8 @@
 import { AppWindow, ArrowSquareOut, CaretRight, ClipboardText } from '@phosphor-icons/react';
+import clsx from 'clsx';
+import { memo, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { createSearchParams } from 'react-router-dom';
 import {
 	getExplorerItemData,
 	getIndexedItemFilePath,
@@ -6,13 +10,9 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
-import clsx from 'clsx';
-import { memo, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { createSearchParams } from 'react-router-dom';
-import { useTabsContext } from '~/TabsContext';
 import { Icon } from '~/components';
 import { useIsDark, useLocale, useOperatingSystem } from '~/hooks';
+import { useTabsContext } from '~/TabsContext';
 import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from './Context';
@@ -119,7 +119,9 @@ export const ExplorerPathBar = memo(() => {
 
 	return (
 		<div
-			className={'group flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg'}
+			className={
+				'group flex items-center border-t border-t-app-line bg-app/90 px-3.5 text-[11px] text-ink-dull backdrop-blur-lg'
+			}
 			style={{
 				height: PATH_BAR_HEIGHT
 			}}
