@@ -44,9 +44,14 @@ if [ -n "$(git diff --name-only HEAD)" ] || [ -n "$(git ls-files --others --excl
 fi
 
 # Find the common ancestor of the current branch and main
-if [ -n "${CI:-}" ]; then
-  ancestor="HEAD"
-elif ! ancestor="$(git merge-base HEAD origin/main)"; then
+if ! {
+  if [ -n "${CI:-}" ]; then
+    # On CI use custom variable
+    ancestor="$(git merge-base HEAD "HEAD~$((${PR_FETCH_DEPTH:?Missing PR_FETCH_DEPTH} - 1))")"
+  else
+    ancestor="$(git merge-base HEAD origin/main)"
+  fi
+}; then
   echo "Failed to find the common ancestor of the current branch and main." >&2
   exit 1
 fi
@@ -69,7 +74,7 @@ if [ "${1:-}" != "only-frontend" ]; then
 fi
 
 # Add all fixes for changes made in this branch
-git diff --cached --name-only "$ancestor" | xargs git add
+git diff --diff-filter=d --cached --name-only "${ancestor:?Ancestor is not set}" | xargs git add
 
 # Restore unrelated changes
 git restore .

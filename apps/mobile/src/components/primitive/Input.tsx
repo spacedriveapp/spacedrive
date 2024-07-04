@@ -34,7 +34,7 @@ export const Input = forwardRef<TextInput, InputProps>((props, ref) => {
 			{...otherProps}
 		/>
 	);
-})
+});
 
 // To use in modals (for keyboard handling)
 export const ModalInput = forwardRef<any, InputProps>((props, ref) => {
@@ -48,7 +48,7 @@ export const ModalInput = forwardRef<any, InputProps>((props, ref) => {
 			{...otherProps}
 		/>
 	);
-})
+});
 
 // Same as Input but configured with password props & show/hide password button
 

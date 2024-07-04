@@ -16,7 +16,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		name: 'Valerie Wong',
 		location: 'Vancouver, Canada',
 		role: 'Director of Operations',
-		imageUrl: '/images/team/valerie.jpeg',
+		imageUrl: '/images/team/valerie.jpeg'
 	},
 	{
 		name: 'Ericson Soares',
@@ -43,7 +43,7 @@ export const teamMembers: Array<TeamMemberProps> = [
 		role: 'Rust Engineer',
 		imageUrl: '/images/team/matheus.jpg',
 		socials: {
-			github: 'https://github.com/matheus-consoli',
+			github: 'https://github.com/matheus-consoli'
 		}
 	},
 	{

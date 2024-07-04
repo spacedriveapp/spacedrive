@@ -1,9 +1,9 @@
-import { Location } from '@sd/client';
 import { useRef } from 'react';
 import { Pressable } from 'react-native';
+import { ClassInput } from 'twrnc';
+import { Location } from '@sd/client';
 import { twStyle } from '~/lib/tailwind';
 
-import { ClassInput } from 'twrnc';
 import { ModalRef } from '../layout/Modal';
 import { LocationModal } from '../modal/location/LocationModal';
 import GridLocation from './GridLocation';

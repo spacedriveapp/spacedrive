@@ -2,11 +2,11 @@ import { CloudArrowDown, Gear, Lock, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useClientContext } from '@sd/client';
 import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
+import JoinDialog from '~/app/$libraryId/settings/node/libraries/JoinDialog';
 import { useLocale } from '~/hooks';
 
 import CreateDialog from '../../../settings/node/libraries/CreateDialog';
 import { useSidebarContext } from './Context';
-import JoinDialog from '~/app/$libraryId/settings/node/libraries/JoinDialog';
 
 export default () => {
 	const { library, libraries, currentLibraryId } = useClientContext();
@@ -67,7 +67,11 @@ export default () => {
 				label={t('join_library')}
 				icon={CloudArrowDown}
 				iconProps={{ weight: 'bold', size: 16 }}
-				onClick={() => dialogManager.create((dp) => <JoinDialog librariesCtx={libraries.data} {...dp} />)}
+				onClick={() =>
+					dialogManager.create((dp) => (
+						<JoinDialog librariesCtx={libraries.data} {...dp} />
+					))
+				}
 				className="font-medium"
 			/>
 			<DropdownMenu.Item

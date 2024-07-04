@@ -52,7 +52,9 @@ export function createSlashCommand<T extends string>(command: T) {
 		command: z.literal(command),
 		text: z.string().transform((s) => s.split(' ')),
 		api_app_id: z.string(),
-		is_enterprise_install: z.union([z.literal('false'), z.literal('true')]).transform((v) => v === 'true'),
+		is_enterprise_install: z
+			.union([z.literal('false'), z.literal('true')])
+			.transform((v) => v === 'true'),
 		response_url: z.string(),
 		trigger_id: z.string()
 	});
@@ -88,23 +90,27 @@ const BLOCK_ACTIONS_INNER = z.object({
 			z.object({
 				type: z.string(),
 				block_id: z.string(),
-				text: z.object({
-					type: z.string(),
-					text: z.string(),
-					verbatim: z.boolean()
-				}).optional(),
-				elements: z.array(
-					z.object({
+				text: z
+					.object({
 						type: z.string(),
-						action_id: z.string(),
-						text: z.object({
-							type: z.string(),
-							text: z.string(),
-							emoji: z.boolean()
-						}),
-						url: z.string().optional()
+						text: z.string(),
+						verbatim: z.boolean()
 					})
-				).optional()
+					.optional(),
+				elements: z
+					.array(
+						z.object({
+							type: z.string(),
+							action_id: z.string(),
+							text: z.object({
+								type: z.string(),
+								text: z.string(),
+								emoji: z.boolean()
+							}),
+							url: z.string().optional()
+						})
+					)
+					.optional()
 			})
 		)
 	}),

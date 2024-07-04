@@ -1,7 +1,7 @@
 import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
-import { nonLibraryClient, useSolidStore } from '@sd/client';
 import { Linking } from 'react-native';
 import { createMutable } from 'solid-js/store';
+import { nonLibraryClient, useSolidStore } from '@sd/client';
 
 interface Store {
 	state: { status: 'loading' | 'notLoggedIn' | 'loggingIn' | 'loggedIn' | 'loggingOut' };
@@ -24,7 +24,7 @@ nonLibraryClient
 	.catch((e) => {
 		if (e instanceof RSPCError && e.code === 401) {
 			// TODO: handle error?
-			console.error("error", e);
+			console.error('error', e);
 		}
 		store.state = { status: 'notLoggedIn' };
 	});

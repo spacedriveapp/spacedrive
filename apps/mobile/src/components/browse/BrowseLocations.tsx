@@ -1,13 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
+import { Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
+import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
-import { Plus } from 'phosphor-react-native';
 import Empty from '../layout/Empty';
 import Fade from '../layout/Fade';
 import { LocationItem } from '../locations/LocationItem';
@@ -32,12 +32,16 @@ const BrowseLocations = () => {
 				<View style={tw`flex-row gap-3`}>
 					<Button
 						style={twStyle(`rounded-full`, {
-							borderColor: showAll ? tw.color('accent') : tw.color('border-app-lightborder')
+							borderColor: showAll
+								? tw.color('accent')
+								: tw.color('border-app-lightborder')
 						})}
 						variant="outline"
 						onPress={() => setShowAll((prev) => !prev)}
 					>
-						<Text style={tw`text-xs text-ink`}>{showAll ? 'Show less' : 'Show all'} ({locations?.length})</Text>
+						<Text style={tw`text-xs text-ink`}>
+							{showAll ? 'Show less' : 'Show all'} ({locations?.length})
+						</Text>
 					</Button>
 					<Button
 						onPress={() => modalRef.current?.present()}
@@ -45,38 +49,40 @@ const BrowseLocations = () => {
 						variant="gray"
 					>
 						<Plus size={10} weight="bold" style={tw`text-white`} />
-					<Text style={tw`text-xs text-ink`}>Add</Text>
+						<Text style={tw`text-xs text-ink`}>Add</Text>
 					</Button>
 				</View>
 			</View>
 			<View style={tw`relative -m-1`}>
-			<Fade color='black' width={30} height="100%">
+				<Fade color="black" width={30} height="100%">
 					<FlatList
 						data={locations}
-						ListEmptyComponent={<Empty description="You have not added any locations" icon="Folder" />}
+						ListEmptyComponent={
+							<Empty description="You have not added any locations" icon="Folder" />
+						}
 						numColumns={showAll ? 3 : 1}
 						horizontal={showAll ? false : true}
-						contentContainerStyle={twStyle(locations?.length === 0 && 'w-full','px-5')}
+						contentContainerStyle={twStyle(locations?.length === 0 && 'w-full', 'px-5')}
 						key={showAll ? '_locations' : 'alllocationcols'}
 						keyExtractor={(item) => item.id.toString()}
 						scrollEnabled={showAll ? false : true}
 						showsHorizontalScrollIndicator={false}
 						renderItem={({ item }) => {
-							return	(
-							<LocationItem
-								location={item}
-								style={twStyle(showAll && 'max-w-[31%] flex-1')}
-								editLocation={() =>
-									navigation.navigate('SettingsStack', {
-										screen: 'EditLocationSettings',
-										params: { id: item.id },
-										initial: false
-									})
-								}
-								onPress={() => navigation.navigate('Location', { id: item.id })}
+							return (
+								<LocationItem
+									location={item}
+									style={twStyle(showAll && 'max-w-[31%] flex-1')}
+									editLocation={() =>
+										navigation.navigate('SettingsStack', {
+											screen: 'EditLocationSettings',
+											params: { id: item.id },
+											initial: false
+										})
+									}
+									onPress={() => navigation.navigate('Location', { id: item.id })}
 								/>
-						)}
-					}
+							);
+						}}
 					/>
 				</Fade>
 			</View>

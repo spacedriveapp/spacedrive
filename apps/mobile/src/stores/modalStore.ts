@@ -1,6 +1,6 @@
-import { ExplorerItem } from '@sd/client';
 import { createRef } from 'react';
 import { proxy, ref, useSnapshot } from 'valtio';
+import { ExplorerItem } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 
 const store = proxy({

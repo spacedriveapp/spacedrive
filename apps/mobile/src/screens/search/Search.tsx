@@ -1,9 +1,9 @@
 import { useIsFocused } from '@react-navigation/native';
-import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
 import { Suspense, useDeferredValue, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
@@ -29,7 +29,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 		order,
 		arg: {
 			take: 30,
-			filters: searchStore.mergedFilters,
+			filters: searchStore.mergedFilters
 		},
 		enabled: isFocused && searchStore.mergedFilters.length > 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
@@ -46,11 +46,18 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const noSearch = deferredSearch.length === 0 && appliedFiltersLength === 0;
 
 	const searchIcon =
-	locations.length > 0 && noObjects && noSearch ? 'FolderNoSpace' :
-	noSearch && noObjects ? 'Search' : 'FolderNoSpace';
+		locations.length > 0 && noObjects && noSearch
+			? 'FolderNoSpace'
+			: noSearch && noObjects
+				? 'Search'
+				: 'FolderNoSpace';
 
-	const searchDescription = locations.length === 0 ? 'You have not added any locations to search' : noObjects
-	|| noSearch ? 'No files found' : 'No results found for this search';
+	const searchDescription =
+		locations.length === 0
+			? 'You have not added any locations to search'
+			: noObjects || noSearch
+				? 'No files found'
+				: 'No results found for this search';
 
 	return (
 		<View
@@ -108,32 +115,33 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 					>
 						<DotsThree
 							size={24}
-							weight='bold'
+							weight="bold"
 							color={tw.color(
 								explorerStore.toggleMenu ? 'text-accent' : 'text-ink-dull'
 							)}
 						/>
 					</Pressable>
 				</View>
-			{appliedFiltersLength > 0 && <FiltersBar/>}
+				{appliedFiltersLength > 0 && <FiltersBar />}
 			</View>
 			{/* Content */}
 			<View style={tw`flex-1`}>
 				<Suspense fallback={<ActivityIndicator />}>
 					<Explorer
-					{...objects}
-					isEmpty={noObjects}
-					emptyComponent={
-						<Empty
-						includeHeaderHeight
-						icon={searchIcon}
-						description={searchDescription}
-						style={tw`flex-1 items-center justify-center border-0`}
-						textStyle={tw`max-w-[220px]`}
-						iconSize={100}
-						/>
-					}
-					tabHeight={false} />
+						{...objects}
+						isEmpty={noObjects}
+						emptyComponent={
+							<Empty
+								includeHeaderHeight
+								icon={searchIcon}
+								description={searchDescription}
+								style={tw`flex-1 items-center justify-center border-0`}
+								textStyle={tw`max-w-[220px]`}
+								iconSize={100}
+							/>
+						}
+						tabHeight={false}
+					/>
 				</Suspense>
 			</View>
 		</View>

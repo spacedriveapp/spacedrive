@@ -1,5 +1,5 @@
-import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { useEffect } from 'react';
+import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import { tw } from '~/lib/tailwind';
@@ -12,9 +12,7 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 	const tagData = tag.data;
 
 	const objects = usePathsExplorerQuery({
-		arg: { filters: [
-			{ object: { tags: { in: [id] } } },
-		], take: 30 },
+		arg: { filters: [{ object: { tags: { in: [id] } } }], take: 30 },
 		enabled: typeof id === 'number',
 		order: null
 	});
@@ -25,20 +23,26 @@ export default function TagScreen({ navigation, route }: BrowseStackScreenProps<
 			navigation.setParams({
 				id: tagData.id,
 				color: tagData.color as string
-			})
+			});
 			navigation.setOptions({
-				title: tagData.name ?? 'Tag',
+				title: tagData.name ?? 'Tag'
 			});
 		}
 	}, [tagData, id, navigation]);
 
-	return <Explorer
-		isEmpty={objects.count === 0}
-		emptyComponent={<Empty
-		includeHeaderHeight
-		icon={'Tags'}
-		style={tw`flex-1 items-center justify-center border-0`}
-		iconSize={80}
-		description={'No items assigned to this tag'}
-	/>} {...objects} />;
+	return (
+		<Explorer
+			isEmpty={objects.count === 0}
+			emptyComponent={
+				<Empty
+					includeHeaderHeight
+					icon={'Tags'}
+					style={tw`flex-1 items-center justify-center border-0`}
+					iconSize={80}
+					description={'No items assigned to this tag'}
+				/>
+			}
+			{...objects}
+		/>
+	);
 }

@@ -1,10 +1,10 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
-import { Statistics, StatisticsResponse, humanizeSize, useLibraryContext } from '@sd/client';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
+import { humanizeSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -77,7 +77,11 @@ const OverviewStats = ({ stats }: Props) => {
 	}, []);
 
 	const renderStatItems = (isTotalStat = true) => {
-		const keysToFilter = ['total_local_bytes_capacity', 'total_local_bytes_used', 'total_library_bytes'];
+		const keysToFilter = [
+			'total_local_bytes_capacity',
+			'total_local_bytes_used',
+			'total_library_bytes'
+		];
 		if (!stats.data?.statistics) return null;
 		return Object.entries(stats.data.statistics).map(([key, bytesRaw]) => {
 			if (!displayableStatItems.includes(key)) return null;
@@ -107,12 +111,8 @@ const OverviewStats = ({ stats }: Props) => {
 		<View style={tw`px-5`}>
 			<Text style={tw`pb-3 text-lg font-bold text-white`}>Statistics</Text>
 			<View style={tw`flex-row gap-2`}>
-				<View style={tw`h-full flex-1 flex-col gap-2`}>
-					{renderStatItems()}
-				</View>
-				<View style={tw`h-full flex-1 flex-col gap-2`}>
-					{renderStatItems(false)}
-				</View>
+				<View style={tw`h-full flex-1 flex-col gap-2`}>{renderStatItems()}</View>
+				<View style={tw`h-full flex-1 flex-col gap-2`}>{renderStatItems(false)}</View>
 			</View>
 		</View>
 	);
