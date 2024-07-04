@@ -1,16 +1,23 @@
 import { useNavigation } from '@react-navigation/native';
-import { SearchData, getIndexedItemFilePath, isPath, useLibraryMutation, useLibraryQuery, useRspcContext, type ExplorerItem } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { ActivityIndicator, Pressable } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
+import {
+	getIndexedItemFilePath,
+	isPath,
+	SearchData,
+	useLibraryMutation,
+	useLibraryQuery,
+	useRspcContext,
+	type ExplorerItem
+} from '@sd/client';
 import Layout from '~/constants/Layout';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
-
 
 import ScreenContainer from '../layout/ScreenContainer';
 import { toast } from '../primitive/Toast';
@@ -57,22 +64,20 @@ const Explorer = (props: Props) => {
 
 	//Open file with native api
 	async function handleOpen() {
-			try {
-				const absolutePath = (await queriedFullPath.refetch()).data
-				if (!absolutePath) return;
-				await FileViewer.open(absolutePath, {
-					// Android only
-					showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
-					showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
-				});
-				filePath &&
-					filePath.object_id &&
-				await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
-			} catch (error) {
-				toast.error("Error opening object")
-			}
+		try {
+			const absolutePath = (await queriedFullPath.refetch()).data;
+			if (!absolutePath) return;
+			await FileViewer.open(absolutePath, {
+				// Android only
+				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
+				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
+			});
+				filePath.object_id &&
+				(await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error));
+		} catch (error) {
+			toast.error('Error opening object');
 		}
-
+	}
 
 	async function handlePress(data: ExplorerItem) {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
