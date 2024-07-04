@@ -74,7 +74,7 @@ if [ "${1:-}" != "only-frontend" ]; then
 fi
 
 # Add all fixes for changes made in this branch
-git diff --cached --name-only "${ancestor:?Ancestor is not set}" | xargs git add
+git diff --diff-filter=!D --cached --name-only "${ancestor:?Ancestor is not set}" | xargs git add
 
 # Restore unrelated changes
 git restore .
