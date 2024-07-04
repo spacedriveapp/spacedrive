@@ -81,7 +81,7 @@ export const Component = () => {
 				p2p_relay_disabled: null,
 				p2p_discovery: null,
 				p2p_remote_access: null,
-				p2p_manual_peers: null,
+				p2p_manual_peers: null
 				// image_labeler_version: value.image_labeler_version ?? null
 			});
 
