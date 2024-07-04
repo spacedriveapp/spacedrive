@@ -17,7 +17,11 @@ export const fields = {
 } as const;
 
 export const COMMAND_NAME = '/release' as const;
-export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME), createViewSubmission(), createBlockActions()] as const;
+export const EVENT_SCHEMAS = [
+	createSlashCommand(COMMAND_NAME),
+	createViewSubmission(),
+	createBlockActions()
+] as const;
 
 export async function createModal(
 	trigger_id: string,

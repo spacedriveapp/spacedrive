@@ -2,8 +2,8 @@ import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
 import {
-	ThumbKey,
 	resetStore,
+	ThumbKey,
 	type DoubleClickAction,
 	type ExplorerItem,
 	type ExplorerLayout,

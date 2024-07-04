@@ -1,9 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
+import { useLibraryQuery } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -47,43 +47,43 @@ export default function LocationsScreen({ viewStyle }: Props) {
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
 			<View style={tw`min-h-full`}>
-			<FlatList
-				data={filteredLocations}
-				contentContainerStyle={twStyle(
-					`py-6`,
-					filteredLocations.length === 0 && 'h-full items-center justify-center'
-				)}
-				keyExtractor={(location) => location.id.toString()}
-				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
-				showsVerticalScrollIndicator={false}
-				ListEmptyComponent={
-					<Empty
-						icon="Folder"
-						style={'border-0'}
-						iconSize={84}
-						description="You have not added any locations"
-					/>
-				}
-				numColumns={viewStyle === 'grid' ? 3 : 1}
-				renderItem={({ item }) => (
-					<LocationItem
-						onPress={() =>
-							navigation.navigate('BrowseStack', {
-								screen: 'Location',
-								params: { id: item.id }
-							})
-						}
-						editLocation={() =>
-							navigation.navigate('SettingsStack', {
-								screen: 'EditLocationSettings',
-								params: { id: item.id }
-							})
-						}
-						viewStyle="list"
-						location={item}
-					/>
-				)}
-			/>
+				<FlatList
+					data={filteredLocations}
+					contentContainerStyle={twStyle(
+						`py-6`,
+						filteredLocations.length === 0 && 'h-full items-center justify-center'
+					)}
+					keyExtractor={(location) => location.id.toString()}
+					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
+					showsVerticalScrollIndicator={false}
+					ListEmptyComponent={
+						<Empty
+							icon="Folder"
+							style={'border-0'}
+							iconSize={84}
+							description="You have not added any locations"
+						/>
+					}
+					numColumns={viewStyle === 'grid' ? 3 : 1}
+					renderItem={({ item }) => (
+						<LocationItem
+							onPress={() =>
+								navigation.navigate('BrowseStack', {
+									screen: 'Location',
+									params: { id: item.id }
+								})
+							}
+							editLocation={() =>
+								navigation.navigate('SettingsStack', {
+									screen: 'EditLocationSettings',
+									params: { id: item.id }
+								})
+							}
+							viewStyle="list"
+							location={item}
+						/>
+					)}
+				/>
 			</View>
 			<ImportModal ref={modalRef} />
 		</ScreenContainer>

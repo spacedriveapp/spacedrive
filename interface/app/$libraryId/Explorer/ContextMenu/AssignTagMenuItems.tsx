@@ -1,11 +1,11 @@
 import { Plus } from '@phosphor-icons/react';
-import { ExplorerItem, useLibraryQuery } from '@sd/client';
-import { Button, ModifierKeys, dialogManager, tw } from '@sd/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import { RefObject, useMemo, useRef } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { ExplorerItem, useLibraryQuery } from '@sd/client';
+import { Button, dialogManager, ModifierKeys, tw } from '@sd/ui';
 import CreateDialog, {
 	AssignTagItems,
 	useAssignItemsToTag
@@ -37,7 +37,6 @@ function useData({ items }: Props) {
 		],
 		{ suspense: true }
 	);
-
 
 	return {
 		tags: {

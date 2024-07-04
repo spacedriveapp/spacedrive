@@ -1,6 +1,6 @@
-import { ThumbKey, resetStore } from '@sd/client';
 import { proxy, useSnapshot } from 'valtio';
 import { proxySet } from 'valtio/utils';
+import { resetStore, ThumbKey } from '@sd/client';
 
 export type ExplorerLayoutMode = 'list' | 'grid' | 'media';
 

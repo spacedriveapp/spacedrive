@@ -141,7 +141,7 @@ export const humanizeSize = (
 	//TODO: Improve this
 	// Convert to thousands when short is TB to show correct progress value
 	//i.e 2.5 TB = 2500
-	if (unit.short === "TB" && !no_thousands) {
+	if (unit.short === 'TB' && !no_thousands) {
 		value = value * 1000;
 	}
 

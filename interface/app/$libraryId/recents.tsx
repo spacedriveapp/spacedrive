@@ -54,7 +54,7 @@ export function Component() {
 	//since this is a recents page issue only - this is sufficient unless otherwise
 	useEffect(() => {
 		setForceRender((prev) => !prev);
-	  }, [items.query.isFetching]);
+	}, [items.query.isFetching]);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>
@@ -76,7 +76,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-					<Explorer
+			<Explorer
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Collection" size={128} />}

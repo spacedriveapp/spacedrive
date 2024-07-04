@@ -68,14 +68,14 @@ Given the core of the `sd_p2p` crate is decoupled from libp2p we could easily im
 The major advantage to using WebRTC would be the ability to use a SaSS solution for hosting the relay infrastructure. WebRTC is based on [STUN](https://en.wikipedia.org/wiki/STUN) and [TURN](https://en.wikipedia.org/wiki/Traversal_Using_Relays_around_NAT) which are very ubiquitous protocols. The following is a comparison of some webrtc services:
 
 |                                                                   | Pricing (per GB ) | Has Billing API |
-|-------------------------------------------------------------------|-------------------|-----------------|
+| ----------------------------------------------------------------- | ----------------- | --------------- |
 | [Cloudflare Calls](https://developers.cloudflare.com/calls/turn/) | 0.05$             | No              |
 | [Twilio](https://www.twilio.com/stun-turn)                        | 0.40$ to 0.80$    | No              |
 | [Metered](https://www.metered.ca/stun-turn)                       | 0.40$ to 0.10$    | Yes             |
 
 WebRTC also has a built in system for authentication via the SDP object that needs to be exchanged between peers for a valid connection to be established. For an explaination of webrtc checkout [this Fireship video](https://www.youtube.com/watch?v=WmR9IMUD_CY).
 
-libp2p *does* have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
+libp2p _does_ have a [WebRTC transport](https://docs.rs/libp2p-webrtc/0.7.1-alpha) but it seems to be only for browser to server communication not server to server like we require so I don't think it would be viable for our usecase.
 
 ### Security
 
@@ -90,17 +90,16 @@ The relay works through encrypted communication so we can not read the data that
 
 1. Set up the server using the following command:
 
-    ```bash
-    cargo run -p sd-p2p-relay init
-    # You will be prompted to enter the p2p secret.
-    # It can be found in the `spacedrive-api` Vercel project as the `P2P_SECRET` environment variable.
-    ```
+   ```bash
+   cargo run -p sd-p2p-relay init
+   # You will be prompted to enter the p2p secret.
+   # It can be found in the `spacedrive-api` Vercel project as the `P2P_SECRET` environment variable.
+   ```
 
 2. Now that you have set up the server, you can run the relay server using the following command:
 
-    ```bash
-    cargo run -p sd-p2p-relay
-    ```
+   ```bash
+   cargo run -p sd-p2p-relay
+   ```
 
-*Note that you will need to ensure port `7373` is exposed through your firewall for this to work.*
-
+_Note that you will need to ensure port `7373` is exposed through your firewall for this to work._

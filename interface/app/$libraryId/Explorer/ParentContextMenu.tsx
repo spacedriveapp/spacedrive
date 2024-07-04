@@ -38,7 +38,10 @@ export default (props: PropsWithChildren) => {
 	const rescanLocation = useLibraryMutation('locations.subPathRescan');
 	const createFolder = useLibraryMutation(['files.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: t('create_folder_error'), body: t('error_message', { error: e }) });
+			toast.error({
+				title: t('create_folder_error'),
+				body: t('error_message', { error: e })
+			});
 			console.error(e);
 		},
 		onSuccess: (folder) => {
@@ -66,7 +69,10 @@ export default (props: PropsWithChildren) => {
 	});
 	const createEphemeralFolder = useLibraryMutation(['ephemeralFiles.createFolder'], {
 		onError: (e) => {
-			toast.error({ title: t('create_folder_error'), body: t('error_message', { error: e }) });
+			toast.error({
+				title: t('create_folder_error'),
+				body: t('error_message', { error: e })
+			});
 			console.error(e);
 		},
 		onSuccess: (folder) => {
