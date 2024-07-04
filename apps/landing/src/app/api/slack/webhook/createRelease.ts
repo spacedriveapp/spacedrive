@@ -17,8 +17,7 @@ export const fields = {
 } as const;
 
 export const COMMAND_NAME = '/release' as const;
-export const EVENT_SCHEMAS = [
-	createSlashCommand(COMMAND_NAME),
+export const EVENT_SCHEMAS = [createSlashCommand(COMMAND_NAME),
 	createViewSubmission(),
 	createBlockActions()
 ] as const;
