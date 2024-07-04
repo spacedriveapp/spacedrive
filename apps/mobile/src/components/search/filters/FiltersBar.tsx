@@ -17,10 +17,10 @@ import { tw, twStyle } from '~/lib/tailwind';
 import { SearchStackScreenProps } from '~/navigation/SearchStack';
 import {
 	FilterItem as FilterItemType,
+	getSearchStore,
 	KindItem,
 	SearchFilters,
 	TagItem,
-	getSearchStore,
 	useSearchStore
 } from '~/stores/searchStore';
 
@@ -56,7 +56,7 @@ const FiltersBar = () => {
 						horizontal
 						onContentSizeChange={() => {
 							if (flatListRef.current && appliedFiltersLength < 2) {
-									flatListRef.current.scrollToOffset({ animated: true, offset: 0 });
+								flatListRef.current.scrollToOffset({ animated: true, offset: 0 });
 							}
 						}}
 						data={Object.entries(searchStore.appliedFilters)}
@@ -184,7 +184,7 @@ const TagView = ({ tags }: { tags: TagItem[] }) => (
 			<View
 				key={tag.id}
 				style={twStyle(`h-4.5 w-4.5 relative rounded-full border-2 border-app-card`, {
-					backgroundColor: tag.color,
+					backgroundColor: tag.color
 				})}
 			/>
 		))}

@@ -1,5 +1,5 @@
-import { useBridgeQuery, useDebugState } from '@sd/client';
 import { Text, View } from 'react-native';
+import { useBridgeQuery, useDebugState } from '@sd/client';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Divider } from '~/components/primitive/Divider';

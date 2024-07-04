@@ -1,9 +1,9 @@
-import { Tag, useLibraryQuery } from '@sd/client';
 import { MotiView } from 'moti';
 import { memo, useCallback, useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
+import { Tag, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import Fade from '~/components/layout/Fade';
@@ -30,23 +30,25 @@ const Tags = () => {
 				title="Tags"
 				sub="What tags would you like to filter by?"
 			/>
-				<Fade color="black" width={30} height="100%">
+			<Fade color="black" width={30} height="100%">
 				<VirtualizedListWrapper contentContainerStyle={tw`px-6`} horizontal>
-						<FlatList
-							data={tagsData}
-							renderItem={({ item }) => <TagFilter tag={item} />}
-							extraData={searchStore.filters.tags}
-							alwaysBounceVertical={false}
-							numColumns={tagsData ? Math.max(Math.ceil(tagsData.length / 2), 2) : 1}
-							key={tagsData ? 'tagsSearch' : '_'}
-							ListEmptyComponent={<Empty icon="Tags" description="You have not created any tags" />}
-							ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
-							keyExtractor={(item) => item.id.toString()}
-							showsHorizontalScrollIndicator={false}
-							style={tw`flex-row`}
-						/>
-					</VirtualizedListWrapper>
-				</Fade>
+					<FlatList
+						data={tagsData}
+						renderItem={({ item }) => <TagFilter tag={item} />}
+						extraData={searchStore.filters.tags}
+						alwaysBounceVertical={false}
+						numColumns={tagsData ? Math.max(Math.ceil(tagsData.length / 2), 2) : 1}
+						key={tagsData ? 'tagsSearch' : '_'}
+						ListEmptyComponent={
+							<Empty icon="Tags" description="You have not created any tags" />
+						}
+						ItemSeparatorComponent={() => <View style={tw`h-2 w-2`} />}
+						keyExtractor={(item) => item.id.toString()}
+						showsHorizontalScrollIndicator={false}
+						style={tw`flex-row`}
+					/>
+				</VirtualizedListWrapper>
+			</Fade>
 		</MotiView>
 	);
 };

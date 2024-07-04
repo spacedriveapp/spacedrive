@@ -1,6 +1,6 @@
 import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
-import { useJobProgress, useLibraryQuery } from '@sd/client';
 import { forwardRef, useEffect } from 'react';
+import { useJobProgress, useLibraryQuery } from '@sd/client';
 import JobGroup from '~/components/job/JobGroup';
 import Empty from '~/components/layout/Empty';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -32,21 +32,14 @@ export const JobManagerModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	}, [jobGroups, modalRef]);
 
 	return (
-		<Modal
-		ref={modalRef}
-		snapPoints={['60']}
-		title="Recent Jobs"
-		showCloseButton
-		  >
+		<Modal ref={modalRef} snapPoints={['60']} title="Recent Jobs" showCloseButton>
 			<BottomSheetFlatList
 				data={jobGroups.data}
 				style={tw`flex-1`}
 				keyExtractor={(i) => i.id}
 				contentContainerStyle={tw`mt-4`}
 				renderItem={({ item }) => <JobGroup group={item} progress={progress} />}
-				ListEmptyComponent={
-					<Empty style="border-0" description='No jobs.'/>
-				}
+				ListEmptyComponent={<Empty style="border-0" description="No jobs." />}
 			/>
 		</Modal>
 	);

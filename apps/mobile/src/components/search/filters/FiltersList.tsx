@@ -13,7 +13,7 @@ import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import SectionTitle from '~/components/layout/SectionTitle';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SearchFilters, getSearchStore, useSearchStore } from '~/stores/searchStore';
+import { getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
 import Extension from './Extension';
 import Kind from './Kind';
@@ -53,7 +53,6 @@ const FiltersList = () => {
 	);
 	const appliedFiltersLength = Object.keys(searchStore.appliedFilters).length;
 
-
 	useEffect(() => {
 		//if there are selected filters but not applied reset them
 		if (appliedFiltersLength === 0) {
@@ -83,7 +82,8 @@ const FiltersList = () => {
 				searchStore.resetFilter(searchFiltersLowercase);
 			}
 		},
-		[selectedOptions, searchStore])
+		[selectedOptions, searchStore]
+	);
 
 	return (
 		<View style={tw`gap-10`}>

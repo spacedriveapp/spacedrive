@@ -1,8 +1,8 @@
-import { LibraryConfigWrapped, useBridgeQuery, useLibraryContext } from '@sd/client';
 import { DotsThreeOutlineVertical, Pen, Trash } from 'phosphor-react-native';
 import React, { useEffect, useRef } from 'react';
 import { Animated, FlatList, Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { LibraryConfigWrapped, useBridgeQuery, useLibraryContext } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import DeleteLibraryModal from '~/components/modal/confirmModals/DeleteLibraryModal';
@@ -65,12 +65,14 @@ function LibraryItem({
 			<View style={tw`flex-row items-center justify-between`}>
 				<View>
 					<View style={tw`flex-row items-center gap-2`}>
-					<Text style={tw`text-md font-semibold text-ink`}>{library.config.name}</Text>
-					{current && (
-						<View style={tw`rounded-md bg-accent px-1.5 py-[2px]`}>
-							<Text style={tw`text-xs font-semibold text-white`}>Current</Text>
-						</View>
-					)}
+						<Text style={tw`text-md font-semibold text-ink`}>
+							{library.config.name}
+						</Text>
+						{current && (
+							<View style={tw`rounded-md bg-accent px-1.5 py-[2px]`}>
+								<Text style={tw`text-xs font-semibold text-white`}>Current</Text>
+							</View>
+						)}
 					</View>
 					<Text style={tw`mt-1.5 text-xs text-ink-dull`}>{library.uuid}</Text>
 				</View>
@@ -110,19 +112,19 @@ const LibrarySettingsScreen = ({ navigation }: SettingsStackScreenProps<'Library
 
 	return (
 		<ScreenContainer style={tw`justify-start gap-0 px-6 py-0`} scrollview={false}>
-				<FlatList
-					data={libraries}
-					contentContainerStyle={tw`py-5`}
-					keyExtractor={(item) => item.uuid}
-					renderItem={({ item, index }) => (
-						<LibraryItem
-						 current={item.uuid === library.uuid}
-						 navigation={navigation}
-						 library={item}
-						 index={index}
-						  />
-					)}
-				/>
+			<FlatList
+				data={libraries}
+				contentContainerStyle={tw`py-5`}
+				keyExtractor={(item) => item.uuid}
+				renderItem={({ item, index }) => (
+					<LibraryItem
+						current={item.uuid === library.uuid}
+						navigation={navigation}
+						library={item}
+						index={index}
+					/>
+				)}
+			/>
 		</ScreenContainer>
 	);
 };

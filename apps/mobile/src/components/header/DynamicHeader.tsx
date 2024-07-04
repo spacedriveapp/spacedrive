@@ -6,8 +6,8 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
-
 import { FilterItem, TagItem, useSearchStore } from '~/stores/searchStore';
+
 import { Icon } from '../icons/Icon';
 
 type Props = {
@@ -32,7 +32,7 @@ export default function DynamicHeader({
 		id: number;
 		color: string;
 		name: string;
-	}
+	};
 
 	//pressing the search icon will add a filter
 	//based on the screen
@@ -43,12 +43,11 @@ export default function DynamicHeader({
 			tags: TagItem;
 			locations: FilterItem;
 		} = {
-			tags: {id: params.id, color: params.color},
-			locations: {id: params.id, name: params.name},
-		}
-		searchStore.searchFrom(key, keys[key])
-	}
-
+			tags: { id: params.id, color: params.color },
+			locations: { id: params.id, name: params.name }
+		};
+		searchStore.searchFrom(key, keys[key]);
+	};
 
 	return (
 		<View
@@ -73,10 +72,10 @@ export default function DynamicHeader({
 						</View>
 					</View>
 					<View style={tw`flex-row gap-6`}>
-					<Pressable
+						<Pressable
 							hitSlop={12}
 							onPress={() => {
-								searchHandler(kind)
+								searchHandler(kind);
 								navigation.navigate('SearchStack', {
 									screen: 'Search'
 								});
@@ -97,7 +96,7 @@ export default function DynamicHeader({
 							>
 								<DotsThree
 									size={24}
-									weight='bold'
+									weight="bold"
 									color={tw.color(
 										explorerStore.toggleMenu ? 'text-accent' : 'text-zinc-300'
 									)}

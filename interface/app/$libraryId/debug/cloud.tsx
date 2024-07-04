@@ -1,15 +1,15 @@
 import { CheckCircle, XCircle } from '@phosphor-icons/react';
+import { Suspense, useMemo } from 'react';
 import {
+	auth,
 	CloudInstance,
 	CloudLibrary,
 	HardwareModel,
-	auth,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery
 } from '@sd/client';
 import { Button, Card, Loader, tw } from '@sd/ui';
-import { Suspense, useMemo } from 'react';
 import { Icon } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 import { LoginButton } from '~/components/LoginButton';
@@ -30,9 +30,11 @@ export const Component = () => {
 			return (
 				<div className="flex size-full items-center justify-center">
 					<DataBox className="flex flex-col items-center gap-5 !p-6">
-						<div className='flex flex-col items-center gap-1'>
-						<Icon name="Sync" size={60}/>
-						<p className='max-w-[75%] text-center text-sm'>To access cloud related features, please login</p>
+						<div className="flex flex-col items-center gap-1">
+							<Icon name="Sync" size={60} />
+							<p className="max-w-[75%] text-center text-sm">
+								To access cloud related features, please login
+							</p>
 						</div>
 						<LoginButton />
 					</DataBox>
@@ -44,7 +46,6 @@ export const Component = () => {
 
 	return <div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>;
 };
-
 
 // million-ignore
 function Authenticated() {
@@ -77,26 +78,30 @@ function Authenticated() {
 			) : (
 				<div className="relative flex size-full flex-col items-center justify-center">
 					<AuthRequiredOverlay />
-					<DataBox className='flex min-w-[400px] flex-col items-center gap-5 p-6'>
-					<div className='flex flex-col items-center gap-2'>
-					<Icon name="CloudSync" size={60} />
-					<p className='max-w-[60%] text-center text-sm text-ink'>{t("cloud_connect_description")}</p>
-					</div>
-					<Button
-						className='h-8'
-						disabled={createLibrary.isLoading}
-						variant="accent"
-						onClick={() => {
-							createLibrary.mutateAsync(null);
-						}}
-					>
-						{createLibrary.isLoading
-							? <div className='flex h-4 flex-row items-center gap-2'>
-								<Loader className='w-5' color="white"/>
-								<p className='text-xs'>{t('Connecting' + '...')}</p>
-							</div>
-							: t('Connect')}
-					</Button>
+					<DataBox className="flex min-w-[400px] flex-col items-center gap-5 p-6">
+						<div className="flex flex-col items-center gap-2">
+							<Icon name="CloudSync" size={60} />
+							<p className="max-w-[60%] text-center text-sm text-ink">
+								{t('cloud_connect_description')}
+							</p>
+						</div>
+						<Button
+							className="h-8"
+							disabled={createLibrary.isLoading}
+							variant="accent"
+							onClick={() => {
+								createLibrary.mutateAsync(null);
+							}}
+						>
+							{createLibrary.isLoading ? (
+								<div className="flex h-4 flex-row items-center gap-2">
+									<Loader className="w-5" color="white" />
+									<p className="text-xs">{t('Connecting' + '...')}</p>
+								</div>
+							) : (
+								t('Connect')
+							)}
+						</Button>
 					</DataBox>
 				</div>
 			)}

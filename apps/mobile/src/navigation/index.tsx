@@ -2,9 +2,9 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import NotFoundScreen from '~/screens/NotFound';
 
+import BackfillWaitingStack, { BackfillWaitingStackParamList } from './BackfillWaitingStack';
 import DrawerNavigator, { DrawerNavParamList } from './DrawerNavigator';
 import SearchStack, { SearchStackParamList } from './SearchStack';
-import BackfillWaitingStack, { BackfillWaitingStackParamList } from './BackfillWaitingStack';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 // This is the main navigator we nest everything under.

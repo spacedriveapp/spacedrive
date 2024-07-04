@@ -1,9 +1,9 @@
-import { Tag } from '@sd/client';
 import { DotsThreeVertical } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { ClassInput } from 'twrnc';
+import { Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import RightActions from './RightActions';
@@ -40,11 +40,7 @@ const ListTag = ({ tag, tagStyle }: ListTagProps) => {
 					</Text>
 				</View>
 				<Pressable onPress={() => swipeRef.current?.openRight()}>
-				<DotsThreeVertical
-							weight="bold"
-							size={20}
-							color={tw.color('ink-dull')}
-						/>
+					<DotsThreeVertical weight="bold" size={20} color={tw.color('ink-dull')} />
 				</Pressable>
 			</View>
 		</Swipeable>

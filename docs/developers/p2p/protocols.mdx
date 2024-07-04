@@ -18,15 +18,17 @@ We have the implementation of a basic ping protocol. This is not actually used w
 Spacedrop is a system for sending files quickly to other peers. It is intended for sending to peers that have not been paired into the library. It is great for sending a file to a friend on your same network running Spacedrive but you can use the regular file manager for sharing a file without another node in your library.
 
 This protocol works but some of the following are missing features:
- - Pause/resumable transfers
- - Transfer a folder - [ENG-1297](https://linear.app/spacedriveapp/issue/ENG-1297/spacedrop-create-folder-button-in-save-dialog-for-multiple-file)
- - Usage with `sd-server` will result in bugs if you have multiple web clients - [ENG-1034](https://linear.app/spacedriveapp/issue/ENG-1034/spacedrop-on-multi-user-server-will-break) and [ENG-1522](https://linear.app/spacedriveapp/issue/ENG-1522/spacedrop-on-web)
+
+- Pause/resumable transfers
+- Transfer a folder - [ENG-1297](https://linear.app/spacedriveapp/issue/ENG-1297/spacedrop-create-folder-button-in-save-dialog-for-multiple-file)
+- Usage with `sd-server` will result in bugs if you have multiple web clients - [ENG-1034](https://linear.app/spacedriveapp/issue/ENG-1034/spacedrop-on-multi-user-server-will-break) and [ENG-1522](https://linear.app/spacedriveapp/issue/ENG-1522/spacedrop-on-web)
 
 The following are known bugs:
- - [ENG-1298](https://linear.app/spacedriveapp/issue/ENG-1298/spacedrop-cancel-prior-to-toast)
- - [ENG-1035](https://linear.app/spacedriveapp/issue/ENG-1035/spacedrop-show-toast-while-waiting-for-remote-to-acceptdeny-response)
- - [ENG-1203](https://linear.app/spacedriveapp/issue/ENG-1203/spacedrop-ui-handle-timeouts)
- - [ENG-1211](https://linear.app/spacedriveapp/issue/ENG-1211/spacedrop-what-if-file-content-changes-while-sending)
+
+- [ENG-1298](https://linear.app/spacedriveapp/issue/ENG-1298/spacedrop-cancel-prior-to-toast)
+- [ENG-1035](https://linear.app/spacedriveapp/issue/ENG-1035/spacedrop-show-toast-while-waiting-for-remote-to-acceptdeny-response)
+- [ENG-1203](https://linear.app/spacedriveapp/issue/ENG-1203/spacedrop-ui-handle-timeouts)
+- [ENG-1211](https://linear.app/spacedriveapp/issue/ENG-1211/spacedrop-what-if-file-content-changes-while-sending)
 
 ## rspc
 
@@ -35,16 +37,18 @@ The following are known bugs:
 This protocol was an experiment to expose the rspc router of a node over P2P. Although it works this is a security nightmare so it has been disabled by default and hidden behind the `wipP2P` feature flag.
 
 How to test this feature:
- - Enable the `wipP2P` feature flag
- - Enable the feature within the network page of settings
- - Ensure "Enable remote acccess" is enabled on both nodes
- - Click the "rspc remote" button on the node you want to connect to.
- - If the connection fails you will be presented with a white screen, otherwise you will be given a library selection and once seleted you will be given Spacedrive UI running on the remote node.
+
+- Enable the `wipP2P` feature flag
+- Enable the feature within the network page of settings
+- Ensure "Enable remote acccess" is enabled on both nodes
+- Click the "rspc remote" button on the node you want to connect to.
+- If the connection fails you will be presented with a white screen, otherwise you will be given a library selection and once seleted you will be given Spacedrive UI running on the remote node.
 
 Major problems with this feature:
- - This protocol doesn't have any security (hence it being disabled by default). It's also a nightmare to secure as it's full access (including to do filesystem actions) or no access. - [ENG-1646](https://linear.app/spacedriveapp/issue/ENG-1646/rspc-over-p2p-handle-condition-in-ui-of-remote-offline-node)
- - The rspc websocket connection established over the P2P system is leaked so it will never be cleaned up. Fixing this would require changes to rspc. - [ENG-1647](https://linear.app/spacedriveapp/issue/ENG-1647/stop-leaking-rspc-p2p-websockets)
- - Any usage of rspc outside the React context will still be using the local node's rspc router. We don't do this often but we definitely do it. - [ENG-1648](https://linear.app/spacedriveapp/issue/ENG-1648/prevent-any-usage-of-rspc-out-of-the-react-context)
+
+- This protocol doesn't have any security (hence it being disabled by default). It's also a nightmare to secure as it's full access (including to do filesystem actions) or no access. - [ENG-1646](https://linear.app/spacedriveapp/issue/ENG-1646/rspc-over-p2p-handle-condition-in-ui-of-remote-offline-node)
+- The rspc websocket connection established over the P2P system is leaked so it will never be cleaned up. Fixing this would require changes to rspc. - [ENG-1647](https://linear.app/spacedriveapp/issue/ENG-1647/stop-leaking-rspc-p2p-websockets)
+- Any usage of rspc outside the React context will still be using the local node's rspc router. We don't do this often but we definitely do it. - [ENG-1648](https://linear.app/spacedriveapp/issue/ENG-1648/prevent-any-usage-of-rspc-out-of-the-react-context)
 
 From my ([oscartbeaumont](https://github.com/oscartbeaumont)'s) perspective this was a cool experiment but not something we should ship because getting it's nightmare to get security right.
 

@@ -28,11 +28,17 @@ export default function SearchStack() {
 				}}
 			/>
 			{/** This screen is already in BrowseStack - but added here as it offers the UX needed */}
-				<Stack.Screen
+			<Stack.Screen
 				name="Location"
 				component={LocationScreen}
-				options={({route: optionsRoute}) => ({
-					header: (route) => <DynamicHeader optionsRoute={optionsRoute} headerRoute={route} kind="locations" />
+				options={({ route: optionsRoute }) => ({
+					header: (route) => (
+						<DynamicHeader
+							optionsRoute={optionsRoute}
+							headerRoute={route}
+							kind="locations"
+						/>
+					)
 				})}
 			/>
 		</Stack.Navigator>

@@ -6,10 +6,10 @@ import {
 	BottomSheetHandleProps,
 	BottomSheetModal,
 	BottomSheetModalProps,
-	BottomSheetScrollView,
+	BottomSheetScrollView
 } from '@gorhom/bottom-sheet';
 import { X } from 'phosphor-react-native';
-import { ReactNode, forwardRef } from 'react';
+import { forwardRef, ReactNode } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw, twStyle } from '~/lib/tailwind';
