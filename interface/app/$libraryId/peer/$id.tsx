@@ -3,6 +3,7 @@ import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import { useRouteTitle, useZodRouteParams } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
+
 import { TopBarPortal } from '../TopBar/Portal';
 import StarfieldEffect from './StarfieldEffect'; // Import the StarfieldEffect component
 

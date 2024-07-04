@@ -1,7 +1,7 @@
 import { Grid, useGrid } from '@virtual-grid/react';
 import { useCallback } from 'react';
-
 import { useExplorerLayoutStore } from '@sd/client';
+
 import { useExplorerContext } from '../../Context';
 import { getItemData, getItemId, uniqueId } from '../../util';
 import { useExplorerViewContext } from '../Context';
@@ -18,7 +18,8 @@ export const GridView = () => {
 	const explorerSettings = explorer.useSettingsSnapshot();
 	const layoutStore = useExplorerLayoutStore();
 
-	const itemDetailsHeight = (layoutStore.showTags ? 60 : 44) + (explorerSettings.showBytesInGridView ? 20 : 0);
+	const itemDetailsHeight =
+		(layoutStore.showTags ? 60 : 44) + (explorerSettings.showBytesInGridView ? 20 : 0);
 	const itemHeight = explorerSettings.gridItemSize + itemDetailsHeight;
 
 	const BOTTOM_PADDING = layoutStore.showTags ? 16 : 12;

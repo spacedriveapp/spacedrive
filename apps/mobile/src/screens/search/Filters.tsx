@@ -6,7 +6,7 @@ const FiltersScreen = () => {
 	return (
 		<>
 			<ScreenContainer tabHeight={false}>
-			<FiltersList />
+				<FiltersList />
 			</ScreenContainer>
 			<SaveAdd />
 		</>

@@ -1,6 +1,6 @@
-import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -88,9 +88,7 @@ const Authenticated = () => {
 								)}
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`} />}
-								renderItem={({ item }) => (
-									<Instance data={item} />
-								)}
+								renderItem={({ item }) => <Instance data={item} />}
 								keyExtractor={(item) => item.id}
 								numColumns={1}
 							/>

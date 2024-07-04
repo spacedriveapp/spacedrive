@@ -43,18 +43,17 @@ export const Component = () => {
 		<>
 			<Heading title={t('sync')} description={t('sync_description')} />
 			{syncEnabled.data === false ? (
-				<Setting
-					mini
-					title={t('enable_sync')}
-					description={t('enable_sync_description')}
-				>
+				<Setting mini title={t('enable_sync')} description={t('enable_sync_description')}>
 					<div>
 						<Button
 							className="text-nowrap"
 							variant="accent"
 							onClick={() => {
 								dialogManager.create((dialogProps) => (
-									<SyncBackfillDialog onEnabled={() => syncEnabled.refetch()} {...dialogProps} />
+									<SyncBackfillDialog
+										onEnabled={() => syncEnabled.refetch()}
+										{...dialogProps}
+									/>
 								));
 							}}
 							disabled={backfillSync.isLoading}
@@ -94,7 +93,7 @@ export const Component = () => {
 function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 	const form = useZodForm({ schema: z.object({}) });
 	const dialog = useDialog(props);
-	const {t} = useLocale();
+	const { t } = useLocale();
 
 	const enableSync = useLibraryMutation(['sync.backfill'], {});
 
@@ -123,14 +122,12 @@ function SyncBackfillDialog(props: UseDialogProps & { onEnabled: () => void }) {
 }
 
 function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'library.actors'> }) {
-	const {t} = useLocale()
+	const { t } = useLocale();
 	return (
 		<>
 			<div>
 				<h1 className="mb-0.5 text-lg font-bold text-ink">{t('cloud_sync')}</h1>
-				<p className="text-sm text-ink-faint">
-					{t('cloud_sync_description')}
-				</p>
+				<p className="text-sm text-ink-faint">{t('cloud_sync_description')}</p>
 			</div>
 			<Setting
 				mini
@@ -191,7 +188,7 @@ function CloudSync({ data }: { data: inferSubscriptionResult<Procedures, 'librar
 
 function StartButton({ name }: { name: string }) {
 	const startActor = useLibraryMutation(['library.startActor']);
-	const {t} = useLocale()
+	const { t } = useLocale();
 
 	return (
 		<Button
@@ -206,10 +203,14 @@ function StartButton({ name }: { name: string }) {
 
 function StopButton({ name }: { name: string }) {
 	const stopActor = useLibraryMutation(['library.stopActor']);
-	const {t} = useLocale()
+	const { t } = useLocale();
 
 	return (
-		<Button variant="accent" disabled={stopActor.isLoading} onClick={() => stopActor.mutate(name)}>
+		<Button
+			variant="accent"
+			disabled={stopActor.isLoading}
+			onClick={() => stopActor.mutate(name)}
+		>
 			{stopActor.isLoading ? t('stopping') : t('stop')}
 		</Button>
 	);

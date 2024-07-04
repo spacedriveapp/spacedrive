@@ -1,15 +1,15 @@
 import { DocumentDirectoryPath } from '@dr.pogodin/react-native-fs';
 import { getIcon } from '@sd/assets/util';
-import {
-	ThumbKey,
-	getExplorerItemData,
-	getItemLocation,
-	isDarkTheme,
-	type ExplorerItem
-} from '@sd/client';
 import { Image } from 'expo-image';
 import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { View } from 'react-native';
+import {
+	getExplorerItemData,
+	getItemLocation,
+	isDarkTheme,
+	ThumbKey,
+	type ExplorerItem
+} from '@sd/client';
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';

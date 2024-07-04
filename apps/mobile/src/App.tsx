@@ -4,19 +4,6 @@ import {
 	NavigationContainer,
 	useNavigationContainerRef
 } from '@react-navigation/native';
-import {
-	ClientContextProvider,
-	LibraryContextProvider,
-	P2PContextProvider,
-	RspcProvider,
-	initPlausible,
-	useBridgeQuery,
-	useClientContext,
-	useInvalidateQuery,
-	usePlausibleEvent,
-	usePlausiblePageViewMonitor,
-	usePlausiblePingMonitor
-} from '@sd/client';
 import { QueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
@@ -30,6 +17,19 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
+import {
+	ClientContextProvider,
+	initPlausible,
+	LibraryContextProvider,
+	P2PContextProvider,
+	RspcProvider,
+	useBridgeQuery,
+	useClientContext,
+	useInvalidateQuery,
+	usePlausibleEvent,
+	usePlausiblePageViewMonitor,
+	usePlausiblePingMonitor
+} from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
 import { Toast, toastConfig } from './components/primitive/Toast';

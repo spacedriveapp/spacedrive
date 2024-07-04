@@ -1,9 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
-import { Location, arraysEqual, humanizeSize, useOnlineLocations } from '@sd/client';
 import { DotsThreeVertical } from 'phosphor-react-native';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { arraysEqual, humanizeSize, Location, useOnlineLocations } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
@@ -63,10 +63,7 @@ const ListLocation = ({ location }: ListLocationProps) => {
 				</View>
 				<View style={tw`flex-row items-center gap-1.5`}>
 					<View style={tw`rounded-md border border-app-box/70 bg-app/70 px-1.5 py-1`}>
-						<Text
-							style={tw`text-xs font-bold text-ink-dull`}
-							numberOfLines={1}
-						>
+						<Text style={tw`text-xs font-bold text-ink-dull`} numberOfLines={1}>
 							{`${humanizeSize(location.size_in_bytes)}`}
 						</Text>
 					</View>

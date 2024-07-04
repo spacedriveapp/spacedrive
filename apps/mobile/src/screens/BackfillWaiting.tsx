@@ -1,6 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
 import { AppLogo } from '@sd/assets/images';
-import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
 import { Dimensions, Text, View } from 'react-native';
@@ -12,6 +11,7 @@ import Animated, {
 	withTiming
 } from 'react-native-reanimated';
 import { Circle, Defs, RadialGradient, Stop, Svg } from 'react-native-svg';
+import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 const { width } = Dimensions.get('window');
@@ -52,18 +52,23 @@ const BackfillWaiting = () => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	useEffect(() => {
-		 (async () => {
+		(async () => {
 			await enableSync.mutateAsync(null);
 		})();
 	}, []);
 
 	return (
 		<View style={tw`flex-1 items-center justify-center bg-black`}>
-			<Animated.View style={[twStyle(`absolute items-center justify-center`, {
-				width: width * 2,
-				height: width * 2,
-				borderRadius: (width * 0.8) / 2,
-			}), animatedStyle]}>
+			<Animated.View
+				style={[
+					twStyle(`absolute items-center justify-center`, {
+						width: width * 2,
+						height: width * 2,
+						borderRadius: (width * 0.8) / 2
+					}),
+					animatedStyle
+				]}
+			>
 				<Svg height="100%" width="100%" viewBox="0 0 100 100">
 					<Defs>
 						<RadialGradient id="grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">

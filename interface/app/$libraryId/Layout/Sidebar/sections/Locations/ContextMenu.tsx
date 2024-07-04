@@ -42,7 +42,6 @@ export const ContextMenu = ({
 								/>
 							));
 						}
-
 					} catch (error) {
 						toast.error(t('error_message', { error }));
 					}

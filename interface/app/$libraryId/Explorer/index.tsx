@@ -1,4 +1,5 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
+import { CSSProperties, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -6,7 +7,6 @@ import {
 	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
-import { CSSProperties, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';
@@ -117,7 +117,9 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						listViewOptions={{ hideHeaderBorder: true }}
 						scrollPadding={{
 							top: topBar.topBarHeight,
-							bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : undefined
+							bottom: showPathBar
+								? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0)
+								: undefined
 						}}
 					/>
 				</div>
@@ -131,12 +133,12 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{showInspector && (
 				<Inspector
-					className={clsx(
-						'no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5'
-					)}
+					className={clsx('no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5')}
 					style={{
 						paddingTop: topBar.topBarHeight + 12,
-						bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0
+						bottom: showPathBar
+							? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0)
+							: 0
 					}}
 				/>
 			)}

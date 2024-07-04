@@ -1,6 +1,6 @@
-import { OrderingKey, getOrderingDirection, getOrderingKey } from '@sd/client';
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { getOrderingDirection, getOrderingKey, OrderingKey } from '@sd/client';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
