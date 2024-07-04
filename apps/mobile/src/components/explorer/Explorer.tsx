@@ -48,6 +48,7 @@ const Explorer = (props: Props) => {
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
 		enabled: filePath != null
 	});
+
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
 		onSuccess: () => {
 			rspc.queryClient.invalidateQueries(['search.paths']);
@@ -71,9 +72,9 @@ const Explorer = (props: Props) => {
 
 	//Open file with native api
 	async function handleOpen() {
-		const absolutePath = queriedFullPath.data;
-		if (!absolutePath) return;
 		try {
+			const absolutePath = (await queriedFullPath.refetch()).data
+			if (!absolutePath) return;
 			await FileViewer.open(absolutePath, {
 				// Android only
 				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
