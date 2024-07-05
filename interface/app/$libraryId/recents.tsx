@@ -67,7 +67,7 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-					<Explorer
+			<Explorer
 				emptyNotice={
 					<EmptyNotice
 						icon={<Icon name="Collection" size={128} />}
