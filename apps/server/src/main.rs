@@ -24,7 +24,6 @@ pub struct AppState {
 	auth: HashMap<String, SecStr>,
 }
 
-#[allow(unused)]
 async fn basic_auth<B>(
 	State(state): State<AppState>,
 	request: Request<B>,
@@ -144,7 +143,6 @@ async fn main() {
 		}
 	}
 
-	#[cfg(not(feature = "assets"))]
 	let state = AppState { auth };
 
 	let (node, router) = match Node::new(
@@ -242,9 +240,15 @@ async fn main() {
 		);
 
 	#[cfg(not(feature = "assets"))]
+	let app = app.route("/", get(|| async { "Spacedrive Server!" }));
+
 	let app = app
-		.route("/", get(|| async { "Spacedrive Server!" }))
-		.fallback(|| async { "404 Not Found: We're past the event horizon..." })
+		.fallback(|| async {
+			(
+				http::StatusCode::NOT_FOUND,
+				"404 Not Found: We're past the event horizon...",
+			)
+		})
 		.layer(axum::middleware::from_fn_with_state(state, basic_auth));
 
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
