@@ -19,15 +19,15 @@ use sd_task_system::{
 use sd_utils::{error::FileIOError, msgpack};
 
 use std::{
-	collections::HashMap, future::IntoFuture, mem, path::PathBuf, pin::pin, sync::Arc,
-	time::Duration,
+	collections::HashMap, convert::identity, future::IntoFuture, mem, path::PathBuf, pin::pin,
+	sync::Arc, time::Duration,
 };
 
 use futures::stream::{self, FuturesUnordered, StreamExt};
 use futures_concurrency::{future::TryJoin, stream::Merge};
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
-use tracing::{error, instrument, trace, Level};
+use tracing::{error, instrument, trace, warn, Level};
 
 use super::{create_objects_and_update_file_paths, FilePathToCreateOrLinkObject};
 
@@ -293,6 +293,23 @@ impl Task<Error> for Identifier {
 			);
 
 			trace!(save_db_time = ?output.save_db_time, "Cas_ids saved to db;");
+		} else if !file_paths_without_cas_id.is_empty() {
+			let start_time = Instant::now();
+
+			// Assign objects to directories
+			let file_path_ids_with_new_object = create_objects_and_update_file_paths(
+				file_paths_without_cas_id.drain(..),
+				&self.db,
+				&self.sync,
+			)
+			.await?;
+
+			output.save_db_time = start_time.elapsed();
+			output.created_objects_count = file_path_ids_with_new_object.len() as u64;
+			output.file_path_ids_with_new_object =
+				file_path_ids_with_new_object.into_keys().collect();
+
+			trace!(save_db_time = ?output.save_db_time, "Directories objects saved to db;");
 		}
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))
@@ -309,17 +326,61 @@ impl Identifier {
 		db: Arc<PrismaClient>,
 		sync: Arc<SyncManager>,
 	) -> Self {
+		let mut output = Output::default();
+
+		let file_paths_count = file_paths.len();
+		let directories_count = file_paths
+			.iter()
+			.filter(|file_path| file_path.is_dir.is_some_and(identity))
+			.count();
+
+		let (file_paths_by_id, file_paths_without_cas_id) = file_paths.into_iter().fold(
+			(
+				HashMap::with_capacity(file_paths_count - directories_count),
+				Vec::with_capacity(directories_count),
+			),
+			|(mut file_paths_by_id, mut directory_file_paths), file_path| {
+				match file_path.is_dir {
+					Some(true) => {
+						let file_path_for_file_identifier::Data {
+							id,
+							pub_id,
+							date_created,
+							..
+						} = file_path;
+						directory_file_paths.push(FilePathToCreateOrLinkObject {
+							id,
+							file_path_pub_id: pub_id.into(),
+							kind: ObjectKind::Folder,
+							created_at: date_created,
+						});
+					}
+					Some(false) => {
+						file_paths_by_id.insert(file_path.pub_id.as_slice().into(), file_path);
+					}
+					None => {
+						warn!(%file_path.id, "file path without is_dir field, skipping;");
+						output.errors.push(
+						file_identifier::NonCriticalFileIdentifierError::FilePathWithoutIsDirField(
+							file_path.id,
+						)
+						.into(),
+					);
+					}
+				};
+
+				(file_paths_by_id, directory_file_paths)
+			},
+		);
+
 		Self {
 			id: TaskId::new_v4(),
 			location,
 			location_path,
-			identified_files: HashMap::with_capacity(file_paths.len()),
-			file_paths_without_cas_id: Vec::with_capacity(file_paths.len()),
-			file_paths_by_id: file_paths
-				.into_iter()
-				.map(|file_path| (file_path.pub_id.as_slice().into(), file_path))
-				.collect(),
-			output: Output::default(),
+			identified_files: HashMap::with_capacity(file_paths_count - directories_count),
+			file_paths_without_cas_id,
+			file_paths_by_id,
+			output,
 			with_priority,
 			db,
 			sync,
@@ -419,19 +480,19 @@ fn try_iso_file_path_extraction(
 	location_path: Arc<PathBuf>,
 	errors: &mut Vec<NonCriticalError>,
 ) -> Option<(FilePathPubId, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
-	IsolatedFilePathData::try_from((location_id, file_path))
+	match IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
-		.map_err(|e| {
-			error!(?e, "Failed to extract isolated file path data;");
+	{
+		Ok(iso_file_path) => Some((file_path_pub_id, iso_file_path, location_path)),
+		Err(e) => {
+			error!(?e, %file_path_pub_id, "Failed to extract isolated file path data;");
 			errors.push(
-				file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData(format!(
-					"<file_path_pub_id='{file_path_pub_id}', error={e}>"
-				))
-				.into(),
+				file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData { file_path_pub_id: file_path_pub_id.into(), error: e.to_string() }.into(),
+
 			);
-		})
-		.map(|iso_file_path| (file_path_pub_id, iso_file_path, location_path))
-		.ok()
+			None
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize)]

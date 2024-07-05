@@ -29,7 +29,7 @@ use futures_concurrency::{
 	stream::Merge,
 };
 use once_cell::sync::Lazy;
-use prisma_client_rust::{and, or, raw};
+use prisma_client_rust::raw;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -151,22 +151,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					library
 						.db
 						.file_path()
-						.count(vec![
-							file_path::is_dir::equals(Some(false)),
-							file_path::cas_id::equals(None),
-							file_path::object_id::equals(None),
-						])
+						.count(vec![file_path::object_id::equals(None)])
 						.exec(),
 					library
 						.db
 						.file_path()
-						.count(vec![or!(
-							file_path::is_dir::equals(Some(true)),
-							and!(
-								file_path::cas_id::not(None),
-								file_path::object_id::not(None),
-							),
-						)])
+						.count(vec![file_path::object_id::not(None)])
 						.exec(),
 				)
 					.try_join()
@@ -213,18 +203,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							});
 						}
 					}
-				}
-
-				// This is a workaround for the fact that we don't assign object to directories yet
-				if let Some(count_and_size) =
-					statistics_by_kind.get_mut(&(ObjectKind::Folder as i32))
-				{
-					count_and_size.count = library
-						.db
-						.file_path()
-						.count(vec![file_path::is_dir::equals(Some(true))])
-						.exec()
-						.await? as u64;
 				}
 
 				Ok(KindStatistics {

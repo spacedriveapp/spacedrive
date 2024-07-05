@@ -173,7 +173,8 @@ impl Task<Error> for ObjectProcessor {
 					file_path_ids_with_new_object.extend(more_file_paths_with_new_object);
 					*linked_objects_count += more_linked_objects_count;
 
-					*created_objects_count = file_path_ids_with_new_object.len() as u64;
+					*created_objects_count =
+						file_path_ids_with_new_object.len() as u64 - *linked_objects_count;
 
 					trace!(%created_objects_count, ?create_object_time, "Created new Objects;");
 

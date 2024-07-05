@@ -482,6 +482,7 @@ impl FileIdentifier {
 			%task_id,
 			?extract_metadata_time,
 			?save_db_time,
+			file_paths_to_object_processor_count = file_paths_by_cas_id.len(),
 			created_objects_count,
 			total_identified_files,
 			errors_count = errors.len()
