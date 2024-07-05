@@ -102,6 +102,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const explorer = useExplorer({
 		...items,
 		isFetchingNextPage: items.query.isFetchingNextPage,
+		isFetching: items.query.isFetching,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		parent: { type: 'Location', location }

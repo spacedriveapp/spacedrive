@@ -43,6 +43,7 @@ export function Component() {
 	const explorer = useExplorer({
 		...items,
 		isFetchingNextPage: items.query.isFetchingNextPage,
+		isFetching: items.query.isFetching,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		parent: { type: 'Tag', tag: tag }
