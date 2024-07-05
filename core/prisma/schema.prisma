@@ -115,6 +115,15 @@ model Statistics {
 }
 
 /// @local
+model ObjectKindStatistics {
+  kind Int @id
+  total_bytes BigInt @default(0)
+  files_count BigInt @default(0)
+
+  @@map("object_kind_statistics")
+}
+
+/// @local
 model Volume {
   id                    Int      @id @default(autoincrement())
   name                  String
