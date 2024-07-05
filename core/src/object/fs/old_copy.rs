@@ -2,31 +2,30 @@ use crate::{
 	invalidate_query,
 	library::Library,
 	old_job::{
-		CurrentStep, JobError, JobInitOutput, JobResult, JobRunErrors, JobStepOutput, StatefulJob,
-		WorkerContext,
+		CurrentStep, JobError, JobInitOutput, JobReportUpdate, JobResult, JobRunMetadata,
+		JobStepOutput, StatefulJob, WorkerContext,
 	},
 };
 
-use futures::stream::FuturesUnordered;
-use itertools::Itertools;
 use sd_core_file_path_helper::{join_location_relative_path, IsolatedFilePathData};
 
-use sd_prisma::prisma::{file_path, location, PrismaClient};
+use sd_prisma::prisma::{file_path, location};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
-	fmt,
 	hash::Hash,
+	io::Write,
 	path::{Path, PathBuf},
 	sync::{Arc, Mutex},
+	time::Duration,
 };
 
-use futures_concurrency::future::{Join, TryJoin};
+use futures_concurrency::future::{Race, TryJoin};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
-use tokio::{fs, io};
-use tracing::{debug, trace, warn};
+use tokio::fs;
+use tracing::debug;
 
 use super::{
 	construct_target_filename, error::FileSystemJobsError, fetch_source_and_target_location_paths,
@@ -34,20 +33,11 @@ use super::{
 	get_many_files_datas, FileData,
 };
 
-const CHUNKS_SIZE: usize = 2;
-
-// spawn one job
-// this job will receive the data from a channel
-// the data will be a Batch of files
-// process the batch
-// race it with the interrupter
-//
-// open questions:
-// - when to spawn the "actor"?
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OldFileCopierJobData {
 	sources_location_path: PathBuf,
+	total_size: u64,
+	steps_len: usize,
 }
 
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
@@ -58,183 +48,241 @@ pub struct OldFileCopierJobInit {
 	pub target_location_relative_directory_path: PathBuf,
 }
 
-enum Msg {
-	Start(Vec<PathBuf>, async_channel::Sender<&'static str>),
-	Finish,
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum CopyBehavior {
+	Hole,
+	ByChunks,
 }
 
-impl OldFileCopierJobInit {
-	// TODO(matheus-consoli): return two channels, a sender and a watcher (to communicate the status)
-	async fn spawn_background_task() -> Result<async_channel::Sender<Msg>, ()> {
-		let (rx, tx) = async_channel::unbounded();
-
-		// spawn the info-gathernig service
-		// recieves a batch of files and keeps reporting its size
-
-		// TODO(matheus-consoli): use our own jobs instead of tokio's
-		tokio::task::spawn(async move {
-			loop {
-				match tx.recv().await {
-					Ok(Msg::Finish) => break,
-					Ok(Msg::Start(files, report_to)) => {
-						debug!(?files, "watching these files");
-						_ = report_to.send("hellow").await;
-					}
-					Err(_) => {
-						// TODO(matheus-consoli): idk what does it means
-					}
-				}
-			}
-		});
-
-		Ok(rx)
-	}
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-enum CopyBehavior {
-	#[default]
-	FsCopy,
-	ParallelByChunks,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-enum CopierStepKind {
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum CopierStepKind {
 	CreateDirs,
-	CopyFiles,
+	CopyFiles(CopyBehavior),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OldFileCopierJobStep {
-	pub source_file_data: Vec<FileData>,
-	pub target_full_path: Vec<PathBuf>,
-	pub copy_step_kind: CopierStepKind,
-	pub copy_behavior: CopyBehavior,
-	// #[serde(skip)]
-	// respond_to: Option<async_channel::Sender<Msg>>,
+	pub source_file_data: Box<[FileData]>,
+	pub target_full_path: Box<[PathBuf]>,
+	pub source_file_size: Box<[u64]>,
+	pub target_location_path: PathBuf,
+	pub copy_kind: CopierStepKind,
 }
 
 impl OldFileCopierJobStep {
-	async fn copy_files(&self) {
-		// let source_file_data = &self.source_file_data[0];
-		// let target_full_path = &self.target_full_path[0];
+	async fn copy_files(
+		&self,
+		jobmeta: Arc<Mutex<OldFileCopierJobMetadata>>,
+	) -> Result<(), JobError> {
+		let CopierStepKind::CopyFiles(behavior) = self.copy_kind else {
+			panic!("this function should never be called with other variant but `CopyFiles`");
+		};
 
-		// let mut idk = vec![];
+		match behavior {
+			CopyBehavior::Hole | CopyBehavior::ByChunks => {
+				self.source_file_data
+					.iter()
+					.zip(self.target_full_path.iter())
+					.zip(self.source_file_size.iter().copied())
+					.map(|((source, target), size)| {
+						let jobmeta = Arc::clone(&jobmeta);
+						async move {
+							let target = Self::find_available_name(&target).await?;
 
-		// let r = match fs::metadata(target_full_path).await {
-		// 	Ok(_) => {
-		// 		// Already exist a file with this name, so we need to find an available name
-		// 		match find_available_filename_for_duplicate(target_full_path).await {
-		// 			Ok(new_path) => {
-		// 				fs::copy(&source_file_data.full_path, &new_path)
-		// 					.await
-		// 					// Using the ? here because we don't want to increase the completed task
-		// 					// count in case of file system errors
-		// 					.map_err(|e| FileIOError::from((new_path, e)))?;
+							fs::copy(&source.full_path, &target).await.map_err(|e| {
+								let source = source.full_path.clone();
+								FileIOError::from((source, e))
+							})?;
 
-		// 				Ok(().into())
-		// 			}
+							{
+								let mut meta = jobmeta
+									.lock()
+									.expect("failed to get the lock for the list of files to copy");
+								let accumulated_copied_size = meta.accumulated_copied_size + size;
+								let copied_files_count = meta.copied_files_count + 1;
+								meta.update(OldFileCopierJobMetadata {
+									accumulated_copied_size,
+									copied_files_count,
+								});
+							}
+							tokio::time::sleep(Duration::from_secs(1)).await;
 
-		// 			Err(FileSystemJobsError::FailedToFindAvailableName(path)) => Ok(JobRunErrors(
-		// 				vec![FileSystemJobsError::WouldOverwrite(path).to_string()],
-		// 			)
-		// 			.into()),
+							Ok::<_, JobError>(())
+						}
+					})
+					.collect::<Vec<_>>()
+					.try_join()
+					.await?;
+			}
+			_ => {
+				{
+					let source_file_data = self.source_file_data.clone();
+					let source_file_size = self.source_file_size.clone();
 
-		// 			Err(e) => Err(e.into()),
-		// 		}
-		// 	}
-		// 	Err(e) if e.kind() == io::ErrorKind::NotFound => {
-		// 		trace!(
-		// 			"Copying from {} to {}",
-		// 			source_file_data.full_path.display(),
-		// 			target_full_path.display()
-		// 		);
+					// make sure all target names are available
+					let target_full_path = self
+						.target_full_path
+						.clone()
+						.iter()
+						.map(|target| async move { Self::find_available_name(&target).await })
+						.collect::<Vec<_>>()
+						.try_join()
+						.await?;
 
-		// 		fs::copy(&source_file_data.full_path, &target_full_path)
-		// 			.await
-		// 			// Using the ? here because we don't want to increase the completed task
-		// 			// count in case of file system errors
-		// 			.map_err(|e| FileIOError::from((target_full_path, e)))?;
+					let jobmeta = Arc::clone(&jobmeta);
 
-		// 		Ok(().into())
-		// 	}
-		// 	Err(e) => Err(FileIOError::from((target_full_path, e)).into()),
-		// };
-		// idk.push(r);
+					let block = move || {
+						debug!("copying file with threads");
+						use std::fs::File;
+						use std::io::Read;
+						use std::io::Seek;
+						use std::io::SeekFrom;
+
+						let file_iter = source_file_data
+							.iter()
+							.zip(target_full_path.iter())
+							.zip(source_file_size.iter());
+
+						for ((source, target), total_size) in file_iter {
+							debug!(path=?source.full_path, "inside the for-loop");
+							let file_path = &source.full_path;
+							let block_size = 1024 * 1024 * 32;
+							const THREADS: usize = 15;
+							let chunk_size = ((total_size / THREADS as u64) as f64).ceil() as usize;
+
+							// TODO(matheus-consoli): copy metadata from the previous file
+							std::thread::scope(|s| {
+								for thread_id in 0..THREADS {
+									debug!("spawning thread");
+									s.spawn(move || {
+										let mut thread_src_file = File::open(file_path).unwrap();
+										let mut thread_dest_file = File::create(&target).unwrap();
+										let mut contents = vec![0u8; block_size];
+
+										let mut read_length: usize = 1;
+										let mut read_total: usize = 0;
+										let offset = (thread_id * chunk_size) as u64;
+
+										thread_src_file.seek(SeekFrom::Start(offset)).unwrap();
+										thread_dest_file.seek(SeekFrom::Start(offset)).unwrap();
+
+										// TODO(matheus-consoli): try adding a delay here + pausing and resuming in the frontend
+
+										while (read_total < chunk_size) && (read_length != 0) {
+											// Handle the case when the bytes remaining to be read are
+											// less than the block size
+											if read_total + block_size > chunk_size {
+												contents.truncate(chunk_size - read_total);
+											}
+											read_length =
+												thread_src_file.read(&mut contents).unwrap();
+											read_total += read_length;
+											thread_dest_file.write(&contents).unwrap();
+										}
+										debug!(thread_id, path=?source.full_path, "thread finished");
+									});
+								}
+							});
+
+							// update the job metadata to count for this file
+							let mut jobmeta = jobmeta
+								.lock()
+								.expect("failed to get the lock for the list of files to copy");
+							let accumulated_copied_size =
+								jobmeta.accumulated_copied_size + total_size;
+							let copied_files_count = jobmeta.copied_files_count + 1;
+							jobmeta.update(OldFileCopierJobMetadata {
+								accumulated_copied_size,
+								copied_files_count,
+							});
+						}
+					};
+					tokio::task::spawn_blocking(block).await.unwrap();
+				}
+			}
+		}
+
+		Ok(())
 	}
 
-	/// Create the directory and return the new steps necessary to copy its contents
-	async fn prepare_directory(
-		&self,
-		source_location_id: location::id::Type,
-		sources_location_path: impl AsRef<Path>,
-		db: Arc<PrismaClient>,
-	) -> Vec<()> {
-		// options:
-		// - self.source_file_data.filter(is_path)
-		// - self.source_file_data for each
+	async fn find_available_name(path: impl AsRef<Path>) -> Result<PathBuf, JobError> {
+		let path = path.as_ref();
+		match fs::try_exists(&path).await {
+			Ok(true) => {
+				// file already exists, try finding a better name
+				find_available_filename_for_duplicate(&path)
+					.await
+					.map_err(Into::into)
+			}
+			Ok(false) => {
+				// nothing todo, file name is available
+				Ok(path.to_owned())
+			}
+			Err(e) => Err(FileIOError::from((path, e)).into()),
+		}
+	}
 
-		// let mut more_steps = vec![];
+	/// Create the directories
+	async fn create_dir_structure(&self) -> Result<(), std::io::Error> {
+		// TODO(matheus-consoli): when the directory name conflicts, what should we do?
+		// same as find_available...?
+		self.target_full_path
+			.iter()
+			.map(|path| async move { fs::create_dir_all(&path).await })
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+		Ok(())
+	}
+}
 
-		// fs::create_dir_all(target_full_path)
-		// 	.await
-		// 	.map_err(|e| FileIOError::from((target_full_path, e)))
-		// 	.unwrap();
+fn progress(ctx: &WorkerContext, msgs: CopierUpdate) {
+	let msg = msgs.into_progress();
+	ctx.progress(msg);
+}
 
-		// let mut read_dir = fs::read_dir(&source_file_data.full_path)
-		// 	.await
-		// 	.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))
-		// 	.unwrap();
+#[derive(Debug, Clone)]
+enum CopierUpdate {
+	Start(u64),
+	Progress(u64, Option<String>),
+	Message(String),
+	Finished(u64),
+}
 
-		// while let Some(children_entry) = read_dir
-		// 	.next_entry()
-		// 	.await
-		// 	.map_err(|e| FileIOError::from((&source_file_data.full_path, e)))
-		// 	.unwrap()
-		// {
-		// 	let children_path = children_entry.path();
-		// 	let target_children_full_path = target_full_path.join(
-		//             children_path
-		//                 .strip_prefix(&source_file_data.full_path)
-		//                 .expect("We got the children path from the read_dir, so it should be a child of the source path"),
-		//         );
+impl CopierUpdate {
+	#[inline(always)]
+	fn into_progress(self) -> Vec<JobReportUpdate> {
+		match self {
+			CopierUpdate::Start(total_tasks) | CopierUpdate::Finished(total_tasks) => {
+				vec![JobReportUpdate::CompletedTaskCount(
+					total_tasks.try_into().unwrap(),
+				)]
+			}
+			CopierUpdate::Message(msg) => vec![JobReportUpdate::Message(msg)],
+			CopierUpdate::Progress(progressed_tasks, Some(msg)) => {
+				vec![
+					JobReportUpdate::TaskCount(progressed_tasks.try_into().unwrap()),
+					JobReportUpdate::Message(msg),
+				]
+			}
+			CopierUpdate::Progress(progressed_tasks, None) => {
+				vec![JobReportUpdate::TaskCount(
+					progressed_tasks.try_into().unwrap(),
+				)]
+			}
+		}
+	}
+}
 
-		// 	let iso_file_path = IsolatedFilePathData::new(
-		// 		source_location_id,
-		// 		&sources_location_path,
-		// 		&children_path,
-		// 		children_entry
-		// 			.metadata()
-		// 			.await
-		// 			.map_err(|e| FileIOError::from((&children_path, e)))
-		// 			.unwrap()
-		// 			.is_dir(),
-		// 	)
-		// 	.map_err(FileSystemJobsError::from)
-		// 	.unwrap();
-		// 	match get_file_data_from_isolated_file_path(&db, &sources_location_path, &iso_file_path)
-		// 		.await
-		// 	{
-		// 		Ok(source_file_data) => {
-		// 			// Currently not supporting file_name suffixes children files in a directory being copied
-		// 			more_steps.push(OldFileCopierJobStep {
-		// 				target_full_path: vec![target_children_full_path],
-		// 				source_file_data: vec![source_file_data],
-		// 				respond_to: self.respond_to.clone(),
-		// 			});
-		// 		}
-		// 		Err(FileSystemJobsError::FilePathNotFound(path)) => {
-		// 			// FilePath doesn't exist in the database, it possibly wasn't indexed, so we skip it
-		// 			warn!(
-		// 				"Skipping duplicating {} as it wasn't indexed",
-		// 				path.display()
-		// 			);
-		// 		}
-		// 		Err(e) => todo!(" return Err(e.into())"),
-		// 	}
-		// }
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct OldFileCopierJobMetadata {
+	accumulated_copied_size: u64,
+	copied_files_count: u64,
+}
 
-		vec![]
+impl JobRunMetadata for OldFileCopierJobMetadata {
+	fn update(&mut self, metadata: Self) {
+		*self = metadata;
 	}
 }
 
@@ -242,7 +290,7 @@ impl OldFileCopierJobStep {
 impl StatefulJob for OldFileCopierJobInit {
 	type Data = OldFileCopierJobData;
 	type Step = OldFileCopierJobStep;
-	type RunMetadata = ();
+	type RunMetadata = OldFileCopierJobMetadata;
 
 	const NAME: &'static str = "file_copier";
 	const IS_BATCHED: bool = true;
@@ -256,11 +304,8 @@ impl StatefulJob for OldFileCopierJobInit {
 		ctx: &WorkerContext,
 		data: &mut Option<Self::Data>,
 	) -> Result<JobInitOutput<Self::RunMetadata, Self::Step>, JobError> {
-		debug!("<OldFileCopierJobInit as StatefulJob>::init");
 		let init = self;
 		let Library { db, .. } = &*ctx.library;
-
-		let rx = Self::spawn_background_task().await.unwrap();
 
 		let (sources_location_path, targets_location_path) =
 			fetch_source_and_target_location_paths(
@@ -338,14 +383,16 @@ impl StatefulJob for OldFileCopierJobInit {
 				.await
 				.unwrap();
 			dirs.extend(more_dirs);
-			let (dir_source_file_data, dir_target_full_path) = dirs.into_iter().unzip();
+
+			let (dir_source_file_data, dir_target_full_path): (Vec<_>, Vec<_>) =
+				dirs.into_iter().unzip();
 
 			let create_dirs_step = OldFileCopierJobStep {
-				source_file_data: dir_source_file_data,
-				target_full_path: dir_target_full_path,
-				copy_step_kind: CopierStepKind::CopyFiles,
-				copy_behavior: CopyBehavior::FsCopy,
-				// respond_to: Some(rx.clone()),
+				source_file_data: dir_source_file_data.into_boxed_slice(),
+				source_file_size: Box::new([]),
+				target_full_path: dir_target_full_path.into_boxed_slice(),
+				target_location_path: targets_location_path.clone(),
+				copy_kind: CopierStepKind::CreateDirs,
 			};
 			steps.push(create_dirs_step);
 
@@ -369,77 +416,128 @@ impl StatefulJob for OldFileCopierJobInit {
 				})
 				.collect::<Vec<_>>()
 				.try_join()
-				.await
-				.unwrap();
+				.await;
+
+			if let Err(e) = more_files.as_ref() {
+				// the file is not indexed
+				tracing::error!(?e, "job init failed");
+			}
+
+			let more_files = more_files.unwrap();
 			files.extend(more_files);
 		};
 
-		let steps_to_create_files = file_copy_strategist(files).await.unwrap();
+		// remaining steps: delegate to the copy strategist to decide how to organize
+		// the steps that copies the files
+		let steps_to_create_files = file_copy_strategist(files, &targets_location_path)
+			.await
+			.unwrap();
 		steps.extend(steps_to_create_files);
+
+		let total_size = steps
+			.iter()
+			.filter(|step| matches!(step.copy_kind, CopierStepKind::CopyFiles(_)))
+			.map(|step| step.source_file_size.iter().sum::<u64>())
+			.sum();
+
+		progress(&ctx, CopierUpdate::Start(total_size));
 
 		*data = Some(OldFileCopierJobData {
 			sources_location_path,
+			total_size,
+			steps_len: steps.len(),
 		});
 
 		Ok(steps.into())
 	}
 
+	#[tracing::instrument(
+		skip_all,
+		fields(step.kind=?step.step.copy_kind,step.n=step.step_number,progress=jobmeta.accumulated_copied_size)
+	)]
 	async fn execute_step(
 		&self,
 		ctx: &WorkerContext,
 		step: CurrentStep<'_, Self::Step>,
 		data: &Self::Data,
-		_: &Self::RunMetadata,
+		jobmeta: &Self::RunMetadata,
 	) -> Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError> {
-		let init = self;
+		let watching = &step.step.target_full_path;
+		let source_file_sizes = &step.step.source_file_size;
+		let library_path = &step.step.target_location_path;
+		let acc_copied_size = jobmeta.accumulated_copied_size;
+		let total_size = data.total_size;
+		let jobmeta = Arc::new(Mutex::new(jobmeta.clone()));
 
-		// TODO(matheus-consoli): remove this
-		let source_file_data: &[FileData] = step.step.source_file_data.as_ref();
-		let target_full_path: &[PathBuf] = step.step.target_full_path.as_ref();
-
-		debug!(
-			bulk_len = source_file_data.len(),
-			"||||||||| executing_step"
-		);
-
-		// TODO(matheus-consoli): questions
-		// 1) how the files are structured
-		// 2) how many files can i get at once
-		//   - this will help me to understand how to parallelize the job
-
-		// TODO(matheus-consoli): support multiple mechanisms to copy files
-		//  - copying many small files
-		//  - copying gigantic files
-
-		// continue bulking here
-		// init is already bulking
-
-		// the following steps are thinking about a single file
-		// let's make it do multiple files
-
-		// TODO(matheus-consoli): prob not needed anymore
-		let mut idk: Vec<Result<JobStepOutput<Self::Step, Self::RunMetadata>, JobError>> = vec![];
-		// TODO(matheus-consoli): use futures-concurrency `.co` feature instead
-		for (source_file_data, target_full_path) in source_file_data
-			.into_iter()
-			.zip(target_full_path.into_iter())
-		{
-			if maybe_missing(source_file_data.file_path.is_dir, "file_path.is_dir").unwrap() {
-				// handle the next steps
-				_ = step
-					.step
-					.prepare_directory(
-						init.source_location_id,
-						&data.sources_location_path,
-						Arc::clone(&ctx.library.db),
-					)
-					.await;
-			} else {
-				step.step.copy_files().await;
+		let transfer = {
+			let jobmeta = Arc::clone(&jobmeta);
+			async move {
+				match step.step.copy_kind {
+					CopierStepKind::CreateDirs => {
+						step.step.create_dir_structure().await.unwrap();
+					}
+					CopierStepKind::CopyFiles(_) => {
+						step.step.copy_files(jobmeta).await.unwrap();
+					}
+				};
+				Ok::<_, JobError>(())
 			}
+		};
+
+		let report = async move {
+			let mut finished = vec![false; watching.len()];
+			let mut step_copied = vec![0; watching.len()];
+			let relative_paths: Vec<&Path> = watching
+				.iter()
+				.map(|f| f.strip_prefix(&library_path).unwrap_or(f))
+				.collect();
+
+			loop {
+				for ((((watch, relative), origin), copied), is_file_done) in watching
+					.iter()
+					.zip(relative_paths.iter())
+					.zip(source_file_sizes.iter().copied())
+					.zip(step_copied.iter_mut())
+					.zip(finished.iter_mut())
+					.filter(|(_, is_file_done)| !**is_file_done)
+				{
+					let Ok(transfering) = fs::metadata(watch).await else {
+						// file may not have been created yet
+						continue;
+					};
+
+					let file_percentage = (transfering.len() as f64 / origin as f64) * 100.0;
+					let file_percentage = file_percentage.round();
+
+					let msg = format!("{file_percentage}% of {relative:?}");
+					progress(&ctx, CopierUpdate::Message(msg));
+
+					*copied = transfering.len();
+					if transfering.len() == origin {
+						*is_file_done = true;
+					}
+				}
+
+				let copied_in_step = step_copied.iter().sum::<u64>();
+				let total_percentage =
+					((copied_in_step + acc_copied_size) as f64 / total_size as f64) * 100.;
+				let per = total_percentage.round() as u64;
+				progress(&ctx, CopierUpdate::Progress(per, None));
+
+				tokio::time::sleep(Duration::from_millis(200)).await;
+			}
+		};
+
+		let _ = (transfer, report).race().await.unwrap();
+
+		if data.steps_len == step.step_number + 1 {
+			let jobmeta = jobmeta.lock().unwrap();
+			progress(ctx, CopierUpdate::Finished(jobmeta.copied_files_count));
 		}
 
-		todo!()
+		let jobmeta = Arc::try_unwrap(jobmeta).unwrap().into_inner().unwrap();
+		// we've calculated all steps up ahead
+		Ok(jobmeta.into())
 	}
 
 	async fn finalize(
@@ -468,11 +566,14 @@ impl StatefulJob for OldFileCopierJobInit {
 ///   each large file is its own step, and is copied in a parallel manner.
 async fn file_copy_strategist(
 	files: Vec<(FileData, PathBuf)>,
+	location_path: &Path,
 ) -> Result<Vec<OldFileCopierJobStep>, ()> {
+	debug!("generating steps to copy files");
+
 	let mut metadata = files
-		.iter()
+		.into_iter()
 		.map(|(data, path)| async move {
-			let meta = tokio::fs::metadata(path).await?;
+			let meta = tokio::fs::metadata(&data.full_path).await?;
 			Ok::<_, std::io::Error>((meta.len(), data, path))
 		})
 		.collect::<Vec<_>>()
@@ -480,44 +581,62 @@ async fn file_copy_strategist(
 		.await
 		.unwrap();
 
-	//
-	// TODO(matheus-consoli): maybe also receive the directories, and read the tree of files ahead of time
-	// instead of reading on each step
-
-	// let total_files = files.len();
-	// let total_size = metadata
-	// 	.iter()
-	// 	.fold(0u64, |acc, metadata| acc.saturating_add(metadata.0));
-
+	// sort by size
 	metadata.sort_unstable_by_key(|m| m.0);
 
-	let result = files // use metadata instead
-		.chunks(10)
-		.into_iter()
-		.map(|metadata| {
-			let (source_file_data, target_full_path) = metadata.into_iter().cloned().unzip();
-			OldFileCopierJobStep {
-				source_file_data,
-				target_full_path,
-				copy_step_kind: CopierStepKind::CopyFiles,
-				copy_behavior: CopyBehavior::FsCopy,
-				// respond_to: None,
-			}
-		})
-		.into_iter()
-		.collect::<Vec<_>>();
-	Ok(result)
+	let mut metadata = metadata.into_iter().peekable();
+	let mut steps = Vec::new();
 
-	// each step can use a different approach to copy, so we can organize different steps
-	// and can assume that its base structure (directories) are already created
-	//
-	// ideas:
-	// - group multiple small files in a single job (up to some size, tbd)
-	// - group big files up to a certain size in a single job
-	// - make very big files utilize a copy pattern of multiple threads copying different sections in parallel
+	// TODO(matheus-consoli): max_size is not a good name
+	const MAX_SIZE: u64 = 1024 * 1024 * 100;
+	const LIMIT: usize = 8;
+
+	loop {
+		let mut sum = 0;
+		let mut source_file_data = Vec::new();
+		let mut source_file_size = Vec::new();
+		let mut target_full_path = Vec::new();
+
+		while let Some((len, data, path)) = metadata.next_if(|(len, _, _)| {
+			source_file_data.len() < LIMIT && len + sum <= MAX_SIZE || sum == 0
+		}) {
+			sum += len;
+			source_file_data.push(data);
+			source_file_size.push(len);
+			target_full_path.push(path);
+		}
+
+		let copy_behavior = {
+			// many small files = seq
+			// medium sized files = seq
+			// very large files = parallel
+			let len = source_file_data.len();
+			let medium = sum / len as u64;
+			if medium > (MAX_SIZE * 2) && len < 2 {
+				// idk
+				CopyBehavior::ByChunks //  TODO(matheus-consoli)
+			} else {
+				CopyBehavior::Hole
+			}
+		};
+
+		steps.push(OldFileCopierJobStep {
+			source_file_data: source_file_data.into_boxed_slice(),
+			source_file_size: source_file_size.into_boxed_slice(),
+			target_full_path: target_full_path.into_boxed_slice(),
+			target_location_path: location_path.to_owned(),
+			copy_kind: CopierStepKind::CopyFiles(copy_behavior),
+		});
+
+		if metadata.peek().is_none() {
+			// nothing left to do, all files are grouped into a step
+			break;
+		}
+	}
+
+	Ok(steps)
 }
 
-/// TODO(matheus-consoli): DOCUMENTATION
 async fn unfold_diretory(
 	dirs: &[(FileData, PathBuf)],
 ) -> Result<(Vec<NewEntry>, Vec<NewEntry>), ()> {

@@ -443,18 +443,15 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 				let ctx = Arc::clone(&ctx);
 				spawn(async move {
 					let mut new_data = None;
-					debug!("about to call stateful_job.init");
 					let res = stateful_job.init(&ctx, &mut new_data).await;
 
 					if let Ok(res) = res.as_ref() {
 						if !<SJob as StatefulJob>::IS_BATCHED {
-							debug!(len = res.steps.len(), "========= IS_BATCHED");
 							// tell the reporter how much work there is
 							ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
 						}
 					}
 
-					// res: Result<JobInitOutput>: steps
 					(stateful_job, new_data, res)
 				})
 			};
@@ -484,7 +481,6 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 					steps: new_steps,
 					errors: JobRunErrors(new_errors),
 				}) => {
-					debug!(?new_steps, "new steps"); // testing this now
 					steps = new_steps;
 					errors.extend(new_errors);
 					run_metadata.update(new_run_metadata);
@@ -601,7 +597,6 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 						}
 
 						if !<SJob as StatefulJob>::IS_BATCHED {
-							debug!("====== IS_BATCHED - sending events");
 							ctx.progress(events);
 						}
 
