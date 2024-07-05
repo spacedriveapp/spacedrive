@@ -114,7 +114,7 @@ const LibraryStats = () => {
 
 	// Define the major categories and aggregate the "Other" category
 	const majorCategories = ['Document', 'Text', 'Image', 'Video'];
-	const aggregatedData = (storageBarData ?? []).reduce(
+	const aggregatedData = Object.values(storageBarData ?? {}).reduce(
 		(acc, curr) => {
 			const category = majorCategories.includes(curr.name) ? curr.name : 'Other';
 			if (!acc[category]) {

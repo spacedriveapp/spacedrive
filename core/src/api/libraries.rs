@@ -607,6 +607,7 @@ async fn update_kind_statistics(node: Arc<Node>, library: Arc<Library>) -> Resul
 				},
 				library.id,
 			));
+			tokio::time::sleep(Duration::from_secs(3)).await;
 		}
 
 		Ok(())
