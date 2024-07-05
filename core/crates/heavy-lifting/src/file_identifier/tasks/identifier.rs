@@ -293,6 +293,23 @@ impl Task<Error> for Identifier {
 			);
 
 			trace!(save_db_time = ?output.save_db_time, "Cas_ids saved to db;");
+		} else if !file_paths_without_cas_id.is_empty() {
+			let start_time = Instant::now();
+
+			// Assign objects to directories
+			let file_path_ids_with_new_object = create_objects_and_update_file_paths(
+				file_paths_without_cas_id.drain(..),
+				&self.db,
+				&self.sync,
+			)
+			.await?;
+
+			output.save_db_time = start_time.elapsed();
+			output.created_objects_count = file_path_ids_with_new_object.len() as u64;
+			output.file_path_ids_with_new_object =
+				file_path_ids_with_new_object.into_keys().collect();
+
+			trace!(save_db_time = ?output.save_db_time, "Directories objects saved to db;");
 		}
 
 		Ok(ExecStatus::Done(mem::take(output).into_output()))

@@ -16,7 +16,7 @@ use std::{
 	sync::Arc,
 };
 
-use prisma_client_rust::{or, QueryError};
+use prisma_client_rust::QueryError;
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -156,10 +156,7 @@ fn orphan_path_filters_shallow(
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
+			file_path::object_id::equals(None),
 			file_path::location_id::equals(Some(location_id)),
 			file_path::materialized_path::equals(Some(
 				sub_iso_file_path
@@ -178,10 +175,7 @@ fn orphan_path_filters_deep(
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
+			file_path::object_id::equals(None),
 			file_path::location_id::equals(Some(location_id)),
 		],
 		[
