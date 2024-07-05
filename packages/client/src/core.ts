@@ -497,7 +497,7 @@ name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFea
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
-export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: string }
+export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: { file_path_pub_id: string; error: string } } | { file_path_without_is_dir_field: number }
 
 export type NonCriticalIndexerError = { failed_directory_entry: string } | { metadata: string } | { indexer_rule: string } | { file_path_metadata: string } | { fetch_already_existing_file_path_ids: string } | { fetch_file_paths_to_remove: string } | { iso_file_path: string } | { dispatch_keep_walking: string } | { missing_file_path_data: string }
 
