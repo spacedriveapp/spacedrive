@@ -122,7 +122,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	// with the correct padding when the tags are toggled
 	// also fixes a bug where grid items would not render initially
 	useEffect(() => {
-		if (forceRender === 0) setForceRender((prev) => prev + 1)
+		if (forceRender === 0) setForceRender((prev) => prev + 1);
 	}, [layoutStore.showTags, explorer.isFetching, forceRender]);
 
 	useEffect(() => {
