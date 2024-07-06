@@ -13,6 +13,8 @@ import {
 import { Card, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
+import { FileKind } from '.';
+
 const INFO_ICON_CLASSLIST =
 	'inline size-3 text-ink-faint opacity-0 ml-1 transition-opacity duration-300 group-hover:opacity-70';
 const TOTAL_FILES_CLASSLIST =
@@ -43,13 +45,6 @@ const interpolateHexColor = (color1: string, color2: string, factor: number): st
 	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
 };
 
-interface FileKind {
-	kind: number;
-	name: string;
-	count: bigint;
-	total_bytes: bigint;
-}
-
 interface FileKindStatsProps {}
 
 const defaultFileKinds: FileKind[] = [
@@ -78,7 +73,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const navigate = useNavigate();
 	const { t } = useLocale();
 	const { data } = useLibraryQuery(['library.kindStatistics']);
-	const [fileKinds, setFileKinds] = useState<FileKind[]>([]);
+	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
 	const [cardWidth, setCardWidth] = useState<number>(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
@@ -88,30 +83,20 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const BAR_COLOR_END = '#004C99';
 
 	useLibrarySubscription(['library.updatedKindStatistic'], {
-		onData: (data: FileKind) => {
-			let kindFound = false;
-			setFileKinds((prevKinds) => {
-				const newKinds = prevKinds.map((kind) => {
-					if (kind.kind === data.kind) {
-						kindFound = true;
-						return {
-							...kind,
-							count: uint32ArrayToBigInt(data.count)
-						};
-					}
-					return kind;
-				});
-
-				if (!kindFound && uint32ArrayToBigInt(data.count) !== 0n) {
-					newKinds.push({
-						kind: data.kind,
-						name: data.name,
-						count: uint32ArrayToBigInt(data.count),
-						total_bytes: uint32ArrayToBigInt(data.total_bytes)
-					});
+		onData: (data: KindStatistic) => {
+			setFileKinds((kindStatisticsMap) => {
+				if (uint32ArrayToBigInt(data.count) !== 0n) {
+					return new Map(
+						kindStatisticsMap.set(data.kind, {
+							kind: data.kind,
+							name: data.name,
+							count: uint32ArrayToBigInt(data.count),
+							total_bytes: uint32ArrayToBigInt(data.total_bytes)
+						})
+					);
 				}
 
-				return newKinds;
+				return kindStatisticsMap;
 			});
 		}
 	});
@@ -151,36 +136,42 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		return () => {
 			window.removeEventListener('resize', handleResize);
 		};
-	}, [handleResize]);
+	}, [handleResize, fileKinds]);
 
 	useEffect(() => {
 		if (data) {
-			const statistics: KindStatistic[] = Object.values(data.statistics)
-				.filter(
-					(item: { kind: number; count: any }) => uint32ArrayToBigInt(item.count) !== 0n
-				)
-				.sort((a: { count: any }, b: { count: any }) => {
-					const aCount = uint32ArrayToBigInt(a.count);
-					const bCount = uint32ArrayToBigInt(b.count);
-					if (aCount === bCount) return 0;
-					return aCount > bCount ? -1 : 1;
-				});
-
-			setFileKinds(
-				statistics.map((item) => ({
-					kind: item.kind,
-					name: item.name,
-					count: uint32ArrayToBigInt(item.count),
-					total_bytes: 0n
-				}))
+			const statistics = new Map(
+				Object.entries(data.statistics)
+					.filter(([_, stats]) => uint32ArrayToBigInt(stats.count) !== 0n)
+					.sort(([_keyA, a], [_keyB, b]) => {
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
+						if (aCount === bCount) return 0;
+						return aCount > bCount ? -1 : 1;
+					})
+					.map(([_, stats]) => [
+						stats.kind,
+						{
+							kind: stats.kind,
+							name: stats.name,
+							count: uint32ArrayToBigInt(stats.count),
+							total_bytes: uint32ArrayToBigInt(stats.total_bytes)
+						}
+					])
 			);
-			if (statistics.length < 10) {
+
+			if (statistics.size < 10) {
 				const additionalKinds = defaultFileKinds.filter(
-					(defaultKind) => !statistics.some((stat) => stat.kind === defaultKind.kind)
+					(defaultKind) => !statistics.has(defaultKind.kind)
 				);
-				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.length);
-				setFileKinds((prevKinds) => [...prevKinds, ...kindsToAdd]);
+				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.size);
+
+				for (const kindToAdd of kindsToAdd) {
+					statistics.set(kindToAdd.kind, kindToAdd);
+				}
 			}
+
+			setFileKinds(statistics);
 
 			Object.values(data.statistics).forEach((item: { name: string }) => {
 				const iconName = item.name;
@@ -193,7 +184,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		}
 	}, [data, isDark]);
 
-	const sortedFileKinds = [...fileKinds].sort((a, b) => {
+	const sortedFileKinds = [...fileKinds.values()].sort((a, b) => {
 		if (a.count === b.count) return 0;
 		return a.count > b.count ? -1 : 1;
 	});

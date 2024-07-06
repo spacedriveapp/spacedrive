@@ -546,7 +546,7 @@ async fn update_kind_statistics(node: Arc<Node>, library: Arc<Library>) -> Resul
 						object::id::gt(last_object_id),
 						object::kind::equals(Some(int_kind)),
 					])
-					.take(1000)
+					.take(10_000)
 					.select(object::select!({ id file_paths: select { size_in_bytes_bytes } }))
 					.exec()
 					.await?;
@@ -572,42 +572,56 @@ async fn update_kind_statistics(node: Arc<Node>, library: Arc<Library>) -> Resul
 				}
 			}
 
-			let update_params = {
-				#[allow(clippy::cast_possible_wrap)]
-				{
-					// SAFETY: we had to store using i64 due to SQLite limitations
-					vec![
-						object_kind_statistics::files_count::set(files_count as i64),
-						object_kind_statistics::total_bytes::set(total_size as i64),
-					]
-				}
-			};
-
-			library
+			let (old_files_count, old_total_bytes) = library
 				.db
 				.object_kind_statistics()
-				.upsert(
-					object_kind_statistics::kind::equals(int_kind),
-					object_kind_statistics::Create {
-						kind: int_kind,
-						_params: update_params.clone(),
-					},
-					update_params,
-				)
-				.select(object_kind_statistics::select!({ kind }))
+				.find_unique(object_kind_statistics::kind::equals(int_kind))
+				.select(object_kind_statistics::select!({ files_count total_bytes }))
 				.exec()
-				.await?;
+				.await?
+				.map_or((0, 0), |stats| {
+					(stats.files_count as u64, stats.total_bytes as u64)
+				});
 
-			node.emit(CoreEvent::UpdatedKindStatistic(
-				KindStatistic {
-					kind: int_kind,
-					name: kind.to_string(),
-					count: u64_to_frontend(files_count),
-					total_bytes: u64_to_frontend(total_size),
-				},
-				library.id,
-			));
-			tokio::time::sleep(Duration::from_secs(3)).await;
+			// Only update if the statistics changed
+			if files_count != old_files_count || total_size != old_total_bytes {
+				let update_params = {
+					#[allow(clippy::cast_possible_wrap)]
+					{
+						// SAFETY: we had to store using i64 due to SQLite limitations
+						vec![
+							object_kind_statistics::files_count::set(files_count as i64),
+							object_kind_statistics::total_bytes::set(total_size as i64),
+						]
+					}
+				};
+
+				library
+					.db
+					.object_kind_statistics()
+					.upsert(
+						object_kind_statistics::kind::equals(int_kind),
+						object_kind_statistics::Create {
+							kind: int_kind,
+							_params: update_params.clone(),
+						},
+						update_params,
+					)
+					.select(object_kind_statistics::select!({ kind }))
+					.exec()
+					.await?;
+
+				// Sending back the updated statistics to the frontend
+				node.emit(CoreEvent::UpdatedKindStatistic(
+					KindStatistic {
+						kind: int_kind,
+						name: kind.to_string(),
+						count: u64_to_frontend(files_count),
+						total_bytes: u64_to_frontend(total_size),
+					},
+					library.id,
+				));
+			}
 		}
 
 		Ok(())
