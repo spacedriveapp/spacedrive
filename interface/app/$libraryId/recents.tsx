@@ -44,6 +44,7 @@ export function Component() {
 
 	const explorer = useExplorer({
 		...items,
+		isFetching: items.query.isFetching,
 		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});

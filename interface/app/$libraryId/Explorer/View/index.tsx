@@ -5,6 +5,7 @@ import {
 	ExplorerLayout,
 	explorerLayout,
 	getItemObject,
+	useExplorerLayoutStore,
 	useSelector,
 	type Object
 } from '@sd/client';
@@ -51,6 +52,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 
 	const quickPreview = useQuickPreviewContext();
 	const quickPreviewStore = useQuickPreviewStore();
+	const layoutStore = useExplorerLayoutStore();
 
 	const [{ path }] = useExplorerSearchParams();
 
@@ -59,6 +61,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 	const ref = useRef<HTMLDivElement | null>(null);
 
 	const [showLoading, setShowLoading] = useState(false);
+	const [forceRender, setForceRender] = useState(0);
 
 	const selectable =
 		explorer.selectable &&
@@ -114,6 +117,13 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 			return () => clearTimeout(timer);
 		} else setShowLoading(false);
 	}, [explorer.isFetchingNextPage]);
+
+	// this makes sure that the grid is re-rendered
+	// with the correct padding when the tags are toggled
+	// also fixes a bug where grid items would not render initially
+	useEffect(() => {
+		if (forceRender === 0) setForceRender((prev) => prev + 1);
+	}, [layoutStore.showTags, explorer.isFetching, forceRender]);
 
 	useEffect(() => {
 		if (explorer.layouts[layoutMode]) return;

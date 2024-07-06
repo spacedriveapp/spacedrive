@@ -41,6 +41,7 @@ export interface UseExplorerProps<TOrder extends Ordering> {
 	parent?: ExplorerParent;
 	loadMore?: () => void;
 	isFetchingNextPage?: boolean;
+	isFetching?: boolean;
 	isLoadingPreferences?: boolean;
 	scrollRef?: RefObject<HTMLDivElement>;
 	overscan?: number;
