@@ -80,7 +80,7 @@ This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, Reac
 
 - Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
 - Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
-- We also use [rspc](https://rspc.dev), created by Oscar Beaumont which, which allows us to define functions in Rust and call them on the TypeScript frontend in a completely typesafe manner.
+- We also use [rspc](https://rspc.dev), created by Oscar Beaumont, which allows us to define functions in Rust and call them on the TypeScript frontend in a completely typesafe manner.
 - The core (`sdcore`) is written in pure Rust.
 
 ## Monorepo structure:
