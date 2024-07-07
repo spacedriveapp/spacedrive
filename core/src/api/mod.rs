@@ -1,5 +1,6 @@
 use crate::{
 	invalidate_query,
+	library::LibraryId,
 	node::{
 		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
@@ -43,6 +44,7 @@ pub mod utils;
 pub mod volumes;
 mod web_api;
 
+use libraries::KindStatistic;
 use utils::{InvalidRequests, InvalidateOperationEvent};
 
 #[allow(non_upper_case_globals)]
@@ -60,6 +62,7 @@ pub enum CoreEvent {
 	NewIdentifiedObjects {
 		file_path_ids: Vec<file_path::id::Type>,
 	},
+	UpdatedKindStatistic(KindStatistic, LibraryId),
 	JobProgress(JobProgressEvent),
 	InvalidateOperation(InvalidateOperationEvent),
 }

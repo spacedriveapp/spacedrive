@@ -14,9 +14,9 @@ const CategoriesScreen = () => {
 	const [debouncedSearch] = useDebounce(search, 200);
 	const filteredKinds = useMemo(
 		() =>
-			kinds.data?.statistics.filter((kind) =>
+			Object.values(kinds.data?.statistics ?? {}).filter((kind) =>
 				kind.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
-			) ?? [],
+			),
 		[debouncedSearch, kinds]
 	);
 	return (
@@ -24,8 +24,8 @@ const CategoriesScreen = () => {
 			<FlatList
 				data={filteredKinds
 					?.sort((a, b) => {
-						const aCount = Number(a.count);
-						const bCount = Number(b.count);
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
 						if (aCount === bCount) return 0;
 						return aCount > bCount ? -1 : 1;
 					})
@@ -53,7 +53,7 @@ const CategoriesScreen = () => {
 							kind={kind}
 							name={name}
 							icon={icon}
-							items={Number(count)}
+							items={uint32ArrayToBigInt(count)}
 						/>
 					);
 				}}

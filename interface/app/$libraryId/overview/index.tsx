@@ -15,6 +15,13 @@ import LibraryStatistics from './LibraryStats';
 import NewCard from './NewCard';
 import StatisticItem from './StatCard';
 
+export interface FileKind {
+	kind: number;
+	name: string;
+	count: bigint;
+	total_bytes: bigint;
+}
+
 export const Component = () => {
 	useRouteTitle('Overview');
 	const os = useOperatingSystem();

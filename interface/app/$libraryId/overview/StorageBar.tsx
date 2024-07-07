@@ -24,28 +24,27 @@ const lightenColor = (color: string, percent: number) => {
 
 interface Section {
 	name: string;
-	value: number;
+	value: bigint;
 	color: string;
 	tooltip: string;
 }
 
 interface StorageBarProps {
 	sections: Section[];
-	totalSpace: number;
+	totalSpace: bigint;
+	totalFreeBytes: bigint;
 }
 
-const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
+const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace, totalFreeBytes }) => {
 	const isDark = useIsDark();
 	const [hoveredSectionIndex, setHoveredSectionIndex] = useState<number | null>(null);
 
-	const getPercentage = (value: number) => {
-		const percentage = value / totalSpace;
+	const getPercentage = (value: bigint) => {
+		const percentage = Number((value * 100n) / totalSpace) / 100;
+		console.log(`percentage: ${percentage}`);
 		const pixvalue = BARWIDTH * percentage;
 		return `${pixvalue.toFixed(2)}px`;
 	};
-
-	const usedSpace = sections.reduce((acc, section) => acc + section.value, 0);
-	const unusedSpace = totalSpace - usedSpace;
 
 	const nonSystemSections = sections.filter((section) => section.name !== 'System Data');
 	const systemSection = sections.find((section) => section.name === 'System Data');
@@ -79,11 +78,11 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace }) => {
 						</Tooltip>
 					);
 				})}
-				{unusedSpace > 0 && (
+				{totalFreeBytes > 0 && (
 					<div
 						className="relative h-full"
 						style={{
-							width: getPercentage(unusedSpace),
+							width: getPercentage(totalFreeBytes),
 							backgroundColor: isDark ? '#1C1D25' : '#D3D3D3'
 						}}
 					/>
