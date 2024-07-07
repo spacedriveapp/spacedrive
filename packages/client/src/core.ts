@@ -137,6 +137,7 @@ export type Procedures = {
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
+        { key: "library.updatedKindStatistic", input: LibraryArgs<null>, result: KindStatistic } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
@@ -385,7 +386,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key 
 
 export type KindStatistic = { kind: number; name: string; count: [number, number]; total_bytes: [number, number] }
 
-export type KindStatistics = { statistics: KindStatistic[]; total_identified_files: number; total_unidentified_files: number }
+export type KindStatistics = { statistics: { [key in number]: KindStatistic }; total_identified_files: number; total_unidentified_files: number }
 
 export type Label = { id: number; name: string; date_created: string | null; date_modified: string | null }
 
