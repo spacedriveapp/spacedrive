@@ -181,6 +181,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 				<div ref={setDroppableRef} className="size-full">
 					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 						<>
+							{layoutMode === 'columns' && <ListView />}
 							{layoutMode === 'grid' && <GridView />}
 							{layoutMode === 'list' && <ListView />}
 							{layoutMode === 'media' && <MediaView />}

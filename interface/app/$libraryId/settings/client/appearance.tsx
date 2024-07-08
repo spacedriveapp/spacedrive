@@ -1,7 +1,13 @@
 import { CheckCircle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useState } from 'react';
-import { Themes, useExplorerLayoutStore, useThemeStore, useUnitFormatStore } from '@sd/client';
+import {
+	Themes,
+	useExplorerLayoutStore,
+	useFeatureFlag,
+	useThemeStore,
+	useUnitFormatStore
+} from '@sd/client';
 import { Select, SelectOption } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { useLocale } from '~/hooks';
@@ -75,6 +81,7 @@ export const Component = () => {
 	const themeStore = useThemeStore();
 	const formatStore = useUnitFormatStore();
 	const explorerLayout = useExplorerLayoutStore();
+	const columnsViewFlagEnabled = useFeatureFlag('columnsView');
 
 	const [dateFormats, setDateFormats] = useState(
 		generateLocaleDateFormats(i18n.resolvedLanguage || i18n.language || 'en')
@@ -249,6 +256,9 @@ export const Component = () => {
 					>
 						<SelectOption value="grid">{t('grid_view')}</SelectOption>
 						<SelectOption value="list">{t('list_view')}</SelectOption>
+						{columnsViewFlagEnabled && (
+							<SelectOption value="columns">{t('columns_view')}</SelectOption>
+						)}
 						<SelectOption value="media">{t('media_view')}</SelectOption>
 					</Select>
 				</Setting>

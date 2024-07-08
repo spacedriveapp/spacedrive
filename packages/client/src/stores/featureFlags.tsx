@@ -12,7 +12,8 @@ export const features = [
 	'hostedLocations',
 	'debugDragAndDrop',
 	'searchTargetSwitcher',
-	'wipP2P'
+	'wipP2P',
+	'columnsView'
 ] as const;
 
 // This defines which backend feature flags show up in the UI.

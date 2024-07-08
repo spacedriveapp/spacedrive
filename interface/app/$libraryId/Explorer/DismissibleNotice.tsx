@@ -36,6 +36,12 @@ interface Notice {
 }
 
 const notices = {
+	columns: {
+		key: 'columnsView',
+		title: i18n.t('columns_view'),
+		description: i18n.t('columns_view_notice_description'),
+		icon: <CollectionIcon />
+	},
 	grid: {
 		key: 'gridView',
 		title: i18n.t('grid_view'),

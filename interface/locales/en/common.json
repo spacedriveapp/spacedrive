@@ -83,6 +83,8 @@
   "color": "Color",
   "color_profile": "Color profile",
   "color_space": "Color space",
+  "columns_view": "Columns View",
+  "columns_view_notice_description": "Quickly navigate between folders with Columns View. This view displays your files and folders in columns based on folder hierarchy, allowing you to traverse large folder structures with ease.",
   "coming_soon": "Coming soon",
   "completed": "Completed",
   "completed_with_errors": "Completed with errors",

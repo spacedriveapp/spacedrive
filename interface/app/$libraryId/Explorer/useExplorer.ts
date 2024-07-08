@@ -11,7 +11,7 @@ import type {
 	NodeState,
 	Tag
 } from '@sd/client';
-import { ObjectKindEnum, type Ordering, type OrderingKeys } from '@sd/client';
+import { ObjectKindEnum, useFeatureFlag, type Ordering, type OrderingKeys } from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
@@ -67,6 +67,7 @@ export function useExplorer<TOrder extends Ordering>({
 	...props
 }: UseExplorerProps<TOrder>) {
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const columnsViewFlagEnabled = useFeatureFlag('columnsView');
 
 	return {
 		// Default values
@@ -75,6 +76,7 @@ export function useExplorer<TOrder extends Ordering>({
 		count: props.items?.length,
 		showPathBar: true,
 		layouts: {
+			columns: columnsViewFlagEnabled,
 			grid: true,
 			list: true,
 			media: true,
