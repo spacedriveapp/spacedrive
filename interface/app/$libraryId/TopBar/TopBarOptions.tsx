@@ -28,7 +28,7 @@ interface TopBarChildrenProps {
 
 export const TOP_BAR_ICON_CLASSLIST = 'm-0.5 text-ink-dull';
 export const TOP_BAR_ICON_WEIGHT: IconWeight = 'regular';
-export const TOP_BAR_ICON_SIZE = 20;
+export const TOP_BAR_ICON_SIZE = 18;
 export const TOP_BAR_ICON_DEFAULT_PROPS = {
 	weight: TOP_BAR_ICON_WEIGHT,
 	size: TOP_BAR_ICON_SIZE,
