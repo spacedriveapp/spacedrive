@@ -180,7 +180,6 @@ const checkAndroidPermissions = async () => {
 
 		const results = await Promise.all(
 			statuses.map(async (status, index) => {
-				console.log(`Checking ${permissions[index]}`, status);
 				if (status !== RESULTS.GRANTED) {
 					if (
 						[
