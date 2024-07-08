@@ -1,8 +1,8 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { forwardRef, useCallback } from 'react';
 import { Alert, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
+import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -25,9 +25,9 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		onError: (error, variables) => {
 			modalRef.current?.close();
 			//custom message handling
-			if (error.message.startsWith("location already exists")) {
+			if (error.message.startsWith('location already exists')) {
 				return toast.error('This location has already been added');
-			} else if (error.message.startsWith("nested location currently")) {
+			} else if (error.message.startsWith('nested location currently')) {
 				return toast.error('Nested locations are currently not supported');
 			}
 			switch (error.message) {

@@ -137,6 +137,7 @@ export type Procedures = {
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
         { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
+        { key: "library.updatedKindStatistic", input: LibraryArgs<null>, result: KindStatistic } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
@@ -385,7 +386,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key 
 
 export type KindStatistic = { kind: number; name: string; count: [number, number]; total_bytes: [number, number] }
 
-export type KindStatistics = { statistics: KindStatistic[]; total_identified_files: number; total_unidentified_files: number }
+export type KindStatistics = { statistics: { [key in number]: KindStatistic }; total_identified_files: number; total_unidentified_files: number }
 
 export type Label = { id: number; name: string; date_created: string | null; date_modified: string | null }
 
@@ -496,7 +497,7 @@ name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFea
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
-export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: string }
+export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: { file_path_pub_id: string; error: string } } | { file_path_without_is_dir_field: number }
 
 export type NonCriticalIndexerError = { failed_directory_entry: string } | { metadata: string } | { indexer_rule: string } | { file_path_metadata: string } | { fetch_already_existing_file_path_ids: string } | { fetch_file_paths_to_remove: string } | { iso_file_path: string } | { dispatch_keep_walking: string } | { missing_file_path_data: string }
 

@@ -1,6 +1,6 @@
-import { Tag } from '@sd/client';
 import { DotsThreeOutlineVertical } from 'phosphor-react-native';
 import { Pressable, Text, View } from 'react-native';
+import { Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import Card from '../layout/Card';

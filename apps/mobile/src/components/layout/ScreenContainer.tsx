@@ -31,10 +31,7 @@ const ScreenContainer = ({
 					ref.current?.scrollToEnd({ animated: true });
 				}}
 				contentContainerStyle={twStyle('justify-between gap-10 py-6', style)}
-				style={twStyle(
-					'bg-black',
-					tabHeight && { marginBottom: bottomTabBarHeight }
-				)}
+				style={twStyle('bg-black', tabHeight && { marginBottom: bottomTabBarHeight })}
 			>
 				{children}
 			</ScrollView>

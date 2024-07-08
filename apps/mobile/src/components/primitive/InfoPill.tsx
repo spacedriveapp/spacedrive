@@ -7,7 +7,7 @@ type Props = {
 	text: string;
 	containerStyle?: ViewStyle;
 	textStyle?: TextStyle;
-	icon?: ReactElement<IconProps, any>
+	icon?: ReactElement<IconProps, any>;
 };
 
 export const InfoPill = (props: Props) => {

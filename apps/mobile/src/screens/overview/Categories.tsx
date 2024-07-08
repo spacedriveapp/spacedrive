@@ -14,9 +14,9 @@ const CategoriesScreen = () => {
 	const [debouncedSearch] = useDebounce(search, 200);
 	const filteredKinds = useMemo(
 		() =>
-			kinds.data?.statistics.filter((kind) =>
+			Object.values(kinds.data?.statistics ?? {}).filter((kind) =>
 				kind.name?.toLowerCase().includes(debouncedSearch.toLowerCase())
-			) ?? [],
+			),
 		[debouncedSearch, kinds]
 	);
 	return (

@@ -1,7 +1,7 @@
-import { getIndexedItemFilePath, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
+import { getIndexedItemFilePath, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { ModalInput } from '~/components/primitive/Input';
@@ -9,7 +9,6 @@ import { toast } from '~/components/primitive/Toast';
 import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { useActionsModalStore } from '~/stores/modalStore';
-
 
 const RenameModal = forwardRef<ModalRef>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
@@ -40,27 +39,27 @@ const RenameModal = forwardRef<ModalRef>((_, ref) => {
 	}, [fileName, combined]);
 
 	const textRenameHandler = async () => {
-			switch (data?.type) {
-				case 'Path':
-				case 'Object': {
-					if (!filePathData) throw new Error('Failed to get file path object');
+		switch (data?.type) {
+			case 'Path':
+			case 'Object': {
+				if (!filePathData) throw new Error('Failed to get file path object');
 
-					const { id, location_id } = filePathData;
+				const { id, location_id } = filePathData;
 
-					if (!location_id) throw new Error('Missing location id');
+				if (!location_id) throw new Error('Missing location id');
 
-					await renameFile.mutateAsync({
-						location_id: location_id,
-						kind: {
-							One: {
-								from_file_path_id: id,
-								to: newName
-							}
+				await renameFile.mutateAsync({
+					location_id: location_id,
+					kind: {
+						One: {
+							from_file_path_id: id,
+							to: newName
 						}
-					});
-					break;
-				}
+					}
+				});
+				break;
 			}
+		}
 	};
 
 	return (
@@ -80,7 +79,11 @@ const RenameModal = forwardRef<ModalRef>((_, ref) => {
 					value={newName}
 					onChangeText={(t) => setNewName(t)}
 				/>
-				<Button disabled={newName.length === 0 || fileName === newName} onPress={textRenameHandler} variant="accent">
+				<Button
+					disabled={newName.length === 0 || fileName === newName}
+					onPress={textRenameHandler}
+					variant="accent"
+				>
 					<Text style={tw`font-medium text-ink`}>Save</Text>
 				</Button>
 			</View>

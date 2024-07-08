@@ -1,8 +1,8 @@
-import { useBridgeQuery } from '@sd/client';
 import { Image } from 'expo-image';
 import { Globe } from 'phosphor-react-native';
 import React from 'react';
 import { Linking, Platform, Text, View } from 'react-native';
+import { useBridgeQuery } from '@sd/client';
 import { DiscordIcon, GitHubIcon } from '~/components/icons/Brands';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
@@ -98,7 +98,7 @@ const AboutScreen = () => {
 				<Image
 					source={{ uri: 'https://i.imgur.com/SwUcWHP.png' }}
 					style={{ height: 200, width: '100%' }}
-					contentFit='contain'
+					contentFit="contain"
 				/>
 			</View>
 		</ScreenContainer>

@@ -2,6 +2,7 @@ import { BottomTabScreenProps, createBottomTabNavigator } from '@react-navigatio
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, ViewStyle } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
@@ -9,7 +10,6 @@ import Rive, { RiveRef } from 'rive-react-native';
 import { Style } from 'twrnc/dist/esm/types';
 import { tw } from '~/lib/tailwind';
 
-import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '.';
 import BrowseStack, { BrowseStackParamList } from './tabs/BrowseStack';
 import NetworkStack, { NetworkStackParamList } from './tabs/NetworkStack';
@@ -148,7 +148,7 @@ export default function TabNavigator() {
 						focus: () => {
 							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 							setActiveIndex(index);
-						},
+						}
 					})}
 				/>
 			))}

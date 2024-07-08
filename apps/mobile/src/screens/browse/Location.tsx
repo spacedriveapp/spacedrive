@@ -1,5 +1,5 @@
-import { useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
+import { useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import { useSortBy } from '~/hooks/useSortBy';
@@ -14,22 +14,22 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const locationData = location.data;
 	const order = useSortBy();
 	const title = useMemo(() => {
-	return path?.split('/')
-	.filter((x) => x !== '')
-	.pop();
-	}, [path])
+		return path
+			?.split('/')
+			.filter((x) => x !== '')
+			.pop();
+	}, [path]);
 
 	// makes sure that the location shows newest/modified objects
 	// when a location is opened
-	useLibrarySubscription(
-		['locations.quickRescan', { sub_path: path ?? '', location_id: id }],
-		{ onData() {} }
-	);
+	useLibrarySubscription(['locations.quickRescan', { sub_path: path ?? '', location_id: id }], {
+		onData() {}
+	});
 
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
-				{ filePath: { hidden: false }},
+				{ filePath: { hidden: false } },
 				{ filePath: { locations: { in: [id] } } },
 				{
 					filePath: {
@@ -63,7 +63,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		navigation.setParams({
 			id: id,
 			name: locationData?.name ?? 'Location'
-		})
+		});
 	}, [id, locationData?.name, navigation, path, title]);
 
 	useEffect(() => {
@@ -71,14 +71,19 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 		getExplorerStore().path = path ?? '';
 	}, [id, path]);
 
-	return <Explorer
-		isEmpty={paths.count === 0}
-		emptyComponent={<Empty
-		includeHeaderHeight
-		icon={'FolderNoSpace'}
-		style={tw`flex-1 items-center justify-center border-0`}
-		iconSize={100}
-		description={'No files found'}
-	/>}
-	{...paths} />
+	return (
+		<Explorer
+			isEmpty={paths.count === 0}
+			emptyComponent={
+				<Empty
+					includeHeaderHeight
+					icon={'FolderNoSpace'}
+					style={tw`flex-1 items-center justify-center border-0`}
+					iconSize={100}
+					description={'No files found'}
+				/>
+			}
+			{...paths}
+		/>
+	);
 }

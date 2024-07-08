@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryMutation } from '@sd/client';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
+import { useLibraryMutation } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import { ModalInput } from '~/components/primitive/Input';
@@ -34,15 +34,13 @@ const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 					style={tw`mt-2`}
 					variant="accent"
 					onPress={async () => {
-						await saveSearch.mutateAsync(
-							{
-								name: searchName,
-								filters: JSON.stringify(searchStore.mergedFilters),
-								description: null,
-								icon: null,
-								search: null
-							}
-						);
+						await saveSearch.mutateAsync({
+							name: searchName,
+							filters: JSON.stringify(searchStore.mergedFilters),
+							description: null,
+							icon: null,
+							search: null
+						});
 						setSearchName('');
 					}}
 				>

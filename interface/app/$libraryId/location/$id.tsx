@@ -1,4 +1,6 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { stringify } from 'uuid';
 import {
 	arraysEqual,
 	FilePathOrder,
@@ -9,8 +11,6 @@ import {
 	useOnlineLocations
 } from '@sd/client';
 import { Loader, Tooltip } from '@sd/ui';
-import { useCallback, useEffect, useMemo } from 'react';
-import { stringify } from 'uuid';
 import { LocationIdParamsSchema } from '~/app/route-schemas';
 import { Folder, Icon } from '~/components';
 import {
@@ -102,6 +102,7 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const explorer = useExplorer({
 		...items,
 		isFetchingNextPage: items.query.isFetchingNextPage,
+		isFetching: items.query.isFetching,
 		isLoadingPreferences: preferences.isLoading,
 		settings: explorerSettings,
 		parent: { type: 'Location', location }

@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import {
 	LibraryConfigWrapped,
 	useBridgeMutation,
@@ -8,8 +10,6 @@ import {
 	useZodForm
 } from '@sd/client';
 import { Button, Dialog, Select, SelectOption, toast, useDialog, UseDialogProps, z } from '@sd/ui';
-import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -18,7 +18,6 @@ const schema = z.object({
 		message: 'Please select a library'
 	})
 });
-
 
 export default (props: UseDialogProps & { librariesCtx: LibraryConfigWrapped[] | undefined }) => {
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
@@ -82,9 +81,7 @@ export default (props: UseDialogProps & { librariesCtx: LibraryConfigWrapped[] |
 							});
 						}}
 					>
-						<SelectOption value="select_library">
-							{t('select_library')}
-						</SelectOption>
+						<SelectOption value="select_library">{t('select_library')}</SelectOption>
 						{cloudLibraries.data
 							.filter(
 								(cloudLibrary) =>

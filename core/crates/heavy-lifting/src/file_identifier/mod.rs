@@ -16,12 +16,13 @@ use std::{
 	sync::Arc,
 };
 
-use prisma_client_rust::{or, QueryError};
+use prisma_client_rust::QueryError;
 use rspc::ErrorCode;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::fs;
 use tracing::trace;
+use uuid::Uuid;
 
 mod cas_id;
 pub mod job;
@@ -71,8 +72,15 @@ pub enum NonCriticalFileIdentifierError {
 	#[cfg(target_os = "windows")]
 	#[error("failed to extract metadata from on-demand file: {0}")]
 	FailedToExtractMetadataFromOnDemandFile(String),
-	#[error("failed to extract isolated file path data: {0}")]
-	FailedToExtractIsolatedFilePathData(String),
+	#[error(
+		"failed to extract isolated file path data: <file_path_id='{file_path_pub_id}'>: {error}"
+	)]
+	FailedToExtractIsolatedFilePathData {
+		file_path_pub_id: Uuid,
+		error: String,
+	},
+	#[error("file path without is_dir field: <file_path_id='{0}'>")]
+	FilePathWithoutIsDirField(file_path::id::Type),
 }
 
 #[derive(Debug, Clone)]
@@ -115,11 +123,15 @@ impl FileMetadata {
 		let cas_id = if fs_metadata.len() != 0 {
 			generate_cas_id(&path, fs_metadata.len())
 				.await
-				.map(Some)
 				.map_err(|e| FileIOError::from((&path, e)))?
 		} else {
 			// We can't do shit with empty files
-			None
+			trace!(path = %path.display(), %kind, "Skipping empty file;");
+			return Ok(Self {
+				cas_id: None,
+				kind,
+				fs_metadata,
+			});
 		};
 
 		trace!(
@@ -130,7 +142,7 @@ impl FileMetadata {
 		);
 
 		Ok(Self {
-			cas_id,
+			cas_id: Some(cas_id),
 			kind,
 			fs_metadata,
 		})
@@ -144,18 +156,13 @@ fn orphan_path_filters_shallow(
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
+			file_path::object_id::equals(None),
 			file_path::location_id::equals(Some(location_id)),
 			file_path::materialized_path::equals(Some(
 				sub_iso_file_path
 					.materialized_path_for_children()
 					.expect("sub path for shallow identifier must be a directory"),
 			)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
 		],
 		[file_path_id.map(file_path::id::gt)],
 	)
@@ -168,13 +175,8 @@ fn orphan_path_filters_deep(
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
-			or!(
-				file_path::object_id::equals(None),
-				file_path::cas_id::equals(None)
-			),
-			file_path::is_dir::equals(Some(false)),
+			file_path::object_id::equals(None),
 			file_path::location_id::equals(Some(location_id)),
-			file_path::size_in_bytes_bytes::not(Some(0u64.to_be_bytes().to_vec())),
 		],
 		[
 			// this is a workaround for the cursor not working properly

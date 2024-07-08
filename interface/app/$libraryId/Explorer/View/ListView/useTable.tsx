@@ -1,14 +1,4 @@
 import {
-	getExplorerItemData,
-	getIndexedItemFilePath,
-	getItemFilePath,
-	getItemObject,
-	humanizeSize,
-	useExplorerLayoutStore,
-	useSelector,
-	type ExplorerItem
-} from '@sd/client';
-import {
 	CellContext,
 	functionalUpdate,
 	getCoreRowModel,
@@ -19,6 +9,16 @@ import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { memo, useMemo } from 'react';
 import { stringify } from 'uuid';
+import {
+	getExplorerItemData,
+	getIndexedItemFilePath,
+	getItemFilePath,
+	getItemObject,
+	humanizeSize,
+	useExplorerLayoutStore,
+	useSelector,
+	type ExplorerItem
+} from '@sd/client';
 import { useLocale } from '~/hooks';
 
 import { useExplorerContext } from '../../Context';
@@ -72,36 +72,37 @@ const NameCell = memo(({ item, selected }: { item: ExplorerItem; selected: boole
 					idleClassName={clsx(explorerLayout.showTags ? '!w-4/5' : '!w-full')}
 					editLines={3}
 				/>
-			{explorerLayout.showTags && (
-				<Tags item={item}/>
-			)}
+				{explorerLayout.showTags && <Tags item={item} />}
 			</div>
 		</div>
 	);
 });
 
-const Tags = ({item}: {item: ExplorerItem}) => {
+const Tags = ({ item }: { item: ExplorerItem }) => {
 	const object = getItemObject(item);
 	const filePath = getItemFilePath(item);
 	const data = object || filePath;
 	const tags = data && 'tags' in data ? data.tags : [];
- return (
-	<div
-	className='relative flex size-full flex-row items-center justify-end self-center'
-	style={{
-		marginLeft: tags.length * 4
-	}}
-	>
-		{tags.map(({tag}, i: number) => (
-			<div key={tag.id} className='relative size-2.5 rounded-full border border-app' style={{
-				backgroundColor: tag.color || 'transparent',
-				right: i * 4
-			}}/>
-		))}
-</div>
- )
-}
-
+	return (
+		<div
+			className="relative flex size-full flex-row items-center justify-end self-center"
+			style={{
+				marginLeft: tags.length * 4
+			}}
+		>
+			{tags.map(({ tag }, i: number) => (
+				<div
+					key={tag.id}
+					className="relative size-2.5 rounded-full border border-app"
+					style={{
+						backgroundColor: tag.color || 'transparent',
+						right: i * 4
+					}}
+				/>
+			))}
+		</div>
+	);
+};
 
 const KindCell = ({ kind }: { kind: string }) => {
 	const explorer = useExplorerContext();

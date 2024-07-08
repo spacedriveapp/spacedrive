@@ -1,8 +1,8 @@
-import { TextItems } from '@sd/client';
 import { Image } from 'expo-image';
 import { Icon } from 'phosphor-react-native';
 import { Fragment } from 'react';
 import { Text, View, ViewStyle } from 'react-native';
+import { TextItems } from '@sd/client';
 import { styled, tw, twStyle } from '~/lib/tailwind';
 
 type JobContainerProps = {
@@ -59,15 +59,19 @@ export default function JobContainer(props: JobContainerProps) {
 								return (
 									<Fragment key={index}>
 										<View style={tw`flex-row gap-1`}>
-										{Icon && (
-											<Icon
-												weight="fill"
-												size={14}
-												color={tw.color('ink-faint')}
-											/>
-										)}
-										<Text style={tw`text-xs text-ink-faint`} key={index}>{item?.text}</Text>
-										{index < filteredItems.length - 1 && <Text style={tw`text-ink-faint`}>• </Text>}
+											{Icon && (
+												<Icon
+													weight="fill"
+													size={14}
+													color={tw.color('ink-faint')}
+												/>
+											)}
+											<Text style={tw`text-xs text-ink-faint`} key={index}>
+												{item?.text}
+											</Text>
+											{index < filteredItems.length - 1 && (
+												<Text style={tw`text-ink-faint`}>• </Text>
+											)}
 										</View>
 									</Fragment>
 								);

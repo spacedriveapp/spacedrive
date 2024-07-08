@@ -4,9 +4,16 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import React, { MouseEventHandler, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { KindStatistic, uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
+import {
+	KindStatistic,
+	uint32ArrayToBigInt,
+	useLibraryQuery,
+	useLibrarySubscription
+} from '@sd/client';
 import { Card, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
+
+import { FileKind } from '.';
 
 const INFO_ICON_CLASSLIST =
 	'inline size-3 text-ink-faint opacity-0 ml-1 transition-opacity duration-300 group-hover:opacity-70';
@@ -20,7 +27,7 @@ const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bi
 	if (denominator === 0n) return '0';
 	const result = (numerator * maxValue) / denominator;
 	// ensures min width except for empty bars (numerator = 0)
-	if (numerator != 0n && result < 1) return '1';
+	if (numerator !== 0n && result < 1n) return '1';
 	return result.toString();
 };
 
@@ -38,33 +45,27 @@ const interpolateHexColor = (color1: string, color2: string, factor: number): st
 	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
 };
 
-interface FileKind {
-	kind: string;
-	count: bigint;
-	id: number;
-}
-
 interface FileKindStatsProps {}
 
 const defaultFileKinds: FileKind[] = [
-	{ kind: 'Package', count: 0n, id: 4 },
-	{ kind: 'Archive', count: 0n, id: 8 },
-	{ kind: 'Executable', count: 0n, id: 9 },
-	{ kind: 'Encrypted', count: 0n, id: 11 },
-	{ kind: 'Key', count: 0n, id: 12 },
-	{ kind: 'Link', count: 0n, id: 13 },
-	{ kind: 'WebPageArchive', count: 0n, id: 14 },
-	{ kind: 'Widget', count: 0n, id: 15 },
-	{ kind: 'Album', count: 0n, id: 16 },
-	{ kind: 'Collection', count: 0n, id: 17 },
-	{ kind: 'Font', count: 0n, id: 18 },
-	{ kind: 'Mesh', count: 0n, id: 19 },
-	{ kind: 'Code', count: 0n, id: 20 },
-	{ kind: 'Database', count: 0n, id: 21 },
-	{ kind: 'Book', count: 0n, id: 22 },
-	{ kind: 'Config', count: 0n, id: 23 },
-	{ kind: 'Dotfile', count: 0n, id: 24 },
-	{ kind: 'Screenshot', count: 0n, id: 25 }
+	{ kind: 4, name: 'Package', count: 0n, total_bytes: 0n },
+	{ kind: 8, name: 'Archive', count: 0n, total_bytes: 0n },
+	{ kind: 9, name: 'Executable', count: 0n, total_bytes: 0n },
+	{ kind: 11, name: 'Encrypted', count: 0n, total_bytes: 0n },
+	{ kind: 12, name: 'Key', count: 0n, total_bytes: 0n },
+	{ kind: 13, name: 'Link', count: 0n, total_bytes: 0n },
+	{ kind: 14, name: 'WebPageArchive', count: 0n, total_bytes: 0n },
+	{ kind: 15, name: 'Widget', count: 0n, total_bytes: 0n },
+	{ kind: 16, name: 'Album', count: 0n, total_bytes: 0n },
+	{ kind: 17, name: 'Collection', count: 0n, total_bytes: 0n },
+	{ kind: 18, name: 'Font', count: 0n, total_bytes: 0n },
+	{ kind: 19, name: 'Mesh', count: 0n, total_bytes: 0n },
+	{ kind: 20, name: 'Code', count: 0n, total_bytes: 0n },
+	{ kind: 21, name: 'Database', count: 0n, total_bytes: 0n },
+	{ kind: 22, name: 'Book', count: 0n, total_bytes: 0n },
+	{ kind: 23, name: 'Config', count: 0n, total_bytes: 0n },
+	{ kind: 24, name: 'Dotfile', count: 0n, total_bytes: 0n },
+	{ kind: 25, name: 'Screenshot', count: 0n, total_bytes: 0n }
 ];
 
 const FileKindStats: React.FC<FileKindStatsProps> = () => {
@@ -72,7 +73,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const navigate = useNavigate();
 	const { t } = useLocale();
 	const { data } = useLibraryQuery(['library.kindStatistics']);
-	const [fileKinds, setFileKinds] = useState<FileKind[]>([]);
+	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
 	const [cardWidth, setCardWidth] = useState<number>(0);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
@@ -80,6 +81,25 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const BAR_MAX_HEIGHT = 115n;
 	const BAR_COLOR_START = '#3A7ECC';
 	const BAR_COLOR_END = '#004C99';
+
+	useLibrarySubscription(['library.updatedKindStatistic'], {
+		onData: (data: KindStatistic) => {
+			setFileKinds((kindStatisticsMap) => {
+				if (uint32ArrayToBigInt(data.count) !== 0n) {
+					return new Map(
+						kindStatisticsMap.set(data.kind, {
+							kind: data.kind,
+							name: data.name,
+							count: uint32ArrayToBigInt(data.count),
+							total_bytes: uint32ArrayToBigInt(data.total_bytes)
+						})
+					);
+				}
+
+				return kindStatisticsMap;
+			});
+		}
+	});
 
 	const formatCount = (count: number | bigint): string => {
 		const bigIntCount = typeof count === 'number' ? BigInt(count) : count;
@@ -116,37 +136,44 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		return () => {
 			window.removeEventListener('resize', handleResize);
 		};
-	}, [handleResize]);
+	}, [handleResize, fileKinds]);
 
 	useEffect(() => {
 		if (data) {
-			const statistics: KindStatistic[] = data.statistics
-				.filter(
-					(item: { kind: number; count: any }) => uint32ArrayToBigInt(item.count) !== 0n
-				)
-				.sort((a: { count: any }, b: { count: any }) => {
-					const aCount = uint32ArrayToBigInt(a.count);
-					const bCount = uint32ArrayToBigInt(b.count);
-					if (aCount === bCount) return 0;
-					return aCount > bCount ? -1 : 1;
-				});
-
-			setFileKinds(
-				statistics.map((item) => ({
-					kind: item.name,
-					count: uint32ArrayToBigInt(item.count),
-					id: item.kind
-				}))
+			const statistics = new Map(
+				Object.entries(data.statistics)
+					.filter(([_, stats]) => uint32ArrayToBigInt(stats.count) !== 0n)
+					.sort(([_keyA, a], [_keyB, b]) => {
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
+						if (aCount === bCount) return 0;
+						return aCount > bCount ? -1 : 1;
+					})
+					.map(([_, stats]) => [
+						stats.kind,
+						{
+							kind: stats.kind,
+							name: stats.name,
+							count: uint32ArrayToBigInt(stats.count),
+							total_bytes: uint32ArrayToBigInt(stats.total_bytes)
+						}
+					])
 			);
-			if (statistics.length < 10) {
+
+			if (statistics.size < 10) {
 				const additionalKinds = defaultFileKinds.filter(
-					(defaultKind) => !statistics.some((stat) => stat.kind === defaultKind.id)
+					(defaultKind) => !statistics.has(defaultKind.kind)
 				);
-				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.length);
-				setFileKinds((prevKinds) => [...prevKinds, ...kindsToAdd]);
+				const kindsToAdd = additionalKinds.slice(0, 10 - statistics.size);
+
+				for (const kindToAdd of kindsToAdd) {
+					statistics.set(kindToAdd.kind, kindToAdd);
+				}
 			}
 
-			data.statistics.forEach((item: { name: string }) => {
+			setFileKinds(statistics);
+
+			Object.values(data.statistics).forEach((item: { name: string }) => {
 				const iconName = item.name;
 				if (!iconsRef.current[iconName]) {
 					const img = new Image();
@@ -157,7 +184,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		}
 	}, [data, isDark]);
 
-	const sortedFileKinds = [...fileKinds].sort((a, b) => {
+	const sortedFileKinds = [...fileKinds.values()].sort((a, b) => {
 		if (a.count === b.count) return 0;
 		return a.count > b.count ? -1 : 1;
 	});
@@ -170,7 +197,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 			const path = {
 				pathname: '../search',
 				search: new URLSearchParams({
-					filters: JSON.stringify([{ object: { kind: { in: [fileKind.id] } } }])
+					filters: JSON.stringify([{ object: { kind: { in: [fileKind.kind] } } }])
 				}).toString()
 			};
 			navigate(path);
@@ -214,7 +241,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 				</div>
 				<div className={BARS_CONTAINER_CLASSLIST}>
 					{sortedFileKinds.map((fileKind, index) => {
-						const iconImage = iconsRef.current[fileKind.kind];
+						const iconImage = iconsRef.current[fileKind.name];
 						const barColor = interpolateHexColor(
 							BAR_COLOR_START,
 							BAR_COLOR_END,
@@ -231,7 +258,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 									label={
 										formatNumberWithCommas(fileKind.count) +
 										' ' +
-										fileKind.kind +
+										fileKind.name +
 										's'
 									}
 									position="left"
@@ -243,7 +270,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 										{iconImage && (
 											<img
 												src={iconImage.src}
-												alt={fileKind.kind}
+												alt={fileKind.name}
 												className="relative mb-1 size-4 duration-500"
 											/>
 										)}

@@ -1,10 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
-import { useLibraryQuery } from '@sd/client';
 import { Plus } from 'phosphor-react-native';
 import { useMemo, useRef } from 'react';
 import { Pressable, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import { useDebounce } from 'use-debounce';
+import { useLibraryQuery } from '@sd/client';
 import Empty from '~/components/layout/Empty';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -47,38 +47,38 @@ export default function TagsScreen({ viewStyle = 'list' }: Props) {
 				<Plus size={20} weight="bold" style={tw`text-ink`} />
 			</Pressable>
 			<View style={tw`min-h-full`}>
-			<FlatList
-				data={filteredTags}
-				renderItem={({ item }) => (
-					<TagItem
-						viewStyle={viewStyle}
-						tag={item}
-						onPress={() => {
-							navigation.navigate('BrowseStack', {
-								screen: 'Tag',
-								params: { id: item.id, color: item.color! }
-							});
-						}}
-					/>
-				)}
-				ListEmptyComponent={
-					<Empty
-						icon="Tags"
-						style={'border-0'}
-						iconSize={84}
-						description="You have not created any tags"
-					/>
-				}
-				horizontal={false}
-				numColumns={viewStyle === 'grid' ? 3 : 1}
-				keyExtractor={(item) => item.id.toString()}
-				showsHorizontalScrollIndicator={false}
-				ItemSeparatorComponent={() => <View style={tw`h-2`} />}
-				contentContainerStyle={twStyle(
-					'py-6',
-					tagsData?.length === 0 && 'h-full items-center justify-center'
-				)}
-			/>
+				<FlatList
+					data={filteredTags}
+					renderItem={({ item }) => (
+						<TagItem
+							viewStyle={viewStyle}
+							tag={item}
+							onPress={() => {
+								navigation.navigate('BrowseStack', {
+									screen: 'Tag',
+									params: { id: item.id, color: item.color! }
+								});
+							}}
+						/>
+					)}
+					ListEmptyComponent={
+						<Empty
+							icon="Tags"
+							style={'border-0'}
+							iconSize={84}
+							description="You have not created any tags"
+						/>
+					}
+					horizontal={false}
+					numColumns={viewStyle === 'grid' ? 3 : 1}
+					keyExtractor={(item) => item.id.toString()}
+					showsHorizontalScrollIndicator={false}
+					ItemSeparatorComponent={() => <View style={tw`h-2`} />}
+					contentContainerStyle={twStyle(
+						'py-6',
+						tagsData?.length === 0 && 'h-full items-center justify-center'
+					)}
+				/>
 			</View>
 			<CreateTagModal ref={modalRef} />
 		</ScreenContainer>

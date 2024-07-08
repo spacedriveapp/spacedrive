@@ -1,5 +1,5 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
-import { ThumbKey, auth } from '@sd/client';
+import { auth, ThumbKey } from '@sd/client';
 
 export type OperatingSystem = 'browser' | 'linux' | 'macOS' | 'windows' | 'unknown';
 

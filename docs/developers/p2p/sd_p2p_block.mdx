@@ -20,9 +20,10 @@ Below I have outlined some of my thoughts on how to build an improved version:
 ### Progress tracking
 
 Currently the protocol works like the following:
- - Send block of file
- - Wait for ack
- - Send next block
+
+- Send block of file
+- Wait for ack
+- Send next block
 
 This is obviously not ideal as it means the sender is waiting for the receiver to ack each block before sending the next one.
 
@@ -34,7 +35,7 @@ We can either, remove acknowledgements or send them less frequently, some testin
 
 [Tracking issue](https://linear.app/spacedriveapp/issue/ENG-1312/spaceblock-file-checksum)
 
-I think the new version of the protocol should compute a [Blake3](https://en.wikipedia.org/wiki/BLAKE_(hash_function)) hash on both the sender and the receiver and ensure they much before the transfer is considered complete. This ensures both any data corruption or bugs in the Spacedrop protocol don't result in data loss for the user. The current protocol lacks this feature.
+I think the new version of the protocol should compute a [Blake3](<https://en.wikipedia.org/wiki/BLAKE_(hash_function)>) hash on both the sender and the receiver and ensure they much before the transfer is considered complete. This ensures both any data corruption or bugs in the Spacedrop protocol don't result in data loss for the user. The current protocol lacks this feature.
 
 ### Cancellation
 

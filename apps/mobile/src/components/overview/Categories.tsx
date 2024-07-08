@@ -13,6 +13,7 @@ import CategoryItem from './CategoryItem';
 export default function CategoriesScreen() {
 	const kinds = useLibraryQuery(['library.kindStatistics']);
 	const navigation = useNavigation<OverviewStackScreenProps<'Overview'>['navigation']>();
+
 	return (
 		<View style={tw`px-5`}>
 			<View style={tw`flex-row items-center justify-between pb-5`}>
@@ -28,8 +29,8 @@ export default function CategoriesScreen() {
 				</Button>
 			</View>
 			<View style={tw`flex-row flex-wrap gap-2`}>
-				{kinds.data?.statistics
-					?.sort((a, b) => {
+				{Object.values(kinds.data?.statistics ?? {})
+					.sort((a, b) => {
 						const aCount = uint32ArrayToBigInt(a.count);
 						const bCount = uint32ArrayToBigInt(b.count);
 						if (aCount === bCount) return 0;

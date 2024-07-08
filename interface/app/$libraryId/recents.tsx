@@ -44,10 +44,10 @@ export function Component() {
 
 	const explorer = useExplorer({
 		...items,
+		isFetching: items.query.isFetching,
 		isFetchingNextPage: items.query.isFetchingNextPage,
 		settings: explorerSettings
 	});
-
 	return (
 		<ExplorerContextProvider explorer={explorer}>
 			<SearchContextProvider search={search}>
@@ -68,7 +68,6 @@ export function Component() {
 					)}
 				</TopBarPortal>
 			</SearchContextProvider>
-
 			<Explorer
 				emptyNotice={
 					<EmptyNotice
