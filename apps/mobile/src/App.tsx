@@ -14,7 +14,14 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, LogBox, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { check, Permission, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
+import {
+	check,
+	Permission,
+	PERMISSIONS,
+	PermissionStatus,
+	request,
+	RESULTS
+} from 'react-native-permissions';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
@@ -171,40 +178,48 @@ const checkAndroidPermissions = async () => {
 			PERMISSIONS.ANDROID.READ_MEDIA_AUDIO,
 			PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
 			PERMISSIONS.ANDROID.READ_MEDIA_VIDEO,
-			PERMISSIONS.ANDROID.ACCESS_MEDIA_LOCATION,
+			// PERMISSIONS.ANDROID.ACCESS_MEDIA_LOCATION, // Not used/Needed right now but may be needed in the future
 			PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
 			PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE
 		];
 
-		const statuses = await Promise.all(permissions.map((permission) => check(permission)));
+		let allPermissionsGranted = false;
+		const blockedPermissions = [];
 
-		const results = await Promise.all(
-			statuses.map(async (status, index) => {
-				if (status !== RESULTS.GRANTED) {
-					if (
-						[
-							PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
-							PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE
-						].includes(permissions[index] as any)
-					) {
-						Alert.alert(
-							'Permissions required',
-							'The app needs access to external storage to function correctly. Please grant the permissions in Settings.'
-						);
-					}
-					await request(permissions[index] as Permission);
+		while (!allPermissionsGranted) {
+			const statuses = await Promise.all(permissions.map((permission) => check(permission)));
+
+			const deniedPermissions = statuses
+				.map((status, index) => (status === RESULTS.DENIED ? permissions[index] : null))
+				.filter((permission) => permission !== null);
+
+			for (const permission of deniedPermissions) {
+				const result = await request(permission as Permission);
+				if (result === RESULTS.BLOCKED) {
+					blockedPermissions.push(permission);
 				}
-				return status;
-			})
-		);
+			}
 
-		const allGranted = results.every((result) => result === RESULTS.GRANTED);
+			allPermissionsGranted = statuses.every((status) => status === RESULTS.GRANTED);
 
-		if (!allGranted) {
+			if (!allPermissionsGranted && blockedPermissions.length > 0) {
+				Alert.alert(
+					'Permissions required',
+					'Some permissions are blocked. Please grant the permissions in Settings.',
+					[{ text: 'OK' }]
+				);
+				break;
+			}
+			console.log('statuses', statuses);
+		}
+
+		if (!allPermissionsGranted) {
 			Alert.alert(
 				'Permissions required',
 				'Some permissions are not granted. The app may not function correctly.'
 			);
+		} else {
+			Alert.alert('Permissions granted', 'All required permissions have been granted.');
 		}
 	} catch (err) {
 		console.warn(err);
