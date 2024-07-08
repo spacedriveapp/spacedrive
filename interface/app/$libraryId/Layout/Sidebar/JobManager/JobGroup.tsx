@@ -105,14 +105,26 @@ export default function ({ group, progress }: JobGroupProps) {
 					</JobContainer>
 					{showChildJobs && (
 						<div>
-							{jobs.map((job) => (
-								<Job
-									isChild={jobs.length > 1}
-									key={job.id}
-									job={job}
-									progress={progress[job.id] ?? null}
-								/>
-							))}
+							{jobs.map((job) => {
+								// Declare your constant here
+								let diff = 0;
+								if (job.created_at && job.estimated_completion) {
+									const start = new Date(job.created_at);
+									const end = new Date(job.estimated_completion);
+									diff = Math.abs(end.getTime() - start.getTime());
+									console.log(diff);
+								}
+
+								return (
+									<Job
+										isChild={jobs.length > 1}
+										key={job.id}
+										job={job}
+										progress={progress[job.id] ?? null}
+										eta={diff}
+									/>
+								);
+							})}
 						</div>
 					)}
 				</>

@@ -41,7 +41,6 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace, totalFree
 
 	const getPercentage = (value: bigint) => {
 		const percentage = Number((value * 100n) / totalSpace) / 100;
-		console.log(`percentage: ${percentage}`);
 		const pixvalue = BARWIDTH * percentage;
 		return `${pixvalue.toFixed(2)}px`;
 	};

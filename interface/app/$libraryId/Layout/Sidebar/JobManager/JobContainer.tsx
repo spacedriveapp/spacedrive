@@ -1,5 +1,13 @@
 import clsx from 'clsx';
-import { forwardRef, ForwardRefExoticComponent, Fragment, HTMLAttributes, ReactNode } from 'react';
+import {
+	forwardRef,
+	ForwardRefExoticComponent,
+	Fragment,
+	HTMLAttributes,
+	ReactNode,
+	useEffect,
+	useState
+} from 'react';
 import { TextItems } from '@sd/client';
 import { Tooltip, tw } from '@sd/ui';
 
@@ -8,22 +16,69 @@ import classes from './Job.module.scss';
 interface JobContainerProps extends HTMLAttributes<HTMLLIElement> {
 	name: string;
 	icon?: string | ForwardRefExoticComponent<any>;
-	// Array of arrays of TextItems, where each array of TextItems is a truncated line of text.
 	textItems?: TextItems;
 	isChild?: boolean;
 	children?: ReactNode;
+	eta?: number;
+	status?: string;
 }
 
-const CIRCLE_ICON_CLASS = `relative flex-shrink-0 top-1 z-20 mr-3 h-7 w-7 rounded-full bg-app-button p-[5.5px]`;
-const IMG_ICON_CLASS = `relative left-[-2px] top-1 z-10 mr-2 h-8 w-8`;
+const CIRCLE_ICON_CLASS =
+	'relative flex-shrink-0 top-1 z-20 mr-3 h-7 w-7 rounded-full bg-app-button p-[5.5px]';
+const IMG_ICON_CLASS = 'relative left-[-2px] top-1 z-10 mr-2 h-8 w-8';
 
 const MetaContainer = tw.div`flex w-full overflow-hidden flex-col`;
 const TextLine = tw.div`mt-[2px] gap-1 text-ink-faint truncate mr-8 pl-1.5`;
 const TextItem = tw.span`truncate`;
 
+const formatETA = (eta: number): string => {
+	const seconds = Math.floor((eta / 1000) % 60);
+	const minutes = Math.floor((eta / (1000 * 60)) % 60);
+	const hours = Math.floor((eta / (1000 * 60 * 60)) % 24);
+	const days = Math.floor(eta / (1000 * 60 * 60 * 24));
+
+	let formattedETA = '';
+
+	if (days > 0) formattedETA += `${days} day${days > 1 ? 's' : ''} `;
+	if (hours > 0) formattedETA += `${hours} hour${hours > 1 ? 's' : ''} `;
+	if (minutes > 0) formattedETA += `${minutes} minute${minutes > 1 ? 's' : ''} `;
+	if (seconds > 0 || formattedETA === '')
+		formattedETA += `${seconds} second${seconds > 1 ? 's' : ''} `;
+
+	return formattedETA.trim() + ' remaining';
+};
+
 // Job container consolidates the common layout of a job item, used for regular jobs (Job.tsx) and grouped jobs (JobGroup.tsx).
 const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) => {
-	const { name, icon: Icon, textItems, isChild, children, className, ...restProps } = props;
+	const {
+		name,
+		icon: Icon,
+		textItems,
+		isChild,
+		children,
+		className,
+		eta,
+		status,
+		...restProps
+	} = props;
+	const [currentETA, setCurrentETA] = useState<number | undefined>(eta);
+
+	useEffect(() => {
+		if (currentETA !== undefined && currentETA > 0) {
+			const interval = setInterval(() => {
+				setCurrentETA((prevETA) => {
+					if (prevETA === undefined) return 0;
+					return prevETA - 1000;
+				});
+			}, 1000);
+
+			return () => clearInterval(interval);
+		}
+	}, [currentETA]);
+
+	useEffect(() => {
+		setCurrentETA(eta);
+	}, [eta]);
 
 	return (
 		<li
@@ -54,7 +109,6 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {
-					// filter out undefined text so we don't render empty TextItems
 					const filteredItems = item.filter((i) => i?.text);
 
 					const popoverText = filteredItems.map((i) => i?.text).join(' • ');
@@ -73,7 +127,6 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 											<TextItem
 												onClick={textItem?.onClick}
 												className={clsx(
-													// index > 0 && 'px-1.5 py-0.5 italic',
 													'tabular-nums',
 													textItem?.onClick &&
 														'-ml-1.5 rounded-md hover:bg-app-button/50'
@@ -94,6 +147,9 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 										</Fragment>
 									);
 								})}
+								{status != 'Completed' &&
+									currentETA !== undefined &&
+									currentETA > 0 && <div>{formatETA(currentETA)}</div>}
 							</TextLine>
 						</Tooltip>
 					);
