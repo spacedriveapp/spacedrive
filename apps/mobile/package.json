@@ -60,6 +60,7 @@
 		"react-native-file-viewer": "^2.1.5",
 		"react-native-gesture-handler": "~2.14.1",
 		"react-native-linear-gradient": "^2.8.3",
+		"react-native-permissions": "^4.1.5",
 		"react-native-popup-menu": "^0.16.1",
 		"react-native-reanimated": "~3.6.3",
 		"react-native-safe-area-context": "4.8.2",

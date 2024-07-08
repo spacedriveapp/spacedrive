@@ -12,8 +12,9 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { LogBox } from 'react-native';
+import { Alert, LogBox, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { check, Permission, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
@@ -154,6 +155,7 @@ const queryClient = new QueryClient();
 export default function App() {
 	useEffect(() => {
 		SplashScreen.hideAsync();
+		if (Platform.OS === 'android') checkAndroidPermissions();
 	}, []);
 
 	return (
@@ -162,3 +164,50 @@ export default function App() {
 		</RspcProvider>
 	);
 }
+
+const checkAndroidPermissions = async () => {
+	try {
+		const permissions = [
+			PERMISSIONS.ANDROID.READ_MEDIA_AUDIO,
+			PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
+			PERMISSIONS.ANDROID.READ_MEDIA_VIDEO,
+			PERMISSIONS.ANDROID.ACCESS_MEDIA_LOCATION,
+			PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+			PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE
+		];
+
+		const statuses = await Promise.all(permissions.map((permission) => check(permission)));
+
+		const results = await Promise.all(
+			statuses.map(async (status, index) => {
+				console.log(`Checking ${permissions[index]}`, status);
+				if (status !== RESULTS.GRANTED) {
+					if (
+						[
+							PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+							PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE
+						].includes(permissions[index] as any)
+					) {
+						Alert.alert(
+							'Permissions required',
+							'The app needs access to external storage to function correctly. Please grant the permissions in Settings.'
+						);
+					}
+					await request(permissions[index] as Permission);
+				}
+				return status;
+			})
+		);
+
+		const allGranted = results.every((result) => result === RESULTS.GRANTED);
+
+		if (!allGranted) {
+			Alert.alert(
+				'Permissions required',
+				'Some permissions are not granted. The app may not function correctly.'
+			);
+		}
+	} catch (err) {
+		console.warn(err);
+	}
+};

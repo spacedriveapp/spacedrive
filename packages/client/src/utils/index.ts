@@ -124,6 +124,7 @@ export type UnionToTuple<T> =
 		: [];
 
 export function formatNumber(n: number | bigint) {
+	n = Number(n);
 	if (!n) return '0';
 	return Intl.NumberFormat().format(n);
 }
