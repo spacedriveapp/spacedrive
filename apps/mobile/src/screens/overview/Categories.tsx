@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { FlatList, View } from 'react-native';
 import { useDebounce } from 'use-debounce';
-import { uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
+import { useLibraryQuery } from '@sd/client';
 import { IconName } from '~/components/icons/Icon';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import CategoryItem from '~/components/overview/CategoryItem';
@@ -24,8 +24,8 @@ const CategoriesScreen = () => {
 			<FlatList
 				data={filteredKinds
 					?.sort((a, b) => {
-						const aCount = uint32ArrayToBigInt(a.count);
-						const bCount = uint32ArrayToBigInt(b.count);
+						const aCount = Number(a.count);
+						const bCount = Number(b.count);
 						if (aCount === bCount) return 0;
 						return aCount > bCount ? -1 : 1;
 					})
@@ -53,7 +53,7 @@ const CategoriesScreen = () => {
 							kind={kind}
 							name={name}
 							icon={icon}
-							items={uint32ArrayToBigInt(count)}
+							items={Number(count)}
 						/>
 					);
 				}}

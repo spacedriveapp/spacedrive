@@ -31,7 +31,7 @@ const FileRow = ({ data }: FileRowProps) => {
 				<View
 					style={tw`mx-2 flex-1 flex-row items-center justify-between border-b border-white/10 pb-3`}
 				>
-					<View style={tw`max-w-[80%]`}>
+					<View style={twStyle(tags.length === 0 ? 'w-full' : 'max-w-[85%]')}>
 						<Text
 							numberOfLines={1}
 							style={tw`text-center text-sm font-medium text-ink`}

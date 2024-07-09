@@ -1,5 +1,5 @@
-import { Text, View } from 'react-native';
 import { CloudInstance, HardwareModel } from '@sd/client';
+import { Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import { hardwareModelToIcon } from '~/components/overview/Devices';
 import { tw } from '~/lib/tailwind';
@@ -24,7 +24,7 @@ const Instance = ({ data }: Props) => {
 				</View>
 				<Text
 					numberOfLines={1}
-					style={tw`mb-3 px-1 text-center text-sm font-medium font-semibold text-ink`}
+					style={tw`mb-3 px-1 text-center text-sm font-medium text-ink`}
 				>
 					{data.metadata.name}
 				</Text>

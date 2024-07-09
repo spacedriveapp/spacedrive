@@ -14,7 +14,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import Layout from '~/constants/Layout';
-import { tw } from '~/lib/tailwind';
+import { twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
@@ -22,6 +22,7 @@ import { useActionsModalStore } from '~/stores/modalStore';
 import ScreenContainer from '../layout/ScreenContainer';
 import { toast } from '../primitive/Toast';
 import FileItem from './FileItem';
+import FileMedia from './FileMedia';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
 
@@ -113,7 +114,13 @@ const Explorer = (props: Props) => {
 			) : (
 				<FlashList
 					key={store.layoutMode}
-					numColumns={store.layoutMode === 'grid' ? store.gridNumColumns : 1}
+					numColumns={
+						store.layoutMode === 'grid'
+							? store.gridNumColumns
+							: store.layoutMode === 'media'
+								? store.mediaColumns
+								: 1
+					}
 					data={props.items ?? []}
 					keyExtractor={(item) =>
 						item.type === 'NonIndexedPath'
@@ -129,17 +136,25 @@ const Explorer = (props: Props) => {
 						>
 							{store.layoutMode === 'grid' ? (
 								<FileItem data={item} />
-							) : (
+							) : store.layoutMode === 'list' ? (
 								<FileRow data={item} />
+							) : (
+								store.layoutMode === 'media' && <FileMedia data={item} />
 							)}
 						</Pressable>
 					)}
-					contentContainerStyle={tw`px-2 py-5`}
+					contentContainerStyle={twStyle(
+						store.layoutMode !== 'media' ? 'px-2 py-5' : 'px-0'
+					)}
 					extraData={store.layoutMode}
 					estimatedItemSize={
 						store.layoutMode === 'grid'
 							? Layout.window.width / store.gridNumColumns
-							: store.listItemSize
+							: store.layoutMode === 'list'
+								? store.listItemSize
+								: store.layoutMode === 'media'
+									? Layout.window.width / store.mediaColumns
+									: 100
 					}
 					onEndReached={() => props.loadMore?.()}
 					onEndReachedThreshold={0.6}
