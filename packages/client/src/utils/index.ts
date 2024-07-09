@@ -124,7 +124,7 @@ export type UnionToTuple<T> =
 		: [];
 
 export function formatNumber(n: number | bigint) {
-	n = Number(n);
+	n = Number(n); // Note by @Rocky43007: We have to do this because otherwise, Mobile breaks because it doesn't know how to handle Big Integers.
 	if (!n) return '0';
 	return Intl.NumberFormat().format(n);
 }
