@@ -43,6 +43,19 @@ export default function ({ group, progress }: JobGroupProps) {
 	if (jobs.length === 0) return <></>;
 	const { t } = useLocale();
 
+	const calculateETA = (job: {
+		created_at: string | number | Date;
+		estimated_completion: string | number | Date;
+	}) => {
+		let diff = 0;
+		if (job.created_at && job.estimated_completion) {
+			const start = new Date(job.created_at);
+			const end = new Date(job.estimated_completion);
+			diff = Math.abs(end.getTime() - start.getTime());
+		}
+		return diff;
+	};
+
 	return (
 		<ul className="relative overflow-visible">
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
@@ -106,14 +119,7 @@ export default function ({ group, progress }: JobGroupProps) {
 					{showChildJobs && (
 						<div>
 							{jobs.map((job) => {
-								// Declare your constant here
-								let diff = 0;
-								if (job.created_at && job.estimated_completion) {
-									const start = new Date(job.created_at);
-									const end = new Date(job.estimated_completion);
-									diff = Math.abs(end.getTime() - start.getTime());
-									console.log(diff);
-								}
+								const diff = calculateETA(job);
 
 								return (
 									<Job
@@ -129,7 +135,12 @@ export default function ({ group, progress }: JobGroupProps) {
 					)}
 				</>
 			) : (
-				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
+				// add eta for individual jobs
+				<Job
+					job={jobs[0]!}
+					progress={progress[jobs[0]!.id] || null}
+					eta={calculateETA(jobs[0])}
+				/>
 			)}
 		</ul>
 	);
@@ -194,6 +205,7 @@ function Options({
 	);
 
 	const clearJobHandler = () => {
+		console.log(group.jobs);
 		group.jobs.forEach((job) => {
 			clearJob.mutate(job.id);
 			//only one toast for all jobs
