@@ -35,10 +35,7 @@
 				"MANAGE_EXTERNAL_STORAGE",
 				"READ_MEDIA_AUDIO",
 				"READ_MEDIA_IMAGES",
-				"READ_MEDIA_VIDEO",
-				"ACCESS_MEDIA_LOCATION",
-				"READ_EXTERNAL_STORAGE",
-				"WRITE_EXTERNAL_STORAGE"
+				"READ_MEDIA_VIDEO"
 			],
 			"package": "com.spacedrive.app"
 		},

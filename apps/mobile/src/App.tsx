@@ -11,17 +11,10 @@ import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { checkManagePermission, requestManagePermission } from 'manage-external-storage';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, LogBox, Platform } from 'react-native';
+import { Alert, LogBox, Permission, PermissionsAndroid, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-	check,
-	Permission,
-	PERMISSIONS,
-	PermissionStatus,
-	request,
-	RESULTS
-} from 'react-native-permissions';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
@@ -162,7 +155,7 @@ const queryClient = new QueryClient();
 export default function App() {
 	useEffect(() => {
 		SplashScreen.hideAsync();
-		if (Platform.OS === 'android') checkAndroidPermissions();
+		if (Platform.OS === 'android') requestPermissions();
 	}, []);
 
 	return (
@@ -172,54 +165,45 @@ export default function App() {
 	);
 }
 
-const checkAndroidPermissions = async () => {
+const requestPermissions = async () => {
 	try {
-		const permissions = [
-			PERMISSIONS.ANDROID.READ_MEDIA_AUDIO,
-			PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
-			PERMISSIONS.ANDROID.READ_MEDIA_VIDEO,
-			// PERMISSIONS.ANDROID.ACCESS_MEDIA_LOCATION, // Not used/Needed right now but may be needed in the future
-			PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
-			PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE
-		];
+		const granted = await PermissionsAndroid.requestMultiple([
+			PermissionsAndroid.PERMISSIONS.READ_MEDIA_AUDIO,
+			PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+			PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO
+		] as Permission[]);
 
-		let allPermissionsGranted = false;
-		const blockedPermissions = [];
+		if (
+			granted['android.permission.READ_MEDIA_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED &&
+			granted['android.permission.READ_MEDIA_IMAGES'] ===
+				PermissionsAndroid.RESULTS.GRANTED &&
+			granted['android.permission.READ_MEDIA_VIDEO'] === PermissionsAndroid.RESULTS.GRANTED &&
+			PermissionsAndroid.RESULTS.GRANTED
+		) {
+			console.log('All permissions via RN granted');
+			const check_MANAGE_EXTERNAL_STORAGE = await checkManagePermission();
+			console.log('check_MANAGE_EXTERNAL_STORAGE', check_MANAGE_EXTERNAL_STORAGE);
 
-		while (!allPermissionsGranted) {
-			const statuses = await Promise.all(permissions.map((permission) => check(permission)));
-
-			const deniedPermissions = statuses
-				.map((status, index) => (status === RESULTS.DENIED ? permissions[index] : null))
-				.filter((permission) => permission !== null);
-
-			for (const permission of deniedPermissions) {
-				const result = await request(permission as Permission);
-				if (result === RESULTS.BLOCKED) {
-					blockedPermissions.push(permission);
+			if (check_MANAGE_EXTERNAL_STORAGE) {
+				console.log('MANAGE_EXTERNAL_STORAGE granted');
+			} else {
+				const request = await requestManagePermission();
+				if (request) {
+					console.log('MANAGE_EXTERNAL_STORAGE granted');
+				} else {
+					console.log('MANAGE_EXTERNAL_STORAGE denied');
+					Alert.alert(
+						'Permission Denied',
+						'MANAGE_EXTERNAL_STORAGE permission was denied. The app may not function as expected. Please enable it in the app settings.'
+					);
 				}
 			}
-
-			allPermissionsGranted = statuses.every((status) => status === RESULTS.GRANTED);
-
-			if (!allPermissionsGranted && blockedPermissions.length > 0) {
-				Alert.alert(
-					'Permissions required',
-					'Some permissions are blocked. Please grant the permissions in Settings.',
-					[{ text: 'OK' }]
-				);
-				break;
-			}
-			console.log('statuses', statuses);
-		}
-
-		if (!allPermissionsGranted) {
-			Alert.alert(
-				'Permissions required',
-				'Some permissions are not granted. The app may not function correctly.'
-			);
 		} else {
-			Alert.alert('Permissions granted', 'All required permissions have been granted.');
+			console.log('One or more permissions denied');
+			Alert.alert(
+				'Permission Denied',
+				'Some permissions were denied. The app may not function as expected. Please enable them in the app settings'
+			);
 		}
 	} catch (err) {
 		console.warn(err);
