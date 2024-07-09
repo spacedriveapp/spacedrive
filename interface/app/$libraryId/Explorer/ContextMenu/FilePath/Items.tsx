@@ -7,8 +7,8 @@ import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { isNonEmpty } from '~/util';
 
-import { useExplorerContext } from '../../Context';
 import { CopyAsPathBase } from '../../CopyAsPath';
+import { useExplorerContext } from '../../ExplorerContext';
 import DeleteDialog from '../../FilePath/DeleteDialog';
 // import EraseDialog from '../../FilePath/EraseDialog';
 import { ConditionalItem } from '../ConditionalItem';

@@ -6,7 +6,7 @@ import DismissibleNotice from '~/components/DismissibleNotice';
 import { useLocale } from '~/hooks';
 import { dismissibleNoticeStore } from '~/hooks/useDismissibleNoticeStore';
 
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 
 const MediaViewIcon = () => {
 	return (

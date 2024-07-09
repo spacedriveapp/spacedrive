@@ -16,7 +16,7 @@ import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { useExplorerCopyPaste } from '../hooks/useExplorerCopyPaste';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
@@ -25,8 +25,8 @@ import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
-import { ExplorerViewContext, ExplorerViewContextProps } from './Context';
 import { DragScrollable } from './DragScrollable';
+import { ExplorerViewContext, ExplorerViewContextProps } from './ExplorerViewContext';
 import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { MediaView } from './MediaView';

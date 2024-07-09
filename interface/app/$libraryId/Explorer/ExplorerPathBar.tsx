@@ -15,7 +15,7 @@ import { useIsDark, useLocale, useOperatingSystem } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 import { FileThumb } from './FilePath/Thumb';
 import { lookup } from './RevealInNativeExplorer';
 import { useExplorerDroppable } from './useExplorerDroppable';

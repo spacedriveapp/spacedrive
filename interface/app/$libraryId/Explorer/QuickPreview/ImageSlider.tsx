@@ -5,7 +5,7 @@ import { ExplorerItem, getExplorerItemData } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 
 import { QuickPreviewItem } from '.';
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { FileThumb } from '../FilePath/Thumb';
 
 export const ImageSlider = ({ activeItem }: { activeItem: QuickPreviewItem }) => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { explorerStore } from '../store';
 
 /**

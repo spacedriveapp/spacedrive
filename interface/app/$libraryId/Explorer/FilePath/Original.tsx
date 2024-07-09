@@ -15,7 +15,7 @@ import { useLocale } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { explorerStore } from '../store';
 import { ExplorerItemData } from '../useExplorerItemData';
 import { Image } from './Image';

@@ -23,7 +23,7 @@ import TopBarOptions, {
 	TOP_BAR_ICON_DEFAULT_PROPS,
 	TOP_BAR_ICON_WEIGHT
 } from '../TopBar/TopBarOptions';
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
 

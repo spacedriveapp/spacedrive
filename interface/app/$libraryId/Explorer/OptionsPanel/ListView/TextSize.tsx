@@ -3,7 +3,7 @@ import { Slider } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
 import { Subheading } from '..';
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { LIST_VIEW_TEXT_SIZES } from '../../View/ListView/useTable';
 import { getSizes } from './util';
 

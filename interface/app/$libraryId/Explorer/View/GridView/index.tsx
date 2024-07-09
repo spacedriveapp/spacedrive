@@ -2,9 +2,9 @@ import { Grid, useGrid } from '@virtual-grid/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useExplorerLayoutStore } from '@sd/client';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { getItemData, getItemId, uniqueId } from '../../util';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerViewContext } from '../ExplorerViewContext';
 import { DragSelect } from '../Grid/DragSelect';
 import { GridItem } from '../Grid/Item';
 import { useKeySelection } from '../Grid/useKeySelection';

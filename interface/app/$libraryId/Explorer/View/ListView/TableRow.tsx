@@ -4,9 +4,9 @@ import { memo, useMemo } from 'react';
 import { type ExplorerItem } from '@sd/client';
 
 import { TABLE_PADDING_X } from '.';
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { RowViewItem } from '../RowViewItem';
-import { useTableContext } from './context';
+import { useTableContext } from '../TableContext';
 import { LIST_VIEW_TEXT_SIZES } from './useTable';
 
 interface Props {

@@ -19,11 +19,11 @@ import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { getQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';
 import { uniqueId } from '../util';
-import { useExplorerViewContext } from './Context';
+import { useExplorerViewContext } from './ExplorerViewContext';
 
 export const useViewItemDoubleClick = () => {
 	const navigate = useNavigate();

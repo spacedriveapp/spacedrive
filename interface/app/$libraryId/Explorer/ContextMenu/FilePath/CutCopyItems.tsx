@@ -4,7 +4,7 @@ import { useLocale } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { useExplorerCopyPaste } from '../../hooks/useExplorerCopyPaste';
 import { ConditionalItem } from '../ConditionalItem';
 import { useContextMenuContext } from '../context';

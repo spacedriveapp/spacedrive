@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useLibraryContext } from '@sd/client';
-import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
+import { useExplorerContext } from '~/app/$libraryId/Explorer/ExplorerContext';
 import { useShortcut } from '~/hooks';
 import { usePlatform, type Platform } from '~/util/Platform';
 

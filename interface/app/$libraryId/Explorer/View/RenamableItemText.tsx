@@ -12,7 +12,7 @@ import {
 import { toast } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { RenameTextBox, RenameTextBoxProps } from '../FilePath/RenameTextBox';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';

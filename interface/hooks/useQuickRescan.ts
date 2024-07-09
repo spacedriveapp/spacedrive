@@ -3,7 +3,7 @@ import { useRspcLibraryContext } from '@sd/client';
 import { toast } from '@sd/ui';
 import { explorerStore } from '~/app/$libraryId/Explorer/store';
 
-import { useExplorerContext } from '../app/$libraryId/Explorer/Context';
+import { useExplorerContext } from '../app/$libraryId/Explorer/ExplorerContext';
 import { useExplorerSearchParams } from '../app/$libraryId/Explorer/util';
 import { useLocale } from './useLocale';
 

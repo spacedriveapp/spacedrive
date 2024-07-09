@@ -3,9 +3,9 @@ import { useDebouncedCallback } from 'use-debounce';
 import { ExplorerItem } from '@sd/client';
 import { useShortcut } from '~/hooks';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { useExplorerOperatingSystem } from '../../useExplorerOperatingSystem';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerViewContext } from '../ExplorerViewContext';
 
 type Grid = ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
 

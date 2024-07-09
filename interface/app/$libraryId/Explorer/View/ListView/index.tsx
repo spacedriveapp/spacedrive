@@ -18,12 +18,12 @@ import { useShortcut } from '~/hooks';
 import { isNonEmptyObject } from '~/util';
 
 import { useLayoutContext } from '../../../Layout/Context';
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { getQuickPreviewStore, useQuickPreviewStore } from '../../QuickPreview/store';
 import { uniqueId } from '../../util';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerViewContext } from '../ExplorerViewContext';
+import { TableContext } from '../TableContext';
 import { useDragScrollable } from '../useDragScrollable';
-import { TableContext } from './context';
 import { TableRow } from './TableRow';
 import { getRangeDirection, Range, useRanges } from './useRanges';
 import {

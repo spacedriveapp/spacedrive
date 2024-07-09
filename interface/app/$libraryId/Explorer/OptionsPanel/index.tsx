@@ -10,7 +10,7 @@ import i18n from '~/app/I18n';
 import { SortOrderSchema } from '~/app/route-schemas';
 import { useLocale } from '~/hooks';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { ListViewOptions } from './ListView';
 
 export const Subheading = tw.div`text-ink-dull mb-1 text-xs font-medium`;

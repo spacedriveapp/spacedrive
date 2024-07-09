@@ -3,10 +3,10 @@ import { PropsWithChildren, useEffect, useRef } from 'react';
 import Selecto, { SelectoEvents } from 'react-selecto';
 import { ExplorerItem } from '@sd/client';
 
-import { useExplorerContext } from '../../../Context';
+import { useExplorerContext } from '../../../ExplorerContext';
 import { explorerStore } from '../../../store';
 import { useExplorerOperatingSystem } from '../../../useExplorerOperatingSystem';
-import { useExplorerViewContext } from '../../Context';
+import { useExplorerViewContext } from '../../ExplorerViewContext';
 import { DragSelectContext } from './context';
 import { useSelectedTargets } from './useSelectedTargets';
 import { getElementIndex, SELECTABLE_DATA_ATTRIBUTE } from './util';

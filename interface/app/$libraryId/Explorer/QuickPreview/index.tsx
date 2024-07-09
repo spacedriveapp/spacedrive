@@ -39,7 +39,6 @@ import { DropdownMenu, Form, toast, ToastMessage, Tooltip, z } from '@sd/ui';
 import { useIsDark, useLocale, useOperatingSystem, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
-import { useExplorerContext } from '../Context';
 import ExplorerContextMenu, {
 	FilePathItems,
 	ObjectItems,
@@ -47,10 +46,11 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
+import { useExplorerContext } from '../ExplorerContext';
 import { FileThumb } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { explorerStore } from '../store';
-import { useExplorerViewContext } from '../View/Context';
+import { useExplorerViewContext } from '../View/ExplorerViewContext';
 import { ImageSlider } from './ImageSlider';
 import { getQuickPreviewStore, useQuickPreviewStore } from './store';
 

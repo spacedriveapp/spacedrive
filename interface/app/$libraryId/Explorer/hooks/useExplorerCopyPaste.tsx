@@ -1,6 +1,6 @@
 import { getIndexedItemFilePath, libraryClient, useLibraryMutation } from '@sd/client';
 import { toast } from '@sd/ui';
-import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
+import { useExplorerContext } from '~/app/$libraryId/Explorer/ExplorerContext';
 import { explorerStore } from '~/app/$libraryId/Explorer/store';
 import { useExplorerSearchParams } from '~/app/$libraryId/Explorer/util';
 import { useLocale } from '~/hooks';

@@ -21,7 +21,7 @@ import {
 } from '@sd/client';
 import { useLocale } from '~/hooks';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { FileThumb } from '../../FilePath/Thumb';
 import { InfoPill } from '../../Inspector';
 import { CutCopyState, explorerStore, isCut } from '../../store';

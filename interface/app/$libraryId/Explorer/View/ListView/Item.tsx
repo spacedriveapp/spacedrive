@@ -4,12 +4,12 @@ import { memo, useMemo } from 'react';
 import { getItemFilePath, useSelector, type ExplorerItem } from '@sd/client';
 
 import { TABLE_PADDING_X } from '.';
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { ExplorerDraggable } from '../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../ExplorerDroppable';
 import { explorerStore } from '../../store';
+import { useTableContext } from '../TableContext';
 import { ViewItem } from '../ViewItem';
-import { useTableContext } from './context';
 import { LIST_VIEW_TEXT_SIZES } from './useTable';
 
 interface Props {
