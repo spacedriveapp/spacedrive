@@ -25,6 +25,7 @@ import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
+import { ColumnsView } from './ColumnsView';
 import { DragScrollable } from './DragScrollable';
 import { ExplorerViewContext, ExplorerViewContextProps } from './ExplorerViewContext';
 import { GridView } from './GridView';
@@ -181,7 +182,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 				<div ref={setDroppableRef} className="size-full">
 					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 						<>
-							{layoutMode === 'columns' && <ListView />}
+							{layoutMode === 'columns' && <ColumnsView />}
 							{layoutMode === 'grid' && <GridView />}
 							{layoutMode === 'list' && <ListView />}
 							{layoutMode === 'media' && <MediaView />}
