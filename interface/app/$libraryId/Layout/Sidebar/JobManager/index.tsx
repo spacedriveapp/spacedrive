@@ -2,6 +2,7 @@ import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
+import { on } from 'solid-js';
 import {
 	JobGroup as IJobGroup,
 	useJobProgress,
@@ -60,25 +61,82 @@ export function JobManager() {
 
 	const { t } = useLocale();
 
-	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
-		onError: () => {
-			toast.error({
-				title: t('error'),
-				body: t('failed_to_clear_all_jobs')
+	// const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
+	// 	onError: () => {
+	// 		toast.error({
+	// 			title: t('error'),
+	// 			body: t('failed_to_clear_all_jobs')
+	// 		});
+	// 	},
+	// 	onSuccess: () => {
+	// 		queryClient.invalidateQueries(['jobs.reports ']);
+	// 		setToggleConfirmation((t) => !t);
+	// 		toast.success({
+	// 			title: t('success'),
+	// 			body: t('all_jobs_have_been_cleared')
+	// 		});
+	// 	}
+	// });
+
+	const clearJob = useLibraryMutation(
+		['jobs.clear']
+		// {
+		// 	onError: () => {
+		// 		toast.error({
+		// 			title: t('error'),
+		// 			body: t('failed_to_clear_all_jobs')
+		// 		});
+		// 	}
+		// 	// onSuccess: () => {
+		// 	// 	queryClient.invalidateQueries(['jobs.reports ']);
+		// 	// 	setToggleConfirmation((t) => !t);
+		// 	// 	toast.success({
+		// 	// 		title: t('success'),
+		// 	// 		body: t('all_jobs_have_been_cleared')
+		// 	// 	});
+		// 	// }
+		// }
+	);
+
+	const clearAllJobsHandler = async () => {
+		try {
+			const clearPromises: any[] = [];
+
+			jobGroups.data.forEach((group: any) => {
+				if (group.jobs.length > 1) {
+					let allComplete = true;
+					group.jobs.forEach((job: any) => {
+						if (job.status !== 'Completed') {
+							allComplete = false;
+						}
+					});
+					if (allComplete) {
+						clearPromises.push(clearJob.mutateAsync(group.id));
+						group.jobs.forEach((job: any) => {
+							clearPromises.push(clearJob.mutateAsync(job.id));
+						});
+					}
+				} else {
+					if (group.status === 'Completed') {
+						clearPromises.push(clearJob.mutateAsync(group.id));
+					}
+				}
 			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.reports ']);
+
+			await Promise.all(clearPromises);
+
 			setToggleConfirmation((t) => !t);
 			toast.success({
 				title: t('success'),
 				body: t('all_jobs_have_been_cleared')
 			});
+			queryClient.invalidateQueries(['jobs.reports']);
+		} catch (error) {
+			toast.error({
+				title: t('error'),
+				body: t('failed_to_clear_all_jobs')
+			});
 		}
-	});
-
-	const clearAllJobsHandler = () => {
-		clearAllJobs.mutate(null);
 	};
 
 	return (

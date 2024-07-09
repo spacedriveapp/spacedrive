@@ -30,7 +30,7 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const runningJob = jobs.find((job) => job.status === 'Running');
+	const runningJob = jobs.find((job: { status: string }) => job.status === 'Running');
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -205,7 +205,7 @@ function Options({
 	);
 
 	const clearJobHandler = () => {
-		console.log(group.jobs);
+		console.log('hi');
 		group.jobs.forEach((job) => {
 			clearJob.mutate(job.id);
 			//only one toast for all jobs
