@@ -1,9 +1,9 @@
 import { useIsFocused } from '@react-navigation/native';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
-import { Suspense, useDeferredValue, useState } from 'react';
+import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
+import { ObjectKindEnum, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import FiltersBar from '~/components/search/filters/FiltersBar';
@@ -22,16 +22,25 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 	const [search, setSearch] = useState('');
 	const deferredSearch = useDeferredValue(search);
 	const order = useSortBy();
+	const { layoutMode } = useExplorerStore();
 
 	const locations = useLibraryQuery(['locations.list']).data ?? [];
+
+	const layoutSearchFilter = useMemo(
+		() =>
+			layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [],
+		[layoutMode]
+	);
 
 	const objects = usePathsExplorerQuery({
 		order,
 		arg: {
 			take: 30,
-			filters: searchStore.mergedFilters
+			filters: [...layoutSearchFilter, ...searchStore.mergedFilters]
 		},
-		enabled: isFocused && searchStore.mergedFilters.length > 1, // only fetch when screen is focused & filters are applied
+		enabled: isFocused && searchStore.mergedFilters.length >= 1, // only fetch when screen is focused & filters are applied
 		suspense: true,
 		onSuccess: () => getExplorerStore().resetNewThumbnails()
 	});

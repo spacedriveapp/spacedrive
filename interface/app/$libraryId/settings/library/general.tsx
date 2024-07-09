@@ -26,7 +26,7 @@ function toMaybeUndefined<T>(v: T | null | undefined): MaybeUndefined<T> {
 export const Component = () => {
 	const { library } = useLibraryContext();
 	const editLibrary = useBridgeMutation('library.edit');
-	const vaccumLibrary = useLibraryMutation('library.vaccumDb');
+	const vacuumLibrary = useLibraryMutation('library.vacuumDb');
 
 	const { t } = useLocale();
 
@@ -103,18 +103,18 @@ export const Component = () => {
 
 				<Setting
 					mini
-					title={t('vaccum_library')}
-					description={t('vaccum_library_description')}
+					title={t('vacuum_library')}
+					description={t('vacuum_library_description')}
 				>
 					<div className="mt-2">
 						<Button
-							onClick={() => vaccumLibrary.mutate(null)}
-							disabled={vaccumLibrary.isLoading}
+							onClick={() => vacuumLibrary.mutate(null)}
+							disabled={vacuumLibrary.isLoading}
 							size="sm"
 							variant="gray"
 							className="whitespace-nowrap"
 						>
-							{t('vaccum')}
+							{t('vacuum')}
 						</Button>
 					</div>
 				</Setting>

@@ -17,6 +17,7 @@ const state = {
 	toggleMenu: false as boolean,
 	// Using gridNumColumns instead of fixed size. We dynamically calculate the item size.
 	gridNumColumns: 3,
+	mediaColumns: 4,
 	listItemSize: 60,
 	newThumbnails: proxySet() as Set<string>,
 	// sorting
