@@ -1,17 +1,17 @@
+import { ObjectKindEnum, useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
-import { useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import { useSortBy } from '~/hooks/useSortBy';
 import { tw } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
-import { getExplorerStore } from '~/stores/explorerStore';
+import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
 
 export default function LocationScreen({ navigation, route }: BrowseStackScreenProps<'Location'>) {
 	const { id, path } = route.params;
 
 	const location = useLibraryQuery(['locations.get', route.params.id]);
-	const locationData = location.data;
+	const { layoutMode } = useExplorerStore();
 	const order = useSortBy();
 	const title = useMemo(() => {
 		return path
@@ -19,6 +19,22 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			.filter((x) => x !== '')
 			.pop();
 	}, [path]);
+
+
+	const locationData = location.data;
+	const layoutSearchFilter = layoutMode === 'media' ? [{ object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}}] : []
+	const defaultFilters = [
+			{ filePath: { hidden: false } },
+			{ filePath: { locations: { in: [id] } } },
+			{
+				filePath: {
+					path: {
+						location_id: id,
+						path: path ?? '',
+						include_descendants: layoutMode === 'media'
+					}
+			}
+		}]
 
 	// makes sure that the location shows newest/modified objects
 	// when a location is opened
@@ -29,17 +45,8 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
-				{ filePath: { hidden: false } },
-				{ filePath: { locations: { in: [id] } } },
-				{
-					filePath: {
-						path: {
-							location_id: id,
-							path: path ?? '',
-							include_descendants: false
-						}
-					}
-				}
+				...layoutSearchFilter,
+				...defaultFilters
 			].filter(Boolean) as any,
 			take: 30
 		},

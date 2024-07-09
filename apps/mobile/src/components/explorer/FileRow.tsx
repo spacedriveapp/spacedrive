@@ -1,6 +1,6 @@
+import { ExplorerItem, getItemFilePath, getItemObject, Tag } from '@sd/client';
 import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
-import { ExplorerItem, getItemFilePath, getItemObject, Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
 
@@ -34,7 +34,7 @@ const FileRow = ({ data }: FileRowProps) => {
 					<View style={twStyle(tags.length === 0 ? 'w-full' : 'max-w-[85%]')}>
 						<Text
 							numberOfLines={1}
-							style={tw`text-center text-sm font-medium text-ink`}
+							style={tw`text-left text-sm font-medium text-ink`}
 						>
 							{filePath?.name}
 							{filePath?.extension && `.${filePath.extension}`}
