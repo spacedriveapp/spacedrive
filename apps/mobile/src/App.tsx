@@ -180,18 +180,11 @@ const requestPermissions = async () => {
 			granted['android.permission.READ_MEDIA_VIDEO'] === PermissionsAndroid.RESULTS.GRANTED &&
 			PermissionsAndroid.RESULTS.GRANTED
 		) {
-			console.log('All permissions via RN granted');
 			const check_MANAGE_EXTERNAL_STORAGE = await checkManagePermission();
-			console.log('check_MANAGE_EXTERNAL_STORAGE', check_MANAGE_EXTERNAL_STORAGE);
 
-			if (check_MANAGE_EXTERNAL_STORAGE) {
-				console.log('MANAGE_EXTERNAL_STORAGE granted');
-			} else {
+			if (!check_MANAGE_EXTERNAL_STORAGE) {
 				const request = await requestManagePermission();
-				if (request) {
-					console.log('MANAGE_EXTERNAL_STORAGE granted');
-				} else {
-					console.log('MANAGE_EXTERNAL_STORAGE denied');
+				if (!request) {
 					Alert.alert(
 						'Permission Denied',
 						'MANAGE_EXTERNAL_STORAGE permission was denied. The app may not function as expected. Please enable it in the app settings.'
@@ -199,7 +192,6 @@ const requestPermissions = async () => {
 				}
 			}
 		} else {
-			console.log('One or more permissions denied');
 			Alert.alert(
 				'Permission Denied',
 				'Some permissions were denied. The app may not function as expected. Please enable them in the app settings'
