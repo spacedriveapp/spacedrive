@@ -94,18 +94,15 @@ impl OldFileCopierJobStep {
 								FileIOError::from((source, e))
 							})?;
 
-							{
-								let mut meta = jobmeta
-									.lock()
-									.expect("failed to get the lock for the list of files to copy");
-								let accumulated_copied_size = meta.accumulated_copied_size + size;
-								let copied_files_count = meta.copied_files_count + 1;
-								meta.update(OldFileCopierJobMetadata {
-									accumulated_copied_size,
-									copied_files_count,
-								});
-							}
-							tokio::time::sleep(Duration::from_secs(1)).await;
+							let mut meta = jobmeta
+								.lock()
+								.expect("failed to get the lock for the list of files to copy");
+							let accumulated_copied_size = meta.accumulated_copied_size + size;
+							let copied_files_count = meta.copied_files_count + 1;
+							meta.update(OldFileCopierJobMetadata {
+								accumulated_copied_size,
+								copied_files_count,
+							});
 
 							Ok::<_, JobError>(())
 						}
@@ -244,8 +241,10 @@ fn progress(ctx: &WorkerContext, msgs: CopierUpdate) {
 #[derive(Debug, Clone)]
 enum CopierUpdate {
 	Start(u64),
-	Progress(u64, Option<String>),
-	Message(String),
+	Progress(u64),
+	Title(String),
+	Info(usize),
+	PerFile(String),
 	Finished(u64),
 }
 
@@ -254,19 +253,13 @@ impl CopierUpdate {
 	fn into_progress(self) -> Vec<JobReportUpdate> {
 		match self {
 			CopierUpdate::Start(total_tasks) | CopierUpdate::Finished(total_tasks) => {
+				vec![JobReportUpdate::TaskCount(total_tasks.try_into().unwrap())]
+			}
+			CopierUpdate::Title(msg) => vec![JobReportUpdate::Message(msg)],
+			CopierUpdate::Info(qtd) => vec![JobReportUpdate::Info(qtd.to_string())],
+			CopierUpdate::PerFile(msg) => vec![JobReportUpdate::Phase(msg)],
+			CopierUpdate::Progress(progressed_tasks) => {
 				vec![JobReportUpdate::CompletedTaskCount(
-					total_tasks.try_into().unwrap(),
-				)]
-			}
-			CopierUpdate::Message(msg) => vec![JobReportUpdate::Message(msg)],
-			CopierUpdate::Progress(progressed_tasks, Some(msg)) => {
-				vec![
-					JobReportUpdate::TaskCount(progressed_tasks.try_into().unwrap()),
-					JobReportUpdate::Message(msg),
-				]
-			}
-			CopierUpdate::Progress(progressed_tasks, None) => {
-				vec![JobReportUpdate::TaskCount(
 					progressed_tasks.try_into().unwrap(),
 				)]
 			}
@@ -438,9 +431,19 @@ impl StatefulJob for OldFileCopierJobInit {
 			.iter()
 			.filter(|step| matches!(step.copy_kind, CopierStepKind::CopyFiles(_)))
 			.map(|step| step.source_file_size.iter().sum::<u64>())
-			.sum();
+			.sum::<u64>();
 
-		progress(&ctx, CopierUpdate::Start(total_size));
+		let file_count = steps
+			.iter()
+			.filter(|step| matches!(step.copy_kind, CopierStepKind::CopyFiles(_)))
+			.map(|step| step.source_file_size.len())
+			.sum::<usize>();
+
+		// progress(&ctx, CopierUpdate::Start(file_count as u64));
+		progress(&ctx, CopierUpdate::Start(100)); // 100%
+		progress(&ctx, CopierUpdate::Info(file_count));
+
+		progress(&ctx, CopierUpdate::Title(total_size.to_string()));
 
 		*data = Some(OldFileCopierJobData {
 			sources_location_path,
@@ -453,7 +456,11 @@ impl StatefulJob for OldFileCopierJobInit {
 
 	#[tracing::instrument(
 		skip_all,
-		fields(step.kind=?step.step.copy_kind,step.n=step.step_number,progress=jobmeta.accumulated_copied_size)
+		fields(
+			step.kind = ?step.step.copy_kind,
+			step.n = step.step_number,
+			progress = jobmeta.accumulated_copied_size
+		)
 	)]
 	async fn execute_step(
 		&self,
@@ -493,7 +500,7 @@ impl StatefulJob for OldFileCopierJobInit {
 				.collect();
 
 			loop {
-				for ((((watch, relative), origin), copied), is_file_done) in watching
+				for ((((watch, relative_path), origin), copied), is_file_done) in watching
 					.iter()
 					.zip(relative_paths.iter())
 					.zip(source_file_sizes.iter().copied())
@@ -509,8 +516,8 @@ impl StatefulJob for OldFileCopierJobInit {
 					let file_percentage = (transfering.len() as f64 / origin as f64) * 100.0;
 					let file_percentage = file_percentage.round();
 
-					let msg = format!("{file_percentage}% of {relative:?}");
-					progress(&ctx, CopierUpdate::Message(msg));
+					let msg = format!("{file_percentage}% of {relative_path:?}");
+					progress(&ctx, CopierUpdate::PerFile(msg));
 
 					*copied = transfering.len();
 					if transfering.len() == origin {
@@ -522,7 +529,7 @@ impl StatefulJob for OldFileCopierJobInit {
 				let total_percentage =
 					((copied_in_step + acc_copied_size) as f64 / total_size as f64) * 100.;
 				let per = total_percentage.round() as u64;
-				progress(&ctx, CopierUpdate::Progress(per, None));
+				progress(&ctx, CopierUpdate::Progress(per));
 
 				tokio::time::sleep(Duration::from_millis(200)).await;
 			}

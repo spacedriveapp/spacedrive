@@ -401,7 +401,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		<SJob as StatefulJob>::NAME
 	}
 
-	#[instrument(skip_all, fields(job_name = %self.name(), job_id = %self.id()), err)]
+	#[instrument(skip_all, fields(job_name = %self.name()), err)]
 	#[allow(clippy::blocks_in_conditions)] // Due to `err` on instrument above
 	async fn run(
 		&mut self,
@@ -506,8 +506,6 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 				let steps_len: usize = steps.len();
 
 				let mut run_metadata_arc = Arc::new(run_metadata);
-				// TODO(matheus-consoli): instead of pop_front just one element, chunk it
-				// get a batch of files
 				let step = Arc::new(steps.pop_front().expect("just checked that we have steps"));
 
 				let init_time = Instant::now();

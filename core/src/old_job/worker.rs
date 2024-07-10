@@ -43,6 +43,7 @@ pub struct JobProgressEvent {
 	pub completed_task_count: i32,
 	pub phase: String,
 	pub message: String,
+	pub info: String,
 	pub estimated_completion: DateTime<Utc>,
 }
 
@@ -298,6 +299,9 @@ impl Worker {
 					);
 					report.phase = phase;
 				}
+				JobReportUpdate::Info(info) => {
+					report.info = info;
+				},
 			}
 		}
 
@@ -336,6 +340,7 @@ impl Worker {
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,
+			info: report.info.clone(),
 			phase: report.phase.clone(),
 			message: report.message.clone(),
 		}));
