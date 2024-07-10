@@ -16,7 +16,12 @@ import { useKeyMatcher, useLocale } from '~/hooks';
 
 import { KeyManager } from '../KeyManager';
 import { Spacedrop, SpacedropButton } from '../Spacedrop';
-import TopBarOptions, { ToolOption, TOP_BAR_ICON_CLASSLIST } from '../TopBar/TopBarOptions';
+import TopBarOptions, {
+	ToolOption,
+	TOP_BAR_ICON_CLASSLIST,
+	TOP_BAR_ICON_DEFAULT_PROPS,
+	TOP_BAR_ICON_WEIGHT
+} from '../TopBar/TopBarOptions';
 import { useExplorerContext } from './Context';
 import OptionsPanel from './OptionsPanel';
 import { explorerStore } from './store';
@@ -49,7 +54,7 @@ export const useExplorerTopBarOptions = () => {
 					const option = {
 						layout,
 						toolTipLabel: t(`${layout}_view`),
-						icon: <Icon className={TOP_BAR_ICON_CLASSLIST} />,
+						icon: <Icon {...TOP_BAR_ICON_DEFAULT_PROPS} />,
 						keybinds: [controlIcon, (i + 1).toString()],
 						topBarActive:
 							!explorer.isLoadingPreferences && settings.layoutMode === layout,
@@ -74,7 +79,7 @@ export const useExplorerTopBarOptions = () => {
 	const controlOptions: ToolOption[] = [
 		{
 			toolTipLabel: t('explorer_settings'),
-			icon: <SlidersHorizontal className={TOP_BAR_ICON_CLASSLIST} />,
+			icon: <SlidersHorizontal {...TOP_BAR_ICON_DEFAULT_PROPS} />,
 			popOverComponent: <OptionsPanel />,
 			individual: true,
 			showAtResolution: 'sm:flex'
@@ -87,7 +92,8 @@ export const useExplorerTopBarOptions = () => {
 			},
 			icon: (
 				<SidebarSimple
-					weight={showInspector ? 'fill' : 'regular'}
+					{...TOP_BAR_ICON_DEFAULT_PROPS}
+					weight={showInspector ? 'fill' : TOP_BAR_ICON_WEIGHT}
 					className={clsx(TOP_BAR_ICON_CLASSLIST, '-scale-x-100')}
 				/>
 			),
@@ -120,7 +126,7 @@ export const useExplorerTopBarOptions = () => {
 		},
 		{
 			toolTipLabel: 'Key Manager',
-			icon: <Key className={TOP_BAR_ICON_CLASSLIST} />,
+			icon: <Key {...TOP_BAR_ICON_DEFAULT_PROPS} />,
 			popOverComponent: <KeyManager />,
 			individual: true,
 			showAtResolution: 'xl:flex'
@@ -129,8 +135,8 @@ export const useExplorerTopBarOptions = () => {
 			toolTipLabel: 'Assign tags',
 			icon: (
 				<Tag
-					weight={tagAssignMode ? 'fill' : 'regular'}
-					className={TOP_BAR_ICON_CLASSLIST}
+					{...TOP_BAR_ICON_DEFAULT_PROPS}
+					weight={tagAssignMode ? 'fill' : TOP_BAR_ICON_WEIGHT}
 				/>
 			),
 			// TODO: Assign tag mode is not yet implemented!

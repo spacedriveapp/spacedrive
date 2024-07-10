@@ -13,6 +13,7 @@ import { narrowSolidPlugin } from './narrowSolidPlugin';
 const url = new URL('../../../interface/locales', import.meta.url);
 
 export default defineConfig({
+	clearScreen: false,
 	plugins: [
 		million.vite({ auto: true }),
 		tsconfigPaths(),

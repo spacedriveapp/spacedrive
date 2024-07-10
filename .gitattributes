@@ -1,4 +1,20 @@
-pnpm-lock.yaml -diff
-package-lock.json -diff
-Cargo.lock -diff
-.github/actions/publish-artifacts/dist/index.js -diff
+# Mark generated lockfiles as generated code
+Cargo.lock -diff linguist-generated
+pnpm-lock.yaml -diff linguist-generated
+
+# Mark our codegen as generated code
+/.github/actions/publish-artifacts/dist/index.js -diff linguist-generated
+/apps/desktop/src/commands.ts linguist-generated
+/core/prisma/migrations/migration_lock.toml -diff linguist-generated
+/crates/sync/example/web/src/utils/bindings.ts linguist-generated
+/packages/assets/**/index.ts linguist-generated
+/packages/client/src/core.ts linguist-generated
+
+# Mark copied-in code as vendored, removing from language statistics
+/apps/landing/src/plugins/rehype-image-size.js linguist-vendored
+
+# Mark docs and examples as documentation, removing them from language statistics
+/apps/landing/posts/* linguist-documentation
+/docs/* linguist-documentation
+/crates/*/example/**/* linguist-documentation
+/crates/*/examples/**/* linguist-documentation
