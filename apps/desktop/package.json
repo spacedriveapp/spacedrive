@@ -34,7 +34,7 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sentry/vite-plugin": "^2.16.0",
-		"@tauri-apps/cli": "next",
+		"@tauri-apps/cli": "2.0.0-beta.20",
 		"@types/react": "^18.2.67",
 		"@types/react-dom": "^18.2.22",
 		"sass": "^1.72.0",
