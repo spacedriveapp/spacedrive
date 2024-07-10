@@ -120,8 +120,8 @@ export type UnionToIntersection<U> = (U extends never ? never : (arg: U) => neve
 
 export type UnionToTuple<T> =
 	UnionToIntersection<T extends never ? never : (t: T) => T> extends (_: never) => infer W
-	? [...UnionToTuple<Exclude<T, W>>, W]
-	: [];
+		? [...UnionToTuple<Exclude<T, W>>, W]
+		: [];
 
 export function formatNumber(n: number | bigint) {
 	if (!n) return '0';
