@@ -179,15 +179,19 @@ impl From<CopierUpdate> for JobReportUpdate {
 				const HUNDRED_PERCENT: usize = 100;
 				JobReportUpdate::TaskCount(HUNDRED_PERCENT)
 			}
-			CopierUpdate::FinishedWithPercetage(task_progress) => {
-				JobReportUpdate::TaskCount(task_progress.try_into().unwrap())
-			}
+			CopierUpdate::FinishedWithPercetage(task_progress) => JobReportUpdate::TaskCount(
+				task_progress
+					.try_into()
+					.expect("should be able to convert a `u64` to `usize`"),
+			),
 			CopierUpdate::TotalSize(size) => JobReportUpdate::Message(size.to_owned()),
 			CopierUpdate::FileCount(count) => JobReportUpdate::Info(count.to_string()),
 			CopierUpdate::ProgressPerFile(per_file) => JobReportUpdate::Phase(per_file.to_owned()),
-			CopierUpdate::TotalProgress(progressed_tasks) => {
-				JobReportUpdate::CompletedTaskCount(progressed_tasks.try_into().unwrap())
-			}
+			CopierUpdate::TotalProgress(progressed_tasks) => JobReportUpdate::CompletedTaskCount(
+				progressed_tasks
+					.try_into()
+					.expect("should be able to convert a `u64` to `usize`"),
+			),
 		}
 	}
 }
@@ -597,8 +601,8 @@ async fn file_copy_strategist(
 async fn unfold_diretory(
 	dirs: &[(FileData, PathBuf)],
 ) -> Result<(Vec<NewEntry>, Vec<NewEntry>), ()> {
-	let more_dirs = Arc::new(Mutex::new(Vec::new()));
-	let more_files = Arc::new(Mutex::new(Vec::new()));
+	let mut unfolded_dirs = Vec::new();
+	let mut unfolded_files = Vec::new();
 
 	let mut dirs = Vec::from_iter(
 		dirs.iter()
@@ -609,19 +613,20 @@ async fn unfold_diretory(
 		if dirs.is_empty() {
 			break;
 		}
-		let keep_looking = dirs
+		let unfolds = dirs
 			.iter()
 			.map(|(file_data, target_full_path)| async {
 				let file_data = file_data.clone();
 				let target_full_path = target_full_path.clone();
 
 				let mut to_look = Vec::new();
+				let mut more_dirs = Vec::new();
+				let mut more_files = Vec::new();
 				let mut read_dir = fs::read_dir(&file_data).await.unwrap();
 
 				while let Some(children_entry) = read_dir.next_entry().await.unwrap() {
 					let children_path = &children_entry.path();
-					let relative_path = children_path.strip_prefix(&file_data).unwrap();
-					//.expect("We got the children path from the `read_dir`, so it should be a child of the source path");
+					let relative_path = children_path.strip_prefix(&file_data).expect("We got the children path from the `read_dir`, so it should be a child of the source path");
 					let target_children_full_path = target_full_path.join(relative_path);
 					let metadata = fs::metadata(children_path).await.unwrap();
 					if metadata.is_dir() {
@@ -630,17 +635,17 @@ async fn unfold_diretory(
 							source: children_path.clone(),
 							dest: target_children_full_path,
 						};
-						more_dirs.lock().unwrap().push(dir);
+						more_dirs.push(dir);
 					} else {
 						let file = NewEntry {
 							source: children_path.clone(),
 							dest: target_children_full_path,
 						};
-						more_files.lock().unwrap().push(file);
+						more_files.push(file);
 					}
 				}
 
-				Ok::<_, JobError>(to_look)
+				Ok::<_, JobError>((to_look, more_dirs, more_files))
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -648,12 +653,16 @@ async fn unfold_diretory(
 			.unwrap();
 
 		dirs.clear();
-		dirs.extend(keep_looking.into_iter().flatten());
+		unfolds
+			.into_iter()
+			.for_each(|(keep_looking, more_dirs, more_files)| {
+				dirs.extend(keep_looking);
+				unfolded_dirs.extend(more_dirs);
+				unfolded_files.extend(more_files);
+			});
 	}
 
-	let more_dirs = Arc::try_unwrap(more_dirs).unwrap().into_inner().unwrap();
-	let more_files = Arc::try_unwrap(more_files).unwrap().into_inner().unwrap();
-	Ok((more_dirs, more_files))
+	Ok((unfolded_dirs, unfolded_files))
 }
 
 #[derive(Debug)]
