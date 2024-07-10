@@ -670,7 +670,7 @@
   "switch_to_previous_tab": "Switch to previous tab",
   "sync": "Sync",
   "syncPreviewMedia_label": "Sync preview media for this Location with your devices",
-  "sync_description": "Manage how Spacedrive syncs.",
+  "sync_description": "Manage how Spacedrive syncs library data between your devices",
   "sync_with_library": "Sync with Library",
   "sync_with_library_description": "If enabled, your keybinds will be synced with library, otherwise they will apply only to this client.",
   "system": "System",
