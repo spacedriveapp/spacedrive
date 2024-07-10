@@ -156,35 +156,37 @@ impl OldFileCopierJobStep {
 	}
 }
 
-fn progress(ctx: &WorkerContext, msgs: CopierUpdate) {
-	let msg = msgs.into_progress();
-	ctx.progress(msg);
+fn progress(ctx: &WorkerContext, msgs: impl IntoIterator<Item = CopierUpdate>) {
+	let updates = msgs.into_iter().map(Into::into).collect();
+
+	ctx.progress(updates);
 }
 
 #[derive(Debug, Clone)]
 enum CopierUpdate {
-	Start(u64),
-	Progress(u64),
-	Title(String),
-	Info(usize),
-	PerFile(String),
-	Finished(u64),
+	Start,
+	TotalSize(String),
+	FileCount(usize),
+	TotalProgress(u64),
+	ProgressPerFile(String),
+	FinishedWithPercetage(u64),
 }
 
-impl CopierUpdate {
-	#[inline(always)]
-	fn into_progress(self) -> Vec<JobReportUpdate> {
-		match self {
-			CopierUpdate::Start(total_tasks) | CopierUpdate::Finished(total_tasks) => {
-				vec![JobReportUpdate::TaskCount(total_tasks.try_into().unwrap())]
+impl From<CopierUpdate> for JobReportUpdate {
+	fn from(value: CopierUpdate) -> Self {
+		match value {
+			CopierUpdate::Start => {
+				const HUNDRED_PERCENT: usize = 100;
+				JobReportUpdate::TaskCount(HUNDRED_PERCENT)
 			}
-			CopierUpdate::Title(msg) => vec![JobReportUpdate::Message(msg)],
-			CopierUpdate::Info(qtd) => vec![JobReportUpdate::Info(qtd.to_string())],
-			CopierUpdate::PerFile(msg) => vec![JobReportUpdate::Phase(msg)],
-			CopierUpdate::Progress(progressed_tasks) => {
-				vec![JobReportUpdate::CompletedTaskCount(
-					progressed_tasks.try_into().unwrap(),
-				)]
+			CopierUpdate::FinishedWithPercetage(task_progress) => {
+				JobReportUpdate::TaskCount(task_progress.try_into().unwrap())
+			}
+			CopierUpdate::TotalSize(size) => JobReportUpdate::Message(size.to_owned()),
+			CopierUpdate::FileCount(count) => JobReportUpdate::Info(count.to_string()),
+			CopierUpdate::ProgressPerFile(per_file) => JobReportUpdate::Phase(per_file.to_owned()),
+			CopierUpdate::TotalProgress(progressed_tasks) => {
+				JobReportUpdate::CompletedTaskCount(progressed_tasks.try_into().unwrap())
 			}
 		}
 	}
@@ -370,11 +372,12 @@ impl StatefulJob for OldFileCopierJobInit {
 			.map(|step| step.files.len())
 			.sum::<usize>();
 
-		// progress(&ctx, CopierUpdate::Start(file_count as u64));
-		progress(&ctx, CopierUpdate::Start(100)); // 100%
-		progress(&ctx, CopierUpdate::Info(file_count));
-
-		progress(&ctx, CopierUpdate::Title(total_size.to_string()));
+		let updates = [
+			CopierUpdate::Start,
+			CopierUpdate::FileCount(file_count),
+			CopierUpdate::TotalSize(total_size.to_string()),
+		];
+		progress(ctx, updates);
 
 		*data = Some(OldFileCopierJobData {
 			sources_location_path,
@@ -450,7 +453,7 @@ impl StatefulJob for OldFileCopierJobInit {
 					let file_percentage = file_percentage.round();
 
 					let msg = format!("{file_percentage}% of {:?}", relative_path);
-					progress(&ctx, CopierUpdate::PerFile(msg));
+					progress(ctx, [CopierUpdate::ProgressPerFile(msg)]);
 
 					*copied = transfering.len();
 					if transfering.len() == file.source_size {
@@ -462,7 +465,7 @@ impl StatefulJob for OldFileCopierJobInit {
 				let total_percentage =
 					((copied_in_step + acc_copied_size) as f64 / total_size as f64) * 100.;
 				let per = total_percentage.round() as u64;
-				progress(&ctx, CopierUpdate::Progress(per));
+				progress(ctx, [CopierUpdate::TotalProgress(per)]);
 
 				tokio::time::sleep(Duration::from_millis(200)).await;
 			}
@@ -472,7 +475,12 @@ impl StatefulJob for OldFileCopierJobInit {
 
 		if data.steps_len == step.step_number + 1 {
 			let jobmeta = jobmeta.lock().unwrap();
-			progress(ctx, CopierUpdate::Finished(jobmeta.copied_files_count));
+			progress(
+				ctx,
+				[CopierUpdate::FinishedWithPercetage(
+					jobmeta.copied_files_count,
+				)],
+			);
 		}
 
 		let jobmeta = Arc::try_unwrap(jobmeta).unwrap().into_inner().unwrap();
