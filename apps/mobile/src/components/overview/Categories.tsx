@@ -1,8 +1,8 @@
 import { useNavigation } from '@react-navigation/native';
+import { uint32ArrayToBigInt, useLibraryQuery } from '@sd/client';
 import { DotsThree } from 'phosphor-react-native';
 import React from 'react';
 import { Text, View } from 'react-native';
-import { useLibraryQuery } from '@sd/client';
 import { tw } from '~/lib/tailwind';
 import { OverviewStackScreenProps } from '~/navigation/tabs/OverviewStack';
 
@@ -10,7 +10,7 @@ import { IconName } from '../icons/Icon';
 import { Button } from '../primitive/Button';
 import CategoryItem from './CategoryItem';
 
-export default function CategoriesScreen() {
+export default function Categories() {
 	const kinds = useLibraryQuery(['library.kindStatistics']);
 	const navigation = useNavigation<OverviewStackScreenProps<'Overview'>['navigation']>();
 
@@ -19,9 +19,7 @@ export default function CategoriesScreen() {
 			<View style={tw`flex-row items-center justify-between pb-5`}>
 				<Text style={tw`text-lg font-bold text-white`}>Categories</Text>
 				<Button
-					onPress={() => {
-						navigation.navigate('Categories');
-					}}
+					onPress={() => navigation.navigate('Categories')}
 					style={tw`h-8 w-8 rounded-full`}
 					variant="gray"
 				>
@@ -31,8 +29,8 @@ export default function CategoriesScreen() {
 			<View style={tw`flex-row flex-wrap gap-2`}>
 				{Object.values(kinds.data?.statistics ?? {})
 					.sort((a, b) => {
-						const aCount = Number(a.count);
-						const bCount = Number(b.count);
+						const aCount = uint32ArrayToBigInt(a.count);
+						const bCount = uint32ArrayToBigInt(b.count);
 						if (aCount === bCount) return 0;
 						return aCount > bCount ? -1 : 1;
 					})
@@ -55,7 +53,7 @@ export default function CategoriesScreen() {
 								kind={kind}
 								name={name}
 								icon={icon}
-								items={Number(count)}
+								items={uint32ArrayToBigInt(count)}
 							/>
 						);
 					})}

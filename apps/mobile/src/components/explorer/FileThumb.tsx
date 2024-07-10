@@ -1,8 +1,5 @@
 import { DocumentDirectoryPath } from '@dr.pogodin/react-native-fs';
 import { getIcon } from '@sd/assets/util';
-import { Image } from 'expo-image';
-import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
-import { View } from 'react-native';
 import {
 	getExplorerItemData,
 	getItemLocation,
@@ -10,6 +7,9 @@ import {
 	ThumbKey,
 	type ExplorerItem
 } from '@sd/client';
+import { Image } from 'expo-image';
+import { useEffect, useLayoutEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { View } from 'react-native';
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
 import { tw } from '../../lib/tailwind';
@@ -68,15 +68,16 @@ enum ThumbType {
 
 type FileThumbProps = {
 	data: ExplorerItem;
-	/**
-	 * This is multiplier for calculating icon size
-	 * default: `1`
-	 */
 	size?: number;
-	fixedSize?: boolean; // default: `false` - this is to skip the size multiplier
+	fixedSize?: boolean;
 	// loadOriginal?: boolean;
 };
 
+	/**
+	 * @param data This is the ExplorerItem object
+	 * @param size This is multiplier for calculating icon size
+	 * @param fixedSize If set to true, the icon will have fixed size
+	 */
 export default function FileThumb({ size = 1, fixedSize = false, ...props }: FileThumbProps) {
 	const itemData = useExplorerItemData(props.data);
 	const locationData = getItemLocation(props.data);
