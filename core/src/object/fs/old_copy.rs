@@ -48,15 +48,79 @@ pub struct OldFileCopierJobInit {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub enum CopyBehavior {
-	Hole,
-	ByChunks,
+enum CopierStepKind {
+	CreateDirs(CreateDirs),
+	CopyFiles(CopyFiles),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-pub enum CopierStepKind {
-	CreateDirs,
-	CopyFiles(CopyBehavior),
+struct CopyFiles;
+
+impl CopyFiles {
+	async fn copy_files(
+		files: &[Copy],
+		jobmeta: Arc<Mutex<OldFileCopierJobMetadata>>,
+	) -> Result<(), JobError> {
+		files
+			.iter()
+			.map(
+				|Copy {
+				     source,
+				     source_size,
+				     target_full_path,
+				 }| {
+					let jobmeta = Arc::clone(&jobmeta);
+					async move {
+						let target =
+							OldFileCopierJobStep::find_available_name(&target_full_path).await?;
+
+						fs::copy(&source.full_path, &target).await.map_err(|e| {
+							let source = source.full_path.clone();
+							FileIOError::from((source, e))
+						})?;
+
+						let mut meta = jobmeta
+							.lock()
+							.expect("failed to get the lock for the list of files to copy");
+						let accumulated_copied_size = meta.accumulated_copied_size + source_size;
+						let copied_files_count = meta.copied_files_count + 1;
+						meta.update(OldFileCopierJobMetadata {
+							accumulated_copied_size,
+							copied_files_count,
+						});
+
+						Ok::<_, JobError>(())
+					}
+				},
+			)
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+
+		Ok(())
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+struct CreateDirs;
+
+impl CreateDirs {
+	/// Create the directories
+	async fn create_dir_structure(files: &[Copy]) -> Result<(), JobError> {
+		// TODO(matheus-consoli): when the directory name conflicts, what should we do?
+		// same as find_available...?
+		files
+			.iter()
+			.map(|file| async move {
+				fs::create_dir_all(&file.target_full_path)
+					.await
+					.map_err(|e| FileIOError::from((file.target_full_path.clone(), e)))
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+		Ok(())
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -68,63 +132,12 @@ pub struct Copy {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OldFileCopierJobStep {
-	pub files: Box<[Copy]>,
-	pub target_location_path: Box<Path>,
-	pub copy_kind: CopierStepKind,
+	files: Box<[Copy]>,
+	target_location_path: Box<Path>,
+	copy_kind: CopierStepKind,
 }
 
 impl OldFileCopierJobStep {
-	async fn copy_files(
-		&self,
-		jobmeta: Arc<Mutex<OldFileCopierJobMetadata>>,
-	) -> Result<(), JobError> {
-		let CopierStepKind::CopyFiles(behavior) = self.copy_kind else {
-			panic!("this function should never be called with other variant but `CopyFiles`");
-		};
-
-		match behavior {
-			CopyBehavior::Hole | CopyBehavior::ByChunks => {
-				self.files
-					.iter()
-					.map(
-						|Copy {
-						     source,
-						     source_size,
-						     target_full_path,
-						 }| {
-							let jobmeta = Arc::clone(&jobmeta);
-							async move {
-								let target = Self::find_available_name(&target_full_path).await?;
-
-								fs::copy(&source.full_path, &target).await.map_err(|e| {
-									let source = source.full_path.clone();
-									FileIOError::from((source, e))
-								})?;
-
-								let mut meta = jobmeta
-									.lock()
-									.expect("failed to get the lock for the list of files to copy");
-								let accumulated_copied_size =
-									meta.accumulated_copied_size + source_size;
-								let copied_files_count = meta.copied_files_count + 1;
-								meta.update(OldFileCopierJobMetadata {
-									accumulated_copied_size,
-									copied_files_count,
-								});
-
-								Ok::<_, JobError>(())
-							}
-						},
-					)
-					.collect::<Vec<_>>()
-					.try_join()
-					.await?;
-			}
-		}
-
-		Ok(())
-	}
-
 	async fn find_available_name(path: impl AsRef<Path>) -> Result<PathBuf, JobError> {
 		let path = path.as_ref();
 		match fs::try_exists(&path).await {
@@ -140,19 +153,6 @@ impl OldFileCopierJobStep {
 			}
 			Err(e) => Err(FileIOError::from((path, e)).into()),
 		}
-	}
-
-	/// Create the directories
-	async fn create_dir_structure(&self) -> Result<(), std::io::Error> {
-		// TODO(matheus-consoli): when the directory name conflicts, what should we do?
-		// same as find_available...?
-		self.files
-			.iter()
-			.map(|file| async move { fs::create_dir_all(&file.target_full_path).await })
-			.collect::<Vec<_>>()
-			.try_join()
-			.await?;
-		Ok(())
 	}
 }
 
@@ -280,7 +280,7 @@ impl StatefulJob for OldFileCopierJobInit {
 
 		// first step: create all directories using a single job
 		if !dirs.is_empty() {
-			let (more_dirs, more_files) = unfold_diretory(&dirs).await.unwrap();
+			let (more_dirs, more_files) = unfold_diretory(&dirs).await?;
 
 			let more_dirs = more_dirs
 				.into_iter()
@@ -302,8 +302,7 @@ impl StatefulJob for OldFileCopierJobInit {
 				})
 				.collect::<Vec<_>>()
 				.try_join()
-				.await
-				.unwrap();
+				.await?;
 			dirs.extend(more_dirs);
 
 			let (dir_source_file_data, dir_target_full_path): (Vec<_>, Vec<_>) =
@@ -322,7 +321,7 @@ impl StatefulJob for OldFileCopierJobInit {
 			let create_dirs_step = OldFileCopierJobStep {
 				files: step_files,
 				target_location_path: targets_location_path.clone().into_boxed_path(),
-				copy_kind: CopierStepKind::CreateDirs,
+				copy_kind: CopierStepKind::CreateDirs(CreateDirs),
 			};
 			steps.push(create_dirs_step);
 
@@ -353,15 +352,12 @@ impl StatefulJob for OldFileCopierJobInit {
 				tracing::error!(?e, "job init failed");
 			}
 
-			let more_files = more_files.unwrap();
-			files.extend(more_files);
+			files.extend(more_files?);
 		};
 
 		// remaining steps: delegate to the copy strategist to decide how to organize
 		// the steps that copies the files
-		let steps_to_create_files = file_copy_strategist(files, &targets_location_path)
-			.await
-			.unwrap();
+		let steps_to_create_files = file_copy_strategist(files, &targets_location_path).await?;
 		steps.extend(steps_to_create_files);
 
 		let total_size = steps
@@ -416,11 +412,11 @@ impl StatefulJob for OldFileCopierJobInit {
 			let jobmeta = Arc::clone(&jobmeta);
 			async move {
 				match step.step.copy_kind {
-					CopierStepKind::CreateDirs => {
-						step.step.create_dir_structure().await.unwrap();
+					CopierStepKind::CreateDirs(CreateDirs) => {
+						CreateDirs::create_dir_structure(&step.step.files).await?;
 					}
-					CopierStepKind::CopyFiles(_) => {
-						step.step.copy_files(jobmeta).await.unwrap();
+					CopierStepKind::CopyFiles(CopyFiles) => {
+						CopyFiles::copy_files(&step.step.files, jobmeta).await?;
 					}
 				};
 				Ok::<_, JobError>(())
@@ -471,14 +467,17 @@ impl StatefulJob for OldFileCopierJobInit {
 				let per = total_percentage.round() as u64;
 				progress(ctx, [CopierUpdate::TotalProgress(per)]);
 
+				// wait for progress
 				tokio::time::sleep(Duration::from_millis(200)).await;
 			}
 		};
 
-		let _ = (transfer, report).race().await.unwrap();
+		(transfer, report).race().await?;
 
 		if data.steps_len == step.step_number + 1 {
-			let jobmeta = jobmeta.lock().unwrap();
+			let jobmeta = jobmeta
+				.lock()
+				.expect("failed to get the lock for job metadata");
 			progress(
 				ctx,
 				[CopierUpdate::FinishedWithPercetage(
@@ -487,7 +486,11 @@ impl StatefulJob for OldFileCopierJobInit {
 			);
 		}
 
-		let jobmeta = Arc::try_unwrap(jobmeta).unwrap().into_inner().unwrap();
+		let jobmeta = Arc::into_inner(jobmeta)
+			.expect("all the other copies should have been dropped by this point")
+			.into_inner()
+			.expect("the Mutex shouldn't be poisoned");
+
 		// we've calculated all steps up ahead
 		Ok(jobmeta.into())
 	}
@@ -519,19 +522,20 @@ impl StatefulJob for OldFileCopierJobInit {
 async fn file_copy_strategist(
 	files: Vec<(FileData, PathBuf)>,
 	location_path: &Path,
-) -> Result<Vec<OldFileCopierJobStep>, ()> {
+) -> Result<Vec<OldFileCopierJobStep>, JobError> {
 	debug!("generating steps to copy files");
 
 	let mut metadata = files
 		.into_iter()
 		.map(|(data, path)| async move {
-			let meta = tokio::fs::metadata(&data.full_path).await?;
-			Ok::<_, std::io::Error>((meta.len(), data, path))
+			let meta = tokio::fs::metadata(&data.full_path)
+				.await
+				.map_err(|e| FileIOError::from((data.full_path.clone(), e)))?;
+			Ok::<_, JobError>((meta.len(), data, path))
 		})
 		.collect::<Vec<_>>()
 		.try_join()
-		.await
-		.unwrap();
+		.await?;
 
 	// sort by size
 	metadata.sort_unstable_by_key(|m| m.0);
@@ -540,53 +544,28 @@ async fn file_copy_strategist(
 	let mut steps = Vec::new();
 
 	// TODO(matheus-consoli): max_size is not a good name
-	const MAX_SIZE: u64 = 1024 * 1024 * 100;
-	const LIMIT: usize = 8;
+	const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 100;
+	const MAX_FILES_PER_STEP: usize = 8;
 
 	loop {
 		let mut sum = 0;
-		let mut source_file_data = Vec::new();
-		let mut source_file_size = Vec::new();
-		let mut target_full_path = Vec::new();
+		let mut files = Vec::new();
 
-		while let Some((len, data, path)) = metadata.next_if(|(len, _, _)| {
-			source_file_data.len() < LIMIT && len + sum <= MAX_SIZE || sum == 0
+		while let Some((source_size, source, path)) = metadata.next_if(|(len, _, _)| {
+			files.len() < MAX_FILES_PER_STEP && len + sum <= MAX_TOTAL_SIZE_PER_STEP || sum == 0
 		}) {
-			sum += len;
-			source_file_data.push(data);
-			source_file_size.push(len);
-			target_full_path.push(path);
-		}
-
-		let copy_behavior = {
-			// many small files = seq
-			// medium sized files = seq
-			// very large files = parallel
-			let len = source_file_data.len();
-			let medium = sum / len as u64;
-			if medium > (MAX_SIZE * 2) && len < 2 {
-				// idk
-				CopyBehavior::ByChunks //  TODO(matheus-consoli)
-			} else {
-				CopyBehavior::Hole
-			}
-		};
-
-		let files = source_file_data
-			.into_iter()
-			.zip(source_file_size.into_iter())
-			.zip(target_full_path.into_iter())
-			.map(|((source, source_size), target)| Copy {
+			sum += source_size;
+			files.push(Copy {
 				source,
 				source_size,
-				target_full_path: target.into_boxed_path(),
-			})
-			.collect();
+				target_full_path: path.into_boxed_path(),
+			});
+		}
 
 		steps.push(OldFileCopierJobStep {
-			files,
+			files: files.into_boxed_slice(),
 			target_location_path: location_path.into(),
-			copy_kind: CopierStepKind::CopyFiles(copy_behavior),
+			copy_kind: CopierStepKind::CopyFiles(CopyFiles),
 		});
 
 		if metadata.peek().is_none() {
@@ -600,7 +579,7 @@ async fn file_copy_strategist(
 
 async fn unfold_diretory(
 	dirs: &[(FileData, PathBuf)],
-) -> Result<(Vec<NewEntry>, Vec<NewEntry>), ()> {
+) -> Result<(Vec<NewEntry>, Vec<NewEntry>), JobError> {
 	let mut unfolded_dirs = Vec::new();
 	let mut unfolded_files = Vec::new();
 
@@ -615,20 +594,23 @@ async fn unfold_diretory(
 		}
 		let unfolds = dirs
 			.iter()
-			.map(|(file_data, target_full_path)| async {
-				let file_data = file_data.clone();
+			.map(|(file_data, target_full_path)| async move {
 				let target_full_path = target_full_path.clone();
 
 				let mut to_look = Vec::new();
 				let mut more_dirs = Vec::new();
 				let mut more_files = Vec::new();
-				let mut read_dir = fs::read_dir(&file_data).await.unwrap();
+				let mut read_dir = fs::read_dir(file_data).await
+					.map_err(|e| FileIOError::from((file_data.clone(), e)))?;
 
-				while let Some(children_entry) = read_dir.next_entry().await.unwrap() {
+				while let Some(children_entry) = read_dir.next_entry().await.map_err(
+					|e| FileIOError::from((file_data.clone(), e))
+				)? {
 					let children_path = &children_entry.path();
-					let relative_path = children_path.strip_prefix(&file_data).expect("We got the children path from the `read_dir`, so it should be a child of the source path");
+					let relative_path = children_path.strip_prefix(file_data)
+						.expect("We got the children path from the `read_dir`, so it should be a child of the source path");
 					let target_children_full_path = target_full_path.join(relative_path);
-					let metadata = fs::metadata(children_path).await.unwrap();
+					let metadata = fs::metadata(children_path).await.map_err(|e| FileIOError::from((file_data.clone(), e)))?;
 					if metadata.is_dir() {
 						to_look.push((children_path.clone(), target_children_full_path.clone()));
 						let dir = NewEntry {
@@ -649,8 +631,7 @@ async fn unfold_diretory(
 			})
 			.collect::<Vec<_>>()
 			.try_join()
-			.await
-			.unwrap();
+			.await?;
 
 		dirs.clear();
 		unfolds
