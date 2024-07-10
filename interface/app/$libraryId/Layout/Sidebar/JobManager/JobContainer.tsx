@@ -67,7 +67,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 		if (currentETA !== undefined && currentETA > 0) {
 			const interval = setInterval(() => {
 				setCurrentETA((prevETA) => {
-					if (prevETA === undefined) return 0;
+					if (prevETA === undefined || prevETA <= 1000) return 0;
 					return prevETA - 1000;
 				});
 			}, 1000);
@@ -147,9 +147,9 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 										</Fragment>
 									);
 								})}
-								{status != 'Completed' &&
-									currentETA !== undefined &&
-									currentETA > 0 && <div>{formatETA(currentETA)}</div>}
+								{status != 'Completed' && currentETA !== undefined && (
+									<div>{formatETA(currentETA)}</div>
+								)}
 							</TextLine>
 						</Tooltip>
 					);

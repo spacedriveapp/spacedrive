@@ -2,7 +2,6 @@ import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-import { on } from 'solid-js';
 import {
 	JobGroup as IJobGroup,
 	useJobProgress,
@@ -106,7 +105,7 @@ export function JobManager() {
 				if (group.jobs.length > 1) {
 					let allComplete = true;
 					group.jobs.forEach((job: any) => {
-						if (job.status !== 'Completed') {
+						if (job.status !== 'Completed' && job.status !== 'CompletedWithErrors') {
 							allComplete = false;
 						}
 					});
@@ -117,7 +116,7 @@ export function JobManager() {
 						});
 					}
 				} else {
-					if (group.status === 'Completed') {
+					if (group.status === 'Completed' || group.status === 'CompletedWithErrors') {
 						clearPromises.push(clearJob.mutateAsync(group.id));
 					}
 				}
