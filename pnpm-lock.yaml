@@ -361,7 +361,7 @@ importers:
         version: 6.5.20(@react-navigation/native@6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.8.2(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-screens@3.29.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
       '@react-navigation/drawer':
         specifier: ^6.6.14
-        version: 6.6.15(3fzmnfc2je7bh62gn24exmf5uu)
+        version: 6.6.15(@react-navigation/native@6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-gesture-handler@2.14.1(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-reanimated@3.6.3(@babel/core@7.24.0)(@babel/plugin-proposal-nullish-coalescing-operator@7.18.6(@babel/core@7.24.0))(@babel/plugin-proposal-optional-chaining@7.21.0(@babel/core@7.24.0))(@babel/plugin-transform-arrow-functions@7.23.3(@babel/core@7.24.0))(@babel/plugin-transform-shorthand-properties@7.23.3(@babel/core@7.24.0))(@babel/plugin-transform-template-literals@7.23.3(@babel/core@7.24.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.8.2(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-screens@3.29.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
       '@react-navigation/native':
         specifier: ^6.1.16
         version: 6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
@@ -422,6 +422,9 @@ importers:
       expo-status-bar:
         specifier: ~1.11.1
         version: 1.11.1
+      intl:
+        specifier: ^1.2.5
+        version: 1.2.5
       lottie-react-native:
         specifier: 6.7.0
         version: 6.7.0(react-native-windows@0.73.11(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
@@ -3574,9 +3577,6 @@ packages:
   '@radix-ui/number@1.0.1':
     resolution: {integrity: sha512-T5gIdVO2mmPW3NNhjNgEP3cqMXjXL9UbO0BzWcXfvdBs+BohbQxvd/K5hSVKmn9/lbTdsQVKbUcP5WLCwvUbBg==}
 
-  '@radix-ui/primitive@1.0.0':
-    resolution: {integrity: sha512-3e7rn8FDMin4CgeL7Z/49smCA3rFYY3Ha2rUQ7HRWFadS5iCRw08ZgVT1LaNTCNqgvrUiyczLflrVrF0SRQtNA==}
-
   '@radix-ui/primitive@1.0.1':
     resolution: {integrity: sha512-yQ8oGX2GVsEYMWGxcovu1uGWPCxV5BFfeeYxqPmuAzUyLT9qmaMXSAhXpb0WrspIeqYzdJpkh2vHModJPgRIaw==}
 
@@ -3618,11 +3618,6 @@ packages:
         optional: true
       '@types/react-dom':
         optional: true
-
-  '@radix-ui/react-compose-refs@1.0.0':
-    resolution: {integrity: sha512-0KaSv6sx787/hK3eF53iOkiSLwAGlFMx5lotrqD2pTjB18KbybKoEIgkNZTKC60YECDQTKGTRcDBILwZVqVKvA==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
 
   '@radix-ui/react-compose-refs@1.0.1':
     resolution: {integrity: sha512-fDSBgd44FKHa1FRMU59qBMPFcl2PZE+2nmqunj+BWFyYYjnhIDWL2ItDs3rrbJDQOtzt5nIebLCQc4QRfz6LJw==}
@@ -3676,12 +3671,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  '@radix-ui/react-dismissable-layer@1.0.2':
-    resolution: {integrity: sha512-WjJzMrTWROozDqLB0uRWYvj4UuXsM/2L19EmQ3Au+IJWqwvwq9Bwd+P8ivo0Deg9JDPArR1I6MbWNi1CmXsskg==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
-      react-dom: ^16.8 || ^17.0 || ^18.0
 
   '@radix-ui/react-dismissable-layer@1.0.4':
     resolution: {integrity: sha512-7UpBa/RKMoHJYjie1gkF1DlK8l1fdU/VKDpoS3rCCo8YBJR294GwcEHyxHw72yvphJ7ld0AXEcSLAzY2F/WyCg==}
@@ -3857,12 +3846,6 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@radix-ui/react-primitive@1.0.1':
-    resolution: {integrity: sha512-fHbmislWVkZaIdeF6GZxF0A/NH/3BjrGIYj+Ae6eTmTCr7EB0RQAAVEiqsXK6p3/JcRqVSBQoceZroj30Jj3XA==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
-      react-dom: ^16.8 || ^17.0 || ^18.0
-
   '@radix-ui/react-primitive@1.0.3':
     resolution: {integrity: sha512-yi58uVyoAcK/Nq1inRY56ZSjKypBNKTa/1mcL8qdl6oJeEaDbOldlzrGn7P6Q3Id5d+SYNGc5AJgc4vGhjs5+g==}
     peerDependencies:
@@ -3941,11 +3924,6 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@radix-ui/react-slot@1.0.1':
-    resolution: {integrity: sha512-avutXAFL1ehGvAXtPquu0YK5oz6ctS474iM3vNGQIkswrVhdrS52e3uoMQBzZhNRAIE0jBnUyXWNmSjGHhCFcw==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
-
   '@radix-ui/react-slot@1.0.2':
     resolution: {integrity: sha512-YeTpuq4deV+6DusvVUW4ivBgnkHwECUu0BiN43L5UCDFgdhsRUWAghhTF5MbvNTPzmiFOx90asDSUjWuCNapwg==}
     peerDependencies:
@@ -4007,11 +3985,6 @@ packages:
       '@types/react-dom':
         optional: true
 
-  '@radix-ui/react-use-callback-ref@1.0.0':
-    resolution: {integrity: sha512-GZtyzoHz95Rhs6S63D2t/eqvdFCm7I+yHMLVQheKM7nBD8mbZIt+ct1jz4536MDnaOGKIxynJ8eHTkVGVVkoTg==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
-
   '@radix-ui/react-use-callback-ref@1.0.1':
     resolution: {integrity: sha512-D94LjX4Sp0xJFVaoQOd3OO9k7tpBYNOXdVhkltUbGv2Qb9OXdrg/CpsjlZv7ia14Sylv398LswWBVVu5nqKzAQ==}
     peerDependencies:
@@ -4029,11 +4002,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  '@radix-ui/react-use-escape-keydown@1.0.2':
-    resolution: {integrity: sha512-DXGim3x74WgUv+iMNCF+cAo8xUHHeqvjx8zs7trKf+FkQKPQXLk2sX7Gx1ysH7Q76xCpZuxIJE7HLPxRE+Q+GA==}
-    peerDependencies:
-      react: ^16.8 || ^17.0 || ^18.0
 
   '@radix-ui/react-use-escape-keydown@1.0.3':
     resolution: {integrity: sha512-vyL82j40hcFicA+M4Ex7hVkB9vHgSse1ZWomAqV2Je3RleKGO5iM8KMOEtfoSB0PnIelMd2lATjTGMYqN5ylTg==}
@@ -8899,6 +8867,9 @@ packages:
   interpret@1.4.0:
     resolution: {integrity: sha512-agE4QfB2Lkp9uICn7BAqoscw4SZP9kTE2hxiFI3jBPmXJfdqiahTbUuKGsMoN2GtqL9AxhYioAcVvgsb1HvRbA==}
     engines: {node: '>= 0.10'}
+
+  intl@1.2.5:
+    resolution: {integrity: sha512-rK0KcPHeBFBcqsErKSpvZnrOmWOj+EmDkyJ57e90YWaQNqbcivcqmKDlHEeNprDWOsKzPsh1BfSpPQdDvclHVw==}
 
   invariant@2.2.4:
     resolution: {integrity: sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==}
@@ -16499,10 +16470,6 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.24.0
 
-  '@radix-ui/primitive@1.0.0':
-    dependencies:
-      '@babel/runtime': 7.24.0
-
   '@radix-ui/primitive@1.0.1':
     dependencies:
       '@babel/runtime': 7.24.0
@@ -16546,11 +16513,6 @@ snapshots:
     optionalDependencies:
       '@types/react': 18.2.67
       '@types/react-dom': 18.2.22
-
-  '@radix-ui/react-compose-refs@1.0.0(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      react: 18.2.0
 
   '@radix-ui/react-compose-refs@1.0.1(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
@@ -16610,17 +16572,6 @@ snapshots:
       react: 18.2.0
     optionalDependencies:
       '@types/react': 18.2.67
-
-  '@radix-ui/react-dismissable-layer@1.0.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      '@radix-ui/primitive': 1.0.0
-      '@radix-ui/react-compose-refs': 1.0.0(react@18.2.0)
-      '@radix-ui/react-primitive': 1.0.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
-      '@radix-ui/react-use-callback-ref': 1.0.0(react@18.2.0)
-      '@radix-ui/react-use-escape-keydown': 1.0.2(react@18.2.0)
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
 
   '@radix-ui/react-dismissable-layer@1.0.4(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
@@ -16713,7 +16664,7 @@ snapshots:
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       '@radix-ui/react-context': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       '@radix-ui/react-direction': 1.0.1(@types/react@18.2.67)(react@18.2.0)
-      '@radix-ui/react-dismissable-layer': 1.0.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@radix-ui/react-dismissable-layer': 1.0.5(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-focus-guards': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       '@radix-ui/react-focus-scope': 1.0.4(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-id': 1.0.1(@types/react@18.2.67)(react@18.2.0)
@@ -16825,13 +16776,6 @@ snapshots:
       '@types/react': 18.2.67
       '@types/react-dom': 18.2.22
 
-  '@radix-ui/react-primitive@1.0.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      '@radix-ui/react-slot': 1.0.1(react@18.2.0)
-      react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-
   '@radix-ui/react-primitive@1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@babel/runtime': 7.24.0
@@ -16940,12 +16884,6 @@ snapshots:
       '@types/react': 18.2.67
       '@types/react-dom': 18.2.22
 
-  '@radix-ui/react-slot@1.0.1(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      '@radix-ui/react-compose-refs': 1.0.0(react@18.2.0)
-      react: 18.2.0
-
   '@radix-ui/react-slot@1.0.2(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
       '@babel/runtime': 7.24.0
@@ -17029,11 +16967,6 @@ snapshots:
       '@types/react': 18.2.67
       '@types/react-dom': 18.2.22
 
-  '@radix-ui/react-use-callback-ref@1.0.0(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      react: 18.2.0
-
   '@radix-ui/react-use-callback-ref@1.0.1(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
       '@babel/runtime': 7.24.0
@@ -17048,12 +16981,6 @@ snapshots:
       react: 18.2.0
     optionalDependencies:
       '@types/react': 18.2.67
-
-  '@radix-ui/react-use-escape-keydown@1.0.2(react@18.2.0)':
-    dependencies:
-      '@babel/runtime': 7.24.0
-      '@radix-ui/react-use-callback-ref': 1.0.0(react@18.2.0)
-      react: 18.2.0
 
   '@radix-ui/react-use-escape-keydown@1.0.3(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
@@ -17670,8 +17597,8 @@ snapshots:
       react-is: 16.13.1
       use-latest-callback: 0.1.9(react@18.2.0)
 
-  '@react-navigation/drawer@6.6.15(3fzmnfc2je7bh62gn24exmf5uu)':
-    dependencies:
+  ? '@react-navigation/drawer@6.6.15(@react-navigation/native@6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-gesture-handler@2.14.1(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-reanimated@3.6.3(@babel/core@7.24.0)(@babel/plugin-proposal-nullish-coalescing-operator@7.18.6(@babel/core@7.24.0))(@babel/plugin-proposal-optional-chaining@7.21.0(@babel/core@7.24.0))(@babel/plugin-transform-arrow-functions@7.23.3(@babel/core@7.24.0))(@babel/plugin-transform-shorthand-properties@7.23.3(@babel/core@7.24.0))(@babel/plugin-transform-template-literals@7.23.3(@babel/core@7.24.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.8.2(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-screens@3.29.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)'
+  : dependencies:
       '@react-navigation/elements': 1.3.30(@react-navigation/native@6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.8.2(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
       '@react-navigation/native': 6.1.17(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
       color: 4.2.3
@@ -23722,6 +23649,8 @@ snapshots:
   internmap@2.0.3: {}
 
   interpret@1.4.0: {}
+
+  intl@1.2.5: {}
 
   invariant@2.2.4:
     dependencies:
