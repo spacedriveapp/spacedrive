@@ -2,8 +2,9 @@
 
 use crate::{library::Library, Node};
 
+use sd_core_sync::Manager as SyncManager;
 use sd_prisma::{
-	prisma::{instance, storage_statistics},
+	prisma::{storage_statistics, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -498,140 +499,146 @@ pub async fn get_volumes() -> Vec<Volume> {
 //   assert!(volumes.len() > 0);
 // }
 
+fn compute_stats<'v>(volumes: impl IntoIterator<Item = &'v Volume>) -> (u64, u64) {
+	volumes
+		.into_iter()
+		.fold((0, 0), |(mut total, mut available), volume| {
+			total += volume.total_capacity;
+			available += volume.available_capacity;
+
+			(total, available)
+		})
+}
+
+async fn update_storage_statistics(
+	db: &PrismaClient,
+	sync: &SyncManager,
+	instance_pub_id: &Uuid,
+	total_capacity: u64,
+	available_capacity: u64,
+) -> Result<(), VolumeError> {
+	let instance_pub_id = uuid_to_bytes(instance_pub_id);
+
+	let storage_statistics_pub_id = db
+		.storage_statistics()
+		.find_unique(storage_statistics::instance_pub_id::equals(
+			instance_pub_id.clone(),
+		))
+		.select(storage_statistics::select!({ pub_id }))
+		.exec()
+		.await?
+		.map(|s| s.pub_id);
+
+	if let Some(storage_statistics_pub_id) = storage_statistics_pub_id {
+		sync.write_ops(
+			db,
+			(
+				[
+					(
+						storage_statistics::total_capacity::NAME,
+						msgpack!(total_capacity),
+					),
+					(
+						storage_statistics::available_capacity::NAME,
+						msgpack!(available_capacity),
+					),
+				]
+				.into_iter()
+				.map(|(field, value)| {
+					sync.shared_update(
+						prisma_sync::storage_statistics::SyncId {
+							pub_id: storage_statistics_pub_id.clone(),
+						},
+						field,
+						value,
+					)
+				})
+				.collect(),
+				db.storage_statistics()
+					.update(
+						storage_statistics::pub_id::equals(storage_statistics_pub_id),
+						vec![
+							storage_statistics::total_capacity::set(total_capacity as i64),
+							storage_statistics::available_capacity::set(available_capacity as i64),
+						],
+					)
+					// We don't need any data here, just the id avoids receiving the entire object
+					// as we can't pass an empty select macro call
+					.select(storage_statistics::select!({ id })),
+			),
+		)
+		.await?;
+	} else {
+		let new_storage_statistics_id = uuid_to_bytes(&Uuid::new_v4());
+
+		sync.write_ops(
+			db,
+			(
+				sync.shared_create(
+					prisma_sync::storage_statistics::SyncId {
+						pub_id: new_storage_statistics_id.clone(),
+					},
+					[
+						(
+							storage_statistics::total_capacity::NAME,
+							msgpack!(total_capacity),
+						),
+						(
+							storage_statistics::available_capacity::NAME,
+							msgpack!(available_capacity),
+						),
+						(
+							storage_statistics::instance_pub_id::NAME,
+							msgpack!(instance_pub_id),
+						),
+					],
+				),
+				db.storage_statistics()
+					.create(
+						new_storage_statistics_id,
+						vec![
+							storage_statistics::total_capacity::set(total_capacity as i64),
+							storage_statistics::available_capacity::set(available_capacity as i64),
+							storage_statistics::instance_pub_id::set(Some(instance_pub_id.clone())),
+						],
+					)
+					// We don't need any data here, just the id avoids receiving the entire object
+					// as we can't pass an empty select macro call
+					.select(storage_statistics::select!({ id })),
+			),
+		)
+		.await?;
+	}
+
+	Ok(())
+}
+
 pub fn save_storage_statistics(node: &Node) {
 	spawn({
 		let libraries = Arc::clone(&node.libraries);
 		async move {
-			let (total_capacity, available_capacity) = get_volumes().await.into_iter().fold(
-				(0, 0),
-				|(mut total, mut available), volume| {
-					total += volume.total_capacity;
-					available += volume.available_capacity;
-
-					(total, available)
-				},
-			);
+			let (total_capacity, available_capacity) = compute_stats(&get_volumes().await);
 
 			libraries
 				.get_all()
 				.await
 				.into_iter()
 				.map(move |library: Arc<Library>| async move {
-					let instance_id = library.config().await.instance_id;
+					let Library {
+						db,
+						sync,
+						instance_uuid,
+						..
+					} = &*library;
 
-					let Library { db, sync, .. } = &*library;
-
-					let instance_pub_id = db
-						.instance()
-						.find_unique(instance::id::equals(instance_id))
-						.select(instance::select!({ pub_id }))
-						.exec()
-						.await?
-						.map(|i| i.pub_id)
-						.expect("local instance not found in db; this is a bug");
-
-					let storage_statistics_pub_id = db
-						.storage_statistics()
-						.find_unique(storage_statistics::instance_pub_id::equals(
-							instance_pub_id.clone(),
-						))
-						.select(storage_statistics::select!({ pub_id }))
-						.exec()
-						.await?
-						.map(|s| s.pub_id);
-
-					if let Some(storage_statistics_pub_id) = storage_statistics_pub_id {
-						sync.write_ops(
-							db,
-							(
-								[
-									(
-										storage_statistics::total_capacity::NAME,
-										msgpack!(total_capacity),
-									),
-									(
-										storage_statistics::available_capacity::NAME,
-										msgpack!(available_capacity),
-									),
-								]
-								.into_iter()
-								.map(|(field, value)| {
-									sync.shared_update(
-										prisma_sync::storage_statistics::SyncId {
-											pub_id: storage_statistics_pub_id.clone(),
-										},
-										field,
-										value,
-									)
-								})
-								.collect(),
-								db.storage_statistics()
-									.update(
-										storage_statistics::pub_id::equals(
-											storage_statistics_pub_id,
-										),
-										vec![
-											storage_statistics::total_capacity::set(
-												total_capacity as i64,
-											),
-											storage_statistics::available_capacity::set(
-												available_capacity as i64,
-											),
-										],
-									)
-									// We don't need any data here, just the id avoids receiving the entire object
-									// as we can't pass an empty select macro call
-									.select(storage_statistics::select!({ id })),
-							),
-						)
-						.await?;
-					} else {
-						let new_storage_statistics_id = uuid_to_bytes(&Uuid::new_v4());
-
-						sync.write_ops(
-							db,
-							(
-								sync.shared_create(
-									prisma_sync::storage_statistics::SyncId {
-										pub_id: new_storage_statistics_id.clone(),
-									},
-									[
-										(
-											storage_statistics::total_capacity::NAME,
-											msgpack!(total_capacity),
-										),
-										(
-											storage_statistics::available_capacity::NAME,
-											msgpack!(available_capacity),
-										),
-										(
-											storage_statistics::instance_pub_id::NAME,
-											msgpack!(instance_pub_id),
-										),
-									],
-								),
-								db.storage_statistics()
-									.create(
-										new_storage_statistics_id,
-										vec![
-											storage_statistics::total_capacity::set(
-												total_capacity as i64,
-											),
-											storage_statistics::available_capacity::set(
-												available_capacity as i64,
-											),
-											storage_statistics::instance_pub_id::set(Some(
-												instance_pub_id,
-											)),
-										],
-									)
-									.select(storage_statistics::select!({ id })),
-							),
-						)
-						.await?;
-					}
-
-					Ok::<_, prisma_client_rust::QueryError>(())
+					update_storage_statistics(
+						db,
+						sync,
+						instance_uuid,
+						total_capacity,
+						available_capacity,
+					)
+					.await
 				})
 				.collect::<Vec<_>>()
 				.join()
