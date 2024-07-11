@@ -1,19 +1,30 @@
 // Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
 
+use crate::{library::Library, Node};
+
+use sd_prisma::{
+	prisma::{instance, storage_statistics},
+	prisma_sync,
+};
+use sd_sync::OperationFactory;
+use sd_utils::{msgpack, uuid_to_bytes};
+
 use std::{
 	fmt::Display,
 	hash::{Hash, Hasher},
 	path::PathBuf,
-	sync::OnceLock,
+	sync::{Arc, OnceLock},
 };
 
+use futures_concurrency::future::Join;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
 use sysinfo::{DiskExt, System, SystemExt};
 use thiserror::Error;
-use tokio::sync::Mutex;
+use tokio::{spawn, sync::Mutex};
 use tracing::error;
+use uuid::Uuid;
 
 pub mod watcher;
 
@@ -486,3 +497,151 @@ pub async fn get_volumes() -> Vec<Volume> {
 //   dbg!(&volumes);
 //   assert!(volumes.len() > 0);
 // }
+
+pub fn save_storage_statistics(node: &Node) {
+	spawn({
+		let libraries = Arc::clone(&node.libraries);
+		async move {
+			let (total_capacity, available_capacity) = get_volumes().await.into_iter().fold(
+				(0, 0),
+				|(mut total, mut available), volume| {
+					total += volume.total_capacity;
+					available += volume.available_capacity;
+
+					(total, available)
+				},
+			);
+
+			libraries
+				.get_all()
+				.await
+				.into_iter()
+				.map(move |library: Arc<Library>| async move {
+					let instance_id = library.config().await.instance_id;
+
+					let Library { db, sync, .. } = &*library;
+
+					let instance_pub_id = db
+						.instance()
+						.find_unique(instance::id::equals(instance_id))
+						.select(instance::select!({ pub_id }))
+						.exec()
+						.await?
+						.map(|i| i.pub_id)
+						.expect("local instance not found in db; this is a bug");
+
+					let storage_statistics_pub_id = db
+						.storage_statistics()
+						.find_unique(storage_statistics::instance_pub_id::equals(
+							instance_pub_id.clone(),
+						))
+						.select(storage_statistics::select!({ pub_id }))
+						.exec()
+						.await?
+						.map(|s| s.pub_id);
+
+					if let Some(storage_statistics_pub_id) = storage_statistics_pub_id {
+						sync.write_ops(
+							db,
+							(
+								[
+									(
+										storage_statistics::total_capacity::NAME,
+										msgpack!(total_capacity),
+									),
+									(
+										storage_statistics::available_capacity::NAME,
+										msgpack!(available_capacity),
+									),
+								]
+								.into_iter()
+								.map(|(field, value)| {
+									sync.shared_update(
+										prisma_sync::storage_statistics::SyncId {
+											pub_id: storage_statistics_pub_id.clone(),
+										},
+										field,
+										value,
+									)
+								})
+								.collect(),
+								db.storage_statistics()
+									.update(
+										storage_statistics::pub_id::equals(
+											storage_statistics_pub_id,
+										),
+										vec![
+											storage_statistics::total_capacity::set(
+												total_capacity as i64,
+											),
+											storage_statistics::available_capacity::set(
+												available_capacity as i64,
+											),
+										],
+									)
+									// We don't need any data here, just the id avoids receiving the entire object
+									// as we can't pass an empty select macro call
+									.select(storage_statistics::select!({ id })),
+							),
+						)
+						.await?;
+					} else {
+						let new_storage_statistics_id = uuid_to_bytes(&Uuid::new_v4());
+
+						sync.write_ops(
+							db,
+							(
+								sync.shared_create(
+									prisma_sync::storage_statistics::SyncId {
+										pub_id: new_storage_statistics_id.clone(),
+									},
+									[
+										(
+											storage_statistics::total_capacity::NAME,
+											msgpack!(total_capacity),
+										),
+										(
+											storage_statistics::available_capacity::NAME,
+											msgpack!(available_capacity),
+										),
+										(
+											storage_statistics::instance_pub_id::NAME,
+											msgpack!(instance_pub_id),
+										),
+									],
+								),
+								db.storage_statistics()
+									.create(
+										new_storage_statistics_id,
+										vec![
+											storage_statistics::total_capacity::set(
+												total_capacity as i64,
+											),
+											storage_statistics::available_capacity::set(
+												available_capacity as i64,
+											),
+											storage_statistics::instance_pub_id::set(Some(
+												instance_pub_id,
+											)),
+										],
+									)
+									.select(storage_statistics::select!({ id })),
+							),
+						)
+						.await?;
+					}
+
+					Ok::<_, prisma_client_rust::QueryError>(())
+				})
+				.collect::<Vec<_>>()
+				.join()
+				.await
+				.into_iter()
+				.for_each(|res| {
+					if let Err(e) = res {
+						error!(?e, "Failed to save storage statistics;");
+					}
+				});
+		}
+	});
+}
