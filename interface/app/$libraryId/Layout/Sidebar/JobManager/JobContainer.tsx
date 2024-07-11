@@ -43,7 +43,7 @@ const formatETA = (eta: number): string => {
 	if (hours > 0) formattedETA += `${hours} hour${hours > 1 ? 's' : ''} `;
 	if (minutes > 0) formattedETA += `${minutes} minute${minutes > 1 ? 's' : ''} `;
 	if (seconds > 0 || formattedETA === '')
-		formattedETA += `${seconds} second${seconds > 1 ? 's' : ''} `;
+		formattedETA += `${seconds} second${seconds != 1 ? 's' : ''} `;
 
 	return formattedETA.trim() + ' remaining';
 };
@@ -147,8 +147,12 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 										</Fragment>
 									);
 								})}
-								{status != 'Completed' && currentETA !== undefined && (
-									<div>{formatETA(currentETA)}</div>
+								{status == 'Running' && (
+									<div>
+										{currentETA !== undefined
+											? formatETA(currentETA)
+											: 'Unable to calculate estimated completion time'}
+									</div>
 								)}
 							</TextLine>
 						</Tooltip>

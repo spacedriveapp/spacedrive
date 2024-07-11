@@ -31,6 +31,7 @@ export default function ({ group, progress }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
 	const runningJob = jobs.find((job: { status: string }) => job.status === 'Running');
+	console.log(group);
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);

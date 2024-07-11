@@ -116,7 +116,12 @@ export function JobManager() {
 						});
 					}
 				} else {
-					if (group.status === 'Completed' || group.status === 'CompletedWithErrors') {
+					if (
+						group.status === 'Completed' ||
+						group.status === 'CompletedWithErrors' ||
+						group.status === 'Canceled' ||
+						group.status === 'Failed'
+					) {
 						clearPromises.push(clearJob.mutateAsync(group.id));
 					}
 				}
