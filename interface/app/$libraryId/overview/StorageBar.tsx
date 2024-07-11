@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { humanizeSize } from '@sd/client';
 import { Tooltip } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 
-const BARWIDTH = 700;
+const BARWIDTH = 710;
 
 const lightenColor = (color: string, percent: number) => {
 	const num = parseInt(color.replace('#', ''), 16);
@@ -31,39 +30,33 @@ interface Section {
 
 interface StorageBarProps {
 	sections: Section[];
-	totalSpace: bigint;
-	totalFreeBytes: bigint;
 }
 
-const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace, totalFreeBytes }) => {
+const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 	const isDark = useIsDark();
 	const [hoveredSectionIndex, setHoveredSectionIndex] = useState<number | null>(null);
 
+	const totalSpace = sections.reduce((acc, section) => acc + section.value, 0n);
+
 	const getPercentage = (value: bigint) => {
+		if (value === 0n) return '0px';
+		console.log(value);
 		const percentage = Number((value * 100n) / totalSpace) / 100;
-		console.log(`percentage: ${percentage}`);
 		const pixvalue = BARWIDTH * percentage;
 		return `${pixvalue.toFixed(2)}px`;
 	};
 
-	const nonSystemSections = sections.filter((section) => section.name !== 'System Data');
-	const systemSection = sections.find((section) => section.name === 'System Data');
-
 	return (
 		<div className="w-auto p-3">
 			<div className="relative mt-1 flex h-6 overflow-hidden rounded">
-				{nonSystemSections.map((section, index) => {
-					const humanizedValue = humanizeSize(section.value);
+				{sections.map((section, index) => {
 					const isHovered = hoveredSectionIndex === index;
+					const isLast = index === sections.length - 1;
 
 					return (
-						<Tooltip
-							key={index}
-							label={`${humanizedValue.value} ${humanizedValue.unit}`}
-							position="top"
-						>
+						<Tooltip key={index} label={section.name} position="top">
 							<div
-								className={`relative h-full`}
+								className={`relative h-full ${isLast ? 'rounded-r' : ''}`}
 								style={{
 									width: getPercentage(section.value),
 									minWidth: '2px', // Ensure very small sections are visible
@@ -78,31 +71,6 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections, totalSpace, totalFree
 						</Tooltip>
 					);
 				})}
-				{totalFreeBytes > 0 && (
-					<div
-						className="relative h-full"
-						style={{
-							width: getPercentage(totalFreeBytes),
-							backgroundColor: isDark ? '#1C1D25' : '#D3D3D3'
-						}}
-					/>
-				)}
-				{systemSection && (
-					<Tooltip
-						label={`${humanizeSize(systemSection.value).value} ${humanizeSize(systemSection.value).unit}`}
-						position="top"
-					>
-						<div
-							className="relative h-full rounded-r"
-							style={{
-								width: getPercentage(systemSection.value),
-								minWidth: '2px',
-								backgroundColor: systemSection.color,
-								transition: 'background-color 0.3s ease-in-out'
-							}}
-						/>
-					</Tooltip>
-				)}
 			</div>
 			<div className={`mt-6 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>
 				{sections.map((section, index) => (
