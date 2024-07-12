@@ -499,8 +499,6 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		let data = if let Some(working_data) = working_data {
 			let mut working_data_arc = Arc::new(working_data);
 
-			debug!("initiating the loop");
-
 			// Job run phase
 			while job_should_run && !steps.is_empty() {
 				let steps_len: usize = steps.len();
@@ -773,9 +771,6 @@ async fn handle_init_phase<SJob: StatefulJob>(
 			}
 			StreamMessage::InitResult(Ok((stateful_job, maybe_data, output))) => {
 				debug!(init_phase_time = ?init_time.elapsed(), "Init phase completed;");
-
-				// maybe_data: Option<<SJob as StatefulJob>::Data>
-				// maybe_data: Option<OldIndexerJobData>
 
 				return Ok(InitPhaseOutput {
 					stateful_job,
