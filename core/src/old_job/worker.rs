@@ -301,7 +301,7 @@ impl Worker {
 				}
 				JobReportUpdate::Info(info) => {
 					report.info = info;
-				},
+				}
 			}
 		}
 

@@ -611,17 +611,22 @@ async fn unfold_diretory(
 				let mut to_look = Vec::new();
 				let mut more_dirs = Vec::new();
 				let mut more_files = Vec::new();
-				let mut read_dir = fs::read_dir(file_data).await
+				let mut read_dir = fs::read_dir(file_data)
+					.await
 					.map_err(|e| FileIOError::from((file_data.clone(), e)))?;
 
-				while let Some(children_entry) = read_dir.next_entry().await.map_err(
-					|e| FileIOError::from((file_data.clone(), e))
-				)? {
+				while let Some(children_entry) = read_dir
+					.next_entry()
+					.await
+					.map_err(|e| FileIOError::from((file_data.clone(), e)))?
+				{
 					let children_path = &children_entry.path();
 					let relative_path = children_path.strip_prefix(file_data)
 						.expect("We got the children path from the `read_dir`, so it should be a child of the source path");
 					let target_children_full_path = target_full_path.join(relative_path);
-					let metadata = fs::metadata(children_path).await.map_err(|e| FileIOError::from((file_data.clone(), e)))?;
+					let metadata = fs::metadata(children_path)
+						.await
+						.map_err(|e| FileIOError::from((file_data.clone(), e)))?;
 					if metadata.is_dir() {
 						to_look.push((children_path.clone(), target_children_full_path.clone()));
 						let dir = NewEntry {
