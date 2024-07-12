@@ -1,8 +1,4 @@
 import { AppWindow, ArrowSquareOut, CaretRight, ClipboardText } from '@phosphor-icons/react';
-import clsx from 'clsx';
-import { memo, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { createSearchParams } from 'react-router-dom';
 import {
 	getExplorerItemData,
 	getIndexedItemFilePath,
@@ -10,6 +6,10 @@ import {
 	useLibraryQuery
 } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
+import clsx from 'clsx';
+import { memo, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { createSearchParams } from 'react-router-dom';
 import { Icon } from '~/components';
 import { useIsDark, useLocale, useOperatingSystem } from '~/hooks';
 import { useTabsContext } from '~/TabsContext';
@@ -138,8 +138,9 @@ export const ExplorerPathBar = memo(() => {
 			))}
 
 			{selectedItem && (!queryPath || filePathname) && (
-				<div className="ml-1 flex items-center gap-1">
-					<FileThumb data={selectedItem} size={16} frame frameClassName="!border" />
+				<div className="flex items-center gap-1">
+					<CaretRight weight="bold" className="text-ink-dull" size={10} />
+					<FileThumb className='ml-1' data={selectedItem} size={16} frame frameClassName="!border" />
 					<span className="max-w-xs truncate">
 						{getExplorerItemData(selectedItem).fullName}
 					</span>
