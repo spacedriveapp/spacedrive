@@ -256,12 +256,16 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 		}
 
 		case 'Copy':
-			// TODO(matheus-consoli): cleanup
-			const size = isRunning ? humanizeSize(parseInt(realtimeUpdate?.message || "0")) : '';
+			const fileWord = plural(taskCount, 'file');
+			const whenQueued = isQueued ? `Copy ${taskCount} ${fileWord}` : '';
+			const whenRunning = isRunning
+				? `Copying ${completedTaskCount}% of ${realtimeUpdate?.info} ${fileWord} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
+				: '';
+			const whenFinished = !(isQueued || isRunning) ? `Copied ${taskCount} ${fileWord}` : '';
+
 			return {
 				...data,
-				name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${isRunning ? `${completedTaskCount}%` : taskCount
-				} ${isRunning ? `of ${realtimeUpdate?.info} ${plural(taskCount, 'file')}` : ``} ${!(isRunning || isQueued) ? plural(taskCount, 'file') : ''} ${isRunning ? `(${size})` : '' }`,
+				name: whenQueued || whenRunning || whenFinished,
 				textItems: [[{ text: realtimeUpdate?.phase }], [{ text: job.status }]]
 			};
 
