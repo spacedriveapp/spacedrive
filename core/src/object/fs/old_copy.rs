@@ -528,14 +528,14 @@ impl StatefulJob for OldFileCopierJobInit {
 }
 
 /// Gather information about the list of files and decide what is the best
-/// approach to organize the steps to copy them.
+/// approach to organize them into steps.
 async fn file_copy_strategist(
 	files: Vec<(FileData, PathBuf)>,
 	location_path: &Path,
 ) -> Result<Vec<OldFileCopierJobStep>, JobError> {
-	// maximum size in bytes per step
-	// TODO(matheus-consoli): increase before commiting max quantity of files copied per step
-	const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 400;
+	// maximum size in bytes per step (800)
+	const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 800;
+	// max quantity of files per step
 	const MAX_FILES_PER_STEP: usize = 20;
 
 	debug!("generating steps to copy files");
