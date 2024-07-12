@@ -1,5 +1,3 @@
-cargo-features = ["codegen-backend"]
-
 [workspace]
 resolver = "2"
 members = [
@@ -107,13 +105,12 @@ blake3 = { git = "https://github.com/spacedriveapp/blake3.git", rev = "d3aab416c
 [profile.dev]
 # Make compilation faster on macOS
 split-debuginfo = "unpacked"
-#codegen-backend = "cranelift"
-codegen-units = 256
-debug = 0
-incremental = true
-lto = false
 opt-level = 0
+debug = 0
 strip = "none"
+lto = false
+codegen-units = 256
+incremental = true
 
 [profile.dev-debug]
 inherits = "dev"
@@ -127,13 +124,13 @@ codegen-units = 256
 incremental = true
 
 # Set the settings for build scripts and proc-macros.
-#[profile.dev.build-override]
-#opt-level = 3
+[profile.dev.build-override]
+opt-level = 3
 
 # Set the default for dependencies, except workspace members.
-#[profile.dev.package."*"]
-#opt-level = 3
-#incremental = false
+[profile.dev.package."*"]
+opt-level = 3
+incremental = false
 
 # Set the default for dependencies, except workspace members.
 [profile.dev-debug.package."*"]
