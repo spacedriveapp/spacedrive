@@ -256,16 +256,13 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 		}
 
 		case 'Copy':
-			const fileWord = plural(taskCount, 'file');
-			const whenQueued = isQueued ? `Copy ${taskCount} ${fileWord}` : '';
-			const whenRunning = isRunning
-				? `Copying ${completedTaskCount}% of ${realtimeUpdate?.info} ${fileWord} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
-				: '';
-			const whenFinished = !(isQueued || isRunning) ? `Copied ${taskCount} ${fileWord}` : '';
-
 			return {
 				...data,
-				name: whenQueued || whenRunning || whenFinished,
+				name: isQueued
+					? `Copy ${taskCount} ${plural(taskCount, 'file')}`
+					: isRunning
+						? `Copying ${completedTaskCount}% of ${realtimeUpdate?.info} ${plural(taskCount, 'file')} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
+						: `Copied ${taskCount} ${plural(taskCount, 'file')}`,
 				textItems: [[{ text: realtimeUpdate?.phase }], [{ text: job.status }]]
 			};
 
