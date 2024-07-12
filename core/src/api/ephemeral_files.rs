@@ -11,7 +11,6 @@ use crate::{
 	},
 };
 
-use async_channel::Receiver;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::exif_media_data;
 
@@ -22,9 +21,10 @@ use sd_file_ext::{
 use sd_media_metadata::FFmpegMetadata;
 use sd_utils::error::FileIOError;
 
-use std::{ffi::OsStr, path::PathBuf, str::FromStr, time::Duration};
+use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 
-use futures_concurrency::future::{Join, TryJoin};
+use async_recursion::async_recursion;
+use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;
@@ -481,11 +481,8 @@ impl EphemeralFileSystemOps {
 		Ok(())
 	}
 
+	#[async_recursion]
 	async fn copy(self, library: &Library) -> Result<(), rspc::Error> {
-		// dar um jeito de fazer o progress bar aparecer
-		// levar em conta todos os arquivos
-		//    pensando que a quantidade de arquivos muda naquele
-
 		self.check().await?;
 
 		let EphemeralFileSystemOps {
@@ -520,8 +517,34 @@ impl EphemeralFileSystemOps {
 			.into_iter()
 			.partition::<Vec<_>, _>(|(_, _, is_dir)| *is_dir);
 
-		let (foo, _report) = FileCopier::new(files_to_copy.into_iter().map(|(a, b, _)| (a, b)));
-		foo.copy().await;
+		files_to_copy
+			.into_iter()
+			.map(|(source, mut target, _)| async move {
+				match fs::metadata(&target).await {
+					Ok(_) => target = find_available_filename_for_duplicate(&target).await?,
+					Err(e) if e.kind() == io::ErrorKind::NotFound => {
+						// Everything is awesome!
+					}
+					Err(e) => {
+						return Err(FileSystemJobsError::FileIO(FileIOError::from((
+							target,
+							e,
+							"Failed to get target file metadata",
+						))));
+					}
+				}
+
+				fs::copy(&source, target).await.map_err(|e| {
+					FileSystemJobsError::FileIO(FileIOError::from((
+						source,
+						e,
+						"Failed to copy file",
+					)))
+				})
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
 
 		if !directories_to_create.is_empty() {
 			directories_to_create
@@ -632,140 +655,6 @@ impl EphemeralFileSystemOps {
 			.await?;
 
 		invalidate_query!(library, "search.ephemeralPaths");
-
-		Ok(())
-	}
-}
-
-#[derive(Debug)]
-struct FileCopy {
-	source: PathBuf,
-	destiny: PathBuf,
-}
-
-#[derive(Debug)]
-enum Progress {
-	Started { file: PathBuf, total_size: u64 },
-	Advanced { file: PathBuf, partial_size: u64 },
-	Finished(Result<PathBuf, PathBuf>),
-}
-
-#[derive(Debug)]
-pub struct FileCopier {
-	map: Vec<FileCopy>,
-	progress: async_channel::Sender<Progress>,
-}
-
-impl FileCopier {
-	#[must_use = "creating a FileCopier does nothing unless called"]
-	pub fn new(map: impl IntoIterator<Item = (PathBuf, PathBuf)>) -> (Self, Receiver<Progress>) {
-		let map = map
-			.into_iter()
-			.map(|(source, destiny)| FileCopy { source, destiny })
-			.collect();
-		let (progress, report) = async_channel::unbounded();
-
-		{
-			let report = report.clone();
-			tokio::spawn(async move {
-				use std::collections::HashMap;
-				let mut interval = tokio::time::interval(Duration::from_micros(50));
-				let mut files = HashMap::new();
-				loop {
-					interval.tick().await;
-					match report.recv().await {
-						Ok(Progress::Started { file, total_size }) => {
-							tracing::debug!(?file, ?total_size, "started progressing");
-							files.insert(file, total_size);
-						}
-						Ok(Progress::Advanced { file, partial_size }) => {
-							let total = files.get(&file).copied().unwrap() as f64;
-							let percetage =
-								((partial_size as f64 / total) * 100.0f64).floor() as u64;
-							tracing::debug!(?file, partial_size, percetage, "progress");
-						}
-						Ok(Progress::Finished(Ok(file))) => {
-							tracing::debug!(?file, "completed");
-							// break;
-						}
-						Ok(Progress::Finished(Err(file))) => {
-							tracing::debug!(?file, "file erroed");
-							// break;
-						}
-						Err(_) => {
-							//tracing::error!(error=?e, "wtf");
-						}
-					}
-				}
-			});
-		}
-
-		(Self { map, progress }, report)
-	}
-
-	#[tracing::instrument(skip_all)]
-	pub async fn copy(self) -> Result<(), rspc::Error> {
-		self.map
-			.into_iter()
-			.map(|mut file| {
-				let report = self.progress.clone();
-
-				async move {
-					let new_name = match fs::try_exists(&file.destiny).await {
-						Ok(true) => find_available_filename_for_duplicate(&file.destiny).await,
-						Ok(false) => Ok(file.destiny),
-						Err(_) => todo!(), //  TODO(matheus-consoli):  todo!()
-					};
-					file.destiny = new_name.unwrap();
-
-					let source = file.source.clone();
-
-					let destiny = file.destiny.clone();
-
-					let source_size = fs::metadata(&file.source).await.unwrap().len();
-					report
-						.send(Progress::Started {
-							file: file.destiny.clone(),
-							total_size: source_size,
-						})
-						.await;
-
-					let copy = tokio::spawn(fs::copy(source, destiny));
-
-					let check = tokio::spawn(async move {
-						let mut interval = tokio::time::interval(Duration::from_micros(100));
-
-						loop {
-							interval.tick().await;
-							tokio::time::sleep(Duration::from_micros(30)).await;
-							match fs::metadata(&file.destiny).await {
-								Ok(metadata) => {
-									let len = metadata.len();
-									if len == source_size {
-										_ = report
-											.send(Progress::Finished(Ok(file.destiny.clone())))
-											.await;
-										break;
-									}
-									_ = report
-										.send(Progress::Advanced {
-											file: file.destiny.clone(),
-											partial_size: len,
-										})
-										.await;
-								}
-								Err(_) => (),
-							}
-						}
-						Ok::<_, io::Error>(())
-					});
-
-					(copy, check).try_join().await;
-				}
-			})
-			.collect::<Vec<_>>()
-			.join()
-			.await;
 
 		Ok(())
 	}
