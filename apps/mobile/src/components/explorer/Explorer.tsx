@@ -2,10 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import {
 	getIndexedItemFilePath,
 	isPath,
+	libraryClient,
 	SearchData,
-	useLibraryMutation,
-	useLibraryQuery,
-	useRspcContext,
 	type ExplorerItem
 } from '@sd/client';
 import { FlashList } from '@shopify/flash-list';
@@ -48,25 +46,13 @@ type Props =
 const Explorer = (props: Props) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 	const store = useExplorerStore();
-	const { modalRef, setData, data } = useActionsModalStore();
-	const rspc = useRspcContext();
-
-	const filePath = data && getIndexedItemFilePath(data);
-
-	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
-		enabled: filePath != null
-	});
-
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
-		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
-		}
-	});
+	const { modalRef, setData } = useActionsModalStore();
 
 	//Open file with native api
-	async function handleOpen() {
+	async function handleOpen(data: ExplorerItem) {
 		try {
-			const absolutePath = (await queriedFullPath.refetch()).data;
+			const filePath = getIndexedItemFilePath(data);
+			const absolutePath = await libraryClient.query(['files.getPath', filePath?.id ?? -1]);
 			if (!absolutePath) return;
 			await FileViewer.open(absolutePath, {
 				// Android only
@@ -75,7 +61,7 @@ const Explorer = (props: Props) => {
 			});
 			filePath &&
 				filePath.object_id &&
-				(await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error));
+				await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]);
 		} catch (error) {
 			toast.error('Error opening object');
 		}
@@ -92,7 +78,7 @@ const Explorer = (props: Props) => {
 		} else {
 			// Open file with native api
 			setData(data);
-			await handleOpen();
+			await handleOpen(data);
 		}
 	}
 

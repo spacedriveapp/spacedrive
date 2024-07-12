@@ -22,19 +22,6 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 
 
 	const locationData = location.data;
-	const layoutSearchFilter = layoutMode === 'media' ? [{ object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}}] : []
-	const defaultFilters = [
-			{ filePath: { hidden: false } },
-			{ filePath: { locations: { in: [id] } } },
-			{
-				filePath: {
-					path: {
-						location_id: id,
-						path: path ?? '',
-						include_descendants: layoutMode === 'media'
-					}
-			}
-		}]
 
 	// makes sure that the location shows newest/modified objects
 	// when a location is opened
@@ -45,8 +32,18 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const paths = usePathsExplorerQuery({
 		arg: {
 			filters: [
-				...layoutSearchFilter,
-				...defaultFilters
+					layoutMode === 'media' ? { object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}} : null,
+					{ filePath: { hidden: false } },
+					{ filePath: { locations: { in: [id] } } },
+					{
+						filePath: {
+							path: {
+								location_id: id,
+								path: path ?? '',
+								include_descendants: layoutMode === 'media'
+							}
+					}
+				}
 			].filter(Boolean) as any,
 			take: 30
 		},
