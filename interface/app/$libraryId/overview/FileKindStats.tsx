@@ -79,7 +79,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
 	const BAR_MAX_HEIGHT = 115n;
-	const BAR_COLOR_START = '#3A7ECC';
+	const BAR_COLOR_START = '#36A3FF';
 	const BAR_COLOR_END = '#004C99';
 
 	useLibrarySubscription(['library.updatedKindStatistic'], {
@@ -207,7 +207,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		<div className="flex justify-center">
 			<Card
 				ref={containerRef}
-				className="max-w-1/2 group mx-1  flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"
+				className="max-w-1/2 group mx-1 flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"
 			>
 				<div className={TOTAL_FILES_CLASSLIST}>
 					<Tooltip className="flex items-center" label={t('bar_graph_info')}>
@@ -250,6 +250,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 
 						const barHeight =
 							mapFractionalValue(fileKind.count, maxFileCount, BAR_MAX_HEIGHT) + 'px';
+
 						return (
 							<>
 								<Tooltip
@@ -280,7 +281,6 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 											animate={{ height: barHeight }}
 											transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
 											style={{
-												height: barHeight,
 												backgroundColor: barColor
 											}}
 										></motion.div>

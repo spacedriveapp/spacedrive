@@ -191,7 +191,7 @@ const LibraryStats = () => {
 	);
 
 	// Define color palette
-	const colors = ['#3B7ECC', '#00274D', '#2A324B', '#004C99', '#2563EB', '#8a95a5']; // Additional colors as needed
+	const colors = ['#36A3FF', '#2E84F3', '#2563EB', '#004C99', '#00274D', '#2A324B']; // Additional colors as needed
 
 	const sections: Section[] = [
 		...topCategories.map(([name, { total_bytes }], index) => {
