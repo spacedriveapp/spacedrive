@@ -30,8 +30,7 @@ interface Section {
 	tooltip: string;
 }
 
-const StatItem = (props: StatItemProps) => {
-	const { title, bytes, isLoading, info } = props;
+const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	const size = humanizeSize(bytes);
 	const count = useCounter({
 		name: title,
@@ -101,26 +100,22 @@ const LibraryStats = () => {
 	});
 
 	useEffect(() => {
-		const timeoutId = setTimeout(() => {
-			if (!isStatsLoading && !isKindStatisticsLoading && statsData && kindStatisticsData) {
-				const fileKindsMap = new Map<number, FileKind>(
-					Object.values(kindStatisticsData.statistics).map((stats: any) => [
-						stats.kind,
-						{
-							kind: stats.kind,
-							name: stats.name,
-							count: uint32ArrayToBigInt(stats.count),
-							total_bytes: uint32ArrayToBigInt(stats.total_bytes)
-						}
-					])
-				);
+		if (!isStatsLoading && !isKindStatisticsLoading && statsData && kindStatisticsData) {
+			const fileKindsMap = new Map<number, FileKind>(
+				Object.values(kindStatisticsData.statistics).map((stats: any) => [
+					stats.kind,
+					{
+						kind: stats.kind,
+						name: stats.name,
+						count: uint32ArrayToBigInt(stats.count),
+						total_bytes: uint32ArrayToBigInt(stats.total_bytes)
+					}
+				])
+			);
 
-				setFileKinds(fileKindsMap);
-				setLoading(false);
-			}
-		}, 5000); // Simulate loading state for 2 seconds
-
-		return () => clearTimeout(timeoutId);
+			setFileKinds(fileKindsMap);
+			setLoading(false);
+		}
 	}, [isStatsLoading, isKindStatisticsLoading, statsData, kindStatisticsData]);
 
 	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
@@ -142,6 +137,19 @@ const LibraryStats = () => {
 	const displayableStatItems = Object.keys(
 		StatItemNames
 	) as unknown as (keyof typeof StatItemNames)[];
+
+	if (isStatsLoading || !statsData || !statsData.statistics) {
+		return (
+			<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
+				<div className="mt-4 flex h-full items-center justify-center">
+					<div className="flex flex-col items-center justify-center gap-3">
+						<Loader />
+						<p className="text-ink-dull">Loading library statistics...</p>
+					</div>
+				</div>
+			</Card>
+		);
+	}
 
 	const { statistics } = statsData;
 	// find top 5 categories by total bytes
