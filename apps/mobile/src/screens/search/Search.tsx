@@ -1,7 +1,7 @@
 import { useIsFocused } from '@react-navigation/native';
 import { ObjectKindEnum, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
-import { Suspense, useDeferredValue, useState } from 'react';
+import { Suspense, useDeferredValue, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Explorer from '~/components/explorer/Explorer';
@@ -26,7 +26,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 
 	const locations = useLibraryQuery(['locations.list']).data ?? [];
 
-	const layoutSearchFilter = layoutMode === 'media' ? [{ object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}}] : []
+	const layoutSearchFilter = useMemo(() => layoutMode === 'media' ? [{ object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}}] : [], [layoutMode]);
 
 	const objects = usePathsExplorerQuery({
 		order,
