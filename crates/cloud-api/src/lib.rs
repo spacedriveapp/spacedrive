@@ -351,6 +351,7 @@ pub mod library {
 		pub use get::exec as get;
 		pub mod get {
 			use super::*;
+			use tracing::debug;
 
 			#[derive(Serialize)]
 			#[serde(rename_all = "camelCase")]
@@ -369,7 +370,7 @@ pub mod library {
 					return Err(Error("Authentication required".to_string()));
 				};
 
-				config
+				let res = config
 					.client
 					.post(&format!(
 						"{}/api/v1/libraries/{}/messageCollections/get",
@@ -379,13 +380,30 @@ pub mod library {
 						"instanceUuid": this_instance_uuid,
 						"timestamps": timestamps
 					}))
-					.with_auth(auth_token)
+					.with_auth(auth_token) // Assuming you're using Bearer token
 					.send()
-					.await
-					.map_err(|e| Error(e.to_string()))?
-					.json()
-					.await
-					.map_err(|e| Error(e.to_string()))
+					.await;
+
+				debug!("get message collections response: {:?}", res);
+
+				match res {
+					Ok(response) => {
+						let status = response.status();
+						let body = response.text().await.map_err(|e| Error(e.to_string()))?;
+						debug!("Response status: {}", status);
+						debug!("Response body: {}", body);
+
+						// Attempt to parse the body as JSON
+						match serde_json::from_str::<Response>(&body) {
+							Ok(json) => Ok(json),
+							Err(e) => Err(Error(format!(
+								"error decoding response body: {}. Body: {}",
+								e, body
+							))),
+						}
+					}
+					Err(e) => Err(Error(e.to_string())),
+				}
 			}
 
 			pub type Response = Vec<MessageCollection>;
@@ -394,6 +412,7 @@ pub mod library {
 		pub use request_add::exec as request_add;
 		pub mod request_add {
 			use super::*;
+			use tracing::debug;
 
 			#[derive(Deserialize, Debug)]
 			#[serde(rename_all = "camelCase")]
@@ -418,20 +437,37 @@ pub mod library {
 					.map(|i| json!({"instanceUuid": i }))
 					.collect::<Vec<_>>();
 
-				config
+				let res = config
 					.client
 					.post(&format!(
 						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
 						config.api_url, library_id
 					))
 					.json(&json!({ "instances": instances }))
-					.with_auth(auth_token)
+					.with_auth(auth_token) // Assuming you're using Bearer token
 					.send()
-					.await
-					.map_err(|e| Error(e.to_string()))?
-					.json()
-					.await
-					.map_err(|e| Error(e.to_string()))
+					.await;
+
+				debug!("request add response: {:?}", res);
+
+				match res {
+					Ok(response) => {
+						let status = response.status();
+						let body = response.text().await.map_err(|e| Error(e.to_string()))?;
+						debug!("Response status: {}", status);
+						debug!("Response body: {}", body);
+
+						// Attempt to parse the body as JSON
+						match serde_json::from_str::<Response>(&body) {
+							Ok(json) => Ok(json),
+							Err(e) => Err(Error(format!(
+								"error decoding response body: {}. Body: {}",
+								e, body
+							))),
+						}
+					}
+					Err(e) => Err(Error(e.to_string())),
+				}
 			}
 
 			pub type Response = Vec<RequestAdd>;

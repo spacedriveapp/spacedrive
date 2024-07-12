@@ -1,6 +1,6 @@
 use crate::{library::Libraries, Node};
 
-use sd_cloud_api::RequestConfigProvider;
+use sd_cloud_api::{library::message_collections::get::InstanceTimestamp, RequestConfigProvider};
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
@@ -93,7 +93,7 @@ pub async fn run_actor(
 				cloud_timestamps
 			};
 
-			let instance_timestamps = sync
+			let instance_timestamps: Vec<InstanceTimestamp> = sync
 				.timestamps
 				.read()
 				.await
