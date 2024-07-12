@@ -78,6 +78,7 @@ const LibraryStats = () => {
 	const { data: kindStatisticsData, isLoading: isKindStatisticsLoading } = useLibraryQuery([
 		'library.kindStatistics'
 	]);
+	const [libraryStats, setLibraryStats] = useState<Statistics>();
 	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
 	const [loading, setLoading] = useState<boolean>(true);
 
@@ -100,7 +101,13 @@ const LibraryStats = () => {
 	});
 
 	useEffect(() => {
-		if (!isStatsLoading && !isKindStatisticsLoading && statsData && kindStatisticsData) {
+		if (
+			!isStatsLoading &&
+			!isKindStatisticsLoading &&
+			statsData &&
+			statsData.statistics &&
+			kindStatisticsData
+		) {
 			const fileKindsMap = new Map<number, FileKind>(
 				Object.values(kindStatisticsData.statistics).map((stats: any) => [
 					stats.kind,
@@ -113,6 +120,7 @@ const LibraryStats = () => {
 				])
 			);
 
+			setLibraryStats(statsData.statistics);
 			setFileKinds(fileKindsMap);
 			setLoading(false);
 		}
@@ -138,20 +146,6 @@ const LibraryStats = () => {
 		StatItemNames
 	) as unknown as (keyof typeof StatItemNames)[];
 
-	if (isStatsLoading || !statsData || !statsData.statistics) {
-		return (
-			<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
-				<div className="mt-4 flex h-full items-center justify-center">
-					<div className="flex flex-col items-center justify-center gap-3">
-						<Loader />
-						<p className="text-ink-dull">Loading library statistics...</p>
-					</div>
-				</div>
-			</Card>
-		);
-	}
-
-	const { statistics } = statsData;
 	// find top 5 categories by total bytes
 	const aggregatedData = new Map<string, { total_bytes: bigint; color: string }>();
 
@@ -213,7 +207,7 @@ const LibraryStats = () => {
 			) : (
 				<>
 					<div className="mb-1 flex overflow-hidden p-4">
-						{Object.entries(statistics)
+						{Object.entries(libraryStats ?? {})
 							.sort(
 								([a], [b]) =>
 									displayableStatItems.indexOf(a as keyof typeof StatItemNames) -
