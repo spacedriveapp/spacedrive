@@ -13,6 +13,7 @@ use sd_prisma::prisma::{file_path, location};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
+	collections::HashSet,
 	hash::Hash,
 	path::{Path, PathBuf},
 	sync::{Arc, Mutex},
@@ -61,6 +62,14 @@ impl CopyFiles {
 		files: &[Copy],
 		jobmeta: Arc<Mutex<OldFileCopierJobMetadata>>,
 	) -> Result<(), JobError> {
+		// NOTE(matheus-consoli): if a step contains multiple files with the same name,
+		// for example `[file (1), file (2), file (3)]`, they all may be get renamed to the same
+		// new file (`file (4)`) as the decision for the new file name and the creation of such file
+		// all happens concurrently.
+		// this HashSet introduces a point of synchronization so we guarantee that all files have
+		// unique names - this is not the ideal solution, but it's a quick one.
+		let renamed_files_in_this_step = Arc::new(Mutex::new(HashSet::new()));
+
 		files
 			.iter()
 			.map(
@@ -70,10 +79,24 @@ impl CopyFiles {
 				     target_full_path,
 				 }| {
 					let jobmeta = Arc::clone(&jobmeta);
+					let renamed_files_in_this_step = Arc::clone(&renamed_files_in_this_step);
 					async move {
-						let target =
-							OldFileCopierJobStep::find_available_name(&target_full_path).await?;
+						let target = loop {
+							let target =
+								OldFileCopierJobStep::find_available_name(&target_full_path)
+									.await?;
 
+							let mut cache = renamed_files_in_this_step
+								.lock()
+								.expect("failed to get lock for internal cache");
+							if cache.contains(&target) {
+								// file name is taken, try again
+								continue;
+							} else {
+								cache.insert(target.clone());
+								break target;
+							}
+						};
 						fs::copy(&source.full_path, &target).await.map_err(|e| {
 							let source = source.full_path.clone();
 							FileIOError::from((source, e))
@@ -258,18 +281,13 @@ impl StatefulJob for OldFileCopierJobInit {
 
 				full_target_path.push(construct_target_filename(&file_data)?);
 
-				if file_data.full_path == full_target_path {
-					full_target_path =
-						find_available_filename_for_duplicate(full_target_path).await?;
-				}
-
 				Ok::<_, FileSystemJobsError>((file_data, full_target_path))
 			})
 			.collect::<Vec<_>>()
 			.try_join()
 			.await?;
 
-		let (mut dirs, mut files) = archives.into_iter().partition::<Vec<_>, _>(|file| {
+		let (mut dirs, mut files): (Vec<_>, _) = archives.into_iter().partition(|file| {
 			file.0
 				.file_path
 				.is_dir
@@ -511,18 +529,15 @@ impl StatefulJob for OldFileCopierJobInit {
 
 /// Gather information about the list of files and decide what is the best
 /// approach to organize the steps to copy them.
-///
-/// # Rules
-///
-/// - lots of small files: create steps containing groups of 20 files, or up to 200M.
-///   a file is considered small if it have a size bellow 10M.
-/// - medium files: idk yet
-/// - very large files: a file is considered large if it passes the mark of 2G.
-///   each large file is its own step, and is copied in a parallel manner.
 async fn file_copy_strategist(
 	files: Vec<(FileData, PathBuf)>,
 	location_path: &Path,
 ) -> Result<Vec<OldFileCopierJobStep>, JobError> {
+	// maximum size in bytes per step
+	// TODO(matheus-consoli): increase before commiting max quantity of files copied per step
+	const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 400;
+	const MAX_FILES_PER_STEP: usize = 20;
+
 	debug!("generating steps to copy files");
 
 	let mut metadata = files
@@ -543,13 +558,9 @@ async fn file_copy_strategist(
 	let mut metadata = metadata.into_iter().peekable();
 	let mut steps = Vec::new();
 
-	// TODO(matheus-consoli): max_size is not a good name
-	const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 100;
-	const MAX_FILES_PER_STEP: usize = 8;
-
 	loop {
 		let mut sum = 0;
-		let mut files = Vec::new();
+		let mut files = Vec::with_capacity(MAX_FILES_PER_STEP);
 
 		while let Some((source_size, source, path)) = metadata.next_if(|(len, _, _)| {
 			files.len() < MAX_FILES_PER_STEP && len + sum <= MAX_TOTAL_SIZE_PER_STEP || sum == 0
@@ -569,7 +580,7 @@ async fn file_copy_strategist(
 		});
 
 		if metadata.peek().is_none() {
-			// nothing left to do, all files are grouped into a step
+			// nothing left to do, all files are grouped into steps
 			break;
 		}
 	}
