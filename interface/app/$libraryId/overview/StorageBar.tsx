@@ -1,8 +1,9 @@
+import clsx from 'clsx';
 import React, { useState } from 'react';
 import { Tooltip } from '@sd/ui';
 import { useIsDark } from '~/hooks';
 
-const BARWIDTH = 710;
+const BARWIDTH = 690;
 
 interface Section {
 	name: string;
@@ -23,7 +24,6 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 
 	const getPercentage = (value: bigint) => {
 		if (value === 0n) return '0px';
-		console.log(value);
 		const percentage = Number((value * 100n) / totalSpace) / 100;
 		const pixvalue = BARWIDTH * percentage;
 		return `${pixvalue.toFixed(2)}px`;
@@ -31,15 +31,18 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 
 	return (
 		<div className="w-auto p-3">
-			<div className="relative mt-1 flex h-6 overflow-hidden rounded">
+			<div className="relative mt-1 flex h-6 rounded">
 				{sections.map((section, index) => {
 					const isHovered = hoveredSectionIndex === index;
-					const isLast = index === sections.length - 1;
 
 					return (
 						<Tooltip key={index} label={section.name} position="top">
 							<div
-								className={`relative h-full ${isLast ? 'rounded-r' : ''}`}
+								className={clsx('relative h-full', {
+									// Add rounded corners to first and last sections
+									'rounded-l': index === 0,
+									'rounded-r': index === sections.length - 1
+								})}
 								style={{
 									width: getPercentage(section.value),
 									minWidth: '2px', // Ensure very small sections are visible
@@ -54,7 +57,9 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 					);
 				})}
 			</div>
-			<div className={`mt-6 flex flex-wrap ${isDark ? 'text-ink-dull' : 'text-gray-800'}`}>
+			<div
+				className={clsx('mt-6 flex flex-wrap', isDark ? 'text-ink-dull' : 'text-gray-800')}
+			>
 				{sections.map((section, index) => (
 					<Tooltip key={index} label={section.tooltip} position="top">
 						<div
