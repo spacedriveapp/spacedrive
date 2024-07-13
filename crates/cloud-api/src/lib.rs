@@ -380,7 +380,7 @@ pub mod library {
 						"instanceUuid": this_instance_uuid,
 						"timestamps": timestamps
 					}))
-					.with_auth(auth_token) // Assuming you're using Bearer token
+					.with_auth(auth_token)
 					.send()
 					.await;
 
@@ -444,7 +444,7 @@ pub mod library {
 						config.api_url, library_id
 					))
 					.json(&json!({ "instances": instances }))
-					.with_auth(auth_token) // Assuming you're using Bearer token
+					.with_auth(auth_token)
 					.send()
 					.await;
 
