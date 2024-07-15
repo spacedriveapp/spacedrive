@@ -5,6 +5,7 @@ use sd_prisma::prisma::cloud_crdt_operation;
 use sd_sync::CompressedCRDTOperations;
 
 use std::{
+	future::IntoFuture,
 	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -12,7 +13,8 @@ use std::{
 	},
 };
 
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
+use futures_concurrency::future::Race;
 use tokio::sync::Notify;
 use tracing::debug;
 
@@ -26,6 +28,11 @@ pub async fn run_actor(
 	state_notify: Arc<Notify>,
 	stop: Stopper,
 ) {
+	enum Race {
+		Notified,
+		Stopped,
+	}
+
 	loop {
 		state.store(true, Ordering::Relaxed);
 		state_notify.notify_waiters();
@@ -107,9 +114,13 @@ pub async fn run_actor(
 		state.store(false, Ordering::Relaxed);
 		state_notify.notify_waiters();
 
-		notify.notified().await;
-
-		if stop.check_stop() {
+		if let Race::Stopped = (
+			notify.notified().map(|()| Race::Notified),
+			stop.into_future().map(|()| Race::Stopped),
+		)
+			.race()
+			.await
+		{
 			break;
 		}
 	}
