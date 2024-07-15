@@ -84,17 +84,12 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 
 	const [src, setSrc] = useState<null | string>(null);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	// const [loaded, setLoaded] = useState<boolean>(false);
 
 	useLayoutEffect(() => {
 		// Reset src when item changes, to allow detection of yet not updated src
 		setSrc(null);
-		// setLoaded(false);
-
 		if (locationData) {
 			setThumbType(ThumbType.Location);
-			// } else if (props.loadOriginal) {
-			// 	setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
@@ -104,28 +99,8 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 
 	// This sets the src to the thumbnail url
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId, thumbnailKey } = itemData;
-
-		// ???
-		// const locationId =
-		// 	itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
-
+		const { casId, kind, isDir, extension, thumbnailKey } = itemData;
 		switch (thumbType) {
-			// case ThumbType.Original:
-			// 	if (locationId) {
-			// 		setSrc(
-			// 			platform.getFileUrl(
-			// 				library.uuid,
-			// 				locationId,
-			// 				filePath?.id || props.data.item.id,
-			// 				// Workaround Linux webview not supporting playing video and audio through custom protocol urls
-			// 				kind == 'Video' || kind == 'Audio'
-			// 			)
-			// 		);
-			// 	} else {
-			// 		setThumbType(ThumbType.Thumbnail);
-			// 	}
-			// 	break;
 			case ThumbType.Thumbnail:
 				if (casId && thumbnailKey) {
 					setSrc(getThumbnailUrlByThumbKey(thumbnailKey));
@@ -141,6 +116,7 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 				break;
 		}
 	}, [itemData, thumbType]);
+
 	return (
 		<FileThumbWrapper fixedSize={fixedSize} size={size}>
 			{(() => {
