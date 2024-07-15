@@ -1,5 +1,7 @@
 use crate::{library::Libraries, Node};
 
+use futures::FutureExt;
+use futures_concurrency::future::Race;
 use sd_actors::Stopper;
 use sd_cloud_api::{library::message_collections::get::InstanceTimestamp, RequestConfigProvider};
 use sd_p2p::RemoteIdentity;
@@ -9,6 +11,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	future::IntoFuture,
 	str::FromStr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -41,6 +44,11 @@ pub async fn run_actor(
 	active_notify: Arc<Notify>,
 	stop: Stopper,
 ) {
+	enum Race {
+		Continue,
+		Stop,
+	}
+
 	loop {
 		active.store(true, Ordering::Relaxed);
 		active_notify.notify_waiters();
@@ -218,11 +226,15 @@ pub async fn run_actor(
 		active.store(false, Ordering::Relaxed);
 		active_notify.notify_waiters();
 
-		if stop.check_stop() {
+		if let Race::Stop = (
+			sleep(Duration::from_secs(60)).map(|()| Race::Continue),
+			stop.into_future().map(|()| Race::Stop),
+		)
+			.race()
+			.await
+		{
 			break;
 		}
-
-		sleep(Duration::from_secs(60)).await;
 	}
 }
 
