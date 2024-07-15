@@ -1,5 +1,5 @@
-import { ExplorerItem } from '@sd/client';
 import { Platform, View } from 'react-native';
+import { ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';

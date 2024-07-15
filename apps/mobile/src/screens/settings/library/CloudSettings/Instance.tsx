@@ -1,5 +1,5 @@
-import { CloudInstance, HardwareModel } from '@sd/client';
 import { Text, View } from 'react-native';
+import { CloudInstance, HardwareModel } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import { hardwareModelToIcon } from '~/components/overview/Devices';
 import { tw } from '~/lib/tailwind';

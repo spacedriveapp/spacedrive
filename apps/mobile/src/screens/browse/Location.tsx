@@ -1,5 +1,10 @@
-import { ObjectKindEnum, useLibraryQuery, useLibrarySubscription, usePathsExplorerQuery } from '@sd/client';
 import { useEffect, useMemo } from 'react';
+import {
+	ObjectKindEnum,
+	useLibraryQuery,
+	useLibrarySubscription,
+	usePathsExplorerQuery
+} from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
 import { useSortBy } from '~/hooks/useSortBy';
@@ -20,23 +25,31 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			.pop();
 	}, [path]);
 
-
 	const locationData = location.data;
 
-	const layoutFilter = useMemo(() => layoutMode === 'media' ? [{ object: { kind: {in: [ObjectKindEnum.Image, ObjectKindEnum.Video]}}}] : [], [layoutMode]);
-	const defaultFilters = useMemo(() => [
-		{ filePath: { hidden: false } },
-		{ filePath: { locations: { in: [id] } } },
-		{
-			filePath: {
-				path: {
-					location_id: id,
-					path: path ?? '',
-					include_descendants: layoutMode === 'media'
+	const layoutFilter = useMemo(
+		() =>
+			layoutMode === 'media'
+				? [{ object: { kind: { in: [ObjectKindEnum.Image, ObjectKindEnum.Video] } } }]
+				: [],
+		[layoutMode]
+	);
+	const defaultFilters = useMemo(
+		() => [
+			{ filePath: { hidden: false } },
+			{ filePath: { locations: { in: [id] } } },
+			{
+				filePath: {
+					path: {
+						location_id: id,
+						path: path ?? '',
+						include_descendants: layoutMode === 'media'
+					}
 				}
-		}
-	}
-	], [id, path, layoutMode]);
+			}
+		],
+		[id, path, layoutMode]
+	);
 
 	// makes sure that the location shows newest/modified objects
 	// when a location is opened
@@ -46,10 +59,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 
 	const paths = usePathsExplorerQuery({
 		arg: {
-			filters: [
-				...defaultFilters,
-				...layoutFilter
-			].filter(Boolean) as any,
+			filters: [...defaultFilters, ...layoutFilter].filter(Boolean) as any,
 			take: 30
 		},
 		order,

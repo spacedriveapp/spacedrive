@@ -1,4 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
+import { UseInfiniteQueryResult } from '@tanstack/react-query';
+import * as Haptics from 'expo-haptics';
+import { ActivityIndicator, Pressable } from 'react-native';
+import FileViewer from 'react-native-file-viewer';
 import {
 	getIndexedItemFilePath,
 	isPath,
@@ -6,11 +11,6 @@ import {
 	SearchData,
 	type ExplorerItem
 } from '@sd/client';
-import { FlashList } from '@shopify/flash-list';
-import { UseInfiniteQueryResult } from '@tanstack/react-query';
-import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Pressable } from 'react-native';
-import FileViewer from 'react-native-file-viewer';
 import Layout from '~/constants/Layout';
 import { twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -61,7 +61,7 @@ const Explorer = (props: Props) => {
 			});
 			filePath &&
 				filePath.object_id &&
-				await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]);
+				(await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]));
 		} catch (error) {
 			toast.error('Error opening object');
 		}
