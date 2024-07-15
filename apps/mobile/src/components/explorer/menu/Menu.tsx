@@ -1,5 +1,5 @@
 import { AnimatePresence, MotiView } from 'moti';
-import { Rows, SquaresFour } from 'phosphor-react-native';
+import { MonitorPlay, Rows, SquaresFour } from 'phosphor-react-native';
 import { Pressable, View } from 'react-native';
 import { tw } from '~/lib/tailwind';
 import { getExplorerStore, useExplorerStore } from '~/stores/explorerStore';
@@ -25,38 +25,42 @@ const Menu = () => {
 				>
 					<SortByMenu />
 					<View style={tw`flex-row gap-3`}>
-						{store.layoutMode === 'grid' ? (
-							<Pressable
-								hitSlop={12}
-								onPress={() => (getExplorerStore().layoutMode = 'list')}
-							>
-								<Rows weight="fill" color={tw.color('text-ink-faint')} size={23} />
-							</Pressable>
-						) : (
-							<Pressable
-								hitSlop={12}
-								onPress={() => (getExplorerStore().layoutMode = 'grid')}
-							>
-								<SquaresFour
-									weight="fill"
-									color={tw.color('text-ink-faint')}
-									size={23}
-								/>
-							</Pressable>
-						)}
-						{/* <Pressable
-								onPress={() => toast.error('Media view is not available yet...')}
-								// onPress={() => (getExplorerStore().layoutMode = 'media')}
-							>
-								<MonitorPlay
-									color={tw.color(
-										store.layoutMode === 'media'
-											? 'text-accent'
-											: 'text-ink-dull'
-									)}
-									size={23}
-								/>
-							</Pressable> */}
+						<Pressable
+							hitSlop={12}
+							onPress={() => (getExplorerStore().layoutMode = 'grid')}
+						>
+							<SquaresFour
+								weight={'regular'}
+								color={tw.color(
+									store.layoutMode === 'grid' ? 'accent' : 'text-ink-faint'
+								)}
+								size={23}
+							/>
+						</Pressable>
+						<Pressable
+							hitSlop={12}
+							onPress={() => (getExplorerStore().layoutMode = 'list')}
+						>
+							<Rows
+								weight={'regular'}
+								color={tw.color(
+									store.layoutMode === 'list' ? 'accent' : 'text-ink-faint'
+								)}
+								size={23}
+							/>
+						</Pressable>
+						<Pressable
+							hitSlop={12}
+							onPress={() => (getExplorerStore().layoutMode = 'media')}
+						>
+							<MonitorPlay
+								weight={'regular'}
+								color={tw.color(
+									store.layoutMode === 'media' ? 'accent' : 'text-ink-faint'
+								)}
+								size={23}
+							/>
+						</Pressable>
 					</View>
 				</MotiView>
 			)}
