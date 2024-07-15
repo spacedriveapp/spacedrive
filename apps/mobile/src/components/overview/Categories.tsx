@@ -10,7 +10,7 @@ import { IconName } from '../icons/Icon';
 import { Button } from '../primitive/Button';
 import CategoryItem from './CategoryItem';
 
-export default function CategoriesScreen() {
+export default function Categories() {
 	const kinds = useLibraryQuery(['library.kindStatistics']);
 	const navigation = useNavigation<OverviewStackScreenProps<'Overview'>['navigation']>();
 
@@ -19,9 +19,7 @@ export default function CategoriesScreen() {
 			<View style={tw`flex-row items-center justify-between pb-5`}>
 				<Text style={tw`text-lg font-bold text-white`}>Categories</Text>
 				<Button
-					onPress={() => {
-						navigation.navigate('Categories');
-					}}
+					onPress={() => navigation.navigate('Categories')}
 					style={tw`h-8 w-8 rounded-full`}
 					variant="gray"
 				>

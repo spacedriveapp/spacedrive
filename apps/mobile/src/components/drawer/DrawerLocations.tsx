@@ -28,6 +28,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 }: DrawerLocationItemProps) => {
 	const onlineLocations = useOnlineLocations();
 	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
+
 	return (
 		<Pressable onPress={onPress}>
 			<View
@@ -35,27 +36,32 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 					'h-auto w-full flex-row items-center justify-between rounded-md border border-app-inputborder/50 bg-app-darkBox p-2'
 				)}
 			>
-				<View style={tw`flex-row items-center gap-1`}>
-					<View style={tw`relative`}>
-						<FolderIcon size={20} />
-						<View
-							style={twStyle(
-								'z-5 absolute bottom-1 right-px h-1.5 w-1.5 rounded-full',
-								online ? 'bg-green-500' : 'bg-red-500'
-							)}
-						/>
+				<View style={tw`w-full flex-row items-center justify-between gap-1.5`}>
+					<View style={tw`flex-1 flex-row items-center gap-1`}>
+						<View style={tw`relative`}>
+							<FolderIcon size={20} />
+							<View
+								style={twStyle(
+									'z-5 absolute bottom-[3px] right-px h-1.5 w-1.5 rounded-full',
+									online ? 'bg-green-500' : 'bg-red-500'
+								)}
+							/>
+						</View>
+						<Text
+							style={tw`flex-1 text-xs font-medium text-ink`}
+							ellipsizeMode="tail"
+							numberOfLines={1}
+						>
+							{location.name ?? ''}
+						</Text>
 					</View>
-					<Text
-						style={twStyle('max-w-[150px] text-xs font-medium text-ink')}
-						numberOfLines={1}
+					<View
+						style={tw`items-center rounded-md border border-app-box/70 bg-app/70 px-1 py-0.5`}
 					>
-						{location.name ?? ''}
-					</Text>
-				</View>
-				<View style={tw`rounded-md border border-app-box/70 bg-app/70 px-1 py-0.5`}>
-					<Text style={tw`text-[11px] font-bold text-ink-dull`} numberOfLines={1}>
-						{`${humanizeSize(location.size_in_bytes)}`}
-					</Text>
+						<Text style={tw`text-[11px] font-bold text-ink-dull`} numberOfLines={1}>
+							{`${humanizeSize(location.size_in_bytes)}`}
+						</Text>
+					</View>
 				</View>
 			</View>
 		</Pressable>
