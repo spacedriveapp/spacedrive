@@ -30,6 +30,27 @@ interface Section {
 	tooltip: string;
 }
 
+function mergeKindStatistics(
+	oldKindStatisticsMao: Map<number, FileKind>,
+	newKindStatistics: Iterable<KindStatistic>
+): Map<number, FileKind> {
+	let updated = false;
+	for (const stats of newKindStatistics) {
+		if (uint32ArrayToBigInt(stats.count) !== 0n) {
+			oldKindStatisticsMao.set(stats.kind, {
+				kind: stats.kind,
+				name: stats.name,
+				count: uint32ArrayToBigInt(stats.count),
+				total_bytes: uint32ArrayToBigInt(stats.total_bytes)
+			});
+			updated = true;
+		}
+	}
+
+	// if new stats were added, return a new map due to react state update
+	return updated ? new Map<number, FileKind>(oldKindStatisticsMao) : oldKindStatisticsMao;
+}
+
 const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	const size = humanizeSize(bytes);
 	const count = useCounter({
@@ -84,19 +105,7 @@ const LibraryStats = () => {
 
 	useLibrarySubscription(['library.updatedKindStatistic'], {
 		onData: (data: KindStatistic) => {
-			setFileKinds((kindStatisticsMap) => {
-				if (uint32ArrayToBigInt(data.count) !== 0n) {
-					return new Map(
-						kindStatisticsMap.set(data.kind, {
-							kind: data.kind,
-							name: data.name,
-							count: uint32ArrayToBigInt(data.count),
-							total_bytes: uint32ArrayToBigInt(data.total_bytes)
-						})
-					);
-				}
-				return kindStatisticsMap;
-			});
+			setFileKinds((kindStatisticsMap) => mergeKindStatistics(kindStatisticsMap, [data]));
 		}
 	});
 
@@ -108,20 +117,10 @@ const LibraryStats = () => {
 			statsData.statistics &&
 			kindStatisticsData
 		) {
-			const fileKindsMap = new Map<number, FileKind>(
-				Object.values(kindStatisticsData.statistics).map((stats: any) => [
-					stats.kind,
-					{
-						kind: stats.kind,
-						name: stats.name,
-						count: uint32ArrayToBigInt(stats.count),
-						total_bytes: uint32ArrayToBigInt(stats.total_bytes)
-					}
-				])
-			);
-
 			setLibraryStats(statsData.statistics);
-			setFileKinds(fileKindsMap);
+			setFileKinds((kindStatisticsMap) =>
+				mergeKindStatistics(kindStatisticsMap, Object.values(kindStatisticsData.statistics))
+			);
 			setLoading(false);
 		}
 	}, [isStatsLoading, isKindStatisticsLoading, statsData, kindStatisticsData]);
