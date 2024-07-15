@@ -154,6 +154,7 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 				}
 				return (
 					<Image
+					cachePolicy="memory-disk"
 						source={source}
 						style={{
 							width: fixedSize ? size : 70 * size,
