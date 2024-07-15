@@ -1,5 +1,6 @@
 use sd_core_sync::{SyncMessage, NTP64};
 
+use sd_actors::Stopper;
 use sd_cloud_api::RequestConfigProvider;
 
 use std::{
@@ -22,6 +23,7 @@ pub async fn run_actor(
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
 	loop {
 		state.store(true, Ordering::Relaxed);
@@ -127,6 +129,10 @@ pub async fn run_actor(
 					break;
 				};
 			}
+		}
+
+		if stop.check_stop() {
+			break;
 		}
 
 		sleep(Duration::from_millis(1000)).await;

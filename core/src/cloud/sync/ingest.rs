@@ -1,5 +1,6 @@
 use crate::cloud::sync::err_break;
 
+use sd_actors::Stopper;
 use sd_prisma::prisma::cloud_crdt_operation;
 use sd_sync::CompressedCRDTOperations;
 
@@ -23,6 +24,7 @@ pub async fn run_actor(
 	notify: Arc<Notify>,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
 	loop {
 		state.store(true, Ordering::Relaxed);
@@ -106,5 +108,9 @@ pub async fn run_actor(
 		state_notify.notify_waiters();
 
 		notify.notified().await;
+
+		if stop.check_stop() {
+			break;
+		}
 	}
 }

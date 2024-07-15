@@ -1,5 +1,6 @@
 use crate::{library::Libraries, Node};
 
+use sd_actors::Stopper;
 use sd_cloud_api::{library::message_collections::get::InstanceTimestamp, RequestConfigProvider};
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
@@ -38,6 +39,7 @@ pub async fn run_actor(
 	node: Arc<Node>,
 	active: Arc<AtomicBool>,
 	active_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
 	loop {
 		active.store(true, Ordering::Relaxed);
@@ -215,6 +217,10 @@ pub async fn run_actor(
 
 		active.store(false, Ordering::Relaxed);
 		active_notify.notify_waiters();
+
+		if stop.check_stop() {
+			break;
+		}
 
 		sleep(Duration::from_secs(60)).await;
 	}
