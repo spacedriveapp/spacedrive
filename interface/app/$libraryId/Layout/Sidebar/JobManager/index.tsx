@@ -101,7 +101,7 @@ export function JobManager() {
 		try {
 			const clearPromises: any[] = [];
 
-			jobGroups.data.forEach((group: any) => {
+			jobGroups.data?.forEach((group: any) => {
 				if (group.jobs.length > 1) {
 					let allComplete = true;
 					group.jobs.forEach((job: any) => {

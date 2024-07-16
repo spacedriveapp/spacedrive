@@ -148,7 +148,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 									);
 								})}
 								{status == 'Running' && (
-									<div>
+									<div className="text-[0.8rem] text-gray-400 opacity-60">
 										{currentETA !== undefined
 											? formatETA(currentETA)
 											: 'Unable to calculate estimated completion time'}

@@ -44,10 +44,7 @@ export default function ({ group, progress }: JobGroupProps) {
 	if (jobs.length === 0) return <></>;
 	const { t } = useLocale();
 
-	const calculateETA = (job: {
-		created_at: string | number | Date;
-		estimated_completion: string | number | Date;
-	}) => {
+	const calculateETA = (job: Report) => {
 		let diff = 0;
 		if (job.created_at && job.estimated_completion) {
 			const start = new Date(job.created_at);
@@ -140,7 +137,7 @@ export default function ({ group, progress }: JobGroupProps) {
 				<Job
 					job={jobs[0]!}
 					progress={progress[jobs[0]!.id] || null}
-					eta={calculateETA(jobs[0])}
+					eta={calculateETA(jobs[0]!)}
 				/>
 			)}
 		</ul>
