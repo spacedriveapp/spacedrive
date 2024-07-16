@@ -1,8 +1,12 @@
+use futures::FutureExt;
+use futures_concurrency::future::Race;
 use sd_core_sync::{SyncMessage, NTP64};
 
+use sd_actors::Stopper;
 use sd_cloud_api::RequestConfigProvider;
 
 use std::{
+	future::IntoFuture,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -10,11 +14,19 @@ use std::{
 	time::Duration,
 };
 
-use tokio::{sync::Notify, time::sleep};
+use tokio::{
+	sync::{broadcast, Notify},
+	time::sleep,
+};
 use tracing::debug;
 use uuid::Uuid;
 
 use super::{err_break, CompressedCRDTOperations};
+
+enum RaceNotifiedOrStopped {
+	Notified,
+	Stopped,
+}
 
 pub async fn run_actor(
 	library_id: Uuid,
@@ -22,6 +34,7 @@ pub async fn run_actor(
 	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
 	loop {
 		state.store(true, Ordering::Relaxed);
@@ -117,18 +130,28 @@ pub async fn run_actor(
 		state.store(false, Ordering::Relaxed);
 		state_notify.notify_waiters();
 
-		{
+		if let RaceNotifiedOrStopped::Stopped = (
 			// recreate subscription each time so that existing messages are dropped
-			let mut rx = sync.subscribe();
-
-			// wait until Created message comes in
-			loop {
-				if let Ok(SyncMessage::Created) = rx.recv().await {
-					break;
-				};
-			}
+			wait_notification(sync.subscribe()),
+			stop.into_future().map(|()| RaceNotifiedOrStopped::Stopped),
+		)
+			.race()
+			.await
+		{
+			break;
 		}
 
 		sleep(Duration::from_millis(1000)).await;
 	}
+}
+
+async fn wait_notification(mut rx: broadcast::Receiver<SyncMessage>) -> RaceNotifiedOrStopped {
+	// wait until Created message comes in
+	loop {
+		if let Ok(SyncMessage::Created) = rx.recv().await {
+			break;
+		};
+	}
+
+	RaceNotifiedOrStopped::Notified
 }

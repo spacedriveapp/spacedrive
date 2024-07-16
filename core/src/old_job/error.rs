@@ -54,6 +54,8 @@ pub enum JobError {
 	Timeout(Duration),
 	#[error("critical job error: {0}")]
 	Critical(&'static str),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 
 	// Specific job errors
 	#[error(transparent)]

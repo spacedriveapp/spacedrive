@@ -1,13 +1,22 @@
+use crate::cloud::sync::err_break;
+
+use sd_actors::Stopper;
 use sd_prisma::prisma::cloud_crdt_operation;
 use sd_sync::CompressedCRDTOperations;
-use std::sync::{
-	atomic::{AtomicBool, Ordering},
-	Arc,
+
+use std::{
+	future::IntoFuture,
+	pin::pin,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 };
+
+use futures::{FutureExt, StreamExt};
+use futures_concurrency::future::Race;
 use tokio::sync::Notify;
 use tracing::debug;
-
-use crate::cloud::sync::err_break;
 
 // Responsible for taking sync operations received from the cloud,
 // and applying them to the local database via the sync system's ingest actor.
@@ -17,13 +26,19 @@ pub async fn run_actor(
 	notify: Arc<Notify>,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
+	enum Race {
+		Notified,
+		Stopped,
+	}
+
 	loop {
 		state.store(true, Ordering::Relaxed);
 		state_notify.notify_waiters();
 
 		{
-			let mut rx = sync.ingest.req_rx.lock().await;
+			let mut rx = pin!(sync.ingest.req_rx.clone());
 
 			if sync
 				.ingest
@@ -32,8 +47,12 @@ pub async fn run_actor(
 				.await
 				.is_ok()
 			{
-				while let Some(req) = rx.recv().await {
+				while let Some(req) = rx.next().await {
 					const OPS_PER_REQUEST: u32 = 1000;
+
+					// FIXME: If there are exactly a multiple of OPS_PER_REQUEST operations,
+					// then this will bug, as we sent `has_more` as true, but we don't have
+					// more operations to send.
 
 					use sd_core_sync::*;
 
@@ -95,6 +114,14 @@ pub async fn run_actor(
 		state.store(false, Ordering::Relaxed);
 		state_notify.notify_waiters();
 
-		notify.notified().await;
+		if let Race::Stopped = (
+			notify.notified().map(|()| Race::Notified),
+			stop.into_future().map(|()| Race::Stopped),
+		)
+			.race()
+			.await
+		{
+			break;
+		}
 	}
 }
