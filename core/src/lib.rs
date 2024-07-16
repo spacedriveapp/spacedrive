@@ -14,6 +14,7 @@ use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
 
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
+use volume::save_storage_statistics;
 
 use std::{
 	fmt,
@@ -218,6 +219,8 @@ impl Node {
 				)
 				.into_make_service(),
 		);
+
+		save_storage_statistics(&node);
 
 		info!("Spacedrive online!");
 		Ok((node, router))

@@ -10,6 +10,7 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 		spawn,
 		time::{interval, Duration},
 	};
+	use tracing::error;
 
 	use super::get_volumes;
 	spawn(async move {
@@ -23,6 +24,20 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 
 			if existing_volumes != current_volumes {
 				existing_volumes = current_volumes;
+				let (total_capacity, available_capacity) = super::compute_stats(&existing_volumes);
+
+				if let Err(e) = super::update_storage_statistics(
+					&library.db,
+					&library.sync,
+					&library.instance_uuid,
+					total_capacity,
+					available_capacity,
+				)
+				.await
+				{
+					error!(?e, "Failed to update storage statistics;");
+				}
+
 				invalidate_query!(&library, "volumes.list");
 			}
 		}
