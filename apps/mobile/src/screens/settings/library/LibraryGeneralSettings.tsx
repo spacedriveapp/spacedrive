@@ -88,9 +88,9 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 					</View>
 					<DeleteLibraryModal
 						trigger={
-								<View style={tw`rounded-md border-red-800 bg-red-600 px-3 py-1.5`}>
-									<Text style={tw`font-bold text-ink`}>Delete</Text>
-								</View>
+							<View style={tw`rounded-md border-red-800 bg-red-600 px-3 py-1.5`}>
+								<Text style={tw`font-bold text-ink`}>Delete</Text>
+							</View>
 						}
 						libraryUuid={library.uuid}
 					/>

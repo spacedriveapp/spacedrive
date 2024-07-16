@@ -157,11 +157,11 @@ export default function App() {
 		global.Intl = require('intl');
 		require('intl/locale-data/jsonp/en'); //TODO(@Rocky43007): Setup a way to import all the languages we support, once we add localization on mobile.
 		SplashScreen.hideAsync();
-			if (Platform.OS === 'android') {
-				(async () => {
-					await requestPermissions();
-				})()
-			}
+		if (Platform.OS === 'android') {
+			(async () => {
+				await requestPermissions();
+			})();
+		}
 	}, []);
 	return (
 		<RspcProvider queryClient={queryClient}>
