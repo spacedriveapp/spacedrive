@@ -173,6 +173,8 @@ pub enum FilePathError {
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error("received an invalid filename and extension: <filename_and_extension='{0}'>")]
 	InvalidFilenameAndExtension(String),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 #[must_use]
