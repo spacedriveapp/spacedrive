@@ -92,6 +92,7 @@ model Instance {
   locations          Location[]
   CRDTOperation      CRDTOperation[]
   CloudCRDTOperation CloudCRDTOperation[]
+  storage_statistics StorageStatistics?
 
   @@map("instance")
 }
@@ -116,7 +117,7 @@ model Statistics {
 
 /// @local
 model ObjectKindStatistics {
-  kind Int @id
+  kind        Int    @id
   total_bytes BigInt @default(0)
   files_count BigInt @default(0)
 
@@ -564,6 +565,21 @@ model ObjectInSpace {
 
   @@id([space_id, object_id])
   @@map("object_in_space")
+}
+
+//// StorageStatistics ////
+/// @shared(id: pub_id, modelId: 11)
+model StorageStatistics {
+  id     Int   @id @default(autoincrement())
+  pub_id Bytes @unique
+
+  total_capacity     BigInt @default(0)
+  available_capacity BigInt @default(0)
+
+  instance_pub_id Bytes?    @unique
+  instance        Instance? @relation(fields: [instance_pub_id], references: [pub_id], onDelete: Cascade)
+
+  @@map("storage_statistics")
 }
 
 //// Job ////

@@ -10,7 +10,7 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
-import { Card, Tooltip } from '@sd/ui';
+import { Card, Loader, Tooltip } from '@sd/ui';
 import { useCounter, useIsDark, useLocale } from '~/hooks';
 
 import { FileKind } from '.';
@@ -30,21 +30,35 @@ interface Section {
 	tooltip: string;
 }
 
-let mounted = false;
+function mergeKindStatistics(
+	oldKindStatisticsMao: Map<number, FileKind>,
+	newKindStatistics: Iterable<KindStatistic>
+): Map<number, FileKind> {
+	let updated = false;
+	for (const stats of newKindStatistics) {
+		if (uint32ArrayToBigInt(stats.count) !== 0n) {
+			oldKindStatisticsMao.set(stats.kind, {
+				kind: stats.kind,
+				name: stats.name,
+				count: uint32ArrayToBigInt(stats.count),
+				total_bytes: uint32ArrayToBigInt(stats.total_bytes)
+			});
+			updated = true;
+		}
+	}
 
-const StatItem = (props: StatItemProps) => {
-	const { title, bytes, isLoading } = props;
+	// if new stats were added, return a new map due to react state update
+	return updated ? new Map<number, FileKind>(oldKindStatisticsMao) : oldKindStatisticsMao;
+}
 
-	const [isMounted] = useState(mounted);
-
+const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	const size = humanizeSize(bytes);
 	const count = useCounter({
 		name: title,
 		end: size.value,
-		duration: isMounted ? 0 : 1,
+		duration: isLoading ? 0 : 1,
 		saveState: false
 	});
-
 	const { t } = useLocale();
 
 	return (
@@ -56,8 +70,8 @@ const StatItem = (props: StatItemProps) => {
 		>
 			<span className="whitespace-nowrap text-sm font-medium text-ink-faint">
 				{title}
-				{props.info && (
-					<Tooltip label={props.info}>
+				{info && (
+					<Tooltip label={info}>
 						<Info
 							weight="fill"
 							className="-mt-0.5 ml-1 inline size-3 text-ink-faint opacity-0 transition-opacity duration-300 group-hover/stat:opacity-70"
@@ -65,13 +79,8 @@ const StatItem = (props: StatItemProps) => {
 					</Tooltip>
 				)}
 			</span>
-
 			<span className="text-2xl">
-				<div
-					className={clsx({
-						hidden: isLoading
-					})}
-				>
+				<div className={clsx({ hidden: isLoading })}>
 					<span className="font-black tabular-nums">{count}</span>
 					<span className="ml-1 text-[16px] font-medium text-ink-faint">
 						{t(`size_${size.unit.toLowerCase()}`)}
@@ -85,50 +94,36 @@ const StatItem = (props: StatItemProps) => {
 const LibraryStats = () => {
 	const isDark = useIsDark();
 	const { library } = useLibraryContext();
-	const stats = useLibraryQuery(['library.statistics']);
-	const { data: kindStatisticsData } = useLibraryQuery(['library.kindStatistics']);
-	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
-
 	const { t } = useLocale();
+	const { data: statsData, isLoading: isStatsLoading } = useLibraryQuery(['library.statistics']);
+	const { data: kindStatisticsData, isLoading: isKindStatisticsLoading } = useLibraryQuery([
+		'library.kindStatistics'
+	]);
+	const [libraryStats, setLibraryStats] = useState<Statistics>();
+	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
+	const [loading, setLoading] = useState<boolean>(true);
 
 	useLibrarySubscription(['library.updatedKindStatistic'], {
 		onData: (data: KindStatistic) => {
-			setFileKinds((kindStatisticsMap) => {
-				if (uint32ArrayToBigInt(data.count) !== 0n) {
-					return new Map(
-						kindStatisticsMap.set(data.kind, {
-							kind: data.kind,
-							name: data.name,
-							count: uint32ArrayToBigInt(data.count),
-							total_bytes: uint32ArrayToBigInt(data.total_bytes)
-						})
-					);
-				}
-
-				return kindStatisticsMap;
-			});
+			setFileKinds((kindStatisticsMap) => mergeKindStatistics(kindStatisticsMap, [data]));
 		}
 	});
 
 	useEffect(() => {
-		if (!stats.isLoading) mounted = true;
-
-		if (kindStatisticsData) {
-			setFileKinds(
-				new Map(
-					Object.entries(kindStatisticsData.statistics).map(([_, stats]) => [
-						stats.kind,
-						{
-							kind: stats.kind,
-							name: stats.name,
-							count: uint32ArrayToBigInt(stats.count),
-							total_bytes: uint32ArrayToBigInt(stats.total_bytes)
-						}
-					])
-				)
+		if (
+			!isStatsLoading &&
+			!isKindStatisticsLoading &&
+			statsData &&
+			statsData.statistics &&
+			kindStatisticsData
+		) {
+			setLibraryStats(statsData.statistics);
+			setFileKinds((kindStatisticsMap) =>
+				mergeKindStatistics(kindStatisticsMap, Object.values(kindStatisticsData.statistics))
 			);
+			setLoading(false);
 		}
-	}, [stats.isLoading, kindStatisticsData]);
+	}, [isStatsLoading, isKindStatisticsLoading, statsData, kindStatisticsData]);
 
 	const StatItemNames: Partial<Record<keyof Statistics, string>> = {
 		total_library_bytes: t('library_bytes'),
@@ -148,88 +143,98 @@ const LibraryStats = () => {
 
 	const displayableStatItems = Object.keys(
 		StatItemNames
-	) as unknown as keyof typeof StatItemNames;
+	) as unknown as (keyof typeof StatItemNames)[];
 
-	if (!stats.data || !stats.data.statistics) {
-		return <div>Loading...</div>;
+	// find top 5 categories by total bytes
+	const aggregatedData = new Map<string, { total_bytes: bigint; color: string }>();
+
+	for (const stats of fileKinds.values()) {
+		const currentCategory = aggregatedData.get(stats.name) || { total_bytes: 0n, color: '' };
+		currentCategory.total_bytes += stats.total_bytes;
+		aggregatedData.set(stats.name, currentCategory);
 	}
 
-	const { statistics } = stats.data;
-	const totalSpace = BigInt(statistics.total_local_bytes_capacity);
-	const totalUsedSpace = BigInt(statistics.total_local_bytes_used);
-	const totalFreeBytes = BigInt(statistics.total_local_bytes_free);
+	// sort and select top 5
+	const sortedCategories = [...aggregatedData.entries()].sort((a, b) => {
+		if (a[1].total_bytes > b[1].total_bytes) {
+			return -1;
+		}
+		if (a[1].total_bytes < b[1].total_bytes) {
+			return 1;
+		}
+		return 0;
+	});
 
-	// Define the major categories and aggregate the "Other" category
-	const majorCategories = ['Document', 'Text', 'Image', 'Video'];
-	const aggregatedDataMap = new Map<string, { total_bytes: bigint; color: string }>(
-		[
-			{ category: 'Document', color: '#3A7ECC' }, // Slightly Darker Blue 400
-			{ category: 'Text', color: '#AAAAAA' }, // Gray
-			{ category: 'Image', color: '#004C99' }, // Tailwind Blue 700
-			{ category: 'Video', color: '#2563EB' }, // Tailwind Blue 500
-			{ category: 'Other', color: '#00274D' } // Dark Navy Blue,
-		].map(({ category, color }) => [category, { total_bytes: 0n, color }])
+	const topCategories = sortedCategories.slice(0, 5);
+	const otherCategories = sortedCategories.slice(5);
+
+	// Sum the remaining categories into "Other"
+	const otherTotalBytes = otherCategories.reduce(
+		(acc, [_, { total_bytes }]) => acc + total_bytes,
+		0n
 	);
 
-	// Calculate the used space and determine the System Data
-	let usedSpace = 0n;
-	for (const stats of fileKinds.values()) {
-		usedSpace += stats.total_bytes;
-		const category = majorCategories.includes(stats.name) ? stats.name : 'Other';
-		const aggregatedData = aggregatedDataMap.get(category)!;
-		aggregatedData.total_bytes += stats.total_bytes;
-		aggregatedDataMap.set(category, aggregatedData);
-	}
+	const colors = ['#36A3FF', '#2E84F3', '#2563EB', '#004C99', '#00274D', '#2A324B'];
 
-	const systemDataBytes = totalUsedSpace - usedSpace;
-
-	const sections: Section[] = [...aggregatedDataMap.entries()]
-		.filter(([_name, { total_bytes }]) => total_bytes > 0)
-		.map(([name, { total_bytes, color }]) => {
+	const sections: Section[] = [
+		...topCategories.map(([name, { total_bytes }], index) => {
+			const size = humanizeSize(total_bytes);
 			return {
 				name,
 				value: total_bytes,
-				color,
-				tooltip: `${name}`
+				color: colors[index % colors.length] || '#AAAAAA',
+				tooltip: `${size.value} ${size.unit}`
 			};
-		});
-
-	// Add System Data section
-	sections.push({
-		name: 'Not Indexed Data',
-		value: systemDataBytes,
-		color: '#2F3038', // Gray for System Data
-		tooltip: 'System data that exists outside of your Spacedrive library'
-	});
+		}),
+		{
+			name: 'Other',
+			value: otherTotalBytes,
+			color: colors[5] || '#AAAAAA',
+			tooltip: `${humanizeSize(otherTotalBytes).value} ${humanizeSize(otherTotalBytes).unit}`
+		}
+	];
 
 	return (
 		<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
-			<div className="mb-1 flex overflow-hidden p-4">
-				{Object.entries(statistics)
-					.sort(
-						([a], [b]) =>
-							displayableStatItems.indexOf(a) - displayableStatItems.indexOf(b)
-					)
-					.map(([key, value]) => {
-						if (!displayableStatItems.includes(key)) return null;
-						return (
-							<StatItem
-								key={`${library.uuid} ${key}`}
-								title={StatItemNames[key as keyof Statistics]!}
-								bytes={BigInt(value as number)}
-								isLoading={stats.isLoading}
-								info={StatDescriptions[key as keyof Statistics]}
-							/>
-						);
-					})}
-			</div>
-			<div>
-				<StorageBar
-					sections={sections}
-					totalSpace={totalSpace}
-					totalFreeBytes={totalFreeBytes}
-				/>
-			</div>
+			{loading ? (
+				<div className="mt-4 flex h-full items-center justify-center">
+					<div className="flex flex-col items-center justify-center gap-3">
+						<Loader />
+						<p className="text-ink-dull">Calculating library statistics...</p>
+					</div>
+				</div>
+			) : (
+				<>
+					<div className="mb-1 flex overflow-hidden p-4">
+						{Object.entries(libraryStats ?? {})
+							.sort(
+								([a], [b]) =>
+									displayableStatItems.indexOf(a as keyof typeof StatItemNames) -
+									displayableStatItems.indexOf(b as keyof typeof StatItemNames)
+							)
+							.map(([key, value]) => {
+								if (
+									!displayableStatItems.includes(
+										key as keyof typeof StatItemNames
+									)
+								)
+									return null;
+								return (
+									<StatItem
+										key={`${library.uuid} ${key}`}
+										title={StatItemNames[key as keyof Statistics]!}
+										bytes={BigInt(value as number)}
+										isLoading={isStatsLoading}
+										info={StatDescriptions[key as keyof Statistics]}
+									/>
+								);
+							})}
+					</div>
+					<div>
+						<StorageBar sections={sections} />
+					</div>
+				</>
+			)}
 		</Card>
 	);
 };
