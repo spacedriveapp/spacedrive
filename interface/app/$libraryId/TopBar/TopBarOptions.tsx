@@ -1,4 +1,4 @@
-import { Cards, Minus, Square, X } from '@phosphor-icons/react';
+import { Cards, IconWeight, Minus, Square, X } from '@phosphor-icons/react';
 import { getCurrent, Window } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
@@ -26,7 +26,14 @@ interface TopBarChildrenProps {
 	options?: ToolOption[][];
 }
 
-export const TOP_BAR_ICON_CLASSLIST = 'm-0.5 w-[18px] h-[18px] text-ink-dull';
+export const TOP_BAR_ICON_CLASSLIST = 'm-0.5 text-ink-dull';
+export const TOP_BAR_ICON_WEIGHT: IconWeight = 'regular';
+export const TOP_BAR_ICON_SIZE = 18;
+export const TOP_BAR_ICON_DEFAULT_PROPS = {
+	weight: TOP_BAR_ICON_WEIGHT,
+	size: TOP_BAR_ICON_SIZE,
+	className: TOP_BAR_ICON_CLASSLIST
+};
 
 export default ({ options }: TopBarChildrenProps) => {
 	const [windowSize, setWindowSize] = useState(0);
@@ -193,7 +200,7 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				active={false}
 				onClick={() => appWindow.minimize()}
 			>
-				<Minus weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
+				<Minus {...TOP_BAR_ICON_DEFAULT_PROPS} />
 			</TopBarButton>
 			<TopBarButton
 				rounding="both"
@@ -204,9 +211,9 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				}}
 			>
 				{maximized ? (
-					<Cards weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
+					<Cards {...TOP_BAR_ICON_DEFAULT_PROPS} />
 				) : (
-					<Square weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST)} />
+					<Square {...TOP_BAR_ICON_DEFAULT_PROPS} />
 				)}
 			</TopBarButton>
 			<TopBarButton
@@ -215,7 +222,10 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 				active={false}
 				onClick={() => appWindow.close()}
 			>
-				<X weight="regular" className={clsx(TOP_BAR_ICON_CLASSLIST, 'hover:text-white')} />
+				<X
+					{...TOP_BAR_ICON_DEFAULT_PROPS}
+					className={clsx(TOP_BAR_ICON_CLASSLIST, 'hover:text-white')}
+				/>
 			</TopBarButton>
 		</div>
 	);

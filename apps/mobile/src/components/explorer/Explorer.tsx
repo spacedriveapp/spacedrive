@@ -7,14 +7,12 @@ import FileViewer from 'react-native-file-viewer';
 import {
 	getIndexedItemFilePath,
 	isPath,
+	libraryClient,
 	SearchData,
-	useLibraryMutation,
-	useLibraryQuery,
-	useRspcContext,
 	type ExplorerItem
 } from '@sd/client';
 import Layout from '~/constants/Layout';
-import { tw } from '~/lib/tailwind';
+import { twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
@@ -22,6 +20,7 @@ import { useActionsModalStore } from '~/stores/modalStore';
 import ScreenContainer from '../layout/ScreenContainer';
 import { toast } from '../primitive/Toast';
 import FileItem from './FileItem';
+import FileMedia from './FileMedia';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
 
@@ -47,25 +46,13 @@ type Props =
 const Explorer = (props: Props) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 	const store = useExplorerStore();
-	const { modalRef, setData, data } = useActionsModalStore();
-	const rspc = useRspcContext();
-
-	const filePath = data && getIndexedItemFilePath(data);
-
-	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
-		enabled: filePath != null
-	});
-
-	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
-		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
-		}
-	});
+	const { modalRef, setData } = useActionsModalStore();
 
 	//Open file with native api
-	async function handleOpen() {
+	async function handleOpen(data: ExplorerItem) {
 		try {
-			const absolutePath = (await queriedFullPath.refetch()).data;
+			const filePath = getIndexedItemFilePath(data);
+			const absolutePath = await libraryClient.query(['files.getPath', filePath?.id ?? -1]);
 			if (!absolutePath) return;
 			await FileViewer.open(absolutePath, {
 				// Android only
@@ -74,7 +61,7 @@ const Explorer = (props: Props) => {
 			});
 			filePath &&
 				filePath.object_id &&
-				(await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error));
+				(await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]));
 		} catch (error) {
 			toast.error('Error opening object');
 		}
@@ -91,7 +78,7 @@ const Explorer = (props: Props) => {
 		} else {
 			// Open file with native api
 			setData(data);
-			await handleOpen();
+			await handleOpen(data);
 		}
 	}
 
@@ -113,7 +100,13 @@ const Explorer = (props: Props) => {
 			) : (
 				<FlashList
 					key={store.layoutMode}
-					numColumns={store.layoutMode === 'grid' ? store.gridNumColumns : 1}
+					numColumns={
+						store.layoutMode === 'grid'
+							? store.gridNumColumns
+							: store.layoutMode === 'media'
+								? store.mediaColumns
+								: 1
+					}
 					data={props.items ?? []}
 					keyExtractor={(item) =>
 						item.type === 'NonIndexedPath'
@@ -129,17 +122,25 @@ const Explorer = (props: Props) => {
 						>
 							{store.layoutMode === 'grid' ? (
 								<FileItem data={item} />
-							) : (
+							) : store.layoutMode === 'list' ? (
 								<FileRow data={item} />
+							) : (
+								store.layoutMode === 'media' && <FileMedia data={item} />
 							)}
 						</Pressable>
 					)}
-					contentContainerStyle={tw`px-2 py-5`}
+					contentContainerStyle={twStyle(
+						store.layoutMode !== 'media' ? 'px-2 py-5' : 'px-0'
+					)}
 					extraData={store.layoutMode}
 					estimatedItemSize={
 						store.layoutMode === 'grid'
 							? Layout.window.width / store.gridNumColumns
-							: store.listItemSize
+							: store.layoutMode === 'list'
+								? store.listItemSize
+								: store.layoutMode === 'media'
+									? Layout.window.width / store.mediaColumns
+									: 100
 					}
 					onEndReached={() => props.loadMore?.()}
 					onEndReachedThreshold={0.6}

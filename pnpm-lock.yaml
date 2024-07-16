@@ -89,7 +89,7 @@ importers:
         version: 0.0.0-main-dc31e5b2
       '@oscartbeaumont-sd/rspc-tauri':
         specifier: '=0.0.0-main-dc31e5b2'
-        version: 0.0.0-main-dc31e5b2(patch_hash=3ozd223mr7o4cioyf7af7qd56a)(@tauri-apps/api@2.0.0-beta.13)
+        version: 0.0.0-main-dc31e5b2(patch_hash=3ozd223mr7o4cioyf7af7qd56a)(@tauri-apps/api@2.0.0-beta.14)
       '@remix-run/router':
         specifier: '=1.13.1'
         version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
@@ -110,7 +110,7 @@ importers:
         version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(react@18.2.0))(react@18.2.0)
       '@tauri-apps/api':
         specifier: next
-        version: 2.0.0-beta.13
+        version: 2.0.0-beta.14
       '@tauri-apps/plugin-dialog':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
@@ -146,7 +146,7 @@ importers:
         specifier: ^2.16.0
         version: 2.16.0
       '@tauri-apps/cli':
-        specifier: next
+        specifier: 2.0.0-beta.20
         version: 2.0.0-beta.20
       '@types/react':
         specifier: ^18.2.67
@@ -422,9 +422,15 @@ importers:
       expo-status-bar:
         specifier: ~1.11.1
         version: 1.11.1
+      intl:
+        specifier: ^1.2.5
+        version: 1.2.5
       lottie-react-native:
         specifier: 6.7.0
         version: 6.7.0(react-native-windows@0.73.11(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
+      manage-external-storage:
+        specifier: ^0.1.3
+        version: 0.1.3(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0)
       metro-react-native-babel-transformer:
         specifier: ^0.77.0
         version: 0.77.0(@babel/core@7.24.0)
@@ -2959,6 +2965,7 @@ packages:
   '@humanwhocodes/config-array@0.11.14':
     resolution: {integrity: sha512-3T8LkOmg45BV5FICb15QQMsyUSWrQ8AygVfC7ZG32zOalnqrilm018ZVCw0eapXux8FtA33q8PSRSstjee3jSg==}
     engines: {node: '>=10.10.0'}
+    deprecated: Use @eslint/config-array instead
 
   '@humanwhocodes/module-importer@1.0.1':
     resolution: {integrity: sha512-bxveV4V8v5Yb4ncFTT3rPSgZBOpCkjfK0y4oVVVJwIuDVBRMDXrPyXRL988i5ap9m9bnyEEjWfm5WkBmtffLfA==}
@@ -2966,6 +2973,7 @@ packages:
 
   '@humanwhocodes/object-schema@2.0.2':
     resolution: {integrity: sha512-6EwiSjwWYP7pTckG6I5eyFANjPhmPjUX9JRLUSfNPC7FX7zK9gyZAfUEaECL6ALTpGX5AjnBq3C9XmVWPitNpw==}
+    deprecated: Use @eslint/object-schema instead
 
   '@ianvs/prettier-plugin-sort-imports@4.2.1':
     resolution: {integrity: sha512-NKN1LVFWUDGDGr3vt+6Ey3qPeN/163uR1pOPAlkWpgvAqgxQ6kSdUf1F0it8aHUtKRUzEGcK38Wxd07O61d7+Q==}
@@ -5089,9 +5097,9 @@ packages:
     resolution: {integrity: sha512-wJRY+fBUm3KpqZDHMIz5HRv+1vlnvRJ/dFxiyY3NlINTx2qXqDou5qWYcP1CuZXsd39InWVPV3FAZvno/kGCkA==}
     engines: {node: '>= 18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
-  '@tauri-apps/api@2.0.0-beta.13':
-    resolution: {integrity: sha512-Np1opKANzRMF3lgJ9gDquBCB9SxlE2lRmNpVx1+L6RyzAmigkuh0ZulT5jMnDA3JLsuSDU135r/s4t/Pmx4atg==}
-    engines: {node: '>= 18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
+  '@tauri-apps/api@2.0.0-beta.14':
+    resolution: {integrity: sha512-YLYgHqdwWswr4Y70+hRzaLD6kLIUgHhE3shLXNquPiTaQ9+cX3Q2dB0AFfqsua6NXYFNe7LfkmMzaqEzqv3yQg==}
+    engines: {node: '>= 18.18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
   '@tauri-apps/cli-darwin-arm64@2.0.0-beta.20':
     resolution: {integrity: sha512-oCJOCib7GuYkwkBXx+ekamR8NZZU+2i3MLP+DHpDxK5gS2uhCE+CBkamJkNt6y1x6xdVnwyqZOm5RvN4SRtyIA==}
@@ -8860,6 +8868,9 @@ packages:
     resolution: {integrity: sha512-agE4QfB2Lkp9uICn7BAqoscw4SZP9kTE2hxiFI3jBPmXJfdqiahTbUuKGsMoN2GtqL9AxhYioAcVvgsb1HvRbA==}
     engines: {node: '>= 0.10'}
 
+  intl@1.2.5:
+    resolution: {integrity: sha512-rK0KcPHeBFBcqsErKSpvZnrOmWOj+EmDkyJ57e90YWaQNqbcivcqmKDlHEeNprDWOsKzPsh1BfSpPQdDvclHVw==}
+
   invariant@2.2.4:
     resolution: {integrity: sha512-phJfQVBuaJM5raOpJjSfkiD6BpbCE4Ns//LaXl6wGYtUBY83nWS6Rf9tXm2e8VaK60JEjYldbPif/A2B1C2gNA==}
 
@@ -9683,6 +9694,13 @@ packages:
 
   makeerror@1.0.12:
     resolution: {integrity: sha512-JmqCvUhmt43madlpFzG4BQzG2Z3m6tvQDNKdClZnO3VbIudJYmxsT0FNJMeiB2+JTSlTQTSbU8QdesVmwJcmLg==}
+
+  manage-external-storage@0.1.3:
+    resolution: {integrity: sha512-Syi+HWY0zjTBay5bvA60y72mFubojNz/VsYPDCx2NkRU6sebxw+M49NPxdsODKePw72Wjmin0sP56/STWs+bSg==}
+    engines: {node: '>= 16.0.0'}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   map-age-cleaner@0.1.3:
     resolution: {integrity: sha512-bJzx6nMoP6PDLPBFmg7+xRKeFZvFboMrGlxmNj9ClvX53KrmvM5bXFXEWjbz4cz1AFn+jWJ9z/DJSz7hrs0w3w==}
@@ -16381,10 +16399,10 @@ snapshots:
       '@tanstack/react-query': 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(react@18.2.0))(react@18.2.0)
       react: 18.2.0
 
-  '@oscartbeaumont-sd/rspc-tauri@0.0.0-main-dc31e5b2(patch_hash=3ozd223mr7o4cioyf7af7qd56a)(@tauri-apps/api@2.0.0-beta.13)':
+  '@oscartbeaumont-sd/rspc-tauri@0.0.0-main-dc31e5b2(patch_hash=3ozd223mr7o4cioyf7af7qd56a)(@tauri-apps/api@2.0.0-beta.14)':
     dependencies:
       '@oscartbeaumont-sd/rspc-client': 0.0.0-main-dc31e5b2
-      '@tauri-apps/api': 2.0.0-beta.13
+      '@tauri-apps/api': 2.0.0-beta.14
 
   '@phosphor-icons/core@2.0.8': {}
 
@@ -18856,7 +18874,7 @@ snapshots:
 
   '@tauri-apps/api@2.0.0-beta.11': {}
 
-  '@tauri-apps/api@2.0.0-beta.13': {}
+  '@tauri-apps/api@2.0.0-beta.14': {}
 
   '@tauri-apps/cli-darwin-arm64@2.0.0-beta.20':
     optional: true
@@ -23632,6 +23650,8 @@ snapshots:
 
   interpret@1.4.0: {}
 
+  intl@1.2.5: {}
+
   invariant@2.2.4:
     dependencies:
       loose-envify: 1.4.0
@@ -24443,6 +24463,11 @@ snapshots:
   makeerror@1.0.12:
     dependencies:
       tmpl: 1.0.5
+
+  manage-external-storage@0.1.3(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-native: 0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)
 
   map-age-cleaner@0.1.3:
     dependencies:

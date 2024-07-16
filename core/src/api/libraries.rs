@@ -503,7 +503,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}),
 		)
 		.procedure(
-			"vaccumDb",
+			"vacuumDb",
 			R.with2(library())
 				.mutation(|(_, library), _: ()| async move {
 					// We retry a few times because if the DB is being actively used, the vacuum will fail
