@@ -98,9 +98,11 @@ impl Eq for Volume {}
 #[derive(Error, Debug)]
 pub enum VolumeError {
 	#[error("Database error: {0}")]
-	DatabaseErr(#[from] prisma_client_rust::QueryError),
+	Database(#[from] prisma_client_rust::QueryError),
 	#[error("FromUtf8Error: {0}")]
-	FromUtf8Error(#[from] std::string::FromUtf8Error),
+	FromUtf8(#[from] std::string::FromUtf8Error),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 impl From<VolumeError> for rspc::Error {
