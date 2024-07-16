@@ -113,3 +113,17 @@ reviews:
             type: comment
             comment: 我不确定 `{{type}}` 是中文还是英文。如果是英文，前面应该加空格。
             time: '2024-04-16T11:24:52.250Z'
+          - user:
+              name: Nightingale0504
+              email: capture1969@hotmail.com
+            id: yPHwKShZ73I1CUbkF69lj
+            type: approve
+            comment: ''
+            time: '2024-07-16T18:01:48.252Z'
+          - user:
+              name: Nightingale0504
+              email: capture1969@hotmail.com
+            id: 3aO9nHZ6cEphBlI0yQjkY
+            type: request_change
+            comment: ''
+            time: '2024-07-16T18:02:10.188Z'
