@@ -8,7 +8,7 @@ interface Props {
 	buttonText: string;
 	title: string;
 	description?: string;
-	buttonPress?: () => void;
+	onPress?: () => void;
 	buttonVariant?: ButtonVariants;
 	buttonTextStyle?: string;
 	buttonIcon?: JSX.Element;
@@ -23,7 +23,7 @@ const SettingsButton = ({
 	buttonTextStyle,
 	buttonIcon,
 	infoContainerStyle,
-	buttonPress
+	onPress
 }: Props) => {
 	return (
 		<View style={tw`flex-row items-center justify-between`}>
@@ -34,7 +34,7 @@ const SettingsButton = ({
 			<Button
 				style={tw`flex-row items-center gap-2`}
 				variant={buttonVariant}
-				onPress={buttonPress}
+				onPress={onPress}
 			>
 				{buttonIcon}
 				<Text style={twStyle(buttonTextStyle)}>{buttonText}</Text>
