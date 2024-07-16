@@ -71,7 +71,7 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 				<SettingsButton
 					description="Export this library to a file."
 					buttonText="Export"
-					buttonPress={() => {
+					onPress={() => {
 						//TODO: Export library
 					}}
 					buttonTextStyle="font-bold text-ink-dull"
@@ -88,12 +88,9 @@ const LibraryGeneralSettingsScreen = (_: SettingsStackScreenProps<'LibraryGenera
 					</View>
 					<DeleteLibraryModal
 						trigger={
-							//Needed to make button work
-							<TouchableOpacity activeOpacity={1}>
-								<Button variant="danger">
-									<Text style={tw`font-bold text-ink`}>Delete</Text>
-								</Button>
-							</TouchableOpacity>
+							<View style={tw`rounded-md border-red-800 bg-red-600 px-3 py-1.5`}>
+								<Text style={tw`font-bold text-ink`}>Delete</Text>
+							</View>
 						}
 						libraryUuid={library.uuid}
 					/>
