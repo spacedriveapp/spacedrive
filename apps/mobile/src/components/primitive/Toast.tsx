@@ -11,7 +11,7 @@ import {
 	View
 } from 'react-native';
 import Toast, { ToastConfig } from 'react-native-toast-message';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 
 const baseStyles =
 	'max-w-[340px] flex-row gap-1 items-center justify-center overflow-hidden rounded-md border p-3 shadow-lg bg-app-input border-app-inputborder';
@@ -22,6 +22,7 @@ const MAX_LINES = 3;
 const CollapsibleText = ({ children }: PropsWithChildren) => {
 	const [expanded, setExpanded] = useState(false);
 	const [showButton, setShowButton] = useState(false);
+	const [canExpand, setcanExpand] = useState(false);
 	const textRef = useRef<Text>(null);
 
 	//this makes sure the animation works and runs on Android
@@ -34,6 +35,7 @@ const CollapsibleText = ({ children }: PropsWithChildren) => {
 			textRef.current.measure((x, y, width, height, pageX, pageY) => {
 				const lineHeight = 20; // Customize this value according to your text line height
 				if (height >= lineHeight * MAX_LINES) {
+					setcanExpand(true);
 					setShowButton(true);
 				}
 			});
@@ -46,7 +48,7 @@ const CollapsibleText = ({ children }: PropsWithChildren) => {
 	};
 
 	return (
-		<View style={tw`flex-1`}>
+		<View style={twStyle(canExpand ? 'flex-1' : undefined)}>
 			<Text
 				ref={textRef}
 				style={tw`text-left text-sm text-ink`}
@@ -119,7 +121,7 @@ function showToast({
 	text: string;
 	onPress?: () => void;
 }): void {
-	const visibilityTime = 3000;
+	const visibilityTime = 8000;
 	const topOffset = 60;
 	Toast.show({ type, text1: text, onPress, visibilityTime, topOffset });
 }
