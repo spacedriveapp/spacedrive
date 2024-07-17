@@ -119,7 +119,7 @@ function showToast({
 	text: string;
 	onPress?: () => void;
 }): void {
-	const visibilityTime = 3000000;
+	const visibilityTime = 3000;
 	const topOffset = 60;
 	Toast.show({ type, text1: text, onPress, visibilityTime, topOffset });
 }
