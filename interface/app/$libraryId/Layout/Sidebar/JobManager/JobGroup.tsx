@@ -47,7 +47,7 @@ export default function ({ group, progress }: JobGroupProps) {
 		let diff = 0;
 		if (job.created_at && job.estimated_completion) {
 			const start = dayjs(job.created_at);
-			const end = dayjs(job.estimated_completion)
+			const end = dayjs(job.estimated_completion);
 			diff = start.diff(end, 'second');
 		}
 		return diff;
