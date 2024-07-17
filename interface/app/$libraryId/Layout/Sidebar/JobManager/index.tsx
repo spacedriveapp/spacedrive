@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import {
 	JobGroup as IJobGroup,
+	Report,
 	useJobProgress,
 	useLibraryMutation,
 	useLibraryQuery
@@ -60,58 +61,21 @@ export function JobManager() {
 
 	const { t } = useLocale();
 
-	// const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
-	// 	onError: () => {
-	// 		toast.error({
-	// 			title: t('error'),
-	// 			body: t('failed_to_clear_all_jobs')
-	// 		});
-	// 	},
-	// 	onSuccess: () => {
-	// 		queryClient.invalidateQueries(['jobs.reports ']);
-	// 		setToggleConfirmation((t) => !t);
-	// 		toast.success({
-	// 			title: t('success'),
-	// 			body: t('all_jobs_have_been_cleared')
-	// 		});
-	// 	}
-	// });
-
-	const clearJob = useLibraryMutation(
-		['jobs.clear']
-		// {
-		// 	onError: () => {
-		// 		toast.error({
-		// 			title: t('error'),
-		// 			body: t('failed_to_clear_all_jobs')
-		// 		});
-		// 	}
-		// 	// onSuccess: () => {
-		// 	// 	queryClient.invalidateQueries(['jobs.reports ']);
-		// 	// 	setToggleConfirmation((t) => !t);
-		// 	// 	toast.success({
-		// 	// 		title: t('success'),
-		// 	// 		body: t('all_jobs_have_been_cleared')
-		// 	// 	});
-		// 	// }
-		// }
-	);
+	const clearJob = useLibraryMutation(['jobs.clear']);
 
 	const clearAllJobsHandler = async () => {
 		try {
-			const clearPromises: any[] = [];
-
-			jobGroups.data?.forEach((group: any) => {
+			const clearPromises: Promise<null>[] = [];
+			jobGroups.data?.forEach((group: IJobGroup) => {
 				if (group.jobs.length > 1) {
 					let allComplete = true;
-					group.jobs.forEach((job: any) => {
+					group.jobs.forEach((job: Report) => {
 						if (job.status !== 'Completed' && job.status !== 'CompletedWithErrors') {
 							allComplete = false;
 						}
 					});
 					if (allComplete) {
-						clearPromises.push(clearJob.mutateAsync(group.id));
-						group.jobs.forEach((job: any) => {
+						group.jobs.forEach((job: Report) => {
 							clearPromises.push(clearJob.mutateAsync(job.id));
 						});
 					}
@@ -126,7 +90,6 @@ export function JobManager() {
 					}
 				}
 			});
-
 			await Promise.all(clearPromises);
 
 			setToggleConfirmation((t) => !t);

@@ -31,7 +31,6 @@ export default function ({ group, progress }: JobGroupProps) {
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
 	const runningJob = jobs.find((job: { status: string }) => job.status === 'Running');
-	console.log(group);
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -47,9 +46,9 @@ export default function ({ group, progress }: JobGroupProps) {
 	const calculateETA = (job: Report) => {
 		let diff = 0;
 		if (job.created_at && job.estimated_completion) {
-			const start = new Date(job.created_at);
-			const end = new Date(job.estimated_completion);
-			diff = Math.abs(end.getTime() - start.getTime());
+			const start = dayjs(job.created_at);
+			const end = dayjs(job.estimated_completion)
+			diff = start.diff(end, 'second');
 		}
 		return diff;
 	};
@@ -203,7 +202,6 @@ function Options({
 	);
 
 	const clearJobHandler = () => {
-		console.log('hi');
 		group.jobs.forEach((job) => {
 			clearJob.mutate(job.id);
 			//only one toast for all jobs
