@@ -46,9 +46,9 @@ export default function ({ group, progress }: JobGroupProps) {
 	const calculateETA = (job: Report) => {
 		let diff = 0;
 		if (job.created_at && job.estimated_completion) {
-			const start = dayjs(job.created_at);
-			const end = dayjs(job.estimated_completion);
-			diff = start.diff(end, 'second');
+			const start = new Date(job.created_at);
+			const end = new Date(job.estimated_completion);
+			diff = Math.abs(end.getTime() - start.getTime());
 		}
 		return diff;
 	};
