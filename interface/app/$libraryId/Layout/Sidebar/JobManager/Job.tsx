@@ -21,6 +21,7 @@ interface JobProps {
 	className?: string;
 	isChild?: boolean;
 	progress: JobProgressEvent | null;
+	eta: number;
 }
 
 const JobIcon: Record<string, Icon> = {
@@ -33,10 +34,9 @@ const JobIcon: Record<string, Icon> = {
 	ObjectValidator: Fingerprint
 };
 
-function Job({ job, className, isChild, progress }: JobProps) {
+function Job({ job, className, isChild, progress, eta }: JobProps) {
 	const jobData = useJobInfo(job, progress);
 	const { t } = useLocale();
-
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
 		const JobError = (
@@ -72,6 +72,8 @@ function Job({ job, className, isChild, progress }: JobProps) {
 			className={className}
 			name={jobData.name}
 			icon={JobIcon[job.name]}
+			eta={eta}
+			status={job.status}
 			textItems={
 				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}
