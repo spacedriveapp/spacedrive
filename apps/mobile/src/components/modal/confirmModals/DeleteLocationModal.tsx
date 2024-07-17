@@ -24,6 +24,9 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 				toast.success('Location deleted successfully');
 			},
 			onError: (error) => {
+				if (error.message.startsWith('location not found'))
+					toast.error('This location does not exist');
+				else
 				toast.error(error.message);
 			},
 			onSettled: () => {
