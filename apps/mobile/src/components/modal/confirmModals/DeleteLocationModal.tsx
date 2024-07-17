@@ -26,8 +26,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 			onError: (error) => {
 				if (error.message.startsWith('location not found'))
 					toast.error('This location does not exist');
-				else
-				toast.error(error.message);
+				else toast.error(error.message);
 			},
 			onSettled: () => {
 				modalRef.current?.close();
