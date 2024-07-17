@@ -30,7 +30,7 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const runningJob = jobs.find((job) => job.status === 'Running');
+	const runningJob = jobs.find((job: { status: string }) => job.status === 'Running');
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -42,6 +42,16 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	if (jobs.length === 0) return <></>;
 	const { t } = useLocale();
+
+	const calculateETA = (job: Report) => {
+		let diff = 0;
+		if (job.created_at && job.estimated_completion) {
+			const start = new Date(job.created_at);
+			const end = new Date(job.estimated_completion);
+			diff = Math.abs(end.getTime() - start.getTime());
+		}
+		return diff;
+	};
 
 	return (
 		<ul className="relative overflow-visible">
@@ -105,19 +115,29 @@ export default function ({ group, progress }: JobGroupProps) {
 					</JobContainer>
 					{showChildJobs && (
 						<div>
-							{jobs.map((job) => (
-								<Job
-									isChild={jobs.length > 1}
-									key={job.id}
-									job={job}
-									progress={progress[job.id] ?? null}
-								/>
-							))}
+							{jobs.map((job) => {
+								const diff = calculateETA(job);
+
+								return (
+									<Job
+										isChild={jobs.length > 1}
+										key={job.id}
+										job={job}
+										progress={progress[job.id] ?? null}
+										eta={diff}
+									/>
+								);
+							})}
 						</div>
 					)}
 				</>
 			) : (
-				<Job job={jobs[0]!} progress={progress[jobs[0]!.id] || null} />
+				// add eta for individual jobs
+				<Job
+					job={jobs[0]!}
+					progress={progress[jobs[0]!.id] || null}
+					eta={calculateETA(jobs[0]!)}
+				/>
 			)}
 		</ul>
 	);
