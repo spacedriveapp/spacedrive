@@ -382,11 +382,7 @@ impl<Step, RunMetadata: JobRunMetadata> From<Option<()>> for JobStepOutput<Step,
 #[async_trait::async_trait]
 impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 	fn id(&self) -> Uuid {
-		// SAFETY: This method is using during queueing, so we still have a report
-		self.report()
-			.as_ref()
-			.expect("This method is using during queueing, so we still have a report")
-			.id
+		self.id
 	}
 
 	fn parent_id(&self) -> Option<Uuid> {
