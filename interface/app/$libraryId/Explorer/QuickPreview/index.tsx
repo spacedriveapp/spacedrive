@@ -90,7 +90,9 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
-	const [thumbnailLoading, setThumbnailLoading] = useState<'notLoaded' | 'loaded' | 'error'>('notLoaded');
+	const [thumbnailLoading, setThumbnailLoading] = useState<'notLoaded' | 'loaded' | 'error'>(
+		'notLoaded'
+	);
 
 	const { t } = useLocale();
 
@@ -286,19 +288,18 @@ export const QuickPreview = () => {
 							)}
 						>
 							<div className="relative flex flex-1 flex-col justify-between overflow-hidden bg-app/80 backdrop-blur">
-								{thumbnailLoading !== 'error' && thumbnailLoading !== 'notLoaded' && (
+								{thumbnailLoading !== 'error' &&
+									thumbnailLoading !== 'notLoaded' &&
 									background && (
-										<div
-										className="absolute inset-0 overflow-hidden">
+										<div className="absolute inset-0 overflow-hidden">
 											<FileThumb
 												data={item}
 												cover
 												childClassName="scale-125"
 											/>
-											<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl"/>
+											<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
 										</div>
-									)
-								)}
+									)}
 								<div
 									className={clsx(
 										'z-50 flex items-center p-2',
@@ -315,12 +316,18 @@ export const QuickPreview = () => {
 										</Tooltip>
 
 										{thumbnailLoading === 'error' && (
-																								<Tooltip label={t("quickpreview_thumbnail_error_tip")}>
-																								<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
-																								  <WarningCircle className='text-red-500' weight="fill" size={14} />
-																								<p className="text-xs text-ink">{t("quickpreview_thumbnail_error_message")}</p>
-																							  </div>
-																								</Tooltip>
+											<Tooltip label={t('quickpreview_thumbnail_error_tip')}>
+												<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
+													<WarningCircle
+														className="text-red-500"
+														weight="fill"
+														size={14}
+													/>
+													<p className="text-xs text-ink">
+														{t('quickpreview_thumbnail_error_message')}
+													</p>
+												</div>
+											</Tooltip>
 										)}
 
 										{items.length > 1 && (
@@ -566,55 +573,56 @@ export const QuickPreview = () => {
 									</div>
 								</div>
 
-													{thumbnailLoading === 'error' ? (
-														<>
-												  <FileThumb
-														data={item}
-														frameClassName="!border-0"
-														className={clsx(
-															'mx-auto my-3 !w-auto flex-1 !overflow-hidden rounded',
-															!background && !icon && 'bg-app-box shadow'
-														)}
-														childClassName={clsx(
-															'rounded',
-															kind === 'Text' && 'p-3',
-															!icon && 'h-full',
-															textKinds.includes(kind) && 'select-text'
-														)}
-													/>
-												  </>
-														) : (
-																							<FileThumb
-																							data={item}
-																							onLoad={(type) => {
-																								setThumbnailLoading('loaded')
-																								type.variant === 'original' && setThumbErrorToast(undefined)
-																							}}
-																							onError={(type, error) => {
-																								setThumbnailLoading('error')
-																								type.variant === 'original' &&
-																								setThumbErrorToast({
-																									title: t('error_loading_original_file'),
-																									body: error.message
-																								})
-																							}}
-																							loadOriginal
-																							frameClassName="!border-0"
-																							mediaControls
-																							className={clsx(
-																								thumbnailLoading === 'notLoaded' && 'hidden',
-																								'm-3 !w-auto flex-1 !overflow-hidden rounded',
-																								!background && !icon && 'bg-app-box shadow'
-																							)}
-																							childClassName={clsx(
-																								'rounded',
-																								kind === 'Text' && 'p-3',
-																								!icon && 'h-full',
-																								textKinds.includes(kind) && 'select-text'
-																							)}
-																							magnification={magnification}
-																						/>
-														)}
+								{thumbnailLoading === 'error' ? (
+									<>
+										<FileThumb
+											data={item}
+											frameClassName="!border-0"
+											className={clsx(
+												'mx-auto my-3 !w-auto flex-1 !overflow-hidden rounded',
+												!background && !icon && 'bg-app-box shadow'
+											)}
+											childClassName={clsx(
+												'rounded',
+												kind === 'Text' && 'p-3',
+												!icon && 'h-full',
+												textKinds.includes(kind) && 'select-text'
+											)}
+										/>
+									</>
+								) : (
+									<FileThumb
+										data={item}
+										onLoad={(type) => {
+											setThumbnailLoading('loaded');
+											type.variant === 'original' &&
+												setThumbErrorToast(undefined);
+										}}
+										onError={(type, error) => {
+											setThumbnailLoading('error');
+											type.variant === 'original' &&
+												setThumbErrorToast({
+													title: t('error_loading_original_file'),
+													body: error.message
+												});
+										}}
+										loadOriginal
+										frameClassName="!border-0"
+										mediaControls
+										className={clsx(
+											thumbnailLoading === 'notLoaded' && 'hidden',
+											'm-3 !w-auto flex-1 !overflow-hidden rounded',
+											!background && !icon && 'bg-app-box shadow'
+										)}
+										childClassName={clsx(
+											'rounded',
+											kind === 'Text' && 'p-3',
+											!icon && 'h-full',
+											textKinds.includes(kind) && 'select-text'
+										)}
+										magnification={magnification}
+									/>
+								)}
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
 									<ImageSlider activeItem={activeItem} />
