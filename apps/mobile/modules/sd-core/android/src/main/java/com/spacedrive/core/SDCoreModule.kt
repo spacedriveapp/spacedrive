@@ -3,6 +3,7 @@ package com.spacedrive.core
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import android.provider.Settings
 
 class SDCoreModule : Module() {
 	private var registeredWithRust = false
@@ -36,6 +37,12 @@ class SDCoreModule : Module() {
 		}
 	}
 
+	public fun getDeviceName(): String {
+		return Settings.Secure.getString(appContext.reactContext?.contentResolver, "device_name")
+			?: "Android Spacedrive Device"
+	}
+
+
 	override fun definition() = ModuleDefinition {
 		Name("SDCore")
 
@@ -56,6 +63,10 @@ class SDCoreModule : Module() {
 
 		AsyncFunction("sd_core_msg") { query: String, promise: Promise ->
 			this@SDCoreModule.handleCoreMsg(query, SDCorePromise(promise))
+		}
+
+		Function("getDeviceName") {
+			getDeviceName()
 		}
 	}
 }
