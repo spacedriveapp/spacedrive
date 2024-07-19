@@ -178,6 +178,7 @@ export type MenuEvent =
 	| 'Copy'
 	| 'Cut'
 	| 'Paste'
+	| 'Duplicate'
 	| 'SelectAll';
 export type OpenFilePathResult =
 	| { t: 'NoLibrary' }

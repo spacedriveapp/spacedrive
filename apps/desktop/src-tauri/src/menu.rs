@@ -29,6 +29,7 @@ pub enum MenuEvent {
 	Copy,
 	Cut,
 	Paste,
+	Duplicate,
 	SelectAll,
 }
 
@@ -132,6 +133,11 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 					.build(app)?,
 			)
 			.item(
+				&MenuItemBuilder::with_id(MenuEvent::Duplicate, "Duplicate")
+					.accelerator("CmdOrCtrl+D")
+					.build(app)?,
+			)
+			.item(
 				&MenuItemBuilder::with_id(MenuEvent::SelectAll, "Select All")
 					.accelerator("CmdOrCtrl+A")
 					.build(app)?,
@@ -208,7 +214,7 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 		let menu = MenuBuilder::new(app)
 			.item(&app_menu)
-			.item(&file_menu)
+			// .item(&file_menu)
 			.item(&edit_menu)
 			.item(&view_menu)
 			.item(&window_menu)
@@ -243,6 +249,7 @@ pub fn handle_menu_event(event: MenuEvent, app: &AppHandle) {
 		MenuEvent::Copy => webview.emit("keybind", "copy").unwrap(),
 		MenuEvent::Cut => webview.emit("keybind", "cut").unwrap(),
 		MenuEvent::Paste => webview.emit("keybind", "paste").unwrap(),
+		MenuEvent::Duplicate => webview.emit("keybind", "duplicate").unwrap(),
 		MenuEvent::SelectAll => webview.emit("keybind", "select_all").unwrap(),
 		MenuEvent::ToggleDeveloperTools =>
 		{

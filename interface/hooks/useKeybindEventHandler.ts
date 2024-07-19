@@ -52,6 +52,9 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'paste':
 					console.log('Paste!'); // TODO Implement
 					break;
+				case 'duplicate':
+					console.log('Duplicate!'); // TODO Implement
+					break;
 				case 'select_all':
 					console.log('Select All!'); // TODO Implement
 					break;
