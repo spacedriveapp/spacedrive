@@ -139,6 +139,8 @@ pub struct NodeConfig {
 	pub preferences: NodePreferences,
 	// Model version for the image labeler
 	pub image_labeler_version: Option<String>,
+	// Operating System of the node -> "linux", "macos", "windows", "android", "ios"
+	os: String,
 
 	version: NodeConfigVersion,
 }
@@ -182,35 +184,27 @@ pub enum NodeConfigVersion {
 	V1 = 1,
 	V2 = 2,
 	V3 = 3,
+	V4 = 4,
 }
 
 impl ManagedVersion<NodeConfigVersion> for NodeConfig {
-	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V3;
+	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V4;
 	const KIND: Kind = Kind::Json("version");
 	type MigrationError = NodeConfigError;
 
 	fn from_latest_version() -> Option<Self> {
-		let mut name = match hostname::get() {
-			// SAFETY: This is just for display purposes so it doesn't matter if it's lossy
-			Ok(hostname) => hostname.to_string_lossy().into_owned(),
-			Err(e) => {
-				error!(
-					?e,
-					"Falling back to default node name as an error occurred getting your systems hostname;",
-				);
-
-				"my-spacedrive".into()
-			}
-		};
-		name.truncate(250);
+		let mut name = generate_device_name();
+		name.truncate(255);
 
 		#[cfg(feature = "ai")]
 		let image_labeler_version = Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
 		#[cfg(not(feature = "ai"))]
 		let image_labeler_version = None;
 
+		let os = std::env::consts::OS;
+
 		Some(Self {
-			id: Uuid::new_v4(),
+			id: Uuid::now_v7(),
 			name,
 			identity: Identity::default(),
 			p2p: NodeConfigP2P::default(),
@@ -221,6 +215,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			sd_api_origin: None,
 			preferences: NodePreferences::default(),
 			image_labeler_version,
+			os: os.to_string(),
 		})
 	}
 }
@@ -304,6 +299,33 @@ impl NodeConfig {
 							String::from("identity"),
 							json!(identity_serde::to_string(&Default::default())),
 						);
+
+						let a =
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
+
+						fs::write(path, a)
+							.await
+							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					(NodeConfigVersion::V3, NodeConfigVersion::V4) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.remove("id");
+						config.insert(String::from("id"), json!(Uuid::now_v7()));
+
+						config.remove("name");
+						config.insert(String::from("name"), json!(generate_device_name()));
+
+						config.insert(String::from("os"), json!(std::env::consts::OS));
 
 						let a =
 							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
@@ -435,4 +457,23 @@ pub enum NodeConfigError {
 	VersionManager(#[from] VersionManagerError<NodeConfigVersion>),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+}
+
+fn generate_device_name() -> String {
+	#[cfg(target_os = "android")]
+	let name = "Android Spacedrive Device".into();
+	#[cfg(not(target_os = "android"))]
+	let name = match hostname::get() {
+		Ok(hostname) => hostname.to_string_lossy().into_owned(),
+		Err(e) => {
+			error!(
+				?e,
+				"Falling back to default node name as an error occurred getting your systems hostname;",
+			);
+
+			"my-spacedrive".into()
+		}
+	};
+
+	name
 }
