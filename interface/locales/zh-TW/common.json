@@ -544,6 +544,8 @@
   "quick_preview": "快速預覽",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "快速查看",
+  "quickpreview_thumbnail_error_message": "無法載入全解析度影像",
+  "quickpreview_thumbnail_error_tip": "無法找到該圖像。因此，顯示縮圖。",
   "random": "隨機的",
   "receiver": "接收者",
   "receiver_description": "此進程接收並儲存來自 Spacedrive Cloud 的操作。",

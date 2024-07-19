@@ -550,6 +550,8 @@
   "quick_preview": "Anteprima rapida",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "Visualizzazione rapida",
+  "quickpreview_thumbnail_error_message": "Impossibile caricare l'immagine a piena risoluzione",
+  "quickpreview_thumbnail_error_tip": "Impossibile trovare l'immagine. Pertanto, viene mostrata la miniatura.",
   "random": "Casuale",
   "receiver": "Ricevitore",
   "receiver_description": "Questo processo riceve e archivia le operazioni da Spacedrive Cloud.",
