@@ -26,6 +26,10 @@ pub enum MenuEvent {
 	ToggleDeveloperTools,
 	NewWindow,
 	ReloadWebview,
+	Copy,
+	Cut,
+	Paste,
+	SelectAll,
 }
 
 /// Menu items which require a library to be open to use.
@@ -111,12 +115,28 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 			.build()?;
 
 		let edit_menu = SubmenuBuilder::new(app, "Edit")
-			.copy()
-			.cut()
-			.paste()
-			.redo()
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::Copy, "Copy")
+					.accelerator("CmdOrCtrl+C")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::Cut, "Cut")
+					.accelerator("CmdOrCtrl+X")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::Paste, "Paste")
+					.accelerator("CmdOrCtrl+V")
+					.build(app)?,
+			)
+			.item(
+				&MenuItemBuilder::with_id(MenuEvent::SelectAll, "Select All")
+					.accelerator("CmdOrCtrl+A")
+					.build(app)?,
+			)
 			.undo()
-			.select_all()
+			.redo()
 			.build()?;
 
 		let view_menu = SubmenuBuilder::new(app, "View")
@@ -219,6 +239,10 @@ pub fn handle_menu_event(event: MenuEvent, app: &AppHandle) {
 		MenuEvent::SetLayoutGrid => webview.emit("keybind", "set_layout_grid").unwrap(),
 		MenuEvent::SetLayoutList => webview.emit("keybind", "set_layout_list").unwrap(),
 		MenuEvent::SetLayoutMedia => webview.emit("keybind", "set_layout_media").unwrap(),
+		MenuEvent::Copy => webview.emit("keybind", "copy").unwrap(),
+		MenuEvent::Cut => webview.emit("keybind", "cut").unwrap(),
+		MenuEvent::Paste => webview.emit("keybind", "paste").unwrap(),
+		MenuEvent::SelectAll => webview.emit("keybind", "select_all").unwrap(),
 		MenuEvent::ToggleDeveloperTools =>
 		{
 			#[cfg(feature = "devtools")]

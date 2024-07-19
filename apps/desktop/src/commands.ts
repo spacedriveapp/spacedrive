@@ -174,7 +174,11 @@ export type MenuEvent =
 	| 'SetLayoutMedia'
 	| 'ToggleDeveloperTools'
 	| 'NewWindow'
-	| 'ReloadWebview';
+	| 'ReloadWebview'
+	| 'Copy'
+	| 'Cut'
+	| 'Paste'
+	| 'SelectAll';
 export type OpenFilePathResult =
 	| { t: 'NoLibrary' }
 	| { t: 'NoFile'; c: number }
