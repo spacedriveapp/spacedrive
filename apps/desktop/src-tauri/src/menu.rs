@@ -96,23 +96,24 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 			.quit()
 			.build()?;
 
-		let file_menu = SubmenuBuilder::new(app, "File")
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::NewFile, "New File")
-					.accelerator("CmdOrCtrl+N")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::NewDirectory, "New Directory")
-					.accelerator("CmdOrCtrl+D")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::AddLocation, "Add Location")
-					// .accelerator("") // TODO
-					.build(app)?,
-			)
-			.build()?;
+		// TODO: Re-enable these when they are implemented, and doesn't stop duplicates.
+		// let file_menu = SubmenuBuilder::new(app, "File")
+		// 	.item(
+		// 		&MenuItemBuilder::with_id(MenuEvent::NewFile, "New File")
+		// 			.accelerator("CmdOrCtrl+N")
+		// 			.build(app)?,
+		// 	)
+		// 	.item(
+		// 		&MenuItemBuilder::with_id(MenuEvent::NewDirectory, "New Directory")
+		// 			.accelerator("CmdOrCtrl+D")
+		// 			.build(app)?,
+		// 	)
+		// 	.item(
+		// 		&MenuItemBuilder::with_id(MenuEvent::AddLocation, "Add Location")
+		// 			// .accelerator("") // TODO
+		// 			.build(app)?,
+		// 	)
+		// 	.build()?;
 
 		let edit_menu = SubmenuBuilder::new(app, "Edit")
 			.item(
