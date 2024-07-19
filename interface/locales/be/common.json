@@ -551,6 +551,8 @@
   "quick_preview": "Хуткі прагляд",
   "quick_rescan_started": "Пачата хуткае сканіраванне",
   "quick_view": "Хуткі прагляд",
+  "quickpreview_thumbnail_error_message": "Немагчыма загрузіць выяву ў поўным раздзяленні",
+  "quickpreview_thumbnail_error_tip": "Выяву не ўдалося знайсці. Такім чынам, паказана мініяцюра.",
   "random": "Выпадковы",
   "receiver": "Атрымальнік",
   "receiver_description": "Гэты працэс атрымлівае і захоўвае аперацыі з Spacedrive Cloud.",

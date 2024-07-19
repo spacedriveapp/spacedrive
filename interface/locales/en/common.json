@@ -554,6 +554,8 @@
   "quick_preview": "Quick Preview",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "Quick view",
+  "quickpreview_thumbnail_error_message": "Unable to load full resolution image",
+  "quickpreview_thumbnail_error_tip": "The image was unable to be found. Therefore, the thumbnail is shown.",
   "random": "Random",
   "receiver": "Receiver",
   "receiver_description": "This process receives and stores operations from Spacedrive Cloud.",

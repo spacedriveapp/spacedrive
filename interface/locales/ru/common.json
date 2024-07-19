@@ -551,6 +551,8 @@
   "quick_preview": "Быстрый просмотр",
   "quick_rescan_started": "Начато быстрое сканирование",
   "quick_view": "Быстрый просмотр",
+  "quickpreview_thumbnail_error_message": "Невозможно загрузить изображение в полном разрешении.",
+  "quickpreview_thumbnail_error_tip": "Изображение не удалось найти. Поэтому отображается миниатюра.",
   "random": "Случайный",
   "receiver": "Получатель",
   "receiver_description": "Этот процесс получает и сохраняет операции из Spacedrive Cloud.",

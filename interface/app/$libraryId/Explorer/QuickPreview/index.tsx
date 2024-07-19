@@ -7,6 +7,8 @@ import {
 	Plus,
 	SidebarSimple,
 	Slideshow,
+	Warning,
+	WarningCircle,
 	X
 } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -15,6 +17,7 @@ import {
 	ButtonHTMLAttributes,
 	createContext,
 	createRef,
+	EventHandler,
 	useCallback,
 	useContext,
 	useEffect,
@@ -87,6 +90,7 @@ export const QuickPreview = () => {
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
+	const [thumbnailLoading, setThumbnailLoading] = useState<'notLoaded' | 'loaded' | 'error'>('notLoaded');
 
 	const { t } = useLocale();
 
@@ -156,6 +160,7 @@ export const QuickPreview = () => {
 
 		if (open || item) return;
 
+		setThumbnailLoading('notLoaded');
 		getQuickPreviewStore().open = false;
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
@@ -247,7 +252,6 @@ export const QuickPreview = () => {
 
 	const background = !withoutBackgroundKinds.includes(kind);
 	const icon = iconKinds.includes(kind);
-
 	return (
 		<Dialog.Root open={open} onOpenChange={(open) => (getQuickPreviewStore().open = open)}>
 			<QuickPreviewContext.Provider value={{ background }}>
@@ -277,20 +281,23 @@ export const QuickPreview = () => {
 					>
 						<div
 							className={clsx(
-								'flex h-full overflow-hidden rounded-md border',
+								'relative flex h-full overflow-hidden rounded-md border',
 								isDark ? 'border-app-line/80' : 'border-app-line/10'
 							)}
 						>
-							<div className="relative flex flex-1 flex-col overflow-hidden bg-app/80 backdrop-blur">
-								{background && (
-									<div className="absolute inset-0 overflow-hidden">
-										<FileThumb
-											data={item}
-											cover={true}
-											childClassName="scale-125"
-										/>
-										<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
-									</div>
+							<div className="relative flex flex-1 flex-col justify-between overflow-hidden bg-app/80 backdrop-blur">
+								{thumbnailLoading !== 'error' && thumbnailLoading !== 'notLoaded' && (
+									background && (
+										<div
+										className="absolute inset-0 overflow-hidden">
+											<FileThumb
+												data={item}
+												cover
+												childClassName="scale-125"
+											/>
+											<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl"/>
+										</div>
+									)
 								)}
 								<div
 									className={clsx(
@@ -306,6 +313,15 @@ export const QuickPreview = () => {
 												</IconButton>
 											</Dialog.Close>
 										</Tooltip>
+
+										{thumbnailLoading === 'error' && (
+																								<Tooltip label={t("quickpreview_thumbnail_error_tip")}>
+																								<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
+																								  <WarningCircle className='text-red-500' weight="fill" size={14} />
+																								<p className="text-xs text-ink">{t("quickpreview_thumbnail_error_message")}</p>
+																							  </div>
+																								</Tooltip>
+										)}
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">
@@ -550,33 +566,55 @@ export const QuickPreview = () => {
 									</div>
 								</div>
 
-								<FileThumb
-									data={item}
-									onLoad={(type) =>
-										type.variant === 'original' && setThumbErrorToast(undefined)
-									}
-									onError={(type, error) =>
-										type.variant === 'original' &&
-										setThumbErrorToast({
-											title: t('error_loading_original_file'),
-											body: error.message
-										})
-									}
-									loadOriginal
-									frameClassName="!border-0"
-									mediaControls
-									className={clsx(
-										'm-3 !w-auto flex-1 !overflow-hidden rounded',
-										!background && !icon && 'bg-app-box shadow'
-									)}
-									childClassName={clsx(
-										'rounded',
-										kind === 'Text' && 'p-3',
-										!icon && 'h-full',
-										textKinds.includes(kind) && 'select-text'
-									)}
-									magnification={magnification}
-								/>
+													{thumbnailLoading === 'error' ? (
+														<>
+												  <FileThumb
+														data={item}
+														frameClassName="!border-0"
+														className={clsx(
+															'mx-auto my-3 !w-auto flex-1 !overflow-hidden rounded',
+															!background && !icon && 'bg-app-box shadow'
+														)}
+														childClassName={clsx(
+															'rounded',
+															kind === 'Text' && 'p-3',
+															!icon && 'h-full',
+															textKinds.includes(kind) && 'select-text'
+														)}
+													/>
+												  </>
+														) : (
+																							<FileThumb
+																							data={item}
+																							onLoad={(type) => {
+																								setThumbnailLoading('loaded')
+																								type.variant === 'original' && setThumbErrorToast(undefined)
+																							}}
+																							onError={(type, error) => {
+																								setThumbnailLoading('error')
+																								type.variant === 'original' &&
+																								setThumbErrorToast({
+																									title: t('error_loading_original_file'),
+																									body: error.message
+																								})
+																							}}
+																							loadOriginal
+																							frameClassName="!border-0"
+																							mediaControls
+																							className={clsx(
+																								thumbnailLoading === 'notLoaded' && 'hidden',
+																								'm-3 !w-auto flex-1 !overflow-hidden rounded',
+																								!background && !icon && 'bg-app-box shadow'
+																							)}
+																							childClassName={clsx(
+																								'rounded',
+																								kind === 'Text' && 'p-3',
+																								!icon && 'h-full',
+																								textKinds.includes(kind) && 'select-text'
+																							)}
+																							magnification={magnification}
+																						/>
+														)}
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
 									<ImageSlider activeItem={activeItem} />
