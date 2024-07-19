@@ -117,31 +117,27 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 		// 	.build()?;
 
 		let edit_menu = SubmenuBuilder::new(app, "Edit")
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::Copy, "Copy")
-					.accelerator("CmdOrCtrl+C")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::Cut, "Cut")
-					.accelerator("CmdOrCtrl+X")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::Paste, "Paste")
-					.accelerator("CmdOrCtrl+V")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::Duplicate, "Duplicate")
-					.accelerator("CmdOrCtrl+D")
-					.build(app)?,
-			)
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::SelectAll, "Select All")
-					.accelerator("CmdOrCtrl+A")
-					.build(app)?,
-			)
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::Copy, "Copy")
+			// 		.accelerator("CmdOrCtrl+C")
+			// 		.build(app)?,
+			// )
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::Cut, "Cut")
+			// 		.accelerator("CmdOrCtrl+X")
+			// 		.build(app)?,
+			// )
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::Paste, "Paste")
+			// 		.accelerator("CmdOrCtrl+V")
+			// 		.build(app)?,
+			// )
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::Duplicate, "Duplicate")
+			// 		.accelerator("CmdOrCtrl+D")
+			// 		.build(app)?,
+			// )
+			.select_all()
 			.undo()
 			.redo()
 			.build()?;
