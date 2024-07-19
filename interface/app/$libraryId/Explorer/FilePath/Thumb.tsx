@@ -28,7 +28,7 @@ export interface ThumbProps {
 	size?: number;
 	cover?: boolean;
 	frame?: boolean;
-	onLoad?: (state: ThumbType ) => void;
+	onLoad?: (state: ThumbType) => void;
 	onError?: (state: ThumbType, error: Error) => void;
 	blackBars?: boolean;
 	blackBarsSize?: number;
