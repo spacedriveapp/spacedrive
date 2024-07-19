@@ -544,6 +544,8 @@
   "quick_preview": "快速预览",
   "quick_rescan_started": "正在快速重新扫描目录。",
   "quick_view": "快速查看",
+  "quickpreview_thumbnail_error_message": "无法加载全分辨率图像",
+  "quickpreview_thumbnail_error_tip": "无法找到图像。因此显示缩略图。",
   "random": "随机的",
   "receiver": "接收者",
   "receiver_description": "该进程接收并存储来自 Spacedrive Cloud 的操作。",
