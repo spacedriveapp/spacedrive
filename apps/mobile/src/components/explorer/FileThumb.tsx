@@ -12,7 +12,7 @@ import {
 } from '@sd/client';
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
-import { tw } from '../../lib/tailwind';
+import { twStyle } from '../../lib/tailwind';
 
 // NOTE: `file://` is required for Android to load local files!
 export const getThumbnailUrlByThumbKey = (thumbKey: ThumbKey) => {
@@ -23,13 +23,14 @@ export const getThumbnailUrlByThumbKey = (thumbKey: ThumbKey) => {
 
 const FileThumbWrapper = ({
 	children,
+	mediaView = false,
 	size = 1,
 	fixedSize = false
-}: PropsWithChildren<{ size: number; fixedSize: boolean }>) => (
+}: PropsWithChildren<{ size: number; fixedSize: boolean, mediaView: boolean}>) => (
 	<View
 		style={[
-			tw`items-center justify-center`,
-			{ width: fixedSize ? size : 80 * size, height: fixedSize ? size : 80 * size }
+			twStyle(`items-center justify-center`, mediaView && `p-0.1 w-full flex-1 `),
+			!mediaView && { width: fixedSize ? size : 70 * size, height: fixedSize ? size : 70 * size },
 		]}
 	>
 		{children}
@@ -70,6 +71,7 @@ type FileThumbProps = {
 	data: ExplorerItem;
 	size?: number;
 	fixedSize?: boolean;
+	mediaView?: boolean;
 	// loadOriginal?: boolean;
 };
 
@@ -77,8 +79,9 @@ type FileThumbProps = {
  * @param data This is the ExplorerItem object
  * @param size This is multiplier for calculating icon size
  * @param fixedSize If set to true, the icon will have fixed size
+ * @param mediaView If set to true - file thumbs will adjust their sizing accordingly
  */
-export default function FileThumb({ size = 1, fixedSize = false, ...props }: FileThumbProps) {
+export default function FileThumb({ size = 1, fixedSize = false, mediaView = false, ...props }: FileThumbProps) {
 	const itemData = useExplorerItemData(props.data);
 	const locationData = getItemLocation(props.data);
 
@@ -118,7 +121,7 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 	}, [itemData, thumbType]);
 
 	return (
-		<FileThumbWrapper fixedSize={fixedSize} size={size}>
+		<FileThumbWrapper mediaView={mediaView} fixedSize={fixedSize} size={size}>
 			{(() => {
 				if (src == null) return null;
 				let source = null;
@@ -133,8 +136,9 @@ export default function FileThumb({ size = 1, fixedSize = false, ...props }: Fil
 						cachePolicy="memory-disk"
 						source={source}
 						style={{
-							width: fixedSize ? size : 70 * size,
-							height: fixedSize ? size : 70 * size
+							flex: !mediaView ? undefined : 1,
+							width: !mediaView ? (fixedSize ? size : 70 * size) : '100%',
+							height: !mediaView ? (fixedSize ? size : 70 * size) : '100%'
 						}}
 					/>
 				);

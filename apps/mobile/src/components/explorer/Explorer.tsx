@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Pressable } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
 import {
 	getIndexedItemFilePath,
@@ -12,7 +12,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import Layout from '~/constants/Layout';
-import { twStyle } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
@@ -130,7 +130,8 @@ const Explorer = (props: Props) => {
 						</Pressable>
 					)}
 					contentContainerStyle={twStyle(
-						store.layoutMode !== 'media' ? 'px-2 py-5' : 'px-0'
+						store.layoutMode !== 'media' ? 'px-2 pt-5' : 'px-0',
+						store.layoutMode === 'grid' && 'pt-9',
 					)}
 					extraData={store.layoutMode}
 					estimatedItemSize={
@@ -142,6 +143,7 @@ const Explorer = (props: Props) => {
 									? Layout.window.width / store.mediaColumns
 									: 100
 					}
+					// ItemSeparatorComponent={() => <View style={tw`p-10`}/>}
 					onEndReached={() => props.loadMore?.()}
 					onEndReachedThreshold={0.6}
 					ListFooterComponent={

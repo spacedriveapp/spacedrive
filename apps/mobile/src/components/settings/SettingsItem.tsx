@@ -7,6 +7,7 @@ type SettingsItemProps = {
 	onPress?: () => void;
 	leftIcon?: Icon;
 	rightArea?: React.ReactNode;
+	comingSoon?: boolean;
 	rounded?: 'top' | 'bottom';
 };
 
@@ -22,18 +23,24 @@ export function SettingsItem(props: SettingsItemProps) {
 				? 'border-b border-r border-l'
 				: 'border-l border-r';
 	return (
-		<Pressable onPress={props.onPress}>
+		<Pressable onPress={() => {
+			if (props.comingSoon) return alert('Coming soon')
+			return props.onPress?.()
+		}}>
 			<View style={twStyle(' border-app-cardborder bg-app-card', borderRounded, border)}>
-				<View style={tw`h-auto flex-row items-center`}>
+				<View style={tw`flex-row items-center h-auto`}>
 					{props.leftIcon && (
 						<View
-							style={tw`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-app-lightborder bg-app-button`}
+							style={twStyle(`ml-4 mr-5 h-8 w-8 items-center justify-center rounded-full border border-app-lightborder bg-app-button`,
+								props.comingSoon && 'opacity-50',
+							)}
 						>
 							{props.leftIcon({ size: 20, color: tw.color('ink-dull') })}
 						</View>
 					)}
 					<View
 						style={twStyle(
+							 props.comingSoon && 'opacity-50',
 							`flex-1 flex-row items-center justify-between border-b py-4`,
 							borderRounded !== 'rounded-b-md'
 								? 'border-app-cardborder'
