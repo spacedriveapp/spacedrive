@@ -1,10 +1,10 @@
 import { useDrawerStatus } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
+import { useClientContext } from '@sd/client';
 import { MotiView } from 'moti';
 import { CaretRight, CloudArrowDown, Gear, Lock, Plus } from 'phosphor-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
-import { useClientContext } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { currentLibraryStore } from '~/utils/nav';
 
@@ -117,8 +117,12 @@ const DrawerLibraryManager = () => {
 						</View>
 					</Pressable>
 					{/* Lock */}
-					<Pressable onPress={() => Alert.alert('TODO')}>
-						<View style={tw`flex flex-row items-center px-1.5 py-[8px]`}>
+					<Pressable onPress={() => Alert.alert('Coming soon', "this feature is not available right now", [{
+				text: 'Close'
+			}], {
+				userInterfaceStyle: 'dark'
+			})}>
+						<View style={tw`flex flex-row items-center px-1.5 py-[8px] opacity-50`}>
 							<Lock size={18} weight="bold" color="white" style={tw`mr-2`} />
 							<Text style={tw`text-sm font-semibold text-white`}>Lock</Text>
 						</View>
