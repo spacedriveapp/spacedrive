@@ -1,6 +1,7 @@
 import { CaretRight, Icon } from 'phosphor-react-native';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
+import { FeatureUnavailableAlert } from '../primitive/FeatureUnavailableAlert';
 
 type SettingsItemProps = {
 	title: string;
@@ -26,18 +27,7 @@ export function SettingsItem(props: SettingsItemProps) {
 		<Pressable
 			onPress={() => {
 				if (props.comingSoon)
-					return Alert.alert(
-						'Coming soon',
-						'this feature is not available right now',
-						[
-							{
-								text: 'Close'
-							}
-						],
-						{
-							userInterfaceStyle: 'dark'
-						}
-					);
+					return FeatureUnavailableAlert();
 				return props.onPress?.();
 			}}
 		>

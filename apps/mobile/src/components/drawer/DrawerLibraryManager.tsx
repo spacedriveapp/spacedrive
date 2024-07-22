@@ -13,6 +13,7 @@ import { ModalRef } from '../layout/Modal';
 import CreateLibraryModal from '../modal/CreateLibraryModal';
 import ImportModalLibrary from '../modal/ImportLibraryModal';
 import { Divider } from '../primitive/Divider';
+import { FeatureUnavailableAlert } from '../primitive/FeatureUnavailableAlert';
 
 const DrawerLibraryManager = () => {
 	const [dropdownClosed, setDropdownClosed] = useState(true);
@@ -117,22 +118,7 @@ const DrawerLibraryManager = () => {
 						</View>
 					</Pressable>
 					{/* Lock */}
-					<Pressable
-						onPress={() =>
-							Alert.alert(
-								'Coming soon',
-								'this feature is not available right now',
-								[
-									{
-										text: 'Close'
-									}
-								],
-								{
-									userInterfaceStyle: 'dark'
-								}
-							)
-						}
-					>
+					<Pressable onPress={() => FeatureUnavailableAlert()}>
 						<View style={tw`flex flex-row items-center px-1.5 py-[8px] opacity-50`}>
 							<Lock size={18} weight="bold" color="white" style={tw`mr-2`} />
 							<Text style={tw`text-sm font-semibold text-white`}>Lock</Text>
