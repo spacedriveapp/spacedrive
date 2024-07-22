@@ -153,7 +153,8 @@ const shortcuts = {
 		all: ['ArrowRight']
 	},
 	toggleSidebar: {
-		all: ['[']
+		all: ['Control', 'KeyS'],
+		macOS: ['Meta', 'KeyS']
 	}
 } satisfies Record<string, Shortcut>;
 
