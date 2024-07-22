@@ -37,11 +37,13 @@ body:
       label: Platform and versions
       description: |
         Please tell us about your operating system and Spacedrive versions. If on Linux, please provide information about the distribution you are using.
+
         Example:
           - OS: macOS 14.0
           - Spacedrive: Alpha 0.4.0
 
         **If you are developing Spacedrive or building it yourself, please include the output of the following command:**
+
         ```
         pnpm --version && cargo --version && rustc --version
         ```
