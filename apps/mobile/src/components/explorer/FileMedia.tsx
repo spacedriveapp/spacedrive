@@ -17,7 +17,7 @@ const FileMedia = ({ data }: FileMediaProps) => {
 		<View
 			style={twStyle('items-center', {
 				width: gridItemSize,
-				height: gridItemSize,
+				height: gridItemSize
 			})}
 		>
 			<FileThumb mediaView data={data} />

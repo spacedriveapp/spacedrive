@@ -1,4 +1,3 @@
-import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import {
 	ArrowsClockwise,
 	Books,
@@ -17,6 +16,7 @@ import {
 } from 'phosphor-react-native';
 import React from 'react';
 import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
+import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -65,7 +65,7 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 				navigateTo: 'ExtensionsSettings',
 				title: 'Extensions',
 				rounded: 'bottom',
-				comingSoon: true,
+				comingSoon: true
 			}
 		]
 	},

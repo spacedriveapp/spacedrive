@@ -131,7 +131,7 @@ const Explorer = (props: Props) => {
 					)}
 					contentContainerStyle={twStyle(
 						store.layoutMode !== 'media' ? 'px-2 pt-5' : 'px-0',
-						store.layoutMode === 'grid' && 'pt-9',
+						store.layoutMode === 'grid' && 'pt-9'
 					)}
 					extraData={store.layoutMode}
 					estimatedItemSize={

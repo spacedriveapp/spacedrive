@@ -26,11 +26,14 @@ const FileThumbWrapper = ({
 	mediaView = false,
 	size = 1,
 	fixedSize = false
-}: PropsWithChildren<{ size: number; fixedSize: boolean, mediaView: boolean}>) => (
+}: PropsWithChildren<{ size: number; fixedSize: boolean; mediaView: boolean }>) => (
 	<View
 		style={[
 			twStyle(`items-center justify-center`, mediaView && `p-0.1 w-full flex-1 `),
-			!mediaView && { width: fixedSize ? size : 70 * size, height: fixedSize ? size : 70 * size },
+			!mediaView && {
+				width: fixedSize ? size : 70 * size,
+				height: fixedSize ? size : 70 * size
+			}
 		]}
 	>
 		{children}
@@ -81,7 +84,12 @@ type FileThumbProps = {
  * @param fixedSize If set to true, the icon will have fixed size
  * @param mediaView If set to true - file thumbs will adjust their sizing accordingly
  */
-export default function FileThumb({ size = 1, fixedSize = false, mediaView = false, ...props }: FileThumbProps) {
+export default function FileThumb({
+	size = 1,
+	fixedSize = false,
+	mediaView = false,
+	...props
+}: FileThumbProps) {
 	const itemData = useExplorerItemData(props.data);
 	const locationData = getItemLocation(props.data);
 
