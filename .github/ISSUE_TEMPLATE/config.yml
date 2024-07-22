@@ -2,15 +2,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-issue-config.json
 blank_issues_enabled: false
 contact_links:
-  - name: 📝 Report Typo
+  - name: 📝 Report a Typo
     url: https://github.com/spacedriveapp/spacedrive/discussions/142
-    about: If you find a typo, let us know in the typos discussion thread.
+    about: If you find a typo, let us know in the discussion thread.
   - name: 🙏 Get Help
     url: https://github.com/spacedriveapp/spacedrive/discussions/new?category=help
-    about: If you can't get something to work the way you expect, open a question in our discussion forums.
+    about: If you can't get something to work the way you expect, please open a discussion thread.
   - name: 💡 Feature Request
     url: https://github.com/spacedriveapp/spacedrive/discussions/new?category=ideas
-    about: Suggest any ideas you have using our discussion forums.
-  - name: 💬 Discord Chat
+    about: Suggest any ideas you have for new features in a discussion thread.
+  - name: 💬 Join us on Discord
     url: https://discord.gg/gTaF2Z44f5
-    about: Ask questions and talk to other Spacedrive users and the maintainers
+    about: Ask questions and talk to other Spacedrive users and maintainers on Discord.

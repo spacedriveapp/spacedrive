@@ -1,50 +1,59 @@
-name: 🐞 Bug Report
-description: Report a bug
-labels:
-  - kind/bug
-  - status/needs-triage
+name: 🐞 Report a Bug
+description: Report a bug affecting Spacedrive's functionality.
+labels: [kind/bug, status/needs-triage]
 
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        ## First of all
-        1. Please search for [existing issues](https://github.com/spacedriveapp/spacedrive/issues?q=is%3Aissue) about this problem first.
-        2. Make sure you run have the latest version of Rust (`rustup update`) and PNPM (`pnpm add -g pnpm`) along with all relevant Spacedrive dependencies.
-        3. Make sure it's an issue with Spacedrive and not something else you are using.
-        4. Remember to follow our community guidelines and be friendly.
+      label: Check for other issues
+      description: Please search existing issues for other reports of this same bug before submitting.
+      options:
+        - label: I've checked for other issues, and none exist.
+          required: true
 
   - type: textarea
     id: description
     attributes:
-      label: Describe the bug
-      description: A clear description of what the bug is. Include screenshots if applicable.
-      placeholder: Bug description
+      label: Issue description
+      description: Please include a clear description of the issue you're having. Attach screenshots, if applicable.
+      placeholder: |
+        When I ...
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: Reproduction
-      description: Steps to reproduce the behavior.
+      label: Steps to reproduce
+      description: If possible, please include any steps we'd need in order to reproduce the issue.
       placeholder: |
         1. Go to ...
         2. Click on ...
         3. See error
 
   - type: textarea
-    id: expected-behavior
-    attributes:
-      label: Expected behavior
-      description: A clear description of what you expected to happen.
-
-  - type: textarea
-    id: info
+    id: platform-info
     attributes:
       label: Platform and versions
-      description: 'Please include the output of `pnpm --version && cargo --version && rustc --version` along with information about your Operating System such as version and/or specific distribution if revelant.'
-      render: Shell
+      description: |
+        Please tell us about your operating system and Spacedrive versions. If on Linux, please provide information about the distribution you are using.
+        Example:
+          - OS: macOS 14.0
+          - Spacedrive: Alpha 0.4.0
+
+        **If you are developing Spacedrive or building it yourself, please include the output of the following command:**
+        ```
+        pnpm --version && cargo --version && rustc --version
+        ```
+      value: |
+        - OS:
+        - Spacedrive:
+
+        <details><summary>Development tool versions (optional)</summary><pre>
+
+        <!-- Please replace this line with the command's output -->
+
+        </pre></details>
     validations:
       required: true
 
@@ -52,10 +61,20 @@ body:
     id: logs
     attributes:
       label: Stack trace
-      render: Shell
+      description: If this bug resulted in a crash, please attach a stack trace here.
+      render: shell
 
   - type: textarea
     id: context
     attributes:
       label: Additional context
-      description: Add any other context about the problem here.
+      description: Add any extra information about the problem here.
+
+  - type: checkboxes
+    id: code-of-conduct
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow Spacedrive's [Code of Conduct](https://github.com/spacedriveapp/spacedrive/blob/main/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow the Code of Conduct.
+          required: true
