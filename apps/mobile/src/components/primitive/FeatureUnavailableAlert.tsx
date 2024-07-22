@@ -1,4 +1,4 @@
-import { Alert } from "react-native";
+import { Alert } from 'react-native';
 
 export function FeatureUnavailableAlert() {
 	return Alert.alert(

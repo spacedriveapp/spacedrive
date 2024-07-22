@@ -1,6 +1,7 @@
 import { CaretRight, Icon } from 'phosphor-react-native';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
+
 import { FeatureUnavailableAlert } from '../primitive/FeatureUnavailableAlert';
 
 type SettingsItemProps = {
@@ -26,8 +27,7 @@ export function SettingsItem(props: SettingsItemProps) {
 	return (
 		<Pressable
 			onPress={() => {
-				if (props.comingSoon)
-					return FeatureUnavailableAlert();
+				if (props.comingSoon) return FeatureUnavailableAlert();
 				return props.onPress?.();
 			}}
 		>
