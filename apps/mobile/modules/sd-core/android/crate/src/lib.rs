@@ -37,7 +37,7 @@ pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_registerCoreEventLi
 	if let Err(err) = result {
 		// TODO: Send rspc error or something here so we can show this in the UI.
 		// TODO: Maybe reinitialise the core cause it could be in an invalid state?
-		println!(
+		error!(
 			"Error in Java_com_spacedrive_core_SDCoreModule_registerCoreEventListener: {err:?}"
 		);
 	}
@@ -106,50 +106,6 @@ pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_handleCoreMsg(
 		// TODO: This log statement doesn't work. I recon the JNI env is being dropped before it's called.
 		error!(
 			"Error in Java_com_spacedrive_app_SDCore_registerCoreEventListener: {:?}",
-			err
-		);
-	}
-}
-
-#[no_mangle]
-pub extern "system" fn Java_com_spacedrive_core_SDCoreModule_getDeviceName(
-	env: JNIEnv,
-	class: JClass,
-	callback: JObject,
-) {
-	let jvm = env.get_java_vm().unwrap();
-	let mut env = jvm.attach_current_thread().unwrap();
-	let callback = env.new_global_ref(callback).unwrap();
-
-	let result = panic::catch_unwind(|| {
-		let device_name = {
-			let mut env = jvm.attach_current_thread().unwrap();
-			let name = env
-				.call_method(&class, "getDeviceName", "()Ljava/lang/String;", &[])
-				.unwrap()
-				.l()
-				.unwrap();
-
-			env.get_string((&name).into()).unwrap().into()
-		};
-
-		let jvm = env.get_java_vm().unwrap();
-		let mut env = jvm.attach_current_thread().unwrap();
-		let s = env
-			.new_string(device_name)
-			.expect("Couldn't create java string!");
-		env.call_method(
-			&callback,
-			"resolve",
-			"(Ljava/lang/String;)V",
-			&[(&s).into()],
-		)
-		.unwrap();
-	});
-
-	if let Err(err) = result {
-		error!(
-			"Error in Java_com_spacedrive_core_SDCoreModule_getDeviceName: {:?}",
 			err
 		);
 	}
