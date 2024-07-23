@@ -544,6 +544,8 @@
   "quick_preview": "クイック プレビュー",
   "quick_rescan_started": "簡易再スキャンを開始",
   "quick_view": "クイック プレビュー",
+  "quickpreview_thumbnail_error_message": "フル解像度の画像を読み込めません",
+  "quickpreview_thumbnail_error_tip": "画像が見つかりませんでした。そのため、サムネイルが表示されます。",
   "random": "ランダム",
   "receiver": "受信機",
   "receiver_description": "このプロセスは、Spacedrive Cloud から操作を受信して​​保存します。",

@@ -43,6 +43,21 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 				case 'open_search':
 					document.dispatchEvent(new CustomEvent('open_search'));
 					break;
+				case 'copy':
+					console.log('Copy!'); // TODO: Implement
+					break;
+				case 'cut':
+					console.log('Cut!'); // TODO: Implement
+					break;
+				case 'paste':
+					console.log('Paste!'); // TODO Implement
+					break;
+				case 'duplicate':
+					console.log('Duplicate!'); // TODO Implement
+					break;
+				case 'select_all':
+					console.log('Select All!'); // TODO Implement
+					break;
 				case 'window_fullscreened':
 					windowState.isFullScreen = true;
 					break;

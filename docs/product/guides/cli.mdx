@@ -19,8 +19,14 @@ Spacedrive is available as a command-line interface (CLI) tool. The CLI is a pow
 ```bash
 # Launch Spacedrive
 spacedrive -d
+```
+
+```bash
 # View help menu
 spacedrive --help
+```
+
+```bash
 # View version and build information
 spacedrive --info
 ```
@@ -32,12 +38,24 @@ At least one identifier such as `--name`, `--path` or `--id` is required for eac
 ```bash
 # List all Locations
 spacedrive location list
+```
+
+```bash
 # Add a Location
 spacedrive location add /path/to/folder --name "Location Name"
+```
+
+```bash
 # Remove a Location by name
 spacedrive location remove --name "Location Name"
+```
+
+```bash
 # Remove a Location by path
 spacedrive location remove --path /local/path/to/location
+```
+
+```bash
 # Rescan a Location
 spacedrive location rescan --id 4
 spacedrive location rescan --id 4 --full # Full rescan

@@ -339,41 +339,47 @@ async fn inner_create_file(
 		.exec()
 		.await?;
 
-	let object_ids::Data {
-		id: object_id,
-		pub_id: object_pub_id,
-	} = if let Some(object) = existing_object {
-		object
+	let (
+		object_ids::Data {
+			id: object_id,
+			pub_id: object_pub_id,
+		},
+		is_new,
+	) = if let Some(object) = existing_object {
+		(object, false)
 	} else {
 		let pub_id: ObjectPubId = ObjectPubId::new();
 		let date_created: DateTime<FixedOffset> =
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
 
-		sync.write_ops(
-			db,
-			(
-				sync.shared_create(
-					prisma_sync::object::SyncId {
-						pub_id: pub_id.to_db(),
-					},
-					[
-						(object::date_created::NAME, msgpack!(date_created)),
-						(object::kind::NAME, msgpack!(int_kind)),
-					],
-				),
-				db.object()
-					.create(
-						pub_id.into(),
-						vec![
-							object::date_created::set(Some(date_created)),
-							object::kind::set(Some(int_kind)),
+		(
+			sync.write_ops(
+				db,
+				(
+					sync.shared_create(
+						prisma_sync::object::SyncId {
+							pub_id: pub_id.to_db(),
+						},
+						[
+							(object::date_created::NAME, msgpack!(date_created)),
+							(object::kind::NAME, msgpack!(int_kind)),
 						],
-					)
-					.select(object_ids::select()),
-			),
+					),
+					db.object()
+						.create(
+							pub_id.into(),
+							vec![
+								object::date_created::set(Some(date_created)),
+								object::kind::set(Some(int_kind)),
+							],
+						)
+						.select(object_ids::select()),
+				),
+			)
+			.await?,
+			true,
 		)
-		.await?
 	};
 
 	sync.write_op(
@@ -396,7 +402,9 @@ async fn inner_create_file(
 	)
 	.await?;
 
-	if !extension.is_empty()
+	// If the file is a duplicate of an existing file, we don't need to generate thumbnails nor extract media data
+	if is_new
+		&& !extension.is_empty()
 		&& matches!(
 			kind,
 			ObjectKind::Image | ObjectKind::Video | ObjectKind::Audio

@@ -550,6 +550,8 @@
   "quick_preview": "Aperçu rapide",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "Vue rapide",
+  "quickpreview_thumbnail_error_message": "Impossible de charger l'image en pleine résolution",
+  "quickpreview_thumbnail_error_tip": "L'image n'a pas pu être trouvée. Par conséquent, la vignette est affichée.",
   "random": "Aléatoire",
   "receiver": "Destinataire",
   "receiver_description": "Ce processus reçoit et stocke les opérations de Spacedrive Cloud.",
