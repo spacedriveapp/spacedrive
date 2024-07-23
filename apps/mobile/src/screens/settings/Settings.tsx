@@ -28,6 +28,7 @@ type SectionType = {
 		title: string;
 		icon: Icon;
 		navigateTo: keyof SettingsStackParamList;
+		comingSoon?: boolean;
 		rounded?: 'top' | 'bottom';
 	}[];
 };
@@ -49,19 +50,22 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			},
 			{
 				icon: PaintBrush,
+				comingSoon: true,
 				navigateTo: 'AppearanceSettings',
 				title: 'Appearance'
 			},
 			{
 				icon: ShieldCheck,
 				navigateTo: 'PrivacySettings',
+				comingSoon: true,
 				title: 'Privacy'
 			},
 			{
 				icon: PuzzlePiece,
 				navigateTo: 'ExtensionsSettings',
 				title: 'Extensions',
-				rounded: 'bottom'
+				rounded: 'bottom',
+				comingSoon: true
 			}
 		]
 	},
@@ -82,6 +86,7 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: ShareNetwork,
 				navigateTo: 'NodesSettings',
+				comingSoon: true,
 				title: 'Nodes'
 			},
 			{
@@ -159,6 +164,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				sections={sections(debugState)}
 				renderItem={({ item }) => (
 					<SettingsItem
+						comingSoon={item.comingSoon}
 						title={item.title}
 						leftIcon={item.icon}
 						onPress={() => navigation.navigate(item.navigateTo as any)}
