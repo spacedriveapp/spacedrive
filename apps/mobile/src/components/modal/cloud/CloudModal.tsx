@@ -8,7 +8,7 @@ import useForwardedRef from '~/hooks/useForwardedRef';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
-const EnableCloudModal = forwardRef<ModalRef>((_, ref) => {
+const CloudModal = forwardRef<ModalRef>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 	const navigation = useNavigation<SettingsStackScreenProps<'CloudSettings'>['navigation']>();
 	return (
@@ -16,7 +16,7 @@ const EnableCloudModal = forwardRef<ModalRef>((_, ref) => {
 			<View style={tw`mx-auto max-w-[80%] flex-col items-center gap-0`}>
 				<Icon style={tw`mt-5`} name="CloudSync" size={48} />
 				<Text style={tw`my-2 text-center leading-5 text-ink-dull`}>
-					Would you like to enable cloud services to upload your library to the cloud?
+					Would you like to access cloud services to upload your library to the cloud?
 				</Text>
 				<Button
 					style={tw`mt-3`}
@@ -26,11 +26,11 @@ const EnableCloudModal = forwardRef<ModalRef>((_, ref) => {
 					}}
 					variant="accent"
 				>
-					<Text style={tw`font-medium text-ink`}>Enable</Text>
+					<Text style={tw`font-medium text-ink`}>Start</Text>
 				</Button>
 			</View>
 		</Modal>
 	);
 });
 
-export default EnableCloudModal;
+export default CloudModal;

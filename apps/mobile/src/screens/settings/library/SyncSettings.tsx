@@ -1,20 +1,20 @@
 import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { useIsFocused } from '@react-navigation/native';
-import { MotiView } from 'moti';
-import { Circle } from 'phosphor-react-native';
-import React, { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
 import {
 	Procedures,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+import { MotiView } from 'moti';
+import { Circle } from 'phosphor-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
-import EnableCloudModal from '~/components/modal/cloud/EnableCloudModal';
+import CloudModal from '~/components/modal/cloud/CloudModal';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -28,11 +28,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 	const pageFocused = useIsFocused();
 	const [showCloudModal, setShowCloudModal] = useState(false);
 
-	useLibrarySubscription(['library.actors'], {
-		onData: (data) => {
-			setData(data);
-		}
-	});
+	useLibrarySubscription(['library.actors'], {onData: setData});
 
 	useEffect(() => {
 		if (startBackfill === true) {
@@ -54,14 +50,14 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 		<ScreenContainer scrollview={false} style={tw`gap-0 px-6`}>
 			{syncEnabled.data === false ? (
 				<View style={tw`flex-1 justify-center`}>
-					<Card style={tw`relative flex-col items-center gap-5 py-6`}>
+					<Card style={tw`relative flex-col items-center gap-5 p-6`}>
 						<View style={tw`flex-col items-center gap-2`}>
 							<Icon name="Sync" size={72} style={tw`mb-2`} />
-							<Text style={tw`max-w-[85%] text-center leading-5 text-ink`}>
+							<Text style={tw`text-center leading-5 text-ink`}>
 								With Sync, you can share your library with other devices using P2P
 								technology.
 							</Text>
-							<Text style={tw`max-w-[85%] text-center leading-5 text-ink`}>
+							<Text style={tw`text-center leading-5 text-ink`}>
 								Additionally, allowing you to enable Cloud services to upload your
 								library to the cloud, making it accessible on any of your devices.
 							</Text>
@@ -93,7 +89,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 					})}
 				</View>
 			)}
-			<EnableCloudModal ref={modalRef} />
+			<CloudModal ref={modalRef} />
 		</ScreenContainer>
 	);
 };
