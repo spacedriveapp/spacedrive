@@ -259,10 +259,10 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 			return {
 				...data,
 				name: isQueued
-					? `Copy ${taskCount} ${plural(taskCount, 'file')}`
+					? `Duplicate ${taskCount} ${plural(taskCount, 'file')}`
 					: isRunning
-						? `Copying ${completedTaskCount}% of ${realtimeUpdate?.info} ${plural(taskCount, 'file')} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
-						: `Copied ${taskCount} ${plural(taskCount, 'file')}`,
+						? `Duplicating ${completedTaskCount}% of ${realtimeUpdate?.info} ${plural(taskCount, 'file')} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
+						: `Duplicated ${taskCount} ${plural(taskCount, 'file')}`,
 				textItems: [[{ text: realtimeUpdate?.phase }], [{ text: job.status }]]
 			};
 
