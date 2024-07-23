@@ -125,14 +125,14 @@ export const useExplorerTopBarOptions = () => {
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: 'Key Manager',
+			toolTipLabel: t('key_manager'),
 			icon: <Key {...TOP_BAR_ICON_DEFAULT_PROPS} />,
 			popOverComponent: <KeyManager />,
 			individual: true,
 			showAtResolution: 'xl:flex'
 		},
 		{
-			toolTipLabel: 'Assign tags',
+			toolTipLabel: t('assign_tags'),
 			icon: (
 				<Tag
 					{...TOP_BAR_ICON_DEFAULT_PROPS}

@@ -402,7 +402,7 @@ export const Component = () => {
 									setNewSocket('');
 								}}
 							>
-								Submit
+								{t('submit')}
 							</Button>
 						</div>
 					</div>
