@@ -45,7 +45,7 @@ impl Config {
 	pub fn api_url(&self) -> Cow<'_, str> {
 		match self.api_url {
 			Some(ref url) => Cow::Borrowed(url),
-			None => Cow::Borrowed("https://app.spacedrive.com"),
+			None => Cow::Borrowed("https://api.spacedrive.com"),
 		}
 	}
 

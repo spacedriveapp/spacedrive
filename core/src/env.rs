@@ -8,7 +8,7 @@ pub struct Env {
 impl Env {
 	pub fn new(client_id: &str) -> Self {
 		Self {
-			api_url: Mutex::new("https://app.spacedrive.com".to_string()),
+			api_url: Mutex::new("https://api.spacedrive.com".to_string()),
 			client_id: client_id.to_string(),
 		}
 	}
