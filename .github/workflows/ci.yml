@@ -1,6 +1,6 @@
 name: CI
 
-on: [ pull_request, merge_group ]
+on: [pull_request, merge_group]
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
