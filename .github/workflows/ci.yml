@@ -1,8 +1,6 @@
 name: CI
 
-on:
-  pull_request:
-  merge_group:
+on: [pull_request, merge_group]
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
@@ -31,7 +29,6 @@ jobs:
       - name: 'Checkout PR branch and all PR commits'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
 
       - name: Setup Node.js, pnpm and dependencies
