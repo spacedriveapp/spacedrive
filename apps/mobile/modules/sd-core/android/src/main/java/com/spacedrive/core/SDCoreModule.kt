@@ -37,12 +37,6 @@ class SDCoreModule : Module() {
 		}
 	}
 
-	public fun getDeviceName(): String {
-		return Settings.Secure.getString(appContext.reactContext?.contentResolver, "device_name")
-			?: "Android Spacedrive Device"
-	}
-
-
 	override fun definition() = ModuleDefinition {
 		Name("SDCore")
 
@@ -63,10 +57,6 @@ class SDCoreModule : Module() {
 
 		AsyncFunction("sd_core_msg") { query: String, promise: Promise ->
 			this@SDCoreModule.handleCoreMsg(query, SDCorePromise(promise))
-		}
-
-		Function("getDeviceName") {
-			getDeviceName()
 		}
 	}
 }
