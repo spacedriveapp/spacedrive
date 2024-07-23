@@ -32,7 +32,9 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{filter::FromEnvError, prelude::*, registry, EnvFilter};
+use tracing_subscriber::{
+	filter::FromEnvError, fmt::format::Format, prelude::*, registry, EnvFilter,
+};
 
 pub mod api;
 mod cloud;
@@ -274,6 +276,7 @@ impl Node {
 					.with_file(true)
 					.with_line_number(true)
 					.with_writer(std::io::stdout)
+					.event_format(Format::default().pretty())
 					.with_filter(EnvFilter::from_default_env()),
 			);
 

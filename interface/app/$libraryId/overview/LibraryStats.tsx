@@ -11,6 +11,7 @@ import {
 	useLibrarySubscription
 } from '@sd/client';
 import { Card, Loader, Tooltip } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { useCounter, useIsDark, useLocale } from '~/hooks';
 
 import { FileKind } from '.';
@@ -39,7 +40,7 @@ function mergeKindStatistics(
 		if (uint32ArrayToBigInt(stats.count) !== 0n) {
 			oldKindStatisticsMao.set(stats.kind, {
 				kind: stats.kind,
-				name: stats.name,
+				name: i18n.t(`${stats.name.toLowerCase()}`),
 				count: uint32ArrayToBigInt(stats.count),
 				total_bytes: uint32ArrayToBigInt(stats.total_bytes)
 			});
@@ -183,14 +184,14 @@ const LibraryStats = () => {
 				name,
 				value: total_bytes,
 				color: colors[index % colors.length] || '#AAAAAA',
-				tooltip: `${size.value} ${size.unit}`
+				tooltip: `${size.value} ${t(`size_${size.unit.toLowerCase()}`)}`
 			};
 		}),
 		{
-			name: 'Other',
+			name: t('other'),
 			value: otherTotalBytes,
 			color: colors[5] || '#AAAAAA',
-			tooltip: `${humanizeSize(otherTotalBytes).value} ${humanizeSize(otherTotalBytes).unit}`
+			tooltip: `${humanizeSize(otherTotalBytes).value} ${t(`size_${humanizeSize(otherTotalBytes).unit.toLowerCase()}`)}`
 		}
 	];
 
@@ -200,7 +201,7 @@ const LibraryStats = () => {
 				<div className="mt-4 flex h-full items-center justify-center">
 					<div className="flex flex-col items-center justify-center gap-3">
 						<Loader />
-						<p className="text-ink-dull">Calculating library statistics...</p>
+						<p className="text-ink-dull">{t('calculating_library_statistics')}</p>
 					</div>
 				</div>
 			) : (
