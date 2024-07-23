@@ -4,11 +4,11 @@ import { Text, View } from 'react-native';
 import { useOnboardingContext } from '~/components/context/OnboardingContext';
 import { Icon } from '~/components/icons/Icon';
 import { Button } from '~/components/primitive/Button';
+import { FeatureUnavailableAlert } from '~/components/primitive/FeatureUnavailableAlert';
 import { Input } from '~/components/primitive/Input';
 import { tw } from '~/lib/tailwind';
 import { OnboardingStackScreenProps } from '~/navigation/OnboardingNavigator';
 
-import { FeatureUnavailableAlert } from '~/components/primitive/FeatureUnavailableAlert';
 import { OnboardingContainer, OnboardingDescription, OnboardingTitle } from './GetStarted';
 
 const NewLibraryScreen = ({ navigation }: OnboardingStackScreenProps<'NewLibrary'>) => {
