@@ -39,7 +39,11 @@ export default async function Page() {
 			<div className="flex w-full flex-col items-center px-4">
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-8" />
-				<NewBanner headline="Alpha 0.3 is here!" className="mt-[50px] lg:mt-0" />
+				<NewBanner
+					headline="Alpha 0.4 is out!"
+					className="mt-[50px] lg:mt-0"
+					href="/docs/changelog/alpha/0.4.0"
+				/>
 				<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-white md:text-5xl lg:text-7xl">
 					One Explorer. All Your Files.
 				</h1>
