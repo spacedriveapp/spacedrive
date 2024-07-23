@@ -1,17 +1,20 @@
 import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
-import { MotiView } from 'moti';
-import { Circle } from 'phosphor-react-native';
-import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import {
 	Procedures,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
+import { MotiView } from 'moti';
+import { Circle } from 'phosphor-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
+import { ModalRef } from '~/components/layout/Modal';
 import ScreenContainer from '~/components/layout/ScreenContainer';
+import EnableCloudModal from '~/components/modal/cloud/EnableCloudModal';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
@@ -19,18 +22,33 @@ import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettings'>) => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 	const [data, setData] = useState<inferSubscriptionResult<Procedures, 'library.actors'>>({});
+	const modalRef = useRef<ModalRef>(null);
 
 	const [startBackfill, setStart] = useState(false);
+	const pageFocused = useIsFocused();
+	const [showCloudModal, setShowCloudModal] = useState(false)
 
-	useLibrarySubscription(['library.actors'], { onData: setData });
+	useLibrarySubscription(['library.actors'], {
+		 onData: (data) => {
+			setData(data);
+		}
+	});
 
 	useEffect(() => {
 		if (startBackfill === true) {
 			navigation.navigate('BackfillWaitingStack', {
 				screen: 'BackfillWaiting'
 			});
+			setShowCloudModal(true)
 		}
 	}, [startBackfill, navigation]);
+
+	useEffect(() => {
+		if (pageFocused && showCloudModal) modalRef.current?.present();
+		return () => {
+			if (showCloudModal) setShowCloudModal(false)
+		}
+	}, [pageFocused, showCloudModal]);
 
 	return (
 		<ScreenContainer scrollview={false} style={tw`gap-0 px-6`}>
@@ -38,9 +56,12 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 				<View style={tw`flex-1 justify-center`}>
 					<Card style={tw`relative flex-col items-center gap-5 py-6`}>
 						<View style={tw`flex-col items-center gap-2`}>
-							<Icon name="Sync" size={64} />
-							<Text style={tw`max-w-[70%] text-center leading-5 text-ink`}>
-								To enable sync, please start the backfill operations
+							<Icon name="Sync" size={72} style={tw`mb-2`} />
+							<Text style={tw`max-w-[85%] text-center leading-5 text-ink`}>
+							With Sync, you can share your library with other devices using P2P technology.
+							</Text>
+							<Text style={tw`max-w-[85%] text-center leading-5 text-ink`}>
+							Additionally, allowing you to enable Cloud services to upload your library to the cloud, making it accessible on any of your devices.
 							</Text>
 						</View>
 						<Button
@@ -48,7 +69,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 							style={tw`mx-auto max-w-[82%]`}
 							onPress={() => setStart(true)}
 						>
-							<Text style={tw`font-medium text-white`}>Start backfill</Text>
+							<Text style={tw`font-medium text-white`}>Start</Text>
 						</Button>
 					</Card>
 				</View>
@@ -70,6 +91,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 					})}
 				</View>
 			)}
+			<EnableCloudModal ref={modalRef}/>
 		</ScreenContainer>
 	);
 };

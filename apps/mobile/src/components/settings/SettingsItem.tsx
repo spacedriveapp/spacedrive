@@ -1,5 +1,5 @@
 import { CaretRight, Icon } from 'phosphor-react-native';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { tw, twStyle } from '~/lib/tailwind';
 
 import { FeatureUnavailableAlert } from '../primitive/FeatureUnavailableAlert';
@@ -11,6 +11,7 @@ type SettingsItemProps = {
 	rightArea?: React.ReactNode;
 	comingSoon?: boolean;
 	rounded?: 'top' | 'bottom';
+	syncEnabled?: boolean;
 };
 
 export function SettingsItem(props: SettingsItemProps) {
@@ -24,6 +25,12 @@ export function SettingsItem(props: SettingsItemProps) {
 			: props.rounded === 'bottom'
 				? 'border-b border-r border-l'
 				: 'border-l border-r';
+
+	// Hide Cloud settings if sync is disabled
+	if (props.syncEnabled === false && props.title === 'Cloud') {
+		return null;
+	}
+
 	return (
 		<Pressable
 			onPress={() => {

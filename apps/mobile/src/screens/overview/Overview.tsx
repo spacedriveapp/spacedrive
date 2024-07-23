@@ -20,10 +20,12 @@ const EMPTY_STATISTICS = {
 
 export default function OverviewScreen() {
 	const { data: node } = useBridgeQuery(['nodeState']);
-
 	const stats = useLibraryQuery(['library.statistics'], {
 		initialData: { ...EMPTY_STATISTICS }
 	});
+
+	// Running the query here so the data is already available for settings screen
+	useLibraryQuery(['sync.enabled']);
 
 	return (
 		<ScreenContainer>
