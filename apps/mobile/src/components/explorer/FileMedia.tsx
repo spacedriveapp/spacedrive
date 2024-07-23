@@ -12,7 +12,6 @@ type FileMediaProps = {
 
 const FileMedia = ({ data }: FileMediaProps) => {
 	const gridItemSize = Layout.window.width / getExplorerStore().mediaColumns;
-	const isAndroid = Platform.OS === 'android';
 
 	return (
 		<View
@@ -21,7 +20,7 @@ const FileMedia = ({ data }: FileMediaProps) => {
 				height: gridItemSize
 			})}
 		>
-			<FileThumb fixedSize size={isAndroid ? 95 : 97} data={data} />
+			<FileThumb mediaView data={data} />
 		</View>
 	);
 };

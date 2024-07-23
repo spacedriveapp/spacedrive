@@ -5,7 +5,14 @@ import { PropsWithChildren, useCallback, useEffect, useRef, useState } from 'rea
 import { useKey } from 'rooks';
 import { Button, Kbd, Resizable, ResizableHandle, Tooltip, useResizableContext } from '@sd/ui';
 import { MacTrafficLights } from '~/components';
-import { useLocale, useOperatingSystem, useShortcut, useShowControls } from '~/hooks';
+import {
+	useKeyMatcher,
+	useKeysMatcher,
+	useLocale,
+	useOperatingSystem,
+	useShortcut,
+	useShowControls
+} from '~/hooks';
 
 import { layoutStore, useLayoutStore } from '../../store';
 import { getSidebarStore } from '../store';
@@ -208,6 +215,7 @@ function SidebarControls() {
 	const { t } = useLocale();
 	const os = useOperatingSystem();
 	const { sidebar } = useLayoutStore();
+	const ctrlmeta = useKeysMatcher(['Meta']).Meta.icon;
 
 	if (os !== 'macOS') return null;
 
@@ -215,7 +223,7 @@ function SidebarControls() {
 		<div className="flex justify-end">
 			<Tooltip
 				label={!sidebar.collapsed ? t('hide_sidebar') : t('lock_sidebar')}
-				keybinds={['[']}
+				keybinds={[ctrlmeta, 'S']}
 			>
 				<Button
 					size="icon"

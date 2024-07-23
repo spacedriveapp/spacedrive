@@ -548,6 +548,8 @@
   "quick_preview": "Snelle Voorvertoning",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "Geef snel weer",
+  "quickpreview_thumbnail_error_message": "Kan afbeelding met volledige resolutie niet laden",
+  "quickpreview_thumbnail_error_tip": "De afbeelding kon niet worden gevonden. Daarom wordt de miniatuur weergegeven.",
   "random": "Willekeurig",
   "receiver": "Ontvanger",
   "receiver_description": "Dit proces ontvangt en bewaart bewerkingen van Spacedrive Cloud.",

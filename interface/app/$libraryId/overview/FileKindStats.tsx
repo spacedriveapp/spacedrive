@@ -245,7 +245,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 										{data?.total_unidentified_files
 											? formatNumberWithCommas(data.total_unidentified_files)
 											: '0'}{' '}
-										unidentified files
+										{t('unidentified_files')}
 									</span>
 								</Tooltip>
 							</div>
@@ -274,8 +274,9 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 											label={
 												formatNumberWithCommas(fileKind.count) +
 												' ' +
-												fileKind.name +
-												's'
+												t(fileKind.name.toLowerCase(), {
+													count: Number(fileKind.count)
+												})
 											}
 											position="left"
 										>

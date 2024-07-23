@@ -560,6 +560,8 @@
   "quick_preview": "معاينة سريعة",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "عرض سريع",
+  "quickpreview_thumbnail_error_message": "غير قادر على تحميل الصورة ذات الدقة الكاملة",
+  "quickpreview_thumbnail_error_tip": "تعذر العثور على الصورة. ولذلك، يتم عرض الصورة المصغرة.",
   "random": "عشوائي",
   "receiver": "المتلقي",
   "receiver_description": "تتلقى هذه العملية العمليات من Spacedrive Cloud وتخزنها.",
