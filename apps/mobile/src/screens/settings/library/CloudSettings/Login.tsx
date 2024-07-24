@@ -17,8 +17,8 @@ const Login = () => {
 				<View style={tw`flex-col items-center gap-2`}>
 					<Icon name="CloudSync" size={64} />
 					<Text style={tw`text-center text-sm text-ink`}>
-						Cloud Sync will upload your library to the cloud so you can
-						access your library from other devices by importing it from the cloud.
+						Cloud Sync will upload your library to the cloud so you can access your
+						library from other devices by importing it from the cloud.
 					</Text>
 				</View>
 				{(authState.status === 'notLoggedIn' || authState.status === 'loggingIn') && (

@@ -1,6 +1,7 @@
-import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
+import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import Empty from '~/components/layout/Empty';
 import ScreenContainer from '~/components/layout/ScreenContainer';
@@ -10,7 +11,6 @@ import { Divider } from '~/components/primitive/Divider';
 import { styled, tw, twStyle } from '~/lib/tailwind';
 import { useAuthStateSnapshot } from '~/stores/auth';
 
-import { Icon } from '~/components/icons/Icon';
 import Instance from './Instance';
 import Library from './Library';
 import Login from './Login';
@@ -56,7 +56,11 @@ const Authenticated = () => {
 	}
 
 	return (
-		<ScreenContainer scrollview={Boolean(cloudLibrary.data)} style={tw`gap-0`} tabHeight={false}>
+		<ScreenContainer
+			scrollview={Boolean(cloudLibrary.data)}
+			style={tw`gap-0`}
+			tabHeight={false}
+		>
 			{cloudLibrary.data ? (
 				<View style={tw`flex-col items-start gap-5`}>
 					<Library cloudLibrary={cloudLibrary.data} />
@@ -98,28 +102,25 @@ const Authenticated = () => {
 				</View>
 			) : (
 				<View style={tw`flex-1 justify-center`}>
-				<Card style={tw`relative p-6`}>
-					<Icon style={tw`mx-auto mb-2`} name="CloudSync" size={64} />
-					<Text style={tw`mx-auto text-center text-sm text-ink`}>
-					Uploading your library to the cloud will allow you to access your library from other devices using your account & importing.
-					</Text>
-					<Button
-						variant={'accent'}
-						style={tw`mx-auto mt-4 max-w-[82%]`}
-						disabled={createLibrary.isLoading}
-						onPress={async () => await createLibrary.mutateAsync(null)}
-					>
-						{createLibrary.isLoading ? (
-							<Text style={tw`text-ink`}>
-								Connecting library...
-							</Text>
-						) : (
-							<Text style={tw`font-medium text-ink`}>
-								Connect library
-							</Text>
-						)}
-					</Button>
-				</Card>
+					<Card style={tw`relative p-6`}>
+						<Icon style={tw`mx-auto mb-2`} name="CloudSync" size={64} />
+						<Text style={tw`mx-auto text-center text-sm text-ink`}>
+							Uploading your library to the cloud will allow you to access your
+							library from other devices using your account & importing.
+						</Text>
+						<Button
+							variant={'accent'}
+							style={tw`mx-auto mt-4 max-w-[82%]`}
+							disabled={createLibrary.isLoading}
+							onPress={async () => await createLibrary.mutateAsync(null)}
+						>
+							{createLibrary.isLoading ? (
+								<Text style={tw`text-ink`}>Connecting library...</Text>
+							) : (
+								<Text style={tw`font-medium text-ink`}>Connect library</Text>
+							)}
+						</Button>
+					</Card>
 				</View>
 			)}
 		</ScreenContainer>

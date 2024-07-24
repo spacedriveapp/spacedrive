@@ -1,15 +1,15 @@
 import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { useIsFocused } from '@react-navigation/native';
+import { MotiView } from 'moti';
+import { Circle } from 'phosphor-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
 import {
 	Procedures,
 	useLibraryMutation,
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
-import { MotiView } from 'moti';
-import { Circle } from 'phosphor-react-native';
-import React, { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
 import { ModalRef } from '~/components/layout/Modal';
@@ -28,7 +28,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 	const pageFocused = useIsFocused();
 	const [showCloudModal, setShowCloudModal] = useState(false);
 
-	useLibrarySubscription(['library.actors'], {onData: setData});
+	useLibrarySubscription(['library.actors'], { onData: setData });
 
 	useEffect(() => {
 		if (startBackfill === true) {
