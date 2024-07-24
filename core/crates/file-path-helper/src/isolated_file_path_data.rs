@@ -571,7 +571,6 @@ pub fn extract_normalized_materialized_path_str(
 		.map_err(Into::into)
 }
 
-#[inline(always)]
 fn assemble_relative_path(
 	materialized_path: &str,
 	name: &str,
@@ -585,7 +584,6 @@ fn assemble_relative_path(
 	}
 }
 
-#[inline(always)]
 pub fn join_location_relative_path(
 	location_path: impl AsRef<Path>,
 	relative_path: impl AsRef<Path>,
