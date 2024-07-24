@@ -142,6 +142,9 @@ importers:
       sonner:
         specifier: ^1.0.3
         version: 1.4.3(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      supertokens-web-js:
+        specifier: ^0.13.0
+        version: 0.13.0
     devDependencies:
       '@sd/config':
         specifier: workspace:*
@@ -860,6 +863,9 @@ importers:
       solid-refresh:
         specifier: ^0.6.3
         version: 0.6.3(solid-js@1.8.15)
+      supertokens-web-js:
+        specifier: ^0.13.0
+        version: 0.13.0
       use-count-up:
         specifier: ^3.0.1
         version: 3.0.1(react@18.2.0)
@@ -6352,6 +6358,9 @@ packages:
 
   browser-resolve@1.11.3:
     resolution: {integrity: sha512-exDi1BYWB/6raKHmDTCicQfTkqwN5fioMFV4j8BsfMU4R2DK/QfZfK7kOVkmWCNANf0snkBzqGqAJBao9gZMdQ==}
+
+  browser-tabs-lock@1.3.0:
+    resolution: {integrity: sha512-g6nHaobTiT0eMZ7jh16YpD2kcjAp+PInbiVq3M1x6KKaEIVhT4v9oURNIpZLOZ3LQbQ3XYfNhMAb/9hzNLIWrw==}
 
   browserify-aes@1.2.0:
     resolution: {integrity: sha512-+7CHXqGuspUn/Sl5aO7Ea0xWGAtETPXNSAjHo48JfLdPWcMng33Xe4znFvQweqc/uzk5zSOI3H52CYnjCfb5hA==}
@@ -12448,6 +12457,15 @@ packages:
   superjson@1.13.3:
     resolution: {integrity: sha512-mJiVjfd2vokfDxsQPOwJ/PtanO87LhpYY88ubI5dUB1Ab58Txbyje3+jpm+/83R/fevaq/107NNhtYBLuoTrFg==}
     engines: {node: '>=10'}
+
+  supertokens-js-override@0.0.4:
+    resolution: {integrity: sha512-r0JFBjkMIdep3Lbk3JA+MpnpuOtw4RSyrlRAbrzMcxwiYco3GFWl/daimQZ5b1forOiUODpOlXbSOljP/oyurg==}
+
+  supertokens-web-js@0.13.0:
+    resolution: {integrity: sha512-I0o8Pblu4G1Bopm6c0YI2bZQ/22k5qrjdPFV7etNJ+ydOmNoQPBCo1iY9QbmLANcokyLOaWS5k8jEuwoVh/FYQ==}
+
+  supertokens-website@20.1.4:
+    resolution: {integrity: sha512-2hbB/MWJew4W8bq5q0M75tjUnniahLzXVOnu+535j3HB4wworwMJ1ZGfg25OL9q1fm4g+ITNKVjJeJgJqEDlmA==}
 
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
@@ -20376,6 +20394,10 @@ snapshots:
     dependencies:
       resolve: 1.1.7
 
+  browser-tabs-lock@1.3.0:
+    dependencies:
+      lodash: 4.17.21
+
   browserify-aes@1.2.0:
     dependencies:
       buffer-xor: 1.0.3
@@ -28140,6 +28162,18 @@ snapshots:
   superjson@1.13.3:
     dependencies:
       copy-anything: 3.0.5
+
+  supertokens-js-override@0.0.4: {}
+
+  supertokens-web-js@0.13.0:
+    dependencies:
+      supertokens-js-override: 0.0.4
+      supertokens-website: 20.1.4
+
+  supertokens-website@20.1.4:
+    dependencies:
+      browser-tabs-lock: 1.3.0
+      supertokens-js-override: 0.0.4
 
   supports-color@5.5.0:
     dependencies:
