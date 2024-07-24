@@ -1,12 +1,11 @@
-import { Envelope, User } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
-import { Button, Card, Input, toast } from '@sd/ui';
-import { TruncatedText } from '~/components';
-import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
+import { Button, Input, toast } from '@sd/ui';
+import { useEffect, useState } from 'react';
 import { useLocale } from '~/hooks';
 
-import { Heading } from '../Layout';
+import { Heading } from '../../Layout';
+import LoginRegister from './LoginRegister';
+import Profile from './Profile';
 
 export const Component = () => {
 	const { t } = useLocale();
@@ -30,38 +29,14 @@ export const Component = () => {
 				description={t('spacedrive_cloud_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
-				<Profile authStore={authStore} email={me.data?.email} />
+				{authStore.status === 'notLoggedIn' ? (
+					<LoginRegister/>
+				) : (
+					<Profile authStore={authStore} email={me.data?.email} />
+				)}
 			</div>
 			{useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />}
 		</>
-	);
-};
-
-const Profile = ({ email, authStore }: { email?: string; authStore: { status: string } }) => {
-	const emailName = authStore.status === 'loggedIn' ? email?.split('@')[0] : 'guest user';
-	return (
-		<Card className="relative flex w-full flex-col items-center justify-center !p-6 lg:max-w-[320px]">
-			<AuthRequiredOverlay />
-			<div
-				className="flex size-[90px] items-center justify-center rounded-full
-	 border border-app-line bg-app-input"
-			>
-				<User weight="fill" className="mx-auto text-4xl text-ink-faint" />
-			</div>
-			<h1 className="mx-auto mt-3 text-lg">
-				Welcome <span className="font-bold">{emailName},</span>
-			</h1>
-			<div className="mx-auto mt-4 flex w-full flex-col gap-2">
-				<Card className="w-full items-center justify-start gap-1 bg-app-input !px-2">
-					<div className="w-[20px]">
-						<Envelope weight="fill" width={20} />
-					</div>
-					<TruncatedText>
-						{authStore.status === 'loggedIn' ? email : 'guestuser@outlook.com'}
-					</TruncatedText>
-				</Card>
-			</div>
-		</Card>
 	);
 };
 
