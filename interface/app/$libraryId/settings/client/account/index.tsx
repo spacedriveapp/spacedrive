@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
-import LoginRegister from './LoginRegister';
 import Profile from './Profile';
+import Tabs from './Tabs';
 
 export const Component = () => {
 	const { t } = useLocale();
@@ -30,7 +30,7 @@ export const Component = () => {
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				{authStore.status === 'notLoggedIn' ? (
-					<LoginRegister/>
+					<Tabs/>
 				) : (
 					<Profile authStore={authStore} email={me.data?.email} />
 				)}
