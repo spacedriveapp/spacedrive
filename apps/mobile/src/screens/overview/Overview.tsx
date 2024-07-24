@@ -25,7 +25,7 @@ export default function OverviewScreen() {
 	});
 
 	// Running the query here so the data is already available for settings screen
-	// useLibraryQuery(['sync.enabled']);
+	useLibraryQuery(['sync.enabled']);
 
 	return (
 		<ScreenContainer>

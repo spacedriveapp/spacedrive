@@ -35,7 +35,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 			navigation.navigate('BackfillWaitingStack', {
 				screen: 'BackfillWaiting'
 			});
-			setShowCloudModal(true);
+			setTimeout(() => setShowCloudModal(true), 1000);
 		}
 	}, [startBackfill, navigation]);
 
