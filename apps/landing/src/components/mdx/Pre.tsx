@@ -19,18 +19,6 @@ const Pre: FC<{ children: React.ReactNode }> = ({ children }) => {
 
 	return (
 		<div ref={textInput} className="relative">
-			{/* <button
-				aria-label="Copy code"
-				type="button"
-				className="absolute right-2 top-2 z-10 rounded-md bg-app-box p-3 text-white/60 transition-colors duration-200 ease-in-out hover:bg-app-darkBox"
-				onClick={onCopy}
-			>
-				{copied ? (
-					<Check size={18} className="text-green-400" />
-				) : (
-					<Copy size={18} className="text-white opacity-70" />
-				)}
-			</button> */}
 			<Button
 				size="md"
 				rounding="both"
