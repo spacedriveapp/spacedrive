@@ -185,7 +185,7 @@ case "$(uname)" in
       fi
 
       # Tauri dependencies
-      set -- openssl webkit2gtk4.1-devel openssl-dev curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel
+      set -- openssl webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel dbus-devel
 
       # Webkit2gtk requires gstreamer plugins for video playback to work
       set -- "$@" gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-good \
