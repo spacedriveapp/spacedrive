@@ -1,9 +1,9 @@
-import { Eye, EyeClosed } from '@phosphor-icons/react';
-import { useState } from 'react';
-import { Controller } from 'react-hook-form';
-import { signIn, signUp } from 'supertokens-web-js/recipe/emailpassword';
 import { useZodForm } from '@sd/client';
 import { Button, Form, Input, toast, z } from '@sd/ui';
+import { useState } from 'react';
+import { Controller } from 'react-hook-form';
+import { signIn } from 'supertokens-web-js/recipe/emailpassword';
+import ShowPassword from './ShowPassword';
 
 async function signInClicked(email: string, password: string) {
 	try {
@@ -107,13 +107,10 @@ const Login = () => {
 									field.onChange(pastedText);
 								}}
 							/>
-							<Button
-								variant="gray"
-								className="absolute right-2"
-								onClick={() => setShowPassword(!showPassword)}
-							>
-								{!showPassword ? <EyeClosed /> : <Eye />}
-							</Button>
+							<ShowPassword
+								showPassword={showPassword}
+								setShowPassword={setShowPassword}
+							/>
 						</div>
 					)}
 				/>

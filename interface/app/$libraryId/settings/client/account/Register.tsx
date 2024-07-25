@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeClosed } from '@phosphor-icons/react';
+import { Button, Form, Input, toast, z } from '@sd/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { signUp } from 'supertokens-web-js/recipe/emailpassword';
-import { Button, Form, Input, toast, z } from '@sd/ui';
+import ShowPassword from './ShowPassword';
 
 const RegisterSchema = z
 	.object({
@@ -120,13 +120,10 @@ const Register = () => {
 									field.onChange(pastedText);
 								}}
 							/>
-							<Button
-								variant="gray"
-								className="absolute right-2"
-								onClick={() => setShowPassword(!showPassword)}
-							>
-								{!showPassword ? <EyeClosed /> : <Eye />}
-							</Button>
+							<ShowPassword
+								showPassword={showPassword}
+								setShowPassword={setShowPassword}
+							/>
 						</div>
 					)}
 				/>
@@ -146,13 +143,10 @@ const Register = () => {
 								disabled={form.formState.isSubmitting}
 								type={showPassword ? 'text' : 'password'}
 							/>
-							<Button
-								variant="gray"
-								className="absolute right-2"
-								onClick={() => setShowPassword(!showPassword)}
-							>
-								{!showPassword ? <EyeClosed /> : <Eye />}
-							</Button>
+							<ShowPassword
+								showPassword={showPassword}
+								setShowPassword={setShowPassword}
+							/>
 						</div>
 					)}
 				/>
