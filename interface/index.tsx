@@ -49,7 +49,6 @@ import('@sentry/browser').then(({ init, Integrations }) => {
 });
 
 SuperTokens.init({
-	// enableDebugLogs: true,
 	appInfo: {
 		apiDomain: 'http://localhost:9000',
 		apiBasePath: '/api/auth',

@@ -131,6 +131,8 @@ sysinfo = "0.29.11" # Update blocked due to API breaking changes
 tar = "0.4.41"
 tower-service = "0.3.2"
 tracing-appender = "0.2.3"
+keyring = { version = "3.0.4", features = ["apple-native", "windows-native", "sync-secret-service"] }
+whoami = "1.5.1"
 
 # Override features of transitive dependencies
 [dependencies.openssl]

@@ -1,7 +1,9 @@
 // TODO: Ensure this file has normalised caching setup before reenabling
 
-// use rspc::alpha::AlphaRouter;
-// use rspc::ErrorCode;
+use keyring::Entry;
+use rspc::alpha::AlphaRouter;
+
+use tracing::{debug, error};
 // use sd_crypto::keys::keymanager::{StoredKey, StoredKeyType};
 // use sd_crypto::primitives::SECRET_KEY_IDENTIFIER;
 // use sd_crypto::types::{Algorithm, HashingAlgorithm, OnboardingConfig, SecretKeyString};
@@ -17,7 +19,7 @@
 // use crate::{invalidate_query, prisma::key};
 
 // use super::utils::library;
-// use super::{Ctx, R};
+use super::{Ctx, R};
 
 // #[derive(Type, Deserialize)]
 // pub struct KeyAddArgs {
@@ -54,8 +56,89 @@
 // 	status: bool,
 // }
 
-// pub(crate) fn mount() -> AlphaRouter<Ctx> {
-// 	R.router()
+pub(crate) fn mount() -> AlphaRouter<Ctx> {
+	R.router()
+		.procedure("set", {
+			R.mutation(|_, key: String| async move {
+				let username = whoami::username();
+				let entry = match Entry::new("spacedrive-auth-service", username.as_str()) {
+					Ok(entry) => entry,
+					Err(e) => {
+						error!("Error creating entry: {}", e);
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error creating entry".to_string(),
+						));
+					}
+				};
+
+				// Check if the key already exists -> if it does, delete it first before setting the new key
+				// if entry.get_password().is_ok() {
+				// 	debug!("Key already exists. Deleting key first");
+				// 	match entry.delete_credential() {
+				// 		Ok(_) => debug!("Key deleted successfully"),
+				// 		Err(e) => {
+				// 			error!("Error deleting key: {}", e);
+				// 			return Err(rspc::Error::new(
+				// 				rspc::ErrorCode::InternalServerError,
+				// 				"Error deleting key".to_string(),
+				// 			));
+				// 		}
+				// 	}
+				// }
+
+				match entry.set_password(key.as_str()) {
+					Ok(_) => debug!("Key set successfully"),
+					Err(e) => {
+						error!("Error setting key: {}", e);
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error setting key".to_string(),
+						));
+					}
+				}
+
+				debug!(
+					"Key set successfully: key={key}, service={service}, user={user}",
+					key = key,
+					service = "spacedrive-auth-service",
+				);
+				Ok(())
+			})
+		})
+		.procedure("get", {
+			R.query(|_, _: ()| async move {
+				let username = whoami::username();
+				let entry = match Entry::new("spacedrive-auth-service", username.as_str()) {
+					Ok(entry) => entry,
+					Err(e) => {
+						error!("Error creating entry: {}", e);
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::InternalServerError,
+							"Error creating entry".to_string(),
+						));
+					}
+				};
+
+				let data = match entry.get_password() {
+					Ok(key) => key,
+					Err(e) => {
+						error!("Error retrieving key: {}. Does the key exist yet?", e);
+						return Ok("".to_string());
+					}
+				};
+
+				debug!(
+					"Key retrieved successfully: service={service}, user={user}",
+					service = "spacedrive-auth-service",
+				);
+
+				Ok(data)
+			})
+		})
+}
+
+//NOTE(@Rocky43007): OLD PROCEDURES -> MAY BE USEFUL FOR REFERENCE AND COULD BE USED IN THE FUTURE
 // 		.procedure("list", {
 // 			R.with2(library())
 // 				.query(|(_, library), _: ()| async move { Ok(library.key_manager.dump_keystore()) })
