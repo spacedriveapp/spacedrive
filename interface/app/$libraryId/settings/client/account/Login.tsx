@@ -19,7 +19,6 @@ async function signInClicked(email: string, password: string) {
 				}
 			]
 		});
-		console.log('[signInClicked] response', response);
 
 		if (response.status === 'FIELD_ERROR') {
 			response.formFields.forEach((formField) => {
@@ -68,7 +67,6 @@ const Login = () => {
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
 				// handle login submission
-				console.log(data);
 				await signInClicked(data.email, data.password);
 			})}
 			form={form}
@@ -122,7 +120,6 @@ const Login = () => {
 					className="mx-auto mt-2 w-full"
 					variant="accent"
 					onClick={form.handleSubmit(async (data) => {
-						console.log(data);
 						await signInClicked(data.email, data.password);
 					})}
 					disabled={form.formState.isSubmitting}

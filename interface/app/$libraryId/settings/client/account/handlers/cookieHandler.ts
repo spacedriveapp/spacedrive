@@ -1,8 +1,24 @@
 import { CookieHandlerInterface } from "supertokens-website/utils/cookieHandler/types";
+import { NonLibraryProceduresDef, rspc } from '@sd/client'
 
 const frontendCookiesKey = "frontendCookies";
+export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
 
 function getCookiesFromStorage(): string {
+	// let cookiesFromStorage: string = "";
+
+	nonLibraryClient.query(['keys.get']).then((response) => {
+		// Debugging
+		const cookiesArrayFromStorage: string[] = JSON.parse(response);
+		console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
+
+		// Actual
+		// cookiesFromStorage = response;
+	}).catch((e) => {
+		console.error("Error fetching cookies from storage: ", e);
+	});
+
+
 	const cookiesFromStorage = window.localStorage.getItem(frontendCookiesKey);
 
 	if (cookiesFromStorage === null) {
@@ -88,6 +104,15 @@ function setCookieToStorage(cookieString: string) {
 	} else {
 		cookiesArray.push(cookieString);
 	}
+
+	nonLibraryClient.mutation(['keys.set', JSON.stringify(cookiesArray)]).then(() => {
+		console.log("Cookies set successfully");
+	}).catch((e) => {
+		new Error("Error setting cookies to storage: ", e);
+		return;
+	})
+
+	console.log("Setting cookies to storage: ", cookiesArray);
 
 	window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookiesArray));
 }
