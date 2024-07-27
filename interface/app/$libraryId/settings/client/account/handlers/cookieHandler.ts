@@ -1,28 +1,22 @@
 import { CookieHandlerInterface } from "supertokens-website/utils/cookieHandler/types";
-import { NonLibraryProceduresDef, rspc } from '@sd/client'
-
-const frontendCookiesKey = "frontendCookies";
-export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
+import { nonLibraryClient } from '@sd/client'
 
 function getCookiesFromStorage(): string {
-	// let cookiesFromStorage: string = "";
+	let cookiesFromStorage: string = "";
 
 	nonLibraryClient.query(['keys.get']).then((response) => {
 		// Debugging
+		console.log("rspc response: ", response);
 		const cookiesArrayFromStorage: string[] = JSON.parse(response);
 		console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
 
 		// Actual
-		// cookiesFromStorage = response;
+		cookiesFromStorage = response;
 	}).catch((e) => {
 		console.error("Error fetching cookies from storage: ", e);
 	});
 
-
-	const cookiesFromStorage = window.localStorage.getItem(frontendCookiesKey);
-
-	if (cookiesFromStorage === null) {
-		window.localStorage.setItem(frontendCookiesKey, "[]");
+	if (cookiesFromStorage.length === 0) {
 		return "";
 	}
 
@@ -67,17 +61,35 @@ function getCookiesFromStorage(): string {
 	 * After processing and removing expired cookies we need to update the cookies
 	 * in storage so we dont have to process the expired ones again
 	 */
-	window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookieArrayToReturn));
+	// window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookieArrayToReturn));
+	nonLibraryClient.mutation(['keys.set', JSON.stringify(cookieArrayToReturn)]).then(() => {
+		console.log("Cookies set successfully");
+	}).catch((e) => {
+		console.error("Error setting cookies to storage: ", e);
+		return;
+	})
 
 	return cookieArrayToReturn.join("; ");
 }
 
 function setCookieToStorage(cookieString: string) {
 	const cookieName = cookieString.split(";")[0]?.split("=")[0];
-	const cookiesFromStorage = window.localStorage.getItem(frontendCookiesKey);
+
+	let cookiesFromStorage: string = "";
+	nonLibraryClient.query(['keys.get']).then((response) => {
+		// Debugging
+		const cookiesArrayFromStorage: string[] = JSON.parse(response);
+		console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
+
+		// Actual
+		cookiesFromStorage = response;
+	}).catch((e) => {
+		console.error("Error fetching cookies from storage: ", e);
+	});
+
 	let cookiesArray: string[] = [];
 
-	if (cookiesFromStorage !== null) {
+	if (cookiesFromStorage.length !== 0) {
 		const cookiesArrayFromStorage: string[] = JSON.parse(cookiesFromStorage);
 		cookiesArray = cookiesArrayFromStorage;
 	}
@@ -108,13 +120,11 @@ function setCookieToStorage(cookieString: string) {
 	nonLibraryClient.mutation(['keys.set', JSON.stringify(cookiesArray)]).then(() => {
 		console.log("Cookies set successfully");
 	}).catch((e) => {
-		new Error("Error setting cookies to storage: ", e);
+		console.error("Error setting cookies to storage: ", e);
 		return;
 	})
 
 	console.log("Setting cookies to storage: ", cookiesArray);
-
-	window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookiesArray));
 }
 
 export default function getCookieHandler(original: CookieHandlerInterface): CookieHandlerInterface {
