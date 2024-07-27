@@ -99,7 +99,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				}
 
 				debug!(
-					"Key set successfully: key={key}, service={service}, user={user}",
+					"Key set successfully: key={key}, service={service}",
 					key = key,
 					service = "spacedrive-auth-service",
 				);
@@ -129,7 +129,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				};
 
 				debug!(
-					"Key retrieved successfully: service={service}, user={user}",
+					"Key retrieved successfully: service={service}",
 					service = "spacedrive-auth-service",
 				);
 
