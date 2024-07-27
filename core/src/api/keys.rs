@@ -72,21 +72,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				};
 
-				// Check if the key already exists -> if it does, delete it first before setting the new key
-				// if entry.get_password().is_ok() {
-				// 	debug!("Key already exists. Deleting key first");
-				// 	match entry.delete_credential() {
-				// 		Ok(_) => debug!("Key deleted successfully"),
-				// 		Err(e) => {
-				// 			error!("Error deleting key: {}", e);
-				// 			return Err(rspc::Error::new(
-				// 				rspc::ErrorCode::InternalServerError,
-				// 				"Error deleting key".to_string(),
-				// 			));
-				// 		}
-				// 	}
-				// }
-
 				match entry.set_password(key.as_str()) {
 					Ok(_) => debug!("Key set successfully"),
 					Err(e) => {
