@@ -24,6 +24,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+!.env.example
 
 # vercel
 .vercel
@@ -33,3 +34,5 @@ yarn-error.log*
 
 # contentlayer
 .contentlayer
+
+!next-env.d.ts

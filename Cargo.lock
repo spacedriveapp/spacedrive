@@ -8752,7 +8752,7 @@ dependencies = [
 
 [[package]]
 name = "sd-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "async-channel",
  "async-recursion",
@@ -8988,7 +8988,7 @@ dependencies = [
 
 [[package]]
 name = "sd-desktop"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "axum",
  "dbus",
