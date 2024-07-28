@@ -3,7 +3,6 @@ package com.spacedrive.core
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import android.provider.Settings
 
 class SDCoreModule : Module() {
 	private var registeredWithRust = false
