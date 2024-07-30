@@ -9,8 +9,6 @@ async function getCookiesFromStorage(): Promise<string> {
 	}
 	const cookiesFromStorage = await nonLibraryClient.query(['keys.get'])
 
-	console.log("Cookies from storage (getCookie): ", cookiesFromStorage);
-
 	if (cookiesFromStorage.length === 0) {
 		return "";
 	}
@@ -66,11 +64,8 @@ async function setCookieToStorage(cookieString: string): Promise<void> {
 		return;
 	}
 	const cookieName = cookieString.split(";")[0]?.split("=")[0];
-	console.log("Setting cookie: ", cookieName);
 
 	const cookiesFromStorage = await nonLibraryClient.query(['keys.get'])
-
-	console.log("Cookies from storage: ", cookiesFromStorage);
 
 	let cookiesArray: string[] = [];
 
@@ -78,7 +73,6 @@ async function setCookieToStorage(cookieString: string): Promise<void> {
 		const cookiesArrayFromStorage: string[] = JSON.parse(cookiesFromStorage);
 		cookiesArray = cookiesArrayFromStorage;
 	}
-	console.log("Cookies array: ", cookiesArray);
 
 	let cookieIndex = -1;
 
@@ -90,7 +84,6 @@ async function setCookieToStorage(cookieString: string): Promise<void> {
 			break;
 		}
 	}
-	console.log("Cookie index: ", cookieIndex);
 
 	/**
 	 * If a cookie with the same name already exists (index != -1) then we
@@ -103,7 +96,6 @@ async function setCookieToStorage(cookieString: string): Promise<void> {
 	} else {
 		cookiesArray.push(cookieString);
 	}
-	console.log("Updated cookies array: ", cookiesArray);
 
 	await nonLibraryClient.mutation(['keys.set', JSON.stringify(cookiesArray)])
 }
