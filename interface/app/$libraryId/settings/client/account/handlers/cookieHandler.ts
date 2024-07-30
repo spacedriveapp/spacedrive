@@ -1,7 +1,12 @@
 import { CookieHandlerInterface } from "supertokens-website/utils/cookieHandler/types";
 import { nonLibraryClient } from '@sd/client'
 
+let APP_READY = false;
+
 async function getCookiesFromStorage(): Promise<string> {
+	if (!APP_READY) {
+		return "";
+	}
 	const cookiesFromStorage = await nonLibraryClient.query(['keys.get'])
 
 	console.log("Cookies from storage (getCookie): ", cookiesFromStorage);
@@ -57,6 +62,9 @@ async function getCookiesFromStorage(): Promise<string> {
 }
 
 async function setCookieToStorage(cookieString: string): Promise<void> {
+	if (!APP_READY) {
+		return;
+	}
 	const cookieName = cookieString.split(";")[0]?.split("=")[0];
 	console.log("Setting cookie: ", cookieName);
 
@@ -110,4 +118,8 @@ export default function getCookieHandler(original: CookieHandlerInterface): Cook
 			return setCookieToStorage(cookieString);
 		},
 	};
+}
+
+export function setAppReady() {
+	APP_READY = true;
 }

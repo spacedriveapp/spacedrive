@@ -44,6 +44,7 @@ async function signInClicked(email: string, password: string) {
 			// this may be a custom error message sent from the API by you.
 			toast.error(err.message);
 		} else {
+			console.error(err);
 			toast.error('Oops! Something went wrong.');
 		}
 	}

@@ -16,7 +16,7 @@ export const Component = () => {
 	useEffect(() => {
 		async function _() {
 			console.log("Token data: ", token.data);
-			const user_data = await fetch('http://localhost:9000/api/user', {
+			const user_data = await fetch('http://localhost:9420/api/user', {
 				method: 'GET',
 				headers: {
 					'Authorization': `Bearer ${token.data ?? ''}`
