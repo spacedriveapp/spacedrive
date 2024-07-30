@@ -5,10 +5,6 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { PropsWithChildren, Suspense } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { RouterProvider, RouterProviderProps } from 'react-router-dom';
-import SuperTokens from 'supertokens-web-js';
-import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
-import Session from 'supertokens-web-js/recipe/session';
-import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 import {
 	InteropProviderReact,
 	P2PContextProvider,
@@ -46,21 +42,6 @@ import('@sentry/browser').then(({ init, Integrations }) => {
 		defaultIntegrations: false,
 		integrations: [new Integrations.HttpContext(), new Integrations.Dedupe()]
 	});
-});
-
-SuperTokens.init({
-	appInfo: {
-		apiDomain: 'http://localhost:9000',
-		apiBasePath: '/api/auth',
-		appName: 'Spacedrive Auth Service'
-	},
-	cookieHandler: getCookieHandler,
-	windowHandler: getWindowHandler,
-	recipeList: [
-		Session.init({ tokenTransferMethod: 'header' }),
-		EmailPassword.init(),
-		ThirdParty.init()
-	]
 });
 
 export type Router = RouterProviderProps['router'];
