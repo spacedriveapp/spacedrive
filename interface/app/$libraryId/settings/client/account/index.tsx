@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
+import Session from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Input, toast } from '@sd/ui';
-import { useEffect, useState } from 'react';
 import { useLocale } from '~/hooks';
 
 import { Heading } from '../../Layout';
@@ -10,7 +11,25 @@ import Tabs from './Tabs';
 export const Component = () => {
 	const { t } = useLocale();
 	const me = useBridgeQuery(['auth.me'], { retry: false });
+	const token = useBridgeQuery(['keys.getAccessToken'], { retry: false });
 	const authStore = auth.useStateSnapshot();
+	useEffect(() => {
+		async function _() {
+			console.log("Token data: ", token.data);
+			const user_data = await fetch('http://localhost:9000/api/user', {
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${token.data ?? ''}`
+				}
+			});
+			const data = await user_data.json();
+			return data;
+		}
+		_().then((data) => {
+			console.log("User data: ", data);
+		});
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	return (
 		<>
 			<Heading
@@ -30,7 +49,7 @@ export const Component = () => {
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
 				{authStore.status === 'notLoggedIn' ? (
-					<Tabs/>
+					<Tabs />
 				) : (
 					<Profile authStore={authStore} email={me.data?.email} />
 				)}
