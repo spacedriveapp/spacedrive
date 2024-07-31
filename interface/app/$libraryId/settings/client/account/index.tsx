@@ -8,34 +8,38 @@ import { Heading } from '../../Layout';
 import Profile from './Profile';
 import Tabs from './Tabs';
 
+type User = {
+	email: string;
+	id: string;
+	timejoined: number;
+	roles: string[];
+};
+
 export const Component = () => {
 	const { t } = useLocale();
+	const [userInfo, setUserInfo] = useState<User>(null as any);
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 	const token = useBridgeQuery(['keys.getAccessToken'], { retry: false });
 	const authStore = auth.useStateSnapshot();
 	useEffect(() => {
 		async function _() {
-			console.log("Token data: ", token.data);
 			const user_data = await fetch('http://localhost:9420/api/user', {
-				method: 'GET',
-				headers: {
-					'Authorization': `Bearer ${token.data ?? ''}`
-				}
+				method: 'GET'
 			});
 			const data = await user_data.json();
 			return data;
 		}
 		_().then((data) => {
-			console.log("User data: ", data);
+			setUserInfo(data as User);
 		});
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	return (
 		<>
 			<Heading
 				rightArea={
 					<>
-						{authStore.status === 'loggedIn' && (
+						{userInfo !== null && (
 							<div className="flex-row space-x-2">
 								<Button variant="accent" size="sm" onClick={auth.logout}>
 									{t('logout')}
@@ -48,10 +52,10 @@ export const Component = () => {
 				description={t('spacedrive_cloud_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
-				{authStore.status === 'notLoggedIn' ? (
+				{userInfo === null ? (
 					<Tabs />
 				) : (
-					<Profile authStore={authStore} email={me.data?.email} />
+					<Profile authStore={authStore} email={userInfo.email} />
 				)}
 			</div>
 			{useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />}
