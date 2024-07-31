@@ -1,7 +1,9 @@
 import { FunnelSimple, Icon, Plus } from '@phosphor-icons/react';
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
+import { use } from 'i18next';
 import { memo, PropsWithChildren, useDeferredValue, useMemo, useState } from 'react';
+import { get } from 'react-hook-form';
 import { useFeatureFlag, useLibraryMutation } from '@sd/client';
 import {
 	Button,
@@ -10,11 +12,13 @@ import {
 	Input,
 	Popover,
 	RadixCheckbox,
+	toast,
 	tw,
 	usePopover
 } from '@sd/ui';
-import { useIsDark, useKeybind, useLocale } from '~/hooks';
+import { useIsDark, useKeybind, useLocale, useShortcut } from '~/hooks';
 
+import { getQuickPreviewStore, useQuickPreviewStore } from '../Explorer/QuickPreview/store';
 import { AppliedFilters, InteractiveSection } from './AppliedFilters';
 import { useSearchContext } from './context';
 import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
@@ -334,6 +338,7 @@ function SaveSearchButton() {
 
 function EscapeButton() {
 	const search = useSearchContext();
+	let { open: isQpOpen } = useQuickPreviewStore();
 
 	function escape() {
 		search.setSearch?.(undefined);
@@ -341,7 +346,16 @@ function EscapeButton() {
 		search.setSearchBarFocused(false);
 	}
 
-	useKeybind(['Escape'], escape);
+	useShortcut('explorerEscape', (e) => {
+		isQpOpen = getQuickPreviewStore().open;
+
+		e.preventDefault();
+		e.stopPropagation();
+		// Check the open state from the store
+		if (!isQpOpen) {
+			escape();
+		}
+	});
 
 	return (
 		<kbd
