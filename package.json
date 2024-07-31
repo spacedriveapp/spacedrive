@@ -61,7 +61,7 @@
 		"turbo": "^1.12.5",
 		"turbo-ignore": "^1.12.5",
 		"typescript": "^5.4.2",
-		"vite": "^5.1.6"
+		"vite": "^5.2.0"
 	},
 	"engines": {
 		"pnpm": ">=9.0.0",
