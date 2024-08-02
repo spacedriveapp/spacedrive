@@ -20,6 +20,9 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
+# First party dependencies
+sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", branch = "main" }
+
 # Third party dependencies used by one or more of our crates
 async-channel = "2.3"
 async-trait = "0.1.80"
@@ -65,6 +68,7 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
 uhlc = "0.6.0"                                        # Must follow version used by specta
+url = '2.5.0'
 uuid = "1.8"
 webp = "0.2.6"                                        # Update blocked by image
 
