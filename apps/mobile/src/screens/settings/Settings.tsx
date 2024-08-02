@@ -12,15 +12,20 @@ import {
 	PuzzlePiece,
 	ShareNetwork,
 	ShieldCheck,
-	TagSimple
+	TagSimple,
+	UserCircle
 } from 'phosphor-react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler, useLibraryQuery } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import {
+	SettingsStackParamList,
+	SettingsStackScreenProps,
+	User
+} from '~/navigation/tabs/SettingsStack';
 
 type SectionType = {
 	title: string;
@@ -33,7 +38,10 @@ type SectionType = {
 	}[];
 };
 
-const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
+const sections: (debugState: DebugState, userInfo: User | null) => SectionType[] = (
+	debugState,
+	userInfo
+) => [
 	{
 		title: 'Client',
 		data: [
@@ -43,6 +51,21 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 				title: 'General',
 				rounded: 'top'
 			},
+			...(userInfo
+				? ([
+						{
+							icon: UserCircle,
+							navigateTo: 'AccountProfile',
+							title: 'Account'
+						}
+					] as const)
+				: ([
+						{
+							icon: UserCircle,
+							navigateTo: 'AccountLogin',
+							title: 'Account'
+						}
+					] as const)),
 			{
 				icon: Books,
 				navigateTo: 'LibrarySettings',
@@ -157,11 +180,30 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
+	const [userInfo, setUserInfo] = useState<User | null>(null);
+	useEffect(() => {
+		async function _() {
+			const user_data = await fetch('http://localhost:9420/api/user', {
+				method: 'GET'
+			});
+			const data = await user_data.json();
+			return data;
+		}
+		_().then((data) => {
+			if (data.message !== 'unauthorised') {
+				setUserInfo(data as User);
+			} else {
+				setUserInfo(null);
+			}
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [navigation]);
+
 	return (
 		<ScreenContainer tabHeight={false} style={tw`gap-0 px-5 py-0`}>
 			<SectionList
 				contentContainerStyle={tw`py-6`}
-				sections={sections(debugState)}
+				sections={sections(debugState, userInfo)}
 				renderItem={({ item }) => (
 					<SettingsItem
 						syncEnabled={syncEnabled.data}
