@@ -93,7 +93,7 @@ importers:
         version: 0.0.0-main-dc31e5b2
       '@oscartbeaumont-sd/rspc-tauri':
         specifier: '=0.0.0-main-dc31e5b2'
-        version: 0.0.0-main-dc31e5b2(patch_hash=aivg4lv3fcaaigmygku42cefnu)(@tauri-apps/api@2.0.0-beta.16)
+        version: 0.0.0-main-dc31e5b2(patch_hash=aivg4lv3fcaaigmygku42cefnu)(@tauri-apps/api@2.0.0-rc.0)
       '@remix-run/router':
         specifier: '=1.13.1'
         version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
@@ -114,7 +114,7 @@ importers:
         version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(react@18.2.0))(react@18.2.0)
       '@tauri-apps/api':
         specifier: next
-        version: 2.0.0-beta.16
+        version: 2.0.0-rc.0
       '@tauri-apps/plugin-dialog':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
@@ -501,6 +501,9 @@ importers:
       solid-js:
         specifier: ^1.8.8
         version: 1.8.15
+      supertokens-react-native:
+        specifier: ^5.1.2
+        version: 5.1.2(@react-native-async-storage/async-storage@1.22.3(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)))(axios@1.6.8)(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))
       twrnc:
         specifier: ^4.1.0
         version: 4.1.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))
@@ -5108,8 +5111,8 @@ packages:
     resolution: {integrity: sha512-wJRY+fBUm3KpqZDHMIz5HRv+1vlnvRJ/dFxiyY3NlINTx2qXqDou5qWYcP1CuZXsd39InWVPV3FAZvno/kGCkA==}
     engines: {node: '>= 18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
-  '@tauri-apps/api@2.0.0-beta.16':
-    resolution: {integrity: sha512-YGjkR9HxS/YyIoqoXDkk8o9Yy5NW6u9YxzeqEodwwOUoeS0nac6mzLTW3VYIuSelHmyUQCgbyENVY6e5CJXA4Q==}
+  '@tauri-apps/api@2.0.0-rc.0':
+    resolution: {integrity: sha512-v454Qs3REHc3Za59U+/eSmBsdmF+3NE5+76+lFDaitVqN4ZglDHENDaMARYKGJVZuxiSkzyqG0SeG7lLQjVkPA==}
     engines: {node: '>= 18.18', npm: '>= 6.6.0', yarn: '>= 1.19.1'}
 
   '@tauri-apps/cli-darwin-arm64@2.0.0-beta.20':
@@ -6256,6 +6259,9 @@ packages:
 
   bare-events@2.2.2:
     resolution: {integrity: sha512-h7z00dWdG0PYOQEvChhOSWvOfkIKsdZGkWr083FgN/HyoQuebSew/cgirYqh9SCuy/hRvxc5Vy6Fw8xAmYHLkQ==}
+
+  base-64@1.0.0:
+    resolution: {integrity: sha512-kwDPIFCGx0NZHog36dj+tHiwP4QMzsZ3AgMViUBKI0+V5n4U0ufTCUMhnQ04diaRI8EX/QcPfql7zlhZ7j4zgg==}
 
   base16@1.0.0:
     resolution: {integrity: sha512-pNdYkNPiJUnEhnfXV56+sQy8+AaPcG3POZAUnwr4EeqCUZFz4u2PePbo3e5Gj4ziYPCWGUZT9RHisvJKnwFuBQ==}
@@ -11467,6 +11473,11 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-url-polyfill@1.3.0:
+    resolution: {integrity: sha512-w9JfSkvpqqlix9UjDvJjm1EjSt652zVQ6iwCIj1cVVkwXf4jQhQgTNXY6EVTwuAmUjg6BC6k9RHCBynoLFo3IQ==}
+    peerDependencies:
+      react-native: '*'
+
   react-native-wheel-color-picker@1.3.1:
     resolution: {integrity: sha512-ojuajzwEkgIHa4Iw94K9FlwA1iifslMo+HDrOFQMBTMCXm1HaFhtQpDZ5upV9y8vujviDko3hDkVqB7/eV0dzg==}
 
@@ -12471,6 +12482,13 @@ packages:
 
   supertokens-js-override@0.0.4:
     resolution: {integrity: sha512-r0JFBjkMIdep3Lbk3JA+MpnpuOtw4RSyrlRAbrzMcxwiYco3GFWl/daimQZ5b1forOiUODpOlXbSOljP/oyurg==}
+
+  supertokens-react-native@5.1.2:
+    resolution: {integrity: sha512-YfihhFjaY/YuILvDZbKfne1s6qv5QHA3kA2WA83U6QsTUw/vVB7R6SWj2Rjtu/KOZE90gfxJGhBQNc5JYTu/eg==}
+    peerDependencies:
+      '@react-native-async-storage/async-storage': '>=1.13.0 <2.0.x'
+      axios: '*'
+      react-native: '>=0.61.5 <1.0.x'
 
   supertokens-web-js@0.13.0:
     resolution: {integrity: sha512-I0o8Pblu4G1Bopm6c0YI2bZQ/22k5qrjdPFV7etNJ+ydOmNoQPBCo1iY9QbmLANcokyLOaWS5k8jEuwoVh/FYQ==}
@@ -16432,10 +16450,10 @@ snapshots:
       '@tanstack/react-query': 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.24.0)(react@18.2.0))(react@18.2.0)
       react: 18.2.0
 
-  '@oscartbeaumont-sd/rspc-tauri@0.0.0-main-dc31e5b2(patch_hash=aivg4lv3fcaaigmygku42cefnu)(@tauri-apps/api@2.0.0-beta.16)':
+  '@oscartbeaumont-sd/rspc-tauri@0.0.0-main-dc31e5b2(patch_hash=aivg4lv3fcaaigmygku42cefnu)(@tauri-apps/api@2.0.0-rc.0)':
     dependencies:
       '@oscartbeaumont-sd/rspc-client': 0.0.0-main-dc31e5b2
-      '@tauri-apps/api': 2.0.0-beta.16
+      '@tauri-apps/api': 2.0.0-rc.0
 
   '@phosphor-icons/core@2.0.8': {}
 
@@ -18908,7 +18926,7 @@ snapshots:
 
   '@tauri-apps/api@2.0.0-beta.11': {}
 
-  '@tauri-apps/api@2.0.0-beta.16': {}
+  '@tauri-apps/api@2.0.0-rc.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.0.0-beta.20':
     optional: true
@@ -20295,6 +20313,8 @@ snapshots:
 
   bare-events@2.2.2:
     optional: true
+
+  base-64@1.0.0: {}
 
   base16@1.0.0: {}
 
@@ -26814,6 +26834,11 @@ snapshots:
       react: 18.2.0
       react-native: 0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)
 
+  react-native-url-polyfill@1.3.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)):
+    dependencies:
+      react-native: 0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)
+      whatwg-url-without-unicode: 8.0.0-3
+
   react-native-wheel-color-picker@1.3.1:
     dependencies:
       react-native-elevation: 1.0.0
@@ -28185,6 +28210,15 @@ snapshots:
       copy-anything: 3.0.5
 
   supertokens-js-override@0.0.4: {}
+
+  supertokens-react-native@5.1.2(@react-native-async-storage/async-storage@1.22.3(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)))(axios@1.6.8)(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)):
+    dependencies:
+      '@react-native-async-storage/async-storage': 1.22.3(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))
+      axios: 1.6.8(debug@4.3.4)
+      base-64: 1.0.0
+      react-native: 0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0)
+      react-native-url-polyfill: 1.3.0(react-native@0.73.4(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(react@18.2.0))
+      supertokens-js-override: 0.0.4
 
   supertokens-web-js@0.13.0:
     dependencies:

@@ -34,7 +34,7 @@ const Tabs = () => {
 						thirdPartyId: "github",
 
 						// This is where Github should redirect the user back after login or error.
-						frontendRedirectURI: "http://localhost:9000/api/auth/callback/github",
+						frontendRedirectURI: "http://localhost:9420/api/auth/callback/github",
 					});
 
 					// we redirect the user to Github for auth.
@@ -55,7 +55,7 @@ const Tabs = () => {
 
 						// This is where Google should redirect the user back after login or error.
 						// This URL goes on the Google's dashboard as well.
-						frontendRedirectURI: "http://localhost:9000/api/auth/callback/google",
+						frontendRedirectURI: "http://localhost:9420/api/auth/callback/google",
 					});
 
 					/*
@@ -79,7 +79,7 @@ const Tabs = () => {
 						thirdPartyId: "apple",
 
 						// This is where Apple should redirect the user back after login or error.
-						frontendRedirectURI: "http://localhost:9000/api/auth/callback/apple",
+						frontendRedirectURI: "http://localhost:9420/api/auth/callback/apple",
 					});
 
 
