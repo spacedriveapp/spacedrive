@@ -37,7 +37,7 @@ async function signInClicked(email: string, password: string) {
 		} else {
 			// sign in successful. The session tokens are automatically handled by
 			// the frontend SDK.
-			console.log('Sign in successful');
+			toast.success('Sign in successful');
 		}
 	} catch (err: any) {
 		if (err.isSuperTokensGeneralError === true) {

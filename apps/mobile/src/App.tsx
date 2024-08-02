@@ -17,6 +17,7 @@ import { Alert, LogBox, Permission, PermissionsAndroid, Platform } from 'react-n
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import SuperTokens from 'supertokens-react-native';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
@@ -156,6 +157,10 @@ export default function App() {
 	useEffect(() => {
 		global.Intl = require('intl');
 		require('intl/locale-data/jsonp/en'); //TODO(@Rocky43007): Setup a way to import all the languages we support, once we add localization on mobile.
+		SuperTokens.init({
+			apiDomain: 'http://localhost:9420',
+			apiBasePath: '/api/auth'
+		});
 		SplashScreen.hideAsync();
 		if (Platform.OS === 'android') {
 			(async () => {

@@ -17,7 +17,7 @@ type User = {
 
 export const Component = () => {
 	const { t } = useLocale();
-	const [userInfo, setUserInfo] = useState<User>(null as any);
+	const [userInfo, setUserInfo] = useState<User | null>(null);
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 	const token = useBridgeQuery(['keys.getAccessToken'], { retry: false });
 	const authStore = auth.useStateSnapshot();
@@ -30,7 +30,11 @@ export const Component = () => {
 			return data;
 		}
 		_().then((data) => {
-			setUserInfo(data as User);
+			if (data.message !== 'unauthorised') {
+				setUserInfo(data as User);
+			} else {
+				setUserInfo(null);
+			}
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
