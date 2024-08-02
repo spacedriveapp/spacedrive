@@ -31,7 +31,15 @@ const JobIcon: Record<string, Icon> = {
 	FileCopier: Copy,
 	FileDeleter: Trash,
 	FileCutter: Scissors,
-	ObjectValidator: Fingerprint
+	ObjectValidator: Fingerprint,
+	Copied: Copy
+};
+
+// Jobs like deleting and copying files do not have simplied job names
+// so we need to use the metadata to display an icon
+const MetaDataJobIcon: Record<string, Icon> = {
+	deleter: Trash,
+	copier: Copy
 };
 
 function Job({ job, className, isChild, progress, eta }: JobProps) {
@@ -71,7 +79,7 @@ function Job({ job, className, isChild, progress, eta }: JobProps) {
 		<JobContainer
 			className={className}
 			name={jobData.name}
-			icon={JobIcon[job.name]}
+			icon={JobIcon[job.name] ?? MetaDataJobIcon[jobData.meta[0].metadata.type]}
 			eta={eta}
 			status={job.status}
 			textItems={

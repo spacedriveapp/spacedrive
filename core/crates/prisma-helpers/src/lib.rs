@@ -235,6 +235,7 @@ job::select!(job_without_data {
 	date_started
 	date_completed
 	task_count
+	info
 	completed_task_count
 	date_estimated_completion
 });

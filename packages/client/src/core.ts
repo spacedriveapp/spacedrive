@@ -380,7 +380,7 @@ export type JobGroup = { id: string; running_job_id: string | null; action: stri
 
 export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 
-export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; info: string; estimated_completion: string }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
@@ -586,7 +586,7 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 
 export type RenameOne = { from_file_path_id: number; to: string }
 
-export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; info: string; phase: string; message: string; estimated_completion: string }
 
 export type ReportInputMetadata = { type: "location"; data: Location } | { type: "sub_path"; data: string }
 

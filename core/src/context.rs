@@ -209,6 +209,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 			library_id: library.id,
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
+			info: report.info.clone(),
 			estimated_completion: report.estimated_completion,
 			phase: report.phase.clone(),
 			message: report.message.clone(),

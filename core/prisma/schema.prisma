@@ -605,6 +605,7 @@ model Job {
 
   task_count                Int?
   completed_task_count      Int?
+  info                      String?
   date_estimated_completion DateTime? // Estimated timestamp that the job will be complete at
 
   date_created   DateTime?

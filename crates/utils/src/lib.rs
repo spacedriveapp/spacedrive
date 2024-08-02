@@ -46,9 +46,14 @@ pub fn chain_optional_iter<T>(
 		.collect()
 }
 
+/// A splitted version of `u64`, divided into `(u32, u32)`
+///
+/// rspc/specta doesn't support `BigInt`, so we need this hack
+pub type U64Front = (u32, u32);
+
 #[inline]
 #[must_use]
-pub const fn u64_to_frontend(num: u64) -> (u32, u32) {
+pub const fn u64_to_frontend(num: u64) -> U64Front {
 	#[allow(clippy::cast_possible_truncation)]
 	{
 		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
@@ -56,9 +61,14 @@ pub const fn u64_to_frontend(num: u64) -> (u32, u32) {
 	}
 }
 
+/// A splitted version of `i64`, divided into `(i32, u32)`
+///
+/// rspc/specta doesn't support `BigInt`, so we need this hack
+pub type I64Front = (i32, u32);
+
 #[inline]
 #[must_use]
-pub const fn i64_to_frontend(num: i64) -> (i32, u32) {
+pub const fn i64_to_frontend(num: i64) -> I64Front {
 	#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 	{
 		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
