@@ -270,7 +270,11 @@ export const QuickPreview = () => {
 	useShortcut('closeQuickPreview', (e) => {
 		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
-		getQuickPreviewStore().open = false;
+		e.stopPropagation();
+		// set timeout is to move the state change to the next event loop
+		setTimeout(() => {
+			getQuickPreviewStore().open = false;
+		}, 0);
 	});
 
 	// Toggle metadata
