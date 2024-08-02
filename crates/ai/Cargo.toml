@@ -36,12 +36,12 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
 
 # Note: half and ndarray version must be the same as used in ort
 half = { version = "2.1", features = ['num-traits'] }
 ndarray = "0.15"
-url = '2.5.0'
 
 # Microsoft does not provide a release for osx-gpu. See: https://github.com/microsoft/onnxruntime/releases
 # "gpu" means CUDA or TensorRT EP. Thus, the ort crate cannot download them at build time.

@@ -1,0 +1,28 @@
+[package]
+name = "sd-core-cloud-services"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# First party dependencies
+sd-cloud-schema = { workspace = true }
+
+# Workspace dependencies
+reqwest = { workspace = true, features = ["native-tls-vendored"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
+
+# External dependencies
+quic-rpc = { version = "0.11.0", features = ["quinn-transport"] }
+quinn = { package = "iroh-quinn", version = "=0.10.5" }
+# rustls-old is locked to the same version that quic-rpc uses and should be only used with quic-rpc
+rustls-old = { package = "rustls", version = "0.21.12", default-features = false, features = [
+	"logging",
+	"quic",
+	"dangerous_configuration",
+] }
+
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["time", "rt", "sync"] }

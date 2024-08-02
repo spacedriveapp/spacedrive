@@ -6,6 +6,7 @@ use crate::{
 	location::LocationManagerError,
 };
 
+use sd_core_cloud_services::CloudServices;
 use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
 use sd_core_prisma_helpers::CasId;
 
@@ -80,6 +81,7 @@ pub struct Node {
 	pub http: reqwest::Client,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
 	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
+	pub cloud_services: Arc<CloudServices>,
 	#[cfg(feature = "ai")]
 	pub old_image_labeller: Option<OldImageLabeler>,
 }
@@ -128,6 +130,25 @@ impl Node {
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
+		let (get_cloud_api_address, cloud_services_domain_name) = {
+			#[cfg(debug_assertions)]
+			{
+				(
+					std::env::var("SD_CLOUD_API_ADDRESS_URL")
+						.unwrap_or_else(|_| "http://localhost:9420/cloud-api-address".to_string()),
+					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
+						.unwrap_or_else(|_| "localhost".to_string()),
+				)
+			}
+			#[cfg(not(debug_assertions))]
+			{
+				(
+					"https://auth.spacedrive.com/cloud-api-address".to_string(),
+					"api.spacedrive.com".to_string(),
+				)
+			}
+		};
+
 		let task_system = TaskSystem::new();
 
 		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
@@ -149,6 +170,9 @@ impl Node {
 			)),
 			http: reqwest::Client::new(),
 			env,
+			cloud_services: Arc::new(
+				CloudServices::new(&get_cloud_api_address, cloud_services_domain_name).await?,
+			),
 			#[cfg(feature = "ai")]
 			old_image_labeller: OldImageLabeler::new(
 				YoloV8::model(image_labeler_version)?,
@@ -441,6 +465,8 @@ pub enum NodeError {
 	Logger(#[from] FromEnvError),
 	#[error(transparent)]
 	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
+	#[error(transparent)]
+	CloudServices(#[from] sd_core_cloud_services::Error),
 
 	#[cfg(feature = "ai")]
 	#[error("ai error: {0}")]
