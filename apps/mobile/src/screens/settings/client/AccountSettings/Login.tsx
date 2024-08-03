@@ -9,6 +9,7 @@ import { toast } from '~/components/primitive/Toast';
 import { tw } from '~/lib/tailwind';
 import { useNavigation } from '@react-navigation/native';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import ShowPassword from './ShowPassword';
 
 async function signInClicked(email: string, password: string, navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']) {
 	try {
@@ -121,12 +122,12 @@ const Login = () => {
 								placeholder="Password"
 								style={tw`w-full`}
 								onChangeText={field.onChange}
+								secureTextEntry={!showPassword}
 							/>
-							{/* FIXME: Fix positioning of button */}
-							{/* <ShowPassword
+							<ShowPassword
 								showPassword={showPassword}
 								setShowPassword={setShowPassword}
-							/> */}
+							/>
 						</View>
 					)}
 				/>
