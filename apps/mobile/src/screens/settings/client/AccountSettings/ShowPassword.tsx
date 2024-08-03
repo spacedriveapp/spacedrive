@@ -14,7 +14,7 @@ const ShowPassword = ({ showPassword, setShowPassword, plural }: Props) => {
 		<View style={tw`pt-2`}>
 			<Button
 				variant="gray"
-				style={tw`flex size-6 items-center justify-center !p-0 flex-row gap-2`}
+				style={tw`flex size-6 flex-row items-center justify-center gap-2 !p-0`}
 				onPressIn={() => setShowPassword(!showPassword)}
 			>
 				{!showPassword ? (
