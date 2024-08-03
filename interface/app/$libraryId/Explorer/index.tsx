@@ -10,9 +10,9 @@ import {
 import { useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';
-import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
+import { useExplorerContext } from './ExplorerContext';
 import { ExplorerPathBar, PATH_BAR_HEIGHT } from './ExplorerPathBar';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
@@ -41,6 +41,7 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
+	const { layoutMode } = explorer.useSettingsSnapshot();
 	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
 		s.showInspector,
 		s.isTagAssignModeActive
@@ -92,11 +93,16 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			<ExplorerContextMenu>
 				<div
 					ref={explorer.scrollRef}
-					className="explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-x-hidden"
+					className={clsx(
+						'explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-y-auto',
+						{
+							'overflow-x-hidden': layoutMode !== 'columns'
+						}
+					)}
 					style={
 						{
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
-							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0}px`,
+							'--scrollbar-margin-bottom': `${(showPathBar ? PATH_BAR_HEIGHT : 0) + (showTagBar ? TAG_BAR_HEIGHT : 0)}px`,
 							'paddingTop': topBar.topBarHeight,
 							'paddingRight': showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties

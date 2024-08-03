@@ -1,7 +1,7 @@
 import { Columns, GridFour, Icon, MonitorPlay, Rows } from '@phosphor-icons/react';
 import { isValidElement, ReactNode } from 'react';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 
 export const EmptyNotice = (props: {
 	icon?: Icon | ReactNode;

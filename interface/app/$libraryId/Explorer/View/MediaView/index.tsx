@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { getOrderingDirection, getOrderingKey, OrderingKey } from '@sd/client';
 import { useLocale } from '~/hooks';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { getItemData, getItemId, uniqueId } from '../../util';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerViewContext } from '../ExplorerViewContext';
 import { DragSelect } from '../Grid/DragSelect';
 import { GridItem } from '../Grid/Item';
 import { useKeySelection } from '../Grid/useKeySelection';

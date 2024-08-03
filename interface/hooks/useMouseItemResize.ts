@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
+import { useExplorerContext } from '~/app/$libraryId/Explorer/ExplorerContext';
 import { getSizes } from '~/app/$libraryId/Explorer/OptionsPanel/ListView/util';
 import { LIST_VIEW_ICON_SIZES } from '~/app/$libraryId/Explorer/View/ListView/useTable';
 

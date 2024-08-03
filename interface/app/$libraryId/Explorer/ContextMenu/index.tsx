@@ -5,7 +5,7 @@ import { ContextMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { Conditional, type ConditionalGroupProps } from './ConditionalItem';
 import { ContextMenuContextProvider } from './context';
 import * as FilePathItems from './FilePath/Items';

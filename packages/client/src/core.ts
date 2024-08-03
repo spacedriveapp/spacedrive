@@ -269,7 +269,7 @@ export type ExifMetadata = { resolution: Resolution; date_taken: MediaDate | nul
 
 export type ExplorerItem = { type: "Path"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: FilePathForFrontend } | { type: "Object"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: ObjectWithFilePaths } | { type: "NonIndexedPath"; thumbnail: ThumbKey | null; has_created_thumbnail: boolean; item: NonIndexedPathItem } | { type: "Location"; item: Location } | { type: "SpacedropPeer"; item: PeerMetadata } | { type: "Label"; thumbnails: ThumbKey[]; item: LabelWithObjects }
 
-export type ExplorerLayout = "grid" | "list" | "media"
+export type ExplorerLayout = "grid" | "list" | "media" | "columns"
 
 export type ExplorerSettings<TOrder> = { layoutMode: ExplorerLayout | null; gridItemSize: number | null; gridGap: number | null; mediaColumns: number | null; mediaAspectSquare: boolean | null; mediaViewWithDescendants: boolean | null; openOnDoubleClick: DoubleClickAction | null; showBytesInGridView: boolean | null; colVisibility: { [key in string]: boolean } | null; colSizes: { [key in string]: number } | null; listViewIconSize: string | null; listViewTextSize: string | null; order?: TOrder | null; showHiddenFiles?: boolean }
 

@@ -1,6 +1,6 @@
 import { MutableRefObject, useCallback, useRef } from 'react';
 
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 
 type ActiveItem = string | null;

@@ -93,6 +93,7 @@ pub enum ExplorerLayout {
 	Grid,
 	List,
 	Media,
+	Columns,
 }
 
 #[derive(Clone, Serialize, Deserialize, Type, Debug)]
