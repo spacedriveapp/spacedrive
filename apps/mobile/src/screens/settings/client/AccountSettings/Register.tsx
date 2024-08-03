@@ -122,11 +122,8 @@ const Register = () => {
 							placeholder="Password"
 							style={tw`w-full`}
 							onChangeText={field.onChange}
+							secureTextEntry={!showPassword}
 						/>
-						{/* <ShowPassword
-							showPassword={showPassword}
-							setShowPassword={setShowPassword}
-						/> */}
 					</View>
 				)}
 			/>
@@ -145,11 +142,13 @@ const Register = () => {
 							placeholder="Confirm Password"
 							style={tw`w-full`}
 							onChangeText={field.onChange}
+							secureTextEntry={!showPassword}
 						/>
-						{/* <ShowPassword
+						<ShowPassword
 								showPassword={showPassword}
 								setShowPassword={setShowPassword}
-							/> */}
+								plural={true}
+							/>
 					</View>
 				)}
 			/>
