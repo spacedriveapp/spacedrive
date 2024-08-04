@@ -1,6 +1,7 @@
 [files]
 extend-exclude = [
     ".git/",
+    ".cspell/",
     ".github/actions/publish-artifacts/dist/",
     "interface/locales/",
 ]
@@ -8,11 +9,14 @@ ignore-hidden = false
 
 [default]
 extend-ignore-re = [
-    "\\boutputs\\.udid\\b",
+    "Lorem ipsum .*",
     "OS2GadFYJi0w8WbQ1KpUe",
-    "\\bBig Sur\\b",
 ]
 
+[default.extend-words]
+"udid" = "udid"
+
 [default.extend-identifiers]
+"Caf" = "Caf"
 "unique_criterias" = "unique_criterias"
 "passt" = "passt"
