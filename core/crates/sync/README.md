@@ -8,7 +8,7 @@ Prepare a sync id by creating or obtaining its value,
 and then wrapping it in the model's `SyncId` struct,
 available at `prisma_sync::{model}::SyncId`.
 
-Next, prepare the sync operations using some varaints of the `sync_entry` macros.
+Next, prepare the sync operations using some variants of the `sync_entry` macros.
 `sync_entry` and `option_sync_entry` take the value first, and then the path to the field's prisma module.
 `sync_db_entry` and `option_sync_db_entry` take the same inputs, but additionally produce a prisma operation in a tuple with the sync operation, intended to be put into a `Vec` and unzipped.
 

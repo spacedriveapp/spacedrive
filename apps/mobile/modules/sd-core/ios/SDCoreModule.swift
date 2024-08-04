@@ -12,7 +12,7 @@ private class SwiftPromise {
 // is called by Rust to resolve a Promise with some data.
 @_cdecl("sd_core_event")
 func sd_core_event(this: UnsafeRawPointer, data: UnsafePointer<CChar>) {
-    // The pointer is retained but we take it unretained because it's ownership is not being gived back to Swift permanently.
+    // The pointer is retained but we take it unretained because it's ownership is not being given back to Swift permanently.
     // The pointer *will* be reused and dropping it now would be UB.
     let this = Unmanaged<SDCoreModule>.fromOpaque(this).takeUnretainedValue();
     if (this.listeners > 0) {

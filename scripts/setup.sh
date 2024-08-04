@@ -201,7 +201,7 @@ case "$(uname)" in
     elif has apk; then
       echo "Detected apk!"
       echo "Installing dependencies with apk..."
-      echo "Alpine suport is experimental" >&2
+      echo "Alpine support is experimental" >&2
 
       # Tauri dependencies
       set -- build-base curl wget file openssl-dev gtk+3.0-dev librsvg-dev \

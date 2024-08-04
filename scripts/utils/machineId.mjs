@@ -56,12 +56,12 @@ export function getMachineId() {
 		if (_arch === 'arm64') _arch = 'aarch64'
 	}
 
-	if (_arch !== 'x86_64' && _arch !== 'aarch64') throw new Error(`Unsuported architecture`)
+	if (_arch !== 'x86_64' && _arch !== 'aarch64') throw new Error(`Unsupported architecture`)
 
 	if (_os === 'Linux') {
 		return [_os, _arch, _libc]
 	} else if (_os !== 'Darwin' && _os !== 'Windows_NT') {
-		throw new Error(`Unsuported OS`)
+		throw new Error(`Unsupported OS`)
 	}
 
 	return [_os, _arch]

@@ -7,7 +7,7 @@ export default function OnboardingCreatingLibrary() {
 		<OnboardingContainer>
 			<span className="text-6xl">🛠</span>
 			<OnboardingTitle>Joining library</OnboardingTitle>
-			<OnboardingDescription>Joing library...</OnboardingDescription>
+			<OnboardingDescription>Joining library...</OnboardingDescription>
 			<Loader className="mt-5" />
 		</OnboardingContainer>
 	);

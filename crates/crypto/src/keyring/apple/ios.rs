@@ -19,22 +19,22 @@ impl KeyringInterface for IosKeyring {
 	}
 
 	fn get(&self, id: &Identifier) -> Result<Protected<Vec<u8>>> {
-		get_generic_password(&id.application(), &id.as_apple_identifer())
+		get_generic_password(&id.application(), &id.as_apple_identifier())
 			.map_err(Error::AppleKeyring)
 			.map(Into::into)
 	}
 
 	fn contains_key(&self, id: &Identifier) -> bool {
-		get_generic_password(&id.application(), &id.as_apple_identifer()).map_or(false, |_| true)
+		get_generic_password(&id.application(), &id.as_apple_identifier()).map_or(false, |_| true)
 	}
 
 	fn insert(&self, id: &Identifier, value: Protected<Vec<u8>>) -> Result<()> {
-		set_generic_password(&id.application(), &id.as_apple_identifer(), value.expose())
+		set_generic_password(&id.application(), &id.as_apple_identifier(), value.expose())
 			.map_err(Error::AppleKeyring)
 	}
 
 	fn remove(&self, id: &Identifier) -> Result<()> {
-		delete_generic_password(&id.application(), &id.as_apple_identifer())
+		delete_generic_password(&id.application(), &id.as_apple_identifier())
 			.map_err(Error::AppleKeyring)
 	}
 }

@@ -19,7 +19,7 @@ impl KeyringInterface for MacosKeyring {
 	fn get(&self, id: &Identifier) -> Result<Protected<Vec<u8>>> {
 		Ok(self
 			.inner
-			.find_generic_password(&id.application(), &id.as_apple_identifer())
+			.find_generic_password(&id.application(), &id.as_apple_identifier())
 			.map_err(Error::AppleKeyring)?
 			.0
 			.to_owned()
@@ -28,19 +28,19 @@ impl KeyringInterface for MacosKeyring {
 
 	fn contains_key(&self, id: &Identifier) -> bool {
 		self.inner
-			.find_generic_password(&id.application(), &id.as_apple_identifer())
+			.find_generic_password(&id.application(), &id.as_apple_identifier())
 			.map_or(false, |_| true)
 	}
 
 	fn insert(&self, id: &Identifier, value: Protected<Vec<u8>>) -> Result<()> {
 		self.inner
-			.set_generic_password(&id.application(), &id.as_apple_identifer(), value.expose())
+			.set_generic_password(&id.application(), &id.as_apple_identifier(), value.expose())
 			.map_err(Error::AppleKeyring)
 	}
 
 	fn remove(&self, id: &Identifier) -> Result<()> {
 		self.inner
-			.find_generic_password(&id.application(), &id.as_apple_identifer())
+			.find_generic_password(&id.application(), &id.as_apple_identifier())
 			.map_err(Error::AppleKeyring)?
 			.1
 			.delete();

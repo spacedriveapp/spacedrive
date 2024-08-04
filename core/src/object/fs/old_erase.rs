@@ -26,7 +26,7 @@ use tokio::{
 use tracing::trace;
 
 use super::{
-	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_datas,
+	error::FileSystemJobsError, get_file_data_from_isolated_file_path, get_many_files_data,
 	FileData,
 };
 
@@ -81,7 +81,7 @@ impl StatefulJob for OldFileEraserJobInit {
 			.await
 			.map_err(FileSystemJobsError::from)?;
 
-		let steps = get_many_files_datas(db, &location_path, &init.file_path_ids).await?;
+		let steps = get_many_files_data(db, &location_path, &init.file_path_ids).await?;
 
 		*data = Some(OldFileEraserJobData { location_path });
 

@@ -38,7 +38,7 @@ pub async fn backfill_operations(
 			paginate_tags(&db, sync, instance_id).await?;
 			paginate_locations(&db, sync, instance_id).await?;
 			paginate_objects(&db, sync, instance_id).await?;
-			paginate_exif_datas(&db, sync, instance_id).await?;
+			paginate_exif_data(&db, sync, instance_id).await?;
 			paginate_file_paths(&db, sync, instance_id).await?;
 			paginate_tags_on_objects(&db, sync, instance_id).await?;
 			paginate_labels(&db, sync, instance_id).await?;
@@ -263,7 +263,7 @@ async fn paginate_objects(
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_exif_datas(
+async fn paginate_exif_data(
 	db: &PrismaClient,
 	sync: &crate::Manager,
 	instance_id: instance::id::Type,
@@ -285,8 +285,8 @@ async fn paginate_exif_datas(
 				.exec()
 		},
 		|ed| ed.id,
-		|exif_datas| {
-			exif_datas
+		|exif_data| {
+			exif_data
 				.into_iter()
 				.flat_map(|ed| {
 					sync.shared_create(

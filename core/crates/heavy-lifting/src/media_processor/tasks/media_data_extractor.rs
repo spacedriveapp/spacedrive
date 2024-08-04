@@ -78,13 +78,13 @@ enum Stage {
 	FetchedObjectsAlreadyWithMediaData(Vec<object::id::Type>),
 	ExtractingMediaData {
 		paths_by_id: HashMap<file_path::id::Type, (PathBuf, object::id::Type, ObjectPubId)>,
-		exif_media_datas: Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
-		ffmpeg_media_datas: Vec<(FFmpegMetadata, object::id::Type)>,
+		exif_media_data: Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
+		ffmpeg_media_data: Vec<(FFmpegMetadata, object::id::Type)>,
 		extract_ids_to_remove_from_map: Vec<file_path::id::Type>,
 	},
 	SaveMediaData {
-		exif_media_datas: Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
-		ffmpeg_media_datas: Vec<(FFmpegMetadata, object::id::Type)>,
+		exif_media_data: Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
+		ffmpeg_media_data: Vec<(FFmpegMetadata, object::id::Type)>,
 	},
 }
 
@@ -178,12 +178,12 @@ impl Task<Error> for MediaDataExtractor {
 
 					self.stage = Stage::ExtractingMediaData {
 						extract_ids_to_remove_from_map: Vec::with_capacity(paths_by_id.len()),
-						exif_media_datas: if self.kind == Kind::Exif {
+						exif_media_data: if self.kind == Kind::Exif {
 							Vec::with_capacity(paths_by_id.len())
 						} else {
 							Vec::new()
 						},
-						ffmpeg_media_datas: if self.kind == Kind::FFmpeg {
+						ffmpeg_media_data: if self.kind == Kind::FFmpeg {
 							Vec::with_capacity(paths_by_id.len())
 						} else {
 							Vec::new()
@@ -194,8 +194,8 @@ impl Task<Error> for MediaDataExtractor {
 
 				Stage::ExtractingMediaData {
 					paths_by_id,
-					exif_media_datas,
-					ffmpeg_media_datas,
+					exif_media_data,
+					ffmpeg_media_data,
 					extract_ids_to_remove_from_map,
 				} => {
 					{
@@ -216,8 +216,8 @@ impl Task<Error> for MediaDataExtractor {
 								InterruptRace::Processed(out) => {
 									process_output(
 										out,
-										exif_media_datas,
-										ffmpeg_media_datas,
+										exif_media_data,
+										ffmpeg_media_data,
 										extract_ids_to_remove_from_map,
 										&mut self.output,
 									);
@@ -235,20 +235,20 @@ impl Task<Error> for MediaDataExtractor {
 					}
 
 					self.stage = Stage::SaveMediaData {
-						exif_media_datas: mem::take(exif_media_datas),
-						ffmpeg_media_datas: mem::take(ffmpeg_media_datas),
+						exif_media_data: mem::take(exif_media_data),
+						ffmpeg_media_data: mem::take(ffmpeg_media_data),
 					};
 				}
 
 				Stage::SaveMediaData {
-					exif_media_datas,
-					ffmpeg_media_datas,
+					exif_media_data,
+					ffmpeg_media_data,
 				} => {
 					let db_write_start = Instant::now();
 					self.output.extracted = save(
 						self.kind,
-						exif_media_datas,
-						ffmpeg_media_datas,
+						exif_media_data,
+						ffmpeg_media_data,
 						&self.db,
 						&self.sync,
 					)
@@ -491,8 +491,8 @@ fn process_output(
 		object_pub_id,
 		kind,
 	}: ExtractionOutput,
-	exif_media_datas: &mut Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
-	ffmpeg_media_datas: &mut Vec<(FFmpegMetadata, object::id::Type)>,
+	exif_media_data: &mut Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
+	ffmpeg_media_data: &mut Vec<(FFmpegMetadata, object::id::Type)>,
 	extract_ids_to_remove_from_map: &mut Vec<file_path::id::Type>,
 	output: &mut Output,
 ) {
@@ -500,14 +500,14 @@ fn process_output(
 
 	match kind {
 		ExtractionOutputKind::Exif(Ok(Some(exif_data))) => {
-			exif_media_datas.push((exif_data, object_id, object_pub_id));
+			exif_media_data.push((exif_data, object_id, object_pub_id));
 		}
 		ExtractionOutputKind::Exif(Ok(None)) => {
 			// No exif media data found
 			output.skipped += 1;
 		}
 		ExtractionOutputKind::FFmpeg(Ok(ffmpeg_data)) => {
-			ffmpeg_media_datas.push((ffmpeg_data, object_id));
+			ffmpeg_media_data.push((ffmpeg_data, object_id));
 		}
 		ExtractionOutputKind::Exif(Err(e)) | ExtractionOutputKind::FFmpeg(Err(e)) => {
 			output.errors.push(e.into());
@@ -520,16 +520,16 @@ fn process_output(
 #[inline]
 async fn save(
 	kind: Kind,
-	exif_media_datas: &mut Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
-	ffmpeg_media_datas: &mut Vec<(FFmpegMetadata, object::id::Type)>,
+	exif_media_data: &mut Vec<(ExifMetadata, object::id::Type, ObjectPubId)>,
+	ffmpeg_media_data: &mut Vec<(FFmpegMetadata, object::id::Type)>,
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<u64, media_processor::Error> {
 	trace!("Saving media data on database");
 
 	match kind {
-		Kind::Exif => exif_media_data::save(mem::take(exif_media_datas), db, sync).await,
-		Kind::FFmpeg => ffmpeg_media_data::save(mem::take(ffmpeg_media_datas), db).await,
+		Kind::Exif => exif_media_data::save(mem::take(exif_media_data), db, sync).await,
+		Kind::FFmpeg => ffmpeg_media_data::save(mem::take(ffmpeg_media_data), db).await,
 	}
 	.map_err(Into::into)
 }

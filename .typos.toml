@@ -1,0 +1,18 @@
+[files]
+extend-exclude = [
+    ".git/",
+    ".github/actions/publish-artifacts/dist/",
+    "interface/locales/",
+]
+ignore-hidden = false
+
+[default]
+extend-ignore-re = [
+    "\\boutputs\\.udid\\b",
+    "OS2GadFYJi0w8WbQ1KpUe",
+    "\\bBig Sur\\b",
+]
+
+[default.extend-identifiers]
+"unique_criterias" = "unique_criterias"
+"passt" = "passt"

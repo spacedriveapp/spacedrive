@@ -42,7 +42,7 @@ pub trait HeaderEncode {
 }
 
 // TODO(brxken128): convert as many of these as possible to vec
-// also define the identifiers as consts where possble?
+// also define the identifiers as consts where possible?
 // typenum/hybrid-array/generic-array too
 
 impl HeaderEncode for Params {

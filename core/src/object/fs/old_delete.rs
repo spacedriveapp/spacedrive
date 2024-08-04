@@ -22,7 +22,7 @@ use specta::Type;
 use tokio::{fs, io};
 use tracing::warn;
 
-use super::{error::FileSystemJobsError, get_many_files_datas, FileData};
+use super::{error::FileSystemJobsError, get_many_files_data, FileData};
 
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct OldFileDeleterJobInit {
@@ -50,7 +50,7 @@ impl StatefulJob for OldFileDeleterJobInit {
 		let init = self;
 		let Library { db, .. } = &*ctx.library;
 
-		let steps = get_many_files_datas(
+		let steps = get_many_files_data(
 			db,
 			get_location_path_from_location_id(db, init.location_id).await?,
 			&init.file_path_ids,

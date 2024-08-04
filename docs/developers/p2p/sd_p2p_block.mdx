@@ -7,13 +7,13 @@ index: 24
 
 [Implementation](https://github.com/spacedriveapp/spacedrive/tree/main/crates/p2p/crates/block)
 
-This crate contains utilities focused on moving large arrays of bytes (files) between two peers reliabily and quickly. It's implementation is heavily inspired by [SyncThing Block Exchange Protocol v1](https://docs.syncthing.net/specs/bep-v1.html).
+This crate contains utilities focused on moving large arrays of bytes (files) between two peers reliably and quickly. It's implementation is heavily inspired by [SyncThing Block Exchange Protocol v1](https://docs.syncthing.net/specs/bep-v1.html).
 
 ## Rewrite?
 
 [Tracking issue](https://linear.app/spacedriveapp/issue/ENG-1760/block-protocol-v2)
 
-The current implementation is a bit of a mess and is definitely not as performant as it could be. A rewrite is probally a good idea to improve it and as it is a small component of the overall networking system it should be a fairly easy undertaking.
+The current implementation is a bit of a mess and is definitely not as performant as it could be. A rewrite is probably a good idea to improve it and as it is a small component of the overall networking system it should be a fairly easy undertaking.
 
 Below I have outlined some of my thoughts on how to build an improved version:
 
@@ -39,7 +39,7 @@ I think the new version of the protocol should compute a [Blake3](<https://en.wi
 
 ### Cancellation
 
-Currently the protocol has a custom system built into the acknowledgements that allows each side to cancel an in-progress transfer. A more efficent system could just close the Quic connection and rely on an [`ErrorKind::UnexpectedEof`](https://doc.rust-lang.org/stable/std/io/enum.ErrorKind.html#variant.UnexpectedEof) on the other side to detect the shutdown condition.
+Currently the protocol has a custom system built into the acknowledgements that allows each side to cancel an in-progress transfer. A more efficient system could just close the Quic connection and rely on an [`ErrorKind::UnexpectedEof`](https://doc.rust-lang.org/stable/std/io/enum.ErrorKind.html#variant.UnexpectedEof) on the other side to detect the shutdown condition.
 
 ### Remove file names
 
@@ -51,7 +51,7 @@ It doesn't make a lot of sense for `SpaceblockRequests` to have the `name` field
 
 [Tracking issue](https://linear.app/spacedriveapp/issue/ENG-572/spaceblock-file-name-overflow)
 
-Right now it's possible for a file name's length to overflow. Linux allows for bigger file names than Windows so a transfer from Linux to Windows with a long file name will cause an issue on the Windows side. We can probally prompt the user to pick a shorter name if we detect an overflow.
+Right now it's possible for a file name's length to overflow. Linux allows for bigger file names than Windows so a transfer from Linux to Windows with a long file name will cause an issue on the Windows side. We can probably prompt the user to pick a shorter name if we detect an overflow.
 
 ## Example
 

@@ -41,7 +41,7 @@ const bugWarn =
 // Current machine identifiers
 const machineId = getMachineId()
 
-// Basic dependeny check
+// Basic dependency check
 if ((await Promise.all([which('cargo'), which('rustc'), which('pnpm')])).some(found => !found)) {
 	console.error(`Basic dependencies missing.
 Make sure you have rust and pnpm installed:

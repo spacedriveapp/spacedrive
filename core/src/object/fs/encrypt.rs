@@ -24,7 +24,7 @@
 // use uuid::Uuid;
 
 // use super::{
-// 	error::FileSystemJobsError, get_location_path_from_location_id, get_many_files_datas, FileData,
+// 	error::FileSystemJobsError, get_location_path_from_location_id, get_many_files_data, FileData,
 // 	BYTES_EXT,
 // };
 
@@ -70,7 +70,7 @@
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 // 		let Library { db, .. } = &*ctx.library;
 
-// 		state.steps = get_many_files_datas(
+// 		state.steps = get_many_files_data(
 // 			db,
 // 			get_location_path_from_location_id(db, state.init.location_id).await?,
 // 			&state.init.file_path_ids,

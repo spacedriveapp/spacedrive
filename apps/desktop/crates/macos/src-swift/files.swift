@@ -111,7 +111,7 @@ func openFilePathsWith(filePath: SRString, withUrl: SRString) {
 
     // FIX-ME(HACK): The NULL split here is because I was not able to make this function accept a SRArray<SRString> argument.
     // So, considering these are file paths, and \0 is not a valid character for a file path,
-    // I am using it as a delimitor to allow the rust side to pass in an array of files paths to this function
+    // I am using it as a delimiter to allow the rust side to pass in an array of files paths to this function
     let fileURLs = filePath.toString().split(separator: "\0").map {
         filePath in URL(fileURLWithPath: String(filePath))
     }

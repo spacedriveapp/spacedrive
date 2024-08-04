@@ -14,7 +14,7 @@
 // use specta::Type;
 // use tokio::fs::File;
 
-// use super::{get_location_path_from_location_id, get_many_files_datas, FileData, BYTES_EXT};
+// use super::{get_location_path_from_location_id, get_many_files_data, FileData, BYTES_EXT};
 // pub struct FileDecryptorJob;
 
 // // decrypt could have an option to restore metadata (and another specific option for file name? - would turn "output file" into "output path" in the UI)
@@ -46,7 +46,7 @@
 // 	async fn init(&self, ctx: WorkerContext, state: &mut JobState<Self>) -> Result<(), JobError> {
 // 		let Library { db, .. } = &*ctx.library;
 
-// 		state.steps = get_many_files_datas(
+// 		state.steps = get_many_files_data(
 // 			db,
 // 			get_location_path_from_location_id(db, state.init.location_id).await?,
 // 			&state.init.file_path_ids,

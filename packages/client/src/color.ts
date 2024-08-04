@@ -1,1 +1,1 @@
-export const ToastDefautlColor = '#A717D9';
+export const ToastDefaultColor = '#A717D9';

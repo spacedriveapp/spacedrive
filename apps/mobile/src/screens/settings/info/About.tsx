@@ -37,7 +37,7 @@ const AboutScreen = () => {
 					</Text>
 				</View>
 			</View>
-			{/* iOS has buttons falling out of the screen for some reason. So, I made the buttons veritical instead */}
+			{/* iOS has buttons falling out of the screen for some reason. So, I made the buttons vertical instead */}
 			<View style={tw`my-5 flex-col justify-between gap-2`}>
 				{/* Discord Button */}
 				<Button

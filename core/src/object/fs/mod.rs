@@ -49,7 +49,7 @@ pub struct FileData {
 	pub full_path: PathBuf,
 }
 
-pub async fn get_many_files_datas(
+pub async fn get_many_files_data(
 	db: &PrismaClient,
 	location_path: impl AsRef<Path>,
 	file_path_ids: &[file_path::id::Type],

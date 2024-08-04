@@ -103,11 +103,11 @@ pub async fn extract(
 }
 
 pub async fn save(
-	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, ObjectPubId)> + Send,
+	exif_data: impl IntoIterator<Item = (ExifMetadata, object::id::Type, ObjectPubId)> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<u64, sd_core_sync::Error> {
-	exif_datas
+	exif_data
 		.into_iter()
 		.map(|(exif_data, object_id, object_pub_id)| async move {
 			let (sync_params, create) = to_query(exif_data, object_id);

@@ -2,7 +2,7 @@ name: Setup System and Rust
 description: Setup System and Rust
 inputs:
   token:
-    description: Github token
+    description: GitHub token
     required: false
     default: ''
   target:

@@ -56,7 +56,7 @@ if ! {
   exit 1
 fi
 
-# Handle errors and cleanup after formating has started
+# Handle errors and cleanup after formatting has started
 trap 'handle_exit' EXIT
 trap 'cleanup' SIGINT
 

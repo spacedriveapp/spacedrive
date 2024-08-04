@@ -184,7 +184,7 @@ async fn walk(
 		sd_task_system::TaskStatus::Error(e) => Err(e),
 
 		sd_task_system::TaskStatus::Shutdown(_) => {
-			debug!("Spacedrive is shuting down while a shallow indexer was in progress");
+			debug!("Spacedrive is shutting down while a shallow indexer was in progress");
 			Ok(None)
 		}
 		sd_task_system::TaskStatus::Canceled | sd_task_system::TaskStatus::ForcedAbortion => {
@@ -274,7 +274,7 @@ async fn save_and_update(
 			sd_task_system::TaskStatus::Error(e) => return Err(e),
 
 			sd_task_system::TaskStatus::Shutdown(_) => {
-				debug!("Spacedrive is shuting down while a shallow indexer was in progress");
+				debug!("Spacedrive is shutting down while a shallow indexer was in progress");
 				return Ok(None);
 			}
 			sd_task_system::TaskStatus::Canceled | sd_task_system::TaskStatus::ForcedAbortion => {

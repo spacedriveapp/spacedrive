@@ -147,7 +147,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 	const itemHashesWeakMap = useRef(new WeakMap<ExplorerItem, string>());
 
 	// Store hashes of items instead as objects are unique by reference but we
-	// still need to differentate between item variants
+	// still need to differentiate between item variants
 	const [selectedItemHashes, setSelectedItemHashes] = useState(() => ({
 		value: new Set<string>()
 	}));

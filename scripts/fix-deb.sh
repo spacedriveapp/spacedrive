@@ -154,11 +154,11 @@ if ! grep -q '^Section:' "${_tmp}/control/control"; then
 fi
 
 # Add Recommends field to control file after Depends field
-_recomends='gstreamer1.0-plugins-ugly'
+_recommends='gstreamer1.0-plugins-ugly'
 if grep -q '^Recommends:' "${_tmp}/control/control"; then
-  sed -i "s/^Recommends:.*/Recommends: ${_recomends}/" "${_tmp}/control/control"
+  sed -i "s/^Recommends:.*/Recommends: ${_recommends}/" "${_tmp}/control/control"
 else
-  sed -i "/^Depends:/a Recommends: ${_recomends}" "${_tmp}/control/control"
+  sed -i "/^Depends:/a Recommends: ${_recommends}" "${_tmp}/control/control"
 fi
 
 # Add Suggests field to control file after Recommends field

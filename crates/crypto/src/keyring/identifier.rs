@@ -35,7 +35,7 @@ impl Identifier {
 	#[inline]
 	#[must_use]
 	#[cfg(any(target_os = "ios", target_os = "macos"))]
-	pub(super) fn as_apple_identifer(&self) -> String {
+	pub(super) fn as_apple_identifier(&self) -> String {
 		format!("{} - {}", self.id, self.usage)
 	}
 

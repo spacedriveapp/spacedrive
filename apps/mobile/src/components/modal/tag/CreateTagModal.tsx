@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
 import {
-	ToastDefautlColor,
+	ToastDefaultColor,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useRspcLibraryContext
@@ -21,7 +21,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const modalRef = useForwardedRef(ref);
 
 	const [tagName, setTagName] = useState('');
-	const [tagColor, setTagColor] = useState(ToastDefautlColor);
+	const [tagColor, setTagColor] = useState(ToastDefaultColor);
 	const [showPicker, setShowPicker] = useState(false);
 
 	// TODO: Use react-hook-form?
@@ -32,7 +32,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		onSuccess: () => {
 			// Reset form
 			setTagName('');
-			setTagColor(ToastDefautlColor);
+			setTagColor(ToastDefaultColor);
 			setShowPicker(false);
 
 			rspc.queryClient.invalidateQueries(['tags.list']);
@@ -67,7 +67,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			onDismiss={() => {
 				// Resets form onDismiss
 				setTagName('');
-				setTagColor(ToastDefautlColor);
+				setTagColor(ToastDefaultColor);
 				setShowPicker(false);
 			}}
 		>

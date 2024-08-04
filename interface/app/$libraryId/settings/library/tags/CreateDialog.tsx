@@ -2,7 +2,7 @@ import {
 	FilePath,
 	Object,
 	Target,
-	ToastDefautlColor,
+	ToastDefaultColor,
 	useLibraryMutation,
 	usePlausibleEvent,
 	useRspcLibraryContext,
@@ -58,7 +58,7 @@ export default (
 
 	const form = useZodForm({
 		schema: schema,
-		defaultValues: { color: ToastDefautlColor }
+		defaultValues: { color: ToastDefaultColor }
 	});
 
 	const createTag = useLibraryMutation('tags.create');

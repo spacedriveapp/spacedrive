@@ -24,7 +24,7 @@ use tracing::{trace, warn};
 use super::{
 	construct_target_filename, error::FileSystemJobsError, fetch_source_and_target_location_paths,
 	find_available_filename_for_duplicate, get_file_data_from_isolated_file_path,
-	get_many_files_datas, FileData,
+	get_many_files_data, FileData,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,7 +74,7 @@ impl StatefulJob for OldFileCopierJobInit {
 			)
 			.await?;
 
-		let steps = get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids)
+		let steps = get_many_files_data(db, &sources_location_path, &init.sources_file_path_ids)
 			.await?
 			.into_iter()
 			.map(|file_data| async {

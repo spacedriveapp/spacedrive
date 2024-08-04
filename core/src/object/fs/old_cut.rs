@@ -21,7 +21,7 @@ use specta::Type;
 use tokio::{fs, io};
 use tracing::{trace, warn};
 
-use super::{fetch_source_and_target_location_paths, get_many_files_datas, FileData};
+use super::{fetch_source_and_target_location_paths, get_many_files_data, FileData};
 
 #[derive(Serialize, Deserialize, Hash, Type, Debug)]
 pub struct OldFileCutterJobInit {
@@ -74,7 +74,7 @@ impl StatefulJob for OldFileCutterJobInit {
 		});
 
 		let steps =
-			get_many_files_datas(db, &sources_location_path, &init.sources_file_path_ids).await?;
+			get_many_files_data(db, &sources_location_path, &init.sources_file_path_ids).await?;
 
 		Ok(steps.into())
 	}

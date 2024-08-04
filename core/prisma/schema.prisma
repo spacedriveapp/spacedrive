@@ -71,7 +71,7 @@ model Node {
 /// @local(id: pub_id)
 model Instance {
   id              Int    @id @default(autoincrement()) // This is is NOT globally unique
-  pub_id          Bytes  @unique // This UUID is meaningless and exists soley cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
+  pub_id          Bytes  @unique // This UUID is meaningless and exists solely cause the `uhlc::ID` must be 16-bit. Really this should be derived from the `identity` field.
   // Enum: sd_p2p::Identity (or sd_core::p2p::IdentityOrRemoteIdentity in early versions)
   identity        Bytes?
   // Enum: sd_core::node::RemoteIdentity
@@ -103,7 +103,7 @@ model Statistics {
   date_captured                     DateTime @default(now())
   total_object_count                Int      @default(0)
   library_db_size                   String   @default("0")
-  // local calulations
+  // local calculations
   total_local_bytes_used            String   @default("0")
   total_local_bytes_capacity        String   @default("0")
   total_local_bytes_free            String   @default("0")

@@ -62,7 +62,7 @@ const ThisInstance = ({ cloudLibrary }: ThisInstanceProps) => {
 			<View>
 				<InfoBox>
 					<View style={tw`flex-row items-center gap-1`}>
-						<Text style={tw`text-sm font-medium text-ink`}>Publc Key:</Text>
+						<Text style={tw`text-sm font-medium text-ink`}>Public Key:</Text>
 						<Text numberOfLines={1} style={tw`max-w-3/4 text-ink-dull`}>
 							{thisInstance.identity}
 						</Text>

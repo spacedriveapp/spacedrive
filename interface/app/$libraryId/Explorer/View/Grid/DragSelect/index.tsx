@@ -399,7 +399,7 @@ export const DragSelect = ({ grid, children }: Props) => {
 
 				if (!hasEmptySpace) return;
 
-				// Get the heigh of the empty drag space between the start of the drag
+				// Get the height of the empty drag space between the start of the drag
 				// and the first visible item
 				const emptySpaceHeight = Math.abs(
 					dragStart.y - (dragDirection.y === 'down' ? itemTop : itemBottom)

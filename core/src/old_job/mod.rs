@@ -835,7 +835,7 @@ async fn handle_init_phase<SJob: StatefulJob>(
 								shutting_down_time = ?when.elapsed(),
 								paused_time = ?paused_time.elapsed(),
 								total_running_time = ?init_time.elapsed(),
-								"Shuting down Job at init phase;",
+								"Shutting down Job at init phase;",
 							);
 
 							// Shutting down at init phase will abort the job
@@ -879,7 +879,7 @@ async fn handle_init_phase<SJob: StatefulJob>(
 				debug!(
 					shutting_down_time = ?when.elapsed(),
 					total_running_time = ?init_time.elapsed(),
-					"Shuting down at init phase;",
+					"Shutting down at init phase;",
 				);
 
 				// Shutting down at init phase will abort the job
@@ -1036,7 +1036,7 @@ async fn handle_single_step<SJob: StatefulJob>(
 							debug!(
 								elapsed_time_to_shutdown = ?when.elapsed(),
 								job_run_time = ?job_init_time.elapsed(),
-								"Shuting down;",
+								"Shutting down;",
 							);
 							debug!(paused_time = ?paused_time.elapsed(), "Total paused time;");
 

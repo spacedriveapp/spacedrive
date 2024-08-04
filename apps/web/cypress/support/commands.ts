@@ -64,7 +64,7 @@ Cypress.Commands.add('deleteLibrary', (libraryName: string) => {
 	// Check redirect to Library settings
 	cy.url().should('match', librarySettingsRegex);
 
-	// Check Library seetings screen title
+	// Check Library settings screen title
 	cy.get('h1').should('contain', 'Library Settings');
 
 	// Check Library name is correct
@@ -86,7 +86,7 @@ Cypress.Commands.add('deleteLibrary', (libraryName: string) => {
 	cy.get('@deleteModal').find('h2').should('contain', 'Delete Library');
 
 	cy.on('uncaught:exception', (err, runnable) => {
-		// These errors are expected to occour right after the Library is deleted
+		// These errors are expected to occur right after the Library is deleted
 		if (err.message.includes('Attempted to do library operation with no library set')) {
 			return false;
 		}

@@ -327,8 +327,8 @@ const pfx = React.lazy(async () => ({ default: (await import('./pfx.svg')).React
 const photoshop = React.lazy(async () => ({
 	default: (await import('./photoshop.svg')).ReactComponent
 }));
-const playright = React.lazy(async () => ({
-	default: (await import('./playright.svg')).ReactComponent
+const playwright = React.lazy(async () => ({
+	default: (await import('./playwright.svg')).ReactComponent
 }));
 const pnpm = React.lazy(async () => ({ default: (await import('./pnpm.svg')).ReactComponent }));
 const pnpmlock = React.lazy(async () => ({
@@ -681,7 +681,7 @@ export {
 	perlm,
 	pfx,
 	photoshop,
-	playright,
+	playwright,
 	pnpm,
 	pnpmlock,
 	poetry,

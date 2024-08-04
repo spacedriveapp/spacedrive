@@ -2,7 +2,7 @@ name: Setup Node.js, pnpm and dependencies
 description: Setup Node.js, pnpm and dependencies
 inputs:
   token:
-    description: Github token
+    description: GitHub token
     required: false
     default: ''
 runs:

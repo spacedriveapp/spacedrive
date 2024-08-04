@@ -4,7 +4,7 @@ import { keySymbols, ModifierKeys, modifierSymbols } from '@sd/ui';
 import { OperatingSystem } from '../util/Platform';
 
 export function keybind<T extends string>(
-	modifers: ModifierKeys[],
+	modifiers: ModifierKeys[],
 	keys: T[],
 	tauriOs: OperatingSystem
 ) {
@@ -17,19 +17,19 @@ export function keybind<T extends string>(
 		return symbol ? symbol[os] ?? symbol.Other : key;
 	});
 
-	if (os === 'macOS' && !modifers.includes(ModifierKeys.Meta)) {
-		const index = modifers.findIndex((modifier) => modifier === ModifierKeys.Control);
-		if (index !== -1) modifers[index] = ModifierKeys.Meta;
+	if (os === 'macOS' && !modifiers.includes(ModifierKeys.Meta)) {
+		const index = modifiers.findIndex((modifier) => modifier === ModifierKeys.Control);
+		if (index !== -1) modifiers[index] = ModifierKeys.Meta;
 	}
 
-	const modifierSymbol = modifers.map((modifier) => {
+	const modifierSymbol = modifiers.map((modifier) => {
 		const symbol = modifierSymbols[modifier];
 		return symbol[os] ?? symbol.Other;
 	});
 
 	const value = [...modifierSymbol, ...keySymbol].join(os === 'macOS' ? '' : '+');
 
-	//we don't want modifer symbols and key symbols to be duplicated if they are the same value
+	//we don't want modifier symbols and key symbols to be duplicated if they are the same value
 	const noDuplicates = [...new Set(value.split('+'))].join('+');
 
 	return noDuplicates;
@@ -40,6 +40,6 @@ export type { ModifierKeys } from '@sd/ui';
 
 export function keybindForOs(
 	os: OperatingSystem
-): (modifers: ModifierKeys[], keys: string[]) => string {
-	return (modifers: ModifierKeys[], keys: string[]) => keybind(modifers, keys, os);
+): (modifiers: ModifierKeys[], keys: string[]) => string {
+	return (modifiers: ModifierKeys[], keys: string[]) => keybind(modifiers, keys, os);
 }

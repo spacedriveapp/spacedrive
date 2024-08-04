@@ -281,7 +281,7 @@ export const Component = () => {
 						onChange={(e) => (unitFormatStore.temperatureFormat = e)}
 						value={formatStore.temperatureFormat}
 					>
-						<SelectOption value="celsius">{t('celcius')}</SelectOption>
+						<SelectOption value="celsius">{t('celsius')}</SelectOption>
 						<SelectOption value="fahrenheit">{t('fahrenheit')}</SelectOption>
 					</Select>
 				</Setting>

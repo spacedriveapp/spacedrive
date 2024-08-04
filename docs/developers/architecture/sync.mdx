@@ -73,7 +73,7 @@ Its work loop goes something like this:
 - Ingested the sync operations in batches distinguished by instance, model, and record id
   - If the batch contains a `Delete`, all other operations are ignored and the record is deleted.
   - If the batch contains a `Create`, all `Update` operations are applied on top of it to reduce database load.
-  - If the batch only contains `Update` operations, they are applied on top of a fake `Create` operation to reduce datbase load.
+  - If the batch only contains `Update` operations, they are applied on top of a fake `Create` operation to reduce database load.
   - The latest timestamp of the instance is updated to the timestamp of the last operation ingested.
 - Return to the beginning, waiting for a notification of new operations
 

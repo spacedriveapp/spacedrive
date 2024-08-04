@@ -296,7 +296,7 @@ impl<'de> serde::Deserialize<'de> for Key {
 
 // The `serde` feature is needed as this makes use of a crate called `serdect` which
 // allows for constant-time serialization and deserialization. We then use `bincode`s
-// compatability layer to serialize through that, so in theory it should remain constant-time
+// compatibility layer to serialize through that, so in theory it should remain constant-time
 #[cfg(feature = "serde")]
 impl Encode for Key {
 	fn encode<E: bincode::enc::Encoder>(
@@ -311,7 +311,7 @@ impl Encode for Key {
 
 // The `serde` feature is needed as this makes use of a crate called `serdect` which
 // allows for constant-time serialization and deserialization. We then use `bincode`s
-// compatability layer to serialize through that, so in theory it should remain constant-time
+// compatibility layer to serialize through that, so in theory it should remain constant-time
 #[cfg(feature = "serde")]
 impl Decode for Key {
 	fn decode<D: bincode::de::Decoder>(

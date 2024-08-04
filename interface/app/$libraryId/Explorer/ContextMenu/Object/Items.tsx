@@ -76,7 +76,7 @@ const ObjectConversions: Record<number, string[]> = {
 	[ObjectKind.Video]: ['MP4', 'MOV', 'AVI']
 };
 
-const ConvertableKinds = [ObjectKind.Image, ObjectKind.Video];
+const ConvertibleKinds = [ObjectKind.Image, ObjectKind.Video];
 
 export const ConvertObject = new ConditionalItem({
 	useCondition: () => {
@@ -86,7 +86,7 @@ export const ConvertObject = new ConditionalItem({
 			const set = new Set<ObjectKindEnum>();
 
 			for (const o of selectedObjects) {
-				if (o.kind === null || !ConvertableKinds.includes(o.kind)) break;
+				if (o.kind === null || !ConvertibleKinds.includes(o.kind)) break;
 				set.add(o.kind);
 			}
 

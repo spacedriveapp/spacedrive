@@ -150,8 +150,8 @@ const FiltersList = () => {
 			by not relying on the index position of the object */}
 			<AnimatePresence>
 				{selectedOptions.map((option) => {
-					const capitilize = option.charAt(0).toUpperCase() + option.slice(1);
-					const Component = options.find((o) => o.name === capitilize)?.component;
+					const capitalize = option.charAt(0).toUpperCase() + option.slice(1);
+					const Component = options.find((o) => o.name === capitalize)?.component;
 					if (!Component) return null;
 					return <Component key={option} />;
 				})}

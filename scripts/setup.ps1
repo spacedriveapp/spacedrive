@@ -21,7 +21,7 @@ if ((-not [string]::IsNullOrEmpty($env:PROCESSOR_ARCHITEW6432)) -or (
     ) -or (($PSVersionTable.PSVersion.Major -ge 6) -and (-not $IsWindows))
 ) {
     $ErrorActionPreference = 'Continue'
-    Write-Host # There is no oficial ffmpeg binaries for Windows 32 or ARM
+    Write-Host # There is no official ffmpeg binaries for Windows 32 or ARM
     if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -PathType Leaf) {
         throw 'You are using PowerShell (32-bit), please re-run in PowerShell (64-bit)'
     } else {
