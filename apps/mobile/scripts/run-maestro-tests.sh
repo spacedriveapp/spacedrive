@@ -36,7 +36,7 @@ start_app() {
   case $PLATFORM in
     ios)
       xcrun simctl bootstatus "$DEVICE_ID" -b
-      open -a Simulator --args -CurrentDeviceUUID "$DEVICE_ID"
+      open -a Simulator --args -CurrentDeviceUDID "$DEVICE_ID"
       xcrun simctl install "$DEVICE_ID" "${_root}/../ios/build/Build/Products/Release-iphonesimulator/Spacedrive.app"
       # ¯\_(ツ)_/¯
       sleep 10
