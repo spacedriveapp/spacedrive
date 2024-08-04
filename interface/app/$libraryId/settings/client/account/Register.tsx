@@ -53,7 +53,9 @@ async function signUpClicked(email: string, password: string) {
 		} else {
 			// sign up successful. The session tokens are automatically handled by
 			// the frontend SDK.
-			window.location.href = '/homepage';
+			toast.success('Sign up successful');
+			// FIXME: This is a temporary workaround. We will provide a better way to handle this.
+			window.location.reload();
 		}
 	} catch (err: any) {
 		if (err.isSuperTokensGeneralError === true) {

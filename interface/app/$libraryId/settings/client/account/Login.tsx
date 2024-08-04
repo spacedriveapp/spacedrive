@@ -38,6 +38,9 @@ async function signInClicked(email: string, password: string) {
 			// sign in successful. The session tokens are automatically handled by
 			// the frontend SDK.
 			toast.success('Sign in successful');
+			// Refresh the page to reflect the new session state.
+			// FIXME: This is a temporary workaround. We will provide a better way to handle this.
+			window.location.reload();
 		}
 	} catch (err: any) {
 		if (err.isSuperTokensGeneralError === true) {
