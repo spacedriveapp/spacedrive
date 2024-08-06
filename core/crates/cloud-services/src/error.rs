@@ -19,3 +19,9 @@ pub enum Error {
 	#[error("Failed to create endpoint: {0}")]
 	FailedToCreateEndpoint(io::Error),
 }
+
+impl From<Error> for rspc::Error {
+	fn from(e: Error) -> Self {
+		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+	}
+}
