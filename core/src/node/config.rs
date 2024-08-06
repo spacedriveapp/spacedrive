@@ -140,7 +140,7 @@ pub struct NodeConfig {
 	// Model version for the image labeler
 	pub image_labeler_version: Option<String>,
 	// Operating System of the node -> "linux", "macos", "windows", "android", "ios"
-	os: String,
+	pub os: String,
 
 	version: NodeConfigVersion,
 }
