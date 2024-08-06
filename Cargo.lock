@@ -4379,7 +4379,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -4649,9 +4649,9 @@ checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 
 [[package]]
 name = "iroh-base"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f31f493beda1c4f8c7be999eff8a80cd1e2428da4c61f5cdd14990af8122342e"
+checksum = "24ddb47e8160fb1d563a6f541c813c2f185423a0ad1c9260a6c76891a2300c26"
 dependencies = [
  "aead",
  "anyhow",
@@ -9144,7 +9144,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#211fc69d7fbddb291ec0e16474369bee9598ec3d"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#4c1ec1f6bb1c10b5bea15128524281fad5569979"
 dependencies = [
  "argon2",
  "async-stream",
@@ -9156,7 +9156,9 @@ dependencies = [
  "opaque-ke",
  "paste",
  "quic-rpc",
+ "rspc",
  "serde",
+ "specta",
  "thiserror",
  "tracing",
  "url",
@@ -9272,6 +9274,7 @@ dependencies = [
  "iroh-quinn",
  "quic-rpc",
  "reqwest 0.11.27",
+ "rspc",
  "rustls 0.21.12",
  "sd-cloud-schema",
  "thiserror",
@@ -12495,7 +12498,7 @@ dependencies = [
  "document-features",
  "js-sys",
  "log",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "smallvec",
@@ -12524,7 +12527,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "rustc-hash",
@@ -12563,7 +12566,7 @@ dependencies = [
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "renderdoc-sys",
