@@ -66,57 +66,7 @@ mod library {
 			})
 			.procedure("list", {
 				R.query(|node, _: ()| async move {
-					// Ok(sd_cloud_api::library::list(node.cloud_api_config().await).await?)
-					let client = match node.cloud_services.client().await {
-						Ok(client) => client,
-						Err(e) => {
-							error!(?e, "Failed to get cloud services client");
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::InternalServerError,
-								"Failed to get cloud services client".to_string(),
-							));
-						}
-					};
-					let token = match get_access_token() {
-						Ok(token) => token,
-						Err(e) => {
-							error!(?e, "Failed to get access token");
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::InternalServerError,
-								"Failed to get access token".to_string(),
-							));
-						}
-					};
-					let res = match client
-						.devices()
-						.list(sd_cloud_schema::devices::list::Request {
-							access_token: sd_cloud_schema::auth::AccessToken(token),
-						})
-						.await
-					{
-						Ok(res) => match res {
-							Ok(res) => res,
-							Err(e) => {
-								error!(?e, "Failed to list devices");
-								return Err(rspc::Error::new(
-									rspc::ErrorCode::InternalServerError,
-									"Failed to list devices".to_string(),
-								));
-							}
-						},
-						Err(e) => {
-							error!(?e, "Quinn error: ");
-							return Err(rspc::Error::new(
-								rspc::ErrorCode::InternalServerError,
-								"Failed to list devices -> Quin RPC Layer Error Detected."
-									.to_string(),
-							));
-						}
-					};
-
-					debug!(?res, "Listed devices");
-
-					Ok(())
+					Ok(sd_cloud_api::library::list(node.cloud_api_config().await).await?)
 				})
 			})
 			.procedure("create", {
