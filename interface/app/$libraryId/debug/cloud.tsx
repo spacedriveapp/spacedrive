@@ -5,6 +5,7 @@ import {
 	CloudInstance,
 	CloudLibrary,
 	HardwareModel,
+	useBridgeQuery,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery
@@ -51,6 +52,8 @@ export const Component = () => {
 function Authenticated() {
 	const { library } = useLibraryContext();
 	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
+	const cloudLibraryList = useBridgeQuery(['cloud.library.list'], { suspense: true, retry: false });
+	console.log("[DEBUG] cloudLibraryList", cloudLibraryList);
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
 	const { t } = useLocale();
 

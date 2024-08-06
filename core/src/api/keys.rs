@@ -123,56 +123,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				Ok(data)
 			})
 		})
-		.procedure("getAccessToken", {
-			R.query(|_, _: ()| async move {
-				let username = whoami::username();
-				let entry = match Entry::new("spacedrive-auth-service", username.as_str()) {
-					Ok(entry) => entry,
-					Err(e) => {
-						error!("Error creating entry: {}", e);
-						return Err(rspc::Error::new(
-							rspc::ErrorCode::InternalServerError,
-							"Error creating entry".to_string(),
-						));
-					}
-				};
-
-				let data = match entry.get_password() {
-					Ok(key) => key,
-					Err(e) => {
-						error!("Error retrieving key: {}. Does the key exist yet?", e);
-						return Ok("".to_string());
-					}
-				};
-
-				let json_value: Value = match serde_json::from_str(&data) {
-					Ok(json_value) => json_value,
-					Err(e) => {
-						error!("Error parsing JSON value: {}", e);
-						return Ok("".to_string());
-					}
-				};
-				let cookie_str = match json_value[0].as_str() {
-					Some(cookie_str) => cookie_str,
-					None => {
-						error!("Error parsing JSON value: {}", "No cookie string found");
-						return Ok("".to_string());
-					}
-				};
-
-				// Extract the sFrontToken value
-				let token_start = "st-access-token=";
-				let token_end = ";";
-				let token = cookie_str[token_start.len()..cookie_str.find(token_end).expect("Failed to find token end")].to_string();
-
-				debug!(
-					"Key retrieved successfully: service={service}",
-					service = "spacedrive-auth-service",
-				);
-
-				Ok(token)
-			})
-		})
 }
 
 //NOTE(@Rocky43007): OLD PROCEDURES -> MAY BE USEFUL FOR REFERENCE AND COULD BE USED IN THE FUTURE
