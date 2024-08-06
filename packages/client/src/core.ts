@@ -8,7 +8,7 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.getApiOrigin", input: never, result: string } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
-        { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
+        { key: "cloud.library.list", input: never, result: null } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
@@ -19,7 +19,6 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "keys.get", input: never, result: string } | 
-        { key: "keys.getAccessToken", input: never, result: string } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
