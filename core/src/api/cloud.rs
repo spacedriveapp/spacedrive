@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use super::{utils::library, Ctx, R};
+use crate::{api::utils::get_access_token, util::MaybeUndefined};
 
 #[allow(unused)]
 async fn parse_json_body<T: DeserializeOwned>(response: Response) -> Result<T, rspc::Error> {
@@ -22,6 +23,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.merge("library.", library::mount())
 		.merge("locations.", locations::mount())
+		.merge("devices.", devices::mount())
 		.procedure("getApiOrigin", {
 			R.query(|node, _: ()| async move { Ok(node.env.api_url.lock().await.to_string()) })
 		})
@@ -47,9 +49,7 @@ mod library {
 	use std::str::FromStr;
 
 	use sd_p2p::RemoteIdentity;
-	use tracing::debug;
-
-	use crate::{api::utils::get_access_token, util::MaybeUndefined};
+	use tracing::{debug, error};
 
 	use super::*;
 
@@ -70,7 +70,7 @@ mod library {
 					let client = match node.cloud_services.client().await {
 						Ok(client) => client,
 						Err(e) => {
-							tracing::error!(?e, "Failed to get cloud services client");
+							error!(?e, "Failed to get cloud services client");
 							return Err(rspc::Error::new(
 								rspc::ErrorCode::InternalServerError,
 								"Failed to get cloud services client".to_string(),
@@ -80,7 +80,7 @@ mod library {
 					let token = match get_access_token() {
 						Ok(token) => token,
 						Err(e) => {
-							tracing::error!(?e, "Failed to get access token");
+							error!(?e, "Failed to get access token");
 							return Err(rspc::Error::new(
 								rspc::ErrorCode::InternalServerError,
 								"Failed to get access token".to_string(),
@@ -97,7 +97,7 @@ mod library {
 						Ok(res) => match res {
 							Ok(res) => res,
 							Err(e) => {
-								tracing::error!(?e, "Failed to list devices");
+								error!(?e, "Failed to list devices");
 								return Err(rspc::Error::new(
 									rspc::ErrorCode::InternalServerError,
 									"Failed to list devices".to_string(),
@@ -105,7 +105,7 @@ mod library {
 							}
 						},
 						Err(e) => {
-							tracing::error!(?e, "Quinn error: ");
+							error!(?e, "Quinn error: ");
 							return Err(rspc::Error::new(
 								rspc::ErrorCode::InternalServerError,
 								"Failed to list devices -> Quin RPC Layer Error Detected."
@@ -368,5 +368,138 @@ mod locations {
 					Ok(())
 				})
 			})
+	}
+}
+
+mod devices {
+	use tracing::{debug, error};
+
+	use super::*;
+
+	pub fn mount() -> AlphaRouter<Ctx> {
+		R.router()
+			.procedure("get", {
+				R.query(|node, device_id: Uuid| async move {
+					let client = node.cloud_services.client().await.map_err(|e| {
+						error!(?e, "Failed to get cloud services client;");
+						e
+					})?;
+
+					let token = match get_access_token() {
+						Ok(token) => token,
+						Err(e) => {
+							return Err(e);
+						}
+					};
+
+					let device = match client
+						.devices()
+						.get(sd_cloud_schema::devices::get::Request {
+							pub_id: sd_cloud_schema::devices::PubId(device_id),
+							access_token: sd_cloud_schema::auth::AccessToken(token),
+						})
+						.await
+					{
+						Ok(device) => match device {
+							Ok(sd_cloud_schema::devices::get::Response(device)) => device,
+							Err(e) => {
+								error!(?e, "Failed to get device");
+								return Err(e.into());
+							}
+						},
+						Err(e) => {
+							error!(?e, "Failed to get device");
+							return Err(rspc::Error::new(
+								rspc::ErrorCode::InternalServerError,
+								"Failed to get device".to_string(),
+							));
+						}
+					};
+
+					debug!(?device, "Got device");
+
+					Ok(device)
+				})
+			})
+			.procedure("list", {
+				R.query(|node, _: ()| async move {
+					let client = node.cloud_services.client().await.map_err(|e| {
+						error!(?e, "Failed to get cloud services client;");
+						e
+					})?;
+
+					let token = match get_access_token() {
+						Ok(token) => token,
+						Err(e) => {
+							return Err(e);
+						}
+					};
+
+					let devices = match client
+						.devices()
+						.list(sd_cloud_schema::devices::list::Request {
+							access_token: sd_cloud_schema::auth::AccessToken(token),
+						})
+						.await
+					{
+						Ok(devices) => match devices {
+							Ok(sd_cloud_schema::devices::list::Response(devices)) => devices,
+							Err(e) => {
+								tracing::error!(?e, "Failed to list devices");
+								return Err(e.into());
+							}
+						},
+						Err(e) => {
+							tracing::error!(?e, "Quinn error: ");
+							return Err(rspc::Error::new(
+								rspc::ErrorCode::InternalServerError,
+								"Failed to list devices -> Quin RPC Layer Error Detected."
+									.to_string(),
+							));
+						}
+					};
+
+					debug!(?devices, "Listed devices");
+
+					Ok(devices)
+				})
+			})
+			.procedure("delete", {
+				R.query(|node, device_id: Uuid| async move {
+					let client = node.cloud_services.client().await.map_err(|e| {
+						error!(?e, "Failed to get cloud services client;");
+						e
+					})?;
+
+					let token = match get_access_token() {
+						Ok(token) => token,
+						Err(e) => {
+							return Err(e);
+						}
+					};
+
+					let _ = client
+						.devices()
+						.delete(sd_cloud_schema::devices::delete::Request {
+							pub_id: sd_cloud_schema::devices::PubId(device_id),
+							access_token: sd_cloud_schema::auth::AccessToken(token),
+						})
+						.await
+						.map_err(|e| {
+							error!(?e, "Failed to delete device");
+							rspc::Error::new(
+								rspc::ErrorCode::InternalServerError,
+								"Failed to delete device".to_string(),
+							)
+						});
+
+					debug!("Deleted device");
+
+					Ok(())
+				})
+			})
+			.procedure("register", { R.query(|node, _: ()| async move { Ok(()) }) })
+			.procedure("hello", { R.query(|node, _: ()| async move { Ok(()) }) })
+			.procedure("update", { R.query(|node, _: ()| async move { Ok(()) }) })
 	}
 }

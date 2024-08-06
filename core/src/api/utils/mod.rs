@@ -56,7 +56,10 @@ pub fn get_access_token() -> Result<String, rspc::Error> {
 		Ok(key) => key,
 		Err(e) => {
 			error!("Error retrieving key: {}. Does the key exist yet?", e);
-			return Ok("".to_string());
+			return Err(rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Error retrieving key".to_string(),
+			));
 		}
 	};
 
@@ -64,7 +67,10 @@ pub fn get_access_token() -> Result<String, rspc::Error> {
 		Ok(re) => re,
 		Err(e) => {
 			error!("Error creating regex: {}", e);
-			return Ok("".to_string());
+			return Err(rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Error creating regex".to_string(),
+			));
 		}
 	};
 
@@ -73,12 +79,21 @@ pub fn get_access_token() -> Result<String, rspc::Error> {
 			Some(token) => token.as_str(),
 			None => {
 				error!("Error parsing Cookie String value: {}", "No token found");
-				return Ok("".to_string());
+				return Err(rspc::Error::new(
+					rspc::ErrorCode::InternalServerError,
+					"Error parsing Cookie String value".to_string(),
+				));
 			}
 		},
 		None => {
-			error!("Error parsing Cookie String value: {}", "No token cookie string found");
-			return Ok("".to_string());
+			error!(
+				"Error parsing Cookie String value: {}",
+				"No token cookie string found"
+			);
+			return Err(rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Error parsing Cookie String value".to_string(),
+			));
 		}
 	};
 
