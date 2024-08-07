@@ -42,33 +42,27 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("create", {
-			R.with2(library())
-				.mutation(|(node, library), _: ()| async move {
-					// let node_config = node.config.get().await;
-					// let cloud_library = sd_cloud_api::library::create(
-					// 	node.cloud_api_config().await,
-					// 	library.id,
-					// 	&library.config().await.name,
-					// 	library.instance_uuid,
-					// 	library.identity.to_remote_identity(),
-					// 	node_config.id,
-					// 	node_config.identity.to_remote_identity(),
-					// 	&node.p2p.peer_metadata(),
-					// )
-					// .await?;
-					// node.libraries
-					// 	.edit(
-					// 		library.id,
-					// 		None,
-					// 		MaybeUndefined::Undefined,
-					// 		MaybeUndefined::Value(cloud_library.id),
-					// 		None,
-					// 	)
-					// 	.await?;
+			#[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+			struct LibrariesCreateArgs {
+				access_token: AccessToken,
+				device_pub_id: devices::PubId,
+			}
 
-					invalidate_query!(library, "cloud.library.get");
-					// invalidate_query!(library, "cloud.library.get");
-					debug!("TODO: Functionality not implemented");
+			R.with2(library())
+				.mutation(|(node, library), args: LibrariesCreateArgs | async move {
+					let req = libraries::create::Request {
+						name: library.config().await.name.to_string(),
+						access_token: args.access_token,
+						pub_id: library.id,
+						device_pub_id: args.device_pub_id,
+					};
+					super::handle_comm_error(
+						try_get_cloud_services_client!(node)?
+							.libraries()
+							.create(req)
+							.await,
+						"Failed to create library;",
+					)??;
 
 					Ok(())
 				})
