@@ -8,9 +8,13 @@ export type Procedures = {
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
         { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
+        { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
+        { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.list", input: never, result: null } | 
-        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
+        { key: "cloud.locations.list", input: never, result: Core_CloudLocation[] } | 
+        { key: "cloud.new_locations.get", input: LocationGetRequest, result: CloudLocation } | 
+        { key: "cloud.new_locations.list", input: LocationListRequest, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -67,11 +71,17 @@ export type Procedures = {
         { key: "cloud.bootstrap", input: AccessToken, result: null } | 
         { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.libraries.join", input: string, result: null } | 
+        { key: "cloud.libraries.update", input: LibraryUpdateRequest, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: null } | 
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.create", input: string, result: Core_CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: Core_CloudLocation } | 
+        { key: "cloud.new_locations.create", input: LocationCreateRequest, result: null } | 
+        { key: "cloud.new_locations.delete", input: LocationDeleteRequest, result: null } | 
+        { key: "cloud.new_locations.update", input: LocationUpdateRequest, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -183,7 +193,7 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
-export type CloudLocation = { id: string; name: string }
+export type CloudLocation = { pub_id: LocationPubId; name: string; device: Device | null; library: Library | null; created_at: string; updated_at: string }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -216,6 +226,8 @@ export type ConnectionMethod = "Relay" | "Local" | "Disconnected"
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
+
+export type Core_CloudLocation = { id: string; name: string }
 
 export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
 
@@ -411,6 +423,8 @@ export type Label = { id: number; name: string; date_created: string | null; dat
 
 export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
+export type Library = { pub_id: LibraryPubId; name: string; original_device: Device | null; created_at: string; updated_at: string }
+
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
  */
@@ -442,9 +456,17 @@ export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
+export type LibraryGetRequest = { access_token: AccessToken; pub_id: LibraryPubId; with_device: boolean }
+
+export type LibraryListRequest = { access_token: AccessToken; with_device: boolean }
+
 export type LibraryName = string
 
 export type LibraryPreferences = { location?: { [key in string]: LocationSettings }; tag?: { [key in string]: TagSettings } }
+
+export type LibraryPubId = string
+
+export type LibraryUpdateRequest = { access_token: AccessToken; pub_id: LibraryPubId; name: string }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -461,6 +483,16 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
+export type LocationCreateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string; library_pub_id: LibraryPubId; device_pub_id: DevicePubId }
+
+export type LocationDeleteRequest = { access_token: AccessToken; pub_id: LocationPubId }
+
+export type LocationGetRequest = { access_token: AccessToken; pub_id: LocationPubId; with_library: boolean; with_device: boolean }
+
+export type LocationListRequest = { access_token: AccessToken; with_library: boolean; with_device: boolean }
+
+export type LocationPubId = string
+
 export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 
 /**
@@ -472,6 +504,8 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
+
+export type LocationUpdateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string }
 
 export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: IndexerRule[] }
 

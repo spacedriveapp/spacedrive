@@ -1,27 +1,44 @@
-// This file is being deprecated in favor of libraries.rs
-// This is due to the migration to the new API system, but the frontend is still using this file
-
 use crate::{api::utils::library, invalidate_query};
+use rspc::alpha::AlphaRouter;
+use sd_cloud_schema::libraries;
+use tracing::debug;
+use uuid::Uuid;
 
-use super::*;
+use crate::{
+	api::{Ctx, R},
+	try_get_cloud_services_client,
+};
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			R.with2(library())
-				.query(|(node, library), _: ()| async move {
-					// Ok(
-					// 	sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
-					// 		.await?,
-					// )
+			R.query(|node, req: libraries::get::Request| async move {
+				let libraries::get::Response(library) = super::handle_comm_error(
+					try_get_cloud_services_client!(node)?
+						.libraries()
+						.get(req)
+						.await,
+					"Failed to get library;",
+				)??;
 
-					Ok(())
-				})
+				debug!(?library, "Got library");
+
+				Ok(library)
+			})
 		})
 		.procedure("list", {
-			R.query(|node, _: ()| async move {
-				// Ok(sd_cloud_api::library::list(node.cloud_api_config().await).await?)
-				Ok(())
+			R.query(|node, req: libraries::list::Request| async move {
+				let libraries::list::Response(libraries) = super::handle_comm_error(
+					try_get_cloud_services_client!(node)?
+						.libraries()
+						.list(req)
+						.await,
+					"Failed to list libraries;",
+				)??;
+
+				debug!(?libraries, "Listed libraries");
+
+				Ok(libraries)
 			})
 		})
 		.procedure("create", {
@@ -50,6 +67,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					// 	.await?;
 
 					invalidate_query!(library, "cloud.library.get");
+					// invalidate_query!(library, "cloud.library.get");
+					debug!("TODO: Functionality not implemented");
 
 					Ok(())
 				})
@@ -121,14 +140,25 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				// invalidate_query!(library, "cloud.library.list");
 
 				// Ok(LibraryConfigWrapped::from_library(&library).await)
+
+				debug!("TODO: Functionality not implemented. Joining will be removed in the future, but for now, it's a no-op");
+
 				Ok(())
 			})
 		})
-		.procedure("sync", {
-			R.with2(library())
-				.mutation(|(_, library), _: ()| async move {
-					library.do_cloud_sync();
-					Ok(())
-				})
+		.procedure("update", {
+			R.mutation(|node, req: libraries::update::Request| async move {
+				super::handle_comm_error(
+					try_get_cloud_services_client!(node)?
+						.libraries()
+						.update(req)
+						.await,
+					"Failed to update library;",
+				)??;
+
+				debug!("Updated library");
+
+				Ok(())
+			})
 		})
 }

@@ -1,3 +1,6 @@
+// This file is being deprecated in favor of libraries.rs
+// This is due to the migration to the new API system, but the frontend is still using this file
+
 use crate::api::{Ctx, R};
 
 use rspc::alpha::AlphaRouter;

@@ -2,8 +2,6 @@ import { CheckCircle, XCircle } from '@phosphor-icons/react';
 import { Suspense, useMemo } from 'react';
 import {
 	auth,
-	CloudInstance,
-	CloudLibrary,
 	HardwareModel,
 	useBridgeQuery,
 	useLibraryContext,
@@ -51,16 +49,22 @@ export const Component = () => {
 // million-ignore
 function Authenticated() {
 	const { library } = useLibraryContext();
-	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
-	const cloudLibraryList = useBridgeQuery(['cloud.library.list'], { suspense: true, retry: false });
-	console.log("[DEBUG] cloudLibraryList", cloudLibraryList);
+	const cloudLibrary: any = useLibraryQuery(['cloud.library.get'], {
+		suspense: true,
+		retry: false
+	});
+	const cloudLibraryList = useBridgeQuery(['cloud.library.list'], {
+		suspense: true,
+		retry: false
+	});
+	console.log('[DEBUG] cloudLibraryList', cloudLibraryList);
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
 	const { t } = useLocale();
 
 	const thisInstance = useMemo(() => {
 		if (!cloudLibrary.data) return undefined;
 		return cloudLibrary.data.instances.find(
-			(instance) => instance.uuid === library.instance_id
+			(instance: any) => instance.uuid === library.instance_id
 		);
 	}, [cloudLibrary.data, library.instance_id]);
 
@@ -113,7 +117,7 @@ function Authenticated() {
 }
 
 // million-ignore
-const Instances = ({ instances }: { instances: CloudInstance[] }) => {
+const Instances = ({ instances }: { instances: any[] }) => {
 	const { library } = useLibraryContext();
 	const filteredInstances = instances.filter((instance) => instance.uuid !== library.instance_id);
 	return (
@@ -173,8 +177,8 @@ const Instances = ({ instances }: { instances: CloudInstance[] }) => {
 };
 
 interface LibraryProps {
-	cloudLibrary: CloudLibrary;
-	thisInstance: CloudInstance | undefined;
+	cloudLibrary: any;
+	thisInstance: any | undefined;
 }
 
 // million-ignore
@@ -206,7 +210,7 @@ const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 };
 
 interface ThisInstanceProps {
-	instance: CloudInstance;
+	instance: any;
 }
 
 // million-ignore
