@@ -1,4 +1,4 @@
-use crate::{api::libraries::LibraryConfigWrapped, invalidate_query, library::LibraryName};
+// use crate::{api::libraries::LibraryConfigWrapped, invalidate_query, library::LibraryName};
 
 use sd_cloud_schema::{auth, users};
 
@@ -11,6 +11,8 @@ use super::{Ctx, R};
 mod devices;
 mod library;
 mod locations;
+mod new_locations;
+mod libraries;
 
 #[macro_export]
 macro_rules! try_get_cloud_services_client {
@@ -29,7 +31,9 @@ macro_rules! try_get_cloud_services_client {
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.merge("library.", library::mount())
+		.merge("libraries.", libraries::mount())
 		.merge("locations.", locations::mount())
+		.merge("new_locations.", new_locations::mount())
 		.merge("devices.", devices::mount())
 		.procedure("bootstrap", {
 			R.mutation(|node, access_token: auth::AccessToken| async move {

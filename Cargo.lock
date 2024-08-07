@@ -4379,7 +4379,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -9144,7 +9144,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#ff92c41e2b908732c58e77c26e0e3eec05f95549"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#dfbab0a7f19c1c3fafacb2053b1de628760d8dc8"
 dependencies = [
  "argon2",
  "async-stream",

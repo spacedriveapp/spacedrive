@@ -517,6 +517,7 @@ pub mod library {
 }
 
 #[derive(Type, Serialize, Deserialize)]
+#[specta(rename = "Core_CloudLocation")]
 pub struct CloudLocation {
 	id: String,
 	name: String,
