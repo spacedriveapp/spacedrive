@@ -4229,7 +4229,7 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 [[package]]
 name = "httpz"
 version = "0.0.6"
-source = "git+https://github.com/spacedriveapp/rspc.git?rev=ab12964b140991e0730c3423693533fba71efb03#ab12964b140991e0730c3423693533fba71efb03"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=14f5026a8e3fb2c33bd2b5ca95b79e7aa8326c7b#14f5026a8e3fb2c33bd2b5ca95b79e7aa8326c7b"
 dependencies = [
  "async-tungstenite",
  "axum",
@@ -8732,7 +8732,7 @@ dependencies = [
 [[package]]
 name = "rspc"
 version = "0.1.4"
-source = "git+https://github.com/spacedriveapp/rspc.git?rev=ab12964b140991e0730c3423693533fba71efb03#ab12964b140991e0730c3423693533fba71efb03"
+source = "git+https://github.com/spacedriveapp/rspc.git?rev=14f5026a8e3fb2c33bd2b5ca95b79e7aa8326c7b#14f5026a8e3fb2c33bd2b5ca95b79e7aa8326c7b"
 dependencies = [
  "futures",
  "futures-channel",
@@ -9144,7 +9144,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#4c1ec1f6bb1c10b5bea15128524281fad5569979"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#ff92c41e2b908732c58e77c26e0e3eec05f95549"
 dependencies = [
  "argon2",
  "async-stream",
@@ -9743,6 +9743,7 @@ dependencies = [
  "rspc",
  "sd-prisma",
  "thiserror",
+ "tracing",
  "uuid",
 ]
 
