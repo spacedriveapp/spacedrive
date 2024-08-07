@@ -6,8 +6,9 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
+        { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
+        { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.list", input: never, result: null } | 
         { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
@@ -63,13 +64,14 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "cloud.bootstrap", input: AccessToken, result: null } | 
+        { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
+        { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.join", input: string, result: null } | 
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
-        { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -149,6 +151,11 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
+/**
+ * Newtype wrapper for the access token
+ */
+export type AccessToken = string
+
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
@@ -175,10 +182,6 @@ export type CasId = string
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
-
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeRemoteIdentity: string; metadata: { [key in string]: string } }
-
-export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
 
 export type CloudLocation = { id: string; name: string }
 
@@ -227,6 +230,20 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; connection_id: string; created_at: string; updated_at: string }
+
+export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
+
+export type DeviceGetRequest = { access_token: AccessToken; pub_id: DevicePubId }
+
+export type DeviceListRequest = { access_token: AccessToken }
+
+export type DeviceOS = "Linux" | "Windows" | "MacOS" | "IOS" | "Android"
+
+export type DevicePubId = string
+
+export type DeviceUpdateRequest = { access_token: AccessToken; pub_id: DevicePubId; name: string; storage_size: bigint }
 
 /**
  * The method used for the discovery of this peer.
@@ -649,8 +666,6 @@ export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
-
-export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
