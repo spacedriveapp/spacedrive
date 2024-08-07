@@ -114,6 +114,12 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
+      - name: Package frontend
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          set -eux
+          XZ_OPT='-T0 -7' tar -cJf apps/desktop/dist.tar.xz -C apps/desktop/dist .
+
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
         with:
