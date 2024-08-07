@@ -6,8 +6,8 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
-        { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
+        { key: "cloud.devices.get", input: never, result: MockDevice } | 
+        { key: "cloud.devices.list", input: never, result: MockDevice[] } | 
         { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
         { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: null } | 
@@ -71,8 +71,8 @@ export type Procedures = {
         { key: "cloud.bootstrap", input: AccessToken, result: null } | 
         { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
-        { key: "cloud.libraries.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.libraries.join", input: string, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<LibrariesCreateArgs>, result: null } | 
+        { key: "cloud.libraries.delete", input: LibraryDeleteRequest, result: null } | 
         { key: "cloud.libraries.update", input: LibraryUpdateRequest, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: null } | 
@@ -247,10 +247,6 @@ export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_
 
 export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
 
-export type DeviceGetRequest = { access_token: AccessToken; pub_id: DevicePubId }
-
-export type DeviceListRequest = { access_token: AccessToken }
-
 export type DeviceOS = "Linux" | "Windows" | "MacOS" | "IOS" | "Android"
 
 export type DevicePubId = string
@@ -423,6 +419,8 @@ export type Label = { id: number; name: string; date_created: string | null; dat
 
 export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
+export type LibrariesCreateArgs = { access_token: AccessToken; device_pub_id: DevicePubId }
+
 export type Library = { pub_id: LibraryPubId; name: string; original_device: Device | null; created_at: string; updated_at: string }
 
 /**
@@ -455,6 +453,8 @@ cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryCo
 export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10" | "V11"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
+
+export type LibraryDeleteRequest = { access_token: AccessToken; pub_id: LibraryPubId }
 
 export type LibraryGetRequest = { access_token: AccessToken; pub_id: LibraryPubId; with_device: boolean }
 
@@ -522,6 +522,8 @@ export type MediaDate = string
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
+
+export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; created_at: string; updated_at: string }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
