@@ -1,6 +1,6 @@
 use crate::{api::utils::library, invalidate_query};
 use rspc::alpha::AlphaRouter;
-use sd_cloud_schema::libraries;
+use sd_cloud_schema::{auth::AccessToken, devices, libraries};
 use tracing::debug;
 use uuid::Uuid;
 
