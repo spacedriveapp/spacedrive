@@ -53,7 +53,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let req = libraries::create::Request {
 						name: library.config().await.name.to_string(),
 						access_token: args.access_token,
-						pub_id: library.id,
+						pub_id: libraries::PubId(library.id),
 						device_pub_id: args.device_pub_id,
 					};
 					super::handle_comm_error(
