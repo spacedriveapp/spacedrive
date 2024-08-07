@@ -29,14 +29,16 @@ export const Component = () => {
 			return data;
 		}
 		_().then((data) => {
-			if (data.message !== 'unauthorised') {
-				setUserInfo(data as User);
+			// Check if data is the same as the user type
+			if (data.id) {
+				setUserInfo(data);
 			} else {
 				setUserInfo(null);
 			}
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+	console.log('[DEBUG] userInfo', userInfo);
 	return (
 		<>
 			<Heading
