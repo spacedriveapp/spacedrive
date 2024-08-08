@@ -62,7 +62,6 @@
 				"depends": ["libc6", "libxdo3", "dbus"]
 			}
 		},
-
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"exceptionDomain": null,
@@ -71,7 +70,10 @@
 		},
 		"windows": {
 			"certificateThumbprint": null,
-			"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+			"webviewInstallMode": {
+				"type": "embedBootstrapper",
+				"silent": true
+			},
 			"digestAlgorithm": "sha256",
 			"timestampUrl": "",
 			"wix": {
