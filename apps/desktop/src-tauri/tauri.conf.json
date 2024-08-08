@@ -29,7 +29,9 @@
 				"transparent": true,
 				"center": true,
 				"windowEffects": {
-					"effects": ["sidebar"],
+					"effects": [
+						"sidebar"
+					],
 					"state": "followsWindowActiveState",
 					"radius": 9
 				}
@@ -41,7 +43,12 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["deb", "msi", "dmg", "updater"],
+		"targets": [
+			"deb",
+			"msi",
+			"dmg",
+			"updater"
+		],
 		"publisher": "Spacedrive Technology Inc.",
 		"copyright": "Spacedrive Technology Inc.",
 		"category": "Productivity",
@@ -59,19 +66,27 @@
 				"files": {
 					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
 				},
-				"depends": ["libc6", "libxdo3", "dbus"]
+				"depends": [
+					"libc6",
+					"libxdo3",
+					"dbus"
+				]
 			}
 		},
-
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"exceptionDomain": null,
 			"entitlements": null,
-			"frameworks": ["../../.deps/Spacedrive.framework"]
+			"frameworks": [
+				"../../.deps/Spacedrive.framework"
+			]
 		},
 		"windows": {
 			"certificateThumbprint": null,
-			"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+			"webviewInstallMode": {
+				"type": "embedBootstrapper",
+				"silent": true
+			},
 			"digestAlgorithm": "sha256",
 			"timestampUrl": "",
 			"wix": {
