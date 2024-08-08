@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Session from 'supertokens-web-js/recipe/session';
+import Session, { signOut } from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Input, toast } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -38,7 +38,6 @@ export const Component = () => {
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
-	console.log('[DEBUG] userInfo', userInfo);
 	return (
 		<>
 			<Heading
@@ -46,7 +45,14 @@ export const Component = () => {
 					<>
 						{userInfo !== null && (
 							<div className="flex-row space-x-2">
-								<Button variant="accent" size="sm" onClick={auth.logout}>
+								<Button
+									variant="accent"
+									size="sm"
+									onClick={() => {
+										signOut();
+										window.location.reload();
+									}}
+								>
 									{t('logout')}
 								</Button>
 							</div>
