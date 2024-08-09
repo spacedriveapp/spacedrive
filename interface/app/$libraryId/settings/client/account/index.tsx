@@ -48,8 +48,8 @@ export const Component = () => {
 								<Button
 									variant="accent"
 									size="sm"
-									onClick={() => {
-										signOut();
+									onClick={async () => {
+										await signOut();
 										window.location.reload();
 									}}
 								>
