@@ -65,7 +65,7 @@ jobs:
         uses: actions/download-artifact@v4
       
       - name: Add Submodules
-        run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/
+        run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/shared-modules
         
       - name: Install FlatPak dependencies
         run: |
