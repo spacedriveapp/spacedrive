@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2024 Spacedrive Technology Inc -->
+<component type="desktop-application">
+	<id>com.spacedrive.Desktop</id>
+	<name>Spacedrive</name>
+	<summary>Spacedrive is an open source cross-platform file explorer, powered by a virtual distributed filesystem written in Rust. </summary>
+	<metadata_license>CC0-1.0</metadata_license>
+	<project_license>AGPL-3.0-only</project_license>
+	<developer id="com.spacedrive">
+		<name>Spacedrive Technology Inc</name>
+	</developer>
+	<description>
+		<p>Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.</p>
+		<p>For independent creatives, hoarders, and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.</p>
+	</description>
+	<launchable type="desktop-id">com.spacedrive.Desktop.desktop</launchable>
+	<icon type="remote">https://github.com/spacedriveapp/spacedrive/raw/main/packages/assets/images/AppLogo.png</icon>
+	<url type="bugtracker">https://github.com/spacedriveapp/spacedrive/issues</url>
+	<url type="homepage">https://spacedrive.com/</url>
+	<url type="contribute">https://github.com/spacedriveapp/spacedrive/</url>
+	<screenshots>
+		<screenshot type="default">
+			<image>https://github.com/spacedriveapp/spacedrive/raw/main/apps/landing/public/github.webp</image>
+			<caption>Spacedrive</caption>
+		</screenshot>
+	</screenshots>
+	<content_rating type="oars-1.1">
+		<content_attribute id="social-info">mild</content_attribute>
+	</content_rating>
+	<releases>
+		<release version="0.4.1" date="2024-07-27">
+			<url type="details">https://www.spacedrive.com/docs/changelog/alpha/0.4.1</url>
+			<description>
+				<p>This minor patch adds new app shortcuts and improvements to the Quick Preview feature, as well as fixing various bugs.</p>
+				<ul>
+					<li>Updated terminal log messages to a prettier, easier-to-read format by @matheus-consoli in #2476</li>
+					<li>Changed the sidebar toggle shortcut to ⌘S (macOS) / CtrlS (Windows/Linux) by @ameer2468 in #2625</li>
+					<li>Added zoom shortcuts ⌘+ / - (macOS) / Ctrl+ / - (Windows/Linux) and pinch-to-zoom in Quick Preview by @myung03 in #2635</li>
+					<li>Fixed a bug where right-click could open the native context menu instead of the Spacedrive context menu by @myung03 in #2637</li>
+					<li>Translated the Top Bar/Overview to Russian and Belarusian by @artsiom-voitas in #2628</li>
+					<li>Updated the Github bug report template by @iLynxcat in #2622</li>
+					<li>Updated the rspc-tauri and tailwindcss-animate dependencies by @Rocky43007 (#2634) and @iLynxcat (#2631)</li>
+					<li>Updated the openssl-dev dependency to openssh-devel for Fedora (39+) Linux developers by @greendoescode in #2630</li>
+					<li>Fixed an issue with checking out Pull Requests from forks by @iLynxcat in #2631</li>
+					<li>Improved Media View thumbnails by @ameer2468 in #2626</li>
+					<li>Improved the sync settings UI/UX by @ameer2468 in #2636</li>
+					<li>@greendoescode made their first contribution in #2630</li>
+				</ul>
+			</description>
+		</release>		
+		<release version="0.4.0" date="2024-07-20">
+			<url type="details">https://www.spacedrive.com/docs/changelog/alpha/0.4.0</url>
+			<description>
+				<p>Release description</p>
+				<ul>
+					<li>Improved file system indexer - by @fogodev in #2476</li>
+					<li>Estimated time remaining on Jobs - by @myung03</li>
+					<li>Device and database sync [Feature Flagged] -  Big team effort 😀</li>
+				</ul>
+			</description>
+		</release>
+	</releases>
+	<supports>
+		<control>pointing</control>
+		<control>keyboard</control>
+	</supports>
+	<recommends>
+		<display_length compare="ge">200</display_length>
+	</recommends>
+</component>
