@@ -37,7 +37,7 @@ modules:
       - make
       - make install PREFIX=/app/lib/spacedrive
   - shared-modules/dbus-glib/dbus-glib.json
-  - .github/flatpak/gstreamer.yml
+  - gstreamer.yml
   - name: binary
     buildsystem: simple
     sources:
@@ -45,7 +45,7 @@ modules:
         path: Spacedrive-linux-x86_64.deb 
         only-arches: [x86_64]
       - type: file
-        path: .github/flatpak/com.spacedrive.Desktop.metainfo.xml
+        path: com.spacedrive.Desktop.metainfo.xml
                   
     build-commands:
        - ar -x *.deb
