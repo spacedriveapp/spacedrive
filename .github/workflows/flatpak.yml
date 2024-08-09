@@ -63,10 +63,6 @@ jobs:
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
-
-      - name: Unzip artifacts
-        run: unzip \*.zip
-
       
       - name: Add Submodules
         run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/
