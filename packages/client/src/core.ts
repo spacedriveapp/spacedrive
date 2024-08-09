@@ -6,10 +6,15 @@ export type Procedures = {
         { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
-        { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
-        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
+        { key: "cloud.devices.get", input: never, result: MockDevice } | 
+        { key: "cloud.devices.list", input: never, result: MockDevice[] } | 
+        { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
+        { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.library.list", input: never, result: null } | 
+        { key: "cloud.locations.list", input: never, result: Core_CloudLocation[] } | 
+        { key: "cloud.new_locations.get", input: LocationGetRequest, result: CloudLocation } | 
+        { key: "cloud.new_locations.list", input: LocationListRequest, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -18,6 +23,7 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "keys.get", input: never, result: string } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
@@ -62,13 +68,20 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "cloud.bootstrap", input: AccessToken, result: null } | 
+        { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
+        { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<LibrariesCreateArgs>, result: null } | 
+        { key: "cloud.libraries.delete", input: LibraryDeleteRequest, result: null } | 
+        { key: "cloud.libraries.update", input: LibraryUpdateRequest, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.join", input: string, result: null } | 
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
-        { key: "cloud.setApiOrigin", input: string, result: null } | 
+        { key: "cloud.locations.create", input: string, result: Core_CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: Core_CloudLocation } | 
+        { key: "cloud.new_locations.create", input: LocationCreateRequest, result: null } | 
+        { key: "cloud.new_locations.delete", input: LocationDeleteRequest, result: null } | 
+        { key: "cloud.new_locations.update", input: LocationUpdateRequest, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -98,6 +111,7 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.set", input: string, result: null } | 
         { key: "labels.delete", input: LibraryArgs<number>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
@@ -147,6 +161,11 @@ export type Procedures = {
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
 
+/**
+ * Newtype wrapper for the access token
+ */
+export type AccessToken = string
+
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
@@ -174,11 +193,7 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeRemoteIdentity: string; metadata: { [key in string]: string } }
-
-export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
-
-export type CloudLocation = { id: string; name: string }
+export type CloudLocation = { pub_id: LocationPubId; name: string; device: Device | null; library: Library | null; created_at: string; updated_at: string }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -212,6 +227,8 @@ export type ConvertImageArgs = { location_id: number; file_path_id: number; dele
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
+export type Core_CloudLocation = { id: string; name: string }
+
 export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
@@ -225,6 +242,16 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; connection_id: string; created_at: string; updated_at: string }
+
+export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
+
+export type DeviceOS = "Linux" | "Windows" | "MacOS" | "IOS" | "Android"
+
+export type DevicePubId = string
+
+export type DeviceUpdateRequest = { access_token: AccessToken; pub_id: DevicePubId; name: string; storage_size: bigint }
 
 /**
  * The method used for the discovery of this peer.
@@ -392,6 +419,10 @@ export type Label = { id: number; name: string; date_created: string | null; dat
 
 export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
+export type LibrariesCreateArgs = { access_token: AccessToken; device_pub_id: DevicePubId }
+
+export type Library = { pub_id: LibraryPubId; name: string; original_device: Device | null; created_at: string; updated_at: string }
+
 /**
  * Can wrap a query argument to require it to contain a `library_id` and provide helpers for working with libraries.
  */
@@ -423,9 +454,19 @@ export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
+export type LibraryDeleteRequest = { access_token: AccessToken; pub_id: LibraryPubId }
+
+export type LibraryGetRequest = { access_token: AccessToken; pub_id: LibraryPubId; with_device: boolean }
+
+export type LibraryListRequest = { access_token: AccessToken; with_device: boolean }
+
 export type LibraryName = string
 
 export type LibraryPreferences = { location?: { [key in string]: LocationSettings }; tag?: { [key in string]: TagSettings } }
+
+export type LibraryPubId = string
+
+export type LibraryUpdateRequest = { access_token: AccessToken; pub_id: LibraryPubId; name: string }
 
 export type LightScanArgs = { location_id: number; sub_path: string }
 
@@ -442,6 +483,16 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
 
+export type LocationCreateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string; library_pub_id: LibraryPubId; device_pub_id: DevicePubId }
+
+export type LocationDeleteRequest = { access_token: AccessToken; pub_id: LocationPubId }
+
+export type LocationGetRequest = { access_token: AccessToken; pub_id: LocationPubId; with_library: boolean; with_device: boolean }
+
+export type LocationListRequest = { access_token: AccessToken; with_library: boolean; with_device: boolean }
+
+export type LocationPubId = string
+
 export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
 
 /**
@@ -453,6 +504,8 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
+
+export type LocationUpdateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string }
 
 export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: IndexerRule[] }
 
@@ -469,6 +522,8 @@ export type MediaDate = string
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
+
+export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; created_at: string; updated_at: string }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
@@ -647,8 +702,6 @@ export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
-
-export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 

@@ -20,6 +20,9 @@ edition = "2021"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
+# First party dependencies
+sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", branch = "main" }
+
 # Third party dependencies used by one or more of our crates
 async-channel = "2.3"
 async-trait = "0.1.80"
@@ -65,6 +68,7 @@ tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 tracing-test = "0.2.5"
 uhlc = "0.6.0"                                        # Must follow version used by specta
+url = '2.5.0'
 uuid = "1.8"
 webp = "0.2.6"                                        # Update blocked by image
 
@@ -91,7 +95,7 @@ default-features = false
 if-watch = { git = "https://github.com/spacedriveapp/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
 
 # We hack it to the high heavens
-rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "ab12964b140991e0730c3423693533fba71efb03" }
+rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "14f5026a8e3fb2c33bd2b5ca95b79e7aa8326c7b" }
 
 # Add `Control::open_stream_with_addrs`
 libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }

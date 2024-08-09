@@ -2,9 +2,8 @@ import { CheckCircle, XCircle } from '@phosphor-icons/react';
 import { Suspense, useMemo } from 'react';
 import {
 	auth,
-	CloudInstance,
-	CloudLibrary,
 	HardwareModel,
+	useBridgeQuery,
 	useLibraryContext,
 	useLibraryMutation,
 	useLibraryQuery
@@ -22,42 +21,55 @@ const Count = tw.div`min-w-[20px] flex h-[20px] px-1 items-center justify-center
 export const Component = () => {
 	useRouteTitle('Cloud');
 
-	const authState = auth.useStateSnapshot();
+	// const authState = auth.useStateSnapshot();
 
-	const authSensitiveChild = () => {
-		if (authState.status === 'loggedIn') return <Authenticated />;
-		if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
-			return (
-				<div className="flex size-full items-center justify-center">
-					<DataBox className="flex flex-col items-center gap-5 !p-6">
-						<div className="flex flex-col items-center gap-1">
-							<Icon name="Sync" size={60} />
-							<p className="max-w-[75%] text-center text-sm">
-								To access cloud related features, please login
-							</p>
-						</div>
-						<LoginButton />
-					</DataBox>
-				</div>
-			);
+	// const authSensitiveChild = () => {
+	// 	if (authState.status === 'loggedIn') return <Authenticated />;
+	// 	if (authState.status === 'notLoggedIn' || authState.status === 'loggingIn')
+	// 		return (
+	// 			<div className="flex size-full items-center justify-center">
+	// 				<DataBox className="flex flex-col items-center gap-5 !p-6">
+	// 					<div className="flex flex-col items-center gap-1">
+	// 						<Icon name="Sync" size={60} />
+	// 						<p className="max-w-[75%] text-center text-sm">
+	// 							To access cloud related features, please login
+	// 						</p>
+	// 					</div>
+	// 					<LoginButton />
+	// 				</DataBox>
+	// 			</div>
+	// 		);
 
-		return null;
-	};
+	// 	return null;
+	// };
 
-	return <div className="flex size-full flex-col items-start p-4">{authSensitiveChild()}</div>;
+	return <div className="flex size-full flex-col items-start p-4">{Authenticated()}</div>;
 };
 
 // million-ignore
 function Authenticated() {
 	const { library } = useLibraryContext();
-	const cloudLibrary = useLibraryQuery(['cloud.library.get'], { suspense: true, retry: false });
+	const cloudLibrary: any = useLibraryQuery(['cloud.library.get'], {
+		suspense: true,
+		retry: false
+	});
+	const getCloudDevice = useBridgeQuery(['cloud.devices.get'], {
+		suspense: true,
+		retry: false
+	});
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
+		suspense: true,
+		retry: false
+	});
+	console.log('[DEBUG] fetch cloud device:', getCloudDevice.data);
+	console.log('[DEBUG] cloudDevicesList', cloudDevicesList.data);
 	const createLibrary = useLibraryMutation(['cloud.library.create']);
 	const { t } = useLocale();
 
 	const thisInstance = useMemo(() => {
 		if (!cloudLibrary.data) return undefined;
 		return cloudLibrary.data.instances.find(
-			(instance) => instance.uuid === library.instance_id
+			(instance: any) => instance.uuid === library.instance_id
 		);
 	}, [cloudLibrary.data, library.instance_id]);
 
@@ -110,7 +122,7 @@ function Authenticated() {
 }
 
 // million-ignore
-const Instances = ({ instances }: { instances: CloudInstance[] }) => {
+const Instances = ({ instances }: { instances: any[] }) => {
 	const { library } = useLibraryContext();
 	const filteredInstances = instances.filter((instance) => instance.uuid !== library.instance_id);
 	return (
@@ -170,8 +182,8 @@ const Instances = ({ instances }: { instances: CloudInstance[] }) => {
 };
 
 interface LibraryProps {
-	cloudLibrary: CloudLibrary;
-	thisInstance: CloudInstance | undefined;
+	cloudLibrary: any;
+	thisInstance: any | undefined;
 }
 
 // million-ignore
@@ -203,7 +215,7 @@ const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 };
 
 interface ThisInstanceProps {
-	instance: CloudInstance;
+	instance: any;
 }
 
 // million-ignore

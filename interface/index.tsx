@@ -15,6 +15,8 @@ import {
 import { toast, TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
+import getCookieHandler from './app/$libraryId/settings/client/account/handlers/cookieHandler';
+import getWindowHandler from './app/$libraryId/settings/client/account/handlers/windowHandler';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
 import i18n from './app/I18n';
 import { Devtools } from './components/Devtools';

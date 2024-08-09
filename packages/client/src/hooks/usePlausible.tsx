@@ -9,7 +9,7 @@ import { PlausiblePlatformType, telemetryState, useTelemetryState } from '../sto
  * This should be in sync with the Core's version.
  */
 
-const DOMAIN = 'app.spacedrive.com';
+const DOMAIN = 'api.spacedrive.com';
 const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
 const PlausibleProvider = Plausible({

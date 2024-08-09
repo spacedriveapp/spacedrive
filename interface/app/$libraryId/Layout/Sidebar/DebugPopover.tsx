@@ -281,8 +281,8 @@ function CloudOriginSelect() {
 					}
 					value={origin.data}
 				>
-					<SelectOption value="https://app.spacedrive.com">
-						https://app.spacedrive.com
+					<SelectOption value="https://api.spacedrive.com">
+						https://api.spacedrive.com
 					</SelectOption>
 					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
 				</Select>

@@ -43,9 +43,9 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				<Button
 					onPress={() => {
 						const url =
-							origin.data === 'https://app.spacedrive.com'
+							origin.data === 'https://api.spacedrive.com'
 								? 'http://localhost:3000'
-								: 'https://app.spacedrive.com';
+								: 'https://api.spacedrive.com';
 						setOrigin.mutateAsync(url).then(async () => {
 							await auth.logout();
 							await queryClient.invalidateQueries();

@@ -201,7 +201,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("tags.", tags::mount())
 		.merge("labels.", labels::mount())
 		// .merge("categories.", categories::mount())
-		// .merge("keys.", keys::mount())
+		.merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())

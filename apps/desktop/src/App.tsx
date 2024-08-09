@@ -17,14 +17,6 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
-import { useLocale } from '@sd/interface/hooks';
-
-import { commands } from './commands';
-import { platform } from './platform';
-import { queryClient } from './query';
-import { createMemoryRouterWithHistory } from './router';
-import { createUpdater } from './updater';
-
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
 // 	links: [
@@ -34,13 +26,45 @@ import { createUpdater } from './updater';
 // 		tauriLink()
 // 	]
 // });
+import SuperTokens from 'supertokens-web-js';
+import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
+import Session from 'supertokens-web-js/recipe/session';
+import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
+import getCookieHandler, {
+	setAppReady
+} from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
+import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
+import { useLocale } from '@sd/interface/hooks';
+
+import { commands } from './commands';
+import { platform } from './platform';
+import { queryClient } from './query';
+import { createMemoryRouterWithHistory } from './router';
+import { createUpdater } from './updater';
+
+SuperTokens.init({
+	appInfo: {
+		apiDomain: 'http://localhost:9420',
+		apiBasePath: '/api/auth',
+		appName: 'Spacedrive Auth Service'
+	},
+	cookieHandler: getCookieHandler,
+	windowHandler: getWindowHandler,
+	recipeList: [
+		Session.init({ tokenTransferMethod: 'header' }),
+		EmailPassword.init(),
+		ThirdParty.init()
+	]
+});
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		commands.appReady();
+		commands.appReady().then(() => {
+			setAppReady();
+		});
 	}, []);
 
 	useEffect(() => {

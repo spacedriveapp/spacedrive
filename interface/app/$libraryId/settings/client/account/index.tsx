@@ -1,25 +1,58 @@
-import { Envelope, User } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+import Session, { signOut } from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
-import { Button, Card, Input, toast } from '@sd/ui';
-import { TruncatedText } from '~/components';
-import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
+import { Button, Input, toast } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
-import { Heading } from '../Layout';
+import { Heading } from '../../Layout';
+import Profile from './Profile';
+import Tabs from './Tabs';
+
+type User = {
+	email: string;
+	id: string;
+	timejoined: number;
+	roles: string[];
+};
 
 export const Component = () => {
 	const { t } = useLocale();
+	const [userInfo, setUserInfo] = useState<User | null>(null);
 	const me = useBridgeQuery(['auth.me'], { retry: false });
 	const authStore = auth.useStateSnapshot();
+	useEffect(() => {
+		async function _() {
+			const user_data = await fetch('http://localhost:9420/api/user', {
+				method: 'GET'
+			});
+			const data = await user_data.json();
+			return data;
+		}
+		_().then((data) => {
+			// Check if data is the same as the user type
+			if (data.id) {
+				setUserInfo(data);
+			} else {
+				setUserInfo(null);
+			}
+		});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 	return (
 		<>
 			<Heading
 				rightArea={
 					<>
-						{authStore.status === 'loggedIn' && (
+						{userInfo !== null && (
 							<div className="flex-row space-x-2">
-								<Button variant="accent" size="sm" onClick={auth.logout}>
+								<Button
+									variant="accent"
+									size="sm"
+									onClick={async () => {
+										await signOut();
+										window.location.reload();
+									}}
+								>
 									{t('logout')}
 								</Button>
 							</div>
@@ -30,38 +63,14 @@ export const Component = () => {
 				description={t('spacedrive_cloud_description')}
 			/>
 			<div className="flex flex-col justify-between gap-5 lg:flex-row">
-				<Profile authStore={authStore} email={me.data?.email} />
+				{userInfo === null ? (
+					<Tabs />
+				) : (
+					<Profile authStore={authStore} email={userInfo.email} />
+				)}
 			</div>
 			{useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />}
 		</>
-	);
-};
-
-const Profile = ({ email, authStore }: { email?: string; authStore: { status: string } }) => {
-	const emailName = authStore.status === 'loggedIn' ? email?.split('@')[0] : 'guest user';
-	return (
-		<Card className="relative flex w-full flex-col items-center justify-center !p-6 lg:max-w-[320px]">
-			<AuthRequiredOverlay />
-			<div
-				className="flex size-[90px] items-center justify-center rounded-full
-	 border border-app-line bg-app-input"
-			>
-				<User weight="fill" className="mx-auto text-4xl text-ink-faint" />
-			</div>
-			<h1 className="mx-auto mt-3 text-lg">
-				Welcome <span className="font-bold">{emailName},</span>
-			</h1>
-			<div className="mx-auto mt-4 flex w-full flex-col gap-2">
-				<Card className="w-full items-center justify-start gap-1 bg-app-input !px-2">
-					<div className="w-[20px]">
-						<Envelope weight="fill" width={20} />
-					</div>
-					<TruncatedText>
-						{authStore.status === 'loggedIn' ? email : 'guestuser@outlook.com'}
-					</TruncatedText>
-				</Card>
-			</div>
-		</Card>
 	);
 };
 
@@ -85,14 +94,6 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
-	const doTheThing = useBridgeMutation('cloud.locations.testing', {
-		onSuccess() {
-			toast.success('Uploaded file!');
-		},
-		onError(err) {
-			toast.error(err.message);
-		}
-	});
 
 	useEffect(() => {
 		if (path === '' && locations.data?.[0]) {
@@ -100,7 +101,7 @@ function HostedLocationsPlayground() {
 		}
 	}, [path, locations.data]);
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading || doTheThing.isLoading;
+	const isLoading = createLocation.isLoading || removeLocation.isLoading;
 
 	return (
 		<>
@@ -151,19 +152,6 @@ function HostedLocationsPlayground() {
 								disabled={isLoading}
 							>
 								Delete
-							</Button>
-							<Button
-								variant="accent"
-								size="sm"
-								onClick={() =>
-									doTheThing.mutate({
-										id: location.id,
-										path
-									})
-								}
-								disabled={isLoading}
-							>
-								Do the thing
 							</Button>
 						</div>
 					))}
