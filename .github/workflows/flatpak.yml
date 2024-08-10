@@ -75,7 +75,7 @@ jobs:
           sudo apt-get install -y libc6 libxdo3 dbus libwebkit2gtk-4.1-0 gstreamer1.0-plugins-ugly gstreamer1.0-plugins-bad libgtk-3-0 librsvg2-dev patchelf flatpak flatpak-builder
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y runtime/org.gnome.Platform/x86_64/46 runtime/org.gnome.Sdk/x86_64/46
-          mv Spacedrive-linux-x86_64.deb .github/flatpak/
+          dpkg-deb -xv Spacedrive-linux-x86_64.deb .github/flatpak/
           ls
           
       - name: Build Flatpak
