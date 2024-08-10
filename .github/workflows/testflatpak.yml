@@ -26,6 +26,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           run-id: 10332471962
+          github-token: ${{secrets.CSM_GITHUB_TOKEN}}
       
       - name: Add Submodules
         run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/shared-modules
