@@ -52,7 +52,8 @@ rmpv = { version = "1.3", features = ["with-serde"] }
 rspc = "0.1.4"
 serde = "1.0"
 serde_json = "1.0"
-specta = "=2.0.0-rc.11"
+specta = "=2.0.0-rc.20"
+specta-typescript = "=0.0.7"
 static_assertions = "1.1"
 strum = "0.26"
 strum_macros = "0.26"
@@ -70,36 +71,36 @@ webp = "0.2.6"                                        # Update blocked by image
 
 [workspace.dependencies.prisma-client-rust]
 git = "https://github.com/brendonovich/prisma-client-rust"
-rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab"
+rev = "4f9ef9d"
 features = ["migrations", "specta", "sqlite", "sqlite-create-many"]
 default-features = false
 
 [workspace.dependencies.prisma-client-rust-cli]
 git = "https://github.com/brendonovich/prisma-client-rust"
-rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab"
+rev = "4f9ef9d"
 features = ["migrations", "specta", "sqlite", "sqlite-create-many"]
 default-features = false
 
 [workspace.dependencies.prisma-client-rust-sdk]
 git = "https://github.com/brendonovich/prisma-client-rust"
-rev = "4f9ef9d38ca732162accff72b2eb684d2f120bab"
+rev = "4f9ef9d"
 features = ["sqlite"]
 default-features = false
 
 [patch.crates-io]
 # Proper IOS Support
-if-watch = { git = "https://github.com/spacedriveapp/if-watch.git", rev = "a92c17d3f85c1c6fb0afeeaf6c2b24d0b147e8c3" }
+if-watch = { git = "https://github.com/spacedriveapp/if-watch.git", rev = "a92c17d" }
 
 # We hack it to the high heavens
-rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "ab12964b140991e0730c3423693533fba71efb03" }
+rspc = { git = "https://github.com/spacedriveapp/rspc.git", rev = "0018e80" }
 
 # Add `Control::open_stream_with_addrs`
-libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
-libp2p-core = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
-libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
-libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656df7e82059a0eb2e333ebada4731d23f8c" }
+libp2p = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656" }
+libp2p-core = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656" }
+libp2p-swarm = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656" }
+libp2p-stream = { git = "https://github.com/spacedriveapp/rust-libp2p.git", rev = "a005656" }
 
-blake3 = { git = "https://github.com/spacedriveapp/blake3.git", rev = "d3aab416c12a75c2bfabce33bcd594e428a79069" }
+blake3 = { git = "https://github.com/spacedriveapp/blake3.git", rev = "d3aab41" }
 
 
 [profile.dev]
