@@ -120,7 +120,7 @@ http-body = "0.4.6" # Update blocked by http
 http-range = "0.1.5"
 int-enum = "0.5" # Update blocked due to API breaking changes
 mini-moka = "0.10.3"
-notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114fbb0bc7457a9a498260461596b00ca", default-features = false, features = [
+notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed", default-features = false, features = [
 	"macos_fsevent",
 ] }
 serde-hashkey = "0.4.5"
