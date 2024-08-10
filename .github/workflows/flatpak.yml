@@ -66,9 +66,6 @@ jobs:
       
       - name: Add Submodules
         run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/shared-modules
-
-      - name: Debug
-        run: ls Spacedrive-linux-x86_64.deb
         
       - name: Install FlatPak dependencies
         run: |
