@@ -12,6 +12,13 @@ reviews:
             type: approve
             comment: 疑似翻译腔。这个地方不太好译。
             time: '2024-04-16T02:03:55.931Z'
+          - user:
+              name: Lkhsss
+              email: 89461157+Lkhsss@users.noreply.github.com
+            id: q2RWeijQlSW9n8OkzwnqK
+            type: request_change
+            comment: 我来
+            time: '2024-08-11T01:47:24.517Z'
   all_jobs_have_been_cleared:
     locales:
       zh-CN:
@@ -23,6 +30,13 @@ reviews:
             type: comment
             comment: 要不要把“清除”改为“完成”？
             time: '2024-04-16T10:56:22.929Z'
+          - user:
+              name: Lkhsss
+              email: 89461157+Lkhsss@users.noreply.github.com
+            id: GhuW9AvY_ZO-TiwjLKlEi
+            type: approve
+            comment: 确实
+            time: '2024-08-11T01:54:48.602Z'
   archive_info:
     locales:
       zh-CN:
@@ -127,3 +141,26 @@ reviews:
             type: request_change
             comment: ''
             time: '2024-07-16T18:02:10.188Z'
+  alpha_release_description:
+    locales:
+      zh-CN:
+        comments:
+          - user:
+              name: Lkhsss
+              email: 89461157+Lkhsss@users.noreply.github.com
+            id: tYCDVVyNv_eUVpMQJifHm
+            type: request_change
+            comment: 最后的“有助于极大增强用户体验”很拗口，直接删减法改为“有助于提升用户体验”
+            time: '2024-08-11T01:57:47.644Z'
+  collection:
+    locales:
+      zh-CN:
+        comments:
+          - user:
+              name: Lkhsss
+              email: 89461157+Lkhsss@users.noreply.github.com
+            id: d4GmnxySaJIsAY8vVYY1B
+            type: approve
+            comment: 这玩意是什么文件类型？
+            time: '2024-08-11T02:13:46.747Z'
+            resolved: true
