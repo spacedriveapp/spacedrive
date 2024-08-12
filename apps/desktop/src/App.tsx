@@ -30,9 +30,7 @@ import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
 import Session from 'supertokens-web-js/recipe/session';
 import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
-import getCookieHandler, {
-	setAppReady
-} from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
+import getCookieHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
 import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
 import { useLocale } from '@sd/interface/hooks';
 
@@ -62,9 +60,7 @@ const startupError = (window as any).__SD_ERROR__ as string | undefined;
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		commands.appReady().then(() => {
-			setAppReady();
-		});
+		commands.appReady();
 	}, []);
 
 	useEffect(() => {
