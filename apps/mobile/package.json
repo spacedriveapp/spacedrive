@@ -6,7 +6,7 @@
 	"private": true,
 	"scripts": {
 		"start": "expo start --dev-client",
-		"android": "expo run:android",
+		"android": "java -version 2>&1 | grep -q 'version \"17' && expo run:android || echo 'Java version 17 is required to be the running version. Please switch or uninstall the current version (Version '$(java -version 2>&1 | awk -F '\"' '/version/ {print $2}')').' && exit 1",
 		"ios": "expo run:ios",
 		"prebuild": "expo prebuild",
 		"xcode": "open ios/Spacedrive.xcworkspace",
