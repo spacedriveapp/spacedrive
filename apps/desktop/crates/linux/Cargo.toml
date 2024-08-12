@@ -1,16 +1,17 @@
 [package]
-name = "sd-desktop-linux"
+name    = "sd-desktop-linux"
 version = "0.1.0"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [dependencies]
-libc = { workspace = true }
+libc  = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wgpu = { version = "0.20.0", default-features = false }
+wgpu = { version = "22.1", default-features = false }
 # WARNING: gtk should follow the same version used by tauri
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-rc.2/core/tauri/Cargo.toml
 gtk = { version = "0.18", features = ["v3_24"] }

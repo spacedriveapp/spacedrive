@@ -1,49 +1,42 @@
 [package]
-name = "sd-crypto"
-rust-version = "1.72"
+name    = "sd-crypto"
 version = "0.0.0"
+
 authors = ["Jake Robinson <jake@spacedrive.com>"]
 description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
 """
-readme = "README.md"
+edition.workspace = true
 keywords = ["crypto"]
-edition = { workspace = true }
-license = { workspace = true }
-repository = { workspace = true }
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+rust-version = "1.72"
+
 
 [features]
-sys = []
-serde = [
-	"dep:serde",
-	"dep:serde_json",
-	"dep:serde-big-array",
-	"dep:serdect",
-	"bincode/serde",
-]
+experimental = []
 keyring = ["dep:linux-keyutils", "dep:security-framework"]
 secret-service = [
-	"keyring",
 	"dep:secret-service",
 	"dep:zbus",
+	"keyring"
 ] # explicit enabling required as the secret service api requires `zbus` and is messy
-experimental = []
+serde = ["bincode/serde", "dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serdect"]
+sys = []
 
 [dependencies]
 # rng
-rand_core = "0.9.0-alpha.0"
-rand = "0.9.0-alpha.0"
+rand        = "0.9.0-alpha.0"
 rand_chacha = "0.9.0-alpha.0"
+rand_core   = "0.9.0-alpha.0"
 
 # hashing
-argon2 = { version = "0.6.0-pre.0", default_features = false, features = [
-	"alloc",
-	"zeroize",
-] }
+argon2 = { version = "0.6.0-pre.0", default_features = false, features = ["alloc", "zeroize"] }
 balloon-hash = { version = "0.5.0-pre.0", default_features = false, features = [
 	"alloc",
-	"zeroize",
+	"zeroize"
 ] }
 blake3 = { version = "1.5.0", features = ["traits-preview", "zeroize"] }
 
@@ -51,27 +44,27 @@ blake3 = { version = "1.5.0", features = ["traits-preview", "zeroize"] }
 cmov = "0.3.1"
 
 # aeads
-aes-gcm-siv = "0.11.1"
+aead             = { version = "0.5.2", default-features = false, features = ["stream"] }
+aes-gcm-siv      = "0.11.1"
+bincode          = { version = "2.0.0-rc.3", features = ["alloc", "derive"] }
 chacha20poly1305 = "0.10.1"
-thiserror = "1.0.57"
-aead = { version = "0.5.2", default-features = false, features = ["stream"] }
-bincode = { version = "2.0.0-rc.3", features = ["derive", "alloc"] }
+thiserror        = "1.0.57"
 
-zeroize = { version = "1.7.0", features = ["derive", "aarch64"] }
+zeroize = { version = "1.7.0", features = ["aarch64", "derive"] }
 
-serde = { version = "1.0.197", features = ["derive"], optional = true }
-serde_json = { version = "1.0.114", optional = true }
+serde           = { version = "1.0.197", features = ["derive"], optional = true }
 serde-big-array = { version = "0.5.1", optional = true }
-serdect = { version = "0.3.0-pre.0", optional = true }
+serde_json      = { version = "1.0.114", optional = true }
+serdect         = { version = "0.3.0-pre.0", optional = true }
 
 specta = { workspace = true, optional = true }
 
 # for asynchronous crypto
 tokio = { workspace = true, features = [
 	"io-util",
-	"rt-multi-thread",
 	"macros",
-	"sync",
+	"rt-multi-thread",
+	"sync"
 ], optional = true }
 
 redb = "1.5.0"
@@ -91,14 +84,14 @@ uuid = { version = "1.7.0", features = ["v4"] }
 linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
 secret-service = { version = "3.0.1", features = [
 	"crypto-rust",
-	"rt-tokio-crypto-rust",
+	"rt-tokio-crypto-rust"
 ], optional = true }
 
 # this needs to remain at versions < 4, as they made some changes and i can't get it
 # to compile for the time being
 zbus = { version = "4.0", default_features = false, features = [
-	"tokio",
 	"blocking",
+	"tokio"
 ], optional = true }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
@@ -106,44 +99,44 @@ security-framework = { version = "2.9.2", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"
-paste = "1.0.14"
-tempfile = "3.10.1"
+paste     = "1.0.14"
+tempfile  = "3.10.1"
 
 [clippy]
 allow = ["unwrap_in_tests"]
 
 [[bench]]
-path = "benches/crypto/aes-256-gcm-siv.rs"
-name = "aes-256-gcm-siv"
 harness = false
+name    = "aes-256-gcm-siv"
+path    = "benches/crypto/aes-256-gcm-siv.rs"
 
 [[bench]]
-path = "benches/crypto/xchacha20-poly1305.rs"
-name = "xchacha20-poly1305"
 harness = false
+name    = "xchacha20-poly1305"
+path    = "benches/crypto/xchacha20-poly1305.rs"
 
 [[bench]]
-path = "benches/hashing/argon2id.rs"
-name = "argon2id"
-bench = false
+bench   = false
 harness = false
+name    = "argon2id"
+path    = "benches/hashing/argon2id.rs"
 
 [[bench]]
-path = "benches/hashing/blake3-balloon.rs"
-name = "blake3-balloon"
-bench = false
+bench   = false
 harness = false
+name    = "blake3-balloon"
+path    = "benches/hashing/blake3-balloon.rs"
 
 [[bench]]
-path = "benches/hashing/blake3.rs"
-name = "blake3"
 harness = false
+name    = "blake3"
+path    = "benches/hashing/blake3.rs"
 
 [[bench]]
-path = "benches/hashing/blake3-kdf.rs"
-name = "blake3-kdf"
 harness = false
+name    = "blake3-kdf"
+path    = "benches/hashing/blake3-kdf.rs"
 
 [[example]]
-path = "examples/file_encryption.rs"
 name = "file_encryption"
+path = "examples/file_encryption.rs"

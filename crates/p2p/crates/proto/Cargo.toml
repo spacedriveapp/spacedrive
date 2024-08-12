@@ -1,13 +1,14 @@
 [package]
-name = "sd-p2p-proto"
+name    = "sd-p2p-proto"
 version = "0.1.0"
-authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
-license.workspace = true
-edition.workspace = true
+
+authors              = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+edition.workspace    = true
+license.workspace    = true
 repository.workspace = true
 
 [dependencies]
 ed25519-dalek = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util"] }
-uuid = { workspace = true }
+thiserror     = { workspace = true }
+tokio         = { workspace = true, features = ["io-util"] }
+uuid          = { workspace = true }
