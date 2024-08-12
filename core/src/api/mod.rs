@@ -28,7 +28,8 @@ mod cloud;
 mod ephemeral_files;
 mod files;
 mod jobs;
-mod keys;
+// #[cfg(not(any(target_os = "ios", target_os = "android")))]
+// mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -201,7 +202,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("tags.", tags::mount())
 		.merge("labels.", labels::mount())
 		// .merge("categories.", categories::mount())
-		.merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())
@@ -224,6 +224,9 @@ pub(crate) fn mount() -> Arc<Router> {
 				def,
 			);
 		});
+
+	// #[cfg(not(any(target_os = "ios", target_os = "android")))]
+	// let r = r.merge("keys.", keys::mount());
 
 	let r = r
 		.build(
