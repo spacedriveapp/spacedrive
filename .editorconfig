@@ -42,6 +42,17 @@ indent_size = 4
 [*.{kt,kts}]
 indent_size = 4
 
+# PowerShell
+# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
+[*.{ps1,psd1,psm1}]
+indent_size = 4
+indent_style = space
+
+# Prisma
+# https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model#formatting
+[*.prisma]
+indent_style = space
+
 # Rust
 # https://github.com/rust-lang/rust/blob/master/src/doc/style/style/whitespace.md
 [*.rs]
@@ -58,21 +69,6 @@ indent_style = space
 # https://www.sqlstyle.guide/
 [*.sql]
 indent_size = 4
-
-# Prisma
-# https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model#formatting
-[*.prisma]
-indent_style = space
-
-# YAML
-# http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
-[*.{yaml,yml}]
-indent_style = space
-
-# PowerShell
-# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
-[*.{ps1,psd1,psm1}]
-indent_size = 4
 indent_style = space
 
 # Swift
@@ -80,3 +76,9 @@ indent_style = space
 [*.swift]
 indent_size = 4
 indent_style = space
+
+# YAML
+# http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
+[*.{yaml,yml}]
+indent_style = space
+
