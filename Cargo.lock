@@ -1523,6 +1523,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chromadb"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9529b9b0d36805be7174ef96022e9140e1aa1a72ee744347a4dddd430f95a662"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "minreq",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4511,6 +4524,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "inventory"
+version = "0.3.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f958d3d68f4167080a18141e10381e7634563984a537f2a49a30fd8e53ac5767"
+
+[[package]]
 name = "ipconfig"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5824,6 +5843,21 @@ checksum = "87dfd01fe195c66b572b37921ad8803d010623c0aca821bea2302239d155cdae"
 dependencies = [
  "adler",
  "simd-adler32",
+]
+
+[[package]]
+name = "minreq"
+version = "2.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "763d142cdff44aaadd9268bebddb156ef6c65a0e13486bb81673cf2d8739f9b0"
+dependencies = [
+ "log",
+ "once_cell",
+ "rustls 0.21.12",
+ "rustls-webpki 0.101.7",
+ "serde",
+ "serde_json",
+ "webpki-roots 0.25.4",
 ]
 
 [[package]]
@@ -8166,7 +8200,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
- "webpki-roots",
+ "webpki-roots 0.26.2",
  "winreg 0.52.0",
 ]
 
@@ -8703,6 +8737,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-capability-derive"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
+ "thiserror",
+]
+
+[[package]]
 name = "sd-cloud-api"
 version = "0.1.0"
 dependencies = [
@@ -8814,6 +8860,32 @@ dependencies = [
  "trash",
  "uuid",
  "webp",
+]
+
+[[package]]
+name = "sd-core-ai"
+version = "0.1.0"
+dependencies = [
+ "chromadb",
+ "chrono",
+ "convert_case 0.6.0",
+ "inventory",
+ "once_cell",
+ "paste",
+ "prisma-client-rust",
+ "regex",
+ "reqwest 0.11.27",
+ "sd-core-prisma-helpers",
+ "sd-core-sync",
+ "sd-prisma",
+ "sd-prompt-derive",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "winapi-util",
 ]
 
 [[package]]
@@ -9201,6 +9273,18 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+]
+
+[[package]]
+name = "sd-prompt-derive"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
+ "thiserror",
 ]
 
 [[package]]
@@ -11470,7 +11554,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-webpki 0.102.4",
  "url",
- "webpki-roots",
+ "webpki-roots 0.26.2",
 ]
 
 [[package]]
@@ -11876,6 +11960,12 @@ dependencies = [
  "image",
  "libwebp-sys",
 ]
+
+[[package]]
+name = "webpki-roots"
+version = "0.25.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
 
 [[package]]
 name = "webpki-roots"

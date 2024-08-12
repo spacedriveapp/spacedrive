@@ -1,0 +1,25 @@
+[package]
+name = "sd-prompt-derive"
+version = "0.1.0"
+authors = ["Jamie Pine <jamie@spacedrive.com>"]
+license = { workspace = true }
+repository = { workspace = true }
+edition = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+thiserror = { workspace = true }
+chrono = { workspace = true }
+serde = { workspace = true }
+
+[dependencies.syn]
+version = "1.0"
+features = ["full"]
+
+[dependencies.quote]
+version = "1.0"
+
+[dependencies.proc-macro2]
+version = "1.0"

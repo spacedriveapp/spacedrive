@@ -1,3 +1,4 @@
+Agentic
 akar
 allred
 alluxio
@@ -40,12 +41,14 @@ naveen
 neha
 noco
 Normalised
+Ollama
 OSSC
 poonen
 rauch
 ravikant
 Recents
 Renamable
+reqwest
 richelsen
 rspc
 rspcws

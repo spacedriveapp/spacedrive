@@ -356,3 +356,5 @@ vite.config.ts.*
 
 /test-data
 /config.json
+core/crates/ai/flattened_codebase.txt
+core/crates/ai/flatten_rs_files.sh
