@@ -33,6 +33,8 @@ paste = "1.0.15"
 convert_case = "0.6.0"
 inventory = "0.3.0"
 serde_json.workspace = true
+futures.workspace = true
+async-stream = "0.3.5"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1.8"

@@ -54,7 +54,7 @@ impl OllamaClient {
 		let stream = response.bytes_stream();
 
 		Ok(stream.map(|chunk| {
-			let chunk = chunk.unwrap_or_else(|_| vec![]);
+			let chunk = chunk.unwrap_or_else(|_| vec![].into());
 			String::from_utf8_lossy(&chunk).to_string()
 		}))
 	}
@@ -71,7 +71,7 @@ impl OllamaClient {
 	> {
 		let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-		let stream = self.stream_prompt(prompt).await?;
+		let mut stream = self.stream_prompt(prompt).await?;
 
 		let cancellable_stream = async_stream::stream! {
 			tokio::select! {

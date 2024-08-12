@@ -1,165 +1,117 @@
+pub mod action;
 pub mod capability;
 pub mod concept;
 pub mod instruct;
 pub mod journal;
+pub mod model;
 pub mod objective;
-pub mod system_prompt;
+pub mod ollama;
+pub mod working_memory;
+use std::time::Duration;
 
 pub use capability::{Capability, CAPABILITY_REGISTRY};
 pub use concept::{Concept, CONCEPT_REGISTRY};
-pub use system_prompt::{ProcessConfig, ResponseAction, SystemPrompt, SystemResponse};
-
-use chrono::prelude::*;
+use futures::StreamExt;
+use model::{ModelEvent, ModelResponse};
+use ollama::OllamaClient;
 use sd_prompt_derive::Prompt;
-use tokio::sync::mpsc;
+
+use tokio::{sync::mpsc, time::sleep};
 
 pub trait Prompt {
 	fn generate_prompt(&self) -> String;
 }
 
-#[derive(Prompt, Debug, Clone)]
-pub struct ModelEvent {
-	pub r#type: ModelEventType,
-	pub text: String,
-	pub timestamp: DateTime<Utc>,
-}
-define_concept!(ModelEvent);
-
-#[derive(Prompt, Debug, Clone)]
-pub enum ModelEventType {
-	Message,
-	Action,
-}
-
-#[derive(Prompt, Debug, Clone)]
-pub enum ModelInputType {
-	Command, // one-shot
-	Query,   // one-shot
-	Conversation,
-}
-
 pub struct ModelInstance {
-	pub id: i64,
-	pub state: SystemState,
-	pub system_prompt: SystemPrompt,
+	// TODO: to add concurrency multiple instances of working memory might allow for parallel processing and fast context switching, like tabs.
+	pub working_memory: working_memory::WorkingMemory,
+	// this will allow us to ensure our prompt generation doesn't exceed the context window
+	pub context_window_length: usize,
+	// embedded in the base system prompt
+	pub model_name: String,
+	// channels for communication with the outside
 	pub event_tx: mpsc::Sender<ModelEvent>,
 	pub event_rx: mpsc::Receiver<ModelEvent>,
 }
 
 impl ModelInstance {
-	pub fn new(id: i64) -> Self {
-		let (event_tx, event_rx) = mpsc::channel(100);
-		let system_prompt = SystemPrompt::new();
-
-		ModelInstance {
-			id,
-			state: SystemState::Idle,
-			system_prompt,
-			event_tx,
-			event_rx,
-		}
-	}
-
 	pub async fn start(&mut self) {
+		let ollama_client = OllamaClient::new("http://localhost:11434"); // Adjust URL as needed
+
 		loop {
-			match self.state {
-				SystemState::Idle => {
-					if let Some(event) = self.event_rx.recv().await {
-						self.handle_event(event).await;
-					}
-				}
-				SystemState::Routing => {
-					// Determine the next action based on current objectives, memories, and context
-					// Simulate routing logic
-					self.state = SystemState::Acting;
-				}
-				SystemState::Acting => {
-					// Execute actions and capabilities
-					self.execute_current_task().await;
-					self.state = SystemState::Reflecting;
-				}
-				SystemState::Reflecting => {
-					// Reflect on the outcomes and update strategies
-					self.state = SystemState::Idle;
+			// Process any incoming events
+			while let Ok(event) = self.event_rx.try_recv() {
+				// Handle the event (e.g., update working memory)
+				self.handle_event(event);
+			}
+
+			// Generate the prompt for the current stage
+			let prompt = self.generate_prompt_for_stage();
+
+			// Send the prompt to Ollama and get the response
+			let (stream, _cancel_tx) = ollama_client
+				.stream_prompt_with_cancellation(&prompt)
+				.await
+				.expect("Failed to start stream");
+
+			// Pin the stream
+			let mut pinned_stream = Box::pin(stream);
+
+			let mut response_text = String::new();
+			while let Some(chunk_result) = pinned_stream.next().await {
+				match chunk_result {
+					Ok(chunk) => response_text.push_str(&chunk),
+					Err(_) => break,
 				}
 			}
+
+			// Parse the JSON response
+			let model_response: ModelResponse = match serde_json::from_str(&response_text) {
+				Ok(response) => response,
+				Err(e) => {
+					eprintln!(
+						"Failed to parse model response: {}. Response text: {}",
+						e, response_text
+					);
+					continue; // Skip to the next iteration if parsing fails
+				}
+			};
+
+			// Process the response
+			self.process_model_response(model_response);
+
+			// Short delay to prevent tight looping
+			sleep(Duration::from_millis(100)).await;
 		}
 	}
 
-	async fn handle_event(&mut self, event: ModelEvent) {
-		match event.r#type {
-			ModelEventType::Message => {
-				println!("Received message: {}", event.text);
-				// Process message and decide on the next action
-				self.state = SystemState::Routing;
-			}
-			ModelEventType::Action => {
-				println!("Executing action: {}", event.text);
-				// Execute specific action logic
-				self.state = SystemState::Acting;
-			}
+	fn handle_event(&mut self, _event: ModelEvent) {
+		// Update working memory based on the event
+		self.working_memory.last_updated_at = chrono::Utc::now();
+		// Add more event handling logic as needed
+	}
+
+	fn generate_prompt_for_stage(&self) -> String {
+		// TODO: Implement prompt generation based on the current stage
+		// This will be implemented in the next step
+		String::new()
+	}
+
+	fn process_model_response(&mut self, response: ModelResponse) {
+		// Update the working memory with the new stage
+		self.working_memory.stage = response.next_stage;
+
+		// Handle requested concepts
+		for _concept_request in response.request_concepts {
+			// TODO: Implement concept retrieval and addition to working memory
 		}
-	}
 
-	async fn execute_current_task(&self) {
-		// Logic to execute the current task, utilizing capabilities or interacting with concepts
-		println!("Executing task in Acting state.");
-	}
+		// Handle user message if present
+		if let Some(_message) = response.message_for_user {
+			// TODO: Implement user message handling (e.g., send to a UI)
+		}
 
-	pub async fn send_message(&self, message: String) {
-		let event = ModelEvent {
-			r#type: ModelEventType::Message,
-			text: message,
-			timestamp: Utc::now(),
-		};
-		self.event_tx.send(event).await.unwrap();
+		// Update the last_updated_at timestamp
+		self.working_memory.last_updated_at = chrono::Utc::now();
 	}
 }
-
-#[derive(Prompt, Debug, Clone)]
-#[prompt(
-	instruct = "Define your current state and execute the appropriate behavior for each state."
-)]
-pub enum Stage {
-	Plan, // planning and tool selection
-	Execute,
-	Reflect,
-}
-
-// Actions are created when
-#[derive(Prompt, Debug, Clone)]
-#[prompt(meaning = r###"
-        The system will create actions for all capabilities executed. You can review these at any time to ensure the system is behaving as expected. Ensure we are not looping or stuck in a state.
-    "###)]
-pub struct Action {
-	pub name: String,
-	pub description: String,
-	pub stage: Stage,
-}
-define_concept!(Action);
-
-#[derive(Prompt)]
-#[prompt(
-	cardinality = "single",
-	meaning = "This is the state of the overall system."
-)]
-pub enum SystemState {
-	#[prompt(
-		instruct = "Remain idle. Await new instructions or triggers before taking any action."
-	)]
-	Idle,
-	#[prompt(
-		instruct = "Determine the next best action or capability to invoke based on current objectives, memories, and available context. Make sure to prioritize effectively."
-	)]
-	Routing,
-	#[prompt(
-		instruct = "Execute the selected capability or plan based on your current thought process. Ensure all actions are aligned with the objectives and the desired outcomes."
-	)]
-	Acting,
-	#[prompt(
-		instruct = "Reflect on the actions you've taken. Analyze the outcomes, gather new data, and reassess your strategies and objectives. Make adjustments as needed based on what you've learned."
-	)]
-	Reflecting,
-}
-
-// Example capability and concept implementations would go here

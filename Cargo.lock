@@ -8866,9 +8866,11 @@ dependencies = [
 name = "sd-core-ai"
 version = "0.1.0"
 dependencies = [
+ "async-stream",
  "chromadb",
  "chrono",
  "convert_case 0.6.0",
+ "futures",
  "inventory",
  "once_cell",
  "paste",
