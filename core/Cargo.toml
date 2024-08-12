@@ -1,54 +1,47 @@
 [package]
-name = "sd-core"
+name    = "sd-core"
 version = "0.4.1"
-description = "Virtual distributed filesystem engine that powers Spacedrive."
-authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-rust-version = "1.78"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description          = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+rust-version         = "1.78"
 
 [features]
 default = []
 # This feature allows features to be disabled when the Core is running on mobile.
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
-ffmpeg = [
-	"dep:sd-ffmpeg",
-	"sd-core-heavy-lifting/ffmpeg",
-	"sd-media-metadata/ffmpeg",
-]
-heif = ["sd-images/heif"]
-ai = ["dep:sd-ai"]
+ai     = ["dep:sd-ai"]
+ffmpeg = ["dep:sd-ffmpeg", "sd-core-heavy-lifting/ffmpeg", "sd-media-metadata/ffmpeg"]
+heif   = ["sd-images/heif"]
 
 [dependencies]
 # Inner Core Sub-crates
 sd-core-file-path-helper = { path = "./crates/file-path-helper" }
-sd-core-heavy-lifting = { path = "./crates/heavy-lifting" }
-sd-core-indexer-rules = { path = "./crates/indexer-rules" }
-sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
-sd-core-sync = { path = "./crates/sync" }
+sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
+sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
+sd-core-prisma-helpers   = { path = "./crates/prisma-helpers" }
+sd-core-sync             = { path = "./crates/sync" }
 
 # Spacedrive Sub-crates
-sd-actors = { path = "../crates/actors" }
-sd-ai = { path = "../crates/ai", optional = true }
-sd-cloud-api = { path = "../crates/cloud-api" }
-sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
-sd-file-ext = { path = "../crates/file-ext" }
-sd-images = { path = "../crates/images", features = [
-	"rspc",
-	"serde",
-	"specta",
-] }
+sd-actors         = { path = "../crates/actors" }
+sd-ai             = { path = "../crates/ai", optional = true }
+sd-cloud-api      = { path = "../crates/cloud-api" }
+sd-ffmpeg         = { path = "../crates/ffmpeg", optional = true }
+sd-file-ext       = { path = "../crates/file-ext" }
+sd-images         = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
 sd-media-metadata = { path = "../crates/media-metadata" }
-sd-p2p = { path = "../crates/p2p", features = ["specta"] }
-sd-p2p-block = { path = "../crates/p2p/crates/block" }
-sd-p2p-proto = { path = "../crates/p2p/crates/proto" }
-sd-p2p-tunnel = { path = "../crates/p2p/crates/tunnel" }
-sd-prisma = { path = "../crates/prisma" }
-sd-sync = { path = "../crates/sync" }
-sd-task-system = { path = "../crates/task-system" }
-sd-utils = { path = "../crates/utils" }
+sd-p2p            = { path = "../crates/p2p", features = ["specta"] }
+sd-p2p-block      = { path = "../crates/p2p/crates/block" }
+sd-p2p-proto      = { path = "../crates/p2p/crates/proto" }
+sd-p2p-tunnel     = { path = "../crates/p2p/crates/tunnel" }
+sd-prisma         = { path = "../crates/prisma" }
+sd-sync           = { path = "../crates/sync" }
+sd-task-system    = { path = "../crates/task-system" }
+sd-utils          = { path = "../crates/utils" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
@@ -62,7 +55,7 @@ directories = { workspace = true }
 futures = { workspace = true }
 futures-concurrency = { workspace = true }
 gix-ignore = { workspace = true }
-hyper = { workspace = true, features = ["http1", "server", "client"] }
+hyper = { workspace = true, features = ["client", "http1", "server"] }
 image = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
@@ -75,14 +68,7 @@ reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp = { workspace = true }
 rmp-serde = { workspace = true }
 rmpv = { workspace = true }
-rspc = { workspace = true, features = [
-	"axum",
-	"uuid",
-	"chrono",
-	"tracing",
-	"alpha",
-	"unstable",
-] }
+rspc = { workspace = true, features = ["alpha", "axum", "chrono", "tracing", "unstable", "uuid"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true }
@@ -92,26 +78,26 @@ strum_macros = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = [
-	"sync",
-	"rt-multi-thread",
 	"io-util",
 	"macros",
-	"time",
 	"process",
+	"rt-multi-thread",
+	"sync",
+	"time"
 ] }
 tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-uuid = { workspace = true, features = ["v4", "serde"] }
+uuid = { workspace = true, features = ["serde", "v4"] }
 webp = { workspace = true }
 
 # Specific Core dependencies
 async-recursion = "1.1"
 async-stream = "0.3.5"
-aws-sdk-s3 = { version = "1.34", features = ["behavior-version-latest"] }
 aws-config = "1.5"
 aws-credential-types = "1.2"
+aws-sdk-s3 = { version = "1.34", features = ["behavior-version-latest"] }
 bytes = "1.6"
 ctor = "0.2.8"
 flate2 = "1.0"
@@ -120,8 +106,8 @@ http-body = "0.4.6" # Update blocked by http
 http-range = "0.1.5"
 int-enum = "0.5" # Update blocked due to API breaking changes
 mini-moka = "0.10.3"
-notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed", default-features = false, features = [
-	"macos_fsevent",
+notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114", default-features = false, features = [
+	"macos_fsevent"
 ] }
 serde-hashkey = "0.4.5"
 serde_repr = "0.1.19"
@@ -134,11 +120,11 @@ tracing-appender = "0.2.3"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
-version = "=0.10.64"
 features = ["vendored"]
+version  = "0.10.66"
 [dependencies.openssl-sys]
-version = "=0.9.102"
 features = ["vendored"]
+version  = "0.9.103"
 
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -155,8 +141,8 @@ trash = "4.1"
 icrate = { version = "0.1.2", features = [
 	"Foundation",
 	"Foundation_NSFileManager",
-	"Foundation_NSString",
 	"Foundation_NSNumber",
+	"Foundation_NSString"
 ] }
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -164,7 +150,7 @@ tracing-android = "0.2.0"
 
 [dev-dependencies]
 # Workspace dependencies
-globset = { workspace = true }
+globset      = { workspace = true }
 tracing-test = { workspace = true }
 
 # Specific Core dependencies

@@ -1,54 +1,51 @@
 [package]
-name = "sd-desktop"
+name    = "sd-desktop"
 version = "0.4.1"
-description = "The universal file manager."
-authors = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-default-run = "sd-desktop"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+default-run          = "sd-desktop"
+description          = "The universal file manager."
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
-sd-fda = { path = "../../../crates/fda" }
+sd-core   = { path = "../../../core", features = ["ffmpeg", "heif"] }
+sd-fda    = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
-axum = { workspace = true, features = ["headers", "query"] }
-directories = { workspace = true }
-futures = { workspace = true }
-hyper = { workspace = true }
-http = { workspace = true }
+axum               = { workspace = true, features = ["headers", "query"] }
+directories        = { workspace = true }
+futures            = { workspace = true }
+http               = { workspace = true }
+hyper              = { workspace = true }
 prisma-client-rust = { workspace = true }
-rand = { workspace = true }
-rspc = { workspace = true, features = ["tauri", "tracing"] }
-serde = { workspace = true }
-serde_json = { workspace = true }
-specta = { workspace = true }
-specta-typescript = { workspace = true }
-strum = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["sync"] }
-tracing = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true, features = ["serde"] }
+rand               = { workspace = true }
+rspc               = { workspace = true, features = ["tauri", "tracing"] }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+specta             = { workspace = true }
+specta-typescript  = { workspace = true }
+strum              = { workspace = true, features = ["derive"] }
+thiserror          = { workspace = true }
+tokio              = { workspace = true, features = ["sync"] }
+tracing            = { workspace = true }
+uuid               = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener = { version = "0.7.1", features = ["reveal"], default-features = false }
-tauri = { version = "=2.0.0-rc.2", features = [
-	"macos-private-api",
-	"unstable",
-	"linux-libxdo",
-] }
-tauri-plugin-updater = "=2.0.0-rc.0"
+tauri = { version = "=2.0.0-rc.2", features = ["linux-libxdo", "macos-private-api", "unstable"] }
 tauri-plugin-dialog = "=2.0.0-rc.0"
 tauri-plugin-os = "=2.0.0-rc.0"
 tauri-plugin-shell = "=2.0.0-rc.0"
+tauri-plugin-updater = "=2.0.0-rc.0"
 tauri-runtime = { version = "=2.0.0-rc.2" }
-tauri-specta = { git = "https://github.com/spacedriveapp/tauri-specta", rev = "6069a05", features = [
-	"typescript",
+tauri-specta = { git = "https://github.com/spacedriveapp/tauri-specta", rev = "6069a05029", features = [
 	"derive",
+	"typescript"
 ] }
 tauri-utils = { version = "=2.0.0-rc.2" }
 
@@ -75,7 +72,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 tauri-build = "=2.0.0-rc.2"
 
 [features]
-default = ["custom-protocol"]
-devtools = ["tauri/devtools"]
-ai-models = ["sd-core/ai"]
+ai-models       = ["sd-core/ai"]
 custom-protocol = ["tauri/custom-protocol"]
+default         = ["custom-protocol"]
+devtools        = ["tauri/devtools"]
