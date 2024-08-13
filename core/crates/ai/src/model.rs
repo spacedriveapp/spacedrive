@@ -14,19 +14,23 @@ use serde::{Deserialize, Serialize};
 	instruct = "The ModelResponse is a structured response that the model must always respond with. It is used to instruct the system on what to do next and to provide a brief overview of what happened in this round."
 )]
 pub struct ModelResponse {
-	#[prompt(
-		instruct = "Select the snake_case identifiers of any Concepts you want to expand in the next iteration, to provide you with the exact instructions and parameter specifications you need."
-	)]
-	// if this is filled out the next system prompt will include this concept expanded
-	pub request_concepts: Vec<String>,
-	#[prompt(
-		instruct = "Staying aware of any active [Conversation] with the user, if now is a good time to reply you may provide a message here and it will be added to the sent to the active conversation."
-	)]
-	pub message_for_user: Option<String>,
 	// model can instruct system to advance to next stage
 	pub next_stage: ProcessStage,
 	// a brief overview of what happened in this round
 	pub description: Option<String>,
+	#[prompt(
+		instruct = "The string value is JSON data, you MUST provide the parameters in the exact schema for this Concept."
+	)]
+	pub create_concepts: Option<Vec<String>>,
+	#[prompt(
+		instruct = "Select the identifiers of any Concepts you want to expand in the next iteration, to provide you with the exact instructions and parameter specifications you need. Only use this if you do not have the exact schema for the Concept present."
+	)]
+	// if this is filled out the next system prompt will include this concept expanded
+	pub request_concepts: Option<Vec<String>>,
+	#[prompt(
+		instruct = "Staying aware of any active [Conversation] with the user, if now is a good time to reply you may provide a message here and it will be added to the sent to the active conversation."
+	)]
+	pub message_for_user: Option<String>,
 }
 define_concept!(ModelResponse);
 

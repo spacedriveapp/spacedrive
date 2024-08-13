@@ -42,7 +42,7 @@ impl PromptFactory {
 
 	pub fn finalize(&self) -> String {
 		let mut finalized_prompt = self.prompt.clone();
-		finalized_prompt.push_str("\n==================================================\n");
+		finalized_prompt.push_str("\n");
 		finalized_prompt
 	}
 }

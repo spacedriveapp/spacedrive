@@ -163,7 +163,7 @@ impl ModelInstance {
 				println!("{}", line);
 			}
 		}
-		println!();
+		println!("{}", "=".repeat(50).yellow());
 
 		prompt
 	}
