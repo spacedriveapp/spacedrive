@@ -39,6 +39,7 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 				let mut weight: Option<u16> = None;
 				let mut meaning: Option<String> = None;
 
+				// Parse prompt-specific attributes for fields
 				for attr in &f.attrs {
 					if attr.path.is_ident("prompt") {
 						if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
@@ -77,7 +78,7 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 				};
 
 				quote! {
-					prompts.push(format!("{}: {:?}{}{}", stringify!(#name), self.#name, #weight_str, #meaning_str));
+					prompts.push(format!("  - {}: {:?}{}{}", stringify!(#name), self.#name, #weight_str, #meaning_str));
 				}
 			});
 
@@ -85,9 +86,9 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 				impl Prompt for #name {
 					fn generate_prompt(&self) -> String {
 						let mut prompts = Vec::new();
-						prompts.push(format!("{}", #instruct_str));
+						prompts.push(format!("\n* Purpose *: {}\n* Attributes *:", #instruct_str));
 						#(#fields)*
-						prompts.join(", ")
+						prompts.join("\n")
 					}
 				}
 			}
@@ -97,6 +98,7 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 				let variant_name = &v.ident;
 				let mut variant_instruct = instruct.clone();
 
+				// Handle prompt-specific instructions for each variant
 				for attr in &v.attrs {
 					if attr.path.is_ident("prompt") {
 						if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
@@ -121,7 +123,7 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 				let variant_instruct_str = variant_instruct.unwrap_or_else(|| instruct_str.clone());
 
 				quote! {
-					#name::#variant_name => format!("{}: {}", stringify!(#variant_name), #variant_instruct_str),
+					#name::#variant_name => format!("  - {}: {}", stringify!(#variant_name), #variant_instruct_str),
 				}
 			});
 

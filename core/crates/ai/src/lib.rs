@@ -1,9 +1,12 @@
+use action::Action;
 pub use capability::{Capability, CAPABILITY_REGISTRY};
 use concept::list_concepts;
-pub use concept::{Concept, CONCEPT_REGISTRY};
+pub use concept::Concept;
+use journal::{Journal, JournalEntry};
 use model::{ModelEvent, ModelResponse};
 // use ollama::OllamaClient;
 use colored::*;
+use objective::Objective;
 pub use prompt::*;
 use sd_prompt_derive::Prompt;
 use std::time::Duration;
@@ -30,18 +33,44 @@ pub struct ModelInstance {
 	// channels for communication with the outside
 	pub event_tx: mpsc::Sender<ModelEvent>,
 	pub event_rx: mpsc::Receiver<ModelEvent>,
+	concept_initializers: Vec<Box<dyn Fn() + Send + Sync>>,
 }
 
 impl ModelInstance {
 	pub fn new() -> Self {
 		let (event_tx, event_rx) = mpsc::channel(100);
 
-		Self {
+		let mut instance = Self {
 			working_memory: working_memory::WorkingMemory::new(),
 			context_window_length: 5,
 			model_name: "llama3.1:70b".to_string(),
 			event_tx,
 			event_rx,
+			concept_initializers: Vec::new(),
+		};
+
+		// Populate the vector with concept registration functions
+		instance.add_concept::<Action>();
+		instance.add_concept::<Objective>();
+		instance.add_concept::<Journal>();
+		instance.add_concept::<JournalEntry>();
+		instance.add_concept::<ModelEvent>();
+
+		// Register all concepts
+		instance.register_concepts();
+
+		instance
+	}
+
+	fn add_concept<T: Concept + Default + 'static>(&mut self) {
+		self.concept_initializers.push(Box::new(|| {
+			T::concept_name(); // This ensures the concept gets registered
+		}));
+	}
+
+	fn register_concepts(&self) {
+		for init in &self.concept_initializers {
+			init();
 		}
 	}
 	pub async fn start(&mut self) {

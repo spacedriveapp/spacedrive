@@ -1,5 +1,5 @@
-use crate::action::Action;
-use crate::{concept::ConceptWrapper, Prompt};
+use crate::Prompt;
+use crate::{action::Action, concept::ConceptMeta};
 use serde::{Deserialize, Serialize};
 // Working memory is accessible throughout the execution process and gives the model a clear view of the current state of the system.
 // Elements from here will be included in the system prompt
@@ -8,7 +8,7 @@ pub struct WorkingMemory {
 	// any natural language notes that need to be saved during processing
 	pub notes: Vec<Note>,
 	// As concepts are chosen they are added to this list
-	pub concepts: Vec<ConceptWrapper>,
+	pub concepts: Vec<ConceptMeta>,
 	// which stage of the process are we in
 	pub stage: ProcessStage,
 
@@ -30,7 +30,7 @@ impl WorkingMemory {
 		}
 	}
 
-	pub fn add_concept(&mut self, concept: ConceptWrapper) {
+	pub fn add_concept(&mut self, concept: ConceptMeta) {
 		self.concepts.push(concept);
 	}
 

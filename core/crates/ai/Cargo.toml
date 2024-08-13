@@ -36,6 +36,9 @@ serde_json.workspace = true
 futures.workspace = true
 async-stream = "0.3.5"
 colored = "2.1.0"
+lazy_static = "1.5.0"
+ctor = "0.2.8"
+expand = "0.3.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1.8"

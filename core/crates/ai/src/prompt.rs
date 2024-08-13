@@ -15,28 +15,29 @@ impl PromptFactory {
 			prompt: BASE_INSTRUCT.to_string(),
 		}
 	}
+
 	pub fn add_section<T: Prompt>(&mut self, section_name: String, prompt: &T) {
-		self.prompt
-			.push_str(format!("\n\n### {}: \n{}", section_name, prompt.generate_prompt()).as_str());
+		self.prompt.push_str(
+			format!(
+				"\n\n### {}:\n- {}\n",
+				section_name.to_uppercase(),
+				prompt.generate_prompt()
+			)
+			.as_str(),
+		);
 	}
 
 	pub fn add_section_grouped<T: Prompt>(&mut self, section_name: String, prompts: Vec<T>) {
-		let mut section = format!("\n\n### {}:\n\n", section_name);
+		let mut section = format!("\n\n### {}:\n\n", section_name.to_uppercase());
 		for prompt in prompts {
-			section.push_str(format!("{}\n", prompt.generate_prompt()).as_str());
-		}
-		self.prompt.push_str(section.as_str());
-	}
-
-	pub fn add_text_section_grouped(&mut self, section_name: String, prompts: Vec<String>) {
-		let mut section = format!("\n\n### {}:", section_name);
-		for prompt in prompts {
-			section.push_str(format!("{}\n\n", prompt).as_str());
+			section.push_str(format!("- {}\n", prompt.generate_prompt()).as_str());
 		}
 		self.prompt.push_str(section.as_str());
 	}
 
 	pub fn finalize(&self) -> String {
-		self.prompt.clone()
+		let mut finalized_prompt = self.prompt.clone();
+		finalized_prompt.push_str("\n==================================================\n");
+		finalized_prompt
 	}
 }

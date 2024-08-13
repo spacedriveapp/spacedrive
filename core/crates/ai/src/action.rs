@@ -1,10 +1,9 @@
 use crate::{define_concept, Concept, Prompt};
 
-#[derive(Prompt, Debug, Clone)]
+#[derive(Prompt, Debug, Clone, Default)]
 #[prompt(instruct = r###"
         The System will create actions for all capabilities executed. You can review these at any time to ensure the system is behaving as expected. Ensure we are not looping or stuck in a state.
-    "###,
-)]
+    "###)]
 pub struct Action {
 	pub name: String,
 	pub description: String,
@@ -13,8 +12,9 @@ pub struct Action {
 	pub status: ActionStatus,
 }
 
-#[derive(Prompt, Debug, Clone)]
+#[derive(Prompt, Debug, Clone, Default)]
 pub enum ActionStatus {
+	#[default]
 	Success,
 	Failure,
 	Timeout,

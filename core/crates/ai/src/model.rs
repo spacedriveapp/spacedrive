@@ -25,7 +25,10 @@ pub struct ModelResponse {
 }
 
 // The ModelEvent is created in code by the system, but is viewable by the model so we define as a Concept.
-#[derive(Prompt, Debug, Clone)]
+#[derive(Prompt, Debug, Clone, Default)]
+#[prompt(
+	instruct = "Events are created by the system to inform the model of important changes or actions taken."
+)]
 pub struct ModelEvent {
 	pub r#type: ModelEventType,
 	pub text: String,
@@ -33,8 +36,9 @@ pub struct ModelEvent {
 }
 define_concept!(ModelEvent);
 
-#[derive(Prompt, Debug, Clone)]
+#[derive(Prompt, Debug, Clone, Default)]
 pub enum ModelEventType {
+	#[default]
 	SystemMessage,
 	UserMessage,
 	PerformedAction,
