@@ -39,6 +39,8 @@ colored = "2.1.0"
 lazy_static = "1.5.0"
 ctor = "0.2.8"
 expand = "0.3.0"
+typify = "0.1.0"
+schemars = "0.8.21"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1.8"

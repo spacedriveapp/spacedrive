@@ -1,6 +1,9 @@
-use crate::Prompt;
-use crate::{action::Action, concept::ConceptMeta};
+use crate::{action::Action, concept::ConceptMeta, Concept, SchemaProvider};
+use crate::{define_concept, Prompt};
+use schemars::schema_for;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
 // Working memory is accessible throughout the execution process and gives the model a clear view of the current state of the system.
 // Elements from here will be included in the system prompt
 // This struct cannot be given a Prompt derive because it is exclusive to system memory
@@ -30,7 +33,7 @@ impl WorkingMemory {
 		}
 	}
 
-	pub fn add_concept(&mut self, concept: ConceptMeta) {
+	pub fn add_root_concept(&mut self, concept: ConceptMeta) {
 		self.concepts.push(concept);
 	}
 
@@ -39,19 +42,23 @@ impl WorkingMemory {
 	}
 }
 
-#[derive(Prompt, Debug, Clone, Serialize, Deserialize)]
+#[derive(Prompt, JsonSchema, Debug, Clone, Default, Serialize, Deserialize)]
+#[prompt(
+	instruct = "A note is a piece of information that is not directly related to the concepts but is important to remember. This can be used to store any information that is not directly related to the concepts."
+)]
 pub struct Note {
 	pub text: String,
-	pub timestamp: chrono::DateTime<chrono::Utc>,
+	pub timestamp: String,
 }
-
+define_concept!(Note);
 // We use the Prompt metadata when the system prompt is constructed
-#[derive(Prompt, Debug, Clone, Serialize, Deserialize)]
+#[derive(Prompt, JsonSchema, Debug, Clone, Serialize, Deserialize, Default)]
 #[prompt(
 	instruct = "This is the state of the overall system.",
 	show_variants = true
 )]
 pub enum ProcessStage {
+	#[default]
 	// An idle state is important to ensure execution loop doesn't needless run
 	#[prompt(
 		instruct = "The system is currently idle and waiting for input. This is the default state when no other actions are being taken. This will pause the execution loop."
@@ -75,3 +82,4 @@ pub enum ProcessStage {
 	)]
 	Reflect,
 }
+define_concept!(ProcessStage);

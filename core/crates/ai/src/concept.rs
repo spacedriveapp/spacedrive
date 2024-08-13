@@ -1,10 +1,15 @@
 use crate::Prompt;
 use once_cell::sync::Lazy;
+use schemars::schema::Schema;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-pub trait Concept: Clone + 'static + Prompt + Send + Sync {
+pub trait SchemaProvider {
+	fn provide_schema() -> Schema;
+}
+
+pub trait Concept: Clone + 'static + Prompt + Send + Sync + SchemaProvider {
 	fn concept_name() -> &'static str
 	where
 		Self: Sized;
@@ -22,6 +27,13 @@ macro_rules! define_concept {
 			}
 		}
 
+		// Implementing SchemaProvider for the concept
+		impl SchemaProvider for $concept_name {
+			fn provide_schema() -> schemars::schema::Schema {
+				schemars::schema::Schema::Object(schema_for!($concept_name).schema)
+			}
+		}
+
 		paste::paste! {
 			fn [<register_concept_meta_ $concept_name:snake>]() {
 				let meta = crate::concept::ConceptMeta {
@@ -31,9 +43,6 @@ macro_rules! define_concept {
 				let type_id = std::any::TypeId::of::<$concept_name>();
 				let mut cache = crate::concept::CONCEPT_META_CACHE.lock().unwrap();
 				cache.insert(type_id, meta);
-
-				// Debug output
-				println!("Registered concept: {}", stringify!($concept_name));
 			}
 
 			#[ctor::ctor]

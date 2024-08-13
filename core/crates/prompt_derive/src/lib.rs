@@ -1,25 +1,28 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Lit, Meta, MetaNameValue, NestedMeta};
+use syn::{parse_macro_input, DeriveInput, Lit, Meta, NestedMeta};
 
 #[proc_macro_derive(Prompt, attributes(prompt))]
 pub fn prompt_derive(input: TokenStream) -> TokenStream {
 	let input = parse_macro_input!(input as DeriveInput);
 	let name = &input.ident;
-	let mut instruct = None;
 
-	// Parse the attributes on the struct or enum itself
+	let mut instruct_str = proc_macro2::TokenStream::new();
+	let mut field_instructions = Vec::new();
+
+	// Extract the `instruct` attribute value from the struct/enum itself
 	for attr in &input.attrs {
 		if attr.path.is_ident("prompt") {
 			if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
-				for nested_meta in meta_list.nested {
-					if let NestedMeta::Meta(Meta::NameValue(MetaNameValue { path, lit, .. })) =
-						nested_meta
-					{
-						if path.is_ident("instruct") {
-							if let Lit::Str(lit_str) = lit {
-								instruct = Some(lit_str.value());
+				for nested_meta in meta_list.nested.iter() {
+					if let NestedMeta::Meta(Meta::NameValue(meta_name_value)) = nested_meta {
+						if meta_name_value.path.is_ident("instruct") {
+							if let Lit::Str(lit_str) = &meta_name_value.lit {
+								let value = lit_str.value();
+								instruct_str = quote! {
+									#value
+								};
 							}
 						}
 					}
@@ -28,116 +31,57 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 		}
 	}
 
-	// Clone the instruct value before moving it
-	let instruct_str = instruct.clone().unwrap_or_default();
-
-	// Handle struct and enum differently
-	let expanded = match input.data {
-		syn::Data::Struct(ref data) => {
-			let fields = data.fields.iter().map(|f| {
-				let name = &f.ident;
-				let mut weight: Option<u16> = None;
-				let mut meaning: Option<String> = None;
-
-				// Parse prompt-specific attributes for fields
-				for attr in &f.attrs {
-					if attr.path.is_ident("prompt") {
-						if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
-							for nested_meta in meta_list.nested {
-								if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-									path,
-									lit,
-									..
-								})) = nested_meta
-								{
-									if path.is_ident("weight") {
-										if let Lit::Int(lit_int) = lit {
-											weight = Some(lit_int.base10_parse::<u16>().unwrap());
-										}
-									} else if path.is_ident("meaning") {
-										if let Lit::Str(lit_str) = lit {
-											meaning = Some(lit_str.value());
-										}
-									}
+	// Handle struct fields
+	if let syn::Data::Struct(data_struct) = &input.data {
+		for field in &data_struct.fields {
+			if let Some(attr) = field.attrs.iter().find(|a| a.path.is_ident("prompt")) {
+				if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
+					for nested_meta in meta_list.nested.iter() {
+						if let NestedMeta::Meta(Meta::NameValue(meta_name_value)) = nested_meta {
+							if meta_name_value.path.is_ident("instruct") {
+								if let Lit::Str(lit_str) = &meta_name_value.lit {
+									let field_name = field.ident.as_ref().unwrap().to_string();
+									let value = lit_str.value();
+									field_instructions.push(quote! {
+										field_map.insert(
+											#field_name.to_string(),
+											serde_json::Value::String(#value.to_string())
+										);
+									});
 								}
 							}
 						}
 					}
 				}
-
-				let weight_str = if let Some(weight) = weight {
-					format!(" (weight: {})", weight)
-				} else {
-					"".to_string()
-				};
-
-				let meaning_str = if let Some(meaning) = meaning {
-					format!(" - {}", meaning)
-				} else {
-					"".to_string()
-				};
-
-				quote! {
-					prompts.push(format!("  - {}: {:?}{}{}", stringify!(#name), self.#name, #weight_str, #meaning_str));
-				}
-			});
-
-			quote! {
-				impl Prompt for #name {
-					fn generate_prompt(&self) -> String {
-						let mut prompts = Vec::new();
-						prompts.push(format!("\n* Purpose *: {}\n* Attributes *:", #instruct_str));
-						#(#fields)*
-						prompts.join("\n")
-					}
-				}
 			}
 		}
-		syn::Data::Enum(ref data) => {
-			let variants = data.variants.iter().map(|v| {
-				let variant_name = &v.ident;
-				let mut variant_instruct = instruct.clone();
+	}
 
-				// Handle prompt-specific instructions for each variant
-				for attr in &v.attrs {
-					if attr.path.is_ident("prompt") {
-						if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
-							for nested_meta in meta_list.nested {
-								if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-									path,
-									lit,
-									..
-								})) = nested_meta
-								{
-									if path.is_ident("instruct") {
-										if let Lit::Str(lit_str) = lit {
-											variant_instruct = Some(lit_str.value());
-										}
-									}
-								}
-							}
-						}
-					}
+	// Generate the schema using the SchemaProvider trait
+	let schema = quote! {
+		#name::provide_schema()
+	};
+
+	// Combine all instructions into the prompt
+	let expanded = quote! {
+		impl Prompt for #name {
+			fn generate_prompt(&self) -> String {
+				let schema_str = serde_json::to_string_pretty(&#schema).unwrap();
+				let mut prompt_map = serde_json::Map::new();
+
+				prompt_map.insert("instruct".to_string(), serde_json::Value::String(#instruct_str.to_string()));
+				prompt_map.insert("schema".to_string(), serde_json::from_str(&schema_str).unwrap());
+
+				let mut field_map = serde_json::Map::new();
+				#(#field_instructions)*
+
+				if !field_map.is_empty() {
+					prompt_map.insert("fields".to_string(), serde_json::Value::Object(field_map));
 				}
 
-				let variant_instruct_str = variant_instruct.unwrap_or_else(|| instruct_str.clone());
-
-				quote! {
-					#name::#variant_name => format!("  - {}: {}", stringify!(#variant_name), #variant_instruct_str),
-				}
-			});
-
-			quote! {
-				impl Prompt for #name {
-					fn generate_prompt(&self) -> String {
-						match self {
-							#(#variants)*
-						}
-					}
-				}
+				serde_json::to_string(&prompt_map).unwrap()
 			}
 		}
-		_ => unimplemented!(),
 	};
 
 	TokenStream::from(expanded)

@@ -54,6 +54,7 @@ rspc
 rspcws
 rywalker
 sanjay
+schemars
 sharma
 skippable
 spacedrive

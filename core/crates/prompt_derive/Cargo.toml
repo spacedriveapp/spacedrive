@@ -15,6 +15,9 @@ chrono = { workspace = true }
 serde = { workspace = true }
 strum = "0.24"
 strum_macros = "0.24"
+typify = "0.1.0"
+serde_json.workspace = true
+schemars = "0.8.21"
 
 [dependencies.syn]
 version = "1.0"

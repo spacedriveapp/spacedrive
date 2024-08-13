@@ -1,13 +1,13 @@
 use action::Action;
 pub use capability::{Capability, CAPABILITY_REGISTRY};
 use concept::list_concepts;
-pub use concept::Concept;
+pub use concept::{Concept, SchemaProvider};
 use journal::{Journal, JournalEntry};
 use model::{ModelEvent, ModelResponse};
 // use ollama::OllamaClient;
 use colored::*;
 use objective::Objective;
-pub use prompt::*;
+pub use prompt_factory::*;
 use sd_core_prompt_derive::Prompt;
 use std::time::Duration;
 use tokio::{sync::mpsc, time::sleep};
@@ -20,7 +20,7 @@ pub mod journal;
 pub mod model;
 pub mod objective;
 // pub mod ollama;
-pub mod prompt;
+pub mod prompt_factory;
 pub mod working_memory;
 
 pub struct ModelInstance {
@@ -50,11 +50,12 @@ impl ModelInstance {
 		};
 
 		// Populate the vector with concept registration functions
-		instance.add_concept::<Action>();
-		instance.add_concept::<Objective>();
-		instance.add_concept::<Journal>();
-		instance.add_concept::<JournalEntry>();
-		instance.add_concept::<ModelEvent>();
+		// Root concepts are shown on the main menu
+		instance.add_root_concept::<Action>();
+		instance.add_root_concept::<Objective>();
+		instance.add_root_concept::<Journal>();
+		instance.add_root_concept::<JournalEntry>();
+		instance.add_root_concept::<ModelEvent>();
 
 		// Register all concepts
 		instance.register_concepts();
@@ -62,7 +63,7 @@ impl ModelInstance {
 		instance
 	}
 
-	fn add_concept<T: Concept + Default + 'static>(&mut self) {
+	fn add_root_concept<T: Concept + Default + 'static>(&mut self) {
 		self.concept_initializers.push(Box::new(|| {
 			T::concept_name(); // This ensures the concept gets registered
 		}));
