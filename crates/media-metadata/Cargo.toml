@@ -1,10 +1,11 @@
 [package]
-name = "sd-media-metadata"
+name    = "sd-media-metadata"
 version = "0.1.0"
+
 authors = [
-	"Jake Robinson <jake@spacedrive.com>",
-	"Vítor Vasconcellos <vitor@spacedrive.com>",
 	"Ericson Soares <ericson@spacedrive.com>",
+	"Jake Robinson <jake@spacedrive.com>",
+	"Vítor Vasconcellos <vitor@spacedrive.com>"
 ]
 edition = "2021"
 
@@ -14,17 +15,17 @@ ffmpeg = ["dep:sd-ffmpeg"]
 [dependencies]
 # Spacedrive Sub-crates
 sd-ffmpeg = { path = "../ffmpeg", optional = true }
-sd-utils = { path = "../utils" }
+sd-utils  = { path = "../utils" }
 
 # Workspace dependencies
-chrono = { workspace = true, features = ["serde"] }
-image = { workspace = true }
-rand = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+chrono     = { workspace = true, features = ["serde"] }
+image      = { workspace = true }
+rand       = { workspace = true }
+serde      = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-specta = { workspace = true, features = ["chrono"] }
-thiserror = { workspace = true }
-tokio = { workspace = true }
+specta     = { workspace = true, features = ["chrono"] }
+thiserror  = { workspace = true }
+tokio      = { workspace = true }
 
 # Specific Media Metadata dependencies
 kamadak-exif = "0.5.5"
