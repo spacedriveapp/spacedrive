@@ -245,7 +245,7 @@ export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_
 
 export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
 
-export type DeviceOS = "Linux" | "Windows" | "MacOS" | "IOS" | "Android"
+export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 
 export type DevicePubId = string
 
