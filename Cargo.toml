@@ -20,6 +20,9 @@ license    = "AGPL-3.0-only"
 repository = "https://github.com/spacedriveapp/spacedrive"
 
 [workspace.dependencies]
+# First party dependencies
+sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", branch = "main" }
+
 # Third party dependencies used by one or more of our crates
 async-channel       = "2.3"
 async-trait         = "0.1.80"
