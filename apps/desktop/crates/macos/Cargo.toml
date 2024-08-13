@@ -1,9 +1,10 @@
 [package]
-name = "sd-desktop-macos"
+name    = "sd-desktop-macos"
 version = "0.1.0"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { version = "1.0.6", features = ["serde"] }

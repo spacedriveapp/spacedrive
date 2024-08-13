@@ -4,7 +4,7 @@ use serde::Deserialize;
 use specta::Type;
 use tauri::{
 	menu::{Menu, MenuItemKind},
-	AppHandle, Manager, Wry,
+	AppHandle, Emitter, Manager, Wry,
 };
 use tracing::error;
 

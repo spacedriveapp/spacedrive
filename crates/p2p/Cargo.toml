@@ -1,61 +1,54 @@
 [package]
-name = "sd-p2p"
+name    = "sd-p2p"
 version = "0.2.0"
-description = "Rust Peer to Peer Networking Library"
-authors = ["Oscar Beaumont <oscar@otbeaumont.me>"]
-readme = "README.md"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Oscar Beaumont <oscar@otbeaumont.me>"]
+description          = "Rust Peer to Peer Networking Library"
+edition.workspace    = true
+license.workspace    = true
+readme               = "README.md"
+repository.workspace = true
 
 # TODO: Remove features??? and dependencies
 
 [features]
 default = []
-specta = []
+specta  = []
 
 [dependencies]
 # Workspace dependencies
-base64 = { workspace = true }
-base91 = { workspace = true }
-ed25519-dalek = { workspace = true }
-futures = { workspace = true }
+base64           = { workspace = true }
+base91           = { workspace = true }
+ed25519-dalek    = { workspace = true }
+futures          = { workspace = true }
 pin-project-lite = { workspace = true }
-reqwest = { workspace = true }
-rmp-serde = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-specta = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true, features = [
-	"macros",
-	"sync",
-	"time",
-	"io-util",
-	"fs",
-] }
-tokio-stream = { workspace = true, features = ["sync"] }
-tokio-util = { workspace = true, features = ["compat"] }
-tracing = { workspace = true }
-uuid = { workspace = true, features = ["serde"] }
+reqwest          = { workspace = true }
+rmp-serde        = { workspace = true }
+serde            = { workspace = true, features = ["derive"] }
+specta           = { workspace = true }
+thiserror        = { workspace = true }
+tokio            = { workspace = true, features = ["fs", "io-util", "macros", "sync", "time"] }
+tokio-stream     = { workspace = true, features = ["sync"] }
+tokio-util       = { workspace = true, features = ["compat"] }
+tracing          = { workspace = true }
+uuid             = { workspace = true, features = ["serde"] }
 
 # Specific P2P dependencies
 dns-lookup = "2.0"
 flume = "=0.11.0" # Must match version used by `mdns-sd`
 futures-core = "0.3.30"
 hash_map_diff = "0.2.0"
-if-watch = { version = "=3.2.0", features = [
-	"tokio",
-] } # Override features used by libp2p-quic
+if-watch = { version = "=3.2.0", features = ["tokio"] } # Override features used by libp2p-quic
 libp2p = { version = "=0.53.2", features = [
-	"tokio",
-	"serde",
-	"macros",
-	"quic",
 	"autonat",
-	"relay",
-	"yamux",
-	"noise",
 	"dcutr",
+	"macros",
+	"noise",
+	"quic",
+	"relay",
+	"serde",
+	"tokio",
+	"yamux"
 ] } # Update blocked due to custom patch
 libp2p-stream = "=0.1.0-alpha" # Update blocked due to custom patch
 mdns-sd = "0.11.1"
@@ -67,6 +60,6 @@ sync_wrapper = "1.0"
 zeroize = { version = "1.8", features = ["derive"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio              = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
+uuid               = { workspace = true, features = ["v4"] }
