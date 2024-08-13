@@ -13,3 +13,4 @@ prisma-client-rust = { workspace = true }
 rspc               = { workspace = true, features = ["unstable"] }
 thiserror          = { workspace = true }
 uuid               = { workspace = true }
+tracing 					 = { workspace = true }
