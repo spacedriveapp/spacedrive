@@ -1,5 +1,5 @@
 [package]
-name = "sd-capability-derive"
+name = "sd-core-capability-derive"
 version = "0.1.0"
 authors = ["Jamie Pine <jamie@spacedrive.com>"]
 license = { workspace = true }

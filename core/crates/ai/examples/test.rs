@@ -11,5 +11,5 @@ async fn main() {
 
 	model.generate_system_prompt();
 
-	let _ = model.start().await;
+	// let _ = model.start().await;
 }

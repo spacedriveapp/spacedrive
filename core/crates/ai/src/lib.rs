@@ -8,7 +8,7 @@ use model::{ModelEvent, ModelResponse};
 use colored::*;
 use objective::Objective;
 pub use prompt::*;
-use sd_prompt_derive::Prompt;
+use sd_core_prompt_derive::Prompt;
 use std::time::Duration;
 use tokio::{sync::mpsc, time::sleep};
 

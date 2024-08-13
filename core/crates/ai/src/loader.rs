@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use sd_prompt_derive::Prompt;
+use sd_core_prompt_derive::Prompt;
 
 enum DataType {
 	Text,

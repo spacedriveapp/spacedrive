@@ -1,5 +1,5 @@
 [package]
-name = "sd-prompt-derive"
+name = "sd-core-prompt-derive"
 version = "0.1.0"
 authors = ["Jamie Pine <jamie@spacedrive.com>"]
 license = { workspace = true }

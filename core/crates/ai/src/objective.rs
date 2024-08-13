@@ -1,7 +1,5 @@
-use crate::{capability::CapabilityRequest, concept::*, define_concept, Prompt};
+use crate::{concept::*, define_concept, Prompt};
 use chrono::prelude::*;
-use std::any::Any;
-
 // The Objective concept is used to track progress for tasks large and small.
 // Objectives can be put aside for more important tasks, but should be revisited regularly to ensure they are completed and/or archived.
 #[derive(Prompt, Debug, Clone, Default)]

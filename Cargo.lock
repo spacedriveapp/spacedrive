@@ -8747,18 +8747,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-capability-derive"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "proc-macro2",
- "quote",
- "serde",
- "syn 1.0.109",
- "thiserror",
-]
-
-[[package]]
 name = "sd-cloud-api"
 version = "0.1.0"
 dependencies = [
@@ -8892,9 +8880,9 @@ dependencies = [
  "regex",
  "reqwest 0.11.27",
  "sd-core-prisma-helpers",
+ "sd-core-prompt-derive",
  "sd-core-sync",
  "sd-prisma",
- "sd-prompt-derive",
  "sd-utils",
  "serde",
  "serde_json",
@@ -8902,6 +8890,18 @@ dependencies = [
  "tokio",
  "tracing",
  "winapi-util",
+]
+
+[[package]]
+name = "sd-core-capability-derive"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
+ "thiserror",
 ]
 
 [[package]]
@@ -9001,6 +9001,20 @@ dependencies = [
  "serde",
  "specta",
  "uuid",
+]
+
+[[package]]
+name = "sd-core-prompt-derive"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
+ "syn 1.0.109",
+ "thiserror",
 ]
 
 [[package]]
@@ -9289,20 +9303,6 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
-]
-
-[[package]]
-name = "sd-prompt-derive"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "proc-macro2",
- "quote",
- "serde",
- "strum 0.24.1",
- "strum_macros 0.24.3",
- "syn 1.0.109",
- "thiserror",
 ]
 
 [[package]]

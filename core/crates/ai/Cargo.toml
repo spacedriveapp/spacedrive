@@ -15,7 +15,7 @@ sd-core-sync = { path = "../sync" }
 
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }
-sd-prompt-derive = { path = "../../../crates/prompt" }
+sd-core-prompt-derive = { path = "../prompt_derive" }
 sd-utils = { path = "../../../crates/utils" }
 
 # Workspace dependencies
