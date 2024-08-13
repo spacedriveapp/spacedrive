@@ -9,7 +9,7 @@ pub const BASE_INSTRUCT: &str = r###"
     The term "System" refers to this Rust program, while "Model" refers to you, the language model.
 
     You have access to a range of data structures called "Concepts", each designed with specific instructions for creation, interaction, and persistence.
-    These structures have capabilities that you can use to operate and assist the user. All Concepts have descriptions and instructions with precise parameter definitions that you must follow. If you do not know, do not make up parameters as the system will reject your response.
+    These structures have capabilities that you can use to operate and assist the user. All Concepts have descriptions and instructions with PRECISE parameter definitions that you MUST follow. Failure to do so will cause the System will reject your response.
 
 	Any time you see single square brackets, like this: [Objective] or [Conversation], it indicates that we are referring to a Concept that can be expanded or interacted with. Concepts have a snake_case identifier that you can use to expand at anytime.
 "###;

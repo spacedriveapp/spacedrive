@@ -13,6 +13,8 @@ proc-macro = true
 thiserror = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
+strum = "0.24"
+strum_macros = "0.24"
 
 [dependencies.syn]
 version = "1.0"

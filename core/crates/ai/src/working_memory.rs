@@ -1,14 +1,14 @@
 use crate::action::Action;
-use crate::{concept::AnyConceptWrapper, Prompt};
+use crate::{concept::ConceptWrapper, Prompt};
 use serde::{Deserialize, Serialize};
 // Working memory is accessible throughout the execution process and gives the model a clear view of the current state of the system.
 // Elements from here will be included in the system prompt
 // This struct cannot be given a Prompt derive because it is exclusive to system memory
 pub struct WorkingMemory {
 	// any natural language notes that need to be saved during processing
-	pub notes: Vec<String>,
+	pub notes: Vec<Note>,
 	// As concepts are chosen they are added to this list
-	pub concepts: Vec<AnyConceptWrapper>,
+	pub concepts: Vec<ConceptWrapper>,
 	// which stage of the process are we in
 	pub stage: ProcessStage,
 
@@ -30,7 +30,7 @@ impl WorkingMemory {
 		}
 	}
 
-	pub fn add_concept(&mut self, concept: AnyConceptWrapper) {
+	pub fn add_concept(&mut self, concept: ConceptWrapper) {
 		self.concepts.push(concept);
 	}
 
@@ -40,7 +40,17 @@ impl WorkingMemory {
 }
 
 #[derive(Prompt, Debug, Clone, Serialize, Deserialize)]
-#[prompt(meaning = "This is the state of the overall system.")]
+pub struct Note {
+	pub text: String,
+	pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+// We use the Prompt metadata when the system prompt is constructed
+#[derive(Prompt, Debug, Clone, Serialize, Deserialize)]
+#[prompt(
+	instruct = "This is the state of the overall system.",
+	show_variants = true
+)]
 pub enum ProcessStage {
 	// An idle state is important to ensure execution loop doesn't needless run
 	#[prompt(
@@ -59,9 +69,9 @@ pub enum ProcessStage {
 	#[prompt(
 		instruct = "Execute the selected capability or plan based on your current thought process. Ensure all actions are aligned with the objectives and the desired outcomes."
 	)]
-	Acting,
+	Act,
 	#[prompt(
-		instruct = "Reflect on the actions you've taken. Analyze the outcomes, gather new data, and reassess your strategies and objectives. Make adjustments as needed based on what you've learned."
+		instruct = "Reflect on the steps taken and the outcomes achieved, create new [Memories] and [Objectives] if necessary. This is the final stage before moving back to idle."
 	)]
-	Reflecting,
+	Reflect,
 }

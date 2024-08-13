@@ -1,3 +1,14 @@
+pub use capability::{Capability, CAPABILITY_REGISTRY};
+use concept::list_concepts;
+pub use concept::{Concept, CONCEPT_REGISTRY};
+use model::{ModelEvent, ModelResponse};
+// use ollama::OllamaClient;
+use colored::*;
+pub use prompt::*;
+use sd_prompt_derive::Prompt;
+use std::time::Duration;
+use tokio::{sync::mpsc, time::sleep};
+
 pub mod action;
 pub mod capability;
 pub mod concept;
@@ -5,22 +16,9 @@ pub mod instruct;
 pub mod journal;
 pub mod model;
 pub mod objective;
-pub mod ollama;
+// pub mod ollama;
+pub mod prompt;
 pub mod working_memory;
-use std::time::Duration;
-
-pub use capability::{Capability, CAPABILITY_REGISTRY};
-pub use concept::{Concept, CONCEPT_REGISTRY};
-use futures::StreamExt;
-use model::{ModelEvent, ModelResponse};
-use ollama::OllamaClient;
-use sd_prompt_derive::Prompt;
-
-use tokio::{sync::mpsc, time::sleep};
-
-pub trait Prompt {
-	fn generate_prompt(&self) -> String;
-}
 
 pub struct ModelInstance {
 	// TODO: to add concurrency multiple instances of working memory might allow for parallel processing and fast context switching, like tabs.
@@ -35,53 +33,68 @@ pub struct ModelInstance {
 }
 
 impl ModelInstance {
+	pub fn new() -> Self {
+		let (event_tx, event_rx) = mpsc::channel(100);
+
+		Self {
+			working_memory: working_memory::WorkingMemory::new(),
+			context_window_length: 5,
+			model_name: "llama3.1:70b".to_string(),
+			event_tx,
+			event_rx,
+		}
+	}
 	pub async fn start(&mut self) {
-		let ollama_client = OllamaClient::new("http://localhost:11434"); // Adjust URL as needed
+		// let ollama_client = OllamaClient::new("http://localhost:11434"); // Adjust URL as needed
 
 		loop {
-			// Process any incoming events
-			while let Ok(event) = self.event_rx.try_recv() {
-				// Handle the event (e.g., update working memory)
-				self.handle_event(event);
-			}
+			// // Process any incoming events
+			// while let Ok(event) = self.event_rx.try_recv() {
+			// 	match event {
+			// 		ModelEvent::Message => {
+			// 			// Handle message event
+			// 		}
+			// 		ModelEvent::Action => !unimplemented!(),
+			// 	}
+			// }
 
-			// Generate the prompt for the current stage
-			let prompt = self.generate_prompt_for_stage();
+			// // Generate the prompt for the current stage
+			// let prompt = self.generate_system_prompt();
 
-			// Send the prompt to Ollama and get the response
-			let (stream, _cancel_tx) = ollama_client
-				.stream_prompt_with_cancellation(&prompt)
-				.await
-				.expect("Failed to start stream");
+			// // Send the prompt to Ollama and get the response
+			// let (stream, _cancel_tx) = ollama_client
+			// 	.stream_prompt_with_cancellation(&prompt)
+			// 	.await
+			// 	.expect("Failed to start stream");
 
-			// Pin the stream
-			let mut pinned_stream = Box::pin(stream);
+			// // Pin the stream
+			// let mut pinned_stream = Box::pin(stream);
 
-			let mut response_text = String::new();
-			while let Some(chunk_result) = pinned_stream.next().await {
-				match chunk_result {
-					Ok(chunk) => response_text.push_str(&chunk),
-					Err(_) => break,
-				}
-			}
+			// let mut response_text = String::new();
+			// while let Some(chunk_result) = pinned_stream.next().await {
+			// 	match chunk_result {
+			// 		Ok(chunk) => response_text.push_str(&chunk),
+			// 		Err(_) => break,
+			// 	}
+			// }
 
-			// Parse the JSON response
-			let model_response: ModelResponse = match serde_json::from_str(&response_text) {
-				Ok(response) => response,
-				Err(e) => {
-					eprintln!(
-						"Failed to parse model response: {}. Response text: {}",
-						e, response_text
-					);
-					continue; // Skip to the next iteration if parsing fails
-				}
-			};
+			// // Parse the JSON response
+			// let model_response: ModelResponse = match serde_json::from_str(&response_text) {
+			// 	Ok(response) => response,
+			// 	Err(e) => {
+			// 		eprintln!(
+			// 			"Failed to parse model response: {}. Response text: {}",
+			// 			e, response_text
+			// 		);
+			// 		continue; // Skip to the next iteration if parsing fails
+			// 	}
+			// };
 
-			// Process the response
-			self.process_model_response(model_response);
+			// // Process the response
+			// self.process_model_response(model_response);
 
 			// Short delay to prevent tight looping
-			sleep(Duration::from_millis(100)).await;
+			sleep(Duration::from_millis(1000)).await;
 		}
 	}
 
@@ -91,13 +104,37 @@ impl ModelInstance {
 		// Add more event handling logic as needed
 	}
 
-	fn generate_prompt_for_stage(&self) -> String {
-		// TODO: Implement prompt generation based on the current stage
-		// This will be implemented in the next step
-		String::new()
+	pub fn generate_system_prompt(&self) -> String {
+		let mut prompt = PromptFactory::new();
+
+		prompt.add_section("Current Stage".to_string(), &self.working_memory.stage);
+
+		if !self.working_memory.notes.is_empty() {
+			prompt.add_section_grouped("Notes".to_string(), self.working_memory.notes.clone());
+		}
+
+		prompt.add_section_grouped("Concepts".to_string(), list_concepts());
+
+		let prompt = prompt.finalize();
+
+		// Print the prompt in a formatted way
+		println!("{}", "Generated Prompt:".green().bold());
+		println!("{}", "=".repeat(50).yellow());
+
+		for line in prompt.lines() {
+			if line.starts_with("###") {
+				println!("\n{}", line.cyan().bold());
+			} else {
+				println!("{}", line);
+			}
+		}
+		println!();
+
+		prompt
 	}
 
 	fn process_model_response(&mut self, response: ModelResponse) {
+		println!("Processing model response: {:?}", response);
 		// Update the working memory with the new stage
 		self.working_memory.stage = response.next_stage;
 
