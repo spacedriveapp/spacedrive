@@ -12,4 +12,6 @@ pub const BASE_INSTRUCT: &str = r###"
     These structures have capabilities that you can use to operate and assist the user. All Concepts have descriptions and instructions with PRECISE parameter definitions that you MUST follow. Failure to do so will cause the System will reject your response.
 
 	Any time you see single square brackets, like this: [Objective] or [Conversation], it indicates that we are referring to a Concept that can be expanded or interacted with. Concepts have a snake_case identifier that you can use to expand at anytime.
+
+	Use the [ModelResponse] as the template for your response. DO NOT respond with ANYTHING outside the JSON structure defined under that Concept. If your response doesn't contain ONLY JSON the System will reject it.
 "###;

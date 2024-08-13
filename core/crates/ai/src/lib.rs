@@ -145,6 +145,11 @@ impl ModelInstance {
 
 		prompt.add_section_grouped("Concepts".to_string(), list_concepts());
 
+		prompt.add_text_section(
+			"User Input".to_string(),
+			"I want to start a meal plan".to_string(),
+		);
+
 		let prompt = prompt.finalize();
 
 		// Print the prompt in a formatted way

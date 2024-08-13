@@ -62,7 +62,7 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 		#name::provide_schema()
 	};
 
-	// Combine all instructions into the prompt
+	// Combine all instructions into the prompt with pretty printing
 	let expanded = quote! {
 		impl Prompt for #name {
 			fn generate_prompt(&self) -> String {
@@ -79,7 +79,34 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 					prompt_map.insert("fields".to_string(), serde_json::Value::Object(field_map));
 				}
 
-				serde_json::to_string(&prompt_map).unwrap()
+				Self::pretty_print_json(&prompt_map)
+			}
+		}
+
+		impl #name {
+			fn pretty_print_json(value: &serde_json::Map<String, serde_json::Value>) -> String {
+				fn print_value(value: &serde_json::Value, indent: usize) -> String {
+					match value {
+						serde_json::Value::Object(map) => {
+							let contents: Vec<String> = map
+								.iter()
+								.map(|(k, v)| format!("{:indent$}\"{}\": {}", "", k, print_value(v, indent + 2), indent = indent + 2))
+								.collect();
+							format!("{{\n{}\n{:indent$}}}", contents.join(",\n"), "", indent = indent)
+						}
+						serde_json::Value::Array(arr) => {
+							let contents: Vec<String> = arr
+								.iter()
+								.map(|v| format!("{:indent$}{}", "", print_value(v, indent + 2), indent = indent + 2))
+								.collect();
+							format!("[\n{}\n{:indent$}]", contents.join(",\n"), "", indent = indent)
+						}
+						serde_json::Value::String(s) => format!("\"{}\"", s.replace('"', "\\\"")),
+						_ => value.to_string(),
+					}
+				}
+
+				print_value(&serde_json::Value::Object(value.clone()), 0)
 			}
 		}
 	};

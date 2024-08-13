@@ -35,6 +35,11 @@ impl PromptFactory {
 		self.prompt.push_str(section.as_str());
 	}
 
+	pub fn add_text_section(&mut self, section_name: String, text: String) {
+		self.prompt
+			.push_str(format!("\n\n### {}:\n- {}\n", section_name.to_uppercase(), text).as_str());
+	}
+
 	pub fn finalize(&self) -> String {
 		let mut finalized_prompt = self.prompt.clone();
 		finalized_prompt.push_str("\n==================================================\n");
