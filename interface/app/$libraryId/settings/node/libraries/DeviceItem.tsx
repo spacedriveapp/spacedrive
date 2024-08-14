@@ -17,7 +17,7 @@ export default (props: DeviceItemProps) => {
 	const { t } = useLocale();
 
 	return (
-		<Card className="flex items-center space-x-3 p-2">
+		<Card className="flex min-w-96 items-center space-x-3 p-2">
 			<Icon
 				name={props.os == 'MacOS' || props.os == 'iOS' ? 'SilverBox' : 'Laptop'}
 				alt="Device icon"
