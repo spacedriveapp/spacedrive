@@ -1,13 +1,12 @@
 [package]
-name    = "sd-core"
-version = "0.4.1"
-
-authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-description            = "Virtual distributed filesystem engine that powers Spacedrive."
-edition.workspace      = true
-license.workspace      = true
-repository.workspace   = true
-rust-version.workspace = true
+authors      = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description  = "Virtual distributed filesystem engine that powers Spacedrive."
+edition      = { workspace = true }
+license      = { workspace = true }
+name         = "sd-core"
+repository   = { workspace = true }
+rust-version = "1.78"
+version      = "0.4.1"
 
 [features]
 default = []
@@ -46,56 +45,54 @@ sd-task-system    = { path = "../crates/task-system" }
 sd-utils          = { path = "../crates/utils" }
 
 # Workspace dependencies
-async-channel = { workspace = true }
-async-stream = { workspace = true }
-async-trait = { workspace = true }
-axum = { workspace = true, features = ["ws"] }
-base64 = { workspace = true }
-base91 = { workspace = true }
-blake3 = { workspace = true }
-chrono = { workspace = true, features = ["serde"] }
-directories = { workspace = true }
-futures = { workspace = true }
+async-channel       = { workspace = true }
+async-stream        = { workspace = true }
+async-trait         = { workspace = true }
+axum                = { workspace = true, features = ["ws"] }
+base64              = { workspace = true }
+base91              = { workspace = true }
+blake3              = { workspace = true }
+chrono              = { workspace = true, features = ["serde"] }
+directories         = { workspace = true }
+futures             = { workspace = true }
 futures-concurrency = { workspace = true }
-gix-ignore = { workspace = true }
-hyper = { workspace = true, features = ["client", "http1", "server"] }
-image = { workspace = true }
-itertools = { workspace = true }
-libc = { workspace = true }
-normpath = { workspace = true, features = ["localization"] }
-once_cell = { workspace = true }
-pin-project-lite = { workspace = true }
-prisma-client-rust = { workspace = true, features = ["rspc"] }
-regex = { workspace = true }
-reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
-rmp = { workspace = true }
-rmp-serde = { workspace = true }
-rmpv = { workspace = true }
-rspc = { workspace = true, features = ["alpha", "axum", "chrono", "tracing", "unstable", "uuid"] }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-specta = { workspace = true }
-static_assertions = { workspace = true }
-strum = { workspace = true, features = ["derive"] }
-strum_macros = { workspace = true }
-tempfile = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true, features = [
-	"io-util",
-	"macros",
-	"process",
-	"rt-multi-thread",
-	"sync",
-	"time"
-] }
-tokio-stream = { workspace = true, features = ["fs"] }
-tokio-util = { workspace = true, features = ["io"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
-uuid = { workspace = true, features = ["serde", "std", "v4", "v7"] }
-webp = { workspace = true }
+gix-ignore          = { workspace = true }
+hyper               = { workspace = true, features = ["client", "http1", "server"] }
+image               = { workspace = true }
+itertools           = { workspace = true }
+libc                = { workspace = true }
+normpath            = { workspace = true, features = ["localization"] }
+once_cell           = { workspace = true }
+pin-project-lite    = { workspace = true }
+prisma-client-rust  = { workspace = true, features = ["rspc"] }
+regex               = { workspace = true }
+reqwest             = { workspace = true, features = ["json", "native-tls-vendored"] }
+rmp                 = { workspace = true }
+rmp-serde           = { workspace = true }
+rmpv                = { workspace = true }
+rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "tracing", "unstable", "uuid"] }
+serde               = { workspace = true, features = ["derive"] }
+serde_json          = { workspace = true }
+specta              = { workspace = true }
+static_assertions   = { workspace = true }
+strum               = { workspace = true, features = ["derive"] }
+strum_macros        = { workspace = true }
+tempfile            = { workspace = true }
+thiserror           = { workspace = true }
+tokio-stream        = { workspace = true, features = ["fs"] }
+tokio-util          = { workspace = true, features = ["io"] }
+tracing             = { workspace = true }
+tracing-subscriber  = { workspace = true, features = ["env-filter"] }
+uuid                = { workspace = true, features = ["serde", "std", "v4", "v7"] }
+webp                = { workspace = true }
+
+[dependencies.tokio]
+features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]
+workspace = true
 
 # Specific Core dependencies
+async-recursion = "1.1"
+async-stream = "0.3.5"
 bytes = "1.6"
 ctor = "0.2.8"
 flate2 = "1.0"
