@@ -1,19 +1,19 @@
-use crate::{api::utils::library, invalidate_query};
-use rspc::alpha::AlphaRouter;
+use crate::api::{utils::library, Ctx, R};
+
 use sd_cloud_schema::{auth::AccessToken, devices, libraries};
+
+use rspc::alpha::AlphaRouter;
 use tracing::debug;
 
-use crate::{
-	api::{Ctx, R},
-	try_get_cloud_services_client,
-};
+use super::try_get_cloud_services_client;
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
 			R.query(|node, req: libraries::get::Request| async move {
 				let libraries::get::Response(library) = super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.libraries()
 						.get(req)
 						.await,
@@ -28,7 +28,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("list", {
 			R.query(|node, req: libraries::list::Request| async move {
 				let libraries::list::Response(libraries) = super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.libraries()
 						.list(req)
 						.await,
@@ -56,7 +57,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						device_pub_id: args.device_pub_id,
 					};
 					super::handle_comm_error(
-						try_get_cloud_services_client!(node)?
+						try_get_cloud_services_client(&node)
+							.await?
 							.libraries()
 							.create(req)
 							.await,
@@ -69,7 +71,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("delete", {
 			R.mutation(|node, req: libraries::delete::Request| async move {
 				super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.libraries()
 						.delete(req)
 						.await,
@@ -84,7 +87,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("update", {
 			R.mutation(|node, req: libraries::update::Request| async move {
 				super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.libraries()
 						.update(req)
 						.await,

@@ -86,37 +86,34 @@ tracing-subscriber  = { workspace = true, features = ["env-filter"] }
 uuid                = { workspace = true, features = ["serde", "std", "v4", "v7"] }
 webp                = { workspace = true }
 
+
+# Specific Core dependencies
+bytes            = "1.6"
+ctor             = "0.2.8"
+flate2           = "1.0"
+hostname         = "0.4.0"
+http-body        = "0.4.6"   # Update blocked by http
+http-range       = "0.1.5"
+int-enum         = "0.5"     # Update blocked due to API breaking changes
+mini-moka        = "0.10.3"
+serde-hashkey    = "0.4.5"
+serde_repr       = "0.1.19"
+serde_with       = "3.8"
+slotmap          = "1.0"
+sysinfo          = "0.29.11" # Update blocked due to API breaking changes
+tar              = "0.4.41"
+tower-service    = "0.3.2"
+tracing-appender = "0.2.3"
+
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]
 workspace = true
 
-# Specific Core dependencies
-async-recursion = "1.1"
-async-stream = "0.3.5"
-bytes = "1.6"
-ctor = "0.2.8"
-flate2 = "1.0"
-hostname = "0.4.0"
-http-body = "0.4.6" # Update blocked by http
-http-range = "0.1.5"
-int-enum = "0.5" # Update blocked due to API breaking changes
-keyring = { version = "3.0.4", features = [
-	"apple-native",
-	"sync-secret-service",
-	"windows-native"
-] }
-mini-moka = "0.10.3"
-notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114", default-features = false, features = [
-	"macos_fsevent"
-] }
-serde-hashkey = "0.4.5"
-serde_repr = "0.1.19"
-serde_with = "3.8"
-slotmap = "1.0"
-sysinfo = "0.29.11" # Update blocked due to API breaking changes
-tar = "0.4.41"
-tower-service = "0.3.2"
-tracing-appender = "0.2.3"
+[dependencies.notify]
+default-features = false
+features         = ["macos_fsevent"]
+git              = "https://github.com/notify-rs/notify.git"
+rev              = "c3929ed114"
 
 # Override features of transitive dependencies
 [dependencies.openssl]
@@ -129,13 +126,13 @@ version  = "0.9.103"
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1.6"
-trash = "4.1"
+trash = "5.1.0"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-trash = "4.1"
+trash = "5.1.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-trash = "4.1"
+trash = "5.1.0"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 icrate = { version = "0.1.2", features = [
