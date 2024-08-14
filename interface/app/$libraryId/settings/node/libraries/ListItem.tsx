@@ -29,7 +29,7 @@ export default (props: Props) => {
 
 	return (
 		<div>
-			<Card className="items-center justify-between">
+			<Card className="min-w-96 items-center justify-between">
 				<div className="flex cursor-pointer items-center">
 					<Icon name="Database" alt="Database icon" size={30} className="mr-3" />
 					<div className="my-0.5 flex-1">
