@@ -1,10 +1,11 @@
 [package]
-name = "sd-mobile-ios"
+name    = "sd-mobile-ios"
 version = "0.1.0"
-rust-version = "1.64"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+rust-version         = "1.64"
 
 [lib]
 # iOS requires static linking

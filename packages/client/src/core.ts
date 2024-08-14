@@ -142,7 +142,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: { entries: ExplorerItem[]; errors: Error[] } } | 
         { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
@@ -245,8 +245,6 @@ export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
-
-export type EphemeralPathsResultItem = { entries: ExplorerItem[]; errors: Error[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 

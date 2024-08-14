@@ -10,9 +10,11 @@ use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
+use specta_typescript::Typescript;
+use tauri::Emitter;
 use tauri::{async_runtime::block_on, webview::PlatformWebview, AppHandle, Manager, WindowEvent};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
-use tauri_specta::{collect_events, ts};
+use tauri_specta::{collect_events, Builder};
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::error;
@@ -181,45 +183,46 @@ async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
-	let (invoke_handler, register_events) = {
-		let builder = ts::builder()
-			.events(collect_events![DragAndDropEvent])
-			.commands(tauri_specta::collect_commands![
-				app_ready,
-				reset_spacedrive,
-				open_logs_dir,
-				refresh_menu_bar,
-				reload_webview,
-				set_menu_bar_item_state,
-				request_fda_macos,
-				open_trash_in_os_explorer,
-				file::open_file_paths,
-				file::open_ephemeral_files,
-				file::get_file_path_open_with_apps,
-				file::get_ephemeral_files_open_with_apps,
-				file::open_file_path_with,
-				file::open_ephemeral_file_with,
-				file::reveal_items,
-				theme::lock_app_theme,
-				updater::check_for_update,
-				updater::install_update
-			])
-			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
+	let builder = Builder::new()
+		.commands(tauri_specta::collect_commands![
+			app_ready,
+			reset_spacedrive,
+			open_logs_dir,
+			refresh_menu_bar,
+			reload_webview,
+			set_menu_bar_item_state,
+			request_fda_macos,
+			open_trash_in_os_explorer,
+			file::open_file_paths,
+			file::open_ephemeral_files,
+			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
+			file::open_file_path_with,
+			file::open_ephemeral_file_with,
+			file::reveal_items,
+			theme::lock_app_theme,
+			updater::check_for_update,
+			updater::install_update
+		])
+		.events(collect_events![DragAndDropEvent]);
 
-		#[cfg(debug_assertions)]
-		let builder = builder.path("../src/commands.ts");
-
-		builder.build().unwrap()
-	};
+	builder
+		.export(
+			Typescript::default()
+				.formatter(specta_typescript::formatter::prettier)
+				.header("/* eslint-disable */"),
+			"../src/commands.ts",
+		)
+		.expect("Failed to export typescript bindings");
 
 	tauri::Builder::default()
-		.invoke_handler(invoke_handler)
+		.invoke_handler(builder.invoke_handler())
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
 			block_in_place(|| {
 				block_on(async move {
-					register_events(app);
+					builder.mount_events(app);
 
 					let data_dir = app
 						.path()
