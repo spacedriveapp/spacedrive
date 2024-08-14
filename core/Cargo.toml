@@ -96,7 +96,6 @@ uuid = { workspace = true, features = ["serde", "std", "v4", "v7"] }
 webp = { workspace = true }
 
 # Specific Core dependencies
-async-stream = "0.3.5"
 bytes = "1.6"
 ctor = "0.2.8"
 flate2 = "1.0"
