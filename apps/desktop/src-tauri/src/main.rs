@@ -11,7 +11,7 @@ use sd_core::{Node, NodeError};
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
 use specta_typescript::Typescript;
-use tauri::Emitter;
+use tauri::{Emitter, Listener};
 use tauri::{async_runtime::block_on, webview::PlatformWebview, AppHandle, Manager, WindowEvent};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::{collect_events, Builder};
@@ -218,6 +218,10 @@ async fn main() -> tauri::Result<()> {
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
+			app.listen("deep-link://new-url", |url| {
+                println!("Received deep link: {:?}", url);
+            });
+
 			block_in_place(|| {
 				block_on(async move {
 					builder.mount_events(app);

@@ -42,6 +42,7 @@ tauri-plugin-dialog  = "=2.0.0-rc.0"
 tauri-plugin-os      = "=2.0.0-rc.0"
 tauri-plugin-shell   = "=2.0.0-rc.0"
 tauri-plugin-updater = "=2.0.0-rc.0"
+tauri-plugin-deep-link = "=2.0.0-rc.0"
 tauri-runtime        = { version = "=2.0.0-rc.2" }
 tauri-utils          = { version = "=2.0.0-rc.2" }
 

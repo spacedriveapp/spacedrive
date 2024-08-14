@@ -3,7 +3,6 @@
 
 export type Procedures = {
     queries: 
-        { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.devices.get", input: never, result: MockDevice } | 
@@ -12,9 +11,7 @@ export type Procedures = {
         { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
         { key: "cloud.library.get", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.list", input: never, result: null } | 
-        { key: "cloud.locations.list", input: never, result: Core_CloudLocation[] } | 
-        { key: "cloud.new_locations.get", input: LocationGetRequest, result: CloudLocation } | 
-        { key: "cloud.new_locations.list", input: LocationListRequest, result: CloudLocation[] } | 
+        { key: "cloud.locations.list", input: LocationListRequest, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -63,11 +60,9 @@ export type Procedures = {
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
-        { key: "auth.logout", input: never, result: null } | 
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
-        { key: "cloud.bootstrap", input: AccessToken, result: null } | 
         { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
         { key: "cloud.libraries.create", input: LibraryArgs<LibrariesCreateArgs>, result: null } | 
@@ -76,11 +71,8 @@ export type Procedures = {
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: null } | 
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.locations.create", input: string, result: Core_CloudLocation } | 
-        { key: "cloud.locations.remove", input: string, result: Core_CloudLocation } | 
-        { key: "cloud.new_locations.create", input: LocationCreateRequest, result: null } | 
-        { key: "cloud.new_locations.delete", input: LocationDeleteRequest, result: null } | 
-        { key: "cloud.new_locations.update", input: LocationUpdateRequest, result: null } | 
+        { key: "cloud.locations.create", input: LocationCreateRequest, result: null } | 
+        { key: "cloud.locations.delete", input: LocationDeleteRequest, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -140,10 +132,8 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
-        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
     subscriptions: 
-        { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
@@ -167,13 +157,6 @@ export type AccessToken = string
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
-
-/**
- * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
- * 
- * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
- */
-export type BackendFeature = "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -224,8 +207,6 @@ export type ConnectionMethod = "Relay" | "Local" | "Disconnected"
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
-
-export type Core_CloudLocation = { id: string; name: string }
 
 export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
 
@@ -483,8 +464,6 @@ export type LocationCreateRequest = { access_token: AccessToken; pub_id: Locatio
 
 export type LocationDeleteRequest = { access_token: AccessToken; pub_id: LocationPubId }
 
-export type LocationGetRequest = { access_token: AccessToken; pub_id: LocationPubId; with_library: boolean; with_device: boolean }
-
 export type LocationListRequest = { access_token: AccessToken; with_library: boolean; with_device: boolean }
 
 export type LocationPubId = string
@@ -500,8 +479,6 @@ export type LocationSettings = { explorer: ExplorerSettings<FilePathOrder> }
  * Old rules that aren't in this vector will be purged.
  */
 export type LocationUpdateArgs = { id: number; name: string | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; indexer_rules_ids: number[]; path: string | null }
-
-export type LocationUpdateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string }
 
 export type LocationWithIndexerRule = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; instance_id: number | null; indexer_rules: IndexerRule[] }
 
@@ -544,7 +521,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; preferences: NodePreferences }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
@@ -648,8 +625,6 @@ export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: J
 export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
-
-export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent" | "IgnoredByGit"
 
