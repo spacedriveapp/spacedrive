@@ -14,7 +14,7 @@ env:
 jobs:
   build:
     name: Build Tauri
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Maximize build space
@@ -51,7 +51,7 @@ jobs:
           profile: release
           
   flatpak-build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Flatpak Build
     needs: build
     permissions:
@@ -84,7 +84,7 @@ jobs:
         run: flatpak build-bundle local com.spacedrive.Desktop.flatpak com.spacedrive.Desktop
 
       - name: Upload Flatpak Bundle
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: com.spacedrive.Desktop.flatpak
           path: ./com.spacedrive.Desktop.flatpak
