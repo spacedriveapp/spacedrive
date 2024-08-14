@@ -1,6 +1,6 @@
 [package]
 name    = "sd-crypto"
-version = "0.0.0"
+version = "0.0.1"
 
 authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>"]
 description = """
@@ -34,20 +34,15 @@ hex             = "0.4.3"
 rand            = "0.9.0-alpha.2"
 rand_chacha     = "0.9.0-alpha.2"
 rand_core       = "0.9.0-alpha.2"
-serde-big-array = { version = "0.5.1" }
-serdect         = { version = "0.3.0-pre.0" }
+serde-big-array = "0.5.1"
+serdect         = "0.3.0-pre.0"
 typenum         = "1.17.0"
 zeroize         = { version = "1.7.0", features = ["aarch64", "derive"] }
 
-
-
 [dev-dependencies]
-paste     = "1.0.14"
-tempfile  = "3.10.1"
-
-
-
+paste    = "1.0.14"
+tempfile = "3.10.1"
 
 [[example]]
-path = "examples/secure_erase.rs"
 name = "secure_erase"
+path = "examples/secure_erase.rs"
