@@ -54,10 +54,11 @@
 		"@babel/plugin-syntax-import-assertions": "^7.24.1",
 		"@cspell/dict-rust": "^4.0.2",
 		"@cspell/dict-typescript": "^3.1.2",
-		"@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+		"@ianvs/prettier-plugin-sort-imports": "^4.3.1",
+		"@taplo/cli": "^0.7.0",
 		"cspell": "^8.6.0",
-		"prettier": "^3.2.5",
-		"prettier-plugin-tailwindcss": "^0.5.12",
+		"prettier": "^3.3.3",
+		"prettier-plugin-tailwindcss": "^0.6.6",
 		"turbo": "^1.12.5",
 		"turbo-ignore": "^1.12.5",
 		"typescript": "^5.4.2",
@@ -72,5 +73,5 @@
 	"eslintConfig": {
 		"root": true
 	},
-	"packageManager": "pnpm@9.6.0"
+	"packageManager": "pnpm@9.7.0"
 }

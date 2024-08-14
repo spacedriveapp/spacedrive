@@ -1,5 +1,5 @@
 {
-	"$schema": "https://github.com/tauri-apps/tauri/raw/tauri-v2.0.0-beta.17/core/tauri-config-schema/schema.json",
+	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.2/core/tauri-config-schema/schema.json",
 	"productName": "Spacedrive",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
@@ -41,7 +41,7 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["deb", "msi", "dmg", "updater"],
+		"targets": ["deb", "msi", "dmg"],
 		"publisher": "Spacedrive Technology Inc.",
 		"copyright": "Spacedrive Technology Inc.",
 		"category": "Productivity",
@@ -62,7 +62,6 @@
 				"depends": ["libc6", "libxdo3", "dbus"]
 			}
 		},
-
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"exceptionDomain": null,
@@ -71,7 +70,10 @@
 		},
 		"windows": {
 			"certificateThumbprint": null,
-			"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+			"webviewInstallMode": {
+				"type": "embedBootstrapper",
+				"silent": true
+			},
 			"digestAlgorithm": "sha256",
 			"timestampUrl": "",
 			"wix": {
