@@ -171,7 +171,7 @@ export default () => {
 				>
 					<ExplorerBehaviorSelect />
 				</Setting>
-				<FeatureFlagSelector />
+				{/* <FeatureFlagSelector /> */}
 				<InvalidateDebugPanel />
 				{/* <TestNotifications /> */}
 				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>

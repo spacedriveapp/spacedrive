@@ -183,7 +183,7 @@ pub enum NodeConfigVersion {
 }
 
 impl ManagedVersion<NodeConfigVersion> for NodeConfig {
-	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V4;
+	const LATEST_VERSION: NodeConfigVersion = NodeConfigVersion::V5;
 	const KIND: Kind = Kind::Json("version");
 	type MigrationError = NodeConfigError;
 

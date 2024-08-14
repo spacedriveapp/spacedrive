@@ -17,6 +17,7 @@
 		"dialog:allow-open",
 		"dialog:allow-save",
 		"dialog:allow-confirm",
+		"deep-link:default",
 		"os:allow-os-type",
 		"core:window:allow-close",
 		"core:window:allow-create",
