@@ -36,18 +36,19 @@ uuid               = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
-opener = { version = "0.7.1", features = ["reveal"], default-features = false }
-tauri = { version = "=2.0.0-rc.2", features = ["linux-libxdo", "macos-private-api", "unstable"] }
-tauri-plugin-dialog = "=2.0.0-rc.0"
-tauri-plugin-os = "=2.0.0-rc.0"
-tauri-plugin-shell = "=2.0.0-rc.0"
+opener               = { version = "0.7.1", features = ["reveal"], default-features = false }
+tauri                = { version = "=2.0.0-rc.2", features = ["linux-libxdo", "macos-private-api", "unstable"] }
+tauri-plugin-dialog  = "=2.0.0-rc.0"
+tauri-plugin-os      = "=2.0.0-rc.0"
+tauri-plugin-shell   = "=2.0.0-rc.0"
 tauri-plugin-updater = "=2.0.0-rc.0"
-tauri-runtime = { version = "=2.0.0-rc.2" }
-tauri-specta = { git = "https://github.com/spacedriveapp/tauri-specta", rev = "6069a05029", features = [
-	"derive",
-	"typescript"
-] }
-tauri-utils = { version = "=2.0.0-rc.2" }
+tauri-runtime        = { version = "=2.0.0-rc.2" }
+tauri-utils          = { version = "=2.0.0-rc.2" }
+
+[dependencies.tauri-specta]
+features = ["derive", "typescript"]
+git      = "https://github.com/spacedriveapp/tauri-specta"
+rev      = "6069a05029"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Spacedrive Sub-crates
