@@ -46,7 +46,6 @@ macro_rules! impl_stream {
 			/// For more information, view `Key::validate()` and `Nonce::validate()`
 			pub fn new(key: &Key, nonce: &Nonce, algorithm: Algorithm) -> Result<Self> {
 				nonce.validate(algorithm)?;
-				key.validate()?;
 
 				let s = match algorithm {
 					$(

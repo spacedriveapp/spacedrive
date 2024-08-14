@@ -218,38 +218,6 @@ function InvalidateDebugPanel() {
 	);
 }
 
-function FeatureFlagSelector() {
-	const featureFlags = useFeatureFlags();
-
-	return (
-		<>
-			<DropdownMenu.Root
-				trigger={
-					<Dropdown.Button variant="gray" className="w-full">
-						<span className="truncate">Feature Flags</span>
-					</Dropdown.Button>
-				}
-				className="z-[999] mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
-				alignToTrigger
-			>
-				{[...features, ...backendFeatures].map((feat) => (
-					<DropdownMenu.Item
-						key={feat}
-						label={feat}
-						iconProps={{ weight: 'bold', size: 16 }}
-						onClick={() => toggleFeatureFlag(feat)}
-						className="font-medium text-white"
-						icon={
-							featureFlags.find((f) => feat === f) !== undefined
-								? CheckSquare
-								: undefined
-						}
-					/>
-				))}
-			</DropdownMenu.Root>
-		</>
-	);
-}
 
 // function TestNotifications() {
 // 	const coreNotif = useBridgeMutation(['notifications.test']);

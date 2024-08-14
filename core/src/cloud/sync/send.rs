@@ -1,9 +1,6 @@
-use futures::FutureExt;
-use futures_concurrency::future::Race;
-use sd_core_sync::{SyncMessage, NTP64};
-
 use sd_actors::Stopper;
-use sd_cloud_api::RequestConfigProvider;
+use sd_core_cloud_services::CloudServices;
+use sd_core_sync::{SyncMessage, NTP64};
 
 use std::{
 	future::IntoFuture,
@@ -14,6 +11,8 @@ use std::{
 	time::Duration,
 };
 
+use futures::FutureExt;
+use futures_concurrency::future::Race;
 use tokio::{
 	sync::{broadcast, Notify},
 	time::sleep,
@@ -31,7 +30,7 @@ enum RaceNotifiedOrStopped {
 pub async fn run_actor(
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
-	cloud_api_config_provider: Arc<impl RequestConfigProvider>,
+	cloud_services: CloudServices,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
 	stop: Stopper,

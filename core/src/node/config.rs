@@ -1,9 +1,10 @@
 use crate::{
-	api::{notifications::Notification, BackendFeature},
+	api::notifications::Notification,
 	/*object::media::old_thumbnail::preferences::ThumbnailerPreferences,*/
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
+use sd_cloud_schema::devices::DeviceOS;
 use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
@@ -110,7 +111,8 @@ impl Default for NodeConfigP2P {
 	}
 }
 
-/// NodeConfig is the configuration for a node. This is shared between all libraries and is stored in a JSON file on disk.
+/// NodeConfig is the configuration for a node.
+/// This is shared between all libraries and is stored in a JSON file on disk.
 #[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
@@ -123,24 +125,16 @@ pub struct NodeConfig {
 	/// The p2p identity keypair for this node. This is used to identify the node on the network.
 	/// This keypair does effectively nothing except for provide libp2p with a stable peer_id.
 	#[serde(with = "identity_serde")]
+	// TODO(@fogodev): remove these from here, we must not store secret keys in plaintext...
+	// Put then on secret storage when we have a keyring compatible with all our supported platforms
 	pub identity: Identity,
 	/// P2P config
 	#[serde(default)]
 	pub p2p: NodeConfigP2P,
-	/// Feature flags enabled on the node
-	#[serde(default)]
-	pub features: Vec<BackendFeature>,
-	/// Authentication for Spacedrive Accounts
-	pub auth_token: Option<sd_cloud_api::auth::OAuthToken>,
-	/// URL of the Spacedrive API
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub sd_api_origin: Option<String>,
 	/// The aggregation of many different preferences for the node
 	pub preferences: NodePreferences,
-	// Model version for the image labeler
-	pub image_labeler_version: Option<String>,
-	// Operating System of the node -> "linux", "macos", "windows", "android", "ios"
-	pub os: String,
+	// Operating System of the node
+	pub os: DeviceOS,
 
 	version: NodeConfigVersion,
 }
@@ -185,6 +179,7 @@ pub enum NodeConfigVersion {
 	V2 = 2,
 	V3 = 3,
 	V4 = 4,
+	V5 = 5,
 }
 
 impl ManagedVersion<NodeConfigVersion> for NodeConfig {
@@ -196,12 +191,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		let mut name = generate_device_name();
 		name.truncate(255);
 
-		#[cfg(feature = "ai")]
-		let image_labeler_version = Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
-		#[cfg(not(feature = "ai"))]
-		let image_labeler_version = None;
-
-		let os = std::env::consts::OS;
+		let os = DeviceOS::from_env();
 
 		Some(Self {
 			id: Uuid::now_v7(),
@@ -209,13 +199,9 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			identity: Identity::default(),
 			p2p: NodeConfigP2P::default(),
 			version: Self::LATEST_VERSION,
-			features: vec![],
 			notifications: vec![],
-			auth_token: None,
-			sd_api_origin: None,
 			preferences: NodePreferences::default(),
-			image_labeler_version,
-			os: os.to_string(),
+			os,
 		})
 	}
 }
@@ -335,6 +321,38 @@ impl NodeConfig {
 							.map_err(|e| FileIOError::from((path, e)))?;
 					}
 
+					(NodeConfigVersion::V4, NodeConfigVersion::V5) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.insert(
+							String::from("os"),
+							serde_json::to_value(DeviceOS::from_env())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						config.remove("features");
+						config.remove("auth_token");
+						config.remove("sd_api_origin");
+						config.remove("image_labeler_version");
+
+						fs::write(
+							path,
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
+						)
+						.await
+						.map_err(|e| {
+							FileIOError::from((path, e, "Failed to write back updated config"))
+						})?;
+					}
+
 					_ => {
 						error!(current_version = ?current, "Node config version is not handled;");
 						return Err(VersionManagerError::UnexpectedMigration {
@@ -376,18 +394,7 @@ impl Manager {
 		let data_directory_path = data_directory_path.as_ref().to_path_buf();
 		let config_file_path = data_directory_path.join(NODE_STATE_CONFIG_NAME);
 
-		let mut config = NodeConfig::load(&config_file_path).await?;
-
-		#[cfg(feature = "ai")]
-		if config.image_labeler_version.is_none() {
-			config.image_labeler_version =
-				Some(sd_ai::old_image_labeler::DEFAULT_MODEL_VERSION.to_string());
-		}
-
-		#[cfg(not(feature = "ai"))]
-		{
-			config.image_labeler_version = None;
-		}
+		let config = NodeConfig::load(&config_file_path).await?;
 
 		let (preferences_watcher_tx, _preferences_watcher_rx) =
 			watch::channel(config.preferences.clone());

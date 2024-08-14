@@ -32,8 +32,6 @@ pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, onesh
 
 pub static EVENT_SENDER: OnceCell<mpsc::Sender<Response>> = OnceCell::new();
 
-pub const CLIENT_ID: &str = "d068776a-05b6-4aaa-9001-4d01734e1944";
-
 pub struct MobileSender<'a> {
 	resp: &'a mut Option<Response>,
 }
@@ -74,7 +72,7 @@ pub fn handle_core_msg(
 				None => {
 					let _guard = Node::init_logger(&data_dir);
 
-					let new_node = match Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await {
+					let new_node = match Node::new(data_dir).await {
 						Ok(node) => node,
 						Err(e) => {
 							error!(?e, "Failed to initialize node;");

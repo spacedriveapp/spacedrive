@@ -21,14 +21,6 @@ use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryManagerError};
 
-// TODO: Finish this
-// pub enum LibraryNew {
-// 	InitialSync,
-// 	Encrypted,
-// 	Loaded(LoadedLibrary),
-//  Deleting,
-// }
-
 pub struct Library {
 	/// id holds the ID of the current library.
 	pub id: Uuid,
@@ -48,7 +40,6 @@ pub struct Library {
 	pub instance_uuid: Uuid,
 
 	do_cloud_sync: broadcast::Sender<()>,
-	pub env: Arc<crate::env::Env>,
 
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
@@ -95,7 +86,6 @@ impl Library {
 			// orphan_remover: OrphanRemoverActor::spawn(db),
 			instance_uuid,
 			do_cloud_sync,
-			env: node.env.clone(),
 			event_bus_tx: node.event_bus.0.clone(),
 			actors,
 		})

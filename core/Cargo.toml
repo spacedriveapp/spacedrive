@@ -2,12 +2,12 @@
 name    = "sd-core"
 version = "0.4.1"
 
-authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-description          = "Virtual distributed filesystem engine that powers Spacedrive."
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-rust-version         = "1.78"
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [features]
 default = []
@@ -20,8 +20,8 @@ heif   = ["sd-images/heif"]
 
 [dependencies]
 # Inner Core Sub-crates
-sd-cloud-schema = { workspace = true }
-sd-core-cloud-services = { path = "./crates/cloud-services" }
+sd-cloud-schema          = { workspace = true }
+sd-core-cloud-services   = { path = "./crates/cloud-services" }
 sd-core-file-path-helper = { path = "./crates/file-path-helper" }
 sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
@@ -47,6 +47,7 @@ sd-utils          = { path = "../crates/utils" }
 
 # Workspace dependencies
 async-channel = { workspace = true }
+async-stream = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true, features = ["ws"] }
 base64 = { workspace = true }
@@ -91,15 +92,11 @@ tokio-stream = { workspace = true, features = ["fs"] }
 tokio-util = { workspace = true, features = ["io"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-uuid = { workspace = true, features = ["v4", "v7", "std", "serde"] }
+uuid = { workspace = true, features = ["serde", "std", "v4", "v7"] }
 webp = { workspace = true }
 
 # Specific Core dependencies
-async-recursion = "1.1"
 async-stream = "0.3.5"
-aws-config = "1.5"
-aws-credential-types = "1.2"
-aws-sdk-s3 = { version = "1.34", features = ["behavior-version-latest"] }
 bytes = "1.6"
 ctor = "0.2.8"
 flate2 = "1.0"
@@ -107,6 +104,11 @@ hostname = "0.4.0"
 http-body = "0.4.6" # Update blocked by http
 http-range = "0.1.5"
 int-enum = "0.5" # Update blocked due to API breaking changes
+keyring = { version = "3.0.4", features = [
+	"apple-native",
+	"sync-secret-service",
+	"windows-native"
+] }
 mini-moka = "0.10.3"
 notify = { git = "https://github.com/notify-rs/notify.git", rev = "c3929ed114", default-features = false, features = [
 	"macos_fsevent"
