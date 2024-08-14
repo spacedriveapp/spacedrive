@@ -1,91 +1,66 @@
-use futures::StreamExt;
-use reqwest::{Client, StatusCode};
-use thiserror::Error;
+use futures::Stream;
+use ollama_rs::generation::completion::request::GenerationRequest;
+use ollama_rs::Ollama;
+use std::pin::Pin;
 use tokio::sync::oneshot;
-use tokio::task;
 
-#[derive(Error, Debug)]
-pub enum OllamaError {
-	#[error("Failed to connect to Ollama API: {0}")]
-	ConnectionError(#[from] reqwest::Error),
-
-	#[error("Ollama API is not running on the system.")]
-	ServiceUnavailable,
-
-	#[error("Prompt processing failed with status code: {0}")]
-	PromptFailed(StatusCode),
-
-	#[error("Stream was cancelled.")]
-	StreamCancelled,
+pub struct OllamaClientWrapper {
+	client: Ollama,
 }
 
-pub struct OllamaClient {
-	http_client: Client,
-	base_url: String,
-}
-
-impl OllamaClient {
-	pub fn new(base_url: &str) -> Self {
+impl OllamaClientWrapper {
+	pub fn new(base_url: &str, port: u16) -> Self {
 		Self {
-			http_client: Client::new(),
-			base_url: base_url.to_string(),
+			client: Ollama::new(base_url.to_string(), port),
 		}
 	}
 
-	pub async fn stream_prompt(
+	pub async fn generate_response(
 		&self,
 		prompt: &str,
-	) -> Result<impl futures::Stream<Item = String>, OllamaError> {
-		let url = format!("{}/prompt", self.base_url);
-		let request = self.http_client.post(&url).body(prompt.to_string());
-
-		let response = request.send().await.map_err(|err| {
-			if err.is_connect() {
-				OllamaError::ServiceUnavailable
-			} else {
-				OllamaError::ConnectionError(err)
-			}
-		})?;
-
-		if !response.status().is_success() {
-			return Err(OllamaError::PromptFailed(response.status()));
-		}
-
-		let stream = response.bytes_stream();
-
-		Ok(stream.map(|chunk| {
-			let chunk = chunk.unwrap_or_else(|_| vec![].into());
-			String::from_utf8_lossy(&chunk).to_string()
-		}))
+	) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+		let model = "llama3.1:8b".to_string();
+		let res = self
+			.client
+			.generate(GenerationRequest::new(model, prompt.to_string()))
+			.await?;
+		Ok(res.response)
 	}
 
-	pub async fn stream_prompt_with_cancellation(
+	pub async fn generate_response_stream(
 		&self,
 		prompt: &str,
 	) -> Result<
 		(
-			impl futures::Stream<Item = Result<String, OllamaError>>,
+			Pin<
+				Box<
+					dyn Stream<Item = Result<String, Box<dyn std::error::Error + Send + Sync>>>
+						+ Send,
+				>,
+			>,
 			oneshot::Sender<()>,
 		),
-		OllamaError,
+		Box<dyn std::error::Error + Send + Sync>,
 	> {
 		let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-		let mut stream = self.stream_prompt(prompt).await?;
+		let model = "llama3.1:8b".to_string();
+		let response = self
+			.client
+			.generate(GenerationRequest::new(model, prompt.to_string()))
+			.await?;
 
-		let cancellable_stream = async_stream::stream! {
+		let stream = async_stream::stream! {
 			tokio::select! {
 				_ = cancel_rx => {
-					yield Err(OllamaError::StreamCancelled);
+					yield Err("Stream cancelled".into());
 				}
-				item = stream.next() => {
-					if let Some(chunk) = item {
-						yield Ok(chunk);
-					}
+				_ = async {} => {
+					yield Ok(response.response);
 				}
 			}
 		};
 
-		Ok((cancellable_stream, cancel_tx))
+		Ok((Box::pin(stream), cancel_tx))
 	}
 }

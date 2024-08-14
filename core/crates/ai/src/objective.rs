@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 // Objectives can be put aside for more important tasks, but should be revisited regularly to ensure they are completed and/or archived.
 #[derive(Prompt, JsonSchema, Debug, Clone, Default, Serialize, Deserialize)]
 #[prompt(
-	instruct = "Use to track progress for tasks large and small. Objectives can be put aside for more important tasks, but should be revisited regularly to ensure they are completed and/or archived."
+	instruct = "Use to track progress for tasks large and small. Objectives can be put aside for more important tasks, but should be revisited regularly to ensure they are completed and/or archived.",
+	// show_schema = true
 )]
 pub struct Objective {
 	#[prompt(

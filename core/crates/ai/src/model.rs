@@ -1,3 +1,4 @@
+use crate::action::Action;
 use crate::concept::*;
 use crate::define_concept;
 use crate::working_memory::ProcessStage;
@@ -11,7 +12,9 @@ use serde::{Deserialize, Serialize};
 // Later on we can make the response options dynamic and add new ones.
 #[derive(Prompt, JsonSchema, Debug, Clone, Default, Serialize, Deserialize)]
 #[prompt(
-	instruct = "The ModelResponse is a structured response that the model must always respond with. It is used to instruct the system on what to do next and to provide a brief overview of what happened in this round."
+	instruct = "The ModelResponse is a structured response that the model must always respond with. It is used to instruct the system on what to do next and to provide a brief overview of what happened in this round.",
+	show_schema = true,
+	show_variants = true
 )]
 pub struct ModelResponse {
 	// model can instruct system to advance to next stage
@@ -50,8 +53,9 @@ define_concept!(ModelEvent);
 #[prompt(instruct = "The type of event that occurred.")]
 pub enum ModelEventType {
 	#[default]
-	SystemMessage,
-	UserMessage,
-	PerformedAction,
+	Ping,
+	SystemMessage(String),
+	UserMessage(String),
+	PerformedAction(Action),
 }
 define_concept!(ModelEventType);

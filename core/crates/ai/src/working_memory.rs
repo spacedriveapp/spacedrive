@@ -14,6 +14,8 @@ pub struct WorkingMemory {
 	pub concepts: Vec<ConceptMeta>,
 	// which stage of the process are we in
 	pub stage: ProcessStage,
+	// any user inputs that have been received
+	pub user_inputs: Vec<UserMessage>,
 
 	pub started_at: chrono::DateTime<chrono::Utc>,
 	pub last_updated_at: chrono::DateTime<chrono::Utc>,
@@ -27,6 +29,7 @@ impl WorkingMemory {
 			notes: Vec::new(),
 			concepts: Vec::new(),
 			stage: ProcessStage::Idle,
+			user_inputs: Vec::new(),
 			started_at: chrono::Utc::now(),
 			last_updated_at: chrono::Utc::now(),
 			action_history: Vec::new(),
@@ -52,7 +55,7 @@ pub struct Note {
 }
 define_concept!(Note);
 // We use the Prompt metadata when the system prompt is constructed
-#[derive(Prompt, JsonSchema, Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Prompt, JsonSchema, Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[prompt(
 	instruct = "This is the state of the overall system.",
 	show_variants = true
@@ -83,3 +86,9 @@ pub enum ProcessStage {
 	Reflect,
 }
 define_concept!(ProcessStage);
+
+pub struct UserMessage {
+	pub message: String,
+	pub timestamp: String,
+	pub read: bool,
+}

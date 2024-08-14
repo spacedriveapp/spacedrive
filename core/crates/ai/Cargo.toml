@@ -41,6 +41,7 @@ ctor = "0.2.8"
 expand = "0.3.0"
 typify = "0.1.0"
 schemars = "0.8.21"
+ollama-rs = "0.2.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi-util = "0.1.8"

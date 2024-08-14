@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Fields, Lit, Meta, NestedMeta};
+use syn::{parse_macro_input, DeriveInput, Lit, Meta, NestedMeta};
 
 #[proc_macro_derive(Prompt, attributes(prompt))]
 pub fn prompt_derive(input: TokenStream) -> TokenStream {
@@ -10,8 +10,9 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 
 	let mut instruct_str = proc_macro2::TokenStream::new();
 	let mut show_variants = false;
-	let mut show_schema = false; // New flag to control schema inclusion
+	let mut show_schema = false;
 	let mut variant_instructions = Vec::new();
+	let mut property_instructions = Vec::new(); // New vector for property-level instructions
 
 	// Extract attributes from the struct/enum itself
 	for attr in &input.attrs {
@@ -28,7 +29,6 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 								show_variants = lit_bool.value;
 							}
 						} else if meta_name_value.path.is_ident("show_schema") {
-							// Check for show_schema
 							if let Lit::Bool(lit_bool) = &meta_name_value.lit {
 								show_schema = lit_bool.value;
 							}
@@ -65,11 +65,45 @@ pub fn prompt_derive(input: TokenStream) -> TokenStream {
 		}
 	}
 
+	// Handle struct fields for property-level instructions
+	if let syn::Data::Struct(data_struct) = &input.data {
+		for field in &data_struct.fields {
+			if let Some(attr) = field.attrs.iter().find(|a| a.path.is_ident("prompt")) {
+				if let Ok(Meta::List(meta_list)) = attr.parse_meta() {
+					for nested_meta in meta_list.nested.iter() {
+						if let NestedMeta::Meta(Meta::NameValue(meta_name_value)) = nested_meta {
+							if meta_name_value.path.is_ident("instruct") {
+								if let Lit::Str(lit_str) = &meta_name_value.lit {
+									let field_name = field.ident.as_ref().unwrap().to_string();
+									let value = lit_str.value();
+									property_instructions.push(quote! {
+										schema_properties_map.insert(#field_name.to_string(), serde_json::json!({
+											"type": "string",
+											"instruct": #value
+										}));
+									});
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Generate the schema using the SchemaProvider trait
 	let schema = if show_schema {
 		quote! {
+			let mut schema_map = serde_json::Map::new();
+			let mut schema_properties_map = serde_json::Map::new();
+
+			#(#property_instructions)* // Insert property-level instructions into the schema
+
 			let schema_str = serde_json::to_string_pretty(&#name::provide_schema()).unwrap();
-			prompt_map.insert("schema".to_string(), serde_json::from_str(&schema_str).unwrap());
+			schema_map.insert("schema".to_string(), serde_json::from_str(&schema_str).unwrap());
+			schema_map.insert("properties".to_string(), serde_json::Value::Object(schema_properties_map));
+
+			prompt_map.insert("schema".to_string(), serde_json::Value::Object(schema_map));
 		}
 	} else {
 		quote! {}
