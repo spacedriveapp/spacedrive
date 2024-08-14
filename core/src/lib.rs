@@ -9,12 +9,9 @@ use crate::{
 use sd_core_cloud_services::CloudServices;
 use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
 use sd_core_prisma_helpers::CasId;
-
-#[cfg(feature = "ai")]
-use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
-
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
+
 use volume::save_storage_statistics;
 
 use std::{
@@ -25,7 +22,6 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::Join;
-use reqwest::{RequestBuilder, Response};
 use thiserror::Error;
 use tokio::{fs, io, sync::broadcast};
 use tracing::{error, info, warn};
@@ -40,8 +36,6 @@ use tracing_subscriber::{
 pub mod api;
 mod cloud;
 mod context;
-#[cfg(feature = "crypto")]
-pub(crate) mod crypto;
 pub mod custom_uri;
 pub mod library;
 pub(crate) mod location;
