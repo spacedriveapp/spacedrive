@@ -1,7 +1,5 @@
 [workspace]
-exclude = ["crates/crypto"]
 members = [
-	"apps/deps-generator",
 	"apps/desktop/crates/*",
 	"apps/desktop/src-tauri",
 	"apps/mobile/modules/sd-core/android/crate",
@@ -18,6 +16,7 @@ resolver = "2"
 edition    = "2021"
 license    = "AGPL-3.0-only"
 repository = "https://github.com/spacedriveapp/spacedrive"
+rust-version = "1.80"
 
 [workspace.dependencies]
 # First party dependencies
@@ -25,11 +24,12 @@ sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schem
 
 # Third party dependencies used by one or more of our crates
 async-channel       = "2.3"
+async-stream        = "0.3.5"
 async-trait         = "0.1.80"
 axum                = "0.6.20"                                       # Update blocked by hyper
 base64              = "0.22.1"
 base91              = "0.1.0"
-blake3              = "1.5.0"                                        # Update blocked by custom patch below
+blake3              = "1.5.3"                                        # Update blocked by custom patch below
 chrono              = "0.4.38"
 directories         = "5.0"
 ed25519-dalek       = "2.1.1"
@@ -113,10 +113,6 @@ rev = "a005656df7"
 [patch.crates-io.libp2p-stream]
 git = "https://github.com/spacedriveapp/rust-libp2p.git"
 rev = "a005656df7"
-
-[patch.crates-io.blake3]
-git = "https://github.com/spacedriveapp/blake3.git"
-rev = "d3aab416c1"
 
 [profile.dev]
 # Make compilation faster on macOS

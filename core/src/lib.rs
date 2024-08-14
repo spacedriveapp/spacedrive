@@ -43,7 +43,6 @@ mod context;
 #[cfg(feature = "crypto")]
 pub(crate) mod crypto;
 pub mod custom_uri;
-mod env;
 pub mod library;
 pub(crate) mod location;
 pub(crate) mod node;
@@ -55,8 +54,6 @@ pub(crate) mod preferences;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
 pub(crate) mod volume;
-
-pub use env::Env;
 
 use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
@@ -77,13 +74,10 @@ pub struct Node {
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub cloud_sync_flag: Arc<AtomicBool>,
-	pub env: Arc<env::Env>,
 	pub http: reqwest::Client,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
 	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
 	pub cloud_services: Arc<CloudServices>,
-	#[cfg(feature = "ai")]
-	pub old_image_labeller: Option<OldImageLabeler>,
 }
 
 impl fmt::Debug for Node {
@@ -95,15 +89,10 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-	pub async fn new(
-		data_dir: impl AsRef<Path>,
-		env: env::Env,
-	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
 		info!(data_directory = %data_dir.display(), "Starting core;");
-
-		let env = Arc::new(env);
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
@@ -115,16 +104,6 @@ impl Node {
 		let config = config::Manager::new(data_dir.to_path_buf())
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
-
-		if let Some(url) = config.get().await.sd_api_origin {
-			*env.api_url.lock().await = url;
-		}
-
-		#[cfg(feature = "ai")]
-		let image_labeler_version = {
-			sd_ai::init()?;
-			config.get().await.image_labeler_version
-		};
 
 		let (locations, locations_actor) = location::Locations::new();
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
@@ -169,29 +148,10 @@ impl Node {
 				cfg!(target_os = "ios") || cfg!(target_os = "android"),
 			)),
 			http: reqwest::Client::new(),
-			env,
 			cloud_services: Arc::new(
 				CloudServices::new(&get_cloud_api_address, cloud_services_domain_name).await?,
 			),
-			#[cfg(feature = "ai")]
-			old_image_labeller: OldImageLabeler::new(
-				YoloV8::model(image_labeler_version)?,
-				data_dir,
-			)
-			.await
-			.map_err(|e| {
-				error!(
-					?e,
-					"Failed to initialize image labeller. AI features will be disabled;"
-				);
-			})
-			.ok(),
 		});
-
-		// Restore backend feature flags
-		for feature in node.config.get().await.features {
-			feature.restore(&node);
-		}
 
 		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
@@ -346,10 +306,6 @@ impl Node {
 			.join()
 			.await;
 
-		#[cfg(feature = "ai")]
-		if let Some(image_labeller) = &self.old_image_labeller {
-			image_labeller.shutdown().await;
-		}
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -394,55 +350,6 @@ impl Node {
 			}
 		}
 	}
-
-	pub async fn add_auth_header(&self, mut req: RequestBuilder) -> RequestBuilder {
-		if let Some(auth_token) = self.config.get().await.auth_token {
-			req = req.header("authorization", auth_token.to_header());
-		};
-
-		req
-	}
-
-	pub async fn authed_api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
-		let Some(auth_token) = self.config.get().await.auth_token else {
-			return Err(rspc::Error::new(
-				rspc::ErrorCode::Unauthorized,
-				"No auth token".to_string(),
-			));
-		};
-
-		let req = req.header("authorization", auth_token.to_header());
-
-		req.send().await.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"Request failed".to_string(),
-			)
-		})
-	}
-
-	pub async fn api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
-		req.send().await.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"Request failed".to_string(),
-			)
-		})
-	}
-
-	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
-		sd_cloud_api::RequestConfig {
-			client: self.http.clone(),
-			api_url: self.env.api_url.lock().await.clone(),
-			auth_token: self.config.get().await.auth_token,
-		}
-	}
-}
-
-impl sd_cloud_api::RequestConfigProvider for Node {
-	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
-		Node::cloud_api_config(self).await
-	}
 }
 
 /// Error type for Node related errors.
@@ -467,11 +374,4 @@ pub enum NodeError {
 	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
 	#[error(transparent)]
 	CloudServices(#[from] sd_core_cloud_services::Error),
-
-	#[cfg(feature = "ai")]
-	#[error("ai error: {0}")]
-	AI(#[from] sd_ai::Error),
-	#[cfg(feature = "ai")]
-	#[error("Failed to download model: {0}")]
-	DownloadModel(#[from] DownloadModelError),
 }

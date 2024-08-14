@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { createMutable } from 'solid-js/store';
 
 import type { BackendFeature } from '../core';
-import { nonLibraryClient, useBridgeQuery } from '../rspc';
-import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
+import { useBridgeQuery } from '../rspc';
+import { createPersistedMutable, useObserver } from '../solid';
 
 export const features = [
 	'backups',
@@ -82,7 +82,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 						);
 
 				if (result) {
-					nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);
+					// nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);
 				}
 			})();
 

@@ -22,6 +22,7 @@ enum ClientState {
 /// They're optional in two different ways:
 /// - The cloud services depends on a user being logged in with our server.
 /// - The user being connected to the internet to begin with.
+///
 /// As we don't want to force the user to be connected to the internet, we have to make sure
 /// that core can always operate without the cloud services.
 #[derive(Debug, Clone)]

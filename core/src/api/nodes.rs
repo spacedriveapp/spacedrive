@@ -28,8 +28,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub p2p_manual_peers: Option<HashSet<String>>,
-				#[cfg(feature = "ai")]
-				pub image_labeler_version: Option<String>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
@@ -40,9 +38,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					}
 				}
-
-				#[cfg(feature = "ai")]
-				let mut new_model = None;
 
 				node.config
 					.write(|config| {
@@ -71,29 +66,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(manual_peers) = args.p2p_manual_peers {
 							config.p2p.manual_peers = manual_peers;
 						};
-
-						#[cfg(feature = "ai")]
-						if let Some(version) = args.image_labeler_version {
-							if config
-								.image_labeler_version
-								.as_ref()
-								.map(|node_version| version != *node_version)
-								.unwrap_or(true)
-							{
-								new_model = sd_ai::old_image_labeler::YoloV8::model(Some(&version))
-									.map_err(|e| {
-										error!(
-											%version,
-											?e,
-											"Failed to crate image_detection model;",
-										);
-									})
-									.ok();
-								if new_model.is_some() {
-									config.image_labeler_version = Some(version);
-								}
-							}
-						}
 					})
 					.await
 					.map_err(|e| {
@@ -108,44 +80,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				node.p2p.on_node_config_change().await;
 
 				invalidate_query!(node; node, "nodeState");
-
-				#[cfg(feature = "ai")]
-				{
-					use super::notifications::{NotificationData, NotificationKind};
-
-					if let Some(model) = new_model {
-						let version = model.version().to_string();
-						tokio::spawn(async move {
-							let notification = if let Some(image_labeller) =
-								node.old_image_labeller.as_ref()
-							{
-								if let Err(e) = image_labeller.change_model(model).await {
-									NotificationData {
-										title: String::from(
-											"Failed to change image detection model",
-										),
-										content: format!("Error: {e}"),
-										kind: NotificationKind::Error,
-									}
-								} else {
-									NotificationData {
-										title: String::from("Model download completed"),
-										content: format!("Successfully loaded model: {version}"),
-										kind: NotificationKind::Success,
-									}
-								}
-							} else {
-								NotificationData {
-									title: String::from("Failed to change image detection model"),
-									content: "The AI system is disabled due to a previous error. Contact support for help.".to_string(),
-									kind: NotificationKind::Success,
-								}
-							};
-
-							node.emit_notification(notification, None).await;
-						});
-					}
-				}
 
 				Ok(())
 			})

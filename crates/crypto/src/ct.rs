@@ -1,3 +1,4 @@
+use aead::array::{Array, ArraySize};
 use cmov::{Cmov, CmovEq};
 
 // The basic principle of most `ct_eq()` functions is to "null" out `x` (which is = 1 by default)
@@ -32,6 +33,21 @@ impl_ct_int!(usize, u8, u16, u32, u64, u128);
 impl_ct_int!(isize, i8, i16, i32, i64, i128);
 
 impl<T, const I: usize> ConstantTimeEq for [T; I]
+where
+	T: CmovEq,
+{
+	fn ct_eq(&self, rhs: &Self) -> Choice {
+		let mut x = 1u8;
+
+		self.iter()
+			.zip(rhs.iter())
+			.for_each(|(l, r)| l.cmovne(r, 0u8, &mut x));
+
+		Choice::from(x)
+	}
+}
+
+impl<T, N: ArraySize> ConstantTimeEq for Array<T, N>
 where
 	T: CmovEq,
 {
@@ -86,7 +102,7 @@ impl Choice {
 	#[inline]
 	#[must_use]
 	pub fn unwrap_u8(&self) -> u8 {
-		// could use an unsafe volatile read as an optimisation barrier
+		// could use an unsafe volatile read as an optimization barrier
 		// i think cmov does a great job at being the barrier as well though
 		let mut x = 0u8;
 		x.cmovnz(&1, self.0);
@@ -166,31 +182,65 @@ impl ConstantTimeEqNull for [u8] {
 
 #[cfg(test)]
 mod tests {
-	use crate::{
-		ct::{ConstantTimeEq, ConstantTimeEqNull},
-		primitives::SALT_LEN,
-	};
+
+	use aead::array::Array;
+	use typenum::consts::U32;
+
+	use crate::ct::{ConstantTimeEq, ConstantTimeEqNull};
 
 	#[test]
 	fn eq_null() {
-		assert!(bool::from([0u8; SALT_LEN].ct_eq_null()));
+		assert!(bool::from([0u8; 16].ct_eq_null()));
 	}
 
 	#[test]
 	#[should_panic(expected = "assertion")]
 	fn eq_null_fail() {
-		assert!(bool::from([1u8; SALT_LEN].ct_eq_null()));
+		assert!(bool::from([1u8; 16].ct_eq_null()));
 	}
 
 	#[test]
 	fn ne_null() {
-		assert!(bool::from([1u8; SALT_LEN].ct_ne_null()));
+		assert!(bool::from([1u8; 16].ct_ne_null()));
 	}
 
 	#[test]
 	#[should_panic(expected = "assertion")]
 	fn ne_null_fail() {
-		assert!(bool::from([0u8; SALT_LEN].ct_ne_null()));
+		assert!(bool::from([0u8; 16].ct_ne_null()));
+	}
+
+	#[test]
+	fn generic_array_eq() {
+		assert!(bool::from(Array::<u8, U32>::ct_eq(
+			&Array::from([0u8; 32]),
+			&Array::from([0u8; 32]),
+		)));
+	}
+	#[test]
+	#[should_panic(expected = "assertion")]
+	fn generic_array_eq_fail() {
+		assert!(bool::from(Array::<u8, U32>::ct_eq(
+			&Array::from([0u8; 32]),
+			&Array::from([1u8; 32]),
+		)));
+	}
+
+	#[test]
+	fn generic_array_ne() {
+		assert!(bool::from(Array::<u8, U32>::ct_ne(
+			&Array::from([0u8; 32]),
+			&Array::from([1u8; 32]),
+		)));
+	}
+
+	#[test]
+	#[should_panic(expected = "assertion")]
+	fn generic_array_ne_fail() {
+		assert!(bool::from(Array::<u8, U32>::ct_ne(
+			&Array::from([0u8; 32]),
+			&Array::from([0u8; 32]),
+		)));
 	}
 
 	macro_rules! create_tests {

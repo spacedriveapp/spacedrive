@@ -1,14 +1,24 @@
-use crate::{
-	api::{Ctx, R},
-	try_get_cloud_services_client,
+use crate::api::{Ctx, R};
+
+use futures::{SinkExt, StreamExt};
+use sd_cloud_schema::{
+	auth::AccessToken,
+	devices::{self, DeviceOS, PubId},
+	opaque_ke::{
+		rand::rngs::OsRng, ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult,
+		ClientLoginStartResult,
+	},
+	Client, Service, SpacedriveCipherSuite,
 };
+use sd_core_cloud_services::QuinnConnection;
 
+use blake3::Hash;
 use chrono::DateTime;
-use sd_cloud_schema::devices::{self, DeviceOS, PubId};
-
 use rspc::alpha::AlphaRouter;
-use tracing::debug;
+use tracing::{debug, error};
 use uuid::Uuid;
+
+use super::{handle_comm_error, try_get_cloud_services_client};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
 struct MockDevice {
@@ -138,7 +148,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("delete", {
 			R.mutation(|node, req: devices::delete::Request| async move {
 				super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.devices()
 						.delete(req)
 						.await,
@@ -153,7 +164,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("update", {
 			R.mutation(|node, req: devices::update::Request| async move {
 				super::handle_comm_error(
-					try_get_cloud_services_client!(node)?
+					try_get_cloud_services_client(&node)
+						.await?
 						.devices()
 						.update(req)
 						.await,
@@ -165,4 +177,115 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				Ok(())
 			})
 		})
+}
+
+pub async fn hello(
+	client: &Client<QuinnConnection<Service>, Service>,
+	access_token: AccessToken,
+	device_pub_id: PubId,
+	hashed_pub_id: Hash,
+) -> Result<(), rspc::Error> {
+	use devices::hello::{Request, RequestUpdate, Response, State};
+
+	let ClientLoginStartResult { message, state } = ClientLogin::<SpacedriveCipherSuite>::start(
+		&mut OsRng,
+		hashed_pub_id.as_bytes().as_slice(),
+	)
+	.map_err(|e| {
+		error!(?e, "OPAQUE error initializing device hello request;");
+		rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			"Failed to initialize device login".into(),
+		)
+	})?;
+
+	let (mut hello_continuation, mut res_stream) = handle_comm_error(
+		client
+			.devices()
+			.hello(Request {
+				access_token,
+				pub_id: device_pub_id,
+				opaque_login_message: Box::new(message),
+			})
+			.await,
+		"Failed to send device hello request;",
+	)?;
+
+	let Some(res) = res_stream.next().await else {
+		let message = "Server did not send a device hello response;";
+		error!("{message}");
+		return Err(rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			message.to_string(),
+		));
+	};
+
+	let login_response =
+		match handle_comm_error(res, "Communication error on device hello response;")? {
+			Ok(Response(State::LoginResponse(login_response))) => login_response,
+			Ok(Response(State::End)) => {
+				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
+			}
+			Err(e) => {
+				error!(?e, "Device hello response error;");
+				return Err(e.into());
+			}
+		};
+
+	let ClientLoginFinishResult {
+		message,
+		export_key,
+		..
+	} = state
+		.finish(
+			hashed_pub_id.as_bytes().as_slice(),
+			*login_response,
+			ClientLoginFinishParameters::default(),
+		)
+		.map_err(|e| {
+			error!(?e, "Device hello finish error;");
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Failed to finish device login".into(),
+			)
+		})?;
+
+	hello_continuation
+		.send(RequestUpdate {
+			opaque_login_finish: Box::new(message),
+		})
+		.await
+		.map_err(|e| {
+			error!(?e, "Failed to send device hello request continuation;");
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Failed to finish device login procedure;".into(),
+			)
+		})?;
+
+	let Some(res) = res_stream.next().await else {
+		let message = "Server did not send a device hello END response;";
+		error!("{message}");
+		return Err(rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			message.to_string(),
+		));
+	};
+
+	match handle_comm_error(res, "Communication error on device hello response;")? {
+		Ok(Response(State::LoginResponse(_))) => {
+			unreachable!("Device hello final response MUST be End here, this is a serious bug and should crash;");
+		}
+		Ok(Response(State::End)) => {}
+		Err(e) => {
+			error!(?e, "Device hello final response error;");
+			return Err(e.into());
+		}
+	};
+
+	Ok(())
+}
+
+pub async fn device_registration() -> Result<(), rspc::Error> {
+	Ok(())
 }

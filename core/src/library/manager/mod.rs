@@ -598,109 +598,110 @@ impl Libraries {
 			async move {
 				loop {
 					debug!("Syncing library with cloud!");
+					// TODO(fogodev): re-implement this with new Cloud Services API
 
-					if library.config().await.cloud_id.is_some() {
-						if let Ok(lib) =
-							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
-								.await
-						{
-							match lib {
-								Some(lib) => {
-									if let Some(this_instance) = lib
-										.instances
-										.iter()
-										.find(|i| i.uuid == library.instance_uuid)
-									{
-										let node_config = node.config.get().await;
-										let curr_metadata: Option<HashMap<String, String>> =
-											instance.metadata.as_ref().map(|metadata| {
-												serde_json::from_slice(metadata)
-													.expect("invalid metadata")
-											});
-										let should_update = this_instance.node_id != node_config.id
-											|| RemoteIdentity::from_str(
-												&this_instance.node_remote_identity,
-											)
-											.ok() != Some(
-												node_config.identity.to_remote_identity(),
-											) || curr_metadata
-											!= Some(node.p2p.peer_metadata());
+					// if library.config().await.cloud_id.is_some() {
+					// 	if let Ok(lib) =
+					// 		sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
+					// 			.await
+					// 	{
+					// 		match lib {
+					// 			Some(lib) => {
+					// 				if let Some(this_instance) = lib
+					// 					.instances
+					// 					.iter()
+					// 					.find(|i| i.uuid == library.instance_uuid)
+					// 				{
+					// 					let node_config = node.config.get().await;
+					// 					let curr_metadata: Option<HashMap<String, String>> =
+					// 						instance.metadata.as_ref().map(|metadata| {
+					// 							serde_json::from_slice(metadata)
+					// 								.expect("invalid metadata")
+					// 						});
+					// 					let should_update = this_instance.node_id != node_config.id
+					// 						|| RemoteIdentity::from_str(
+					// 							&this_instance.node_remote_identity,
+					// 						)
+					// 						.ok() != Some(
+					// 							node_config.identity.to_remote_identity(),
+					// 						) || curr_metadata
+					// 						!= Some(node.p2p.peer_metadata());
 
-										if should_update {
-											warn!("Library instance on cloud is outdated. Updating...");
+					// 					if should_update {
+					// 						warn!("Library instance on cloud is outdated. Updating...");
 
-											if let Err(e) = sd_cloud_api::library::update_instance(
-												node.cloud_api_config().await,
-												library.id,
-												this_instance.uuid,
-												Some(node_config.id),
-												Some(node_config.identity.to_remote_identity()),
-												Some(node.p2p.peer_metadata()),
-											)
-											.await
-											{
-												error!(
-													instance_uuid = %this_instance.uuid,
-													?e,
-													"Failed to updating instance on cloud;",
-												);
-											}
-										}
-									}
+					// 						if let Err(e) = sd_cloud_api::library::update_instance(
+					// 							node.cloud_api_config().await,
+					// 							library.id,
+					// 							this_instance.uuid,
+					// 							Some(node_config.id),
+					// 							Some(node_config.identity.to_remote_identity()),
+					// 							Some(node.p2p.peer_metadata()),
+					// 						)
+					// 						.await
+					// 						{
+					// 							error!(
+					// 								instance_uuid = %this_instance.uuid,
+					// 								?e,
+					// 								"Failed to updating instance on cloud;",
+					// 							);
+					// 						}
+					// 					}
+					// 				}
 
-									if lib.name != *library.config().await.name {
-										warn!("Library name on cloud is outdated. Updating...");
+					// 				if lib.name != *library.config().await.name {
+					// 					warn!("Library name on cloud is outdated. Updating...");
 
-										if let Err(e) = sd_cloud_api::library::update(
-											node.cloud_api_config().await,
-											library.id,
-											Some(lib.name),
-										)
-										.await
-										{
-											error!(?e, "Failed to update library name on cloud;");
-										}
-									}
+					// 					if let Err(e) = sd_cloud_api::library::update(
+					// 						node.cloud_api_config().await,
+					// 						library.id,
+					// 						Some(lib.name),
+					// 					)
+					// 					.await
+					// 					{
+					// 						error!(?e, "Failed to update library name on cloud;");
+					// 					}
+					// 				}
 
-									for instance in lib.instances {
-										if let Err(e) = cloud::sync::receive::upsert_instance(
-											library.id,
-											&library.db,
-											&library.sync,
-											&node.libraries,
-											&instance.uuid,
-											instance.identity,
-											&instance.node_id,
-											RemoteIdentity::from_str(
-												&instance.node_remote_identity,
-											)
-											.expect("malformed remote identity from API"),
-											instance.metadata,
-										)
-										.await
-										{
-											error!(?e, "Failed to create instance on cloud;");
-										}
-									}
-								}
-								None => {
-									warn!(
-										"Library not found on cloud. Removing from local node..."
-									);
+					// 				for instance in lib.instances {
+					// 					if let Err(e) = cloud::sync::receive::upsert_instance(
+					// 						library.id,
+					// 						&library.db,
+					// 						&library.sync,
+					// 						&node.libraries,
+					// 						&instance.uuid,
+					// 						instance.identity,
+					// 						&instance.node_id,
+					// 						RemoteIdentity::from_str(
+					// 							&instance.node_remote_identity,
+					// 						)
+					// 						.expect("malformed remote identity from API"),
+					// 						instance.metadata,
+					// 					)
+					// 					.await
+					// 					{
+					// 						error!(?e, "Failed to create instance on cloud;");
+					// 					}
+					// 				}
+					// 			}
+					// 			None => {
+					// 				warn!(
+					// 					"Library not found on cloud. Removing from local node..."
+					// 				);
 
-									let _ = this
-										.edit(
-											library.id,
-											None,
-											MaybeUndefined::Undefined,
-											MaybeUndefined::Null,
-											None,
-										)
-										.await;
-								}
-							}
-						}
-					}
+					// 				let _ = this
+					// 					.edit(
+					// 						library.id,
+					// 						None,
+					// 						MaybeUndefined::Undefined,
+					// 						MaybeUndefined::Null,
+					// 						None,
+					// 					)
+					// 					.await;
+					// 			}
+					// 		}
+					// 	}
+					// }
 
 					tokio::select! {
 						// Update instances every 2 minutes

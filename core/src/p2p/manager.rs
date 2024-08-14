@@ -116,7 +116,8 @@ impl P2PManager {
 				let client = reqwest::Client::new();
 				loop {
 					match client
-						.get(format!("{}/api/p2p/relays", node.env.api_url.lock().await))
+						// FIXME(@fogodev): hardcoded URL for now as I'm moving stuff around
+						.get(format!("{}/api/p2p/relays", "https://app.spacedrive.com"))
 						.send()
 						.await
 					{
