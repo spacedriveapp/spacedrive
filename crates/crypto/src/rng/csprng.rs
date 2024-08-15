@@ -1,3 +1,5 @@
+use crate::Error;
+
 use rand::RngCore;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{impl_try_crypto_rng_from_crypto_rng, SeedableRng};
@@ -14,9 +16,8 @@ impl CryptoRng {
 	/// This creates a new [`ChaCha20Rng`]-backed [`rand::CryptoRng`] from entropy
 	/// (via the [getrandom](https://docs.rs/getrandom) crate).
 	#[inline]
-	#[must_use]
-	pub fn new() -> Self {
-		Self(ChaCha20Rng::from_os_rng())
+	pub fn new() -> Result<Self, Error> {
+		ChaCha20Rng::try_from_os_rng().map(Self).map_err(Into::into)
 	}
 
 	/// Used to generate completely random bytes, with the use of [`ChaCha20Rng`]
@@ -57,22 +58,27 @@ impl RngCore for CryptoRng {
 	}
 }
 
+impl SeedableRng for CryptoRng {
+	type Seed = <ChaCha20Rng as SeedableRng>::Seed;
+
+	fn from_seed(seed: Self::Seed) -> Self {
+		Self(ChaCha20Rng::from_seed(seed))
+	}
+}
+
 impl Zeroize for CryptoRng {
 	#[inline]
 	fn zeroize(&mut self) {
-		self.0 = ChaCha20Rng::from_os_rng();
+		let mut seed = <Self as SeedableRng>::Seed::default();
+		self.0.fill_bytes(&mut seed);
+
+		self.0 = ChaCha20Rng::from_seed(seed);
 	}
 }
 
 impl rand::CryptoRng for CryptoRng {}
 
 impl_try_crypto_rng_from_crypto_rng!(CryptoRng);
-
-impl Default for CryptoRng {
-	fn default() -> Self {
-		Self::new()
-	}
-}
 
 impl Drop for CryptoRng {
 	#[inline]
