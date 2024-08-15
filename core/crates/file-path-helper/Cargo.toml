@@ -29,5 +29,5 @@ tracing            = { workspace = true }
 
 # Specific File Path Helper dependencies
 [target.'cfg(target_os = "windows")'.dependencies.windows]
-features = ["Win32_Storage_FileSystem", "Win32_Security"]
+features = ["Win32_Security", "Win32_Storage_FileSystem"]
 version  = "0.58"
