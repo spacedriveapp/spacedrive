@@ -73,6 +73,16 @@ export default function App() {
 		};
 	}, []);
 
+	useEffect(() => {
+		const deeplinkListener = listen('deeplink', (data) => {
+			console.log('deeplink', data.payload);
+		});
+
+		return () => {
+			deeplinkListener.then((unlisten) => unlisten());
+		};
+	}, []);
+
 	return (
 		<RspcProvider queryClient={queryClient}>
 			<QueryClientProvider client={queryClient}>

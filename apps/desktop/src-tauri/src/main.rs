@@ -11,8 +11,8 @@ use sd_core::{Node, NodeError};
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
 use specta_typescript::Typescript;
-use tauri::{Emitter, Listener};
 use tauri::{async_runtime::block_on, webview::PlatformWebview, AppHandle, Manager, WindowEvent};
+use tauri::{Emitter, Listener};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
 use tauri_specta::{collect_events, Builder};
 use tokio::task::block_in_place;
@@ -176,6 +176,12 @@ pub enum DragAndDropEvent {
 	Cancelled,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepLinkEvent {
+  data: String,
+}
+
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
@@ -215,12 +221,19 @@ async fn main() -> tauri::Result<()> {
 
 	tauri::Builder::default()
 		.invoke_handler(builder.invoke_handler())
+		.plugin(tauri_plugin_deep_link::init())
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
-			app.listen("deep-link://new-url", |url| {
-                println!("Received deep link: {:?}", url);
-            });
+
+			app.listen("deep-link://new-url", move |event| {
+				let deep_link_event = DeepLinkEvent {
+					data: event.payload().to_string(),
+				};
+				println!("Deep link event: {:#?}", deep_link_event);
+
+				app.emit("deeplink", deep_link_event).unwrap();
+			});
 
 			block_in_place(|| {
 				block_on(async move {
