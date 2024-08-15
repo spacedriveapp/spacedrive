@@ -225,6 +225,15 @@ async fn main() -> tauri::Result<()> {
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
+			let handle = app.handle().clone();
+			app.listen("deep-link://new-url", move |event| {
+				let deep_link_event = DeepLinkEvent {
+					data: event.payload().to_string(),
+				};
+				println!("Deep link event={:?}", deep_link_event);
+
+				handle.emit("deeplink", deep_link_event).unwrap();
+			});
 
 			block_in_place(|| {
 				block_on(async move {
@@ -245,15 +254,15 @@ async fn main() -> tauri::Result<()> {
 						Err(err) => (None, Err(NodeError::Logger(err))),
 					};
 
-					let handle = app.handle().clone();
-					app.listen("deep-link://new-url", move |event| {
-						let deep_link_event = DeepLinkEvent {
-							data: event.payload().to_string(),
-						};
-						debug!(?deep_link_event, "Deep link event;",);
+					// let handle = app.handle().clone();
+					// app.listen("deep-link://new-url", move |event| {
+					// 	let deep_link_event = DeepLinkEvent {
+					// 		data: event.payload().to_string(),
+					// 	};
+					// 	debug!(?deep_link_event, "Deep link event;",);
 
-						handle.emit("deeplink", deep_link_event).unwrap();
-					});
+					// 	handle.emit("deeplink", deep_link_event).unwrap();
+					// });
 
 					let handle = app.handle();
 					let (node, router) = match result {
@@ -265,7 +274,7 @@ async fn main() -> tauri::Result<()> {
 						}
 					};
 
-					let should_clear_localstorage = node.libraries.get_all().await.is_empty();
+					let should_clear_local_storage = node.libraries.get_all().await.is_empty();
 
 					handle.plugin(rspc::integrations::tauri::plugin(router, {
 						let node = node.clone();
@@ -275,8 +284,8 @@ async fn main() -> tauri::Result<()> {
 					handle.manage(node.clone());
 
 					handle.windows().iter().for_each(|(_, window)| {
-						if should_clear_localstorage {
-							println!("cleaning localStorage");
+						if should_clear_local_storage {
+							debug!("cleaning localStorage");
 							for webview in window.webviews() {
 								webview.eval("localStorage.clear();").ok();
 							}
