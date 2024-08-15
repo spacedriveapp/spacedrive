@@ -54,7 +54,7 @@ sd-desktop-linux = { path = "../crates/linux" }
 # Specific Desktop dependencies
 # WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
 dbus = { version = "0.9.7", features = ["stdfd"] }
-# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-rc.2/core/tauri/Cargo.toml
+# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-rc.2/core/tauri/Cargo.toml#L86
 webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

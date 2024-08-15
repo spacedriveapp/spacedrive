@@ -27,5 +27,7 @@ thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["fs"] }
 tracing            = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi-util = "0.1.8"
+# Specific File Path Helper dependencies
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+features = ["Win32_Storage_FileSystem", "Win32_Security"]
+version  = "0.58"

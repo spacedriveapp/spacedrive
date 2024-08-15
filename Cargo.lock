@@ -8254,7 +8254,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "winapi-util",
+ "windows 0.58.0",
 ]
 
 [[package]]
@@ -10575,17 +10575,18 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "4.1.1"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c254b119cf49bdde3dfef21b1dc492dc8026b75566ca24aa77993eccd7cbc1b5"
+checksum = "a154e8323dbd402514d5a3c0f12e0a5bddf72de674b565d58a5535500566428b"
 dependencies = [
  "chrono",
  "libc",
  "log",
- "objc",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
  "scopeguard",
- "url",
+ "urlencoding",
  "windows 0.56.0",
 ]
 
@@ -10915,6 +10916,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "urlpattern"
