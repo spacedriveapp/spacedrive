@@ -25,7 +25,6 @@ serde         = { workspace = true, features = ["derive"] }
 specta        = { workspace = true }
 thiserror     = { workspace = true }
 tokio         = { workspace = true, features = ["fs", "io-util", "macros", "sync", "time"] }
-tokio-stream  = { workspace = true, features = ["sync"] }
 tokio-util    = { workspace = true, features = ["compat"] }
 tracing       = { workspace = true }
 uuid          = { workspace = true, features = ["serde"] }

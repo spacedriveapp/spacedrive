@@ -8380,7 +8380,6 @@ dependencies = [
  "rand_chacha 0.9.0-alpha.2",
  "rand_core 0.9.0-alpha.2",
  "serde",
- "serde-big-array",
  "serdect",
  "tempfile",
  "thiserror",
@@ -8400,7 +8399,7 @@ dependencies = [
  "hyper 0.14.29",
  "opener",
  "prisma-client-rust",
- "rand 0.8.5",
+ "rand 0.9.0-alpha.2",
  "rspc",
  "sd-core",
  "sd-desktop-linux",
@@ -8575,7 +8574,6 @@ dependencies = [
  "sync_wrapper 1.0.1",
  "thiserror",
  "tokio",
- "tokio-stream",
  "tokio-util",
  "tracing",
  "tracing-subscriber",
@@ -8678,7 +8676,7 @@ dependencies = [
  "futures-concurrency",
  "lending-stream",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.9.0-alpha.2",
  "rmp-serde",
  "serde",
  "tempfile",
@@ -8770,15 +8768,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e33aedb1a7135da52b7c21791455563facbbcc43d0f0f66165b42c21b3dfb150"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-big-array"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -10297,7 +10286,6 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
