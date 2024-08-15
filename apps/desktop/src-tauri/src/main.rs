@@ -225,17 +225,10 @@ async fn main() -> tauri::Result<()> {
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
-			let handle = app.handle().clone();
-			app.listen("deep-link://new-url", move |event| {
-				let deep_link_event = DeepLinkEvent {
-					data: event.payload().to_string(),
-				};
-				println!("Deep link event={:?}", deep_link_event);
 
-				handle.emit("deeplink", deep_link_event).unwrap();
-			});
+			let app_handle = app.handle().clone();
 
-			block_in_place(|| {
+			let ret = block_in_place(|| {
 				block_on(async move {
 					builder.mount_events(app);
 
@@ -253,16 +246,6 @@ async fn main() -> tauri::Result<()> {
 						Ok(guard) => (Some(guard), Node::new(data_dir).await),
 						Err(err) => (None, Err(NodeError::Logger(err))),
 					};
-
-					// let handle = app.handle().clone();
-					// app.listen("deep-link://new-url", move |event| {
-					// 	let deep_link_event = DeepLinkEvent {
-					// 		data: event.payload().to_string(),
-					// 	};
-					// 	debug!(?deep_link_event, "Deep link event;",);
-
-					// 	handle.emit("deeplink", deep_link_event).unwrap();
-					// });
 
 					let handle = app.handle();
 					let (node, router) = match result {
@@ -324,7 +307,23 @@ async fn main() -> tauri::Result<()> {
 
 					Ok(())
 				})
-			})
+			});
+
+			app_handle.listen("deep-link://new-url", {
+				let app_handle = app_handle.clone();
+				move |event| {
+					let deep_link_event = DeepLinkEvent {
+						data: event.payload().to_string(),
+					};
+					debug!(?deep_link_event, "Deep link event;",);
+
+					if let Err(e) = app_handle.emit("deeplink", deep_link_event) {
+						error!(?e, "Failed to emit deeplink event;");
+					}
+				}
+			});
+
+			ret
 		})
 		.on_window_event(move |window, event| match event {
 			// macOS expected behavior is for the app to not exit when the main window is closed.
