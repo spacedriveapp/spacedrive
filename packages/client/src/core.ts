@@ -3,8 +3,13 @@
 
 export type Procedures = {
     queries: 
+        { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
+        { key: "cloud.getApiOrigin", input: never, result: string } | 
+        { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
+        { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
+        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -53,9 +58,16 @@ export type Procedures = {
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
+        { key: "auth.logout", input: never, result: null } | 
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
+        { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
+        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
+        { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -115,8 +127,10 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
+        { key: "auth.loginSession", input: never, result: Response } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
@@ -136,6 +150,13 @@ export type Args = { search?: string | null; filters?: string | null; name?: str
 
 export type AudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
 
+/**
+ * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+ * 
+ * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+ */
+export type BackendFeature = "cloudSync"
+
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
 export type BuildInfo = { version: string; commit: string }
@@ -151,6 +172,12 @@ export type CasId = string
 export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
+
+export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeRemoteIdentity: string; metadata: { [key in string]: string } }
+
+export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+
+export type CloudLocation = { id: string; name: string }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -463,7 +490,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
@@ -567,6 +594,8 @@ export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: J
 export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
+
+export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent" | "IgnoredByGit"
 

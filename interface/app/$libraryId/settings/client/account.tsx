@@ -85,14 +85,6 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
-	const doTheThing = useBridgeMutation('cloud.locations.testing', {
-		onSuccess() {
-			toast.success('Uploaded file!');
-		},
-		onError(err) {
-			toast.error(err.message);
-		}
-	});
 
 	useEffect(() => {
 		if (path === '' && locations.data?.[0]) {
@@ -100,7 +92,7 @@ function HostedLocationsPlayground() {
 		}
 	}, [path, locations.data]);
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading || doTheThing.isLoading;
+	const isLoading = createLocation.isLoading || removeLocation.isLoading;
 
 	return (
 		<>
@@ -151,19 +143,6 @@ function HostedLocationsPlayground() {
 								disabled={isLoading}
 							>
 								Delete
-							</Button>
-							<Button
-								variant="accent"
-								size="sm"
-								onClick={() =>
-									doTheThing.mutate({
-										id: location.id,
-										path
-									})
-								}
-								disabled={isLoading}
-							>
-								Do the thing
 							</Button>
 						</div>
 					))}

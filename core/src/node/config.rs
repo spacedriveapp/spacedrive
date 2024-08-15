@@ -1,5 +1,5 @@
 use crate::{
-	api::notifications::Notification,
+	api::{notifications::Notification, BackendFeature},
 	/*object::media::old_thumbnail::preferences::ThumbnailerPreferences,*/
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
@@ -127,6 +127,9 @@ pub struct NodeConfig {
 	/// P2P config
 	#[serde(default)]
 	pub p2p: NodeConfigP2P,
+	/// Feature flags enabled on the node
+	#[serde(default)]
+	pub features: Vec<BackendFeature>,
 	/// Authentication for Spacedrive Accounts
 	pub auth_token: Option<sd_cloud_api::auth::OAuthToken>,
 	/// URL of the Spacedrive API
@@ -212,6 +215,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			identity: Identity::default(),
 			p2p: NodeConfigP2P::default(),
 			version: Self::LATEST_VERSION,
+			features: vec![],
 			notifications: vec![],
 			auth_token: None,
 			sd_api_origin: None,
