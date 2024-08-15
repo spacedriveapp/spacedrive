@@ -341,7 +341,6 @@ mod tests {
 	}
 
 	#[tokio::test]
-	#[cfg(feature = "tokio")]
 	#[cfg_attr(miri, ignore)]
 	async fn aes_256_gcm_siv_encrypt_and_decrypt_5_blocks_async() {
 		let buf = CryptoRng::generate_vec(BLOCK_LEN * 5);
