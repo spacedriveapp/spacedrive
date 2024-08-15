@@ -16,19 +16,17 @@ use sd_prisma::prisma::file_path;
 use std::sync::Arc;
 
 use itertools::Itertools;
-use rspc::{alpha::Rspc, Config};
+use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tracing::warn;
 use uuid::Uuid;
 
 mod backups;
 mod cloud;
-// mod categories;
 mod ephemeral_files;
 mod files;
 mod jobs;
-// #[cfg(not(any(target_os = "ios", target_os = "android")))]
-// mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -67,6 +65,23 @@ pub enum CoreEvent {
 	InvalidateOperation(InvalidateOperationEvent),
 }
 
+/// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+///
+/// If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendFeature {}
+
+// impl BackendFeature {
+// 	pub fn restore(&self, node: &Node) {
+// 		match self {
+// 			BackendFeature::CloudSync => {
+// 				node.cloud_sync_flag.store(true, Ordering::Relaxed);
+// 			}
+// 		}
+// 	}
+// }
+
 /// A version of [`NodeConfig`] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitizedNodeConfig {
@@ -76,6 +91,7 @@ pub struct SanitizedNodeConfig {
 	pub name: String,
 	pub identity: RemoteIdentity,
 	pub p2p: NodeConfigP2P,
+	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 }
 
@@ -86,6 +102,7 @@ impl From<NodeConfig> for SanitizedNodeConfig {
 			name: value.name,
 			identity: value.identity.to_remote_identity(),
 			p2p: value.p2p,
+			features: value.features,
 			preferences: value.preferences,
 		}
 	}
@@ -137,6 +154,40 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
+		.procedure("toggleFeatureFlag", {
+			R.mutation(|node, feature: BackendFeature| async move {
+				let config = node.config.get().await;
+
+				let enabled = if config.features.iter().contains(&feature) {
+					node.config
+						.write(|cfg| {
+							cfg.features.retain(|f| *f != feature);
+						})
+						.await
+						.map(|_| false)
+				} else {
+					node.config
+						.write(|cfg| {
+							cfg.features.push(feature.clone());
+						})
+						.await
+						.map(|_| true)
+				}
+				.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
+
+				warn!("Feature {:?} is now {}", feature, enabled);
+
+				// match feature {
+				// 	BackendFeature::CloudSync => {
+				// 		node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
+				// 	}
+				// }
+
+				invalidate_query!(node; node, "nodeState");
+
+				Ok(())
+			})
+		})
 		.merge("api.", web_api::mount())
 		.merge("cloud.", cloud::mount())
 		.merge("search.", search::mount())
@@ -144,7 +195,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("labels.", labels::mount())
-		// .merge("categories.", categories::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())
@@ -167,9 +217,6 @@ pub(crate) fn mount() -> Arc<Router> {
 				def,
 			);
 		});
-
-	// #[cfg(not(any(target_os = "ios", target_os = "android")))]
-	// let r = r.merge("keys.", keys::mount());
 
 	let r = r
 		.build(

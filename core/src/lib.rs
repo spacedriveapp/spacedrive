@@ -17,7 +17,7 @@ use volume::save_storage_statistics;
 use std::{
 	fmt,
 	path::{Path, PathBuf},
-	sync::{atomic::AtomicBool, Arc},
+	sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
@@ -67,7 +67,6 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub cloud_sync_flag: Arc<AtomicBool>,
 	pub http: reqwest::Client,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
 	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
@@ -138,9 +137,6 @@ impl Node {
 			config,
 			event_bus,
 			libraries,
-			cloud_sync_flag: Arc::new(AtomicBool::new(
-				cfg!(target_os = "ios") || cfg!(target_os = "android"),
-			)),
 			http: reqwest::Client::new(),
 			cloud_services: Arc::new(
 				CloudServices::new(&get_cloud_api_address, cloud_services_domain_name).await?,

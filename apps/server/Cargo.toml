@@ -17,7 +17,6 @@ sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
 
 # Workspace dependencies
 axum     = { workspace = true, features = ["headers"] }
-base64   = { workspace = true }
 http     = { workspace = true }
 rspc     = { workspace = true, features = ["axum"] }
 tempfile = { workspace = true }
