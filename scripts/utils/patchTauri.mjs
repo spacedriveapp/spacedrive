@@ -106,6 +106,7 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 				const pubKey = await tauriUpdaterKey(nativeDeps)
 				if (pubKey != null) tauriPatch.plugins.updater.pubkey = pubKey
 			}
+			tauriPatch.build.features.push('devtools')
 			break
 		}
 	}
