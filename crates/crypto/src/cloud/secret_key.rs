@@ -117,7 +117,7 @@ mod tests {
 	#[test]
 	fn one_shot_test() {
 		use super::super::{decrypt::OneShotDecryption, encrypt::OneShotEncryption};
-		let mut rng = CryptoRng::new();
+		let mut rng = CryptoRng::new().unwrap();
 
 		let message = b"Eu queria um apartamento no Guarujah; \
 		Mas o melhor que eu consegui foi um barraco em Itaquah.";
@@ -161,12 +161,12 @@ mod tests {
 		E como aquele ditado que jah dizia; \
 		Pau que nasce torto mija fora da bacia";
 
-		stream_test(&mut CryptoRng::new(), message).await;
+		stream_test(&mut CryptoRng::new().unwrap(), message).await;
 	}
 
 	#[tokio::test]
 	async fn stream_test_big() {
-		let mut rng = CryptoRng::new();
+		let mut rng = CryptoRng::new().unwrap();
 
 		let mut message =
 			vec![0u8; EncryptedBlock::PLAIN_TEXT_SIZE * 10 + EncryptedBlock::PLAIN_TEXT_SIZE / 2];
@@ -178,7 +178,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn stream_test_big_exact() {
-		let mut rng = CryptoRng::new();
+		let mut rng = CryptoRng::new().unwrap();
 
 		let mut message = vec![0u8; EncryptedBlock::PLAIN_TEXT_SIZE * 20];
 

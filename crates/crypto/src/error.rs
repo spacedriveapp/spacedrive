@@ -5,7 +5,6 @@ use tokio::io;
 /// This enum defines all possible errors that this crate can give
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	// crypto errors
 	#[error("Block too big for oneshot encryption: size in bytes = {0}")]
 	BlockTooBig(usize),
 
@@ -16,6 +15,7 @@ pub enum Error {
 	#[error("Decryption error")]
 	Decrypt,
 
+	/// I/O error while encrypting
 	#[error("I/O error while encrypting: {{context: {context}, source: {source}}}")]
 	EncryptIo {
 		context: &'static str,
@@ -29,6 +29,7 @@ pub enum Error {
 		source: io::Error,
 	},
 
+	/// I/O error while erasing a file
 	#[error("I/O error while erasing: {{context: {context}, source: {source}}}")]
 	EraseIo {
 		context: &'static str,
@@ -38,4 +39,7 @@ pub enum Error {
 
 	#[error("hex error: {0}")]
 	Hex(#[from] hex::FromHexError),
+
+	#[error("Entropy source error: {0}")]
+	EntropySource(#[from] rand_core::getrandom::Error),
 }

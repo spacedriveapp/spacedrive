@@ -40,3 +40,5 @@ pub mod rng;
 pub use error::Error;
 pub use protected::Protected;
 pub use rng::CryptoRng;
+
+pub use rand_core::{RngCore, SeedableRng};

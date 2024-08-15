@@ -26,7 +26,7 @@ pub async fn erase<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<us
 where
 	RW: AsyncReadExt + AsyncWriteExt + AsyncSeekExt + Unpin + Send,
 {
-	let mut rng = CryptoRng::new();
+	let mut rng = CryptoRng::new()?;
 
 	let mut buf = vec![0u8; BLOCK_LEN].into_boxed_slice();
 	let mut end_buf = vec![0u8; size % BLOCK_LEN].into_boxed_slice();
@@ -87,7 +87,7 @@ pub fn erase_sync<RW>(stream: &mut RW, size: usize, passes: usize) -> Result<usi
 where
 	RW: Read + Write + Seek,
 {
-	let mut rng = CryptoRng::new();
+	let mut rng = CryptoRng::new()?;
 
 	let mut buf = vec![0u8; BLOCK_LEN].into_boxed_slice();
 	let mut end_buf = vec![0u8; size % BLOCK_LEN].into_boxed_slice();
