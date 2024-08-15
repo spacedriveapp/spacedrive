@@ -7,6 +7,7 @@ license.workspace    = true
 repository.workspace = true
 
 [dependencies]
+# Workspace dependencies
 prisma-client-rust-sdk = { workspace = true }
 serde                  = { workspace = true, features = ["derive"] }
 thiserror              = { workspace = true }

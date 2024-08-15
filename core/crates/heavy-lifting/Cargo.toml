@@ -48,7 +48,6 @@ rspc                = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
-static_assertions   = { workspace = true }
 strum               = { workspace = true, features = ["derive", "phf"] }
 thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["fs", "parking_lot", "sync"] }
@@ -56,6 +55,9 @@ tokio-stream        = { workspace = true, features = ["fs"] }
 tracing             = { workspace = true }
 uuid                = { workspace = true, features = ["serde", "v4"] }
 webp                = { workspace = true }
+
+# Specific Heavy Lifting dependencies
+static_assertions   = "1.1"
 
 [dev-dependencies]
 tempfile     = { workspace = true }

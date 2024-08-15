@@ -1,5 +1,4 @@
 use crate::{
-	invalidate_query,
 	library::LibraryId,
 	node::{
 		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
@@ -13,22 +12,17 @@ use sd_core_heavy_lifting::media_processor::ThumbKey;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::file_path;
 
-use std::sync::{atomic::Ordering, Arc};
+use std::sync::Arc;
 
-use itertools::Itertools;
-use rspc::{alpha::Rspc, Config, ErrorCode};
+use rspc::{alpha::Rspc, Config};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-mod auth;
 mod backups;
-mod cloud;
-// mod categories;
 mod ephemeral_files;
 mod files;
 mod jobs;
-mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -67,25 +61,6 @@ pub enum CoreEvent {
 	InvalidateOperation(InvalidateOperationEvent),
 }
 
-/// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
-///
-/// If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub enum BackendFeature {
-	CloudSync,
-}
-
-impl BackendFeature {
-	pub fn restore(&self, node: &Node) {
-		match self {
-			BackendFeature::CloudSync => {
-				node.cloud_sync_flag.store(true, Ordering::Relaxed);
-			}
-		}
-	}
-}
-
 // A version of [NodeConfig] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitisedNodeConfig {
@@ -95,7 +70,6 @@ pub struct SanitisedNodeConfig {
 	pub name: String,
 	pub identity: RemoteIdentity,
 	pub p2p: NodeConfigP2P,
-	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
 	pub image_labeler_version: Option<String>,
 }
@@ -107,7 +81,6 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			name: value.name,
 			identity: value.identity.to_remote_identity(),
 			p2p: value.p2p,
-			features: value.features,
 			preferences: value.preferences,
 			image_labeler_version: value.image_labeler_version,
 		}
@@ -160,48 +133,12 @@ pub(crate) fn mount() -> Arc<Router> {
 				})
 			})
 		})
-		.procedure("toggleFeatureFlag", {
-			R.mutation(|node, feature: BackendFeature| async move {
-				let config = node.config.get().await;
-
-				let enabled = if config.features.iter().contains(&feature) {
-					node.config
-						.write(|cfg| {
-							cfg.features.retain(|f| *f != feature);
-						})
-						.await
-						.map(|_| false)
-				} else {
-					node.config
-						.write(|cfg| {
-							cfg.features.push(feature.clone());
-						})
-						.await
-						.map(|_| true)
-				}
-				.map_err(|e| rspc::Error::new(ErrorCode::InternalServerError, e.to_string()))?;
-
-				match feature {
-					BackendFeature::CloudSync => {
-						node.cloud_sync_flag.store(enabled, Ordering::Relaxed);
-					}
-				}
-
-				invalidate_query!(node; node, "nodeState");
-
-				Ok(())
-			})
-		})
 		.merge("api.", web_api::mount())
-		.merge("auth.", auth::mount())
-		.merge("cloud.", cloud::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("labels.", labels::mount())
-		// .merge("categories.", categories::mount())
-		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())

@@ -17,7 +17,6 @@ sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
 axum               = { workspace = true, features = ["headers", "query"] }
-directories        = { workspace = true }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
@@ -27,7 +26,6 @@ rspc               = { workspace = true, features = ["tauri", "tracing"] }
 serde              = { workspace = true }
 serde_json         = { workspace = true }
 specta             = { workspace = true }
-specta-typescript  = { workspace = true }
 strum              = { workspace = true, features = ["derive"] }
 thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["sync"] }
@@ -37,13 +35,12 @@ uuid               = { workspace = true, features = ["serde"] }
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener               = { version = "0.7.1", features = ["reveal"], default-features = false }
+specta-typescript    = "=0.0.7"
 tauri                = { version = "=2.0.0-rc.2", features = ["linux-libxdo", "macos-private-api", "unstable"] }
 tauri-plugin-dialog  = "=2.0.0-rc.0"
 tauri-plugin-os      = "=2.0.0-rc.0"
 tauri-plugin-shell   = "=2.0.0-rc.0"
 tauri-plugin-updater = "=2.0.0-rc.0"
-tauri-runtime        = { version = "=2.0.0-rc.2" }
-tauri-utils          = { version = "=2.0.0-rc.2" }
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]

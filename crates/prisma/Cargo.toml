@@ -13,5 +13,4 @@ prisma-client-rust = { workspace = true }
 rmp-serde          = { workspace = true }
 rmpv               = { workspace = true }
 serde              = { workspace = true }
-serde_json         = { workspace = true }
 uuid               = { workspace = true }

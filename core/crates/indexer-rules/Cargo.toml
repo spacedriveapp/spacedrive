@@ -15,7 +15,6 @@ sd-utils  = { path = "../../../crates/utils" }
 # Workspace dependencies
 chrono              = { workspace = true }
 futures-concurrency = { workspace = true }
-gix-ignore          = { workspace = true, features = ["serde"] }
 globset             = { workspace = true, features = ["serde1"] }
 once_cell           = { workspace = true }
 prisma-client-rust  = { workspace = true }
@@ -27,6 +26,9 @@ thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["fs"] }
 tracing             = { workspace = true }
 uuid                = { workspace = true, features = ["serde", "v4"] }
+
+# Specific Indexer Rules dependencies
+gix-ignore = { version = "0.11.2", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = { workspace = true }
