@@ -13,6 +13,6 @@ rust-version         = "1.64"
 # which are only available when linking against the app's ObjC
 crate-type = ["staticlib"]
 
-[dependencies]
+[target.'cfg(target_os = "ios")'.dependencies]
 # Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }

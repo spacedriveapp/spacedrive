@@ -67,7 +67,6 @@ export type Procedures = {
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
@@ -645,8 +644,6 @@ export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
-
-export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 

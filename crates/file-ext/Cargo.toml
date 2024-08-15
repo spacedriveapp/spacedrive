@@ -8,6 +8,7 @@ license.workspace    = true
 repository.workspace = true
 
 [dependencies]
+# Workspace dependencies
 serde        = { workspace = true, features = ["derive"] }
 serde_json   = { workspace = true }
 specta       = { workspace = true }

@@ -15,7 +15,7 @@ use axum::{
 };
 use http::Method;
 use hyper::server::{accept::Accept, conn::AddrIncoming};
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
 use tauri::{async_runtime::block_on, plugin::TauriPlugin, RunEvent, Runtime};
