@@ -1,142 +1,48 @@
 [package]
 name    = "sd-crypto"
-version = "0.0.0"
+version = "0.0.1"
 
-authors = ["Jake Robinson <jake@spacedrive.com>"]
+authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>"]
 description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
 """
-edition.workspace = true
-keywords = ["crypto"]
-license.workspace = true
-readme = "README.md"
-repository.workspace = true
-rust-version = "1.72"
 
-
-[features]
-experimental = []
-keyring = ["dep:linux-keyutils", "dep:security-framework"]
-secret-service = [
-	"dep:secret-service",
-	"dep:zbus",
-	"keyring"
-] # explicit enabling required as the secret service api requires `zbus` and is messy
-serde = ["bincode/serde", "dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serdect"]
-sys = []
+edition.workspace      = true
+keywords               = ["crypto"]
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
 
 [dependencies]
-# rng
-rand        = "0.9.0-alpha.0"
-rand_chacha = "0.9.0-alpha.0"
-rand_core   = "0.9.0-alpha.0"
+# Workspace dependencies
+async-stream = { workspace = true }
+blake3       = { workspace = true }
+futures      = { workspace = true }
+serde        = { workspace = true, features = ["derive"] }
+thiserror    = { workspace = true }
+tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
 
-# hashing
-argon2 = { version = "0.6.0-pre.0", default_features = false, features = ["alloc", "zeroize"] }
-balloon-hash = { version = "0.5.0-pre.0", default_features = false, features = [
-	"alloc",
-	"zeroize"
-] }
-blake3 = { version = "1.5.0", features = ["traits-preview", "zeroize"] }
-
-# constant time
-cmov = "0.3.1"
-
-# aeads
-aead             = { version = "0.5.2", default-features = false, features = ["stream"] }
-aes-gcm-siv      = "0.11.1"
-bincode          = { version = "2.0.0-rc.3", features = ["alloc", "derive"] }
-chacha20poly1305 = "0.10.1"
-thiserror        = "1.0.57"
-
-zeroize = { version = "1.7.0", features = ["aarch64", "derive"] }
-
-serde           = { version = "1.0.197", features = ["derive"], optional = true }
-serde-big-array = { version = "0.5.1", optional = true }
-serde_json      = { version = "1.0.114", optional = true }
-serdect         = { version = "0.3.0-pre.0", optional = true }
-
-specta = { workspace = true, optional = true }
-
-# for asynchronous crypto
-tokio = { workspace = true, features = [
-	"io-util",
-	"macros",
-	"rt-multi-thread",
-	"sync"
-], optional = true }
-
-redb = "1.5.0"
-
-hex = "0.4.3"
-
-uuid = { version = "1.7.0", features = ["v4"] }
-
-# ed25519-dalek = { version = "2.1.1", feature = ["std", "zeroize"] }
-# x25519-dalek = { version = "2.0.1", feature = [
-# 	"std",
-# 	"zeroize",
-# ] } # ReusableSecrets feature may have to come out for X3DH
-
-# linux OS keyring
-[target.'cfg(target_os = "linux")'.dependencies]
-linux-keyutils = { version = "0.2.4", features = ["std"], optional = true }
-secret-service = { version = "3.0.1", features = [
-	"crypto-rust",
-	"rt-tokio-crypto-rust"
-], optional = true }
-
-# this needs to remain at versions < 4, as they made some changes and i can't get it
-# to compile for the time being
-zbus = { version = "4.0", default_features = false, features = [
-	"blocking",
-	"tokio"
-], optional = true }
-
-[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
-security-framework = { version = "2.9.2", optional = true }
+# External dependencies
+aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
+chacha20poly1305 = "0.11.0-pre.1"
+cmov             = "0.3.1"
+# Some deps use this same version, so we just use it too
+generic-array   = { version = "=0.14.7", features = ["serde", "zeroize"] }
+hex             = "0.4.3"
+rand            = "0.9.0-alpha.2"
+rand_chacha     = "0.9.0-alpha.2"
+rand_core       = "0.9.0-alpha.2"
+serde-big-array = "0.5.1"
+serdect         = "0.3.0-pre.0"
+typenum         = "1.17.0"
+zeroize         = { version = "1.7.0", features = ["aarch64", "derive"] }
 
 [dev-dependencies]
-criterion = "0.5.1"
-paste     = "1.0.14"
-tempfile  = "3.10.1"
-
-[clippy]
-allow = ["unwrap_in_tests"]
-
-[[bench]]
-harness = false
-name    = "aes-256-gcm-siv"
-path    = "benches/crypto/aes-256-gcm-siv.rs"
-
-[[bench]]
-harness = false
-name    = "xchacha20-poly1305"
-path    = "benches/crypto/xchacha20-poly1305.rs"
-
-[[bench]]
-bench   = false
-harness = false
-name    = "argon2id"
-path    = "benches/hashing/argon2id.rs"
-
-[[bench]]
-bench   = false
-harness = false
-name    = "blake3-balloon"
-path    = "benches/hashing/blake3-balloon.rs"
-
-[[bench]]
-harness = false
-name    = "blake3"
-path    = "benches/hashing/blake3.rs"
-
-[[bench]]
-harness = false
-name    = "blake3-kdf"
-path    = "benches/hashing/blake3-kdf.rs"
+paste    = "1.0.14"
+tempfile = "3.10.1"
 
 [[example]]
-name = "file_encryption"
-path = "examples/file_encryption.rs"
+name = "secure_erase"
+path = "examples/secure_erase.rs"
