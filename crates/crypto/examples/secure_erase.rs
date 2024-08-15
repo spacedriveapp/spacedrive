@@ -6,7 +6,7 @@ use tempfile::tempfile;
 
 fn main() {
 	let mut file = tempfile().unwrap();
-	let mut rng = CryptoRng::new();
+	let mut rng = CryptoRng::new().unwrap();
 	let data = rng.generate_vec(1048576 * 16);
 	file.write_all(&data).unwrap();
 
