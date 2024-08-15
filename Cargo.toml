@@ -42,7 +42,7 @@ once_cell           = "1.19"
 pin-project-lite    = "0.2.14"
 rand                = "0.9.0-alpha.2"
 regex               = "1.10"
-reqwest             = "0.11"                                         # Update blocked by hyper
+reqwest             = { version = "0.11", default-features = false } # Update blocked by hyper
 rmp                 = "0.8.14"
 rmp-serde           = "1.3"
 rmpv                = { version = "1.3", features = ["with-serde"] }
