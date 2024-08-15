@@ -7,9 +7,10 @@ license.workspace    = true
 repository.workspace = true
 
 [dependencies]
+# Workspace dependencies
 prisma-client-rust-sdk = { workspace = true }
 serde                  = { workspace = true, features = ["derive"] }
 thiserror              = { workspace = true }
 
 # Specific Sync Generator dependencies
-nom = "7.1.3"
+nom = "7.1"

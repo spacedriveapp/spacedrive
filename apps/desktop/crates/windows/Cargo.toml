@@ -7,9 +7,8 @@ license.workspace    = true
 repository.workspace = true
 
 [dependencies]
-libc      = { workspace = true }
-normpath  = { workspace = true }
-thiserror = { workspace = true }
+libc     = { workspace = true }
+normpath = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"]

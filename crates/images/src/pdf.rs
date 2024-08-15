@@ -9,10 +9,7 @@ use crate::{
 };
 use image::DynamicImage;
 use once_cell::sync::Lazy;
-use pdfium_render::{
-	color::PdfColor,
-	prelude::{PdfPageRenderRotation, PdfRenderConfig, Pdfium},
-};
+use pdfium_render::prelude::{PdfColor, PdfPageRenderRotation, PdfRenderConfig, Pdfium};
 use tracing::error;
 
 // This path must be relative to the running binary

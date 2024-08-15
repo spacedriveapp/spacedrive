@@ -20,6 +20,7 @@ rust-version.workspace = true
 async-stream = { workspace = true }
 blake3       = { workspace = true }
 futures      = { workspace = true }
+rand         = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
 thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
@@ -28,20 +29,17 @@ tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-th
 aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
 chacha20poly1305 = "0.11.0-pre.1"
 cmov             = "0.3.1"
-# Some deps use this same version, so we just use it too
-generic-array   = { version = "=0.14.7", features = ["serde", "zeroize"] }
-hex             = "0.4.3"
-rand            = "0.9.0-alpha.2"
-rand_chacha     = "0.9.0-alpha.2"
-rand_core       = "0.9.0-alpha.2"
-serde-big-array = "0.5.1"
-serdect         = "0.3.0-pre.0"
-typenum         = "1.17.0"
-zeroize         = { version = "1.7.0", features = ["aarch64", "derive"] }
+generic-array    = { version = "=0.14.7", features = ["serde", "zeroize"] }                    # Update blocked by aead
+hex              = "0.4.3"
+rand_chacha      = "0.9.0-alpha.2"
+rand_core        = "0.9.0-alpha.2"
+serdect          = "0.3.0-pre.0"
+typenum          = "1.17"
+zeroize          = { version = "1.7", features = ["aarch64", "derive"] }
 
 [dev-dependencies]
-paste    = "1.0.14"
-tempfile = "3.10.1"
+paste    = "1.0"
+tempfile = "3.10"
 
 [[example]]
 name = "secure_erase"
