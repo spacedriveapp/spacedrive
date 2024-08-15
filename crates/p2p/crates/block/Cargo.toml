@@ -9,7 +9,6 @@ repository.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-p2p       = { path = "../../" }
 sd-p2p-proto = { path = "../proto" }
 
 # Workspace dependencies

@@ -15,4 +15,3 @@ sd-p2p-proto = { path = "../proto" }
 # Workspace dependencies
 thiserror = { workspace = true }
 tokio     = { workspace = true, features = ["io-util"] }
-uuid      = { workspace = true, features = ["v4"] }

@@ -11,7 +11,7 @@ rust-version         = "1.64"
 # Android can use dynamic linking since all FFI is done via JNI
 crate-type = ["cdylib"]
 
-[dependencies]
+[target.'cfg(target_os = "android")'.dependencies]
 # Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }
 

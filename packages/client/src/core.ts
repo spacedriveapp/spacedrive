@@ -132,7 +132,8 @@ export type Procedures = {
         { key: "tags.assign", input: LibraryArgs<{ targets: Target[]; tag_id: number; unassign: boolean }>, result: null } | 
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
-        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null },
+        { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
+        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
@@ -157,6 +158,13 @@ export type AccessToken = string
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
 export type AudioProps = { delay: number; padding: number; sample_rate: number | null; sample_format: string | null; bit_per_sample: number | null; channel_layout: string | null }
+
+/**
+ * All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
+ * 
+ * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
+ */
+export type BackendFeature = "cloudSync"
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
@@ -521,7 +529,7 @@ id: string;
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; preferences: NodePreferences }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 

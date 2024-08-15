@@ -20,7 +20,6 @@ sd-utils  = { path = "../utils" }
 # Workspace dependencies
 chrono     = { workspace = true, features = ["serde"] }
 image      = { workspace = true }
-rand       = { workspace = true }
 serde      = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta     = { workspace = true, features = ["chrono"] }

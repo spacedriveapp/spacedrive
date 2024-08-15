@@ -17,7 +17,6 @@ sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
 axum               = { workspace = true, features = ["headers", "query"] }
-directories        = { workspace = true }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
@@ -27,7 +26,6 @@ rspc               = { workspace = true, features = ["tauri", "tracing"] }
 serde              = { workspace = true }
 serde_json         = { workspace = true }
 specta             = { workspace = true }
-specta-typescript  = { workspace = true }
 strum              = { workspace = true, features = ["derive"] }
 thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["sync"] }
@@ -37,14 +35,16 @@ uuid               = { workspace = true, features = ["serde"] }
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener               = { version = "0.7.1", features = ["reveal"], default-features = false }
-tauri                = { version = "=2.0.0-rc.2", features = ["linux-libxdo", "macos-private-api", "unstable"] }
+specta-typescript    = "=0.0.7"
 tauri-plugin-dialog  = "=2.0.0-rc.0"
 tauri-plugin-os      = "=2.0.0-rc.0"
 tauri-plugin-shell   = "=2.0.0-rc.0"
 tauri-plugin-updater = "=2.0.0-rc.0"
 tauri-plugin-deep-link = "=2.0.0-rc.0"
-tauri-runtime        = { version = "=2.0.0-rc.2" }
-tauri-utils          = { version = "=2.0.0-rc.2" }
+
+[dependencies.tauri]
+features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
+version  = "=2.0.0-rc.2"
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]
@@ -58,7 +58,7 @@ sd-desktop-linux = { path = "../crates/linux" }
 # Specific Desktop dependencies
 # WARNING: dbus must NOT be vendored, as that breaks the app on Linux,X11,Nvidia
 dbus = { version = "0.9.7", features = ["stdfd"] }
-# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-rc.2/core/tauri/Cargo.toml
+# https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0-rc.2/core/tauri/Cargo.toml#L86
 webkit2gtk = { version = "=2.0.1", features = ["v2_38"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -31,8 +31,6 @@ pub async fn declare_actors(
 	let ingest_notify = Arc::new(Notify::new());
 	let state = State::default();
 
-	let autorun = node.cloud_sync_flag.load(atomic::Ordering::Relaxed);
-
 	// actors
 	// 	.declare(
 	// 		"Cloud Sync Sender",
