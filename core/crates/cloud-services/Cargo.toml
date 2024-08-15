@@ -1,6 +1,7 @@
 [package]
-name = "sd-core-cloud-services"
+name    = "sd-core-cloud-services"
 version = "0.1.0"
+
 edition = "2021"
 
 [dependencies]
@@ -8,22 +9,22 @@ edition = "2021"
 sd-cloud-schema = { workspace = true }
 
 # Workspace dependencies
-reqwest = { workspace = true, features = ["native-tls-vendored"] }
+reqwest   = { workspace = true, features = ["native-tls-vendored"] }
+rspc      = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
-tracing = { workspace = true }
-rspc = { workspace = true }
+tokio     = { workspace = true, features = ["sync"] }
+tracing   = { workspace = true }
 
 # External dependencies
 quic-rpc = { version = "0.11.0", features = ["quinn-transport"] }
-quinn = { package = "iroh-quinn", version = "=0.10.5" }
-# rustls-old is locked to the same version that quic-rpc uses and should be only used with quic-rpc
-rustls-old = { package = "rustls", version = "0.21.12", default-features = false, features = [
-	"logging",
-	"quic",
-	"dangerous_configuration",
-] }
+quinn    = { package = "iroh-quinn", version = "=0.10.5" }
+
+[dependencies.rustls-old]
+default-features = false
+features         = ["dangerous_configuration", "logging", "quic"]
+package          = "rustls"
+version          = "0.21.12" # Update blocked by quic-rpc
 
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["time", "rt", "sync"] }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
