@@ -39,8 +39,6 @@ use tracing_subscriber::{
 pub mod api;
 mod cloud;
 mod context;
-#[cfg(feature = "crypto")]
-pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;
