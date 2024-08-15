@@ -57,7 +57,7 @@ uuid                = { workspace = true, features = ["serde", "v4"] }
 webp                = { workspace = true }
 
 # Specific Heavy Lifting dependencies
-static_assertions   = "1.1"
+static_assertions = "1.1"
 
 [dev-dependencies]
 tempfile     = { workspace = true }
