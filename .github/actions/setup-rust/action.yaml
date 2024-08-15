@@ -49,6 +49,14 @@ runs:
         set -euxo pipefail
         cargo prisma generate
 
+        if ! {
+          [ -f crates/prisma/src/prisma/mod.rs ] && \
+          [ -f crates/prisma/src/prisma_sync/mod.rs ]
+        }; then
+            echo "Prisma generation failed" >&2
+            exit 1
+        fi
+
         # Check if a new migration should be created due to changes in the schema
         cargo prisma migrate dev -n test --create-only --skip-generate
         _new_migrations="$(
