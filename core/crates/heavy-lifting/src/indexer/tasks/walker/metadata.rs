@@ -21,7 +21,7 @@ pub(super) struct InnerMetadata {
 
 impl InnerMetadata {
 	pub fn new(
-		path: impl AsRef<Path>,
+		path: impl AsRef<Path> + Copy,
 		metadata: &Metadata,
 	) -> Result<Self, indexer::NonCriticalIndexerError> {
 		let FilePathMetadata {

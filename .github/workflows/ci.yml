@@ -172,16 +172,19 @@ jobs:
         with:
           filters: |
             changes:
-              - 'apps/cli/*/**'
-              - 'apps/desktop/crates/*/**'
-              - 'apps/desktop/src-tauri/*/**'
-              - 'apps/mobile/crates/*/**'
-              - 'apps/server/*/**'
+              - 'apps/cli/**'
+              - 'apps/desktop/crates/**'
+              - 'apps/desktop/src-tauri/**'
+              - 'apps/mobile/crates/**'
+              - 'apps/server/**'
               - 'core/**'
-              - 'crates/*/**'
-              - 'extensions/*/**'
+              - 'crates/**'
+              - 'extensions/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/setup-rust/**'
+              - '.github/actions/setup-system/**'
 
       - name: Setup Rust and Prisma
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
@@ -242,17 +245,19 @@ jobs:
             changes:
               - ${{ runner.os == 'Windows' && 'scripts/setup.ps1' || 'scripts/setup.sh' }}
               - 'scripts/preprep.mjs'
-              - 'apps/cli/*/**'
-              - 'apps/desktop/crates/*/**'
-              - 'apps/desktop/src-tauri/*/**'
-              - 'apps/mobile/crates/*/**'
-              - 'apps/server/*/**'
+              - 'apps/cli/**'
+              - 'apps/desktop/crates/**'
+              - 'apps/desktop/src-tauri/**'
+              - 'apps/mobile/crates/**'
+              - 'apps/server/**'
               - 'core/**'
-              - 'crates/*/**'
-              - 'extensions/*/**'
+              - 'crates/**'
+              - 'extensions/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.github/workflows/ci.yml'
+              - '.github/actions/setup-rust/**'
+              - '.github/actions/setup-system/**'
 
       - name: Setup System and Rust
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
