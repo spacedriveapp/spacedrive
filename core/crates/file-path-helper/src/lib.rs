@@ -103,19 +103,21 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 }
 
 #[cfg(target_family = "windows")]
-fn get_inode_windows(path: &str) -> Result<u64, std::io::Error> {
-	use std::{ffi::OsStr, os::windows::ffi::OsStrExt, ptr::null_mut};
+fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
+	use std::ptr::null_mut;
 	use windows::{
-		Win32::Foundation::HANDLE,
+		core::HSTRING,
+		Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE},
 		Win32::Storage::FileSystem::{
 			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 			FILE_ATTRIBUTE_NORMAL, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, OPEN_EXISTING,
 		},
 	};
 
+	let path: &Path = path.as_ref();
 	let handle = unsafe {
 		CreateFileW(
-			PCWSTR::from(&HSTRING::from(path)),
+			&HSTRING::from(path),
 			0,
 			FILE_SHARE_READ,
 			null_mut(),
@@ -125,7 +127,7 @@ fn get_inode_windows(path: &str) -> Result<u64, std::io::Error> {
 		)
 	};
 
-	if handle.is_invalid() {
+	if handle == INVALID_HANDLE_VALUE {
 		return Err(std::io::Error::last_os_error());
 	}
 
@@ -152,7 +154,7 @@ impl FilePathMetadata {
 			{
 				tokio::task::block_in_place(|| {
 					get_inode_windows(path).map_err(|e| FileIOError::from((path, e)))
-				})?;
+				})?
 			}
 		};
 
@@ -416,15 +418,9 @@ pub async fn get_inode_from_path(path: impl AsRef<Path> + Send) -> Result<u64, F
 
 	#[cfg(target_family = "windows")]
 	{
-		use winapi_util::{file::information, Handle};
-
-		let info = tokio::task::block_in_place(|| {
-			Handle::from_path_any(path.as_ref())
-				.and_then(|ref handle| information(handle))
-				.map_err(|e| FileIOError::from((path, e)))
-		})?;
-
-		Ok(info.file_index())
+		Ok(tokio::task::block_in_place(|| {
+			get_inode_windows(path).map_err(|e| FileIOError::from((path, e)))
+		})?)
 	}
 }
 
