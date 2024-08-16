@@ -8153,6 +8153,7 @@ dependencies = [
  "tracing-test",
  "trash",
  "uuid",
+ "windows 0.58.0",
 ]
 
 [[package]]
