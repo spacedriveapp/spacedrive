@@ -125,11 +125,7 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
 			HANDLE(0),
 		)
-	};
-
-	if handle == INVALID_HANDLE_VALUE {
-		return Err(std::io::Error::last_os_error());
-	}
+	}?;
 
 	let mut file_info = BY_HANDLE_FILE_INFORMATION::default();
 	unsafe { GetFileInformationByHandle(handle, &mut file_info) }?;
