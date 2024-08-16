@@ -1,6 +1,12 @@
 import { TextItems } from '.';
 import { formatNumber, humanizeSize, uint32ArrayToBigInt } from '../..';
-import { JobProgressEvent, Report, ReportMetadata, ReportOutputMetadata } from '../../core';
+import {
+	JobName,
+	JobProgressEvent,
+	Report,
+	ReportMetadata,
+	ReportOutputMetadata
+} from '../../core';
 
 interface JobNiceData {
 	name: string;
@@ -263,7 +269,9 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 					: isRunning
 						? `Duplicating ${completedTaskCount}% of ${realtimeUpdate?.info} ${plural(taskCount, 'file')} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
 						: `Duplicated ${taskCount} ${plural(taskCount, 'file')}`,
-				textItems: [[{ text: realtimeUpdate?.phase }], [{ text: job.status }]]
+				textItems: realtimeUpdate
+					? [[{ text: realtimeUpdate?.phase }]]
+					: [[{ text: job.status }]]
 			};
 
 		case 'Delete':
