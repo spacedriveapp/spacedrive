@@ -200,7 +200,7 @@ jobs:
         uses: futureware-tech/simulator-action@v3
         with:
           model: 'iPhone 14'
-          os_version: 16
+          os_version: 17
           erase_before_boot: false
 
       - name: Run Tests
