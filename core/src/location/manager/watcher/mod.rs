@@ -39,10 +39,10 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
-#[cfg(target_os = "android")]
+#[cfg(target_os = "ios")]
 mod ios;
 
-#[cfg(target_os = "ios")]
+#[cfg(target_os = "android")]
 mod android;
 
 mod utils;
