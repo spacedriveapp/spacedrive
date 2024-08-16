@@ -114,16 +114,15 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 		},
 	};
 
-	let path: &Path = path.as_ref();
 	let handle = unsafe {
 		CreateFileW(
-			&HSTRING::from(path),
+			&HSTRING::from(path.as_ref()),
 			0,
 			FILE_SHARE_READ,
-			null_mut(),
+			None,
 			OPEN_EXISTING,
 			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS,
-			HANDLE(0),
+			HANDLE(null_mut()),
 		)
 	}?;
 
@@ -135,7 +134,6 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 
 impl FilePathMetadata {
 	pub fn from_path(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, FilePathError> {
-		let path = path.as_ref();
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
@@ -145,7 +143,7 @@ impl FilePathMetadata {
 			#[cfg(target_family = "windows")]
 			{
 				tokio::task::block_in_place(|| {
-					get_inode_windows(path).map_err(|e| FileIOError::from((path, e)))
+					get_inode_windows(path.as_ref()).map_err(|e| FileIOError::from((path, e)))
 				})?
 			}
 		};
@@ -411,7 +409,7 @@ pub async fn get_inode_from_path(path: impl AsRef<Path> + Send) -> Result<u64, F
 	#[cfg(target_family = "windows")]
 	{
 		Ok(tokio::task::block_in_place(|| {
-			get_inode_windows(path).map_err(|e| FileIOError::from((path, e)))
+			get_inode_windows(path.as_ref()).map_err(|e| FileIOError::from((path, e)))
 		})?)
 	}
 }
