@@ -107,7 +107,7 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 	use std::ptr::null_mut;
 	use windows::{
 		core::HSTRING,
-		Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE},
+		Win32::Foundation::HANDLE,
 		Win32::Storage::FileSystem::{
 			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 			FILE_ATTRIBUTE_NORMAL, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, OPEN_EXISTING,
@@ -133,7 +133,7 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 }
 
 impl FilePathMetadata {
-	pub fn from_path(path: impl AsRef<Path>, metadata: &Metadata) -> Result<Self, FilePathError> {
+	pub fn from_path(path: impl AsRef<Path> + std::marker::Copy, metadata: &Metadata) -> Result<Self, FilePathError> {
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
