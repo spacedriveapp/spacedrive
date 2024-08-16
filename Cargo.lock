@@ -6168,8 +6168,7 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 [[package]]
 name = "pdfium-render"
 version = "0.8.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf21aa9bd11aa175e8755e0dbc613affe885e149c4b3ee4ac6d2c183260e727"
+source = "git+https://github.com/HeavenVolkoff/pdfium-render.git?rev=dd8118c068#dd8118c0681dcc6a2824b84b67d7537ebd4ea1f0"
 dependencies = [
  "bindgen",
  "bitflags 2.6.0",
@@ -6179,7 +6178,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "js-sys",
  "libloading 0.8.5",
  "log",
