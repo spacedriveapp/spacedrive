@@ -138,7 +138,7 @@ jobs:
 
   ios:
     name: iOS
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -200,7 +200,7 @@ jobs:
         uses: futureware-tech/simulator-action@v3
         with:
           model: 'iPhone 14'
-          os_version: 17
+          os_version: 17.4
           erase_before_boot: false
 
       - name: Run Tests
