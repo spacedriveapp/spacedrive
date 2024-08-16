@@ -1,4 +1,4 @@
-import { CaretDown, CaretRight, Pencil, Trash } from '@phosphor-icons/react';
+import { CaretRight, Pencil, Trash } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Key, useState } from 'react';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
