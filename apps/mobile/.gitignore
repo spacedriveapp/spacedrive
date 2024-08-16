@@ -539,6 +539,8 @@ fabric.properties
 web-build/
 android/
 ios/
+!modules/sd-core/android/
+!modules/sd-core/ios/
 
 # Native
 *.orig.*
