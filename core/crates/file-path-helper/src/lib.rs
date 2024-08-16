@@ -132,13 +132,9 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 	}
 
 	let mut file_info = BY_HANDLE_FILE_INFORMATION::default();
-	let result = unsafe { GetFileInformationByHandle(handle, &mut file_info) };
+	unsafe { GetFileInformationByHandle(handle, &mut file_info) }?;
 
-	if result.as_bool() {
-		Ok(file_info.nFileIndexLow as u64 | ((file_info.nFileIndexHigh as u64) << 32))
-	} else {
-		Err(std::io::Error::last_os_error())
-	}
+	Ok(file_info.nFileIndexLow as u64 | ((file_info.nFileIndexHigh as u64) << 32))
 }
 
 impl FilePathMetadata {
