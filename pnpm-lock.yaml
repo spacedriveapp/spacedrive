@@ -442,8 +442,8 @@ importers:
         specifier: ^0.77.0
         version: 0.77.0(@babel/core@7.24.0)
       moti:
-        specifier: ^0.28.1
-        version: 0.28.1(react-dom@18.2.0(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0)
+        specifier: ^0.29.0
+        version: 0.29.0(react-dom@18.2.0(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0)
       phosphor-react-native:
         specifier: ^2.0.0
         version: 2.0.0(react-native-svg@15.2.0(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
@@ -10372,8 +10372,8 @@ packages:
   module-details-from-path@1.0.3:
     resolution: {integrity: sha512-ySViT69/76t8VhE1xXHK6Ch4NcDd26gx0MzKXLO+F7NOtnqH68d9zF94nT8ZWSxXh8ELOERsnJO/sWt1xZYw5A==}
 
-  moti@0.28.1:
-    resolution: {integrity: sha512-DRlb/3k5GMgb2HIgPsjsKS7k2TAIcCTSaV4KFb4/J+WqJtPgywTz0O2byPsxNqUHImvDkf04fKXW5PcpXvC9zA==}
+  moti@0.29.0:
+    resolution: {integrity: sha512-o/blVE3lm0i/6E5X0RLK59SVWEGxo7pQh8dTm+JykVCYY9bcz0lWyZFCO1s+MMNq+nMsSZBX8lkp4im/AZmhyw==}
     peerDependencies:
       react-native-reanimated: '*'
 
@@ -25859,7 +25859,7 @@ snapshots:
 
   module-details-from-path@1.0.3: {}
 
-  moti@0.28.1(react-dom@18.2.0(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0):
+  moti@0.29.0(react-dom@18.2.0(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react@18.2.0):
     dependencies:
       framer-motion: 6.5.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-native-reanimated: 3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
