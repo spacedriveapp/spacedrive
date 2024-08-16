@@ -1,4 +1,5 @@
 import { Trash } from '@phosphor-icons/react';
+import { Key } from 'react';
 import { humanizeSize } from '@sd/client';
 import { Button, Card, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
@@ -19,6 +20,7 @@ export default (props: DeviceItemProps) => {
 	return (
 		<Card className="flex min-w-96 items-center space-x-3 p-2">
 			<Icon
+				// need better logic to render correct icon - any easy way to do this on the backend?
 				name={props.os == 'MacOS' || props.os == 'iOS' ? 'SilverBox' : 'Laptop'}
 				alt="Device icon"
 				size={24}
@@ -36,7 +38,7 @@ export default (props: DeviceItemProps) => {
 				className="!p-1"
 				variant="gray"
 				onClick={() => {
-					// Handle device-specific actions like delete, edit, etc.
+					// add delete device functionality when avail
 				}}
 			>
 				<Tooltip label={t('Delete device')}>
