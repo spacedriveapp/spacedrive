@@ -49,8 +49,8 @@ runs:
         npx -y prisma generate --schema core/prisma/schema.prisma
 
         if ! {
-          [ -f ./../crates/prisma/src/prisma/mod.rs ] && \
-          [ -f ./../crates/prisma/src/prisma_sync/mod.rs ]
+          [ -f crates/prisma/src/prisma/mod.rs ] && \
+          [ -f crates/prisma/src/prisma_sync/mod.rs ]
         }; then
             echo "Prisma generation failed" >&2
             exit 1
