@@ -18,12 +18,12 @@
 		"trailingComma": "es5"
 	},
 	"dependencies": {
-		"@iarna/toml": "^2.2.5",
-		"archive-wasm": "^1.6.1",
+		"@iarna/toml": "^3.0.0",
+		"archive-wasm": "^1.7.0",
 		"mustache": "^4.2.0",
 		"os-proxy-config": "^1.1.1",
-		"semver": "^7.6.0",
-		"undici": "^6.9.0"
+		"semver": "^7.6.3",
+		"undici": "^6.19.7"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.0",

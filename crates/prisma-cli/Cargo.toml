@@ -11,7 +11,7 @@ repository.workspace = true
 sd-sync-generator = { path = "../sync-generator" }
 
 # Specific prisma-cli dependencies
-[dependencies.prisma-client-rust-cli]
+[dependencies.prisma-client-rust-generator]
 default-features = false
 features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
 git              = "https://github.com/brendonovich/prisma-client-rust"
