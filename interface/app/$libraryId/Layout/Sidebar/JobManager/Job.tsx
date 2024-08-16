@@ -5,6 +5,7 @@ import {
 	Icon,
 	Image,
 	Info,
+	Lightning,
 	Scissors,
 	Trash
 } from '@phosphor-icons/react';
@@ -75,11 +76,20 @@ function Job({ job, className, isChild, progress, eta }: JobProps) {
 		]);
 	}
 
+	// FIX-ME: This is not getting the correct iconfor Copy job
+	const jobIcon =
+		JobIcon[job.name] ??
+		(jobData.meta[0]
+			? MetaDataJobIcon[jobData.meta[0].metadata.type]
+			: jobData.output[0]
+				? MetaDataJobIcon[jobData.output[0].type]
+				: Lightning);
+
 	return (
 		<JobContainer
 			className={className}
 			name={jobData.name}
-			icon={JobIcon[job.name] ?? MetaDataJobIcon[jobData.meta[0].metadata.type]}
+			icon={jobIcon}
 			eta={eta}
 			status={job.status}
 			textItems={

@@ -1,6 +1,6 @@
 import { TextItems } from '.';
 import { formatNumber, humanizeSize, uint32ArrayToBigInt } from '../..';
-import { JobProgressEvent, Report, ReportOutputMetadata } from '../../core';
+import { JobProgressEvent, Report, ReportMetadata, ReportOutputMetadata } from '../../core';
 
 interface JobNiceData {
 	name: string;
@@ -12,8 +12,8 @@ interface JobNiceData {
 	indexedPath?: any;
 	taskCount: number;
 	completedTaskCount: number;
-	meta: any;
-	output: any;
+	meta: ReportMetadata[];
+	output: ReportOutputMetadata[];
 }
 
 export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null): JobNiceData {
