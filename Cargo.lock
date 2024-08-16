@@ -6622,7 +6622,7 @@ dependencies = [
 name = "prisma-cli"
 version = "0.1.0"
 dependencies = [
- "prisma-client-rust-cli",
+ "prisma-client-rust-generator",
  "sd-sync-generator",
 ]
 
@@ -6658,26 +6658,6 @@ dependencies = [
  "tracing",
  "user-facing-errors",
  "uuid",
-]
-
-[[package]]
-name = "prisma-client-rust-cli"
-version = "0.6.8"
-source = "git+https://github.com/brendonovich/prisma-client-rust?rev=4f9ef9d38c#4f9ef9d38ca732162accff72b2eb684d2f120bab"
-dependencies = [
- "directories 4.0.1",
- "flate2",
- "http 0.2.12",
- "prisma-client-rust-generator",
- "proc-macro2",
- "quote",
- "regex",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "syn 1.0.109",
- "thiserror",
 ]
 
 [[package]]
@@ -8190,7 +8170,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "winapi-util",
+ "windows 0.58.0",
 ]
 
 [[package]]

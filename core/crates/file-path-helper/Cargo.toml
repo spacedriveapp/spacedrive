@@ -28,5 +28,6 @@ tokio              = { workspace = true, features = ["fs"] }
 tracing            = { workspace = true }
 
 # Specific File Path Helper dependencies
-[target.'cfg(windows)'.dependencies]
-winapi-util = "0.1.8"
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+features = ["Win32_Security", "Win32_Storage_FileSystem"]
+version  = "0.58"
