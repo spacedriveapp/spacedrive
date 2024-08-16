@@ -133,7 +133,7 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 }
 
 impl FilePathMetadata {
-	pub fn from_path(path: impl AsRef<Path> + std::marker::Copy, metadata: &Metadata) -> Result<Self, FilePathError> {
+	pub fn from_path(path: impl AsRef<Path> + Copy, metadata: &Metadata) -> Result<Self, FilePathError> {
 		let inode = {
 			#[cfg(target_family = "unix")]
 			{
