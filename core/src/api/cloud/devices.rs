@@ -1,4 +1,4 @@
-use crate::api::{Ctx, R};
+use crate::{api::{Ctx, R}, node::HardwareModel};
 
 use futures::{SinkExt, StreamExt};
 use sd_cloud_schema::{
@@ -25,9 +25,11 @@ struct MockDevice {
 	pub_id: PubId,
 	name: String,
 	os: DeviceOS,
+	used_storage: u64,
 	storage_size: u64,
 	created_at: DateTime<chrono::Utc>,
 	updated_at: DateTime<chrono::Utc>,
+	device_model: HardwareModel,
 }
 
 pub fn mount() -> AlphaRouter<Ctx> {
@@ -53,8 +55,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					// Always set to the current time
 					updated_at: chrono::Utc::now(),
 					os: DeviceOS::MacOS,
+					used_storage: 100 * 1024 * 1024 * 1024,
 					// Always set to 256 GB in bytes (u64)
 					storage_size: 256 * 1024 * 1024 * 1024,
+					device_model: HardwareModel::MacBookPro,
 				};
 
 				debug!(?device, "Got device");
@@ -85,6 +89,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						os: DeviceOS::MacOS,
 						// Randomize between 256 GB and 1 TB in bytes (u64)
 						storage_size: 256 * 1024 * 1024 * 1024,
+						used_storage: 100 * 1024 * 1024 * 1024,
+						device_model: HardwareModel::MacMini,
 					},
 					MockDevice {
 						name: "Windows Device".to_string(),
@@ -98,6 +104,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						os: DeviceOS::Windows,
 						// Randomize between 256 GB and 1 TB in bytes (u64)
 						storage_size: 256 * 1024 * 1024 * 1024,
+						used_storage: 10 * 1024 * 1024 * 1024,
+						device_model: HardwareModel::Other,
 					},
 					MockDevice {
 						name: "Linux Device".to_string(),
@@ -111,6 +119,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						os: DeviceOS::Linux,
 						// Always set to 256 GB in bytes (u64)
 						storage_size: 256 * 1024 * 1024 * 1024,
+						used_storage: 50 * 1024 * 1024 * 1024,
+						device_model: HardwareModel::Other,
 					},
 					MockDevice {
 						name: "Android Device".to_string(),
@@ -124,6 +134,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						os: DeviceOS::Android,
 						// Always set to 256 GB in bytes (u64)
 						storage_size: 256 * 1024 * 1024 * 1024,
+						used_storage: 150 * 1024 * 1024 * 1024,
+						device_model: HardwareModel::Android,
 					},
 					MockDevice {
 						name: "iOS Device".to_string(),
@@ -137,6 +149,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						os: DeviceOS::IOS,
 						// Always set to 256 GB in bytes (u64)
 						storage_size: 256 * 1024 * 1024 * 1024,
+						used_storage: 200 * 1024 * 1024 * 1024,
+						device_model: HardwareModel::IPhone,
 					},
 				];
 
