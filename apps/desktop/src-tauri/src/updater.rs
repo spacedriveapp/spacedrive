@@ -1,4 +1,4 @@
-use tauri::{plugin::TauriPlugin, Manager, Runtime};
+use tauri::{plugin::TauriPlugin, Emitter, Runtime};
 use tauri_plugin_updater::{Update as TauriPluginUpdate, UpdaterExt};
 use tokio::sync::Mutex;
 

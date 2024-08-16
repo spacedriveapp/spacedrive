@@ -76,8 +76,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			// Reports provides the client with a list of JobReports
 			// - we query with a custom select! to avoid returning paused job cache `job.data`
 			// - results must include running jobs, and be combined with the in-memory state
-			//	  this is to ensure the client will always get the correct initial state
-			// - jobs are sorted in to groups by their action
+			//   this is to ensure the client will always get the correct initial state
+			// - jobs are sorted into groups by their action
 			// - TODO: refactor grouping system to a many-to-many table
 			#[derive(Debug, Clone, Serialize, Type)]
 			pub struct JobGroup {
@@ -91,6 +91,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
+					// Check if the job system is active
+					let is_active = node
+						.job_system
+						.has_active_jobs(NodeContext {
+							node: Arc::clone(&node),
+							library: library.clone(),
+						})
+						.await || node.old_jobs.has_active_workers(library.id).await;
+
 					let mut groups: HashMap<String, JobGroup> = HashMap::new();
 
 					let job_reports: Vec<Report> = library
@@ -106,7 +115,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							if let Ok(report) = Report::try_from(job.clone()) {
 								Some(report)
 							} else {
-								// TODO(fogodev): this is a temporary fix for the old job system
+								// TODO: this is a temporary fix for the old job system
 								OldJobReport::try_from(job).map(Into::into).ok()
 							}
 						})
@@ -122,6 +131,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					);
 
 					for job in job_reports {
+						// Skip running jobs if the job system is not active. Temporary fix
+						if !is_active && job.status == report::Status::Running {
+							continue;
+						}
+
 						// action name and group key are computed from the job data
 						let (action_name, group_key) = job.get_action_name_and_group_key();
 

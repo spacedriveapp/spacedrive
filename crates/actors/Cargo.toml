@@ -1,13 +1,14 @@
 [package]
-name = "sd-actors"
+name    = "sd-actors"
 version = "0.1.0"
-license.workspace = true
-edition.workspace = true
+
+edition.workspace    = true
+license.workspace    = true
 repository.workspace = true
 
 [dependencies]
-async-channel = { workspace = true }
-futures = { workspace = true }
+async-channel    = { workspace = true }
+futures          = { workspace = true }
 pin-project-lite = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
+tokio            = { workspace = true }
+tracing          = { workspace = true }

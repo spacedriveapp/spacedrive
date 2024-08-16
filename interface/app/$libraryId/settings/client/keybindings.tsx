@@ -174,7 +174,7 @@ function KeybindTable({ data }: { data: ShortcutCategory['shortcuts'] }) {
 
 					return symbols.map((symbol) => (
 						<div key={symbol} className="inline-flex items-center">
-							<kbd className="ml-2 rounded-lg border border-app-line bg-app-box px-2 py-1 text-[10.5px] tracking-widest shadow">
+							<kbd className="ml-2 rounded-lg border border-app-line bg-app-box px-1.5 py-0.5 text-sm tracking-widest shadow">
 								{symbol}
 							</kbd>
 						</div>

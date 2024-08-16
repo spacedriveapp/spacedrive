@@ -93,6 +93,9 @@ export const QuickPreview = () => {
 	const [thumbnailLoading, setThumbnailLoading] = useState<'notLoaded' | 'loaded' | 'error'>(
 		'notLoaded'
 	);
+	// the purpose of these refs is to prevent "jittering" when zooming with trackpads, as the deltaY value can be very high
+	const deltaYRef = useRef(0);
+	const lastZoomTimeRef = useRef(0);
 
 	const { t } = useLocale();
 
@@ -198,6 +201,55 @@ export const QuickPreview = () => {
 		getQuickPreviewStore().itemIndex = 0;
 	};
 
+	const handleZoomIn = useCallback(() => {
+		setMagnification((currentMagnification) =>
+			currentMagnification < 2
+				? currentMagnification + currentMagnification * 0.1
+				: currentMagnification
+		);
+	}, []);
+
+	const handleZoomOut = useCallback(() => {
+		setMagnification((currentMagnification) =>
+			currentMagnification > 0.5 ? currentMagnification / (1 + 0.1) : currentMagnification
+		);
+	}, []);
+
+	// pinch support for trackpads
+	const applyZoom = useCallback(() => {
+		if (deltaYRef.current < 0) {
+			handleZoomIn();
+		} else if (deltaYRef.current > 0) {
+			handleZoomOut();
+		}
+		deltaYRef.current = 0;
+	}, [handleZoomIn, handleZoomOut]);
+
+	const handleWheel = useCallback(
+		(event: WheelEvent) => {
+			if (event.ctrlKey) {
+				event.preventDefault();
+				deltaYRef.current += event.deltaY;
+				const now = Date.now();
+				if (now - lastZoomTimeRef.current > 50) {
+					applyZoom();
+					lastZoomTimeRef.current = now;
+				}
+			}
+		},
+		[applyZoom]
+	);
+
+	useEffect(() => {
+		window.addEventListener('wheel', handleWheel, { passive: false });
+		return () => {
+			window.removeEventListener('wheel', handleWheel);
+		};
+	}, [handleWheel]);
+
+	useShortcut('zoomIn', handleZoomIn);
+	useShortcut('zoomOut', handleZoomOut);
+
 	useShortcut('quickPreviewMoveBack', () => {
 		if (isContextMenuOpen || isRenaming) return;
 		handleMoveBetweenItems(-1);
@@ -218,7 +270,11 @@ export const QuickPreview = () => {
 	useShortcut('closeQuickPreview', (e) => {
 		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
-		getQuickPreviewStore().open = false;
+		e.stopPropagation();
+		// set timeout is to move the state change to the next event loop
+		setTimeout(() => {
+			getQuickPreviewStore().open = false;
+		}, 0);
 	});
 
 	// Toggle metadata
@@ -455,14 +511,7 @@ export const QuickPreview = () => {
 									<div className="flex flex-1 items-center justify-end gap-1">
 										<Tooltip label={t('zoom_in')}>
 											<IconButton
-												onClick={() => {
-													magnification < 2 &&
-														setMagnification(
-															(currentMagnification) =>
-																currentMagnification +
-																currentMagnification * 0.2
-														);
-												}}
+												onClick={handleZoomIn}
 												// this is same formula as interest calculation
 											>
 												<MagnifyingGlassPlus />
@@ -471,13 +520,7 @@ export const QuickPreview = () => {
 
 										<Tooltip label={t('zoom_out')}>
 											<IconButton
-												onClick={() => {
-													magnification > 0.5 &&
-														setMagnification(
-															(currentMagnification) =>
-																currentMagnification / (1 + 0.2)
-														);
-												}}
+												onClick={handleZoomOut}
 												// this is same formula as interest calculation
 											>
 												<MagnifyingGlassMinus />

@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index 1021698..4328312 100644
+--- a/index.js
++++ b/index.js
+@@ -86,7 +86,7 @@ module.exports = plugin(
+ 		)
+ 
+ 		matchUtilities(
+-			{ duration: (value) => ({ animationDuration: value }) },
++			{ animateDuration: (value) => ({ animationDuration: value }) },
+ 			{ values: filterDefault(theme("animationDuration")) },
+ 		)
+ 

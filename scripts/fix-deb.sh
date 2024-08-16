@@ -130,6 +130,8 @@ curl -LSs 'https://gist.githubusercontent.com/HeavenVolkoff/0993c42bdb0b952eb5bf
 
 # Fill the Categories entry in .desktop file
 sed -i 's/^Categories=.*/Categories=System;FileTools;FileManager;/' "${_tmp}/data/usr/share/applications/spacedrive.desktop"
+# Rename sd-desktop to spacedrive
+sed -i 's/=sd-desktop/=spacedrive/' "${_tmp}/data/usr/share/applications/spacedrive.desktop"
 
 # Fix data permissions
 find "${_tmp}/data" -type d -exec chmod 755 {} +

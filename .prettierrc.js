@@ -22,7 +22,7 @@ module.exports = {
 		'^[../]',
 		'^[./]'
 	],
-	importOrderParserPlugins: ['typescript', 'jsx', 'decorators-legacy'],
+	importOrderParserPlugins: ['typescript', 'jsx', 'decorators'],
 	importOrderTypeScriptVersion: '4.4.0',
 	tailwindConfig: './packages/ui/tailwind.config.js',
 	plugins: ['@ianvs/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss']
