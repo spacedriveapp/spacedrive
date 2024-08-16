@@ -537,6 +537,10 @@ fabric.properties
 
 # Expo
 web-build/
+android/
+ios/
+!modules/sd-core/android/
+!modules/sd-core/ios/
 
 # Native
 *.orig.*
