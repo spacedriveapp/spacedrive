@@ -79,11 +79,11 @@ function Job({ job, className, isChild, progress, eta }: JobProps) {
 	if (job.name in JobIcon) {
 		jobIcon = JobIcon[job.name];
 	} else {
-		const metaType = [...jobData.meta, ...jobData.output].find(
+		const meta = [...jobData.meta, ...jobData.output].find(
 			(meta) => meta.type in MetaDataJobIcon
 		);
-		if (metaType) {
-			jobIcon = MetaDataJobIcon[metaType.type as keyof typeof MetaDataJobIcon];
+		if (meta) {
+			jobIcon = MetaDataJobIcon[meta.type as keyof typeof MetaDataJobIcon];
 		}
 	}
 
