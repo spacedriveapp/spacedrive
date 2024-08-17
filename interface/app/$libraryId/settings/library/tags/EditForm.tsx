@@ -45,7 +45,7 @@ export default ({ tag, onDelete }: Props) => {
 
 	return (
 		<Form form={form}>
-			<div className="mb-10 flex items-end justify-between ">
+			<div className="mb-10 flex items-end justify-between">
 				<div className="flex flex-row space-x-3">
 					<InputField
 						label={t('color')}

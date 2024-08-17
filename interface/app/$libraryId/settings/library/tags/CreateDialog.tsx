@@ -90,7 +90,7 @@ export default (
 			ctaLabel={t('create')}
 			closeLabel={t('close')}
 		>
-			<div className="relative mt-3 ">
+			<div className="relative mt-3">
 				<InputField
 					{...form.register('name', { required: true })}
 					placeholder={t('name')}
