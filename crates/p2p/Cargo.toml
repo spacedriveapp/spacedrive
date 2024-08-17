@@ -19,6 +19,7 @@ specta  = []
 # Workspace dependencies
 base64        = { workspace = true }
 ed25519-dalek = { workspace = true }
+flume         = { workspace = true }
 futures       = { workspace = true }
 rmp-serde     = { workspace = true }
 serde         = { workspace = true, features = ["derive"] }
@@ -31,7 +32,6 @@ uuid          = { workspace = true, features = ["serde"] }
 
 # Specific P2P dependencies
 dns-lookup    = "2.0"
-flume         = "=0.11.0"                                    # Must match version used by `mdns-sd`
 hash_map_diff = "0.2.0"
 if-watch      = { version = "=3.2.0", features = ["tokio"] } # Override features used by libp2p-quic
 libp2p-stream = "=0.1.0-alpha"                               # Update blocked due to custom patch

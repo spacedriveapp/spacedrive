@@ -9,21 +9,30 @@ edition = "2021"
 sd-cloud-schema = { workspace = true }
 
 # Workspace dependencies
-reqwest   = { workspace = true, features = ["native-tls-vendored"] }
-rspc      = { workspace = true }
-thiserror = { workspace = true }
-tokio     = { workspace = true, features = ["sync"] }
-tracing   = { workspace = true }
+base64              = { workspace = true }
+chrono              = { workspace = true, features = ["serde"] }
+flume               = { workspace = true }
+futures             = { workspace = true }
+futures-concurrency = { workspace = true }
+reqwest             = { workspace = true, features = ["json", "native-tls-vendored"] }
+rspc                = { workspace = true }
+serde               = { workspace = true, features = ["derive"] }
+serde_json          = { workspace = true }
+thiserror           = { workspace = true }
+tokio               = { workspace = true, features = ["sync", "time"] }
+tracing             = { workspace = true }
 
 # External dependencies
-quic-rpc = { version = "0.11.0", features = ["quinn-transport"] }
-quinn    = { package = "iroh-quinn", version = "=0.10.5" }
+quic-rpc           = { version = "0.11.0", features = ["quinn-transport"] }
+quinn              = { package = "iroh-quinn", version = "=0.10.5" }
+reqwest-middleware = { version = "0.3", features = ["json"] }
+reqwest-retry      = "0.6"
 
 [dependencies.rustls-old]
 default-features = false
 features         = ["dangerous_configuration", "logging", "quic"]
 package          = "rustls"
-version          = "0.21.12" # Update blocked by quic-rpc
+version          = "0.21.12"                                      # Update blocked by quic-rpc
 
 
 [dev-dependencies]

@@ -5,10 +5,12 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 use quic_rpc::{transport::quinn::QuinnConnection, RpcClient};
 use quinn::{ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
+use reqwest_middleware::{reqwest, ClientBuilder, ClientWithMiddleware};
+use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use super::error::Error;
+use super::{error::Error, token_refresher::TokenRefresher};
 
 #[derive(Debug, Default)]
 enum ClientState {
@@ -29,8 +31,9 @@ enum ClientState {
 pub struct CloudServices {
 	client_state: Arc<RwLock<ClientState>>,
 	get_cloud_api_address: Url,
-	http_client: reqwest::Client,
+	http_client: ClientWithMiddleware,
 	domain_name: String,
+	pub token_refresher: TokenRefresher,
 }
 
 impl CloudServices {
@@ -39,7 +42,7 @@ impl CloudServices {
 	/// might not be connected to the internet.
 	/// If the client fails to connect, it will try again the next time it's used.
 	pub async fn new(
-		get_cloud_api_address: impl IntoUrl,
+		get_cloud_api_address: impl IntoUrl + Send,
 		domain_name: String,
 	) -> Result<Self, Error> {
 		let http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(3));
@@ -49,7 +52,12 @@ impl CloudServices {
 			builder = builder.https_only(true);
 		}
 
-		let http_client = http_client_builder.build().map_err(Error::HttpClientInit)?;
+		let http_client =
+			ClientBuilder::new(http_client_builder.build().map_err(Error::HttpClientInit)?)
+				.with(RetryTransientMiddleware::new_with_policy(
+					ExponentialBackoff::builder().build_with_max_retries(3),
+				))
+				.build();
 		let get_cloud_api_address = get_cloud_api_address
 			.into_url()
 			.map_err(Error::InvalidUrl)?;
@@ -74,6 +82,10 @@ impl CloudServices {
 
 		Ok(Self {
 			client_state,
+			token_refresher: TokenRefresher::new(
+				http_client.clone(),
+				get_cloud_api_address.clone(),
+			),
 			get_cloud_api_address,
 			http_client,
 			domain_name,
@@ -81,7 +93,7 @@ impl CloudServices {
 	}
 
 	async fn init_client(
-		http_client: &reqwest::Client,
+		http_client: &ClientWithMiddleware,
 		get_cloud_api_address: Url,
 		domain_name: String,
 	) -> Result<Client<QuinnConnection<Service>, Service>, Error> {
@@ -197,6 +209,6 @@ mod tests {
 			Err(sd_cloud_schema::Error::Client(
 				sd_cloud_schema::error::ClientSideError::Unauthorized
 			))
-		))
+		));
 	}
 }
