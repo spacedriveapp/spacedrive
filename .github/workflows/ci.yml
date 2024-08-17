@@ -47,11 +47,14 @@ jobs:
 
           _files="$(git diff --name-only --cached)"
           if [ -n "$_files" ]; then
-            echo "Some files are not correctly formatted. Please run 'pnpm autoformat' and commit the changes." >&2
+            printf "\e[31mThe following files are not correctly formatted:\e[0m\n" >&2
 
             while IFS= read -r _file || [ -n "$_file" ]; do
               echo "::error file=${_file},title=Incorrectly formatted file::Please run 'pnpm autoformat' and commit the changes."
+              echo " - ${_file}"
             done < <(printf '%s' "$_files")
+
+            printf "\e[31mPlease run 'pnpm autoformat' and commit the changes.\e[0m\n" >&2
 
             exit 1
           fi

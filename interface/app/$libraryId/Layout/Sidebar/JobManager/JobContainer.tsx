@@ -64,7 +64,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 	const [currentETA, setCurrentETA] = useState<number | undefined>(eta);
 
 	useEffect(() => {
-		if (currentETA !== undefined && currentETA > 0) {
+		if (currentETA != null && currentETA > 0) {
 			const interval = setInterval(() => {
 				setCurrentETA((prevETA) => {
 					if (prevETA === undefined || prevETA <= 1000) return 0;

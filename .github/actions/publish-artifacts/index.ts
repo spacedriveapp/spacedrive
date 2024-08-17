@@ -6,11 +6,16 @@ import { exists } from '@actions/io/lib/io-util';
 
 type OS = 'darwin' | 'windows' | 'linux';
 type Arch = 'x64' | 'arm64';
-type TargetConfig = { bundle: string; ext: string };
-type BuildTarget = {
+
+interface TargetConfig {
+	ext: string;
+	bundle: string;
+}
+
+interface BuildTarget {
 	updater: false | { bundle: string; bundleExt: string; archiveExt: string };
-	standalone: Array<TargetConfig>;
-};
+	standalone: TargetConfig[];
+}
 
 const OS_TARGETS = {
 	darwin: {
@@ -36,8 +41,8 @@ const OS_TARGETS = {
 } satisfies Record<OS, BuildTarget>;
 
 // Workflow inputs
-const OS: OS = core.getInput('os') as any;
-const ARCH: Arch = core.getInput('arch') as any;
+const OS = core.getInput('os') as OS;
+const ARCH = core.getInput('arch') as Arch;
 const TARGET = core.getInput('target');
 const PROFILE = core.getInput('profile');
 
@@ -59,7 +64,11 @@ async function uploadFrontend() {
 		return;
 	}
 
-	await client.uploadArtifact(FRONTEND_ARCHIVE_NAME, [FRONT_END_BUNDLE], 'apps/desktop');
+	const artifactName = `${FRONTEND_ARCHIVE_NAME}.tar.xz`;
+	const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
+
+	await io.cp(FRONT_END_BUNDLE, artifactPath);
+	await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
 }
 
 async function uploadUpdater(updater: BuildTarget['updater']) {
@@ -69,7 +78,7 @@ async function uploadUpdater(updater: BuildTarget['updater']) {
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
 
 	const updaterPath = files.find((file) => file.endsWith(fullExt));
-	if (!updaterPath) throw new Error(`Updater path not found. Files: ${files}`);
+	if (!updaterPath) throw new Error(`Updater path not found. Files: ${files.join(',')}`);
 
 	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${archiveExt}`;
 
@@ -88,7 +97,7 @@ async function uploadStandalone({ bundle, ext }: TargetConfig) {
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
 
 	const standalonePath = files.find((file) => file.endsWith(ext));
-	if (!standalonePath) throw new Error(`Standalone path not found. Files: ${files}`);
+	if (!standalonePath) throw new Error(`Standalone path not found. Files: ${files.join(',')}`);
 
 	const artifactName = `${ARTIFACT_BASE}.${ext}`;
 	const artifactPath = `${ARTIFACTS_DIR}/${artifactName}`;
@@ -108,4 +117,8 @@ async function run() {
 		...standalone.map((config) => uploadStandalone(config))
 	]);
 }
-run();
+
+run().catch((error: unknown) => {
+	console.error(error);
+	process.exit(1);
+});

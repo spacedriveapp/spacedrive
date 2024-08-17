@@ -2,8 +2,12 @@ import { QueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import type { Object } from '..';
-import type { ExplorerItem, FilePath, NonIndexedPathItem } from '../core';
-import { LibraryConfigWrapped } from '../core';
+import {
+	LibraryConfigWrapped,
+	type ExplorerItem,
+	type FilePath,
+	type NonIndexedPathItem
+} from '../core';
 
 export * from './jobs';
 
@@ -83,7 +87,7 @@ export function getIndexedItemFilePath(data: ExplorerItem) {
 	return data.type === 'Path'
 		? data.item
 		: data.type === 'Object'
-			? data.item.file_paths[0] ?? null
+			? (data.item.file_paths[0] ?? null)
 			: null;
 }
 
