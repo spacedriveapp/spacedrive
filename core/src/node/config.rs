@@ -89,9 +89,10 @@ pub struct NodeConfigP2P {
 	///
 	/// All of these are valid values:
 	///  - `localhost`
-	///  - `otbeaumont.me` or `otbeaumont.me:3000`
+	///  - `spacedrive.com` or `spacedrive.com:3000`
 	///  - `127.0.0.1` or `127.0.0.1:300`
 	///  - `[::1]` or `[::1]:3000`
+	///
 	/// which is why we use `String` not `SocketAddr`
 	#[serde(default)]
 	pub manual_peers: HashSet<String>,

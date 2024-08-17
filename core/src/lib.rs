@@ -9,10 +9,10 @@ use crate::{
 use sd_core_cloud_services::CloudServices;
 use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
 use sd_core_prisma_helpers::CasId;
+
+use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
-
-use volume::save_storage_statistics;
 
 use std::{
 	fmt,
@@ -23,7 +23,10 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::Join;
 use thiserror::Error;
-use tokio::{fs, io, sync::broadcast};
+use tokio::{
+	fs, io,
+	sync::{broadcast, Mutex},
+};
 use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
@@ -53,6 +56,7 @@ use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
 use node::config;
 use notifications::Notifications;
+use volume::save_storage_statistics;
 
 pub(crate) use sd_core_sync as sync;
 
@@ -67,10 +71,12 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub http: reqwest::Client,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
 	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
 	pub cloud_services: Arc<CloudServices>,
+	/// This should only be used to generate the seed of local instances of [`CryptoRng`].
+	/// Don't use this as a common RNG, it will fuck up Core's performance due to this Mutex.
+	pub master_rng: Arc<Mutex<CryptoRng>>,
 }
 
 impl fmt::Debug for Node {
@@ -137,10 +143,10 @@ impl Node {
 			config,
 			event_bus,
 			libraries,
-			http: reqwest::Client::new(),
 			cloud_services: Arc::new(
 				CloudServices::new(&get_cloud_api_address, cloud_services_domain_name).await?,
 			),
+			master_rng: Arc::new(Mutex::new(CryptoRng::new()?)),
 		});
 
 		// Setup start actors that depend on the `Node`
@@ -364,4 +370,6 @@ pub enum NodeError {
 	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
 	#[error(transparent)]
 	CloudServices(#[from] sd_core_cloud_services::Error),
+	#[error(transparent)]
+	Crypto(#[from] sd_crypto::Error),
 }
