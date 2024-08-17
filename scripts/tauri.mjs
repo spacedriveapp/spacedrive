@@ -75,7 +75,7 @@ if (process.platform === 'linux' && (args[0] === 'dev' || args[0] === 'build'))
 try {
 	switch (args[0]) {
 		case 'dev': {
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, args)))
 
 			switch (process.platform) {
 				case 'linux':
@@ -96,7 +96,7 @@ try {
 
 			env.GENERATE_SOURCEMAP = 'false'
 
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, args)))
 		}
 	}
 

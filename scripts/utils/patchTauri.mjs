@@ -53,11 +53,10 @@ export async function tauriUpdaterKey(nativeDeps) {
  * @param {string} root
  * @param {string} nativeDeps
  * @param {string[]} targets
- * @param {string[]} bundles
  * @param {string[]} args
  * @returns {Promise<string[]>}
  */
-export async function patchTauri(root, nativeDeps, targets, bundles, args) {
+export async function patchTauri(root, nativeDeps, targets, args) {
 	if (args.findIndex(e => e === '-c' || e === '--config') !== -1) {
 		throw new Error('Custom tauri build config is not supported.')
 	}
