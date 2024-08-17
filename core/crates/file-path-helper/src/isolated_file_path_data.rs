@@ -577,46 +577,35 @@ fn assemble_relative_path(
 	extension: &str,
 	is_dir: bool,
 ) -> String {
-	match (is_dir, extension) {
-		(false, extension) if !extension.is_empty() => {
-			format!("{}{}.{}", &materialized_path[1..], name, extension)
-		}
-		(_, _) => format!("{}{}", &materialized_path[1..], name),
+	if !is_dir && !extension.is_empty() {
+		format!("{}{}.{}", &materialized_path[1..], name, extension)
+	} else {
+		format!("{}{}", &materialized_path[1..], name)
 	}
 }
 
-#[allow(clippy::missing_panics_doc)] // Don't actually panic as we check before `expect`
 pub fn join_location_relative_path(
 	location_path: impl AsRef<Path>,
 	relative_path: impl AsRef<Path>,
 ) -> PathBuf {
 	let relative_path = relative_path.as_ref();
+	let relative_path = relative_path
+		.strip_prefix(MAIN_SEPARATOR_STR)
+		.unwrap_or(relative_path);
 
-	location_path
-		.as_ref()
-		.join(if relative_path.starts_with(MAIN_SEPARATOR_STR) {
-			relative_path
-				.strip_prefix(MAIN_SEPARATOR_STR)
-				.expect("just checked")
-		} else {
-			relative_path
-		})
+	location_path.as_ref().join(relative_path)
 }
 
-#[allow(clippy::missing_panics_doc)] // Don't actually panic as we check before `expect`
 pub fn push_location_relative_path(
 	mut location_path: PathBuf,
 	relative_path: impl AsRef<Path>,
 ) -> PathBuf {
 	let relative_path = relative_path.as_ref();
 
-	location_path.push(if relative_path.starts_with(MAIN_SEPARATOR_STR) {
-		relative_path
-			.strip_prefix(MAIN_SEPARATOR_STR)
-			.expect("just checked")
-	} else {
-		relative_path
-	});
+	let relative_path = relative_path
+		.strip_prefix(MAIN_SEPARATOR_STR)
+		.unwrap_or(relative_path);
+	location_path.push(relative_path);
 
 	location_path
 }
