@@ -49,12 +49,12 @@ export default function Page({ params }: Props) {
 					<Image
 						src={post.image}
 						alt={post.imageAlt ?? ''}
-						className=" mt-8 rounded-xl will-change-transform fade-in"
+						className="mt-8 rounded-xl will-change-transform fade-in"
 						height={400}
 						width={900}
 					/>
 				</figure>
-				<section className="flex flex-wrap gap-4 rounded-xl px-4 ">
+				<section className="flex flex-wrap gap-4 rounded-xl px-4">
 					<div className="w-full grow">
 						<h1 className="animation-delay-1 m-0 text-2xl leading-snug will-change-transform fade-in sm:text-4xl sm:leading-normal">
 							{post.title}

@@ -51,10 +51,7 @@ const BentoBoxes = () => {
 		return 50;
 	}, [width]);
 	return (
-		<MagicContainer
-			className="flex h-fit w-full max-w-7xl auto-rows-[420px] flex-col gap-4
-		 lg:grid lg:grid-cols-6"
-		>
+		<MagicContainer className="flex h-fit w-full max-w-7xl auto-rows-[420px] flex-col gap-4 lg:grid lg:grid-cols-6">
 			<BentoBox colSpan={4} className="p-6" bgUrl="images/bento/encrypt-bg.webp">
 				<div className="bento-radial-gradient-fade absolute right-0 top-0 z-20 size-full" />
 				<div className="relative z-20">
@@ -173,8 +170,7 @@ const BentoBoxes = () => {
 					<Link target="_blank" href="https://github.com/spacedriveapp/spacedrive">
 						<Button
 							size="lg"
-							className="contribute-drop-shadow mx-auto mb-4 block cursor-pointer border-0
-							 bg-gradient-to-r from-emerald-400 to-cyan-500 text-sm text-black !transition-all !duration-200"
+							className="contribute-drop-shadow mx-auto mb-4 block cursor-pointer border-0 bg-gradient-to-r from-emerald-400 to-cyan-500 text-sm text-black !transition-all !duration-200"
 						>
 							{`<>`} Contribute
 						</Button>
@@ -196,15 +192,11 @@ const BentoBoxes = () => {
 							'--floatduration': '4s'
 						} as React.CSSProperties
 					}
-					className="floating mx-auto flex
-						h-[300px] w-full max-w-[500px]"
+					className="floating mx-auto flex h-[300px] w-full max-w-[500px]"
 				>
 					<PlatformsArt />
 				</div>
-				<div
-					className="absolute-center h-[120px] w-[300px] bg-gradient-to-r
-					from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]"
-				/>
+				<div className="absolute-center h-[120px] w-[300px] bg-gradient-to-r from-fuchsia-500 from-10% to-blue-500 opacity-10 blur-[175px]" />
 				<div className="relative z-30">
 					<Heading>Cross platform</Heading>
 					<Text className="mx-auto max-w-[400px]">

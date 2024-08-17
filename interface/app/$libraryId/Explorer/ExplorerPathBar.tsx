@@ -97,7 +97,7 @@ export const ExplorerPathBar = memo(() => {
 			return {
 				name: path,
 				pathname,
-				locationId: isLocation ? indexedFilePath?.location_id ?? location?.id : undefined
+				locationId: isLocation ? (indexedFilePath?.location_id ?? location?.id) : undefined
 			};
 		});
 	}, [location, indexedFilePath, filePathname, searchPath, os]);
