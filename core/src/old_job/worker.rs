@@ -43,10 +43,11 @@ pub struct JobProgressEvent {
 	pub completed_task_count: i32,
 	pub phase: String,
 	pub message: String,
+	pub info: String,
 	pub estimated_completion: DateTime<Utc>,
 }
 
-// used to update the worker state from inside the worker thread
+/// used to update the worker state from inside the worker thread
 #[derive(Debug)]
 pub enum WorkerEvent {
 	Progressed(Vec<JobReportUpdate>),
@@ -54,7 +55,7 @@ pub enum WorkerEvent {
 	Stop,
 }
 
-// used to send commands to the worker thread from the manager
+/// used to send commands to the worker thread from the manager
 #[derive(Debug)]
 pub enum WorkerCommand {
 	Pause(Instant),
@@ -298,6 +299,9 @@ impl Worker {
 					);
 					report.phase = phase;
 				}
+				JobReportUpdate::Info(info) => {
+					report.info = info;
+				}
 			}
 		}
 
@@ -336,6 +340,7 @@ impl Worker {
 			task_count: report.task_count,
 			completed_task_count: report.completed_task_count,
 			estimated_completion: report.estimated_completion,
+			info: report.info.clone(),
 			phase: report.phase.clone(),
 			message: report.message.clone(),
 		}));

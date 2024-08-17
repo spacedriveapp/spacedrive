@@ -1,6 +1,12 @@
 import { TextItems } from '.';
-import { formatNumber, uint32ArrayToBigInt } from '../..';
-import { JobProgressEvent, Report, ReportOutputMetadata } from '../../core';
+import { formatNumber, humanizeSize, uint32ArrayToBigInt } from '../..';
+import {
+	JobName,
+	JobProgressEvent,
+	Report,
+	ReportMetadata,
+	ReportOutputMetadata
+} from '../../core';
 
 interface JobNiceData {
 	name: string;
@@ -12,8 +18,8 @@ interface JobNiceData {
 	indexedPath?: any;
 	taskCount: number;
 	completedTaskCount: number;
-	meta: any;
-	output: any;
+	meta: ReportMetadata[];
+	output: ReportOutputMetadata[];
 }
 
 export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null): JobNiceData {
@@ -258,11 +264,16 @@ export function useJobInfo(job: Report, realtimeUpdate: JobProgressEvent | null)
 		case 'Copy':
 			return {
 				...data,
-				name: `${isQueued ? 'Copy' : isRunning ? 'Copying' : 'Copied'} ${
-					isRunning ? completedTaskCount + 1 : completedTaskCount
-				} ${isRunning ? `of ${job.task_count}` : ``} ${plural(job.task_count, 'file')}`,
-				textItems: [[{ text: job.status }]]
+				name: isQueued
+					? `Duplicate ${taskCount} ${plural(taskCount, 'file')}`
+					: isRunning
+						? `Duplicating ${completedTaskCount}% of ${realtimeUpdate?.info} ${plural(taskCount, 'file')} (${humanizeSize(parseInt(realtimeUpdate?.message || '0'))})`
+						: `Duplicated ${taskCount} ${plural(taskCount, 'file')}`,
+				textItems: realtimeUpdate
+					? [[{ text: realtimeUpdate?.phase }]]
+					: [[{ text: job.status }]]
 			};
+
 		case 'Delete':
 			return {
 				...data,

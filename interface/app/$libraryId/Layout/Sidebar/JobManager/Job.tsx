@@ -5,11 +5,12 @@ import {
 	Icon,
 	Image,
 	Info,
+	Lightning,
 	Scissors,
 	Trash
 } from '@phosphor-icons/react';
 import { memo } from 'react';
-import { JobProgressEvent, Report, useJobInfo } from '@sd/client';
+import { JobName, JobProgressEvent, Report, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useLocale } from '~/hooks';
@@ -24,14 +25,22 @@ interface JobProps {
 	eta: number;
 }
 
-const JobIcon: Record<string, Icon> = {
+export const JobIcon: Record<JobName, Icon> = {
 	Indexer: Folder,
 	MediaProcessor: Image,
 	FileIdentifier: Fingerprint,
-	FileCopier: Copy,
-	FileDeleter: Trash,
-	FileCutter: Scissors,
-	ObjectValidator: Fingerprint
+	Copy: Copy,
+	Delete: Trash,
+	Erase: Trash,
+	Move: Scissors,
+	FileValidator: Fingerprint
+};
+
+// Jobs like deleting and copying files do not have simplied job names
+// so we need to use the metadata to display an icon
+const MetaDataJobIcon = {
+	deleter: Trash,
+	copier: Copy
 };
 
 function Job({ job, className, isChild, progress, eta }: JobProps) {
@@ -67,11 +76,23 @@ function Job({ job, className, isChild, progress, eta }: JobProps) {
 		]);
 	}
 
+	let jobIcon = Lightning;
+	if (job.name in JobIcon) {
+		jobIcon = JobIcon[job.name];
+	} else {
+		const meta = [...jobData.meta, ...jobData.output].find(
+			(meta) => meta.type in MetaDataJobIcon
+		);
+		if (meta) {
+			jobIcon = MetaDataJobIcon[meta.type as keyof typeof MetaDataJobIcon];
+		}
+	}
+
 	return (
 		<JobContainer
 			className={className}
 			name={jobData.name}
-			icon={JobIcon[job.name]}
+			icon={jobIcon}
 			eta={eta}
 			status={job.status}
 			textItems={
