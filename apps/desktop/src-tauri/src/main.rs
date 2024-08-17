@@ -206,6 +206,7 @@ async fn main() -> tauri::Result<()> {
 		])
 		.events(collect_events![DragAndDropEvent]);
 
+	#[cfg(debug_assertions)]
 	builder
 		.export(
 			Typescript::default()
