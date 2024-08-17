@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/release.yml'
+      - '.github/actions/publish-artifacts/**'
   workflow_dispatch:
 
 # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
