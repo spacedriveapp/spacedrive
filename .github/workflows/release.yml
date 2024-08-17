@@ -20,12 +20,12 @@ jobs:
         settings:
           - host: macos-13
             target: x86_64-apple-darwin
-            bundles: dmg
+            bundles: dmg,app
             os: darwin
             arch: x86_64
           - host: macos-14
             target: aarch64-apple-darwin
-            bundles: dmg
+            bundles: dmg,app
             os: darwin
             arch: aarch64
           - host: windows-latest
