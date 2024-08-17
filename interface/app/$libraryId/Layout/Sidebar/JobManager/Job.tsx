@@ -3,6 +3,7 @@ import {
 	Fingerprint,
 	Folder,
 	Icon,
+	Image,
 	Info,
 	Lightning,
 	Scissors,
