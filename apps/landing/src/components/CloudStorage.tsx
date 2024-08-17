@@ -16,7 +16,7 @@ const CloudStorage = () => {
 		<div
 			ref={ref}
 			className={clsx(
-				'relative mt-[200px] w-full max-w-[960px] opacity-0  md:mt-[250px]',
+				'relative mt-[200px] w-full max-w-[960px] opacity-0 md:mt-[250px]',
 				isInView && 'fade-in-heading'
 			)}
 		>
@@ -57,16 +57,10 @@ const CloudStorage = () => {
 					/>
 				</div>
 			</div>
-			<h1
-				className="mt-[50px] bg-gradient-to-r from-white to-blue-400 bg-clip-text text-center text-[30px] font-bold
-						 leading-10 text-transparent"
-			>
+			<h1 className="mt-[50px] bg-gradient-to-r from-white to-blue-400 bg-clip-text text-center text-[30px] font-bold leading-10 text-transparent">
 				Coming soon
 			</h1>
-			<h1
-				className="bg-gradient-to-r from-white to-blue-300 bg-clip-text
-						  text-center text-[20px] text-transparent md:text-[40px] md:leading-[50px]"
-			>
+			<h1 className="bg-gradient-to-r from-white to-blue-300 bg-clip-text text-center text-[20px] text-transparent md:text-[40px] md:leading-[50px]">
 				Combine all storage locations & clouds
 			</h1>
 		</div>
@@ -82,10 +76,7 @@ interface Props {
 
 const CloudCard = ({ logoUrl, title, imageWidth = 70, children }: Props) => {
 	return (
-		<div
-			className="flex w-full flex-col justify-center rounded-md border border-[#161524]
-			 bg-[#080710]/30 py-6 text-center backdrop-blur-sm transition-all duration-200 hover:brightness-125 md:h-[165px] md:basis-[30%]"
-		>
+		<div className="flex w-full flex-col justify-center rounded-md border border-[#161524] bg-[#080710]/30 py-6 text-center backdrop-blur-sm transition-all duration-200 hover:brightness-125 md:h-[165px] md:basis-[30%]">
 			{children}
 			<div className="relative z-10">
 				<Image

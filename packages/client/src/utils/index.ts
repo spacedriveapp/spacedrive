@@ -83,7 +83,7 @@ export function getIndexedItemFilePath(data: ExplorerItem) {
 	return data.type === 'Path'
 		? data.item
 		: data.type === 'Object'
-			? data.item.file_paths[0] ?? null
+			? (data.item.file_paths[0] ?? null)
 			: null;
 }
 

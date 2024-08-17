@@ -13,7 +13,7 @@ const OverviewSection = ({
 	return (
 		<div className={clsx('group w-full', className)}>
 			{title && (
-				<div className="mb-3 flex w-full items-center gap-3 px-7 ">
+				<div className="mb-3 flex w-full items-center gap-3 px-7">
 					<div className="truncate font-bold">{title}</div>
 					{typeof count === 'number' && <div className={COUNT_STYLE}>{count}</div>}
 					<div className="grow" />
@@ -33,7 +33,7 @@ const OverviewSection = ({
 			{/* {title && <div className="mx-7 mb-3 h-[1px] w-full bg-app-line/50" />} */}
 
 			<HorizontalScroll>{children}</HorizontalScroll>
-			<div className="my-2 h-px w-full " />
+			<div className="my-2 h-px w-full" />
 		</div>
 	);
 };
