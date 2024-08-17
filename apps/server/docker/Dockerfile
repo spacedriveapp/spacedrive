@@ -74,7 +74,7 @@ RUN curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true ./scripts/setup.sh
 
-RUN cd ./scripts; npm i --production
+RUN cd ./scripts; npm i --omit=dev && npm i -g prisma
 
 RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
 	pnpm prep
