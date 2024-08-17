@@ -22,10 +22,7 @@ export default function PricingPage() {
 				src="/images/misc/header-gradient.webp"
 			/>
 			<div className="z-5 relative mt-48">
-				<h1
-					className="fade-in-heading mb-3 bg-gradient-to-r from-white from-40% to-indigo-400 to-60% bg-clip-text px-2 text-center text-4xl
-				font-bold leading-tight text-transparent"
-				>
+				<h1 className="fade-in-heading mb-3 bg-gradient-to-r from-white from-40% to-indigo-400 to-60% bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-transparent">
 					Pricing
 				</h1>
 				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mx-auto mb-8 mt-1 max-w-2xl px-2 text-center text-gray-450 lg:text-lg lg:leading-8">

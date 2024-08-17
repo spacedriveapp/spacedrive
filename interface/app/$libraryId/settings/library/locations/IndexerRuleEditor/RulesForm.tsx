@@ -169,7 +169,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 					{fields.map((field, index) => {
 						return (
 							<Card
-								className="grid  w-full grid-cols-4 gap-3 border-app-line p-0 !px-2 hover:bg-app-box/70"
+								className="grid w-full grid-cols-4 gap-3 border-app-line p-0 !px-2 hover:bg-app-box/70"
 								key={field.id}
 							>
 								<Controller
@@ -275,9 +275,7 @@ const RulesForm = ({ onSubmitted }: Props) => {
 								{ shouldFocus: false }
 							)
 						}
-						className="!my-2 mx-auto w-full border
-										!border-app-line !bg-app-darkBox py-2 !font-bold
-										 hover:brightness-105"
+						className="!my-2 mx-auto w-full border !border-app-line !bg-app-darkBox py-2 !font-bold hover:brightness-105"
 					>
 						+
 					</Button>

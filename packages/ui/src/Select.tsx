@@ -65,7 +65,7 @@ export const Select = forwardRef(
 				</RS.Trigger>
 
 				<RS.Portal>
-					<RS.Content className="z-[100] rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20 ">
+					<RS.Content className="z-[100] rounded-md border border-app-line bg-app-box shadow-2xl shadow-app-shade/20">
 						<RS.Viewport className="p-1">{props.children}</RS.Viewport>
 					</RS.Content>
 				</RS.Portal>
@@ -84,7 +84,7 @@ export function SelectOption(props: PropsWithChildren<{ value: string; default?:
 			className={clsx(
 				'relative flex h-6 cursor-pointer select-none items-center rounded pl-6 pr-3',
 				'text-sm text-ink radix-highlighted:text-white',
-				'focus:outline-none radix-disabled:opacity-50 radix-highlighted:bg-accent '
+				'focus:outline-none radix-disabled:opacity-50 radix-highlighted:bg-accent'
 			)}
 		>
 			<RS.ItemText>{props.children}</RS.ItemText>

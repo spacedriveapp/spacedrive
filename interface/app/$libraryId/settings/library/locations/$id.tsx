@@ -147,7 +147,7 @@ const EditLocationForm = () => {
 
 						<RadioGroupField.Item disabled key="replica" value="replica">
 							<h1 className="font-bold">{t('replica')}</h1>
-							<p className="text-sm text-ink-faint ">{t('location_type_replica')}</p>
+							<p className="text-sm text-ink-faint">{t('location_type_replica')}</p>
 						</RadioGroupField.Item>
 					</RadioGroupField.Root>
 				</div>

@@ -68,7 +68,7 @@ export async function Footer() {
 				</div>
 
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase ">About</h1>
+					<h1 className="mb-1 text-xs font-bold uppercase">About</h1>
 
 					<FooterLink link="/team">Team</FooterLink>
 					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
@@ -104,7 +104,7 @@ export async function Footer() {
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase ">Developers</h1>
+					<h1 className="mb-1 text-xs font-bold uppercase">Developers</h1>
 					<FooterLink link="/docs/product/getting-started/introduction">
 						Documentation
 					</FooterLink>
@@ -122,7 +122,7 @@ export async function Footer() {
 					</div>
 				</div>
 				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase ">Org</h1>
+					<h1 className="mb-1 text-xs font-bold uppercase">Org</h1>
 					<FooterLink blank link="https://opencollective.com/spacedrive">
 						Open Collective
 					</FooterLink>

@@ -54,7 +54,7 @@ const Tag = ({ tag }: { tag: Tag }) => {
 				to={`tag/${tag.id}`}
 				className={clsx(
 					'border radix-state-open:border-accent',
-					isDroppable ? ' border-accent' : 'border-transparent',
+					isDroppable ? 'border-accent' : 'border-transparent',
 					className
 				)}
 			>

@@ -14,7 +14,7 @@ export function keybind<T extends string>(
 
 	const keySymbol = keys.map(capitalize).map((key) => {
 		const symbol = keySymbols[key];
-		return symbol ? symbol[os] ?? symbol.Other : key;
+		return symbol ? (symbol[os] ?? symbol.Other) : key;
 	});
 
 	if (os === 'macOS' && !modifers.includes(ModifierKeys.Meta)) {

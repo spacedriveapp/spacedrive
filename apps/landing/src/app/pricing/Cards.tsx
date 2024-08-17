@@ -15,10 +15,7 @@ export function Cards() {
 				<Switch checked={toggle} onCheckedChange={setToggle} size="lg" />
 				<p className="text-sm font-medium text-white">Yearly</p>
 			</div>
-			<div
-				className="fade-in-heading animation-delay-2 mx-auto mb-[200px] mt-[75px] flex
-				 w-full max-w-[1000px] flex-col items-center justify-center gap-10 px-2 md:flex-row"
-			>
+			<div className="fade-in-heading animation-delay-2 mx-auto mb-[200px] mt-[75px] flex w-full max-w-[1000px] flex-col items-center justify-center gap-10 px-2 md:flex-row">
 				<PackageCard
 					features={[
 						'lorem ipsum text',
@@ -90,10 +87,7 @@ const PackageCard = ({ features, name, price, toggle, subTitle }: Props) => {
 			)}
 		>
 			{name === 'Pro' && (
-				<div
-					className="pro-card-border-gradient popular-shadow absolute-horizontal-center top-[-12px]
-				 rounded-[6px] bg-[#0E0D1B] px-5 py-1"
-				>
+				<div className="pro-card-border-gradient popular-shadow absolute-horizontal-center top-[-12px] rounded-[6px] bg-[#0E0D1B] px-5 py-1">
 					<p className="text-[10px] font-medium uppercase text-white">Popular</p>
 				</div>
 			)}

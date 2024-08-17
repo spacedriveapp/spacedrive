@@ -313,9 +313,7 @@ export function Dialog<S extends FieldValues>({
 									{!props.hideButtons && (
 										<div
 											className={clsx(
-												invertButtonFocus
-													? 'flex-row-reverse'
-													: ' flex-row',
+												invertButtonFocus ? 'flex-row-reverse' : 'flex-row',
 												'flex gap-2'
 											)}
 										>

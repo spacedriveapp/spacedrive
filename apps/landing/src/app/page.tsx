@@ -64,10 +64,7 @@ export default async function Page() {
 						.join(' ')}
 				/>
 				<div className="pb-6 xs:pb-24">
-					<div
-						className="xl2:relative z-30 flex h-[255px] w-full px-6
-				 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto"
-					>
+					<div className="xl2:relative z-30 flex h-[255px] w-full px-6 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto">
 						<Image
 							loading="eager"
 							className="absolute-horizontal-center animation-delay-2 top-[380px] fade-in xs:top-[180px] md:top-[130px]"
