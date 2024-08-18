@@ -1,5 +1,5 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
-import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
+import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -62,7 +62,6 @@ export default (props: Props) => {
 	const { type, prefix, translatedType } = getWording(dirCount, fileCount);
 
 	const icon = type === 'file' || type === 'files' ? 'Document' : 'Folder';
-	console.log(translatedType);
 
 	const description = t('delete_warning', { type: t(translatedType) });
 
