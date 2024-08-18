@@ -215,7 +215,7 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 					<div className="mt-4 flex h-full items-center justify-center">
 						<div className="flex flex-col items-center justify-center gap-3">
 							<Loader />
-							<p className="text-ink-dull">Fetching file kind statistics...</p>
+							<p className="text-ink-dull">{t('fetching_file_kind_statistics')}</p>
 						</div>
 					</div>
 				) : (
