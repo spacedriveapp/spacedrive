@@ -58,7 +58,8 @@ RUN pnpm web build
 
 FROM build-base AS server
 
-RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
+RUN --mount=type=cache,target=/root/.rustup/downloads \
+	wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
 
 ENV PATH="/root/.cargo/bin:$PATH"
 
@@ -76,12 +77,15 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 
 RUN cd ./scripts; npm i --omit=dev && npm i -g prisma
 
-RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
+RUN cargo --version
+
+RUN --mount=type=cache,target=/root/.rustup/downloads \
 	env PATH="$(npm prefix -g)/bin:$PATH" pnpm prep
 
 COPY --from=web /srv/spacedrive/apps/web/dist /srv/spacedrive/apps/web/dist
 
-RUN cargo build --features assets --release -p sd-server
+RUN --mount=type=cache,target=/root/.rustup/downloads \
+	cargo build --features assets --release -p sd-server
 
 #--
 
