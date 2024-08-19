@@ -37,6 +37,7 @@ export default () => {
 
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const isBackupsEnabled = useFeatureFlag('backups');
+	const cloudSync = useFeatureFlag('cloudSync');
 
 	const { t } = useLocale();
 
@@ -122,10 +123,12 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
-					<SidebarLink to="library/sync">
-						<Icon component={ArrowsClockwise} />
-						{t('sync')}
-					</SidebarLink>
+					{cloudSync && (
+						<SidebarLink to="library/sync">
+							<Icon component={ArrowsClockwise} />
+							{t('sync')}
+						</SidebarLink>
+					)}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}

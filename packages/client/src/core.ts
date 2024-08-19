@@ -67,7 +67,6 @@ export type Procedures = {
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
@@ -142,7 +141,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: { entries: ExplorerItem[]; errors: Error[] } } | 
         { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
@@ -170,7 +169,7 @@ export type CameraData = { device_make: string | null; device_model: string | nu
 
 export type CasId = string
 
-export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null; image_labeler_version: string | null }
+export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p2p_disabled: boolean | null; p2p_ipv6_disabled: boolean | null; p2p_relay_disabled: boolean | null; p2p_discovery: P2PDiscoveryState | null; p2p_remote_access: boolean | null; p2p_manual_peers: string[] | null }
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
@@ -245,8 +244,6 @@ export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
-
-export type EphemeralPathsResultItem = { entries: ExplorerItem[]; errors: Error[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -380,7 +377,7 @@ export type JobGroup = { id: string; running_job_id: string | null; action: stri
 
 export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 
-export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; info: string; estimated_completion: string }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
@@ -586,7 +583,7 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 
 export type RenameOne = { from_file_path_id: number; to: string }
 
-export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; info: string; phase: string; message: string; estimated_completion: string }
 
 export type ReportInputMetadata = { type: "location"; data: Location } | { type: "sub_path"; data: string }
 
@@ -648,8 +645,6 @@ export type TagUpdateArgs = { id: number; name: string | null; color: string | n
 
 export type Target = { Object: number } | { FilePath: number }
 
-export type TestingParams = { id: string; path: string }
-
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 
 /**
@@ -658,7 +653,7 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  */
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
-export type UpdateThumbnailerPreferences = { background_processing_percentage: number }
+export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 

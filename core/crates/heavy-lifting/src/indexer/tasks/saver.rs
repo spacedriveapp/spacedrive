@@ -1,6 +1,6 @@
 use crate::{indexer, Error};
 
-use sd_core_file_path_helper::IsolatedFilePathDataParts;
+use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
 use sd_core_sync::Manager as SyncManager;
 
 use sd_prisma::{
@@ -9,7 +9,10 @@ use sd_prisma::{
 };
 use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId};
-use sd_utils::{db::inode_to_db, msgpack};
+use sd_utils::{
+	db::{inode_to_db, size_in_bytes_to_db},
+	msgpack,
+};
 
 use std::{sync::Arc, time::Duration};
 
@@ -92,7 +95,14 @@ impl Task<Error> for Saver {
 				     pub_id,
 				     maybe_object_id,
 				     iso_file_path,
-				     metadata,
+				     metadata:
+				         FilePathMetadata {
+				             inode,
+				             size_in_bytes,
+				             created_at,
+				             modified_at,
+				             hidden,
+				         },
 				 }| {
 					let IsolatedFilePathDataParts {
 						materialized_path,
@@ -118,19 +128,16 @@ impl Task<Error> for Saver {
 							),
 							location_id::set(Some(*location_id)),
 						),
-						sync_db_entry!(materialized_path.to_string(), materialized_path),
-						sync_db_entry!(name.to_string(), name),
+						sync_db_entry!(materialized_path, materialized_path),
+						sync_db_entry!(name, name),
 						sync_db_entry!(is_dir, is_dir),
-						sync_db_entry!(extension.to_string(), extension),
-						sync_db_entry!(
-							metadata.size_in_bytes.to_be_bytes().to_vec(),
-							size_in_bytes_bytes
-						),
-						sync_db_entry!(inode_to_db(metadata.inode), inode),
-						sync_db_entry!(metadata.created_at.into(), date_created),
-						sync_db_entry!(metadata.modified_at.into(), date_modified),
-						sync_db_entry!(Utc::now().into(), date_indexed),
-						sync_db_entry!(metadata.hidden, hidden),
+						sync_db_entry!(extension, extension),
+						sync_db_entry!(size_in_bytes_to_db(size_in_bytes), size_in_bytes_bytes),
+						sync_db_entry!(inode_to_db(inode), inode),
+						sync_db_entry!(created_at, date_created),
+						sync_db_entry!(modified_at, date_modified),
+						sync_db_entry!(Utc::now(), date_indexed),
+						sync_db_entry!(hidden, hidden),
 					]
 					.into_iter()
 					.unzip();

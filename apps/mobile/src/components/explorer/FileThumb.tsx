@@ -12,7 +12,7 @@ import {
 } from '@sd/client';
 import { flattenThumbnailKey, useExplorerStore } from '~/stores/explorerStore';
 
-import { tw } from '../../lib/tailwind';
+import { twStyle } from '../../lib/tailwind';
 
 // NOTE: `file://` is required for Android to load local files!
 export const getThumbnailUrlByThumbKey = (thumbKey: ThumbKey) => {
@@ -21,8 +21,21 @@ export const getThumbnailUrlByThumbKey = (thumbKey: ThumbKey) => {
 	)}/${encodeURIComponent(thumbKey.shard_hex)}/${encodeURIComponent(thumbKey.cas_id)}.webp`;
 };
 
-const FileThumbWrapper = ({ children, size = 1 }: PropsWithChildren<{ size: number }>) => (
-	<View style={[tw`items-center justify-center`, { width: 80 * size, height: 80 * size }]}>
+const FileThumbWrapper = ({
+	children,
+	mediaView = false,
+	size = 1,
+	fixedSize = false
+}: PropsWithChildren<{ size: number; fixedSize: boolean; mediaView: boolean }>) => (
+	<View
+		style={[
+			twStyle(`items-center justify-center`, mediaView && `p-0.1 w-full flex-1 `),
+			!mediaView && {
+				width: fixedSize ? size : 70 * size,
+				height: fixedSize ? size : 70 * size
+			}
+		]}
+	>
 		{children}
 	</View>
 );
@@ -59,31 +72,35 @@ enum ThumbType {
 
 type FileThumbProps = {
 	data: ExplorerItem;
-	/**
-	 * This is multiplier for calculating icon size
-	 * default: `1`
-	 */
 	size?: number;
+	fixedSize?: boolean;
+	mediaView?: boolean;
 	// loadOriginal?: boolean;
 };
 
-export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
+/**
+ * @param data This is the ExplorerItem object
+ * @param size This is multiplier for calculating icon size
+ * @param fixedSize If set to true, the icon will have fixed size
+ * @param mediaView If set to true - file thumbs will adjust their sizing accordingly
+ */
+export default function FileThumb({
+	size = 1,
+	fixedSize = false,
+	mediaView = false,
+	...props
+}: FileThumbProps) {
 	const itemData = useExplorerItemData(props.data);
 	const locationData = getItemLocation(props.data);
 
 	const [src, setSrc] = useState<null | string>(null);
 	const [thumbType, setThumbType] = useState(ThumbType.Icon);
-	// const [loaded, setLoaded] = useState<boolean>(false);
 
 	useLayoutEffect(() => {
 		// Reset src when item changes, to allow detection of yet not updated src
 		setSrc(null);
-		// setLoaded(false);
-
 		if (locationData) {
 			setThumbType(ThumbType.Location);
-			// } else if (props.loadOriginal) {
-			// 	setThumbType(ThumbType.Original);
 		} else if (itemData.hasLocalThumbnail) {
 			setThumbType(ThumbType.Thumbnail);
 		} else {
@@ -93,28 +110,8 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 
 	// This sets the src to the thumbnail url
 	useEffect(() => {
-		const { casId, kind, isDir, extension, locationId, thumbnailKey } = itemData;
-
-		// ???
-		// const locationId =
-		// 	itemLocationId ?? (parent?.type === 'Location' ? parent.location.id : null);
-
+		const { casId, kind, isDir, extension, thumbnailKey } = itemData;
 		switch (thumbType) {
-			// case ThumbType.Original:
-			// 	if (locationId) {
-			// 		setSrc(
-			// 			platform.getFileUrl(
-			// 				library.uuid,
-			// 				locationId,
-			// 				filePath?.id || props.data.item.id,
-			// 				// Workaround Linux webview not supporting playing video and audio through custom protocol urls
-			// 				kind == 'Video' || kind == 'Audio'
-			// 			)
-			// 		);
-			// 	} else {
-			// 		setThumbType(ThumbType.Thumbnail);
-			// 	}
-			// 	break;
 			case ThumbType.Thumbnail:
 				if (casId && thumbnailKey) {
 					setSrc(getThumbnailUrlByThumbKey(thumbnailKey));
@@ -130,8 +127,9 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 				break;
 		}
 	}, [itemData, thumbType]);
+
 	return (
-		<FileThumbWrapper size={size}>
+		<FileThumbWrapper mediaView={mediaView} fixedSize={fixedSize} size={size}>
 			{(() => {
 				if (src == null) return null;
 				let source = null;
@@ -141,7 +139,17 @@ export default function FileThumb({ size = 1, ...props }: FileThumbProps) {
 				} else {
 					source = { uri: src };
 				}
-				return <Image source={source} style={{ width: 70 * size, height: 70 * size }} />;
+				return (
+					<Image
+						cachePolicy="memory-disk"
+						source={source}
+						style={{
+							flex: !mediaView ? undefined : 1,
+							width: !mediaView ? (fixedSize ? size : 70 * size) : '100%',
+							height: !mediaView ? (fixedSize ? size : 70 * size) : '100%'
+						}}
+					/>
+				);
 			})()}
 		</FileThumbWrapper>
 	);

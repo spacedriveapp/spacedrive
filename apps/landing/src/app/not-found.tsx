@@ -14,7 +14,7 @@ export default function NotFound() {
 
 	return (
 		<Markdown classNames="flex w-full justify-center">
-			<div className="m-auto flex flex-col items-center ">
+			<div className="m-auto flex flex-col items-center">
 				<div className="h-32" />
 				<SmileyXEyes className="mb-3 size-44" />
 				<h1 className="mb-2 text-center">
@@ -23,7 +23,7 @@ export default function NotFound() {
 				<p>In other words, thats a 404.</p>
 				<div className="flex flex-wrap justify-center">
 					<Button
-						className="mr-3 mt-2 cursor-pointer "
+						className="mr-3 mt-2 cursor-pointer"
 						variant="gray"
 						onClick={() => router.back()}
 					>

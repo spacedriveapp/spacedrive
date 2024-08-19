@@ -9,7 +9,7 @@
 }
 
 .command-palette-list-item span:nth-child(1) {
-	@apply text-sm  #{!important};
+	@apply text-sm #{!important};
 }
 
 .command-palette-content h4 {
@@ -41,7 +41,7 @@
 }
 
 .command-palette-content ul button div > span {
-	@apply text-ink  #{!important};
+	@apply text-ink #{!important};
 }
 
 .command-palette-content ul button span {
@@ -60,7 +60,7 @@
 // container background
 
 .command-palette .dark\:bg-gray-900 {
-	@apply border border-app-darkBox bg-app-darkerBox/90 backdrop-blur-lg  #{!important};
+	@apply border border-app-darkBox bg-app-darkerBox/90 backdrop-blur-lg #{!important};
 }
 
 .command-palette .dark\:divide-gray-800 {

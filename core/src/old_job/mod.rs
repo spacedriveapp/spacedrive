@@ -382,11 +382,7 @@ impl<Step, RunMetadata: JobRunMetadata> From<Option<()>> for JobStepOutput<Step,
 #[async_trait::async_trait]
 impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 	fn id(&self) -> Uuid {
-		// SAFETY: This method is using during queueing, so we still have a report
-		self.report()
-			.as_ref()
-			.expect("This method is using during queueing, so we still have a report")
-			.id
+		self.id
 	}
 
 	fn parent_id(&self) -> Option<Uuid> {
@@ -405,7 +401,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 		<SJob as StatefulJob>::NAME
 	}
 
-	#[instrument(skip_all, fields(job_name = %self.name(), job_id = %self.id()), err)]
+	#[instrument(skip_all, fields(job_name = %self.name()), err)]
 	#[allow(clippy::blocks_in_conditions)] // Due to `err` on instrument above
 	async fn run(
 		&mut self,
@@ -451,6 +447,7 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 
 					if let Ok(res) = res.as_ref() {
 						if !<SJob as StatefulJob>::IS_BATCHED {
+							// tell the reporter how much work there is
 							ctx.progress(vec![JobReportUpdate::TaskCount(res.steps.len())]);
 						}
 					}
@@ -511,7 +508,6 @@ impl<SJob: StatefulJob> DynJob for OldJob<SJob> {
 
 				let init_time = Instant::now();
 
-				// JoinHandle<Result<JobStepOutput<SJob::Step, SJob::RunMetadata>, JobError>>
 				let step_task = {
 					// Need these bunch of Arcs to be able to move them into the async block of tokio::spawn
 					let ctx = Arc::clone(&ctx);

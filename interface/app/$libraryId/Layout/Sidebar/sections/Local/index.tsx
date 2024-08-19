@@ -120,7 +120,7 @@ export default function LocalSection() {
 							path={
 								locationId !== undefined
 									? locationId.toString()
-									: item.mountPoint ?? ''
+									: (item.mountPoint ?? '')
 							}
 						>
 							<SidebarIcon
@@ -163,7 +163,7 @@ const EphemeralLocation = ({
 			to={navigateTo}
 			className={clsx(
 				'border',
-				isDroppable ? ' border-accent' : 'border-transparent',
+				isDroppable ? 'border-accent' : 'border-transparent',
 				className
 			)}
 		>

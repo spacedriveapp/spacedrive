@@ -10,7 +10,7 @@ import {
 	useLibraryQuery,
 	useLibrarySubscription
 } from '@sd/client';
-import { Card, Tooltip } from '@sd/ui';
+import { Card, Loader, Tooltip } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';
 
 import { FileKind } from '.';
@@ -26,7 +26,6 @@ const BARS_CONTAINER_CLASSLIST =
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
 	const result = (numerator * maxValue) / denominator;
-	// ensures min width except for empty bars (numerator = 0)
 	if (numerator !== 0n && result < 1n) return '1';
 	return result.toString();
 };
@@ -75,11 +74,12 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 	const { data } = useLibraryQuery(['library.kindStatistics']);
 	const [fileKinds, setFileKinds] = useState<Map<number, FileKind>>(new Map());
 	const [cardWidth, setCardWidth] = useState<number>(0);
+	const [loading, setLoading] = useState<boolean>(true);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
 	const BAR_MAX_HEIGHT = 115n;
-	const BAR_COLOR_START = '#3A7ECC';
+	const BAR_COLOR_START = '#36A3FF';
 	const BAR_COLOR_END = '#004C99';
 
 	useLibrarySubscription(['library.updatedKindStatistic'], {
@@ -181,6 +181,8 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 					iconsRef.current[iconName] = img;
 				}
 			});
+
+			setLoading(false);
 		}
 	}, [data, isDark]);
 
@@ -207,92 +209,111 @@ const FileKindStats: React.FC<FileKindStatsProps> = () => {
 		<div className="flex justify-center">
 			<Card
 				ref={containerRef}
-				className="max-w-1/2 group mx-1  flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"
+				className="max-w-1/2 group mx-1 flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"
 			>
-				<div className={TOTAL_FILES_CLASSLIST}>
-					<Tooltip className="flex items-center" label={t('bar_graph_info')}>
-						<div className="flex items-center gap-2">
-							<span
-								className={clsx(
-									'text-xl font-black',
-									isDark ? 'text-white' : 'text-black'
-								)}
-							>
-								{data?.total_identified_files
-									? formatNumberWithCommas(data.total_identified_files)
-									: '0'}{' '}
-							</span>
-							<div className="flex items-center">
-								{t('total_files')}
-								<Info weight="fill" className={INFO_ICON_CLASSLIST} />
+				{loading ? (
+					<div className="mt-4 flex h-full items-center justify-center">
+						<div className="flex flex-col items-center justify-center gap-3">
+							<Loader />
+							<p className="text-ink-dull">Fetching file kind statistics...</p>
+						</div>
+					</div>
+				) : (
+					<>
+						<div className={TOTAL_FILES_CLASSLIST}>
+							<Tooltip className="flex items-center" label={t('bar_graph_info')}>
+								<div className="flex items-center gap-2">
+									<span
+										className={clsx(
+											'text-xl font-black',
+											isDark ? 'text-white' : 'text-black'
+										)}
+									>
+										{data?.total_identified_files
+											? formatNumberWithCommas(data.total_identified_files)
+											: '0'}{' '}
+									</span>
+									<div className="flex items-center">
+										{t('total_files')}
+										<Info weight="fill" className={INFO_ICON_CLASSLIST} />
+									</div>
+								</div>
+							</Tooltip>
+							<div className={UNIDENTIFIED_FILES_CLASSLIST}>
+								<Tooltip label={t('unidentified_files_info')}>
+									<span>
+										{data?.total_unidentified_files
+											? formatNumberWithCommas(data.total_unidentified_files)
+											: '0'}{' '}
+										{t('unidentified_files')}
+									</span>
+								</Tooltip>
 							</div>
 						</div>
-					</Tooltip>
-					<div className={UNIDENTIFIED_FILES_CLASSLIST}>
-						<Tooltip label={t('unidentified_files_info')}>
-							<span>
-								{data?.total_unidentified_files
-									? formatNumberWithCommas(data.total_unidentified_files)
-									: '0'}{' '}
-								unidentified files
-							</span>
-						</Tooltip>
-					</div>
-				</div>
-				<div className={BARS_CONTAINER_CLASSLIST}>
-					{sortedFileKinds.map((fileKind, index) => {
-						const iconImage = iconsRef.current[fileKind.name];
-						const barColor = interpolateHexColor(
-							BAR_COLOR_START,
-							BAR_COLOR_END,
-							index / (barCount - 1)
-						);
+						<div className={BARS_CONTAINER_CLASSLIST}>
+							{sortedFileKinds.map((fileKind, index) => {
+								const iconImage = iconsRef.current[fileKind.name];
+								const barColor = interpolateHexColor(
+									BAR_COLOR_START,
+									BAR_COLOR_END,
+									index / (barCount - 1)
+								);
 
-						const barHeight =
-							mapFractionalValue(fileKind.count, maxFileCount, BAR_MAX_HEIGHT) + 'px';
-						return (
-							<>
-								<Tooltip
-									asChild
-									key={fileKind.kind}
-									label={
-										formatNumberWithCommas(fileKind.count) +
-										' ' +
-										fileKind.name +
-										's'
-									}
-									position="left"
-								>
-									<div
-										className="relative flex w-full min-w-8 max-w-10 grow cursor-pointer flex-col items-center"
-										onDoubleClick={makeBarClickHandler(fileKind)}
-									>
-										{iconImage && (
-											<img
-												src={iconImage.src}
-												alt={fileKind.name}
-												className="relative mb-1 size-4 duration-500"
-											/>
-										)}
-										<motion.div
-											className="flex w-full flex-col items-center rounded transition-all duration-500"
-											initial={{ height: 0 }}
-											animate={{ height: barHeight }}
-											transition={{ duration: 0.4, ease: [0.42, 0, 0.58, 1] }}
-											style={{
-												height: barHeight,
-												backgroundColor: barColor
-											}}
-										></motion.div>
-									</div>
-								</Tooltip>
-								<div className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint">
-									{formatCount(fileKind.count)}
-								</div>
-							</>
-						);
-					})}
-				</div>
+								const barHeight =
+									mapFractionalValue(
+										fileKind.count,
+										maxFileCount,
+										BAR_MAX_HEIGHT
+									) + 'px';
+
+								return (
+									<>
+										<Tooltip
+											asChild
+											key={fileKind.kind}
+											label={
+												formatNumberWithCommas(fileKind.count) +
+												' ' +
+												t(fileKind.name.toLowerCase(), {
+													count: Number(fileKind.count)
+												})
+											}
+											position="left"
+										>
+											<div
+												className="relative flex w-full min-w-8 max-w-10 grow cursor-pointer flex-col items-center"
+												onDoubleClick={makeBarClickHandler(fileKind)}
+											>
+												{iconImage && (
+													<img
+														src={iconImage.src}
+														alt={fileKind.name}
+														className="relative mb-1 size-4 duration-500"
+													/>
+												)}
+												<motion.div
+													className="flex w-full flex-col items-center rounded transition-all duration-500"
+													initial={{ height: 0 }}
+													animate={{ height: barHeight }}
+													transition={{
+														duration: 0.4,
+														ease: [0.42, 0, 0.58, 1]
+													}}
+													style={{
+														backgroundColor: barColor
+													}}
+												></motion.div>
+											</div>
+										</Tooltip>
+										<div className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint">
+											{formatCount(fileKind.count)}
+										</div>
+									</>
+								);
+							})}
+						</div>
+					</>
+				)}
 			</Card>
 		</div>
 	);

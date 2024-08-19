@@ -159,7 +159,7 @@ const EditLocationSettingsScreen = ({
 				<SettingsButton
 					title="Reindex"
 					description="Perform a full rescan of this location"
-					buttonPress={
+					onPress={
 						() => fullRescan.mutate({ location_id: id, reidentify_objects: false }) //FIXME: The famous serializing error for fullRescan. Keep this false until it's fixed.
 					}
 					buttonText="Full Reindex"
@@ -173,7 +173,7 @@ const EditLocationSettingsScreen = ({
 					description="Extract data from Library as an archive, useful to preserve Location folder structure."
 					buttonText="Archive"
 					buttonIcon={<Archive color="white" size={20} />}
-					buttonPress={() => Alert.alert('Archiving locations is coming soon...')}
+					onPress={() => Alert.alert('Archiving locations is coming soon...')}
 					buttonVariant="outline"
 					buttonTextStyle="text-white font-bold"
 					infoContainerStyle={'w-[60%]'}
@@ -183,7 +183,7 @@ const EditLocationSettingsScreen = ({
 					description="This will not delete the actual folder on disk. Preview media will be...???"
 					buttonText="Delete"
 					buttonIcon={<Trash color="white" size={20} />}
-					buttonPress={() => Alert.alert('Deleting locations is coming soon...')}
+					onPress={() => Alert.alert('Deleting locations is coming soon...')}
 					buttonVariant="danger"
 					buttonTextStyle="text-white font-bold"
 					infoContainerStyle={'w-[60%]'}

@@ -3,7 +3,7 @@ ARG REPO_REF=main
 
 #--
 
-FROM debian:bookworm as base
+FROM debian:bookworm AS base
 
 ADD --chmod=644 --checksum=sha256:8bea540b2cd1a47c94555e746c75fd41a42847a46d8c8c36c7ab6dd9c8526ab4 \
 	https://gist.githubusercontent.com/HeavenVolkoff/ff7b77b9087f956b8df944772e93c071/raw \
@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 
 #--
 
-FROM base as build-base
+FROM base AS build-base
 
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	apt-get install build-essential git sudo unzip wget curl python3 python-is-python3
@@ -44,7 +44,7 @@ WORKDIR /srv/spacedrive
 
 #--
 
-FROM build-base as web
+FROM build-base AS web
 
 # Run pnpm install with docker cache
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store --mount=type=cache,target=/root/.cache/pnpm/metadata \
@@ -56,9 +56,10 @@ RUN pnpm web build
 
 #--
 
-FROM build-base as server
+FROM build-base AS server
 
-RUN wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
+RUN --mount=type=cache,target=/root/.rustup/downloads \
+	wget -qO- https://sh.rustup.rs | sh -s -- -yq --profile minimal
 
 ENV PATH="/root/.cargo/bin:$PATH"
 
@@ -74,14 +75,17 @@ RUN curl -L# 'https://github.com/rui314/mold/releases/download/v2.4.0/mold-2.4.0
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
 	env CI=true ./scripts/setup.sh
 
-RUN cd ./scripts; npm i --production
+RUN cd ./scripts; npm i --omit=dev && npm i -g prisma
 
-RUN --mount=type=cache,target=/root/.cache/prisma/binaries/cli/ \
-	pnpm prep
+RUN cargo --version
+
+RUN --mount=type=cache,target=/root/.rustup/downloads \
+	env PATH="$(npm prefix -g)/bin:$PATH" pnpm prep
 
 COPY --from=web /srv/spacedrive/apps/web/dist /srv/spacedrive/apps/web/dist
 
-RUN cargo build --features assets --release -p sd-server
+RUN --mount=type=cache,target=/root/.rustup/downloads \
+	cargo build --features assets --release -p sd-server
 
 #--
 

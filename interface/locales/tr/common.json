@@ -548,6 +548,8 @@
   "quick_preview": "Hızlı Önizleme",
   "quick_rescan_started": "Quick rescan started",
   "quick_view": "Hızlı bakış",
+  "quickpreview_thumbnail_error_message": "Tam çözünürlüklü resim yüklenemiyor",
+  "quickpreview_thumbnail_error_tip": "Resim bulunamadı. Bu nedenle küçük resim gösterilir.",
   "random": "Rastgele",
   "receiver": "Alıcı",
   "receiver_description": "Bu süreç, işlemleri Spacedrive Cloud'dan alır ve saklar.",

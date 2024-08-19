@@ -24,7 +24,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 
 	return (
 		<View style={tw`flex-1 p-4`}>
-			<Card style={tw`gap-y-4 bg-app-box`}>
+			<Card style={tw`gap-y-4`}>
 				<Text style={tw`font-semibold text-ink`}>Debug</Text>
 				<Button onPress={() => (debugState.rspcLogger = !debugState.rspcLogger)}>
 					<Text style={tw`text-ink`}>Toggle rspc logger</Text>

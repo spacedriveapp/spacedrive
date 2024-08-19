@@ -38,7 +38,7 @@ const BackButton = () => {
 	return (
 		<Button variant="outline" size="icon" onClick={() => navigate(-1)}>
 			<div className="flex size-4 justify-center">
-				<CaretLeft weight="bold" className="w-[12px] text-ink-dull " aria-hidden="true" />
+				<CaretLeft weight="bold" className="w-[12px] text-ink-dull" aria-hidden="true" />
 			</div>
 		</Button>
 	);

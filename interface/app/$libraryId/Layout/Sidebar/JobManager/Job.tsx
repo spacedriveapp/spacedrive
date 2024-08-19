@@ -5,11 +5,12 @@ import {
 	Icon,
 	Image,
 	Info,
+	Lightning,
 	Scissors,
 	Trash
 } from '@phosphor-icons/react';
 import { memo } from 'react';
-import { JobProgressEvent, Report, useJobInfo } from '@sd/client';
+import { JobName, JobProgressEvent, Report, useJobInfo } from '@sd/client';
 import { ProgressBar } from '@sd/ui';
 import { showAlertDialog } from '~/components';
 import { useLocale } from '~/hooks';
@@ -21,22 +22,30 @@ interface JobProps {
 	className?: string;
 	isChild?: boolean;
 	progress: JobProgressEvent | null;
+	eta: number;
 }
 
-const JobIcon: Record<string, Icon> = {
+export const JobIcon: Record<JobName, Icon> = {
 	Indexer: Folder,
 	MediaProcessor: Image,
 	FileIdentifier: Fingerprint,
-	FileCopier: Copy,
-	FileDeleter: Trash,
-	FileCutter: Scissors,
-	ObjectValidator: Fingerprint
+	Copy: Copy,
+	Delete: Trash,
+	Erase: Trash,
+	Move: Scissors,
+	FileValidator: Fingerprint
 };
 
-function Job({ job, className, isChild, progress }: JobProps) {
+// Jobs like deleting and copying files do not have simplied job names
+// so we need to use the metadata to display an icon
+const MetaDataJobIcon = {
+	deleter: Trash,
+	copier: Copy
+};
+
+function Job({ job, className, isChild, progress, eta }: JobProps) {
 	const jobData = useJobInfo(job, progress);
 	const { t } = useLocale();
-
 	// I don't like sending TSX as a prop due to lack of hot-reload, but it's the only way to get the error log to show up
 	if (job.status === 'CompletedWithErrors') {
 		const JobError = (
@@ -67,11 +76,25 @@ function Job({ job, className, isChild, progress }: JobProps) {
 		]);
 	}
 
+	let jobIcon = Lightning;
+	if (job.name in JobIcon) {
+		jobIcon = JobIcon[job.name];
+	} else {
+		const meta = [...jobData.meta, ...jobData.output].find(
+			(meta) => meta.type in MetaDataJobIcon
+		);
+		if (meta) {
+			jobIcon = MetaDataJobIcon[meta.type as keyof typeof MetaDataJobIcon];
+		}
+	}
+
 	return (
 		<JobContainer
 			className={className}
 			name={jobData.name}
-			icon={JobIcon[job.name]}
+			icon={jobIcon}
+			eta={eta}
+			status={job.status}
 			textItems={
 				['Queued'].includes(job.status) ? [[{ text: job.status }]] : jobData.textItems
 			}

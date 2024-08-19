@@ -48,7 +48,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const { t } = useLocale();
 
 	return (
-		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
+		<Card className="flex w-[280px] shrink-0 flex-col bg-app-box/50 !p-0">
 			<div className="flex flex-row items-center gap-5 p-4 px-6">
 				{stats.freeSpace && (
 					<CircularProgress
@@ -97,7 +97,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					</span>
 				</div>
 			</div>
-			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
+			<div className="flex h-10 flex-row items-center gap-1.5 border-t border-app-line px-2">
 				{freeSpace.value === totalSpace.value && (
 					<Pill>
 						{totalSpace.value}

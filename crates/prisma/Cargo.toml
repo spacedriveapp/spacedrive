@@ -1,6 +1,7 @@
 [package]
-name = "sd-prisma"
+name    = "sd-prisma"
 version = "0.1.0"
+
 edition = "2021"
 
 [dependencies]
@@ -9,8 +10,7 @@ sd-sync = { path = "../sync" }
 
 # Workspace dependencies
 prisma-client-rust = { workspace = true }
-rmpv = { workspace = true }
-rmp-serde = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-uuid = { workspace = true }
+rmp-serde          = { workspace = true }
+rmpv               = { workspace = true }
+serde              = { workspace = true }
+uuid               = { workspace = true }

@@ -1,6 +1,7 @@
 [package]
-name = "sd-core-sync"
+name    = "sd-core-sync"
 version = "0.0.0"
+
 edition = "2021"
 
 [features]
@@ -8,18 +9,26 @@ default = []
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-prisma = { path = "../../../crates/prisma" }
-sd-sync = { path = "../../../crates/sync" }
-sd-utils = { path = "../../../crates/utils" }
 sd-actors = { path = "../../../crates/actors" }
+sd-prisma = { path = "../../../crates/prisma" }
+sd-sync   = { path = "../../../crates/sync" }
+sd-utils  = { path = "../../../crates/utils" }
 
 # Workspace dependencies
-prisma-client-rust = { workspace = true }
-rmpv = { workspace = true }
-rmp-serde = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
-uhlc = { workspace = true }
-uuid = { workspace = true }
+async-channel       = { workspace = true }
+futures             = { workspace = true }
+futures-concurrency = { workspace = true }
+prisma-client-rust  = { workspace = true, features = ["rspc"] }
+rmp-serde           = { workspace = true }
+rmpv                = { workspace = true }
+rspc                = { workspace = true }
+serde               = { workspace = true }
+thiserror           = { workspace = true }
+tokio               = { workspace = true }
+tracing             = { workspace = true }
+uhlc                = { workspace = true }
+uuid                = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-test       = { workspace = true }

@@ -1,21 +1,20 @@
 [package]
-name = "sd-file-ext"
+name    = "sd-file-ext"
 version = "0.0.0"
-authors = [
-	"Brendan Allen <brendan@spacedrive.com>",
-	"Jamie Pine <jamie@spacedrive.com>",
-]
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Brendan Allen <brendan@spacedrive.com>", "Jamie Pine <jamie@spacedrive.com>"]
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-specta = { workspace = true }
-strum = { workspace = true, features = ["derive"] }
+# Workspace dependencies
+serde        = { workspace = true, features = ["derive"] }
+serde_json   = { workspace = true }
+specta       = { workspace = true }
+strum        = { workspace = true, features = ["derive"] }
 strum_macros = { workspace = true }
-tokio = { workspace = true, features = ["fs", "rt", "io-util"] }
+tokio        = { workspace = true, features = ["fs", "io-util", "rt"] }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["fs", "rt", "macros"] }
+tokio = { workspace = true, features = ["fs", "macros", "rt"] }

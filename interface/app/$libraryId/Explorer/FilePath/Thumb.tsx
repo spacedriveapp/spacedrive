@@ -44,6 +44,9 @@ export interface ThumbProps {
 }
 
 type ThumbType = { variant: 'original' } | { variant: 'thumbnail' } | { variant: 'icon' };
+type LoadState = {
+	[K in 'original' | 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
+};
 
 export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) => {
 	const isDark = useIsDark();
@@ -55,9 +58,11 @@ export const FileThumb = forwardRef<HTMLImageElement, ThumbProps>((props, ref) =
 
 	const { library } = useLibraryContext();
 
-	const [loadState, setLoadState] = useState<{
-		[K in 'original' | 'thumbnail' | 'icon']: 'notLoaded' | 'loaded' | 'error';
-	}>({ original: 'notLoaded', thumbnail: 'notLoaded', icon: 'notLoaded' });
+	const [loadState, setLoadState] = useState<LoadState>({
+		original: 'notLoaded',
+		thumbnail: 'notLoaded',
+		icon: 'notLoaded'
+	});
 
 	const childClassName = 'max-h-full max-w-full object-contain';
 	const frameClassName = clsx(frame.className, props.frameClassName);

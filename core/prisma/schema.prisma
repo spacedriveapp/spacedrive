@@ -92,6 +92,7 @@ model Instance {
   locations          Location[]
   CRDTOperation      CRDTOperation[]
   CloudCRDTOperation CloudCRDTOperation[]
+  storage_statistics StorageStatistics?
 
   @@map("instance")
 }
@@ -116,7 +117,7 @@ model Statistics {
 
 /// @local
 model ObjectKindStatistics {
-  kind Int @id
+  kind        Int    @id
   total_bytes BigInt @default(0)
   files_count BigInt @default(0)
 
@@ -566,6 +567,21 @@ model ObjectInSpace {
   @@map("object_in_space")
 }
 
+//// StorageStatistics ////
+/// @shared(id: pub_id, modelId: 11)
+model StorageStatistics {
+  id     Int   @id @default(autoincrement())
+  pub_id Bytes @unique
+
+  total_capacity     BigInt @default(0)
+  available_capacity BigInt @default(0)
+
+  instance_pub_id Bytes?    @unique
+  instance        Instance? @relation(fields: [instance_pub_id], references: [pub_id], onDelete: Cascade)
+
+  @@map("storage_statistics")
+}
+
 //// Job ////
 
 model Job {
@@ -589,6 +605,7 @@ model Job {
 
   task_count                Int?
   completed_task_count      Int?
+  info                      String?
   date_estimated_completion DateTime? // Estimated timestamp that the job will be complete at
 
   date_created   DateTime?

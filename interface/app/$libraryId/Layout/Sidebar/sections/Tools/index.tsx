@@ -69,7 +69,7 @@ const EphemeralLocation = ({
 			to={navigateTo}
 			className={clsx(
 				'border',
-				isDroppable ? ' border-accent' : 'border-transparent',
+				isDroppable ? 'border-accent' : 'border-transparent',
 				className
 			)}
 		>

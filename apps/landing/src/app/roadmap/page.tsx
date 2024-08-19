@@ -40,7 +40,7 @@ export default function Page() {
 								)}
 								<h3
 									className={
-										`m-0 hidden text-right lg:block `
+										`m-0 hidden text-right lg:block`
 										// (i === 0 ? '-translate-y-1/4' : '-translate-y-1/2')
 									}
 								>

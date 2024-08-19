@@ -14,6 +14,7 @@ use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
 
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
+use volume::save_storage_statistics;
 
 use std::{
 	fmt,
@@ -31,13 +32,13 @@ use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
 	rolling::{RollingFileAppender, Rotation},
 };
-use tracing_subscriber::{filter::FromEnvError, prelude::*, registry, EnvFilter};
+use tracing_subscriber::{
+	filter::FromEnvError, fmt::format::Format, prelude::*, registry, EnvFilter,
+};
 
 pub mod api;
 mod cloud;
 mod context;
-#[cfg(feature = "crypto")]
-pub(crate) mod crypto;
 pub mod custom_uri;
 mod env;
 pub mod library;
@@ -219,6 +220,8 @@ impl Node {
 				.into_make_service(),
 		);
 
+		save_storage_statistics(&node);
+
 		info!("Spacedrive online!");
 		Ok((node, router))
 	}
@@ -271,6 +274,7 @@ impl Node {
 					.with_file(true)
 					.with_line_number(true)
 					.with_writer(std::io::stdout)
+					.event_format(Format::default().pretty())
 					.with_filter(EnvFilter::from_default_env()),
 			);
 

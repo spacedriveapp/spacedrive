@@ -98,7 +98,7 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 
 								<Tooltip
 									label={t('add_location_tooltip')}
-									className="z-50 w-max min-w-0 shrink animate-pulse [animation-duration:_3000ms] hover:animate-none"
+									className="animate-duration-[3000ms] z-50 w-max min-w-0 shrink animate-pulse hover:animate-none"
 								>
 									<AddLocationButton
 										path={path}

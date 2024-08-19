@@ -1,5 +1,5 @@
 import { Cards, IconWeight, Minus, Square, X } from '@phosphor-icons/react';
-import { getCurrent, Window } from '@tauri-apps/api/window';
+import { Window } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
@@ -185,7 +185,7 @@ function ToolGroup({
 export function WindowsControls({ windowSize }: { windowSize: number }) {
 	const [maximized, setMaximized] = useState(false);
 	const getWindowState = useCallback(async () => {
-		const isMaximized = await getCurrent().isMaximized();
+		const isMaximized = await Window.getCurrent().isMaximized();
 		setMaximized(isMaximized);
 	}, []);
 

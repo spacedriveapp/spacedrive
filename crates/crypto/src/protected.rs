@@ -28,16 +28,14 @@
 //! let value = protected_data.expose();
 //! ```
 //!
+
 use std::{fmt::Debug, mem};
+
+use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-#[derive(Clone, Zeroize, ZeroizeOnDrop)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(transparent)
-)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[derive(Clone, Zeroize, ZeroizeOnDrop, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Protected<T>(T)
 where
 	T: Zeroize;

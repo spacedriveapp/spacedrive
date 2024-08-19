@@ -1,8 +1,6 @@
 name: CI
 
-on:
-  pull_request:
-  merge_group:
+on: [pull_request, merge_group]
 
 env:
   SPACEDRIVE_CUSTOM_APT_FLAGS: --no-install-recommends
@@ -31,7 +29,6 @@ jobs:
       - name: 'Checkout PR branch and all PR commits'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
 
       - name: Setup Node.js, pnpm and dependencies
@@ -50,11 +47,14 @@ jobs:
 
           _files="$(git diff --name-only --cached)"
           if [ -n "$_files" ]; then
-            echo "Some files are not correctly formatted. Please run 'pnpm autoformat' and commit the changes." >&2
+            printf "\e[31mThe following files are not correctly formatted:\e[0m\n" >&2
 
             while IFS= read -r _file || [ -n "$_file" ]; do
               echo "::error file=${_file},title=Incorrectly formatted file::Please run 'pnpm autoformat' and commit the changes."
+              echo " - ${_file}"
             done < <(printf '%s' "$_files")
+
+            printf "\e[31mPlease run 'pnpm autoformat' and commit the changes.\e[0m\n" >&2
 
             exit 1
           fi
@@ -175,16 +175,19 @@ jobs:
         with:
           filters: |
             changes:
-              - 'apps/cli/*/**'
-              - 'apps/desktop/crates/*/**'
-              - 'apps/desktop/src-tauri/*/**'
-              - 'apps/mobile/crates/*/**'
-              - 'apps/server/*/**'
+              - 'apps/cli/**'
+              - 'apps/desktop/crates/**'
+              - 'apps/desktop/src-tauri/**'
+              - 'apps/mobile/crates/**'
+              - 'apps/server/**'
               - 'core/**'
-              - 'crates/*/**'
-              - 'extensions/*/**'
+              - 'crates/**'
+              - 'extensions/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
+              - '.github/actions/setup-rust/**'
+              - '.github/actions/setup-system/**'
 
       - name: Setup Rust and Prisma
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
@@ -245,17 +248,19 @@ jobs:
             changes:
               - ${{ runner.os == 'Windows' && 'scripts/setup.ps1' || 'scripts/setup.sh' }}
               - 'scripts/preprep.mjs'
-              - 'apps/cli/*/**'
-              - 'apps/desktop/crates/*/**'
-              - 'apps/desktop/src-tauri/*/**'
-              - 'apps/mobile/crates/*/**'
-              - 'apps/server/*/**'
+              - 'apps/cli/**'
+              - 'apps/desktop/crates/**'
+              - 'apps/desktop/src-tauri/**'
+              - 'apps/mobile/crates/**'
+              - 'apps/server/**'
               - 'core/**'
-              - 'crates/*/**'
-              - 'extensions/*/**'
+              - 'crates/**'
+              - 'extensions/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
               - '.github/workflows/ci.yml'
+              - '.github/actions/setup-rust/**'
+              - '.github/actions/setup-system/**'
 
       - name: Setup System and Rust
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'

@@ -13,10 +13,7 @@ const AccessData = () => {
 				src="/images/misc/globe.webp"
 			/>
 			<div className="relative">
-				<h1
-					className="bg-gradient-to-r from-white to-violet-400 bg-clip-text text-center
-						 text-[25px] font-bold text-transparent md:text-[30px]"
-				>
+				<h1 className="bg-gradient-to-r from-white to-violet-400 bg-clip-text text-center text-[25px] font-bold text-transparent md:text-[30px]">
 					Access data from anywhere
 				</h1>
 				<p className="mx-auto w-full max-w-[800px] text-center text-sm text-ink-faint md:text-lg">

@@ -16,7 +16,7 @@ import {
 } from 'phosphor-react-native';
 import React from 'react';
 import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
-import { DebugState, useDebugState, useDebugStateEnabler } from '@sd/client';
+import { DebugState, useDebugState, useDebugStateEnabler, useLibraryQuery } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -28,6 +28,7 @@ type SectionType = {
 		title: string;
 		icon: Icon;
 		navigateTo: keyof SettingsStackParamList;
+		comingSoon?: boolean;
 		rounded?: 'top' | 'bottom';
 	}[];
 };
@@ -49,19 +50,22 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			},
 			{
 				icon: PaintBrush,
+				comingSoon: true,
 				navigateTo: 'AppearanceSettings',
 				title: 'Appearance'
 			},
 			{
 				icon: ShieldCheck,
 				navigateTo: 'PrivacySettings',
+				comingSoon: true,
 				title: 'Privacy'
 			},
 			{
 				icon: PuzzlePiece,
 				navigateTo: 'ExtensionsSettings',
 				title: 'Extensions',
-				rounded: 'bottom'
+				rounded: 'bottom',
+				comingSoon: true
 			}
 		]
 	},
@@ -82,6 +86,7 @@ const sections: (debugState: DebugState) => SectionType[] = (debugState) => [
 			{
 				icon: ShareNetwork,
 				navigateTo: 'NodesSettings',
+				comingSoon: true,
 				title: 'Nodes'
 			},
 			{
@@ -151,7 +156,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
-
+	const syncEnabled = useLibraryQuery(['sync.enabled']);
 	return (
 		<ScreenContainer tabHeight={false} style={tw`gap-0 px-5 py-0`}>
 			<SectionList
@@ -159,6 +164,8 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 				sections={sections(debugState)}
 				renderItem={({ item }) => (
 					<SettingsItem
+						syncEnabled={syncEnabled.data}
+						comingSoon={item.comingSoon}
 						title={item.title}
 						leftIcon={item.icon}
 						onPress={() => navigation.navigate(item.navigateTo as any)}

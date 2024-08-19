@@ -78,6 +78,8 @@ pub enum LocationError {
 	MissingField(#[from] MissingFieldError),
 	#[error("invalid location scan state value: {0}")]
 	InvalidScanStateValue(i32),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 impl From<LocationError> for rspc::Error {

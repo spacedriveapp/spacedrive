@@ -51,7 +51,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						&library.sync,
 						library.config().await.instance_id,
 					)
-					.await;
+					.await?;
 
 					node.libraries
 						.edit(

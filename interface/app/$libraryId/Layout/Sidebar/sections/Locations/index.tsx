@@ -66,7 +66,7 @@ const Location = ({ location, online }: { location: LocationType; online: boolea
 				to={`location/${location.id}`}
 				className={clsx(
 					'border radix-state-open:border-accent',
-					isDroppable ? ' border-accent' : 'border-transparent',
+					isDroppable ? 'border-accent' : 'border-transparent',
 					className
 				)}
 			>

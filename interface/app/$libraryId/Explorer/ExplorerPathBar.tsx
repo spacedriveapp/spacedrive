@@ -97,7 +97,7 @@ export const ExplorerPathBar = memo(() => {
 			return {
 				name: path,
 				pathname,
-				locationId: isLocation ? indexedFilePath?.location_id ?? location?.id : undefined
+				locationId: isLocation ? (indexedFilePath?.location_id ?? location?.id) : undefined
 			};
 		});
 	}, [location, indexedFilePath, filePathname, searchPath, os]);
@@ -138,8 +138,15 @@ export const ExplorerPathBar = memo(() => {
 			))}
 
 			{selectedItem && (!queryPath || filePathname) && (
-				<div className="ml-1 flex items-center gap-1">
-					<FileThumb data={selectedItem} size={16} frame frameClassName="!border" />
+				<div className="flex items-center gap-1">
+					<CaretRight weight="bold" className="text-ink-dull" size={10} />
+					<FileThumb
+						className="ml-1"
+						data={selectedItem}
+						size={16}
+						frame
+						frameClassName="!border"
+					/>
 					<span className="max-w-xs truncate">
 						{getExplorerItemData(selectedItem).fullName}
 					</span>

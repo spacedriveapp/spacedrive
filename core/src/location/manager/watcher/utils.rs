@@ -339,6 +339,8 @@ async fn inner_create_file(
 		.exec()
 		.await?;
 
+	let is_new_file = existing_object.is_none();
+
 	let object_ids::Data {
 		id: object_id,
 		pub_id: object_pub_id,
@@ -396,7 +398,9 @@ async fn inner_create_file(
 	)
 	.await?;
 
-	if !extension.is_empty()
+	// If the file is a duplicate of an existing file, we don't need to generate thumbnails nor extract media data
+	if is_new_file
+		&& !extension.is_empty()
 		&& matches!(
 			kind,
 			ObjectKind::Image | ObjectKind::Video | ObjectKind::Audio

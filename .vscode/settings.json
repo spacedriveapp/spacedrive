@@ -36,6 +36,9 @@
 	"[rust]": {
 		"editor.defaultFormatter": "rust-lang.rust-analyzer"
 	},
+	"[toml]": {
+		"editor.defaultFormatter": "tamasfe.even-better-toml"
+	},
 	"rust-analyzer.procMacro.enable": true,
 	"rust-analyzer.diagnostics.experimental.enable": false,
 	"tailwindCSS.experimental.classRegex": [
@@ -102,5 +105,8 @@
 	"i18n-ally.enabledFrameworks": ["react"],
 	"i18n-ally.keystyle": "flat",
 	// You need to add this to your locale settings file "i18n-ally.translate.google.apiKey": "xxx"
-	"i18n-ally.translate.engines": ["google"]
+	"i18n-ally.translate.engines": ["google"],
+	"prettier.configPath": ".prettierrc.js",
+	"prettier.prettierPath": "./node_modules/prettier",
+	"evenBetterToml.taplo.configFile.path": ".taplo.toml"
 }

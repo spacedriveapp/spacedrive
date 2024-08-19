@@ -51,4 +51,6 @@ pub enum ImageLabelerError {
 	DownloadModel(#[from] DownloadModelError),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }

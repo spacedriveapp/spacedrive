@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import {
 	JobGroup as IJobGroup,
+	Report,
 	useJobProgress,
 	useLibraryMutation,
 	useLibraryQuery
@@ -60,25 +61,49 @@ export function JobManager() {
 
 	const { t } = useLocale();
 
-	const clearAllJobs = useLibraryMutation(['jobs.clearAll'], {
-		onError: () => {
-			toast.error({
-				title: t('error'),
-				body: t('failed_to_clear_all_jobs')
+	const clearJob = useLibraryMutation(['jobs.clear']);
+
+	const clearAllJobsHandler = async () => {
+		try {
+			const clearPromises: Promise<null>[] = [];
+			jobGroups.data?.forEach((group: IJobGroup) => {
+				if (group.jobs.length > 1) {
+					let allComplete = true;
+					group.jobs.forEach((job: Report) => {
+						if (job.status !== 'Completed' && job.status !== 'CompletedWithErrors') {
+							allComplete = false;
+						}
+					});
+					if (allComplete) {
+						group.jobs.forEach((job: Report) => {
+							clearPromises.push(clearJob.mutateAsync(job.id));
+						});
+					}
+				} else {
+					if (
+						group.status === 'Completed' ||
+						group.status === 'CompletedWithErrors' ||
+						group.status === 'Canceled' ||
+						group.status === 'Failed'
+					) {
+						clearPromises.push(clearJob.mutateAsync(group.id));
+					}
+				}
 			});
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries(['jobs.reports ']);
+			await Promise.all(clearPromises);
+
 			setToggleConfirmation((t) => !t);
 			toast.success({
 				title: t('success'),
 				body: t('all_jobs_have_been_cleared')
 			});
+			queryClient.invalidateQueries(['jobs.reports']);
+		} catch (error) {
+			toast.error({
+				title: t('error'),
+				body: t('failed_to_clear_all_jobs')
+			});
 		}
-	});
-
-	const clearAllJobsHandler = () => {
-		clearAllJobs.mutate(null);
 	};
 
 	return (
@@ -96,7 +121,7 @@ export function JobManager() {
 						</Button>
 					</Tooltip>
 				)}
-				<span className="ml-1 font-medium ">{t('recent_jobs')}</span>
+				<span className="ml-1 font-medium">{t('recent_jobs')}</span>
 				<div className="grow" />
 				{toggleConfirmation ? (
 					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">

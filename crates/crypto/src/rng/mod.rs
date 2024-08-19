@@ -1,5 +1,4 @@
 mod csprng;
-// mod mnemonic;
 
+/// CSPRNG stands for Cryptographically Secure Pseudo Random Number Generator
 pub use csprng::CryptoRng;
-// pub use mnemonic::{Mnemonic, MnemonicDelimiter};

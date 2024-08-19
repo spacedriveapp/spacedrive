@@ -1,6 +1,9 @@
 use crate::{library::Libraries, Node};
 
-use sd_cloud_api::RequestConfigProvider;
+use futures::FutureExt;
+use futures_concurrency::future::Race;
+use sd_actors::Stopper;
+use sd_cloud_api::{library::message_collections::get::InstanceTimestamp, RequestConfigProvider};
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
 use sd_sync::CRDTOperation;
@@ -8,6 +11,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
+	future::IntoFuture,
 	str::FromStr,
 	sync::{
 		atomic::{AtomicBool, Ordering},
@@ -38,7 +42,13 @@ pub async fn run_actor(
 	node: Arc<Node>,
 	active: Arc<AtomicBool>,
 	active_notify: Arc<Notify>,
+	stop: Stopper,
 ) {
+	enum Race {
+		Continue,
+		Stop,
+	}
+
 	loop {
 		active.store(true, Ordering::Relaxed);
 		active_notify.notify_waiters();
@@ -93,7 +103,7 @@ pub async fn run_actor(
 				cloud_timestamps
 			};
 
-			let instance_timestamps = sync
+			let instance_timestamps: Vec<InstanceTimestamp> = sync
 				.timestamps
 				.read()
 				.await
@@ -216,7 +226,15 @@ pub async fn run_actor(
 		active.store(false, Ordering::Relaxed);
 		active_notify.notify_waiters();
 
-		sleep(Duration::from_secs(60)).await;
+		if let Race::Stop = (
+			sleep(Duration::from_secs(60)).map(|()| Race::Continue),
+			stop.into_future().map(|()| Race::Stop),
+		)
+			.race()
+			.await
+		{
+			break;
+		}
 	}
 }
 

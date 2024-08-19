@@ -95,8 +95,8 @@ export const Component = () => {
 				p2p_relay_disabled: value.relay_disabled ?? null,
 				p2p_discovery: value.discovery ?? null,
 				p2p_remote_access: value.enable_remote_access ?? null,
-				p2p_manual_peers: value.p2p_manual_peers?.flatMap((v) => (v ? [v] : [])) ?? null,
-				image_labeler_version: null
+				p2p_manual_peers: value.p2p_manual_peers?.flatMap((v) => (v ? [v] : [])) ?? null
+				// image_labeler_version: null
 			});
 		}
 
@@ -402,7 +402,7 @@ export const Component = () => {
 									setNewSocket('');
 								}}
 							>
-								Submit
+								{t('submit')}
 							</Button>
 						</div>
 					</div>

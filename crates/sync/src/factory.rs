@@ -126,7 +126,7 @@ macro_rules! option_sync_entry {
 #[macro_export]
 macro_rules! sync_db_entry {
     ($v:expr, $($m:tt)*) => {{
-        let v = $v;
+        let v = $v.into();
         ($crate::sync_entry!(&v, $($m)*), $($m)*::set(Some(v)))
     }}
 }

@@ -110,7 +110,7 @@ pub async fn extract(
 pub async fn save(
 	ffmpeg_datas: impl IntoIterator<Item = (FFmpegMetadata, object::id::Type)> + Send,
 	db: &PrismaClient,
-) -> Result<u64, QueryError> {
+) -> Result<u64, sd_core_sync::Error> {
 	ffmpeg_datas
 		.into_iter()
 		.map(

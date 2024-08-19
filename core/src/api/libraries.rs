@@ -559,16 +559,20 @@ async fn update_kind_statistics(node: Arc<Node>, library: Arc<Library>) -> Resul
 
 				for object in objects {
 					files_count += object.file_paths.len() as u64;
-					total_size += object
-						.file_paths
-						.into_iter()
-						.map(|file_path| {
-							file_path
-								.size_in_bytes_bytes
-								.map(|size| size_in_bytes_from_db(&size))
-								.unwrap_or(0)
-						})
-						.sum::<u64>();
+					if kind != ObjectKind::Folder {
+						// We're skipping folders because their size is the sum of all their children and
+						// we don't want to count them twice
+						total_size += object
+							.file_paths
+							.into_iter()
+							.map(|file_path| {
+								file_path
+									.size_in_bytes_bytes
+									.map(|size| size_in_bytes_from_db(&size))
+									.unwrap_or(0)
+							})
+							.sum::<u64>();
+					}
 				}
 			}
 
