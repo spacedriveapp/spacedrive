@@ -454,6 +454,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-polyfill"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4"
+dependencies = [
+ "critical-section",
+]
+
+[[package]]
 name = "atomic-shim"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1502,6 +1511,12 @@ checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "critical-section"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
 
 [[package]]
 name = "crossbeam-channel"
@@ -3415,6 +3430,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hash_map_diff"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3494,6 +3518,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7f66481bfee273957b1f20485a4ff3362987f85b2c236580d81b4eb7a326429"
 dependencies = [
  "http 0.2.12",
+]
+
+[[package]]
+name = "heapless"
+version = "0.7.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
+dependencies = [
+ "atomic-polyfill",
+ "hash32",
+ "rustc_version",
+ "serde",
+ "spin 0.9.8",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -7059,6 +7097,7 @@ dependencies = [
  "cobs",
  "const_format",
  "embedded-io",
+ "heapless",
  "postcard-derive",
  "serde",
 ]
@@ -8704,7 +8743,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#f794bb7d75960782c8a962c2bbc4e041e7017aba"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#5adee0cc42c926c983fb00d76f5a4bdaf283d47b"
 dependencies = [
  "argon2",
  "async-stream",
@@ -8824,11 +8863,14 @@ name = "sd-core-cloud-services"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "blake3",
  "chrono",
  "flume",
  "futures",
  "futures-concurrency",
+ "iroh-base",
  "iroh-quinn",
+ "postcard",
  "quic-rpc",
  "reqwest 0.11.27",
  "reqwest-middleware",
@@ -8836,11 +8878,14 @@ dependencies = [
  "rspc",
  "rustls 0.21.12",
  "sd-cloud-schema",
+ "sd-crypto",
+ "sd-utils",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]
@@ -8982,6 +9027,7 @@ dependencies = [
  "paste",
  "rand 0.9.0-alpha.2",
  "rand_chacha 0.9.0-alpha.2",
+ "rand_core 0.6.4",
  "rand_core 0.9.0-alpha.2",
  "serde",
  "serdect 0.3.0-pre.0",

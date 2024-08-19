@@ -10,7 +10,7 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use super::{error::Error, token_refresher::TokenRefresher};
+use super::{error::Error, key_manager::KeyManager, token_refresher::TokenRefresher};
 
 #[derive(Debug, Default)]
 enum ClientState {
@@ -34,6 +34,7 @@ pub struct CloudServices {
 	http_client: ClientWithMiddleware,
 	domain_name: String,
 	pub token_refresher: TokenRefresher,
+	pub key_manager: Option<Arc<KeyManager>>,
 }
 
 impl CloudServices {
@@ -89,6 +90,7 @@ impl CloudServices {
 			get_cloud_api_address,
 			http_client,
 			domain_name,
+			key_manager: None,
 		})
 	}
 

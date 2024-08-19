@@ -32,9 +32,12 @@ mod error;
 
 mod cloud_client;
 mod cloud_p2p;
+mod key_manager;
 mod token_refresher;
 
 pub use cloud_client::CloudServices;
 pub use error::{Error, GetTokenError};
 
+// Re-exports
+pub use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
 pub use quic_rpc::transport::quinn::QuinnConnection;
