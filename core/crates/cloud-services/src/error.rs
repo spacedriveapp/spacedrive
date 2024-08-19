@@ -46,6 +46,8 @@ pub enum Error {
 		source: sd_crypto::Error,
 		context: &'static str,
 	},
+	#[error("Key manager not initialized")]
+	KeyManagerNotInitialized,
 }
 
 #[derive(thiserror::Error, Debug)]

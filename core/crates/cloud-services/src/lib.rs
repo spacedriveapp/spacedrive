@@ -37,6 +37,7 @@ mod token_refresher;
 
 pub use cloud_client::CloudServices;
 pub use error::{Error, GetTokenError};
+pub use key_manager::KeyManager;
 
 // Re-exports
 pub use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};

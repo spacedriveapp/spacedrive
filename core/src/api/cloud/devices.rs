@@ -1,16 +1,21 @@
-use crate::{api::{Ctx, R}, node::HardwareModel};
+use crate::{
+	api::{Ctx, R},
+	node::HardwareModel,
+};
 
 use futures::{SinkExt, StreamExt};
 use sd_cloud_schema::{
 	auth::AccessToken,
 	devices::{self, DeviceOS, PubId},
 	opaque_ke::{
-		rand::rngs::OsRng, ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult,
-		ClientLoginStartResult,
+		ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult, ClientLoginStartResult,
+		ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
+		ClientRegistrationStartResult,
 	},
 	Client, Service, SpacedriveCipherSuite,
 };
-use sd_core_cloud_services::QuinnConnection;
+use sd_core_cloud_services::{NodeId, QuinnConnection};
+use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng};
 
 use blake3::Hash;
 use chrono::DateTime;
@@ -198,20 +203,19 @@ pub async fn hello(
 	access_token: AccessToken,
 	device_pub_id: PubId,
 	hashed_pub_id: Hash,
-) -> Result<(), rspc::Error> {
+	rng: &mut CryptoRng,
+) -> Result<SecretKey, rspc::Error> {
 	use devices::hello::{Request, RequestUpdate, Response, State};
 
-	let ClientLoginStartResult { message, state } = ClientLogin::<SpacedriveCipherSuite>::start(
-		&mut OsRng,
-		hashed_pub_id.as_bytes().as_slice(),
-	)
-	.map_err(|e| {
-		error!(?e, "OPAQUE error initializing device hello request;");
-		rspc::Error::new(
-			rspc::ErrorCode::InternalServerError,
-			"Failed to initialize device login".into(),
-		)
-	})?;
+	let ClientLoginStartResult { message, state } =
+		ClientLogin::<SpacedriveCipherSuite>::start(rng, hashed_pub_id.as_bytes().as_slice())
+			.map_err(|e| {
+				error!(?e, "OPAQUE error initializing device hello request;");
+				rspc::Error::new(
+					rspc::ErrorCode::InternalServerError,
+					"Failed to initialize device login".into(),
+				)
+			})?;
 
 	let (mut hello_continuation, mut res_stream) = handle_comm_error(
 		client
@@ -234,9 +238,9 @@ pub async fn hello(
 		));
 	};
 
-	let login_response =
+	let credential_response =
 		match handle_comm_error(res, "Communication error on device hello response;")? {
-			Ok(Response(State::LoginResponse(login_response))) => login_response,
+			Ok(Response(State::LoginResponse(credential_response))) => credential_response,
 			Ok(Response(State::End)) => {
 				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
 			}
@@ -253,7 +257,7 @@ pub async fn hello(
 	} = state
 		.finish(
 			hashed_pub_id.as_bytes().as_slice(),
-			*login_response,
+			*credential_response,
 			ClientLoginFinishParameters::default(),
 		)
 		.map_err(|e| {
@@ -290,16 +294,146 @@ pub async fn hello(
 		Ok(Response(State::LoginResponse(_))) => {
 			unreachable!("Device hello final response MUST be End here, this is a serious bug and should crash;");
 		}
-		Ok(Response(State::End)) => {}
+		Ok(Response(State::End)) => {
+			// Protocol completed successfully
+			Ok(SecretKey::new(export_key.as_slice().try_into().expect(
+				"Key mismatch between OPAQUE and crypto crate; this is a serious bug and should crash;",
+			)))
+		}
 		Err(e) => {
 			error!(?e, "Device hello final response error;");
-			return Err(e.into());
+			Err(e.into())
 		}
-	};
-
-	Ok(())
+	}
 }
 
-pub async fn device_registration() -> Result<(), rspc::Error> {
-	Ok(())
+pub struct DeviceRegisterData {
+	pub pub_id: PubId,
+	pub name: String,
+	pub os: DeviceOS,
+	pub storage_size: u64,
+	pub connection_id: NodeId,
+}
+
+pub async fn register(
+	client: &Client<QuinnConnection<Service>, Service>,
+	access_token: AccessToken,
+	DeviceRegisterData {
+		pub_id,
+		name,
+		os,
+		storage_size,
+		connection_id,
+	}: DeviceRegisterData,
+	hashed_pub_id: Hash,
+	rng: &mut CryptoRng,
+) -> Result<SecretKey, rspc::Error> {
+	use devices::register::{Request, RequestUpdate, Response, State};
+
+	let ClientRegistrationStartResult { message, state } =
+		ClientRegistration::<SpacedriveCipherSuite>::start(
+			rng,
+			hashed_pub_id.as_bytes().as_slice(),
+		)
+		.map_err(|e| {
+			error!(?e, "OPAQUE error initializing device register request;");
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Failed to initialize device register".into(),
+			)
+		})?;
+
+	let (mut register_continuation, mut res_stream) = handle_comm_error(
+		client
+			.devices()
+			.register(Request {
+				access_token,
+				pub_id,
+				name,
+				os,
+				storage_size,
+				connection_id,
+				opaque_register_message: Box::new(message),
+			})
+			.await,
+		"Failed to send device register request;",
+	)?;
+
+	let Some(res) = res_stream.next().await else {
+		let message = "Server did not send a device register response;";
+		error!("{message}");
+		return Err(rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			message.to_string(),
+		));
+	};
+
+	let registration_response =
+		match handle_comm_error(res, "Communication error on device register response;")? {
+			Ok(Response(State::RegistrationResponse(res))) => res,
+			Ok(Response(State::End)) => {
+				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
+			}
+			Err(e) => {
+				error!(?e, "Device hello response error;");
+				return Err(e.into());
+			}
+		};
+
+	let ClientRegistrationFinishResult {
+		message,
+		export_key,
+		..
+	} = state
+		.finish(
+			rng,
+			hashed_pub_id.as_bytes().as_slice(),
+			*registration_response,
+			ClientRegistrationFinishParameters::default(),
+		)
+		.map_err(|e| {
+			error!(?e, "Device register finish error;");
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Failed to finish device register".into(),
+			)
+		})?;
+
+	register_continuation
+		.send(RequestUpdate {
+			opaque_registration_finish: Box::new(message),
+		})
+		.await
+		.map_err(|e| {
+			error!(?e, "Failed to send device register request continuation;");
+			rspc::Error::new(
+				rspc::ErrorCode::InternalServerError,
+				"Failed to finish device register procedure;".into(),
+			)
+		})?;
+
+	let Some(res) = res_stream.next().await else {
+		let message = "Server did not send a device register END response;";
+		error!("{message}");
+		return Err(rspc::Error::new(
+			rspc::ErrorCode::InternalServerError,
+			message.to_string(),
+		));
+	};
+
+	match handle_comm_error(res, "Communication error on device register response;")? {
+		Ok(Response(State::RegistrationResponse(_))) => {
+			unreachable!("Device register final response MUST be End here, this is a serious bug and should crash;");
+		}
+		Ok(Response(State::End)) => {
+			// Protocol completed successfully
+			Ok(SecretKey::new(export_key.as_slice().try_into().expect(
+				"Key mismatch between OPAQUE and crypto crate; this is a serious bug and should crash;",
+			)))
+		}
+		Err(e) => {
+			error!(?e, "Device register final response error;");
+			Err(e.into())
+		}
+	}
 }

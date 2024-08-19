@@ -34,7 +34,7 @@ pub struct CloudServices {
 	http_client: ClientWithMiddleware,
 	domain_name: String,
 	pub token_refresher: TokenRefresher,
-	pub key_manager: Option<Arc<KeyManager>>,
+	key_manager: Arc<RwLock<Option<Arc<KeyManager>>>>,
 }
 
 impl CloudServices {
@@ -90,7 +90,7 @@ impl CloudServices {
 			get_cloud_api_address,
 			http_client,
 			domain_name,
-			key_manager: None,
+			key_manager: Arc::default(),
 		})
 	}
 
@@ -179,6 +179,23 @@ impl CloudServices {
 		*self.client_state.write().await = ClientState::Connected(client.clone());
 
 		Ok(client)
+	}
+
+	pub async fn set_key_manager(&self, key_manager: KeyManager) {
+		self.key_manager
+			.write()
+			.await
+			.replace(Arc::new(key_manager));
+	}
+
+	pub async fn key_manager(&self) -> Result<Arc<KeyManager>, Error> {
+		self.key_manager
+			.read()
+			.await
+			.as_ref()
+			.map_or(Err(Error::KeyManagerNotInitialized), |key_manager| {
+				Ok(Arc::clone(key_manager))
+			})
 	}
 }
 

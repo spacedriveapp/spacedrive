@@ -10,7 +10,7 @@ use std::{
 };
 
 use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
-use tokio::{fs, io, sync::RwLock};
+use tokio::{fs, sync::RwLock};
 
 mod key_store;
 
@@ -27,33 +27,18 @@ pub struct KeyManager {
 impl KeyManager {
 	pub async fn new(
 		master_key: SecretKey,
+		iroh_secret_key: IrohSecretKey,
 		data_directory: impl AsRef<Path> + Send,
 		rng: &mut CryptoRng,
 	) -> Result<Self, Error> {
 		async fn inner(
 			master_key: SecretKey,
+			iroh_secret_key: IrohSecretKey,
 			keys_file_path: PathBuf,
 			rng: &mut CryptoRng,
 		) -> Result<KeyManager, Error> {
-			let store = match fs::metadata(&keys_file_path).await {
-				Ok(metadata) => KeyStore::decrypt(&master_key, metadata, &keys_file_path).await?,
-
-				Err(e) if e.kind() == io::ErrorKind::NotFound => {
-					// File not found, so we create a new one
-					let store = KeyStore::new(rng);
-					store.encrypt(&master_key, rng, &keys_file_path).await?;
-					store
-				}
-
-				Err(e) => {
-					return Err(FileIOError::from((
-						keys_file_path,
-						e,
-						"Failed to read space keys file",
-					))
-					.into());
-				}
-			};
+			let store = KeyStore::new(iroh_secret_key);
+			store.encrypt(&master_key, rng, &keys_file_path).await?;
 
 			Ok(KeyManager {
 				master_key,
@@ -62,7 +47,44 @@ impl KeyManager {
 			})
 		}
 
-		inner(master_key, data_directory.as_ref().join(KEY_FILE_NAME), rng).await
+		inner(
+			master_key,
+			iroh_secret_key,
+			data_directory.as_ref().join(KEY_FILE_NAME),
+			rng,
+		)
+		.await
+	}
+
+	pub async fn load(
+		master_key: SecretKey,
+		data_directory: impl AsRef<Path> + Send,
+	) -> Result<Self, Error> {
+		async fn inner(
+			master_key: SecretKey,
+			keys_file_path: PathBuf,
+		) -> Result<KeyManager, Error> {
+			Ok(KeyManager {
+				store: RwLock::new(
+					KeyStore::decrypt(
+						&master_key,
+						fs::metadata(&keys_file_path).await.map_err(|e| {
+							FileIOError::from((
+								&keys_file_path,
+								e,
+								"Failed to read space keys file",
+							))
+						})?,
+						&keys_file_path,
+					)
+					.await?,
+				),
+				master_key,
+				keys_file_path,
+			})
+		}
+
+		inner(master_key, data_directory.as_ref().join(KEY_FILE_NAME)).await
 	}
 
 	pub async fn iroh_secret_key(&self) -> IrohSecretKey {
