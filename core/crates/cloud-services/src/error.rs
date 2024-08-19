@@ -1,3 +1,5 @@
+use sd_utils::error::FileIOError;
+
 use std::{io, net::AddrParseError};
 
 #[derive(thiserror::Error, Debug)]
@@ -26,13 +28,24 @@ pub enum Error {
 	DeserializeAccessTokenData(#[from] serde_json::Error),
 	#[error("Token expired")]
 	TokenExpired,
-
 	#[error("Failed to request refresh token: {0}")]
 	RefreshTokenRequest(reqwest_middleware::Error),
 	#[error("Missing tokens on refresh response")]
 	MissingTokensOnRefreshResponse,
 	#[error("Failed to parse token header value to string: {0}")]
 	FailedToParseTokenHeaderValueToString(#[from] reqwest_middleware::reqwest::header::ToStrError),
+
+	// Key Manager errors
+	#[error("Failed to handle File on KeyManager: {0}")]
+	FileIO(#[from] FileIOError),
+	#[error("Failed to handle key store serialization: {0}")]
+	KeyStoreSerialization(#[from] postcard::Error),
+	#[error("Key store encryption related error: {{context: \"{context}\", source: {source}}}")]
+	KeyStoreCrypto {
+		#[source]
+		source: sd_crypto::Error,
+		context: &'static str,
+	},
 }
 
 #[derive(thiserror::Error, Debug)]

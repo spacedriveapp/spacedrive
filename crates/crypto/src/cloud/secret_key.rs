@@ -30,8 +30,8 @@ impl fmt::Debug for SecretKey {
 impl SecretKey {
 	#[inline]
 	#[must_use]
-	pub fn new(v: impl Into<Array<u8, U32>>) -> Self {
-		Self(v.into())
+	pub const fn new(v: Array<u8, U32>) -> Self {
+		Self(v)
 	}
 
 	#[inline]
@@ -75,6 +75,12 @@ impl Serialize for SecretKey {
 	}
 }
 
+impl AsRef<[u8]> for SecretKey {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
 impl<'de> Deserialize<'de> for SecretKey {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -82,7 +88,7 @@ impl<'de> Deserialize<'de> for SecretKey {
 	{
 		let mut buf = [0u8; 32];
 		serdect::array::deserialize_hex_or_bin(&mut buf, deserializer)?;
-		Ok(Self::new(buf))
+		Ok(Self::new(buf.into()))
 	}
 }
 

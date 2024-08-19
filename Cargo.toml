@@ -67,6 +67,7 @@ tracing-test        = "0.2.5"
 uhlc                = "0.8.0"                                        # Must follow version used by specta
 uuid                = "1.10"                                         # Must follow version used by specta
 webp                = "0.2.6"                                        # Update blocked by image
+zeroize             = "1.8"
 
 [workspace.dependencies.prisma-client-rust]
 default-features = false

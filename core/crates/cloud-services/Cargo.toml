@@ -7,9 +7,12 @@ edition = "2021"
 [dependencies]
 # First party dependencies
 sd-cloud-schema = { workspace = true }
+sd-crypto       = { path = "../../../crates/crypto" }
+sd-utils        = { path = "../../../crates/utils" }
 
 # Workspace dependencies
 base64              = { workspace = true }
+blake3              = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
 flume               = { workspace = true }
 futures             = { workspace = true }
@@ -21,8 +24,11 @@ serde_json          = { workspace = true }
 thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["sync", "time"] }
 tracing             = { workspace = true }
+zeroize             = { workspace = true }
 
 # External dependencies
+iroh-base          = { version = "0.22.0", features = ["key"] }
+postcard           = { version = "1.0.8", features = ["use-std"] }
 quic-rpc           = { version = "0.11.0", features = ["quinn-transport"] }
 quinn              = { package = "iroh-quinn", version = "=0.10.5" }
 reqwest-middleware = { version = "0.3", features = ["json"] }
