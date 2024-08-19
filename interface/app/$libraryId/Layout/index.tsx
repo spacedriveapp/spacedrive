@@ -15,6 +15,7 @@ import { useRootContext } from '~/app/RootContext';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import ErrorFallback, { BetterErrorBoundary } from '~/ErrorFallback';
 import {
+	useDeeplinkEventHandler,
 	useKeybindEventHandler,
 	useOperatingSystem,
 	useRedirectToNewLocation,
@@ -40,6 +41,7 @@ const Layout = () => {
 	const windowState = useWindowState();
 
 	useKeybindEventHandler(library?.uuid);
+	useDeeplinkEventHandler();
 
 	const layoutRef = useRef<HTMLDivElement>(null);
 

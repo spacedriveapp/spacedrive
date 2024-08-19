@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { KeybindEvent } from '../util/keybind';
+import { KeybindEvent } from '../util/events';
 import { useQuickRescan } from './useQuickRescan';
 import { getWindowState } from './useWindowState';
 
