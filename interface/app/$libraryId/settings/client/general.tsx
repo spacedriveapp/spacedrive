@@ -156,7 +156,7 @@ export const Component = () => {
 									onClick={() => {
 										if (node.data && !!platform?.openLink) {
 											platform.confirm(
-												'Modifying or backing up data within this folder may cause irreparable damage! Proceed at your own risk!',
+												t('data_folder_modification_warning'),
 												(result) => {
 													if (result) {
 														platform.openLink(node.data.data_path);
