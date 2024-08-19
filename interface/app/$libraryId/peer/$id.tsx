@@ -1,3 +1,4 @@
+import { t } from 'i18next';
 import { HardwareModel, usePeers } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
@@ -44,7 +45,7 @@ export const Component = () => {
 					<div className="relative mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-solid border-app-line p-4 text-sm font-medium text-ink-dull">
 						<StarfieldEffect />
 						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-							Drop files here to send with Spacedrop
+							{t('drop_files_here_to_send_with')}
 						</div>
 					</div>
 				</div>
