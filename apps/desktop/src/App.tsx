@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { RspcProvider } from '@sd/client';
 import {
 	createRoutes,
+	DeeplinkEvent,
 	ErrorPage,
 	KeybindEvent,
 	PlatformProvider,
@@ -17,6 +18,10 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
+import SuperTokens from 'supertokens-web-js';
+import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
+import Session from 'supertokens-web-js/recipe/session';
+import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
 // 	links: [
@@ -26,10 +31,6 @@ import '@sd/ui/style/style.scss';
 // 		tauriLink()
 // 	]
 // });
-import SuperTokens from 'supertokens-web-js';
-import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
-import Session from 'supertokens-web-js/recipe/session';
-import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 import getCookieHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
 import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
 import { useLocale } from '@sd/interface/hooks';
@@ -67,18 +68,21 @@ export default function App() {
 		const keybindListener = listen('keybind', (input) => {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
-
-		return () => {
-			keybindListener.then((unlisten) => unlisten());
-		};
-	}, []);
-
-	useEffect(() => {
-		const deeplinkListener = listen('deeplink', (data) => {
-			console.log('deeplink', data.payload);
+		const deeplinkListener = listen('deeplink', async (data) => {
+			const payload = (data.payload as any).data as string;
+			if (!payload) return;
+			const json = JSON.parse(payload)[0];
+			if (!json) return;
+			//json output: "spacedrive://-/URL"
+			if (typeof json !== 'string') return;
+			if (!json.startsWith('spacedrive://-')) return;
+			const url = (json as string).split('://-/')[1];
+			if (!url) return;
+			document.dispatchEvent(new DeeplinkEvent(url));
 		});
 
 		return () => {
+			keybindListener.then((unlisten) => unlisten());
 			deeplinkListener.then((unlisten) => unlisten());
 		};
 	}, []);

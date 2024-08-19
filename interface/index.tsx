@@ -15,8 +15,6 @@ import {
 import { toast, TooltipProvider } from '@sd/ui';
 
 import { createRoutes } from './app';
-import getCookieHandler from './app/$libraryId/settings/client/account/handlers/cookieHandler';
-import getWindowHandler from './app/$libraryId/settings/client/account/handlers/windowHandler';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
 import i18n from './app/I18n';
 import { Devtools } from './components/Devtools';
@@ -28,7 +26,7 @@ import { RouterContext, RoutingContext } from './RoutingContext';
 export * from './app';
 export { ErrorPage } from './ErrorFallback';
 export * from './TabsContext';
-export * from './util/keybind';
+export * from './util/events';
 export * from './util/Platform';
 
 dayjs.extend(advancedFormat);
