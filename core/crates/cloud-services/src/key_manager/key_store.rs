@@ -26,9 +26,9 @@ pub struct KeyStore {
 }
 
 impl KeyStore {
-	pub fn new(rng: &mut CryptoRng) -> Self {
+	pub fn new(iroh_secret_key: IrohSecretKey) -> Self {
 		Self {
-			iroh_secret_key: IrohSecretKey::generate_with_rng(rng),
+			iroh_secret_key,
 			keys_by_hash: HashMap::new(),
 		}
 	}
