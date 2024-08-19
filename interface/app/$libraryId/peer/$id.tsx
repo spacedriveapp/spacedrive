@@ -1,10 +1,12 @@
 import { HardwareModel, usePeers } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useOperatingSystem, useRouteTitle, useZodRouteParams } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import StarfieldEffect from './StarfieldEffect'; // Import the StarfieldEffect component
 
 export const Component = () => {
@@ -13,6 +15,7 @@ export const Component = () => {
 	const peers = usePeers();
 	const peer = peers.get(nodeId);
 	const title = useRouteTitle(peer?.metadata?.name || 'Peer');
+	const os = useOperatingSystem();
 
 	return (
 		<div className="flex w-full items-center justify-center">
@@ -22,6 +25,7 @@ export const Component = () => {
 						<span className="truncate text-sm font-medium">{title}</span>
 					</div>
 				}
+				right={os === 'windows' && <TopBarOptions />}
 			/>
 
 			{peer?.metadata.device_model && (
