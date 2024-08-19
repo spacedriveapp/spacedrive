@@ -13,6 +13,7 @@ export const ColumnsView = memo(() => {
 
 	const topPadding = topBar.topBarHeight;
 
+	// TODO: see comment: https://github.com/spacedriveapp/spacedrive/blob/f049e632f89652f1f39abbddbd56a1be03540a9f/interface/app/$libraryId/Explorer/View/ColumnsView/index.tsx#L28
 	// useEffect(() => {
 	// 	toast('Bottom bar height was updated, ' + bottomBarHeight);
 	// }, [bottomBarHeight]);
