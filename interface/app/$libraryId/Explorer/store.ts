@@ -102,6 +102,7 @@ const state = {
 	showMoreInfo: false,
 	newLocationToRedirect: null as null | number,
 	mediaPlayerVolume: 0.7,
+	bottomBarHeight: 0,
 	newThumbnails: proxySet() as Set<string>,
 	cutCopyState: { type: 'Idle' } as CutCopyState,
 	drag: null as null | DragState,

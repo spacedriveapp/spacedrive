@@ -1,5 +1,12 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import {
+	CSSProperties,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	type PropsWithChildren,
+	type ReactNode
+} from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -25,6 +32,7 @@ import { EmptyNotice } from './View/EmptyNotice';
 import 'react-slidedown/lib/slidedown.css';
 
 import clsx from 'clsx';
+import useResizeObserver from 'use-resize-observer';
 
 import { ExplorerTagBar, TAG_BAR_HEIGHT } from './ExplorerTagBar';
 import { useExplorerDnd } from './useExplorerDnd';
@@ -88,22 +96,46 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	const topBar = useTopBarContext();
 
+	const bottomBarRef = useRef<HTMLDivElement>(null);
+
+	useResizeObserver({
+		ref: bottomBarRef,
+		box: 'border-box',
+		onResize(bounds) {
+			if (bounds.height === undefined) return;
+			explorerStore.bottomBarHeight = bounds.height;
+		}
+	});
+
+	useEffect(() => {
+		const height = bottomBarRef.current?.getBoundingClientRect().height;
+		if (typeof height !== 'number') return;
+		explorerStore.bottomBarHeight = height;
+	}, [showTagBar, showPathBar]);
+
+	useLayoutEffect(() => {
+		const height = bottomBarRef.current?.getBoundingClientRect().height;
+		if (typeof height !== 'number') return;
+		explorerStore.bottomBarHeight = height;
+	}, []);
+
 	return (
 		<>
 			<ExplorerContextMenu>
 				<div
 					ref={explorer.scrollRef}
 					className={clsx(
-						'explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-y-auto',
+						'explorer-scroll explorer-inspector-scroll flex flex-1 flex-col',
 						{
-							'overflow-x-hidden': layoutMode !== 'columns'
+							'overflow-y-auto overflow-x-hidden': layoutMode !== 'columns',
+							'overflow-y-clip': layoutMode === 'columns'
 						}
 					)}
 					style={
 						{
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
 							'--scrollbar-margin-bottom': `${(showPathBar ? PATH_BAR_HEIGHT : 0) + (showTagBar ? TAG_BAR_HEIGHT : 0)}px`,
-							'paddingTop': topBar.topBarHeight,
+							'paddingTop': layoutMode !== 'columns' ? topBar.topBarHeight : 0,
 							'paddingRight': showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties
 					}
@@ -132,7 +164,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			</ExplorerContextMenu>
 
 			{/* TODO: wrap path bar and tag bar in nice wrapper, ideally animate tag bar in/out directly above path bar */}
-			<div className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
+			<div ref={bottomBarRef} className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
 				{showTagBar && <ExplorerTagBar />}
 				{showPathBar && <ExplorerPathBar />}
 			</div>
