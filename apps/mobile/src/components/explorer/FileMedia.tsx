@@ -1,4 +1,4 @@
-import { Platform, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { ExplorerItem } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { twStyle } from '~/lib/tailwind';
@@ -8,20 +8,24 @@ import FileThumb from './FileThumb';
 
 type FileMediaProps = {
 	data: ExplorerItem;
+	onPress: () => void;
+	onLongPress: () => void;
 };
 
-const FileMedia = ({ data }: FileMediaProps) => {
+const FileMedia = ({ data, onPress, onLongPress }: FileMediaProps) => {
 	const gridItemSize = Layout.window.width / getExplorerStore().mediaColumns;
 
 	return (
-		<View
-			style={twStyle('items-center', {
-				width: gridItemSize,
-				height: gridItemSize
-			})}
-		>
-			<FileThumb mediaView data={data} />
-		</View>
+		<Pressable onPress={() => onPress()} onLongPress={() => onLongPress()}>
+			<View
+				style={twStyle('items-center', {
+					width: gridItemSize,
+					height: gridItemSize
+				})}
+			>
+				<FileThumb mediaView data={data} />
+			</View>
+		</Pressable>
 	);
 };
 
