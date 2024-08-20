@@ -185,6 +185,11 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 		props.addTab();
 	});
 
+	useShortcut('duplicateTab', (e) => {
+		e.stopPropagation();
+		ctx.duplicateTab();
+	});
+
 	useShortcut('closeTab', (e) => {
 		e.stopPropagation();
 		props.removeTab(ctx.tabIndex);

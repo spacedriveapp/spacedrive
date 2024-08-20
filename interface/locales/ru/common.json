@@ -222,6 +222,7 @@
   "drag_to_resize": "Перетащите для изм. размера",
   "drop_files_here_to_send_with": "Закиньте файлы сюда, чтобы отправить их через Spacedrop",
   "duplicate": "Дублировать",
+  "duplicate_current_tab": "Дублировать текущую вкладку",
   "duplicate_object": "Дублировать объект",
   "duplicate_success": "Элементы дублированы",
   "edit": "Редактировать",

@@ -190,6 +190,29 @@ function AppInner() {
 								})
 						);
 					},
+					duplicateTab() {
+						createTabPromise.current = createTabPromise.current.then(
+							() =>
+								new Promise((res) => {
+									startTransition(() => {
+										setTabs((tabs) => {
+											const newLocation = {
+												pathname: selectedTab.router.state.location.pathname,
+												search: selectedTab.router.state.location.search
+											};
+											const newTab = createTab(newLocation);
+											const newTabs = [...tabs, newTab];
+
+											setSelectedTabIndex(newTabs.length - 1);
+
+											return newTabs;
+										});
+									});
+
+									setTimeout(res, TAB_CREATE_DELAY);
+								})
+						);
+					},
 					removeTab(index: number) {
 						startTransition(() => {
 							setTabs((tabs) => {
