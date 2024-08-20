@@ -174,12 +174,14 @@ export default () => {
 				{/* <FeatureFlagSelector /> */}
 				<InvalidateDebugPanel />
 				{/* <TestNotifications /> */}
-				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
-					Cache Debug
-				</Button>
-				<Button size="sm" variant="gray" onClick={() => toggleRenderRects()}>
-					Toggle DND Rects
-				</Button>
+				<div className='flex gap-2'>
+					<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
+						Cache Debug
+					</Button>
+					<Button size="sm" variant="gray" onClick={() => toggleRenderRects()}>
+						Toggle DND Rects
+					</Button>
+				</div>
 
 				{/* {platform.showDevtools && (
 					<SettingContainer
@@ -217,7 +219,6 @@ function InvalidateDebugPanel() {
 		</Setting>
 	);
 }
-
 
 // function TestNotifications() {
 // 	const coreNotif = useBridgeMutation(['notifications.test']);

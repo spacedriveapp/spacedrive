@@ -56,7 +56,7 @@ const Tabs = () => {
 
 						// This is where Google should redirect the user back after login or error.
 						// This URL goes on the Google's dashboard as well.
-						frontendRedirectURI: 'http://localhost:9420/api/auth/callback/google'
+						frontendRedirectURI: 'spacedrive://-/auth'
 					});
 
 					/*

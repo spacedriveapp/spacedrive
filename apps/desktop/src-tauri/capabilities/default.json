@@ -2,7 +2,9 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
 	"description": "Capability for the main window",
-	"windows": ["main"],
+	"windows": [
+		"main"
+	],
 	"permissions": [
 		"core:app:default",
 		"core:event:default",
@@ -25,6 +27,20 @@
 		"core:window:allow-minimize",
 		"core:window:allow-toggle-maximize",
 		"core:window:allow-start-dragging",
-		"core:webview:allow-internal-toggle-devtools"
+		"core:webview:allow-internal-toggle-devtools",
+		{
+			"identifier": "http:default",
+			"allow": [
+				{
+					"url": "https://**"
+				},
+				{
+					"url": "http://**"
+				},
+				{
+					"url": "http://localhost:9420/"
+				}
+			]
+		}
 	]
 }

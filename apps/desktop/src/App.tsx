@@ -18,6 +18,7 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
+import { fetch } from '@tauri-apps/plugin-http';
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
 import Session from 'supertokens-web-js/recipe/session';
@@ -57,6 +58,9 @@ SuperTokens.init({
 });
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
+
+//Set global fetch to use tauri fetch
+globalThis.fetch = fetch;
 
 export default function App() {
 	useEffect(() => {
