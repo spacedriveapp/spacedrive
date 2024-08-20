@@ -79,7 +79,7 @@ export default (platform: Platform) =>
 		},
 		{
 			path: 'auth',
-			lazy: () => import('./auth'),
+			lazy: () => import('./Layout/auth'),
 			children: []
 		},
 		{ path: '*', lazy: () => import('./404') }

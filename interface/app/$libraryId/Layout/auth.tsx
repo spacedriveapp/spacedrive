@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
-import { NavigateFunction, useNavigate } from 'react-router';
+import { NavigateFunction, useNavigate } from 'react-router-dom';
 import { signInAndUp } from 'supertokens-web-js/recipe/thirdparty';
 import { toast } from '@sd/ui';
 
@@ -34,11 +34,12 @@ async function handleGoogleCallback(navigate: NavigateFunction) {
 			// this may be a custom error message sent from the API by you.
 			toast.error(err.message);
 		} else {
+			console.error(err);
 			toast.error('Oops! Something went wrong.');
 		}
 	}
 	console.log('Navigating to settings');
-	navigate('./settings/client/account');
+	navigate(-1);
 }
 
 export const Component = () => {

@@ -7,6 +7,7 @@ use strum_macros::{Display, EnumIter};
 
 #[repr(i32)]
 #[derive(Debug, Clone, Display, Copy, EnumIter, Type, Serialize, Deserialize, Eq, PartialEq)]
+#[specta(rename = "core_HardwareModel")]
 pub enum HardwareModel {
 	Other,
 	MacStudio,

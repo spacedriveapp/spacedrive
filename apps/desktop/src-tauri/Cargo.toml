@@ -41,6 +41,7 @@ tauri-plugin-os      = "=2.0.0-rc.0"
 tauri-plugin-shell   = "=2.0.0-rc.0"
 tauri-plugin-updater = "=2.0.0-rc.0"
 tauri-plugin-deep-link = "=2.0.0-rc.0"
+tauri-plugin-http = "2.0.0-rc.0"
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]

@@ -231,7 +231,7 @@ export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
 
-export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; connection_id: string; created_at: string; updated_at: string }
+export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; used_storage: bigint; connection_id: string; created_at: string; updated_at: string; hardware_model: HardwareModel }
 
 export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
 
@@ -505,7 +505,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
-export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; used_storage: bigint; storage_size: bigint; created_at: string; updated_at: string; device_model: HardwareModel }
+export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; used_storage: bigint; storage_size: bigint; created_at: string; updated_at: string; device_model: core_HardwareModel }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
@@ -602,7 +602,7 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata; addrs: string[] } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: core_HardwareModel | null; version: string | null }
 
 export type PlusCode = string
 
@@ -702,3 +702,5 @@ export type UpdateThumbnailerPreferences = Record<string, never>
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }
+
+export type core_HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
