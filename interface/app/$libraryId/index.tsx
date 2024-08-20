@@ -77,5 +77,10 @@ export default (platform: Platform) =>
 			lazy: () => import('./settings/Layout'),
 			children: settingsRoutes
 		},
+		{
+			path: 'auth',
+			lazy: () => import('./auth'),
+			children: []
+		},
 		{ path: '*', lazy: () => import('./404') }
 	] satisfies RouteObject[];

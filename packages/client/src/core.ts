@@ -63,6 +63,7 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
+        { key: "cloud.bootstrap", input: [AccessToken, RefreshToken], result: null } | 
         { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
         { key: "cloud.libraries.create", input: LibraryArgs<LibrariesCreateArgs>, result: null } | 
@@ -612,6 +613,11 @@ export type Program = { id: number; name: string | null; streams: Stream[]; meta
 export type Props = { Video: VideoProps } | { Audio: AudioProps } | { Subtitle: SubtitleProps }
 
 export type Range<T> = { from: T } | { to: T }
+
+/**
+ * Newtype wrapper for the refresh token
+ */
+export type RefreshToken = string
 
 export type RemoteIdentity = string
 
