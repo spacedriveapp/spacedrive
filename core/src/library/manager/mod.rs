@@ -1,6 +1,6 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	cloud, invalidate_query,
+	invalidate_query,
 	location::metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	object::tag,
 	p2p, sync,

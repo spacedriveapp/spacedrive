@@ -1,8 +1,4 @@
-use sd_sync::*;
-use std::sync::{
-	atomic::{self, AtomicBool},
-	Arc,
-};
+use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::Notify;
 use uuid::Uuid;
 
@@ -29,7 +25,6 @@ pub async fn declare_actors(
 	db: Arc<sd_prisma::prisma::PrismaClient>,
 ) -> State {
 	let ingest_notify = Arc::new(Notify::new());
-	let state = State::default();
 
 	// actors
 	// 	.declare(
@@ -90,7 +85,7 @@ pub async fn declare_actors(
 	// 	)
 	// 	.await;
 
-	state
+	State::default()
 }
 
 macro_rules! err_break {

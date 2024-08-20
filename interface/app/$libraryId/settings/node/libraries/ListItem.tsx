@@ -88,7 +88,7 @@ export default (props: Props) => {
 						exit={{ height: 0, opacity: 0 }}
 						className="relative mt-2 flex origin-top flex-col gap-1 pl-8"
 					>
-						<div className="absolute inset-y-0 left-6 mb-7 w-[2px] rounded-t-full bg-[#5E5F69] "></div>
+						<div className="absolute inset-y-0 left-6 mb-7 w-[2px] rounded-t-full bg-[#5E5F69]"></div>
 
 						{cloudDevicesList.data?.map(
 							(

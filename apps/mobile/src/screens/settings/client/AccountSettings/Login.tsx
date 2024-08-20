@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { Text, View } from 'react-native';
@@ -7,11 +8,15 @@ import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
 import { tw } from '~/lib/tailwind';
-import { useNavigation } from '@react-navigation/native';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+
 import ShowPassword from './ShowPassword';
 
-async function signInClicked(email: string, password: string, navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']) {
+async function signInClicked(
+	email: string,
+	password: string,
+	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']
+) {
 	try {
 		const req = await fetch('http://localhost:9420/api/auth/signin', {
 			method: 'POST',
@@ -63,7 +68,7 @@ async function signInClicked(email: string, password: string, navigator: Setting
 			// the frontend SDK.
 			toast.success('Sign in successful');
 			// Refresh the page to show the user is logged in
-			navigator.navigate('AccountProfile')
+			navigator.navigate('AccountProfile');
 		}
 	} catch (err: any) {
 		if (err.isSuperTokensGeneralError === true) {

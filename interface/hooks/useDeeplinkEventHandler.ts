@@ -1,6 +1,6 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
-import { DeeplinkEvent } from "~/util/events";
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import { DeeplinkEvent } from '~/util/events';
 
 export const useDeeplinkEventHandler = () => {
 	const navigate = useNavigate();
@@ -17,4 +17,4 @@ export const useDeeplinkEventHandler = () => {
 		document.addEventListener('deeplink', handler);
 		return () => document.removeEventListener('deeplink', handler);
 	}, [navigate]);
-}
+};

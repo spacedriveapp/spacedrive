@@ -145,10 +145,10 @@ const Register = () => {
 							secureTextEntry={!showPassword}
 						/>
 						<ShowPassword
-								showPassword={showPassword}
-								setShowPassword={setShowPassword}
-								plural={true}
-							/>
+							showPassword={showPassword}
+							setShowPassword={setShowPassword}
+							plural={true}
+						/>
 					</View>
 				)}
 			/>
