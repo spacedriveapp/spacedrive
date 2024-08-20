@@ -174,7 +174,7 @@ export default () => {
 				{/* <FeatureFlagSelector /> */}
 				<InvalidateDebugPanel />
 				{/* <TestNotifications /> */}
-				<div className='flex gap-2'>
+				<div className="flex gap-2">
 					<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
 						Cache Debug
 					</Button>

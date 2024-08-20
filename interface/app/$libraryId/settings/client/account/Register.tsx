@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button, Form, Input, toast, z } from '@sd/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { signUp } from 'supertokens-web-js/recipe/emailpassword';
+import { Button, Form, Input, toast, z } from '@sd/ui';
+
 import ShowPassword from './ShowPassword';
 
 const RegisterSchema = z

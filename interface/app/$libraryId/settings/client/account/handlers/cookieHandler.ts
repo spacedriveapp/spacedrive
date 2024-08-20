@@ -1,6 +1,6 @@
-import { CookieHandlerInterface } from "supertokens-website/utils/cookieHandler/types";
+import { CookieHandlerInterface } from 'supertokens-website/utils/cookieHandler/types';
 
-const frontendCookiesKey = "frontendCookies";
+const frontendCookiesKey = 'frontendCookies';
 
 /**
  * Tauri handles cookies differently than in browser environments. The SuperTokens
@@ -12,8 +12,8 @@ function getCookiesFromStorage(): string {
 	const cookiesFromStorage = window.localStorage.getItem(frontendCookiesKey);
 
 	if (cookiesFromStorage === null) {
-		window.localStorage.setItem(frontendCookiesKey, "[]");
-		return "";
+		window.localStorage.setItem(frontendCookiesKey, '[]');
+		return '';
 	}
 
 	/**
@@ -25,20 +25,20 @@ function getCookiesFromStorage(): string {
 
 	for (let cookieIndex = 0; cookieIndex < cookieArrayInStorage.length; cookieIndex++) {
 		const currentCookieString = cookieArrayInStorage[cookieIndex];
-		const parts = currentCookieString?.split(";");
-		let expirationString: string = "";
+		const parts = currentCookieString?.split(';');
+		let expirationString: string = '';
 
 		for (let partIndex = 0; partIndex < parts!.length; partIndex++) {
 			const currentPart = parts![partIndex];
 
-			if (currentPart!.toLocaleLowerCase().includes("expires=")) {
+			if (currentPart!.toLocaleLowerCase().includes('expires=')) {
 				expirationString = currentPart!;
 				break;
 			}
 		}
 
-		if (expirationString !== "") {
-			const expirationValueString = expirationString.split("=")[1];
+		if (expirationString !== '') {
+			const expirationValueString = expirationString.split('=')[1];
 			const expirationDate = new Date(expirationValueString!);
 			const currentTimeInMillis = Date.now();
 
@@ -57,11 +57,11 @@ function getCookiesFromStorage(): string {
 	 */
 	window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookieArrayToReturn));
 
-	return cookieArrayToReturn.join("; ");
+	return cookieArrayToReturn.join('; ');
 }
 
 function setCookieToStorage(cookieString: string) {
-	const cookieName = cookieString.split(";")[0]!.split("=")[0];
+	const cookieName = cookieString.split(';')[0]!.split('=')[0];
 	const cookiesFromStorage = window.localStorage.getItem(frontendCookiesKey);
 	let cookiesArray: string[] = [];
 
@@ -105,6 +105,6 @@ export default function getCookieHandler(original: CookieHandlerInterface): Cook
 		},
 		setCookie: async function (cookieString: string) {
 			setCookieToStorage(cookieString);
-		},
+		}
 	};
 }

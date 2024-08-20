@@ -1,33 +1,21 @@
 use crate::{library::Libraries, Node};
 
 use futures::FutureExt;
-use futures_concurrency::future::Race;
 use sd_actors::Stopper;
-use sd_cloud_api::{library::message_collections::get::InstanceTimestamp, RequestConfigProvider};
 use sd_p2p::RemoteIdentity;
-use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient, SortOrder};
+use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
 
 use std::{
-	collections::{hash_map::Entry, HashMap},
-	future::IntoFuture,
-	str::FromStr,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
-	time::Duration,
+	collections::HashMap,
+	sync::{atomic::AtomicBool, Arc},
 };
 
-use base64::prelude::*;
 use chrono::Utc;
 use serde_json::to_vec;
-use tokio::{sync::Notify, time::sleep};
-use tracing::{debug, info};
+use tokio::sync::Notify;
 use uuid::Uuid;
-
-use super::{err_break, CompressedCRDTOperations};
 
 // Responsible for downloading sync operations from the cloud to be processed by the ingester
 

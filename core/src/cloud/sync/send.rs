@@ -1,26 +1,11 @@
 use sd_actors::Stopper;
 use sd_core_cloud_services::CloudServices;
-use sd_core_sync::{SyncMessage, NTP64};
+use sd_core_sync::SyncMessage;
 
-use std::{
-	future::IntoFuture,
-	sync::{
-		atomic::{AtomicBool, Ordering},
-		Arc,
-	},
-	time::Duration,
-};
+use std::sync::{atomic::AtomicBool, Arc};
 
-use futures::FutureExt;
-use futures_concurrency::future::Race;
-use tokio::{
-	sync::{broadcast, Notify},
-	time::sleep,
-};
-use tracing::debug;
+use tokio::sync::{broadcast, Notify};
 use uuid::Uuid;
-
-use super::{err_break, CompressedCRDTOperations};
 
 enum RaceNotifiedOrStopped {
 	Notified,

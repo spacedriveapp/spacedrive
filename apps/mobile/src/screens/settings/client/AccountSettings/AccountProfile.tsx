@@ -43,7 +43,7 @@ const AccountProfile = () => {
 								style={tw`w-full items-center justify-start gap-1 bg-app-input !px-2`}
 							>
 								<View style={tw`w-[20px]`}>
-									<Envelope weight="fill" size={20} color='white' />
+									<Envelope weight="fill" size={20} color="white" />
 								</View>
 								<Text style={tw`text-white`}>{userInfo ? userInfo.email : ''}</Text>
 							</Card>

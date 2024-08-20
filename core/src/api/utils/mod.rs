@@ -3,9 +3,7 @@ use std::path::Path;
 // #[cfg(not(any(target_os = "ios", target_os = "android")))]
 // use keyring::Entry;
 
-use regex::Regex;
 use tokio::{fs, io};
-use tracing::{debug, error};
 
 mod invalidate;
 mod library;
