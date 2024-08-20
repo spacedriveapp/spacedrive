@@ -10,7 +10,6 @@ import {
 	useZodForm
 } from '@sd/client';
 import {
-	CheckBox,
 	Dialog,
 	ErrorMessage,
 	Label,
@@ -160,7 +159,12 @@ export const AddLocationDialog = ({
 			}
 
 			if (message && get(form.formState.errors, REMOTE_ERROR_FORM_FIELD)?.message !== message)
-				form.setError(REMOTE_ERROR_FORM_FIELD, { type: 'remote', message: message });
+				form.setError(REMOTE_ERROR_FORM_FIELD, {
+					type: 'remote',
+					message: message.startsWith('location already exists')
+						? 'This location has already been added'
+						: message
+				});
 			return true;
 		},
 		[form]
@@ -220,39 +224,19 @@ export const AddLocationDialog = ({
 			dialog={useDialog(dialogProps)}
 			icon={<Icon name="NewLocation" size={28} />}
 			onSubmit={onSubmit}
-			closeLabel={t('close')}
+			closeLabel={t('cancel')}
 			ctaLabel={t('add')}
-			formClassName="min-w-[375px]"
+			formClassName="w-[375px]"
 			errorMessageException={t('location_is_already_linked')}
 			description={platform.platform === 'web' ? t('new_location_web_description') : ''}
 		>
 			<div className="flex flex-col">
-				<ErrorMessage
-					name={REMOTE_ERROR_FORM_FIELD}
-					variant="large"
-					className="mb-4 mt-2"
-				/>
+				<ErrorMessage name={REMOTE_ERROR_FORM_FIELD} variant="large" className="mb-4" />
 
-				<LocationPathInputField {...form.register('path')} />
+				<p className="mb-1 text-sm font-medium text-ink">{t('path')}</p>
+				<LocationPathInputField className="mb-1.5" {...form.register('path')} />
 
 				<input type="hidden" {...form.register('method')} />
-
-				<div className="mb-6 flex items-center gap-2">
-					<Controller
-						name="shouldRedirect"
-						render={({ field }) => (
-							<RadixCheckbox
-								checked={field.value}
-								onCheckedChange={field.onChange}
-								className="text-xs font-semibold"
-							/>
-						)}
-						control={form.control}
-					/>
-					<Label className="text-xs font-semibold">
-						{t('open_new_location_once_added')}
-					</Label>
-				</div>
 
 				<Accordion title={t('advanced_settings')}>
 					<Controller
@@ -269,6 +253,23 @@ export const AddLocationDialog = ({
 						control={form.control}
 					/>
 				</Accordion>
+
+				<div className="mt-4 flex items-center gap-1.5">
+					<Controller
+						name="shouldRedirect"
+						render={({ field }) => (
+							<RadixCheckbox
+								checked={field.value}
+								onCheckedChange={field.onChange}
+								className="size-4 text-xs font-semibold"
+							/>
+						)}
+						control={form.control}
+					/>
+					<Label className="text-xs font-semibold">
+						{t('open_new_location_once_added')}
+					</Label>
+				</div>
 			</div>
 		</Dialog>
 	);

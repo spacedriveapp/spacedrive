@@ -1,5 +1,6 @@
 import { CaretDown } from '@phosphor-icons/react';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PropsWithChildren, useState } from 'react';
 
 interface Props {
@@ -13,8 +14,8 @@ interface Props {
 
 const styles = {
 	default: {
-		container: 'flex flex-col gap-1 rounded-b-none px-3 py-2 bg-app-box',
-		title: 'flex flex-row items-center justify-between px-3 py-2',
+		container: 'flex flex-col gap-1 rounded-b-none bg-app-box',
+		title: 'flex flex-row items-center justify-between',
 		box: 'rounded-md border border-app-line bg-app-darkBox'
 	},
 	apple: {
@@ -28,13 +29,13 @@ export const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>
 	const [toggle, setToggle] = useState(isOpen);
 	const variant = styles[props.variant ?? 'default'];
 	return (
-		<div className={clsx(variant.box, props.className)}>
+		<div className={clsx(variant.box, props.className, 'overflow-hidden')}>
 			<div
 				onClick={() => {
 					setToggle((t) => !t);
 					props.onToggle?.(!toggle);
 				}}
-				className={variant.title}
+				className={clsx(variant.title, 'cursor-pointer px-3 py-2')}
 			>
 				<p className="text-xs">{props.title}</p>
 				<CaretDown
@@ -45,7 +46,19 @@ export const Accordion = ({ isOpen = false, ...props }: PropsWithChildren<Props>
 					)}
 				/>
 			</div>
-			{(isOpen || toggle) && <div className={variant.container}>{props.children}</div>}
+			<AnimatePresence>
+				{(isOpen || toggle) && (
+					<motion.div
+						initial={{ opacity: 0, height: 0 }}
+						animate={{ opacity: 1, height: 'auto' }}
+						exit={{ opacity: 0, height: 0 }}
+						transition={{ duration: 0.2 }}
+						className={variant.container}
+					>
+						<div className="px-3 py-2">{props.children}</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 };
