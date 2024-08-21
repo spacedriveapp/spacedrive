@@ -90,7 +90,7 @@ export const Component = () => {
 						<FileKindStatistics />
 					</OverviewSection>
 
-					<OverviewSection count={1} title={t('devices')}>
+					<OverviewSection count={cloudDevicesList.data?.length} title={t('devices')}>
 						{cloudDevicesList.data?.map(
 							(
 								device: {
