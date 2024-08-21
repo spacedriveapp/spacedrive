@@ -60,7 +60,8 @@ SuperTokens.init({
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 //Set global fetch to use tauri fetch
-// globalThis.fetch = fetch;
+// If the build in in production mode, we need to set the global fetch to use the tauri fetch
+if (import.meta.env.DEV === false) globalThis.fetch = fetch;
 
 export default function App() {
 	useEffect(() => {
