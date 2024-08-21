@@ -22,6 +22,7 @@ export default (props: Props) => {
 		suspense: true,
 		retry: false
 	});
+	console.log(cloudDevicesList);
 
 	const toggleExpansion = () => {
 		setIsExpanded((prev) => !prev);
@@ -96,8 +97,10 @@ export default (props: Props) => {
 									pub_id: Key | null | undefined;
 									name: string;
 									os: string;
-									storage_size: number;
+									storage_size: bigint;
+									used_storage: bigint;
 									created_at: string;
+									device_model: string;
 								},
 								index: number
 							) => (
@@ -115,7 +118,9 @@ export default (props: Props) => {
 												name={device.name}
 												os={device.os}
 												storage_size={device.storage_size}
+												used_storage={device.used_storage}
 												created_at={device.created_at}
+												device_model={device.device_model}
 											/>
 										</div>
 									</motion.div>
