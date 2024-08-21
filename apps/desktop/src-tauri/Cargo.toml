@@ -38,7 +38,7 @@ opener                 = { version = "0.7.1", features = ["reveal"], default-fea
 specta-typescript      = "=0.0.7"
 tauri-plugin-deep-link = "=2.0.0-rc.0"
 tauri-plugin-dialog    = "=2.0.0-rc.0"
-tauri-plugin-http      = "2.0.0-rc.0"
+tauri-plugin-http      = "=2.0.0-rc.0"
 tauri-plugin-os        = "=2.0.0-rc.0"
 tauri-plugin-shell     = "=2.0.0-rc.0"
 tauri-plugin-updater   = "=2.0.0-rc.0"
