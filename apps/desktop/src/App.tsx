@@ -74,7 +74,7 @@ const TAB_CREATE_DELAY = 150;
 
 const routes = createRoutes(platform);
 
-type redirect = { pathname: string; search: string | undefined };
+type RedirectPath = { pathname: string; search: string | undefined };
 
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
@@ -82,7 +82,7 @@ function AppInner() {
 
 	const selectedTab = tabs[selectedTabIndex]!;
 
-	function createTab(redirect?: redirect) {
+	function createTab(redirect?: RedirectPath) {
 		const history = createMemoryHistory();
 		const router = createMemoryRouterWithHistory({ routes, history });
 
@@ -171,7 +171,7 @@ function AppInner() {
 					tabIndex: selectedTabIndex,
 					setTabIndex: setSelectedTabIndex,
 					tabs: tabs.map(({ router, title }) => ({ router, title })),
-					createTab(redirect?: redirect) {
+					createTab(redirect?: RedirectPath) {
 						createTabPromise.current = createTabPromise.current.then(
 							() =>
 								new Promise((res) => {

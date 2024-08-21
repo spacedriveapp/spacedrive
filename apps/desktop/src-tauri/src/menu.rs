@@ -201,7 +201,9 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 			// 		.accelerator("CmdOrCtrl+Shift+N")
 			// 		.build(app)?,
 			// )
-			.close_window()
+			// NOTE TO SELF DO NOT COMMIT THIS LINE IN THIS PR, IT IS PLANNED FOR ANOTHER PR IM WORKING ON
+			// if i accidentally commit this feel free to shame me in a review 👎 — ilynxcat
+			// .close_window()
 			.fullscreen()
 			.item(
 				&MenuItemBuilder::with_id(MenuEvent::ReloadWebview, "Reload Webview")
