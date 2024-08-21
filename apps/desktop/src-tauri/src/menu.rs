@@ -194,11 +194,13 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 		let window_menu = SubmenuBuilder::new(app, "Window")
 			.minimize()
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::NewWindow, "New Window")
-					.accelerator("CmdOrCtrl+Shift+N")
-					.build(app)?,
-			)
+			// Disabling this fixes the new "Duplicate current tab" shortcut on macOS clients
+			// ...and at the time I'm committing this we don't support multi-window so... ¯\_(ツ)_/¯ 
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::NewWindow, "New Window")
+			// 		.accelerator("CmdOrCtrl+Shift+N")
+			// 		.build(app)?,
+			// )
 			.close_window()
 			.fullscreen()
 			.item(
