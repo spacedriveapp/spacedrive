@@ -2,7 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { UseInfiniteQueryResult } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { useRef } from 'react';
+import { ActivityIndicator } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
 import {
 	getIndexedItemFilePath,
@@ -12,12 +13,14 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import Layout from '~/constants/Layout';
-import { tw, twStyle } from '~/lib/tailwind';
+import { twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
 import { useExplorerStore } from '~/stores/explorerStore';
 import { useActionsModalStore } from '~/stores/modalStore';
 
+import { ModalRef } from '../layout/Modal';
 import ScreenContainer from '../layout/ScreenContainer';
+import RenameModal from '../modal/inspector/RenameModal';
 import { toast } from '../primitive/Toast';
 import FileItem from './FileItem';
 import FileMedia from './FileMedia';
@@ -47,6 +50,7 @@ const Explorer = (props: Props) => {
 	const navigation = useNavigation<BrowseStackScreenProps<'Location'>['navigation']>();
 	const store = useExplorerStore();
 	const { modalRef, setData } = useActionsModalStore();
+	const renameRef = useRef<ModalRef>(null);
 
 	//Open file with native api
 	async function handleOpen(data: ExplorerItem) {
@@ -89,9 +93,15 @@ const Explorer = (props: Props) => {
 		modalRef.current?.present();
 	}
 
+	function renameHandler(data: ExplorerItem) {
+		setData(data);
+		renameRef.current?.present();
+	}
+
 	return (
 		<ScreenContainer tabHeight={props.tabHeight} scrollview={false} style={'gap-0 py-0'}>
 			<Menu />
+			<RenameModal ref={renameRef} />
 			{/* Flashlist not supporting empty centering: https://github.com/Shopify/flash-list/discussions/517
 			So needs to be done this way */}
 			{/* Items */}
@@ -115,20 +125,30 @@ const Explorer = (props: Props) => {
 								? item.item.name
 								: item.item.id.toString()
 					}
-					renderItem={({ item }) => (
-						<Pressable
-							onPress={() => handlePress(item)}
-							onLongPress={() => handleLongPress(item)}
-						>
-							{store.layoutMode === 'grid' ? (
-								<FileItem data={item} />
-							) : store.layoutMode === 'list' ? (
-								<FileRow data={item} />
-							) : (
-								store.layoutMode === 'media' && <FileMedia data={item} />
-							)}
-						</Pressable>
-					)}
+					renderItem={({ item }) => {
+						const commonProps = {
+							onPress: () => handlePress(item),
+							onLongPress: () => handleLongPress(item),
+							data: item
+						};
+						return (
+							<>
+								{store.layoutMode === 'grid' ? (
+									<FileItem
+										{...commonProps}
+										renameHandler={() => renameHandler(item)}
+									/>
+								) : store.layoutMode === 'list' ? (
+									<FileRow
+										{...commonProps}
+										renameHandler={() => renameHandler(item)}
+									/>
+								) : (
+									store.layoutMode === 'media' && <FileMedia {...commonProps} />
+								)}
+							</>
+						);
+					}}
 					contentContainerStyle={twStyle(
 						store.layoutMode !== 'media' ? 'px-2 pt-5' : 'px-0',
 						store.layoutMode === 'grid' && 'pt-9'

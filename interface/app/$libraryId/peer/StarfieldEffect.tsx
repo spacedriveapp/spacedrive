@@ -1,3 +1,4 @@
+import { t } from 'i18next';
 import React, { useEffect, useRef } from 'react';
 
 const StarfieldEffect: React.FC = () => {
@@ -326,7 +327,7 @@ const StarfieldEffect: React.FC = () => {
 			ref={canvasRef}
 			className="block size-full rounded-lg border border-gray-500 transition-all hover:scale-105"
 		>
-			Drop files here to send with Spacedrop
+			{t('drop_files_here_to_send_with')}
 		</canvas>
 	);
 };
