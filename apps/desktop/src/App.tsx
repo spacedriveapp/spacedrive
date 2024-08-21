@@ -197,7 +197,8 @@ function AppInner() {
 									startTransition(() => {
 										setTabs((tabs) => {
 											const newLocation = {
-												pathname: selectedTab.router.state.location.pathname,
+												pathname:
+													selectedTab.router.state.location.pathname,
 												search: selectedTab.router.state.location.search
 											};
 											const newTab = createTab(newLocation);

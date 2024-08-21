@@ -31,7 +31,7 @@ export const Component = () => {
 					{ shortcut: 'newTab', description: t('switch_to_next_tab') },
 					{ shortcut: 'previousTab', description: t('switch_to_previous_tab') },
 					{ shortcut: 'toggleSidebar', description: t('toggle_sidebar') },
-					{ shortcut: 'duplicateTab', description: t('duplicate_current_tab')}
+					{ shortcut: 'duplicateTab', description: t('duplicate_current_tab') }
 				]
 			},
 			{
