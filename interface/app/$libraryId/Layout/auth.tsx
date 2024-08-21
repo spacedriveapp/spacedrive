@@ -1,6 +1,7 @@
+/* eslint-disable no-restricted-syntax */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect } from 'react';
-import { NavigateFunction, useNavigate } from 'react-router-dom';
+import { NavigateFunction, useNavigate, useSearchParams } from 'react-router-dom';
 import { signInAndUp } from 'supertokens-web-js/recipe/thirdparty';
 import { toast } from '@sd/ui';
 
@@ -44,8 +45,10 @@ async function handleGoogleCallback(navigate: NavigateFunction) {
 
 export const Component = () => {
 	const navigate = useNavigate();
+	const [query] = useSearchParams();
 
 	useEffect(() => {
+		(window.location as any).__TEMP_URL_PARAMS = query;
 		handleGoogleCallback(navigate);
 	}, []);
 
