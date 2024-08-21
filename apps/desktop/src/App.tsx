@@ -196,12 +196,9 @@ function AppInner() {
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const newLocation = {
-												pathname:
-													selectedTab.router.state.location.pathname,
-												search: selectedTab.router.state.location.search
-											};
-											const newTab = createTab(newLocation);
+											const { pathname, search } =
+												selectedTab.router.state.location;
+											const newTab = createTab({ pathname, search });
 											const newTabs = [...tabs, newTab];
 
 											setSelectedTabIndex(newTabs.length - 1);
