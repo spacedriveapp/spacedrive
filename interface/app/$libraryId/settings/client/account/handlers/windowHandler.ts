@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { WindowHandlerInterface } from 'supertokens-website/utils/windowHandler/types';
 
 /**
@@ -12,20 +13,24 @@ export default function getWindowHandler(original: WindowHandlerInterface): Wind
 		location: {
 			...original.location,
 			getSearch: function () {
-				const currentURL = window.location.href;
-				const firstQuestionMarkIndex = currentURL.indexOf('?');
+				// First try with react-router-dom's useUrlSearchParams
+				// eslint-disable-next-line no-restricted-syntax
 
-				if (firstQuestionMarkIndex !== -1) {
-					// Return the query string from the url
-					let queryString = currentURL.substring(firstQuestionMarkIndex);
+				const params: URLSearchParams | string = (window.location as any).__TEMP_URL_PARAMS ?? '';
+				return params.toString();
+				// const firstQuestionMarkIndex = currentURL.indexOf('?');
 
-					// Remove any hash
-					if (queryString.includes('#')) {
-						queryString = queryString.split('#')[0] ?? '';
-					}
+				// if (firstQuestionMarkIndex !== -1) {
+				// 	// Return the query string from the url
+				// 	let queryString = currentURL.substring(firstQuestionMarkIndex);
 
-					return queryString;
-				}
+				// 	// Remove any hash
+				// 	if (queryString.includes('#')) {
+				// 		queryString = queryString.split('#')[0] ?? '';
+				// 	}
+
+				// 	// Return the query string from the url
+				// }
 
 				return '';
 			},
