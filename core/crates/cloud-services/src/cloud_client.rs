@@ -1,4 +1,4 @@
-use sd_cloud_schema::{Client, Service};
+use sd_cloud_schema::{Client, Service, ServicesALPN};
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
@@ -111,7 +111,7 @@ impl CloudServices {
 			.map_err(Error::FailedToExtractApiAddress)?
 			.parse::<SocketAddr>()?;
 
-		let crypto_config = {
+		let mut crypto_config = {
 			#[cfg(debug_assertions)]
 			{
 				#[derive(Debug)]
@@ -167,6 +167,10 @@ impl CloudServices {
 					.with_no_client_auth()
 			}
 		};
+
+		crypto_config
+			.alpn_protocols
+			.extend([ServicesALPN::LATEST.to_vec()]);
 
 		let client_config = ClientConfig::new(Arc::new(
 			QuicClientConfig::try_from(crypto_config)
