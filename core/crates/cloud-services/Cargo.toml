@@ -28,12 +28,13 @@ zeroize             = { workspace = true }
 
 # External dependencies
 iroh-base                = { version = "0.23.0", features = ["key"] }
+iroh-net                 = "0.23.0"
 postcard                 = { version = "1.0.8", features = ["use-std"] }
 quic-rpc                 = { version = "0.12.0", features = ["quinn-transport"] }
 quinn                    = { package = "iroh-quinn", version = "=0.11.3" }
 reqwest-middleware       = { version = "0.3", features = ["json"] }
 reqwest-retry            = "0.6"
-rustls                   = { version = "0.23", default-features = false, features = ["ring"] }
+rustls                   = { version = "0.23", default-features = false, features = ["brotli", "ring", "std"] }
 rustls-platform-verifier = "0.3.3"
 
 
