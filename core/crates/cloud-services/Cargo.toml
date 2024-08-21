@@ -27,18 +27,14 @@ tracing             = { workspace = true }
 zeroize             = { workspace = true }
 
 # External dependencies
-iroh-base          = { version = "0.22.0", features = ["key"] }
-postcard           = { version = "1.0.8", features = ["use-std"] }
-quic-rpc           = { version = "0.11.0", features = ["quinn-transport"] }
-quinn              = { package = "iroh-quinn", version = "=0.10.5" }
-reqwest-middleware = { version = "0.3", features = ["json"] }
-reqwest-retry      = "0.6"
-
-[dependencies.rustls-old]
-default-features = false
-features         = ["dangerous_configuration", "logging", "quic"]
-package          = "rustls"
-version          = "0.21.12"                                      # Update blocked by quic-rpc
+iroh-base                = { version = "0.23.0", features = ["key"] }
+postcard                 = { version = "1.0.8", features = ["use-std"] }
+quic-rpc                 = { version = "0.12.0", features = ["quinn-transport"] }
+quinn                    = { package = "iroh-quinn", version = "=0.11.3" }
+reqwest-middleware       = { version = "0.3", features = ["json"] }
+reqwest-retry            = "0.6"
+rustls                   = { version = "0.23", default-features = false, features = ["ring"] }
+rustls-platform-verifier = "0.3.3"
 
 
 [dev-dependencies]
