@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { ExplorerItem, getItemFilePath, getItemObject, Tag } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 import { getExplorerStore } from '~/stores/explorerStore';
@@ -8,9 +8,12 @@ import FileThumb from './FileThumb';
 
 type FileRowProps = {
 	data: ExplorerItem;
+	onPress: () => void;
+	onLongPress: () => void;
+	renameHandler: () => void;
 };
 
-const FileRow = ({ data }: FileRowProps) => {
+const FileRow = ({ data, onLongPress, onPress, renameHandler }: FileRowProps) => {
 	const filePath = getItemFilePath(data);
 	const object = getItemObject(data);
 
@@ -27,16 +30,23 @@ const FileRow = ({ data }: FileRowProps) => {
 					height: getExplorerStore().listItemSize
 				})}
 			>
-				<FileThumb data={data} size={0.5} />
+				<Pressable onPress={onPress} onLongPress={onLongPress}>
+					<FileThumb data={data} size={0.5} />
+				</Pressable>
 				<View
 					style={tw`mx-2 flex-1 flex-row items-center justify-between border-b border-white/10 pb-3`}
 				>
-					<View style={twStyle(tags.length === 0 ? 'w-full' : 'max-w-[85%]')}>
-						<Text numberOfLines={1} style={tw`text-left text-sm font-medium text-ink`}>
-							{filePath?.name}
-							{filePath?.extension && `.${filePath.extension}`}
-						</Text>
-					</View>
+					<Pressable onLongPress={renameHandler}>
+						<View style={twStyle(tags.length === 0 ? 'w-full' : 'max-w-[85%]')}>
+							<Text
+								numberOfLines={1}
+								style={tw`text-left text-sm font-medium text-ink`}
+							>
+								{filePath?.name}
+								{filePath?.extension && `.${filePath.extension}`}
+							</Text>
+						</View>
+					</Pressable>
 					<View
 						style={twStyle(`mr-1 flex-row`, {
 							left: tags.length * 6 //for every tag we add 2px to the left,
