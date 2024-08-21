@@ -71,7 +71,6 @@ const ExifMediaData = (data: ExifMetadata) => {
 	const platform = usePlatform();
 	const { t } = useLocale();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
-	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
 	return (
 		<>

@@ -1,10 +1,13 @@
+import { t } from 'i18next';
 import { HardwareModel, usePeers } from '@sd/client';
 import { NodeIdParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
-import { useRouteTitle, useZodRouteParams } from '~/hooks';
+import { useOperatingSystem, useRouteTitle, useZodRouteParams } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 
+import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { TopBarPortal } from '../TopBar/Portal';
+import TopBarOptions from '../TopBar/TopBarOptions';
 import StarfieldEffect from './StarfieldEffect'; // Import the StarfieldEffect component
 
 export const Component = () => {
@@ -13,6 +16,7 @@ export const Component = () => {
 	const peers = usePeers();
 	const peer = peers.get(nodeId);
 	const title = useRouteTitle(peer?.metadata?.name || 'Peer');
+	const os = useOperatingSystem();
 
 	return (
 		<div className="flex w-full items-center justify-center">
@@ -22,6 +26,7 @@ export const Component = () => {
 						<span className="truncate text-sm font-medium">{title}</span>
 					</div>
 				}
+				right={os === 'windows' && <TopBarOptions />}
 			/>
 
 			{peer?.metadata.device_model && (
@@ -40,7 +45,7 @@ export const Component = () => {
 					<div className="relative mt-8 flex h-28 w-96 items-center justify-center rounded-lg border border-solid border-app-line p-4 text-sm font-medium text-ink-dull">
 						<StarfieldEffect />
 						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-							Drop files here to send with Spacedrop
+							{t('drop_files_here_to_send_with')}
 						</div>
 					</div>
 				</div>
