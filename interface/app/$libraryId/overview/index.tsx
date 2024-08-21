@@ -1,5 +1,6 @@
+import { Key } from 'react';
 import { Link } from 'react-router-dom';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -31,11 +32,14 @@ export const Component = () => {
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const locations = locationsQuery.data ?? [];
 
-	const { data: node } = useBridgeQuery(['nodeState']);
+	// not sure if we'll need the node state in the future, as it should be returned with the cloud.devices.list query
+	// const { data: node } = useBridgeQuery(['nodeState']);
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
+		suspense: true,
+		retry: false
+	});
 
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
-
-	const stats = useLibraryQuery(['library.statistics']);
 
 	return (
 		<SearchContextProvider search={search}>
@@ -87,25 +91,31 @@ export const Component = () => {
 					</OverviewSection>
 
 					<OverviewSection count={1} title={t('devices')}>
-						{node && (
-							<StatisticItem
-								name={node.name}
-								icon={hardwareModelToIcon(node.device_model as any)}
-								totalSpace={
-									stats.data?.statistics?.total_local_bytes_capacity || '0'
-								}
-								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
-								color="#0362FF"
-								connectionType={null}
-							/>
+						{cloudDevicesList.data?.map(
+							(
+								device: {
+									pub_id: Key | null | undefined;
+									name: string;
+									os: string;
+									storage_size: bigint;
+									used_storage: bigint;
+									created_at: string;
+									device_model: string;
+								},
+								index: number
+							) => (
+								<StatisticItem
+									key={device.pub_id}
+									name={device.name}
+									icon={hardwareModelToIcon(device.device_model as HardwareModel)}
+									// conversion to string is intentional to provide proper type to StatCardProps
+									totalSpace={device.storage_size.toString()}
+									freeSpace={device.used_storage.toString()}
+									color="#0362FF"
+									connectionType={null}
+								></StatisticItem>
+							)
 						)}
-						<NewCard
-							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
-							text={t('connect_device_description')}
-							className="h-auto"
-							// buttonText={t('connect_device')}
-						/>
-						{/**/}
 					</OverviewSection>
 
 					<OverviewSection count={locations.length} title={t('locations')}>

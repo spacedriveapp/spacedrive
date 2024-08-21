@@ -1,27 +1,31 @@
 import { Trash } from '@phosphor-icons/react';
+import { iconNames } from '@sd/assets/util';
 import { Key } from 'react';
-import { humanizeSize } from '@sd/client';
+import { HardwareModel, humanizeSize } from '@sd/client';
 import { Button, Card, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
+import { hardwareModelToIcon } from '~/util/hardware';
 
 interface DeviceItemProps {
 	pub_id: Key | null | undefined;
 	name: string;
 	os: string;
-	storage_size: number;
+	device_model: string;
+	storage_size: bigint;
+	used_storage: bigint;
 	created_at: string;
 }
 
-// unsure where to put pub_id/if this information is important for a user?
+// unsure where to put pub_id/if this information is important for a user? also have not included used_storage
 export default (props: DeviceItemProps) => {
 	const { t } = useLocale();
 
 	return (
 		<Card className="flex min-w-96 items-center space-x-3 p-2">
 			<Icon
-				// need better logic to render correct icon - any easy way to do this on the backend?
-				name={props.os == 'MacOS' || props.os == 'iOS' ? 'SilverBox' : 'Laptop'}
+				// once backend endpoint is populated need to check if this is working correctly i.e fetching correct icons for devices
+				name={hardwareModelToIcon(props.device_model as HardwareModel)}
 				alt="Device icon"
 				size={24}
 				className="mr-2"
