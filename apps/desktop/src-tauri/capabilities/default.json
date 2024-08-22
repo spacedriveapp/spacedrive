@@ -37,6 +37,9 @@
 				},
 				{
 					"url": "http://localhost:9420/"
+				},
+				{
+					"url": "https://plausible.io/"
 				}
 			]
 		}
