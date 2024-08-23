@@ -108,12 +108,21 @@ impl Node {
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
-		let (get_cloud_api_address, cloud_services_domain_name) = {
+		let (
+			get_cloud_api_address,
+			cloud_p2p_relay_url,
+			cloud_p2p_dns_origin_name,
+			cloud_services_domain_name,
+		) = {
 			#[cfg(debug_assertions)]
 			{
 				(
 					std::env::var("SD_CLOUD_API_ADDRESS_URL")
 						.unwrap_or_else(|_| "http://localhost:9420/cloud-api-address".to_string()),
+					std::env::var("SD_CLOUD_P2P_RELAY_URL")
+						.unwrap_or_else(|_| "http://relay.localhost:9999/".to_string()),
+					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
+						.unwrap_or_else(|_| "dnf.localhost:9999".to_string()),
 					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
 						.unwrap_or_else(|_| "localhost".to_string()),
 				)
@@ -122,6 +131,8 @@ impl Node {
 			{
 				(
 					"https://auth.spacedrive.com/cloud-api-address".to_string(),
+					"https://relay.spacedrive.com/".to_string(),
+					"dns.spacedrive.com".to_string(),
 					"api.spacedrive.com".to_string(),
 				)
 			}
@@ -144,7 +155,13 @@ impl Node {
 			event_bus,
 			libraries,
 			cloud_services: Arc::new(
-				CloudServices::new(&get_cloud_api_address, cloud_services_domain_name).await?,
+				CloudServices::new(
+					&get_cloud_api_address,
+					cloud_p2p_relay_url,
+					cloud_p2p_dns_origin_name,
+					cloud_services_domain_name,
+				)
+				.await?,
 			),
 			master_rng: Arc::new(Mutex::new(CryptoRng::new()?)),
 		});

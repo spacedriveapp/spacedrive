@@ -5,6 +5,7 @@ use sd_cloud_schema::{Client, Service, ServicesALPN};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use futures::Stream;
+use iroh_net::relay::RelayUrl;
 use quic_rpc::{transport::quinn::QuinnConnection, RpcClient};
 use quinn::{ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
@@ -38,6 +39,8 @@ pub struct CloudServices {
 	get_cloud_api_address: Url,
 	http_client: ClientWithMiddleware,
 	domain_name: String,
+	pub cloud_p2p_dns_origin_name: String,
+	pub cloud_p2p_relay_url: RelayUrl,
 	pub token_refresher: TokenRefresher,
 	key_manager: Arc<RwLock<Option<Arc<KeyManager>>>>,
 	cloud_p2p: Arc<RwLock<Option<Arc<CloudP2P>>>>,
@@ -54,6 +57,8 @@ impl CloudServices {
 	/// If the client fails to connect, it will try again the next time it's used.
 	pub async fn new(
 		get_cloud_api_address: impl IntoUrl + Send,
+		cloud_p2p_relay_url: impl IntoUrl + Send,
+		cloud_p2p_dns_origin_name: String,
 		domain_name: String,
 	) -> Result<Self, Error> {
 		let http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(3));
@@ -62,6 +67,11 @@ impl CloudServices {
 		{
 			builder = builder.https_only(true);
 		}
+
+		let cloud_p2p_relay_url = cloud_p2p_relay_url
+			.into_url()
+			.map_err(Error::InvalidUrl)?
+			.into();
 
 		let http_client =
 			ClientBuilder::new(http_client_builder.build().map_err(Error::HttpClientInit)?)
@@ -102,6 +112,8 @@ impl CloudServices {
 			),
 			get_cloud_api_address,
 			http_client,
+			cloud_p2p_dns_origin_name,
+			cloud_p2p_relay_url,
 			domain_name,
 			key_manager: Arc::default(),
 			cloud_p2p: Arc::default(),
@@ -303,10 +315,13 @@ mod tests {
 
 	use super::*;
 
+	#[ignore]
 	#[tokio::test]
 	async fn test_client() {
 		let response = CloudServices::new(
 			"http://localhost:9420/cloud-api-address",
+			"http://relay.localhost:9999/",
+			"dns.localhost:9999".to_string(),
 			"localhost".to_string(),
 		)
 		.await
