@@ -76,7 +76,7 @@ pub struct CloudP2P {
 impl CloudP2P {
 	pub async fn new(
 		current_device_pub_id: devices::PubId,
-		cloud_services: CloudServices,
+		cloud_services: &CloudServices,
 		mut rng: CryptoRng,
 		iroh_secret_key: IrohSecretKey,
 		dns_origin_domain: String,
@@ -95,7 +95,7 @@ impl CloudP2P {
 		let (msgs_tx, msgs_rx) = flume::bounded(16);
 
 		spawn({
-			let runner = Runner::new(current_device_pub_id, &cloud_services, endpoint).await?;
+			let runner = Runner::new(current_device_pub_id, cloud_services, endpoint).await?;
 			let user_response_rx = cloud_services.user_response_rx.clone();
 
 			async move {

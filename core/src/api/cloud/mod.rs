@@ -5,9 +5,13 @@ use sd_cloud_schema::{
 	error::{ClientSideError, Error},
 	users, Client, Service,
 };
-use sd_core_cloud_services::{IrohSecretKey, KeyManager, QuinnConnection};
+use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnection, UserResponse};
 use sd_crypto::{CryptoRng, SeedableRng};
 
+use std::pin::pin;
+
+use async_stream::stream;
+use futures::StreamExt;
 use rspc::alpha::AlphaRouter;
 use tracing::error;
 use uuid::Uuid;
@@ -128,14 +132,45 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					node.cloud_services.set_key_manager(key_manager).await;
 
-					// TODO: With this device iroh's secret key (NodeId) now known and we can start the iroh
-					// node for cloud p2p
-					todo!("Start iroh node for cloud p2p");
+					node.cloud_services
+						.set_cloud_p2p(
+							CloudP2P::new(
+								device_pub_id,
+								&node.cloud_services,
+								rng,
+								iroh_secret_key,
+								node.cloud_services.cloud_p2p_dns_origin_name.clone(),
+								node.cloud_services.cloud_p2p_relay_url.clone(),
+							)
+							.await?,
+						)
+						.await;
 
 					Ok(())
 				},
 			)
 		})
+		.procedure(
+			"listenCloudServicesNotifications",
+			R.subscription(|node, _: ()| async move {
+				stream! {
+					let mut notifications_stream =
+					pin!(node.cloud_services.stream_user_notifications());
+
+					while let Some(notification) = notifications_stream.next().await {
+						yield notification;
+					}
+				}
+			}),
+		)
+		.procedure(
+			"userResponse",
+			R.mutation(|node, response: UserResponse| async move {
+				node.cloud_services.send_user_response(response).await;
+
+				Ok(())
+			}),
+		)
 }
 
 fn handle_comm_error<T, E: std::error::Error + std::fmt::Debug + Send + Sync + 'static>(
