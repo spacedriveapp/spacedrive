@@ -7,11 +7,14 @@ import { fileURLToPath } from 'node:url'
 
 import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
+import { parse as parseTOML } from 'smol-toml'
 
 import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mjs'
 import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
+import { getRustTargetList } from './utils/rustup.mjs'
 import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
+import { spinTask } from './utils/spinner.mjs'
 import { which } from './utils/which.mjs'
 
 if (/^(msys|mingw|cygwin)$/i.test(env.OSTYPE ?? '')) {
@@ -55,24 +58,68 @@ packages/scripts/${machineId[0] === 'Windows_NT' ? 'setup.ps1' : 'setup.sh'}
 
 // Directory where the native deps will be downloaded
 const nativeDeps = path.join(__root, 'apps', '.deps')
+const mobileNativeDeps = path.join(__root, 'apps', 'mobile', '.deps')
 await fs.rm(nativeDeps, { force: true, recursive: true })
 await fs.mkdir(nativeDeps, { mode: 0o750, recursive: true })
 
+// Native deps for desktop app
 try {
-	console.log('Downloading Native dependencies...')
+	console.log('Downloading desktop native dependencies...')
 
 	const assetName = getConst(NATIVE_DEPS_ASSETS, machineId)
 	if (assetName == null) throw new Error('NO_ASSET')
 
-	const archiveData = await get(`${NATIVE_DEPS_URL}/${assetName}`)
+	const archiveData = await spinTask(get(`${NATIVE_DEPS_URL}/${assetName}`))
 
-	await extractTo(archiveData, nativeDeps, {
-		chmod: 0o600,
-		recursive: true,
-		overwrite: true,
-	})
+	console.log(`Extracting native dependencies...`)
+	await spinTask(
+		extractTo(archiveData, nativeDeps, {
+			chmod: 0o600,
+			recursive: true,
+			overwrite: true,
+		})
+	)
 } catch (e) {
 	console.error(`Failed to download native dependencies. ${bugWarn}`)
+	if (__debug) console.error(e)
+	exit(1)
+}
+
+// Native deps for mobile
+try {
+	const targets = await getRustTargetList()
+	const mobileTargets = /** @type {Record<string, string>} */ {}
+
+	if (machineId[0] === 'Darwin') {
+		// iOS is only supported on macOS
+		Object.assign(mobileTargets, {
+			'aarch64-apple-ios': NATIVE_DEPS_ASSETS.IOS.ios.aarch64,
+			'aarch64-apple-ios-sim': NATIVE_DEPS_ASSETS.IOS.iossim.aarch64,
+			'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64,
+		})
+	}
+
+	for (const [rustTarget, nativeTarget] of Object.entries(mobileTargets)) {
+		if (!targets.has(rustTarget)) continue
+		console.log(`Downloading mobile native dependencies for ${nativeTarget}...`)
+
+		const specificMobileNativeDeps = path.join(mobileNativeDeps, rustTarget)
+		await fs.rm(specificMobileNativeDeps, { force: true, recursive: true })
+		await fs.mkdir(specificMobileNativeDeps, { mode: 0o750, recursive: true })
+
+		const archiveData = await spinTask(get(`${NATIVE_DEPS_URL}/${nativeTarget}`))
+
+		console.log(`Extracting native dependencies...`)
+		await spinTask(
+			extractTo(archiveData, specificMobileNativeDeps, {
+				chmod: 0o600,
+				recursive: true,
+				overwrite: true,
+			})
+		)
+	}
+} catch (e) {
+	console.error(`Failed to download native dependencies for mobile. ${bugWarn}`)
 	if (__debug) console.error(e)
 	exit(1)
 }
@@ -126,32 +173,36 @@ try {
 			break
 	}
 
-	await fs.writeFile(
-		path.join(__root, '.cargo', 'config.toml'),
-		mustache
-			.render(
-				await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
-					encoding: 'utf8',
-				}),
-				{
-					isWin,
-					isMacOS,
-					isLinux,
-					// Escape windows path separator to be compatible with TOML parsing
-					protoc: path
-						.join(
-							nativeDeps,
-							'bin',
-							machineId[0] === 'Windows_NT' ? 'protoc.exe' : 'protoc'
-						)
-						.replaceAll('\\', '\\\\'),
-					nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
-					hasLLD,
-				}
-			)
-			.replace(/\n\n+/g, '\n'),
-		{ mode: 0o751, flag: 'w+' }
-	)
+	const configData = mustache
+		.render(
+			await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
+				encoding: 'utf8',
+			}),
+			{
+				isWin,
+				isMacOS,
+				isLinux,
+				// Escape windows path separator to be compatible with TOML parsing
+				protoc: path
+					.join(
+						nativeDeps,
+						'bin',
+						machineId[0] === 'Windows_NT' ? 'protoc.exe' : 'protoc'
+					)
+					.replaceAll('\\', '\\\\'),
+				nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
+				hasLLD,
+			}
+		)
+		.replace(/\n\n+/g, '\n')
+
+	// eslint-disable-next-line import/no-named-as-default-member
+	parseTOML(configData)
+
+	await fs.writeFile(path.join(__root, '.cargo', 'config.toml'), configData, {
+		mode: 0o751,
+		flag: 'w+',
+	})
 } catch (error) {
 	console.error(`Failed to generate .cargo/config.toml. ${bugWarn}`)
 	if (__debug) console.error(error)

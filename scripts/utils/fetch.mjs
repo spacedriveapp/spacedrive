@@ -15,7 +15,7 @@ const cacheDir = joinPath(__dirname, '.tmp')
 
 /** @type {Agent.Options} */
 const agentOpts = {
-	allowH2: true,
+	allowH2: !!env.HTTP2,
 	connect: { timeout: CONNECT_TIMEOUT },
 	connectTimeout: CONNECT_TIMEOUT,
 	autoSelectFamily: true,
