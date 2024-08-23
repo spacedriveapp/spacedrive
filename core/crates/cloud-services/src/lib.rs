@@ -36,6 +36,7 @@ mod key_manager;
 mod token_refresher;
 
 pub use cloud_client::CloudServices;
+pub use cloud_p2p::{CloudP2P, JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
 pub use error::{Error, GetTokenError};
 pub use key_manager::KeyManager;
 

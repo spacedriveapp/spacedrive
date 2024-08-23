@@ -1,6 +1,6 @@
 use crate::Error;
 
-use sd_cloud_schema::sync::KeyHash;
+use sd_cloud_schema::sync::{groups, KeyHash};
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng};
 use sd_utils::error::FileIOError;
 
@@ -95,17 +95,39 @@ impl KeyManager {
 		self.store.read().await.node_id()
 	}
 
-	pub async fn add_key(&self, key: SecretKey, rng: &mut CryptoRng) -> Result<(), Error> {
+	pub async fn add_key(
+		&self,
+		group_pub_id: groups::PubId,
+		key: SecretKey,
+		rng: &mut CryptoRng,
+	) -> Result<(), Error> {
 		let mut store = self.store.write().await;
-		store.add_key(key);
+		store.add_key(group_pub_id, key);
 		// Keeping the write lock here, this way we ensure that we can't corrupt the file
 		store
 			.encrypt(&self.master_key, rng, &self.keys_file_path)
 			.await
 	}
 
-	pub async fn get_key(&self, hash: &KeyHash) -> Option<SecretKey> {
-		self.store.read().await.get_key(hash)
+	pub async fn add_many_keys(
+		&self,
+		group_pub_id: groups::PubId,
+		keys: impl IntoIterator<Item = SecretKey> + Send,
+		rng: &mut CryptoRng,
+	) -> Result<(), Error> {
+		let mut store = self.store.write().await;
+		store.add_many_keys(group_pub_id, keys);
+		// Keeping the write lock here, this way we ensure that we can't corrupt the file
+		store
+			.encrypt(&self.master_key, rng, &self.keys_file_path)
+			.await
+	}
+	pub async fn get_key(&self, group_pub_id: groups::PubId, hash: &KeyHash) -> Option<SecretKey> {
+		self.store.read().await.get_key(group_pub_id, hash)
+	}
+
+	pub async fn get_group_keys(&self, group_pub_id: groups::PubId) -> Vec<SecretKey> {
+		self.store.read().await.get_group_keys(group_pub_id)
 	}
 }
 

@@ -1,6 +1,6 @@
 use crate::Error;
 
-use sd_cloud_schema::sync::KeyHash;
+use sd_cloud_schema::sync::{groups, KeyHash};
 use sd_crypto::{
 	cloud::{decrypt, encrypt, secret_key::SecretKey},
 	primitives::{EncryptedBlock, OneShotNonce, StreamNonce},
@@ -8,7 +8,12 @@ use sd_crypto::{
 };
 use sd_utils::error::FileIOError;
 
-use std::{collections::HashMap, fs::Metadata, path::PathBuf, pin::pin};
+use std::{
+	collections::{BTreeMap, HashMap},
+	fs::Metadata,
+	path::PathBuf,
+	pin::pin,
+};
 
 use futures::StreamExt;
 use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
@@ -22,24 +27,42 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 #[derive(Serialize, Deserialize)]
 pub struct KeyStore {
 	iroh_secret_key: IrohSecretKey,
-	keys_by_hash: HashMap<KeyHash, SecretKey>,
+	keys: BTreeMap<groups::PubId, HashMap<KeyHash, SecretKey>>,
 }
 
 impl KeyStore {
 	pub fn new(iroh_secret_key: IrohSecretKey) -> Self {
 		Self {
 			iroh_secret_key,
-			keys_by_hash: HashMap::new(),
+			keys: BTreeMap::new(),
 		}
 	}
 
-	pub fn add_key(&mut self, key: SecretKey) {
+	pub fn add_key(&mut self, group_pub_id: groups::PubId, key: SecretKey) {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(key.as_ref());
 		let hash = hasher.finalize();
 
-		self.keys_by_hash
+		self.keys
+			.entry(group_pub_id)
+			.or_default()
 			.insert(KeyHash(hash.to_hex().to_string()), key);
+	}
+
+	pub fn add_many_keys(
+		&mut self,
+		group_pub_id: groups::PubId,
+		keys: impl IntoIterator<Item = SecretKey>,
+	) {
+		let group_entry = self.keys.entry(group_pub_id).or_default();
+
+		for key in keys {
+			let mut hasher = blake3::Hasher::new();
+			hasher.update(key.as_ref());
+			let hash = hasher.finalize();
+
+			group_entry.insert(KeyHash(hash.to_hex().to_string()), key);
+		}
 	}
 
 	pub fn iroh_secret_key(&self) -> IrohSecretKey {
@@ -50,8 +73,17 @@ impl KeyStore {
 		self.iroh_secret_key.public()
 	}
 
-	pub fn get_key(&self, hash: &KeyHash) -> Option<SecretKey> {
-		self.keys_by_hash.get(hash).cloned()
+	pub fn get_key(&self, group_pub_id: groups::PubId, hash: &KeyHash) -> Option<SecretKey> {
+		self.keys
+			.get(&group_pub_id)
+			.and_then(|group| group.get(hash).cloned())
+	}
+
+	pub fn get_group_keys(&self, group_pub_id: groups::PubId) -> Vec<SecretKey> {
+		self.keys
+			.get(&group_pub_id)
+			.map(|group| group.values().cloned().collect())
+			.unwrap_or_default()
 	}
 
 	pub async fn encrypt(
@@ -219,8 +251,10 @@ impl KeyStore {
 impl Zeroize for KeyStore {
 	fn zeroize(&mut self) {
 		self.iroh_secret_key = IrohSecretKey::generate();
-		self.keys_by_hash.values_mut().for_each(Zeroize::zeroize);
-		self.keys_by_hash = HashMap::new();
+		self.keys
+			.values_mut()
+			.for_each(|group| group.values_mut().for_each(Zeroize::zeroize));
+		self.keys = BTreeMap::new();
 	}
 }
 

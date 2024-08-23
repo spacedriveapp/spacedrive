@@ -1,16 +1,21 @@
+use crate::cloud_p2p::{NotifyUser, UserResponse};
+
 use sd_cloud_schema::{Client, Service, ServicesALPN};
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
+use futures::Stream;
 use quic_rpc::{transport::quinn::QuinnConnection, RpcClient};
-use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint};
+use quinn::{ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
 use reqwest_middleware::{reqwest, ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use tokio::sync::RwLock;
 use tracing::warn;
 
-use super::{error::Error, key_manager::KeyManager, token_refresher::TokenRefresher};
+use super::{
+	cloud_p2p::CloudP2P, error::Error, key_manager::KeyManager, token_refresher::TokenRefresher,
+};
 
 #[derive(Debug, Default)]
 enum ClientState {
@@ -35,6 +40,11 @@ pub struct CloudServices {
 	domain_name: String,
 	pub token_refresher: TokenRefresher,
 	key_manager: Arc<RwLock<Option<Arc<KeyManager>>>>,
+	cloud_p2p: Arc<RwLock<Option<Arc<CloudP2P>>>>,
+	pub(crate) notify_user_tx: flume::Sender<NotifyUser>,
+	notify_user_rx: flume::Receiver<NotifyUser>,
+	user_response_tx: flume::Sender<UserResponse>,
+	pub(crate) user_response_rx: flume::Receiver<UserResponse>,
 }
 
 impl CloudServices {
@@ -81,6 +91,9 @@ impl CloudServices {
 			}
 		};
 
+		let (notify_user_tx, notify_user_rx) = flume::bounded(16);
+		let (user_response_tx, user_response_rx) = flume::bounded(16);
+
 		Ok(Self {
 			client_state,
 			token_refresher: TokenRefresher::new(
@@ -91,7 +104,27 @@ impl CloudServices {
 			http_client,
 			domain_name,
 			key_manager: Arc::default(),
+			cloud_p2p: Arc::default(),
+			notify_user_tx,
+			notify_user_rx,
+			user_response_tx,
+			user_response_rx,
 		})
+	}
+
+	pub fn stream_user_notifications(&self) -> impl Stream<Item = NotifyUser> + '_ {
+		self.notify_user_rx.stream()
+	}
+
+	/// Send back a user response to the Cloud P2P actor
+	///
+	/// # Panics
+	/// Will panic if the channel is closed, which should never happen
+	pub async fn send_user_response(&self, response: UserResponse) {
+		self.user_response_tx
+			.send_async(response)
+			.await
+			.expect("user response channel must never close");
 	}
 
 	async fn init_client(
@@ -114,56 +147,82 @@ impl CloudServices {
 		let mut crypto_config = {
 			#[cfg(debug_assertions)]
 			{
-				#[derive(Debug)]
+				// FIXME(@fogodev): use this commented code when we can update to quic-rpc 0.12.0 or newer
+				// #[derive(Debug)]
+				// struct SkipServerVerification;
+				// impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
+				// 	fn verify_server_cert(
+				// 		&self,
+				// 		_end_entity: &rustls::pki_types::CertificateDer<'_>,
+				// 		_intermediates: &[rustls::pki_types::CertificateDer<'_>],
+				// 		_server_name: &rustls::pki_types::ServerName<'_>,
+				// 		_ocsp_response: &[u8],
+				// 		_now: rustls::pki_types::UnixTime,
+				// 	) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+				// 		Ok(rustls::client::danger::ServerCertVerified::assertion())
+				// 	}
+
+				// 	fn verify_tls12_signature(
+				// 		&self,
+				// 		_message: &[u8],
+				// 		_cert: &rustls::pki_types::CertificateDer<'_>,
+				// 		_dss: &rustls::DigitallySignedStruct,
+				// 	) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+				// 		Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+				// 	}
+
+				// 	fn verify_tls13_signature(
+				// 		&self,
+				// 		_message: &[u8],
+				// 		_cert: &rustls::pki_types::CertificateDer<'_>,
+				// 		_dss: &rustls::DigitallySignedStruct,
+				// 	) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+				// 		Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+				// 	}
+
+				// 	fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+				// 		vec![]
+				// 	}
+				// }
+
+				// rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+				// 	.dangerous()
+				// 	.with_custom_certificate_verifier(Arc::new(SkipServerVerification))
+				// 	.with_no_client_auth()
+
 				struct SkipServerVerification;
-				impl rustls::client::danger::ServerCertVerifier for SkipServerVerification {
+				impl rustls_old::client::ServerCertVerifier for SkipServerVerification {
 					fn verify_server_cert(
 						&self,
-						_end_entity: &rustls::pki_types::CertificateDer<'_>,
-						_intermediates: &[rustls::pki_types::CertificateDer<'_>],
-						_server_name: &rustls::pki_types::ServerName<'_>,
+						_end_entity: &rustls_old::Certificate,
+						_intermediates: &[rustls_old::Certificate],
+						_server_name: &rustls_old::ServerName,
+						_scts: &mut dyn Iterator<Item = &[u8]>,
 						_ocsp_response: &[u8],
-						_now: rustls::pki_types::UnixTime,
-					) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-						Ok(rustls::client::danger::ServerCertVerified::assertion())
-					}
-
-					fn verify_tls12_signature(
-						&self,
-						_message: &[u8],
-						_cert: &rustls::pki_types::CertificateDer<'_>,
-						_dss: &rustls::DigitallySignedStruct,
-					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-						Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-					}
-
-					fn verify_tls13_signature(
-						&self,
-						_message: &[u8],
-						_cert: &rustls::pki_types::CertificateDer<'_>,
-						_dss: &rustls::DigitallySignedStruct,
-					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-						Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-					}
-
-					fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-						vec![]
+						_now: std::time::SystemTime,
+					) -> Result<rustls_old::client::ServerCertVerified, rustls_old::Error> {
+						Ok(rustls_old::client::ServerCertVerified::assertion())
 					}
 				}
 
-				rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-					.dangerous()
+				rustls_old::ClientConfig::builder()
+					.with_safe_defaults()
 					.with_custom_certificate_verifier(Arc::new(SkipServerVerification))
 					.with_no_client_auth()
 			}
 
 			#[cfg(not(debug_assertions))]
 			{
-				rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
-					.dangerous()
-					.with_custom_certificate_verifier(Arc::new(
-						rustls_platform_verifier::Verifier::new(),
-					))
+				// FIXME(@fogodev): use this commented code when we can update to quic-rpc 0.12.0 or newer
+				// rustls::ClientConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
+				// 	.dangerous()
+				// 	.with_custom_certificate_verifier(Arc::new(
+				// 		rustls_platform_verifier::Verifier::new(),
+				// 	))
+				// 	.with_no_client_auth()
+
+				rustls_old::ClientConfig::builder()
+					.with_safe_defaults()
 					.with_no_client_auth()
 			}
 		};
@@ -172,10 +231,13 @@ impl CloudServices {
 			.alpn_protocols
 			.extend([ServicesALPN::LATEST.to_vec()]);
 
-		let client_config = ClientConfig::new(Arc::new(
-			QuicClientConfig::try_from(crypto_config)
-				.expect("misconfigured TLS client config, this is a bug and should crash"),
-		));
+		// FIXME(@fogodev): use this commented code when we can update to quic-rpc 0.12.0 or newer
+		// let client_config = ClientConfig::new(Arc::new(
+		// 	QuicClientConfig::try_from(crypto_config)
+		// 		.expect("misconfigured TLS client config, this is a bug and should crash"),
+		// ));
+
+		let client_config = ClientConfig::new(Arc::new(crypto_config));
 
 		let mut endpoint = Endpoint::client("[::]:0".parse().expect("hardcoded address"))
 			.map_err(Error::FailedToCreateEndpoint)?;
@@ -228,6 +290,10 @@ impl CloudServices {
 			.map_or(Err(Error::KeyManagerNotInitialized), |key_manager| {
 				Ok(Arc::clone(key_manager))
 			})
+	}
+
+	pub async fn set_cloud_p2p(&self, cloud_p2p: CloudP2P) {
+		self.cloud_p2p.write().await.replace(Arc::new(cloud_p2p));
 	}
 }
 

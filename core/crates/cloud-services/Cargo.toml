@@ -5,12 +5,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# First party dependencies
+# Spacedrive Sub-crates
 sd-cloud-schema = { workspace = true }
 sd-crypto       = { path = "../../../crates/crypto" }
 sd-utils        = { path = "../../../crates/utils" }
 
 # Workspace dependencies
+async-stream        = { workspace = true }
 base64              = { workspace = true }
 blake3              = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
@@ -21,21 +22,32 @@ reqwest             = { workspace = true, features = ["json", "native-tls-vendor
 rspc                = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }
+specta              = { workspace = true }
 thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["sync", "time"] }
+tokio-stream        = { workspace = true }
 tracing             = { workspace = true }
+uuid                = { workspace = true, features = ["serde"] }
 zeroize             = { workspace = true }
 
 # External dependencies
+anyhow                   = "1.0.86"
 iroh-base                = { version = "0.23.0", features = ["key"] }
 iroh-net                 = "0.23.0"
+paste                    = "=1.0.15"
 postcard                 = { version = "1.0.8", features = ["use-std"] }
-quic-rpc                 = { version = "0.12.0", features = ["quinn-transport"] }
-quinn                    = { package = "iroh-quinn", version = "=0.11.3" }
+quic-rpc                 = { version = "0.11.0", features = ["quinn-transport"] }
+quinn                    = { package = "iroh-quinn", version = "=0.10.5" }
 reqwest-middleware       = { version = "0.3", features = ["json"] }
 reqwest-retry            = "0.6"
 rustls                   = { version = "0.23", default-features = false, features = ["brotli", "ring", "std"] }
 rustls-platform-verifier = "0.3.3"
+
+[dependencies.rustls-old]
+default-features = false
+features         = ["dangerous_configuration", "logging", "quic"]
+package          = "rustls"
+version          = "0.21.12"                                      # Update blocked by quic-rpc
 
 
 [dev-dependencies]

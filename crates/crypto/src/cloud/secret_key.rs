@@ -1,6 +1,7 @@
 use crate::{
 	ct::{Choice, ConstantTimeEq, ConstantTimeEqNull},
 	rng::CryptoRng,
+	Error,
 };
 
 use std::fmt;
@@ -95,6 +96,35 @@ impl<'de> Deserialize<'de> for SecretKey {
 impl From<&SecretKey> for Array<u8, U32> {
 	fn from(SecretKey(key): &SecretKey) -> Self {
 		*key
+	}
+}
+
+impl From<&SecretKey> for Vec<u8> {
+	fn from(SecretKey(key): &SecretKey) -> Self {
+		key.to_vec()
+	}
+}
+
+impl From<SecretKey> for Vec<u8> {
+	fn from(SecretKey(key): SecretKey) -> Self {
+		key.to_vec()
+	}
+}
+
+impl TryFrom<&[u8]> for SecretKey {
+	type Error = Error;
+
+	fn try_from(key: &[u8]) -> Result<Self, Self::Error> {
+		if key.len() != 32 {
+			return Err(Error::InvalidKeySize(key.len()));
+		}
+
+		Ok(Self(Array([
+			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
+			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
+			key[19], key[20], key[21], key[22], key[23], key[24], key[25], key[26], key[27],
+			key[28], key[29], key[30], key[31],
+		])))
 	}
 }
 

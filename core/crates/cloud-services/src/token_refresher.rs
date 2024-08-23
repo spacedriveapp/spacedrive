@@ -8,12 +8,18 @@ use futures::StreamExt;
 use futures_concurrency::stream::Merge;
 use reqwest::Url;
 use reqwest_middleware::{reqwest::header, ClientWithMiddleware};
-use tokio::{spawn, sync::oneshot, time::sleep};
+use tokio::{
+	spawn,
+	sync::oneshot,
+	time::{interval, sleep, MissedTickBehavior},
+};
+use tokio_stream::wrappers::IntervalStream;
 use tracing::{error, warn};
 
 use super::{Error, GetTokenError};
 
 const ONE_MINUTE: Duration = Duration::from_secs(60);
+const TEN_SECONDS: Duration = Duration::from_secs(10);
 
 enum Message {
 	Init(
@@ -23,8 +29,10 @@ enum Message {
 			oneshot::Sender<Result<(), Error>>,
 		),
 	),
+	CheckInitialization(oneshot::Sender<Result<(), GetTokenError>>),
 	RequestToken(oneshot::Sender<Result<AccessToken, GetTokenError>>),
 	RefreshTime,
+	Tick,
 }
 
 #[derive(Debug, Clone)]
@@ -75,6 +83,16 @@ impl TokenRefresher {
 		rx.await.expect("Token refresher channel closed")
 	}
 
+	pub async fn check_initialization(&self) -> Result<(), GetTokenError> {
+		let (tx, rx) = oneshot::channel();
+		self.tx
+			.send_async(Message::CheckInitialization(tx))
+			.await
+			.expect("Token refresher channel closed");
+
+		rx.await.expect("Token refresher channel closed")
+	}
+
 	pub async fn get_access_token(&self) -> Result<AccessToken, GetTokenError> {
 		let (tx, rx) = oneshot::channel();
 		self.tx
@@ -104,7 +122,15 @@ impl Runner {
 	) {
 		let (refresh_tx, refresh_rx) = flume::bounded(1);
 
-		let mut msg_stream = pin!((msgs_rx.into_stream(), refresh_rx.into_stream()).merge());
+		let mut ticker = interval(TEN_SECONDS);
+		ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+		let mut msg_stream = pin!((
+			msgs_rx.into_stream(),
+			refresh_rx.into_stream(),
+			IntervalStream::new(ticker).map(|_| Message::Tick)
+		)
+			.merge());
 
 		let mut runner = Self {
 			initialized: false,
@@ -127,6 +153,8 @@ impl Runner {
 					}
 				}
 
+				Message::CheckInitialization(ack) => runner.check_initialization(ack),
+
 				Message::RequestToken(ack) => runner.reply_token(ack),
 
 				Message::RefreshTime => {
@@ -134,6 +162,8 @@ impl Runner {
 						error!(?e, "Failed to refresh token: {e}");
 					}
 				}
+
+				Message::Tick => runner.tick().await,
 			}
 		}
 	}
@@ -143,7 +173,8 @@ impl Runner {
 		access_token: AccessToken,
 		refresh_token: RefreshToken,
 	) -> Result<(), Error> {
-		let access_token_duration = self.extract_access_token_duration(&access_token)?;
+		let access_token_duration =
+			Self::extract_access_token_duration(&mut self.token_decoding_buffer, &access_token)?;
 
 		self.initialized = true;
 		self.current_token = Some(access_token);
@@ -182,10 +213,9 @@ impl Runner {
 	}
 
 	async fn refresh(&mut self) -> Result<(), Error> {
-		self.current_token = None;
 		let RefreshToken(refresh_token) = self
 			.current_refresh_token
-			.take()
+			.clone()
 			.expect("refresh token is set otherwise we wouldn't be here");
 
 		let response = self
@@ -219,7 +249,7 @@ impl Runner {
 	}
 
 	fn extract_access_token_duration(
-		&mut self,
+		token_decoding_buffer: &mut Vec<u8>,
 		AccessToken(token): &AccessToken,
 	) -> Result<Duration, Error> {
 		#[derive(serde::Deserialize)]
@@ -228,10 +258,10 @@ impl Runner {
 			exp: DateTime<Utc>,
 		}
 
-		BASE64_URL_SAFE_NO_PAD.decode_vec(token, &mut self.token_decoding_buffer)?;
-		self.token_decoding_buffer.clear();
+		BASE64_URL_SAFE_NO_PAD.decode_vec(token, token_decoding_buffer)?;
+		token_decoding_buffer.clear();
 
-		let token = serde_json::from_slice::<Token>(&self.token_decoding_buffer)?;
+		let token = serde_json::from_slice::<Token>(token_decoding_buffer)?;
 
 		token
 			.exp
@@ -250,6 +280,34 @@ impl Runner {
 
 	fn token_header_value_to_string(token: &header::HeaderValue) -> Result<String, Error> {
 		token.to_str().map(str::to_string).map_err(Into::into)
+	}
+
+	fn check_initialization(&self, ack: oneshot::Sender<Result<(), GetTokenError>>) {
+		if ack
+			.send(if self.initialized {
+				Ok(())
+			} else {
+				Err(GetTokenError::RefresherNotInitialized)
+			})
+			.is_err()
+		{
+			warn!("Failed to send access token response, receiver dropped;");
+		}
+	}
+
+	/// This method is a safeguard to make sure we try to keep refreshing tokens even if they
+	/// already expired, as the refresh token has a bigger expiration than the access token.
+	async fn tick(&mut self) {
+		if let Some(access_token) = &self.current_token {
+			if matches!(
+				Self::extract_access_token_duration(&mut self.token_decoding_buffer, access_token),
+				Err(Error::TokenExpired)
+			) {
+				if let Err(e) = self.refresh().await {
+					error!(?e, "Failed to refresh expired token on tick method;");
+				}
+			}
+		}
 	}
 }
 
