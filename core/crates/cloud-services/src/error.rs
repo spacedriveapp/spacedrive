@@ -1,6 +1,9 @@
+use sd_cloud_schema::cloud_p2p::Service;
 use sd_utils::error::FileIOError;
 
 use std::{io, net::AddrParseError};
+
+use quic_rpc::transport::quinn::QuinnConnection;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -48,6 +51,14 @@ pub enum Error {
 	},
 	#[error("Key manager not initialized")]
 	KeyManagerNotInitialized,
+
+	// Cloud P2P errors
+	#[error("Failed to create Cloud P2P endpoint: {0}")]
+	CreateCloudP2PEndpoint(anyhow::Error),
+	#[error("Failed to connect to Cloud P2P node: {0}")]
+	ConnectToCloudP2PNode(anyhow::Error),
+	#[error("Communication error with Cloud P2P node: {0}")]
+	CloudP2PRpcCommunication(#[from] quic_rpc::pattern::rpc::Error<QuinnConnection<Service>>),
 }
 
 #[derive(thiserror::Error, Debug)]

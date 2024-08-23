@@ -4551,9 +4551,9 @@ dependencies = [
  "igd-next",
  "iroh-base",
  "iroh-metrics",
- "iroh-quinn 0.10.5",
- "iroh-quinn-proto 0.10.8",
- "iroh-quinn-udp 0.4.2",
+ "iroh-quinn",
+ "iroh-quinn-proto",
+ "iroh-quinn-udp",
  "libc",
  "netdev",
  "netlink-packet-core 0.7.0",
@@ -4604,29 +4604,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "906875956feb75d3d41d708ddaffeb11fdb10cd05f23efbcb17600037e411779"
 dependencies = [
  "bytes",
- "iroh-quinn-proto 0.10.8",
- "iroh-quinn-udp 0.4.2",
+ "iroh-quinn-proto",
+ "iroh-quinn-udp",
  "pin-project-lite",
  "rustc-hash 1.1.0",
  "rustls 0.21.12",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "iroh-quinn"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fd590a39a14cfc168efa4d894de5039d65641e62d8da4a80733018ababe3c33"
-dependencies = [
- "bytes",
- "iroh-quinn-proto 0.11.6",
- "iroh-quinn-udp 0.5.4",
- "pin-project-lite",
- "rustc-hash 2.0.0",
- "rustls 0.23.12",
- "socket2",
  "thiserror",
  "tokio",
  "tracing",
@@ -4651,24 +4633,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iroh-quinn-proto"
-version = "0.11.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fd0538ff12efe3d61ea1deda2d7913f4270873a519d43e6995c6e87a1558538"
-dependencies = [
- "bytes",
- "rand 0.8.5",
- "ring 0.17.8",
- "rustc-hash 2.0.0",
- "rustls 0.23.12",
- "rustls-platform-verifier",
- "slab",
- "thiserror",
- "tinyvec",
- "tracing",
-]
-
-[[package]]
 name = "iroh-quinn-udp"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4679,19 +4643,6 @@ dependencies = [
  "socket2",
  "tracing",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "iroh-quinn-udp"
-version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0619b59471fdd393ac8a6c047f640171119c1c8b41f7d2927db91776dcdbc5f"
-dependencies = [
- "libc",
- "once_cell",
- "socket2",
- "tracing",
- "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -8265,9 +8216,9 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc"
-version = "0.12.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cb85690ab1688eade9a5de4d94545a9ceef60639b3370f5e1a28f525eb5589"
+checksum = "110f0fbbf7c4a694902e11d890157245801d89a18d8e9b8d9d2afd91358a6a7c"
 dependencies = [
  "anyhow",
  "bincode 1.3.3",
@@ -8278,10 +8229,9 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "hex",
- "iroh-quinn 0.11.3",
+ "iroh-quinn",
  "pin-project",
  "serde",
- "slab",
  "tokio",
  "tokio-serde",
  "tokio-util",
@@ -9557,7 +9507,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#31d3f1cc570892c257d3bcf991a6c2a628567ebe"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#b58705f98b47d8214305f50234512d84697f5e06"
 dependencies = [
  "argon2",
  "async-stream",
@@ -9676,6 +9626,8 @@ dependencies = [
 name = "sd-core-cloud-services"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "async-stream",
  "base64 0.22.1",
  "blake3",
  "chrono",
@@ -9684,13 +9636,15 @@ dependencies = [
  "futures-concurrency",
  "iroh-base",
  "iroh-net",
- "iroh-quinn 0.11.3",
+ "iroh-quinn",
+ "paste",
  "postcard",
  "quic-rpc",
  "reqwest 0.11.27",
  "reqwest-middleware",
  "reqwest-retry",
  "rspc",
+ "rustls 0.21.12",
  "rustls 0.23.12",
  "rustls-platform-verifier",
  "sd-cloud-schema",
@@ -9698,9 +9652,12 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
+ "specta",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
+ "uuid",
  "zeroize",
 ]
 
@@ -13189,7 +13146,7 @@ dependencies = [
  "document-features",
  "js-sys",
  "log",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "smallvec",
@@ -13217,7 +13174,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "rustc-hash 1.1.0",
@@ -13255,7 +13212,7 @@ dependencies = [
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle 0.6.2",
  "renderdoc-sys",
