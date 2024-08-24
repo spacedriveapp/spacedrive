@@ -2,9 +2,18 @@ use sd_actors::Stopper;
 use sd_core_cloud_services::CloudServices;
 use sd_core_sync::SyncMessage;
 
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
+	time::Duration,
+};
 
-use tokio::sync::{broadcast, Notify};
+use tokio::{
+	sync::{broadcast, Notify},
+	time::sleep,
+};
 use uuid::Uuid;
 
 enum RaceNotifiedOrStopped {
@@ -16,117 +25,105 @@ pub async fn run_actor(
 	library_id: Uuid,
 	sync: Arc<sd_core_sync::Manager>,
 	cloud_services: CloudServices,
-	state: Arc<AtomicBool>,
+	is_active: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
 	stop: Stopper,
 ) {
-	// loop {
-	// 	state.store(true, Ordering::Relaxed);
-	// 	state_notify.notify_waiters();
+	loop {
+		is_active.store(true, Ordering::Relaxed);
+		state_notify.notify_waiters();
 
-	// 	loop {
-	// 		// all available instances will have a default timestamp from create_instance
-	// 		let instances = sync
-	// 			.timestamps
-	// 			.read()
-	// 			.await
-	// 			.keys()
-	// 			.cloned()
-	// 			.collect::<Vec<_>>();
+		// loop {
+		// 	// all available instances will have a default timestamp from create_instance
+		// 	let instances = sync
+		// 		.timestamp_per_device
+		// 		.read()
+		// 		.await
+		// 		.keys()
+		// 		.cloned()
+		// 		.collect::<Vec<_>>();
 
-	// 		// obtains a lock on the timestamp collections for the instances we have
-	// 		let req_adds = err_break!(
-	// 			sd_cloud_api::library::message_collections::request_add(
-	// 				cloud_api_config_provider.get_request_config().await,
-	// 				library_id,
-	// 				instances,
-	// 			)
-	// 			.await
-	// 		);
+		// 	// obtains a lock on the timestamp collections for the instances we have
 
-	// 		let mut instances = vec![];
+		// 	debug!(
+		// 		total_operations = req_adds.len(),
+		// 		"Preparing to send instance's operations to cloud;"
+		// 	);
 
-	// 		use sd_cloud_api::library::message_collections::do_add;
+		// 	// gets new operations for each instance to send to cloud
+		// 	for req_add in req_adds {
+		// 		let ops = err_break!(
+		// 			sync.get_instance_ops(
+		// 				1000,
+		// 				req_add.instance_uuid,
+		// 				NTP64(
+		// 					req_add
+		// 						.from_time
+		// 						.unwrap_or_else(|| "0".to_string())
+		// 						.parse()
+		// 						.expect("couldn't parse ntp64 value"),
+		// 				)
+		// 			)
+		// 			.await
+		// 		);
 
-	// 		debug!(
-	// 			total_operations = req_adds.len(),
-	// 			"Preparing to send instance's operations to cloud;"
-	// 		);
+		// 		if ops.is_empty() {
+		// 			continue;
+		// 		}
 
-	// 		// gets new operations for each instance to send to cloud
-	// 		for req_add in req_adds {
-	// 			let ops = err_break!(
-	// 				sync.get_instance_ops(
-	// 					1000,
-	// 					req_add.instance_uuid,
-	// 					NTP64(
-	// 						req_add
-	// 							.from_time
-	// 							.unwrap_or_else(|| "0".to_string())
-	// 							.parse()
-	// 							.expect("couldn't parse ntp64 value"),
-	// 					)
-	// 				)
-	// 				.await
-	// 			);
+		// 		let start_time = ops[0].timestamp.0.to_string();
+		// 		let end_time = ops[ops.len() - 1].timestamp.0.to_string();
 
-	// 			if ops.is_empty() {
-	// 				continue;
-	// 			}
+		// 		let ops_len = ops.len();
 
-	// 			let start_time = ops[0].timestamp.0.to_string();
-	// 			let end_time = ops[ops.len() - 1].timestamp.0.to_string();
+		// 		use base64::prelude::*;
 
-	// 			let ops_len = ops.len();
+		// 		debug!(instance_id = %req_add.instance_uuid, %start_time, %end_time);
 
-	// 			use base64::prelude::*;
+		// 		instances.push(do_add::Input {
+		// 			uuid: req_add.instance_uuid,
+		// 			key: req_add.key,
+		// 			start_time,
+		// 			end_time,
+		// 			contents: BASE64_STANDARD.encode(
+		// 				rmp_serde::to_vec_named(&CompressedCRDTOperations::new(ops))
+		// 					.expect("CompressedCRDTOperation should serialize!"),
+		// 			),
+		// 			ops_count: ops_len,
+		// 		})
+		// 	}
 
-	// 			debug!(instance_id = %req_add.instance_uuid, %start_time, %end_time);
+		// 	if instances.is_empty() {
+		// 		break;
+		// 	}
 
-	// 			instances.push(do_add::Input {
-	// 				uuid: req_add.instance_uuid,
-	// 				key: req_add.key,
-	// 				start_time,
-	// 				end_time,
-	// 				contents: BASE64_STANDARD.encode(
-	// 					rmp_serde::to_vec_named(&CompressedCRDTOperations::new(ops))
-	// 						.expect("CompressedCRDTOperation should serialize!"),
-	// 				),
-	// 				ops_count: ops_len,
-	// 			})
-	// 		}
+		// 	// uses lock we acquired earlier to send the operations to the cloud
+		// 	err_break!(
+		// 		do_add(
+		// 			cloud_api_config_provider.get_request_config().await,
+		// 			library_id,
+		// 			instances,
+		// 		)
+		// 		.await
+		// 	);
+		// }
 
-	// 		if instances.is_empty() {
-	// 			break;
-	// 		}
+		// is_active.store(false, Ordering::Relaxed);
+		// state_notify.notify_waiters();
 
-	// 		// uses lock we acquired earlier to send the operations to the cloud
-	// 		err_break!(
-	// 			do_add(
-	// 				cloud_api_config_provider.get_request_config().await,
-	// 				library_id,
-	// 				instances,
-	// 			)
-	// 			.await
-	// 		);
-	// 	}
+		// if let RaceNotifiedOrStopped::Stopped = (
+		// 	// recreate subscription each time so that existing messages are dropped
+		// 	wait_notification(sync.subscribe()),
+		// 	stop.into_future().map(|()| RaceNotifiedOrStopped::Stopped),
+		// )
+		// 	.race()
+		// 	.await
+		// {
+		// 	break;
+		// }
 
-	// 	state.store(false, Ordering::Relaxed);
-	// 	state_notify.notify_waiters();
-
-	// 	if let RaceNotifiedOrStopped::Stopped = (
-	// 		// recreate subscription each time so that existing messages are dropped
-	// 		wait_notification(sync.subscribe()),
-	// 		stop.into_future().map(|()| RaceNotifiedOrStopped::Stopped),
-	// 	)
-	// 		.race()
-	// 		.await
-	// 	{
-	// 		break;
-	// 	}
-
-	// 	sleep(Duration::from_millis(1000)).await;
-	// }
+		sleep(Duration::from_millis(1000)).await;
+	}
 }
 
 async fn wait_notification(mut rx: broadcast::Receiver<SyncMessage>) -> RaceNotifiedOrStopped {

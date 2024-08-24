@@ -10074,8 +10074,6 @@ dependencies = [
  "rmp-serde",
  "rmpv",
  "serde",
- "serde_json",
- "specta",
  "uhlc",
  "uuid",
 ]
@@ -10700,7 +10698,6 @@ dependencies = [
  "serde_json",
  "specta-macros",
  "thiserror",
- "uhlc",
  "uuid",
 ]
 

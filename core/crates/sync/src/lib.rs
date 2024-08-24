@@ -54,13 +54,14 @@ pub enum SyncMessage {
 	Created,
 }
 
-pub type Timestamps = Arc<RwLock<HashMap<Uuid, NTP64>>>;
+pub type DevicePubId = Uuid;
+pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;
 
 pub struct SharedState {
 	pub db: Arc<PrismaClient>,
 	pub emit_messages_flag: Arc<AtomicBool>,
 	pub instance: Uuid,
-	pub timestamps: Timestamps,
+	pub timestamp_per_device: TimestampPerDevice,
 	pub clock: uhlc::HLC,
 	pub active: AtomicBool,
 	pub active_notify: Notify,
@@ -105,10 +106,10 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 				op.timestamp.as_u64() as i64
 			}
 		},
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		instance: instance::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
-		model: i32::from(op.model),
+		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,
 		_params: vec![],
 	})
@@ -129,7 +130,7 @@ pub fn crdt_op_unchecked_db(
 		instance_id,
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
-		model: i32::from(op.model),
+		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,
 		_params: vec![],
 	})

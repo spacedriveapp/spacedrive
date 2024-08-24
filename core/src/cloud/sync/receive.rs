@@ -239,10 +239,10 @@ async fn write_cloud_ops_to_db(
 fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	cloud_crdt_operation::Create {
 		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		instance: instance::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
-		model: op.model as i32,
+		model: op.model_id as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
@@ -283,7 +283,11 @@ pub async fn upsert_instance(
 		.exec()
 		.await?;
 
-	sync.timestamps.write().await.entry(*uuid).or_default();
+	sync.timestamp_per_device
+		.write()
+		.await
+		.entry(*uuid)
+		.or_default();
 
 	// Called again so the new instances are picked up
 	libraries.update_instances_by_id(library_id).await;

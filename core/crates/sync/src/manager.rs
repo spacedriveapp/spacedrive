@@ -40,7 +40,7 @@ impl fmt::Debug for Manager {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
 pub struct GetOpsArgs {
-	pub clocks: Vec<(Uuid, NTP64)>,
+	pub timestamp_per_device: Vec<(Uuid, NTP64)>,
 	pub count: u32,
 }
 
@@ -115,7 +115,7 @@ impl Manager {
 			db,
 			instance: current_instance_uuid,
 			clock,
-			timestamps: Arc::new(RwLock::new(timestamps)),
+			timestamp_per_device: Arc::new(RwLock::new(timestamps)),
 			emit_messages_flag,
 			active: AtomicBool::default(),
 			active_notify: Notify::default(),
@@ -165,7 +165,7 @@ impl Manager {
 
 			if let Some(last) = ops.last() {
 				self.shared
-					.timestamps
+					.timestamp_per_device
 					.write()
 					.await
 					.insert(self.instance, last.timestamp);
@@ -213,7 +213,7 @@ impl Manager {
 		};
 
 		self.shared
-			.timestamps
+			.timestamp_per_device
 			.write()
 			.await
 			.insert(self.instance, op.timestamp);
@@ -251,7 +251,7 @@ impl Manager {
 			.db
 			.crdt_operation()
 			.find_many(vec![or(args
-				.clocks
+				.timestamp_per_device
 				.iter()
 				.map(|(instance_id, timestamp)| {
 					and![
@@ -269,7 +269,7 @@ impl Manager {
 				})
 				.chain([crdt_operation::instance::is_not(vec![
 					instance::pub_id::in_vec(
-						args.clocks
+						args.timestamp_per_device
 							.iter()
 							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
 							.collect(),
@@ -301,7 +301,7 @@ impl Manager {
 			.db
 			.cloud_crdt_operation()
 			.find_many(vec![or(args
-				.clocks
+				.timestamp_per_device
 				.iter()
 				.map(|(instance_id, timestamp)| {
 					and![
@@ -319,7 +319,7 @@ impl Manager {
 				})
 				.chain([cloud_crdt_operation::instance::is_not(vec![
 					instance::pub_id::in_vec(
-						args.clocks
+						args.timestamp_per_device
 							.iter()
 							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
 							.collect(),
@@ -349,7 +349,7 @@ impl OperationFactory for Manager {
 		&self.clock
 	}
 
-	fn get_instance(&self) -> Uuid {
+	fn get_device_pub_id(&self) -> Uuid {
 		self.instance
 	}
 }

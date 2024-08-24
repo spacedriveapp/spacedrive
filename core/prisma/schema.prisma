@@ -28,9 +28,10 @@ model CRDTOperation {
   kind      String
   data      Bytes
 
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
+  device_pub_id Bytes
+  device        Device @relation(fields: [device_pub_id], references: [pub_id])
 
+  @@index([timestamp])
   @@map("crdt_operation")
 }
 
@@ -46,22 +47,36 @@ model CloudCRDTOperation {
   kind      String
   data      Bytes
 
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
+  device_pub_id Bytes
+  device        Device @relation(fields: [device_pub_id], references: [pub_id])
 
+  @@index([timestamp])
   @@map("cloud_crdt_operation")
 }
 
-/// @deprecated: This model has to exist solely for backwards compatibility.
-/// @local
-model Node {
-  id           Int      @id @default(autoincrement())
-  pub_id       Bytes    @unique
-  name         String
-  // Enum: sd_core::node::Platform
-  platform     Int
+/// Devices are the owner machines connected to this library
+/// @shared(id: pub_id, modelId: 12)
+model Device {
+  id     Int    @id @default(autoincrement())
+  // uuid v7
+  pub_id Bytes  @unique
+  name   String
+
+  // Enum: sd_cloud_schema::device::DeviceOS
+  os             Int
+  // Enum: sd_cloud_schema::device::HardwareModel
+  hardware_model Int
+
+  // clock timestamp for sync
+  timestamp BigInt?
+
   date_created DateTime
-  identity     Bytes? // TODO: Change to required field in future
+  date_deleted DateTime?
+
+  CRDTOperation      CRDTOperation[]
+  CloudCRDTOperation CloudCRDTOperation[]
+  StorageStatistics  StorageStatistics?
+  Location           Location[]
 
   @@map("node")
 }
@@ -88,11 +103,6 @@ model Instance {
 
   // clock timestamp for sync
   timestamp BigInt?
-
-  locations          Location[]
-  CRDTOperation      CRDTOperation[]
-  CloudCRDTOperation CloudCRDTOperation[]
-  storage_statistics StorageStatistics?
 
   @@map("instance")
 }
@@ -158,9 +168,8 @@ model Location {
 
   scan_state Int @default(0) // Enum: sd_core::location::ScanState
 
-  // this should just be a local-only cache but it's too much effort to broadcast online locations rn (@brendan)
-  instance_id Int?
-  instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
+  device_pub_id Bytes
+  device        Device @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
 
   file_paths    FilePath[]
   indexer_rules IndexerRulesInLocation[]
@@ -576,8 +585,8 @@ model StorageStatistics {
   total_capacity     BigInt @default(0)
   available_capacity BigInt @default(0)
 
-  instance_pub_id Bytes?    @unique
-  instance        Instance? @relation(fields: [instance_pub_id], references: [pub_id], onDelete: Cascade)
+  device_pub_id Bytes  @unique
+  device        Device @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
 
   @@map("storage_statistics")
 }

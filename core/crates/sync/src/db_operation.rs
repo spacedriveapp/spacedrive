@@ -28,11 +28,11 @@ impl crdt_with_instance::Data {
 
 	pub fn into_operation(self) -> Result<CRDTOperation, Error> {
 		Ok(CRDTOperation {
-			instance: self.instance(),
+			device_pub_id: self.instance(),
 			timestamp: self.timestamp(),
 			record_id: rmp_serde::from_slice(&self.record_id)?,
 
-			model: {
+			model_id: {
 				#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 				// SAFETY: we will not have more than 2^16 models and we had to store using signed
 				// integers due to SQLite limitations
@@ -60,10 +60,10 @@ impl cloud_crdt_with_instance::Data {
 		Ok((
 			self.id,
 			CRDTOperation {
-				instance: self.instance(),
+				device_pub_id: self.instance(),
 				timestamp: self.timestamp(),
 				record_id: rmp_serde::from_slice(&self.record_id)?,
-				model: {
+				model_id: {
 					#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 					// SAFETY: we will not have more than 2^16 models and we had to store using signed
 					// integers due to SQLite limitations
@@ -87,10 +87,10 @@ pub async fn write_crdt_op_to_db(op: &CRDTOperation, db: &PrismaClient) -> Resul
 				op.timestamp.0 as i64
 			}
 		},
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		instance: instance::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
-		model: i32::from(op.model),
+		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,
 		_params: vec![],
 	}

@@ -1,9 +1,9 @@
+use crate::{DevicePubId, ModelId};
+
 use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
-use specta::Type;
 use uhlc::NTP64;
-use uuid::Uuid;
 
 pub enum OperationKind<'a> {
 	Create,
@@ -21,16 +21,12 @@ impl fmt::Display for OperationKind<'_> {
 	}
 }
 
-#[derive(PartialEq, Serialize, Deserialize, Clone, Debug, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub enum CRDTOperationData {
 	#[serde(rename = "c")]
-	Create(#[specta(type = BTreeMap<String, serde_json::Value>)] BTreeMap<String, rmpv::Value>),
+	Create(BTreeMap<String, rmpv::Value>),
 	#[serde(rename = "u")]
-	Update {
-		field: String,
-		#[specta(type = serde_json::Value)]
-		value: rmpv::Value,
-	},
+	Update { field: String, value: rmpv::Value },
 	#[serde(rename = "d")]
 	Delete,
 }
@@ -51,13 +47,11 @@ impl CRDTOperationData {
 	}
 }
 
-#[derive(PartialEq, Serialize, Deserialize, Clone, Type)]
+#[derive(PartialEq, Serialize, Deserialize, Clone)]
 pub struct CRDTOperation {
-	pub instance: Uuid,
-	#[specta(type = u32)]
+	pub device_pub_id: DevicePubId,
 	pub timestamp: NTP64,
-	pub model: u16,
-	#[specta(type = serde_json::Value)]
+	pub model_id: ModelId,
 	pub record_id: rmpv::Value,
 	pub data: CRDTOperationData,
 }
@@ -73,7 +67,7 @@ impl fmt::Debug for CRDTOperation {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("CRDTOperation")
 			.field("data", &self.data)
-			.field("model", &self.model)
+			.field("model", &self.model_id)
 			.field("record_id", &self.record_id.to_string())
 			.finish_non_exhaustive()
 	}

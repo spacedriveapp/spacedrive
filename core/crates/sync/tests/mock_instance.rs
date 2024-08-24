@@ -1,7 +1,7 @@
 use sd_core_sync::*;
 
 use sd_prisma::prisma;
-use sd_sync::CompressedCRDTOperations;
+use sd_sync::CompressedCRDTOperationsPerModelPerDevice;
 use sd_utils::uuid_to_bytes;
 
 use std::sync::{atomic::AtomicBool, Arc};
@@ -122,7 +122,7 @@ impl Instance {
 								let messages = left
 									.sync
 									.get_ops(GetOpsArgs {
-										clocks: timestamps,
+										timestamp_per_device: timestamps,
 										count: 100,
 									})
 									.await
@@ -133,7 +133,9 @@ impl Instance {
 								ingest
 									.event_tx
 									.send(ingest::Event::Messages(ingest::MessagesEvent {
-										messages: CompressedCRDTOperations::new(messages),
+										messages: CompressedCRDTOperationsPerModelPerDevice::new(
+											messages,
+										),
 										has_more: false,
 										instance_id: left.id,
 										wait_tx: None,

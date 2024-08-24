@@ -1,18 +1,21 @@
+use crate::{CRDTOperation, CRDTOperationData, DevicePubId, ModelId, RecordId};
+
 use std::mem;
 
 use serde::{Deserialize, Serialize};
 use uhlc::NTP64;
 use uuid::Uuid;
 
-use crate::{CRDTOperation, CRDTOperationData};
-
-pub type CompressedCRDTOperationsForModel = Vec<(rmpv::Value, Vec<CompressedCRDTOperation>)>;
+pub type CompressedCRDTOperationsPerModel =
+	Vec<(ModelId, Vec<(RecordId, Vec<CompressedCRDTOperation>)>)>;
 
 /// Stores a bunch of [`CRDTOperation`]s in a more memory-efficient form for sending to the cloud.
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct CompressedCRDTOperations(pub Vec<(Uuid, Vec<(u16, CompressedCRDTOperationsForModel)>)>);
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CompressedCRDTOperationsPerModelPerDevice(
+	pub Vec<(DevicePubId, CompressedCRDTOperationsPerModel)>,
+);
 
-impl CompressedCRDTOperations {
+impl CompressedCRDTOperationsPerModelPerDevice {
 	#[must_use]
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
 		let mut compressed = vec![];
@@ -23,36 +26,36 @@ impl CompressedCRDTOperations {
 			return Self(vec![]);
 		};
 
-		let mut instance_id = first.instance;
-		let mut instance = vec![];
+		let mut device_pub_id = first.device_pub_id;
+		let mut device_messages = vec![];
 
-		let mut model_str = first.model;
+		let mut model_id = first.model_id;
 		let mut model = vec![];
 
 		let mut record_id = first.record_id.clone();
 		let mut record = vec![first.into()];
 
 		for op in ops_iter {
-			if instance_id != op.instance {
+			if device_pub_id != op.device_pub_id {
 				model.push((
 					mem::replace(&mut record_id, op.record_id.clone()),
 					mem::take(&mut record),
 				));
-				instance.push((
-					mem::replace(&mut model_str, op.model),
+				device_messages.push((
+					mem::replace(&mut model_id, op.model_id),
 					mem::take(&mut model),
 				));
 				compressed.push((
-					mem::replace(&mut instance_id, op.instance),
-					mem::take(&mut instance),
+					mem::replace(&mut device_pub_id, op.device_pub_id),
+					mem::take(&mut device_messages),
 				));
-			} else if model_str != op.model {
+			} else if model_id != op.model_id {
 				model.push((
 					mem::replace(&mut record_id, op.record_id.clone()),
 					mem::take(&mut record),
 				));
-				instance.push((
-					mem::replace(&mut model_str, op.model),
+				device_messages.push((
+					mem::replace(&mut model_id, op.model_id),
 					mem::take(&mut model),
 				));
 			} else if record_id != op.record_id {
@@ -66,8 +69,8 @@ impl CompressedCRDTOperations {
 		}
 
 		model.push((record_id, record));
-		instance.push((model_str, model));
-		compressed.push((instance_id, instance));
+		device_messages.push((model_id, model));
+		compressed.push((device_pub_id, device_messages));
 
 		Self(compressed)
 	}
@@ -113,13 +116,13 @@ impl CompressedCRDTOperations {
 	pub fn into_ops(self) -> Vec<CRDTOperation> {
 		let mut ops = vec![];
 
-		for (instance_id, instance) in self.0 {
-			for (model_str, model) in instance {
-				for (record_id, record) in model {
+		for (device_pub_id, device_messages) in self.0 {
+			for (model_id, model_messages) in device_messages {
+				for (record_id, record) in model_messages {
 					for op in record {
 						ops.push(CRDTOperation {
-							instance: instance_id,
-							model: model_str,
+							device_pub_id,
+							model_id,
 							record_id: record_id.clone(),
 							timestamp: op.timestamp,
 							data: op.data,
@@ -140,11 +143,12 @@ pub struct CompressedCRDTOperation {
 }
 
 impl From<CRDTOperation> for CompressedCRDTOperation {
-	fn from(value: CRDTOperation) -> Self {
-		Self {
-			timestamp: value.timestamp,
-			data: value.data,
-		}
+	fn from(
+		CRDTOperation {
+			timestamp, data, ..
+		}: CRDTOperation,
+	) -> Self {
+		Self { timestamp, data }
 	}
 }
 
@@ -154,61 +158,62 @@ mod test {
 
 	#[test]
 	fn compress() {
-		let instance = Uuid::new_v4();
+		let device_pub_id = Uuid::now_v7();
 
 		let uncompressed = vec![
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 0,
+				model_id: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 0,
+				model_id: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 0,
+				model_id: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 1,
+				model_id: 1,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 1,
+				model_id: 1,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 0,
+				model_id: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 			CRDTOperation {
-				instance,
+				device_pub_id,
 				timestamp: NTP64(0),
-				model: 0,
+				model_id: 0,
 				record_id: rmpv::Value::Nil,
 				data: CRDTOperationData::create(),
 			},
 		];
 
-		let CompressedCRDTOperations(compressed) = CompressedCRDTOperations::new(uncompressed);
+		let CompressedCRDTOperationsPerModelPerDevice(compressed) =
+			CompressedCRDTOperationsPerModelPerDevice::new(uncompressed);
 
 		assert_eq!(compressed[0].1[0].0, 0);
 		assert_eq!(compressed[0].1[1].0, 1);
@@ -221,7 +226,7 @@ mod test {
 
 	#[test]
 	fn into_ops() {
-		let compressed = CompressedCRDTOperations(vec![(
+		let compressed = CompressedCRDTOperationsPerModelPerDevice(vec![(
 			Uuid::new_v4(),
 			vec![
 				(
@@ -282,8 +287,8 @@ mod test {
 		let uncompressed = compressed.into_ops();
 
 		assert_eq!(uncompressed.len(), 7);
-		assert_eq!(uncompressed[2].model, 0);
-		assert_eq!(uncompressed[4].model, 1);
-		assert_eq!(uncompressed[6].model, 0);
+		assert_eq!(uncompressed[2].model_id, 0);
+		assert_eq!(uncompressed[4].model_id, 1);
+		assert_eq!(uncompressed[6].model_id, 0);
 	}
 }
