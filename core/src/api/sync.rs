@@ -23,17 +23,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 				})
 		})
-		.procedure("messages", {
-			R.with2(library()).query(|(_, library), _: ()| async move {
-				Ok(library
-					.sync
-					.get_ops(GetOpsArgs {
-						clocks: vec![],
-						count: 1000,
-					})
-					.await?)
-			})
-		})
+		// .procedure("messages", {
+		// 	R.with2(library()).query(|(_, library), _: ()| async move {
+		// 		Ok(library
+		// 			.sync
+		// 			.get_ops(GetOpsArgs {
+		// 				timestamp_per_device: vec![],
+		// 				count: 1000,
+		// 			})
+		// 			.await?)
+		// 	})
+		// })
 		.procedure("backfill", {
 			R.with2(library())
 				.mutation(|(node, library), _: ()| async move {

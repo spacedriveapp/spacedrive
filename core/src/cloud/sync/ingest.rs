@@ -2,7 +2,7 @@ use crate::cloud::sync::err_break;
 
 use sd_actors::Stopper;
 use sd_prisma::prisma::cloud_crdt_operation;
-use sd_sync::CompressedCRDTOperations;
+use sd_sync::CompressedCRDTOperationsPerModelPerDevice;
 
 use std::{
 	future::IntoFuture,
@@ -65,7 +65,7 @@ pub async fn run_actor(
 
 					let (ops_ids, ops): (Vec<_>, Vec<_>) = err_break!(
 						sync.get_cloud_ops(GetOpsArgs {
-							clocks: timestamps,
+							timestamp_per_device: timestamps,
 							count: OPS_PER_REQUEST,
 						})
 						.await
@@ -92,7 +92,7 @@ pub async fn run_actor(
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
 								instance_id: sync.instance,
 								has_more: ops.len() == OPS_PER_REQUEST as usize,
-								messages: CompressedCRDTOperations::new(ops),
+								messages: CompressedCRDTOperationsPerModelPerDevice::new(ops),
 								wait_tx: Some(wait_tx)
 							}))
 							.await

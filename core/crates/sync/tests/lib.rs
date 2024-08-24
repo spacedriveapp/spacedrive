@@ -99,7 +99,7 @@ async fn writes_operations_and_rows_together() -> Result<(), Box<dyn std::error:
 	let out = instance
 		.sync
 		.get_ops(GetOpsArgs {
-			clocks: vec![],
+			timestamp_per_device: vec![],
 			count: 100,
 		})
 		.await?;
@@ -142,7 +142,7 @@ async fn operations_send_and_ingest() -> Result<(), Box<dyn std::error::Error>> 
 	let out = instance2
 		.sync
 		.get_ops(GetOpsArgs {
-			clocks: vec![],
+			timestamp_per_device: vec![],
 			count: 100,
 		})
 		.await?;

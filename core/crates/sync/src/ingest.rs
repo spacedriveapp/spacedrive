@@ -3,8 +3,8 @@ use sd_prisma::{
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::{
-	CRDTOperation, CRDTOperationData, CompressedCRDTOperation, CompressedCRDTOperations,
-	OperationKind,
+	CRDTOperation, CRDTOperationData, CompressedCRDTOperation,
+	CompressedCRDTOperationsPerModelPerDevice, OperationKind,
 };
 
 use std::{
@@ -133,7 +133,7 @@ impl Actor {
 		let (tx, rx) = oneshot::channel::<()>();
 
 		let timestamps = self
-			.timestamps
+			.timestamp_per_device
 			.read()
 			.await
 			.iter()
@@ -289,7 +289,12 @@ impl Actor {
 			.expect("timestamp has too much drift!");
 
 		// read the timestamp for the operation's instance, or insert one if it doesn't exist
-		let timestamp = self.timestamps.read().await.get(&instance).copied();
+		let timestamp = self
+			.timestamp_per_device
+			.read()
+			.await
+			.get(&instance)
+			.copied();
 
 		// Delete - ignores all other messages
 		if let Some(delete_op) = ops
@@ -388,7 +393,10 @@ impl Actor {
 		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
 		let new_ts = NTP64::max(timestamp.unwrap_or_default(), new_timestamp);
 
-		self.timestamps.write().await.insert(instance, new_ts);
+		self.timestamp_per_device
+			.write()
+			.await
+			.insert(instance, new_ts);
 
 		Ok(())
 	}
@@ -416,8 +424,8 @@ async fn handle_crdt_updates(
 		.run(|db| async move {
 			// fake operation to batch them all at once
 			ModelSyncData::from_op(CRDTOperation {
-				instance,
-				model,
+				device_pub_id: instance,
+				model_id: model,
 				record_id: record_id.clone(),
 				timestamp: NTP64(0),
 				data: CRDTOperationData::Create(
@@ -439,8 +447,8 @@ async fn handle_crdt_updates(
 					async move {
 						write_crdt_op_to_db(
 							&CRDTOperation {
-								instance,
-								model,
+								device_pub_id: instance,
+								model_id: model,
 								record_id,
 								timestamp,
 								data: CRDTOperationData::Update { field, value },
@@ -495,8 +503,8 @@ async fn handle_crdt_create_and_updates(
 		.run(|db| async move {
 			// fake a create with a bunch of data rather than individual insert
 			ModelSyncData::from_op(CRDTOperation {
-				instance,
-				model,
+				device_pub_id: instance,
+				model_id: model,
 				record_id: record_id.clone(),
 				timestamp,
 				data: CRDTOperationData::Create(
@@ -516,8 +524,8 @@ async fn handle_crdt_create_and_updates(
 					let db = &db;
 					async move {
 						let operation = CRDTOperation {
-							instance,
-							model,
+							device_pub_id: instance,
+							model_id: model,
 							record_id,
 							timestamp: op.timestamp,
 							data: op.data.clone(),
@@ -543,8 +551,8 @@ async fn handle_crdt_deletion(
 ) -> Result<(), Error> {
 	// deletes are the be all and end all, no need to check anything
 	let op = CRDTOperation {
-		instance,
-		model,
+		device_pub_id: instance,
+		model_id: model,
 		record_id,
 		timestamp: delete_op.timestamp,
 		data: CRDTOperationData::Delete,
@@ -579,7 +587,7 @@ pub struct Handler {
 #[derive(Debug)]
 pub struct MessagesEvent {
 	pub instance_id: Uuid,
-	pub messages: CompressedCRDTOperations,
+	pub messages: CompressedCRDTOperationsPerModelPerDevice,
 	pub has_more: bool,
 	pub wait_tx: Option<oneshot::Sender<()>>,
 }
@@ -609,7 +617,7 @@ mod test {
 					NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
 				))
 				.build(),
-			timestamps: Arc::default(),
+			timestamp_per_device: Arc::default(),
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
 			active: AtomicBool::default(),
 			active_notify: Notify::default(),
