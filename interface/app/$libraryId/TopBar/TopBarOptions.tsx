@@ -66,7 +66,6 @@ export default ({ options }: TopBarChildrenProps) => {
 						/>
 					))
 				)}
-				{os === 'windows' && <WindowsControls windowSize={windowSize} />}
 			</div>
 			<TopBarMobile
 				toolOptions={options}
@@ -74,6 +73,7 @@ export default ({ options }: TopBarChildrenProps) => {
 					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
 				}
 			/>
+			{os === 'windows' && <WindowsControls windowSize={windowSize} />}
 		</div>
 	);
 };
@@ -193,7 +193,7 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 		getWindowState().catch(console.error);
 	}, [getWindowState, windowSize]);
 	return (
-		<div className="mx-1 hidden items-center xl:flex">
+		<div className="mx-1 ml-4 flex items-center">
 			<TopBarButton
 				className="mx-2"
 				rounding="both"
