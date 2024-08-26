@@ -112,7 +112,10 @@ impl KeyManager {
 	pub async fn add_many_keys(
 		&self,
 		group_pub_id: groups::PubId,
-		keys: impl IntoIterator<Item = SecretKey> + Send,
+		keys: impl IntoIterator<
+				Item = SecretKey,
+				IntoIter = impl DoubleEndedIterator<Item = SecretKey> + Send,
+			> + Send,
 		rng: &mut CryptoRng,
 	) -> Result<(), Error> {
 		let mut store = self.store.write().await;
@@ -122,6 +125,14 @@ impl KeyManager {
 			.encrypt(&self.master_key, rng, &self.keys_file_path)
 			.await
 	}
+
+	pub async fn get_latest_key(
+		&self,
+		group_pub_id: groups::PubId,
+	) -> Option<(KeyHash, SecretKey)> {
+		self.store.read().await.get_latest_key(group_pub_id)
+	}
+
 	pub async fn get_key(&self, group_pub_id: groups::PubId, hash: &KeyHash) -> Option<SecretKey> {
 		self.store.read().await.get_key(group_pub_id, hash)
 	}

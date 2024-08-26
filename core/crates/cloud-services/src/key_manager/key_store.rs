@@ -9,7 +9,7 @@ use sd_crypto::{
 use sd_utils::error::FileIOError;
 
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, VecDeque},
 	fs::Metadata,
 	path::PathBuf,
 	pin::pin,
@@ -24,10 +24,12 @@ use tokio::{
 };
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
+type KeyStack = VecDeque<(KeyHash, SecretKey)>;
+
 #[derive(Serialize, Deserialize)]
 pub struct KeyStore {
 	iroh_secret_key: IrohSecretKey,
-	keys: BTreeMap<groups::PubId, HashMap<KeyHash, SecretKey>>,
+	keys: BTreeMap<groups::PubId, KeyStack>,
 }
 
 impl KeyStore {
@@ -46,22 +48,24 @@ impl KeyStore {
 		self.keys
 			.entry(group_pub_id)
 			.or_default()
-			.insert(KeyHash(hash.to_hex().to_string()), key);
+			.push_front((KeyHash(hash.to_hex().to_string()), key));
 	}
 
 	pub fn add_many_keys(
 		&mut self,
 		group_pub_id: groups::PubId,
-		keys: impl IntoIterator<Item = SecretKey>,
+		keys: impl IntoIterator<Item = SecretKey, IntoIter = impl DoubleEndedIterator<Item = SecretKey>>,
 	) {
 		let group_entry = self.keys.entry(group_pub_id).or_default();
 
-		for key in keys {
+		// We reverse the secret keys as a implementation detail to
+		// keep the keys in the same order as they were added as a stack
+		for key in keys.into_iter().rev() {
 			let mut hasher = blake3::Hasher::new();
 			hasher.update(key.as_ref());
 			let hash = hasher.finalize();
 
-			group_entry.insert(KeyHash(hash.to_hex().to_string()), key);
+			group_entry.push_front((KeyHash(hash.to_hex().to_string()), key));
 		}
 	}
 
@@ -74,15 +78,23 @@ impl KeyStore {
 	}
 
 	pub fn get_key(&self, group_pub_id: groups::PubId, hash: &KeyHash) -> Option<SecretKey> {
+		self.keys.get(&group_pub_id).and_then(|group| {
+			group
+				.iter()
+				.find_map(|(key_hash, key)| (key_hash == hash).then(|| key.clone()))
+		})
+	}
+
+	pub fn get_latest_key(&self, group_pub_id: groups::PubId) -> Option<(KeyHash, SecretKey)> {
 		self.keys
 			.get(&group_pub_id)
-			.and_then(|group| group.get(hash).cloned())
+			.and_then(|group| group.front().cloned())
 	}
 
 	pub fn get_group_keys(&self, group_pub_id: groups::PubId) -> Vec<SecretKey> {
 		self.keys
 			.get(&group_pub_id)
-			.map(|group| group.values().cloned().collect())
+			.map(|group| group.iter().map(|(_key_hash, key)| key.clone()).collect())
 			.unwrap_or_default()
 	}
 
@@ -251,9 +263,12 @@ impl KeyStore {
 impl Zeroize for KeyStore {
 	fn zeroize(&mut self) {
 		self.iroh_secret_key = IrohSecretKey::generate();
-		self.keys
-			.values_mut()
-			.for_each(|group| group.values_mut().for_each(Zeroize::zeroize));
+		self.keys.values_mut().for_each(|group| {
+			group
+				.iter_mut()
+				.map(|(_key_hash, key)| key)
+				.for_each(Zeroize::zeroize);
+		});
 		self.keys = BTreeMap::new();
 	}
 }
