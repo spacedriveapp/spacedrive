@@ -14,9 +14,12 @@ type StatCardProps = {
 	freeSpace?: string | number[];
 	color: string;
 	connectionType: 'lan' | 'p2p' | 'cloud' | null;
+	type?: 'location' | 'device'; //for layout purposes
 };
 
-const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
+const pill = tw`rounded border border-app-lightborder/50 bg-app-highlight/50 px-1.5 py-px`;
+
+const StatCard = ({ icon, name, connectionType, type, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
@@ -35,7 +38,8 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	const progress = useMemo(() => {
 		if (!mounted || totalSpace.bytes === 0n) return 0;
-		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
+		// Calculate progress using raw bytes to avoid unit conversion issues
+		return Math.floor((Number(usedSpaceSpace.bytes) / Number(totalSpace.bytes)) * 100);
 	}, [mounted, totalSpace, usedSpaceSpace]);
 
 	return (
@@ -47,18 +51,26 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 							size={90}
 							width={7}
 							rotation={0}
-							fill={usedSpaceSpace.value}
+							fill={progress}
 							lineCap="round"
 							backgroundColor={tw.color('ink-light/5')}
-							tintColor={progress > 90 ? '#E14444' : '#2599FF'}
+							tintColor={
+								progress >= 90
+									? '#E14444'
+									: progress >= 75
+										? 'darkorange'
+										: progress >= 60
+											? 'yellow'
+											: '#2599FF'
+							}
 							style={tw`flex items-center justify-center`}
 						>
-							{(fill) => (
+							{() => (
 								<View
 									style={tw`absolute flex-row items-end gap-0.5 text-lg font-semibold`}
 								>
 									<Text style={tw`mx-auto text-md font-semibold text-ink`}>
-										{fill.toFixed(0)}
+										{usedSpaceSpace.value}
 									</Text>
 									<Text style={tw`text-xs font-bold text-ink-dull opacity-60`}>
 										{usedSpaceSpace.unit}
@@ -70,22 +82,30 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 				)}
 				<View style={tw`flex-col overflow-hidden`}>
 					<Icon style={tw`-ml-1`} name={icon} size={60} />
-					<Text numberOfLines={1} style={tw`max-w-[130px] py-1 font-medium text-ink`}>
+					<Text numberOfLines={1} style={tw`max-w-[150px] py-1 font-medium text-ink`}>
 						{name}
 					</Text>
-					<Text numberOfLines={1} style={tw`max-w-[130px] text-ink-faint`}>
-						{freeSpace.value}
-						{freeSpace.unit} free of {totalSpace.value}
-						{totalSpace.unit}
-					</Text>
+					{type !== 'location' && (
+						<Text numberOfLines={1} style={tw`max-w-[150px] text-xs text-ink-faint`}>
+							{freeSpace.value}
+							{freeSpace.unit} free of {totalSpace.value}
+							{totalSpace.unit}
+						</Text>
+					)}
 				</View>
 			</View>
 			<View
 				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-app-cardborder px-2`}
 			>
-				<View
-					style={tw`rounded border border-app-lightborder bg-app-highlight px-1.5 py-px`}
-				>
+				{type === 'location' && (
+					<View style={pill}>
+						<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
+							{totalSpace.value}
+							{totalSpace.unit}
+						</Text>
+					</View>
+				)}
+				<View style={pill}>
 					<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 						{connectionType || 'Local'}
 					</Text>

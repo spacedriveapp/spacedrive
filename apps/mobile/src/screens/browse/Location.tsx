@@ -59,7 +59,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 
 	const paths = usePathsExplorerQuery({
 		arg: {
-			filters: [...defaultFilters, ...layoutFilter].filter(Boolean) as any,
+			filters: [...defaultFilters, ...layoutFilter].filter(Boolean),
 			take: 30
 		},
 		order,
