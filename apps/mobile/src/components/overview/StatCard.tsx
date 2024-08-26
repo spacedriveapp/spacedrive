@@ -17,7 +17,7 @@ type StatCardProps = {
 	type?: 'location' | 'device'; //for layout purposes
 };
 
-const pill = tw`rounded border border-app-lightborder/50 bg-app-highlight/50 px-1.5 py-px`;
+const infoBox = tw`rounded border border-app-lightborder/50 bg-app-highlight/50 px-1.5 py-px`;
 
 const StatCard = ({ icon, name, connectionType, type, ...stats }: StatCardProps) => {
 	const [mounted, setMounted] = useState(false);
@@ -98,14 +98,14 @@ const StatCard = ({ icon, name, connectionType, type, ...stats }: StatCardProps)
 				style={tw`flex h-10 flex-row items-center gap-1.5  border-t border-app-cardborder px-2`}
 			>
 				{type === 'location' && (
-					<View style={pill}>
+					<View style={infoBox}>
 						<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 							{totalSpace.value}
 							{totalSpace.unit}
 						</Text>
 					</View>
 				)}
-				<View style={pill}>
+				<View style={infoBox}>
 					<Text style={tw`text-xs font-medium uppercase text-ink-dull`}>
 						{connectionType || 'Local'}
 					</Text>
