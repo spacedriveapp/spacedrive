@@ -68,6 +68,7 @@ const Locations = () => {
 								>
 									<StatCard
 										connectionType={null}
+										type="location"
 										totalSpace={item.size_in_bytes || [0]}
 										name={item.name || ''}
 										color="#0362FF"
