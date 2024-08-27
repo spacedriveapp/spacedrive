@@ -53,36 +53,7 @@ export const Component = () => {
 						</div>
 					}
 					center={<SearchBar redirectToSearch />}
-					right={
-						os === 'windows' && <TopBarOptions />
-						// <TopBarOptions
-						// options={[
-						// 	[
-						// 		{
-						// 			toolTipLabel: 'Spacedrop',
-						// 			onClick: () => {},
-						// 			icon: <Broadcast className={TOP_BAR_ICON_STYLE} />,
-						// 			individual: true,
-						// 			showAtResolution: 'sm:flex'
-						// 		},
-						// 		{
-						// 			toolTipLabel: 'Key Manager',
-						// 			onClick: () => {},
-						// 			icon: <Key className={TOP_BAR_ICON_STYLE} />,
-						// 			individual: true,
-						// 			showAtResolution: 'sm:flex'
-						// 		},
-						// 		{
-						// 			toolTipLabel: 'Overview Display Settings',
-						// 			onClick: () => {},
-						// 			icon: <SlidersHorizontal className={TOP_BAR_ICON_STYLE} />,
-						// 			individual: true,
-						// 			showAtResolution: 'sm:flex'
-						// 		}
-						// 	]
-						// ]}
-						// 	/>
-					}
+					right={os === 'windows' && <TopBarOptions />}
 				/>
 				<div className="mt-4 flex flex-col gap-3 pt-3">
 					<OverviewSection>

@@ -26,7 +26,7 @@ export default function DrawerNavigator() {
 				drawerType: 'slide',
 				swipeEdgeWidth: 50
 			}}
-			drawerContent={(props) => <DrawerContent {...(props as any)} />}
+			drawerContent={(props) => <DrawerContent {...props} />}
 		>
 			<Drawer.Screen name="Home" component={TabNavigator} />
 		</Drawer.Navigator>
