@@ -47,7 +47,7 @@ const GridLocation: React.FC<GridLocationProps> = ({ location, modalRef }: GridL
 				</Text>
 			</View>
 			<View style={tw`rounded-md border border-app-box/70 bg-app/70 px-1 py-0.5`}>
-				<Text style={tw`text-xs font-bold text-ink-dull`} numberOfLines={1}>
+				<Text style={tw`text-xs font-medium text-ink-dull`} numberOfLines={1}>
 					{`${humanizeSize(location.size_in_bytes)}`}
 				</Text>
 			</View>
