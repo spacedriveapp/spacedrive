@@ -515,16 +515,15 @@ fn compute_stats<'v>(volumes: impl IntoIterator<Item = &'v Volume>) -> (u64, u64
 async fn update_storage_statistics(
 	db: &PrismaClient,
 	sync: &SyncManager,
-	instance_pub_id: &Uuid,
 	total_capacity: u64,
 	available_capacity: u64,
 ) -> Result<(), VolumeError> {
-	let instance_pub_id = uuid_to_bytes(instance_pub_id);
+	let device_pub_id = sync.device_pub_id.to_db();
 
 	let storage_statistics_pub_id = db
 		.storage_statistics()
-		.find_unique(storage_statistics::instance_pub_id::equals(
-			instance_pub_id.clone(),
+		.find_unique(storage_statistics::device_pub_id::equals(
+			device_pub_id.clone(),
 		))
 		.select(storage_statistics::select!({ pub_id }))
 		.exec()
@@ -571,7 +570,7 @@ async fn update_storage_statistics(
 		)
 		.await?;
 	} else {
-		let new_storage_statistics_id = uuid_to_bytes(&Uuid::new_v4());
+		let new_storage_statistics_id = uuid_to_bytes(&Uuid::now_v7());
 
 		sync.write_ops(
 			db,
@@ -590,8 +589,8 @@ async fn update_storage_statistics(
 							msgpack!(available_capacity),
 						),
 						(
-							storage_statistics::instance_pub_id::NAME,
-							msgpack!(instance_pub_id),
+							storage_statistics::device_pub_id::NAME,
+							msgpack!(device_pub_id),
 						),
 					],
 				),
@@ -601,7 +600,7 @@ async fn update_storage_statistics(
 						vec![
 							storage_statistics::total_capacity::set(total_capacity as i64),
 							storage_statistics::available_capacity::set(available_capacity as i64),
-							storage_statistics::instance_pub_id::set(Some(instance_pub_id.clone())),
+							storage_statistics::device_pub_id::set(Some(device_pub_id.clone())),
 						],
 					)
 					// We don't need any data here, just the id avoids receiving the entire object
@@ -633,14 +632,7 @@ pub fn save_storage_statistics(node: &Node) {
 						..
 					} = &*library;
 
-					update_storage_statistics(
-						db,
-						sync,
-						instance_uuid,
-						total_capacity,
-						available_capacity,
-					)
-					.await
+					update_storage_statistics(db, sync, total_capacity, available_capacity).await
 				})
 				.collect::<Vec<_>>()
 				.join()

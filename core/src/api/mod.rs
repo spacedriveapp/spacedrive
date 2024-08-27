@@ -3,13 +3,16 @@ use crate::{
 	library::LibraryId,
 	node::{
 		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
-		get_hardware_model_name, HardwareModel,
+		HardwareModel,
 	},
 	old_job::JobProgressEvent,
 	Node,
 };
 
 use sd_core_heavy_lifting::media_processor::ThumbKey;
+use sd_core_sync::DevicePubId;
+
+use sd_cloud_schema::devices::DeviceOS;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::file_path;
 
@@ -20,7 +23,6 @@ use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::warn;
-use uuid::Uuid;
 
 mod backups;
 mod cloud;
@@ -86,13 +88,15 @@ pub enum BackendFeature {}
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitizedNodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
-	pub id: Uuid,
+	pub id: DevicePubId,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
 	pub identity: RemoteIdentity,
 	pub p2p: NodeConfigP2P,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
+	pub os: DeviceOS,
+	pub hardware_model: HardwareModel,
 }
 
 impl From<NodeConfig> for SanitizedNodeConfig {
@@ -104,6 +108,8 @@ impl From<NodeConfig> for SanitizedNodeConfig {
 			p2p: value.p2p,
 			features: value.features,
 			preferences: value.preferences,
+			os: value.os,
+			hardware_model: value.hardware_model,
 		}
 	}
 }
@@ -136,12 +142,11 @@ pub(crate) fn mount() -> Arc<Router> {
 		})
 		.procedure("nodeState", {
 			R.query(|node, _: ()| async move {
-				let device_model = get_hardware_model_name()
-					.unwrap_or(HardwareModel::Other)
-					.to_string();
+				let config = SanitizedNodeConfig::from(node.config.get().await);
 
 				Ok(NodeState {
-					config: node.config.get().await.into(),
+					device_model: Some(config.hardware_model.to_string()),
+					config,
 					// We are taking the assumption here that this value is only used on the frontend for display purposes
 					data_path: node
 						.config
@@ -149,7 +154,6 @@ pub(crate) fn mount() -> Arc<Router> {
 						.to_str()
 						.expect("Found non-UTF-8 path")
 						.to_string(),
-					device_model: Some(device_model),
 					is_in_docker: is_in_docker(),
 				})
 			})

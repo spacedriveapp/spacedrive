@@ -57,20 +57,20 @@ model CloudCRDTOperation {
 /// Devices are the owner machines connected to this library
 /// @shared(id: pub_id, modelId: 12)
 model Device {
-  id     Int    @id @default(autoincrement())
+  id     Int     @id @default(autoincrement())
   // uuid v7
-  pub_id Bytes  @unique
-  name   String
+  pub_id Bytes   @unique
+  name   String? // Not actually NULLABLE, but we have to comply with current sync implementation BS
 
   // Enum: sd_cloud_schema::device::DeviceOS
-  os             Int
+  os             Int? // Not actually NULLABLE, but we have to comply with current sync implementation BS
   // Enum: sd_cloud_schema::device::HardwareModel
-  hardware_model Int
+  hardware_model Int? // Not actually NULLABLE, but we have to comply with current sync implementation BS
 
   // clock timestamp for sync
   timestamp BigInt?
 
-  date_created DateTime
+  date_created DateTime? // Not actually NULLABLE, but we have to comply with current sync implementation BS
   date_deleted DateTime?
 
   CRDTOperation      CRDTOperation[]
@@ -103,6 +103,7 @@ model Instance {
 
   // clock timestamp for sync
   timestamp BigInt?
+  Location  Location[]
 
   @@map("instance")
 }
@@ -168,8 +169,12 @@ model Location {
 
   scan_state Int @default(0) // Enum: sd_core::location::ScanState
 
-  device_pub_id Bytes
-  device        Device @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_pub_id Bytes?
+  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+
+  // this should just be a local-only cache but it's too much effort to broadcast online locations rn (@brendan)
+  instance_id Int?
+  instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
 
   file_paths    FilePath[]
   indexer_rules IndexerRulesInLocation[]
@@ -585,8 +590,8 @@ model StorageStatistics {
   total_capacity     BigInt @default(0)
   available_capacity BigInt @default(0)
 
-  device_pub_id Bytes  @unique
-  device        Device @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_pub_id Bytes?  @unique
+  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
 
   @@map("storage_statistics")
 }

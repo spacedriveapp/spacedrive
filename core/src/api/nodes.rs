@@ -5,9 +5,10 @@ use crate::{
 	node::config::{P2PDiscoveryState, Port},
 };
 
-use sd_prisma::prisma::{instance, location};
+use sd_prisma::prisma::location;
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
+use sd_utils::uuid_to_bytes;
 use serde::Deserialize;
 use specta::Type;
 use tracing::error;
@@ -88,27 +89,16 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("listLocations", {
 			R.with2(library())
 				// TODO: I don't like this. `node_id` should probs be a machine hash or something cause `node_id` is dynamic in the context of P2P and what does it mean for removable media to be owned by a node?
-				.query(|(_, library), node_id: Option<Uuid>| async move {
-					// Be aware multiple instances can exist on a single node. This is generally an edge case but it's possible.
-					let instances = library
-						.db
-						.instance()
-						.find_many(vec![node_id
-							.map(|id| instance::node_id::equals(id.as_bytes().to_vec()))
-							.unwrap_or(instance::id::equals(
-								library.config().await.instance_id,
-							))])
-						.exec()
-						.await?;
-
+				.query(|(_, library), device_pub_id: Option<Uuid>| async move {
 					Ok(library
 						.db
 						.location()
 						.find_many(
-							instances
-								.into_iter()
-								.map(|i| location::instance_id::equals(Some(i.id)))
-								.collect(),
+							device_pub_id
+								.map(|id| {
+									vec![location::device_pub_id::equals(Some(uuid_to_bytes(&id)))]
+								})
+								.unwrap_or_default(),
 						)
 						.exec()
 						.await?

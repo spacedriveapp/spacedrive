@@ -1,11 +1,12 @@
 use crate::{node::config::NodeConfig, volume::get_volumes, Node};
 
+use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnection, UserResponse};
+
 use sd_cloud_schema::{
 	auth,
 	error::{ClientSideError, Error},
 	users, Client, Service,
 };
-use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnection, UserResponse};
 use sd_crypto::{CryptoRng, SeedableRng};
 
 use std::pin::pin;
@@ -14,13 +15,11 @@ use async_stream::stream;
 use futures::StreamExt;
 use rspc::alpha::AlphaRouter;
 use tracing::error;
-use uuid::Uuid;
 
 use super::{Ctx, R};
 
 mod devices;
 mod libraries;
-mod library;
 mod locations;
 
 async fn try_get_cloud_services_client(
@@ -69,7 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let (device_pub_id, name, os) = {
 						let NodeConfig { id, name, os, .. } = node.config.get().await;
-						(devices::PubId(id), name, os)
+						(devices::PubId(id.into()), name, os)
 					};
 					let mut hasher = blake3::Hasher::new();
 					hasher.update(device_pub_id.0.as_bytes().as_slice());

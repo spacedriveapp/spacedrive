@@ -2,11 +2,9 @@ use sd_core_sync::*;
 
 use sd_prisma::prisma;
 use sd_sync::CompressedCRDTOperationsPerModelPerDevice;
-use sd_utils::uuid_to_bytes;
 
 use std::sync::{atomic::AtomicBool, Arc};
 
-use prisma_client_rust::chrono::Utc;
 use tokio::{fs, spawn, sync::broadcast};
 use tracing::{info, instrument, warn, Instrument};
 use uuid::Uuid;
@@ -16,16 +14,17 @@ fn db_path(id: Uuid) -> String {
 }
 
 #[derive(Clone)]
-pub struct Instance {
-	pub id: Uuid,
+pub struct Device {
+	pub pub_id: DevicePubId,
 	pub db: Arc<prisma::PrismaClient>,
 	pub sync: Arc<sd_core_sync::Manager>,
 	pub sync_rx: Arc<broadcast::Receiver<SyncMessage>>,
 }
 
-impl Instance {
+impl Device {
 	pub async fn new(id: Uuid) -> Arc<Self> {
 		let url = format!("file:{}", db_path(id));
+		let device_pub_id = DevicePubId::from(id);
 
 		let db = Arc::new(
 			prisma::PrismaClient::_builder()
@@ -37,22 +36,15 @@ impl Instance {
 
 		db._db_push().await.unwrap();
 
-		db.instance()
-			.create(
-				uuid_to_bytes(&id),
-				vec![],
-				vec![],
-				Utc::now().into(),
-				Utc::now().into(),
-				vec![],
-			)
+		db.device()
+			.create(device_pub_id.to_db(), vec![])
 			.exec()
 			.await
 			.unwrap();
 
 		let (sync, sync_rx) = sd_core_sync::Manager::new(
 			Arc::clone(&db),
-			id,
+			&device_pub_id,
 			Arc::new(AtomicBool::new(true)),
 			Default::default(),
 		)
@@ -60,7 +52,7 @@ impl Instance {
 		.expect("failed to create sync manager");
 
 		Arc::new(Self {
-			id,
+			pub_id: device_pub_id,
 			db,
 			sync: Arc::new(sync),
 			sync_rx: Arc::new(sync_rx),
@@ -68,22 +60,17 @@ impl Instance {
 	}
 
 	pub async fn teardown(&self) {
-		fs::remove_file(db_path(self.id)).await.unwrap();
+		fs::remove_file(db_path(Uuid::from(&self.pub_id)))
+			.await
+			.unwrap();
 	}
 
 	pub async fn pair(instance1: &Arc<Self>, instance2: &Arc<Self>) {
 		#[instrument(skip(left, right))]
-		async fn half(left: &Arc<Instance>, right: &Arc<Instance>, context: &'static str) {
+		async fn half(left: &Arc<Device>, right: &Arc<Device>, context: &'static str) {
 			left.db
-				.instance()
-				.create(
-					uuid_to_bytes(&right.id),
-					vec![],
-					vec![],
-					Utc::now().into(),
-					Utc::now().into(),
-					vec![],
-				)
+				.device()
+				.create(right.pub_id.to_db(), vec![])
 				.exec()
 				.await
 				.unwrap();
@@ -137,7 +124,7 @@ impl Instance {
 											messages,
 										),
 										has_more: false,
-										instance_id: left.id,
+										device_pub_id: left.pub_id.clone(),
 										wait_tx: None,
 									}))
 									.await

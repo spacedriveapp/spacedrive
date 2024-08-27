@@ -46,12 +46,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						return Ok(());
 					}
 
-					sd_core_sync::backfill::backfill_operations(
-						&library.db,
-						&library.sync,
-						library.config().await.instance_id,
-					)
-					.await?;
+					sd_core_sync::backfill::backfill_operations(&library.db, &library.sync).await?;
 
 					node.libraries
 						.edit(

@@ -26,11 +26,9 @@ pub trait OperationFactory {
 		id: &SId,
 		data: CRDTOperationData,
 	) -> CRDTOperation {
-		let timestamp = self.get_clock().new_timestamp();
-
 		CRDTOperation {
 			device_pub_id: self.get_device_pub_id(),
-			timestamp: *timestamp.get_time(),
+			timestamp: *self.get_clock().new_timestamp().get_time(),
 			model_id: <SId::Model as SyncModel>::MODEL_ID,
 			record_id: msgpack!(id),
 			data,

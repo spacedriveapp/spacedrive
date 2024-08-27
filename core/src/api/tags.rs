@@ -221,7 +221,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.iter()
 							.filter(|fp| fp.is_dir.unwrap_or_default() && fp.object.is_none())
 							.map(|fp| {
-								let id = uuid_to_bytes(&Uuid::new_v4());
+								let id = uuid_to_bytes(&Uuid::now_v7());
 
 								sync_params.extend(sync.shared_create(
 									prisma_sync::object::SyncId { pub_id: id.clone() },

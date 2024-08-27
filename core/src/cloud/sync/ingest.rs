@@ -90,7 +90,7 @@ pub async fn run_actor(
 						sync.ingest
 							.event_tx
 							.send(sd_core_sync::Event::Messages(MessagesEvent {
-								instance_id: sync.instance,
+								device_pub_id: sync.device_pub_id.clone(),
 								has_more: ops.len() == OPS_PER_REQUEST as usize,
 								messages: CompressedCRDTOperationsPerModelPerDevice::new(ops),
 								wait_tx: Some(wait_tx)

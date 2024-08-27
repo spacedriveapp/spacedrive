@@ -27,7 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{crdt_operation, instance, PrismaClient};
+use sd_prisma::prisma::{crdt_operation, device, PrismaClient};
 use sd_sync::CRDTOperation;
 
 use std::{
@@ -36,7 +36,6 @@ use std::{
 };
 
 use tokio::sync::{Notify, RwLock};
-use uuid::Uuid;
 
 mod actor;
 pub mod backfill;
@@ -54,13 +53,14 @@ pub enum SyncMessage {
 	Created,
 }
 
-pub type DevicePubId = Uuid;
+pub use sd_core_prisma_helpers::DevicePubId;
+
 pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;
 
 pub struct SharedState {
 	pub db: Arc<PrismaClient>,
 	pub emit_messages_flag: Arc<AtomicBool>,
-	pub instance: Uuid,
+	pub device_pub_id: DevicePubId,
 	pub timestamp_per_device: TimestampPerDevice,
 	pub clock: uhlc::HLC,
 	pub active: AtomicBool,
@@ -106,7 +106,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 				op.timestamp.as_u64() as i64
 			}
 		},
-		instance: instance::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
+		device: device::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),
@@ -117,7 +117,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 
 pub fn crdt_op_unchecked_db(
 	op: &CRDTOperation,
-	instance_id: i32,
+	device_pub_id: &DevicePubId,
 ) -> Result<crdt_operation::CreateUnchecked, Error> {
 	Ok(crdt_operation::CreateUnchecked {
 		timestamp: {
@@ -127,7 +127,7 @@ pub fn crdt_op_unchecked_db(
 				op.timestamp.as_u64() as i64
 			}
 		},
-		instance_id,
+		device_pub_id: device_pub_id.to_db(),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),

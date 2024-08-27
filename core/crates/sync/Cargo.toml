@@ -9,6 +9,8 @@ default = []
 
 [dependencies]
 # Spacedrive Sub-crates
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+
 sd-actors = { path = "../../../crates/actors" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync   = { path = "../../../crates/sync" }

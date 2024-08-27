@@ -66,7 +66,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				|(_, library), args: Args| async move {
 					let Library { db, sync, .. } = library.as_ref();
-					let pub_id = Uuid::new_v4().as_bytes().to_vec();
+					let pub_id = Uuid::now_v7().as_bytes().to_vec();
 					let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(

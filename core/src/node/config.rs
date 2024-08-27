@@ -5,6 +5,7 @@ use crate::{
 };
 
 use sd_cloud_schema::devices::DeviceOS;
+use sd_core_sync::DevicePubId;
 use sd_p2p::Identity;
 use sd_utils::error::FileIOError;
 
@@ -26,6 +27,8 @@ use tokio::{
 };
 use tracing::error;
 use uuid::Uuid;
+
+use super::HardwareModel;
 
 /// NODE_STATE_CONFIG_NAME is the name of the file which stores the NodeState
 pub const NODE_STATE_CONFIG_NAME: &str = "node_state.sdconfig";
@@ -117,7 +120,7 @@ impl Default for NodeConfigP2P {
 #[derive(Debug, Clone, Serialize, Deserialize)] // If you are adding `specta::Type` on this your probably about to leak the P2P private key
 pub struct NodeConfig {
 	/// id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
-	pub id: Uuid,
+	pub id: DevicePubId,
 	/// name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
 	pub name: String,
 	/// core level notifications
@@ -137,8 +140,10 @@ pub struct NodeConfig {
 	pub features: Vec<BackendFeature>,
 	/// The aggregation of many different preferences for the node
 	pub preferences: NodePreferences,
-	// Operating System of the node
+	/// Operating System of the node
 	pub os: DeviceOS,
+	/// Hardware model of the node
+	pub hardware_model: HardwareModel,
 
 	version: NodeConfigVersion,
 }
@@ -196,9 +201,13 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 		name.truncate(255);
 
 		let os = DeviceOS::from_env();
+		let hardware_model = HardwareModel::try_get().unwrap_or_else(|e| {
+			error!(?e, "Failed to get hardware model");
+			HardwareModel::Other
+		});
 
 		Some(Self {
-			id: Uuid::now_v7(),
+			id: Uuid::now_v7().into(),
 			name,
 			identity: Identity::default(),
 			p2p: NodeConfigP2P::default(),
@@ -207,6 +216,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			notifications: vec![],
 			preferences: NodePreferences::default(),
 			os,
+			hardware_model,
 		})
 	}
 }
@@ -341,6 +351,13 @@ impl NodeConfig {
 							String::from("os"),
 							serde_json::to_value(DeviceOS::from_env())
 								.map_err(VersionManagerError::SerdeJson)?,
+						);
+						config.insert(
+							String::from("hardware_model"),
+							serde_json::to_value(
+								HardwareModel::try_get().unwrap_or(HardwareModel::Other),
+							)
+							.map_err(VersionManagerError::SerdeJson)?,
 						);
 
 						config.remove("features");

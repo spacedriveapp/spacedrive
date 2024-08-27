@@ -9772,6 +9772,7 @@ dependencies = [
  "rmpv",
  "rspc",
  "sd-actors",
+ "sd-core-prisma-helpers",
  "sd-prisma",
  "sd-sync",
  "sd-utils",
