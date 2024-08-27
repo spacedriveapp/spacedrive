@@ -19,8 +19,8 @@ const shortcuts = {
 		all: ['Control', 'KeyW']
 	},
 	duplicateTab: {
-		macOS: ['Meta', 'Shift', 'KeyN'],
-		all: ['Control', 'Shift', 'KeyN']
+		macOS: ['Meta', 'Shift', 'KeyT'],
+		all: ['Control', 'Shift', 'KeyT']
 	},
 	nextTab: {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
