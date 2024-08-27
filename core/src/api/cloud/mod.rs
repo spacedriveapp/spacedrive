@@ -35,7 +35,6 @@ async fn try_get_cloud_services_client(
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
-		.merge("library.", library::mount())
 		.merge("libraries.", libraries::mount())
 		.merge("locations.", locations::mount())
 		.merge("devices.", devices::mount())
