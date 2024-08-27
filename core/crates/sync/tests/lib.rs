@@ -6,7 +6,7 @@ use sd_prisma::{prisma::location, prisma_sync};
 use sd_sync::*;
 use sd_utils::{msgpack, uuid_to_bytes};
 
-use mock_instance::Instance;
+use mock_instance::Device;
 use tracing::info;
 use tracing_test::traced_test;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use uuid::Uuid;
 const MOCK_LOCATION_NAME: &str = "Location 0";
 const MOCK_LOCATION_PATH: &str = "/User/Anon/Documents";
 
-async fn write_test_location(instance: &Instance) -> location::Data {
+async fn write_test_location(instance: &Device) -> location::Data {
 	let location_pub_id = Uuid::new_v4();
 
 	let location = instance
@@ -81,7 +81,7 @@ async fn write_test_location(instance: &Instance) -> location::Data {
 #[tokio::test]
 #[traced_test]
 async fn writes_operations_and_rows_together() -> Result<(), Box<dyn std::error::Error>> {
-	let instance = Instance::new(Uuid::new_v4()).await;
+	let instance = Device::new(Uuid::new_v4()).await;
 
 	write_test_location(&instance).await;
 
@@ -119,14 +119,14 @@ async fn writes_operations_and_rows_together() -> Result<(), Box<dyn std::error:
 #[tokio::test]
 #[traced_test]
 async fn operations_send_and_ingest() -> Result<(), Box<dyn std::error::Error>> {
-	let instance1 = Instance::new(Uuid::new_v4()).await;
-	let instance2 = Instance::new(Uuid::new_v4()).await;
+	let instance1 = Device::new(Uuid::new_v4()).await;
+	let instance2 = Device::new(Uuid::new_v4()).await;
 
 	let mut instance2_sync_rx = instance2.sync_rx.resubscribe();
 
 	info!("Created instances!");
 
-	Instance::pair(&instance1, &instance2).await;
+	Device::pair(&instance1, &instance2).await;
 
 	info!("Paired instances!");
 
@@ -162,12 +162,12 @@ async fn operations_send_and_ingest() -> Result<(), Box<dyn std::error::Error>> 
 
 #[tokio::test]
 async fn no_update_after_delete() -> Result<(), Box<dyn std::error::Error>> {
-	let instance1 = Instance::new(Uuid::new_v4()).await;
-	let instance2 = Instance::new(Uuid::new_v4()).await;
+	let instance1 = Device::new(Uuid::new_v4()).await;
+	let instance2 = Device::new(Uuid::new_v4()).await;
 
 	let mut instance2_sync_rx = instance2.sync_rx.resubscribe();
 
-	Instance::pair(&instance1, &instance2).await;
+	Device::pair(&instance1, &instance2).await;
 
 	let location = write_test_location(&instance1).await;
 

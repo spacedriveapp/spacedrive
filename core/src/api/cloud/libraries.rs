@@ -2,7 +2,9 @@ use crate::api::{utils::library, Ctx, R};
 
 use sd_cloud_schema::{auth::AccessToken, devices, libraries};
 
+use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
+use serde::Deserialize;
 use tracing::debug;
 
 use super::try_get_cloud_services_client;
@@ -42,25 +44,25 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("create", {
-			#[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-			struct LibrariesCreateArgs {
-				access_token: AccessToken,
-				device_pub_id: devices::PubId,
-			}
-
 			R.with2(library())
-				.mutation(|(node, library), args: LibrariesCreateArgs| async move {
-					let req = libraries::create::Request {
-						name: library.config().await.name.to_string(),
-						access_token: args.access_token,
-						pub_id: libraries::PubId(library.id),
-						device_pub_id: args.device_pub_id,
-					};
+				.mutation(|(node, library), access_token: AccessToken| async move {
+					let (client, name, device_pub_id) = (
+						try_get_cloud_services_client(&node),
+						async { Ok(library.config().await.name.to_string()) },
+						async { Ok(devices::PubId(node.config.get().await.id.into())) },
+					)
+						.try_join()
+						.await?;
+
 					super::handle_comm_error(
-						try_get_cloud_services_client(&node)
-							.await?
+						client
 							.libraries()
-							.create(req)
+							.create(libraries::create::Request {
+								name,
+								access_token,
+								pub_id: libraries::PubId(library.id),
+								device_pub_id,
+							})
 							.await,
 						"Failed to create library;",
 					)??;
@@ -69,35 +71,59 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.mutation(|node, req: libraries::delete::Request| async move {
-				super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
-						.libraries()
-						.delete(req)
-						.await,
-					"Failed to delete library;",
-				)??;
+			R.with2(library())
+				.mutation(|(node, library), access_token: AccessToken| async move {
+					super::handle_comm_error(
+						try_get_cloud_services_client(&node)
+							.await?
+							.libraries()
+							.delete(libraries::delete::Request {
+								access_token,
+								pub_id: libraries::PubId(library.id),
+							})
+							.await,
+						"Failed to delete library;",
+					)??;
 
-				debug!("Deleted library");
+					debug!("Deleted library");
 
-				Ok(())
-			})
+					Ok(())
+				})
 		})
 		.procedure("update", {
-			R.mutation(|node, req: libraries::update::Request| async move {
-				super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
-						.libraries()
-						.update(req)
-						.await,
-					"Failed to update library;",
-				)??;
+			#[derive(Deserialize, specta::Type)]
+			struct LibrariesUpdateArgs {
+				access_token: AccessToken,
+				name: String,
+			}
 
-				debug!("Updated library");
+			R.with2(library()).mutation(
+				|(node, library),
+				 LibrariesUpdateArgs { access_token, name }: LibrariesUpdateArgs| async move {
+					super::handle_comm_error(
+						try_get_cloud_services_client(&node)
+							.await?
+							.libraries()
+							.update(libraries::update::Request {
+								access_token,
+								pub_id: libraries::PubId(library.id),
+								name,
+							})
+							.await,
+						"Failed to update library;",
+					)??;
 
-				Ok(())
-			})
+					debug!("Updated library");
+
+					Ok(())
+				},
+			)
+		})
+		.procedure("sync", {
+			R.with2(library())
+				.mutation(|(_, library), _: ()| async move {
+					library.do_cloud_sync();
+					Ok(())
+				})
 		})
 }

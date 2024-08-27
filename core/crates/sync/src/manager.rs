@@ -1,7 +1,8 @@
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, instance, PrismaClient, SortOrder};
+use sd_core_prisma_helpers::DevicePubId;
+
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient, SortOrder};
 use sd_sync::{CRDTOperation, OperationFactory};
-use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
-use tracing::warn;
+use sd_utils::from_bytes_to_uuid;
 
 use std::{
 	cmp, fmt,
@@ -15,12 +16,13 @@ use std::{
 
 use prisma_client_rust::{and, operator::or};
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
+use tracing::warn;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
 use super::{
 	crdt_op_db,
-	db_operation::{cloud_crdt_with_instance, crdt_with_instance},
+	db_operation::{into_cloud_ops, into_ops},
 	ingest, Error, SharedState, SyncMessage, NTP64,
 };
 
@@ -40,7 +42,7 @@ impl fmt::Debug for Manager {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
 pub struct GetOpsArgs {
-	pub timestamp_per_device: Vec<(Uuid, NTP64)>,
+	pub timestamp_per_device: Vec<(DevicePubId, NTP64)>,
 	pub count: u32,
 }
 
@@ -49,17 +51,17 @@ impl Manager {
 	/// Sync messages are received on the returned [`broadcast::Receiver<SyncMessage>`].
 	pub async fn new(
 		db: Arc<PrismaClient>,
-		current_instance_uuid: Uuid,
+		current_device_pub_id: &DevicePubId,
 		emit_messages_flag: Arc<AtomicBool>,
 		actors: Arc<sd_actors::Actors>,
 	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
-		let existing_instances = db.instance().find_many(vec![]).exec().await?;
+		let existing_devices = db.device().find_many(vec![]).exec().await?;
 
-		Self::with_existing_instances(
+		Self::with_existing_devices(
 			db,
-			current_instance_uuid,
+			current_device_pub_id,
 			emit_messages_flag,
-			&existing_instances,
+			&existing_devices,
 			actors,
 		)
 		.await
@@ -69,33 +71,35 @@ impl Manager {
 	/// Sync messages are received on the returned [`broadcast::Receiver<SyncMessage>`].
 	///
 	/// # Panics
-	/// Panics if the `current_instance_id` UUID is zeroed.
-	pub async fn with_existing_instances(
+	/// Panics if the `current_device_pub_id` UUID is zeroed, which will never happen as we use `UUIDv7` for the
+	/// device pub id. As this version have a timestamp part, instead of being totally random. So the only
+	/// possible way to get zero from a `UUIDv7` is to go back in time to 1970
+	pub async fn with_existing_devices(
 		db: Arc<PrismaClient>,
-		current_instance_uuid: Uuid,
+		current_device_pub_id: &DevicePubId,
 		emit_messages_flag: Arc<AtomicBool>,
-		existing_instances: &[instance::Data],
+		existing_devices: &[device::Data],
 		actors: Arc<sd_actors::Actors>,
 	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
-		let timestamps = db
+		let latest_timestamp_per_device = db
 			._batch(
-				existing_instances
+				existing_devices
 					.iter()
-					.map(|i| {
+					.map(|device| {
 						db.crdt_operation()
-							.find_first(vec![crdt_operation::instance::is(vec![
-								instance::id::equals(i.id),
-							])])
+							.find_first(vec![crdt_operation::device_pub_id::equals(
+								device.pub_id.clone(),
+							)])
 							.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
 					})
 					.collect::<Vec<_>>(),
 			)
 			.await?
 			.into_iter()
-			.zip(existing_instances)
-			.map(|(op, i)| {
+			.zip(existing_devices)
+			.map(|(op, device)| {
 				(
-					from_bytes_to_uuid(&i.pub_id),
+					DevicePubId::from(&device.pub_id),
 					#[allow(clippy::cast_sign_loss)]
 					// SAFETY: we had to store using i64 due to SQLite limitations
 					NTP64(op.map(|o| o.timestamp).unwrap_or_default() as u64),
@@ -107,15 +111,16 @@ impl Manager {
 
 		let clock = HLCBuilder::new()
 			.with_id(uhlc::ID::from(
-				NonZeroU128::new(current_instance_uuid.to_u128_le()).expect("Non zero id"),
+				NonZeroU128::new(Uuid::from(current_device_pub_id).to_u128_le())
+					.expect("Non zero id"),
 			))
 			.build();
 
 		let shared = Arc::new(SharedState {
 			db,
-			instance: current_instance_uuid,
+			device_pub_id: current_device_pub_id.clone(),
 			clock,
-			timestamp_per_device: Arc::new(RwLock::new(timestamps)),
+			timestamp_per_device: Arc::new(RwLock::new(latest_timestamp_per_device)),
 			emit_messages_flag,
 			active: AtomicBool::default(),
 			active_notify: Notify::default(),
@@ -168,7 +173,7 @@ impl Manager {
 					.timestamp_per_device
 					.write()
 					.await
-					.insert(self.instance, last.timestamp);
+					.insert(self.device_pub_id.clone(), last.timestamp);
 			}
 
 			if self.tx.send(SyncMessage::Created).is_err() {
@@ -216,33 +221,30 @@ impl Manager {
 			.timestamp_per_device
 			.write()
 			.await
-			.insert(self.instance, op.timestamp);
+			.insert(self.device_pub_id.clone(), op.timestamp);
 
 		Ok(ret)
 	}
 
-	pub async fn get_instance_ops(
+	pub async fn get_device_ops(
 		&self,
 		count: u32,
-		instance_uuid: Uuid,
+		device_pub_id: DevicePubId,
 		timestamp: NTP64,
 	) -> Result<Vec<CRDTOperation>, Error> {
 		self.db
 			.crdt_operation()
 			.find_many(vec![
-				crdt_operation::instance::is(vec![instance::pub_id::equals(uuid_to_bytes(
-					&instance_uuid,
-				))]),
+				crdt_operation::device::is(vec![device::pub_id::equals(device_pub_id.into())]),
 				#[allow(clippy::cast_possible_wrap)]
 				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
 			])
 			.take(i64::from(count))
 			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(crdt_with_instance::include())
 			.exec()
 			.await?
 			.into_iter()
-			.map(crdt_with_instance::Data::into_operation)
+			.map(into_ops)
 			.collect()
 	}
 
@@ -253,10 +255,10 @@ impl Manager {
 			.find_many(vec![or(args
 				.timestamp_per_device
 				.iter()
-				.map(|(instance_id, timestamp)| {
+				.map(|(device_pub_id, timestamp)| {
 					and![
-						crdt_operation::instance::is(vec![instance::pub_id::equals(
-							uuid_to_bytes(instance_id)
+						crdt_operation::device::is(vec![device::pub_id::equals(
+							device_pub_id.to_db()
 						)]),
 						crdt_operation::timestamp::gt({
 							#[allow(clippy::cast_possible_wrap)]
@@ -267,46 +269,47 @@ impl Manager {
 						})
 					]
 				})
-				.chain([crdt_operation::instance::is_not(vec![
-					instance::pub_id::in_vec(
+				.chain([crdt_operation::device::is_not(vec![
+					device::pub_id::in_vec(
 						args.timestamp_per_device
 							.iter()
-							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
+							.map(|(device_pub_id, _)| device_pub_id.to_db())
 							.collect(),
 					),
 				])])
 				.collect())])
 			.take(i64::from(args.count))
 			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(crdt_with_instance::include())
 			.exec()
 			.await?;
 
-		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
-			cmp::Ordering::Equal => a.instance().cmp(&b.instance()),
+		ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
+			cmp::Ordering::Equal => {
+				from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
+			}
 			o => o,
 		});
 
 		ops.into_iter()
 			.take(args.count as usize)
-			.map(crdt_with_instance::Data::into_operation)
+			.map(into_ops)
 			.collect()
 	}
 
 	pub async fn get_cloud_ops(
 		&self,
 		args: GetOpsArgs,
-	) -> Result<Vec<(i32, CRDTOperation)>, Error> {
+	) -> Result<Vec<(cloud_crdt_operation::id::Type, CRDTOperation)>, Error> {
 		let mut ops = self
 			.db
 			.cloud_crdt_operation()
 			.find_many(vec![or(args
 				.timestamp_per_device
 				.iter()
-				.map(|(instance_id, timestamp)| {
+				.map(|(device_pub_id, timestamp)| {
 					and![
-						cloud_crdt_operation::instance::is(vec![instance::pub_id::equals(
-							uuid_to_bytes(instance_id)
+						cloud_crdt_operation::device::is(vec![device::pub_id::equals(
+							device_pub_id.to_db()
 						)]),
 						cloud_crdt_operation::timestamp::gt({
 							#[allow(clippy::cast_possible_wrap)]
@@ -317,29 +320,30 @@ impl Manager {
 						})
 					]
 				})
-				.chain([cloud_crdt_operation::instance::is_not(vec![
-					instance::pub_id::in_vec(
+				.chain([cloud_crdt_operation::device::is_not(vec![
+					device::pub_id::in_vec(
 						args.timestamp_per_device
 							.iter()
-							.map(|(instance_id, _)| uuid_to_bytes(instance_id))
+							.map(|(device_pub_id, _)| device_pub_id.to_db())
 							.collect(),
 					),
 				])])
 				.collect())])
 			.take(i64::from(args.count))
 			.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
-			.include(cloud_crdt_with_instance::include())
 			.exec()
 			.await?;
 
-		ops.sort_by(|a, b| match a.timestamp().cmp(&b.timestamp()) {
-			cmp::Ordering::Equal => a.instance().cmp(&b.instance()),
+		ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
+			cmp::Ordering::Equal => {
+				from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
+			}
 			o => o,
 		});
 
 		ops.into_iter()
 			.take(args.count as usize)
-			.map(cloud_crdt_with_instance::Data::into_operation)
+			.map(into_cloud_ops)
 			.collect()
 	}
 }
@@ -349,8 +353,8 @@ impl OperationFactory for Manager {
 		&self.clock
 	}
 
-	fn get_device_pub_id(&self) -> Uuid {
-		self.instance
+	fn get_device_pub_id(&self) -> sd_sync::DevicePubId {
+		sd_sync::DevicePubId::from(&self.device_pub_id)
 	}
 }
 

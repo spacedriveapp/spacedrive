@@ -158,7 +158,7 @@ where
 	JobCtx: JobContext<OuterCtx>,
 {
 	fn into_job(self) -> Box<dyn DynJob<OuterCtx, JobCtx>> {
-		let id = JobId::new_v4();
+		let id = JobId::now_v7();
 
 		Box::new(JobHolder {
 			id,
@@ -333,7 +333,7 @@ where
 	}
 
 	pub fn new(job: J) -> Self {
-		let id = JobId::new_v4();
+		let id = JobId::now_v7();
 		Self {
 			id,
 			job,

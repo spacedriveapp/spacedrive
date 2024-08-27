@@ -163,7 +163,7 @@ impl LocationCreateArgs {
 			}
 		);
 
-		let uuid = Uuid::new_v4();
+		let uuid = Uuid::now_v7();
 
 		let location = create_location(
 			library,
@@ -246,7 +246,7 @@ impl LocationCreateArgs {
 			},
 		);
 
-		let uuid = Uuid::new_v4();
+		let uuid = Uuid::now_v7();
 
 		let location = create_location(
 			library,
@@ -1160,7 +1160,7 @@ pub async fn create_file_path(
 		.unzip()
 	};
 
-	let pub_id = sd_utils::uuid_to_bytes(&Uuid::new_v4());
+	let pub_id = sd_utils::uuid_to_bytes(&Uuid::now_v7());
 
 	let created_path = sync
 		.write_ops(

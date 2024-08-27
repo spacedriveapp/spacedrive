@@ -156,7 +156,7 @@ impl Libraries {
 		description: Option<String>,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node, false)
+		self.create_with_uuid(Uuid::now_v7(), name, description, true, None, node, false)
 			.await
 	}
 
@@ -206,9 +206,9 @@ impl Libraries {
 				Some({
 					let identity = Identity::new();
 					let mut create = instance.unwrap_or_else(|| instance::Create {
-						pub_id: Uuid::new_v4().as_bytes().to_vec(),
+						pub_id: Uuid::now_v7().as_bytes().to_vec(),
 						remote_identity: identity.to_remote_identity().get_bytes().to_vec(),
-						node_id: node_cfg.id.as_bytes().to_vec(),
+						node_id: node_cfg.id.to_db(),
 						last_seen: now,
 						date_created: now,
 						_params: vec![
@@ -458,6 +458,7 @@ impl Libraries {
 		}
 
 		let node_config = node.config.get().await;
+		let device_pub_id = node_config.id.clone();
 		let config = LibraryConfig::load(config_path, &node_config, &db).await?;
 
 		let instances = db.instance().find_many(vec![]).exec().await?;
@@ -469,6 +470,17 @@ impl Libraries {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
 			})?
 			.clone();
+
+		let devices = db.device().find_many(vec![]).exec().await?;
+
+		let device_pub_id_to_db = device_pub_id.to_db();
+		if devices
+			.iter()
+			.find(|device| device.pub_id == device_pub_id_to_db)
+			.is_none()
+		{
+			return Err(LibraryManagerError::CurrentDeviceNotFound(device_pub_id));
+		}
 
 		let identity = match instance.identity.as_ref() {
 			Some(b) => Arc::new(Identity::from_bytes(b)?),
@@ -486,7 +498,7 @@ impl Libraries {
 			.node_remote_identity
 			.as_ref()
 			.and_then(|v| RemoteIdentity::from_bytes(v).ok());
-		if instance_node_id != node_config.id
+		if instance_node_id != Uuid::from(&node_config.id)
 			|| instance_node_remote_identity != Some(node_config.identity.to_remote_identity())
 			|| curr_metadata != Some(node.p2p.peer_metadata())
 		{
@@ -502,7 +514,7 @@ impl Libraries {
 				.update(
 					instance::id::equals(instance.id),
 					vec![
-						instance::node_id::set(node_config.id.as_bytes().to_vec()),
+						instance::node_id::set(node_config.id.to_db()),
 						instance::node_remote_identity::set(Some(
 							node_config
 								.identity
@@ -522,16 +534,13 @@ impl Libraries {
 
 		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
-		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		// seed_keymanager(&db, &key_manager).await?;
-
 		let actors = Default::default();
 
-		let (sync, sync_rx) = sync::Manager::with_existing_instances(
+		let (sync, sync_rx) = sync::Manager::with_existing_devices(
 			Arc::clone(&db),
-			instance_id,
+			&device_pub_id,
 			Arc::clone(&config.generate_sync_operations),
-			&instances,
+			&devices,
 			Arc::clone(&actors),
 		)
 		.await?;

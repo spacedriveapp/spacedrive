@@ -245,7 +245,7 @@ mod responder {
 			ingest
 				.event_tx
 				.send(Event::Messages(MessagesEvent {
-					instance_id: library.sync.instance,
+					device_pub_id: library.sync.device_pub_id.clone(),
 					has_more: ops.len() == OPS_PER_REQUEST as usize,
 					messages: ops,
 					wait_tx: Some(wait_tx),

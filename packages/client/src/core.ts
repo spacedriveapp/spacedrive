@@ -52,7 +52,6 @@ export type Procedures = {
         { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.enabled", input: LibraryArgs<null>, result: boolean } | 
-        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ object: { id: number }; date_created: string | null })[] } } | 
@@ -66,14 +65,15 @@ export type Procedures = {
         { key: "cloud.bootstrap", input: [AccessToken, RefreshToken], result: null } | 
         { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
-        { key: "cloud.libraries.create", input: LibraryArgs<LibrariesCreateArgs>, result: null } | 
-        { key: "cloud.libraries.delete", input: LibraryDeleteRequest, result: null } | 
-        { key: "cloud.libraries.update", input: LibraryUpdateRequest, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<AccessToken>, result: null } | 
+        { key: "cloud.libraries.delete", input: LibraryArgs<AccessToken>, result: null } | 
+        { key: "cloud.libraries.update", input: LibraryArgs<LibrariesUpdateArgs>, result: null } | 
         { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.library.join", input: string, result: null } | 
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: LocationCreateRequest, result: null } | 
         { key: "cloud.locations.delete", input: LocationDeleteRequest, result: null } | 
+        { key: "cloud.userResponse", input: UserResponse, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -136,6 +136,7 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
+        { key: "cloud.listenCloudServicesNotifications", input: never, result: NotifyUser } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
@@ -171,10 +172,6 @@ export type Backup = ({ id: string; timestamp: string; library_id: string; libra
 
 export type BuildInfo = { version: string; commit: string }
 
-export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
-
-export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { field: string; value: JsonValue } } | "d"
-
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
 export type CasId = string
@@ -184,6 +181,10 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
 export type CloudLocation = { pub_id: LocationPubId; name: string; device: Device | null; library: Library | null; created_at: string; updated_at: string }
+
+export type CloudP2PError = "Rejected" | "UnableToConnect" | "TimedOut"
+
+export type CloudP2PTicket = bigint
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -216,6 +217,12 @@ export type ConnectionMethod = "Relay" | "Local" | "Disconnected"
 export type ConvertImageArgs = { location_id: number; file_path_id: number; delete_src: boolean; desired_extension: ConvertibleExtension; quality_percentage: number | null }
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
+
+export type CoreDevicePubId = CorePubId
+
+export type CoreHardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
+
+export type CorePubId = { Uuid: string } | { Vec: number[] }
 
 export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
 
@@ -395,7 +402,13 @@ export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" |
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; info: string; estimated_completion: string }
 
+export type JoinSyncGroupError = "Communication" | "InternalServer" | "Auth"
+
+export type JoinSyncGroupResponse = { Accepted: { authorizor_device: Device } } | { Failed: CloudP2PError } | "CriticalError"
+
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
+
+export type KeyHash = string
 
 export type KindStatistic = { kind: number; name: string; count: [number, number]; total_bytes: [number, number] }
 
@@ -405,7 +418,7 @@ export type Label = { id: number; name: string; date_created: string | null; dat
 
 export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
-export type LibrariesCreateArgs = { access_token: AccessToken; device_pub_id: DevicePubId }
+export type LibrariesUpdateArgs = { access_token: AccessToken; name: string }
 
 export type Library = { pub_id: LibraryPubId; name: string; original_device: Device | null; created_at: string; updated_at: string }
 
@@ -440,8 +453,6 @@ export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
-export type LibraryDeleteRequest = { access_token: AccessToken; pub_id: LibraryPubId }
-
 export type LibraryGetRequest = { access_token: AccessToken; pub_id: LibraryPubId; with_device: boolean }
 
 export type LibraryListRequest = { access_token: AccessToken; with_device: boolean }
@@ -452,15 +463,13 @@ export type LibraryPreferences = { location?: { [key in string]: LocationSetting
 
 export type LibraryPubId = string
 
-export type LibraryUpdateRequest = { access_token: AccessToken; pub_id: LibraryPubId; name: string }
-
 export type LightScanArgs = { location_id: number; sub_path: string }
 
 export type ListenerState = { type: "Listening" } | { type: "Error"; error: string } | { type: "NotListening" }
 
 export type Listeners = { ipv4: ListenerState; ipv6: ListenerState; relay: ListenerState }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; device_pub_id: number[] | null; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -505,7 +514,7 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
-export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; used_storage: bigint; storage_size: bigint; created_at: string; updated_at: string; device_model: core_HardwareModel }
+export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; used_storage: bigint; storage_size: bigint; created_at: string; updated_at: string; device_model: CoreHardwareModel }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
@@ -527,11 +536,11 @@ export type NodeState = ({
 /**
  * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
  */
-id: string; 
+id: CoreDevicePubId; 
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; os: DeviceOS; hardware_model: CoreHardwareModel }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
@@ -561,6 +570,8 @@ export type NotificationData = { title: string; content: string; kind: Notificat
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 
 export type NotificationKind = "info" | "success" | "error" | "warning"
+
+export type NotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: Device; sync_group: SyncGroup } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: SyncGroup } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: SyncGroup } } | { kind: "TimedOutJoinRequest"; data: { device: Device; succeeded: boolean } }
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
 
@@ -602,7 +613,7 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata; addrs: string[] } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: core_HardwareModel | null; version: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: CoreHardwareModel | null; version: string | null }
 
 export type PlusCode = string
 
@@ -675,6 +686,10 @@ export type Stream = { id: number; name: string | null; codec: Codec | null; asp
 
 export type SubtitleProps = { width: number; height: number }
 
+export type SyncGroup = { pub_id: SyncGroupPubId; name: string; latest_key_hash: KeyHash; library: Library; devices: Device[]; created_at: string; updated_at: string }
+
+export type SyncGroupPubId = string
+
 export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 
 export type SystemLocations = { desktop: string | null; documents: string | null; downloads: string | null; pictures: string | null; music: string | null; videos: string | null }
@@ -699,8 +714,8 @@ export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: s
 
 export type UpdateThumbnailerPreferences = Record<string, never>
 
+export type UserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: boolean } }
+
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 
 export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }
-
-export type core_HardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"

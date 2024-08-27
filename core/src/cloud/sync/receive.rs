@@ -2,8 +2,9 @@ use crate::{library::Libraries, Node};
 
 use futures::FutureExt;
 use sd_actors::Stopper;
+use sd_core_sync::DevicePubId;
 use sd_p2p::RemoteIdentity;
-use sd_prisma::prisma::{cloud_crdt_operation, instance, PrismaClient};
+use sd_prisma::prisma::{cloud_crdt_operation, device, instance, PrismaClient};
 use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
 
@@ -239,58 +240,11 @@ async fn write_cloud_ops_to_db(
 fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
 	cloud_crdt_operation::Create {
 		timestamp: op.timestamp.0 as i64,
-		instance: instance::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
+		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
 		kind: op.data.as_kind().to_string(),
 		data: to_vec(&op.data).expect("unable to serialize data"),
 		model: op.model_id as i32,
 		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
 		_params: vec![],
 	}
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn upsert_instance(
-	library_id: Uuid,
-	db: &PrismaClient,
-	sync: &sd_core_sync::Manager,
-	libraries: &Libraries,
-	uuid: &Uuid,
-	identity: RemoteIdentity,
-	node_id: &Uuid,
-	node_remote_identity: RemoteIdentity,
-	metadata: HashMap<String, String>,
-) -> prisma_client_rust::Result<()> {
-	db.instance()
-		.upsert(
-			instance::pub_id::equals(uuid_to_bytes(uuid)),
-			instance::create(
-				uuid_to_bytes(uuid),
-				identity.get_bytes().to_vec(),
-				node_id.as_bytes().to_vec(),
-				Utc::now().into(),
-				Utc::now().into(),
-				vec![
-					instance::node_remote_identity::set(Some(
-						node_remote_identity.get_bytes().to_vec(),
-					)),
-					instance::metadata::set(Some(
-						serde_json::to_vec(&metadata).expect("unable to serialize metadata"),
-					)),
-				],
-			),
-			vec![],
-		)
-		.exec()
-		.await?;
-
-	sync.timestamp_per_device
-		.write()
-		.await
-		.entry(*uuid)
-		.or_default();
-
-	// Called again so the new instances are picked up
-	libraries.update_instances_by_id(library_id).await;
-
-	Ok(())
 }

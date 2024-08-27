@@ -1,10 +1,12 @@
+use sd_core_prisma_helpers::DevicePubId;
+
 use sd_prisma::{
 	prisma::{crdt_operation, PrismaClient, SortOrder},
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::{
 	CRDTOperation, CRDTOperationData, CompressedCRDTOperation,
-	CompressedCRDTOperationsPerModelPerDevice, OperationKind,
+	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationKind,
 };
 
 use std::{
@@ -40,7 +42,7 @@ use super::{
 /// Stuff that can be handled outside the actor
 pub enum Request {
 	Messages {
-		timestamps: Vec<(Uuid, NTP64)>,
+		timestamps: Vec<(DevicePubId, NTP64)>,
 		tx: oneshot::Sender<()>,
 	},
 	FinishedIngesting,
@@ -137,7 +139,7 @@ impl Actor {
 			.read()
 			.await
 			.iter()
-			.map(|(&uid, &timestamp)| (uid, timestamp))
+			.map(|(uid, &timestamp)| (uid.clone(), timestamp))
 			.collect();
 
 		if self
@@ -193,11 +195,11 @@ impl Actor {
 			"Ingesting operations;",
 		);
 
-		for (instance, data) in event.messages.0 {
+		for (device_pub_id, data) in event.messages.0 {
 			for (model, data) in data {
 				for (record, ops) in data {
 					if let Err(e) = self
-						.process_crdt_operations(instance, model, record, ops)
+						.process_crdt_operations(device_pub_id.into(), model, record, ops)
 						.await
 					{
 						error!(?e, "Failed to ingest CRDT operations;");
@@ -268,7 +270,7 @@ impl Actor {
 	#[instrument(skip(self, ops), fields(operations_count = %ops.len()), err)]
 	async fn process_crdt_operations(
 		&mut self,
-		instance: Uuid,
+		device_pub_id: DevicePubId,
 		model: u16,
 		record_id: rmpv::Value,
 		mut ops: Vec<CompressedCRDTOperation>,
@@ -284,7 +286,9 @@ impl Actor {
 		self.clock
 			.update_with_timestamp(&Timestamp::new(
 				new_timestamp,
-				uhlc::ID::from(NonZeroU128::new(instance.to_u128_le()).expect("Non zero id")),
+				uhlc::ID::from(
+					NonZeroU128::new(Uuid::from(&device_pub_id).to_u128_le()).expect("Non zero id"),
+				),
 			))
 			.expect("timestamp has too much drift!");
 
@@ -293,7 +297,7 @@ impl Actor {
 			.timestamp_per_device
 			.read()
 			.await
-			.get(&instance)
+			.get(&device_pub_id)
 			.copied();
 
 		// Delete - ignores all other messages
@@ -303,7 +307,7 @@ impl Actor {
 			.find(|op| matches!(op.data, CRDTOperationData::Delete))
 		{
 			trace!("Deleting operation");
-			handle_crdt_deletion(db, instance, model, record_id, delete_op).await?;
+			handle_crdt_deletion(db, &device_pub_id, model, record_id, delete_op).await?;
 		}
 		// Create + > 0 Update - overwrites the create's data with the updates
 		else if let Some(timestamp) = ops
@@ -330,7 +334,8 @@ impl Actor {
 				return Ok(());
 			}
 
-			handle_crdt_create_and_updates(db, instance, model, record_id, ops, timestamp).await?;
+			handle_crdt_create_and_updates(db, &device_pub_id, model, record_id, ops, timestamp)
+				.await?;
 		}
 		// > 0 Update - batches updates with a fake Create op
 		else {
@@ -387,7 +392,7 @@ impl Actor {
 				return Ok(());
 			}
 
-			handle_crdt_updates(db, instance, model, record_id, data, updates).await?;
+			handle_crdt_updates(db, &device_pub_id, model, record_id, data, updates).await?;
 		}
 
 		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
@@ -396,7 +401,7 @@ impl Actor {
 		self.timestamp_per_device
 			.write()
 			.await
-			.insert(instance, new_ts);
+			.insert(device_pub_id, new_ts);
 
 		Ok(())
 	}
@@ -404,13 +409,14 @@ impl Actor {
 
 async fn handle_crdt_updates(
 	db: &PrismaClient,
-	instance: Uuid,
+	device_pub_id: &DevicePubId,
 	model: u16,
 	record_id: rmpv::Value,
 	mut data: BTreeMap<String, (rmpv::Value, NTP64)>,
 	updates: Vec<Option<crdt_operation::Data>>,
 ) -> Result<(), Error> {
 	let keys = data.keys().cloned().collect::<Vec<_>>();
+	let device_pub_id = sd_sync::DevicePubId::from(device_pub_id);
 
 	// does the same thing as processing ops one-by-one and returning early if a newer op was found
 	for (update, key) in updates.into_iter().zip(keys) {
@@ -424,7 +430,7 @@ async fn handle_crdt_updates(
 		.run(|db| async move {
 			// fake operation to batch them all at once
 			ModelSyncData::from_op(CRDTOperation {
-				device_pub_id: instance,
+				device_pub_id,
 				model_id: model,
 				record_id: record_id.clone(),
 				timestamp: NTP64(0),
@@ -447,7 +453,7 @@ async fn handle_crdt_updates(
 					async move {
 						write_crdt_op_to_db(
 							&CRDTOperation {
-								device_pub_id: instance,
+								device_pub_id,
 								model_id: model,
 								record_id,
 								timestamp,
@@ -468,23 +474,24 @@ async fn handle_crdt_updates(
 
 async fn handle_crdt_create_and_updates(
 	db: &PrismaClient,
-	instance: Uuid,
-	model: u16,
+	device_pub_id: &DevicePubId,
+	model_id: ModelId,
 	record_id: rmpv::Value,
 	ops: Vec<CompressedCRDTOperation>,
 	timestamp: NTP64,
 ) -> Result<(), Error> {
 	let mut data = BTreeMap::new();
+	let device_pub_id = sd_sync::DevicePubId::from(device_pub_id);
 
 	let mut applied_ops = vec![];
 
 	// search for all Updates until a Create is found
-	for op in ops.iter().rev() {
+	for op in ops.into_iter().rev() {
 		match &op.data {
 			CRDTOperationData::Delete => unreachable!("Delete can't exist here!"),
 			CRDTOperationData::Create(create_data) => {
 				for (k, v) in create_data {
-					data.entry(k).or_insert(v);
+					data.entry(k.clone()).or_insert_with(|| v.clone());
 				}
 
 				applied_ops.push(op);
@@ -492,8 +499,8 @@ async fn handle_crdt_create_and_updates(
 				break;
 			}
 			CRDTOperationData::Update { field, value } => {
+				data.insert(field.clone(), value.clone());
 				applied_ops.push(op);
-				data.insert(field, value);
 			}
 		}
 	}
@@ -503,35 +510,33 @@ async fn handle_crdt_create_and_updates(
 		.run(|db| async move {
 			// fake a create with a bunch of data rather than individual insert
 			ModelSyncData::from_op(CRDTOperation {
-				device_pub_id: instance,
-				model_id: model,
+				device_pub_id,
+				model_id,
 				record_id: record_id.clone(),
 				timestamp,
-				data: CRDTOperationData::Create(
-					data.into_iter()
-						.map(|(k, v)| (k.clone(), v.clone()))
-						.collect(),
-				),
+				data: CRDTOperationData::Create(data),
 			})
-			.ok_or(Error::InvalidModelId(model))?
+			.ok_or(Error::InvalidModelId(model_id))?
 			.exec(&db)
 			.await?;
 
 			applied_ops
 				.into_iter()
-				.map(|op| {
+				.map(|CompressedCRDTOperation { timestamp, data }| {
 					let record_id = record_id.clone();
 					let db = &db;
 					async move {
-						let operation = CRDTOperation {
-							device_pub_id: instance,
-							model_id: model,
-							record_id,
-							timestamp: op.timestamp,
-							data: op.data.clone(),
-						};
-
-						write_crdt_op_to_db(&operation, db).await
+						write_crdt_op_to_db(
+							&CRDTOperation {
+								device_pub_id,
+								timestamp,
+								model_id,
+								record_id,
+								data,
+							},
+							db,
+						)
+						.await
 					}
 				})
 				.collect::<Vec<_>>()
@@ -544,14 +549,14 @@ async fn handle_crdt_create_and_updates(
 
 async fn handle_crdt_deletion(
 	db: &PrismaClient,
-	instance: Uuid,
+	device_pub_id: &DevicePubId,
 	model: u16,
 	record_id: rmpv::Value,
 	delete_op: &CompressedCRDTOperation,
 ) -> Result<(), Error> {
 	// deletes are the be all and end all, no need to check anything
 	let op = CRDTOperation {
-		device_pub_id: instance,
+		device_pub_id: device_pub_id.into(),
 		model_id: model,
 		record_id,
 		timestamp: delete_op.timestamp,
@@ -586,7 +591,7 @@ pub struct Handler {
 
 #[derive(Debug)]
 pub struct MessagesEvent {
-	pub instance_id: Uuid,
+	pub device_pub_id: DevicePubId,
 	pub messages: CompressedCRDTOperationsPerModelPerDevice,
 	pub has_more: bool,
 	pub wait_tx: Option<oneshot::Sender<()>>,
@@ -608,13 +613,13 @@ mod test {
 	use super::*;
 
 	async fn new_actor() -> (Handler, Arc<SharedState>) {
-		let instance = Uuid::new_v4();
+		let device_pub_id = Uuid::now_v7();
 		let shared = Arc::new(SharedState {
 			db: sd_prisma::test_db().await,
-			instance,
+			device_pub_id: device_pub_id.into(),
 			clock: HLCBuilder::new()
 				.with_id(uhlc::ID::from(
-					NonZeroU128::new(instance.to_u128_le()).expect("Non zero id"),
+					NonZeroU128::new(device_pub_id.to_u128_le()).expect("Non zero id"),
 				))
 				.build(),
 			timestamp_per_device: Arc::default(),
