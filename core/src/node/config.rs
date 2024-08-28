@@ -321,12 +321,24 @@ impl NodeConfig {
 							.map_err(VersionManagerError::SerdeJson)?;
 
 						config.remove("id");
-						config.insert(String::from("id"), json!(Uuid::now_v7()));
+						config.insert(
+							String::from("id"),
+							serde_json::to_value(Uuid::now_v7())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
 
 						config.remove("name");
-						config.insert(String::from("name"), json!(generate_device_name()));
+						config.insert(
+							String::from("name"),
+							serde_json::to_value(generate_device_name())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
 
-						config.insert(String::from("os"), json!(std::env::consts::OS));
+						config.insert(
+							String::from("os"),
+							serde_json::to_value(std::env::consts::OS)
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
 
 						let a =
 							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
@@ -364,6 +376,13 @@ impl NodeConfig {
 						config.remove("auth_token");
 						config.remove("sd_api_origin");
 						config.remove("image_labeler_version");
+
+						config.remove("id");
+						config.insert(
+							String::from("id"),
+							serde_json::to_value(DevicePubId::from(Uuid::now_v7()))
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
 
 						fs::write(
 							path,
