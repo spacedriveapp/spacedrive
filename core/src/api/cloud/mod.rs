@@ -21,6 +21,7 @@ use super::{Ctx, R};
 mod devices;
 mod libraries;
 mod locations;
+mod sync_groups;
 
 async fn try_get_cloud_services_client(
 	node: &Node,
@@ -38,6 +39,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.merge("libraries.", libraries::mount())
 		.merge("locations.", locations::mount())
 		.merge("devices.", devices::mount())
+		.merge("syncGroups.", sync_groups::mount())
 		.procedure("bootstrap", {
 			R.mutation(
 				|node, (access_token, refresh_token): (auth::AccessToken, auth::RefreshToken)| async move {
@@ -69,9 +71,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let NodeConfig { id, name, os, .. } = node.config.get().await;
 						(devices::PubId(id.into()), name, os)
 					};
-					let mut hasher = blake3::Hasher::new();
-					hasher.update(device_pub_id.0.as_bytes().as_slice());
-					let hashed_pub_id = hasher.finalize();
+
+					let hashed_pub_id = blake3::hash(device_pub_id.0.as_bytes().as_slice());
 
 					let key_manager = match handle_comm_error(
 						client
@@ -143,6 +144,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.await?,
 						)
 						.await;
+
+					// TODO(@fogodev): Verify existing sync groups and dispatch sync related actors
 
 					Ok(())
 				},

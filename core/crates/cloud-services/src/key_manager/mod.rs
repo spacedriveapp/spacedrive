@@ -109,6 +109,34 @@ impl KeyManager {
 			.await
 	}
 
+	pub async fn add_key_with_hash(
+		&self,
+		group_pub_id: groups::PubId,
+		key: SecretKey,
+		key_hash: KeyHash,
+		rng: &mut CryptoRng,
+	) -> Result<(), Error> {
+		let mut store = self.store.write().await;
+		store.add_key_with_hash(group_pub_id, key, key_hash);
+		// Keeping the write lock here, this way we ensure that we can't corrupt the file
+		store
+			.encrypt(&self.master_key, rng, &self.keys_file_path)
+			.await
+	}
+
+	pub async fn remove_group(
+		&self,
+		group_pub_id: groups::PubId,
+		rng: &mut CryptoRng,
+	) -> Result<(), Error> {
+		let mut store = self.store.write().await;
+		store.remove_group(group_pub_id);
+		// Keeping the write lock here, this way we ensure that we can't corrupt the file
+		store
+			.encrypt(&self.master_key, rng, &self.keys_file_path)
+			.await
+	}
+
 	pub async fn add_many_keys(
 		&self,
 		group_pub_id: groups::PubId,

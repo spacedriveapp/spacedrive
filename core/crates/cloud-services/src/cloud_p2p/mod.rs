@@ -126,13 +126,13 @@ impl CloudP2P {
 	/// Will panic if the actor channel is closed, which should never happen
 	pub async fn request_join_sync_group(
 		&self,
-		devices_connection_ids: Vec<NodeId>,
+		devices_in_group: Vec<(devices::PubId, NodeId)>,
 		req: authorize_new_device_in_sync_group::Request,
 	) {
 		self.msgs_tx
 			.send_async(runner::Message::Request(runner::Request::JoinSyncGroup {
 				req,
-				devices_connection_ids,
+				devices_in_group,
 			}))
 			.await
 			.expect("Channel closed");
