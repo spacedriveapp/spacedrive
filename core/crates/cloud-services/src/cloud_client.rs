@@ -307,6 +307,16 @@ impl CloudServices {
 	pub async fn set_cloud_p2p(&self, cloud_p2p: CloudP2P) {
 		self.cloud_p2p.write().await.replace(Arc::new(cloud_p2p));
 	}
+
+	pub async fn cloud_p2p(&self) -> Result<Arc<CloudP2P>, Error> {
+		self.cloud_p2p
+			.read()
+			.await
+			.as_ref()
+			.map_or(Err(Error::CloudP2PNotInitialized), |cloud_p2p| {
+				Ok(Arc::clone(cloud_p2p))
+			})
+	}
 }
 
 #[cfg(test)]

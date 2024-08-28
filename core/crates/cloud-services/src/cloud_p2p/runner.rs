@@ -38,7 +38,7 @@ use tokio::{
 	time::{interval, Instant, MissedTickBehavior},
 };
 use tokio_stream::wrappers::IntervalStream;
-use tracing::{error, warn};
+use tracing::{debug, error, warn};
 
 use super::{JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
 
@@ -54,7 +54,7 @@ pub enum Message {
 pub enum Request {
 	JoinSyncGroup {
 		req: authorize_new_device_in_sync_group::Request,
-		devices_connection_ids: Vec<NodeId>,
+		devices_in_group: Vec<(devices::PubId, NodeId)>,
 	},
 }
 
@@ -177,8 +177,8 @@ impl Runner {
 
 				StreamMessage::Message(Message::Request(Request::JoinSyncGroup {
 					req,
-					devices_connection_ids,
-				})) => self.dispatch_join_requests(req, devices_connection_ids, &mut rng),
+					devices_in_group,
+				})) => self.dispatch_join_requests(req, devices_in_group, &mut rng),
 
 				StreamMessage::UserResponse(UserResponse::AcceptDeviceInSyncGroup {
 					ticket,
@@ -200,7 +200,7 @@ impl Runner {
 	fn dispatch_join_requests(
 		&self,
 		req: authorize_new_device_in_sync_group::Request,
-		devices_connection_ids: Vec<NodeId>,
+		devices_in_group: Vec<(devices::PubId, NodeId)>,
 		rng: &mut CryptoRng,
 	) {
 		async fn inner(
@@ -208,14 +208,12 @@ impl Runner {
 			endpoint: Endpoint,
 			mut rng: CryptoRng,
 			req: authorize_new_device_in_sync_group::Request,
-			devices_connection_ids: Vec<NodeId>,
+			devices_in_group: Vec<(devices::PubId, NodeId)>,
 		) -> Result<JoinSyncGroupResponse, Error> {
 			let group_pub_id = req.sync_group.pub_id;
 			loop {
 				let client =
-					match connect_to_first_available_client(&endpoint, &devices_connection_ids)
-						.await
-					{
+					match connect_to_first_available_client(&endpoint, &devices_in_group).await {
 						Ok(client) => client,
 						Err(e) => {
 							return Ok(JoinSyncGroupResponse::Failed(e));
@@ -241,6 +239,9 @@ impl Runner {
 								&mut rng,
 							)
 							.await?;
+
+						// TODO(@fogodev): Figure out a way to dispatch sync related actors now that we have the keys
+
 						return Ok(JoinSyncGroupResponse::Accepted { authorizor_device });
 					}
 					// In case of timeout, we will try again
@@ -260,7 +261,7 @@ impl Runner {
 
 				if let Err(SendError(response)) = notify_user_tx
 					.send_async(NotifyUser::ReceivedJoinSyncGroupResponse {
-						response: inner(key_manager, endpoint, rng, req, devices_connection_ids)
+						response: inner(key_manager, endpoint, rng, req, devices_in_group)
 							.await
 							.unwrap_or_else(|e| {
 								error!(
@@ -472,14 +473,16 @@ impl Runner {
 
 async fn connect_to_first_available_client(
 	endpoint: &Endpoint,
-	devices_connection_ids: &[NodeId],
+	devices_in_group: &[(devices::PubId, NodeId)],
 ) -> Result<Client<QuinnConnection<Service>, Service>, CloudP2PError> {
-	for device_connection_id in devices_connection_ids {
+	for (device_pub_id, device_connection_id) in devices_in_group {
 		if let Ok(connection) = endpoint
 			.connect_by_node_id(*device_connection_id, CloudP2PALPN::LATEST)
 			.await
-			.map_err(|e| error!(?e, "Failed to connect to authorizor device candidate"))
-		{
+			.map_err(
+				|e| error!(?e, %device_pub_id, "Failed to connect to authorizor device candidate"),
+			) {
+			debug!(%device_pub_id, "Connected to authorizor device candidate");
 			return Ok(Client::new(RpcClient::new(
 				QuinnConnection::<Service>::from_connection(connection),
 			)));

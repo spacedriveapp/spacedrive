@@ -41,14 +41,22 @@ impl KeyStore {
 	}
 
 	pub fn add_key(&mut self, group_pub_id: groups::PubId, key: SecretKey) {
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(key.as_ref());
-		let hash = hasher.finalize();
+		self.keys.entry(group_pub_id).or_default().push_front((
+			KeyHash(blake3::hash(key.as_ref()).to_hex().to_string()),
+			key,
+		));
+	}
 
+	pub fn add_key_with_hash(
+		&mut self,
+		group_pub_id: groups::PubId,
+		key: SecretKey,
+		key_hash: KeyHash,
+	) {
 		self.keys
 			.entry(group_pub_id)
 			.or_default()
-			.push_front((KeyHash(hash.to_hex().to_string()), key));
+			.push_front((key_hash, key));
 	}
 
 	pub fn add_many_keys(
@@ -61,12 +69,15 @@ impl KeyStore {
 		// We reverse the secret keys as a implementation detail to
 		// keep the keys in the same order as they were added as a stack
 		for key in keys.into_iter().rev() {
-			let mut hasher = blake3::Hasher::new();
-			hasher.update(key.as_ref());
-			let hash = hasher.finalize();
-
-			group_entry.push_front((KeyHash(hash.to_hex().to_string()), key));
+			group_entry.push_front((
+				KeyHash(blake3::hash(key.as_ref()).to_hex().to_string()),
+				key,
+			));
 		}
+	}
+
+	pub fn remove_group(&mut self, group_pub_id: groups::PubId) {
+		self.keys.remove(&group_pub_id);
 	}
 
 	pub fn iroh_secret_key(&self) -> IrohSecretKey {

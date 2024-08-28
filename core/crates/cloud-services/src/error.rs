@@ -59,6 +59,8 @@ pub enum Error {
 	ConnectToCloudP2PNode(anyhow::Error),
 	#[error("Communication error with Cloud P2P node: {0}")]
 	CloudP2PRpcCommunication(#[from] quic_rpc::pattern::rpc::Error<QuinnConnection<Service>>),
+	#[error("Cloud P2P not initialized")]
+	CloudP2PNotInitialized,
 }
 
 #[derive(thiserror::Error, Debug)]
