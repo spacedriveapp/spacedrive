@@ -44,8 +44,8 @@ export const Component = () => {
 				description: t('page_shortcut_description'),
 				shortcuts: [
 					{ shortcut: 'navBackwardHistory', description: t('navigate_backwards') },
-					{ shortcut: 'navForwardHistory', description: t('navigate_forwards') },
-					{ shortcut: 'navToSettings', description: t('navigate_to_settings_page') }
+					{ shortcut: 'navForwardHistory', description: t('navigate_forwards') }
+					// { shortcut: 'navToSettings', description: t('navigate_to_settings_page') }
 				]
 			},
 			{

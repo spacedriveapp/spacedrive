@@ -181,7 +181,7 @@ function useTabKeybinds(props: { addTab(): void; removeTab(index: number): void 
 
 	useShortcut('newTab', (e) => {
 		e.stopPropagation();
-		if (e.shiftKey) return; //to prevent colliding with 'navToSettings' shortcut
+		if (e.shiftKey) return; //to prevent colliding with other shortcuts
 		props.addTab();
 	});
 
