@@ -36,10 +36,10 @@
 					"url": "http://**"
 				},
 				{
-					"url": "http://localhost:9420/"
+					"url": "http://localhost:9420/*"
 				},
 				{
-					"url": "https://plausible.io/"
+					"url": "https://plausible.io/*"
 				}
 			]
 		}

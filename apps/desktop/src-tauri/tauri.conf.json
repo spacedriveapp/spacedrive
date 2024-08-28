@@ -36,7 +36,7 @@
 			}
 		],
 		"security": {
-			"csp": "default-src webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+			"csp": "default-src 'self' webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' tauri://localhost http://localhost:9420 https://plausible.io ipc: http://ipc.localhost;"
 		}
 	},
 	"bundle": {
