@@ -1,8 +1,10 @@
+use crate::Node;
+
+use sd_core_sync::SyncManager;
+
 use std::sync::Arc;
 
 use uuid::Uuid;
-
-use crate::Node;
 
 pub mod sync;
 
@@ -16,7 +18,7 @@ pub async fn start(
 	actors: &Arc<sd_actors::Actors>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
-	sync: &Arc<sd_core_sync::Manager>,
+	sync: &Arc<SyncManager>,
 	db: &Arc<sd_prisma::prisma::PrismaClient>,
 ) -> State {
 	let sync = sync::declare_actors(

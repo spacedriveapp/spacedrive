@@ -3,14 +3,14 @@ use crate::{
 	invalidate_query,
 	location::metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	object::tag,
-	p2p, sync,
+	p2p,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
-use sd_core_sync::SyncMessage;
+use sd_core_sync::{SyncEvent, SyncManager};
 use sd_p2p::{Identity, RemoteIdentity};
-use sd_prisma::prisma::{instance, location};
+use sd_prisma::prisma::{device, instance, location};
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
@@ -133,7 +133,7 @@ impl Libraries {
 				}
 
 				let _library_arc = self
-					.load(library_id, &db_path, config_path, None, true, node)
+					.load(library_id, &db_path, config_path, None, None, true, node)
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
@@ -203,6 +203,15 @@ impl Libraries {
 				id,
 				self.libraries_dir.join(format!("{id}.db")),
 				config_path,
+				Some(device::Create {
+					pub_id: node_cfg.id.to_db(),
+					_params: vec![
+						device::name::set(Some(node_cfg.name.clone())),
+						device::os::set(Some(node_cfg.os as i32)),
+						device::hardware_model::set(Some(node_cfg.hardware_model as i32)),
+						device::date_created::set(Some(now)),
+					],
+				}),
 				Some({
 					let identity = Identity::new();
 					let mut create = instance.unwrap_or_else(|| instance::Create {
@@ -438,7 +447,8 @@ impl Libraries {
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: impl AsRef<Path>,
-		create: Option<instance::Create>,
+		maybe_create_device: Option<device::Create>,
+		maybe_create_instance: Option<instance::Create>,
 		should_seed: bool,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
@@ -453,7 +463,12 @@ impl Libraries {
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
-		if let Some(create) = create {
+		if let Some(create) = maybe_create_device {
+			create.to_query(&db).exec().await?;
+		}
+
+		// TODO: remove instances from locations
+		if let Some(create) = maybe_create_instance {
 			create.to_query(&db).exec().await?;
 		}
 
@@ -474,10 +489,9 @@ impl Libraries {
 		let devices = db.device().find_many(vec![]).exec().await?;
 
 		let device_pub_id_to_db = device_pub_id.to_db();
-		if devices
+		if !devices
 			.iter()
-			.find(|device| device.pub_id == device_pub_id_to_db)
-			.is_none()
+			.any(|device| device.pub_id == device_pub_id_to_db)
 		{
 			return Err(LibraryManagerError::CurrentDeviceNotFound(device_pub_id));
 		}
@@ -536,7 +550,7 @@ impl Libraries {
 
 		let actors = Default::default();
 
-		let (sync, sync_rx) = sync::Manager::with_existing_devices(
+		let (sync, sync_rx) = SyncManager::with_existing_devices(
 			Arc::clone(&db),
 			&device_pub_id,
 			Arc::clone(&config.generate_sync_operations),
@@ -746,7 +760,7 @@ impl Libraries {
 async fn sync_rx_actor(
 	library: Arc<Library>,
 	node: Arc<Node>,
-	mut sync_rx: broadcast::Receiver<SyncMessage>,
+	mut sync_rx: broadcast::Receiver<SyncEvent>,
 ) {
 	loop {
 		let Ok(msg) = sync_rx.recv().await else {
@@ -755,10 +769,10 @@ async fn sync_rx_actor(
 
 		match msg {
 			// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
-			SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+			SyncEvent::Ingested => node.emit(CoreEvent::InvalidateOperation(
 				InvalidateOperationEvent::all(),
 			)),
-			SyncMessage::Created => {
+			SyncEvent::Created => {
 				p2p::sync::originator(library.clone(), &library.sync, &node.p2p).await
 			}
 		}

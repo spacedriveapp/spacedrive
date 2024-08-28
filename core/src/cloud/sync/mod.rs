@@ -1,8 +1,10 @@
+use crate::Node;
+
+use sd_core_sync::SyncManager;
+
 use std::sync::{atomic::AtomicBool, Arc};
 use tokio::sync::Notify;
 use uuid::Uuid;
-
-use crate::Node;
 
 pub mod ingest;
 pub mod receive;
@@ -21,7 +23,7 @@ pub async fn declare_actors(
 	actors: &Arc<sd_actors::Actors>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
-	sync: Arc<sd_core_sync::Manager>,
+	sync: Arc<SyncManager>,
 	db: Arc<sd_prisma::prisma::PrismaClient>,
 ) -> State {
 	let ingest_notify = Arc::new(Notify::new());

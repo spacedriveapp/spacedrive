@@ -8,7 +8,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_media_processor, ObjectPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};

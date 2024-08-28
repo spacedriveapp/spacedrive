@@ -19,6 +19,7 @@ macro_rules! msgpack {
 
 pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
+
 	fn get_device_pub_id(&self) -> DevicePubId;
 
 	fn new_op<SId: SyncId<Model: SyncModel>>(
@@ -39,8 +40,8 @@ pub trait OperationFactory {
 		&self,
 		id: impl SyncId<Model = impl SharedSyncModel>,
 		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
-	) -> Vec<CRDTOperation> {
-		vec![self.new_op(
+	) -> CRDTOperation {
+		self.new_op(
 			&id,
 			CRDTOperationData::Create(
 				values
@@ -48,7 +49,7 @@ pub trait OperationFactory {
 					.map(|(name, value)| (name.to_string(), value))
 					.collect(),
 			),
-		)]
+		)
 	}
 
 	fn shared_update(
@@ -74,8 +75,8 @@ pub trait OperationFactory {
 		&self,
 		id: impl RelationSyncId<Model = impl RelationSyncModel>,
 		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
-	) -> Vec<CRDTOperation> {
-		vec![self.new_op(
+	) -> CRDTOperation {
+		self.new_op(
 			&id,
 			CRDTOperationData::Create(
 				values
@@ -83,7 +84,7 @@ pub trait OperationFactory {
 					.map(|(name, value)| (name.to_string(), value))
 					.collect(),
 			),
-		)]
+		)
 	}
 	fn relation_update(
 		&self,

@@ -1,5 +1,6 @@
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, label, label_on_object, object, PrismaClient},
@@ -300,7 +301,7 @@ async fn spawned_process_single_file(
 		chan::Sender<file_path::id::Type>,
 	),
 	db: Arc<PrismaClient>,
-	sync: Arc<sd_core_sync::Manager>,
+	sync: Arc<SyncManager>,
 	_permit: OwnedSemaphorePermit,
 ) {
 	let image =
@@ -398,7 +399,7 @@ pub async fn assign_labels(
 	object_id: object::id::Type,
 	mut labels: HashSet<String>,
 	db: &PrismaClient,
-	sync: &sd_core_sync::Manager,
+	sync: &SyncManager,
 ) -> Result<bool, ImageLabelerError> {
 	let object = db
 		.object()
@@ -432,7 +433,7 @@ pub async fn assign_labels(
 		let db_params = labels
 			.into_iter()
 			.map(|name| {
-				sync_params.extend(sync.shared_create(
+				sync_params.push(sync.shared_create(
 					prisma_sync::label::SyncId { name: name.clone() },
 					[(label::date_created::NAME, msgpack!(&date_created))],
 				));
@@ -458,7 +459,7 @@ pub async fn assign_labels(
 	let db_params: Vec<_> = labels_ids
 		.into_iter()
 		.map(|(label_id, name)| {
-			sync_params.extend(sync.relation_create(
+			sync_params.push(sync.relation_create(
 				prisma_sync::label_on_object::SyncId {
 					label: prisma_sync::label::SyncId { name },
 					object: prisma_sync::object::SyncId {

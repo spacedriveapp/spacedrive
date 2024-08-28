@@ -1,5 +1,7 @@
 use crate::cloud::sync::err_break;
 
+use sd_core_sync::SyncManager;
+
 use sd_actors::Stopper;
 use sd_prisma::prisma::cloud_crdt_operation;
 use sd_sync::CompressedCRDTOperationsPerModelPerDevice;
@@ -22,7 +24,7 @@ use tracing::debug;
 // and applying them to the local database via the sync system's ingest actor.
 
 pub async fn run_actor(
-	sync: Arc<sd_core_sync::Manager>,
+	sync: Arc<SyncManager>,
 	notify: Arc<Notify>,
 	state: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
@@ -63,15 +65,10 @@ pub async fn run_actor(
 						Request::Messages { timestamps, .. } => timestamps,
 					};
 
-					let (ops_ids, ops): (Vec<_>, Vec<_>) = err_break!(
-						sync.get_cloud_ops(GetOpsArgs {
-							timestamp_per_device: timestamps,
-							count: OPS_PER_REQUEST,
-						})
-						.await
-					)
-					.into_iter()
-					.unzip();
+					let (ops_ids, ops): (Vec<_>, Vec<_>) =
+						err_break!(sync.get_cloud_ops(OPS_PER_REQUEST, timestamps,).await)
+							.into_iter()
+							.unzip();
 
 					if ops.is_empty() {
 						break;

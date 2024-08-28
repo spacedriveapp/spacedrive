@@ -1,9 +1,10 @@
-use crate::{api::CoreEvent, cloud, sync, Node};
+use crate::{api::CoreEvent, cloud, Node};
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::ThumbnailKind;
 use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
 
+use sd_core_sync::SyncManager;
 use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
@@ -29,7 +30,7 @@ pub struct Library {
 	config: RwLock<LibraryConfig>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<sync::Manager>,
+	pub sync: Arc<SyncManager>,
 	pub cloud: cloud::State,
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
@@ -70,7 +71,7 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
-		sync: Arc<sync::Manager>,
+		sync: Arc<SyncManager>,
 		cloud: cloud::State,
 		do_cloud_sync: broadcast::Sender<()>,
 		actors: Arc<sd_actors::Actors>,

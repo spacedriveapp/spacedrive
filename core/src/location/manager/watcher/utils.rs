@@ -352,28 +352,26 @@ async fn inner_create_file(
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
 
-		sync.write_ops(
+		sync.write_op(
 			db,
-			(
-				sync.shared_create(
-					prisma_sync::object::SyncId {
-						pub_id: pub_id.to_db(),
-					},
-					[
-						(object::date_created::NAME, msgpack!(date_created)),
-						(object::kind::NAME, msgpack!(int_kind)),
-					],
-				),
-				db.object()
-					.create(
-						pub_id.into(),
-						vec![
-							object::date_created::set(Some(date_created)),
-							object::kind::set(Some(int_kind)),
-						],
-					)
-					.select(object_ids::select()),
+			sync.shared_create(
+				prisma_sync::object::SyncId {
+					pub_id: pub_id.to_db(),
+				},
+				[
+					(object::date_created::NAME, msgpack!(date_created)),
+					(object::kind::NAME, msgpack!(int_kind)),
+				],
 			),
+			db.object()
+				.create(
+					pub_id.into(),
+					vec![
+						object::date_created::set(Some(date_created)),
+						object::kind::set(Some(int_kind)),
+					],
+				)
+				.select(object_ids::select()),
 		)
 		.await?
 	};
@@ -709,25 +707,23 @@ async fn inner_update_file(
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 
-				sync.write_ops(
+				sync.write_op(
 					db,
-					(
-						sync.shared_create(
-							prisma_sync::object::SyncId {
-								pub_id: pub_id.to_db(),
-							},
-							[
-								(object::date_created::NAME, msgpack!(date_created)),
-								(object::kind::NAME, msgpack!(int_kind)),
-							],
-						),
-						db.object().create(
-							pub_id.to_db(),
-							vec![
-								object::date_created::set(Some(date_created)),
-								object::kind::set(Some(int_kind)),
-							],
-						),
+					sync.shared_create(
+						prisma_sync::object::SyncId {
+							pub_id: pub_id.to_db(),
+						},
+						[
+							(object::date_created::NAME, msgpack!(date_created)),
+							(object::kind::NAME, msgpack!(int_kind)),
+						],
+					),
+					db.object().create(
+						pub_id.to_db(),
+						vec![
+							object::date_created::set(Some(date_created)),
+							object::kind::set(Some(int_kind)),
+						],
 					),
 				)
 				.await?;

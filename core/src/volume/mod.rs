@@ -2,7 +2,7 @@
 
 use crate::{library::Library, Node};
 
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 use sd_prisma::{
 	prisma::{storage_statistics, PrismaClient},
 	prisma_sync,
@@ -572,41 +572,39 @@ async fn update_storage_statistics(
 	} else {
 		let new_storage_statistics_id = uuid_to_bytes(&Uuid::now_v7());
 
-		sync.write_ops(
+		sync.write_op(
 			db,
-			(
-				sync.shared_create(
-					prisma_sync::storage_statistics::SyncId {
-						pub_id: new_storage_statistics_id.clone(),
-					},
-					[
-						(
-							storage_statistics::total_capacity::NAME,
-							msgpack!(total_capacity),
-						),
-						(
-							storage_statistics::available_capacity::NAME,
-							msgpack!(available_capacity),
-						),
-						(
-							storage_statistics::device_pub_id::NAME,
-							msgpack!(device_pub_id),
-						),
-					],
-				),
-				db.storage_statistics()
-					.create(
-						new_storage_statistics_id,
-						vec![
-							storage_statistics::total_capacity::set(total_capacity as i64),
-							storage_statistics::available_capacity::set(available_capacity as i64),
-							storage_statistics::device_pub_id::set(Some(device_pub_id.clone())),
-						],
-					)
-					// We don't need any data here, just the id avoids receiving the entire object
-					// as we can't pass an empty select macro call
-					.select(storage_statistics::select!({ id })),
+			sync.shared_create(
+				prisma_sync::storage_statistics::SyncId {
+					pub_id: new_storage_statistics_id.clone(),
+				},
+				[
+					(
+						storage_statistics::total_capacity::NAME,
+						msgpack!(total_capacity),
+					),
+					(
+						storage_statistics::available_capacity::NAME,
+						msgpack!(available_capacity),
+					),
+					(
+						storage_statistics::device_pub_id::NAME,
+						msgpack!(device_pub_id),
+					),
+				],
 			),
+			db.storage_statistics()
+				.create(
+					new_storage_statistics_id,
+					vec![
+						storage_statistics::total_capacity::set(total_capacity as i64),
+						storage_statistics::available_capacity::set(available_capacity as i64),
+						storage_statistics::device_pub_id::set(Some(device_pub_id.clone())),
+					],
+				)
+				// We don't need any data here, just the id avoids receiving the entire object
+				// as we can't pass an empty select macro call
+				.select(storage_statistics::select!({ id })),
 		)
 		.await?;
 	}
@@ -625,12 +623,7 @@ pub fn save_storage_statistics(node: &Node) {
 				.await
 				.into_iter()
 				.map(move |library: Arc<Library>| async move {
-					let Library {
-						db,
-						sync,
-						instance_uuid,
-						..
-					} = &*library;
+					let Library { db, sync, .. } = &*library;
 
 					update_storage_statistics(db, sync, total_capacity, available_capacity).await
 				})

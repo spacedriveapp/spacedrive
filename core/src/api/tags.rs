@@ -223,7 +223,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.map(|fp| {
 								let id = uuid_to_bytes(&Uuid::now_v7());
 
-								sync_params.extend(sync.shared_create(
+								sync_params.push(sync.shared_create(
 									prisma_sync::object::SyncId { pub_id: id.clone() },
 									[],
 								));
@@ -270,7 +270,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										))],
 									});
 
-									sync_ops.extend(sync.relation_create(sync_id!(pub_id), []));
+									sync_ops.push(sync.relation_create(sync_id!(pub_id), []));
 
 									(sync_ops, db_creates)
 								},

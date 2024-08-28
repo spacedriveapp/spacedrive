@@ -1,7 +1,7 @@
 use crate::{indexer, Error};
 
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, location, PrismaClient},
@@ -88,7 +88,7 @@ impl Task<Error> for Saver {
 			..
 		} = self;
 
-		let (sync_stuff, paths): (Vec<_>, Vec<_>) = walked_entries
+		let (create_crdt_ops, paths): (Vec<_>, Vec<_>) = walked_entries
 			.drain(..)
 			.map(
 				|WalkedEntry {
@@ -160,7 +160,7 @@ impl Task<Error> for Saver {
 			.write_ops(
 				db,
 				(
-					sync_stuff.into_iter().flatten().collect(),
+					create_crdt_ops,
 					db.file_path().create_many(paths).skip_duplicates(),
 				),
 			)

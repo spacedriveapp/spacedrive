@@ -23,15 +23,15 @@ use uuid::Uuid;
 use super::{
 	crdt_op_db,
 	db_operation::{into_cloud_ops, into_ops},
-	ingest, Error, SharedState, SyncMessage, NTP64,
+	ingest, Error, SharedState, SyncEvent, NTP64,
 };
 
 /// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 pub struct Manager {
-	pub tx: broadcast::Sender<SyncMessage>,
+	pub tx: broadcast::Sender<SyncEvent>,
 	pub ingest: ingest::Handler,
 	pub shared: Arc<SharedState>,
-	pub timestamp_lock: Mutex<()>,
+	pub sync_lock: Mutex<()>,
 }
 
 impl fmt::Debug for Manager {
@@ -54,7 +54,7 @@ impl Manager {
 		current_device_pub_id: &DevicePubId,
 		emit_messages_flag: Arc<AtomicBool>,
 		actors: Arc<sd_actors::Actors>,
-	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
+	) -> Result<(Self, broadcast::Receiver<SyncEvent>), Error> {
 		let existing_devices = db.device().find_many(vec![]).exec().await?;
 
 		Self::with_existing_devices(
@@ -80,7 +80,7 @@ impl Manager {
 		emit_messages_flag: Arc<AtomicBool>,
 		existing_devices: &[device::Data],
 		actors: Arc<sd_actors::Actors>,
-	) -> Result<(Self, broadcast::Receiver<SyncMessage>), Error> {
+	) -> Result<(Self, broadcast::Receiver<SyncEvent>), Error> {
 		let latest_timestamp_per_device = db
 			._batch(
 				existing_devices
@@ -134,30 +134,30 @@ impl Manager {
 				tx,
 				ingest,
 				shared,
-				timestamp_lock: Mutex::default(),
+				sync_lock: Mutex::default(),
 			},
 			rx,
 		))
 	}
 
-	pub fn subscribe(&self) -> broadcast::Receiver<SyncMessage> {
+	pub fn subscribe(&self) -> broadcast::Receiver<SyncEvent> {
 		self.tx.subscribe()
 	}
 
 	pub async fn write_ops<'item, Q>(
 		&self,
 		tx: &PrismaClient,
-		(mut ops, queries): (Vec<CRDTOperation>, Q),
+		(ops, queries): (Vec<CRDTOperation>, Q),
 	) -> Result<Q::ReturnValue, Error>
 	where
 		Q: prisma_client_rust::BatchItem<'item, ReturnValue: Send> + Send,
 	{
-		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
-			let lock = self.timestamp_lock.lock().await;
+		if ops.is_empty() {
+			return Err(Error::EmptyOperations);
+		}
 
-			for op in &mut ops {
-				op.timestamp = *self.get_clock().new_timestamp().get_time();
-			}
+		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
+			let lock_guard = self.sync_lock.lock().await;
 
 			let (res, _) = tx
 				._batch((
@@ -176,11 +176,11 @@ impl Manager {
 					.insert(self.device_pub_id.clone(), last.timestamp);
 			}
 
-			if self.tx.send(SyncMessage::Created).is_err() {
+			if self.tx.send(SyncEvent::Created).is_err() {
 				warn!("failed to send created message on `write_ops`");
 			}
 
-			drop(lock);
+			drop(lock_guard);
 
 			res
 		} else {
@@ -193,24 +193,22 @@ impl Manager {
 	pub async fn write_op<'item, Q>(
 		&self,
 		tx: &PrismaClient,
-		mut op: CRDTOperation,
+		op: CRDTOperation,
 		query: Q,
 	) -> Result<Q::ReturnValue, Error>
 	where
 		Q: prisma_client_rust::BatchItem<'item, ReturnValue: Send> + Send,
 	{
 		let ret = if self.emit_messages_flag.load(atomic::Ordering::Relaxed) {
-			let lock = self.timestamp_lock.lock().await;
-
-			op.timestamp = *self.get_clock().new_timestamp().get_time();
+			let lock_guard = self.sync_lock.lock().await;
 
 			let ret = tx._batch((crdt_op_db(&op)?.to_query(tx), query)).await?.1;
 
-			if self.tx.send(SyncMessage::Created).is_err() {
+			if self.tx.send(SyncEvent::Created).is_err() {
 				warn!("failed to send created message on `write_op`");
 			}
 
-			drop(lock);
+			drop(lock_guard);
 
 			ret
 		} else {
@@ -235,7 +233,7 @@ impl Manager {
 		self.db
 			.crdt_operation()
 			.find_many(vec![
-				crdt_operation::device::is(vec![device::pub_id::equals(device_pub_id.into())]),
+				crdt_operation::device_pub_id::equals(device_pub_id.into()),
 				#[allow(clippy::cast_possible_wrap)]
 				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
 			])
@@ -248,12 +246,15 @@ impl Manager {
 			.collect()
 	}
 
-	pub async fn get_ops(&self, args: GetOpsArgs) -> Result<Vec<CRDTOperation>, Error> {
+	pub async fn get_ops(
+		&self,
+		count: u32,
+		timestamp_per_device: Vec<(DevicePubId, NTP64)>,
+	) -> Result<Vec<CRDTOperation>, Error> {
 		let mut ops = self
 			.db
 			.crdt_operation()
-			.find_many(vec![or(args
-				.timestamp_per_device
+			.find_many(vec![or(timestamp_per_device
 				.iter()
 				.map(|(device_pub_id, timestamp)| {
 					and![
@@ -271,14 +272,14 @@ impl Manager {
 				})
 				.chain([crdt_operation::device::is_not(vec![
 					device::pub_id::in_vec(
-						args.timestamp_per_device
+						timestamp_per_device
 							.iter()
 							.map(|(device_pub_id, _)| device_pub_id.to_db())
 							.collect(),
 					),
 				])])
 				.collect())])
-			.take(i64::from(args.count))
+			.take(i64::from(count))
 			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
 			.exec()
 			.await?;
@@ -290,27 +291,22 @@ impl Manager {
 			o => o,
 		});
 
-		ops.into_iter()
-			.take(args.count as usize)
-			.map(into_ops)
-			.collect()
+		ops.into_iter().take(count as usize).map(into_ops).collect()
 	}
 
 	pub async fn get_cloud_ops(
 		&self,
-		args: GetOpsArgs,
+		count: u32,
+		timestamp_per_device: Vec<(DevicePubId, NTP64)>,
 	) -> Result<Vec<(cloud_crdt_operation::id::Type, CRDTOperation)>, Error> {
 		let mut ops = self
 			.db
 			.cloud_crdt_operation()
-			.find_many(vec![or(args
-				.timestamp_per_device
+			.find_many(vec![or(timestamp_per_device
 				.iter()
 				.map(|(device_pub_id, timestamp)| {
 					and![
-						cloud_crdt_operation::device::is(vec![device::pub_id::equals(
-							device_pub_id.to_db()
-						)]),
+						cloud_crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
 						cloud_crdt_operation::timestamp::gt({
 							#[allow(clippy::cast_possible_wrap)]
 							// SAFETY: we had to store using i64 due to SQLite limitations
@@ -320,16 +316,14 @@ impl Manager {
 						})
 					]
 				})
-				.chain([cloud_crdt_operation::device::is_not(vec![
-					device::pub_id::in_vec(
-						args.timestamp_per_device
-							.iter()
-							.map(|(device_pub_id, _)| device_pub_id.to_db())
-							.collect(),
-					),
-				])])
+				.chain([cloud_crdt_operation::device_pub_id::not_in_vec(
+					timestamp_per_device
+						.iter()
+						.map(|(device_pub_id, _)| device_pub_id.to_db())
+						.collect(),
+				)])
 				.collect())])
-			.take(i64::from(args.count))
+			.take(i64::from(count))
 			.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
 			.exec()
 			.await?;
@@ -342,7 +336,7 @@ impl Manager {
 		});
 
 		ops.into_iter()
-			.take(args.count as usize)
+			.take(count as usize)
 			.map(into_cloud_ops)
 			.collect()
 	}

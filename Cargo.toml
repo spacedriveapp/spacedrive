@@ -89,7 +89,7 @@ rev = "a92c17d3f8"
 # We hack it to the high heavens
 [patch.crates-io.rspc]
 git = "https://github.com/spacedriveapp/rspc.git"
-rev = "0018e80231"
+rev = "37d175c272"
 
 # Add `Control::open_stream_with_addrs`
 [patch.crates-io.libp2p]

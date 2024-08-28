@@ -767,41 +767,34 @@ async fn create_location(
 
 	let date_created = Utc::now();
 
+	let device_pub_id = sync.device_pub_id.to_db();
+
+	let (sync_values, mut db_params) = [
+		sync_db_entry!(&name, location::name),
+		sync_db_entry!(path, location::path),
+		sync_db_entry!(date_created, location::date_created),
+		sync_db_entry!(device_pub_id, location::device_pub_id),
+	]
+	.into_iter()
+	.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	// temporary workaround until we remove instances from locations
+	db_params.push(location::instance_id::set(Some(
+		library.config().await.instance_id,
+	)));
+
 	let location = sync
-		.write_ops(
+		.write_op(
 			db,
-			(
-				sync.shared_create(
-					prisma_sync::location::SyncId {
-						pub_id: location_pub_id.as_bytes().to_vec(),
-					},
-					[
-						(location::name::NAME, msgpack!(&name)),
-						(location::path::NAME, msgpack!(&path)),
-						(location::date_created::NAME, msgpack!(date_created)),
-						// (
-						// 	location::instance::NAME,
-						// 	msgpack!(prisma_sync::instance::SyncId {
-						// 		pub_id: uuid_to_bytes(sync.instance)
-						// 	}),
-						// ),
-					],
-				),
-				db.location()
-					.create(
-						location_pub_id.as_bytes().to_vec(),
-						vec![
-							location::name::set(Some(name.clone())),
-							location::path::set(Some(path)),
-							location::date_created::set(Some(date_created.into())),
-							location::instance_id::set(Some(library.config().await.instance_id)),
-							// location::instance::connect(instance::id::equals(
-							// 	library.config.instance_id.as_bytes().to_vec(),
-							// )),
-						],
-					)
-					.include(location_with_indexer_rules::include()),
+			sync.shared_create(
+				prisma_sync::location::SyncId {
+					pub_id: location_pub_id.as_bytes().to_vec(),
+				},
+				sync_values,
 			),
+			db.location()
+				.create(location_pub_id.as_bytes().to_vec(), db_params)
+				.include(location_with_indexer_rules::include()),
 		)
 		.await?;
 
@@ -1163,17 +1156,15 @@ pub async fn create_file_path(
 	let pub_id = sd_utils::uuid_to_bytes(&Uuid::now_v7());
 
 	let created_path = sync
-		.write_ops(
+		.write_op(
 			db,
-			(
-				sync.shared_create(
-					prisma_sync::file_path::SyncId {
-						pub_id: pub_id.clone(),
-					},
-					sync_params,
-				),
-				db.file_path().create(pub_id, db_params),
+			sync.shared_create(
+				prisma_sync::file_path::SyncId {
+					pub_id: pub_id.clone(),
+				},
+				sync_params,
 			),
+			db.file_path().create(pub_id, db_params),
 		)
 		.await?;
 

@@ -1,7 +1,7 @@
 use crate::media_processor::{self, media_data_extractor};
 
 use sd_core_prisma_helpers::ObjectPubId;
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
@@ -113,21 +113,19 @@ pub async fn save(
 			let (sync_params, create) = to_query(exif_data, object_id);
 			let db_params = create._params.clone();
 
-			sync.write_ops(
+			sync.write_op(
 				db,
-				(
-					sync.shared_create(
-						prisma_sync::exif_data::SyncId {
-							object: prisma_sync::object::SyncId {
-								pub_id: object_pub_id.into(),
-							},
+				sync.shared_create(
+					prisma_sync::exif_data::SyncId {
+						object: prisma_sync::object::SyncId {
+							pub_id: object_pub_id.into(),
 						},
-						sync_params,
-					),
-					db.exif_data()
-						.upsert(exif_data::object_id::equals(object_id), create, db_params)
-						.select(exif_data::select!({ id })),
+					},
+					sync_params,
 				),
+				db.exif_data()
+					.upsert(exif_data::object_id::equals(object_id), create, db_params)
+					.select(exif_data::select!({ id })),
 			)
 			.await
 		})

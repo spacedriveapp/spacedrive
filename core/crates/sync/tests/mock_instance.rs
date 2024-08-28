@@ -17,8 +17,8 @@ fn db_path(id: Uuid) -> String {
 pub struct Device {
 	pub pub_id: DevicePubId,
 	pub db: Arc<prisma::PrismaClient>,
-	pub sync: Arc<sd_core_sync::Manager>,
-	pub sync_rx: Arc<broadcast::Receiver<SyncMessage>>,
+	pub sync: Arc<sd_core_sync::SyncManager>,
+	pub sync_rx: Arc<broadcast::Receiver<SyncEvent>>,
 }
 
 impl Device {
@@ -42,7 +42,7 @@ impl Device {
 			.await
 			.unwrap();
 
-		let (sync, sync_rx) = sd_core_sync::Manager::new(
+		let (sync, sync_rx) = sd_core_sync::SyncManager::new(
 			Arc::clone(&db),
 			&device_pub_id,
 			Arc::new(AtomicBool::new(true)),
@@ -82,7 +82,7 @@ impl Device {
 				async move {
 					while let Ok(msg) = sync_rx_left.recv().await {
 						info!(?msg, "sync_rx_left received message");
-						if matches!(msg, SyncMessage::Created) {
+						if matches!(msg, SyncEvent::Created) {
 							right
 								.sync
 								.ingest
@@ -106,14 +106,7 @@ impl Device {
 						info!(?msg, "right instance received request");
 						match msg {
 							ingest::Request::Messages { timestamps, tx } => {
-								let messages = left
-									.sync
-									.get_ops(GetOpsArgs {
-										timestamp_per_device: timestamps,
-										count: 100,
-									})
-									.await
-									.unwrap();
+								let messages = left.sync.get_ops(100, timestamps).await.unwrap();
 
 								let ingest = &right.sync.ingest;
 
@@ -135,7 +128,7 @@ impl Device {
 								}
 							}
 							ingest::Request::FinishedIngesting => {
-								right.sync.tx.send(SyncMessage::Ingested).unwrap();
+								right.sync.tx.send(SyncEvent::Ingested).unwrap();
 							}
 						}
 					}

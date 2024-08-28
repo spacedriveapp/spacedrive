@@ -4,7 +4,7 @@ use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
 };
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
@@ -213,7 +213,7 @@ async fn update_location_size(
 async fn remove_non_existing_file_paths(
 	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
-	sync: &sd_core_sync::Manager,
+	sync: &SyncManager,
 ) -> Result<u64, Error> {
 	#[allow(clippy::cast_sign_loss)]
 	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove

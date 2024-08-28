@@ -1,8 +1,8 @@
 use crate::{library::Libraries, Node};
 
-use futures::FutureExt;
+use sd_core_sync::{DevicePubId, SyncManager};
+
 use sd_actors::Stopper;
-use sd_core_sync::DevicePubId;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, device, instance, PrismaClient};
 use sd_sync::CRDTOperation;
@@ -14,6 +14,7 @@ use std::{
 };
 
 use chrono::Utc;
+use futures::FutureExt;
 use serde_json::to_vec;
 use tokio::sync::Notify;
 use uuid::Uuid;
@@ -26,7 +27,7 @@ pub async fn run_actor(
 	db: Arc<PrismaClient>,
 	library_id: Uuid,
 	instance_uuid: Uuid,
-	sync: Arc<sd_core_sync::Manager>,
+	sync: Arc<SyncManager>,
 	ingest_notify: Arc<Notify>,
 	node: Arc<Node>,
 	active: Arc<AtomicBool>,

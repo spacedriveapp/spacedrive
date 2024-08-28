@@ -17,8 +17,11 @@ use super::{crdt_op_unchecked_db, Error};
 
 /// Takes all the syncable data in the database and generates [`CRDTOperations`] for it.
 /// This is a requirement before the library can sync.
-pub async fn backfill_operations(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
-	let lock = sync.timestamp_lock.lock().await;
+pub async fn backfill_operations(
+	db: &PrismaClient,
+	sync: &crate::SyncManager,
+) -> Result<(), Error> {
+	let lock = sync.sync_lock.lock().await;
 
 	let res = db
 		._transaction()
@@ -110,7 +113,7 @@ where
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_tags(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_tags(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use tag::{color, date_created, date_modified, id, name};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -125,7 +128,7 @@ async fn paginate_tags(db: &PrismaClient, sync: &crate::Manager) -> Result<(), E
 		|tag| tag.id,
 		|tags| {
 			tags.into_iter()
-				.flat_map(|t| {
+				.map(|t| {
 					sync.shared_create(
 						prisma_sync::tag::SyncId { pub_id: t.pub_id },
 						chain_optional_iter(
@@ -148,7 +151,7 @@ async fn paginate_tags(db: &PrismaClient, sync: &crate::Manager) -> Result<(), E
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_locations(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_locations(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use location::{
 		available_capacity, date_created, generate_preview_media, hidden, id, include, instance,
 		is_archived, name, path, size_in_bytes, sync_preview_media, total_capacity,
@@ -174,7 +177,7 @@ async fn paginate_locations(db: &PrismaClient, sync: &crate::Manager) -> Result<
 		|locations| {
 			locations
 				.into_iter()
-				.flat_map(|l| {
+				.map(|l| {
 					sync.shared_create(
 						prisma_sync::location::SyncId { pub_id: l.pub_id },
 						chain_optional_iter(
@@ -212,7 +215,7 @@ async fn paginate_locations(db: &PrismaClient, sync: &crate::Manager) -> Result<
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_objects(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_objects(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use object::{date_accessed, date_created, favorite, hidden, id, important, kind, note};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -229,7 +232,7 @@ async fn paginate_objects(db: &PrismaClient, sync: &crate::Manager) -> Result<()
 		|objects| {
 			objects
 				.into_iter()
-				.flat_map(|o| {
+				.map(|o| {
 					sync.shared_create(
 						prisma_sync::object::SyncId { pub_id: o.pub_id },
 						chain_optional_iter(
@@ -255,7 +258,7 @@ async fn paginate_objects(db: &PrismaClient, sync: &crate::Manager) -> Result<()
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use exif_data::{
 		artist, camera_data, copyright, description, epoch_time, exif_version, id, include,
 		media_date, media_location, resolution,
@@ -278,7 +281,7 @@ async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::Manager) -> Result
 		|exif_datas| {
 			exif_datas
 				.into_iter()
-				.flat_map(|ed| {
+				.map(|ed| {
 					sync.shared_create(
 						prisma_sync::exif_data::SyncId {
 							object: prisma_sync::object::SyncId {
@@ -310,7 +313,7 @@ async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::Manager) -> Result
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_file_paths(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_file_paths(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use file_path::{
 		cas_id, date_created, date_indexed, date_modified, extension, hidden, id, include, inode,
 		integrity_checksum, is_dir, location, materialized_path, name, object, size_in_bytes_bytes,
@@ -333,7 +336,7 @@ async fn paginate_file_paths(db: &PrismaClient, sync: &crate::Manager) -> Result
 		|file_paths| {
 			file_paths
 				.into_iter()
-				.flat_map(|fp| {
+				.map(|fp| {
 					sync.shared_create(
 						prisma_sync::file_path::SyncId { pub_id: fp.pub_id },
 						chain_optional_iter(
@@ -376,7 +379,10 @@ async fn paginate_file_paths(db: &PrismaClient, sync: &crate::Manager) -> Result
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_tags_on_objects(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_tags_on_objects(
+	db: &PrismaClient,
+	sync: &crate::SyncManager,
+) -> Result<(), Error> {
 	use tag_on_object::{date_created, include, object_id, tag_id};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -397,7 +403,7 @@ async fn paginate_tags_on_objects(db: &PrismaClient, sync: &crate::Manager) -> R
 		|tag_on_objects| {
 			tag_on_objects
 				.into_iter()
-				.flat_map(|t_o| {
+				.map(|t_o| {
 					sync.relation_create(
 						prisma_sync::tag_on_object::SyncId {
 							tag: prisma_sync::tag::SyncId {
@@ -422,7 +428,7 @@ async fn paginate_tags_on_objects(db: &PrismaClient, sync: &crate::Manager) -> R
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_labels(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_labels(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use label::{date_created, date_modified, id};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -438,7 +444,7 @@ async fn paginate_labels(db: &PrismaClient, sync: &crate::Manager) -> Result<(),
 		|labels| {
 			labels
 				.into_iter()
-				.flat_map(|l| {
+				.map(|l| {
 					sync.shared_create(
 						prisma_sync::label::SyncId { name: l.name },
 						chain_optional_iter(
@@ -459,7 +465,10 @@ async fn paginate_labels(db: &PrismaClient, sync: &crate::Manager) -> Result<(),
 }
 
 #[instrument(skip(db, sync), err)]
-async fn paginate_labels_on_objects(db: &PrismaClient, sync: &crate::Manager) -> Result<(), Error> {
+async fn paginate_labels_on_objects(
+	db: &PrismaClient,
+	sync: &crate::SyncManager,
+) -> Result<(), Error> {
 	use label_on_object::{date_created, include, label_id, object_id};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -480,7 +489,7 @@ async fn paginate_labels_on_objects(db: &PrismaClient, sync: &crate::Manager) ->
 		|label_on_objects| {
 			label_on_objects
 				.into_iter()
-				.flat_map(|l_o| {
+				.map(|l_o| {
 					sync.relation_create(
 						prisma_sync::label_on_object::SyncId {
 							label: prisma_sync::label::SyncId {

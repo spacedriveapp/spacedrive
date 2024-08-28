@@ -24,6 +24,7 @@ mod originator {
 
 	use super::*;
 	use responder::tx as rx;
+	use sd_core_sync::SyncManager;
 	use sd_p2p_tunnel::Tunnel;
 
 	pub mod tx {
@@ -87,11 +88,7 @@ mod originator {
 
 	#[instrument(skip(sync, p2p))]
 	/// REMEMBER: This only syncs one direction!
-	pub async fn run(
-		library: Arc<Library>,
-		sync: &Arc<sync::Manager>,
-		p2p: &Arc<super::P2PManager>,
-	) {
+	pub async fn run(library: Arc<Library>, sync: &Arc<SyncManager>, p2p: &Arc<super::P2PManager>) {
 		for (remote_identity, peer) in p2p.get_library_instances(&library.id) {
 			if !peer.is_connected() {
 				continue;
@@ -119,15 +116,17 @@ mod originator {
 					.unwrap();
 				tunnel.flush().await.unwrap();
 
-				while let Ok(rx::MainRequest::GetOperations(args)) =
-					rx::MainRequest::from_stream(&mut tunnel).await
+				while let Ok(rx::MainRequest::GetOperations(GetOpsArgs {
+					timestamp_per_device,
+					count,
+				})) = rx::MainRequest::from_stream(&mut tunnel).await
 				{
-					let ops = sync.get_ops(args).await.unwrap();
-
 					tunnel
 						.write_all(
-							&tx::Operations(CompressedCRDTOperationsPerModelPerDevice::new(ops))
-								.to_bytes(),
+							&tx::Operations(CompressedCRDTOperationsPerModelPerDevice::new(
+								sync.get_ops(count, timestamp_per_device).await.unwrap(),
+							))
+							.to_bytes(),
 						)
 						.await
 						.unwrap();

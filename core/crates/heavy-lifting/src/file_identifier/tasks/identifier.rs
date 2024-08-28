@@ -5,7 +5,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId, FilePathPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
