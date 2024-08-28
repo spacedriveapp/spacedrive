@@ -45,12 +45,12 @@ tauri-plugin-updater   = "=2.0.0-rc.0"
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
-version  = "=2.0.0-rc.2"
+version  = "=2.0.0-rc.6"
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]
 git      = "https://github.com/spacedriveapp/tauri-specta"
-rev      = "6069a05029"
+rev      = "e61a15ed78"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Spacedrive Sub-crates
@@ -72,7 +72,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
 # Specific Desktop dependencies
-tauri-build = "=2.0.0-rc.2"
+tauri-build = "=2.0.0-rc.6"
 
 [features]
 ai-models       = ["sd-core/ai"]

@@ -1,7 +1,7 @@
 use crate::{file_identifier, Error};
 
 use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::prisma::{file_path, object, PrismaClient};
 use sd_task_system::{

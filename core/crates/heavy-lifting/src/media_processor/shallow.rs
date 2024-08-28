@@ -4,7 +4,7 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{

@@ -1,6 +1,7 @@
-use sd_actors::Stopper;
 use sd_core_cloud_services::CloudServices;
-use sd_core_sync::SyncMessage;
+use sd_core_sync::{SyncEvent, SyncManager};
+
+use sd_actors::Stopper;
 
 use std::{
 	sync::{
@@ -23,7 +24,7 @@ enum RaceNotifiedOrStopped {
 
 pub async fn run_actor(
 	library_id: Uuid,
-	sync: Arc<sd_core_sync::Manager>,
+	sync: Arc<SyncManager>,
 	cloud_services: CloudServices,
 	is_active: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
@@ -126,10 +127,10 @@ pub async fn run_actor(
 	}
 }
 
-async fn wait_notification(mut rx: broadcast::Receiver<SyncMessage>) -> RaceNotifiedOrStopped {
+async fn wait_notification(mut rx: broadcast::Receiver<SyncEvent>) -> RaceNotifiedOrStopped {
 	// wait until Created message comes in
 	loop {
-		if let Ok(SyncMessage::Created) = rx.recv().await {
+		if let Ok(SyncEvent::Created) = rx.recv().await {
 			break;
 		};
 	}

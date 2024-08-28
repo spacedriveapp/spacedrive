@@ -1,7 +1,7 @@
 use crate::{indexer, Error};
 
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, object, PrismaClient},

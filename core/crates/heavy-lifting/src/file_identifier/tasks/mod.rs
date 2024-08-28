@@ -1,7 +1,7 @@
 use crate::file_identifier;
 
 use sd_core_prisma_helpers::{file_path_id, FilePathPubId, ObjectPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
@@ -133,10 +133,7 @@ async fn create_objects_and_update_file_paths(
 				.into_iter()
 				.unzip::<_, _, Vec<_>, Vec<_>>();
 
-			(
-				sync.into_iter().flatten().collect(),
-				db.object().create_many(db_params),
-			)
+			(sync, db.object().create_many(db_params))
 		})
 		.await?;
 

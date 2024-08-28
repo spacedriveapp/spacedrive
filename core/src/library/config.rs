@@ -104,7 +104,7 @@ impl LibraryConfig {
 
 	pub(crate) async fn load(
 		path: impl AsRef<Path>,
-		node_config: &NodeConfig,
+		_node_config: &NodeConfig,
 		db: &PrismaClient,
 	) -> Result<Self, LibraryConfigError> {
 		let path = path.as_ref();

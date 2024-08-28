@@ -3,7 +3,7 @@ use crate::{
 	Node,
 };
 
-use sd_core_prisma_helpers::{location_ids_and_path, DevicePubId};
+use sd_core_prisma_helpers::location_ids_and_path;
 
 use sd_prisma::prisma::location;
 use sd_utils::db::maybe_missing;
@@ -47,7 +47,7 @@ struct Runner {
 impl Runner {
 	async fn new(node: Arc<Node>) -> Self {
 		Self {
-			device_pub_id_to_db: Some(DevicePubId::from(node.config.get().await.id).to_db()),
+			device_pub_id_to_db: Some(node.config.get().await.id.to_db()),
 			node,
 			locations_to_check: HashMap::new(),
 			locations_watched: HashMap::new(),

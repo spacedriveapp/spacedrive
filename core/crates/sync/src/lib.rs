@@ -28,7 +28,7 @@
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 use sd_prisma::prisma::{crdt_operation, device, PrismaClient};
-use sd_sync::CRDTOperation;
+use sd_sync::{CRDTOperation, ModelId};
 
 use std::{
 	collections::HashMap,
@@ -43,12 +43,12 @@ mod db_operation;
 pub mod ingest;
 mod manager;
 
-pub use ingest::*;
-pub use manager::*;
+pub use ingest::{Actor, Event, Handler, MessagesEvent, Request, State};
+pub use manager::{GetOpsArgs, Manager as SyncManager};
 pub use uhlc::NTP64;
 
 #[derive(Clone, Debug)]
-pub enum SyncMessage {
+pub enum SyncEvent {
 	Ingested,
 	Created,
 }
@@ -77,7 +77,9 @@ pub enum Error {
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
 	#[error("invalid model id: {0}")]
-	InvalidModelId(u16),
+	InvalidModelId(ModelId),
+	#[error("tried to write an empty operations list")]
+	EmptyOperations,
 }
 
 impl From<Error> for rspc::Error {

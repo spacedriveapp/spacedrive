@@ -17,29 +17,28 @@ const MOCK_LOCATION_PATH: &str = "/User/Anon/Documents";
 async fn write_test_location(instance: &Device) -> location::Data {
 	let location_pub_id = Uuid::new_v4();
 
+	let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
+		sync_db_entry!(MOCK_LOCATION_NAME, location::name),
+		sync_db_entry!(MOCK_LOCATION_PATH, location::path),
+	]
+	.into_iter()
+	.unzip();
+
 	let location = instance
 		.sync
-		.write_ops(&instance.db, {
-			let (sync_ops, db_ops): (Vec<_>, Vec<_>) = [
-				sync_db_entry!(MOCK_LOCATION_NAME, location::name),
-				sync_db_entry!(MOCK_LOCATION_PATH, location::path),
-			]
-			.into_iter()
-			.unzip();
-
-			(
-				instance.sync.shared_create(
-					prisma_sync::location::SyncId {
-						pub_id: uuid_to_bytes(&location_pub_id),
-					},
-					sync_ops,
-				),
-				instance
-					.db
-					.location()
-					.create(uuid_to_bytes(&location_pub_id), db_ops),
-			)
-		})
+		.write_op(
+			&instance.db,
+			instance.sync.shared_create(
+				prisma_sync::location::SyncId {
+					pub_id: uuid_to_bytes(&location_pub_id),
+				},
+				sync_ops,
+			),
+			instance
+				.db
+				.location()
+				.create(uuid_to_bytes(&location_pub_id), db_ops),
+		)
 		.await
 		.expect("failed to create mock location");
 
@@ -96,13 +95,7 @@ async fn writes_operations_and_rows_together() -> Result<(), Box<dyn std::error:
 	assert_eq!(operations.len(), 3);
 	assert_eq!(operations[0].model, prisma_sync::location::MODEL_ID as i32);
 
-	let out = instance
-		.sync
-		.get_ops(GetOpsArgs {
-			timestamp_per_device: vec![],
-			count: 100,
-		})
-		.await?;
+	let out = instance.sync.get_ops(100, vec![]).await?;
 
 	assert_eq!(out.len(), 3);
 
@@ -136,16 +129,10 @@ async fn operations_send_and_ingest() -> Result<(), Box<dyn std::error::Error>> 
 
 	assert!(matches!(
 		instance2_sync_rx.recv().await?,
-		SyncMessage::Ingested
+		SyncEvent::Ingested
 	));
 
-	let out = instance2
-		.sync
-		.get_ops(GetOpsArgs {
-			timestamp_per_device: vec![],
-			count: 100,
-		})
-		.await?;
+	let out = instance2.sync.get_ops(100, vec![]).await?;
 
 	assert_locations_equality(
 		&instance1.db.location().find_many(vec![]).exec().await?[0],
@@ -173,7 +160,7 @@ async fn no_update_after_delete() -> Result<(), Box<dyn std::error::Error>> {
 
 	assert!(matches!(
 		instance2_sync_rx.recv().await?,
-		SyncMessage::Ingested
+		SyncEvent::Ingested
 	));
 
 	instance2
@@ -189,7 +176,7 @@ async fn no_update_after_delete() -> Result<(), Box<dyn std::error::Error>> {
 
 	assert!(matches!(
 		instance1.sync_rx.resubscribe().recv().await?,
-		SyncMessage::Ingested
+		SyncEvent::Ingested
 	));
 
 	instance1

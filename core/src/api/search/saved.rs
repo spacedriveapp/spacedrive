@@ -98,17 +98,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.unzip();
 
-					sync.write_ops(
+					sync.write_op(
 						db,
-						(
-							sync.shared_create(
-								prisma_sync::saved_search::SyncId {
-									pub_id: pub_id.clone(),
-								},
-								sync_params,
-							),
-							db.saved_search().create(pub_id, db_params),
+						sync.shared_create(
+							prisma_sync::saved_search::SyncId {
+								pub_id: pub_id.clone(),
+							},
+							sync_params,
 						),
+						db.saved_search().create(pub_id, db_params),
 					)
 					.await?;
 

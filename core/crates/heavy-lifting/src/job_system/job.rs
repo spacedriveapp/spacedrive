@@ -1,6 +1,6 @@
 use crate::{Error, NonCriticalError, UpdateEvent};
 
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{
