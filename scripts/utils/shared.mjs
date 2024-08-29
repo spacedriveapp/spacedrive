@@ -108,3 +108,92 @@ export async function linuxLibs(nativeDeps) {
 			)
 	)
 }
+
+/**
+ * Create universal framework for iOS Simulator
+ * @param {string} x86x64
+ * @param {string} aarch64
+ * @param {string} universal
+ */
+export async function lipoSimulatorFramework(x86x64, aarch64, universal) {
+	const frameworks = await fs
+		.readdir(x86x64, { withFileTypes: true, recursive: false })
+		.then(files =>
+			files
+				.filter(entry => entry.isDirectory() && entry.name.endsWith(`.framework`))
+				.map(entry => path.basename(entry.name, '.framework'))
+		)
+
+	await Promise.all(
+		frameworks.map(name =>
+			fs.cp(
+				path.join(x86x64, `${name}.framework`),
+				path.join(universal, `${name}.framework`),
+				{
+					mode: fs.constants.COPYFILE_FICLONE | fs.constants.COPYFILE_EXCL,
+					force: false,
+					recursive: true,
+					dereference: true,
+					errorOnExist: true,
+					preserveTimestamps: true,
+				}
+			)
+		)
+	)
+
+	await Promise.all(
+		frameworks.map(name => {
+			const x86x64Lib = path.join(x86x64, `${name}.framework`, `${name}`)
+			const aarch64Lib = path.join(aarch64, `${name}.framework`, `${name}`)
+			const universalLib = path.join(universal, `${name}.framework`, `${name}`)
+			return exec(`lipo -create '${x86x64Lib}' '${aarch64Lib}' -output '${universalLib}'`)
+		})
+	)
+}
+
+/**
+ * Create XCFramework for iOS
+ * @param {string} mobileNativeDeps
+ * @param {string[]} mobileTargets
+ * @param {string} output
+ */
+export async function createXCFramework(mobileNativeDeps, mobileTargets, output) {
+	const firstMobileTarget = mobileTargets[0]
+	if (firstMobileTarget == null) throw new Error('No mobile targets specified')
+
+	const frameworks = await fs
+		.readdir(path.join(mobileNativeDeps, firstMobileTarget), {
+			withFileTypes: true,
+			recursive: false,
+		})
+		.then(files =>
+			files
+				.filter(entry => entry.isDirectory() && entry.name.endsWith(`.framework`))
+				.map(entry => path.basename(entry.name, '.framework'))
+		)
+
+	// await Promise.all(
+	// 	mobileTargets.flatMap(target =>
+	// 		frameworks.map(frameworks => {
+	// 			if (frameworks.startsWith('lib')) return null
+	// 			return fs.rename(
+	// 				path.join(mobileNativeDeps, target, `${frameworks}.framework`),
+	// 				path.join(mobileNativeDeps, target, `lib${frameworks}.framework`)
+	// 			)
+	// 		})
+	// 	)
+	// )
+
+	await Promise.all(
+		frameworks.map(name => {
+			const frameworks = mobileTargets
+				.flatMap(target => [
+					'-framework',
+					`'${path.join(mobileNativeDeps, target, `${name}.framework`)}'`,
+				])
+				.join(' ')
+			const xcframework = path.join(output, `${name}.xcframework`)
+			return exec(`xcodebuild -create-xcframework ${frameworks} -output '${xcframework}'`)
+		})
+	)
+}

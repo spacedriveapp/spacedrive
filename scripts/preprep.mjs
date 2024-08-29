@@ -13,7 +13,12 @@ import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mj
 import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import { getRustTargetList } from './utils/rustup.mjs'
-import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
+import {
+	symlinkSharedLibsMacOS,
+	symlinkSharedLibsLinux,
+	lipoSimulatorFramework,
+	createXCFramework,
+} from './utils/shared.mjs'
 import { spinTask } from './utils/spinner.mjs'
 import { which } from './utils/which.mjs'
 
@@ -69,7 +74,9 @@ try {
 	const assetName = getConst(NATIVE_DEPS_ASSETS, machineId)
 	if (assetName == null) throw new Error('NO_ASSET')
 
-	const archiveData = await spinTask(get(`${NATIVE_DEPS_URL}/${assetName}`))
+	const archiveData = await spinTask(
+		get((__debug && env.NATIVE_DEPS_URL) || `${NATIVE_DEPS_URL}/${assetName}`)
+	)
 
 	console.log(`Extracting native dependencies...`)
 	await spinTask(
@@ -80,46 +87,54 @@ try {
 		})
 	)
 } catch (e) {
-	console.error(`Failed to download native dependencies. ${bugWarn}`)
+	console.error(`Failed to download native dependencies.\n${bugWarn}`)
 	if (__debug) console.error(e)
 	exit(1)
 }
 
+const rustTargets = await getRustTargetList()
+const iosTargets = {
+	'aarch64-apple-ios': NATIVE_DEPS_ASSETS.IOS.ios.aarch64,
+	'aarch64-apple-ios-sim': NATIVE_DEPS_ASSETS.IOS.iossim.aarch64,
+	'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64,
+}
+
 // Native deps for mobile
 try {
-	const targets = await getRustTargetList()
 	const mobileTargets = /** @type {Record<string, string>} */ {}
 
-	if (machineId[0] === 'Darwin') {
+	if (machineId[0] === 'Darwin')
 		// iOS is only supported on macOS
-		Object.assign(mobileTargets, {
-			'aarch64-apple-ios': NATIVE_DEPS_ASSETS.IOS.ios.aarch64,
-			'aarch64-apple-ios-sim': NATIVE_DEPS_ASSETS.IOS.iossim.aarch64,
-			'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64,
-		})
-	}
+		Object.assign(mobileTargets, iosTargets)
 
 	for (const [rustTarget, nativeTarget] of Object.entries(mobileTargets)) {
-		if (!targets.has(rustTarget)) continue
+		if (!rustTargets.has(rustTarget)) continue
 		console.log(`Downloading mobile native dependencies for ${nativeTarget}...`)
 
 		const specificMobileNativeDeps = path.join(mobileNativeDeps, rustTarget)
 		await fs.rm(specificMobileNativeDeps, { force: true, recursive: true })
 		await fs.mkdir(specificMobileNativeDeps, { mode: 0o750, recursive: true })
 
-		const archiveData = await spinTask(get(`${NATIVE_DEPS_URL}/${nativeTarget}`))
+		const archiveData = await spinTask(
+			get(
+				(__debug &&
+					env[`NATIVE_DEPS_${rustTarget.replaceAll('-', '_').toUpperCase()}_URL`]) ||
+					`${NATIVE_DEPS_URL}/${nativeTarget}`
+			)
+		)
 
 		console.log(`Extracting native dependencies...`)
 		await spinTask(
 			extractTo(archiveData, specificMobileNativeDeps, {
 				chmod: 0o600,
+				sizeLimit: 256n * 1024n * 1024n,
 				recursive: true,
 				overwrite: true,
 			})
 		)
 	}
 } catch (e) {
-	console.error(`Failed to download native dependencies for mobile. ${bugWarn}`)
+	console.error(`Failed to download native dependencies for mobile.\n${bugWarn}`)
 	if (__debug) console.error(e)
 	exit(1)
 }
@@ -128,17 +143,70 @@ try {
 try {
 	if (machineId[0] === 'Linux') {
 		console.log(`Symlink shared libs...`)
-		symlinkSharedLibsLinux(__root, nativeDeps).catch(e => {
-			console.error(`Failed to symlink shared libs. ${bugWarn}`)
-			throw e
-		})
+		await spinTask(
+			symlinkSharedLibsLinux(__root, nativeDeps).catch(e => {
+				console.error(`Failed to symlink shared libs.\n${bugWarn}`)
+				throw e
+			})
+		)
 	} else if (machineId[0] === 'Darwin') {
 		// This is still required due to how ffmpeg-sys-next builds script works
 		console.log(`Symlink shared libs...`)
-		await symlinkSharedLibsMacOS(__root, nativeDeps).catch(e => {
-			console.error(`Failed to symlink shared libs. ${bugWarn}`)
-			throw e
-		})
+		await spinTask(
+			symlinkSharedLibsMacOS(__root, nativeDeps).catch(e => {
+				console.error(`Failed to symlink shared libs.\n${bugWarn}`)
+				throw e
+			})
+		)
+
+		const mobileTargets = rustTargets.has('aarch64-apple-ios') ? ['aarch64-apple-ios'] : []
+		if (rustTargets.has('x86_64-apple-ios') && rustTargets.has('aarch64-apple-ios-sim')) {
+			console.log(`Creating universal framework for iOS Simulator...`)
+			const universalMobileNativeDeps = path.join(
+				mobileNativeDeps,
+				'universal-apple-ios-sim'
+			)
+			await fs.rm(universalMobileNativeDeps, { force: true, recursive: true })
+			await fs.mkdir(universalMobileNativeDeps, { mode: 0o750, recursive: true })
+			await spinTask(
+				lipoSimulatorFramework(
+					path.join(mobileNativeDeps, 'x86_64-apple-ios'),
+					path.join(mobileNativeDeps, 'aarch64-apple-ios-sim'),
+					universalMobileNativeDeps
+				).catch(e => {
+					console.error(
+						`Failed to create universal framework for iOS Simulator.\n${bugWarn}`
+					)
+					throw e
+				})
+			)
+			mobileTargets.push('universal-apple-ios-sim')
+		} else if (rustTargets.has('x86_64-apple-ios')) {
+			mobileTargets.push('x86_64-apple-ios')
+		} else if (rustTargets.has('aarch64-apple-ios-sim')) {
+			mobileTargets.push('aarch64-apple-ios-sim')
+		}
+
+		if (mobileTargets.length > 0) {
+			console.log(`Create XCFramework for iOS...`)
+			const xcframeworkOutput = path.join(
+				__root,
+				'apps',
+				'mobile',
+				'modules',
+				'sd-core',
+				'ios',
+				'Frameworks'
+			)
+			await fs.rm(xcframeworkOutput, { force: true, recursive: true })
+			await fs.mkdir(xcframeworkOutput, { mode: 0o750, recursive: true })
+			await spinTask(
+				createXCFramework(mobileNativeDeps, mobileTargets, xcframeworkOutput).catch(e => {
+					console.error(`Failed to create XCFramework for iOS.\n${bugWarn}`)
+					throw e
+				})
+			)
+		}
 	}
 } catch (error) {
 	if (__debug) console.error(error)
@@ -180,6 +248,7 @@ try {
 			}),
 			{
 				isWin,
+				hasiOS: Object.keys(iosTargets).some(target => rustTargets.has(target)),
 				isMacOS,
 				isLinux,
 				// Escape windows path separator to be compatible with TOML parsing
@@ -191,12 +260,13 @@ try {
 					)
 					.replaceAll('\\', '\\\\'),
 				nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
+				mobileNativeDeps: mobileNativeDeps.replaceAll('\\', '\\\\'),
 				hasLLD,
 			}
 		)
 		.replace(/\n\n+/g, '\n')
 
-	// eslint-disable-next-line import/no-named-as-default-member
+	// Validate generated TOML
 	parseTOML(configData)
 
 	await fs.writeFile(path.join(__root, '.cargo', 'config.toml'), configData, {
@@ -204,7 +274,7 @@ try {
 		flag: 'w+',
 	})
 } catch (error) {
-	console.error(`Failed to generate .cargo/config.toml. ${bugWarn}`)
+	console.error(`Failed to generate .cargo/config.toml.\n${bugWarn}`)
 	if (__debug) console.error(error)
 	exit(1)
 }

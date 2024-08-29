@@ -1178,6 +1178,9 @@ importers:
       os-proxy-config:
         specifier: ^1.1.1
         version: 1.1.1
+      plist:
+        specifier: ^3.1.0
+        version: 3.1.0
       semver:
         specifier: ^7.6.3
         version: 7.6.3

@@ -73,8 +73,14 @@ indent_style = space
 
 # Swift
 # https://github.com/apple/swift-format/blob/main/Documentation/Configuration.md#example
-[*.swift]
+[*.{swift}]
 indent_size = 4
+indent_style = space
+
+# Ruby
+# http://www.caliban.org/ruby/rubyguide.shtml#indentation
+[*.{rb,podspec}]
+indent_size = 2
 indent_style = space
 
 # YAML

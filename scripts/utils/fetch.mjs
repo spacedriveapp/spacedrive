@@ -45,7 +45,7 @@ async function getCache(resource, headers) {
 	let header
 
 	// Don't cache in CI
-	if (env.CI === 'true') return null
+	if (env.CI === 'true' || env.NO_CACHE === 'true') return null
 
 	if (headers)
 		resource += Array.from(headers.entries())
@@ -145,6 +145,7 @@ export async function get(resource, headers, preferCache) {
 
 	if (cache?.header) headers.append(...cache.header)
 
+	if (__debug) console.log(`Downloading ${resource} ${cache?.data ? ' (cached)' : ''}...`)
 	const response = await fetch(resource, { dispatcher, headers })
 
 	if (!response.ok) {
