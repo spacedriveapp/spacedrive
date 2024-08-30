@@ -313,7 +313,7 @@ importers:
         specifier: ^8.1.0
         version: 8.1.0(typescript@5.5.4)
       '@types/node':
-        specifier: ^22.5.1
+        specifier: '>18.18.x'
         version: 22.5.1
       '@types/react':
         specifier: ^18.3.5
@@ -14937,7 +14937,7 @@ snapshots:
   '@azure/core-auth@1.7.2':
     dependencies:
       '@azure/abort-controller': 2.1.2
-      '@azure/core-util': 1.2.0
+      '@azure/core-util': 1.8.0
       tslib: 2.7.0
 
   '@azure/core-http@3.0.4':
@@ -14975,7 +14975,7 @@ snapshots:
       '@azure/abort-controller': 1.1.0
       '@azure/core-auth': 1.7.2
       '@azure/core-tracing': 1.1.2
-      '@azure/core-util': 1.2.0
+      '@azure/core-util': 1.8.0
       '@azure/logger': 1.1.4
       form-data: 4.0.0
       http-proxy-agent: 5.0.0
@@ -22238,11 +22238,11 @@ snapshots:
   '@types/body-parser@1.19.5':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 20.11.29
+      '@types/node': 22.5.1
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 20.11.29
+      '@types/node': 22.5.1
 
   '@types/cross-spawn@6.0.6':
     dependencies:
@@ -22290,7 +22290,7 @@ snapshots:
 
   '@types/express-serve-static-core@4.17.43':
     dependencies:
-      '@types/node': 20.11.29
+      '@types/node': 22.5.1
       '@types/qs': 6.9.13
       '@types/range-parser': 1.2.7
       '@types/send': 0.17.4
@@ -22450,13 +22450,13 @@ snapshots:
   '@types/send@0.17.4':
     dependencies:
       '@types/mime': 1.3.5
-      '@types/node': 20.11.29
+      '@types/node': 22.5.1
 
   '@types/serve-static@1.15.5':
     dependencies:
       '@types/http-errors': 2.0.4
       '@types/mime': 3.0.4
-      '@types/node': 20.11.29
+      '@types/node': 22.5.1
 
   '@types/shimmer@1.2.0': {}
 
