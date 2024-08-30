@@ -548,35 +548,16 @@ impl Libraries {
 
 		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
-		let actors = Default::default();
-
 		let (sync, sync_rx) = SyncManager::with_existing_devices(
 			Arc::clone(&db),
 			&device_pub_id,
 			Arc::clone(&config.generate_sync_operations),
 			&devices,
-			Arc::clone(&actors),
 		)
 		.await?;
-		let sync_manager = Arc::new(sync);
-
-		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
 		let (tx, mut rx) = broadcast::channel(10);
-		let library = Library::new(
-			id,
-			config,
-			instance_id,
-			identity,
-			// key_manager,
-			db,
-			node,
-			sync_manager,
-			cloud,
-			tx,
-			actors,
-		)
-		.await;
+		let library = Library::new(id, config, instance_id, identity, db, node, sync, tx).await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		spawn(sync_rx_actor(library.clone(), node.clone(), sync_rx));

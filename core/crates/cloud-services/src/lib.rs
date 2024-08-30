@@ -30,15 +30,20 @@
 
 mod error;
 
-mod cloud_client;
-mod cloud_p2p;
+mod client;
 mod key_manager;
+mod p2p;
+mod sync;
 mod token_refresher;
 
-pub use cloud_client::CloudServices;
-pub use cloud_p2p::{CloudP2P, JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
+pub use client::CloudServices;
 pub use error::{Error, GetTokenError};
 pub use key_manager::KeyManager;
+pub use p2p::{CloudP2P, JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
+pub use sync::{
+	declare_actors as declare_cloud_sync, SyncActors as CloudSyncActors,
+	SyncActorsState as CloudSyncActorsState,
+};
 
 // Re-exports
 pub use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};

@@ -39,7 +39,7 @@ pub struct Updater {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// [`Update`] Task output
@@ -186,7 +186,7 @@ impl Updater {
 	pub fn new_deep(
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -202,7 +202,7 @@ impl Updater {
 	pub fn new_shallow(
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -264,7 +264,7 @@ impl SerializableTask<Error> for Updater {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

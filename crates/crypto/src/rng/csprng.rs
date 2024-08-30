@@ -9,7 +9,7 @@ use zeroize::{Zeroize, Zeroizing};
 ///
 /// On `Drop`, it re-seeds the inner RNG, erasing the previous state and making all future
 /// values unpredictable.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CryptoRng(ChaCha20Rng);
 
 impl CryptoRng {

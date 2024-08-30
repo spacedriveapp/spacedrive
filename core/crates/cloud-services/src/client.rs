@@ -1,4 +1,4 @@
-use crate::cloud_p2p::{NotifyUser, UserResponse};
+use crate::p2p::{NotifyUser, UserResponse};
 
 use sd_cloud_schema::{Client, Service, ServicesALPN};
 
@@ -15,7 +15,7 @@ use tokio::sync::RwLock;
 use tracing::warn;
 
 use super::{
-	cloud_p2p::CloudP2P, error::Error, key_manager::KeyManager, token_refresher::TokenRefresher,
+	error::Error, key_manager::KeyManager, p2p::CloudP2P, token_refresher::TokenRefresher,
 };
 
 #[derive(Debug, Default)]
@@ -33,7 +33,7 @@ enum ClientState {
 ///
 /// As we don't want to force the user to be connected to the internet, we have to make sure
 /// that core can always operate without the cloud services.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CloudServices {
 	client_state: Arc<RwLock<ClientState>>,
 	get_cloud_api_address: Url,
@@ -126,6 +126,11 @@ impl CloudServices {
 
 	pub fn stream_user_notifications(&self) -> impl Stream<Item = NotifyUser> + '_ {
 		self.notify_user_rx.stream()
+	}
+
+	#[must_use]
+	pub const fn http_client(&self) -> &ClientWithMiddleware {
+		&self.http_client
 	}
 
 	/// Send back a user response to the Cloud P2P actor

@@ -1,11 +1,10 @@
-use crate::{library::Libraries, Node};
+use crate::CloudServices;
 
-use sd_core_sync::{DevicePubId, SyncManager};
+use sd_cloud_schema::sync::groups;
+use sd_core_sync::{cloud_crdt_op_db, CRDTOperation, DevicePubId, SyncManager};
 
 use sd_actors::Stopper;
-use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{cloud_crdt_operation, device, instance, PrismaClient};
-use sd_sync::CRDTOperation;
 use sd_utils::uuid_to_bytes;
 
 use std::{
@@ -21,17 +20,13 @@ use uuid::Uuid;
 
 // Responsible for downloading sync operations from the cloud to be processed by the ingester
 
-#[allow(clippy::too_many_arguments)]
 pub async fn run_actor(
-	libraries: Arc<Libraries>,
 	db: Arc<PrismaClient>,
-	library_id: Uuid,
-	instance_uuid: Uuid,
-	sync: Arc<SyncManager>,
+	sync_group_pub_id: groups::PubId,
+	cloud_services: Arc<CloudServices>,
+	sync: SyncManager,
 	ingest_notify: Arc<Notify>,
-	node: Arc<Node>,
-	active: Arc<AtomicBool>,
-	active_notify: Arc<Notify>,
+	(active, active_notify): (Arc<AtomicBool>, Arc<Notify>),
 	stop: Stopper,
 ) {
 	// enum Race {
@@ -228,24 +223,16 @@ pub async fn run_actor(
 	// }
 }
 
-async fn write_cloud_ops_to_db(
+pub async fn write_cloud_ops_to_db(
 	ops: Vec<CRDTOperation>,
 	db: &PrismaClient,
-) -> Result<(), prisma_client_rust::QueryError> {
-	db._batch(ops.into_iter().map(|op| crdt_op_db(&op).to_query(db)))
-		.await?;
+) -> Result<(), sd_core_sync::Error> {
+	db._batch(
+		ops.into_iter()
+			.map(|op| cloud_crdt_op_db(&op).map(|op| op.to_query(db)))
+			.collect::<Result<Vec<_>, _>>()?,
+	)
+	.await?;
 
 	Ok(())
-}
-
-fn crdt_op_db(op: &CRDTOperation) -> cloud_crdt_operation::Create {
-	cloud_crdt_operation::Create {
-		timestamp: op.timestamp.0 as i64,
-		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
-		kind: op.data.as_kind().to_string(),
-		data: to_vec(&op.data).expect("unable to serialize data"),
-		model: op.model_id as i32,
-		record_id: rmp_serde::to_vec(&op.record_id).expect("unable to serialize record id"),
-		_params: vec![],
-	}
 }

@@ -72,7 +72,7 @@ pub struct Identifier {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// Output from the `[Identifier]` task
@@ -324,7 +324,7 @@ impl Identifier {
 		file_paths: Vec<file_path_for_file_identifier::Data>,
 		with_priority: bool,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -512,7 +512,7 @@ impl SerializableTask<Error> for Identifier {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

@@ -1,12 +1,16 @@
-use sd_cloud_schema::cloud_p2p::Service;
+use sd_cloud_schema::{cloud_p2p, sync::groups, Service};
 use sd_utils::error::FileIOError;
 
 use std::{io, net::AddrParseError};
 
-use quic_rpc::transport::quinn::QuinnConnection;
+use quic_rpc::{
+	pattern::{bidi_streaming, rpc},
+	transport::quinn::QuinnConnection,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+	// Setup errors
 	#[error("Couldn't parse Cloud Services API address URL: {0}")]
 	InvalidUrl(reqwest_middleware::reqwest::Error),
 	#[error("Failed to initialize http client: {0}")]
@@ -58,9 +62,45 @@ pub enum Error {
 	#[error("Failed to connect to Cloud P2P node: {0}")]
 	ConnectToCloudP2PNode(anyhow::Error),
 	#[error("Communication error with Cloud P2P node: {0}")]
-	CloudP2PRpcCommunication(#[from] quic_rpc::pattern::rpc::Error<QuinnConnection<Service>>),
+	CloudP2PRpcCommunication(#[from] rpc::Error<QuinnConnection<cloud_p2p::Service>>),
 	#[error("Cloud P2P not initialized")]
 	CloudP2PNotInitialized,
+
+	// Communication errors
+	#[error("Failed to communicate with RPC backend: {0}")]
+	RpcCommunication(#[from] rpc::Error<QuinnConnection<Service>>),
+	#[error("Failed to communicate with Bidi Streaming RPC backend: {0}")]
+	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnection<Service>>),
+	#[error("Failed to receive next response from Bidi Streaming RPC backend: {0}")]
+	BidiStreamRecv(#[from] bidi_streaming::ItemError<QuinnConnection<Service>>),
+	#[error("Error from backend: {0}")]
+	Backend(#[from] sd_cloud_schema::Error),
+	#[error("Failed to get access token from refresher: {0}")]
+	GetToken(#[from] GetTokenError),
+	#[error("Unexpected empty response from backend, context: {0}")]
+	EmptyResponse(&'static str),
+	#[error("Unexpected response from backend, context: {0}")]
+	UnexpectedResponse(&'static str),
+
+	// Sync error
+	#[error("Sync error: {0}")]
+	Sync(#[from] sd_core_sync::Error),
+	#[error("Tried to sync messages with a group without having needed key")]
+	MissingSyncGroupKey(groups::PubId),
+	#[error("Failed to encrypt sync messages: {0}")]
+	Encrypt(sd_crypto::Error),
+	#[error("Failed to decrypt sync messages: {0}")]
+	Decrypt(sd_crypto::Error),
+	#[error("Failed to upload sync messages: {0}")]
+	UploadSyncMessages(reqwest_middleware::Error),
+	#[error("Received an error response from uploading sync messages: {0}")]
+	ErrorResponseUploadSyncMessages(reqwest_middleware::reqwest::Error),
+	#[error("Critical error while uploading sync messages")]
+	CriticalErrorWhileUploadingSyncMessages,
+	#[error("Failed to send End update to push sync messages")]
+	EndUpdatePushSyncMessages(io::Error),
+	#[error("Unexpected end of stream while encrypting sync messages")]
+	UnexpectedEndOfStream,
 }
 
 #[derive(thiserror::Error, Debug)]

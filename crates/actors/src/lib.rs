@@ -29,7 +29,9 @@
 
 use std::{
 	collections::HashMap,
+	fmt,
 	future::{Future, IntoFuture},
+	hash::Hash,
 	panic::{panic_any, AssertUnwindSafe},
 	pin::Pin,
 	sync::{
@@ -62,25 +64,29 @@ pub struct Actor {
 	stop_rx: chan::Receiver<()>,
 }
 
-pub struct Actors {
+/// Actors holder, holds all actors for some generic purpose, like for cloud sync.
+/// You should use an enum to identify the actors.
+pub struct ActorsCollection<Id: Hash + Eq> {
 	pub invalidate_rx: broadcast::Receiver<()>,
 	invalidate_tx: broadcast::Sender<()>,
-	actors: Arc<RwLock<HashMap<&'static str, Actor>>>,
+	actors: Arc<RwLock<HashMap<Id, Actor>>>,
 }
 
-impl Actors {
+impl<Id> ActorsCollection<Id>
+where
+	Id: Hash + Eq + fmt::Debug + fmt::Display + Copy + Send + Sync + 'static,
+{
 	pub async fn declare<Fut>(
-		self: &Arc<Self>,
-		name: &'static str,
+		&self,
+		identifier: Id,
 		actor_fn: impl FnOnce(Stopper) -> Fut + Send + Sync + Clone + 'static,
-		autostart: bool,
 	) where
 		Fut: Future<Output = ()> + Send + 'static,
 	{
 		let (stop_tx, stop_rx) = chan::bounded(1);
 
 		self.actors.write().await.insert(
-			name,
+			identifier,
 			Actor {
 				spawn_fn: Arc::new(move |stop| Box::pin((actor_fn.clone())(stop))),
 				maybe_handle: None,
@@ -89,15 +95,11 @@ impl Actors {
 				stop_rx,
 			},
 		);
-
-		if autostart {
-			self.start(name).await;
-		}
 	}
 
 	#[instrument(skip(self))]
-	pub async fn start(self: &Arc<Self>, name: &str) {
-		if let Some(actor) = self.actors.write().await.get_mut(name) {
+	pub async fn start(&self, identifier: Id) {
+		if let Some(actor) = self.actors.write().await.get_mut(&identifier) {
 			if actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already running!");
 				return;
@@ -146,8 +148,8 @@ impl Actors {
 	}
 
 	#[instrument(skip(self))]
-	pub async fn stop(self: &Arc<Self>, name: &str) {
-		if let Some(actor) = self.actors.write().await.get_mut(name) {
+	pub async fn stop(&self, identifier: Id) {
+		if let Some(actor) = self.actors.write().await.get_mut(&identifier) {
 			if !actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already stopped!");
 				return;
@@ -172,12 +174,17 @@ impl Actors {
 			.read()
 			.await
 			.iter()
-			.map(|(&name, actor)| (name.to_string(), actor.is_running.load(Ordering::Relaxed)))
+			.map(|(&identifier, actor)| {
+				(
+					identifier.to_string(),
+					actor.is_running.load(Ordering::Relaxed),
+				)
+			})
 			.collect()
 	}
 }
 
-impl Default for Actors {
+impl<Id: Hash + Eq> Default for ActorsCollection<Id> {
 	fn default() -> Self {
 		let (invalidate_tx, invalidate_rx) = broadcast::channel(1);
 
@@ -185,6 +192,16 @@ impl Default for Actors {
 			actors: Arc::default(),
 			invalidate_rx,
 			invalidate_tx,
+		}
+	}
+}
+
+impl<Id: Hash + Eq> Clone for ActorsCollection<Id> {
+	fn clone(&self) -> Self {
+		Self {
+			actors: Arc::clone(&self.actors),
+			invalidate_rx: self.invalidate_rx.resubscribe(),
+			invalidate_tx: self.invalidate_tx.clone(),
 		}
 	}
 }

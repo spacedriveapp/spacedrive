@@ -98,7 +98,7 @@ impl ProgressUpdate {
 pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
-	fn sync(&self) -> &Arc<SyncManager>;
+	fn sync(&self) -> &SyncManager;
 	fn invalidate_query(&self, query: &'static str);
 	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
 	fn report_update(&self, update: UpdateEvent);

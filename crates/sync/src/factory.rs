@@ -5,18 +5,6 @@ use crate::{
 
 use uhlc::HLC;
 
-macro_rules! msgpack {
-	(nil) => {
-		::rmpv::Value::Nil
-	};
-	($e:expr) => {{
-		let bytes = rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack");
-		let value: rmpv::Value = rmp_serde::from_slice(&bytes).expect("failed to deserialize msgpack");
-
-		value
-	}}
-}
-
 pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
 
@@ -31,7 +19,10 @@ pub trait OperationFactory {
 			device_pub_id: self.get_device_pub_id(),
 			timestamp: *self.get_clock().new_timestamp().get_time(),
 			model_id: <SId::Model as SyncModel>::MODEL_ID,
-			record_id: msgpack!(id),
+			record_id: rmp_serde::from_slice::<rmpv::Value>(
+				&rmp_serde::to_vec_named(id).expect("failed to serialize record id to msgpack"),
+			)
+			.expect("failed to deserialize record id to msgpack value"),
 			data,
 		}
 	}
