@@ -230,38 +230,34 @@ impl Actor {
 	pub async fn declare(shared: Arc<SharedState>) -> Handler {
 		let (io, HandlerIO { event_tx, req_rx }) = create_actor_io::<Self>();
 
-		shared
-			.actors
-			.declare(
-				"Sync Ingest",
-				{
-					let shared = Arc::clone(&shared);
-					move |stop| async move {
-						enum Race {
-							Ticked,
-							Stopped,
-						}
+		// shared
+		// 	.actors
+		// 	.declare("Sync Ingest", {
+		// 		let shared = Arc::clone(&shared);
+		// 		move |stop| async move {
+		// 			enum Race {
+		// 				Ticked,
+		// 				Stopped,
+		// 			}
 
-						let mut this = Self {
-							state: Some(State::default()),
-							io,
-							shared,
-						};
+		// 			let mut this = Self {
+		// 				state: Some(State::default()),
+		// 				io,
+		// 				shared,
+		// 			};
 
-						while matches!(
-							(
-								this.tick().map(|()| Race::Ticked),
-								stop.into_future().map(|()| Race::Stopped),
-							)
-								.race()
-								.await,
-							Race::Ticked
-						) { /* Everything is Awesome! */ }
-					}
-				},
-				true,
-			)
-			.await;
+		// 			while matches!(
+		// 				(
+		// 					this.tick().map(|()| Race::Ticked),
+		// 					stop.into_future().map(|()| Race::Stopped),
+		// 				)
+		// 					.race()
+		// 					.await,
+		// 				Race::Ticked
+		// 			) { /* Everything is Awesome! */ }
+		// 		}
+		// 	})
+		// 	.await;
 
 		Handler { event_tx, req_rx }
 	}
@@ -626,7 +622,6 @@ mod test {
 			emit_messages_flag: Arc::new(AtomicBool::new(true)),
 			active: AtomicBool::default(),
 			active_notify: Notify::default(),
-			actors: Arc::default(),
 		});
 
 		(Actor::declare(Arc::clone(&shared)).await, shared)

@@ -37,7 +37,6 @@ use tracing_subscriber::{
 };
 
 pub mod api;
-mod cloud;
 mod context;
 pub mod custom_uri;
 pub mod library;

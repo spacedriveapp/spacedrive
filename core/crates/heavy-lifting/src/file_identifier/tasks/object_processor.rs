@@ -35,7 +35,7 @@ pub struct ObjectProcessor {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -194,7 +194,7 @@ impl ObjectProcessor {
 	pub fn new(
 		file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 		with_priority: bool,
 	) -> Self {
 		Self {
@@ -375,7 +375,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

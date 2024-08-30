@@ -4210,7 +4210,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -9545,7 +9545,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#d47ee68c3c2ed9109389a51c59422cd0fd381aeb"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#6053f13e1253b3e6757d7d2bacb8ffea44d64905"
 dependencies = [
  "argon2",
  "async-stream",
@@ -9685,8 +9685,11 @@ dependencies = [
  "rustls 0.21.12",
  "rustls 0.23.12",
  "rustls-platform-verifier",
+ "sd-actors",
  "sd-cloud-schema",
+ "sd-core-sync",
  "sd-crypto",
+ "sd-prisma",
  "sd-utils",
  "serde",
  "serde_json",
@@ -9803,6 +9806,7 @@ name = "sd-core-sync"
 version = "0.0.0"
 dependencies = [
  "async-channel",
+ "async-stream",
  "futures",
  "futures-concurrency",
  "prisma-client-rust",

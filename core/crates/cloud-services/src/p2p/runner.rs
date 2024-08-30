@@ -1,5 +1,5 @@
 use crate::{
-	cloud_p2p::JoinSyncGroupError, token_refresher::TokenRefresher, CloudServices, Error,
+	p2p::JoinSyncGroupError, token_refresher::TokenRefresher, CloudServices, Error,
 	KeyManager,
 };
 

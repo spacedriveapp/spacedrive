@@ -128,14 +128,14 @@ impl Job for FileIdentifier {
 						match task_kind {
 							TaskKind::Identifier => tasks::Identifier::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								(Arc::clone(ctx.db()), ctx.sync().clone()),
 							)
 							.await
 							.map(IntoTask::into_task),
 
 							TaskKind::ObjectProcessor => tasks::ObjectProcessor::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								(Arc::clone(ctx.db()), ctx.sync().clone()),
 							)
 							.await
 							.map(IntoTask::into_task),
@@ -702,7 +702,7 @@ impl FileIdentifier {
 						orphan_paths,
 						true,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					))
 					.await?,
 			);
@@ -785,7 +785,7 @@ impl FileIdentifier {
 						orphan_paths,
 						false,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					))
 					.await?,
 			);

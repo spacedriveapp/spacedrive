@@ -14,6 +14,8 @@ use std::{
 	},
 };
 
+use async_stream::stream;
+use futures::Stream;
 use prisma_client_rust::{and, operator::or};
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tracing::warn;
@@ -23,15 +25,15 @@ use uuid::Uuid;
 use super::{
 	crdt_op_db,
 	db_operation::{into_cloud_ops, into_ops},
-	ingest, Error, SharedState, SyncEvent, NTP64,
+	Error, SharedState, SyncEvent, NTP64,
 };
 
 /// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
+#[derive(Clone)]
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncEvent>,
-	pub ingest: ingest::Handler,
 	pub shared: Arc<SharedState>,
-	pub sync_lock: Mutex<()>,
+	pub sync_lock: Arc<Mutex<()>>,
 }
 
 impl fmt::Debug for Manager {
@@ -53,7 +55,6 @@ impl Manager {
 		db: Arc<PrismaClient>,
 		current_device_pub_id: &DevicePubId,
 		emit_messages_flag: Arc<AtomicBool>,
-		actors: Arc<sd_actors::Actors>,
 	) -> Result<(Self, broadcast::Receiver<SyncEvent>), Error> {
 		let existing_devices = db.device().find_many(vec![]).exec().await?;
 
@@ -62,7 +63,6 @@ impl Manager {
 			current_device_pub_id,
 			emit_messages_flag,
 			&existing_devices,
-			actors,
 		)
 		.await
 	}
@@ -79,7 +79,6 @@ impl Manager {
 		current_device_pub_id: &DevicePubId,
 		emit_messages_flag: Arc<AtomicBool>,
 		existing_devices: &[device::Data],
-		actors: Arc<sd_actors::Actors>,
 	) -> Result<(Self, broadcast::Receiver<SyncEvent>), Error> {
 		let latest_timestamp_per_device = db
 			._batch(
@@ -124,22 +123,19 @@ impl Manager {
 			emit_messages_flag,
 			active: AtomicBool::default(),
 			active_notify: Notify::default(),
-			actors,
 		});
-
-		let ingest = ingest::Actor::declare(shared.clone()).await;
 
 		Ok((
 			Self {
 				tx,
-				ingest,
 				shared,
-				sync_lock: Mutex::default(),
+				sync_lock: Arc::new(Mutex::default()),
 			},
 			rx,
 		))
 	}
 
+	#[must_use]
 	pub fn subscribe(&self) -> broadcast::Receiver<SyncEvent> {
 		self.tx.subscribe()
 	}
@@ -244,6 +240,56 @@ impl Manager {
 			.into_iter()
 			.map(into_ops)
 			.collect()
+	}
+
+	pub fn stream_device_ops<'a>(
+		&'a self,
+		device_pub_id: &'a DevicePubId,
+		chunk_size: u32,
+		initial_timestamp: NTP64,
+	) -> impl Stream<Item = Result<Vec<CRDTOperation>, Error>> + Send + '_ {
+		stream! {
+			let mut current_initial_timestamp = initial_timestamp;
+
+			loop {
+				match self.db.crdt_operation()
+					.find_many(vec![
+						crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
+						#[allow(clippy::cast_possible_wrap)]
+						crdt_operation::timestamp::gt(current_initial_timestamp.as_u64() as i64),
+					])
+					.take(i64::from(chunk_size))
+					.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
+					.exec()
+					.await
+				{
+					Ok(ops) => {
+						if ops.is_empty() {
+							break;
+						}
+
+						match ops.into_iter().map(into_ops).collect::<Result<Vec<_>, _>>() {
+							Ok(ops) => {
+								if let Some(last_op) = ops.last() {
+									current_initial_timestamp = last_op.timestamp;
+								}
+
+								yield Ok(ops);
+							},
+							Err(e) => {
+								yield Err(e);
+								break;
+							},
+						}
+					}
+
+					Err(e) => {
+						yield Err(e.into());
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	pub async fn get_ops(

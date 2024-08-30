@@ -27,8 +27,9 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{crdt_operation, device, PrismaClient};
-use sd_sync::{CRDTOperation, ModelId};
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient};
+use sd_sync::ModelId;
+use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::HashMap,
@@ -54,6 +55,10 @@ pub enum SyncEvent {
 }
 
 pub use sd_core_prisma_helpers::DevicePubId;
+pub use sd_sync::{
+	CRDTOperation, OperationFactory, RelationSyncId, RelationSyncModel, SharedSyncModel, SyncId,
+	SyncModel,
+};
 
 pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;
 
@@ -65,7 +70,6 @@ pub struct SharedState {
 	pub clock: uhlc::HLC,
 	pub active: AtomicBool,
 	pub active_notify: Notify,
-	pub actors: Arc<sd_actors::Actors>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -108,7 +112,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 				op.timestamp.as_u64() as i64
 			}
 		},
-		device: device::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
+		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),
@@ -131,6 +135,24 @@ pub fn crdt_op_unchecked_db(
 		},
 		device_pub_id: device_pub_id.to_db(),
 		kind: op.kind().to_string(),
+		data: rmp_serde::to_vec(&op.data)?,
+		model: i32::from(op.model_id),
+		record_id: rmp_serde::to_vec(&op.record_id)?,
+		_params: vec![],
+	})
+}
+
+pub fn cloud_crdt_op_db(op: &CRDTOperation) -> Result<cloud_crdt_operation::Create, Error> {
+	Ok(cloud_crdt_operation::Create {
+		timestamp: {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we had to store using i64 due to SQLite limitations
+			{
+				op.timestamp.as_u64() as i64
+			}
+		},
+		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
+		kind: op.data.as_kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,

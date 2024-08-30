@@ -125,7 +125,7 @@ impl Job for MediaProcessor {
 								TaskKind::MediaDataExtractor => {
 									tasks::MediaDataExtractor::deserialize(
 										&task_bytes,
-										(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+										(Arc::clone(ctx.db()), ctx.sync().clone()),
 									)
 									.await
 									.map(IntoTask::into_task)
@@ -632,7 +632,7 @@ impl MediaProcessor {
 					parent_iso_file_path.location_id(),
 					Arc::clone(&self.location_path),
 					Arc::clone(db),
-					Arc::clone(sync),
+					sync.clone(),
 				)
 			})
 			.map(IntoTask::into_task)
@@ -648,7 +648,7 @@ impl MediaProcessor {
 							parent_iso_file_path.location_id(),
 							Arc::clone(&self.location_path),
 							Arc::clone(db),
-							Arc::clone(sync),
+							sync.clone(),
 						)
 					})
 					.map(IntoTask::into_task),

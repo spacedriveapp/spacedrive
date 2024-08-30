@@ -88,7 +88,7 @@ mod originator {
 
 	#[instrument(skip(sync, p2p))]
 	/// REMEMBER: This only syncs one direction!
-	pub async fn run(library: Arc<Library>, sync: &Arc<SyncManager>, p2p: &Arc<super::P2PManager>) {
+	pub async fn run(library: Arc<Library>, sync: &SyncManager, p2p: &Arc<super::P2PManager>) {
 		for (remote_identity, peer) in p2p.get_library_instances(&library.id) {
 			if !peer.is_connected() {
 				continue;
@@ -203,65 +203,65 @@ mod responder {
 		stream: &mut (impl AsyncRead + AsyncWrite + Unpin),
 		library: Arc<Library>,
 	) -> Result<(), ()> {
-		use sync::ingest::*;
+		// use sync::ingest::*;
 
-		let ingest = &library.sync.ingest;
+		// let ingest = &library.sync.ingest;
 
-		ingest.event_tx.send(Event::Notification).await.unwrap();
+		// ingest.event_tx.send(Event::Notification).await.unwrap();
 
-		let mut rx = pin!(ingest.req_rx.clone());
+		// let mut rx = pin!(ingest.req_rx.clone());
 
-		while let Some(req) = rx.next().await {
-			const OPS_PER_REQUEST: u32 = 1000;
+		// while let Some(req) = rx.next().await {
+		// 	const OPS_PER_REQUEST: u32 = 1000;
 
-			let timestamps = match req {
-				Request::FinishedIngesting => break,
-				Request::Messages { timestamps, .. } => timestamps,
-			};
+		// 	let timestamps = match req {
+		// 		Request::FinishedIngesting => break,
+		// 		Request::Messages { timestamps, .. } => timestamps,
+		// 	};
 
-			debug!(?timestamps, "Getting ops for timestamps;");
+		// 	debug!(?timestamps, "Getting ops for timestamps;");
 
-			stream
-				.write_all(
-					&tx::MainRequest::GetOperations(sync::GetOpsArgs {
-						timestamp_per_device: timestamps,
-						count: OPS_PER_REQUEST,
-					})
-					.to_bytes(),
-				)
-				.await
-				.unwrap();
-			stream.flush().await.unwrap();
+		// 	stream
+		// 		.write_all(
+		// 			&tx::MainRequest::GetOperations(sync::GetOpsArgs {
+		// 				timestamp_per_device: timestamps,
+		// 				count: OPS_PER_REQUEST,
+		// 			})
+		// 			.to_bytes(),
+		// 		)
+		// 		.await
+		// 		.unwrap();
+		// 	stream.flush().await.unwrap();
 
-			let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
+		// 	let rx::Operations(ops) = rx::Operations::from_stream(stream).await.unwrap();
 
-			let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
+		// 	let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
 
-			// FIXME: If there are exactly a multiple of OPS_PER_REQUEST operations,
-			// then this will bug, as we sent `has_more` as true, but we don't have
-			// more operations to send.
+		// 	// FIXME: If there are exactly a multiple of OPS_PER_REQUEST operations,
+		// 	// then this will bug, as we sent `has_more` as true, but we don't have
+		// 	// more operations to send.
 
-			ingest
-				.event_tx
-				.send(Event::Messages(MessagesEvent {
-					device_pub_id: library.sync.device_pub_id.clone(),
-					has_more: ops.len() == OPS_PER_REQUEST as usize,
-					messages: ops,
-					wait_tx: Some(wait_tx),
-				}))
-				.await
-				.expect("TODO: Handle ingest channel closed, so we don't loose ops");
+		// 	ingest
+		// 		.event_tx
+		// 		.send(Event::Messages(MessagesEvent {
+		// 			device_pub_id: library.sync.device_pub_id.clone(),
+		// 			has_more: ops.len() == OPS_PER_REQUEST as usize,
+		// 			messages: ops,
+		// 			wait_tx: Some(wait_tx),
+		// 		}))
+		// 		.await
+		// 		.expect("TODO: Handle ingest channel closed, so we don't loose ops");
 
-			wait_rx.await.unwrap()
-		}
+		// 	wait_rx.await.unwrap()
+		// }
 
-		debug!("Sync responder done");
+		// debug!("Sync responder done");
 
-		stream
-			.write_all(&tx::MainRequest::Done.to_bytes())
-			.await
-			.unwrap();
-		stream.flush().await.unwrap();
+		// stream
+		// 	.write_all(&tx::MainRequest::Done.to_bytes())
+		// 	.await
+		// 	.unwrap();
+		// stream.flush().await.unwrap();
 
 		Ok(())
 	}

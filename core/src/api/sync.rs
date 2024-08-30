@@ -56,19 +56,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					async_stream::stream! {
-						let cloud_sync = &library.cloud.sync;
+						let cloud_sync_state = &library.cloud_sync_state;
 						let sync = &library.sync.shared;
 
 						loop {
 							yield Data {
 							  ingest: sync.active.load(Ordering::Relaxed),
-								cloud_send: cloud_sync.send_active.load(Ordering::Relaxed),
-								cloud_receive: cloud_sync.receive_active.load(Ordering::Relaxed),
-								cloud_ingest: cloud_sync.ingest_active.load(Ordering::Relaxed),
+								cloud_send: cloud_sync_state.send_active.load(Ordering::Relaxed),
+								cloud_receive: cloud_sync_state.receive_active.load(Ordering::Relaxed),
+								cloud_ingest: cloud_sync_state.ingest_active.load(Ordering::Relaxed),
 							};
 
 							tokio::select! {
-								_ = cloud_sync.notifier.notified() => {},
+								_ = cloud_sync_state.notifier.notified() => {},
 								_ = sync.active_notify.notified() => {}
 							}
 						}

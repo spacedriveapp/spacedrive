@@ -301,7 +301,7 @@ async fn spawned_process_single_file(
 		chan::Sender<file_path::id::Type>,
 	),
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 	_permit: OwnedSemaphorePermit,
 ) {
 	let image =

@@ -96,7 +96,7 @@ pub async fn shallow(
 		to_create,
 		to_update,
 		Arc::clone(db),
-		Arc::clone(sync),
+		sync.clone(),
 		dispatcher,
 	)
 	.await?
@@ -203,7 +203,7 @@ async fn save_and_update(
 	to_create: Vec<WalkedEntry>,
 	to_update: Vec<WalkedEntry>,
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Option<Metadata>, Error> {
 	let save_and_update_tasks = to_create
@@ -216,7 +216,7 @@ async fn save_and_update(
 				location.pub_id.clone(),
 				chunk.collect::<Vec<_>>(),
 				Arc::clone(&db),
-				Arc::clone(&sync),
+				sync.clone(),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -229,7 +229,7 @@ async fn save_and_update(
 					tasks::Updater::new_shallow(
 						chunk.collect::<Vec<_>>(),
 						Arc::clone(&db),
-						Arc::clone(&sync),
+						sync.clone(),
 					)
 				})
 				.map(IntoTask::into_task),

@@ -39,7 +39,7 @@ const PENDING_BATCHES_FILE: &str = "pending_image_labeler_batches.bin";
 type ResumeBatchRequest = (
 	BatchToken,
 	Arc<PrismaClient>,
-	Arc<SyncManager>,
+	SyncManager,
 	oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
 );
 
@@ -56,7 +56,7 @@ pub(super) struct Batch {
 	pub(super) output_tx: chan::Sender<LabelerOutput>,
 	pub(super) is_resumable: bool,
 	pub(super) db: Arc<PrismaClient>,
-	pub(super) sync: Arc<SyncManager>,
+	pub(super) sync: SyncManager,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -169,7 +169,7 @@ impl OldImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 		is_resumable: bool,
 	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
 		let (tx, rx) = chan::bounded(usize::max(file_paths.len(), 1));
@@ -207,7 +207,7 @@ impl OldImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> chan::Receiver<LabelerOutput> {
 		self.new_batch_inner(location_id, location_path, file_paths, db, sync, false)
 			.await
@@ -221,7 +221,7 @@ impl OldImageLabeler {
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
 		self.new_batch_inner(location_id, location_path, file_paths, db, sync, true)
 			.await
@@ -292,7 +292,7 @@ impl OldImageLabeler {
 		&self,
 		token: BatchToken,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Result<chan::Receiver<LabelerOutput>, ImageLabelerError> {
 		let (tx, rx) = oneshot::channel();
 
@@ -345,7 +345,7 @@ async fn actor_loop(
 		ResumeBatch(
 			BatchToken,
 			Arc<PrismaClient>,
-			Arc<SyncManager>,
+			SyncManager,
 			oneshot::Sender<Result<chan::Receiver<LabelerOutput>, ImageLabelerError>>,
 		),
 		UpdateModel(

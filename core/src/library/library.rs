@@ -1,10 +1,14 @@
-use crate::{api::CoreEvent, cloud, Node};
+use crate::{api::CoreEvent, Node};
 
+use sd_core_cloud_services::{declare_cloud_sync, CloudSyncActors, CloudSyncActorsState};
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::ThumbnailKind;
 use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
-
 use sd_core_sync::SyncManager;
+
+use sd_actors::ActorsCollection;
+use sd_cloud_schema::sync::groups;
+use sd_crypto::{CryptoRng, SeedableRng};
 use sd_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
@@ -30,8 +34,8 @@ pub struct Library {
 	config: RwLock<LibraryConfig>,
 	/// db holds the database client for the current library.
 	pub db: Arc<PrismaClient>,
-	pub sync: Arc<SyncManager>,
-	pub cloud: cloud::State,
+	pub sync: SyncManager,
+
 	/// key manager that provides encryption keys to functions that require them
 	// pub key_manager: Arc<KeyManager>,
 	/// p2p identity
@@ -46,7 +50,8 @@ pub struct Library {
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
 
-	pub actors: Arc<sd_actors::Actors>,
+	pub cloud_sync_state: CloudSyncActorsState,
+	pub cloud_sync_actors: ActorsCollection<CloudSyncActors>,
 }
 
 impl Debug for Library {
@@ -71,25 +76,42 @@ impl Library {
 		identity: Arc<Identity>,
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
-		sync: Arc<SyncManager>,
-		cloud: cloud::State,
+		sync: SyncManager,
 		do_cloud_sync: broadcast::Sender<()>,
-		actors: Arc<sd_actors::Actors>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,
 			config: RwLock::new(config),
 			sync,
-			cloud,
 			db: db.clone(),
-			// key_manager,
 			identity,
 			// orphan_remover: OrphanRemoverActor::spawn(db),
 			instance_uuid,
 			do_cloud_sync,
 			event_bus_tx: node.event_bus.0.clone(),
-			actors,
+			cloud_sync_state: CloudSyncActorsState::default(),
+			cloud_sync_actors: ActorsCollection::default(),
 		})
+	}
+
+	pub async fn init_cloud_sync(&self, node: &Node, sync_group_pub_id: groups::PubId) {
+		let rng = CryptoRng::from_seed(node.master_rng.lock().await.generate_fixed());
+
+		declare_cloud_sync(
+			node.cloud_services.clone(),
+			&self.cloud_sync_actors,
+			&self.cloud_sync_state,
+			sync_group_pub_id,
+			self.sync.clone(),
+			Arc::clone(&self.db),
+			rng,
+		)
+		.await;
+
+		// TODO(@fogodev): Uncomment when they're ready
+		// self.cloud_sync_actors.start(CloudSyncActors::Sender).await;
+		// self.cloud_sync_actors.start(CloudSyncActors::Receiver).await;
+		// self.cloud_sync_actors.start(CloudSyncActors::Ingester).await;
 	}
 
 	pub async fn config(&self) -> LibraryConfig {

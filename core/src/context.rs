@@ -50,7 +50,7 @@ impl OuterContext for NodeContext {
 		&self.library.db
 	}
 
-	fn sync(&self) -> &Arc<SyncManager> {
+	fn sync(&self) -> &SyncManager {
 		&self.library.sync
 	}
 
@@ -97,7 +97,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> OuterContext for JobContext<OuterC
 		self.outer_ctx.db()
 	}
 
-	fn sync(&self) -> &Arc<SyncManager> {
+	fn sync(&self) -> &SyncManager {
 		self.outer_ctx.sync()
 	}
 
