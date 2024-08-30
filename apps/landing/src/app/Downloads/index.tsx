@@ -1,6 +1,7 @@
 'use client';
 
-import { Github } from '@sd/assets/svgs/brands';
+import { ArrowCircleDown } from '@phosphor-icons/react/dist/ssr';
+import { Discord, Github } from '@sd/assets/svgs/brands';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { usePlausible } from 'next-plausible';
@@ -50,8 +51,8 @@ export function Downloads({ latestVersion }: Props) {
 										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
 										: undefined
 								}
-								className={`z-5 relative`}
-								icon={Icon ? <Icon width="1rem" height="1rem" /> : undefined}
+								className={`z-5 relative !bg-[#88D7FF]`}
+								icon={<ArrowCircleDown />}
 								text={`Download for ${currentPlatform.name}`}
 								onClick={() => {
 									plausible('download', {
@@ -65,10 +66,10 @@ export function Downloads({ latestVersion }: Props) {
 
 				<HomeCTA
 					target="_blank"
-					href="https://www.github.com/spacedriveapp/spacedrive"
-					icon={<Github />}
+					href="https://discord.gg/gTaF2Z44f5"
+					icon={<Discord />}
 					className="z-5 relative"
-					text="Star on GitHub"
+					text="Chat on Discord"
 				/>
 			</div>
 
@@ -107,7 +108,7 @@ export function Downloads({ latestVersion }: Props) {
 				)}
 			</p>
 			{/* Platform icons */}
-			<div className="relative z-10 mt-5 flex gap-3">
+			{/* <div className="relative z-10 mt-5 flex gap-3">
 				{Object.values<Platform>(platforms).map((platform, i) => {
 					return (
 						<motion.div
@@ -139,9 +140,9 @@ export function Downloads({ latestVersion }: Props) {
 						</motion.div>
 					);
 				})}
-			</div>
+			</div> */}
 			{/* Docker Dialog */}
-			<DockerDialog open={dockerDialogOpen} setOpen={setDockerDialogOpen} />
+			{/* <DockerDialog open={dockerDialogOpen} setOpen={setDockerDialogOpen} /> */}
 		</>
 	);
 }

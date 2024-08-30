@@ -50,15 +50,11 @@ export default async function Page() {
 					href={`/docs/changelog/alpha/${release.tag_name}`}
 				/>
 				<h1 className="fade-in-heading z-30 mb-3 bg-clip-text px-2 text-center text-4xl font-bold leading-tight text-white md:text-5xl lg:text-7xl">
-					One Explorer. All Your Files.
+					Sync, manage, and discover.<br></br>Across all your devices.
 				</h1>
 				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
-					Unify files from all your devices and clouds into a single, easy-to-use
-					explorer.
-					<br />
-					<span className="hidden sm:block">
-						Designed for creators, hoarders and the painfully disorganized.
-					</span>
+					Your files, always within reach. Experience seamless synchronization, intuitive
+					management, and powerful discovery tools — all in one place.
 				</p>
 				<Downloads
 					latestVersion={[
@@ -78,7 +74,7 @@ export default async function Page() {
 							alt="l"
 							src="/images/app/gradient.webp"
 						/>
-						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out hover:-translate-y-4 hover:scale-[1.02] md:mt-0">
+						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out md:mt-0">
 							<div className="flex flex-col items-center justify-center">
 								<div className="z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur">
 									<CyclingImage
@@ -109,10 +105,10 @@ export default async function Page() {
 										src="/images/app/gradient-overlay.png"
 									/>
 								</div>
-								<ArrowUp className="invisible size-7 pt-2 text-white/40 md:visible" />
+								{/* <ArrowUp className="invisible size-7 pt-2 text-white/40 md:visible" />
 								<p className="invisible pt-2 text-xs text-white/40 md:visible">
 									Hover to see more
-								</p>
+								</p> */}
 							</div>
 						</div>
 					</div>
