@@ -2,7 +2,9 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
 	"description": "Capability for the main window",
-	"windows": ["main"],
+	"windows": [
+		"main"
+	],
 	"permissions": [
 		"core:app:default",
 		"core:event:default",
@@ -30,16 +32,19 @@
 			"identifier": "http:default",
 			"allow": [
 				{
-					"url": "https://**"
+					"url": "http://ipc.localhost"
 				},
 				{
-					"url": "http://**"
+					"url": "http://asset.localhost"
 				},
 				{
-					"url": "http://localhost:9420/*"
+					"url": "http://tauri.localhost"
 				},
 				{
-					"url": "https://plausible.io/*"
+					"url": "http://localhost:9420"
+				},
+				{
+					"url": "https://plausible.io"
 				}
 			]
 		}

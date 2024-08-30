@@ -1,5 +1,5 @@
 {
-	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.2/core/tauri-config-schema/schema.json",
+	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.8/crates/tauri-cli/tauri.config.schema.json",
 	"productName": "Spacedrive",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
@@ -29,19 +29,30 @@
 				"transparent": true,
 				"center": true,
 				"windowEffects": {
-					"effects": ["sidebar"],
+					"effects": [
+						"sidebar"
+					],
 					"state": "followsWindowActiveState",
 					"radius": 9
 				}
 			}
 		],
 		"security": {
-			"csp": "default-src 'self' webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' tauri://localhost http://localhost:9420 https://plausible.io ipc: http://ipc.localhost;"
+			"csp": {
+				"default-src": "'self' webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: http: https: tauri:",
+				"connect-src": "'self' ipc: http://ipc.localhost ws: wss: http: https: tauri:",
+				"img-src": "'self' asset: https://asset.localhost blob: data: filesystem: http: https: tauri:",
+				"style-src": "'self' 'unsafe-inline' http: https: tauri:"
+			}
 		}
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["deb", "msi", "dmg"],
+		"targets": [
+			"deb",
+			"msi",
+			"dmg"
+		],
 		"publisher": "Spacedrive Technology Inc.",
 		"copyright": "Spacedrive Technology Inc.",
 		"category": "Productivity",
@@ -60,14 +71,20 @@
 				"files": {
 					"/usr/share/spacedrive/models/yolov8s.onnx": "../../.deps/models/yolov8s.onnx"
 				},
-				"depends": ["libc6", "libxdo3", "dbus"]
+				"depends": [
+					"libc6",
+					"libxdo3",
+					"dbus"
+				]
 			}
 		},
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"exceptionDomain": null,
 			"entitlements": null,
-			"frameworks": ["../../.deps/Spacedrive.framework"],
+			"frameworks": [
+				"../../.deps/Spacedrive.framework"
+			],
 			"dmg": {
 				"background": "dmg-background.png",
 				"appPosition": {
@@ -104,7 +121,9 @@
 		"deep-link": {
 			"mobile": [],
 			"desktop": {
-				"schemes": ["spacedrive"]
+				"schemes": [
+					"spacedrive"
+				]
 			}
 		}
 	}

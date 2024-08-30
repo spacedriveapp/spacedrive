@@ -3,7 +3,7 @@ import { Card } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { AuthRequiredOverlay } from '~/components/AuthRequiredOverlay';
 
-const Profile = ({ email, authStore }: { email?: string; authStore: { status: string } }) => {
+const Profile = ({ email }: { email?: string; }) => {
 	const emailName = email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
 

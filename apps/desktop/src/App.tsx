@@ -46,7 +46,7 @@ SuperTokens.init({
 	appInfo: {
 		apiDomain: 'http://localhost:9420',
 		apiBasePath: '/api/auth',
-		appName: 'Spacedrive Auth Service'
+	appName: 'Spacedrive Auth Service'
 	},
 	cookieHandler: getCookieHandler,
 	windowHandler: getWindowHandler,
@@ -61,7 +61,8 @@ const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
 //Set global fetch to use tauri fetch
 // If the build in in production mode, we need to set the global fetch to use the tauri fetch
-if (import.meta.env.DEV === false) globalThis.fetch = fetch;
+// console.log('import.meta.env.DEV', import.meta.env.DEV);
+globalThis.fetch = fetch;
 
 export default function App() {
 	useEffect(() => {
