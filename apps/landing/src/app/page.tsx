@@ -1,4 +1,5 @@
 import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
+import { Github } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
 import CyclingImage from '~/components/CyclingImage';
 import { toTitleCase } from '~/utils/util';
@@ -118,6 +119,130 @@ export default async function Page() {
 				{/* <CloudStorage /> */}
 				{/* <DownloadToday isWindows={deviceOs?.isWindows} /> */}
 				{/* <div className="h-[100px] sm:h-[200px] w-full" /> */}
+			</div>
+			{/* Explorer Section */}
+			<div className="flex w-full flex-col p-4">
+				<div className="pb-6 xs:pb-24">
+					<h1 className="text-xl">
+						Explorer. Browse and manage your data like never before.
+					</h1>
+					<div className="flex flex-row gap-[20px]">
+						{/* Bento Box 1 */}
+						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
+							<Image
+								loading="eager"
+								className="flex items-center justify-center fade-in"
+								width={200}
+								height={200}
+								alt="l"
+								src="/images/bento/library.webp"
+							/>
+							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
+								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#63C3F3]" />
+								<h3 className="text-[20px]">Seamless Sync & Access</h3>
+							</div>
+							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
+								Whether online or offline, instantly access your data anytime,
+								anywhere. Keeping everything updated and available across your
+								devices.
+							</div>
+						</div>
+						{/* Bento Box 2 */}
+						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
+							<Image
+								loading="eager"
+								className="flex items-center justify-center fade-in"
+								width={200}
+								height={200}
+								alt="l"
+								src="/images/bento/lock.webp"
+							/>
+							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
+								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#6368F3]" />
+								<h3 className="text-[20px]">Privacy & Control</h3>
+							</div>
+							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
+								Your data is yours. With Spacedrive’s top-notch security, only you
+								can access your information — no third parties, no exceptions.
+							</div>
+						</div>
+						{/* Bento Box 3 */}
+						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
+							<Image
+								loading="eager"
+								className="flex items-center justify-center fade-in"
+								width={200}
+								height={200}
+								alt="l"
+								src="/images/bento/tags.webp"
+							/>
+							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
+								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#DF63F3]" />
+								<h3 className="text-[20px]">Effortless Organization</h3>
+							</div>
+							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
+								Keep your digital life organized with automatic categorization and
+								smart structuring, making it easy to find what you need instantly.
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			{/* 4 Corners Section */}
+			<div className="flex w-full flex-col p-4">
+				<div className="pb-6 xs:pb-24">
+					<h1 className="text-xl">TODO 4 Corners Section</h1>
+				</div>
+			</div>
+			{/* Search Section */}
+			<div className="flex w-full flex-col items-center justify-center p-4">
+				<div className="pb-6 xs:pb-24">
+					<h1 className="text-xl">
+						Search. Find what you’re looking for with ease using advanced filters.
+					</h1>
+					<Image
+						loading="eager"
+						className="flex items-center justify-center fade-in"
+						width={500}
+						height={500}
+						alt="l"
+						src="/images/bento/search.webp"
+					/>
+				</div>
+			</div>
+			{/* Assistant Section */}
+			<div className="flex w-full flex-col p-4">
+				<div className="pb-6 xs:pb-24">
+					<div className="inline-flex items-center justify-center gap-[10px] rounded-full border-[2px] border-[#FC79E7] bg-[rgba(43,43,59,0.50)] px-[10px] py-[11px]">
+						<p className="text-center text-[14px] font-[500] leading-[125%]">
+							COMING NEXT YEAR
+						</p>
+					</div>
+					<h1 className="pt-[16px] text-xl">
+						Assistant. Mighty-powerful AI — no cloud needed.
+					</h1>
+					<h2 className="pt-[16px] text-lg text-ink-faint">
+						Details to be revealed soon...
+					</h2>
+				</div>
+			</div>
+			{/* Github Section */}
+			<div className="flex w-full flex-col p-4">
+				<div className="pb-6 xs:pb-24">
+					<h1 className="pt-[16px] text-xl">Free and open-source. See for yourself.</h1>
+					<h2 className="pb-[36px] pt-[16px] text-lg text-ink-faint">
+						When we promise strong privacy and encryption, we mean it. Our app’s source
+						code is entirely open-source and available on GitHub, so if you’re wondering
+						what Spacedrive does with your data or have an improvement to share, you’re
+						welcome to do so — we welcome and appreciate contributions!
+					</h2>
+					<a href="https://github.com/spacedriveapp/spacedrive" target="_blank">
+						<button className="inline-flex items-center justify-center gap-[10px] rounded-xl bg-slate-800 px-[16px] py-[10px]">
+							<Github />
+							<span>View source on GitHub</span>
+						</button>
+					</a>
+				</div>
 			</div>
 		</>
 	);
