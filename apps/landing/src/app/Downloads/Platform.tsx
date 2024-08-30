@@ -8,7 +8,7 @@ import { Tooltip } from '@sd/ui';
 export type Platform = {
 	name: string;
 	os?: string;
-	icon: Icon | FunctionComponent<any>;
+	icon: React.ElementType<any> | Icon;
 	version?: string;
 	links?: Array<{ name: string; arch: string }>;
 	disabled?: boolean;

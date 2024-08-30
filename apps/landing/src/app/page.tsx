@@ -5,8 +5,8 @@ import { toTitleCase } from '~/utils/util';
 
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
 import { Background } from './Background';
+import { Banner } from './Banner';
 import { Downloads } from './Downloads';
-import { NewBanner } from './NewBanner';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
@@ -27,20 +27,25 @@ export default async function Page() {
 
 	return (
 		<>
-			<Background />
-			<Image
+			{/* <Background /> */}
+			{/* <Image
 				loading="eager"
 				className="absolute-horizontal-center fade-in"
 				width={1278}
 				height={626}
 				alt="l"
 				src="/images/misc/header-gradient.webp"
-			/>
+			/> */}
 			<div className="flex w-full flex-col items-center px-4">
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 				<div className="mt-24 lg:mt-8" />
-				<NewBanner
+				{/* <NewBanner
 					headline={`Alpha ${release.tag_name} is out!`}
+					className="mt-[50px] lg:mt-0"
+					href={`/docs/changelog/alpha/${release.tag_name}`}
+				/> */}
+				<Banner
+					headline={`30k+ stars on GitHub`}
 					className="mt-[50px] lg:mt-0"
 					href={`/docs/changelog/alpha/${release.tag_name}`}
 				/>

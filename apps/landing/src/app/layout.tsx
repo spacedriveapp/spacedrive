@@ -26,12 +26,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-	themeColor: { color: '#E751ED', media: 'not screen' }
+	themeColor: { color: '#0E0E12', media: 'not screen' }
 };
 
 export default function Layout({ children }: PropsWithChildren) {
 	return (
-		<html lang="en" className="dark scroll-smooth">
+		<html lang="en" className="scroll-smooth text-white">
 			<head>
 				<PlausibleProvider
 					domain="spacedrive.com"
@@ -42,11 +42,9 @@ export default function Layout({ children }: PropsWithChildren) {
 			</head>
 			<body>
 				<Providers>
-					<div className="overflow-hidden dark:bg-[#030014]/60">
+					<div className="overflow-hidden bg-[#0E0E12]">
 						<NavBar />
-						<main className="dark z-10 m-auto max-w-[100rem] dark:text-white">
-							{children}
-						</main>
+						<main className="z-10 m-auto max-w-[100rem]">{children}</main>
 						<Footer />
 					</div>
 				</Providers>

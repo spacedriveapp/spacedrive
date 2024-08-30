@@ -126,7 +126,7 @@ module.exports = function (app, options) {
 						850: '#08090D',
 						900: '#060609',
 						950: '#030303'
-					}
+					},
 				},
 				extend: {
 					transitionTimingFunction: {

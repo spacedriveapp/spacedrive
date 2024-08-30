@@ -1,15 +1,15 @@
-import { Newspaper } from '@phosphor-icons/react/dist/ssr';
+import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
 
-export interface NewBannerProps {
+export interface BannerProps {
 	headline: string;
 	href?: string;
 	link?: string;
 	className?: string;
 }
 
-export function NewBanner(props: NewBannerProps) {
+export function Banner(props: BannerProps) {
 	const { headline, href, link } = props;
 
 	return (
@@ -17,11 +17,11 @@ export function NewBanner(props: NewBannerProps) {
 			href={href ?? '/'}
 			className={clsx(
 				props.className,
-				'news-banner-border-gradient news-banner-glow animation-delay-1 fade-in-whats-new z-10 mb-5 flex w-fit flex-row rounded-full bg-black/10 px-5 py-2.5 text-xs backdrop-blur-md transition hover:bg-purple-900/20 sm:w-auto sm:text-base'
+				'animation-delay-1 fade-in-whats-new z-10 mb-5 flex w-fit flex-row rounded-full border-[1.5px] border-yellow-700 bg-yellow-600 px-5 py-2.5 text-xs backdrop-blur-md transition sm:w-auto sm:text-base'
 			)}
 		>
 			<div className="flex items-center gap-2">
-				<Newspaper weight="fill" className="text-white" size={20} />
+				<Star weight="fill" className="text-white" size={20} />
 				<p className="font-regular truncate text-white">{headline}</p>
 			</div>
 			{link && (
