@@ -23,7 +23,7 @@ export function Footer() {
 	return (
 		<>
 			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
-				<div className="mt-4">
+				<div className="translate-y-3.5">
 					<DownloadButton
 						name={currentPlatform?.name ?? 'macOS'}
 						link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}

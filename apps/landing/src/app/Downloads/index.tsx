@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
 
-import HomeCTA from '../HomeCTA';
+import DiscordButton from '../DiscordButton';
 import { DownloadButton } from './Button';
 import { DockerDialog } from './DockerDialog';
 import { BASE_DL_LINK, Platform, platforms, useCurrentPlatform } from './Platform';
@@ -69,13 +69,7 @@ export function Downloads({ latestVersion }: Props) {
 						);
 					})()}
 
-				<HomeCTA
-					target="_blank"
-					href="https://discord.gg/gTaF2Z44f5"
-					icon={<Discord />}
-					className="z-5 relative"
-					text="Chat on Discord"
-				/>
+				<DiscordButton />
 			</div>
 
 			{/* {selectedPlatform?.links && selectedPlatform.links.length > 1 && (
