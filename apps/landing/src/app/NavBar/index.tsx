@@ -25,7 +25,18 @@ export function NavBar() {
 				animate={{ opacity: isMenuOpen ? 0 : 1 }}
 				transition={{ duration: 0.2 }}
 			>
-				<div className="flex w-full min-w-[300px] items-center justify-between rounded-[10px] border border-[#1e1e2600] bg-[#141419] px-[24px] py-[12px]">
+				<div
+					className="flex w-full min-w-[300px] items-center justify-between rounded-[10px] px-[24px] py-[12px] shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)]"
+					style={{
+						backgroundImage: `url('images/misc/NoisePattern.png')`,
+						backgroundColor: '#141419',
+						backgroundPosition: '0% 0%',
+						backgroundSize: '50px 50px',
+						backgroundRepeat: 'repeat',
+						backgroundBlendMode: 'overlay, normal',
+						border: '1px rgba(30, 30, 38, 0.00)'
+					}}
+				>
 					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[20px]">
 						<Link href="/" className="flex flex-row items-center gap-1">
