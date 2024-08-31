@@ -1,6 +1,7 @@
 import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
+import { BentoBox } from '~/components/BentoBox';
 import CyclingImage from '~/components/CyclingImage';
 import { toTitleCase } from '~/utils/util';
 
@@ -125,68 +126,36 @@ export default async function Page() {
 			{/* Explorer Section */}
 			<div className="flex w-full flex-col items-center justify-center p-4">
 				<div className="pb-6 xs:pb-24">
-					<h1 className="text-xl">
-						Explorer. Browse and manage your data like never before.
+					<h1 className="text-3xl font-semibold">
+						Explorer.{' '}
+						<span className="bg-gradient-to-r from-[#A3A3AE] to-[#434348] bg-clip-text text-transparent">
+							Browse and manage <br />
+							your data like never before.
+						</span>
 					</h1>
-					<div className="flex flex-row gap-[20px]">
-						{/* Bento Box 1 */}
-						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
-							<Image
-								loading="eager"
-								className="flex items-center justify-center fade-in"
-								width={200}
-								height={200}
-								alt="l"
-								src="/images/bento/library.webp"
-							/>
-							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
-								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#63C3F3]" />
-								<h3 className="text-[20px]">Seamless Sync & Access</h3>
-							</div>
-							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
-								Whether online or offline, instantly access your data anytime,
-								anywhere. Keeping everything updated and available across your
-								devices.
-							</div>
-						</div>
-						{/* Bento Box 2 */}
-						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
-							<Image
-								loading="eager"
-								className="flex items-center justify-center fade-in"
-								width={200}
-								height={200}
-								alt="l"
-								src="/images/bento/lock.webp"
-							/>
-							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
-								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#6368F3]" />
-								<h3 className="text-[20px]">Privacy & Control</h3>
-							</div>
-							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
-								Your data is yours. With Spacedrive’s top-notch security, only you
-								can access your information — no third parties, no exceptions.
-							</div>
-						</div>
-						{/* Bento Box 3 */}
-						<div className="h-[440px] w-[400px] flex-shrink-0 rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-[29px]">
-							<Image
-								loading="eager"
-								className="flex items-center justify-center fade-in"
-								width={200}
-								height={200}
-								alt="l"
-								src="/images/bento/tags.webp"
-							/>
-							<div className="inline-flex items-center justify-center gap-2 pb-[10px]">
-								<div className="h-[15px] w-[4px] rounded-[11px] bg-[#DF63F3]" />
-								<h3 className="text-[20px]">Effortless Organization</h3>
-							</div>
-							<div className="text-md inline-flex items-center justify-center gap-2 text-ink-faint">
-								Keep your digital life organized with automatic categorization and
-								smart structuring, making it easy to find what you need instantly.
-							</div>
-						</div>
+
+					<div className="mt-5 flex flex-row gap-[20px]">
+						<BentoBox
+							imageSrc="/images/bento/library.webp"
+							imageAlt="Library"
+							title="Seamless Sync & Access"
+							titleColor="#63C3F3"
+							description="Whether online or offline, instantly access your data anytime, anywhere. Keeping everything updated and available across your devices."
+						/>
+						<BentoBox
+							imageSrc="/images/bento/lock.webp"
+							imageAlt="Lock"
+							title="Privacy & Control"
+							titleColor="#6368F3"
+							description="Your data is yours. With Spacedrive’s top-notch security, only you can access your information — no third parties, no exceptions."
+						/>
+						<BentoBox
+							imageSrc="/images/bento/tags.webp"
+							imageAlt="Tags"
+							title="Effortless Organization"
+							titleColor="#DF63F3"
+							description="Keep your digital life organized with automatic categorization and smart structuring, making it easy to find what you need instantly."
+						/>
 					</div>
 				</div>
 			</div>
@@ -215,7 +184,7 @@ export default async function Page() {
 			{/* Assistant Section */}
 			<div className="flex w-full flex-col p-4">
 				<div className="pb-6 xs:pb-24">
-					<div className="inline-flex items-center justify-center gap-[10px] rounded-full border-[2px] border-[#FC79E7] bg-[rgba(43,43,59,0.50)] px-[10px] py-[11px]">
+					<div className="inline-flex items-center justify-center gap-[10px] rounded-full border-2 border-[#FC79E7] bg-[rgba(43,43,59,0.50)] px-[10px] py-[11px]">
 						<p className="text-center text-[14px] font-[500] leading-[125%]">
 							COMING NEXT YEAR
 						</p>
