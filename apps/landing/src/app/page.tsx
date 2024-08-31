@@ -52,9 +52,9 @@ export default async function Page() {
 					href={`/docs/changelog/alpha/${release.tag_name}`}
 				/>
 				<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-b from-[#EFF1FB] to-[#B8CEE0] bg-[length:100%_50%] bg-clip-text bg-repeat px-2 text-center text-4xl font-bold leading-[1.15] tracking-tight text-transparent md:text-5xl lg:text-6xl">
-					Sync,&nbsp;manage,&nbsp;and&nbsp;discover.
+					Sync, manage, and discover.
 					<br />
-					Across&nbsp;all&nbsp;your&nbsp;devices.
+					Across all your devices.
 				</h1>
 				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 					Your files, always within reach. Experience seamless synchronization, intuitive
@@ -126,7 +126,7 @@ export default async function Page() {
 			{/* Explorer Section */}
 			<div className="flex w-full flex-col items-center justify-center p-4">
 				<div className="pb-6 xs:pb-24">
-					<h1 className="text-3xl font-semibold">
+					<h1 className="ml-6 text-3xl font-semibold">
 						Explorer.{' '}
 						<span className="bg-gradient-to-r from-[#A3A3AE] to-[#434348] bg-clip-text text-transparent">
 							Browse and manage <br />
