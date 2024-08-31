@@ -76,41 +76,21 @@ export default async function Page() {
 							alt="l"
 							src="/images/app/gradient.webp"
 						/>
-						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-lg transition-transform duration-700 ease-in-out md:mt-0">
+						<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-[10px] transition-transform duration-700 ease-in-out md:mt-0">
 							<div className="flex flex-col items-center justify-center">
-								<div className="z-30 flex w-full rounded-lg border-t border-app-line/50 backdrop-blur">
-									<CyclingImage
-										loading="eager"
-										width={1278}
-										height={626}
-										alt="spacedrive app"
-										className="rounded-lg"
-										images={[
-											'/images/app/1.webp',
-											'/images/app/2.webp',
-											'/images/app/3.webp',
-											'/images/app/4.webp',
-											'/images/app/5.webp',
-											'/images/app/10.webp',
-											'/images/app/6.webp',
-											'/images/app/7.webp',
-											'/images/app/8.webp',
-											'/images/app/9.webp'
-										]}
-									/>
-									<Image
-										loading="eager"
-										className="pointer-events-none absolute opacity-100 transition-opacity duration-1000 ease-in-out hover:opacity-0 md:w-auto"
-										width={2278}
-										height={626}
-										alt="l"
-										src="/images/app/gradient-overlay.png"
-									/>
+								<div className="z-30 flex w-full rounded-[10px] border-t border-app-line/50 backdrop-blur">
+									<div className="relative h-[635px] w-[1402px]">
+										<div className="absolute left-0 top-0 z-[110] h-[635px] w-[1402px] rounded-[10px] bg-gradient-to-b from-transparent to-[#0E0E12]" />
+										<Image
+											loading="eager"
+											width={1400}
+											height={800}
+											alt="Spacedrive App Image"
+											className="absolute left-0 h-[800px] w-[1400px] rounded-[10px]"
+											src="/images/app/wip/MultiDeviceOverview.png"
+										/>
+									</div>
 								</div>
-								{/* <ArrowUp className="invisible size-7 pt-2 text-white/40 md:visible" />
-								<p className="invisible pt-2 text-xs text-white/40 md:visible">
-									Hover to see more
-								</p> */}
 							</div>
 						</div>
 					</div>
