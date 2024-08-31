@@ -47,7 +47,7 @@ export default async function Page() {
 				<GoldenBadge
 					headline={`30k+ stars on GitHub`}
 					className="mt-[50px] lg:mt-0"
-					href={`/docs/changelog/alpha/${release.tag_name}`}
+					href={`https://github.com/spacedriveapp/spacedrive`}
 				/>
 				<h1 className="fade-in-heading z-30 mb-3 bg-gradient-to-b from-[#EFF1FB] to-[#B8CEE0] bg-[length:100%_50%] bg-clip-text bg-repeat px-2 text-center text-4xl font-bold leading-[1.15] tracking-tight text-transparent md:text-5xl lg:text-6xl">
 					Sync, manage, and discover.
