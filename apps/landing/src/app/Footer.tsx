@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
 	Discord,
@@ -11,11 +11,11 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
+import companyLogoFull from '~/assets/company_full_logo.png';
 
 import { getLatestRelease } from './docs/changelog/data';
 import { DownloadButton } from './Downloads/Button';
 import { useCurrentPlatform } from './Downloads/Platform';
-import Logo from './logo.png';
 
 export function Footer() {
 	const currentPlatform = useCurrentPlatform();
@@ -41,18 +41,15 @@ export function Footer() {
 				<div className="stroke-[gba(30, 30, 38, 0.40)] container mx-auto grid min-h-64 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] stroke-[2px] px-8 lg:grid-cols-6">
 					{/* Download Button */}
 					<div className="col-span-2 flex flex-row items-center">
-						<Image
-							src={Logo}
-							alt="Spacedrive logo"
-							width={100}
-							height={100}
-							className="mr-4" // Use 'mr-4' to add spacing between the image and the text
-						/>
 						<div>
-							<h1 className="text-xl font-bold">
-								Spacedrive <br></br>Technology Inc.
-							</h1>
-							<p className="mt-2 text-ink-faint">
+							<Image
+								src={companyLogoFull}
+								alt="Spacedrive Technology Inc."
+								width={262}
+								height={73}
+								className="mr-4" // Use 'mr-4' to add spacing between the image and the text
+							/>
+							<p className="ml-[4.575rem] mt-2 text-ink-faint">
 								329 Railway St
 								<br />
 								Vancouver, BC V6A 1A4

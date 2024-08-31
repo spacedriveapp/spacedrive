@@ -5,10 +5,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren, useState } from 'react';
+import appFullLogo from '~/assets/app_full_logo.png';
 
 import { DownloadButton } from '../Downloads/Button';
 import { useCurrentPlatform } from '../Downloads/Platform';
-import Logo from '../logo.png';
 
 import '~/styles/navbar.css';
 
@@ -30,13 +30,12 @@ export function NavBar() {
 					<div className="flex items-center gap-[10px]">
 						<Link href="/" className="flex flex-row items-center">
 							<Image
-								alt="Spacedrive logo"
-								src={Logo}
-								className="z-30 mr-[6px] size-8"
+								alt="Spacedrive"
+								src={appFullLogo}
+								width={200}
+								height={55}
+								className="z-30 mr-[6px] h-[3.5rem] w-auto"
 							/>
-							<h3 className="whitespace-nowrap text-xl font-bold text-white">
-								Spacedrive
-							</h3>
 						</Link>
 						<div className="hidden items-center gap-[10px] whitespace-nowrap xl:flex">
 							<NavLink link="/explorer">Explorer</NavLink>
