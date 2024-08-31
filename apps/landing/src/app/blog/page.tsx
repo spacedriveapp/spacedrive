@@ -2,7 +2,7 @@ import { allPosts } from '@contentlayer/generated';
 import dayjs from 'dayjs';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BlogTag } from '~/components/BlogTag';
+import { BlogTag } from '~/components/blog-tag';
 
 export const metadata = {
 	title: 'Spacedrive Blog',

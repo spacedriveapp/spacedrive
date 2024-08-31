@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { PropsWithChildren } from 'react';
-
-import { Footer } from './Footer';
-import { NavBar } from './NavBar';
+import { PropsWithChildren, useRef } from 'react';
+import { GlobalFooter } from '~/components/global-footer';
+import { NavBar } from '~/components/global-nav-bar';
 
 import '@sd/ui/style/style.scss';
 import '~/styles/prism.css';
@@ -10,9 +9,10 @@ import '~/styles/style.scss';
 
 import clsx from 'clsx';
 import PlausibleProvider from 'next-plausible';
+import { DisclaimerBanner } from '~/components/disclaimer-banner';
 
+import { ClientProviders } from './client-providers';
 import { interFont, plexSansFont } from './fonts';
-import { Providers } from './Providers';
 
 export const metadata: Metadata = {
 	metadataBase: new URL('https://spacedrive.com'),
@@ -29,10 +29,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
 	themeColor: [
-		// embed color on discord, for instance
-		{ color: '#E751ED', media: 'not screen' },
 		// background color in Safari
-		{ color: '#0E0E12', media: 'screen' }
+		{ color: '#0E0E12', media: 'screen' },
+		// MUST BE LAST to actually work on embeds
+		// embed color on discord, for instance
+		{ color: '#E751ED', media: 'not screen' }
 	]
 };
 
@@ -51,17 +52,14 @@ export default function Layout({ children }: PropsWithChildren) {
 				/>
 			</head>
 			<body className="font-plex">
-				<div className="absolute top-0 z-[100] w-screen select-none bg-transparent pt-1 text-center italic text-white/30">
-					The content of this site is not final and should not be considered official
-					marketing or advertising from Spacedrive Technology Inc.
-				</div>
-				<Providers>
+				<DisclaimerBanner />
+				<ClientProviders>
 					<div className="overflow-hidden bg-[#0E0E12]">
 						<NavBar />
 						<main className="z-10 m-auto max-w-[100rem]">{children}</main>
-						<Footer />
+						<GlobalFooter />
 					</div>
-				</Providers>
+				</ClientProviders>
 			</body>
 		</html>
 	);

@@ -1,6 +1,6 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/ssr';
 import Link from 'next/link';
-import Markdown from '~/components/Markdown';
+import { MarkdownPage } from '~/components/markdown-page';
 
 import { investors, teamMembers } from './people';
 import { TeamMember } from './TeamMember';
@@ -12,7 +12,7 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<Markdown articleClassNames="mx-auto mt-32 prose-a:text-white">
+		<MarkdownPage articleClassNames="mx-auto mt-32 prose-a:text-white">
 			<div className="team-page relative mx-auto">
 				<div className="relative z-10">
 					<h1 className="fade-in-heading text-5xl leading-tight sm:leading-snug">
@@ -71,6 +71,6 @@ export default function Page() {
 					</div>
 				</div>
 			</div>
-		</Markdown>
+		</MarkdownPage>
 	);
 }

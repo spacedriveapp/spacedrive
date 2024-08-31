@@ -6,9 +6,8 @@ import clsx from 'clsx';
 import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button, Dropdown } from '@sd/ui';
-import { getWindow } from '~/utils/util';
 
-import { positions } from '../careers/data';
+import { positions } from '../../app/careers/data';
 
 export function MobileDropdown() {
 	const router = useRouter();

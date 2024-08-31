@@ -6,9 +6,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren, useState } from 'react';
 import appFullLogo from '~/assets/app_full_logo.svg?url';
-
-import { DownloadButton } from '../Downloads/Button';
-import { useCurrentPlatform } from '../Downloads/Platform';
+import { DownloadButton } from '~/components/cta-buttons/Button';
+import { useCurrentPlatform } from '~/components/cta-buttons/Platform';
 
 import '~/styles/navbar.css';
 

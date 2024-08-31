@@ -6,7 +6,7 @@ interface MarkdownPageProps {
 	articleClassNames?: string;
 }
 
-function MarkdownPage(props: PropsWithChildren<MarkdownPageProps>) {
+export function MarkdownPage(props: PropsWithChildren<MarkdownPageProps>) {
 	return (
 		<div className={clsx('mb-10 p-4', props.classNames)}>
 			<article
@@ -21,5 +21,3 @@ function MarkdownPage(props: PropsWithChildren<MarkdownPageProps>) {
 		</div>
 	);
 }
-
-export default MarkdownPage;

@@ -2,7 +2,7 @@ import { Doc, DocumentTypes } from '@contentlayer/generated';
 import { type Icon } from '@phosphor-icons/react';
 import { Circle, Cube, Sparkle, Star } from '@phosphor-icons/react/dist/ssr';
 
-import { toTitleCase } from './util';
+import { toTitleCase } from './misc';
 
 type DocsCategory = {
 	title: string;

@@ -6,7 +6,7 @@ import { getMDXComponent } from 'next-contentlayer/hooks';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DocMDXComponents } from '~/components/mdx';
-import { toTitleCase } from '~/utils/util';
+import { toTitleCase } from '~/utils/misc';
 
 import { getDoc } from '../data';
 import { Markdown } from '../Markdown';

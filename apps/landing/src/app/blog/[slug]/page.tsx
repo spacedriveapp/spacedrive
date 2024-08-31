@@ -4,7 +4,7 @@ import { Metadata } from 'next';
 import { useMDXComponent } from 'next-contentlayer/hooks';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { BlogTag } from '~/components/BlogTag';
+import { BlogTag } from '~/components/blog-tag';
 import { BlogMDXComponents } from '~/components/mdx';
 
 export function generateStaticParams(): Array<Props['params']> {

@@ -1,14 +1,12 @@
-import { ArrowUp } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
-import { BentoBox } from '~/components/BentoBox';
-import CyclingImage from '~/components/CyclingImage';
-import { toTitleCase } from '~/utils/util';
+import { BentoBox } from '~/components/bento-box';
+import { CTAButtons } from '~/components/cta-buttons';
+import CyclingImage from '~/components/cycling-image';
+import { GoldenBadge } from '~/components/golden-badge';
+import { toTitleCase } from '~/utils/misc';
 
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
-import { Background } from './Background';
-import { Banner } from './Banner';
-import { Downloads } from './Downloads';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
@@ -46,7 +44,7 @@ export default async function Page() {
 					className="mt-[50px] lg:mt-0"
 					href={`/docs/changelog/alpha/${release.tag_name}`}
 				/> */}
-				<Banner
+				<GoldenBadge
 					headline={`30k+ stars on GitHub`}
 					className="mt-[50px] lg:mt-0"
 					href={`/docs/changelog/alpha/${release.tag_name}`}
@@ -60,7 +58,7 @@ export default async function Page() {
 					Your files, always within reach. Experience seamless synchronization, intuitive
 					management, and powerful discovery tools — all in one place.
 				</p>
-				<Downloads
+				<CTAButtons
 					latestVersion={[
 						frontmatter.category && toTitleCase(frontmatter.category),
 						`v${release.tag_name}`
@@ -119,7 +117,6 @@ export default async function Page() {
 				</div>
 				{/* <WormHole /> */}
 				{/* <BentoBoxes /> */}
-				{/* <CloudStorage /> */}
 				{/* <DownloadToday isWindows={deviceOs?.isWindows} /> */}
 				{/* <div className="h-[100px] sm:h-[200px] w-full" /> */}
 			</div>

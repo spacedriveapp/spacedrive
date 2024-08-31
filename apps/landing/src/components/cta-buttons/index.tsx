@@ -6,8 +6,8 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
+import DiscordButton from '~/components/discord-button';
 
-import DiscordButton from '../DiscordButton';
 import { DownloadButton } from './Button';
 import { DockerDialog } from './DockerDialog';
 import { BASE_DL_LINK, Platform, platforms, useCurrentPlatform } from './Platform';
@@ -16,7 +16,7 @@ interface Props {
 	latestVersion: string;
 }
 
-export function Downloads({ latestVersion }: Props) {
+export function CTAButtons({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
 

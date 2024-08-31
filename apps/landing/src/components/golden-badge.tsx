@@ -2,14 +2,14 @@ import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
 
-export interface BannerProps {
+export interface GoldenBadgeProps {
 	headline: string;
 	href?: string;
 	link?: string;
 	className?: string;
 }
 
-export function Banner(props: BannerProps) {
+export function GoldenBadge(props: GoldenBadgeProps) {
 	const { headline, href, link } = props;
 
 	return (
