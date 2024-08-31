@@ -8,8 +8,10 @@ import '@sd/ui/style/style.scss';
 import '~/styles/prism.css';
 import '~/styles/style.scss';
 
+import clsx from 'clsx';
 import PlausibleProvider from 'next-plausible';
 
+import { interFont, plexSansFont } from './fonts';
 import { Providers } from './Providers';
 
 export const metadata: Metadata = {
@@ -31,7 +33,7 @@ export const viewport: Viewport = {
 
 export default function Layout({ children }: PropsWithChildren) {
 	return (
-		<html lang="en" className="scroll-smooth text-white">
+		<html lang="en" className={clsx('scroll-smooth text-white', plexSansFont.variable, interFont.variable)}>
 			<head>
 				<PlausibleProvider
 					domain="spacedrive.com"
@@ -40,7 +42,7 @@ export default function Layout({ children }: PropsWithChildren) {
 					taggedEvents
 				/>
 			</head>
-			<body>
+			<body className="font-plex">
 				<Providers>
 					<div className="overflow-hidden bg-[#0E0E12]">
 						<NavBar />
