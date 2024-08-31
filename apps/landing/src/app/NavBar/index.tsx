@@ -1,52 +1,136 @@
 'use client';
 
-import { ArrowCircleDown } from '@phosphor-icons/react/dist/ssr';
-import { Discord, Github } from '@sd/assets/svgs/brands';
+import { List, X } from '@phosphor-icons/react/dist/ssr';
+import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useState } from 'react';
 
-import { positions } from '../careers/data';
 import { DownloadButton } from '../Downloads/Button';
 import { useCurrentPlatform } from '../Downloads/Platform';
 import Logo from '../logo.png';
-import { MobileDropdown } from './MobileDropdown';
+
+import '~/styles/navbar.css';
 
 export function NavBar() {
 	const currentPlatform = useCurrentPlatform();
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	return (
-		<nav className="fixed z-[100] w-full items-center justify-center p-10 transition">
-			<div className="flex w-full content-between items-center rounded-[10px] border border-[#1e1e2600] bg-[#141419] px-[24px] py-[12px]">
-				<div className="flex items-center gap-[26px]">
-					<Link href="/" className="flex flex-row items-center">
-						<Image
-							alt="Spacedrive logo"
-							src={Logo}
-							className="z-30 mr-[6.7px] size-8"
-						/>
-						<h3 className="mr-[13.38] text-xl font-bold text-white">Spacedrive</h3>
-					</Link>
+		<>
+			{/* Main Navbar */}
+			<motion.nav
+				className="fixed z-[110] w-full p-4"
+				initial={{ opacity: 1 }}
+				animate={{ opacity: isMenuOpen ? 0 : 1 }}
+				transition={{ duration: 0.3 }}
+			>
+				<div className="flex w-full min-w-[300px] items-center justify-between rounded-[10px] border border-[#1e1e2600] bg-[#141419] px-[24px] py-[12px]">
+					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[10px]">
-						<NavLink link="/explorer">Explorer</NavLink>
-						<NavLink link="/cloud">Cloud</NavLink>
-						<NavLink link="/teams">Teams</NavLink>
-						<NavLink link="/assistant">
-							Assistant <NewIcon />
-						</NavLink>
-						<NavLink link="/store">Store</NavLink>
-						<NavLink link="/use-cases">Use Cases</NavLink>
-						<NavLink link="/blog">Blog</NavLink>
-						<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
+						<Link href="/" className="flex flex-row items-center">
+							<Image
+								alt="Spacedrive logo"
+								src={Logo}
+								className="z-30 mr-[6px] size-8"
+							/>
+							<h3 className="whitespace-nowrap text-xl font-bold text-white">
+								Spacedrive
+							</h3>
+						</Link>
+						<div className="hidden items-center gap-[10px] whitespace-nowrap xl:flex">
+							<NavLink link="/explorer">Explorer</NavLink>
+							<NavLink link="/cloud">Cloud</NavLink>
+							<NavLink link="/teams">Teams</NavLink>
+							<NavLink link="/assistant">
+								Assistant <NewIcon />
+							</NavLink>
+							<NavLink link="/store">Store</NavLink>
+							<NavLink link="/use-cases">Use Cases</NavLink>
+							<NavLink link="/blog">Blog</NavLink>
+							<NavLink link="/docs/product/getting-started/introduction">
+								Docs
+							</NavLink>
+						</div>
+					</div>
+
+					{/* Download Button */}
+					<div className="hidden items-center gap-[20px] xl:flex">
+						<DownloadButton
+							name={currentPlatform?.name ?? 'macOS'}
+							link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+						/>
+					</div>
+
+					{/* List Icon */}
+					<div className="flex items-center gap-[20px] xl:hidden">
+						<motion.button
+							className="block"
+							onClick={() => setIsMenuOpen(!isMenuOpen)}
+							whileTap={{ rotate: isMenuOpen ? -180 : 180 }}
+						>
+							<List className="size-8 text-white" />
+						</motion.button>
 					</div>
 				</div>
-				<div className="flex-1" />
-				<DownloadButton
-					name={currentPlatform?.name ?? 'macOS'}
-					link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-				/>
-			</div>
-		</nav>
+			</motion.nav>
+
+			{/* Slide-Out Navbar */}
+			<AnimatePresence>
+				{isMenuOpen && (
+					<>
+						{/* Background Overlay */}
+						<motion.div
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 0.5 }}
+							exit={{ opacity: 0 }}
+							className="fixed left-0 top-0 z-[115] size-full bg-black"
+							onClick={() => setIsMenuOpen(false)}
+						/>
+
+						{/* Slide-Out Panel */}
+						<motion.div
+							initial={{ x: '-100%' }}
+							animate={{ x: 0 }}
+							exit={{ x: '-100%' }}
+							transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+							className="fixed left-0 top-0 z-[120] h-full w-64 bg-[#141419] p-4 shadow-lg"
+						>
+							{/* Close Button */}
+							<div className="flex justify-end">
+								<motion.button
+									className="block"
+									onClick={() => setIsMenuOpen(false)}
+									whileTap={{ rotate: -90 }}
+								>
+									<X className="size-8 pt-2 text-white" />
+								</motion.button>
+							</div>
+
+							{/* Nav Links */}
+							<div className="flex flex-col items-start space-y-4 p-4">
+								<NavLink link="/explorer">Explorer</NavLink>
+								<NavLink link="/cloud">Cloud</NavLink>
+								<NavLink link="/teams">Teams</NavLink>
+								<NavLink link="/assistant">
+									Assistant <NewIcon />
+								</NavLink>
+								<NavLink link="/store">Store</NavLink>
+								<NavLink link="/use-cases">Use Cases</NavLink>
+								<NavLink link="/blog">Blog</NavLink>
+								<NavLink link="/docs/product/getting-started/introduction">
+									Docs
+								</NavLink>
+								<DownloadButton
+									name={currentPlatform?.name ?? 'macOS'}
+									link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+								/>
+							</div>
+						</motion.div>
+					</>
+				)}
+			</AnimatePresence>
+		</>
 	);
 }
 
