@@ -30,7 +30,7 @@
 		"next": "14.2.7",
 		"next-contentlayer": "^0.3.4",
 		"next-plausible": "^3.12.2",
-		"react": "18.3.1",
+		"react": "=18.2.0",
 		"react-burger-menu": "^3.0.9",
 		"react-device-detect": "^2.2.3",
 		"react-dom": "^18.3.1",

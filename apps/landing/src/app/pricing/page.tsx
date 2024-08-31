@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import React from 'react';
 
-import { Background } from './Background';
+// import { Background } from './Background';
 import { Cards } from './Cards';
 
 export const metadata = {
@@ -12,7 +12,7 @@ export const metadata = {
 export default function PricingPage() {
 	return (
 		<>
-			<Background />
+			{/* <Background /> */}
 			<Image
 				loading="eager"
 				className="absolute-horizontal-center top-0 fade-in"
