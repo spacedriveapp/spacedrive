@@ -21,9 +21,9 @@ export function BentoBox({ imageSrc, imageAlt, title, titleColor, description }:
 					src={imageSrc}
 				/>
 			</div>
-			<div className="my-2">
+			<div className="mx-4">
 				<div className="inline-flex items-center gap-2 pb-[10px]">
-					<div className={`bg-[ h-[15px] w-[4px] rounded-[11px]${titleColor}]`} />
+					<div className={`bg-[${titleColor}] h-[15px] w-[4px] rounded-[11px]`} />
 					<h3 className="text-bold text-[20px]">{title}</h3>
 				</div>
 				<div className="text-left text-ink-faint">{description}</div>
