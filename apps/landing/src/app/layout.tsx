@@ -28,12 +28,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-	themeColor: { color: '#0E0E12', media: 'not screen' }
+	themeColor: [
+		// embed color on discord, for instance
+		{ color: '#E751ED', media: 'not screen' },
+		// background color in Safari
+		{ color: '#0E0E12', media: 'screen' }
+	]
 };
 
 export default function Layout({ children }: PropsWithChildren) {
 	return (
-		<html lang="en" className={clsx('scroll-smooth text-white', plexSansFont.variable, interFont.variable)}>
+		<html
+			lang="en"
+			className={clsx('scroll-smooth text-white', plexSansFont.variable, interFont.variable)}
+		>
 			<head>
 				<PlausibleProvider
 					domain="spacedrive.com"
