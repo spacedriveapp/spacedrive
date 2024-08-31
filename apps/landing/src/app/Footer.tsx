@@ -11,7 +11,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
-import companyLogoFull from '~/assets/company_full_logo.png';
+import companyLogoFull from '~/assets/company_full_logo.svg?url';
 
 import { getLatestRelease } from './docs/changelog/data';
 import { DownloadButton } from './Downloads/Button';

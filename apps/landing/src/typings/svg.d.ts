@@ -5,3 +5,8 @@ declare module '*.svg' {
 		React.ComponentProps<'svg'> & { title?: string }
 	>;
 }
+
+declare module '*.svg?url' {
+	const url: string;
+	export default url;
+}

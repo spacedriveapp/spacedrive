@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren, useState } from 'react';
-import appFullLogo from '~/assets/app_full_logo.png';
+import appFullLogo from '~/assets/app_full_logo.svg?url';
 
 import { DownloadButton } from '../Downloads/Button';
 import { useCurrentPlatform } from '../Downloads/Platform';
