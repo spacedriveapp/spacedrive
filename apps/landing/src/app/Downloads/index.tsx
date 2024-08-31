@@ -8,6 +8,7 @@ import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
 
 import HomeCTA from '../HomeCTA';
+import { DownloadButton } from './Button';
 import { DockerDialog } from './DockerDialog';
 import { BASE_DL_LINK, Platform, platforms, useCurrentPlatform } from './Platform';
 
@@ -45,21 +46,25 @@ export function Downloads({ latestVersion }: Props) {
 						const { links } = currentPlatform;
 
 						return (
-							<HomeCTA
-								href={
-									links?.length === 1
-										? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
-										: undefined
-								}
-								className={`z-5 relative !bg-[#88D7FF]`}
-								icon={<ArrowCircleDown />}
-								text={`Download for ${currentPlatform.name}`}
-								onClick={() => {
-									plausible('download', {
-										props: { os: currentPlatform.name }
-									});
-									setSelectedPlatform(currentPlatform);
-								}}
+							// <HomeCTA
+							// 	href={
+							// 		links?.length === 1
+							// 			? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
+							// 			: undefined
+							// 	}
+							// 	className={`z-5 relative !bg-[#88D7FF]`}
+							// 	icon={<ArrowCircleDown />}
+							// 	text={`Download for ${currentPlatform.name}`}
+							// 	onClick={() => {
+							// 		plausible('download', {
+							// 			props: { os: currentPlatform.name }
+							// 		});
+							// 		setSelectedPlatform(currentPlatform);
+							// 	}}
+							// />
+							<DownloadButton
+								name={currentPlatform?.name ?? 'macOS'}
+								link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
 							/>
 						);
 					})()}
@@ -73,7 +78,7 @@ export function Downloads({ latestVersion }: Props) {
 				/>
 			</div>
 
-			{selectedPlatform?.links && selectedPlatform.links.length > 1 && (
+			{/* {selectedPlatform?.links && selectedPlatform.links.length > 1 && (
 				<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
 					{selectedPlatform.links.map(({ name, arch }) => (
 						<HomeCTA
@@ -91,7 +96,7 @@ export function Downloads({ latestVersion }: Props) {
 						/>
 					))}
 				</div>
-			)}
+			)} */}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
 				{latestVersion}
 				{formattedVersion && (

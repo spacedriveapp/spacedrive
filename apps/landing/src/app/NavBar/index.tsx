@@ -1,63 +1,21 @@
-import { Cloud } from '@phosphor-icons/react/dist/ssr';
+'use client';
+
+import { ArrowCircleDown } from '@phosphor-icons/react/dist/ssr';
 import { Discord, Github } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 
 import { positions } from '../careers/data';
+import { DownloadButton } from '../Downloads/Button';
+import { useCurrentPlatform } from '../Downloads/Platform';
 import Logo from '../logo.png';
 import { MobileDropdown } from './MobileDropdown';
 
 export function NavBar() {
-	return (
-		// <div className="navbar-blur fixed z-[55] h-16 w-full !bg-black/10 px-2 transition">
-		// 	<div className="relative m-auto flex h-full max-w-[100rem] items-center p-5">
-		// 		<Link href="/" className="absolute flex flex-row items-center">
-		// 			<Image alt="Spacedrive logo" src={Logo} className="z-30 mr-3 size-8" />
-		// 			<h3 className="text-xl font-bold text-white">Spacedrive</h3>
-		// 		</Link>
+	const currentPlatform = useCurrentPlatform();
 
-		// 		<div className="m-auto hidden space-x-4 text-white lg:block">
-		// 			<NavLink link="/roadmap">Roadmap</NavLink>
-		// 			<NavLink link="/team">Team</NavLink>
-		// 			{/* <NavLink link="/pricing">Pricing</NavLink> */}
-		// 			<NavLink link="/blog">Blog</NavLink>
-		// 			<NavLink link="/docs/product/getting-started/introduction">Docs</NavLink>
-		// 			<div className="relative inline">
-		// 				<NavLink link="/careers">Careers</NavLink>
-		// 				{positions.length > 0 ? (
-		// 					<span className="absolute -right-2 -top-1 rounded-md bg-primary/80 px-[5px] text-xs">
-		// 						{` ${positions.length} `}
-		// 					</span>
-		// 				) : null}
-		// 			</div>
-		// 		</div>
-		// 		<div className="flex-1 lg:hidden" />
-		// 		<MobileDropdown />
-		// 		<div className="absolute right-3 hidden flex-row space-x-5 lg:flex">
-		// 			<Link
-		// 				aria-label="discord"
-		// 				href="https://discord.gg/gTaF2Z44f5"
-		// 				target="_blank"
-		// 				rel="noreferrer"
-		// 			>
-		// 				<Discord className="size-6 text-white opacity-100 duration-300 hover:opacity-50" />
-		// 			</Link>
-		// 			<Link
-		// 				aria-label="github"
-		// 				href="https://github.com/spacedriveapp/spacedrive"
-		// 				target="_blank"
-		// 				rel="noreferrer"
-		// 			>
-		// 				<Github className="size-6 text-white opacity-100 duration-300 hover:opacity-50" />
-		// 			</Link>
-		// 		</div>
-		// 	</div>
-		// 	<div className="absolute bottom-0 flex h-1 w-full flex-row items-center justify-center pt-4 opacity-100">
-		// 		<div className="h-px w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
-		// 		<div className="h-px w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
-		// 	</div>
-		// </div>
+	return (
 		<nav className="fixed z-[100] w-full items-center justify-center p-10 transition">
 			<div className="flex w-full content-between items-center rounded-[10px] border border-[#1e1e2600] bg-[#141419] px-[24px] py-[12px]">
 				<div className="flex items-center gap-[26px]">
@@ -83,12 +41,10 @@ export function NavBar() {
 					</div>
 				</div>
 				<div className="flex-1" />
-				<Link href="/">
-					<button className="inline-flex items-center justify-center gap-[10px] rounded-xl bg-slate-800 p-2">
-						<Cloud />
-						<p>Cloud Login</p>
-					</button>
-				</Link>
+				<DownloadButton
+					name={currentPlatform?.name ?? 'macOS'}
+					link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+				/>
 			</div>
 		</nav>
 	);

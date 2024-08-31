@@ -1,3 +1,5 @@
+"use client";
+
 import {
 	Discord,
 	Github,
@@ -11,20 +13,21 @@ import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 
 import { getLatestRelease } from './docs/changelog/data';
+import { DownloadButton } from './Downloads/Button';
+import { useCurrentPlatform } from './Downloads/Platform';
 import Logo from './logo.png';
 
-export async function Footer() {
-	const latestRelease = await getLatestRelease();
+export function Footer() {
+	const currentPlatform = useCurrentPlatform();
+
 	return (
 		<>
 			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
 				<div className="mt-4">
-					<Link
-						href={'#'}
-						className="rounded-md bg-[#3692DF] px-6 py-2 font-semibold text-white duration-300 hover:bg-[#2b7cbf]"
-					>
-						Download for macOS
-					</Link>
+					<DownloadButton
+						name={currentPlatform?.name ?? 'macOS'}
+						link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+					/>
 				</div>
 			</div>
 			<footer
