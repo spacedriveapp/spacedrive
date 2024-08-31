@@ -51,6 +51,10 @@ export default function Layout({ children }: PropsWithChildren) {
 				/>
 			</head>
 			<body className="font-plex">
+				<div className="absolute top-0 z-[100] w-screen select-none bg-transparent pt-1 text-center italic text-white/30">
+					The content of this site is not final and should not be considered official
+					marketing or advertising from Spacedrive Technology Inc.
+				</div>
 				<Providers>
 					<div className="overflow-hidden bg-[#0E0E12]">
 						<NavBar />
