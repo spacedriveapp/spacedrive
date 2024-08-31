@@ -15,136 +15,140 @@ import Logo from './logo.png';
 
 export async function Footer() {
 	const latestRelease = await getLatestRelease();
-
 	return (
-		<footer id="footer" className="relative z-50 w-screen overflow-hidden pt-3 backdrop-blur">
-			<Image
-				alt="footer gradient"
-				className="absolute bottom-0 left-0 z-[-1]"
-				quality={100}
-				width={0}
-				height={0}
-				src="/images/misc/footer-gradient.webp"
-				style={{ width: '100%', height: '400px' }}
-				sizes="100vw"
-			/>
-			<div className="m-auto grid min-h-64 max-w-[100rem] grid-cols-2 gap-6 p-8 pb-20 pt-10 text-white sm:grid-cols-2 lg:grid-cols-6">
-				<div className="col-span-2">
-					<Image alt="Spacedrive logo" src={Logo} className="mb-5 size-10" />
-
-					<h1 className="mb-1 text-xl font-bold">Spacedrive</h1>
-					<p className="text-sm text-gray-350 opacity-50">
-						&copy; Copyright {new Date().getFullYear()} Spacedrive Technology Inc.
-					</p>
-					<div className="mb-10 mt-12 flex flex-row space-x-3">
-						<FooterLink link="https://x.com/spacedriveapp">
-							<Twitter className="size-6" />
-						</FooterLink>
-						<FooterLink aria-label="discord" link="https://discord.gg/gTaF2Z44f5">
-							<Discord className="size-6" />
-						</FooterLink>
-						<FooterLink
-							aria-label="instagram"
-							link="https://instagram.com/spacedriveapp"
-						>
-							<Instagram className="size-6" />
-						</FooterLink>
-						<FooterLink aria-label="github" link="https://github.com/spacedriveapp">
-							<Github className="size-6" />
-						</FooterLink>
-						<FooterLink
-							aria-label="open collective"
-							link="https://opencollective.com/spacedrive"
-						>
-							<Opencollective className="size-6" />
-						</FooterLink>
-						<FooterLink
-							aria-label="twitch stream"
-							link="https://twitch.tv/jamiepinelive"
-						>
-							<Twitch className="size-6" />
-						</FooterLink>
-					</div>
-				</div>
-
-				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase">About</h1>
-
-					<FooterLink link="/team">Team</FooterLink>
-					<FooterLink link="/docs/product/resources/faq">FAQ</FooterLink>
-					<FooterLink link="/careers">Careers</FooterLink>
-					{latestRelease && (
-						<FooterLink
-							link={`/docs/changelog/${latestRelease.category}/${latestRelease.tag}`}
-						>
-							Changelog
-						</FooterLink>
-					)}
-					<FooterLink link="/blog">Blog</FooterLink>
-				</div>
-				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase">Downloads</h1>
-					<div className="col-span-1 flex flex-col space-y-2">
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64">
-							macOS
-						</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64">
-							macOS Intel
-						</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64">
-							Windows
-						</FooterLink>
-						<FooterLink link="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64">
-							Linux
-						</FooterLink>
-					</div>
-					<div className="pointer-events-none col-span-1 flex flex-col space-y-2 opacity-50">
-						<FooterLink link="#">Android</FooterLink>
-						<FooterLink link="#">iOS</FooterLink>
-					</div>
-				</div>
-				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase">Developers</h1>
-					<FooterLink link="/docs/product/getting-started/introduction">
-						Documentation
-					</FooterLink>
-					<FooterLink
-						blank
-						link="https://github.com/spacedriveapp/spacedrive/blob/main/CONTRIBUTING.md"
+		<>
+			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
+				<div className="mt-4">
+					<Link
+						href={'#'}
+						className="rounded-md bg-[#3692DF] px-6 py-2 font-semibold text-white duration-300 hover:bg-[#2b7cbf]"
 					>
-						Contribute
-					</FooterLink>
-					<div className="pointer-events-none opacity-50">
-						<FooterLink link="#">Extensions</FooterLink>
-					</div>
-					<div className="pointer-events-none opacity-50">
-						<FooterLink link="#">Self Host</FooterLink>
-					</div>
-				</div>
-				<div className="col-span-1 flex flex-col space-y-2">
-					<h1 className="mb-1 text-xs font-bold uppercase">Org</h1>
-					<FooterLink blank link="https://opencollective.com/spacedrive">
-						Open Collective
-					</FooterLink>
-					<FooterLink
-						blank
-						link="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE"
-					>
-						License
-					</FooterLink>
-					<div>
-						<FooterLink link="/docs/company/legal/privacy">Privacy</FooterLink>
-					</div>
-					<div>
-						<FooterLink link="/docs/company/legal/terms">Terms</FooterLink>
-					</div>
+						Download for macOS
+					</Link>
 				</div>
 			</div>
-			<div className="absolute top-0 flex h-1 w-full flex-row items-center justify-center opacity-100">
-				<div className="h-px w-1/2 bg-gradient-to-r from-transparent to-white/10"></div>
-				<div className="h-px w-1/2 bg-gradient-to-l from-transparent to-white/10"></div>
-			</div>
-		</footer>
+			<footer
+				className="py-12 text-white"
+				style={{
+					backgroundImage: `url('data:image/svg+xml,%3Csvg xmlns%3D%22http%3A//www.w3.org/2000/svg%22 viewBox%3D%220 0 1920 420%22 fill%3D%22none%22%3E%3Cpath d%3D%22M0 49.5L-0.0924661 48.5043L-1 48.5886V49.5V419.998V420.998H0H1920H1921V419.998V49.5V48.5886L1920.09 48.5043L1920 49.5C1920.09 48.5043 1920.09 48.5041 1920.09 48.5037L1920.07 48.5021L1920 48.4957L1919.73 48.4704L1918.63 48.3702C1917.67 48.2817 1916.23 48.1506 1914.33 47.9795C1910.53 47.6373 1904.91 47.1354 1897.58 46.4967C1882.93 45.2193 1861.5 43.3945 1834.35 41.2048C1780.04 36.8253 1702.88 30.9861 1611.44 25.147C1428.55 13.4688 1188.53 1.78979 960 1.78968C731.47 1.78958 491.446 13.4685 308.561 25.1468C217.117 30.986 139.955 36.8252 85.654 41.2047C58.5032 43.3945 37.0674 45.2193 22.419 46.4967C15.0947 47.1354 9.46731 47.6373 5.67073 47.9795C3.77243 48.1506 2.33185 48.2817 1.36574 48.3702C0.882678 48.4144 0.518236 48.4479 0.274504 48.4704L-0.000299077 48.4957L-0.0693103 48.5021L-0.0866324 48.5037C-0.0905066 48.5041 -0.0924661 48.5043 0 49.5Z%22 fill%3D%22%23141419%22 stroke%3D%22url%28%23paint0_linear_1926_240%29%22 stroke-width%3D%222%22/%3E%3Cdefs%3E%3ClinearGradient id%3D%22paint0_linear_1926_240%22 x1%3D%220%22 y1%3D%22167.5%22 x2%3D%221920%22 y2%3D%22167.5%22 gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop offset%3D%220.319255%22 stop-color%3D%22%231E1E26%22 stop-opacity%3D%220.4%22/%3E%3Cstop offset%3D%220.495%22 stop-color%3D%22%233692DF%22/%3E%3Cstop offset%3D%220.661993%22 stop-color%3D%22%231E1E26%22 stop-opacity%3D%220.5%22/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E')`,
+					backgroundSize: 'cover',
+					backgroundPosition: 'center'
+				}}
+			>
+				<div className="stroke-[gba(30, 30, 38, 0.40)] container mx-auto grid min-h-64 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] stroke-[2px] px-8 lg:grid-cols-6">
+					{/* Download Button */}
+					<div className="col-span-2 flex flex-row items-center">
+						<Image
+							src={Logo}
+							alt="Spacedrive logo"
+							width={100}
+							height={100}
+							className="mr-4" // Use 'mr-4' to add spacing between the image and the text
+						/>
+						<div>
+							<h1 className="text-xl font-bold">
+								Spacedrive <br></br>Technology Inc.
+							</h1>
+							<p className="mt-2 text-ink-faint">
+								329 Railway St
+								<br />
+								Vancouver, BC V6A 1A4
+							</p>
+						</div>
+					</div>
+
+					{/* Product Links */}
+					<div className="text-gray-400">
+						<h2 className="mb-4 text-sm font-semibold text-gray-500">PRODUCT</h2>
+						<ul>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Explorer</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Teams</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Assistant</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Changelog</a>
+							</li>
+						</ul>
+					</div>
+
+					{/* Download Links */}
+					<div className="text-gray-400">
+						<h2 className="mb-4 text-sm font-semibold text-gray-500">DOWNLOADS</h2>
+						<ul>
+							<li className="mb-2 hover:text-white">
+								<a href="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64">
+									macOS
+								</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64">
+									macOS - Intel
+								</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64">
+									Windows
+								</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64">
+									Linux
+								</a>
+							</li>
+							<li className="pointer-events-none mb-2 text-gray-450">
+								<a href="#">iOS</a>
+							</li>
+							<li className="pointer-events-none mb-2 text-gray-450">
+								<a href="#">Android</a>
+							</li>
+						</ul>
+					</div>
+
+					{/* Developer Links */}
+					<div className="text-gray-400">
+						<h2 className="mb-4 text-sm font-semibold text-gray-500">DEVELOPERS</h2>
+						<ul>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Documentation</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Contribute</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Extensions</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Self Host</a>
+							</li>
+						</ul>
+					</div>
+
+					{/* Company Links */}
+					<div className="text-gray-400">
+						<h2 className="mb-4 text-sm font-semibold text-gray-500">COMPANY</h2>
+						<ul>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Open Collective</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">License</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Privacy</a>
+							</li>
+							<li className="mb-2 hover:text-white">
+								<a href="#">Terms</a>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</footer>
+		</>
 	);
 }
 
