@@ -5,10 +5,10 @@ export function DiscordButton() {
 	return (
 		<Link
 			href="https://discord.gg/gTaF2Z44f5"
-			className="text-ink-faint z-30 inline-flex cursor-pointer items-center justify-center gap-[8px] rounded-[12px] px-[16px] py-[10px]"
+			className="z-30 inline-flex cursor-pointer items-center justify-center gap-[8px] rounded-[12px] px-[16px] py-[10px] text-ink-faint"
 			style={{
-				backgroundImage: `url('images/misc/NoisePattern.png')`,
 				backgroundColor: 'rgba(33, 52, 72, 0.46)',
+				backgroundImage: `url('images/misc/NoisePattern.png')`,
 				backgroundPosition: '0% 0%',
 				backgroundSize: '50px 50px',
 				backgroundRepeat: 'repeat',
