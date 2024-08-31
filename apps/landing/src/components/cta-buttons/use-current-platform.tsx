@@ -70,40 +70,4 @@ export function useCurrentPlatform() {
 	return currentPlatform;
 }
 
-interface PlatformProps {
-	platform: Platform;
-}
-
 export const BASE_DL_LINK = '/api/releases/desktop/stable';
-
-export function Platform({ platform, ...props }: ComponentProps<'a'> & PlatformProps) {
-	const { links } = platform;
-
-	const Outer = links
-		? links.length === 1
-			? (props: any) => (
-					<a
-						aria-label={platform.name}
-						rel="noopener"
-						href={`${BASE_DL_LINK}/${platform.os}/${links[0].arch}`}
-						{...props}
-					/>
-				)
-			: (props: any) => <button {...props} />
-		: (props: any) => <div {...props} />;
-
-	const Icon = platform.icon;
-
-	return (
-		<Tooltip label={platform.name}>
-			<Outer {...props}>
-				<Icon
-					className={`size-[24px] text-white ${
-						platform.disabled ? 'opacity-20' : 'opacity-90'
-					}`}
-					weight="fill"
-				/>
-			</Outer>
-		</Tooltip>
-	);
-}

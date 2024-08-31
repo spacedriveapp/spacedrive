@@ -1,16 +1,11 @@
 'use client';
 
-import { ArrowCircleDown } from '@phosphor-icons/react/dist/ssr';
-import { Discord, Github } from '@sd/assets/svgs/brands';
-import clsx from 'clsx';
-import { motion } from 'framer-motion';
 import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
-import DiscordButton from '~/components/discord-button';
+import { DiscordButton } from '~/components/discord-button';
 
-import { DownloadButton } from './Button';
-import { DockerDialog } from './DockerDialog';
-import { BASE_DL_LINK, Platform, platforms, useCurrentPlatform } from './Platform';
+import { DownloadButton } from './download-button';
+import { useCurrentPlatform, type Platform } from './use-current-platform';
 
 interface Props {
 	latestVersion: string;

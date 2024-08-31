@@ -23,5 +23,3 @@ export function DiscordButton() {
 		</Link>
 	);
 }
-
-export default DiscordButton;

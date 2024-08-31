@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import companyLogoFull from '~/assets/company_full_logo.svg?url';
-import { DownloadButton } from '~/components/cta-buttons/Button';
-import { useCurrentPlatform } from '~/components/cta-buttons/Platform';
+import { DownloadButton } from '~/components/cta-buttons/download-button';
+import { useCurrentPlatform } from '~/components/cta-buttons/use-current-platform';
 
 export function GlobalFooter() {
 	const currentPlatform = useCurrentPlatform();
