@@ -121,7 +121,7 @@ export default async function Page() {
 				{/* <div className="h-[100px] sm:h-[200px] w-full" /> */}
 			</div>
 			{/* Explorer Section */}
-			<div className="flex w-full flex-col p-4">
+			<div className="flex w-full flex-col items-center justify-center p-4">
 				<div className="pb-6 xs:pb-24">
 					<h1 className="text-xl">
 						Explorer. Browse and manage your data like never before.
@@ -189,7 +189,7 @@ export default async function Page() {
 				</div>
 			</div>
 			{/* 4 Corners Section */}
-			<div className="flex w-full flex-col p-4">
+			<div className="flex w-full flex-col items-center justify-center p-4">
 				<div className="pb-6 xs:pb-24">
 					<h1 className="text-xl">TODO 4 Corners Section</h1>
 				</div>
