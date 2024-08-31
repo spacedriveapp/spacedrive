@@ -23,12 +23,12 @@ export function NavBar() {
 				className="fixed z-[110] w-full p-4"
 				initial={{ opacity: 1 }}
 				animate={{ opacity: isMenuOpen ? 0 : 1 }}
-				transition={{ duration: 0.3 }}
+				transition={{ duration: 0.2 }}
 			>
 				<div className="flex w-full min-w-[300px] items-center justify-between rounded-[10px] border border-[#1e1e2600] bg-[#141419] px-[24px] py-[12px]">
 					{/* Spacedrive Logo and Links */}
-					<div className="flex items-center gap-[10px]">
-						<Link href="/" className="flex flex-row items-center">
+					<div className="flex items-center gap-[20px]">
+						<Link href="/" className="flex flex-row items-center gap-1">
 							<Image
 								alt="Spacedrive logo"
 								src={Logo}
@@ -69,7 +69,7 @@ export function NavBar() {
 							onClick={() => setIsMenuOpen(!isMenuOpen)}
 							whileTap={{ rotate: isMenuOpen ? -180 : 180 }}
 						>
-							<List className="size-8 text-white" />
+							<List className="size-6 text-white" />
 						</motion.button>
 					</div>
 				</div>
