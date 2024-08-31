@@ -23,7 +23,7 @@ export const platforms = {
 		version: '12+',
 		links: [
 			{ name: 'Intel', arch: 'x86_64' },
-			{ name: 'Apple Silicon', arch: 'aarch64' }
+			{ name: 'Apple silicon', arch: 'aarch64' }
 		]
 	},
 	windows: {
