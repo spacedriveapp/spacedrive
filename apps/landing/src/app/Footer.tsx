@@ -22,6 +22,7 @@ export function Footer() {
 
 	return (
 		<>
+			{/* Download Button */}
 			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
 				<div className="translate-y-3.5">
 					<DownloadButton
@@ -38,8 +39,7 @@ export function Footer() {
 					backgroundPosition: 'center'
 				}}
 			>
-				<div className="stroke-[gba(30, 30, 38, 0.40)] container mx-auto grid min-h-64 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] stroke-[2px] px-8 lg:grid-cols-6">
-					{/* Download Button */}
+				<div className="stroke-[gba(30, 30, 38, 0.40)] container mx-auto grid min-h-64 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] stroke-[2px] px-8 pt-[5.388125rem] lg:grid-cols-6">
 					<div className="col-span-2 flex flex-row items-center">
 						<div>
 							<Image
