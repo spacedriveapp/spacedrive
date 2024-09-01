@@ -17,7 +17,7 @@ export type Platform = {
 
 export const platforms = {
 	darwin: {
-		name: 'Mac',
+		name: 'macOS',
 		os: 'darwin',
 		icon: Apple,
 		version: '12+',

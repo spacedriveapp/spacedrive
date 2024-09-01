@@ -23,8 +23,14 @@ export function CtaPrimaryButton({
 		'href' in props
 			? props.href
 			: `https://spacedrive.com/api/releases/desktop/stable/${props.platform?.os ?? 'linux'}/x86_64`;
+	const platformName =
+		'platform' in props
+			? props.platform?.name === 'macOS'
+				? 'Mac'
+				: props.platform?.name
+			: undefined;
 	const children =
-		'children' in props ? props.children : `Download for ${props.platform?.name ?? 'Linux'}`;
+		'children' in props ? props.children : `Download for ${platformName ?? 'Linux'}`;
 
 	return (
 		<Link
