@@ -61,7 +61,12 @@ export function NavBar() {
 						<div className="hidden items-center whitespace-nowrap xl:flex">
 							{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 								<NavLink key={`nav-main-${label}-${href}`} href={href}>
-									{label} {adornment && <AdornmentBadge />}
+									{label}{' '}
+									{adornment && (
+										<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold leading-none text-white">
+											{adornment}
+										</span>
+									)}
 								</NavLink>
 							))}
 						</div>
@@ -121,7 +126,12 @@ export function NavBar() {
 							<div className="flex flex-col items-start space-y-4 p-4">
 								{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 									<NavLink key={`nav-sub-${label}-${href}`} href={href}>
-										{label} {adornment && <AdornmentBadge />}
+										{label}{' '}
+										{adornment && (
+											<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold leading-none text-white">
+												{adornment}
+											</span>
+										)}
 									</NavLink>
 								))}
 								<CtaPrimaryButton glow={'sm'} platform={currentPlatform} />
@@ -154,13 +164,5 @@ function NavLink({
 		>
 			{children}
 		</Link>
-	);
-}
-
-function AdornmentBadge() {
-	return (
-		<div className="flex items-center justify-center rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold leading-none text-white">
-			NEW
-		</div>
 	);
 }
