@@ -9,12 +9,13 @@ import appFullLogo from '~/assets/app_full_logo.svg?url';
 import { CtaButton } from '~/components/cta-button';
 
 import '~/styles/navbar.css';
+
 import { useCurrentPlatform } from '~/utils/current-platform';
 
 export function NavBar() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-	const currentPlatform = useCurrentPlatform()
+	const currentPlatform = useCurrentPlatform();
 
 	return (
 		<>
@@ -66,7 +67,7 @@ export function NavBar() {
 
 					{/* Download Button */}
 					<div className="hidden items-center gap-[20px] xl:flex">
-						<CtaButton platform={currentPlatform} />
+						<CtaButton platform={currentPlatform} glow={false} />
 					</div>
 
 					{/* List Icon */}
@@ -128,7 +129,7 @@ export function NavBar() {
 								<NavLink link="/docs/product/getting-started/introduction">
 									Docs
 								</NavLink>
-								<CtaButton platform={currentPlatform} />
+								<CtaButton glow={false} platform={currentPlatform} />
 							</div>
 						</motion.div>
 					</>
