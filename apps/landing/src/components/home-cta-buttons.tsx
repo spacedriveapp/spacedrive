@@ -2,8 +2,8 @@
 
 import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
-import { CtaButton } from '~/components/cta-button';
-import { DiscordButton } from '~/components/discord-button';
+import { CtaPrimaryButton } from '~/components/cta-primary-button';
+import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 import { useCurrentPlatform, type Platform } from '../utils/current-platform';
 
@@ -57,11 +57,11 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 							// 		setSelectedPlatform(currentPlatform);
 							// 	}}
 							// />
-							<CtaButton platform={currentPlatform} />
+							<CtaPrimaryButton platform={currentPlatform} />
 						);
 					})()}
 
-				<DiscordButton />
+				<CtaSecondaryButton />
 			</div>
 
 			{/* {selectedPlatform?.links && selectedPlatform.links.length > 1 && (

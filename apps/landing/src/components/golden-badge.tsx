@@ -54,14 +54,14 @@ export function GoldenBadge({ className, headline, href }: GoldenBadgeProps) {
 					>
 						<filter
 							id={`goldstar-${componentId}-shadow`}
-							color-interpolation-filters="sRGB"
+							colorInterpolationFilters="sRGB"
 						>
 							<feDropShadow
 								dx="0"
 								dy="20"
 								stdDeviation="20"
 								color="red"
-								flood-opacity="1.0"
+								floodOpacity="1.0"
 							/>
 						</filter>
 					</Star>

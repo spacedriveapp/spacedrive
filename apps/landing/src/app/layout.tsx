@@ -51,14 +51,12 @@ export default function Layout({ children }: PropsWithChildren) {
 					taggedEvents
 				/>
 			</head>
-			<body className="font-plex">
+			<body className="noise noise-strongest bg-[#0E0E12] font-plex">
 				<DisclaimerBanner />
 				<ClientProviders>
-					<div className="overflow-hidden bg-[#0E0E12]">
-						<NavBar />
-						<main className="z-10 m-auto max-w-[100rem]">{children}</main>
-						<GlobalFooter />
-					</div>
+					<NavBar />
+					<main className="z-10 m-auto max-w-[100rem]">{children}</main>
+					<GlobalFooter />
 				</ClientProviders>
 			</body>
 		</html>

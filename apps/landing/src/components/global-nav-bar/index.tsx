@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren, useState } from 'react';
 import appFullLogo from '~/assets/app_full_logo.svg?url';
-import { CtaButton } from '~/components/cta-button';
+import { CtaPrimaryButton } from '~/components/cta-primary-button';
 
 import '~/styles/navbar.css';
 
@@ -27,14 +27,8 @@ export function NavBar() {
 				transition={{ duration: 0.2 }}
 			>
 				<div
-					className="flex w-full min-w-[300px] items-center justify-between rounded-[10px] px-[24px] py-[12px] shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)]"
+					className="noise noise-strong flex w-full min-w-[300px] items-center justify-between overflow-hidden rounded-[10px] bg-[#141419] px-[24px] py-[12px] shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)]"
 					style={{
-						backgroundImage: `url('images/misc/NoisePattern.png')`,
-						backgroundColor: '#141419',
-						backgroundPosition: '0% 0%',
-						backgroundSize: '50px 50px',
-						backgroundRepeat: 'repeat',
-						backgroundBlendMode: 'overlay, normal',
 						border: '1px rgba(30, 30, 38, 0.00)'
 					}}
 				>
@@ -67,7 +61,7 @@ export function NavBar() {
 
 					{/* Download Button */}
 					<div className="hidden items-center gap-[20px] xl:flex">
-						<CtaButton platform={currentPlatform} glow={false} />
+						<CtaPrimaryButton platform={currentPlatform} glow={'sm'} />
 					</div>
 
 					{/* List Icon */}
@@ -129,7 +123,7 @@ export function NavBar() {
 								<NavLink link="/docs/product/getting-started/introduction">
 									Docs
 								</NavLink>
-								<CtaButton glow={false} platform={currentPlatform} />
+								<CtaPrimaryButton glow={'sm'} platform={currentPlatform} />
 							</div>
 						</motion.div>
 					</>
