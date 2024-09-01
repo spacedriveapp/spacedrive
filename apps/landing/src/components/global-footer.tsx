@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import companyLogoFull from '~/assets/company_full_logo.svg?url';
-import { DownloadButton } from '~/components/cta-buttons/download-button';
-import { useCurrentPlatform } from '~/components/cta-buttons/use-current-platform';
+import { CtaButton } from '~/components/cta-button';
+import { useCurrentPlatform } from '~/utils/current-platform';
 
 export function GlobalFooter() {
 	const currentPlatform = useCurrentPlatform();
@@ -15,10 +15,7 @@ export function GlobalFooter() {
 			{/* Download Button */}
 			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
 				<div className="translate-y-3.5">
-					<DownloadButton
-						name={currentPlatform?.name ?? 'macOS'}
-						link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-					/>
+					<CtaButton platform={currentPlatform} />
 				</div>
 			</div>
 			<footer

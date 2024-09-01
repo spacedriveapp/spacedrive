@@ -1,9 +1,8 @@
 import { Github } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
 import { BentoBox } from '~/components/bento-box';
-import { CTAButtons } from '~/components/cta-buttons';
-import CyclingImage from '~/components/cycling-image';
 import { GoldenBadge } from '~/components/golden-badge';
+import { HomeCtaButtons } from '~/components/home-cta-buttons';
 import { toTitleCase } from '~/utils/misc';
 
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from './api/github';
@@ -60,7 +59,7 @@ export default async function Page() {
 					Your files, always within reach. Experience seamless synchronization, intuitive
 					management, and powerful discovery tools — all in one place.
 				</p>
-				<CTAButtons
+				<HomeCtaButtons
 					latestVersion={[
 						frontmatter.category && toTitleCase(frontmatter.category),
 						`v${release.tag_name}`

@@ -1,22 +1,22 @@
 import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
+import { useId } from 'react';
 
 export interface GoldenBadgeProps {
 	headline: string;
 	href?: string;
-	link?: string;
 	className?: string;
 }
 
-export function GoldenBadge(props: GoldenBadgeProps) {
-	const { headline, href, link } = props;
+export function GoldenBadge({ className, headline, href }: GoldenBadgeProps) {
+	const componentId = useId();
 
 	return (
 		<Link
 			href={href ?? '/'}
 			className={clsx(
-				props.className,
+				className,
 				'animation-delay-1 fade-in-whats-new z-10 mb-5 flex w-fit flex-row rounded-full px-5 py-2.5 text-xs backdrop-blur-md transition sm:w-auto sm:text-base'
 			)}
 		>
@@ -45,9 +45,27 @@ export function GoldenBadge(props: GoldenBadgeProps) {
 					backgroundBlendMode: 'darken, overlay, normal'
 				}}
 			>
-				<div className="flex items-center gap-2">
-					<Star weight="fill" className="text-white" size={20} />
-					<p className="text-center text-[16px] font-[700] font-normal leading-[115%] text-white">
+				<div className="flex items-center gap-2 text-white">
+					<Star
+						weight="fill"
+						className="mix-blend-overlay"
+						size={20}
+						filter={`url(#goldstar-${componentId}-shadow)`}
+					>
+						<filter
+							id={`goldstar-${componentId}-shadow`}
+							color-interpolation-filters="sRGB"
+						>
+							<feDropShadow
+								dx="0"
+								dy="20"
+								stdDeviation="20"
+								color="red"
+								flood-opacity="1.0"
+							/>
+						</filter>
+					</Star>
+					<p className="text-center text-base font-bold leading-[115%] drop-shadow-[0_0.2rem_0.2rem_hsla(35,100%,25%,100%)]">
 						{headline}
 					</p>
 				</div>

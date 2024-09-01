@@ -2,16 +2,16 @@
 
 import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
+import { CtaButton } from '~/components/cta-button';
 import { DiscordButton } from '~/components/discord-button';
 
-import { DownloadButton } from './download-button';
-import { useCurrentPlatform, type Platform } from './use-current-platform';
+import { useCurrentPlatform, type Platform } from '../utils/current-platform';
 
 interface Props {
 	latestVersion: string;
 }
 
-export function CTAButtons({ latestVersion }: Props) {
+export function HomeCtaButtons({ latestVersion }: Props) {
 	const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
 	const currentPlatform = useCurrentPlatform();
 
@@ -57,10 +57,7 @@ export function CTAButtons({ latestVersion }: Props) {
 							// 		setSelectedPlatform(currentPlatform);
 							// 	}}
 							// />
-							<DownloadButton
-								name={currentPlatform?.name ?? 'macOS'}
-								link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-							/>
+							<CtaButton platform={currentPlatform} />
 						);
 					})()}
 

@@ -17,7 +17,7 @@ export type Platform = {
 
 export const platforms = {
 	darwin: {
-		name: 'macOS',
+		name: 'Mac',
 		os: 'darwin',
 		icon: Apple,
 		version: '12+',
@@ -46,23 +46,30 @@ export const platforms = {
 	web: { name: 'Web', icon: Globe, disabled: true }
 } satisfies Record<string, Platform>;
 
+export async function getCurrentPlatform(): Promise<Platform | null> {
+	const { isWindows, isMacOs, isMobile } = await import('react-device-detect');
+
+	if (isWindows) {
+		return platforms.windows;
+	} else if (isMacOs) {
+		return platforms.darwin;
+	} else if (!isMobile) {
+		return platforms.linux;
+	}
+
+	return null;
+}
+
 export function useCurrentPlatform() {
 	const [currentPlatform, setCurrentPlatform] = useState<Platform | null>(null);
 
 	useEffect(() => {
-		import('react-device-detect').then(({ isWindows, isMacOs, isMobile }) => {
-			setCurrentPlatform((e) => {
-				if (e) return e;
+		if (currentPlatform) return;
 
-				if (isWindows) {
-					return platforms.windows;
-				} else if (isMacOs) {
-					return platforms.darwin;
-				} else if (!isMobile) {
-					return platforms.linux;
-				}
-
-				return null;
+		getCurrentPlatform().then((platform) => {
+			setCurrentPlatform((existingPlatform) => {
+				if (existingPlatform) return existingPlatform;
+				return platform;
 			});
 		});
 	}, []);

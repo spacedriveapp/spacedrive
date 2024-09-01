@@ -1,19 +1,20 @@
 'use client';
 
-import { List, X } from '@phosphor-icons/react/dist/ssr';
+import { List, X } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { PropsWithChildren, useState } from 'react';
 import appFullLogo from '~/assets/app_full_logo.svg?url';
-import { DownloadButton } from '~/components/cta-buttons/download-button';
-import { useCurrentPlatform } from '~/components/cta-buttons/use-current-platform';
+import { CtaButton } from '~/components/cta-button';
 
 import '~/styles/navbar.css';
+import { useCurrentPlatform } from '~/utils/current-platform';
 
 export function NavBar() {
-	const currentPlatform = useCurrentPlatform();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+	const currentPlatform = useCurrentPlatform()
 
 	return (
 		<>
@@ -65,10 +66,7 @@ export function NavBar() {
 
 					{/* Download Button */}
 					<div className="hidden items-center gap-[20px] xl:flex">
-						<DownloadButton
-							name={currentPlatform?.name ?? 'macOS'}
-							link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-						/>
+						<CtaButton platform={currentPlatform} />
 					</div>
 
 					{/* List Icon */}
@@ -130,10 +128,7 @@ export function NavBar() {
 								<NavLink link="/docs/product/getting-started/introduction">
 									Docs
 								</NavLink>
-								<DownloadButton
-									name={currentPlatform?.name ?? 'macOS'}
-									link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-								/>
+								<CtaButton platform={currentPlatform} />
 							</div>
 						</motion.div>
 					</>
