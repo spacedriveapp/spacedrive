@@ -3,6 +3,7 @@ import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
 import { DetailedHTMLProps, HTMLProps, ReactNode, useId } from 'react';
+import { ExternalLinkRegex } from '~/utils/regex-external-link';
 
 export interface GoldenBadgeProps {
 	headline: string;
@@ -15,7 +16,7 @@ export interface GoldenBadgeProps {
 export function GoldenBadge({
 	headline,
 	href = '/',
-	target = href.match(/^(?:https?\:)\/\//)?.length ? '_blank' : undefined,
+	target = href.match(ExternalLinkRegex)?.length ? '_blank' : undefined,
 	className,
 	iconComponent: Icon = Star
 }: GoldenBadgeProps) {
