@@ -29,10 +29,10 @@ export function GoldenBadge({
 				className,
 				'animation-delay-1 fade-in-whats-new mb-5 transition',
 				'overflow-hidden rounded-full border-2 border-solid border-[hsl(38_100%_62%/30%)] bg-[url(/images/misc/gold-bg.png)] bg-[length:100%_100%] shadow-[0_0_1.625rem_hsla(43_100%_65%/50%)]',
-				'box-border inline-flex w-fit flex-row px-3 py-2 pr-3.5'
+				'box-border inline-flex w-fit flex-row px-3 py-2 pr-3.5 tracking-wide'
 			)}
 		>
-			<span className="inline-flex items-center gap-2 text-white drop-shadow-[0_0.2rem_0.2rem_hsla(35,100%,25%,100%)]">
+			<span className="inline-flex items-center gap-x-1.5 text-white drop-shadow-[0_0.2rem_0.2rem_hsla(35,100%,25%,100%)]">
 				<Icon
 					weight="fill"
 					className="size-5 opacity-90"
