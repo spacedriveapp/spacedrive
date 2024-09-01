@@ -63,7 +63,7 @@ export function NavBar() {
 								<NavLink key={`nav-main-${label}-${href}`} href={href}>
 									{label}{' '}
 									{adornment && (
-										<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold leading-none text-white">
+										<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold uppercase leading-none text-white">
 											{adornment}
 										</span>
 									)}
@@ -128,7 +128,7 @@ export function NavBar() {
 									<NavLink key={`nav-sub-${label}-${href}`} href={href}>
 										{label}{' '}
 										{adornment && (
-											<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold leading-none text-white">
+											<span className="inline-flex rounded bg-[#3397EB] px-1 py-0.5 align-middle text-xs font-bold uppercase leading-none text-white">
 												{adornment}
 											</span>
 										)}
