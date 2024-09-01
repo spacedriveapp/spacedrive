@@ -1,10 +1,10 @@
-import { ArrowCircleDown } from '@phosphor-icons/react/dist/ssr';
+import { ArrowCircleDown, Icon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { ReactNode } from 'react';
+import { ReactNode, useId } from 'react';
 import { Platform } from '~/utils/current-platform';
 
-type CtaButtonProps = { icon?: ReactNode; glow?: 'lg' | 'sm' | 'none' } & (
+type CtaButtonProps = { iconComponent?: Icon; glow?: 'lg' | 'sm' | 'none' } & (
 	| {
 			href: string;
 			children: ReactNode;
@@ -15,7 +15,7 @@ type CtaButtonProps = { icon?: ReactNode; glow?: 'lg' | 'sm' | 'none' } & (
 );
 
 export function CtaPrimaryButton({
-	icon = <ArrowCircleDown weight="bold" size={20} />,
+	iconComponent: Icon = ArrowCircleDown,
 	glow = 'lg',
 	...props
 }: CtaButtonProps) {
@@ -32,6 +32,8 @@ export function CtaPrimaryButton({
 	const children =
 		'children' in props ? props.children : `Download for ${platformName ?? 'Linux'}`;
 
+	const id = useId();
+
 	return (
 		<Link
 			href={href}
@@ -44,8 +46,13 @@ export function CtaPrimaryButton({
 				}
 			)}
 		>
-			{icon}
-			<span className="text-center text-base font-semibold leading-normal text-white">
+			<Icon weight="bold" size={22} fill={`url(#${id}-cta-gradient)`}>
+				<linearGradient id={`${id}-cta-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
+					<stop stopColor="hsl(0 100% 100% / 100%)" offset="0%" />
+					<stop stopColor="hsl(0 100% 100% / 70%)" offset="100%" />
+				</linearGradient>
+			</Icon>
+			<span className="text-center text-base font-semibold leading-normal text-white drop-shadow-md">
 				{children}
 			</span>
 		</Link>
