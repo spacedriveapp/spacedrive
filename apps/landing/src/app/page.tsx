@@ -113,21 +113,21 @@ export default async function Page() {
 
 					<div className="mt-5 flex flex-row gap-[20px]">
 						<BentoBox
-							imageSrc="/images/bento/library.webp"
+							imageSrc="/images/new/bento_1.svg"
 							imageAlt="Library"
 							title="Seamless Sync & Access"
 							titleColor="#63C3F3"
 							description="Whether online or offline, instantly access your data anytime, anywhere. Keeping everything updated and available across your devices."
 						/>
 						<BentoBox
-							imageSrc="/images/bento/lock.webp"
+							imageSrc="/images/new/bento_2.svg"
 							imageAlt="Lock"
 							title="Privacy & Control"
 							titleColor="#6368F3"
 							description="Your data is yours. With Spacedrive’s top-notch security, only you can access your information — no third parties, no exceptions."
 						/>
 						<BentoBox
-							imageSrc="/images/bento/tags.webp"
+							imageSrc="/images/new/bento_3.svg"
 							imageAlt="Tags"
 							title="Effortless Organization"
 							titleColor="#DF63F3"
