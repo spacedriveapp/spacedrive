@@ -1,3 +1,4 @@
+import { Icon } from '@phosphor-icons/react';
 import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
@@ -8,13 +9,15 @@ export interface GoldenBadgeProps {
 	href?: string;
 	target?: string;
 	className?: string;
+	iconComponent?: Icon;
 }
 
 export function GoldenBadge({
 	headline,
 	href = '/',
 	target = href.match(/^(?:https?\:)\/\//)?.length ? '_blank' : undefined,
-	className
+	className,
+	iconComponent: Icon = Star
 }: GoldenBadgeProps) {
 	const id = useId();
 
@@ -30,7 +33,7 @@ export function GoldenBadge({
 			)}
 		>
 			<span className="inline-flex items-center gap-2 text-white drop-shadow-[0_0.2rem_0.2rem_hsla(35,100%,25%,100%)]">
-				<Star
+				<Icon
 					weight="fill"
 					className="size-5 opacity-90"
 					size={20}
@@ -41,7 +44,7 @@ export function GoldenBadge({
 						<stop stopColor="hsl(60 100% 99%)" offset="50%" />
 						<stop stopColor="hsl(60 100% 90%)" offset="100%" />
 					</linearGradient>
-				</Star>
+				</Icon>
 				<span className="text-base font-semibold leading-none text-[hsl(60_100%_95%)]">
 					{headline}
 				</span>
