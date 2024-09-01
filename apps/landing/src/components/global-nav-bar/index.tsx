@@ -68,6 +68,7 @@ export function NavBar() {
 						<DownloadButton
 							name={currentPlatform?.name ?? 'macOS'}
 							link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+							glow={false}
 						/>
 					</div>
 
@@ -130,10 +131,6 @@ export function NavBar() {
 								<NavLink link="/docs/product/getting-started/introduction">
 									Docs
 								</NavLink>
-								<DownloadButton
-									name={currentPlatform?.name ?? 'macOS'}
-									link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
-								/>
 							</div>
 						</motion.div>
 					</>

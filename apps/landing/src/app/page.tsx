@@ -29,7 +29,6 @@ export default async function Page() {
 
 	return (
 		<>
-			{/* <Background /> */}
 			{/* <Image
 				loading="eager"
 				className="absolute-horizontal-center fade-in"

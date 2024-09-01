@@ -60,6 +60,7 @@ export function CTAButtons({ latestVersion }: Props) {
 							<DownloadButton
 								name={currentPlatform?.name ?? 'macOS'}
 								link={`https://spacedrive.com/api/releases/desktop/stable/${currentPlatform?.os}/x86_64`}
+								glow={true}
 							/>
 						);
 					})()}
