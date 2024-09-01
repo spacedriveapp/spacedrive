@@ -12,7 +12,7 @@ interface CtaSecondaryButtonProps {
 }
 
 export function CtaSecondaryButton({
-	icon = <Discord fill="white" className="opacity-60" />,
+	icon = <Discord fill="white" className="size-5 opacity-60" />,
 	children = 'Chat on Discord',
 	href = DISCORD_HREF
 }: CtaSecondaryButtonProps) {
