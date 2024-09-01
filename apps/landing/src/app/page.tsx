@@ -28,27 +28,16 @@ export default async function Page() {
 
 	return (
 		<>
-			{/* <Image
-				loading="eager"
-				className="absolute-horizontal-center fade-in"
-				width={1278}
-				height={626}
-				alt="l"
-				src="/images/misc/header-gradient.webp"
-			/> */}
 			<div className="flex w-full flex-col items-center px-4">
 				<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
-				<div className="mt-24 lg:mt-8" />
-				{/* <NewBanner
-					headline={`Alpha ${release.tag_name} is out!`}
-					className="mt-[50px] lg:mt-0"
-					href={`/docs/changelog/alpha/${release.tag_name}`}
-				/> */}
+				<div className="mt-24 lg:mt-8" aria-hidden="true" />
+
 				<GoldenBadge
 					headline={`30k+ stars on GitHub`}
 					className="mt-[50px] lg:mt-0"
 					href={`https://github.com/spacedriveapp/spacedrive`}
 				/>
+
 				<h1 className="fade-in-heading z-30 mb-3 px-2 text-center text-4xl font-bold leading-[1.15] tracking-tight md:text-5xl lg:text-6xl">
 					<span className="inline bg-gradient-to-b from-[#EFF1FB] from-15% to-[#B8CEE0] to-85% bg-clip-text text-transparent">
 						{`Sync, manage, and discover.`.replaceAll(' ', NBSP)}
@@ -56,10 +45,12 @@ export default async function Page() {
 						{`Across all your devices.`.replaceAll(' ', NBSP)}
 					</span>
 				</h1>
+
 				<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 					Your files, always within reach. Experience seamless synchronization, intuitive
 					management, and powerful discovery tools — all in one place.
 				</p>
+
 				<HomeCtaButtons
 					latestVersion={[
 						frontmatter.category && toTitleCase(frontmatter.category),
@@ -68,11 +59,12 @@ export default async function Page() {
 						.filter(Boolean)
 						.join(' ')}
 				/>
+
 				<div className="pb-6 xs:pb-24">
 					<div className="xl2:relative z-30 flex h-[255px] w-full px-6 sm:h-[428px] md:mt-[75px] md:h-[428px] lg:h-auto">
 						<Image
 							loading="eager"
-							className="absolute-horizontal-center animation-delay-2 top-[380px] fade-in xs:top-[180px] md:top-[130px]"
+							className="absolute-horizontal-center animation-delay-2 top-[380px] -z-10 select-none fade-in xs:top-[180px] md:top-[130px]"
 							width={1200}
 							height={626}
 							alt="l"
