@@ -26,9 +26,7 @@ export function GoldenBadge({ headline, href = '/', className }: GoldenBadgeProp
 						weight="fill"
 						className="opacity-90"
 						size={20}
-						style={{
-							fill: `url(#${id}-star-gradient)`
-						}}
+						fill={`url(#${id}-star-gradient)`}
 					>
 						<linearGradient
 							id={`${id}-star-gradient`}
