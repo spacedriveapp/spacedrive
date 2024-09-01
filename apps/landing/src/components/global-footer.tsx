@@ -27,7 +27,7 @@ export function GlobalFooter() {
 				}}
 			>
 				<div className="container mx-auto grid min-h-80 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] px-8 pb-20 pt-[5.388125rem] lg:grid-cols-6">
-					<div className="order-10 col-span-2 -ml-5 flex flex-col pt-5 lg:order-[unset]">
+					<div className="order-10 col-span-2 -ml-5 flex flex-col pt-5 font-sans lg:order-[unset]">
 						<Image
 							src={companyLogoFull}
 							alt="Spacedrive Technology Inc."

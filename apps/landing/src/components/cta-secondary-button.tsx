@@ -25,7 +25,7 @@ export function CtaSecondaryButton({
 			)}
 		>
 			{icon}
-			<span className="text-center text-[16px] font-[600] leading-normal text-white opacity-80">
+			<span className="text-center font-sans text-[16px] font-[600] leading-normal text-white opacity-80">
 				{children}
 			</span>
 		</Link>
