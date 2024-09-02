@@ -2,7 +2,7 @@ import { Icon } from '@phosphor-icons/react';
 import { Star } from '@phosphor-icons/react/dist/ssr';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { DetailedHTMLProps, HTMLProps, ReactNode, useId } from 'react';
+import { useId } from 'react';
 import { ExternalLinkRegex } from '~/utils/regex-external-link';
 
 export interface GoldenBadgeProps {
@@ -36,8 +36,7 @@ export function GoldenBadge({
 			<span className="inline-flex items-center gap-x-1.5 text-white drop-shadow-[0_0.2rem_0.2rem_hsla(35,100%,25%,100%)]">
 				<Icon
 					weight="fill"
-					className="size-5 opacity-90"
-					size={20}
+					className="size-4 opacity-90"
 					fill={`url(#${id}-star-gradient)`}
 				>
 					<linearGradient id={`${id}-star-gradient`} x1="0%" y1="65%" x2="100%" y2="30%">
@@ -46,7 +45,7 @@ export function GoldenBadge({
 						<stop stopColor="hsl(60 100% 90%)" offset="100%" />
 					</linearGradient>
 				</Icon>
-				<span className="text-base font-semibold leading-none text-[hsl(60_100%_95%)]">
+				<span className="text-sm font-semibold leading-none text-[hsl(60_100%_95%)]">
 					{headline}
 				</span>
 			</span>

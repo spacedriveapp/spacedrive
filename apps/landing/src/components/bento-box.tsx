@@ -6,17 +6,27 @@ interface BentoBoxProps {
 	title: string;
 	titleColor: string;
 	description: string;
+	imageWidth?: number;
+	imageHeight?: number;
 }
 
-export function BentoBox({ imageSrc, imageAlt, title, titleColor, description }: BentoBoxProps) {
+export function BentoBox({
+	imageSrc,
+	imageAlt,
+	title,
+	titleColor,
+	description,
+	imageHeight = 250,
+	imageWidth = 250
+}: BentoBoxProps) {
 	return (
-		<div className="flex h-[440px] w-[400px] shrink-0 flex-col justify-between rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]">
-			<div className="flex grow flex-col items-center justify-center">
+		<div className="flex h-[440px] w-full max-w-[375px] shrink-0 flex-col justify-between rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]">
+			<div className="flex flex-col items-center justify-center grow">
 				<Image
 					loading="eager"
 					className="fade-in"
-					width={250}
-					height={250}
+					width={imageWidth}
+					height={imageHeight}
 					alt={imageAlt}
 					src={imageSrc}
 				/>
