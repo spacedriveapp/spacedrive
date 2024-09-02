@@ -1,6 +1,8 @@
+import clsx from 'clsx';
 import Image from 'next/image';
+import { ComponentProps } from 'react';
 
-interface BentoBoxProps {
+interface BentoBoxProps extends ComponentProps<'div'> {
 	imageSrc: string;
 	imageAlt: string;
 	title: string;
@@ -17,10 +19,21 @@ export function BentoBox({
 	titleColor,
 	description,
 	imageHeight = 250,
-	imageWidth = 250
+	imageWidth = 250,
+	className,
+	...rest
 }: BentoBoxProps) {
 	return (
-		<div className="flex h-[440px] w-full max-w-[375px] shrink-0 flex-col justify-between rounded-[10px] border border-[#16171D] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]">
+		<div
+			{...rest}
+			className={clsx(
+				className,
+				'relative',
+				'flex h-[440px] w-full max-w-[375px]',
+				'shrink-0 flex-col justify-between rounded-[10px]',
+				'bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]'
+			)}
+		>
 			<div className="flex flex-col items-center justify-center grow">
 				<Image
 					loading="eager"
