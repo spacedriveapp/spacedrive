@@ -42,6 +42,7 @@ const Feature = ({ title, description, className, titleClassName, imageSrc }: Pr
 				loading="eager"
 				layout="responsive"
 				width={500}
+				quality={100}
 				height={500}
 				alt={title}
 				src={imageSrc}
