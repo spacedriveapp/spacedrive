@@ -12,7 +12,7 @@ export const Explorer = () => {
 					your data like never before.
 				</span>
 			</h1>
-			<div className="flex flex-col gap-5 md:flex-row">
+			<div className="flex flex-col gap-5 lg:flex-row">
 				<BentoBox
 					className="bento-card-border-left"
 					imageSrc="/images/new/bento_1.svg"

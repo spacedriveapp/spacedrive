@@ -34,9 +34,10 @@ export function NavBar() {
 		<>
 			{/* Main Navbar */}
 			<motion.nav
+				// eslint-disable-next-line tailwindcss/no-contradicting-classname
 				className={clsx(
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-2 w-[calc(100%-2rem)] sm:px-0 md:max-w-[1440px]',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-[#141419] from-[60%] to-[#2886D5]/10 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.8]'
+					'overflow-hidden rounded-xl bg-gradient-to-b from-[#141419] from-60% to-[#2886D5]/10 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.8]'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'
@@ -49,7 +50,7 @@ export function NavBar() {
 				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				{/* End of Gradient Borders */}
-				<div className="flex flex-wrap items-center justify-between px-6 py-3 overflow-hidden noise noise-faded noise-sm gap-x-8">
+				<div className="noise noise-faded noise-sm flex flex-wrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
 					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[1.125rem]">
 						<Link href="/">
@@ -62,7 +63,7 @@ export function NavBar() {
 							/>
 						</Link>
 
-						<div className="items-center hidden whitespace-nowrap xl:flex">
+						<div className="hidden items-center whitespace-nowrap xl:flex">
 							{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 								<NavLink key={`nav-main-${label}-${href}`} href={href}>
 									{label}{' '}
@@ -88,7 +89,7 @@ export function NavBar() {
 							onClick={() => setIsMenuOpen(!isMenuOpen)}
 							whileTap={{ rotate: isMenuOpen ? -180 : 180 }}
 						>
-							<List className="text-white size-6" />
+							<List className="size-6 text-white" />
 						</motion.button>
 					</div>
 				</div>
@@ -122,12 +123,12 @@ export function NavBar() {
 									onClick={() => setIsMenuOpen(false)}
 									whileTap={{ rotate: -90 }}
 								>
-									<X className="pt-2 text-white size-8" />
+									<X className="size-8 pt-2 text-white" />
 								</motion.button>
 							</div>
 
 							{/* Nav Links */}
-							<div className="flex flex-col items-start p-4 space-y-4">
+							<div className="flex flex-col items-start space-y-4 p-4">
 								{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 									<NavLink key={`nav-sub-${label}-${href}`} href={href}>
 										{label}{' '}
