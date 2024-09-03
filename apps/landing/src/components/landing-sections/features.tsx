@@ -8,7 +8,7 @@ export const Features = () => {
 			{/** Lines & middle circle */}
 			<div className="absolute inset-x-0 mx-auto h-full w-px bg-gradient-to-b from-transparent via-[#6C708F] to-transparent" />
 			<div className="absolute flex h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F] to-transparent" />
-			<div className="absolute inset-0 z-10 mx-auto size-3 self-center rounded-full bg-[#636783]" />
+			<div className="absolute left-1/2 top-1/2 z-10 mx-auto size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#636783]" />
 			{/** Features */}
 			{info.map((item, index) => (
 				<Feature
@@ -61,16 +61,19 @@ const info = [
 	{
 		title: 'Tags',
 		description:
-			'Organize and find your files faster by assigning custom tags to your folders and documents. Simplify your data management with easy categorization.'
+			'Organize and find your files faster by assigning custom tags to your folders and documents. Simplify your data management with easy categorization.',
+		imageSrc: ''
 	},
 	{
 		title: 'End-To-End Encryption',
 		description:
-			'Any time you send files across a network with Spacedrive, it’s end-to-end encrypted — ensuring that only you can access your files. Ever.'
+			'Any time you send files across a network with Spacedrive, it’s end-to-end encrypted — ensuring that only you can access your files. Ever.',
+		imageSrc: ''
 	},
 	{
 		title: 'Extensions',
 		description:
-			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.'
+			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.',
+		imageSrc: ''
 	}
 ];
