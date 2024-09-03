@@ -63,7 +63,7 @@
 }
 
 html {
-	@apply bg-black;
+	background-color: #0E0E12;
 	-ms-overflow-style: none; /* IE and Edge */
 	scrollbar-width: none; /* Firefox */
 	&::-webkit-scrollbar {
@@ -80,7 +80,7 @@ html {
 	z-index: 1;
 	padding: 1px;
 	background: rgb(99,104,131);
-	background: linear-gradient(140deg, rgba(99,104,131,0.7) 0%, rgba(22,23,29,0) 40%);
+	background: linear-gradient(140deg, rgba(99,104,131,0.4) 0%, rgba(22,23,29,0) 40%);
 	-webkit-mask:
 		linear-gradient(#fff 0 0) content-box,
 		linear-gradient(#fff 0 0);
@@ -96,7 +96,7 @@ html {
 	z-index: 1;
 	padding: 1px;
 	background: rgb(99,104,131);
-	background: linear-gradient(-140deg, rgba(99,104,131,0.7) 0%, rgba(22,23,29,0) 40%);
+	background: linear-gradient(-140deg, rgba(99,104,131,0.4) 0%, rgba(22,23,29,0) 40%);
 	-webkit-mask:
 		linear-gradient(#fff 0 0) content-box,
 		linear-gradient(#fff 0 0);

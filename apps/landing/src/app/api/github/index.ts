@@ -1,7 +1,7 @@
 import { type components } from '@octokit/openapi-types';
 import { env } from '~/env';
 
-type Release = components['schemas']['release'];
+export type Release = components['schemas']['release'];
 
 const FETCH_META = {
 	headers: new Headers({

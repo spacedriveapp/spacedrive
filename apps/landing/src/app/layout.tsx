@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { PropsWithChildren, useRef } from 'react';
+import { PropsWithChildren } from 'react';
 import { GlobalFooter } from '~/components/global-footer';
 import { NavBar } from '~/components/global-nav-bar';
 

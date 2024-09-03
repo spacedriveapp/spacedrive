@@ -34,7 +34,7 @@ export function BentoBox({
 				'bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]'
 			)}
 		>
-			<div className="flex flex-col items-center justify-center grow">
+			<div className="flex grow flex-col items-center justify-center">
 				<Image
 					loading="eager"
 					className="fade-in"
@@ -52,7 +52,7 @@ export function BentoBox({
 							backgroundColor: `${titleColor}`
 						}}
 					/>
-					<h3 className="text-[20px] font-[700] leading-[100%] tracking-[-0.4px]">
+					<h3 className="text-[20px] font-semibold leading-[100%] tracking-[-0.4px]">
 						{title}
 					</h3>
 				</div>
