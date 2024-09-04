@@ -257,6 +257,9 @@ importers:
       react-github-btn:
         specifier: ^1.4.0
         version: 1.4.0(react@18.2.0)
+      react-parallax-tilt:
+        specifier: ^1.7.237
+        version: 1.7.237(react-dom@18.3.1(react@18.2.0))(react@18.2.0)
       reading-time:
         specifier: ^1.5.0
         version: 1.5.0
@@ -12434,6 +12437,12 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  react-parallax-tilt@1.7.237:
+    resolution: {integrity: sha512-Rg8YmehDjTTcAn637HEd3ttTeZfT8UzKNmMKQhbn00/5mojkU4H+gLbYkxWFIM0hLnvfOZewkqgCGEOMzn4SlQ==}
+    peerDependencies:
+      react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
 
   react-reconciler@0.27.0:
     resolution: {integrity: sha512-HmMDKciQjYmBRGuuhIaKA1ba/7a+UsM5FzOZsMO2JYHt9Jh8reCb7j1eDC95NOyUlKM9KRyvdx0flBuDvYSBoA==}
@@ -30713,6 +30722,11 @@ snapshots:
       - supports-color
       - utf-8-validate
     optional: true
+
+  react-parallax-tilt@1.7.237(react-dom@18.3.1(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.3.1(react@18.2.0)
 
   react-reconciler@0.27.0(react@18.2.0):
     dependencies:
