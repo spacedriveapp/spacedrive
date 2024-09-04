@@ -1,11 +1,16 @@
-import {
-	Assistant,
-	Explorer,
-	Features,
-	Github,
-	Header,
-	Search
-} from '~/app/page-sections';
+import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
+
+export const metadata = {
+	title: 'Spacedrive — A file manager from the future.',
+	description:
+		'Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized.',
+	keywords:
+		'files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem',
+	authors: {
+		name: 'Spacedrive Technology Inc.',
+		url: 'https://spacedrive.com'
+	}
+};
 
 export default function Page() {
 	return (
