@@ -1,6 +1,5 @@
 'use client';
 
-import { usePlausible } from 'next-plausible';
 import { useState } from 'react';
 import { CtaPrimaryButton } from '~/components/cta-primary-button';
 import { CtaSecondaryButton } from '~/components/cta-secondary-button';
@@ -17,8 +16,6 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 
 	const [dockerDialogOpen, setDockerDialogOpen] = useState(false);
 
-	const plausible = usePlausible();
-
 	const [formattedVersion, note] = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
 		return platform
@@ -34,10 +31,9 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 
 	return (
 		<>
-			<div className="flex flex-row gap-3">
+			<div className="flex flex-row flex-wrap justify-center gap-3">
 				{currentPlatform &&
 					(() => {
-						const Icon = currentPlatform.icon;
 						const { links } = currentPlatform;
 
 						return (
@@ -65,7 +61,7 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 			</div>
 
 			{/* {selectedPlatform?.links && selectedPlatform.links.length > 1 && (
-				<div className="z-50 mb-2 mt-4 flex flex-row gap-3 fade-in">
+				<div className="z-50 flex flex-row gap-3 mt-4 mb-2 fade-in">
 					{selectedPlatform.links.map(({ name, arch }) => (
 						<HomeCTA
 							key={name}
@@ -99,7 +95,7 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 				)}
 			</p>
 			{/* Platform icons */}
-			{/* <div className="relative z-10 mt-5 flex gap-3">
+			{/* <div className="relative z-10 flex gap-3 mt-5">
 				{Object.values<Platform>(platforms).map((platform, i) => {
 					return (
 						<motion.div
