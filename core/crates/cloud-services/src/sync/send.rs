@@ -1,12 +1,12 @@
-use crate::{CloudServices, Error};
+use crate::{CloudServices, Error, KeyManager};
 
 use sd_core_sync::{SyncEvent, SyncManager, NTP64};
 
-use sd_actors::Stopper;
+use sd_actors::{Actor, Stopper};
 use sd_cloud_schema::{
 	devices,
 	sync::{self, groups, messages},
-	Service,
+	Client, Service,
 };
 use sd_crypto::{
 	cloud::{OneShotEncryption, SecretKey, StreamEncryption},
@@ -22,11 +22,10 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::{Duration, SystemTime, UNIX_EPOCH},
+	time::Duration,
 };
 
 use async_stream::try_stream;
-use chrono::{DateTime, Utc};
 use futures::{FutureExt, SinkExt, Stream, StreamExt, TryStream};
 use futures_concurrency::future::{Race, TryJoin};
 use quic_rpc::{client::UpdateSink, pattern::bidi_streaming, transport::quinn::QuinnConnection};
@@ -39,6 +38,8 @@ use tokio::{
 use tracing::{debug, error};
 use uuid::Uuid;
 
+use super::{datetime_to_timestamp, timestamp_to_datetime, SyncActors};
+
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const THIRTY_SECONDS: Duration = Duration::from_secs(30);
 const ONE_MINUTE: Duration = Duration::from_secs(60);
@@ -50,213 +51,275 @@ enum RaceNotifiedOrStopped {
 
 type LatestTimestamp = NTP64;
 
-pub async fn run_actor(
+type PushResponsesStream = Pin<
+	Box<
+		dyn Stream<
+				Item = Result<
+					Result<messages::push::Response, sd_cloud_schema::Error>,
+					bidi_streaming::ItemError<QuinnConnection<Service>>,
+				>,
+			> + Send
+			+ Sync,
+	>,
+>;
+
+#[derive(Debug)]
+pub struct Sender {
 	sync_group_pub_id: groups::PubId,
 	sync: SyncManager,
 	cloud_services: Arc<CloudServices>,
+	cloud_client: Client<QuinnConnection<Service>>,
+	key_manager: Arc<KeyManager>,
 	is_active: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
-	mut rng: CryptoRng,
-	stop: Stopper,
-) {
-	let mut maybe_latest_timestamp = None;
+	rng: CryptoRng,
+	maybe_latest_timestamp: Option<LatestTimestamp>,
+}
 
-	loop {
-		is_active.store(true, Ordering::Relaxed);
-		state_notify.notify_waiters();
+impl Actor<SyncActors> for Sender {
+	const IDENTIFIER: SyncActors = SyncActors::Sender;
 
-		let res = run_loop_iteration(
-			sync_group_pub_id,
-			&sync,
-			&cloud_services,
-			&mut rng,
-			&maybe_latest_timestamp,
-		)
-		.await;
+	async fn run(&mut self, stop: Stopper) {
+		loop {
+			self.is_active.store(true, Ordering::Relaxed);
+			self.state_notify.notify_waiters();
 
-		is_active.store(false, Ordering::Relaxed);
-		state_notify.notify_waiters();
+			let res = self.run_loop_iteration().await;
 
-		match res {
-			Ok(timestamp) => {
-				maybe_latest_timestamp = Some(timestamp);
-			}
-			Err(e) => {
+			self.is_active.store(false, Ordering::Relaxed);
+
+			if let Err(e) = res {
 				error!(?e, "Error during cloud sync sender actor iteration");
 				sleep(ONE_MINUTE).await;
 				continue;
 			}
-		}
 
-		if let RaceNotifiedOrStopped::Stopped = (
-			// recreate subscription each time so that existing messages are dropped
-			wait_notification(sync.subscribe()),
-			stop.into_future().map(|()| RaceNotifiedOrStopped::Stopped),
-		)
-			.race()
-			.await
-		{
-			break;
-		}
+			self.state_notify.notify_waiters();
 
-		sleep(TEN_SECONDS).await;
+			if matches!(
+				(
+					// recreate subscription each time so that existing messages are dropped
+					wait_notification(self.sync.subscribe()),
+					stop.into_future().map(|()| RaceNotifiedOrStopped::Stopped),
+				)
+					.race()
+					.await,
+				RaceNotifiedOrStopped::Stopped
+			) {
+				break;
+			}
+
+			sleep(TEN_SECONDS).await;
+		}
 	}
 }
 
-async fn run_loop_iteration(
-	sync_group_pub_id: groups::PubId,
-	sync: &SyncManager,
-	cloud_services: &CloudServices,
-	rng: &mut CryptoRng,
-	maybe_latest_timestamp: &Option<LatestTimestamp>,
-) -> Result<LatestTimestamp, Error> {
-	let current_device_pub_id = devices::PubId(Uuid::from(&sync.device_pub_id));
-
-	let (cloud_client, key_manager) = (cloud_services.client(), cloud_services.key_manager())
-		.try_join()
-		.await?;
-
-	let (key_hash, secret_key) = key_manager
-		.get_latest_key(sync_group_pub_id)
-		.await
-		.ok_or(Error::MissingSyncGroupKey(sync_group_pub_id))?;
-
-	let current_latest_timestamp = if let Some(latest_timestamp) = maybe_latest_timestamp {
-		*latest_timestamp
-	} else {
-		let messages::get_latest_time::Response {
-			latest_time,
-			latest_device_pub_id,
-		} = cloud_client
-			.sync()
-			.messages()
-			.get_latest_time(messages::get_latest_time::Request {
-				access_token: cloud_services.token_refresher.get_access_token().await?,
-				group_pub_id: sync_group_pub_id,
-				current_device_pub_id,
-				kind: messages::get_latest_time::Kind::ForCurrentDevice,
-			})
-			.await??;
-
-		assert_eq!(latest_device_pub_id, current_device_pub_id);
-
-		LatestTimestamp::from(
-			SystemTime::from(latest_time)
-				.duration_since(UNIX_EPOCH)
-				.expect("hardcoded earlier time, nothing is earlier than UNIX_EPOCH"),
-		)
-	};
-
-	let mut crdt_ops_stream =
-		pin!(sync.stream_device_ops(&sync.device_pub_id, 1000, current_latest_timestamp));
-
-	let mut new_latest_timestamp = current_latest_timestamp;
-	while let Some(ops_res) = crdt_ops_stream.next().await {
-		let ops = ops_res?;
-
-		let (Some(first), Some(last)) = (ops.first(), ops.last()) else {
-			break;
-		};
-
-		let operations_count = ops.len() as u32;
-
-		new_latest_timestamp = last.timestamp;
-
-		let start_time = DateTime::<Utc>::from(first.timestamp.to_system_time());
-		let end_time = DateTime::<Utc>::from(last.timestamp.to_system_time());
-
-		let messages_bytes = postcard::to_stdvec(&ops)?;
-
-		let (mut push_updates, mut push_responses) = cloud_client
-			.sync()
-			.messages()
-			.push(messages::push::Request {
-				access_token: cloud_services.token_refresher.get_access_token().await?,
-				group_pub_id: sync_group_pub_id,
-				device_pub_id: current_device_pub_id,
-				key_hash: key_hash.clone(),
-				operations_count,
-				start_time,
-				end_time,
-				expected_blob_size: messages_bytes.len() as u64,
-			})
+impl Sender {
+	pub async fn new(
+		sync_group_pub_id: groups::PubId,
+		sync: SyncManager,
+		cloud_services: Arc<CloudServices>,
+		is_active: Arc<AtomicBool>,
+		state_notify: Arc<Notify>,
+		rng: CryptoRng,
+	) -> Result<Self, Error> {
+		let (cloud_client, key_manager) = (cloud_services.client(), cloud_services.key_manager())
+			.try_join()
 			.await?;
 
-		let Some(response) = push_responses.next().await else {
-			return Err(Error::EmptyResponse("push initial response"));
-		};
+		Ok(Self {
+			sync_group_pub_id,
+			sync,
+			cloud_services,
+			cloud_client,
+			key_manager,
+			is_active,
+			state_notify,
+			rng,
+			maybe_latest_timestamp: None,
+		})
+	}
 
-		let messages::push::Response(response_kind) = response??;
+	async fn run_loop_iteration(&mut self) -> Result<(), Error> {
+		let current_device_pub_id = devices::PubId(Uuid::from(&self.sync.device_pub_id));
 
-		match response_kind {
-			messages::push::ResponseKind::SinglePresignedUrl(url) => {
-				upload_to_single_url(
-					url,
-					secret_key.clone(),
-					cloud_services.http_client(),
-					messages_bytes,
-					rng,
-				)
-				.await?
+		let (key_hash, secret_key) = self
+			.key_manager
+			.get_latest_key(self.sync_group_pub_id)
+			.await
+			.ok_or(Error::MissingSyncGroupKey(self.sync_group_pub_id))?;
+
+		let current_latest_timestamp = self.get_latest_timestamp(current_device_pub_id).await?;
+
+		let mut crdt_ops_stream = pin!(self.sync.stream_device_ops(
+			&self.sync.device_pub_id,
+			1000,
+			current_latest_timestamp
+		));
+
+		let mut new_latest_timestamp = current_latest_timestamp;
+		while let Some(ops_res) = crdt_ops_stream.next().await {
+			let ops = ops_res?;
+
+			let (Some(first), Some(last)) = (ops.first(), ops.last()) else {
+				break;
+			};
+
+			#[allow(clippy::cast_possible_truncation)]
+			let operations_count = ops.len() as u32;
+
+			new_latest_timestamp = last.timestamp;
+
+			let start_time = timestamp_to_datetime(first.timestamp);
+			let end_time = timestamp_to_datetime(last.timestamp);
+
+			let messages_bytes =
+				postcard::to_stdvec(&ops).map_err(Error::SerializationFailureToPushSyncMessages)?;
+
+			let (mut push_updates, mut push_responses) = self
+				.cloud_client
+				.sync()
+				.messages()
+				.push(messages::push::Request {
+					access_token: self
+						.cloud_services
+						.token_refresher
+						.get_access_token()
+						.await?,
+					group_pub_id: self.sync_group_pub_id,
+					device_pub_id: current_device_pub_id,
+					key_hash: key_hash.clone(),
+					operations_count,
+					start_time,
+					end_time,
+					expected_blob_size: messages_bytes.len() as u64,
+				})
+				.await?;
+
+			let Some(response) = push_responses.next().await else {
+				return Err(Error::EmptyResponse("push initial response"));
+			};
+
+			let messages::push::Response(response_kind) = response??;
+
+			match response_kind {
+				messages::push::ResponseKind::SinglePresignedUrl(url) => {
+					upload_to_single_url(
+						url,
+						secret_key.clone(),
+						self.cloud_services.http_client(),
+						messages_bytes,
+						&mut self.rng,
+					)
+					.await?;
+				}
+				messages::push::ResponseKind::ManyPresignedUrls(urls) => {
+					upload_to_many_urls(
+						urls,
+						secret_key.clone(),
+						self.cloud_services.http_client().clone(),
+						messages_bytes,
+						&mut self.rng,
+						&mut push_updates,
+						&mut push_responses,
+					)
+					.await?;
+				}
+				messages::push::ResponseKind::Pong => {
+					return Err(Error::UnexpectedResponse(
+						"Pong on first messages push request",
+					))
+				}
+				messages::push::ResponseKind::End => {
+					return Err(Error::UnexpectedResponse(
+						"End on first messages push request",
+					))
+				}
 			}
-			messages::push::ResponseKind::ManyPresignedUrls(urls) => {
-				upload_to_many_urls(
-					urls,
-					secret_key.clone(),
-					cloud_services.http_client().clone(),
-					messages_bytes,
-					rng,
-					&mut push_updates,
-					&mut push_responses,
-				)
-				.await?
-			}
-			messages::push::ResponseKind::Pong => {
-				return Err(Error::UnexpectedResponse(
-					"Pong on first messages push request",
-				))
-			}
-			messages::push::ResponseKind::End => {
-				return Err(Error::UnexpectedResponse(
-					"End on first messages push request",
-				))
-			}
+
+			finalize_protocol(&mut push_updates, &mut push_responses).await?;
 		}
 
-		push_updates
-			.send(messages::push::RequestUpdate(
-				messages::push::UpdateKind::End,
+		self.maybe_latest_timestamp = Some(new_latest_timestamp);
+
+		Ok(())
+	}
+
+	async fn get_latest_timestamp(
+		&self,
+		current_device_pub_id: devices::PubId,
+	) -> Result<LatestTimestamp, Error> {
+		if let Some(latest_timestamp) = &self.maybe_latest_timestamp {
+			Ok(*latest_timestamp)
+		} else {
+			let messages::get_latest_time::Response {
+				latest_time,
+				latest_device_pub_id,
+			} = self
+				.cloud_client
+				.sync()
+				.messages()
+				.get_latest_time(messages::get_latest_time::Request {
+					access_token: self
+						.cloud_services
+						.token_refresher
+						.get_access_token()
+						.await?,
+					group_pub_id: self.sync_group_pub_id,
+					current_device_pub_id,
+					kind: messages::get_latest_time::Kind::ForCurrentDevice,
+				})
+				.await??;
+
+			assert_eq!(latest_device_pub_id, current_device_pub_id);
+
+			Ok(datetime_to_timestamp(latest_time))
+		}
+	}
+}
+
+async fn finalize_protocol(
+	push_updates: &mut UpdateSink<
+		Service,
+		QuinnConnection<Service>,
+		messages::push::RequestUpdate,
+		sync::Service,
+	>,
+	push_responses: &mut PushResponsesStream,
+) -> Result<(), Error> {
+	push_updates
+		.send(messages::push::RequestUpdate(
+			messages::push::UpdateKind::End,
+		))
+		.await
+		.map_err(Error::EndUpdatePushSyncMessages)?;
+
+	let Some(response) = push_responses.next().await else {
+		return Err(Error::EmptyResponse("push initial response"));
+	};
+
+	let messages::push::Response(response_kind) = response??;
+
+	match response_kind {
+		messages::push::ResponseKind::SinglePresignedUrl(_)
+		| messages::push::ResponseKind::ManyPresignedUrls(_) => {
+			return Err(Error::UnexpectedResponse(
+				"Urls responses on final messages push response",
 			))
-			.await
-			.map_err(Error::EndUpdatePushSyncMessages)?;
-
-		let Some(response) = push_responses.next().await else {
-			return Err(Error::EmptyResponse("push initial response"));
-		};
-
-		let messages::push::Response(response_kind) = response??;
-
-		match response_kind {
-			messages::push::ResponseKind::SinglePresignedUrl(_)
-			| messages::push::ResponseKind::ManyPresignedUrls(_) => {
-				return Err(Error::UnexpectedResponse(
-					"Urls responses on final messages push response",
-				))
-			}
-			messages::push::ResponseKind::Pong => {
-				return Err(Error::UnexpectedResponse(
-					"Pong on final message push response",
-				))
-			}
-			messages::push::ResponseKind::End => {
-				/*
-				   Everything is awesome!
-				*/
-			}
+		}
+		messages::push::ResponseKind::Pong => {
+			return Err(Error::UnexpectedResponse(
+				"Pong on final message push response",
+			))
+		}
+		messages::push::ResponseKind::End => {
+			/*
+			   Everything is awesome!
+			*/
 		}
 	}
 
-	Ok(new_latest_timestamp)
+	Ok(())
 }
 
 async fn upload_to_many_urls(
@@ -271,17 +334,7 @@ async fn upload_to_many_urls(
 		messages::push::RequestUpdate,
 		sync::Service,
 	>,
-	push_responses: &mut Pin<
-		Box<
-			dyn Stream<
-					Item = Result<
-						Result<messages::push::Response, sd_cloud_schema::Error>,
-						bidi_streaming::ItemError<QuinnConnection<Service>>,
-					>,
-				> + Send
-				+ Sync,
-		>,
-	>,
+	push_responses: &mut PushResponsesStream,
 ) -> Result<(), Error> {
 	let stop_ping_pong = Arc::new(AtomicBool::new(false));
 	let (out_tx, mut out_rx) = oneshot::channel();
@@ -358,7 +411,7 @@ async fn upload_to_many_urls(
 	let Ok(out) = out_rx.try_recv() else {
 		// SAFETY: This try_recv error can only happen if the upload task panicked
 		// so we're good to unwrap the error.
-		let e = handle.await.unwrap_err();
+		let e = handle.await.expect_err("upload task panicked");
 		error!(?e, "Critical error while uploading sync messages");
 		return Err(Error::CriticalErrorWhileUploadingSyncMessages);
 	};
@@ -537,7 +590,7 @@ fn stream_encryption(
 async fn wait_notification(mut rx: broadcast::Receiver<SyncEvent>) -> RaceNotifiedOrStopped {
 	// wait until Created message comes in
 	loop {
-		if let Ok(SyncEvent::Created) = rx.recv().await {
+		if matches!(rx.recv().await, Ok(SyncEvent::Created)) {
 			break;
 		};
 	}

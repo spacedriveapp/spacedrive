@@ -52,6 +52,7 @@ async-trait         = { workspace = true }
 axum                = { workspace = true, features = ["ws"] }
 base64              = { workspace = true }
 blake3              = { workspace = true }
+bytes               = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
@@ -85,7 +86,6 @@ uuid                = { workspace = true, features = ["serde", "v4", "v7"] }
 # Specific Core dependencies
 async-recursion  = "1.1"
 base91           = "0.1.0"
-bytes            = "1.6"
 ctor             = "0.2.8"
 directories      = "5.0"
 flate2           = "1.0"

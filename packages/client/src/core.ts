@@ -110,8 +110,6 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
-        { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
         { key: "library.vacuumDb", input: LibraryArgs<null>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
@@ -144,7 +142,7 @@ export type Procedures = {
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
-        { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
+        { key: "library.actors", input: LibraryArgs<null>, result: ([string, boolean])[] } | 
         { key: "library.updatedKindStatistic", input: LibraryArgs<null>, result: KindStatistic } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 

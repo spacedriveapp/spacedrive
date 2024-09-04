@@ -94,24 +94,30 @@ impl Library {
 		})
 	}
 
-	pub async fn init_cloud_sync(&self, node: &Node, sync_group_pub_id: groups::PubId) {
+	pub async fn init_cloud_sync(
+		&self,
+		node: &Node,
+		sync_group_pub_id: groups::PubId,
+	) -> Result<(), sd_core_cloud_services::Error> {
 		let rng = CryptoRng::from_seed(node.master_rng.lock().await.generate_fixed());
 
 		declare_cloud_sync(
+			node.data_dir.clone().into_boxed_path(),
 			node.cloud_services.clone(),
 			&self.cloud_sync_actors,
 			&self.cloud_sync_state,
 			sync_group_pub_id,
 			self.sync.clone(),
-			Arc::clone(&self.db),
 			rng,
 		)
-		.await;
+		.await?;
 
 		// TODO(@fogodev): Uncomment when they're ready
 		// self.cloud_sync_actors.start(CloudSyncActors::Sender).await;
 		// self.cloud_sync_actors.start(CloudSyncActors::Receiver).await;
 		// self.cloud_sync_actors.start(CloudSyncActors::Ingester).await;
+
+		Ok(())
 	}
 
 	pub async fn config(&self) -> LibraryConfig {
