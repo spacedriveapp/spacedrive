@@ -1,11 +1,10 @@
 import React from 'react';
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
+import { GoldenBadge } from '~/components/golden-badge';
+import { HeroImage } from '~/components/hero-image'; // Import the client-side component
+import { HomeCtaButtons } from '~/components/home-cta-buttons';
 import Particles from '~/particles';
 import { toTitleCase } from '~/utils/misc';
-
-import { GoldenBadge } from '../golden-badge';
-import { HeroImage } from '../hero-image'; // Import the client-side component
-import { HomeCtaButtons } from '../home-cta-buttons';
 
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',

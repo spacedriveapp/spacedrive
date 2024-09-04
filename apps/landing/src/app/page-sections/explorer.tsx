@@ -1,6 +1,5 @@
 import React from 'react';
-
-import { BentoBox } from '../bento-box';
+import { BentoBox } from '~/components/bento-box';
 
 export const Explorer = () => {
 	return (
