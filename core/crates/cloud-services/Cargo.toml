@@ -23,7 +23,6 @@ chrono              = { workspace = true, features = ["serde"] }
 flume               = { workspace = true }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
-reqwest             = { workspace = true, features = ["json", "native-tls-vendored"] }
 rspc                = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }
@@ -31,28 +30,25 @@ specta              = { workspace = true }
 thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["sync", "time"] }
 tokio-stream        = { workspace = true }
+tokio-util          = { workspace = true }
 tracing             = { workspace = true }
 uuid                = { workspace = true, features = ["serde"] }
 zeroize             = { workspace = true }
 
 # External dependencies
-anyhow                   = "1.0.86"
-iroh-base                = { version = "0.23.0", features = ["key"] }
-iroh-net                 = "0.23.0"
-paste                    = "=1.0.15"
-postcard                 = { version = "1.0.8", features = ["use-std"] }
-quic-rpc                 = { version = "0.11.0", features = ["quinn-transport"] }
-quinn                    = { package = "iroh-quinn", version = "=0.10.5" }
+anyhow    = "1.0.86"
+iroh-base = { version = "0.24", features = ["key"] }
+iroh-net  = "0.24"
+paste     = "=1.0.15"
+postcard  = { version = "1.0.8", features = ["use-std"] }
+quic-rpc  = { version = "0.12.0", features = ["quinn-transport"] }
+quinn     = { package = "iroh-quinn", version = "0.11" }
+# Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
+reqwest                  = { version = "0.12", features = ["json", "native-tls-vendored", "stream"] }
 reqwest-middleware       = { version = "0.3", features = ["json"] }
 reqwest-retry            = "0.6"
 rustls                   = { version = "0.23", default-features = false, features = ["brotli", "ring", "std"] }
 rustls-platform-verifier = "0.3.3"
-
-[dependencies.rustls-old]
-default-features = false
-features         = ["dangerous_configuration", "logging", "quic"]
-package          = "rustls"
-version          = "0.21.12"                                      # Update blocked by quic-rpc
 
 
 [dev-dependencies]

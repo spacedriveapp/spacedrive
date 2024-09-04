@@ -4,7 +4,7 @@ use sd_utils::error::FileIOError;
 use std::{io, net::AddrParseError};
 
 use quic_rpc::{
-	pattern::{bidi_streaming, rpc},
+	pattern::{bidi_streaming, rpc, server_streaming},
 	transport::quinn::QuinnConnection,
 };
 
@@ -40,13 +40,13 @@ pub enum Error {
 	#[error("Missing tokens on refresh response")]
 	MissingTokensOnRefreshResponse,
 	#[error("Failed to parse token header value to string: {0}")]
-	FailedToParseTokenHeaderValueToString(#[from] reqwest_middleware::reqwest::header::ToStrError),
+	FailedToParseTokenHeaderValueToString(#[from] reqwest::header::ToStrError),
 
 	// Key Manager errors
 	#[error("Failed to handle File on KeyManager: {0}")]
 	FileIO(#[from] FileIOError),
 	#[error("Failed to handle key store serialization: {0}")]
-	KeyStoreSerialization(#[from] postcard::Error),
+	KeyStoreSerialization(postcard::Error),
 	#[error("Key store encryption related error: {{context: \"{context}\", source: {source}}}")]
 	KeyStoreCrypto {
 		#[source]
@@ -69,6 +69,10 @@ pub enum Error {
 	// Communication errors
 	#[error("Failed to communicate with RPC backend: {0}")]
 	RpcCommunication(#[from] rpc::Error<QuinnConnection<Service>>),
+	#[error("Failed to communicate with Server Streaming RPC backend: {0}")]
+	ServerStreamCommunication(#[from] server_streaming::Error<QuinnConnection<Service>>),
+	#[error("Failed to receive next response from Server Streaming RPC backend: {0}")]
+	ServerStreamRecv(#[from] server_streaming::ItemError<QuinnConnection<Service>>),
 	#[error("Failed to communicate with Bidi Streaming RPC backend: {0}")]
 	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnection<Service>>),
 	#[error("Failed to receive next response from Bidi Streaming RPC backend: {0}")]
@@ -93,14 +97,42 @@ pub enum Error {
 	Decrypt(sd_crypto::Error),
 	#[error("Failed to upload sync messages: {0}")]
 	UploadSyncMessages(reqwest_middleware::Error),
+	#[error("Failed to download sync messages: {0}")]
+	DownloadSyncMessages(reqwest_middleware::Error),
 	#[error("Received an error response from uploading sync messages: {0}")]
 	ErrorResponseUploadSyncMessages(reqwest_middleware::reqwest::Error),
+	#[error("Received an error response from downloading sync messages: {0}")]
+	ErrorResponseDownloadSyncMessages(reqwest_middleware::reqwest::Error),
+	#[error(
+		"Received an error response from downloading sync messages while reading its bytes: {0}"
+	)]
+	ErrorResponseDownloadReadBytesSyncMessages(reqwest_middleware::reqwest::Error),
 	#[error("Critical error while uploading sync messages")]
 	CriticalErrorWhileUploadingSyncMessages,
 	#[error("Failed to send End update to push sync messages")]
 	EndUpdatePushSyncMessages(io::Error),
 	#[error("Unexpected end of stream while encrypting sync messages")]
 	UnexpectedEndOfStream,
+	#[error("Failed to read last timestamp keeper for pulling sync messages: {0}")]
+	FailedToReadLastTimestampKeeper(io::Error),
+	#[error("Failed to handle last timestamp keeper serialization: {0}")]
+	LastTimestampKeeperSerialization(postcard::Error),
+	#[error("Failed to write last timestamp keeper for pulling sync messages: {0}")]
+	FailedToWriteLastTimestampKeeper(io::Error),
+	#[error("Sync messages download and decrypt task panicked")]
+	SyncMessagesDownloadAndDecryptTaskPanicked,
+	#[error("Serialization failure to push sync messages: {0}")]
+	SerializationFailureToPushSyncMessages(postcard::Error),
+	#[error("Deserialization failure to pull sync messages: {0}")]
+	DeserializationFailureToPullSyncMessages(postcard::Error),
+	#[error("Read nonce stream decryption: {0}")]
+	ReadNonceStreamDecryption(io::Error),
+	#[error("Incomplete download bytes sync messages")]
+	IncompleteDownloadBytesSyncMessages,
+
+	// Temporary errors
+	#[error("Device missing secret key for decrypting sync messages")]
+	MissingKeyHash,
 }
 
 #[derive(thiserror::Error, Debug)]

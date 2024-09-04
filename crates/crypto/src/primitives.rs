@@ -15,6 +15,22 @@ pub struct EncryptedBlock {
 	pub cipher_text: Vec<u8>,
 }
 
+pub struct EncryptedBlockRef<'e> {
+	pub nonce: OneShotNonce,
+	pub cipher_text: &'e [u8],
+}
+
+impl<'e> From<&'e [u8]> for EncryptedBlockRef<'e> {
+	fn from(cipher_text: &'e [u8]) -> Self {
+		let (nonce, cipher_text) = cipher_text.split_at(size_of::<OneShotNonce>());
+
+		Self {
+			nonce: OneShotNonce::try_from(nonce).expect("we split the correct amount"),
+			cipher_text,
+		}
+	}
+}
+
 impl EncryptedBlock {
 	/// The block size used for STREAM encryption/decryption. This size seems to offer
 	/// the best performance compared to alternatives.

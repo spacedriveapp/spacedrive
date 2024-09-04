@@ -115,7 +115,7 @@ impl KeyStore {
 		rng: &mut CryptoRng,
 		keys_file_path: &PathBuf,
 	) -> Result<(), Error> {
-		let plain_text_bytes = postcard::to_stdvec(self)?;
+		let plain_text_bytes = postcard::to_stdvec(self).map_err(Error::KeyStoreSerialization)?;
 		let mut file = BufWriter::with_capacity(
 			EncryptedBlock::CIPHER_TEXT_SIZE,
 			fs::OpenOptions::new()
@@ -234,7 +234,7 @@ impl KeyStore {
 				))
 			})?;
 
-			key.decrypt(&EncryptedBlock { nonce, cipher_text })
+			key.decrypt_owned(&EncryptedBlock { nonce, cipher_text })
 				.map_err(|e| Error::KeyStoreCrypto {
 					source: e,
 					context: "Failed to oneshot decrypt space keys file",
@@ -266,7 +266,7 @@ impl KeyStore {
 
 			key_store_bytes
 		})
-		.map_err(Into::into)
+		.map_err(Error::KeyStoreSerialization)
 	}
 }
 

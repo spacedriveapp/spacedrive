@@ -29,6 +29,7 @@ async-trait         = "0.1.80"
 axum                = "0.6.20"                                       # Update blocked by hyper
 base64              = "0.22.1"
 blake3              = "1.5"
+bytes               = "1.7.1"                                        # Update blocked by hyper
 chrono              = "0.4.38"
 ed25519-dalek       = "2.1"
 flume               = "0.11.0"

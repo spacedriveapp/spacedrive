@@ -161,7 +161,7 @@ mod tests {
 		let key = SecretKey::generate(&mut rng);
 
 		let encrypted_block = key.encrypt(message, &mut rng).unwrap();
-		let decrypted_message = key.decrypt(&encrypted_block).unwrap();
+		let decrypted_message = key.decrypt_owned(&encrypted_block).unwrap();
 
 		assert_eq!(message, decrypted_message.as_slice());
 	}

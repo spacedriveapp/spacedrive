@@ -1,22 +1,28 @@
-use crate::CloudServices;
+use crate::{CloudServices, Error};
 
-use sd_actors::ActorsCollection;
+use futures_concurrency::future::TryJoin;
+use sd_core_sync::{SyncManager, NTP64};
+
+use sd_actors::{ActorsCollection, IntoActor};
 use sd_cloud_schema::sync::groups;
-use sd_core_sync::SyncManager;
-
 use sd_crypto::CryptoRng;
-use sd_prisma::prisma::PrismaClient;
 
 use std::{
 	fmt,
+	path::Path,
 	sync::{atomic::AtomicBool, Arc},
+	time::{SystemTime, UNIX_EPOCH},
 };
 
+use chrono::{DateTime, Utc};
 use tokio::sync::Notify;
 
-pub mod ingest;
-pub mod receive;
-pub mod send;
+mod ingest;
+mod receive;
+mod send;
+
+use receive::Receiver;
+use send::Sender;
 
 #[derive(Default)]
 pub struct SyncActorsState {
@@ -45,58 +51,40 @@ impl fmt::Display for SyncActors {
 }
 
 pub async fn declare_actors(
+	data_dir: Box<Path>,
 	cloud_services: Arc<CloudServices>,
 	actors: &ActorsCollection<SyncActors>,
 	actors_state: &SyncActorsState,
 	sync_group_pub_id: groups::PubId,
 	sync: SyncManager,
-	db: Arc<PrismaClient>,
 	rng: CryptoRng,
-) {
+) -> Result<(), Error> {
 	let ingest_notify = Arc::new(Notify::new());
 
+	let (sender, receiver) = (
+		Sender::new(
+			sync_group_pub_id,
+			sync.clone(),
+			Arc::clone(&cloud_services),
+			Arc::clone(&actors_state.send_active),
+			Arc::clone(&actors_state.notifier),
+			rng,
+		),
+		Receiver::new(
+			data_dir,
+			sync_group_pub_id,
+			cloud_services,
+			sync,
+			ingest_notify,
+			Arc::clone(&actors_state.receive_active),
+			Arc::clone(&actors_state.notifier),
+		),
+	)
+		.try_join()
+		.await?;
+
 	actors
-		.declare(SyncActors::Sender, {
-			let sync = sync.clone();
-			let cloud_services = Arc::clone(&cloud_services);
-			let active = Arc::clone(&actors_state.send_active);
-			let active_notifier = Arc::clone(&actors_state.notifier);
-
-			move |stop| {
-				send::run_actor(
-					sync_group_pub_id,
-					sync,
-					cloud_services,
-					active,
-					active_notifier,
-					rng,
-					stop,
-				)
-			}
-		})
-		.await;
-
-	actors
-		.declare(SyncActors::Receiver, {
-			let sync = sync.clone();
-			let cloud_services = cloud_services.clone();
-			let db = Arc::clone(&db);
-			let active = Arc::clone(&actors_state.receive_active);
-			let ingest_notify = Arc::clone(&ingest_notify);
-			let active_notifier = Arc::clone(&actors_state.notifier);
-
-			move |stop| {
-				receive::run_actor(
-					db,
-					sync_group_pub_id,
-					cloud_services,
-					sync,
-					ingest_notify,
-					(active, active_notifier),
-					stop,
-				)
-			}
-		})
+		.declare_many_boxed([sender.into_actor(), receiver.into_actor()])
 		.await;
 
 	// actors
@@ -113,4 +101,18 @@ pub async fn declare_actors(
 	// 		autorun,
 	// 	)
 	// 	.await;
+
+	Ok(())
+}
+
+fn datetime_to_timestamp(latest_time: DateTime<Utc>) -> NTP64 {
+	NTP64::from(
+		SystemTime::from(latest_time)
+			.duration_since(UNIX_EPOCH)
+			.expect("hardcoded earlier time, nothing is earlier than UNIX_EPOCH"),
+	)
+}
+
+fn timestamp_to_datetime(timestamp: NTP64) -> DateTime<Utc> {
+	DateTime::from(timestamp.to_system_time())
 }
