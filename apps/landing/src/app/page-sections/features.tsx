@@ -13,8 +13,7 @@ export const Features = () => {
 			{info.map((item, index) => (
 				<Feature
 					key={index}
-					className={clsx((index === 1 || index === 3) && 'items-center')}
-					titleClassName={clsx((index === 1 || index === 3) && 'self-start pl-24')}
+					titleClassName={clsx((index === 1 || index === 3) && 'self-start')}
 					title={item.title}
 					imageSrc={item.imageSrc}
 					description={item.description}
@@ -34,9 +33,9 @@ interface Props {
 
 const Feature = ({ title, description, className, titleClassName, imageSrc }: Props) => {
 	return (
-		<div className={clsx('flex h-[700px] flex-[50%] flex-col gap-3 pt-16', className)}>
+		<div className={clsx('flex h-[700px] flex-[50%] flex-col gap-3 pl-16 pt-16', className)}>
 			<h1 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h1>
-			<p className="w-full max-w-[390px] text-base text-ink-faint">{description}</p>
+			<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
 			<Image
 				className="mt-8 px-8"
 				loading="eager"

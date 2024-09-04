@@ -14,14 +14,8 @@ interface HeroImageProps {
 
 export const HeroImage: React.FC<HeroImageProps> = ({ src, alt, width, height }) => {
 	return (
-		<Tilt
-			tiltMaxAngleX={8}
-			tiltMaxAngleY={8}
-			scale={1.02}
-			transitionSpeed={3000}
-			glareEnable={false}
-		>
-			<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-[10px] transition-transform duration-700 ease-in-out md:mt-0">
+		<Tilt tiltMaxAngleX={2} tiltMaxAngleY={2} transitionSpeed={5000} glareEnable={false}>
+			<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-[10px] opacity-85 transition-transform duration-700 ease-in-out md:mt-0">
 				<div className="flex flex-col items-center justify-center">
 					<div className="z-30 flex w-full justify-center backdrop-blur">
 						<div className="relative h-auto w-full max-w-[1200px]">
