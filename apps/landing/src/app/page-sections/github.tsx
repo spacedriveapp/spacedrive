@@ -1,7 +1,6 @@
 import { Github as GithubLogo } from '@sd/assets/svgs/brands';
 import React from 'react';
-
-import { CtaSecondaryButton } from '../cta-secondary-button';
+import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 export const Github = () => {
 	return (
