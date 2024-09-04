@@ -34,9 +34,8 @@ export function NavBar() {
 		<>
 			{/* Main Navbar */}
 			<motion.nav
-				// eslint-disable-next-line tailwindcss/no-contradicting-classname
 				className={clsx(
-					'fixed inset-x-0 top-0 z-[110] mx-auto mt-2 w-[calc(100%-2rem)] sm:px-0 md:max-w-[1440px]',
+					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
 					'overflow-hidden rounded-xl bg-gradient-to-b from-[#141419] from-60% to-[#2886D5]/10 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.8]'
 				)}
 				style={{
@@ -50,7 +49,7 @@ export function NavBar() {
 				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				{/* End of Gradient Borders */}
-				<div className="noise noise-faded noise-sm flex flex-wrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
+				<div className="noise noise-faded noise-sm flex flex-nowrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
 					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[1.125rem]">
 						<Link href="/">
@@ -63,7 +62,7 @@ export function NavBar() {
 							/>
 						</Link>
 
-						<div className="hidden items-center whitespace-nowrap xl:flex">
+						<div className="hidden items-center whitespace-nowrap lg:flex">
 							{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 								<NavLink key={`nav-main-${label}-${href}`} href={href}>
 									{label}{' '}
@@ -78,12 +77,16 @@ export function NavBar() {
 					</div>
 
 					{/* Download Button */}
-					<div className="hidden items-center gap-[20px] xl:flex">
-						<CtaPrimaryButton platform={currentPlatform} glow={'sm'} />
+					<div className="hidden items-center gap-[20px] lg:flex">
+						<CtaPrimaryButton
+							shrinksOnSmallScreen
+							platform={currentPlatform}
+							glow={'sm'}
+						/>
 					</div>
 
 					{/* List Icon */}
-					<div className="flex items-center gap-[20px] xl:hidden">
+					<div className="flex items-center gap-[20px] lg:hidden">
 						<motion.button
 							className="block"
 							onClick={() => setIsMenuOpen(!isMenuOpen)}
