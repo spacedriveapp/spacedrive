@@ -40,9 +40,17 @@ const Feature = ({ title, description, className, titleClassName, imageSrc, size
 				<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
 			</div>
 			{/* Container needed to force <Image> into custom sizes */}
-			<div className="mx-auto h-auto w-auto">
+			<div
+				style={{
+					width: '100%',
+					maxWidth: imageSize.width,
+					height: 'fit-content',
+					maxHeight: imageSize.height
+				}}
+				className="mx-auto"
+			>
 				<Image
-					className="mt-8 px-8"
+					className="px-8 mt-8"
 					loading="eager"
 					layout="responsive"
 					width={imageSize.width}
@@ -60,7 +68,7 @@ const info: {
 	title: string;
 	description: string;
 	imageSrc: string;
-	scale?: number;
+	size?: { width: number; height?: number };
 }[] = [
 	{
 		title: 'Spacedrop',
@@ -72,7 +80,8 @@ const info: {
 		title: 'Tags',
 		description:
 			'Organize and find your files faster by assigning custom tags to your folders and documents. Simplify your data management with easy categorization.',
-		imageSrc: '/images/bento/tags.webp'
+		imageSrc: '/images/bento/tags.webp',
+		size: { width: 320, height: 308 }
 	},
 	{
 		title: 'End-To-End Encryption',
@@ -84,6 +93,7 @@ const info: {
 		title: 'Extensions',
 		description:
 			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.',
-		imageSrc: '/images/bento/extensions.webp'
+		imageSrc: '/images/bento/extensions.webp',
+		size: { width: 360, height: 232 }
 	}
 ];
