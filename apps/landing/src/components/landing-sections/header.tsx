@@ -1,10 +1,10 @@
-import Image from 'next/image';
 import React from 'react';
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
 import Particles from '~/particles';
 import { toTitleCase } from '~/utils/misc';
 
 import { GoldenBadge } from '../golden-badge';
+import { HeroImage } from '../hero-image'; // Import the client-side component
 import { HomeCtaButtons } from '../home-cta-buttons';
 
 export const metadata = {
@@ -58,14 +58,6 @@ export async function Header() {
 
 			<div>
 				<div className="xl2:relative z-30 flex h-[255px] w-full px-6 sm:h-[428px] md:mt-12 md:h-[428px] lg:h-auto">
-					<Image
-						loading="eager"
-						className="absolute-horizontal-center animation-delay-2 top-[380px] -z-10 select-none fade-in xs:top-[180px] md:top-[130px]"
-						width={1200}
-						height={626}
-						alt="l"
-						src="/images/app/gradient.webp"
-					/>
 					<div className="absolute inset-x-0 top-[450px] mx-auto flex size-[200px] md:size-[500px]">
 						<Particles
 							quantity={80}
@@ -77,24 +69,12 @@ export async function Header() {
 							vx={-0.05}
 						/>
 					</div>
-					<div className="relative m-auto mt-10 flex w-full max-w-7xl overflow-hidden rounded-[10px] transition-transform duration-700 ease-in-out md:mt-0">
-						<div className="flex flex-col items-center justify-center">
-							<div className="z-30 flex w-full justify-center backdrop-blur">
-								<div className="relative h-auto w-full max-w-[1200px]">
-									<div className="h-px w-full bg-gradient-to-r from-transparent via-[#008BFF]/40 to-transparent" />
-									<div className="absolute inset-x-0 top-0 z-[110] size-full bg-gradient-to-b from-transparent to-[#0E0E12]" />
-									<Image
-										loading="eager"
-										layout="responsive"
-										width={1200}
-										height={800}
-										alt="Spacedrive App Image"
-										src="/images/app/wip/MultiDeviceOverview.png"
-									/>
-								</div>
-							</div>
-						</div>
-					</div>
+					<HeroImage
+						src="/images/app/wip/MultiDeviceOverview.png"
+						alt="Spacedrive App Image"
+						width={1200}
+						height={800}
+					/>
 				</div>
 			</div>
 		</div>
