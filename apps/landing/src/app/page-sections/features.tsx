@@ -4,10 +4,11 @@ import React from 'react';
 
 export const Features = () => {
 	return (
-		<div className="relative mx-auto flex h-auto w-full max-w-[1200px] flex-col flex-wrap gap-14 p-4 md:flex-row md:gap-0">
+		<div className="relative mx-auto flex h-auto w-full max-w-[1200px] flex-col flex-wrap items-center justify-center gap-14 p-4 md:flex-row md:gap-0">
 			{/** Lines & middle circle */}
 			<div className="absolute inset-x-0 mx-auto hidden h-[90%] w-px bg-gradient-to-b from-transparent via-[#6C708F]/30 to-transparent md:flex" />
 			<div className="absolute hidden h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F]/30 to-transparent md:flex" />
+			<div className="absolute left-1/2 top-1/2 z-10 mx-auto size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#636783]" />
 			{/** Features */}
 			{info.map((item, index) => (
 				<Feature
@@ -39,9 +40,9 @@ const Feature = ({ title, description, className, titleClassName, imageSrc, size
 				<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
 			</div>
 			{/* Container needed to force <Image> into custom sizes */}
-			<div className="w-auto h-auto mx-auto">
+			<div className="mx-auto h-auto w-auto">
 				<Image
-					className="px-8 mt-8"
+					className="mt-8 px-8"
 					loading="eager"
 					layout="responsive"
 					width={imageSize.width}

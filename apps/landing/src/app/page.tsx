@@ -1,11 +1,4 @@
-import {
-	Assistant,
-	Explorer,
-	Features,
-	Github,
-	Header,
-	Search
-} from '~/app/page-sections';
+import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
 
 export default function Page() {
 	return (

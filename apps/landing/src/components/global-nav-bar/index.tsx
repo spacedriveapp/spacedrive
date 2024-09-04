@@ -14,13 +14,25 @@ import '~/styles/navbar.css';
 import { useCurrentPlatform } from '~/utils/current-platform';
 import { ExternalLinkRegex } from '~/utils/regex-external-link';
 
+// If we had pages filled out, we could use this to generate the navigation items
+// const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
+// 	{ label: 'Explorer', href: '/' },
+// 	{ label: 'Cloud', href: '/cloud' },
+// 	{ label: 'Teams', href: '/teams' },
+// 	{ label: 'Assistant', href: '/assistant', adornment: 'New' },
+// 	{ label: 'Store', href: '/store' },
+// 	{ label: 'Use Cases', href: '/use-cases' },
+// 	{ label: 'Blog', href: '/blog' },
+// 	{ label: 'Docs', href: '/docs' }
+// ];
+
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
-	{ label: 'Explorer', href: '/' },
-	{ label: 'Cloud', href: '/cloud' },
-	{ label: 'Teams', href: '/teams' },
-	{ label: 'Assistant', href: '/assistant', adornment: 'New' },
-	{ label: 'Store', href: '/store' },
-	{ label: 'Use Cases', href: '/use-cases' },
+	{ label: 'Explorer', href: '#' },
+	{ label: 'Cloud', href: '#' },
+	{ label: 'Teams', href: '#' },
+	{ label: 'Assistant', href: '#', adornment: 'New' },
+	{ label: 'Store', href: '#' },
+	{ label: 'Use Cases', href: '#' },
 	{ label: 'Blog', href: '/blog' },
 	{ label: 'Docs', href: '/docs' }
 ];
