@@ -5,7 +5,7 @@ import {
 	Github,
 	Header,
 	Search
-} from '~/components/landing-sections';
+} from '~/app/page-sections';
 
 export default function Page() {
 	return (
