@@ -1,29 +1,31 @@
 import clsx from 'clsx';
 import Image, { StaticImageData } from 'next/image';
-import extenstionsIllustration from '~/assets/illustration/extensions.webp';
+import extensionsIllustration from '~/assets/illustration/extensions.webp';
 import spacedropIllustration from '~/assets/illustration/spacedrop.webp';
 import tagsIllustration from '~/assets/illustration/tags.webp';
 import vaultIllustration from '~/assets/illustration/vault.webp';
 
 export const Features = () => {
 	return (
-		<section className="container relative mx-auto flex h-auto flex-col flex-wrap items-center justify-center gap-14 p-4 md:flex-row md:gap-0">
+		<section className="container relative mx-auto flex items-center justify-center p-4">
 			<h2 className="sr-only">Features</h2>
 			{/** Lines & middle circle */}
-			<div className="absolute inset-x-0 mx-auto hidden h-[90%] w-px bg-gradient-to-b from-transparent via-[#6C708F]/30 to-transparent md:flex" />
-			<div className="absolute hidden h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F]/30 to-transparent md:flex" />
-			<div className="absolute left-1/2 top-1/2 z-10 mx-auto size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#636783]" />
+			<div className="absolute inset-x-0 mx-auto hidden h-[90%] w-px bg-gradient-to-b from-transparent via-[#6C708F]/30 to-transparent lg:flex" />
+			<div className="absolute hidden h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F]/30 to-transparent lg:flex" />
+			<div className="absolute left-1/2 top-1/2 z-10 mx-auto hidden size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#636783] lg:flex" />
 			{/** Features */}
-			{info.map((item, index) => (
-				<Feature
-					{...item}
-					key={index}
-					titleClassName={clsx((index === 1 || index === 3) && 'self-start')}
-					title={item.title}
-					image={item.image}
-					description={item.description}
-				/>
-			))}
+			<div className="grid grid-cols-1 grid-rows-4 max-lg:gap-14 lg:grid-cols-2 lg:grid-rows-2">
+				{info.map((item, index) => (
+					<Feature
+						{...item}
+						key={index}
+						titleClassName={clsx((index === 1 || index === 3) && 'self-start')}
+						title={item.title}
+						image={item.image}
+						description={item.description}
+					/>
+				))}
+			</div>
 		</section>
 	);
 };
@@ -45,16 +47,15 @@ const Feature = ({
 	image: { src: image, alt = '', maxWidth }
 }: Props) => {
 	return (
-		<div className={clsx('flex h-[580px] flex-[50%] flex-col gap-3 pt-16 md:pl-16', className)}>
+		<div className={clsx('flex w-full flex-col gap-3 px-8 pb-8 pt-6', className)}>
 			<div className="flex flex-col gap-1">
 				<h1 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h1>
-				<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
+				<p className="w-full max-w-96 text-ink-faint">{description}</p>
 			</div>
 			{/* Container needed to force <Image> into custom sizes */}
 			<Image
-				className="mt-8 h-full w-full object-contain px-8"
+				className="mt-8 size-full overflow-hidden object-contain object-left-top px-8"
 				loading="eager"
-				layout="responsive"
 				quality={100}
 				style={{
 					maxWidth
@@ -95,7 +96,8 @@ const info = [
 		image: {
 			src: vaultIllustration,
 			// TODO: write alt text
-			alt: ''
+			alt: '',
+			maxWidth: 540
 		}
 	},
 	{
@@ -103,9 +105,10 @@ const info = [
 		description:
 			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.',
 		image: {
-			src: extenstionsIllustration,
+			src: extensionsIllustration,
 			// TODO: write alt text
-			alt: ''
+			alt: '',
+			maxWidth: 380
 		}
 	}
 ] satisfies {
