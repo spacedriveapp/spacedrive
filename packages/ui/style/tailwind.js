@@ -20,8 +20,7 @@ module.exports = function (app, options) {
 				sm: '650px',
 				md: '868px',
 				lg: '1024px',
-				xl: '1280px',
-				...defaultTheme.screens
+				xl: '1280px'
 			},
 			fontSize: {
 				'tiny': '.65rem',
