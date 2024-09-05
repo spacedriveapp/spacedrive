@@ -34,7 +34,7 @@ const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = 
 	{ label: 'Store', href: '#' },
 	{ label: 'Use Cases', href: '#' },
 	{ label: 'Blog', href: '/blog' },
-	{ label: 'Docs', href: '/docs' }
+	{ label: 'Docs', href: '/docs/product/getting-started/introduction' }
 ];
 
 export function NavBar() {
