@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import React from 'react';
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
 import { GoldenBadge } from '~/components/golden-badge';
@@ -10,7 +11,7 @@ export async function Header() {
 	const release = await githubFetch(getLatestRelease);
 	const { frontmatter } = getReleaseFrontmatter(release);
 	return (
-		<div className="flex w-full flex-col items-center px-4">
+		<div className="flex flex-col items-center w-full px-4">
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-8" aria-hidden="true" />
 
@@ -28,7 +29,7 @@ export async function Header() {
 				</span>
 			</h1>
 
-			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
 				Your files, always within reach. Experience seamless synchronization, intuitive
 				management, and powerful discovery tools — all in one place.
 			</p>
@@ -55,6 +56,17 @@ export async function Header() {
 							vx={-0.05}
 						/>
 					</div>
+					{/* 1st light */}
+					<Image
+						loading="eager"
+						className="absolute-horizontal-center animation-delay-2 top-[380px] -z-10 select-none fade-in xs:top-[180px] md:top-[130px]"
+						width={1200}
+						height={626}
+						alt="l"
+						src="/images/app/gradient.webp"
+					/>
+					{/* 2nd light */}
+					<div className="animation-delay-2 absolute-horizontal-center top-[550px] h-[150px] w-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-[40px]" />
 					<HeroImage
 						src="/images/app/wip/MultiDeviceOverview.png"
 						alt="Spacedrive App Image"
