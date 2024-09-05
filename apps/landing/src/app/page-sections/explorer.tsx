@@ -1,4 +1,5 @@
 import React from 'react';
+import { twMerge } from 'tailwind-merge';
 import libraryArt from '~/assets/bento/library.svg?url';
 import lockArt from '~/assets/bento/lock.svg?url';
 import tagsArt from '~/assets/bento/tags.svg?url';
@@ -6,15 +7,19 @@ import { BentoBox } from '~/components/bento-box';
 
 export const Explorer = () => {
 	return (
-		<div className="mx-auto flex w-full max-w-[1200px] flex-col flex-wrap items-center gap-10 p-4">
+		<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 p-4">
 			<h1 className="flex-1 self-start text-2xl font-semibold leading-8 md:text-3xl md:leading-10">
 				Explorer.{' '}
 				<span className="bg-gradient-to-r from-zinc-400 to-zinc-600 bg-clip-text text-transparent">
-					Browse and manage <br />
-					your data like never before.
+					{/* Some controlled line breaks here based on breakpoint to make sure the breaks looks nice always :) */}
+					<br className="lg:hidden" />
+					Browse and manage your data
+					<br className="sm:hidden" /> like never before.
 				</span>
 			</h1>
-			<div className="flex flex-col gap-5 lg:flex-row">
+			<div
+				className={twMerge('grid w-full grid-cols-3 grid-rows-2 gap-5 max-lg:grid-cols-1')}
+			>
 				<BentoBox
 					className="bento-border-top lg:bento-border-left"
 					imageSrc={libraryArt}

@@ -13,7 +13,7 @@ export function GlobalFooter() {
 	return (
 		<>
 			{/* Download Button */}
-			<div className="col-span-2 flex translate-y-3 flex-col items-center justify-center">
+			<div className="col-span-2 mt-20 flex translate-y-2 flex-col items-center justify-center">
 				<div className="translate-y-3.5">
 					<CtaPrimaryButton platform={currentPlatform} />
 				</div>
@@ -26,7 +26,7 @@ export function GlobalFooter() {
 					backgroundPosition: 'center'
 				}}
 			>
-				<div className="container mx-auto grid min-h-80 w-full max-w-[100rem] flex-shrink-0 grid-cols-1 gap-8 fill-[#141419] px-8 pb-20 pt-[5.388125rem] lg:grid-cols-6">
+				<div className="container mx-auto grid min-h-80 w-full flex-shrink-0 grid-cols-1 grid-rows-5 gap-x-8 gap-y-16 fill-[#141419] px-8 pb-20 pt-20 lg:grid-cols-6 lg:grid-rows-1 lg:gap-y-8">
 					<div className="order-10 col-span-2 -ml-5 flex flex-col pt-5 font-sans lg:order-[unset]">
 						<Image
 							src={companyLogoFull}
@@ -72,7 +72,7 @@ export function GlobalFooter() {
 					</div>
 
 					{/* Download Links */}
-					<div>
+					<div className="col-span-1">
 						<h2 className="mb-4 font-semibold uppercase leading-[1.15] tracking-[0.08em] text-ink-faint/80">
 							Downloads
 						</h2>

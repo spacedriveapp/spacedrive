@@ -4,7 +4,8 @@ import spacedropIllustration from '~/assets/illustration/spacedrop.webp';
 
 export const Features = () => {
 	return (
-		<div className="relative mx-auto flex w-full max-w-[1200px] flex-row flex-wrap p-4">
+		<section className="container relative mx-auto flex flex-row flex-wrap p-4">
+			<h2 className="sr-only">Features</h2>
 			{/** Lines & middle circle */}
 			<div className="absolute inset-x-0 mx-auto h-full w-px bg-gradient-to-b from-transparent via-[#6C708F] to-transparent" />
 			<div className="absolute flex h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F] to-transparent" />
@@ -19,7 +20,7 @@ export const Features = () => {
 					description={item.description}
 				/>
 			))}
-		</div>
+		</section>
 	);
 };
 
@@ -39,8 +40,8 @@ const Feature = ({
 	image: { src: image, alt = '' } = {}
 }: Props) => {
 	return (
-		<div className={clsx('flex h-[700px] flex-[50%] flex-col gap-3 pl-16 pt-16', className)}>
-			<h1 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h1>
+		<li className={clsx('flex h-[700px] flex-[50%] flex-col gap-3 pl-16 pt-16', className)}>
+			<h3 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h3>
 			<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
 			{image && (
 				<Image
@@ -52,7 +53,7 @@ const Feature = ({
 					alt={alt}
 				/>
 			)}
-		</div>
+		</li>
 	);
 };
 

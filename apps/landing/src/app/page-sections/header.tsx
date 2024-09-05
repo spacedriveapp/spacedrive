@@ -6,19 +6,6 @@ import { HomeCtaButtons } from '~/components/home-cta-buttons';
 import Particles from '~/components/particles';
 import { toTitleCase } from '~/utils/misc';
 
-export const metadata = {
-	title: 'Spacedrive — A file manager from the future.',
-	description:
-		'Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized.',
-
-	keywords:
-		'files,file manager,spacedrive,file explorer,vdfs,distributed filesystem,cas,content addressable storage,virtual filesystem,photos app, video organizer,video encoder,tags,tag based filesystem',
-	authors: {
-		name: 'Spacedrive Technology Inc.',
-		url: 'https://spacedrive.com'
-	}
-};
-
 export async function Header() {
 	const release = await githubFetch(getLatestRelease);
 	const { frontmatter } = getReleaseFrontmatter(release);

@@ -5,20 +5,21 @@ import Particles from '~/components/particles';
 
 export const Assistant = () => {
 	return (
-		<div className="relative w-full">
+		<section className="relative w-full">
 			{/* Background Image positioned absolutely */}
 			<Image
 				src="/images/new/comet_bg.svg"
-				alt="Background"
+				alt=""
 				width={2000}
 				height={1200}
 				className="absolute bottom-[-300px] left-0 -z-10 overflow-visible"
 			/>
 
-			<div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-col flex-wrap items-start p-4">
+			<div className="container relative z-10 mx-auto flex w-full flex-col flex-wrap items-start p-4">
 				{/* Somewhere there is some mystery padding here. IDK, but magic I guess - @Rocky43007  */}
 
 				<Image
+					className="-ms-8 flex size-64 shrink-0 items-center justify-center"
 					quality={100}
 					src={assistantIcon}
 					width={251}
@@ -26,12 +27,12 @@ export const Assistant = () => {
 					alt=""
 				/>
 
-				<h1 className="flex-1 self-start text-2xl font-semibold leading-8 md:text-3xl md:leading-10">
+				<h2 className="flex-1 self-start text-2xl font-bold leading-8 md:text-3xl md:leading-10">
 					Assistant.{' '}
-					<span className="bg-gradient-to-r from-zinc-400 to-zinc-600 bg-clip-text text-transparent">
+					<span className="bg-gradient-to-r from-[#D1DCFF] via-[#A8BEFF] via-30% to-[#E771FF] bg-clip-text font-semibold text-transparent">
 						Mighty-powerful AI. No cloud needed.
 					</span>
-				</h1>
+				</h2>
 				<div className="absolute inset-0 -z-10 mx-auto mix-blend-overlay">
 					<Particles
 						quantity={50}
@@ -45,16 +46,18 @@ export const Assistant = () => {
 					/>
 				</div>
 
-				<h2 className="mt-[12px] text-lg text-ink-faint">Details to be revealed soon...</h2>
+				<p className="mt-[12px] text-lg tracking-[0.01em] text-ink drop-shadow-md">
+					Details to be revealed soon...
+				</p>
 
 				<div className="mt-[32.73px]">
 					<div className="inline-flex items-center justify-center gap-[10px] rounded-full border-2 border-[#FC79E7] bg-[rgba(43,43,59,0.50)] px-[11px] py-[10px]">
-						<p className="font-plex text-center text-[14px] font-[500] leading-[125%] text-[#FFF]">
+						<p className="text-center font-plex text-[14px] font-[500] leading-[125%] text-[#FFF]">
 							COMING NEXT YEAR
 						</p>
 					</div>
 				</div>
 			</div>
-		</div>
+		</section>
 	);
 };
