@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import React from 'react';
-
+import assistantIcon from '~/assets/assistant_icon.webp';
 import Particles from '~/components/particles';
 
 export const Assistant = () => {
@@ -19,11 +19,11 @@ export const Assistant = () => {
 				{/* Somewhere there is some mystery padding here. IDK, but magic I guess - @Rocky43007  */}
 
 				<Image
-					className="flex size-[251px] shrink-0 items-center justify-center p-[31.375px]"
-					src="/images/new/assistant.svg"
-					width={188.25}
-					height={188.25}
-					alt="Assistant"
+					quality={100}
+					src={assistantIcon}
+					width={251}
+					height={251}
+					alt=""
 				/>
 
 				<h1 className="flex-1 self-start text-2xl font-semibold leading-8 md:text-3xl md:leading-10">

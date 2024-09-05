@@ -1,6 +1,6 @@
 import clsx from 'clsx';
-import Image from 'next/image';
-import React from 'react';
+import Image, { StaticImageData } from 'next/image';
+import spacedropIllustration from '~/assets/illustration/spacedrop.webp';
 
 export const Features = () => {
 	return (
@@ -15,7 +15,7 @@ export const Features = () => {
 					key={index}
 					titleClassName={clsx((index === 1 || index === 3) && 'self-start')}
 					title={item.title}
-					imageSrc={item.imageSrc}
+					image={item.image}
 					description={item.description}
 				/>
 			))}
@@ -26,26 +26,32 @@ export const Features = () => {
 interface Props {
 	title: string;
 	description: string;
-	imageSrc: string;
+	image?: { src?: StaticImageData; alt?: string };
 	className?: string;
 	titleClassName?: string;
 }
 
-const Feature = ({ title, description, className, titleClassName, imageSrc }: Props) => {
+const Feature = ({
+	title,
+	description,
+	className,
+	titleClassName,
+	image: { src: image, alt = '' } = {}
+}: Props) => {
 	return (
 		<div className={clsx('flex h-[700px] flex-[50%] flex-col gap-3 pl-16 pt-16', className)}>
 			<h1 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h1>
 			<p className="w-full max-w-[390px] text-ink-faint">{description}</p>
-			<Image
-				className="mt-8 px-8"
-				loading="eager"
-				layout="responsive"
-				width={500}
-				quality={100}
-				height={500}
-				alt={title}
-				src={imageSrc}
-			/>
+			{image && (
+				<Image
+					className="mt-8 px-8"
+					loading="eager"
+					layout="responsive"
+					src={image}
+					quality={100}
+					alt={alt}
+				/>
+			)}
 		</div>
 	);
 };
@@ -55,24 +61,29 @@ const info = [
 		title: 'Spacedrop',
 		description:
 			'Quickly send files between devices. Just select what you want to share and instantly transfer it to nearby devices on the same network.',
-		imageSrc: '/images/bento/spacedrop.webp'
+		image: {
+			src: spacedropIllustration,
+			// TODO: write alt text for spacedrop image
+			alt: ''
+		}
 	},
 	{
 		title: 'Tags',
 		description:
-			'Organize and find your files faster by assigning custom tags to your folders and documents. Simplify your data management with easy categorization.',
-		imageSrc: ''
+			'Organize and find your files faster by assigning custom tags to your folders and documents. Simplify your data management with easy categorization.'
 	},
 	{
 		title: 'End-To-End Encryption',
 		description:
-			'Any time you send files across a network with Spacedrive, it’s end-to-end encrypted — ensuring that only you can access your files. Ever.',
-		imageSrc: ''
+			'Any time you send files across a network with Spacedrive, it’s end-to-end encrypted — ensuring that only you can access your files. Ever.'
 	},
 	{
 		title: 'Extensions',
 		description:
-			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.',
-		imageSrc: ''
+			'Install add-ons to customize Spacedrive with extra features and integrations, tailoring it to your unique workflow.'
 	}
-];
+] satisfies {
+	title: string;
+	description: string;
+	image?: { src: StaticImageData; alt?: string };
+}[];
