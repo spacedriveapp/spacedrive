@@ -36,7 +36,7 @@ export function NavBar() {
 			<motion.nav
 				className={clsx(
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-[#141419] from-60% to-[#2886D5]/10 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.8]'
+					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% to-primary-900/60 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'
