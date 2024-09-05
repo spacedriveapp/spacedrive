@@ -3,7 +3,7 @@ import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/
 import { GoldenBadge } from '~/components/golden-badge';
 import { HeroImage } from '~/components/hero-image'; // Import the client-side component
 import { HomeCtaButtons } from '~/components/home-cta-buttons';
-import Particles from '~/particles';
+import Particles from '~/components/particles';
 import { toTitleCase } from '~/utils/misc';
 
 export const metadata = {

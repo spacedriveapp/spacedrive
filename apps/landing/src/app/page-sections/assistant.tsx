@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import React from 'react';
 
-import Particles from '../../particles';
+import Particles from '~/components/particles';
 
 export const Assistant = () => {
 	return (
