@@ -29,12 +29,12 @@ export function BentoBox({
 			className={clsx(
 				className,
 				'relative',
-				'flex h-[440px] w-full max-w-[375px]',
+				'flex flex-col',
 				'shrink-0 flex-col justify-between rounded-[10px]',
 				'bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] px-[29px] pb-[30px]'
 			)}
 		>
-			<div className="flex grow flex-col items-center justify-center">
+			<div className="flex h-full place-items-center justify-center px-5 pb-2 pt-5 max-xl:justify-start">
 				<Image
 					loading="eager"
 					className="fade-in"
@@ -44,10 +44,11 @@ export function BentoBox({
 					src={imageSrc}
 				/>
 			</div>
-			<div className="mx-4">
-				<div className="inline-flex h-[102] w-[342] items-center pb-[10px]">
-					<div
-						className={`mr-[10px] h-[15px] w-[4px] rounded-[11px]`}
+			<hgroup className="ms-3 flex max-w-screen-sm flex-col gap-2 px-2">
+				<div className="mb-1.5 inline-flex items-center">
+					<span
+						aria-hidden
+						className="-ml-3.5 mr-2.5 h-5 w-1 rounded-full"
 						style={{
 							backgroundColor: `${titleColor}`
 						}}
@@ -56,10 +57,10 @@ export function BentoBox({
 						{title}
 					</h3>
 				</div>
-				<div className="text-left text-[16px] font-[400] leading-[24px] tracking-[0.16px] text-ink-faint">
+				<p className="text-left text-base leading-snug tracking-wide text-ink-faint">
 					{description}
-				</div>
-			</div>
+				</p>
+			</hgroup>
 		</div>
 	);
 }

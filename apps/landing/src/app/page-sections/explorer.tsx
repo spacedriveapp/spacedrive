@@ -13,7 +13,7 @@ export const Explorer = () => {
 			</h1>
 			<div className="flex flex-col gap-5 lg:flex-row">
 				<BentoBox
-					className="bento-card-border-left"
+					className="bento-border-top lg:bento-border-left"
 					imageSrc="/images/new/bento_1.svg"
 					imageAlt="Library"
 					title="Seamless Sync & Access"
@@ -28,7 +28,7 @@ export const Explorer = () => {
 					description="Your data is yours. With Spacedrive’s top-notch security, only you can access your information — no third parties, no exceptions."
 				/>
 				<BentoBox
-					className="bento-card-border-right"
+					className="bento-border-bottom lg:bento-border-right"
 					imageSrc="/images/new/bento_3.svg"
 					imageAlt="Tags"
 					title="Effortless Organization"
