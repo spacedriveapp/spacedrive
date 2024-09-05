@@ -54,7 +54,7 @@ const Feature = ({
 			</div>
 			{/* Container needed to force <Image> into custom sizes */}
 			<Image
-				className="mt-8 size-full overflow-hidden object-contain object-left-top px-8"
+				className="mt-8 size-full overflow-hidden object-contain object-left-top pe-7 ps-2"
 				loading="eager"
 				quality={100}
 				style={{
