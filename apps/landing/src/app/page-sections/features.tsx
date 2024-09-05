@@ -7,14 +7,14 @@ import vaultIllustration from '~/assets/illustration/vault.webp';
 
 export const Features = () => {
 	return (
-		<section className="container relative mx-auto flex items-center justify-center p-4">
+		<section className="container relative flex items-center justify-center p-4 mx-auto">
 			<h2 className="sr-only">Features</h2>
 			{/** Lines & middle circle */}
 			<div className="absolute inset-x-0 mx-auto hidden h-[90%] w-px bg-gradient-to-b from-transparent via-[#6C708F]/30 to-transparent lg:flex" />
 			<div className="absolute hidden h-px w-full self-center bg-gradient-to-r from-transparent via-[#6C708F]/30 to-transparent lg:flex" />
 			<div className="absolute left-1/2 top-1/2 z-10 mx-auto hidden size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#636783] lg:flex" />
 			{/** Features */}
-			<div className="grid grid-cols-1 grid-rows-4 max-lg:gap-14 lg:grid-cols-2 lg:grid-rows-2">
+			<div className="grid grid-cols-1 max-lg:gap-14 lg:grid-cols-2">
 				{info.map((item, index) => (
 					<Feature
 						{...item}
@@ -59,9 +59,8 @@ const Feature = ({
 				<h1 className={clsx('text-2xl font-semibold', titleClassName)}>{title}</h1>
 				<p className="w-full max-w-96 text-ink-faint">{description}</p>
 			</div>
-			{/* Container needed to force <Image> into custom sizes */}
 			<Image
-				className="mt-8 size-full overflow-hidden object-contain object-left-top pe-7 ps-2"
+				className="object-contain mx-auto my-6 overflow-hidden size-full"
 				loading="eager"
 				quality={100}
 				style={{
@@ -83,7 +82,8 @@ const info = [
 		image: {
 			src: spacedropIllustration,
 			// TODO: write alt text
-			alt: ''
+			alt: '',
+			maxWidth: 450
 		}
 	},
 	{
@@ -94,7 +94,7 @@ const info = [
 			src: tagsIllustration,
 			// TODO: write alt text
 			alt: '',
-			maxWidth: 320
+			maxWidth: 260
 		}
 	},
 	{
@@ -105,7 +105,7 @@ const info = [
 			src: vaultIllustration,
 			// TODO: write alt text
 			alt: '',
-			maxWidth: 540
+			maxWidth: 450
 		}
 	},
 	{
@@ -116,7 +116,7 @@ const info = [
 			src: extensionsIllustration,
 			// TODO: write alt text
 			alt: '',
-			maxWidth: 380
+			maxWidth: 280
 		}
 	}
 ] satisfies {

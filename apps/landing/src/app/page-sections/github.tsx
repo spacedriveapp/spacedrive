@@ -4,11 +4,11 @@ import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 export const Github = () => {
 	return (
-		<section className="container mx-auto flex w-full flex-col flex-wrap items-start px-4">
+		<section className="container flex flex-col flex-wrap items-start w-full px-4 mx-auto">
 			<hgroup>
-				<h1 className="flex-1 self-start text-2xl font-bold leading-8 md:text-3xl md:leading-10">
+				<h1 className="self-start flex-1 text-2xl font-bold leading-8 md:text-3xl md:leading-10">
 					Free and open-source.{' '}
-					<span className="bg-gradient-to-r from-zinc-400 to-zinc-500/70 bg-clip-text font-semibold text-transparent">
+					<span className="font-semibold text-transparent bg-gradient-to-r from-zinc-400 to-zinc-500/70 bg-clip-text">
 						See for yourself.
 					</span>
 				</h1>
@@ -19,7 +19,7 @@ export const Github = () => {
 					to do so — we welcome and appreciate contributions!
 				</p>
 			</hgroup>
-			<div className="mt-[36px]">
+			<div className="relative z-10 mt-[36px]">
 				<CtaSecondaryButton
 					icon={<GithubLogo fill="#CBDBEC" className="size-5 opacity-60" />}
 					href="https://github.com/spacedriveapp/spacedrive"

@@ -1,25 +1,37 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { PropsWithChildren } from 'react';
 import companyLogoFull from '~/assets/company_full_logo.svg?url';
 import { CtaPrimaryButton } from '~/components/cta-primary-button';
 import { useCurrentPlatform } from '~/utils/current-platform';
+
+import Particles from './particles';
 
 export function GlobalFooter() {
 	const currentPlatform = useCurrentPlatform();
 
 	return (
-		<>
+		<div className="relative">
 			{/* Download Button */}
-			<div className="col-span-2 mt-20 flex translate-y-2 flex-col items-center justify-center">
-				<div className="translate-y-3.5">
+			<div className="relative z-20 flex flex-col items-center justify-center col-span-2 mt-20 translate-y-2">
+				<div className="relative translate-y-3.5">
 					<CtaPrimaryButton platform={currentPlatform} />
 				</div>
 			</div>
+			<div className="absolute inset-x-0 top-[-100px] mx-auto size-[200px] md:size-[500px]">
+				<Particles
+					quantity={50}
+					ease={80}
+					staticity={100}
+					color={'#58B3FF'}
+					refresh
+					vy={-0.2}
+					vx={-0.05}
+				/>
+			</div>
+			<div className="animation-delay-2 absolute-horizontal-center top-[-40px] h-[250px] w-[450px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/30 blur-[60px] fade-in" />
 			<footer
-				className="pt-12 text-gray-200"
+				className="relative z-10 pt-12 text-gray-200"
 				style={{
 					backgroundImage: `url('data:image/svg+xml,%3Csvg xmlns%3D%22http%3A//www.w3.org/2000/svg%22 viewBox%3D%220 0 1920 420%22 fill%3D%22none%22%3E%3Cpath d%3D%22M0 49.5L-0.0924661 48.5043L-1 48.5886V49.5V419.998V420.998H0H1920H1921V419.998V49.5V48.5886L1920.09 48.5043L1920 49.5C1920.09 48.5043 1920.09 48.5041 1920.09 48.5037L1920.07 48.5021L1920 48.4957L1919.73 48.4704L1918.63 48.3702C1917.67 48.2817 1916.23 48.1506 1914.33 47.9795C1910.53 47.6373 1904.91 47.1354 1897.58 46.4967C1882.93 45.2193 1861.5 43.3945 1834.35 41.2048C1780.04 36.8253 1702.88 30.9861 1611.44 25.147C1428.55 13.4688 1188.53 1.78979 960 1.78968C731.47 1.78958 491.446 13.4685 308.561 25.1468C217.117 30.986 139.955 36.8252 85.654 41.2047C58.5032 43.3945 37.0674 45.2193 22.419 46.4967C15.0947 47.1354 9.46731 47.6373 5.67073 47.9795C3.77243 48.1506 2.33185 48.2817 1.36574 48.3702C0.882678 48.4144 0.518236 48.4479 0.274504 48.4704L-0.000299077 48.4957L-0.0693103 48.5021L-0.0866324 48.5037C-0.0905066 48.5041 -0.0924661 48.5043 0 49.5Z%22 fill%3D%22%23141419%22 stroke%3D%22url%28%23paint0_linear_1926_240%29%22 stroke-width%3D%222%22/%3E%3Cdefs%3E%3ClinearGradient id%3D%22paint0_linear_1926_240%22 x1%3D%220%22 y1%3D%22167.5%22 x2%3D%221920%22 y2%3D%22167.5%22 gradientUnits%3D%22userSpaceOnUse%22%3E%3Cstop offset%3D%220.319255%22 stop-color%3D%22%231E1E26%22 stop-opacity%3D%220.4%22/%3E%3Cstop offset%3D%220.495%22 stop-color%3D%22%233692DF%22/%3E%3Cstop offset%3D%220.661993%22 stop-color%3D%22%231E1E26%22 stop-opacity%3D%220.5%22/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E')`,
 					backgroundSize: 'cover',
@@ -109,14 +121,14 @@ export function GlobalFooter() {
 									Linux
 								</a>
 							</li>
-							<li className="w-fit cursor-not-allowed">
+							<li className="cursor-not-allowed w-fit">
 								<a className="pointer-events-none text-gray-450" href="#">
 									iOS
 								</a>
 							</li>
-							<li className="w-fit cursor-not-allowed">
+							<li className="cursor-not-allowed w-fit">
 								<a
-									className="pointer-events-none cursor-not-allowed text-gray-450"
+									className="cursor-not-allowed pointer-events-none text-gray-450"
 									href="#"
 								>
 									Android
@@ -184,24 +196,6 @@ export function GlobalFooter() {
 					</div>
 				</div>
 			</footer>
-		</>
-	);
-}
-
-function FooterLink({
-	blank,
-	link,
-	...props
-}: PropsWithChildren<{ link: string; blank?: boolean }>) {
-	return (
-		<Link
-			href={link}
-			target={blank ? '_blank' : ''}
-			className="text-gray-300 duration-300 hover:text-white hover:opacity-50"
-			rel="noreferrer"
-			{...props}
-		>
-			{props.children}
-		</Link>
+		</div>
 	);
 }

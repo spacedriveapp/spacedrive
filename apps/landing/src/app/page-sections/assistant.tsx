@@ -12,28 +12,27 @@ export const Assistant = () => {
 				alt=""
 				width={2000}
 				height={1200}
-				className="absolute bottom-[-300px] left-0 -z-10 overflow-visible"
+				className="absolute bottom-[-350px] left-0 -z-10 overflow-visible"
 			/>
 
-			<div className="container relative z-10 mx-auto flex w-full flex-col flex-wrap items-start p-4">
+			<div className="container relative z-10 flex flex-col flex-wrap items-start w-full p-4 mx-auto">
 				{/* Somewhere there is some mystery padding here. IDK, but magic I guess - @Rocky43007  */}
 
-				<Image
-					className="-ms-8 flex size-64 shrink-0 items-center justify-center"
-					quality={100}
-					src={assistantIcon}
-					width={251}
-					height={251}
-					alt=""
-				/>
-
-				<h2 className="flex-1 self-start text-2xl font-bold leading-8 md:text-3xl md:leading-10">
+				<h2 className="flex items-center flex-1 gap-2 text-2xl font-bold leading-8 md:text-3xl md:leading-10">
+					<Image
+						className="flex justify-center size-12 shrink-0"
+						quality={100}
+						src={assistantIcon}
+						width={251}
+						height={251}
+						alt=""
+					/>
 					Assistant.{' '}
 					<span className="bg-gradient-to-r from-[#D1DCFF] via-[#A8BEFF] via-30% to-[#E771FF] bg-clip-text font-semibold text-transparent">
 						Mighty-powerful AI. No cloud needed.
 					</span>
 				</h2>
-				<div className="absolute inset-0 -z-10 mx-auto mix-blend-overlay">
+				<div className="absolute inset-x-0 -z-10 mix-blend-overlay">
 					<Particles
 						quantity={50}
 						ease={100}
