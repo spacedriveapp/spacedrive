@@ -11,7 +11,7 @@ export async function Header() {
 	const release = await githubFetch(getLatestRelease);
 	const { frontmatter } = getReleaseFrontmatter(release);
 	return (
-		<div className="flex flex-col items-center w-full px-4">
+		<div className="flex w-full flex-col items-center px-4">
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-8" aria-hidden="true" />
 
@@ -29,7 +29,7 @@ export async function Header() {
 				</span>
 			</h1>
 
-			<p className="z-30 max-w-4xl mt-1 mb-8 text-center animation-delay-1 fade-in-heading text-md leading-2 text-gray-450 lg:text-lg lg:leading-8">
+			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
 				Your files, always within reach. Experience seamless synchronization, intuitive
 				management, and powerful discovery tools — all in one place.
 			</p>

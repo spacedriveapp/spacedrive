@@ -29,7 +29,7 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
 	{ label: 'Explorer', href: '#' },
 	{ label: 'Cloud', href: '#' },
-	{ label: 'Teams', href: '#' },
+	{ label: 'Teams', href: '/teams' },
 	{ label: 'Assistant', href: '#', adornment: 'New' },
 	{ label: 'Store', href: '#' },
 	{ label: 'Use Cases', href: '#' },
