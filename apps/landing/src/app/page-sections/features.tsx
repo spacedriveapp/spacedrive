@@ -30,10 +30,17 @@ export const Features = () => {
 	);
 };
 
+interface FeatureImage {
+	src: StaticImageData;
+	alt: string;
+	maxWidth?: number;
+	maxHeight?: number;
+}
+
 interface Props {
 	title: string;
 	description: string;
-	image: { src: StaticImageData; alt: string; maxWidth?: number };
+	image: FeatureImage;
 	className?: string;
 	titleClassName?: string;
 	scale?: number;
@@ -44,7 +51,7 @@ const Feature = ({
 	description,
 	className,
 	titleClassName,
-	image: { src: image, alt = '', maxWidth }
+	image: { src: image, alt = '', maxWidth, maxHeight }
 }: Props) => {
 	return (
 		<div className={clsx('flex w-full flex-col gap-3 px-8 pb-8 pt-6', className)}>
@@ -58,7 +65,8 @@ const Feature = ({
 				loading="eager"
 				quality={100}
 				style={{
-					maxWidth
+					maxWidth,
+					maxHeight
 				}}
 				src={image}
 				alt={alt}
@@ -114,5 +122,5 @@ const info = [
 ] satisfies {
 	title: string;
 	description: string;
-	image: { src: StaticImageData; alt: string; maxWidth?: number };
+	image: FeatureImage;
 }[];
