@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowsInLineHorizontal, CaretUpDown } from '@phosphor-icons/react';
+// adapted from https://github.com/unhingedmagikarp/comparison-slider/blob/main/src/app/components/Slider/index.ts
+import { CaretUpDown } from '@phosphor-icons/react';
 import Image, { StaticImageData } from 'next/image';
 import { useState } from 'react';
 
@@ -63,14 +64,14 @@ export const Slider: React.FC<SliderProps> = ({ beforeImage, afterImage }) => {
 
 				{/* Slider handle */}
 				<div
-					className="absolute bottom-0 top-0 w-[2px] cursor-ew-resize bg-white"
+					className="absolute inset-y-0 w-[2px] cursor-ew-resize bg-white"
 					style={{
 						left: `calc(${sliderPosition}% - 1px)`
 					}}
 				>
 					<CaretUpDown
 						size={48}
-						className="absolute -left-[22px] top-[calc(50%-10px)]"
+						className="absolute left-[-22px] top-[calc(50%-10px)]"
 						style={{ transform: 'rotate(90deg)' }}
 					/>
 				</div>
