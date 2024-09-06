@@ -4,7 +4,7 @@ import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 export const Github = () => {
 	return (
-		<section className="container flex flex-col flex-wrap items-start w-full px-4 mx-auto">
+		<section className="container flex flex-col flex-wrap items-start w-full px-4 mx-auto mb-32">
 			<hgroup>
 				<h1 className="self-start flex-1 text-2xl font-bold leading-8 md:text-3xl md:leading-10">
 					Free and open-source.{' '}

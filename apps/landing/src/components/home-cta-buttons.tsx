@@ -79,7 +79,7 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 					))}
 				</div>
 			)} */}
-			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
+			<p className="z-30 px-6 mt-3 text-sm text-center text-gray-400 animation-delay-3 fade-in">
 				{latestVersion}
 				{formattedVersion && (
 					<>

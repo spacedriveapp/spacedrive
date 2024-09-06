@@ -48,7 +48,7 @@ export function NavBar() {
 			<motion.nav
 				className={clsx(
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% to-primary-900/60 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
+					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% to-primary-900/30 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'
@@ -61,7 +61,7 @@ export function NavBar() {
 				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
 				{/* End of Gradient Borders */}
-				<div className="noise noise-faded noise-sm flex flex-nowrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
+				<div className="flex items-center justify-between px-6 py-3 overflow-hidden noise noise-faded noise-sm flex-nowrap gap-x-8">
 					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[1.125rem]">
 						<Link href="/">
@@ -74,7 +74,7 @@ export function NavBar() {
 							/>
 						</Link>
 
-						<div className="hidden items-center whitespace-nowrap lg:flex">
+						<div className="items-center hidden whitespace-nowrap lg:flex">
 							{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 								<NavLink key={`nav-main-${label}-${href}`} href={href}>
 									{label}{' '}
@@ -104,7 +104,7 @@ export function NavBar() {
 							onClick={() => setIsMenuOpen(!isMenuOpen)}
 							whileTap={{ rotate: isMenuOpen ? -180 : 180 }}
 						>
-							<List className="size-6 text-white" />
+							<List className="text-white size-6" />
 						</motion.button>
 					</div>
 				</div>
@@ -138,12 +138,12 @@ export function NavBar() {
 									onClick={() => setIsMenuOpen(false)}
 									whileTap={{ rotate: -90 }}
 								>
-									<X className="size-8 pt-2 text-white" />
+									<X className="pt-2 text-white size-8" />
 								</motion.button>
 							</div>
 
 							{/* Nav Links */}
-							<div className="flex flex-col items-start space-y-4 p-4">
+							<div className="flex flex-col items-start p-4 space-y-4">
 								{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 									<NavLink key={`nav-sub-${label}-${href}`} href={href}>
 										{label}{' '}

@@ -5,20 +5,18 @@ import Particles from '~/components/particles';
 
 export const Assistant = () => {
 	return (
-		<section className="relative w-full">
+		<section className="relative w-full mb-32 md:mb-0">
 			{/* Background Image positioned absolutely */}
 			<Image
 				src="/images/new/comet_bg.svg"
 				alt=""
 				width={2000}
 				height={1200}
-				className="absolute bottom-[-350px] left-0 -z-10 overflow-visible"
+				className="absolute bottom-[100px] left-0 -z-10 overflow-visible md:bottom-[-350px]"
 			/>
 
 			<div className="container relative z-10 flex flex-col flex-wrap items-start w-full p-4 mx-auto">
-				{/* Somewhere there is some mystery padding here. IDK, but magic I guess - @Rocky43007  */}
-
-				<h2 className="flex items-center flex-1 gap-2 text-2xl font-bold leading-8 md:text-3xl md:leading-10">
+				<h2 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-8 md:flex-1 md:text-3xl md:leading-10">
 					<Image
 						className="flex justify-center size-12 shrink-0"
 						quality={100}
@@ -51,7 +49,7 @@ export const Assistant = () => {
 
 				<div className="mt-[32.73px]">
 					<div className="inline-flex items-center justify-center gap-[10px] rounded-full border-2 border-[#FC79E7] bg-[rgba(43,43,59,0.50)] px-[11px] py-[10px]">
-						<p className="text-center font-plex text-[14px] font-[500] leading-[125%] text-[#FFF]">
+						<p className="text-center text-[14px] font-[500] leading-[125%] text-[#FFF]">
 							COMING NEXT YEAR
 						</p>
 					</div>
