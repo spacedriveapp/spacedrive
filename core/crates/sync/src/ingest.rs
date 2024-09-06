@@ -11,7 +11,6 @@ use sd_sync::{
 
 use std::{
 	collections::BTreeMap,
-	future::IntoFuture,
 	num::NonZeroU128,
 	ops::Deref,
 	pin::pin,
@@ -21,10 +20,7 @@ use std::{
 
 use async_channel as chan;
 use futures::{stream, FutureExt, StreamExt};
-use futures_concurrency::{
-	future::{Race, TryJoin},
-	stream::Merge,
-};
+use futures_concurrency::{future::TryJoin, stream::Merge};
 use prisma_client_rust::chrono::{DateTime, Utc};
 use tokio::sync::oneshot;
 use tracing::{debug, error, instrument, trace, warn};

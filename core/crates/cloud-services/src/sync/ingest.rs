@@ -1,11 +1,9 @@
 use sd_core_sync::SyncManager;
 
 use sd_actors::Stopper;
-use sd_prisma::prisma::cloud_crdt_operation;
 
 use std::{
 	future::IntoFuture,
-	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -15,7 +13,6 @@ use std::{
 use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::Race;
 use tokio::sync::Notify;
-use tracing::debug;
 
 // Responsible for taking sync operations received from the cloud,
 // and applying them to the local database via the sync system's ingest actor.
@@ -108,13 +105,15 @@ pub async fn run_actor(
 		state.store(false, Ordering::Relaxed);
 		state_notify.notify_waiters();
 
-		if let Race::Stopped = (
-			notify.notified().map(|()| Race::Notified),
-			stop.into_future().map(|()| Race::Stopped),
-		)
-			.race()
-			.await
-		{
+		if matches!(
+			(
+				notify.notified().map(|()| Race::Notified),
+				stop.into_future().map(|()| Race::Stopped),
+			)
+				.race()
+				.await,
+			Race::Stopped
+		) {
 			break;
 		}
 	}

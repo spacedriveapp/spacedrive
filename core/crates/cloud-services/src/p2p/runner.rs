@@ -1,6 +1,5 @@
 use crate::{
-	p2p::JoinSyncGroupError, token_refresher::TokenRefresher, CloudServices, Error,
-	KeyManager,
+	p2p::JoinSyncGroupError, token_refresher::TokenRefresher, CloudServices, Error, KeyManager,
 };
 
 use sd_cloud_schema::{

@@ -1,9 +1,6 @@
 #![allow(clippy::panic, clippy::unwrap_used)] // TODO: Finish this
 
-use crate::{
-	library::Library,
-	sync::{self, GetOpsArgs},
-};
+use crate::{library::Library, sync::GetOpsArgs};
 
 use sd_p2p_proto::{decode, encode};
 use sd_sync::CompressedCRDTOperationsPerModelPerDevice;
@@ -139,11 +136,9 @@ mod originator {
 
 pub use responder::run as responder;
 mod responder {
-	use std::pin::pin;
 
 	use super::*;
 	use futures::StreamExt;
-	use originator::tx as rx;
 
 	pub mod tx {
 		use serde::{Deserialize, Serialize};

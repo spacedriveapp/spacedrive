@@ -12,17 +12,17 @@ use quic_rpc::{
 pub enum Error {
 	// Setup errors
 	#[error("Couldn't parse Cloud Services API address URL: {0}")]
-	InvalidUrl(reqwest_middleware::reqwest::Error),
+	InvalidUrl(reqwest::Error),
 	#[error("Failed to initialize http client: {0}")]
-	HttpClientInit(reqwest_middleware::reqwest::Error),
+	HttpClientInit(reqwest::Error),
 	#[error("Failed to request Cloud Services API address from Auth Server route: {0}")]
 	FailedToRequestApiAddress(reqwest_middleware::Error),
 	#[error("Auth Server's Cloud Services API address route returned an error: {0}")]
-	AuthServerError(reqwest_middleware::reqwest::Error),
+	AuthServerError(reqwest::Error),
 	#[error(
 		"Failed to extract response body from Auth Server's Cloud Services API address route: {0}"
 	)]
-	FailedToExtractApiAddress(reqwest_middleware::reqwest::Error),
+	FailedToExtractApiAddress(reqwest::Error),
 	#[error("Failed to parse auth server's Cloud Services API address: {0}")]
 	FailedToParseApiAddress(#[from] AddrParseError),
 	#[error("Failed to create endpoint: {0}")]
@@ -100,13 +100,13 @@ pub enum Error {
 	#[error("Failed to download sync messages: {0}")]
 	DownloadSyncMessages(reqwest_middleware::Error),
 	#[error("Received an error response from uploading sync messages: {0}")]
-	ErrorResponseUploadSyncMessages(reqwest_middleware::reqwest::Error),
+	ErrorResponseUploadSyncMessages(reqwest::Error),
 	#[error("Received an error response from downloading sync messages: {0}")]
-	ErrorResponseDownloadSyncMessages(reqwest_middleware::reqwest::Error),
+	ErrorResponseDownloadSyncMessages(reqwest::Error),
 	#[error(
 		"Received an error response from downloading sync messages while reading its bytes: {0}"
 	)]
-	ErrorResponseDownloadReadBytesSyncMessages(reqwest_middleware::reqwest::Error),
+	ErrorResponseDownloadReadBytesSyncMessages(reqwest::Error),
 	#[error("Critical error while uploading sync messages")]
 	CriticalErrorWhileUploadingSyncMessages,
 	#[error("Failed to send End update to push sync messages")]

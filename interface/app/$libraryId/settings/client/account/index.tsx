@@ -24,7 +24,7 @@ export const Component = () => {
 				method: 'GET'
 			});
 			const data = await user_data.json();
-			console.log("Data from user (auth API)", data);
+			console.log('Data from user (auth API)', data);
 			return data;
 		}
 		_().then((data) => {
