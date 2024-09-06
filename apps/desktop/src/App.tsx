@@ -42,10 +42,6 @@ import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
 
-//Set global fetch to use tauri fetch
-// If the build in in production mode, we need to set the global fetch to use the tauri fetch
-// console.log('import.meta.env.DEV', import.meta.env.DEV);
-
 SuperTokens.init({
 	appInfo: {
 		apiDomain: 'http://localhost:9420',

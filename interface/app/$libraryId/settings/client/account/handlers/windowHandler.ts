@@ -16,7 +16,8 @@ export default function getWindowHandler(original: WindowHandlerInterface): Wind
 				// First try with react-router-dom's useUrlSearchParams
 				// eslint-disable-next-line no-restricted-syntax
 
-				const params: URLSearchParams | string = (window.location as any).__TEMP_URL_PARAMS ?? '';
+				const params: URLSearchParams | string =
+					(window.location as any).__TEMP_URL_PARAMS ?? '';
 				return params.toString();
 				// const firstQuestionMarkIndex = currentURL.indexOf('?');
 
