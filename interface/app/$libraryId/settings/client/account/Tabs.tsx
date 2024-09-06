@@ -140,7 +140,8 @@ const Tabs = () => {
 					<p className="text-xs text-ink-faint">OR</p>
 					<Divider />
 				</div>
-				<div className="flex justify-center gap-3">
+				{/* Disabling for now for demo purposes. We need to figure out on the backend how the tokens are recieved so we can a) store them in the frontend and b) use them as auth tokens for our cloud services. - @Rocky43007 */}
+				{/* <div className="flex justify-center gap-3">
 					{SocialLogins.map((social) => (
 						<Tooltip key={social.name} label={social.name} position="bottom">
 							<Button
@@ -159,7 +160,7 @@ const Tabs = () => {
 							</Button>
 						</Tooltip>
 					))}
-				</div>
+				</div> */}
 			</div>
 		</Card>
 	);
