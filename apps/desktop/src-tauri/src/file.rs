@@ -212,12 +212,12 @@ async fn aggregate_open_with_apps(
 	paths: impl Iterator<Item = PathBuf>,
 ) -> Result<Vec<OpenWithApplication>, ()> {
 	let tmp: Vec<OpenWithApplication> = join_all(paths.map(get_file_path_open_apps_set))
-	.await
-	.into_iter()
-	.flatten()
-	.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
-	.map(|set| set.into_iter().collect())
-	.unwrap_or(vec![]);
+		.await
+		.into_iter()
+		.flatten()
+		.reduce(|intersection, set| intersection.intersection(&set).cloned().collect())
+		.map(|set| set.into_iter().collect())
+		.unwrap_or(vec![]);
 
 	let mut tmp2: Vec<OpenWithApplication> = tmp;
 	tmp2.sort_by(|a, b| a.name.cmp(&b.name));
