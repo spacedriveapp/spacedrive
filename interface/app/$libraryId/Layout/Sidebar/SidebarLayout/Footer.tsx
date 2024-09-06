@@ -24,10 +24,10 @@ export default () => {
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useShortcut('navToSettings', (e) => {
-		e.stopPropagation();
-		navigate('settings/client/general');
-	});
+	// useShortcut('navToSettings', (e) => {
+	// 	e.stopPropagation();
+	// 	navigate('settings/client/general');
+	// });
 
 	const updater = usePlatform().updater;
 	const updaterState = updater?.useSnapshot();
