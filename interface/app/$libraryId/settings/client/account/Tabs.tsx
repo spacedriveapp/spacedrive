@@ -135,13 +135,13 @@ const Tabs = () => {
 			</div>
 			<div className="flex w-full flex-col justify-center gap-1.5 p-5">
 				{activeTab === 'Login' ? <Login /> : <Register />}
-				<div className="my-2 flex w-full items-center gap-3">
+				{/* Disabling for now for demo purposes. We need to figure out on the backend how the tokens are recieved so we can a) store them in the frontend and b) use them as auth tokens for our cloud services. - @Rocky43007 */}
+				{/* <div className="my-2 flex w-full items-center gap-3">
 					<Divider />
 					<p className="text-xs text-ink-faint">OR</p>
 					<Divider />
 				</div>
-				{/* Disabling for now for demo purposes. We need to figure out on the backend how the tokens are recieved so we can a) store them in the frontend and b) use them as auth tokens for our cloud services. - @Rocky43007 */}
-				{/* <div className="flex justify-center gap-3">
+				<div className="flex justify-center gap-3">
 					{SocialLogins.map((social) => (
 						<Tooltip key={social.name} label={social.name} position="bottom">
 							<Button
