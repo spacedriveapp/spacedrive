@@ -18,6 +18,10 @@ const shortcuts = {
 		macOS: ['Meta', 'KeyW'],
 		all: ['Control', 'KeyW']
 	},
+	duplicateTab: {
+		macOS: ['Meta', 'Shift', 'KeyT'],
+		all: ['Control', 'Shift', 'KeyT']
+	},
 	nextTab: {
 		macOS: ['Meta', 'Alt', 'ArrowRight'],
 		all: ['Control', 'Alt', 'ArrowRight']
@@ -49,10 +53,11 @@ const shortcuts = {
 		macOS: ['Meta', ']'],
 		all: ['Control', ']']
 	},
-	navToSettings: {
-		macOS: ['Shift', 'Meta', 'KeyT'],
-		all: ['Shift', 'Control', 'KeyT']
-	},
+	// I plan to change this to the OS-standard cmd-comma later -ilynxcat
+	// navToSettings: {
+	// 	macOS: ['Shift', 'Meta', 'KeyT'],
+	// 	all: ['Shift', 'Control', 'KeyT']
+	// },
 	gridView: {
 		macOS: ['Meta', '1'],
 		all: ['Control', '1']

@@ -78,11 +78,7 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 					.build(),
 			))
 			.separator()
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::NewLibrary, "New Library")
-					.accelerator("Cmd+Shift+T")
-					.build(app)?,
-			)
+			.item(&MenuItemBuilder::with_id(MenuEvent::NewLibrary, "New Library").build(app)?)
 			// .item(
 			// 	&SubmenuBuilder::new(app, "Libraries")
 			// 		// TODO: Implement this
@@ -194,12 +190,13 @@ pub fn setup_menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 		let window_menu = SubmenuBuilder::new(app, "Window")
 			.minimize()
-			.item(
-				&MenuItemBuilder::with_id(MenuEvent::NewWindow, "New Window")
-					.accelerator("CmdOrCtrl+Shift+N")
-					.build(app)?,
-			)
-			.close_window()
+			// Disabling this fixes the new "Duplicate current tab" shortcut on macOS clients
+			// ...and at the time I'm committing this we don't support multi-window so... ¯\_(ツ)_/¯
+			// .item(
+			// 	&MenuItemBuilder::with_id(MenuEvent::NewWindow, "New Window")
+			// 		.accelerator("CmdOrCtrl+Shift+N")
+			// 		.build(app)?,
+			// )
 			.fullscreen()
 			.item(
 				&MenuItemBuilder::with_id(MenuEvent::ReloadWebview, "Reload Webview")

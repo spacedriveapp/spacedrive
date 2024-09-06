@@ -8,6 +8,7 @@ export const TabsContext = createContext<{
 	tabs: { router: Router; title: string }[];
 	createTab(redirect?: { pathname: string; search: string | undefined }): void;
 	removeTab(index: number): void;
+	duplicateTab(): void;
 } | null>(null);
 
 export function useTabsContext() {
