@@ -222,7 +222,6 @@ async fn main() -> tauri::Result<()> {
 
 	tauri::Builder::default()
 		.invoke_handler(builder.invoke_handler())
-		.plugin(tauri_plugin_http::init())
 		.plugin(tauri_plugin_deep_link::init())
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
@@ -364,6 +363,7 @@ async fn main() -> tauri::Result<()> {
 		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
+		.plugin(tauri_plugin_http::init())
 		// TODO: Bring back Tauri Plugin Window State - it was buggy so we removed it.
 		.plugin(tauri_plugin_updater::Builder::new().build())
 		.plugin(updater::plugin())
