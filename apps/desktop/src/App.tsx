@@ -42,11 +42,15 @@ import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
 
+//Set global fetch to use tauri fetch
+// If the build in in production mode, we need to set the global fetch to use the tauri fetch
+// console.log('import.meta.env.DEV', import.meta.env.DEV);
+
 SuperTokens.init({
 	appInfo: {
 		apiDomain: 'http://localhost:9420',
 		apiBasePath: '/api/auth',
-	appName: 'Spacedrive Auth Service'
+		appName: 'Spacedrive Auth Service'
 	},
 	cookieHandler: getCookieHandler,
 	windowHandler: getWindowHandler,
@@ -59,15 +63,12 @@ SuperTokens.init({
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
-//Set global fetch to use tauri fetch
-// If the build in in production mode, we need to set the global fetch to use the tauri fetch
-// console.log('import.meta.env.DEV', import.meta.env.DEV);
-globalThis.fetch = fetch;
-
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		commands.appReady();
+		commands.appReady().then(() => {
+			if (import.meta.env.PROD) window.fetch = fetch;
+		});
 	}, []);
 
 	useEffect(() => {
