@@ -43,6 +43,7 @@ mod db_operation;
 pub mod ingest;
 mod manager;
 
+pub use db_operation::{from_cloud_crdt_ops, from_crdt_ops, write_crdt_op_to_db};
 pub use ingest::{Actor, Event, Handler, MessagesEvent, Request, State};
 pub use manager::{GetOpsArgs, Manager as SyncManager};
 pub use uhlc::NTP64;
@@ -121,10 +122,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 	})
 }
 
-pub fn crdt_op_unchecked_db(
-	op: &CRDTOperation,
-	device_pub_id: &DevicePubId,
-) -> Result<crdt_operation::CreateUnchecked, Error> {
+pub fn crdt_op_unchecked_db(op: &CRDTOperation) -> Result<crdt_operation::CreateUnchecked, Error> {
 	Ok(crdt_operation::CreateUnchecked {
 		timestamp: {
 			#[allow(clippy::cast_possible_wrap)]
@@ -133,7 +131,7 @@ pub fn crdt_op_unchecked_db(
 				op.timestamp.as_u64() as i64
 			}
 		},
-		device_pub_id: device_pub_id.to_db(),
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),

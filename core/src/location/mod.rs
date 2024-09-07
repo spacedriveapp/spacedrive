@@ -1097,6 +1097,8 @@ pub async fn create_file_path(
 	let (sync_params, db_params): (Vec<_>, Vec<_>) = {
 		use file_path::*;
 
+		let device_pub_id = sync.device_pub_id.to_db();
+
 		[
 			(
 				(
@@ -1147,6 +1149,10 @@ pub async fn create_file_path(
 			(
 				(hidden::NAME, msgpack!(metadata.hidden)),
 				hidden::set(Some(metadata.hidden)),
+			),
+			(
+				(device_pub_id::NAME, msgpack!(device_pub_id)),
+				device_pub_id::set(Some(device_pub_id)),
 			),
 		]
 		.into_iter()

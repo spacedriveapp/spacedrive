@@ -191,14 +191,6 @@ impl CompressedCRDTOperationsPerModel {
 	}
 }
 
-impl Iterator for CompressedCRDTOperationsPerModel {
-	type Item = (ModelId, CompressedCRDTOperationsPerRecord);
-
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.pop()
-	}
-}
-
 #[derive(PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub struct CompressedCRDTOperation {
 	pub timestamp: NTP64,

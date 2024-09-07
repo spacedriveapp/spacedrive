@@ -5,8 +5,8 @@ use sd_prisma::{
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::{
-	CRDTOperation, CRDTOperationData, CompressedCRDTOperation,
-	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationKind,
+	CRDTOperation, CRDTOperationData, CompressedCRDTOperation, CompressedCRDTOperationsPerModel,
+	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationKind, RecordId,
 };
 
 use std::{
@@ -131,6 +131,7 @@ impl Actor {
 		let (tx, rx) = oneshot::channel::<()>();
 
 		let timestamps = self
+			.shared
 			.timestamp_per_device
 			.read()
 			.await
@@ -191,7 +192,7 @@ impl Actor {
 			"Ingesting operations;",
 		);
 
-		for (device_pub_id, data) in event.messages.0 {
+		for (device_pub_id, CompressedCRDTOperationsPerModel(data)) in event.messages.0 {
 			for (model, data) in data {
 				for (record, ops) in data {
 					if let Err(e) = self
@@ -261,13 +262,13 @@ impl Actor {
 	// where the magic happens
 	#[instrument(skip(self, ops), fields(operations_count = %ops.len()), err)]
 	async fn process_crdt_operations(
-		&mut self,
+		&self,
 		device_pub_id: DevicePubId,
-		model: u16,
-		record_id: rmpv::Value,
+		model: ModelId,
+		record_id: RecordId,
 		mut ops: Vec<CompressedCRDTOperation>,
 	) -> Result<(), Error> {
-		let db = &self.db;
+		let db = &self.shared.db;
 
 		ops.sort_by_key(|op| op.timestamp);
 
@@ -275,7 +276,8 @@ impl Actor {
 
 		// first, we update the HLC's timestamp with the incoming one.
 		// this involves a drift check + sets the last time of the clock
-		self.clock
+		self.shared
+			.clock
 			.update_with_timestamp(&Timestamp::new(
 				new_timestamp,
 				uhlc::ID::from(
@@ -283,14 +285,6 @@ impl Actor {
 				),
 			))
 			.expect("timestamp has too much drift!");
-
-		// read the timestamp for the operation's instance, or insert one if it doesn't exist
-		let timestamp = self
-			.timestamp_per_device
-			.read()
-			.await
-			.get(&device_pub_id)
-			.copied();
 
 		// Delete - ignores all other messages
 		if let Some(delete_op) = ops
@@ -387,10 +381,20 @@ impl Actor {
 			handle_crdt_updates(db, &device_pub_id, model, record_id, data, updates).await?;
 		}
 
-		// update the stored timestamp for this instance - will be derived from the crdt operations table on restart
-		let new_ts = NTP64::max(timestamp.unwrap_or_default(), new_timestamp);
+		// read the timestamp for the operation's device, or insert one if it doesn't exist
+		let current_last_timestamp = self
+			.shared
+			.timestamp_per_device
+			.read()
+			.await
+			.get(&device_pub_id)
+			.copied();
 
-		self.timestamp_per_device
+		// update the stored timestamp for this device - will be derived from the crdt operations table on restart
+		let new_ts = NTP64::max(current_last_timestamp.unwrap_or_default(), new_timestamp);
+
+		self.shared
+			.timestamp_per_device
 			.write()
 			.await
 			.insert(device_pub_id, new_ts);
@@ -566,14 +570,6 @@ async fn handle_crdt_deletion(
 			write_crdt_op_to_db(&op, &db).await
 		})
 		.await
-}
-
-impl Deref for Actor {
-	type Target = SharedState;
-
-	fn deref(&self) -> &Self::Target {
-		&self.shared
-	}
 }
 
 pub struct Handler {
