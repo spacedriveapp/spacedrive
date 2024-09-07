@@ -28,7 +28,6 @@
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient};
-use sd_sync::ModelId;
 use sd_utils::uuid_to_bytes;
 
 use std::{
@@ -56,8 +55,9 @@ pub enum SyncEvent {
 
 pub use sd_core_prisma_helpers::DevicePubId;
 pub use sd_sync::{
-	CRDTOperation, OperationFactory, RelationSyncId, RelationSyncModel, SharedSyncModel, SyncId,
-	SyncModel,
+	CRDTOperation, CompressedCRDTOperation, CompressedCRDTOperationsPerModel,
+	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationFactory, RecordId, RelationSyncId,
+	RelationSyncModel, SharedSyncModel, SyncId, SyncModel,
 };
 
 pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;

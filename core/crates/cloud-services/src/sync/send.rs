@@ -1,6 +1,6 @@
 use crate::{CloudServices, Error, KeyManager};
 
-use sd_core_sync::{SyncEvent, SyncManager, NTP64};
+use sd_core_sync::{CompressedCRDTOperationsPerModelPerDevice, SyncEvent, SyncManager, NTP64};
 
 use sd_actors::{Actor, Stopper};
 use sd_cloud_schema::{
@@ -173,8 +173,12 @@ impl Sender {
 			let start_time = timestamp_to_datetime(first.timestamp);
 			let end_time = timestamp_to_datetime(last.timestamp);
 
-			let messages_bytes =
-				postcard::to_stdvec(&ops).map_err(Error::SerializationFailureToPushSyncMessages)?;
+			// Ignoring this device_pub_id here as we already know it
+			let (_device_pub_id, compressed_ops) =
+				CompressedCRDTOperationsPerModelPerDevice::new_single_device(ops);
+
+			let messages_bytes = postcard::to_stdvec(&compressed_ops)
+				.map_err(Error::SerializationFailureToPushSyncMessages)?;
 
 			let (mut push_updates, mut push_responses) = self
 				.cloud_client

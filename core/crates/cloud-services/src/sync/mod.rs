@@ -21,6 +21,7 @@ mod ingest;
 mod receive;
 mod send;
 
+// use ingest::Ingester;
 use receive::Receiver;
 use send::Sender;
 
@@ -74,8 +75,8 @@ pub async fn declare_actors(
 			data_dir,
 			sync_group_pub_id,
 			cloud_services,
-			sync,
-			ingest_notify,
+			sync.clone(),
+			Arc::clone(&ingest_notify),
 			Arc::clone(&actors_state.receive_active),
 			Arc::clone(&actors_state.notifier),
 		),
@@ -83,24 +84,20 @@ pub async fn declare_actors(
 		.try_join()
 		.await?;
 
+	// let ingester = Ingester::new(
+	// 	sync,
+	// 	ingest_notify,
+	// 	Arc::clone(&actors_state.ingest_active),
+	// 	Arc::clone(&actors_state.notifier),
+	// );
+
 	actors
-		.declare_many_boxed([sender.into_actor(), receiver.into_actor()])
+		.declare_many_boxed([
+			sender.into_actor(),
+			receiver.into_actor(),
+			// ingester.into_actor(),
+		])
 		.await;
-
-	// actors
-	// 	.declare(
-	// 		"Cloud Sync Ingest",
-	// 		{
-	// 			let active = state.ingest_active.clone();
-	// 			let active_notifier = state.notifier.clone();
-
-	// 			move |stop| {
-	// 				ingest::run_actor(sync.clone(), ingest_notify, active, active_notifier, stop)
-	// 			}
-	// 		},
-	// 		autorun,
-	// 	)
-	// 	.await;
 
 	Ok(())
 }
