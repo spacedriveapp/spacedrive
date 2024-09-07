@@ -73,8 +73,9 @@ impl Task<Error> for Saver {
 	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, _: &Interrupter) -> Result<ExecStatus, Error> {
 		use file_path::{
-			create_unchecked, date_created, date_indexed, date_modified, extension, hidden, inode,
-			is_dir, location, location_id, materialized_path, name, size_in_bytes_bytes,
+			create_unchecked, date_created, date_indexed, date_modified, device_pub_id, extension,
+			hidden, inode, is_dir, location, location_id, materialized_path, name,
+			size_in_bytes_bytes,
 		};
 
 		let start_time = Instant::now();
@@ -138,6 +139,7 @@ impl Task<Error> for Saver {
 						sync_db_entry!(modified_at, date_modified),
 						sync_db_entry!(Utc::now(), date_indexed),
 						sync_db_entry!(hidden, hidden),
+						sync_db_entry!(sync.device_pub_id.to_db(), device_pub_id),
 					]
 					.into_iter()
 					.unzip();

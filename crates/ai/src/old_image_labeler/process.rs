@@ -459,6 +459,7 @@ pub async fn assign_labels(
 	let db_params: Vec<_> = labels_ids
 		.into_iter()
 		.map(|(label_id, name)| {
+			let device_pub_id = sync.device_pub_id.to_db();
 			sync_params.push(sync.relation_create(
 				prisma_sync::label_on_object::SyncId {
 					label: prisma_sync::label::SyncId { name },
@@ -466,13 +467,19 @@ pub async fn assign_labels(
 						pub_id: object.pub_id.clone(),
 					},
 				},
-				[],
+				[(
+					label_on_object::device_pub_id::NAME,
+					msgpack!(device_pub_id),
+				)],
 			));
 
 			label_on_object::create_unchecked(
 				label_id,
 				object_id,
-				vec![label_on_object::date_created::set(date_created)],
+				vec![
+					label_on_object::date_created::set(date_created),
+					label_on_object::device_pub_id::set(Some(device_pub_id)),
+				],
 			)
 		})
 		.collect();

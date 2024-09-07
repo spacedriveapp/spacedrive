@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 use super::{
 	crdt_op_db,
-	db_operation::{into_cloud_ops, into_ops},
+	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
 	Error, SharedState, SyncEvent, NTP64,
 };
 
@@ -238,7 +238,7 @@ impl Manager {
 			.exec()
 			.await?
 			.into_iter()
-			.map(into_ops)
+			.map(from_crdt_ops)
 			.collect()
 	}
 
@@ -268,7 +268,7 @@ impl Manager {
 							break;
 						}
 
-						match ops.into_iter().map(into_ops).collect::<Result<Vec<_>, _>>() {
+						match ops.into_iter().map(from_crdt_ops).collect::<Result<Vec<_>, _>>() {
 							Ok(ops) => {
 								if let Some(last_op) = ops.last() {
 									current_initial_timestamp = last_op.timestamp;
@@ -337,7 +337,10 @@ impl Manager {
 			o => o,
 		});
 
-		ops.into_iter().take(count as usize).map(into_ops).collect()
+		ops.into_iter()
+			.take(count as usize)
+			.map(from_crdt_ops)
+			.collect()
 	}
 
 	pub async fn get_cloud_ops(
@@ -383,7 +386,7 @@ impl Manager {
 
 		ops.into_iter()
 			.take(count as usize)
-			.map(into_cloud_ops)
+			.map(from_cloud_crdt_ops)
 			.collect()
 	}
 }

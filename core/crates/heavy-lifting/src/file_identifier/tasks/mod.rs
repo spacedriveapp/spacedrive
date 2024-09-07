@@ -84,6 +84,8 @@ async fn create_objects_and_update_file_paths(
 
 				let kind = kind as i32;
 
+				let device_pub_id = sync.device_pub_id.to_db();
+
 				let (sync_params, db_params) = [
 					(
 						(object::date_created::NAME, msgpack!(created_at)),
@@ -92,6 +94,10 @@ async fn create_objects_and_update_file_paths(
 					(
 						(object::kind::NAME, msgpack!(kind)),
 						object::kind::set(Some(kind)),
+					),
+					(
+						(object::device_pub_id::NAME, msgpack!(device_pub_id)),
+						object::device_pub_id::set(Some(device_pub_id)),
 					),
 				]
 				.into_iter()

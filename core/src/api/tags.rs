@@ -222,10 +222,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.filter(|fp| fp.is_dir.unwrap_or_default() && fp.object.is_none())
 							.map(|fp| {
 								let id = uuid_to_bytes(&Uuid::now_v7());
+								let device_pub_id = sync.device_pub_id.to_db();
 
 								sync_params.push(sync.shared_create(
 									prisma_sync::object::SyncId { pub_id: id.clone() },
-									[],
+									[(object::device_pub_id::NAME, msgpack!(device_pub_id))],
 								));
 
 								sync_params.push(sync.shared_update(
@@ -237,7 +238,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								));
 
 								(
-									db.object().create(id.clone(), vec![]),
+									db.object().create(
+										id.clone(),
+										vec![object::device_pub_id::set(Some(device_pub_id))],
+									),
 									db.file_path().update(
 										file_path::id::equals(fp.id),
 										vec![file_path::object::connect(object::pub_id::equals(
@@ -262,15 +266,25 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.fold(
 								(vec![], vec![]),
 								|(mut sync_ops, mut db_creates), (id, pub_id)| {
+									let device_pub_id = sync.device_pub_id.to_db();
+									sync_ops.push(sync.relation_create(
+										sync_id!(pub_id),
+										[(
+											tag_on_object::device_pub_id::NAME,
+											msgpack!(device_pub_id),
+										)],
+									));
+
 									db_creates.push(tag_on_object::CreateUnchecked {
 										tag_id: args.tag_id,
 										object_id: id,
-										_params: vec![tag_on_object::date_created::set(Some(
-											Utc::now().into(),
-										))],
+										_params: vec![
+											tag_on_object::date_created::set(Some(
+												Utc::now().into(),
+											)),
+											tag_on_object::device_pub_id::set(Some(device_pub_id)),
+										],
 									});
-
-									sync_ops.push(sync.relation_create(sync_id!(pub_id), []));
 
 									(sync_ops, db_creates)
 								},

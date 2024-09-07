@@ -352,6 +352,8 @@ async fn inner_create_file(
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
 
+		let device_pub_id = sync.device_pub_id.to_db();
+
 		sync.write_op(
 			db,
 			sync.shared_create(
@@ -361,6 +363,7 @@ async fn inner_create_file(
 				[
 					(object::date_created::NAME, msgpack!(date_created)),
 					(object::kind::NAME, msgpack!(int_kind)),
+					(object::device_pub_id::NAME, msgpack!(device_pub_id)),
 				],
 			),
 			db.object()
@@ -369,6 +372,7 @@ async fn inner_create_file(
 					vec![
 						object::date_created::set(Some(date_created)),
 						object::kind::set(Some(int_kind)),
+						object::device_pub_id::set(Some(device_pub_id)),
 					],
 				)
 				.select(object_ids::select()),
@@ -707,6 +711,8 @@ async fn inner_update_file(
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 
+				let device_pub_id = sync.device_pub_id.to_db();
+
 				sync.write_op(
 					db,
 					sync.shared_create(
@@ -716,6 +722,7 @@ async fn inner_update_file(
 						[
 							(object::date_created::NAME, msgpack!(date_created)),
 							(object::kind::NAME, msgpack!(int_kind)),
+							(object::device_pub_id::NAME, msgpack!(device_pub_id)),
 						],
 					),
 					db.object().create(
@@ -723,6 +730,7 @@ async fn inner_update_file(
 						vec![
 							object::date_created::set(Some(date_created)),
 							object::kind::set(Some(int_kind)),
+							object::device_pub_id::set(Some(device_pub_id)),
 						],
 					),
 				)

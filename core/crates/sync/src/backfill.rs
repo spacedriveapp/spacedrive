@@ -10,6 +10,7 @@ use sd_utils::chain_optional_iter;
 
 use std::future::Future;
 
+use futures_concurrency::future::TryJoin;
 use tokio::time::Instant;
 use tracing::{debug, instrument};
 
@@ -36,14 +37,23 @@ pub async fn backfill_operations(
 				.exec()
 				.await?;
 
-			paginate_tags(&db, sync).await?;
-			paginate_locations(&db, sync).await?;
-			paginate_objects(&db, sync).await?;
-			paginate_exif_datas(&db, sync).await?;
-			paginate_file_paths(&db, sync).await?;
-			paginate_tags_on_objects(&db, sync).await?;
-			paginate_labels(&db, sync).await?;
-			paginate_labels_on_objects(&db, sync).await?;
+			(
+				paginate_tags(&db, sync),
+				paginate_locations(&db, sync),
+				paginate_objects(&db, sync),
+				paginate_exif_datas(&db, sync),
+				paginate_file_paths(&db, sync),
+				paginate_labels(&db, sync),
+			)
+				.try_join()
+				.await?;
+
+			(
+				paginate_tags_on_objects(&db, sync),
+				paginate_labels_on_objects(&db, sync),
+			)
+				.try_join()
+				.await?;
 
 			debug!(elapsed = ?start.elapsed(), "backfill ended");
 
@@ -116,8 +126,6 @@ where
 async fn paginate_tags(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use tag::{color, date_created, date_modified, id, name};
 
-	let device_pub_id = &sync.device_pub_id;
-
 	paginate(
 		|cursor| {
 			db.tag()
@@ -142,7 +150,7 @@ async fn paginate_tags(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -153,8 +161,9 @@ async fn paginate_tags(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(
 #[instrument(skip(db, sync), err)]
 async fn paginate_locations(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use location::{
-		available_capacity, date_created, generate_preview_media, hidden, id, include, instance,
-		is_archived, name, path, size_in_bytes, sync_preview_media, total_capacity,
+		available_capacity, date_created, device, device_pub_id, generate_preview_media, hidden,
+		id, include, instance, is_archived, name, path, size_in_bytes, sync_preview_media,
+		total_capacity,
 	};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -162,7 +171,10 @@ async fn paginate_locations(db: &PrismaClient, sync: &crate::SyncManager) -> Res
 	paginate(
 		|cursor| {
 			db.location()
-				.find_many(vec![id::gt(cursor)])
+				.find_many(vec![
+					id::gt(cursor),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(id::order(SortOrder::Asc))
 				.take(1000)
 				.include(include!({
@@ -202,11 +214,19 @@ async fn paginate_locations(db: &PrismaClient, sync: &crate::SyncManager) -> Res
 									}),
 									instance
 								),
+								option_sync_entry!(
+									l.device_pub_id.map(|device_pub_id| {
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id,
+										}
+									}),
+									device
+								),
 							],
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -216,14 +236,20 @@ async fn paginate_locations(db: &PrismaClient, sync: &crate::SyncManager) -> Res
 
 #[instrument(skip(db, sync), err)]
 async fn paginate_objects(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
-	use object::{date_accessed, date_created, favorite, hidden, id, important, kind, note};
+	use object::{
+		date_accessed, date_created, device, device_pub_id, favorite, hidden, id, important, kind,
+		note,
+	};
 
 	let device_pub_id = &sync.device_pub_id;
 
 	paginate(
 		|cursor| {
 			db.object()
-				.find_many(vec![id::gt(cursor)])
+				.find_many(vec![
+					id::gt(cursor),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(id::order(SortOrder::Asc))
 				.take(1000)
 				.exec()
@@ -245,11 +271,19 @@ async fn paginate_objects(db: &PrismaClient, sync: &crate::SyncManager) -> Resul
 								option_sync_entry!(o.note, note),
 								option_sync_entry!(o.date_created, date_created),
 								option_sync_entry!(o.date_accessed, date_accessed),
+								option_sync_entry!(
+									o.device_pub_id.map(|device_pub_id| {
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id,
+										}
+									}),
+									device
+								),
 							],
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -260,8 +294,8 @@ async fn paginate_objects(db: &PrismaClient, sync: &crate::SyncManager) -> Resul
 #[instrument(skip(db, sync), err)]
 async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use exif_data::{
-		artist, camera_data, copyright, description, epoch_time, exif_version, id, include,
-		media_date, media_location, resolution,
+		artist, camera_data, copyright, description, device, device_pub_id, epoch_time,
+		exif_version, id, include, media_date, media_location, resolution,
 	};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -269,7 +303,10 @@ async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::SyncManager) -> Re
 	paginate(
 		|cursor| {
 			db.exif_data()
-				.find_many(vec![id::gt(cursor)])
+				.find_many(vec![
+					id::gt(cursor),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(id::order(SortOrder::Asc))
 				.take(1000)
 				.include(include!({
@@ -300,11 +337,19 @@ async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::SyncManager) -> Re
 								option_sync_entry!(ed.copyright, copyright),
 								option_sync_entry!(ed.exif_version, exif_version),
 								option_sync_entry!(ed.epoch_time, epoch_time),
+								option_sync_entry!(
+									ed.device_pub_id.map(|device_pub_id| {
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id,
+										}
+									}),
+									device
+								),
 							],
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -315,8 +360,9 @@ async fn paginate_exif_datas(db: &PrismaClient, sync: &crate::SyncManager) -> Re
 #[instrument(skip(db, sync), err)]
 async fn paginate_file_paths(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use file_path::{
-		cas_id, date_created, date_indexed, date_modified, extension, hidden, id, include, inode,
-		integrity_checksum, is_dir, location, materialized_path, name, object, size_in_bytes_bytes,
+		cas_id, date_created, date_indexed, date_modified, device, device_pub_id, extension,
+		hidden, id, include, inode, integrity_checksum, is_dir, location, materialized_path, name,
+		object, size_in_bytes_bytes,
 	};
 
 	let device_pub_id = &sync.device_pub_id;
@@ -324,7 +370,10 @@ async fn paginate_file_paths(db: &PrismaClient, sync: &crate::SyncManager) -> Re
 	paginate(
 		|cursor| {
 			db.file_path()
-				.find_many(vec![id::gt(cursor)])
+				.find_many(vec![
+					id::gt(cursor),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(id::order(SortOrder::Asc))
 				.include(include!({
 					location: select { pub_id }
@@ -366,11 +415,19 @@ async fn paginate_file_paths(db: &PrismaClient, sync: &crate::SyncManager) -> Re
 								option_sync_entry!(fp.date_created, date_created),
 								option_sync_entry!(fp.date_modified, date_modified),
 								option_sync_entry!(fp.date_indexed, date_indexed),
+								option_sync_entry!(
+									fp.device_pub_id.map(|device_pub_id| {
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id,
+										}
+									}),
+									device
+								),
 							],
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -383,14 +440,18 @@ async fn paginate_tags_on_objects(
 	db: &PrismaClient,
 	sync: &crate::SyncManager,
 ) -> Result<(), Error> {
-	use tag_on_object::{date_created, include, object_id, tag_id};
+	use tag_on_object::{date_created, device, device_pub_id, include, object_id, tag_id};
 
 	let device_pub_id = &sync.device_pub_id;
 
 	paginate_relation(
 		|group_id, item_id| {
 			db.tag_on_object()
-				.find_many(vec![tag_id::gt(group_id), object_id::gt(item_id)])
+				.find_many(vec![
+					tag_id::gt(group_id),
+					object_id::gt(item_id),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(tag_id::order(SortOrder::Asc))
 				.order_by(object_id::order(SortOrder::Asc))
 				.include(include!({
@@ -415,11 +476,21 @@ async fn paginate_tags_on_objects(
 						},
 						chain_optional_iter(
 							[],
-							[option_sync_entry!(t_o.date_created, date_created)],
+							[
+								option_sync_entry!(t_o.date_created, date_created),
+								option_sync_entry!(
+									t_o.device_pub_id.map(|device_pub_id| {
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id,
+										}
+									}),
+									device
+								),
+							],
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -430,8 +501,6 @@ async fn paginate_tags_on_objects(
 #[instrument(skip(db, sync), err)]
 async fn paginate_labels(db: &PrismaClient, sync: &crate::SyncManager) -> Result<(), Error> {
 	use label::{date_created, date_modified, id};
-
-	let device_pub_id = &sync.device_pub_id;
 
 	paginate(
 		|cursor| {
@@ -456,7 +525,7 @@ async fn paginate_labels(db: &PrismaClient, sync: &crate::SyncManager) -> Result
 						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},
@@ -469,14 +538,18 @@ async fn paginate_labels_on_objects(
 	db: &PrismaClient,
 	sync: &crate::SyncManager,
 ) -> Result<(), Error> {
-	use label_on_object::{date_created, include, label_id, object_id};
+	use label_on_object::{date_created, device, device_pub_id, include, label_id, object_id};
 
 	let device_pub_id = &sync.device_pub_id;
 
 	paginate_relation(
 		|group_id, item_id| {
 			db.label_on_object()
-				.find_many(vec![label_id::gt(group_id), object_id::gt(item_id)])
+				.find_many(vec![
+					label_id::gt(group_id),
+					object_id::gt(item_id),
+					device_pub_id::equals(Some(device_pub_id.to_db())),
+				])
 				.order_by(label_id::order(SortOrder::Asc))
 				.order_by(object_id::order(SortOrder::Asc))
 				.include(include!({
@@ -499,10 +572,20 @@ async fn paginate_labels_on_objects(
 								pub_id: l_o.object.pub_id,
 							},
 						},
-						[sync_entry!(l_o.date_created, date_created)],
+						chain_optional_iter(
+							[sync_entry!(l_o.date_created, date_created)],
+							[option_sync_entry!(
+								l_o.device_pub_id.map(|device_pub_id| {
+									prisma_sync::device::SyncId {
+										pub_id: device_pub_id,
+									}
+								}),
+								device
+							)],
+						),
 					)
 				})
-				.map(|o| crdt_op_unchecked_db(&o, device_pub_id))
+				.map(|o| crdt_op_unchecked_db(&o))
 				.collect::<Result<Vec<_>, _>>()
 				.map(|creates| db.crdt_operation().create_many(creates).exec())
 		},

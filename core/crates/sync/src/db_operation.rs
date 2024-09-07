@@ -32,7 +32,7 @@ pub async fn write_crdt_op_to_db(op: &CRDTOperation, db: &PrismaClient) -> Resul
 	.map_or_else(|e| Err(e.into()), |_| Ok(()))
 }
 
-pub fn into_ops(
+pub fn from_crdt_ops(
 	crdt_operation::Data {
 		timestamp,
 		model,
@@ -64,7 +64,7 @@ pub fn into_ops(
 	})
 }
 
-pub fn into_cloud_ops(
+pub fn from_cloud_crdt_ops(
 	cloud_crdt_operation::Data {
 		id,
 		timestamp,
