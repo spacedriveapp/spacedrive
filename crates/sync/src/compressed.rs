@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use uhlc::NTP64;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CompressedCRDTOperationsPerModel(pub Vec<(ModelId, CompressedCRDTOperationsPerRecord)>);
 
 pub type CompressedCRDTOperationsPerRecord = Vec<(RecordId, Vec<CompressedCRDTOperation>)>;
@@ -188,6 +188,14 @@ impl CompressedCRDTOperationsPerModel {
 		}
 
 		ops
+	}
+}
+
+impl Iterator for CompressedCRDTOperationsPerModel {
+	type Item = (ModelId, CompressedCRDTOperationsPerRecord);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.pop()
 	}
 }
 
