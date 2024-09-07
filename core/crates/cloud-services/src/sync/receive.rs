@@ -8,7 +8,9 @@ use sd_cloud_schema::{
 	},
 	Client, Service,
 };
-use sd_core_sync::{cloud_crdt_op_db, CRDTOperation, SyncManager};
+use sd_core_sync::{
+	cloud_crdt_op_db, CRDTOperation, CompressedCRDTOperationsPerModel, SyncManager,
+};
 
 use sd_actors::{Actor, Stopper};
 use sd_crypto::{
@@ -54,7 +56,7 @@ use super::SyncActors;
 const CLOUD_SYNC_DATA_KEEPER_FILE: &str = "cloud_sync_data_keeper.bin";
 const ONE_MINUTE: Duration = Duration::from_secs(60);
 
-// Responsible for downloading sync operations from the cloud to be processed by the ingester
+/// Responsible for downloading sync operations from the cloud to be processed by the ingester
 
 pub struct Receiver {
 	keeper: LastTimestampKeeper,
@@ -266,9 +268,9 @@ async fn handle_single_message(
 		.map_err(Error::ErrorResponseDownloadSyncMessages)?;
 
 	let crdt_ops = if let Some(size) = response.content_length() {
-		extract_messages_known_size(response, size, secret_key).await
+		extract_messages_known_size(response, size, secret_key, original_device_pub_id).await
 	} else {
-		extract_messages_unknown_size(response, secret_key).await
+		extract_messages_unknown_size(response, secret_key, original_device_pub_id).await
 	}?;
 	assert_eq!(
 		crdt_ops.len(),
@@ -284,6 +286,7 @@ async fn extract_messages_known_size(
 	response: Response,
 	size: u64,
 	secret_key: SecretKey,
+	devices::PubId(device_pub_id): devices::PubId,
 ) -> Result<Vec<CRDTOperation>, Error> {
 	let plain_text = if size <= EncryptedBlock::CIPHER_TEXT_SIZE as u64 {
 		OneShotDecryption::decrypt(
@@ -320,13 +323,16 @@ async fn extract_messages_known_size(
 		plain_text
 	};
 
-	postcard::from_bytes(&plain_text).map_err(Error::DeserializationFailureToPullSyncMessages)
+	postcard::from_bytes::<CompressedCRDTOperationsPerModel>(&plain_text)
+		.map(|compressed_ops| compressed_ops.into_ops(device_pub_id))
+		.map_err(Error::DeserializationFailureToPullSyncMessages)
 }
 
 #[instrument(skip_all, err)]
 async fn extract_messages_unknown_size(
 	response: Response,
 	secret_key: SecretKey,
+	devices::PubId(device_pub_id): devices::PubId,
 ) -> Result<Vec<CRDTOperation>, Error> {
 	let plain_text = match UnknownDownloadKind::new(response).await? {
 		UnknownDownloadKind::OneShot(buffer) => {
@@ -345,7 +351,9 @@ async fn extract_messages_unknown_size(
 		}
 	};
 
-	postcard::from_bytes(&plain_text).map_err(Error::DeserializationFailureToPullSyncMessages)
+	postcard::from_bytes::<CompressedCRDTOperationsPerModel>(&plain_text)
+		.map(|compressed_ops| compressed_ops.into_ops(device_pub_id))
+		.map_err(Error::DeserializationFailureToPullSyncMessages)
 }
 
 #[instrument(skip_all, err)]
