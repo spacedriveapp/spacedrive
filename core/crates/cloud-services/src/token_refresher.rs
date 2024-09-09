@@ -258,12 +258,15 @@ impl Runner {
 			exp: DateTime<Utc>,
 		}
 
-		BASE64_URL_SAFE_NO_PAD.decode_vec(token, token_decoding_buffer)?;
+		// The format of a JWT token is simple:
+		// "<base64-encoded header>.<base64-encoded claims>.<signature>"
+		BASE64_URL_SAFE_NO_PAD.decode_vec(
+			token.split('.').nth(1).ok_or(Error::MissingClaims)?,
+			token_decoding_buffer,
+		)?;
 		token_decoding_buffer.clear();
 
-		let token = serde_json::from_slice::<Token>(token_decoding_buffer)?;
-
-		token
+		serde_json::from_slice::<Token>(token_decoding_buffer)?
 			.exp
 			.signed_duration_since(Utc::now())
 			.to_std()
