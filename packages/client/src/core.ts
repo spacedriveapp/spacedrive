@@ -69,7 +69,6 @@ export type Procedures = {
         { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
         { key: "cloud.libraries.create", input: LibraryArgs<AccessToken>, result: null } | 
         { key: "cloud.libraries.delete", input: LibraryArgs<AccessToken>, result: null } | 
-        { key: "cloud.libraries.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.libraries.update", input: LibraryArgs<LibrariesUpdateArgs>, result: null } | 
         { key: "cloud.locations.create", input: LocationCreateRequest, result: null } | 
         { key: "cloud.locations.delete", input: LocationDeleteRequest, result: null } | 
