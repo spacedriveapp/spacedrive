@@ -29,6 +29,8 @@ pub enum Error {
 	FailedToCreateEndpoint(io::Error),
 
 	// Token refresher errors
+	#[error("Invalid token format, missing claims")]
+	MissingClaims,
 	#[error("Failed to decode access token data: {0}")]
 	DecodeAccessTokenData(#[from] base64::DecodeError),
 	#[error("Failed to deserialize access token json data: {0}")]
