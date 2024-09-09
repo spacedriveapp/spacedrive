@@ -19,25 +19,25 @@ impl SyncMessage {
 		}
 	}
 
-	pub fn to_bytes(&self) -> Vec<u8> {
-		match self {
-			Self::NewOperations => vec![b'N'],
-		}
-	}
+	// pub fn to_bytes(&self) -> Vec<u8> {
+	// 	match self {
+	// 		Self::NewOperations => vec![b'N'],
+	// 	}
+	// }
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
 
-	#[tokio::test]
-	async fn test_types() {
-		{
-			let original = SyncMessage::NewOperations;
+// 	#[tokio::test]
+// 	async fn test_types() {
+// 		{
+// 			let original = SyncMessage::NewOperations;
 
-			let mut cursor = std::io::Cursor::new(original.to_bytes());
-			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();
-			assert_eq!(original, result);
-		}
-	}
-}
+// 			let mut cursor = std::io::Cursor::new(original.to_bytes());
+// 			let result = SyncMessage::from_stream(&mut cursor).await.unwrap();
+// 			assert_eq!(original, result);
+// 		}
+// 	}
+// }

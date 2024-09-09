@@ -24,7 +24,6 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::Duration,
 };
 
 use chrono::Utc;
@@ -32,7 +31,6 @@ use futures_concurrency::future::{Join, TryJoin};
 use tokio::{
 	fs, io, spawn,
 	sync::{broadcast, RwLock},
-	time::sleep,
 };
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
@@ -448,7 +446,7 @@ impl Libraries {
 		db_path: impl AsRef<Path>,
 		config_path: impl AsRef<Path>,
 		maybe_create_device: Option<device::Create>,
-		maybe_create_instance: Option<instance::Create>,
+		maybe_create_instance: Option<instance::Create>, // Deprecated
 		should_seed: bool,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
@@ -556,8 +554,7 @@ impl Libraries {
 		)
 		.await?;
 
-		let (tx, mut rx) = broadcast::channel(10);
-		let library = Library::new(id, config, instance_id, identity, db, node, sync, tx).await;
+		let library = Library::new(id, config, instance_id, identity, db, node, sync).await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		spawn(sync_rx_actor(library.clone(), node.clone(), sync_rx));
@@ -594,128 +591,6 @@ impl Libraries {
 		if let Err(e) = node.old_jobs.clone().cold_resume(node, &library).await {
 			error!(?e, "Failed to resume jobs for library;");
 		}
-
-		spawn({
-			let this = self.clone();
-			let node = node.clone();
-			let library = library.clone();
-			async move {
-				loop {
-					debug!("Syncing library with cloud!");
-					// TODO(fogodev): re-implement this with new Cloud Services API
-
-					// if library.config().await.cloud_id.is_some() {
-					// 	if let Ok(lib) =
-					// 		sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
-					// 			.await
-					// 	{
-					// 		match lib {
-					// 			Some(lib) => {
-					// 				if let Some(this_instance) = lib
-					// 					.instances
-					// 					.iter()
-					// 					.find(|i| i.uuid == library.instance_uuid)
-					// 				{
-					// 					let node_config = node.config.get().await;
-					// 					let curr_metadata: Option<HashMap<String, String>> =
-					// 						instance.metadata.as_ref().map(|metadata| {
-					// 							serde_json::from_slice(metadata)
-					// 								.expect("invalid metadata")
-					// 						});
-					// 					let should_update = this_instance.node_id != node_config.id
-					// 						|| RemoteIdentity::from_str(
-					// 							&this_instance.node_remote_identity,
-					// 						)
-					// 						.ok() != Some(
-					// 							node_config.identity.to_remote_identity(),
-					// 						) || curr_metadata
-					// 						!= Some(node.p2p.peer_metadata());
-
-					// 					if should_update {
-					// 						warn!("Library instance on cloud is outdated. Updating...");
-
-					// 						if let Err(e) = sd_cloud_api::library::update_instance(
-					// 							node.cloud_api_config().await,
-					// 							library.id,
-					// 							this_instance.uuid,
-					// 							Some(node_config.id),
-					// 							Some(node_config.identity.to_remote_identity()),
-					// 							Some(node.p2p.peer_metadata()),
-					// 						)
-					// 						.await
-					// 						{
-					// 							error!(
-					// 								instance_uuid = %this_instance.uuid,
-					// 								?e,
-					// 								"Failed to updating instance on cloud;",
-					// 							);
-					// 						}
-					// 					}
-					// 				}
-
-					// 				if lib.name != *library.config().await.name {
-					// 					warn!("Library name on cloud is outdated. Updating...");
-
-					// 					if let Err(e) = sd_cloud_api::library::update(
-					// 						node.cloud_api_config().await,
-					// 						library.id,
-					// 						Some(lib.name),
-					// 					)
-					// 					.await
-					// 					{
-					// 						error!(?e, "Failed to update library name on cloud;");
-					// 					}
-					// 				}
-
-					// 				for instance in lib.instances {
-					// 					if let Err(e) = cloud::sync::receive::upsert_instance(
-					// 						library.id,
-					// 						&library.db,
-					// 						&library.sync,
-					// 						&node.libraries,
-					// 						&instance.uuid,
-					// 						instance.identity,
-					// 						&instance.node_id,
-					// 						RemoteIdentity::from_str(
-					// 							&instance.node_remote_identity,
-					// 						)
-					// 						.expect("malformed remote identity from API"),
-					// 						instance.metadata,
-					// 					)
-					// 					.await
-					// 					{
-					// 						error!(?e, "Failed to create instance on cloud;");
-					// 					}
-					// 				}
-					// 			}
-					// 			None => {
-					// 				warn!(
-					// 					"Library not found on cloud. Removing from local node..."
-					// 				);
-
-					// 				let _ = this
-					// 					.edit(
-					// 						library.id,
-					// 						None,
-					// 						MaybeUndefined::Undefined,
-					// 						MaybeUndefined::Null,
-					// 						None,
-					// 					)
-					// 					.await;
-					// 			}
-					// 		}
-					// 	}
-					// }
-
-					tokio::select! {
-						// Update instances every 2 minutes
-						_ = sleep(Duration::from_secs(120)) => {}
-						// Or when asked by user
-						Ok(_) = rx.recv() => {}
-					};
-				}
-			}
-		});
 
 		Ok(library)
 	}

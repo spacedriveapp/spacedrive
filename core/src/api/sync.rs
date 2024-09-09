@@ -57,7 +57,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					async_stream::stream! {
 						let cloud_sync_state = &library.cloud_sync_state;
-						let sync = &library.sync.shared;
+						let sync = &library.sync;
 
 						loop {
 							yield Data {

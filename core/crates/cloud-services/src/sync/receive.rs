@@ -30,7 +30,6 @@ use std::{
 		Arc,
 	},
 	task::{Context, Poll},
-	time::Duration,
 };
 
 use chrono::{DateTime, Utc};
@@ -51,10 +50,9 @@ use tokio_util::io::StreamReader;
 use tracing::{error, instrument};
 use uuid::Uuid;
 
-use super::SyncActors;
+use super::{SyncActors, ONE_MINUTE};
 
 const CLOUD_SYNC_DATA_KEEPER_FILE: &str = "cloud_sync_data_keeper.bin";
-const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 /// Responsible for downloading sync operations from the cloud to be processed by the ingester
 

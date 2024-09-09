@@ -1,13 +1,15 @@
 use sd_core_prisma_helpers::DevicePubId;
 
 use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient, SortOrder};
-use sd_sync::{CRDTOperation, OperationFactory};
+use sd_sync::{
+	CRDTOperation, CompressedCRDTOperationsPerModel, CompressedCRDTOperationsPerModelPerDevice,
+	OperationFactory,
+};
 use sd_utils::from_bytes_to_uuid;
 
 use std::{
 	cmp, fmt,
 	num::NonZeroU128,
-	ops::Deref,
 	sync::{
 		atomic::{self, AtomicBool},
 		Arc,
@@ -16,6 +18,7 @@ use std::{
 
 use async_stream::stream;
 use futures::Stream;
+use futures_concurrency::future::TryJoin;
 use prisma_client_rust::{and, operator::or};
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tracing::warn;
@@ -25,14 +28,21 @@ use uuid::Uuid;
 use super::{
 	crdt_op_db,
 	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
-	Error, SharedState, SyncEvent, NTP64,
+	ingest_utils::process_crdt_operations,
+	Error, SyncEvent, TimestampPerDevice, NTP64,
 };
 
 /// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
 #[derive(Clone)]
 pub struct Manager {
 	pub tx: broadcast::Sender<SyncEvent>,
-	pub shared: Arc<SharedState>,
+	pub db: Arc<PrismaClient>,
+	pub emit_messages_flag: Arc<AtomicBool>,
+	pub device_pub_id: DevicePubId,
+	pub timestamp_per_device: TimestampPerDevice,
+	pub clock: Arc<HLC>,
+	pub active: Arc<AtomicBool>,
+	pub active_notify: Arc<Notify>,
 	pub sync_lock: Arc<Mutex<()>>,
 }
 
@@ -40,12 +50,6 @@ impl fmt::Debug for Manager {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("SyncManager").finish()
 	}
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq)]
-pub struct GetOpsArgs {
-	pub timestamp_per_device: Vec<(DevicePubId, NTP64)>,
-	pub count: u32,
 }
 
 impl Manager {
@@ -108,31 +112,66 @@ impl Manager {
 
 		let (tx, rx) = broadcast::channel(64);
 
-		let clock = HLCBuilder::new()
-			.with_id(uhlc::ID::from(
-				NonZeroU128::new(Uuid::from(current_device_pub_id).to_u128_le())
-					.expect("Non zero id"),
-			))
-			.build();
-
-		let shared = Arc::new(SharedState {
-			db,
-			device_pub_id: current_device_pub_id.clone(),
-			clock,
-			timestamp_per_device: Arc::new(RwLock::new(latest_timestamp_per_device)),
-			emit_messages_flag,
-			active: AtomicBool::default(),
-			active_notify: Notify::default(),
-		});
-
 		Ok((
 			Self {
 				tx,
-				shared,
+				db,
+				device_pub_id: current_device_pub_id.clone(),
+				clock: Arc::new(
+					HLCBuilder::new()
+						.with_id(uhlc::ID::from(
+							NonZeroU128::new(Uuid::from(current_device_pub_id).to_u128_le())
+								.expect("Non zero id"),
+						))
+						.build(),
+				),
+				timestamp_per_device: Arc::new(RwLock::new(latest_timestamp_per_device)),
+				emit_messages_flag,
+				active: Arc::default(),
+				active_notify: Arc::default(),
 				sync_lock: Arc::new(Mutex::default()),
 			},
 			rx,
 		))
+	}
+
+	pub async fn ingest_ops(
+		&self,
+		CompressedCRDTOperationsPerModelPerDevice(compressed_ops): CompressedCRDTOperationsPerModelPerDevice,
+	) -> Result<(), Error> {
+		let _lock_guard = self.sync_lock.lock().await;
+
+		// Each `ops` vec is for an independent record, so we can process them concurrently
+		compressed_ops
+			.into_iter()
+			.flat_map(
+				|(device_pub_id, CompressedCRDTOperationsPerModel(ops_per_model))| {
+					ops_per_model
+						.into_iter()
+						.flat_map(move |(model_id, ops_per_record)| {
+							ops_per_record.into_iter().map(move |(record_id, ops)| {
+								process_crdt_operations(
+									&self.clock,
+									&self.timestamp_per_device,
+									&self.db,
+									device_pub_id.into(),
+									model_id,
+									record_id,
+									ops,
+								)
+							})
+						})
+				},
+			)
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+
+		if self.tx.send(SyncEvent::Ingested).is_err() {
+			warn!("failed to send ingested message on `ingest_ops`");
+		}
+
+		Ok(())
 	}
 
 	#[must_use]
@@ -165,8 +204,7 @@ impl Manager {
 				.await?;
 
 			if let Some(last) = ops.last() {
-				self.shared
-					.timestamp_per_device
+				self.timestamp_per_device
 					.write()
 					.await
 					.insert(self.device_pub_id.clone(), last.timestamp);
@@ -211,8 +249,7 @@ impl Manager {
 			tx._batch(vec![query]).await?.remove(0)
 		};
 
-		self.shared
-			.timestamp_per_device
+		self.timestamp_per_device
 			.write()
 			.await
 			.insert(self.device_pub_id.clone(), op.timestamp);
@@ -398,13 +435,5 @@ impl OperationFactory for Manager {
 
 	fn get_device_pub_id(&self) -> sd_sync::DevicePubId {
 		sd_sync::DevicePubId::from(&self.device_pub_id)
-	}
-}
-
-impl Deref for Manager {
-	type Target = SharedState;
-
-	fn deref(&self) -> &Self::Target {
-		&self.shared
 	}
 }

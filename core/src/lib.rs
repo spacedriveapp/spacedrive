@@ -57,8 +57,6 @@ use node::config;
 use notifications::Notifications;
 use volume::save_storage_statistics;
 
-pub(crate) use sd_core_sync as sync;
-
 /// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
 pub struct Node {

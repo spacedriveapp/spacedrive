@@ -22,10 +22,9 @@ pub async fn backfill_operations(
 	db: &PrismaClient,
 	sync: &crate::SyncManager,
 ) -> Result<(), Error> {
-	let lock = sync.sync_lock.lock().await;
+	let _lock_guard = sync.sync_lock.lock().await;
 
-	let res = db
-		._transaction()
+	db._transaction()
 		.with_timeout(9_999_999_999)
 		.run(|db| async move {
 			debug!("backfill started");
@@ -59,11 +58,7 @@ pub async fn backfill_operations(
 
 			Ok(())
 		})
-		.await;
-
-	drop(lock);
-
-	res
+		.await
 }
 
 async fn paginate<T, E1, E2, E3, GetterFut, OperationsFut>(

@@ -20,6 +20,7 @@ use std::{
 	sync::Arc,
 };
 
+use futures_concurrency::future::Join;
 use tokio::{fs, io, sync::broadcast, sync::RwLock};
 use tracing::warn;
 use uuid::Uuid;
@@ -44,8 +45,6 @@ pub struct Library {
 	// The UUID which matches `config.instance_id`'s primary key.
 	pub instance_uuid: Uuid,
 
-	do_cloud_sync: broadcast::Sender<()>,
-
 	// Look, I think this shouldn't be here but our current invalidation system needs it.
 	// TODO(@Oscar): Get rid of this with the new invalidation system.
 	event_bus_tx: broadcast::Sender<CoreEvent>,
@@ -68,7 +67,6 @@ impl Debug for Library {
 }
 
 impl Library {
-	#[allow(clippy::too_many_arguments)]
 	pub async fn new(
 		id: Uuid,
 		config: LibraryConfig,
@@ -77,7 +75,6 @@ impl Library {
 		db: Arc<PrismaClient>,
 		node: &Arc<Node>,
 		sync: SyncManager,
-		do_cloud_sync: broadcast::Sender<()>,
 	) -> Arc<Self> {
 		Arc::new(Self {
 			id,
@@ -87,7 +84,6 @@ impl Library {
 			identity,
 			// orphan_remover: OrphanRemoverActor::spawn(db),
 			instance_uuid,
-			do_cloud_sync,
 			event_bus_tx: node.event_bus.0.clone(),
 			cloud_sync_state: CloudSyncActorsState::default(),
 			cloud_sync_actors: ActorsCollection::default(),
@@ -113,9 +109,13 @@ impl Library {
 		.await?;
 
 		// TODO(@fogodev): Uncomment when they're ready
-		// self.cloud_sync_actors.start(CloudSyncActors::Sender).await;
-		// self.cloud_sync_actors.start(CloudSyncActors::Receiver).await;
-		// self.cloud_sync_actors.start(CloudSyncActors::Ingester).await;
+		(
+			self.cloud_sync_actors.start(CloudSyncActors::Sender),
+			self.cloud_sync_actors.start(CloudSyncActors::Receiver),
+			self.cloud_sync_actors.start(CloudSyncActors::Ingester),
+		)
+			.join()
+			.await;
 
 		Ok(())
 	}
@@ -201,11 +201,5 @@ impl Library {
 		);
 
 		Ok(out)
-	}
-
-	pub fn do_cloud_sync(&self) {
-		if let Err(e) = self.do_cloud_sync.send(()) {
-			warn!(?e, "Error sending cloud resync message;");
-		}
 	}
 }
