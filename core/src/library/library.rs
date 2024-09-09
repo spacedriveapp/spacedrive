@@ -109,13 +109,13 @@ impl Library {
 		.await?;
 
 		// TODO(@fogodev): Uncomment when they're ready
-		(
-			self.cloud_sync_actors.start(CloudSyncActors::Sender),
-			self.cloud_sync_actors.start(CloudSyncActors::Receiver),
-			self.cloud_sync_actors.start(CloudSyncActors::Ingester),
-		)
-			.join()
-			.await;
+		// (
+		// 	self.cloud_sync_actors.start(CloudSyncActors::Sender),
+		// 	self.cloud_sync_actors.start(CloudSyncActors::Receiver),
+		// 	self.cloud_sync_actors.start(CloudSyncActors::Ingester),
+		// )
+		// 	.join()
+		// 	.await;
 
 		Ok(())
 	}
