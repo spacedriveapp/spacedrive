@@ -27,25 +27,20 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient};
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device};
 use sd_utils::uuid_to_bytes;
 
-use std::{
-	collections::HashMap,
-	sync::{atomic::AtomicBool, Arc},
-};
+use std::{collections::HashMap, sync::Arc};
 
-use tokio::sync::{Notify, RwLock};
+use tokio::sync::RwLock;
 
-mod actor;
 pub mod backfill;
 mod db_operation;
-pub mod ingest;
+mod ingest_utils;
 mod manager;
 
 pub use db_operation::{from_cloud_crdt_ops, from_crdt_ops, write_crdt_op_to_db};
-pub use ingest::{Actor, Event, Handler, MessagesEvent, Request, State};
-pub use manager::{GetOpsArgs, Manager as SyncManager};
+pub use manager::Manager as SyncManager;
 pub use uhlc::NTP64;
 
 #[derive(Clone, Debug)]
@@ -62,16 +57,6 @@ pub use sd_sync::{
 };
 
 pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;
-
-pub struct SharedState {
-	pub db: Arc<PrismaClient>,
-	pub emit_messages_flag: Arc<AtomicBool>,
-	pub device_pub_id: DevicePubId,
-	pub timestamp_per_device: TimestampPerDevice,
-	pub clock: uhlc::HLC,
-	pub active: AtomicBool,
-	pub active_notify: Notify,
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

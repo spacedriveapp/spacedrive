@@ -38,11 +38,10 @@ use tokio::{
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use super::{datetime_to_timestamp, timestamp_to_datetime, SyncActors};
+use super::{datetime_to_timestamp, timestamp_to_datetime, SyncActors, ONE_MINUTE};
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const THIRTY_SECONDS: Duration = Duration::from_secs(30);
-const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 enum RaceNotifiedOrStopped {
 	Notified,

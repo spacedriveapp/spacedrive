@@ -11,7 +11,7 @@ use std::{
 	fmt,
 	path::Path,
 	sync::{atomic::AtomicBool, Arc},
-	time::{SystemTime, UNIX_EPOCH},
+	time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use chrono::{DateTime, Utc};
@@ -21,9 +21,11 @@ mod ingest;
 mod receive;
 mod send;
 
-// use ingest::Ingester;
+use ingest::Ingester;
 use receive::Receiver;
 use send::Sender;
+
+const ONE_MINUTE: Duration = Duration::from_secs(60);
 
 #[derive(Default)]
 pub struct SyncActorsState {
@@ -84,18 +86,18 @@ pub async fn declare_actors(
 		.try_join()
 		.await?;
 
-	// let ingester = Ingester::new(
-	// 	sync,
-	// 	ingest_notify,
-	// 	Arc::clone(&actors_state.ingest_active),
-	// 	Arc::clone(&actors_state.notifier),
-	// );
+	let ingester = Ingester::new(
+		sync,
+		ingest_notify,
+		Arc::clone(&actors_state.ingest_active),
+		Arc::clone(&actors_state.notifier),
+	);
 
 	actors
 		.declare_many_boxed([
 			sender.into_actor(),
 			receiver.into_actor(),
-			// ingester.into_actor(),
+			ingester.into_actor(),
 		])
 		.await;
 

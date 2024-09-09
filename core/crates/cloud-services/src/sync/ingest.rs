@@ -1,9 +1,6 @@
 use crate::Error;
 
-use chrono::{DateTime, Utc};
 use sd_core_sync::{from_cloud_crdt_ops, CompressedCRDTOperationsPerModelPerDevice, SyncManager};
-
-use sd_cloud_schema::{devices, sync::groups};
 
 use sd_actors::{Actor, Stopper};
 use sd_prisma::prisma::{cloud_crdt_operation, SortOrder};
@@ -17,12 +14,12 @@ use std::{
 	time::SystemTime,
 };
 
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use futures_concurrency::future::Race;
-use tokio::sync::Notify;
-use tracing::debug;
+use tokio::{sync::Notify, time::sleep};
+use tracing::{debug, error};
 
-use super::{timestamp_to_datetime, SyncActors};
+use super::{timestamp_to_datetime, SyncActors, ONE_MINUTE};
 
 const BATCH_SIZE: i64 = 1000;
 
@@ -45,78 +42,21 @@ impl Actor<SyncActors> for Ingester {
 			Stopped,
 		}
 
-		loop {
+		'outer: loop {
 			self.active.store(true, Ordering::Relaxed);
 			self.active_notify.notify_waiters();
 
-			// 	{
-			// 		let mut rx = pin!(sync.ingest.req_rx.clone());
-
-			// 		if sync
-			// 			.ingest
-			// 			.event_tx
-			// 			.send(sd_core_sync::Event::Notification)
-			// 			.await
-			// 			.is_ok()
-			// 		{
-			// 			while let Some(req) = rx.next().await {
-			// 				const OPS_PER_REQUEST: u32 = 1000;
-
-			// 				// FIXME: If there are exactly a multiple of OPS_PER_REQUEST operations,
-			// 				// then this will bug, as we sent `has_more` as true, but we don't have
-			// 				// more operations to send.
-
-			// 				use sd_core_sync::*;
-
-			// 				let timestamps = match req {
-			// 					Request::FinishedIngesting => {
-			// 						break;
-			// 					}
-			// 					Request::Messages { timestamps, .. } => timestamps,
-			// 				};
-
-			// 				let (ops_ids, ops): (Vec<_>, Vec<_>) =
-			// 					err_break!(sync.get_cloud_ops(OPS_PER_REQUEST, timestamps,).await)
-			// 						.into_iter()
-			// 						.unzip();
-
-			// 				if ops.is_empty() {
-			// 					break;
-			// 				}
-
-			// 				debug!(
-			// 					messages_count = ops.len(),
-			// 					first_message = ?ops.first().map(|operation| operation.timestamp.as_u64()),
-			// 					last_message = ?ops.last().map(|operation| operation.timestamp.as_u64()),
-			// 					"Sending messages to ingester",
-			// 				);
-
-			// 				let (wait_tx, wait_rx) = tokio::sync::oneshot::channel::<()>();
-
-			// 				err_break!(
-			// 					sync.ingest
-			// 						.event_tx
-			// 						.send(sd_core_sync::Event::Messages(MessagesEvent {
-			// 							device_pub_id: sync.device_pub_id.clone(),
-			// 							has_more: ops.len() == OPS_PER_REQUEST as usize,
-			// 							messages: CompressedCRDTOperationsPerModelPerDevice::new(ops),
-			// 							wait_tx: Some(wait_tx)
-			// 						}))
-			// 						.await
-			// 				);
-
-			// 				err_break!(wait_rx.await);
-
-			// 				err_break!(
-			// 					sync.db
-			// 						.cloud_crdt_operation()
-			// 						.delete_many(vec![cloud_crdt_operation::id::in_vec(ops_ids)])
-			// 						.exec()
-			// 						.await
-			// 				);
-			// 			}
-			// 		}
-			// 	}
+			loop {
+				match self.run_loop_iteration().await {
+					Ok(IngestStatus::Completed) => break,
+					Ok(IngestStatus::InProgress) => {}
+					Err(e) => {
+						error!(?e, "Error during cloud sync ingester actor iteration");
+						sleep(ONE_MINUTE).await;
+						continue 'outer;
+					}
+				}
+			}
 
 			self.active.store(false, Ordering::Relaxed);
 			self.active_notify.notify_waiters();
@@ -186,8 +126,9 @@ impl Ingester {
 			"Messages to ingest",
 		);
 
-		let CompressedCRDTOperationsPerModelPerDevice(compressed_ops) =
-			CompressedCRDTOperationsPerModelPerDevice::new(ops);
+		self.sync
+			.ingest_ops(CompressedCRDTOperationsPerModelPerDevice::new(ops))
+			.await?;
 
 		self.sync
 			.db

@@ -41,7 +41,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
 			// R.query(|node, req: devices::get::Request| async move {
-			R.query(|node, _: ()| async move {
+			R.query(|_node, _: ()| async move {
 				// let devices::get::Response(device) = super::handle_comm_error(
 				// 	try_get_cloud_services_client!(node)?
 				// 		.devices()
@@ -72,7 +72,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("list", {
-			R.query(|node, _: ()| async move {
+			R.query(|_node, _: ()| async move {
 				// let devices::list::Response(devices) = super::handle_comm_error(
 				// 	try_get_cloud_services_client!(node)?
 				// 		.devices()
