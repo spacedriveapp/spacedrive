@@ -15,7 +15,7 @@ export default function Page() {
 		<div className="mt-[200px] flex w-full flex-col items-center overflow-hidden px-4">
 			<div className="relative mx-auto h-auto w-full max-w-[1200px] overflow-visible">
 				<div
-					className="fade-in-heading absolute left-[-90px] top-[16%] size-[750px] xs:top-[-100px] xs:size-[800px] sm:top-[-175px] sm:mx-auto sm:size-[800px] md:inset-x-0 md:top-[-250px] md:size-[900px] lg:top-[-420px] lg:size-[1100px]"
+					className="fade-in-heading absolute -left-1/4 top-[10%] mx-auto size-[750px] xs:inset-x-0 xs:left-[-16%] xs:top-[-50px] sm:left-0 sm:top-[-175px] sm:mx-auto md:inset-x-0 md:top-[-250px] md:size-[900px] lg:top-[-420px] lg:size-[1100px]"
 					style={{
 						backgroundImage: 'url(/images/circlebg.webp',
 						backgroundRepeat: 'no-repeat',
