@@ -12,7 +12,7 @@ export const Assistant = () => {
 				alt=""
 				width={2000}
 				height={1200}
-				className="absolute bottom-[100px] left-0 -z-10 overflow-visible md:bottom-[-350px]"
+				className="absolute left-0 top-0 -z-10 overflow-visible md:top-[-200px]"
 			/>
 
 			<div className="container relative z-10 flex flex-col flex-wrap items-start w-full p-4 mx-auto">
