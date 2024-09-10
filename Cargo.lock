@@ -4310,7 +4310,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -6942,9 +6942,8 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "opaque-ke"
-version = "3.0.0-pre.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a71f6ccab36a2ee623d825504dee028bcc024cbe7153731faabed6147122df"
+version = "3.0.0-pre.5"
+source = "git+https://github.com/spacedriveapp/opaque-ke?rev=76f48e4a8d#76f48e4a8de0d61899e9ef872d1eb89961947e88"
 dependencies = [
  "argon2",
  "curve25519-dalek",
@@ -9645,7 +9644,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#0592225c266b3e3345c09d86d39be7595ef3c7e2"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#c10c99cbba9d884ff7a6d64cf84696697701a10d"
 dependencies = [
  "argon2",
  "async-stream",
@@ -12959,9 +12958,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "voprf"
-version = "0.5.0-pre.6"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5214d2771c04b0fb05cc3652fbc749120321515662c1931523ab21968b416047"
+checksum = "28f59c30c76e2fea54cdece6a054e2662feffa7ab19658a7887524265ee39470"
 dependencies = [
  "curve25519-dalek",
  "derive-where",
