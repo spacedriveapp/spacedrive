@@ -100,7 +100,9 @@ const Items = ({
 				paths.length > 0
 					? actions.getEphemeralFilesOpenWithApps(paths).then(handleError)
 					: Promise.resolve([])
-			]).then((res) => res.flat()).then((res) => res.sort((a,b) => a.name.localeCompare(b.name)));
+			])
+				.then((res) => res.flat())
+				.then((res) => res.sort((a, b) => a.name.localeCompare(b.name)));
 		},
 		{ initialData: [] }
 	);
