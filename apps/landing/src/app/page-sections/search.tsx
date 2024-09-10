@@ -16,6 +16,7 @@ export const Search = () => {
 					<video
 						className="h-auto w-full rounded-[10px] border border-indigo-500/30"
 						autoPlay
+						playsInline
 						muted
 						controls={false}
 						loop
