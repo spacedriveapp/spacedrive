@@ -4,11 +4,11 @@ import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 export const Github = () => {
 	return (
-		<section className="container flex flex-col flex-wrap items-start w-full px-4 mx-auto mb-32">
+		<section className="container mx-auto mb-32 flex w-full flex-col flex-wrap items-start px-4">
 			<hgroup>
-				<h1 className="self-start flex-1 text-2xl font-bold leading-8 md:text-3xl md:leading-10">
+				<h1 className="flex-1 self-start text-2xl font-bold leading-8 md:text-3xl md:leading-10">
 					Free and open-source.{' '}
-					<span className="font-semibold text-transparent bg-gradient-to-r from-zinc-400 to-zinc-500/70 bg-clip-text">
+					<span className="bg-gradient-to-r from-zinc-400 to-zinc-500/70 bg-clip-text font-semibold text-transparent">
 						See for yourself.
 					</span>
 				</h1>

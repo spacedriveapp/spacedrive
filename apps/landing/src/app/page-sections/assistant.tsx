@@ -5,7 +5,7 @@ import Particles from '~/components/particles';
 
 export const Assistant = () => {
 	return (
-		<section className="relative w-full mb-32 md:mb-0">
+		<section className="relative mb-32 w-full md:mb-0">
 			{/* Background Image positioned absolutely */}
 			<Image
 				src="/images/new/comet_bg.svg"
@@ -15,10 +15,10 @@ export const Assistant = () => {
 				className="absolute left-0 top-0 -z-10 overflow-visible md:top-[-200px]"
 			/>
 
-			<div className="container relative z-10 flex flex-col flex-wrap items-start w-full p-4 mx-auto">
+			<div className="container relative z-10 mx-auto flex w-full flex-col flex-wrap items-start p-4">
 				<h2 className="flex flex-wrap items-center gap-2 text-2xl font-bold leading-8 md:flex-1 md:text-3xl md:leading-10">
 					<Image
-						className="flex justify-center size-12 shrink-0"
+						className="flex size-12 shrink-0 justify-center"
 						quality={100}
 						src={assistantIcon}
 						width={251}

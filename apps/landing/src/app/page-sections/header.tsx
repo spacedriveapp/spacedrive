@@ -66,7 +66,7 @@ export async function Header() {
 						src="/images/app/gradient.webp"
 					/>
 					{/* 2nd light */}
-					<div className="animation-delay-2 absolute-horizontal-center top-[550px] h-[150px] w-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-[40px]" />
+					<div className="animation-delay-2 absolute-horizontal-center top-[550px] size-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-2xl" />
 					<HeroImage
 						src="/images/app/wip/MultiDeviceOverview.png"
 						alt="Spacedrive App Image"

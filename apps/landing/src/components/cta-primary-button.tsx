@@ -71,7 +71,7 @@ export function CtaPrimaryButton({
 					<stop stopColor="hsl(0 100% 100% / 70%)" offset="100%" />
 				</linearGradient>
 			</Icon>
-			<span className="font-sans text-base font-semibold leading-normal text-center text-white drop-shadow-md">
+			<span className="text-center font-sans text-base font-semibold leading-normal text-white drop-shadow-md">
 				{children}
 			</span>
 		</Link>

@@ -7,7 +7,7 @@ import vaultIllustration from '~/assets/illustration/vault.webp';
 
 export const Features = () => {
 	return (
-		<section className="container relative flex items-center justify-center p-4 mx-auto">
+		<section className="container relative mx-auto flex items-center justify-center p-4">
 			<h2 className="sr-only">Features</h2>
 			{/** Lines & middle circle */}
 			<div className="absolute inset-x-0 mx-auto hidden h-[90%] w-px bg-gradient-to-b from-transparent via-[#6C708F]/30 to-transparent lg:flex" />
@@ -60,7 +60,7 @@ const Feature = ({
 				<p className="w-full max-w-96 text-ink-faint">{description}</p>
 			</div>
 			<Image
-				className="object-contain mx-auto my-6 overflow-hidden size-full"
+				className="mx-auto my-6 size-full overflow-hidden object-contain"
 				loading="eager"
 				quality={100}
 				style={{
