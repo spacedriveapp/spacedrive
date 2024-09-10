@@ -1,7 +1,7 @@
 import { ArrowCircleDown, Icon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { ReactNode, useId } from 'react';
+import { ComponentProps, ReactNode, useId } from 'react';
 import { Platform } from '~/utils/current-platform';
 
 type CtaButtonProps = {
@@ -16,7 +16,8 @@ type CtaButtonProps = {
 	| {
 			platform: Platform | null;
 	  }
-);
+) &
+	ComponentProps<'button'>;
 
 export function CtaPrimaryButton({
 	iconComponent: Icon = ArrowCircleDown,
@@ -53,6 +54,7 @@ export function CtaPrimaryButton({
 		<Link
 			href={href}
 			className={clsx(
+				props.className,
 				'noise with-rounded-2px-border-images inline-flex flex-row items-center justify-center gap-x-2 overflow-hidden rounded-xl py-2 pe-4 ps-3 transition-all hover:brightness-110',
 				'bg-gradient-to-b from-[#42B2FD] to-[#0078F0] [--border-image:linear-gradient(to_bottom,hsl(200_100%_77%/100%),hsl(200_0%_100%/5%)75%)]',
 				{

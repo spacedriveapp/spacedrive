@@ -129,7 +129,7 @@ export function NavBar() {
 							animate={{ x: 0 }}
 							exit={{ x: '-100%' }}
 							transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-							className="fixed left-0 top-0 z-[120] h-full w-64 bg-[#141419] p-4 shadow-lg"
+							className="fixed left-0 top-0 z-[120] h-full w-72 overflow-auto bg-[#141419] p-4 shadow-lg"
 						>
 							{/* Close Button */}
 							<div className="flex justify-end">
@@ -143,7 +143,7 @@ export function NavBar() {
 							</div>
 
 							{/* Nav Links */}
-							<div className="flex flex-col items-start p-4 space-y-4">
+							<div className="flex flex-col items-start p-4 space-y-2">
 								{NAVIGATION_ITEMS.map(({ label, href, adornment }) => (
 									<NavLink key={`nav-sub-${label}-${href}`} href={href}>
 										{label}{' '}
@@ -154,7 +154,11 @@ export function NavBar() {
 										)}
 									</NavLink>
 								))}
-								<CtaPrimaryButton glow={'sm'} platform={currentPlatform} />
+								<CtaPrimaryButton
+									className="relative top-2"
+									glow={'sm'}
+									platform={currentPlatform}
+								/>
 							</div>
 						</motion.div>
 					</>
