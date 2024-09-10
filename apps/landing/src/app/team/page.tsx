@@ -52,9 +52,9 @@ export default function Page() {
 				</div>
 			</div>
 			<div className="fade-in-heading animation-delay-5">
-				<div className="mx-auto mt-40 w-full max-w-[750px]">
+				<div className="mx-auto mt-40 w-full max-w-[700px]">
 					<h2 className="text-2xl font-bold leading-relaxed">Meet the team</h2>
-					<div className="my-10 grid grid-cols-2 gap-10 xs:grid-cols-3 sm:grid-cols-4">
+					<div className="my-10 grid grid-cols-2 gap-x-0 gap-y-10 xs:grid-cols-3 sm:grid-cols-4">
 						{teamMembers.map((member) => (
 							<TeamMember key={member.name} {...member} />
 						))}
@@ -81,7 +81,7 @@ export default function Page() {
 				<p className="text-sm text-gray-400">
 					We're backed by some of the greatest leaders in the technology industry.
 				</p>
-				<div className="my-10 grid w-full max-w-[750px] grid-cols-3 gap-x-5 gap-y-10 sm:grid-cols-5">
+				<div className="my-10 grid w-full max-w-[700px] grid-cols-3 gap-x-5 gap-y-10 sm:grid-cols-5">
 					{investors.map((investor) => (
 						<TeamMember key={investor.name + investor.investmentRound} {...investor} />
 					))}
