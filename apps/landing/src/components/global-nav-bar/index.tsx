@@ -27,12 +27,12 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 // ];
 
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
-	{ label: 'Explorer', href: '#' },
-	{ label: 'Cloud', href: '#' },
+	// { label: 'Explorer', href: '#' },
+	// { label: 'Cloud', href: '#' },
 	{ label: 'Team', href: '/team' },
-	{ label: 'Assistant', href: '#', adornment: 'New' },
-	{ label: 'Store', href: '#' },
-	{ label: 'Use Cases', href: '#' },
+	// { label: 'Assistant', href: '#', adornment: 'New' },
+	// { label: 'Store', href: '#' },
+	{ label: 'Use Cases', href: '/use-cases' },
 	{ label: 'Blog', href: '/blog' },
 	{ label: 'Docs', href: '/docs/product/getting-started/introduction' }
 ];
