@@ -18,8 +18,6 @@ const BINDING_LOCATION: &str = ".";
 #[cfg(unix)]
 const BINDING_LOCATION: &str = if cfg!(target_os = "macos") {
 	"../Frameworks/Spacedrive.framework/Libraries"
-} else if cfg!(target_os = "ios") {
-	"../Frameworks"
 } else {
 	"../lib/spacedrive"
 };
