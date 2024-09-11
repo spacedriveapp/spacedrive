@@ -12,10 +12,10 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="mt-[200px] flex w-full flex-col items-center overflow-hidden px-4">
+		<div className="mt-[200px] flex w-full flex-col items-center overflow-hidden px-4 lg:overflow-visible">
 			<div className="relative mx-auto h-auto w-full max-w-[1200px] overflow-visible">
 				<div
-					className="fade-in-heading absolute -left-1/4 top-[10%] mx-auto size-[750px] xs:inset-x-0 xs:left-[-16%] xs:top-[-50px] sm:left-0 sm:top-[-175px] sm:mx-auto md:inset-x-0 md:top-[-250px] md:size-[900px] lg:top-[-420px] lg:size-[1100px]"
+					className="fade-in-heading absolute -left-1/4 top-[10%] mx-auto size-[750px] blur-[5px] xs:inset-x-0 xs:left-[-16%] xs:top-[-50px] sm:left-0 sm:top-[-175px] sm:mx-auto md:inset-x-0 md:top-[-250px] md:size-[900px] lg:top-[-420px] lg:size-[1100px]"
 					style={{
 						backgroundImage: 'url(/images/circlebg.webp',
 						backgroundRepeat: 'no-repeat',
@@ -25,7 +25,7 @@ export default function Page() {
 				/>
 				<h1 className="fade-in-heading mx-auto w-full max-w-[750px] text-center text-5xl font-bold leading-tight sm:leading-snug">
 					We believe file management should be{' '}
-					<span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+					<span className="bg-gradient-to-r from-fuchsia-500 to-indigo-500 bg-clip-text text-transparent">
 						universal
 					</span>
 					.
