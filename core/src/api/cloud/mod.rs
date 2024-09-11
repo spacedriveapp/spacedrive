@@ -1,4 +1,8 @@
-use crate::{node::config::NodeConfig, volume::get_volumes, Node};
+use crate::{
+	node::{config::NodeConfig, HardwareModel},
+	volume::get_volumes,
+	Node,
+};
 
 use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnection, UserResponse};
 
@@ -14,7 +18,7 @@ use std::pin::pin;
 use async_stream::stream;
 use futures::StreamExt;
 use rspc::alpha::AlphaRouter;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::{Ctx, R};
 
@@ -100,6 +104,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						Err(Error::Client(ClientSideError::NotFound(_))) => {
 							// Device not registered, we execute a device register flow
 							let iroh_secret_key = IrohSecretKey::generate_with_rng(&mut rng);
+							let hardware_model = Into::into(
+								HardwareModel::try_get().unwrap_or(HardwareModel::Other),
+							);
 
 							let master_key = self::devices::register(
 								&client,
@@ -115,11 +122,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 										.map(|volume| volume.total_capacity)
 										.sum(),
 									connection_id: iroh_secret_key.public(),
+									hardware_model,
+									used_storage: 0,
 								},
 								hashed_pub_id,
 								&mut rng,
 							)
 							.await?;
+
+							debug!("Device registered successfully");
 
 							KeyManager::new(master_key, iroh_secret_key, data_directory, &mut rng)
 								.await?

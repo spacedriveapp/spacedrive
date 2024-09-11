@@ -1,12 +1,13 @@
-use crate::{
-	api::{Ctx, R},
-	node::HardwareModel,
-};
+use crate::api::{Ctx, R};
 
 use futures::{SinkExt, StreamExt};
 use sd_cloud_schema::{
 	auth::AccessToken,
-	devices::{self, DeviceOS, PubId},
+	devices::{
+		self,
+		register::{Request, RequestUpdate, Response, State},
+		DeviceOS, HardwareModel, PubId,
+	},
 	opaque_ke::{
 		ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult, ClientLoginStartResult,
 		ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -50,114 +51,115 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				// 	"Failed to get device;",
 				// )??;
 
-				let device = MockDevice {
-					name: "Mac Device".to_string(),
-					pub_id: PubId(Uuid::now_v7()),
-					// Date: 8th Aug 2024 12:00:00 UTC
-					created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-						.expect("Failed to parse created_at datetime")
-						.with_timezone(&chrono::Utc),
-					// Always set to the current time
-					updated_at: chrono::Utc::now(),
-					os: DeviceOS::MacOS,
-					used_storage: 100 * 1024 * 1024 * 1024,
-					// Always set to 256 GB in bytes (u64)
-					storage_size: 256 * 1024 * 1024 * 1024,
-					device_model: HardwareModel::MacBookPro,
-				};
+				// let device = MockDevice {
+				// 	name: "Mac Device".to_string(),
+				// 	pub_id: PubId(Uuid::now_v7()),
+				// 	// Date: 8th Aug 2024 12:00:00 UTC
+				// 	created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 		.expect("Failed to parse created_at datetime")
+				// 		.with_timezone(&chrono::Utc),
+				// 	// Always set to the current time
+				// 	updated_at: chrono::Utc::now(),
+				// 	os: DeviceOS::MacOS,
+				// 	used_storage: 100 * 1024 * 1024 * 1024,
+				// 	// Always set to 256 GB in bytes (u64)
+				// 	storage_size: 256 * 1024 * 1024 * 1024,
+				// 	device_model: HardwareModel::MacBookPro,
+				// };
 
-				debug!(?device, "Got device");
+				// debug!(?device, "Got device");
 
-				Ok(device)
+				Ok(())
 			})
 		})
 		.procedure("list", {
-			R.query(|_node, _: ()| async move {
-				// let devices::list::Response(devices) = super::handle_comm_error(
-				// 	try_get_cloud_services_client!(node)?
-				// 		.devices()
-				// 		.list(req)
-				// 		.await,
-				// 	"Failed to list devices;",
-				// )??;
+			R.query(|node, req: devices::list::Request| async move {
+				let devices::list::Response(devices) = super::handle_comm_error(
+					try_get_cloud_services_client(&node)
+						.await?
+						.devices()
+						.list(req)
+						.await,
+					"Failed to list devices;",
+				)??;
 
-				let devices: Vec<MockDevice> = vec![
-					MockDevice {
-						name: "Mac Device".to_string(),
-						pub_id: PubId(Uuid::now_v7()),
-						// Date: 8th Aug 2024 12:00:00 UTC
-						created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-							.expect("Failed to parse created_at datetime")
-							.with_timezone(&chrono::Utc),
-						// Always set to the current time
-						updated_at: chrono::Utc::now(),
-						os: DeviceOS::MacOS,
-						// Randomize between 256 GB and 1 TB in bytes (u64)
-						storage_size: 256 * 1024 * 1024 * 1024,
-						used_storage: 100 * 1024 * 1024 * 1024,
-						device_model: HardwareModel::MacMini,
-					},
-					MockDevice {
-						name: "Windows Device".to_string(),
-						pub_id: PubId(Uuid::now_v7()),
-						// Date: 8th Aug 2024 12:00:00 UTC
-						created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-							.expect("Failed to parse created_at datetime")
-							.with_timezone(&chrono::Utc),
-						// Always set to the current time
-						updated_at: chrono::Utc::now(),
-						os: DeviceOS::Windows,
-						// Randomize between 256 GB and 1 TB in bytes (u64)
-						storage_size: 256 * 1024 * 1024 * 1024,
-						used_storage: 10 * 1024 * 1024 * 1024,
-						device_model: HardwareModel::Other,
-					},
-					MockDevice {
-						name: "Linux Device".to_string(),
-						pub_id: PubId(Uuid::now_v7()),
-						// Date: 8th Aug 2024 12:00:00 UTC
-						created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-							.expect("Failed to parse created_at datetime")
-							.with_timezone(&chrono::Utc),
-						// Always set to the current time
-						updated_at: chrono::Utc::now(),
-						os: DeviceOS::Linux,
-						// Always set to 256 GB in bytes (u64)
-						storage_size: 256 * 1024 * 1024 * 1024,
-						used_storage: 50 * 1024 * 1024 * 1024,
-						device_model: HardwareModel::Other,
-					},
-					MockDevice {
-						name: "Android Device".to_string(),
-						pub_id: PubId(Uuid::now_v7()),
-						// Date: 8th Aug 2024 12:00:00 UTC
-						created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-							.expect("Failed to parse created_at datetime")
-							.with_timezone(&chrono::Utc),
-						// Always set to the current time
-						updated_at: chrono::Utc::now(),
-						os: DeviceOS::Android,
-						// Always set to 256 GB in bytes (u64)
-						storage_size: 256 * 1024 * 1024 * 1024,
-						used_storage: 150 * 1024 * 1024 * 1024,
-						device_model: HardwareModel::Android,
-					},
-					MockDevice {
-						name: "iOS Device".to_string(),
-						pub_id: PubId(Uuid::now_v7()),
-						// Date: 8th Aug 2024 12:00:00 UTC
-						created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
-							.expect("Failed to parse created_at datetime")
-							.with_timezone(&chrono::Utc),
-						// Always set to the current time
-						updated_at: chrono::Utc::now(),
-						os: DeviceOS::IOS,
-						// Always set to 256 GB in bytes (u64)
-						storage_size: 256 * 1024 * 1024 * 1024,
-						used_storage: 200 * 1024 * 1024 * 1024,
-						device_model: HardwareModel::IPhone,
-					},
-				];
+				// let devices: Vec<MockDevice> = vec![
+				// 	MockDevice {
+				// 		name: "Mac Device".to_string(),
+				// 		pub_id: PubId(Uuid::now_v7()),
+				// 		// Date: 8th Aug 2024 12:00:00 UTC
+				// 		created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 			.expect("Failed to parse created_at datetime")
+				// 			.with_timezone(&chrono::Utc),
+				// 		// Always set to the current time
+				// 		updated_at: chrono::Utc::now(),
+				// 		os: DeviceOS::MacOS,
+				// 		// Randomize between 256 GB and 1 TB in bytes (u64)
+				// 		storage_size: 256 * 1024 * 1024 * 1024,
+				// 		used_storage: 100 * 1024 * 1024 * 1024,
+				// 		device_model: HardwareModel::MacMini,
+				// 	},
+				// 	MockDevice {
+				// 		name: "Windows Device".to_string(),
+				// 		pub_id: PubId(Uuid::now_v7()),
+				// 		// Date: 8th Aug 2024 12:00:00 UTC
+				// 		created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 			.expect("Failed to parse created_at datetime")
+				// 			.with_timezone(&chrono::Utc),
+				// 		// Always set to the current time
+				// 		updated_at: chrono::Utc::now(),
+				// 		os: DeviceOS::Windows,
+				// 		// Randomize between 256 GB and 1 TB in bytes (u64)
+				// 		storage_size: 256 * 1024 * 1024 * 1024,
+				// 		used_storage: 10 * 1024 * 1024 * 1024,
+				// 		device_model: HardwareModel::Other,
+				// 	},
+				// 	MockDevice {
+				// 		name: "Linux Device".to_string(),
+				// 		pub_id: PubId(Uuid::now_v7()),
+				// 		// Date: 8th Aug 2024 12:00:00 UTC
+				// 		created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 			.expect("Failed to parse created_at datetime")
+				// 			.with_timezone(&chrono::Utc),
+				// 		// Always set to the current time
+				// 		updated_at: chrono::Utc::now(),
+				// 		os: DeviceOS::Linux,
+				// 		// Always set to 256 GB in bytes (u64)
+				// 		storage_size: 256 * 1024 * 1024 * 1024,
+				// 		used_storage: 50 * 1024 * 1024 * 1024,
+				// 		device_model: HardwareModel::Other,
+				// 	},
+				// 	MockDevice {
+				// 		name: "Android Device".to_string(),
+				// 		pub_id: PubId(Uuid::now_v7()),
+				// 		// Date: 8th Aug 2024 12:00:00 UTC
+				// 		created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 			.expect("Failed to parse created_at datetime")
+				// 			.with_timezone(&chrono::Utc),
+				// 		// Always set to the current time
+				// 		updated_at: chrono::Utc::now(),
+				// 		os: DeviceOS::Android,
+				// 		// Always set to 256 GB in bytes (u64)
+				// 		storage_size: 256 * 1024 * 1024 * 1024,
+				// 		used_storage: 150 * 1024 * 1024 * 1024,
+				// 		device_model: HardwareModel::Android,
+				// 	},
+				// 	MockDevice {
+				// 		name: "iOS Device".to_string(),
+				// 		pub_id: PubId(Uuid::now_v7()),
+				// 		// Date: 8th Aug 2024 12:00:00 UTC
+				// 		created_at: DateTime::parse_from_rfc3339("2024-08-08T12:00:00Z")
+				// 			.expect("Failed to parse created_at datetime")
+				// 			.with_timezone(&chrono::Utc),
+				// 		// Always set to the current time
+				// 		updated_at: chrono::Utc::now(),
+				// 		os: DeviceOS::IOS,
+				// 		// Always set to 256 GB in bytes (u64)
+				// 		storage_size: 256 * 1024 * 1024 * 1024,
+				// 		used_storage: 200 * 1024 * 1024 * 1024,
+				// 		device_model: HardwareModel::IPhone,
+				// 	},
+				// ];
 
 				debug!(?devices, "Listed devices");
 
@@ -313,6 +315,8 @@ pub struct DeviceRegisterData {
 	pub os: DeviceOS,
 	pub storage_size: u64,
 	pub connection_id: NodeId,
+	pub hardware_model: HardwareModel,
+	pub used_storage: u64,
 }
 
 pub async fn register(
@@ -324,12 +328,12 @@ pub async fn register(
 		os,
 		storage_size,
 		connection_id,
+		hardware_model,
+		used_storage,
 	}: DeviceRegisterData,
 	hashed_pub_id: Hash,
 	rng: &mut CryptoRng,
 ) -> Result<SecretKey, rspc::Error> {
-	use devices::register::{Request, RequestUpdate, Response, State};
-
 	let ClientRegistrationStartResult { message, state } =
 		ClientRegistration::<SpacedriveCipherSuite>::start(
 			rng,
@@ -354,6 +358,8 @@ pub async fn register(
 				storage_size,
 				connection_id,
 				opaque_register_message: Box::new(message),
+				hardware_model,
+				used_storage,
 			})
 			.await,
 		"Failed to send device register request;",

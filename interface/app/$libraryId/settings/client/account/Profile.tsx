@@ -1,13 +1,26 @@
 import { Envelope } from '@phosphor-icons/react';
 import { getAccessToken } from 'supertokens-web-js/recipe/session';
-import { useBridgeMutation } from '@sd/client';
+import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { TruncatedText } from '~/components';
 
 const Profile = ({ email }: { email?: string }) => {
 	const emailName = email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
+	const refreshToken: string =
+		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
+			.find((cookie: string) => cookie.startsWith('st-refresh-token'))
+			?.split('=')[1]
+			.split(';')[0] || '';
+	const accessToken: string =
+		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
+			.find((cookie: string) => cookie.startsWith('st-access-token'))
+			?.split('=')[1]
+			.split(';')[0] || '';
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
+	const devices = useBridgeQuery(['cloud.devices.list', { access_token: accessToken.trim() }]);
+	console.log(devices.data);
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -31,18 +44,34 @@ const Profile = ({ email }: { email?: string }) => {
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					const accessToken = (await getAccessToken()) ?? '';
-					const refreshToken: string =
-						JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
-							.find((cookie: string) => cookie.startsWith('st-refresh-token'))
-							?.split('=')[1]
-							.split(';')[0] || '';
-
 					cloudBootstrap.mutate([accessToken.trim(), refreshToken.trim()]);
 				}}
 			>
 				Start Cloud Bootstrap
 			</Button>
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					cloudDeleteDevice.mutate({
+						access_token: accessToken.trim(),
+						pub_id: '019196ed-5711-7843-a0d6-1d9f176db25a'
+					});
+				}}
+			>
+				Delete Device
+			</Button>
+			{/* List all devices from const devices */}
+			{/* {devices.data?.map((device: any) => (
+				<Card
+					key={device.pub_id}
+					className="w-full items-center justify-start gap-1 bg-app-input !px-2"
+				>
+					<div className="w-[20px]">
+						<Envelope weight="fill" width={20} />
+					</div>
+					<TruncatedText>{device.pub_id}</TruncatedText>
+				</Card>
+			))} */}
 		</div>
 	);
 };

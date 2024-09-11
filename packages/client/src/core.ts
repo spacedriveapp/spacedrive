@@ -5,8 +5,8 @@ export type Procedures = {
     queries: 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.devices.get", input: never, result: MockDevice } | 
-        { key: "cloud.devices.list", input: never, result: MockDevice[] } | 
+        { key: "cloud.devices.get", input: never, result: null } | 
+        { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
         { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
         { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
         { key: "cloud.locations.list", input: LocationListRequest, result: CloudLocation[] } | 
@@ -241,11 +241,13 @@ export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_
 
 export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
 
+export type DeviceListRequest = { access_token: AccessToken }
+
 export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 
 export type DevicePubId = string
 
-export type DeviceUpdateRequest = { access_token: AccessToken; pub_id: DevicePubId; name: string; storage_size: bigint }
+export type DeviceUpdateRequest = { access_token: AccessToken; pub_id: DevicePubId; name: string; storage_size: bigint; used_storage: bigint }
 
 /**
  * The method used for the discovery of this peer.
@@ -512,8 +514,6 @@ export type MediaDate = string
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
-
-export type MockDevice = { pub_id: DevicePubId; name: string; os: DeviceOS; used_storage: bigint; storage_size: bigint; created_at: string; updated_at: string; device_model: CoreHardwareModel }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
