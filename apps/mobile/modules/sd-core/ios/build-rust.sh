@@ -27,22 +27,22 @@ TARGET_DIRECTORY="${__dirname}/../../../../../target"
 mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
-# if [ "${CONFIGURATION:-}" != "Debug" ]; then
-#   CARGO_FLAGS=--release
-#   export CARGO_FLAGS
-# fi
+if [ "${CONFIGURATION:-}" = "Release" ]; then
+  set -- --release
+fi
 
-# Required for CI and for everyone I guess?
-export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
+# Reset Path to sane value to allow rust to compile
+export PATH
+PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$(brew --prefix)/bin:$(env -i /bin/bash --noprofile --norc -c 'echo $PATH')"
 
 if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
   case "$(uname -m)" in
     "arm64" | "aarch64") # M series
-      cargo build -p sd-mobile-ios --target aarch64-apple-ios-sim
+      cargo build -p sd-mobile-ios --target aarch64-apple-ios-sim "$@"
       lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "$TARGET_DIRECTORY"/aarch64-apple-ios-sim/debug/libsd_mobile_ios.a
       ;;
     "x86_64") # Intel
-      cargo build -p sd-mobile-ios --target x86_64-apple-ios
+      cargo build -p sd-mobile-ios --target x86_64-apple-ios "$@"
       lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "$TARGET_DIRECTORY"/x86_64-apple-ios/debug/libsd_mobile_ios.a
       ;;
     *)
@@ -50,6 +50,6 @@ if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
       ;;
   esac
 else
-  cargo build -p sd-mobile-ios --target aarch64-apple-ios --release
+  cargo build -p sd-mobile-ios --target aarch64-apple-ios "$@"
   lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_ios.a "$TARGET_DIRECTORY"/aarch64-apple-ios/release/libsd_mobile_ios.a
 fi

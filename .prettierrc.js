@@ -1,7 +1,5 @@
 const path = require('node:path');
 
-console.log(__dirname);
-
 /**
  * {@type require('prettier').Config}
  */

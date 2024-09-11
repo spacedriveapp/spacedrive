@@ -11,7 +11,6 @@ Pod::Spec.new do |s|
   s.source = { git: "https://github.com/spacedriveapp/spacedrive" }
   s.homepage = "https://www.spacedrive.com"
   s.static_framework = true
-  s.vendored_frameworks = "libavdevice.xcframework", "libpostproc.xcframework", "libavformat.xcframework", "libonnxruntime.xcframework", "libavutil.xcframework", "libheif.xcframework", "libavcodec.xcframework", "libswresample.xcframework", "libswscale.xcframework", "libavfilter.xcframework"
 
   s.dependency "ExpoModulesCore"
 
@@ -22,13 +21,12 @@ Pod::Spec.new do |s|
 
   s.script_phase = {
     :name => "Build Spacedrive Core!",
-    :script => "env SPACEDRIVE_CI=$SPACEDRIVE_CI CONFIGURATION=$CONFIGURATION PLATFORM_NAME=$PLATFORM_NAME ${PODS_TARGET_SRCROOT}/build-rust.sh",
+    :script => "exec \"${PODS_TARGET_SRCROOT}/build-rust.sh\"",
     :execution_position => :before_compile,
   }
 
   s.xcconfig = {
     "LIBRARY_SEARCH_PATHS" => '"' + JSON.parse(`cargo metadata`)["target_directory"].to_s + '"',
-    "FRAMEWORK_SEARCH_PATHS" => '"$(PODS_ROOT)/Frameworks"',
     "OTHER_LDFLAGS[sdk=iphoneos*]" => "$(inherited) -lsd_mobile_ios",
     "OTHER_LDFLAGS[sdk=iphonesimulator*]" => "$(inherited) -lsd_mobile_iossim",
   }

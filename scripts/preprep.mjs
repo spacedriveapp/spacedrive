@@ -13,12 +13,7 @@ import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mj
 import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import { getRustTargetList } from './utils/rustup.mjs'
-import {
-	symlinkSharedLibsMacOS,
-	symlinkSharedLibsLinux,
-	lipoSimulatorFramework,
-	createXCFramework,
-} from './utils/shared.mjs'
+import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
 import { spinTask } from './utils/spinner.mjs'
 import { which } from './utils/which.mjs'
 
@@ -158,55 +153,6 @@ try {
 				throw e
 			})
 		)
-
-		const mobileTargets = rustTargets.has('aarch64-apple-ios') ? ['aarch64-apple-ios'] : []
-		if (rustTargets.has('x86_64-apple-ios') && rustTargets.has('aarch64-apple-ios-sim')) {
-			console.log(`Creating universal framework for iOS Simulator...`)
-			const universalMobileNativeDeps = path.join(
-				mobileNativeDeps,
-				'universal-apple-ios-sim'
-			)
-			await fs.rm(universalMobileNativeDeps, { force: true, recursive: true })
-			await fs.mkdir(universalMobileNativeDeps, { mode: 0o750, recursive: true })
-			await spinTask(
-				lipoSimulatorFramework(
-					path.join(mobileNativeDeps, 'x86_64-apple-ios'),
-					path.join(mobileNativeDeps, 'aarch64-apple-ios-sim'),
-					universalMobileNativeDeps
-				).catch(e => {
-					console.error(
-						`Failed to create universal framework for iOS Simulator.\n${bugWarn}`
-					)
-					throw e
-				})
-			)
-			mobileTargets.push('universal-apple-ios-sim')
-		} else if (rustTargets.has('x86_64-apple-ios')) {
-			mobileTargets.push('x86_64-apple-ios')
-		} else if (rustTargets.has('aarch64-apple-ios-sim')) {
-			mobileTargets.push('aarch64-apple-ios-sim')
-		}
-
-		if (mobileTargets.length > 0) {
-			console.log(`Create XCFramework for iOS...`)
-			const xcframeworkOutput = path.join(
-				__root,
-				'apps',
-				'mobile',
-				'modules',
-				'sd-core',
-				'ios',
-				'Frameworks'
-			)
-			await fs.rm(xcframeworkOutput, { force: true, recursive: true })
-			await fs.mkdir(xcframeworkOutput, { mode: 0o750, recursive: true })
-			await spinTask(
-				createXCFramework(mobileNativeDeps, mobileTargets, xcframeworkOutput).catch(e => {
-					console.error(`Failed to create XCFramework for iOS.\n${bugWarn}`)
-					throw e
-				})
-			)
-		}
 	}
 } catch (error) {
 	if (__debug) console.error(error)
