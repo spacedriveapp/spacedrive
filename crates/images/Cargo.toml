@@ -25,5 +25,5 @@ bincode = { version = "=2.0.0-rc.3", features = ["alloc", "derive"], optional = 
 # Disable defaults for libheif* to avoid bindgen and use pre-compiled headers
 libheif-rs    = { version = "1.0", default-features = false, optional = true }
 libheif-sys   = { version = "2.1", default-features = false, optional = true }
-pdfium-render = { version = "0.8.24", features = ["image", "sync", "thread_safe"] }
+pdfium-render = { version = "0.8", features = ["image", "sync", "thread_safe"] }
 resvg         = "0.43.0"
