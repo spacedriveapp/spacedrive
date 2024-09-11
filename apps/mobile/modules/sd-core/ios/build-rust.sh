@@ -33,7 +33,7 @@ fi
 
 # Reset Path to sane value to allow rust to compile
 export PATH
-PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$(brew --prefix)/bin:$(env -i /bin/bash --noprofile --norc -c 'echo $PATH')"
+PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$(brew --prefix)/bin:$(dirname "$(xcrun --find lipo)"):$(env -i /bin/bash --noprofile --norc -c 'echo $PATH')"
 
 if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
   case "$(uname -m)" in
