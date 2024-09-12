@@ -41,7 +41,11 @@ export default function Layout({ children }: PropsWithChildren) {
 	return (
 		<html
 			lang="en"
-			className={clsx('scroll-smooth text-white', plexSansFont.variable, interFont.variable)}
+			className={clsx(
+				'overflow-x-hidden scroll-smooth text-white',
+				plexSansFont.variable,
+				interFont.variable
+			)}
 		>
 			<head>
 				<PlausibleProvider
@@ -55,7 +59,7 @@ export default function Layout({ children }: PropsWithChildren) {
 				<DisclaimerBanner />
 				<ClientProviders>
 					<NavBar />
-					<main className="z-10 m-auto max-w-[100rem]">{children}</main>
+					<main className="z-10 m-auto max-w-[100rem] overflow-x-hidden">{children}</main>
 					<GlobalFooter />
 				</ClientProviders>
 			</body>

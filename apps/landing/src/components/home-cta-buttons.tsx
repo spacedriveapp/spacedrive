@@ -31,7 +31,7 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 
 	return (
 		<>
-			<div className="flex flex-row flex-wrap justify-center gap-3">
+			<div className="fade-in-heading animation-delay-2 flex flex-row flex-wrap justify-center gap-3">
 				{currentPlatform &&
 					(() => {
 						const { links } = currentPlatform;

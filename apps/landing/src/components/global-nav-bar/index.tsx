@@ -29,17 +29,18 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
 	// { label: 'Explorer', href: '#' },
 	// { label: 'Cloud', href: '#' },
+	{ label: 'Roadmap', href: '/roadmap' },
 	{ label: 'Team', href: '/team' },
 	// { label: 'Assistant', href: '#', adornment: 'New' },
 	// { label: 'Store', href: '#' },
 	{ label: 'Use Cases', href: '/use-cases' },
 	{ label: 'Blog', href: '/blog' },
-	{ label: 'Docs', href: '/docs/product/getting-started/introduction' }
+	{ label: 'Docs', href: '/docs/product/getting-started/introduction' },
+	{ label: 'Careers', href: '/careers' }
 ];
 
 export function NavBar() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
-
 	const currentPlatform = useCurrentPlatform();
 
 	return (
@@ -47,8 +48,9 @@ export function NavBar() {
 			{/* Main Navbar */}
 			<motion.nav
 				className={clsx(
+					'to-primary-900/20',
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% to-primary-900/30 shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
+					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'
