@@ -12,8 +12,8 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="mt-[200px] flex w-full flex-col items-center px-4">
-			<div className="relative mx-auto h-auto w-full max-w-[1200px] overflow-visible">
+		<div className="mt-[200px] flex w-full flex-col items-center overflow-x-hidden px-4 md:overflow-visible">
+			<div className="relative mx-auto h-auto w-full max-w-[1200px]">
 				<div
 					className="absolute -left-1/4 top-[10%] mx-auto size-[750px] blur-[5px] fade-in xs:inset-x-0 xs:left-[-16%] xs:top-[-50px] sm:left-0 sm:top-[-175px] sm:mx-auto md:inset-x-0 md:top-[-250px] md:size-[900px] lg:top-[-420px] lg:size-[1100px]"
 					style={{

@@ -11,18 +11,16 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="lg:prose-xs container prose prose-invert m-auto mb-20 mt-40 flex max-w-4xl flex-col gap-20 p-4">
+		<div className="lg:prose-xs container prose prose-invert m-auto mb-20 mt-40 flex max-w-4xl flex-col gap-20 overflow-x-hidden p-4 md:overflow-visible">
 			<section className="relative flex flex-col items-center">
-				<div className="opacity-50">
-					<div
-						className="animation-delay-1 absolute top-[-1025px] size-[1800px] blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
-						style={{
-							backgroundImage: 'url(/images/roadmapbg.webp',
-							backgroundRepeat: 'no-repeat',
-							backgroundSize: 'contain'
-						}}
-					/>
-				</div>
+				<div
+					className="animation-delay-1 absolute top-[-1025px] size-[1800px] opacity-50 blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
+					style={{
+						backgroundImage: 'url(/images/roadmapbg.webp',
+						backgroundRepeat: 'no-repeat',
+						backgroundSize: 'contain'
+					}}
+				/>
 				<h1 className="fade-in-heading mb-0 text-center text-5xl leading-snug">
 					What's next for Spacedrive?
 				</h1>
