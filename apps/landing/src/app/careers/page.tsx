@@ -11,14 +11,14 @@ export const metadata = {
 export default function CareersPage() {
 	return (
 		<div className="container prose prose-invert relative m-auto mb-20 mt-40 min-h-screen max-w-4xl p-4 text-white">
-			<div className="relative flex flex-col items-center justify-center xs:mb-32 lg:mb-40">
+			<div className="relative mb-[200px] flex flex-col items-center justify-center overflow-visible xs:mb-32 sm:mb-40 lg:mb-40">
 				<div
-					className="animation-delay-1 absolute inset-x-0 top-[-1100px] mx-auto size-[1700px] blur-sm fade-in animateDuration-300"
+					className="animation-delay-1 absolute right-[-750px] top-[-1000px] mx-auto size-[1700px] blur-sm duration-150 fade-in xs:top-[-1150px] sm:top-[-1200px] md:top-[-1150px]"
 					style={{
 						backgroundImage: 'url(/images/careersbg.webp',
 						backgroundRepeat: 'no-repeat',
-						backgroundSize: 'contain',
-						backgroundPosition: '-370px 80px'
+						backgroundSize: 'cover',
+						backgroundPosition: '-300px 40px'
 					}}
 				/>
 				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">

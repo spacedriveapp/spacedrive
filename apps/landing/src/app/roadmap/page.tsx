@@ -14,7 +14,7 @@ export default function Page() {
 		<div className="lg:prose-xs container prose prose-invert m-auto mb-20 mt-40 flex max-w-4xl flex-col gap-20 p-4">
 			<section className="relative flex flex-col items-center">
 				<div
-					className="animation-delay-1 absolute top-[-1025px] size-[1800px] blur-sm fade-in animateDuration-300 sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
+					className="animation-delay-1 absolute top-[-1025px] size-[1800px] blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
 					style={{
 						backgroundImage: 'url(/images/roadmapbg.webp',
 						backgroundRepeat: 'no-repeat',
