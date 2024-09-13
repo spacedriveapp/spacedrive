@@ -7,6 +7,7 @@ use sd_cloud_schema::{
 		self, authorize_new_device_in_sync_group, Client, CloudP2PALPN, CloudP2PError, Service,
 	},
 	devices::{self, Device},
+	libraries,
 	sync::groups,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
@@ -32,14 +33,14 @@ use quic_rpc::{
 };
 use tokio::{
 	spawn,
-	sync::Mutex,
+	sync::{oneshot, Mutex},
 	task::JoinHandle,
 	time::{interval, Instant, MissedTickBehavior},
 };
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, warn};
 
-use super::{JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
+use super::{JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse};
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
@@ -54,6 +55,7 @@ pub enum Request {
 	JoinSyncGroup {
 		req: authorize_new_device_in_sync_group::Request,
 		devices_in_group: Vec<(devices::PubId, NodeId)>,
+		tx: oneshot::Sender<JoinedLibraryCreateArgs>,
 	},
 }
 
@@ -177,13 +179,24 @@ impl Runner {
 				StreamMessage::Message(Message::Request(Request::JoinSyncGroup {
 					req,
 					devices_in_group,
-				})) => self.dispatch_join_requests(req, devices_in_group, &mut rng),
+					tx,
+				})) => self.dispatch_join_requests(req, devices_in_group, &mut rng, tx),
 
 				StreamMessage::UserResponse(UserResponse::AcceptDeviceInSyncGroup {
 					ticket,
 					accepted,
+					library_pub_id,
+					library_name,
+					library_description,
 				}) => {
-					self.handle_join_response(ticket, accepted).await;
+					self.handle_join_response(
+						ticket,
+						accepted,
+						library_pub_id,
+						library_name,
+						library_description,
+					)
+					.await;
 				}
 
 				StreamMessage::Tick => self.tick().await,
@@ -201,6 +214,7 @@ impl Runner {
 		req: authorize_new_device_in_sync_group::Request,
 		devices_in_group: Vec<(devices::PubId, NodeId)>,
 		rng: &mut CryptoRng,
+		tx: oneshot::Sender<JoinedLibraryCreateArgs>,
 	) {
 		async fn inner(
 			key_manager: Arc<KeyManager>,
@@ -208,6 +222,7 @@ impl Runner {
 			mut rng: CryptoRng,
 			req: authorize_new_device_in_sync_group::Request,
 			devices_in_group: Vec<(devices::PubId, NodeId)>,
+			tx: oneshot::Sender<JoinedLibraryCreateArgs>,
 		) -> Result<JoinSyncGroupResponse, Error> {
 			let group_pub_id = req.sync_group.pub_id;
 			loop {
@@ -226,6 +241,9 @@ impl Runner {
 					Ok(authorize_new_device_in_sync_group::Response {
 						authorizor_device,
 						keys,
+						library_pub_id,
+						library_name,
+						library_description,
 					}) => {
 						key_manager
 							.add_many_keys(
@@ -239,7 +257,17 @@ impl Runner {
 							)
 							.await?;
 
-						// TODO(@fogodev): Figure out a way to dispatch sync related actors now that we have the keys
+						if tx
+							.send(JoinedLibraryCreateArgs {
+								pub_id: library_pub_id,
+								name: library_name,
+								description: library_description,
+							})
+							.is_err()
+						{
+							error!("Failed to handle library creation locally from received library data");
+							return Ok(JoinSyncGroupResponse::CriticalError);
+						}
 
 						return Ok(JoinSyncGroupResponse::Accepted { authorizor_device });
 					}
@@ -260,7 +288,7 @@ impl Runner {
 
 				if let Err(SendError(response)) = notify_user_tx
 					.send_async(NotifyUser::ReceivedJoinSyncGroupResponse {
-						response: inner(key_manager, endpoint, rng, req, devices_in_group)
+						response: inner(key_manager, endpoint, rng, req, devices_in_group, tx)
 							.await
 							.unwrap_or_else(|e| {
 								error!(
@@ -326,7 +354,14 @@ impl Runner {
 		}
 	}
 
-	async fn handle_join_response(&self, ticket: Ticket, accepted: bool) {
+	async fn handle_join_response(
+		&self,
+		ticket: Ticket,
+		accepted: bool,
+		library_pub_id: libraries::PubId,
+		library_name: String,
+		library_description: Option<String>,
+	) {
 		let Some(PendingSyncGroupJoin {
 			channel,
 			request,
@@ -355,6 +390,9 @@ impl Runner {
 					.into_iter()
 					.map(Into::into)
 					.collect(),
+				library_pub_id,
+				library_name,
+				library_description,
 			})
 		} else {
 			Err(CloudP2PError::Rejected)

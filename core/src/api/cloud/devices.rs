@@ -218,10 +218,10 @@ pub struct DeviceRegisterData {
 	pub pub_id: PubId,
 	pub name: String,
 	pub os: DeviceOS,
-	pub storage_size: u64,
-	pub connection_id: NodeId,
 	pub hardware_model: HardwareModel,
+	pub storage_size: u64,
 	pub used_storage: u64,
+	pub connection_id: NodeId,
 }
 
 pub async fn register(
@@ -231,10 +231,10 @@ pub async fn register(
 		pub_id,
 		name,
 		os,
-		storage_size,
-		connection_id,
 		hardware_model,
+		storage_size,
 		used_storage,
+		connection_id,
 	}: DeviceRegisterData,
 	hashed_pub_id: Hash,
 	rng: &mut CryptoRng,

@@ -3,6 +3,7 @@ use crate::{CloudServices, Error};
 use sd_cloud_schema::{
 	cloud_p2p::{authorize_new_device_in_sync_group, CloudP2PALPN, CloudP2PError},
 	devices::{self, Device},
+	libraries,
 	sync::groups::GroupWithLibraryAndDevices,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
@@ -14,12 +15,19 @@ use iroh_net::{
 	Endpoint, NodeId,
 };
 use serde::{Deserialize, Serialize};
-use tokio::spawn;
+use tokio::{spawn, sync::oneshot};
 use tracing::error;
 
 mod runner;
 
 use runner::Runner;
+
+#[derive(Debug)]
+pub struct JoinedLibraryCreateArgs {
+	pub pub_id: libraries::PubId,
+	pub name: String,
+	pub description: Option<String>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(transparent)]
@@ -66,7 +74,13 @@ pub enum JoinSyncGroupResponse {
 #[derive(Debug, Deserialize, specta::Type)]
 #[serde(tag = "kind", content = "data")]
 pub enum UserResponse {
-	AcceptDeviceInSyncGroup { ticket: Ticket, accepted: bool },
+	AcceptDeviceInSyncGroup {
+		ticket: Ticket,
+		accepted: bool,
+		library_pub_id: libraries::PubId,
+		library_name: String,
+		library_description: Option<String>,
+	},
 }
 #[derive(Debug, Clone)]
 pub struct CloudP2P {
@@ -128,11 +142,13 @@ impl CloudP2P {
 		&self,
 		devices_in_group: Vec<(devices::PubId, NodeId)>,
 		req: authorize_new_device_in_sync_group::Request,
+		tx: oneshot::Sender<JoinedLibraryCreateArgs>,
 	) {
 		self.msgs_tx
 			.send_async(runner::Message::Request(runner::Request::JoinSyncGroup {
 				req,
 				devices_in_group,
+				tx,
 			}))
 			.await
 			.expect("Channel closed");

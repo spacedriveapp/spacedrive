@@ -39,7 +39,9 @@ mod token_refresher;
 pub use client::CloudServices;
 pub use error::{Error, GetTokenError};
 pub use key_manager::KeyManager;
-pub use p2p::{CloudP2P, JoinSyncGroupResponse, NotifyUser, Ticket, UserResponse};
+pub use p2p::{
+	CloudP2P, JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse,
+};
 pub use sync::{
 	declare_actors as declare_cloud_sync, SyncActors as CloudSyncActors,
 	SyncActorsState as CloudSyncActorsState,

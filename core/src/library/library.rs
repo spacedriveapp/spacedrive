@@ -17,7 +17,7 @@ use std::{
 	collections::HashMap,
 	fmt::{Debug, Formatter},
 	path::{Path, PathBuf},
-	sync::Arc,
+	sync::{atomic::Ordering, Arc},
 };
 
 use futures_concurrency::future::Join;
@@ -94,7 +94,7 @@ impl Library {
 		&self,
 		node: &Node,
 		sync_group_pub_id: groups::PubId,
-	) -> Result<(), sd_core_cloud_services::Error> {
+	) -> Result<(), LibraryManagerError> {
 		let rng = CryptoRng::from_seed(node.master_rng.lock().await.generate_fixed());
 
 		declare_cloud_sync(
@@ -108,16 +108,21 @@ impl Library {
 		)
 		.await?;
 
-		// TODO(@fogodev): Uncomment when they're ready
-		// (
-		// 	self.cloud_sync_actors.start(CloudSyncActors::Sender),
-		// 	self.cloud_sync_actors.start(CloudSyncActors::Receiver),
-		// 	self.cloud_sync_actors.start(CloudSyncActors::Ingester),
-		// )
-		// 	.join()
-		// 	.await;
+		(
+			self.cloud_sync_actors.start(CloudSyncActors::Sender),
+			self.cloud_sync_actors.start(CloudSyncActors::Receiver),
+			self.cloud_sync_actors.start(CloudSyncActors::Ingester),
+		)
+			.join()
+			.await;
 
-		Ok(())
+		self.update_config(|config| {
+			config
+				.generate_sync_operations
+				.store(true, Ordering::Relaxed)
+		})
+		.await
+		.map_err(Into::into)
 	}
 
 	pub async fn config(&self) -> LibraryConfig {
@@ -127,13 +132,12 @@ impl Library {
 	pub async fn update_config(
 		&self,
 		update_fn: impl FnOnce(&mut LibraryConfig),
-		config_path: impl AsRef<Path>,
 	) -> Result<(), LibraryManagerError> {
 		let mut config = self.config.write().await;
 
 		update_fn(&mut config);
 
-		config.save(config_path).await.map_err(Into::into)
+		config.save(&config.config_path).await.map_err(Into::into)
 	}
 
 	// TODO: Remove this once we replace the old invalidation system
