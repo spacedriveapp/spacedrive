@@ -4310,7 +4310,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -9644,7 +9644,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#8d9b72ef581796bc3a5a879ad910d9ed3a381f48"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?branch=main#4b878e28c2e23d5e37ff827a97f11c5621ef0ded"
 dependencies = [
  "argon2",
  "async-stream",
@@ -13281,7 +13281,7 @@ dependencies = [
  "document-features",
  "js-sys",
  "log",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -13309,7 +13309,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "rustc-hash 1.1.0",
@@ -13347,7 +13347,7 @@ dependencies = [
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "renderdoc-sys",

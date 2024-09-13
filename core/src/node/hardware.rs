@@ -1,4 +1,5 @@
 use std::io;
+use std::io::Error;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
