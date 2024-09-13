@@ -10,7 +10,7 @@ use aead::array::Array;
 use blake3::{Hash, Hasher};
 use generic_array::GenericArray;
 use serde::{Deserialize, Serialize};
-use typenum::consts::U32;
+use typenum::{consts::U32, U64};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// This should be used for encrypting and decrypting data.
@@ -130,6 +130,18 @@ impl TryFrom<&[u8]> for SecretKey {
 
 impl From<GenericArray<u8, U32>> for SecretKey {
 	fn from(key: GenericArray<u8, U32>) -> Self {
+		Self(Array([
+			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
+			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
+			key[19], key[20], key[21], key[22], key[23], key[24], key[25], key[26], key[27],
+			key[28], key[29], key[30], key[31],
+		]))
+	}
+}
+
+/// We take only the first 32 bytes of the key, since the rest doesn't fit
+impl From<GenericArray<u8, U64>> for SecretKey {
+	fn from(key: GenericArray<u8, U64>) -> Self {
 		Self(Array([
 			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
 			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
