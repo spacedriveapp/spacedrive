@@ -8,7 +8,7 @@ use sd_prisma::prisma::{file_path, indexer_rule, instance, location, PrismaClien
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
-	path::Path,
+	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
 };
 
@@ -43,6 +43,9 @@ pub struct LibraryConfig {
 	#[serde(default)]
 	pub generate_sync_operations: Arc<AtomicBool>,
 	version: LibraryConfigVersion,
+
+	#[serde(skip, default)]
+	pub config_path: PathBuf,
 }
 
 #[derive(
@@ -87,7 +90,6 @@ impl LibraryConfig {
 		description: Option<String>,
 		instance_id: i32,
 		path: impl AsRef<Path>,
-		generate_sync_operations: bool,
 	) -> Result<Self, LibraryConfigError> {
 		let this = Self {
 			name,
@@ -95,8 +97,8 @@ impl LibraryConfig {
 			instance_id,
 			version: Self::LATEST_VERSION,
 			cloud_id: None,
-			// will always be `true` eventually
-			generate_sync_operations: Arc::new(AtomicBool::new(generate_sync_operations)),
+			generate_sync_operations: Arc::new(AtomicBool::new(false)),
+			config_path: path.as_ref().to_path_buf(),
 		};
 
 		this.save(path).await.map(|()| this)
@@ -109,7 +111,7 @@ impl LibraryConfig {
 	) -> Result<Self, LibraryConfigError> {
 		let path = path.as_ref();
 
-		VersionManager::<Self, LibraryConfigVersion>::migrate_and_load(
+		let mut loaded_config = VersionManager::<Self, LibraryConfigVersion>::migrate_and_load(
 			path,
 			|current, next| async move {
 				match (current, next) {
@@ -407,7 +409,11 @@ impl LibraryConfig {
 				Ok(())
 			},
 		)
-		.await
+		.await?;
+
+		loaded_config.config_path = path.to_path_buf();
+
+		Ok(loaded_config)
 	}
 
 	pub(crate) async fn save(&self, path: impl AsRef<Path>) -> Result<(), LibraryConfigError> {

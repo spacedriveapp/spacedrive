@@ -1,4 +1,5 @@
 use crate::{
+	library::LibraryManagerError,
 	node::{config::NodeConfig, HardwareModel},
 	volume::get_volumes,
 	Node,
@@ -9,6 +10,7 @@ use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnectio
 use sd_cloud_schema::{
 	auth,
 	error::{ClientSideError, Error},
+	sync::groups,
 	users, Client, Service,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
@@ -17,8 +19,9 @@ use std::pin::pin;
 
 use async_stream::stream;
 use futures::StreamExt;
+use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 
 use super::{Ctx, R};
 
@@ -51,7 +54,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					node.cloud_services
 						.token_refresher
-						.init(access_token.clone(), refresh_token)
+						.init(access_token, refresh_token)
 						.await?;
 
 					let client = try_get_cloud_services_client(&node).await?;
@@ -65,7 +68,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						client
 							.users()
 							.create(users::create::Request {
-								access_token: access_token.clone(),
+								access_token: node
+									.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
 							})
 							.await,
 						"Failed to create user;",
@@ -82,7 +89,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						client
 							.devices()
 							.get(devices::get::Request {
-								access_token: access_token.clone(),
+								access_token: node
+									.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
 								pub_id: device_pub_id,
 							})
 							.await,
@@ -92,7 +103,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							// Device registered, we execute a device hello flow
 							let master_key = self::devices::hello(
 								&client,
-								access_token,
+								node.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
 								device_pub_id,
 								hashed_pub_id,
 								&mut rng,
@@ -108,22 +122,31 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								HardwareModel::try_get().unwrap_or(HardwareModel::Other),
 							);
 
+							let (storage_size, used_storage) = get_volumes()
+								.await
+								.into_iter()
+								.fold((0, 0), |(storage_size, used_storage), volume| {
+									(
+										storage_size + volume.total_capacity,
+										used_storage
+											+ (volume.total_capacity - volume.available_capacity),
+									)
+								});
+
 							let master_key = self::devices::register(
 								&client,
-								access_token,
+								node.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
 								self::devices::DeviceRegisterData {
 									pub_id: device_pub_id,
 									name,
 									os,
-									// TODO(@fogodev): We should use storage statistics from sqlite db
-									storage_size: get_volumes()
-										.await
-										.into_iter()
-										.map(|volume| volume.total_capacity)
-										.sum(),
+									storage_size,
 									connection_id: iroh_secret_key.public(),
 									hardware_model,
-									used_storage: 0,
+									used_storage,
 								},
 								hashed_pub_id,
 								&mut rng,
@@ -156,7 +179,51 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 						.await;
 
-					// TODO(@fogodev): Verify existing sync groups and dispatch sync related actors
+					let groups::list::Response(groups) = handle_comm_error(
+						client
+							.sync()
+							.groups()
+							.list(groups::list::Request {
+								access_token: node
+									.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
+								with_library: true,
+							})
+							.await,
+						"Failed to list sync groups on bootstrap",
+					)??;
+
+					groups
+						.into_iter()
+						.map(
+							|groups::Group {
+							     pub_id,
+							     library,
+							     // TODO(@fogodev): We can use this latest key hash to check if we
+							     // already have the latest key hash for this group locally
+							     // issuing a ask for key hash request for other devices if we don't
+							     latest_key_hash: _latest_key_hash,
+							     ..
+							 }| {
+								let node = &node;
+
+								async move {
+									initialize_cloud_sync(
+										pub_id,
+										library.expect(
+											"we asked backend to receive a library, this is a bug and should crash"
+										),
+										node,
+									)
+									.await
+								}
+							},
+						)
+						.collect::<Vec<_>>()
+						.try_join()
+						.await?;
 
 					Ok(())
 				},
@@ -193,4 +260,22 @@ fn handle_comm_error<T, E: std::error::Error + std::fmt::Debug + Send + Sync + '
 		error!(?e, "Communication with cloud services error: {message}");
 		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, message.into(), e)
 	})
+}
+
+#[instrument(skip_all, fields(%group_pub_id, %library_pub_id), err)]
+async fn initialize_cloud_sync(
+	group_pub_id: groups::PubId,
+	sd_cloud_schema::libraries::Library {
+		pub_id: sd_cloud_schema::libraries::PubId(library_pub_id),
+		..
+	}: sd_cloud_schema::libraries::Library,
+	node: &Node,
+) -> Result<(), LibraryManagerError> {
+	let library = node
+		.libraries
+		.get_library(&library_pub_id)
+		.await
+		.ok_or(LibraryManagerError::LibraryNotFound)?;
+
+	library.init_cloud_sync(node, group_pub_id).await
 }

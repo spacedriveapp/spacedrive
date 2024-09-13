@@ -1,4 +1,10 @@
-use crate::api::{utils::library, Ctx, R};
+use crate::{
+	api::{utils::library, Ctx, R},
+	library::LibraryName,
+	Node,
+};
+
+use sd_core_cloud_services::JoinedLibraryCreateArgs;
 
 use sd_cloud_schema::{
 	auth::AccessToken,
@@ -6,11 +12,14 @@ use sd_cloud_schema::{
 	sync::{groups, KeyHash},
 };
 
+use std::sync::Arc;
+
 use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng, SeedableRng};
 use serde::Deserialize;
-use tracing::debug;
+use tokio::{spawn, sync::oneshot};
+use tracing::{debug, error};
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -66,7 +75,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						return Err(e.into());
 					}
 
-					// TODO(@fogodev): use the group_pub_id to dispatch actors for syncing to this group
+					library.init_cloud_sync(&node, group_pub_id).await?;
 
 					debug!(%group_pub_id, "Created sync group");
 
@@ -271,6 +280,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 							"Failed to update library;",
 						)??;
 
+					let (tx, rx) = oneshot::channel();
+
 					cloud_p2p
 						.request_join_sync_group(
 							existing_devices,
@@ -278,8 +289,16 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								sync_group,
 								asking_device,
 							},
+							tx,
 						)
 						.await;
+
+					JoinedSyncGroupReceiver {
+						node,
+						group_pub_id,
+						rx,
+					}
+					.dispatch();
 
 					debug!(%group_pub_id, "Requested to join sync group");
 
@@ -287,4 +306,50 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				},
 			)
 		})
+}
+
+struct JoinedSyncGroupReceiver {
+	node: Arc<Node>,
+	group_pub_id: groups::PubId,
+	rx: oneshot::Receiver<JoinedLibraryCreateArgs>,
+}
+
+impl JoinedSyncGroupReceiver {
+	fn dispatch(self) {
+		spawn(async move {
+			let Self {
+				node,
+				group_pub_id,
+				rx,
+			} = self;
+
+			if let Ok(JoinedLibraryCreateArgs {
+				pub_id: libraries::PubId(pub_id),
+				name,
+				description,
+			}) = rx.await
+			{
+				let Ok(name) =
+					LibraryName::new(name).map_err(|e| error!(?e, "Invalid library name"))
+				else {
+					return;
+				};
+
+				let Ok(library) = node
+					.libraries
+					.create_with_uuid(pub_id, name, description, true, None, &node)
+					.await
+					.map_err(|e| {
+						error!(?e, "Failed to create library from sync group join response")
+					})
+				else {
+					return;
+				};
+
+				if let Err(e) = library.init_cloud_sync(&node, group_pub_id).await {
+					error!(?e, "Failed to initialize cloud sync for library");
+				}
+			}
+		});
+	}
 }

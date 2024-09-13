@@ -47,6 +47,8 @@ pub enum LibraryManagerError {
 	#[error(transparent)]
 	LibraryConfig(#[from] LibraryConfigError),
 	#[error(transparent)]
+	CloudServices(#[from] sd_core_cloud_services::Error),
+	#[error(transparent)]
 	Sync(#[from] sd_core_sync::Error),
 }
 

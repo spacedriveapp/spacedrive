@@ -150,3 +150,9 @@ impl From<Error> for rspc::Error {
 		Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 	}
 }
+
+impl From<GetTokenError> for rspc::Error {
+	fn from(e: GetTokenError) -> Self {
+		Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+	}
+}

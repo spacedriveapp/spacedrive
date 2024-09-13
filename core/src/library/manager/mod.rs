@@ -154,12 +154,11 @@ impl Libraries {
 		description: Option<String>,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::now_v7(), name, description, true, None, node, false)
+		self.create_with_uuid(Uuid::now_v7(), name, description, true, None, node)
 			.await
 	}
 
 	#[instrument(skip(self, instance, node), err)]
-	#[allow(clippy::too_many_arguments)]
 	pub(crate) async fn create_with_uuid(
 		self: &Arc<Self>,
 		id: Uuid,
@@ -169,7 +168,6 @@ impl Libraries {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
-		generate_sync_operations: bool,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -185,7 +183,6 @@ impl Libraries {
 			// First instance will be zero
 			0,
 			&config_path,
-			generate_sync_operations,
 		)
 		.await?;
 
@@ -274,33 +271,28 @@ impl Libraries {
 		);
 
 		library
-			.update_config(
-				|config| {
-					// update the library
-					if let Some(name) = name {
-						config.name = name;
-					}
-					match description {
-						MaybeUndefined::Undefined => {}
-						MaybeUndefined::Null => config.description = None,
-						MaybeUndefined::Value(description) => {
-							config.description = Some(description)
-						}
-					}
-					match cloud_id {
-						MaybeUndefined::Undefined => {}
-						MaybeUndefined::Null => config.cloud_id = None,
-						MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
-					}
-					match enable_sync {
-						None => {}
-						Some(value) => config
-							.generate_sync_operations
-							.store(value, Ordering::SeqCst),
-					}
-				},
-				self.libraries_dir.join(format!("{id}.sdlibrary")),
-			)
+			.update_config(|config| {
+				// update the library
+				if let Some(name) = name {
+					config.name = name;
+				}
+				match description {
+					MaybeUndefined::Undefined => {}
+					MaybeUndefined::Null => config.description = None,
+					MaybeUndefined::Value(description) => config.description = Some(description),
+				}
+				match cloud_id {
+					MaybeUndefined::Undefined => {}
+					MaybeUndefined::Null => config.cloud_id = None,
+					MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
+				}
+				match enable_sync {
+					None => {}
+					Some(value) => config
+						.generate_sync_operations
+						.store(value, Ordering::SeqCst),
+				}
+			})
 			.await?;
 
 		self.tx
@@ -429,6 +421,7 @@ impl Libraries {
 		self.libraries.read().await.get(library_id).is_some()
 	}
 
+	#[allow(clippy::too_many_arguments)] // TODO: remove this when we remove instance stuff
 	#[instrument(
 		skip_all,
 		fields(
