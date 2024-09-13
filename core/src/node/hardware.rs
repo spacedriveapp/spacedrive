@@ -1,5 +1,4 @@
 use std::io;
-use std::io::Error;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -129,6 +128,7 @@ impl HardwareModel {
 		#[cfg(target_os = "ios")]
 		{
 			use std::ffi::CString;
+			use std::io::Error;
 			use std::ptr;
 
 			extern "C" {
@@ -186,7 +186,7 @@ impl HardwareModel {
 			}
 
 			if let Some(device_type) = get_device_type() {
-				let hardware_model = Self::from_display_name(&device_type.as_str());
+				let hardware_model = HardwareModel::from(device_type.as_str());
 
 				Ok(hardware_model)
 			} else {
