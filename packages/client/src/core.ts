@@ -483,7 +483,7 @@ export type LocationCreateRequest = { access_token: AccessToken; pub_id: Locatio
 
 export type LocationDeleteRequest = { access_token: AccessToken; pub_id: LocationPubId }
 
-export type LocationListRequest = { access_token: AccessToken; with_library: boolean; with_device: boolean }
+export type LocationListRequest = { access_token: AccessToken; library_pub_id: LibraryPubId; with_library: boolean; with_device: boolean }
 
 export type LocationPubId = string
 
@@ -685,17 +685,17 @@ export type Stream = { id: number; name: string | null; codec: Codec | null; asp
 
 export type SubtitleProps = { width: number; height: number }
 
-export type SyncGroup = { pub_id: SyncGroupPubId; name: string; latest_key_hash: KeyHash; library: Library | null; devices: Device[] | null; total_sync_messages_bytes: bigint | null; total_space_files_bytes: bigint | null; created_at: string; updated_at: string }
+export type SyncGroup = { pub_id: SyncGroupPubId; latest_key_hash: KeyHash; library: Library | null; devices: Device[] | null; total_sync_messages_bytes: bigint | null; total_space_files_bytes: bigint | null; created_at: string; updated_at: string }
 
 export type SyncGroupDeleteRequest = { access_token: AccessToken; pub_id: SyncGroupPubId }
 
 export type SyncGroupGetRequest = { access_token: AccessToken; pub_id: SyncGroupPubId; with_library: boolean; with_devices: boolean; with_used_storage: boolean }
 
-export type SyncGroupListRequest = { access_token: AccessToken; with_library: boolean; with_devices: boolean }
+export type SyncGroupListRequest = { access_token: AccessToken; with_library: boolean }
 
 export type SyncGroupPubId = string
 
-export type SyncGroupWithLibraryAndDevices = { pub_id: SyncGroupPubId; name: string; latest_key_hash: KeyHash; library: Library; devices: Device[]; created_at: string; updated_at: string }
+export type SyncGroupWithLibraryAndDevices = { pub_id: SyncGroupPubId; latest_key_hash: KeyHash; library: Library; devices: Device[]; created_at: string; updated_at: string }
 
 export type SyncGroupsLeaveArgs = { access_token: AccessToken; group_pub_id: SyncGroupPubId }
 

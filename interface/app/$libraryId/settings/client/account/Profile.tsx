@@ -2,7 +2,9 @@ import { Envelope } from '@phosphor-icons/react';
 import { getAccessToken } from 'supertokens-web-js/recipe/session';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
+import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
+import { hardwareModelToIcon } from '~/util/hardware';
 
 const Profile = ({ email }: { email?: string }) => {
 	const emailName = email?.split('@')[0];
@@ -61,17 +63,24 @@ const Profile = ({ email }: { email?: string }) => {
 				Delete Device
 			</Button>
 			{/* List all devices from const devices */}
-			{/* {devices.data?.map((device: any) => (
-				<Card
+			{devices.data?.map((device) => (
+				// <Card
+				// 	key={device.pub_id}
+				// 	className="w-full items-center justify-start gap-1 bg-app-input !px-2"
+				// >
+
+				// </Card>
+				<StatCard
 					key={device.pub_id}
-					className="w-full items-center justify-start gap-1 bg-app-input !px-2"
-				>
-					<div className="w-[20px]">
-						<Envelope weight="fill" width={20} />
-					</div>
-					<TruncatedText>{device.pub_id}</TruncatedText>
-				</Card>
-			))} */}
+					name={device.name}
+					// TODO (Optional): Use Brand Type for Different Android Models/iOS Models using DeviceInfo.getBrand()
+					icon={hardwareModelToIcon(device.hardware_model)}
+					totalSpace={device.storage_size.toString()}
+					freeSpace={(device.storage_size - device.used_storage).toString()}
+					color="#0362FF"
+					connectionType={'cloud'}
+				/>
+			))}
 		</div>
 	);
 };
