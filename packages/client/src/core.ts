@@ -5,7 +5,7 @@ export type Procedures = {
     queries: 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.devices.get", input: never, result: null } | 
+        { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
         { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
         { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
         { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
@@ -240,6 +240,8 @@ export type DefaultLocations = { desktop: boolean; documents: boolean; downloads
 export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; used_storage: bigint; connection_id: string; created_at: string; updated_at: string; hardware_model: HardwareModel }
 
 export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
+
+export type DeviceGetRequest = { access_token: AccessToken; pub_id: DevicePubId }
 
 export type DeviceListRequest = { access_token: AccessToken }
 
@@ -727,7 +729,7 @@ export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: s
 
 export type UpdateThumbnailerPreferences = Record<string, never>
 
-export type UserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: boolean } }
+export type UserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: boolean; library_pub_id: LibraryPubId; library_name: string; library_description: string | null } }
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 

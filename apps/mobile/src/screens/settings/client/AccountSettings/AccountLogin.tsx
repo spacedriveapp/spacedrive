@@ -1,15 +1,16 @@
+import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { AppleLogo, GithubLogo, GoogleLogo, IconProps } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import { getAuthorisationURLWithQueryParamsAndSetState } from 'supertokens-web-js/recipe/thirdparty';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
-import { Divider } from '~/components/primitive/Divider';
 import { toast } from '~/components/primitive/Toast';
 import { tw, twStyle } from '~/lib/tailwind';
+import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import Login from './Login';
 import Register from './Register';
@@ -141,7 +142,8 @@ const AccountLogin = () => {
 					</View>
 					<View style={tw`flex w-full flex-col justify-center gap-1.5 p-5`}>
 						{activeTab === 'Login' ? <Login /> : <Register />}
-						<View style={tw`my-2 flex w-full items-center gap-3`}>
+						{/* Disabled for now */}
+						{/* <View style={tw`my-2 flex w-full items-center gap-3`}>
 							<Divider />
 							<Text style={tw`text-xs text-ink-faint`}>OR</Text>
 							<Divider />
@@ -157,7 +159,7 @@ const AccountLogin = () => {
 									<social.icon style={tw`text-white`} weight="bold" />
 								</Button>
 							))}
-						</View>
+						</View> */}
 					</View>
 				</Card>
 			</View>
