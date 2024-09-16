@@ -24,9 +24,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 	const totalSpaceSingleValue = humanizeSize(stats.totalSpace);
 
 	const { totalSpace, freeSpace, usedSpaceSpace } = useMemo(() => {
-		const totalSpace = humanizeSize(stats.totalSpace, {
-			no_thousands: false
-		});
+		const totalSpace = humanizeSize(stats.totalSpace);
 		const freeSpace = stats.freeSpace == null ? totalSpace : humanizeSize(stats.freeSpace);
 
 		return {
@@ -36,19 +34,20 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 		};
 	}, [stats]);
 
+	const progress = useMemo(() => {
+		if (!mounted || totalSpace.bytes === 0n) return 0;
+		// Calculate progress using raw bytes to avoid unit conversion issues
+		return Math.floor((Number(usedSpaceSpace.bytes) / Number(totalSpace.bytes)) * 100);
+	}, [mounted, totalSpace, usedSpaceSpace]);
+
 	useEffect(() => {
 		setMounted(true);
 	}, []);
 
-	const progress = useMemo(() => {
-		if (!mounted || totalSpace.bytes === 0n) return 0;
-		return Math.floor((usedSpaceSpace.value / totalSpace.value) * 100);
-	}, [mounted, totalSpace, usedSpaceSpace]);
-
 	const { t } = useLocale();
 
 	return (
-		<Card className="flex w-[280px] shrink-0 flex-col  bg-app-box/50 !p-0 ">
+		<Card className="flex w-[280px] shrink-0 flex-col bg-app-box/50 !p-0">
 			<div className="flex flex-row items-center gap-5 p-4 px-6">
 				{stats.freeSpace && (
 					<CircularProgress
@@ -97,7 +96,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 					</span>
 				</div>
 			</div>
-			<div className="flex h-10 flex-row items-center gap-1.5  border-t border-app-line px-2">
+			<div className="flex h-10 flex-row items-center gap-1.5 border-t border-app-line px-2">
 				{freeSpace.value === totalSpace.value && (
 					<Pill>
 						{totalSpace.value}

@@ -24,11 +24,9 @@ use uuid::Uuid;
 mod auth;
 mod backups;
 mod cloud;
-// mod categories;
 mod ephemeral_files;
 mod files;
 mod jobs;
-mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -200,8 +198,6 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("volumes.", volumes::mount())
 		.merge("tags.", tags::mount())
 		.merge("labels.", labels::mount())
-		// .merge("categories.", categories::mount())
-		// .merge("keys.", keys::mount())
 		.merge("locations.", locations::mount())
 		.merge("ephemeralFiles.", ephemeral_files::mount())
 		.merge("files.", files::mount())

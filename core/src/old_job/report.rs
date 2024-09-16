@@ -29,6 +29,7 @@ pub enum JobReportUpdate {
 	TaskCount(usize),
 	CompletedTaskCount(usize),
 	Message(String),
+	Info(String),
 	Phase(String),
 }
 
@@ -53,6 +54,7 @@ pub struct OldJobReport {
 	pub status: JobStatus,
 	pub task_count: i32,
 	pub completed_task_count: i32,
+	pub info: String,
 
 	pub phase: String,
 	pub message: String,
@@ -75,6 +77,7 @@ impl From<OldJobReport> for sd_core_heavy_lifting::job_system::report::Report {
 			status,
 			task_count,
 			completed_task_count,
+			info,
 			phase,
 			message,
 			estimated_completion,
@@ -195,6 +198,7 @@ impl From<OldJobReport> for sd_core_heavy_lifting::job_system::report::Report {
 			status: status.into(),
 			task_count,
 			completed_task_count,
+			info,
 			phase,
 			message,
 			estimated_completion,
@@ -242,6 +246,7 @@ impl TryFrom<job::Data> for OldJobReport {
 				.expect("corrupted database"),
 			task_count: data.task_count.unwrap_or(0),
 			completed_task_count: data.completed_task_count.unwrap_or(0),
+			info: data.info.unwrap_or_default(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: data
@@ -283,7 +288,7 @@ impl TryFrom<job_without_data::Data> for OldJobReport {
 				.expect("corrupted database"),
 			task_count: data.task_count.unwrap_or(0),
 			completed_task_count: data.completed_task_count.unwrap_or(0),
-
+			info: data.info.unwrap_or_default(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: data
@@ -309,6 +314,7 @@ impl OldJobReport {
 			metadata: None,
 			parent_id: None,
 			completed_task_count: 0,
+			info: String::new(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),
@@ -352,6 +358,7 @@ impl OldJobReport {
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(|d| d.into())),
 						job::task_count::set(Some(1)),
+						job::info::set(Some(self.info.clone())),
 						job::completed_task_count::set(Some(0)),
 					],
 					[self
@@ -382,6 +389,7 @@ impl OldJobReport {
 					job::data::set(self.data.clone()),
 					job::metadata::set(serde_json::to_vec(&self.metadata).ok()),
 					job::task_count::set(Some(self.task_count)),
+					job::info::set(Some(self.info.clone())),
 					job::completed_task_count::set(Some(self.completed_task_count)),
 					job::date_started::set(self.started_at.map(Into::into)),
 					job::date_completed::set(self.completed_at.map(Into::into)),
@@ -474,6 +482,7 @@ impl JobReportBuilder {
 			metadata: self.metadata,
 			parent_id: self.parent_id,
 			completed_task_count: 0,
+			info: String::new(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),

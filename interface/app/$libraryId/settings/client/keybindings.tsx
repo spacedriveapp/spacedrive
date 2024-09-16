@@ -30,7 +30,8 @@ export const Component = () => {
 					{ shortcut: 'closeTab', description: t('close_current_tab') },
 					{ shortcut: 'newTab', description: t('switch_to_next_tab') },
 					{ shortcut: 'previousTab', description: t('switch_to_previous_tab') },
-					{ shortcut: 'toggleSidebar', description: t('toggle_sidebar') }
+					{ shortcut: 'toggleSidebar', description: t('toggle_sidebar') },
+					{ shortcut: 'duplicateTab', description: t('duplicate_current_tab') }
 				]
 			},
 			{
@@ -43,8 +44,8 @@ export const Component = () => {
 				description: t('page_shortcut_description'),
 				shortcuts: [
 					{ shortcut: 'navBackwardHistory', description: t('navigate_backwards') },
-					{ shortcut: 'navForwardHistory', description: t('navigate_forwards') },
-					{ shortcut: 'navToSettings', description: t('navigate_to_settings_page') }
+					{ shortcut: 'navForwardHistory', description: t('navigate_forwards') }
+					// { shortcut: 'navToSettings', description: t('navigate_to_settings_page') }
 				]
 			},
 			{

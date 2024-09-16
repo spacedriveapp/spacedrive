@@ -1,5 +1,5 @@
 import { Cards, IconWeight, Minus, Square, X } from '@phosphor-icons/react';
-import { getCurrent, Window } from '@tauri-apps/api/window';
+import { Window } from '@tauri-apps/api/window';
 import clsx from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { ModifierKeys, Popover, Tooltip, usePopover } from '@sd/ui';
@@ -66,7 +66,6 @@ export default ({ options }: TopBarChildrenProps) => {
 						/>
 					))
 				)}
-				{os === 'windows' && <WindowsControls windowSize={windowSize} />}
 			</div>
 			<TopBarMobile
 				toolOptions={options}
@@ -74,6 +73,7 @@ export default ({ options }: TopBarChildrenProps) => {
 					windowSize <= 1279 && (toolsNotSmFlex?.length as number) > 0 ? 'flex' : 'hidden'
 				}
 			/>
+			{os === 'windows' && <WindowsControls windowSize={windowSize} />}
 		</div>
 	);
 };
@@ -185,7 +185,7 @@ function ToolGroup({
 export function WindowsControls({ windowSize }: { windowSize: number }) {
 	const [maximized, setMaximized] = useState(false);
 	const getWindowState = useCallback(async () => {
-		const isMaximized = await getCurrent().isMaximized();
+		const isMaximized = await Window.getCurrent().isMaximized();
 		setMaximized(isMaximized);
 	}, []);
 
@@ -193,7 +193,7 @@ export function WindowsControls({ windowSize }: { windowSize: number }) {
 		getWindowState().catch(console.error);
 	}, [getWindowState, windowSize]);
 	return (
-		<div className="mx-1 hidden items-center xl:flex">
+		<div className="mx-1 ml-4 flex items-center">
 			<TopBarButton
 				className="mx-2"
 				rounding="both"

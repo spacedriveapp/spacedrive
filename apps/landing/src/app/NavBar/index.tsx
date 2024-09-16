@@ -16,7 +16,7 @@ export function NavBar() {
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</Link>
 
-				<div className="m-auto hidden space-x-4 text-white lg:block ">
+				<div className="m-auto hidden space-x-4 text-white lg:block">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					{/* <NavLink link="/pricing">Pricing</NavLink> */}

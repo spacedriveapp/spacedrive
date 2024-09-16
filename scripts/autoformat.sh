@@ -67,6 +67,9 @@ wait
 pnpm run format &
 wait
 
+# Format toml files
+git ls-tree -r HEAD --name-only | grep '.toml$' | xargs pnpm taplo format
+
 if [ "${1:-}" != "only-frontend" ]; then
   # Run clippy and formatter for backend
   cargo clippy --fix --all --all-targets --all-features --allow-dirty --allow-staged

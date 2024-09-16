@@ -42,10 +42,7 @@ const Profile = ({ email, authStore }: { email?: string; authStore: { status: st
 	return (
 		<Card className="relative flex w-full flex-col items-center justify-center !p-6 lg:max-w-[320px]">
 			<AuthRequiredOverlay />
-			<div
-				className="flex size-[90px] items-center justify-center rounded-full
-	 border border-app-line bg-app-input"
-			>
+			<div className="flex size-[90px] items-center justify-center rounded-full border border-app-line bg-app-input">
 				<User weight="fill" className="mx-auto text-4xl text-ink-faint" />
 			</div>
 			<h1 className="mx-auto mt-3 text-lg">
@@ -85,14 +82,6 @@ function HostedLocationsPlayground() {
 			locations.refetch();
 		}
 	});
-	const doTheThing = useBridgeMutation('cloud.locations.testing', {
-		onSuccess() {
-			toast.success('Uploaded file!');
-		},
-		onError(err) {
-			toast.error(err.message);
-		}
-	});
 
 	useEffect(() => {
 		if (path === '' && locations.data?.[0]) {
@@ -100,7 +89,7 @@ function HostedLocationsPlayground() {
 		}
 	}, [path, locations.data]);
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading || doTheThing.isLoading;
+	const isLoading = createLocation.isLoading || removeLocation.isLoading;
 
 	return (
 		<>
@@ -151,19 +140,6 @@ function HostedLocationsPlayground() {
 								disabled={isLoading}
 							>
 								Delete
-							</Button>
-							<Button
-								variant="accent"
-								size="sm"
-								onClick={() =>
-									doTheThing.mutate({
-										id: location.id,
-										path
-									})
-								}
-								disabled={isLoading}
-							>
-								Do the thing
 							</Button>
 						</div>
 					))}

@@ -53,11 +53,10 @@ export async function tauriUpdaterKey(nativeDeps) {
  * @param {string} root
  * @param {string} nativeDeps
  * @param {string[]} targets
- * @param {string[]} bundles
  * @param {string[]} args
  * @returns {Promise<string[]>}
  */
-export async function patchTauri(root, nativeDeps, targets, bundles, args) {
+export async function patchTauri(root, nativeDeps, targets, args) {
 	if (args.findIndex(e => e === '-c' || e === '--config') !== -1) {
 		throw new Error('Custom tauri build config is not supported.')
 	}
@@ -91,18 +90,12 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 		.readFile(path.join(tauriRoot, 'tauri.conf.json'), 'utf-8')
 		.then(JSON.parse)
 
-	if (bundles.length === 0) {
-		const defaultBundles = tauriConfig?.bundle?.targets
-		if (Array.isArray(defaultBundles)) bundles.push(...defaultBundles)
-		if (bundles.length === 0) bundles.push('all')
-	}
-
 	switch (args[0]) {
 		case 'dev':
 			tauriPatch.build.features.push('devtools')
 			break
 		case 'build': {
-			if (tauriConfig?.plugins?.updater?.active) {
+			if (tauriConfig?.bundle?.createUpdaterArtifacts !== false) {
 				const pubKey = await tauriUpdaterKey(nativeDeps)
 				if (pubKey != null) tauriPatch.plugins.updater.pubkey = pubKey
 			}
@@ -111,6 +104,7 @@ export async function patchTauri(root, nativeDeps, targets, bundles, args) {
 	}
 
 	if (osType === 'Darwin') {
+		// arm64 support was added in macOS 11.0
 		const macOSArm64MinimumVersion = '11.0'
 
 		let macOSMinimumVersion = tauriConfig?.bundle?.macOS?.minimumSystemVersion

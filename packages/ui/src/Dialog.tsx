@@ -286,12 +286,11 @@ export function Dialog<S extends FieldValues>({
 									props.formClassName
 								)}
 							>
+								<RDialog.Title className="flex items-center gap-2.5 border-b border-app-line bg-app-input/60 p-3 font-bold">
+									{props.icon && props.icon}
+									{props.title}
+								</RDialog.Title>
 								<div className="p-5">
-									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
-										{props.icon && props.icon}
-										{props.title}
-									</RDialog.Title>
-
 									{props.description && (
 										<RDialog.Description className="mb-2 text-sm text-ink-dull">
 											{props.description}
@@ -313,9 +312,7 @@ export function Dialog<S extends FieldValues>({
 									{!props.hideButtons && (
 										<div
 											className={clsx(
-												invertButtonFocus
-													? 'flex-row-reverse'
-													: ' flex-row',
+												invertButtonFocus ? 'flex-row-reverse' : 'flex-row',
 												'flex gap-2'
 											)}
 										>

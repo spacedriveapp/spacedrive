@@ -67,7 +67,6 @@ export type Procedures = {
         { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.locations.create", input: string, result: CloudLocation } | 
         { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.testing", input: TestingParams, result: null } | 
         { key: "cloud.setApiOrigin", input: string, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
@@ -142,7 +141,7 @@ export type Procedures = {
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
-        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: EphemeralPathsResultItem } | 
+        { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: { entries: ExplorerItem[]; errors: Error[] } } | 
         { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
         { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
 };
@@ -245,8 +244,6 @@ export type EphemeralFileSystemOps = { sources: string[]; target_dir: string }
 export type EphemeralPathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder }
 
 export type EphemeralPathSearchArgs = { path: string; withHiddenFiles: boolean; order?: EphemeralPathOrder | null }
-
-export type EphemeralPathsResultItem = { entries: ExplorerItem[]; errors: Error[] }
 
 export type EphemeralRenameFileArgs = { kind: EphemeralRenameKind }
 
@@ -380,7 +377,7 @@ export type JobGroup = { id: string; running_job_id: string | null; action: stri
 
 export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" | "Move" | "Delete" | "Erase" | "FileValidator"
 
-export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; info: string; estimated_completion: string }
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
@@ -586,7 +583,7 @@ export type RenameMany = { from_pattern: FromPattern; to_pattern: string; from_f
 
 export type RenameOne = { from_file_path_id: number; to: string }
 
-export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; phase: string; message: string; estimated_completion: string }
+export type Report = { id: string; name: JobName; action: string | null; metadata: ReportMetadata[]; critical_error: string | null; non_critical_errors: NonCriticalError[]; created_at: string | null; started_at: string | null; completed_at: string | null; parent_id: string | null; status: Status; task_count: number; completed_task_count: number; info: string; phase: string; message: string; estimated_completion: string }
 
 export type ReportInputMetadata = { type: "location"; data: Location } | { type: "sub_path"; data: string }
 
@@ -647,8 +644,6 @@ export type TagSettings = { explorer: ExplorerSettings<ObjectOrder> }
 export type TagUpdateArgs = { id: number; name: string | null; color: string | null }
 
 export type Target = { Object: number } | { FilePath: number }
-
-export type TestingParams = { id: string; path: string }
 
 export type TextMatch = { contains: string } | { startsWith: string } | { endsWith: string } | { equals: string }
 

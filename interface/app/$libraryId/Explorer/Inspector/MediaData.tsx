@@ -71,7 +71,6 @@ const ExifMediaData = (data: ExifMetadata) => {
 	const platform = usePlatform();
 	const { t } = useLocale();
 	const coordinatesFormat = useUnitFormatStore().coordinatesFormat;
-	const showMoreInfo = useSelector(explorerStore, (s) => s.showMoreInfo);
 
 	return (
 		<>
@@ -153,7 +152,7 @@ const FFmpegMediaData = (data: FFmpegMetadata) => {
 		? 'Video'
 		: streamKinds.has('audio')
 			? 'Audio'
-			: capitalize(streamKinds.values().next().value) ?? 'Unknown';
+			: (capitalize(streamKinds.values().next().value) ?? 'Unknown');
 
 	const bit_rate = humanizeSize(int32ArrayToBigInt(data.bit_rate), {
 		is_bit: true,

@@ -1,5 +1,5 @@
 {
-	"$schema": "https://github.com/tauri-apps/tauri/raw/tauri-v2.0.0-beta.17/core/tauri-config-schema/schema.json",
+	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.2/core/tauri-config-schema/schema.json",
 	"productName": "Spacedrive",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
@@ -41,12 +41,13 @@
 	},
 	"bundle": {
 		"active": true,
-		"targets": ["deb", "msi", "dmg", "updater"],
+		"targets": ["deb", "msi", "dmg"],
 		"publisher": "Spacedrive Technology Inc.",
 		"copyright": "Spacedrive Technology Inc.",
 		"category": "Productivity",
 		"shortDescription": "Spacedrive",
 		"longDescription": "Cross-platform universal file explorer, powered by an open-source virtual distributed filesystem.",
+		"createUpdaterArtifacts": "v1Compatible",
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",
@@ -62,16 +63,29 @@
 				"depends": ["libc6", "libxdo3", "dbus"]
 			}
 		},
-
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"exceptionDomain": null,
 			"entitlements": null,
-			"frameworks": ["../../.deps/Spacedrive.framework"]
+			"frameworks": ["../../.deps/Spacedrive.framework"],
+			"dmg": {
+				"background": "dmg-background.png",
+				"appPosition": {
+					"x": 190,
+					"y": 190
+				},
+				"applicationFolderPosition": {
+					"x": 470,
+					"y": 190
+				}
+			}
 		},
 		"windows": {
 			"certificateThumbprint": null,
-			"webviewInstallMode": { "type": "embedBootstrapper", "silent": true },
+			"webviewInstallMode": {
+				"type": "embedBootstrapper",
+				"silent": true
+			},
 			"digestAlgorithm": "sha256",
 			"timestampUrl": "",
 			"wix": {
@@ -82,8 +96,6 @@
 	},
 	"plugins": {
 		"updater": {
-			"active": true,
-			"dialog": false,
 			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMURCMkU5NEU3NDAyOEMKUldTTUFuUk82YklkK296dlkxUGkrTXhCT3ZMNFFVOWROcXNaS0RqWU1kMUdRV2tDdFdIS0Y3YUsK",
 			"endpoints": [
 				"https://spacedrive.com/api/releases/tauri/{{version}}/{{target}}/{{arch}}"
