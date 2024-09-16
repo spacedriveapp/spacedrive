@@ -2,10 +2,12 @@ import { Trash } from '@phosphor-icons/react';
 import { iconNames } from '@sd/assets/util';
 import { Key } from 'react';
 import { HardwareModel, humanizeSize } from '@sd/client';
-import { Button, Card, Tooltip } from '@sd/ui';
+import { Button, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
-import { useLocale } from '~/hooks';
+import { useAccessToken, useLocale } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
+
+import DeleteDeviceDialog from './DeleteDeviceDialog';
 
 interface DeviceItemProps {
 	pub_id: Key | null | undefined;
@@ -46,7 +48,19 @@ export default (props: DeviceItemProps) => {
 				}}
 			>
 				<Tooltip label={t('Delete device')}>
-					<Trash className="size-4" />
+					<Trash
+						onClick={() => {
+							dialogManager.create((dp) => (
+								<DeleteDeviceDialog
+									name={props.name}
+									device_model={props.device_model}
+									pubId={String(props.pub_id)}
+									{...dp}
+								/>
+							));
+						}}
+						className="size-4"
+					/>
 				</Tooltip>
 			</Button>
 		</Card>

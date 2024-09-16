@@ -1,7 +1,7 @@
 import { Key } from 'react';
 import { Link } from 'react-router-dom';
 import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { useLocale, useOperatingSystem } from '~/hooks';
+import { useAccessToken, useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -28,16 +28,14 @@ export const Component = () => {
 	const os = useOperatingSystem();
 
 	const { t } = useLocale();
+	const accessToken = useAccessToken();
 
 	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
 	const locations = locationsQuery.data ?? [];
 
 	// not sure if we'll need the node state in the future, as it should be returned with the cloud.devices.list query
 	// const { data: node } = useBridgeQuery(['nodeState']);
-	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
-		suspense: true,
-		retry: false
-	});
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]);
 
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
