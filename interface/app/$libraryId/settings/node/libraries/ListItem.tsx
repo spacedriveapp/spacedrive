@@ -4,7 +4,7 @@ import { Key, useState } from 'react';
 import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
-import { useLocale } from '~/hooks';
+import { useAccessToken, useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
 import DeviceItem from './DeviceItem';
@@ -18,12 +18,8 @@ export default (props: Props) => {
 	const { t } = useLocale();
 	const [isExpanded, setIsExpanded] = useState(false);
 
-	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
-		suspense: true,
-		retry: false
-	});
-	console.log(cloudDevicesList);
-
+	const accessToken = useAccessToken();
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]);
 	const toggleExpansion = () => {
 		setIsExpanded((prev) => !prev);
 	};
