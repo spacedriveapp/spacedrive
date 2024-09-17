@@ -255,16 +255,6 @@ async fn main() -> tauri::Result<()> {
 						Err(err) => (None, Err(NodeError::Logger(err))),
 					};
 
-					// let handle = app.handle().clone();
-					// app.listen("deep-link://new-url", move |event| {
-					// 	let deep_link_event = DeepLinkEvent {
-					// 		data: event.payload().to_string(),
-					// 	};
-					// 	debug!(?deep_link_event, "Deep link event;",);
-
-					// 	handle.emit("deeplink", deep_link_event).unwrap();
-					// });
-
 					let handle = app.handle();
 					let (node, router) = match result {
 						Ok(r) => r,
