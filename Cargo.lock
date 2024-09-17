@@ -654,15 +654,12 @@ dependencies = [
  "itertools 0.10.5",
  "lazy_static",
  "lazycell",
- "log",
- "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash 1.1.0",
  "shlex",
  "syn 2.0.74",
- "which",
 ]
 
 [[package]]
@@ -3627,7 +3624,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -6167,10 +6164,9 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pdfium-render"
-version = "0.8.24"
-source = "git+https://github.com/HeavenVolkoff/pdfium-render.git?rev=dd8118c068#dd8118c0681dcc6a2824b84b67d7537ebd4ea1f0"
+version = "0.8.25"
+source = "git+https://github.com/HeavenVolkoff/pdfium-render.git?rev=7518e39c1b#7518e39c1b0f5bdede0e6e920f28d20415317352"
 dependencies = [
- "bindgen",
  "bitflags 2.6.0",
  "bytemuck",
  "bytes",
@@ -6178,7 +6174,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.10.5",
+ "itertools 0.13.0",
  "js-sys",
  "libloading 0.8.5",
  "log",
@@ -6606,16 +6602,6 @@ name = "presser"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8cf8e6a8aa66ce33f63993ffc4ea4271eb5b0530a9002db8455ea6050c77bfa"
-
-[[package]]
-name = "prettyplease"
-version = "0.2.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f12335488a2f3b0a83b14edad48dca9879ce89b2edd10e80237e4e852dd645e"
-dependencies = [
- "proc-macro2",
- "syn 2.0.74",
-]
 
 [[package]]
 name = "prisma-cli"
@@ -11305,18 +11291,6 @@ dependencies = [
  "bitflags 2.6.0",
  "js-sys",
  "web-sys",
-]
-
-[[package]]
-name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix",
 ]
 
 [[package]]
