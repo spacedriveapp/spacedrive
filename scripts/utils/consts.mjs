@@ -20,6 +20,15 @@ export const NATIVE_DEPS_ASSETS = {
 		x86_64: 'native-deps-x86_64-windows-gnu.tar.xz ',
 		aarch64: 'native-deps-aarch64-windows-gnu.tar.xz',
 	},
+	IOS: {
+		iossim: {
+			x86_64: 'native-deps-x86_64-iossim-apple.tar.xz',
+			aarch64: 'native-deps-aarch64-iossim-apple.tar.xz',
+		},
+		ios: {
+			aarch64: 'native-deps-aarch64-ios-apple.tar.xz',
+		},
+	},
 }
 
 /**
