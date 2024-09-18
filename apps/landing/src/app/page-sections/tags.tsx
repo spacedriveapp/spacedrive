@@ -39,7 +39,7 @@ const Tags = () => {
 						quickly organize your files.
 					</span>
 				</h1>
-				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-2 md:gap-4">
+				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-2 md:gap-6">
 					{videos.map((video) => (
 						<div className="h-fit" key={video.src}>
 							<Video
