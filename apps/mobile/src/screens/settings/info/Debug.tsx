@@ -13,12 +13,14 @@ import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { getTokens } from '~/utils';
 
 const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const debugState = useDebugState();
 	const featureFlags = useFeatureFlags();
 	const origin = useBridgeQuery(['cloud.getApiOrigin']);
 	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
+	const cloudBootstrap = useBridgeMutation(['cloud.bootstrap']);
 
 	const queryClient = useQueryClient();
 
@@ -70,6 +72,14 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 					}}
 				>
 					<Text style={tw`text-ink`}>Logout</Text>
+				</Button>
+				<Button
+					onPress={async () => {
+						const tokens = await getTokens();
+						cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+					}}
+				>
+					<Text style={tw`text-ink`}>Cloud Bootstrap</Text>
 				</Button>
 			</Card>
 		</View>

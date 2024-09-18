@@ -7,7 +7,7 @@ import DeviceInfo from 'react-native-device-info';
 import { ScrollView } from 'react-native-gesture-handler';
 import { HardwareModel, NodeState, StatisticsResponse, useBridgeQuery } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
-import { getAccessToken } from '~/utils';
+import { getTokens } from '~/utils';
 
 import Fade from '../layout/Fade';
 import { Button } from '../primitive/Button';
@@ -48,8 +48,8 @@ const Devices = ({ node, stats }: Props) => {
 	const [accessToken, setAccessToken] = useState<string>('');
 	useEffect(() => {
 		(async () => {
-			const at = await getAccessToken();
-			setAccessToken(at ?? '');
+			const at = await getTokens();
+			setAccessToken(at.accessToken);
 		})();
 	}, []);
 
