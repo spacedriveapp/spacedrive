@@ -20,7 +20,7 @@ export const Search = () => {
 						muted
 						controls={false}
 						loop
-						src="/videos/search.mp4"
+						src="/videos/Spacedrive_search.webm"
 					/>
 				</div>
 			</div>

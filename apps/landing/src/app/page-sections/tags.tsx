@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import React from 'react';
 import { SelectedVideo, Video } from '~/components/video';
 
 const videos: {
@@ -10,24 +10,19 @@ const videos: {
 	description: string;
 }[] = [
 	{
-		title: 'Drag and Drop',
-		src: '/videos/Spacedrive_DragAndDrop.webm',
-		description: 'Easily drag and drop files or folders.'
+		title: 'Tag Assignment mode',
+		src: '/videos/Spacedrive_tagmode.webm',
+		description: 'Assign tags to files and folders quickly and easily'
 	},
 	{
-		title: 'Tabs',
-		src: '/videos/Spacedrive_Tabs.webm',
-		description: 'Browse seamlessly with multiple tabs.'
-	},
-	{
-		title: 'Quick Preview',
-		src: '/videos/Spacedrive_QuickPreview.webm',
-		description: 'Instantly preview files and object data.'
+		title: 'Contextual Tagging',
+		src: '/videos/Spacedrive_tags.webm',
+		description: 'Tag files and folders directly from the right-click menu'
 	}
 ];
 
-export const Explorer = () => {
-	const [selectedVideo, setSelectedVideo] = useState<null | string>(null);
+const Tags = () => {
+	const [selectedVideo, setSelectedVideo] = React.useState<null | string>(null);
 	return (
 		<>
 			{selectedVideo ? (
@@ -37,15 +32,14 @@ export const Explorer = () => {
 			) : null}
 			<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 p-4">
 				<h1 className="flex-1 self-start text-2xl font-semibold leading-8 md:text-3xl md:leading-10 lg:self-start">
-					Explorer.{' '}
+					Multiple ways to set tags.{' '}
 					<span className="bg-gradient-to-r from-zinc-400 to-zinc-600 bg-clip-text text-transparent">
 						{/* Some controlled line breaks here based on breakpoint to make sure the breaks looks nice always :) */}
 						<br className="lg:hidden" />
-						Browse and manage your data
-						<br className="sm:hidden" /> like never before.
+						quickly organize your files.
 					</span>
 				</h1>
-				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-3 md:gap-4">
+				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-2 md:gap-4">
 					{videos.map((video) => (
 						<div className="h-fit" key={video.src}>
 							<Video
@@ -63,3 +57,5 @@ export const Explorer = () => {
 		</>
 	);
 };
+
+export default Tags;

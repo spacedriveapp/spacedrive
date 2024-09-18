@@ -1,5 +1,7 @@
 import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
 
+import Tags from './page-sections/tags';
+
 export const metadata = {
 	title: 'Spacedrive — A file manager from the future.',
 	description:
@@ -14,10 +16,11 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="flex flex-col gap-6 md:gap-[200px]">
+		<div className="flex flex-col gap-6 md:gap-[150px]">
 			<Header />
-			<Explorer />
 			<Features />
+			<Explorer />
+			<Tags />
 			<Search />
 			<Assistant />
 			<Github />

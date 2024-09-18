@@ -4,3 +4,4 @@ export * from './explorer';
 export * from './github';
 export * from './features';
 export * from './search';
+export * from './tags';
