@@ -7,9 +7,9 @@ export const Search = () => {
 					Find what you’re looking for with ease using advanced filters.
 				</span>
 			</h2>
-			<div className="mt-4 p-4">
+			<div className="mt-4 w-full p-4">
 				<video
-					className="h-auto w-full rounded-xl border border-indigo-500/30"
+					className="h-auto w-full rounded-xl object-fill"
 					autoPlay
 					playsInline
 					muted
