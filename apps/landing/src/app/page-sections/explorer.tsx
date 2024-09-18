@@ -49,6 +49,7 @@ export const Explorer = () => {
 					{videos.map((video) => (
 						<div className="h-fit" key={video.src}>
 							<Video
+								containerClassName="h-auto md:h-[265px]"
 								setSelectedVideo={setSelectedVideo}
 								layoutId={`video-${video.src}`}
 								onClick={() => setSelectedVideo(video.src)}
