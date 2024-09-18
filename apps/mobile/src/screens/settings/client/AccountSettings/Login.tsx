@@ -71,6 +71,7 @@ async function signInClicked(
 			toast.success('Sign in successful');
 			// Save the access token to AsyncStorage, because SuperTokens doesn't store it correctly. Thanks to the React Native SDK.
 			await AsyncStorage.setItem('access_token', req.headers.get('st-access-token')!);
+			await AsyncStorage.setItem('refresh_token', req.headers.get('st-refresh-token')!);
 			// Refresh the page to show the user is logged in
 			navigator.navigate('AccountProfile');
 		}

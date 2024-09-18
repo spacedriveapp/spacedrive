@@ -1,5 +1,4 @@
 import { Envelope } from '@phosphor-icons/react';
-import { getAccessToken } from 'supertokens-web-js/recipe/session';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
