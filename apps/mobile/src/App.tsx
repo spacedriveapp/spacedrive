@@ -40,6 +40,7 @@ import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { P2P } from './screens/p2p/P2P';
+import { AUTH_SERVER_URL } from './utils';
 import { currentLibraryStore } from './utils/nav';
 
 LogBox.ignoreLogs(['Sending `onAnimatedValueUpdate` with no listeners registered.']);
@@ -158,7 +159,7 @@ export default function App() {
 		global.Intl = require('intl');
 		require('intl/locale-data/jsonp/en'); //TODO(@Rocky43007): Setup a way to import all the languages we support, once we add localization on mobile.
 		SuperTokens.init({
-			apiDomain: 'http://localhost:9420',
+			apiDomain: AUTH_SERVER_URL,
 			apiBasePath: '/api/auth'
 		});
 		SplashScreen.hideAsync();

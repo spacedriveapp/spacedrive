@@ -1,16 +1,19 @@
+import { useNavigation } from '@react-navigation/native';
 import { Envelope } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
+import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
-import { User } from '~/navigation/tabs/SettingsStack';
+import { SettingsStackScreenProps, User } from '~/navigation/tabs/SettingsStack';
+import { AUTH_SERVER_URL } from '~/utils';
 
 const AccountProfile = () => {
 	const [userInfo, setUserInfo] = useState<User | null>(null);
 	useEffect(() => {
 		async function _() {
-			const user_data = await fetch('http://localhost:9420/api/user', {
+			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
 				method: 'GET'
 			});
 			const data = await user_data.json();
@@ -26,6 +29,14 @@ const AccountProfile = () => {
 
 	const emailName = userInfo ? userInfo.email.split('@')[0] : '';
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
+	const navigator = useNavigation<SettingsStackScreenProps<'AccountLogin'>['navigation']>();
+	function signOut() {
+		fetch(`${AUTH_SERVER_URL}/api/auth/signout`, {
+			method: 'POST'
+		}).then(() => {
+			navigator.navigate('AccountLogin');
+		});
+	}
 
 	return (
 		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>
@@ -48,6 +59,10 @@ const AccountProfile = () => {
 								<Text style={tw`text-white`}>{userInfo ? userInfo.email : ''}</Text>
 							</Card>
 						</View>
+
+						<Button variant="danger" style={tw`mt-4`} onPress={signOut}>
+							<Text style={tw`text-white`}>Sign Out</Text>
+						</Button>
 					</View>
 				</Card>
 			</View>

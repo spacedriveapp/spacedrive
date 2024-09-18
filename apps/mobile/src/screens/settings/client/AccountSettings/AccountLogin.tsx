@@ -32,75 +32,75 @@ const AccountLogin = () => {
 	const [activeTab, setActiveTab] = useState<'Login' | 'Register'>('Login');
 
 	// FIXME: Currently opens in App.
-	const socialLoginHandlers = (name: SocialLogin['name']) => {
-		return {
-			Github: async () => {
-				try {
-					const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
-						thirdPartyId: 'github',
+	// const socialLoginHandlers = (name: SocialLogin['name']) => {
+	// 	return {
+	// 		Github: async () => {
+	// 			try {
+	// 				const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
+	// 					thirdPartyId: 'github',
 
-						// This is where Github should redirect the user back after login or error.
-						frontendRedirectURI: 'http://localhost:9420/api/auth/callback/github'
-					});
+	// 					// This is where Github should redirect the user back after login or error.
+	// 					frontendRedirectURI: 'http://localhost:9420/api/auth/callback/github'
+	// 				});
 
-					// we redirect the user to Github for auth.
-					window.location.assign(authUrl);
-				} catch (err: any) {
-					if (err.isSuperTokensGeneralError === true) {
-						// this may be a custom error message sent from the API by you.
-						toast.error(err.message);
-					} else {
-						toast.error('Oops! Something went wrong.');
-					}
-				}
-			},
-			Google: async () => {
-				try {
-					const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
-						thirdPartyId: 'google',
+	// 				// we redirect the user to Github for auth.
+	// 				window.location.assign(authUrl);
+	// 			} catch (err: any) {
+	// 				if (err.isSuperTokensGeneralError === true) {
+	// 					// this may be a custom error message sent from the API by you.
+	// 					toast.error(err.message);
+	// 				} else {
+	// 					toast.error('Oops! Something went wrong.');
+	// 				}
+	// 			}
+	// 		},
+	// 		Google: async () => {
+	// 			try {
+	// 				const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
+	// 					thirdPartyId: 'google',
 
-						// This is where Google should redirect the user back after login or error.
-						// This URL goes on the Google's dashboard as well.
-						frontendRedirectURI: 'http://localhost:9420/api/auth/callback/google'
-					});
+	// 					// This is where Google should redirect the user back after login or error.
+	// 					// This URL goes on the Google's dashboard as well.
+	// 					frontendRedirectURI: 'http://localhost:9420/api/auth/callback/google'
+	// 				});
 
-					/*
-					Example value of authUrl: https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&access_type=offline&include_granted_scopes=true&response_type=code&client_id=1060725074195-kmeum4crr01uirfl2op9kd5acmi9jutn.apps.googleusercontent.com&state=5a489996a28cafc83ddff&redirect_uri=https%3A%2F%2Fsupertokens.io%2Fdev%2Foauth%2Fredirect-to-app&flowName=GeneralOAuthFlow
-					*/
+	// 				/*
+	// 				Example value of authUrl: https://accounts.google.com/o/oauth2/v2/auth/oauthchooseaccount?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&access_type=offline&include_granted_scopes=true&response_type=code&client_id=1060725074195-kmeum4crr01uirfl2op9kd5acmi9jutn.apps.googleusercontent.com&state=5a489996a28cafc83ddff&redirect_uri=https%3A%2F%2Fsupertokens.io%2Fdev%2Foauth%2Fredirect-to-app&flowName=GeneralOAuthFlow
+	// 				*/
 
-					// we redirect the user to google for auth.
-					window.location.assign(authUrl);
-				} catch (err: any) {
-					if (err.isSuperTokensGeneralError === true) {
-						// this may be a custom error message sent from the API by you.
-						toast.error(err.message);
-					} else {
-						toast.error('Oops! Something went wrong.');
-					}
-				}
-			},
-			Apple: async () => {
-				try {
-					const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
-						thirdPartyId: 'apple',
+	// 				// we redirect the user to google for auth.
+	// 				window.location.assign(authUrl);
+	// 			} catch (err: any) {
+	// 				if (err.isSuperTokensGeneralError === true) {
+	// 					// this may be a custom error message sent from the API by you.
+	// 					toast.error(err.message);
+	// 				} else {
+	// 					toast.error('Oops! Something went wrong.');
+	// 				}
+	// 			}
+	// 		},
+	// 		Apple: async () => {
+	// 			try {
+	// 				const authUrl = await getAuthorisationURLWithQueryParamsAndSetState({
+	// 					thirdPartyId: 'apple',
 
-						// This is where Apple should redirect the user back after login or error.
-						frontendRedirectURI: 'http://localhost:9420/api/auth/callback/apple'
-					});
+	// 					// This is where Apple should redirect the user back after login or error.
+	// 					frontendRedirectURI: 'http://localhost:9420/api/auth/callback/apple'
+	// 				});
 
-					// we redirect the user to Apple for auth.
-					window.location.assign(authUrl);
-				} catch (err: any) {
-					if (err.isSuperTokensGeneralError === true) {
-						// this may be a custom error message sent from the API by you.
-						toast.error(err.message);
-					} else {
-						toast.error('Oops! Something went wrong.');
-					}
-				}
-			}
-		}[name]();
-	};
+	// 				// we redirect the user to Apple for auth.
+	// 				window.location.assign(authUrl);
+	// 			} catch (err: any) {
+	// 				if (err.isSuperTokensGeneralError === true) {
+	// 					// this may be a custom error message sent from the API by you.
+	// 					toast.error(err.message);
+	// 				} else {
+	// 					toast.error('Oops! Something went wrong.');
+	// 				}
+	// 			}
+	// 		}
+	// 	}[name]();
+	// };
 
 	return (
 		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>

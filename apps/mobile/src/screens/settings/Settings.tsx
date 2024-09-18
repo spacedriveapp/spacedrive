@@ -26,6 +26,7 @@ import {
 	SettingsStackScreenProps,
 	User
 } from '~/navigation/tabs/SettingsStack';
+import { AUTH_SERVER_URL } from '~/utils';
 
 type SectionType = {
 	title: string;
@@ -183,7 +184,7 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 	const [userInfo, setUserInfo] = useState<User | null>(null);
 	useEffect(() => {
 		async function _() {
-			const user_data = await fetch('http://localhost:9420/api/user', {
+			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
 				method: 'GET'
 			});
 			const data = await user_data.json();
