@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
@@ -9,6 +10,7 @@ import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { AUTH_SERVER_URL } from '~/utils';
 
 import ShowPassword from './ShowPassword';
 
@@ -18,7 +20,7 @@ async function signInClicked(
 	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']
 ) {
 	try {
-		const req = await fetch('http://localhost:9420/api/auth/signin', {
+		const req = await fetch(`${AUTH_SERVER_URL}/api/auth/signin`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8'
@@ -67,6 +69,8 @@ async function signInClicked(
 			// sign in successful. The session tokens are automatically handled by
 			// the frontend SDK.
 			toast.success('Sign in successful');
+			// Save the access token to AsyncStorage, because SuperTokens doesn't store it correctly. Thanks to the React Native SDK.
+			await AsyncStorage.setItem('access_token', req.headers.get('st-access-token')!);
 			// Refresh the page to show the user is logged in
 			navigator.navigate('AccountProfile');
 		}
@@ -104,19 +108,21 @@ const Login = () => {
 					control={form.control}
 					name="email"
 					render={({ field }) => (
-						<Input
-							{...field}
-							placeholder="Email"
-							style={tw`w-full`}
-							onChangeText={field.onChange}
-						/>
+						<View style={tw`relative flex items-center justify-end`}>
+							<Input
+								{...field}
+								placeholder="Email"
+								style={tw`w-full`}
+								onChangeText={field.onChange}
+							/>
+							{form.formState.errors.email && (
+								<Text style={tw`text-xs text-red-500`}>
+									{form.formState.errors.email.message}
+								</Text>
+							)}
+						</View>
 					)}
 				/>
-				{form.formState.errors.email && (
-					<Text style={tw`text-xs text-red-500`}>
-						{form.formState.errors.email.message}
-					</Text>
-				)}
 				<Controller
 					control={form.control}
 					name="password"
@@ -129,6 +135,11 @@ const Login = () => {
 								onChangeText={field.onChange}
 								secureTextEntry={!showPassword}
 							/>
+							{form.formState.errors.password && (
+								<Text style={tw`text-xs text-red-500`}>
+									{form.formState.errors.password.message}
+								</Text>
+							)}
 							<ShowPassword
 								showPassword={showPassword}
 								setShowPassword={setShowPassword}
@@ -136,11 +147,6 @@ const Login = () => {
 						</View>
 					)}
 				/>
-				{form.formState.errors.password && (
-					<Text style={tw`text-xs text-red-500`}>
-						{form.formState.errors.password.message}
-					</Text>
-				)}
 				<Button
 					style={tw`mx-auto mt-2 w-full`}
 					variant="accent"

@@ -92,7 +92,7 @@ const Devices = ({ node, stats }: Props) => {
 	}, [node]);
 
 	return (
-		<OverviewSection title="Devices" count={node ? 1 : 0}>
+		<OverviewSection title="Devices" count={node ? 1 + (devices.data?.length ?? 0) : 0}>
 			<View>
 				<Fade height={'100%'} width={30} color="black">
 					<ScrollView
@@ -111,7 +111,7 @@ const Devices = ({ node, stats }: Props) => {
 								connectionType={null}
 							/>
 						)}
-						{/* {devices.data?.map((device) => (
+						{devices.data?.map((device) => (
 							<StatCard
 								key={device.pub_id}
 								name={device.name}
@@ -122,7 +122,7 @@ const Devices = ({ node, stats }: Props) => {
 								color="#0362FF"
 								connectionType={'cloud'}
 							/>
-						))} */}
+						))}
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."
