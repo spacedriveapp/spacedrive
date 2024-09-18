@@ -40,11 +40,10 @@ const SelectedVideo = ({ src }: { src: string }) => {
 			<motion.div
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
-				layout
 				exit={{ opacity: 0 }}
 				className="bg-opacity/50 fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md"
 			/>
-			<div className="fixed inset-0 z-[60] flex items-center justify-center p-5 md:p-0">
+			<div className="fixed inset-0 z-[60] mx-auto flex w-full max-w-[900px] items-center justify-center p-5 md:p-0">
 				<motion.video
 					src={src}
 					style={{
@@ -56,7 +55,7 @@ const SelectedVideo = ({ src }: { src: string }) => {
 					loop
 					muted
 					playsInline
-					className="object-cover md:size-3/5"
+					className="object-fill"
 				/>
 			</div>
 		</>

@@ -20,11 +20,12 @@ export const HeroImage: React.FC<HeroImageProps> = ({ src, alt, width, height })
 					<div className="z-30 flex w-full justify-center backdrop-blur">
 						<div className="relative h-auto w-full max-w-[1200px]">
 							<div className="h-px w-full bg-gradient-to-r from-transparent via-[#008BFF]/40 to-transparent" />
-							<div className="absolute inset-x-0 top-0 z-[110] size-full bg-gradient-to-b from-transparent to-[#0E0E12]" />
+							<div className="absolute inset-x-0 top-0 z-[110] size-full bg-gradient-to-b from-transparent from-30% to-[#0E0E12] to-80%" />
 							<Image
 								loading="eager"
 								layout="responsive"
 								width={width}
+								quality={100}
 								height={height}
 								alt={alt}
 								src={src}

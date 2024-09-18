@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import React from 'react';
 import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
 import { GoldenBadge } from '~/components/golden-badge';
 import { HeroImage } from '~/components/hero-image'; // Import the client-side component
@@ -59,16 +58,16 @@ export async function Header() {
 					{/* 1st light */}
 					<Image
 						loading="eager"
-						className="absolute-horizontal-center animation-delay-2 top-[380px] -z-10 select-none fade-in xs:top-[180px] md:top-[130px]"
+						className="absolute-horizontal-center animation-delay-2 top-[300px] -z-10 select-none fade-in xs:top-[180px] md:top-[130px]"
 						width={1200}
 						height={626}
 						alt="l"
 						src="/images/app/gradient.webp"
 					/>
 					{/* 2nd light */}
-					<div className="animation-delay-2 absolute-horizontal-center top-[550px] size-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-2xl" />
+					<div className="animation-delay-2 absolute-horizontal-center top-[450px] size-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-2xl" />
 					<HeroImage
-						src="/images/app/wip/MultiDeviceOverview.png"
+						src="/images/app/app.webp"
 						alt="Spacedrive App Image"
 						width={1200}
 						height={800}

@@ -41,7 +41,7 @@ const Tags = () => {
 				</h1>
 				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-2 md:gap-6">
 					{videos.map((video) => (
-						<div className="h-fit" key={video.src}>
+						<div key={video.src}>
 							<Video
 								setSelectedVideo={setSelectedVideo}
 								layoutId={`video-${video.src}`}

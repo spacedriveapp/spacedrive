@@ -50,7 +50,7 @@ export function NavBar() {
 				className={clsx(
 					'to-primary-900/20',
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-zinc-900/95 from-60% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
+					'overflow-hidden rounded-xl bg-gradient-to-b from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'
@@ -60,8 +60,8 @@ export function NavBar() {
 				transition={{ duration: 0.2 }}
 			>
 				{/* Gradient Borders */}
-				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
-				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/80 to-transparent" />
+				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
+				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
 				{/* End of Gradient Borders */}
 				<div className="noise noise-faded noise-sm flex flex-nowrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
 					{/* Spacedrive Logo and Links */}

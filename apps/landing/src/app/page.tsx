@@ -16,14 +16,16 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="flex flex-col gap-6 md:gap-[150px]">
+		<>
 			<Header />
-			<Features />
-			<Explorer />
-			<Tags />
-			<Search />
-			<Assistant />
-			<Github />
-		</div>
+			<div className="flex flex-col gap-6 md:gap-[200px]">
+				<Features />
+				<Explorer />
+				<Tags />
+				<Search />
+				<Assistant />
+				<Github />
+			</div>
+		</>
 	);
 }

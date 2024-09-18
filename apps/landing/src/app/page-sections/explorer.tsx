@@ -35,7 +35,7 @@ export const Explorer = () => {
 					<SelectedVideo src={selectedVideo} />
 				</AnimatePresence>
 			) : null}
-			<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 p-4">
+			<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 px-4">
 				<h1 className="flex-1 self-start text-2xl font-semibold leading-8 md:text-3xl md:leading-10 lg:self-start">
 					Explorer.{' '}
 					<span className="bg-gradient-to-r from-zinc-400 to-zinc-600 bg-clip-text text-transparent">
@@ -47,9 +47,8 @@ export const Explorer = () => {
 				</h1>
 				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-3 md:gap-4">
 					{videos.map((video) => (
-						<div className="h-fit" key={video.src}>
+						<div key={video.src}>
 							<Video
-								containerClassName="h-auto md:h-[265px]"
 								setSelectedVideo={setSelectedVideo}
 								layoutId={`video-${video.src}`}
 								onClick={() => setSelectedVideo(video.src)}
