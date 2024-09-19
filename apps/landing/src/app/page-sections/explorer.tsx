@@ -45,7 +45,7 @@ export const Explorer = () => {
 						<br className="sm:hidden" /> like never before.
 					</span>
 				</h1>
-				<div className="grid w-full grid-cols-1 gap-10 md:grid-cols-3 md:gap-4">
+				<div className="grid w-full grid-cols-1 gap-16 md:grid-cols-3 md:gap-4">
 					{videos.map((video) => (
 						<div key={video.src}>
 							<Video

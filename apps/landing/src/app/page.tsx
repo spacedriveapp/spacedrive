@@ -1,5 +1,6 @@
 import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
 
+import Mobile from './page-sections/mobile';
 import Tags from './page-sections/tags';
 
 export const metadata = {
@@ -18,7 +19,8 @@ export default function Page() {
 	return (
 		<>
 			<Header />
-			<div className="flex flex-col gap-6 md:gap-[200px]">
+			<div className="flex flex-col gap-20 md:gap-[200px]">
+				<Mobile />
 				<Features />
 				<Explorer />
 				<Tags />
