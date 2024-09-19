@@ -29,6 +29,6 @@ resvg       = "0.43.0"
 
 [dependencies.pdfium-render]
 default-features = false
-features         = ["image", "pdfium_6259", "sync", "thread_safe"]
+features         = ["image", "pdfium_6666", "sync", "thread_safe"]
 git              = "https://github.com/HeavenVolkoff/pdfium-render.git"
-rev              = "dd8118c068"
+rev              = "7518e39c1b"

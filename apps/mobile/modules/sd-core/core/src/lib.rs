@@ -1,3 +1,5 @@
+#![cfg(any(target_os = "android", target_os = "ios"))]
+
 use futures::{future::join_all, StreamExt};
 use futures_channel::mpsc;
 use once_cell::sync::{Lazy, OnceCell};
