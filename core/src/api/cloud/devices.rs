@@ -57,7 +57,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("list", {
 			R.query(|node, req: devices::list::Request| async move {
-				let devices::list::Response(devices) = super::handle_comm_error(
+				let devices::list::Response(mut devices) = super::handle_comm_error(
 					try_get_cloud_services_client(&node)
 						.await?
 						.devices()
@@ -67,6 +67,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				)??;
 
 				debug!(?devices, "Listed devices");
+
+				let id = node.config.get().await.id.into();
+				// Filter out the local device by matching pub_id
+				devices.retain(|device| device.pub_id != id);
 
 				Ok(devices)
 			})

@@ -35,6 +35,7 @@ import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 import getCookieHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
 import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
 import { useLocale } from '@sd/interface/hooks';
+import { AUTH_SERVER_URL } from '@sd/interface/util';
 
 import { commands } from './commands';
 import { platform } from './platform';
@@ -44,7 +45,7 @@ import { createUpdater } from './updater';
 
 SuperTokens.init({
 	appInfo: {
-		apiDomain: 'http://localhost:9420',
+		apiDomain: AUTH_SERVER_URL,
 		apiBasePath: '/api/auth',
 		appName: 'Spacedrive Auth Service'
 	},

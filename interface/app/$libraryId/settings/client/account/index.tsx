@@ -3,6 +3,7 @@ import Session, { signOut } from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Input, toast } from '@sd/ui';
 import { useLocale } from '~/hooks';
+import { AUTH_SERVER_URL } from '~/util';
 
 import { Heading } from '../../Layout';
 import Profile from './Profile';
@@ -20,7 +21,7 @@ export const Component = () => {
 	const [userInfo, setUserInfo] = useState<User | null>(null);
 	useEffect(() => {
 		async function _() {
-			const user_data = await fetch('http://localhost:9420/api/user', {
+			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
 				method: 'GET'
 			});
 			const data = await user_data.json();

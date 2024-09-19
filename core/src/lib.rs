@@ -55,6 +55,7 @@ use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
 use node::config;
 use notifications::Notifications;
+use sd_core_cloud_services::AUTH_SERVER_URL;
 use volume::save_storage_statistics;
 
 /// Represents a single running instance of the Spacedrive core.
@@ -114,8 +115,9 @@ impl Node {
 			#[cfg(debug_assertions)]
 			{
 				(
-					std::env::var("SD_CLOUD_API_ADDRESS_URL")
-						.unwrap_or_else(|_| "http://localhost:9420/cloud-api-address".to_string()),
+					std::env::var("SD_CLOUD_API_ADDRESS_URL").unwrap_or_else(|_| {
+						format!("{AUTH_SERVER_URL}/cloud-api-address").to_string()
+					}),
 					std::env::var("SD_CLOUD_P2P_RELAY_URL")
 						.unwrap_or_else(|_| "http://relay.localhost:9999/".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")

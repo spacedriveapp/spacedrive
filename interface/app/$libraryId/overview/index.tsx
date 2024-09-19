@@ -1,4 +1,4 @@
-import { Key } from 'react';
+import { Key, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useAccessToken, useLocale, useOperatingSystem } from '~/hooks';
@@ -37,6 +37,15 @@ export const Component = () => {
 	// const { data: node } = useBridgeQuery(['nodeState']);
 	const cloudDevicesList = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]);
 
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			await cloudDevicesList.refetch();
+		}, 10000);
+		return () => clearInterval(interval);
+	}, []);
+	const { data: node } = useBridgeQuery(['nodeState']);
+	const stats = useLibraryQuery(['library.statistics']);
+
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
 	return (
@@ -59,32 +68,33 @@ export const Component = () => {
 						<FileKindStatistics />
 					</OverviewSection>
 
-					<OverviewSection count={cloudDevicesList.data?.length} title={t('devices')}>
-						{cloudDevicesList.data?.map(
-							(
-								device: {
-									pub_id: Key | null | undefined;
-									name: string;
-									os: string;
-									storage_size: bigint;
-									used_storage: bigint;
-									created_at: string;
-									device_model: string;
-								},
-								index: number
-							) => (
-								<StatisticItem
-									key={device.pub_id}
-									name={device.name}
-									icon={hardwareModelToIcon(device.device_model as HardwareModel)}
-									// conversion to string is intentional to provide proper type to StatCardProps
-									totalSpace={device.storage_size.toString()}
-									freeSpace={device.used_storage.toString()}
-									color="#0362FF"
-									connectionType={null}
-								></StatisticItem>
-							)
+					<OverviewSection
+						count={(cloudDevicesList.data?.length ?? 0) + (node ? 1 : 0)}
+						title={t('devices')}
+					>
+						{node && (
+							<StatisticItem
+								name={node.name}
+								icon={hardwareModelToIcon(node.device_model as any)}
+								totalSpace={
+									stats.data?.statistics?.total_local_bytes_capacity || '0'
+								}
+								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
+								color="#0362FF"
+								connectionType={null}
+							/>
 						)}
+						{cloudDevicesList.data?.map((device) => (
+							<StatisticItem
+								key={device.pub_id}
+								name={device.name}
+								icon={hardwareModelToIcon(device.hardware_model as HardwareModel)}
+								totalSpace={device.storage_size.toString()}
+								freeSpace={(device.storage_size - device.used_storage).toString()}
+								color="#0362FF"
+								connectionType={'cloud'}
+							/>
+						))}
 					</OverviewSection>
 
 					<OverviewSection count={locations.length} title={t('locations')}>
