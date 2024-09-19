@@ -197,7 +197,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 	type MigrationError = NodeConfigError;
 
 	fn from_latest_version() -> Option<Self> {
-		let mut name = generate_device_name();
+		let mut name = whoami::devicename();
 		name.truncate(255);
 
 		let os = DeviceOS::from_env();
@@ -330,7 +330,7 @@ impl NodeConfig {
 						config.remove("name");
 						config.insert(
 							String::from("name"),
-							serde_json::to_value(generate_device_name())
+							serde_json::to_value(whoami::devicename())
 								.map_err(VersionManagerError::SerdeJson)?,
 						);
 
@@ -505,23 +505,4 @@ pub enum NodeConfigError {
 	VersionManager(#[from] VersionManagerError<NodeConfigVersion>),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
-}
-
-fn generate_device_name() -> String {
-	#[cfg(target_os = "android")]
-	let name = "Android Spacedrive Device".into();
-	#[cfg(not(target_os = "android"))]
-	let name = match hostname::get() {
-		Ok(hostname) => hostname.to_string_lossy().into_owned(),
-		Err(e) => {
-			error!(
-				?e,
-				"Falling back to default node name as an error occurred getting your systems hostname;",
-			);
-
-			"my-spacedrive".into()
-		}
-	};
-
-	name
 }

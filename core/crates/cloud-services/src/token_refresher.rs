@@ -322,6 +322,8 @@ mod tests {
 	use reqwest::header;
 	use serde_json::json;
 
+	use crate::AUTH_SERVER_URL;
+
 	use super::*;
 
 	async fn get_tokens() -> (AccessToken, RefreshToken) {
@@ -341,7 +343,7 @@ mod tests {
 		});
 
 		let response = client
-			.post("http://localhost:9420/api/auth/public/signup")
+			.post(format!("{AUTH_SERVER_URL}/api/auth/public/signup"))
 			.header("rid", "emailpassword")
 			.header("st-auth-mode", "header")
 			.json(&req_body)
@@ -361,7 +363,7 @@ mod tests {
 			)
 		} else {
 			let response = client
-				.post("http://localhost:9420/api/auth/public/signin")
+				.post(format!("{AUTH_SERVER_URL}/api/auth/public/signin"))
 				.header("rid", "emailpassword")
 				.header("st-auth-mode", "header")
 				.json(&req_body)

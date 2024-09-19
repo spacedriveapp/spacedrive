@@ -11,6 +11,7 @@ import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
 import { tw } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { AUTH_SERVER_URL } from '~/utils';
 
 import ShowPassword from './ShowPassword';
 
@@ -32,7 +33,7 @@ async function signUpClicked(
 	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']
 ) {
 	try {
-		const req = await fetch('http://localhost:9000/api/auth/signup', {
+		const req = await fetch(`${AUTH_SERVER_URL}/api/auth/signup`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8'
@@ -81,6 +82,7 @@ async function signUpClicked(
 			// this may be a custom error message sent from the API by you.
 			toast.error(err.message);
 		} else {
+			console.error(err);
 			toast.error('Oops! Something went wrong.');
 		}
 	}

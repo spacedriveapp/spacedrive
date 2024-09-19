@@ -1,4 +1,5 @@
 import { Envelope } from '@phosphor-icons/react';
+import { useEffect } from 'react';
 import { useBridgeMutation, useBridgeQuery } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
@@ -21,6 +22,14 @@ const Profile = ({ email }: { email?: string }) => {
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
 	const devices = useBridgeQuery(['cloud.devices.list', { access_token: accessToken.trim() }]);
+
+	// Refetch every 10 seconds
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			await devices.refetch();
+		}, 10000);
+		return () => clearInterval(interval);
+	}, []);
 	console.log(devices.data);
 
 	return (
@@ -55,7 +64,7 @@ const Profile = ({ email }: { email?: string }) => {
 				onClick={async () => {
 					cloudDeleteDevice.mutate({
 						access_token: accessToken.trim(),
-						pub_id: '019196ed-5711-7843-a0d6-1d9f176db25a'
+						pub_id: '01920812-9bd2-7781-aee5-e19a01497296'
 					});
 				}}
 			>

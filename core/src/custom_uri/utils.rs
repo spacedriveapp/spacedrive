@@ -1,5 +1,6 @@
 use crate::util::InfallibleResponse;
 
+use sd_core_cloud_services::AUTH_SERVER_URL;
 use std::{fmt::Debug, panic::Location};
 
 use axum::{
@@ -52,7 +53,7 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 			.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
 			.header(
 				"Access-Control-Allow-Origin",
-				"http://localhost:9420, http://ipc.localhost, http://tauri.localhost",
+				format!("{AUTH_SERVER_URL}, http://ipc.localhost, http://tauri.localhost"),
 			)
 			.header("Access-Control-Allow-Headers", "*")
 			.header("Access-Control-Max-Age", "86400")
@@ -70,9 +71,10 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 
 		headers.insert(
 			"Access-Control-Allow-Origin",
-			HeaderValue::from_static(
-				"http://localhost:9420, http://ipc.localhost, http://tauri.localhost",
-			),
+			HeaderValue::from_str(
+				format!("{AUTH_SERVER_URL}, http://ipc.localhost, http://tauri.localhost").as_str(),
+			)
+			.expect("Invalid static response!"),
 		);
 
 		headers.insert(
