@@ -383,6 +383,12 @@ impl From<&CasId<'_>> for String {
 #[specta(rename = "CoreDevicePubId")]
 pub struct DevicePubId(PubId);
 
+impl From<DevicePubId> for sd_cloud_schema::devices::PubId {
+	fn from(DevicePubId(pub_id): DevicePubId) -> Self {
+		Self(pub_id.into())
+	}
+}	
+
 #[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, specta::Type)]
 #[serde(transparent)]
 #[repr(transparent)]
