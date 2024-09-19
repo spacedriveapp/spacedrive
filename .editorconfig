@@ -77,6 +77,12 @@ indent_style = space
 indent_size = 4
 indent_style = space
 
+# Ruby
+# http://www.caliban.org/ruby/rubyguide.shtml#indentation
+[*.{rb,podspec}]
+indent_size = 2
+indent_style = space
+
 # YAML
 # http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
 [*.{yaml,yml}]

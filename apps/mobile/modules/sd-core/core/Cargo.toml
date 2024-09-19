@@ -7,9 +7,15 @@ license.workspace    = true
 repository.workspace = true
 rust-version         = "1.64"
 
-[dependencies]
-# Spacedrive Sub-crates
-sd-core = { path = "../../../../../core", features = ["mobile"], default-features = false }
+[target.'cfg(target_os = "android")'.dependencies]
+sd-core = { default-features = false, features = ["mobile"], path = "../../../../../core" }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+sd-core = { default-features = false, features = [
+	"ffmpeg",
+	"heif",
+	"mobile"
+], path = "../../../../../core" }
 
 # Workspace dependencies
 futures    = { workspace = true }

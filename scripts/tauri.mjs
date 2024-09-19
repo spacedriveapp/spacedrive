@@ -6,7 +6,7 @@ import { env, exit, umask, platform } from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
-import * as toml from '@iarna/toml'
+import { parse as parseTOML } from 'smol-toml'
 
 import { waitLockUnlock } from './utils/flock.mjs'
 import { patchTauri } from './utils/patchTauri.mjs'
@@ -44,7 +44,7 @@ process.on('SIGINT', cleanUp)
 // Export environment variables defined in cargo.toml
 const cargoConfig = await fs
 	.readFile(path.resolve(__root, '.cargo', 'config.toml'), { encoding: 'binary' })
-	.then(toml.parse)
+	.then(parseTOML)
 if (cargoConfig.env && typeof cargoConfig.env === 'object')
 	for (const [name, value] of Object.entries(cargoConfig.env)) if (!env[name]) env[name] = value
 
