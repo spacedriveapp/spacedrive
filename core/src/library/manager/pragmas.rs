@@ -22,16 +22,15 @@ struct CacheSize {
 #[derive(serde::Deserialize, Debug)]
 #[allow(dead_code)]
 struct MmapSize {
-	mmap_size: i64, // Adjusted for large values
+	mmap_size: i64,
 }
 
 #[derive(serde::Deserialize, Debug)]
 #[allow(dead_code)]
 struct JournalSizeLimit {
-	journal_size_limit: i64, // The size limit returned by PRAGMA journal_size_limit
+	journal_size_limit: i64,
 }
 
-// Generic function to handle PRAGMA queries
 async fn execute_pragma<T: serde::de::DeserializeOwned + 'static>(
 	db: &PrismaClient,
 	query: &str,
@@ -102,7 +101,7 @@ pub async fn configure_pragmas(db: &PrismaClient) -> Result<(), LibraryManagerEr
 				execute_pragma::<JournalSizeLimit>(db, query, description).await?
 			}
 			None => execute_pragma::<()>(db, query, description).await?,
-			_ => unreachable!(), // This should never happen based on the setup
+			_ => unreachable!(),
 		}
 	}
 
