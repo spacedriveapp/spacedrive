@@ -157,6 +157,16 @@ impl Task<Error> for Saver {
 			)
 			.unzip();
 
+		if create_crdt_ops.is_empty() && paths.is_empty() {
+			return Ok(ExecStatus::Done(
+				Output {
+					saved_count: 0,
+					save_duration: Duration::ZERO,
+				}
+				.into_output(),
+			));
+		}
+
 		#[allow(clippy::cast_sign_loss)]
 		let saved_count = sync
 			.write_ops(

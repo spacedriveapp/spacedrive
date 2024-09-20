@@ -270,39 +270,37 @@ async fn assign_existing_objects_to_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
-	sync.write_ops(
-		db,
-		objects_by_cas_id
-			.iter()
-			.flat_map(|(cas_id, object_pub_id)| {
-				file_paths_by_cas_id
-					.remove(cas_id)
-					.map(|file_paths| {
-						file_paths.into_iter().map(
-							|FilePathToCreateOrLinkObject {
-							     file_path_pub_id, ..
-							 }| {
-								connect_file_path_to_object(
-									&file_path_pub_id,
-									object_pub_id,
-									db,
-									sync,
-								)
-							},
-						)
-					})
-					.expect("must be here")
-			})
-			.unzip::<_, _, Vec<_>, Vec<_>>(),
-	)
-	.await
-	.map(|file_paths| {
-		file_paths
-			.into_iter()
-			.map(|file_path_id::Data { id }| id)
-			.collect()
-	})
-	.map_err(Into::into)
+	let (ops, queries) = objects_by_cas_id
+		.iter()
+		.flat_map(|(cas_id, object_pub_id)| {
+			file_paths_by_cas_id
+				.remove(cas_id)
+				.map(|file_paths| {
+					file_paths.into_iter().map(
+						|FilePathToCreateOrLinkObject {
+						     file_path_pub_id, ..
+						 }| {
+							connect_file_path_to_object(&file_path_pub_id, object_pub_id, db, sync)
+						},
+					)
+				})
+				.expect("must be here")
+		})
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	if ops.is_empty() && queries.is_empty() {
+		return Ok(vec![]);
+	}
+
+	sync.write_ops(db, (ops, queries))
+		.await
+		.map(|file_paths| {
+			file_paths
+				.into_iter()
+				.map(|file_path_id::Data { id }| id)
+				.collect()
+		})
+		.map_err(Into::into)
 }
 
 async fn assign_objects_to_duplicated_orphans(
