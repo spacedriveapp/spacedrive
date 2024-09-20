@@ -6,10 +6,10 @@ use sd_core_sync::{DevicePubId, SyncManager};
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
 use sd_prisma::{
-	prisma::{exif_data, object, PrismaClient},
+	prisma::{device, exif_data, object, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::{option_sync_db_entry, sync_db_entry, OperationFactory};
+use sd_sync::{option_sync_db_entry, sync_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
 
 use std::path::Path;
@@ -57,7 +57,10 @@ fn to_query(
 	let device_pub_id = device_pub_id.to_db();
 
 	let (sync_params, db_params) = chain_optional_iter(
-		[sync_db_entry!(device_pub_id, exif_data::device_pub_id)],
+		[(
+			sync_entry!(&device_pub_id, exif_data::device_pub_id),
+			exif_data::device::connect(device::pub_id::equals(device_pub_id)),
+		)],
 		[
 			option_sync_db_entry!(
 				serde_json::to_vec(&camera_data).ok(),
@@ -81,6 +84,9 @@ fn to_query(
 	)
 	.into_iter()
 	.unzip();
+
+	tracing::warn!(?sync_params);
+	tracing::warn!(?db_params);
 
 	(
 		sync_params,
