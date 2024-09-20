@@ -37,9 +37,12 @@ use tokio::{
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
+use super::pragmas::configure_pragmas;
 use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
+
+pub mod pragmas;
 
 pub use error::*;
 
@@ -536,6 +539,9 @@ impl Libraries {
 		)
 		.await?;
 		let sync_manager = Arc::new(sync);
+
+		// Configure database
+		configure_pragmas(&db).await?;
 
 		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
 
