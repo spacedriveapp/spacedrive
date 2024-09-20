@@ -159,11 +159,20 @@ impl Task<Error> for Updater {
 			)
 			.unzip::<_, _, Vec<_>, Vec<_>>();
 
+		let ops = sync_stuff.into_iter().flatten().collect::<Vec<_>>();
+
+		if ops.is_empty() && paths_to_update.is_empty() {
+			return Ok(ExecStatus::Done(
+				Output {
+					updated_count: 0,
+					update_duration: Duration::ZERO,
+				}
+				.into_output(),
+			));
+		}
+
 		let updated = sync
-			.write_ops(
-				db,
-				(sync_stuff.into_iter().flatten().collect(), paths_to_update),
-			)
+			.write_ops(db, (ops, paths_to_update))
 			.await
 			.map_err(indexer::Error::from)?;
 

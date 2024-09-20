@@ -346,7 +346,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let date_accessed = Utc::now().into();
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+					let (ops, object_ids): (Vec<_>, Vec<_>) = objects
 						.into_iter()
 						.map(|d| {
 							(
@@ -360,20 +360,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						})
 						.unzip();
 
-					sync.write_ops(
-						db,
-						(
-							sync_params,
-							db.object().update_many(
-								vec![object::id::in_vec(db_params)],
-								vec![object::date_accessed::set(Some(date_accessed))],
+					if !ops.is_empty() && !object_ids.is_empty() {
+						sync.write_ops(
+							db,
+							(
+								ops,
+								db.object().update_many(
+									vec![object::id::in_vec(object_ids)],
+									vec![object::date_accessed::set(Some(date_accessed))],
+								),
 							),
-						),
-					)
-					.await?;
+						)
+						.await?;
 
-					invalidate_query!(library, "search.paths");
-					invalidate_query!(library, "search.objects");
+						invalidate_query!(library, "search.paths");
+						invalidate_query!(library, "search.objects");
+					}
+
 					Ok(())
 				})
 		})
@@ -389,7 +392,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+					let (ops, object_ids): (Vec<_>, Vec<_>) = objects
 						.into_iter()
 						.map(|d| {
 							(
@@ -402,20 +405,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})
 						.unzip();
-					sync.write_ops(
-						db,
-						(
-							sync_params,
-							db.object().update_many(
-								vec![object::id::in_vec(db_params)],
-								vec![object::date_accessed::set(None)],
-							),
-						),
-					)
-					.await?;
 
-					invalidate_query!(library, "search.objects");
-					invalidate_query!(library, "search.paths");
+					if !ops.is_empty() && !object_ids.is_empty() {
+						sync.write_ops(
+							db,
+							(
+								ops,
+								db.object().update_many(
+									vec![object::id::in_vec(object_ids)],
+									vec![object::date_accessed::set(None)],
+								),
+							),
+						)
+						.await?;
+
+						invalidate_query!(library, "search.objects");
+						invalidate_query!(library, "search.paths");
+					}
+
 					Ok(())
 				})
 		})

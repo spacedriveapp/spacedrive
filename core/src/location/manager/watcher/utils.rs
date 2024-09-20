@@ -656,29 +656,33 @@ async fn inner_update_file(
 			.unzip()
 		};
 
-		// file content changed
-		sync.write_ops(
-			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(field, value)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							field,
-							value,
-						)
-					})
-					.collect(),
-				db.file_path().update(
-					file_path::pub_id::equals(file_path.pub_id.clone()),
-					db_params,
+		let ops = sync_params
+			.into_iter()
+			.map(|(field, value)| {
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					},
+					field,
+					value,
+				)
+			})
+			.collect::<Vec<_>>();
+
+		if !ops.is_empty() && !db_params.is_empty() {
+			// file content changed
+			sync.write_ops(
+				db,
+				(
+					ops,
+					db.file_path().update(
+						file_path::pub_id::equals(file_path.pub_id.clone()),
+						db_params,
+					),
 				),
-			),
-		)
-		.await?;
+			)
+			.await?;
+		}
 
 		if let Some(ref object) = file_path.object {
 			let int_kind = kind as i32;
@@ -981,7 +985,9 @@ pub(super) async fn rename(
 				})
 				.unzip();
 
-			sync.write_ops(db, (sync_params, db_params)).await?;
+			if !sync_params.is_empty() && !db_params.is_empty() {
+				sync.write_ops(db, (sync_params, db_params)).await?;
+			}
 
 			trace!(%total_paths_count, "Updated file_paths;");
 		}
@@ -1018,29 +1024,33 @@ pub(super) async fn rename(
 		.into_iter()
 		.unzip();
 
-		sync.write_ops(
-			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(k, v)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							k,
-							v,
-						)
-					})
-					.collect(),
-				db.file_path()
-					.update(file_path::pub_id::equals(file_path.pub_id), db_params),
-			),
-		)
-		.await?;
+		let ops = sync_params
+			.into_iter()
+			.map(|(k, v)| {
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					},
+					k,
+					v,
+				)
+			})
+			.collect::<Vec<_>>();
 
-		invalidate_query!(library, "search.paths");
-		invalidate_query!(library, "search.objects");
+		if !ops.is_empty() && !db_params.is_empty() {
+			sync.write_ops(
+				db,
+				(
+					ops,
+					db.file_path()
+						.update(file_path::pub_id::equals(file_path.pub_id), db_params),
+				),
+			)
+			.await?;
+
+			invalidate_query!(library, "search.paths");
+			invalidate_query!(library, "search.objects");
+		}
 	}
 
 	Ok(())

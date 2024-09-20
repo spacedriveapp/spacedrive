@@ -136,7 +136,7 @@ async fn update_directory_sizes(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<(), Error> {
-	let to_sync_and_update = db
+	let (ops, queries) = db
 		._batch(chunk_db_queries(iso_paths_and_sizes.keys(), db))
 		.await?
 		.into_iter()
@@ -167,7 +167,9 @@ async fn update_directory_sizes(
 		.into_iter()
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-	sync.write_ops(db, to_sync_and_update).await?;
+	if !ops.is_empty() && !queries.is_empty() {
+		sync.write_ops(db, (ops, queries)).await?;
+	}
 
 	Ok(())
 }
