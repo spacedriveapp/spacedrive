@@ -5,15 +5,15 @@ const Mobile = () => {
 		<div className="container mx-auto mt-10 flex flex-col flex-wrap items-center gap-10 px-4">
 			<Image
 				style={{
-					maxWidth: 635,
-					maxHeight: 530
+					maxWidth: 900,
+					maxHeight: 600
 				}}
 				loading="eager"
 				quality={100}
-				width={636}
-				height={530}
-				layout="responsive"
+				width={900}
+				height={600}
 				className="object-contain"
+				layout="responsive"
 				src="/images/mobile.webp"
 				alt="Mobile"
 			/>
