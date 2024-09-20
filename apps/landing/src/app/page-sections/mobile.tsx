@@ -1,4 +1,11 @@
+'use client';
+
+import { GooglePlayLogo } from '@phosphor-icons/react';
+import { Apple } from '@sd/assets/svgs/brands';
 import Image from 'next/image';
+import { tw } from '@sd/ui';
+
+const DownloadButton = tw.button`flex w-fit flex-row items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-[13px] transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-800`;
 
 const Mobile = () => {
 	return (
@@ -29,6 +36,16 @@ const Mobile = () => {
 					Using the mobile app, you can sync your files across all your devices. Take your
 					personal data with you wherever you are!
 				</p>
+				<div className="mx-auto mt-4 flex flex-row flex-wrap justify-center gap-4">
+					<DownloadButton>
+						<GooglePlayLogo />
+						Open Play Store
+					</DownloadButton>
+					<DownloadButton>
+						<Apple className="size-4" />
+						Open App Store
+					</DownloadButton>
+				</div>
 			</div>
 		</div>
 	);
