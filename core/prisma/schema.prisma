@@ -83,7 +83,7 @@ model Device {
   TagOnObject        TagOnObject[]
   LabelOnObject      LabelOnObject[]
 
-  @@map("node")
+  @@map("device")
 }
 
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
