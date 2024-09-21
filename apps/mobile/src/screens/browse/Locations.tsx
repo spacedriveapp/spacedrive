@@ -16,9 +16,10 @@ import { useSearchStore } from '~/stores/searchStore';
 
 interface Props {
 	viewStyle?: 'grid' | 'list';
+	navToSettings?: boolean; // on press, navigate to settings
 }
 
-export default function LocationsScreen({ viewStyle }: Props) {
+export default function LocationsScreen({ viewStyle, navToSettings }: Props) {
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	const locations = locationsQuery.data;
 	const { search } = useSearchStore();
@@ -39,7 +40,7 @@ export default function LocationsScreen({ viewStyle }: Props) {
 	return (
 		<ScreenContainer scrollview={false} style={tw`relative px-6 py-0`}>
 			<Pressable
-				style={tw`absolute bottom-7 right-7 z-10 h-12 w-12 items-center justify-center rounded-full bg-accent`}
+				style={tw`absolute z-10 items-center justify-center w-12 h-12 rounded-full bottom-7 right-7 bg-accent`}
 				onPress={() => {
 					modalRef.current?.present();
 				}}
@@ -67,12 +68,18 @@ export default function LocationsScreen({ viewStyle }: Props) {
 					numColumns={viewStyle === 'grid' ? 3 : 1}
 					renderItem={({ item }) => (
 						<LocationItem
-							onPress={() =>
+							onPress={() => {
+								if (navToSettings) {
+									return navigation.navigate('SettingsStack', {
+										screen: 'EditLocationSettings',
+										params: { id: item.id }
+									});
+								}
 								navigation.navigate('BrowseStack', {
 									screen: 'Location',
 									params: { id: item.id }
-								})
-							}
+								});
+							}}
 							editLocation={() =>
 								navigation.navigate('SettingsStack', {
 									screen: 'EditLocationSettings',
