@@ -39,6 +39,10 @@ use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
 
+pub mod pragmas;
+
+use pragmas::configure_pragmas;
+
 pub use error::*;
 
 /// Event that is emitted to subscribers of the library manager.
@@ -546,6 +550,9 @@ impl Libraries {
 			&devices,
 		)
 		.await?;
+
+		// Configure database
+		configure_pragmas(&db).await?;
 
 		let library = Library::new(id, config, instance_id, identity, db, node, sync).await;
 
