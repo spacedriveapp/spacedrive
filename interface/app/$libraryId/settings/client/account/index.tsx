@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import Session, { signOut } from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Input, toast } from '@sd/ui';
+import { Authentication } from '~/components';
 import { useLocale } from '~/hooks';
 import { AUTH_SERVER_URL } from '~/util';
 
 import { Heading } from '../../Layout';
 import Profile from './Profile';
-import Tabs from './Tabs';
 
 type User = {
 	email: string;
@@ -19,6 +19,8 @@ type User = {
 export const Component = () => {
 	const { t } = useLocale();
 	const [userInfo, setUserInfo] = useState<User | null>(null);
+	const [reload, setReload] = useState(false);
+
 	useEffect(() => {
 		async function _() {
 			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
@@ -36,21 +38,22 @@ export const Component = () => {
 				setUserInfo(null);
 			}
 		});
+		setReload(false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [reload]);
 	return (
 		<>
 			<Heading
 				rightArea={
 					<>
 						{userInfo !== null && (
-							<div className="flex-row space-x-2">
+							<div className="flex flex-row space-x-2">
 								<Button
 									variant="accent"
 									size="sm"
 									onClick={async () => {
 										await signOut();
-										window.location.reload();
+										setReload(true);
 									}}
 								>
 									{t('logout')}
@@ -59,11 +62,22 @@ export const Component = () => {
 						)}
 					</>
 				}
-				title={t('spacedrive_cloud')}
+				title={t('spacedrive_account')}
 				description={t('spacedrive_cloud_description')}
 			/>
-			<div className="flex flex-col justify-between gap-5 lg:flex-row">
-				{userInfo === null ? <Tabs /> : <Profile email={userInfo.email} />}
+			<div className="flex items-center justify-center">
+				<div className="w-full max-w-md space-y-8 p-8 text-center lg:p-12">
+					{userInfo === null ? (
+						<>
+							<Authentication reload={setReload} />
+						</>
+					) : (
+						<>
+							<h2 className="text-2xl font-semibold">{t('profile')}</h2>
+							<Profile email={userInfo.email} />
+						</>
+					)}
+				</div>
 			</div>
 			{/* {useFeatureFlag('hostedLocations') && <HostedLocationsPlayground />} */}
 		</>
