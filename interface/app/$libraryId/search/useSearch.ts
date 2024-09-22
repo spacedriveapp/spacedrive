@@ -4,7 +4,7 @@ import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from 'rooks';
 import { SearchFilterArgs } from '@sd/client';
 
-import { argsToOptions, getKey, useSearchStore } from './store';
+import { argsToFilterOptions, getKey, useSearchStore } from './store';
 
 export type SearchTarget = 'paths' | 'objects';
 
@@ -123,7 +123,7 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 	const searchState = useSearchStore();
 
 	const filtersAsOptions = useMemo(
-		() => argsToOptions(filters ?? [], searchState.filterOptions),
+		() => argsToFilterOptions(filters ?? [], searchState.filterOptions),
 		[filters, searchState.filterOptions]
 	);
 
@@ -166,7 +166,7 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 	);
 
 	const allFiltersAsOptions = useMemo(
-		() => argsToOptions(allFilters, searchState.filterOptions),
+		() => argsToFilterOptions(allFilters, searchState.filterOptions),
 		[searchState.filterOptions, allFilters]
 	);
 

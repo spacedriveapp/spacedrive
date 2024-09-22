@@ -19,9 +19,9 @@ import {
 import { useIsDark, useKeybind, useLocale, useShortcut } from '~/hooks';
 
 import { getQuickPreviewStore, useQuickPreviewStore } from '../Explorer/QuickPreview/store';
-import { AppliedFilters, InteractiveSection } from './AppliedFilters';
 import { useSearchContext } from './context';
-import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
+import { AppliedFilters, InteractiveSection } from './Filters/components/AppliedFilters';
+import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters/index';
 import {
 	getSearchStore,
 	useRegisterSearchFilterOptions,
