@@ -6,6 +6,7 @@ import {
 	CalendarDots,
 	CalendarPlus,
 	CalendarStar,
+	Camera,
 	ClockCounterClockwise
 } from '@phosphor-icons/react';
 import i18n from '~/app/I18n';
@@ -56,7 +57,7 @@ export const filePathDateCreated = createDateRangeFilter<string>({
 	},
 	argsToFilterOptions: (dateRange) => {
 		return dateRange.map((value) => ({
-			name: value,
+			name: 'custom-date-range',
 			value: value
 		}));
 	},
@@ -110,6 +111,26 @@ export const objectDateAccessed = createDateRangeFilter<string>({
 	name: i18n.t('Date Last Accessed'),
 	translationKey: 'dateLastAccessed',
 	icon: CalendarDot,
+	create: (dateRange) => ({ object: { dateAccessed: dateRange } }),
+	extract: (arg) => {
+		if ('object' in arg && 'dateAccessed' in arg.object) return arg.object.dateAccessed;
+	},
+	argsToFilterOptions: (dateRange) => {
+		return dateRange.map((value) => ({
+			name: value,
+			value: value
+		}));
+	},
+	useOptions: (): FilterOption[] => useCommonDateOptions(),
+	Render: ({ filter, options, search }) => (
+		<FilterOptionList filter={filter} options={options} search={search} />
+	)
+});
+
+export const mediaDateTaken = createDateRangeFilter<string>({
+	name: i18n.t('Date Taken'),
+	translationKey: 'dateTaken',
+	icon: Camera,
 	create: (dateRange) => ({ object: { dateAccessed: dateRange } }),
 	extract: (arg) => {
 		if ('object' in arg && 'dateAccessed' in arg.object) return arg.object.dateAccessed;
