@@ -75,6 +75,23 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				Ok(devices)
 			})
 		})
+		.procedure("get_current_device", {
+			R.query(|node, access_token: AccessToken| async move {
+				let id = node.config.get().await.id;
+				let devices::get::Response(device) = super::handle_comm_error(
+					try_get_cloud_services_client(&node)
+						.await?
+						.devices()
+						.get(devices::get::Request {
+							pub_id: id.into(),
+							access_token,
+						})
+						.await,
+					"Failed to get current device;",
+				)??;
+				Ok(device)
+			})
+		})
 		.procedure("delete", {
 			R.mutation(|node, req: devices::delete::Request| async move {
 				super::handle_comm_error(
@@ -207,9 +224,7 @@ pub async fn hello(
 		}
 		Ok(Response(State::End)) => {
 			// Protocol completed successfully
-			Ok(SecretKey::new(export_key.as_slice().try_into().expect(
-				"Key mismatch between OPAQUE and crypto crate; this is a serious bug and should crash;",
-			)))
+			Ok(SecretKey::from(export_key))
 		}
 		Err(e) => {
 			error!(?e, "Device hello final response error;");

@@ -6,6 +6,7 @@ export type Procedures = {
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
         { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
+        { key: "cloud.devices.get_current_device", input: AccessToken, result: Device } | 
         { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
         { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
         { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 

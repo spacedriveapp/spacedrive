@@ -1,6 +1,12 @@
 import { Envelope } from '@phosphor-icons/react';
 import { useEffect } from 'react';
-import { useBridgeMutation, useBridgeQuery } from '@sd/client';
+import {
+	SyncGroup,
+	SyncGroupWithLibraryAndDevices,
+	useBridgeMutation,
+	useBridgeQuery,
+	useLibraryMutation
+} from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
@@ -22,6 +28,30 @@ const Profile = ({ email }: { email?: string }) => {
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
 	const devices = useBridgeQuery(['cloud.devices.list', { access_token: accessToken.trim() }]);
+	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
+	const listLibraries = useBridgeQuery([
+		'cloud.libraries.list',
+		{ access_token: accessToken.trim(), with_device: true }
+	]);
+	const createSyncGroup = useLibraryMutation('cloud.syncGroups.create');
+	const listSyncGroups = useBridgeQuery([
+		'cloud.syncGroups.list',
+		{ access_token: accessToken.trim(), with_library: true }
+	]);
+	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
+	const getGroup = useBridgeQuery([
+		'cloud.syncGroups.get',
+		{
+			access_token: accessToken.trim(),
+			pub_id: '0192123b-5d01-7341-aa9d-4a08571052ee',
+			with_library: true,
+			with_devices: true,
+			with_used_storage: true
+		}
+	]);
+	console.log(getGroup.data);
+	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device', accessToken.trim()]);
+	console.log('Current Device: ', currentDevice.data);
 
 	// Refetch every 10 seconds
 	useEffect(() => {
@@ -30,7 +60,7 @@ const Profile = ({ email }: { email?: string }) => {
 		}, 10000);
 		return () => clearInterval(interval);
 	}, []);
-	console.log(devices.data);
+	// console.log(devices.data);
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -69,6 +99,53 @@ const Profile = ({ email }: { email?: string }) => {
 				}}
 			>
 				Delete Device
+			</Button>
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					addLibraryToCloud.mutate(accessToken.trim());
+				}}
+			>
+				Add Library to Cloud
+			</Button>
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					listLibraries.refetch();
+					console.log(listLibraries.data);
+				}}
+			>
+				List Libraries
+			</Button>
+
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					createSyncGroup.mutate(accessToken.trim());
+				}}
+			>
+				Create Sync Group
+			</Button>
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					listSyncGroups.refetch();
+					console.log(listSyncGroups.data);
+				}}
+			>
+				List Sync Groups
+			</Button>
+			<Button
+				className="mt-4 w-full"
+				onClick={async () => {
+					requestJoinSyncGroup.mutate({
+						access_token: accessToken.trim(),
+						sync_group: getGroup.data! as unknown as SyncGroupWithLibraryAndDevices,
+						asking_device: currentDevice.data!
+					});
+				}}
+			>
+				Request Join Sync Group
 			</Button>
 			{/* List all devices from const devices */}
 			{devices.data?.map((device) => (
