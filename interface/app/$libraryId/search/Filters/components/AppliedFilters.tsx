@@ -33,6 +33,8 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 export const AppliedFilters = () => {
 	const search = useSearchContext();
 
+	// console.log(search.mergedFilters);
+
 	return (
 		<>
 			{search.search && (
@@ -102,10 +104,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 			</StaticSection>
 			{isFilterDescriptionDisplayed() && (
 				<>
-					<InteractiveSection className="border-l">
-						{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
-                            <div key={value}>{displayName}</div>
-                        ))} */}
+					<InteractiveSection className="border-l hover:bg-app-lightBox/30">
 						{
 							(filter.conditions as any)[
 								filter.getCondition(filter.extract(arg) as any) as any
@@ -113,7 +112,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 						}
 					</InteractiveSection>
 
-					<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
+					<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm hover:bg-app-lightBox/30">
 						{activeOptions && (
 							<>
 								{activeOptions.length === 1 ? (

@@ -4,6 +4,7 @@ import {
 	filePathDateCreated,
 	filePathDateIndexed,
 	filePathDateModified,
+	mediaDateTaken,
 	objectDateAccessed
 } from './registry/DateFilters';
 import { kindFilter } from './registry/KindFilter';
@@ -22,6 +23,7 @@ export const filterRegistry: ReadonlyArray<RenderSearchFilter<any>> = [
 	filePathDateModified,
 	objectDateAccessed,
 	filePathDateIndexed,
+	mediaDateTaken,
 	favoriteFilter,
 	hiddenFilter
 ] as const;

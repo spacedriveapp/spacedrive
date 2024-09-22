@@ -12,11 +12,12 @@ import { filterRegistry } from './FilterRegistry';
 
 // Define filter option interface
 export interface FilterOption<T = any> {
-	value: string | Range<T> | any;
 	name: string;
+	value: string | number | Range<T> | any;
 	icon?: string | Icon;
 }
 
+// Filter type is the `name` field of a filter inferred from the filter registry
 export interface FilterOptionWithType extends FilterOption {
 	type: FilterType;
 }
