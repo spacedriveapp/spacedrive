@@ -5,11 +5,9 @@ import { proxy, ref, useSnapshot } from 'valtio';
 import { proxyMap } from 'valtio/utils';
 import { SearchFilterArgs } from '@sd/client';
 
-import { filterRegistry, FilterType, RenderSearchFilter } from './Filters';
+import { filterRegistry, FilterType, RenderSearchFilter } from './Filters/index';
 
 export type SearchType = 'paths' | 'objects';
-
-export type SearchScope = 'directory' | 'location' | 'device' | 'library';
 
 export interface FilterOption {
 	value: string | any;
@@ -66,13 +64,16 @@ export const useRegisterSearchFilterOptions = (
 	}, [optionsAsKeys]);
 };
 
-export function argsToOptions(args: SearchFilterArgs[], options: Map<string, FilterOption[]>) {
+export function argsToFilterOptions(
+	args: SearchFilterArgs[],
+	options: Map<string, FilterOption[]>
+) {
 	return args.flatMap((fixedArg) => {
 		const filter = filterRegistry.find((f) => f.extract(fixedArg));
 		if (!filter) return [];
 
 		return filter
-			.argsToOptions(filter.extract(fixedArg) as any, options)
+			.argsToFilterOptions(filter.extract(fixedArg) as any, options)
 			.map((arg) => ({ arg, filter }));
 	});
 }

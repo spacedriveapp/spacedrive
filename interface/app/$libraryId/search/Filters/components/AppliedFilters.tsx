@@ -4,11 +4,11 @@ import { SearchFilterArgs } from '@sd/client';
 import { tw } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
-import { useSearchContext } from '.';
-import HorizontalScroll from '../overview/Layout/HorizontalScroll';
-import { filterRegistry } from './Filters';
-import { useSearchStore } from './store';
-import { RenderIcon } from './util';
+import { useSearchContext } from '../..';
+import HorizontalScroll from '../../../overview/Layout/HorizontalScroll';
+import { filterRegistry } from '../../Filters/index';
+import { useSearchStore } from '../../store';
+import { RenderIcon } from '../../util';
 
 export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
 
@@ -81,7 +81,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 	const filter = filterRegistry.find((f) => f.extract(arg));
 	if (!filter) return;
 
-	const activeOptions = filter.argsToOptions(
+	const activeOptions = filter.argsToFilterOptions(
 		filter.extract(arg)! as any,
 		searchStore.filterOptions
 	);
