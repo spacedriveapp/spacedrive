@@ -8,6 +8,8 @@ import { Range, SearchFilterArgs } from '@sd/client';
 import { FilterType, RenderSearchFilter } from '.';
 import { filterRegistry } from './FilterRegistry';
 
+// TODO: this store should be in @sd/client
+
 // Define filter option interface
 export interface FilterOption<T = any> {
 	value: string | Range<T> | any;

@@ -2,6 +2,7 @@ import { Cube } from '@phosphor-icons/react';
 import { ObjectKind } from '@sd/client'; // Assuming ObjectKind is an enum or set of constants
 import i18n from '~/app/I18n';
 
+import { translateKindName } from '../../../Explorer/util';
 import { FilterOptionList } from '../components/FilterOptionList';
 import { createInOrNotInFilter } from '../factories/createInOrNotInFilter';
 
@@ -32,9 +33,9 @@ export const kindFilter = createInOrNotInFilter<number>({
 			.map((key) => {
 				const kind = ObjectKind[Number(key)] as string;
 				return {
-					name: i18n.t(kind), // Assuming translations for kinds
+					name: translateKindName(kind),
 					value: Number(key),
-					icon: Cube // You can customize this based on the kind if needed
+					icon: kind + '20'
 				};
 			}),
 	Render: ({ filter, options, search }) => (

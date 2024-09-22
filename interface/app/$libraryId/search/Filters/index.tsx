@@ -1,24 +1,21 @@
 /**
- * This module defines an abstraction layer for search filters.
+ * This module defines the logic for creating and managing search filters.
+ * Please keep this index file clean and avoid adding any logic here.
  *
  * Instead of duplicating logic for every type of filter, we use generic factory patterns to create filters dynamically.
  * The core idea is to define reusable "conditions" for each filter type (e.g., `TextMatch`, `DateRange`, `InOrNotIn`) and
  * allow filters to be created via factory functions. The interface for CRUD operations remains the same across all filters,
  * but the condition logic varies depending on the type of filter.
  *
- * To handle these dynamic conditions, we use TypeScript generics and utility types (like `OmitCommonFilterProperties`)
- * to abstract away boilerplate code, making the creation of new filters easier and more maintainable.
- *
  * Key components:
  * - `SearchFilter`: Base interface for all filters.
  * - `SearchFilterCRUD`: Extends `SearchFilter` to handle conditions, CRUD operations, and UI rendering for filter options.
  * - `RenderSearchFilter`: Extends `SearchFilterCRUD` with rendering logic specific to each filter type.
  * - `createFilter`: A factory function to instantiate filters dynamically.
- * - `CreateFilterFunction`: A utility type for defining the structure of filter factories, ensuring consistency across different filters.
+ * - `CreateFilterFunction`: A utility type for defining the structure of filter factories.
  *
- * This system allows the easy addition of new filters without repeating logic, keeping the code DRY and extensible.
+ * This system allows the easy addition of new filters without repeating logic.
  */
-
 import { Icon } from '@phosphor-icons/react';
 import { SearchFilterArgs } from '@sd/client';
 import i18n from '~/app/I18n';
@@ -84,14 +81,6 @@ export interface FilterWithCreate<T, Value> {
 	argsToFilterOptions?: (values: T[], options: Map<string, FilterOption[]>) => FilterOption[];
 }
 
-// Generic type for creating filters
-// export type CreateFilterFunction<
-// 	Conditions extends { readonly from: string; readonly to: string },
-// 	Value
-// > = OmitCommonFilterProperties<ReturnType<typeof createFilter<Conditions, Value>>> &
-// 	FilterWithCreate<any, Value>;
-
-// General factory type for creating filters
 // General factory type for creating filters
 export type CreateFilterFunction<
 	Conditions extends FilterTypeCondition[keyof FilterTypeCondition],
