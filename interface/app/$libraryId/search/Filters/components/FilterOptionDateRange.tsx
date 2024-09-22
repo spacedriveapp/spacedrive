@@ -1,9 +1,11 @@
+import { Range } from '@sd/client';
+
 import { SearchFilterCRUD } from '..';
 import { SearchOptionItem } from '../../SearchOptions';
 import { UseSearch } from '../../useSearch';
 import { getKey } from '../store';
 
-export const FilterOptionBoolean = ({
+export const FilterOptionDateRange = ({
 	filter,
 	search
 }: {
@@ -15,7 +17,7 @@ export const FilterOptionBoolean = ({
 	const key = getKey({
 		type: filter.name,
 		name: filter.name,
-		value: true
+		value: { start: new Date(), end: new Date() } // Example default range
 	});
 
 	return (
@@ -29,7 +31,7 @@ export const FilterOptionBoolean = ({
 					if (index !== -1) {
 						filters.splice(index, 1);
 					} else {
-						const arg = filter.create(true);
+						const arg = filter.create({ start: new Date(), end: new Date() }); // Example default range
 						filters.push(arg);
 					}
 

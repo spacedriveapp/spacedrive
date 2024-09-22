@@ -1,5 +1,5 @@
 import { SearchFilterCRUD } from '..';
-import { FilterOption } from '../../store';
+import { FilterOption } from '../';
 import { UseSearch } from '../../useSearch';
 
 export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {

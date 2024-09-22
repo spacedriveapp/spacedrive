@@ -7,8 +7,8 @@ import { useLocale } from '~/hooks';
 import { useSearchContext } from '../..';
 import HorizontalScroll from '../../../overview/Layout/HorizontalScroll';
 import { filterRegistry } from '../../Filters/index';
-import { useSearchStore } from '../../store';
 import { RenderIcon } from '../../util';
+import { useFilterOptionStore } from '../store';
 
 export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
 
@@ -75,7 +75,7 @@ export const AppliedFilters = () => {
 };
 
 export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?: () => void }) {
-	const searchStore = useSearchStore();
+	const filterStore = useFilterOptionStore();
 	const { t } = useLocale();
 
 	const filter = filterRegistry.find((f) => f.extract(arg));
@@ -83,7 +83,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 
 	const activeOptions = filter.argsToFilterOptions(
 		filter.extract(arg)! as any,
-		searchStore.filterOptions
+		filterStore.filterOptions
 	);
 
 	function isFilterDescriptionDisplayed() {
