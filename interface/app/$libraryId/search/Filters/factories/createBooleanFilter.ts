@@ -1,5 +1,6 @@
 import { createFilter, CreateFilterFunction, filterTypeCondition, FilterTypeCondition } from '..';
 
+// TODO: Move these factories to @sd/client
 /**
  * Creates a boolean filter to handle conditions like `true` or `false`.
  * This function leverages the generic factory structure to keep the logic reusable and consistent.
