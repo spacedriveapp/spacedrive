@@ -259,6 +259,8 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					let group_pub_id = sync_group.pub_id;
 
+					debug!("My pub id: {:?}", current_device_pub_id);
+					debug!("Asking device pub id: {:?}", asking_device.pub_id);
 					if asking_device.pub_id != current_device_pub_id {
 						return Err(rspc::Error::new(
 							rspc::ErrorCode::BadRequest,

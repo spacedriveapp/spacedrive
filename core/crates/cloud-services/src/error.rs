@@ -13,6 +13,8 @@ pub enum Error {
 	// Setup errors
 	#[error("Couldn't parse Cloud Services API address URL: {0}")]
 	InvalidUrl(reqwest::Error),
+	#[error("Failed to parse Cloud Services API address URL")]
+	FailedToParseRelayUrl,
 	#[error("Failed to initialize http client: {0}")]
 	HttpClientInit(reqwest::Error),
 	#[error("Failed to request Cloud Services API address from Auth Server route: {0}")]

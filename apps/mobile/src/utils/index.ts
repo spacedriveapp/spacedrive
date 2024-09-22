@@ -9,4 +9,5 @@ export async function getTokens() {
 	};
 }
 
-export const AUTH_SERVER_URL = __DEV__ ? 'http://localhost:9420' : 'https://auth.spacedrive.com';
+// export const AUTH_SERVER_URL = __DEV__ ? 'http://localhost:9420' : 'https://auth.spacedrive.com';
+export const AUTH_SERVER_URL = 'https://auth.spacedrive.com';
