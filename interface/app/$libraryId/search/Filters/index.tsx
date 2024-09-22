@@ -1,8 +1,8 @@
 /**
- * This module defines an abstraction layer for search filters, reducing redundancy and improving scalability.
+ * This module defines an abstraction layer for search filters.
  *
  * Instead of duplicating logic for every type of filter, we use generic factory patterns to create filters dynamically.
- * The core idea is to define reusable "conditions" for each filter type (e.g., `TextMatch`, `Range`, `InOrNotIn`) and
+ * The core idea is to define reusable "conditions" for each filter type (e.g., `TextMatch`, `DateRange`, `InOrNotIn`) and
  * allow filters to be created via factory functions. The interface for CRUD operations remains the same across all filters,
  * but the condition logic varies depending on the type of filter.
  *
@@ -21,15 +21,15 @@
 
 import { Icon } from '@phosphor-icons/react';
 import { SearchFilterArgs } from '@sd/client';
+import i18n from '~/app/I18n';
 
-import i18n from '../../../I18n';
-import { AllKeys, FilterOption } from '../store';
 import { UseSearch } from '../useSearch';
+import { AllKeys, type FilterOption } from './store';
 import { OmitCommonFilterProperties } from './typeGuards';
 
-export { filterRegistry, FilterType } from './FilterRegistry';
+export { filterRegistry, type FilterType } from './FilterRegistry';
 
-export { FilterOption };
+export type { FilterOption };
 
 export { useToggleOptionSelected } from './hooks/useToggleOptionSelected';
 

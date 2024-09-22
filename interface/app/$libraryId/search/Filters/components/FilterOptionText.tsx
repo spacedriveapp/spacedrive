@@ -4,8 +4,8 @@ import { useLocale } from '~/hooks';
 
 import { SearchFilterCRUD } from '..';
 import { SearchOptionSubMenu } from '../../SearchOptions';
-import { getKey } from '../../store';
 import { UseSearch } from '../../useSearch';
+import { getKey } from '../store';
 
 export const FilterOptionText = ({
 	filter,

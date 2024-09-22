@@ -9,7 +9,7 @@ import { createFilter, CreateFilterFunction, filterTypeCondition, FilterTypeCond
  * @param filter - The initial filter configuration, including the create method, argsToFilterOptions, and other specific behaviors.
  * @returns A filter object that supports CRUD operations for range conditions.
  */
-export function createRangeFilter<T>(
+export function createDateRangeFilter<T extends string | number>(
 	filter: CreateFilterFunction<FilterTypeCondition['dateRange'], Range<T>>
 ): ReturnType<typeof createFilter<FilterTypeCondition['dateRange'], Range<T>>> {
 	return {

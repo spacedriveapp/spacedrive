@@ -1,8 +1,8 @@
 import { SearchFilterCRUD } from '..';
 import { SearchOptionItem, SearchOptionSubMenu } from '../../SearchOptions';
-import { FilterOption, getKey } from '../../store';
 import { UseSearch } from '../../useSearch';
 import { useToggleOptionSelected } from '../hooks/useToggleOptionSelected';
+import { FilterOption, getKey } from '../store';
 
 export const FilterOptionList = ({
 	filter,

@@ -24,11 +24,11 @@
 
 // import { SearchOptionItem, SearchOptionSubMenu } from '.';
 // import { translateKindName } from '../Explorer/util';
-// import { FilterTypeCondition, filterTypeCondition } from './Filters';
+// import { FilterTypeCondition, filterTypeCondition } from './FiltersOld';
 // import { AllKeys, FilterOption, getKey } from './store';
 // import { UseSearch } from './useSearch';
 
-// export interface SearchFilter<
+// interface SearchFilter<
 // 	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any
 // > {
 // 	name: string;
@@ -37,7 +37,7 @@
 // 	translationKey?: string;
 // }
 
-// export interface SearchFilterCRUD<
+// interface SearchFilterCRUD<
 // 	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any, // TConditions represents the available conditions for a specific filter, it defaults to any condition from the FilterTypeCondition
 // 	T = any // T is the type of the data that is being filtered. This can be any type.
 // > extends SearchFilter<TConditions> {
@@ -77,7 +77,7 @@
 // 	merge: (left: T, right: T) => T;
 // }
 
-// export interface RenderSearchFilter<
+// interface RenderSearchFilter<
 // 	TConditions extends FilterTypeCondition[keyof FilterTypeCondition] = any,
 // 	T = any
 // > extends SearchFilterCRUD<TConditions, T> {
@@ -91,7 +91,7 @@
 // 	useOptions: (props: { search: string }) => FilterOption[];
 // }
 
-// export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {
+// function useToggleOptionSelected({ search }: { search: UseSearch<any> }) {
 // 	return ({
 // 		filter,
 // 		option,
@@ -581,7 +581,7 @@
 // 	});
 // }
 
-// export const filterRegistry = [
+// const filterRegistry = [
 // 	createGenericRangeFilter(
 // 		i18n.t('date_created_range'),
 // 		'date_created_range',
@@ -887,4 +887,4 @@
 // 	// })
 // ] as const satisfies ReadonlyArray<RenderSearchFilter<any>>;
 
-// export type FilterType = (typeof filterRegistry)[number]['name'];
+// type FilterType = (typeof filterRegistry)[number]['name'];
