@@ -27,7 +27,12 @@ const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
 export default function SettingsStack() {
 	return (
-		<Stack.Navigator initialRouteName="Settings">
+		<Stack.Navigator
+			screenOptions={{
+				fullScreenGestureEnabled: true
+			}}
+			initialRouteName="Settings"
+		>
 			<Stack.Screen
 				name="Settings"
 				component={SettingsScreen}
