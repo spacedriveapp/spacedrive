@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { signUp } from 'supertokens-web-js/recipe/emailpassword';
 import { Button, Form, Input, toast, z } from '@sd/ui';
-import { useIsDark, useLocale } from '~/hooks';
+import { useLocale } from '~/hooks';
 
 import ShowPassword from './ShowPassword';
 
@@ -72,7 +72,6 @@ async function signUpClicked(email: string, password: string) {
 
 const Register = () => {
 	const { t } = useLocale();
-	const isDark = useIsDark();
 	const [showPassword, setShowPassword] = useState(false);
 	// useZodForm seems to be out-dated or needs
 	//fixing as it does not support the schema using zod.refine
@@ -91,119 +90,103 @@ const Register = () => {
 				console.log(data);
 				await signUpClicked(data.email, data.password);
 			})}
+			className="w-full"
 			form={form}
 		>
-			<div className="flex flex-col gap-1.5">
-				<div className="flex flex-col gap-4">
-					<div className="flex flex-col items-start">
-						<label className="mb-1 text-left text-sm text-ink-dull">Email</label>
-						<Controller
-							control={form.control}
-							name="email"
-							render={({ field }) => (
-								<Input
-									{...field}
-									placeholder="Enter your email address"
-									error={Boolean(form.formState.errors.email?.message)}
-									type="email"
-									disabled={form.formState.isSubmitting}
-								/>
-							)}
-						/>
-						{form.formState.errors.email && (
-							<p className="text-xs text-red-500">
-								{form.formState.errors.email.message}
-							</p>
+			<div className="flex flex-col gap-3">
+				<div className="flex flex-col items-start gap-1">
+					<label className="text-left text-sm text-ink-dull">Email</label>
+					<Controller
+						control={form.control}
+						name="email"
+						render={({ field }) => (
+							<Input
+								{...field}
+								placeholder="johndoe@gmail.com"
+								className="w-full"
+								error={Boolean(form.formState.errors.email?.message)}
+								type="email"
+								disabled={form.formState.isSubmitting}
+							/>
 						)}
-					</div>
-
-					<div className="flex flex-col items-start">
-						<label className="mb-1 text-left text-sm text-ink-dull">Password</label>
-						<Controller
-							control={form.control}
-							name="password"
-							render={({ field }) => (
-								<div className="relative flex w-full items-start">
-									<Input
-										{...field}
-										placeholder="Enter your password"
-										error={Boolean(form.formState.errors.password?.message)}
-										className="w-full"
-										disabled={form.formState.isSubmitting}
-										type={showPassword ? 'text' : 'password'}
-										onPaste={(e) => {
-											const pastedText = e.clipboardData.getData('text');
-											field.onChange(pastedText);
-										}}
-									/>
-									<ShowPassword
-										showPassword={showPassword}
-										setShowPassword={setShowPassword}
-									/>
-								</div>
-							)}
-						/>
-						{form.formState.errors.password && (
-							<p className="text-xs text-red-500">
-								{form.formState.errors.password.message}
-							</p>
-						)}
-					</div>
-
-					<div className="flex flex-col items-start">
-						<Controller
-							control={form.control}
-							name="confirmPassword"
-							render={({ field }) => (
-								<div className="relative flex w-full items-start">
-									<Input
-										{...field}
-										placeholder="Confirm your password"
-										error={Boolean(
-											form.formState.errors.confirmPassword?.message
-										)}
-										className="w-full"
-										disabled={form.formState.isSubmitting}
-										type={showPassword ? 'text' : 'password'}
-									/>
-									<ShowPassword
-										showPassword={showPassword}
-										setShowPassword={setShowPassword}
-									/>
-								</div>
-							)}
-						/>
-						{form.formState.errors.confirmPassword && (
-							<p className="text-xs text-red-500">
-								{form.formState.errors.confirmPassword.message}
-							</p>
-						)}
-					</div>
+					/>
+					{form.formState.errors.email && (
+						<p className="text-xs text-red-500">
+							{form.formState.errors.email.message}
+						</p>
+					)}
 				</div>
 
-				<Button
-					type="submit"
-					className={clsx(
-						'mx-auto mt-3 w-full border-none',
-						isDark
-							? [
-									'mx-auto mt-3 w-full',
-									'border-none bg-[#0E0E12]/30',
-									'shadow-[0px_4px_30px_rgba(0,0,0,0.1)] backdrop-blur-lg backdrop-saturate-150',
-									'rounded-lg px-4 py-2 text-white'
-								]
-							: ['text-black']
+				<div className="flex flex-col items-start gap-1">
+					<label className="text-left text-sm text-ink-dull">Password</label>
+					<Controller
+						control={form.control}
+						name="password"
+						render={({ field }) => (
+							<div className="relative flex w-full items-start">
+								<Input
+									{...field}
+									placeholder="Password"
+									error={Boolean(form.formState.errors.password?.message)}
+									className="w-full"
+									disabled={form.formState.isSubmitting}
+									type={showPassword ? 'text' : 'password'}
+									onPaste={(e) => {
+										const pastedText = e.clipboardData.getData('text');
+										field.onChange(pastedText);
+									}}
+								/>
+								<ShowPassword
+									showPassword={showPassword}
+									setShowPassword={setShowPassword}
+								/>
+							</div>
+						)}
+					/>
+					{form.formState.errors.password && (
+						<p className="text-xs text-red-500">
+							{form.formState.errors.password.message}
+						</p>
 					)}
-					variant={isDark ? 'default' : 'accent'}
-					onClick={form.handleSubmit(async (data) => {
-						console.log(data);
-						await signUpClicked(data.email, data.password);
-					})}
-					disabled={form.formState.isSubmitting}
-				>
-					{t('register')}
-				</Button>
+					<Controller
+						control={form.control}
+						name="confirmPassword"
+						render={({ field }) => (
+							<div className="relative mt-0.5 flex w-full items-start">
+								<Input
+									{...field}
+									placeholder="Confirm password"
+									error={Boolean(form.formState.errors.confirmPassword?.message)}
+									className="w-full"
+									disabled={form.formState.isSubmitting}
+									type={showPassword ? 'text' : 'password'}
+								/>
+								<ShowPassword
+									showPassword={showPassword}
+									setShowPassword={setShowPassword}
+								/>
+							</div>
+						)}
+					/>
+					{form.formState.errors.confirmPassword && (
+						<p className="text-xs text-red-500">
+							{form.formState.errors.confirmPassword.message}
+						</p>
+					)}
+				</div>
 			</div>
+			<Button
+				type="submit"
+				className={clsx('mx-auto mt-3 w-full border-none')}
+				variant="accent"
+				onClick={form.handleSubmit(async (data) => {
+					console.log(data);
+					await signUpClicked(data.email, data.password);
+				})}
+				disabled={form.formState.isSubmitting}
+			>
+				{t('register')}
+			</Button>
 		</Form>
 	);
 };
