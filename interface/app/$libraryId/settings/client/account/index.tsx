@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import Session, { signOut } from 'supertokens-web-js/recipe/session';
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
@@ -44,37 +45,22 @@ export const Component = () => {
 	return (
 		<>
 			<Heading
-				rightArea={
-					<>
-						{userInfo !== null && (
-							<div className="flex flex-row space-x-2">
-								<Button
-									variant="accent"
-									size="sm"
-									onClick={async () => {
-										await signOut();
-										setReload(true);
-									}}
-								>
-									{t('logout')}
-								</Button>
-							</div>
-						)}
-					</>
-				}
 				title={t('spacedrive_account')}
 				description={t('spacedrive_cloud_description')}
 			/>
-			<div className="flex items-center justify-center">
-				<div className="w-full max-w-md space-y-8 p-8 text-center lg:p-12">
+			<div className={clsx(userInfo != null ? '' : 'flex items-center justify-center')}>
+				<div
+					className={clsx(
+						userInfo != null ? '' : 'w-full max-w-md space-y-8 p-8 text-center lg:p-12'
+					)}
+				>
 					{userInfo === null ? (
 						<>
 							<Authentication reload={setReload} />
 						</>
 					) : (
 						<>
-							<h2 className="text-2xl font-semibold">{t('profile')}</h2>
-							<Profile email={userInfo.email} />
+							<Profile user={userInfo} setReload={setReload} />
 						</>
 					)}
 				</div>

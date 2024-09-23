@@ -1,5 +1,7 @@
-import { Envelope } from '@phosphor-icons/react';
-import { useEffect } from 'react';
+import { Envelope, UserCircle } from '@phosphor-icons/react';
+import { t } from 'i18next';
+import { Dispatch, SetStateAction, useEffect } from 'react';
+import { signOut } from 'supertokens-web-js/recipe/session';
 import {
 	SyncGroup,
 	SyncGroupWithLibraryAndDevices,
@@ -7,13 +9,28 @@ import {
 	useBridgeQuery,
 	useLibraryMutation
 } from '@sd/client';
-import { Button, Card } from '@sd/ui';
+import { Button, Card, tw } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
 import { hardwareModelToIcon } from '~/util/hardware';
 
-const Profile = ({ email }: { email?: string }) => {
-	const emailName = email?.split('@')[0];
+type User = {
+	email: string;
+	id: string;
+	timejoined: number;
+	roles: string[];
+};
+
+const Pill = tw.div`px-1.5 py-[1px] rounded text-tiny font-medium text-ink-dull bg-app-box border border-app-line`;
+
+const Profile = ({
+	user,
+	setReload
+}: {
+	user: User;
+	setReload: Dispatch<SetStateAction<boolean>>;
+}) => {
+	const emailName = user.email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
 	const refreshToken: string =
 		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
@@ -64,23 +81,50 @@ const Profile = ({ email }: { email?: string }) => {
 
 	return (
 		<div className="flex flex-col gap-5">
-			<Card className="relative flex w-full flex-col items-center justify-center !p-0 lg:max-w-[320px]">
-				{/* <AuthRequiredOverlay /> */}
-				<div className="p-3">
-					<h1 className="mx-auto mt-3 text-lg">
-						Welcome <span className="font-bold">{capitalizedEmailName},</span>
-					</h1>
-					<div className="mx-auto mt-4 flex w-full flex-col gap-2">
-						<Card className="w-full items-center justify-start gap-1 bg-app-input !px-2">
-							<div className="w-[20px]">
-								<Envelope weight="fill" width={20} />
-							</div>
-							<TruncatedText>{email}</TruncatedText>
-						</Card>
+			{/* Top Section with Welcome and Logout */}
+			<div className="flex w-full items-start justify-between p-4">
+				<Card className="relative ml-3 flex w-full flex-col items-start justify-start space-y-4 !p-5 lg:max-w-[320px]">
+					<h2 className="text-md font-semibold">Profile Information</h2>
+					<div className="flex items-center space-x-2 rounded-md bg-app-input px-5 py-2">
+						<Envelope weight="fill" width={20} />
+						<TruncatedText>{user.email}</TruncatedText>
 					</div>
+					<div className="flex flex-col gap-1">
+						<p className="font-medium">Joined on:</p>
+						<p className="font-normal text-ink-dull">
+							{new Date(user.timejoined * 1000).toLocaleDateString()}
+						</p>
+						<p className="font-medium">User ID:</p>
+						<p className="font-normal text-ink-dull">{user.id}</p>
+						<p className="font-medium">Roles:</p>
+						<div className="flex flex-wrap gap-2">
+							{user.roles.map((role) => (
+								<Pill key={role}>{role.toLocaleUpperCase()}</Pill>
+							))}
+						</div>
+					</div>
+				</Card>
+
+				<div className="flex items-center space-x-4">
+					{/* User Circle Icon */}
+					<UserCircle weight="fill" className="text-white" size={24} />
+
+					{/* Logout Button */}
+					<Button
+						variant="accent"
+						size="sm"
+						onClick={async () => {
+							await signOut();
+							setReload(true);
+						}}
+					>
+						{t('logout')}
+					</Button>
 				</div>
-			</Card>
-			<h2 className="mx-auto mt-4 text-sm">DEBUG</h2>
+			</div>
+
+			{/* MT is added to hide */}
+			<h2 className="mx-auto mt-80 text-sm">DEBUG</h2>
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
