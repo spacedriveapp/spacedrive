@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { getAuthorisationURLWithQueryParamsAndSetState } from 'supertokens-web-js/recipe/thirdparty';
-import { Button, Card, Divider, toast, Tooltip } from '@sd/ui';
+import { Card, toast } from '@sd/ui';
 import { Icon as Logo } from '~/components';
 import { useIsDark } from '~/hooks';
 
@@ -106,27 +106,22 @@ export const Authentication = ({ reload }: { reload: Dispatch<SetStateAction<boo
 									borderRadius: text === 'Login' ? '0.5rem 0 0 0' : '0 0.5rem 0 0'
 								}}
 								layoutId="tab"
-								className="absolute inset-x-0 top-0 z-0 h-full w-full bg-app-line/60"
+								className="absolute inset-x-0 top-0 z-0 size-full bg-app-line/60"
 							/>
 						)}
 					</div>
 				))}
 			</div>
 			<div className="flex w-full flex-col items-center gap-4 p-6">
-				<div className="flex items-center justify-center gap-2">
+				<div className="flex items-center justify-center gap-1">
 					<Logo size={36} name="Ball" />
-					<h3
-						className={clsx(
-							'text-xl font-extrabold',
-							isDark ? 'text-white' : 'text-black'
-						)}
-					>
+					<h3 className={clsx('text-xl font-bold', isDark ? 'text-white' : 'text-black')}>
 						Spacedrive
 					</h3>
 				</div>
 				{activeTab === 'Login' ? <Login reload={reload} /> : <Register />}
 				{/* Optionally, uncomment the social login block when ready */}
-				{/* <div className="my-4 flex w-full items-center gap-3">
+				{/* <div className="flex items-center w-full gap-3 my-4">
                     <Divider />
                     <p className="text-xs text-ink-faint">OR</p>
                     <Divider />
@@ -137,7 +132,7 @@ export const Authentication = ({ reload }: { reload: Dispatch<SetStateAction<boo
                             <Button
                                 variant="outline"
                                 onClick={async () => await socialLoginHandlers(social.name)}
-                                className="rounded-full border border-app-line bg-app-input p-3"
+                                className="p-3 border rounded-full border-app-line bg-app-input"
                             >
                                 <social.icon
                                     style={{ fill: 'white' }}
