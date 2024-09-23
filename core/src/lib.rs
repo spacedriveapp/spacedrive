@@ -110,6 +110,7 @@ impl Node {
 			get_cloud_api_address,
 			cloud_p2p_relay_url,
 			cloud_p2p_dns_origin_name,
+			cloud_p2p_dns_pkarr_url,
 			cloud_services_domain_name,
 		) = {
 			#[cfg(debug_assertions)]
@@ -122,6 +123,8 @@ impl Node {
 						.unwrap_or_else(|_| "https://use1-1.relay.iroh.network".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
 						.unwrap_or_else(|_| "staging-dns.iroh.link".to_string()),
+					std::env::var("SD_CLOUD_P2P_DNS_PKARR_URL")
+						.unwrap_or_else(|_| "https://staging-dns.iroh.link/pkarr".to_string()),
 					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
 						.unwrap_or_else(|_| "localhost".to_string()),
 				)
@@ -157,6 +160,7 @@ impl Node {
 				CloudServices::new(
 					&get_cloud_api_address,
 					cloud_p2p_relay_url,
+					cloud_p2p_dns_pkarr_url,
 					cloud_p2p_dns_origin_name,
 					cloud_services_domain_name,
 				)

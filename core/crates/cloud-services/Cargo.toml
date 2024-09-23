@@ -37,8 +37,8 @@ zeroize             = { workspace = true }
 
 # External dependencies
 anyhow    = "1.0.86"
-iroh-base = { version = "0.24", features = ["key"] }
-iroh-net  = "0.24"
+iroh-base = { version = "0.25", features = ["key"] }
+iroh-net  = { version = "0.25", features = ["discovery-local-network", "iroh-relay"] }
 paste     = "=1.0.15"
 postcard  = { version = "1.0.8", features = ["use-std"] }
 quic-rpc  = { version = "0.12.0", features = ["quinn-transport"] }

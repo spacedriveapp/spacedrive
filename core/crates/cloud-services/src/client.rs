@@ -41,6 +41,7 @@ pub struct CloudServices {
 	domain_name: String,
 	pub cloud_p2p_dns_origin_name: String,
 	pub cloud_p2p_relay_url: RelayUrl,
+	pub cloud_p2p_dns_pkarr_url: Url,
 	pub token_refresher: TokenRefresher,
 	key_manager: Arc<RwLock<Option<Arc<KeyManager>>>>,
 	cloud_p2p: Arc<RwLock<Option<Arc<CloudP2P>>>>,
@@ -58,6 +59,7 @@ impl CloudServices {
 	pub async fn new(
 		get_cloud_api_address: impl IntoUrl + Send,
 		cloud_p2p_relay_url: impl IntoUrl + Send,
+		cloud_p2p_dns_pkarr_url: impl IntoUrl + Send,
 		cloud_p2p_dns_origin_name: String,
 		domain_name: String,
 	) -> Result<Self, Error> {
@@ -72,6 +74,10 @@ impl CloudServices {
 			.into_url()
 			.map_err(Error::InvalidUrl)?
 			.into();
+
+		let cloud_p2p_dns_pkarr_url = cloud_p2p_dns_pkarr_url
+			.into_url()
+			.map_err(Error::InvalidUrl)?;
 
 		let http_client =
 			ClientBuilder::new(http_client_builder.build().map_err(Error::HttpClientInit)?)
@@ -114,6 +120,7 @@ impl CloudServices {
 			http_client,
 			cloud_p2p_dns_origin_name,
 			cloud_p2p_relay_url,
+			cloud_p2p_dns_pkarr_url,
 			domain_name,
 			key_manager: Arc::default(),
 			cloud_p2p: Arc::default(),
@@ -321,6 +328,7 @@ mod tests {
 		let response = CloudServices::new(
 			"http://localhost:9420/cloud-api-address",
 			"http://relay.localhost:9999/",
+			"http://pkarr.localhost:9999/",
 			"dns.localhost:9999".to_string(),
 			"localhost".to_string(),
 		)

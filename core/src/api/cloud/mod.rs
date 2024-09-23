@@ -173,6 +173,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								rng,
 								iroh_secret_key,
 								node.cloud_services.cloud_p2p_dns_origin_name.clone(),
+								node.cloud_services.cloud_p2p_dns_pkarr_url.clone(),
 								node.cloud_services.cloud_p2p_relay_url.clone(),
 							)
 							.await?,

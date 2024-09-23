@@ -10,10 +10,14 @@ use sd_crypto::{CryptoRng, SeedableRng};
 
 use iroh_base::key::SecretKey as IrohSecretKey;
 use iroh_net::{
-	discovery::dns::DnsDiscovery,
+	discovery::{
+		dns::DnsDiscovery, local_swarm_discovery::LocalSwarmDiscovery, pkarr::dht::DhtDiscovery,
+		ConcurrentDiscovery,
+	},
 	relay::{RelayMap, RelayMode, RelayUrl},
 	Endpoint, NodeId,
 };
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use tokio::{spawn, sync::oneshot};
 use tracing::error;
@@ -71,15 +75,19 @@ pub enum JoinSyncGroupResponse {
 	CriticalError,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct BasicLibraryCreationArgs {
+	pub id: libraries::PubId,
+	pub name: String,
+	pub description: Option<String>,
+}
+
 #[derive(Debug, Deserialize, specta::Type)]
 #[serde(tag = "kind", content = "data")]
 pub enum UserResponse {
 	AcceptDeviceInSyncGroup {
 		ticket: Ticket,
-		accepted: bool,
-		library_pub_id: libraries::PubId,
-		library_name: String,
-		library_description: Option<String>,
+		accepted: Option<BasicLibraryCreationArgs>,
 	},
 }
 #[derive(Debug, Clone)]
@@ -94,15 +102,28 @@ impl CloudP2P {
 		mut rng: CryptoRng,
 		iroh_secret_key: IrohSecretKey,
 		dns_origin_domain: String,
+		dns_pkarr_url: Url,
 		relay_url: RelayUrl,
 	) -> Result<Self, Error> {
 		let endpoint = Endpoint::builder()
 			.alpns(vec![CloudP2PALPN::LATEST.to_vec()])
+			.discovery(Box::new(ConcurrentDiscovery::from_services(vec![
+				Box::new(DnsDiscovery::new(dns_origin_domain)),
+				Box::new(
+					LocalSwarmDiscovery::new(iroh_secret_key.public())
+						.map_err(Error::LocalSwarmDiscoveryInit)?,
+				),
+				Box::new(
+					DhtDiscovery::builder()
+						.secret_key(iroh_secret_key.clone())
+						.pkarr_relay(dns_pkarr_url)
+						.build()
+						.map_err(Error::DhtDiscoveryInit)?,
+				),
+			])))
 			.secret_key(iroh_secret_key)
 			.relay_mode(RelayMode::Custom(RelayMap::from_url(relay_url)))
-			.discovery(Box::new(DnsDiscovery::new(dns_origin_domain)))
-			// Using 0 as port will bind to a random available port chosen by the OS.
-			.bind(0)
+			.bind()
 			.await
 			.map_err(Error::CreateCloudP2PEndpoint)?;
 
