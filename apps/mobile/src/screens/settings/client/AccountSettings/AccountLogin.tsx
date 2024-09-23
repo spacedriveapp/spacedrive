@@ -1,16 +1,12 @@
-import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { AppleLogo, GithubLogo, GoogleLogo, IconProps } from 'phosphor-react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
-import { getAuthorisationURLWithQueryParamsAndSetState } from 'supertokens-web-js/recipe/thirdparty';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
-import { toast } from '~/components/primitive/Toast';
 import { tw, twStyle } from '~/lib/tailwind';
-import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
 import Login from './Login';
 import Register from './Register';
@@ -106,7 +102,7 @@ const AccountLogin = () => {
 		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>
 			<View style={tw`flex flex-col justify-between gap-5 lg:flex-row`}>
 				<Card style={tw`relative flex w-full flex-col items-center justify-center !p-0`}>
-					<View style={tw`flex w-full flex-row gap-x-2`}>
+					<View style={tw`flex w-full flex-row gap-x-1.5`}>
 						{AccountTabs.map((text) => (
 							<Button
 								key={text}
@@ -114,16 +110,14 @@ const AccountLogin = () => {
 									setActiveTab(text);
 								}}
 								style={twStyle(
-									'relative flex-1 border-b border-app-line p-2.5 text-center',
+									'relative flex-1 border-b border-app-line/50 p-2 text-center',
 									text === 'Login' ? 'rounded-tl-md' : 'rounded-tr-md'
 								)}
 							>
 								<Text
 									style={twStyle(
-										'relative z-10 text-sm transition-colors duration-200',
-										text === activeTab
-											? 'font-medium text-ink'
-											: 'text-ink-faint'
+										'relative z-10 text-sm transition-colors',
+										text === activeTab ? 'font-bold text-ink' : 'text-ink-faint'
 									)}
 								>
 									{text}
@@ -134,16 +128,16 @@ const AccountLogin = () => {
 											borderRadius: text === 'Login' ? 0.3 : 0
 										}}
 										layout={LinearTransition.duration(200)}
-										style={tw`absolute inset-x-0 top-0 z-0 size-full bg-app-line/60`}
+										style={tw`absolute inset-x-0 top-0 z-0 bg-app-line/60`}
 									/>
 								)}
 							</Button>
 						))}
 					</View>
-					<View style={tw`flex w-full flex-col justify-center gap-1.5 p-5`}>
+					<View style={tw`mt-3 flex w-full flex-col justify-center gap-1.5`}>
 						{activeTab === 'Login' ? <Login /> : <Register />}
 						{/* Disabled for now */}
-						{/* <View style={tw`my-2 flex w-full items-center gap-3`}>
+						{/* <View style={tw`flex items-center w-full gap-3 my-2`}>
 							<Divider />
 							<Text style={tw`text-xs text-ink-faint`}>OR</Text>
 							<Divider />
@@ -154,7 +148,7 @@ const AccountLogin = () => {
 									variant="outline"
 									onPress={async () => await socialLoginHandlers(social.name)}
 									key={social.name}
-									style={tw`rounded-full border border-app-line bg-app-input p-3`}
+									style={tw`p-3 border rounded-full border-app-line bg-app-input`}
 								>
 									<social.icon style={tw`text-white`} weight="bold" />
 								</Button>

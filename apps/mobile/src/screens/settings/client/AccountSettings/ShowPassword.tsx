@@ -1,5 +1,5 @@
 import { Eye, EyeClosed } from 'phosphor-react-native';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { Button } from '~/components/primitive/Button';
 import { tw } from '~/lib/tailwind';
 
@@ -11,20 +11,18 @@ interface Props {
 
 const ShowPassword = ({ showPassword, setShowPassword, plural }: Props) => {
 	return (
-		<View style={tw`pt-2`}>
-			<Button
-				variant="gray"
-				style={tw`flex size-6 flex-row items-center justify-center gap-2 !p-0`}
-				onPressIn={() => setShowPassword(!showPassword)}
-			>
-				{!showPassword ? (
-					<EyeClosed size={12} color="white" />
-				) : (
-					<Eye size={12} color="white" />
-				)}
-				<Text style={tw`text-ink`}>Show Password{plural ? 's' : ''}</Text>
-			</Button>
-		</View>
+		<Button
+			variant="gray"
+			style={tw`mt-1.5 flex w-full flex-row items-center justify-center gap-2`}
+			onPressIn={() => setShowPassword(!showPassword)}
+		>
+			{!showPassword ? (
+				<EyeClosed size={14} color="white" />
+			) : (
+				<Eye size={14} color="white" />
+			)}
+			<Text style={tw`font-bold text-ink`}>Show Password{plural ? 's' : ''}</Text>
+		</Button>
 	);
 };
 
