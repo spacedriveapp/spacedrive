@@ -3,13 +3,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Text, View } from 'react-native';
-import { signUp } from 'supertokens-web-js/recipe/emailpassword';
 import { z } from 'zod';
-import { telemetryState } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { AUTH_SERVER_URL } from '~/utils';
 
@@ -108,7 +106,12 @@ const Register = () => {
 				control={form.control}
 				name="email"
 				render={({ field }) => (
-					<Input {...field} placeholder="Email" onChangeText={field.onChange} />
+					<Input
+						{...field}
+						style={twStyle(`w-full`, form.formState.errors.email && 'border-red-500')}
+						placeholder="Email"
+						onChangeText={field.onChange}
+					/>
 				)}
 			/>
 			{form.formState.errors.email && (
@@ -122,7 +125,10 @@ const Register = () => {
 						<Input
 							{...field}
 							placeholder="Password"
-							style={tw`w-full`}
+							style={twStyle(
+								`w-full`,
+								form.formState.errors.password && 'border-red-500'
+							)}
 							onChangeText={field.onChange}
 							secureTextEntry={!showPassword}
 						/>
@@ -138,14 +144,22 @@ const Register = () => {
 				control={form.control}
 				name="confirmPassword"
 				render={({ field }) => (
-					<View style={tw`relative flex items-center justify-center`}>
+					<View style={tw`relative flex items-start`}>
 						<Input
 							{...field}
 							placeholder="Confirm Password"
-							style={tw`w-full`}
+							style={twStyle(
+								`w-full`,
+								form.formState.errors.confirmPassword && 'border-red-500'
+							)}
 							onChangeText={field.onChange}
 							secureTextEntry={!showPassword}
 						/>
+						{form.formState.errors.confirmPassword && (
+							<Text style={tw`my-1 text-xs text-red-500`}>
+								{form.formState.errors.confirmPassword.message}
+							</Text>
+						)}
 						<ShowPassword
 							showPassword={showPassword}
 							setShowPassword={setShowPassword}
@@ -154,21 +168,15 @@ const Register = () => {
 					</View>
 				)}
 			/>
-			{form.formState.errors.confirmPassword && (
-				<Text style={tw`text-xs text-red-500`}>
-					{form.formState.errors.confirmPassword.message}
-				</Text>
-			)}
 			<Button
 				style={tw`mx-auto mt-2 w-full`}
 				variant="accent"
-				onPress={form.handleSubmit(async (data) => {
-					console.log(data);
-					await signUpClicked(data.email, data.password, navigator);
-				})}
+				onPress={form.handleSubmit(
+					async (data) => await signUpClicked(data.email, data.password, navigator)
+				)}
 				disabled={form.formState.isSubmitting}
 			>
-				<Text>Submit</Text>
+				<Text style={tw`font-bold text-white`}>Submit</Text>
 			</Button>
 		</View>
 	);

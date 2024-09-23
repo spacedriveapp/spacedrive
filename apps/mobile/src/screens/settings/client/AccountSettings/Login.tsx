@@ -8,7 +8,7 @@ import { useZodForm } from '@sd/client';
 import { Button } from '~/components/primitive/Button';
 import { Input } from '~/components/primitive/Input';
 import { toast } from '~/components/primitive/Toast';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { AUTH_SERVER_URL } from '~/utils';
 
@@ -109,15 +109,18 @@ const Login = () => {
 					control={form.control}
 					name="email"
 					render={({ field }) => (
-						<View style={tw`relative flex items-center justify-end`}>
+						<View style={tw`relative flex items-start`}>
 							<Input
 								{...field}
 								placeholder="Email"
-								style={tw`w-full`}
+								style={twStyle(
+									`w-full`,
+									form.formState.errors.email && 'border-red-500'
+								)}
 								onChangeText={field.onChange}
 							/>
 							{form.formState.errors.email && (
-								<Text style={tw`text-xs text-red-500`}>
+								<Text style={tw`my-1 text-xs text-red-500`}>
 									{form.formState.errors.email.message}
 								</Text>
 							)}
@@ -128,16 +131,19 @@ const Login = () => {
 					control={form.control}
 					name="password"
 					render={({ field }) => (
-						<View style={tw`relative flex items-center justify-end`}>
+						<View style={tw`relative flex items-start`}>
 							<Input
 								{...field}
 								placeholder="Password"
-								style={tw`w-full`}
+								style={twStyle(
+									`w-full`,
+									form.formState.errors.password && 'border-red-500'
+								)}
 								onChangeText={field.onChange}
 								secureTextEntry={!showPassword}
 							/>
 							{form.formState.errors.password && (
-								<Text style={tw`text-xs text-red-500`}>
+								<Text style={tw`my-1 text-xs text-red-500`}>
 									{form.formState.errors.password.message}
 								</Text>
 							)}
@@ -156,7 +162,7 @@ const Login = () => {
 					})}
 					disabled={form.formState.isSubmitting}
 				>
-					<Text>Submit</Text>
+					<Text style={tw`font-bold text-white`}>Submit</Text>
 				</Button>
 			</View>
 		</View>

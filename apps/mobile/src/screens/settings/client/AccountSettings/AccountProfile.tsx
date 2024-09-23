@@ -30,6 +30,7 @@ const AccountProfile = () => {
 	const emailName = userInfo ? userInfo.email.split('@')[0] : '';
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
 	const navigator = useNavigation<SettingsStackScreenProps<'AccountLogin'>['navigation']>();
+
 	function signOut() {
 		fetch(`${AUTH_SERVER_URL}/api/auth/signout`, {
 			method: 'POST'
