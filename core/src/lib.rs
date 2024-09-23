@@ -120,11 +120,11 @@ impl Node {
 						format!("{AUTH_SERVER_URL}/cloud-api-address").to_string()
 					}),
 					std::env::var("SD_CLOUD_P2P_RELAY_URL")
-						.unwrap_or_else(|_| "https://use1-1.relay.iroh.network".to_string()),
+						.unwrap_or_else(|_| "https://use1-1.relay.iroh.network/".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
-						.unwrap_or_else(|_| "staging-dns.iroh.link".to_string()),
+						.unwrap_or_else(|_| "dns.iroh.link/".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_PKARR_URL")
-						.unwrap_or_else(|_| "https://staging-dns.iroh.link/pkarr".to_string()),
+						.unwrap_or_else(|_| "https://dns.iroh.link/pkarr".to_string()),
 					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
 						.unwrap_or_else(|_| "localhost".to_string()),
 				)
@@ -250,6 +250,7 @@ impl Node {
 				"RUST_LOG",
 				format!(
 					"info,\
+					iroh_net=debug,\
 					sd_core={level},\
 					sd_p2p={level},\
 					sd_core_heavy_lifting={level},\

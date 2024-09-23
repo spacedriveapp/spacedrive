@@ -61,7 +61,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				</Button>
 				<Text style={tw`text-ink`}>{JSON.stringify(featureFlags)}</Text>
 				<Text style={tw`text-ink`}>{JSON.stringify(debugState)}</Text>
-				<Button
+				{/* <Button
 					onPress={() => {
 						navigation.popToTop();
 						navigation.replace('Settings');
@@ -69,7 +69,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 					}}
 				>
 					<Text style={tw`text-ink`}>Disable Debug Mode</Text>
-				</Button>
+				</Button> */}
 				{/* <Button
 					onPress={() => {
 						const url =

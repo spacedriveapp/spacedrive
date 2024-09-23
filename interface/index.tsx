@@ -87,6 +87,20 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 		}
 	});
 
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					// TODO: Show modal to accept or reject
+					break;
+				default:
+					// TODO: Show notification/toast for other kinds
+					toast({ title: 'Cloud Service Notification', body: d.kind }, { type: 'info' });
+					break;
+			}
+		}
+	});
+
 	return (
 		<Suspense>
 			<I18nextProvider i18n={i18n}>
