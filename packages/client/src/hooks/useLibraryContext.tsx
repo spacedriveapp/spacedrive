@@ -27,12 +27,6 @@ export const LibraryContextProvider = ({ children, library }: LibraryContextProv
 		}
 	});
 
-	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
-		onData: (d) => {
-			console.log('cloud.listenCloudServicesNotifications', d);
-		}
-	});
-
 	return (
 		<LibraryContext.Provider value={{ library, libraries }}>{children}</LibraryContext.Provider>
 	);
