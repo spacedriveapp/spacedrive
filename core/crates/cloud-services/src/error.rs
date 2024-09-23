@@ -69,6 +69,10 @@ pub enum Error {
 	CloudP2PRpcCommunication(#[from] rpc::Error<QuinnConnection<cloud_p2p::Service>>),
 	#[error("Cloud P2P not initialized")]
 	CloudP2PNotInitialized,
+	#[error("Failed to initialize LocalSwarmDiscovery: {0}")]
+	LocalSwarmDiscoveryInit(anyhow::Error),
+	#[error("Failed to initialize DhtDiscovery: {0}")]
+	DhtDiscoveryInit(anyhow::Error),
 
 	// Communication errors
 	#[error("Failed to communicate with RPC backend: {0}")]

@@ -20,7 +20,7 @@ rust-version = "1.80"
 
 [workspace.dependencies]
 # First party dependencies
-sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "25e4b92fdd" }
+sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "6996916529" }
 
 # Third party dependencies used by one or more of our crates
 async-channel       = "2.3"

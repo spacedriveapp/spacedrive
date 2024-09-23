@@ -7,7 +7,6 @@ use sd_cloud_schema::{
 		self, authorize_new_device_in_sync_group, Client, CloudP2PALPN, CloudP2PError, Service,
 	},
 	devices::{self, Device},
-	libraries,
 	sync::groups,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
@@ -40,7 +39,10 @@ use tokio::{
 use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, warn};
 
-use super::{JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse};
+use super::{
+	BasicLibraryCreationArgs, JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket,
+	UserResponse,
+};
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
@@ -185,18 +187,8 @@ impl Runner {
 				StreamMessage::UserResponse(UserResponse::AcceptDeviceInSyncGroup {
 					ticket,
 					accepted,
-					library_pub_id,
-					library_name,
-					library_description,
 				}) => {
-					self.handle_join_response(
-						ticket,
-						accepted,
-						library_pub_id,
-						library_name,
-						library_description,
-					)
-					.await;
+					self.handle_join_response(ticket, accepted).await;
 				}
 
 				StreamMessage::Tick => self.tick().await,
@@ -357,10 +349,7 @@ impl Runner {
 	async fn handle_join_response(
 		&self,
 		ticket: Ticket,
-		accepted: bool,
-		library_pub_id: libraries::PubId,
-		library_name: String,
-		library_description: Option<String>,
+		accepted: Option<BasicLibraryCreationArgs>,
 	) {
 		let Some(PendingSyncGroupJoin {
 			channel,
@@ -380,7 +369,14 @@ impl Runner {
 		let sync_group = request.sync_group.clone();
 		let asking_device_pub_id = request.asking_device.pub_id;
 
-		let response = if accepted {
+		let was_accepted = accepted.is_some();
+
+		let response = if let Some(BasicLibraryCreationArgs {
+			id: library_pub_id,
+			name: library_name,
+			description: library_description,
+		}) = accepted
+		{
 			Ok(authorize_new_device_in_sync_group::Response {
 				authorizor_device: this_device,
 				keys: self
@@ -409,7 +405,7 @@ impl Runner {
 			return;
 		}
 
-		if accepted {
+		if was_accepted {
 			let Ok(access_token) = self
 				.token_refresher
 				.get_access_token()
