@@ -19,7 +19,7 @@ export const ColorPicker = <T extends FieldValues>({ className, ...props }: Prop
 					style={{ backgroundColor: field.value }}
 				/>
 			}
-			className="p-3"
+			className="relative z-[110] p-3"
 			sideOffset={5}
 		>
 			<HexColorPicker color={field.value} onChange={field.onChange} />
