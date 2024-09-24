@@ -92,16 +92,17 @@ const Profile = ({
 					<div className="flex flex-col gap-1">
 						<p className="font-medium">Joined on:</p>
 						<p className="font-normal text-ink-dull">
-							{new Date(user.timejoined * 1000).toLocaleDateString()}
+							{new Date(user.timejoined).toLocaleDateString()}
 						</p>
 						<p className="font-medium">User ID:</p>
 						<p className="font-normal text-ink-dull">{user.id}</p>
-						<p className="font-medium">Roles:</p>
+						{/* Account Stats (for future services) */}
+						{/* <p className="font-medium">Roles:</p> // We don't use roles, at least currently.
 						<div className="flex flex-wrap gap-2">
 							{user.roles.map((role) => (
 								<Pill key={role}>{role.toLocaleUpperCase()}</Pill>
 							))}
-						</div>
+						</div> */}
 					</div>
 				</Card>
 
