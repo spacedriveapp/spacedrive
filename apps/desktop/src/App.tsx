@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RspcProvider } from '@sd/client';
+import { RspcProvider, useBridgeMutation } from '@sd/client';
 import {
 	createRoutes,
 	DeeplinkEvent,
@@ -35,7 +35,7 @@ import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 import getCookieHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
 import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
 import { useLocale } from '@sd/interface/hooks';
-import { AUTH_SERVER_URL } from '@sd/interface/util';
+import { AUTH_SERVER_URL, getTokens } from '@sd/interface/util';
 
 import { commands } from './commands';
 import { platform } from './platform';
@@ -117,6 +117,16 @@ type RedirectPath = { pathname: string; search: string | undefined };
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
 	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+	const tokens = getTokens();
+	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+
+	useEffect(() => {
+		// If the access token and/or refresh token are missing, we need to skip the cloud bootstrap
+		if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) return;
+		console.log('Bootstrapping cloud');
+		cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const selectedTab = tabs[selectedTabIndex]!;
 

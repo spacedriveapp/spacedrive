@@ -1,5 +1,7 @@
+import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { GoogleLogo, Icon } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
+import { UseMutationResult } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-shell';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
@@ -25,10 +27,17 @@ export const SocialLogins: SocialLogin[] = [
 	{ name: 'Apple', icon: Apple }
 ];
 
-export const Authentication = ({ reload }: { reload: Dispatch<SetStateAction<boolean>> }) => {
+export const Authentication = ({
+	reload,
+	cloudBootstrap
+}: {
+	reload: Dispatch<SetStateAction<boolean>>;
+	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+}) => {
 	const [activeTab, setActiveTab] = useState<'Login' | 'Register'>('Login');
 	const isDark = useIsDark();
 
+	// Currently not in use due to backend issues - @Rocky43007
 	const socialLoginHandlers = (name: SocialLogin['name']) => {
 		return {
 			Github: async () => {
@@ -119,7 +128,11 @@ export const Authentication = ({ reload }: { reload: Dispatch<SetStateAction<boo
 						Spacedrive
 					</h3>
 				</div>
-				{activeTab === 'Login' ? <Login reload={reload} /> : <Register />}
+				{activeTab === 'Login' ? (
+					<Login reload={reload} cloudBootstrap={cloudBootstrap} />
+				) : (
+					<Register />
+				)}
 				{/* Optionally, uncomment the social login block when ready */}
 				{/* <div className="flex items-center w-full gap-3 my-4">
                     <Divider />

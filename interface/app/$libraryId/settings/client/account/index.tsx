@@ -5,7 +5,7 @@ import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/cli
 import { Button, Input, toast } from '@sd/ui';
 import { Authentication } from '~/components';
 import { useLocale } from '~/hooks';
-import { AUTH_SERVER_URL } from '~/util';
+import { AUTH_SERVER_URL, getTokens } from '~/util';
 
 import { Heading } from '../../Layout';
 import Profile from './Profile';
@@ -42,6 +42,9 @@ export const Component = () => {
 		setReload(false);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [reload]);
+	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+	const tokens = getTokens();
+
 	return (
 		<>
 			<Heading
@@ -56,7 +59,7 @@ export const Component = () => {
 				>
 					{userInfo === null ? (
 						<>
-							<Authentication reload={setReload} />
+							<Authentication reload={setReload} cloudBootstrap={cloudBootstrap} />
 						</>
 					) : (
 						<>

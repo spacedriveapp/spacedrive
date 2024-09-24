@@ -1,3 +1,5 @@
+import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
+import { UseMutationResult } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { Controller } from 'react-hook-form';
@@ -5,13 +7,15 @@ import { signIn } from 'supertokens-web-js/recipe/emailpassword';
 import { useZodForm } from '@sd/client';
 import { Button, Form, Input, toast, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
+import { getTokens } from '~/util';
 
 import ShowPassword from './ShowPassword';
 
 async function signInClicked(
 	email: string,
 	password: string,
-	reload: Dispatch<SetStateAction<boolean>>
+	reload: Dispatch<SetStateAction<boolean>>,
+	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown> // Cloud bootstrap mutation
 ) {
 	try {
 		const response = await signIn({
@@ -38,6 +42,9 @@ async function signInClicked(
 		} else if (response.status === 'SIGN_IN_NOT_ALLOWED') {
 			toast.error(response.reason);
 		} else {
+			const tokens = getTokens();
+			console.log(cloudBootstrap);
+			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
 			toast.success('Sign in successful');
 			reload(true);
 		}
@@ -56,7 +63,13 @@ const LoginSchema = z.object({
 	password: z.string().min(6)
 });
 
-const Login = ({ reload }: { reload: Dispatch<SetStateAction<boolean>> }) => {
+const Login = ({
+	reload,
+	cloudBootstrap
+}: {
+	reload: Dispatch<SetStateAction<boolean>>;
+	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+}) => {
 	const { t } = useLocale();
 	const [showPassword, setShowPassword] = useState(false);
 	const form = useZodForm({
@@ -70,7 +83,7 @@ const Login = ({ reload }: { reload: Dispatch<SetStateAction<boolean>> }) => {
 	return (
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
-				await signInClicked(data.email, data.password, reload);
+				await signInClicked(data.email, data.password, reload, cloudBootstrap);
 			})}
 			className="w-full"
 			form={form}
@@ -137,7 +150,7 @@ const Login = ({ reload }: { reload: Dispatch<SetStateAction<boolean>> }) => {
 				className={clsx('mx-auto mt-3 w-full border-none')}
 				variant="accent"
 				onClick={form.handleSubmit(async (data) => {
-					await signInClicked(data.email, data.password, reload);
+					await signInClicked(data.email, data.password, reload, cloudBootstrap);
 				})}
 				disabled={form.formState.isSubmitting}
 			>
