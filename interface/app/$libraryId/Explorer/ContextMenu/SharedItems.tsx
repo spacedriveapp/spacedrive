@@ -63,7 +63,7 @@ export const OpenQuickView = () => {
 
 	return (
 		<ContextMenu.Item
-			label={t('quick_view')}
+			label={t('quick_preview')}
 			keybind={keybind([], [' '])}
 			onClick={() => (getQuickPreviewStore().open = true)}
 		/>
