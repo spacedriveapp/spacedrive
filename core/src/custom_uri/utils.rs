@@ -51,10 +51,7 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 	if req.method() == Method::OPTIONS {
 		return Response::builder()
 			.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
-			.header(
-				"Access-Control-Allow-Origin",
-				format!("{AUTH_SERVER_URL}, http://ipc.localhost, http://tauri.localhost"),
-			)
+			.header("Access-Control-Allow-Origin", "*")
 			.header("Access-Control-Allow-Headers", "*")
 			.header("Access-Control-Max-Age", "86400")
 			.status(StatusCode::OK)
@@ -69,13 +66,7 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 	{
 		let headers = response.headers_mut();
 
-		headers.insert(
-			"Access-Control-Allow-Origin",
-			HeaderValue::from_str(
-				format!("{AUTH_SERVER_URL}, http://ipc.localhost, http://tauri.localhost").as_str(),
-			)
-			.expect("Invalid static response!"),
-		);
+		headers.insert("Access-Control-Allow-Origin", HeaderValue::from_static("*"));
 
 		headers.insert(
 			"Access-Control-Allow-Headers",

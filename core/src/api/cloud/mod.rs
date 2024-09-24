@@ -113,6 +113,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 							.await?;
 
+							debug!("Device hello successful");
+
 							KeyManager::load(master_key, data_directory).await?
 						}
 						Err(Error::Client(ClientSideError::NotFound(_))) => {
