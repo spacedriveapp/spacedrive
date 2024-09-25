@@ -20,6 +20,7 @@ import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'rea
 import { DebugState, useDebugState, useDebugStateEnabler, useLibraryQuery } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
+import { useEnableDrawer } from '~/hooks/useEnableDrawer';
 import { tw, twStyle } from '~/lib/tailwind';
 import {
 	SettingsStackParamList,
@@ -199,6 +200,8 @@ export default function SettingsScreen({ navigation }: SettingsStackScreenProps<
 		});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [navigation]);
+
+	useEnableDrawer();
 
 	return (
 		<ScreenContainer tabHeight={false} style={tw`gap-0 px-5 py-0`}>

@@ -16,6 +16,7 @@ export default function DrawerNavigator() {
 			initialRouteName="Home"
 			screenOptions={{
 				headerShown: false,
+				swipeEnabled: false,
 				drawerStyle: {
 					backgroundColor: tw.color('app-darkBox'),
 					width: '70%',
