@@ -103,11 +103,13 @@ pub fn path_is_hidden(path: impl AsRef<Path>, metadata: &Metadata) -> bool {
 }
 
 #[cfg(target_family = "windows")]
+// TODO(matheus-consoli): rewrite this function using a safe API once `MetadataExt::file_index` got stabilized
+// see: `https://doc.rust-lang.org/std/os/windows/fs/trait.MetadataExt.html#tymethod.file_index`
 fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 	use std::ptr::null_mut;
 	use windows::{
 		core::HSTRING,
-		Win32::Foundation::HANDLE,
+		Win32::Foundation::{CloseHandle, HANDLE},
 		Win32::Storage::FileSystem::{
 			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 			FILE_ATTRIBUTE_NORMAL, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, OPEN_EXISTING,
@@ -127,7 +129,9 @@ fn get_inode_windows<P: AsRef<Path>>(path: P) -> Result<u64, std::io::Error> {
 	}?;
 
 	let mut file_info = BY_HANDLE_FILE_INFORMATION::default();
-	unsafe { GetFileInformationByHandle(handle, &mut file_info) }?;
+	let res = unsafe { GetFileInformationByHandle(handle, &mut file_info) };
+	_ = unsafe { CloseHandle(handle) };
+	res?;
 
 	Ok(file_info.nFileIndexLow as u64 | ((file_info.nFileIndexHigh as u64) << 32))
 }
