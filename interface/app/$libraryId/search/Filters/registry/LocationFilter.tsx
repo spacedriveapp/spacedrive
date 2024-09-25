@@ -3,6 +3,7 @@ import { Folder } from '@phosphor-icons/react';
 import { useLibraryQuery } from '@sd/client';
 import i18n from '~/app/I18n';
 
+import { SearchOptionSubMenu } from '../../SearchOptions';
 import { FilterOptionList } from '../components/FilterOptionList';
 import { createInOrNotInFilter } from '../factories/createInOrNotInFilter';
 
@@ -37,6 +38,8 @@ export const locationFilter = createInOrNotInFilter<number>({
 		}));
 	},
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });

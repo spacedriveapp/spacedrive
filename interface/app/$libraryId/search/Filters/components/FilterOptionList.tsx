@@ -20,7 +20,7 @@ export const FilterOptionList = ({
 	const toggleOptionSelected = useToggleOptionSelected({ search });
 
 	return (
-		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+		<>
 			{empty?.() && options.length === 0
 				? empty()
 				: options?.map((option) => {
@@ -46,6 +46,6 @@ export const FilterOptionList = ({
 							</SearchOptionItem>
 						);
 					})}
-		</SearchOptionSubMenu>
+		</>
 	);
 };

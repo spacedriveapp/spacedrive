@@ -179,6 +179,7 @@ export const QuickPreview = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [explorer.selectedItemHashes, explorerView.updateActiveItem]);
 
+	// TODO: look here - jam
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
 		if (nextPreviewItem) {
@@ -344,7 +345,7 @@ export const QuickPreview = () => {
 							)}
 						>
 							<div className="relative flex flex-1 flex-col justify-between overflow-hidden bg-app/80 backdrop-blur">
-								{thumbnailLoading !== 'error' &&
+								{/* {thumbnailLoading !== 'error' &&
 									thumbnailLoading !== 'notLoaded' &&
 									background && (
 										<div className="absolute inset-0 overflow-hidden">
@@ -355,7 +356,7 @@ export const QuickPreview = () => {
 											/>
 											<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
 										</div>
-									)}
+									)} */}
 								<div
 									className={clsx(
 										'z-50 flex items-center p-2',
@@ -570,6 +571,7 @@ export const QuickPreview = () => {
 													{(items) => (
 														<DropdownMenu.SubMenu
 															label={t('more_actions')}
+															// @ts-expect-error
 															icon={Plus}
 														>
 															{items}

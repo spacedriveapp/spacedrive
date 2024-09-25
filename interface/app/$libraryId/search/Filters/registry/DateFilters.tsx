@@ -12,6 +12,7 @@ import {
 import i18n from '~/app/I18n';
 
 import { FilterOption } from '..';
+import { SearchOptionSubMenu } from '../../SearchOptions';
 import { FilterOptionList } from '../components/FilterOptionList';
 import { createDateRangeFilter } from '../factories/createDateRangeFilter';
 
@@ -63,7 +64,9 @@ export const filePathDateCreated = createDateRangeFilter<string>({
 	},
 	useOptions: (): FilterOption[] => useCommonDateOptions(),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });
 
@@ -83,7 +86,9 @@ export const filePathDateModified = createDateRangeFilter<string>({
 	},
 	useOptions: (): FilterOption[] => useCommonDateOptions(),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });
 
@@ -103,7 +108,9 @@ export const filePathDateIndexed = createDateRangeFilter<string>({
 	},
 	useOptions: (): FilterOption[] => useCommonDateOptions(),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });
 
@@ -123,7 +130,9 @@ export const objectDateAccessed = createDateRangeFilter<string>({
 	},
 	useOptions: (): FilterOption[] => useCommonDateOptions(),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });
 
@@ -143,7 +152,9 @@ export const mediaDateTaken = createDateRangeFilter<string>({
 	},
 	useOptions: (): FilterOption[] => useCommonDateOptions(),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });
 
