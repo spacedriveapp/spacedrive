@@ -10,7 +10,12 @@ const Stack = createNativeStackNavigator<SearchStackParamList>();
 
 export default function SearchStack() {
 	return (
-		<Stack.Navigator initialRouteName="Search">
+		<Stack.Navigator
+			screenOptions={{
+				fullScreenGestureEnabled: true
+			}}
+			initialRouteName="Search"
+		>
 			<Stack.Screen
 				name="Search"
 				component={SearchScreen}

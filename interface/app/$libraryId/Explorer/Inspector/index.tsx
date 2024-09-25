@@ -395,6 +395,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 						<DropdownMenu.Root
 							trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 							side="left"
+							className="z-[101]"
 							sideOffset={5}
 							alignOffset={-10}
 						>

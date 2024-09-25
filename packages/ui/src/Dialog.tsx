@@ -261,14 +261,14 @@ export function Dialog<S extends FieldValues>({
 				show ? (
 					<RDialog.Portal forceMount>
 						<AnimatedDialogOverlay
-							className="z-49 fixed inset-0 m-px grid place-items-center overflow-y-auto rounded-xl bg-app/50"
+							className="fixed inset-0 z-[102] m-px grid place-items-center overflow-y-auto rounded-xl bg-app/50"
 							style={{
 								opacity: styles.opacity
 							}}
 						/>
 
 						<AnimatedDialogContent
-							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
+							className="!pointer-events-none fixed inset-0 z-[103] grid place-items-center overflow-y-auto"
 							style={styles}
 							onInteractOutside={(e) =>
 								props.ignoreClickOutside && e.preventDefault()

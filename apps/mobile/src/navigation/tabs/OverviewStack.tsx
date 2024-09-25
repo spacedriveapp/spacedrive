@@ -11,7 +11,12 @@ const Stack = createNativeStackNavigator<OverviewStackParamList>();
 
 export default function OverviewStack() {
 	return (
-		<Stack.Navigator initialRouteName="Overview">
+		<Stack.Navigator
+			screenOptions={{
+				fullScreenGestureEnabled: true
+			}}
+			initialRouteName="Overview"
+		>
 			<Stack.Screen
 				name="Overview"
 				component={OverviewScreen}
