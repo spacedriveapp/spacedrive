@@ -3,6 +3,7 @@ import { ObjectKind } from '@sd/client'; // Assuming ObjectKind is an enum or se
 import i18n from '~/app/I18n';
 
 import { translateKindName } from '../../../Explorer/util';
+import { SearchOptionSubMenu } from '../../SearchOptions';
 import { FilterOptionList } from '../components/FilterOptionList';
 import { createInOrNotInFilter } from '../factories/createInOrNotInFilter';
 
@@ -39,6 +40,8 @@ export const kindFilter = createInOrNotInFilter<number>({
 				};
 			}),
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList filter={filter} options={options} search={search} />
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList filter={filter} options={options} search={search} />
+		</SearchOptionSubMenu>
 	)
 });

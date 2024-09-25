@@ -3,7 +3,6 @@ import type {} from '@sd/client'; // required for type inference of createDateRa
 import { Textbox } from '@phosphor-icons/react';
 import i18n from '~/app/I18n';
 
-import { FilterOptionText } from '../components/FilterOptionText';
 import { createInOrNotInFilter } from '../factories/createInOrNotInFilter';
 import { createTextMatchFilter } from '../factories/createTextMatchFilter';
 
@@ -17,7 +16,7 @@ export const nameFilter = createTextMatchFilter({
 	},
 	create: (name) => ({ filePath: { name } }),
 	useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
-	Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
+	Render: ({ filter, search }) => <></>
 });
 
 // Extension Filter
@@ -30,5 +29,5 @@ export const extensionFilter = createInOrNotInFilter({
 	},
 	create: (extension) => ({ filePath: { extension } }),
 	useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
-	Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
+	Render: ({ filter, search }) => <></>
 });

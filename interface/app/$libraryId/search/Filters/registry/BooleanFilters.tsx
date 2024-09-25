@@ -14,7 +14,7 @@ export const hiddenFilter = createBooleanFilter({
 	},
 	create: (hidden) => ({ filePath: { hidden } }),
 	useOptions: () => [{ name: 'Hidden', value: true, icon: SelectionSlash }],
-	Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
+	Render: ({ filter, options, search }) => <FilterOptionBoolean filter={filter} search={search} />
 });
 
 // Favorite Filter
@@ -27,5 +27,5 @@ export const favoriteFilter = createBooleanFilter({
 	},
 	create: (favorite) => ({ object: { favorite } }),
 	useOptions: () => [{ name: 'Favorite', value: true, icon: Heart }],
-	Render: ({ filter, search }) => <FilterOptionBoolean filter={filter} search={search} />
+	Render: ({ filter, options, search }) => <FilterOptionBoolean filter={filter} search={search} />
 });

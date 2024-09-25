@@ -2,6 +2,7 @@ import { CircleDashed } from '@phosphor-icons/react';
 import { useLibraryQuery } from '@sd/client';
 import i18n from '~/app/I18n';
 
+import { SearchOptionSubMenu } from '../../SearchOptions';
 import { FilterOptionList } from '../components/FilterOptionList';
 import { createInOrNotInFilter } from '../factories/createInOrNotInFilter';
 
@@ -36,16 +37,20 @@ export const tagsFilter = createInOrNotInFilter<number>({
 		}));
 	},
 	Render: ({ filter, options, search }) => (
-		<FilterOptionList
-			empty={() => (
-				<div className="flex flex-col items-center justify-center gap-2 p-2">
-					<span className="icon-tag size-4" />
-					<p className="w-4/5 text-center text-xs text-ink-dull">{i18n.t('no_tags')}</p>
-				</div>
-			)}
-			filter={filter}
-			options={options}
-			search={search}
-		/>
+		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
+			<FilterOptionList
+				empty={() => (
+					<div className="flex flex-col items-center justify-center gap-2 p-2">
+						<span className="icon-tag size-4" />
+						<p className="w-4/5 text-center text-xs text-ink-dull">
+							{i18n.t('no_tags')}
+						</p>
+					</div>
+				)}
+				filter={filter}
+				options={options}
+				search={search}
+			/>
+		</SearchOptionSubMenu>
 	)
 });
