@@ -5368,6 +5368,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
+name = "libmimalloc-sys"
+version = "0.1.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23aa6811d3bd4deb8a84dde645f943476d13b248d818edcf8ce0b2f37f036b44"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "libp2p"
 version = "0.53.2"
 source = "git+https://github.com/spacedriveapp/rust-libp2p.git?rev=a005656df7#a005656df7e82059a0eb2e333ebada4731d23f8c"
@@ -6242,6 +6252,15 @@ dependencies = [
  "parking_lot 0.11.2",
  "quanta 0.9.3",
  "sketches-ddsketch",
+]
+
+[[package]]
+name = "mimalloc"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68914350ae34959d83f732418d51e2427a794055d0b9529f48259ac07af65633"
+dependencies = [
+ "libmimalloc-sys",
 ]
 
 [[package]]
@@ -10129,6 +10148,7 @@ dependencies = [
  "futures",
  "http 0.2.12",
  "hyper 0.14.30",
+ "mimalloc",
  "opener",
  "prisma-client-rust",
  "rand 0.9.0-alpha.2",

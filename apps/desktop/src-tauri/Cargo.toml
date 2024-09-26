@@ -43,6 +43,9 @@ tauri-plugin-os        = "=2.0.0-rc.1"
 tauri-plugin-shell     = "=2.0.0-rc.3"
 tauri-plugin-updater   = "=2.0.0-rc.2"
 
+# memory allocator
+mimalloc = { workspace = true }
+
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
 version  = "=2.0.0-rc.8"
