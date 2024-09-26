@@ -1,39 +1,63 @@
 use crate::api::{utils::library, Ctx, R};
 
-use sd_cloud_schema::{auth::AccessToken, devices, libraries};
+use sd_cloud_schema::libraries;
 
+use futures::FutureExt;
 use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use tracing::debug;
 
-use super::try_get_cloud_services_client;
-
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			R.query(|node, req: libraries::get::Request| async move {
-				let libraries::get::Response(library) = super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
-						.libraries()
-						.get(req)
-						.await,
-					"Failed to get library;",
-				)??;
+			#[derive(Deserialize, specta::Type)]
+			struct CloudGetLibraryArgs {
+				pub_id: libraries::PubId,
+				with_device: bool,
+			}
 
-				debug!(?library, "Got library");
+			R.query(
+				|node,
+				 CloudGetLibraryArgs {
+				     pub_id,
+				     with_device,
+				 }: CloudGetLibraryArgs| async move {
+					use libraries::get::{Request, Response};
 
-				Ok(library)
-			})
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					let Response(library) = super::handle_comm_error(
+						client
+							.libraries()
+							.get(Request {
+								access_token,
+								pub_id,
+								with_device,
+							})
+							.await,
+						"Failed to get library;",
+					)??;
+
+					debug!(?library, "Got library");
+
+					Ok(library)
+				},
+			)
 		})
 		.procedure("list", {
-			R.query(|node, req: libraries::list::Request| async move {
-				let libraries::list::Response(libraries) = super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
+			R.query(|node, with_device: bool| async move {
+				use libraries::list::{Request, Response};
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+				let Response(libraries) = super::handle_comm_error(
+					client
 						.libraries()
-						.list(req)
+						.list(Request {
+							access_token,
+							with_device,
+						})
 						.await,
 					"Failed to list libraries;",
 				)??;
@@ -45,11 +69,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("create", {
 			R.with2(library())
-				.mutation(|(node, library), access_token: AccessToken| async move {
-					let (client, name, device_pub_id) = (
-						try_get_cloud_services_client(&node),
-						async { Ok(library.config().await.name.to_string()) },
-						async { Ok(devices::PubId(node.config.get().await.id.into())) },
+				.mutation(|(node, library), _: ()| async move {
+					let ((client, access_token), name, device_pub_id) = (
+						super::get_client_and_access_token(&node),
+						library.config().map(|config| Ok(config.name.to_string())),
+						node.config.get().map(|config| Ok(config.id.into())),
 					)
 						.try_join()
 						.await?;
@@ -72,10 +96,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("delete", {
 			R.with2(library())
-				.mutation(|(node, library), access_token: AccessToken| async move {
+				.mutation(|(node, library), _: ()| async move {
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
 					super::handle_comm_error(
-						try_get_cloud_services_client(&node)
-							.await?
+						client
 							.libraries()
 							.delete(libraries::delete::Request {
 								access_token,
@@ -91,18 +116,12 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("update", {
-			#[derive(Deserialize, specta::Type)]
-			struct LibrariesUpdateArgs {
-				access_token: AccessToken,
-				name: String,
-			}
+			R.with2(library())
+				.mutation(|(node, library), name: String| async move {
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
 
-			R.with2(library()).mutation(
-				|(node, library),
-				 LibrariesUpdateArgs { access_token, name }: LibrariesUpdateArgs| async move {
 					super::handle_comm_error(
-						try_get_cloud_services_client(&node)
-							.await?
+						client
 							.libraries()
 							.update(libraries::update::Request {
 								access_token,
@@ -116,7 +135,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					debug!("Updated library");
 
 					Ok(())
-				},
-			)
+				})
 		})
 }

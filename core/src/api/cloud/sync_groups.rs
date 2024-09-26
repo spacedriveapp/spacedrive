@@ -7,13 +7,13 @@ use crate::{
 use sd_core_cloud_services::JoinedLibraryCreateArgs;
 
 use sd_cloud_schema::{
-	auth::AccessToken,
 	cloud_p2p, devices, libraries,
 	sync::{groups, KeyHash},
 };
 
 use std::sync::Arc;
 
+use futures::FutureExt;
 use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng, SeedableRng};
@@ -25,16 +25,18 @@ pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("create", {
 			R.with2(library())
-				.mutation(|(node, library), access_token: AccessToken| async move {
-					let (client, device_pub_id, mut rng, key_manager) = (
-						super::try_get_cloud_services_client(&node),
-						async { Ok(devices::PubId(node.config.get().await.id.into())) },
-						async {
-							Ok(CryptoRng::from_seed(
-								node.master_rng.lock().await.generate_fixed(),
-							))
-						},
-						node.cloud_services.key_manager(),
+				.mutation(|(node, library), _: ()| async move {
+					use groups::create::{Request, Response};
+
+					let ((client, access_token), device_pub_id, mut rng, key_manager) = (
+						super::get_client_and_access_token(&node),
+						node.config.get().map(|config| Ok(config.id.into())),
+						node.master_rng
+							.lock()
+							.map(|mut rng| Ok(CryptoRng::from_seed(rng.generate_fixed()))),
+						node.cloud_services
+							.key_manager()
+							.map(|res| res.map_err(Into::into)),
 					)
 						.try_join()
 						.await?;
@@ -42,11 +44,11 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					let new_key = SecretKey::generate(&mut rng);
 					let key_hash = KeyHash(blake3::hash(new_key.as_ref()).to_hex().to_string());
 
-					let groups::create::Response(group_pub_id) = super::handle_comm_error(
+					let Response(group_pub_id) = super::handle_comm_error(
 						client
 							.sync()
 							.groups()
-							.create(groups::create::Request {
+							.create(Request {
 								access_token: access_token.clone(),
 								key_hash: key_hash.clone(),
 								library_pub_id: libraries::PubId(library.id),
@@ -83,93 +85,119 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				})
 		})
 		.procedure("delete", {
-			R.mutation(|node, req: groups::delete::Request| async move {
-				let group_pub_id = req.pub_id;
+			R.mutation(|node, pub_id: groups::PubId| async move {
+				use groups::delete::Request;
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
 				super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
+					client
 						.sync()
 						.groups()
-						.delete(req)
+						.delete(Request {
+							access_token,
+							pub_id,
+						})
 						.await,
 					"Failed to delete sync group;",
 				)??;
 
-				debug!(%group_pub_id, "Deleted sync group");
+				debug!(%pub_id, "Deleted sync group");
 
 				Ok(())
 			})
 		})
 		.procedure("get", {
-			R.query(|node, req: groups::get::Request| async move {
-				let groups::get::Response(group) = super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
-						.sync()
-						.groups()
-						.get(req)
-						.await,
-					"Failed to get sync group;",
-				)??;
-
-				debug!(?group, "Got sync group");
-
-				Ok(group)
-			})
-		})
-		.procedure("leave", {
 			#[derive(Deserialize, specta::Type)]
-			struct SyncGroupsLeaveArgs {
-				access_token: AccessToken,
-				group_pub_id: groups::PubId,
+			struct CloudGetSyncGroupArgs {
+				pub pub_id: groups::PubId,
+				pub with_library: bool,
+				pub with_devices: bool,
+				pub with_used_storage: bool,
 			}
 
 			R.query(
 				|node,
-				 SyncGroupsLeaveArgs {
-				     access_token,
-				     group_pub_id,
-				 }: SyncGroupsLeaveArgs| async move {
-					let (device_pub_id, client, key_manager) = (
-						async { Ok(node.config.get().await.id) },
-						super::try_get_cloud_services_client(&node),
-						node.cloud_services.key_manager(),
-					)
-						.try_join()
-						.await?;
+				 CloudGetSyncGroupArgs {
+				     pub_id,
+				     with_library,
+				     with_devices,
+				     with_used_storage,
+				 }: CloudGetSyncGroupArgs| async move {
+					use groups::get::{Request, Response};
 
-					super::handle_comm_error(
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					let Response(group) = super::handle_comm_error(
 						client
 							.sync()
 							.groups()
-							.leave(groups::leave::Request {
+							.get(Request {
 								access_token,
-								pub_id: group_pub_id,
-								current_device_pub_id: devices::PubId(device_pub_id.into()),
+								pub_id,
+								with_library,
+								with_devices,
+								with_used_storage,
 							})
 							.await,
-						"Failed to leave sync group;",
+						"Failed to get sync group;",
 					)??;
 
-					let mut rng =
-						CryptoRng::from_seed(node.master_rng.lock().await.generate_fixed());
+					debug!(?group, "Got sync group");
 
-					key_manager.remove_group(group_pub_id, &mut rng).await?;
-
-					debug!(%group_pub_id, "Left sync group");
-
-					Ok(())
+					Ok(group)
 				},
 			)
 		})
-		.procedure("list", {
-			R.query(|node, req: groups::list::Request| async move {
-				let groups::list::Response(groups) = super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
+		.procedure("leave", {
+			R.query(|node, pub_id: groups::PubId| async move {
+				let ((client, access_token), current_device_pub_id, mut rng, key_manager) = (
+					super::get_client_and_access_token(&node),
+					node.config.get().map(|config| Ok(config.id.into())),
+					node.master_rng
+						.lock()
+						.map(|mut rng| Ok(CryptoRng::from_seed(rng.generate_fixed()))),
+					node.cloud_services
+						.key_manager()
+						.map(|res| res.map_err(Into::into)),
+				)
+					.try_join()
+					.await?;
+
+				super::handle_comm_error(
+					client
 						.sync()
 						.groups()
-						.list(req)
+						.leave(groups::leave::Request {
+							access_token,
+							pub_id,
+							current_device_pub_id,
+						})
+						.await,
+					"Failed to leave sync group;",
+				)??;
+
+				key_manager.remove_group(pub_id, &mut rng).await?;
+
+				debug!(%pub_id, "Left sync group");
+
+				Ok(())
+			})
+		})
+		.procedure("list", {
+			R.query(|node, with_library: bool| async move {
+				use groups::list::{Request, Response};
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+				let Response(groups) = super::handle_comm_error(
+					client
+						.sync()
+						.groups()
+						.list(Request {
+							access_token,
+							with_library,
+						})
 						.await,
 					"Failed to list groups;",
 				)??;
@@ -181,27 +209,27 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		})
 		.procedure("remove_device", {
 			#[derive(Deserialize, specta::Type)]
-			struct SyncGroupsRemoveDeviceArgs {
-				access_token: AccessToken,
+			struct CloudSyncGroupsRemoveDeviceArgs {
 				group_pub_id: groups::PubId,
 				to_remove_device_pub_id: devices::PubId,
 			}
 			R.query(
 				|node,
-				 SyncGroupsRemoveDeviceArgs {
-				     access_token,
+				 CloudSyncGroupsRemoveDeviceArgs {
 				     group_pub_id,
 				     to_remove_device_pub_id,
-				 }: SyncGroupsRemoveDeviceArgs| async move {
-					let (client, current_device_pub_id, mut rng, key_manager) = (
-						super::try_get_cloud_services_client(&node),
-						async { Ok(devices::PubId(node.config.get().await.id.into())) },
-						async {
-							Ok(CryptoRng::from_seed(
-								node.master_rng.lock().await.generate_fixed(),
-							))
-						},
-						node.cloud_services.key_manager(),
+				 }: CloudSyncGroupsRemoveDeviceArgs| async move {
+					use groups::remove_device::Request;
+
+					let ((client, access_token), current_device_pub_id, mut rng, key_manager) = (
+						super::get_client_and_access_token(&node),
+						node.config.get().map(|config| Ok(config.id.into())),
+						node.master_rng
+							.lock()
+							.map(|mut rng| Ok(CryptoRng::from_seed(rng.generate_fixed()))),
+						node.cloud_services
+							.key_manager()
+							.map(|res| res.map_err(Into::into)),
 					)
 						.try_join()
 						.await?;
@@ -217,7 +245,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						client
 							.sync()
 							.groups()
-							.remove_device(groups::remove_device::Request {
+							.remove_device(Request {
 								access_token,
 								group_pub_id,
 								new_key_hash,
@@ -225,7 +253,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								to_remove_device_pub_id,
 							})
 							.await,
-						"Failed to list libraries;",
+						"Failed to remove device from sync group;",
 					)??;
 
 					debug!(%to_remove_device_pub_id, %group_pub_id, "Removed device");
@@ -237,7 +265,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("request_join", {
 			#[derive(Deserialize, specta::Type)]
 			struct SyncGroupsRequestJoinArgs {
-				access_token: AccessToken,
 				sync_group: groups::GroupWithLibraryAndDevices,
 				asking_device: devices::Device,
 			}
@@ -245,14 +272,15 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(
 				|node,
 				 SyncGroupsRequestJoinArgs {
-				     access_token,
 				     sync_group,
 				     asking_device,
 				 }: SyncGroupsRequestJoinArgs| async move {
-					let (client, current_device_pub_id, cloud_p2p) = (
-						super::try_get_cloud_services_client(&node),
-						async { Ok(devices::PubId(node.config.get().await.id.into())) },
-						node.cloud_services.cloud_p2p(),
+					let ((client, access_token), current_device_pub_id, cloud_p2p) = (
+						super::get_client_and_access_token(&node),
+						node.config.get().map(|config| Ok(config.id.into())),
+						node.cloud_services
+							.cloud_p2p()
+							.map(|res| res.map_err(Into::into)),
 					)
 						.try_join()
 						.await?;
