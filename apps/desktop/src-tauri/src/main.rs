@@ -3,6 +3,9 @@
 	windows_subsystem = "windows"
 )]
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::{fs, path::PathBuf, process::Command, sync::Arc, time::Duration};
 
 use menu::{set_enabled, MenuEvent};
