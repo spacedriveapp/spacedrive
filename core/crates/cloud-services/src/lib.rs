@@ -52,4 +52,5 @@ pub use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
 pub use quic_rpc::transport::quinn::QuinnConnection;
 
 // Export URL for the auth server
-pub const AUTH_SERVER_URL: &str = "https://auth.spacedrive.com";
+// pub const AUTH_SERVER_URL: &str = "https://auth.spacedrive.com";
+pub const AUTH_SERVER_URL: &str = "http://localhost:9420";

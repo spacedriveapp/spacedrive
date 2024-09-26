@@ -2,11 +2,7 @@ use crate::api::{Ctx, R};
 
 use sd_cloud_schema::{
 	auth::AccessToken,
-	devices::{
-		self,
-		register::{Request, RequestUpdate, Response, State},
-		DeviceOS, HardwareModel, PubId,
-	},
+	devices::{self, DeviceOS, HardwareModel, PubId},
 	opaque_ke::{
 		ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult, ClientLoginStartResult,
 		ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
@@ -18,34 +14,27 @@ use sd_core_cloud_services::{NodeId, QuinnConnection};
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng};
 
 use blake3::Hash;
-use chrono::DateTime;
-use futures::{SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
+use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
+use serde::Deserialize;
 use tracing::{debug, error};
-
-use super::{handle_comm_error, try_get_cloud_services_client};
-
-#[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
-struct MockDevice {
-	pub_id: PubId,
-	name: String,
-	os: DeviceOS,
-	used_storage: u64,
-	storage_size: u64,
-	created_at: DateTime<chrono::Utc>,
-	updated_at: DateTime<chrono::Utc>,
-	device_model: HardwareModel,
-}
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("get", {
-			R.query(|node, req: devices::get::Request| async move {
-				let devices::get::Response(device) = super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
+			R.query(|node, pub_id: devices::PubId| async move {
+				use devices::get::{Request, Response};
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+				let Response(device) = super::handle_comm_error(
+					client
 						.devices()
-						.get(req)
+						.get(Request {
+							pub_id,
+							access_token,
+						})
 						.await,
 					"Failed to get device;",
 				)??;
@@ -56,34 +45,45 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("list", {
-			R.query(|node, req: devices::list::Request| async move {
-				let devices::list::Response(mut devices) = super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
-						.devices()
-						.list(req)
-						.await,
+			R.query(|node, _: ()| async move {
+				use devices::list::{Request, Response};
+
+				let ((client, access_token), pub_id) = (
+					super::get_client_and_access_token(&node),
+					node.config.get().map(|config| Ok(config.id.into())),
+				)
+					.try_join()
+					.await?;
+
+				let Response(mut devices) = super::handle_comm_error(
+					client.devices().list(Request { access_token }).await,
 					"Failed to list devices;",
 				)??;
 
-				debug!(?devices, "Listed devices");
-
-				let id = node.config.get().await.id.into();
 				// Filter out the local device by matching pub_id
-				devices.retain(|device| device.pub_id != id);
+				devices.retain(|device| device.pub_id != pub_id);
+
+				debug!(?devices, "Listed devices");
 
 				Ok(devices)
 			})
 		})
 		.procedure("get_current_device", {
-			R.query(|node, access_token: AccessToken| async move {
-				let id = node.config.get().await.id;
-				let devices::get::Response(device) = super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
+			R.query(|node, _: ()| async move {
+				use devices::get::{Request, Response};
+
+				let ((client, access_token), pub_id) = (
+					super::get_client_and_access_token(&node),
+					node.config.get().map(|config| Ok(config.id.into())),
+				)
+					.try_join()
+					.await?;
+
+				let Response(device) = super::handle_comm_error(
+					client
 						.devices()
-						.get(devices::get::Request {
-							pub_id: id.into(),
+						.get(Request {
+							pub_id,
 							access_token,
 						})
 						.await,
@@ -93,12 +93,18 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("delete", {
-			R.mutation(|node, req: devices::delete::Request| async move {
+			R.mutation(|node, pub_id: devices::PubId| async move {
+				use devices::delete::Request;
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
 				super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
+					client
 						.devices()
-						.delete(req)
+						.delete(Request {
+							pub_id,
+							access_token,
+						})
 						.await,
 					"Failed to delete device;",
 				)??;
@@ -109,20 +115,45 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("update", {
-			R.mutation(|node, req: devices::update::Request| async move {
-				super::handle_comm_error(
-					try_get_cloud_services_client(&node)
-						.await?
-						.devices()
-						.update(req)
-						.await,
-					"Failed to update device;",
-				)??;
+			#[derive(Deserialize, specta::Type)]
+			struct CloudUpdateDeviceArgs {
+				pub_id: devices::PubId,
+				name: String,
+				storage_size: u64,
+				used_storage: u64,
+			}
 
-				debug!("Updated device");
+			R.mutation(
+				|node,
+				 CloudUpdateDeviceArgs {
+				     pub_id,
+				     name,
+				     storage_size,
+				     used_storage,
+				 }: CloudUpdateDeviceArgs| async move {
+					use devices::update::Request;
 
-				Ok(())
-			})
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					super::handle_comm_error(
+						client
+							.devices()
+							.update(Request {
+								access_token,
+								pub_id,
+								name,
+								storage_size,
+								used_storage,
+							})
+							.await,
+						"Failed to update device;",
+					)??;
+
+					debug!("Updated device");
+
+					Ok(())
+				},
+			)
 		})
 }
 
@@ -145,7 +176,7 @@ pub async fn hello(
 				)
 			})?;
 
-	let (mut hello_continuation, mut res_stream) = handle_comm_error(
+	let (mut hello_continuation, mut res_stream) = super::handle_comm_error(
 		client
 			.devices()
 			.hello(Request {
@@ -167,11 +198,13 @@ pub async fn hello(
 	};
 
 	let credential_response =
-		match handle_comm_error(res, "Communication error on device hello response;")? {
+		match super::handle_comm_error(res, "Communication error on device hello response;")? {
 			Ok(Response(State::LoginResponse(credential_response))) => credential_response,
+
 			Ok(Response(State::End)) => {
 				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
 			}
+
 			Err(e) => {
 				error!(?e, "Device hello response error;");
 				return Err(e.into());
@@ -218,14 +251,16 @@ pub async fn hello(
 		));
 	};
 
-	match handle_comm_error(res, "Communication error on device hello response;")? {
+	match super::handle_comm_error(res, "Communication error on device hello response;")? {
 		Ok(Response(State::LoginResponse(_))) => {
 			unreachable!("Device hello final response MUST be End here, this is a serious bug and should crash;");
 		}
+
 		Ok(Response(State::End)) => {
 			// Protocol completed successfully
 			Ok(SecretKey::from(export_key))
 		}
+
 		Err(e) => {
 			error!(?e, "Device hello final response error;");
 			Err(e.into())
@@ -258,6 +293,8 @@ pub async fn register(
 	hashed_pub_id: Hash,
 	rng: &mut CryptoRng,
 ) -> Result<SecretKey, rspc::Error> {
+	use devices::register::{Request, RequestUpdate, Response, State};
+
 	let ClientRegistrationStartResult { message, state } =
 		ClientRegistration::<SpacedriveCipherSuite>::start(
 			rng,
@@ -271,7 +308,7 @@ pub async fn register(
 			)
 		})?;
 
-	let (mut register_continuation, mut res_stream) = handle_comm_error(
+	let (mut register_continuation, mut res_stream) = super::handle_comm_error(
 		client
 			.devices()
 			.register(Request {
@@ -299,11 +336,13 @@ pub async fn register(
 	};
 
 	let registration_response =
-		match handle_comm_error(res, "Communication error on device register response;")? {
+		match super::handle_comm_error(res, "Communication error on device register response;")? {
 			Ok(Response(State::RegistrationResponse(res))) => res,
+
 			Ok(Response(State::End)) => {
 				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
 			}
+
 			Err(e) => {
 				error!(?e, "Device hello response error;");
 				return Err(e.into());
@@ -351,14 +390,16 @@ pub async fn register(
 		));
 	};
 
-	match handle_comm_error(res, "Communication error on device register response;")? {
+	match super::handle_comm_error(res, "Communication error on device register response;")? {
 		Ok(Response(State::RegistrationResponse(_))) => {
 			unreachable!("Device register final response MUST be End here, this is a serious bug and should crash;");
 		}
+
 		Ok(Response(State::End)) => {
 			// Protocol completed successfully
 			Ok(SecretKey::from(export_key))
 		}
+
 		Err(e) => {
 			error!(?e, "Device register final response error;");
 			Err(e.into())

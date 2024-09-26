@@ -18,7 +18,7 @@ use sd_crypto::{CryptoRng, SeedableRng};
 use std::pin::pin;
 
 use async_stream::stream;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
 use tracing::{debug, error, instrument};
@@ -281,4 +281,19 @@ async fn initialize_cloud_sync(
 		.ok_or(LibraryManagerError::LibraryNotFound)?;
 
 	library.init_cloud_sync(node, group_pub_id).await
+}
+
+async fn get_client_and_access_token(
+	node: &Node,
+) -> Result<(Client<QuinnConnection<Service>, Service>, auth::AccessToken), rspc::Error> {
+	(
+		try_get_cloud_services_client(node),
+		node.cloud_services
+			.token_refresher
+			.get_access_token()
+			.map(|res| res.map_err(Into::into)),
+	)
+		.try_join()
+		.await
+		.map_err(Into::into)
 }

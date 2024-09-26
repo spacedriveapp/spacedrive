@@ -1,6 +1,5 @@
 use crate::util::InfallibleResponse;
 
-use sd_core_cloud_services::AUTH_SERVER_URL;
 use std::{fmt::Debug, panic::Location};
 
 use axum::{

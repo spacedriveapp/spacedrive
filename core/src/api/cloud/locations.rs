@@ -1,51 +1,105 @@
 use crate::api::{Ctx, R};
 
-use sd_cloud_schema::locations;
+use sd_cloud_schema::{devices, libraries, locations};
 
 use rspc::alpha::AlphaRouter;
+use serde::Deserialize;
 use tracing::debug;
 
 pub fn mount() -> AlphaRouter<Ctx> {
 	R.router()
 		.procedure("list", {
-			R.query(|node, req: locations::list::Request| async move {
-				let locations::list::Response(locations) = super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
-						.locations()
-						.list(req)
-						.await,
-					"Failed to list locations;",
-				)??;
+			#[derive(Deserialize, specta::Type)]
+			struct CloudListLocationsArgs {
+				pub library_pub_id: libraries::PubId,
+				pub with_library: bool,
+				pub with_device: bool,
+			}
 
-				debug!(?locations, "Got locations");
+			R.query(
+				|node,
+				 CloudListLocationsArgs {
+				     library_pub_id,
+				     with_library,
+				     with_device,
+				 }: CloudListLocationsArgs| async move {
+					use locations::list::{Request, Response};
 
-				Ok(locations)
-			})
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					let Response(locations) = super::handle_comm_error(
+						client
+							.locations()
+							.list(Request {
+								access_token,
+								library_pub_id,
+								with_library,
+								with_device,
+							})
+							.await,
+						"Failed to list locations;",
+					)??;
+
+					debug!(?locations, "Got locations");
+
+					Ok(locations)
+				},
+			)
 		})
 		.procedure("create", {
-			R.mutation(|node, req: locations::create::Request| async move {
-				super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
-						.locations()
-						.create(req)
-						.await,
-					"Failed to list locations;",
-				)??;
+			#[derive(Deserialize, specta::Type)]
+			struct CloudCreateLocationArgs {
+				pub pub_id: locations::PubId,
+				pub name: String,
+				pub library_pub_id: libraries::PubId,
+				pub device_pub_id: devices::PubId,
+			}
 
-				debug!("Created cloud location");
+			R.mutation(
+				|node,
+				 CloudCreateLocationArgs {
+				     pub_id,
+				     name,
+				     library_pub_id,
+				     device_pub_id,
+				 }: CloudCreateLocationArgs| async move {
+					use locations::create::Request;
 
-				Ok(())
-			})
+					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					super::handle_comm_error(
+						client
+							.locations()
+							.create(Request {
+								access_token,
+								pub_id,
+								name,
+								library_pub_id,
+								device_pub_id,
+							})
+							.await,
+						"Failed to list locations;",
+					)??;
+
+					debug!("Created cloud location");
+
+					Ok(())
+				},
+			)
 		})
 		.procedure("delete", {
-			R.mutation(|node, req: locations::delete::Request| async move {
+			R.mutation(|node, pub_id: locations::PubId| async move {
+				use locations::delete::Request;
+
+				let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
 				super::handle_comm_error(
-					super::try_get_cloud_services_client(&node)
-						.await?
+					client
 						.locations()
-						.delete(req)
+						.delete(Request {
+							access_token,
+							pub_id,
+						})
 						.await,
 					"Failed to list locations;",
 				)??;
