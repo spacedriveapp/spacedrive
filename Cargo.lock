@@ -9811,21 +9811,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sd-cloud-api"
-version = "0.1.0"
-dependencies = [
- "reqwest 0.11.27",
- "rspc",
- "sd-p2p",
- "serde",
- "serde_json",
- "specta",
- "thiserror",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
 source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=6996916529#69969165293491ece49d718e3fbcc5d8a4ed48c2"
@@ -9895,7 +9880,6 @@ dependencies = [
  "rspc",
  "sd-actors",
  "sd-ai",
- "sd-cloud-api",
  "sd-cloud-schema",
  "sd-core-cloud-services",
  "sd-core-file-path-helper",
