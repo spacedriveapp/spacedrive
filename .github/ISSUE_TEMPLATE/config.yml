@@ -2,12 +2,12 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-issue-config.json
 blank_issues_enabled: false
 contact_links:
-  - name: 🙏 Get Help
+  - name: 🙏 Get help
     url: https://github.com/spacedriveapp/spacedrive/discussions/new?category=help
     about: If you can't get something to work the way you expect, please open a discussion thread.
-  - name: 💡 Feature Request
+  - name: 💡 Feature request
     url: https://github.com/spacedriveapp/spacedrive/discussions/new?category=ideas
     about: Suggest any ideas you have for new features in a discussion thread.
-  - name: 💬 Join us on Discord
+  - name: 💬 Chat on Discord
     url: https://discord.gg/gTaF2Z44f5
     about: Ask questions and talk to other Spacedrive users and maintainers on Discord.
