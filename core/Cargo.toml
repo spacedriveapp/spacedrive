@@ -30,7 +30,6 @@ sd-core-sync             = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors         = { path = "../crates/actors" }
 sd-ai             = { path = "../crates/ai", optional = true }
-sd-cloud-api      = { path = "../crates/cloud-api" }
 sd-crypto         = { path = "../crates/crypto" }
 sd-ffmpeg         = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext       = { path = "../crates/file-ext" }

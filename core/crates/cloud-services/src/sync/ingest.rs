@@ -82,7 +82,7 @@ enum IngestStatus {
 }
 
 impl Ingester {
-	pub fn new(
+	pub const  fn new(
 		sync: SyncManager,
 		ingest_notify: Arc<Notify>,
 		active: Arc<AtomicBool>,

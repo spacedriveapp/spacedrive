@@ -33,7 +33,7 @@ pub struct KeyStore {
 }
 
 impl KeyStore {
-	pub fn new(iroh_secret_key: IrohSecretKey) -> Self {
+	pub const fn new(iroh_secret_key: IrohSecretKey) -> Self {
 		Self {
 			iroh_secret_key,
 			keys: BTreeMap::new(),

@@ -67,6 +67,8 @@ type Handler = ios::EventHandler;
 pub(super) type IgnorePath = (PathBuf, bool);
 
 type INode = u64;
+
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows"))]
 type InstantAndPath = (Instant, PathBuf);
 
 const ONE_SECOND: Duration = Duration::from_secs(1);

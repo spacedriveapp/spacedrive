@@ -18,7 +18,7 @@ use super::{
 	error::Error, key_manager::KeyManager, p2p::CloudP2P, token_refresher::TokenRefresher,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 enum ClientState {
 	#[default]
 	NotConnected,
@@ -190,7 +190,8 @@ impl CloudServices {
 						_message: &[u8],
 						_cert: &rustls::pki_types::CertificateDer<'_>,
 						_dss: &rustls::DigitallySignedStruct,
-					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+					{
 						Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
 					}
 
@@ -199,7 +200,8 @@ impl CloudServices {
 						_message: &[u8],
 						_cert: &rustls::pki_types::CertificateDer<'_>,
 						_dss: &rustls::DigitallySignedStruct,
-					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+					) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error>
+					{
 						Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
 					}
 
@@ -268,8 +270,8 @@ impl CloudServices {
 	/// Available routes documented in
 	/// [`sd_cloud_schema::Service`](https://github.com/spacedriveapp/cloud-services-schema).
 	pub async fn client(&self) -> Result<Client<QuinnConnection<Service>, Service>, Error> {
-		if let ClientState::Connected(client) = &*self.client_state.read().await {
-			return Ok(client.clone());
+		if let ClientState::Connected(client) = { self.client_state.read().await.clone() } {
+			return Ok(client);
 		}
 
 		// If we're not connected, we need to try to connect.

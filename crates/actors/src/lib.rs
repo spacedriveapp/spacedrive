@@ -169,7 +169,8 @@ impl<Id: ActorId> ActorsCollection<Id> {
 
 	#[instrument(skip(self))]
 	pub async fn start(&self, identifier: Id) {
-		if let Some(actor) = self.actors_map.write().await.get_mut(&identifier) {
+		let mut actors_map  = self.actors_map.write().await;
+		if let Some(actor) = actors_map.get_mut(&identifier) {
 			if actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already running!");
 				return;
@@ -223,7 +224,8 @@ impl<Id: ActorId> ActorsCollection<Id> {
 
 	#[instrument(skip(self))]
 	pub async fn stop(&self, identifier: Id) {
-		if let Some(actor) = self.actors_map.write().await.get_mut(&identifier) {
+		let mut actors_map = self.actors_map.write().await;
+		if let Some(actor) = actors_map.get_mut(&identifier) {
 			if !actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already stopped!");
 				return;

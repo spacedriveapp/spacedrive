@@ -402,7 +402,7 @@ impl ReportBuilder {
 	}
 
 	#[must_use]
-	pub fn new(id: JobId, name: JobName) -> Self {
+	pub const fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
 			name,
