@@ -5,16 +5,16 @@ export type Procedures = {
     queries: 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.devices.get", input: DeviceGetRequest, result: Device } | 
-        { key: "cloud.devices.get_current_device", input: AccessToken, result: Device } | 
-        { key: "cloud.devices.list", input: DeviceListRequest, result: Device[] } | 
-        { key: "cloud.libraries.get", input: LibraryGetRequest, result: Library } | 
-        { key: "cloud.libraries.list", input: LibraryListRequest, result: Library[] } | 
-        { key: "cloud.locations.list", input: LocationListRequest, result: CloudLocation[] } | 
-        { key: "cloud.syncGroups.get", input: SyncGroupGetRequest, result: SyncGroup } | 
-        { key: "cloud.syncGroups.leave", input: SyncGroupsLeaveArgs, result: null } | 
-        { key: "cloud.syncGroups.list", input: SyncGroupListRequest, result: SyncGroup[] } | 
-        { key: "cloud.syncGroups.remove_device", input: SyncGroupsRemoveDeviceArgs, result: null } | 
+        { key: "cloud.devices.get", input: DevicePubId, result: Device } | 
+        { key: "cloud.devices.get_current_device", input: never, result: Device } | 
+        { key: "cloud.devices.list", input: never, result: Device[] } | 
+        { key: "cloud.libraries.get", input: CloudGetLibraryArgs, result: Library } | 
+        { key: "cloud.libraries.list", input: boolean, result: Library[] } | 
+        { key: "cloud.locations.list", input: CloudListLocationsArgs, result: CloudLocation[] } | 
+        { key: "cloud.syncGroups.get", input: CloudGetSyncGroupArgs, result: SyncGroup } | 
+        { key: "cloud.syncGroups.leave", input: SyncGroupPubId, result: null } | 
+        { key: "cloud.syncGroups.list", input: boolean, result: SyncGroup[] } | 
+        { key: "cloud.syncGroups.remove_device", input: CloudSyncGroupsRemoveDeviceArgs, result: null } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -66,17 +66,17 @@ export type Procedures = {
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
         { key: "cloud.bootstrap", input: [AccessToken, RefreshToken], result: null } | 
-        { key: "cloud.devices.delete", input: DeviceDeleteRequest, result: null } | 
-        { key: "cloud.devices.update", input: DeviceUpdateRequest, result: null } | 
-        { key: "cloud.libraries.create", input: LibraryArgs<AccessToken>, result: null } | 
-        { key: "cloud.libraries.delete", input: LibraryArgs<AccessToken>, result: null } | 
-        { key: "cloud.libraries.update", input: LibraryArgs<LibrariesUpdateArgs>, result: null } | 
-        { key: "cloud.locations.create", input: LocationCreateRequest, result: null } | 
-        { key: "cloud.locations.delete", input: LocationDeleteRequest, result: null } | 
-        { key: "cloud.syncGroups.create", input: LibraryArgs<AccessToken>, result: null } | 
-        { key: "cloud.syncGroups.delete", input: SyncGroupDeleteRequest, result: null } | 
+        { key: "cloud.devices.delete", input: DevicePubId, result: null } | 
+        { key: "cloud.devices.update", input: CloudUpdateDeviceArgs, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.libraries.delete", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.libraries.update", input: LibraryArgs<string>, result: null } | 
+        { key: "cloud.locations.create", input: CloudCreateLocationArgs, result: null } | 
+        { key: "cloud.locations.delete", input: LocationPubId, result: null } | 
+        { key: "cloud.syncGroups.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.syncGroups.delete", input: SyncGroupPubId, result: null } | 
         { key: "cloud.syncGroups.request_join", input: SyncGroupsRequestJoinArgs, result: null } | 
-        { key: "cloud.userResponse", input: UserResponse, result: null } | 
+        { key: "cloud.userResponse", input: CloudP2PUserResponse, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -137,7 +137,7 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
-        { key: "cloud.listenCloudServicesNotifications", input: never, result: NotifyUser } | 
+        { key: "cloud.listenCloudServicesNotifications", input: never, result: CloudP2PNotifyUser } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
@@ -182,11 +182,27 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
+export type CloudCreateLocationArgs = { pub_id: LocationPubId; name: string; library_pub_id: LibraryPubId; device_pub_id: DevicePubId }
+
+export type CloudGetLibraryArgs = { pub_id: LibraryPubId; with_device: boolean }
+
+export type CloudGetSyncGroupArgs = { pub_id: SyncGroupPubId; with_library: boolean; with_devices: boolean; with_used_storage: boolean }
+
+export type CloudListLocationsArgs = { library_pub_id: LibraryPubId; with_library: boolean; with_device: boolean }
+
 export type CloudLocation = { pub_id: LocationPubId; name: string; device: Device | null; library: Library | null; created_at: string; updated_at: string }
 
 export type CloudP2PError = "Rejected" | "UnableToConnect" | "TimedOut"
 
+export type CloudP2PNotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: Device; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "TimedOutJoinRequest"; data: { device: Device; succeeded: boolean } }
+
 export type CloudP2PTicket = bigint
+
+export type CloudP2PUserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: BasicLibraryCreationArgs | null } }
+
+export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: SyncGroupPubId; to_remove_device_pub_id: DevicePubId }
+
+export type CloudUpdateDeviceArgs = { pub_id: DevicePubId; name: string; storage_size: bigint; used_storage: bigint }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -242,17 +258,9 @@ export type DefaultLocations = { desktop: boolean; documents: boolean; downloads
 
 export type Device = { pub_id: DevicePubId; name: string; os: DeviceOS; storage_size: bigint; used_storage: bigint; connection_id: string; created_at: string; updated_at: string; hardware_model: HardwareModel }
 
-export type DeviceDeleteRequest = { access_token: AccessToken; pub_id: DevicePubId }
-
-export type DeviceGetRequest = { access_token: AccessToken; pub_id: DevicePubId }
-
-export type DeviceListRequest = { access_token: AccessToken }
-
 export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 
 export type DevicePubId = string
-
-export type DeviceUpdateRequest = { access_token: AccessToken; pub_id: DevicePubId; name: string; storage_size: bigint; used_storage: bigint }
 
 /**
  * The method used for the discovery of this peer.
@@ -424,8 +432,6 @@ export type Label = { id: number; name: string; date_created: string | null; dat
 
 export type LabelWithObjects = { id: number; name: string; date_created: string | null; date_modified: string | null; label_objects: { object: { id: number; file_paths: FilePath[] } }[] }
 
-export type LibrariesUpdateArgs = { access_token: AccessToken; name: string }
-
 export type Library = { pub_id: LibraryPubId; name: string; original_device: Device | null; created_at: string; updated_at: string }
 
 /**
@@ -459,10 +465,6 @@ export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 
-export type LibraryGetRequest = { access_token: AccessToken; pub_id: LibraryPubId; with_device: boolean }
-
-export type LibraryListRequest = { access_token: AccessToken; with_device: boolean }
-
 export type LibraryName = string
 
 export type LibraryPreferences = { location?: { [key in string]: LocationSettings }; tag?: { [key in string]: TagSettings } }
@@ -483,12 +485,6 @@ export type Location = { id: number; pub_id: number[]; name: string | null; path
  * between the location and indexer rules.
  */
 export type LocationCreateArgs = { path: string; dry_run: boolean; indexer_rules_ids: number[] }
-
-export type LocationCreateRequest = { access_token: AccessToken; pub_id: LocationPubId; name: string; library_pub_id: LibraryPubId; device_pub_id: DevicePubId }
-
-export type LocationDeleteRequest = { access_token: AccessToken; pub_id: LocationPubId }
-
-export type LocationListRequest = { access_token: AccessToken; library_pub_id: LibraryPubId; with_library: boolean; with_device: boolean }
 
 export type LocationPubId = string
 
@@ -574,8 +570,6 @@ export type NotificationData = { title: string; content: string; kind: Notificat
 export type NotificationId = { type: "library"; id: [string, number] } | { type: "node"; id: number }
 
 export type NotificationKind = "info" | "success" | "error" | "warning"
-
-export type NotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: Device; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: SyncGroupWithLibraryAndDevices } } | { kind: "TimedOutJoinRequest"; data: { device: Device; succeeded: boolean } }
 
 export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; device_pub_id: number[] | null }
 
@@ -692,21 +686,11 @@ export type SubtitleProps = { width: number; height: number }
 
 export type SyncGroup = { pub_id: SyncGroupPubId; latest_key_hash: KeyHash; library: Library | null; devices: Device[] | null; total_sync_messages_bytes: bigint | null; total_space_files_bytes: bigint | null; created_at: string; updated_at: string }
 
-export type SyncGroupDeleteRequest = { access_token: AccessToken; pub_id: SyncGroupPubId }
-
-export type SyncGroupGetRequest = { access_token: AccessToken; pub_id: SyncGroupPubId; with_library: boolean; with_devices: boolean; with_used_storage: boolean }
-
-export type SyncGroupListRequest = { access_token: AccessToken; with_library: boolean }
-
 export type SyncGroupPubId = string
 
 export type SyncGroupWithLibraryAndDevices = { pub_id: SyncGroupPubId; latest_key_hash: KeyHash; library: Library; devices: Device[]; created_at: string; updated_at: string }
 
-export type SyncGroupsLeaveArgs = { access_token: AccessToken; group_pub_id: SyncGroupPubId }
-
-export type SyncGroupsRemoveDeviceArgs = { access_token: AccessToken; group_pub_id: SyncGroupPubId; to_remove_device_pub_id: DevicePubId }
-
-export type SyncGroupsRequestJoinArgs = { access_token: AccessToken; sync_group: SyncGroupWithLibraryAndDevices; asking_device: Device }
+export type SyncGroupsRequestJoinArgs = { sync_group: SyncGroupWithLibraryAndDevices; asking_device: Device }
 
 export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 
@@ -731,8 +715,6 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
 export type UpdateThumbnailerPreferences = Record<string, never>
-
-export type UserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: BasicLibraryCreationArgs | null } }
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 

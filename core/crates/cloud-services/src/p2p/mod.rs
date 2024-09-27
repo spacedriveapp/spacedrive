@@ -41,6 +41,7 @@ pub struct Ticket(u64);
 
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(tag = "kind", content = "data")]
+#[specta(rename = "CloudP2PNotifyUser")]
 pub enum NotifyUser {
 	ReceivedJoinSyncGroupRequest {
 		ticket: Ticket,
@@ -84,6 +85,7 @@ pub struct BasicLibraryCreationArgs {
 
 #[derive(Debug, Deserialize, specta::Type)]
 #[serde(tag = "kind", content = "data")]
+#[specta(rename = "CloudP2PUserResponse")]
 pub enum UserResponse {
 	AcceptDeviceInSyncGroup {
 		ticket: Ticket,
