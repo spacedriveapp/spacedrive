@@ -89,7 +89,7 @@ export const Authentication = ({
 	};
 
 	return (
-		<Card className="bg-app-background relative flex w-full max-w-[400px] flex-col items-center justify-center rounded-lg border border-app-line !p-0 shadow-lg">
+		<Card className="bg-app-background relative flex w-full flex-col items-center justify-center rounded-lg border border-app-line !p-0 shadow-lg">
 			<div className="flex w-full">
 				{AccountTabs.map((text) => (
 					<div
@@ -112,7 +112,7 @@ export const Authentication = ({
 						{text === activeTab && (
 							<motion.div
 								animate={{
-									borderRadius: text === 'Login' ? '0.5rem 0 0 0' : '0 0.5rem 0 0'
+									borderRadius: text === 'Login' ? '0.3rem 0 0 0' : '0 0.3rem 0 0'
 								}}
 								layoutId="tab"
 								className="absolute inset-x-0 top-0 z-0 size-full bg-app-line/60"

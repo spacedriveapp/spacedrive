@@ -1,8 +1,6 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
-import Session, { signOut } from 'supertokens-web-js/recipe/session';
-import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
-import { Button, Input, toast } from '@sd/ui';
+import { useBridgeMutation } from '@sd/client';
 import { Authentication } from '~/components';
 import { useLocale } from '~/hooks';
 import { AUTH_SERVER_URL, getTokens } from '~/util';

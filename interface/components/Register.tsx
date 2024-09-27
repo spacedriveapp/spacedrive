@@ -10,9 +10,15 @@ import ShowPassword from './ShowPassword';
 
 const RegisterSchema = z
 	.object({
-		email: z.string().email(),
-		password: z.string().min(6),
-		confirmPassword: z.string().min(6)
+		email: z.string().email({
+			message: 'Email is required'
+		}),
+		password: z.string().min(6, {
+			message: 'Password must be at least 6 characters'
+		}),
+		confirmPassword: z.string().min(6, {
+			message: 'Password must be at least 6 characters'
+		})
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		message: 'Passwords do not match',
