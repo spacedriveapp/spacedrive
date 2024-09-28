@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { signIn } from 'supertokens-web-js/recipe/emailpassword';
+import { createCode } from 'supertokens-web-js/recipe/passwordless';
 import { useZodForm } from '@sd/client';
 import { Button, Divider, Form, Input, toast, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -53,7 +54,7 @@ async function signInClicked(
 		if (err.isSuperTokensGeneralError === true) {
 			toast.error(err.message);
 		} else {
-			console.error(err);
+			console.error('Error signing in', err);
 			toast.error('Oops! Something went wrong.');
 		}
 	}
@@ -237,7 +238,8 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 	return (
 		<Form
 			onSubmit={ContinueWithEmailForm.handleSubmit(async (data) => {
-				//await code here to send email
+				// send email
+				await sendMagicLink(data.email);
 				setStep((step) => step + 1);
 			})}
 			className="w-full"
@@ -308,5 +310,29 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 		</Form>
 	);
 };
+
+async function sendMagicLink(email: string) {
+	try {
+		const response = await createCode({
+			email
+		});
+
+		if (response.status === 'SIGN_IN_UP_NOT_ALLOWED') {
+			// the reason string is a user friendly message
+			// about what went wrong. It can also contain a support code which users
+			// can tell you so you know why their sign in / up was not allowed.
+			toast.error(response.reason);
+		}
+	} catch (err: any) {
+		if (err.isSuperTokensGeneralError === true) {
+			// this may be a custom error message sent from the API by you,
+			// or if the input email / phone number is not valid.
+			toast.error(err.message);
+		} else {
+			console.error(err);
+			toast.error('Oops! Something went wrong.');
+		}
+	}
+}
 
 export default Login;

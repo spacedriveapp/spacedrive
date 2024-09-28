@@ -4,5 +4,4 @@
 		"rootDir": "src",
 		"declarationDir": "dist"
 	},
-	"include": ["src", "../../interface/components/ShowPassword.tsx"]
 }
