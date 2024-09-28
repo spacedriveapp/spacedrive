@@ -291,7 +291,7 @@ export const usePlausibleEvent = (): ((props: EventSubmissionCallbackProps) => P
 
 			submitPlausibleEvent({
 				debugState,
-				shareFullTelemetry: telemetryState.shareFullTelemetry,
+				shareFullTelemetry: telemetryState.telemetryLevelPreference === 'full',
 				platformType: telemetryState.platform,
 				buildInfo: telemetryState.buildInfo,
 				...props
