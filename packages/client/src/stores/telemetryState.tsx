@@ -12,15 +12,22 @@ import { createPersistedMutable, useSolidStore } from '../solid';
 export type PlausiblePlatformType = 'web' | 'mobile' | 'desktop' | 'unknown';
 
 type TelemetryState = {
-	shareFullTelemetry: boolean;
+	telemetryLevelPreference: TelemetryLevelPreference;
 	platform: PlausiblePlatformType;
 	buildInfo: BuildInfo | undefined;
 };
 
+export const TELEMETRY_LEVEL_PREFERENCES = [
+	'full',
+	'minimal',
+	'none'
+] satisfies TelemetryLevelPreference[];
+export type TelemetryLevelPreference = 'full' | 'minimal' | 'none';
+
 export const telemetryState = createPersistedMutable(
 	'sd-explorer-layout',
 	createMutable<TelemetryState>({
-		shareFullTelemetry: false, // false by default
+		telemetryLevelPreference: 'none', // no telemetry by default
 		platform: 'unknown',
 		buildInfo: undefined
 	})

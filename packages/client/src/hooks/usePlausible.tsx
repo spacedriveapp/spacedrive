@@ -12,10 +12,7 @@ import { PlausiblePlatformType, telemetryState, useTelemetryState } from '../sto
 const DOMAIN = 'app.spacedrive.com';
 const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
-const PlausibleProvider = Plausible({
-	trackLocalhost: true,
-	domain: DOMAIN
-});
+let plausibleInstance: ReturnType<typeof Plausible>;
 
 /**
  * This defines all possible options that may be provided by events upon submission.
@@ -186,13 +183,21 @@ interface SubmitEventProps {
  */
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
 	if (props.platformType === 'unknown') return;
-	// if (debugState.enabled && debugState.shareFullTelemetry !== true) return;
 	if (
 		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
-			? event.plausibleOptions.telemetryOverride !== true
+			? // if telemetry override is on, always send. we never use this and probably never should.
+				// this should be discussed soon (if I don't forget™) and removed if we agree. ~ilynxcat
+				event.plausibleOptions.telemetryOverride !== true
 			: props.shareFullTelemetry !== true && event.type !== 'ping'
 	)
 		return;
+
+	// using a singleton this way instead of instantiating at file eval (first time it's imported)
+	// because a user having "none" teleemtry preference should mean plausible's code never ever runs
+	plausibleInstance ??= Plausible({
+		trackLocalhost: true,
+		domain: DOMAIN
+	});
 
 	const fullEvent: PlausibleTrackerEvent = {
 		eventName: event.type,
@@ -217,7 +222,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			: undefined
 	};
 
-	PlausibleProvider.trackEvent(
+	plausibleInstance.trackEvent(
 		fullEvent.eventName,
 		{
 			props: fullEvent.props,
@@ -271,9 +276,12 @@ interface EventSubmissionCallbackProps {
  * });
  * ```
  */
-export const usePlausibleEvent = () => {
-	const debugState = useDebugState();
+export const usePlausibleEvent = (): ((props: EventSubmissionCallbackProps) => Promise<void>) => {
 	const telemetryState = useTelemetryState();
+
+	if (telemetryState.telemetryLevelPreference === 'none') return async (...args: any[]) => {};
+
+	const debugState = useDebugState();
 	const previousEvent = useRef({} as BasePlausibleEvent<string>);
 
 	return useCallback(
