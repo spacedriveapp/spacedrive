@@ -56,7 +56,7 @@ export default () => {
 			popover={{ ...popover, setOpen: handleOpenChange }}
 			className="z-[100] p-4 focus:outline-none"
 			trigger={
-				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
+				<h1 className="ml-1 w-full font-plex text-[7pt] tracking-widest text-sidebar-inkFaint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}

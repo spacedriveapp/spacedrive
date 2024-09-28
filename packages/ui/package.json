@@ -19,6 +19,7 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@fontsource/ibm-plex-sans": "^5.1.0",
 		"@headlessui/react": "^1.7.17",
 		"@phosphor-icons/react": "^2.0.13",
 		"@radix-ui/react-checkbox": "^1.0.4",
