@@ -145,7 +145,7 @@ export interface LabelProps extends Omit<React.ComponentProps<'label'>, 'htmlFor
 
 export function Label({ slug, children, className, ...props }: LabelProps) {
 	return (
-		<label htmlFor={slug} className={clsx('text-sm font-bold', className)} {...props}>
+		<label htmlFor={slug} className={clsx('font-plex text-sm font-bold', className)} {...props}>
 			{children}
 		</label>
 	);

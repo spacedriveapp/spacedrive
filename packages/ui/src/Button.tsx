@@ -26,7 +26,7 @@ const hasHref = (props: ButtonProps | LinkButtonProps): props is LinkButtonProps
 
 export const buttonStyles = cva(
 	[
-		'cursor-default items-center rounded-md border outline-none transition-colors duration-100',
+		'cursor-default items-center rounded-md border outline-none transition-colors duration-100 font-plex font-semibold tracking-wide',
 		'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70',
 		'focus:ring-none focus:ring-offset-none cursor-pointer ring-offset-app-box'
 	],
