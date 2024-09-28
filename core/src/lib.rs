@@ -121,15 +121,19 @@ impl Node {
 					}),
 					std::env::var("SD_CLOUD_P2P_RELAY_URL")
 						// .unwrap_or_else(|_| "https://use1-1.relay.iroh.network/".to_string()),
-						.unwrap_or_else(|_| "http://localhost:8081/".to_string()),
+						// .unwrap_or_else(|_| "http://localhost:8081/".to_string()),
+						.unwrap_or_else(|_| "https://relay.spacedrive.com/".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
 						// .unwrap_or_else(|_| "dns.iroh.link/".to_string()),
-						.unwrap_or_else(|_| "irohdns.localhost".to_string()),
+						// .unwrap_or_else(|_| "irohdns.localhost".to_string()),
+						.unwrap_or_else(|_| "irohdns.spacedrive.com".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_PKARR_URL")
 						// .unwrap_or_else(|_| "https://dns.iroh.link/pkarr".to_string()),
-						.unwrap_or_else(|_| "http://localhost:8080/pkarr".to_string()),
+						// .unwrap_or_else(|_| "http://localhost:8080/pkarr".to_string()),
+						.unwrap_or_else(|_| "https://irohdns.spacedrive.com/pkarr".to_string()),
 					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
-						.unwrap_or_else(|_| "localhost".to_string()),
+						// .unwrap_or_else(|_| "localhost".to_string()),
+						.unwrap_or_else(|_| "cloud.spacedrive.com".to_string()),
 				)
 			}
 			#[cfg(not(debug_assertions))]
