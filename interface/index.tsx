@@ -89,6 +89,7 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 
 	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
 		onData: (d) => {
+			console.log('Received cloud service notification', d);
 			switch (d.kind) {
 				case 'ReceivedJoinSyncGroupRequest':
 					// TODO: Show modal to accept or reject

@@ -35,7 +35,7 @@ export const Component = () => {
 
 	// not sure if we'll need the node state in the future, as it should be returned with the cloud.devices.list query
 	// const { data: node } = useBridgeQuery(['nodeState']);
-	const cloudDevicesList = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]);
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list']);
 
 	useEffect(() => {
 		const interval = setInterval(async () => {

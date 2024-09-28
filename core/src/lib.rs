@@ -122,7 +122,7 @@ impl Node {
 					std::env::var("SD_CLOUD_P2P_RELAY_URL")
 						// .unwrap_or_else(|_| "https://use1-1.relay.iroh.network/".to_string()),
 						// .unwrap_or_else(|_| "http://localhost:8081/".to_string()),
-						.unwrap_or_else(|_| "https://relay.spacedrive.com/".to_string()),
+						.unwrap_or_else(|_| "https://relay.spacedrive.com:4433/".to_string()),
 					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
 						// .unwrap_or_else(|_| "dns.iroh.link/".to_string()),
 						// .unwrap_or_else(|_| "irohdns.localhost".to_string()),
