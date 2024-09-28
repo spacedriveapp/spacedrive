@@ -3,7 +3,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
-	initPlausible,
+	configureAnalyticsProperties,
 	LibraryContextProvider,
 	useBridgeQuery,
 	useClientContext,
@@ -144,7 +144,7 @@ function usePlausible() {
 	const plausibleEvent = usePlausibleEvent();
 
 	useEffect(() => {
-		initPlausible({
+		configureAnalyticsProperties({
 			buildInfo,
 			platformType: platform === 'tauri' ? 'desktop' : 'web'
 		});

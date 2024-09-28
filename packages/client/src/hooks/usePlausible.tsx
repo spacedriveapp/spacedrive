@@ -366,7 +366,11 @@ export const usePlausiblePingMonitor = ({ currentPath }: PlausibleMonitorProps) 
 	}, [currentPath, plausibleEvent]);
 };
 
-export const initPlausible = ({
+/**
+ * Initializes the `platform` and `buildInfo` properties on `telemetryState` so they can be used
+ * by Plausible if it's enabled.
+ */
+export const configureAnalyticsProperties = ({
 	platformType,
 	buildInfo
 }: {
