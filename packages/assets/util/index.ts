@@ -12,6 +12,8 @@ export const iconNames = Object.fromEntries(
 		.map((key) => [key, key]) // Map key to [key, key] format
 ) as Record<IconTypes, string>;
 
+export type IconName = keyof typeof iconNames;
+
 export const getIconByName = (name: IconTypes, isDark?: boolean) => {
 	if (!isDark) name = (name + '_Light') as IconTypes;
 	return icons[name];

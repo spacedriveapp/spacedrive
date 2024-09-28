@@ -42,7 +42,7 @@ export const FormField = (props: FormFieldProps) => {
 	return (
 		<div className={props.className}>
 			{props.label && (
-				<Label slug={props.id} className="mb-1 flex font-medium">
+				<Label slug={props.id} className="mb-1 flex font-semibold">
 					{props.label}
 				</Label>
 			)}

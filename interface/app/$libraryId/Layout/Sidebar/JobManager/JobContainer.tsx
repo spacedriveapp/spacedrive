@@ -106,7 +106,9 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					position="top"
 					label={name}
 				>
-					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
+					<p className="w-fit max-w-[83%] truncate pl-1.5 font-plex font-semibold tracking-normal">
+						{name}
+					</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {
 					const filteredItems = item.filter((i) => i?.text);
