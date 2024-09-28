@@ -62,9 +62,9 @@ export default () => {
 			}
 		>
 			<div className="no-scrollbar block h-96 w-[430px] overflow-y-scroll pb-4">
-				<Setting mini title="Cloud Origin" description="Change the cloud origin to use">
+				{/* <Setting mini title="Cloud Origin" description="Change the cloud origin to use">
 					<CloudOriginSelect />
-				</Setting>
+				</Setting> */}
 
 				<Setting
 					mini
@@ -232,33 +232,33 @@ function InvalidateDebugPanel() {
 // 	);
 // }
 
-function CloudOriginSelect() {
-	const origin = useBridgeQuery(['cloud.getApiOrigin']);
-	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
+// function CloudOriginSelect() {
+// 	const origin = useBridgeQuery(['cloud.getApiOrigin']);
+// 	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
 
-	const queryClient = useQueryClient();
+// 	const queryClient = useQueryClient();
 
-	return (
-		<>
-			{origin.data && (
-				<Select
-					onChange={(v) =>
-						setOrigin.mutateAsync(v).then(() => {
-							auth.logout();
-							queryClient.invalidateQueries();
-						})
-					}
-					value={origin.data}
-				>
-					<SelectOption value="https://api.spacedrive.com">
-						https://api.spacedrive.com
-					</SelectOption>
-					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
-				</Select>
-			)}
-		</>
-	);
-}
+// 	return (
+// 		<>
+// 			{origin.data && (
+// 				<Select
+// 					onChange={(v) =>
+// 						setOrigin.mutateAsync(v).then(() => {
+// 							auth.logout();
+// 							queryClient.invalidateQueries();
+// 						})
+// 					}
+// 					value={origin.data}
+// 				>
+// 					<SelectOption value="https://api.spacedrive.com">
+// 						https://api.spacedrive.com
+// 					</SelectOption>
+// 					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
+// 				</Select>
+// 			)}
+// 		</>
+// 	);
+// }
 
 function ExplorerBehaviorSelect() {
 	const { explorerOperatingSystem } = useExplorerOperatingSystem();

@@ -43,219 +43,220 @@ export const Component = () => {
 	// 	return null;
 	// };
 
-	return <div className="flex size-full flex-col items-start p-4">{Authenticated()}</div>;
+	// return <div className="flex size-full flex-col items-start p-4">{Authenticated()}</div>;
+	return <></>;
 };
 
 // million-ignore
-function Authenticated() {
-	const { library } = useLibraryContext();
-	const cloudLibrary: any = useLibraryQuery(['cloud.library.get'], {
-		suspense: true,
-		retry: false
-	});
-	const getCloudDevice = useBridgeQuery(['cloud.devices.get'], {
-		suspense: true,
-		retry: false
-	});
-	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
-		suspense: true,
-		retry: false
-	});
-	console.log('[DEBUG] fetch cloud device:', getCloudDevice.data);
-	console.log('[DEBUG] cloudDevicesList', cloudDevicesList.data);
-	const createLibrary = useLibraryMutation(['cloud.library.create']);
-	const { t } = useLocale();
+// function Authenticated() {
+// 	const { library } = useLibraryContext();
+// 	const cloudLibrary: any = useLibraryQuery(['cloud.library.get'], {
+// 		suspense: true,
+// 		retry: false
+// 	});
+// 	const getCloudDevice = useBridgeQuery(['cloud.devices.get'], {
+// 		suspense: true,
+// 		retry: false
+// 	});
+// 	const cloudDevicesList = useBridgeQuery(['cloud.devices.list'], {
+// 		suspense: true,
+// 		retry: false
+// 	});
+// 	console.log('[DEBUG] fetch cloud device:', getCloudDevice.data);
+// 	console.log('[DEBUG] cloudDevicesList', cloudDevicesList.data);
+// 	const createLibrary = useLibraryMutation(['cloud.library.create']);
+// 	const { t } = useLocale();
 
-	const thisInstance = useMemo(() => {
-		if (!cloudLibrary.data) return undefined;
-		return cloudLibrary.data.instances.find(
-			(instance: any) => instance.uuid === library.instance_id
-		);
-	}, [cloudLibrary.data, library.instance_id]);
+// 	const thisInstance = useMemo(() => {
+// 		if (!cloudLibrary.data) return undefined;
+// 		return cloudLibrary.data.instances.find(
+// 			(instance: any) => instance.uuid === library.instance_id
+// 		);
+// 	}, [cloudLibrary.data, library.instance_id]);
 
-	return (
-		<Suspense
-			fallback={
-				<div className="flex size-full items-center justify-center">
-					<Loader />
-				</div>
-			}
-		>
-			{cloudLibrary.data ? (
-				<div className="flex flex-col items-start gap-10">
-					<Library thisInstance={thisInstance} cloudLibrary={cloudLibrary.data} />
-					{thisInstance && <ThisInstance instance={thisInstance} />}
-					<Instances instances={cloudLibrary.data.instances} />
-				</div>
-			) : (
-				<div className="relative flex size-full flex-col items-center justify-center">
-					<AuthRequiredOverlay />
-					<DataBox className="flex min-w-[400px] flex-col items-center gap-5 p-6">
-						<div className="flex flex-col items-center gap-2">
-							<Icon name="CloudSync" size={60} />
-							<p className="max-w-[60%] text-center text-sm text-ink">
-								{t('cloud_connect_description')}
-							</p>
-						</div>
-						<Button
-							className="h-8"
-							disabled={createLibrary.isLoading}
-							variant="accent"
-							onClick={() => {
-								createLibrary.mutateAsync(null);
-							}}
-						>
-							{createLibrary.isLoading ? (
-								<div className="flex h-4 flex-row items-center gap-2">
-									<Loader className="w-5" color="white" />
-									<p className="text-xs">{t('Connecting' + '...')}</p>
-								</div>
-							) : (
-								t('Connect')
-							)}
-						</Button>
-					</DataBox>
-				</div>
-			)}
-		</Suspense>
-	);
-}
+// 	return (
+// 		<Suspense
+// 			fallback={
+// 				<div className="flex size-full items-center justify-center">
+// 					<Loader />
+// 				</div>
+// 			}
+// 		>
+// 			{cloudLibrary.data ? (
+// 				<div className="flex flex-col items-start gap-10">
+// 					<Library thisInstance={thisInstance} cloudLibrary={cloudLibrary.data} />
+// 					{thisInstance && <ThisInstance instance={thisInstance} />}
+// 					<Instances instances={cloudLibrary.data.instances} />
+// 				</div>
+// 			) : (
+// 				<div className="relative flex size-full flex-col items-center justify-center">
+// 					<AuthRequiredOverlay />
+// 					<DataBox className="flex min-w-[400px] flex-col items-center gap-5 p-6">
+// 						<div className="flex flex-col items-center gap-2">
+// 							<Icon name="CloudSync" size={60} />
+// 							<p className="max-w-[60%] text-center text-sm text-ink">
+// 								{t('cloud_connect_description')}
+// 							</p>
+// 						</div>
+// 						<Button
+// 							className="h-8"
+// 							disabled={createLibrary.isLoading}
+// 							variant="accent"
+// 							onClick={() => {
+// 								createLibrary.mutateAsync(null);
+// 							}}
+// 						>
+// 							{createLibrary.isLoading ? (
+// 								<div className="flex h-4 flex-row items-center gap-2">
+// 									<Loader className="w-5" color="white" />
+// 									<p className="text-xs">{t('Connecting' + '...')}</p>
+// 								</div>
+// 							) : (
+// 								t('Connect')
+// 							)}
+// 						</Button>
+// 					</DataBox>
+// 				</div>
+// 			)}
+// 		</Suspense>
+// 	);
+// }
 
-// million-ignore
-const Instances = ({ instances }: { instances: any[] }) => {
-	const { library } = useLibraryContext();
-	const filteredInstances = instances.filter((instance) => instance.uuid !== library.instance_id);
-	return (
-		<div className="flex flex-col gap-3">
-			<div className="flex flex-row items-center gap-3">
-				<p className="text-medium font-bold">Instances</p>
-				<Count>{filteredInstances.length}</Count>
-			</div>
-			<div className="flex flex-row flex-wrap gap-2">
-				{filteredInstances.map((instance) => (
-					<Card
-						key={instance.id}
-						className="flex-col items-center gap-4 bg-app-box/50 !p-5"
-					>
-						<div className="flex flex-col items-center gap-2">
-							<Icon
-								name={
-									hardwareModelToIcon(
-										instance.metadata.device_model as HardwareModel
-									) as any
-								}
-								size={70}
-							/>
-							<p className="max-w-[250px] truncate text-xs font-medium">
-								{instance.metadata.name}
-							</p>
-						</div>
-						<div className="flex flex-col gap-1.5">
-							<DataBox>
-								<p className="truncate text-xs font-medium">
-									Id:{' '}
-									<span className="font-normal text-ink-dull">{instance.id}</span>
-								</p>
-							</DataBox>
-							<DataBox>
-								<p className="truncate text-xs font-medium">
-									UUID:{' '}
-									<span className="font-normal text-ink-dull">
-										{instance.uuid}
-									</span>
-								</p>
-							</DataBox>
-							<DataBox>
-								<p className="truncate text-xs font-medium">
-									Public Key:{' '}
-									<span className="font-normal text-ink-dull">
-										{instance.identity}
-									</span>
-								</p>
-							</DataBox>
-						</div>
-					</Card>
-				))}
-			</div>
-		</div>
-	);
-};
+// // million-ignore
+// const Instances = ({ instances }: { instances: any[] }) => {
+// 	const { library } = useLibraryContext();
+// 	const filteredInstances = instances.filter((instance) => instance.uuid !== library.instance_id);
+// 	return (
+// 		<div className="flex flex-col gap-3">
+// 			<div className="flex flex-row items-center gap-3">
+// 				<p className="text-medium font-bold">Instances</p>
+// 				<Count>{filteredInstances.length}</Count>
+// 			</div>
+// 			<div className="flex flex-row flex-wrap gap-2">
+// 				{filteredInstances.map((instance) => (
+// 					<Card
+// 						key={instance.id}
+// 						className="flex-col items-center gap-4 bg-app-box/50 !p-5"
+// 					>
+// 						<div className="flex flex-col items-center gap-2">
+// 							<Icon
+// 								name={
+// 									hardwareModelToIcon(
+// 										instance.metadata.device_model as HardwareModel
+// 									) as any
+// 								}
+// 								size={70}
+// 							/>
+// 							<p className="max-w-[250px] truncate text-xs font-medium">
+// 								{instance.metadata.name}
+// 							</p>
+// 						</div>
+// 						<div className="flex flex-col gap-1.5">
+// 							<DataBox>
+// 								<p className="truncate text-xs font-medium">
+// 									Id:{' '}
+// 									<span className="font-normal text-ink-dull">{instance.id}</span>
+// 								</p>
+// 							</DataBox>
+// 							<DataBox>
+// 								<p className="truncate text-xs font-medium">
+// 									UUID:{' '}
+// 									<span className="font-normal text-ink-dull">
+// 										{instance.uuid}
+// 									</span>
+// 								</p>
+// 							</DataBox>
+// 							<DataBox>
+// 								<p className="truncate text-xs font-medium">
+// 									Public Key:{' '}
+// 									<span className="font-normal text-ink-dull">
+// 										{instance.identity}
+// 									</span>
+// 								</p>
+// 							</DataBox>
+// 						</div>
+// 					</Card>
+// 				))}
+// 			</div>
+// 		</div>
+// 	);
+// };
 
-interface LibraryProps {
-	cloudLibrary: any;
-	thisInstance: any | undefined;
-}
+// interface LibraryProps {
+// 	cloudLibrary: any;
+// 	thisInstance: any | undefined;
+// }
 
-// million-ignore
-const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
-	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
-	return (
-		<div className="flex flex-col gap-3">
-			<p className="text-medium font-bold">Library</p>
-			<Card className="flex-row items-center gap-6 !px-2">
-				<p className="font-medium">
-					Name: <span className="font-normal text-ink-dull">{cloudLibrary.name}</span>
-				</p>
-				<Button
-					disabled={syncLibrary.isLoading || thisInstance !== undefined}
-					variant={thisInstance === undefined ? 'accent' : 'gray'}
-					className="flex flex-row items-center gap-1 !text-ink"
-					onClick={() => syncLibrary.mutateAsync(null)}
-				>
-					{thisInstance === undefined ? (
-						<XCircle weight="fill" size={15} className="text-red-400" />
-					) : (
-						<CheckCircle weight="fill" size={15} className="text-green-400" />
-					)}
-					{thisInstance === undefined ? 'Sync Library' : 'Library synced'}
-				</Button>
-			</Card>
-		</div>
-	);
-};
+// // million-ignore
+// const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
+// 	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
+// 	return (
+// 		<div className="flex flex-col gap-3">
+// 			<p className="text-medium font-bold">Library</p>
+// 			<Card className="flex-row items-center gap-6 !px-2">
+// 				<p className="font-medium">
+// 					Name: <span className="font-normal text-ink-dull">{cloudLibrary.name}</span>
+// 				</p>
+// 				<Button
+// 					disabled={syncLibrary.isLoading || thisInstance !== undefined}
+// 					variant={thisInstance === undefined ? 'accent' : 'gray'}
+// 					className="flex flex-row items-center gap-1 !text-ink"
+// 					onClick={() => syncLibrary.mutateAsync(null)}
+// 				>
+// 					{thisInstance === undefined ? (
+// 						<XCircle weight="fill" size={15} className="text-red-400" />
+// 					) : (
+// 						<CheckCircle weight="fill" size={15} className="text-green-400" />
+// 					)}
+// 					{thisInstance === undefined ? 'Sync Library' : 'Library synced'}
+// 				</Button>
+// 			</Card>
+// 		</div>
+// 	);
+// };
 
-interface ThisInstanceProps {
-	instance: any;
-}
+// interface ThisInstanceProps {
+// 	instance: any;
+// }
 
-// million-ignore
-const ThisInstance = ({ instance }: ThisInstanceProps) => {
-	return (
-		<div className="flex flex-col gap-3">
-			<p className="text-medium font-bold">This Instance</p>
-			<Card className="flex-col items-center gap-4 bg-app-box/50 !p-5">
-				<div className="flex flex-col items-center gap-2">
-					<Icon
-						name={
-							hardwareModelToIcon(
-								instance.metadata.device_model as HardwareModel
-							) as any
-						}
-						size={70}
-					/>
-					<p className="max-w-[160px] truncate text-xs font-medium">
-						{instance.metadata.name}
-					</p>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<DataBox>
-						<p className="truncate text-xs font-medium">
-							Id: <span className="font-normal text-ink-dull">{instance.id}</span>
-						</p>
-					</DataBox>
-					<DataBox>
-						<p className="truncate text-xs font-medium">
-							UUID: <span className="font-normal text-ink-dull">{instance.uuid}</span>
-						</p>
-					</DataBox>
-					<DataBox>
-						<p className="truncate text-xs font-medium">
-							Public Key:{' '}
-							<span className="font-normal text-ink-dull">{instance.identity}</span>
-						</p>
-					</DataBox>
-				</div>
-			</Card>
-		</div>
-	);
-};
+// // million-ignore
+// const ThisInstance = ({ instance }: ThisInstanceProps) => {
+// 	return (
+// 		<div className="flex flex-col gap-3">
+// 			<p className="text-medium font-bold">This Instance</p>
+// 			<Card className="flex-col items-center gap-4 bg-app-box/50 !p-5">
+// 				<div className="flex flex-col items-center gap-2">
+// 					<Icon
+// 						name={
+// 							hardwareModelToIcon(
+// 								instance.metadata.device_model as HardwareModel
+// 							) as any
+// 						}
+// 						size={70}
+// 					/>
+// 					<p className="max-w-[160px] truncate text-xs font-medium">
+// 						{instance.metadata.name}
+// 					</p>
+// 				</div>
+// 				<div className="flex flex-col gap-1.5">
+// 					<DataBox>
+// 						<p className="truncate text-xs font-medium">
+// 							Id: <span className="font-normal text-ink-dull">{instance.id}</span>
+// 						</p>
+// 					</DataBox>
+// 					<DataBox>
+// 						<p className="truncate text-xs font-medium">
+// 							UUID: <span className="font-normal text-ink-dull">{instance.uuid}</span>
+// 						</p>
+// 					</DataBox>
+// 					<DataBox>
+// 						<p className="truncate text-xs font-medium">
+// 							Public Key:{' '}
+// 							<span className="font-normal text-ink-dull">{instance.identity}</span>
+// 						</p>
+// 					</DataBox>
+// 				</div>
+// 			</Card>
+// 		</div>
+// 	);
+// };

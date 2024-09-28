@@ -38,7 +38,6 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			access_token: accessToken.trim(),
 			pub_id: '0192123b-5d01-7341-aa9d-4a08571052ee',
 			with_library: true,
 			with_devices: true,
@@ -46,7 +45,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 		}
 	]);
 	// console.log(getGroup.data);
-	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device', accessToken.trim()]);
+	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
 	// console.log('Current Device: ', currentDevice.data);
 	const createSyncGroup = useLibraryMutation('cloud.syncGroups.create');
 
@@ -111,7 +110,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				</Button>
 				<Button
 					onPress={async () => {
-						createSyncGroup.mutate(accessToken.trim());
+						createSyncGroup.mutate(null);
 					}}
 				>
 					<Text style={tw`text-ink`}>Create Sync Group</Text>
@@ -122,7 +121,6 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 						console.log('Current Device: ', currentDevice.data);
 						console.log('Get Group: ', getGroup.data);
 						requestJoinSyncGroup.mutate({
-							access_token: accessToken.trim(),
 							sync_group: getGroup.data! as unknown as SyncGroupWithLibraryAndDevices,
 							asking_device: currentDevice.data!
 						});

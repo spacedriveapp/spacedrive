@@ -21,6 +21,7 @@ import '@sd/ui/style/style.scss';
 import { fetch } from '@tauri-apps/plugin-http';
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
+import Passwordless from 'supertokens-web-js/recipe/passwordless';
 import Session from 'supertokens-web-js/recipe/session';
 import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 // TODO: Bring this back once upstream is fixed up.
@@ -54,7 +55,8 @@ SuperTokens.init({
 	recipeList: [
 		Session.init({ tokenTransferMethod: 'header' }),
 		EmailPassword.init(),
-		ThirdParty.init()
+		ThirdParty.init(),
+		Passwordless.init()
 	]
 });
 
@@ -63,9 +65,10 @@ const startupError = (window as any).__SD_ERROR__ as string | undefined;
 export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
-		commands.appReady().then(() => {
-			if (import.meta.env.PROD) window.fetch = fetch;
-		});
+		commands.appReady();
+		// .then(() => {
+		// 	if (import.meta.env.PROD) window.fetch = fetch;
+		// });
 	}, []);
 
 	useEffect(() => {

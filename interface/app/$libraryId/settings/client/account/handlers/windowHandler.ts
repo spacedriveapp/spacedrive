@@ -1,4 +1,3 @@
-import { useSearchParams } from 'react-router-dom';
 import { WindowHandlerInterface } from 'supertokens-website/utils/windowHandler/types';
 
 /**
@@ -13,54 +12,16 @@ export default function getWindowHandler(original: WindowHandlerInterface): Wind
 		location: {
 			...original.location,
 			getSearch: function () {
-				// First try with react-router-dom's useUrlSearchParams
-				// eslint-disable-next-line no-restricted-syntax
-
 				const params: URLSearchParams | string =
 					(window.location as any).__TEMP_URL_PARAMS ?? '';
+				console.log('params', params);
 				return params.toString();
-				// const firstQuestionMarkIndex = currentURL.indexOf('?');
-
-				// if (firstQuestionMarkIndex !== -1) {
-				// 	// Return the query string from the url
-				// 	let queryString = currentURL.substring(firstQuestionMarkIndex);
-
-				// 	// Remove any hash
-				// 	if (queryString.includes('#')) {
-				// 		queryString = queryString.split('#')[0] ?? '';
-				// 	}
-
-				// 	// Return the query string from the url
-				// }
-
-				return '';
 			},
 			getHash: function () {
 				// Location hash always starts with a #, when returning we prepend it
-				let locationHash = window.location.hash;
-
-				if (locationHash === '') {
-					return '#';
-				}
-
-				if (locationHash.startsWith('#')) {
-					// Remove the starting pound symbol
-					locationHash = locationHash.substring(1);
-				}
-
-				if (!locationHash.includes('#')) {
-					// The remaining string did not have any "#" character
-					return '#';
-				}
-
-				const locationSplit = locationHash.split('#');
-
-				if (locationSplit.length < 2) {
-					// The string contains a "#" but is followed by nothing
-					return '#';
-				}
-
-				return '#' + locationSplit[1];
+				const locationHash: string = (window.location as any).__TEMP_URL_HASH ?? '';
+				console.log('locationHash', locationHash);
+				return locationHash;
 			},
 			getOrigin: function () {
 				return 'http://localhost:8001';

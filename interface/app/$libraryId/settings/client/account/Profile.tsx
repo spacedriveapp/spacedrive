@@ -12,6 +12,7 @@ import {
 import { Button, Card, tw } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
+import { getTokens } from '~/util';
 import { hardwareModelToIcon } from '~/util/hardware';
 
 type User = {
@@ -32,34 +33,19 @@ const Profile = ({
 }) => {
 	const emailName = user.email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
-	const refreshToken: string =
-		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
-			.find((cookie: string) => cookie.startsWith('st-refresh-token'))
-			?.split('=')[1]
-			.split(';')[0] || '';
-	const accessToken: string =
-		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
-			.find((cookie: string) => cookie.startsWith('st-access-token'))
-			?.split('=')[1]
-			.split(';')[0] || '';
+	const { accessToken, refreshToken } = getTokens();
+	console.log(accessToken);
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
-	const devices = useBridgeQuery(['cloud.devices.list', { access_token: accessToken.trim() }]);
+	const devices = useBridgeQuery(['cloud.devices.list']);
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
-	const listLibraries = useBridgeQuery([
-		'cloud.libraries.list',
-		{ access_token: accessToken.trim(), with_device: true }
-	]);
+	const listLibraries = useBridgeQuery(['cloud.libraries.list', true]);
 	const createSyncGroup = useLibraryMutation('cloud.syncGroups.create');
-	const listSyncGroups = useBridgeQuery([
-		'cloud.syncGroups.list',
-		{ access_token: accessToken.trim(), with_library: true }
-	]);
+	const listSyncGroups = useBridgeQuery(['cloud.syncGroups.list', true]);
 	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			access_token: accessToken.trim(),
 			pub_id: '0192123b-5d01-7341-aa9d-4a08571052ee',
 			with_library: true,
 			with_devices: true,
@@ -67,7 +53,7 @@ const Profile = ({
 		}
 	]);
 	console.log(getGroup.data);
-	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device', accessToken.trim()]);
+	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
 	console.log('Current Device: ', currentDevice.data);
 
 	// Refetch every 10 seconds
@@ -137,10 +123,7 @@ const Profile = ({
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					cloudDeleteDevice.mutate({
-						access_token: accessToken.trim(),
-						pub_id: '01920812-9bd2-7781-aee5-e19a01497296'
-					});
+					cloudDeleteDevice.mutate('01920812-9bd2-7781-aee5-e19a01497296');
 				}}
 			>
 				Delete Device
@@ -148,7 +131,7 @@ const Profile = ({
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					addLibraryToCloud.mutate(accessToken.trim());
+					addLibraryToCloud.mutate(null);
 				}}
 			>
 				Add Library to Cloud
@@ -166,7 +149,7 @@ const Profile = ({
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					createSyncGroup.mutate(accessToken.trim());
+					createSyncGroup.mutate(null);
 				}}
 			>
 				Create Sync Group
@@ -184,7 +167,6 @@ const Profile = ({
 				className="mt-4 w-full"
 				onClick={async () => {
 					requestJoinSyncGroup.mutate({
-						access_token: accessToken.trim(),
 						sync_group: getGroup.data! as unknown as SyncGroupWithLibraryAndDevices,
 						asking_device: currentDevice.data!
 					});

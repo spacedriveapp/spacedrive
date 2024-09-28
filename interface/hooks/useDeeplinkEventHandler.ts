@@ -12,11 +12,21 @@ export const useDeeplinkEventHandler = () => {
 			if (!url) return;
 			// If the URL has search params, we need to navigate to the URL with the search params
 			const [path, search] = url.split('?');
-			if (search) {
-				navigate({ pathname: path, search });
-			} else {
-				navigate(url);
-			}
+			// If hash is present, we need to split it from the search params, and remove it from the search value
+			const [searchParams, hash] = search ? search.split('#') : ['', ''];
+			const searchParamsObj = new URLSearchParams(searchParams);
+			const searchParamsString = searchParamsObj.toString();
+			console.log('Navigating to', {
+				path, searchParamsString, hash
+			});
+
+			navigate({ pathname: path, search: searchParamsString, hash });
+
+			// if (search) {
+			// 	navigate({ pathname: path, search, hash });
+			// } else {
+			// 	navigate(url);
+			// }
 		};
 
 		document.addEventListener('deeplink', handler);
