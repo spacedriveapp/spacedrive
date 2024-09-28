@@ -3,8 +3,7 @@ import { t } from 'i18next';
 import { Dispatch, SetStateAction, useEffect } from 'react';
 import { signOut } from 'supertokens-web-js/recipe/session';
 import {
-	SyncGroup,
-	SyncGroupWithLibraryAndDevices,
+	CloudSyncGroupWithLibraryAndDevices,
 	useBridgeMutation,
 	useBridgeQuery,
 	useLibraryMutation
@@ -34,7 +33,7 @@ const Profile = ({
 	const emailName = user.email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
 	const { accessToken, refreshToken } = getTokens();
-	console.log(accessToken);
+	// console.log(accessToken);
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
 	const devices = useBridgeQuery(['cloud.devices.list']);
@@ -46,15 +45,14 @@ const Profile = ({
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			pub_id: '0192123b-5d01-7341-aa9d-4a08571052ee',
+			pub_id: '019237a1-586c-7651-afd3-525047b02375',
 			with_library: true,
 			with_devices: true,
 			with_used_storage: true
 		}
 	]);
-	console.log(getGroup.data);
 	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
-	console.log('Current Device: ', currentDevice.data);
+	// console.log('Current Device: ', currentDevice.data);
 
 	// Refetch every 10 seconds
 	useEffect(() => {
@@ -123,14 +121,6 @@ const Profile = ({
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					cloudDeleteDevice.mutate('01920812-9bd2-7781-aee5-e19a01497296');
-				}}
-			>
-				Delete Device
-			</Button>
-			<Button
-				className="mt-4 w-full"
-				onClick={async () => {
 					addLibraryToCloud.mutate(null);
 				}}
 			>
@@ -167,7 +157,8 @@ const Profile = ({
 				className="mt-4 w-full"
 				onClick={async () => {
 					requestJoinSyncGroup.mutate({
-						sync_group: getGroup.data! as unknown as SyncGroupWithLibraryAndDevices,
+						sync_group:
+							getGroup.data! as unknown as CloudSyncGroupWithLibraryAndDevices,
 						asking_device: currentDevice.data!
 					});
 				}}

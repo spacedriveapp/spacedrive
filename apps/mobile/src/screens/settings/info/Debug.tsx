@@ -2,8 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { Text, View } from 'react-native';
 import {
-	SyncGroupWithLibraryAndDevices,
-	toggleFeatureFlag,
+	CloudSyncGroupWithLibraryAndDevices,
 	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
@@ -34,11 +33,12 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	}, []);
 
 	const cloudBootstrap = useBridgeMutation(['cloud.bootstrap']);
+	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
 	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			pub_id: '0192123b-5d01-7341-aa9d-4a08571052ee',
+			pub_id: '0192376a-19ff-73a0-98ac-c4fa4043d401',
 			with_library: true,
 			with_devices: true,
 			with_used_storage: true
@@ -110,6 +110,13 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				</Button>
 				<Button
 					onPress={async () => {
+						addLibraryToCloud.mutate(null);
+					}}
+				>
+					<Text style={tw`text-ink`}>Add Library to Cloud</Text>
+				</Button>
+				<Button
+					onPress={async () => {
 						createSyncGroup.mutate(null);
 					}}
 				>
@@ -121,7 +128,8 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 						console.log('Current Device: ', currentDevice.data);
 						console.log('Get Group: ', getGroup.data);
 						requestJoinSyncGroup.mutate({
-							sync_group: getGroup.data! as unknown as SyncGroupWithLibraryAndDevices,
+							sync_group:
+								getGroup.data! as unknown as CloudSyncGroupWithLibraryAndDevices,
 							asking_device: currentDevice.data!
 						});
 					}}

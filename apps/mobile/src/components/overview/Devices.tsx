@@ -53,7 +53,7 @@ const Devices = ({ node, stats }: Props) => {
 		})();
 	}, []);
 
-	const devices = useBridgeQuery(['cloud.devices.list', { access_token: accessToken.trim() }]);
+	const devices = useBridgeQuery(['cloud.devices.list']);
 
 	// Refetch devices every 10 seconds
 	useEffect(() => {
