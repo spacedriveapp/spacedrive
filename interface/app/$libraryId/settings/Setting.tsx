@@ -15,7 +15,7 @@ interface Props {
 	infoUrl?: string;
 }
 
-export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
+export default function Setting({ mini, registerName, ...props }: PropsWithChildren<Props>) {
 	const platform = usePlatform();
 
 	if (typeof props.description === 'string')
@@ -48,4 +48,4 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 			) : null}
 		</>
 	);
-};
+}
