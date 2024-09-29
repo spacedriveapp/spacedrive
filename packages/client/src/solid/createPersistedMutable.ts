@@ -4,6 +4,17 @@ import { type StoreNode } from 'solid-js/store';
 
 type CreatePersistedMutableOpts<T> = {
 	onSave?: (value: T) => T;
+	/**
+	 * This function is always called after the data object's retrieval from localStorage and it getting assigned to the store.
+	 *
+	 * Originally intended for mutations, but can be used for other things if you have a reason to transform the data.
+	 *
+	 *
+	 * @note This is **not** called on initial load from default values.
+	 * @param value The existing data object from localStorage (or default)
+	 * @returns The new data object
+	 */
+	onLoad?: (value: T) => T;
 };
 
 // `@solid-primitives/storage`'s `makePersisted` doesn't support `solid-js/store`'s `createMutable` so we roll our own.
@@ -16,7 +27,13 @@ export function createPersistedMutable<T extends StoreNode>(
 		const value = localStorage.getItem(key);
 		if (value) {
 			const persisted = JSON.parse(value);
-			Object.assign(mutable, persisted);
+			Object.assign(
+				mutable,
+				// if we have a function to use to transform data on load, use its return value
+				opts?.onLoad?.(persisted) ??
+					// otherwise just use the data from localStorage as is
+					persisted
+			);
 		}
 	} catch (err) {
 		console.error(`Error loading persisted state from localStorage key '${key}': ${err}`);
