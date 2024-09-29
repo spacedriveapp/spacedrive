@@ -188,12 +188,13 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			? // if telemetry override is on, always send. we never use this and probably never should.
 				// this should be discussed soon (if I don't forget™) and removed if we agree. ~ilynxcat
 				event.plausibleOptions.telemetryOverride !== true
-			: props.shareFullTelemetry !== true && event.type !== 'ping'
+			: // if the user's telemetry preference is not "full", we we should only send pings
+				props.shareFullTelemetry !== true && event.type !== 'ping'
 	)
 		return;
 
 	// using a singleton this way instead of instantiating at file eval (first time it's imported)
-	// because a user having "none" teleemtry preference should mean plausible's code never ever runs
+	// because a user having "none" teleemtry preference should mean Plausible never even initalizes
 	plausibleInstance ??= Plausible({
 		trackLocalhost: true,
 		domain: DOMAIN
