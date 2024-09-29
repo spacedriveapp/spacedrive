@@ -119,18 +119,10 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			struct CloudUpdateDeviceArgs {
 				pub_id: devices::PubId,
 				name: String,
-				storage_size: u64,
-				used_storage: u64,
 			}
 
 			R.mutation(
-				|node,
-				 CloudUpdateDeviceArgs {
-				     pub_id,
-				     name,
-				     storage_size,
-				     used_storage,
-				 }: CloudUpdateDeviceArgs| async move {
+				|node, CloudUpdateDeviceArgs { pub_id, name }: CloudUpdateDeviceArgs| async move {
 					use devices::update::Request;
 
 					let (client, access_token) = super::get_client_and_access_token(&node).await?;
@@ -142,8 +134,6 @@ pub fn mount() -> AlphaRouter<Ctx> {
 								access_token,
 								pub_id,
 								name,
-								storage_size,
-								used_storage,
 							})
 							.await,
 						"Failed to update device;",
@@ -197,19 +187,21 @@ pub async fn hello(
 		));
 	};
 
-	let credential_response =
-		match super::handle_comm_error(res, "Communication error on device hello response;")? {
-			Ok(Response(State::LoginResponse(credential_response))) => credential_response,
+	let credential_response = match super::handle_comm_error(
+		res,
+		"Communication error on device hello response;",
+	)? {
+		Ok(Response(State::LoginResponse(credential_response))) => credential_response,
 
-			Ok(Response(State::End)) => {
-				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
-			}
+		Ok(Response(State::End)) => {
+			unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
+		}
 
-			Err(e) => {
-				error!(?e, "Device hello response error;");
-				return Err(e.into());
-			}
-		};
+		Err(e) => {
+			error!(?e, "Device hello response error;");
+			return Err(e.into());
+		}
+	};
 
 	let ClientLoginFinishResult {
 		message,
@@ -273,8 +265,6 @@ pub struct DeviceRegisterData {
 	pub name: String,
 	pub os: DeviceOS,
 	pub hardware_model: HardwareModel,
-	pub storage_size: u64,
-	pub used_storage: u64,
 	pub connection_id: NodeId,
 }
 
@@ -286,8 +276,6 @@ pub async fn register(
 		name,
 		os,
 		hardware_model,
-		storage_size,
-		used_storage,
 		connection_id,
 	}: DeviceRegisterData,
 	hashed_pub_id: Hash,
@@ -316,11 +304,9 @@ pub async fn register(
 				pub_id,
 				name,
 				os,
-				storage_size,
+				hardware_model,
 				connection_id,
 				opaque_register_message: Box::new(message),
-				hardware_model,
-				used_storage,
 			})
 			.await,
 		"Failed to send device register request;",
@@ -335,19 +321,21 @@ pub async fn register(
 		));
 	};
 
-	let registration_response =
-		match super::handle_comm_error(res, "Communication error on device register response;")? {
-			Ok(Response(State::RegistrationResponse(res))) => res,
+	let registration_response = match super::handle_comm_error(
+		res,
+		"Communication error on device register response;",
+	)? {
+		Ok(Response(State::RegistrationResponse(res))) => res,
 
-			Ok(Response(State::End)) => {
-				unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
-			}
+		Ok(Response(State::End)) => {
+			unreachable!("Device hello response MUST not be End here, this is a serious bug and should crash;");
+		}
 
-			Err(e) => {
-				error!(?e, "Device hello response error;");
-				return Err(e.into());
-			}
-		};
+		Err(e) => {
+			error!(?e, "Device hello response error;");
+			return Err(e.into());
+		}
+	};
 
 	let ClientRegistrationFinishResult {
 		message,
