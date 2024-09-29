@@ -752,7 +752,8 @@ async fn create_location(
 		.location()
 		.count(vec![location::path::equals(Some(path.clone()))])
 		.exec()
-		.await? > 0
+		.await?
+		> 0
 	{
 		return Err(LocationError::LocationAlreadyExists(location_path.into()));
 	}

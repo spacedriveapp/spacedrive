@@ -61,12 +61,15 @@ pub const fn can_extract_for_audio(audio_extension: AudioExtension) -> bool {
 	matches!(
 		audio_extension,
 		Mp3 | Mp2
-			| M4a | Wav | Aiff
-			| Aif | Flac | Ogg
-			| Oga | Opus | Wma
-			| Amr | Aac | Wv
-			| Voc | Tta | Loas
-			| Caf | Aptx | Adts
+			| M4a | Wav
+			| Aiff | Aif
+			| Flac | Ogg
+			| Oga | Opus
+			| Wma | Amr
+			| Aac | Wv
+			| Voc | Tta
+			| Loas | Caf
+			| Aptx | Adts
 			| Ast | Mid
 	)
 }
@@ -81,15 +84,18 @@ pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 	matches!(
 		video_extension,
 		Avi | Avifs
-			| Qt | Mov | Swf
-			| Mjpeg | Mpeg
-			| Mxf | M2v | Mpg
-			| Mpe | M2ts | Flv
-			| Wm | _3gp | M4v
-			| Wmv | Asf | Mp4
-			| Webm | Mkv | Vob
-			| Ogv | Wtv | Hevc
-			| F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
+			| Qt | Mov
+			| Swf | Mjpeg
+			| Mpeg | Mxf
+			| M2v | Mpg
+			| Mpe | M2ts
+			| Flv | Wm
+			| _3gp | M4v
+			| Wmv | Asf
+			| Mp4 | Webm
+			| Mkv | Vob
+			| Ogv | Wtv
+			| Hevc | F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
 	)
 }
 

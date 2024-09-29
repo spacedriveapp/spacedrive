@@ -284,7 +284,7 @@ impl Manager {
 		device_pub_id: &'a DevicePubId,
 		chunk_size: u32,
 		initial_timestamp: NTP64,
-	) -> impl Stream<Item = Result<Vec<CRDTOperation>, Error>> + Send + '_ {
+	) -> impl Stream<Item = Result<Vec<CRDTOperation>, Error>> + Send + 'a {
 		stream! {
 			let mut current_initial_timestamp = initial_timestamp;
 
