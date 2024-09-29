@@ -418,8 +418,10 @@ impl JobStatus {
 		matches!(
 			self,
 			Self::Completed
-				| Self::Canceled | Self::Paused
-				| Self::Failed | Self::CompletedWithErrors
+				| Self::Canceled
+				| Self::Paused
+				| Self::Failed
+				| Self::CompletedWithErrors
 		)
 	}
 }
