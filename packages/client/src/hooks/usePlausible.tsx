@@ -204,8 +204,9 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		props: {
 			platform: props.platformType,
 			fullTelemetry: props.shareFullTelemetry,
-			coreVersion: props.buildInfo?.version ?? '0.1.0', // TODO(brxken128): clean this up
-			commitHash: props.buildInfo?.commit ?? '0.1.0',
+			// we used to fall back to '0.1.0' here, but we should never report an actual version number if we don't know
+			coreVersion: props.buildInfo?.version ?? 'unknown',
+			commitHash: props.buildInfo?.commit ?? 'unknown',
 			debug: debugState.enabled
 		},
 		options: {
