@@ -172,6 +172,8 @@ interface SubmitEventProps {
  * * If the app is in debug/development mode
  * * If a telemetry override is present, but it is not true
  * * If no telemetry override is present, and telemetry sharing is not true
+ * * If the user's telemetry preference is not "full", we will only send pings
+ * * If the user's telemetry preference is "none", we will never send any telemetry
  *
  * @privateRemarks
  * Telemetry sharing settings are never matched to `=== false`, but to `!== true` instead.
@@ -188,7 +190,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			? // if telemetry override is on, always send. we never use this and probably never should.
 				// this should be discussed soon (if I don't forget™) and removed if we agree. ~ilynxcat
 				event.plausibleOptions.telemetryOverride !== true
-			: // if the user's telemetry preference is not "full", we we should only send pings
+			: // if the user's telemetry preference is not "full", we should only send pings
 				props.shareFullTelemetry !== true && event.type !== 'ping'
 	)
 		return;
@@ -197,7 +199,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 	// because a user having "none" teleemtry preference should mean Plausible never even initalizes
 	plausibleInstance ??= Plausible({
 		trackLocalhost: true,
-		domain: DOMAIN
+		domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN
 	});
 
 	const fullEvent: PlausibleTrackerEvent = {
@@ -211,9 +213,10 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			debug: debugState.enabled
 		},
 		options: {
-			domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN,
 			deviceWidth: props.screenWidth ?? window.screen.width,
 			referrer: '',
+			// by default do not track current URL, if it's provided in plausibleOptions, that will be sent
+			url: '',
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
 		},
 		callback: debugState.telemetryLogging
@@ -281,12 +284,10 @@ interface EventSubmissionCallbackProps {
 export const usePlausibleEvent = (): ((props: EventSubmissionCallbackProps) => Promise<void>) => {
 	const telemetryState = useTelemetryState();
 
-	if (telemetryState.telemetryLevelPreference === 'none') return async (...args: any[]) => {};
-
 	const debugState = useDebugState();
 	const previousEvent = useRef({} as BasePlausibleEvent<string>);
 
-	return useCallback(
+	const sendPlausibleEvent = useCallback(
 		async (props: EventSubmissionCallbackProps) => {
 			if (previousEvent.current === props.event) return;
 			else previousEvent.current = props.event;
@@ -301,6 +302,10 @@ export const usePlausibleEvent = (): ((props: EventSubmissionCallbackProps) => P
 		},
 		[debugState, telemetryState]
 	);
+
+	if (telemetryState.telemetryLevelPreference === 'none') return async (...args: any[]) => {};
+
+	return sendPlausibleEvent;
 };
 
 export interface PlausibleMonitorProps {
