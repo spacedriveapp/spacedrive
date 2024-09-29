@@ -59,22 +59,26 @@ const PrivacyScreen = () => {
 					control={form.control}
 					render={({ field: { onChange, value } }) => (
 						<>
-							<Pressable onPress={() => onChange('share-telemetry')}>
+							<Pressable onPress={() => onChange('full')}>
 								<RadioButton
 									title="Share anonymous usage"
 									description="Share completely anonymous telemetry data to help the developers improve the app"
-									isSelected={value === 'share-telemetry'}
+									isSelected={value === 'full'}
 									style={tw`mb-3 mt-4`}
 								/>
 							</Pressable>
-							<Pressable
-								testID="share-minimal"
-								onPress={() => onChange('minimal-telemetry')}
-							>
+							<Pressable testID="share-minimal" onPress={() => onChange('minimal')}>
 								<RadioButton
 									title="Share the bare minimum"
 									description="Only share that I am an active user of Spacedrive and a few technical bits"
-									isSelected={value === 'minimal-telemetry'}
+									isSelected={value === 'minimal'}
+								/>
+							</Pressable>
+							<Pressable testID="share-none" onPress={() => onChange('none')}>
+								<RadioButton
+									title="Don't share anything"
+									description="TODO: Write a proper description clarifying that this literally sends us no analytics data"
+									isSelected={value === 'none'}
 								/>
 							</Pressable>
 						</>

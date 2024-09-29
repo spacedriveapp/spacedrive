@@ -43,12 +43,12 @@ export const shareTelemetry = RadioGroupField.options([
 	z.literal('none')
 ]).details({
 	full: {
-		heading: i18n.t('share_anonymous_usage'),
-		description: i18n.t('share_anonymous_usage_description')
+		heading: i18n.t('telemetry_share_anonymous'),
+		description: i18n.t('telemetry_share_anonymous_description')
 	},
 	minimal: {
-		heading: i18n.t('share_bare_minimum'),
-		description: i18n.t('share_bare_minimum_description')
+		heading: i18n.t('telemetry_share_minimal'),
+		description: i18n.t('telemetry_share_minimal_description')
 	},
 	none: {
 		heading: i18n.t('telemetry_share_none'),
