@@ -18,7 +18,7 @@ const AddDeviceDialog = ({ node, ...dialogProps }: Props) => {
 			dialog={useDialog(dialogProps)}
 			form={form}
 			title={t('add_device')}
-			description={t('Add Device Description')}
+			description={t('add_device_description')}
 			icon={
 				<Icon name={hardwareModelToIcon(node?.device_model as HardwareModel)} size={28} />
 			}
