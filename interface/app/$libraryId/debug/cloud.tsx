@@ -96,10 +96,10 @@ function Authenticated() {
 							{createLibrary.isLoading ? (
 								<div className="flex h-4 flex-row items-center gap-2">
 									<Loader className="w-5" color="white" />
-									<p className="text-xs">{t('Connecting' + '...')}</p>
+									<p className="text-xs">{t('connecting' + '...')}</p>
 								</div>
 							) : (
-								t('Connect')
+								t('connect')
 							)}
 						</Button>
 					</DataBox>
