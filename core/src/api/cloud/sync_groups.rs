@@ -111,41 +111,31 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			#[derive(Deserialize, specta::Type)]
 			struct CloudGetSyncGroupArgs {
 				pub pub_id: groups::PubId,
-				pub with_library: bool,
-				pub with_devices: bool,
-				pub with_used_storage: bool,
+				pub kind: groups::get::RequestKind,
 			}
 
 			R.query(
-				|node,
-				 CloudGetSyncGroupArgs {
-				     pub_id,
-				     with_library,
-				     with_devices,
-				     with_used_storage,
-				 }: CloudGetSyncGroupArgs| async move {
+				|node, CloudGetSyncGroupArgs { pub_id, kind }: CloudGetSyncGroupArgs| async move {
 					use groups::get::{Request, Response};
 
 					let (client, access_token) = super::get_client_and_access_token(&node).await?;
 
-					let Response(group) = super::handle_comm_error(
+					let Response(response_kind) = super::handle_comm_error(
 						client
 							.sync()
 							.groups()
 							.get(Request {
 								access_token,
 								pub_id,
-								with_library,
-								with_devices,
-								with_used_storage,
+								kind,
 							})
 							.await,
 						"Failed to get sync group;",
 					)??;
 
-					debug!(?group, "Got sync group");
+					debug!(?response_kind, "Got sync group");
 
-					Ok(group)
+					Ok(response_kind)
 				},
 			)
 		})
@@ -185,20 +175,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			})
 		})
 		.procedure("list", {
-			R.query(|node, with_library: bool| async move {
+			R.query(|node, _: ()| async move {
 				use groups::list::{Request, Response};
 
 				let (client, access_token) = super::get_client_and_access_token(&node).await?;
 
 				let Response(groups) = super::handle_comm_error(
-					client
-						.sync()
-						.groups()
-						.list(Request {
-							access_token,
-							with_library,
-						})
-						.await,
+					client.sync().groups().list(Request { access_token }).await,
 					"Failed to list groups;",
 				)??;
 
@@ -265,7 +248,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		.procedure("request_join", {
 			#[derive(Deserialize, specta::Type)]
 			struct SyncGroupsRequestJoinArgs {
-				sync_group: groups::GroupWithLibraryAndDevices,
+				sync_group: groups::GroupWithDevices,
 				asking_device: devices::Device,
 			}
 

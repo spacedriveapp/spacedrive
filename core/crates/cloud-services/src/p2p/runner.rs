@@ -448,7 +448,7 @@ impl Runner {
 
 	async fn notify_join_error(
 		&self,
-		sync_group: groups::GroupWithLibraryAndDevices,
+		sync_group: groups::GroupWithDevices,
 		error: JoinSyncGroupError,
 	) {
 		self.notify_user_tx

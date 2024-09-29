@@ -4,7 +4,7 @@ use sd_cloud_schema::{
 	cloud_p2p::{authorize_new_device_in_sync_group, CloudP2PALPN, CloudP2PError},
 	devices::{self, Device},
 	libraries,
-	sync::groups::GroupWithLibraryAndDevices,
+	sync::groups::GroupWithDevices,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
 
@@ -46,15 +46,15 @@ pub enum NotifyUser {
 	ReceivedJoinSyncGroupRequest {
 		ticket: Ticket,
 		asking_device: Device,
-		sync_group: GroupWithLibraryAndDevices,
+		sync_group: GroupWithDevices,
 	},
 	ReceivedJoinSyncGroupResponse {
 		response: JoinSyncGroupResponse,
-		sync_group: GroupWithLibraryAndDevices,
+		sync_group: GroupWithDevices,
 	},
 	SendingJoinSyncGroupResponseError {
 		error: JoinSyncGroupError,
-		sync_group: GroupWithLibraryAndDevices,
+		sync_group: GroupWithDevices,
 	},
 	TimedOutJoinRequest {
 		device: Device,

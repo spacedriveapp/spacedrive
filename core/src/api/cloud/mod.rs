@@ -1,7 +1,6 @@
 use crate::{
 	library::LibraryManagerError,
 	node::{config::NodeConfig, HardwareModel},
-	volume::get_volumes,
 	Node,
 };
 
@@ -14,6 +13,7 @@ use sd_cloud_schema::{
 	users, Client, Service,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
+use sd_utils::error::report_error;
 
 use std::pin::pin;
 
@@ -36,9 +36,7 @@ async fn try_get_cloud_services_client(
 	node.cloud_services
 		.client()
 		.await
-		.map_err(::sd_utils::error::report_error(
-			"Failed to get cloud services client;",
-		))
+		.map_err(report_error("Failed to get cloud services client"))
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -124,17 +122,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								HardwareModel::try_get().unwrap_or(HardwareModel::Other),
 							);
 
-							let (storage_size, used_storage) = get_volumes()
-								.await
-								.into_iter()
-								.fold((0, 0), |(storage_size, used_storage), volume| {
-									(
-										storage_size + volume.total_capacity,
-										used_storage
-											+ (volume.total_capacity - volume.available_capacity),
-									)
-								});
-
 							let master_key = self::devices::register(
 								&client,
 								node.cloud_services
@@ -145,10 +132,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									pub_id: device_pub_id,
 									name,
 									os,
-									storage_size,
-									connection_id: iroh_secret_key.public(),
 									hardware_model,
-									used_storage,
+									connection_id: iroh_secret_key.public(),
 								},
 								hashed_pub_id,
 								&mut rng,
@@ -192,7 +177,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									.token_refresher
 									.get_access_token()
 									.await?,
-								with_library: true,
 							})
 							.await,
 						"Failed to list sync groups on bootstrap",
@@ -201,7 +185,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					groups
 						.into_iter()
 						.map(
-							|groups::Group {
+							|groups::GroupBaseData {
 							     pub_id,
 							     library,
 							     // TODO(@fogodev): We can use this latest key hash to check if we
@@ -212,16 +196,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							 }| {
 								let node = &node;
 
-								async move {
-									initialize_cloud_sync(
-										pub_id,
-										library.expect(
-											"we asked backend to receive a library, this is a bug and should crash"
-										),
-										node,
-									)
-									.await
-								}
+								async move { initialize_cloud_sync(pub_id, library, node).await }
 							},
 						)
 						.collect::<Vec<_>>()
