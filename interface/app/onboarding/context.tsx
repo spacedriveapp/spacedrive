@@ -38,16 +38,21 @@ export const useContextValue = () => {
 };
 
 export const shareTelemetry = RadioGroupField.options([
-	z.literal('share-telemetry'),
-	z.literal('minimal-telemetry')
+	z.literal('full'),
+	z.literal('minimal'),
+	z.literal('none')
 ]).details({
-	'share-telemetry': {
+	full: {
 		heading: i18n.t('share_anonymous_usage'),
 		description: i18n.t('share_anonymous_usage_description')
 	},
-	'minimal-telemetry': {
+	minimal: {
 		heading: i18n.t('share_bare_minimum'),
 		description: i18n.t('share_bare_minimum_description')
+	},
+	none: {
+		heading: i18n.t('telemetry_share_none'),
+		description: i18n.t('telemetry_share_none_description')
 	}
 });
 
@@ -104,7 +109,7 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryState.shareFullTelemetry = data.privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.telemetryLevelPreference = data.privacy.shareTelemetry;
 
 			try {
 				// show creation screen for a bit for smoothness
@@ -119,7 +124,7 @@ const useFormState = () => {
 
 				platform.refreshMenuBar && platform.refreshMenuBar();
 
-				if (telemetryState.shareFullTelemetry) {
+				if (telemetryState.telemetryLevelPreference === 'full') {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 
