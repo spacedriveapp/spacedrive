@@ -32,7 +32,7 @@ use tokio::{
 };
 use tracing::{error, instrument, trace};
 use uuid::Uuid;
-use webp::Encoder;
+use webp::{Encoder, WebPConfig};
 
 // Files names constants
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
@@ -90,6 +90,15 @@ pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 
 	#[cfg(not(feature = "ffmpeg"))]
 	THUMBNAILABLE_EXTENSIONS.clone()
+});
+
+static WEBP_CONFIG: std::sync::LazyLock<WebPConfig> = std::sync::LazyLock::new(|| {
+	let mut config = WebPConfig::new().expect("failed to instantiate global webp config");
+	config.lossless = 0;
+	config.alpha_compression = 1;
+	config.quality = TARGET_QUALITY;
+
+	config
 });
 
 /// This type is used to pass the relevant data to the frontend so it can request the thumbnail.
@@ -354,14 +363,12 @@ fn inner_generate_image_thumbnail(
 		)
 	})?;
 
-	let thumb = encoder
-		.encode_simple(false, TARGET_QUALITY)
-		.map_err(|reason| {
-			thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
-				file_path.clone(),
-				format!("{reason:?}"),
-			)
-		})?;
+	let thumb = encoder.encode_advanced(&*WEBP_CONFIG).map_err(|reason| {
+		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
+			file_path.clone(),
+			format!("{reason:?}"),
+		)
+	})?;
 
 	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
 	// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
