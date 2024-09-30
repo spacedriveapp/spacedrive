@@ -40,15 +40,13 @@ const Profile = ({
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
 	const listLibraries = useBridgeQuery(['cloud.libraries.list', true]);
 	const createSyncGroup = useLibraryMutation('cloud.syncGroups.create');
-	const listSyncGroups = useBridgeQuery(['cloud.syncGroups.list', true]);
+	const listSyncGroups = useBridgeQuery(['cloud.syncGroups.list']);
 	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
 			pub_id: '019237a1-586c-7651-afd3-525047b02375',
-			with_library: true,
-			with_devices: true,
-			with_used_storage: true
+			kind: 'FullData'
 		}
 	]);
 	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
@@ -178,8 +176,8 @@ const Profile = ({
 					name={device.name}
 					// TODO (Optional): Use Brand Type for Different Android Models/iOS Models using DeviceInfo.getBrand()
 					icon={hardwareModelToIcon(device.hardware_model)}
-					totalSpace={device.storage_size.toString()}
-					freeSpace={(device.storage_size - device.used_storage).toString()}
+					totalSpace={'0'}
+					freeSpace={'0'}
 					color="#0362FF"
 					connectionType={'cloud'}
 				/>
