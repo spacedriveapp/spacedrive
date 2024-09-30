@@ -16,7 +16,7 @@ resolver = "2"
 edition      = "2021"
 license      = "AGPL-3.0-only"
 repository   = "https://github.com/spacedriveapp/spacedrive"
-rust-version = "1.80"
+rust-version = "1.81"
 
 [workspace.dependencies]
 # Third party dependencies used by one or more of our crates
