@@ -12,14 +12,13 @@ use sd_prisma::{
 use sd_sync::{option_sync_db_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
 
-use std::path::Path;
+use std::{path::Path, sync::LazyLock};
 
 use futures_concurrency::future::TryJoin;
-use once_cell::sync::Lazy;
 
 use super::from_slice_option_to_option;
 
-pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static AVAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.copied()

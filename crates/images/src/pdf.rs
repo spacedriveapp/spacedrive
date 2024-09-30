@@ -1,6 +1,7 @@
 use std::{
 	env::current_exe,
 	path::{Path, PathBuf},
+	sync::LazyLock,
 };
 
 use crate::{
@@ -8,7 +9,6 @@ use crate::{
 	ImageHandler, Result,
 };
 use image::DynamicImage;
-use once_cell::sync::Lazy;
 use pdfium_render::prelude::{PdfColor, PdfPageRenderRotation, PdfRenderConfig, Pdfium};
 use tracing::error;
 
@@ -22,7 +22,7 @@ const BINDING_LOCATION: &str = if cfg!(target_os = "macos") {
 	"../lib/spacedrive"
 };
 
-static PDFIUM_LIB: Lazy<String> = Lazy::new(|| {
+static PDFIUM_LIB: LazyLock<String> = LazyLock::new(|| {
 	let lib_name = Pdfium::pdfium_platform_library_name();
 	current_exe()
 		.ok()
@@ -65,11 +65,11 @@ fn thumbnail_config(config: PdfRenderConfig) -> PdfRenderConfig {
 		.clear_before_rendering(true)
 }
 
-static PORTRAIT_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+static PORTRAIT_CONFIG: LazyLock<PdfRenderConfig> = LazyLock::new(|| {
 	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_PORTRAIT_RENDER_WIDTH))
 });
 
-static LANDSCAPE_CONFIG: Lazy<PdfRenderConfig> = Lazy::new(|| {
+static LANDSCAPE_CONFIG: LazyLock<PdfRenderConfig> = LazyLock::new(|| {
 	thumbnail_config(PdfRenderConfig::new().set_target_width(PDF_LANDSCAPE_RENDER_WIDTH))
 });
 

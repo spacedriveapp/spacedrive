@@ -2,12 +2,12 @@
 name    = "sd-core"
 version = "0.4.2"
 
-authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-description          = "Virtual distributed filesystem engine that powers Spacedrive."
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-rust-version         = "1.78"
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [features]
 default = []
@@ -57,7 +57,6 @@ image               = { workspace = true }
 itertools           = { workspace = true }
 libc                = { workspace = true }
 normpath            = { workspace = true, features = ["localization"] }
-once_cell           = { workspace = true }
 pin-project-lite    = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }
 regex               = { workspace = true }
