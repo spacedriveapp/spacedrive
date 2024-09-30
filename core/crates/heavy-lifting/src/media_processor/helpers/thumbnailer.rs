@@ -17,11 +17,11 @@ use std::{
 	panic,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::LazyLock,
 	time::Duration,
 };
 
 use image::{imageops, DynamicImage, GenericImageView};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
@@ -55,7 +55,7 @@ pub fn get_thumbnails_directory(data_directory: impl AsRef<Path>) -> PathBuf {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static THUMBNAILABLE_VIDEO_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_VIDEO_EXTENSIONS
 		.iter()
 		.copied()
@@ -64,7 +64,7 @@ pub static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-pub static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static THUMBNAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.copied()
@@ -80,7 +80,7 @@ pub static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static ALL_THUMBNAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	#[cfg(feature = "ffmpeg")]
 	return THUMBNAILABLE_EXTENSIONS
 		.iter()
@@ -100,6 +100,11 @@ static WEBP_CONFIG: std::sync::LazyLock<WebPConfig> = std::sync::LazyLock::new(|
 
 	config
 });
+
+const HALF_SEC: Duration = Duration::from_millis(500);
+
+static LAST_SINGLE_THUMB_GENERATED_LOCK: LazyLock<Mutex<Instant>> =
+	LazyLock::new(|| Mutex::new(Instant::now()));
 
 /// This type is used to pass the relevant data to the frontend so it can request the thumbnail.
 /// Tt supports extending the shard hex to support deeper directory structures in the future
@@ -486,10 +491,6 @@ async fn generate_video_thumbnail(
 		)
 	})
 }
-
-const HALF_SEC: Duration = Duration::from_millis(500);
-static LAST_SINGLE_THUMB_GENERATED_LOCK: Lazy<Mutex<Instant>> =
-	Lazy::new(|| Mutex::new(Instant::now()));
 
 /// WARNING!!!! DON'T USE THIS FUNCTION IN A LOOP!!!!!!!!!!!!! It will be pretty slow on purpose!
 pub async fn generate_single_thumbnail(

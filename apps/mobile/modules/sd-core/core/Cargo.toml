@@ -19,7 +19,6 @@ sd-core = { default-features = false, features = [
 
 # Workspace dependencies
 futures    = { workspace = true }
-once_cell  = { workspace = true }
 rspc       = { workspace = true }
 serde_json = { workspace = true }
 tokio      = { workspace = true }

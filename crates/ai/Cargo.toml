@@ -26,7 +26,6 @@ chrono              = { workspace = true, features = ["serde"] }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
 image               = { workspace = true }
-once_cell           = { workspace = true }
 prisma-client-rust  = { workspace = true }
 reqwest             = { workspace = true, features = ["native-tls-vendored", "stream"] }
 rmp-serde           = { workspace = true }

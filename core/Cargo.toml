@@ -57,7 +57,6 @@ image               = { workspace = true }
 itertools           = { workspace = true }
 libc                = { workspace = true }
 normpath            = { workspace = true, features = ["localization"] }
-once_cell           = { workspace = true }
 pin-project-lite    = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }
 regex               = { workspace = true }
