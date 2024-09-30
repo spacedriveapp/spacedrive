@@ -46,7 +46,7 @@ const Profile = ({
 		'cloud.syncGroups.get',
 		{
 			pub_id: '019237a1-586c-7651-afd3-525047b02375',
-			kind: 'FullData'
+			kind: 'WithDevices'
 		}
 	]);
 	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
@@ -155,8 +155,11 @@ const Profile = ({
 				className="mt-4 w-full"
 				onClick={async () => {
 					requestJoinSyncGroup.mutate({
-						sync_group:
-							getGroup.data! as unknown as CloudSyncGroupWithLibraryAndDevices,
+						sync_group: (
+							getGroup.data! as unknown as {
+								WithDevices: CloudSyncGroupWithLibraryAndDevices;
+							}
+						).WithDevices,
 						asking_device: currentDevice.data!
 					});
 				}}
