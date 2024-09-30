@@ -354,10 +354,19 @@ fn inner_generate_image_thumbnail(
 		)
 	})?;
 
+	let thumb = encoder
+		.encode_simple(false, TARGET_QUALITY)
+		.map_err(|reason| {
+			thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
+				file_path.clone(),
+				format!("{reason:?}"),
+			)
+		})?;
+
 	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
 	// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
 	// which implies on a unwanted clone...
-	Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
+	Ok(thumb.deref().to_owned())
 }
 
 #[instrument(
