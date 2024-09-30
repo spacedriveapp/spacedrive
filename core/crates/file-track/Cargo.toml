@@ -1,0 +1,13 @@
+[package]
+name = "sd-file-track"
+version = "0.1.0"
+
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+
+[dependencies]
