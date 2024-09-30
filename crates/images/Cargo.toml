@@ -13,7 +13,6 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 [dependencies]
 # Workspace dependencies
 image     = { workspace = true }
-once_cell = { workspace = true }
 rspc      = { workspace = true, optional = true }                        # error conversion
 serde     = { workspace = true, optional = true, features = ["derive"] }
 specta    = { workspace = true, optional = true }
