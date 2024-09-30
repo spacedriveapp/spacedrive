@@ -363,7 +363,7 @@ fn inner_generate_image_thumbnail(
 		)
 	})?;
 
-	let thumb = encoder.encode_advanced(&*WEBP_CONFIG).map_err(|reason| {
+	let thumb = encoder.encode_advanced(&WEBP_CONFIG).map_err(|reason| {
 		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
 			file_path.clone(),
 			format!("{reason:?}"),
