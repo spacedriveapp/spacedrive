@@ -11,9 +11,9 @@ export type Procedures = {
         { key: "cloud.libraries.get", input: CloudGetLibraryArgs, result: CloudLibrary } | 
         { key: "cloud.libraries.list", input: boolean, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: CloudListLocationsArgs, result: CloudLocation[] } | 
-        { key: "cloud.syncGroups.get", input: CloudGetSyncGroupArgs, result: CloudSyncGroup } | 
+        { key: "cloud.syncGroups.get", input: CloudGetSyncGroupArgs, result: CloudSyncGroupGetResponseKind } | 
         { key: "cloud.syncGroups.leave", input: CloudSyncGroupPubId, result: null } | 
-        { key: "cloud.syncGroups.list", input: boolean, result: CloudSyncGroup[] } | 
+        { key: "cloud.syncGroups.list", input: never, result: CloudSyncGroupBaseData[] } | 
         { key: "cloud.syncGroups.remove_device", input: CloudSyncGroupsRemoveDeviceArgs, result: null } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
@@ -184,13 +184,13 @@ export type Chapter = { id: number; start: [number, number]; end: [number, numbe
 
 export type CloudCreateLocationArgs = { pub_id: CloudLocationPubId; name: string; library_pub_id: CloudLibraryPubId; device_pub_id: CloudDevicePubId }
 
-export type CloudDevice = { pub_id: CloudDevicePubId; name: string; os: DeviceOS; storage_size: bigint; used_storage: bigint; connection_id: string; created_at: string; updated_at: string; hardware_model: HardwareModel }
+export type CloudDevice = { pub_id: CloudDevicePubId; name: string; os: DeviceOS; hardware_model: HardwareModel; connection_id: string; created_at: string; updated_at: string }
 
 export type CloudDevicePubId = string
 
 export type CloudGetLibraryArgs = { pub_id: CloudLibraryPubId; with_device: boolean }
 
-export type CloudGetSyncGroupArgs = { pub_id: CloudSyncGroupPubId; with_library: boolean; with_devices: boolean; with_used_storage: boolean }
+export type CloudGetSyncGroupArgs = { pub_id: CloudSyncGroupPubId; kind: CloudSyncGroupGetRequestKind }
 
 export type CloudLibrary = { pub_id: CloudLibraryPubId; name: string; original_device: CloudDevice | null; created_at: string; updated_at: string }
 
@@ -210,7 +210,13 @@ export type CloudP2PTicket = bigint
 
 export type CloudP2PUserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: BasicLibraryCreationArgs | null } }
 
-export type CloudSyncGroup = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary | null; devices: CloudDevice[] | null; total_sync_messages_bytes: bigint | null; total_space_files_bytes: bigint | null; created_at: string; updated_at: string }
+export type CloudSyncGroup = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; total_sync_messages_bytes: bigint; total_space_files_bytes: bigint; created_at: string; updated_at: string }
+
+export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; created_at: string; updated_at: string }
+
+export type CloudSyncGroupGetRequestKind = "WithDevices" | "FullData"
+
+export type CloudSyncGroupGetResponseKind = { WithDevices: CloudSyncGroupWithLibraryAndDevices } | { FullData: CloudSyncGroup }
 
 export type CloudSyncGroupPubId = string
 
@@ -220,7 +226,7 @@ export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: CloudSyncGroupPubI
 
 export type CloudSyncKeyHash = string
 
-export type CloudUpdateDeviceArgs = { pub_id: CloudDevicePubId; name: string; storage_size: bigint; used_storage: bigint }
+export type CloudUpdateDeviceArgs = { pub_id: CloudDevicePubId; name: string }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 

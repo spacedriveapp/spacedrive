@@ -26,6 +26,7 @@ import {
 	P2PContextProvider,
 	RspcProvider,
 	useBridgeQuery,
+	useBridgeSubscription,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
@@ -34,7 +35,7 @@ import {
 } from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
-import { Toast, toastConfig } from './components/primitive/Toast';
+import { toast, Toast, toastConfig } from './components/primitive/Toast';
 import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
@@ -131,6 +132,20 @@ function AppContainer() {
 	useInvalidateQuery();
 
 	const { id } = useSnapshot(currentLibraryStore);
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			console.log('Received cloud service notification', d);
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					// TODO: Show modal to accept or reject
+					break;
+				default:
+					// TODO: Show notification/toast for other kinds
+					toast.info(`Cloud Service Notification -> ${d.kind}`);
+					break;
+			}
+		}
+	});
 
 	return (
 		<SafeAreaProvider style={tw`flex-1 bg-black`}>

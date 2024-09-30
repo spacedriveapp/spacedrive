@@ -39,9 +39,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 		'cloud.syncGroups.get',
 		{
 			pub_id: '0192376a-19ff-73a0-98ac-c4fa4043d401',
-			with_library: true,
-			with_devices: true,
-			with_used_storage: true
+			kind: 'FullData'
 		}
 	]);
 	// console.log(getGroup.data);
