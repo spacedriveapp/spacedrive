@@ -38,8 +38,8 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			pub_id: '0192376a-19ff-73a0-98ac-c4fa4043d401',
-			kind: 'FullData'
+			pub_id: '01924497-a1be-76e3-b62f-9582ea15463a',
+			kind: 'WithDevices'
 		}
 	]);
 	// console.log(getGroup.data);
@@ -126,8 +126,11 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 						console.log('Current Device: ', currentDevice.data);
 						console.log('Get Group: ', getGroup.data);
 						requestJoinSyncGroup.mutate({
-							sync_group:
-								getGroup.data! as unknown as CloudSyncGroupWithLibraryAndDevices,
+							sync_group: (
+								getGroup.data! as unknown as {
+									WithDevices: CloudSyncGroupWithLibraryAndDevices;
+								}
+							).WithDevices,
 							asking_device: currentDevice.data!
 						});
 					}}
