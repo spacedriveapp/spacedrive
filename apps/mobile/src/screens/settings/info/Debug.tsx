@@ -1,8 +1,6 @@
-import { useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { Text, View } from 'react-native';
 import {
-	CloudSyncGroupWithLibraryAndDevices,
 	useBridgeMutation,
 	useBridgeQuery,
 	useDebugState,
@@ -122,17 +120,19 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 				</Button>
 				<Button
 					onPress={async () => {
-						currentDevice.refetch();
-						console.log('Current Device: ', currentDevice.data);
-						console.log('Get Group: ', getGroup.data);
-						requestJoinSyncGroup.mutate({
-							sync_group: (
-								getGroup.data! as unknown as {
-									WithDevices: CloudSyncGroupWithLibraryAndDevices;
-								}
-							).WithDevices,
-							asking_device: currentDevice.data!
-						});
+						if (
+							currentDevice.data &&
+							getGroup.data &&
+							getGroup.data.kind === 'WithDevices'
+						) {
+							currentDevice.refetch();
+							console.log('Current Device: ', currentDevice.data);
+							console.log('Get Group: ', getGroup.data.data);
+							requestJoinSyncGroup.mutate({
+								sync_group: getGroup.data.data,
+								asking_device: currentDevice.data
+							});
+						}
 					}}
 				>
 					<Text style={tw`text-ink`}>Request Join Sync Group</Text>

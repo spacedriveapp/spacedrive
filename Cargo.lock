@@ -9813,7 +9813,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=ed37fb537b#ed37fb537bc42effa84418aae90038e30cf0aab4"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=29d6381040#29d6381040f3ca9ce8076c0e2da26e923ab09284"
 dependencies = [
  "argon2",
  "async-stream",

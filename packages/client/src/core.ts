@@ -204,7 +204,7 @@ export type CloudLocationPubId = string
 
 export type CloudP2PError = "Rejected" | "UnableToConnect" | "TimedOut"
 
-export type CloudP2PNotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: CloudDevice; sync_group: CloudSyncGroupWithLibraryAndDevices } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: CloudSyncGroupWithLibraryAndDevices } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: CloudSyncGroupWithLibraryAndDevices } } | { kind: "TimedOutJoinRequest"; data: { device: CloudDevice; succeeded: boolean } }
+export type CloudP2PNotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: CloudDevice; sync_group: CloudSyncGroupWithDevices } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: CloudSyncGroupWithDevices } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: CloudSyncGroupWithDevices } } | { kind: "TimedOutJoinRequest"; data: { device: CloudDevice; succeeded: boolean } }
 
 export type CloudP2PTicket = bigint
 
@@ -216,11 +216,11 @@ export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_h
 
 export type CloudSyncGroupGetRequestKind = "WithDevices" | "FullData"
 
-export type CloudSyncGroupGetResponseKind = { kind: "WithDevices"; data: CloudSyncGroupWithLibraryAndDevices } | { kind: "FullData"; data: CloudSyncGroup }
+export type CloudSyncGroupGetResponseKind = { kind: "WithDevices"; data: CloudSyncGroupWithDevices } | { kind: "FullData"; data: CloudSyncGroup }
 
 export type CloudSyncGroupPubId = string
 
-export type CloudSyncGroupWithLibraryAndDevices = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; created_at: string; updated_at: string }
+export type CloudSyncGroupWithDevices = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; created_at: string; updated_at: string }
 
 export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: CloudSyncGroupPubId; to_remove_device_pub_id: CloudDevicePubId }
 
@@ -696,7 +696,7 @@ export type Stream = { id: number; name: string | null; codec: Codec | null; asp
 
 export type SubtitleProps = { width: number; height: number }
 
-export type SyncGroupsRequestJoinArgs = { sync_group: CloudSyncGroupWithLibraryAndDevices; asking_device: CloudDevice }
+export type SyncGroupsRequestJoinArgs = { sync_group: CloudSyncGroupWithDevices; asking_device: CloudDevice }
 
 export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 
