@@ -216,7 +216,7 @@ export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_h
 
 export type CloudSyncGroupGetRequestKind = "WithDevices" | "FullData"
 
-export type CloudSyncGroupGetResponseKind = { WithDevices: CloudSyncGroupWithLibraryAndDevices } | { FullData: CloudSyncGroup }
+export type CloudSyncGroupGetResponseKind = { kind: "WithDevices"; data: CloudSyncGroupWithLibraryAndDevices } | { kind: "FullData"; data: CloudSyncGroup }
 
 export type CloudSyncGroupPubId = string
 

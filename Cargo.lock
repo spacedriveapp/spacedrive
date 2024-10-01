@@ -2265,18 +2265,18 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "1.0.0-beta.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3249c0372e72f5f93b5c0ca54c0ab76bbf6216b6f718925476fd9bc4ffabb4fe"
+checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
 dependencies = [
  "derive_more-impl",
 ]
 
 [[package]]
 name = "derive_more-impl"
-version = "1.0.0-beta.7"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27d919ced7590fc17b5d5a3c63b662e8a7d2324212c4e4dbbed975cafd22d16d"
+checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4773,15 +4773,15 @@ checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 
 [[package]]
 name = "iroh-base"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "545424889bce87e44fd08dac9e6889635630fdbdaaa858a3c5a5f0adbb8d3779"
+checksum = "973c0b3c7851fa2e8e6cf4cb81c9f4cab1373848828fafa43dfe25b123a89ff2"
 dependencies = [
  "aead 0.5.2",
  "anyhow",
  "crypto_box",
  "data-encoding",
- "derive_more 1.0.0-beta.7",
+ "derive_more 1.0.0",
  "ed25519-dalek",
  "getrandom 0.2.15",
  "hex",
@@ -4814,9 +4814,9 @@ dependencies = [
 
 [[package]]
 name = "iroh-metrics"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb6ab80f7cccde80be07a643308e1ff925d5be91721ec65ba96b261a0bcb5e5"
+checksum = "02edfa7ca1aa89b0b9793d94671e32b79c97d61e9022f082c5eb2b95b64e90c0"
 dependencies = [
  "anyhow",
  "erased_set",
@@ -4835,9 +4835,9 @@ dependencies = [
 
 [[package]]
 name = "iroh-net"
-version = "0.25.0"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a099a60478cb9319153756a9cf2ff41aa03d18403690a91e60f049ad467b057"
+checksum = "329553be056a92eec7802e1c087eed951eec6e60f0f0740491ef16a295be4ca2"
 dependencies = [
  "anyhow",
  "axum 0.7.6",
@@ -4846,7 +4846,7 @@ dependencies = [
  "bytes",
  "clap",
  "der",
- "derive_more 1.0.0-beta.7",
+ "derive_more 1.0.0",
  "duct",
  "futures-buffered",
  "futures-concurrency",
@@ -5358,7 +5358,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -8552,13 +8552,13 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cb85690ab1688eade9a5de4d94545a9ceef60639b3370f5e1a28f525eb5589"
+checksum = "77b3ae032988c83ac7ce072be3c2605e90671e8830a34d6ebf24095add68b4d5"
 dependencies = [
  "anyhow",
  "bincode 1.3.3",
- "derive_more 1.0.0-beta.7",
+ "derive_more 1.0.0",
  "educe",
  "flume",
  "futures-lite 2.3.0",
@@ -9813,12 +9813,12 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=fc4b6edabd#fc4b6edabdf295d50e0d317087ebb80e3dbd6e11"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=ed37fb537b#ed37fb537bc42effa84418aae90038e30cf0aab4"
 dependencies = [
  "argon2",
  "async-stream",
  "chrono",
- "derive_more 1.0.0-beta.7",
+ "derive_more 1.0.0",
  "eyre",
  "futures-lite 2.3.0",
  "iroh-base",
@@ -9940,7 +9940,6 @@ dependencies = [
  "flume",
  "futures",
  "futures-concurrency",
- "iroh-base",
  "iroh-net",
  "iroh-quinn",
  "paste",
@@ -13657,7 +13656,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

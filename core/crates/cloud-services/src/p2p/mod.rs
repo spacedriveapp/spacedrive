@@ -5,10 +5,10 @@ use sd_cloud_schema::{
 	devices::{self, Device},
 	libraries,
 	sync::groups::GroupWithDevices,
+	SecretKey as IrohSecretKey,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
 
-use iroh_base::key::SecretKey as IrohSecretKey;
 use iroh_net::{
 	discovery::{
 		dns::DnsDiscovery, local_swarm_discovery::LocalSwarmDiscovery, pkarr::dht::DhtDiscovery,

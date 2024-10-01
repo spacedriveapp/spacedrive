@@ -1,6 +1,9 @@
 use crate::Error;
 
-use sd_cloud_schema::sync::{groups, KeyHash};
+use sd_cloud_schema::{
+	sync::{groups, KeyHash},
+	NodeId, SecretKey as IrohSecretKey,
+};
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng};
 use sd_utils::error::FileIOError;
 
@@ -9,7 +12,6 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
 use tokio::{fs, sync::RwLock};
 
 mod key_store;
