@@ -124,8 +124,13 @@ export const Authentication = ({
 			<div className="flex w-full flex-col items-center gap-4 p-6">
 				<div className="flex items-center justify-center gap-1">
 					<Logo size={36} name="Ball" />
-					<h3 className={clsx('text-xl font-bold', isDark ? 'text-white' : 'text-black')}>
-						Spacedrive
+					<h3
+						className={clsx(
+							'text-xl font-semibold',
+							isDark ? 'text-white' : 'text-black'
+						)}
+					>
+						Spacedrive Cloud
 					</h3>
 				</div>
 				{activeTab === 'Login' ? (

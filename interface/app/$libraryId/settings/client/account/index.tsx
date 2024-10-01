@@ -5,7 +5,7 @@ import { useBridgeMutation } from '@sd/client';
 import { Button } from '@sd/ui';
 import { Authentication } from '~/components';
 import { useLocale } from '~/hooks';
-import { AUTH_SERVER_URL, getTokens } from '~/util';
+import { AUTH_SERVER_URL } from '~/util';
 
 import { Heading } from '../../Layout';
 import Profile from './Profile';
@@ -37,7 +37,6 @@ export const Component = () => {
 	}, [reload]);
 
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
-	const tokens = getTokens();
 
 	return (
 		<>
