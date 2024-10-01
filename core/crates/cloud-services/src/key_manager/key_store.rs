@@ -1,6 +1,9 @@
 use crate::Error;
 
-use sd_cloud_schema::sync::{groups, KeyHash};
+use sd_cloud_schema::{
+	sync::{groups, KeyHash},
+	NodeId, SecretKey as IrohSecretKey,
+};
 use sd_crypto::{
 	cloud::{decrypt, encrypt, secret_key::SecretKey},
 	primitives::{EncryptedBlock, OneShotNonce, StreamNonce},
@@ -16,7 +19,6 @@ use std::{
 };
 
 use futures::StreamExt;
-use iroh_base::key::{NodeId, SecretKey as IrohSecretKey};
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs,

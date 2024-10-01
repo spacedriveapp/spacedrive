@@ -4,13 +4,13 @@ use crate::{
 	Node,
 };
 
-use sd_core_cloud_services::{CloudP2P, IrohSecretKey, KeyManager, QuinnConnection, UserResponse};
+use sd_core_cloud_services::{CloudP2P, KeyManager, QuinnConnection, UserResponse};
 
 use sd_cloud_schema::{
 	auth,
 	error::{ClientSideError, Error},
 	sync::groups,
-	users, Client, Service,
+	users, Client, SecretKey as IrohSecretKey, Service,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
 use sd_utils::error::report_error;

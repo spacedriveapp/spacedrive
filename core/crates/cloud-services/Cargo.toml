@@ -36,13 +36,12 @@ uuid                = { workspace = true, features = ["serde"] }
 zeroize             = { workspace = true }
 
 # External dependencies
-anyhow    = "1.0.86"
-iroh-base = { version = "0.25", features = ["key"] }
-iroh-net  = { version = "0.25", features = ["discovery-local-network", "iroh-relay"] }
-paste     = "=1.0.15"
-postcard  = { version = "1.0.8", features = ["use-std"] }
-quic-rpc  = { version = "0.12.0", features = ["quinn-transport"] }
-quinn     = { package = "iroh-quinn", version = "0.11" }
+anyhow   = "1.0.86"
+iroh-net = { version = "0.26", features = ["discovery-local-network", "iroh-relay"] }
+paste    = "=1.0.15"
+postcard = { version = "1.0.8", features = ["use-std"] }
+quic-rpc = { version = "0.12.1", features = ["quinn-transport"] }
+quinn    = { package = "iroh-quinn", version = "0.11" }
 # Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
 reqwest                  = { version = "0.12", features = ["json", "native-tls-vendored", "stream"] }
 reqwest-middleware       = { version = "0.3", features = ["json"] }
