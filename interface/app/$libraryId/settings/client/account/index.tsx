@@ -1,6 +1,8 @@
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
+import { signOut } from 'supertokens-web-js/recipe/passwordless';
 import { useBridgeMutation } from '@sd/client';
+import { Button } from '@sd/ui';
 import { Authentication } from '~/components';
 import { useLocale } from '~/hooks';
 import { AUTH_SERVER_URL, getTokens } from '~/util';
@@ -25,21 +27,15 @@ export const Component = () => {
 			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
 				method: 'GET'
 			});
+
 			const data = await user_data.json();
-			console.log('Data from user (auth API)', data);
-			return data;
+
+			setUserInfo(data.id ? data : null);
 		}
-		_().then((data) => {
-			// Check if data is the same as the user type
-			if (data.id) {
-				setUserInfo(data);
-			} else {
-				setUserInfo(null);
-			}
-		});
+		_();
 		setReload(false);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [reload]);
+
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const tokens = getTokens();
 
@@ -48,6 +44,24 @@ export const Component = () => {
 			<Heading
 				title={t('spacedrive_account')}
 				description={t('spacedrive_cloud_description')}
+				rightArea={
+					<>
+						{userInfo?.id && (
+							<div className="flex-row space-x-2">
+								<Button
+									variant="accent"
+									size="sm"
+									onClick={async () => {
+										await signOut();
+										setReload(true);
+									}}
+								>
+									{t('logout')}
+								</Button>
+							</div>
+						)}
+					</>
+				}
 			/>
 			<div className={clsx(userInfo != null ? '' : 'flex items-center justify-center')}>
 				<div

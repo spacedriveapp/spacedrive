@@ -1,7 +1,5 @@
-import { Envelope, UserCircle } from '@phosphor-icons/react';
-import { t } from 'i18next';
+import { Envelope } from '@phosphor-icons/react';
 import { Dispatch, SetStateAction, useEffect } from 'react';
-import { signOut } from 'supertokens-web-js/recipe/session';
 import {
 	CloudSyncGroupWithLibraryAndDevices,
 	useBridgeMutation,
@@ -64,20 +62,26 @@ const Profile = ({
 	return (
 		<div className="flex flex-col gap-5">
 			{/* Top Section with Welcome and Logout */}
-			<div className="flex w-full items-start justify-between p-4">
-				<Card className="relative ml-3 flex w-full flex-col items-start justify-start space-y-4 !p-5 lg:max-w-[320px]">
-					<h2 className="text-md font-semibold">Profile Information</h2>
-					<div className="flex items-center space-x-2 rounded-md bg-app-input px-5 py-2">
-						<Envelope weight="fill" width={20} />
-						<TruncatedText>{user.email}</TruncatedText>
+			<div className="flex w-full items-start justify-between">
+				<Card className="relative flex w-full flex-col items-start justify-start space-y-4 !p-5 lg:max-w-[320px]">
+					<div>
+						<h2 className="text-md text-lg font-semibold">Profile Information</h2>
+						<div className="mt-1 flex items-center gap-1 rounded-md bg-app-input px-3 py-2">
+							<Envelope weight="fill" width={20} />
+							<TruncatedText>{user.email}</TruncatedText>
+						</div>
 					</div>
-					<div className="flex flex-col gap-1">
-						<p className="font-medium">Joined on:</p>
-						<p className="font-normal text-ink-dull">
-							{new Date(user.timejoined).toLocaleDateString()}
-						</p>
-						<p className="font-medium">User ID:</p>
-						<p className="font-normal text-ink-dull">{user.id}</p>
+					<div className="flex flex-col gap-3">
+						<div>
+							<p className="font-medium">Joined on</p>
+							<p className="text-ink-dull">
+								{new Date(user.timejoined).toLocaleDateString()}
+							</p>
+						</div>
+						<div>
+							<p className="font-medium">User ID</p>
+							<p className="text-ink-dull">{user.id}</p>
+						</div>
 						{/* Account Stats (for future services) */}
 						{/* <p className="font-medium">Roles:</p> // We don't use roles, at least currently.
 						<div className="flex flex-wrap gap-2">
@@ -87,23 +91,6 @@ const Profile = ({
 						</div> */}
 					</div>
 				</Card>
-
-				<div className="flex items-center space-x-4">
-					{/* User Circle Icon */}
-					<UserCircle weight="fill" className="text-white" size={24} />
-
-					{/* Logout Button */}
-					<Button
-						variant="accent"
-						size="sm"
-						onClick={async () => {
-							await signOut();
-							setReload(true);
-						}}
-					>
-						{t('logout')}
-					</Button>
-				</div>
 			</div>
 
 			{/* MT is added to hide */}
