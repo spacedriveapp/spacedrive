@@ -39,12 +39,26 @@ const DEFAULT_TELEMETRY_STATE: TelemetryStateV1 = {
 };
 
 export const telemetryState = createPersistedMutable<TelemetryStateV1>(
-	'sd-explorer-layout',
+	'sd-telemetry-state',
 	createMutable<TelemetryStateV1>(DEFAULT_TELEMETRY_STATE),
 	{
 		onLoad(value: unknown): TelemetryStateV1 {
-			if (isV1State(value)) return value;
-			if (isV0State(value)) return migrateV0ToV1(value);
+			if (value === null) {
+				// try to migrate from sd-explorer-layout key, was a bug for a while
+				const oldData = localStorage.getItem('sd-explorer-layout');
+				if (oldData === null) return DEFAULT_TELEMETRY_STATE;
+
+				// assign the old data to the current working value, and will fall through
+				// to the v0/v1 migration logic
+				value = JSON.parse(oldData);
+			}
+
+			if (isTelemetryStateV1(value)) {
+				return value;
+			}
+			if (isTelemetryStateV0(value)) {
+				return migrateV0ToV1(value);
+			}
 
 			// If the value is neither v0 nor v1, return the default state
 			return DEFAULT_TELEMETRY_STATE;
@@ -52,7 +66,9 @@ export const telemetryState = createPersistedMutable<TelemetryStateV1>(
 	}
 );
 
-function isV0State(value: unknown): value is TelemetryStateV0 {
+// exported because we use it in explorerLayout, there was a bug where we saved this into
+// the wrong key (sd-explorer-layout) and we need to erase it from the layout store
+export function isTelemetryStateV0(value: unknown): value is TelemetryStateV0 {
 	return (
 		typeof value === 'object' &&
 		value !== null &&
@@ -62,7 +78,7 @@ function isV0State(value: unknown): value is TelemetryStateV0 {
 	);
 }
 
-function isV1State(value: unknown): value is TelemetryStateV1 {
+function isTelemetryStateV1(value: unknown): value is TelemetryStateV1 {
 	return (
 		typeof value === 'object' &&
 		value !== null &&

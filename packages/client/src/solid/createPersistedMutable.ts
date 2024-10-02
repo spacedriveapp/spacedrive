@@ -11,10 +11,10 @@ type CreatePersistedMutableOpts<T> = {
 	 *
 	 *
 	 * @note This is **not** called on initial load from default values.
-	 * @param value The existing data object from localStorage (or default)
+	 * @param value The existing data object from localStorage (or null if doesn't exist)
 	 * @returns The new data object
 	 */
-	onLoad?: (value: T) => T;
+	onLoad?: (value: T | null) => T;
 };
 
 // `@solid-primitives/storage`'s `makePersisted` doesn't support `solid-js/store`'s `createMutable` so we roll our own.
@@ -23,18 +23,22 @@ export function createPersistedMutable<T extends StoreNode>(
 	mutable: T,
 	opts?: CreatePersistedMutableOpts<T>
 ) {
-	try {
+	parsePersistedValue: try {
 		const value = localStorage.getItem(key);
-		if (value) {
-			const persisted = JSON.parse(value);
-			Object.assign(
-				mutable,
-				// if we have a function to use to transform data on load, use its return value
-				opts?.onLoad?.(persisted) ??
-					// otherwise just use the data from localStorage as is
-					persisted
-			);
+
+		if (value === null) {
+			Object.assign(mutable, opts?.onLoad?.(value) ?? {});
+			break parsePersistedValue;
 		}
+
+		const persisted = JSON.parse(value);
+		Object.assign(
+			mutable,
+			// if we have a function to use to transform data on load, use its return value
+			opts?.onLoad?.(persisted) ??
+				// otherwise just use the data from localStorage as is
+				persisted
+		);
 	} catch (err) {
 		console.error(`Error loading persisted state from localStorage key '${key}': ${err}`);
 	}
