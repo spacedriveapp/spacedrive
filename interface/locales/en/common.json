@@ -739,7 +739,7 @@
   "telemetry_share_none": "Don't share anything",
   "telemetry_share_none_description": "Sends absolutely no analytics data from the Spacedrive app.",
   "telemetry_share_none_short": "None",
-  "telemetry_title": "Share Additional Telemetry and Usage Data",
+  "telemetry_title": "Telemetry & usage data sharing",
   "temperature": "Temperature",
   "text": "Text",
   "text_file": "Text File",
