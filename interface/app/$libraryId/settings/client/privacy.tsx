@@ -24,10 +24,8 @@ export const Component = () => {
 				<Select
 					value={telemetryLevelPreference}
 					onChange={(newValue) => {
-						console.log('UPDATE UIPDATE update' + newValue);
 						// add "dateFormat" key to localStorage and set it as default date format
 						telemetryState.telemetryLevelPreference = newValue;
-						console.log('UPDATE UIPDATE update finalize ' + newValue);
 					}}
 					containerClassName="flex h-[30px] gap-2"
 				>
