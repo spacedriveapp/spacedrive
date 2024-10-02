@@ -89,8 +89,8 @@ export const Component = () => {
 								key={device.pub_id}
 								name={device.name}
 								icon={hardwareModelToIcon(device.hardware_model as HardwareModel)}
-								totalSpace={device.storage_size.toString()}
-								freeSpace={(device.storage_size - device.used_storage).toString()}
+								totalSpace="0"
+								freeSpace="0"
 								color="#0362FF"
 								connectionType={'cloud'}
 							/>
