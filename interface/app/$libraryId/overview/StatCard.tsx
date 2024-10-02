@@ -51,7 +51,7 @@ const StatCard = ({ icon, name, connectionType, ...stats }: StatCardProps) => {
 
 	return (
 		<Card className="flex w-[280px] shrink-0 flex-col bg-app-box/50 !p-0">
-			<div className="flex flex-row items-center gap-5 px-4 py-4">
+			<div className="flex flex-row items-center gap-5 p-4">
 				{stats.freeSpace && (
 					<CircularProgress
 						radius={40}
