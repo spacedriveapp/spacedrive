@@ -37,6 +37,7 @@ const DebugScreen = ({ navigation }: SettingsStackScreenProps<'Debug'>) => {
 		'cloud.syncGroups.get',
 		{
 			pub_id: '01924497-a1be-76e3-b62f-9582ea15463a',
+			// pub_id: '01924a25-966b-7c00-a582-9eed3aadd2cd',
 			kind: 'WithDevices'
 		}
 	]);

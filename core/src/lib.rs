@@ -258,7 +258,7 @@ impl Node {
 				"RUST_LOG",
 				format!(
 					"info,\
-					iroh_net=debug,\
+					iroh_net=info,\
 					sd_core={level},\
 					sd_p2p={level},\
 					sd_core_heavy_lifting={level},\

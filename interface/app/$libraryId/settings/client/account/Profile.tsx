@@ -1,11 +1,6 @@
 import { Envelope } from '@phosphor-icons/react';
 import { Dispatch, SetStateAction, useEffect } from 'react';
-import {
-	CloudSyncGroupWithLibraryAndDevices,
-	useBridgeMutation,
-	useBridgeQuery,
-	useLibraryMutation
-} from '@sd/client';
+import { useBridgeMutation, useBridgeQuery, useLibraryMutation } from '@sd/client';
 import { Button, Card, tw } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
@@ -43,7 +38,8 @@ const Profile = ({
 	const getGroup = useBridgeQuery([
 		'cloud.syncGroups.get',
 		{
-			pub_id: '019237a1-586c-7651-afd3-525047b02375',
+			// pub_id: '019237a1-586c-7651-afd3-525047b02375',
+			pub_id: '01924a25-966b-7c00-a582-9eed3aadd2cd',
 			kind: 'WithDevices'
 		}
 	]);
@@ -141,14 +137,20 @@ const Profile = ({
 			<Button
 				className="mt-4 w-full"
 				onClick={async () => {
-					requestJoinSyncGroup.mutate({
-						sync_group: (
-							getGroup.data! as unknown as {
-								WithDevices: CloudSyncGroupWithLibraryAndDevices;
-							}
-						).WithDevices,
-						asking_device: currentDevice.data!
-					});
+					if (!currentDevice.data) currentDevice.refetch();
+
+					if (
+						currentDevice.data &&
+						getGroup.data &&
+						getGroup.data.kind === 'WithDevices'
+					) {
+						console.log('Current Device: ', currentDevice.data);
+						console.log('Get Group: ', getGroup.data.data);
+						requestJoinSyncGroup.mutate({
+							sync_group: getGroup.data.data,
+							asking_device: currentDevice.data
+						});
+					}
 				}}
 			>
 				Request Join Sync Group
