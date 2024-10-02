@@ -118,8 +118,12 @@ export function ErrorPage({
 			}
 		>
 			<Dialogs />
-			<p className="m-3 text-sm font-bold text-ink-faint">{t('app_crashed')}</p>
-			<h1 className="text-2xl font-bold text-ink">{t('app_crashed_description')}</h1>
+			<p className="m-3 font-plex text-sm font-bold tracking-wide text-ink-faint">
+				{t('app_crashed')}
+			</p>
+			<h1 className="font-plex text-2xl font-bold tracking-tight text-ink">
+				{t('app_crashed_description')}
+			</h1>
 			<pre className="m-2 max-w-[650px] whitespace-normal text-center text-ink">
 				{message}
 			</pre>
