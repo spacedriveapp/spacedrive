@@ -10,14 +10,14 @@ use sd_cloud_schema::{
 	cloud_p2p, devices, libraries,
 	sync::{groups, KeyHash},
 };
+use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng, SeedableRng};
 
 use std::sync::Arc;
 
 use futures::FutureExt;
 use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
-use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng, SeedableRng};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::{spawn, sync::oneshot};
 use tracing::{debug, error};
 
@@ -114,6 +114,29 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				pub kind: groups::get::RequestKind,
 			}
 
+			// This is a compatibility layer because quic-rpc uses bincode for serialization
+			// and bincode doesn't support serde's tagged enums, and we need them for serializing
+			// to frontend
+			#[derive(Debug, Serialize, specta::Type)]
+			#[serde(tag = "kind", content = "data")]
+			pub enum CloudSyncGroupGetResponseKind {
+				WithDevices(groups::GroupWithDevices),
+				FullData(groups::Group),
+			}
+
+			impl From<groups::get::ResponseKind> for CloudSyncGroupGetResponseKind {
+				fn from(kind: groups::get::ResponseKind) -> Self {
+					match kind {
+						groups::get::ResponseKind::WithDevices(data) => {
+							CloudSyncGroupGetResponseKind::WithDevices(data)
+						}
+						groups::get::ResponseKind::FullData(data) => {
+							CloudSyncGroupGetResponseKind::FullData(data)
+						}
+					}
+				}
+			}
+
 			R.query(
 				|node, CloudGetSyncGroupArgs { pub_id, kind }: CloudGetSyncGroupArgs| async move {
 					use groups::get::{Request, Response};
@@ -135,7 +158,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					debug!(?response_kind, "Got sync group");
 
-					Ok(response_kind)
+					Ok(CloudSyncGroupGetResponseKind::from(response_kind))
 				},
 			)
 		})
