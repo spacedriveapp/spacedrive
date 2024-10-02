@@ -61,16 +61,16 @@ const PrivacyScreen = () => {
 						<>
 							<Pressable onPress={() => onChange('full')}>
 								<RadioButton
-									title="Share anonymous usage"
-									description="Share completely anonymous telemetry data to help the developers improve the app"
+									title="Share anonymous usage data"
+									description="This give us a completely anonymous picture of how you use Spacedrive."
 									isSelected={value === 'full'}
 									style={tw`mb-3 mt-4`}
 								/>
 							</Pressable>
 							<Pressable testID="share-minimal" onPress={() => onChange('minimal')}>
 								<RadioButton
-									title="Share the bare minimum"
-									description="Only share that I am an active user of Spacedrive and a few technical bits"
+									title="Share minimal data"
+									description="This just tells us how many people use Spacedrive and device/version details."
 									isSelected={value === 'minimal'}
 								/>
 							</Pressable>
