@@ -38,7 +38,7 @@ export default function Setting({ mini, registerName, ...props }: PropsWithChild
 							</Tooltip>
 						)}
 					</div>
-					<div className="w-[85%]">{props.description}</div>
+					<div className="text-balance">{props.description}</div>
 					{!mini && props.children}
 				</div>
 				{mini && props.children}
