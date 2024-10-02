@@ -1,9 +1,16 @@
-import { TELEMETRY_LEVEL_PREFERENCES, telemetryState, useTelemetryState } from '@sd/client';
+import { TelemetryLevelPreference, telemetryState, useTelemetryState } from '@sd/client';
 import { Select, SelectOption } from '@sd/ui';
+import i18n from '~/app/I18n';
 import { useLocale } from '~/hooks';
 
 import { Heading } from '../Layout';
 import Setting from '../Setting';
+
+const telemetryPreferenceOptions = [
+	{ value: 'full', label: i18n.t('telemetry_share_anonymous_short') },
+	{ value: 'minimal', label: i18n.t('telemetry_share_minimal_short') },
+	{ value: 'none', label: i18n.t('telemetry_share_none_short') }
+] satisfies { value: TelemetryLevelPreference; label: string }[];
 
 export const Component = () => {
 	const { t } = useLocale();
@@ -29,9 +36,9 @@ export const Component = () => {
 					}}
 					containerClassName="flex h-[30px] gap-2"
 				>
-					{TELEMETRY_LEVEL_PREFERENCES.map((format, index) => (
-						<SelectOption key={index} value={format}>
-							{format}
+					{telemetryPreferenceOptions.map((format, index) => (
+						<SelectOption key={index} value={format.value}>
+							{format.label}
 						</SelectOption>
 					))}
 				</Select>
