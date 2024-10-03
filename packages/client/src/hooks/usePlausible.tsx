@@ -196,7 +196,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 		return;
 
 	// using a singleton this way instead of instantiating at file eval (first time it's imported)
-	// because a user having "none" teleemtry preference should mean Plausible never even initalizes
+	// because a user having "none" telemetry preference should mean Plausible never even initalizes
 	plausibleInstance ??= Plausible({
 		trackLocalhost: true,
 		domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN
