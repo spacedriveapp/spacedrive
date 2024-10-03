@@ -77,7 +77,7 @@ const PrivacyScreen = () => {
 							<Pressable testID="share-none" onPress={() => onChange('none')}>
 								<RadioButton
 									title="Don't share anything"
-									description="TODO: Write a proper description clarifying that this literally sends us no analytics data"
+									description="Sends absolutely no analytics data from the Spacedrive app."
 									isSelected={value === 'none'}
 								/>
 							</Pressable>
