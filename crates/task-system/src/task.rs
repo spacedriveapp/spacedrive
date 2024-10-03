@@ -258,7 +258,7 @@ impl Drop for Interrupter {
 }
 
 impl Interrupter {
-	pub(crate) fn new(interrupt_tx: chan::Receiver<InterruptionRequest>) -> Self {
+	pub(crate) const fn new(interrupt_tx: chan::Receiver<InterruptionRequest>) -> Self {
 		Self {
 			interrupt_rx: interrupt_tx,
 		}
@@ -659,7 +659,7 @@ pub struct TaskWorktable {
 }
 
 impl TaskWorktable {
-	pub fn new(worker_id: WorkerId, interrupt_tx: chan::Sender<InterruptionRequest>) -> Self {
+	pub const fn new(worker_id: WorkerId, interrupt_tx: chan::Sender<InterruptionRequest>) -> Self {
 		Self {
 			started: AtomicBool::new(false),
 			is_running: AtomicBool::new(false),
@@ -899,7 +899,7 @@ pub struct PanicOnSenderDrop<E: RunError> {
 }
 
 impl<E: RunError> PanicOnSenderDrop<E> {
-	pub fn new(
+	pub const fn new(
 		task_id: TaskId,
 		done_tx: oneshot::Sender<Result<TaskStatus<E>, SystemError>>,
 	) -> Self {

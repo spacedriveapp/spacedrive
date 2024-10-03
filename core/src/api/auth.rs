@@ -42,7 +42,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let auth_response = match match node
 						.http
-						.post(&format!(
+						.post(format!(
 							"{}/login/device/code",
 							&node.env.api_url.lock().await
 						))
@@ -74,7 +74,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						tokio::time::sleep(Duration::from_secs(5)).await;
 
 						let token_resp = match node.http
-							.post(&format!("{}/login/oauth/access_token", &node.env.api_url.lock().await))
+							.post(format!("{}/login/oauth/access_token", &node.env.api_url.lock().await))
 							.form(&[
 								("grant_type", sd_cloud_api::auth::DEVICE_CODE_URN),
 								("device_code", &auth_response.device_code),

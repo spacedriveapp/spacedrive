@@ -47,7 +47,7 @@ pub async fn update_library_statistics(
 		node.config
 			.data_directory()
 			.join("libraries")
-			.join(&format!("{}.db", library.id)),
+			.join(format!("{}.db", library.id)),
 	)
 	.await
 	.unwrap_or(0);

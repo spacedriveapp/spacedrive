@@ -92,7 +92,7 @@ pub static ALL_THUMBNAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::ne
 	THUMBNAILABLE_EXTENSIONS.clone()
 });
 
-static WEBP_CONFIG: std::sync::LazyLock<WebPConfig> = std::sync::LazyLock::new(|| {
+static WEBP_CONFIG: LazyLock<WebPConfig> = LazyLock::new(|| {
 	let mut config = WebPConfig::new().expect("failed to instantiate global webp config");
 	config.lossless = 0;
 	config.alpha_compression = 1;

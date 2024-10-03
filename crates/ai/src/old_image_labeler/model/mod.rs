@@ -127,11 +127,9 @@ impl ModelAndSession {
 					self.maybe_model = Some(new_model);
 					self.maybe_session = Some(session);
 				})
-				.map_err(|e| {
+				.inspect_err(|e| {
 					self.maybe_model = None;
 					self.maybe_session = None;
-
-					e
 				})
 		})
 	}

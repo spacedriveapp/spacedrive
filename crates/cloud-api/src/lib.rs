@@ -127,7 +127,7 @@ pub mod user {
 
 			config
 				.client
-				.get(&format!("{}/api/v1/user/me", config.api_url))
+				.get(format!("{}/api/v1/user/me", config.api_url))
 				.with_auth(auth_token)
 				.send()
 				.await
@@ -153,7 +153,7 @@ pub mod library {
 
 			config
 				.client
-				.get(&format!(
+				.get(format!(
 					"{}/api/v1/libraries/{}",
 					config.api_url, library_id
 				))
@@ -180,7 +180,7 @@ pub mod library {
 
 			config
 				.client
-				.get(&format!("{}/api/v1/libraries", config.api_url))
+				.get(format!("{}/api/v1/libraries", config.api_url))
 				.with_auth(auth_token)
 				.send()
 				.await
@@ -219,7 +219,7 @@ pub mod library {
 
 			config
 				.client
-				.post(&format!(
+				.post(format!(
 					"{}/api/v1/libraries/{}",
 					config.api_url, library_id
 				))
@@ -256,7 +256,7 @@ pub mod library {
 
 			config
 				.client
-				.patch(&format!(
+				.patch(format!(
 					"{}/api/v1/libraries/{}",
 					config.api_url, library_id
 				))
@@ -289,7 +289,7 @@ pub mod library {
 
 			config
 				.client
-				.patch(&format!(
+				.patch(format!(
 					"{}/api/v1/libraries/{}/{}",
 					config.api_url, library_id, instance_id
 				))
@@ -325,7 +325,7 @@ pub mod library {
 
 			config
 				.client
-				.post(&format!(
+				.post(format!(
 					"{}/api/v1/libraries/{library_id}/instances/{instance_uuid}",
 					config.api_url
 				))
@@ -372,7 +372,7 @@ pub mod library {
 
 				let res = config
 					.client
-					.post(&format!(
+					.post(format!(
 						"{}/api/v1/libraries/{}/messageCollections/get",
 						config.api_url, library_id
 					))
@@ -439,7 +439,7 @@ pub mod library {
 
 				let res = config
 					.client
-					.post(&format!(
+					.post(format!(
 						"{}/api/v1/libraries/{}/messageCollections/requestAdd",
 						config.api_url, library_id
 					))
@@ -499,7 +499,7 @@ pub mod library {
 
 				config
 					.client
-					.post(&format!(
+					.post(format!(
 						"{}/api/v1/libraries/{}/messageCollections/doAdd",
 						config.api_url, library_id
 					))
@@ -536,7 +536,7 @@ pub mod locations {
 
 			config
 				.client
-				.get(&format!("{}/api/v1/locations", config.api_url))
+				.get(format!("{}/api/v1/locations", config.api_url))
 				.with_auth(auth_token)
 				.send()
 				.await
@@ -560,7 +560,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations", config.api_url))
+				.post(format!("{}/api/v1/locations", config.api_url))
 				.json(&json!({
 					"name": name,
 				}))
@@ -587,7 +587,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/delete", config.api_url))
+				.post(format!("{}/api/v1/locations/delete", config.api_url))
 				.json(&json!({
 					"id": id,
 				}))
@@ -614,7 +614,7 @@ pub mod locations {
 
 			config
 				.client
-				.post(&format!("{}/api/v1/locations/authorize", config.api_url))
+				.post(format!("{}/api/v1/locations/authorize", config.api_url))
 				.json(&json!({ "id": id }))
 				.with_auth(auth_token)
 				.send()
