@@ -128,6 +128,7 @@ impl ModelAndSession {
 					self.maybe_session = Some(session);
 				})
 				.inspect_err(|e| {
+					error!("Failed to load new model: {e:#?}");
 					self.maybe_model = None;
 					self.maybe_session = None;
 				})
