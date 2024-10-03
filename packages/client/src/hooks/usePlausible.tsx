@@ -5,10 +5,6 @@ import { BuildInfo } from '../core';
 import { useDebugState } from '../stores/debugState';
 import { PlausiblePlatformType, telemetryState, useTelemetryState } from '../stores/telemetryState';
 
-/**
- * This should be in sync with the Core's version.
- */
-
 const DOMAIN = 'app.spacedrive.com';
 const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
@@ -21,12 +17,8 @@ let plausibleInstance: ReturnType<typeof Plausible>;
  * package, but also offers some additiional options for custom functionality.
  */
 interface PlausibleOptions extends PlausibleTrackerOptions {
-	/**
-	 * This should **only** be used in contexts where telemetry sharing
-	 * must be allowed/denied via external means. Currently it is not used by anything,
-	 * but probably will be in the future.
-	 */
-	telemetryOverride?: boolean;
+	// the only thing in here before was `telemetryOverride`, but we've removed it
+	// keeping this interface around should we need it in the future.
 }
 
 /**
@@ -142,7 +134,7 @@ interface SubmitEventProps {
 	 * Whether or not full telemetry sharing is enabled for the current client.
 	 *
 	 * It is **crucial** that this is the direct output of `useTelemetryState().shareFullTelemetry`,
-	 * regardless of other conditions that may affect whether we share it (such as event overrides).
+	 * regardless of other conditions that may affect whether we share it.
 	 */
 	shareFullTelemetry: boolean;
 	/**
@@ -170,8 +162,6 @@ interface SubmitEventProps {
  * If any of the following conditions are met, this will return and no data will be submitted:
  *
  * * If the app is in debug/development mode
- * * If a telemetry override is present, but it is not true
- * * If no telemetry override is present, and telemetry sharing is not true
  * * If the user's telemetry preference is not "full", we will only send pings
  * * If the user's telemetry preference is "none", we will never send any telemetry
  *
@@ -186,12 +176,9 @@ interface SubmitEventProps {
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
 	if (props.platformType === 'unknown') return;
 	if (
-		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
-			? // if telemetry override is on, always send. we never use this and probably never should.
-				// this should be discussed soon (if I don't forget™) and removed if we agree. ~ilynxcat
-				event.plausibleOptions.telemetryOverride !== true
-			: // if the user's telemetry preference is not "full", we should only send pings
-				props.shareFullTelemetry !== true && event.type !== 'ping'
+		// if the user's telemetry preference is not "full", we should only send pings
+		props.shareFullTelemetry !== true &&
+		event.type !== 'ping'
 	)
 		return;
 
@@ -252,16 +239,10 @@ interface EventSubmissionCallbackProps {
  * The returned callback should only be fired once,
  * in order to prevent our analytics from being flooded.
  *
- * Certain events provide functionality to override the clients's telemetry sharing configuration.
- * This is not to ignore the user's choice, but because it should **only** be used in contexts where
- * telemetry sharing must be allowed/denied via external means.
- *
  * @remarks
  * If any of the following conditions are met, this will return and no data will be submitted:
  *
  * * If the app is in debug/development mode
- * * If a telemetry override is present, but it is not true
- * * If no telemetry override is present, and telemetry sharing is not true
  *
  * @returns a callback that, once executed, will submit the desired event
  *
