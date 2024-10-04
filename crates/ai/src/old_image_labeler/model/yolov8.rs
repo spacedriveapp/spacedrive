@@ -4,12 +4,12 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt::Display,
 	path::Path,
+	sync::LazyLock,
 };
 
 use half::f16;
 use image::{imageops::FilterType, load_from_memory_with_format, GenericImageView, ImageFormat};
 use ndarray::{s, Array, Axis};
-use once_cell::sync::Lazy;
 use ort::{inputs, SessionInputs, SessionOutputs};
 use url::Url;
 
@@ -32,7 +32,7 @@ const MODEL_LOCATION: &str = if cfg!(target_os = "macos") {
 
 pub static DEFAULT_MODEL_VERSION: &str = "Yolo Small";
 
-static MODEL_VERSIONS: Lazy<HashMap<&'static str, ModelSource>> = Lazy::new(|| {
+static MODEL_VERSIONS: LazyLock<HashMap<&'static str, ModelSource>> = LazyLock::new(|| {
 	HashMap::from([
 		("Yolo Nano", ModelSource::Url(Url::parse("https://github.com/spacedriveapp/native-deps/releases/download/yolo-2023-12-05/yolov8n.onnx").expect("Must be a valid URL"))),
 		(DEFAULT_MODEL_VERSION, ModelSource::Path(get_path_relative_to_exe(Path::new(MODEL_LOCATION).join("yolov8s.onnx")))),

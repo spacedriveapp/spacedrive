@@ -74,53 +74,53 @@ export const Component = () => {
 // 		);
 // 	}, [cloudLibrary.data, library.instance_id]);
 
-// 	return (
-// 		<Suspense
-// 			fallback={
-// 				<div className="flex size-full items-center justify-center">
-// 					<Loader />
-// 				</div>
-// 			}
-// 		>
-// 			{cloudLibrary.data ? (
-// 				<div className="flex flex-col items-start gap-10">
-// 					<Library thisInstance={thisInstance} cloudLibrary={cloudLibrary.data} />
-// 					{thisInstance && <ThisInstance instance={thisInstance} />}
-// 					<Instances instances={cloudLibrary.data.instances} />
-// 				</div>
-// 			) : (
-// 				<div className="relative flex size-full flex-col items-center justify-center">
-// 					<AuthRequiredOverlay />
-// 					<DataBox className="flex min-w-[400px] flex-col items-center gap-5 p-6">
-// 						<div className="flex flex-col items-center gap-2">
-// 							<Icon name="CloudSync" size={60} />
-// 							<p className="max-w-[60%] text-center text-sm text-ink">
-// 								{t('cloud_connect_description')}
-// 							</p>
-// 						</div>
-// 						<Button
-// 							className="h-8"
-// 							disabled={createLibrary.isLoading}
-// 							variant="accent"
-// 							onClick={() => {
-// 								createLibrary.mutateAsync(null);
-// 							}}
-// 						>
-// 							{createLibrary.isLoading ? (
-// 								<div className="flex h-4 flex-row items-center gap-2">
-// 									<Loader className="w-5" color="white" />
-// 									<p className="text-xs">{t('Connecting' + '...')}</p>
-// 								</div>
-// 							) : (
-// 								t('Connect')
-// 							)}
-// 						</Button>
-// 					</DataBox>
-// 				</div>
-// 			)}
-// 		</Suspense>
-// 	);
-// }
+	return (
+		<Suspense
+			fallback={
+				<div className="flex size-full items-center justify-center">
+					<Loader />
+				</div>
+			}
+		>
+			{cloudLibrary.data ? (
+				<div className="flex flex-col items-start gap-10">
+					<Library thisInstance={thisInstance} cloudLibrary={cloudLibrary.data} />
+					{thisInstance && <ThisInstance instance={thisInstance} />}
+					<Instances instances={cloudLibrary.data.instances} />
+				</div>
+			) : (
+				<div className="relative flex size-full flex-col items-center justify-center">
+					<AuthRequiredOverlay />
+					<DataBox className="flex min-w-[400px] flex-col items-center gap-5 p-6">
+						<div className="flex flex-col items-center gap-2">
+							<Icon name="CloudSync" size={60} />
+							<p className="max-w-[60%] text-center text-sm text-ink">
+								{t('cloud_connect_description')}
+							</p>
+						</div>
+						<Button
+							className="h-8"
+							disabled={createLibrary.isLoading}
+							variant="accent"
+							onClick={() => {
+								createLibrary.mutateAsync(null);
+							}}
+						>
+							{createLibrary.isLoading ? (
+								<div className="flex h-4 flex-row items-center gap-2">
+									<Loader className="w-5" color="white" />
+									<p className="text-xs">{t('connecting' + '...')}</p>
+								</div>
+							) : (
+								t('connect')
+							)}
+						</Button>
+					</DataBox>
+				</div>
+			)}
+		</Suspense>
+	);
+}
 
 // // million-ignore
 // const Instances = ({ instances }: { instances: any[] }) => {

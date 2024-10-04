@@ -2,7 +2,6 @@
 
 use futures::{future::join_all, StreamExt};
 use futures_channel::mpsc;
-use once_cell::sync::{Lazy, OnceCell};
 use rspc::internal::jsonrpc::{
 	self, handle_json_rpc, OwnedMpscSender, Request, RequestId, Response, Sender,
 	SubscriptionUpgrade,
@@ -14,7 +13,7 @@ use std::{
 	collections::HashMap,
 	future::{ready, Ready},
 	marker::Send,
-	sync::Arc,
+	sync::{Arc, LazyLock, OnceLock},
 };
 use tokio::{
 	runtime::Runtime,
@@ -22,17 +21,18 @@ use tokio::{
 };
 use tracing::error;
 
-pub static RUNTIME: Lazy<Runtime> = Lazy::new(|| Runtime::new().unwrap());
+pub static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| Runtime::new().unwrap());
 
-pub type NodeType = Lazy<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
+pub type NodeType = LazyLock<Mutex<Option<(Arc<Node>, Arc<Router>)>>>;
 
-pub static NODE: NodeType = Lazy::new(|| Mutex::new(None));
+pub static NODE: NodeType = LazyLock::new(|| Mutex::new(None));
 
 #[allow(clippy::type_complexity)]
-pub static SUBSCRIPTIONS: Lazy<Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>> =
-	Lazy::new(Default::default);
+pub static SUBSCRIPTIONS: LazyLock<
+	Arc<futures_locks::Mutex<HashMap<RequestId, oneshot::Sender<()>>>>,
+> = LazyLock::new(Default::default);
 
-pub static EVENT_SENDER: OnceCell<mpsc::Sender<Response>> = OnceCell::new();
+pub static EVENT_SENDER: OnceLock<mpsc::Sender<Response>> = OnceLock::new();
 
 pub struct MobileSender<'a> {
 	resp: &'a mut Option<Response>,
