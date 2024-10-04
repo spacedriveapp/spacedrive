@@ -26,16 +26,15 @@ use sd_utils::{
 	i64_to_frontend,
 };
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, sync::LazyLock};
 
 use futures_concurrency::future::TryJoin;
-use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
 use tracing::error;
 
 use super::from_slice_option_to_option;
 
-pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static AVAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_AUDIO_EXTENSIONS
 		.iter()
 		.copied()

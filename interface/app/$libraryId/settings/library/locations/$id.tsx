@@ -154,11 +154,11 @@ const EditLocationForm = () => {
 				<Divider />
 				<div className="space-y-2">
 					<ToggleSection>
-						<Label className="grow">{t('generatePreviewMedia_label')}</Label>
+						<Label className="grow">{t('generate_preview_media_label')}</Label>
 						<SwitchField {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="grow">{t('syncPreviewMedia_label')}</Label>
+						<Label className="grow">{t('sync_preview_media_label')}</Label>
 						<SwitchField {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
