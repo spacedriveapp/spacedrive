@@ -42,11 +42,3 @@ export type RootStackScreenProps<Screen extends keyof RootStackParamList> = Nati
 	RootStackParamList,
 	Screen
 >;
-
-// This declaration is used by useNavigation, Link, ref etc.
-declare global {
-	// eslint-disable-next-line @typescript-eslint/no-namespace
-	namespace ReactNavigation {
-		interface RootParamList extends RootStackParamList {}
-	}
-}

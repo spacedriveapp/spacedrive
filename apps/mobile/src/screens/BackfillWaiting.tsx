@@ -18,7 +18,7 @@ const { width } = Dimensions.get('window');
 
 const BackfillWaiting = () => {
 	const animation = useSharedValue(0);
-	const navigation = useNavigation();
+	const navigation = useNavigation<any>();
 
 	useEffect(() => {
 		animation.value = withRepeat(

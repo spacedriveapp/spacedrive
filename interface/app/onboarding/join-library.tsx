@@ -67,7 +67,7 @@ function CloudLibraries() {
 								return [...(libraries || []), library];
 							});
 
-							platform.refreshMenuBar && platform.refreshMenuBar();
+							if (platform.refreshMenuBar) platform.refreshMenuBar();
 
 							resetOnboardingStore();
 							navigate(`/${library.uuid}`, { replace: true });

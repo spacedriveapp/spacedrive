@@ -44,8 +44,6 @@ const interpolateHexColor = (color1: string, color2: string, factor: number): st
 	return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
 };
 
-interface FileKindStatsProps {}
-
 const defaultFileKinds: FileKind[] = [
 	{ kind: 4, name: 'Package', count: 0n, total_bytes: 0n },
 	{ kind: 8, name: 'Archive', count: 0n, total_bytes: 0n },
@@ -67,7 +65,7 @@ const defaultFileKinds: FileKind[] = [
 	{ kind: 25, name: 'Screenshot', count: 0n, total_bytes: 0n }
 ];
 
-const FileKindStats: React.FC<FileKindStatsProps> = () => {
+const FileKindStats: React.FC = () => {
 	const isDark = useIsDark();
 	const navigate = useNavigate();
 	const { t } = useLocale();

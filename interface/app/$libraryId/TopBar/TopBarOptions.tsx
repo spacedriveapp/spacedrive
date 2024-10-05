@@ -18,7 +18,7 @@ export interface ToolOption {
 	topBarActive?: boolean;
 	popOverComponent?: JSX.Element | ((props: { triggerClose: () => void }) => JSX.Element);
 	showAtResolution: ShowAtResolution;
-	keybinds?: Array<String | ModifierKeys>;
+	keybinds?: Array<string | ModifierKeys>;
 }
 
 export type ShowAtResolution = 'sm:flex' | 'md:flex' | 'lg:flex' | 'xl:flex' | '2xl:flex';

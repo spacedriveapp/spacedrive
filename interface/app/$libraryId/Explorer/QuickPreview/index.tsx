@@ -638,12 +638,12 @@ export const QuickPreview = () => {
 										data={item}
 										onLoad={(type) => {
 											setThumbnailLoading('loaded');
-											type.variant === 'original' &&
+											if (type.variant === 'original')
 												setThumbErrorToast(undefined);
 										}}
 										onError={(type, error) => {
 											setThumbnailLoading('error');
-											type.variant === 'original' &&
+											if (type.variant === 'original')
 												setThumbErrorToast({
 													title: t('error_loading_original_file'),
 													body: error.message

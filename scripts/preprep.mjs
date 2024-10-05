@@ -37,6 +37,13 @@ const __dirname = path.dirname(__filename)
 // NOTE: Must point to package root path
 const __root = path.resolve(path.join(__dirname, '..'))
 
+const extractOpts = {
+	chmod: 0o600,
+	sizeLimit: 256n * 1024n * 1024n,
+	recursive: true,
+	overwrite: true,
+}
+
 const bugWarn =
 	'This is probably a bug, please open a issue with you system info at: ' +
 	'https://github.com/spacedriveapp/spacedrive/issues/new/choose'
@@ -74,13 +81,7 @@ try {
 	)
 
 	console.log(`Extracting native dependencies...`)
-	await spinTask(
-		extractTo(archiveData, nativeDeps, {
-			chmod: 0o600,
-			recursive: true,
-			overwrite: true,
-		})
-	)
+	await spinTask(extractTo(archiveData, nativeDeps, extractOpts))
 } catch (e) {
 	console.error(`Failed to download native dependencies.\n${bugWarn}`)
 	if (__debug) console.error(e)
@@ -119,14 +120,7 @@ try {
 		)
 
 		console.log(`Extracting native dependencies...`)
-		await spinTask(
-			extractTo(archiveData, specificMobileNativeDeps, {
-				chmod: 0o600,
-				sizeLimit: 256n * 1024n * 1024n,
-				recursive: true,
-				overwrite: true,
-			})
-		)
+		await spinTask(extractTo(archiveData, specificMobileNativeDeps, extractOpts))
 	}
 } catch (e) {
 	console.error(`Failed to download native dependencies for mobile.\n${bugWarn}`)
