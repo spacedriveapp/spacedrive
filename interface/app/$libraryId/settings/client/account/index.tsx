@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { signOut } from 'supertokens-web-js/recipe/passwordless';
 import { useBridgeMutation } from '@sd/client';
 import { Button } from '@sd/ui';
