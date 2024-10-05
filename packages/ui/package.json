@@ -47,7 +47,7 @@
 		"zod": "~3.22.4"
 	},
 	"devDependencies": {
-		"@babel/core": "^7.24.0",
+		"@babel/core": "^7.25.7",
 		"@headlessui/tailwindcss": "^0.2.0",
 		"@sd/config": "workspace:*",
 		"@storybook/types": "^8.0.1",
@@ -62,6 +62,6 @@
 		"tailwindcss": "^3.4.1",
 		"tailwindcss-animate": "^1.0.7",
 		"tailwindcss-radix": "^2.8.0",
-		"typescript": "^5.4.2"
+		"typescript": "^5.6.2"
 	}
 }

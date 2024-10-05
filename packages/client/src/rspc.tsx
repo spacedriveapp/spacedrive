@@ -3,8 +3,8 @@ import {
 	inferMutationResult,
 	ProcedureDef
 } from '@oscartbeaumont-sd/rspc-client';
-import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/v2';
-import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/v2';
+import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/src/v2';
 import { QueryClient, useMutation, UseMutationOptions, useQuery } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';

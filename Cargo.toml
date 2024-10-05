@@ -81,10 +81,10 @@ rev              = "4f9ef9d38c"
 git = "https://github.com/spacedriveapp/if-watch.git"
 rev = "a92c17d3f8"
 
-# We hack it to the high heavens
+# We use our own version of rspc
 [patch.crates-io.rspc]
 git = "https://github.com/spacedriveapp/rspc.git"
-rev = "8104934ef3"
+rev = "bc882f4724"
 
 # Add `Control::open_stream_with_addrs`
 [patch.crates-io.libp2p]
