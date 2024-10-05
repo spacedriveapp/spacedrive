@@ -205,7 +205,11 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 
 	useEffect(() => {
 		if (!ref.current) return;
-		paused ? ref.current.pause() : ref.current.play();
+		if (paused) {
+			ref.current.pause();
+		} else {
+			ref.current.play();
+		}
 	}, [paused]);
 
 	return (

@@ -141,7 +141,7 @@ export default () => {
 								size="sm"
 								variant="gray"
 								onClick={() => {
-									platform.reloadWebview && platform.reloadWebview();
+									if (platform.reloadWebview) platform.reloadWebview();
 								}}
 							>
 								Reload

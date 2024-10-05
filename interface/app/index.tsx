@@ -267,14 +267,12 @@ function RemoteLayout() {
 				<QueryClientProvider client={rspcClient[2]}>
 					<context.Provider
 						value={{
-							// @ts-expect-error
 							client: rspcClient[0],
 							queryClient: rspcClient[2]
 						}}
 					>
 						<context2.Provider
 							value={{
-								// @ts-expect-error
 								client: rspcClient[1],
 								queryClient: rspcClient[2]
 							}}

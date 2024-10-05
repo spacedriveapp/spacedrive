@@ -1,11 +1,7 @@
-import {
-	inferMutationInput,
-	inferMutationResult,
-	ProcedureDef
-} from '@oscartbeaumont-sd/rspc-client';
+import { ProcedureDef } from '@oscartbeaumont-sd/rspc-client';
 import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/src/v2';
-import { BaseOptions, Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/src/v2';
-import { QueryClient, useMutation, UseMutationOptions, useQuery } from '@tanstack/react-query';
+import { Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/src/v2';
+import { QueryClient } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';
 
@@ -46,7 +42,7 @@ export type LibraryProceduresDef = {
 	subscriptions: StripLibraryArgsFromInput<LibraryProcedures<'subscriptions'>, true>;
 };
 
-export const context = createContext<Context<Procedures>>(undefined!);
+export const context = createContext<Context<NonLibraryProceduresDef>>(undefined!);
 export const context2 = createContext<Context<LibraryProceduresDef>>(undefined!);
 
 export const useRspcContext = () => useContext(context);
@@ -60,7 +56,7 @@ export const rspc2 = initRspc<Procedures>({
 }); // TODO: Removing this?
 
 export const nonLibraryClient = rspc.dangerouslyHookIntoInternals<NonLibraryProceduresDef>();
-// @ts-expect-error // TODO: Fix
+
 const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibraryClient, {
 	context // TODO: Shared context
 });
@@ -73,7 +69,7 @@ export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProcedure
 		return [keyAndInput[0], { library_id: libraryId, arg: keyAndInput[1] ?? null }];
 	}
 });
-// @ts-expect-error // TODO: idk
+
 const libraryHooks = createReactQueryHooks<LibraryProceduresDef>(libraryClient, {
 	context: context2
 });
