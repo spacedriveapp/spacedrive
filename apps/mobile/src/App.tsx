@@ -108,7 +108,7 @@ function AppNavigation() {
 					if (navRef.getRootState().routeNames.includes('GetStarted')) {
 						return;
 					}
-					currentRouteName && setCurrentPath(currentRouteName);
+					if (currentRouteName) setCurrentPath(currentRouteName);
 				}
 			}}
 		>

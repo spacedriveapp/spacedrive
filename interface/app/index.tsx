@@ -1,4 +1,4 @@
-import { initRspc, wsBatchLink, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/v2';
+import { initRspc, wsBatchLink, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -267,14 +267,12 @@ function RemoteLayout() {
 				<QueryClientProvider client={rspcClient[2]}>
 					<context.Provider
 						value={{
-							// @ts-expect-error
 							client: rspcClient[0],
 							queryClient: rspcClient[2]
 						}}
 					>
 						<context2.Provider
 							value={{
-								// @ts-expect-error
 								client: rspcClient[1],
 								queryClient: rspcClient[2]
 							}}
