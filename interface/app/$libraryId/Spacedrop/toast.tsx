@@ -37,7 +37,7 @@ export function useIncomingSpacedropToast() {
 			{
 				duration: 30 * 1000,
 				onClose: ({ event }) => {
-					event !== 'on-action' && acceptSpacedrop.mutate([data.id, null]);
+					if (event !== 'on-action') acceptSpacedrop.mutate([data.id, null]);
 				},
 				action: {
 					label: t('accept'),

@@ -170,10 +170,11 @@ const toastErrorSuccess = (
 ) => {
 	return {
 		onError: () => {
-			errorMessage && toast.error(errorMessage);
+			if (errorMessage) toast.error(errorMessage);
 		},
 		onSuccess: () => {
-			successMessage && toast.success(successMessage), successCallBack?.();
+			if (successMessage) toast.success(successMessage);
+			successCallBack?.();
 		}
 	};
 };
