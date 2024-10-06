@@ -150,19 +150,19 @@ const toastErrorSuccess = (
 ) => {
 	return {
 		onError: () => {
-			errorMessage &&
+			if (errorMessage)
 				toast.error({
 					title: 'Error',
 					body: errorMessage
 				});
 		},
 		onSuccess: () => {
-			successMessage &&
+			if (successMessage)
 				toast.success({
 					title: 'Success',
 					body: successMessage
-				}),
-				successCallBack?.();
+				});
+			successCallBack?.();
 		}
 	};
 };

@@ -156,14 +156,16 @@ export const MediaData = ({ data }: Props) => {
 		} else if ('FFmpeg' in data) {
 			const streamKinds = new Set(
 				data.FFmpeg.programs.flatMap((program) =>
-					program.streams.map((stream) => stream.codec?.kind)
+					program.streams
+						.map((stream) => stream.codec?.kind)
+						.filter((kind): kind is string => !!kind)
 				)
 			);
 			const type = streamKinds.has('video')
 				? 'Video'
 				: streamKinds.has('audio')
 					? 'Audio'
-					: (capitalize(streamKinds.values().next().value) ?? 'Unknown');
+					: capitalize(streamKinds.values().next().value ?? 'Unknown');
 
 			const bit_rate = humanizeSize(int32ArrayToBigInt(data.FFmpeg.bit_rate), {
 				is_bit: true,

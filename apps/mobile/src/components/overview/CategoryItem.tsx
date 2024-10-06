@@ -19,7 +19,7 @@ interface CategoryItemProps {
 }
 
 const CategoryItem = ({ name, icon, items, style, kind }: CategoryItemProps) => {
-	const navigation = useNavigation();
+	const navigation = useNavigation<any>();
 	const searchStore = useSearchStore();
 	return (
 		<Pressable
