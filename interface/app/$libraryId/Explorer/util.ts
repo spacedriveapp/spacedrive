@@ -82,7 +82,7 @@ export function generateLocaleDateFormats(language: string) {
 	const DATE_FORMATS = [
 		{
 			value: 'L',
-			label: dayjs().locale(language).format('L')
+			label: dayjs(defaultDate).locale(language).format('L')
 		},
 		{
 			value: 'L, LT',
