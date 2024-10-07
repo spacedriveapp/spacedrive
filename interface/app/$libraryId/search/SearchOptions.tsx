@@ -19,15 +19,15 @@ import {
 import { useIsDark, useKeybind, useLocale, useShortcut } from '~/hooks';
 
 import { getQuickPreviewStore, useQuickPreviewStore } from '../Explorer/QuickPreview/store';
-import { AppliedFilters, InteractiveSection } from './AppliedFilters';
 import { useSearchContext } from './context';
-import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters';
+import { AppliedFilters, InteractiveSection } from './Filters/components/AppliedFilters';
+import { filterRegistry, SearchFilterCRUD, useToggleOptionSelected } from './Filters/index';
 import {
-	getSearchStore,
-	useRegisterSearchFilterOptions,
-	useSearchRegisteredFilters,
-	useSearchStore
-} from './store';
+	useFilterOptionStore,
+	useRegisterFilterOptions,
+	useSearchRegisteredFilters
+} from './Filters/store';
+import { getSearchStore, useSearchStore } from './store';
 import { UseSearch } from './useSearch';
 import { RenderIcon } from './util';
 
@@ -209,7 +209,7 @@ const SearchResults = memo(
 
 function AddFilterButton() {
 	const search = useSearchContext();
-	const searchState = useSearchStore();
+	const filterStore = useFilterOptionStore();
 
 	const [searchQuery, setSearch] = useState('');
 
@@ -261,7 +261,7 @@ function AddFilterButton() {
 							<filter.Render
 								key={filter.name}
 								filter={filter as any}
-								options={searchState.filterOptions.get(filter.name)!}
+								options={filterStore.filterOptions.get(filter.name)!}
 								search={search}
 							/>
 						))
@@ -373,7 +373,7 @@ function RegisterSearchFilterOptions(props: {
 }) {
 	const options = props.filter.useOptions({ search: props.searchQuery });
 
-	useRegisterSearchFilterOptions(
+	useRegisterFilterOptions(
 		props.filter,
 		useMemo(
 			() => options.map((o) => ({ ...o, type: props.filter.name })),
