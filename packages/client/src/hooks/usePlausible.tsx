@@ -16,6 +16,7 @@ let plausibleInstance: ReturnType<typeof Plausible>;
  * This extends the standard options provided by the `plausible-tracker`
  * package, but also offers some additiional options for custom functionality.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface PlausibleOptions extends PlausibleTrackerOptions {
 	// the only thing in here before was `telemetryOverride`, but we've removed it
 	// keeping this interface around should we need it in the future.
