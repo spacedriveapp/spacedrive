@@ -66,7 +66,7 @@ regex               = { workspace = true }
 reqwest             = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }
-rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "tracing", "unstable", "uuid"] }
+rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "unstable", "uuid"] }
 sd-cloud-schema     = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }

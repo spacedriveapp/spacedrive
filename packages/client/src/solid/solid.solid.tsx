@@ -27,13 +27,9 @@ type AllowReactiveScope<T> = T extends object
 		}
 	: T | (() => T);
 
-type Props<T> =
-	| {
-			root: FunctionComponent<{}>;
-	  }
-	| ({
-			root: FunctionComponent<T>;
-	  } & AllowReactiveScope<T>);
+type Props<T extends object = object> =
+	| { root: FunctionComponent<object> }
+	| ({ root: FunctionComponent<T> } & AllowReactiveScope<T>);
 
 export function WithReact<T extends object>(props: Props<T>) {
 	const portalCtx = useSolidContext(solidPortalCtx);
@@ -60,7 +56,7 @@ export function WithReact<T extends object>(props: Props<T>) {
 				createElement(
 					Wrapper,
 					{
-						root: props.root as any,
+						root: props.root as FunctionComponent<object>,
 						owner: getOwner()!,
 						childProps: () => splitProps(props, ['root'])[1]
 					},

@@ -27,7 +27,7 @@ export default function DeleteLibraryDialog(props: Props) {
 
 			queryClient.invalidateQueries(['library.list']);
 
-			platform.refreshMenuBar && platform.refreshMenuBar();
+			if (platform.refreshMenuBar) platform.refreshMenuBar();
 
 			submitPlausibleEvent({
 				event: {

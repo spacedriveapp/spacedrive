@@ -25,7 +25,7 @@ const DrawerLibraryManager = () => {
 	}, [isDrawerOpen]);
 
 	const { library: currentLibrary, libraries } = useClientContext();
-	const navigation = useNavigation();
+	const navigation = useNavigation<any>();
 
 	const modalRef = useRef<ModalRef>(null);
 	const modalRef_import = useRef<ModalRef>(null);

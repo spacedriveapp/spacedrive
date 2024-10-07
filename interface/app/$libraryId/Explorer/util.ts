@@ -73,7 +73,12 @@ export function loadDayjsLocale(language: string) {
 // Generate list of localized formats available in the app
 export function generateLocaleDateFormats(language: string) {
 	language = language.replace('_', '-');
-	const defaultDate = '01/01/2024 23:19';
+	// this is a good example date because:
+	// - day segment is greater than 12, no confusion about the month
+	// - month segment is below 10, no confusion about zero-padding
+	// - hours segment is below 10, no confusion about zero-padding
+	// - is a Monday, just a good day of week for examples
+	const defaultDate = '2024-01-15 08:51';
 	const DATE_FORMATS = [
 		{
 			value: 'L',
