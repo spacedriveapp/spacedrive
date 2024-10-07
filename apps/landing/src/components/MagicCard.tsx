@@ -81,7 +81,7 @@ const MagicContainer = ({ children, className, style }: MagicContainerProps) => 
 
 	useEffect(() => {
 		init();
-		containerRef.current &&
+		if (containerRef.current)
 			setBoxes(Array.from(containerRef.current.children).map((el) => el as HTMLElement));
 	}, [init]);
 

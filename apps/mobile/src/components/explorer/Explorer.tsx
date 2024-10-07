@@ -63,9 +63,8 @@ const Explorer = (props: Props) => {
 				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
 				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
 			});
-			filePath &&
-				filePath.object_id &&
-				(await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]));
+			if (filePath && filePath.object_id)
+				await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]);
 		} catch (error) {
 			toast.error('Error opening object');
 		}

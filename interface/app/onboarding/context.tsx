@@ -117,7 +117,7 @@ const useFormState = () => {
 				]);
 				insertLibrary(queryClient, library);
 
-				platform.refreshMenuBar && platform.refreshMenuBar();
+				if (platform.refreshMenuBar) platform.refreshMenuBar();
 
 				if (telemetryState.shareFullTelemetry) {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });

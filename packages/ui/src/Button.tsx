@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { ComponentProps, forwardRef } from 'react';
 import { Link } from 'react-router-dom';
 
-export interface ButtonBaseProps extends VariantProps<typeof buttonStyles> {}
+export type ButtonBaseProps = VariantProps<typeof buttonStyles>;
 
 export type ButtonProps = ButtonBaseProps &
 	React.ButtonHTMLAttributes<HTMLButtonElement> & {

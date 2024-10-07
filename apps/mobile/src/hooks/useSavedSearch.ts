@@ -1,5 +1,6 @@
+import { IconTypes } from '@sd/assets/util';
 import { useCallback, useMemo } from 'react';
-import { SavedSearch, SearchFilterArgs, useLibraryQuery } from '@sd/client';
+import { SavedSearch, SearchFilterArgs, Tag, useLibraryQuery } from '@sd/client';
 import { kinds } from '~/components/search/filters/Kind';
 import { Filters, SearchFilters } from '~/stores/searchStore';
 
@@ -56,7 +57,14 @@ export function useSavedSearch(search: SavedSearch) {
 	// it is then 'matched' with the data from the "Saved Search"
 
 	const prepFilters = useCallback(() => {
-		const data = {} as Record<SearchFilters, any>;
+		const data = {
+			locations: undefined as undefined | { id: number; name: string | null }[],
+			tags: undefined as undefined | { id: number; color: string | null }[],
+			kind: undefined as undefined | { name: string; id: number; icon: IconTypes }[],
+			name: [] as unknown[],
+			extension: [] as unknown[],
+			hidden: []
+		};
 		filterKeys.forEach((key: SearchFilters) => {
 			switch (key) {
 				case 'locations':
@@ -97,7 +105,7 @@ export function useSavedSearch(search: SavedSearch) {
 
 	const filters: Partial<Filters> = useMemo(() => {
 		return parseFilters.reduce(
-			(acc: Record<SearchFilters, {}>, curr: keyof SearchFilterArgs) => {
+			(acc: Record<SearchFilters, unknown>, curr: keyof SearchFilterArgs) => {
 				const objectOrFilePath = Object.keys(curr)[0] as 'filePath' | 'object';
 				const key = Object.keys(curr[objectOrFilePath])[0] as SearchFilters; //locations, tags, kind, etc...
 
@@ -113,12 +121,22 @@ export function useSavedSearch(search: SavedSearch) {
 					switch (type) {
 						case 'contains':
 							// some filters have a name property and some are just strings
-							return prepFilters()[key].filter((item: any) => {
-								return item.name ? item.name === values[type] : item;
+							return prepFilters()[key]?.filter((item: unknown) => {
+								return typeof item === 'object' &&
+									item != null &&
+									'name' in item &&
+									item.name
+									? item.name === values[type]
+									: item;
 							});
 						case 'in':
-							return prepFilters()[key].filter((item: any) =>
-								values[type]?.includes(item.id)
+							return prepFilters()[key]?.filter(
+								(item: unknown) =>
+									typeof item === 'object' &&
+									item != null &&
+									'id' in item &&
+									typeof item.id === 'number' &&
+									values[type]?.includes(item.id)
 							);
 						default:
 							return values;

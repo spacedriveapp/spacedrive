@@ -62,6 +62,6 @@
 		"tailwindcss": "^3.4.1",
 		"tailwindcss-animate": "^1.0.7",
 		"tailwindcss-radix": "^2.8.0",
-		"typescript": "^5.4.2"
+		"typescript": "^5.6.2"
 	}
 }

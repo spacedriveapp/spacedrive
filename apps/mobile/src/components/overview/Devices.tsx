@@ -1,5 +1,5 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
+import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
