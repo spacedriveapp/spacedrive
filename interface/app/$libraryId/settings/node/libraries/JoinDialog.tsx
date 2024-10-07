@@ -1,15 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import {
-	LibraryConfigWrapped,
-	useBridgeMutation,
-	useBridgeQuery,
-	useClientContext,
-	useLibraryContext,
-	usePlausibleEvent,
-	useZodForm
-} from '@sd/client';
-import { Button, Dialog, Select, SelectOption, toast, useDialog, UseDialogProps, z } from '@sd/ui';
+import { LibraryConfigWrapped, useBridgeMutation, useBridgeQuery, useZodForm } from '@sd/client';
+import { Dialog, Loader, Select, SelectOption, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -67,7 +59,12 @@ export default (props: UseDialogProps & { librariesCtx: LibraryConfigWrapped[] |
 			ctaLabel={form.formState.isSubmitting ? t('joining') : t('join')}
 		>
 			<div className="mt-5 space-y-4">
-				{cloudLibraries.isLoading && <span>{t('loading')}...</span>}
+				{cloudLibraries.isLoading && (
+					<div className="mt-4 flex flex-col items-center justify-center gap-2">
+						<Loader className="size-5"></Loader>
+						<span className="text-xs text-ink-faint">{t('loading')}...</span>
+					</div>
+				)}
 				{cloudLibraries.data && (
 					<Select
 						value={form.watch('libraryId')}

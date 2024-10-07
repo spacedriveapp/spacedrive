@@ -12,7 +12,8 @@ import {
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
-import { toast, TooltipProvider } from '@sd/ui';
+import { dialogManager, toast, TooltipProvider } from '@sd/ui';
+import RequestAddDialog from '~/components/RequestAddDialog';
 
 import { createRoutes } from './app';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
@@ -92,10 +93,16 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 			console.log('Received cloud service notification', d);
 			switch (d.kind) {
 				case 'ReceivedJoinSyncGroupRequest':
-					// TODO: Show modal to accept or reject
+					dialogManager.create((dp) => (
+						<RequestAddDialog
+							device_model={'Macbook Pro'}
+							device_name={"Arnab's Macbook"}
+							library_name={"Arnab's Library"}
+							{...dp}
+						/>
+					));
 					break;
 				default:
-					// TODO: Show notification/toast for other kinds
 					toast({ title: 'Cloud Service Notification', body: d.kind }, { type: 'info' });
 					break;
 			}
