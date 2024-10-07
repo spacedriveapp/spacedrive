@@ -10,7 +10,7 @@ import {
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
-	it('Alpha onboarding', () => {
+	it('Pre-release onboarding', () => {
 		cy.visit('/', {
 			onBeforeLoad(win) {
 				cy.stub(win, 'open').as('winOpen');
@@ -34,8 +34,8 @@ describe('Onboarding', () => {
 			.and('have.prop', 'naturalWidth')
 			.should('be.greaterThan', 0);
 
-		// Check we are in the alpha release screen
-		cy.get('h1').should('contain', 'Alpha Release');
+		// Check we are in the beta release screen
+		cy.get('h1').should('contain', 'Beta Release');
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
