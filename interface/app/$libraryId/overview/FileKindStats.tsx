@@ -18,10 +18,10 @@ import { FileKind } from '.';
 const INFO_ICON_CLASSLIST =
 	'inline size-3 text-ink-faint opacity-0 ml-1 transition-opacity duration-300 group-hover:opacity-70';
 const TOTAL_FILES_CLASSLIST =
-	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1';
-const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs text-ink-faint';
+	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1 font-plex';
+const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs font-plex text-ink-faint';
 const BARS_CONTAINER_CLASSLIST =
-	'relative mx-2.5 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] items-end justify-items-center gap-x-1.5 gap-y-1 self-stretch';
+	'relative mx-2.5 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] font-plex tracking-wide items-end justify-items-center gap-x-1.5 gap-y-1 self-stretch';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
@@ -204,7 +204,7 @@ const FileKindStats: React.FC = () => {
 		};
 
 	return (
-		<div className="flex justify-center">
+		<div className="flex justify-center tabular-nums">
 			<Card
 				ref={containerRef}
 				className="max-w-1/2 group mx-1 flex h-[220px] w-full min-w-[400px] shrink-0 flex-col gap-2 bg-app-box/50"

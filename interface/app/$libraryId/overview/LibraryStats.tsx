@@ -65,7 +65,7 @@ const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'group/stat flex w-36 shrink-0 flex-col duration-75',
+				'group/stat flex w-36 shrink-0 flex-col font-plex duration-75',
 				!bytes && 'hidden'
 			)}
 		>
