@@ -1,7 +1,7 @@
 use crate::{indexer, Error};
 
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, object, PrismaClient},
@@ -39,7 +39,7 @@ pub struct Updater {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// [`Update`] Task output
@@ -159,11 +159,20 @@ impl Task<Error> for Updater {
 			)
 			.unzip::<_, _, Vec<_>, Vec<_>>();
 
+		let ops = sync_stuff.into_iter().flatten().collect::<Vec<_>>();
+
+		if ops.is_empty() && paths_to_update.is_empty() {
+			return Ok(ExecStatus::Done(
+				Output {
+					updated_count: 0,
+					update_duration: Duration::ZERO,
+				}
+				.into_output(),
+			));
+		}
+
 		let updated = sync
-			.write_ops(
-				db,
-				(sync_stuff.into_iter().flatten().collect(), paths_to_update),
-			)
+			.write_ops(db, (ops, paths_to_update))
 			.await
 			.map_err(indexer::Error::from)?;
 
@@ -186,7 +195,7 @@ impl Updater {
 	pub fn new_deep(
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -202,7 +211,7 @@ impl Updater {
 	pub fn new_shallow(
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
@@ -264,7 +273,7 @@ impl SerializableTask<Error> for Updater {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

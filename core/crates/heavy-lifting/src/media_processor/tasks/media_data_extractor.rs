@@ -8,7 +8,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_media_processor, ObjectPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};
@@ -69,7 +69,7 @@ pub struct MediaDataExtractor {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -275,7 +275,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -316,7 +316,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self::new(Kind::Exif, file_paths, location_id, location_path, db, sync)
 	}
@@ -327,7 +327,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		Self::new(
 			Kind::FFmpeg,
@@ -550,7 +550,7 @@ impl SerializableTask<Error> for MediaDataExtractor {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

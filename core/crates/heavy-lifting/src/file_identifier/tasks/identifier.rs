@@ -5,7 +5,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId, FilePathPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
@@ -72,7 +72,7 @@ pub struct Identifier {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// Output from the `[Identifier]` task
@@ -324,7 +324,7 @@ impl Identifier {
 		file_paths: Vec<file_path_for_file_identifier::Data>,
 		with_priority: bool,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -394,33 +394,33 @@ async fn assign_cas_id_to_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<(), file_identifier::Error> {
-	// Assign cas_id to each file path
-	sync.write_ops(
-		db,
-		identified_files
-			.iter()
-			.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
-				(
-					sync.shared_update(
-						prisma_sync::file_path::SyncId {
-							pub_id: pub_id.to_db(),
-						},
-						file_path::cas_id::NAME,
-						msgpack!(cas_id),
-					),
-					db.file_path()
-						.update(
-							file_path::pub_id::equals(pub_id.to_db()),
-							vec![file_path::cas_id::set(cas_id.into())],
-						)
-						// We don't need any data here, just the id avoids receiving the entire object
-						// as we can't pass an empty select macro call
-						.select(file_path::select!({ id })),
-				)
-			})
-			.unzip::<_, _, _, Vec<_>>(),
-	)
-	.await?;
+	let (ops, queries) = identified_files
+		.iter()
+		.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
+			(
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: pub_id.to_db(),
+					},
+					file_path::cas_id::NAME,
+					msgpack!(cas_id),
+				),
+				db.file_path()
+					.update(
+						file_path::pub_id::equals(pub_id.to_db()),
+						vec![file_path::cas_id::set(cas_id.into())],
+					)
+					// We don't need any data here, just the id avoids receiving the entire object
+					// as we can't pass an empty select macro call
+					.select(file_path::select!({ id })),
+			)
+		})
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	if !ops.is_empty() && !queries.is_empty() {
+		// Assign cas_id to each file path
+		sync.write_ops(db, (ops, queries)).await?;
+	}
 
 	Ok(())
 }
@@ -512,7 +512,7 @@ impl SerializableTask<Error> for Identifier {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

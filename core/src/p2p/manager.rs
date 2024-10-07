@@ -1,7 +1,7 @@
 use crate::{
 	node::{
 		config::{self, P2PDiscoveryState},
-		get_hardware_model_name, HardwareModel,
+		HardwareModel,
 	},
 	p2p::{
 		libraries::libraries_hook, operations, sync::SyncMessage, Header, OperatingSystem,
@@ -116,7 +116,8 @@ impl P2PManager {
 				let client = reqwest::Client::new();
 				loop {
 					match client
-						.get(format!("{}/api/p2p/relays", node.env.api_url.lock().await))
+						// FIXME(@fogodev): hardcoded URL for now as I'm moving stuff around
+						.get(format!("{}/api/p2p/relays", "https://app.spacedrive.com"))
 						.send()
 						.await
 					{
@@ -207,7 +208,7 @@ impl P2PManager {
 			PeerMetadata {
 				name: config.name.clone(),
 				operating_system: Some(OperatingSystem::get_os()),
-				device_model: Some(get_hardware_model_name().unwrap_or(HardwareModel::Other)),
+				device_model: Some(HardwareModel::try_get().unwrap_or(HardwareModel::Other)),
 				version: Some(env!("CARGO_PKG_VERSION").to_string()),
 			}
 			.update(&mut self.p2p.metadata_mut());

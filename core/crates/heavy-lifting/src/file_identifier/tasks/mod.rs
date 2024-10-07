@@ -1,7 +1,7 @@
 use crate::file_identifier;
 
 use sd_core_prisma_helpers::{file_path_id, FilePathPubId, ObjectPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
@@ -84,6 +84,8 @@ async fn create_objects_and_update_file_paths(
 
 				let kind = kind as i32;
 
+				let device_pub_id = sync.device_pub_id.to_db();
+
 				let (sync_params, db_params) = [
 					(
 						(object::date_created::NAME, msgpack!(created_at)),
@@ -92,6 +94,10 @@ async fn create_objects_and_update_file_paths(
 					(
 						(object::kind::NAME, msgpack!(kind)),
 						object::kind::set(Some(kind)),
+					),
+					(
+						(object::device_pub_id::NAME, msgpack!(device_pub_id)),
+						object::device_pub_id::set(Some(device_pub_id)),
 					),
 				]
 				.into_iter()
@@ -121,51 +127,57 @@ async fn create_objects_and_update_file_paths(
 		.unzip::<_, _, HashMap<_, _>, Vec<_>>(
 	);
 
-	trace!(
-		new_objects_count = object_create_args.len(),
-		"Creating new Objects!;",
-	);
+	let new_objects_count = object_create_args.len();
+	if new_objects_count > 0 {
+		trace!(new_objects_count, "Creating new Objects!;",);
 
-	// create new object records with assembled values
-	let created_objects_count = sync
-		.write_ops(db, {
-			let (sync, db_params) = object_create_args
-				.into_iter()
-				.unzip::<_, _, Vec<_>, Vec<_>>();
-
-			(
-				sync.into_iter().flatten().collect(),
-				db.object().create_many(db_params),
-			)
-		})
-		.await?;
-
-	trace!(%created_objects_count, "Created new Objects;");
-
-	if created_objects_count > 0 {
-		trace!("Updating file paths with created objects");
-
-		let updated_file_path_ids = sync
-			.write_ops(
-				db,
-				file_path_update_args
+		// create new object records with assembled values
+		let created_objects_count = sync
+			.write_ops(db, {
+				let (sync, db_params) = object_create_args
 					.into_iter()
-					.unzip::<_, _, Vec<_>, Vec<_>>(),
-			)
-			.await
-			.map(|file_paths| {
-				file_paths
-					.into_iter()
-					.map(|file_path_id::Data { id }| id)
-					.collect::<HashSet<_>>()
-			})?;
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
-		object_pub_id_by_file_path_id
-			.retain(|file_path_id, _| updated_file_path_ids.contains(file_path_id));
+				(sync, db.object().create_many(db_params))
+			})
+			.await?;
 
-		Ok(object_pub_id_by_file_path_id)
+		trace!(%created_objects_count, "Created new Objects;");
+
+		if created_objects_count > 0 {
+			let file_paths_to_update_count = file_path_update_args.len();
+			if file_paths_to_update_count > 0 {
+				trace!(
+					file_paths_to_update_count,
+					"Updating file paths with created objects"
+				);
+
+				let updated_file_path_ids = sync
+					.write_ops(
+						db,
+						file_path_update_args
+							.into_iter()
+							.unzip::<_, _, Vec<_>, Vec<_>>(),
+					)
+					.await
+					.map(|file_paths| {
+						file_paths
+							.into_iter()
+							.map(|file_path_id::Data { id }| id)
+							.collect::<HashSet<_>>()
+					})?;
+
+				object_pub_id_by_file_path_id
+					.retain(|file_path_id, _| updated_file_path_ids.contains(file_path_id));
+			}
+
+			Ok(object_pub_id_by_file_path_id)
+		} else {
+			trace!("No objects created, skipping file path updates");
+			Ok(HashMap::new())
+		}
 	} else {
-		trace!("No objects created, skipping file path updates");
+		trace!("No objects to create, skipping file path updates");
 		Ok(HashMap::new())
 	}
 }

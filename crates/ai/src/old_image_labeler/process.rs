@@ -1,5 +1,6 @@
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
 	prisma::{file_path, label, label_on_object, object, PrismaClient},
@@ -300,7 +301,7 @@ async fn spawned_process_single_file(
 		chan::Sender<file_path::id::Type>,
 	),
 	db: Arc<PrismaClient>,
-	sync: Arc<sd_core_sync::Manager>,
+	sync: SyncManager,
 	_permit: OwnedSemaphorePermit,
 ) {
 	let image =
@@ -398,7 +399,7 @@ pub async fn assign_labels(
 	object_id: object::id::Type,
 	mut labels: HashSet<String>,
 	db: &PrismaClient,
-	sync: &sd_core_sync::Manager,
+	sync: &SyncManager,
 ) -> Result<bool, ImageLabelerError> {
 	let object = db
 		.object()
@@ -432,7 +433,7 @@ pub async fn assign_labels(
 		let db_params = labels
 			.into_iter()
 			.map(|name| {
-				sync_params.extend(sync.shared_create(
+				sync_params.push(sync.shared_create(
 					prisma_sync::label::SyncId { name: name.clone() },
 					[(label::date_created::NAME, msgpack!(&date_created))],
 				));
@@ -455,37 +456,46 @@ pub async fn assign_labels(
 
 	let mut sync_params = Vec::with_capacity(labels_ids.len() * 2);
 
-	let db_params: Vec<_> = labels_ids
-		.into_iter()
-		.map(|(label_id, name)| {
-			sync_params.extend(sync.relation_create(
-				prisma_sync::label_on_object::SyncId {
-					label: prisma_sync::label::SyncId { name },
-					object: prisma_sync::object::SyncId {
-						pub_id: object.pub_id.clone(),
+	if !labels_ids.is_empty() {
+		let db_params: Vec<_> = labels_ids
+			.into_iter()
+			.map(|(label_id, name)| {
+				let device_pub_id = sync.device_pub_id.to_db();
+				sync_params.push(sync.relation_create(
+					prisma_sync::label_on_object::SyncId {
+						label: prisma_sync::label::SyncId { name },
+						object: prisma_sync::object::SyncId {
+							pub_id: object.pub_id.clone(),
+						},
 					},
-				},
-				[],
-			));
+					[(
+						label_on_object::device_pub_id::NAME,
+						msgpack!(device_pub_id),
+					)],
+				));
 
-			label_on_object::create_unchecked(
-				label_id,
-				object_id,
-				vec![label_on_object::date_created::set(date_created)],
-			)
-		})
-		.collect();
+				label_on_object::create_unchecked(
+					label_id,
+					object_id,
+					vec![
+						label_on_object::date_created::set(date_created),
+						label_on_object::device_pub_id::set(Some(device_pub_id)),
+					],
+				)
+			})
+			.collect();
 
-	sync.write_ops(
-		db,
-		(
-			sync_params,
-			db.label_on_object()
-				.create_many(db_params)
-				.skip_duplicates(),
-		),
-	)
-	.await?;
+		sync.write_ops(
+			db,
+			(
+				sync_params,
+				db.label_on_object()
+					.create_many(db_params)
+					.skip_duplicates(),
+			),
+		)
+		.await?;
+	}
 
 	Ok(has_new_labels)
 }

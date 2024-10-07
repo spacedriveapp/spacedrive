@@ -61,7 +61,7 @@ pub fn enumerate(models: &[ModelWithSyncType<'_>]) -> TokenStream {
 
 		impl ModelSyncData {
 			pub fn from_op(op: sd_sync::CRDTOperation) -> Option<Self> {
-				Some(match op.model {
+				Some(match op.model_id {
 					#(#matches),*,
 					_ => return None
 				})

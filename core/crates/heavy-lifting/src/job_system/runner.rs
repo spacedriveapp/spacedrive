@@ -313,7 +313,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 					Ok(Some(serialized_job)) => {
 						let name = {
 							let db = handle.ctx.db();
-							let mut report = handle.ctx.report_mut().await;
+							let report = handle.ctx.report().await;
 							if let Err(e) = report.update(db).await {
 								error!(?e, "Failed to update report on job shutdown;");
 							}

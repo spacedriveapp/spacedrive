@@ -24,15 +24,15 @@ export function useStateSnapshot() {
 	return useSolidStore(store).state;
 }
 
-nonLibraryClient
-	.query(['auth.me'])
-	.then(() => (store.state = { status: 'loggedIn' }))
-	.catch((e) => {
-		if (e instanceof RSPCError && e.code === 401) {
-			// TODO: handle error?
-		}
-		store.state = { status: 'notLoggedIn' };
-	});
+// nonLibraryClient
+// 	.query(['auth.me'])
+// 	.then(() => (store.state = { status: 'loggedIn' }))
+// 	.catch((e) => {
+// 		if (e instanceof RSPCError && e.code === 401) {
+// 			// TODO: handle error?
+// 		}
+// 		store.state = { status: 'notLoggedIn' };
+// 	});
 
 type CallbackStatus = 'success' | { error: string } | 'cancel';
 const loginCallbacks = new Set<(status: CallbackStatus) => void>();
@@ -46,28 +46,28 @@ export async function login(config: ProviderConfig) {
 
 	store.state = { status: 'loggingIn' };
 
-	let authCleanup = nonLibraryClient.addSubscription(['auth.loginSession'], {
-		onData(data) {
-			if (data === 'Complete') {
-				config.finish?.(authCleanup);
-				loginCallbacks.forEach((cb) => cb('success'));
-			} else if ('Error' in data) {
-				onError(data.Error);
-			} else {
-				Promise.resolve()
-					.then(() => config.start(data.Start.verification_url_complete))
-					.then(
-						(res) => {
-							authCleanup = res;
-						},
-						(e) => onError(e.message)
-					);
-			}
-		},
-		onError(e) {
-			onError(e.message);
-		}
-	});
+	// let authCleanup = nonLibraryClient.addSubscription(['auth.loginSession'], {
+	// 	onData(data) {
+	// 		if (data === 'Complete') {
+	// 			config.finish?.(authCleanup);
+	// 			loginCallbacks.forEach((cb) => cb('success'));
+	// 		} else if ('Error' in data) {
+	// 			onError(data.Error);
+	// 		} else {
+	// 			Promise.resolve()
+	// 				.then(() => config.start(data.Start.verification_url_complete))
+	// 				.then(
+	// 					(res) => {
+	// 						authCleanup = res;
+	// 					},
+	// 					(e) => onError(e.message)
+	// 				);
+	// 		}
+	// 	},
+	// 	onError(e) {
+	// 		onError(e.message);
+	// 	}
+	// });
 
 	return new Promise<void>((res, rej) => {
 		const cb = async (status: CallbackStatus) => {
@@ -75,7 +75,7 @@ export async function login(config: ProviderConfig) {
 
 			if (status === 'success') {
 				store.state = { status: 'loggedIn' };
-				nonLibraryClient.query(['auth.me']);
+				// nonLibraryClient.query(['auth.me']);
 				res();
 			} else {
 				store.state = { status: 'notLoggedIn' };
@@ -88,8 +88,8 @@ export async function login(config: ProviderConfig) {
 
 export async function logout() {
 	store.state = { status: 'loggingOut' };
-	await nonLibraryClient.mutation(['auth.logout']);
-	await nonLibraryClient.query(['auth.me']);
+	// await nonLibraryClient.mutation(['auth.logout']);
+	// await nonLibraryClient.query(['auth.me']);
 	store.state = { status: 'notLoggedIn' };
 }
 

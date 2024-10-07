@@ -376,7 +376,9 @@ impl Entry {
 ///
 /// From my M1 Macbook Pro this:
 ///  - takes 11ms per 10 000 files
-///  and
+///
+/// and
+///
 ///  - consumes 0.16MB of RAM per 10 000 entries.
 ///
 /// The reason we collect these all up is so we can apply ordering, and then begin streaming the data as it's processed to the frontend.

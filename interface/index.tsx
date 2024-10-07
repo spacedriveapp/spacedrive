@@ -12,7 +12,8 @@ import {
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
-import { toast, TooltipProvider } from '@sd/ui';
+import { dialogManager, toast, TooltipProvider } from '@sd/ui';
+import RequestAddDialog from '~/components/RequestAddDialog';
 
 import { createRoutes } from './app';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
@@ -26,7 +27,7 @@ import { RouterContext, RoutingContext } from './RoutingContext';
 export * from './app';
 export { ErrorPage } from './ErrorFallback';
 export * from './TabsContext';
-export * from './util/keybind';
+export * from './util/events';
 export * from './util/Platform';
 
 dayjs.extend(advancedFormat);
@@ -84,6 +85,27 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 	useBridgeSubscription(['notifications.listen'], {
 		onData({ data: { title, content, kind }, expires }) {
 			toast({ title, body: content }, { type: kind });
+		}
+	});
+
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			console.log('Received cloud service notification', d);
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					dialogManager.create((dp) => (
+						<RequestAddDialog
+							device_model={'Macbook Pro'}
+							device_name={"Arnab's Macbook"}
+							library_name={"Arnab's Library"}
+							{...dp}
+						/>
+					));
+					break;
+				default:
+					toast({ title: 'Cloud Service Notification', body: d.kind }, { type: 'info' });
+					break;
+			}
 		}
 	});
 

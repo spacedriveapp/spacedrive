@@ -116,13 +116,13 @@ impl Job for Indexer {
 
 								TaskKind::Save => tasks::Saver::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+									(Arc::clone(ctx.db()), ctx.sync().clone()),
 								)
 								.await
 								.map(IntoTask::into_task),
 								TaskKind::Update => tasks::Updater::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+									(Arc::clone(ctx.db()), ctx.sync().clone()),
 								)
 								.await
 								.map(IntoTask::into_task),
@@ -687,7 +687,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						self.to_create_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 					.into_task(),
 				);
@@ -707,7 +707,7 @@ impl Indexer {
 					tasks::Updater::new_deep(
 						self.to_update_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 					.into_task(),
 				);
@@ -759,7 +759,7 @@ impl Indexer {
 					self.location.pub_id.clone(),
 					chunked_saves,
 					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
+					ctx.sync().clone(),
 				)
 			})
 			.collect::<Vec<_>>();
@@ -806,7 +806,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 				})
 				.collect::<Vec<_>>();
@@ -824,7 +824,7 @@ impl Indexer {
 					tasks::Updater::new_shallow(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 				})
 				.collect::<Vec<_>>();
@@ -851,7 +851,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					));
 				}
 				save_tasks
@@ -878,7 +878,7 @@ impl Indexer {
 					update_tasks.push(tasks::Updater::new_deep(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					));
 				}
 				update_tasks

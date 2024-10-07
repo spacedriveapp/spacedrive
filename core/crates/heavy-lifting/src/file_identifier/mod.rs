@@ -217,7 +217,7 @@ where
 					.dispatch(tasks::ObjectProcessor::new(
 						HashMap::from([(cas_id, objects_to_create_or_link)]),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 						with_priority,
 					))
 					.await?,
@@ -239,7 +239,7 @@ where
 						.dispatch(tasks::ObjectProcessor::new(
 							mem::take(&mut current_batch),
 							Arc::clone(ctx.db()),
-							Arc::clone(ctx.sync()),
+							ctx.sync().clone(),
 							with_priority,
 						))
 						.await?,
@@ -256,7 +256,7 @@ where
 				.dispatch(tasks::ObjectProcessor::new(
 					current_batch,
 					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
+					ctx.sync().clone(),
 					with_priority,
 				))
 				.await?,

@@ -103,7 +103,7 @@ pub async fn shallow(
 				orphan_paths,
 				true,
 				Arc::clone(ctx.db()),
-				Arc::clone(ctx.sync()),
+				ctx.sync().clone(),
 			))
 			.await
 		else {

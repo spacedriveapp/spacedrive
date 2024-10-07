@@ -300,7 +300,7 @@ impl Report {
 		Ok(())
 	}
 
-	pub async fn update(&mut self, db: &PrismaClient) -> Result<(), ReportError> {
+	pub async fn update(&self, db: &PrismaClient) -> Result<(), ReportError> {
 		db.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),

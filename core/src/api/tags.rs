@@ -197,38 +197,36 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							),
 						]);
 
-						sync.write_ops(
-							db,
-							(
-								objects
+						let ops = objects
+							.into_iter()
+							.map(|o| o.pub_id)
+							.chain(
+								file_paths
 									.into_iter()
-									.map(|o| o.pub_id)
-									.chain(
-										file_paths
-											.into_iter()
-											.filter_map(|fp| fp.object.map(|o| o.pub_id)),
-									)
-									.map(|pub_id| sync.relation_delete(sync_id!(pub_id)))
-									.collect(),
-								query,
-							),
-						)
-						.await?;
+									.filter_map(|fp| fp.object.map(|o| o.pub_id)),
+							)
+							.map(|pub_id| sync.relation_delete(sync_id!(pub_id)))
+							.collect::<Vec<_>>();
+
+						if !ops.is_empty() {
+							sync.write_ops(db, (ops, query)).await?;
+						}
 					} else {
-						let mut sync_params = vec![];
+						let mut ops = vec![];
 
 						let db_params: (Vec<_>, Vec<_>) = file_paths
 							.iter()
 							.filter(|fp| fp.is_dir.unwrap_or_default() && fp.object.is_none())
 							.map(|fp| {
-								let id = uuid_to_bytes(&Uuid::new_v4());
+								let id = uuid_to_bytes(&Uuid::now_v7());
+								let device_pub_id = sync.device_pub_id.to_db();
 
-								sync_params.extend(sync.shared_create(
+								ops.push(sync.shared_create(
 									prisma_sync::object::SyncId { pub_id: id.clone() },
-									[],
+									[(object::device_pub_id::NAME, msgpack!(device_pub_id))],
 								));
 
-								sync_params.push(sync.shared_update(
+								ops.push(sync.shared_update(
 									prisma_sync::file_path::SyncId {
 										pub_id: fp.pub_id.clone(),
 									},
@@ -237,7 +235,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								));
 
 								(
-									db.object().create(id.clone(), vec![]),
+									db.object().create(
+										id.clone(),
+										vec![object::device_pub_id::set(Some(device_pub_id))],
+									),
 									db.file_path().update(
 										file_path::id::equals(fp.id),
 										vec![file_path::object::connect(object::pub_id::equals(
@@ -248,7 +249,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							})
 							.unzip();
 
-						let (new_objects, _) = sync.write_ops(db, (sync_params, db_params)).await?;
+						if ops.is_empty() {
+							return Ok(());
+						}
+
+						let (new_objects, _) = sync.write_ops(db, (ops, db_params)).await?;
 
 						let (sync_ops, db_creates) = objects
 							.into_iter()
@@ -262,19 +267,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							.fold(
 								(vec![], vec![]),
 								|(mut sync_ops, mut db_creates), (id, pub_id)| {
+									let device_pub_id = sync.device_pub_id.to_db();
+									sync_ops.push(sync.relation_create(
+										sync_id!(pub_id),
+										[(
+											tag_on_object::device_pub_id::NAME,
+											msgpack!(device_pub_id),
+										)],
+									));
+
 									db_creates.push(tag_on_object::CreateUnchecked {
 										tag_id: args.tag_id,
 										object_id: id,
-										_params: vec![tag_on_object::date_created::set(Some(
-											Utc::now().into(),
-										))],
+										_params: vec![
+											tag_on_object::date_created::set(Some(
+												Utc::now().into(),
+											)),
+											tag_on_object::device_pub_id::set(Some(device_pub_id)),
+										],
 									});
-
-									sync_ops.extend(sync.relation_create(sync_id!(pub_id), []));
 
 									(sync_ops, db_creates)
 								},
 							);
+
+						if sync_ops.is_empty() && db_creates.is_empty() {
+							return Ok(());
+						}
 
 						sync.write_ops(
 							db,
@@ -331,6 +350,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.flatten()
 					.unzip();
+
+					if sync_params.is_empty() && db_params.is_empty() {
+						return Ok(());
+					}
 
 					sync.write_ops(
 						db,

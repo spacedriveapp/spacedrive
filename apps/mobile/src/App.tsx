@@ -17,6 +17,7 @@ import { Alert, LogBox, Permission, PermissionsAndroid, Platform } from 'react-n
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import SuperTokens from 'supertokens-react-native';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
@@ -25,6 +26,7 @@ import {
 	P2PContextProvider,
 	RspcProvider,
 	useBridgeQuery,
+	useBridgeSubscription,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
@@ -33,12 +35,13 @@ import {
 } from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
-import { Toast, toastConfig } from './components/primitive/Toast';
+import { toast, Toast, toastConfig } from './components/primitive/Toast';
 import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { P2P } from './screens/p2p/P2P';
+import { AUTH_SERVER_URL } from './utils';
 import { currentLibraryStore } from './utils/nav';
 
 LogBox.ignoreLogs(['Sending `onAnimatedValueUpdate` with no listeners registered.']);
@@ -129,6 +132,20 @@ function AppContainer() {
 	useInvalidateQuery();
 
 	const { id } = useSnapshot(currentLibraryStore);
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			console.log('Received cloud service notification', d);
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					// TODO: Show modal to accept or reject
+					break;
+				default:
+					// TODO: Show notification/toast for other kinds
+					toast.info(`Cloud Service Notification -> ${d.kind}`);
+					break;
+			}
+		}
+	});
 
 	return (
 		<SafeAreaProvider style={tw`flex-1 bg-black`}>
@@ -156,6 +173,10 @@ export default function App() {
 	useEffect(() => {
 		global.Intl = require('intl');
 		require('intl/locale-data/jsonp/en'); //TODO(@Rocky43007): Setup a way to import all the languages we support, once we add localization on mobile.
+		SuperTokens.init({
+			apiDomain: AUTH_SERVER_URL,
+			apiBasePath: '/api/auth'
+		});
 		SplashScreen.hideAsync();
 		if (Platform.OS === 'android') {
 			(async () => {
