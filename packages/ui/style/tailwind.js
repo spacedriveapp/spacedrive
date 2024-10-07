@@ -23,6 +23,10 @@ module.exports = function (app, options) {
 				xl: '1280px',
 				...defaultTheme.screens
 			},
+			fontFamily: {
+				sans: [...defaultTheme.fontFamily.sans],
+				plex: ['IBM Plex Sans', ...defaultTheme.fontFamily.sans]
+			},
 			fontSize: {
 				'tiny': '.65rem',
 				'xs': '.75rem',
