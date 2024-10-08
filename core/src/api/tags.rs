@@ -1,10 +1,10 @@
 use crate::{invalidate_query, library::Library, object::tag::TagCreateArgs};
 
 use sd_prisma::{
-	prisma::{file_path, object, tag, tag_on_object},
+	prisma::{device, file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
-use sd_sync::{option_sync_db_entry, OperationFactory};
+use sd_sync::{option_sync_db_entry, sync_entry, OperationFactory};
 use sd_utils::{msgpack, uuid_to_bytes};
 
 use std::collections::BTreeMap;
@@ -131,6 +131,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				.mutation(|(_, library), args: TagAssignArgs| async move {
 					let Library { db, sync, .. } = library.as_ref();
 
+					let device_id = library
+						.db
+						.device()
+						.find_unique(device::pub_id::equals(sync.device_pub_id.to_db()))
+						.select(device::select!({ id }))
+						.exec()
+						.await?
+						.ok_or_else(|| {
+							rspc::Error::new(
+								ErrorCode::NotFound,
+								"Local device not found".to_string(),
+							)
+						})?
+						.id;
+
 					let tag = db
 						.tag()
 						.find_unique(tag::id::equals(args.tag_id))
@@ -223,7 +238,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 								ops.push(sync.shared_create(
 									prisma_sync::object::SyncId { pub_id: id.clone() },
-									[(object::device_pub_id::NAME, msgpack!(device_pub_id))],
+									[sync_entry!(
+										prisma_sync::device::SyncId {
+											pub_id: device_pub_id.clone(),
+										},
+										object::device
+									)],
 								));
 
 								ops.push(sync.shared_update(
@@ -237,7 +257,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								(
 									db.object().create(
 										id.clone(),
-										vec![object::device_pub_id::set(Some(device_pub_id))],
+										vec![object::device::connect(device::pub_id::equals(
+											device_pub_id,
+										))],
 									),
 									db.file_path().update(
 										file_path::id::equals(fp.id),
@@ -270,9 +292,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									let device_pub_id = sync.device_pub_id.to_db();
 									sync_ops.push(sync.relation_create(
 										sync_id!(pub_id),
-										[(
-											tag_on_object::device_pub_id::NAME,
-											msgpack!(device_pub_id),
+										[sync_entry!(
+											prisma_sync::device::SyncId {
+												pub_id: device_pub_id.clone(),
+											},
+											tag_on_object::device
 										)],
 									));
 
@@ -283,7 +307,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 											tag_on_object::date_created::set(Some(
 												Utc::now().into(),
 											)),
-											tag_on_object::device_pub_id::set(Some(device_pub_id)),
+											tag_on_object::device_id::set(Some(device_id)),
 										],
 									});
 

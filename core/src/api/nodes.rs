@@ -5,7 +5,7 @@ use crate::{
 	node::config::{P2PDiscoveryState, Port},
 };
 
-use sd_prisma::prisma::location;
+use sd_prisma::prisma::{device, location};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_utils::uuid_to_bytes;
@@ -96,7 +96,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.find_many(
 							device_pub_id
 								.map(|id| {
-									vec![location::device_pub_id::equals(Some(uuid_to_bytes(&id)))]
+									vec![location::device::is(vec![device::pub_id::equals(
+										uuid_to_bytes(&id),
+									)])]
 								})
 								.unwrap_or_default(),
 						)

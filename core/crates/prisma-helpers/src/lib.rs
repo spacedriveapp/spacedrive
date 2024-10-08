@@ -243,7 +243,7 @@ job::select!(job_without_data {
 location::select!(location_ids_and_path {
 	id
 	pub_id
-	device_pub_id
+	device: select { pub_id }
 	path
 });
 
@@ -258,7 +258,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id,
 			path: data.path,
-			device_pub_id: data.device_pub_id,
+			device_id: data.device_id,
 			instance_id: data.instance_id,
 			name: data.name,
 			total_capacity: data.total_capacity,
@@ -284,7 +284,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id.clone(),
 			path: data.path.clone(),
-			device_pub_id: data.device_pub_id.clone(),
+			device_id: data.device_id,
 			instance_id: data.instance_id,
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,

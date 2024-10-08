@@ -1,14 +1,13 @@
 use sd_core_prisma_helpers::DevicePubId;
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient, SortOrder};
+use sd_prisma::prisma::{crdt_operation, device, PrismaClient, SortOrder};
 use sd_sync::{
 	CRDTOperation, CompressedCRDTOperationsPerModel, CompressedCRDTOperationsPerModelPerDevice,
 	OperationFactory,
 };
-use sd_utils::from_bytes_to_uuid;
 
 use std::{
-	cmp, fmt,
+	fmt,
 	num::NonZeroU128,
 	sync::{
 		atomic::{self, AtomicBool},
@@ -19,17 +18,14 @@ use std::{
 use async_stream::stream;
 use futures::Stream;
 use futures_concurrency::future::TryJoin;
-use prisma_client_rust::{and, operator::or};
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
 use tracing::warn;
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
 use super::{
-	crdt_op_db,
-	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
-	ingest_utils::process_crdt_operations,
-	Error, SyncEvent, TimestampPerDevice, NTP64,
+	crdt_op_db, db_operation::from_crdt_ops, ingest_utils::process_crdt_operations, Error,
+	SyncEvent, TimestampPerDevice, NTP64,
 };
 
 /// Wrapper that spawns the ingest actor and provides utilities for reading and writing sync operations.
@@ -140,6 +136,11 @@ impl Manager {
 		CompressedCRDTOperationsPerModelPerDevice(compressed_ops): CompressedCRDTOperationsPerModelPerDevice,
 	) -> Result<(), Error> {
 		let _lock_guard = self.sync_lock.lock().await;
+
+		// TODO(@fogodev): I'm almost sure that we need to order better which models we process first
+		// due to relations between them. For example, if we process `file_path` before `object`, we
+		// will have issues with foreign keys, as we'll be trying to insert a `file_path` pointing to
+		// a `object` that doesn't exist yet.
 
 		// Each `ops` vec is for an independent record, so we can process them concurrently
 		compressed_ops
@@ -257,27 +258,27 @@ impl Manager {
 		Ok(ret)
 	}
 
-	pub async fn get_device_ops(
-		&self,
-		count: u32,
-		device_pub_id: DevicePubId,
-		timestamp: NTP64,
-	) -> Result<Vec<CRDTOperation>, Error> {
-		self.db
-			.crdt_operation()
-			.find_many(vec![
-				crdt_operation::device_pub_id::equals(device_pub_id.into()),
-				#[allow(clippy::cast_possible_wrap)]
-				crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
-			])
-			.take(i64::from(count))
-			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.exec()
-			.await?
-			.into_iter()
-			.map(from_crdt_ops)
-			.collect()
-	}
+	// pub async fn get_device_ops(
+	// 	&self,
+	// 	count: u32,
+	// 	device_pub_id: DevicePubId,
+	// 	timestamp: NTP64,
+	// ) -> Result<Vec<CRDTOperation>, Error> {
+	// 	self.db
+	// 		.crdt_operation()
+	// 		.find_many(vec![
+	// 			crdt_operation::device_pub_id::equals(device_pub_id.into()),
+	// 			#[allow(clippy::cast_possible_wrap)]
+	// 			crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
+	// 		])
+	// 		.take(i64::from(count))
+	// 		.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
+	// 		.exec()
+	// 		.await?
+	// 		.into_iter()
+	// 		.map(from_crdt_ops)
+	// 		.collect()
+	// }
 
 	pub fn stream_device_ops<'a>(
 		&'a self,
@@ -329,103 +330,99 @@ impl Manager {
 		}
 	}
 
-	pub async fn get_ops(
-		&self,
-		count: u32,
-		timestamp_per_device: Vec<(DevicePubId, NTP64)>,
-	) -> Result<Vec<CRDTOperation>, Error> {
-		let mut ops = self
-			.db
-			.crdt_operation()
-			.find_many(vec![or(timestamp_per_device
-				.iter()
-				.map(|(device_pub_id, timestamp)| {
-					and![
-						crdt_operation::device::is(vec![device::pub_id::equals(
-							device_pub_id.to_db()
-						)]),
-						crdt_operation::timestamp::gt({
-							#[allow(clippy::cast_possible_wrap)]
-							// SAFETY: we had to store using i64 due to SQLite limitations
-							{
-								timestamp.as_u64() as i64
-							}
-						})
-					]
-				})
-				.chain([crdt_operation::device::is_not(vec![
-					device::pub_id::in_vec(
-						timestamp_per_device
-							.iter()
-							.map(|(device_pub_id, _)| device_pub_id.to_db())
-							.collect(),
-					),
-				])])
-				.collect())])
-			.take(i64::from(count))
-			.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-			.exec()
-			.await?;
+	// pub async fn get_ops(
+	// 	&self,
+	// 	count: u32,
+	// 	timestamp_per_device: Vec<(DevicePubId, NTP64)>,
+	// ) -> Result<Vec<CRDTOperation>, Error> {
+	// 	let mut ops = self
+	// 		.db
+	// 		.crdt_operation()
+	// 		.find_many(vec![or(timestamp_per_device
+	// 			.iter()
+	// 			.map(|(device_pub_id, timestamp)| {
+	// 				and![
+	// 					crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
+	// 					crdt_operation::timestamp::gt({
+	// 						#[allow(clippy::cast_possible_wrap)]
+	// 						// SAFETY: we had to store using i64 due to SQLite limitations
+	// 						{
+	// 							timestamp.as_u64() as i64
+	// 						}
+	// 					})
+	// 				]
+	// 			})
+	// 			.chain([crdt_operation::device_pub_id::not_in_vec(
+	// 				timestamp_per_device
+	// 					.iter()
+	// 					.map(|(device_pub_id, _)| device_pub_id.to_db())
+	// 					.collect(),
+	// 			)])
+	// 			.collect())])
+	// 		.take(i64::from(count))
+	// 		.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
+	// 		.exec()
+	// 		.await?;
 
-		ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
-			cmp::Ordering::Equal => {
-				from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
-			}
-			o => o,
-		});
+	// 	ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
+	// 		cmp::Ordering::Equal => {
+	// 			from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
+	// 		}
+	// 		o => o,
+	// 	});
 
-		ops.into_iter()
-			.take(count as usize)
-			.map(from_crdt_ops)
-			.collect()
-	}
+	// 	ops.into_iter()
+	// 		.take(count as usize)
+	// 		.map(from_crdt_ops)
+	// 		.collect()
+	// }
 
-	pub async fn get_cloud_ops(
-		&self,
-		count: u32,
-		timestamp_per_device: Vec<(DevicePubId, NTP64)>,
-	) -> Result<Vec<(cloud_crdt_operation::id::Type, CRDTOperation)>, Error> {
-		let mut ops = self
-			.db
-			.cloud_crdt_operation()
-			.find_many(vec![or(timestamp_per_device
-				.iter()
-				.map(|(device_pub_id, timestamp)| {
-					and![
-						cloud_crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
-						cloud_crdt_operation::timestamp::gt({
-							#[allow(clippy::cast_possible_wrap)]
-							// SAFETY: we had to store using i64 due to SQLite limitations
-							{
-								timestamp.as_u64() as i64
-							}
-						})
-					]
-				})
-				.chain([cloud_crdt_operation::device_pub_id::not_in_vec(
-					timestamp_per_device
-						.iter()
-						.map(|(device_pub_id, _)| device_pub_id.to_db())
-						.collect(),
-				)])
-				.collect())])
-			.take(i64::from(count))
-			.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
-			.exec()
-			.await?;
+	// pub async fn get_cloud_ops(
+	// 	&self,
+	// 	count: u32,
+	// 	timestamp_per_device: Vec<(DevicePubId, NTP64)>,
+	// ) -> Result<Vec<(cloud_crdt_operation::id::Type, CRDTOperation)>, Error> {
+	// 	let mut ops = self
+	// 		.db
+	// 		.cloud_crdt_operation()
+	// 		.find_many(vec![or(timestamp_per_device
+	// 			.iter()
+	// 			.map(|(device_pub_id, timestamp)| {
+	// 				and![
+	// 					cloud_crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
+	// 					cloud_crdt_operation::timestamp::gt({
+	// 						#[allow(clippy::cast_possible_wrap)]
+	// 						// SAFETY: we had to store using i64 due to SQLite limitations
+	// 						{
+	// 							timestamp.as_u64() as i64
+	// 						}
+	// 					})
+	// 				]
+	// 			})
+	// 			.chain([cloud_crdt_operation::device_pub_id::not_in_vec(
+	// 				timestamp_per_device
+	// 					.iter()
+	// 					.map(|(device_pub_id, _)| device_pub_id.to_db())
+	// 					.collect(),
+	// 			)])
+	// 			.collect())])
+	// 		.take(i64::from(count))
+	// 		.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
+	// 		.exec()
+	// 		.await?;
 
-		ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
-			cmp::Ordering::Equal => {
-				from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
-			}
-			o => o,
-		});
+	// 	ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
+	// 		cmp::Ordering::Equal => {
+	// 			from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
+	// 		}
+	// 		o => o,
+	// 	});
 
-		ops.into_iter()
-			.take(count as usize)
-			.map(from_cloud_crdt_ops)
-			.collect()
-	}
+	// 	ops.into_iter()
+	// 		.take(count as usize)
+	// 		.map(from_cloud_crdt_ops)
+	// 		.collect()
+	// }
 }
 
 impl OperationFactory for Manager {

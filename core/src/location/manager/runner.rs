@@ -38,7 +38,7 @@ type LocationIdAndLibraryId = (location::id::Type, LibraryId);
 
 struct Runner {
 	node: Arc<Node>,
-	device_pub_id_to_db: Option<Vec<u8>>,
+	device_pub_id_to_db: Vec<u8>,
 	locations_to_check: HashMap<location::id::Type, Arc<Library>>,
 	locations_watched: HashMap<LocationIdAndLibraryId, LocationWatcher>,
 	locations_unwatched: HashMap<LocationIdAndLibraryId, LocationWatcher>,
@@ -47,7 +47,7 @@ struct Runner {
 impl Runner {
 	async fn new(node: Arc<Node>) -> Self {
 		Self {
-			device_pub_id_to_db: Some(node.config.get().await.id.to_db()),
+			device_pub_id_to_db: node.config.get().await.id.to_db(),
 			node,
 			locations_to_check: HashMap::new(),
 			locations_watched: HashMap::new(),
@@ -57,7 +57,10 @@ impl Runner {
 	}
 
 	fn check_same_device(&self, location: &location_ids_and_path::Data) -> bool {
-		location.device_pub_id == self.device_pub_id_to_db
+		location
+			.device
+			.as_ref()
+			.is_some_and(|device| device.pub_id == self.device_pub_id_to_db)
 	}
 
 	async fn add_location(
@@ -418,16 +421,19 @@ async fn check_online(
 	location_ids_and_path::Data {
 		id: location_id,
 		pub_id,
-		device_pub_id,
+		device,
 		path,
 	}: &location_ids_and_path::Data,
 	node: &Node,
 	library: &Library,
-	device_pub_id_to_db: &Option<Vec<u8>>,
+	device_pub_id_to_db: &[u8],
 ) -> Result<bool, LocationManagerError> {
 	let pub_id = Uuid::from_slice(pub_id)?;
 
-	if *device_pub_id == *device_pub_id_to_db {
+	if device
+		.as_ref()
+		.is_some_and(|device| device.pub_id == device_pub_id_to_db)
+	{
 		match fs::metadata(maybe_missing(path, "location.path")?).await {
 			Ok(_) => {
 				node.locations.add_online(pub_id).await;

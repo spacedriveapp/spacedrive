@@ -1,7 +1,7 @@
 use sd_core_prisma_helpers::file_path_for_media_processor;
-
 use sd_core_sync::SyncManager;
-use sd_prisma::prisma::{location, PrismaClient};
+
+use sd_prisma::prisma::{device, location, PrismaClient};
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -52,6 +52,7 @@ pub(super) struct Batch {
 	pub(super) token: BatchToken,
 	pub(super) location_id: location::id::Type,
 	pub(super) location_path: PathBuf,
+	pub(super) device_id: device::id::Type,
 	pub(super) file_paths: Vec<file_path_for_media_processor::Data>,
 	pub(super) output_tx: chan::Sender<LabelerOutput>,
 	pub(super) is_resumable: bool,
@@ -63,6 +64,7 @@ pub(super) struct Batch {
 struct ResumableBatch {
 	location_id: location::id::Type,
 	location_path: PathBuf,
+	device_id: device::id::Type,
 	file_paths: Vec<file_path_for_media_processor::Data>,
 }
 
@@ -163,10 +165,12 @@ impl OldImageLabeler {
 		})
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	async fn new_batch_inner(
 		&self,
 		location_id: location::id::Type,
 		location_path: PathBuf,
+		device_id: device::id::Type,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
 		sync: SyncManager,
@@ -181,6 +185,7 @@ impl OldImageLabeler {
 					token,
 					location_id,
 					location_path,
+					device_id,
 					file_paths,
 					output_tx: tx,
 					is_resumable,
@@ -204,14 +209,23 @@ impl OldImageLabeler {
 	pub async fn new_batch(
 		&self,
 		location_id: location::id::Type,
+		device_id: device::id::Type,
 		location_path: PathBuf,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
 		sync: SyncManager,
 	) -> chan::Receiver<LabelerOutput> {
-		self.new_batch_inner(location_id, location_path, file_paths, db, sync, false)
-			.await
-			.1
+		self.new_batch_inner(
+			location_id,
+			location_path,
+			device_id,
+			file_paths,
+			db,
+			sync,
+			false,
+		)
+		.await
+		.1
 	}
 
 	/// Resumable batches have lower priority than normal batches
@@ -219,12 +233,21 @@ impl OldImageLabeler {
 		&self,
 		location_id: location::id::Type,
 		location_path: PathBuf,
+		device_id: device::id::Type,
 		file_paths: Vec<file_path_for_media_processor::Data>,
 		db: Arc<PrismaClient>,
 		sync: SyncManager,
 	) -> (BatchToken, chan::Receiver<LabelerOutput>) {
-		self.new_batch_inner(location_id, location_path, file_paths, db, sync, true)
-			.await
+		self.new_batch_inner(
+			location_id,
+			location_path,
+			device_id,
+			file_paths,
+			db,
+			sync,
+			true,
+		)
+		.await
 	}
 
 	pub async fn change_model(&self, model: Box<dyn Model>) -> Result<(), ImageLabelerError> {
@@ -394,6 +417,7 @@ async fn actor_loop(
 					to_resume_batches.write().await.remove(&token).map(
 						|ResumableBatch {
 						     location_id,
+						     device_id,
 						     location_path,
 						     file_paths,
 						 }| {
@@ -404,6 +428,7 @@ async fn actor_loop(
 									token,
 									db,
 									sync,
+									device_id,
 									output_tx,
 									location_id,
 									location_path,
@@ -530,6 +555,7 @@ async fn actor_loop(
 						     token,
 						     location_id,
 						     location_path,
+						     device_id,
 						     file_paths,
 						     is_resumable,
 						     ..
@@ -539,6 +565,7 @@ async fn actor_loop(
 								ResumableBatch {
 									location_id,
 									location_path,
+									device_id,
 									file_paths,
 								},
 							))
@@ -555,6 +582,7 @@ async fn actor_loop(
 							     token,
 							     location_id,
 							     location_path,
+							     device_id,
 							     file_paths,
 							     is_resumable,
 							     ..
@@ -564,6 +592,7 @@ async fn actor_loop(
 									ResumableBatch {
 										location_id,
 										location_path,
+										device_id,
 										file_paths,
 									},
 								))

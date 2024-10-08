@@ -9,7 +9,7 @@ use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
-	prisma::{file_path, location, PrismaClient},
+	prisma::{device, file_path, location, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
@@ -64,6 +64,7 @@ pub struct Identifier {
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
 
 	// Inner state
+	device_id: device::id::Type,
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
 	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
 
@@ -135,6 +136,7 @@ impl Task<Error> for Identifier {
 		let Self {
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			file_paths_without_cas_id,
 			identified_files,
@@ -255,6 +257,7 @@ impl Task<Error> for Identifier {
 					file_paths_without_cas_id.drain(..),
 					&self.db,
 					&self.sync,
+					*device_id,
 				),
 			)
 				.try_join()
@@ -301,6 +304,7 @@ impl Task<Error> for Identifier {
 				file_paths_without_cas_id.drain(..),
 				&self.db,
 				&self.sync,
+				*device_id,
 			)
 			.await?;
 
@@ -325,6 +329,7 @@ impl Identifier {
 		with_priority: bool,
 		db: Arc<PrismaClient>,
 		sync: SyncManager,
+		device_id: device::id::Type,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -377,6 +382,7 @@ impl Identifier {
 			id: TaskId::new_v4(),
 			location,
 			location_path,
+			device_id,
 			identified_files: HashMap::with_capacity(file_paths_count - directories_count),
 			file_paths_without_cas_id,
 			file_paths_by_id,
@@ -500,6 +506,7 @@ struct SaveState {
 	id: TaskId,
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
+	device_id: device::id::Type,
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
 	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
@@ -519,6 +526,7 @@ impl SerializableTask<Error> for Identifier {
 			id,
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			identified_files,
 			file_paths_without_cas_id,
@@ -530,6 +538,7 @@ impl SerializableTask<Error> for Identifier {
 			id,
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			identified_files,
 			file_paths_without_cas_id,
@@ -547,6 +556,7 @@ impl SerializableTask<Error> for Identifier {
 			     id,
 			     location,
 			     location_path,
+			     device_id,
 			     file_paths_by_id,
 			     identified_files,
 			     file_paths_without_cas_id,
@@ -558,6 +568,7 @@ impl SerializableTask<Error> for Identifier {
 				location,
 				location_path,
 				file_paths_by_id,
+				device_id,
 				identified_files,
 				file_paths_without_cas_id,
 				output,

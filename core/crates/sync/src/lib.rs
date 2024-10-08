@@ -27,7 +27,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device};
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation};
 use sd_utils::uuid_to_bytes;
 
 use std::{collections::HashMap, sync::Arc};
@@ -70,6 +70,8 @@ pub enum Error {
 	InvalidModelId(ModelId),
 	#[error("tried to write an empty operations list")]
 	EmptyOperations,
+	#[error("device not found: {0}")]
+	DeviceNotFound(DevicePubId),
 }
 
 impl From<Error> for rspc::Error {
@@ -98,7 +100,7 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 				op.timestamp.as_u64() as i64
 			}
 		},
-		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),
@@ -134,7 +136,7 @@ pub fn cloud_crdt_op_db(op: &CRDTOperation) -> Result<cloud_crdt_operation::Crea
 				op.timestamp.as_u64() as i64
 			}
 		},
-		device: device::pub_id::equals(uuid_to_bytes(&op.device_pub_id)),
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.data.as_kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),

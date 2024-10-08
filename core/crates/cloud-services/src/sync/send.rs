@@ -5,6 +5,7 @@ use sd_core_sync::{CompressedCRDTOperationsPerModelPerDevice, SyncEvent, SyncMan
 use sd_actors::{Actor, Stopper};
 use sd_cloud_schema::{
 	devices,
+	error::{ClientSideError, NotFoundError},
 	sync::{self, groups, messages},
 	Client, Service,
 };
@@ -22,16 +23,17 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::Duration,
+	time::{Duration, UNIX_EPOCH},
 };
 
 use async_stream::try_stream;
-use futures::{FutureExt, SinkExt, Stream, StreamExt, TryStream};
+use chrono::{DateTime, Utc};
+use futures::{FutureExt, SinkExt, Stream, StreamExt, TryStream, TryStreamExt};
 use futures_concurrency::future::{Race, TryJoin};
 use quic_rpc::{client::UpdateSink, pattern::bidi_streaming, transport::quinn::QuinnConnection};
 use reqwest_middleware::reqwest::{header, Body};
 use tokio::{
-	io, spawn,
+	spawn,
 	sync::{broadcast, oneshot, Notify, Semaphore},
 	time::sleep,
 };
@@ -255,10 +257,7 @@ impl Sender {
 		if let Some(latest_timestamp) = &self.maybe_latest_timestamp {
 			Ok(*latest_timestamp)
 		} else {
-			let messages::get_latest_time::Response {
-				latest_time,
-				latest_device_pub_id,
-			} = self
+			let latest_time = match self
 				.cloud_client
 				.sync()
 				.messages()
@@ -272,9 +271,22 @@ impl Sender {
 					current_device_pub_id,
 					kind: messages::get_latest_time::Kind::ForCurrentDevice,
 				})
-				.await??;
+				.await?
+			{
+				Ok(messages::get_latest_time::Response {
+					latest_time,
+					latest_device_pub_id,
+				}) => {
+					assert_eq!(latest_device_pub_id, current_device_pub_id);
+					latest_time
+				}
 
-			assert_eq!(latest_device_pub_id, current_device_pub_id);
+				Err(sd_cloud_schema::Error::Client(ClientSideError::NotFound(
+					NotFoundError::LatestSyncMessageTime,
+				))) => DateTime::<Utc>::from(UNIX_EPOCH),
+
+				Err(e) => return Err(e.into()),
+			};
 
 			Ok(datetime_to_timestamp(latest_time))
 		}
@@ -539,19 +551,29 @@ async fn upload_to_single_url(
 			OneShotEncryption::encrypt(&secret_key, messages_bytes.as_slice(), rng)
 				.map_err(Error::Encrypt)?;
 
-		(
-			nonce.len() + cipher_text.len(),
-			Body::wrap_stream(futures::stream::iter([
-				Ok::<_, io::Error>(nonce.to_vec()),
-				Ok(cipher_text),
-			])),
-		)
+		let cipher_text_size = nonce.len() + cipher_text.len();
+
+		let mut body_bytes = Vec::with_capacity(cipher_text_size);
+		body_bytes.extend_from_slice(&nonce);
+		body_bytes.extend(&cipher_text);
+
+		(cipher_text_size, Body::from(body_bytes))
 	} else {
 		let mut rng = CryptoRng::from_seed(rng.generate_fixed());
-		(
-			StreamEncryption::cipher_text_size(&secret_key, messages_bytes.len()),
-			Body::wrap_stream(stream_encryption(secret_key, messages_bytes, &mut rng)),
-		)
+		let cipher_text_size =
+			StreamEncryption::cipher_text_size(&secret_key, messages_bytes.len());
+
+		let body_bytes = stream_encryption(secret_key, messages_bytes, &mut rng)
+			.try_fold(
+				Vec::with_capacity(cipher_text_size),
+				|mut body_bytes, ciphered_chunk| async move {
+					body_bytes.extend(ciphered_chunk);
+					Ok(body_bytes)
+				},
+			)
+			.await?;
+
+		(cipher_text_size, Body::from(body_bytes))
 	};
 
 	let response = http_client

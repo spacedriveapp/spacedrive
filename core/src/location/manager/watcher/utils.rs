@@ -34,10 +34,10 @@ use sd_file_ext::{
 	kind::ObjectKind,
 };
 use sd_prisma::{
-	prisma::{file_path, location, object},
+	prisma::{device, file_path, location, object},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{sync_entry, OperationFactory};
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
@@ -361,9 +361,14 @@ async fn inner_create_file(
 					pub_id: pub_id.to_db(),
 				},
 				[
-					(object::date_created::NAME, msgpack!(date_created)),
-					(object::kind::NAME, msgpack!(int_kind)),
-					(object::device_pub_id::NAME, msgpack!(device_pub_id)),
+					sync_entry!(date_created, object::date_created),
+					sync_entry!(int_kind, object::kind),
+					sync_entry!(
+						prisma_sync::device::SyncId {
+							pub_id: device_pub_id.clone()
+						},
+						object::device
+					),
 				],
 			),
 			db.object()
@@ -372,7 +377,7 @@ async fn inner_create_file(
 					vec![
 						object::date_created::set(Some(date_created)),
 						object::kind::set(Some(int_kind)),
-						object::device_pub_id::set(Some(device_pub_id)),
+						object::device::connect(device::pub_id::equals(device_pub_id)),
 					],
 				)
 				.select(object_ids::select()),
@@ -724,9 +729,14 @@ async fn inner_update_file(
 							pub_id: pub_id.to_db(),
 						},
 						[
-							(object::date_created::NAME, msgpack!(date_created)),
-							(object::kind::NAME, msgpack!(int_kind)),
-							(object::device_pub_id::NAME, msgpack!(device_pub_id)),
+							sync_entry!(date_created, object::date_created),
+							sync_entry!(int_kind, object::kind),
+							sync_entry!(
+								prisma_sync::device::SyncId {
+									pub_id: device_pub_id.clone()
+								},
+								object::device
+							),
 						],
 					),
 					db.object().create(
@@ -734,7 +744,7 @@ async fn inner_update_file(
 						vec![
 							object::date_created::set(Some(date_created)),
 							object::kind::set(Some(int_kind)),
-							object::device_pub_id::set(Some(device_pub_id)),
+							object::device::connect(device::pub_id::equals(device_pub_id)),
 						],
 					),
 				)

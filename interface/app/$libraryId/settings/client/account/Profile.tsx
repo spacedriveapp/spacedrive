@@ -52,7 +52,7 @@ const Profile = ({
 			await devices.refetch();
 		}, 10000);
 		return () => clearInterval(interval);
-	}, []);
+	}, [devices]);
 	// console.log(devices.data);
 
 	return (

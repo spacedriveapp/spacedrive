@@ -5,11 +5,11 @@ use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
-	prisma::{file_path, object, PrismaClient},
+	prisma::{device, file_path, object, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::{CRDTOperation, OperationFactory};
-use sd_utils::msgpack;
+use sd_sync::{option_sync_db_entry, sync_db_entry, sync_entry, CRDTOperation, OperationFactory};
+use sd_utils::{chain_optional_iter, msgpack};
 
 use std::collections::{HashMap, HashSet};
 
@@ -69,6 +69,7 @@ async fn create_objects_and_update_file_paths(
 	files_and_kinds: impl IntoIterator<Item = FilePathToCreateOrLinkObject> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
+	device_id: device::id::Type,
 ) -> Result<HashMap<file_path::id::Type, ObjectPubId>, file_identifier::Error> {
 	trace!("Preparing objects");
 	let (object_create_args, file_path_args) = files_and_kinds
@@ -86,20 +87,21 @@ async fn create_objects_and_update_file_paths(
 
 				let device_pub_id = sync.device_pub_id.to_db();
 
-				let (sync_params, db_params) = [
-					(
-						(object::date_created::NAME, msgpack!(created_at)),
-						object::date_created::set(created_at),
-					),
-					(
-						(object::kind::NAME, msgpack!(kind)),
-						object::kind::set(Some(kind)),
-					),
-					(
-						(object::device_pub_id::NAME, msgpack!(device_pub_id)),
-						object::device_pub_id::set(Some(device_pub_id)),
-					),
-				]
+				let (sync_params, db_params) = chain_optional_iter(
+					[
+						(
+							sync_entry!(
+								prisma_sync::device::SyncId {
+									pub_id: device_pub_id,
+								},
+								object::device
+							),
+							object::device_id::set(Some(device_id)),
+						),
+						sync_db_entry!(kind, object::kind),
+					],
+					[option_sync_db_entry!(created_at, object::date_created)],
+				)
 				.into_iter()
 				.unzip::<_, _, Vec<_>, Vec<_>>();
 

@@ -13,12 +13,12 @@ use sd_core_heavy_lifting::{
 use sd_core_prisma_helpers::{location_with_indexer_rules, CasId};
 
 use sd_prisma::{
-	prisma::{file_path, indexer_rules_in_location, location, PrismaClient},
+	prisma::{device, file_path, indexer_rules_in_location, instance, location, PrismaClient},
 	prisma_sync,
 };
 use sd_sync::*;
 use sd_utils::{
-	db::{maybe_missing, MissingFieldError},
+	db::{maybe_missing, size_in_bytes_to_db, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
 	msgpack, uuid_to_bytes,
 };
@@ -766,51 +766,56 @@ async fn create_location(
 		return Ok(None);
 	}
 
-	let date_created = Utc::now();
-
-	let device_pub_id = sync.device_pub_id.to_db();
-
 	let (sync_values, mut db_params) = [
 		sync_db_entry!(&name, location::name),
 		sync_db_entry!(path, location::path),
-		sync_db_entry!(date_created, location::date_created),
-		sync_db_entry!(device_pub_id, location::device_pub_id),
+		sync_db_entry!(Utc::now(), location::date_created),
+		(
+			sync_entry!(
+				prisma_sync::device::SyncId {
+					pub_id: sync.device_pub_id.to_db()
+				},
+				location::device
+			),
+			location::device::connect(device::pub_id::equals(sync.device_pub_id.to_db())),
+		),
 	]
 	.into_iter()
 	.unzip::<_, _, Vec<_>, Vec<_>>();
 
 	// temporary workaround until we remove instances from locations
-	db_params.push(location::instance_id::set(Some(
+	db_params.push(location::instance::connect(instance::id::equals(
 		library.config().await.instance_id,
 	)));
 
-	let location = sync
+	let location_id = sync
 		.write_op(
 			db,
 			sync.shared_create(
 				prisma_sync::location::SyncId {
-					pub_id: location_pub_id.as_bytes().to_vec(),
+					pub_id: uuid_to_bytes(&location_pub_id),
 				},
 				sync_values,
 			),
 			db.location()
-				.create(location_pub_id.as_bytes().to_vec(), db_params)
-				.include(location_with_indexer_rules::include()),
+				.create(uuid_to_bytes(&location_pub_id), db_params)
+				.select(location::select!({ id })),
 		)
-		.await?;
+		.await?
+		.id;
 
 	debug!("New location created in db");
 
 	if !indexer_rules_ids.is_empty() {
-		link_location_and_indexer_rules(library, location.id, indexer_rules_ids).await?;
+		link_location_and_indexer_rules(library, location_id, indexer_rules_ids).await?;
 	}
 
 	// Updating our location variable to include information about the indexer rules
-	let location = find_location(library, location.id)
+	let location = find_location(library, location_id)
 		.include(location_with_indexer_rules::include())
 		.exec()
 		.await?
-		.ok_or(LocationError::IdNotFound(location.id))?;
+		.ok_or(LocationError::IdNotFound(location_id))?;
 
 	invalidate_query!(library, "locations.list");
 
@@ -1096,64 +1101,48 @@ pub async fn create_file_path(
 		))?;
 
 	let (sync_params, db_params): (Vec<_>, Vec<_>) = {
-		use file_path::*;
+		use file_path::{
+			cas_id, date_created, date_indexed, date_modified, device, extension, hidden, inode,
+			is_dir, location, materialized_path, name, size_in_bytes_bytes,
+		};
 
 		let device_pub_id = sync.device_pub_id.to_db();
 
 		[
 			(
-				(
-					location::NAME,
-					msgpack!(prisma_sync::location::SyncId {
+				sync_entry!(
+					prisma_sync::location::SyncId {
 						pub_id: location.pub_id
-					}),
+					},
+					location
 				),
 				location::connect(prisma::location::id::equals(location.id)),
 			),
 			(
-				(cas_id::NAME, msgpack!(cas_id)),
+				sync_entry!(cas_id, cas_id),
 				cas_id::set(cas_id.map(Into::into)),
 			),
-			(
-				(materialized_path::NAME, msgpack!(materialized_path)),
-				materialized_path::set(Some(materialized_path.into())),
+			sync_db_entry!(materialized_path, materialized_path),
+			sync_db_entry!(name, name),
+			sync_db_entry!(extension, extension),
+			sync_db_entry!(
+				size_in_bytes_to_db(metadata.size_in_bytes),
+				size_in_bytes_bytes
 			),
-			((name::NAME, msgpack!(name)), name::set(Some(name.into()))),
+			sync_db_entry!(inode_to_db(metadata.inode), inode),
+			sync_db_entry!(is_dir, is_dir),
+			sync_db_entry!(metadata.created_at, date_created),
+			sync_db_entry!(metadata.modified_at, date_modified),
+			sync_db_entry!(indexed_at, date_indexed),
+			sync_db_entry!(metadata.hidden, hidden),
 			(
-				(extension::NAME, msgpack!(extension)),
-				extension::set(Some(extension.into())),
-			),
-			(
-				(
-					size_in_bytes_bytes::NAME,
-					msgpack!(metadata.size_in_bytes.to_be_bytes().to_vec()),
+				sync_entry!(
+					prisma_sync::device::SyncId {
+						pub_id: device_pub_id.clone()
+					},
+					device
 				),
-				size_in_bytes_bytes::set(Some(metadata.size_in_bytes.to_be_bytes().to_vec())),
-			),
-			(
-				(inode::NAME, msgpack!(metadata.inode.to_le_bytes())),
-				inode::set(Some(inode_to_db(metadata.inode))),
-			),
-			((is_dir::NAME, msgpack!(is_dir)), is_dir::set(Some(is_dir))),
-			(
-				(date_created::NAME, msgpack!(metadata.created_at)),
-				date_created::set(Some(metadata.created_at.into())),
-			),
-			(
-				(date_modified::NAME, msgpack!(metadata.modified_at)),
-				date_modified::set(Some(metadata.modified_at.into())),
-			),
-			(
-				(date_indexed::NAME, msgpack!(indexed_at)),
-				date_indexed::set(Some(indexed_at.into())),
-			),
-			(
-				(hidden::NAME, msgpack!(metadata.hidden)),
-				hidden::set(Some(metadata.hidden)),
-			),
-			(
-				(device_pub_id::NAME, msgpack!(device_pub_id)),
-				device_pub_id::set(Some(device_pub_id)),
+				device::connect(prisma::device::pub_id::equals(device_pub_id)),
 			),
 		]
 		.into_iter()

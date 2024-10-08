@@ -1,7 +1,8 @@
 use sd_core_prisma_helpers::DevicePubId;
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient};
+use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation, PrismaClient};
 use sd_sync::CRDTOperation;
+use sd_utils::uuid_to_bytes;
 
 use tracing::instrument;
 use uhlc::NTP64;
@@ -18,7 +19,7 @@ pub async fn write_crdt_op_to_db(op: &CRDTOperation, db: &PrismaClient) -> Resul
 				op.timestamp.0 as i64
 			}
 		},
-		device: device::pub_id::equals(op.device_pub_id.as_bytes().to_vec()),
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
 		model: i32::from(op.model_id),
@@ -28,8 +29,9 @@ pub async fn write_crdt_op_to_db(op: &CRDTOperation, db: &PrismaClient) -> Resul
 	.to_query(db)
 	.select(crdt_operation::select!({ id })) // To don't fetch the whole object for nothing
 	.exec()
-	.await
-	.map_or_else(|e| Err(e.into()), |_| Ok(()))
+	.await?;
+
+	Ok(())
 }
 
 pub fn from_crdt_ops(

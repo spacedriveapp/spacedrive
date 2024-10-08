@@ -155,7 +155,7 @@ pub async fn process_crdt_operations(
 async fn handle_crdt_updates(
 	db: &PrismaClient,
 	device_pub_id: &DevicePubId,
-	model: u16,
+	model_id: ModelId,
 	record_id: rmpv::Value,
 	mut data: BTreeMap<String, (rmpv::Value, NTP64)>,
 	updates: Vec<Option<crdt_operation::Data>>,
@@ -176,7 +176,7 @@ async fn handle_crdt_updates(
 			// fake operation to batch them all at once
 			ModelSyncData::from_op(CRDTOperation {
 				device_pub_id,
-				model_id: model,
+				model_id,
 				record_id: record_id.clone(),
 				timestamp: NTP64(0),
 				data: CRDTOperationData::Create(
@@ -185,7 +185,7 @@ async fn handle_crdt_updates(
 						.collect(),
 				),
 			})
-			.ok_or(Error::InvalidModelId(model))?
+			.ok_or(Error::InvalidModelId(model_id))?
 			.exec(&db)
 			.await?;
 
@@ -199,7 +199,7 @@ async fn handle_crdt_updates(
 						write_crdt_op_to_db(
 							&CRDTOperation {
 								device_pub_id,
-								model_id: model,
+								model_id,
 								record_id,
 								timestamp,
 								data: CRDTOperationData::Update { field, value },

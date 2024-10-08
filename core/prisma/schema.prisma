@@ -28,8 +28,8 @@ model CRDTOperation {
   kind      String
   data      Bytes
 
+  // We just need the actual device_pub_id here, but we don't need as an actual relation
   device_pub_id Bytes
-  device        Device @relation(fields: [device_pub_id], references: [pub_id])
 
   @@index([timestamp])
   @@map("crdt_operation")
@@ -47,8 +47,8 @@ model CloudCRDTOperation {
   kind      String
   data      Bytes
 
+  // We just need the actual device_pub_id here, but we don't need as an actual relation
   device_pub_id Bytes
-  device        Device @relation(fields: [device_pub_id], references: [pub_id])
 
   @@index([timestamp])
   @@map("cloud_crdt_operation")
@@ -73,15 +73,13 @@ model Device {
   date_created DateTime? // Not actually NULLABLE, but we have to comply with current sync implementation BS
   date_deleted DateTime?
 
-  CRDTOperation      CRDTOperation[]
-  CloudCRDTOperation CloudCRDTOperation[]
-  StorageStatistics  StorageStatistics?
-  Location           Location[]
-  FilePath           FilePath[]
-  Object             Object[]
-  ExifData           ExifData[]
-  TagOnObject        TagOnObject[]
-  LabelOnObject      LabelOnObject[]
+  StorageStatistics StorageStatistics?
+  Location          Location[]
+  FilePath          FilePath[]
+  Object            Object[]
+  ExifData          ExifData[]
+  TagOnObject       TagOnObject[]
+  LabelOnObject     LabelOnObject[]
 
   @@map("device")
 }
@@ -174,8 +172,8 @@ model Location {
 
   scan_state Int @default(0) // Enum: sd_core::location::ScanState
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   // this should just be a local-only cache but it's too much effort to broadcast online locations rn (@brendan)
   instance_id Int?
@@ -227,8 +225,8 @@ model FilePath {
   date_modified DateTime?
   date_indexed  DateTime?
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   // key Key? @relation(fields: [key_id], references: [id])
 
@@ -277,8 +275,8 @@ model Object {
   exif_data   ExifData?
   ffmpeg_data FfmpegData?
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   // key Key? @relation(fields: [key_id], references: [id])
 
@@ -348,8 +346,8 @@ model ExifData {
   object_id Int    @unique
   object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@map("exif_data")
 }
@@ -537,8 +535,8 @@ model TagOnObject {
 
   date_created DateTime?
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@id([tag_id, object_id])
   @@map("tag_on_object")
@@ -568,8 +566,8 @@ model LabelOnObject {
   label_id Int
   label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
 
-  device_pub_id Bytes?
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@id([label_id, object_id])
   @@map("label_on_object")
@@ -610,8 +608,8 @@ model StorageStatistics {
   total_capacity     BigInt @default(0)
   available_capacity BigInt @default(0)
 
-  device_pub_id Bytes?  @unique
-  device        Device? @relation(fields: [device_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?    @unique
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@map("storage_statistics")
 }
