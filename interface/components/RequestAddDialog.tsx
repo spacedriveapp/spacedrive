@@ -8,12 +8,18 @@ import { useLocale } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 import { usePlatform } from '~/util/Platform';
 
-export default (props: UseDialogProps) => {
+export default (
+	props: {
+		device_name: string;
+		device_model: HardwareModel;
+		library_name: string;
+	} & UseDialogProps
+) => {
 	// PROPS = device_name, device_model, library_name
 	// you will probably have to change the props to accept the library id and device id to pair them properly. Omitted for now as
 	// unsure what the data will look like when the backend is populated
 
-	const joinLibrary = useBridgeMutation(['cloud.library.join']);
+	// const joinLibrary = useBridgeMutation(['cloud.library.join']);
 
 	const { t } = useLocale();
 	const navigate = useNavigate();
@@ -26,7 +32,8 @@ export default (props: UseDialogProps) => {
 	// unnecessarily remove code
 	const onSubmit = form.handleSubmit(async (data) => {
 		try {
-			const library = await joinLibrary.mutateAsync(data.libraryId);
+			// const library = await joinLibrary.mutateAsync(data.libraryId);
+			const library = { uuid: '1234' }; // dummy data
 
 			queryClient.setQueryData(['library.list'], (libraries: any) => {
 				// The invalidation system beat us to it
@@ -64,7 +71,7 @@ export default (props: UseDialogProps) => {
 				<div className="flex flex-col items-center justify-center gap-2">
 					<Icon
 						// once backend endpoint is populated need to check if this is working correctly i.e fetching correct icons for devices
-						name={hardwareModelToIcon(props.device_model as HardwareModel)}
+						name={hardwareModelToIcon(props.device_model)}
 						alt="Device icon"
 						size={48}
 						className="mr-2"
