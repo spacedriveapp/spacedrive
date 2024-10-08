@@ -4,13 +4,7 @@ use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
-use std::{
-	cell::RefCell,
-	collections::hash_map::HashMap,
-	panic,
-	path::{Path, PathBuf},
-	sync::Arc,
-};
+use std::{cell::RefCell, collections::hash_map::HashMap, panic, path::Path, sync::Arc};
 
 use async_channel as chan;
 use futures::Stream;
@@ -49,7 +43,7 @@ pub enum Command {
 pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	msgs_tx: chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,
-	store_jobs_file: Arc<PathBuf>,
+	store_jobs_file: Arc<Path>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
@@ -62,7 +56,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 		let (job_done_tx, job_done_rx) = chan::bounded(16);
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
 
-		let store_jobs_file = Arc::new(data_directory.as_ref().join(PENDING_JOBS_FILE));
+		let store_jobs_file = Arc::<Path>::from(data_directory.as_ref().join(PENDING_JOBS_FILE));
 
 		let runner_handle = RefCell::new(Some(spawn({
 			let store_jobs_file = Arc::clone(&store_jobs_file);
