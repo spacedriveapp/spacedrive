@@ -77,7 +77,7 @@ const AboutScreen = () => {
 			</View>
 			<Divider />
 			<View style={tw`my-5`}>
-				<Text style={tw`mb-3 text-lg font-bold text-ink`}>Vision</Text>
+				<Text style={tw`font-plex mb-3 text-lg font-bold text-ink`}>Vision</Text>
 				<Text style={tw`w-full text-sm text-ink-faint`}>
 					Many of us have multiple cloud accounts, drives that aren’t backed up and data
 					at risk of loss. We depend on cloud services like Google Photos and iCloud, but
@@ -91,7 +91,7 @@ const AboutScreen = () => {
 			</View>
 			<Divider />
 			<View>
-				<Text style={tw`my-5 text-lg font-bold text-ink`}>
+				<Text style={tw`font-plex my-5 text-lg font-bold text-ink`}>
 					Meet the contributors behind Spacedrive
 				</Text>
 				{/* TODO: Temporary image url approach until a solution is reached */}
