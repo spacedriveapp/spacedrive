@@ -113,8 +113,8 @@ body {
 
 .explorer-scroll {
 	&::-webkit-scrollbar {
-		height: 6px;
-		width: 6px;
+		height: var(--scrollbar-height);
+		width: var(--scrollbar-width);
 	}
 	&::-webkit-scrollbar-track {
 		@apply rounded-[6px] bg-transparent;
