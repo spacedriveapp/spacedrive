@@ -47,8 +47,8 @@ import { Folder, Icon } from '~/components';
 import { useLocale, useZodRouteParams } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
-import { useExplorerContext } from '../Context';
 import AssignTagMenuItems from '../ContextMenu/AssignTagMenuItems';
+import { useExplorerContext } from '../ExplorerContext';
 import { FileThumb } from '../FilePath/Thumb';
 import { useQuickPreviewStore } from '../QuickPreview/store';
 import { explorerStore } from '../store';

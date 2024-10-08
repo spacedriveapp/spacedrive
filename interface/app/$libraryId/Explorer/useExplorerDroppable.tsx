@@ -5,7 +5,7 @@ import { createSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ExplorerItem, getItemFilePath, Location, Tag } from '@sd/client';
 
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 import { explorerStore } from './store';
 
 type ExplorerItemType = ExplorerItem['type'];

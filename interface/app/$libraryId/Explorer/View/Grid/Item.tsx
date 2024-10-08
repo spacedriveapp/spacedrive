@@ -4,10 +4,10 @@ import { useSelector, type ExplorerItem } from '@sd/client';
 import { useOperatingSystem } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 
-import { useExplorerContext } from '../../Context';
+import { useExplorerContext } from '../../ExplorerContext';
 import { explorerStore, isCut } from '../../store';
 import { uniqueId } from '../../util';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerViewContext } from '../ExplorerViewContext';
 import { useDragSelectContext } from './DragSelect/context';
 import { useDragSelectable } from './DragSelect/useDragSelectable';
 

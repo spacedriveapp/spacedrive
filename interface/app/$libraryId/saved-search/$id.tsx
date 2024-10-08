@@ -14,7 +14,7 @@ import { SearchIdParamsSchema } from '~/app/route-schemas';
 import { useRouteTitle, useZodParams } from '~/hooks';
 
 import Explorer from '../Explorer';
-import { ExplorerContextProvider } from '../Explorer/Context';
+import { ExplorerContextProvider } from '../Explorer/ExplorerContext';
 import { createDefaultExplorerSettings, explorerStore } from '../Explorer/store';
 import { DefaultTopBarOptions } from '../Explorer/TopBarOptions';
 import { useExplorer, useExplorerSettings } from '../Explorer/useExplorer';

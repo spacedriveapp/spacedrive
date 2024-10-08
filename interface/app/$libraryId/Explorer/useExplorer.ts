@@ -4,6 +4,7 @@ import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
 import {
 	ObjectKindEnum,
+	useFeatureFlag,
 	type ExplorerItem,
 	type ExplorerLayout,
 	type ExplorerSettings,
@@ -69,6 +70,7 @@ export function useExplorer<TOrder extends Ordering>({
 	...props
 }: UseExplorerProps<TOrder>) {
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const columnsViewFlagEnabled = useFeatureFlag('columnsView');
 
 	return {
 		// Default values
@@ -77,6 +79,7 @@ export function useExplorer<TOrder extends Ordering>({
 		count: props.items?.length,
 		showPathBar: true,
 		layouts: {
+			columns: columnsViewFlagEnabled,
 			grid: true,
 			list: true,
 			media: true,

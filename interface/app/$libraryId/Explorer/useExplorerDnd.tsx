@@ -9,7 +9,7 @@ import {
 import { isNonEmptyObject } from '~/util';
 
 import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 import { explorerStore } from './store';
 import { explorerDroppableSchema } from './useExplorerDroppable';
 import { useExplorerSearchParams } from './util';

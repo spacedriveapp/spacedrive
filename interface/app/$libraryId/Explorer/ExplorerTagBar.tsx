@@ -15,7 +15,7 @@ import { Shortcut, toast } from '@sd/ui';
 import { useIsDark, useKeybind, useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
-import { useExplorerContext } from './Context';
+import { useExplorerContext } from './ExplorerContext';
 import { explorerStore } from './store';
 
 export const TAG_BAR_HEIGHT = 54;

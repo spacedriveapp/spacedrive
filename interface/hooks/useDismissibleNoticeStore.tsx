@@ -2,6 +2,7 @@ import { useSnapshot } from 'valtio';
 import { valtioPersist } from '@sd/client';
 
 export const dismissibleNoticeStore = valtioPersist('dismissible-notice', {
+	columnsView: false,
 	mediaView: false,
 	gridView: false,
 	listView: false,
