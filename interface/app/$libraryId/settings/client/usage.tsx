@@ -128,7 +128,7 @@ const UsageCard = memo(
 				<div className="flex w-full items-center justify-center gap-3">
 					<Icon name={icon} size={40} />
 					<div className="w-full max-w-[120px]">
-						<h1 className="text-lg font-medium">
+						<h1 className="font-plex text-lg font-medium">
 							{typeof titleCount === 'number' && (
 								<span className="mr-1 text-ink-dull">{sizeCount}</span>
 							)}

@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { useClientContext } from '@sd/client';
 import { dialogManager, Dropdown, DropdownMenu } from '@sd/ui';
 import JoinDialog from '~/app/$libraryId/settings/node/libraries/JoinDialog';
+import RequestAddDialog from '~/components/RequestAddDialog';
 import { useLocale } from '~/hooks';
 
 import CreateDialog from '../../../settings/node/libraries/CreateDialog';
