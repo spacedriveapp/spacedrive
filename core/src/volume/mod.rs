@@ -4,11 +4,11 @@ use crate::{library::Library, Node};
 
 use sd_core_sync::SyncManager;
 use sd_prisma::{
-	prisma::{storage_statistics, PrismaClient},
+	prisma::{device, storage_statistics, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
-use sd_utils::{msgpack, uuid_to_bytes};
+use sd_sync::{sync_entry, OperationFactory};
+use sd_utils::uuid_to_bytes;
 
 use std::{
 	fmt::Display,
@@ -522,9 +522,9 @@ async fn update_storage_statistics(
 
 	let storage_statistics_pub_id = db
 		.storage_statistics()
-		.find_unique(storage_statistics::device_pub_id::equals(
-			device_pub_id.clone(),
-		))
+		.find_first(vec![storage_statistics::device::is(vec![
+			device::pub_id::equals(device_pub_id.clone()),
+		])])
 		.select(storage_statistics::select!({ pub_id }))
 		.exec()
 		.await?
@@ -535,14 +535,8 @@ async fn update_storage_statistics(
 			db,
 			(
 				[
-					(
-						storage_statistics::total_capacity::NAME,
-						msgpack!(total_capacity),
-					),
-					(
-						storage_statistics::available_capacity::NAME,
-						msgpack!(available_capacity),
-					),
+					sync_entry!(total_capacity, storage_statistics::total_capacity),
+					sync_entry!(available_capacity, storage_statistics::available_capacity),
 				]
 				.into_iter()
 				.map(|(field, value)| {
@@ -579,17 +573,13 @@ async fn update_storage_statistics(
 					pub_id: new_storage_statistics_id.clone(),
 				},
 				[
-					(
-						storage_statistics::total_capacity::NAME,
-						msgpack!(total_capacity),
-					),
-					(
-						storage_statistics::available_capacity::NAME,
-						msgpack!(available_capacity),
-					),
-					(
-						storage_statistics::device_pub_id::NAME,
-						msgpack!(device_pub_id),
+					sync_entry!(total_capacity, storage_statistics::total_capacity),
+					sync_entry!(available_capacity, storage_statistics::available_capacity),
+					sync_entry!(
+						prisma_sync::device::SyncId {
+							pub_id: device_pub_id.clone()
+						},
+						storage_statistics::device
 					),
 				],
 			),
@@ -599,7 +589,7 @@ async fn update_storage_statistics(
 					vec![
 						storage_statistics::total_capacity::set(total_capacity as i64),
 						storage_statistics::available_capacity::set(available_capacity as i64),
-						storage_statistics::device_pub_id::set(Some(device_pub_id.clone())),
+						storage_statistics::device::connect(device::pub_id::equals(device_pub_id)),
 					],
 				)
 				// We don't need any data here, just the id avoids receiving the entire object

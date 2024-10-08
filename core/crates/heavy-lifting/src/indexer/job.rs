@@ -16,7 +16,7 @@ use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
-use sd_prisma::prisma::location;
+use sd_prisma::prisma::{device, location};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -161,6 +161,17 @@ impl Job for Indexer {
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
+		let device_pub_id = &ctx.sync().device_pub_id;
+		let device_id = ctx
+			.db()
+			.device()
+			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
+			.exec()
+			.await
+			.map_err(indexer::Error::from)?
+			.ok_or(indexer::Error::DeviceNotFound(device_pub_id.clone()))?
+			.id;
+
 		match self
 			.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
 			.await
@@ -191,21 +202,26 @@ impl Job for Indexer {
 		}
 
 		if let Some(res) = self
-			.process_handles(&mut pending_running_tasks, &ctx, &dispatcher)
+			.process_handles(&mut pending_running_tasks, &ctx, device_id, &dispatcher)
 			.await
 		{
 			return res;
 		}
 
 		if let Some(res) = self
-			.dispatch_last_save_and_update_tasks(&mut pending_running_tasks, &ctx, &dispatcher)
+			.dispatch_last_save_and_update_tasks(
+				&mut pending_running_tasks,
+				&ctx,
+				device_id,
+				&dispatcher,
+			)
 			.await
 		{
 			return res;
 		}
 
 		if let Some(res) = self
-			.index_pending_ancestors(&mut pending_running_tasks, &ctx, &dispatcher)
+			.index_pending_ancestors(&mut pending_running_tasks, &ctx, device_id, &dispatcher)
 			.await
 		{
 			return res;
@@ -338,6 +354,7 @@ impl Indexer {
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
 		self.metadata.completed_tasks += 1;
@@ -349,6 +366,7 @@ impl Indexer {
 						.downcast::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>()
 						.expect("just checked"),
 					ctx,
+					device_id,
 					dispatcher,
 				)
 				.await;
@@ -403,6 +421,7 @@ impl Indexer {
 			..
 		}: walker::Output<WalkerDBProxy, IsoFilePathFactory>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
 		self.metadata.mean_scan_read_time += scan_time;
@@ -465,7 +484,7 @@ impl Indexer {
 			self.metadata.mean_db_write_time += db_delete_time.elapsed();
 		}
 		let (save_tasks, update_tasks) =
-			self.prepare_save_and_update_tasks(to_create, to_update, ctx);
+			self.prepare_save_and_update_tasks(to_create, to_update, ctx, device_id);
 
 		ctx.progress(vec![
 			ProgressUpdate::TaskCount(self.metadata.total_tasks),
@@ -552,13 +571,14 @@ impl Indexer {
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		while let Some(task) = pending_running_tasks.next().await {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
 					match self
-						.process_task_output(task_id, out, ctx, dispatcher)
+						.process_task_output(task_id, out, ctx, device_id, dispatcher)
 						.await
 					{
 						Ok(more_handles) => pending_running_tasks.extend(more_handles),
@@ -666,6 +686,7 @@ impl Indexer {
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		if !self.to_create_buffer.is_empty() || !self.to_update_buffer.is_empty() {
@@ -688,6 +709,7 @@ impl Indexer {
 						self.to_create_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
 						ctx.sync().clone(),
+						device_id,
 					)
 					.into_task(),
 				);
@@ -726,7 +748,7 @@ impl Indexer {
 				}
 			}
 
-			self.process_handles(pending_running_tasks, ctx, dispatcher)
+			self.process_handles(pending_running_tasks, ctx, device_id, dispatcher)
 				.await
 		} else {
 			None
@@ -737,6 +759,7 @@ impl Indexer {
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Option<Result<ReturnStatus, Error>> {
 		if self.ancestors_needing_indexing.is_empty() {
@@ -760,6 +783,7 @@ impl Indexer {
 					chunked_saves,
 					Arc::clone(ctx.db()),
 					ctx.sync().clone(),
+					device_id,
 				)
 			})
 			.collect::<Vec<_>>();
@@ -776,7 +800,7 @@ impl Indexer {
 			}
 		}
 
-		self.process_handles(pending_running_tasks, ctx, dispatcher)
+		self.process_handles(pending_running_tasks, ctx, device_id, dispatcher)
 			.await
 	}
 
@@ -785,6 +809,7 @@ impl Indexer {
 		to_create: Vec<WalkedEntry>,
 		to_update: Vec<WalkedEntry>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 	) -> (Vec<tasks::Saver>, Vec<tasks::Updater>) {
 		if self.processing_first_directory {
 			// If we are processing the first directory, we dispatch shallow tasks with higher priority
@@ -807,6 +832,7 @@ impl Indexer {
 						chunked_saves,
 						Arc::clone(ctx.db()),
 						ctx.sync().clone(),
+						device_id,
 					)
 				})
 				.collect::<Vec<_>>();
@@ -852,6 +878,7 @@ impl Indexer {
 						chunked_saves,
 						Arc::clone(ctx.db()),
 						ctx.sync().clone(),
+						device_id,
 					));
 				}
 				save_tasks

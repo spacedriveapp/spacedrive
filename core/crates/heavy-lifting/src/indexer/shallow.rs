@@ -6,7 +6,7 @@ use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 use sd_core_sync::SyncManager;
 
-use sd_prisma::prisma::PrismaClient;
+use sd_prisma::prisma::{device, PrismaClient};
 use sd_task_system::{BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskOutput};
 use sd_utils::db::maybe_missing;
 
@@ -62,6 +62,17 @@ pub async fn shallow(
 		.await?,
 	);
 
+	let device_pub_id = &ctx.sync().device_pub_id;
+	let device_id = ctx
+		.db()
+		.device()
+		.find_unique(device::pub_id::equals(device_pub_id.to_db()))
+		.exec()
+		.await
+		.map_err(indexer::Error::from)?
+		.ok_or(indexer::Error::DeviceNotFound(device_pub_id.clone()))?
+		.id;
+
 	let Some(walker::Output {
 		to_create,
 		to_update,
@@ -97,6 +108,7 @@ pub async fn shallow(
 		to_update,
 		Arc::clone(db),
 		sync.clone(),
+		device_id,
 		dispatcher,
 	)
 	.await?
@@ -204,6 +216,7 @@ async fn save_and_update(
 	to_update: Vec<WalkedEntry>,
 	db: Arc<PrismaClient>,
 	sync: SyncManager,
+	device_id: device::id::Type,
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Option<Metadata>, Error> {
 	let save_and_update_tasks = to_create
@@ -217,6 +230,7 @@ async fn save_and_update(
 				chunk.collect::<Vec<_>>(),
 				Arc::clone(&db),
 				sync.clone(),
+				device_id,
 			)
 		})
 		.map(IntoTask::into_task)

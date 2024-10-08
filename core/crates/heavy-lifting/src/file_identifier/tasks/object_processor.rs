@@ -3,7 +3,7 @@ use crate::{file_identifier, Error};
 use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
 use sd_core_sync::SyncManager;
 
-use sd_prisma::prisma::{file_path, object, PrismaClient};
+use sd_prisma::prisma::{device, file_path, object, PrismaClient};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
@@ -29,6 +29,7 @@ pub struct ObjectProcessor {
 
 	// Inner state
 	stage: Stage,
+	device_id: device::id::Type,
 
 	// Out collector
 	output: Output,
@@ -93,6 +94,7 @@ impl Task<Error> for ObjectProcessor {
 		let Self {
 			db,
 			sync,
+			device_id,
 			file_paths_by_cas_id,
 			stage,
 			output:
@@ -167,8 +169,13 @@ impl Task<Error> for ObjectProcessor {
 					);
 					let start = Instant::now();
 					let (more_file_paths_with_new_object, more_linked_objects_count) =
-						assign_objects_to_duplicated_orphans(file_paths_by_cas_id, db, sync)
-							.await?;
+						assign_objects_to_duplicated_orphans(
+							file_paths_by_cas_id,
+							db,
+							sync,
+							*device_id,
+						)
+						.await?;
 					*create_object_time = start.elapsed();
 					file_path_ids_with_new_object.extend(more_file_paths_with_new_object);
 					*linked_objects_count += more_linked_objects_count;
@@ -195,6 +202,7 @@ impl ObjectProcessor {
 		file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 		db: Arc<PrismaClient>,
 		sync: SyncManager,
+		device_id: device::id::Type,
 		with_priority: bool,
 	) -> Self {
 		Self {
@@ -202,6 +210,7 @@ impl ObjectProcessor {
 			db,
 			sync,
 			file_paths_by_cas_id,
+			device_id,
 			stage: Stage::Starting,
 			output: Output::default(),
 			with_priority,
@@ -307,6 +316,7 @@ async fn assign_objects_to_duplicated_orphans(
 	file_paths_by_cas_id: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	db: &PrismaClient,
 	sync: &SyncManager,
+	device_id: device::id::Type,
 ) -> Result<(Vec<file_path::id::Type>, u64), file_identifier::Error> {
 	// at least 1 file path per cas_id
 	let mut selected_file_paths = Vec::with_capacity(file_paths_by_cas_id.len());
@@ -325,7 +335,7 @@ async fn assign_objects_to_duplicated_orphans(
 	});
 
 	let (mut file_paths_with_new_object, objects_by_cas_id) =
-		create_objects_and_update_file_paths(selected_file_paths, db, sync)
+		create_objects_and_update_file_paths(selected_file_paths, db, sync, device_id)
 			.await?
 			.into_iter()
 			.map(|(file_path_id, object_pub_id)| {
@@ -363,6 +373,7 @@ async fn assign_objects_to_duplicated_orphans(
 pub struct SaveState {
 	id: TaskId,
 	file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
+	device_id: device::id::Type,
 	stage: Stage,
 	output: Output,
 	with_priority: bool,
@@ -379,6 +390,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 		let Self {
 			id,
 			file_paths_by_cas_id,
+			device_id,
 			stage,
 			output,
 			with_priority,
@@ -388,6 +400,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 		rmp_serde::to_vec_named(&SaveState {
 			id,
 			file_paths_by_cas_id,
+			device_id,
 			stage,
 			output,
 			with_priority,
@@ -402,6 +415,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 			|SaveState {
 			     id,
 			     file_paths_by_cas_id,
+			     device_id,
 			     stage,
 			     output,
 			     with_priority,
@@ -410,6 +424,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 				with_priority,
 				file_paths_by_cas_id,
 				stage,
+				device_id,
 				output,
 				db,
 				sync,

@@ -4,7 +4,7 @@ use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
 };
-use sd_core_sync::SyncManager;
+use sd_core_sync::{DevicePubId, SyncManager};
 
 use sd_prisma::{
 	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
@@ -50,6 +50,8 @@ pub enum Error {
 	IndexerRuleNotFound(indexer_rule::id::Type),
 	#[error(transparent)]
 	SubPath(#[from] sub_path::Error),
+	#[error("device not found: <device_pub_id='{0}'")]
+	DeviceNotFound(DevicePubId),
 
 	// Internal Errors
 	#[error("database error: {0}")]

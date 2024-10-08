@@ -57,7 +57,12 @@ fn to_query(
 
 	let (sync_params, db_params) = chain_optional_iter(
 		[(
-			sync_entry!(&device_pub_id, exif_data::device_pub_id),
+			sync_entry!(
+				prisma_sync::device::SyncId {
+					pub_id: device_pub_id.clone()
+				},
+				exif_data::device
+			),
 			exif_data::device::connect(device::pub_id::equals(device_pub_id)),
 		)],
 		[
@@ -83,9 +88,6 @@ fn to_query(
 	)
 	.into_iter()
 	.unzip();
-
-	tracing::warn!(?sync_params);
-	tracing::warn!(?db_params);
 
 	(
 		sync_params,
