@@ -113,8 +113,8 @@ body {
 
 .explorer-scroll {
 	&::-webkit-scrollbar {
-		height: 6px;
-		width: 6px;
+		height: var(--scrollbar-height);
+		width: var(--scrollbar-width);
 	}
 	&::-webkit-scrollbar-track {
 		@apply rounded-[6px] bg-transparent;
@@ -129,13 +129,13 @@ body {
 .default-scroll {
 	&::-webkit-scrollbar {
 		height: 6px;
-		width: 8px;
+		width: 6px;
 	}
 	&::-webkit-scrollbar-track {
 		@apply rounded-[6px] bg-transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		@apply rounded-[6px] bg-app-box;
+		@apply rounded-[6px] bg-app-explorerScrollbar;
 	}
 }
 .page-scroll {
