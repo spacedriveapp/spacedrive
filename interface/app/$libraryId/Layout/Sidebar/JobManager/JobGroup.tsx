@@ -197,7 +197,7 @@ function Options({
 	const clearJob = useLibraryMutation(
 		['jobs.clear'],
 		toastErrorSuccess(t('failed_to_remove_job'), undefined, () => {
-			queryClient.invalidateQueries(['jobs.reports']);
+			queryClient.invalidateQueries({ queryKey: ['jobs.reports'] });
 		})
 	);
 

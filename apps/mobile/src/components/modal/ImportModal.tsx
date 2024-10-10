@@ -47,7 +47,7 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			toast.success('Location added successfully');
 		},
 		onSettled: () => {
-			rspc.queryClient.invalidateQueries(['locations.list']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 			modalRef.current?.close();
 		}
 	});

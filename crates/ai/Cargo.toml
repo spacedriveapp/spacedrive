@@ -38,7 +38,7 @@ uuid                = { workspace = true, features = ["serde", "v4"] }
 
 # Specific AI dependencies
 # Note: half and ndarray version must be the same as used in ort
-half    = { version = "2.1", features = ['num-traits'] }
+half    = { version = "2.4", features = ['num-traits'] }
 ndarray = "0.15"
 url     = '2.5'
 

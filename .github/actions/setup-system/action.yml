@@ -29,7 +29,7 @@ runs:
 
     - name: Install LLVM and Clang
       if: ${{ runner.os == 'Windows' }}
-      uses: KyleMayes/install-llvm-action@v1
+      uses: KyleMayes/install-llvm-action@v2
       with:
         cached: ${{ steps.cache-llvm-restore.outputs.cache-hit }}
         version: '15'

@@ -1,4 +1,4 @@
-import { RSPCError } from '@oscartbeaumont-sd/rspc-client';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { Linking } from 'react-native';
 import { createMutable } from 'solid-js/store';
 import { nonLibraryClient, useSolidStore } from '@sd/client';

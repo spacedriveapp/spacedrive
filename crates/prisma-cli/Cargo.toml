@@ -14,5 +14,5 @@ sd-sync-generator = { path = "../sync-generator" }
 [dependencies.prisma-client-rust-generator]
 default-features = false
 features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
-git              = "https://github.com/brendonovich/prisma-client-rust"
-rev              = "4f9ef9d38c"
+git              = "https://github.com/spacedriveapp/prisma-client-rust.git"
+rev              = "9d14e55e1d"

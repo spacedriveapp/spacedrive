@@ -1,5 +1,6 @@
-import { AlphaClient } from '@oscartbeaumont-sd/rspc-client/src/v2';
-import { createContext, PropsWithChildren, useContext, useMemo } from 'react';
+import { AlphaClient } from '@spacedrive/rspc-client';
+import { keepPreviousData } from '@tanstack/react-query';
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo } from 'react';
 
 import { LibraryConfigWrapped, Procedures } from '../core';
 import { valtioPersist } from '../lib';
@@ -9,8 +10,8 @@ import { useBridgeQuery } from '../rspc';
 const libraryCacheLocalStorageKey = 'sd-library-list3'; // number is because the format of this underwent breaking changes
 
 export const useCachedLibraries = () => {
-	const result = useBridgeQuery(['library.list'], {
-		keepPreviousData: true,
+	const query = useBridgeQuery(['library.list'], {
+		placeholderData: keepPreviousData,
 		initialData: () => {
 			const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
@@ -24,14 +25,15 @@ export const useCachedLibraries = () => {
 			}
 
 			return undefined;
-		},
-		onSuccess: (data) => {
-			if (data.length > 0)
-				localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(data));
 		}
 	});
 
-	return result;
+	useEffect(() => {
+		if ((query.data?.length ?? 0) > 0)
+			localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(query.data));
+	}, [query.data]);
+
+	return query;
 };
 
 export async function getCachedLibraries(client: AlphaClient<Procedures>) {

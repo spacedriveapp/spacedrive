@@ -35,8 +35,8 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const mutation = useLibraryMutation(['tags.assign'], {
 		onSuccess: () => {
 			// this makes sure that the tags are updated in the UI
-			rspc.queryClient.invalidateQueries(['tags.getForObject']);
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['tags.getForObject'] });
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 			modalRef.current?.dismiss();
 		}
 	});

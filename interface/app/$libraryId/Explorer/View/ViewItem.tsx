@@ -192,14 +192,15 @@ export const useViewItemDoubleClick = () => {
 			}
 		},
 		[
-			searchParams,
 			explorer.selectedItems,
 			explorer.settingsStore.openOnDoubleClick,
-			library.uuid,
-			navigate,
 			openFilePaths,
-			openEphemeralFiles,
-			updateAccessTime
+			updateAccessTime,
+			library.uuid,
+			t,
+			searchParams,
+			navigate,
+			openEphemeralFiles
 		]
 	);
 

@@ -1,4 +1,4 @@
-import { tauriLink } from '@oscartbeaumont-sd/rspc-tauri/src/v2';
+import { tauriLink } from '@spacedrive/rspc-tauri/src/v2';
 
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [

@@ -224,7 +224,7 @@ const SpacedropNodes = () => {
 		<Menu.Item
 			key={id}
 			label={peer.metadata.name}
-			disabled={spacedrop.isLoading}
+			disabled={spacedrop.isPending}
 			onClick={async () => {
 				spacedrop.mutateAsync({
 					identity: id,

@@ -7,17 +7,13 @@ import {
 	FilePathOrder,
 	FilePathSearchArgs
 } from '../core';
-import { useLibraryContext } from '../hooks';
 import { useRspcLibraryContext } from '../rspc';
 import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsInfiniteQuery({
 	arg,
-	order,
-	onSuccess,
-	...args
+	order
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
-	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
 
 	if (order) {
@@ -26,22 +22,18 @@ export function usePathsInfiniteQuery({
 	}
 
 	const query = useInfiniteQuery({
-		queryKey: ['search.paths', { library_id: library.uuid, arg }] as const,
-		queryFn: async ({ pageParam, queryKey: [_, { arg }] }) => {
-			const cItem: Extract<ExplorerItem, { type: 'Path' }> = pageParam;
-
+		queryKey: ['search.paths'],
+		queryFn: async ({ pageParam }) => {
 			let orderAndPagination: (typeof arg)['orderAndPagination'];
-
-			if (!cItem) {
+			if (!pageParam || pageParam.type !== 'Path') {
 				if (order) orderAndPagination = { orderOnly: order };
 			} else {
 				let variant: FilePathCursorVariant | undefined;
-
 				if (!order) variant = 'none';
-				else if (cItem) {
+				else if (pageParam) {
 					switch (order.field) {
 						case 'name': {
-							const data = cItem.item.name;
+							const data = pageParam.item.name;
 							if (data !== null)
 								variant = {
 									name: { order: order.value, data }
@@ -53,7 +45,7 @@ export function usePathsInfiniteQuery({
 							break;
 						}
 						case 'dateCreated': {
-							const data = cItem.item.date_created;
+							const data = pageParam.item.date_created;
 							if (data !== null)
 								variant = {
 									dateCreated: { order: order.value, data }
@@ -61,7 +53,7 @@ export function usePathsInfiniteQuery({
 							break;
 						}
 						case 'dateModified': {
-							const data = cItem.item.date_modified;
+							const data = pageParam.item.date_modified;
 							if (data !== null)
 								variant = {
 									dateModified: { order: order.value, data }
@@ -69,7 +61,7 @@ export function usePathsInfiniteQuery({
 							break;
 						}
 						case 'dateIndexed': {
-							const data = cItem.item.date_indexed;
+							const data = pageParam.item.date_indexed;
 							if (data !== null)
 								variant = {
 									dateIndexed: { order: order.value, data }
@@ -77,11 +69,9 @@ export function usePathsInfiniteQuery({
 							break;
 						}
 						case 'object': {
-							const object = cItem.item.object;
+							const object = pageParam.item.object;
 							if (!object) break;
-
 							let objectCursor: FilePathObjectCursor | undefined;
-
 							switch (order.value.field) {
 								case 'dateAccessed': {
 									const data = object.date_accessed;
@@ -100,34 +90,30 @@ export function usePathsInfiniteQuery({
 									break;
 								}
 							}
-
 							if (objectCursor) variant = { object: objectCursor };
-
 							break;
 						}
 					}
 				}
-
-				if (cItem.item.is_dir === null) throw new Error();
-
+				if (pageParam.item.is_dir === null) throw new Error();
 				if (variant)
 					orderAndPagination = {
-						cursor: { cursor: { variant, isDir: cItem.item.is_dir }, id: cItem.item.id }
+						cursor: {
+							cursor: { variant, isDir: pageParam.item.is_dir },
+							id: pageParam.item.id
+						}
 					};
 			}
-
 			arg.orderAndPagination = orderAndPagination;
-
 			const result = await ctx.client.query(['search.paths', arg]);
 			return result;
 		},
+		initialPageParam: undefined as ExplorerItem | undefined,
 		getNextPageParam: (lastPage) => {
 			if (arg.take === null || arg.take === undefined) return undefined;
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.items[arg.take - 1];
-		},
-		onSuccess,
-		...args
+		}
 	});
 
 	return query;

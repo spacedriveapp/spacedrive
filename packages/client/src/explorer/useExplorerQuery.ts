@@ -1,13 +1,16 @@
-import { UseInfiniteQueryResult, UseQueryResult } from '@tanstack/react-query';
+import { InfiniteData, UseInfiniteQueryResult, UseQueryResult } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { SearchData } from '../core';
 
 export function useExplorerQuery<Q>(
-	query: UseInfiniteQueryResult<SearchData<Q>>,
+	query: UseInfiniteQueryResult<InfiniteData<SearchData<Q>>>,
 	count: UseQueryResult<number>
 ) {
-	const items = useMemo(() => query.data?.pages.flatMap((d) => d.items) ?? null, [query.data]);
+	const items = useMemo(
+		() => query.data?.pages.flatMap((data) => data.items) ?? null,
+		[query.data]
+	);
 
 	const loadMore = useCallback(() => {
 		if (query.hasNextPage && !query.isFetchingNextPage) {
