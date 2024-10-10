@@ -16,12 +16,13 @@ default   = []
 sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
 
 # Workspace dependencies
-axum     = { workspace = true, features = ["headers"] }
-http     = { workspace = true }
-rspc     = { workspace = true, features = ["axum"] }
-tempfile = { workspace = true }
-tokio    = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
-tracing  = { workspace = true }
+axum       = { workspace = true }
+axum-extra = { workspace = true }
+http       = { workspace = true }
+rspc       = { workspace = true, features = ["axum"] }
+tempfile   = { workspace = true }
+tokio      = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
+tracing    = { workspace = true }
 
 # Specific Desktop dependencies
 include_dir = "0.7.3"

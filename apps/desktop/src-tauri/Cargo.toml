@@ -16,7 +16,8 @@ sd-fda    = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
-axum               = { workspace = true, features = ["headers", "query"] }
+axum               = { workspace = true, features = ["query"] }
+axum-extra         = { workspace = true, features = ["typed-header"] }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
@@ -46,12 +47,12 @@ mimalloc = { workspace = true }
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
-version  = "=2.0.1"
+version  = "=2.0.2"
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]
 git      = "https://github.com/spacedriveapp/tauri-specta"
-rev      = "1baf68be47"
+rev      = "733c1983e3"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Spacedrive Sub-crates

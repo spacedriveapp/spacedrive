@@ -91,12 +91,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@oscartbeaumont-sd/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@oscartbeaumont-sd/rspc-tauri':
-        specifier: github:spacedriveapp/rspc#path:packages/tauri&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/tauri(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)
       '@remix-run/router':
         specifier: '=1.13.1'
         version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
@@ -109,15 +103,21 @@ importers:
       '@sd/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@spacedrive/rspc-client':
+        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@spacedrive/rspc-tauri':
+        specifier: github:spacedriveapp/rspc#path:packages/tauri&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)
       '@t3-oss/env-core':
         specifier: ^0.7.1
         version: 0.7.3(typescript@5.6.2)(zod@3.22.4)
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(react@18.2.0)
       '@tauri-apps/api':
-        specifier: '=2.0.1'
-        version: 2.0.1
+        specifier: '=2.0.2'
+        version: 2.0.2
       '@tauri-apps/plugin-dialog':
         specifier: 2.0.0
         version: 2.0.0
@@ -351,12 +351,6 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.1.0
         version: 3.3.4(react-hook-form@7.51.1(react@18.2.0))
-      '@oscartbeaumont-sd/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@oscartbeaumont-sd/rspc-react':
-        specifier: github:spacedriveapp/rspc#path:packages/react&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/react(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)
       '@react-native-async-storage/async-storage':
         specifier: ~1.23.1
         version: 1.23.1(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))
@@ -384,9 +378,15 @@ importers:
       '@shopify/flash-list':
         specifier: 1.6.4
         version: 1.6.4(@babel/runtime@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)
+      '@spacedrive/rspc-client':
+        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@spacedrive/rspc-react':
+        specifier: github:spacedriveapp/rspc#path:packages/react&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(react@18.2.0)
       babel-preset-solid:
         specifier: ^1.9.0
         version: 1.9.0(@babel/core@7.24.0)
@@ -619,18 +619,18 @@ importers:
 
   apps/web:
     dependencies:
-      '@oscartbeaumont-sd/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
       '@sd/client':
         specifier: workspace:*
         version: link:../../packages/client
       '@sd/interface':
         specifier: workspace:*
         version: link:../../interface
+      '@spacedrive/rspc-client':
+        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(react@18.2.0)
       html-to-image:
         specifier: ^1.11.11
         version: 1.11.11
@@ -747,17 +747,17 @@ importers:
         specifier: ^7.74.1
         version: 7.107.0
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(react@18.2.0)
       '@tanstack/react-query-devtools':
-        specifier: ^4.36.1
-        version: 4.36.1(@tanstack/react-query@4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(@tanstack/react-query@5.59.0(react@18.2.0))(react@18.2.0)
       '@tanstack/react-table':
-        specifier: ^8.10.7
-        version: 8.13.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        specifier: ^8.20.5
+        version: 8.20.5(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@tanstack/react-virtual':
-        specifier: 3.0.0-beta.66
-        version: 3.0.0-beta.66(react@18.2.0)
+        specifier: 3.10.8
+        version: 3.10.8(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@total-typescript/ts-reset':
         specifier: ^0.5.1
         version: 0.5.1
@@ -820,7 +820,7 @@ importers:
         version: 4.5.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-i18next:
         specifier: ^13.5.0
-        version: 13.5.0(i18next@23.10.1)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+        version: 13.5.0(i18next@23.10.1)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-json-view:
         specifier: ^1.21.3
         version: 1.21.3(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -917,21 +917,21 @@ importers:
 
   packages/client:
     dependencies:
-      '@oscartbeaumont-sd/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@oscartbeaumont-sd/rspc-react':
-        specifier: github:spacedriveapp/rspc#path:packages/react&bc882f4724
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/react(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
       '@solid-primitives/deep':
         specifier: ^0.2.4
         version: 0.2.7(solid-js@1.8.15)
+      '@spacedrive/rspc-client':
+        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@spacedrive/rspc-react':
+        specifier: github:spacedriveapp/rspc#path:packages/react&7c866ef63d
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)
       '@tanstack/react-query':
-        specifier: ^4.36.1
-        version: 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+        specifier: ^5.59
+        version: 5.59.0(react@18.2.0)
       '@tanstack/solid-query':
-        specifier: ^5.17.9
-        version: 5.28.5(solid-js@1.8.15)
+        specifier: ^5.59
+        version: 5.59.0(solid-js@1.8.15)
       '@zxcvbn-ts/core':
         specifier: ^3.0.4
         version: 3.0.4
@@ -3490,23 +3490,6 @@ packages:
     resolution: {integrity: sha512-CAOgFOKLybd02uj/GhCdEeeBjOS0yeoDeo/CA7ASBSmenpZHAKGB3iDm/rv3BQLcabb/OprDEsSQ1y0P8A7Siw==}
     engines: {node: '>=14'}
 
-  '@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client':
-    resolution: {path: packages/client, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724}
-    version: 0.1.3
-
-  '@oscartbeaumont-sd/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/react':
-    resolution: {path: packages/react, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724}
-    version: 0.1.3
-    peerDependencies:
-      '@oscartbeaumont-sd/rspc-client': ^0.1.3
-      react: ^18.3.1
-
-  '@oscartbeaumont-sd/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/tauri':
-    resolution: {path: packages/tauri, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724}
-    version: 0.1.3
-    peerDependencies:
-      '@oscartbeaumont-sd/rspc-client': ^0.1.3
-
   '@phosphor-icons/core@2.0.8':
     resolution: {integrity: sha512-I9MdTtqjqZDXwo6bbG5lRWZUJMWgXc70hZAVG1OVNVmb6j7039slVXLDH4VEok3U3h1Yhotxe8G5l4sPHJBDzQ==}
 
@@ -4737,6 +4720,23 @@ packages:
     peerDependencies:
       solid-js: ^1.6.12
 
+  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client':
+    resolution: {path: packages/client, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+    version: 0.2.0
+
+  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react':
+    resolution: {path: packages/react, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+    version: 0.2.0
+    peerDependencies:
+      '@spacedrive/rspc-client': ^0.2.0
+      react: ^18.3.1
+
+  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri':
+    resolution: {path: packages/tauri, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+    version: 0.2.0
+    peerDependencies:
+      '@spacedrive/rspc-client': ^0.2.0
+
   '@storybook/addon-actions@8.0.1':
     resolution: {integrity: sha512-qFd1NOI9C16/Jo+7XQQXRsoTzcvKPlT6M5lU47lGLuyLwbZSp5EKxmy8+uKTnyLF/2BTAvOLZ/wYmw+Gj4VzOA==}
 
@@ -5119,74 +5119,54 @@ packages:
     peerDependencies:
       tailwindcss: '>=3.0.0 || insiders'
 
-  '@tanstack/match-sorter-utils@8.11.8':
-    resolution: {integrity: sha512-3VPh0SYMGCa5dWQEqNab87UpCMk+ANWHDP4ALs5PeEW9EpfTAbrezzaOk/OiM52IESViefkoAOYuxdoa04p6aA==}
-    engines: {node: '>=12'}
+  '@tanstack/query-core@5.59.0':
+    resolution: {integrity: sha512-WGD8uIhX6/deH/tkZqPNcRyAhDUqs729bWKoByYHSogcshXfFbppOdTER5+qY7mFvu8KEFJwT0nxr8RfPTVh0Q==}
 
-  '@tanstack/query-core@4.36.1':
-    resolution: {integrity: sha512-DJSilV5+ytBP1FbFcEJovv4rnnm/CokuVvrBEtW/Va9DvuJ3HksbXUJEpI0aV1KtuL4ZoO9AVE6PyNLzF7tLeA==}
+  '@tanstack/query-devtools@5.58.0':
+    resolution: {integrity: sha512-iFdQEFXaYYxqgrv63ots+65FGI+tNp5ZS5PdMU1DWisxk3fez5HG3FyVlbUva+RdYS5hSLbxZ9aw3yEs97GNTw==}
 
-  '@tanstack/query-core@5.28.4':
-    resolution: {integrity: sha512-uQZqOFqLWUvXNIQZ63XdKzg22NtHzgCBUfDmjDHi3BoF+nUYeBNvMi/xFPtFrMhqRzG2Ir4mYaGsWZzmiEjXpA==}
-
-  '@tanstack/react-query-devtools@4.36.1':
-    resolution: {integrity: sha512-WYku83CKP3OevnYSG8Y/QO9g0rT75v1om5IvcWUwiUZJ4LanYGLVCZ8TdFG5jfsq4Ej/lu2wwDAULEUnRIMBSw==}
+  '@tanstack/react-query-devtools@5.59.0':
+    resolution: {integrity: sha512-Kz7577FQGU8qmJxROIT/aOwmkTcxfBqgTP6r1AIvuJxVMVHPkp8eQxWQ7BnfBsy/KTJHiV9vMtRVo1+R1tB3vg==}
     peerDependencies:
-      '@tanstack/react-query': ^4.36.1
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+      '@tanstack/react-query': ^5.59.0
+      react: ^18 || ^19
 
-  '@tanstack/react-query@4.36.1':
-    resolution: {integrity: sha512-y7ySVHFyyQblPl3J3eQBWpXZkliroki3ARnBKsdJchlgt7yJLRDUcf4B8soufgiYt3pEQIkBWBx1N9/ZPIeUWw==}
+  '@tanstack/react-query@5.59.0':
+    resolution: {integrity: sha512-YDXp3OORbYR+8HNQx+lf4F73NoiCmCcSvZvgxE29OifmQFk0sBlO26NWLHpcNERo92tVk3w+JQ53/vkcRUY1hA==}
     peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
-      react-native: '*'
-    peerDependenciesMeta:
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
+      react: ^18 || ^19
 
-  '@tanstack/react-table@8.13.2':
-    resolution: {integrity: sha512-b6mR3mYkjRtJ443QZh9sc7CvGTce81J35F/XMr0OoWbx0KIM7TTTdyNP2XKObvkLpYnLpCrYDwI3CZnLezWvpg==}
+  '@tanstack/react-table@8.20.5':
+    resolution: {integrity: sha512-WEHopKw3znbUZ61s9i0+i9g8drmDo6asTWbrQh8Us63DAk/M0FkmIqERew6P71HI75ksZ2Pxyuf4vvKh9rAkiA==}
     engines: {node: '>=12'}
     peerDependencies:
-      react: '>=16'
-      react-dom: '>=16'
+      react: '>=16.8'
+      react-dom: '>=16.8'
 
-  '@tanstack/react-virtual@3.0.0-beta.66':
-    resolution: {integrity: sha512-zZF6HskgTvNQppUr7KZgdLFOEXkcn2fhUlNvcBCSc7cnD36GpZBrObDYnyZjMdy7r+GGUfGviMtdz+q/kFn7Qg==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0
-
-  '@tanstack/react-virtual@3.2.0':
-    resolution: {integrity: sha512-OEdMByf2hEfDa6XDbGlZN8qO6bTjlNKqjM3im9JG+u3mCL8jALy0T/67oDI001raUUPh1Bdmfn4ZvPOV5knpcg==}
+  '@tanstack/react-virtual@3.10.8':
+    resolution: {integrity: sha512-VbzbVGSsZlQktyLrP5nxE+vE1ZR+U0NFAWPbJLoG2+DKPwd2D7dVICTVIIaYlJqX1ZCEnYDbaOpmMwbsyhBoIA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
 
-  '@tanstack/solid-query@5.28.5':
-    resolution: {integrity: sha512-qQrs3lVOPi7Jj+ud7WtaGsWwv/2GGnIbqzlQZ49xTvkCfBM20OynRh90j1WB+EoNq5tr0ozCZP/lvnCy2w4lZQ==}
+  '@tanstack/solid-query@5.59.0':
+    resolution: {integrity: sha512-2yCObsJ9NHpKSKfHJ3R2TRuYbxtU2Hzg8rxlexl3uHm3VIvQQ1KH18/PYdQAR6oXymCl7ls5QZKvTvgJRtX9bg==}
     peerDependencies:
       solid-js: ^1.6.0
 
-  '@tanstack/table-core@8.13.2':
-    resolution: {integrity: sha512-/2saD1lWBUV6/uNAwrsg2tw58uvMJ07bO2F1IWMxjFRkJiXKQRuc3Oq2aufeobD3873+4oIM/DRySIw7+QsPPw==}
+  '@tanstack/table-core@8.20.5':
+    resolution: {integrity: sha512-P9dF7XbibHph2PFRz8gfBKEXEY/HJPOhym8CHmjF8y3q5mWpKx9xtZapXQUWCgkqvsK0R46Azuz+VaxD4Xl+Tg==}
     engines: {node: '>=12'}
 
-  '@tanstack/virtual-core@3.0.0-beta.66':
-    resolution: {integrity: sha512-rsNvvfmLU6vI1BenZp8p2082ep8Eg4xr56VylZMNUQH5V7Bm+zWHaOgDgvziThWrK6jC7aXyHrIIUrXhaNzH6w==}
-
-  '@tanstack/virtual-core@3.2.0':
-    resolution: {integrity: sha512-P5XgYoAw/vfW65byBbJQCw+cagdXDT/qH6wmABiLt4v4YBT2q2vqCOhihe+D1Nt325F/S/0Tkv6C5z0Lv+VBQQ==}
+  '@tanstack/virtual-core@3.10.8':
+    resolution: {integrity: sha512-PBu00mtt95jbKFi6Llk9aik8bnR3tR/oQP1o3TSi+iG//+Q2RTIzCEgKkHG8BB86kxMNW6O8wku+Lmi+QFR6jA==}
 
   '@taplo/cli@0.7.0':
     resolution: {integrity: sha512-Ck3zFhQhIhi02Hl6T4ZmJsXdnJE+wXcJz5f8klxd4keRYgenMnip3JDPMGDRLbnC/2iGd8P0sBIQqI3KxfVjBg==}
     hasBin: true
 
-  '@tauri-apps/api@2.0.1':
-    resolution: {integrity: sha512-eoQWT+Tq1qSwQpHV+nw1eNYe5B/nm1PoRjQCRiEOS12I1b+X4PUcREfXVX8dPcBT6GrzWGDtaecY0+1p0Rfqlw==}
+  '@tauri-apps/api@2.0.2':
+    resolution: {integrity: sha512-3wSwmG+1kr6WrgAFKK5ijkNFPp8TT3FLj3YHUb5EwMO+3FxX4uWlfSWkeeBy+Kc1RsKzugtYLuuya+98Flj+3w==}
 
   '@tauri-apps/cli-darwin-arm64@2.0.1':
     resolution: {integrity: sha512-oWjCZoFbm57V0eLEkIbc6aUmB4iW65QF7J8JVh5sNzH4xHGP9rzlQarbkg7LOn89z7mFSZpaLJAWlaaZwoV2Ug==}
@@ -6950,10 +6930,6 @@ packages:
     resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
     engines: {node: '>= 0.6'}
 
-  copy-anything@3.0.5:
-    resolution: {integrity: sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==}
-    engines: {node: '>=12.13'}
-
   core-js-compat@3.36.0:
     resolution: {integrity: sha512-iV9Pd/PsgjNWBXeq8XRtWVSgz2tKAfhfvBs7qxYty+RlRd+OCksaWmOnc4JKrTc1cToXL1N0s3l/vwlxPtdElw==}
 
@@ -7654,9 +7630,6 @@ packages:
 
   es-module-lexer@0.9.3:
     resolution: {integrity: sha512-1HQ2M2sPtxwnvOvT1ZClHyQDiggdNjURWpY2we6aMKCQiUVxTmVs2UYPLIrD84sS+kMdUwfBSylbJPwNnBrnHQ==}
-
-  es-module-lexer@1.4.1:
-    resolution: {integrity: sha512-cXLGjP0c4T3flZJKQSuziYoq7MlT+rnvfZjfp7h+I7K9BNX54kP9nyWvdbwjQ4u1iWbOL4u96fgeZLToQlZC7w==}
 
   es-module-lexer@1.5.4:
     resolution: {integrity: sha512-MVNK56NiMrOwitFB7cqDwq0CQutbw+0BvLshJSse0MUNU+y1FC3bUS/AQg7oUng+/wKrrki7JfmwtVHkVfPLlw==}
@@ -11961,9 +11934,6 @@ packages:
     peerDependencies:
       zod: ^3.11.6
 
-  remove-accents@0.4.2:
-    resolution: {integrity: sha512-7pXIJqJOq5tFgG1A2Zxti3Ht8jJF337m4sowbuHsW30ZnkQFnDzy9qBNhgzX8ZLW4+UBcXiiR7SwR6pokHsxiA==}
-
   remove-trailing-slash@0.1.1:
     resolution: {integrity: sha512-o4S4Qh6L2jpnCy83ysZDau+VORNvnFw07CKSAymkd6ICNVEPisMyzlc00KlvvicsxKck94SEwhDnMNdICzO+tA==}
 
@@ -12663,10 +12633,6 @@ packages:
 
   sudo-prompt@9.2.1:
     resolution: {integrity: sha512-Mu7R0g4ig9TUuGSxJavny5Rv0egCEtpZRNMrZaYS1vxkiIxGiGUwoezU3LazIQ+KE04hTrTfNPgxU5gzi7F5Pw==}
-
-  superjson@1.13.3:
-    resolution: {integrity: sha512-mJiVjfd2vokfDxsQPOwJ/PtanO87LhpYY88ubI5dUB1Ab58Txbyje3+jpm+/83R/fevaq/107NNhtYBLuoTrFg==}
-    engines: {node: '>=10'}
 
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
@@ -16099,7 +16065,7 @@ snapshots:
 
   '@headlessui/react@1.7.18(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@tanstack/react-virtual': 3.0.0-beta.66(react@18.2.0)
+      '@tanstack/react-virtual': 3.10.8(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       client-only: 0.0.1
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -16683,31 +16649,6 @@ snapshots:
   '@opentelemetry/semantic-conventions@1.13.0': {}
 
   '@opentelemetry/semantic-conventions@1.22.0': {}
-
-  '@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client': {}
-
-  '@oscartbeaumont-sd/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/react(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@oscartbeaumont-sd/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@tanstack/react-query': 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
-      react: 18.2.0
-    transitivePeerDependencies:
-      - react-dom
-      - react-native
-
-  '@oscartbeaumont-sd/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/react(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@oscartbeaumont-sd/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@tanstack/react-query': 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)
-      react: 18.2.0
-    transitivePeerDependencies:
-      - react-dom
-      - react-native
-
-  '@oscartbeaumont-sd/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/tauri(@oscartbeaumont-sd/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client)':
-    dependencies:
-      '@oscartbeaumont-sd/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/bc882f4724#path:packages/client
-      '@tauri-apps/api': 2.0.1
 
   '@phosphor-icons/core@2.0.8': {}
 
@@ -18510,6 +18451,19 @@ snapshots:
     dependencies:
       solid-js: 1.8.15
 
+  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client': {}
+
+  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)':
+    dependencies:
+      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@tanstack/react-query': 5.59.0(react@18.2.0)
+      react: 18.2.0
+
+  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)':
+    dependencies:
+      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@tauri-apps/api': 2.0.2
+
   '@storybook/addon-actions@8.0.1':
     dependencies:
       '@storybook/core-events': 8.0.1
@@ -19375,72 +19329,45 @@ snapshots:
       postcss-selector-parser: 6.0.10
       tailwindcss: 3.4.1
 
-  '@tanstack/match-sorter-utils@8.11.8':
+  '@tanstack/query-core@5.59.0': {}
+
+  '@tanstack/query-devtools@5.58.0': {}
+
+  '@tanstack/react-query-devtools@5.59.0(@tanstack/react-query@5.59.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      remove-accents: 0.4.2
-
-  '@tanstack/query-core@4.36.1': {}
-
-  '@tanstack/query-core@5.28.4': {}
-
-  '@tanstack/react-query-devtools@4.36.1(@tanstack/react-query@4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@tanstack/match-sorter-utils': 8.11.8
-      '@tanstack/react-query': 4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+      '@tanstack/query-devtools': 5.58.0
+      '@tanstack/react-query': 5.59.0(react@18.2.0)
       react: 18.2.0
-      react-dom: 18.2.0(react@18.2.0)
-      superjson: 1.13.3
-      use-sync-external-store: 1.2.0(react@18.2.0)
 
-  '@tanstack/react-query@4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)':
+  '@tanstack/react-query@5.59.0(react@18.2.0)':
     dependencies:
-      '@tanstack/query-core': 4.36.1
+      '@tanstack/query-core': 5.59.0
       react: 18.2.0
-      use-sync-external-store: 1.2.0(react@18.2.0)
-    optionalDependencies:
-      react-dom: 18.2.0(react@18.2.0)
-      react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0)
 
-  '@tanstack/react-query@4.36.1(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)':
+  '@tanstack/react-table@8.20.5(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@tanstack/query-core': 4.36.1
-      react: 18.2.0
-      use-sync-external-store: 1.2.0(react@18.2.0)
-    optionalDependencies:
-      react-dom: 18.2.0(react@18.2.0)
-      react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0)
-
-  '@tanstack/react-table@8.13.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@tanstack/table-core': 8.13.2
+      '@tanstack/table-core': 8.20.5
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@tanstack/react-virtual@3.0.0-beta.66(react@18.2.0)':
+  '@tanstack/react-virtual@3.10.8(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@tanstack/virtual-core': 3.0.0-beta.66
-      react: 18.2.0
-
-  '@tanstack/react-virtual@3.2.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
-    dependencies:
-      '@tanstack/virtual-core': 3.2.0
+      '@tanstack/virtual-core': 3.10.8
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@tanstack/solid-query@5.28.5(solid-js@1.8.15)':
+  '@tanstack/solid-query@5.59.0(solid-js@1.8.15)':
     dependencies:
-      '@tanstack/query-core': 5.28.4
+      '@tanstack/query-core': 5.59.0
       solid-js: 1.8.15
 
-  '@tanstack/table-core@8.13.2': {}
+  '@tanstack/table-core@8.20.5': {}
 
-  '@tanstack/virtual-core@3.0.0-beta.66': {}
-
-  '@tanstack/virtual-core@3.2.0': {}
+  '@tanstack/virtual-core@3.10.8': {}
 
   '@taplo/cli@0.7.0': {}
 
-  '@tauri-apps/api@2.0.1': {}
+  '@tauri-apps/api@2.0.2': {}
 
   '@tauri-apps/cli-darwin-arm64@2.0.1':
     optional: true
@@ -19487,15 +19414,15 @@ snapshots:
 
   '@tauri-apps/plugin-dialog@2.0.0':
     dependencies:
-      '@tauri-apps/api': 2.0.1
+      '@tauri-apps/api': 2.0.2
 
   '@tauri-apps/plugin-os@2.0.0':
     dependencies:
-      '@tauri-apps/api': 2.0.1
+      '@tauri-apps/api': 2.0.2
 
   '@tauri-apps/plugin-shell@2.0.0':
     dependencies:
-      '@tauri-apps/api': 2.0.1
+      '@tauri-apps/api': 2.0.2
 
   '@testing-library/dom@9.3.4':
     dependencies:
@@ -20186,7 +20113,7 @@ snapshots:
 
   '@virtual-grid/react@2.0.2(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@tanstack/react-virtual': 3.2.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@tanstack/react-virtual': 3.10.8(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@virtual-grid/core': 2.0.1
       '@virtual-grid/shared': 2.0.1
       react: 18.2.0
@@ -20355,9 +20282,9 @@ snapshots:
 
   accessor-fn@1.5.0: {}
 
-  acorn-import-assertions@1.9.0(acorn@8.11.3):
+  acorn-import-assertions@1.9.0(acorn@8.12.1):
     dependencies:
-      acorn: 8.11.3
+      acorn: 8.12.1
 
   acorn-jsx@5.3.2(acorn@7.4.1):
     dependencies:
@@ -21527,10 +21454,6 @@ snapshots:
 
   cookie@0.5.0: {}
 
-  copy-anything@3.0.5:
-    dependencies:
-      is-what: 4.1.16
-
   core-js-compat@3.36.0:
     dependencies:
       browserslist: 4.23.0
@@ -22465,8 +22388,6 @@ snapshots:
 
   es-module-lexer@0.9.3: {}
 
-  es-module-lexer@1.4.1: {}
-
   es-module-lexer@1.5.4: {}
 
   es-object-atoms@1.0.0:
@@ -22629,7 +22550,7 @@ snapshots:
       debug: 4.3.4(supports-color@8.1.1)
       enhanced-resolve: 5.16.0
       eslint: 8.57.1
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1))(eslint@8.57.1)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.1)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@8.8.0(eslint@8.57.1)(typescript@5.6.2))(eslint@8.57.1)
       fast-glob: 3.3.2
       get-tsconfig: 4.7.3
@@ -22641,7 +22562,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1))(eslint@8.57.1):
+  eslint-module-utils@2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.1):
     dependencies:
       debug: 3.2.7(supports-color@8.1.1)
     optionalDependencies:
@@ -24121,7 +24042,7 @@ snapshots:
     dependencies:
       '@tootallnate/once': 2.0.0
       agent-base: 6.0.2
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.7
     transitivePeerDependencies:
       - supports-color
 
@@ -24204,8 +24125,8 @@ snapshots:
 
   import-in-the-middle@1.4.2:
     dependencies:
-      acorn: 8.11.3
-      acorn-import-assertions: 1.9.0(acorn@8.11.3)
+      acorn: 8.12.1
+      acorn-import-assertions: 1.9.0(acorn@8.12.1)
       cjs-module-lexer: 1.2.3
       module-details-from-path: 1.0.3
 
@@ -27284,7 +27205,7 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  react-i18next@13.5.0(i18next@23.10.1)(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0))(react@18.2.0):
+  react-i18next@13.5.0(i18next@23.10.1)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
       '@babel/runtime': 7.24.0
       html-parse-stringify: 3.0.1
@@ -27292,7 +27213,6 @@ snapshots:
       react: 18.2.0
     optionalDependencies:
       react-dom: 18.2.0(react@18.2.0)
-      react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.2.67)(react@18.2.0)
 
   react-intersection-observer@9.8.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
@@ -28034,8 +27954,6 @@ snapshots:
     dependencies:
       zod: 3.22.4
 
-  remove-accents@0.4.2: {}
-
   remove-trailing-slash@0.1.1: {}
 
   renderkid@3.0.0:
@@ -28058,7 +27976,7 @@ snapshots:
 
   require-in-the-middle@7.2.1:
     dependencies:
-      debug: 4.3.4(supports-color@8.1.1)
+      debug: 4.3.7
       module-details-from-path: 1.0.3
       resolve: 1.22.8
     transitivePeerDependencies:
@@ -28823,10 +28741,6 @@ snapshots:
   sudo-prompt@9.1.1: {}
 
   sudo-prompt@9.2.1: {}
-
-  superjson@1.13.3:
-    dependencies:
-      copy-anything: 3.0.5
 
   supports-color@5.5.0:
     dependencies:
@@ -29874,12 +29788,12 @@ snapshots:
       '@webassemblyjs/ast': 1.12.1
       '@webassemblyjs/wasm-edit': 1.12.1
       '@webassemblyjs/wasm-parser': 1.12.1
-      acorn: 8.11.3
-      acorn-import-assertions: 1.9.0(acorn@8.11.3)
+      acorn: 8.12.1
+      acorn-import-assertions: 1.9.0(acorn@8.12.1)
       browserslist: 4.23.0
       chrome-trace-event: 1.0.3
       enhanced-resolve: 5.16.0
-      es-module-lexer: 1.4.1
+      es-module-lexer: 1.5.4
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
@@ -29906,12 +29820,12 @@ snapshots:
       '@webassemblyjs/ast': 1.12.1
       '@webassemblyjs/wasm-edit': 1.12.1
       '@webassemblyjs/wasm-parser': 1.12.1
-      acorn: 8.11.3
-      acorn-import-assertions: 1.9.0(acorn@8.11.3)
+      acorn: 8.12.1
+      acorn-import-assertions: 1.9.0(acorn@8.12.1)
       browserslist: 4.23.0
       chrome-trace-event: 1.0.3
       enhanced-resolve: 5.16.0
-      es-module-lexer: 1.4.1
+      es-module-lexer: 1.5.4
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1

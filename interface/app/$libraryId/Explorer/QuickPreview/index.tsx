@@ -122,12 +122,12 @@ export const QuickPreview = () => {
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const renameEphemeralFile = useLibraryMutation(['ephemeralFiles.renameFile'], {
 		onError: () => setNewName(null),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const changeCurrentItem = (index: number) => {

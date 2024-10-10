@@ -62,9 +62,12 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			filters: [...defaultFilters, ...layoutFilter].filter(Boolean),
 			take: 30
 		},
-		order,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+		order
 	});
+
+	useEffect(() => {
+		getExplorerStore().resetNewThumbnails();
+	}, [path]);
 
 	useEffect(() => {
 		// Set screen title to location.

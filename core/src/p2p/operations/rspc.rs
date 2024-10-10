@@ -1,9 +1,11 @@
 use std::{error::Error, sync::Arc};
 
-use axum::{body::Body, http, Router};
-use hyper::{server::conn::Http, Response};
+use axum::{extract::Request, http, Router};
+use hyper::{body::Incoming, client::conn::http1::handshake, server::conn::http1, Response};
+use hyper_util::rt::TokioIo;
 use sd_p2p::{RemoteIdentity, UnicastStream, P2P};
 use tokio::io::AsyncWriteExt;
+use tower_service::Service;
 use tracing::debug;
 
 use crate::{p2p::Header, Node};
@@ -13,7 +15,7 @@ pub async fn remote_rspc(
 	p2p: Arc<P2P>,
 	identity: RemoteIdentity,
 	request: http::Request<axum::body::Body>,
-) -> Result<Response<Body>, Box<dyn Error>> {
+) -> Result<Response<Incoming>, Box<dyn Error>> {
 	let peer = p2p
 		.peers()
 		.get(&identity)
@@ -23,7 +25,7 @@ pub async fn remote_rspc(
 
 	stream.write_all(&Header::RspcRemote.to_bytes()).await?;
 
-	let (mut sender, conn) = hyper::client::conn::handshake(stream).await?;
+	let (mut sender, conn) = handshake(TokioIo::new(stream)).await?;
 	tokio::task::spawn(async move {
 		if let Err(e) = conn.await {
 			println!("Connection error: {:?}", e);
@@ -49,10 +51,13 @@ pub(crate) async fn receiver(
 		todo!("No way buddy!");
 	}
 
-	Http::new()
-		.http1_only(true)
-		.http1_keep_alive(true)
-		.serve_connection(stream, service)
+	let hyper_service = hyper::service::service_fn(move |request: Request<Incoming>| {
+		service.clone().call(request)
+	});
+
+	http1::Builder::new()
+		.keep_alive(true)
+		.serve_connection(TokioIo::new(stream), hyper_service)
 		.with_upgrades()
 		.await
 		.map_err(Into::into)

@@ -1,5 +1,6 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
@@ -73,7 +74,7 @@ const DrawerLocations = () => {
 
 	const modalRef = useRef<ModalRef>(null);
 
-	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['locations.list'], { placeholderData: keepPreviousData });
 	const locations = result.data || [];
 
 	return (

@@ -58,17 +58,17 @@ export const RenamableItemText = ({
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const renameEphemeralFile = useLibraryMutation(['ephemeralFiles.renameFile'], {
 		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const renameLocation = useLibraryMutation(['locations.update'], {
 		onError: () => reset(),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const reset = useCallback(() => {

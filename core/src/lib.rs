@@ -128,7 +128,7 @@ impl Node {
 
 		let task_system = TaskSystem::new();
 
-		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+		let (p2p, _start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
 			.await
 			.map_err(NodeError::P2PManager)?;
 		let node = Arc::new(Node {
@@ -200,25 +200,25 @@ impl Node {
 			)
 			.await?;
 
-		start_p2p(
-			node.clone(),
-			axum::Router::new()
-				.nest(
-					"/uri",
-					custom_uri::base_router().with_state(custom_uri::with_state(node.clone())),
-				)
-				.nest(
-					"/rspc",
-					router
-						.clone()
-						.endpoint({
-							let node = node.clone();
-							move |_| node.clone()
-						})
-						.axum::<()>(),
-				)
-				.into_make_service(),
-		);
+		// start_p2p(
+		// 	node.clone(),
+		// 	axum::Router::new()
+		// 		.nest(
+		// 			"/uri",
+		// 			custom_uri::base_router().with_state(custom_uri::with_state(node.clone())),
+		// 		)
+		// 		.nest(
+		// 			"/rspc",
+		// 			router
+		// 				.clone()
+		// 				.endpoint({
+		// 					let node = node.clone();
+		// 					move |_| node.clone()
+		// 				})
+		// 				.axum::<()>(),
+		// 		)
+		// 		.into_make_service(),
+		// );
 
 		save_storage_statistics(&node);
 

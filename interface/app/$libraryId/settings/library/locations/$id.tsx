@@ -78,7 +78,7 @@ const EditLocationForm = () => {
 		},
 		onSuccess: () => {
 			form.reset(form.getValues());
-			queryClient.invalidateQueries(['locations.list']);
+			queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 		}
 	});
 

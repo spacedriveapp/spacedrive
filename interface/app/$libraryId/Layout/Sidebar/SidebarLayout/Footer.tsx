@@ -1,4 +1,4 @@
-import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { Gear } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';

@@ -1,20 +1,18 @@
-use std::{
-	net::Ipv4Addr,
-	pin::Pin,
-	sync::Arc,
-	task::{Context, Poll},
-};
+use std::{net::Ipv4Addr, sync::Arc};
 
 use axum::{
-	extract::{Query, State, TypedHeader},
-	headers::authorization::{Authorization, Bearer},
+	body::Body,
+	extract::{Query, State},
 	http::{Request, StatusCode},
 	middleware::{self, Next},
 	response::Response,
 	RequestPartsExt,
 };
+use axum_extra::{
+	headers::authorization::{Authorization, Bearer},
+	TypedHeader,
+};
 use http::Method;
-use hyper::server::{accept::Accept, conn::AddrIncoming};
 use rand::{distr::Alphanumeric, Rng};
 use sd_core::{custom_uri, Node, NodeError};
 use serde::Deserialize;
@@ -66,29 +64,14 @@ pub async fn sd_server_plugin<R: Runtime>(
 		.fallback(|| async { "404 Not Found: We're past the event horizon..." });
 
 	// Only allow current device to access it
-	let listenera = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-	let listen_addra = listenera.local_addr()?;
-	let listenerb = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-	let listen_addrb = listenerb.local_addr()?;
-	let listenerc = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-	let listen_addrc = listenerc.local_addr()?;
-	let listenerd = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-	let listen_addrd = listenerd.local_addr()?;
-
-	// let listen_addr = listener.local_addr()?; // We get it from a listener so `0` is turned into a random port
+	let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+	let listen_addr = listener.local_addr()?; // We get it from a listener so `0` is turned into a random port
 	let (tx, mut rx) = tokio::sync::mpsc::channel(1);
 
-	info!("Internal server listening on: http://{listen_addra:?} http://{listen_addrb:?} http://{listen_addrc:?} http://{listen_addrd:?}");
-	let server = axum::Server::builder(CombinedIncoming {
-		a: AddrIncoming::from_listener(listenera)?,
-		b: AddrIncoming::from_listener(listenerb)?,
-		c: AddrIncoming::from_listener(listenerc)?,
-		d: AddrIncoming::from_listener(listenerd)?,
-	});
+	info!("Internal server listening on: http://{listen_addr:?}");
 	tokio::spawn(async move {
-		server
-			.serve(app.into_make_service())
-			.with_graceful_shutdown(async {
+		axum::serve(listener, app)
+			.with_graceful_shutdown(async move {
 				rx.recv().await;
 			})
 			.await
@@ -97,7 +80,7 @@ pub async fn sd_server_plugin<R: Runtime>(
 
 	let script = format!(
 		r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = [{}];"#,
-		[listen_addra, listen_addrb, listen_addrc, listen_addrd]
+		[listen_addr]
 			.iter()
 			.map(|addr| format!("'http://{addr}'"))
 			.collect::<Vec<_>>()
@@ -127,15 +110,12 @@ struct QueryParams {
 	token: Option<String>,
 }
 
-async fn auth_middleware<B>(
+async fn auth_middleware(
 	Query(query): Query<QueryParams>,
 	State(auth_token): State<String>,
-	request: Request<B>,
-	next: Next<B>,
-) -> Result<Response, StatusCode>
-where
-	B: Send,
-{
+	request: Request<Body>,
+	next: Next,
+) -> Result<Response, StatusCode> {
 	let req = if query.token.as_ref() != Some(&auth_token) {
 		let (mut parts, body) = request.into_parts();
 
@@ -157,39 +137,4 @@ where
 	};
 
 	Ok(next.run(req).await)
-}
-
-struct CombinedIncoming {
-	a: AddrIncoming,
-	b: AddrIncoming,
-	c: AddrIncoming,
-	d: AddrIncoming,
-}
-
-impl Accept for CombinedIncoming {
-	type Conn = <AddrIncoming as Accept>::Conn;
-	type Error = <AddrIncoming as Accept>::Error;
-
-	fn poll_accept(
-		mut self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-	) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
-		if let Poll::Ready(Some(value)) = Pin::new(&mut self.a).poll_accept(cx) {
-			return Poll::Ready(Some(value));
-		}
-
-		if let Poll::Ready(Some(value)) = Pin::new(&mut self.b).poll_accept(cx) {
-			return Poll::Ready(Some(value));
-		}
-
-		if let Poll::Ready(Some(value)) = Pin::new(&mut self.c).poll_accept(cx) {
-			return Poll::Ready(Some(value));
-		}
-
-		if let Poll::Ready(Some(value)) = Pin::new(&mut self.d).poll_accept(cx) {
-			return Poll::Ready(Some(value));
-		}
-
-		Poll::Pending
-	}
 }

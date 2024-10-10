@@ -1,4 +1,4 @@
-import { AlphaRSPCError, Link, RspcRequest } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { Link, RSPCError, RspcRequest } from '@spacedrive/rspc-client';
 import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 
 // It loads the native module object from the JSI or falls back to
@@ -15,7 +15,7 @@ export function reactNativeLink(): Link {
 		string,
 		{
 			resolve: (result: any) => void;
-			reject: (error: Error | AlphaRSPCError) => void;
+			reject: (error: Error | RSPCError) => void;
 		}
 	>();
 
@@ -29,7 +29,7 @@ export function reactNativeLink(): Link {
 				activeMap.delete(id);
 			} else if (result.type === 'error') {
 				const { message, code } = result.data;
-				activeMap.get(id)?.reject(new AlphaRSPCError(code, message));
+				activeMap.get(id)?.reject(new RSPCError(code, message));
 				activeMap.delete(id);
 			} else {
 				console.error(`rspc: received event of unknown type '${result.type}'`);

@@ -1,15 +1,12 @@
-import { type AlphaClient } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, Suspense, useDeferredValue, useMemo } from 'react';
+import { memo, Suspense, useDeferredValue, useEffect, useMemo } from 'react';
 import {
 	ExplorerItem,
 	getExplorerItemData,
-	ItemData,
 	nonIndexedPathOrderingSchema,
-	SortOrder,
 	useLibraryContext,
 	useUnsafeStreamedQuery,
 	type EphemeralPathOrder
@@ -193,11 +190,11 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		],
 		{
 			enabled: path != null,
-			suspense: true,
-			onSuccess: () => explorerStore.resetCache(),
 			onBatch: (item) => {}
 		}
 	);
+
+	useEffect(() => explorerStore.resetCache(), [query])
 
 	const entries = useMemo(() => {
 		return (

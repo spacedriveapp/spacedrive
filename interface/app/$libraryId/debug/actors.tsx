@@ -1,4 +1,4 @@
-import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { useMemo, useState } from 'react';
 import { Procedures, useLibraryMutation, useLibrarySubscription } from '@sd/client';
 import { Button } from '@sd/ui';
@@ -46,10 +46,10 @@ function StartButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
-			disabled={startActor.isLoading}
+			disabled={startActor.isPending}
 			onClick={() => startActor.mutate(name)}
 		>
-			{startActor.isLoading ? 'Starting...' : 'Start'}
+			{startActor.isPending ? 'Starting...' : 'Start'}
 		</Button>
 	);
 }
@@ -60,10 +60,10 @@ function StopButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
-			disabled={stopActor.isLoading}
+			disabled={stopActor.isPending}
 			onClick={() => stopActor.mutate(name)}
 		>
-			{stopActor.isLoading ? 'Stopping...' : 'Stop'}
+			{stopActor.isPending ? 'Stopping...' : 'Stop'}
 		</Button>
 	);
 }

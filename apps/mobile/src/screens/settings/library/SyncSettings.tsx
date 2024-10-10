@@ -1,4 +1,4 @@
-import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { useIsFocused } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { Circle } from 'phosphor-react-native';
@@ -131,11 +131,11 @@ function StartButton({ name }: { name: string }) {
 		<Button
 			variant="accent"
 			size="sm"
-			disabled={startActor.isLoading}
+			disabled={startActor.isPending}
 			onPress={() => startActor.mutate(name)}
 		>
 			<Text style={tw`text-xs font-medium text-ink`}>
-				{startActor.isLoading ? 'Starting' : 'Start'}
+				{startActor.isPending ? 'Starting' : 'Start'}
 			</Text>
 		</Button>
 	);
@@ -147,11 +147,11 @@ function StopButton({ name }: { name: string }) {
 		<Button
 			variant="accent"
 			size="sm"
-			disabled={stopActor.isLoading}
+			disabled={stopActor.isPending}
 			onPress={() => stopActor.mutate(name)}
 		>
 			<Text style={tw`text-xs font-medium text-ink`}>
-				{stopActor.isLoading ? 'Stopping' : 'Stop'}
+				{stopActor.isPending ? 'Stopping' : 'Stop'}
 			</Text>
 		</Button>
 	);

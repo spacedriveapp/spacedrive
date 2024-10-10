@@ -100,7 +100,7 @@ const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
 			<Button
 				size="sm"
 				variant="accent"
-				disabled={joinLibrary.isLoading}
+				disabled={joinLibrary.isPending}
 				onPress={async () => {
 					const library = await joinLibrary.mutateAsync(data.uuid);
 
@@ -128,7 +128,7 @@ const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
 				}}
 			>
 				<Text style={tw`text-sm font-medium text-white`}>
-					{joinLibrary.isLoading && joinLibrary.variables === data.uuid
+					{joinLibrary.isPending && joinLibrary.variables === data.uuid
 						? 'Joining...'
 						: 'Join'}
 				</Text>
