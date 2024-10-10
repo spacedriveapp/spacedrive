@@ -67,7 +67,7 @@ impl CloudServices {
 
 		#[cfg(not(debug_assertions))]
 		{
-			builder = builder.https_only(true);
+			http_client_builder = http_client_builder.https_only(true);
 		}
 
 		let cloud_p2p_relay_url = cloud_p2p_relay_url

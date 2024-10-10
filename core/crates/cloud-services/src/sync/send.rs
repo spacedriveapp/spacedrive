@@ -181,6 +181,15 @@ impl Sender {
 			let messages_bytes = postcard::to_stdvec(&compressed_ops)
 				.map_err(Error::SerializationFailureToPushSyncMessages)?;
 
+			let plain_text_size = messages_bytes.len();
+			let expected_blob_size = if plain_text_size <= EncryptedBlock::PLAIN_TEXT_SIZE {
+				OneShotEncryption::cipher_text_size(&secret_key, plain_text_size)
+			} else {
+				StreamEncryption::cipher_text_size(&secret_key, plain_text_size)
+			} as u64;
+
+			debug!(?expected_blob_size, ?key_hash, "Preparing sync message");
+
 			let (mut push_updates, mut push_responses) = self
 				.cloud_client
 				.sync()
@@ -197,7 +206,7 @@ impl Sender {
 					operations_count,
 					start_time,
 					end_time,
-					expected_blob_size: messages_bytes.len() as u64,
+					expected_blob_size,
 				})
 				.await?;
 
@@ -546,7 +555,7 @@ async fn upload_to_single_url(
 	messages_bytes: Vec<u8>,
 	rng: &mut CryptoRng,
 ) -> Result<(), Error> {
-	let (cipher_text_size, body) = if messages_bytes.len() > EncryptedBlock::PLAIN_TEXT_SIZE {
+	let (cipher_text_size, body) = if messages_bytes.len() <= EncryptedBlock::PLAIN_TEXT_SIZE {
 		let EncryptedBlock { nonce, cipher_text } =
 			OneShotEncryption::encrypt(&secret_key, messages_bytes.as_slice(), rng)
 				.map_err(Error::Encrypt)?;

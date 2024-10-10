@@ -178,6 +178,32 @@ mod tests {
 		assert_eq!(message, decrypted_message.as_slice());
 	}
 
+	#[test]
+	fn one_shot_ref_test() {
+		use super::super::{decrypt::OneShotDecryption, encrypt::OneShotEncryption};
+		let mut rng = CryptoRng::new().unwrap();
+
+		let message = b"Eu queria um apartamento no Guarujah; \
+		Mas o melhor que eu consegui foi um barraco em Itaquah.";
+
+		let key = SecretKey::generate(&mut rng);
+
+		let EncryptedBlock { nonce, cipher_text } = key.encrypt(message, &mut rng).unwrap();
+
+		let mut bytes = Vec::with_capacity(nonce.len() + cipher_text.len());
+		bytes.extend_from_slice(&nonce);
+		bytes.extend(cipher_text);
+
+		assert_eq!(
+			bytes.len(),
+			OneShotEncryption::cipher_text_size(&key, message.len())
+		);
+
+		let decrypted_message = key.decrypt(bytes.as_slice().into()).unwrap();
+
+		assert_eq!(message, decrypted_message.as_slice());
+	}
+
 	async fn stream_test(rng: &mut CryptoRng, message: &[u8]) {
 		use super::super::{decrypt::StreamDecryption, encrypt::StreamEncryption};
 

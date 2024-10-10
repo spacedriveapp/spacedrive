@@ -47,7 +47,7 @@ use tokio::{
 	time::sleep,
 };
 use tokio_util::io::StreamReader;
-use tracing::{error, instrument};
+use tracing::{debug, error, instrument};
 use uuid::Uuid;
 
 use super::{SyncActors, ONE_MINUTE};
@@ -232,6 +232,10 @@ impl Receiver {
 	}
 }
 
+#[instrument(
+	skip_all,
+	fields(%sync_group_pub_id, %original_device_pub_id, operations_count, ?key_hash, %end_time),
+)]
 async fn handle_single_message(
 	sync_group_pub_id: groups::PubId,
 	MessagesCollection {
@@ -266,20 +270,25 @@ async fn handle_single_message(
 		.map_err(Error::ErrorResponseDownloadSyncMessages)?;
 
 	let crdt_ops = if let Some(size) = response.content_length() {
+		debug!(size, "Received encrypted sync messages collection");
 		extract_messages_known_size(response, size, secret_key, original_device_pub_id).await
 	} else {
+		debug!("Received encrypted sync messages collection of unknown size");
 		extract_messages_unknown_size(response, secret_key, original_device_pub_id).await
 	}?;
+
 	assert_eq!(
 		crdt_ops.len(),
 		operations_count as usize,
 		"Sync messages count mismatch"
 	);
+
 	write_cloud_ops_to_db(crdt_ops, &sync.db).await?;
+
 	Ok((original_device_pub_id, end_time))
 }
 
-#[instrument(skip(response, secret_key), err)]
+#[instrument(skip(response, size, secret_key), err)]
 async fn extract_messages_known_size(
 	response: Response,
 	size: u64,

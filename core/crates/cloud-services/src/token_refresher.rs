@@ -320,6 +320,8 @@ impl Runner {
 #[cfg(test)]
 mod tests {
 	use reqwest::header;
+	use reqwest_middleware::ClientBuilder;
+	use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 	use serde_json::json;
 
 	use crate::AUTH_SERVER_URL;
@@ -403,7 +405,7 @@ mod tests {
 
 		let client = reqwest::Client::new();
 		let response = client
-			.post("http://localhost:9420/api/auth/session/refresh")
+			.post(format!("{AUTH_SERVER_URL}/api/auth/session/refresh"))
 			.header("rid", "session")
 			.header(header::AUTHORIZATION, format!("Bearer {refresh_token}"))
 			.send()
@@ -431,5 +433,36 @@ mod tests {
 				.unwrap(),
 			refresh_token.as_str()
 		);
+	}
+
+	#[ignore = "Needs an actual SuperTokens auth server running"]
+	#[tokio::test]
+	async fn test_refresher_runner() {
+		let http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(3));
+
+		let http_client = ClientBuilder::new(http_client_builder.build().unwrap())
+			.with(RetryTransientMiddleware::new_with_policy(
+				ExponentialBackoff::builder().build_with_max_retries(3),
+			))
+			.build();
+
+		let (refresh_tx, _refresh_rx) = flume::bounded(1);
+
+		let mut runner = Runner {
+			initialized: false,
+			http_client,
+			refresh_url: Url::parse(&format!("{AUTH_SERVER_URL}/api/auth/session/refresh"))
+				.unwrap(),
+			current_token: None,
+			current_refresh_token: None,
+			token_decoding_buffer: Vec::new(),
+			refresh_tx,
+		};
+
+		let (access_token, refresh_token) = get_tokens().await;
+
+		runner.init(access_token, refresh_token).await.unwrap();
+
+		runner.refresh().await.unwrap();
 	}
 }
