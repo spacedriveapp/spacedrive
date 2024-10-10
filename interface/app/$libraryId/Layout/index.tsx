@@ -3,7 +3,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import {
 	ClientContextProvider,
-	initPlausible,
+	configureAnalyticsProperties,
 	LibraryContextProvider,
 	useBridgeQuery,
 	useClientContext,
@@ -146,16 +146,20 @@ function usePlausible() {
 	const plausibleEvent = usePlausibleEvent();
 
 	useEffect(() => {
-		initPlausible({
+		configureAnalyticsProperties({
 			buildInfo,
 			platformType: platform === 'tauri' ? 'desktop' : 'web'
 		});
 	}, [platform, buildInfo]);
 
 	useEffect(() => {
-		const interval = setInterval(() => {
-			plausibleEvent({ event: { type: 'ping' } });
-		}, 600 * 1000); // 10 minutes
+		const interval = setInterval(
+			() => {
+				// ping every 10 minutes -- this just tells us that Spacedrive is running and helps us gauge the amount of active users we have.
+				plausibleEvent({ event: { type: 'ping' } });
+			},
+			10 * 60 * 1_000
+		);
 
 		return () => clearInterval(interval);
 	}, [plausibleEvent]);
