@@ -23,6 +23,7 @@ chrono              = { workspace = true, features = ["serde"] }
 flume               = { workspace = true }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
+rmp-serde           = { workspace = true }
 rspc                = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }
@@ -39,7 +40,6 @@ zeroize             = { workspace = true }
 anyhow   = "1.0.86"
 iroh-net = { version = "0.26", features = ["discovery-local-network", "iroh-relay"] }
 paste    = "=1.0.15"
-postcard = { version = "1.0.8", features = ["use-std"] }
 quic-rpc = { version = "0.12.1", features = ["quinn-transport"] }
 quinn    = { package = "iroh-quinn", version = "0.11" }
 # Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
