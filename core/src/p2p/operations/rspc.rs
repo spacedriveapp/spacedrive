@@ -51,9 +51,8 @@ pub(crate) async fn receiver(
 		todo!("No way buddy!");
 	}
 
-	let hyper_service = hyper::service::service_fn(move |request: Request<Incoming>| {
-		service.clone().call(request)
-	});
+	let hyper_service =
+		hyper::service::service_fn(move |request: Request<Incoming>| service.clone().call(request));
 
 	http1::Builder::new()
 		.keep_alive(true)

@@ -174,10 +174,7 @@ async fn main() {
 		.route(
 			"/",
 			get(|| async move {
-				use axum::{
-					body::Body,
-					response::Response,
-				};
+				use axum::{body::Body, response::Response};
 				use http::{header, HeaderValue, StatusCode};
 
 				match ASSETS_DIR.get_file("index.html") {
@@ -200,10 +197,7 @@ async fn main() {
 			"/*id",
 			get(
 				|axum::extract::Path(path): axum::extract::Path<String>| async move {
-					use axum::{
-						body::Body,
-						response::Response,
-					};
+					use axum::{body::Body, response::Response};
 					use http::{header, HeaderValue, StatusCode};
 
 					let path = path.trim_start_matches('/');

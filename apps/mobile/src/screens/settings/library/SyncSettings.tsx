@@ -1,5 +1,5 @@
-import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { useIsFocused } from '@react-navigation/native';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { MotiView } from 'moti';
 import { Circle } from 'phosphor-react-native';
 import React, { useEffect, useRef, useState } from 'react';

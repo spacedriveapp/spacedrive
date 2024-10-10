@@ -194,7 +194,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		}
 	);
 
-	useEffect(() => explorerStore.resetCache(), [query])
+	useEffect(() => explorerStore.resetCache(), [query]);
 
 	const entries = useMemo(() => {
 		return (
