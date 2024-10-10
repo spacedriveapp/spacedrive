@@ -104,11 +104,11 @@ importers:
         specifier: workspace:*
         version: link:../../packages/ui
       '@spacedrive/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+        specifier: github:spacedriveapp/rspc#path:packages/client&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@spacedrive/rspc-tauri':
-        specifier: github:spacedriveapp/rspc#path:packages/tauri&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)
+        specifier: github:spacedriveapp/rspc#path:packages/tauri&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)
       '@t3-oss/env-core':
         specifier: ^0.7.1
         version: 0.7.3(typescript@5.6.2)(zod@3.22.4)
@@ -379,11 +379,11 @@ importers:
         specifier: 1.6.4
         version: 1.6.4(@babel/runtime@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.24.0(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))(react@18.2.0)
       '@spacedrive/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+        specifier: github:spacedriveapp/rspc#path:packages/client&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@spacedrive/rspc-react':
-        specifier: github:spacedriveapp/rspc#path:packages/react&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)
+        specifier: github:spacedriveapp/rspc#path:packages/react&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)(react@18.2.0)
       '@tanstack/react-query':
         specifier: ^5.59
         version: 5.59.0(react@18.2.0)
@@ -626,8 +626,8 @@ importers:
         specifier: workspace:*
         version: link:../../interface
       '@spacedrive/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+        specifier: github:spacedriveapp/rspc#path:packages/client&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@tanstack/react-query':
         specifier: ^5.59
         version: 5.59.0(react@18.2.0)
@@ -921,11 +921,11 @@ importers:
         specifier: ^0.2.4
         version: 0.2.7(solid-js@1.8.15)
       '@spacedrive/rspc-client':
-        specifier: github:spacedriveapp/rspc#path:packages/client&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+        specifier: github:spacedriveapp/rspc#path:packages/client&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@spacedrive/rspc-react':
-        specifier: github:spacedriveapp/rspc#path:packages/react&7c866ef63d
-        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)
+        specifier: github:spacedriveapp/rspc#path:packages/react&68349c19e1
+        version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)(react@18.2.0)
       '@tanstack/react-query':
         specifier: ^5.59
         version: 5.59.0(react@18.2.0)
@@ -4720,19 +4720,19 @@ packages:
     peerDependencies:
       solid-js: ^1.6.12
 
-  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client':
-    resolution: {path: packages/client, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client':
+    resolution: {path: packages/client, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1}
     version: 0.2.0
 
-  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react':
-    resolution: {path: packages/react, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/react':
+    resolution: {path: packages/react, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1}
     version: 0.2.0
     peerDependencies:
       '@spacedrive/rspc-client': ^0.2.0
       react: ^18.3.1
 
-  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri':
-    resolution: {path: packages/tauri, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d}
+  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/tauri':
+    resolution: {path: packages/tauri, tarball: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1}
     version: 0.2.0
     peerDependencies:
       '@spacedrive/rspc-client': ^0.2.0
@@ -18451,17 +18451,17 @@ snapshots:
     dependencies:
       solid-js: 1.8.15
 
-  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client': {}
+  '@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client': {}
 
-  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)(react@18.2.0)':
+  '@spacedrive/rspc-react@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/react(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)(react@18.2.0)':
     dependencies:
-      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@tanstack/react-query': 5.59.0(react@18.2.0)
       react: 18.2.0
 
-  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client)':
+  '@spacedrive/rspc-tauri@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)':
     dependencies:
-      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/7c866ef63d#path:packages/client
+      '@spacedrive/rspc-client': https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client
       '@tauri-apps/api': 2.0.2
 
   '@storybook/addon-actions@8.0.1':

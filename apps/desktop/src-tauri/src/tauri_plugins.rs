@@ -79,12 +79,7 @@ pub async fn sd_server_plugin<R: Runtime>(
 	});
 
 	let script = format!(
-		r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = [{}];"#,
-		[listen_addr]
-			.iter()
-			.map(|addr| format!("'http://{addr}'"))
-			.collect::<Vec<_>>()
-			.join(","),
+		r#"window.__SD_CUSTOM_SERVER_AUTH_TOKEN__ = "{auth_token}"; window.__SD_CUSTOM_URI_SERVER__ = ['http://{listen_addr}'];"#,
 	);
 
 	Ok(tauri::plugin::Builder::new("sd-server")
