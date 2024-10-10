@@ -1,5 +1,5 @@
 use crate::{
-	primitives::{EncryptedBlock, StreamNonce},
+	primitives::{EncryptedBlock, OneShotNonce, StreamNonce},
 	Error,
 };
 
@@ -14,6 +14,10 @@ use super::secret_key::SecretKey;
 
 pub trait OneShotEncryption {
 	fn encrypt(&self, plaintext: &[u8], rng: &mut impl CryptoRng) -> Result<EncryptedBlock, Error>;
+
+	fn cipher_text_size(&self, plain_text_size: usize) -> usize {
+		size_of::<OneShotNonce>() + plain_text_size + size_of::<Tag>()
+	}
 }
 
 pub trait StreamEncryption {
