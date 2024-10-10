@@ -6,9 +6,9 @@ export const Devtools = () => {
 
 	return (
 		<>
-			{debugState.reactQueryDevtools !== 'disabled' ? (
+			{debugState.reactQueryDevtools && (
 				<ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
-			) : null}
+			)}
 		</>
 	);
 };
