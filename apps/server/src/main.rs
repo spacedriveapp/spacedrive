@@ -175,7 +175,7 @@ async fn main() {
 			"/",
 			get(|| async move {
 				use axum::{
-					body::{self, Full},
+					body::Body,
 					response::Response,
 				};
 				use http::{header, HeaderValue, StatusCode};
@@ -187,11 +187,11 @@ async fn main() {
 							header::CONTENT_TYPE,
 							HeaderValue::from_str("text/html").unwrap(),
 						)
-						.body(body::boxed(Full::from(file.contents())))
+						.body(Body::from(file.contents()))
 						.unwrap(),
 					None => Response::builder()
 						.status(StatusCode::NOT_FOUND)
-						.body(body::boxed(axum::body::Empty::new()))
+						.body(Body::empty())
 						.unwrap(),
 				}
 			}),
@@ -201,7 +201,7 @@ async fn main() {
 			get(
 				|axum::extract::Path(path): axum::extract::Path<String>| async move {
 					use axum::{
-						body::{self, Empty, Full},
+						body::Body,
 						response::Response,
 					};
 					use http::{header, HeaderValue, StatusCode};
@@ -217,7 +217,7 @@ async fn main() {
 								)
 								.unwrap(),
 							)
-							.body(body::boxed(Full::from(file.contents())))
+							.body(Body::from(file.contents()))
 							.unwrap(),
 						None => match ASSETS_DIR.get_file("index.html") {
 							Some(file) => Response::builder()
@@ -226,11 +226,11 @@ async fn main() {
 									header::CONTENT_TYPE,
 									HeaderValue::from_str("text/html").unwrap(),
 								)
-								.body(body::boxed(Full::from(file.contents())))
+								.body(Body::from(file.contents()))
 								.unwrap(),
 							None => Response::builder()
 								.status(StatusCode::NOT_FOUND)
-								.body(body::boxed(Empty::new()))
+								.body(Body::empty())
 								.unwrap(),
 						},
 					}
