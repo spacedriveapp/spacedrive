@@ -59,7 +59,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					)??;
 
 					if let Err(e) = key_manager
-						.add_key_with_hash(group_pub_id, new_key, key_hash, &mut rng)
+						.add_key_with_hash(group_pub_id, new_key, key_hash.clone(), &mut rng)
 						.await
 					{
 						super::handle_comm_error(
@@ -79,7 +79,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 
 					library.init_cloud_sync(&node, group_pub_id).await?;
 
-					debug!(%group_pub_id, "Created sync group");
+					debug!(%group_pub_id, ?key_hash, "Created sync group");
 
 					Ok(())
 				})

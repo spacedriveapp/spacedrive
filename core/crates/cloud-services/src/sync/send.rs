@@ -585,7 +585,7 @@ async fn upload_to_single_url(
 		(cipher_text_size, Body::from(body_bytes))
 	};
 
-	let response = http_client
+	http_client
 		.put(url)
 		.header(header::CONTENT_LENGTH, cipher_text_size)
 		.body(body)
@@ -594,8 +594,6 @@ async fn upload_to_single_url(
 		.map_err(Error::UploadSyncMessages)?
 		.error_for_status()
 		.map_err(Error::ErrorResponseUploadSyncMessages)?;
-
-	debug!(?response, "Uploaded sync messages");
 
 	Ok(())
 }
