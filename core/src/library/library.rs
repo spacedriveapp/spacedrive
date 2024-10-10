@@ -4,7 +4,7 @@ use sd_core_cloud_services::{declare_cloud_sync, CloudSyncActors, CloudSyncActor
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::media_processor::ThumbnailKind;
 use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
-use sd_core_sync::SyncManager;
+use sd_core_sync::{backfill::backfill_operations, SyncManager};
 
 use sd_actors::ActorsCollection;
 use sd_cloud_schema::sync::groups;
@@ -97,6 +97,19 @@ impl Library {
 	) -> Result<(), LibraryManagerError> {
 		let rng = CryptoRng::from_seed(node.master_rng.lock().await.generate_fixed());
 
+		self.update_config(|config| {
+			config
+				.generate_sync_operations
+				.store(true, Ordering::Relaxed)
+		})
+		.await?;
+
+		// If this library doesn't have any sync operations, it means that it had sync activated
+		// for the first time, so we need to backfill the operations from existing db data
+		if self.db.crdt_operation().count(vec![]).exec().await? == 0 {
+			backfill_operations(&self.sync).await?;
+		}
+
 		declare_cloud_sync(
 			node.data_dir.clone().into_boxed_path(),
 			node.cloud_services.clone(),
@@ -116,13 +129,7 @@ impl Library {
 			.join()
 			.await;
 
-		self.update_config(|config| {
-			config
-				.generate_sync_operations
-				.store(true, Ordering::Relaxed)
-		})
-		.await
-		.map_err(Into::into)
+		Ok(())
 	}
 
 	pub async fn config(&self) -> LibraryConfig {
