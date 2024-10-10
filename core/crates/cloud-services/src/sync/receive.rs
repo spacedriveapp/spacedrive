@@ -88,7 +88,7 @@ impl Actor<SyncActors> for Receiver {
 			self.active.store(false, Ordering::Relaxed);
 
 			if let Err(e) = res {
-				error!(?e, "Error during cloud sync sender actor iteration");
+				error!(?e, "Error during cloud sync receiver actor iteration");
 				sleep(ONE_MINUTE).await;
 				continue;
 			}
@@ -330,7 +330,7 @@ async fn extract_messages_known_size(
 		plain_text
 	};
 
-	postcard::from_bytes::<CompressedCRDTOperationsPerModel>(&plain_text)
+	rmp_serde::from_slice::<CompressedCRDTOperationsPerModel>(&plain_text)
 		.map(|compressed_ops| compressed_ops.into_ops(device_pub_id))
 		.map_err(Error::DeserializationFailureToPullSyncMessages)
 }
@@ -358,7 +358,7 @@ async fn extract_messages_unknown_size(
 		}
 	};
 
-	postcard::from_bytes::<CompressedCRDTOperationsPerModel>(&plain_text)
+	rmp_serde::from_slice::<CompressedCRDTOperationsPerModel>(&plain_text)
 		.map(|compressed_ops| compressed_ops.into_ops(device_pub_id))
 		.map_err(Error::DeserializationFailureToPullSyncMessages)
 }
@@ -390,8 +390,8 @@ impl LastTimestampKeeper {
 
 		match fs::read(&file_path).await {
 			Ok(bytes) => Ok(Self {
-				timestamps: postcard::from_bytes(&bytes)
-					.map_err(Error::LastTimestampKeeperSerialization)?,
+				timestamps: rmp_serde::from_slice(&bytes)
+					.map_err(Error::LastTimestampKeeperDeserialization)?,
 				file_path,
 			}),
 
@@ -407,7 +407,7 @@ impl LastTimestampKeeper {
 	async fn save(&self) -> Result<(), Error> {
 		fs::write(
 			&self.file_path,
-			&postcard::to_stdvec(&self.timestamps)
+			&rmp_serde::to_vec_named(&self.timestamps)
 				.map_err(Error::LastTimestampKeeperSerialization)?,
 		)
 		.await

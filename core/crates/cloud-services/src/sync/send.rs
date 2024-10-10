@@ -178,7 +178,7 @@ impl Sender {
 			let (_device_pub_id, compressed_ops) =
 				CompressedCRDTOperationsPerModelPerDevice::new_single_device(ops);
 
-			let messages_bytes = postcard::to_stdvec(&compressed_ops)
+			let messages_bytes = rmp_serde::to_vec_named(&compressed_ops)
 				.map_err(Error::SerializationFailureToPushSyncMessages)?;
 
 			let plain_text_size = messages_bytes.len();

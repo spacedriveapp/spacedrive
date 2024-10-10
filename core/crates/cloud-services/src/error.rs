@@ -50,7 +50,9 @@ pub enum Error {
 	#[error("Failed to handle File on KeyManager: {0}")]
 	FileIO(#[from] FileIOError),
 	#[error("Failed to handle key store serialization: {0}")]
-	KeyStoreSerialization(postcard::Error),
+	KeyStoreSerialization(rmp_serde::encode::Error),
+	#[error("Failed to handle key store deserialization: {0}")]
+	KeyStoreDeserialization(rmp_serde::decode::Error),
 	#[error("Key store encryption related error: {{context: \"{context}\", source: {source}}}")]
 	KeyStoreCrypto {
 		#[source]
@@ -124,15 +126,17 @@ pub enum Error {
 	#[error("Failed to read last timestamp keeper for pulling sync messages: {0}")]
 	FailedToReadLastTimestampKeeper(io::Error),
 	#[error("Failed to handle last timestamp keeper serialization: {0}")]
-	LastTimestampKeeperSerialization(postcard::Error),
+	LastTimestampKeeperSerialization(rmp_serde::encode::Error),
+	#[error("Failed to handle last timestamp keeper deserialization: {0}")]
+	LastTimestampKeeperDeserialization(rmp_serde::decode::Error),
 	#[error("Failed to write last timestamp keeper for pulling sync messages: {0}")]
 	FailedToWriteLastTimestampKeeper(io::Error),
 	#[error("Sync messages download and decrypt task panicked")]
 	SyncMessagesDownloadAndDecryptTaskPanicked,
 	#[error("Serialization failure to push sync messages: {0}")]
-	SerializationFailureToPushSyncMessages(postcard::Error),
+	SerializationFailureToPushSyncMessages(rmp_serde::encode::Error),
 	#[error("Deserialization failure to pull sync messages: {0}")]
-	DeserializationFailureToPullSyncMessages(postcard::Error),
+	DeserializationFailureToPullSyncMessages(rmp_serde::decode::Error),
 	#[error("Read nonce stream decryption: {0}")]
 	ReadNonceStreamDecryption(io::Error),
 	#[error("Incomplete download bytes sync messages")]
