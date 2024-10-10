@@ -5,7 +5,7 @@ import {
 	FallbackProps
 } from 'react-error-boundary';
 import { useRouteError } from 'react-router';
-import { useDebugState } from '@sd/client';
+import { useDebugState, useTelemetryState } from '@sd/client';
 import { Button, Dialogs } from '@sd/ui';
 
 import { showAlertDialog } from './components';
@@ -68,6 +68,7 @@ export function ErrorPage({
 }) {
 	useTheme();
 	const debug = useDebugState();
+	const { telemetryLevelPreference } = useTelemetryState();
 	const os = useOperatingSystem();
 	const platform = usePlatform();
 	const isMacOS = os === 'macOS';
@@ -134,19 +135,21 @@ export function ErrorPage({
 						{t('reload')}
 					</Button>
 				)}
-				<Button
-					variant="gray"
-					className="mt-2"
-					onClick={() =>
-						sendReportBtn
-							? sendReportBtn()
-							: sentryBrowserLazy.then(({ captureException }) =>
-									captureException(message)
-								)
-					}
-				>
-					{t('send_report')}
-				</Button>
+				{telemetryLevelPreference !== 'none' && (
+					<Button
+						variant="gray"
+						className="mt-2"
+						onClick={() =>
+							sendReportBtn
+								? sendReportBtn()
+								: sentryBrowserLazy.then(({ captureException }) =>
+										captureException(message)
+									)
+						}
+					>
+						{t('send_report')}
+					</Button>
+				)}
 				{platform.openLogsDir && (
 					<Button variant="gray" className="mt-2" onClick={platform.openLogsDir}>
 						{t('open_logs')}

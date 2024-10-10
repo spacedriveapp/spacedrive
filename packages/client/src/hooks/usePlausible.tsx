@@ -5,17 +5,10 @@ import { BuildInfo } from '../core';
 import { useDebugState } from '../stores/debugState';
 import { PlausiblePlatformType, telemetryState, useTelemetryState } from '../stores/telemetryState';
 
-/**
- * This should be in sync with the Core's version.
- */
-
-const DOMAIN = 'api.spacedrive.com';
+const DOMAIN = 'app.spacedrive.com';
 const MOBILE_DOMAIN = 'mobile.spacedrive.com';
 
-const PlausibleProvider = Plausible({
-	trackLocalhost: true,
-	domain: DOMAIN
-});
+let plausibleInstance: ReturnType<typeof Plausible>;
 
 /**
  * This defines all possible options that may be provided by events upon submission.
@@ -23,13 +16,10 @@ const PlausibleProvider = Plausible({
  * This extends the standard options provided by the `plausible-tracker`
  * package, but also offers some additiional options for custom functionality.
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface PlausibleOptions extends PlausibleTrackerOptions {
-	/**
-	 * This should **only** be used in contexts where telemetry sharing
-	 * must be allowed/denied via external means. Currently it is not used by anything,
-	 * but probably will be in the future.
-	 */
-	telemetryOverride?: boolean;
+	// the only thing in here before was `telemetryOverride`, but we've removed it
+	// keeping this interface around should we need it in the future.
 }
 
 /**
@@ -145,7 +135,7 @@ interface SubmitEventProps {
 	 * Whether or not full telemetry sharing is enabled for the current client.
 	 *
 	 * It is **crucial** that this is the direct output of `useTelemetryState().shareFullTelemetry`,
-	 * regardless of other conditions that may affect whether we share it (such as event overrides).
+	 * regardless of other conditions that may affect whether we share it.
 	 */
 	shareFullTelemetry: boolean;
 	/**
@@ -173,8 +163,8 @@ interface SubmitEventProps {
  * If any of the following conditions are met, this will return and no data will be submitted:
  *
  * * If the app is in debug/development mode
- * * If a telemetry override is present, but it is not true
- * * If no telemetry override is present, and telemetry sharing is not true
+ * * If the user's telemetry preference is not "full", we will only send pings
+ * * If the user's telemetry preference is "none", we will never send any telemetry
  *
  * @privateRemarks
  * Telemetry sharing settings are never matched to `=== false`, but to `!== true` instead.
@@ -186,27 +176,35 @@ interface SubmitEventProps {
  */
 const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEventProps) => {
 	if (props.platformType === 'unknown') return;
-	// if (debugState.enabled && debugState.shareFullTelemetry !== true) return;
 	if (
-		'plausibleOptions' in event && 'telemetryOverride' in event.plausibleOptions
-			? event.plausibleOptions.telemetryOverride !== true
-			: props.shareFullTelemetry !== true && event.type !== 'ping'
+		// if the user's telemetry preference is not "full", we should only send pings
+		props.shareFullTelemetry !== true &&
+		event.type !== 'ping'
 	)
 		return;
+
+	// using a singleton this way instead of instantiating at file eval (first time it's imported)
+	// because a user having "none" telemetry preference should mean Plausible never even initalizes
+	plausibleInstance ??= Plausible({
+		trackLocalhost: true,
+		domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN
+	});
 
 	const fullEvent: PlausibleTrackerEvent = {
 		eventName: event.type,
 		props: {
 			platform: props.platformType,
 			fullTelemetry: props.shareFullTelemetry,
-			coreVersion: props.buildInfo?.version ?? '0.1.0', // TODO(brxken128): clean this up
-			commitHash: props.buildInfo?.commit ?? '0.1.0',
+			// we used to fall back to '0.1.0' here, but we should never report an actual version number if we don't know
+			coreVersion: props.buildInfo?.version ?? 'unknown',
+			commitHash: props.buildInfo?.commit ?? 'unknown',
 			debug: debugState.enabled
 		},
 		options: {
-			domain: props.platformType === 'mobile' ? MOBILE_DOMAIN : DOMAIN,
 			deviceWidth: props.screenWidth ?? window.screen.width,
 			referrer: '',
+			// by default do not track current URL, if it's provided in plausibleOptions, that will be sent
+			url: '',
 			...('plausibleOptions' in event ? event.plausibleOptions : undefined)
 		},
 		callback: debugState.telemetryLogging
@@ -217,7 +215,7 @@ const submitPlausibleEvent = async ({ event, debugState, ...props }: SubmitEvent
 			: undefined
 	};
 
-	PlausibleProvider.trackEvent(
+	plausibleInstance.trackEvent(
 		fullEvent.eventName,
 		{
 			props: fullEvent.props,
@@ -242,16 +240,10 @@ interface EventSubmissionCallbackProps {
  * The returned callback should only be fired once,
  * in order to prevent our analytics from being flooded.
  *
- * Certain events provide functionality to override the clients's telemetry sharing configuration.
- * This is not to ignore the user's choice, but because it should **only** be used in contexts where
- * telemetry sharing must be allowed/denied via external means.
- *
  * @remarks
  * If any of the following conditions are met, this will return and no data will be submitted:
  *
  * * If the app is in debug/development mode
- * * If a telemetry override is present, but it is not true
- * * If no telemetry override is present, and telemetry sharing is not true
  *
  * @returns a callback that, once executed, will submit the desired event
  *
@@ -271,19 +263,20 @@ interface EventSubmissionCallbackProps {
  * });
  * ```
  */
-export const usePlausibleEvent = () => {
-	const debugState = useDebugState();
+export const usePlausibleEvent = (): ((props: EventSubmissionCallbackProps) => Promise<void>) => {
 	const telemetryState = useTelemetryState();
+
+	const debugState = useDebugState();
 	const previousEvent = useRef({} as BasePlausibleEvent<string>);
 
-	return useCallback(
+	const sendPlausibleEvent = useCallback(
 		async (props: EventSubmissionCallbackProps) => {
 			if (previousEvent.current === props.event) return;
 			else previousEvent.current = props.event;
 
 			submitPlausibleEvent({
 				debugState,
-				shareFullTelemetry: telemetryState.shareFullTelemetry,
+				shareFullTelemetry: telemetryState.telemetryLevelPreference === 'full',
 				platformType: telemetryState.platform,
 				buildInfo: telemetryState.buildInfo,
 				...props
@@ -291,6 +284,10 @@ export const usePlausibleEvent = () => {
 		},
 		[debugState, telemetryState]
 	);
+
+	if (telemetryState.telemetryLevelPreference === 'none') return async (...args: any[]) => {};
+
+	return sendPlausibleEvent;
 };
 
 export interface PlausibleMonitorProps {
@@ -366,7 +363,11 @@ export const usePlausiblePingMonitor = ({ currentPath }: PlausibleMonitorProps) 
 	}, [currentPath, plausibleEvent]);
 };
 
-export const initPlausible = ({
+/**
+ * Initializes the `platform` and `buildInfo` properties on `telemetryState` so they can be used
+ * by Plausible if it's enabled.
+ */
+export const configureAnalyticsProperties = ({
 	platformType,
 	buildInfo
 }: {

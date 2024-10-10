@@ -21,7 +21,7 @@ import SuperTokens from 'supertokens-react-native';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
-	initPlausible,
+	configureAnalyticsProperties,
 	LibraryContextProvider,
 	P2PContextProvider,
 	RspcProvider,
@@ -66,7 +66,7 @@ function AppNavigation() {
 
 	useEffect(() => {
 		if (buildInfo?.data) {
-			initPlausible({ platformType: 'mobile', buildInfo: buildInfo.data });
+			configureAnalyticsProperties({ platformType: 'mobile', buildInfo: buildInfo.data });
 		}
 	}, [buildInfo]);
 

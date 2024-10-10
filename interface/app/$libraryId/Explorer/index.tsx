@@ -7,7 +7,7 @@ import {
 	useRspcLibraryContext,
 	useSelector
 } from '@sd/client';
-import { useShortcut } from '~/hooks';
+import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';
 import { useExplorerContext } from './Context';
@@ -45,6 +45,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		s.showInspector,
 		s.isTagAssignModeActive
 	]);
+	const isWindows = useOperatingSystem() === 'windows';
 
 	const showPathBar = explorer.showPathBar && layoutStore.showPathBar;
 	const rspc = useRspcLibraryContext();
@@ -95,6 +96,8 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					className="explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-x-hidden"
 					style={
 						{
+							'--scrollbar-width': isWindows ? '10px' : '6px',
+							'--scrollbar-height': isWindows ? '10px' : '6px',
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
 							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0}px`,
 							'paddingTop': topBar.topBarHeight,
@@ -133,7 +136,10 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 			{showInspector && (
 				<Inspector
-					className={clsx('no-scrollbar absolute right-1.5 top-0 pb-3 pl-3 pr-1.5')}
+					className={clsx(
+						'no-scrollbar absolute top-0 pb-3 pl-3 pr-1.5',
+						isWindows ? 'right-3' : 'right-1.5'
+					)}
 					style={{
 						paddingTop: topBar.topBarHeight + 12,
 						bottom: showPathBar
