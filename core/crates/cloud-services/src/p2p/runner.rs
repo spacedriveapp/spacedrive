@@ -237,6 +237,15 @@ impl Runner {
 						library_name,
 						library_description,
 					}) => {
+						debug!(
+							device_pub_id = %authorizor_device.pub_id,
+							%group_pub_id,
+							keys_count = keys.len(),
+							%library_pub_id,
+							library_name,
+							"Received join sync group response"
+						);
+
 						key_manager
 							.add_many_keys(
 								group_pub_id,
@@ -263,8 +272,10 @@ impl Runner {
 
 						return Ok(JoinSyncGroupResponse::Accepted { authorizor_device });
 					}
+
 					// In case of timeout, we will try again
 					Err(CloudP2PError::TimedOut) => continue,
+
 					Err(e) => return Ok(JoinSyncGroupResponse::Failed(e)),
 				}
 			}
