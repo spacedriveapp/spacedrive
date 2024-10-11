@@ -1,12 +1,14 @@
 import { MotiView } from 'moti';
 import { AppleLogo, GithubLogo, GoogleLogo, IconProps } from 'phosphor-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
 import { tw, twStyle } from '~/lib/tailwind';
+import { getUserStore, useUserStore } from '~/stores/userStore';
+import { AUTH_SERVER_URL } from '~/utils';
 
 import Login from './Login';
 import Register from './Register';
@@ -26,6 +28,22 @@ const SocialLogins: SocialLogin[] = [
 
 const AccountLogin = () => {
 	const [activeTab, setActiveTab] = useState<'Login' | 'Register'>('Login');
+	const userInfo = useUserStore().userInfo;
+
+	useEffect(() => {
+		if (userInfo) return; //no need to check if user info is already present
+		async function _() {
+			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
+				method: 'GET'
+			});
+			const data = await user_data.json();
+			if (data.message !== 'unauthorised') {
+				getUserStore().userInfo = data;
+			}
+		}
+		_();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	// FIXME: Currently opens in App.
 	// const socialLoginHandlers = (name: SocialLogin['name']) => {
@@ -101,7 +119,7 @@ const AccountLogin = () => {
 	return (
 		<ScreenContainer scrollview={false} style={tw`gap-2 px-6`}>
 			<View style={tw`flex flex-col justify-between gap-5 lg:flex-row`}>
-				<Card style={tw`relative flex w-full flex-col items-center justify-center !p-0`}>
+				<Card style={tw`relative flex w-full flex-col items-center justify-center`}>
 					<View style={tw`flex w-full flex-row gap-x-1.5`}>
 						{AccountTabs.map((text) => (
 							<Button
@@ -116,7 +134,7 @@ const AccountLogin = () => {
 							>
 								<Text
 									style={twStyle(
-										'relative z-10 text-sm transition-colors',
+										'relative z-10 text-sm',
 										text === activeTab ? 'font-bold text-ink' : 'text-ink-faint'
 									)}
 								>

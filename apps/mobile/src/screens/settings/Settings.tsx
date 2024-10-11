@@ -15,19 +15,14 @@ import {
 	TagSimple,
 	UserCircle
 } from 'phosphor-react-native';
-import React, { useEffect, useState } from 'react';
 import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'react-native';
 import { DebugState, useDebugState, useDebugStateEnabler, useLibraryQuery } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
 import { useEnableDrawer } from '~/hooks/useEnableDrawer';
 import { tw, twStyle } from '~/lib/tailwind';
-import {
-	SettingsStackParamList,
-	SettingsStackScreenProps,
-	User
-} from '~/navigation/tabs/SettingsStack';
-import { AUTH_SERVER_URL } from '~/utils';
+import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
+import { useUserStore } from '~/stores/userStore';
 
 type SectionType = {
 	title: string;
@@ -40,10 +35,10 @@ type SectionType = {
 	}[];
 };
 
-const sections: (debugState: DebugState, userInfo: User | null) => SectionType[] = (
-	debugState,
-	userInfo
-) => [
+const sections: (
+	debugState: DebugState,
+	userInfo: ReturnType<typeof useUserStore>['userInfo']
+) => SectionType[] = (debugState, userInfo) => [
 	{
 		title: 'Client',
 		data: [
@@ -182,25 +177,9 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
-	const [userInfo, setUserInfo] = useState<User | null>(null);
-	useEffect(() => {
-		async function _() {
-			const user_data = await fetch(`${AUTH_SERVER_URL}/api/user`, {
-				method: 'GET'
-			});
-			const data = await user_data.json();
-			return data;
-		}
-		_().then((data) => {
-			if (data.message !== 'unauthorised') {
-				setUserInfo(data as User);
-			} else {
-				setUserInfo(null);
-			}
-		});
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [navigation]);
+	const userInfo = useUserStore().userInfo;
 
+	// Enables the drawer from react-navigation
 	useEnableDrawer();
 
 	return (

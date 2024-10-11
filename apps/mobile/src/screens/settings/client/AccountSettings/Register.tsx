@@ -15,76 +15,21 @@ import ShowPassword from './ShowPassword';
 
 const RegisterSchema = z
 	.object({
-		email: z.string().email(),
-		password: z.string().min(6),
-		confirmPassword: z.string().min(6)
+		email: z.string().email({
+			message: 'Email is required'
+		}),
+		password: z.string().min(6, {
+			message: 'Password must be at least 6 characters'
+		}),
+		confirmPassword: z.string().min(6, {
+			message: 'Password must be at least 6 characters'
+		})
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		message: 'Passwords do not match',
 		path: ['confirmPassword']
 	});
 type RegisterType = z.infer<typeof RegisterSchema>;
-
-async function signUpClicked(
-	email: string,
-	password: string,
-	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']
-) {
-	try {
-		const req = await fetch(`${AUTH_SERVER_URL}/api/auth/signup`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json; charset=utf-8'
-			},
-			body: JSON.stringify({
-				formFields: [
-					{
-						id: 'email',
-						value: email
-					},
-					{
-						id: 'password',
-						value: password
-					}
-				]
-			})
-		});
-
-		const response: {
-			status: string;
-			reason?: string;
-			user?: {
-				id: string;
-				email: string;
-				timeJoined: number;
-				tenantIds: string[];
-			};
-		} = await req.json();
-
-		if (response.status === 'FIELD_ERROR') {
-			// one of the input formFields failed validaiton
-			console.error('Field error: ', response.reason);
-		} else if (response.status === 'SIGN_UP_NOT_ALLOWED') {
-			// the reason string is a user friendly message
-			// about what went wrong. It can also contain a support code which users
-			// can tell you so you know why their sign up was not allowed.
-			toast.error(response.reason!);
-		} else {
-			// sign up successful. The session tokens are automatically handled by
-			// the frontend SDK.
-			toast.success('Sign up successful');
-			navigator.navigate('AccountProfile');
-		}
-	} catch (err: any) {
-		if (err.isSuperTokensGeneralError === true) {
-			// this may be a custom error message sent from the API by you.
-			toast.error(err.message);
-		} else {
-			console.error(err);
-			toast.error('Oops! Something went wrong.');
-		}
-	}
-}
 
 const Register = () => {
 	const [showPassword, setShowPassword] = useState(false);
@@ -181,5 +126,66 @@ const Register = () => {
 		</View>
 	);
 };
+
+async function signUpClicked(
+	email: string,
+	password: string,
+	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation']
+) {
+	try {
+		const req = await fetch(`${AUTH_SERVER_URL}/api/auth/signup`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json; charset=utf-8'
+			},
+			body: JSON.stringify({
+				formFields: [
+					{
+						id: 'email',
+						value: email
+					},
+					{
+						id: 'password',
+						value: password
+					}
+				]
+			})
+		});
+
+		const response: {
+			status: string;
+			reason?: string;
+			user?: {
+				id: string;
+				email: string;
+				timeJoined: number;
+				tenantIds: string[];
+			};
+		} = await req.json();
+
+		if (response.status === 'FIELD_ERROR') {
+			// one of the input formFields failed validaiton
+			console.error('Field error: ', response.reason);
+		} else if (response.status === 'SIGN_UP_NOT_ALLOWED') {
+			// the reason string is a user friendly message
+			// about what went wrong. It can also contain a support code which users
+			// can tell you so you know why their sign up was not allowed.
+			toast.error(response.reason!);
+		} else {
+			// sign up successful. The session tokens are automatically handled by
+			// the frontend SDK.
+			toast.success('Sign up successful');
+			navigator.navigate('AccountProfile');
+		}
+	} catch (err: any) {
+		if (err.isSuperTokensGeneralError === true) {
+			// this may be a custom error message sent from the API by you.
+			toast.error(err.message);
+		} else {
+			console.error(err);
+			toast.error('Oops! Something went wrong.');
+		}
+	}
+}
 
 export default Register;
