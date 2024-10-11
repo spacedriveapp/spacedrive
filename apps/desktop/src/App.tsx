@@ -18,7 +18,6 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
-import { fetch } from '@tauri-apps/plugin-http';
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
 import Passwordless from 'supertokens-web-js/recipe/passwordless';
@@ -126,7 +125,6 @@ function AppInner() {
 	useEffect(() => {
 		// If the access token and/or refresh token are missing, we need to skip the cloud bootstrap
 		if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) return;
-		console.log('Bootstrapping cloud');
 		cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);

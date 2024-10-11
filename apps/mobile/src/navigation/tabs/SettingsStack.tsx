@@ -2,7 +2,6 @@ import { CompositeScreenProps } from '@react-navigation/native';
 // import KeysSettingsScreen from '~/screens/settings/library/KeysSettings';
 
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
 import Header from '~/components/header/Header';
 import SearchHeader from '~/components/header/SearchHeader';
 import AccountLogin from '~/screens/settings/client/AccountSettings/AccountLogin';
@@ -27,12 +26,6 @@ import SettingsScreen from '~/screens/settings/Settings';
 import { TabScreenProps } from '../TabNavigator';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
-export type User = {
-	email: string;
-	id: string;
-	timejoined: number;
-	roles: string[];
-};
 
 export default function SettingsStack() {
 	return (
@@ -58,12 +51,12 @@ export default function SettingsStack() {
 			<Stack.Screen
 				name="AccountLogin"
 				component={AccountLogin}
-				options={{ header: () => <Header navBack title="Account" /> }}
+				options={{ header: () => <Header navBackTo="Settings" navBack title="Account" /> }}
 			/>
 			<Stack.Screen
 				name="AccountProfile"
 				component={AccountProfile}
-				options={{ header: () => <Header navBack title="Account" /> }}
+				options={{ header: () => <Header navBackTo="Settings" navBack title="Account" /> }}
 			/>
 			<Stack.Screen
 				name="LibrarySettings"
