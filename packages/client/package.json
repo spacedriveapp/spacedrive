@@ -23,7 +23,7 @@
 		"plausible-tracker": "^0.3.8",
 		"react-hook-form": "^7.47.0",
 		"solid-js": "^1.8.8",
-		"zod": "~3.22.4"
+		"zod": "^3.23"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

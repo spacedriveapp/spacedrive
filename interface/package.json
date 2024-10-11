@@ -69,7 +69,7 @@
 		"use-debounce": "^9.0.4",
 		"use-resize-observer": "^9.1.0",
 		"uuid": "^9.0.1",
-		"valtio": "^1.11.2"
+		"valtio": "^2.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

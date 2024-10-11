@@ -111,7 +111,7 @@ importers:
         version: https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/tauri(@spacedrive/rspc-client@https://codeload.github.com/spacedriveapp/rspc/tar.gz/68349c19e1#path:packages/client)
       '@t3-oss/env-core':
         specifier: ^0.7.1
-        version: 0.7.3(typescript@5.6.2)(zod@3.22.4)
+        version: 0.7.3(typescript@5.6.2)(zod@3.23.8)
       '@tanstack/react-query':
         specifier: ^5.59
         version: 5.59.0(react@18.2.0)
@@ -202,7 +202,7 @@ importers:
         version: link:../../packages/ui
       '@t3-oss/env-nextjs':
         specifier: ^0.7.1
-        version: 0.7.3(typescript@5.4.2)(zod@3.22.4)
+        version: 0.7.3(typescript@5.4.2)(zod@3.23.8)
       '@tsparticles/react':
         specifier: ^3.0.0
         version: 3.0.0(@tsparticles/engine@3.3.0)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -294,8 +294,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       zod:
-        specifier: ~3.22.4
-        version: 3.22.4
+        specifier: ^3.23
+        version: 3.23.8
     devDependencies:
       '@next/bundle-analyzer':
         specifier: ^13.5.6
@@ -511,11 +511,11 @@ importers:
         specifier: ^9.0.4
         version: 9.0.4(react@18.2.0)
       valtio:
-        specifier: ^1.11.2
-        version: 1.13.2(@types/react@18.3.3)(react@18.2.0)
+        specifier: ^2.0
+        version: 2.0.0(@types/react@18.3.3)(react@18.2.0)
       zod:
-        specifier: ~3.22.4
-        version: 3.22.4
+        specifier: ^3.23
+        version: 3.23.8
     devDependencies:
       '@babel/core':
         specifier: ^7.24.0
@@ -853,7 +853,7 @@ importers:
         version: 0.4.7(react@18.2.0)
       remix-params-helper:
         specifier: ^0.4.10
-        version: 0.4.10(zod@3.22.4)
+        version: 0.4.10(zod@3.23.8)
       rooks:
         specifier: ^7.14.1
         version: 7.14.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -876,8 +876,8 @@ importers:
         specifier: ^9.0.1
         version: 9.0.1
       valtio:
-        specifier: ^1.11.2
-        version: 1.13.2(@types/react@18.2.67)(react@18.2.0)
+        specifier: ^2.0
+        version: 2.0.0(@types/react@18.2.67)(react@18.2.0)
     devDependencies:
       '@sd/config':
         specifier: workspace:*
@@ -957,8 +957,8 @@ importers:
         specifier: ^1.8.8
         version: 1.8.15
       zod:
-        specifier: ~3.22.4
-        version: 3.22.4
+        specifier: ^3.23
+        version: 3.23.8
     devDependencies:
       '@sd/config':
         specifier: workspace:*
@@ -1112,8 +1112,8 @@ importers:
         specifier: ^9.0.4
         version: 9.0.4(react@18.2.0)
       zod:
-        specifier: ~3.22.4
-        version: 3.22.4
+        specifier: ^3.23
+        version: 3.23.8
     devDependencies:
       '@babel/core':
         specifier: ^7.24.0
@@ -7363,11 +7363,6 @@ packages:
     resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
     engines: {node: '>=6'}
 
-  derive-valtio@0.1.0:
-    resolution: {integrity: sha512-OCg2UsLbXK7GmmpzMXhYkdO64vhJ1ROUUGaTFyHjVwEdMEcTTRj7W1TxLbSBxdY8QLBPCcp66MTyaSy0RpO17A==}
-    peerDependencies:
-      valtio: '*'
-
   des.js@1.1.0:
     resolution: {integrity: sha512-r17GxjhUCjSRy8aiJpr8/UadFIzMzJGexI3Nmz4ADi9LYSFx4gTBp80+NaX/YsXWWLhpZ7v/v/ubEc/bCNfKwg==}
 
@@ -11276,8 +11271,8 @@ packages:
     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
     engines: {node: '>= 0.10'}
 
-  proxy-compare@2.6.0:
-    resolution: {integrity: sha512-8xuCeM3l8yqdmbPoYeLbrAXCBWu19XEYc5/F28f5qOaoAIMyfmBUkl5axiK+x9olUvRlcekvnm98AP9RDngOIw==}
+  proxy-compare@3.0.0:
+    resolution: {integrity: sha512-y44MCkgtZUCT9tZGuE278fB7PWVf7fRYy0vbRXAts2o5F0EfC4fIQrvQQGBJo1WJbFcVLXzApOscyJuZqHQc1w==}
 
   proxy-from-env@1.0.0:
     resolution: {integrity: sha512-F2JHgJQ1iqwnHDcQjVBsq3n/uoaFL+iPW/eAeL7kVxy/2RrWaN4WroKjjvbsoRtv0ftelNyC01bjRhn/bhcf4A==}
@@ -13432,12 +13427,12 @@ packages:
   validate-npm-package-name@3.0.0:
     resolution: {integrity: sha512-M6w37eVCMMouJ9V/sdPGnC5H4uDr73/+xdq0FBLO3TFFX1+7wiUY6Es328NN+y43tmY+doUdN9g9J21vqB7iLw==}
 
-  valtio@1.13.2:
-    resolution: {integrity: sha512-Qik0o+DSy741TmkqmRfjq+0xpZBXi/Y6+fXZLn0xNF1z/waFMbE3rkivv5Zcf9RrMUp6zswf2J7sbh2KBlba5A==}
+  valtio@2.0.0:
+    resolution: {integrity: sha512-SzUU5UUK/vBRfHWXihwkJE55YNj8zhOkzxPOexcz0xIIT6Oux5VLynCmzyME2bYuEWcktW2NTaaLbpUydEsHiw==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
-      '@types/react': '>=16.8'
-      react: '>=16.8'
+      '@types/react': '>=18.0.0'
+      react: '>=18.0.0'
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -13896,8 +13891,8 @@ packages:
     peerDependencies:
       zod: ^3.18.0
 
-  zod@3.22.4:
-    resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
+  zod@3.23.8:
+    resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
   zustand@3.7.2:
     resolution: {integrity: sha512-PIJDIZKtokhof+9+60cpockVOq05sJzHCriyvaLBmEJixseQ1a5Kdov6fWZfWOu5SK9c+FhH1jU0tntLxRJYMA==}
@@ -15185,7 +15180,7 @@ snapshots:
       ts-pattern: 4.3.0
       unified: 10.1.2
       yaml: 2.4.1
-      zod: 3.22.4
+      zod: 3.23.8
     transitivePeerDependencies:
       - '@effect-ts/otel-node'
       - esbuild
@@ -19297,22 +19292,22 @@ snapshots:
     dependencies:
       '@swc/counter': 0.1.3
 
-  '@t3-oss/env-core@0.7.3(typescript@5.4.2)(zod@3.22.4)':
+  '@t3-oss/env-core@0.7.3(typescript@5.4.2)(zod@3.23.8)':
     dependencies:
-      zod: 3.22.4
+      zod: 3.23.8
     optionalDependencies:
       typescript: 5.4.2
 
-  '@t3-oss/env-core@0.7.3(typescript@5.6.2)(zod@3.22.4)':
+  '@t3-oss/env-core@0.7.3(typescript@5.6.2)(zod@3.23.8)':
     dependencies:
-      zod: 3.22.4
+      zod: 3.23.8
     optionalDependencies:
       typescript: 5.6.2
 
-  '@t3-oss/env-nextjs@0.7.3(typescript@5.4.2)(zod@3.22.4)':
+  '@t3-oss/env-nextjs@0.7.3(typescript@5.4.2)(zod@3.23.8)':
     dependencies:
-      '@t3-oss/env-core': 0.7.3(typescript@5.4.2)(zod@3.22.4)
-      zod: 3.22.4
+      '@t3-oss/env-core': 0.7.3(typescript@5.4.2)(zod@3.23.8)
+      zod: 3.23.8
     optionalDependencies:
       typescript: 5.4.2
 
@@ -20726,8 +20721,8 @@ snapshots:
       chalk: 4.1.2
       invariant: 2.2.4
       pretty-format: 24.9.0
-      zod: 3.22.4
-      zod-validation-error: 2.1.0(zod@3.22.4)
+      zod: 3.23.8
+      zod-validation-error: 2.1.0(zod@3.23.8)
 
   babel-plugin-react-native-web@0.19.12: {}
 
@@ -22014,14 +22009,6 @@ snapshots:
   deprecation@2.3.1: {}
 
   dequal@2.0.3: {}
-
-  derive-valtio@0.1.0(valtio@1.13.2(@types/react@18.2.67)(react@18.2.0)):
-    dependencies:
-      valtio: 1.13.2(@types/react@18.2.67)(react@18.2.0)
-
-  derive-valtio@0.1.0(valtio@1.13.2(@types/react@18.3.3)(react@18.2.0)):
-    dependencies:
-      valtio: 1.13.2(@types/react@18.3.3)(react@18.2.0)
 
   des.js@1.1.0:
     dependencies:
@@ -26973,7 +26960,7 @@ snapshots:
       forwarded: 0.2.0
       ipaddr.js: 1.9.1
 
-  proxy-compare@2.6.0: {}
+  proxy-compare@3.0.0: {}
 
   proxy-from-env@1.0.0: {}
 
@@ -27950,9 +27937,9 @@ snapshots:
       unified: 11.0.4
       vfile: 6.0.1
 
-  remix-params-helper@0.4.10(zod@3.22.4):
+  remix-params-helper@0.4.10(zod@3.23.8):
     dependencies:
-      zod: 3.22.4
+      zod: 3.23.8
 
   remove-trailing-slash@0.1.1: {}
 
@@ -29558,20 +29545,16 @@ snapshots:
     dependencies:
       builtins: 1.0.3
 
-  valtio@1.13.2(@types/react@18.2.67)(react@18.2.0):
+  valtio@2.0.0(@types/react@18.2.67)(react@18.2.0):
     dependencies:
-      derive-valtio: 0.1.0(valtio@1.13.2(@types/react@18.2.67)(react@18.2.0))
-      proxy-compare: 2.6.0
-      use-sync-external-store: 1.2.0(react@18.2.0)
+      proxy-compare: 3.0.0
     optionalDependencies:
       '@types/react': 18.2.67
       react: 18.2.0
 
-  valtio@1.13.2(@types/react@18.3.3)(react@18.2.0):
+  valtio@2.0.0(@types/react@18.3.3)(react@18.2.0):
     dependencies:
-      derive-valtio: 0.1.0(valtio@1.13.2(@types/react@18.3.3)(react@18.2.0))
-      proxy-compare: 2.6.0
-      use-sync-external-store: 1.2.0(react@18.2.0)
+      proxy-compare: 3.0.0
     optionalDependencies:
       '@types/react': 18.3.3
       react: 18.2.0
@@ -30097,11 +30080,11 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.5.2
 
-  zod-validation-error@2.1.0(zod@3.22.4):
+  zod-validation-error@2.1.0(zod@3.23.8):
     dependencies:
-      zod: 3.22.4
+      zod: 3.23.8
 
-  zod@3.22.4: {}
+  zod@3.23.8: {}
 
   zustand@3.7.2(react@18.2.0):
     optionalDependencies:

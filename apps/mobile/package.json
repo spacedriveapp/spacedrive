@@ -74,8 +74,8 @@
 		"twrnc": "^4.1.0",
 		"use-count-up": "^3.0.1",
 		"use-debounce": "^9.0.4",
-		"valtio": "^1.11.2",
-		"zod": "~3.22.4"
+		"valtio": "^2.0",
+		"zod": "^3.23"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.0",

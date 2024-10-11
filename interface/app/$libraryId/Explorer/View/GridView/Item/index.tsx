@@ -80,6 +80,15 @@ const ItemFileThumb = () => {
 		data: item.data
 	});
 
+	const childProps = useMemo(
+		() => ({
+			style,
+			...attributes,
+			...listeners
+		}),
+		[style, attributes, listeners]
+	);
+
 	return (
 		<FileThumb
 			data={item.data}
@@ -92,11 +101,7 @@ const ItemFileThumb = () => {
 				item.cut && 'opacity-60'
 			)}
 			ref={setDraggableRef}
-			childProps={{
-				style,
-				...attributes,
-				...listeners
-			}}
+			childProps={childProps}
 		/>
 	);
 };
