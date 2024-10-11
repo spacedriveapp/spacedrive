@@ -616,56 +616,36 @@ export const QuickPreview = () => {
 									</div>
 								</div>
 
-								{thumbnailLoading === 'error' ? (
-									<>
-										<FileThumb
-											data={item}
-											frameClassName="!border-0"
-											className={clsx(
-												'mx-auto my-3 !w-auto flex-1 !overflow-hidden rounded',
-												!background && !icon && 'bg-app-box shadow'
-											)}
-											childClassName={clsx(
-												'rounded',
-												kind === 'Text' && 'p-3',
-												!icon && 'h-full',
-												textKinds.includes(kind) && 'select-text'
-											)}
-										/>
-									</>
-								) : (
-									<FileThumb
-										data={item}
-										onLoad={(type) => {
-											setThumbnailLoading('loaded');
-											if (type.variant === 'original')
-												setThumbErrorToast(undefined);
-										}}
-										onError={(type, error) => {
-											setThumbnailLoading('error');
-											if (type.variant === 'original')
-												setThumbErrorToast({
-													title: t('error_loading_original_file'),
-													body: error.message
-												});
-										}}
-										loadOriginal
-										frameClassName="!border-0"
-										mediaControls
-										className={clsx(
-											thumbnailLoading === 'notLoaded' && 'hidden',
-											'm-3 !w-auto flex-1 !overflow-hidden rounded',
-											!background && !icon && 'bg-app-box shadow'
-										)}
-										childClassName={clsx(
-											'rounded',
-											kind === 'Text' && 'p-3',
-											!icon && 'h-full',
-											textKinds.includes(kind) && 'select-text'
-										)}
-										magnification={magnification}
-									/>
-								)}
+								<FileThumb
+									data={item}
+									onLoad={(type) => {
+										setThumbnailLoading('loaded');
+										if (type === 'original') setThumbErrorToast(undefined);
+									}}
+									onError={(type, error) => {
+										setThumbnailLoading('error');
+										if (type === 'original')
+											setThumbErrorToast({
+												title: t('error_loading_original_file'),
+												body: error.message
+											});
+									}}
+									loadOriginal
+									frameClassName="!border-0"
+									mediaControls
+									className={clsx(
+										thumbnailLoading === 'notLoaded' && 'hidden',
+										'm-3 !w-auto flex-1 !overflow-hidden rounded',
+										!background && !icon && 'bg-app-box shadow'
+									)}
+									childClassName={clsx(
+										'rounded',
+										kind === 'Text' && 'p-3',
+										!icon && 'h-full',
+										textKinds.includes(kind) && 'select-text'
+									)}
+									magnification={magnification}
+								/>
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
 									<ImageSlider activeItem={activeItem} />
