@@ -43,6 +43,7 @@
   "audio_preview_not_supported": "L'aperçu audio n'est pas pris en charge.",
   "auto": "Auto",
   "back": "Retour",
+  "back_to_login": "Retour à la connexion",
   "backfill_sync": "Opérations de synchronisation de remplissage",
   "backfill_sync_description": "La bibliothèque est suspendue jusqu'à ce que le remplissage soit terminé",
   "backups": "Sauvegardes",

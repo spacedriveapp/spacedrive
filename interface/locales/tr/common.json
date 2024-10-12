@@ -43,6 +43,7 @@
   "audio_preview_not_supported": "Ses önizlemesi desteklenmiyor.",
   "auto": "Oto",
   "back": "Geri",
+  "back_to_login": "Girişe geri dön",
   "backfill_sync": "Dolgu Senkronizasyon İşlemleri",
   "backfill_sync_description": "Dolgu tamamlanana kadar kitaplık duraklatıldı",
   "backups": "Yedeklemeler",
