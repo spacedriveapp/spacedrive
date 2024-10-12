@@ -423,6 +423,7 @@
   "log_out": "Cerrar sesión",
   "logged_in_as": "Conectado como {{email}}",
   "logging_in": "Iniciando sesión...",
+  "login": "Acceso",
   "logout": "Cerrar sesión",
   "manage_library": "Administrar Biblioteca",
   "managed": "Gestionado",

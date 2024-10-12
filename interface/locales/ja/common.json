@@ -414,6 +414,7 @@
   "log_out": "ログアウト",
   "logged_in_as": "{{email}} でログイン",
   "logging_in": "ログイン中...",
+  "login": "ログイン",
   "logout": "ログアウト",
   "manage_library": "ライブラリの設定",
   "managed": "マネージド",

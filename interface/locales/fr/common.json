@@ -423,6 +423,7 @@
   "log_out": "Se déconnecter",
   "logged_in_as": "Connecté en tant que {{email}}",
   "logging_in": "Se connecter...",
+  "login": "Se connecter",
   "logout": "Déconnexion",
   "manage_library": "Gérer la bibliothèque",
   "managed": "Géré",
