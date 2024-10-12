@@ -43,6 +43,7 @@
   "audio_preview_not_supported": "不支持音频预览。",
   "auto": "自动",
   "back": "返回",
+  "back_to_login": "返回登录",
   "backfill_sync": "回填同步操作",
   "backfill_sync_description": "库暂停直至回填完成",
   "backups": "备份",

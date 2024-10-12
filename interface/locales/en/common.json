@@ -50,6 +50,7 @@
   "audio_preview_not_supported": "Audio preview is not supported.",
   "auto": "Auto",
   "back": "Back",
+  "back_to_login": "Back to login",
   "backfill_sync": "Backfilling Sync Operations",
   "backfill_sync_description": "Library is paused until backfill completes",
   "backups": "Backups",

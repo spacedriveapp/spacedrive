@@ -43,6 +43,7 @@
   "audio_preview_not_supported": "L'anteprima audio non è disponibile.",
   "auto": "Auto",
   "back": "Indietro",
+  "back_to_login": "Torna al login",
   "backfill_sync": "Operazioni di sincronizzazione del backfill",
   "backfill_sync_description": "La raccolta viene sospesa fino al completamento del recupero",
   "backups": "Backups",
