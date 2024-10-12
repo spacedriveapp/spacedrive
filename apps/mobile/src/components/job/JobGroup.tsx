@@ -4,6 +4,7 @@ import { DotsThreeVertical, Eye, Pause, Play, Stop, Trash } from 'phosphor-react
 import { SetStateAction, useMemo, useState } from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+
 import {
 	getJobNiceActionName,
 	getTotalTasks,
@@ -34,7 +35,7 @@ export default function ({ group, progress }: JobGroupProps) {
 
 	const [showChildJobs, setShowChildJobs] = useState(false);
 
-	const runningJob = jobs.find((job) => job.status === 'Running');
+	const runningJob = jobs.find(job => job.status === 'Running');
 
 	const tasks = getTotalTasks(jobs);
 	const totalGroupTime = useTotalElapsedTimeText(jobs);
@@ -82,7 +83,7 @@ export default function ({ group, progress }: JobGroupProps) {
 		>
 			{jobs?.length > 1 ? (
 				<>
-					<Pressable onPress={() => setShowChildJobs((v) => !v)}>
+					<Pressable onPress={() => setShowChildJobs(v => !v)}>
 						<JobContainer
 							icon={Folder}
 							containerStyle={tw.style('pb-2', showChildJobs && 'border-b-0 pb-1')}
@@ -209,12 +210,12 @@ function Options({ activeJob, group, setShowChildJobs, showChildJobs }: OptionsP
 	);
 
 	const isJobPaused = useMemo(
-		() => group.jobs.some((job) => job.status === 'Paused'),
+		() => group.jobs.some(job => job.status === 'Paused'),
 		[group.jobs]
 	);
 
 	const clearJobHandler = () => {
-		group.jobs.forEach((job) => {
+		group.jobs.forEach(job => {
 			clearJob.mutate(job.id);
 			//only one toast for all jobs
 			if (job.id === group.id) toast.success('Job has been removed');

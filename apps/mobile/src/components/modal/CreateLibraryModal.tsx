@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useState } from 'react';
 import { Text, View } from 'react-native';
+
 import { insertLibrary, useBridgeMutation, usePlausibleEvent } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
@@ -20,7 +21,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const { mutate: createLibrary, isPending: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
-			onSuccess: (lib) => {
+			onSuccess: lib => {
 				// Reset form
 				setLibName('');
 
@@ -57,7 +58,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			<View style={tw`px-4`}>
 				<ModalInput
 					value={libName}
-					onChangeText={(text) => setLibName(text)}
+					onChangeText={text => setLibName(text)}
 					placeholder="My Cool Library"
 				/>
 				<Button

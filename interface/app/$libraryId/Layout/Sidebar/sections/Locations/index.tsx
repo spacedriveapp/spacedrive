@@ -1,6 +1,7 @@
 import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Link, useMatch } from 'react-router-dom';
+
 import {
 	arraysEqual,
 	Location as LocationType,
@@ -37,11 +38,11 @@ export default function Locations() {
 			}
 		>
 			<SeeMore limit={10}>
-				{locations?.map((location) => (
+				{locations?.map(location => (
 					<Location
 						key={location.id}
 						location={location}
-						online={onlineLocations.some((l) => arraysEqual(location.pub_id, l))}
+						online={onlineLocations.some(l => arraysEqual(location.pub_id, l))}
 					/>
 				))}
 			</SeeMore>

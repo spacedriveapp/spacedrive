@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import CommandPalette, { filterItems, getItemIndex } from 'react-cmdk';
 import { useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
+
 import { arraysEqual, useLibraryContext, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import i18n from '~/app/I18n';
@@ -29,14 +30,14 @@ const CMDK = () => {
 	const platform = usePlatform();
 	const libraryId = useLibraryContext().library.uuid;
 
-	useShortcut('toggleCommandPalette', (e) => {
+	useShortcut('toggleCommandPalette', e => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (quickPreviewStore.open) return;
-		setIsOpen((v) => !v);
+		setIsOpen(v => !v);
 	});
 
-	useShortcut('closeCommandPalette', (e) => {
+	useShortcut('closeCommandPalette', e => {
 		e.preventDefault();
 		e.stopPropagation();
 		if (isOpen) {
@@ -159,7 +160,7 @@ const CMDK = () => {
 						children: t('create_tag'),
 						icon: 'TagIcon',
 						onClick: () => {
-							dialogManager.create((dp) => <CreateDialog {...dp} />);
+							dialogManager.create(dp => <CreateDialog {...dp} />);
 						}
 					},
 					{
@@ -169,7 +170,7 @@ const CMDK = () => {
 						onClick: async () => {
 							const path = await openDirectoryPickerDialog(platform);
 							if (path !== '') {
-								dialogManager.create((dp) => (
+								dialogManager.create(dp => (
 									<AddLocationDialog
 										path={path ?? ''}
 										libraryId={libraryId}
@@ -207,7 +208,7 @@ const CMDK = () => {
 				heading: t('locations'),
 				id: 'locations',
 				items: locations
-					? locations.map((location) => ({
+					? locations.map(location => ({
 							id: location.id,
 							children: location.name,
 							icon: () => (
@@ -216,7 +217,7 @@ const CMDK = () => {
 									<div
 										className={clsx(
 											'absolute bottom-0.5 right-0 size-1.5 rounded-full',
-											onlineLocations.some((l) =>
+											onlineLocations.some(l =>
 												arraysEqual(location.pub_id, l)
 											)
 												? 'bg-green-500'
@@ -245,7 +246,7 @@ const CMDK = () => {
 		>
 			<CommandPalette.Page id="root" onEscape={() => setSearch('')}>
 				{filteredItems.length ? (
-					filteredItems.map((list) => (
+					filteredItems.map(list => (
 						<CommandPalette.List key={list.id} heading={list.heading}>
 							{list.items.map(({ id, ...rest }) => (
 								<CommandPalette.ListItem
@@ -258,7 +259,7 @@ const CMDK = () => {
 					))
 				) : (
 					<CommandPalette.FreeSearchAction
-						onClick={(v) =>
+						onClick={v =>
 							navigate(
 								{
 									pathname: 'search',

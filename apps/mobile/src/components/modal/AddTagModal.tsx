@@ -1,6 +1,7 @@
 import { CaretLeft, Plus } from 'phosphor-react-native';
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, NativeScrollEvent, Pressable, Text, View } from 'react-native';
+
 import {
 	getItemObject,
 	Tag,
@@ -55,7 +56,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	// get the tags that are already applied to the object
 	const appliedTags = useMemo(() => {
 		if (!tagsObject) return [];
-		return tagsObject?.map((t) => t.id);
+		return tagsObject?.map(t => t.id);
 	}, [tagsObject]);
 
 	// set selected tags when tagsOfObject.data is available
@@ -65,7 +66,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		//this deals with an edge case of clearing the tags onDismiss of the Modal
 		if (selectedTags.length === 0 && appliedTags.length > 0) {
 			setSelectedTags(
-				(tagsObject ?? []).map((tag) => ({
+				(tagsObject ?? []).map(tag => ({
 					id: tag.id,
 					unassign: false,
 					selected: true
@@ -77,7 +78,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	// check if tag is selected
 	const isSelected = useCallback(
 		(id: number) => {
-			const findTag = selectedTags.find((t) => t.id === id);
+			const findTag = selectedTags.find(t => t.id === id);
 			return findTag?.selected ?? false;
 		},
 		[selectedTags]
@@ -86,17 +87,17 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	const selectTag = useCallback(
 		(id: number) => {
 			//check if tag is already selected
-			const findTag = selectedTags.find((t) => t.id === id);
+			const findTag = selectedTags.find(t => t.id === id);
 			if (findTag) {
 				//if tag is already selected, update its selected value
-				setSelectedTags((prev) =>
-					prev.map((t) =>
+				setSelectedTags(prev =>
+					prev.map(t =>
 						t.id === id ? { ...t, selected: !t.selected, unassign: !t.unassign } : t
 					)
 				);
 			} else {
 				//if tag is not selected, select it
-				setSelectedTags((prev) => [...prev, { id, unassign: false, selected: true }]);
+				setSelectedTags(prev => [...prev, { id, unassign: false, selected: true }]);
 			}
 		},
 		[selectedTags]
@@ -119,7 +120,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 		if (targets)
 			await Promise.all([
 				...selectedTags.map(
-					async (tag) =>
+					async tag =>
 						await mutation.mutateAsync({
 							targets: [targets],
 							tag_id: tag.id,
@@ -156,7 +157,7 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					<CaretLeft color={tw.color('ink')} size={16} weight="bold" />
 				</Pressable>
 				<View
-					onLayout={(e) => {
+					onLayout={e => {
 						if (e.nativeEvent.layout.height >= 80) {
 							setReachedBottom(false);
 						} else {
@@ -177,10 +178,10 @@ const AddTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						<FlatList
 							data={tagsData}
 							numColumns={3}
-							onScroll={(e) => fadeScroll(e.nativeEvent)}
+							onScroll={e => fadeScroll(e.nativeEvent)}
 							extraData={selectedTags}
 							key={tagsData ? 'tags' : '_'}
-							keyExtractor={(item) => item.id.toString()}
+							keyExtractor={item => item.id.toString()}
 							contentContainerStyle={tw`mx-auto p-4 pb-6`}
 							ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 							renderItem={({ item }) => (

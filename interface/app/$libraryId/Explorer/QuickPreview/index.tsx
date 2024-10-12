@@ -26,6 +26,7 @@ import {
 	useState
 } from 'react';
 import { useKey } from 'rooks';
+
 import {
 	ExplorerItem,
 	getEphemeralPath,
@@ -140,7 +141,7 @@ export const QuickPreview = () => {
 
 		let id: string | number | undefined;
 		toast.error(
-			(_id) => {
+			_id => {
 				id = _id;
 				return thumbErrorToast;
 			},
@@ -202,7 +203,7 @@ export const QuickPreview = () => {
 	};
 
 	const handleZoomIn = useCallback(() => {
-		setMagnification((currentMagnification) =>
+		setMagnification(currentMagnification =>
 			currentMagnification < 2
 				? currentMagnification + currentMagnification * 0.1
 				: currentMagnification
@@ -210,7 +211,7 @@ export const QuickPreview = () => {
 	}, []);
 
 	const handleZoomOut = useCallback(() => {
-		setMagnification((currentMagnification) =>
+		setMagnification(currentMagnification =>
 			currentMagnification > 0.5 ? currentMagnification / (1 + 0.1) : currentMagnification
 		);
 	}, []);
@@ -267,7 +268,7 @@ export const QuickPreview = () => {
 	});
 
 	//close quick preview
-	useShortcut('closeQuickPreview', (e) => {
+	useShortcut('closeQuickPreview', e => {
 		if (explorerStore.isCMDPOpen) return;
 		e.preventDefault();
 		e.stopPropagation();
@@ -311,7 +312,7 @@ export const QuickPreview = () => {
 	const background = !withoutBackgroundKinds.includes(kind);
 	const icon = iconKinds.includes(kind);
 	return (
-		<Dialog.Root open={open} onOpenChange={(open) => (getQuickPreviewStore().open = open)}>
+		<Dialog.Root open={open} onOpenChange={open => (getQuickPreviewStore().open = open)}>
 			<QuickPreviewContext.Provider value={{ background }}>
 				<Dialog.Portal forceMount>
 					<Dialog.Overlay
@@ -320,15 +321,15 @@ export const QuickPreview = () => {
 							'radix-state-open:animate-in radix-state-open:fade-in-0',
 							isDark ? 'bg-black/80' : 'bg-black/60'
 						)}
-						onContextMenu={(e) => e.preventDefault()}
+						onContextMenu={e => e.preventDefault()}
 					/>
 
 					<Dialog.Content
 						className="fixed inset-[5%] z-[100] outline-none radix-state-open:animate-in radix-state-open:fade-in-0 radix-state-open:zoom-in-95"
-						onOpenAutoFocus={(e) => e.preventDefault()}
-						onEscapeKeyDown={(e) => isRenaming && e.preventDefault()}
-						onContextMenu={(e) => e.preventDefault()}
-						onInteractOutside={(e) => {
+						onOpenAutoFocus={e => e.preventDefault()}
+						onEscapeKeyDown={e => isRenaming && e.preventDefault()}
+						onContextMenu={e => e.preventDefault()}
+						onInteractOutside={e => {
 							if (
 								e.target &&
 								e.target instanceof Node &&
@@ -419,7 +420,7 @@ export const QuickPreview = () => {
 										{isRenaming && name ? (
 											<RenameInput
 												name={name}
-												onRename={(newName) => {
+												onRename={newName => {
 													setIsRenaming(false);
 
 													if (!newName || newName === name) return;
@@ -567,7 +568,7 @@ export const QuickPreview = () => {
 														// FilePathItems.SecureDelete
 													]}
 												>
-													{(items) => (
+													{items => (
 														<DropdownMenu.SubMenu
 															label={t('more_actions')}
 															icon={Plus}
@@ -618,7 +619,7 @@ export const QuickPreview = () => {
 
 								<FileThumb
 									data={item}
-									onLoad={(type) => {
+									onLoad={type => {
 										setThumbnailLoading('loaded');
 										if (type === 'original') setThumbErrorToast(undefined);
 									}}
@@ -736,7 +737,7 @@ const RenameInput = ({ name, onRename }: RenameInputProps) => {
 				)}
 				onKeyDown={handleKeyDown}
 				onFocus={() => highlightName()}
-				ref={(e) => {
+				ref={e => {
 					ref(e);
 					_ref.current = e;
 				}}

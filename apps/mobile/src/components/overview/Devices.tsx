@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { ScrollView } from 'react-native-gesture-handler';
+
 import { HardwareModel, NodeState, StatisticsResponse } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -49,7 +50,7 @@ const Devices = ({ node, stats }: Props) => {
 		const getFSInfo = async () => {
 			return await RNFS.getFSInfo();
 		};
-		getFSInfo().then((size) => {
+		getFSInfo().then(size => {
 			setSizeInfo(size);
 		});
 	}, []);
@@ -65,7 +66,7 @@ const Devices = ({ node, stats }: Props) => {
 
 	useEffect(() => {
 		if (Platform.OS === 'android') {
-			DeviceInfo.getDeviceName().then((name) => {
+			DeviceInfo.getDeviceName().then(name => {
 				setDeviceName(name);
 			});
 		} else if (node) {

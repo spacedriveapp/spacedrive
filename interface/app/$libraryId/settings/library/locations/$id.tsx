@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Suspense } from 'react';
 import { Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router';
+
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import {
 	Button,
@@ -62,7 +63,7 @@ const EditLocationForm = () => {
 	const form = useZodForm({
 		schema,
 		defaultValues: {
-			indexerRulesIds: locationData?.indexer_rules.map((rule) => rule.id) ?? [],
+			indexerRulesIds: locationData?.indexer_rules.map(rule => rule.id) ?? [],
 			locationType: 'normal',
 			name: locationData?.name ?? '',
 			path: locationData?.path ?? '',
@@ -82,7 +83,7 @@ const EditLocationForm = () => {
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
+	const onSubmit = form.handleSubmit(data =>
 		updateLocation.mutateAsync({
 			id: locationId,
 			path: data.path,
@@ -226,7 +227,7 @@ const EditLocationForm = () => {
 								className="border-red-500 bg-red-500"
 								onClick={(e: { stopPropagation: () => void }) => {
 									e.stopPropagation();
-									dialogManager.create((dp) => (
+									dialogManager.create(dp => (
 										<DeleteDialog
 											{...dp}
 											onSuccess={() => navigate(-1)}

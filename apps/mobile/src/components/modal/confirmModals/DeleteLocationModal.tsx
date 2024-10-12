@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+
 import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 import { toast } from '~/components/primitive/Toast';
@@ -23,7 +24,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 				onSubmit?.();
 				toast.success('Location deleted successfully');
 			},
-			onError: (error) => {
+			onError: error => {
 				if (error.message.startsWith('location not found'))
 					toast.error('This location does not exist');
 				else toast.error(error.message);

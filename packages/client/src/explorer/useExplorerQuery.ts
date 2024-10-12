@@ -8,7 +8,7 @@ export function useExplorerQuery<Q>(
 	count: UseQueryResult<number>
 ) {
 	const items = useMemo(
-		() => query.data?.pages.flatMap((data) => data.items) ?? null,
+		() => query.data?.pages.flatMap(data => data.items) ?? null,
 		[query.data]
 	);
 

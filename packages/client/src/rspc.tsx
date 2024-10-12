@@ -61,7 +61,7 @@ const nonLibraryHooks = createReactQueryHooks<NonLibraryProceduresDef>(nonLibrar
 });
 
 export const libraryClient = rspc2.dangerouslyHookIntoInternals<LibraryProceduresDef>({
-	mapQueryKey: (keyAndInput) => {
+	mapQueryKey: keyAndInput => {
 		const libraryId = currentLibraryCache.id;
 		if (libraryId === null)
 			throw new Error('Attempted to do library operation with no library set!');
@@ -97,10 +97,10 @@ export const useLibrarySubscription = libraryHooks.useSubscription;
 export function useInvalidateQuery() {
 	const context = nonLibraryHooks.useContext();
 	useBridgeSubscription(['invalidation.listen'], {
-		onData: (ops) => {
+		onData: ops => {
 			for (const op of ops) {
 				match(op)
-					.with({ type: 'single', data: P.select() }, (op) => {
+					.with({ type: 'single', data: P.select() }, op => {
 						let key: unknown[] = [op.key];
 						if (op.arg !== null) {
 							key = key.concat(op.arg);
@@ -112,7 +112,7 @@ export function useInvalidateQuery() {
 							context.queryClient.invalidateQueries({ queryKey: key });
 						}
 					})
-					.with({ type: 'all' }, (op) => {
+					.with({ type: 'all' }, op => {
 						context.queryClient.invalidateQueries();
 					})
 					.exhaustive();

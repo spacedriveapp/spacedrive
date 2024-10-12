@@ -1,6 +1,7 @@
 import { RSPCError } from '@spacedrive/rspc-client';
 import { Linking } from 'react-native';
 import { createMutable } from 'solid-js/store';
+
 import { nonLibraryClient, useSolidStore } from '@sd/client';
 
 interface Store {
@@ -21,7 +22,7 @@ export function useAuthStateSnapshot() {
 nonLibraryClient
 	.query(['auth.me'])
 	.then(() => (store.state = { status: 'loggedIn' }))
-	.catch((e) => {
+	.catch(e => {
 		if (e instanceof RSPCError && e.code === 401) {
 			// TODO: handle error?
 			console.error('error', e);
@@ -33,7 +34,7 @@ type CallbackStatus = 'success' | { error: string } | 'cancel';
 const loginCallbacks = new Set<(status: CallbackStatus) => void>();
 
 function onError(error: string) {
-	loginCallbacks.forEach((cb) => cb({ error }));
+	loginCallbacks.forEach(cb => cb({ error }));
 }
 
 export function login() {
@@ -44,7 +45,7 @@ export function login() {
 	let authCleanup = nonLibraryClient.addSubscription(['auth.loginSession'], {
 		onData(data) {
 			if (data === 'Complete') {
-				loginCallbacks.forEach((cb) => cb('success'));
+				loginCallbacks.forEach(cb => cb('success'));
 			} else if ('Error' in data) {
 				console.error('[auth] error: ', data.Error);
 				onError(data.Error);
@@ -53,10 +54,10 @@ export function login() {
 				Promise.resolve()
 					.then(() => Linking.openURL(data.Start.verification_url_complete))
 					.then(
-						(res) => {
+						res => {
 							authCleanup = res;
 						},
-						(e) => onError(e.message)
+						e => onError(e.message)
 					);
 			}
 		},
@@ -94,7 +95,7 @@ export function logout() {
 }
 
 export async function cancel() {
-	await loginCallbacks.forEach(async (cb) => await cb('cancel'));
+	await loginCallbacks.forEach(async cb => await cb('cancel'));
 	await loginCallbacks.clear();
 	store.state = { status: 'notLoggedIn' };
 }

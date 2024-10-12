@@ -39,7 +39,7 @@ export const useCachedLibraries = () => {
 export async function getCachedLibraries(client: AlphaClient<Procedures>) {
 	const cachedData = localStorage.getItem(libraryCacheLocalStorageKey);
 
-	const libraries = client.query(['library.list']).then((result) => {
+	const libraries = client.query(['library.list']).then(result => {
 		localStorage.setItem(libraryCacheLocalStorageKey, JSON.stringify(result));
 		return result;
 	});
@@ -76,7 +76,7 @@ export const ClientContextProvider = ({
 	const libraries = useCachedLibraries();
 
 	const library = useMemo(
-		() => (libraries.data && libraries.data.find((l) => l.uuid === currentLibraryId)) || null,
+		() => (libraries.data && libraries.data.find(l => l.uuid === currentLibraryId)) || null,
 		[currentLibraryId, libraries]
 	);
 

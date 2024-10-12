@@ -2,6 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { forwardRef } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+
 import {
 	CloudLibrary,
 	useBridgeMutation,
@@ -27,7 +28,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
 	const cloudLibrariesData = cloudLibraries.data?.filter(
-		(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
+		cloudLibrary => !libraries.data?.find(l => l.uuid === cloudLibrary.uuid)
 	);
 
 	return (
@@ -63,7 +64,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									description="No cloud libraries available to join"
 								/>
 							}
-							keyExtractor={(item) => item.uuid}
+							keyExtractor={item => item.uuid}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<CloudLibraryCard

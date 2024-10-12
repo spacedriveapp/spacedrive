@@ -1,15 +1,16 @@
+import type {
+	DoubleClickAction,
+	ExplorerItem,
+	ExplorerLayout,
+	ExplorerSettings,
+	Ordering
+} from '@sd/client';
+
 import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
-import {
-	resetStore,
-	ThumbKey,
-	type DoubleClickAction,
-	type ExplorerItem,
-	type ExplorerLayout,
-	type ExplorerSettings,
-	type Ordering
-} from '@sd/client';
+
+import { resetStore, ThumbKey } from '@sd/client';
 import i18n from '~/app/I18n';
 
 import {

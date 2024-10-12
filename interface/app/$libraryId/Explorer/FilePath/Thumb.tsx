@@ -14,7 +14,7 @@ import {
 	useImperativeHandle,
 	useMemo,
 	useRef,
-	useState,
+	useState
 } from 'react';
 
 import { getItemFilePath, ObjectKindKey, useLibraryContext } from '@sd/client';
@@ -70,7 +70,7 @@ const Thumbnail = memo(
 
 			const { style: blackBarsStyle } = useBlackBars(ref, size, {
 				size: blackBarsSize,
-				disabled: !blackBars,
+				disabled: !blackBars
 			});
 
 			return (
@@ -87,8 +87,8 @@ const Thumbnail = memo(
 							style={{
 								...(!cover && {
 									marginTop: Math.floor(size.height / 2) - 2,
-									marginLeft: Math.floor(size.width / 2) - 2,
-								}),
+									marginLeft: Math.floor(size.width / 2) - 2
+								})
 							}}
 							className={clsx(
 								'pointer-events-none absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',
@@ -189,7 +189,7 @@ const Thumb = memo(
 								cover
 									? [
 											'min-h-full min-w-full object-cover object-center',
-											className,
+											className
 										]
 									: [ThumbClasses, className],
 								frame && !(kind === 'Video' && blackBars) ? frameClassName : null
@@ -260,7 +260,7 @@ export const FileThumb = memo(
 		const [loadState, setLoadState] = useState<LoadState>({
 			icon: 'normal',
 			original: 'normal',
-			thumbnail: 'normal',
+			thumbnail: 'normal'
 		});
 
 		const thumbType = useMemo((): ThumbType => {
@@ -354,7 +354,7 @@ export const FileThumb = memo(
 				style={{
 					...(props.size
 						? { maxWidth: props.size, width: props.size, height: props.size }
-						: {}),
+						: {})
 				}}
 				className={clsx(
 					'relative flex shrink-0 items-center justify-center',

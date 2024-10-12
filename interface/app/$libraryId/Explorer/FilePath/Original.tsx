@@ -1,13 +1,9 @@
+import type { VideoHTMLAttributes } from 'react';
+
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import {
-	SyntheticEvent,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	type VideoHTMLAttributes
-} from 'react';
+import { SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
+
 import { ObjectKindKey, useLibraryContext } from '@sd/client';
 import i18n from '~/app/I18n';
 import { PDFViewer, TextViewer } from '~/components';
@@ -75,7 +71,7 @@ export function Original({
 	return (
 		<Renderer
 			src={src}
-			onError={(event) =>
+			onError={event =>
 				setError(
 					('error' in event && event.error instanceof Error && event.error) ||
 						new Error(
@@ -88,7 +84,7 @@ export function Original({
 	);
 }
 
-const TEXT_RENDERER: OriginalRenderer = (props) => (
+const TEXT_RENDERER: OriginalRenderer = props => (
 	<TextViewer
 		src={props.src}
 		onLoad={props.onLoad}
@@ -121,7 +117,7 @@ type OriginalRendererKind = ReturnType<typeof originalRendererKind>;
 const ORIGINAL_RENDERERS: {
 	[K in OriginalRendererKind]?: OriginalRenderer;
 } = {
-	PDF: (props) => (
+	PDF: props => (
 		<PDFViewer
 			src={props.src}
 			onLoad={props.onLoad}
@@ -133,7 +129,7 @@ const ORIGINAL_RENDERERS: {
 	Text: TEXT_RENDERER,
 	Code: TEXT_RENDERER,
 	Config: TEXT_RENDERER,
-	Video: (props) => (
+	Video: props => (
 		<Video
 			src={props.src}
 			onLoadedData={props.onLoad}
@@ -148,7 +144,7 @@ const ORIGINAL_RENDERERS: {
 			)}
 		/>
 	),
-	Audio: (props) => {
+	Audio: props => {
 		const isDark = useIsDark();
 		return (
 			<>
@@ -175,7 +171,7 @@ const ORIGINAL_RENDERERS: {
 			</>
 		);
 	},
-	Image: (props) => {
+	Image: props => {
 		const ref = useRef<HTMLImageElement>(null);
 		const size = useSize(ref);
 
@@ -233,11 +229,11 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			crossOrigin="anonymous"
 			ref={ref}
 			autoPlay={!paused}
-			onVolumeChange={(e) => {
+			onVolumeChange={e => {
 				const video = e.target as HTMLVideoElement;
 				explorerStore.mediaPlayerVolume = video.volume;
 			}}
-			onCanPlay={(e) => {
+			onCanPlay={e => {
 				const video = e.target as HTMLVideoElement;
 				// Why not use the element's attribute? Because React...
 				// https://github.com/facebook/react/issues/10389
@@ -252,7 +248,7 @@ const Video = ({ paused, blackBars, blackBarsSize, className, ...props }: VideoP
 			{...props}
 			key={props.src}
 			controls={false}
-			onTimeUpdate={(e) => {
+			onTimeUpdate={e => {
 				const video = e.target as HTMLVideoElement;
 				if (video.currentTime > 0) {
 					video.controls = props.controls ?? true;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 import { usePrefersReducedMotion, useRandomInterval } from '~/hooks';
 
 const DEFAULT_COLOR = '#FFC700';
@@ -49,7 +50,7 @@ const Sparkles = ({ color = DEFAULT_COLOR, children }: SparklesProps) => {
 		() => {
 			const sparkle = generateSparkle(color);
 			const now = Date.now();
-			const nextSparkles = sparkles.filter((sp) => {
+			const nextSparkles = sparkles.filter(sp => {
 				const delta = now - sp.createdAt;
 				return delta < 750;
 			});
@@ -62,7 +63,7 @@ const Sparkles = ({ color = DEFAULT_COLOR, children }: SparklesProps) => {
 
 	return (
 		<span className="relative inline-block">
-			{sparkles.map((sparkle) => (
+			{sparkles.map(sparkle => (
 				<span
 					key={sparkle.id}
 					className="z-10"

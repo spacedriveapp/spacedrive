@@ -1,6 +1,7 @@
 import { useGrid } from '@virtual-grid/react';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import Selecto, { SelectoEvents } from 'react-selecto';
+
 import { ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../../../Context';
@@ -13,16 +14,16 @@ import { getElementIndex, SELECTABLE_DATA_ATTRIBUTE } from './util';
 
 const CHROME_REGEX = /Chrome/;
 
-type GridOpts = ReturnType<typeof useGrid<string, ExplorerItem | undefined>>
+type GridOpts = ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
 
 interface Props extends PropsWithChildren {
-	columnCount: GridOpts['columnCount'],
-	gapY: GridOpts['gap']['y'],
-	getItem: GridOpts['getItem'],
-	totalColumnCount: GridOpts['totalColumnCount'],
-	totalCount: GridOpts['totalCount'],
-	totalRowCount: GridOpts['totalRowCount'],
-	virtualItemHeight: GridOpts['virtualItemHeight']
+	columnCount: GridOpts['columnCount'];
+	gapY: GridOpts['gap']['y'];
+	getItem: GridOpts['getItem'];
+	totalColumnCount: GridOpts['totalColumnCount'];
+	totalCount: GridOpts['totalCount'];
+	totalRowCount: GridOpts['totalRowCount'];
+	virtualItemHeight: GridOpts['virtualItemHeight'];
 }
 
 export interface Drag {
@@ -267,7 +268,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 				>
 			);
 
-			const columns = Object.keys(columnItems).map((column) => Number(column));
+			const columns = Object.keys(columnItems).map(column => Number(column));
 
 			// Sort columns in drag direction
 			columns.sort((a, b) => (dragDirection.x === 'right' ? a - b : b - a));
@@ -526,7 +527,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 					endColumn = lastAddedColumn;
 				}
 			} else if (endColumn !== undefined) {
-				const offset = removedColumnsArray.filter((column) => column <= endColumn!).length;
+				const offset = removedColumnsArray.filter(column => column <= endColumn!).length;
 				endColumn += dragDirection.x === 'right' ? -[offset] : offset;
 			}
 
@@ -577,7 +578,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 					bottom: false
 				}}
 				//Prevent mouse side-buttons from drag
-				dragCondition={(e) => {
+				dragCondition={e => {
 					return e.inputEvent.buttons === 1;
 				}}
 				scrollOptions={{

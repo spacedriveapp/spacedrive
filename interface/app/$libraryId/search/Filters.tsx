@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useState } from 'react';
+
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
 import i18n from '~/app/I18n';
@@ -69,13 +70,13 @@ export function useToggleOptionSelected({ search }: { search: UseSearch<any> }) 
 		select: boolean;
 	}) => {
 		search.setFilters?.((filters = []) => {
-			const rawArg = filters.find((arg) => filter.extract(arg));
+			const rawArg = filters.find(arg => filter.extract(arg));
 
 			if (!rawArg) {
 				const arg = filter.create(option.value);
 				filters.push(arg);
 			} else {
-				const rawArgIndex = filters.findIndex((arg) => filter.extract(arg))!;
+				const rawArgIndex = filters.findIndex(arg => filter.extract(arg))!;
 
 				const arg = filter.extract(rawArg)!;
 
@@ -110,7 +111,7 @@ const FilterOptionList = ({
 		<SearchOptionSubMenu name={filter.name} icon={filter.icon}>
 			{empty?.() && options.length === 0
 				? empty()
-				: options?.map((option) => {
+				: options?.map(option => {
 						const optionKey = getKey({
 							...option,
 							type: filter.name
@@ -119,7 +120,7 @@ const FilterOptionList = ({
 						return (
 							<SearchOptionItem
 								selected={allFiltersKeys.has(optionKey)}
-								setSelected={(value) => {
+								setSelected={value => {
 									toggleOptionSelected({
 										filter,
 										option,
@@ -159,9 +160,9 @@ const FilterOptionText = ({
 		<SearchOptionSubMenu className="!p-1.5" name={filter.name} icon={filter.icon}>
 			<form
 				className="flex gap-1.5"
-				onSubmit={(e) => {
+				onSubmit={e => {
 					e.preventDefault();
-					search.setFilters?.((filters) => {
+					search.setFilters?.(filters => {
 						if (allFiltersKeys.has(key)) return filters;
 
 						const arg = filter.create(value);
@@ -172,7 +173,7 @@ const FilterOptionText = ({
 					});
 				}}
 			>
-				<Input className="w-3/4" value={value} onChange={(e) => setValue(e.target.value)} />
+				<Input className="w-3/4" value={value} onChange={e => setValue(e.target.value)} />
 				<Button
 					disabled={value.length === 0 || allFiltersKeys.has(key)}
 					variant="accent"
@@ -207,7 +208,7 @@ const FilterOptionBoolean = ({
 			selected={allFiltersKeys?.has(key)}
 			setSelected={() => {
 				search.setFilters?.((filters = []) => {
-					const index = filters.findIndex((f) => filter.extract(f) !== undefined);
+					const index = filters.findIndex(f => filter.extract(f) !== undefined);
 
 					if (index !== -1) {
 						filters.splice(index, 1);
@@ -249,7 +250,7 @@ function createInOrNotInFilter<T extends string | number>(
 ): ReturnType<typeof createFilter<(typeof filterTypeCondition)['inOrNotIn'], InOrNotIn<T>>> {
 	return {
 		...filter,
-		create: (data) => {
+		create: data => {
 			if (typeof data === 'number' || typeof data === 'string')
 				return filter.create({
 					in: [data as any]
@@ -258,7 +259,7 @@ function createInOrNotInFilter<T extends string | number>(
 			else return filter.create({ in: [] });
 		},
 		conditions: filterTypeCondition.inOrNotIn,
-		getCondition: (data) => {
+		getCondition: data => {
 			if ('in' in data) return 'in';
 			else return 'notIn';
 		},
@@ -283,11 +284,11 @@ function createInOrNotInFilter<T extends string | number>(
 		},
 		applyRemove: (data, option) => {
 			if ('in' in data) {
-				data.in = data.in.filter((id) => id !== option.value);
+				data.in = data.in.filter(id => id !== option.value);
 
 				if (data.in.length === 0) return;
 			} else {
-				data.notIn = data.notIn.filter((id) => id !== option.value);
+				data.notIn = data.notIn.filter(id => id !== option.value);
 
 				if (data.notIn.length === 0) return;
 			}
@@ -328,8 +329,8 @@ function createTextMatchFilter(
 	return {
 		...filter,
 		conditions: filterTypeCondition.textMatch,
-		create: (contains) => filter.create({ contains }),
-		getCondition: (data) => {
+		create: contains => filter.create({ contains }),
+		getCondition: data => {
 			if ('contains' in data) return 'contains';
 			else if ('startsWith' in data) return 'startsWith';
 			else if ('endsWith' in data) return 'endsWith';
@@ -347,7 +348,7 @@ function createTextMatchFilter(
 				[condition]: value
 			};
 		},
-		argsToOptions: (data) => {
+		argsToOptions: data => {
 			let value: string;
 
 			if ('contains' in data) value = data.contains;
@@ -370,7 +371,7 @@ function createTextMatchFilter(
 			else if ('equals' in data) return { equals: value };
 		},
 		applyRemove: () => undefined,
-		merge: (left) => left
+		merge: left => left
 	};
 }
 
@@ -393,9 +394,9 @@ function createBooleanFilter(
 		...filter,
 		conditions: filterTypeCondition.trueOrFalse,
 		create: () => filter.create(true),
-		getCondition: (data) => (data ? 'true' : 'false'),
+		getCondition: data => (data ? 'true' : 'false'),
 		setCondition: (_, condition) => condition === 'true',
-		argsToOptions: (value) => {
+		argsToOptions: value => {
 			if (!value) return [];
 
 			return [
@@ -408,7 +409,7 @@ function createBooleanFilter(
 		},
 		applyAdd: (_, { value }) => value,
 		applyRemove: () => undefined,
-		merge: (left) => left
+		merge: left => left
 	};
 }
 
@@ -417,14 +418,14 @@ export const filterRegistry = [
 		name: i18n.t('location'),
 		translationKey: 'location',
 		icon: Folder, // Phosphor folder icon
-		extract: (arg) => {
+		extract: arg => {
 			if ('filePath' in arg && 'locations' in arg.filePath) return arg.filePath.locations;
 		},
-		create: (locations) => ({ filePath: { locations } }),
+		create: locations => ({ filePath: { locations } }),
 		argsToOptions(values, options) {
 			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
+				.map(value => {
+					const option = options.get(this.name)?.find(o => o.value === value);
 
 					if (!option) return;
 
@@ -441,7 +442,7 @@ export const filterRegistry = [
 			});
 			const locations = query.data;
 
-			return (locations ?? []).map((location) => ({
+			return (locations ?? []).map(location => ({
 				name: location.name!,
 				value: location.id,
 				icon: 'Folder' // Spacedrive folder icon
@@ -455,14 +456,14 @@ export const filterRegistry = [
 		name: i18n.t('tags'),
 		translationKey: 'tag',
 		icon: CircleDashed,
-		extract: (arg) => {
+		extract: arg => {
 			if ('object' in arg && 'tags' in arg.object) return arg.object.tags;
 		},
-		create: (tags) => ({ object: { tags } }),
+		create: tags => ({ object: { tags } }),
 		argsToOptions(values, options) {
 			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
+				.map(value => {
+					const option = options.get(this.name)?.find(o => o.value === value);
 
 					if (!option) return;
 
@@ -476,7 +477,7 @@ export const filterRegistry = [
 		useOptions: () => {
 			const query = useLibraryQuery(['tags.list']);
 			const tags = query.data;
-			return (tags ?? []).map((tag) => ({
+			return (tags ?? []).map(tag => ({
 				name: tag.name!,
 				value: tag.id,
 				icon: tag.color || 'CircleDashed'
@@ -504,14 +505,14 @@ export const filterRegistry = [
 		name: i18n.t('kind'),
 		translationKey: 'kind',
 		icon: Cube,
-		extract: (arg) => {
+		extract: arg => {
 			if ('object' in arg && 'kind' in arg.object) return arg.object.kind;
 		},
-		create: (kind) => ({ object: { kind } }),
+		create: kind => ({ object: { kind } }),
 		argsToOptions(values, options) {
 			return values
-				.map((value) => {
-					const option = options.get(this.name)?.find((o) => o.value === value);
+				.map(value => {
+					const option = options.get(this.name)?.find(o => o.value === value);
 
 					if (!option) return;
 
@@ -524,8 +525,8 @@ export const filterRegistry = [
 		},
 		useOptions: () =>
 			Object.keys(ObjectKind)
-				.filter((key) => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
-				.map((key) => {
+				.filter(key => !isNaN(Number(key)) && ObjectKind[Number(key)] !== undefined)
+				.map(key => {
 					const kind = ObjectKind[Number(key)] as string;
 					return {
 						name: translateKindName(kind),
@@ -541,10 +542,10 @@ export const filterRegistry = [
 		name: i18n.t('name'),
 		translationKey: 'name',
 		icon: Textbox,
-		extract: (arg) => {
+		extract: arg => {
 			if ('filePath' in arg && 'name' in arg.filePath) return arg.filePath.name;
 		},
-		create: (name) => ({ filePath: { name } }),
+		create: name => ({ filePath: { name } }),
 		useOptions: ({ search }) => [{ name: search, value: search, icon: Textbox }],
 		Render: ({ filter, search }) => <FilterOptionText filter={filter} search={search} />
 	}),
@@ -552,12 +553,12 @@ export const filterRegistry = [
 		name: i18n.t('extension'),
 		translationKey: 'extension',
 		icon: Textbox,
-		extract: (arg) => {
+		extract: arg => {
 			if ('filePath' in arg && 'extension' in arg.filePath) return arg.filePath.extension;
 		},
-		create: (extension) => ({ filePath: { extension } }),
+		create: extension => ({ filePath: { extension } }),
 		argsToOptions(values) {
-			return values.map((value) => ({
+			return values.map(value => ({
 				type: this.name,
 				name: value,
 				value
@@ -570,10 +571,10 @@ export const filterRegistry = [
 		name: i18n.t('hidden'),
 		translationKey: 'hidden',
 		icon: SelectionSlash,
-		extract: (arg) => {
+		extract: arg => {
 			if ('filePath' in arg && 'hidden' in arg.filePath) return arg.filePath.hidden;
 		},
-		create: (hidden) => ({ filePath: { hidden } }),
+		create: hidden => ({ filePath: { hidden } }),
 		useOptions: () => {
 			return [
 				{
@@ -589,10 +590,10 @@ export const filterRegistry = [
 		name: i18n.t('favorite'),
 		translationKey: 'favorite',
 		icon: Heart,
-		extract: (arg) => {
+		extract: arg => {
 			if ('object' in arg && 'favorite' in arg.object) return arg.object.favorite;
 		},
-		create: (favorite) => ({ object: { favorite } }),
+		create: favorite => ({ object: { favorite } }),
 		useOptions: () => {
 			return [
 				{

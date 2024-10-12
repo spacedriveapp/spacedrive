@@ -1,3 +1,5 @@
+import type { ExplorerItem } from '@sd/client';
+
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';
@@ -5,13 +7,8 @@ import * as Haptics from 'expo-haptics';
 import { useRef } from 'react';
 import { ActivityIndicator } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
-import {
-	getIndexedItemFilePath,
-	isPath,
-	libraryClient,
-	SearchData,
-	type ExplorerItem
-} from '@sd/client';
+
+import { getIndexedItemFilePath, isPath, libraryClient, SearchData } from '@sd/client';
 import Layout from '~/constants/Layout';
 import { twStyle } from '~/lib/tailwind';
 import { BrowseStackScreenProps } from '~/navigation/tabs/BrowseStack';
@@ -117,7 +114,7 @@ const Explorer = (props: Props) => {
 								: 1
 					}
 					data={props.items ?? []}
-					keyExtractor={(item) =>
+					keyExtractor={item =>
 						item.type === 'NonIndexedPath'
 							? item.item.path
 							: item.type === 'SpacedropPeer'

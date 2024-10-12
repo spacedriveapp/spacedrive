@@ -1,5 +1,6 @@
 import { Envelope, User } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Card, Input, toast } from '@sd/ui';
 import { TruncatedText } from '~/components';
@@ -101,7 +102,7 @@ function HostedLocationsPlayground() {
 							<Input
 								className="grow"
 								value={locationName}
-								onInput={(e) => setLocationName(e.currentTarget.value)}
+								onInput={e => setLocationName(e.currentTarget.value)}
 								placeholder="My sick location"
 								disabled={isPending}
 							/>
@@ -130,7 +131,7 @@ function HostedLocationsPlayground() {
 				<div>Looks like you don't have any!</div>
 			) : (
 				<div>
-					{locations.data?.map((location) => (
+					{locations.data?.map(location => (
 						<div key={location.id} className="flex flex-row space-x-5">
 							<h1>{location.name}</h1>
 							<Button
@@ -151,7 +152,7 @@ function HostedLocationsPlayground() {
 				<Input
 					className="grow"
 					value={path}
-					onInput={(e) => setPath(e.currentTarget.value)}
+					onInput={e => setPath(e.currentTarget.value)}
 					disabled={isPending}
 				/>
 			</div>

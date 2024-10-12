@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 import Markdown from 'react-markdown';
+
 import { useIsDark, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -11,7 +12,7 @@ export const Component = () => {
 	const isDark = useIsDark();
 	const changelog = useQuery({
 		queryKey: ['changelog'],
-		queryFn: () => fetch(`${platform.landingApiOrigin}/api/releases`).then((r) => r.json())
+		queryFn: () => fetch(`${platform.landingApiOrigin}/api/releases`).then(r => r.json())
 	});
 
 	const { t } = useLocale();
@@ -43,7 +44,7 @@ export const Component = () => {
 									<a
 										{...props}
 										href={href}
-										onClick={(e) => {
+										onClick={e => {
 											e.preventDefault();
 
 											platform.openLink(href);

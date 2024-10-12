@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
+
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
@@ -37,7 +38,7 @@ const EditLocationSettingsScreen = ({
 	const form = useZodForm({ schema });
 
 	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log({ e }),
+		onError: e => console.log({ e }),
 		onSuccess: () => {
 			form.reset(form.getValues());
 			queryClient.invalidateQueries({ queryKey: ['locations.list'] });
@@ -46,7 +47,7 @@ const EditLocationSettingsScreen = ({
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
+	const onSubmit = form.handleSubmit(data =>
 		updateLocation.mutateAsync({
 			id: Number(id),
 			name: data.displayName,
@@ -97,7 +98,7 @@ const EditLocationSettingsScreen = ({
 			form.reset({
 				displayName: data.name,
 				localPath: data.path,
-				indexer_rules_ids: data.indexer_rules.map((i) => i.id.toString()),
+				indexer_rules_ids: data.indexer_rules.map(i => i.id.toString()),
 				generatePreviewMedia: data.generate_preview_media,
 				syncPreviewMedia: data.sync_preview_media,
 				hidden: data.hidden

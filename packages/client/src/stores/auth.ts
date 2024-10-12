@@ -27,7 +27,7 @@ export function useStateSnapshot() {
 nonLibraryClient
 	.query(['auth.me'])
 	.then(() => (store.state = { status: 'loggedIn' }))
-	.catch((e) => {
+	.catch(e => {
 		if (e instanceof RSPCError && e.code === 401) {
 			// TODO: handle error?
 		}
@@ -38,7 +38,7 @@ type CallbackStatus = 'success' | { error: string } | 'cancel';
 const loginCallbacks = new Set<(status: CallbackStatus) => void>();
 
 function onError(error: string) {
-	loginCallbacks.forEach((cb) => cb({ error }));
+	loginCallbacks.forEach(cb => cb({ error }));
 }
 
 export async function login(config: ProviderConfig) {
@@ -50,17 +50,17 @@ export async function login(config: ProviderConfig) {
 		onData(data) {
 			if (data === 'Complete') {
 				config.finish?.(authCleanup);
-				loginCallbacks.forEach((cb) => cb('success'));
+				loginCallbacks.forEach(cb => cb('success'));
 			} else if ('Error' in data) {
 				onError(data.Error);
 			} else {
 				Promise.resolve()
 					.then(() => config.start(data.Start.verification_url_complete))
 					.then(
-						(res) => {
+						res => {
 							authCleanup = res;
 						},
-						(e) => onError(e.message)
+						e => onError(e.message)
 					);
 			}
 		},
@@ -94,7 +94,7 @@ export async function logout() {
 }
 
 export function cancel() {
-	loginCallbacks.forEach((cb) => cb('cancel'));
+	loginCallbacks.forEach(cb => cb('cancel'));
 	loginCallbacks.clear();
 	store.state = { status: 'notLoggedIn' };
 }

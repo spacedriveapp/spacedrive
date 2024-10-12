@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import ColorPicker from 'react-native-wheel-color-picker';
+
 import {
 	ToastDefautlColor,
 	useLibraryMutation,
@@ -40,7 +41,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			toast.success('Tag created successfully');
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });
 		},
-		onError: (error) => {
+		onError: error => {
 			toast.error(error.message);
 		},
 		onSettled: () => {
@@ -81,7 +82,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						autoFocus
 						style={tw`ml-2 flex-1`}
 						value={tagName}
-						onChangeText={(text) => setTagName(text)}
+						onChangeText={text => setTagName(text)}
 						placeholder="Name"
 					/>
 				</View>
@@ -91,7 +92,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 						<View style={tw`my-4 h-64`}>
 							<ColorPicker
 								color={tagColor}
-								onColorChangeComplete={(color) => setTagColor(color)}
+								onColorChangeComplete={color => setTagColor(color)}
 							/>
 						</View>
 					</FadeInAnimation>

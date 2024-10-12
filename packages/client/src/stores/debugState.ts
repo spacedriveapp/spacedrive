@@ -39,5 +39,5 @@ export function useDebugStateEnabler(): () => void {
 		return () => clearTimeout(timeout);
 	}, [clicked]);
 
-	return () => setClicked((c) => c + 1);
+	return () => setClicked(c => c + 1);
 }

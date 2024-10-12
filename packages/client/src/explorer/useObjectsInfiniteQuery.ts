@@ -52,7 +52,7 @@ export function useObjectsInfiniteQuery({
 			return ctx.client.query(['search.objects', arg]);
 		},
 		initialPageParam: undefined as ExplorerItem | undefined,
-		getNextPageParam: (lastPage) => {
+		getNextPageParam: lastPage => {
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.items[arg.take - 1];
 		}

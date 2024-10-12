@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { forwardRef, useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+
 import { Tag, useLibraryMutation } from '@sd/client';
 import { FadeInAnimation } from '~/components/animation/layout';
 import { Modal, ModalRef } from '~/components/layout/Modal';
@@ -60,11 +61,11 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 		>
 			<View style={tw`p-4`}>
 				<Text style={tw`mb-1 ml-1 text-xs font-medium text-ink-dull`}>Name</Text>
-				<Input value={tagName} onChangeText={(t) => setTagName(t)} />
+				<Input value={tagName} onChangeText={t => setTagName(t)} />
 				<Text style={tw`mb-1 ml-1 mt-3 text-xs font-medium text-ink-dull`}>Color</Text>
 				<View style={tw`ml-2 flex flex-row items-center`}>
 					<Pressable
-						onPress={() => setShowPicker((v) => !v)}
+						onPress={() => setShowPicker(v => !v)}
 						style={twStyle({ backgroundColor: tagColor }, 'h-5 w-5 rounded-full')}
 					/>
 					{/* TODO: Make this editable. Need to make sure color is a valid hexcode and update the color on picker etc. etc. */}
@@ -75,7 +76,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 						<View style={tw`mt-4 h-64`}>
 							<ColorPicker
 								color={tagColor}
-								onColorChangeComplete={(color) => setTagColor(color)}
+								onColorChangeComplete={color => setTagColor(color)}
 							/>
 						</View>
 					</FadeInAnimation>

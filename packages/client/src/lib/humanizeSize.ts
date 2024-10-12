@@ -76,7 +76,7 @@ const getBaseUnit = (n: bigint, map: typeof DECIMAL_UNITS | typeof BINARY_UNITS)
 
 export function bytesToNumber(bytes: string[] | number[] | bigint[]) {
 	return bytes
-		.map((b) => (typeof b === 'bigint' ? b : BigInt(b)))
+		.map(b => (typeof b === 'bigint' ? b : BigInt(b)))
 		.reduce((acc, curr, i) => acc + curr * 256n ** BigInt(bytes.length - i - 1));
 }
 

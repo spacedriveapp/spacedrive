@@ -1,6 +1,7 @@
 import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
+
 import {
 	Procedures,
 	useFeatureFlag,
@@ -49,7 +50,7 @@ export const Component = () => {
 							className="text-nowrap"
 							variant="accent"
 							onClick={() => {
-								dialogManager.create((dialogProps) => (
+								dialogManager.create(dialogProps => (
 									<SyncBackfillDialog
 										onEnabled={() => syncEnabled.refetch()}
 										{...dialogProps}

@@ -1,11 +1,13 @@
+import type { ExplorerItem } from '@sd/client';
+
 import { useCallback, useMemo, useRef } from 'react';
+
 import {
 	compareHumanizedSizes,
 	getExplorerItemData,
 	humanizeSize,
 	ThumbKey,
-	useSelector,
-	type ExplorerItem
+	useSelector
 } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 
@@ -32,7 +34,7 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 					: 'thumbnail' in explorerItem && explorerItem.thumbnail
 						? [explorerItem.thumbnail]
 						: []
-				).map<[string, ThumbKey]>((thumbnailKey) => [
+				).map<[string, ThumbKey]>(thumbnailKey => [
 					platform.getThumbnailUrlByThumbKey(thumbnailKey),
 					thumbnailKey
 				])
@@ -40,7 +42,7 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		[explorerItem, platform]
 	);
 
-	const newThumbnails = useSelector(explorerStore, (store) =>
+	const newThumbnails = useSelector(explorerStore, store =>
 		Array.from(getThumbnails()).reduce<Map<string, string | null>>((acc, [url, thumbKey]) => {
 			const thumbId = flattenThumbnailKey(thumbKey);
 			acc.set(url, store.newThumbnails.has(thumbId) ? thumbId : null);

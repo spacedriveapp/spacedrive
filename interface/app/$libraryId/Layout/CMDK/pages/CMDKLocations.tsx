@@ -2,6 +2,7 @@ import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import CommandPalette from 'react-cmdk';
 import { useNavigate } from 'react-router';
+
 import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { Icon } from '~/components';
 
@@ -30,7 +31,7 @@ export default function CMDKLocations() {
 							<div
 								className={clsx(
 									'absolute bottom-0.5 right-0 size-1.5 rounded-full',
-									onlineLocations.some((l) => arraysEqual(location.pub_id, l))
+									onlineLocations.some(l => arraysEqual(location.pub_id, l))
 										? 'bg-green-500'
 										: 'bg-red-500'
 								)}

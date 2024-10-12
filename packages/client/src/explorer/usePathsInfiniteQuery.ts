@@ -109,7 +109,7 @@ export function usePathsInfiniteQuery({
 			return result;
 		},
 		initialPageParam: undefined as ExplorerItem | undefined,
-		getNextPageParam: (lastPage) => {
+		getNextPageParam: lastPage => {
 			if (arg.take === null || arg.take === undefined) return undefined;
 			if (lastPage.items.length < arg.take) return undefined;
 			else return lastPage.items[arg.take - 1];

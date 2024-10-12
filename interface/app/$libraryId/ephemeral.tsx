@@ -1,18 +1,21 @@
+import type { EphemeralPathOrder } from '@sd/client';
+import type { PathParams } from '~/app/route-schemas';
+
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
 import { memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo } from 'react';
+
 import {
 	ExplorerItem,
 	getExplorerItemData,
 	nonIndexedPathOrderingSchema,
 	useLibraryContext,
-	useUnsafeStreamedQuery,
-	type EphemeralPathOrder
+	useUnsafeStreamedQuery
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
+import { PathParamsSchema } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import {
 	getDismissibleNoticeStore,
@@ -105,7 +108,7 @@ const EphemeralNotice = memo(({ path }: { path: string }) => {
 
 							<div className="relative flex-1">
 								<div className="absolute inset-0 grid w-[115%] grid-cols-4 gap-3 pl-3 pt-3">
-									{NOTICE_ITEMS.map((item) => (
+									{NOTICE_ITEMS.map(item => (
 										<div key={item.name} className="flex flex-col items-center">
 											<Icon name={item.icon} draggable={false} />
 											<span className="text-center text-xs font-medium text-ink">
@@ -194,8 +197,8 @@ const EphemeralExplorer = memo(({ args: path }: { args: PathParams['path'] }) =>
 
 	const entries = useMemo(() => {
 		return (
-			query.data?.flatMap((item) => item.entries) ||
-			query.streaming.flatMap((item) => item.entries)
+			query.data?.flatMap(item => item.entries) ||
+			query.streaming.flatMap(item => item.entries)
 		);
 	}, [query.streaming, query.data]);
 

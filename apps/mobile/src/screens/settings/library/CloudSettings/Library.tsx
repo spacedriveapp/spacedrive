@@ -1,6 +1,7 @@
 import { CheckCircle, XCircle } from 'phosphor-react-native';
 import { useMemo } from 'react';
 import { Text, View } from 'react-native';
+
 import { CloudLibrary, useLibraryContext, useLibraryMutation } from '@sd/client';
 import Card from '~/components/layout/Card';
 import { Button } from '~/components/primitive/Button';
@@ -20,7 +21,7 @@ const Library = ({ cloudLibrary }: LibraryProps) => {
 	const { library } = useLibraryContext();
 	const syncLibrary = useLibraryMutation(['cloud.library.sync']);
 	const thisInstance = useMemo(
-		() => cloudLibrary?.instances.find((instance) => instance.uuid === library.instance_id),
+		() => cloudLibrary?.instances.find(instance => instance.uuid === library.instance_id),
 		[cloudLibrary, library.instance_id]
 	);
 

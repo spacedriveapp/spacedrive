@@ -39,13 +39,13 @@ export function useUnsafeStreamedQuery<
 		...opts,
 		queryKey: keyAndInput,
 		queryFn: ({ signal }) =>
-			new Promise<TData[]>((resolve) => {
+			new Promise<TData[]>(resolve => {
 				permits += 1;
 
 				try {
 					data.current = [];
 					const shutdown = rspc.client.addSubscription(keyAndInput as any, {
-						onData: (item) => {
+						onData: item => {
 							if (item === null || item === undefined) return;
 
 							if (typeof item === 'object' && '__stream_complete' in item) {

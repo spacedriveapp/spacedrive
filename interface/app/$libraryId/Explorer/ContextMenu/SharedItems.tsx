@@ -1,12 +1,15 @@
+import type { Platform } from '~/util/Platform';
+
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
+
 import { useBridgeMutation, useDiscoveredPeers, useSelector } from '@sd/client';
 import { ContextMenu, ModifierKeys } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { usePlatform, type Platform } from '~/util/Platform';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';
@@ -72,7 +75,7 @@ export const OpenQuickView = () => {
 
 export const Details = new ConditionalItem({
 	useCondition: () => {
-		const showInspector = useSelector(explorerStore, (s) => s.showInspector);
+		const showInspector = useSelector(explorerStore, s => s.showInspector);
 		if (showInspector) return null;
 
 		return {};
@@ -175,7 +178,7 @@ export const RevealInNativeExplorer = new ConditionalItem({
 
 export const Deselect = new ConditionalItem({
 	useCondition: () => {
-		const cutCopyState = useSelector(explorerStore, (s) => s.cutCopyState);
+		const cutCopyState = useSelector(explorerStore, s => s.cutCopyState);
 
 		if (cutCopyState.type === 'Idle') return null;
 

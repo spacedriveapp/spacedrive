@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
+
 import { useLibraryContext } from '@sd/client';
 import { toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
@@ -26,7 +27,7 @@ export default new ConditionalItem({
 			!openEphemeralFileWith
 		)
 			return null;
-		if (selectedFilePaths.some((p) => p.is_dir) || selectedEphemeralPaths.some((p) => p.is_dir))
+		if (selectedFilePaths.some(p => p.is_dir) || selectedEphemeralPaths.some(p => p.is_dir))
 			return null;
 
 		return {
@@ -77,8 +78,8 @@ const Items = ({
 
 	const { library } = useLibraryContext();
 
-	const ids = selectedFilePaths.map((obj) => obj.id);
-	const paths = selectedEphemeralPaths.map((obj) => obj.path);
+	const ids = selectedFilePaths.map(obj => obj.id);
+	const paths = selectedEphemeralPaths.map(obj => obj.path);
 	const { t } = useLocale();
 
 	const { data: apps } = useQuery({
@@ -101,8 +102,8 @@ const Items = ({
 					? actions.getEphemeralFilesOpenWithApps(paths).then(handleError)
 					: Promise.resolve([])
 			])
-				.then((res) => res.flat())
-				.then((res) => res.sort((a, b) => a.name.localeCompare(b.name)));
+				.then(res => res.flat())
+				.then(res => res.sort((a, b) => a.name.localeCompare(b.name)));
 		},
 		initialData: []
 	});
@@ -118,13 +119,13 @@ const Items = ({
 								if (ids.length > 0) {
 									await actions.openFilePathWith(
 										library.uuid,
-										ids.map((id) => [id, data.url])
+										ids.map(id => [id, data.url])
 									);
 								}
 
 								if (paths.length > 0) {
 									await actions.openEphemeralFileWith(
-										paths.map((path) => [path, data.url])
+										paths.map(path => [path, data.url])
 									);
 								}
 							} catch (e) {

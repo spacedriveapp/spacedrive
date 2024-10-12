@@ -2,6 +2,7 @@ import { CheckSquare } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SetStateAction, useContext } from 'react';
 import { useNavigate } from 'react-router';
+
 import {
 	auth,
 	backendFeatures,
@@ -229,7 +230,7 @@ function FeatureFlagSelector() {
 				className="z-[999] mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
 				alignToTrigger
 			>
-				{[...features, ...backendFeatures].map((feat) => (
+				{[...features, ...backendFeatures].map(feat => (
 					<DropdownMenu.Item
 						key={feat}
 						label={feat}
@@ -237,7 +238,7 @@ function FeatureFlagSelector() {
 						onClick={() => toggleFeatureFlag(feat)}
 						className="font-medium text-white"
 						icon={
-							featureFlags.find((f) => feat === f) !== undefined
+							featureFlags.find(f => feat === f) !== undefined
 								? CheckSquare
 								: undefined
 						}
@@ -270,7 +271,7 @@ function CloudOriginSelect() {
 		<>
 			{origin.data && (
 				<Select
-					onChange={(v) =>
+					onChange={v =>
 						setOrigin.mutateAsync(v).then(() => {
 							auth.logout();
 							queryClient.invalidateQueries();
@@ -294,7 +295,7 @@ function ExplorerBehaviorSelect() {
 	return (
 		<Select
 			value={explorerOperatingSystem}
-			onChange={(v) => (explorerOperatingSystemStore.os = v)}
+			onChange={v => (explorerOperatingSystemStore.os = v)}
 		>
 			<SelectOption value="macOS">macOS</SelectOption>
 			<SelectOption value="windows">windows</SelectOption>

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
+
 import {
 	formatNumber,
 	getJobNiceActionName,
@@ -58,7 +59,7 @@ export default function ({ group, progress }: JobGroupProps) {
 			<div className="row absolute right-3 top-3 z-50 flex space-x-1">
 				<Options
 					showChildJobs={showChildJobs}
-					setShowChildJobs={() => setShowChildJobs((v) => !v)}
+					setShowChildJobs={() => setShowChildJobs(v => !v)}
 					activeJob={runningJob}
 					group={group}
 				/>
@@ -66,7 +67,7 @@ export default function ({ group, progress }: JobGroupProps) {
 			{jobs?.length > 1 ? (
 				<>
 					<JobContainer
-						onClick={() => setShowChildJobs((v) => !v)}
+						onClick={() => setShowChildJobs(v => !v)}
 						className={clsx(
 							'pb-2 hover:bg-app-selected/10',
 							showChildJobs && 'border-none bg-app-darkBox pb-1 hover:!bg-app-darkBox'
@@ -115,7 +116,7 @@ export default function ({ group, progress }: JobGroupProps) {
 					</JobContainer>
 					{showChildJobs && (
 						<div>
-							{jobs.map((job) => {
+							{jobs.map(job => {
 								const diff = calculateETA(job);
 
 								return (
@@ -202,7 +203,7 @@ function Options({
 	);
 
 	const clearJobHandler = () => {
-		group.jobs.forEach((job) => {
+		group.jobs.forEach(job => {
 			clearJob.mutate(job.id);
 			//only one toast for all jobs
 			if (job.id === group.id)
@@ -211,7 +212,7 @@ function Options({
 	};
 
 	const isJobPaused = useMemo(
-		() => group.jobs.some((job) => job.status === 'Paused'),
+		() => group.jobs.some(job => job.status === 'Paused'),
 		[group.jobs]
 	);
 

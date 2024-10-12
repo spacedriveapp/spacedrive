@@ -1,6 +1,7 @@
 import { Circle } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
+
 import {
 	ExplorerItem,
 	getItemObject,
@@ -78,7 +79,7 @@ function getHotkeysWithNewAssignment(
 
 // million-ignore
 export const ExplorerTagBar = () => {
-	const [tagBulkAssignHotkeys] = useSelector(explorerStore, (s) => [s.tagBulkAssignHotkeys]);
+	const [tagBulkAssignHotkeys] = useSelector(explorerStore, s => [s.tagBulkAssignHotkeys]);
 	const explorer = useExplorerContext();
 	const rspc = useRspcContext();
 	const tagsRef = useRef<HTMLUListElement | null>(null);
@@ -126,8 +127,8 @@ export const ExplorerTagBar = () => {
 	// These listeners will unmount when ExplorerTagBar is unmounted.
 	useKeybind(
 		NUMBER_KEYCODES,
-		async (e) => {
-			const targets = Array.from(explorer.selectedItems.entries()).map((item) =>
+		async e => {
+			const targets = Array.from(explorer.selectedItems.entries()).map(item =>
 				toTarget(item[0])
 			);
 
@@ -142,7 +143,7 @@ export const ExplorerTagBar = () => {
 				const tagId = tagBulkAssignHotkeys.find(
 					({ hotkey }) => hotkey === keyPressed
 				)?.tagId;
-				const foundTag = allTags.find((t) => t.id === tagId);
+				const foundTag = allTags.find(t => t.id === tagId);
 
 				if (!foundTag) break findTag;
 
@@ -154,11 +155,11 @@ export const ExplorerTagBar = () => {
 			// extract the list of tags from each object in the selected items
 			const targetsTagList = Array.from(explorer.selectedItems.entries()).map(
 				// issues with type here. unsure as to why, and not causing any noticeable errors, so ignoring for now with as any
-				(item) => (item[0] as any).item.object.tags
+				item => (item[0] as any).item.object.tags
 			);
 
 			// iterate through each tag in the selected items and check if the tag we want to assign is already assigned
-			const areAllAssigned = targetsTagList.every((tags) => {
+			const areAllAssigned = targetsTagList.every(tags => {
 				return tags.some((t: { tag_id: any }) => t.tag_id === tag.id);
 			});
 
@@ -256,15 +257,15 @@ export const ExplorerTagBar = () => {
 						// -- iLynxcat 3/jun/2024
 
 						const hotkeyA = +(
-							tagBulkAssignHotkeys.find((k) => k.tagId === tagA.id)?.hotkey ?? 998
+							tagBulkAssignHotkeys.find(k => k.tagId === tagA.id)?.hotkey ?? 998
 						);
 						const hotkeyB = +(
-							tagBulkAssignHotkeys.find((k) => k.tagId === tagB.id)?.hotkey ?? 999
+							tagBulkAssignHotkeys.find(k => k.tagId === tagB.id)?.hotkey ?? 999
 						);
 
 						return hotkeyA - hotkeyB;
 					})
-					.map((tag) => (
+					.map(tag => (
 						<li key={tag.id}>
 							<TagItem
 								tag={tag}
@@ -276,7 +277,7 @@ export const ExplorerTagBar = () => {
 								onClick={() => {
 									setTagListeningForKeyPress(tag.id);
 								}}
-								onKeyPress={(e) => {
+								onKeyPress={e => {
 									if (e.key === 'Escape') {
 										explorerStore.tagBulkAssignHotkeys =
 											getHotkeysWithNewAssignment(tagBulkAssignHotkeys, {
@@ -327,7 +328,7 @@ const TagItem = ({
 
 	useKeybind(
 		[...NUMBER_KEYCODES, ['Escape']],
-		(e) => {
+		e => {
 			buttonRef.current?.blur(); // Hides the focus ring after Escape is pressed to cancel assignment
 			return onKeyPress(e);
 		},

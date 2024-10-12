@@ -2,6 +2,7 @@ import { ArrowClockwise, Info } from '@phosphor-icons/react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { stringify } from 'uuid';
+
 import {
 	arraysEqual,
 	FilePathOrder,
@@ -191,7 +192,7 @@ function LocationOfflineInfo({ location }: { location: Location }) {
 	const onlineLocations = useOnlineLocations();
 
 	const locationOnline = useMemo(
-		() => onlineLocations.some((l) => arraysEqual(location.pub_id, l)),
+		() => onlineLocations.some(l => arraysEqual(location.pub_id, l)),
 		[location.pub_id, onlineLocations]
 	);
 
@@ -228,10 +229,10 @@ function useLocationExplorerSettings(location: Location) {
 			[]
 		),
 		getSettings: useCallback(
-			(prefs) => prefs.location?.[stringify(location.pub_id)]?.explorer,
+			prefs => prefs.location?.[stringify(location.pub_id)]?.explorer,
 			[location.pub_id]
 		),
-		writeSettings: (settings) => ({
+		writeSettings: settings => ({
 			location: { [stringify(location.pub_id)]: { explorer: settings } }
 		})
 	});
