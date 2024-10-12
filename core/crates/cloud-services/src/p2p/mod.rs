@@ -1,13 +1,15 @@
-use crate::{CloudServices, Error};
+use crate::{sync::ReceiveAndIngestNotifiers, CloudServices, Error};
 
 use sd_cloud_schema::{
 	cloud_p2p::{authorize_new_device_in_sync_group, CloudP2PALPN, CloudP2PError},
 	devices::{self, Device},
 	libraries,
-	sync::groups::GroupWithDevices,
+	sync::groups::{self, GroupWithDevices},
 	SecretKey as IrohSecretKey,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
+
+use std::sync::Arc;
 
 use iroh_net::{
 	discovery::{
@@ -22,6 +24,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{spawn, sync::oneshot};
 use tracing::error;
 
+mod new_sync_messages_notifier;
 mod runner;
 
 use runner::Runner;
@@ -132,7 +135,13 @@ impl CloudP2P {
 		let (msgs_tx, msgs_rx) = flume::bounded(16);
 
 		spawn({
-			let runner = Runner::new(current_device_pub_id, cloud_services, endpoint).await?;
+			let runner = Runner::new(
+				current_device_pub_id,
+				cloud_services,
+				msgs_tx.clone(),
+				endpoint,
+			)
+			.await?;
 			let user_response_rx = cloud_services.user_response_rx.clone();
 
 			async move {
@@ -173,6 +182,37 @@ impl CloudP2P {
 				devices_in_group,
 				tx,
 			}))
+			.await
+			.expect("Channel closed");
+	}
+
+	/// Register a notifier for the desired sync group, which will notify the receiver actor when
+	/// new sync messages arrive through cloud p2p notification requests.
+	///
+	/// # Panics
+	/// Will panic if the actor channel is closed, which should never happen
+	pub async fn register_sync_messages_receiver_notifier(
+		&self,
+		sync_group_pub_id: groups::PubId,
+		notifier: Arc<ReceiveAndIngestNotifiers>,
+	) {
+		self.msgs_tx
+			.send_async(runner::Message::RegisterSyncMessageNotifier((
+				sync_group_pub_id,
+				notifier,
+			)))
+			.await
+			.expect("Channel closed");
+	}
+
+	/// Emit a notification that new sync messages were sent to cloud, so other devices should pull
+	/// them as soon as possible.
+	///
+	/// # Panics
+	/// Will panic if the actor channel is closed, which should never happen
+	pub async fn notify_new_sync_messages(&self, group_pub_id: groups::PubId) {
+		self.msgs_tx
+			.send_async(runner::Message::NotifyPeersSyncMessages(group_pub_id))
 			.await
 			.expect("Channel closed");
 	}

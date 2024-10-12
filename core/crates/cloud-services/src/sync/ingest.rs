@@ -19,7 +19,7 @@ use futures_concurrency::future::Race;
 use tokio::{sync::Notify, time::sleep};
 use tracing::{debug, error};
 
-use super::{timestamp_to_datetime, SyncActors, ONE_MINUTE};
+use super::{timestamp_to_datetime, ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
 
 const BATCH_SIZE: i64 = 1000;
 
@@ -28,7 +28,7 @@ const BATCH_SIZE: i64 = 1000;
 
 pub struct Ingester {
 	sync: SyncManager,
-	ingest_notify: Arc<Notify>,
+	notifiers: Arc<ReceiveAndIngestNotifiers>,
 	active: Arc<AtomicBool>,
 	active_notify: Arc<Notify>,
 }
@@ -63,7 +63,9 @@ impl Actor<SyncActors> for Ingester {
 
 			if matches!(
 				(
-					self.ingest_notify.notified().map(|()| Race::Notified),
+					self.notifiers
+						.wait_notification_to_ingest()
+						.map(|()| Race::Notified),
 					stop.into_future().map(|()| Race::Stopped),
 				)
 					.race()
@@ -84,13 +86,13 @@ enum IngestStatus {
 impl Ingester {
 	pub const fn new(
 		sync: SyncManager,
-		ingest_notify: Arc<Notify>,
+		notifiers: Arc<ReceiveAndIngestNotifiers>,
 		active: Arc<AtomicBool>,
 		active_notify: Arc<Notify>,
 	) -> Self {
 		Self {
 			sync,
-			ingest_notify,
+			notifiers,
 			active,
 			active_notify,
 		}

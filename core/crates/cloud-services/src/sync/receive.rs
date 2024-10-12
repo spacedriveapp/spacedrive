@@ -50,7 +50,7 @@ use tokio_util::io::StreamReader;
 use tracing::{debug, error, instrument};
 use uuid::Uuid;
 
-use super::{SyncActors, ONE_MINUTE};
+use super::{ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
 
 const CLOUD_SYNC_DATA_KEEPER_FILE: &str = "cloud_sync_data_keeper.bin";
 
@@ -65,9 +65,9 @@ pub struct Receiver {
 	semaphore: Arc<Semaphore>,
 	key_manager: Arc<KeyManager>,
 	sync: SyncManager,
-	ingest_notify: Arc<Notify>,
+	notifiers: Arc<ReceiveAndIngestNotifiers>,
 	active: Arc<AtomicBool>,
-	active_notify: Arc<Notify>,
+	active_notifier: Arc<Notify>,
 }
 
 impl Actor<SyncActors> for Receiver {
@@ -81,7 +81,7 @@ impl Actor<SyncActors> for Receiver {
 
 		loop {
 			self.active.store(true, Ordering::Relaxed);
-			self.active_notify.notify_waiters();
+			self.active_notifier.notify_waiters();
 
 			let res = self.run_loop_iteration().await;
 
@@ -93,11 +93,14 @@ impl Actor<SyncActors> for Receiver {
 				continue;
 			}
 
-			self.active_notify.notify_waiters();
+			self.active_notifier.notify_waiters();
 
 			if matches!(
 				(
 					sleep(ONE_MINUTE).map(|()| Race::Continue),
+					self.notifiers
+						.wait_notification_to_receive()
+						.map(|()| Race::Continue),
 					stop.into_future().map(|()| Race::Stop),
 				)
 					.race()
@@ -116,7 +119,7 @@ impl Receiver {
 		sync_group_pub_id: groups::PubId,
 		cloud_services: Arc<CloudServices>,
 		sync: SyncManager,
-		ingest_notify: Arc<Notify>,
+		notifiers: Arc<ReceiveAndIngestNotifiers>,
 		active: Arc<AtomicBool>,
 		active_notify: Arc<Notify>,
 	) -> Result<Self, Error> {
@@ -141,9 +144,9 @@ impl Receiver {
 			)),
 			key_manager,
 			sync,
-			ingest_notify,
+			notifiers,
 			active,
-			active_notify,
+			active_notifier: active_notify,
 		})
 	}
 
@@ -176,7 +179,7 @@ impl Receiver {
 			}
 
 			self.handle_new_messages(new_messages).await?;
-			self.ingest_notify.notify_waiters();
+			self.notifiers.notify_ingester();
 		}
 
 		self.keeper.save().await

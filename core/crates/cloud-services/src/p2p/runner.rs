@@ -1,10 +1,12 @@
 use crate::{
-	p2p::JoinSyncGroupError, token_refresher::TokenRefresher, CloudServices, Error, KeyManager,
+	p2p::JoinSyncGroupError, sync::ReceiveAndIngestNotifiers, token_refresher::TokenRefresher,
+	CloudServices, Error, KeyManager,
 };
 
 use sd_cloud_schema::{
 	cloud_p2p::{
-		self, authorize_new_device_in_sync_group, Client, CloudP2PALPN, CloudP2PError, Service,
+		self, authorize_new_device_in_sync_group, notify_new_sync_messages, Client, CloudP2PALPN,
+		CloudP2PError, Service,
 	},
 	devices::{self, Device},
 	sync::groups,
@@ -21,6 +23,7 @@ use std::{
 	time::Duration,
 };
 
+use dashmap::DashMap;
 use flume::SendError;
 use futures::StreamExt;
 use futures_concurrency::stream::Merge;
@@ -40,8 +43,8 @@ use tokio_stream::wrappers::IntervalStream;
 use tracing::{debug, error, warn};
 
 use super::{
-	BasicLibraryCreationArgs, JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket,
-	UserResponse,
+	new_sync_messages_notifier::dispatch_notifier, BasicLibraryCreationArgs, JoinSyncGroupResponse,
+	JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse,
 };
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
@@ -50,6 +53,9 @@ const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
 #[allow(clippy::large_enum_variant)] // Ignoring because the enum Stop variant will only happen a single time ever
 pub enum Message {
 	Request(Request),
+	RegisterSyncMessageNotifier((groups::PubId, Arc<ReceiveAndIngestNotifiers>)),
+	NotifyPeersSyncMessages(groups::PubId),
+	UpdateCachedDevices((groups::PubId, Vec<(devices::PubId, NodeId)>)),
 	Stop,
 }
 
@@ -70,11 +76,15 @@ pub struct Runner {
 		QuinnConnection<sd_cloud_schema::Service>,
 		sd_cloud_schema::Service,
 	>,
+	msgs_tx: flume::Sender<Message>,
 	endpoint: Endpoint,
 	key_manager: Arc<KeyManager>,
 	ticketer: Arc<AtomicU64>,
 	notify_user_tx: flume::Sender<NotifyUser>,
+	sync_messages_receiver_notifiers_map:
+		Arc<DashMap<groups::PubId, Arc<ReceiveAndIngestNotifiers>>>,
 	pending_sync_group_join_requests: Arc<Mutex<HashMap<Ticket, PendingSyncGroupJoin>>>,
+	cached_devices_per_group: HashMap<groups::PubId, (Instant, Vec<(devices::PubId, NodeId)>)>,
 	timeout_checker_buffer: Vec<(Ticket, PendingSyncGroupJoin)>,
 }
 
@@ -84,11 +94,17 @@ impl Clone for Runner {
 			current_device_pub_id: self.current_device_pub_id,
 			token_refresher: self.token_refresher.clone(),
 			cloud_services: self.cloud_services.clone(),
+			msgs_tx: self.msgs_tx.clone(),
 			endpoint: self.endpoint.clone(),
 			key_manager: Arc::clone(&self.key_manager),
 			ticketer: Arc::clone(&self.ticketer),
 			notify_user_tx: self.notify_user_tx.clone(),
+			sync_messages_receiver_notifiers_map: Arc::clone(
+				&self.sync_messages_receiver_notifiers_map,
+			),
 			pending_sync_group_join_requests: Arc::clone(&self.pending_sync_group_join_requests),
+			// Just cache the devices and their node_ids per group
+			cached_devices_per_group: HashMap::new(),
 			// This one is a temporary buffer only used for timeout checker
 			timeout_checker_buffer: vec![],
 		}
@@ -106,17 +122,21 @@ impl Runner {
 	pub async fn new(
 		current_device_pub_id: devices::PubId,
 		cloud_services: &CloudServices,
+		msgs_tx: flume::Sender<Message>,
 		endpoint: Endpoint,
 	) -> Result<Self, Error> {
 		Ok(Self {
 			current_device_pub_id,
 			token_refresher: cloud_services.token_refresher.clone(),
 			cloud_services: cloud_services.client().await?,
+			msgs_tx,
 			endpoint,
 			key_manager: cloud_services.key_manager().await?,
 			ticketer: Arc::default(),
 			notify_user_tx: cloud_services.notify_user_tx.clone(),
+			sync_messages_receiver_notifiers_map: Arc::default(),
 			pending_sync_group_join_requests: Arc::default(),
+			cached_devices_per_group: HashMap::new(),
 			timeout_checker_buffer: vec![],
 		})
 	}
@@ -183,6 +203,34 @@ impl Runner {
 					devices_in_group,
 					tx,
 				})) => self.dispatch_join_requests(req, devices_in_group, &mut rng, tx),
+
+				StreamMessage::Message(Message::RegisterSyncMessageNotifier((
+					group_pub_id,
+					notifier,
+				))) => {
+					self.sync_messages_receiver_notifiers_map
+						.insert(group_pub_id, notifier);
+				}
+
+				StreamMessage::Message(Message::NotifyPeersSyncMessages(group_pub_id)) => {
+					spawn(dispatch_notifier(
+						group_pub_id,
+						self.current_device_pub_id,
+						self.cached_devices_per_group.get(&group_pub_id).cloned(),
+						self.msgs_tx.clone(),
+						self.cloud_services.clone(),
+						self.token_refresher.clone(),
+						self.endpoint.clone(),
+					));
+				}
+
+				StreamMessage::Message(Message::UpdateCachedDevices((
+					group_pub_id,
+					devices_connections_ids,
+				))) => {
+					self.cached_devices_per_group
+						.insert(group_pub_id, (Instant::now(), devices_connections_ids));
+				}
 
 				StreamMessage::UserResponse(UserResponse::AcceptDeviceInSyncGroup {
 					ticket,
@@ -353,6 +401,38 @@ impl Runner {
 						since: Instant::now(),
 					},
 				);
+			}
+
+			cloud_p2p::Request::NotifyNewSyncMessages(req) => {
+				if let Err(e) = channel
+					.rpc(
+						req,
+						(),
+						|(),
+						 notify_new_sync_messages::Request {
+						     sync_group_pub_id,
+						     device_pub_id,
+						 }| async move {
+							debug!(%sync_group_pub_id, %device_pub_id, "Received new sync messages notification");
+							if let Some(notifier) = self
+								.sync_messages_receiver_notifiers_map
+								.get(&sync_group_pub_id)
+							{
+								notifier.notify_receiver();
+							} else {
+								warn!("Received new sync messages notification for unknown sync group");
+							}
+
+							Ok(notify_new_sync_messages::Response)
+						},
+					)
+					.await
+				{
+					error!(
+						?e,
+						"Failed to reply to new sync messages notification request"
+					);
+				}
 			}
 		}
 	}

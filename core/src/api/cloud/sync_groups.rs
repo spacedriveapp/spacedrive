@@ -130,8 +130,14 @@ pub fn mount() -> AlphaRouter<Ctx> {
 						groups::get::ResponseKind::WithDevices(data) => {
 							CloudSyncGroupGetResponseKind::WithDevices(data)
 						}
+
 						groups::get::ResponseKind::FullData(data) => {
 							CloudSyncGroupGetResponseKind::FullData(data)
+						}
+						groups::get::ResponseKind::DevicesConnectionIds(_) => {
+							unreachable!(
+								"DevicesConnectionIds response is not expected, as we requested it"
+							);
 						}
 					}
 				}
@@ -142,6 +148,13 @@ pub fn mount() -> AlphaRouter<Ctx> {
 					use groups::get::{Request, Response};
 
 					let (client, access_token) = super::get_client_and_access_token(&node).await?;
+
+					if matches!(kind, groups::get::RequestKind::DevicesConnectionIds) {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::PreconditionFailed,
+							"This request isn't allowed here".into(),
+						));
+					}
 
 					let Response(response_kind) = super::handle_comm_error(
 						client

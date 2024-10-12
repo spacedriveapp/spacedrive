@@ -50,6 +50,11 @@ enum RaceNotifiedOrStopped {
 	Stopped,
 }
 
+enum LoopStatus {
+	SentMessages,
+	Idle,
+}
+
 type LatestTimestamp = NTP64;
 
 type PushResponsesStream = Pin<
@@ -89,10 +94,24 @@ impl Actor<SyncActors> for Sender {
 
 			self.is_active.store(false, Ordering::Relaxed);
 
-			if let Err(e) = res {
-				error!(?e, "Error during cloud sync sender actor iteration");
-				sleep(ONE_MINUTE).await;
-				continue;
+			match res {
+				Ok(LoopStatus::SentMessages) => {
+					if let Ok(cloud_p2p) = self.cloud_services.cloud_p2p().await.map_err(|e| {
+						error!(?e, "Failed to get cloud p2p client on sender actor");
+					}) {
+						cloud_p2p
+							.notify_new_sync_messages(self.sync_group_pub_id)
+							.await;
+					}
+				}
+
+				Ok(LoopStatus::Idle) => {}
+
+				Err(e) => {
+					error!(?e, "Error during cloud sync sender actor iteration");
+					sleep(ONE_MINUTE).await;
+					continue;
+				}
 			}
 
 			self.state_notify.notify_waiters();
@@ -141,7 +160,7 @@ impl Sender {
 		})
 	}
 
-	async fn run_loop_iteration(&mut self) -> Result<(), Error> {
+	async fn run_loop_iteration(&mut self) -> Result<LoopStatus, Error> {
 		let current_device_pub_id = devices::PubId(Uuid::from(&self.sync.device_pub_id));
 
 		let (key_hash, secret_key) = self
@@ -157,6 +176,8 @@ impl Sender {
 			1000,
 			current_latest_timestamp
 		));
+
+		let mut status = LoopStatus::Idle;
 
 		let mut new_latest_timestamp = current_latest_timestamp;
 		while let Some(ops_res) = crdt_ops_stream.next().await {
@@ -252,11 +273,13 @@ impl Sender {
 			}
 
 			finalize_protocol(&mut push_updates, &mut push_responses).await?;
+
+			status = LoopStatus::SentMessages;
 		}
 
 		self.maybe_latest_timestamp = Some(new_latest_timestamp);
 
-		Ok(())
+		Ok(status)
 	}
 
 	async fn get_latest_timestamp(
@@ -563,7 +586,7 @@ async fn upload_to_single_url(
 		let cipher_text_size = nonce.len() + cipher_text.len();
 
 		let mut body_bytes = Vec::with_capacity(cipher_text_size);
-		body_bytes.extend_from_slice(&nonce);
+		body_bytes.extend_from_slice(nonce.as_slice());
 		body_bytes.extend(&cipher_text);
 
 		(cipher_text_size, Body::from(body_bytes))
