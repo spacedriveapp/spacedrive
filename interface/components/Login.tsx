@@ -140,6 +140,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 								placeholder="johndoe@gmail.com"
 								error={Boolean(form.formState.errors.email?.message)}
 								type="email"
+								size="md"
 								disabled={form.formState.isSubmitting}
 								className="w-full"
 							/>
@@ -162,6 +163,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 								<Input
 									{...field}
 									placeholder="Password"
+									size="md"
 									error={Boolean(form.formState.errors.password?.message)}
 									className="w-full"
 									disabled={form.formState.isSubmitting}
@@ -190,6 +192,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 				type="submit"
 				className={clsx('mx-auto mt-3 w-full border-none')}
 				variant="accent"
+				size="md"
 				onClick={form.handleSubmit(async (data) => {
 					await signInClicked(data.email, data.password, reload, cloudBootstrap);
 				})}
@@ -207,6 +210,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 			<Button
 				variant="gray"
 				className="w-full"
+				size="md"
 				onClick={() => {
 					form.reset();
 					setContinueWithEmail(true);
@@ -256,6 +260,7 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 								<Input
 									{...field}
 									type="email"
+									size="md"
 									className="w-full"
 									placeholder="johndoe@gmail.com"
 									error={Boolean(
@@ -272,6 +277,7 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 					</div>
 					<Button
 						type="submit"
+						size="md"
 						className="mx-auto mt-3 w-full border-none"
 						variant="accent"
 						onClick={() => {}}
@@ -296,6 +302,7 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 			)}
 			<Button
 				variant="subtle"
+				size="md"
 				className="mt-5 flex w-full justify-center gap-1.5"
 				onClick={() => {
 					if (step === 2) return setStep(1);

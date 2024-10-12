@@ -62,12 +62,8 @@ export const Component = () => {
 					</>
 				}
 			/>
-			<div className={clsx(userInfo != null ? '' : 'flex items-center justify-center')}>
-				<div
-					className={clsx(
-						userInfo != null ? '' : 'w-full max-w-md space-y-8 p-8 text-center lg:p-12'
-					)}
-				>
+			<div className={clsx(userInfo != null ? '' : 'flex')}>
+				<div className={clsx(userInfo != null ? '' : 'w-full max-w-md text-center')}>
 					{userInfo === null ? (
 						<>
 							<Authentication reload={setReload} cloudBootstrap={cloudBootstrap} />
