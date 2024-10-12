@@ -105,6 +105,7 @@ async fn send_notifications(
 ) {
 	devices
 		.iter()
+		.filter(|(peer_device_pub_id, _)| *peer_device_pub_id != device_pub_id)
 		.map(|(peer_device_pub_id, connection_id)| async move {
 			if let Err(e) =
 				connect_and_send_notification(group_pub_id, device_pub_id, connection_id, endpoint)
@@ -114,6 +115,8 @@ async fn send_notifications(
 				// every single notification failure, as this is more a nice to have feature than a
 				// critical one
 				debug!(?e, %peer_device_pub_id, "Failed to send new sync messages notification to peer");
+			} else {
+				debug!(%peer_device_pub_id, "Sent new sync messages notification to peer");
 			}
 		})
 		.collect::<Vec<_>>()
@@ -145,7 +148,7 @@ async fn connect_and_send_notification(
 	{
 		warn!(
 			?e,
-			"This route shouldn't return an error, it's just a notification"
+			"This route shouldn't return an error, it's just a notification",
 		);
 	};
 
