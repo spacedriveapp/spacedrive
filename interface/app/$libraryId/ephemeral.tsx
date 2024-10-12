@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import { memo, Suspense, useDeferredValue, useEffect, useMemo } from 'react';
+import { memo, Suspense, useCallback, useDeferredValue, useEffect, useMemo } from 'react';
 import {
 	ExplorerItem,
 	getExplorerItemData,
@@ -55,15 +55,13 @@ const NOTICE_ITEMS: { icon: keyof typeof iconNames; name: string }[] = [
 	}
 ];
 
-const EphemeralNotice = ({ path }: { path: string }) => {
+const EphemeralNotice = memo(({ path }: { path: string }) => {
 	const { t } = useLocale();
-
 	const isDark = useIsDark();
 	const { ephemeral: dismissed } = useDismissibleNoticeStore();
-
 	const topbar = useTopBarContext();
 
-	const dismiss = () => (getDismissibleNoticeStore().ephemeral = true);
+	const dismiss = useCallback(() => (getDismissibleNoticeStore().ephemeral = true), []);
 
 	return (
 		<Dialog.Root open={!dismissed}>
@@ -152,11 +150,9 @@ const EphemeralNotice = ({ path }: { path: string }) => {
 			</Dialog.Portal>
 		</Dialog.Root>
 	);
-};
+});
 
-const EphemeralExplorer = memo((props: { args: PathParams }) => {
-	const { path } = props.args;
-
+const EphemeralExplorer = memo(({ args: path }: { args: PathParams['path'] }) => {
 	const os = useOperatingSystem();
 
 	const explorerSettings = useExplorerSettings({
@@ -190,7 +186,7 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 		],
 		{
 			enabled: path != null,
-			onBatch: (item) => {}
+			onBatch: () => {}
 		}
 	);
 
@@ -255,15 +251,15 @@ const EphemeralExplorer = memo((props: { args: PathParams }) => {
 });
 
 export const Component = () => {
-	const [pathParams] = useZodSearchParams(PathParamsSchema);
+	let [{ path }] = useZodSearchParams(PathParamsSchema);
 
-	const path = useDeferredValue(pathParams);
+	path = useDeferredValue(path);
 
-	useRouteTitle(path.path ?? '');
+	useRouteTitle(path ?? '');
 
 	return (
 		<Suspense>
-			<EphemeralNotice path={path.path ?? ''} />
+			<EphemeralNotice path={path ?? ''} />
 			<EphemeralExplorer args={path} />
 		</Suspense>
 	);

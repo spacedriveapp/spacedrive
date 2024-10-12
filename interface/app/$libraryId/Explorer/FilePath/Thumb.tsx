@@ -1,3 +1,5 @@
+import type { ExplorerItem } from '@sd/client';
+
 import { getIcon, getIconByName } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
@@ -12,9 +14,10 @@ import {
 	useImperativeHandle,
 	useMemo,
 	useRef,
-	useState
+	useState,
 } from 'react';
-import { getItemFilePath, ObjectKindKey, useLibraryContext, type ExplorerItem } from '@sd/client';
+
+import { getItemFilePath, ObjectKindKey, useLibraryContext } from '@sd/client';
 import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
@@ -67,7 +70,7 @@ const Thumbnail = memo(
 
 			const { style: blackBarsStyle } = useBlackBars(ref, size, {
 				size: blackBarsSize,
-				disabled: !blackBars
+				disabled: !blackBars,
 			});
 
 			return (
@@ -84,8 +87,8 @@ const Thumbnail = memo(
 							style={{
 								...(!cover && {
 									marginTop: Math.floor(size.height / 2) - 2,
-									marginLeft: Math.floor(size.width / 2) - 2
-								})
+									marginLeft: Math.floor(size.width / 2) - 2,
+								}),
 							}}
 							className={clsx(
 								'pointer-events-none absolute rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold uppercase text-white opacity-70',
@@ -153,32 +156,27 @@ const Thumb = memo(
 
 			switch (thumbType) {
 				case 'original':
-					try {
-						return (
-							<Original
-								path={path}
-								size={size}
-								kind={kind}
-								frame={frame}
-								fileId={fileId}
-								onLoad={props.onLoad}
-								extension={extension}
-								blackBars={blackBars}
-								className={clsx(ThumbClasses, className)}
-								locationId={locationId}
-								pauseVideo={pauseVideo}
-								blackBarsSize={blackBarsSize}
-								magnification={magnification}
-								mediaControls={mediaControls}
-								frameClassName={frameClassName}
-								childClassName={className}
-								isSidebarPreview={isSidebarPreview}
-							/>
-						);
-					} catch (error) {
-						props.onError(error instanceof Error ? error : new Error(`${error}`));
-						return null;
-					}
+					return (
+						<Original
+							path={path}
+							size={size}
+							kind={kind}
+							frame={frame}
+							fileId={fileId}
+							onLoad={props.onLoad}
+							extension={extension}
+							blackBars={blackBars}
+							className={clsx(ThumbClasses, className)}
+							locationId={locationId}
+							pauseVideo={pauseVideo}
+							blackBarsSize={blackBarsSize}
+							magnification={magnification}
+							mediaControls={mediaControls}
+							frameClassName={frameClassName}
+							childClassName={className}
+							isSidebarPreview={isSidebarPreview}
+						/>
+					);
 				case 'thumbnail':
 					return (
 						<Thumbnail
@@ -191,7 +189,7 @@ const Thumb = memo(
 								cover
 									? [
 											'min-h-full min-w-full object-cover object-center',
-											className
+											className,
 										]
 									: [ThumbClasses, className],
 								frame && !(kind === 'Video' && blackBars) ? frameClassName : null
@@ -262,7 +260,7 @@ export const FileThumb = memo(
 		const [loadState, setLoadState] = useState<LoadState>({
 			icon: 'normal',
 			original: 'normal',
-			thumbnail: 'normal'
+			thumbnail: 'normal',
 		});
 
 		const thumbType = useMemo((): ThumbType => {
@@ -272,15 +270,21 @@ export const FileThumb = memo(
 		}, [itemData.thumbnails.size, props.loadOriginal, loadState.original, loadState.thumbnail]);
 
 		useEffect(() => {
+			let timeoutId = null;
 			// Reload thumbnail when it gets a notification from core that it has been generated
 			if (thumbType === 'icon' && loadState.thumbnail === 'error') {
-				for (const [_, thumbId] of itemData.thumbnails) {
-					if (!thumbId) continue;
-					setLoadState((state) => ({ ...state, thumbnail: 'normal' }));
-					explorerStore.removeThumbnail(thumbId);
+				for (const [, thumbId] of itemData.thumbnails) {
+					if (thumbId == null || !explorerStore.newThumbnails.has(thumbId)) continue;
+					// HACK: Delay removing the new thumbnail event from store
+					// to avoid some weird race condition with core that prevents
+					// us from accessing the new thumbnail immediately after it is created
+					timeoutId = setTimeout(() => explorerStore.removeThumbnail(thumbId), 250);
+					setLoadState(state => ({ ...state, thumbnail: 'normal' }));
 					break;
 				}
 			}
+
+			return () => void (timeoutId && clearTimeout(timeoutId));
 		}, [itemData.thumbnails, loadState.thumbnail, thumbType]);
 
 		const src = useMemo(() => {
@@ -295,14 +299,14 @@ export const FileThumb = memo(
 							);
 						else if ('path' in filePath)
 							return platform.getFileUrlByPath(filePath.path);
-						else setLoadState((state) => ({ ...state, [thumbType]: 'error' }));
+						else setLoadState(state => ({ ...state, [thumbType]: 'error' }));
 					}
 					break;
 
 				case 'thumbnail': {
-					const thumbnail = itemData.thumbnails.keys().next().value;
+					const thumbnail = Array.from(itemData.thumbnails.keys()).find(key => key);
 					if (thumbnail) return thumbnail;
-					else setLoadState((state) => ({ ...state, [thumbType]: 'error' }));
+					else setLoadState(state => ({ ...state, [thumbType]: 'error' }));
 
 					break;
 				}
@@ -322,7 +326,7 @@ export const FileThumb = memo(
 
 		const onError = useCallback(
 			(event: Error | ErrorEvent | SyntheticEvent<Element, Event>) => {
-				setLoadState((state) => ({ ...state, [thumbType]: 'error' }));
+				setLoadState(state => ({ ...state, [thumbType]: 'error' }));
 
 				const rawError =
 					event instanceof Error
@@ -350,7 +354,7 @@ export const FileThumb = memo(
 				style={{
 					...(props.size
 						? { maxWidth: props.size, width: props.size, height: props.size }
-						: {})
+						: {}),
 				}}
 				className={clsx(
 					'relative flex shrink-0 items-center justify-center',

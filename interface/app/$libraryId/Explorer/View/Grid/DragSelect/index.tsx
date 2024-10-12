@@ -13,8 +13,16 @@ import { getElementIndex, SELECTABLE_DATA_ATTRIBUTE } from './util';
 
 const CHROME_REGEX = /Chrome/;
 
+type GridOpts = ReturnType<typeof useGrid<string, ExplorerItem | undefined>>
+
 interface Props extends PropsWithChildren {
-	grid: ReturnType<typeof useGrid<string, ExplorerItem | undefined>>;
+	columnCount: GridOpts['columnCount'],
+	gapY: GridOpts['gap']['y'],
+	getItem: GridOpts['getItem'],
+	totalColumnCount: GridOpts['totalColumnCount'],
+	totalCount: GridOpts['totalCount'],
+	totalRowCount: GridOpts['totalRowCount'],
+	virtualItemHeight: GridOpts['virtualItemHeight']
 }
 
 export interface Drag {
@@ -24,7 +32,7 @@ export interface Drag {
 	endRow: number;
 }
 
-export const DragSelect = ({ grid, children }: Props) => {
+export const DragSelect = ({ children, ...props }: Props) => {
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
 
 	const { explorerOperatingSystem, matchingOperatingSystem } = useExplorerOperatingSystem();
@@ -62,7 +70,7 @@ export const DragSelect = ({ grid, children }: Props) => {
 
 	function getGridItem(element: Element) {
 		const index = getElementIndex(element);
-		return (index !== null && grid.getItem(index)) || undefined;
+		return (index !== null && props.getItem(index)) || undefined;
 	}
 
 	function handleScroll(e: SelectoEvents['scroll']) {
@@ -176,9 +184,9 @@ export const DragSelect = ({ grid, children }: Props) => {
 			// that are still in the DOM
 			const elements: Element[] = [];
 
-			e.added.forEach((element) => {
+			for (const element of e.added) {
 				const item = getGridItem(element);
-				if (!item?.data) return;
+				if (!item?.data) continue;
 
 				// Add item to selected targets
 				// Don't update selecto as it's already aware of it
@@ -188,22 +196,22 @@ export const DragSelect = ({ grid, children }: Props) => {
 
 				explorer.addSelectedItem(item.data);
 				if (document.contains(element)) elements.push(element);
-			});
+			}
 
-			e.removed.forEach((element) => {
+			for (const element of e.removed) {
 				const item = getGridItem(element);
-				if (!item?.data) return;
+				if (!item?.data) continue;
 
 				// Remove item from selected targets
 				// Don't update selecto as it's already aware of it
 				selectedTargets.removeSelectedTarget(String(item.id), { updateSelecto: false });
 
 				// Don't deselect item if element is unmounted by scroll
-				if (!document.contains(element)) return;
+				if (!document.contains(element)) continue;
 
 				explorer.removeSelectedItem(item.data);
 				elements.push(element);
-			});
+			}
 
 			const dragDirection = {
 				x: inputEvent.x === e.rect.left ? 'left' : 'right',
@@ -280,7 +288,7 @@ export const DragSelect = ({ grid, children }: Props) => {
 			const addedRows = new Set<number>();
 			const removedRows = new Set<number>();
 
-			columns.forEach((column) => {
+			for (const column of columns) {
 				const { firstItem, lastItem } = columnItems[column]!;
 
 				const { row: firstRow } = firstItem.item;
@@ -353,7 +361,7 @@ export const DragSelect = ({ grid, children }: Props) => {
 
 					// Remove row if dragged out of the last grid item
 					// from a row that's above it
-					if (item.item.index === grid.totalCount - 1) {
+					if (item.item.index === props.totalCount - 1) {
 						removedRows.add(item.item.row);
 					}
 				}
@@ -372,21 +380,21 @@ export const DragSelect = ({ grid, children }: Props) => {
 				// caches multiple rows at once, and the first one being removed
 				if (
 					!isFirstRowInDrag &&
-					firstRow === grid.totalRowCount - 2 &&
-					firstItem.item.index + grid.totalColumnCount > grid.totalCount - 1
+					firstRow === props.totalRowCount - 2 &&
+					firstItem.item.index + props.totalColumnCount > props.totalCount - 1
 				) {
 					removedColumns.add(column);
 				}
 
 				// Return if first row equals the first/last row of the grid (depending on drag direction)
 				// as there's no items to be selected beyond that point
-				if (!drag.current && (firstRow === 0 || firstRow === grid.totalRowCount - 1)) {
-					return;
+				if (!drag.current && (firstRow === 0 || firstRow === props.totalRowCount - 1)) {
+					continue;
 				}
 
 				// Return if column is already in drag range
 				if (isColumnInDrag && isColumnInDragRange) {
-					return;
+					continue;
 				}
 
 				const viewTop = explorerView.ref.current?.getBoundingClientRect().top ?? 0;
@@ -397,9 +405,9 @@ export const DragSelect = ({ grid, children }: Props) => {
 				const hasEmptySpace =
 					dragDirection.y === 'down' ? dragStart.y < itemTop : dragStart.y > itemBottom;
 
-				if (!hasEmptySpace) return;
+				if (!hasEmptySpace) continue;
 
-				// Get the heigh of the empty drag space between the start of the drag
+				// Get the height of the empty drag space between the start of the drag
 				// and the first visible item
 				const emptySpaceHeight = Math.abs(
 					dragStart.y - (dragDirection.y === 'down' ? itemTop : itemBottom)
@@ -407,8 +415,8 @@ export const DragSelect = ({ grid, children }: Props) => {
 
 				// Check how many items we can fit into the empty space
 				let itemsInEmptySpace =
-					(emptySpaceHeight - (grid.gap.y ?? 0)) /
-					(grid.virtualItemHeight + (grid.gap.y ?? 0));
+					(emptySpaceHeight - (props.gapY ?? 0)) /
+					(props.virtualItemHeight + (props.gapY ?? 0));
 
 				if (itemsInEmptySpace > 1) {
 					itemsInEmptySpace = Math.ceil(itemsInEmptySpace);
@@ -416,15 +424,15 @@ export const DragSelect = ({ grid, children }: Props) => {
 					itemsInEmptySpace = Math.round(itemsInEmptySpace);
 				}
 
-				[...Array(itemsInEmptySpace)].forEach((_, i) => {
+				for (let i = 0; i < itemsInEmptySpace; i++) {
 					i = dragDirection.y === 'down' ? itemsInEmptySpace - i : i + 1;
 
 					const explorerItemIndex =
 						firstItem.item.index +
-						(dragDirection.y === 'down' ? -i : i) * grid.columnCount;
+						(dragDirection.y === 'down' ? -i : i) * props.columnCount;
 
-					const item = grid.getItem(explorerItemIndex);
-					if (!item?.data) return;
+					const item = props.getItem(explorerItemIndex);
+					if (!item?.data) continue;
 
 					// Set start row if not already set
 					if (!drag.current && i === itemsInEmptySpace - 1) {
@@ -438,13 +446,13 @@ export const DragSelect = ({ grid, children }: Props) => {
 							explorer.addSelectedItem(item.data);
 						}
 
-						return;
+						continue;
 					}
 
 					if (!isItemInDrag) explorer.removeSelectedItem(item.data);
 					else explorer.addSelectedItem(item.data);
-				});
-			});
+				}
+			}
 
 			const addedColumnsArray = [...addedColumns];
 			const removedColumnsArray = [...removedColumns];

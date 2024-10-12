@@ -39,7 +39,7 @@ export function useUnsafeStreamedQuery<
 		...opts,
 		queryKey: keyAndInput,
 		queryFn: ({ signal }) =>
-			new Promise((resolve) => {
+			new Promise<TData[]>((resolve) => {
 				permits += 1;
 
 				try {
@@ -49,7 +49,7 @@ export function useUnsafeStreamedQuery<
 							if (item === null || item === undefined) return;
 
 							if (typeof item === 'object' && '__stream_complete' in item) {
-								resolve(data.current as any);
+								resolve(data.current);
 								return;
 							}
 
