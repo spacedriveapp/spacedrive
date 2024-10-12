@@ -68,7 +68,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							};
 
 							tokio::select! {
-								_ = cloud_sync_state.notifier.notified() => {},
+								_ = cloud_sync_state.state_change_notifier.notified() => {},
 								_ = sync.active_notify.notified() => {}
 							}
 						}

@@ -2062,6 +2062,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core 0.9.10",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3699,7 +3713,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68a7f542ee6b35af73b06abc0dad1c1bae89964e4e253bc4b587b91c9637867b"
 dependencies = [
  "cfg-if",
- "dashmap",
+ "dashmap 5.5.3",
  "futures",
  "futures-timer",
  "no-std-compat 0.4.1",
@@ -6235,7 +6249,7 @@ checksum = "c325dfab65f261f386debee8b0969da215b3fa0037e74c8a1234db7ba986d803"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-utils",
- "dashmap",
+ "dashmap 5.5.3",
  "skeptic",
  "smallvec",
  "tagptr",
@@ -9758,7 +9772,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=bd9f55f288#bd9f55f28817df4fff9e97b849df28c855c05378"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=fb41a3c4eb#fb41a3c4eb9a35d252472949694e99ac902d9a26"
 dependencies = [
  "argon2",
  "async-stream",
@@ -9881,6 +9895,7 @@ dependencies = [
  "base64 0.22.1",
  "blake3",
  "chrono",
+ "dashmap 6.1.0",
  "flume",
  "futures",
  "futures-concurrency",
