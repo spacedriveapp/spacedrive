@@ -214,7 +214,7 @@ export type CloudSyncGroup = { pub_id: CloudSyncGroupPubId; latest_key_hash: Clo
 
 export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; created_at: string; updated_at: string }
 
-export type CloudSyncGroupGetRequestKind = "WithDevices" | "FullData"
+export type CloudSyncGroupGetRequestKind = "WithDevices" | "DevicesConnectionIds" | "FullData"
 
 export type CloudSyncGroupGetResponseKind = { kind: "WithDevices"; data: CloudSyncGroupWithDevices } | { kind: "FullData"; data: CloudSyncGroup }
 
