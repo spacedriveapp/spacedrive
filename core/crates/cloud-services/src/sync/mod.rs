@@ -99,7 +99,7 @@ pub async fn declare_actors(
 		Receiver::new(
 			data_dir,
 			sync_group_pub_id,
-			cloud_services,
+			cloud_services.clone(),
 			sync.clone(),
 			Arc::clone(&actors_state.receiver_and_ingester_notifiers),
 			Arc::clone(&actors_state.receive_active),
@@ -122,6 +122,15 @@ pub async fn declare_actors(
 			receiver.into_actor(),
 			ingester.into_actor(),
 		])
+		.await;
+
+	cloud_services
+		.cloud_p2p()
+		.await?
+		.register_sync_messages_receiver_notifier(
+			sync_group_pub_id,
+			Arc::clone(&actors_state.receiver_and_ingester_notifiers),
+		)
 		.await;
 
 	Ok(Arc::clone(&actors_state.receiver_and_ingester_notifiers))
