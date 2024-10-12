@@ -462,6 +462,7 @@
   "log_out": "Log out",
   "logged_in_as": "Logged in as {{email}}",
   "logging_in": "Logging in...",
+  "login": "Login",
   "logout": "Logout",
   "manage_library": "Manage Library",
   "managed": "Managed",

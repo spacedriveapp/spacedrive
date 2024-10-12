@@ -423,6 +423,7 @@
   "log_out": "Disconnettiti",
   "logged_in_as": "Accesso effettuato come {{email}}",
   "logging_in": "Entrando...",
+  "login": "Login",
   "logout": "Esci",
   "manage_library": "Gestisci la Libreria",
   "managed": "Gestito",

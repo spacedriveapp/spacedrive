@@ -414,6 +414,7 @@
   "log_out": "退出登录",
   "logged_in_as": "已登录为 {{email}}",
   "logging_in": "正在登录...",
+  "login": "登录",
   "logout": "退出登录",
   "manage_library": "管理库",
   "managed": "已管理",

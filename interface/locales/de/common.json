@@ -421,6 +421,7 @@
   "log_out": "Abmelden",
   "logged_in_as": "Angemeldet als {{email}}",
   "logging_in": "Einloggen...",
+  "login": "Login",
   "logout": "Abmelden",
   "manage_library": "Bibliothek verwalten",
   "managed": "Verwaltet",

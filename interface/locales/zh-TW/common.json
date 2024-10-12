@@ -414,6 +414,7 @@
   "log_out": "登出",
   "logged_in_as": "已登入為{{email}}",
   "logging_in": "在登入...",
+  "login": "登入",
   "logout": "登出",
   "manage_library": "管理圖書館",
   "managed": "已管理",
