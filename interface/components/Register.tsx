@@ -112,6 +112,7 @@ const Register = () => {
 								className="w-full"
 								error={Boolean(form.formState.errors.email?.message)}
 								type="email"
+								size="md"
 								disabled={form.formState.isSubmitting}
 							/>
 						)}
@@ -135,6 +136,7 @@ const Register = () => {
 									placeholder="Password"
 									error={Boolean(form.formState.errors.password?.message)}
 									className="w-full"
+									size="md"
 									disabled={form.formState.isSubmitting}
 									type={showPassword ? 'text' : 'password'}
 									onPaste={(e) => {
@@ -162,6 +164,7 @@ const Register = () => {
 								<Input
 									{...field}
 									placeholder="Confirm password"
+									size="md"
 									error={Boolean(form.formState.errors.confirmPassword?.message)}
 									className="w-full"
 									disabled={form.formState.isSubmitting}
@@ -184,6 +187,7 @@ const Register = () => {
 			<Button
 				type="submit"
 				className={clsx('mx-auto mt-3 w-full border-none')}
+				size="md"
 				variant="accent"
 				onClick={form.handleSubmit(async (data) => {
 					console.log(data);

@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { getAuthorisationURLWithQueryParamsAndSetState } from 'supertokens-web-js/recipe/thirdparty';
-import { Card, toast } from '@sd/ui';
+import { Card, Divider, toast } from '@sd/ui';
 import { Icon as Logo } from '~/components';
 import { useIsDark } from '~/hooks';
 
@@ -138,6 +138,9 @@ export const Authentication = ({
 				) : (
 					<Register />
 				)}
+				<div className="text-center text-sm text-ink-faint">
+					Social auth and SSO (Single Sign On) available soon!
+				</div>
 				{/* Optionally, uncomment the social login block when ready */}
 				{/* <div className="flex items-center w-full gap-3 my-4">
                     <Divider />
