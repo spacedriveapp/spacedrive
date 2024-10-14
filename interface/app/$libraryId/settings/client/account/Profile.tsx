@@ -84,23 +84,32 @@ const Profile = ({
 			</div>
 
 			{/* Debug Buttons */}
-			<h2 className="mx-auto mt-10 text-sm">DEBUG</h2>
-			<Button
-				className="mt-4 w-full"
-				onClick={async () => {
-					cloudBootstrap.mutate([accessToken.trim(), refreshToken.trim()]);
-				}}
-			>
-				Start Cloud Bootstrap
-			</Button>
-			<Button
-				className="mt-4 w-full"
-				onClick={async () => {
-					addLibraryToCloud.mutate(null);
-				}}
-			>
-				Add Library to Cloud
-			</Button>
+			<div className="flex gap-2">
+				<Button
+					variant="gray"
+					onClick={async () => {
+						cloudBootstrap.mutate([accessToken.trim(), refreshToken.trim()]);
+					}}
+				>
+					Start Cloud Bootstrap
+				</Button>
+				<Button
+					variant="gray"
+					onClick={async () => {
+						addLibraryToCloud.mutate(null);
+					}}
+				>
+					Add Library to Cloud
+				</Button>
+				<Button
+					variant="gray"
+					onClick={async () => {
+						createSyncGroup.mutate(null);
+					}}
+				>
+					Create Sync Group
+				</Button>
+			</div>
 
 			{/* Automatically list sync groups and provide a join button */}
 			<div className="mt-5 flex flex-col gap-3">
