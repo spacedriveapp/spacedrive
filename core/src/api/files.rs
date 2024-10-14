@@ -1,27 +1,29 @@
 use crate::{
 	api::utils::library,
+	context::NodeContext,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
-	object::{
-		fs::{
-			error::FileSystemJobsError, find_available_filename_for_duplicate,
-			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
-		},
-		// media::{exif_media_data_from_prisma_data, ffmpeg_data_from_prisma_data},
+	object::fs::{
+		error::FileSystemJobsError, find_available_filename_for_duplicate,
+		old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
+		old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
 	},
 	old_job::OldJob,
 };
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_heavy_lifting::media_processor::{exif_media_data, ffmpeg_media_data};
+use sd_core_heavy_lifting::{
+	media_processor::{exif_media_data, ffmpeg_media_data},
+	JobEnqueuer,
+};
 use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 	object_with_media_data,
 };
 
 use sd_file_ext::kind::ObjectKind;
+use sd_file_track::deleter::{DeleterJob, MoveToTrashJob, RemoveJob};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
@@ -434,78 +436,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("deleteFiles", {
 			R.with2(library())
 				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
-					match args.file_path_ids.len() {
-						0 => Ok(()),
-						1 => {
-							let (maybe_location, maybe_file_path) = library
-								.db
-								._batch((
-									library
-										.db
-										.location()
-										.find_unique(location::id::equals(args.location_id))
-										.select(location::select!({ path })),
-									library
-										.db
-										.file_path()
-										.find_unique(file_path::id::equals(args.file_path_ids[0]))
-										.select(file_path_to_isolate::select()),
-								))
-								.await?;
-
-							let location_path = maybe_location
-								.ok_or(LocationError::IdNotFound(args.location_id))?
-								.path
-								.ok_or(LocationError::MissingPath(args.location_id))?;
-
-							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
-								FilePathError::IdNotFound(args.file_path_ids[0]),
-							))?;
-
-							let full_path = Path::new(&location_path).join(
-								IsolatedFilePathData::try_from(&file_path)
-									.map_err(LocationError::MissingField)?,
-							);
-
-							match if maybe_missing(file_path.is_dir, "file_path.is_dir")
-								.map_err(LocationError::MissingField)?
-							{
-								fs::remove_dir_all(&full_path).await
-							} else {
-								fs::remove_file(&full_path).await
-							} {
-								Ok(()) => Ok(()),
-								Err(e) if e.kind() == io::ErrorKind::NotFound => {
-									warn!(
-										path = %full_path.display(),
-										"File not found in the file system, will remove from database;",
-									);
-									library
-										.db
-										.file_path()
-										.delete(file_path::id::equals(args.file_path_ids[0]))
-										.exec()
-										.await
-										.map_err(LocationError::from)?;
-
-									Ok(())
-								}
-								Err(e) => {
-									Err(LocationError::from(FileIOError::from((full_path, e)))
-										.into())
-								}
-							}
-						}
-						_ => OldJob::new(args)
-							.spawn(&node, &library)
-							.await
-							.map_err(Into::into),
-					}
+					// TODO(matheus-consoli): remove OldFileCopierJobInit
+					let job = RemoveJob::new(args.location_id, args.file_path_ids);
+					let ctx = NodeContext {
+						node: Arc::clone(&node),
+						library,
+					};
+					node.job_system
+						.dispatch(job, args.location_id, ctx)
+						.await
+						.map(|_| ())
+						.map_err(Into::into)
 				})
 		})
 		.procedure("moveToTrash", {
 			R.with2(library())
 				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+					// TODO(matheus-consoli): remove OldFileDeleterJobInit and use a new struct
 					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
 						return Err(rspc::Error::new(
 							ErrorCode::MethodNotSupported,
@@ -513,59 +460,21 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					}
 
-					match args.file_path_ids.len() {
-						0 => Ok(()),
-						1 => {
-							let (maybe_location, maybe_file_path) = library
-								.db
-								._batch((
-									library
-										.db
-										.location()
-										.find_unique(location::id::equals(args.location_id))
-										.select(location::select!({ path })),
-									library
-										.db
-										.file_path()
-										.find_unique(file_path::id::equals(args.file_path_ids[0]))
-										.select(file_path_to_isolate::select()),
-								))
-								.await?;
+					let ctx = NodeContext {
+						node: Arc::clone(&node),
+						library,
+					};
 
-							let location_path = maybe_location
-								.ok_or(LocationError::IdNotFound(args.location_id))?
-								.path
-								.ok_or(LocationError::MissingPath(args.location_id))?;
-
-							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
-								FilePathError::IdNotFound(args.file_path_ids[0]),
-							))?;
-
-							let full_path = Path::new(&location_path).join(
-								IsolatedFilePathData::try_from(&file_path)
-									.map_err(LocationError::MissingField)?,
-							);
-
-							#[cfg(not(any(target_os = "ios", target_os = "android")))]
-							trash::delete(&full_path).map_err(|e| {
-								FileIOError::from((
-									full_path,
-									match e {
-										#[cfg(all(unix, not(target_os = "macos")))]
-										trash::Error::FileSystem { path: _, source: e } => e,
-										_ => io::Error::other(e),
-									},
-									"Failed to delete file",
-								))
-							})?;
-
-							Ok(())
-						}
-						_ => OldJob::new(args)
-							.spawn(&node, &library)
-							.await
-							.map_err(Into::into),
-					}
+					// use JobEnqueuer to enqueue_next the quick scan
+					let job =
+						JobEnqueuer::new(MoveToTrashJob::new(args.location_id, args.file_path_ids))
+        // .enqueue_next(QuickScan)
+						;
+					node.job_system
+						.dispatch(job, args.location_id, ctx)
+						.await
+						.map(|_| ())
+						.map_err(Into::into)
 				})
 		})
 		.procedure("convertImage", {

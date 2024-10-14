@@ -60,6 +60,8 @@ pub enum Error {
 	FileIdentifier(#[from] file_identifier::Error),
 	#[error(transparent)]
 	MediaProcessor(#[from] media_processor::Error),
+	#[error("TODO")] //  TODO(matheus-consoli): error handling
+	Deleter(String),
 
 	#[error(transparent)]
 	TaskSystem(#[from] TaskSystemError),
@@ -78,6 +80,7 @@ impl From<Error> for rspc::Error {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
 			Error::JobSystem(e) => e.into(),
+			Error::Deleter(_) => todo!(),
 		}
 	}
 }
@@ -92,6 +95,8 @@ pub enum NonCriticalError {
 	FileIdentifier(#[from] file_identifier::NonCriticalFileIdentifierError),
 	#[error(transparent)]
 	MediaProcessor(#[from] media_processor::NonCriticalMediaProcessorError),
+	#[error("TODO")]
+	Deleter(String),
 }
 
 #[repr(i32)]

@@ -40,6 +40,9 @@ pub enum Command {
 	Shutdown,
 }
 
+/// The central unit that orchestrates all the Jobs in the system
+///
+/// It is responsible for <...> TODO(matheus-consoli): for what?
 pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	msgs_tx: chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,
@@ -48,6 +51,7 @@ pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, JobCtx> {
+	/// Spawn the job system
 	pub fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
 		data_directory: impl AsRef<Path>,
@@ -62,6 +66,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 			let store_jobs_file = Arc::clone(&store_jobs_file);
 			async move {
 				trace!("Job System Runner starting...");
+				// keep trying to spawn the job system (tokio) task until succeed
 				while let Err(e) = spawn({
 					let store_jobs_file = Arc::clone(&store_jobs_file);
 					let base_dispatcher = base_dispatcher.clone();

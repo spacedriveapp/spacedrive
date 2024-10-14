@@ -408,7 +408,6 @@ fn initialize_resumable_job(
 			OldObjectValidatorJobInit,
 			OldFileCutterJobInit,
 			OldFileCopierJobInit,
-			OldFileDeleterJobInit,
 			OldFileEraserJobInit,
 		]
 	)

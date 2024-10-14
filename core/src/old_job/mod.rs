@@ -374,7 +374,7 @@ impl<Step, RunMetadata: JobRunMetadata> From<Option<()>> for JobStepOutput<Step,
 		Self {
 			maybe_more_steps: None,
 			maybe_more_metadata: None,
-			errors: Vec::new().into(),
+			errors: Default::default(),
 		}
 	}
 }

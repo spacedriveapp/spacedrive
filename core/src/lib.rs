@@ -251,6 +251,7 @@ impl Node {
 					sd_core={level},\
 					sd_p2p={level},\
 					sd_core_heavy_lifting={level},\
+					sd_file_track={level},\
 					sd_task_system={level},\
 					sd_ai={level}"
 				),
