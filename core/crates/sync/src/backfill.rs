@@ -107,12 +107,10 @@ async fn backfill_storage_statistics(
 	sync: &SyncManager,
 	device_id: device::id::Type,
 ) -> Result<(), Error> {
-	use storage_statistics::{available_capacity, device, device_id, include, total_capacity};
-
 	let Some(stats) = db
 		.storage_statistics()
-		.find_first(vec![device_id::equals(Some(device_id))])
-		.include(include!({device: select { pub_id }}))
+		.find_first(vec![storage_statistics::device_id::equals(Some(device_id))])
+		.include(storage_statistics::include!({device: select { pub_id }}))
 		.exec()
 		.await?
 	else {
@@ -127,8 +125,11 @@ async fn backfill_storage_statistics(
 			},
 			chain_optional_iter(
 				[
-					sync_entry!(stats.total_capacity, total_capacity),
-					sync_entry!(stats.available_capacity, available_capacity),
+					sync_entry!(stats.total_capacity, storage_statistics::total_capacity),
+					sync_entry!(
+						stats.available_capacity,
+						storage_statistics::available_capacity
+					),
 				],
 				[option_sync_entry!(
 					stats.device.map(|device| {
@@ -136,7 +137,7 @@ async fn backfill_storage_statistics(
 							pub_id: device.pub_id,
 						}
 					}),
-					device
+					storage_statistics::device
 				)],
 			),
 		))?])
@@ -368,18 +369,16 @@ async fn paginate_exif_datas(
 	sync: &SyncManager,
 	device_id: device::id::Type,
 ) -> Result<(), Error> {
-	use exif_data::{
-		artist, camera_data, copyright, description, device_id, epoch_time, exif_version, id,
-		include, media_date, media_location, resolution,
-	};
-
 	paginate(
 		|cursor| {
 			db.exif_data()
-				.find_many(vec![id::gt(cursor), device_id::equals(Some(device_id))])
-				.order_by(id::order(SortOrder::Asc))
+				.find_many(vec![
+					exif_data::id::gt(cursor),
+					exif_data::device_id::equals(Some(device_id)),
+				])
+				.order_by(exif_data::id::order(SortOrder::Asc))
 				.take(1000)
-				.include(include!({
+				.include(exif_data::include!({
 					object: select { pub_id }
 					device: select { pub_id }
 				}))
@@ -399,22 +398,22 @@ async fn paginate_exif_datas(
 						chain_optional_iter(
 							[],
 							[
-								option_sync_entry!(ed.resolution, resolution),
-								option_sync_entry!(ed.media_date, media_date),
-								option_sync_entry!(ed.media_location, media_location),
-								option_sync_entry!(ed.camera_data, camera_data),
-								option_sync_entry!(ed.artist, artist),
-								option_sync_entry!(ed.description, description),
-								option_sync_entry!(ed.copyright, copyright),
-								option_sync_entry!(ed.exif_version, exif_version),
-								option_sync_entry!(ed.epoch_time, epoch_time),
+								option_sync_entry!(ed.resolution, exif_data::resolution),
+								option_sync_entry!(ed.media_date, exif_data::media_date),
+								option_sync_entry!(ed.media_location, exif_data::media_location),
+								option_sync_entry!(ed.camera_data, exif_data::camera_data),
+								option_sync_entry!(ed.artist, exif_data::artist),
+								option_sync_entry!(ed.description, exif_data::description),
+								option_sync_entry!(ed.copyright, exif_data::copyright),
+								option_sync_entry!(ed.exif_version, exif_data::exif_version),
+								option_sync_entry!(ed.epoch_time, exif_data::epoch_time),
 								option_sync_entry!(
 									ed.device.map(|device| {
 										prisma_sync::device::SyncId {
 											pub_id: device.pub_id,
 										}
 									}),
-									device
+									exif_data::device
 								),
 							],
 						),
