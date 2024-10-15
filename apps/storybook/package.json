@@ -28,7 +28,7 @@
 		"prop-types": "^15.8.1",
 		"rollup-plugin-node-builtins": "^2.1.2",
 		"storybook": "^8.0.1",
-		"tailwindcss": "^3.4.1",
+		"tailwindcss": "^3.4.10",
 		"typescript": "^5.6.2",
 		"vite": "^5.2.0"
 	}
