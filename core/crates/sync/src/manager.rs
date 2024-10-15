@@ -8,6 +8,7 @@ use sd_sync::{
 	CRDTOperation, CompressedCRDTOperationsPerModel, CompressedCRDTOperationsPerModelPerDevice,
 	ModelId, OperationFactory,
 };
+use sd_utils::timestamp_to_datetime;
 
 use std::{
 	collections::BTreeMap,
@@ -23,7 +24,7 @@ use async_stream::stream;
 use futures::Stream;
 use futures_concurrency::future::TryJoin;
 use tokio::sync::{broadcast, Mutex, Notify, RwLock};
-use tracing::warn;
+use tracing::{debug, warn};
 use uhlc::{HLCBuilder, HLC};
 use uuid::Uuid;
 
@@ -319,30 +320,36 @@ impl Manager {
 					.exec()
 					.await
 				{
-					Ok(ops) => {
-						if ops.is_empty() {
-							break;
+					Ok(ops) if ops.is_empty() => break,
+
+					Ok(ops) => match ops
+						.into_iter()
+						.map(from_crdt_ops)
+						.collect::<Result<Vec<_>, _>>()
+					{
+						Ok(ops) => {
+							debug!(
+								start_datetime = ?ops
+									.first()
+									.map(|op| timestamp_to_datetime(op.timestamp)),
+								end_datetime = ?ops
+									.last()
+									.map(|op| timestamp_to_datetime(op.timestamp)),
+								count = ops.len(),
+								"Streaming crdt ops",
+							);
+
+							if let Some(last_op) = ops.last() {
+								current_initial_timestamp = last_op.timestamp;
+							}
+
+							yield Ok(ops);
 						}
 
-						match ops.into_iter().map(from_crdt_ops).collect::<Result<Vec<_>, _>>() {
-							Ok(ops) => {
-								if let Some(last_op) = ops.last() {
-									current_initial_timestamp = last_op.timestamp;
-								}
-
-								yield Ok(ops);
-							},
-							Err(e) => {
-								yield Err(e);
-								break;
-							},
-						}
+						Err(e) => return yield Err(e),
 					}
 
-					Err(e) => {
-						yield Err(e.into());
-						break;
-					}
+					Err(e) => return yield Err(e.into())
 				}
 			}
 		}

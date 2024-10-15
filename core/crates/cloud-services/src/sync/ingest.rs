@@ -4,6 +4,7 @@ use sd_core_sync::{from_cloud_crdt_ops, CompressedCRDTOperationsPerModelPerDevic
 
 use sd_actors::{Actor, Stopper};
 use sd_prisma::prisma::{cloud_crdt_operation, SortOrder};
+use sd_utils::timestamp_to_datetime;
 
 use std::{
 	future::IntoFuture,
@@ -19,7 +20,7 @@ use futures_concurrency::future::Race;
 use tokio::{sync::Notify, time::sleep};
 use tracing::{debug, error};
 
-use super::{timestamp_to_datetime, ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
+use super::{ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
 
 const BATCH_SIZE: i64 = 1000;
 

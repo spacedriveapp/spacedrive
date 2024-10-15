@@ -12,8 +12,10 @@ rust-version.workspace = true
 sd-prisma = { path = "../prisma" }
 
 # Workspace dependencies
+chrono             = { workspace = true }
 prisma-client-rust = { workspace = true }
 rspc               = { workspace = true, features = ["unstable"] }
 thiserror          = { workspace = true }
 tracing            = { workspace = true }
+uhlc               = { workspace = true }
 uuid               = { workspace = true }

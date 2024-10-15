@@ -322,7 +322,7 @@ pub async fn reverse_update_directories_sizes(
 	)
 	.await?;
 
-	let to_sync_and_update = ancestors
+	let (sync_ops, update_queries) = ancestors
 		.into_values()
 		.filter_map(|materialized_path| {
 			if let Some((pub_id, size)) =
@@ -350,7 +350,9 @@ pub async fn reverse_update_directories_sizes(
 		})
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-	sync.write_ops(db, to_sync_and_update).await?;
+	if !sync_ops.is_empty() && !update_queries.is_empty() {
+		sync.write_ops(db, (sync_ops, update_queries)).await?;
+	}
 
 	Ok(())
 }

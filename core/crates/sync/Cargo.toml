@@ -19,6 +19,7 @@ sd-utils  = { path = "../../../crates/utils" }
 # Workspace dependencies
 async-channel       = { workspace = true }
 async-stream        = { workspace = true }
+chrono              = { workspace = true }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }

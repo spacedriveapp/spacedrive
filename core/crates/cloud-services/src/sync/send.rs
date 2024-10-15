@@ -14,6 +14,7 @@ use sd_crypto::{
 	primitives::EncryptedBlock,
 	CryptoRng, SeedableRng,
 };
+use sd_utils::{datetime_to_timestamp, timestamp_to_datetime};
 
 use std::{
 	future::IntoFuture,
@@ -40,10 +41,12 @@ use tokio::{
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use super::{datetime_to_timestamp, timestamp_to_datetime, SyncActors, ONE_MINUTE};
+use super::{SyncActors, ONE_MINUTE};
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 const THIRTY_SECONDS: Duration = Duration::from_secs(30);
+
+const MESSAGES_COLLECTION_SIZE: u32 = 100_000;
 
 enum RaceNotifiedOrStopped {
 	Notified,
@@ -173,7 +176,7 @@ impl Sender {
 
 		let mut crdt_ops_stream = pin!(self.sync.stream_device_ops(
 			&self.sync.device_pub_id,
-			1000,
+			MESSAGES_COLLECTION_SIZE,
 			current_latest_timestamp
 		));
 

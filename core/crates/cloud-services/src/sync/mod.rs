@@ -1,7 +1,6 @@
 use crate::{CloudServices, Error};
 
-use futures_concurrency::future::TryJoin;
-use sd_core_sync::{SyncManager, NTP64};
+use sd_core_sync::SyncManager;
 
 use sd_actors::{ActorsCollection, IntoActor};
 use sd_cloud_schema::sync::groups;
@@ -11,10 +10,10 @@ use std::{
 	fmt,
 	path::Path,
 	sync::{atomic::AtomicBool, Arc},
-	time::{Duration, SystemTime, UNIX_EPOCH},
+	time::Duration,
 };
 
-use chrono::{DateTime, Utc};
+use futures_concurrency::future::TryJoin;
 use tokio::sync::Notify;
 
 mod ingest;
@@ -134,16 +133,4 @@ pub async fn declare_actors(
 		.await;
 
 	Ok(Arc::clone(&actors_state.receiver_and_ingester_notifiers))
-}
-
-fn datetime_to_timestamp(latest_time: DateTime<Utc>) -> NTP64 {
-	NTP64::from(
-		SystemTime::from(latest_time)
-			.duration_since(UNIX_EPOCH)
-			.expect("hardcoded earlier time, nothing is earlier than UNIX_EPOCH"),
-	)
-}
-
-fn timestamp_to_datetime(timestamp: NTP64) -> DateTime<Utc> {
-	DateTime::from(timestamp.to_system_time())
 }
