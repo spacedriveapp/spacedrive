@@ -22,7 +22,7 @@ use std::{
 
 use futures_concurrency::future::Join;
 use tokio::{fs, io, sync::broadcast, sync::RwLock};
-use tracing::warn;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use super::{LibraryConfig, LibraryManagerError};
@@ -128,6 +128,8 @@ impl Library {
 		)
 			.join()
 			.await;
+
+		debug!(library_id = %self.id, "Started cloud sync actors");
 
 		Ok(())
 	}
