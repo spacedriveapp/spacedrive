@@ -1,6 +1,14 @@
 import { Envelope } from '@phosphor-icons/react';
-import { Dispatch, SetStateAction, useEffect } from 'react';
-import { useBridgeMutation, useBridgeQuery, useLibraryMutation } from '@sd/client';
+import clsx from 'clsx';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
+import {
+	SyncStatus,
+	useBridgeMutation,
+	useBridgeQuery,
+	useBridgeSubscription,
+	useLibraryMutation,
+	useLibrarySubscription
+} from '@sd/client';
 import { Button, Card, tw } from '@sd/ui';
 import StatCard from '~/app/$libraryId/overview/StatCard';
 import { TruncatedText } from '~/components';
@@ -30,6 +38,13 @@ const Profile = ({
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const devices = useBridgeQuery(['cloud.devices.list']);
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
+	const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+	useLibrarySubscription(['sync.active'], {
+		onData: (data) => {
+			console.log('sync activity', data);
+			setSyncStatus(data);
+		}
+	});
 	const listLibraries = useBridgeQuery(['cloud.libraries.list', true]);
 	const createSyncGroup = useLibraryMutation('cloud.syncGroups.create');
 	const listSyncGroups = useBridgeQuery(['cloud.syncGroups.list']);
@@ -70,6 +85,26 @@ const Profile = ({
 						</div>
 					</div>
 				</Card>
+			</div>
+
+			{/* Sync activity */}
+			<div className="mt-5 flex flex-col">
+				<h2 className="text-md mb-2 font-semibold">Sync Activity</h2>
+				<div className="flex flex-row gap-2">
+					{Object.keys(syncStatus ?? {}).map((status, index) => (
+						<Card key={index} className="flex w-full items-center p-4">
+							<div
+								className={clsx(
+									'mr-2 size-[15px] rounded-full bg-app-box',
+									syncStatus?.[status as keyof SyncStatus]
+										? 'bg-accent'
+										: 'bg-app-input'
+								)}
+							/>
+							<h3 className="text-sm font-semibold">{status}</h3>
+						</Card>
+					))}
+				</div>
 			</div>
 
 			{/* Automatically list libraries */}
