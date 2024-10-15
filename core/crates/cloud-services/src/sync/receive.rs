@@ -22,7 +22,6 @@ use sd_prisma::prisma::PrismaClient;
 use std::{
 	collections::{hash_map::Entry, HashMap},
 	future::IntoFuture,
-	num::NonZero,
 	path::Path,
 	pin::Pin,
 	sync::{
@@ -34,7 +33,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use futures::{FutureExt, StreamExt, TryStreamExt};
-use futures_concurrency::future::{Join, Race, TryJoin};
+use futures_concurrency::future::{Race, TryJoin};
 use quic_rpc::transport::quinn::QuinnConnection;
 use reqwest::Response;
 use reqwest_middleware::ClientWithMiddleware;
@@ -42,12 +41,11 @@ use serde::{Deserialize, Serialize};
 use tokio::{
 	fs,
 	io::{self, AsyncRead, AsyncReadExt, ReadBuf},
-	spawn,
-	sync::{Notify, Semaphore},
+	sync::Notify,
 	time::sleep,
 };
 use tokio_util::io::StreamReader;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, instrument, warn};
 use uuid::Uuid;
 
 use super::{ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
@@ -62,7 +60,6 @@ pub struct Receiver {
 	device_pub_id: devices::PubId,
 	cloud_services: Arc<CloudServices>,
 	cloud_client: Client<QuinnConnection<Service>>,
-	semaphore: Arc<Semaphore>,
 	key_manager: Arc<KeyManager>,
 	sync: SyncManager,
 	notifiers: Arc<ReceiveAndIngestNotifiers>,
@@ -137,11 +134,6 @@ impl Receiver {
 			device_pub_id: devices::PubId(Uuid::from(&sync.device_pub_id)),
 			cloud_services,
 			cloud_client,
-			semaphore: Arc::new(Semaphore::new(
-				std::thread::available_parallelism()
-					.map(NonZero::get)
-					.unwrap_or(1),
-			)),
 			key_manager,
 			sync,
 			notifiers,
@@ -179,8 +171,9 @@ impl Receiver {
 			}
 
 			self.handle_new_messages(new_messages).await?;
-			self.notifiers.notify_ingester();
 		}
+
+		debug!("Finished sync messages receiver actor iteration");
 
 		self.keeper.save().await
 	}
@@ -189,35 +182,36 @@ impl Receiver {
 		&mut self,
 		new_messages: Vec<MessagesCollection>,
 	) -> Result<(), Error> {
-		let handles = new_messages
-			.into_iter()
-			.map(|message| {
-				let sync_group_pub_id = self.sync_group_pub_id;
-				let semaphore = Arc::clone(&self.semaphore);
-				let key_manager = Arc::clone(&self.key_manager);
-				let sync = self.sync.clone();
-				let http_client = self.cloud_services.http_client().clone();
+		debug!(
+			new_messages_collections_count = new_messages.len(),
+			start_time = ?new_messages.first().map(|c| c.start_time),
+			end_time = ?new_messages.first().map(|c| c.end_time),
+			"Handling new sync messages collections",
+		);
 
-				async move {
-					spawn(handle_single_message(
-						sync_group_pub_id,
-						message,
-						semaphore,
-						key_manager,
-						sync,
-						http_client,
-					))
-					.await
-				}
-			})
-			.collect::<Vec<_>>();
+		for message in new_messages.into_iter().filter(|message| {
+			if message.original_device_pub_id == self.device_pub_id {
+				warn!("Received sync message from the current device, need to check backend, this is a bug!");
+				false
+			} else {
+				true
+			}
+		}) {
+			debug!(
+				new_messages_count = message.operations_count,
+				start_time = ?message.start_time,
+				end_time = ?message.end_time,
+				"Handling new sync messages",
+			);
 
-		for res in handles.join().await {
-			let Ok(res) = res else {
-				return Err(Error::SyncMessagesDownloadAndDecryptTaskPanicked);
-			};
-
-			let (device_pub_id, timestamp) = res?;
+			let (device_pub_id, timestamp) = handle_single_message(
+				self.sync_group_pub_id,
+				message,
+				&self.key_manager,
+				&self.sync,
+				self.cloud_services.http_client(),
+			)
+			.await?;
 
 			match self.keeper.timestamps.entry(device_pub_id) {
 				Entry::Occupied(mut entry) => {
@@ -225,10 +219,16 @@ impl Receiver {
 						*entry.get_mut() = timestamp;
 					}
 				}
+
 				Entry::Vacant(entry) => {
 					entry.insert(timestamp);
 				}
 			}
+
+			// To ingest after each sync message collection is received, we MUST download and
+			// store the messages SEQUENTIALLY, otherwise we might ingest messages out of order
+			// due to parallel downloads
+			self.notifiers.notify_ingester();
 		}
 
 		Ok(())
@@ -249,20 +249,14 @@ async fn handle_single_message(
 		signed_download_link,
 		..
 	}: MessagesCollection,
-	semaphore: Arc<Semaphore>,
-	key_manager: Arc<KeyManager>,
-	sync: SyncManager,
-	http_client: ClientWithMiddleware,
+	key_manager: &KeyManager,
+	sync: &SyncManager,
+	http_client: &ClientWithMiddleware,
 ) -> Result<(devices::PubId, DateTime<Utc>), Error> {
 	// FIXME(@fogodev): If we don't have the key hash, we need to fetch it from another device in the group if possible
 	let Some(secret_key) = key_manager.get_key(sync_group_pub_id, &key_hash).await else {
 		return Err(Error::MissingKeyHash);
 	};
-
-	let _permit = semaphore
-		.acquire()
-		.await
-		.expect("sync messages receiver semaphore never closes");
 
 	let response = http_client
 		.get(signed_download_link)

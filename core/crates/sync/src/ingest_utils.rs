@@ -171,7 +171,8 @@ async fn handle_crdt_updates(
 	}
 
 	db._transaction()
-		.with_timeout(30 * 1000)
+		.with_timeout(30 * 10000)
+		.with_max_wait(30 * 10000)
 		.run(|db| async move {
 			// fake operation to batch them all at once
 			ModelSyncData::from_op(CRDTOperation {
@@ -251,7 +252,8 @@ async fn handle_crdt_create_and_updates(
 	}
 
 	db._transaction()
-		.with_timeout(30 * 1000)
+		.with_timeout(30 * 10000)
+		.with_max_wait(30 * 10000)
 		.run(|db| async move {
 			// fake a create with a bunch of data rather than individual insert
 			ModelSyncData::from_op(CRDTOperation {
@@ -309,7 +311,8 @@ async fn handle_crdt_deletion(
 	};
 
 	db._transaction()
-		.with_timeout(30 * 1000)
+		.with_timeout(30 * 10000)
+		.with_max_wait(30 * 10000)
 		.run(|db| async move {
 			ModelSyncData::from_op(op.clone())
 				.ok_or(Error::InvalidModelId(model))?

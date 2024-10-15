@@ -10284,6 +10284,7 @@ version = "0.0.0"
 dependencies = [
  "async-channel",
  "async-stream",
+ "chrono",
  "futures",
  "futures-concurrency",
  "prisma-client-rust",
@@ -10636,11 +10637,13 @@ dependencies = [
 name = "sd-utils"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "prisma-client-rust",
  "rspc",
  "sd-prisma",
  "thiserror",
  "tracing",
+ "uhlc",
  "uuid",
 ]
 
