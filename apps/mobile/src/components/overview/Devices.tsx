@@ -117,8 +117,8 @@ const Devices = ({ node, stats }: Props) => {
 								name={device.name}
 								// TODO (Optional): Use Brand Type for Different Android Models/iOS Models using DeviceInfo.getBrand()
 								icon={hardwareModelToIcon(device.hardware_model)}
-								totalSpace={"0"}
-								freeSpace={"0"}
+								totalSpace={'0'}
+								freeSpace={'0'}
 								color="#0362FF"
 								connectionType={'cloud'}
 							/>

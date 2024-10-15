@@ -25,7 +25,7 @@ function Account() {
 				</Button>
 			</div>
 			<hr className="mb-4 mt-2 w-full border-app-line" />
-			<span>{t('logged_in_as', "TODO")}</span>
+			<span>{t('logged_in_as', 'TODO')}</span>
 		</div>
 	);
 }
