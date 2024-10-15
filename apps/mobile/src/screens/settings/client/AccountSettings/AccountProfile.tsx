@@ -2,11 +2,17 @@ import { useNavigation } from '@react-navigation/native';
 import { Envelope } from 'phosphor-react-native';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { useBridgeMutation, useBridgeQuery, useLibraryMutation } from '@sd/client';
+import {
+	SyncStatus,
+	useBridgeMutation,
+	useBridgeQuery,
+	useLibraryMutation,
+	useLibrarySubscription
+} from '@sd/client';
 import Card from '~/components/layout/Card';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { Button } from '~/components/primitive/Button';
-import { tw } from '~/lib/tailwind';
+import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 import { getUserStore, useUserStore } from '~/stores/userStore';
 import { AUTH_SERVER_URL, getTokens } from '~/utils';
@@ -39,6 +45,13 @@ const AccountProfile = () => {
 			setTokens({ accessToken, refreshToken });
 		})();
 	}, []);
+	const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+	useLibrarySubscription(['sync.active'], {
+		onData: (data) => {
+			console.log('sync activity', data);
+			setSyncStatus(data);
+		}
+	});
 
 	async function signOut() {
 		await fetch(`${AUTH_SERVER_URL}/api/auth/signout`, {
@@ -73,6 +86,36 @@ const AccountProfile = () => {
 						</Button>
 					</View>
 				</Card>
+				{/* Sync activity */}
+				<View style={tw`mt-5 flex flex-col`}>
+					<Text style={tw`mb-2 text-md font-semibold`}>Sync Activity</Text>
+					<View style={tw`flex flex-row gap-2`}>
+						{Object.keys(syncStatus ?? {}).map((status, index) => (
+							<Card key={index} style="flex w-full items-center p-4">
+								<View
+									style={twStyle(
+										'mr-2 size-[15px] rounded-full bg-app-box',
+										syncStatus?.[status as keyof SyncStatus]
+											? 'bg-accent'
+											: 'bg-app-input'
+									)}
+								/>
+								<Text style={tw`text-sm font-semibold`}>{status}</Text>
+							</Card>
+						))}
+					</View>
+				</View>
+
+				{/* Automatically list libraries */}
+				<View style={tw`mt-5 flex flex-col gap-3`}>
+					<Text style={tw`text-md font-semibold text-white`}>Cloud Libraries</Text>
+					{listLibraries.data?.map((library) => (
+						<Card key={library.pub_id} style={tw`p-41 w-full`}>
+							<Text style={tw`text-sm font-semibold text-white`}>{library.name}</Text>
+						</Card>
+					)) || <Text style={tw`text-white`}>No libraries found.</Text>}
+				</View>
+
 				{/* Debug buttons */}
 				<Card style={tw`flex gap-2 text-white`}>
 					<Button
@@ -105,7 +148,9 @@ const AccountProfile = () => {
 					<Text style={tw`text-md font-semibold`}>Library Sync Groups</Text>
 					{listSyncGroups.data?.map((group) => (
 						<Card key={group.pub_id} style="w-full p-4">
-							<Text style={tw`text-sm font-semibold text-white`}>{group.library.name}</Text>
+							<Text style={tw`text-sm font-semibold text-white`}>
+								{group.library.name}
+							</Text>
 							<Button
 								style={tw`mt-2`}
 								onPress={async () => {
