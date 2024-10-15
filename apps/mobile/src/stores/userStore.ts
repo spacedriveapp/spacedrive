@@ -1,5 +1,4 @@
-import {proxy, useSnapshot} from 'valtio';
-
+import { proxy, useSnapshot } from 'valtio';
 
 export type User = {
 	id: string;
@@ -12,10 +11,9 @@ const state = {
 	userInfo: undefined as User | undefined
 };
 
-
 const store = proxy({
 	...state
-})
+});
 
 // for reading
 export const useUserStore = () => useSnapshot(store);

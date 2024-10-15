@@ -17,7 +17,9 @@ export const useDeeplinkEventHandler = () => {
 			const searchParamsObj = new URLSearchParams(searchParams);
 			const searchParamsString = searchParamsObj.toString();
 			console.log('Navigating to', {
-				path, searchParamsString, hash
+				path,
+				searchParamsString,
+				hash
 			});
 
 			navigate({ pathname: path, search: searchParamsString, hash });
