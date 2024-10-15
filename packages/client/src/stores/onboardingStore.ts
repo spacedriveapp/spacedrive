@@ -11,7 +11,7 @@ export enum UseCase {
 }
 
 const onboardingStoreDefaults = () => ({
-	unlockedScreens: ['alpha'],
+	unlockedScreens: ['prerelease'],
 	lastActiveScreen: null as string | null,
 	useCases: [] as UseCase[],
 	grantedFullDiskAccess: false,
