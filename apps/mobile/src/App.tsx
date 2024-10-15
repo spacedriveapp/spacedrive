@@ -25,6 +25,7 @@ import {
 	LibraryContextProvider,
 	P2PContextProvider,
 	RspcProvider,
+	useBridgeMutation,
 	useBridgeQuery,
 	useBridgeSubscription,
 	useClientContext,
@@ -132,16 +133,37 @@ function AppContainer() {
 	useInvalidateQuery();
 
 	const { id } = useSnapshot(currentLibraryStore);
+	const userResponse = useBridgeMutation('cloud.userResponse');
+
 	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
 		onData: (d) => {
 			console.log('Received cloud service notification', d);
 			switch (d.kind) {
 				case 'ReceivedJoinSyncGroupRequest':
-					// TODO: Show modal to accept or reject
+					// WARNING: This is a debug solution to accept the device into the sync group. THIS SHOULD NOT MAKE IT TO PRODUCTION
+					userResponse.mutate({
+						kind: 'AcceptDeviceInSyncGroup',
+						data: {
+							ticket: d.data.ticket,
+							accepted: {
+								id: d.data.sync_group.library.pub_id,
+								name: d.data.sync_group.library.name,
+								description: null
+							}
+						}
+					});
+					// TODO: Move the code above into the dialog below (@Rocky43007)
+					// dialogManager.create((dp) => (
+					// 	<RequestAddDialog
+					// 		device_model={'MacBookPro'}
+					// 		device_name={"Arnab's Macbook"}
+					// 		library_name={"Arnab's Library"}
+					// 		{...dp}
+					// 	/>
+					// ));
 					break;
 				default:
-					// TODO: Show notification/toast for other kinds
-					toast.info(`Cloud Service Notification -> ${d.kind}`);
+					toast.info(`Cloud Service Notification: ${d.kind}`);
 					break;
 			}
 		}

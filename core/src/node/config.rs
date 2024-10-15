@@ -197,7 +197,15 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 	type MigrationError = NodeConfigError;
 
 	fn from_latest_version() -> Option<Self> {
+		#[cfg(not(any(target_os = "ios", target_os = "android")))]
 		let mut name = whoami::devicename();
+
+		#[cfg(target_os = "ios")]
+		let mut name = "iOS Device".to_string();
+
+		#[cfg(target_os = "android")]
+		let mut name = "Android Device".to_string();
+
 		name.truncate(255);
 
 		let os = DeviceOS::from_env();
@@ -328,9 +336,25 @@ impl NodeConfig {
 						);
 
 						config.remove("name");
+
+						#[cfg(not(any(target_os = "ios", target_os = "android")))]
 						config.insert(
 							String::from("name"),
 							serde_json::to_value(whoami::devicename())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						#[cfg(target_os = "ios")]
+						config.insert(
+							String::from("name"),
+							serde_json::to_value("iOS Device")
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						#[cfg(target_os = "android")]
+						config.insert(
+							String::from("name"),
+							serde_json::to_value("Android Device")
 								.map_err(VersionManagerError::SerdeJson)?,
 						);
 
