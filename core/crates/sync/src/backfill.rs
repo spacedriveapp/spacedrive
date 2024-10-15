@@ -252,10 +252,6 @@ async fn paginate_locations(
 				.order_by(location::id::order(SortOrder::Asc))
 				.take(1000)
 				.include(location::include!({
-					instance: select {
-						id
-						pub_id
-					}
 					device: select { pub_id }
 				}))
 				.exec()
@@ -289,12 +285,6 @@ async fn paginate_locations(
 								),
 								option_sync_entry!(l.hidden, location::hidden),
 								option_sync_entry!(l.date_created, location::date_created),
-								option_sync_entry!(
-									l.instance.map(|i| {
-										prisma_sync::instance::SyncId { pub_id: i.pub_id }
-									}),
-									location::instance
-								),
 								option_sync_entry!(
 									l.device.map(|device| {
 										prisma_sync::device::SyncId {
