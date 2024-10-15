@@ -27,8 +27,7 @@ export default function DeleteLibraryDialog(props: Props) {
 	const accessToken = useAccessToken();
 	const { data: node } = useBridgeQuery(['nodeState']);
 	const deleteDevice = useBridgeMutation('cloud.devices.delete');
-	const deviceAmount = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]).data
-		?.length;
+	const deviceAmount = useBridgeQuery(['cloud.devices.list']).data?.length;
 
 	const form = useZodForm();
 
@@ -54,12 +53,10 @@ export default function DeleteLibraryDialog(props: Props) {
 				return;
 			}
 
-			await deleteDevice.mutateAsync({
-				access_token: accessToken,
-				pub_id: props.pubId
-			});
+			await deleteDevice.mutateAsync(props.pubId);
 			queryClient.invalidateQueries(['library.list']);
 
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			platform.refreshMenuBar && platform.refreshMenuBar();
 			navigate('/');
 		} catch (e) {
