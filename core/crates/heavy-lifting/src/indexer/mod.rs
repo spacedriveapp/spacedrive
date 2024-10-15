@@ -232,6 +232,10 @@ async fn remove_non_existing_file_paths(
 		})
 		.unzip();
 
+	if sync_params.is_empty() {
+		return Ok(0);
+	}
+
 	sync.write_ops(
 		db,
 		(

@@ -15,7 +15,7 @@ use sd_cloud_schema::{
 use sd_crypto::{CryptoRng, SeedableRng};
 use sd_utils::error::report_error;
 
-use std::pin::pin;
+use std::{pin::pin, sync::atomic::Ordering};
 
 use async_stream::stream;
 use futures::{FutureExt, StreamExt};
@@ -49,6 +49,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(
 				|node, (access_token, refresh_token): (auth::AccessToken, auth::RefreshToken)| async move {
 					use sd_cloud_schema::devices;
+
+					if node.cloud_services.has_bootstrapped.load(Ordering::Acquire) {
+						return Err(rspc::Error::new(
+							rspc::ErrorCode::Conflict,
+							String::from("Already bootstrapped"),
+						));
+					}
 
 					node.cloud_services
 						.token_refresher
@@ -203,6 +210,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.try_join()
 						.await?;
 
+					node.cloud_services
+						.has_bootstrapped
+						.store(true, Ordering::Release);
+
 					Ok(())
 				},
 			)
@@ -226,6 +237,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				node.cloud_services.send_user_response(response).await;
 
 				Ok(())
+			}),
+		)
+		.procedure(
+			"hasBootstrapped",
+			R.query(|node, _: ()| async move {
+				Ok(node.cloud_services.has_bootstrapped.load(Ordering::Relaxed))
 			}),
 		)
 }

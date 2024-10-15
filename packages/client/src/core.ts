@@ -8,6 +8,7 @@ export type Procedures = {
         { key: "cloud.devices.get", input: CloudDevicePubId, result: CloudDevice } | 
         { key: "cloud.devices.get_current_device", input: never, result: CloudDevice } | 
         { key: "cloud.devices.list", input: never, result: CloudDevice[] } | 
+        { key: "cloud.hasBootstrapped", input: never, result: boolean } | 
         { key: "cloud.libraries.get", input: CloudGetLibraryArgs, result: CloudLibrary } | 
         { key: "cloud.libraries.list", input: boolean, result: CloudLibrary[] } | 
         { key: "cloud.locations.list", input: CloudListLocationsArgs, result: CloudLocation[] } | 
