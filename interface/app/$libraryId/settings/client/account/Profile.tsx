@@ -28,7 +28,6 @@ const Profile = ({
 	const { accessToken, refreshToken } = getTokens();
 
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
-	const cloudDeleteDevice = useBridgeMutation('cloud.devices.delete');
 	const devices = useBridgeQuery(['cloud.devices.list']);
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
 	const listLibraries = useBridgeQuery(['cloud.libraries.list', true]);
