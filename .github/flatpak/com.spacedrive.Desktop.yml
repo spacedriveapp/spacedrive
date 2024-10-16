@@ -1,0 +1,73 @@
+id: com.spacedrive.Desktop
+runtime: org.gnome.Platform
+runtime-version: '46'
+sdk: org.gnome.Sdk
+add-extensions:
+  -  org.freedesktop.Platform.ffmpeg-full:
+      version: '23.08'
+      directory: lib/ffmpeg
+      add-ld-path: "."
+      no-autodownload: false
+      autodelete: false
+          
+command: spacedrive
+finish-args:
+  - --env=LD_LIBRARY_PATH=/app/lib/spacedrive:/app/lib/codecs/lib/:/app/lib/
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --allow=bluetooth
+  - --share=ipc
+  - --share=network
+  - --socket=pulseaudio
+  - --socket=cups
+  - --device=dri
+  - --filesystem=host
+  - --filesystem=/mnt
+  - --env=GST_PLUGIN_SYSTEM_PATH=/app/lib/gstreamer-1.0
+          
+modules:
+  - name: xdotool
+    buildsystem: simple
+    sources:
+      - type: git
+        url: 'https://github.com/jordansissel/xdotool.git'
+    depends: glibc
+    build-commands:
+      - make
+      - make install PREFIX=/app/lib/spacedrive
+  - shared-modules/dbus-glib/dbus-glib.json
+  - gstreamer.yml
+  - name: binary
+    buildsystem: simple
+    sources:
+      - type: file
+        path: Spacedrive-linux-x86_64.deb 
+        only-arches: [x86_64]
+      - type: file
+        path: com.spacedrive.Desktop.metainfo.xml
+                  
+    build-commands:
+       - ar -x *.deb
+       - tar -xf data.tar.gz
+       - sed -i 's/Icon=spacedrive/Icon=com.spacedrive.Desktop/' usr/share/applications/spacedrive.desktop
+       - sed -i 's/Exec=sd-desktop/Exec=spacedrive/' usr/share/applications/spacedrive.desktop
+       - mkdir -p /app/lib/spacedrive
+       - mkdir -p /app/share/doc/spacedrive
+       - mkdir -p /app/share/spacedrive/models
+       - mkdir -p /app/share/man/man1/
+       - mkdir -p /app/share/doc/spacedrive
+       - mkdir -p /app/bin
+       - mkdir -p /app/share/spacedrive/models
+       - cp -r /app/lib/spacedrive/lib/*.so* /app/lib/spacedrive
+       - cp -r /app/lib/*.so* /app/lib/spacedrive
+       - cp -r usr/lib/spacedrive/* /app/lib/spacedrive
+       - cp -r usr/bin/* /app/bin
+       - cp -r usr/share/man/man1/* /app/share/man/man1/
+       - install -Dm644 usr/share/icons/hicolor/128x128/apps/spacedrive.png /app/share/icons/hicolor/128x128/apps/com.spacedrive.Desktop.png
+       - install -Dm644 usr/share/icons/hicolor/32x32/apps/spacedrive.png /app/share/icons/hicolor/32x32/apps/com.spacedrive.Desktop.png
+       - install -Dm644 usr/share/icons/hicolor/256x256@2/apps/spacedrive.png /app/share/icons/hicolor/256x256/apps/com.spacedrive.Desktop.png
+       - cp -r usr/share/doc/spacedrive/* /app/share/doc/spacedrive
+       - install -Dm644 usr/share/applications/spacedrive.desktop /app/share/applications/com.spacedrive.Desktop.desktop
+       - cp -r usr/share/spacedrive/models/* /app/share/spacedrive/models
+       - install -Dm644 com.spacedrive.Desktop.metainfo.xml /app/share/metainfo/com.spacedrive.Desktop.metainfo.xml
