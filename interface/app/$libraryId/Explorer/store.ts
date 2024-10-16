@@ -126,7 +126,6 @@ export const explorerStore = proxy({
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
 	addNewThumbnail: (thumbKey: ThumbKey | string) => {
 		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
-		console.log('Add thumbKey', thumbKey);
 		// HACK: Ensure store propagates changes
 		const newThumbnails = new Set(explorerStore.newThumbnails);
 		newThumbnails.add(thumbKey);
@@ -134,7 +133,6 @@ export const explorerStore = proxy({
 	},
 	removeThumbnail: (thumbKey: ThumbKey | string) => {
 		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
-		console.log('Remove thumbKey', thumbKey);
 		// HACK: Ensure store propagates changes
 		const newThumbnails = new Set(explorerStore.newThumbnails);
 		newThumbnails.delete(thumbKey);

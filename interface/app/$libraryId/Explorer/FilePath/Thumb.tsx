@@ -1,6 +1,6 @@
 import type { ExplorerItem } from '@sd/client';
 
-import { getIcon, getIconByName } from '@sd/assets/util';
+import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
 	ComponentProps,
@@ -18,7 +18,6 @@ import {
 } from 'react';
 
 import { getItemFilePath, ObjectKindKey, useLibraryContext } from '@sd/client';
-import { useIsDark } from '~/hooks';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 
@@ -31,7 +30,7 @@ import { Original } from './Original';
 import { useFrame } from './useFrame';
 import { useBlackBars, useSize } from './utils';
 
-type ThumbType = 'original' | 'thumbnail' | 'icon';
+export type ThumbType = 'original' | 'thumbnail' | 'icon';
 
 type LoadState = {
 	[K in ThumbType]: 'normal' | 'error';
@@ -109,20 +108,21 @@ const Thumbnail = memo(
 interface ThumbProps extends ThumbnailProps {
 	src?: string;
 	kind: ObjectKindKey;
-	size?: number;
 	path: string | null;
-	frame?: boolean;
+	isDir: boolean;
+	frame: boolean;
 	fileId: number | null;
 	onLoad: () => void;
 	onError: (error: Error | ErrorEvent | SyntheticEvent<Element, Event>) => void;
 	thumbType: ThumbType;
 	extension: string | null;
+	customIcon: IconTypes | null;
 	locationId: number | null;
-	pauseVideo?: boolean;
-	magnification?: number;
-	mediaControls?: boolean;
-	frameClassName?: string;
-	isSidebarPreview?: boolean;
+	pauseVideo: boolean;
+	magnification: number;
+	mediaControls: boolean;
+	frameClassName: string;
+	isSidebarPreview: boolean;
 }
 
 const Thumb = memo(
@@ -131,9 +131,9 @@ const Thumb = memo(
 			{
 				src,
 				kind,
-				size,
 				path,
 				frame,
+				isDir,
 				cover,
 				fileId,
 				thumbType,
@@ -142,31 +142,45 @@ const Thumb = memo(
 				className,
 				pauseVideo,
 				locationId,
+				customIcon,
 				magnification,
 				mediaControls,
 				blackBarsSize,
 				videoExtension,
 				frameClassName,
 				isSidebarPreview,
+				onLoad,
 				...props
 			},
-			ref
+			_ref
 		) => {
-			if (!src) return null;
+			const ref = useRef<HTMLImageElement>(null);
+			useImperativeHandle<HTMLImageElement | null, HTMLImageElement | null>(
+				_ref,
+				() => ref.current
+			);
+			const [isLoading, setIsLoading] = useState(true);
+
+			const handleLoad = useCallback(() => {
+				const img = ref.current;
+				setIsLoading(!(img == null || (img.naturalHeight > 0 && img.naturalWidth > 0)));
+				onLoad?.();
+			}, [onLoad]);
+
+			let thumb: JSX.Element | null = null;
 
 			switch (thumbType) {
 				case 'original':
-					return (
+					thumb = (
 						<Original
 							path={path}
-							size={size}
 							kind={kind}
 							frame={frame}
 							fileId={fileId}
-							onLoad={props.onLoad}
+							onLoad={handleLoad}
 							extension={extension}
 							blackBars={blackBars}
-							className={clsx(ThumbClasses, className)}
+							className={clsx(ThumbClasses, className, isLoading && 'hidden')}
 							locationId={locationId}
 							pauseVideo={pauseVideo}
 							blackBarsSize={blackBarsSize}
@@ -177,14 +191,16 @@ const Thumb = memo(
 							isSidebarPreview={isSidebarPreview}
 						/>
 					);
+					break;
 				case 'thumbnail':
-					return (
+					thumb = (
 						<Thumbnail
 							{...props}
 							ref={ref}
 							src={src}
 							cover={cover}
-							decoding={size ? 'async' : 'sync'}
+							onLoad={handleLoad}
+							decoding="async"
 							className={clsx(
 								cover
 									? [
@@ -192,7 +208,8 @@ const Thumb = memo(
 											className
 										]
 									: [ThumbClasses, className],
-								frame && !(kind === 'Video' && blackBars) ? frameClassName : null
+								frame && !(kind === 'Video' && blackBars) ? frameClassName : null,
+								isLoading && 'hidden'
 							)}
 							blackBars={blackBars && kind === 'Video' && !cover}
 							crossOrigin="anonymous" // Here it is ok, because it is not a react attr
@@ -200,21 +217,26 @@ const Thumb = memo(
 							videoExtension={videoExtension}
 						/>
 					);
-
-				case 'icon':
-					return (
-						<LayeredFileIcon
-							{...props}
-							ref={ref}
-							src={src}
-							kind={kind}
-							decoding={size ? 'async' : 'sync'}
-							extension={extension}
-							className={clsx(ThumbClasses, className)}
-							draggable={false}
-						/>
-					);
+					break;
 			}
+
+			return (
+				<>
+					<LayeredFileIcon
+						{...props}
+						ref={thumb == null ? ref : null}
+						kind={kind}
+						isDir={isDir}
+						onLoad={thumb == null ? onLoad : () => {}}
+						decoding="sync"
+						draggable={false}
+						extension={extension}
+						className={clsx(ThumbClasses, className, !isLoading && 'hidden')}
+						customIcon={customIcon}
+					/>
+					{thumb ?? null}
+				</>
+			);
 		}
 	)
 );
@@ -225,8 +247,8 @@ export interface FileThumbProps {
 	size?: number;
 	cover?: boolean;
 	frame?: boolean;
-	onLoad?: (state: ThumbType) => void;
-	onError?: (state: ThumbType, error: Error) => void;
+	onLoad?: (type: ThumbType) => void;
+	onError?: (state: LoadState, error: Error) => void;
 	blackBars?: boolean;
 	blackBarsSize?: number;
 	extension?: boolean;
@@ -252,7 +274,6 @@ export interface FileThumbProps {
 export const FileThumb = memo(
 	forwardRef<HTMLImageElement, FileThumbProps>((props, ref) => {
 		const frame = useFrame();
-		const isDark = useIsDark();
 		const platform = usePlatform();
 		const itemData = useExplorerItemData(props.data);
 		const filePath = getItemFilePath(props.data);
@@ -263,11 +284,20 @@ export const FileThumb = memo(
 			thumbnail: 'normal'
 		});
 
+		// WARNING: This is required so QuickPreview can work properly
+		useEffect(() => {
+			setLoadState({
+				icon: 'normal',
+				original: 'normal',
+				thumbnail: 'normal'
+			});
+		}, [props.data]);
+
 		const thumbType = useMemo((): ThumbType => {
 			if (loadState.original !== 'error' && props.loadOriginal) return 'original';
 			if (loadState.thumbnail !== 'error' && itemData.thumbnails.size > 0) return 'thumbnail';
 			return 'icon';
-		}, [itemData.thumbnails.size, props.loadOriginal, loadState.original, loadState.thumbnail]);
+		}, [itemData.thumbnails, loadState, props.loadOriginal]);
 
 		useEffect(() => {
 			let timeoutId = null;
@@ -278,7 +308,8 @@ export const FileThumb = memo(
 					// HACK: Delay removing the new thumbnail event from store
 					// to avoid some weird race condition with core that prevents
 					// us from accessing the new thumbnail immediately after it is created
-					timeoutId = setTimeout(() => explorerStore.removeThumbnail(thumbId), 250);
+					timeoutId = setTimeout(() => explorerStore.removeThumbnail(thumbId), 0);
+					explorerStore.removeThumbnail(thumbId);
 					setLoadState(state => ({ ...state, thumbnail: 'normal' }));
 					break;
 				}
@@ -310,24 +341,19 @@ export const FileThumb = memo(
 
 					break;
 				}
-				case 'icon':
-					if (itemData.customIcon)
-						return getIconByName(itemData.customIcon as any, isDark);
-
-					return getIcon(
-						// itemData.isDir || parent?.type === 'Node' ? 'Folder' :
-						itemData.kind,
-						isDark,
-						itemData.extension,
-						itemData.isDir
-					);
 			}
-		}, [filePath, isDark, library.uuid, itemData, platform, thumbType, setLoadState]);
+		}, [
+			filePath,
+			itemData.extension,
+			itemData.locationId,
+			itemData.thumbnails,
+			library.uuid,
+			platform,
+			thumbType
+		]);
 
 		const onError = useCallback(
 			(event: Error | ErrorEvent | SyntheticEvent<Element, Event>) => {
-				setLoadState(state => ({ ...state, [thumbType]: 'error' }));
-
 				const rawError =
 					event instanceof Error
 						? event
@@ -335,19 +361,22 @@ export const FileThumb = memo(
 							('message' in event && event.message) ||
 							'Filetype is not supported yet';
 
-				props.onError?.call(
-					null,
-					thumbType,
-					rawError instanceof Error ? rawError : new Error(rawError)
-				);
+				setLoadState(state => {
+					state = { ...state, [thumbType]: 'error' };
+					props.onError?.call(
+						null,
+						state,
+						rawError instanceof Error ? rawError : new Error(rawError)
+					);
+					return state;
+				});
 			},
 			[props.onError, thumbType]
 		);
 
-		const onLoad = useCallback(
-			() => props.onLoad?.call(null, thumbType),
-			[props.onLoad, thumbType]
-		);
+		const onLoad = useCallback(() => {
+			props.onLoad?.call(null, thumbType);
+		}, [props.onLoad, thumbType]);
 
 		return (
 			<div
@@ -376,11 +405,11 @@ export const FileThumb = memo(
 						{...props.childProps}
 						ref={ref}
 						src={src}
-						size={props.size}
 						kind={itemData.kind}
 						path={filePath && 'path' in filePath ? filePath.path : null}
-						frame={props.frame}
+						frame={props.frame ?? false}
 						cover={props.cover}
+						isDir={itemData.isDir}
 						fileId={filePath && 'id' in filePath ? filePath.id : null}
 						onLoad={onLoad}
 						onError={onError}
@@ -392,18 +421,19 @@ export const FileThumb = memo(
 								? props.childClassName(thumbType)
 								: props.childClassName
 						}
+						customIcon={itemData.customIcon as IconTypes | null}
 						locationId={itemData.locationId}
-						pauseVideo={props.pauseVideo}
+						pauseVideo={props.pauseVideo ?? false}
 						blackBarsSize={props.blackBarsSize}
-						mediaControls={props.mediaControls}
-						magnification={props.magnification}
+						mediaControls={props.mediaControls ?? false}
+						magnification={props.magnification ?? 1}
 						frameClassName={clsx(frame.className, props.frameClassName)}
 						videoExtension={
 							props.extension && itemData.extension && itemData.kind === 'Video'
 								? itemData.extension
 								: undefined
 						}
-						isSidebarPreview={props.isSidebarPreview}
+						isSidebarPreview={props.isSidebarPreview ?? false}
 					/>
 				</ErrorBarrier>
 			</div>

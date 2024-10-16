@@ -1,14 +1,9 @@
 import type { ExplorerItem } from '@sd/client';
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { subscribe } from 'valtio';
 
-import {
-	compareHumanizedSizes,
-	getExplorerItemData,
-	humanizeSize,
-	ThumbKey,
-	useSelector
-} from '@sd/client';
+import { compareHumanizedSizes, getExplorerItemData, humanizeSize, ThumbKey } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 
 import { explorerStore, flattenThumbnailKey } from './store';
@@ -26,29 +21,47 @@ import { explorerStore, flattenThumbnailKey } from './store';
 export function useExplorerItemData(explorerItem: ExplorerItem) {
 	const platform = usePlatform();
 	const cachedSize = useRef<ReturnType<typeof humanizeSize> | null>(null);
-	const getThumbnails = useCallback(
-		() =>
-			new Map(
-				(explorerItem.type === 'Label'
-					? explorerItem.thumbnails
-					: 'thumbnail' in explorerItem && explorerItem.thumbnail
-						? [explorerItem.thumbnail]
-						: []
-				).map<[string, ThumbKey]>(thumbnailKey => [
-					platform.getThumbnailUrlByThumbKey(thumbnailKey),
-					thumbnailKey
-				])
-			),
-		[explorerItem, platform]
-	);
+	const [newThumbnails, setNewThumbnails] = useState<Map<string, string | null>>(new Map());
 
-	const newThumbnails = useSelector(explorerStore, store =>
-		Array.from(getThumbnails()).reduce<Map<string, string | null>>((acc, [url, thumbKey]) => {
-			const thumbId = flattenThumbnailKey(thumbKey);
-			acc.set(url, store.newThumbnails.has(thumbId) ? thumbId : null);
-			return acc;
-		}, new Map())
-	);
+	let thumbnails: ThumbKey | ThumbKey[] | null = null;
+	switch (explorerItem.type) {
+		case 'Label':
+			thumbnails = explorerItem.thumbnails;
+			break;
+		case 'Path':
+		case 'Object':
+		case 'NonIndexedPath':
+			thumbnails = explorerItem.thumbnail;
+			break;
+	}
+
+	useEffect(() => {
+		const thumbnailKeys = thumbnails
+			? Array.isArray(thumbnails)
+				? thumbnails
+				: [thumbnails]
+			: [];
+
+		const updateThumbnails = () =>
+			setNewThumbnails(oldThumbs => {
+				const thumbs = thumbnailKeys.reduce<Map<string, string | null>>((acc, thumbKey) => {
+					const url = platform.getThumbnailUrlByThumbKey(thumbKey);
+					const thumbId = flattenThumbnailKey(thumbKey);
+					acc.set(url, explorerStore.newThumbnails.has(thumbId) ? thumbId : null);
+					return acc;
+				}, new Map());
+
+				// Avoid unnecessary re-renders
+				return oldThumbs.size !== thumbs.size ||
+					Array.from(oldThumbs.keys()).some(key => oldThumbs.get(key) !== thumbs.get(key))
+					? thumbs
+					: oldThumbs;
+			});
+
+		updateThumbnails();
+
+		return subscribe(explorerStore, updateThumbnails);
+	}, [thumbnails, platform]);
 
 	if (
 		'has_created_thumbnail' in explorerItem &&

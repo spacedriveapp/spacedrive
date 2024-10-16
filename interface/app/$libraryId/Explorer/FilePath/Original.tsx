@@ -26,7 +26,6 @@ interface OriginalRendererProps {
 	kind: ObjectKindKey;
 	extension: string | null;
 	childClassName?: string;
-	size?: number;
 	magnification?: number;
 	mediaControls?: boolean;
 	frame?: boolean;
@@ -151,7 +150,7 @@ const ORIGINAL_RENDERERS: {
 				<img
 					src={getIcon(iconNames.Audio, isDark, props.extension)}
 					onLoad={props.onLoad}
-					decoding={props.size ? 'async' : 'sync'}
+					decoding="sync"
 					className={props.childClassName}
 					draggable={false}
 				/>
@@ -173,7 +172,6 @@ const ORIGINAL_RENDERERS: {
 	},
 	Image: props => {
 		const ref = useRef<HTMLImageElement>(null);
-		const size = useSize(ref);
 
 		return (
 			<div className="custom-scroll quick-preview-images-scroll flex size-full justify-center transition-all">
@@ -183,7 +181,7 @@ const ORIGINAL_RENDERERS: {
 					style={{ transform: `scale(${props.magnification})` }}
 					onLoad={props.onLoad}
 					onError={props.onError}
-					decoding={props.size ? 'async' : 'sync'}
+					decoding="async"
 					className={clsx(
 						props.className,
 						props.frameClassName,
