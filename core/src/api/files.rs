@@ -7,7 +7,7 @@ use crate::{
 	object::fs::{
 		error::FileSystemJobsError, find_available_filename_for_duplicate,
 		old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-		old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
+		old_erase::OldFileEraserJobInit,
 	},
 	old_job::OldJob,
 };
@@ -432,9 +432,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// 		})
 		// })
 		.procedure("deleteFiles", {
+			#[derive(Type, Deserialize)]
+			struct DeleteFilesArgs {
+				location_id: i32,
+				file_path_ids: Vec<i32>,
+			}
 			R.with2(library())
-				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
-					// TODO(matheus-consoli): remove OldFileCopierJobInit
+				.mutation(|(node, library), args: DeleteFilesArgs| async move {
 					let job = RemoveJob::new(args.location_id, args.file_path_ids);
 					let ctx = NodeContext {
 						node: Arc::clone(&node),
@@ -443,14 +447,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					node.job_system
 						.dispatch(job, args.location_id, ctx)
 						.await
-						.map(|_| ())
+						.map(|_| ()) //  TODO(matheus-consoli):
 						.map_err(Into::into)
 				})
 		})
 		.procedure("moveToTrash", {
+			#[derive(Type, Deserialize)]
+			struct MoveToTrashArgs {
+				location_id: i32,
+				file_path_ids: Vec<i32>,
+			}
 			R.with2(library())
-				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
-					// TODO(matheus-consoli): remove OldFileDeleterJobInit and use a new struct
+				.mutation(|(node, library), args: MoveToTrashArgs| async move {
 					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
 						return Err(rspc::Error::new(
 							ErrorCode::MethodNotSupported,
@@ -463,11 +471,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						library,
 					};
 
-					// use JobEnqueuer to enqueue_next the quick scan
 					let job =
-						JobEnqueuer::new(MoveToTrashJob::new(args.location_id, args.file_path_ids))
-        // .enqueue_next(QuickScan)
-						;
+						JobEnqueuer::new(MoveToTrashJob::new(args.location_id, args.file_path_ids));
+
 					node.job_system
 						.dispatch(job, args.location_id, ctx)
 						.await
