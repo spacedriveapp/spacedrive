@@ -23,7 +23,7 @@ use sd_core_prisma_helpers::{
 };
 
 use sd_file_ext::kind::ObjectKind;
-use sd_file_track::deleter::{DeleterJob, MoveToTrashJob, RemoveJob};
+use sd_file_track::deleter::{MoveToTrashJob, RemoveJob};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
@@ -31,7 +31,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
+use sd_utils::{error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,
@@ -46,9 +46,7 @@ use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
-use tracing::{error, warn};
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
-use trash;
+use tracing::error;
 
 use super::{Ctx, R};
 

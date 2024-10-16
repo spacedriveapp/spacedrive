@@ -19,17 +19,20 @@ tracing             = { workspace = true }
 async-trait         = { workspace = true }
 rmp-serde           = { workspace = true }
 itertools           = { workspace = true }
+thiserror           = { workspace = true }
+futures             = { workspace = true }
+
 
 # core sub-crates
 sd-core-heavy-lifting  = { path = "../heavy-lifting" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-file-path-helper = { path = "../file-path-helper" }
 
-
 # spacedrive sub-crates
 sd-prisma              = { path = "../../../crates/prisma" }
 sd-utils               = { path = "../../../crates/utils" }
 sd-sync                = { path = "../../../crates/sync" }
+sd-task-system         = { path = "../../../crates/task-system" }
 
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]

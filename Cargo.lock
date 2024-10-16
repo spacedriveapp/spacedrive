@@ -8490,6 +8490,7 @@ name = "sd-file-track"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures",
  "futures-concurrency",
  "itertools 0.13.0",
  "rmp-serde",
@@ -8498,10 +8499,12 @@ dependencies = [
  "sd-core-prisma-helpers",
  "sd-prisma",
  "sd-sync",
+ "sd-task-system",
  "sd-utils",
  "serde",
  "serde_json",
  "specta",
+ "thiserror",
  "tokio",
  "tracing",
  "trash",
