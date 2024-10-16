@@ -67,6 +67,7 @@ type Handler = ios::EventHandler;
 pub(super) type IgnorePath = (PathBuf, bool);
 
 type INode = u64;
+#[allow(dead_code)] // this is not dead code, it's used with the TS bindings
 type InstantAndPath = (Instant, PathBuf);
 
 const ONE_SECOND: Duration = Duration::from_secs(1);

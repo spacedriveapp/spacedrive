@@ -79,9 +79,13 @@ impl fmt::Debug for ReturnStatus {
 }
 
 pub enum ProgressUpdate {
+	/// The task progress
 	TaskCount(u64),
+	/// The total of succeeded tasks
 	CompletedTaskCount(u64),
+	/// A simple, informative, message
 	Message(String),
+	/// Inform in which phase of progress the task are, if any.
 	Phase(String),
 }
 
@@ -95,6 +99,7 @@ impl ProgressUpdate {
 	}
 }
 
+/// Context with the runtime dependent data necessary to run the job
 pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
@@ -125,6 +130,7 @@ pub trait JobContext<OuterCtx: OuterContext>: OuterContext {
 pub trait Job: Send + Sync + Hash + 'static {
 	const NAME: JobName;
 
+	/// Deserializes the given tasks and attempts resume their progress
 	#[allow(unused_variables)]
 	fn resume_tasks<OuterCtx: OuterContext>(
 		&mut self,

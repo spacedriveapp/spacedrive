@@ -3,7 +3,7 @@ use crate::{
 	object::{
 		fs::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
+			old_erase::OldFileEraserJobInit,
 		},
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
@@ -107,16 +107,20 @@ impl OldJobs {
 	) -> Result<(), JobManagerError> {
 		let job_hash = job.hash();
 
-		if self.current_jobs_hashes.read().await.contains(&job_hash) {
-			return Err(JobManagerError::AlreadyRunningJob {
-				name: job.name(),
-				hash: job_hash,
-			});
+		{
+			let mut hashes = self.current_jobs_hashes.write().await;
+
+			if hashes.contains(&job_hash) {
+				return Err(JobManagerError::AlreadyRunningJob {
+					name: job.name(),
+					hash: job_hash,
+				});
+			}
+
+			debug!("Ingesting job;");
+			hashes.insert(job_hash);
 		}
 
-		debug!("Ingesting job;");
-
-		self.current_jobs_hashes.write().await.insert(job_hash);
 		self.dispatch(node, library, job).await;
 		Ok(())
 	}
@@ -408,7 +412,6 @@ fn initialize_resumable_job(
 			OldObjectValidatorJobInit,
 			OldFileCutterJobInit,
 			OldFileCopierJobInit,
-			OldFileDeleterJobInit,
 			OldFileEraserJobInit,
 		]
 	)

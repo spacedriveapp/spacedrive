@@ -19,7 +19,6 @@ use std::{
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-pub mod old_delete;
 pub mod old_erase;
 
 pub mod old_copy;
