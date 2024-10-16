@@ -3,7 +3,7 @@ use crate::{
 	object::{
 		fs::{
 			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
+			old_erase::OldFileEraserJobInit,
 		},
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},

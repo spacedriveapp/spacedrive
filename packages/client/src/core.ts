@@ -547,8 +547,6 @@ export type OldFileCopierJobInit = { source_location_id: number; target_location
 
 export type OldFileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
-export type OldFileDeleterJobInit = { location_id: number; file_path_ids: number[] }
-
 export type OldFileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 
 /**
