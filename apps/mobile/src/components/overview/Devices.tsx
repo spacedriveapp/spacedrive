@@ -5,8 +5,9 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { ScrollView } from 'react-native-gesture-handler';
-import { HardwareModel, NodeState, StatisticsResponse } from '@sd/client';
+import { HardwareModel, NodeState, StatisticsResponse, useBridgeQuery } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
+import { getTokens } from '~/utils';
 
 import Fade from '../layout/Fade';
 import { Button } from '../primitive/Button';
@@ -44,6 +45,23 @@ const Devices = ({ node, stats }: Props) => {
 		Omit<RNFS.FSInfoResultT, 'totalSpaceEx' | 'freeSpaceEx'>
 	>({ freeSpace: 0, totalSpace: 0 });
 	const [deviceName, setDeviceName] = useState<string>('');
+	const [accessToken, setAccessToken] = useState<string>('');
+	useEffect(() => {
+		(async () => {
+			const at = await getTokens();
+			setAccessToken(at.accessToken);
+		})();
+	}, []);
+
+	const devices = useBridgeQuery(['cloud.devices.list']);
+
+	// Refetch devices every 10 seconds
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			await devices.refetch();
+		}, 10000);
+		return () => clearInterval(interval);
+	}, []);
 
 	useEffect(() => {
 		const getFSInfo = async () => {
@@ -74,7 +92,7 @@ const Devices = ({ node, stats }: Props) => {
 	}, [node]);
 
 	return (
-		<OverviewSection title="Devices" count={node ? 1 : 0}>
+		<OverviewSection title="Devices" count={node ? 1 + (devices.data?.length ?? 0) : 0}>
 			<View>
 				<Fade height={'100%'} width={30} color="black">
 					<ScrollView
@@ -93,6 +111,18 @@ const Devices = ({ node, stats }: Props) => {
 								connectionType={null}
 							/>
 						)}
+						{devices.data?.map((device) => (
+							<StatCard
+								key={device.pub_id}
+								name={device.name}
+								// TODO (Optional): Use Brand Type for Different Android Models/iOS Models using DeviceInfo.getBrand()
+								icon={hardwareModelToIcon(device.hardware_model)}
+								totalSpace={'0'}
+								freeSpace={'0'}
+								color="#0362FF"
+								connectionType={'cloud'}
+							/>
+						))}
 						<NewCard
 							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
 							text="Spacedrive works best on all your devices."

@@ -1,6 +1,6 @@
 use crate::{Error, NonCriticalError, UpdateEvent};
 
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{
@@ -98,7 +98,7 @@ impl ProgressUpdate {
 pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
-	fn sync(&self) -> &Arc<SyncManager>;
+	fn sync(&self) -> &SyncManager;
 	fn invalidate_query(&self, query: &'static str);
 	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
 	fn report_update(&self, update: UpdateEvent);
@@ -158,7 +158,7 @@ where
 	JobCtx: JobContext<OuterCtx>,
 {
 	fn into_job(self) -> Box<dyn DynJob<OuterCtx, JobCtx>> {
-		let id = JobId::new_v4();
+		let id = JobId::now_v7();
 
 		Box::new(JobHolder {
 			id,
@@ -333,7 +333,7 @@ where
 	}
 
 	pub fn new(job: J) -> Self {
-		let id = JobId::new_v4();
+		let id = JobId::now_v7();
 		Self {
 			id,
 			job,

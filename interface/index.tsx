@@ -8,11 +8,13 @@ import { RouterProvider, RouterProviderProps } from 'react-router-dom';
 import {
 	InteropProviderReact,
 	P2PContextProvider,
+	useBridgeMutation,
 	useBridgeSubscription,
 	useInvalidateQuery,
 	useLoadBackendFeatureFlags
 } from '@sd/client';
-import { toast, TooltipProvider } from '@sd/ui';
+import { dialogManager, toast, TooltipProvider } from '@sd/ui';
+import RequestAddDialog from '~/components/RequestAddDialog';
 
 import { createRoutes } from './app';
 import { SpacedropProvider } from './app/$libraryId/Spacedrop';
@@ -26,7 +28,7 @@ import { RouterContext, RoutingContext } from './RoutingContext';
 export * from './app';
 export { ErrorPage } from './ErrorFallback';
 export * from './TabsContext';
-export * from './util/keybind';
+export * from './util/events';
 export * from './util/Platform';
 
 dayjs.extend(advancedFormat);
@@ -84,6 +86,42 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 	useBridgeSubscription(['notifications.listen'], {
 		onData({ data: { title, content, kind }, expires }) {
 			toast({ title, body: content }, { type: kind });
+		}
+	});
+
+	const userResponse = useBridgeMutation('cloud.userResponse');
+
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			console.log('Received cloud service notification', d);
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					// WARNING: This is a debug solution to accept the device into the sync group. THIS SHOULD NOT MAKE IT TO PRODUCTION
+					userResponse.mutate({
+						kind: 'AcceptDeviceInSyncGroup',
+						data: {
+							ticket: d.data.ticket,
+							accepted: {
+								id: d.data.sync_group.library.pub_id,
+								name: d.data.sync_group.library.name,
+								description: null
+							}
+						}
+					});
+					// TODO: Move the code above into the dialog below (@Rocky43007)
+					// dialogManager.create((dp) => (
+					// 	<RequestAddDialog
+					// 		device_model={'MacBookPro'}
+					// 		device_name={"Arnab's Macbook"}
+					// 		library_name={"Arnab's Library"}
+					// 		{...dp}
+					// 	/>
+					// ));
+					break;
+				default:
+					toast({ title: 'Cloud Service Notification', body: d.kind }, { type: 'info' });
+					break;
+			}
 		}
 	});
 

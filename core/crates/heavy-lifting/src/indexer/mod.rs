@@ -4,7 +4,7 @@ use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
 };
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::{DevicePubId, SyncManager};
 
 use sd_prisma::{
 	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
@@ -50,6 +50,8 @@ pub enum Error {
 	IndexerRuleNotFound(indexer_rule::id::Type),
 	#[error(transparent)]
 	SubPath(#[from] sub_path::Error),
+	#[error("device not found: <device_pub_id='{0}'")]
+	DeviceNotFound(DevicePubId),
 
 	// Internal Errors
 	#[error("database error: {0}")]
@@ -136,7 +138,7 @@ async fn update_directory_sizes(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<(), Error> {
-	let to_sync_and_update = db
+	let (ops, queries) = db
 		._batch(chunk_db_queries(iso_paths_and_sizes.keys(), db))
 		.await?
 		.into_iter()
@@ -167,7 +169,9 @@ async fn update_directory_sizes(
 		.into_iter()
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-	sync.write_ops(db, to_sync_and_update).await?;
+	if !ops.is_empty() && !queries.is_empty() {
+		sync.write_ops(db, (ops, queries)).await?;
+	}
 
 	Ok(())
 }
@@ -213,7 +217,7 @@ async fn update_location_size(
 async fn remove_non_existing_file_paths(
 	to_remove: Vec<file_path_pub_and_cas_ids::Data>,
 	db: &PrismaClient,
-	sync: &sd_core_sync::Manager,
+	sync: &SyncManager,
 ) -> Result<u64, Error> {
 	#[allow(clippy::cast_sign_loss)]
 	let (sync_params, db_params): (Vec<_>, Vec<_>) = to_remove
@@ -227,6 +231,10 @@ async fn remove_non_existing_file_paths(
 			)
 		})
 		.unzip();
+
+	if sync_params.is_empty() {
+		return Ok(0);
+	}
 
 	sync.write_ops(
 		db,
@@ -318,7 +326,7 @@ pub async fn reverse_update_directories_sizes(
 	)
 	.await?;
 
-	let to_sync_and_update = ancestors
+	let (sync_ops, update_queries) = ancestors
 		.into_values()
 		.filter_map(|materialized_path| {
 			if let Some((pub_id, size)) =
@@ -346,7 +354,9 @@ pub async fn reverse_update_directories_sizes(
 		})
 		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-	sync.write_ops(db, to_sync_and_update).await?;
+	if !sync_ops.is_empty() && !update_queries.is_empty() {
+		sync.write_ops(db, (sync_ops, update_queries)).await?;
+	}
 
 	Ok(())
 }

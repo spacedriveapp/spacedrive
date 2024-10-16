@@ -14,13 +14,13 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				emoji: u8,
 			}
 
-			|node, args: Feedback| async move {
-				sd_cloud_api::feedback::send(
-					node.cloud_api_config().await,
-					args.message,
-					args.emoji,
-				)
-				.await?;
+			|_node, _args: Feedback| async move {
+				// sd_cloud_api::feedback::send(
+				// 	node.cloud_api_config().await,
+				// 	args.message,
+				// 	args.emoji,
+				// )
+				// .await?;
 
 				Ok(())
 			}

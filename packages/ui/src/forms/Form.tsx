@@ -50,7 +50,7 @@ export const Form = <T extends FieldValues>({
 };
 
 export const errorStyles = cva(
-	'flex justify-center gap-2 break-all rounded border border-red-500/40 bg-red-800/40 px-3 py-2 text-white',
+	'flex justify-center gap-2 whitespace-normal break-words rounded border border-red-500/40 bg-red-800/40 px-3 py-2 text-white',
 	{
 		variants: {
 			variant: {
@@ -89,7 +89,7 @@ export const ErrorMessage = ({ name, variant, className }: ErrorMessageProps) =>
 				return typeof message === 'string' ? (
 					<animated.div style={styles} className={errorStyles({ variant, className })}>
 						<Warning className="size-4" />
-						<p>{message}</p>
+						<p className="whitespace-normal">{message}</p>
 					</animated.div>
 				) : null;
 			})}

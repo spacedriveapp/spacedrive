@@ -63,16 +63,16 @@
 	--color-accent-faint: 208, 100%, 67%;
 	--color-accent-deep: 208, 100%, 47%;
 	// text
-	--color-ink: var(--light-hue), 5%, 20%;
-	--color-ink-dull: var(--light-hue), 5%, 30%;
-	--color-ink-faint: var(--light-hue), 5%, 40%;
+	--color-ink: var(--light-hue), 5%, 25%;
+	--color-ink-dull: var(--light-hue), 5%, 40%;
+	--color-ink-faint: var(--light-hue), 5%, 60%;
 	// sidebar
 	--color-sidebar: var(--light-hue), 5%, 96%;
 	--color-sidebar-box: var(--light-hue), 5%, 100%;
 	--color-sidebar-line: var(--light-hue), 10%, 85%;
-	--color-sidebar-ink: var(--light-hue), 5%, 20%;
-	--color-sidebar-ink-dull: var(--light-hue), 5%, 30%;
-	--color-sidebar-ink-faint: var(--light-hue), 5%, 40%;
+	--color-sidebar-ink: var(--light-hue), 5%, 25%;
+	--color-sidebar-ink-dull: var(--light-hue), 5%, 35%;
+	--color-sidebar-ink-faint: var(--light-hue), 5%, 45%;
 	--color-sidebar-divider: var(--light-hue), 15%, 93%;
 	--color-sidebar-button: var(--light-hue), 15%, 100%;
 	--color-sidebar-selected: var(--light-hue), 10%, 80%;

@@ -4,6 +4,8 @@ import { CompositeScreenProps } from '@react-navigation/native';
 import { createNativeStackNavigator, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Header from '~/components/header/Header';
 import SearchHeader from '~/components/header/SearchHeader';
+import AccountLogin from '~/screens/settings/client/AccountSettings/AccountLogin';
+import AccountProfile from '~/screens/settings/client/AccountSettings/AccountProfile';
 import AppearanceSettingsScreen from '~/screens/settings/client/AppearanceSettings';
 import ExtensionsSettingsScreen from '~/screens/settings/client/ExtensionsSettings';
 import GeneralSettingsScreen from '~/screens/settings/client/GeneralSettings';
@@ -45,6 +47,16 @@ export default function SettingsStack() {
 				name="GeneralSettings"
 				component={GeneralSettingsScreen}
 				options={{ header: () => <Header navBack title="General" /> }}
+			/>
+			<Stack.Screen
+				name="AccountLogin"
+				component={AccountLogin}
+				options={{ header: () => <Header navBackTo="Settings" navBack title="Account" /> }}
+			/>
+			<Stack.Screen
+				name="AccountProfile"
+				component={AccountProfile}
+				options={{ header: () => <Header navBackTo="Settings" navBack title="Account" /> }}
 			/>
 			<Stack.Screen
 				name="LibrarySettings"
@@ -134,6 +146,8 @@ export type SettingsStackParamList = {
 	Settings: undefined;
 	// Client
 	GeneralSettings: undefined;
+	AccountLogin: undefined;
+	AccountProfile: undefined;
 	LibrarySettings: undefined;
 	AppearanceSettings: undefined;
 	PrivacySettings: undefined;

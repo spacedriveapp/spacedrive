@@ -6,27 +6,27 @@ use crate::{
 	location::LocationManagerError,
 };
 
+use sd_core_cloud_services::CloudServices;
 use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
 use sd_core_prisma_helpers::CasId;
 
-#[cfg(feature = "ai")]
-use sd_ai::old_image_labeler::{DownloadModelError, OldImageLabeler, YoloV8};
-
+use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
-use volume::save_storage_statistics;
 
 use std::{
 	fmt,
 	path::{Path, PathBuf},
-	sync::{atomic::AtomicBool, Arc},
+	sync::Arc,
 };
 
 use chrono::{DateTime, Utc};
 use futures_concurrency::future::Join;
-use reqwest::{RequestBuilder, Response};
 use thiserror::Error;
-use tokio::{fs, io, sync::broadcast};
+use tokio::{
+	fs, io,
+	sync::{broadcast, Mutex},
+};
 use tracing::{error, info, warn};
 use tracing_appender::{
 	non_blocking::{NonBlocking, WorkerGuard},
@@ -37,10 +37,8 @@ use tracing_subscriber::{
 };
 
 pub mod api;
-mod cloud;
 mod context;
 pub mod custom_uri;
-mod env;
 pub mod library;
 pub(crate) mod location;
 pub(crate) mod node;
@@ -53,14 +51,12 @@ pub(crate) mod preferences;
 pub mod util;
 pub(crate) mod volume;
 
-pub use env::Env;
-
 use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
 use node::config;
 use notifications::Notifications;
-
-pub(crate) use sd_core_sync as sync;
+use sd_core_cloud_services::AUTH_SERVER_URL;
+use volume::save_storage_statistics;
 
 /// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
@@ -73,13 +69,12 @@ pub struct Node {
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
-	pub cloud_sync_flag: Arc<AtomicBool>,
-	pub env: Arc<env::Env>,
-	pub http: reqwest::Client,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
 	pub job_system: JobSystem<NodeContext, JobContext<NodeContext>>,
-	#[cfg(feature = "ai")]
-	pub old_image_labeller: Option<OldImageLabeler>,
+	pub cloud_services: Arc<CloudServices>,
+	/// This should only be used to generate the seed of local instances of [`CryptoRng`].
+	/// Don't use this as a common RNG, it will fuck up Core's performance due to this Mutex.
+	pub master_rng: Arc<Mutex<CryptoRng>>,
 }
 
 impl fmt::Debug for Node {
@@ -91,15 +86,10 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-	pub async fn new(
-		data_dir: impl AsRef<Path>,
-		env: env::Env,
-	) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
+	pub async fn new(data_dir: impl AsRef<Path>) -> Result<(Arc<Node>, Arc<Router>), NodeError> {
 		let data_dir = data_dir.as_ref();
 
 		info!(data_directory = %data_dir.display(), "Starting core;");
-
-		let env = Arc::new(env);
 
 		#[cfg(debug_assertions)]
 		let init_data = util::debug_initializer::InitConfig::load(data_dir).await?;
@@ -112,19 +102,51 @@ impl Node {
 			.await
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
-		if let Some(url) = config.get().await.sd_api_origin {
-			*env.api_url.lock().await = url;
-		}
-
-		#[cfg(feature = "ai")]
-		let image_labeler_version = {
-			sd_ai::init()?;
-			config.get().await.image_labeler_version
-		};
-
 		let (locations, locations_actor) = location::Locations::new();
 		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
+
+		let (
+			get_cloud_api_address,
+			cloud_p2p_relay_url,
+			cloud_p2p_dns_origin_name,
+			cloud_p2p_dns_pkarr_url,
+			cloud_services_domain_name,
+		) = {
+			#[cfg(debug_assertions)]
+			{
+				(
+					std::env::var("SD_CLOUD_API_ADDRESS_URL").unwrap_or_else(|_| {
+						format!("{AUTH_SERVER_URL}/cloud-api-address").to_string()
+					}),
+					std::env::var("SD_CLOUD_P2P_RELAY_URL")
+						// .unwrap_or_else(|_| "https://use1-1.relay.iroh.network/".to_string()),
+						// .unwrap_or_else(|_| "http://localhost:8081/".to_string()),
+						.unwrap_or_else(|_| "https://relay.spacedrive.com:4433/".to_string()),
+					std::env::var("SD_CLOUD_P2P_DNS_ORIGIN_NAME")
+						// .unwrap_or_else(|_| "dns.iroh.link/".to_string()),
+						// .unwrap_or_else(|_| "irohdns.localhost".to_string()),
+						.unwrap_or_else(|_| "irohdns.spacedrive.com".to_string()),
+					std::env::var("SD_CLOUD_P2P_DNS_PKARR_URL")
+						// .unwrap_or_else(|_| "https://dns.iroh.link/pkarr".to_string()),
+						// .unwrap_or_else(|_| "http://localhost:8080/pkarr".to_string()),
+						.unwrap_or_else(|_| "https://irohdns.spacedrive.com/pkarr".to_string()),
+					std::env::var("SD_CLOUD_API_DOMAIN_NAME")
+						// .unwrap_or_else(|_| "localhost".to_string()),
+						.unwrap_or_else(|_| "cloud.spacedrive.com".to_string()),
+				)
+			}
+			#[cfg(not(debug_assertions))]
+			{
+				(
+					"https://auth.spacedrive.com/cloud-api-address".to_string(),
+					"https://relay.spacedrive.com/".to_string(),
+					"irohdns.spacedrive.com".to_string(),
+					"irohdns.spacedrive.com/pkarr".to_string(),
+					"api.spacedrive.com".to_string(),
+				)
+			}
+		};
 
 		let task_system = TaskSystem::new();
 
@@ -142,30 +164,18 @@ impl Node {
 			config,
 			event_bus,
 			libraries,
-			cloud_sync_flag: Arc::new(AtomicBool::new(
-				cfg!(target_os = "ios") || cfg!(target_os = "android"),
-			)),
-			http: reqwest::Client::new(),
-			env,
-			#[cfg(feature = "ai")]
-			old_image_labeller: OldImageLabeler::new(
-				YoloV8::model(image_labeler_version)?,
-				data_dir,
-			)
-			.await
-			.map_err(|e| {
-				error!(
-					?e,
-					"Failed to initialize image labeller. AI features will be disabled;"
-				);
-			})
-			.ok(),
+			cloud_services: Arc::new(
+				CloudServices::new(
+					&get_cloud_api_address,
+					cloud_p2p_relay_url,
+					cloud_p2p_dns_pkarr_url,
+					cloud_p2p_dns_origin_name,
+					cloud_services_domain_name,
+				)
+				.await?,
+			),
+			master_rng: Arc::new(Mutex::new(CryptoRng::new()?)),
 		});
-
-		// Restore backend feature flags
-		for feature in node.config.get().await.features {
-			feature.restore(&node);
-		}
 
 		// Setup start actors that depend on the `Node`
 		#[cfg(debug_assertions)]
@@ -248,6 +258,7 @@ impl Node {
 				"RUST_LOG",
 				format!(
 					"info,\
+					iroh_net=info,\
 					sd_core={level},\
 					sd_p2p={level},\
 					sd_core_heavy_lifting={level},\
@@ -320,10 +331,6 @@ impl Node {
 			.join()
 			.await;
 
-		#[cfg(feature = "ai")]
-		if let Some(image_labeller) = &self.old_image_labeller {
-			image_labeller.shutdown().await;
-		}
 		info!("Spacedrive Core shutdown successful!");
 	}
 
@@ -368,55 +375,6 @@ impl Node {
 			}
 		}
 	}
-
-	pub async fn add_auth_header(&self, mut req: RequestBuilder) -> RequestBuilder {
-		if let Some(auth_token) = self.config.get().await.auth_token {
-			req = req.header("authorization", auth_token.to_header());
-		};
-
-		req
-	}
-
-	pub async fn authed_api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
-		let Some(auth_token) = self.config.get().await.auth_token else {
-			return Err(rspc::Error::new(
-				rspc::ErrorCode::Unauthorized,
-				"No auth token".to_string(),
-			));
-		};
-
-		let req = req.header("authorization", auth_token.to_header());
-
-		req.send().await.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"Request failed".to_string(),
-			)
-		})
-	}
-
-	pub async fn api_request(&self, req: RequestBuilder) -> Result<Response, rspc::Error> {
-		req.send().await.map_err(|_| {
-			rspc::Error::new(
-				rspc::ErrorCode::InternalServerError,
-				"Request failed".to_string(),
-			)
-		})
-	}
-
-	pub async fn cloud_api_config(&self) -> sd_cloud_api::RequestConfig {
-		sd_cloud_api::RequestConfig {
-			client: self.http.clone(),
-			api_url: self.env.api_url.lock().await.clone(),
-			auth_token: self.config.get().await.auth_token,
-		}
-	}
-}
-
-impl sd_cloud_api::RequestConfigProvider for Node {
-	async fn get_request_config(self: &Arc<Self>) -> sd_cloud_api::RequestConfig {
-		Node::cloud_api_config(self).await
-	}
 }
 
 /// Error type for Node related errors.
@@ -439,11 +397,8 @@ pub enum NodeError {
 	Logger(#[from] FromEnvError),
 	#[error(transparent)]
 	JobSystem(#[from] sd_core_heavy_lifting::JobSystemError),
-
-	#[cfg(feature = "ai")]
-	#[error("ai error: {0}")]
-	AI(#[from] sd_ai::Error),
-	#[cfg(feature = "ai")]
-	#[error("Failed to download model: {0}")]
-	DownloadModel(#[from] DownloadModelError),
+	#[error(transparent)]
+	CloudServices(#[from] sd_core_cloud_services::Error),
+	#[error(transparent)]
+	Crypto(#[from] sd_crypto::Error),
 }

@@ -34,10 +34,10 @@ use sd_file_ext::{
 	kind::ObjectKind,
 };
 use sd_prisma::{
-	prisma::{file_path, location, object},
+	prisma::{device, file_path, location, object},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{sync_entry, OperationFactory};
 use sd_utils::{
 	db::{inode_from_db, inode_to_db, maybe_missing},
 	error::FileIOError,
@@ -352,28 +352,35 @@ async fn inner_create_file(
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
 
-		sync.write_ops(
+		let device_pub_id = sync.device_pub_id.to_db();
+
+		sync.write_op(
 			db,
-			(
-				sync.shared_create(
-					prisma_sync::object::SyncId {
-						pub_id: pub_id.to_db(),
-					},
-					[
-						(object::date_created::NAME, msgpack!(date_created)),
-						(object::kind::NAME, msgpack!(int_kind)),
-					],
-				),
-				db.object()
-					.create(
-						pub_id.into(),
-						vec![
-							object::date_created::set(Some(date_created)),
-							object::kind::set(Some(int_kind)),
-						],
-					)
-					.select(object_ids::select()),
+			sync.shared_create(
+				prisma_sync::object::SyncId {
+					pub_id: pub_id.to_db(),
+				},
+				[
+					sync_entry!(date_created, object::date_created),
+					sync_entry!(int_kind, object::kind),
+					sync_entry!(
+						prisma_sync::device::SyncId {
+							pub_id: device_pub_id.clone()
+						},
+						object::device
+					),
+				],
 			),
+			db.object()
+				.create(
+					pub_id.into(),
+					vec![
+						object::date_created::set(Some(date_created)),
+						object::kind::set(Some(int_kind)),
+						object::device::connect(device::pub_id::equals(device_pub_id)),
+					],
+				)
+				.select(object_ids::select()),
 		)
 		.await?
 	};
@@ -654,29 +661,33 @@ async fn inner_update_file(
 			.unzip()
 		};
 
-		// file content changed
-		sync.write_ops(
-			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(field, value)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							field,
-							value,
-						)
-					})
-					.collect(),
-				db.file_path().update(
-					file_path::pub_id::equals(file_path.pub_id.clone()),
-					db_params,
+		let ops = sync_params
+			.into_iter()
+			.map(|(field, value)| {
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					},
+					field,
+					value,
+				)
+			})
+			.collect::<Vec<_>>();
+
+		if !ops.is_empty() && !db_params.is_empty() {
+			// file content changed
+			sync.write_ops(
+				db,
+				(
+					ops,
+					db.file_path().update(
+						file_path::pub_id::equals(file_path.pub_id.clone()),
+						db_params,
+					),
 				),
-			),
-		)
-		.await?;
+			)
+			.await?;
+		}
 
 		if let Some(ref object) = file_path.object {
 			let int_kind = kind as i32;
@@ -709,25 +720,32 @@ async fn inner_update_file(
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 
-				sync.write_ops(
+				let device_pub_id = sync.device_pub_id.to_db();
+
+				sync.write_op(
 					db,
-					(
-						sync.shared_create(
-							prisma_sync::object::SyncId {
-								pub_id: pub_id.to_db(),
-							},
-							[
-								(object::date_created::NAME, msgpack!(date_created)),
-								(object::kind::NAME, msgpack!(int_kind)),
-							],
-						),
-						db.object().create(
-							pub_id.to_db(),
-							vec![
-								object::date_created::set(Some(date_created)),
-								object::kind::set(Some(int_kind)),
-							],
-						),
+					sync.shared_create(
+						prisma_sync::object::SyncId {
+							pub_id: pub_id.to_db(),
+						},
+						[
+							sync_entry!(date_created, object::date_created),
+							sync_entry!(int_kind, object::kind),
+							sync_entry!(
+								prisma_sync::device::SyncId {
+									pub_id: device_pub_id.clone()
+								},
+								object::device
+							),
+						],
+					),
+					db.object().create(
+						pub_id.to_db(),
+						vec![
+							object::date_created::set(Some(date_created)),
+							object::kind::set(Some(int_kind)),
+							object::device::connect(device::pub_id::equals(device_pub_id)),
+						],
 					),
 				)
 				.await?;
@@ -977,7 +995,9 @@ pub(super) async fn rename(
 				})
 				.unzip();
 
-			sync.write_ops(db, (sync_params, db_params)).await?;
+			if !sync_params.is_empty() && !db_params.is_empty() {
+				sync.write_ops(db, (sync_params, db_params)).await?;
+			}
 
 			trace!(%total_paths_count, "Updated file_paths;");
 		}
@@ -1014,29 +1034,33 @@ pub(super) async fn rename(
 		.into_iter()
 		.unzip();
 
-		sync.write_ops(
-			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(k, v)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							k,
-							v,
-						)
-					})
-					.collect(),
-				db.file_path()
-					.update(file_path::pub_id::equals(file_path.pub_id), db_params),
-			),
-		)
-		.await?;
+		let ops = sync_params
+			.into_iter()
+			.map(|(k, v)| {
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: file_path.pub_id.clone(),
+					},
+					k,
+					v,
+				)
+			})
+			.collect::<Vec<_>>();
 
-		invalidate_query!(library, "search.paths");
-		invalidate_query!(library, "search.objects");
+		if !ops.is_empty() && !db_params.is_empty() {
+			sync.write_ops(
+				db,
+				(
+					ops,
+					db.file_path()
+						.update(file_path::pub_id::equals(file_path.pub_id), db_params),
+				),
+			)
+			.await?;
+
+			invalidate_query!(library, "search.paths");
+			invalidate_query!(library, "search.objects");
+		}
 	}
 
 	Ok(())

@@ -17,6 +17,7 @@ import { Alert, LogBox, Permission, PermissionsAndroid, Platform } from 'react-n
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MenuProvider } from 'react-native-popup-menu';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import SuperTokens from 'supertokens-react-native';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
@@ -24,7 +25,9 @@ import {
 	LibraryContextProvider,
 	P2PContextProvider,
 	RspcProvider,
+	useBridgeMutation,
 	useBridgeQuery,
+	useBridgeSubscription,
 	useClientContext,
 	useInvalidateQuery,
 	usePlausibleEvent,
@@ -33,12 +36,13 @@ import {
 } from '@sd/client';
 
 import { GlobalModals } from './components/modal/GlobalModals';
-import { Toast, toastConfig } from './components/primitive/Toast';
+import { toast, Toast, toastConfig } from './components/primitive/Toast';
 import { useTheme } from './hooks/useTheme';
 import { changeTwTheme, tw } from './lib/tailwind';
 import RootNavigator from './navigation';
 import OnboardingNavigator from './navigation/OnboardingNavigator';
 import { P2P } from './screens/p2p/P2P';
+import { AUTH_SERVER_URL } from './utils';
 import { currentLibraryStore } from './utils/nav';
 
 LogBox.ignoreLogs(['Sending `onAnimatedValueUpdate` with no listeners registered.']);
@@ -129,6 +133,41 @@ function AppContainer() {
 	useInvalidateQuery();
 
 	const { id } = useSnapshot(currentLibraryStore);
+	const userResponse = useBridgeMutation('cloud.userResponse');
+
+	useBridgeSubscription(['cloud.listenCloudServicesNotifications'], {
+		onData: (d) => {
+			console.log('Received cloud service notification', d);
+			switch (d.kind) {
+				case 'ReceivedJoinSyncGroupRequest':
+					// WARNING: This is a debug solution to accept the device into the sync group. THIS SHOULD NOT MAKE IT TO PRODUCTION
+					userResponse.mutate({
+						kind: 'AcceptDeviceInSyncGroup',
+						data: {
+							ticket: d.data.ticket,
+							accepted: {
+								id: d.data.sync_group.library.pub_id,
+								name: d.data.sync_group.library.name,
+								description: null
+							}
+						}
+					});
+					// TODO: Move the code above into the dialog below (@Rocky43007)
+					// dialogManager.create((dp) => (
+					// 	<RequestAddDialog
+					// 		device_model={'MacBookPro'}
+					// 		device_name={"Arnab's Macbook"}
+					// 		library_name={"Arnab's Library"}
+					// 		{...dp}
+					// 	/>
+					// ));
+					break;
+				default:
+					toast.info(`Cloud Service Notification: ${d.kind}`);
+					break;
+			}
+		}
+	});
 
 	return (
 		<SafeAreaProvider style={tw`flex-1 bg-black`}>
@@ -156,6 +195,10 @@ export default function App() {
 	useEffect(() => {
 		global.Intl = require('intl');
 		require('intl/locale-data/jsonp/en'); //TODO(@Rocky43007): Setup a way to import all the languages we support, once we add localization on mobile.
+		SuperTokens.init({
+			apiDomain: AUTH_SERVER_URL,
+			apiBasePath: '/api/auth'
+		});
 		SplashScreen.hideAsync();
 		if (Platform.OS === 'android') {
 			(async () => {

@@ -66,7 +66,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 				|(_, library), args: Args| async move {
 					let Library { db, sync, .. } = library.as_ref();
-					let pub_id = Uuid::new_v4().as_bytes().to_vec();
+					let pub_id = Uuid::now_v7().as_bytes().to_vec();
 					let date_created: DateTime<FixedOffset> = Utc::now().into();
 
 					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
@@ -98,17 +98,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					.into_iter()
 					.unzip();
 
-					sync.write_ops(
+					sync.write_op(
 						db,
-						(
-							sync.shared_create(
-								prisma_sync::saved_search::SyncId {
-									pub_id: pub_id.clone(),
-								},
-								sync_params,
-							),
-							db.saved_search().create(pub_id, db_params),
+						sync.shared_create(
+							prisma_sync::saved_search::SyncId {
+								pub_id: pub_id.clone(),
+							},
+							sync_params,
 						),
+						db.saved_search().create(pub_id, db_params),
 					)
 					.await?;
 
@@ -164,7 +162,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							rspc::Error::new(rspc::ErrorCode::NotFound, "search not found".into())
 						})?;
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
+					let (ops, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
 						[sync_db_entry!(updated_at, saved_search::date_modified)],
 						[
 							option_sync_db_entry!(args.name.flatten(), saved_search::name),
@@ -189,18 +187,20 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					})
 					.unzip();
 
-					sync.write_ops(
-						db,
-						(
-							sync_params,
-							db.saved_search()
-								.update_unchecked(saved_search::id::equals(id), db_params),
-						),
-					)
-					.await?;
+					if !ops.is_empty() && !db_params.is_empty() {
+						sync.write_ops(
+							db,
+							(
+								ops,
+								db.saved_search()
+									.update_unchecked(saved_search::id::equals(id), db_params),
+							),
+						)
+						.await?;
 
-					invalidate_query!(library, "search.saved.list");
-					invalidate_query!(library, "search.saved.get");
+						invalidate_query!(library, "search.saved.list");
+						invalidate_query!(library, "search.saved.get");
+					}
 
 					Ok(())
 				}
