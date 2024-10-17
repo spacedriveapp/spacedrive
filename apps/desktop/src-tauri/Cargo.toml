@@ -47,12 +47,12 @@ mimalloc = { workspace = true }
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
-version  = "=2.0.2"
+version  = "=2.0.4"
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]
 git      = "https://github.com/spacedriveapp/tauri-specta"
-rev      = "733c1983e3"
+rev      = "8c85d40eb9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Spacedrive Sub-crates

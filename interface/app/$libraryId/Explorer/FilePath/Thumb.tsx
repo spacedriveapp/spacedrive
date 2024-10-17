@@ -295,9 +295,20 @@ export const FileThumb = memo(
 
 		const thumbType = useMemo((): ThumbType => {
 			if (loadState.original !== 'error' && props.loadOriginal) return 'original';
-			if (loadState.thumbnail !== 'error' && itemData.thumbnails.size > 0) return 'thumbnail';
+			if (
+				loadState.thumbnail !== 'error' &&
+				itemData.hasLocalThumbnail &&
+				itemData.thumbnails.size > 0
+			)
+				return 'thumbnail';
 			return 'icon';
-		}, [itemData.thumbnails, loadState, props.loadOriginal]);
+		}, [
+			itemData.hasLocalThumbnail,
+			itemData.thumbnails.size,
+			loadState.original,
+			loadState.thumbnail,
+			props.loadOriginal
+		]);
 
 		useEffect(() => {
 			let timeoutId = null;
