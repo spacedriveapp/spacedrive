@@ -2,8 +2,8 @@ import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useIsDark } from '~/hooks';
 
-import { useExplorerContext } from '../../Context';
-import { useExplorerViewContext } from '../Context';
+import { useExplorerContext } from '../../ExplorerContext';
+import { useExplorerViewContext } from '../ExplorerViewContext';
 
 export const DATE_HEADER_HEIGHT = 140;
 

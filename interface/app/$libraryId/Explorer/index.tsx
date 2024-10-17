@@ -1,5 +1,12 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import {
+	CSSProperties,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	type PropsWithChildren,
+	type ReactNode
+} from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -10,9 +17,9 @@ import {
 import { useOperatingSystem, useShortcut } from '~/hooks';
 
 import { useTopBarContext } from '../TopBar/Context';
-import { useExplorerContext } from './Context';
 import ContextMenu from './ContextMenu';
 import DismissibleNotice from './DismissibleNotice';
+import { useExplorerContext } from './ExplorerContext';
 import { ExplorerPathBar, PATH_BAR_HEIGHT } from './ExplorerPathBar';
 import { Inspector, INSPECTOR_WIDTH } from './Inspector';
 import ExplorerContextMenu from './ParentContextMenu';
@@ -25,6 +32,7 @@ import { EmptyNotice } from './View/EmptyNotice';
 import 'react-slidedown/lib/slidedown.css';
 
 import clsx from 'clsx';
+import useResizeObserver from 'use-resize-observer';
 
 import { ExplorerTagBar, TAG_BAR_HEIGHT } from './ExplorerTagBar';
 import { useExplorerDnd } from './useExplorerDnd';
@@ -41,6 +49,7 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
+	const { layoutMode } = explorer.useSettingsSnapshot();
 	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
 		s.showInspector,
 		s.isTagAssignModeActive
@@ -88,19 +97,48 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 
 	const topBar = useTopBarContext();
 
+	const bottomBarRef = useRef<HTMLDivElement>(null);
+
+	useResizeObserver({
+		ref: bottomBarRef,
+		box: 'border-box',
+		onResize(bounds) {
+			if (bounds.height === undefined) return;
+			explorerStore.bottomBarHeight = bounds.height;
+		}
+	});
+
+	useEffect(() => {
+		const height = bottomBarRef.current?.getBoundingClientRect().height;
+		if (typeof height !== 'number') return;
+		explorerStore.bottomBarHeight = height;
+	}, [showTagBar, showPathBar]);
+
+	useLayoutEffect(() => {
+		const height = bottomBarRef.current?.getBoundingClientRect().height;
+		if (typeof height !== 'number') return;
+		explorerStore.bottomBarHeight = height;
+	}, []);
+
 	return (
 		<>
 			<ExplorerContextMenu>
 				<div
 					ref={explorer.scrollRef}
-					className="explorer-scroll explorer-inspector-scroll flex flex-1 flex-col overflow-x-hidden"
+					className={clsx(
+						'explorer-scroll explorer-inspector-scroll flex flex-1 flex-col',
+						{
+							'overflow-y-auto overflow-x-hidden': layoutMode !== 'columns',
+							'overflow-y-clip': layoutMode === 'columns'
+						}
+					)}
 					style={
 						{
 							'--scrollbar-width': isWindows ? '10px' : '6px',
 							'--scrollbar-height': isWindows ? '10px' : '6px',
 							'--scrollbar-margin-top': `${topBar.topBarHeight}px`,
-							'--scrollbar-margin-bottom': `${showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0}px`,
-							'paddingTop': topBar.topBarHeight,
+							'--scrollbar-margin-bottom': `${(showPathBar ? PATH_BAR_HEIGHT : 0) + (showTagBar ? TAG_BAR_HEIGHT : 0)}px`,
+							'paddingTop': layoutMode !== 'columns' ? topBar.topBarHeight : 0,
 							'paddingRight': showInspector ? INSPECTOR_WIDTH : 0
 						} as CSSProperties
 					}
@@ -129,7 +167,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 			</ExplorerContextMenu>
 
 			{/* TODO: wrap path bar and tag bar in nice wrapper, ideally animate tag bar in/out directly above path bar */}
-			<div className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
+			<div ref={bottomBarRef} className="absolute inset-x-0 bottom-0 z-50 flex flex-col">
 				{showTagBar && <ExplorerTagBar />}
 				{showPathBar && <ExplorerPathBar />}
 			</div>

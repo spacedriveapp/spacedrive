@@ -16,7 +16,7 @@ import { useRoutingContext } from '~/RoutingContext';
 import { isNonEmpty } from '~/util';
 
 import CreateDialog from '../../settings/library/tags/CreateDialog';
-import { useExplorerContext } from '../Context';
+import { useExplorerContext } from '../ExplorerContext';
 import { useExplorerCopyPaste } from '../hooks/useExplorerCopyPaste';
 import { QuickPreview } from '../QuickPreview';
 import { useQuickPreviewContext } from '../QuickPreview/Context';
@@ -25,8 +25,9 @@ import { explorerStore } from '../store';
 import { useExplorerDroppable } from '../useExplorerDroppable';
 import { useExplorerOperatingSystem } from '../useExplorerOperatingSystem';
 import { useExplorerSearchParams } from '../util';
-import { ExplorerViewContext, ExplorerViewContextProps } from './Context';
+import { ColumnsView } from './ColumnsView';
 import { DragScrollable } from './DragScrollable';
+import { ExplorerViewContext, ExplorerViewContextProps } from './ExplorerViewContext';
 import { GridView } from './GridView';
 import { ListView } from './ListView';
 import { MediaView } from './MediaView';
@@ -181,6 +182,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 				<div ref={setDroppableRef} className="size-full">
 					{explorer.items === null || (explorer.items && explorer.items.length > 0) ? (
 						<>
+							{layoutMode === 'columns' && <ColumnsView />}
 							{layoutMode === 'grid' && <GridView />}
 							{layoutMode === 'list' && <ListView />}
 							{layoutMode === 'media' && <MediaView />}

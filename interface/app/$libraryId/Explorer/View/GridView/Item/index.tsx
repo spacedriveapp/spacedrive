@@ -12,7 +12,7 @@ import {
 } from '@sd/client';
 import { useLocale } from '~/hooks';
 
-import { useExplorerContext } from '../../../Context';
+import { useExplorerContext } from '../../../ExplorerContext';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
 import { ExplorerDroppable, useExplorerDroppableContext } from '../../../ExplorerDroppable';
 import { FileThumb } from '../../../FilePath/Thumb';

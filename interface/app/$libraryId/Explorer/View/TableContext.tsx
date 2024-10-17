@@ -10,7 +10,7 @@ export const TableContext = createContext<TableContext | null>(null);
 export const useTableContext = () => {
 	const ctx = useContext(TableContext);
 
-	if (ctx === null) throw new Error('TableContext.Provider not found!');
+	if (ctx === null) throw new Error('useTableContext() was called outside of a TableContext!');
 
 	return ctx;
 };

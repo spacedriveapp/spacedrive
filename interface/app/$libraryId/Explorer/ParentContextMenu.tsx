@@ -17,8 +17,8 @@ import { useLocale, useOperatingSystem } from '~/hooks';
 import { useQuickRescan } from '~/hooks/useQuickRescan';
 import { keybindForOs } from '~/util/keybinds';
 
-import { useExplorerContext } from './Context';
 import { CopyAsPathBase } from './CopyAsPath';
+import { useExplorerContext } from './ExplorerContext';
 import { useExplorerCopyPaste } from './hooks/useExplorerCopyPaste';
 import { RevealInNativeExplorerBase } from './RevealInNativeExplorer';
 import { explorerStore } from './store';
