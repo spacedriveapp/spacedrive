@@ -1,71 +1,50 @@
-// Adapted from: https://github.com/kimlimjustin/xplorer/blob/f4f3590d06783d64949766cc2975205a3b689a56/src-tauri/src/drives.rs
-
-use crate::{library::Library, Node};
-
-use sd_core_sync::SyncManager;
-use sd_prisma::{
-	prisma::{device, storage_statistics, PrismaClient},
-	prisma_sync,
-};
-use sd_sync::{sync_entry, OperationFactory};
-use sd_utils::uuid_to_bytes;
-
+use sd_prisma::prisma::volume;
 use std::{
-	fmt::Display,
 	hash::{Hash, Hasher},
 	path::PathBuf,
-	sync::{Arc, OnceLock},
 };
 
-use futures_concurrency::future::Join;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use sysinfo::{DiskExt, System, SystemExt};
+
+use strum_macros::Display;
 use thiserror::Error;
-use tokio::{spawn, sync::Mutex};
 use tracing::error;
 use uuid::Uuid;
-
+pub mod manager;
+pub mod os;
+pub mod speed;
+pub mod statistics;
 pub mod watcher;
-
-fn sys_guard() -> &'static Mutex<System> {
-	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
-	SYS.get_or_init(|| Mutex::new(System::new_all()))
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum DiskType {
-	SSD,
-	HDD,
-	Removable,
-}
-
-impl Display for DiskType {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(match self {
-			Self::SSD => "SSD",
-			Self::HDD => "HDD",
-			Self::Removable => "Removable",
-		})
-	}
-}
+use sd_prisma::prisma::PrismaClient;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
-	pub name: String,
-	pub mount_points: Vec<PathBuf>,
-	#[specta(type = String)]
-	#[serde_as(as = "DisplayFromStr")]
-	pub total_capacity: u64,
-	#[specta(type = String)]
-	#[serde_as(as = "DisplayFromStr")]
-	pub available_capacity: u64,
+	// ids will be None if the volume is not committed to the database
+	pub id: Option<i32>,
+	pub pub_id: Option<Vec<u8>>,
+
+	pub name: String, // Volume name
+	pub mount_type: MountType,
+	pub mount_points: Vec<PathBuf>, // List of mount points
+	pub is_mounted: bool,
 	pub disk_type: DiskType,
-	pub file_system: Option<String>,
-	pub is_root_filesystem: bool,
+	pub file_system: FileSystem,
+	pub read_only: bool,              // True if read-only
+	pub error_status: Option<String>, // SMART error status or similar
+
+	// Statistics
+	// I/O speed in Mbps
+	pub read_speed_mbps: Option<u64>,
+	pub write_speed_mbps: Option<u64>,
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
+	pub total_bytes_capacity: u64, // Total bytes capacity
+	#[specta(type = String)]
+	#[serde_as(as = "DisplayFromStr")]
+	pub total_bytes_available: u64, // Total bytes available
 }
 
 impl Hash for Volume {
@@ -95,6 +74,152 @@ impl PartialEq for Volume {
 
 impl Eq for Volume {}
 
+impl From<volume::Data> for Volume {
+	fn from(vol: volume::Data) -> Self {
+		Volume {
+			id: Some(vol.id),
+			pub_id: Some(vol.pub_id),
+			name: vol.name.unwrap_or_else(|| "Unknown".to_string()),
+			mount_type: vol
+				.mount_type
+				.and_then(|mt| Some(MountType::from_string(&mt)))
+				.unwrap_or(MountType::System),
+			mount_points: vec![PathBuf::from(
+				vol.mount_point.unwrap_or_else(|| "/".to_string()),
+			)], // Assuming first mount point
+			is_mounted: vol.is_mounted.unwrap_or(false),
+			disk_type: vol
+				.disk_type
+				.and_then(|dt| Some(DiskType::from_string(&dt)))
+				.unwrap_or(DiskType::Unknown),
+			file_system: vol
+				.file_system
+				.and_then(|fs| Some(FileSystem::from_string(&fs)))
+				.unwrap_or(FileSystem::Other("Unknown".to_string())),
+			read_only: vol.read_only.unwrap_or(false),
+			error_status: vol.error_status,
+
+			// Statistics
+			total_bytes_capacity: vol
+				.total_bytes_capacity
+				.and_then(|t| t.parse().ok())
+				.unwrap_or(0),
+			total_bytes_available: vol
+				.total_bytes_available
+				.and_then(|a| a.parse().ok())
+				.unwrap_or(0),
+			read_speed_mbps: vol.read_speed_mbps.map(|s| s as u64),
+			write_speed_mbps: vol.write_speed_mbps.map(|s| s as u64),
+		}
+	}
+}
+
+impl Volume {
+	pub async fn create(&self, db: &PrismaClient) -> Result<(), VolumeError> {
+		let pub_id = Uuid::now_v7().as_bytes().to_vec();
+		db.volume()
+			.create(
+				pub_id,
+				vec![
+					volume::name::set(Some(self.name.clone())),
+					volume::mount_type::set(Some(self.mount_type.to_string())),
+					volume::mount_point::set(Some(
+						self.mount_points[0].to_str().unwrap().to_string(),
+					)),
+					volume::is_mounted::set(Some(self.is_mounted)),
+					volume::disk_type::set(Some(self.disk_type.to_string())),
+					volume::file_system::set(Some(self.file_system.to_string())),
+					volume::read_only::set(Some(self.read_only)),
+					volume::error_status::set(self.error_status.clone()),
+					volume::total_bytes_capacity::set(Some(self.total_bytes_capacity.to_string())),
+					volume::total_bytes_available::set(Some(
+						self.total_bytes_available.to_string(),
+					)),
+					volume::read_speed_mbps::set(self.read_speed_mbps.and_then(|v| {
+						if v == 0 {
+							None
+						} else {
+							Some(v as i64)
+						}
+					})),
+					volume::write_speed_mbps::set(self.write_speed_mbps.and_then(|v| {
+						if v == 0 {
+							None
+						} else {
+							Some(v as i64)
+						}
+					})),
+				],
+			)
+			.exec()
+			.await?;
+		Ok(())
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum DiskType {
+	SSD,
+	HDD,
+	Unknown,
+}
+
+impl DiskType {
+	pub fn from_string(disk_type: &str) -> Self {
+		match disk_type {
+			"SSD" => Self::SSD,
+			"HDD" => Self::HDD,
+			_ => Self::Unknown,
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+pub enum FileSystem {
+	NTFS,
+	FAT32,
+	EXT4,
+	APFS,
+	ExFAT,
+	Other(String),
+}
+
+impl FileSystem {
+	// Create a function to convert a String into a FileSystem enum
+	pub fn from_string(fs: &str) -> Self {
+		match fs.to_uppercase().as_str() {
+			"NTFS" => FileSystem::NTFS,
+			"FAT32" => FileSystem::FAT32,
+			"EXT4" => FileSystem::EXT4,
+			"APFS" => FileSystem::APFS,
+			"EXFAT" => FileSystem::ExFAT,
+			// If the string does not match known variants, store it in the Other variant
+			_ => FileSystem::Other(fs.to_string()),
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+pub enum MountType {
+	System,
+	External,
+	Network,
+	Virtual,
+}
+
+impl MountType {
+	pub fn from_string(mount_type: &str) -> Self {
+		match mount_type {
+			"System" => Self::System,
+			"External" => Self::External,
+			"Network" => Self::Network,
+			"Virtual" => Self::Virtual,
+			_ => Self::System,
+		}
+	}
+}
+
 #[derive(Error, Debug)]
 pub enum VolumeError {
 	#[error("Database error: {0}")]
@@ -109,354 +234,6 @@ impl From<VolumeError> for rspc::Error {
 	fn from(e: VolumeError) -> Self {
 		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 	}
-}
-
-#[cfg(target_os = "linux")]
-pub async fn get_volumes() -> Vec<Volume> {
-	use std::{collections::HashMap, path::Path};
-
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
-
-	let mut volumes: Vec<Volume> = Vec::new();
-	let mut path_to_volume_index = HashMap::new();
-	for disk in sys.disks() {
-		let disk_name = disk.name();
-		let mount_point = disk.mount_point().to_path_buf();
-		let file_system = String::from_utf8(disk.file_system().to_vec())
-			.map(|s| s.to_uppercase())
-			.ok();
-		let total_capacity = disk.total_space();
-		let available_capacity = disk.available_space();
-		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
-
-		let mut disk_path: PathBuf = PathBuf::from(disk_name);
-		if file_system.as_ref().map(|fs| fs == "ZFS").unwrap_or(false) {
-			// Use a custom path for ZFS disks to avoid conflicts with normal disks paths
-			disk_path = Path::new("zfs://").join(disk_path);
-		} else {
-			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
-			if !disk_path.starts_with("/dev") {
-				continue;
-			}
-
-			// Ensure disk has a valid device path
-			let real_path = match tokio::fs::canonicalize(disk_name).await {
-				Err(e) => {
-					error!(?disk_name, ?e, "Failed to canonicalize disk path;",);
-					continue;
-				}
-				Ok(real_path) => real_path,
-			};
-
-			// Check if disk is a symlink to another disk
-			if real_path != disk_path {
-				// Disk is a symlink to another disk, assign it to the same volume
-				path_to_volume_index.insert(
-					real_path.into_os_string(),
-					path_to_volume_index
-						.get(disk_name)
-						.cloned()
-						.unwrap_or(path_to_volume_index.len()),
-				);
-			}
-		}
-
-		if let Some(volume_index) = path_to_volume_index.get(disk_name) {
-			// Disk already has a volume assigned, update it
-			let volume: &mut Volume = volumes
-				.get_mut(*volume_index)
-				.expect("Volume index is present so the Volume must be present too");
-
-			// Update mount point if not already present
-			let mount_points = &mut volume.mount_points;
-			if mount_point.iter().all(|p| *p != mount_point) {
-				mount_points.push(mount_point);
-				let mount_points_to_check = mount_points.clone();
-				mount_points.retain(|candidate| {
-					!mount_points_to_check
-						.iter()
-						.any(|path| candidate.starts_with(path) && candidate != path)
-				});
-				if !volume.is_root_filesystem {
-					volume.is_root_filesystem = is_root_filesystem;
-				}
-			}
-
-			// Update mount capacity, it can change between mounts due to quotas (ZFS, BTRFS?)
-			if volume.total_capacity < total_capacity {
-				volume.total_capacity = total_capacity;
-			}
-
-			// This shouldn't change between mounts, but just in case
-			if volume.available_capacity > available_capacity {
-				volume.available_capacity = available_capacity;
-			}
-
-			continue;
-		}
-
-		// Assign volume to disk path
-		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
-
-		let mut name = disk_name.to_string_lossy().to_string();
-		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
-			name = "Unknown".to_string()
-		}
-
-		volumes.push(Volume {
-			name,
-			disk_type: if disk.is_removable() {
-				DiskType::Removable
-			} else {
-				match disk.kind() {
-					sysinfo::DiskKind::SSD => DiskType::SSD,
-					sysinfo::DiskKind::HDD => DiskType::HDD,
-					_ => DiskType::Removable,
-				}
-			},
-			file_system,
-			mount_points: vec![mount_point],
-			total_capacity,
-			available_capacity,
-			is_root_filesystem,
-		});
-	}
-
-	volumes
-}
-
-#[cfg(target_os = "ios")]
-pub async fn get_volumes() -> Vec<Volume> {
-	use std::os::unix::fs::MetadataExt;
-
-	use icrate::{
-		objc2::runtime::{Class, Object},
-		objc2::{msg_send, sel},
-		Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
-	};
-
-	let mut volumes: Vec<Volume> = Vec::new();
-
-	unsafe {
-		let file_manager = NSFileManager::defaultManager();
-
-		let root_dir = NSString::from_str("/");
-
-		let root_dir_ref = root_dir.as_ref();
-
-		let attributes = file_manager
-			.attributesOfFileSystemForPath_error(root_dir_ref)
-			.unwrap();
-
-		let attributes_ref = attributes.as_ref();
-
-		// Total space
-		let key = NSString::from_str("NSFileSystemSize");
-		let key_ref = key.as_ref();
-
-		let t = attributes_ref.get(key_ref).unwrap();
-		let total_space: u64 = msg_send![t, unsignedLongLongValue];
-
-		// Used space
-		let key = NSString::from_str("NSFileSystemFreeSize");
-		let key_ref = key.as_ref();
-
-		let t = attributes_ref.get(key_ref).unwrap();
-		let free_space: u64 = msg_send![t, unsignedLongLongValue];
-
-		volumes.push(Volume {
-			name: "Root".to_string(),
-			disk_type: DiskType::SSD,
-			file_system: Some("APFS".to_string()),
-			mount_points: vec![PathBuf::from("/")],
-			total_capacity: total_space,
-			available_capacity: free_space,
-			is_root_filesystem: true,
-		});
-	}
-
-	volumes
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct ImageSystemEntity {
-	mount_point: Option<String>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct ImageInfo {
-	system_entities: Vec<ImageSystemEntity>,
-}
-
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct HDIUtilInfo {
-	images: Vec<ImageInfo>,
-}
-
-// Android does not work via sysinfo and JNI is a pain to maintain. Therefore, we use React-Native-FS to get the volume data of the device.
-// We leave the function though to be built for Android because otherwise, the build will fail.
-#[cfg(not(any(target_os = "linux", target_os = "ios")))]
-pub async fn get_volumes() -> Vec<Volume> {
-	use futures::future;
-	use tokio::process::Command;
-
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
-
-	// Ignore mounted DMGs
-	#[cfg(target_os = "macos")]
-	let dmgs = &Command::new("hdiutil")
-		.args(["info", "-plist"])
-		.output()
-		.await
-		.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
-		.ok()
-		.and_then(|wmic_process| {
-			use std::str::FromStr;
-
-			if wmic_process.status.success() {
-				let info: Result<HDIUtilInfo, _> = plist::from_bytes(&wmic_process.stdout);
-				match info {
-					Err(e) => {
-						error!(?e, "Failed to parse hdiutil output;");
-						None
-					}
-					Ok(info) => Some(
-						info.images
-							.into_iter()
-							.flat_map(|image| image.system_entities)
-							.flat_map(|entity: ImageSystemEntity| entity.mount_point)
-							.flat_map(|mount_point| PathBuf::from_str(mount_point.as_str()))
-							.collect::<std::collections::HashSet<_>>(),
-					),
-				}
-			} else {
-				error!("Command hdiutil return error");
-				None
-			}
-		});
-
-	future::join_all(sys.disks().iter().map(|disk| async {
-		#[cfg(not(windows))]
-		let disk_name = disk.name();
-		let mount_point = disk.mount_point().to_path_buf();
-
-		#[cfg(windows)]
-		let Ok((disk_name, mount_point)) = ({
-			use normpath::PathExt;
-			mount_point
-				.normalize_virtually()
-				.map(|p| (p.localize_name().to_os_string(), p.into_path_buf()))
-		}) else {
-			return None;
-		};
-
-		#[cfg(target_os = "macos")]
-		{
-			// Ignore mounted DMGs
-			if dmgs
-				.as_ref()
-				.map(|dmgs| dmgs.contains(&mount_point))
-				.unwrap_or(false)
-			{
-				return None;
-			}
-
-			if !(mount_point.starts_with("/Volumes") || mount_point.starts_with("/System/Volumes"))
-			{
-				return None;
-			}
-		}
-
-		#[cfg(windows)]
-		#[allow(clippy::needless_late_init)]
-		let mut total_capacity;
-		#[cfg(not(windows))]
-		#[allow(clippy::needless_late_init)]
-		let total_capacity;
-		total_capacity = disk.total_space();
-
-		let available_capacity = disk.available_space();
-		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
-
-		// Fix broken google drive partition size in Windows
-		#[cfg(windows)]
-		if total_capacity < available_capacity && is_root_filesystem {
-			// Use available capacity as total capacity in the case we can't get the correct value
-			total_capacity = available_capacity;
-
-			let caption = mount_point.to_str();
-			if let Some(caption) = caption {
-				let mut caption = caption.to_string();
-
-				// Remove path separator from Disk letter
-				caption.pop();
-
-				let wmic_output = Command::new("cmd")
-					.args([
-						"/C",
-						&format!("wmic logical disk where Caption='{caption}' get Size"),
-					])
-					.output()
-					.await
-					.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
-					.ok()
-					.and_then(|wmic_process| {
-						if wmic_process.status.success() {
-							String::from_utf8(wmic_process.stdout).ok()
-						} else {
-							error!("Command wmic return error");
-							None
-						}
-					});
-
-				if let Some(wmic_output) = wmic_output {
-					match wmic_output.split("\r\r\n").collect::<Vec<&str>>()[1]
-						.to_string()
-						.trim()
-						.parse::<u64>()
-					{
-						Err(e) => error!(?e, "Failed to parse wmic output;"),
-						Ok(n) => total_capacity = n,
-					}
-				}
-			}
-		}
-
-		let mut name = disk_name.to_string_lossy().to_string();
-		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
-			name = "Unknown".to_string()
-		}
-
-		Some(Volume {
-			name,
-			disk_type: if disk.is_removable() {
-				DiskType::Removable
-			} else {
-				match disk.kind() {
-					sysinfo::DiskKind::SSD => DiskType::SSD,
-					sysinfo::DiskKind::HDD => DiskType::HDD,
-					_ => DiskType::Removable,
-				}
-			},
-			mount_points: vec![mount_point],
-			file_system: String::from_utf8(disk.file_system().to_vec()).ok(),
-			total_capacity,
-			available_capacity,
-			is_root_filesystem,
-		})
-	}))
-	.await
-	.into_iter()
-	.flatten()
-	.collect::<Vec<Volume>>()
 }
 
 // pub async fn save_volume(library: &Library) -> Result<(), VolumeError> {
@@ -500,132 +277,3 @@ pub async fn get_volumes() -> Vec<Volume> {
 //   dbg!(&volumes);
 //   assert!(volumes.len() > 0);
 // }
-
-fn compute_stats<'v>(volumes: impl IntoIterator<Item = &'v Volume>) -> (u64, u64) {
-	volumes
-		.into_iter()
-		.fold((0, 0), |(mut total, mut available), volume| {
-			total += volume.total_capacity;
-			available += volume.available_capacity;
-
-			(total, available)
-		})
-}
-
-async fn update_storage_statistics(
-	db: &PrismaClient,
-	sync: &SyncManager,
-	total_capacity: u64,
-	available_capacity: u64,
-) -> Result<(), VolumeError> {
-	let device_pub_id = sync.device_pub_id.to_db();
-
-	let storage_statistics_pub_id = db
-		.storage_statistics()
-		.find_first(vec![storage_statistics::device::is(vec![
-			device::pub_id::equals(device_pub_id.clone()),
-		])])
-		.select(storage_statistics::select!({ pub_id }))
-		.exec()
-		.await?
-		.map(|s| s.pub_id);
-
-	if let Some(storage_statistics_pub_id) = storage_statistics_pub_id {
-		sync.write_ops(
-			db,
-			(
-				[
-					sync_entry!(total_capacity, storage_statistics::total_capacity),
-					sync_entry!(available_capacity, storage_statistics::available_capacity),
-				]
-				.into_iter()
-				.map(|(field, value)| {
-					sync.shared_update(
-						prisma_sync::storage_statistics::SyncId {
-							pub_id: storage_statistics_pub_id.clone(),
-						},
-						field,
-						value,
-					)
-				})
-				.collect(),
-				db.storage_statistics()
-					.update(
-						storage_statistics::pub_id::equals(storage_statistics_pub_id),
-						vec![
-							storage_statistics::total_capacity::set(total_capacity as i64),
-							storage_statistics::available_capacity::set(available_capacity as i64),
-						],
-					)
-					// We don't need any data here, just the id avoids receiving the entire object
-					// as we can't pass an empty select macro call
-					.select(storage_statistics::select!({ id })),
-			),
-		)
-		.await?;
-	} else {
-		let new_storage_statistics_id = uuid_to_bytes(&Uuid::now_v7());
-
-		sync.write_op(
-			db,
-			sync.shared_create(
-				prisma_sync::storage_statistics::SyncId {
-					pub_id: new_storage_statistics_id.clone(),
-				},
-				[
-					sync_entry!(total_capacity, storage_statistics::total_capacity),
-					sync_entry!(available_capacity, storage_statistics::available_capacity),
-					sync_entry!(
-						prisma_sync::device::SyncId {
-							pub_id: device_pub_id.clone()
-						},
-						storage_statistics::device
-					),
-				],
-			),
-			db.storage_statistics()
-				.create(
-					new_storage_statistics_id,
-					vec![
-						storage_statistics::total_capacity::set(total_capacity as i64),
-						storage_statistics::available_capacity::set(available_capacity as i64),
-						storage_statistics::device::connect(device::pub_id::equals(device_pub_id)),
-					],
-				)
-				// We don't need any data here, just the id avoids receiving the entire object
-				// as we can't pass an empty select macro call
-				.select(storage_statistics::select!({ id })),
-		)
-		.await?;
-	}
-
-	Ok(())
-}
-
-pub fn save_storage_statistics(node: &Node) {
-	spawn({
-		let libraries = Arc::clone(&node.libraries);
-		async move {
-			let (total_capacity, available_capacity) = compute_stats(&get_volumes().await);
-
-			libraries
-				.get_all()
-				.await
-				.into_iter()
-				.map(move |library: Arc<Library>| async move {
-					let Library { db, sync, .. } = &*library;
-
-					update_storage_statistics(db, sync, total_capacity, available_capacity).await
-				})
-				.collect::<Vec<_>>()
-				.join()
-				.await
-				.into_iter()
-				.for_each(|res| {
-					if let Err(e) = res {
-						error!(?e, "Failed to save storage statistics;");
-					}
-				});
-		}
-	});
-}

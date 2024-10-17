@@ -289,7 +289,7 @@ export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
  */
 export type DiscoveryMethod = "Relay" | "Local" | "Manual"
 
-export type DiskType = "SSD" | "HDD" | "Removable"
+export type DiskType = "SSD" | "HDD" | "Unknown"
 
 export type DoubleClickAction = "openFile" | "quickPreview"
 
@@ -355,6 +355,8 @@ export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | {
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
+
+export type FileSystem = "NTFS" | "FAT32" | "EXT4" | "APFS" | "ExFAT" | { Other: string }
 
 export type Flash = { 
 /**
@@ -528,6 +530,8 @@ export type MediaDate = string
 export type MediaLocation = { latitude: number; longitude: number; pluscode: PlusCode; altitude: number | null; direction: number | null }
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
+
+export type MountType = "System" | "External" | "Network" | "Virtual"
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
@@ -725,4 +729,4 @@ export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 
-export type Volume = { name: string; mount_points: string[]; total_capacity: string; available_capacity: string; disk_type: DiskType; file_system: string | null; is_root_filesystem: boolean }
+export type Volume = { id: number | null; pub_id: number[] | null; name: string; mount_type: MountType; mount_points: string[]; is_mounted: boolean; disk_type: DiskType; file_system: FileSystem; read_only: boolean; error_status: string | null; read_speed_mbps: bigint | null; write_speed_mbps: bigint | null; total_bytes_capacity: string; total_bytes_available: string }

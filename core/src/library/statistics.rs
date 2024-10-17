@@ -1,4 +1,6 @@
-use crate::{api::utils::get_size, invalidate_query, library::Library, volume::get_volumes, Node};
+use crate::{
+	api::utils::get_size, invalidate_query, library::Library, volume::os::get_volumes, Node,
+};
 
 use sd_prisma::prisma::{statistics, storage_statistics};
 use sd_utils::db::size_in_bytes_from_db;
@@ -33,8 +35,8 @@ pub async fn update_library_statistics(
 		let mut local_total_capacity: u64 = 0;
 		let mut local_available_capacity: u64 = 0;
 		for volume in volumes {
-			local_total_capacity += volume.total_capacity;
-			local_available_capacity += volume.available_capacity;
+			local_total_capacity += volume.total_bytes_capacity;
+			local_available_capacity += volume.total_bytes_available;
 		}
 
 		total_capacity = local_total_capacity;

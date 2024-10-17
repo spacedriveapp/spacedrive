@@ -101,6 +101,7 @@ tar              = "0.4.41"
 tower-service    = "0.3.2"
 tracing-appender = "0.2.3"
 whoami           = "1.5.2"
+fsevent = "2.1.2"
 
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]

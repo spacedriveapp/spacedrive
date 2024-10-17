@@ -5,6 +5,7 @@ use crate::{
 	object::tag,
 	p2p,
 	util::{mpscrr, MaybeUndefined},
+	volume::manager::VolumeManager,
 	Node,
 };
 
@@ -145,6 +146,9 @@ impl Libraries {
 					use crate::volume::watcher::spawn_volume_watcher;
 					spawn_volume_watcher(_library_arc.clone());
 				}
+
+				// Initialize volume manager
+				VolumeManager::new(&_library_arc.db).await;
 			}
 		}
 
