@@ -1,6 +1,7 @@
 akar
 allred
 alluxio
+APFS
 augusto
 automount
 benja
@@ -17,11 +18,13 @@ elon
 encryptor
 Exif
 Flac
+fsevent
 graps
 haden
 haoyuan
 haris
 Iconoir
+inotify
 josephjacks
 justinhoffman
 Keychain
@@ -32,6 +35,7 @@ lesterlee
 Loas
 lütke
 marietti
+mbps
 mehrzad
 Mjpeg
 Mmap
@@ -41,6 +45,7 @@ naveen
 neha
 noco
 Normalised
+NTFS
 OSSC
 poonen
 rauch
@@ -52,6 +57,7 @@ rspc
 rspcws
 rywalker
 sanjay
+sdvol
 sharma
 skippable
 spacedrive
@@ -67,5 +73,6 @@ typecheck
 uuid
 vdfs
 vijay
+winapi
 zacharysmith
 zxcvbn

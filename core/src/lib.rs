@@ -56,7 +56,7 @@ use context::{JobContext, NodeContext};
 use node::config;
 use notifications::Notifications;
 use sd_core_cloud_services::AUTH_SERVER_URL;
-use volume::save_storage_statistics;
+use volume::statistics::save_storage_statistics;
 
 /// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
