@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { env, exit, umask, platform } from 'node:process'
+import { env, exit, platform, umask } from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
@@ -113,9 +112,7 @@ try {
 			await spawn(path.join(__dirname, 'fix-deb.sh'), [], __dirname)
 	}
 } catch (error) {
-	console.error(
-		`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`
-	)
+	console.error(`tauri ${args[0]} failed with exit code ${typeof error === 'number' ? error : 1}`)
 
 	console.warn(
 		`If you got an error related to libav*/FFMpeg or Protoc/Protobuf you may need to re-run \`pnpm prep\``,

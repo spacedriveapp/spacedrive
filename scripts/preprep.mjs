@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
@@ -9,11 +8,11 @@ import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
 import { parse as parseTOML } from 'smol-toml'
 
-import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mjs'
+import { getConst, NATIVE_DEPS_ASSETS, NATIVE_DEPS_URL } from './utils/consts.mjs'
 import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import { getRustTargetList } from './utils/rustup.mjs'
-import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
+import { symlinkSharedLibsLinux, symlinkSharedLibsMacOS } from './utils/shared.mjs'
 import { spinTask } from './utils/spinner.mjs'
 import { which } from './utils/which.mjs'
 
@@ -41,7 +40,7 @@ const extractOpts = {
 	chmod: 0o600,
 	sizeLimit: 256n * 1024n * 1024n,
 	recursive: true,
-	overwrite: true,
+	overwrite: true
 }
 
 const bugWarn =
@@ -92,7 +91,7 @@ const rustTargets = await getRustTargetList()
 const iosTargets = {
 	'aarch64-apple-ios': NATIVE_DEPS_ASSETS.IOS.ios.aarch64,
 	'aarch64-apple-ios-sim': NATIVE_DEPS_ASSETS.IOS.iossim.aarch64,
-	'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64,
+	'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64
 }
 
 // Native deps for mobile
@@ -184,7 +183,7 @@ try {
 	const configData = mustache
 		.render(
 			await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
-				encoding: 'utf8',
+				encoding: 'utf8'
 			}),
 			{
 				isWin,
@@ -201,7 +200,7 @@ try {
 					.replaceAll('\\', '\\\\'),
 				nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
 				mobileNativeDeps: mobileNativeDeps.replaceAll('\\', '\\\\'),
-				hasLLD,
+				hasLLD
 			}
 		)
 		.replace(/\n\n+/g, '\n')
@@ -211,7 +210,7 @@ try {
 
 	await fs.writeFile(path.join(__root, '.cargo', 'config.toml'), configData, {
 		mode: 0o751,
-		flag: 'w+',
+		flag: 'w+'
 	})
 } catch (error) {
 	console.error(`Failed to generate .cargo/config.toml.\n${bugWarn}`)

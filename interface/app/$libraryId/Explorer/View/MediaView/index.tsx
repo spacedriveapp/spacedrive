@@ -190,7 +190,15 @@ export const MediaView = () => {
 		>
 			{isSortingByDate && <DateHeader date={date} />}
 
-			<DragSelect grid={grid}>
+			<DragSelect
+				columnCount={grid.columnCount}
+				gapY={grid.gap.y}
+				getItem={grid.getItem}
+				totalColumnCount={grid.totalColumnCount}
+				totalCount={grid.totalCount}
+				totalRowCount={grid.totalRowCount}
+				virtualItemHeight={grid.virtualItemHeight}
+			>
 				{virtualRows.map(virtualRow => (
 					<React.Fragment key={virtualRow.key}>
 						{columnVirtualizer.getVirtualItems().map(virtualColumn => {
