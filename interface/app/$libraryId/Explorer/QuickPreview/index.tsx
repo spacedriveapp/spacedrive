@@ -151,10 +151,10 @@ export const QuickPreview = () => {
 	useEffect(() => {
 		setNewName(null);
 		setMagnification(1);
+		setThumbnailLoading({ icon: 'notLoaded', thumbnail: 'notLoaded', original: 'notLoaded' });
 
 		if (open || item) return;
 
-		setThumbnailLoading({ icon: 'notLoaded', thumbnail: 'notLoaded', original: 'notLoaded' });
 		getQuickPreviewStore().open = false;
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
@@ -354,22 +354,25 @@ export const QuickPreview = () => {
 											</Dialog.Close>
 										</Tooltip>
 
-										{Object.values(thumbnailLoading).some(
-											status => status === 'error'
-										) && (
-											<Tooltip label={t('quickpreview_thumbnail_error_tip')}>
-												<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
-													<WarningCircle
-														className="text-red-500"
-														weight="fill"
-														size={14}
-													/>
-													<p className="text-xs text-ink">
-														{t('quickpreview_thumbnail_error_message')}
-													</p>
-												</div>
-											</Tooltip>
-										)}
+										{thumbnailLoading.original === 'error' &&
+											thumbnailLoading.thumbnail === 'loaded' && (
+												<Tooltip
+													label={t('quickpreview_thumbnail_error_tip')}
+												>
+													<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
+														<WarningCircle
+															className="text-red-500"
+															weight="fill"
+															size={14}
+														/>
+														<p className="text-xs text-ink">
+															{t(
+																'quickpreview_thumbnail_error_message'
+															)}
+														</p>
+													</div>
+												</Tooltip>
+											)}
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">

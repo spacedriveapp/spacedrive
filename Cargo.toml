@@ -33,7 +33,7 @@ futures             = "0.3.31"
 futures-concurrency = "7.6"
 globset             = "0.4.15"
 http                = "1.1"
-hyper               = "1.4"
+hyper               = "1.5"
 image               = "0.24.9"                                         # Update blocked due to https://github.com/image-rs/image/issues/2230
 itertools           = "0.13.0"
 lending-stream      = "1.0"
@@ -47,7 +47,6 @@ reqwest             = { version = "0.12.8", default-features = false }
 rmp                 = "0.8.14"
 rmp-serde           = "1.3"
 rmpv                = { version = "1.3", features = ["with-serde"] }
-rspc                = "0.1.4"                                          # Update blocked by custom patch below
 serde               = "1.0"
 serde_json          = "1.0"
 specta              = "=2.0.0-rc.20"
@@ -65,40 +64,43 @@ uhlc                = "0.8.0"                                          # Must fo
 uuid                = "1.10"                                           # Must follow version used by specta
 webp                = "0.2.6"                                          # Update blocked by image
 
+[workspace.dependencies.rspc]
+git = "https://github.com/spacedriveapp/rspc.git"
+rev = "6a77167495"
+
 [workspace.dependencies.prisma-client-rust]
 default-features = false
 features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
 git              = "https://github.com/spacedriveapp/prisma-client-rust.git"
-rev              = "9d14e55e1d"
+rev              = "b22ad7dc7d"
 
 [workspace.dependencies.prisma-client-rust-sdk]
 default-features = false
 features         = ["sqlite"]
 git              = "https://github.com/spacedriveapp/prisma-client-rust.git"
-rev              = "9d14e55e1d"
+rev              = "b22ad7dc7d"
 
 # Proper IOS Support
 [patch.crates-io.if-watch]
 git = "https://github.com/spacedriveapp/if-watch.git"
 rev = "a92c17d3f8"
 
-[patch.crates-io.rspc]
-git = "https://github.com/spacedriveapp/rspc.git"
-rev = "68349c19e1"
-
 # Add `Control::open_stream_with_addrs`
 [patch.crates-io.libp2p]
-git = "https://github.com/spacedriveapp/rust-libp2p.git"
-rev = "a005656df7"
+git = "https://github.com/HeavenVolkoff/rust-libp2p"
+rev = "4146a383ad"
 [patch.crates-io.libp2p-core]
-git = "https://github.com/spacedriveapp/rust-libp2p.git"
-rev = "a005656df7"
+git = "https://github.com/HeavenVolkoff/rust-libp2p"
+rev = "4146a383ad"
+[patch.crates-io.libp2p-identity]
+git = "https://github.com/HeavenVolkoff/rust-libp2p"
+rev = "4146a383ad"
 [patch.crates-io.libp2p-swarm]
-git = "https://github.com/spacedriveapp/rust-libp2p.git"
-rev = "a005656df7"
+git = "https://github.com/HeavenVolkoff/rust-libp2p"
+rev = "4146a383ad"
 [patch.crates-io.libp2p-stream]
-git = "https://github.com/spacedriveapp/rust-libp2p.git"
-rev = "a005656df7"
+git = "https://github.com/HeavenVolkoff/rust-libp2p"
+rev = "4146a383ad"
 
 [profile.dev]
 # Make compilation faster on macOS
