@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+
 import {
 	ObjectKindEnum,
 	useLibraryQuery,
@@ -21,7 +22,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const title = useMemo(() => {
 		return path
 			?.split('/')
-			.filter((x) => x !== '')
+			.filter(x => x !== '')
 			.pop();
 	}, [path]);
 
@@ -62,9 +63,12 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 			filters: [...defaultFilters, ...layoutFilter].filter(Boolean),
 			take: 30
 		},
-		order,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+		order
 	});
+
+	useEffect(() => {
+		getExplorerStore().resetNewThumbnails();
+	}, [path]);
 
 	useEffect(() => {
 		// Set screen title to location.

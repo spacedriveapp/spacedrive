@@ -17,10 +17,10 @@
 		"lint": "eslint src --cache"
 	},
 	"dependencies": {
-		"@oscartbeaumont-sd/rspc-client": "github:spacedriveapp/rspc#path:packages/client&bc882f4724",
+		"@spacedrive/rspc-client": "github:spacedriveapp/rspc#path:packages/client&68349c19e1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
-		"@tanstack/react-query": "^4.36.1",
+		"@tanstack/react-query": "^5.59",
 		"html-to-image": "^1.11.11",
 		"html2canvas": "^1.4.1",
 		"react": "^18.2.0",

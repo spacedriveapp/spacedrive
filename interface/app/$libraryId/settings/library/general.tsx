@@ -40,7 +40,7 @@ export const Component = () => {
 	});
 	const { isValid } = form.formState;
 
-	useDebouncedFormWatch(form, (value) => {
+	useDebouncedFormWatch(form, value => {
 		if (!isValid) return;
 		editLibrary.mutate({
 			id: library.uuid,
@@ -109,7 +109,7 @@ export const Component = () => {
 					<div className="mt-2">
 						<Button
 							onClick={() => vacuumLibrary.mutate(null)}
-							disabled={vacuumLibrary.isLoading}
+							disabled={vacuumLibrary.isPending}
 							size="sm"
 							variant="gray"
 							className="whitespace-nowrap"
@@ -130,7 +130,7 @@ export const Component = () => {
 							variant="colored"
 							className="whitespace-nowrap border-red-500 bg-red-500"
 							onClick={() => {
-								dialogManager.create((dp) => (
+								dialogManager.create(dp => (
 									<DeleteLibraryDialog {...dp} libraryUuid={library.uuid} />
 								));
 							}}

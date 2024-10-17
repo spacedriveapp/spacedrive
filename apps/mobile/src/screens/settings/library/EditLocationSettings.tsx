@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Controller } from 'react-hook-form';
 import { Alert, Text, View } from 'react-native';
 import { z } from 'zod';
+
 import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { AnimatedButton } from '~/components/primitive/Button';
@@ -37,16 +38,16 @@ const EditLocationSettingsScreen = ({
 	const form = useZodForm({ schema });
 
 	const updateLocation = useLibraryMutation('locations.update', {
-		onError: (e) => console.log({ e }),
+		onError: e => console.log({ e }),
 		onSuccess: () => {
 			form.reset(form.getValues());
-			queryClient.invalidateQueries(['locations.list']);
+			queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 			toast.success('Location updated!');
 			// TODO: navigate back & reset input focus!
 		}
 	});
 
-	const onSubmit = form.handleSubmit((data) =>
+	const onSubmit = form.handleSubmit(data =>
 		updateLocation.mutateAsync({
 			id: Number(id),
 			name: data.displayName,
@@ -90,19 +91,19 @@ const EditLocationSettingsScreen = ({
 		});
 	}, [form, navigation, onSubmit]);
 
-	useLibraryQuery(['locations.getWithRules', id], {
-		onSuccess: (data) => {
-			if (data && !form.formState.isDirty)
-				form.reset({
-					displayName: data.name,
-					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.id.toString()),
-					generatePreviewMedia: data.generate_preview_media,
-					syncPreviewMedia: data.sync_preview_media,
-					hidden: data.hidden
-				});
-		}
-	});
+	const query = useLibraryQuery(['locations.getWithRules', id]);
+	useEffect(() => {
+		const data = query.data;
+		if (data && !form.formState.isDirty)
+			form.reset({
+				displayName: data.name,
+				localPath: data.path,
+				indexer_rules_ids: data.indexer_rules.map(i => i.id.toString()),
+				generatePreviewMedia: data.generate_preview_media,
+				syncPreviewMedia: data.sync_preview_media,
+				hidden: data.hidden
+			});
+	}, [form, query.data]);
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+
 import {
 	ExplorerSettings,
 	LibraryPreferences,
@@ -53,7 +54,7 @@ export function useExplorerPreferences<TData, TOrder extends Ordering>({
 
 		try {
 			await updatePreferences.mutateAsync(writeSettings(settings));
-			rspc.queryClient.invalidateQueries(['preferences.get']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['preferences.get'] });
 		} catch (e) {
 			alert('An error has occurred while updating your preferences.');
 		}

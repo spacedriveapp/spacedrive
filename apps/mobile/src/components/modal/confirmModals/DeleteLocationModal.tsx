@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+
 import { useLibraryMutation, usePlausibleEvent, useRspcLibraryContext } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 import { toast } from '~/components/primitive/Toast';
@@ -15,7 +16,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 	const rspc = useRspcLibraryContext();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
+	const { mutate: deleteLoc, isPending: deleteLocLoading } = useLibraryMutation(
 		'locations.delete',
 		{
 			onSuccess: () => {
@@ -23,14 +24,14 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 				onSubmit?.();
 				toast.success('Location deleted successfully');
 			},
-			onError: (error) => {
+			onError: error => {
 				if (error.message.startsWith('location not found'))
 					toast.error('This location does not exist');
 				else toast.error(error.message);
 			},
 			onSettled: () => {
 				modalRef.current?.close();
-				rspc.queryClient.invalidateQueries(['locations.list']);
+				rspc.queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 			}
 		}
 	);

@@ -2,6 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { forwardRef } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+
 import {
 	CloudLibrary,
 	useBridgeMutation,
@@ -27,7 +28,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
 	const cloudLibrariesData = cloudLibraries.data?.filter(
-		(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
+		cloudLibrary => !libraries.data?.find(l => l.uuid === cloudLibrary.uuid)
 	);
 
 	return (
@@ -63,7 +64,7 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									description="No cloud libraries available to join"
 								/>
 							}
-							keyExtractor={(item) => item.uuid}
+							keyExtractor={item => item.uuid}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<CloudLibraryCard
@@ -100,7 +101,7 @@ const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
 			<Button
 				size="sm"
 				variant="accent"
-				disabled={joinLibrary.isLoading}
+				disabled={joinLibrary.isPending}
 				onPress={async () => {
 					const library = await joinLibrary.mutateAsync(data.uuid);
 
@@ -128,7 +129,7 @@ const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
 				}}
 			>
 				<Text style={tw`text-sm font-medium text-white`}>
-					{joinLibrary.isLoading && joinLibrary.variables === data.uuid
+					{joinLibrary.isPending && joinLibrary.variables === data.uuid
 						? 'Joining...'
 						: 'Join'}
 				</Text>

@@ -17,17 +17,15 @@ export function guessOperatingSystem(): OperatingSystem {
 // Setting `realOs` to true will return a best guess of the underlying operating system instead of 'browser'.
 export function useOperatingSystem(realOs?: boolean): OperatingSystem {
 	const platform = usePlatform();
-	const { data } = useQuery(
-		['_tauri', 'platform'],
-		async () => {
+	const { data } = useQuery({
+		queryKey: ['_tauri', 'platform'],
+		queryFn: async () => {
 			return platform.getOs ? await platform.getOs() : guessOperatingSystem();
 		},
-		{
-			// Here we guess the users operating system from the user agent for the first render.
-			initialData: guessOperatingSystem,
-			enabled: platform.getOs !== undefined
-		}
-	);
+		// Here we guess the users operating system from the user agent for the first render.
+		initialData: guessOperatingSystem,
+		enabled: platform.getOs !== undefined
+	});
 
 	return platform.platform === 'web' && !realOs ? 'browser' : data;
 }

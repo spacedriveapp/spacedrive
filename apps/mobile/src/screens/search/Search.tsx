@@ -1,8 +1,9 @@
 import { useIsFocused } from '@react-navigation/native';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
-import { Suspense, useDeferredValue, useMemo, useState } from 'react';
+import { Suspense, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { ObjectKindEnum, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
 import Explorer from '~/components/explorer/Explorer';
 import Empty from '~/components/layout/Empty';
@@ -41,9 +42,10 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 			filters: [...layoutSearchFilter, ...searchStore.mergedFilters]
 		},
 		enabled: isFocused && searchStore.mergedFilters.length >= 1, // only fetch when screen is focused & filters are applied
-		suspense: true,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+		suspense: true
 	});
+
+	useEffect(() => getExplorerStore().resetNewThumbnails(), [objects]);
 
 	useFiltersSearch(deferredSearch);
 
@@ -95,7 +97,7 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 							<View style={tw`flex h-full flex-row items-center px-3`}>
 								<TextInput
 									value={search}
-									onChangeText={(t) => setSearch(t)}
+									onChangeText={t => setSearch(t)}
 									style={tw`leading-0 flex-1 text-sm font-medium text-ink`}
 									placeholder="Search all files..."
 									clearButtonMode="never" // can't change the color??

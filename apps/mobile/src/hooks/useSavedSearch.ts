@@ -1,5 +1,7 @@
 import { IconTypes } from '@sd/assets/util';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
+
 import { SavedSearch, SearchFilterArgs, Tag, useLibraryQuery } from '@sd/client';
 import { kinds } from '~/components/search/filters/Kind';
 import { Filters, SearchFilters } from '~/stores/searchStore';
@@ -44,11 +46,11 @@ export function useSavedSearch(search: SavedSearch) {
 	};
 
 	const locations = useLibraryQuery(['locations.list'], {
-		keepPreviousData: true,
+		placeholderData: keepPreviousData,
 		enabled: filterKeys.includes('locations')
 	});
 	const tags = useLibraryQuery(['tags.list'], {
-		keepPreviousData: true,
+		placeholderData: keepPreviousData,
 		enabled: filterKeys.includes('tags')
 	});
 
@@ -68,7 +70,7 @@ export function useSavedSearch(search: SavedSearch) {
 		filterKeys.forEach((key: SearchFilters) => {
 			switch (key) {
 				case 'locations':
-					data.locations = locations.data?.map((location) => {
+					data.locations = locations.data?.map(location => {
 						return {
 							id: location.id,
 							name: location.name
@@ -76,7 +78,7 @@ export function useSavedSearch(search: SavedSearch) {
 					});
 					break;
 				case 'tags':
-					data.tags = tags.data?.map((tag) => {
+					data.tags = tags.data?.map(tag => {
 						return {
 							id: tag.id,
 							color: tag.color
@@ -84,7 +86,7 @@ export function useSavedSearch(search: SavedSearch) {
 					});
 					break;
 				case 'kind':
-					data.kind = kinds.map((kind) => {
+					data.kind = kinds.map(kind => {
 						return {
 							name: kind.name,
 							id: kind.value,

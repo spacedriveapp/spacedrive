@@ -3,6 +3,7 @@ import { MotiView } from 'moti';
 import { MotiPressable } from 'moti/interactions';
 import { X } from 'phosphor-react-native';
 import { FlatList, Pressable, Text, View } from 'react-native';
+
 import {
 	SavedSearch as ISavedSearch,
 	useLibraryMutation,
@@ -71,7 +72,7 @@ const SavedSearch = ({ search }: Props) => {
 	const dataForSearch = useSavedSearch(search);
 	const rspc = useRspcLibraryContext();
 	const deleteSearch = useLibraryMutation('search.saved.delete', {
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.saved.list'] })
 	});
 	return (
 		<MotiPressable

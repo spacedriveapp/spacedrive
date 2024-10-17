@@ -1,5 +1,7 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Link, useMatch } from 'react-router-dom';
+
 import {
 	arraysEqual,
 	Location as LocationType,
@@ -18,7 +20,9 @@ import { SeeMore } from '../../SidebarLayout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export default function Locations() {
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], {
+		placeholderData: keepPreviousData
+	});
 	const locations = locationsQuery.data;
 	const onlineLocations = useOnlineLocations();
 
@@ -34,11 +38,11 @@ export default function Locations() {
 			}
 		>
 			<SeeMore limit={10}>
-				{locations?.map((location) => (
+				{locations?.map(location => (
 					<Location
 						key={location.id}
 						location={location}
-						online={onlineLocations.some((l) => arraysEqual(location.pub_id, l))}
+						online={onlineLocations.some(l => arraysEqual(location.pub_id, l))}
 					/>
 				))}
 			</SeeMore>

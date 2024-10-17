@@ -1,5 +1,6 @@
 import { Heart } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 import { Button } from '@sd/ui';
 
@@ -14,7 +15,7 @@ export default function FavoriteButton(props: Props) {
 		setFavorite(!!props.data?.favorite);
 	}, [props.data]);
 
-	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryMutation(
+	const { mutate: fileToggleFavorite, isPending: isFavoriteLoading } = useLibraryMutation(
 		'files.setFavorite'
 		// {
 		// 	onError: () => setFavorite(!!props.data?.favorite)

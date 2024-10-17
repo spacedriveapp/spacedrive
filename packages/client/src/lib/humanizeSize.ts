@@ -76,7 +76,7 @@ const getBaseUnit = (n: bigint, map: typeof DECIMAL_UNITS | typeof BINARY_UNITS)
 
 export function bytesToNumber(bytes: string[] | number[] | bigint[]) {
 	return bytes
-		.map((b) => (typeof b === 'bigint' ? b : BigInt(b)))
+		.map(b => (typeof b === 'bigint' ? b : BigInt(b)))
 		.reduce((acc, curr, i) => acc + curr * 256n ** BigInt(bytes.length - i - 1));
 }
 
@@ -145,4 +145,11 @@ export const humanizeSize = (
 			return `${defaultFormat.format(this.value)} ${this.unit}${plural}`;
 		}
 	};
+};
+
+export const compareHumanizedSizes = (
+	size1: ReturnType<typeof humanizeSize>,
+	size2: ReturnType<typeof humanizeSize>
+): boolean => {
+	return size1.bytes === size2.bytes && size1.unit === size2.unit && size1.value === size2.value;
 };

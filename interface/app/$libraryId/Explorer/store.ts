@@ -1,15 +1,16 @@
+import type {
+	DoubleClickAction,
+	ExplorerItem,
+	ExplorerLayout,
+	ExplorerSettings,
+	Ordering
+} from '@sd/client';
+
 import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
-import {
-	resetStore,
-	ThumbKey,
-	type DoubleClickAction,
-	type ExplorerItem,
-	type ExplorerLayout,
-	type ExplorerSettings,
-	type Ordering
-} from '@sd/client';
+
+import { resetStore, ThumbKey } from '@sd/client';
 import i18n from '~/app/I18n';
 
 import {
@@ -123,8 +124,19 @@ export function flattenThumbnailKey(thumbKey: ThumbKey) {
 export const explorerStore = proxy({
 	...state,
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
-	addNewThumbnail: (thumbKey: ThumbKey) => {
-		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
+	addNewThumbnail: (thumbKey: ThumbKey | string) => {
+		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
+		// HACK: Ensure store propagates changes
+		const newThumbnails = new Set(explorerStore.newThumbnails);
+		newThumbnails.add(thumbKey);
+		explorerStore.newThumbnails = newThumbnails;
+	},
+	removeThumbnail: (thumbKey: ThumbKey | string) => {
+		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
+		// HACK: Ensure store propagates changes
+		const newThumbnails = new Set(explorerStore.newThumbnails);
+		newThumbnails.delete(thumbKey);
+		explorerStore.newThumbnails = newThumbnails;
 	},
 	resetCache: () => {
 		explorerStore.newThumbnails.clear();

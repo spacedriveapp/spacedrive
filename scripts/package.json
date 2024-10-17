@@ -9,14 +9,6 @@
 		"lint": "eslint --cache",
 		"typecheck": "tsc"
 	},
-	"prettier": {
-		"semi": false,
-		"endOfLine": "lf",
-		"printWidth": 99,
-		"singleQuote": true,
-		"arrowParens": "avoid",
-		"trailingComma": "es5"
-	},
 	"dependencies": {
 		"smol-toml": "^1.3.0",
 		"archive-wasm": "^1.7.1",

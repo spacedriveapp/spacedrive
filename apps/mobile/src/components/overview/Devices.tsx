@@ -1,10 +1,11 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import { ScrollView } from 'react-native-gesture-handler';
+
 import { HardwareModel, NodeState, StatisticsResponse } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -16,7 +17,7 @@ import StatCard from './StatCard';
 
 interface Props {
 	node: NodeState | undefined;
-	stats: UseQueryResult<StatisticsResponse, AlphaRSPCError>;
+	stats: UseQueryResult<StatisticsResponse, RSPCError>;
 }
 
 export function hardwareModelToIcon(hardwareModel: HardwareModel) {
@@ -49,7 +50,7 @@ const Devices = ({ node, stats }: Props) => {
 		const getFSInfo = async () => {
 			return await RNFS.getFSInfo();
 		};
-		getFSInfo().then((size) => {
+		getFSInfo().then(size => {
 			setSizeInfo(size);
 		});
 	}, []);
@@ -65,7 +66,7 @@ const Devices = ({ node, stats }: Props) => {
 
 	useEffect(() => {
 		if (Platform.OS === 'android') {
-			DeviceInfo.getDeviceName().then((name) => {
+			DeviceInfo.getDeviceName().then(name => {
 				setDeviceName(name);
 			});
 		} else if (node) {

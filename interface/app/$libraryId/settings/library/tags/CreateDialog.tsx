@@ -28,12 +28,12 @@ export function useAssignItemsToTag() {
 	const mutation = useLibraryMutation(['tags.assign'], {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		}
 	});
 
 	return (tagId: number, items: AssignTagItems, unassign: boolean = false) => {
-		const targets = items.map<Target>((item) => {
+		const targets = items.map<Target>(item => {
 			if (item.type === 'Object') {
 				return { Object: item.item.id };
 			} else {
@@ -65,7 +65,7 @@ export default (
 
 	const assignItemsToTag = useAssignItemsToTag();
 
-	const onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit(async data => {
 		try {
 			const tag = await createTag.mutateAsync(data);
 

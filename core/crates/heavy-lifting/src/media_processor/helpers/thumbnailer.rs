@@ -25,7 +25,8 @@ use image::{imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
-	fs, io,
+	fs::{self, File},
+	io::{self, AsyncWriteExt},
 	sync::{oneshot, Mutex},
 	task::spawn_blocking,
 	time::{sleep, Instant},
@@ -450,15 +451,29 @@ async fn generate_image_thumbnail(
 
 	trace!("Created shard directory and writing it to disk");
 
-	let res = fs::write(output_path, &webp).await.map_err(|e| {
+	let mut file = File::create(output_path).await.map_err(|e| {
+		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+			file_path.clone(),
+			FileIOError::from((output_path, e)).to_string(),
+		)
+	})?;
+
+	file.write_all(&webp).await.map_err(|e| {
+		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+			file_path.clone(),
+			FileIOError::from((output_path, e)).to_string(),
+		)
+	})?;
+
+	file.sync_all().await.map_err(|e| {
 		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
 			file_path,
 			FileIOError::from((output_path, e)).to_string(),
 		)
-	});
+	})?;
 
 	trace!("Wrote thumbnail to disk");
-	res
+	return Ok(());
 }
 
 #[instrument(

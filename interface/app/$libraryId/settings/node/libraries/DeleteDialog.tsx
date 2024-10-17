@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
+
 import { useBridgeMutation, usePlausibleEvent, useZodForm } from '@sd/client';
 import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -25,7 +26,7 @@ export default function DeleteLibraryDialog(props: Props) {
 		try {
 			await deleteLib.mutateAsync(props.libraryUuid);
 
-			queryClient.invalidateQueries(['library.list']);
+			queryClient.invalidateQueries({ queryKey: ['library.list'] });
 
 			if (platform.refreshMenuBar) platform.refreshMenuBar();
 

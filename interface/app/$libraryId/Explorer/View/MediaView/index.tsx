@@ -1,5 +1,6 @@
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+
 import { getOrderingDirection, getOrderingKey, OrderingKey } from '@sd/client';
 import { useLocale } from '~/hooks';
 
@@ -82,11 +83,12 @@ export const MediaView = () => {
 
 		let firstRowIndex: number | undefined = undefined;
 		let lastRowIndex: number | undefined = undefined;
+		const scrollOffset = rowVirtualizer.scrollOffset ?? 0;
 
 		// Find first row in viewport
 		for (let i = 0; i < virtualRows.length; i++) {
 			const row = virtualRows[i]!;
-			if (row.end >= rowVirtualizer.scrollOffset) {
+			if (row.end >= scrollOffset) {
 				firstRowIndex = row.index;
 				break;
 			}
@@ -95,7 +97,7 @@ export const MediaView = () => {
 		// Find last row in viewport
 		for (let i = virtualRows.length - 1; i >= 0; i--) {
 			const row = virtualRows[i]!;
-			if (row.start <= rowVirtualizer.scrollOffset + rowVirtualizer.scrollRect.height) {
+			if (row.start <= scrollOffset + (rowVirtualizer.scrollRect?.height ?? 0)) {
 				lastRowIndex = row.index;
 				break;
 			}
@@ -163,15 +165,16 @@ export const MediaView = () => {
 			);
 		}
 	}, [
+		isSortingByDate,
+		orderBy,
+		orderDirection,
 		explorer.items,
+		rowVirtualizer.scrollOffset,
+		rowVirtualizer.scrollRect?.height,
 		grid.columnCount,
 		grid.options.count,
-		isSortingByDate,
-		rowVirtualizer.scrollOffset,
-		rowVirtualizer.scrollRect.height,
-		virtualRows,
-		orderBy,
-		orderDirection
+		dateFormat,
+		virtualRows
 	]);
 
 	useKeySelection(grid);
@@ -187,10 +190,18 @@ export const MediaView = () => {
 		>
 			{isSortingByDate && <DateHeader date={date} />}
 
-			<DragSelect grid={grid}>
-				{virtualRows.map((virtualRow) => (
+			<DragSelect
+				columnCount={grid.columnCount}
+				gapY={grid.gap.y}
+				getItem={grid.getItem}
+				totalColumnCount={grid.totalColumnCount}
+				totalCount={grid.totalCount}
+				totalRowCount={grid.totalRowCount}
+				virtualItemHeight={grid.virtualItemHeight}
+			>
+				{virtualRows.map(virtualRow => (
 					<React.Fragment key={virtualRow.key}>
-						{columnVirtualizer.getVirtualItems().map((virtualColumn) => {
+						{columnVirtualizer.getVirtualItems().map(virtualColumn => {
 							const virtualItem = grid.getVirtualItem({
 								row: virtualRow,
 								column: virtualColumn,

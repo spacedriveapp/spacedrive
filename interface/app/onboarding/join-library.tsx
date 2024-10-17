@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
+
 import {
 	resetOnboardingStore,
 	useBridgeMutation,
@@ -50,12 +51,12 @@ function CloudLibraries() {
 
 	return (
 		<>
-			{cloudLibraries.data?.map((cloudLibrary) => (
+			{cloudLibraries.data?.map(cloudLibrary => (
 				<li key={cloudLibrary.uuid} className="flex flex-row gap-2">
 					<span>{cloudLibrary.name}</span>
 					<Button
 						variant="accent"
-						disabled={joinLibrary.isLoading}
+						disabled={joinLibrary.isPending}
 						onClick={async () => {
 							const library = await joinLibrary.mutateAsync(cloudLibrary.uuid);
 
@@ -73,7 +74,7 @@ function CloudLibraries() {
 							navigate(`/${library.uuid}`, { replace: true });
 						}}
 					>
-						{joinLibrary.isLoading && joinLibrary.variables === cloudLibrary.uuid
+						{joinLibrary.isPending && joinLibrary.variables === cloudLibrary.uuid
 							? 'Joining...'
 							: 'Join'}
 					</Button>

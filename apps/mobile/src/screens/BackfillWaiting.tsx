@@ -11,6 +11,7 @@ import Animated, {
 	withTiming
 } from 'react-native-reanimated';
 import { Circle, Defs, RadialGradient, Stop, Svg } from 'react-native-svg';
+
 import { useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { tw, twStyle } from '~/lib/tailwind';
 
@@ -52,10 +53,8 @@ const BackfillWaiting = () => {
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
 
 	useEffect(() => {
-		(async () => {
-			await enableSync.mutateAsync(null);
-		})();
-	}, []);
+		enableSync.mutate(null);
+	}, [enableSync]);
 
 	return (
 		<View style={tw`flex-1 items-center justify-center bg-black`}>

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
+
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
@@ -41,9 +42,7 @@ const Authenticated = () => {
 
 	const cloudInstances = useMemo(
 		() =>
-			cloudLibrary.data?.instances.filter(
-				(instance) => instance.uuid !== library.instance_id
-			),
+			cloudLibrary.data?.instances.filter(instance => instance.uuid !== library.instance_id),
 		[cloudLibrary.data, library.instance_id]
 	);
 
@@ -94,7 +93,7 @@ const Authenticated = () => {
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 								renderItem={({ item }) => <Instance data={item} />}
-								keyExtractor={(item) => item.id}
+								keyExtractor={item => item.id}
 								numColumns={1}
 							/>
 						</VirtualizedListWrapper>
@@ -111,10 +110,10 @@ const Authenticated = () => {
 						<Button
 							variant={'accent'}
 							style={tw`mx-auto mt-4 max-w-[82%]`}
-							disabled={createLibrary.isLoading}
+							disabled={createLibrary.isPending}
 							onPress={async () => await createLibrary.mutateAsync(null)}
 						>
-							{createLibrary.isLoading ? (
+							{createLibrary.isPending ? (
 								<Text style={tw`text-ink`}>Connecting library...</Text>
 							) : (
 								<Text style={tw`font-medium text-ink`}>Connect library</Text>

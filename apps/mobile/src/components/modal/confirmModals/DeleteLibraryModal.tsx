@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
+
 import { useBridgeMutation, usePlausibleEvent } from '@sd/client';
 import { ConfirmModal, ModalRef } from '~/components/layout/Modal';
 
@@ -15,14 +16,14 @@ const DeleteLibraryModal = ({ trigger, onSubmit, libraryUuid }: Props) => {
 
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const { mutate: deleteLibrary, isLoading: deleteLibLoading } = useBridgeMutation(
+	const { mutate: deleteLibrary, isPending: deleteLibLoading } = useBridgeMutation(
 		'library.delete',
 		{
 			onMutate: () => {
 				console.log('Deleting library');
 			},
 			onSuccess: () => {
-				queryClient.invalidateQueries(['library.list']);
+				queryClient.invalidateQueries({ queryKey: ['library.list'] });
 				onSubmit?.();
 				submitPlausibleEvent({ event: { type: 'libraryDelete' } });
 			},

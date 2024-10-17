@@ -1,17 +1,16 @@
+import type { ExplorerItem } from '@sd/client';
+import type { ColumnSizingState, Row } from '@tanstack/react-table';
+
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
-import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
+import { flexRender } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import {
-	createOrdering,
-	getOrderingDirection,
-	getOrderingKey,
-	type ExplorerItem
-} from '@sd/client';
+
+import { createOrdering, getOrderingDirection, getOrderingKey } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';
@@ -130,47 +129,49 @@ export const ListView = memo(() => {
 			const [backRange, frontRange] = getRangesByRow(range.start);
 
 			if (backRange && frontRange) {
-				[...Array(backRange.sorted.end.index - backRange.sorted.start.index + 1)].forEach(
-					(_, i) => {
-						const index = backRange.sorted.start.index + i;
+				for (let i = backRange.sorted.start.index; i <= backRange.sorted.end.index; i++) {
+					const index = backRange.sorted.start.index + i;
 
-						if (index === range.start.index) return;
+					if (index === range.start.index) continue;
 
-						const row = rows[index];
+					const row = rows[index];
 
-						if (row) explorer.removeSelectedItem(row.original);
-					}
-				);
+					if (row) explorer.removeSelectedItem(row.original);
+				}
 
 				_ranges = _ranges.filter((_, i) => i !== backRange.index);
 			}
 
-			[...Array(Math.abs(range.end.index - rowIndex) + (changeDirection ? 1 : 0))].forEach(
-				(_, i) => {
-					if (!range.direction || direction === range.direction) i += 1;
+			for (
+				let i = 0;
+				i < Math.abs(range.end.index - rowIndex) + (changeDirection ? 1 : 0);
+				i++
+			) {
+				if (!range.direction || direction === range.direction) i += 1;
 
-					const index = range.end.index + (direction === 'down' ? i : -i);
+				const index = range.end.index + (direction === 'down' ? i : -i);
 
-					const row = rows[index];
+				const row = rows[index];
 
-					if (!row) return;
+				if (!row) continue;
 
-					const item = row.original;
+				const item = row.original;
 
-					if (uniqueId(item) === uniqueId(range.start.original)) return;
+				if (uniqueId(item) === uniqueId(range.start.original)) continue;
 
-					if (
-						!range.direction ||
-						direction === range.direction ||
-						(changeDirection &&
-							(range.direction === 'down'
-								? index < range.start.index
-								: index > range.start.index))
-					) {
-						explorer.addSelectedItem(item);
-					} else explorer.removeSelectedItem(item);
+				if (
+					!range.direction ||
+					direction === range.direction ||
+					(changeDirection &&
+						(range.direction === 'down'
+							? index < range.start.index
+							: index > range.start.index))
+				) {
+					explorer.addSelectedItem(item);
+				} else {
+					explorer.removeSelectedItem(item);
 				}
-			);
+			}
 
 			let newRangeEnd = item;
 			let removeRangeIndex: number | null = null;
@@ -186,15 +187,13 @@ export const ListView = memo(() => {
 							rowIndex
 					);
 
-					[...Array(removableRowsCount)].forEach((_, i) => {
-						i += 1;
-
+					for (let i = 1; i <= removableRowsCount; i++) {
 						const index = rowIndex + (direction === 'down' ? i : -i);
 
 						const row = rows[index];
 
 						if (row) explorer.removeSelectedItem(row.original);
-					});
+					}
 
 					removeRangeIndex = i;
 					break;
@@ -567,7 +566,7 @@ export const ListView = memo(() => {
 		if (!lastRow) return;
 
 		scrollToRow(lastRow);
-		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
+		setRanges(rows.map(row => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
 
@@ -661,11 +660,11 @@ export const ListView = memo(() => {
 		};
 	}, [sized, isLeftMouseDown, quickPreview.open]);
 
-	useShortcut('explorerUp', (e) => {
+	useShortcut('explorerUp', e => {
 		keyboardHandler(e, 'ArrowUp');
 	});
 
-	useShortcut('explorerDown', (e) => {
+	useShortcut('explorerDown', e => {
 		keyboardHandler(e, 'ArrowDown');
 	});
 
@@ -766,7 +765,7 @@ export const ListView = memo(() => {
 		<TableContext.Provider value={{ columnSizing }}>
 			<div
 				ref={tableRef}
-				onMouseDown={(e) => {
+				onMouseDown={e => {
 					if (e.button !== 0) return;
 					e.stopPropagation();
 					setIsLeftMouseDown(true);
@@ -786,7 +785,7 @@ export const ListView = memo(() => {
 							<ContextMenu.Root
 								trigger={
 									<div
-										ref={(element) => {
+										ref={element => {
 											tableHeaderRef.current = element;
 											scrollableRef(element);
 										}}
@@ -802,7 +801,7 @@ export const ListView = memo(() => {
 										)}
 										style={{ height: TABLE_HEADER_HEIGHT }}
 									>
-										{table.getHeaderGroups().map((headerGroup) => (
+										{table.getHeaderGroups().map(headerGroup => (
 											<div key={headerGroup.id} className="flex w-fit">
 												{headerGroup.headers.map((header, i) => {
 													const size = header.column.getSize();
@@ -853,7 +852,7 @@ export const ListView = memo(() => {
 																// cause this looks hideous
 																const orderKey =
 																	explorer.orderingKeys?.options.find(
-																		(o) => {
+																		o => {
 																			if (
 																				typeof o.value !==
 																				'string'
@@ -903,7 +902,7 @@ export const ListView = memo(() => {
 																	)}
 
 																	<div
-																		onMouseDown={(e) => {
+																		onMouseDown={e => {
 																			setResizing(true);
 																			setLocked(false);
 
@@ -931,7 +930,7 @@ export const ListView = memo(() => {
 									</div>
 								}
 							>
-								{table.getAllLeafColumns().map((column) => {
+								{table.getAllLeafColumns().map(column => {
 									if (column.id === 'name') return null;
 									return (
 										<ContextMenu.CheckboxItem
@@ -971,7 +970,7 @@ export const ListView = memo(() => {
 										}px)`
 									}}
 								>
-									{virtualRows.map((virtualRow) => {
+									{virtualRows.map(virtualRow => {
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 
@@ -984,7 +983,7 @@ export const ListView = memo(() => {
 												data-index={virtualRow.index}
 												ref={rowVirtualizer.measureElement}
 												className="relative"
-												onMouseDown={(e) => handleRowClick(e, row)}
+												onMouseDown={e => handleRowClick(e, row)}
 												onContextMenu={() => handleRowContextMenu(row)}
 											>
 												<TableRow

@@ -25,7 +25,7 @@ if (os.type() === 'Linux') {
 const OS_TYPE = {
 	darwin: 'Darwin',
 	windows: 'Windows_NT',
-	linux: 'Linux',
+	linux: 'Linux'
 }
 
 /** @returns {['Darwin' | 'Windows_NT', 'x86_64' | 'aarch64'] | ['Linux', 'x86_64' | 'aarch64', 'musl' | 'glibc']} */

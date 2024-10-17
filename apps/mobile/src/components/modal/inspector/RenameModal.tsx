@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
+
 import { getIndexedItemFilePath, useLibraryMutation, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
@@ -25,7 +26,7 @@ const RenameModal = forwardRef<ModalRef>((_, ref) => {
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onSuccess: () => {
 			modalRef.current?.dismiss();
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		},
 		onError: () => {
 			toast.error('Failed to rename object');
@@ -77,7 +78,7 @@ const RenameModal = forwardRef<ModalRef>((_, ref) => {
 					autoFocus
 					onFocus={() => inputRef.current?.setSelection(0, fileName.length)}
 					value={newName}
-					onChangeText={(t) => setNewName(t)}
+					onChangeText={t => setNewName(t)}
 				/>
 				<Button
 					disabled={newName.length === 0 || fileName === newName}

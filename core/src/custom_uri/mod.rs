@@ -29,7 +29,7 @@ use std::{
 
 use async_stream::stream;
 use axum::{
-	body::{self, Body, BoxBody, Full, StreamBody},
+	body::Body,
 	extract::{self, State},
 	http::{HeaderMap, HeaderValue, Request, Response, StatusCode},
 	middleware,
@@ -38,8 +38,8 @@ use axum::{
 	Router,
 };
 use bytes::Bytes;
-use http_body::combinators::UnsyncBoxBody;
 use hyper::{header, upgrade::OnUpgrade};
+use hyper_util::rt::TokioIo;
 use mini_moka::sync::Cache;
 use tokio::{
 	fs::{self, File},
@@ -50,7 +50,6 @@ use uuid::Uuid;
 
 use self::{serve_file::serve_file, utils::*};
 
-mod async_read_body;
 mod mpsc_to_async_write;
 mod serve_file;
 mod utils;
@@ -97,7 +96,7 @@ async fn request_to_remote_node(
 	p2p: Arc<P2P>,
 	identity: RemoteIdentity,
 	mut request: Request<Body>,
-) -> Response<UnsyncBoxBody<bytes::Bytes, axum::Error>> {
+) -> Response<Body> {
 	let request_upgrade_header = request.headers().get(header::UPGRADE).cloned();
 	let maybe_client_upgrade = request.extensions_mut().remove::<OnUpgrade>();
 
@@ -121,16 +120,19 @@ async fn request_to_remote_node(
 		};
 
 		tokio::spawn(async move {
-			let Ok(mut request_upgraded) = request_upgraded.await.map_err(|e| {
+			let Ok(request_upgraded) = request_upgraded.await.map_err(|e| {
 				warn!(?e, "Error upgrading websocket request;");
 			}) else {
 				return;
 			};
-			let Ok(mut response_upgraded) = response_upgraded.await.map_err(|e| {
+			let Ok(response_upgraded) = response_upgraded.await.map_err(|e| {
 				warn!(?e, "Error upgrading websocket response;");
 			}) else {
 				return;
 			};
+
+			let mut request_upgraded = TokioIo::new(request_upgraded);
+			let mut response_upgraded = TokioIo::new(response_upgraded);
 
 			copy_bidirectional(&mut request_upgraded, &mut response_upgraded)
 				.await
@@ -147,7 +149,7 @@ async fn request_to_remote_node(
 async fn get_or_init_lru_entry(
 	state: &LocalState,
 	extract::Path((lib_id, loc_id, path_id)): ExtractedPath,
-) -> Result<(CacheValue, Arc<Library>), Response<BoxBody>> {
+) -> Result<(CacheValue, Arc<Library>), Response<Body>> {
 	let library_id = Uuid::from_str(&lib_id).map_err(bad_request)?;
 	let location_id = loc_id.parse::<location::id::Type>().map_err(bad_request)?;
 	let file_path_id = path_id
@@ -245,7 +247,7 @@ pub fn base_router() -> Router<LocalState> {
 							} else {
 								StatusCode::INTERNAL_SERVER_ERROR
 							})
-							.body(body::boxed(Full::from("")))
+							.body(Body::from(""))
 					})?;
 					let metadata = file.metadata().await;
 					serve_file(
@@ -290,7 +292,7 @@ pub fn base_router() -> Router<LocalState> {
 									} else {
 										StatusCode::INTERNAL_SERVER_ERROR
 									})
-									.body(body::boxed(Full::from("")))
+									.body(Body::from(""))
 							})?;
 
 							let resp = InfallibleResponse::builder().header(
@@ -335,11 +337,11 @@ pub fn base_router() -> Router<LocalState> {
 
 							// TODO: Content Type
 							Ok(InfallibleResponse::builder().status(StatusCode::OK).body(
-								body::boxed(StreamBody::new(stream! {
+								Body::from_stream(stream! {
 									while let Some(item) = rx.recv().await {
 										yield item;
 									}
-								})),
+								}),
 							))
 						}
 					}
@@ -364,7 +366,7 @@ pub fn base_router() -> Router<LocalState> {
 							} else {
 								StatusCode::INTERNAL_SERVER_ERROR
 							})
-							.body(body::boxed(Full::from("")))
+							.body(Body::from(""))
 					})?;
 
 					let resp = InfallibleResponse::builder().header(
@@ -453,7 +455,7 @@ async fn infer_the_mime_type(
 	ext: &str,
 	file: &mut File,
 	metadata: &Metadata,
-) -> Result<String, Response<BoxBody>> {
+) -> Result<String, Response<Body>> {
 	let ext = ext.to_lowercase();
 	let mime_type = match ext.as_str() {
 		// AAC audio

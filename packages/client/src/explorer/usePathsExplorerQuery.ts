@@ -8,8 +8,6 @@ export function usePathsExplorerQuery(props: {
 	order: FilePathOrder | null;
 	enabled?: boolean;
 	suspense?: boolean;
-	/** This callback will fire any time the query successfully fetches new data. (NOTE: This will be removed on the next major version (react-query)) */
-	onSuccess?: () => void;
 }) {
 	const query = usePathsOffsetInfiniteQuery(props);
 

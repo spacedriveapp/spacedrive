@@ -1,7 +1,9 @@
 import { useNavigation } from '@react-navigation/native';
+import { keepPreviousData } from '@tanstack/react-query';
 import { Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
+
 import { useLibraryQuery } from '@sd/client';
 import { ModalRef } from '~/components/layout/Modal';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -22,7 +24,7 @@ const BrowseLocations = () => {
 
 	const modalRef = useRef<ModalRef>(null);
 	const [showAll, setShowAll] = useState(false);
-	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['locations.list'], { placeholderData: keepPreviousData });
 	const locations = result.data;
 
 	return (
@@ -37,7 +39,7 @@ const BrowseLocations = () => {
 								: tw.color('border-app-lightborder')
 						})}
 						variant="outline"
-						onPress={() => setShowAll((prev) => !prev)}
+						onPress={() => setShowAll(prev => !prev)}
 					>
 						<Text style={tw`text-xs text-ink`}>
 							{showAll ? 'Show less' : 'Show all'} ({locations?.length})
@@ -64,7 +66,7 @@ const BrowseLocations = () => {
 						horizontal={showAll ? false : true}
 						contentContainerStyle={twStyle(locations?.length === 0 && 'w-full', 'px-5')}
 						key={showAll ? '_locations' : 'alllocationcols'}
-						keyExtractor={(item) => item.id.toString()}
+						keyExtractor={item => item.id.toString()}
 						scrollEnabled={showAll ? false : true}
 						showsHorizontalScrollIndicator={false}
 						renderItem={({ item }) => {

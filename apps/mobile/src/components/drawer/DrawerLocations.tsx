@@ -1,7 +1,9 @@
 import { DrawerNavigationHelpers } from '@react-navigation/drawer/lib/typescript/src/types';
 import { useNavigation } from '@react-navigation/native';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
+
 import {
 	arraysEqual,
 	humanizeSize,
@@ -27,7 +29,7 @@ const DrawerLocationItem: React.FC<DrawerLocationItemProps> = ({
 	onPress
 }: DrawerLocationItemProps) => {
 	const onlineLocations = useOnlineLocations();
-	const online = onlineLocations.some((l) => arraysEqual(location.pub_id, l));
+	const online = onlineLocations.some(l => arraysEqual(location.pub_id, l));
 
 	return (
 		<Pressable onPress={onPress}>
@@ -73,7 +75,7 @@ const DrawerLocations = () => {
 
 	const modalRef = useRef<ModalRef>(null);
 
-	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['locations.list'], { placeholderData: keepPreviousData });
 	const locations = result.data || [];
 
 	return (
@@ -84,7 +86,7 @@ const DrawerLocations = () => {
 				containerStyle={tw`mb-3 mt-6`}
 			>
 				<View style={tw`mt-2 flex-col justify-between gap-1`}>
-					{locations?.slice(0, 3).map((location) => (
+					{locations?.slice(0, 3).map(location => (
 						<DrawerLocationItem
 							key={location.id}
 							location={location}

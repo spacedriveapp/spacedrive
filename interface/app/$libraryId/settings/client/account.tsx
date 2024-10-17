@@ -1,5 +1,6 @@
 import { Envelope, User } from '@phosphor-icons/react';
 import { useEffect, useState } from 'react';
+
 import { auth, useBridgeMutation, useBridgeQuery, useFeatureFlag } from '@sd/client';
 import { Button, Card, Input, toast } from '@sd/ui';
 import { TruncatedText } from '~/components';
@@ -89,7 +90,7 @@ function HostedLocationsPlayground() {
 		}
 	}, [path, locations.data]);
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading;
+	const isPending = createLocation.isPending || removeLocation.isPending;
 
 	return (
 		<>
@@ -101,9 +102,9 @@ function HostedLocationsPlayground() {
 							<Input
 								className="grow"
 								value={locationName}
-								onInput={(e) => setLocationName(e.currentTarget.value)}
+								onInput={e => setLocationName(e.currentTarget.value)}
 								placeholder="My sick location"
-								disabled={isLoading}
+								disabled={isPending}
 							/>
 
 							<Button
@@ -113,7 +114,7 @@ function HostedLocationsPlayground() {
 									if (locationName === '') return;
 									createLocation.mutate(locationName);
 								}}
-								disabled={isLoading}
+								disabled={isPending}
 							>
 								Create Location
 							</Button>
@@ -125,19 +126,19 @@ function HostedLocationsPlayground() {
 			/>
 
 			{/* TODO: Cleanup this mess + styles */}
-			{locations.status === 'loading' ? <div>Loading!</div> : null}
-			{locations.status !== 'loading' && locations.data?.length === 0 ? (
+			{locations.status === 'pending' ? <div>Loading!</div> : null}
+			{locations.status !== 'pending' && locations.data?.length === 0 ? (
 				<div>Looks like you don't have any!</div>
 			) : (
 				<div>
-					{locations.data?.map((location) => (
+					{locations.data?.map(location => (
 						<div key={location.id} className="flex flex-row space-x-5">
 							<h1>{location.name}</h1>
 							<Button
 								variant="accent"
 								size="sm"
 								onClick={() => removeLocation.mutate(location.id)}
-								disabled={isLoading}
+								disabled={isPending}
 							>
 								Delete
 							</Button>
@@ -151,8 +152,8 @@ function HostedLocationsPlayground() {
 				<Input
 					className="grow"
 					value={path}
-					onInput={(e) => setPath(e.currentTarget.value)}
-					disabled={isLoading}
+					onInput={e => setPath(e.currentTarget.value)}
+					disabled={isPending}
 				/>
 			</div>
 		</>
