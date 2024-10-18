@@ -1,0 +1,49 @@
+[package]
+name = "sd-file-track"
+version = "0.1.0"
+
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+
+[dependencies]
+futures-concurrency = { workspace = true }
+serde               = { workspace = true, features = ["derive"] }
+serde_json          = { workspace = true }
+specta              = { workspace = true }
+tracing             = { workspace = true }
+async-trait         = { workspace = true }
+rmp-serde           = { workspace = true }
+itertools           = { workspace = true }
+thiserror           = { workspace = true }
+futures             = { workspace = true }
+
+
+# core sub-crates
+sd-core-heavy-lifting  = { path = "../heavy-lifting" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-file-path-helper = { path = "../file-path-helper" }
+
+# spacedrive sub-crates
+sd-prisma              = { path = "../../../crates/prisma" }
+sd-utils               = { path = "../../../crates/utils" }
+sd-sync                = { path = "../../../crates/sync" }
+sd-task-system         = { path = "../../../crates/task-system" }
+
+[dependencies.tokio]
+features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]
+workspace = true
+
+# Platform-specific dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+trash = "5.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+trash = "5.1"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+trash = "5.1"
