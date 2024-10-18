@@ -87,19 +87,19 @@ rev = "a92c17d3f8"
 
 # Add `Control::open_stream_with_addrs`
 [patch.crates-io.libp2p]
-git = "https://github.com/HeavenVolkoff/rust-libp2p"
+git = "https://github.com/spacedriveapp/rust-libp2p"
 rev = "1024411ffa"
 [patch.crates-io.libp2p-core]
-git = "https://github.com/HeavenVolkoff/rust-libp2p"
+git = "https://github.com/spacedriveapp/rust-libp2p"
 rev = "1024411ffa"
 [patch.crates-io.libp2p-identity]
-git = "https://github.com/HeavenVolkoff/rust-libp2p"
+git = "https://github.com/spacedriveapp/rust-libp2p"
 rev = "1024411ffa"
 [patch.crates-io.libp2p-swarm]
-git = "https://github.com/HeavenVolkoff/rust-libp2p"
+git = "https://github.com/spacedriveapp/rust-libp2p"
 rev = "1024411ffa"
 [patch.crates-io.libp2p-stream]
-git = "https://github.com/HeavenVolkoff/rust-libp2p"
+git = "https://github.com/spacedriveapp/rust-libp2p"
 rev = "1024411ffa"
 
 [profile.dev]
