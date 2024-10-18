@@ -44,7 +44,7 @@ prisma-client-rust  = { workspace = true }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }
 rspc                = { workspace = true }
-serde               = { workspace = true, features = ["derive"] }
+serde               = { workspace = true, features = ["derive", "rc"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
 strum               = { workspace = true, features = ["derive", "phf"] }

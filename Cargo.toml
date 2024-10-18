@@ -71,13 +71,13 @@ rev = "6a77167495"
 [workspace.dependencies.prisma-client-rust]
 default-features = false
 features         = ["migrations", "specta", "sqlite", "sqlite-create-many"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust.git"
+git              = "https://github.com/spacedriveapp/prisma-client-rust"
 rev              = "b22ad7dc7d"
 
 [workspace.dependencies.prisma-client-rust-sdk]
 default-features = false
 features         = ["sqlite"]
-git              = "https://github.com/spacedriveapp/prisma-client-rust.git"
+git              = "https://github.com/spacedriveapp/prisma-client-rust"
 rev              = "b22ad7dc7d"
 
 # Proper IOS Support
@@ -88,19 +88,19 @@ rev = "a92c17d3f8"
 # Add `Control::open_stream_with_addrs`
 [patch.crates-io.libp2p]
 git = "https://github.com/HeavenVolkoff/rust-libp2p"
-rev = "4146a383ad"
+rev = "1024411ffa"
 [patch.crates-io.libp2p-core]
 git = "https://github.com/HeavenVolkoff/rust-libp2p"
-rev = "4146a383ad"
+rev = "1024411ffa"
 [patch.crates-io.libp2p-identity]
 git = "https://github.com/HeavenVolkoff/rust-libp2p"
-rev = "4146a383ad"
+rev = "1024411ffa"
 [patch.crates-io.libp2p-swarm]
 git = "https://github.com/HeavenVolkoff/rust-libp2p"
-rev = "4146a383ad"
+rev = "1024411ffa"
 [patch.crates-io.libp2p-stream]
 git = "https://github.com/HeavenVolkoff/rust-libp2p"
-rev = "4146a383ad"
+rev = "1024411ffa"
 
 [profile.dev]
 # Make compilation faster on macOS

@@ -64,7 +64,7 @@ reqwest             = { workspace = true, features = ["json", "native-tls-vendor
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }
 rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "unstable", "uuid"] }
-serde               = { workspace = true, features = ["derive"] }
+serde               = { workspace = true, features = ["derive", "rc"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
 strum               = { workspace = true, features = ["derive"] }
