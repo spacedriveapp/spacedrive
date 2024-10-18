@@ -1,4 +1,6 @@
-import { DragOverlay as DragOverlayPrimitive, type ClientRect, type Modifier } from '@dnd-kit/core';
+import type { ClientRect, Modifier } from '@dnd-kit/core';
+
+import { DragOverlay as DragOverlayPrimitive } from '@dnd-kit/core';
 import { getEventCoordinates } from '@dnd-kit/utilities';
 import clsx from 'clsx';
 import { memo, useEffect, useRef } from 'react';

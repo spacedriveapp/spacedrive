@@ -2,7 +2,6 @@ import { Gear } from '@phosphor-icons/react';
 import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-
 import {
 	LibraryContextProvider,
 	Procedures,

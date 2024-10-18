@@ -3,7 +3,6 @@ import type { ImgHTMLAttributes } from 'react';
 import { getIcon, getIconByName, getLayeredIcon, IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import { forwardRef, Suspense, useMemo } from 'react';
-
 import { type ObjectKindKey } from '@sd/client';
 import { useIsDark } from '~/hooks';
 

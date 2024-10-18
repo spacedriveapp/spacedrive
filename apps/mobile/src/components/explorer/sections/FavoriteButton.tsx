@@ -2,7 +2,6 @@ import * as Haptics from 'expo-haptics';
 import { Heart } from 'phosphor-react-native';
 import { useState } from 'react';
 import { Pressable, PressableProps } from 'react-native';
-
 import { Object as SDObject, useLibraryMutation } from '@sd/client';
 
 type Props = {

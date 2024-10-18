@@ -1,6 +1,5 @@
 import { Grid, useGrid } from '@virtual-grid/react';
 import { useCallback } from 'react';
-
 import { useExplorerLayoutStore } from '@sd/client';
 
 import { useExplorerContext } from '../../Context';
@@ -61,7 +60,7 @@ export const GridView = () => {
 			virtualItemHeight={grid.virtualItemHeight}
 		>
 			<Grid grid={grid}>
-				{index => {
+				{(index) => {
 					const item = explorer.items?.[index];
 					if (!item) return null;
 

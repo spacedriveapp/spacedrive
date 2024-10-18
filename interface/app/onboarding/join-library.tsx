@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-
 import {
 	resetOnboardingStore,
 	useBridgeMutation,
@@ -51,7 +50,7 @@ function CloudLibraries() {
 
 	return (
 		<>
-			{cloudLibraries.data?.map(cloudLibrary => (
+			{cloudLibraries.data?.map((cloudLibrary) => (
 				<li key={cloudLibrary.uuid} className="flex flex-row gap-2">
 					<span>{cloudLibrary.name}</span>
 					<Button

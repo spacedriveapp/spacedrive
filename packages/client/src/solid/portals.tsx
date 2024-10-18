@@ -1,3 +1,5 @@
+import type { Accessor } from 'solid-js';
+
 import {
 	createElement,
 	createContext as createReactContext,
@@ -13,8 +15,7 @@ import {
 	createContext as createSolidContext,
 	For,
 	Setter,
-	JSX as SolidJSX,
-	type Accessor
+	JSX as SolidJSX
 } from 'solid-js';
 import { render } from 'solid-js/web';
 

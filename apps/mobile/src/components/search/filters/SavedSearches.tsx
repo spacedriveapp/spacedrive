@@ -3,7 +3,6 @@ import { MotiView } from 'moti';
 import { MotiPressable } from 'moti/interactions';
 import { X } from 'phosphor-react-native';
 import { FlatList, Pressable, Text, View } from 'react-native';
-
 import {
 	SavedSearch as ISavedSearch,
 	useLibraryMutation,

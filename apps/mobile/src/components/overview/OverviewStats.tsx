@@ -4,7 +4,6 @@ import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { ClassInput } from 'twrnc/dist/esm/types';
-
 import { humanizeSize, Statistics, StatisticsResponse, useLibraryContext } from '@sd/client';
 import useCounter from '~/hooks/useCounter';
 import { tw, twStyle } from '~/lib/tailwind';
@@ -72,7 +71,7 @@ const OverviewStats = ({ stats }: Props) => {
 		const getFSInfo = async () => {
 			return await RNFS.getFSInfo();
 		};
-		getFSInfo().then(size => {
+		getFSInfo().then((size) => {
 			setSizeInfo(size);
 		});
 	}, []);

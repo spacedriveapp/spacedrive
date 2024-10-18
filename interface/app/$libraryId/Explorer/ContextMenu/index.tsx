@@ -1,12 +1,15 @@
+import type { PropsWithChildren } from 'react';
+import type { ConditionalGroupProps } from './ConditionalItem';
+
 import { Plus } from '@phosphor-icons/react';
-import { useMemo, type PropsWithChildren } from 'react';
+import { useMemo } from 'react';
 import { ExplorerItem } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { isNonEmpty } from '~/util';
 
 import { useExplorerContext } from '../Context';
-import { Conditional, type ConditionalGroupProps } from './ConditionalItem';
+import { Conditional } from './ConditionalItem';
 import { ContextMenuContextProvider } from './context';
 import * as FilePathItems from './FilePath/Items';
 import * as ObjectItems from './Object/Items';

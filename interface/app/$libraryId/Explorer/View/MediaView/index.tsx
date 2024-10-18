@@ -1,6 +1,5 @@
 import { LoadMoreTrigger, useGrid, useScrollMargin, useVirtualizer } from '@virtual-grid/react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-
 import { getOrderingDirection, getOrderingKey, OrderingKey } from '@sd/client';
 import { useLocale } from '~/hooks';
 
@@ -199,9 +198,9 @@ export const MediaView = () => {
 				totalRowCount={grid.totalRowCount}
 				virtualItemHeight={grid.virtualItemHeight}
 			>
-				{virtualRows.map(virtualRow => (
+				{virtualRows.map((virtualRow) => (
 					<React.Fragment key={virtualRow.key}>
-						{columnVirtualizer.getVirtualItems().map(virtualColumn => {
+						{columnVirtualizer.getVirtualItems().map((virtualColumn) => {
 							const virtualItem = grid.getVirtualItem({
 								row: virtualRow,
 								column: virtualColumn,

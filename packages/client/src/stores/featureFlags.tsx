@@ -1,7 +1,8 @@
+import type { BackendFeature } from '../core';
+
 import { useEffect } from 'react';
 import { createMutable } from 'solid-js/store';
 
-import type { BackendFeature } from '../core';
 import { nonLibraryClient, useBridgeQuery } from '../rspc';
 import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
 

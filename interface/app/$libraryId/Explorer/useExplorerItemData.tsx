@@ -2,7 +2,6 @@ import type { ExplorerItem } from '@sd/client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribe } from 'valtio';
-
 import { compareHumanizedSizes, getExplorerItemData, humanizeSize, ThumbKey } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 
@@ -43,7 +42,7 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 			: [];
 
 		const updateThumbnails = () =>
-			setNewThumbnails(oldThumbs => {
+			setNewThumbnails((oldThumbs) => {
 				const thumbs = thumbnailKeys.reduce<Map<string, string | null>>((acc, thumbKey) => {
 					const url = platform.getThumbnailUrlByThumbKey(thumbKey);
 					const thumbId = flattenThumbnailKey(thumbKey);
@@ -53,7 +52,9 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 
 				// Avoid unnecessary re-renders
 				return oldThumbs.size !== thumbs.size ||
-					Array.from(oldThumbs.keys()).some(key => oldThumbs.get(key) !== thumbs.get(key))
+					Array.from(oldThumbs.keys()).some(
+						(key) => oldThumbs.get(key) !== thumbs.get(key)
+					)
 					? thumbs
 					: oldThumbs;
 			});

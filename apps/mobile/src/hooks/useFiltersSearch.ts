@@ -1,6 +1,5 @@
 import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-
 import { SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Filters, getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
 
@@ -65,7 +64,7 @@ export function useFiltersSearch(search: string) {
 
 		//It's a global search if no locations have been selected
 		if (searchStore.filters.locations.length === 0) {
-			const locationIds = locations.data?.map(l => l.id);
+			const locationIds = locations.data?.map((l) => l.id);
 			if (locationIds) filters.push({ filePath: { locations: { in: locationIds } } });
 		}
 
@@ -82,7 +81,7 @@ export function useFiltersSearch(search: string) {
 
 			// no need to add empty filters
 			if (Array.isArray(filterValue)) {
-				const realValues = filterValue.filter(v => v !== '');
+				const realValues = filterValue.filter((v) => v !== '');
 				if (realValues.length === 0) {
 					continue;
 				}

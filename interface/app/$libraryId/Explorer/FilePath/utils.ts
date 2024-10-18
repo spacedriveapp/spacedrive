@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import type { CSSProperties, RefObject } from 'react';
+
+import { useMemo, useRef, useState } from 'react';
 import { useCallbackToWatchResize } from '~/hooks';
 
 export function useSize(ref: RefObject<Element>) {

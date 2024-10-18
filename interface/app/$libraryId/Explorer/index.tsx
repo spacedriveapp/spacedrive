@@ -2,7 +2,6 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 import { FolderNotchOpen } from '@phosphor-icons/react';
 import { CSSProperties } from 'react';
-
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -44,7 +43,7 @@ interface Props {
 export default function Explorer(props: PropsWithChildren<Props>) {
 	const explorer = useExplorerContext();
 	const layoutStore = useExplorerLayoutStore();
-	const [showInspector, showTagBar] = useSelector(explorerStore, s => [
+	const [showInspector, showTagBar] = useSelector(explorerStore, (s) => [
 		s.showInspector,
 		s.isTagAssignModeActive
 	]);
@@ -54,12 +53,12 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 	const rspc = useRspcLibraryContext();
 	// Can we put this somewhere else -_-
 	useLibrarySubscription(['jobs.newThumbnail'], {
-		onData: thumbKey => {
+		onData: (thumbKey) => {
 			explorerStore.addNewThumbnail(thumbKey);
 		}
 	});
 	useLibrarySubscription(['jobs.newFilePathIdentified'], {
-		onData: ids => {
+		onData: (ids) => {
 			if (ids?.length > 0) {
 				// I had planned to somehow fetch the Object, but its a lot more work than its worth given
 				// id have to fetch the file_path explicitly and patch the query
@@ -69,18 +68,18 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		}
 	});
 
-	useShortcut('showPathBar', e => {
+	useShortcut('showPathBar', (e) => {
 		e.stopPropagation();
 		explorerLayout.showPathBar = !layoutStore.showPathBar;
 	});
 
-	useShortcut('showInspector', e => {
+	useShortcut('showInspector', (e) => {
 		e.stopPropagation();
 		if (getQuickPreviewStore().open) return;
 		explorerStore.showInspector = !explorerStore.showInspector;
 	});
 
-	useShortcut('showHiddenFiles', e => {
+	useShortcut('showHiddenFiles', (e) => {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});

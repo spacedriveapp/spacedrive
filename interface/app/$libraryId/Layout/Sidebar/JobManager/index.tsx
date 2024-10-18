@@ -2,7 +2,6 @@ import { Check, PushPin, Trash, X } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
-
 import {
 	JobGroup as IJobGroup,
 	Report,
@@ -33,8 +32,8 @@ function sortJobData(jobs: IJobGroup[]) {
 	const runningJobs: IJobGroup[] = [];
 	const otherJobs: IJobGroup[] = [];
 
-	jobs.forEach(job => {
-		if (job.status === 'Running' || job.jobs.find(job => job.status === 'Running')) {
+	jobs.forEach((job) => {
+		if (job.status === 'Running' || job.jobs.find((job) => job.status === 'Running')) {
 			runningJobs.push(job);
 		} else {
 			otherJobs.push(job);
@@ -93,7 +92,7 @@ export function JobManager() {
 			});
 			await Promise.all(clearPromises);
 
-			setToggleConfirmation(t => !t);
+			setToggleConfirmation((t) => !t);
 			toast.success({
 				title: t('success'),
 				body: t('all_jobs_have_been_cleared')
@@ -136,13 +135,13 @@ export function JobManager() {
 						</PopoverClose>
 						<X
 							className="size-3 transition-opacity hover:opacity-70"
-							onClick={() => setToggleConfirmation(t => !t)}
+							onClick={() => setToggleConfirmation((t) => !t)}
 						/>
 					</div>
 				) : (
 					<Button
 						className="opacity-70"
-						onClick={() => setToggleConfirmation(t => !t)}
+						onClick={() => setToggleConfirmation((t) => !t)}
 						size="icon"
 					>
 						<Tooltip label={t('clear_finished_jobs')}>
@@ -170,7 +169,7 @@ export function JobManager() {
 								{t('no_jobs')}
 							</div>
 						) : (
-							sortJobData(jobGroups.data).map(group => (
+							sortJobData(jobGroups.data).map((group) => (
 								<JobGroup key={group.id} group={group} progress={progress} />
 							))
 						))}

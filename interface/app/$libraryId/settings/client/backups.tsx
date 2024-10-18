@@ -1,5 +1,4 @@
 import dayjs from 'dayjs';
-
 import { useBridgeMutation, useBridgeQuery, useLibraryMutation } from '@sd/client';
 import { Button, Card } from '@sd/ui';
 import { Database } from '~/components';
@@ -52,7 +51,7 @@ export const Component = () => {
 				}
 			/>
 
-			{backups.data?.backups.map(backup => (
+			{backups.data?.backups.map((backup) => (
 				<Card key={backup.id} className="hover:bg-app-box/70">
 					<Database className="mr-3 size-10 self-center" />
 					<div className="grid min-w-[110px] grid-cols-1">

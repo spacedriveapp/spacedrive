@@ -6,7 +6,6 @@ import { initRspc, wsBatchLink } from '@spacedrive/rspc-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Outlet, redirect, useMatches, useNavigate } from 'react-router-dom';
-
 import {
 	ClientContextProvider,
 	context,
@@ -83,7 +82,7 @@ export const createRoutes = (platform: Platform) =>
 							return <Navigate to="onboarding" replace />;
 
 						const currentLibrary = libraries.data.find(
-							l => l.uuid === currentLibraryCache.id
+							(l) => l.uuid === currentLibraryCache.id
 						);
 
 						const libraryId = currentLibrary
@@ -96,7 +95,7 @@ export const createRoutes = (platform: Platform) =>
 						const libraries = await getCachedLibraries(nonLibraryClient);
 
 						const currentLibrary = (libraries || []).find(
-							l => l.uuid === currentLibraryCache.id
+							(l) => l.uuid === currentLibraryCache.id
 						);
 
 						const libraryId = currentLibrary ? currentLibrary.uuid : libraries[0]?.uuid;
@@ -114,7 +113,7 @@ export const createRoutes = (platform: Platform) =>
 				},
 				{
 					path: 'remote/:node',
-					Component: props => <RemoteLayout {...props} />,
+					Component: (props) => <RemoteLayout {...props} />,
 					children: [
 						{
 							path: 'browse',
@@ -127,7 +126,7 @@ export const createRoutes = (platform: Platform) =>
 								const result = useBridgeQuery(['library.list']);
 								const libraries = result.data;
 
-								const library = libraries?.find(l => l.uuid === params.libraryId);
+								const library = libraries?.find((l) => l.uuid === params.libraryId);
 
 								useEffect(() => {
 									if (!result.data) return;
@@ -166,7 +165,7 @@ export const createRoutes = (platform: Platform) =>
 					lazy: () => import('./$libraryId/Layout'),
 					loader: async ({ params: { libraryId } }) => {
 						const libraries = await getCachedLibraries(nonLibraryClient);
-						const library = libraries.find(l => l.uuid === libraryId);
+						const library = libraries.find((l) => l.uuid === libraryId);
 
 						if (!library) {
 							const firstLibrary = libraries[0];
@@ -210,7 +209,7 @@ function RemoteLayout() {
 		const libraryClient = initRspc<Procedures>({
 			links
 		}).dangerouslyHookIntoInternals<LibraryProceduresDef>({
-			mapQueryKey: keyAndInput => {
+			mapQueryKey: (keyAndInput) => {
 				const libraryId = currentLibraryCache.id;
 				if (libraryId === null)
 					throw new Error('Attempted to do library operation with no library set!');
@@ -230,7 +229,7 @@ function RemoteLayout() {
 		() =>
 			({
 				...platform,
-				getThumbnailUrlByThumbKey: thumbKey =>
+				getThumbnailUrlByThumbKey: (thumbKey) =>
 					platform.constructRemoteRspcPath(
 						params.node,
 						`thumbnail/${encodeURIComponent(
@@ -246,7 +245,7 @@ function RemoteLayout() {
 							locationLocalId
 						)}/${encodeURIComponent(filePathId)}`
 					),
-				getFileUrlByPath: path =>
+				getFileUrlByPath: (path) =>
 					platform.constructRemoteRspcPath(
 						params.node,
 						`local-file-by-path/${encodeURIComponent(path)}`
@@ -289,7 +288,7 @@ function BrowsePage() {
 	return (
 		<div className="flex flex-col">
 			<h1>Browse Libraries On Remote Node:</h1>
-			{libraries?.map(l => (
+			{libraries?.map((l) => (
 				<Button
 					key={l.uuid}
 					variant="accent"
@@ -319,7 +318,7 @@ const useRawRoutePath = () => {
 			lastMatchId
 				// Gets a list of the index of each route segment
 				?.split('-')
-				?.map(s => parseInt(s))
+				?.map((s) => parseInt(s))
 				// Gets the route object for each segment and appends the `path`, if there is one
 				?.reduce(
 					([rawPath, { children }], path) => {

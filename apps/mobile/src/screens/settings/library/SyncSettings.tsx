@@ -4,7 +4,6 @@ import { MotiView } from 'moti';
 import { Circle } from 'phosphor-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
-
 import {
 	Procedures,
 	useLibraryMutation,
@@ -74,7 +73,7 @@ const SyncSettingsScreen = ({ navigation }: SettingsStackScreenProps<'SyncSettin
 				</View>
 			) : (
 				<View style={tw`flex-row flex-wrap gap-2`}>
-					{Object.keys(data).map(key => {
+					{Object.keys(data).map((key) => {
 						return (
 							<Card style={tw`w-[48%]`} key={key}>
 								<OnlineIndicator online={data[key] ?? false} />

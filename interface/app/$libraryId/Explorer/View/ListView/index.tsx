@@ -9,7 +9,6 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState 
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-
 import { createOrdering, getOrderingDirection, getOrderingKey } from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
@@ -566,7 +565,7 @@ export const ListView = memo(() => {
 		if (!lastRow) return;
 
 		scrollToRow(lastRow);
-		setRanges(rows.map(row => [uniqueId(row.original), uniqueId(row.original)] as Range));
+		setRanges(rows.map((row) => [uniqueId(row.original), uniqueId(row.original)] as Range));
 		setInitialized(true);
 	}, [explorer.count, explorer.selectedItems, initialized, rowsById, scrollToRow, sized]);
 
@@ -660,11 +659,11 @@ export const ListView = memo(() => {
 		};
 	}, [sized, isLeftMouseDown, quickPreview.open]);
 
-	useShortcut('explorerUp', e => {
+	useShortcut('explorerUp', (e) => {
 		keyboardHandler(e, 'ArrowUp');
 	});
 
-	useShortcut('explorerDown', e => {
+	useShortcut('explorerDown', (e) => {
 		keyboardHandler(e, 'ArrowDown');
 	});
 
@@ -765,7 +764,7 @@ export const ListView = memo(() => {
 		<TableContext.Provider value={{ columnSizing }}>
 			<div
 				ref={tableRef}
-				onMouseDown={e => {
+				onMouseDown={(e) => {
 					if (e.button !== 0) return;
 					e.stopPropagation();
 					setIsLeftMouseDown(true);
@@ -785,7 +784,7 @@ export const ListView = memo(() => {
 							<ContextMenu.Root
 								trigger={
 									<div
-										ref={element => {
+										ref={(element) => {
 											tableHeaderRef.current = element;
 											scrollableRef(element);
 										}}
@@ -801,7 +800,7 @@ export const ListView = memo(() => {
 										)}
 										style={{ height: TABLE_HEADER_HEIGHT }}
 									>
-										{table.getHeaderGroups().map(headerGroup => (
+										{table.getHeaderGroups().map((headerGroup) => (
 											<div key={headerGroup.id} className="flex w-fit">
 												{headerGroup.headers.map((header, i) => {
 													const size = header.column.getSize();
@@ -852,7 +851,7 @@ export const ListView = memo(() => {
 																// cause this looks hideous
 																const orderKey =
 																	explorer.orderingKeys?.options.find(
-																		o => {
+																		(o) => {
 																			if (
 																				typeof o.value !==
 																				'string'
@@ -902,7 +901,7 @@ export const ListView = memo(() => {
 																	)}
 
 																	<div
-																		onMouseDown={e => {
+																		onMouseDown={(e) => {
 																			setResizing(true);
 																			setLocked(false);
 
@@ -930,7 +929,7 @@ export const ListView = memo(() => {
 									</div>
 								}
 							>
-								{table.getAllLeafColumns().map(column => {
+								{table.getAllLeafColumns().map((column) => {
 									if (column.id === 'name') return null;
 									return (
 										<ContextMenu.CheckboxItem
@@ -970,7 +969,7 @@ export const ListView = memo(() => {
 										}px)`
 									}}
 								>
-									{virtualRows.map(virtualRow => {
+									{virtualRows.map((virtualRow) => {
 										const row = rows[virtualRow.index];
 										if (!row) return null;
 
@@ -983,7 +982,7 @@ export const ListView = memo(() => {
 												data-index={virtualRow.index}
 												ref={rowVirtualizer.measureElement}
 												className="relative"
-												onMouseDown={e => handleRowClick(e, row)}
+												onMouseDown={(e) => handleRowClick(e, row)}
 												onContextMenu={() => handleRowContextMenu(row)}
 											>
 												<TableRow

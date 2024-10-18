@@ -1,7 +1,6 @@
 import { useGrid } from '@virtual-grid/react';
 import { PropsWithChildren, useEffect, useRef } from 'react';
 import Selecto, { SelectoEvents } from 'react-selecto';
-
 import { ExplorerItem } from '@sd/client';
 
 import { useExplorerContext } from '../../../Context';
@@ -268,7 +267,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 				>
 			);
 
-			const columns = Object.keys(columnItems).map(column => Number(column));
+			const columns = Object.keys(columnItems).map((column) => Number(column));
 
 			// Sort columns in drag direction
 			columns.sort((a, b) => (dragDirection.x === 'right' ? a - b : b - a));
@@ -527,7 +526,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 					endColumn = lastAddedColumn;
 				}
 			} else if (endColumn !== undefined) {
-				const offset = removedColumnsArray.filter(column => column <= endColumn!).length;
+				const offset = removedColumnsArray.filter((column) => column <= endColumn!).length;
 				endColumn += dragDirection.x === 'right' ? -[offset] : offset;
 			}
 
@@ -578,7 +577,7 @@ export const DragSelect = ({ children, ...props }: Props) => {
 					bottom: false
 				}}
 				//Prevent mouse side-buttons from drag
-				dragCondition={e => {
+				dragCondition={(e) => {
 					return e.inputEvent.buttons === 1;
 				}}
 				scrollOptions={{

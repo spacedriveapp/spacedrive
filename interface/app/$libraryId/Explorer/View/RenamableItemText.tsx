@@ -2,7 +2,6 @@ import type { ExplorerItem } from '@sd/client';
 
 import clsx from 'clsx';
 import { useCallback, useRef } from 'react';
-
 import {
 	getEphemeralPath,
 	getExplorerItemData,
@@ -50,7 +49,7 @@ export const RenamableItemText = ({
 	const rspc = useRspcLibraryContext();
 
 	const explorer = useExplorerContext({ suspense: false });
-	const isDragging = useSelector(explorerStore, s => s.drag?.type === 'dragging');
+	const isDragging = useSelector(explorerStore, (s) => s.drag?.type === 'dragging');
 
 	const quickPreviewStore = useQuickPreviewStore();
 

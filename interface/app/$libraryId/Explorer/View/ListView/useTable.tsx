@@ -1,9 +1,11 @@
+import type { ExplorerItem } from '@sd/client';
+import type { ColumnDef } from '@tanstack/react-table';
+
 import {
 	CellContext,
 	functionalUpdate,
 	getCoreRowModel,
-	useReactTable,
-	type ColumnDef
+	useReactTable
 } from '@tanstack/react-table';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
@@ -16,8 +18,7 @@ import {
 	getItemObject,
 	humanizeSize,
 	useExplorerLayoutStore,
-	useSelector,
-	type ExplorerItem
+	useSelector
 } from '@sd/client';
 import { useLocale } from '~/hooks';
 

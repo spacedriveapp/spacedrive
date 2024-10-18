@@ -6,7 +6,7 @@ export default /** @type {import('prettier').Config} */ ({
 	printWidth: 100,
 	quoteProps: 'consistent',
 	singleQuote: true,
-	arrowParens: 'avoid',
+	arrowParens: 'always',
 	importOrder: [
 		// Node.js built-in modules
 		'<TYPES>^(node:)',
@@ -16,7 +16,6 @@ export default /** @type {import('prettier').Config} */ ({
 		'',
 		// Imports not matched by other special words or groups.
 		'<THIRD_PARTY_MODULES>',
-		'',
 		// spacedrive packages
 		'^@sd/(interface|client|ui)(/.*)?$',
 		// internal packages

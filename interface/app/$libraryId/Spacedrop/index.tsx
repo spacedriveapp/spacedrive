@@ -2,7 +2,6 @@ import { Planet } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { proxy } from 'valtio';
-
 import {
 	HardwareModel,
 	useBridgeMutation,
@@ -30,7 +29,7 @@ export function SpacedropProvider() {
 	const progressToast = useSpacedropProgressToast();
 	const { t } = useLocale();
 
-	useP2PEvents(data => {
+	useP2PEvents((data) => {
 		if (data.type === 'SpacedropRequest') {
 			incomingRequestToast(data);
 		} else if (data.type === 'SpacedropProgress') {
@@ -54,7 +53,7 @@ export function SpacedropButton({ triggerOpen }: { triggerOpen: () => void }) {
 		},
 		extendBoundsBy: 10
 	});
-	const isPanelOpen = useSelector(hackyState, s => s.openPanels > 0);
+	const isPanelOpen = useSelector(hackyState, (s) => s.openPanels > 0);
 
 	return (
 		<div ref={ref} className={dndState === 'active' && !isPanelOpen ? 'animate-bounce' : ''}>
@@ -157,7 +156,7 @@ function Node({
 
 	const state = useDropzone({
 		ref,
-		onDrop: files => onDropped(id, files)
+		onDrop: (files) => onDropped(id, files)
 	});
 
 	const { t } = useLocale();
@@ -177,7 +176,7 @@ function Node({
 					return;
 				}
 
-				platform.openFilePickerDialog?.().then(file => {
+				platform.openFilePickerDialog?.().then((file) => {
 					const files = Array.isArray(file) || file === null ? file : [file];
 					if (files === null || files.length === 0) return;
 					onDropped(id, files);

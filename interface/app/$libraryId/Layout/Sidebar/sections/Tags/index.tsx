@@ -3,7 +3,6 @@ import type { Tag } from '@sd/client';
 import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { NavLink, useMatch } from 'react-router-dom';
-
 import { useLibraryQuery } from '@sd/client';
 import { useExplorerDroppable } from '~/app/$libraryId/Explorer/useExplorerDroppable';
 import { SubtleButton } from '~/components';
@@ -32,7 +31,7 @@ export default function TagsSection() {
 			}
 		>
 			<SeeMore>
-				{tags.map(tag => (
+				{tags.map((tag) => (
 					<Tag key={tag.id} tag={tag} />
 				))}
 			</SeeMore>

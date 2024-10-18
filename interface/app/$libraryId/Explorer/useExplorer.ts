@@ -15,7 +15,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
-
 import { ObjectKindEnum } from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
@@ -190,7 +189,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 			(item: ExplorerItem | ExplorerItem[]) => {
 				const items = Array.isArray(item) ? item : [item];
 
-				setSelectedItemHashes(oldHashes => {
+				setSelectedItemHashes((oldHashes) => {
 					const newHashes = new Set(oldHashes);
 					for (const it of items) newHashes.add(getItemUniqueId(it));
 					return newHashes;
@@ -201,7 +200,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 		removeSelectedItem: useCallback(
 			(item: ExplorerItem | ExplorerItem[]) => {
 				const items = Array.isArray(item) ? item : [item];
-				setSelectedItemHashes(oldHashes => {
+				setSelectedItemHashes((oldHashes) => {
 					const newHashes = new Set(oldHashes);
 					for (const it of items) newHashes.delete(getItemUniqueId(it));
 					return newHashes;

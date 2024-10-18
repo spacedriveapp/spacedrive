@@ -1,4 +1,6 @@
-import { useItemsAsEphemeralPaths, useItemsAsFilePaths, type ExplorerItem } from '@sd/client';
+import type { ExplorerItem } from '@sd/client';
+
+import { useItemsAsEphemeralPaths, useItemsAsFilePaths } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 import { isNonEmpty } from '~/util';

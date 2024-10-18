@@ -1,5 +1,4 @@
 import { useEffect, useMemo } from 'react';
-
 import {
 	ObjectKindEnum,
 	useLibraryQuery,
@@ -22,7 +21,7 @@ export default function LocationScreen({ navigation, route }: BrowseStackScreenP
 	const title = useMemo(() => {
 		return path
 			?.split('/')
-			.filter(x => x !== '')
+			.filter((x) => x !== '')
 			.pop();
 	}, [path]);
 

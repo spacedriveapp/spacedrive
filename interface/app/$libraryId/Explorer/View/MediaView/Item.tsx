@@ -1,7 +1,6 @@
 import { ArrowsOutSimple } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { memo } from 'react';
-
 import { ExplorerItem, getItemFilePath } from '@sd/client';
 import { Button } from '@sd/ui';
 
@@ -58,7 +57,7 @@ const ItemFileThumb = (props: Pick<Props, 'data' | 'cut' | 'cover'>) => {
 				filePath?.hidden && 'opacity-50'
 			)}
 			ref={setDraggableRef}
-			childClassName={type => clsx(type === 'icon' && 'size-2/4')}
+			childClassName={(type) => clsx(type === 'icon' && 'size-2/4')}
 			childProps={{
 				style,
 				...attributes,

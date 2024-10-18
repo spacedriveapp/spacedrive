@@ -1,7 +1,6 @@
 import { Trash } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
-
 import {
 	SavedSearch,
 	SearchFilterArgs,
@@ -25,7 +24,7 @@ export const Component = () => {
 	const selectedSearch = useMemo(() => {
 		if (selectedSearchId === null) return null;
 
-		return savedSearches.data!.find(s => s.id == selectedSearchId) ?? null;
+		return savedSearches.data!.find((s) => s.id == selectedSearchId) ?? null;
 	}, [selectedSearchId, savedSearches.data]);
 
 	const { t } = useLocale();
@@ -35,7 +34,7 @@ export const Component = () => {
 			<Heading title="Saved Searches" description="Manage your saved searches." />
 			<div className="flex flex-col gap-4 lg:flex-row">
 				<Card className="flex min-w-56 flex-col gap-2 !px-2">
-					{savedSearches.data?.map(search => (
+					{savedSearches.data?.map((search) => (
 						<button
 							onClick={() => setSelectedSearchId(search.id)}
 							key={search.id}
@@ -83,7 +82,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 		reValidateMode: 'onChange'
 	});
 
-	useDebouncedFormWatch(form, data => {
+	useDebouncedFormWatch(form, (data) => {
 		updateSavedSearch.mutate([savedSearch.id, { name: data.name ?? '' }]);
 	});
 

@@ -2,7 +2,6 @@ import type { ExplorerItem } from '@sd/client';
 
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
-
 import {
 	getItemFilePath,
 	getItemObject,
@@ -110,7 +109,7 @@ const ItemMetadata = memo(() => {
 	const { isDroppable } = useExplorerDroppableContext();
 	const explorerLayout = useExplorerLayoutStore();
 
-	const isRenaming = useSelector(explorerStore, s => s.isRenaming && item.selected);
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
 
 	return (
 		<ExplorerDraggable draggable={{ data: item.data, disabled: isRenaming }}>
@@ -159,7 +158,7 @@ const ItemTags = memo(() => {
 const ItemSize = memo(() => {
 	const item = useGridViewItemContext();
 	const { showBytesInGridView } = useExplorerContext().useSettingsSnapshot();
-	const isRenaming = useSelector(explorerStore, s => s.isRenaming);
+	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming);
 
 	const filePath = getItemFilePath(item.data);
 

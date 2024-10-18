@@ -1,6 +1,5 @@
 import { useDraggable, UseDraggableArguments } from '@dnd-kit/core';
 import { CSSProperties, HTMLAttributes, useCallback, useMemo } from 'react';
-
 import { ExplorerItem } from '@sd/client';
 
 import { explorerStore } from './store';

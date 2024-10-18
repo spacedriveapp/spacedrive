@@ -16,7 +16,6 @@ import {
 	useRef,
 	useState
 } from 'react';
-
 import { getItemFilePath, ObjectKindKey, useLibraryContext } from '@sd/client';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
@@ -310,7 +309,7 @@ export const FileThumb = memo(
 					// us from accessing the new thumbnail immediately after it is created
 					timeoutId = setTimeout(() => explorerStore.removeThumbnail(thumbId), 0);
 					explorerStore.removeThumbnail(thumbId);
-					setLoadState(state => ({ ...state, thumbnail: 'normal' }));
+					setLoadState((state) => ({ ...state, thumbnail: 'normal' }));
 					break;
 				}
 			}
@@ -330,14 +329,14 @@ export const FileThumb = memo(
 							);
 						else if ('path' in filePath)
 							return platform.getFileUrlByPath(filePath.path);
-						else setLoadState(state => ({ ...state, [thumbType]: 'error' }));
+						else setLoadState((state) => ({ ...state, [thumbType]: 'error' }));
 					}
 					break;
 
 				case 'thumbnail': {
-					const thumbnail = Array.from(itemData.thumbnails.keys()).find(key => key);
+					const thumbnail = Array.from(itemData.thumbnails.keys()).find((key) => key);
 					if (thumbnail) return thumbnail;
-					else setLoadState(state => ({ ...state, [thumbType]: 'error' }));
+					else setLoadState((state) => ({ ...state, [thumbType]: 'error' }));
 
 					break;
 				}
@@ -361,7 +360,7 @@ export const FileThumb = memo(
 							('message' in event && event.message) ||
 							'Filetype is not supported yet';
 
-				setLoadState(state => {
+				setLoadState((state) => {
 					state = { ...state, [thumbType]: 'error' };
 					props.onError?.call(
 						null,

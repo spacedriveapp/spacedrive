@@ -1,3 +1,5 @@
+import type { Location } from '@sd/client';
+
 import {
 	Archive,
 	Check,
@@ -10,7 +12,7 @@ import {
 import { ReactComponent as Ellipsis } from '@sd/assets/svgs/ellipsis.svg';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useLibraryMutation, type Location } from '@sd/client';
+import { useLibraryMutation } from '@sd/client';
 import {
 	Button,
 	Input,

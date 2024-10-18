@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+
 import { PropsWithChildren } from 'react';
 
 import { Footer } from './Footer';

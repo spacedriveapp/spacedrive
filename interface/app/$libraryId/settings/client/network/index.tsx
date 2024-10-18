@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
 import { match } from 'ts-pattern';
 import { z } from 'zod';
-
 import {
 	ListenerState,
 	useBridgeMutation,
@@ -86,7 +85,7 @@ export const Component = () => {
 		}
 	});
 
-	useDebouncedFormWatch(form, async value => {
+	useDebouncedFormWatch(form, async (value) => {
 		if (await form.trigger()) {
 			await editNode.mutateAsync({
 				name: null,
@@ -96,7 +95,7 @@ export const Component = () => {
 				p2p_relay_disabled: value.relay_disabled ?? null,
 				p2p_discovery: value.discovery ?? null,
 				p2p_remote_access: value.enable_remote_access ?? null,
-				p2p_manual_peers: value.p2p_manual_peers?.flatMap(v => (v ? [v] : [])) ?? null
+				p2p_manual_peers: value.p2p_manual_peers?.flatMap((v) => (v ? [v] : [])) ?? null
 				// image_labeler_version: null
 			});
 		}
@@ -105,7 +104,7 @@ export const Component = () => {
 	});
 
 	const port = form.watch('port');
-	form.watch(data => {
+	form.watch((data) => {
 		if (data.port?.type == 'discrete' && Number(data.port.value) > 65535) {
 			form.setValue('port', { type: 'discrete', value: 65535 });
 		}
@@ -184,7 +183,7 @@ export const Component = () => {
 				<Switch
 					size="md"
 					checked={!form.watch('disabled')}
-					onCheckedChange={checked => form.setValue('disabled', !checked)}
+					onCheckedChange={(checked) => form.setValue('disabled', !checked)}
 				/>
 			</Setting>
 
@@ -206,7 +205,7 @@ export const Component = () => {
 										value={port.type}
 										containerClassName="h-[30px]"
 										className="h-full"
-										onChange={type => {
+										onChange={(type) => {
 											form.setValue('port', {
 												type: type as any
 											});
@@ -222,7 +221,7 @@ export const Component = () => {
 											port.type === 'random' ? 'opacity-50' : 'opacity-100'
 										)}
 										disabled={port.type === 'random'}
-										onChange={e => {
+										onChange={(e) => {
 											form.setValue('port', {
 												type: 'discrete',
 												value: Number(e.target.value.replace(/[^0-9]/g, ''))
@@ -244,7 +243,7 @@ export const Component = () => {
 						<Switch
 							size="md"
 							checked={!form.watch('ipv6_disabled')}
-							onCheckedChange={checked => form.setValue('ipv6_disabled', !checked)}
+							onCheckedChange={(checked) => form.setValue('ipv6_disabled', !checked)}
 						/>
 					</Setting>
 
@@ -261,7 +260,7 @@ export const Component = () => {
 							value={form.watch('discovery') || 'Everyone'}
 							containerClassName="h-[30px]"
 							className="h-full"
-							onChange={type => form.setValue('discovery', type)}
+							onChange={(type) => form.setValue('discovery', type)}
 						>
 							<SelectOption value="Everyone">
 								{t('p2p_visibility_everyone')}
@@ -291,7 +290,7 @@ export const Component = () => {
 						<Switch
 							size="md"
 							checked={!form.watch('relay_disabled')}
-							onCheckedChange={checked => form.setValue('relay_disabled', !checked)}
+							onCheckedChange={(checked) => form.setValue('relay_disabled', !checked)}
 						/>
 					</Setting>
 
@@ -315,7 +314,7 @@ export const Component = () => {
 								<Switch
 									size="md"
 									checked={form.watch('enable_remote_access')}
-									onCheckedChange={checked =>
+									onCheckedChange={(checked) =>
 										form.setValue('enable_remote_access', checked)
 									}
 								/>
@@ -340,7 +339,7 @@ export const Component = () => {
 					></Setting>
 
 					<div className="grid space-y-2">
-						{form.watch('p2p_manual_peers')?.map(socket => (
+						{form.watch('p2p_manual_peers')?.map((socket) => (
 							<Card key={socket} className="flex justify-between hover:bg-app-box/70">
 								<div className="flex">
 									<Icon
@@ -365,7 +364,7 @@ export const Component = () => {
 													'p2p_manual_peers',
 													(
 														form.getValues('p2p_manual_peers') || []
-													).filter(v => v !== socket)
+													).filter((v) => v !== socket)
 												);
 											}}
 										>
@@ -381,8 +380,8 @@ export const Component = () => {
 								className="flex-1"
 								placeholder="129.168.0.2:1234"
 								value={newSocket}
-								onChange={e => setNewSocket(e.currentTarget.value)}
-								onKeyDown={e => {
+								onChange={(e) => setNewSocket(e.currentTarget.value)}
+								onKeyDown={(e) => {
 									if (e.key === 'Enter' && !isNewSocketInvalid) {
 										form.setValue('p2p_manual_peers', [
 											...(form.getValues('p2p_manual_peers') || []),
@@ -425,7 +424,7 @@ function NodesPanel() {
 
 	const debugConnect = useBridgeMutation(['p2p.debugConnect'], {
 		onSuccess: () => toast.success('Connected!'),
-		onError: e => toast.error(`Error connecting '${e.message}'`)
+		onError: (e) => toast.error(`Error connecting '${e.message}'`)
 	});
 
 	return (
@@ -460,7 +459,7 @@ function NodesPanel() {
 										onClick={() =>
 											platform.confirm(
 												'Warning: This will only work if rspc remote is enabled on the remote node and the node is online!',
-												result => {
+												(result) => {
 													if (result) navigate(`/remote/${id}/browse`);
 												}
 											)

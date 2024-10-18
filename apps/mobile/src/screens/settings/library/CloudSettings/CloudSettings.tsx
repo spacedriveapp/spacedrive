@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { ActivityIndicator, FlatList, Text, View } from 'react-native';
-
 import { useLibraryContext, useLibraryMutation, useLibraryQuery } from '@sd/client';
 import { Icon } from '~/components/icons/Icon';
 import Card from '~/components/layout/Card';
@@ -42,7 +41,9 @@ const Authenticated = () => {
 
 	const cloudInstances = useMemo(
 		() =>
-			cloudLibrary.data?.instances.filter(instance => instance.uuid !== library.instance_id),
+			cloudLibrary.data?.instances.filter(
+				(instance) => instance.uuid !== library.instance_id
+			),
 		[cloudLibrary.data, library.instance_id]
 	);
 
@@ -93,7 +94,7 @@ const Authenticated = () => {
 								showsHorizontalScrollIndicator={false}
 								ItemSeparatorComponent={() => <View style={tw`h-2`} />}
 								renderItem={({ item }) => <Instance data={item} />}
-								keyExtractor={item => item.id}
+								keyExtractor={(item) => item.id}
 								numColumns={1}
 							/>
 						</VirtualizedListWrapper>

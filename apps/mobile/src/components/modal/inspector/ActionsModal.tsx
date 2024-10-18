@@ -13,7 +13,6 @@ import {
 import { PropsWithChildren, useRef } from 'react';
 import { Pressable, Text, View, ViewStyle } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
-
 import {
 	getIndexedItemFilePath,
 	getItemObject,

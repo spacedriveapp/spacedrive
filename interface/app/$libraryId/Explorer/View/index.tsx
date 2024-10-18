@@ -1,3 +1,5 @@
+import type { Object } from '@sd/client';
+
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useKeys } from 'rooks';
@@ -6,8 +8,7 @@ import {
 	explorerLayout,
 	getItemObject,
 	useExplorerLayoutStore,
-	useSelector,
-	type Object
+	useSelector
 } from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import { Loader } from '~/components';

@@ -9,7 +9,6 @@ import type {
 import { proxy } from 'valtio';
 import { proxySet } from 'valtio/utils';
 import { z } from 'zod';
-
 import { resetStore, ThumbKey } from '@sd/client';
 import i18n from '~/app/I18n';
 

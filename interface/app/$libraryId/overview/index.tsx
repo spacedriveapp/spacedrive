@@ -1,6 +1,5 @@
 import { keepPreviousData } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-
 import { useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
@@ -84,7 +83,7 @@ export const Component = () => {
 					</OverviewSection>
 
 					<OverviewSection count={locations.length} title={t('locations')}>
-						{locations?.map(item => (
+						{locations?.map((item) => (
 							<Link key={item.id} to={`../location/${item.id}`}>
 								<StatisticItem
 									name={item.name || t('unnamed_location')}
