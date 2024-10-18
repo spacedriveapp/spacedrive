@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
-import { UseInfiniteQueryResult } from '@tanstack/react-query';
+import { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useRef } from 'react';
 import { ActivityIndicator } from 'react-native';
@@ -32,7 +32,7 @@ type ExplorerProps = {
 	items: ExplorerItem[] | null;
 	/** Function to fetch next page of items. */
 	loadMore: () => void;
-	query: UseInfiniteQueryResult<SearchData<ExplorerItem>>;
+	query: UseInfiniteQueryResult<InfiniteData<SearchData<ExplorerItem>>>;
 	count?: number;
 	empty?: never;
 	isEmpty?: never;

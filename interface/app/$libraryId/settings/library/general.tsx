@@ -109,7 +109,7 @@ export const Component = () => {
 					<div className="mt-2">
 						<Button
 							onClick={() => vacuumLibrary.mutate(null)}
-							disabled={vacuumLibrary.isLoading}
+							disabled={vacuumLibrary.isPending}
 							size="sm"
 							variant="gray"
 							className="whitespace-nowrap"

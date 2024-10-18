@@ -23,7 +23,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 	const [tagColor, setTagColor] = useState(props.tag.color!);
 	const [showPicker, setShowPicker] = useState(false);
 
-	const { mutate: updateTag, isLoading } = useLibraryMutation('tags.update', {
+	const { mutate: updateTag, isPending } = useLibraryMutation('tags.update', {
 		onMutate: () => {
 			console.log('Updating tag');
 		},
@@ -31,7 +31,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 			// Reset form
 			setShowPicker(false);
 
-			queryClient.invalidateQueries(['tags.list']);
+			queryClient.invalidateQueries({ queryKey: ['tags.list'] });
 
 			props.onSubmit?.();
 		},
@@ -85,7 +85,7 @@ const UpdateTagModal = forwardRef<ModalRef, Props>((props, ref) => {
 					variant="accent"
 					onPress={() => updateTag({ id: props.tag.id, color: tagColor, name: tagName })}
 					style={tw`mt-6`}
-					disabled={tagName.length === 0 || tagColor.length === 0 || isLoading}
+					disabled={tagName.length === 0 || tagColor.length === 0 || isPending}
 				>
 					<Text style={tw`text-sm font-medium text-white`}>Save</Text>
 				</Button>

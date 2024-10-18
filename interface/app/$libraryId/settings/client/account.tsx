@@ -89,7 +89,7 @@ function HostedLocationsPlayground() {
 		}
 	}, [path, locations.data]);
 
-	const isLoading = createLocation.isLoading || removeLocation.isLoading;
+	const isPending = createLocation.isPending || removeLocation.isPending;
 
 	return (
 		<>
@@ -103,7 +103,7 @@ function HostedLocationsPlayground() {
 								value={locationName}
 								onInput={(e) => setLocationName(e.currentTarget.value)}
 								placeholder="My sick location"
-								disabled={isLoading}
+								disabled={isPending}
 							/>
 
 							<Button
@@ -113,7 +113,7 @@ function HostedLocationsPlayground() {
 									if (locationName === '') return;
 									createLocation.mutate(locationName);
 								}}
-								disabled={isLoading}
+								disabled={isPending}
 							>
 								Create Location
 							</Button>
@@ -125,8 +125,8 @@ function HostedLocationsPlayground() {
 			/>
 
 			{/* TODO: Cleanup this mess + styles */}
-			{locations.status === 'loading' ? <div>Loading!</div> : null}
-			{locations.status !== 'loading' && locations.data?.length === 0 ? (
+			{locations.status === 'pending' ? <div>Loading!</div> : null}
+			{locations.status !== 'pending' && locations.data?.length === 0 ? (
 				<div>Looks like you don't have any!</div>
 			) : (
 				<div>
@@ -137,7 +137,7 @@ function HostedLocationsPlayground() {
 								variant="accent"
 								size="sm"
 								onClick={() => removeLocation.mutate(location.id)}
-								disabled={isLoading}
+								disabled={isPending}
 							>
 								Delete
 							</Button>
@@ -152,7 +152,7 @@ function HostedLocationsPlayground() {
 					className="grow"
 					value={path}
 					onInput={(e) => setPath(e.currentTarget.value)}
-					disabled={isLoading}
+					disabled={isPending}
 				/>
 			</div>
 		</>

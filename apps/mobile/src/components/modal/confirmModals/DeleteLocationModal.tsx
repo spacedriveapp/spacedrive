@@ -15,7 +15,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 	const rspc = useRspcLibraryContext();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const { mutate: deleteLoc, isLoading: deleteLocLoading } = useLibraryMutation(
+	const { mutate: deleteLoc, isPending: deleteLocLoading } = useLibraryMutation(
 		'locations.delete',
 		{
 			onSuccess: () => {
@@ -30,7 +30,7 @@ const DeleteLocationModal = ({ trigger, onSubmit, locationId, triggerStyle }: Pr
 			},
 			onSettled: () => {
 				modalRef.current?.close();
-				rspc.queryClient.invalidateQueries(['locations.list']);
+				rspc.queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 			}
 		}
 	);

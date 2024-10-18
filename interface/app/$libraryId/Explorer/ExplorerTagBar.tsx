@@ -117,7 +117,7 @@ export const ExplorerTagBar = () => {
 
 	const { data: allTags = [] } = useLibraryQuery(['tags.list']);
 	const mutation = useLibraryMutation(['tags.assign'], {
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const { t } = useLocale();

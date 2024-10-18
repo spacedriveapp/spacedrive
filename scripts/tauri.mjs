@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { env, exit, umask, platform } from 'node:process'
+import { env, exit, platform, umask } from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 

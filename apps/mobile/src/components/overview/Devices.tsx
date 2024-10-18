@@ -1,5 +1,5 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseQueryResult } from '@tanstack/react-query';
 import React, { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
@@ -16,7 +16,7 @@ import StatCard from './StatCard';
 
 interface Props {
 	node: NodeState | undefined;
-	stats: UseQueryResult<StatisticsResponse, AlphaRSPCError>;
+	stats: UseQueryResult<StatisticsResponse, RSPCError>;
 }
 
 export function hardwareModelToIcon(hardwareModel: HardwareModel) {

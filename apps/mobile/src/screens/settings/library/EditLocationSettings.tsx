@@ -40,7 +40,7 @@ const EditLocationSettingsScreen = ({
 		onError: (e) => console.log({ e }),
 		onSuccess: () => {
 			form.reset(form.getValues());
-			queryClient.invalidateQueries(['locations.list']);
+			queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 			toast.success('Location updated!');
 			// TODO: navigate back & reset input focus!
 		}
@@ -90,19 +90,19 @@ const EditLocationSettingsScreen = ({
 		});
 	}, [form, navigation, onSubmit]);
 
-	useLibraryQuery(['locations.getWithRules', id], {
-		onSuccess: (data) => {
-			if (data && !form.formState.isDirty)
-				form.reset({
-					displayName: data.name,
-					localPath: data.path,
-					indexer_rules_ids: data.indexer_rules.map((i) => i.id.toString()),
-					generatePreviewMedia: data.generate_preview_media,
-					syncPreviewMedia: data.sync_preview_media,
-					hidden: data.hidden
-				});
-		}
-	});
+	const query = useLibraryQuery(['locations.getWithRules', id]);
+	useEffect(() => {
+		const data = query.data;
+		if (data && !form.formState.isDirty)
+			form.reset({
+				displayName: data.name,
+				localPath: data.path,
+				indexer_rules_ids: data.indexer_rules.map((i) => i.id.toString()),
+				generatePreviewMedia: data.generate_preview_media,
+				syncPreviewMedia: data.sync_preview_media,
+				hidden: data.hidden
+			});
+	}, [form, query.data]);
 
 	const fullRescan = useLibraryMutation('locations.fullRescan');
 

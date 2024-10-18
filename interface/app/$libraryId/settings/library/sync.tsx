@@ -1,4 +1,4 @@
-import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import {
@@ -56,7 +56,7 @@ export const Component = () => {
 									/>
 								));
 							}}
-							disabled={backfillSync.isLoading}
+							disabled={backfillSync.isPending}
 						>
 							{t('enable_sync')}
 						</Button>
@@ -193,10 +193,10 @@ function StartButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
-			disabled={startActor.isLoading}
+			disabled={startActor.isPending}
 			onClick={() => startActor.mutate(name)}
 		>
-			{startActor.isLoading ? t('starting') : t('start')}
+			{startActor.isPending ? t('starting') : t('start')}
 		</Button>
 	);
 }
@@ -208,10 +208,10 @@ function StopButton({ name }: { name: string }) {
 	return (
 		<Button
 			variant="accent"
-			disabled={stopActor.isLoading}
+			disabled={stopActor.isPending}
 			onClick={() => stopActor.mutate(name)}
 		>
-			{stopActor.isLoading ? t('stopping') : t('stop')}
+			{stopActor.isPending ? t('stopping') : t('stop')}
 		</Button>
 	);
 }

@@ -7,9 +7,7 @@ import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function usePathsOffsetInfiniteQuery({
 	arg,
-	order,
-	onSuccess,
-	...args
+	order
 }: UseExplorerInfiniteQueryArgs<FilePathSearchArgs, FilePathOrder>) {
 	const take = arg.take ?? 100;
 
@@ -49,11 +47,10 @@ export function usePathsOffsetInfiniteQuery({
 
 			return { ...result, offset: pageParam, arg };
 		},
+		initialPageParam: 0,
 		getNextPageParam: ({ items, offset, arg }) => {
 			if (items.length >= arg.take) return (offset ?? 0) + 1;
-		},
-		onSuccess,
-		...args
+		}
 	});
 
 	return query;
