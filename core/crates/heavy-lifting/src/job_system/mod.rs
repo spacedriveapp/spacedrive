@@ -42,7 +42,8 @@ pub enum Command {
 
 /// The central unit that orchestrates all the Jobs in the system
 ///
-/// It is responsible for <...> TODO(matheus-consoli): for what?
+/// It is responsible for running the jobs and orchestrating how the job queue is allocated
+/// in which thread
 pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	msgs_tx: chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,

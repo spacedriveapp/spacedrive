@@ -1,16 +1,16 @@
-use sd_utils::db::maybe_missing;
+use std::path::Path;
 
-use super::super::{DeleteBehavior, FileData};
+use super::super::DeleteBehavior;
 
 #[derive(Debug, Hash)]
 pub struct RemoveBehavior;
 
 impl DeleteBehavior for RemoveBehavior {
-	async fn delete(file: FileData) -> Result<(), ()> {
-		if maybe_missing(file.file_path.is_dir, "file_path.is_dir").unwrap() {
-			tokio::fs::remove_dir_all(&file.full_path).await
+	async fn delete(file_path: &Path) -> Result<(), ()> {
+		if file_path.is_dir() {
+			tokio::fs::remove_dir_all(&file_path).await
 		} else {
-			tokio::fs::remove_file(&file.full_path).await
+			tokio::fs::remove_file(&file_path).await
 		};
 		Ok(())
 	}

@@ -3,6 +3,7 @@ mod remove;
 
 use std::{
 	marker::PhantomData,
+	mem,
 	sync::{atomic::AtomicU64, Arc},
 };
 
@@ -44,8 +45,8 @@ impl<B: DeleteBehavior + Send + 'static> Task<super::Error> for RemoveTask<B> {
 
 		let size = self.files.len();
 
-		// TODO(matheus-consoli): unnecessary clone
-		B::delete_all(self.files.clone()).await;
+		// TODO(matheus-consoli): error handling
+		B::delete_all(mem::take(&mut self.files)).await;
 
 		self.counter
 			.fetch_add(size as _, std::sync::atomic::Ordering::AcqRel);

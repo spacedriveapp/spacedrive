@@ -8,20 +8,21 @@ use std::{
 	},
 };
 
-use futures::{FutureExt, StreamExt};
+use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use futures_concurrency::stream::Merge;
 use itertools::Itertools;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::{
 	job_system::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
+		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
 	Error, JobContext, JobName, NonCriticalError, OuterContext, ProgressUpdate,
 };
 use sd_core_prisma_helpers::file_path_with_object;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
-use sd_task_system::{TaskDispatcher, TaskOutput, TaskStatus};
+use sd_task_system::{Task, TaskDispatcher, TaskHandle, TaskOutput, TaskStatus};
 
 use super::{tasks, DeleteBehavior, FileData};
 
@@ -29,6 +30,11 @@ use super::{tasks, DeleteBehavior, FileData};
 pub struct DeleterJob<T> {
 	location_id: location::id::Type,
 	file_path_ids: Vec<file_path::id::Type>,
+
+	pending_tasks: Option<Vec<TaskHandle<Error>>>,
+	shutdown_tasks: Option<Vec<Box<dyn Task<Error>>>>,
+	accumulative_errors: Option<Vec<Error>>,
+
 	behavior: PhantomData<fn(T) -> T>, // variance: invariant, inherent Send + Sync
 }
 
@@ -49,7 +55,12 @@ impl<B: DeleteBehavior + Hash> DeleterJob<tasks::RemoveTask<B>> {
 		Self {
 			location_id,
 			file_path_ids,
+
 			behavior: PhantomData,
+
+			accumulative_errors: None,
+			pending_tasks: None,
+			shutdown_tasks: None,
 		}
 	}
 }
@@ -59,7 +70,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 
 	// TODO(matheus-consoli): tracing
 	async fn run<OuterCtx: OuterContext>(
-		self,
+		mut self,
 		dispatcher: JobTaskDispatcher,
 		ctx: impl JobContext<OuterCtx>,
 	) -> Result<ReturnStatus, Error> {
@@ -84,20 +95,20 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 			ch.into_iter().map(|c| c.collect()).collect()
 		};
 
-		let mut errors = Vec::new();
-
 		let progress_counter = Arc::new(AtomicU64::new(0));
 
+		// TODO(matheus-consoli): make it clear that this is an optimization
+		// exec_in_place();
 		if steps.len() == 1 {
 			tracing::debug!("files to delete fits in a single task, straight up executing it");
 
 			let all = steps.pop().expect("we checked the length");
-			let size = all.len();
+			let size = all.len() as u64;
 
 			B::delete_all(all).await.unwrap();
 
-			ctx.progress([ProgressUpdate::TaskCount(size as _)]).await;
-			progress_counter.fetch_add(size as _, Ordering::SeqCst);
+			ctx.progress([ProgressUpdate::TaskCount(size)]).await;
+			progress_counter.fetch_add(size, Ordering::SeqCst);
 		} else {
 			let tasks =
 				dispatcher
@@ -107,40 +118,45 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 					.await
 					.unwrap();
 
-			let mut tasks = tasks
-				.into_iter()
-				.map(|handle| Box::pin(handle.into_stream()))
-				.collect::<Vec<_>>()
-				.merge();
+			let mut tasks = FuturesUnordered::from_iter(tasks);
 
-			while let Some(result) = tasks.next().await {
+			let c = while let Some(result) = tasks.next().await {
 				match result {
-					Ok(TaskStatus::Done((_, TaskOutput::Empty))) => {
-						tracing::debug!("task finished");
+					Ok(TaskStatus::Done(_)) => {
 						let progress = progress_counter.load(Ordering::Acquire);
 						ctx.progress([ProgressUpdate::TaskCount(progress)]).await;
 					}
-					Ok(TaskStatus::Canceled) => {}
-					Ok(TaskStatus::Error(e)) => {
-						tracing::error!(error=?e, "task failed");
-						errors.push(e);
+					Ok(TaskStatus::Shutdown(task)) => {
+						self.shutdown_tasks.get_or_insert_with(Vec::new).push(task);
 					}
-					Ok(TaskStatus::Shutdown(tasks)) => {}
-					Ok(TaskStatus::ForcedAbortion) => {}
+					Ok(TaskStatus::Canceled | TaskStatus::ForcedAbortion) => {
+						cancel_pending_tasks(&mut tasks).await;
+						let _return = ReturnStatus::Canceled(
+							JobReturn::builder()
+								// .with_non_critical_errors()
+								.build(),
+						);
+						// TODO(matheus-consoli): cancel the job
+						todo!()
+					}
+					Ok(TaskStatus::Error(error)) => {
+						cancel_pending_tasks(&mut tasks).await;
+						// break Some(Err(error));
+					}
 
-					Err(_) => todo!(),
-					Ok(TaskStatus::Done((_, TaskOutput::Out(_)))) => {
-						unreachable!("the remove task only returns empty outputs")
+					Err(_) => {
+						cancel_pending_tasks(&mut tasks).await;
+						// break Some(Err(error));
 					}
 				}
-			}
+			};
 		};
 
 		// TODO(matheus-consoli): inline this later
-		let errors = errors
-			.into_iter()
-			.map(|_| NonCriticalError::Deleter("TODO handle errors".into()))
-			.collect();
+		// let errors = errors
+		// 	.into_iter()
+		// 	.map(|_| NonCriticalError::Deleter("TODO handle errors".into()))
+		// 	.collect();
 
 		ctx.progress([ProgressUpdate::CompletedTaskCount(
 			progress_counter.load(Ordering::Acquire),
@@ -149,7 +165,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
-				.with_non_critical_errors(errors)
+				// .with_non_critical_errors(errors)
 				.build(),
 		))
 	}
