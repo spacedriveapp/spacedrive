@@ -63,14 +63,6 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		return subscribe(explorerStore, updateThumbnails);
 	}, [thumbnails, platform]);
 
-	if (
-		'has_created_thumbnail' in explorerItem &&
-		explorerItem.has_created_thumbnail &&
-		newThumbnails.size === 0
-	) {
-		console.warn('ExplorerItem has created thumbnail but no new thumbnail found', explorerItem);
-	}
-
 	return useMemo(() => {
 		const explorerItemData = getExplorerItemData(explorerItem);
 
@@ -85,7 +77,8 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		return {
 			...explorerItemData,
 			size: cachedSize.current,
-			thumbnails: newThumbnails
+			thumbnails: newThumbnails,
+			hasLocalThumbnail: explorerItemData.hasLocalThumbnail || newThumbnails.size > 0
 		};
 	}, [explorerItem, newThumbnails]);
 }
