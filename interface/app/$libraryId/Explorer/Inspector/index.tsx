@@ -1,3 +1,6 @@
+import type { ExplorerItem } from '@sd/client';
+import type { HTMLAttributes, ReactNode } from 'react';
+
 import {
 	Barcode,
 	CircleWavyCheck,
@@ -14,18 +17,11 @@ import {
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import {
-	forwardRef,
-	useCallback,
-	useEffect,
-	useMemo,
-	useState,
-	type HTMLAttributes,
-	type ReactNode
-} from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import { Link as NavLink } from 'react-router-dom';
 import Sticky from 'react-sticky-el';
+
 import {
 	FilePath,
 	FilePathForFrontend,
@@ -38,8 +34,7 @@ import {
 	useBridgeQuery,
 	useItemsAsObjects,
 	useLibraryQuery,
-	useSelector,
-	type ExplorerItem
+	useSelector
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';
@@ -153,7 +148,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 1 && 'z-20 !h-4/5 !w-4/5 rotate-[-5deg]',
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
-					childClassName={(type) =>
+					childClassName={type =>
 						type !== 'icon' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
@@ -199,18 +194,14 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 
 	const uniqueLocationIds = useMemo(() => {
 		return item.type === 'Object'
-			? [
-					...new Set(
-						(item.item?.file_paths || []).map((fp) => fp.location_id).filter(Boolean)
-					)
-				]
+			? [...new Set((item.item?.file_paths || []).map(fp => fp.location_id).filter(Boolean))]
 			: item.type === 'Path'
 				? [item.item.location_id]
 				: [];
 	}, [item]);
 
 	const fileLocations =
-		locations?.filter((location) => uniqueLocationIds.includes(location.id)) || [];
+		locations?.filter(location => uniqueLocationIds.includes(location.id)) || [];
 
 	const readyToFetch = useIsFetchReady(item);
 
@@ -352,7 +343,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 				<MetaContainer>
 					<MetaTitle>{t('locations')}</MetaTitle>
 					<div className="flex flex-wrap gap-2">
-						{fileLocations.map((location) => (
+						{fileLocations.map(location => (
 							<NavLink to={`/${libraryId}/location/${location.id}`} key={location.id}>
 								<div className="flex flex-row rounded bg-app-hover/60 px-1 py-0.5 hover:bg-app-selected">
 									<Folder size={18} />
@@ -377,7 +368,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 					</InfoPill>
 				))} */}
 
-				{tags?.map((tag) => (
+				{tags?.map(tag => (
 					<NavLink key={tag.id} to={`/${libraryId}/tag/${tag.id}`}>
 						<Tooltip label={tag.name || ''} className="flex overflow-hidden">
 							<InfoPill
@@ -430,7 +421,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 };
 
 const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
-	const isDragSelecting = useSelector(explorerStore, (s) => s.isDragSelecting);
+	const isDragSelecting = useSelector(explorerStore, s => s.isDragSelecting);
 
 	const selectedObjects = useItemsAsObjects(items);
 
@@ -587,7 +578,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 					);
 				})} */}
 
-				{tags?.map((tag) => {
+				{tags?.map(tag => {
 					const objectsWithTag = tagsWithObjects.data?.[tag.id] ?? [];
 
 					if (objectsWithTag.length === 0) return null;
@@ -620,7 +611,7 @@ const MultiItemMetadata = ({ items }: { items: ExplorerItem[] }) => {
 						alignOffset={-10}
 					>
 						<AssignTagMenuItems
-							items={items.flatMap((item) => {
+							items={items.flatMap(item => {
 								if (item.type === 'Object' || item.type === 'Path') return [item];
 								else return [];
 							})}
