@@ -1,15 +1,17 @@
-import type { ExplorerItem } from '@sd/client';
-import type { ColumnSizingState, Row } from '@tanstack/react-table';
-
 import { CaretDown, CaretUp } from '@phosphor-icons/react';
-import { flexRender } from '@tanstack/react-table';
+import { flexRender, type ColumnSizingState, type Row } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import clsx from 'clsx';
 import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BasicSticky from 'react-sticky-el';
 import { useWindowEventListener } from 'rooks';
 import useResizeObserver from 'use-resize-observer';
-import { createOrdering, getOrderingDirection, getOrderingKey } from '@sd/client';
+import {
+	createOrdering,
+	getOrderingDirection,
+	getOrderingKey,
+	type ExplorerItem
+} from '@sd/client';
 import { ContextMenu } from '@sd/ui';
 import { TruncatedText } from '~/components';
 import { useShortcut } from '~/hooks';

@@ -1,5 +1,3 @@
-import type { Portal } from './portals';
-
 import {
 	createElement,
 	Fragment,
@@ -14,7 +12,7 @@ import { createStore } from 'solid-js/store';
 import { Portal as SolidPortal } from 'solid-js/web';
 
 import { useWithContextReact } from './context';
-import { reactPortalCtx, solidPortalCtx } from './portals';
+import { reactPortalCtx, solidPortalCtx, type Portal } from './portals';
 import { useObserver } from './useObserver';
 
 type Props<T> =

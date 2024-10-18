@@ -1,5 +1,4 @@
 import type { ExplorerItem, ThumbKey } from '../core';
-
 import { getItemFilePath, getItemLocation, getItemObject } from '../utils';
 import { humanizeSize } from './humanizeSize';
 import { ObjectKind, ObjectKindKey } from './objectKind';

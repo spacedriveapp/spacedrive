@@ -1,6 +1,4 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import type { Store } from 'solid-js/store';
-
 import {
 	createElement,
 	createContext as createReactContext,
@@ -17,7 +15,7 @@ import {
 	JSX as SolidJSX,
 	useContext as useSolidContext
 } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createStore, type Store } from 'solid-js/store';
 
 import { insideReactRender } from './internal';
 import { useObserver, useObserverWithOwner } from './useObserver';

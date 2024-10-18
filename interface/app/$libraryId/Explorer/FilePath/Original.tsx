@@ -1,8 +1,13 @@
-import type { VideoHTMLAttributes } from 'react';
-
 import { getIcon, iconNames } from '@sd/assets/util';
 import clsx from 'clsx';
-import { SyntheticEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	SyntheticEvent,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type VideoHTMLAttributes
+} from 'react';
 import { ObjectKindKey, useLibraryContext } from '@sd/client';
 import i18n from '~/app/I18n';
 import { PDFViewer, TextViewer } from '~/components';

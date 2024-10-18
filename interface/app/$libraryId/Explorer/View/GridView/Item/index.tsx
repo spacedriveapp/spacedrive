@@ -1,5 +1,3 @@
-import type { ExplorerItem } from '@sd/client';
-
 import clsx from 'clsx';
 import { memo, useMemo } from 'react';
 import {
@@ -9,7 +7,8 @@ import {
 	Tag,
 	useExplorerLayoutStore,
 	useLibraryQuery,
-	useSelector
+	useSelector,
+	type ExplorerItem
 } from '@sd/client';
 import { useLocale } from '~/hooks';
 

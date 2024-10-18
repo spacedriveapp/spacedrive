@@ -1,6 +1,5 @@
-import type { z } from 'zod';
-
 import { useEffect, useState } from 'react';
+import type { z } from 'zod';
 import { useRouter } from '~/RoutingContext';
 
 // This is hook basically implements a custom version of `useParams`.

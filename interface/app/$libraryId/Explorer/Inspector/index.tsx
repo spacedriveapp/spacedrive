@@ -1,6 +1,3 @@
-import type { ExplorerItem } from '@sd/client';
-import type { HTMLAttributes, ReactNode } from 'react';
-
 import {
 	Barcode,
 	CircleWavyCheck,
@@ -17,7 +14,15 @@ import {
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import dayjs from 'dayjs';
-import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+	forwardRef,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+	type HTMLAttributes,
+	type ReactNode
+} from 'react';
 import { useLocation } from 'react-router';
 import { Link as NavLink } from 'react-router-dom';
 import Sticky from 'react-sticky-el';
@@ -33,7 +38,8 @@ import {
 	useBridgeQuery,
 	useItemsAsObjects,
 	useLibraryQuery,
-	useSelector
+	useSelector,
+	type ExplorerItem
 } from '@sd/client';
 import { Button, Divider, DropdownMenu, toast, Tooltip, tw } from '@sd/ui';
 import { LibraryIdParamsSchema } from '~/app/route-schemas';

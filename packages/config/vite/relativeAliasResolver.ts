@@ -3,7 +3,6 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-
 import { Alias } from 'vite';
 
 const projectPath = path.resolve(__dirname, '../../../');

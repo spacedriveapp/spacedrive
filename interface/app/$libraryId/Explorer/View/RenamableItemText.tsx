@@ -1,5 +1,3 @@
-import type { ExplorerItem } from '@sd/client';
-
 import clsx from 'clsx';
 import { useCallback, useRef } from 'react';
 import {
@@ -8,7 +6,8 @@ import {
 	getIndexedItemFilePath,
 	useLibraryMutation,
 	useRspcLibraryContext,
-	useSelector
+	useSelector,
+	type ExplorerItem
 } from '@sd/client';
 import { toast } from '@sd/ui';
 import { useIsDark, useLocale } from '~/hooks';

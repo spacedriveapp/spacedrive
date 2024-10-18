@@ -1,8 +1,6 @@
-import type { ExplorerItem } from '@sd/client';
-
 import { HTMLAttributes, ReactNode, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { useSelector } from '@sd/client';
+import { useSelector, type ExplorerItem } from '@sd/client';
 import { useOperatingSystem } from '~/hooks';
 import { useRoutingContext } from '~/RoutingContext';
 

@@ -32,7 +32,7 @@ export async function symlinkSharedLibsLinux(root, nativeDeps) {
 	const targetModelShare = path.join(targetShare, 'models')
 	await Promise.all([
 		...[targetRPath, targetModelShare].map(path => fs.unlink(path).catch(() => {})),
-		...[targetLib, targetShare].map(path => fs.mkdir(path, { recursive: true }))
+		...[targetLib, targetShare].map(path => fs.mkdir(path, { recursive: true })),
 	])
 	await link(path.join(nativeDeps, 'lib'), targetRPath)
 	await link(path.join(nativeDeps, 'models'), targetModelShare)

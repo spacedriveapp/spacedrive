@@ -38,7 +38,7 @@ export async function spinTask(promise) {
 	const spinnerControl = new AbortController()
 	const [, result] = await Promise.all([
 		spinnerAnimation(spinnerControl),
-		promise.finally(() => spinnerControl.abort('Task is over'))
+		promise.finally(() => spinnerControl.abort('Task is over')),
 	])
 	return result
 }

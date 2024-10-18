@@ -1,21 +1,19 @@
-import type {
-	ExplorerItem,
-	ExplorerLayout,
-	ExplorerSettings,
-	FilePath,
-	Location,
-	NodeState,
-	Ordering,
-	OrderingKeys,
-	Tag
-} from '@sd/client';
-import type { RefObject } from 'react';
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
-import { ObjectKindEnum } from '@sd/client';
+import {
+	ObjectKindEnum,
+	type ExplorerItem,
+	type ExplorerLayout,
+	type ExplorerSettings,
+	type FilePath,
+	type Location,
+	type NodeState,
+	type Ordering,
+	type OrderingKeys,
+	type Tag
+} from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';

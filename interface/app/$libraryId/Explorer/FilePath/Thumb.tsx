@@ -1,5 +1,3 @@
-import type { ExplorerItem } from '@sd/client';
-
 import { IconTypes } from '@sd/assets/util';
 import clsx from 'clsx';
 import {
@@ -16,7 +14,7 @@ import {
 	useRef,
 	useState
 } from 'react';
-import { getItemFilePath, ObjectKindKey, useLibraryContext } from '@sd/client';
+import { getItemFilePath, ObjectKindKey, useLibraryContext, type ExplorerItem } from '@sd/client';
 import { pdfViewerEnabled } from '~/util/pdfViewer';
 import { usePlatform } from '~/util/Platform';
 

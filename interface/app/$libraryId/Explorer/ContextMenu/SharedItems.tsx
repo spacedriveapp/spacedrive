@@ -1,5 +1,3 @@
-import type { Platform } from '~/util/Platform';
-
 import { FileX, Share as ShareIcon } from '@phosphor-icons/react';
 import { useMemo } from 'react';
 import { useBridgeMutation, useDiscoveredPeers, useSelector } from '@sd/client';
@@ -8,7 +6,7 @@ import { Menu } from '~/components/Menu';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { useKeybindFactory } from '~/hooks/useKeybindFactory';
 import { isNonEmpty } from '~/util';
-import { usePlatform } from '~/util/Platform';
+import { usePlatform, type Platform } from '~/util/Platform';
 
 import { useExplorerContext } from '../Context';
 import { getQuickPreviewStore } from '../QuickPreview/store';

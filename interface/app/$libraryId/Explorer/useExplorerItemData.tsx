@@ -1,8 +1,12 @@
-import type { ExplorerItem } from '@sd/client';
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { subscribe } from 'valtio';
-import { compareHumanizedSizes, getExplorerItemData, humanizeSize, ThumbKey } from '@sd/client';
+import {
+	compareHumanizedSizes,
+	getExplorerItemData,
+	humanizeSize,
+	ThumbKey,
+	type ExplorerItem
+} from '@sd/client';
 import { usePlatform } from '~/util/Platform';
 
 import { explorerStore, flattenThumbnailKey } from './store';

@@ -1,10 +1,8 @@
-import type { Platform } from '~/util/Platform';
-
 import { useMemo } from 'react';
 import { useLibraryContext } from '@sd/client';
 import { useExplorerContext } from '~/app/$libraryId/Explorer/Context';
 import { useShortcut } from '~/hooks';
-import { usePlatform } from '~/util/Platform';
+import { usePlatform, type Platform } from '~/util/Platform';
 
 export const useKeyRevealFinder = () => {
 	const explorer = useExplorerContext();

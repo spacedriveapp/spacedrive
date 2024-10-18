@@ -1,6 +1,3 @@
-import type { EphemeralPathOrder } from '@sd/client';
-import type { PathParams } from '~/app/route-schemas';
-
 import { ArrowLeft, ArrowRight, Info } from '@phosphor-icons/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { iconNames } from '@sd/assets/util';
@@ -11,10 +8,11 @@ import {
 	getExplorerItemData,
 	nonIndexedPathOrderingSchema,
 	useLibraryContext,
-	useUnsafeStreamedQuery
+	useUnsafeStreamedQuery,
+	type EphemeralPathOrder
 } from '@sd/client';
 import { Button, Tooltip } from '@sd/ui';
-import { PathParamsSchema } from '~/app/route-schemas';
+import { PathParamsSchema, type PathParams } from '~/app/route-schemas';
 import { Icon } from '~/components';
 import {
 	getDismissibleNoticeStore,

@@ -1,7 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspect } from 'node:util';
-
 import { defineConfig } from 'cypress';
 
 const __filename = fileURLToPath(import.meta.url);

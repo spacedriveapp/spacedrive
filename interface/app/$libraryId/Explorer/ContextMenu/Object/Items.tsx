@@ -1,8 +1,6 @@
-import type { ObjectKindEnum } from '@sd/client';
-
 import { ArrowBendUpRight, TagSimple } from '@phosphor-icons/react';
 import { useMemo } from 'react';
-import { ExplorerItem, ObjectKind, useLibraryMutation } from '@sd/client';
+import { ExplorerItem, ObjectKind, useLibraryMutation, type ObjectKindEnum } from '@sd/client';
 import { ContextMenu, toast } from '@sd/ui';
 import { Menu } from '~/components/Menu';
 import { useLocale } from '~/hooks';

@@ -1,12 +1,10 @@
 'use client';
 
-import type { Mesh } from 'three';
-
 import { PointMaterial, Points, Trail } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { inSphere as randomInSphere } from 'maath/random';
 import { useRef, useState } from 'react';
-import { Color, WebGL1Renderer, WebGLRenderer } from 'three';
+import { Color, WebGL1Renderer, WebGLRenderer, type Mesh } from 'three';
 
 const Stars = (props: any) => {
 	const ref = useRef<Mesh>();

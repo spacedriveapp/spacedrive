@@ -1,6 +1,4 @@
-import type { ReactNode } from 'react';
-
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useTopBarContext } from './Context';

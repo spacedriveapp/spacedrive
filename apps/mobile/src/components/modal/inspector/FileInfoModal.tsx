@@ -1,6 +1,3 @@
-import type { ExplorerItem } from '@sd/client';
-import type { ModalRef } from '~/components/layout/Modal';
-
 import dayjs from 'dayjs';
 import {
 	Barcode,
@@ -14,10 +11,10 @@ import {
 } from 'phosphor-react-native';
 import { forwardRef } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { getItemFilePath, getItemObject, humanizeSize } from '@sd/client';
+import { getItemFilePath, getItemObject, humanizeSize, type ExplorerItem } from '@sd/client';
 import FileThumb from '~/components/explorer/FileThumb';
 import InfoTagPills from '~/components/explorer/sections/InfoTagPills';
-import { Modal, ModalScrollView } from '~/components/layout/Modal';
+import { Modal, ModalScrollView, type ModalRef } from '~/components/layout/Modal';
 import VirtualizedListWrapper from '~/components/layout/VirtualizedListWrapper';
 import { Divider } from '~/components/primitive/Divider';
 import useForwardedRef from '~/hooks/useForwardedRef';

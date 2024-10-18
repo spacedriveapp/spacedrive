@@ -1,9 +1,6 @@
 /** @jsxImportSource solid-js */
-import type { FunctionComponent } from 'react';
-import type { JSX as SolidJSX } from 'solid-js';
-
 import { trackDeep } from '@solid-primitives/deep';
-import { createElement, StrictMode } from 'react';
+import { createElement, StrictMode, type FunctionComponent } from 'react';
 import { createPortal } from 'react-dom';
 import {
 	children,
@@ -15,7 +12,8 @@ import {
 	onMount,
 	Owner,
 	splitProps,
-	useContext as useSolidContext
+	useContext as useSolidContext,
+	type JSX as SolidJSX
 } from 'solid-js';
 
 import { withReactCtx as withReactContextProvider } from './context';

@@ -18,7 +18,7 @@ const agentOpts = {
 	allowH2: !!env.HTTP2,
 	connect: { timeout: CONNECT_TIMEOUT },
 	connectTimeout: CONNECT_TIMEOUT,
-	autoSelectFamily: true
+	autoSelectFamily: true,
 }
 
 const { proxyUrl } = (await getSystemProxy()) ?? {}
@@ -27,7 +27,7 @@ const dispatcher = proxyUrl
 			...agentOpts,
 			proxyTls: { timeout: CONNECT_TIMEOUT },
 			requestTls: { timeout: CONNECT_TIMEOUT },
-			uri: proxyUrl
+			uri: proxyUrl,
 		})
 	: new Agent(agentOpts)
 
@@ -55,7 +55,7 @@ async function getCache(resource, headers) {
 	try {
 		const cache = JSON.parse(
 			await fs.readFile(joinPath(cacheDir, Buffer.from(resource).toString('base64url')), {
-				encoding: 'utf8'
+				encoding: 'utf8',
 			})
 		)
 		if (cache && typeof cache === 'object') {
@@ -111,7 +111,7 @@ async function setCache(response, resource, cachedData, headers) {
 			JSON.stringify({
 				etag,
 				modifiedSince,
-				data: data.toString('base64')
+				data: data.toString('base64'),
 			}),
 			{ mode: 0o640, flag: 'w+' }
 		)

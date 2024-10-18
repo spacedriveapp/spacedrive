@@ -40,7 +40,7 @@ const extractOpts = {
 	chmod: 0o600,
 	sizeLimit: 256n * 1024n * 1024n,
 	recursive: true,
-	overwrite: true
+	overwrite: true,
 }
 
 const bugWarn =
@@ -91,7 +91,7 @@ const rustTargets = await getRustTargetList()
 const iosTargets = {
 	'aarch64-apple-ios': NATIVE_DEPS_ASSETS.IOS.ios.aarch64,
 	'aarch64-apple-ios-sim': NATIVE_DEPS_ASSETS.IOS.iossim.aarch64,
-	'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64
+	'x86_64-apple-ios': NATIVE_DEPS_ASSETS.IOS.iossim.x86_64,
 }
 
 // Native deps for mobile
@@ -183,7 +183,7 @@ try {
 	const configData = mustache
 		.render(
 			await fs.readFile(path.join(__root, '.cargo', 'config.toml.mustache'), {
-				encoding: 'utf8'
+				encoding: 'utf8',
 			}),
 			{
 				isWin,
@@ -200,7 +200,7 @@ try {
 					.replaceAll('\\', '\\\\'),
 				nativeDeps: nativeDeps.replaceAll('\\', '\\\\'),
 				mobileNativeDeps: mobileNativeDeps.replaceAll('\\', '\\\\'),
-				hasLLD
+				hasLLD,
 			}
 		)
 		.replace(/\n\n+/g, '\n')
@@ -210,7 +210,7 @@ try {
 
 	await fs.writeFile(path.join(__root, '.cargo', 'config.toml'), configData, {
 		mode: 0o751,
-		flag: 'w+'
+		flag: 'w+',
 	})
 } catch (error) {
 	console.error(`Failed to generate .cargo/config.toml.\n${bugWarn}`)

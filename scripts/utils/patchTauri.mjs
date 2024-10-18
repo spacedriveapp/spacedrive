@@ -25,7 +25,7 @@ export async function tauriUpdaterKey(nativeDeps) {
 	const readKeys = () =>
 		Promise.all([
 			fs.readFile(publicKeyPath, { encoding: 'utf-8' }),
-			fs.readFile(privateKeyPath, { encoding: 'utf-8' })
+			fs.readFile(privateKeyPath, { encoding: 'utf-8' }),
 		])
 
 	let privateKey, publicKey
@@ -64,15 +64,15 @@ export async function patchTauri(root, nativeDeps, targets, args) {
 	const osType = os.type()
 	const tauriPatch = {
 		build: {
-			features: /** @type {string[]} */ ([])
+			features: /** @type {string[]} */ ([]),
 		},
 		bundle: {
 			macOS: { minimumSystemVersion: '' },
-			resources: {}
+			resources: {},
 		},
 		plugins: {
-			updater: /** @type {{ pubkey?: string }} */ ({})
-		}
+			updater: /** @type {{ pubkey?: string }} */ ({}),
+		},
 	}
 
 	if (osType === 'Linux') {
@@ -80,7 +80,7 @@ export async function patchTauri(root, nativeDeps, targets, args) {
 	} else if (osType === 'Windows_NT') {
 		tauriPatch.bundle.resources = {
 			...(await windowsDLLs(nativeDeps)),
-			[path.join(nativeDeps, 'models', 'yolov8s.onnx')]: './models/yolov8s.onnx'
+			[path.join(nativeDeps, 'models', 'yolov8s.onnx')]: './models/yolov8s.onnx',
 		}
 	}
 
@@ -115,7 +115,9 @@ export async function patchTauri(root, nativeDeps, targets, args) {
 			(macOSMinimumVersion == null ||
 				semver.lt(
 					/** @type {import('semver').SemVer} */ (semver.coerce(macOSMinimumVersion)),
-					/** @type {import('semver').SemVer} */ (semver.coerce(macOSArm64MinimumVersion))
+					/** @type {import('semver').SemVer} */ (
+						semver.coerce(macOSArm64MinimumVersion)
+					)
 				))
 		) {
 			macOSMinimumVersion = macOSArm64MinimumVersion

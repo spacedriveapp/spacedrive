@@ -1,11 +1,9 @@
-import type { ButtonProps } from '@sd/ui';
-
 import { FolderSimplePlus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { ComponentProps, useRef, useState } from 'react';
 import { useLibraryContext } from '@sd/client';
-import { Button, dialogManager } from '@sd/ui';
+import { Button, dialogManager, type ButtonProps } from '@sd/ui';
 import { useCallbackToWatchResize, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 

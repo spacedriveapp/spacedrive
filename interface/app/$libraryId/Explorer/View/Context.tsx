@@ -1,6 +1,4 @@
-import type { ReactNode, RefObject } from 'react';
-
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode, type RefObject } from 'react';
 
 import { useActiveItem } from './useActiveItem';
 

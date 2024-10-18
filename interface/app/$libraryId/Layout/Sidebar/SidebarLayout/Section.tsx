@@ -1,5 +1,4 @@
 import type { PropsWithChildren } from 'react';
-
 import { CategoryHeading } from '@sd/ui';
 
 export default (

@@ -1,5 +1,4 @@
 import { fileURLToPath } from 'node:url';
-
 import ts from '@babel/preset-typescript';
 import react from '@vitejs/plugin-react-swc';
 import million from 'million/compiler';
