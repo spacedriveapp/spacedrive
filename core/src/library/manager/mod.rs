@@ -537,6 +537,7 @@ impl Libraries {
 						)),
 					],
 				)
+				.select(instance::select!({ id }))
 				.exec()
 				.await?;
 		}

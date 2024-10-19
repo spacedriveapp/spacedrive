@@ -1,7 +1,7 @@
 use sd_core_prisma_helpers::DevicePubId;
 
 use sd_prisma::{
-	prisma::{crdt_operation, PrismaClient, SortOrder},
+	prisma::{crdt_operation, PrismaClient},
 	prisma_sync::ModelSyncData,
 };
 use sd_sync::{
@@ -17,6 +17,8 @@ use uuid::Uuid;
 
 use super::{db_operation::write_crdt_op_to_db, Error, TimestampPerDevice};
 
+crdt_operation::select!(crdt_operation_id { id });
+
 // where the magic happens
 #[instrument(skip(clock, ops), fields(operations_count = %ops.len()), err)]
 pub async fn process_crdt_operations(
@@ -24,7 +26,7 @@ pub async fn process_crdt_operations(
 	timestamp_per_device: &TimestampPerDevice,
 	db: &PrismaClient,
 	device_pub_id: DevicePubId,
-	model: ModelId,
+	model_id: ModelId,
 	record_id: RecordId,
 	mut ops: Vec<CompressedCRDTOperation>,
 ) -> Result<(), Error> {
@@ -50,7 +52,7 @@ pub async fn process_crdt_operations(
 		.find(|op| matches!(op.data, CRDTOperationData::Delete))
 	{
 		trace!("Deleting operation");
-		handle_crdt_deletion(db, &device_pub_id, model, record_id, delete_op).await?;
+		handle_crdt_deletion(db, &device_pub_id, model_id, record_id, delete_op).await?;
 	}
 	// Create + > 0 Update - overwrites the create's data with the updates
 	else if let Some(timestamp) = ops
@@ -61,23 +63,22 @@ pub async fn process_crdt_operations(
 		trace!("Create + Updates operations");
 
 		// conflict resolution
-		let delete = db
+		let delete_count = db
 			.crdt_operation()
-			.find_first(vec![
-				crdt_operation::model::equals(i32::from(model)),
+			.count(vec![
+				crdt_operation::model::equals(i32::from(model_id)),
 				crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
 				crdt_operation::kind::equals(OperationKind::Delete.to_string()),
 			])
-			.order_by(crdt_operation::timestamp::order(SortOrder::Desc))
 			.exec()
 			.await?;
 
-		if delete.is_some() {
+		if delete_count > 0 {
 			debug!("Found a previous delete operation with the same SyncId, will ignore these operations");
 			return Ok(());
 		}
 
-		handle_crdt_create_and_updates(db, &device_pub_id, model, record_id, ops, timestamp)
+		handle_crdt_create_and_updates(db, &device_pub_id, model_id, record_id, ops, timestamp)
 			.await?;
 	}
 	// > 0 Update - batches updates with a fake Create op
@@ -87,51 +88,57 @@ pub async fn process_crdt_operations(
 		let mut data = BTreeMap::new();
 
 		for op in ops.into_iter().rev() {
-			let CRDTOperationData::Update { field, value } = op.data else {
+			let CRDTOperationData::Update(fields_and_values) = op.data else {
 				unreachable!("Create + Delete should be filtered out!");
 			};
 
-			data.insert(field, (value, op.timestamp));
+			for (field, value) in fields_and_values {
+				data.insert(field, (value, op.timestamp));
+			}
 		}
 
 		// conflict resolution
-		let (create, updates) = db
+		let (create, newer_updates_count) = db
 			._batch((
-				db.crdt_operation()
-					.find_first(vec![
-						crdt_operation::model::equals(i32::from(model)),
-						crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
-						crdt_operation::kind::equals(OperationKind::Create.to_string()),
-					])
-					.order_by(crdt_operation::timestamp::order(SortOrder::Desc)),
+				db.crdt_operation().count(vec![
+					crdt_operation::model::equals(i32::from(model_id)),
+					crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
+					crdt_operation::kind::equals(OperationKind::Create.to_string()),
+				]),
 				data.iter()
 					.map(|(k, (_, timestamp))| {
-						Ok(db
-							.crdt_operation()
-							.find_first(vec![
-								crdt_operation::timestamp::gt({
-									#[allow(clippy::cast_possible_wrap)]
-									// SAFETY: we had to store using i64 due to SQLite limitations
-									{
-										timestamp.as_u64() as i64
-									}
-								}),
-								crdt_operation::model::equals(i32::from(model)),
-								crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
-								crdt_operation::kind::equals(OperationKind::Update(k).to_string()),
-							])
-							.order_by(crdt_operation::timestamp::order(SortOrder::Desc)))
+						Ok(db.crdt_operation().count(vec![
+							crdt_operation::timestamp::gt({
+								#[allow(clippy::cast_possible_wrap)]
+								// SAFETY: we had to store using i64 due to SQLite limitations
+								{
+									timestamp.as_u64() as i64
+								}
+							}),
+							crdt_operation::model::equals(i32::from(model_id)),
+							crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
+							crdt_operation::kind::contains(format!(":{k}:")),
+						]))
 					})
 					.collect::<Result<Vec<_>, Error>>()?,
 			))
 			.await?;
 
-		if create.is_none() {
+		if create == 0 {
 			warn!("Failed to find a previous create operation with the same SyncId");
 			return Ok(());
 		}
 
-		handle_crdt_updates(db, &device_pub_id, model, record_id, data, updates).await?;
+		let keys = data.keys().cloned().collect::<Vec<_>>();
+
+		// remove entries if we possess locally more recent updates for this field
+		for (update, key) in newer_updates_count.into_iter().zip(keys) {
+			if update > 0 {
+				data.remove(&key);
+			}
+		}
+
+		handle_crdt_updates(db, &device_pub_id, model_id, record_id, data).await?;
 	}
 
 	// read the timestamp for the operation's device, or insert one if it doesn't exist
@@ -157,24 +164,15 @@ async fn handle_crdt_updates(
 	device_pub_id: &DevicePubId,
 	model_id: ModelId,
 	record_id: rmpv::Value,
-	mut data: BTreeMap<String, (rmpv::Value, NTP64)>,
-	updates: Vec<Option<crdt_operation::Data>>,
+	data: BTreeMap<String, (rmpv::Value, NTP64)>,
 ) -> Result<(), Error> {
-	let keys = data.keys().cloned().collect::<Vec<_>>();
 	let device_pub_id = sd_sync::DevicePubId::from(device_pub_id);
-
-	// does the same thing as processing ops one-by-one and returning early if a newer op was found
-	for (update, key) in updates.into_iter().zip(keys) {
-		if update.is_some() {
-			data.remove(&key);
-		}
-	}
 
 	db._transaction()
 		.with_timeout(30 * 10000)
 		.with_max_wait(30 * 10000)
 		.run(|db| async move {
-			// fake operation to batch them all at once
+			// fake operation to batch them all at once, inserting the latest data on appropriate table
 			ModelSyncData::from_op(CRDTOperation {
 				device_pub_id,
 				model_id,
@@ -185,35 +183,32 @@ async fn handle_crdt_updates(
 						.map(|(k, (data, _))| (k.clone(), data.clone()))
 						.collect(),
 				),
-			})
-			.ok_or(Error::InvalidModelId(model_id))?
+			})?
 			.exec(&db)
 			.await?;
 
-			// need to only apply ops that haven't been filtered out
-			data.into_iter()
-				.map(|(field, (value, timestamp))| {
-					let record_id = record_id.clone();
-					let db = &db;
-
-					async move {
-						write_crdt_op_to_db(
-							&CRDTOperation {
-								device_pub_id,
-								model_id,
-								record_id,
-								timestamp,
-								data: CRDTOperationData::Update { field, value },
-							},
-							db,
-						)
-						.await
+			let (fields_and_values, latest_timestamp) = data.into_iter().fold(
+				(BTreeMap::new(), NTP64::default()),
+				|(mut fields_and_values, mut latest_time_stamp), (field, (value, timestamp))| {
+					fields_and_values.insert(field, value);
+					if timestamp > latest_time_stamp {
+						latest_time_stamp = timestamp;
 					}
-				})
-				.collect::<Vec<_>>()
-				.try_join()
-				.await
-				.map(|_| ())
+					(fields_and_values, latest_time_stamp)
+				},
+			);
+
+			write_crdt_op_to_db(
+				&CRDTOperation {
+					device_pub_id,
+					model_id,
+					record_id,
+					timestamp: latest_timestamp,
+					data: CRDTOperationData::Update(fields_and_values),
+				},
+				&db,
+			)
+			.await
 		})
 		.await
 }
@@ -244,8 +239,11 @@ async fn handle_crdt_create_and_updates(
 
 				break;
 			}
-			CRDTOperationData::Update { field, value } => {
-				data.insert(field.clone(), value.clone());
+			CRDTOperationData::Update(fields_and_values) => {
+				for (field, value) in fields_and_values {
+					data.insert(field.clone(), value.clone());
+				}
+
 				applied_ops.push(op);
 			}
 		}
@@ -262,8 +260,7 @@ async fn handle_crdt_create_and_updates(
 				record_id: record_id.clone(),
 				timestamp,
 				data: CRDTOperationData::Create(data),
-			})
-			.ok_or(Error::InvalidModelId(model_id))?
+			})?
 			.exec(&db)
 			.await?;
 
@@ -314,10 +311,7 @@ async fn handle_crdt_deletion(
 		.with_timeout(30 * 10000)
 		.with_max_wait(30 * 10000)
 		.run(|db| async move {
-			ModelSyncData::from_op(op.clone())
-				.ok_or(Error::InvalidModelId(model))?
-				.exec(&db)
-				.await?;
+			ModelSyncData::from_op(op.clone())?.exec(&db).await?;
 
 			write_crdt_op_to_db(&op, &db).await
 		})

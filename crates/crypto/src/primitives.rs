@@ -16,7 +16,7 @@ pub struct EncryptedBlock {
 }
 
 pub struct EncryptedBlockRef<'e> {
-	pub nonce: OneShotNonce,
+	pub nonce: &'e OneShotNonce,
 	pub cipher_text: &'e [u8],
 }
 
@@ -25,7 +25,7 @@ impl<'e> From<&'e [u8]> for EncryptedBlockRef<'e> {
 		let (nonce, cipher_text) = cipher_text.split_at(size_of::<OneShotNonce>());
 
 		Self {
-			nonce: OneShotNonce::try_from(nonce).expect("we split the correct amount"),
+			nonce: nonce.try_into().expect("we split the correct amount"),
 			cipher_text,
 		}
 	}

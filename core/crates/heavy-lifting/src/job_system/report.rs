@@ -290,6 +290,7 @@ impl Report {
 						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
 				),
 			)
+			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Create)?;
@@ -318,6 +319,7 @@ impl Report {
 					job::date_completed::set(self.completed_at.map(Into::into)),
 				],
 			)
+			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Update)?;

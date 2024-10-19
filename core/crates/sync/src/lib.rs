@@ -27,7 +27,10 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation};
+use sd_prisma::{
+	prisma::{cloud_crdt_operation, crdt_operation},
+	prisma_sync,
+};
 use sd_utils::uuid_to_bytes;
 
 use std::{collections::HashMap, sync::Arc};
@@ -66,6 +69,8 @@ pub enum Error {
 	Deserialization(#[from] rmp_serde::decode::Error),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("PrismaSync error: {0}")]
+	PrismaSync(#[from] prisma_sync::Error),
 	#[error("invalid model id: {0}")]
 	InvalidModelId(ModelId),
 	#[error("tried to write an empty operations list")]

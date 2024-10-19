@@ -15,7 +15,7 @@ use sd_core_sync::{
 use sd_actors::{Actor, Stopper};
 use sd_crypto::{
 	cloud::{OneShotDecryption, SecretKey, StreamDecryption},
-	primitives::{EncryptedBlock, OneShotNonce, StreamNonce},
+	primitives::{EncryptedBlock, StreamNonce},
 };
 use sd_prisma::prisma::PrismaClient;
 
@@ -23,28 +23,18 @@ use std::{
 	collections::{hash_map::Entry, HashMap},
 	future::IntoFuture,
 	path::Path,
-	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	task::{Context, Poll},
 };
 
 use chrono::{DateTime, Utc};
-use futures::{FutureExt, StreamExt, TryStreamExt};
+use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::{Race, TryJoin};
 use quic_rpc::transport::quinn::QuinnConnection;
-use reqwest::Response;
-use reqwest_middleware::ClientWithMiddleware;
 use serde::{Deserialize, Serialize};
-use tokio::{
-	fs,
-	io::{self, AsyncRead, AsyncReadExt, ReadBuf},
-	sync::Notify,
-	time::sleep,
-};
-use tokio_util::io::StreamReader;
+use tokio::{fs, io, sync::Notify, time::sleep};
 use tracing::{debug, error, instrument, warn};
 use uuid::Uuid;
 
@@ -209,7 +199,6 @@ impl Receiver {
 				message,
 				&self.key_manager,
 				&self.sync,
-				self.cloud_services.http_client(),
 			)
 			.await?;
 
@@ -246,33 +235,23 @@ async fn handle_single_message(
 		end_time,
 		operations_count,
 		key_hash,
-		signed_download_link,
+		encrypted_messages,
 		..
 	}: MessagesCollection,
 	key_manager: &KeyManager,
 	sync: &SyncManager,
-	http_client: &ClientWithMiddleware,
 ) -> Result<(devices::PubId, DateTime<Utc>), Error> {
 	// FIXME(@fogodev): If we don't have the key hash, we need to fetch it from another device in the group if possible
 	let Some(secret_key) = key_manager.get_key(sync_group_pub_id, &key_hash).await else {
 		return Err(Error::MissingKeyHash);
 	};
 
-	let response = http_client
-		.get(signed_download_link)
-		.send()
-		.await
-		.map_err(Error::DownloadSyncMessages)?
-		.error_for_status()
-		.map_err(Error::ErrorResponseDownloadSyncMessages)?;
+	debug!(
+		size = encrypted_messages.len(),
+		"Received encrypted sync messages collection"
+	);
 
-	let crdt_ops = if let Some(size) = response.content_length() {
-		debug!(size, "Received encrypted sync messages collection");
-		extract_messages_known_size(response, size, secret_key, original_device_pub_id).await
-	} else {
-		debug!("Received encrypted sync messages collection of unknown size");
-		extract_messages_unknown_size(response, secret_key, original_device_pub_id).await
-	}?;
+	let crdt_ops = decrypt_messages(encrypted_messages, secret_key, original_device_pub_id).await?;
 
 	assert_eq!(
 		crdt_ops.len(),
@@ -285,74 +264,30 @@ async fn handle_single_message(
 	Ok((original_device_pub_id, end_time))
 }
 
-#[instrument(skip(response, size, secret_key), err)]
-async fn extract_messages_known_size(
-	response: Response,
-	size: u64,
+#[instrument(skip(encrypted_messages, secret_key), fields(messages_size = %encrypted_messages.len()), err)]
+async fn decrypt_messages(
+	encrypted_messages: Vec<u8>,
 	secret_key: SecretKey,
 	devices::PubId(device_pub_id): devices::PubId,
 ) -> Result<Vec<CRDTOperation>, Error> {
-	let plain_text = if size <= EncryptedBlock::CIPHER_TEXT_SIZE as u64 {
-		OneShotDecryption::decrypt(
-			&secret_key,
-			response
-				.bytes()
-				.await
-				.map_err(Error::ErrorResponseDownloadReadBytesSyncMessages)?
-				.as_ref()
-				.into(),
-		)
-		.map_err(Error::Decrypt)?
+	let plain_text = if encrypted_messages.len() <= EncryptedBlock::CIPHER_TEXT_SIZE {
+		OneShotDecryption::decrypt(&secret_key, encrypted_messages.as_slice().into())
+			.map_err(Error::Decrypt)?
 	} else {
-		let mut reader = StreamReader::new(response.bytes_stream().map_err(|e| {
-			error!(?e, "Failed to read sync messages bytes stream");
-			io::Error::new(io::ErrorKind::Other, e)
-		}));
+		let (nonce, cipher_text) = encrypted_messages.split_at(size_of::<StreamNonce>());
 
-		let mut nonce = StreamNonce::default();
+		let mut plain_text = Vec::with_capacity(cipher_text.len());
 
-		reader
-			.read_exact(&mut nonce)
-			.await
-			.map_err(Error::ReadNonceStreamDecryption)?;
-
-		// TODO: Reimplement using async streaming with serde if it ever gets implemented
-
-		let mut plain_text = vec![];
-
-		StreamDecryption::decrypt(&secret_key, &nonce, reader, &mut plain_text)
-			.await
-			.map_err(Error::Decrypt)?;
+		StreamDecryption::decrypt(
+			&secret_key,
+			nonce.try_into().expect("we split the correct amount"),
+			cipher_text,
+			&mut plain_text,
+		)
+		.await
+		.map_err(Error::Decrypt)?;
 
 		plain_text
-	};
-
-	rmp_serde::from_slice::<CompressedCRDTOperationsPerModel>(&plain_text)
-		.map(|compressed_ops| compressed_ops.into_ops(device_pub_id))
-		.map_err(Error::DeserializationFailureToPullSyncMessages)
-}
-
-#[instrument(skip_all, err)]
-async fn extract_messages_unknown_size(
-	response: Response,
-	secret_key: SecretKey,
-	devices::PubId(device_pub_id): devices::PubId,
-) -> Result<Vec<CRDTOperation>, Error> {
-	let plain_text = match UnknownDownloadKind::new(response).await? {
-		UnknownDownloadKind::OneShot(buffer) => {
-			OneShotDecryption::decrypt(&secret_key, buffer.as_slice().into())
-				.map_err(Error::Decrypt)?
-		}
-
-		UnknownDownloadKind::Stream((nonce, reader)) => {
-			let mut plain_text = vec![];
-
-			StreamDecryption::decrypt(&secret_key, &nonce, reader, &mut plain_text)
-				.await
-				.map_err(Error::Decrypt)?;
-
-			plain_text
-		}
 	};
 
 	rmp_serde::from_slice::<CompressedCRDTOperationsPerModel>(&plain_text)
@@ -409,75 +344,5 @@ impl LastTimestampKeeper {
 		)
 		.await
 		.map_err(Error::FailedToWriteLastTimestampKeeper)
-	}
-}
-
-struct UnknownDownloadSizeStreamer {
-	stream_reader: Box<dyn AsyncRead + Send + Unpin + 'static>,
-	buffer: Vec<u8>,
-	was_read: usize,
-}
-
-enum UnknownDownloadKind {
-	OneShot(Vec<u8>),
-	Stream((StreamNonce, UnknownDownloadSizeStreamer)),
-}
-
-impl UnknownDownloadKind {
-	async fn new(response: Response) -> Result<Self, Error> {
-		let mut buffer = Vec::with_capacity(EncryptedBlock::CIPHER_TEXT_SIZE * 2);
-
-		let mut stream = response.bytes_stream();
-
-		while let Some(res) = stream.next().await {
-			buffer.extend(res.map_err(Error::ErrorResponseDownloadReadBytesSyncMessages)?);
-			if buffer.len() > EncryptedBlock::CIPHER_TEXT_SIZE {
-				break;
-			}
-		}
-
-		if buffer.len() < size_of::<OneShotNonce>() {
-			return Err(Error::IncompleteDownloadBytesSyncMessages);
-		}
-
-		if buffer.len() <= EncryptedBlock::CIPHER_TEXT_SIZE {
-			Ok(Self::OneShot(buffer))
-		} else {
-			let nonce_size = size_of::<StreamNonce>();
-
-			Ok(Self::Stream((
-				StreamNonce::try_from(&buffer[..nonce_size]).expect("passing the right nonce size"),
-				UnknownDownloadSizeStreamer {
-					stream_reader: Box::new(StreamReader::new(stream.map_err(|e| {
-						error!(?e, "Failed to read sync messages bytes stream");
-						io::Error::new(io::ErrorKind::Other, e)
-					}))),
-					buffer,
-					was_read: nonce_size,
-				},
-			)))
-		}
-	}
-}
-
-impl AsyncRead for UnknownDownloadSizeStreamer {
-	fn poll_read(
-		mut self: Pin<&mut Self>,
-		cx: &mut Context<'_>,
-		buf: &mut ReadBuf<'_>,
-	) -> Poll<io::Result<()>> {
-		if buf.remaining() == 0 {
-			return Poll::Ready(Ok(()));
-		}
-
-		if self.was_read == self.buffer.len() {
-			Pin::new(&mut self.stream_reader).poll_read(cx, buf)
-		} else {
-			let len = std::cmp::min(self.buffer.len() - self.was_read, buf.remaining());
-			buf.put_slice(&self.buffer[self.was_read..(self.was_read + len)]);
-			self.was_read += len;
-
-			Poll::Ready(Ok(()))
-		}
 	}
 }

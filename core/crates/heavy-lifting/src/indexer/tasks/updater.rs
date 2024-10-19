@@ -93,7 +93,7 @@ impl Task<Error> for Updater {
 
 		check_interruption!(interrupter);
 
-		let (sync_stuff, paths_to_update) = walked_entries
+		let (crdt_ops, paths_to_update) = walked_entries
 			.drain(..)
 			.map(
 				|WalkedEntry {
@@ -138,18 +138,12 @@ impl Task<Error> for Updater {
 					.unzip::<_, _, Vec<_>, Vec<_>>();
 
 					(
-						sync_params
-							.into_iter()
-							.map(|(field, value)| {
-								sync.shared_update(
-									prisma_sync::file_path::SyncId {
-										pub_id: pub_id.to_db(),
-									},
-									field,
-									value,
-								)
-							})
-							.collect::<Vec<_>>(),
+						sync.shared_update(
+							prisma_sync::file_path::SyncId {
+								pub_id: pub_id.to_db(),
+							},
+							sync_params,
+						),
 						db.file_path()
 							.update(file_path::pub_id::equals(pub_id.into()), db_params)
 							// selecting id to avoid fetching whole object from database
@@ -159,9 +153,7 @@ impl Task<Error> for Updater {
 			)
 			.unzip::<_, _, Vec<_>, Vec<_>>();
 
-		let ops = sync_stuff.into_iter().flatten().collect::<Vec<_>>();
-
-		if ops.is_empty() && paths_to_update.is_empty() {
+		if crdt_ops.is_empty() && paths_to_update.is_empty() {
 			return Ok(ExecStatus::Done(
 				Output {
 					updated_count: 0,
@@ -172,7 +164,7 @@ impl Task<Error> for Updater {
 		}
 
 		let updated = sync
-			.write_ops(db, (ops, paths_to_update))
+			.write_ops(db, (crdt_ops, paths_to_update))
 			.await
 			.map_err(indexer::Error::from)?;
 

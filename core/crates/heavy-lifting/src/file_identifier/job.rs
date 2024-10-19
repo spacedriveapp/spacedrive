@@ -14,7 +14,11 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
 
-use sd_prisma::prisma::{device, file_path, location, SortOrder};
+use sd_prisma::{
+	prisma::{device, file_path, location, SortOrder},
+	prisma_sync,
+};
+use sd_sync::{sync_db_not_null_entry, OperationFactory};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -267,15 +271,25 @@ impl Job for FileIdentifier {
 			..
 		} = self;
 
-		ctx.db()
-			.location()
-			.update(
-				location::id::equals(location.id),
-				vec![location::scan_state::set(
-					LocationScanState::FilesIdentified as i32,
-				)],
+		let (sync_param, db_param) = sync_db_not_null_entry!(
+			LocationScanState::FilesIdentified as i32,
+			location::scan_state
+		);
+
+		ctx.sync()
+			.write_op(
+				ctx.db(),
+				ctx.sync().shared_update(
+					prisma_sync::location::SyncId {
+						pub_id: location.pub_id.clone(),
+					},
+					[sync_param],
+				),
+				ctx.db()
+					.location()
+					.update(location::id::equals(location.id), vec![db_param])
+					.select(location::select!({ id })),
 			)
-			.exec()
 			.await
 			.map_err(file_identifier::Error::from)?;
 

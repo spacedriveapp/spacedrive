@@ -9,7 +9,7 @@ use sd_prisma::{
 	prisma_sync,
 };
 use sd_sync::{option_sync_db_entry, sync_db_entry, sync_entry, CRDTOperation, OperationFactory};
-use sd_utils::{chain_optional_iter, msgpack};
+use sd_utils::chain_optional_iter;
 
 use std::collections::{HashMap, HashSet};
 
@@ -47,10 +47,12 @@ fn connect_file_path_to_object<'db>(
 			prisma_sync::file_path::SyncId {
 				pub_id: file_path_pub_id.to_db(),
 			},
-			file_path::object::NAME,
-			msgpack!(prisma_sync::object::SyncId {
-				pub_id: object_pub_id.to_db(),
-			}),
+			[sync_entry!(
+				prisma_sync::object::SyncId {
+					pub_id: object_pub_id.to_db(),
+				},
+				file_path::object
+			)],
 		),
 		db.file_path()
 			.update(
