@@ -18,9 +18,9 @@ use sd_prisma::{
 };
 use sd_sync::*;
 use sd_utils::{
-	db::{maybe_missing, size_in_bytes_to_db, MissingFieldError},
+	db::{maybe_missing, size_in_bytes_from_db, size_in_bytes_to_db},
 	error::{FileIOError, NonUtf8PathError},
-	msgpack, uuid_to_bytes,
+	uuid_to_bytes,
 };
 
 use std::{
@@ -304,63 +304,36 @@ impl LocationUpdateArgs {
 
 		let name = self.name.clone();
 
-		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-			self.name
-				.filter(|name| location.name.as_ref() != Some(name))
-				.map(|v| {
-					(
-						(location::name::NAME, msgpack!(v)),
-						location::name::set(Some(v)),
-					)
-				}),
-			self.generate_preview_media.map(|v| {
-				(
-					(location::generate_preview_media::NAME, msgpack!(v)),
-					location::generate_preview_media::set(Some(v)),
-				)
-			}),
-			self.sync_preview_media.map(|v| {
-				(
-					(location::sync_preview_media::NAME, msgpack!(v)),
-					location::sync_preview_media::set(Some(v)),
-				)
-			}),
-			self.hidden.map(|v| {
-				(
-					(location::hidden::NAME, msgpack!(v)),
-					location::hidden::set(Some(v)),
-				)
-			}),
-			self.path.clone().map(|v| {
-				(
-					(location::path::NAME, msgpack!(v)),
-					location::path::set(Some(v)),
-				)
-			}),
+		let (sync_params, db_params) = [
+			option_sync_db_entry!(
+				self.name
+					.filter(|name| location.name.as_ref() != Some(name)),
+				location::name
+			),
+			option_sync_db_entry!(
+				self.generate_preview_media,
+				location::generate_preview_media
+			),
+			option_sync_db_entry!(self.sync_preview_media, location::sync_preview_media),
+			option_sync_db_entry!(self.hidden, location::hidden),
+			option_sync_db_entry!(self.path.clone(), location::path),
 		]
 		.into_iter()
 		.flatten()
-		.unzip();
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 		if !sync_params.is_empty() {
-			sync.write_ops(
+			sync.write_op(
 				db,
-				(
-					sync_params
-						.into_iter()
-						.map(|p| {
-							sync.shared_update(
-								prisma_sync::location::SyncId {
-									pub_id: location.pub_id.clone(),
-								},
-								p.0,
-								p.1,
-							)
-						})
-						.collect(),
-					db.location()
-						.update(location::id::equals(self.id), db_params),
+				sync.shared_update(
+					prisma_sync::location::SyncId {
+						pub_id: location.pub_id.clone(),
+					},
+					sync_params,
 				),
+				db.location()
+					.update(location::id::equals(self.id), db_params)
+					.select(location::select!({ id })),
 			)
 			.await?;
 
@@ -651,33 +624,25 @@ pub async fn relink_location(
 		.map(str::to_string)
 		.ok_or_else(|| NonUtf8PathError(location_path.into()))?;
 
-	sync.write_op(
-		db,
-		sync.shared_update(
-			prisma_sync::location::SyncId {
-				pub_id: pub_id.clone(),
-			},
-			location::path::NAME,
-			msgpack!(path),
-		),
-		db.location().update(
-			location::pub_id::equals(pub_id.clone()),
-			vec![location::path::set(Some(path))],
-		),
-	)
-	.await?;
+	let (sync_param, db_param) = sync_db_entry!(path, location::path);
 
-	let location_id = db
-		.location()
-		.find_unique(location::pub_id::equals(pub_id))
-		.select(location::select!({ id }))
-		.exec()
+	let location_id = sync
+		.write_op(
+			db,
+			sync.shared_update(
+				prisma_sync::location::SyncId {
+					pub_id: pub_id.clone(),
+				},
+				[sync_param],
+			),
+			db.location()
+				.update(location::pub_id::equals(pub_id.clone()), vec![db_param])
+				.select(location::select!({ id })),
+		)
 		.await?
-		.ok_or_else(|| {
-			LocationError::MissingField(MissingFieldError::new("missing id of location"))
-		})?;
+		.id;
 
-	Ok(location_id.id)
+	Ok(location_id)
 }
 
 #[derive(Debug)]
@@ -1002,45 +967,44 @@ async fn check_nested_location(
 #[instrument(skip_all, err)]
 pub async fn update_location_size(
 	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
 	library: &Library,
-) -> Result<(), QueryError> {
-	let Library { db, .. } = library;
+) -> Result<(), sd_core_sync::Error> {
+	let Library { db, sync, .. } = library;
 
-	let total_size = db
-		.file_path()
-		.find_many(vec![
-			file_path::location_id::equals(Some(location_id)),
-			file_path::materialized_path::equals(Some("/".to_string())),
-		])
-		.select(file_path::select!({ size_in_bytes_bytes }))
-		.exec()
-		.await?
-		.into_iter()
-		.filter_map(|file_path| {
-			file_path.size_in_bytes_bytes.map(|size_in_bytes_bytes| {
-				u64::from_be_bytes([
-					size_in_bytes_bytes[0],
-					size_in_bytes_bytes[1],
-					size_in_bytes_bytes[2],
-					size_in_bytes_bytes[3],
-					size_in_bytes_bytes[4],
-					size_in_bytes_bytes[5],
-					size_in_bytes_bytes[6],
-					size_in_bytes_bytes[7],
-				])
+	let total_size = size_in_bytes_to_db(
+		db.file_path()
+			.find_many(vec![
+				file_path::location_id::equals(Some(location_id)),
+				file_path::materialized_path::equals(Some("/".to_string())),
+			])
+			.select(file_path::select!({ size_in_bytes_bytes }))
+			.exec()
+			.await?
+			.into_iter()
+			.filter_map(|file_path| {
+				file_path
+					.size_in_bytes_bytes
+					.map(|size_in_bytes_bytes| size_in_bytes_from_db(&size_in_bytes_bytes))
 			})
-		})
-		.sum::<u64>();
+			.sum::<u64>(),
+	);
 
-	db.location()
-		.update(
-			location::id::equals(location_id),
-			vec![location::size_in_bytes::set(Some(
-				total_size.to_be_bytes().to_vec(),
-			))],
-		)
-		.exec()
-		.await?;
+	let (sync_param, db_param) = sync_db_entry!(total_size, location::size_in_bytes);
+
+	sync.write_op(
+		db,
+		sync.shared_update(
+			prisma_sync::location::SyncId {
+				pub_id: location_pub_id,
+			},
+			[sync_param],
+		),
+		db.location()
+			.update(location::id::equals(location_id), vec![db_param])
+			.select(location::select!({ id })),
+	)
+	.await?;
 
 	invalidate_query!(library, "locations.list");
 	invalidate_query!(library, "locations.get");
@@ -1100,69 +1064,60 @@ pub async fn create_file_path(
 			location_id,
 		))?;
 
-	let (sync_params, db_params): (Vec<_>, Vec<_>) = {
-		use file_path::{
-			cas_id, date_created, date_indexed, date_modified, device, extension, hidden, inode,
-			is_dir, location, materialized_path, name, size_in_bytes_bytes,
-		};
+	let device_pub_id = sync.device_pub_id.to_db();
 
-		let device_pub_id = sync.device_pub_id.to_db();
-
-		[
-			(
-				sync_entry!(
-					prisma_sync::location::SyncId {
-						pub_id: location.pub_id
-					},
-					location
-				),
-				location::connect(prisma::location::id::equals(location.id)),
+	let (sync_params, db_params) = [
+		(
+			sync_entry!(
+				prisma_sync::location::SyncId {
+					pub_id: location.pub_id
+				},
+				file_path::location
 			),
-			(
-				sync_entry!(cas_id, cas_id),
-				cas_id::set(cas_id.map(Into::into)),
+			file_path::location::connect(prisma::location::id::equals(location.id)),
+		),
+		(
+			sync_entry!(cas_id, file_path::cas_id),
+			file_path::cas_id::set(cas_id.map(Into::into)),
+		),
+		sync_db_entry!(materialized_path, file_path::materialized_path),
+		sync_db_entry!(name, file_path::name),
+		sync_db_entry!(extension, file_path::extension),
+		sync_db_entry!(
+			size_in_bytes_to_db(metadata.size_in_bytes),
+			file_path::size_in_bytes_bytes
+		),
+		sync_db_entry!(inode_to_db(metadata.inode), file_path::inode),
+		sync_db_entry!(is_dir, file_path::is_dir),
+		sync_db_entry!(metadata.created_at, file_path::date_created),
+		sync_db_entry!(metadata.modified_at, file_path::date_modified),
+		sync_db_entry!(indexed_at, file_path::date_indexed),
+		sync_db_entry!(metadata.hidden, file_path::hidden),
+		(
+			sync_entry!(
+				prisma_sync::device::SyncId {
+					pub_id: device_pub_id.clone()
+				},
+				file_path::device
 			),
-			sync_db_entry!(materialized_path, materialized_path),
-			sync_db_entry!(name, name),
-			sync_db_entry!(extension, extension),
-			sync_db_entry!(
-				size_in_bytes_to_db(metadata.size_in_bytes),
-				size_in_bytes_bytes
-			),
-			sync_db_entry!(inode_to_db(metadata.inode), inode),
-			sync_db_entry!(is_dir, is_dir),
-			sync_db_entry!(metadata.created_at, date_created),
-			sync_db_entry!(metadata.modified_at, date_modified),
-			sync_db_entry!(indexed_at, date_indexed),
-			sync_db_entry!(metadata.hidden, hidden),
-			(
-				sync_entry!(
-					prisma_sync::device::SyncId {
-						pub_id: device_pub_id.clone()
-					},
-					device
-				),
-				device::connect(prisma::device::pub_id::equals(device_pub_id)),
-			),
-		]
-		.into_iter()
-		.unzip()
-	};
+			file_path::device::connect(prisma::device::pub_id::equals(device_pub_id)),
+		),
+	]
+	.into_iter()
+	.unzip::<_, _, Vec<_>, Vec<_>>();
 
 	let pub_id = sd_utils::uuid_to_bytes(&Uuid::now_v7());
 
-	let created_path = sync
-		.write_op(
-			db,
-			sync.shared_create(
-				prisma_sync::file_path::SyncId {
-					pub_id: pub_id.clone(),
-				},
-				sync_params,
-			),
-			db.file_path().create(pub_id, db_params),
-		)
-		.await?;
-
-	Ok(created_path)
+	sync.write_op(
+		db,
+		sync.shared_create(
+			prisma_sync::file_path::SyncId {
+				pub_id: pub_id.clone(),
+			},
+			sync_params,
+		),
+		db.file_path().create(pub_id, db_params),
+	)
+	.await
+	.map_err(Into::into)
 }

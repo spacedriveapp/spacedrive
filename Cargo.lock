@@ -10024,7 +10024,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=fb41a3c4eb#fb41a3c4eb9a35d252472949694e99ac902d9a26"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=c7c184c4e1#c7c184c4e1f4d66b1040597b264250afc7557431"
 dependencies = [
  "argon2",
  "async-stream",
@@ -10639,6 +10639,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "prisma-client-rust",
+ "rmp-serde",
+ "rmpv",
  "rspc",
  "sd-prisma",
  "thiserror",

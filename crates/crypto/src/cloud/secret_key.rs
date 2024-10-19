@@ -191,7 +191,7 @@ mod tests {
 		let EncryptedBlock { nonce, cipher_text } = key.encrypt(message, &mut rng).unwrap();
 
 		let mut bytes = Vec::with_capacity(nonce.len() + cipher_text.len());
-		bytes.extend_from_slice(&nonce);
+		bytes.extend_from_slice(nonce.as_slice());
 		bytes.extend(cipher_text);
 
 		assert_eq!(

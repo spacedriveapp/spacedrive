@@ -12,11 +12,11 @@ use sd_prisma::{
 	prisma::{device, file_path, location, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::{error::FileIOError, msgpack};
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap, convert::identity, future::IntoFuture, mem, path::PathBuf, pin::pin,
@@ -403,19 +403,17 @@ async fn assign_cas_id_to_file_paths(
 	let (ops, queries) = identified_files
 		.iter()
 		.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
+			let (sync_param, db_param) = sync_db_entry!(cas_id, file_path::cas_id);
+
 			(
 				sync.shared_update(
 					prisma_sync::file_path::SyncId {
 						pub_id: pub_id.to_db(),
 					},
-					file_path::cas_id::NAME,
-					msgpack!(cas_id),
+					[sync_param],
 				),
 				db.file_path()
-					.update(
-						file_path::pub_id::equals(pub_id.to_db()),
-						vec![file_path::cas_id::set(cas_id.into())],
-					)
+					.update(file_path::pub_id::equals(pub_id.to_db()), vec![db_param])
 					// We don't need any data here, just the id avoids receiving the entire object
 					// as we can't pass an empty select macro call
 					.select(file_path::select!({ id })),

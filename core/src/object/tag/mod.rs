@@ -23,14 +23,14 @@ impl TagCreateArgs {
 	) -> Result<tag::Data, sd_core_sync::Error> {
 		let pub_id = Uuid::now_v7().as_bytes().to_vec();
 
-		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+		let (sync_params, db_params) = [
 			sync_db_entry!(self.name, tag::name),
 			sync_db_entry!(self.color, tag::color),
 			sync_db_entry!(false, tag::is_hidden),
 			sync_db_entry!(Utc::now(), tag::date_created),
 		]
 		.into_iter()
-		.unzip();
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 		sync.write_op(
 			db,

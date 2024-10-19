@@ -136,7 +136,7 @@ pub async fn shallow(
 			.await?;
 		}
 
-		update_location_size(location.id, db, ctx).await?;
+		update_location_size(location.id, location.pub_id, ctx).await?;
 	}
 
 	if indexed_count > 0 || removed_count > 0 {

@@ -4,7 +4,7 @@ use sd_prisma::{
 	prisma::{device, file_path, object, tag, tag_on_object},
 	prisma_sync,
 };
-use sd_sync::{option_sync_db_entry, sync_entry, OperationFactory};
+use sd_sync::{option_sync_db_entry, sync_db_entry, sync_entry, OperationFactory};
 
 use std::collections::BTreeMap;
 
@@ -286,13 +286,17 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub color: Option<String>,
 			}
 
-			R.with2(library())
-				.mutation(|(_, library), args: TagUpdateArgs| async move {
+			R.with2(library()).mutation(
+				|(_, library), TagUpdateArgs { id, name, color }: TagUpdateArgs| async move {
+					if name.is_none() && color.is_none() {
+						return Ok(());
+					}
+
 					let Library { sync, db, .. } = library.as_ref();
 
 					let tag = db
 						.tag()
-						.find_unique(tag::id::equals(args.id))
+						.find_unique(tag::id::equals(id))
 						.select(tag::select!({ pub_id }))
 						.exec()
 						.await?
@@ -301,68 +305,88 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							"Error finding tag in db".into(),
 						))?;
 
-					db.tag()
-						.update(
-							tag::id::equals(args.id),
-							vec![tag::date_modified::set(Some(Utc::now().into()))],
-						)
-						.exec()
-						.await?;
-
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-						option_sync_db_entry!(args.name, tag::name),
-						option_sync_db_entry!(args.color, tag::color),
+					let (sync_params, db_params) = [
+						option_sync_db_entry!(name, tag::name),
+						option_sync_db_entry!(color, tag::color),
+						Some(sync_db_entry!(Utc::now(), tag::date_modified)),
 					]
 					.into_iter()
 					.flatten()
-					.unzip();
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
-					if sync_params.is_empty() && db_params.is_empty() {
-						return Ok(());
-					}
-
-					sync.write_ops(
+					sync.write_op(
 						db,
-						(
-							sync_params
-								.into_iter()
-								.map(|(k, v)| {
-									sync.shared_update(
-										prisma_sync::tag::SyncId {
-											pub_id: tag.pub_id.clone(),
-										},
-										k,
-										v,
-									)
-								})
-								.collect(),
-							db.tag().update(tag::id::equals(args.id), db_params),
+						sync.shared_update(
+							prisma_sync::tag::SyncId {
+								pub_id: tag.pub_id.clone(),
+							},
+							sync_params,
 						),
+						db.tag()
+							.update(tag::id::equals(id), db_params)
+							.select(tag::select!({ id })),
 					)
 					.await?;
 
 					invalidate_query!(library, "tags.list");
 
 					Ok(())
-				})
+				},
+			)
 		})
 		.procedure(
 			"delete",
 			R.with2(library())
-				.mutation(|(_, library), tag_id: i32| async move {
-					library
-						.db
-						.tag_on_object()
-						.delete_many(vec![tag_on_object::tag_id::equals(tag_id)])
-						.exec()
-						.await?;
+				.mutation(|(_, library), tag_id: tag::id::Type| async move {
+					let Library { sync, db, .. } = &*library;
 
-					library
-						.db
+					let tag_pub_id = db
 						.tag()
-						.delete(tag::id::equals(tag_id))
+						.find_unique(tag::id::equals(tag_id))
+						.select(tag::select!({ pub_id }))
 						.exec()
-						.await?;
+						.await?
+						.ok_or(rspc::Error::new(
+							rspc::ErrorCode::NotFound,
+							"Tag not found".to_string(),
+						))?
+						.pub_id;
+
+					let delete_ops = db
+						.tag_on_object()
+						.find_many(vec![tag_on_object::tag_id::equals(tag_id)])
+						.select(tag_on_object::select!({ object: select { pub_id } }))
+						.exec()
+						.await?
+						.into_iter()
+						.map(|tag_on_object| {
+							sync.relation_delete(prisma_sync::tag_on_object::SyncId {
+								tag: prisma_sync::tag::SyncId {
+									pub_id: tag_pub_id.clone(),
+								},
+								object: prisma_sync::object::SyncId {
+									pub_id: tag_on_object.object.pub_id,
+								},
+							})
+						})
+						.collect::<Vec<_>>();
+
+					sync.write_ops(
+						db,
+						(
+							delete_ops,
+							db.tag_on_object()
+								.delete_many(vec![tag_on_object::tag_id::equals(tag_id)]),
+						),
+					)
+					.await?;
+
+					sync.write_op(
+						db,
+						sync.shared_delete(prisma_sync::tag::SyncId { pub_id: tag_pub_id }),
+						db.tag().delete(tag::id::equals(tag_id)),
+					)
+					.await?;
 
 					invalidate_query!(library, "tags.list");
 

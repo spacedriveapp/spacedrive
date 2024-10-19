@@ -7,7 +7,7 @@ use sd_prisma::{
 	prisma::{device, storage_statistics, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::{sync_entry, OperationFactory};
+use sd_sync::{sync_db_not_null_entry, sync_entry, OperationFactory};
 use sd_utils::uuid_to_bytes;
 
 use std::{
@@ -531,40 +531,55 @@ async fn update_storage_statistics(
 		.map(|s| s.pub_id);
 
 	if let Some(storage_statistics_pub_id) = storage_statistics_pub_id {
-		sync.write_ops(
-			db,
-			(
-				[
-					sync_entry!(total_capacity, storage_statistics::total_capacity),
-					sync_entry!(available_capacity, storage_statistics::available_capacity),
-				]
-				.into_iter()
-				.map(|(field, value)| {
-					sync.shared_update(
-						prisma_sync::storage_statistics::SyncId {
-							pub_id: storage_statistics_pub_id.clone(),
-						},
-						field,
-						value,
-					)
-				})
-				.collect(),
-				db.storage_statistics()
-					.update(
-						storage_statistics::pub_id::equals(storage_statistics_pub_id),
-						vec![
-							storage_statistics::total_capacity::set(total_capacity as i64),
-							storage_statistics::available_capacity::set(available_capacity as i64),
-						],
-					)
-					// We don't need any data here, just the id avoids receiving the entire object
-					// as we can't pass an empty select macro call
-					.select(storage_statistics::select!({ id })),
+		let (sync_params, db_params) = [
+			sync_db_not_null_entry!(total_capacity as i64, storage_statistics::total_capacity),
+			sync_db_not_null_entry!(
+				available_capacity as i64,
+				storage_statistics::available_capacity
 			),
+		]
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+		sync.write_op(
+			db,
+			sync.shared_update(
+				prisma_sync::storage_statistics::SyncId {
+					pub_id: storage_statistics_pub_id.clone(),
+				},
+				sync_params,
+			),
+			db.storage_statistics()
+				.update(
+					storage_statistics::pub_id::equals(storage_statistics_pub_id),
+					db_params,
+				)
+				// We don't need any data here, just the id avoids receiving the entire object
+				// as we can't pass an empty select macro call
+				.select(storage_statistics::select!({ id })),
 		)
 		.await?;
 	} else {
 		let new_storage_statistics_id = uuid_to_bytes(&Uuid::now_v7());
+
+		let (sync_params, db_params) = [
+			sync_db_not_null_entry!(total_capacity as i64, storage_statistics::total_capacity),
+			sync_db_not_null_entry!(
+				available_capacity as i64,
+				storage_statistics::available_capacity
+			),
+			(
+				sync_entry!(
+					prisma_sync::device::SyncId {
+						pub_id: device_pub_id.clone()
+					},
+					storage_statistics::device
+				),
+				storage_statistics::device::connect(device::pub_id::equals(device_pub_id)),
+			),
+		]
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 		sync.write_op(
 			db,
@@ -572,26 +587,10 @@ async fn update_storage_statistics(
 				prisma_sync::storage_statistics::SyncId {
 					pub_id: new_storage_statistics_id.clone(),
 				},
-				[
-					sync_entry!(total_capacity, storage_statistics::total_capacity),
-					sync_entry!(available_capacity, storage_statistics::available_capacity),
-					sync_entry!(
-						prisma_sync::device::SyncId {
-							pub_id: device_pub_id.clone()
-						},
-						storage_statistics::device
-					),
-				],
+				sync_params,
 			),
 			db.storage_statistics()
-				.create(
-					new_storage_statistics_id,
-					vec![
-						storage_statistics::total_capacity::set(total_capacity as i64),
-						storage_statistics::available_capacity::set(available_capacity as i64),
-						storage_statistics::device::connect(device::pub_id::equals(device_pub_id)),
-					],
-				)
+				.create(new_storage_statistics_id, db_params)
 				// We don't need any data here, just the id avoids receiving the entire object
 				// as we can't pass an empty select macro call
 				.select(storage_statistics::select!({ id })),

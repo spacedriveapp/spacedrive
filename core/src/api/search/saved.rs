@@ -69,7 +69,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let pub_id = Uuid::now_v7().as_bytes().to_vec();
 					let date_created: DateTime<FixedOffset> = Utc::now().into();
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
+					let (sync_params, db_params) = chain_optional_iter(
 						[
 							sync_db_entry!(date_created, saved_search::date_created),
 							sync_db_entry!(args.name, saved_search::name),
@@ -96,7 +96,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						],
 					)
 					.into_iter()
-					.unzip();
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
 					sync.write_op(
 						db,
@@ -106,7 +106,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							},
 							sync_params,
 						),
-						db.saved_search().create(pub_id, db_params),
+						db.saved_search()
+							.create(pub_id, db_params)
+							.select(saved_search::select!({ id })),
 					)
 					.await?;
 
@@ -162,7 +164,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							rspc::Error::new(rspc::ErrorCode::NotFound, "search not found".into())
 						})?;
 
-					let (ops, db_params): (Vec<_>, Vec<_>) = chain_optional_iter(
+					let (sync_params, db_params) = chain_optional_iter(
 						[sync_db_entry!(updated_at, saved_search::date_modified)],
 						[
 							option_sync_db_entry!(args.name.flatten(), saved_search::name),
@@ -173,34 +175,23 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						],
 					)
 					.into_iter()
-					.map(|((k, v), p)| {
-						(
-							sync.shared_update(
-								prisma_sync::saved_search::SyncId {
-									pub_id: search.pub_id.clone(),
-								},
-								k,
-								v,
-							),
-							p,
-						)
-					})
-					.unzip();
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
-					if !ops.is_empty() && !db_params.is_empty() {
-						sync.write_ops(
-							db,
-							(
-								ops,
-								db.saved_search()
-									.update_unchecked(saved_search::id::equals(id), db_params),
-							),
-						)
-						.await?;
+					sync.write_op(
+						db,
+						sync.shared_update(
+							prisma_sync::saved_search::SyncId {
+								pub_id: search.pub_id.clone(),
+							},
+							sync_params,
+						),
+						db.saved_search()
+							.update_unchecked(saved_search::id::equals(id), db_params),
+					)
+					.await?;
 
-						invalidate_query!(library, "search.saved.list");
-						invalidate_query!(library, "search.saved.get");
-					}
+					invalidate_query!(library, "search.saved.list");
+					invalidate_query!(library, "search.saved.get");
 
 					Ok(())
 				}

@@ -46,15 +46,16 @@ pub trait OperationFactory {
 	fn shared_update(
 		&self,
 		id: impl SyncId<Model = impl SharedSyncModel>,
-		field: impl Into<String>,
-		value: rmpv::Value,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
-			CRDTOperationData::Update {
-				field: field.into(),
-				value,
-			},
+			CRDTOperationData::Update(
+				values
+					.into_iter()
+					.map(|(name, value)| (name.to_string(), value))
+					.collect(),
+			),
 		)
 	}
 
@@ -77,20 +78,23 @@ pub trait OperationFactory {
 			),
 		)
 	}
+
 	fn relation_update(
 		&self,
 		id: impl RelationSyncId<Model = impl RelationSyncModel>,
-		field: impl Into<String>,
-		value: rmpv::Value,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
-			CRDTOperationData::Update {
-				field: field.into(),
-				value,
-			},
+			CRDTOperationData::Update(
+				values
+					.into_iter()
+					.map(|(name, value)| (name.to_string(), value))
+					.collect(),
+			),
 		)
 	}
+
 	fn relation_delete(
 		&self,
 		id: impl RelationSyncId<Model = impl RelationSyncModel>,
@@ -101,9 +105,14 @@ pub trait OperationFactory {
 
 #[macro_export]
 macro_rules! sync_entry {
+	(nil, $($prisma_column_module:tt)+) => {
+        ($($prisma_column_module)+::NAME, ::sd_utils::msgpack!(nil))
+    };
+
     ($value:expr, $($prisma_column_module:tt)+) => {
         ($($prisma_column_module)+::NAME, ::sd_utils::msgpack!($value))
-    }
+    };
+
 }
 
 #[macro_export]
@@ -120,6 +129,28 @@ macro_rules! sync_db_entry {
         (
 			$crate::sync_entry!(&value, $($prisma_column_module)+),
 			$($prisma_column_module)+::set(Some(value))
+		)
+    }}
+}
+
+#[macro_export]
+macro_rules! sync_db_nullable_entry {
+    ($value:expr, $($prisma_column_module:tt)+) => {{
+        let value = $value.into();
+        (
+			$crate::sync_entry!(&value, $($prisma_column_module)+),
+			$($prisma_column_module)+::set(value)
+		)
+    }}
+}
+
+#[macro_export]
+macro_rules! sync_db_not_null_entry {
+    ($value:expr, $($prisma_column_module:tt)+) => {{
+        let value = $value.into();
+        (
+			$crate::sync_entry!(&value, $($prisma_column_module)+),
+			$($prisma_column_module)+::set(value)
 		)
     }}
 }
