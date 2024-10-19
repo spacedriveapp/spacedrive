@@ -62,7 +62,7 @@ export const Component = () => {
 			.strict(),
 		reValidateMode: 'onChange',
 		defaultValues: {
-			name: node.data?.name,
+			name: node.data?.name
 			// image_labeler_version: node.data?.image_labeler_version ?? undefined
 			// background_processing_percentage:
 			// 	node.data?.preferences.thumbnailer.background_processing_percentage || 50
