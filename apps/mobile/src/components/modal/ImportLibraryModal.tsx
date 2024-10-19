@@ -57,11 +57,11 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									description="No cloud libraries available to join"
 								/>
 							}
-							keyExtractor={(item) => item.uuid}
+							keyExtractor={(item) => item.pub_id}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<CloudLibraryCard
-									data={item}
+									// data={item}
 									navigation={navigation}
 									modalRef={modalRef}
 								/>

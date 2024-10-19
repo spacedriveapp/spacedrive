@@ -1,4 +1,4 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
+import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import { ArrowLeft } from '@phosphor-icons/react';
 import { UseMutationResult } from '@tanstack/react-query';
 import clsx from 'clsx';

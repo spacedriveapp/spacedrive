@@ -8,7 +8,6 @@ export default [
 			// { path: 'keys', lazy: () => import('./keys') },
 			{ path: 'security', lazy: () => import('./security') },
 			{ path: 'sharing', lazy: () => import('./sharing') },
-			{ path: 'sync', lazy: () => import('./sync') },
 			{ path: 'general', lazy: () => import('./general') },
 			{ path: 'tags', lazy: () => import('./tags') },
 			// { path: 'saved-searches', lazy: () => import('./saved-searches') },

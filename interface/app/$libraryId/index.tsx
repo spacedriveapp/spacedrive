@@ -3,15 +3,13 @@ import { type RouteObject } from 'react-router-dom';
 import { guessOperatingSystem } from '~/hooks';
 import { Platform } from '~/util/Platform';
 
-import { debugRoutes } from './debug';
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
 	children: [
-		{ path: 'overview', lazy: () => import('./overview') },
-		{ path: 'debug', children: debugRoutes }
+		{ path: 'overview', lazy: () => import('./overview') }
 	]
 };
 
@@ -38,7 +36,6 @@ function loadTopBarRoutes() {
 			...explorerRoutes,
 			pageRoutes,
 			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes },
-			{ path: 'debug', children: debugRoutes }
 		];
 	} else return [...explorerRoutes, pageRoutes];
 }
