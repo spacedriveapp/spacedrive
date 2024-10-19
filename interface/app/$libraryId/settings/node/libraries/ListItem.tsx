@@ -1,13 +1,12 @@
 import { CaretRight, Pencil, Trash } from '@phosphor-icons/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Key, useState } from 'react';
-import { LibraryConfigWrapped, useBridgeQuery } from '@sd/client';
+import { useState } from 'react';
+import { LibraryConfigWrapped } from '@sd/client';
 import { Button, ButtonLink, Card, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useAccessToken, useLocale } from '~/hooks';
 
 import DeleteDialog from './DeleteDialog';
-import DeviceItem from './DeviceItem';
 
 interface Props {
 	library: LibraryConfigWrapped;
@@ -19,7 +18,6 @@ export default (props: Props) => {
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	const accessToken = useAccessToken();
-	const cloudDevicesList = useBridgeQuery(['cloud.devices.list', { access_token: accessToken }]);
 	const toggleExpansion = () => {
 		setIsExpanded((prev) => !prev);
 	};
@@ -86,43 +84,6 @@ export default (props: Props) => {
 						className="relative mt-2 flex origin-top flex-col gap-1 pl-8"
 					>
 						<div className="absolute inset-y-0 left-6 mb-7 w-[2px] rounded-t-full bg-[#5E5F69]"></div>
-
-						{cloudDevicesList.data?.map(
-							(
-								device: {
-									pub_id: Key | null | undefined;
-									name: string;
-									os: string;
-									storage_size: bigint;
-									used_storage: bigint;
-									created_at: string;
-									device_model: string;
-								},
-								index: number
-							) => (
-								<div key={device.pub_id} className="relative flex items-center">
-									<motion.div
-										initial={{ opacity: 0, y: 10 }}
-										animate={{ opacity: 1, y: 0 }}
-										transition={{ delay: index * 0.03 }}
-										className="relative flex w-full items-center"
-									>
-										<div className="absolute left-[-0.5em] right-6 h-[2px] w-11 rounded-r-full bg-[#5E5F69]"></div>
-										<div className="flex-1 pl-12">
-											<DeviceItem
-												pub_id={device.pub_id}
-												name={device.name}
-												os={device.os}
-												storage_size={device.storage_size}
-												used_storage={device.used_storage}
-												created_at={device.created_at}
-												device_model={device.device_model}
-											/>
-										</div>
-									</motion.div>
-								</div>
-							)
-						)}
 					</motion.div>
 				)}
 			</AnimatePresence>

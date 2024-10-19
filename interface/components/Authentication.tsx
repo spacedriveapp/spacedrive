@@ -1,4 +1,4 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
+import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import { GoogleLogo, Icon } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import { UseMutationResult } from '@tanstack/react-query';
@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { getAuthorisationURLWithQueryParamsAndSetState } from 'supertokens-web-js/recipe/thirdparty';
-import { Card, Divider, toast } from '@sd/ui';
+import { Card, toast } from '@sd/ui';
 import { Icon as Logo } from '~/components';
 import { useIsDark } from '~/hooks';
 
