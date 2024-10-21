@@ -601,7 +601,7 @@ async fn connect_to_first_available_client(
 ) -> Result<Client<QuinnConnection<Service>, Service>, CloudP2PError> {
 	for (device_pub_id, device_connection_id) in devices_in_group {
 		if let Ok(connection) = endpoint
-			.connect_by_node_id(*device_connection_id, CloudP2PALPN::LATEST)
+			.connect(*device_connection_id, CloudP2PALPN::LATEST)
 			.await
 			.map_err(
 				|e| error!(?e, %device_pub_id, "Failed to connect to authorizor device candidate"),

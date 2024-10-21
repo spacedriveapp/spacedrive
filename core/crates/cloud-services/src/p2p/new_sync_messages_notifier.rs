@@ -132,7 +132,7 @@ async fn connect_and_send_notification(
 ) -> Result<(), Error> {
 	let client = Client::new(RpcClient::new(QuinnConnection::<Service>::from_connection(
 		endpoint
-			.connect_by_node_id(*connection_id, CloudP2PALPN::LATEST)
+			.connect(*connection_id, CloudP2PALPN::LATEST)
 			.await
 			.map_err(Error::ConnectToCloudP2PNode)?,
 	)));
