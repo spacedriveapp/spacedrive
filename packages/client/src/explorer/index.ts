@@ -1,5 +1,4 @@
 export * from './useExplorerInfiniteQuery';
-export * from './usePathsInfiniteQuery';
 export * from './usePathsOffsetInfiniteQuery';
 export * from './usePathsExplorerQuery';
 export * from './useObjectsInfiniteQuery';

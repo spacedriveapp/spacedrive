@@ -24,7 +24,7 @@ rand         = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
 thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
-zeroize      = { workspace = true, features = ["aarch64", "derive"] }
+zeroize      = { workspace = true, features = ["derive"] }
 
 # External dependencies
 aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
