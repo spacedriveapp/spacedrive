@@ -8,8 +8,8 @@ use std::{
 	},
 };
 
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
-use futures_concurrency::stream::Merge;
+use futures::{stream::FuturesUnordered, StreamExt};
+
 use itertools::Itertools;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::{
@@ -18,11 +18,11 @@ use sd_core_heavy_lifting::{
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
-	Error, JobContext, JobName, NonCriticalError, OuterContext, ProgressUpdate,
+	Error, JobContext, JobName, OuterContext, ProgressUpdate,
 };
 use sd_core_prisma_helpers::file_path_with_object;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
-use sd_task_system::{Task, TaskDispatcher, TaskHandle, TaskOutput, TaskStatus};
+use sd_task_system::{Task, TaskDispatcher, TaskHandle, TaskStatus};
 
 use super::{tasks, DeleteBehavior, FileData};
 
@@ -120,7 +120,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 
 			let mut tasks = FuturesUnordered::from_iter(tasks);
 
-			let c = while let Some(result) = tasks.next().await {
+			while let Some(result) = tasks.next().await {
 				match result {
 					Ok(TaskStatus::Done(_)) => {
 						let progress = progress_counter.load(Ordering::Acquire);
@@ -149,7 +149,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 						// break Some(Err(error));
 					}
 				}
-			};
+			}
 		};
 
 		// TODO(matheus-consoli): inline this later

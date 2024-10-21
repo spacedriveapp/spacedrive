@@ -1,10 +1,7 @@
 mod job;
 mod tasks;
 
-use std::{
-	future::Future,
-	path::{Path, PathBuf},
-};
+use std::{future::Future, path::PathBuf};
 
 use futures_concurrency::future::Join;
 use sd_core_heavy_lifting::Error;
@@ -25,7 +22,7 @@ pub struct FileData {
 
 /// Specify how the [`Deleter`] job will delete a file
 pub trait DeleteBehavior {
-	fn delete(file: &Path) -> impl Future<Output = Result<(), ()>> + Send;
+	fn delete(file: FileData) -> impl Future<Output = Result<(), ()>> + Send;
 
 	fn delete_all<I>(files: I) -> impl Future<Output = Result<(), ()>> + Send
 	where
@@ -35,7 +32,7 @@ pub trait DeleteBehavior {
 		async {
 			files
 				.into_iter()
-				.map(|x| async move { Self::delete(&x.full_path).await })
+				.map(Self::delete)
 				.collect::<Vec<_>>()
 				.join()
 				.await;

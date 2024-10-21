@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use tokio::task;
 
 use super::super::{DeleteBehavior, FileData};
@@ -18,8 +16,8 @@ impl DeleteBehavior for MoveToTrashBehavior {
 		Ok(())
 	}
 
-	async fn delete(file_path: &Path) -> Result<(), ()> {
-		task::spawn_blocking(|| trash::delete(file_path)).await;
+	async fn delete(file_data: FileData) -> Result<(), ()> {
+		task::spawn_blocking(move || trash::delete(file_data.full_path)).await;
 		Ok(())
 	}
 }
