@@ -25,6 +25,7 @@ sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
 sd-core-prisma-helpers   = { path = "./crates/prisma-helpers" }
 sd-core-sync             = { path = "./crates/sync" }
+sd-file-track            = { path = "./crates/file-track" }
 
 # Spacedrive Sub-crates
 sd-actors         = { path = "../crates/actors" }
