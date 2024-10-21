@@ -1,4 +1,4 @@
-import { Link } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { Link } from '@spacedrive/rspc-client';
 
 declare global {
 	// eslint-disable-next-line

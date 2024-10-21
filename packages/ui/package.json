@@ -44,7 +44,7 @@
 		"react-router-dom": "=6.20.1",
 		"sonner": "^1.0.3",
 		"use-debounce": "^9.0.4",
-		"zod": "~3.22.4"
+		"zod": "^3.23"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.0",

@@ -1,6 +1,5 @@
-import { ProcedureDef } from '@oscartbeaumont-sd/rspc-client';
-import { AlphaRSPCError, initRspc } from '@oscartbeaumont-sd/rspc-client/src/v2';
-import { Context, createReactQueryHooks } from '@oscartbeaumont-sd/rspc-react/src/v2';
+import { initRspc, ProcedureDef, RSPCError } from '@spacedrive/rspc-client';
+import { Context, createReactQueryHooks } from '@spacedrive/rspc-react/src/v2';
 import { QueryClient } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useContext } from 'react';
 import { match, P } from 'ts-pattern';
@@ -102,7 +101,7 @@ export function useInvalidateQuery() {
 			for (const op of ops) {
 				match(op)
 					.with({ type: 'single', data: P.select() }, (op) => {
-						let key: any[] = [op.key];
+						let key: unknown[] = [op.key];
 						if (op.arg !== null) {
 							key = key.concat(op.arg);
 						}
@@ -110,7 +109,7 @@ export function useInvalidateQuery() {
 						if (op.result !== null) {
 							context.queryClient.setQueryData(key, op.result);
 						} else {
-							context.queryClient.invalidateQueries(key);
+							context.queryClient.invalidateQueries({ queryKey: key });
 						}
 					})
 					.with({ type: 'all' }, (op) => {
@@ -124,6 +123,6 @@ export function useInvalidateQuery() {
 
 // TODO: Remove/fix this when rspc typesafe errors are working
 export function extractInfoRSPCError(error: unknown) {
-	if (!(error instanceof AlphaRSPCError)) return null;
+	if (!(error instanceof RSPCError)) return null;
 	return error;
 }

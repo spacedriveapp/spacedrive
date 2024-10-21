@@ -111,10 +111,10 @@ const Authenticated = () => {
 						<Button
 							variant={'accent'}
 							style={tw`mx-auto mt-4 max-w-[82%]`}
-							disabled={createLibrary.isLoading}
+							disabled={createLibrary.isPending}
 							onPress={async () => await createLibrary.mutateAsync(null)}
 						>
-							{createLibrary.isLoading ? (
+							{createLibrary.isPending ? (
 								<Text style={tw`text-ink`}>Connecting library...</Text>
 							) : (
 								<Text style={tw`font-medium text-ink`}>Connect library</Text>
