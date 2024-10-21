@@ -1,6 +1,6 @@
-import { RSPCError } from '@spacedrive/rspc-client';
 import { GoogleLogo, Icon } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseMutationResult } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-shell';
 import clsx from 'clsx';
