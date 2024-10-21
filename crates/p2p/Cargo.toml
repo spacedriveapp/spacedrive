@@ -31,11 +31,11 @@ uuid          = { workspace = true, features = ["serde"] }
 
 # Specific P2P dependencies
 dns-lookup    = "2.0"
-flume         = "=0.11.0"                                    # Must match version used by `mdns-sd`
+flume         = "=0.11.1"                                    # Must match version used by `mdns-sd`
 hash_map_diff = "0.2.0"
 if-watch      = { version = "=3.2.0", features = ["tokio"] } # Override features used by libp2p-quic
 libp2p-stream = "=0.2.0-alpha"                               # Update blocked due to custom patch
-mdns-sd       = "0.11.1"
+mdns-sd       = "0.11.5"
 rand_core     = "0.6.4"
 stable-vec    = "0.4.1"
 sync_wrapper  = "1.0"
