@@ -97,7 +97,7 @@ export function JobManager() {
 				title: t('success'),
 				body: t('all_jobs_have_been_cleared')
 			});
-			queryClient.invalidateQueries(['jobs.reports']);
+			queryClient.invalidateQueries({ queryKey: ['jobs.reports'] });
 		} catch (error) {
 			toast.error({
 				title: t('error'),

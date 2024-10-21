@@ -4,7 +4,7 @@ use std::{io, ops::Deref, path::Path};
 
 use image::{imageops, DynamicImage, RgbImage};
 use sd_utils::error::FileIOError;
-use tokio::{fs, task::spawn_blocking};
+use tokio::{fs, io::AsyncWriteExt, task::spawn_blocking};
 use tracing::error;
 use webp::Encoder;
 
@@ -37,12 +37,18 @@ impl Thumbnailer {
 			.await
 			.map_err(|e| FileIOError::from((path, e)))?;
 
-		fs::write(
-			output_thumbnail_path,
-			&*self.process_to_webp_bytes(video_file_path).await?,
-		)
-		.await
-		.map_err(|e| FileIOError::from((output_thumbnail_path, e)).into())
+		let webp = self.process_to_webp_bytes(video_file_path).await?;
+		let mut file = fs::File::create(output_thumbnail_path)
+			.await
+			.map_err(|e: io::Error| FileIOError::from((output_thumbnail_path, e)))?;
+
+		file.write_all(&webp)
+			.await
+			.map_err(|e| FileIOError::from((output_thumbnail_path, e)))?;
+
+		file.sync_all()
+			.await
+			.map_err(|e| FileIOError::from((output_thumbnail_path, e)).into())
 	}
 
 	/// Processes an video input file and returns a webp encoded thumbnail as bytes

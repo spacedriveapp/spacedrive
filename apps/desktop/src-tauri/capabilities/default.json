@@ -17,6 +17,7 @@
 		"dialog:allow-open",
 		"dialog:allow-save",
 		"dialog:allow-confirm",
+		"deep-link:default",
 		"os:allow-os-type",
 		"core:window:allow-close",
 		"core:window:allow-create",
@@ -24,6 +25,32 @@
 		"core:window:allow-minimize",
 		"core:window:allow-toggle-maximize",
 		"core:window:allow-start-dragging",
-		"core:webview:allow-internal-toggle-devtools"
+		"core:webview:allow-internal-toggle-devtools",
+		{
+			"identifier": "http:default",
+			"allow": [
+				{
+					"url": "http://ipc.localhost"
+				},
+				{
+					"url": "http://asset.localhost"
+				},
+				{
+					"url": "http://localhost:8001"
+				},
+				{
+					"url": "http://tauri.localhost"
+				},
+				{
+					"url": "http://localhost:9420"
+				},
+				{
+					"url": "https://auth.spacedrive.com"
+				},
+				{
+					"url": "https://plausible.io"
+				}
+			]
+		}
 	]
 }

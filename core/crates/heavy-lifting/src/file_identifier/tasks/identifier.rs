@@ -5,18 +5,18 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId, FilePathPubId};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
-	prisma::{file_path, location, PrismaClient},
+	prisma::{device, file_path, location, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{sync_db_entry, OperationFactory};
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
-use sd_utils::{error::FileIOError, msgpack};
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashMap, convert::identity, future::IntoFuture, mem, path::PathBuf, pin::pin,
@@ -64,6 +64,7 @@ pub struct Identifier {
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
 
 	// Inner state
+	device_id: device::id::Type,
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
 	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
 
@@ -72,7 +73,7 @@ pub struct Identifier {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// Output from the `[Identifier]` task
@@ -135,6 +136,7 @@ impl Task<Error> for Identifier {
 		let Self {
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			file_paths_without_cas_id,
 			identified_files,
@@ -255,6 +257,7 @@ impl Task<Error> for Identifier {
 					file_paths_without_cas_id.drain(..),
 					&self.db,
 					&self.sync,
+					*device_id,
 				),
 			)
 				.try_join()
@@ -301,6 +304,7 @@ impl Task<Error> for Identifier {
 				file_paths_without_cas_id.drain(..),
 				&self.db,
 				&self.sync,
+				*device_id,
 			)
 			.await?;
 
@@ -324,7 +328,8 @@ impl Identifier {
 		file_paths: Vec<file_path_for_file_identifier::Data>,
 		with_priority: bool,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
+		device_id: device::id::Type,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -377,6 +382,7 @@ impl Identifier {
 			id: TaskId::new_v4(),
 			location,
 			location_path,
+			device_id,
 			identified_files: HashMap::with_capacity(file_paths_count - directories_count),
 			file_paths_without_cas_id,
 			file_paths_by_id,
@@ -394,33 +400,31 @@ async fn assign_cas_id_to_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 ) -> Result<(), file_identifier::Error> {
-	// Assign cas_id to each file path
-	sync.write_ops(
-		db,
-		identified_files
-			.iter()
-			.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
-				(
-					sync.shared_update(
-						prisma_sync::file_path::SyncId {
-							pub_id: pub_id.to_db(),
-						},
-						file_path::cas_id::NAME,
-						msgpack!(cas_id),
-					),
-					db.file_path()
-						.update(
-							file_path::pub_id::equals(pub_id.to_db()),
-							vec![file_path::cas_id::set(cas_id.into())],
-						)
-						// We don't need any data here, just the id avoids receiving the entire object
-						// as we can't pass an empty select macro call
-						.select(file_path::select!({ id })),
-				)
-			})
-			.unzip::<_, _, _, Vec<_>>(),
-	)
-	.await?;
+	let (ops, queries) = identified_files
+		.iter()
+		.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
+			let (sync_param, db_param) = sync_db_entry!(cas_id, file_path::cas_id);
+
+			(
+				sync.shared_update(
+					prisma_sync::file_path::SyncId {
+						pub_id: pub_id.to_db(),
+					},
+					[sync_param],
+				),
+				db.file_path()
+					.update(file_path::pub_id::equals(pub_id.to_db()), vec![db_param])
+					// We don't need any data here, just the id avoids receiving the entire object
+					// as we can't pass an empty select macro call
+					.select(file_path::select!({ id })),
+			)
+		})
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+	if !ops.is_empty() && !queries.is_empty() {
+		// Assign cas_id to each file path
+		sync.write_ops(db, (ops, queries)).await?;
+	}
 
 	Ok(())
 }
@@ -500,6 +504,7 @@ struct SaveState {
 	id: TaskId,
 	location: Arc<location::Data>,
 	location_path: Arc<PathBuf>,
+	device_id: device::id::Type,
 	file_paths_by_id: HashMap<FilePathPubId, file_path_for_file_identifier::Data>,
 	identified_files: HashMap<FilePathPubId, IdentifiedFile>,
 	file_paths_without_cas_id: Vec<FilePathToCreateOrLinkObject>,
@@ -512,13 +517,14 @@ impl SerializableTask<Error> for Identifier {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
 			id,
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			identified_files,
 			file_paths_without_cas_id,
@@ -530,6 +536,7 @@ impl SerializableTask<Error> for Identifier {
 			id,
 			location,
 			location_path,
+			device_id,
 			file_paths_by_id,
 			identified_files,
 			file_paths_without_cas_id,
@@ -547,6 +554,7 @@ impl SerializableTask<Error> for Identifier {
 			     id,
 			     location,
 			     location_path,
+			     device_id,
 			     file_paths_by_id,
 			     identified_files,
 			     file_paths_without_cas_id,
@@ -558,6 +566,7 @@ impl SerializableTask<Error> for Identifier {
 				location,
 				location_path,
 				file_paths_by_id,
+				device_id,
 				identified_files,
 				file_paths_without_cas_id,
 				output,

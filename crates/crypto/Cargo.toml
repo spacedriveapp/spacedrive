@@ -24,6 +24,7 @@ rand         = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
 thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
+zeroize      = { workspace = true, features = ["derive"] }
 
 # External dependencies
 aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
@@ -35,7 +36,8 @@ rand_chacha      = "0.9.0-alpha.2"
 rand_core        = "0.9.0-alpha.2"
 serdect          = "0.3.0-pre.0"
 typenum          = "1.17"
-zeroize          = { version = "1.7", features = ["aarch64", "derive"] }
+
+old-rand-core = { package = "rand_core", version = "0.6.4" }
 
 [dev-dependencies]
 paste    = "1.0"

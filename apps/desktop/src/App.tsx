@@ -3,9 +3,10 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { listen } from '@tauri-apps/api/event';
 import { PropsWithChildren, startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { RspcProvider } from '@sd/client';
+import { RspcProvider, useBridgeMutation } from '@sd/client';
 import {
 	createRoutes,
+	DeeplinkEvent,
 	ErrorPage,
 	KeybindEvent,
 	PlatformProvider,
@@ -17,14 +18,11 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style/style.scss';
 
-import { useLocale } from '@sd/interface/hooks';
-
-import { commands } from './commands';
-import { platform } from './platform';
-import { queryClient } from './query';
-import { createMemoryRouterWithHistory } from './router';
-import { createUpdater } from './updater';
-
+import SuperTokens from 'supertokens-web-js';
+import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
+import Passwordless from 'supertokens-web-js/recipe/passwordless';
+import Session from 'supertokens-web-js/recipe/session';
+import ThirdParty from 'supertokens-web-js/recipe/thirdparty';
 // TODO: Bring this back once upstream is fixed up.
 // const client = hooks.createClient({
 // 	links: [
@@ -34,6 +32,32 @@ import { createUpdater } from './updater';
 // 		tauriLink()
 // 	]
 // });
+import getCookieHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/cookieHandler';
+import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/account/handlers/windowHandler';
+import { useLocale } from '@sd/interface/hooks';
+import { AUTH_SERVER_URL, getTokens } from '@sd/interface/util';
+
+import { commands } from './commands';
+import { platform } from './platform';
+import { queryClient } from './query';
+import { createMemoryRouterWithHistory } from './router';
+import { createUpdater } from './updater';
+
+SuperTokens.init({
+	appInfo: {
+		apiDomain: AUTH_SERVER_URL,
+		apiBasePath: '/api/auth',
+		appName: 'Spacedrive Auth Service'
+	},
+	cookieHandler: getCookieHandler,
+	windowHandler: getWindowHandler,
+	recipeList: [
+		Session.init({ tokenTransferMethod: 'header' }),
+		EmailPassword.init(),
+		ThirdParty.init(),
+		Passwordless.init()
+	]
+});
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
@@ -41,15 +65,31 @@ export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
 		commands.appReady();
+		// .then(() => {
+		// 	if (import.meta.env.PROD) window.fetch = fetch;
+		// });
 	}, []);
 
 	useEffect(() => {
 		const keybindListener = listen('keybind', (input) => {
 			document.dispatchEvent(new KeybindEvent(input.payload as string));
 		});
+		const deeplinkListener = listen('deeplink', async (data) => {
+			const payload = (data.payload as any).data as string;
+			if (!payload) return;
+			const json = JSON.parse(payload)[0];
+			if (!json) return;
+			//json output: "spacedrive://-/URL"
+			if (typeof json !== 'string') return;
+			if (!json.startsWith('spacedrive://-')) return;
+			const url = (json as string).split('://-/')[1];
+			if (!url) return;
+			document.dispatchEvent(new DeeplinkEvent(url));
+		});
 
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
+			deeplinkListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
@@ -79,6 +119,15 @@ type RedirectPath = { pathname: string; search: string | undefined };
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
 	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+	const tokens = getTokens();
+	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+
+	useEffect(() => {
+		// If the access token and/or refresh token are missing, we need to skip the cloud bootstrap
+		if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) return;
+		cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const selectedTab = tabs[selectedTabIndex]!;
 

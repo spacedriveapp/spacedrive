@@ -25,7 +25,7 @@ export default function DeleteLibraryDialog(props: Props) {
 		try {
 			await deleteLib.mutateAsync(props.libraryUuid);
 
-			queryClient.invalidateQueries(['library.list']);
+			queryClient.invalidateQueries({ queryKey: ['library.list'] });
 
 			if (platform.refreshMenuBar) platform.refreshMenuBar();
 

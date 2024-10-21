@@ -1,3 +1,4 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { SearchFilterArgs, useLibraryQuery } from '@sd/client';
 import { Filters, getSearchStore, SearchFilters, useSearchStore } from '~/stores/searchStore';
@@ -14,7 +15,7 @@ export function useFiltersSearch(search: string) {
 	const searchStore = useSearchStore();
 
 	const locations = useLibraryQuery(['locations.list'], {
-		keepPreviousData: true
+		placeholderData: keepPreviousData
 	});
 
 	const filterFactory = (key: SearchFilters, value: Filters[keyof Filters]) => {

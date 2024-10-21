@@ -38,3 +38,7 @@ pub use factory::*;
 pub use model_traits::*;
 
 pub use uhlc::NTP64;
+
+pub type DevicePubId = uuid::Uuid;
+pub type ModelId = u16;
+pub type RecordId = rmpv::Value;

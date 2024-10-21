@@ -381,6 +381,7 @@ async fn restore_backup(node: &Arc<Node>, path: impl AsRef<Path>) -> Result<Head
 			db_restored_path,
 			library_config_restored_path,
 			None,
+			None,
 			true,
 			node,
 		)

@@ -1,4 +1,5 @@
 import { ArrowClockwise, Info } from '@phosphor-icons/react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { stringify } from 'uuid';
 import {
@@ -42,7 +43,7 @@ export const Component = () => {
 	const { id: locationId } = useZodRouteParams(LocationIdParamsSchema);
 	const [{ path }] = useExplorerSearchParams();
 	const result = useLibraryQuery(['locations.get', locationId], {
-		keepPreviousData: true,
+		placeholderData: keepPreviousData,
 		suspense: true
 	});
 	const location = result.data;

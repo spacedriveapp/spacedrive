@@ -14,7 +14,11 @@ use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::Extension;
-use sd_prisma::prisma::{location, PrismaClient};
+use sd_prisma::{
+	prisma::{location, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::{sync_db_not_null_entry, OperationFactory};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus, TaskSystemError,
@@ -125,7 +129,7 @@ impl Job for MediaProcessor {
 								TaskKind::MediaDataExtractor => {
 									tasks::MediaDataExtractor::deserialize(
 										&task_bytes,
-										(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+										(Arc::clone(ctx.db()), ctx.sync().clone()),
 									)
 									.await
 									.map(IntoTask::into_task)
@@ -214,15 +218,23 @@ impl Job for MediaProcessor {
 			..
 		} = self;
 
-		ctx.db()
-			.location()
-			.update(
-				location::id::equals(location.id),
-				vec![location::scan_state::set(
-					LocationScanState::Completed as i32,
-				)],
+		let (sync_param, db_param) =
+			sync_db_not_null_entry!(LocationScanState::Completed as i32, location::scan_state);
+
+		ctx.sync()
+			.write_op(
+				ctx.db(),
+				ctx.sync().shared_update(
+					prisma_sync::location::SyncId {
+						pub_id: location.pub_id.clone(),
+					},
+					[sync_param],
+				),
+				ctx.db()
+					.location()
+					.update(location::id::equals(location.id), vec![db_param])
+					.select(location::select!({ id })),
 			)
-			.exec()
 			.await
 			.map_err(media_processor::Error::from)?;
 
@@ -632,7 +644,7 @@ impl MediaProcessor {
 					parent_iso_file_path.location_id(),
 					Arc::clone(&self.location_path),
 					Arc::clone(db),
-					Arc::clone(sync),
+					sync.clone(),
 				)
 			})
 			.map(IntoTask::into_task)
@@ -648,7 +660,7 @@ impl MediaProcessor {
 							parent_iso_file_path.location_id(),
 							Arc::clone(&self.location_path),
 							Arc::clone(db),
-							Arc::clone(sync),
+							sync.clone(),
 						)
 					})
 					.map(IntoTask::into_task),

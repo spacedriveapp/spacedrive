@@ -395,6 +395,7 @@ impl OldJobReport {
 					job::date_completed::set(self.completed_at.map(Into::into)),
 				],
 			)
+			.select(job::select!({ id }))
 			.exec()
 			.await?;
 		Ok(())

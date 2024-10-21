@@ -124,6 +124,7 @@ export interface DialogProps<S extends FieldValues>
 	onSubmitSecond?: ReturnType<UseFormHandleSubmit<S>>;
 	children?: ReactNode;
 	ctaDanger?: boolean;
+	cancelDanger?: boolean;
 	closeLabel?: string;
 	cancelLabel?: string;
 	cancelBtn?: boolean;
@@ -167,8 +168,9 @@ export function Dialog<S extends FieldValues>({
 		<RDialog.Close asChild>
 			<Button
 				size="sm"
-				variant="gray"
+				variant={props.cancelDanger ? 'colored' : 'gray'}
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
+				className={clsx(props.cancelDanger && 'border-red-500 bg-red-500')}
 			>
 				{props.cancelLabel || 'Cancel'}
 			</Button>
@@ -180,7 +182,7 @@ export function Dialog<S extends FieldValues>({
 			<Button
 				disabled={props.loading}
 				size="sm"
-				variant="gray"
+				variant={'gray'}
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
 			>
 				{props.closeLabel || 'Close'}

@@ -116,7 +116,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"delete",
 			R.with2(library())
-				.mutation(|(_, library), label_id: i32| async move {
+				.mutation(|(_, library), label_id: label::id::Type| async move {
 					let Library { db, sync, .. } = library.as_ref();
 
 					let label = db
@@ -130,6 +130,35 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								"Label not found".to_string(),
 							)
 						})?;
+
+					let delete_ops = db
+						.label_on_object()
+						.find_many(vec![label_on_object::label_id::equals(label_id)])
+						.select(label_on_object::select!({ object: select { pub_id } }))
+						.exec()
+						.await?
+						.into_iter()
+						.map(|label_on_object| {
+							sync.relation_delete(prisma_sync::label_on_object::SyncId {
+								label: prisma_sync::label::SyncId {
+									name: label.name.clone(),
+								},
+								object: prisma_sync::object::SyncId {
+									pub_id: label_on_object.object.pub_id,
+								},
+							})
+						})
+						.collect::<Vec<_>>();
+
+					sync.write_ops(
+						db,
+						(
+							delete_ops,
+							db.label_on_object()
+								.delete_many(vec![label_on_object::label_id::equals(label_id)]),
+						),
+					)
+					.await?;
 
 					sync.write_op(
 						db,

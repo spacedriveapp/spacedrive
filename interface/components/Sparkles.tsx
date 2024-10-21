@@ -38,7 +38,8 @@ type SparklesProps = {
 	children: React.ReactNode;
 };
 
-const Sparkles = ({ color = DEFAULT_COLOR, children, ...props }: SparklesProps) => {
+// million-ignore
+const Sparkles = ({ color = DEFAULT_COLOR, children }: SparklesProps) => {
 	const [sparkles, setSparkles] = useState(() => {
 		return range(3).map(() => generateSparkle(color));
 	});
@@ -60,7 +61,7 @@ const Sparkles = ({ color = DEFAULT_COLOR, children, ...props }: SparklesProps) 
 	);
 
 	return (
-		<span className="relative inline-block" {...props}>
+		<span className="relative inline-block">
 			{sparkles.map((sparkle) => (
 				<span
 					key={sparkle.id}

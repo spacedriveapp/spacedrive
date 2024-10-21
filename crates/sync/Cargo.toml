@@ -12,7 +12,5 @@ rmp                = { workspace = true }
 rmp-serde          = { workspace = true }
 rmpv               = { workspace = true }
 serde              = { workspace = true }
-serde_json         = { workspace = true }
-specta             = { workspace = true, features = ["serde_json", "uhlc", "uuid"] }
 uhlc               = { workspace = true }
-uuid               = { workspace = true, features = ["serde", "v4"] }
+uuid               = { workspace = true, features = ["serde", "v7"] }

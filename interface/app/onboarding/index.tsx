@@ -4,7 +4,6 @@ import { onboardingStore } from '@sd/client';
 import { useOnboardingContext } from './context';
 import CreatingLibrary from './creating-library';
 import { FullDisk } from './full-disk';
-import { JoinLibrary } from './join-library';
 import Locations from './locations';
 import NewLibrary from './new-library';
 import PreRelease from './prerelease';
@@ -38,7 +37,6 @@ export default [
 	// 	path: 'login'
 	// },
 	{ Component: NewLibrary, path: 'new-library' },
-	{ Component: JoinLibrary, path: 'join-library' },
 	{ Component: FullDisk, path: 'full-disk' },
 	{ Component: Locations, path: 'locations' },
 	{ Component: Privacy, path: 'privacy' },

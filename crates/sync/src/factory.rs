@@ -1,47 +1,38 @@
-use uhlc::HLC;
-use uuid::Uuid;
-
 use crate::{
-	CRDTOperation, CRDTOperationData, RelationSyncId, RelationSyncModel, SharedSyncModel, SyncId,
+	CRDTOperation, CRDTOperationData, DevicePubId, RelationSyncId, RelationSyncModel,
+	SharedSyncModel, SyncId, SyncModel,
 };
 
-macro_rules! msgpack {
-	(nil) => {
-		::rmpv::Value::Nil
-	};
-	($e:expr) => {{
-		let bytes = rmp_serde::to_vec_named(&$e).expect("failed to serialize msgpack");
-		let value: rmpv::Value = rmp_serde::from_slice(&bytes).expect("failed to deserialize msgpack");
-
-		value
-	}}
-}
+use uhlc::HLC;
 
 pub trait OperationFactory {
 	fn get_clock(&self) -> &HLC;
-	fn get_instance(&self) -> Uuid;
 
-	fn new_op<TSyncId: SyncId>(&self, id: &TSyncId, data: CRDTOperationData) -> CRDTOperation
-	where
-		TSyncId::Model: crate::SyncModel,
-	{
-		let timestamp = self.get_clock().new_timestamp();
+	fn get_device_pub_id(&self) -> DevicePubId;
 
+	fn new_op<SId: SyncId<Model: SyncModel>>(
+		&self,
+		id: &SId,
+		data: CRDTOperationData,
+	) -> CRDTOperation {
 		CRDTOperation {
-			instance: self.get_instance(),
-			timestamp: *timestamp.get_time(),
-			model: <TSyncId::Model as crate::SyncModel>::MODEL_ID,
-			record_id: msgpack!(id),
+			device_pub_id: self.get_device_pub_id(),
+			timestamp: *self.get_clock().new_timestamp().get_time(),
+			model_id: <SId::Model as SyncModel>::MODEL_ID,
+			record_id: rmp_serde::from_slice::<rmpv::Value>(
+				&rmp_serde::to_vec_named(id).expect("failed to serialize record id to msgpack"),
+			)
+			.expect("failed to deserialize record id to msgpack value"),
 			data,
 		}
 	}
 
-	fn shared_create<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
+	fn shared_create(
 		&self,
-		id: TSyncId,
+		id: impl SyncId<Model = impl SharedSyncModel>,
 		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
-	) -> Vec<CRDTOperation> {
-		vec![self.new_op(
+	) -> CRDTOperation {
+		self.new_op(
 			&id,
 			CRDTOperationData::Create(
 				values
@@ -49,35 +40,35 @@ pub trait OperationFactory {
 					.map(|(name, value)| (name.to_string(), value))
 					.collect(),
 			),
-		)]
+		)
 	}
-	fn shared_update<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
+
+	fn shared_update(
 		&self,
-		id: TSyncId,
-		field: impl Into<String>,
-		value: rmpv::Value,
+		id: impl SyncId<Model = impl SharedSyncModel>,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
-			CRDTOperationData::Update {
-				field: field.into(),
-				value,
-			},
+			CRDTOperationData::Update(
+				values
+					.into_iter()
+					.map(|(name, value)| (name.to_string(), value))
+					.collect(),
+			),
 		)
 	}
-	fn shared_delete<TSyncId: SyncId<Model = TModel>, TModel: SharedSyncModel>(
-		&self,
-		id: TSyncId,
-	) -> CRDTOperation {
+
+	fn shared_delete(&self, id: impl SyncId<Model = impl SharedSyncModel>) -> CRDTOperation {
 		self.new_op(&id, CRDTOperationData::Delete)
 	}
 
-	fn relation_create<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
+	fn relation_create(
 		&self,
-		id: TSyncId,
+		id: impl RelationSyncId<Model = impl RelationSyncModel>,
 		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
-	) -> Vec<CRDTOperation> {
-		vec![self.new_op(
+	) -> CRDTOperation {
+		self.new_op(
 			&id,
 			CRDTOperationData::Create(
 				values
@@ -85,25 +76,28 @@ pub trait OperationFactory {
 					.map(|(name, value)| (name.to_string(), value))
 					.collect(),
 			),
-		)]
+		)
 	}
-	fn relation_update<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
+
+	fn relation_update(
 		&self,
-		id: TSyncId,
-		field: impl Into<String>,
-		value: rmpv::Value,
+		id: impl RelationSyncId<Model = impl RelationSyncModel>,
+		values: impl IntoIterator<Item = (&'static str, rmpv::Value)> + 'static,
 	) -> CRDTOperation {
 		self.new_op(
 			&id,
-			CRDTOperationData::Update {
-				field: field.into(),
-				value,
-			},
+			CRDTOperationData::Update(
+				values
+					.into_iter()
+					.map(|(name, value)| (name.to_string(), value))
+					.collect(),
+			),
 		)
 	}
-	fn relation_delete<TSyncId: RelationSyncId<Model = TModel>, TModel: RelationSyncModel>(
+
+	fn relation_delete(
 		&self,
-		id: TSyncId,
+		id: impl RelationSyncId<Model = impl RelationSyncModel>,
 	) -> CRDTOperation {
 		self.new_op(&id, CRDTOperationData::Delete)
 	}
@@ -111,29 +105,59 @@ pub trait OperationFactory {
 
 #[macro_export]
 macro_rules! sync_entry {
-    ($v:expr, $($m:tt)*) => {
-        ($($m)*::NAME, ::sd_utils::msgpack!($v))
-    }
+	(nil, $($prisma_column_module:tt)+) => {
+        ($($prisma_column_module)+::NAME, ::sd_utils::msgpack!(nil))
+    };
+
+    ($value:expr, $($prisma_column_module:tt)+) => {
+        ($($prisma_column_module)+::NAME, ::sd_utils::msgpack!($value))
+    };
+
 }
 
 #[macro_export]
 macro_rules! option_sync_entry {
-    ($v:expr, $($m:tt)*) => {
-        $v.map(|v| $crate::sync_entry!(v, $($m)*))
+    ($value:expr, $($prisma_column_module:tt)+) => {
+        $value.map(|value| $crate::sync_entry!(value, $($prisma_column_module)+))
     }
 }
 
 #[macro_export]
 macro_rules! sync_db_entry {
-    ($v:expr, $($m:tt)*) => {{
-        let v = $v.into();
-        ($crate::sync_entry!(&v, $($m)*), $($m)*::set(Some(v)))
+    ($value:expr, $($prisma_column_module:tt)+) => {{
+        let value = $value.into();
+        (
+			$crate::sync_entry!(&value, $($prisma_column_module)+),
+			$($prisma_column_module)+::set(Some(value))
+		)
+    }}
+}
+
+#[macro_export]
+macro_rules! sync_db_nullable_entry {
+    ($value:expr, $($prisma_column_module:tt)+) => {{
+        let value = $value.into();
+        (
+			$crate::sync_entry!(&value, $($prisma_column_module)+),
+			$($prisma_column_module)+::set(value)
+		)
+    }}
+}
+
+#[macro_export]
+macro_rules! sync_db_not_null_entry {
+    ($value:expr, $($prisma_column_module:tt)+) => {{
+        let value = $value.into();
+        (
+			$crate::sync_entry!(&value, $($prisma_column_module)+),
+			$($prisma_column_module)+::set(value)
+		)
     }}
 }
 
 #[macro_export]
 macro_rules! option_sync_db_entry {
-	($v:expr, $($m:tt)*) => {
-	   $v.map(|v| $crate::sync_db_entry!(v, $($m)*))
+	($value:expr, $($prisma_column_module:tt)+) => {
+	   $value.map(|value| $crate::sync_db_entry!(value, $($prisma_column_module)+))
 	};
 }

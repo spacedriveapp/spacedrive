@@ -4,7 +4,7 @@ import { env } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { getSystemProxy } from 'os-proxy-config'
-import { fetch, Headers, Agent, ProxyAgent } from 'undici'
+import { Agent, fetch, Headers, ProxyAgent } from 'undici'
 
 const CONNECT_TIMEOUT = 5 * 60 * 1000
 const __debug = env.NODE_ENV === 'debug'

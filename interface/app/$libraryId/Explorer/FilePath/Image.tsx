@@ -1,14 +1,7 @@
 import { ComponentProps, forwardRef } from 'react';
 
-import { useSize } from './utils';
-
-export interface ImageProps extends ComponentProps<'img'> {
-	extension?: string;
-	size: ReturnType<typeof useSize>;
-}
-
-export const Image = forwardRef<HTMLImageElement, ImageProps>(
-	({ crossOrigin, size, ...props }, ref) => (
+export const Image = forwardRef<HTMLImageElement, ComponentProps<'img'>>(
+	({ crossOrigin, ...props }, ref) => (
 		<img
 			// Order matter for crossOrigin attr
 			// https://github.com/facebook/react/issues/14035#issuecomment-642227899

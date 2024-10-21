@@ -17,7 +17,7 @@ const CreateLibraryModal = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const { mutate: createLibrary, isLoading: createLibLoading } = useBridgeMutation(
+	const { mutate: createLibrary, isPending: createLibLoading } = useBridgeMutation(
 		'library.create',
 		{
 			onSuccess: (lib) => {

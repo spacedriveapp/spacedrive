@@ -1,5 +1,5 @@
 {
-	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.2/core/tauri-config-schema/schema.json",
+	"$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/tauri-v2.0.0-rc.8/crates/tauri-cli/tauri.config.schema.json",
 	"productName": "Spacedrive",
 	"identifier": "com.spacedrive.desktop",
 	"build": {
@@ -36,7 +36,12 @@
 			}
 		],
 		"security": {
-			"csp": "default-src webkit-pdfjs-viewer: asset: https://asset.localhost blob: data: filesystem: ws: wss: http: https: tauri: 'unsafe-eval' 'unsafe-inline' 'self' img-src: 'self'"
+			"csp": {
+				"default-src": "'self' webkit-pdfjs-viewer: asset: http://asset.localhost blob: data: filesystem: http: https: tauri:",
+				"connect-src": "'self' ipc: http://ipc.localhost ws: wss: http: https: tauri:",
+				"img-src": "'self' asset: http://asset.localhost blob: data: filesystem: http: https: tauri:",
+				"style-src": "'self' 'unsafe-inline' http: https: tauri:"
+			}
 		}
 	},
 	"bundle": {
@@ -100,6 +105,12 @@
 			"endpoints": [
 				"https://spacedrive.com/api/releases/tauri/{{version}}/{{target}}/{{arch}}"
 			]
+		},
+		"deep-link": {
+			"mobile": [],
+			"desktop": {
+				"schemes": ["spacedrive"]
+			}
 		}
 	}
 }

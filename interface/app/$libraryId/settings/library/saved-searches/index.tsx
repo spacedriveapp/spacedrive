@@ -108,7 +108,7 @@ function EditForm({ savedSearch, onDelete }: { savedSearch: SavedSearch; onDelet
 					<Button
 						variant="gray"
 						className="h-[38px]"
-						disabled={deleteSavedSearch.isLoading}
+						disabled={deleteSavedSearch.isPending}
 						onClick={async () => {
 							await deleteSavedSearch.mutateAsync(savedSearch.id);
 							onDelete();

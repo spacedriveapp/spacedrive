@@ -1,5 +1,5 @@
 import { useDraggable, UseDraggableArguments } from '@dnd-kit/core';
-import { CSSProperties, HTMLAttributes } from 'react';
+import { CSSProperties, HTMLAttributes, useCallback, useMemo } from 'react';
 import { ExplorerItem } from '@sd/client';
 
 import { explorerStore } from './store';
@@ -11,8 +11,26 @@ export interface UseExplorerDraggableProps extends Omit<UseDraggableArguments, '
 
 const draggableTypes: ExplorerItem['type'][] = ['Path', 'NonIndexedPath', 'Object'];
 
+const DRAGGABLE_STYLE = {
+	cursor: 'default',
+	outline: 'none'
+} satisfies CSSProperties;
+
+/**
+ * This hook is used to make an explorer item draggable.
+ *
+ * .. WARNING::
+ *    This hook is used inside every thumbnail in the explorer.
+ * 	  Be careful with the performance of the code, make sure to always memoize any objects or functions to avoid unnecessary re-renders.
+ *
+ * @param props Draggable properties
+ * @returns Draggable properties with additional explorer-specific properties
+ */
 export const useExplorerDraggable = (props: UseExplorerDraggableProps) => {
-	const disabled = props.disabled || !draggableTypes.includes(props.data.type);
+	const disabled = useMemo(
+		() => props.disabled || !draggableTypes.includes(props.data.type),
+		[props.disabled, props.data.type]
+	);
 
 	const { setNodeRef, ...draggable } = useDraggable({
 		...props,
@@ -20,30 +38,30 @@ export const useExplorerDraggable = (props: UseExplorerDraggableProps) => {
 		disabled: disabled
 	});
 
-	const onMouseDown = () => {
+	const onMouseDown = useCallback(() => {
 		if (!disabled) explorerStore.drag = { type: 'touched' };
-	};
+	}, [disabled]);
 
-	const onMouseLeave = () => {
+	const onMouseLeave = useCallback(() => {
 		if (explorerStore.drag?.type !== 'dragging') explorerStore.drag = null;
-	};
+	}, []);
 
-	const onMouseUp = () => (explorerStore.drag = null);
-
-	const style = {
-		cursor: 'default',
-		outline: 'none'
-	} satisfies CSSProperties;
+	const onMouseUp = useCallback(() => {
+		explorerStore.drag = null;
+	}, []);
 
 	return {
 		...draggable,
 		setDraggableRef: setNodeRef,
-		listeners: {
-			...draggable.listeners,
-			onMouseDown,
-			onMouseLeave,
-			onMouseUp
-		} satisfies HTMLAttributes<Element>,
-		style
+		listeners: useMemo(
+			() => ({
+				...draggable.listeners,
+				onMouseDown,
+				onMouseLeave,
+				onMouseUp
+			}),
+			[draggable.listeners, onMouseDown, onMouseLeave, onMouseUp]
+		) satisfies HTMLAttributes<Element>,
+		style: DRAGGABLE_STYLE
 	};
 };

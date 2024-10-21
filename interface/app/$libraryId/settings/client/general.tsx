@@ -50,7 +50,7 @@ export const Component = () => {
 		schema: z
 			.object({
 				name: z.string().min(1).max(250).optional(),
-				image_labeler_version: z.string().optional(),
+				// image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
 						invalid_type_error: 'Must use numbers from 0 to 100'
@@ -62,8 +62,8 @@ export const Component = () => {
 			.strict(),
 		reValidateMode: 'onChange',
 		defaultValues: {
-			name: node.data?.name,
-			image_labeler_version: node.data?.image_labeler_version ?? undefined
+			name: node.data?.name
+			// image_labeler_version: node.data?.image_labeler_version ?? undefined
 			// background_processing_percentage:
 			// 	node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}

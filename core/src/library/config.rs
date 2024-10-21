@@ -4,15 +4,14 @@ use crate::{
 };
 
 use sd_p2p::{Identity, RemoteIdentity};
-use sd_prisma::prisma::{file_path, indexer_rule, instance, location, node, PrismaClient};
+use sd_prisma::prisma::{file_path, indexer_rule, instance, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
-	path::Path,
+	path::{Path, PathBuf},
 	sync::{atomic::AtomicBool, Arc},
 };
 
-use chrono::Utc;
 use int_enum::IntEnum;
 use prisma_client_rust::not;
 use serde::{Deserialize, Serialize};
@@ -44,6 +43,9 @@ pub struct LibraryConfig {
 	#[serde(default)]
 	pub generate_sync_operations: Arc<AtomicBool>,
 	version: LibraryConfigVersion,
+
+	#[serde(skip, default)]
+	pub config_path: PathBuf,
 }
 
 #[derive(
@@ -88,7 +90,6 @@ impl LibraryConfig {
 		description: Option<String>,
 		instance_id: i32,
 		path: impl AsRef<Path>,
-		generate_sync_operations: bool,
 	) -> Result<Self, LibraryConfigError> {
 		let this = Self {
 			name,
@@ -96,8 +97,8 @@ impl LibraryConfig {
 			instance_id,
 			version: Self::LATEST_VERSION,
 			cloud_id: None,
-			// will always be `true` eventually
-			generate_sync_operations: Arc::new(AtomicBool::new(generate_sync_operations)),
+			generate_sync_operations: Arc::new(AtomicBool::new(false)),
+			config_path: path.as_ref().to_path_buf(),
 		};
 
 		this.save(path).await.map(|()| this)
@@ -105,12 +106,12 @@ impl LibraryConfig {
 
 	pub(crate) async fn load(
 		path: impl AsRef<Path>,
-		node_config: &NodeConfig,
+		_node_config: &NodeConfig,
 		db: &PrismaClient,
 	) -> Result<Self, LibraryConfigError> {
 		let path = path.as_ref();
 
-		VersionManager::<Self, LibraryConfigVersion>::migrate_and_load(
+		let mut loaded_config = VersionManager::<Self, LibraryConfigVersion>::migrate_and_load(
 			path,
 			|current, next| async move {
 				match (current, next) {
@@ -167,34 +168,8 @@ impl LibraryConfig {
 					}
 
 					(LibraryConfigVersion::V2, LibraryConfigVersion::V3) => {
-						// The fact I have to migrate this hurts my soul
-						if db.node().count(vec![]).exec().await? != 1 {
-							return Err(LibraryConfigError::TooManyNodes);
-						}
-
-						db.node()
-							.update_many(
-								vec![],
-								vec![node::pub_id::set(node_config.id.as_bytes().to_vec())],
-							)
-							.exec()
-							.await?;
-
-						let mut config = serde_json::from_slice::<Map<String, Value>>(
-							&fs::read(path).await.map_err(|e| {
-								VersionManagerError::FileIO(FileIOError::from((path, e)))
-							})?,
-						)
-						.map_err(VersionManagerError::SerdeJson)?;
-
-						config.insert(String::from("node_id"), json!(node_config.id.to_string()));
-
-						fs::write(
-							path,
-							&serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
-						)
-						.await
-						.map_err(|e| VersionManagerError::FileIO(FileIOError::from((path, e))))?;
+						// Removed, can't be automatically updated
+						return Err(LibraryConfigError::CriticalUpdateError);
 					}
 
 					(LibraryConfigVersion::V3, LibraryConfigVersion::V4) => {
@@ -255,51 +230,8 @@ impl LibraryConfig {
 					},
 
 					(LibraryConfigVersion::V5, LibraryConfigVersion::V6) => {
-						let nodes = db.node().find_many(vec![]).exec().await?;
-						if nodes.is_empty() {
-							error!("6 - No nodes found... How did you even get this far? but this is fine we can fix it.");
-						} else if nodes.len() > 1 {
-							error!("6 - More than one node found in the DB... This can't be automatically reconciled!");
-							return Err(LibraryConfigError::TooManyNodes);
-						}
-
-						let node = nodes.first();
-						let now = Utc::now().fixed_offset();
-						let instance_id = Uuid::new_v4();
-
-						instance::Create {
-							pub_id: instance_id.as_bytes().to_vec(),
-							// WARNING: At this stage in the migration this field *should* be an `Identity` not a `RemoteIdentityOrIdentity` (as that was introduced later on).
-							remote_identity: node
-								.and_then(|n| n.identity.clone())
-								.unwrap_or_else(|| Identity::new().to_bytes()),
-							node_id: node_config.id.as_bytes().to_vec(),
-							last_seen: now,
-							date_created: node.map(|n| n.date_created).unwrap_or_else(|| now),
-							_params: vec![],
-						}
-						.to_query(db)
-						.exec()
-						.await?;
-
-						let mut config = serde_json::from_slice::<Map<String, Value>>(
-							&fs::read(path).await.map_err(|e| {
-								VersionManagerError::FileIO(FileIOError::from((path, e)))
-							})?,
-						)
-						.map_err(VersionManagerError::SerdeJson)?;
-
-						config.remove("node_id");
-						config.remove("identity");
-
-						config.insert(String::from("instance_id"), json!(instance_id.to_string()));
-
-						fs::write(
-							path,
-							&serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
-						)
-						.await
-						.map_err(|e| VersionManagerError::FileIO(FileIOError::from((path, e))))?;
+						// Removed, can't be automatically updated
+						return Err(LibraryConfigError::CriticalUpdateError);
 					}
 
 					(LibraryConfigVersion::V6, LibraryConfigVersion::V7) => {
@@ -344,7 +276,7 @@ impl LibraryConfig {
 					}
 
 					(LibraryConfigVersion::V7, LibraryConfigVersion::V8) => {
-						let instances = db.instance().find_many(vec![]).exec().await?;
+						let instances = db.device().find_many(vec![]).exec().await?;
 						let Some(instance) = instances.first() else {
 							error!("8 - No nodes found... How did you even get this far?!");
 							return Err(LibraryConfigError::MissingInstance);
@@ -477,7 +409,11 @@ impl LibraryConfig {
 				Ok(())
 			},
 		)
-		.await
+		.await?;
+
+		loaded_config.config_path = path.to_path_buf();
+
+		Ok(loaded_config)
 	}
 
 	pub(crate) async fn save(&self, path: impl AsRef<Path>) -> Result<(), LibraryConfigError> {
@@ -498,6 +434,8 @@ pub enum LibraryConfigError {
 	TooManyInstances,
 	#[error("missing instances")]
 	MissingInstance,
+	#[error("your library version can't be automatically updated, please recreate your library")]
+	CriticalUpdateError,
 
 	#[error(transparent)]
 	SerdeJson(#[from] serde_json::Error),

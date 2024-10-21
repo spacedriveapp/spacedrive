@@ -15,8 +15,8 @@ use sd_prisma::{
 	prisma::{file_path, location},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
-use sd_utils::{db::maybe_missing, error::FileIOError, msgpack};
+use sd_sync::{sync_db_entry, OperationFactory};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
 	hash::{Hash, Hasher},
@@ -157,19 +157,22 @@ impl StatefulJob for OldObjectValidatorJobInit {
 				.await
 				.map_err(|e| ValidatorError::FileIO(FileIOError::from((full_path, e))))?;
 
+			let (sync_param, db_param) = sync_db_entry!(checksum, file_path::integrity_checksum);
+
 			sync.write_op(
 				db,
 				sync.shared_update(
 					prisma_sync::file_path::SyncId {
 						pub_id: file_path.pub_id.clone(),
 					},
-					file_path::integrity_checksum::NAME,
-					msgpack!(&checksum),
+					[sync_param],
 				),
-				db.file_path().update(
-					file_path::pub_id::equals(file_path.pub_id.clone()),
-					vec![file_path::integrity_checksum::set(Some(checksum))],
-				),
+				db.file_path()
+					.update(
+						file_path::pub_id::equals(file_path.pub_id.clone()),
+						vec![db_param],
+					)
+					.select(file_path::select!({ id })),
 			)
 			.await?;
 		}
