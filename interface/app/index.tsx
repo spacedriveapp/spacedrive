@@ -1,4 +1,4 @@
-import { initRspc, wsBatchLink, type AlphaClient } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { initRspc, wsBatchLink, type AlphaClient } from '@spacedrive/rspc-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import {

@@ -1,4 +1,4 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { GoogleLogo, Icon } from '@phosphor-icons/react';
 import { Apple, Github } from '@sd/assets/svgs/brands';
 import { UseMutationResult } from '@tanstack/react-query';
@@ -32,7 +32,7 @@ export const Authentication = ({
 	cloudBootstrap
 }: {
 	reload: Dispatch<SetStateAction<boolean>>;
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>; // Cloud bootstrap mutation
 }) => {
 	const [activeTab, setActiveTab] = useState<'Login' | 'Register'>('Login');
 	const isDark = useIsDark();

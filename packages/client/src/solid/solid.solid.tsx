@@ -1,5 +1,4 @@
 /** @jsxImportSource solid-js */
-
 import { trackDeep } from '@solid-primitives/deep';
 import { createElement, StrictMode, type FunctionComponent } from 'react';
 import { createPortal } from 'react-dom';

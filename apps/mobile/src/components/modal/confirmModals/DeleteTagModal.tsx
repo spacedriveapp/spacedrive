@@ -15,11 +15,11 @@ const DeleteTagModal = ({ trigger, onSubmit, tagId, triggerStyle }: Props) => {
 	const rspc = useRspcLibraryContext();
 	const submitPlausibleEvent = usePlausibleEvent();
 
-	const { mutate: deleteTag, isLoading: deleteTagLoading } = useLibraryMutation('tags.delete', {
+	const { mutate: deleteTag, isPending: deleteTagLoading } = useLibraryMutation('tags.delete', {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagDelete' } });
 			onSubmit?.();
-			rspc.queryClient.invalidateQueries(['tags.list']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['tags.list'] });
 			toast.success('Tag deleted successfully');
 		},
 		onSettled: () => {

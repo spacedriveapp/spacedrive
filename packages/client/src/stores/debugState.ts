@@ -6,7 +6,7 @@ import { createPersistedMutable, useSolidStore } from '../solid';
 export interface DebugState {
 	enabled: boolean;
 	rspcLogger: boolean;
-	reactQueryDevtools: 'enabled' | 'disabled' | 'invisible';
+	reactQueryDevtools: boolean;
 	shareFullTelemetry: boolean; // used for sending telemetry even if the app is in debug mode
 	telemetryLogging: boolean;
 }
@@ -16,7 +16,7 @@ export const debugState = createPersistedMutable(
 	createMutable<DebugState>({
 		enabled: globalThis.isDev,
 		rspcLogger: false,
-		reactQueryDevtools: globalThis.isDev ? 'invisible' : 'enabled',
+		reactQueryDevtools: false,
 		shareFullTelemetry: false,
 		telemetryLogging: false
 	})
