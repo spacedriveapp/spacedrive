@@ -34,14 +34,14 @@ use tokio::{
 	sync::{broadcast, Notify},
 	time::sleep,
 };
-use tracing::error;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 use super::{SyncActors, ONE_MINUTE};
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
 
-const MESSAGES_COLLECTION_SIZE: u32 = 100_000;
+const MESSAGES_COLLECTION_SIZE: u32 = 10_000;
 
 enum RaceNotifiedOrStopped {
 	Notified,
@@ -147,6 +147,8 @@ impl Sender {
 	}
 
 	async fn run_loop_iteration(&mut self) -> Result<LoopStatus, Error> {
+		debug!("Starting cloud sender actor loop iteration");
+
 		let current_device_pub_id = devices::PubId(Uuid::from(&self.sync.device_pub_id));
 
 		let (key_hash, secret_key) = self
@@ -166,6 +168,11 @@ impl Sender {
 		let mut status = LoopStatus::Idle;
 
 		let mut new_latest_timestamp = current_latest_timestamp;
+
+		debug!(
+			chunk_size = MESSAGES_COLLECTION_SIZE,
+			"Trying to fetch chunk of sync messages from the database"
+		);
 		while let Some(ops_res) = crdt_ops_stream.next().await {
 			let ops = ops_res?;
 
@@ -173,8 +180,12 @@ impl Sender {
 				break;
 			};
 
+			debug!("Got first and last sync messages");
+
 			#[allow(clippy::cast_possible_truncation)]
 			let operations_count = ops.len() as u32;
+
+			debug!(operations_count, "Got chunk of sync messages");
 
 			new_latest_timestamp = last.timestamp;
 
@@ -187,6 +198,16 @@ impl Sender {
 
 			let messages_bytes = rmp_serde::to_vec_named(&compressed_ops)
 				.map_err(Error::SerializationFailureToPushSyncMessages)?;
+
+			let encrypted_messages =
+				encrypt_messages(&secret_key, &mut self.rng, messages_bytes).await?;
+
+			let encrypted_messages_size = encrypted_messages.len();
+
+			debug!(
+				operations_count,
+				encrypted_messages_size, "Sending sync messages to cloud",
+			);
 
 			self.cloud_client
 				.sync()
@@ -202,19 +223,21 @@ impl Sender {
 					key_hash: key_hash.clone(),
 					operations_count,
 					time_range: (start_time, end_time),
-					encrypted_messages: encrypt_messages(
-						&secret_key,
-						&mut self.rng,
-						messages_bytes,
-					)
-					.await?,
+					encrypted_messages,
 				})
 				.await??;
+
+			debug!(
+				operations_count,
+				encrypted_messages_size, "Sent sync messages to cloud",
+			);
 
 			status = LoopStatus::SentMessages;
 		}
 
 		self.maybe_latest_timestamp = Some(new_latest_timestamp);
+
+		debug!("Finished cloud sender actor loop iteration");
 
 		Ok(status)
 	}

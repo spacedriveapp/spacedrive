@@ -1,6 +1,6 @@
 use crate::{CRDTOperation, CRDTOperationData, DevicePubId, ModelId, RecordId};
 
-use std::collections::BTreeMap;
+use std::collections::{hash_map::Entry, BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use uhlc::NTP64;
@@ -17,11 +17,16 @@ pub struct CompressedCRDTOperationsPerModelPerDevice(
 );
 
 impl CompressedCRDTOperationsPerModelPerDevice {
+	/// Creates a new [`CompressedCRDTOperationsPerModelPerDevice`] from a vector of [`CRDTOperation`]s.
+	///
+	/// # Panics
+	///
+	/// Will panic if for some reason `rmp_serde::to_vec` fails to serialize a `rmpv::Value` to bytes.
 	#[must_use]
 	pub fn new(ops: Vec<CRDTOperation>) -> Self {
 		let mut compressed_map = BTreeMap::<
 			DevicePubId,
-			BTreeMap<ModelId, Vec<(RecordId, Vec<CompressedCRDTOperation>)>>,
+			BTreeMap<ModelId, HashMap<Vec<u8>, (RecordId, Vec<CompressedCRDTOperation>)>>,
 		>::new();
 
 		for CRDTOperation {
@@ -38,14 +43,21 @@ impl CompressedCRDTOperationsPerModelPerDevice {
 				.entry(model_id)
 				.or_default();
 
-			// Can't use RecordId as a key because rmpv::Value doesn't implement Hash + Eq
-			if let Some((_, ops)) = records
-				.iter_mut()
-				.find(|(current_record_id, _)| *current_record_id == record_id)
-			{
-				ops.push(CompressedCRDTOperation { timestamp, data });
-			} else {
-				records.push((record_id, vec![CompressedCRDTOperation { timestamp, data }]));
+			// Can't use RecordId as a key because rmpv::Value doesn't implement Hash + Eq.
+			// So we use it's serialized bytes as a key.
+			let record_id_bytes =
+				rmp_serde::to_vec(&record_id).expect("already serialized to Value");
+
+			match records.entry(record_id_bytes) {
+				Entry::Occupied(mut entry) => {
+					entry
+						.get_mut()
+						.1
+						.push(CompressedCRDTOperation { timestamp, data });
+				}
+				Entry::Vacant(entry) => {
+					entry.insert((record_id, vec![CompressedCRDTOperation { timestamp, data }]));
+				}
 			}
 		}
 
@@ -55,7 +67,14 @@ impl CompressedCRDTOperationsPerModelPerDevice {
 				.map(|(device_pub_id, model_map)| {
 					(
 						device_pub_id,
-						CompressedCRDTOperationsPerModel(model_map.into_iter().collect()),
+						CompressedCRDTOperationsPerModel(
+							model_map
+								.into_iter()
+								.map(|(model_id, ops_per_record_map)| {
+									(model_id, ops_per_record_map.into_values().collect())
+								})
+								.collect(),
+						),
 					)
 				})
 				.collect(),
