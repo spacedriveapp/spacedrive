@@ -176,7 +176,7 @@ fn orphan_path_filters_shallow(
 fn orphan_path_filters_deep(
 	location_id: location::id::Type,
 	file_path_id: Option<file_path::id::Type>,
-	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
+	maybe_sub_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[

@@ -374,7 +374,7 @@ impl FileIdentifier {
 			self.last_orphan_file_path_id = None;
 
 			self.dispatch_deep_identifier_tasks(
-				&maybe_sub_iso_file_path,
+				maybe_sub_iso_file_path.as_ref(),
 				ctx,
 				device_id,
 				dispatcher,
@@ -419,7 +419,7 @@ impl FileIdentifier {
 					self.last_orphan_file_path_id = None;
 
 					self.dispatch_deep_identifier_tasks(
-						&maybe_sub_iso_file_path,
+						maybe_sub_iso_file_path.as_ref(),
 						ctx,
 						device_id,
 						dispatcher,
@@ -433,7 +433,7 @@ impl FileIdentifier {
 
 				Phase::SearchingOrphans => {
 					self.dispatch_deep_identifier_tasks(
-						&maybe_sub_iso_file_path,
+						maybe_sub_iso_file_path.as_ref(),
 						ctx,
 						device_id,
 						dispatcher,
@@ -752,7 +752,7 @@ impl FileIdentifier {
 
 	async fn dispatch_deep_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
-		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
+		maybe_sub_iso_file_path: Option<&IsolatedFilePathData<'static>>,
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
