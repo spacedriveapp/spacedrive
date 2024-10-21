@@ -3,18 +3,18 @@ use crate::util::InfallibleResponse;
 use std::{fs::Metadata, time::UNIX_EPOCH};
 
 use axum::{
-	body::{self, BoxBody, Full, StreamBody},
+	body::Body,
 	http::{header, request, HeaderValue, Method, Response, StatusCode},
 };
 use http_range::HttpRange;
 use tokio::{
 	fs::File,
-	io::{self, AsyncSeekExt, SeekFrom},
+	io::{self, AsyncReadExt, AsyncSeekExt, SeekFrom},
 };
 use tokio_util::io::ReaderStream;
 use tracing::error;
 
-use super::{async_read_body::AsyncReadBody, utils::*};
+use super::utils::*;
 
 // default capacity 64KiB
 const DEFAULT_CAPACITY: usize = 65536;
@@ -31,7 +31,7 @@ pub(crate) async fn serve_file(
 	metadata: io::Result<Metadata>,
 	req: request::Parts,
 	mut resp: InfallibleResponse,
-) -> Result<Response<BoxBody>, Response<BoxBody>> {
+) -> Result<Response<Body>, Response<Body>> {
 	if let Ok(metadata) = metadata {
 		// We only accept range queries if `files.metadata() == Ok(_)`
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Ranges
@@ -48,7 +48,7 @@ pub(crate) async fn serve_file(
 			return Ok(resp
 				.status(StatusCode::OK)
 				.header("Content-Length", HeaderValue::from_static("0"))
-				.body(body::boxed(Full::from(""))));
+				.body(Body::from("")));
 		}
 
 		// ETag
@@ -73,9 +73,7 @@ pub(crate) async fn serve_file(
 			// Used for normal requests
 			if let Some(etag) = req.headers.get("If-None-Match") {
 				if etag.as_bytes() == etag_header.as_bytes() {
-					return Ok(resp
-						.status(StatusCode::NOT_MODIFIED)
-						.body(body::boxed(Full::from(""))));
+					return Ok(resp.status(StatusCode::NOT_MODIFIED).body(Body::from("")));
 				}
 			}
 
@@ -104,7 +102,7 @@ pub(crate) async fn serve_file(
 								.map_err(internal_server_error)?,
 						)
 						.status(StatusCode::RANGE_NOT_SATISFIABLE)
-						.body(body::boxed(Full::from(""))));
+						.body(Body::from("")));
 				}
 				let range = ranges.first().expect("checked above");
 
@@ -116,7 +114,7 @@ pub(crate) async fn serve_file(
 								.map_err(internal_server_error)?,
 						)
 						.status(StatusCode::RANGE_NOT_SATISFIABLE)
-						.body(body::boxed(Full::from(""))));
+						.body(Body::from("")));
 				}
 
 				file.seek(SeekFrom::Start(range.start))
@@ -140,14 +138,13 @@ pub(crate) async fn serve_file(
 						HeaderValue::from_str(&range.length.to_string())
 							.map_err(internal_server_error)?,
 					)
-					.body(body::boxed(AsyncReadBody::with_capacity_limited(
-						file,
+					.body(Body::from_stream(ReaderStream::with_capacity(
+						file.take(range.length),
 						DEFAULT_CAPACITY,
-						range.length,
 					))));
 			}
 		}
 	}
 
-	Ok(resp.body(body::boxed(StreamBody::new(ReaderStream::new(file)))))
+	Ok(resp.body(Body::from_stream(ReaderStream::new(file))))
 }

@@ -12,7 +12,7 @@ type Props = {
 const FavoriteButton = (props: Props) => {
 	const [favorite, setFavorite] = useState(props.data.favorite);
 
-	const { mutate: toggleFavorite, isLoading } = useLibraryMutation('files.setFavorite', {
+	const { mutate: toggleFavorite, isPending } = useLibraryMutation('files.setFavorite', {
 		onSuccess: () => {
 			// TODO: Invalidate search queries
 			setFavorite(!favorite);
@@ -22,7 +22,7 @@ const FavoriteButton = (props: Props) => {
 
 	return (
 		<Pressable
-			disabled={isLoading}
+			disabled={isPending}
 			onPress={() => toggleFavorite({ id: props.data.id, favorite: !favorite })}
 			style={props.style}
 		>

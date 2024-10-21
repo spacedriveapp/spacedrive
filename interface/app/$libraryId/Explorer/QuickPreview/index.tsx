@@ -50,7 +50,7 @@ import ExplorerContextMenu, {
 	SharedItems
 } from '../ContextMenu';
 import { Conditional } from '../ContextMenu/ConditionalItem';
-import { FileThumb } from '../FilePath/Thumb';
+import { FileThumb, ThumbType } from '../FilePath/Thumb';
 import { SingleItemMetadata } from '../Inspector';
 import { explorerStore } from '../store';
 import { useExplorerViewContext } from '../View/Context';
@@ -84,18 +84,30 @@ export const QuickPreview = () => {
 	const { open, itemIndex } = useQuickPreviewStore();
 
 	const thumb = createRef<HTMLDivElement>();
-	const [thumbErrorToast, setThumbErrorToast] = useState<ToastMessage>();
 	const [showMetadata, setShowMetadata] = useState<boolean>(false);
 	const [magnification, setMagnification] = useState<number>(1);
 	const [isContextMenuOpen, setIsContextMenuOpen] = useState<boolean>(false);
 	const [isRenaming, setIsRenaming] = useState<boolean>(false);
 	const [newName, setNewName] = useState<string | null>(null);
-	const [thumbnailLoading, setThumbnailLoading] = useState<'notLoaded' | 'loaded' | 'error'>(
-		'notLoaded'
-	);
+	const [thumbnailLoading, setThumbnailLoading] = useState({
+		icon: 'notLoaded',
+		thumbnail: 'notLoaded',
+		original: 'notLoaded'
+	} as {
+		[K in ThumbType]: 'notLoaded' | 'loaded' | 'error';
+	});
 	// the purpose of these refs is to prevent "jittering" when zooming with trackpads, as the deltaY value can be very high
 	const deltaYRef = useRef(0);
 	const lastZoomTimeRef = useRef(0);
+
+	const hasError = useMemo(
+		() => Object.values(thumbnailLoading).some((status) => status === 'error'),
+		[thumbnailLoading]
+	);
+	const isLoaded = useMemo(
+		() => Object.values(thumbnailLoading).some((status) => status === 'loaded'),
+		[thumbnailLoading]
+	);
 
 	const { t } = useLocale();
 
@@ -122,50 +134,26 @@ export const QuickPreview = () => {
 
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onError: () => setNewName(null),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const renameEphemeralFile = useLibraryMutation(['ephemeralFiles.renameFile'], {
 		onError: () => setNewName(null),
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.paths'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] })
 	});
 
 	const changeCurrentItem = (index: number) => {
 		if (items[index]) getQuickPreviewStore().itemIndex = index;
 	};
 
-	// Error toast
-	useEffect(() => {
-		if (!thumbErrorToast) return;
-
-		let id: string | number | undefined;
-		toast.error(
-			(_id) => {
-				id = _id;
-				return thumbErrorToast;
-			},
-			{
-				ref: thumb,
-				duration: Infinity,
-				onClose() {
-					id = undefined;
-					setThumbErrorToast(undefined);
-				}
-			}
-		);
-
-		return () => void toast.dismiss(id);
-	}, [thumb, thumbErrorToast]);
-
 	// Reset state
 	useEffect(() => {
 		setNewName(null);
-		setThumbErrorToast(undefined);
 		setMagnification(1);
+		setThumbnailLoading({ icon: 'notLoaded', thumbnail: 'notLoaded', original: 'notLoaded' });
 
 		if (open || item) return;
 
-		setThumbnailLoading('notLoaded');
 		getQuickPreviewStore().open = false;
 		getQuickPreviewStore().itemIndex = 0;
 		setShowMetadata(false);
@@ -344,18 +332,12 @@ export const QuickPreview = () => {
 							)}
 						>
 							<div className="relative flex flex-1 flex-col justify-between overflow-hidden bg-app/80 backdrop-blur">
-								{thumbnailLoading !== 'error' &&
-									thumbnailLoading !== 'notLoaded' &&
-									background && (
-										<div className="absolute inset-0 overflow-hidden">
-											<FileThumb
-												data={item}
-												cover
-												childClassName="scale-125"
-											/>
-											<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
-										</div>
-									)}
+								{!hasError && isLoaded && background && (
+									<div className="absolute inset-0 overflow-hidden">
+										<FileThumb data={item} cover childClassName="scale-125" />
+										<div className="absolute inset-0 bg-black/50 backdrop-blur-3xl" />
+									</div>
+								)}
 								<div
 									className={clsx(
 										'z-50 flex items-center p-2',
@@ -371,20 +353,25 @@ export const QuickPreview = () => {
 											</Dialog.Close>
 										</Tooltip>
 
-										{thumbnailLoading === 'error' && (
-											<Tooltip label={t('quickpreview_thumbnail_error_tip')}>
-												<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
-													<WarningCircle
-														className="text-red-500"
-														weight="fill"
-														size={14}
-													/>
-													<p className="text-xs text-ink">
-														{t('quickpreview_thumbnail_error_message')}
-													</p>
-												</div>
-											</Tooltip>
-										)}
+										{thumbnailLoading.original === 'error' &&
+											thumbnailLoading.thumbnail === 'loaded' && (
+												<Tooltip
+													label={t('quickpreview_thumbnail_error_tip')}
+												>
+													<div className="ml-1 flex items-center gap-1 rounded-md border border-white/5 bg-app-lightBox/30 p-1.5 backdrop-blur-md">
+														<WarningCircle
+															className="text-red-500"
+															weight="fill"
+															size={14}
+														/>
+														<p className="text-xs text-ink">
+															{t(
+																'quickpreview_thumbnail_error_message'
+															)}
+														</p>
+													</div>
+												</Tooltip>
+											)}
 
 										{items.length > 1 && (
 											<div className="ml-2 flex">
@@ -616,56 +603,42 @@ export const QuickPreview = () => {
 									</div>
 								</div>
 
-								{thumbnailLoading === 'error' ? (
-									<>
-										<FileThumb
-											data={item}
-											frameClassName="!border-0"
-											className={clsx(
-												'mx-auto my-3 !w-auto flex-1 !overflow-hidden rounded',
-												!background && !icon && 'bg-app-box shadow'
-											)}
-											childClassName={clsx(
-												'rounded',
-												kind === 'Text' && 'p-3',
-												!icon && 'h-full',
-												textKinds.includes(kind) && 'select-text'
-											)}
-										/>
-									</>
-								) : (
-									<FileThumb
-										data={item}
-										onLoad={(type) => {
-											setThumbnailLoading('loaded');
-											if (type.variant === 'original')
-												setThumbErrorToast(undefined);
-										}}
-										onError={(type, error) => {
-											setThumbnailLoading('error');
-											if (type.variant === 'original')
-												setThumbErrorToast({
-													title: t('error_loading_original_file'),
-													body: error.message
-												});
-										}}
-										loadOriginal
-										frameClassName="!border-0"
-										mediaControls
-										className={clsx(
-											thumbnailLoading === 'notLoaded' && 'hidden',
-											'm-3 !w-auto flex-1 !overflow-hidden rounded',
-											!background && !icon && 'bg-app-box shadow'
-										)}
-										childClassName={clsx(
-											'rounded',
-											kind === 'Text' && 'p-3',
-											!icon && 'h-full',
-											textKinds.includes(kind) && 'select-text'
-										)}
-										magnification={magnification}
-									/>
-								)}
+								<FileThumb
+									data={item}
+									onLoad={(type) => {
+										setThumbnailLoading((obj) => ({
+											...obj,
+											[type]: 'loaded'
+										}));
+									}}
+									onError={(state, error) => {
+										console.error(error);
+										setThumbnailLoading((obj) => {
+											const newState = { ...obj };
+											for (const [type, loadState] of Object.entries(
+												state
+											) as [ThumbType, string][])
+												if (loadState === 'error') newState[type] = 'error';
+
+											return newState;
+										});
+									}}
+									loadOriginal
+									frameClassName="!border-0"
+									mediaControls
+									className={clsx(
+										!isLoaded && 'hidden',
+										'm-3 !w-auto flex-1 !overflow-hidden rounded',
+										!background && !icon && 'bg-app-box shadow'
+									)}
+									childClassName={clsx(
+										'rounded',
+										kind === 'Text' && 'p-3',
+										!icon && 'h-full',
+										textKinds.includes(kind) && 'select-text'
+									)}
+									magnification={magnification}
+								/>
 
 								{explorerLayoutStore.showImageSlider && activeItem && (
 									<ImageSlider activeItem={activeItem} />

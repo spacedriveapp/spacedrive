@@ -19,7 +19,7 @@ globset             = { workspace = true, features = ["serde1"] }
 prisma-client-rust  = { workspace = true }
 rmp-serde           = { workspace = true }
 rspc                = { workspace = true }
-serde               = { workspace = true, features = ["derive"] }
+serde               = { workspace = true, features = ["derive", "rc"] }
 specta              = { workspace = true }
 thiserror           = { workspace = true }
 tokio               = { workspace = true, features = ["fs"] }
