@@ -298,7 +298,24 @@ async fn handle_crdt_deletion(
 	record_id: rmpv::Value,
 	delete_op: &CompressedCRDTOperation,
 ) -> Result<(), Error> {
-	// deletes are the be all and end all, no need to check anything
+	// deletes are the be all and end all, except if we never created the object to begin with
+	// in this case we don't need to delete anything
+
+	if db
+		.crdt_operation()
+		.count(vec![
+			crdt_operation::model::equals(i32::from(model)),
+			crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
+		])
+		.exec()
+		.await?
+		== 0
+	{
+		// This means that in the other device this entry was created and deleted, before this
+		// device here could even take notice of it. So we don't need to do anything here.
+		return Ok(());
+	}
+
 	let op = CRDTOperation {
 		device_pub_id: device_pub_id.into(),
 		model_id: model,

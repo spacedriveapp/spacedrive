@@ -466,6 +466,7 @@ pub async fn scan_location(
 				)
 				.await?
 		}
+
 		ScanState::Indexed => {
 			node.job_system
 				.dispatch(
@@ -478,6 +479,7 @@ pub async fn scan_location(
 				)
 				.await?
 		}
+
 		ScanState::FilesIdentified => {
 			node.job_system
 				.dispatch(

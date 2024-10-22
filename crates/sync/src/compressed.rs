@@ -46,7 +46,7 @@ impl CompressedCRDTOperationsPerModelPerDevice {
 			// Can't use RecordId as a key because rmpv::Value doesn't implement Hash + Eq.
 			// So we use it's serialized bytes as a key.
 			let record_id_bytes =
-				rmp_serde::to_vec(&record_id).expect("already serialized to Value");
+				rmp_serde::to_vec_named(&record_id).expect("already serialized to Value");
 
 			match records.entry(record_id_bytes) {
 				Entry::Occupied(mut entry) => {
