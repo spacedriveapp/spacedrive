@@ -8,9 +8,10 @@ use sd_sync::{
 	CRDTOperation, CRDTOperationData, CompressedCRDTOperation, ModelId, OperationKind, RecordId,
 };
 
-use std::{collections::BTreeMap, num::NonZeroU128};
+use std::{collections::BTreeMap, num::NonZeroU128, sync::Arc};
 
 use futures_concurrency::future::TryJoin;
+use tokio::sync::Mutex;
 use tracing::{debug, instrument, trace, warn};
 use uhlc::{Timestamp, HLC, NTP64};
 use uuid::Uuid;
@@ -24,11 +25,11 @@ crdt_operation::select!(crdt_operation_id { id });
 pub async fn process_crdt_operations(
 	clock: &HLC,
 	timestamp_per_device: &TimestampPerDevice,
+	sync_lock: Arc<Mutex<()>>,
 	db: &PrismaClient,
 	device_pub_id: DevicePubId,
 	model_id: ModelId,
-	record_id: RecordId,
-	mut ops: Vec<CompressedCRDTOperation>,
+	(record_id, mut ops): (RecordId, Vec<CompressedCRDTOperation>),
 ) -> Result<(), Error> {
 	ops.sort_by_key(|op| op.timestamp);
 
@@ -52,7 +53,15 @@ pub async fn process_crdt_operations(
 		.find(|op| matches!(op.data, CRDTOperationData::Delete))
 	{
 		trace!("Deleting operation");
-		handle_crdt_deletion(db, &device_pub_id, model_id, record_id, delete_op).await?;
+		handle_crdt_deletion(
+			db,
+			&sync_lock,
+			&device_pub_id,
+			model_id,
+			record_id,
+			delete_op,
+		)
+		.await?;
 	}
 	// Create + > 0 Update - overwrites the create's data with the updates
 	else if let Some(timestamp) = ops
@@ -78,8 +87,16 @@ pub async fn process_crdt_operations(
 			return Ok(());
 		}
 
-		handle_crdt_create_and_updates(db, &device_pub_id, model_id, record_id, ops, timestamp)
-			.await?;
+		handle_crdt_create_and_updates(
+			db,
+			&sync_lock,
+			&device_pub_id,
+			model_id,
+			record_id,
+			ops,
+			timestamp,
+		)
+		.await?;
 	}
 	// > 0 Update - batches updates with a fake Create op
 	else {
@@ -138,7 +155,7 @@ pub async fn process_crdt_operations(
 			}
 		}
 
-		handle_crdt_updates(db, &device_pub_id, model_id, record_id, data).await?;
+		handle_crdt_updates(db, &sync_lock, &device_pub_id, model_id, record_id, data).await?;
 	}
 
 	// read the timestamp for the operation's device, or insert one if it doesn't exist
@@ -162,12 +179,15 @@ pub async fn process_crdt_operations(
 #[instrument(skip_all, err)]
 async fn handle_crdt_updates(
 	db: &PrismaClient,
+	sync_lock: &Mutex<()>,
 	device_pub_id: &DevicePubId,
 	model_id: ModelId,
 	record_id: rmpv::Value,
 	data: BTreeMap<String, (rmpv::Value, NTP64)>,
 ) -> Result<(), Error> {
 	let device_pub_id = sd_sync::DevicePubId::from(device_pub_id);
+
+	let _lock_guard = sync_lock.lock().await;
 
 	db._transaction()
 		.with_timeout(30 * 10000)
@@ -217,6 +237,7 @@ async fn handle_crdt_updates(
 #[instrument(skip_all, err)]
 async fn handle_crdt_create_and_updates(
 	db: &PrismaClient,
+	sync_lock: &Mutex<()>,
 	device_pub_id: &DevicePubId,
 	model_id: ModelId,
 	record_id: rmpv::Value,
@@ -250,6 +271,8 @@ async fn handle_crdt_create_and_updates(
 			}
 		}
 	}
+
+	let _lock_guard = sync_lock.lock().await;
 
 	db._transaction()
 		.with_timeout(30 * 10000)
@@ -296,6 +319,7 @@ async fn handle_crdt_create_and_updates(
 #[instrument(skip_all, err)]
 async fn handle_crdt_deletion(
 	db: &PrismaClient,
+	sync_lock: &Mutex<()>,
 	device_pub_id: &DevicePubId,
 	model: u16,
 	record_id: rmpv::Value,
@@ -326,6 +350,8 @@ async fn handle_crdt_deletion(
 		timestamp: delete_op.timestamp,
 		data: CRDTOperationData::Delete,
 	};
+
+	let _lock_guard = sync_lock.lock().await;
 
 	db._transaction()
 		.with_timeout(30 * 10000)
