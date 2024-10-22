@@ -15,7 +15,7 @@ use std::{
 		atomic::{self, AtomicBool},
 		Arc,
 	},
-	time::SystemTime,
+	time::{Duration, SystemTime},
 };
 
 use async_stream::stream;
@@ -24,6 +24,7 @@ use futures_concurrency::future::TryJoin;
 use tokio::{
 	spawn,
 	sync::{broadcast, Mutex, Notify, RwLock},
+	time::Instant,
 };
 use tracing::{debug, instrument, warn};
 use uhlc::{HLCBuilder, HLC};
@@ -171,13 +172,22 @@ impl Manager {
 			.map(|_| FuturesUnordered::new())
 			.collect::<Vec<_>>();
 
+		let mut total_fetch_time = Duration::ZERO;
+		let mut total_compression_time = Duration::ZERO;
+		let mut total_work_distribution_time = Duration::ZERO;
+		let mut total_process_time = Duration::ZERO;
+
 		loop {
+			let fetching_start = Instant::now();
+
 			let (ops_ids, ops) = self
 				.fetch_cloud_crdt_ops(model_id, INGESTION_BATCH_SIZE)
 				.await?;
 			if ops_ids.is_empty() {
 				break;
 			}
+
+			total_fetch_time += fetching_start.elapsed();
 
 			let messages_count = ops.len();
 
@@ -191,6 +201,8 @@ impl Manager {
 						.map_or_else(|| SystemTime::UNIX_EPOCH.into(), |op| timestamp_to_datetime(op.timestamp)),
 				"Messages by model to ingest",
 			);
+
+			let compression_start = Instant::now();
 
 			let mut compressed_map =
 				BTreeMap::<Uuid, HashMap<Vec<u8>, (RecordId, Vec<CompressedCRDTOperation>)>>::new();
@@ -224,7 +236,9 @@ impl Manager {
 				}
 			}
 
-			let _lock_guard = self.sync_lock.lock().await;
+			total_compression_time += compression_start.elapsed();
+
+			let work_distribution_start = Instant::now();
 
 			compressed_map
 				.into_iter()
@@ -236,6 +250,7 @@ impl Manager {
 						let timestamp_per_device = Arc::clone(&self.timestamp_per_device);
 						let db = Arc::clone(&self.db);
 						let device_pub_id = device_pub_id.into();
+						let sync_lock = Arc::clone(&self.sync_lock);
 
 						async move {
 							let count = ops.len();
@@ -243,11 +258,11 @@ impl Manager {
 							process_crdt_operations(
 								&clock,
 								&timestamp_per_device,
+								sync_lock,
 								&db,
 								device_pub_id,
 								model_id,
-								record_id,
-								ops,
+								(record_id, ops),
 							)
 							.await
 							.map(|()| count)
@@ -256,6 +271,10 @@ impl Manager {
 				})
 				.enumerate()
 				.for_each(|(idx, fut)| buckets[idx % self.available_parallelism].push(fut));
+
+			total_work_distribution_time += work_distribution_start.elapsed();
+
+			let processing_start = Instant::now();
 
 			let handles = buckets
 				.iter_mut()
@@ -266,21 +285,30 @@ impl Manager {
 
 					spawn(async move {
 						let mut ops_count = 0;
+						let processing_start = Instant::now();
 						while let Some(count) = bucket.try_next().await? {
 							ops_count += count;
 						}
+
+						debug!(
+							"Ingested {ops_count} operations in {:?}",
+							processing_start.elapsed()
+						);
 
 						Ok::<_, Error>((ops_count, idx, bucket))
 					})
 				})
 				.collect::<Vec<_>>();
 
-			for res in handles.try_join().await.map_err(Error::ProcessCrdtPanic)? {
+			let results = handles.try_join().await.map_err(Error::ProcessCrdtPanic)?;
+
+			total_process_time += processing_start.elapsed();
+
+			for res in results {
 				let (count, idx, bucket) = res?;
 
 				buckets[idx] = bucket;
 
-				debug!(count, "Ingested operations of model");
 				total_count += count;
 			}
 
@@ -291,7 +319,14 @@ impl Manager {
 				.await?;
 		}
 
-		debug!(total_count, "Ingested all operations of this model");
+		debug!(
+			total_count,
+			?total_fetch_time,
+			?total_compression_time,
+			?total_work_distribution_time,
+			?total_process_time,
+			"Ingested all operations of this model"
+		);
 
 		Ok(())
 	}
