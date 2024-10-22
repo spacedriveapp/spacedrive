@@ -9,8 +9,13 @@ use crate::{
 };
 
 use sd_core_sync::{SyncEvent, SyncManager};
+
 use sd_p2p::{Identity, RemoteIdentity};
-use sd_prisma::prisma::{device, instance, location};
+use sd_prisma::{
+	prisma::{self, device, instance, location, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::ModelId;
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
@@ -28,6 +33,7 @@ use std::{
 
 use chrono::Utc;
 use futures_concurrency::future::{Join, TryJoin};
+use prisma_client_rust::Raw;
 use tokio::{
 	fs, io, spawn,
 	sync::{broadcast, RwLock},
@@ -458,6 +464,10 @@ impl Libraries {
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
+		// Configure database
+		configure_pragmas(&db).await?;
+		special_sync_indexes(&db).await?;
+
 		if let Some(create) = maybe_create_device {
 			create.to_query(&db).exec().await?;
 		}
@@ -552,9 +562,6 @@ impl Libraries {
 		)
 		.await?;
 
-		// Configure database
-		configure_pragmas(&db).await?;
-
 		let library = Library::new(id, config, instance_id, identity, db, node, sync).await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
@@ -634,4 +641,55 @@ async fn sync_rx_actor(
 			}
 		}
 	}
+}
+
+async fn special_sync_indexes(db: &PrismaClient) -> Result<(), LibraryManagerError> {
+	async fn create_index(
+		db: &PrismaClient,
+		model_id: ModelId,
+		model_name: &str,
+	) -> Result<(), LibraryManagerError> {
+		db._execute_raw(Raw::new(
+			&format!(
+				"CREATE INDEX IF NOT EXISTS partial_index_model_{model_name} \
+				ON crdt_operation(model,record_id,kind,timestamp) \
+				WHERE model = {model_id}
+				"
+			),
+			vec![],
+		))
+		.exec()
+		.await?;
+
+		debug!(model_name, "Created sync partial index");
+
+		Ok(())
+	}
+
+	for (model_id, model_name) in [
+		(prisma_sync::device::MODEL_ID, prisma::device::NAME),
+		(
+			prisma_sync::storage_statistics::MODEL_ID,
+			prisma::storage_statistics::NAME,
+		),
+		(prisma_sync::tag::MODEL_ID, prisma::tag::NAME),
+		(prisma_sync::location::MODEL_ID, prisma::location::NAME),
+		(prisma_sync::object::MODEL_ID, prisma::object::NAME),
+		(prisma_sync::label::MODEL_ID, prisma::label::NAME),
+		(prisma_sync::exif_data::MODEL_ID, prisma::exif_data::NAME),
+		(prisma_sync::file_path::MODEL_ID, prisma::file_path::NAME),
+		(
+			prisma_sync::tag_on_object::MODEL_ID,
+			prisma::tag_on_object::NAME,
+		),
+		(
+			prisma_sync::label_on_object::MODEL_ID,
+			prisma::label_on_object::NAME,
+		),
+	] {
+		// Creating indexes sequentially just in case
+		create_index(db, model_id, model_name).await?;
+	}
+
+	Ok(())
 }

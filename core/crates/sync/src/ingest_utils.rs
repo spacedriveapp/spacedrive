@@ -114,30 +114,40 @@ pub async fn process_crdt_operations(
 			}
 		}
 
+		let earlier_time = data.values().fold(
+			NTP64(u64::from(u32::MAX)),
+			|earlier_time, (_, timestamp)| {
+				if timestamp.0 < earlier_time.0 {
+					*timestamp
+				} else {
+					earlier_time
+				}
+			},
+		);
+
 		// conflict resolution
-		let (create, newer_updates_count) = db
+		let (create, possible_newer_updates_count) = db
 			._batch((
 				db.crdt_operation().count(vec![
 					crdt_operation::model::equals(i32::from(model_id)),
 					crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
 					crdt_operation::kind::equals(OperationKind::Create.to_string()),
 				]),
-				data.iter()
-					.map(|(k, (_, timestamp))| {
-						Ok(db.crdt_operation().count(vec![
-							crdt_operation::timestamp::gt({
-								#[allow(clippy::cast_possible_wrap)]
-								// SAFETY: we had to store using i64 due to SQLite limitations
-								{
-									timestamp.as_u64() as i64
-								}
-							}),
-							crdt_operation::model::equals(i32::from(model_id)),
-							crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
-							crdt_operation::kind::contains(format!(":{k}:")),
-						]))
-					})
-					.collect::<Result<Vec<_>, Error>>()?,
+				// Fetching all update operations newer than our current earlier timestamp
+				db.crdt_operation()
+					.find_many(vec![
+						crdt_operation::timestamp::gt({
+							#[allow(clippy::cast_possible_wrap)]
+							// SAFETY: we had to store using i64 due to SQLite limitations
+							{
+								earlier_time.as_u64() as i64
+							}
+						}),
+						crdt_operation::model::equals(i32::from(model_id)),
+						crdt_operation::record_id::equals(rmp_serde::to_vec(&record_id)?),
+						crdt_operation::kind::starts_with("u".to_string()),
+					])
+					.select(crdt_operation::select!({ kind timestamp })),
 			))
 			.await?;
 
@@ -146,12 +156,28 @@ pub async fn process_crdt_operations(
 			return Ok(());
 		}
 
-		let keys = data.keys().cloned().collect::<Vec<_>>();
+		for candidate in possible_newer_updates_count {
+			// The first element is "u" meaning that this is an update, so we skip it
+			for key in candidate
+				.kind
+				.split(':')
+				.filter(|field| !field.is_empty())
+				.skip(1)
+			{
+				// remove entries if we possess locally more recent updates for this field
+				if data.get(key).is_some_and(|(_, new_timestamp)| {
+					#[allow(clippy::cast_sign_loss)]
+					{
+						// we need to store as i64 due to SQLite limitations
+						*new_timestamp < NTP64(candidate.timestamp as u64)
+					}
+				}) {
+					data.remove(key);
+				}
+			}
 
-		// remove entries if we possess locally more recent updates for this field
-		for (update, key) in newer_updates_count.into_iter().zip(keys) {
-			if update > 0 {
-				data.remove(&key);
+			if data.is_empty() {
+				break;
 			}
 		}
 
