@@ -159,6 +159,7 @@ pub async fn process_crdt_operations(
 	Ok(())
 }
 
+#[instrument(skip_all, err)]
 async fn handle_crdt_updates(
 	db: &PrismaClient,
 	device_pub_id: &DevicePubId,
@@ -213,6 +214,7 @@ async fn handle_crdt_updates(
 		.await
 }
 
+#[instrument(skip_all, err)]
 async fn handle_crdt_create_and_updates(
 	db: &PrismaClient,
 	device_pub_id: &DevicePubId,
@@ -291,6 +293,7 @@ async fn handle_crdt_create_and_updates(
 		.await
 }
 
+#[instrument(skip_all, err)]
 async fn handle_crdt_deletion(
 	db: &PrismaClient,
 	device_pub_id: &DevicePubId,
