@@ -35,7 +35,7 @@ use sd_utils::uuid_to_bytes;
 
 use std::{collections::HashMap, sync::Arc};
 
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinError};
 
 pub mod backfill;
 mod db_operation;
@@ -77,6 +77,8 @@ pub enum Error {
 	EmptyOperations,
 	#[error("device not found: {0}")]
 	DeviceNotFound(DevicePubId),
+	#[error("processes crdt task panicked")]
+	ProcessCrdtPanic(JoinError),
 }
 
 impl From<Error> for rspc::Error {
