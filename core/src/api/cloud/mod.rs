@@ -215,7 +215,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							 }| {
 								let node = &node;
 
-								async move { initialize_cloud_sync(pub_id, library, node).await }
+								async move {
+									match initialize_cloud_sync(pub_id, library, node).await {
+										// If we don't have this library locally, we didn't joined this group yet
+										Ok(()) | Err(LibraryManagerError::LibraryNotFound) => {
+											Ok(())
+										}
+										Err(e) => Err(e),
+									}
+								}
 							},
 						)
 						.collect::<Vec<_>>()
