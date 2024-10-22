@@ -40,7 +40,7 @@ use uuid::Uuid;
 
 use super::{ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
 
-const CLOUD_SYNC_DATA_KEEPER_FILE: &str = "cloud_sync_data_keeper.bin";
+const CLOUD_SYNC_DATA_KEEPER_DIRECTORY: &str = "cloud_sync_data_keeper";
 
 /// Responsible for downloading sync operations from the cloud to be processed by the ingester
 
@@ -111,7 +111,7 @@ impl Receiver {
 		active_notify: Arc<Notify>,
 	) -> Result<Self, Error> {
 		let (keeper, cloud_client, key_manager) = (
-			LastTimestampKeeper::load(data_dir.as_ref()),
+			LastTimestampKeeper::load(data_dir.as_ref(), sync_group_pub_id),
 			cloud_services.client(),
 			cloud_services.key_manager(),
 		)
@@ -317,8 +317,16 @@ struct LastTimestampKeeper {
 }
 
 impl LastTimestampKeeper {
-	async fn load(data_dir: &Path) -> Result<Self, Error> {
-		let file_path = data_dir.join(CLOUD_SYNC_DATA_KEEPER_FILE).into_boxed_path();
+	async fn load(data_dir: &Path, sync_group_pub_id: groups::PubId) -> Result<Self, Error> {
+		let cloud_sync_data_directory = data_dir.join(CLOUD_SYNC_DATA_KEEPER_DIRECTORY);
+
+		fs::create_dir_all(&cloud_sync_data_directory)
+			.await
+			.map_err(Error::FailedToCreateTimestampKeepersDirectory)?;
+
+		let file_path = cloud_sync_data_directory
+			.join(format!("{sync_group_pub_id}.bin"))
+			.into_boxed_path();
 
 		match fs::read(&file_path).await {
 			Ok(bytes) => Ok(Self {
