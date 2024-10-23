@@ -22,6 +22,7 @@ async-stream        = { workspace = true }
 chrono              = { workspace = true }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
+itertools           = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }

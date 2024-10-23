@@ -9814,6 +9814,7 @@ dependencies = [
  "chrono",
  "futures",
  "futures-concurrency",
+ "itertools 0.13.0",
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",

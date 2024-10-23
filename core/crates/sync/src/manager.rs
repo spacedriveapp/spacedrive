@@ -4,7 +4,9 @@ use sd_prisma::{
 	prisma::{cloud_crdt_operation, crdt_operation, device, PrismaClient, SortOrder},
 	prisma_sync,
 };
-use sd_sync::{CRDTOperation, CompressedCRDTOperation, ModelId, OperationFactory, RecordId};
+use sd_sync::{
+	CRDTOperation, CRDTOperationData, CompressedCRDTOperation, ModelId, OperationFactory, RecordId,
+};
 use sd_utils::timestamp_to_datetime;
 
 use std::{
@@ -21,6 +23,7 @@ use std::{
 use async_stream::stream;
 use futures::{stream::FuturesUnordered, Stream, TryStreamExt};
 use futures_concurrency::future::TryJoin;
+use itertools::Itertools;
 use tokio::{
 	spawn,
 	sync::{broadcast, Mutex, Notify, RwLock},
@@ -33,7 +36,7 @@ use uuid::Uuid;
 use super::{
 	crdt_op_db,
 	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
-	ingest_utils::process_crdt_operations,
+	ingest_utils::{bulk_ingest_create_only_ops, process_crdt_operations},
 	Error, SyncEvent, TimestampPerDevice, NTP64,
 };
 
@@ -236,6 +239,32 @@ impl Manager {
 				}
 			}
 
+			// Now that we separated all operations by their record_ids, we can do an optimization
+			// to process all records that only posses a single create operation, batching them together
+			let mut create_only_ops: BTreeMap<Uuid, Vec<(RecordId, CompressedCRDTOperation)>> =
+				BTreeMap::new();
+			for (device_pub_id, records) in &mut compressed_map {
+				for (record_id, ops) in records.values_mut() {
+					if ops.len() == 1 && matches!(ops[0].data, CRDTOperationData::Create(_)) {
+						create_only_ops
+							.entry(*device_pub_id)
+							.or_default()
+							.push((mem::replace(record_id, rmpv::Value::Nil), ops.remove(0)));
+					}
+				}
+			}
+
+			bulk_process_of_create_only_ops(
+				self.available_parallelism,
+				Arc::clone(&self.clock),
+				Arc::clone(&self.timestamp_per_device),
+				Arc::clone(&self.db),
+				Arc::clone(&self.sync_lock),
+				model_id,
+				create_only_ops,
+			)
+			.await?;
+
 			total_compression_time += compression_start.elapsed();
 
 			let work_distribution_start = Instant::now();
@@ -243,7 +272,11 @@ impl Manager {
 			compressed_map
 				.into_iter()
 				.flat_map(|(device_pub_id, records)| {
-					records.into_values().map(move |(record_id, ops)| {
+					records.into_values().filter_map(move |(record_id, ops)| {
+						if record_id.is_nil() {
+							return None;
+						}
+
 						// We can process each record in parallel as they are independent
 
 						let clock = Arc::clone(&self.clock);
@@ -252,7 +285,7 @@ impl Manager {
 						let device_pub_id = device_pub_id.into();
 						let sync_lock = Arc::clone(&self.sync_lock);
 
-						async move {
+						Some(async move {
 							let count = ops.len();
 
 							process_crdt_operations(
@@ -266,7 +299,7 @@ impl Manager {
 							)
 							.await
 							.map(|()| count)
-						}
+						})
 					})
 				})
 				.enumerate()
@@ -616,6 +649,81 @@ impl Manager {
 	// 		.map(from_cloud_crdt_ops)
 	// 		.collect()
 	// }
+}
+
+async fn bulk_process_of_create_only_ops(
+	available_parallelism: usize,
+	clock: Arc<HLC>,
+	timestamp_per_device: TimestampPerDevice,
+	db: Arc<PrismaClient>,
+	sync_lock: Arc<Mutex<()>>,
+	model_id: ModelId,
+	create_only_ops: BTreeMap<Uuid, Vec<(RecordId, CompressedCRDTOperation)>>,
+) -> Result<usize, Error> {
+	let buckets = (0..available_parallelism)
+		.map(|_| FuturesUnordered::new())
+		.collect::<Vec<_>>();
+
+	let mut bucket_idx = 0;
+
+	for (device_pub_id, records) in create_only_ops {
+		records
+			.into_iter()
+			.chunks(100)
+			.into_iter()
+			.for_each(|chunk| {
+				let ops = chunk.collect::<Vec<_>>();
+
+				buckets[bucket_idx % available_parallelism].push({
+					let clock = Arc::clone(&clock);
+					let timestamp_per_device = Arc::clone(&timestamp_per_device);
+					let db = Arc::clone(&db);
+					let device_pub_id = device_pub_id.into();
+					let sync_lock = Arc::clone(&sync_lock);
+
+					async move {
+						let count = ops.len();
+						bulk_ingest_create_only_ops(
+							&clock,
+							&timestamp_per_device,
+							&db,
+							device_pub_id,
+							model_id,
+							ops,
+							sync_lock,
+						)
+						.await
+						.map(|()| count)
+					}
+				});
+
+				bucket_idx += 1;
+			});
+	}
+
+	let handles = buckets
+		.into_iter()
+		.map(|mut bucket| {
+			spawn(async move {
+				let mut total_count = 0;
+
+				while let Some(count) = bucket.try_next().await? {
+					total_count += count;
+				}
+
+				Ok::<_, Error>(total_count)
+			})
+		})
+		.collect::<Vec<_>>();
+
+	Ok(handles
+		.try_join()
+		.await
+		.map_err(Error::ProcessCrdtPanic)?
+		.into_iter()
+		.collect::<Result<Vec<_>, _>>()?
+		.into_iter()
+		.sum())
 }
 
 impl OperationFactory for Manager {
