@@ -35,16 +35,7 @@ pub async fn process_crdt_operations(
 
 	let new_timestamp = ops.last().expect("Empty ops array").timestamp;
 
-	// first, we update the HLC's timestamp with the incoming one.
-	// this involves a drift check + sets the last time of the clock
-	clock
-		.update_with_timestamp(&Timestamp::new(
-			new_timestamp,
-			uhlc::ID::from(
-				NonZeroU128::new(Uuid::from(&device_pub_id).to_u128_le()).expect("Non zero id"),
-			),
-		))
-		.expect("timestamp has too much drift!");
+	update_clock(clock, new_timestamp, &device_pub_id);
 
 	// Delete - ignores all other messages
 	if let Some(delete_op) = ops
@@ -184,20 +175,121 @@ pub async fn process_crdt_operations(
 		handle_crdt_updates(db, &sync_lock, &device_pub_id, model_id, record_id, data).await?;
 	}
 
-	// read the timestamp for the operation's device, or insert one if it doesn't exist
-	let current_last_timestamp = timestamp_per_device
-		.read()
-		.await
-		.get(&device_pub_id)
-		.copied();
+	update_timestamp_per_device(timestamp_per_device, device_pub_id, new_timestamp).await;
 
-	// update the stored timestamp for this device - will be derived from the crdt operations table on restart
-	let new_ts = NTP64::max(current_last_timestamp.unwrap_or_default(), new_timestamp);
+	Ok(())
+}
 
-	timestamp_per_device
-		.write()
-		.await
-		.insert(device_pub_id, new_ts);
+pub async fn bulk_ingest_create_only_ops(
+	clock: &HLC,
+	timestamp_per_device: &TimestampPerDevice,
+	db: &PrismaClient,
+	device_pub_id: DevicePubId,
+	model_id: ModelId,
+	ops: Vec<(RecordId, CompressedCRDTOperation)>,
+	sync_lock: Arc<Mutex<()>>,
+) -> Result<(), Error> {
+	let latest_timestamp = ops.iter().fold(NTP64(0), |latest, (_, op)| {
+		if latest < op.timestamp {
+			op.timestamp
+		} else {
+			latest
+		}
+	});
+
+	update_clock(clock, latest_timestamp, &device_pub_id);
+
+	let ops = ops
+		.into_iter()
+		.map(|(record_id, op)| {
+			rmp_serde::to_vec(&record_id)
+				.map(|serialized_record_id| (record_id, serialized_record_id, op))
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+
+	// conflict resolution
+	let delete_counts = db
+		._batch(
+			ops.iter()
+				.map(|(_, serialized_record_id, _)| {
+					db.crdt_operation().count(vec![
+						crdt_operation::model::equals(i32::from(model_id)),
+						crdt_operation::record_id::equals(serialized_record_id.clone()),
+						crdt_operation::kind::equals(OperationKind::Delete.to_string()),
+					])
+				})
+				.collect::<Vec<_>>(),
+		)
+		.await?;
+
+	let lock_guard = sync_lock.lock().await;
+
+	db._transaction()
+		.with_timeout(30 * 10000)
+		.with_max_wait(30 * 10000)
+		.run(|db| {
+			let device_pub_id = device_pub_id.clone();
+
+			async move {
+				// complying with borrowck
+				let device_pub_id = &device_pub_id;
+
+				let (crdt_creates, model_sync_data) = ops
+					.into_iter()
+					.zip(delete_counts)
+					.filter_map(|(data, delete_count)| (delete_count == 0).then_some(data))
+					.map(
+						|(
+							record_id,
+							serialized_record_id,
+							CompressedCRDTOperation { timestamp, data },
+						)| {
+							let crdt_create = crdt_operation::CreateUnchecked {
+								timestamp: {
+									#[allow(clippy::cast_possible_wrap)]
+									// SAFETY: we have to store using i64 due to SQLite limitations
+									{
+										timestamp.0 as i64
+									}
+								},
+								model: i32::from(model_id),
+								record_id: serialized_record_id,
+								kind: "c".to_string(),
+								data: rmp_serde::to_vec(&data)?,
+								device_pub_id: device_pub_id.to_db(),
+								_params: vec![],
+							};
+
+							// NOTE(@fogodev): I wish I could do a create many here instead of creating separately each
+							// entry, but it's not supported by PCR
+							let model_sync_data = ModelSyncData::from_op(CRDTOperation {
+								device_pub_id: Uuid::from(device_pub_id),
+								model_id,
+								record_id,
+								timestamp,
+								data,
+							})?
+							.exec(&db);
+
+							Ok::<_, Error>((crdt_create, model_sync_data))
+						},
+					)
+					.collect::<Result<Vec<_>, _>>()?
+					.into_iter()
+					.unzip::<_, _, Vec<_>, Vec<_>>();
+
+				model_sync_data.try_join().await?;
+
+				db.crdt_operation().create_many(crdt_creates).exec().await?;
+
+				Ok::<_, Error>(())
+			}
+		})
+		.await?;
+
+	drop(lock_guard);
+
+	update_timestamp_per_device(timestamp_per_device, device_pub_id, latest_timestamp).await;
 
 	Ok(())
 }
@@ -388,4 +480,38 @@ async fn handle_crdt_deletion(
 			write_crdt_op_to_db(&op, &db).await
 		})
 		.await
+}
+
+fn update_clock(clock: &HLC, latest_timestamp: NTP64, device_pub_id: &DevicePubId) {
+	// first, we update the HLC's timestamp with the incoming one.
+	// this involves a drift check + sets the last time of the clock
+	clock
+		.update_with_timestamp(&Timestamp::new(
+			latest_timestamp,
+			uhlc::ID::from(
+				NonZeroU128::new(Uuid::from(device_pub_id).to_u128_le()).expect("Non zero id"),
+			),
+		))
+		.expect("timestamp has too much drift!");
+}
+
+async fn update_timestamp_per_device(
+	timestamp_per_device: &TimestampPerDevice,
+	device_pub_id: DevicePubId,
+	latest_timestamp: NTP64,
+) {
+	// read the timestamp for the operation's device, or insert one if it doesn't exist
+	let current_last_timestamp = timestamp_per_device
+		.read()
+		.await
+		.get(&device_pub_id)
+		.copied();
+
+	// update the stored timestamp for this device - will be derived from the crdt operations table on restart
+	let new_ts = NTP64::max(current_last_timestamp.unwrap_or_default(), latest_timestamp);
+
+	timestamp_per_device
+		.write()
+		.await
+		.insert(device_pub_id, new_ts);
 }
