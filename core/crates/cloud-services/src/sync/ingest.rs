@@ -14,7 +14,10 @@ use std::{
 
 use futures::FutureExt;
 use futures_concurrency::future::Race;
-use tokio::{sync::Notify, time::sleep};
+use tokio::{
+	sync::Notify,
+	time::{sleep, Instant},
+};
 use tracing::{debug, error};
 
 use super::{ReceiveAndIngestNotifiers, SyncActors, ONE_MINUTE};
@@ -84,6 +87,8 @@ impl Ingester {
 	}
 
 	async fn run_loop_iteration(&self) -> Result<(), Error> {
+		let start = Instant::now();
+
 		let operations_to_ingest_count = self
 			.sync
 			.db
@@ -103,11 +108,12 @@ impl Ingester {
 			"Starting sync messages cloud ingestion loop"
 		);
 
-		self.sync.ingest_ops().await?;
+		let ingested_count = self.sync.ingest_ops().await?;
 
 		debug!(
-			operations_to_ingest_count,
-			"Finished sync messages cloud ingestion loop"
+			ingested_count,
+			"Finished sync messages cloud ingestion loop in {:?}",
+			start.elapsed()
 		);
 
 		Ok(())
