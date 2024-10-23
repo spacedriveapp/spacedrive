@@ -9,20 +9,20 @@ use sd_cloud_schema::{
 };
 use sd_crypto::{CryptoRng, SeedableRng};
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use iroh_net::{
 	discovery::{
 		dns::DnsDiscovery, local_swarm_discovery::LocalSwarmDiscovery, pkarr::dht::DhtDiscovery,
-		ConcurrentDiscovery,
+		ConcurrentDiscovery, Discovery,
 	},
 	relay::{RelayMap, RelayMode, RelayUrl},
 	Endpoint, NodeId,
 };
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use tokio::{spawn, sync::oneshot};
-use tracing::error;
+use tokio::{spawn, sync::oneshot, time::sleep};
+use tracing::{debug, error, warn};
 
 mod new_sync_messages_notifier;
 mod runner;
@@ -110,6 +110,12 @@ impl CloudP2P {
 		dns_pkarr_url: Url,
 		relay_url: RelayUrl,
 	) -> Result<Self, Error> {
+		let dht_discovery = DhtDiscovery::builder()
+			.secret_key(iroh_secret_key.clone())
+			.pkarr_relay(dns_pkarr_url)
+			.build()
+			.map_err(Error::DhtDiscoveryInit)?;
+
 		let endpoint = Endpoint::builder()
 			.alpns(vec![CloudP2PALPN::LATEST.to_vec()])
 			.discovery(Box::new(ConcurrentDiscovery::from_services(vec![
@@ -118,19 +124,30 @@ impl CloudP2P {
 					LocalSwarmDiscovery::new(iroh_secret_key.public())
 						.map_err(Error::LocalSwarmDiscoveryInit)?,
 				),
-				Box::new(
-					DhtDiscovery::builder()
-						.secret_key(iroh_secret_key.clone())
-						.pkarr_relay(dns_pkarr_url)
-						.build()
-						.map_err(Error::DhtDiscoveryInit)?,
-				),
+				Box::new(dht_discovery.clone()),
 			])))
 			.secret_key(iroh_secret_key)
 			.relay_mode(RelayMode::Custom(RelayMap::from_url(relay_url)))
 			.bind()
 			.await
 			.map_err(Error::CreateCloudP2PEndpoint)?;
+
+		spawn({
+			let endpoint = endpoint.clone();
+			async move {
+				loop {
+					let Ok(node_addr) = endpoint.node_addr().await.map_err(|e| {
+						warn!(?e, "Failed to get direct addresses to force publish on DHT");
+					}) else {
+						sleep(Duration::from_secs(5)).await;
+						continue;
+					};
+
+					debug!("Force publishing peer on DHT");
+					return dht_discovery.publish(&node_addr.info);
+				}
+			}
+		});
 
 		let (msgs_tx, msgs_rx) = flume::bounded(16);
 
