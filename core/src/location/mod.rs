@@ -880,11 +880,9 @@ pub async fn delete_directory(
 	library: &Library,
 	location_id: location::id::Type,
 	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
-) -> Result<(), QueryError> {
+) -> Result<(), sd_core_sync::Error> {
 	let Library { db, .. } = library;
 
-	// This is NOT sync-compatible!
-	// Sync requires having sync ids available.
 	let children_params = sd_utils::chain_optional_iter(
 		[file_path::location_id::equals(Some(location_id))],
 		[parent_iso_file_path.and_then(|parent| {
@@ -899,7 +897,39 @@ pub async fn delete_directory(
 		})],
 	);
 
-	db.file_path().delete_many(children_params).exec().await?;
+	let pub_ids = library
+		.db
+		.file_path()
+		.find_many(children_params.clone())
+		.select(file_path::select!({ pub_id }))
+		.exec()
+		.await?
+		.into_iter()
+		.map(|fp| fp.pub_id)
+		.collect::<Vec<_>>();
+
+	if pub_ids.is_empty() {
+		debug!("No file paths to delete");
+		return Ok(());
+	}
+
+	library
+		.sync
+		.write_ops(
+			&library.db,
+			(
+				pub_ids
+					.into_iter()
+					.map(|pub_id| {
+						library
+							.sync
+							.shared_delete(prisma_sync::file_path::SyncId { pub_id })
+					})
+					.collect(),
+				db.file_path().delete_many(children_params),
+			),
+		)
+		.await?;
 
 	// library.orphan_remover.invoke().await;
 
