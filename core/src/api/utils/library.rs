@@ -22,7 +22,10 @@ pub(crate) struct LibraryArgs<T> {
 
 pub(crate) struct LibraryArgsLike;
 impl MwArgMapper for LibraryArgsLike {
-	type Input<T> = LibraryArgs<T> where T: Type + DeserializeOwned + 'static;
+	type Input<T>
+		= LibraryArgs<T>
+	where
+		T: Type + DeserializeOwned + 'static;
 	type State = Uuid;
 
 	fn map<T: Serialize + DeserializeOwned + Type + 'static>(

@@ -11,6 +11,7 @@
 		"lint": "eslint . --cache"
 	},
 	"devDependencies": {
+		"@babel/preset-typescript": "^7.24.0",
 		"@typescript-eslint/eslint-plugin": "^8.8.0",
 		"@typescript-eslint/parser": "^8.8.0",
 		"@vitejs/plugin-react-swc": "^3.6.0",
@@ -26,8 +27,8 @@
 		"eslint-utils": "^3.0.0",
 		"regexpp": "^3.2.0",
 		"vite-plugin-html": "^3.2.2",
-		"vite-plugin-i18next-loader": "^2.0.12",
-		"vite-plugin-inspect": "^0.8.3",
+		"vite-plugin-i18next-loader": "^2.0.14",
+		"vite-plugin-inspect": "^0.8.7",
 		"vite-plugin-solid": "^2.10.2",
 		"vite-plugin-svgr": "^3.3.0"
 	},

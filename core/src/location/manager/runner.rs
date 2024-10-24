@@ -38,14 +38,16 @@ type LocationIdAndLibraryId = (location::id::Type, LibraryId);
 
 struct Runner {
 	node: Arc<Node>,
+	device_pub_id_to_db: Vec<u8>,
 	locations_to_check: HashMap<location::id::Type, Arc<Library>>,
 	locations_watched: HashMap<LocationIdAndLibraryId, LocationWatcher>,
 	locations_unwatched: HashMap<LocationIdAndLibraryId, LocationWatcher>,
 	forced_unwatch: HashSet<LocationIdAndLibraryId>,
 }
 impl Runner {
-	fn new(node: Arc<Node>) -> Self {
+	async fn new(node: Arc<Node>) -> Self {
 		Self {
+			device_pub_id_to_db: node.config.get().await.id.to_db(),
 			node,
 			locations_to_check: HashMap::new(),
 			locations_watched: HashMap::new(),
@@ -54,13 +56,20 @@ impl Runner {
 		}
 	}
 
+	fn check_same_device(&self, location: &location_ids_and_path::Data) -> bool {
+		location
+			.device
+			.as_ref()
+			.is_some_and(|device| device.pub_id == self.device_pub_id_to_db)
+	}
+
 	async fn add_location(
 		&mut self,
 		location_id: i32,
 		library: Arc<Library>,
 	) -> Result<(), LocationManagerError> {
 		if let Some(location) = get_location(location_id, &library).await? {
-			check_online(&location, &self.node, &library)
+			check_online(&location, &self.node, &library, &self.device_pub_id_to_db)
 				.await
 				.and_then(|is_online| {
 					LocationWatcher::new(location, Arc::clone(&library), Arc::clone(&self.node))
@@ -92,8 +101,7 @@ impl Runner {
 		let key = (location_id, library.id);
 
 		if let Some(location) = get_location(location_id, &library).await? {
-			// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-			if location.instance_id == Some(library.config().await.instance_id) {
+			if self.check_same_device(&location) {
 				self.unwatch_location(location, library.id);
 				self.locations_unwatched.remove(&key);
 				self.forced_unwatch.remove(&key);
@@ -101,7 +109,7 @@ impl Runner {
 				self.drop_location(
 					location_id,
 					library.id,
-				"Dropping location from location manager, because we don't have a `local_path` anymore",
+					"Dropping location from location manager, because it isn't from this device",
 				);
 			}
 		} else {
@@ -298,9 +306,8 @@ impl Runner {
 		let key = (location_id, library.id);
 
 		if let Some(location) = get_location(location_id, &library).await? {
-			// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-			if location.instance_id == Some(library.config().await.instance_id) {
-				if check_online(&location, &self.node, &library).await?
+			if self.check_same_device(&location) {
+				if check_online(&location, &self.node, &library, &self.device_pub_id_to_db).await?
 					&& !self.forced_unwatch.contains(&key)
 				{
 					self.watch_location(location, library.id);
@@ -314,7 +321,7 @@ impl Runner {
 					location_id,
 					library.id,
 					"Dropping location from location manager, because \
-							it isn't a location in the current node",
+							it isn't a location in the current device",
 				);
 				self.forced_unwatch.remove(&key);
 			}
@@ -344,7 +351,7 @@ pub(super) async fn run(
 	let mut check_locations_interval = interval(Duration::from_secs(2));
 	check_locations_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-	let mut runner = Runner::new(node);
+	let mut runner = Runner::new(node).await;
 
 	let mut msg_stream = pin!((
 		location_management_rx.map(StreamMessage::LocationManagementMessage),
@@ -410,20 +417,23 @@ async fn get_location(
 	fields(%location_id, library_id = %library.id),
 	err,
 )]
-pub(super) async fn check_online(
+async fn check_online(
 	location_ids_and_path::Data {
 		id: location_id,
 		pub_id,
-		instance_id,
+		device,
 		path,
 	}: &location_ids_and_path::Data,
 	node: &Node,
 	library: &Library,
+	device_pub_id_to_db: &[u8],
 ) -> Result<bool, LocationManagerError> {
 	let pub_id = Uuid::from_slice(pub_id)?;
 
-	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
-	if *instance_id == Some(library.config().await.instance_id) {
+	if device
+		.as_ref()
+		.is_some_and(|device| device.pub_id == device_pub_id_to_db)
+	{
 		match fs::metadata(maybe_missing(path, "location.path")?).await {
 			Ok(_) => {
 				node.locations.add_online(pub_id).await;

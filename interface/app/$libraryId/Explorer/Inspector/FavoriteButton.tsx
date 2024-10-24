@@ -14,7 +14,7 @@ export default function FavoriteButton(props: Props) {
 		setFavorite(!!props.data?.favorite);
 	}, [props.data]);
 
-	const { mutate: fileToggleFavorite, isLoading: isFavoriteLoading } = useLibraryMutation(
+	const { mutate: fileToggleFavorite, isPending: isFavoriteLoading } = useLibraryMutation(
 		'files.setFavorite'
 		// {
 		// 	onError: () => setFavorite(!!props.data?.favorite)

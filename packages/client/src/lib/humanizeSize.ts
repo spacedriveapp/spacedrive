@@ -146,3 +146,10 @@ export const humanizeSize = (
 		}
 	};
 };
+
+export const compareHumanizedSizes = (
+	size1: ReturnType<typeof humanizeSize>,
+	size2: ReturnType<typeof humanizeSize>
+): boolean => {
+	return size1.bytes === size2.bytes && size1.unit === size2.unit && size1.value === size2.value;
+};

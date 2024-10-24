@@ -13,10 +13,14 @@ export interface NarrowSolidPluginOptions extends Partial<Options> {
 
 export function narrowSolidPlugin({ include, exclude, ...rest }: NarrowSolidPluginOptions = {}) {
 	const plugin = solidPlugin(rest);
-	const originalConfig = plugin.config!.bind(plugin);
+	const originalConfig =
+		typeof plugin.config == 'function'
+			? (plugin.config.bind(plugin) as typeof plugin.config)
+			: plugin.config;
 	const filter = createFilter(include, exclude);
 	plugin.config = (...args) => {
-		const baseConfig = originalConfig(...args);
+		const baseConfig =
+			typeof originalConfig == 'function' ? originalConfig?.(...args) : originalConfig;
 		return {
 			...baseConfig,
 			esbuild: {

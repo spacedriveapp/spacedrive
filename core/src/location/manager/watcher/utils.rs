@@ -27,21 +27,23 @@ use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, RulerDecision,
 };
-use sd_core_prisma_helpers::{file_path_with_object, object_ids, CasId, ObjectPubId};
+use sd_core_prisma_helpers::{
+	file_path_watcher_remove, file_path_with_object, object_ids, CasId, ObjectPubId,
+};
 
 use sd_file_ext::{
 	extensions::{AudioExtension, ImageExtension, VideoExtension},
 	kind::ObjectKind,
 };
 use sd_prisma::{
-	prisma::{file_path, location, object},
+	prisma::{device, file_path, location, object},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{option_sync_db_entry, sync_db_entry, sync_entry, OperationFactory};
 use sd_utils::{
-	db::{inode_from_db, inode_to_db, maybe_missing},
+	chain_optional_iter,
+	db::{inode_from_db, inode_to_db, maybe_missing, size_in_bytes_to_db},
 	error::FileIOError,
-	msgpack,
 };
 
 #[cfg(target_family = "unix")]
@@ -352,28 +354,35 @@ async fn inner_create_file(
 			DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 		let int_kind = kind as i32;
 
-		sync.write_ops(
-			db,
+		let device_pub_id = sync.device_pub_id.to_db();
+
+		let (sync_params, db_params) = [
+			sync_db_entry!(date_created, object::date_created),
+			sync_db_entry!(int_kind, object::kind),
 			(
-				sync.shared_create(
-					prisma_sync::object::SyncId {
-						pub_id: pub_id.to_db(),
+				sync_entry!(
+					prisma_sync::device::SyncId {
+						pub_id: device_pub_id.clone()
 					},
-					[
-						(object::date_created::NAME, msgpack!(date_created)),
-						(object::kind::NAME, msgpack!(int_kind)),
-					],
+					object::device
 				),
-				db.object()
-					.create(
-						pub_id.into(),
-						vec![
-							object::date_created::set(Some(date_created)),
-							object::kind::set(Some(int_kind)),
-						],
-					)
-					.select(object_ids::select()),
+				object::device::connect(device::pub_id::equals(device_pub_id)),
 			),
+		]
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+		sync.write_op(
+			db,
+			sync.shared_create(
+				prisma_sync::object::SyncId {
+					pub_id: pub_id.to_db(),
+				},
+				sync_params,
+			),
+			db.object()
+				.create(pub_id.into(), db_params)
+				.select(object_ids::select()),
 		)
 		.await?
 	};
@@ -384,17 +393,21 @@ async fn inner_create_file(
 			prisma_sync::location::SyncId {
 				pub_id: created_file.pub_id.clone(),
 			},
-			file_path::object::NAME,
-			msgpack!(prisma_sync::object::SyncId {
-				pub_id: object_pub_id.clone()
-			}),
+			[sync_entry!(
+				prisma_sync::object::SyncId {
+					pub_id: object_pub_id.clone()
+				},
+				file_path::object
+			)],
 		),
-		db.file_path().update(
-			file_path::pub_id::equals(created_file.pub_id.clone()),
-			vec![file_path::object::connect(object::pub_id::equals(
-				object_pub_id.clone(),
-			))],
-		),
+		db.file_path()
+			.update(
+				file_path::pub_id::equals(created_file.pub_id.clone()),
+				vec![file_path::object::connect(object::pub_id::equals(
+					object_pub_id.clone(),
+				))],
+			)
+			.select(file_path::select!({ id })),
 	)
 	.await?;
 
@@ -583,34 +596,22 @@ async fn inner_update_file(
 
 	let is_hidden = path_is_hidden(full_path, &fs_metadata);
 	if file_path.cas_id.as_deref() != cas_id.as_ref().map(CasId::as_str) {
-		let (sync_params, db_params): (Vec<_>, Vec<_>) = {
-			use file_path::*;
-
+		let (sync_params, db_params) = chain_optional_iter(
 			[
-				(
-					(cas_id::NAME, msgpack!(file_path.cas_id)),
-					Some(cas_id::set(file_path.cas_id.clone())),
+				sync_db_entry!(
+					size_in_bytes_to_db(fs_metadata.len()),
+					file_path::size_in_bytes_bytes
 				),
-				(
-					(
-						size_in_bytes_bytes::NAME,
-						msgpack!(fs_metadata.len().to_be_bytes().to_vec()),
-					),
-					Some(size_in_bytes_bytes::set(Some(
-						fs_metadata.len().to_be_bytes().to_vec(),
-					))),
+				sync_db_entry!(
+					DateTime::<Utc>::from(fs_metadata.modified_or_now()),
+					file_path::date_modified
 				),
-				{
-					let date = DateTime::<Utc>::from(fs_metadata.modified_or_now()).into();
-
-					(
-						(date_modified::NAME, msgpack!(date)),
-						Some(date_modified::set(Some(date))),
-					)
-				},
-				{
-					// TODO: Should this be a skip rather than a null-set?
-					let checksum = if file_path.integrity_checksum.is_some() {
+			],
+			[
+				option_sync_db_entry!(file_path.cas_id.clone(), file_path::cas_id),
+				option_sync_db_entry!(
+					if file_path.integrity_checksum.is_some() {
+						// TODO: Should this be a skip rather than a null-set?
 						// If a checksum was already computed, we need to recompute it
 						Some(
 							file_checksum(full_path)
@@ -619,62 +620,37 @@ async fn inner_update_file(
 						)
 					} else {
 						None
-					};
-
-					(
-						(integrity_checksum::NAME, msgpack!(checksum)),
-						Some(integrity_checksum::set(checksum)),
-					)
-				},
-				{
-					if current_inode != inode {
-						(
-							(inode::NAME, msgpack!(inode)),
-							Some(inode::set(Some(inode_to_db(inode)))),
-						)
-					} else {
-						((inode::NAME, msgpack!(nil)), None)
-					}
-				},
-				{
-					if is_hidden != file_path.hidden.unwrap_or_default() {
-						(
-							(hidden::NAME, msgpack!(inode)),
-							Some(hidden::set(Some(is_hidden))),
-						)
-					} else {
-						((hidden::NAME, msgpack!(nil)), None)
-					}
-				},
-			]
-			.into_iter()
-			.filter_map(|(sync_param, maybe_db_param)| {
-				maybe_db_param.map(|db_param| (sync_param, db_param))
-			})
-			.unzip()
-		};
+					},
+					file_path::integrity_checksum
+				),
+				option_sync_db_entry!(
+					(current_inode != inode).then(|| inode_to_db(inode)),
+					file_path::inode
+				),
+				option_sync_db_entry!(
+					(is_hidden != file_path.hidden.unwrap_or_default()).then_some(is_hidden),
+					file_path::hidden
+				),
+			],
+		)
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
 		// file content changed
-		sync.write_ops(
+		sync.write_op(
 			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(field, value)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							field,
-							value,
-						)
-					})
-					.collect(),
-				db.file_path().update(
+			sync.shared_update(
+				prisma_sync::file_path::SyncId {
+					pub_id: file_path.pub_id.clone(),
+				},
+				sync_params,
+			),
+			db.file_path()
+				.update(
 					file_path::pub_id::equals(file_path.pub_id.clone()),
 					db_params,
-				),
-			),
+				)
+				.select(file_path::select!({ id })),
 		)
 		.await?;
 
@@ -688,19 +664,18 @@ async fn inner_update_file(
 				.await? == 1
 			{
 				if object.kind.map(|k| k != int_kind).unwrap_or_default() {
+					let (sync_param, db_param) = sync_db_entry!(int_kind, object::kind);
 					sync.write_op(
 						db,
 						sync.shared_update(
 							prisma_sync::object::SyncId {
 								pub_id: object.pub_id.clone(),
 							},
-							object::kind::NAME,
-							msgpack!(int_kind),
+							[sync_param],
 						),
-						db.object().update(
-							object::id::equals(object.id),
-							vec![object::kind::set(Some(int_kind))],
-						),
+						db.object()
+							.update(object::id::equals(object.id), vec![db_param])
+							.select(object::select!({ id })),
 					)
 					.await?;
 				}
@@ -709,26 +684,33 @@ async fn inner_update_file(
 				let date_created: DateTime<FixedOffset> =
 					DateTime::<Local>::from(fs_metadata.created_or_now()).into();
 
-				sync.write_ops(
-					db,
+				let device_pub_id = sync.device_pub_id.to_db();
+
+				let (sync_params, db_params) = [
+					sync_db_entry!(date_created, object::date_created),
+					sync_db_entry!(int_kind, object::kind),
 					(
-						sync.shared_create(
-							prisma_sync::object::SyncId {
-								pub_id: pub_id.to_db(),
+						sync_entry!(
+							prisma_sync::device::SyncId {
+								pub_id: device_pub_id.clone()
 							},
-							[
-								(object::date_created::NAME, msgpack!(date_created)),
-								(object::kind::NAME, msgpack!(int_kind)),
-							],
+							object::device
 						),
-						db.object().create(
-							pub_id.to_db(),
-							vec![
-								object::date_created::set(Some(date_created)),
-								object::kind::set(Some(int_kind)),
-							],
-						),
+						object::device::connect(device::pub_id::equals(device_pub_id)),
 					),
+				]
+				.into_iter()
+				.unzip::<_, _, Vec<_>, Vec<_>>();
+
+				sync.write_op(
+					db,
+					sync.shared_create(
+						prisma_sync::object::SyncId {
+							pub_id: pub_id.to_db(),
+						},
+						sync_params,
+					),
+					db.object().create(pub_id.to_db(), db_params),
 				)
 				.await?;
 
@@ -738,17 +720,21 @@ async fn inner_update_file(
 						prisma_sync::location::SyncId {
 							pub_id: file_path.pub_id.clone(),
 						},
-						file_path::object::NAME,
-						msgpack!(prisma_sync::object::SyncId {
-							pub_id: pub_id.to_db()
-						}),
+						[sync_entry!(
+							prisma_sync::object::SyncId {
+								pub_id: pub_id.to_db()
+							},
+							file_path::object
+						)],
 					),
-					db.file_path().update(
-						file_path::pub_id::equals(file_path.pub_id.clone()),
-						vec![file_path::object::connect(object::pub_id::equals(
-							pub_id.into(),
-						))],
-					),
+					db.file_path()
+						.update(
+							file_path::pub_id::equals(file_path.pub_id.clone()),
+							vec![file_path::object::connect(object::pub_id::equals(
+								pub_id.into(),
+							))],
+						)
+						.select(file_path::select!({ id })),
 				)
 				.await?;
 			}
@@ -856,21 +842,22 @@ async fn inner_update_file(
 		invalidate_query!(library, "search.paths");
 		invalidate_query!(library, "search.objects");
 	} else if is_hidden != file_path.hidden.unwrap_or_default() {
-		sync.write_ops(
+		let (sync_param, db_param) = sync_db_entry!(is_hidden, file_path::hidden);
+
+		sync.write_op(
 			db,
-			(
-				vec![sync.shared_update(
-					prisma_sync::file_path::SyncId {
-						pub_id: file_path.pub_id.clone(),
-					},
-					file_path::hidden::NAME,
-					msgpack!(is_hidden),
-				)],
-				db.file_path().update(
-					file_path::pub_id::equals(file_path.pub_id.clone()),
-					vec![file_path::hidden::set(Some(is_hidden))],
-				),
+			sync.shared_update(
+				prisma_sync::file_path::SyncId {
+					pub_id: file_path.pub_id.clone(),
+				},
+				[sync_param],
 			),
+			db.file_path()
+				.update(
+					file_path::pub_id::equals(file_path.pub_id.clone()),
+					vec![db_param],
+				)
+				.select(file_path::select!({ id })),
 		)
 		.await?;
 
@@ -954,7 +941,7 @@ pub(super) async fn rename(
 				.await?;
 
 			let total_paths_count = paths.len();
-			let (sync_params, db_params): (Vec<_>, Vec<_>) = paths
+			let (sync_params, db_params) = paths
 				.into_iter()
 				.filter_map(|path| path.materialized_path.map(|mp| (path.id, path.pub_id, mp)))
 				.map(|(id, pub_id, mp)| {
@@ -963,75 +950,55 @@ pub(super) async fn rename(
 						&format!("{}/{}/", new_parts.materialized_path, new_parts.name),
 					);
 
+					let (sync_param, db_param) =
+						sync_db_entry!(new_path, file_path::materialized_path);
+
 					(
 						sync.shared_update(
 							sd_prisma::prisma_sync::file_path::SyncId { pub_id },
-							file_path::materialized_path::NAME,
-							msgpack!(&new_path),
+							[sync_param],
 						),
-						db.file_path().update(
-							file_path::id::equals(id),
-							vec![file_path::materialized_path::set(Some(new_path))],
-						),
+						db.file_path()
+							.update(file_path::id::equals(id), vec![db_param])
+							.select(file_path::select!({ id })),
 					)
 				})
-				.unzip();
+				.unzip::<_, _, Vec<_>, Vec<_>>();
 
-			sync.write_ops(db, (sync_params, db_params)).await?;
+			if !sync_params.is_empty() && !db_params.is_empty() {
+				sync.write_ops(db, (sync_params, db_params)).await?;
+			}
 
 			trace!(%total_paths_count, "Updated file_paths;");
 		}
 
-		let is_hidden = path_is_hidden(new_path, &new_path_metadata);
-
-		let date_modified = DateTime::<Utc>::from(new_path_metadata.modified_or_now()).into();
-
-		let (sync_params, db_params): (Vec<_>, Vec<_>) = [
-			(
-				(
-					file_path::materialized_path::NAME,
-					msgpack!(new_path_materialized_str),
-				),
-				file_path::materialized_path::set(Some(new_path_materialized_str)),
+		let (sync_params, db_params) = [
+			sync_db_entry!(new_path_materialized_str, file_path::materialized_path),
+			sync_db_entry!(new_parts.name.to_string(), file_path::name),
+			sync_db_entry!(new_parts.extension.to_string(), file_path::extension),
+			sync_db_entry!(
+				DateTime::<Utc>::from(new_path_metadata.modified_or_now()),
+				file_path::date_modified
 			),
-			(
-				(file_path::name::NAME, msgpack!(new_parts.name)),
-				file_path::name::set(Some(new_parts.name.to_string())),
-			),
-			(
-				(file_path::extension::NAME, msgpack!(new_parts.extension)),
-				file_path::extension::set(Some(new_parts.extension.to_string())),
-			),
-			(
-				(file_path::date_modified::NAME, msgpack!(&date_modified)),
-				file_path::date_modified::set(Some(date_modified)),
-			),
-			(
-				(file_path::hidden::NAME, msgpack!(is_hidden)),
-				file_path::hidden::set(Some(is_hidden)),
+			sync_db_entry!(
+				path_is_hidden(new_path, &new_path_metadata),
+				file_path::hidden
 			),
 		]
 		.into_iter()
-		.unzip();
+		.unzip::<_, _, Vec<_>, Vec<_>>();
 
-		sync.write_ops(
+		sync.write_op(
 			db,
-			(
-				sync_params
-					.into_iter()
-					.map(|(k, v)| {
-						sync.shared_update(
-							prisma_sync::file_path::SyncId {
-								pub_id: file_path.pub_id.clone(),
-							},
-							k,
-							v,
-						)
-					})
-					.collect(),
-				db.file_path()
-					.update(file_path::pub_id::equals(file_path.pub_id), db_params),
+			sync.shared_update(
+				prisma_sync::file_path::SyncId {
+					pub_id: file_path.pub_id.clone(),
+				},
+				sync_params,
 			),
+			db.file_path()
+				.update(file_path::pub_id::equals(file_path.pub_id), db_params)
+				.select(file_path::select!({ id })),
 		)
 		.await?;
 
@@ -1060,19 +1027,20 @@ pub(super) async fn remove(
 			&location_path,
 			full_path,
 		)?)
+		.select(file_path_watcher_remove::select())
 		.exec()
 		.await?
 	else {
 		return Ok(());
 	};
 
-	remove_by_file_path(location_id, full_path, &file_path, library).await
+	remove_by_file_path(location_id, full_path, file_path, library).await
 }
 
 async fn remove_by_file_path(
 	location_id: location::id::Type,
 	path: impl AsRef<Path> + Send,
-	file_path: &file_path::Data,
+	file_path: file_path_watcher_remove::Data,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	// check file still exists on disk
@@ -1096,28 +1064,42 @@ async fn remove_by_file_path(
 				delete_directory(
 					library,
 					location_id,
-					Some(&IsolatedFilePathData::try_from(file_path)?),
+					Some(&IsolatedFilePathData::try_from(&file_path)?),
 				)
 				.await?;
 			} else {
 				sync.write_op(
 					db,
 					sync.shared_delete(prisma_sync::file_path::SyncId {
-						pub_id: file_path.pub_id.clone(),
+						pub_id: file_path.pub_id,
 					}),
 					db.file_path().delete(file_path::id::equals(file_path.id)),
 				)
 				.await?;
 
-				if let Some(object_id) = file_path.object_id {
-					db.object()
-						.delete_many(vec![
-							object::id::equals(object_id),
+				if let Some(object) = file_path.object {
+					// If this object doesn't have any other file paths, delete it
+					if db
+						.object()
+						.count(vec![
+							object::id::equals(object.id),
 							// https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#none
 							object::file_paths::none(vec![]),
 						])
 						.exec()
+						.await? == 1
+					{
+						sync.write_op(
+							db,
+							sync.shared_delete(prisma_sync::object::SyncId {
+								pub_id: object.pub_id,
+							}),
+							db.object()
+								.delete(object::id::equals(object.id))
+								.select(object::select!({ id })),
+						)
 						.await?;
+					}
 				}
 			}
 		}
@@ -1186,6 +1168,7 @@ pub(super) async fn recalculate_directories_size(
 	candidates: &mut HashMap<PathBuf, Instant>,
 	buffer: &mut Vec<(PathBuf, Instant)>,
 	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
 	library: &Library,
 ) -> Result<(), LocationManagerError> {
 	let mut location_path_cache = None;
@@ -1244,7 +1227,7 @@ pub(super) async fn recalculate_directories_size(
 	}
 
 	if should_update_location_size {
-		update_location_size(location_id, library).await?;
+		update_location_size(location_id, location_pub_id, library).await?;
 	}
 
 	if should_invalidate {

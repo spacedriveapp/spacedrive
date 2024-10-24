@@ -28,7 +28,7 @@ impl<'a, T: Clone> SmartWriteGuard<'a, T> {
 	}
 }
 
-impl<'a, T> Deref for SmartWriteGuard<'a, T> {
+impl<T> Deref for SmartWriteGuard<'_, T> {
 	type Target = T;
 
 	fn deref(&self) -> &Self::Target {
@@ -36,13 +36,13 @@ impl<'a, T> Deref for SmartWriteGuard<'a, T> {
 	}
 }
 
-impl<'a, T> DerefMut for SmartWriteGuard<'a, T> {
+impl<T> DerefMut for SmartWriteGuard<'_, T> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.lock
 	}
 }
 
-impl<'a, T> Drop for SmartWriteGuard<'a, T> {
+impl<T> Drop for SmartWriteGuard<'_, T> {
 	fn drop(&mut self) {
 		(self.save)(
 			self.p2p,

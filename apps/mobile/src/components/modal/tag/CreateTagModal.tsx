@@ -35,7 +35,7 @@ const CreateTagModal = forwardRef<ModalRef, unknown>((_, ref) => {
 			setTagColor(ToastDefautlColor);
 			setShowPicker(false);
 
-			rspc.queryClient.invalidateQueries(['tags.list']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['tags.list'] });
 
 			toast.success('Tag created successfully');
 			submitPlausibleEvent({ event: { type: 'tagCreate' } });

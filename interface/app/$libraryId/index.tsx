@@ -3,16 +3,12 @@ import { type RouteObject } from 'react-router-dom';
 import { guessOperatingSystem } from '~/hooks';
 import { Platform } from '~/util/Platform';
 
-import { debugRoutes } from './debug';
 import settingsRoutes from './settings';
 
 // Routes that should be contained within the standard Page layout
 const pageRoutes: RouteObject = {
 	lazy: () => import('./PageLayout'),
-	children: [
-		{ path: 'overview', lazy: () => import('./overview') },
-		{ path: 'debug', children: debugRoutes }
-	]
+	children: [{ path: 'overview', lazy: () => import('./overview') }]
 };
 
 // Routes that render the explorer and don't need padding and stuff
@@ -37,8 +33,7 @@ function loadTopBarRoutes() {
 		return [
 			...explorerRoutes,
 			pageRoutes,
-			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes },
-			{ path: 'debug', children: debugRoutes }
+			{ path: 'settings', lazy: () => import('./settings/Layout'), children: settingsRoutes }
 		];
 	} else return [...explorerRoutes, pageRoutes];
 }
@@ -76,6 +71,11 @@ export default (platform: Platform) =>
 			path: 'settings',
 			lazy: () => import('./settings/Layout'),
 			children: settingsRoutes
+		},
+		{
+			path: 'auth',
+			lazy: () => import('./Layout/auth'),
+			children: []
 		},
 		{ path: '*', lazy: () => import('./404') }
 	] satisfies RouteObject[];

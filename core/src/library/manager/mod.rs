@@ -1,16 +1,21 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
-	cloud, invalidate_query,
+	invalidate_query,
 	location::metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	object::tag,
-	p2p, sync,
+	p2p,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
-use sd_core_sync::SyncMessage;
+use sd_core_sync::{SyncEvent, SyncManager};
+
 use sd_p2p::{Identity, RemoteIdentity};
-use sd_prisma::prisma::{instance, location};
+use sd_prisma::{
+	prisma::{self, device, instance, location, PrismaClient},
+	prisma_sync,
+};
+use sd_sync::ModelId;
 use sd_utils::{
 	db,
 	error::{FileIOError, NonUtf8PathError},
@@ -24,25 +29,25 @@ use std::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
 	},
-	time::Duration,
 };
 
 use chrono::Utc;
 use futures_concurrency::future::{Join, TryJoin};
+use prisma_client_rust::Raw;
 use tokio::{
 	fs, io, spawn,
 	sync::{broadcast, RwLock},
-	time::sleep,
 };
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
-use super::pragmas::configure_pragmas;
 use super::{Library, LibraryConfig, LibraryName};
 
 mod error;
 
 pub mod pragmas;
+
+use pragmas::configure_pragmas;
 
 pub use error::*;
 
@@ -136,7 +141,7 @@ impl Libraries {
 				}
 
 				let _library_arc = self
-					.load(library_id, &db_path, config_path, None, true, node)
+					.load(library_id, &db_path, config_path, None, None, true, node)
 					.await?;
 
 				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
@@ -159,12 +164,11 @@ impl Libraries {
 		description: Option<String>,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
-		self.create_with_uuid(Uuid::new_v4(), name, description, true, None, node, false)
+		self.create_with_uuid(Uuid::now_v7(), name, description, true, None, node)
 			.await
 	}
 
 	#[instrument(skip(self, instance, node), err)]
-	#[allow(clippy::too_many_arguments)]
 	pub(crate) async fn create_with_uuid(
 		self: &Arc<Self>,
 		id: Uuid,
@@ -174,7 +178,6 @@ impl Libraries {
 		// `None` will fallback to default as library must be created with at least one instance
 		instance: Option<instance::Create>,
 		node: &Arc<Node>,
-		generate_sync_operations: bool,
 	) -> Result<Arc<Library>, LibraryManagerError> {
 		if name.as_ref().is_empty() || name.as_ref().chars().all(|x| x.is_whitespace()) {
 			return Err(LibraryManagerError::InvalidConfig(
@@ -190,7 +193,6 @@ impl Libraries {
 			// First instance will be zero
 			0,
 			&config_path,
-			generate_sync_operations,
 		)
 		.await?;
 
@@ -206,12 +208,21 @@ impl Libraries {
 				id,
 				self.libraries_dir.join(format!("{id}.db")),
 				config_path,
+				Some(device::Create {
+					pub_id: node_cfg.id.to_db(),
+					_params: vec![
+						device::name::set(Some(node_cfg.name.clone())),
+						device::os::set(Some(node_cfg.os as i32)),
+						device::hardware_model::set(Some(node_cfg.hardware_model as i32)),
+						device::date_created::set(Some(now)),
+					],
+				}),
 				Some({
 					let identity = Identity::new();
 					let mut create = instance.unwrap_or_else(|| instance::Create {
-						pub_id: Uuid::new_v4().as_bytes().to_vec(),
+						pub_id: Uuid::now_v7().as_bytes().to_vec(),
 						remote_identity: identity.to_remote_identity().get_bytes().to_vec(),
-						node_id: node_cfg.id.as_bytes().to_vec(),
+						node_id: node_cfg.id.to_db(),
 						last_seen: now,
 						date_created: now,
 						_params: vec![
@@ -270,33 +281,28 @@ impl Libraries {
 		);
 
 		library
-			.update_config(
-				|config| {
-					// update the library
-					if let Some(name) = name {
-						config.name = name;
-					}
-					match description {
-						MaybeUndefined::Undefined => {}
-						MaybeUndefined::Null => config.description = None,
-						MaybeUndefined::Value(description) => {
-							config.description = Some(description)
-						}
-					}
-					match cloud_id {
-						MaybeUndefined::Undefined => {}
-						MaybeUndefined::Null => config.cloud_id = None,
-						MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
-					}
-					match enable_sync {
-						None => {}
-						Some(value) => config
-							.generate_sync_operations
-							.store(value, Ordering::SeqCst),
-					}
-				},
-				self.libraries_dir.join(format!("{id}.sdlibrary")),
-			)
+			.update_config(|config| {
+				// update the library
+				if let Some(name) = name {
+					config.name = name;
+				}
+				match description {
+					MaybeUndefined::Undefined => {}
+					MaybeUndefined::Null => config.description = None,
+					MaybeUndefined::Value(description) => config.description = Some(description),
+				}
+				match cloud_id {
+					MaybeUndefined::Undefined => {}
+					MaybeUndefined::Null => config.cloud_id = None,
+					MaybeUndefined::Value(cloud_id) => config.cloud_id = Some(cloud_id),
+				}
+				match enable_sync {
+					None => {}
+					Some(value) => config
+						.generate_sync_operations
+						.store(value, Ordering::SeqCst),
+				}
+			})
 			.await?;
 
 		self.tx
@@ -425,6 +431,7 @@ impl Libraries {
 		self.libraries.read().await.get(library_id).is_some()
 	}
 
+	#[allow(clippy::too_many_arguments)] // TODO: remove this when we remove instance stuff
 	#[instrument(
 		skip_all,
 		fields(
@@ -441,7 +448,8 @@ impl Libraries {
 		id: Uuid,
 		db_path: impl AsRef<Path>,
 		config_path: impl AsRef<Path>,
-		create: Option<instance::Create>,
+		maybe_create_device: Option<device::Create>,
+		maybe_create_instance: Option<instance::Create>, // Deprecated
 		should_seed: bool,
 		node: &Arc<Node>,
 	) -> Result<Arc<Library>, LibraryManagerError> {
@@ -456,11 +464,21 @@ impl Libraries {
 		);
 		let db = Arc::new(db::load_and_migrate(&db_url).await?);
 
-		if let Some(create) = create {
+		// Configure database
+		configure_pragmas(&db).await?;
+		special_sync_indexes(&db).await?;
+
+		if let Some(create) = maybe_create_device {
+			create.to_query(&db).exec().await?;
+		}
+
+		// TODO: remove instances from locations
+		if let Some(create) = maybe_create_instance {
 			create.to_query(&db).exec().await?;
 		}
 
 		let node_config = node.config.get().await;
+		let device_pub_id = node_config.id.clone();
 		let config = LibraryConfig::load(config_path, &node_config, &db).await?;
 
 		let instances = db.instance().find_many(vec![]).exec().await?;
@@ -472,6 +490,16 @@ impl Libraries {
 				LibraryManagerError::CurrentInstanceNotFound(config.instance_id.to_string())
 			})?
 			.clone();
+
+		let devices = db.device().find_many(vec![]).exec().await?;
+
+		let device_pub_id_to_db = device_pub_id.to_db();
+		if !devices
+			.iter()
+			.any(|device| device.pub_id == device_pub_id_to_db)
+		{
+			return Err(LibraryManagerError::CurrentDeviceNotFound(device_pub_id));
+		}
 
 		let identity = match instance.identity.as_ref() {
 			Some(b) => Arc::new(Identity::from_bytes(b)?),
@@ -489,7 +517,7 @@ impl Libraries {
 			.node_remote_identity
 			.as_ref()
 			.and_then(|v| RemoteIdentity::from_bytes(v).ok());
-		if instance_node_id != node_config.id
+		if instance_node_id != Uuid::from(&node_config.id)
 			|| instance_node_remote_identity != Some(node_config.identity.to_remote_identity())
 			|| curr_metadata != Some(node.p2p.peer_metadata())
 		{
@@ -505,7 +533,7 @@ impl Libraries {
 				.update(
 					instance::id::equals(instance.id),
 					vec![
-						instance::node_id::set(node_config.id.as_bytes().to_vec()),
+						instance::node_id::set(node_config.id.to_db()),
 						instance::node_remote_identity::set(Some(
 							node_config
 								.identity
@@ -519,47 +547,22 @@ impl Libraries {
 						)),
 					],
 				)
+				.select(instance::select!({ id }))
 				.exec()
 				.await?;
 		}
 
 		// TODO: Move this reconciliation into P2P and do reconciliation of both local and remote nodes.
 
-		// let key_manager = Arc::new(KeyManager::new(vec![]).await?);
-		// seed_keymanager(&db, &key_manager).await?;
-
-		let actors = Default::default();
-
-		let (sync, sync_rx) = sync::Manager::with_existing_instances(
+		let (sync, sync_rx) = SyncManager::with_existing_devices(
 			Arc::clone(&db),
-			instance_id,
+			&device_pub_id,
 			Arc::clone(&config.generate_sync_operations),
-			&instances,
-			Arc::clone(&actors),
+			&devices,
 		)
 		.await?;
-		let sync_manager = Arc::new(sync);
 
-		// Configure database
-		configure_pragmas(&db).await?;
-
-		let cloud = crate::cloud::start(node, &actors, id, instance_id, &sync_manager, &db).await;
-
-		let (tx, mut rx) = broadcast::channel(10);
-		let library = Library::new(
-			id,
-			config,
-			instance_id,
-			identity,
-			// key_manager,
-			db,
-			node,
-			sync_manager,
-			cloud,
-			tx,
-			actors,
-		)
-		.await;
+		let library = Library::new(id, config, instance_id, identity, db, node, sync).await;
 
 		// This is an exception. Generally subscribe to this by `self.tx.subscribe`.
 		spawn(sync_rx_actor(library.clone(), node.clone(), sync_rx));
@@ -597,127 +600,6 @@ impl Libraries {
 			error!(?e, "Failed to resume jobs for library;");
 		}
 
-		spawn({
-			let this = self.clone();
-			let node = node.clone();
-			let library = library.clone();
-			async move {
-				loop {
-					debug!("Syncing library with cloud!");
-
-					if library.config().await.cloud_id.is_some() {
-						if let Ok(lib) =
-							sd_cloud_api::library::get(node.cloud_api_config().await, library.id)
-								.await
-						{
-							match lib {
-								Some(lib) => {
-									if let Some(this_instance) = lib
-										.instances
-										.iter()
-										.find(|i| i.uuid == library.instance_uuid)
-									{
-										let node_config = node.config.get().await;
-										let curr_metadata: Option<HashMap<String, String>> =
-											instance.metadata.as_ref().map(|metadata| {
-												serde_json::from_slice(metadata)
-													.expect("invalid metadata")
-											});
-										let should_update = this_instance.node_id != node_config.id
-											|| RemoteIdentity::from_str(
-												&this_instance.node_remote_identity,
-											)
-											.ok() != Some(
-												node_config.identity.to_remote_identity(),
-											) || curr_metadata
-											!= Some(node.p2p.peer_metadata());
-
-										if should_update {
-											warn!("Library instance on cloud is outdated. Updating...");
-
-											if let Err(e) = sd_cloud_api::library::update_instance(
-												node.cloud_api_config().await,
-												library.id,
-												this_instance.uuid,
-												Some(node_config.id),
-												Some(node_config.identity.to_remote_identity()),
-												Some(node.p2p.peer_metadata()),
-											)
-											.await
-											{
-												error!(
-													instance_uuid = %this_instance.uuid,
-													?e,
-													"Failed to updating instance on cloud;",
-												);
-											}
-										}
-									}
-
-									if lib.name != *library.config().await.name {
-										warn!("Library name on cloud is outdated. Updating...");
-
-										if let Err(e) = sd_cloud_api::library::update(
-											node.cloud_api_config().await,
-											library.id,
-											Some(lib.name),
-										)
-										.await
-										{
-											error!(?e, "Failed to update library name on cloud;");
-										}
-									}
-
-									for instance in lib.instances {
-										if let Err(e) = cloud::sync::receive::upsert_instance(
-											library.id,
-											&library.db,
-											&library.sync,
-											&node.libraries,
-											&instance.uuid,
-											instance.identity,
-											&instance.node_id,
-											RemoteIdentity::from_str(
-												&instance.node_remote_identity,
-											)
-											.expect("malformed remote identity from API"),
-											instance.metadata,
-										)
-										.await
-										{
-											error!(?e, "Failed to create instance on cloud;");
-										}
-									}
-								}
-								None => {
-									warn!(
-										"Library not found on cloud. Removing from local node..."
-									);
-
-									let _ = this
-										.edit(
-											library.id,
-											None,
-											MaybeUndefined::Undefined,
-											MaybeUndefined::Null,
-											None,
-										)
-										.await;
-								}
-							}
-						}
-					}
-
-					tokio::select! {
-						// Update instances every 2 minutes
-						_ = sleep(Duration::from_secs(120)) => {}
-						// Or when asked by user
-						Ok(_) = rx.recv() => {}
-					};
-				}
-			}
-		});
-
 		Ok(library)
 	}
 
@@ -742,7 +624,7 @@ impl Libraries {
 async fn sync_rx_actor(
 	library: Arc<Library>,
 	node: Arc<Node>,
-	mut sync_rx: broadcast::Receiver<SyncMessage>,
+	mut sync_rx: broadcast::Receiver<SyncEvent>,
 ) {
 	loop {
 		let Ok(msg) = sync_rx.recv().await else {
@@ -751,12 +633,63 @@ async fn sync_rx_actor(
 
 		match msg {
 			// TODO: Any sync event invalidates the entire React Query cache this is a hacky workaround until the new invalidation system.
-			SyncMessage::Ingested => node.emit(CoreEvent::InvalidateOperation(
+			SyncEvent::Ingested => node.emit(CoreEvent::InvalidateOperation(
 				InvalidateOperationEvent::all(),
 			)),
-			SyncMessage::Created => {
+			SyncEvent::Created => {
 				p2p::sync::originator(library.clone(), &library.sync, &node.p2p).await
 			}
 		}
 	}
+}
+
+async fn special_sync_indexes(db: &PrismaClient) -> Result<(), LibraryManagerError> {
+	async fn create_index(
+		db: &PrismaClient,
+		model_id: ModelId,
+		model_name: &str,
+	) -> Result<(), LibraryManagerError> {
+		db._execute_raw(Raw::new(
+			&format!(
+				"CREATE INDEX IF NOT EXISTS partial_index_model_{model_name} \
+				ON crdt_operation(model,record_id,kind,timestamp) \
+				WHERE model = {model_id}
+				"
+			),
+			vec![],
+		))
+		.exec()
+		.await?;
+
+		debug!(model_name, "Created sync partial index");
+
+		Ok(())
+	}
+
+	for (model_id, model_name) in [
+		(prisma_sync::device::MODEL_ID, prisma::device::NAME),
+		(
+			prisma_sync::storage_statistics::MODEL_ID,
+			prisma::storage_statistics::NAME,
+		),
+		(prisma_sync::tag::MODEL_ID, prisma::tag::NAME),
+		(prisma_sync::location::MODEL_ID, prisma::location::NAME),
+		(prisma_sync::object::MODEL_ID, prisma::object::NAME),
+		(prisma_sync::label::MODEL_ID, prisma::label::NAME),
+		(prisma_sync::exif_data::MODEL_ID, prisma::exif_data::NAME),
+		(prisma_sync::file_path::MODEL_ID, prisma::file_path::NAME),
+		(
+			prisma_sync::tag_on_object::MODEL_ID,
+			prisma::tag_on_object::NAME,
+		),
+		(
+			prisma_sync::label_on_object::MODEL_ID,
+			prisma::label_on_object::NAME,
+		),
+	] {
+		// Creating indexes sequentially just in case
+		create_index(db, model_id, model_name).await?;
+	}
+
+	Ok(())
 }

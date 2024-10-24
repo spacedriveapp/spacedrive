@@ -29,7 +29,10 @@
 
 use std::{
 	collections::HashMap,
+	fmt,
 	future::{Future, IntoFuture},
+	hash::Hash,
+	marker::PhantomData,
 	panic::{panic_any, AssertUnwindSafe},
 	pin::Pin,
 	sync::{
@@ -44,7 +47,7 @@ use async_channel as chan;
 use futures::FutureExt;
 use tokio::{
 	spawn,
-	sync::{broadcast, RwLock},
+	sync::{broadcast, Mutex, RwLock},
 	task::JoinHandle,
 	time::timeout,
 };
@@ -52,52 +55,122 @@ use tracing::{error, instrument, warn};
 
 const ONE_MINUTE: Duration = Duration::from_secs(60);
 
-type ActorFn = dyn Fn(Stopper) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync;
+pub trait ActorId: Hash + Eq + Send + Sync + Copy + fmt::Debug + fmt::Display + 'static {}
 
-pub struct Actor {
-	spawn_fn: Arc<ActorFn>,
+impl<T: Hash + Eq + Send + Sync + Copy + fmt::Debug + fmt::Display + 'static> ActorId for T {}
+
+pub trait Actor<Id: ActorId>: Send + Sync + 'static {
+	const IDENTIFIER: Id;
+
+	fn run(&mut self, stop: Stopper) -> impl Future<Output = ()> + Send;
+}
+
+mod sealed {
+	pub trait Sealed {}
+}
+
+#[async_trait::async_trait]
+pub trait DynActor<Id: ActorId>: Send + Sync + sealed::Sealed + 'static {
+	async fn run(&mut self, stop: Stopper);
+}
+
+pub trait IntoActor<Id: ActorId>: Send + Sync {
+	fn into_actor(self) -> (Id, Box<dyn DynActor<Id>>);
+}
+
+struct AnyActor<Id: ActorId, A: Actor<Id>> {
+	actor: A,
+	_marker: PhantomData<Id>,
+}
+
+impl<Id: ActorId, A: Actor<Id>> sealed::Sealed for AnyActor<Id, A> {}
+
+#[async_trait::async_trait]
+impl<Id: ActorId, A: Actor<Id>> DynActor<Id> for AnyActor<Id, A> {
+	async fn run(&mut self, stop: Stopper) {
+		self.actor.run(stop).await;
+	}
+}
+
+impl<Id: ActorId, A: Actor<Id>> IntoActor<Id> for A {
+	fn into_actor(self) -> (Id, Box<dyn DynActor<Id>>) {
+		(
+			A::IDENTIFIER,
+			Box::new(AnyActor {
+				actor: self,
+				_marker: PhantomData,
+			}),
+		)
+	}
+}
+
+struct ActorHandler<Id: ActorId> {
+	actor: Arc<Mutex<Box<dyn DynActor<Id>>>>,
 	maybe_handle: Option<JoinHandle<()>>,
 	is_running: Arc<AtomicBool>,
 	stop_tx: chan::Sender<()>,
 	stop_rx: chan::Receiver<()>,
 }
 
-pub struct Actors {
+/// Actors holder, holds all actors for some generic purpose, like for cloud sync.
+/// You should use an enum to identify the actors.
+pub struct ActorsCollection<Id: ActorId> {
 	pub invalidate_rx: broadcast::Receiver<()>,
 	invalidate_tx: broadcast::Sender<()>,
-	actors: Arc<RwLock<HashMap<&'static str, Actor>>>,
+	actors_map: Arc<RwLock<HashMap<Id, ActorHandler<Id>>>>,
 }
 
-impl Actors {
-	pub async fn declare<Fut>(
-		self: &Arc<Self>,
-		name: &'static str,
-		actor_fn: impl FnOnce(Stopper) -> Fut + Send + Sync + Clone + 'static,
-		autostart: bool,
-	) where
-		Fut: Future<Output = ()> + Send + 'static,
-	{
-		let (stop_tx, stop_rx) = chan::bounded(1);
+impl<Id: ActorId> ActorsCollection<Id> {
+	pub async fn declare(&self, actor: impl IntoActor<Id>) {
+		async fn inner<Id: ActorId>(
+			this: &ActorsCollection<Id>,
+			identifier: Id,
+			actor: Box<dyn DynActor<Id>>,
+		) {
+			let (stop_tx, stop_rx) = chan::bounded(1);
 
-		self.actors.write().await.insert(
-			name,
-			Actor {
-				spawn_fn: Arc::new(move |stop| Box::pin((actor_fn.clone())(stop))),
-				maybe_handle: None,
-				is_running: Arc::new(AtomicBool::new(false)),
-				stop_tx,
-				stop_rx,
-			},
-		);
+			this.actors_map.write().await.insert(
+				identifier,
+				ActorHandler {
+					actor: Arc::new(Mutex::new(actor)),
+					maybe_handle: None,
+					is_running: Arc::new(AtomicBool::new(false)),
+					stop_tx,
+					stop_rx,
+				},
+			);
+		}
 
-		if autostart {
-			self.start(name).await;
+		let (identifier, actor) = actor.into_actor();
+		inner(self, identifier, actor).await;
+	}
+
+	pub async fn declare_many_boxed(
+		&self,
+		actors: impl IntoIterator<Item = (Id, Box<dyn DynActor<Id>>)> + Send,
+	) {
+		let mut actor_map = self.actors_map.write().await;
+
+		for (id, actor) in actors {
+			let (stop_tx, stop_rx) = chan::bounded(1);
+
+			actor_map.insert(
+				id,
+				ActorHandler {
+					actor: Arc::new(Mutex::new(actor)),
+					maybe_handle: None,
+					is_running: Arc::new(AtomicBool::new(false)),
+					stop_tx,
+					stop_rx,
+				},
+			);
 		}
 	}
 
 	#[instrument(skip(self))]
-	pub async fn start(self: &Arc<Self>, name: &str) {
-		if let Some(actor) = self.actors.write().await.get_mut(name) {
+	pub async fn start(&self, identifier: Id) {
+		let mut actors_map = self.actors_map.write().await;
+		if let Some(actor) = actors_map.get_mut(&identifier) {
 			if actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already running!");
 				return;
@@ -122,15 +195,19 @@ impl Actors {
 			}
 
 			actor.maybe_handle = Some(spawn({
-				let spawn_fn = Arc::clone(&actor.spawn_fn);
-
 				let stop_actor = Stopper(actor.stop_rx.clone());
+				let actor = Arc::clone(&actor.actor);
 
 				async move {
-					if (AssertUnwindSafe((spawn_fn)(stop_actor)))
-						.catch_unwind()
-						.await
-						.is_err()
+					if (AssertUnwindSafe(
+						actor
+							.try_lock()
+							.expect("actors can only have a single run at a time")
+							.run(stop_actor),
+					))
+					.catch_unwind()
+					.await
+					.is_err()
 					{
 						error!("Actor unexpectedly panicked");
 					}
@@ -146,8 +223,9 @@ impl Actors {
 	}
 
 	#[instrument(skip(self))]
-	pub async fn stop(self: &Arc<Self>, name: &str) {
-		if let Some(actor) = self.actors.write().await.get_mut(name) {
+	pub async fn stop(&self, identifier: Id) {
+		let mut actors_map = self.actors_map.write().await;
+		if let Some(actor) = actors_map.get_mut(&identifier) {
 			if !actor.is_running.load(Ordering::Acquire) {
 				warn!("Actor already stopped!");
 				return;
@@ -167,24 +245,39 @@ impl Actors {
 		}
 	}
 
-	pub async fn get_state(&self) -> HashMap<String, bool> {
-		self.actors
+	pub async fn get_state(&self) -> Vec<(String, bool)> {
+		self.actors_map
 			.read()
 			.await
 			.iter()
-			.map(|(&name, actor)| (name.to_string(), actor.is_running.load(Ordering::Relaxed)))
+			.map(|(identifier, actor)| {
+				(
+					identifier.to_string(),
+					actor.is_running.load(Ordering::Relaxed),
+				)
+			})
 			.collect()
 	}
 }
 
-impl Default for Actors {
+impl<Id: ActorId> Default for ActorsCollection<Id> {
 	fn default() -> Self {
 		let (invalidate_tx, invalidate_rx) = broadcast::channel(1);
 
 		Self {
-			actors: Arc::default(),
+			actors_map: Arc::default(),
 			invalidate_rx,
 			invalidate_tx,
+		}
+	}
+}
+
+impl<Id: ActorId> Clone for ActorsCollection<Id> {
+	fn clone(&self) -> Self {
+		Self {
+			actors_map: Arc::clone(&self.actors_map),
+			invalidate_rx: self.invalidate_rx.resubscribe(),
+			invalidate_tx: self.invalidate_tx.clone(),
 		}
 	}
 }

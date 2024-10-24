@@ -87,7 +87,7 @@ impl ConstantTimeEq for String {
 	}
 }
 
-impl<'a> ConstantTimeEq for &'a str {
+impl ConstantTimeEq for &str {
 	fn ct_eq(&self, rhs: &Self) -> Choice {
 		// Here we are just able to convert both values to bytes and use the
 		// appropriate methods to compare the two in constant-time.

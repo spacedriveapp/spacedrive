@@ -3,50 +3,49 @@ use crate::util::InfallibleResponse;
 use std::{fmt::Debug, panic::Location};
 
 use axum::{
-	body::{self, BoxBody},
+	body::Body,
 	http::{self, HeaderValue, Method, Request, Response, StatusCode},
 	middleware::Next,
 };
-use http_body::Full;
 use tracing::debug;
 
 #[track_caller]
-pub(crate) fn bad_request(e: impl Debug) -> http::Response<BoxBody> {
+pub(crate) fn bad_request(e: impl Debug) -> http::Response<Body> {
 	debug!(caller = %Location::caller(), ?e, "400: Bad Request;");
 
 	InfallibleResponse::builder()
 		.status(StatusCode::BAD_REQUEST)
-		.body(body::boxed(Full::from("")))
+		.body(Body::from(""))
 }
 
 #[track_caller]
-pub(crate) fn not_found(e: impl Debug) -> http::Response<BoxBody> {
+pub(crate) fn not_found(e: impl Debug) -> http::Response<Body> {
 	debug!(caller = %Location::caller(), ?e, "404: Not Found;");
 
 	InfallibleResponse::builder()
 		.status(StatusCode::NOT_FOUND)
-		.body(body::boxed(Full::from("")))
+		.body(Body::from(""))
 }
 
 #[track_caller]
-pub(crate) fn internal_server_error(e: impl Debug) -> http::Response<BoxBody> {
+pub(crate) fn internal_server_error(e: impl Debug) -> http::Response<Body> {
 	debug!(caller = %Location::caller(), ?e, "500: Internal Server Error;");
 
 	InfallibleResponse::builder()
 		.status(StatusCode::INTERNAL_SERVER_ERROR)
-		.body(body::boxed(Full::from("")))
+		.body(Body::from(""))
 }
 
 #[track_caller]
-pub(crate) fn not_implemented(e: impl Debug) -> http::Response<BoxBody> {
+pub(crate) fn not_implemented(e: impl Debug) -> http::Response<Body> {
 	debug!(caller = %Location::caller(), ?e, "501: Not Implemented;");
 
 	InfallibleResponse::builder()
 		.status(StatusCode::NOT_IMPLEMENTED)
-		.body(body::boxed(Full::from("")))
+		.body(Body::from(""))
 }
 
-pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Response<BoxBody> {
+pub(crate) async fn cors_middleware(req: Request<Body>, next: Next) -> Response<Body> {
 	if req.method() == Method::OPTIONS {
 		return Response::builder()
 			.header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
@@ -54,7 +53,7 @@ pub(crate) async fn cors_middleware<B>(req: Request<B>, next: Next<B>) -> Respon
 			.header("Access-Control-Allow-Headers", "*")
 			.header("Access-Control-Max-Age", "86400")
 			.status(StatusCode::OK)
-			.body(body::boxed(Full::from("")))
+			.body(Body::from(""))
 			.expect("Invalid static response!");
 	}
 

@@ -1,3 +1,5 @@
+use crate::ModelId;
+
 use prisma_client_rust::ModelTypes;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -6,7 +8,7 @@ pub trait SyncId: Serialize + DeserializeOwned {
 }
 
 pub trait SyncModel: ModelTypes {
-	const MODEL_ID: u16;
+	const MODEL_ID: ModelId;
 }
 
 pub trait SharedSyncModel: SyncModel {

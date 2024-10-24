@@ -323,8 +323,8 @@ impl StatefulJob for OldFileCopierJobInit {
 				.await?;
 			dirs.extend(more_dirs);
 
-			let (dir_source_file_data, dir_target_full_path): (Vec<_>, Vec<_>) =
-				dirs.into_iter().unzip();
+			let (dir_source_file_data, dir_target_full_path) =
+				dirs.into_iter().unzip::<_, _, Vec<_>, Vec<_>>();
 
 			let step_files = dir_source_file_data
 				.into_iter()

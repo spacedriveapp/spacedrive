@@ -1,15 +1,15 @@
 use crate::media_processor::{self, media_data_extractor};
 
 use sd_core_prisma_helpers::ObjectPubId;
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::{DevicePubId, SyncManager};
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
 use sd_prisma::{
-	prisma::{exif_data, object, PrismaClient},
+	prisma::{device, exif_data, object, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::{option_sync_db_entry, OperationFactory};
+use sd_sync::{option_sync_db_entry, sync_entry, OperationFactory};
 use sd_utils::chain_optional_iter;
 
 use std::{path::Path, sync::LazyLock};
@@ -51,9 +51,20 @@ fn to_query(
 		exif_version,
 	}: ExifMetadata,
 	object_id: exif_data::object_id::Type,
+	device_pub_id: &DevicePubId,
 ) -> (Vec<(&'static str, rmpv::Value)>, exif_data::Create) {
+	let device_pub_id = device_pub_id.to_db();
+
 	let (sync_params, db_params) = chain_optional_iter(
-		[],
+		[(
+			sync_entry!(
+				prisma_sync::device::SyncId {
+					pub_id: device_pub_id.clone()
+				},
+				exif_data::device
+			),
+			exif_data::device::connect(device::pub_id::equals(device_pub_id)),
+		)],
 		[
 			option_sync_db_entry!(
 				serde_json::to_vec(&camera_data).ok(),
@@ -109,24 +120,22 @@ pub async fn save(
 	exif_datas
 		.into_iter()
 		.map(|(exif_data, object_id, object_pub_id)| async move {
-			let (sync_params, create) = to_query(exif_data, object_id);
+			let (sync_params, create) = to_query(exif_data, object_id, &sync.device_pub_id);
 			let db_params = create._params.clone();
 
-			sync.write_ops(
+			sync.write_op(
 				db,
-				(
-					sync.shared_create(
-						prisma_sync::exif_data::SyncId {
-							object: prisma_sync::object::SyncId {
-								pub_id: object_pub_id.into(),
-							},
+				sync.shared_create(
+					prisma_sync::exif_data::SyncId {
+						object: prisma_sync::object::SyncId {
+							pub_id: object_pub_id.into(),
 						},
-						sync_params,
-					),
-					db.exif_data()
-						.upsert(exif_data::object_id::equals(object_id), create, db_params)
-						.select(exif_data::select!({ id })),
+					},
+					sync_params,
 				),
+				db.exif_data()
+					.upsert(exif_data::object_id::equals(object_id), create, db_params)
+					.select(exif_data::select!({ id })),
 			)
 			.await
 		})

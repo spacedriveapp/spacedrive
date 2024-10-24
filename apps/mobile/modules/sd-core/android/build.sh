@@ -15,17 +15,17 @@ err() {
 
 if [ -z "${HOME:-}" ]; then
   case "$(uname)" in
-    "Darwin")
-      HOME="$(CDPATH='' cd -- "$(osascript -e 'set output to (POSIX path of (path to home folder))')" && pwd -P)"
-      ;;
-    "Linux")
-      HOME="$(CDPATH='' cd -- "$(getent passwd "$(id -un)" | cut -d: -f6)" && pwd -P)"
-      ;;
-    *)
-      err "Your OS ($(uname)) is not supported by this script." \
-        'We would welcome a PR or some help adding your OS to this script.' \
-        'https://github.com/spacedriveapp/spacedrive/issues'
-      ;;
+  "Darwin")
+    HOME="$(CDPATH='' cd -- "$(osascript -e 'set output to (POSIX path of (path to home folder))')" && pwd -P)"
+    ;;
+  "Linux")
+    HOME="$(CDPATH='' cd -- "$(getent passwd "$(id -un)" | cut -d: -f6)" && pwd -P)"
+    ;;
+  *)
+    err "Your OS ($(uname)) is not supported by this script." \
+      'We would welcome a PR or some help adding your OS to this script.' \
+      'https://github.com/spacedriveapp/spacedrive/issues'
+    ;;
   esac
 
   export HOME
@@ -47,18 +47,19 @@ export PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$PATH"
 if [ "${CI:-}" = "true" ]; then
   # TODO: This need to be adjusted for future mobile release CI
   case "$(uname -m)" in
-    "arm64" | "aarch64")
-      ANDROID_BUILD_TARGET_LIST="arm64-v8a"
-      ;;
-    "x86_64")
-      ANDROID_BUILD_TARGET_LIST="x86_64"
-      ;;
-    *)
-      err 'Unsupported architecture for CI build.'
-      ;;
+  "arm64" | "aarch64")
+    ANDROID_BUILD_TARGET_LIST="arm64-v8a"
+    ;;
+  "x86_64")
+    ANDROID_BUILD_TARGET_LIST="x86_64"
+    ;;
+  *)
+    err 'Unsupported architecture for CI build.'
+    ;;
   esac
 else
-  ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86_64"
+  # ANDROID_BUILD_TARGET_LIST="arm64-v8a armeabi-v7a x86_64"
+  ANDROID_BUILD_TARGET_LIST="arm64-v8a"
 fi
 
 # Configure build targets CLI arg for `cargo ndk`
@@ -69,4 +70,5 @@ for _target in $ANDROID_BUILD_TARGET_LIST; do
 done
 
 cd "${__dirname}/crate"
-cargo ndk --platform 34 "$@" -o "$OUTPUT_DIRECTORY" build --release
+cargo ndk --platform 34 "$@" -o "$OUTPUT_DIRECTORY" build
+# \ --release

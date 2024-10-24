@@ -1,6 +1,7 @@
 use crate::{library::LibraryConfigError, location::LocationManagerError};
 
 use sd_core_indexer_rules::seed::SeederError;
+use sd_core_sync::DevicePubId;
 
 use sd_p2p::IdentityErr;
 use sd_utils::{
@@ -8,10 +9,9 @@ use sd_utils::{
 	error::{FileIOError, NonUtf8PathError},
 };
 
-use thiserror::Error;
 use tracing::error;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum LibraryManagerError {
 	#[error("error serializing or deserializing the JSON in the config file: {0}")]
 	Json(#[from] serde_json::Error),
@@ -23,8 +23,6 @@ pub enum LibraryManagerError {
 	Uuid(#[from] uuid::Error),
 	#[error("failed to run indexer rules seeder: {0}")]
 	IndexerRulesSeeder(#[from] SeederError),
-	// #[error("failed to initialize the key manager: {0}")]
-	// KeyManager(#[from] sd_crypto::Error),
 	#[error("error migrating the library: {0}")]
 	MigrationError(#[from] db::MigrationError),
 	#[error("invalid library configuration: {0}")]
@@ -39,6 +37,8 @@ pub enum LibraryManagerError {
 	InvalidIdentity,
 	#[error("current instance with id '{0}' was not found in the database")]
 	CurrentInstanceNotFound(String),
+	#[error("current device with pub id '{0}' was not found in the database")]
+	CurrentDeviceNotFound(DevicePubId),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
 
@@ -46,6 +46,8 @@ pub enum LibraryManagerError {
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
 	LibraryConfig(#[from] LibraryConfigError),
+	#[error(transparent)]
+	CloudServices(#[from] sd_core_cloud_services::Error),
 	#[error(transparent)]
 	Sync(#[from] sd_core_sync::Error),
 }

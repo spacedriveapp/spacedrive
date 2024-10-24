@@ -4,7 +4,7 @@ use crate::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
@@ -154,7 +154,7 @@ pub async fn shallow(
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
-	sync: &Arc<SyncManager>,
+	sync: &SyncManager,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
@@ -185,7 +185,7 @@ async fn dispatch_media_data_extractor_tasks(
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
 				Arc::clone(db),
-				Arc::clone(sync),
+				sync.clone(),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -201,7 +201,7 @@ async fn dispatch_media_data_extractor_tasks(
 						parent_iso_file_path.location_id(),
 						Arc::clone(location_path),
 						Arc::clone(db),
-						Arc::clone(sync),
+						sync.clone(),
 					)
 				})
 				.map(IntoTask::into_task),
@@ -220,7 +220,7 @@ async fn dispatch_media_data_extractor_tasks(
 async fn dispatch_thumbnailer_tasks(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	should_regenerate: bool,
-	location_path: &PathBuf,
+	location_path: &Path,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
 ) -> Result<Vec<TaskHandle<Error>>, Error> {

@@ -13,3 +13,4 @@ export * from './TextViewer';
 export * from './TrafficLights';
 export * from './TruncatedText';
 export * from './Accordion';
+export * from './Authentication';

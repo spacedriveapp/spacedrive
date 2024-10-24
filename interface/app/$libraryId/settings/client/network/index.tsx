@@ -472,7 +472,7 @@ function NodesPanel() {
 								<Button
 									variant="accent"
 									onClick={() => debugConnect.mutate(id)}
-									disabled={debugConnect.isLoading}
+									disabled={debugConnect.isPending}
 								>
 									Connect
 								</Button>

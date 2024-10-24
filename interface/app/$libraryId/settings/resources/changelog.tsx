@@ -9,9 +9,10 @@ import { Heading } from '../Layout';
 export const Component = () => {
 	const platform = usePlatform();
 	const isDark = useIsDark();
-	const changelog = useQuery(['changelog'], () =>
-		fetch(`${platform.landingApiOrigin}/api/releases`).then((r) => r.json())
-	);
+	const changelog = useQuery({
+		queryKey: ['changelog'],
+		queryFn: () => fetch(`${platform.landingApiOrigin}/api/releases`).then((r) => r.json())
+	});
 
 	const { t } = useLocale();
 

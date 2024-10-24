@@ -1,34 +1,91 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
-import { getExplorerItemData, useSelector, type ExplorerItem } from '@sd/client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { subscribe } from 'valtio';
+import {
+	compareHumanizedSizes,
+	getExplorerItemData,
+	humanizeSize,
+	ThumbKey,
+	type ExplorerItem
+} from '@sd/client';
+import { usePlatform } from '~/util/Platform';
 
 import { explorerStore, flattenThumbnailKey } from './store';
 
-// This is where we intercept the state of the explorer item to determine if we should rerender
-// This hook is used inside every thumbnail in the explorer
+/**
+ * This is where we intercept the state of the explorer item to determine if we should rerender
+ *
+ * .. WARNING::
+ *    This hook is used inside every thumbnail in the explorer.
+ * 	  Be careful with the performance of the code, make sure to always memoize any objects or functions to avoid unnecessary re-renders.
+ *
+ * @param explorerItem - The explorer item to get data from
+ * @returns The extracted data from the explorer item
+ */
 export function useExplorerItemData(explorerItem: ExplorerItem) {
-	const newThumbnail = useSelector(explorerStore, (s) => {
-		const thumbnailKey =
-			explorerItem.type === 'Label'
-				? // labels have .thumbnails, plural
-					explorerItem.thumbnails?.[0]
-				: // all other explorer items have .thumbnail singular
-					'thumbnail' in explorerItem && explorerItem.thumbnail;
+	const platform = usePlatform();
+	const cachedSize = useRef<ReturnType<typeof humanizeSize> | null>(null);
+	const [newThumbnails, setNewThumbnails] = useState<Map<string, string | null>>(new Map());
 
-		return !!(thumbnailKey && s.newThumbnails.has(flattenThumbnailKey(thumbnailKey)));
-	});
+	let thumbnails: ThumbKey | ThumbKey[] | null = null;
+	switch (explorerItem.type) {
+		case 'Label':
+			thumbnails = explorerItem.thumbnails;
+			break;
+		case 'Path':
+		case 'Object':
+		case 'NonIndexedPath':
+			thumbnails = explorerItem.thumbnail;
+			break;
+	}
+
+	useEffect(() => {
+		const thumbnailKeys = thumbnails
+			? Array.isArray(thumbnails)
+				? thumbnails
+				: [thumbnails]
+			: [];
+
+		const updateThumbnails = () =>
+			setNewThumbnails((oldThumbs) => {
+				const thumbs = thumbnailKeys.reduce<Map<string, string | null>>((acc, thumbKey) => {
+					const url = platform.getThumbnailUrlByThumbKey(thumbKey);
+					const thumbId = flattenThumbnailKey(thumbKey);
+					acc.set(url, explorerStore.newThumbnails.has(thumbId) ? thumbId : null);
+					return acc;
+				}, new Map());
+
+				// Avoid unnecessary re-renders
+				return oldThumbs.size !== thumbs.size ||
+					Array.from(oldThumbs.keys()).some(
+						(key) => oldThumbs.get(key) !== thumbs.get(key)
+					)
+					? thumbs
+					: oldThumbs;
+			});
+
+		updateThumbnails();
+
+		return subscribe(explorerStore, updateThumbnails);
+	}, [thumbnails, platform]);
 
 	return useMemo(() => {
-		const itemData = getExplorerItemData(explorerItem);
+		const explorerItemData = getExplorerItemData(explorerItem);
 
-		if (!itemData.hasLocalThumbnail) {
-			itemData.hasLocalThumbnail = newThumbnail;
+		// Avoid unecessary re-renders
+		if (
+			cachedSize.current == null ||
+			!compareHumanizedSizes(cachedSize.current, explorerItemData.size)
+		) {
+			cachedSize.current = explorerItemData.size;
 		}
 
-		return itemData;
-		// whatever goes here, is what can cause an atomic re-render of an explorer item
-		// this is used for when new thumbnails are generated, and files identified
-	}, [explorerItem, newThumbnail]);
+		return {
+			...explorerItemData,
+			size: cachedSize.current,
+			thumbnails: newThumbnails,
+			hasLocalThumbnail: explorerItemData.hasLocalThumbnail || newThumbnails.size > 0
+		};
+	}, [explorerItem, newThumbnails]);
 }
 
 export type ExplorerItemData = ReturnType<typeof useExplorerItemData>;

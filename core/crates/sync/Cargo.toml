@@ -9,6 +9,8 @@ default = []
 
 [dependencies]
 # Spacedrive Sub-crates
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+
 sd-actors = { path = "../../../crates/actors" }
 sd-prisma = { path = "../../../crates/prisma" }
 sd-sync   = { path = "../../../crates/sync" }
@@ -16,8 +18,11 @@ sd-utils  = { path = "../../../crates/utils" }
 
 # Workspace dependencies
 async-channel       = { workspace = true }
+async-stream        = { workspace = true }
+chrono              = { workspace = true }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
+itertools           = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }

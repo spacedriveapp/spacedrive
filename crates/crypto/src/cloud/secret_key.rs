@@ -1,6 +1,7 @@
 use crate::{
 	ct::{Choice, ConstantTimeEq, ConstantTimeEqNull},
 	rng::CryptoRng,
+	Error,
 };
 
 use std::fmt;
@@ -9,7 +10,7 @@ use aead::array::Array;
 use blake3::{Hash, Hasher};
 use generic_array::GenericArray;
 use serde::{Deserialize, Serialize};
-use typenum::consts::U32;
+use typenum::{consts::U32, U64};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// This should be used for encrypting and decrypting data.
@@ -30,8 +31,8 @@ impl fmt::Debug for SecretKey {
 impl SecretKey {
 	#[inline]
 	#[must_use]
-	pub fn new(v: impl Into<Array<u8, U32>>) -> Self {
-		Self(v.into())
+	pub const fn new(v: Array<u8, U32>) -> Self {
+		Self(v)
 	}
 
 	#[inline]
@@ -75,6 +76,12 @@ impl Serialize for SecretKey {
 	}
 }
 
+impl AsRef<[u8]> for SecretKey {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
 impl<'de> Deserialize<'de> for SecretKey {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
@@ -82,7 +89,7 @@ impl<'de> Deserialize<'de> for SecretKey {
 	{
 		let mut buf = [0u8; 32];
 		serdect::array::deserialize_hex_or_bin(&mut buf, deserializer)?;
-		Ok(Self::new(buf))
+		Ok(Self::new(buf.into()))
 	}
 }
 
@@ -92,8 +99,49 @@ impl From<&SecretKey> for Array<u8, U32> {
 	}
 }
 
+impl From<&SecretKey> for Vec<u8> {
+	fn from(SecretKey(key): &SecretKey) -> Self {
+		key.to_vec()
+	}
+}
+
+impl From<SecretKey> for Vec<u8> {
+	fn from(SecretKey(key): SecretKey) -> Self {
+		key.to_vec()
+	}
+}
+
+impl TryFrom<&[u8]> for SecretKey {
+	type Error = Error;
+
+	fn try_from(key: &[u8]) -> Result<Self, Self::Error> {
+		if key.len() != 32 {
+			return Err(Error::InvalidKeySize(key.len()));
+		}
+
+		Ok(Self(Array([
+			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
+			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
+			key[19], key[20], key[21], key[22], key[23], key[24], key[25], key[26], key[27],
+			key[28], key[29], key[30], key[31],
+		])))
+	}
+}
+
 impl From<GenericArray<u8, U32>> for SecretKey {
 	fn from(key: GenericArray<u8, U32>) -> Self {
+		Self(Array([
+			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
+			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
+			key[19], key[20], key[21], key[22], key[23], key[24], key[25], key[26], key[27],
+			key[28], key[29], key[30], key[31],
+		]))
+	}
+}
+
+/// We take only the first 32 bytes of the key, since the rest doesn't fit
+impl From<GenericArray<u8, U64>> for SecretKey {
+	fn from(key: GenericArray<u8, U64>) -> Self {
 		Self(Array([
 			key[0], key[1], key[2], key[3], key[4], key[5], key[6], key[7], key[8], key[9],
 			key[10], key[11], key[12], key[13], key[14], key[15], key[16], key[17], key[18],
@@ -125,7 +173,33 @@ mod tests {
 		let key = SecretKey::generate(&mut rng);
 
 		let encrypted_block = key.encrypt(message, &mut rng).unwrap();
-		let decrypted_message = key.decrypt(&encrypted_block).unwrap();
+		let decrypted_message = key.decrypt_owned(&encrypted_block).unwrap();
+
+		assert_eq!(message, decrypted_message.as_slice());
+	}
+
+	#[test]
+	fn one_shot_ref_test() {
+		use super::super::{decrypt::OneShotDecryption, encrypt::OneShotEncryption};
+		let mut rng = CryptoRng::new().unwrap();
+
+		let message = b"Eu queria um apartamento no Guarujah; \
+		Mas o melhor que eu consegui foi um barraco em Itaquah.";
+
+		let key = SecretKey::generate(&mut rng);
+
+		let EncryptedBlock { nonce, cipher_text } = key.encrypt(message, &mut rng).unwrap();
+
+		let mut bytes = Vec::with_capacity(nonce.len() + cipher_text.len());
+		bytes.extend_from_slice(nonce.as_slice());
+		bytes.extend(cipher_text);
+
+		assert_eq!(
+			bytes.len(),
+			OneShotEncryption::cipher_text_size(&key, message.len())
+		);
+
+		let decrypted_message = key.decrypt(bytes.as_slice().into()).unwrap();
 
 		assert_eq!(message, decrypted_message.as_slice());
 	}

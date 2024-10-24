@@ -1,6 +1,6 @@
 import { useIsFocused } from '@react-navigation/native';
 import { ArrowLeft, DotsThree, FunnelSimple } from 'phosphor-react-native';
-import { Suspense, useDeferredValue, useMemo, useState } from 'react';
+import { Suspense, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ObjectKindEnum, useLibraryQuery, usePathsExplorerQuery } from '@sd/client';
@@ -41,9 +41,10 @@ const SearchScreen = ({ navigation }: SearchStackScreenProps<'Search'>) => {
 			filters: [...layoutSearchFilter, ...searchStore.mergedFilters]
 		},
 		enabled: isFocused && searchStore.mergedFilters.length >= 1, // only fetch when screen is focused & filters are applied
-		suspense: true,
-		onSuccess: () => getExplorerStore().resetNewThumbnails()
+		suspense: true
 	});
+
+	useEffect(() => getExplorerStore().resetNewThumbnails(), [objects]);
 
 	useFiltersSearch(deferredSearch);
 

@@ -1,4 +1,5 @@
 import { IconTypes } from '@sd/assets/util';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { SavedSearch, SearchFilterArgs, Tag, useLibraryQuery } from '@sd/client';
 import { kinds } from '~/components/search/filters/Kind';
@@ -44,11 +45,11 @@ export function useSavedSearch(search: SavedSearch) {
 	};
 
 	const locations = useLibraryQuery(['locations.list'], {
-		keepPreviousData: true,
+		placeholderData: keepPreviousData,
 		enabled: filterKeys.includes('locations')
 	});
 	const tags = useLibraryQuery(['tags.list'], {
-		keepPreviousData: true,
+		placeholderData: keepPreviousData,
 		enabled: filterKeys.includes('tags')
 	});
 

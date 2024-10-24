@@ -1,18 +1,15 @@
 use crate::{indexer, Error};
 
 use sd_core_file_path_helper::{FilePathMetadata, IsolatedFilePathDataParts};
-use sd_core_sync::Manager as SyncManager;
+use sd_core_sync::SyncManager;
 
 use sd_prisma::{
-	prisma::{file_path, location, PrismaClient},
+	prisma::{device, file_path, location, PrismaClient},
 	prisma_sync,
 };
-use sd_sync::{sync_db_entry, OperationFactory};
+use sd_sync::{sync_db_entry, sync_entry, OperationFactory};
 use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId};
-use sd_utils::{
-	db::{inode_to_db, size_in_bytes_to_db},
-	msgpack,
-};
+use sd_utils::db::{inode_to_db, size_in_bytes_to_db};
 
 use std::{sync::Arc, time::Duration};
 
@@ -32,11 +29,12 @@ pub struct Saver {
 	// Received input args
 	location_id: location::id::Type,
 	location_pub_id: location::pub_id::Type,
+	device_id: device::id::Type,
 	walked_entries: Vec<WalkedEntry>,
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: SyncManager,
 }
 
 /// [`Save`] Task output
@@ -73,8 +71,9 @@ impl Task<Error> for Saver {
 	#[allow(clippy::blocks_in_conditions)] // Due to `err` on `instrument` macro above
 	async fn run(&mut self, _: &Interrupter) -> Result<ExecStatus, Error> {
 		use file_path::{
-			create_unchecked, date_created, date_indexed, date_modified, extension, hidden, inode,
-			is_dir, location, location_id, materialized_path, name, size_in_bytes_bytes,
+			create_unchecked, date_created, date_indexed, date_modified, device, device_id,
+			extension, hidden, inode, is_dir, location, location_id, materialized_path, name,
+			size_in_bytes_bytes,
 		};
 
 		let start_time = Instant::now();
@@ -82,13 +81,14 @@ impl Task<Error> for Saver {
 		let Self {
 			location_id,
 			location_pub_id,
+			device_id,
 			walked_entries,
 			db,
 			sync,
 			..
 		} = self;
 
-		let (sync_stuff, paths): (Vec<_>, Vec<_>) = walked_entries
+		let (create_crdt_ops, paths): (Vec<_>, Vec<_>) = walked_entries
 			.drain(..)
 			.map(
 				|WalkedEntry {
@@ -118,13 +118,13 @@ impl Task<Error> for Saver {
 						new file_paths and they were not identified yet"
 					);
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+					let (sync_params, db_params) = [
 						(
-							(
-								location::NAME,
-								msgpack!(prisma_sync::location::SyncId {
+							sync_entry!(
+								prisma_sync::location::SyncId {
 									pub_id: location_pub_id.clone()
-								}),
+								},
+								location
 							),
 							location_id::set(Some(*location_id)),
 						),
@@ -138,9 +138,18 @@ impl Task<Error> for Saver {
 						sync_db_entry!(modified_at, date_modified),
 						sync_db_entry!(Utc::now(), date_indexed),
 						sync_db_entry!(hidden, hidden),
+						(
+							sync_entry!(
+								prisma_sync::device::SyncId {
+									pub_id: sync.device_pub_id.to_db(),
+								},
+								device
+							),
+							device_id::set(Some(*device_id)),
+						),
 					]
 					.into_iter()
-					.unzip();
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
 					(
 						sync.shared_create(
@@ -155,12 +164,22 @@ impl Task<Error> for Saver {
 			)
 			.unzip();
 
+		if create_crdt_ops.is_empty() && paths.is_empty() {
+			return Ok(ExecStatus::Done(
+				Output {
+					saved_count: 0,
+					save_duration: Duration::ZERO,
+				}
+				.into_output(),
+			));
+		}
+
 		#[allow(clippy::cast_sign_loss)]
 		let saved_count = sync
 			.write_ops(
 				db,
 				(
-					sync_stuff.into_iter().flatten().collect(),
+					create_crdt_ops,
 					db.file_path().create_many(paths).skip_duplicates(),
 				),
 			)
@@ -188,12 +207,14 @@ impl Saver {
 		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
+		device_id: device::id::Type,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
 			location_id,
 			location_pub_id,
+			device_id,
 			walked_entries,
 			db,
 			sync,
@@ -207,12 +228,14 @@ impl Saver {
 		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: SyncManager,
+		device_id: device::id::Type,
 	) -> Self {
 		Self {
 			id: TaskId::new_v4(),
 			location_id,
 			location_pub_id,
+			device_id,
 			walked_entries,
 			db,
 			sync,
@@ -228,6 +251,7 @@ struct SaveState {
 
 	location_id: location::id::Type,
 	location_pub_id: location::pub_id::Type,
+	device_id: device::id::Type,
 	walked_entries: Vec<WalkedEntry>,
 }
 
@@ -236,7 +260,7 @@ impl SerializableTask<Error> for Saver {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
+	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
@@ -244,6 +268,7 @@ impl SerializableTask<Error> for Saver {
 			is_shallow,
 			location_id,
 			location_pub_id,
+			device_id,
 			walked_entries,
 			..
 		} = self;
@@ -252,6 +277,7 @@ impl SerializableTask<Error> for Saver {
 			is_shallow,
 			location_id,
 			location_pub_id,
+			device_id,
 			walked_entries,
 		})
 	}
@@ -266,12 +292,14 @@ impl SerializableTask<Error> for Saver {
 			     is_shallow,
 			     location_id,
 			     location_pub_id,
+			     device_id,
 			     walked_entries,
 			 }| Self {
 				id,
 				is_shallow,
 				location_id,
 				location_pub_id,
+				device_id,
 				walked_entries,
 				db,
 				sync,
