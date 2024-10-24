@@ -1013,6 +1013,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			tasks_for_shutdown,
 			..
 		} = self;
+		// pending_tasks_on_resume: Vec<TaskHandle<Error>>
 
 		let serialized_tasks = tasks_for_shutdown
 			.into_iter()

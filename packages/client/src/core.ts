@@ -80,9 +80,9 @@ export type Procedures = {
         { key: "files.createFile", input: LibraryArgs<CreateFileArgs>, result: string } | 
         { key: "files.createFolder", input: LibraryArgs<CreateFolderArgs>, result: string } | 
         { key: "files.cutFiles", input: LibraryArgs<OldFileCutterJobInit>, result: null } | 
-        { key: "files.deleteFiles", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
+        { key: "files.deleteFiles", input: LibraryArgs<DeleteFilesArgs>, result: null } | 
         { key: "files.eraseFiles", input: LibraryArgs<OldFileEraserJobInit>, result: null } | 
-        { key: "files.moveToTrash", input: LibraryArgs<OldFileDeleterJobInit>, result: null } | 
+        { key: "files.moveToTrash", input: LibraryArgs<MoveToTrashArgs>, result: null } | 
         { key: "files.removeAccessTime", input: LibraryArgs<number[]>, result: null } | 
         { key: "files.renameFile", input: LibraryArgs<RenameFileArgs>, result: null } | 
         { key: "files.setFavorite", input: LibraryArgs<SetFavoriteArgs>, result: null } | 
@@ -224,6 +224,8 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type DeleteFilesArgs = { location_id: number; file_path_ids: number[] }
 
 /**
  * The method used for the discovery of this peer.
@@ -467,6 +469,8 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
+export type MoveToTrashArgs = { location_id: number; file_path_ids: number[] }
+
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
  * A list of peer addresses to try and manually connect to, instead of relying on discovery.
@@ -492,7 +496,7 @@ id: string;
  */
 name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
-export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
+export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError } | { deleter: string }
 
 export type NonCriticalFileIdentifierError = { failed_to_extract_file_metadata: string } | { failed_to_extract_isolated_file_path_data: { file_path_pub_id: string; error: string } } | { file_path_without_is_dir_field: number }
 
@@ -542,8 +546,6 @@ export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number 
 export type OldFileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
 export type OldFileCutterJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
-
-export type OldFileDeleterJobInit = { location_id: number; file_path_ids: number[] }
 
 export type OldFileEraserJobInit = { location_id: number; file_path_ids: number[]; passes: string }
 

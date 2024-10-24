@@ -7795,6 +7795,7 @@ dependencies = [
  "sd-core-prisma-helpers",
  "sd-core-sync",
  "sd-file-ext",
+ "sd-file-track",
  "sd-images",
  "sd-media-metadata",
  "sd-p2p",
@@ -8078,6 +8079,31 @@ dependencies = [
  "strum",
  "strum_macros",
  "tokio",
+]
+
+[[package]]
+name = "sd-file-track"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "futures-concurrency",
+ "itertools 0.13.0",
+ "rmp-serde",
+ "sd-core-file-path-helper",
+ "sd-core-heavy-lifting",
+ "sd-core-prisma-helpers",
+ "sd-prisma",
+ "sd-sync",
+ "sd-task-system",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "trash",
 ]
 
 [[package]]
