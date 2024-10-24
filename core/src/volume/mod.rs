@@ -1,23 +1,53 @@
+use sd_prisma::prisma::exif_data::device_id;
 use sd_prisma::prisma::volume;
+use sd_prisma::prisma::PrismaClient;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
+use specta::Type;
 use std::{
 	hash::{Hash, Hasher},
 	path::PathBuf,
 };
-
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
-use specta::Type;
-
 use strum_macros::Display;
-use thiserror::Error;
+
 use tracing::error;
 use uuid::Uuid;
+
 pub mod manager;
 pub mod os;
 pub mod speed;
 pub mod statistics;
 pub mod watcher;
-use sd_prisma::prisma::PrismaClient;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum VolumeError {
+	#[error("I/O error: {0}")]
+	Io(#[from] tokio::io::Error),
+
+	#[error("Timeout error: {0}")]
+	Timeout(#[from] tokio::time::error::Elapsed),
+
+	#[error("No mount point found for volume")]
+	NoMountPoint,
+
+	#[error("Directory error: {0}")]
+	DirectoryError(String),
+
+	#[error("Database error: {0}")]
+	Database(#[from] prisma_client_rust::QueryError),
+
+	#[error("No device found")]
+	NoDeviceFound,
+}
+
+// Conversion to rspc::Error
+impl From<VolumeError> for rspc::Error {
+	fn from(e: VolumeError) -> Self {
+		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+	}
+}
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
@@ -28,7 +58,7 @@ pub struct Volume {
 
 	pub name: String, // Volume name
 	pub mount_type: MountType,
-	pub mount_points: Vec<PathBuf>, // List of mount points
+	pub mount_point: PathBuf, // List of mount points
 	pub is_mounted: bool,
 	pub disk_type: DiskType,
 	pub file_system: FileSystem,
@@ -47,17 +77,14 @@ pub struct Volume {
 	pub total_bytes_available: u64, // Total bytes available
 }
 
-impl Hash for Volume {
-	fn hash<H: Hasher>(&self, state: &mut H) {
-		self.name.hash(state);
-		self.mount_points.iter().for_each(|mount_point| {
-			// Hashing like this to ignore ordering between mount points
-			mount_point.hash(state);
-		});
-		self.disk_type.hash(state);
-		self.file_system.hash(state);
-	}
-}
+// impl Hash for Volume {
+// 	fn hash<H: Hasher>(&self, state: &mut H) {
+// 		self.name.hash(state);
+// 		self.mount_point.hash(state);
+// 		self.disk_type.hash(state);
+// 		self.file_system.hash(state);
+// 	}
+// }
 
 impl PartialEq for Volume {
 	fn eq(&self, other: &Self) -> bool {
@@ -65,10 +92,7 @@ impl PartialEq for Volume {
 			&& self.disk_type == other.disk_type
 			&& self.file_system == other.file_system
 			// Leaving mount points for last because O(n * m)
-			&& self
-				.mount_points
-				.iter()
-				.all(|mount_point| other.mount_points.contains(mount_point))
+			&& self.mount_point == other.mount_point
 	}
 }
 
@@ -84,9 +108,7 @@ impl From<volume::Data> for Volume {
 				.mount_type
 				.and_then(|mt| Some(MountType::from_string(&mt)))
 				.unwrap_or(MountType::System),
-			mount_points: vec![PathBuf::from(
-				vol.mount_point.unwrap_or_else(|| "/".to_string()),
-			)], // Assuming first mount point
+			mount_point: PathBuf::from(vol.mount_point.unwrap_or_else(|| "/".to_string())),
 			is_mounted: vol.is_mounted.unwrap_or(false),
 			disk_type: vol
 				.disk_type
@@ -115,7 +137,7 @@ impl From<volume::Data> for Volume {
 }
 
 impl Volume {
-	pub async fn create(&self, db: &PrismaClient) -> Result<(), VolumeError> {
+	pub async fn create(&self, db: &PrismaClient, device_id: i32) -> Result<(), VolumeError> {
 		let pub_id = Uuid::now_v7().as_bytes().to_vec();
 		db.volume()
 			.create(
@@ -123,9 +145,7 @@ impl Volume {
 				vec![
 					volume::name::set(Some(self.name.clone())),
 					volume::mount_type::set(Some(self.mount_type.to_string())),
-					volume::mount_point::set(Some(
-						self.mount_points[0].to_str().unwrap().to_string(),
-					)),
+					volume::mount_point::set(Some(self.mount_point.to_str().unwrap().to_string())),
 					volume::is_mounted::set(Some(self.is_mounted)),
 					volume::disk_type::set(Some(self.disk_type.to_string())),
 					volume::file_system::set(Some(self.file_system.to_string())),
@@ -149,6 +169,7 @@ impl Volume {
 							Some(v as i64)
 						}
 					})),
+					volume::device_id::set(Some(device_id)),
 				],
 			)
 			.exec()
@@ -217,22 +238,6 @@ impl MountType {
 			"Virtual" => Self::Virtual,
 			_ => Self::System,
 		}
-	}
-}
-
-#[derive(Error, Debug)]
-pub enum VolumeError {
-	#[error("Database error: {0}")]
-	Database(#[from] prisma_client_rust::QueryError),
-	#[error("FromUtf8Error: {0}")]
-	FromUtf8(#[from] std::string::FromUtf8Error),
-	#[error(transparent)]
-	Sync(#[from] sd_core_sync::Error),
-}
-
-impl From<VolumeError> for rspc::Error {
-	fn from(e: VolumeError) -> Self {
-		rspc::Error::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 	}
 }
 

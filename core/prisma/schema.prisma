@@ -73,13 +73,13 @@ model Device {
   date_created DateTime? // Not actually NULLABLE, but we have to comply with current sync implementation BS
   date_deleted DateTime?
 
-  StorageStatistics StorageStatistics?
-  Location          Location[]
-  FilePath          FilePath[]
-  Object            Object[]
-  ExifData          ExifData[]
-  TagOnObject       TagOnObject[]
-  LabelOnObject     LabelOnObject[]
+  Location      Location[]
+  FilePath      FilePath[]
+  Object        Object[]
+  ExifData      ExifData[]
+  TagOnObject   TagOnObject[]
+  LabelOnObject LabelOnObject[]
+  Volume        Volume[]
 
   @@map("device")
 }
@@ -156,6 +156,9 @@ model Volume {
   write_speed_mbps      BigInt?
   read_only             Boolean?
   error_status          String?
+
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@map("volume")
 }
@@ -603,21 +606,6 @@ model ObjectInSpace {
 
   @@id([space_id, object_id])
   @@map("object_in_space")
-}
-
-//// StorageStatistics ////
-/// @shared(id: pub_id, modelId: 11)
-model StorageStatistics {
-  id     Int   @id @default(autoincrement())
-  pub_id Bytes @unique
-
-  total_capacity     BigInt @default(0)
-  available_capacity BigInt @default(0)
-
-  device_id Int?    @unique
-  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
-
-  @@map("storage_statistics")
 }
 
 //// Job ////

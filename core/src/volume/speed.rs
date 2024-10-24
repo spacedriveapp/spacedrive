@@ -1,13 +1,12 @@
+use super::{MountType, Volume, VolumeError};
 use std::path::PathBuf;
 use std::time::Instant;
-use thiserror::Error;
+
 use tokio::fs::{File, OpenOptions};
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tokio::time::error::Elapsed;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
 use tokio::time::{timeout, Duration};
 use tracing::{error, trace};
-
-use super::{MountType, Volume};
 
 const TEST_TIMEOUT_SECS: u64 = 30;
 const TEST_FILE_SIZE_MB: usize = 10; // Adjusted file size for testing
@@ -16,19 +15,6 @@ const TEST_FILE_SIZE_MB: usize = 10; // Adjusted file size for testing
 #[async_trait::async_trait]
 pub trait SpeedTest {
 	async fn speed_test(&mut self) -> Result<(f64, f64), VolumeError>;
-}
-
-/// Custom error type for consistent error handling using ThisError
-#[derive(Error, Debug)]
-pub enum VolumeError {
-	#[error("I/O error: {0}")]
-	Io(#[from] io::Error),
-	#[error("Timeout error: {0}")]
-	Timeout(#[from] Elapsed),
-	#[error("No mount point found for volume")]
-	NoMountPoint,
-	#[error("Directory error: {0}")]
-	DirectoryError(String),
 }
 
 /// Helper function to get a writable directory within a volume and track if it was created.
@@ -73,14 +59,9 @@ async fn get_writable_directory(
 #[async_trait::async_trait]
 impl SpeedTest for Volume {
 	async fn speed_test(&mut self) -> Result<(f64, f64), VolumeError> {
-		if self.mount_points.is_empty() {
-			error!("No mount point found for volume: {}", self.name);
-			return Err(VolumeError::NoMountPoint);
-		}
-
 		trace!("Starting speed test for volume: {}", self.name);
 
-		let volume_path: &PathBuf = &self.mount_points[0];
+		let volume_path: &PathBuf = &self.mount_point;
 		let (writable_dir, created_dir) =
 			get_writable_directory(volume_path, &self.mount_type).await?;
 		trace!("Using writable directory: {:?}", writable_dir);
@@ -106,7 +87,7 @@ impl SpeedTest for Volume {
 				Duration::from_secs(TEST_TIMEOUT_SECS),
 				file.write_all(&data),
 			)
-			.await??;
+			.await?;
 			trace!("Write completed");
 
 			let duration = start.elapsed();
@@ -128,7 +109,7 @@ impl SpeedTest for Volume {
 				Duration::from_secs(TEST_TIMEOUT_SECS),
 				file.read_exact(&mut buffer),
 			)
-			.await??;
+			.await?;
 			trace!("Read completed");
 
 			let duration = start.elapsed();
