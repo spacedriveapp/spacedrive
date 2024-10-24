@@ -1,9 +1,10 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import CommandPalette from 'react-cmdk';
 import { useNavigate } from 'react-router';
 import { useLibraryQuery, type Tag } from '@sd/client';
 
 export default function CMDKTags() {
-	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['tags.list'], { placeholderData: keepPreviousData });
 	const tags = result.data || [];
 
 	const navigate = useNavigate();

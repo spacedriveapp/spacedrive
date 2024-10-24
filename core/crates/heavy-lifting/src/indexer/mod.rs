@@ -10,11 +10,11 @@ use sd_prisma::{
 	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+use sd_sync::{sync_db_entry, OperationFactory};
 use sd_utils::{
 	db::{size_in_bytes_from_db, size_in_bytes_to_db, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},
-	from_bytes_to_uuid, msgpack,
+	from_bytes_to_uuid,
 };
 
 use std::{
@@ -146,22 +146,20 @@ async fn update_directory_sizes(
 		.map(|file_path| {
 			let size_bytes = iso_paths_and_sizes
 				.get(&IsolatedFilePathData::try_from(&file_path)?)
-				.map(|size| size.to_be_bytes().to_vec())
+				.map(|size| size_in_bytes_to_db(*size))
 				.expect("must be here");
+
+			let (sync_param, db_param) = sync_db_entry!(size_bytes, file_path::size_in_bytes_bytes);
 
 			Ok((
 				sync.shared_update(
 					prisma_sync::file_path::SyncId {
 						pub_id: file_path.pub_id.clone(),
 					},
-					file_path::size_in_bytes_bytes::NAME,
-					msgpack!(size_bytes),
+					[sync_param],
 				),
 				db.file_path()
-					.update(
-						file_path::pub_id::equals(file_path.pub_id),
-						vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
-					)
+					.update(file_path::pub_id::equals(file_path.pub_id), vec![db_param])
 					.select(file_path::select!({ id })),
 			))
 		})
@@ -178,35 +176,45 @@ async fn update_directory_sizes(
 
 async fn update_location_size(
 	location_id: location::id::Type,
-	db: &PrismaClient,
+	location_pub_id: location::pub_id::Type,
 	ctx: &impl OuterContext,
 ) -> Result<(), Error> {
-	let total_size = db
-		.file_path()
-		.find_many(vec![
-			file_path::location_id::equals(Some(location_id)),
-			file_path::materialized_path::equals(Some("/".to_string())),
-		])
-		.select(file_path::select!({ size_in_bytes_bytes }))
-		.exec()
-		.await?
-		.into_iter()
-		.filter_map(|file_path| {
-			file_path
-				.size_in_bytes_bytes
-				.map(|size_in_bytes_bytes| size_in_bytes_from_db(&size_in_bytes_bytes))
-		})
-		.sum::<u64>();
+	let db = ctx.db();
+	let sync = ctx.sync();
 
-	db.location()
-		.update(
-			location::id::equals(location_id),
-			vec![location::size_in_bytes::set(Some(
-				total_size.to_be_bytes().to_vec(),
-			))],
-		)
-		.exec()
-		.await?;
+	let total_size = size_in_bytes_to_db(
+		db.file_path()
+			.find_many(vec![
+				file_path::location_id::equals(Some(location_id)),
+				file_path::materialized_path::equals(Some("/".to_string())),
+			])
+			.select(file_path::select!({ size_in_bytes_bytes }))
+			.exec()
+			.await?
+			.into_iter()
+			.filter_map(|file_path| {
+				file_path
+					.size_in_bytes_bytes
+					.map(|size_in_bytes_bytes| size_in_bytes_from_db(&size_in_bytes_bytes))
+			})
+			.sum::<u64>(),
+	);
+
+	let (sync_param, db_param) = sync_db_entry!(total_size, location::size_in_bytes);
+
+	sync.write_op(
+		db,
+		sync.shared_update(
+			prisma_sync::location::SyncId {
+				pub_id: location_pub_id,
+			},
+			[sync_param],
+		),
+		db.location()
+			.update(location::id::equals(location_id), vec![db_param])
+			.select(location::select!({ id })),
+	)
+	.await?;
 
 	ctx.invalidate_query("locations.list");
 	ctx.invalidate_query("locations.get");
@@ -334,18 +342,19 @@ pub async fn reverse_update_directories_sizes(
 			{
 				let size_bytes = size_in_bytes_to_db(size);
 
+				let (sync_param, db_param) =
+					sync_db_entry!(size_bytes, file_path::size_in_bytes_bytes);
+
 				Some((
 					sync.shared_update(
 						prisma_sync::file_path::SyncId {
 							pub_id: pub_id.clone(),
 						},
-						file_path::size_in_bytes_bytes::NAME,
-						msgpack!(size_bytes),
+						[sync_param],
 					),
-					db.file_path().update(
-						file_path::pub_id::equals(pub_id),
-						vec![file_path::size_in_bytes_bytes::set(Some(size_bytes))],
-					),
+					db.file_path()
+						.update(file_path::pub_id::equals(pub_id), vec![db_param])
+						.select(file_path::select!({ id })),
 				))
 			} else {
 				warn!("Got a missing ancestor for a file_path in the database, ignoring...");

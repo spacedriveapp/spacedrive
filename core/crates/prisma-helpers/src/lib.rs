@@ -74,6 +74,20 @@ file_path::select!(file_path_for_media_processor {
 		pub_id
 	}
 });
+file_path::select!(file_path_watcher_remove {
+	id
+	pub_id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+	object: select {
+		id
+		pub_id
+	}
+
+});
 file_path::select!(file_path_to_isolate {
 	location_id
 	materialized_path
@@ -324,7 +338,7 @@ impl Clone for CasId<'_> {
 	}
 }
 
-impl<'cas_id> CasId<'cas_id> {
+impl CasId<'_> {
 	#[must_use]
 	pub fn as_str(&self) -> &str {
 		self.0.as_ref()

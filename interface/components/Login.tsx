@@ -1,5 +1,5 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/v2';
 import { ArrowLeft } from '@phosphor-icons/react';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseMutationResult } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Dispatch, SetStateAction, useState } from 'react';
@@ -17,7 +17,7 @@ async function signInClicked(
 	email: string,
 	password: string,
 	reload: Dispatch<SetStateAction<boolean>>,
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown> // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown> // Cloud bootstrap mutation
 ) {
 	try {
 		const response = await signIn({
@@ -80,7 +80,7 @@ const Login = ({
 	cloudBootstrap
 }: {
 	reload: Dispatch<SetStateAction<boolean>>;
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>; // Cloud bootstrap mutation
 }) => {
 	const [continueWithEmail, setContinueWithEmail] = useState(false);
 
@@ -105,7 +105,7 @@ const Login = ({
 
 interface LoginProps {
 	reload: Dispatch<SetStateAction<boolean>>;
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>; // Cloud bootstrap mutation
 	setContinueWithEmail: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -226,7 +226,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 interface Props {
 	setContinueWithEmail: Dispatch<SetStateAction<boolean>>;
 	reload: Dispatch<SetStateAction<boolean>>;
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>; // Cloud bootstrap mutation
 }
 
 const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Props) => {

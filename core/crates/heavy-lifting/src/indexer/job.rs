@@ -16,7 +16,11 @@ use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 
-use sd_prisma::prisma::{device, location};
+use sd_prisma::{
+	prisma::{device, location},
+	prisma_sync,
+};
+use sd_sync::{sync_db_not_null_entry, OperationFactory};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -269,7 +273,7 @@ impl Job for Indexer {
 				.await?;
 			}
 
-			update_location_size(location.id, ctx.db(), &ctx).await?;
+			update_location_size(location.id, location.pub_id.clone(), &ctx).await?;
 
 			metadata.mean_db_write_time += start_size_update_time.elapsed();
 		}
@@ -287,13 +291,23 @@ impl Job for Indexer {
 			"all tasks must be completed here"
 		);
 
-		ctx.db()
-			.location()
-			.update(
-				location::id::equals(location.id),
-				vec![location::scan_state::set(LocationScanState::Indexed as i32)],
+		let (sync_param, db_param) =
+			sync_db_not_null_entry!(LocationScanState::Indexed as i32, location::scan_state);
+
+		ctx.sync()
+			.write_op(
+				ctx.db(),
+				ctx.sync().shared_update(
+					prisma_sync::location::SyncId {
+						pub_id: location.pub_id.clone(),
+					},
+					[sync_param],
+				),
+				ctx.db()
+					.location()
+					.update(location::id::equals(location.id), vec![db_param])
+					.select(location::select!({ id })),
 			)
-			.exec()
 			.await
 			.map_err(indexer::Error::from)?;
 

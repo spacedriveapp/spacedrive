@@ -7,7 +7,7 @@ use uhlc::NTP64;
 
 pub enum OperationKind<'a> {
 	Create,
-	Update(&'a str),
+	Update(Vec<&'a str>),
 	Delete,
 }
 
@@ -15,7 +15,7 @@ impl fmt::Display for OperationKind<'_> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			OperationKind::Create => write!(f, "c"),
-			OperationKind::Update(field) => write!(f, "u:{field}"),
+			OperationKind::Update(fields) => write!(f, "u:{}:", fields.join(":")),
 			OperationKind::Delete => write!(f, "d"),
 		}
 	}
@@ -26,7 +26,7 @@ pub enum CRDTOperationData {
 	#[serde(rename = "c")]
 	Create(BTreeMap<String, rmpv::Value>),
 	#[serde(rename = "u")]
-	Update { field: String, value: rmpv::Value },
+	Update(BTreeMap<String, rmpv::Value>),
 	#[serde(rename = "d")]
 	Delete,
 }
@@ -41,7 +41,9 @@ impl CRDTOperationData {
 	pub fn as_kind(&self) -> OperationKind<'_> {
 		match self {
 			Self::Create(_) => OperationKind::Create,
-			Self::Update { field, .. } => OperationKind::Update(field),
+			Self::Update(fields_and_values) => {
+				OperationKind::Update(fields_and_values.keys().map(String::as_str).collect())
+			}
 			Self::Delete => OperationKind::Delete,
 		}
 	}

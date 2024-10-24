@@ -16,7 +16,7 @@ use sd_cloud_schema::{
 use sd_crypto::{CryptoRng, SeedableRng};
 use sd_utils::error::report_error;
 
-use std::{pin::pin, sync::atomic::Ordering};
+use std::pin::pin;
 
 use async_stream::stream;
 use futures::{FutureExt, StreamExt};
@@ -51,7 +51,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				|node, (access_token, refresh_token): (auth::AccessToken, auth::RefreshToken)| async move {
 					use sd_cloud_schema::devices;
 
-					if node.cloud_services.has_bootstrapped.load(Ordering::Acquire) {
+					// Only allow a single bootstrap request in flight at a time
+					let mut has_bootstrapped_lock = node
+						.cloud_services
+						.has_bootstrapped
+						.try_lock()
+						.map_err(|_| {
+							rspc::Error::new(
+								rspc::ErrorCode::Conflict,
+								String::from("Bootstrap in progress"),
+							)
+						})?;
+
+					if *has_bootstrapped_lock {
 						return Err(rspc::Error::new(
 							rspc::ErrorCode::Conflict,
 							String::from("Already bootstrapped"),
@@ -204,16 +216,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							 }| {
 								let node = &node;
 
-								async move { initialize_cloud_sync(pub_id, library, node).await }
+								async move {
+									match initialize_cloud_sync(pub_id, library, node).await {
+										// If we don't have this library locally, we didn't joined this group yet
+										Ok(()) | Err(LibraryManagerError::LibraryNotFound) => {
+											Ok(())
+										}
+										Err(e) => Err(e),
+									}
+								}
 							},
 						)
 						.collect::<Vec<_>>()
 						.try_join()
 						.await?;
 
-					node.cloud_services
-						.has_bootstrapped
-						.store(true, Ordering::Release);
+					*has_bootstrapped_lock = true;
 
 					Ok(())
 				},
@@ -243,7 +261,14 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"hasBootstrapped",
 			R.query(|node, _: ()| async move {
-				Ok(node.cloud_services.has_bootstrapped.load(Ordering::Relaxed))
+				// If we can't lock immediately, it means that there is a bootstrap in progress
+				// so we didn't bootstrapped yet
+				Ok(node
+					.cloud_services
+					.has_bootstrapped
+					.try_lock()
+					.map(|lock| *lock)
+					.unwrap_or(false))
 			}),
 		)
 }

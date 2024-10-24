@@ -220,7 +220,7 @@ async fn dispatch_media_data_extractor_tasks(
 async fn dispatch_thumbnailer_tasks(
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	should_regenerate: bool,
-	location_path: &PathBuf,
+	location_path: &Path,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
 ) -> Result<Vec<TaskHandle<Error>>, Error> {
