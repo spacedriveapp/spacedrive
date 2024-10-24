@@ -8,7 +8,7 @@ use crate::volume::manager::VolumeManager;
 use tokio_inotify::Inotify;
 
 #[cfg(target_os = "macos")]
-use fsevent::FSEventStream;
+use fsevent::{self, FsEvent, StreamFlags};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
@@ -40,11 +40,15 @@ async fn volume_event_loop(
 		match event {
 			VolumeEvent::VolumeAdded => {
 				info!("Volume added detected. Syncing...");
-				manager.evaluate_system_volumes().await?;
+				if let Err(e) = manager.evaluate_system_volumes().await {
+					error!("Failed to evaluate system volumes: {}", e);
+				}
 			}
 			VolumeEvent::VolumeRemoved => {
 				info!("Volume removed detected. Syncing...");
-				manager.evaluate_system_volumes().await?;
+				if let Err(e) = manager.evaluate_system_volumes().await {
+					error!("Failed to evaluate system volumes: {}", e);
+				}
 			}
 			VolumeEvent::Error(err) => {
 				error!("Volume watcher error: {}", err);
@@ -101,23 +105,48 @@ async fn linux_watcher(sender: UnboundedSender<VolumeEvent>) {
 
 #[cfg(target_os = "macos")]
 async fn macos_watcher(sender: UnboundedSender<VolumeEvent>) {
-	let mut stream = FSEventStream::new(vec!["/Volumes".to_string()]);
-	stream.start().expect("Failed to start FSEventStream");
+	// Create the channel for receiving fs events
+	let (event_tx, event_rx) = std::sync::mpsc::channel();
 
+	// Create FsEvent and start observing in a separate thread
+	std::thread::spawn(move || {
+		// Initialize FsEvent inside this thread
+		let mut stream = FsEvent::new(vec!["/Volumes".to_string()]);
+
+		if let Err(e) = stream.observe_async(event_tx) {
+			error!("Failed to start FsEvent observer: {}", e);
+			return;
+		}
+
+		// Keep the thread alive
+		std::thread::park();
+	});
+
+	// Process events in the async context
 	loop {
-		match stream.next().await {
-			Some(event) => {
-				if event.flag.contains(fsevent::EventFlag::MOUNT) {
-					sender
-						.send(VolumeEvent::VolumeAdded)
-						.expect("Failed to send event");
-				} else if event.flag.contains(fsevent::EventFlag::UNMOUNT) {
-					sender
-						.send(VolumeEvent::VolumeRemoved)
-						.expect("Failed to send event");
+		match event_rx.recv() {
+			Ok(event) => match event.flag {
+				flag if flag.contains(StreamFlags::MOUNT) => {
+					if let Err(e) = sender.send(VolumeEvent::VolumeAdded) {
+						error!("Failed to send VolumeAdded event: {}", e);
+					}
 				}
+				flag if flag.contains(StreamFlags::UNMOUNT) => {
+					if let Err(e) = sender.send(VolumeEvent::VolumeRemoved) {
+						error!("Failed to send VolumeRemoved event: {}", e);
+					}
+				}
+				_ => {
+					error!("Received an unexpected event: {:?}", event);
+				}
+			},
+			Err(e) => {
+				error!("Error receiving event: {}", e);
+				if let Err(e) = sender.send(VolumeEvent::Error(e.to_string())) {
+					error!("Failed to send error event: {}", e);
+				}
+				break;
 			}
-			None => error!("FSEventStream error occurred"),
 		}
 	}
 }

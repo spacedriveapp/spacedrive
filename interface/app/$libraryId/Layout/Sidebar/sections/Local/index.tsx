@@ -47,10 +47,8 @@ export default function LocalSection() {
 	const locationIdsForVolumes = useMemo(() => {
 		if (!locations || !volumes) return {};
 
-		const volumePaths = volumes.map((volume) => volume.mount_points[0] ?? null);
-
 		const matchedLocations = locations.filter((location) =>
-			volumePaths.includes(location.path)
+			volumes.some((volume) => volume.mount_point === location.path)
 		);
 
 		const locationIdsMap = matchedLocations.reduce(
@@ -67,14 +65,6 @@ export default function LocalSection() {
 
 		return locationIdsMap;
 	}, [locations, volumes]);
-
-	const mountPoints = (volumes || []).flatMap((volume, volumeIndex) =>
-		volume.mount_points.map((mountPoint, index) =>
-			mountPoint !== homeDir.data
-				? { type: 'volume', volume, mountPoint, volumeIndex, index }
-				: null
-		)
-	);
 
 	return (
 		<Section name={t('local')}>
@@ -93,50 +83,6 @@ export default function LocalSection() {
 						<Name>{t('home')}</Name>
 					</EphemeralLocation>
 				)}
-
-				{mountPoints.map((item) => {
-					if (!item) return;
-
-					const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
-
-					const key = `${item.volumeIndex}-${item.index}`;
-
-					const name =
-						item.mountPoint === '/'
-							? 'Root'
-							: item.index === 0
-								? item.volume.name
-								: item.mountPoint;
-
-					const toPath =
-						locationId !== undefined
-							? `location/${locationId}`
-							: `ephemeral/${key}?path=${item.mountPoint}`;
-
-					return (
-						<EphemeralLocation
-							key={key}
-							navigateTo={toPath}
-							path={
-								locationId !== undefined
-									? locationId.toString()
-									: (item.mountPoint ?? '')
-							}
-						>
-							<SidebarIcon
-								name={
-									item.volume.file_system === 'exfat'
-										? 'SD'
-										: item.volume.name === 'Macintosh HD'
-											? 'HDD'
-											: 'Drive'
-								}
-							/>
-							<Name>{name}</Name>
-							{item.volume.disk_type === 'Removable' && <EjectButton />}
-						</EphemeralLocation>
-					);
-				})}
 			</SeeMore>
 		</Section>
 	);
