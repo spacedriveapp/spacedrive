@@ -10,6 +10,7 @@ use std::{
 
 use futures::{stream::FuturesUnordered, StreamExt};
 
+use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::{
@@ -18,16 +19,17 @@ use sd_core_heavy_lifting::{
 		utils::cancel_pending_tasks,
 		SerializableJob, SerializedTasks,
 	},
-	Error, JobContext, JobName, OuterContext, ProgressUpdate,
+	Error, JobContext, JobName, NonCriticalError, OuterContext, ProgressUpdate,
 };
 use sd_core_prisma_helpers::file_path_with_object;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
-use sd_task_system::{Task, TaskDispatcher, TaskHandle, TaskStatus};
+use sd_task_system::{SerializableTask, Task, TaskDispatcher, TaskHandle, TaskStatus};
+use serde::{Deserialize, Serialize};
 
 use super::{tasks, DeleteBehavior, FileData};
 
 #[derive(Debug)]
-pub struct DeleterJob<T> {
+pub struct DeleterJob<B> {
 	location_id: location::id::Type,
 	file_path_ids: Vec<file_path::id::Type>,
 
@@ -35,7 +37,21 @@ pub struct DeleterJob<T> {
 	shutdown_tasks: Option<Vec<Box<dyn Task<Error>>>>,
 	accumulative_errors: Option<Vec<Error>>,
 
-	behavior: PhantomData<fn(T) -> T>, // variance: invariant, inherent Send + Sync
+	behavior: PhantomData<fn(B) -> B>, // variance: invariant, inherent Send + Sync
+}
+
+enum InnerTaskType {
+	Delete,
+	MoveToTrash,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleterState {
+	location_id: location::id::Type,
+	file_path_ids: Vec<file_path::id::Type>,
+
+	shutdown_tasks: Option<SerializedTasks>,
+	accumulative_errors: Option<Vec<NonCriticalError>>,
 }
 
 impl<B: DeleteBehavior> Hash for DeleterJob<tasks::RemoveTask<B>> {
@@ -85,9 +101,6 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 			.map_err(|_| todo!("FileSystemJobsError::from"))
 			.unwrap();
 
-		ctx.progress([ProgressUpdate::CompletedTaskCount(files.len() as _)])
-			.await;
-
 		let mut steps: Vec<Vec<_>> = {
 			let temp = files.into_iter();
 			let ch = temp.chunks(50);
@@ -96,6 +109,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 		};
 
 		let progress_counter = Arc::new(AtomicU64::new(0));
+		let mut return_status = None;
 
 		// TODO(matheus-consoli): make it clear that this is an optimization
 		// exec_in_place();
@@ -105,7 +119,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 			let all = steps.pop().expect("we checked the length");
 			let size = all.len() as u64;
 
-			B::delete_all(all).await.unwrap();
+			B::delete_all(all, None).await.unwrap();
 
 			ctx.progress([ProgressUpdate::TaskCount(size)]).await;
 			progress_counter.fetch_add(size, Ordering::SeqCst);
@@ -136,54 +150,95 @@ impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<tasks::Remove
 								// .with_non_critical_errors()
 								.build(),
 						);
-						// TODO(matheus-consoli): cancel the job
-						todo!()
+						return_status = Some(Ok(_return));
+						break;
 					}
 					Ok(TaskStatus::Error(error)) => {
 						cancel_pending_tasks(&mut tasks).await;
-						// break Some(Err(error));
+						self.accumulative_errors.get_or_insert_default().push(error);
+						break;
 					}
 
-					Err(_) => {
+					Err(error) => {
 						cancel_pending_tasks(&mut tasks).await;
-						// break Some(Err(error));
+						return_status = Some(Err(error));
+						break;
 					}
 				}
 			}
 		};
 
-		// TODO(matheus-consoli): inline this later
-		// let errors = errors
-		// 	.into_iter()
-		// 	.map(|_| NonCriticalError::Deleter("TODO handle errors".into()))
-		// 	.collect();
-
-		ctx.progress([ProgressUpdate::CompletedTaskCount(
-			progress_counter.load(Ordering::Acquire),
-		)])
-		.await;
-
-		Ok(ReturnStatus::Completed(
-			JobReturn::builder()
-				// .with_non_critical_errors(errors)
-				.build(),
-		))
+		match return_status {
+			Some(status) => Ok(status?),
+			None => {
+				tracing::debug!("return status = None; reporting progress");
+				ctx.progress([ProgressUpdate::CompletedTaskCount(
+					progress_counter.load(Ordering::Acquire),
+				)])
+				.await;
+				Ok(ReturnStatus::Completed(
+					JobReturn::builder()
+						// .with_non_critical_errors(errors)
+						.build(),
+				))
+			}
+		}
 	}
 }
 
-// TODO(matheus-consoli): add serialization once we add smart tasks
-impl<OuterCtx: OuterContext, B: DeleteBehavior + Hash + 'static> SerializableJob<OuterCtx>
-	for DeleterJob<tasks::RemoveTask<B>>
+impl<OuterCtx, B> SerializableJob<OuterCtx> for DeleterJob<tasks::RemoveTask<B>>
+where
+	OuterCtx: OuterContext,
+	B: DeleteBehavior + Send + Hash + 'static,
+	tasks::RemoveTask<B>: SerializableTask<Error>,
 {
-	async fn serialize(self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
-		Ok(None)
+	async fn serialize(mut self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
+		let serialized_shutdown_tasks = self
+			.shutdown_tasks
+			.take()
+			.unwrap_or_default()
+			.into_iter()
+			.map(|task| async move {
+				task.downcast::<tasks::RemoveTask<B>>()
+					.expect("it's known because of the bound in the impl block")
+					.serialize()
+					.await
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await
+			.unwrap();
+
+		let serialized_tasks_bytes = rmp_serde::to_vec_named(&serialized_shutdown_tasks)
+			.map(SerializedTasks)
+			.unwrap();
+
+		rmp_serde::to_vec_named(&DeleterState {
+			location_id: self.location_id,
+			file_path_ids: self.file_path_ids,
+			shutdown_tasks: Some(serialized_tasks_bytes),
+			// TODO(matheus-consoli):
+			accumulative_errors: None,
+		})
+		.map(Some)
 	}
 
 	async fn deserialize(
 		serialized_job: &[u8],
-		ctx: &OuterCtx,
+		_: &OuterCtx,
 	) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
-		Ok(None)
+		let mut job = rmp_serde::from_slice::<DeleterState>(serialized_job)?;
+		let tasks = job.shutdown_tasks.take();
+
+		let job = Self {
+			location_id: job.location_id,
+			file_path_ids: job.file_path_ids,
+			accumulative_errors: None, //  TODO(matheus-consoli):  job.accumulative_errors
+			shutdown_tasks: None,
+			pending_tasks: None,
+			behavior: PhantomData,
+		};
+		Ok(Some((job, tasks)))
 	}
 }
 
