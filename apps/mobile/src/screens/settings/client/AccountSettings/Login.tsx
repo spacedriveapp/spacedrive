@@ -1,6 +1,6 @@
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseMutationResult } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Controller } from 'react-hook-form';
@@ -116,7 +116,7 @@ async function signInClicked(
 	email: string,
 	password: string,
 	navigator: SettingsStackScreenProps<'AccountProfile'>['navigation'],
-	cloudBootstrap: UseMutationResult<null, AlphaRSPCError, [string, string], unknown>, // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>, // Cloud bootstrap mutation
 	updateUserStore: ReturnType<typeof getUserStore>
 ) {
 	try {

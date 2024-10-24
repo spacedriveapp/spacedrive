@@ -17,7 +17,7 @@ export default function OnboardingPreRelease() {
 			<div className="relative w-screen text-center">
 				<img
 					src={isDark ? AlphaBg : AlphaBg_Light}
-					alt=""
+					alt="Spacedrive"
 					className="absolute top-[-50px] z-0 w-full"
 				/>
 				<div className="relative z-10 flex flex-col gap-5">

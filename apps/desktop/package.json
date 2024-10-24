@@ -12,19 +12,19 @@
 		"lint": "eslint src --cache"
 	},
 	"dependencies": {
-		"@oscartbeaumont-sd/rspc-client": "github:spacedriveapp/rspc#path:packages/client&bc882f4724",
-		"@oscartbeaumont-sd/rspc-tauri": "github:spacedriveapp/rspc#path:packages/tauri&bc882f4724",
+		"@spacedrive/rspc-client": "github:spacedriveapp/rspc#path:packages/client&6a77167495",
+		"@spacedrive/rspc-tauri": "github:spacedriveapp/rspc#path:packages/tauri&6a77167495",
 		"@remix-run/router": "=1.13.1",
 		"@sd/client": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ui": "workspace:*",
 		"@t3-oss/env-core": "^0.7.1",
-		"@tanstack/react-query": "^4.36.1",
-		"@tauri-apps/api": "=2.0.1",
-		"@tauri-apps/plugin-dialog": "2.0.0",
-		"@tauri-apps/plugin-http": "2.0.0",
+		"@tanstack/react-query": "^5.59",
+		"@tauri-apps/api": "=2.0.3",
+		"@tauri-apps/plugin-dialog": "2.0.1",
+		"@tauri-apps/plugin-http": "2.0.1",
 		"@tauri-apps/plugin-os": "2.0.0",
-		"@tauri-apps/plugin-shell": "2.0.0",
+		"@tauri-apps/plugin-shell": "2.0.1",
 		"consistent-hash": "^1.2.2",
 		"immer": "^10.0.3",
 		"react": "^18.2.0",
@@ -36,12 +36,12 @@
 	"devDependencies": {
 		"@sd/config": "workspace:*",
 		"@sentry/vite-plugin": "^2.16.0",
-		"@tauri-apps/cli": "2.0.1",
+		"@tauri-apps/cli": "2.0.4",
 		"@types/react": "^18.2.67",
 		"@types/react-dom": "^18.2.22",
 		"sass": "^1.72.0",
 		"typescript": "^5.6.2",
-		"vite": "^5.2.0",
-		"vite-tsconfig-paths": "^4.3.2"
+		"vite": "^5.4.9",
+		"vite-tsconfig-paths": "^5.0.1"
 	}
 }

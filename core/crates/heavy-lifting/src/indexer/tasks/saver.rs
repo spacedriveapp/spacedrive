@@ -9,10 +9,7 @@ use sd_prisma::{
 };
 use sd_sync::{sync_db_entry, sync_entry, OperationFactory};
 use sd_task_system::{ExecStatus, Interrupter, IntoAnyTaskOutput, SerializableTask, Task, TaskId};
-use sd_utils::{
-	db::{inode_to_db, size_in_bytes_to_db},
-	msgpack,
-};
+use sd_utils::db::{inode_to_db, size_in_bytes_to_db};
 
 use std::{sync::Arc, time::Duration};
 
@@ -121,13 +118,13 @@ impl Task<Error> for Saver {
 						new file_paths and they were not identified yet"
 					);
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = [
+					let (sync_params, db_params) = [
 						(
-							(
-								location::NAME,
-								msgpack!(prisma_sync::location::SyncId {
+							sync_entry!(
+								prisma_sync::location::SyncId {
 									pub_id: location_pub_id.clone()
-								}),
+								},
+								location
 							),
 							location_id::set(Some(*location_id)),
 						),
@@ -152,7 +149,7 @@ impl Task<Error> for Saver {
 						),
 					]
 					.into_iter()
-					.unzip();
+					.unzip::<_, _, Vec<_>, Vec<_>>();
 
 					(
 						sync.shared_create(

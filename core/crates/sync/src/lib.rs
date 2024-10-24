@@ -27,12 +27,15 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{cloud_crdt_operation, crdt_operation};
+use sd_prisma::{
+	prisma::{cloud_crdt_operation, crdt_operation},
+	prisma_sync,
+};
 use sd_utils::uuid_to_bytes;
 
 use std::{collections::HashMap, sync::Arc};
 
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinError};
 
 pub mod backfill;
 mod db_operation;
@@ -66,12 +69,16 @@ pub enum Error {
 	Deserialization(#[from] rmp_serde::decode::Error),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("PrismaSync error: {0}")]
+	PrismaSync(#[from] prisma_sync::Error),
 	#[error("invalid model id: {0}")]
 	InvalidModelId(ModelId),
 	#[error("tried to write an empty operations list")]
 	EmptyOperations,
 	#[error("device not found: {0}")]
 	DeviceNotFound(DevicePubId),
+	#[error("processes crdt task panicked")]
+	ProcessCrdtPanic(JoinError),
 }
 
 impl From<Error> for rspc::Error {

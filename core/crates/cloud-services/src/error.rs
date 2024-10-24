@@ -123,6 +123,8 @@ pub enum Error {
 	EndUpdatePushSyncMessages(io::Error),
 	#[error("Unexpected end of stream while encrypting sync messages")]
 	UnexpectedEndOfStream,
+	#[error("Failed to create directory to store timestamp keeper files")]
+	FailedToCreateTimestampKeepersDirectory(io::Error),
 	#[error("Failed to read last timestamp keeper for pulling sync messages: {0}")]
 	FailedToReadLastTimestampKeeper(io::Error),
 	#[error("Failed to handle last timestamp keeper serialization: {0}")]

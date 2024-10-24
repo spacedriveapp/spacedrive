@@ -93,7 +93,7 @@ export function Spacedrop({ triggerClose }: { triggerClose: () => void }) {
 	});
 
 	const onDropped = (id: string, files: string[]) => {
-		if (doSpacedrop.isLoading) {
+		if (doSpacedrop.isPending) {
 			toast.warning(t('spacedrop_already_progress'));
 			return;
 		}

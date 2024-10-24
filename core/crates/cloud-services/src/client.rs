@@ -2,11 +2,7 @@ use crate::p2p::{NotifyUser, UserResponse};
 
 use sd_cloud_schema::{Client, Service, ServicesALPN};
 
-use std::{
-	net::SocketAddr,
-	sync::{atomic::AtomicBool, Arc},
-	time::Duration,
-};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use futures::Stream;
 use iroh_net::relay::RelayUrl;
@@ -15,7 +11,7 @@ use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
 use reqwest_middleware::{reqwest, ClientBuilder, ClientWithMiddleware};
 use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::warn;
 
 use super::{
@@ -53,7 +49,7 @@ pub struct CloudServices {
 	notify_user_rx: flume::Receiver<NotifyUser>,
 	user_response_tx: flume::Sender<UserResponse>,
 	pub(crate) user_response_rx: flume::Receiver<UserResponse>,
-	pub has_bootstrapped: Arc<AtomicBool>,
+	pub has_bootstrapped: Arc<Mutex<bool>>,
 }
 
 impl CloudServices {

@@ -31,7 +31,7 @@ impl OneShotDecryption for SecretKey {
 		EncryptedBlockRef { nonce, cipher_text }: EncryptedBlockRef<'_>,
 	) -> Result<Vec<u8>, Error> {
 		XChaCha20Poly1305::new(&self.0)
-			.decrypt(&nonce, cipher_text)
+			.decrypt(nonce, cipher_text)
 			.map_err(|aead::Error| Error::Decrypt)
 	}
 

@@ -61,7 +61,7 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 				// I had planned to somehow fetch the Object, but its a lot more work than its worth given
 				// id have to fetch the file_path explicitly and patch the query
 				// for now, it seems to work a treat just invalidating the whole query
-				rspc.queryClient.invalidateQueries(['search.paths']);
+				rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 			}
 		}
 	});

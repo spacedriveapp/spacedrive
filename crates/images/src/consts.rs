@@ -159,7 +159,7 @@ impl serde::Serialize for ConvertibleExtension {
 struct ExtensionVisitor;
 
 #[cfg(feature = "serde")]
-impl<'de> serde::de::Visitor<'de> for ExtensionVisitor {
+impl serde::de::Visitor<'_> for ExtensionVisitor {
 	type Value = ConvertibleExtension;
 
 	fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

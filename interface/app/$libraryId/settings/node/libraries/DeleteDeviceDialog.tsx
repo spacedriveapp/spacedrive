@@ -54,7 +54,7 @@ export default function DeleteLibraryDialog(props: Props) {
 			}
 
 			await deleteDevice.mutateAsync(props.pubId);
-			queryClient.invalidateQueries(['library.list']);
+			queryClient.invalidateQueries({ queryKey: ['library.list'] });
 
 			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			platform.refreshMenuBar && platform.refreshMenuBar();

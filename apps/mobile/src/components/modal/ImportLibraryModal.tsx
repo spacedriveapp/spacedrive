@@ -57,11 +57,11 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									description="No cloud libraries available to join"
 								/>
 							}
-							keyExtractor={(item) => item.uuid}
+							keyExtractor={(item) => item.pub_id}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<CloudLibraryCard
-									data={item}
+									// data={item}
 									navigation={navigation}
 									modalRef={modalRef}
 								/>
@@ -93,7 +93,7 @@ const CloudLibraryCard = ({ modalRef, navigation }: Props) => {
 			<Button
 				size="sm"
 				variant="accent"
-				// disabled={joinLibrary.isLoading}
+				// disabled={joinLibrary.isPending}
 				onPress={async () => {
 					// const library = await joinLibrary.mutateAsync(data.uuid);
 
@@ -121,7 +121,7 @@ const CloudLibraryCard = ({ modalRef, navigation }: Props) => {
 				}}
 			>
 				<Text style={tw`text-sm font-medium text-white`}>
-					{/* {joinLibrary.isLoading && joinLibrary.variables === data.uuid
+					{/* {joinLibrary.isPending && joinLibrary.variables === data.uuid
 						? 'Joining...'
 						: 'Join'} */}
 					THIS FILE NEEDS TO BE UPDATED TO USE THE NEW LIBRARY SYSTEM IN THE FUTURE
