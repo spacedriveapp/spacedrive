@@ -220,6 +220,7 @@ case "$(uname)" in
     elif has eopkg; then
       echo "Detected eopkg!"
       echo "Installing dependencies with eopkg..."
+      echo "Solus support is experimental" >&2
 
       # Tauri dependencies
       set -- curl wget file openssl openssl-devel libgtk-3-devel librsvg-devel \
