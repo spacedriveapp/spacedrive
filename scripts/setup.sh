@@ -217,6 +217,26 @@ case "$(uname)" in
       set -- "$@" vips
 
       sudo apk add "$@"
+    elif has eopkg; then
+      echo "Detected eopkg!"
+      echo "Installing dependencies with eopkg..."
+      echo "Solus support is experimental" >&2
+
+      # Tauri dependencies
+      set -- curl wget file openssl openssl-devel libgtk-3-devel librsvg-devel \
+        libwebkit-gtk41-devel libayatana-appindicator-devel xdotool-devel dbus-devel
+
+      # Webkit2gtk requires gstreamer plugins for video playback to work
+      set -- "$@" gstreamer-1.0-plugins-good gstreamer-1.0-plugins-ugly gstreamer-1.0-devel gstreamer-1.0-plugins-base-devel
+
+      # C/C++ build dependencies, required to build some *-sys crates
+      set -- "$@" llvm-devel llvm-clang-devel llvm-clang nasm perl
+
+      # React dependencies
+      set -- "$@" libvips
+
+      sudo eopkg it -c system.devel -y
+      sudo eopkg it "$@" -y
     else
       if has lsb_release; then
         _distro="'$(lsb_release -s -d)' "
