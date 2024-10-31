@@ -93,7 +93,7 @@ const TEXT_RENDERER: OriginalRenderer = (props) => (
 		onLoad={props.onLoad}
 		onError={props.onError}
 		className={clsx(
-			'textviewer-scroll size-full overflow-y-auto whitespace-pre-wrap break-words px-4 font-mono',
+			'textviewer-scroll font-mono size-full overflow-y-auto whitespace-pre-wrap break-words px-4',
 			!props.mediaControls ? 'overflow-hidden' : 'overflow-auto',
 			props.className,
 			props.frame && [props.frameClassName, '!bg-none p-2']
