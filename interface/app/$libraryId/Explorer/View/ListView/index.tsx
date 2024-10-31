@@ -130,47 +130,49 @@ export const ListView = memo(() => {
 			const [backRange, frontRange] = getRangesByRow(range.start);
 
 			if (backRange && frontRange) {
-				[...Array(backRange.sorted.end.index - backRange.sorted.start.index + 1)].forEach(
-					(_, i) => {
-						const index = backRange.sorted.start.index + i;
+				for (let i = backRange.sorted.start.index; i <= backRange.sorted.end.index; i++) {
+					const index = backRange.sorted.start.index + i;
 
-						if (index === range.start.index) return;
+					if (index === range.start.index) continue;
 
-						const row = rows[index];
+					const row = rows[index];
 
-						if (row) explorer.removeSelectedItem(row.original);
-					}
-				);
+					if (row) explorer.removeSelectedItem(row.original);
+				}
 
 				_ranges = _ranges.filter((_, i) => i !== backRange.index);
 			}
 
-			[...Array(Math.abs(range.end.index - rowIndex) + (changeDirection ? 1 : 0))].forEach(
-				(_, i) => {
-					if (!range.direction || direction === range.direction) i += 1;
+			for (
+				let i = 0;
+				i < Math.abs(range.end.index - rowIndex) + (changeDirection ? 1 : 0);
+				i++
+			) {
+				if (!range.direction || direction === range.direction) i += 1;
 
-					const index = range.end.index + (direction === 'down' ? i : -i);
+				const index = range.end.index + (direction === 'down' ? i : -i);
 
-					const row = rows[index];
+				const row = rows[index];
 
-					if (!row) return;
+				if (!row) continue;
 
-					const item = row.original;
+				const item = row.original;
 
-					if (uniqueId(item) === uniqueId(range.start.original)) return;
+				if (uniqueId(item) === uniqueId(range.start.original)) continue;
 
-					if (
-						!range.direction ||
-						direction === range.direction ||
-						(changeDirection &&
-							(range.direction === 'down'
-								? index < range.start.index
-								: index > range.start.index))
-					) {
-						explorer.addSelectedItem(item);
-					} else explorer.removeSelectedItem(item);
+				if (
+					!range.direction ||
+					direction === range.direction ||
+					(changeDirection &&
+						(range.direction === 'down'
+							? index < range.start.index
+							: index > range.start.index))
+				) {
+					explorer.addSelectedItem(item);
+				} else {
+					explorer.removeSelectedItem(item);
 				}
-			);
+			}
 
 			let newRangeEnd = item;
 			let removeRangeIndex: number | null = null;
@@ -186,15 +188,13 @@ export const ListView = memo(() => {
 							rowIndex
 					);
 
-					[...Array(removableRowsCount)].forEach((_, i) => {
-						i += 1;
-
+					for (let i = 1; i <= removableRowsCount; i++) {
 						const index = rowIndex + (direction === 'down' ? i : -i);
 
 						const row = rows[index];
 
 						if (row) explorer.removeSelectedItem(row.original);
-					});
+					}
 
 					removeRangeIndex = i;
 					break;
