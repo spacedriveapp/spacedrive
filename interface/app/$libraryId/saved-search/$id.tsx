@@ -127,7 +127,6 @@ function SaveButton({ searchId }: { searchId: number }) {
 	const updateSavedSearch = useLibraryMutation(['search.saved.update']);
 
 	const search = useSearchContext();
-
 	return (
 		<Button
 			className="flex shrink-0 flex-row"

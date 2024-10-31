@@ -1,7 +1,8 @@
 import { keepPreviousData } from '@tanstack/react-query';
+import { Key, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
-import { useLocale, useOperatingSystem } from '~/hooks';
+import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { useAccessToken, useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
 
@@ -28,17 +29,27 @@ export const Component = () => {
 	const os = useOperatingSystem();
 
 	const { t } = useLocale();
+	const accessToken = useAccessToken();
 
 	const locationsQuery = useLibraryQuery(['locations.list'], {
 		placeholderData: keepPreviousData
 	});
 	const locations = locationsQuery.data ?? [];
 
+	// not sure if we'll need the node state in the future, as it should be returned with the cloud.devices.list query
+	// const { data: node } = useBridgeQuery(['nodeState']);
+	const cloudDevicesList = useBridgeQuery(['cloud.devices.list']);
+
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			await cloudDevicesList.refetch();
+		}, 10000);
+		return () => clearInterval(interval);
+	}, []);
 	const { data: node } = useBridgeQuery(['nodeState']);
+	const stats = useLibraryQuery(['library.statistics']);
 
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
-
-	const stats = useLibraryQuery(['library.statistics']);
 
 	return (
 		<SearchContextProvider search={search}>
@@ -60,7 +71,10 @@ export const Component = () => {
 						<FileKindStatistics />
 					</OverviewSection>
 
-					<OverviewSection count={1} title={t('devices')}>
+					<OverviewSection
+						count={(cloudDevicesList.data?.length ?? 0) + (node ? 1 : 0)}
+						title={t('devices')}
+					>
 						{node && (
 							<StatisticItem
 								name={node.name}
@@ -73,13 +87,17 @@ export const Component = () => {
 								connectionType={null}
 							/>
 						)}
-						<NewCard
-							icons={['Laptop', 'Server', 'SilverBox', 'Tablet']}
-							text={t('connect_device_description')}
-							className="h-auto"
-							// buttonText={t('connect_device')}
-						/>
-						{/**/}
+						{cloudDevicesList.data?.map((device) => (
+							<StatisticItem
+								key={device.pub_id}
+								name={device.name}
+								icon={hardwareModelToIcon(device.hardware_model as HardwareModel)}
+								totalSpace="0"
+								freeSpace="0"
+								color="#0362FF"
+								connectionType={'cloud'}
+							/>
+						))}
 					</OverviewSection>
 
 					<OverviewSection count={locations.length} title={t('locations')}>
