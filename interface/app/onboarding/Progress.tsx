@@ -20,7 +20,7 @@ export default function OnboardingProgress() {
 	}, [currentScreen]);
 
 	const routes = [
-		'alpha',
+		'prerelease',
 		'new-library',
 		os === 'macOS' && 'full-disk',
 		'locations',

@@ -19,6 +19,7 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
+		"@fontsource/ibm-plex-sans": "^5.1.0",
 		"@headlessui/react": "^1.7.17",
 		"@phosphor-icons/react": "^2.0.13",
 		"@radix-ui/react-checkbox": "^1.0.4",
@@ -44,7 +45,7 @@
 		"react-router-dom": "=6.20.1",
 		"sonner": "^1.0.3",
 		"use-debounce": "^9.0.4",
-		"zod": "~3.22.4"
+		"zod": "^3.23"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.0",

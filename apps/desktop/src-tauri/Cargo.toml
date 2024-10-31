@@ -16,7 +16,8 @@ sd-fda    = { path = "../../../crates/fda" }
 sd-prisma = { path = "../../../crates/prisma" }
 
 # Workspace dependencies
-axum               = { workspace = true, features = ["headers", "query"] }
+axum               = { workspace = true, features = ["query"] }
+axum-extra         = { workspace = true, features = ["typed-header"] }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
@@ -36,9 +37,9 @@ uuid               = { workspace = true, features = ["serde"] }
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener               = { version = "0.7.1", features = ["reveal"], default-features = false }
 specta-typescript    = "=0.0.7"
-tauri-plugin-dialog  = "=2.0.1"
+tauri-plugin-dialog  = "=2.0.2"
 tauri-plugin-os      = "=2.0.1"
-tauri-plugin-shell   = "=2.0.1"
+tauri-plugin-shell   = "=2.0.2"
 tauri-plugin-updater = "=2.0.2"
 
 # memory allocator
@@ -46,12 +47,12 @@ mimalloc = { workspace = true }
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
-version  = "=2.0.1"
+version  = "=2.0.6"
 
 [dependencies.tauri-specta]
 features = ["derive", "typescript"]
 git      = "https://github.com/spacedriveapp/tauri-specta"
-rev      = "1baf68be47"
+rev      = "8c85d40eb9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # Spacedrive Sub-crates
@@ -73,7 +74,7 @@ sd-desktop-windows = { path = "../crates/windows" }
 
 [build-dependencies]
 # Specific Desktop dependencies
-tauri-build = "=2.0.1"
+tauri-build = "=2.0.2"
 
 [features]
 ai-models       = ["sd-core/ai"]

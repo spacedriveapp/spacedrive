@@ -8,8 +8,7 @@ import { UseExplorerInfiniteQueryArgs } from './useExplorerInfiniteQuery';
 
 export function useObjectsOffsetInfiniteQuery({
 	arg,
-	order,
-	...args
+	order
 }: UseExplorerInfiniteQueryArgs<ObjectSearchArgs, ObjectOrder>) {
 	const { library } = useLibraryContext();
 	const ctx = useRspcLibraryContext();
@@ -40,10 +39,10 @@ export function useObjectsOffsetInfiniteQuery({
 
 			return { ...result, offset: pageParam, arg };
 		},
+		initialPageParam: 0,
 		getNextPageParam: ({ items, offset, arg }) => {
 			if (items.length >= arg.take) return (offset ?? 0) + 1;
-		},
-		...args
+		}
 	});
 
 	return query;

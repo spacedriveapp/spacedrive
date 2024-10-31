@@ -35,3 +35,5 @@ package*.json
 
 # Dont format locales json
 interface/locales
+
+scripts/utils/.tmp/*

@@ -1,4 +1,4 @@
-import { wsBatchLink } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { wsBatchLink } from '@spacedrive/rspc-client';
 
 globalThis.isDev = import.meta.env.DEV;
 globalThis.rspcLinks = [

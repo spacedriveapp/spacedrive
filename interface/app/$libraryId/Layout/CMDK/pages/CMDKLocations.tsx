@@ -1,3 +1,4 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import CommandPalette from 'react-cmdk';
 import { useNavigate } from 'react-router';
@@ -5,7 +6,9 @@ import { arraysEqual, useLibraryQuery, useOnlineLocations } from '@sd/client';
 import { Icon } from '~/components';
 
 export default function CMDKLocations() {
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], {
+		placeholderData: keepPreviousData
+	});
 	const locations = locationsQuery.data;
 
 	const onlineLocations = useOnlineLocations();
