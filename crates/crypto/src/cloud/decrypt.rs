@@ -1,5 +1,5 @@
 use crate::{
-	primitives::{EncryptedBlock, StreamNonce},
+	primitives::{EncryptedBlock, EncryptedBlockRef, StreamNonce},
 	Error,
 };
 
@@ -12,7 +12,8 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader
 use super::secret_key::SecretKey;
 
 pub trait OneShotDecryption {
-	fn decrypt(&self, cipher_text: &EncryptedBlock) -> Result<Vec<u8>, Error>;
+	fn decrypt(&self, cipher_text: EncryptedBlockRef<'_>) -> Result<Vec<u8>, Error>;
+	fn decrypt_owned(&self, cipher_text: &EncryptedBlock) -> Result<Vec<u8>, Error>;
 }
 
 pub trait StreamDecryption {
@@ -26,6 +27,15 @@ pub trait StreamDecryption {
 
 impl OneShotDecryption for SecretKey {
 	fn decrypt(
+		&self,
+		EncryptedBlockRef { nonce, cipher_text }: EncryptedBlockRef<'_>,
+	) -> Result<Vec<u8>, Error> {
+		XChaCha20Poly1305::new(&self.0)
+			.decrypt(nonce, cipher_text)
+			.map_err(|aead::Error| Error::Decrypt)
+	}
+
+	fn decrypt_owned(
 		&self,
 		EncryptedBlock { nonce, cipher_text }: &EncryptedBlock,
 	) -> Result<Vec<u8>, Error> {

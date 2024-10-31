@@ -35,12 +35,15 @@ uuid               = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
-opener               = { version = "0.7.1", features = ["reveal"], default-features = false }
-specta-typescript    = "=0.0.7"
-tauri-plugin-dialog  = "=2.0.2"
-tauri-plugin-os      = "=2.0.1"
-tauri-plugin-shell   = "=2.0.2"
-tauri-plugin-updater = "=2.0.2"
+opener                         = { version = "0.7.1", features = ["reveal"], default-features = false }
+specta-typescript              = "=0.0.7"
+tauri-plugin-clipboard-manager = "=2.0.1"
+tauri-plugin-deep-link         = "=2.0.1"
+tauri-plugin-dialog            = "=2.0.3"
+tauri-plugin-http              = "=2.0.3"
+tauri-plugin-os                = "=2.0.1"
+tauri-plugin-shell             = "=2.0.2"
+tauri-plugin-updater           = "=2.0.2"
 
 # memory allocator
 mimalloc = { workspace = true }

@@ -40,6 +40,7 @@ uuid                = { workspace = true, features = ["serde", "v4"] }
 # Note: half and ndarray version must be the same as used in ort
 half    = { version = "2.4", features = ['num-traits'] }
 ndarray = "0.15"
+ort-sys = '=2.0.0-rc.0'                                  # lock sys crate to the same version as ort
 url     = '2.5'
 
 # Microsoft does not provide a release for osx-gpu. See: https://github.com/microsoft/onnxruntime/releases

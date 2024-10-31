@@ -20,6 +20,7 @@ heif   = ["sd-images/heif"]
 
 [dependencies]
 # Inner Core Sub-crates
+sd-core-cloud-services   = { path = "./crates/cloud-services" }
 sd-core-file-path-helper = { path = "./crates/file-path-helper" }
 sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
@@ -29,7 +30,8 @@ sd-core-sync             = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors         = { path = "../crates/actors" }
 sd-ai             = { path = "../crates/ai", optional = true }
-sd-cloud-api      = { path = "../crates/cloud-api" }
+sd-crypto         = { path = "../crates/crypto" }
+sd-ffmpeg         = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext       = { path = "../crates/file-ext" }
 sd-images         = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
 sd-media-metadata = { path = "../crates/media-metadata" }
@@ -49,6 +51,7 @@ async-trait         = { workspace = true }
 axum                = { workspace = true, features = ["ws"] }
 base64              = { workspace = true }
 blake3              = { workspace = true }
+bytes               = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
@@ -64,6 +67,7 @@ reqwest             = { workspace = true, features = ["json", "native-tls-vendor
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }
 rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "unstable", "uuid"] }
+sd-cloud-schema     = { workspace = true }
 serde               = { workspace = true, features = ["derive", "rc"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
@@ -75,12 +79,11 @@ tokio-stream        = { workspace = true, features = ["fs"] }
 tokio-util          = { workspace = true, features = ["io"] }
 tracing             = { workspace = true }
 tracing-subscriber  = { workspace = true, features = ["env-filter"] }
-uuid                = { workspace = true, features = ["serde", "v4"] }
+uuid                = { workspace = true, features = ["serde", "v4", "v7"] }
 
 # Specific Core dependencies
 async-recursion  = "1.1"
 base91           = "0.1.0"
-bytes            = "1.6"
 ctor             = "0.2.8"
 directories      = "5.0"
 flate2           = "1.0"
@@ -98,6 +101,7 @@ sysinfo          = "0.29.11"                                   # Update blocked 
 tar              = "0.4.41"
 tower-service    = "0.3.2"
 tracing-appender = "0.2.3"
+whoami           = "1.5.2"
 
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]

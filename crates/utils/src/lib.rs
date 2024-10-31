@@ -27,6 +27,10 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use chrono::{DateTime, Utc};
+use uhlc::NTP64;
 use uuid::Uuid;
 
 pub mod db;
@@ -102,6 +106,23 @@ macro_rules! msgpack {
 
 		value
 	}}
+}
+
+/// Helper function to convert a [`chrono::DateTime<Utc>`] to a [`uhlc::NTP64`]
+#[allow(clippy::missing_panics_doc)] // Doesn't actually panic
+#[must_use]
+pub fn datetime_to_timestamp(latest_time: DateTime<Utc>) -> NTP64 {
+	NTP64::from(
+		SystemTime::from(latest_time)
+			.duration_since(UNIX_EPOCH)
+			.expect("hardcoded earlier time, nothing is earlier than UNIX_EPOCH"),
+	)
+}
+
+/// Helper function to convert a [`uhlc::NTP64`] to a [`chrono::DateTime<Utc>`]
+#[must_use]
+pub fn timestamp_to_datetime(timestamp: NTP64) -> DateTime<Utc> {
+	DateTime::from(timestamp.to_system_time())
 }
 
 // Only used for testing purposes. Do not use in production code.

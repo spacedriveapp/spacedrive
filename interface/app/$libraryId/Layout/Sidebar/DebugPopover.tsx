@@ -62,9 +62,9 @@ export default () => {
 			}
 		>
 			<div className="no-scrollbar block h-96 w-[430px] overflow-y-scroll pb-4">
-				<Setting mini title="Cloud Origin" description="Change the cloud origin to use">
+				{/* <Setting mini title="Cloud Origin" description="Change the cloud origin to use">
 					<CloudOriginSelect />
-				</Setting>
+				</Setting> */}
 
 				<Setting
 					mini
@@ -168,15 +168,17 @@ export default () => {
 				>
 					<ExplorerBehaviorSelect />
 				</Setting>
-				<FeatureFlagSelector />
+				{/* <FeatureFlagSelector /> */}
 				<InvalidateDebugPanel />
 				{/* <TestNotifications /> */}
-				<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
-					Cache Debug
-				</Button>
-				<Button size="sm" variant="gray" onClick={() => toggleRenderRects()}>
-					Toggle DND Rects
-				</Button>
+				<div className="flex gap-2">
+					<Button size="sm" variant="gray" onClick={() => navigate('./debug/cache')}>
+						Cache Debug
+					</Button>
+					<Button size="sm" variant="gray" onClick={() => toggleRenderRects()}>
+						Toggle DND Rects
+					</Button>
+				</div>
 
 				{/* {platform.showDevtools && (
 					<SettingContainer
@@ -215,39 +217,6 @@ function InvalidateDebugPanel() {
 	);
 }
 
-function FeatureFlagSelector() {
-	const featureFlags = useFeatureFlags();
-
-	return (
-		<>
-			<DropdownMenu.Root
-				trigger={
-					<Dropdown.Button variant="gray" className="w-full">
-						<span className="truncate">Feature Flags</span>
-					</Dropdown.Button>
-				}
-				className="z-[999] mt-1 shadow-none data-[side=bottom]:slide-in-from-top-2 dark:divide-menu-selected/30 dark:border-sidebar-line dark:bg-sidebar-box"
-				alignToTrigger
-			>
-				{[...features, ...backendFeatures].map((feat) => (
-					<DropdownMenu.Item
-						key={feat}
-						label={feat}
-						iconProps={{ weight: 'bold', size: 16 }}
-						onClick={() => toggleFeatureFlag(feat)}
-						className="font-medium text-white"
-						icon={
-							featureFlags.find((f) => feat === f) !== undefined
-								? CheckSquare
-								: undefined
-						}
-					/>
-				))}
-			</DropdownMenu.Root>
-		</>
-	);
-}
-
 // function TestNotifications() {
 // 	const coreNotif = useBridgeMutation(['notifications.test']);
 // 	const libraryNotif = useLibraryMutation(['notifications.testLibrary']);
@@ -260,33 +229,33 @@ function FeatureFlagSelector() {
 // 	);
 // }
 
-function CloudOriginSelect() {
-	const origin = useBridgeQuery(['cloud.getApiOrigin']);
-	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
+// function CloudOriginSelect() {
+// 	const origin = useBridgeQuery(['cloud.getApiOrigin']);
+// 	const setOrigin = useBridgeMutation(['cloud.setApiOrigin']);
 
-	const queryClient = useQueryClient();
+// 	const queryClient = useQueryClient();
 
-	return (
-		<>
-			{origin.data && (
-				<Select
-					onChange={(v) =>
-						setOrigin.mutateAsync(v).then(() => {
-							auth.logout();
-							queryClient.invalidateQueries();
-						})
-					}
-					value={origin.data}
-				>
-					<SelectOption value="https://app.spacedrive.com">
-						https://app.spacedrive.com
-					</SelectOption>
-					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
-				</Select>
-			)}
-		</>
-	);
-}
+// 	return (
+// 		<>
+// 			{origin.data && (
+// 				<Select
+// 					onChange={(v) =>
+// 						setOrigin.mutateAsync(v).then(() => {
+// 							auth.logout();
+// 							queryClient.invalidateQueries();
+// 						})
+// 					}
+// 					value={origin.data}
+// 				>
+// 					<SelectOption value="https://api.spacedrive.com">
+// 						https://api.spacedrive.com
+// 					</SelectOption>
+// 					<SelectOption value="http://localhost:3000">http://localhost:3000</SelectOption>
+// 				</Select>
+// 			)}
+// 		</>
+// 	);
+// }
 
 function ExplorerBehaviorSelect() {
 	const { explorerOperatingSystem } = useExplorerOperatingSystem();
