@@ -13,6 +13,7 @@ module.exports = {
 		],
 		'tailwindcss/no-contradicting-classname': 'warn',
 		'tailwindcss/enforces-shorthand': 'off',
+		'@typescript-eslint/no-require-imports': 'off',
 		'no-restricted-imports': [
 			'error',
 			{

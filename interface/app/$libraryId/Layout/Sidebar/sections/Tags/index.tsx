@@ -1,3 +1,4 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { NavLink, useMatch } from 'react-router-dom';
 import { useLibraryQuery, type Tag } from '@sd/client';
@@ -11,7 +12,7 @@ import { SeeMore } from '../../SidebarLayout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export default function TagsSection() {
-	const result = useLibraryQuery(['tags.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['tags.list'], { placeholderData: keepPreviousData });
 	const tags = result.data;
 
 	const { t } = useLocale();

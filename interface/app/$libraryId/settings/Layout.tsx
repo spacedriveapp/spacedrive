@@ -46,7 +46,7 @@ export const Heading = (props: HeaderProps) => {
 		<div className="mb-3 flex">
 			{props.children}
 			<div className="grow">
-				<h1 className="text-2xl font-bold">{props.title}</h1>
+				<h1 className="font-plex text-2xl font-bold">{props.title}</h1>
 				<p className="mt-1 text-sm text-gray-400">{props.description}</p>
 			</div>
 			{props.rightArea}

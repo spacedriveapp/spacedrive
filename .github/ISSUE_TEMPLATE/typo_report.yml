@@ -1,0 +1,58 @@
+name: ✍️ Typo/writing mistake
+description: Report a typo in the app, documentation, or website.
+labels: [kind/typo]
+
+body:
+  - type: checkboxes
+    attributes:
+      label: Check for other issues
+      description: Please search existing issues for other reports of this same mistake before submitting.
+      options:
+        - label: I've checked for other issues, and none exist.
+          required: true
+
+  - type: checkboxes
+    attributes:
+      label: Are you on the latest version?
+      description: Please make sure you're on the latest version of the app before submitting.
+      options:
+        - label: I'm on the latest version of the app or website.
+          required: true
+
+  - type: checkboxes
+    id: location
+    attributes:
+      label: Where did you find this mistake?
+      options:
+        - label: Desktop app
+        - label: Mobile app
+        - label: Documentation
+        - label: Website (spacedrive.com)
+        - label: Other (please specify)
+
+  - type: input
+    id: location-other
+    attributes:
+      label: Other location
+      description: If you selected "Other", please specify.
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the mistake.
+      placeholder: |
+        On the Settings > About page, the word ... is misspelled as ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: code-of-conduct
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow Spacedrive's [Code of Conduct](https://github.com/spacedriveapp/spacedrive/blob/main/CODE_OF_CONDUCT.md).
+      options:
+        - label: I agree to follow the Code of Conduct.
+          required: true

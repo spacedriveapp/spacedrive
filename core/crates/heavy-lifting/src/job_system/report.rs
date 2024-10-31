@@ -344,8 +344,10 @@ impl Status {
 		matches!(
 			self,
 			Self::Completed
-				| Self::Canceled | Self::Paused
-				| Self::Failed | Self::CompletedWithErrors
+				| Self::Canceled
+				| Self::Paused
+				| Self::Failed
+				| Self::CompletedWithErrors
 		)
 	}
 }
@@ -402,7 +404,7 @@ impl ReportBuilder {
 	}
 
 	#[must_use]
-	pub fn new(id: JobId, name: JobName) -> Self {
+	pub const fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
 			name,

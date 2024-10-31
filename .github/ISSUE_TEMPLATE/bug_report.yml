@@ -1,4 +1,4 @@
-name: 🐞 Report a Bug
+name: 🐞 Bug report
 description: Report a bug affecting Spacedrive's functionality.
 labels: [kind/bug, status/needs-triage]
 

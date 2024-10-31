@@ -82,7 +82,7 @@ export const SearchOptionSubMenu = (
 					<SearchOptionItemInternals {...props}>{props.name}</SearchOptionItemInternals>
 				</ContextMenuDivItem>
 			}
-			className={clsx(MENU_STYLES, 'explorer-scroll -mt-1.5 max-h-80', props.className)}
+			className={clsx(MENU_STYLES, 'default-scroll -mt-1.5 max-h-80', props.className)}
 		>
 			{props.children}
 		</DropdownMenu.SubMenu>
@@ -237,7 +237,7 @@ function AddFilterButton() {
 					onKeyDown={(e) => e.stopPropagation()}
 					className={clsx(
 						MENU_STYLES,
-						'explorer-scroll max-h-[80vh] min-h-[100px] min-w-[200px] max-w-fit'
+						'default-scroll max-h-[80vh] min-h-[100px] min-w-[200px] max-w-fit'
 					)}
 					trigger={
 						<Button className="flex flex-row gap-1" size="xs" variant="dotted">

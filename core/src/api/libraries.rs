@@ -20,7 +20,7 @@ use std::{
 	pin::pin,
 	sync::{
 		atomic::{AtomicBool, Ordering},
-		Arc,
+		Arc, LazyLock,
 	},
 	time::Duration,
 };
@@ -32,7 +32,6 @@ use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
 };
-use once_cell::sync::Lazy;
 use prisma_client_rust::{raw, QueryError};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
@@ -54,10 +53,11 @@ const TWO_MINUTES: Duration = Duration::from_secs(60 * 2);
 const FIVE_MINUTES: Duration = Duration::from_secs(60 * 5);
 
 static IS_COMPUTING_KIND_STATISTICS: AtomicBool = AtomicBool::new(false);
-static LAST_KIND_STATISTICS_UPDATE: Lazy<RwLock<TotalFilesStatistics>> = Lazy::new(RwLock::default);
+static LAST_KIND_STATISTICS_UPDATE: LazyLock<RwLock<TotalFilesStatistics>> =
+	LazyLock::new(RwLock::default);
 
-static STATISTICS_UPDATERS: Lazy<Mutex<HashMap<Uuid, chan::Sender<Instant>>>> =
-	Lazy::new(|| Mutex::new(HashMap::new()));
+static STATISTICS_UPDATERS: LazyLock<Mutex<HashMap<Uuid, chan::Sender<Instant>>>> =
+	LazyLock::new(|| Mutex::new(HashMap::new()));
 
 struct TotalFilesStatistics {
 	updated_at: Instant,

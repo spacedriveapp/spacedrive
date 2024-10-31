@@ -154,7 +154,7 @@ const Thumbnails = ({ items }: { items: ExplorerItem[] }) => {
 						i === 2 && 'z-10 !h-[84%] !w-[84%] rotate-[7deg]'
 					)}
 					childClassName={(type) =>
-						type.variant !== 'icon' && thumbs.length > 1
+						type !== 'icon' && thumbs.length > 1
 							? 'shadow-md shadow-app-shade'
 							: undefined
 					}
@@ -395,6 +395,7 @@ export const SingleItemMetadata = ({ item }: { item: ExplorerItem }) => {
 						<DropdownMenu.Root
 							trigger={<PlaceholderPill>{t('add_tag')}</PlaceholderPill>}
 							side="left"
+							className="z-[101]"
 							sideOffset={5}
 							alignOffset={-10}
 						>

@@ -79,7 +79,7 @@ export const ActionsModal = () => {
 	// Open
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		}
 	});
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
@@ -88,7 +88,7 @@ export const ActionsModal = () => {
 
 	const deleteFile = useLibraryMutation('files.deleteFiles', {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 			modalRef.current?.dismiss();
 		}
 	});
@@ -102,9 +102,8 @@ export const ActionsModal = () => {
 				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
 				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
 			});
-			filePath &&
-				filePath.object_id &&
-				(await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error));
+			if (filePath && filePath.object_id)
+				await updateAccessTime.mutateAsync([filePath.object_id]).catch(console.error);
 		} catch (error) {
 			toast.error('Error opening object');
 		}

@@ -265,7 +265,7 @@ export const RenameTextBox = forwardRef<HTMLDivElement, RenameTextBoxProps>(
 					}}
 					onMouseDownCapture={(e) => {
 						if (allowRename) e.stopPropagation();
-						e.button === 0 && (renamable.current = !disabled);
+						if (e.button === 0) renamable.current = !disabled;
 					}}
 					onMouseUp={(e) => {
 						if (e.button === 0 || renamable.current || !allowRename) {

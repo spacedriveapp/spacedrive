@@ -2,14 +2,13 @@
 name    = "sd-mobile-core"
 version = "0.1.0"
 
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-rust-version         = "1.64"
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
-[target.'cfg(target_os = "android")'.dependencies]
-sd-core = { default-features = false, features = ["mobile"], path = "../../../../../core" }
 
+# Spacedrive Sub-crates
 [target.'cfg(target_os = "ios")'.dependencies]
 sd-core = { default-features = false, features = [
 	"ffmpeg",
@@ -17,9 +16,12 @@ sd-core = { default-features = false, features = [
 	"mobile"
 ], path = "../../../../../core" }
 
+[target.'cfg(target_os = "android")'.dependencies]
+sd-core = { path = "../../../../../core", features = ["mobile"], default-features = false }
+
+[dependencies]
 # Workspace dependencies
 futures    = { workspace = true }
-once_cell  = { workspace = true }
 rspc       = { workspace = true }
 serde_json = { workspace = true }
 tokio      = { workspace = true }

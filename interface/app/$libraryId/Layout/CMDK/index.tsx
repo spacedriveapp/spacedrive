@@ -1,6 +1,7 @@
 import './CMDK.css';
 import './CMDK.scss';
 
+import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import CommandPalette, { filterItems, getItemIndex } from 'react-cmdk';
@@ -50,7 +51,9 @@ const CMDK = () => {
 	const [page, setPage] = useState<'root' | 'locations' | 'tags'>('root');
 	const [search, setSearch] = useState('');
 
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], {
+		placeholderData: keepPreviousData
+	});
 	const locations = locationsQuery.data;
 
 	const onlineLocations = useOnlineLocations();
