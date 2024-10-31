@@ -168,7 +168,7 @@ impl Manager {
 	}
 
 	#[instrument(skip(self))]
-	async fn ingest_by_model(&self, model_id: ModelId) -> Result<(), Error> {
+	async fn ingest_by_model(&self, model_id: ModelId) -> Result<usize, Error> {
 		let mut total_count = 0;
 
 		let mut buckets = (0..self.available_parallelism)
@@ -254,7 +254,7 @@ impl Manager {
 				}
 			}
 
-			bulk_process_of_create_only_ops(
+			total_count += bulk_process_of_create_only_ops(
 				self.available_parallelism,
 				Arc::clone(&self.clock),
 				Arc::clone(&self.timestamp_per_device),
@@ -361,38 +361,44 @@ impl Manager {
 			"Ingested all operations of this model"
 		);
 
-		Ok(())
+		Ok(total_count)
 	}
 
-	pub async fn ingest_ops(&self) -> Result<(), Error> {
+	pub async fn ingest_ops(&self) -> Result<usize, Error> {
+		let mut total_count = 0;
+
 		// WARN: this order here exists because sync messages MUST be processed in this exact order
 		// due to relationship dependencies between these tables.
-		self.ingest_by_model(prisma_sync::device::MODEL_ID).await?;
+		total_count += self.ingest_by_model(prisma_sync::device::MODEL_ID).await?;
 
-		(
+		total_count += [
 			self.ingest_by_model(prisma_sync::storage_statistics::MODEL_ID),
 			self.ingest_by_model(prisma_sync::tag::MODEL_ID),
 			self.ingest_by_model(prisma_sync::location::MODEL_ID),
 			self.ingest_by_model(prisma_sync::object::MODEL_ID),
 			self.ingest_by_model(prisma_sync::label::MODEL_ID),
-		)
-			.try_join()
-			.await?;
+		]
+		.try_join()
+		.await?
+		.into_iter()
+		.sum::<usize>();
 
-		(
+		total_count += [
 			self.ingest_by_model(prisma_sync::exif_data::MODEL_ID),
 			self.ingest_by_model(prisma_sync::file_path::MODEL_ID),
 			self.ingest_by_model(prisma_sync::tag_on_object::MODEL_ID),
 			self.ingest_by_model(prisma_sync::label_on_object::MODEL_ID),
-		)
-			.try_join()
-			.await?;
+		]
+		.try_join()
+		.await?
+		.into_iter()
+		.sum::<usize>();
 
 		if self.tx.send(SyncEvent::Ingested).is_err() {
 			warn!("failed to send ingested message on `ingest_ops`");
 		}
 
-		Ok(())
+		Ok(total_count)
 	}
 
 	#[must_use]
@@ -707,9 +713,16 @@ async fn bulk_process_of_create_only_ops(
 			spawn(async move {
 				let mut total_count = 0;
 
+				let process_creates_batch_start = Instant::now();
+
 				while let Some(count) = bucket.try_next().await? {
 					total_count += count;
 				}
+
+				debug!(
+					"Processed {total_count} creates in {:?}",
+					process_creates_batch_start.elapsed()
+				);
 
 				Ok::<_, Error>(total_count)
 			})
