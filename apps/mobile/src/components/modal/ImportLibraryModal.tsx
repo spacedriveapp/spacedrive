@@ -2,13 +2,7 @@ import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
 import { forwardRef } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import {
-	CloudLibrary,
-	useBridgeMutation,
-	useBridgeQuery,
-	useClientContext,
-	useRspcContext
-} from '@sd/client';
+import { useBridgeMutation, useBridgeQuery, useClientContext, useRspcContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -25,9 +19,9 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 
 	const { libraries } = useClientContext();
 
-	const cloudLibraries = useBridgeQuery(['cloud.library.list']);
+	const cloudLibraries = useBridgeQuery(['cloud.libraries.list', true]);
 	const cloudLibrariesData = cloudLibraries.data?.filter(
-		(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.uuid)
+		(cloudLibrary) => !libraries.data?.find((l) => l.uuid === cloudLibrary.pub_id)
 	);
 
 	return (
@@ -63,11 +57,11 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 									description="No cloud libraries available to join"
 								/>
 							}
-							keyExtractor={(item) => item.uuid}
+							keyExtractor={(item) => item.pub_id}
 							showsVerticalScrollIndicator={false}
 							renderItem={({ item }) => (
 								<CloudLibraryCard
-									data={item}
+									// data={item}
 									navigation={navigation}
 									modalRef={modalRef}
 								/>
@@ -81,38 +75,37 @@ const ImportModalLibrary = forwardRef<ModalRef, unknown>((_, ref) => {
 });
 
 interface Props {
-	data: CloudLibrary;
+	// data: CloudLibrary;
 	modalRef: React.RefObject<ModalRef>;
 	navigation: NavigationProp<RootStackParamList>;
 }
 
-const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
+const CloudLibraryCard = ({ modalRef, navigation }: Props) => {
 	const rspc = useRspcContext().queryClient;
-	const joinLibrary = useBridgeMutation(['cloud.library.join']);
+	// const joinLibrary = useBridgeMutation(['cloud.library.join']);
 	return (
 		<View
-			key={data.uuid}
 			style={tw`flex flex-row items-center justify-between gap-2 rounded-md border border-app-box bg-app p-2`}
 		>
 			<Text numberOfLines={1} style={tw`max-w-[80%] text-sm font-bold text-ink`}>
-				{data.name}
+				{'BOB'}
 			</Text>
 			<Button
 				size="sm"
 				variant="accent"
-				disabled={joinLibrary.isPending}
+				// disabled={joinLibrary.isPending}
 				onPress={async () => {
-					const library = await joinLibrary.mutateAsync(data.uuid);
+					// const library = await joinLibrary.mutateAsync(data.uuid);
 
-					rspc.setQueryData(['library.list'], (libraries: any) => {
-						// The invalidation system beat us to it
-						if ((libraries || []).find((l: any) => l.uuid === library.uuid))
-							return libraries;
+					// rspc.setQueryData(['library.list'], (libraries: any) => {
+					// 	// The invalidation system beat us to it
+					// 	if ((libraries || []).find((l: any) => l.uuid === library.uuid))
+					// 		return libraries;
 
-						return [...(libraries || []), library];
-					});
+					// 	return [...(libraries || []), library];
+					// });
 
-					currentLibraryStore.id = library.uuid;
+					// currentLibraryStore.id = library.uuid;
 
 					navigation.navigate('Root', {
 						screen: 'Home',
@@ -128,9 +121,10 @@ const CloudLibraryCard = ({ data, modalRef, navigation }: Props) => {
 				}}
 			>
 				<Text style={tw`text-sm font-medium text-white`}>
-					{joinLibrary.isPending && joinLibrary.variables === data.uuid
+					{/* {joinLibrary.isPending && joinLibrary.variables === data.uuid
 						? 'Joining...'
-						: 'Join'}
+						: 'Join'} */}
+					THIS FILE NEEDS TO BE UPDATED TO USE THE NEW LIBRARY SYSTEM IN THE FUTURE
 				</Text>
 			</Button>
 		</View>

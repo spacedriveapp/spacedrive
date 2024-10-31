@@ -34,7 +34,6 @@ use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};
 use std::{borrow::Cow, fmt};
 
 use serde::{Deserialize, Serialize};
-use specta::Type;
 use uuid::Uuid;
 
 // File Path selectables!
@@ -74,6 +73,20 @@ file_path::select!(file_path_for_media_processor {
 		id
 		pub_id
 	}
+});
+file_path::select!(file_path_watcher_remove {
+	id
+	pub_id
+	location_id
+	materialized_path
+	is_dir
+	name
+	extension
+	object: select {
+		id
+		pub_id
+	}
+
 });
 file_path::select!(file_path_to_isolate {
 	location_id
@@ -244,7 +257,7 @@ job::select!(job_without_data {
 location::select!(location_ids_and_path {
 	id
 	pub_id
-	instance_id
+	device: select { pub_id }
 	path
 });
 
@@ -259,6 +272,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id,
 			path: data.path,
+			device_id: data.device_id,
 			instance_id: data.instance_id,
 			name: data.name,
 			total_capacity: data.total_capacity,
@@ -272,6 +286,7 @@ impl From<location_with_indexer_rules::Data> for location::Data {
 			scan_state: data.scan_state,
 			file_paths: None,
 			indexer_rules: None,
+			device: None,
 			instance: None,
 		}
 	}
@@ -283,6 +298,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			id: data.id,
 			pub_id: data.pub_id.clone(),
 			path: data.path.clone(),
+			device_id: data.device_id,
 			instance_id: data.instance_id,
 			name: data.name.clone(),
 			total_capacity: data.total_capacity,
@@ -296,6 +312,7 @@ impl From<&location_with_indexer_rules::Data> for location::Data {
 			scan_state: data.scan_state,
 			file_paths: None,
 			indexer_rules: None,
+			device: None,
 			instance: None,
 		}
 	}
@@ -311,7 +328,7 @@ label::include!((take: i64) => label_with_objects {
 	}
 });
 
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Type)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, specta::Type)]
 #[serde(transparent)]
 pub struct CasId<'cas_id>(Cow<'cas_id, str>);
 
@@ -321,7 +338,7 @@ impl Clone for CasId<'_> {
 	}
 }
 
-impl<'cas_id> CasId<'cas_id> {
+impl CasId<'_> {
 	#[must_use]
 	pub fn as_str(&self) -> &str {
 		self.0.as_ref()
@@ -374,17 +391,32 @@ impl From<&CasId<'_>> for String {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, specta::Type)]
 #[serde(transparent)]
 #[repr(transparent)]
+#[specta(rename = "CoreDevicePubId")]
+pub struct DevicePubId(PubId);
+
+impl From<DevicePubId> for sd_cloud_schema::devices::PubId {
+	fn from(DevicePubId(pub_id): DevicePubId) -> Self {
+		Self(pub_id.into())
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, specta::Type)]
+#[serde(transparent)]
+#[repr(transparent)]
+#[specta(rename = "CoreFilePathPubId")]
 pub struct FilePathPubId(PubId);
 
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, specta::Type)]
 #[serde(transparent)]
 #[repr(transparent)]
+#[specta(rename = "CoreObjectPubId")]
 pub struct ObjectPubId(PubId);
 
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, specta::Type)]
+#[specta(rename = "CorePubId")]
 enum PubId {
 	Uuid(Uuid),
 	Vec(Vec<u8>),
@@ -392,7 +424,7 @@ enum PubId {
 
 impl PubId {
 	fn new() -> Self {
-		Self::Uuid(Uuid::new_v4())
+		Self::Uuid(Uuid::now_v7())
 	}
 
 	fn to_db(&self) -> Vec<u8> {
@@ -451,6 +483,15 @@ impl From<PubId> for Uuid {
 	}
 }
 
+impl From<&PubId> for Uuid {
+	fn from(pub_id: &PubId) -> Self {
+		match pub_id {
+			PubId::Uuid(uuid) => *uuid,
+			PubId::Vec(bytes) => from_bytes_to_uuid(bytes),
+		}
+	}
+}
+
 impl fmt::Display for PubId {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
@@ -499,6 +540,12 @@ macro_rules! delegate_pub_id {
 				}
 			}
 
+			impl From<&$type_name> for ::uuid::Uuid {
+				fn from(pub_id: &$type_name) -> Self {
+					(&pub_id.0).into()
+				}
+			}
+
 			impl ::std::fmt::Display for $type_name {
 				fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
 					write!(f, "{}", self.0)
@@ -526,4 +573,4 @@ macro_rules! delegate_pub_id {
 	};
 }
 
-delegate_pub_id!(FilePathPubId, ObjectPubId);
+delegate_pub_id!(FilePathPubId, ObjectPubId, DevicePubId);

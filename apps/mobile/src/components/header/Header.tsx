@@ -8,12 +8,13 @@ import { tw, twStyle } from '~/lib/tailwind';
 type Props = {
 	route?: RouteProp<any, any>; // supporting title from the options object of navigation
 	navBack?: boolean; // whether to show the back icon
+	navBackTo?: string; // route to go back to
 	search?: boolean; // whether to show the search icon
 	title?: string; // in some cases - we want to override the route title
 };
 
 // Default header with search bar and button to open drawer
-export default function Header({ route, navBack, title, search = false }: Props) {
+export default function Header({ route, navBack, title, navBackTo, search = false }: Props) {
 	const navigation = useNavigation<DrawerNavigationHelpers>();
 	const headerHeight = useSafeAreaInsets().top;
 	const isAndroid = Platform.OS === 'android';
@@ -28,7 +29,13 @@ export default function Header({ route, navBack, title, search = false }: Props)
 				<View style={tw`w-full flex-row items-center justify-between`}>
 					<View style={tw`flex-row items-center gap-3`}>
 						{navBack ? (
-							<Pressable hitSlop={24} onPress={() => navigation.goBack()}>
+							<Pressable
+								hitSlop={24}
+								onPress={() => {
+									if (navBackTo) return navigation.navigate(navBackTo);
+									navigation.goBack();
+								}}
+							>
 								<ArrowLeft size={24} color={tw.color('ink')} />
 							</Pressable>
 						) : (

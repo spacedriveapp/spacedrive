@@ -29,7 +29,6 @@ pub fn spawn_volume_watcher(library: Arc<Library>) {
 				if let Err(e) = super::update_storage_statistics(
 					&library.db,
 					&library.sync,
-					&library.instance_uuid,
 					total_capacity,
 					available_capacity,
 				)

@@ -230,7 +230,7 @@ impl<'a> Bomb<'a> {
 	}
 }
 
-impl<'a> Drop for Bomb<'a> {
+impl Drop for Bomb<'_> {
 	fn drop(&mut self) {
 		self.0.store(false, Ordering::Relaxed);
 	}

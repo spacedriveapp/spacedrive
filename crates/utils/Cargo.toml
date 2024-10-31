@@ -2,14 +2,22 @@
 name    = "sd-utils"
 version = "0.1.0"
 
-edition = "2021"
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
 sd-prisma = { path = "../prisma" }
 
 # Workspace dependencies
+chrono             = { workspace = true }
 prisma-client-rust = { workspace = true }
+rmp-serde          = { workspace = true }
+rmpv               = { workspace = true }
 rspc               = { workspace = true, features = ["unstable"] }
 thiserror          = { workspace = true }
+tracing            = { workspace = true }
+uhlc               = { workspace = true }
 uuid               = { workspace = true }

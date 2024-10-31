@@ -144,19 +144,7 @@ async fn main() {
 
 	let state = AppState { auth };
 
-	let (node, router) = match Node::new(
-		data_dir,
-		sd_core::Env {
-			api_url: tokio::sync::Mutex::new(
-				std::env::var("SD_API_URL")
-					.unwrap_or_else(|_| "https://app.spacedrive.com".to_string()),
-			),
-			client_id: std::env::var("SD_CLIENT_ID")
-				.unwrap_or_else(|_| "04701823-a498-406e-aef9-22081c1dae34".to_string()),
-		},
-	)
-	.await
-	{
+	let (node, router) = match Node::new(data_dir).await {
 		Ok(d) => d,
 		Err(e) => {
 			panic!("{}", e.to_string())

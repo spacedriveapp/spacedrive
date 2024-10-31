@@ -48,10 +48,10 @@ mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
 TARGET_CONFIG=debug
-if [ "${CONFIGURATION:-}" = "Release" ]; then
-  set -- --release
-  TARGET_CONFIG=release
-fi
+# if [ "${CONFIGURATION:-}" = "Release" ]; then
+#   set -- --release
+#   TARGET_CONFIG=release
+# fi
 
 trap 'if [ -e "${CARGO_CONFIG}.bak" ]; then mv "${CARGO_CONFIG}.bak" "$CARGO_CONFIG"; fi' EXIT
 
@@ -59,21 +59,21 @@ trap 'if [ -e "${CARGO_CONFIG}.bak" ]; then mv "${CARGO_CONFIG}.bak" "$CARGO_CON
 RUST_PATH="${CARGO_HOME:-"${HOME}/.cargo"}/bin:$(brew --prefix)/bin:$(env -i /bin/bash --noprofile --norc -c 'echo $PATH')"
 if [ "${PLATFORM_NAME:-}" = "iphonesimulator" ]; then
   case "$(uname -m)" in
-    "arm64" | "aarch64") # M series
-      sed -i.bak "s|FFMPEG_DIR = { force = true, value = \".*\" }|FFMPEG_DIR = { force = true, value = \"${DEPS}/aarch64-apple-ios-sim\" }|" "$CARGO_CONFIG"
-      env CARGO_FEATURE_STATIC=1 PATH="$RUST_PATH" cargo build -p sd-mobile-ios --target aarch64-apple-ios-sim "$@"
-      lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "${TARGET_DIRECTORY}/aarch64-apple-ios-sim/${TARGET_CONFIG}/libsd_mobile_ios.a"
-      symlink_libs "${DEPS}/aarch64-apple-ios-sim/lib" "$TARGET_DIRECTORY"
-      ;;
-    "x86_64") # Intel
-      sed -i.bak "s|FFMPEG_DIR = { force = true, value = \".*\" }|FFMPEG_DIR = { force = true, value = \"${DEPS}/x86_64-apple-ios\" }|" "$CARGO_CONFIG"
-      env CARGO_FEATURE_STATIC=1 PATH="$RUST_PATH" cargo build -p sd-mobile-ios --target x86_64-apple-ios "$@"
-      lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "${TARGET_DIRECTORY}/x86_64-apple-ios/${TARGET_CONFIG}/libsd_mobile_ios.a"
-      symlink_libs "${DEPS}/x86_64-apple-ios/lib" "$TARGET_DIRECTORY"
-      ;;
-    *)
-      err 'Unsupported architecture.'
-      ;;
+  "arm64" | "aarch64") # M series
+    sed -i.bak "s|FFMPEG_DIR = { force = true, value = \".*\" }|FFMPEG_DIR = { force = true, value = \"${DEPS}/aarch64-apple-ios-sim\" }|" "$CARGO_CONFIG"
+    env CARGO_FEATURE_STATIC=1 PATH="$RUST_PATH" cargo build -p sd-mobile-ios --target aarch64-apple-ios-sim "$@"
+    lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "${TARGET_DIRECTORY}/aarch64-apple-ios-sim/${TARGET_CONFIG}/libsd_mobile_ios.a"
+    symlink_libs "${DEPS}/aarch64-apple-ios-sim/lib" "$TARGET_DIRECTORY"
+    ;;
+  "x86_64") # Intel
+    sed -i.bak "s|FFMPEG_DIR = { force = true, value = \".*\" }|FFMPEG_DIR = { force = true, value = \"${DEPS}/x86_64-apple-ios\" }|" "$CARGO_CONFIG"
+    env CARGO_FEATURE_STATIC=1 PATH="$RUST_PATH" cargo build -p sd-mobile-ios --target x86_64-apple-ios "$@"
+    lipo -create -output "$TARGET_DIRECTORY"/libsd_mobile_iossim.a "${TARGET_DIRECTORY}/x86_64-apple-ios/${TARGET_CONFIG}/libsd_mobile_ios.a"
+    symlink_libs "${DEPS}/x86_64-apple-ios/lib" "$TARGET_DIRECTORY"
+    ;;
+  *)
+    err 'Unsupported architecture.'
+    ;;
   esac
 else
   sed -i.bak "s|FFMPEG_DIR = { force = true, value = \".*\" }|FFMPEG_DIR = { force = true, value = \"${DEPS}/aarch64-apple-ios\" }|" "$CARGO_CONFIG"

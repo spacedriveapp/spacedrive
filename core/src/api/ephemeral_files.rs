@@ -23,7 +23,6 @@ use sd_utils::error::FileIOError;
 
 use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 
-use async_recursion::async_recursion;
 use futures_concurrency::future::TryJoin;
 use regex::Regex;
 use rspc::{alpha::AlphaRouter, ErrorCode};
@@ -481,7 +480,6 @@ impl EphemeralFileSystemOps {
 		Ok(())
 	}
 
-	#[async_recursion]
 	async fn copy(self, library: &Library) -> Result<(), rspc::Error> {
 		self.check().await?;
 
@@ -584,11 +582,13 @@ impl EphemeralFileSystemOps {
 						.await?;
 
 					if !more_files.is_empty() {
-						Self {
-							sources: more_files,
-							target_dir: target,
-						}
-						.copy(library)
+						Box::pin(
+							Self {
+								sources: more_files,
+								target_dir: target,
+							}
+							.copy(library),
+						)
 						.await
 					} else {
 						Ok(())

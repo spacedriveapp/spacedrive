@@ -52,7 +52,7 @@ impl Tunnel {
 		library_identity: &Identity,
 	) -> Result<Self, TunnelError> {
 		stream
-			.write_all(&[b'T'])
+			.write_all(b"T")
 			.await
 			.map_err(|_| TunnelError::DiscriminatorWriteError)?;
 
