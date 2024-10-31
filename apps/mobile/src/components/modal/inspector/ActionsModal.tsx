@@ -79,7 +79,7 @@ export const ActionsModal = () => {
 	// Open
 	const updateAccessTime = useLibraryMutation('files.updateAccessTime', {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		}
 	});
 	const queriedFullPath = useLibraryQuery(['files.getPath', filePath?.id ?? -1], {
@@ -88,7 +88,7 @@ export const ActionsModal = () => {
 
 	const deleteFile = useLibraryMutation('files.deleteFiles', {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 			modalRef.current?.dismiss();
 		}
 	});

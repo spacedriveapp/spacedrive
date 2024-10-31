@@ -123,8 +123,19 @@ export function flattenThumbnailKey(thumbKey: ThumbKey) {
 export const explorerStore = proxy({
 	...state,
 	reset: (_state?: typeof state) => resetStore(explorerStore, _state || state),
-	addNewThumbnail: (thumbKey: ThumbKey) => {
-		explorerStore.newThumbnails.add(flattenThumbnailKey(thumbKey));
+	addNewThumbnail: (thumbKey: ThumbKey | string) => {
+		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
+		// HACK: Ensure store propagates changes
+		const newThumbnails = new Set(explorerStore.newThumbnails);
+		newThumbnails.add(thumbKey);
+		explorerStore.newThumbnails = newThumbnails;
+	},
+	removeThumbnail: (thumbKey: ThumbKey | string) => {
+		thumbKey = typeof thumbKey === 'string' ? thumbKey : flattenThumbnailKey(thumbKey);
+		// HACK: Ensure store propagates changes
+		const newThumbnails = new Set(explorerStore.newThumbnails);
+		newThumbnails.delete(thumbKey);
+		explorerStore.newThumbnails = newThumbnails;
 	},
 	resetCache: () => {
 		explorerStore.newThumbnails.clear();

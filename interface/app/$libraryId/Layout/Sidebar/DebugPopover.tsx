@@ -154,15 +154,12 @@ export default () => {
 					title="React Query Devtools"
 					description="Configure the React Query devtools."
 				>
-					<Select
-						value={debugState.reactQueryDevtools}
-						size="sm"
-						onChange={(value) => (debugState.reactQueryDevtools = value as any)}
-					>
-						<SelectOption value="disabled">Disabled</SelectOption>
-						<SelectOption value="invisible">Invisible</SelectOption>
-						<SelectOption value="enabled">Enabled</SelectOption>
-					</Select>
+					<Switch
+						checked={debugState.reactQueryDevtools}
+						onClick={() =>
+							(debugState.reactQueryDevtools = !debugState.reactQueryDevtools)
+						}
+					/>
 				</Setting>
 				<Setting
 					mini

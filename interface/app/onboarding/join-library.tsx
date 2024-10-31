@@ -55,7 +55,7 @@ function CloudLibraries() {
 					<span>{cloudLibrary.name}</span>
 					<Button
 						variant="accent"
-						disabled={joinLibrary.isLoading}
+						disabled={joinLibrary.isPending}
 						onClick={async () => {
 							const library = await joinLibrary.mutateAsync(cloudLibrary.uuid);
 
@@ -73,7 +73,7 @@ function CloudLibraries() {
 							navigate(`/${library.uuid}`, { replace: true });
 						}}
 					>
-						{joinLibrary.isLoading && joinLibrary.variables === cloudLibrary.uuid
+						{joinLibrary.isPending && joinLibrary.variables === cloudLibrary.uuid
 							? 'Joining...'
 							: 'Join'}
 					</Button>

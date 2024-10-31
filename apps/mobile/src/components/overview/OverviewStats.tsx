@@ -1,5 +1,5 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import { AlphaRSPCError } from '@oscartbeaumont-sd/rspc-client/src/v2';
+import { RSPCError } from '@spacedrive/rspc-client';
 import { UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
@@ -47,7 +47,7 @@ const StatItem = ({ title, bytes, isLoading, style }: StatItemProps) => {
 };
 
 interface Props {
-	stats: UseQueryResult<StatisticsResponse, AlphaRSPCError>;
+	stats: UseQueryResult<StatisticsResponse, RSPCError>;
 }
 
 const OverviewStats = ({ stats }: Props) => {

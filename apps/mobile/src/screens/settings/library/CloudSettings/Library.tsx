@@ -40,7 +40,7 @@ const Library = ({ cloudLibrary }: LibraryProps) => {
 				<Text style={tw`text-ink`}>{cloudLibrary?.name}</Text>
 			</InfoBox>
 			<Button
-				disabled={syncLibrary.isLoading || thisInstance !== undefined}
+				disabled={syncLibrary.isPending || thisInstance !== undefined}
 				variant="gray"
 				onPress={() => syncLibrary.mutate(null)}
 				style={tw`mt-2 flex-row gap-1 py-2`}
