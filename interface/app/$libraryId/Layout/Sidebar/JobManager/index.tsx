@@ -121,7 +121,9 @@ export function JobManager() {
 						</Button>
 					</Tooltip>
 				)}
-				<span className="ml-1 font-medium">{t('recent_jobs')}</span>
+				<span className="ml-1 font-plex font-semibold tracking-wide">
+					{t('recent_jobs')}
+				</span>
 				<div className="grow" />
 				{toggleConfirmation ? (
 					<div className="flex h-[85%] w-fit items-center justify-center gap-2 rounded-md border border-app-line bg-app/40 px-2">
@@ -165,7 +167,7 @@ export function JobManager() {
 				<div className="h-full border-r border-app-line/50">
 					{jobGroups.data &&
 						(jobGroups.data.length === 0 ? (
-							<div className="flex h-32 items-center justify-center text-sidebar-inkDull">
+							<div className="flex h-32 items-center justify-center font-plex text-sidebar-inkDull">
 								{t('no_jobs')}
 							</div>
 						) : (
