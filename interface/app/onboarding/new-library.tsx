@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useFeatureFlag } from '@sd/client';
 import { Button, Form, InputField } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale, useOperatingSystem } from '~/hooks';
@@ -20,8 +19,6 @@ export default function OnboardingNewLibrary() {
 	const handleImport = () => {
 		// TODO
 	};
-
-	const cloudFeatureFlag = useFeatureFlag('cloudSync');
 
 	return (
 		<Form
@@ -69,18 +66,6 @@ export default function OnboardingNewLibrary() {
 								Import library
 							</Button> */}
 						</div>
-						{cloudFeatureFlag && (
-							<>
-								<span className="my-4 text-sm text-ink-faint">{t('or')}</span>
-								<Button
-									onClick={() => {
-										navigate('../join-library');
-									}}
-								>
-									{t('join_library')}
-								</Button>
-							</>
-						)}
 					</>
 				)}
 			</OnboardingContainer>

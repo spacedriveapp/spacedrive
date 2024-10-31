@@ -9,7 +9,7 @@ use zeroize::{Zeroize, Zeroizing};
 ///
 /// On `Drop`, it re-seeds the inner RNG, erasing the previous state and making all future
 /// values unpredictable.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CryptoRng(ChaCha20Rng);
 
 impl CryptoRng {
@@ -84,5 +84,27 @@ impl Drop for CryptoRng {
 	#[inline]
 	fn drop(&mut self) {
 		self.zeroize();
+	}
+}
+
+// implementing old-rand-core traits for compatibility with old code
+impl old_rand_core::CryptoRng for CryptoRng {}
+
+impl old_rand_core::RngCore for CryptoRng {
+	fn next_u32(&mut self) -> u32 {
+		<Self as RngCore>::next_u32(self)
+	}
+
+	fn next_u64(&mut self) -> u64 {
+		<Self as RngCore>::next_u64(self)
+	}
+
+	fn fill_bytes(&mut self, dest: &mut [u8]) {
+		<Self as RngCore>::fill_bytes(self, dest);
+	}
+
+	fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), old_rand_core::Error> {
+		<Self as RngCore>::fill_bytes(self, dest);
+		Ok(())
 	}
 }

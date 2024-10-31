@@ -46,7 +46,7 @@ pub fn module((model, sync_type): ModelWithSyncType<'_>) -> Module {
 				RefinedFieldWalker::Scalar(scalar_field) => {
 					(!scalar_field.is_in_required_relation()).then(|| {
 						quote! {
-							#model_name_snake::#field_name_snake::set(::rmpv::ext::from_value(val).unwrap()),
+							#model_name_snake::#field_name_snake::set(::rmpv::ext::from_value(val)?),
 						}
 					})
 				}
@@ -59,11 +59,19 @@ pub fn module((model, sync_type): ModelWithSyncType<'_>) -> Module {
 						|i| {
 							if i.count() == 1 {
 								Some(quote! {{
-									let val: std::collections::HashMap<String, rmpv::Value> = ::rmpv::ext::from_value(val).unwrap();
-									let val = val.into_iter().next().unwrap();
+
+									let (field, value) = ::rmpv
+										::ext
+										::from_value::<std::collections::BTreeMap<String, rmpv::Value>>(val)?
+											.into_iter()
+											.next()
+											.ok_or(Error::MissingRelationData {
+												field: field.to_string(),
+												model: #relation_model_name_snake::NAME.to_string()
+											})?;
 
 									#model_name_snake::#field_name_snake::connect(
-										#relation_model_name_snake::UniqueWhereParam::deserialize(&val.0, val.1).unwrap()
+										#relation_model_name_snake::UniqueWhereParam::deserialize(&field, value)?
 									)
 								}})
 							} else {
@@ -81,10 +89,13 @@ pub fn module((model, sync_type): ModelWithSyncType<'_>) -> Module {
 		} else {
 			quote! {
 				impl #model_name_snake::SetParam {
-					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
-						Some(match field {
+					pub fn deserialize(field: &str, val: ::rmpv::Value) -> Result<Self, Error> {
+						Ok(match field {
 							#(#field_matches)*
-							_ => return None
+							_ => return Err(Error::FieldNotFound {
+								field: field.to_string(),
+								model: #model_name_snake::NAME.to_string(),
+							}),
 						})
 					}
 				}
@@ -97,8 +108,11 @@ pub fn module((model, sync_type): ModelWithSyncType<'_>) -> Module {
 	Module::new(
 		model.name(),
 		quote! {
-			use super::prisma::*;
+			use super::Error;
+
 			use prisma_client_rust::scalar_types::*;
+
+			use super::prisma::*;
 
 			#sync_id
 
@@ -172,7 +186,7 @@ fn process_unique_params(model: Walker<'_, ModelId>, model_name_snake: &Ident) -
 
 				Some(quote!(#model_name_snake::#field_name_snake::NAME =>
 					#model_name_snake::#field_name_snake::equals(
-						::rmpv::ext::from_value(val).unwrap()
+						::rmpv::ext::from_value(val)?
 					),
 				))
 			}
@@ -185,10 +199,13 @@ fn process_unique_params(model: Walker<'_, ModelId>, model_name_snake: &Ident) -
 	} else {
 		quote! {
 			impl #model_name_snake::UniqueWhereParam {
-				pub fn deserialize(field: &str, val: ::rmpv::Value) -> Option<Self> {
-					Some(match field {
+				pub fn deserialize(field: &str, val: ::rmpv::Value) -> Result<Self, Error> {
+					Ok(match field {
 						#(#field_matches)*
-						_ => return None
+						_ => return Err(Error::FieldNotFound {
+							field: field.to_string(),
+							model: #model_name_snake::NAME.to_string(),
+						})
 					})
 				}
 			}

@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { createMutable } from 'solid-js/store';
 
 import type { BackendFeature } from '../core';
-import { nonLibraryClient, useBridgeQuery } from '../rspc';
-import { createPersistedMutable, useObserver, useSolidStore } from '../solid';
+import { useBridgeQuery } from '../rspc';
+import { createPersistedMutable, useObserver } from '../solid';
 
 export const features = [
 	'backups',
@@ -17,7 +17,7 @@ export const features = [
 
 // This defines which backend feature flags show up in the UI.
 // This is kinda a hack to not having the runtime array of possible features as Specta only exports the types.
-export const backendFeatures: BackendFeature[] = ['cloudSync'];
+export const backendFeatures: BackendFeature[] = [];
 
 export type FeatureFlag = (typeof features)[number] | BackendFeature;
 
@@ -82,7 +82,7 @@ export function toggleFeatureFlag(flags: FeatureFlag | FeatureFlag[]) {
 						);
 
 				if (result) {
-					nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);
+					// nonLibraryClient.mutation(['toggleFeatureFlag', f as any]);
 				}
 			})();
 

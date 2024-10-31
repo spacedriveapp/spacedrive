@@ -1,6 +1,16 @@
 use std::{io, path::Path};
 
 use thiserror::Error;
+use tracing::error;
+
+pub fn report_error<E: std::error::Error + std::fmt::Debug>(
+	message: &'static str,
+) -> impl Fn(E) -> E {
+	move |e| {
+		error!(?e, "{message}");
+		e
+	}
+}
 
 #[derive(Debug, Error)]
 #[error("error accessing path: '{}'", .path.display())]

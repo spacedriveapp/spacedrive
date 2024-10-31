@@ -77,7 +77,7 @@ impl serde::Serialize for MediaDate {
 
 struct MediaDateVisitor;
 
-impl<'de> Visitor<'de> for MediaDateVisitor {
+impl Visitor<'_> for MediaDateVisitor {
 	type Value = MediaDate;
 
 	fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -190,3 +190,12 @@ export function translateKindName(kindName: string): string {
 		return kindName;
 	}
 }
+
+export function fetchAccessToken(): string {
+	const accessToken: string =
+		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
+			.find((cookie: string) => cookie.startsWith('st-access-token'))
+			?.split('=')[1]
+			.split(';')[0] || '';
+	return accessToken;
+}

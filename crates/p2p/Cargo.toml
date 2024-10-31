@@ -19,6 +19,7 @@ specta  = []
 # Workspace dependencies
 base64        = { workspace = true }
 ed25519-dalek = { workspace = true }
+flume         = { workspace = true }
 futures       = { workspace = true }
 rmp-serde     = { workspace = true }
 serde         = { workspace = true, features = ["derive"] }
@@ -28,10 +29,10 @@ tokio         = { workspace = true, features = ["fs", "io-util", "macros", "sync
 tokio-util    = { workspace = true, features = ["compat"] }
 tracing       = { workspace = true }
 uuid          = { workspace = true, features = ["serde"] }
+zeroize       = { workspace = true, features = ["derive"] }
 
 # Specific P2P dependencies
 dns-lookup    = "2.0"
-flume         = "=0.11.1"                                    # Must match version used by `mdns-sd`
 hash_map_diff = "0.2.0"
 if-watch      = { version = "=3.2.0", features = ["tokio"] } # Override features used by libp2p-quic
 libp2p-stream = "=0.2.0-alpha"                               # Update blocked due to custom patch
@@ -39,7 +40,6 @@ mdns-sd       = "0.11.5"
 rand_core     = "0.6.4"
 stable-vec    = "0.4.1"
 sync_wrapper  = "1.0"
-zeroize       = { version = "1.8", features = ["derive"] }
 
 [dependencies.libp2p]
 features = ["autonat", "dcutr", "macros", "noise", "quic", "relay", "serde", "tokio", "yamux"]
