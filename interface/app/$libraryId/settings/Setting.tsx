@@ -26,7 +26,7 @@ export default function Setting({ mini, registerName, ...props }: PropsWithChild
 			<div className={clsx('relative flex flex-row', props.containerClassName)}>
 				<div className={clsx('flex w-full flex-col', !mini && 'pb-6', props.className)}>
 					<div className="mb-1 flex items-center gap-1">
-						<h3 className="text-sm font-medium text-ink">{props.title}</h3>
+						<h3 className="font-plex text-sm font-semibold text-ink">{props.title}</h3>
 						{props.toolTipLabel && (
 							<Tooltip label={props.toolTipLabel as string}>
 								<Info

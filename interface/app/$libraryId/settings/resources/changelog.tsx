@@ -25,7 +25,10 @@ export const Component = () => {
 			{changelog.data?.map((release: any) => (
 				<article
 					key={release.version}
-					className={clsx('prose prose-sm text-ink', isDark && 'prose-invert')}
+					className={clsx(
+						'prose prose-sm text-ink prose-headings:font-plex',
+						isDark && 'prose-invert'
+					)}
 				>
 					<Markdown
 						skipHtml
