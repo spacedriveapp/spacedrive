@@ -45,7 +45,7 @@ export default (props: UseDialogProps & { librariesCtx: LibraryConfigWrapped[] |
 				return [...(libraries || []), library];
 			});
 
-			platform.refreshMenuBar && platform.refreshMenuBar();
+			if (platform.refreshMenuBar) platform.refreshMenuBar();
 
 			navigate(`/${library.uuid}`, { replace: true });
 		} catch (e: any) {

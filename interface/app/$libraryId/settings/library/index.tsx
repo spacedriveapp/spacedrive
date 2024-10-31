@@ -5,7 +5,6 @@ export default [
 		lazy: () => import('../OverviewLayout'),
 		children: [
 			{ path: 'contacts', lazy: () => import('./contacts') },
-			// { path: 'keys', lazy: () => import('./keys') },
 			{ path: 'security', lazy: () => import('./security') },
 			{ path: 'sharing', lazy: () => import('./sharing') },
 			{ path: 'sync', lazy: () => import('./sync') },

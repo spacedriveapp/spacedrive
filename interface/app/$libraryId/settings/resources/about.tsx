@@ -71,12 +71,14 @@ export const Component = () => {
 			</div>
 			<Divider />
 			<div className="my-5">
-				<h1 className="mb-3 text-lg font-bold text-ink">{t('about_vision_title')}</h1>
+				<h1 className="mb-3 font-plex text-lg font-bold text-ink">
+					{t('about_vision_title')}
+				</h1>
 				<p className="w-full text-sm text-ink-faint">{t('about_vision_text')}</p>
 			</div>
 			<Divider />
 			<div>
-				<h1 className="my-5 text-lg font-bold text-ink">
+				<h1 className="my-5 font-plex text-lg font-bold text-ink">
 					{t('meet_contributors_behind_spacedrive')}
 				</h1>
 				<img

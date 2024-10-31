@@ -35,6 +35,10 @@ module.exports = function (app, options) {
 				black: '800',
 				extrablack: '900'
 			},
+			fontFamily: {
+				sans: [...defaultTheme.fontFamily.sans],
+				plex: ['IBM Plex Sans', ...defaultTheme.fontFamily.sans]
+			},
 			fontSize: {
 				'tiny': '.65rem',
 				'xs': '.75rem',

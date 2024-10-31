@@ -56,7 +56,7 @@ export default () => {
 			popover={{ ...popover, setOpen: handleOpenChange }}
 			className="z-[100] p-4 focus:outline-none"
 			trigger={
-				<h1 className="ml-1 w-full text-[7pt] text-sidebar-inkFaint/50">
+				<h1 className="ml-1 w-full font-plex text-[7pt] tracking-widest text-sidebar-inkFaint/50">
 					v{buildInfo.data?.version || '-.-.-'} - {buildInfo.data?.commit || 'dev'}
 				</h1>
 			}
@@ -141,7 +141,7 @@ export default () => {
 								size="sm"
 								variant="gray"
 								onClick={() => {
-									platform.reloadWebview && platform.reloadWebview();
+									if (platform.reloadWebview) platform.reloadWebview();
 								}}
 							>
 								Reload
@@ -154,15 +154,12 @@ export default () => {
 					title="React Query Devtools"
 					description="Configure the React Query devtools."
 				>
-					<Select
-						value={debugState.reactQueryDevtools}
-						size="sm"
-						onChange={(value) => (debugState.reactQueryDevtools = value as any)}
-					>
-						<SelectOption value="disabled">Disabled</SelectOption>
-						<SelectOption value="invisible">Invisible</SelectOption>
-						<SelectOption value="enabled">Enabled</SelectOption>
-					</Select>
+					<Switch
+						checked={debugState.reactQueryDevtools}
+						onClick={() =>
+							(debugState.reactQueryDevtools = !debugState.reactQueryDevtools)
+						}
+					/>
 				</Setting>
 				<Setting
 					mini

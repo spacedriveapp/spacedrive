@@ -78,9 +78,9 @@ const StarfieldEffect: React.FC = () => {
 			a: number
 		) => {
 			const i = (x + y * canvas.width) * 4;
-			pix[i] += r;
-			pix[i + 1] += g;
-			pix[i + 2] += b;
+			pix[i] = (pix[i] ?? 0) + r;
+			pix[i + 1] = (pix[i + 1] ?? 0) + g;
+			pix[i + 2] = (pix[i + 2] ?? 0) + b;
 			pix[i + 3] = a;
 		};
 

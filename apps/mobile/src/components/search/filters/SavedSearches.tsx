@@ -67,11 +67,11 @@ interface Props {
 }
 
 const SavedSearch = ({ search }: Props) => {
-	const navigation = useNavigation();
+	const navigation = useNavigation<any>();
 	const dataForSearch = useSavedSearch(search);
 	const rspc = useRspcLibraryContext();
 	const deleteSearch = useLibraryMutation('search.saved.delete', {
-		onSuccess: () => rspc.queryClient.invalidateQueries(['search.saved.list'])
+		onSuccess: () => rspc.queryClient.invalidateQueries({ queryKey: ['search.saved.list'] })
 	});
 	return (
 		<MotiPressable

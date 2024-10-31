@@ -1,12 +1,15 @@
 use std::{collections::HashMap, env, net::SocketAddr, path::Path};
 
 use axum::{
+	body::Body,
 	extract::{FromRequestParts, State},
-	headers::{authorization::Basic, Authorization},
 	http::Request,
 	middleware::Next,
 	response::{IntoResponse, Response},
 	routing::get,
+};
+use axum_extra::{
+	headers::{authorization::Basic, Authorization},
 	TypedHeader,
 };
 use sd_core::{custom_uri, Node};
@@ -24,11 +27,7 @@ pub struct AppState {
 	auth: HashMap<String, SecStr>,
 }
 
-async fn basic_auth<B>(
-	State(state): State<AppState>,
-	request: Request<B>,
-	next: Next<B>,
-) -> Response {
+async fn basic_auth(State(state): State<AppState>, request: Request<Body>, next: Next) -> Response {
 	let request = if !state.auth.is_empty() {
 		let (mut parts, body) = request.into_parts();
 
@@ -175,10 +174,7 @@ async fn main() {
 		.route(
 			"/",
 			get(|| async move {
-				use axum::{
-					body::{self, Full},
-					response::Response,
-				};
+				use axum::{body::Body, response::Response};
 				use http::{header, HeaderValue, StatusCode};
 
 				match ASSETS_DIR.get_file("index.html") {
@@ -188,11 +184,11 @@ async fn main() {
 							header::CONTENT_TYPE,
 							HeaderValue::from_str("text/html").unwrap(),
 						)
-						.body(body::boxed(Full::from(file.contents())))
+						.body(Body::from(file.contents()))
 						.unwrap(),
 					None => Response::builder()
 						.status(StatusCode::NOT_FOUND)
-						.body(body::boxed(axum::body::Empty::new()))
+						.body(Body::empty())
 						.unwrap(),
 				}
 			}),
@@ -201,10 +197,7 @@ async fn main() {
 			"/*id",
 			get(
 				|axum::extract::Path(path): axum::extract::Path<String>| async move {
-					use axum::{
-						body::{self, Empty, Full},
-						response::Response,
-					};
+					use axum::{body::Body, response::Response};
 					use http::{header, HeaderValue, StatusCode};
 
 					let path = path.trim_start_matches('/');
@@ -218,7 +211,7 @@ async fn main() {
 								)
 								.unwrap(),
 							)
-							.body(body::boxed(Full::from(file.contents())))
+							.body(Body::from(file.contents()))
 							.unwrap(),
 						None => match ASSETS_DIR.get_file("index.html") {
 							Some(file) => Response::builder()
@@ -227,11 +220,11 @@ async fn main() {
 									header::CONTENT_TYPE,
 									HeaderValue::from_str("text/html").unwrap(),
 								)
-								.body(body::boxed(Full::from(file.contents())))
+								.body(Body::from(file.contents()))
 								.unwrap(),
 							None => Response::builder()
 								.status(StatusCode::NOT_FOUND)
-								.body(body::boxed(Empty::new()))
+								.body(Body::empty())
 								.unwrap(),
 						},
 					}
@@ -254,8 +247,7 @@ async fn main() {
 	let mut addr = "[::]:8080".parse::<SocketAddr>().unwrap(); // This listens on IPv6 and IPv4
 	addr.set_port(port);
 	info!("Listening on http://localhost:{}", port);
-	axum::Server::bind(&addr)
-		.serve(app.into_make_service())
+	axum::serve(tokio::net::TcpListener::bind(addr).await.unwrap(), app)
 		.with_graceful_shutdown(signal)
 		.await
 		.expect("Error with HTTP server!");

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import { env, exit, umask } from 'node:process'
@@ -9,11 +8,11 @@ import { extractTo } from 'archive-wasm/src/fs.mjs'
 import * as _mustache from 'mustache'
 import { parse as parseTOML } from 'smol-toml'
 
-import { getConst, NATIVE_DEPS_URL, NATIVE_DEPS_ASSETS } from './utils/consts.mjs'
+import { getConst, NATIVE_DEPS_ASSETS, NATIVE_DEPS_URL } from './utils/consts.mjs'
 import { get } from './utils/fetch.mjs'
 import { getMachineId } from './utils/machineId.mjs'
 import { getRustTargetList } from './utils/rustup.mjs'
-import { symlinkSharedLibsMacOS, symlinkSharedLibsLinux } from './utils/shared.mjs'
+import { symlinkSharedLibsLinux, symlinkSharedLibsMacOS } from './utils/shared.mjs'
 import { spinTask } from './utils/spinner.mjs'
 import { which } from './utils/which.mjs'
 
@@ -36,6 +35,13 @@ const __dirname = path.dirname(__filename)
 
 // NOTE: Must point to package root path
 const __root = path.resolve(path.join(__dirname, '..'))
+
+const extractOpts = {
+	chmod: 0o600,
+	sizeLimit: 256n * 1024n * 1024n,
+	recursive: true,
+	overwrite: true,
+}
 
 const bugWarn =
 	'This is probably a bug, please open a issue with you system info at: ' +
@@ -74,13 +80,7 @@ try {
 	)
 
 	console.log(`Extracting native dependencies...`)
-	await spinTask(
-		extractTo(archiveData, nativeDeps, {
-			chmod: 0o600,
-			recursive: true,
-			overwrite: true,
-		})
-	)
+	await spinTask(extractTo(archiveData, nativeDeps, extractOpts))
 } catch (e) {
 	console.error(`Failed to download native dependencies.\n${bugWarn}`)
 	if (__debug) console.error(e)
@@ -119,14 +119,7 @@ try {
 		)
 
 		console.log(`Extracting native dependencies...`)
-		await spinTask(
-			extractTo(archiveData, specificMobileNativeDeps, {
-				chmod: 0o600,
-				sizeLimit: 256n * 1024n * 1024n,
-				recursive: true,
-				overwrite: true,
-			})
-		)
+		await spinTask(extractTo(archiveData, specificMobileNativeDeps, extractOpts))
 	}
 } catch (e) {
 	console.error(`Failed to download native dependencies for mobile.\n${bugWarn}`)
