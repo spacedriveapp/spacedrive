@@ -87,7 +87,7 @@ pub struct FFmpegDictIter<'a> {
 	_lifetime: std::marker::PhantomData<&'a ()>,
 }
 
-impl<'a> Iterator for FFmpegDictIter<'a> {
+impl Iterator for FFmpegDictIter<'_> {
 	type Item = (String, Option<String>);
 
 	fn next(&mut self) -> Option<(String, Option<String>)> {

@@ -14,7 +14,11 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
 
-use sd_prisma::prisma::{file_path, location, SortOrder};
+use sd_prisma::{
+	prisma::{device, file_path, location, SortOrder},
+	prisma_sync,
+};
+use sd_sync::{sync_db_not_null_entry, OperationFactory};
 use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
@@ -128,14 +132,14 @@ impl Job for FileIdentifier {
 						match task_kind {
 							TaskKind::Identifier => tasks::Identifier::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								(Arc::clone(ctx.db()), ctx.sync().clone()),
 							)
 							.await
 							.map(IntoTask::into_task),
 
 							TaskKind::ObjectProcessor => tasks::ObjectProcessor::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+								(Arc::clone(ctx.db()), ctx.sync().clone()),
 							)
 							.await
 							.map(IntoTask::into_task),
@@ -173,8 +177,21 @@ impl Job for FileIdentifier {
 	) -> Result<ReturnStatus, Error> {
 		let mut pending_running_tasks = FuturesUnordered::new();
 
+		let device_pub_id = &ctx.sync().device_pub_id;
+		let device_id = ctx
+			.db()
+			.device()
+			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
+			.exec()
+			.await
+			.map_err(file_identifier::Error::from)?
+			.ok_or(file_identifier::Error::DeviceNotFound(
+				device_pub_id.clone(),
+			))?
+			.id;
+
 		match self
-			.init_or_resume(&mut pending_running_tasks, &ctx, &dispatcher)
+			.init_or_resume(&mut pending_running_tasks, &ctx, device_id, &dispatcher)
 			.await
 		{
 			Ok(()) => { /* Everything is awesome! */ }
@@ -201,7 +218,7 @@ impl Job for FileIdentifier {
 			match task {
 				Ok(TaskStatus::Done((task_id, TaskOutput::Out(out)))) => {
 					match self
-						.process_task_output(task_id, out, &ctx, &dispatcher)
+						.process_task_output(task_id, out, &ctx, device_id, &dispatcher)
 						.await
 					{
 						Ok(tasks) => pending_running_tasks.extend(tasks),
@@ -254,15 +271,25 @@ impl Job for FileIdentifier {
 			..
 		} = self;
 
-		ctx.db()
-			.location()
-			.update(
-				location::id::equals(location.id),
-				vec![location::scan_state::set(
-					LocationScanState::FilesIdentified as i32,
-				)],
+		let (sync_param, db_param) = sync_db_not_null_entry!(
+			LocationScanState::FilesIdentified as i32,
+			location::scan_state
+		);
+
+		ctx.sync()
+			.write_op(
+				ctx.db(),
+				ctx.sync().shared_update(
+					prisma_sync::location::SyncId {
+						pub_id: location.pub_id.clone(),
+					},
+					[sync_param],
+				),
+				ctx.db()
+					.location()
+					.update(location::id::equals(location.id), vec![db_param])
+					.select(location::select!({ id })),
 			)
-			.exec()
 			.await
 			.map_err(file_identifier::Error::from)?;
 
@@ -302,6 +329,7 @@ impl FileIdentifier {
 		&mut self,
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
 		// if we don't have any pending task, then this is a fresh job
@@ -335,6 +363,7 @@ impl FileIdentifier {
 					.as_ref()
 					.unwrap_or(&location_root_iso_file_path),
 				ctx,
+				device_id,
 				dispatcher,
 				pending_running_tasks,
 			)
@@ -345,8 +374,9 @@ impl FileIdentifier {
 			self.last_orphan_file_path_id = None;
 
 			self.dispatch_deep_identifier_tasks(
-				&maybe_sub_iso_file_path,
+				maybe_sub_iso_file_path.as_ref(),
 				ctx,
+				device_id,
 				dispatcher,
 				pending_running_tasks,
 			)
@@ -378,6 +408,7 @@ impl FileIdentifier {
 							.as_ref()
 							.unwrap_or(&location_root_iso_file_path),
 						ctx,
+						device_id,
 						dispatcher,
 						pending_running_tasks,
 					)
@@ -388,8 +419,9 @@ impl FileIdentifier {
 					self.last_orphan_file_path_id = None;
 
 					self.dispatch_deep_identifier_tasks(
-						&maybe_sub_iso_file_path,
+						maybe_sub_iso_file_path.as_ref(),
 						ctx,
+						device_id,
 						dispatcher,
 						pending_running_tasks,
 					)
@@ -401,8 +433,9 @@ impl FileIdentifier {
 
 				Phase::SearchingOrphans => {
 					self.dispatch_deep_identifier_tasks(
-						&maybe_sub_iso_file_path,
+						maybe_sub_iso_file_path.as_ref(),
 						ctx,
+						device_id,
 						dispatcher,
 						pending_running_tasks,
 					)
@@ -447,6 +480,7 @@ impl FileIdentifier {
 		task_id: TaskId,
 		any_task_output: Box<dyn AnyTaskOutput>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, DispatcherError> {
 		if any_task_output.is::<identifier::Output>() {
@@ -457,6 +491,7 @@ impl FileIdentifier {
 						.downcast::<identifier::Output>()
 						.expect("just checked"),
 					ctx,
+					device_id,
 					dispatcher,
 				)
 				.await;
@@ -501,6 +536,7 @@ impl FileIdentifier {
 			errors,
 		}: identifier::Output,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 	) -> Result<Vec<TaskHandle<Error>>, DispatcherError> {
 		self.metadata.mean_extract_metadata_time += extract_metadata_time;
@@ -548,6 +584,7 @@ impl FileIdentifier {
 			let (tasks_count, res) = match dispatch_object_processor_tasks(
 				self.file_paths_accumulator.drain(),
 				ctx,
+				device_id,
 				dispatcher,
 				false,
 			)
@@ -636,6 +673,7 @@ impl FileIdentifier {
 		&mut self,
 		sub_iso_file_path: &IsolatedFilePathData<'static>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
 	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
@@ -702,7 +740,8 @@ impl FileIdentifier {
 						orphan_paths,
 						true,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
+						device_id,
 					))
 					.await?,
 			);
@@ -713,8 +752,9 @@ impl FileIdentifier {
 
 	async fn dispatch_deep_identifier_tasks<OuterCtx: OuterContext>(
 		&mut self,
-		maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'static>>,
+		maybe_sub_iso_file_path: Option<&IsolatedFilePathData<'static>>,
 		ctx: &impl JobContext<OuterCtx>,
+		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
 	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
@@ -785,7 +825,8 @@ impl FileIdentifier {
 						orphan_paths,
 						false,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
+						device_id,
 					))
 					.await?,
 			);

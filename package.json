@@ -62,7 +62,7 @@
 		"turbo": "^1.12.5",
 		"turbo-ignore": "^1.12.5",
 		"typescript": "^5.6.2",
-		"vite": "^5.2.0"
+		"vite": "^5.4.9"
 	},
 	"engines": {
 		"pnpm": ">=9.0.0",
@@ -73,5 +73,5 @@
 	"eslintConfig": {
 		"root": true
 	},
-	"packageManager": "pnpm@9.12.1"
+	"packageManager": "pnpm@9.12.2"
 }

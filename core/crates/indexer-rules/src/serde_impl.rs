@@ -60,7 +60,7 @@ impl<'de> Deserialize<'de> for RulePerKind {
 
 		struct FieldsVisitor;
 
-		impl<'de> de::Visitor<'de> for FieldsVisitor {
+		impl de::Visitor<'_> for FieldsVisitor {
 			type Value = Fields;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -3,13 +3,19 @@
 
 export type Procedures = {
     queries: 
-        { key: "auth.me", input: never, result: { id: string; email: string } } | 
         { key: "backups.getAll", input: never, result: GetAll } | 
         { key: "buildInfo", input: never, result: BuildInfo } | 
-        { key: "cloud.getApiOrigin", input: never, result: string } | 
-        { key: "cloud.library.get", input: LibraryArgs<null>, result: CloudLibrary | null } | 
-        { key: "cloud.library.list", input: never, result: CloudLibrary[] } | 
-        { key: "cloud.locations.list", input: never, result: CloudLocation[] } | 
+        { key: "cloud.devices.get", input: CloudDevicePubId, result: CloudDevice } | 
+        { key: "cloud.devices.get_current_device", input: never, result: CloudDevice } | 
+        { key: "cloud.devices.list", input: never, result: CloudDevice[] } | 
+        { key: "cloud.hasBootstrapped", input: never, result: boolean } | 
+        { key: "cloud.libraries.get", input: CloudGetLibraryArgs, result: CloudLibrary } | 
+        { key: "cloud.libraries.list", input: boolean, result: CloudLibrary[] } | 
+        { key: "cloud.locations.list", input: CloudListLocationsArgs, result: CloudLocation[] } | 
+        { key: "cloud.syncGroups.get", input: CloudGetSyncGroupArgs, result: CloudSyncGroupGetResponseKind } | 
+        { key: "cloud.syncGroups.leave", input: CloudSyncGroupPubId, result: null } | 
+        { key: "cloud.syncGroups.list", input: never, result: CloudSyncGroupBaseData[] } | 
+        { key: "cloud.syncGroups.remove_device", input: CloudSyncGroupsRemoveDeviceArgs, result: null } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -50,7 +56,6 @@ export type Procedures = {
         { key: "search.saved.get", input: LibraryArgs<number>, result: SavedSearch | null } | 
         { key: "search.saved.list", input: LibraryArgs<null>, result: SavedSearch[] } | 
         { key: "sync.enabled", input: LibraryArgs<null>, result: boolean } | 
-        { key: "sync.messages", input: LibraryArgs<null>, result: CRDTOperation[] } | 
         { key: "tags.get", input: LibraryArgs<number>, result: Tag | null } | 
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ object: { id: number }; date_created: string | null })[] } } | 
@@ -58,16 +63,21 @@ export type Procedures = {
         { key: "volumes.list", input: never, result: Volume[] },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
-        { key: "auth.logout", input: never, result: null } | 
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
-        { key: "cloud.library.create", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.library.join", input: string, result: LibraryConfigWrapped } | 
-        { key: "cloud.library.sync", input: LibraryArgs<null>, result: null } | 
-        { key: "cloud.locations.create", input: string, result: CloudLocation } | 
-        { key: "cloud.locations.remove", input: string, result: CloudLocation } | 
-        { key: "cloud.setApiOrigin", input: string, result: null } | 
+        { key: "cloud.bootstrap", input: [AccessToken, RefreshToken], result: null } | 
+        { key: "cloud.devices.delete", input: CloudDevicePubId, result: null } | 
+        { key: "cloud.devices.update", input: CloudUpdateDeviceArgs, result: null } | 
+        { key: "cloud.libraries.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.libraries.delete", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.libraries.update", input: LibraryArgs<string>, result: null } | 
+        { key: "cloud.locations.create", input: CloudCreateLocationArgs, result: null } | 
+        { key: "cloud.locations.delete", input: CloudLocationPubId, result: null } | 
+        { key: "cloud.syncGroups.create", input: LibraryArgs<null>, result: null } | 
+        { key: "cloud.syncGroups.delete", input: CloudSyncGroupPubId, result: null } | 
+        { key: "cloud.syncGroups.request_join", input: SyncGroupsRequestJoinArgs, result: null } | 
+        { key: "cloud.userResponse", input: CloudP2PUserResponse, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
         { key: "ephemeralFiles.createFolder", input: LibraryArgs<CreateEphemeralFolderArgs>, result: string } | 
@@ -101,8 +111,6 @@ export type Procedures = {
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
         { key: "library.edit", input: EditLibraryArgs, result: null } | 
-        { key: "library.startActor", input: LibraryArgs<string>, result: null } | 
-        { key: "library.stopActor", input: LibraryArgs<string>, result: null } | 
         { key: "library.vacuumDb", input: LibraryArgs<null>, result: null } | 
         { key: "locations.addLibrary", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
         { key: "locations.create", input: LibraryArgs<LocationCreateArgs>, result: number | null } | 
@@ -130,21 +138,25 @@ export type Procedures = {
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null },
     subscriptions: 
-        { key: "auth.loginSession", input: never, result: Response } | 
+        { key: "cloud.listenCloudServicesNotifications", input: never, result: CloudP2PNotifyUser } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
         { key: "jobs.newFilePathIdentified", input: LibraryArgs<null>, result: number[] } | 
         { key: "jobs.newThumbnail", input: LibraryArgs<null>, result: ThumbKey } | 
         { key: "jobs.progress", input: LibraryArgs<null>, result: JobProgressEvent } | 
-        { key: "library.actors", input: LibraryArgs<null>, result: { [key in string]: boolean } } | 
+        { key: "library.actors", input: LibraryArgs<null>, result: ([string, boolean])[] } | 
         { key: "library.updatedKindStatistic", input: LibraryArgs<null>, result: KindStatistic } | 
         { key: "locations.online", input: never, result: number[][] } | 
         { key: "locations.quickRescan", input: LibraryArgs<LightScanArgs>, result: null } | 
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: { entries: ExplorerItem[]; errors: Error[] } } | 
-        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
-        { key: "sync.newMessage", input: LibraryArgs<null>, result: null }
+        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus }
 };
+
+/**
+ * Newtype wrapper for the access token
+ */
+export type AccessToken = string
 
 export type Args = { search?: string | null; filters?: string | null; name?: string | null; icon?: string | null; description?: string | null }
 
@@ -155,15 +167,13 @@ export type AudioProps = { delay: number; padding: number; sample_rate: number |
  * 
  * If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
  */
-export type BackendFeature = "cloudSync"
+export type BackendFeature = never
 
 export type Backup = ({ id: string; timestamp: string; library_id: string; library_name: string }) & { path: string }
 
+export type BasicLibraryCreationArgs = { id: CloudLibraryPubId; name: string; description: string | null }
+
 export type BuildInfo = { version: string; commit: string }
-
-export type CRDTOperation = { instance: string; timestamp: number; model: number; record_id: JsonValue; data: CRDTOperationData }
-
-export type CRDTOperationData = { c: { [key in string]: JsonValue } } | { u: { field: string; value: JsonValue } } | "d"
 
 export type CameraData = { device_make: string | null; device_model: string | null; color_space: string | null; color_profile: ColorProfile | null; focal_length: number | null; shutter_speed: number | null; flash: Flash | null; orientation: Orientation; lens_make: string | null; lens_model: string | null; bit_depth: number | null; zoom: number | null; iso: number | null; software: string | null; serial_number: string | null; lens_serial_number: string | null; contrast: number | null; saturation: number | null; sharpness: number | null; composite: Composite | null }
 
@@ -173,11 +183,51 @@ export type ChangeNodeNameArgs = { name: string | null; p2p_port: Port | null; p
 
 export type Chapter = { id: number; start: [number, number]; end: [number, number]; time_base_den: number; time_base_num: number; metadata: Metadata }
 
-export type CloudInstance = { id: string; uuid: string; identity: RemoteIdentity; nodeId: string; nodeRemoteIdentity: string; metadata: { [key in string]: string } }
+export type CloudCreateLocationArgs = { pub_id: CloudLocationPubId; name: string; library_pub_id: CloudLibraryPubId; device_pub_id: CloudDevicePubId }
 
-export type CloudLibrary = { id: string; uuid: string; name: string; instances: CloudInstance[]; ownerId: string }
+export type CloudDevice = { pub_id: CloudDevicePubId; name: string; os: DeviceOS; hardware_model: HardwareModel; connection_id: string; created_at: string; updated_at: string }
 
-export type CloudLocation = { id: string; name: string }
+export type CloudDevicePubId = string
+
+export type CloudGetLibraryArgs = { pub_id: CloudLibraryPubId; with_device: boolean }
+
+export type CloudGetSyncGroupArgs = { pub_id: CloudSyncGroupPubId; kind: CloudSyncGroupGetRequestKind }
+
+export type CloudLibrary = { pub_id: CloudLibraryPubId; name: string; original_device: CloudDevice | null; created_at: string; updated_at: string }
+
+export type CloudLibraryPubId = string
+
+export type CloudListLocationsArgs = { library_pub_id: CloudLibraryPubId; with_library: boolean; with_device: boolean }
+
+export type CloudLocation = { pub_id: CloudLocationPubId; name: string; device: CloudDevice | null; library: CloudLibrary | null; created_at: string; updated_at: string }
+
+export type CloudLocationPubId = string
+
+export type CloudP2PError = "Rejected" | "UnableToConnect" | "TimedOut"
+
+export type CloudP2PNotifyUser = { kind: "ReceivedJoinSyncGroupRequest"; data: { ticket: CloudP2PTicket; asking_device: CloudDevice; sync_group: CloudSyncGroupWithDevices } } | { kind: "ReceivedJoinSyncGroupResponse"; data: { response: JoinSyncGroupResponse; sync_group: CloudSyncGroupWithDevices } } | { kind: "SendingJoinSyncGroupResponseError"; data: { error: JoinSyncGroupError; sync_group: CloudSyncGroupWithDevices } } | { kind: "TimedOutJoinRequest"; data: { device: CloudDevice; succeeded: boolean } }
+
+export type CloudP2PTicket = bigint
+
+export type CloudP2PUserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: BasicLibraryCreationArgs | null } }
+
+export type CloudSyncGroup = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; total_sync_messages_bytes: bigint; total_space_files_bytes: bigint; created_at: string; updated_at: string }
+
+export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; created_at: string; updated_at: string }
+
+export type CloudSyncGroupGetRequestKind = "WithDevices" | "DevicesConnectionIds" | "FullData"
+
+export type CloudSyncGroupGetResponseKind = { kind: "WithDevices"; data: CloudSyncGroupWithDevices } | { kind: "FullData"; data: CloudSyncGroup }
+
+export type CloudSyncGroupPubId = string
+
+export type CloudSyncGroupWithDevices = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; created_at: string; updated_at: string }
+
+export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: CloudSyncGroupPubId; to_remove_device_pub_id: CloudDevicePubId }
+
+export type CloudSyncKeyHash = string
+
+export type CloudUpdateDeviceArgs = { pub_id: CloudDevicePubId; name: string }
 
 export type Codec = { kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; props: Props | null }
 
@@ -211,6 +261,12 @@ export type ConvertImageArgs = { location_id: number; file_path_id: number; dele
 
 export type ConvertibleExtension = "bmp" | "dib" | "ff" | "gif" | "ico" | "jpg" | "jpeg" | "png" | "pnm" | "qoi" | "tga" | "icb" | "vda" | "vst" | "tiff" | "tif" | "hif" | "heif" | "heifs" | "heic" | "heics" | "avif" | "avci" | "avcs" | "svg" | "svgz" | "pdf" | "webp"
 
+export type CoreDevicePubId = CorePubId
+
+export type CoreHardwareModel = "Other" | "MacStudio" | "MacBookAir" | "MacBookPro" | "MacBook" | "MacMini" | "MacPro" | "IMac" | "IMacPro" | "IPad" | "IPhone" | "Simulator" | "Android"
+
+export type CorePubId = { Uuid: string } | { Vec: number[] }
+
 export type CreateEphemeralFileArgs = { path: string; context: EphemeralFileCreateContextTypes; name: string | null }
 
 export type CreateEphemeralFolderArgs = { path: string; name: string | null }
@@ -224,6 +280,8 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 
 /**
  * The method used for the discovery of this peer.
@@ -282,7 +340,7 @@ export type FfmpegMediaVideoProps = { id: number; pixel_format: string | null; c
 
 export type FileCreateContextTypes = "empty" | "text"
 
-export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
+export type FilePath = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; device_id: number | null }
 
 export type FilePathCursor = { isDir: boolean; variant: FilePathCursorVariant }
 
@@ -290,7 +348,7 @@ export type FilePathCursorVariant = "none" | { name: CursorOrderItem<string> } |
 
 export type FilePathFilterArgs = { locations: InOrNotIn<number> } | { path: { location_id: number; path: string; include_descendants: boolean } } | { name: TextMatch } | { extension: InOrNotIn<string> } | { createdAt: Range<string> } | { modifiedAt: Range<string> } | { indexedAt: Range<string> } | { hidden: boolean }
 
-export type FilePathForFrontend = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; tags: ({ object_id: number; tag_id: number; tag: Tag; date_created: string | null })[]; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null }
+export type FilePathForFrontend = { id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; tags: ({ object_id: number; tag_id: number; tag: Tag; date_created: string | null; device_id: number | null })[]; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null; device_id: number | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; device_id: number | null }
 
 export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
@@ -379,6 +437,10 @@ export type JobName = "Indexer" | "FileIdentifier" | "MediaProcessor" | "Copy" |
 
 export type JobProgressEvent = { id: string; library_id: string; task_count: number; completed_task_count: number; phase: string; message: string; info: string; estimated_completion: string }
 
+export type JoinSyncGroupError = "Communication" | "InternalServer" | "Auth"
+
+export type JoinSyncGroupResponse = { Accepted: { authorizor_device: CloudDevice } } | { Failed: CloudP2PError } | "CriticalError"
+
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue }
 
 export type KindStatistic = { kind: number; name: string; count: [number, number]; total_bytes: [number, number] }
@@ -430,7 +492,7 @@ export type ListenerState = { type: "Listening" } | { type: "Error"; error: stri
 
 export type Listeners = { ipv4: ListenerState; ipv6: ListenerState; relay: ListenerState }
 
-export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; instance_id: number | null }
+export type Location = { id: number; pub_id: number[]; name: string | null; path: string | null; total_capacity: number | null; available_capacity: number | null; size_in_bytes: number[] | null; is_archived: boolean | null; generate_preview_media: boolean | null; sync_preview_media: boolean | null; hidden: boolean | null; date_created: string | null; scan_state: number; device_id: number | null; instance_id: number | null }
 
 /**
  * `LocationCreateArgs` is the argument received from the client using `rspc` to create a new location.
@@ -473,9 +535,10 @@ export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disable
  * 
  * All of these are valid values:
  * - `localhost`
- * - `otbeaumont.me` or `otbeaumont.me:3000`
+ * - `spacedrive.com` or `spacedrive.com:3000`
  * - `127.0.0.1` or `127.0.0.1:300`
  * - `[::1]` or `[::1]:3000`
+ * 
  * which is why we use `String` not `SocketAddr`
  */
 manual_peers?: string[] }
@@ -486,11 +549,11 @@ export type NodeState = ({
 /**
  * id is a unique identifier for the current node. Each node has a public identifier (this one) and is given a local id for each library (done within the library code).
  */
-id: string; 
+id: CoreDevicePubId; 
 /**
  * name is the display name of the current node. This is set by the user and is shown in the UI. // TODO: Length validation so it can fit in DNS record
  */
-name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; image_labeler_version: string | null }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
+name: string; identity: RemoteIdentity; p2p: NodeConfigP2P; features: BackendFeature[]; preferences: NodePreferences; os: DeviceOS; hardware_model: CoreHardwareModel }) & { data_path: string; device_model: string | null; is_in_docker: boolean }
 
 export type NonCriticalError = { indexer: NonCriticalIndexerError } | { file_identifier: NonCriticalFileIdentifierError } | { media_processor: NonCriticalMediaProcessorError }
 
@@ -521,7 +584,7 @@ export type NotificationId = { type: "library"; id: [string, number] } | { type:
 
 export type NotificationKind = "info" | "success" | "error" | "warning"
 
-export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null }
+export type Object = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; device_id: number | null }
 
 export type ObjectCursor = "none" | { dateAccessed: CursorOrderItem<string> } | { kind: CursorOrderItem<number> }
 
@@ -535,9 +598,9 @@ export type ObjectSearchArgs = { take: number; orderAndPagination?: OrderAndPagi
 
 export type ObjectValidatorArgs = { id: number; path: string }
 
-export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null; ffmpeg_data: { id: number; formats: string; bit_rate: number[]; duration: number[] | null; start_time: number[] | null; chapters: FfmpegMediaChapter[]; programs: ({ program_id: number; streams: ({ stream_id: number; name: string | null; codec: { id: number; kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; video_props: FfmpegMediaVideoProps | null; audio_props: FfmpegMediaAudioProps | null; stream_id: number; program_id: number; ffmpeg_data_id: number } | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string | null; title: string | null; encoder: string | null; language: string | null; duration: number[] | null; metadata: number[] | null; program_id: number; ffmpeg_data_id: number })[]; name: string | null; metadata: number[] | null; ffmpeg_data_id: number })[]; title: string | null; creation_time: string | null; date: string | null; album_artist: string | null; disc: string | null; track: string | null; album: string | null; artist: string | null; metadata: number[] | null; object_id: number } | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null })[] }
+export type ObjectWithFilePaths = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null; ffmpeg_data: { id: number; formats: string; bit_rate: number[]; duration: number[] | null; start_time: number[] | null; chapters: FfmpegMediaChapter[]; programs: ({ program_id: number; streams: ({ stream_id: number; name: string | null; codec: { id: number; kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; video_props: FfmpegMediaVideoProps | null; audio_props: FfmpegMediaAudioProps | null; stream_id: number; program_id: number; ffmpeg_data_id: number } | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string | null; title: string | null; encoder: string | null; language: string | null; duration: number[] | null; metadata: number[] | null; program_id: number; ffmpeg_data_id: number })[]; name: string | null; metadata: number[] | null; ffmpeg_data_id: number })[]; title: string | null; creation_time: string | null; date: string | null; album_artist: string | null; disc: string | null; track: string | null; album: string | null; artist: string | null; metadata: number[] | null; object_id: number } | null; device_id: number | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; device_id: number | null })[]; device_id: number | null }
 
-export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null; ffmpeg_data: { id: number; formats: string; bit_rate: number[]; duration: number[] | null; start_time: number[] | null; chapters: FfmpegMediaChapter[]; programs: ({ program_id: number; streams: ({ stream_id: number; name: string | null; codec: { id: number; kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; video_props: FfmpegMediaVideoProps | null; audio_props: FfmpegMediaAudioProps | null; stream_id: number; program_id: number; ffmpeg_data_id: number } | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string | null; title: string | null; encoder: string | null; language: string | null; duration: number[] | null; metadata: number[] | null; program_id: number; ffmpeg_data_id: number })[]; name: string | null; metadata: number[] | null; ffmpeg_data_id: number })[]; title: string | null; creation_time: string | null; date: string | null; album_artist: string | null; disc: string | null; track: string | null; album: string | null; artist: string | null; metadata: number[] | null; object_id: number } | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null })[] }
+export type ObjectWithFilePaths2 = { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; file_paths: ({ id: number; pub_id: number[]; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location_id: number | null; materialized_path: string | null; name: string | null; extension: string | null; hidden: boolean | null; size_in_bytes: string | null; size_in_bytes_bytes: number[] | null; inode: number[] | null; object_id: number | null; object: { id: number; pub_id: number[]; kind: number | null; key_id: number | null; hidden: boolean | null; favorite: boolean | null; important: boolean | null; note: string | null; date_created: string | null; date_accessed: string | null; exif_data: { resolution: number[] | null; media_date: number[] | null; media_location: number[] | null; camera_data: number[] | null; artist: string | null; description: string | null; copyright: string | null; exif_version: string | null } | null; ffmpeg_data: { id: number; formats: string; bit_rate: number[]; duration: number[] | null; start_time: number[] | null; chapters: FfmpegMediaChapter[]; programs: ({ program_id: number; streams: ({ stream_id: number; name: string | null; codec: { id: number; kind: string | null; sub_kind: string | null; tag: string | null; name: string | null; profile: string | null; bit_rate: number; video_props: FfmpegMediaVideoProps | null; audio_props: FfmpegMediaAudioProps | null; stream_id: number; program_id: number; ffmpeg_data_id: number } | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string | null; title: string | null; encoder: string | null; language: string | null; duration: number[] | null; metadata: number[] | null; program_id: number; ffmpeg_data_id: number })[]; name: string | null; metadata: number[] | null; ffmpeg_data_id: number })[]; title: string | null; creation_time: string | null; date: string | null; album_artist: string | null; disc: string | null; track: string | null; album: string | null; artist: string | null; metadata: number[] | null; object_id: number } | null; device_id: number | null } | null; key_id: number | null; date_created: string | null; date_modified: string | null; date_indexed: string | null; device_id: number | null })[] }
 
 export type OldFileCopierJobInit = { source_location_id: number; target_location_id: number; sources_file_path_ids: number[]; target_location_relative_directory_path: string }
 
@@ -561,7 +624,7 @@ export type P2PDiscoveryState = "Everyone" | "ContactsOnly" | "Disabled"
 
 export type P2PEvent = { type: "PeerChange"; identity: RemoteIdentity; connection: ConnectionMethod; discovery: DiscoveryMethod; metadata: PeerMetadata; addrs: string[] } | { type: "PeerDelete"; identity: RemoteIdentity } | { type: "SpacedropRequest"; id: string; identity: RemoteIdentity; peer_name: string; files: string[] } | { type: "SpacedropProgress"; id: string; percent: number } | { type: "SpacedropTimedOut"; id: string } | { type: "SpacedropRejected"; id: string }
 
-export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: HardwareModel | null; version: string | null }
+export type PeerMetadata = { name: string; operating_system: OperatingSystem | null; device_model: CoreHardwareModel | null; version: string | null }
 
 export type PlusCode = string
 
@@ -572,6 +635,11 @@ export type Program = { id: number; name: string | null; streams: Stream[]; meta
 export type Props = { Video: VideoProps } | { Audio: AudioProps } | { Subtitle: SubtitleProps }
 
 export type Range<T> = { from: T } | { to: T }
+
+/**
+ * Newtype wrapper for the refresh token
+ */
+export type RefreshToken = string
 
 export type RemoteIdentity = string
 
@@ -594,8 +662,6 @@ export type ReportOutputMetadata = { type: "metrics"; data: { [key in string]: J
 export type RescanArgs = { location_id: number; sub_path: string }
 
 export type Resolution = { width: number; height: number }
-
-export type Response = { Start: { user_code: string; verification_url: string; verification_url_complete: string } } | "Complete" | { Error: string }
 
 export type RuleKind = "AcceptFilesByGlob" | "RejectFilesByGlob" | "AcceptIfChildrenDirectoriesArePresent" | "RejectIfChildrenDirectoriesArePresent" | "IgnoredByGit"
 
@@ -630,6 +696,8 @@ export type Status = "Queued" | "Running" | "Completed" | "Canceled" | "Failed" 
 export type Stream = { id: number; name: string | null; codec: Codec | null; aspect_ratio_num: number; aspect_ratio_den: number; frames_per_second_num: number; frames_per_second_den: number; time_base_real_den: number; time_base_real_num: number; dispositions: string[]; metadata: Metadata }
 
 export type SubtitleProps = { width: number; height: number }
+
+export type SyncGroupsRequestJoinArgs = { sync_group: CloudSyncGroupWithDevices; asking_device: CloudDevice }
 
 export type SyncStatus = { ingest: boolean; cloud_send: boolean; cloud_receive: boolean; cloud_ingest: boolean }
 

@@ -1,59 +1,21 @@
 diff --git a/src/views/modern/Drawer.tsx b/src/views/modern/Drawer.tsx
-index 9909e9698e51379de6469eb2053a1432636d0c7d..220fa07f6784c5da13e6949e9c4893e015a5d1f8 100644
+index 9909e96..a7dd9b7 100644
 --- a/src/views/modern/Drawer.tsx
 +++ b/src/views/modern/Drawer.tsx
-@@ -1,26 +1,27 @@
+@@ -1,5 +1,6 @@
  import * as React from 'react';
  import {
--  I18nManager,
--  InteractionManager,
--  Keyboard,
--  Platform,
--  StatusBar,
--  StyleSheet,
--  View,
-+	Dimensions,
-+	I18nManager,
-+	InteractionManager,
-+	Keyboard,
-+	Platform,
-+	StatusBar,
-+	StyleSheet,
-+	View,
- } from 'react-native';
- import {
--  PanGestureHandler,
--  PanGestureHandlerGestureEvent,
--  State as GestureState,
-+	PanGestureHandler,
-+	PanGestureHandlerGestureEvent,
-+	State as GestureState,
- } from 'react-native-gesture-handler';
- import Animated, {
--  interpolate,
--  runOnJS,
--  useAnimatedGestureHandler,
--  useAnimatedStyle,
--  useDerivedValue,
--  useSharedValue,
--  withSpring,
-+	interpolate,
-+	runOnJS,
-+	useAnimatedGestureHandler,
-+	useAnimatedStyle,
-+	useDerivedValue,
-+	useSharedValue,
-+	withSpring,
- } from 'react-native-reanimated';
- 
- import type { DrawerProps } from '../../types';
++  Dimensions,
+   I18nManager,
+   InteractionManager,
+   Keyboard,
 @@ -72,7 +73,8 @@ export default function Drawer({
        const percentage = Number(width.replace(/%$/, ''));
  
        if (Number.isFinite(percentage)) {
 -        return dimensions.width * (percentage / 100);
-+		const dimensionsWidth = Dimensions.get("screen").width
-+		return dimensionsWidth * (percentage / 100);
++        const dimensionsWidth = Dimensions.get("screen").width
++        return dimensionsWidth * (percentage / 100);
        }
      }
  
