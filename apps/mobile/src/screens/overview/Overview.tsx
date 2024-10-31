@@ -5,6 +5,7 @@ import Cloud from '~/components/overview/Cloud';
 import Devices from '~/components/overview/Devices';
 import Locations from '~/components/overview/Locations';
 import OverviewStats from '~/components/overview/OverviewStats';
+import { useEnableDrawer } from '~/hooks/useEnableDrawer';
 
 const EMPTY_STATISTICS = {
 	id: 0,
@@ -26,6 +27,7 @@ export default function OverviewScreen() {
 
 	// Running the query here so the data is already available for settings screen
 	useLibraryQuery(['sync.enabled']);
+	useEnableDrawer();
 
 	return (
 		<ScreenContainer>

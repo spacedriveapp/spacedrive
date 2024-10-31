@@ -10,7 +10,7 @@ import {
 
 describe('Onboarding', () => {
 	// TODO: Create debug flag to bypass auto language detection
-	it('Alpha onboarding', () => {
+	it('Pre-release onboarding', () => {
 		cy.visit('/', {
 			onBeforeLoad(win) {
 				cy.stub(win, 'open').as('winOpen');
@@ -34,8 +34,8 @@ describe('Onboarding', () => {
 			.and('have.prop', 'naturalWidth')
 			.should('be.greaterThan', 0);
 
-		// Check we are in the alpha release screen
-		cy.get('h1').should('contain', 'Alpha Release');
+		// Check we are in the beta release screen
+		cy.get('h1').should('contain', 'Beta Release');
 
 		// Check Join Discord button exists and point to a valid discord invite
 		cy.get('button').contains('Join Discord').click();
@@ -131,12 +131,18 @@ describe('Onboarding', () => {
 		cy.get('h2').should('contain', 'Your Privacy');
 
 		// Check we have all privacy options
+		cy.get('label').contains("Don't share anything").click();
+		cy.get('#radiofull').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radiominimal').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radionone').should('have.attr', 'data-state', 'checked');
 		cy.get('label').contains('Share the bare minimum').click();
-		cy.get('#radiominimal-telemetry').should('have.attr', 'data-state', 'checked');
-		cy.get('#radioshare-telemetry').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radiofull').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radiominimal').should('have.attr', 'data-state', 'checked');
+		cy.get('#radionone').should('have.attr', 'data-state', 'unchecked');
 		cy.get('label').contains('Share anonymous usage').click();
-		cy.get('#radioshare-telemetry').should('have.attr', 'data-state', 'checked');
-		cy.get('#radiominimal-telemetry').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radiofull').should('have.attr', 'data-state', 'checked');
+		cy.get('#radiominimal').should('have.attr', 'data-state', 'unchecked');
+		cy.get('#radionone').should('have.attr', 'data-state', 'unchecked');
 
 		// Check More info button exists and point to the valid pravacy policy
 		cy.get('button').contains('More info').click();

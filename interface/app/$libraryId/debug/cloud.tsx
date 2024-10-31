@@ -87,19 +87,19 @@ function Authenticated() {
 						</div>
 						<Button
 							className="h-8"
-							disabled={createLibrary.isLoading}
+							disabled={createLibrary.isPending}
 							variant="accent"
 							onClick={() => {
 								createLibrary.mutateAsync(null);
 							}}
 						>
-							{createLibrary.isLoading ? (
+							{createLibrary.isPending ? (
 								<div className="flex h-4 flex-row items-center gap-2">
 									<Loader className="w-5" color="white" />
-									<p className="text-xs">{t('Connecting' + '...')}</p>
+									<p className="text-xs">{t('connecting' + '...')}</p>
 								</div>
 							) : (
-								t('Connect')
+								t('connect')
 							)}
 						</Button>
 					</DataBox>
@@ -185,7 +185,7 @@ const Library = ({ thisInstance, cloudLibrary }: LibraryProps) => {
 					Name: <span className="font-normal text-ink-dull">{cloudLibrary.name}</span>
 				</p>
 				<Button
-					disabled={syncLibrary.isLoading || thisInstance !== undefined}
+					disabled={syncLibrary.isPending || thisInstance !== undefined}
 					variant={thisInstance === undefined ? 'accent' : 'gray'}
 					className="flex flex-row items-center gap-1 !text-ink"
 					onClick={() => syncLibrary.mutateAsync(null)}

@@ -1167,7 +1167,8 @@ impl JobTaskDispatcher {
 						matches!(
 							*state,
 							JobRunningState::Running
-								| JobRunningState::Canceled | JobRunningState::Shutdown
+								| JobRunningState::Canceled
+								| JobRunningState::Shutdown
 						)
 					})
 					.await

@@ -30,7 +30,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 	};
 
 	return (
-		<div className="w-auto p-3">
+		<div className="w-auto p-3 font-plex">
 			<div className="relative mt-1 flex h-6 rounded">
 				{sections.map((section, index) => {
 					const isHovered = hoveredSectionIndex === index;

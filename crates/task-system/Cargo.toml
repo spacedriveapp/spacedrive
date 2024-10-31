@@ -2,11 +2,11 @@
 name    = "sd-task-system"
 version = "0.1.0"
 
-authors              = ["Ericson Soares <ericson@spacedrive.com>"]
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-rust-version         = "1.75"
+authors                = ["Ericson Soares <ericson@spacedrive.com>"]
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [dependencies]
 # Workspace deps

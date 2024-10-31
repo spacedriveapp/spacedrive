@@ -20,7 +20,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
 import {
 	ClientContextProvider,
-	initPlausible,
+	configureAnalyticsProperties,
 	LibraryContextProvider,
 	P2PContextProvider,
 	RspcProvider,
@@ -63,7 +63,7 @@ function AppNavigation() {
 
 	useEffect(() => {
 		if (buildInfo?.data) {
-			initPlausible({ platformType: 'mobile', buildInfo: buildInfo.data });
+			configureAnalyticsProperties({ platformType: 'mobile', buildInfo: buildInfo.data });
 		}
 	}, [buildInfo]);
 
@@ -108,7 +108,7 @@ function AppNavigation() {
 					if (navRef.getRootState().routeNames.includes('GetStarted')) {
 						return;
 					}
-					currentRouteName && setCurrentPath(currentRouteName);
+					if (currentRouteName) setCurrentPath(currentRouteName);
 				}
 			}}
 		>

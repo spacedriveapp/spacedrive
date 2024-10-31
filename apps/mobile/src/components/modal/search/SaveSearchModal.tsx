@@ -10,7 +10,7 @@ import { useSearchStore } from '~/stores/searchStore';
 
 const SaveSearchModal = forwardRef<ModalRef>((_, ref) => {
 	const [searchName, setSearchName] = useState('');
-	const navigation = useNavigation();
+	const navigation = useNavigation<any>();
 	const searchStore = useSearchStore();
 	const saveSearch = useLibraryMutation('search.saved.create', {
 		onSuccess: () => {

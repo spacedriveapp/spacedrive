@@ -26,16 +26,15 @@ use sd_utils::{
 	i64_to_frontend,
 };
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, sync::LazyLock};
 
 use futures_concurrency::future::TryJoin;
-use once_cell::sync::Lazy;
 use prisma_client_rust::QueryError;
 use tracing::error;
 
 use super::from_slice_option_to_option;
 
-pub static AVAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static AVAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_AUDIO_EXTENSIONS
 		.iter()
 		.copied()
@@ -61,12 +60,15 @@ pub const fn can_extract_for_audio(audio_extension: AudioExtension) -> bool {
 	matches!(
 		audio_extension,
 		Mp3 | Mp2
-			| M4a | Wav | Aiff
-			| Aif | Flac | Ogg
-			| Oga | Opus | Wma
-			| Amr | Aac | Wv
-			| Voc | Tta | Loas
-			| Caf | Aptx | Adts
+			| M4a | Wav
+			| Aiff | Aif
+			| Flac | Ogg
+			| Oga | Opus
+			| Wma | Amr
+			| Aac | Wv
+			| Voc | Tta
+			| Loas | Caf
+			| Aptx | Adts
 			| Ast | Mid
 	)
 }
@@ -81,15 +83,18 @@ pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 	matches!(
 		video_extension,
 		Avi | Avifs
-			| Qt | Mov | Swf
-			| Mjpeg | Mpeg
-			| Mxf | M2v | Mpg
-			| Mpe | M2ts | Flv
-			| Wm | _3gp | M4v
-			| Wmv | Asf | Mp4
-			| Webm | Mkv | Vob
-			| Ogv | Wtv | Hevc
-			| F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
+			| Qt | Mov
+			| Swf | Mjpeg
+			| Mpeg | Mxf
+			| M2v | Mpg
+			| Mpe | M2ts
+			| Flv | Wm
+			| _3gp | M4v
+			| Wmv | Asf
+			| Mp4 | Webm
+			| Mkv | Vob
+			| Ogv | Wtv
+			| Hevc | F4v // | Ts | Mts  TODO: Uncomment when we start using magic instead of extension
 	)
 }
 

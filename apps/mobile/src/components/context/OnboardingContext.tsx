@@ -37,8 +37,9 @@ export const useContextValue = () => {
 };
 
 export const shareTelemetrySchema = z.union([
-	z.literal('share-telemetry'),
-	z.literal('minimal-telemetry')
+	z.literal('full'),
+	z.literal('minimal'),
+	z.literal('none')
 ]);
 
 const schemas = {
@@ -58,7 +59,7 @@ const useFormState = () => {
 		defaultValues: {
 			NewLibrary: obStore.data?.['new-library'] ?? undefined,
 			Privacy: obStore.data?.privacy ?? {
-				shareTelemetry: 'share-telemetry'
+				shareTelemetry: 'full'
 			}
 		},
 		onData: (data) => (onboardingStore.data = data)
@@ -81,7 +82,7 @@ const useFormState = () => {
 
 			// opted to place this here as users could change their mind before library creation/onboarding finalization
 			// it feels more fitting to configure it here (once)
-			telemetryState.shareFullTelemetry = data.Privacy.shareTelemetry === 'share-telemetry';
+			telemetryState.telemetryLevelPreference = data.Privacy.shareTelemetry;
 
 			try {
 				// show creation screen for a bit for smoothness
@@ -93,7 +94,7 @@ const useFormState = () => {
 					new Promise((res) => setTimeout(res, 500))
 				]);
 
-				if (telemetryState.shareFullTelemetry) {
+				if (telemetryState.telemetryLevelPreference === 'full') {
 					submitPlausibleEvent({ event: { type: 'libraryCreate' } });
 				}
 

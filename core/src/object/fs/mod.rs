@@ -13,9 +13,9 @@ use tracing::trace;
 use std::{
 	ffi::OsStr,
 	path::{Path, PathBuf},
+	sync::LazyLock,
 };
 
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -33,8 +33,8 @@ pub mod error;
 use error::FileSystemJobsError;
 use tokio::{fs, io};
 
-static DUPLICATE_PATTERN: Lazy<Regex> =
-	Lazy::new(|| Regex::new(r" \(\d+\)").expect("Failed to compile hardcoded regex"));
+static DUPLICATE_PATTERN: LazyLock<Regex> =
+	LazyLock::new(|| Regex::new(r" \(\d+\)").expect("Failed to compile hardcoded regex"));
 
 // pub const BYTES_EXT: &str = ".bytes";
 

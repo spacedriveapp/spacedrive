@@ -63,7 +63,7 @@ export const OpenQuickView = () => {
 
 	return (
 		<ContextMenu.Item
-			label={t('quick_view')}
+			label={t('quick_preview')}
 			keybind={keybind([], [' '])}
 			onClick={() => (getQuickPreviewStore().open = true)}
 		/>
@@ -224,7 +224,7 @@ const SpacedropNodes = () => {
 		<Menu.Item
 			key={id}
 			label={peer.metadata.name}
-			disabled={spacedrop.isLoading}
+			disabled={spacedrop.isPending}
 			onClick={async () => {
 				spacedrop.mutateAsync({
 					identity: id,

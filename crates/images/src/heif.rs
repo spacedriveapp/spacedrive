@@ -2,12 +2,12 @@ pub use crate::error::{Error, Result};
 use crate::ImageHandler;
 use image::DynamicImage;
 use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
-use once_cell::sync::Lazy;
 use std::io::{Cursor, SeekFrom};
 use std::io::{Read, Seek};
 use std::path::Path;
+use std::sync::LazyLock;
 
-static HEIF: Lazy<LibHeif> = Lazy::new(LibHeif::new);
+static HEIF: LazyLock<LibHeif> = LazyLock::new(LibHeif::new);
 
 pub struct HeifHandler {}
 

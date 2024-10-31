@@ -19,6 +19,7 @@ import { Platform, SectionList, Text, TouchableWithoutFeedback, View } from 'rea
 import { DebugState, useDebugState, useDebugStateEnabler, useLibraryQuery } from '@sd/client';
 import ScreenContainer from '~/components/layout/ScreenContainer';
 import { SettingsItem } from '~/components/settings/SettingsItem';
+import { useEnableDrawer } from '~/hooks/useEnableDrawer';
 import { tw, twStyle } from '~/lib/tailwind';
 import { SettingsStackParamList, SettingsStackScreenProps } from '~/navigation/tabs/SettingsStack';
 
@@ -157,6 +158,7 @@ function renderSectionHeader({ section }: { section: { title: string } }) {
 export default function SettingsScreen({ navigation }: SettingsStackScreenProps<'Settings'>) {
 	const debugState = useDebugState();
 	const syncEnabled = useLibraryQuery(['sync.enabled']);
+	useEnableDrawer();
 	return (
 		<ScreenContainer tabHeight={false} style={tw`gap-0 px-5 py-0`}>
 			<SectionList

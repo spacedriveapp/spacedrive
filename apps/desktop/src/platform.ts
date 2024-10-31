@@ -73,10 +73,7 @@ export const platform = {
 		if (opts?.multiple) return result as any; // Tauri don't properly type narrow on `multiple` argument
 		return result;
 	},
-	openFilePickerDialog: () =>
-		dialogOpen({
-			multiple: true
-		}).then((result) => result?.map((r) => r.path) ?? null),
+	openFilePickerDialog: () => dialogOpen({ multiple: true }),
 	saveFilePickerDialog: (opts) => dialogSave(opts),
 	showDevtools: () => invoke('show_devtools'),
 	confirm: (msg, cb) => confirm(msg).then(cb),

@@ -27,7 +27,7 @@ import SidebarLink from '../Layout/Sidebar/SidebarLayout/Link';
 import { useLayoutStore } from '../Layout/store';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
 
-const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
+const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400 font-plex tracking-wide`;
 const Section = tw.div`space-y-0.5`;
 
 export default () => {
