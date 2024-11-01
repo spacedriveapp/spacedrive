@@ -13,6 +13,8 @@ use sd_core_prisma_helpers::CasId;
 use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
+use serde::de;
+use volume::create_volume_manager;
 
 use std::{
 	fmt,
@@ -63,7 +65,7 @@ pub struct Node {
 	pub data_dir: PathBuf,
 	pub config: Arc<config::Manager>,
 	pub libraries: Arc<library::Libraries>,
-	pub old_jobs: Arc<old_job::OldJobs>,
+	pub volumes: Arc<volume::Volumes>,
 	pub locations: location::Locations,
 	pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
@@ -74,6 +76,7 @@ pub struct Node {
 	/// This should only be used to generate the seed of local instances of [`CryptoRng`].
 	/// Don't use this as a common RNG, it will fuck up Core's performance due to this Mutex.
 	pub master_rng: Arc<Mutex<CryptoRng>>,
+	pub old_jobs: Arc<old_job::OldJobs>,
 }
 
 impl fmt::Debug for Node {
@@ -152,11 +155,22 @@ impl Node {
 		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
 			.await
 			.map_err(NodeError::P2PManager)?;
+
+		let device_id = config.get().await.id;
+		let volume_ctx = volume::VolumeManagerContext {
+			device_id: device_id.into(),
+			library_event_tx: libraries.rx.clone(),
+		};
+
+		let (volumes, _actor) = volume::create_volume_manager(volume_ctx).await?;
+
+		let volumes = Arc::new(volumes);
+
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
 			job_system: JobSystem::new(task_system.get_dispatcher(), data_dir),
 			task_system,
-			old_jobs,
+			volumes,
 			locations,
 			notifications: notifications::Notifications::new(),
 			p2p,
@@ -174,6 +188,7 @@ impl Node {
 				.await?,
 			),
 			master_rng: Arc::new(Mutex::new(CryptoRng::new()?)),
+			old_jobs,
 		});
 
 		// Setup start actors that depend on the `Node`
@@ -400,4 +415,6 @@ pub enum NodeError {
 	CloudServices(#[from] sd_core_cloud_services::Error),
 	#[error(transparent)]
 	Crypto(#[from] sd_crypto::Error),
+	#[error(transparent)]
+	Volume(#[from] volume::VolumeError),
 }

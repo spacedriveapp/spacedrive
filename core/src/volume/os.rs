@@ -1,406 +1,365 @@
-use super::{MountType, Volume};
-use serde::Deserialize;
-use std::{path::PathBuf, sync::OnceLock};
-use sysinfo::{DiskExt, System, SystemExt};
-use tokio::sync::Mutex;
-use tracing::error;
+use super::error::VolumeError;
+use super::types::{DiskType, FileSystem, MountType, Volume};
+use tokio::task;
 
-fn derive_mount_type(mount_point: &PathBuf, disk: &sysinfo::Disk) -> MountType {
-	if disk.is_removable() {
-		return MountType::External;
+// Re-export platform-specific get_volumes function
+#[cfg(target_os = "linux")]
+pub use self::linux::get_volumes;
+#[cfg(target_os = "macos")]
+pub use self::macos::get_volumes;
+#[cfg(target_os = "windows")]
+pub use self::windows::get_volumes;
+
+/// Common utilities for volume detection across platforms
+mod common {
+	pub fn parse_size(size_str: &str) -> u64 {
+		size_str
+			.chars()
+			.filter(|c| c.is_digit(10))
+			.collect::<String>()
+			.parse()
+			.unwrap_or(0)
 	}
 
-	if let Some(mount_str) = mount_point.to_str() {
-		// Network volume detection based on typical network paths
-		if mount_str.starts_with("//")
-			|| mount_str.starts_with("/mnt/network")
-			|| mount_str.starts_with("/Volumes/network")
-		{
-			return MountType::Network;
-		}
-
-		// System volume detection
-		if mount_str == "/"
-			|| mount_str.starts_with("/System")
-			|| mount_str.starts_with("/boot")
-			|| mount_str.starts_with("/mnt/system")
-		{
-			return MountType::System;
-		}
-
-		#[cfg(windows)]
-		{
-			// Windows system drive (C:\\) detection
-			if mount_str.starts_with("C:\\") {
-				return MountType::System;
-			}
-		}
+	pub fn is_virtual_filesystem(fs: &str) -> bool {
+		matches!(
+			fs.to_lowercase().as_str(),
+			"devfs" | "sysfs" | "proc" | "tmpfs" | "ramfs" | "devtmpfs"
+		)
 	}
-
-	MountType::System // Default to System if no other condition matches
 }
-// Android does not work via sysinfo and JNI is a pain to maintain. Therefore, we use React-Native-FS to get the volume data of the device.
-// We leave the function though to be built for Android because otherwise, the build will fail.
-#[cfg(not(any(target_os = "linux", target_os = "ios")))]
-pub async fn get_volumes() -> Vec<Volume> {
-	use futures::future;
-	use tokio::process::Command;
 
-	use crate::volume::{DiskType, FileSystem, MountType};
+#[cfg(target_os = "macos")]
+pub mod macos {
+	use super::*;
+	use std::{collections::HashMap, path::PathBuf, process::Command};
+	use sysinfo::{DiskExt, System, SystemExt};
 
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
+	pub async fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
+		task::spawn_blocking(|| {
+			let mut volumes = Vec::new();
+			let mut sys = System::new_all();
+			sys.refresh_disks_list();
 
-	// Ignore mounted DMGs
-	#[cfg(target_os = "macos")]
-	let dmgs = &Command::new("hdiutil")
-		.args(["info", "-plist"])
-		.output()
-		.await
-		.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
-		.ok()
-		.and_then(|wmic_process| {
-			use std::str::FromStr;
+			let mut temp_volumes: HashMap<String, Volume> = HashMap::new();
 
-			if wmic_process.status.success() {
-				let info: Result<HDIUtilInfo, _> = plist::from_bytes(&wmic_process.stdout);
-				match info {
-					Err(e) => {
-						error!(?e, "Failed to parse hdiutil output;");
-						None
-					}
-					Ok(info) => Some(
-						info.images
-							.into_iter()
-							.flat_map(|image| image.system_entities)
-							.flat_map(|entity: ImageSystemEntity| entity.mount_point)
-							.flat_map(|mount_point| PathBuf::from_str(mount_point.as_str()))
-							.collect::<std::collections::HashSet<_>>(),
-					),
+			for disk in sys.disks() {
+				// Skip virtual filesystems
+				if common::is_virtual_filesystem(
+					std::str::from_utf8(disk.file_system()).unwrap_or(""),
+				) {
+					continue;
 				}
-			} else {
-				error!("Command hdiutil return error");
-				None
-			}
-		});
 
-	future::join_all(sys.disks().iter().map(|disk| async move {
-		#[cfg(not(windows))]
-		let disk_name = disk.name();
-		let mount_point = disk.mount_point().to_path_buf();
+				let disk_type = detect_disk_type(disk.name().to_string_lossy().as_ref())?;
+				let mount_point = disk.mount_point().to_path_buf();
 
-		#[cfg(windows)]
-		let Ok((disk_name, mount_point)) = ({
-			use normpath::PathExt;
-			mount_point
-				.normalize_virtually()
-				.map(|p| (p.localize_name().to_os_string(), p.into_path_buf()))
-		}) else {
-			return None;
-		};
+				// For APFS volumes, use the disk name as the key
+				let key = disk.name().to_string_lossy().to_string();
 
-		#[cfg(target_os = "macos")]
-		{
-			// Ignore mounted DMGs
-			if dmgs
-				.as_ref()
-				.map(|dmgs| dmgs.contains(&mount_point))
-				.unwrap_or(false)
-			{
-				return None;
-			}
+				let mount_points = vec![mount_point.clone()];
 
-			if !(mount_point.starts_with("/Volumes") || mount_point.starts_with("/System/Volumes"))
-			{
-				return None;
-			}
-		}
-
-		#[cfg(windows)]
-		#[allow(clippy::needless_late_init)]
-		let mut total_capacity;
-		#[cfg(not(windows))]
-		#[allow(clippy::needless_late_init)]
-		let total_capacity;
-		total_capacity = disk.total_space();
-
-		let available_capacity = disk.available_space();
-		// let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
-
-		let mount_type = derive_mount_type(&mount_point, disk.clone());
-
-		// Fix broken google drive partition size in Windows
-		#[cfg(windows)]
-		if total_capacity < available_capacity && is_root_filesystem {
-			// Use available capacity as total capacity in the case we can't get the correct value
-			total_capacity = available_capacity;
-
-			let caption = mount_point.to_str();
-			if let Some(caption) = caption {
-				let mut caption = caption.to_string();
-
-				// Remove path separator from Disk letter
-				caption.pop();
-
-				let wmic_output = Command::new("cmd")
-					.args([
-						"/C",
-						&format!("wmic logical disk where Caption='{caption}' get Size"),
-					])
-					.output()
-					.await
-					.map_err(|e| error!(?e, "Failed to execute hdiutil;"))
-					.ok()
-					.and_then(|wmic_process| {
-						if wmic_process.status.success() {
-							String::from_utf8(wmic_process.stdout).ok()
-						} else {
-							error!("Command wmic return error");
-							None
-						}
-					});
-
-				if let Some(wmic_output) = wmic_output {
-					match wmic_output.split("\r\r\n").collect::<Vec<&str>>()[1]
-						.to_string()
-						.trim()
-						.parse::<u64>()
-					{
-						Err(e) => error!(?e, "Failed to parse wmic output;"),
-						Ok(n) => total_capacity = n,
-					}
+				if let Some(existing) = temp_volumes.get_mut(&key) {
+					// If we already have this volume, add the mount point
+					existing.mount_points.push(mount_point);
+					continue;
 				}
+
+				let volume = Volume::new(
+					disk.name().to_string_lossy().to_string(),
+					if disk.is_removable() {
+						MountType::External
+					} else {
+						MountType::System
+					},
+					mount_point.clone(),
+					mount_points,
+					disk_type,
+					FileSystem::from_string(&String::from_utf8_lossy(&disk.file_system())),
+					disk.total_space(),
+					disk.available_space(),
+					is_volume_readonly(&mount_point)?,
+				);
+
+				temp_volumes.insert(key, volume);
 			}
-		}
 
-		let mut name = disk_name.to_string_lossy().to_string();
-		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
-			name = "Unknown".to_string()
-		}
+			// Move volumes from HashMap to Vec
+			volumes.extend(temp_volumes.into_values());
 
-		// Match the result and convert it to your FileSystem enum
-		let file_system = match String::from_utf8(disk.file_system().to_vec()).ok() {
-			Some(fs_str) => FileSystem::from_string(&fs_str),
-			None => FileSystem::Other("Unknown".to_string()),
-		};
-
-		Some(Volume {
-			id: None,
-			pub_id: None,
-			name,
-			disk_type: match disk.kind() {
-				sysinfo::DiskKind::SSD => DiskType::SSD,
-				sysinfo::DiskKind::HDD => DiskType::HDD,
-				_ => DiskType::Unknown,
-			},
-			file_system,
-			mount_point,
-			mount_type,
-			total_bytes_capacity: total_capacity,
-			total_bytes_available: available_capacity,
-			write_speed_mbps: None,
-			read_speed_mbps: None,
-			is_mounted: true,
-			error_status: None,
-			read_only: false,
+			Ok(volumes)
 		})
-	}))
-	.await
-	.into_iter()
-	.flatten()
-	.collect::<Vec<Volume>>()
+		.await
+		.map_err(|e| VolumeError::Platform(format!("Task join error: {}", e)))?
+	}
+
+	fn create_volume_from_disk(disk: &sysinfo::Disk) -> Result<Volume, VolumeError> {
+		let disk_type = detect_disk_type(disk.name().to_string_lossy().as_ref())?;
+		let primary_mount_point = disk.mount_point().to_path_buf();
+
+		if !primary_mount_point.exists() {
+			return Err(VolumeError::NoMountPoint);
+		}
+
+		// Get all mount points for this volume
+		let mut mount_points = Vec::new();
+		mount_points.push(primary_mount_point.clone());
+
+		// For macOS APFS system volumes
+		if primary_mount_point == PathBuf::from("/") {
+			let data_path = PathBuf::from("/System/Volumes/Data");
+			if data_path.exists() {
+				mount_points.push(data_path);
+			}
+		}
+
+		let read_only = is_volume_readonly(&primary_mount_point)?;
+
+		Ok(Volume::new(
+			disk.name().to_string_lossy().to_string(),
+			if disk.is_removable() {
+				MountType::External
+			} else {
+				MountType::System
+			},
+			primary_mount_point,
+			mount_points,
+			disk_type,
+			FileSystem::from_string(&String::from_utf8_lossy(&disk.file_system())),
+			disk.total_space(),
+			disk.available_space(),
+			read_only,
+		))
+	}
+
+	fn detect_disk_type(device_name: &str) -> Result<DiskType, VolumeError> {
+		let output = Command::new("diskutil")
+			.args(["info", device_name])
+			.output()
+			.map_err(|e| VolumeError::Platform(format!("Failed to run diskutil: {}", e)))?;
+
+		let info = String::from_utf8_lossy(&output.stdout);
+		Ok(if info.contains("Solid State") {
+			DiskType::SSD
+		} else if info.contains("Rotational") {
+			DiskType::HDD
+		} else {
+			DiskType::Unknown
+		})
+	}
+
+	fn is_volume_readonly(mount_point: &std::path::Path) -> Result<bool, VolumeError> {
+		let output = Command::new("mount")
+			.output()
+			.map_err(|e| VolumeError::Platform(format!("Failed to run mount command: {}", e)))?;
+
+		let mount_output = String::from_utf8_lossy(&output.stdout);
+		Ok(mount_output
+			.lines()
+			.find(|line| line.contains(&*mount_point.to_string_lossy()))
+			.map(|line| line.contains("read-only"))
+			.unwrap_or(false))
+	}
 }
 
 #[cfg(target_os = "linux")]
-pub async fn get_volumes() -> Vec<Volume> {
-	use std::{collections::HashMap, path::Path};
+pub mod linux {
+	use super::*;
+	use std::{fs, process::Command};
+	use sysinfo::{DiskExt, System, SystemExt};
 
-	let mut sys = sys_guard().lock().await;
-	sys.refresh_disks_list();
+	pub async fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
+		task::spawn_blocking(|| {
+			let mut volumes = Vec::new();
+			let mut sys = System::new_all();
+			sys.refresh_disks_list();
 
-	let mut volumes: Vec<Volume> = Vec::new();
-	let mut path_to_volume_index = HashMap::new();
-	for disk in sys.disks() {
-		let disk_name = disk.name();
-		let mount_point = disk.mount_point().to_path_buf();
-		let file_system = String::from_utf8(disk.file_system().to_vec())
-			.map(|s| s.to_uppercase())
-			.ok();
-		let total_capacity = disk.total_space();
-		let available_capacity = disk.available_space();
-		let is_root_filesystem = mount_point.is_absolute() && mount_point.parent().is_none();
+			// Read /proc/mounts for additional mount information
+			let mounts = fs::read_to_string("/proc/mounts").map_err(|e| {
+				VolumeError::Platform(format!("Failed to read /proc/mounts: {}", e))
+			})?;
 
-		let mut disk_path: PathBuf = PathBuf::from(disk_name);
-		if file_system.as_ref().map(|fs| fs == "ZFS").unwrap_or(false) {
-			// Use a custom path for ZFS disks to avoid conflicts with normal disks paths
-			disk_path = Path::new("zfs://").join(disk_path);
-		} else {
-			// Ignore non-devices disks (overlay, fuse, tmpfs, etc.)
-			if !disk_path.starts_with("/dev") {
-				continue;
-			}
+			let mount_points: Vec<_> = mounts
+				.lines()
+				.filter(|line| !line.starts_with("none"))
+				.collect();
 
-			// Ensure disk has a valid device path
-			let real_path = match tokio::fs::canonicalize(disk_name).await {
-				Err(e) => {
-					error!(?disk_name, ?e, "Failed to canonicalize disk path;",);
+			for disk in sys.disks() {
+				if common::is_virtual_filesystem(
+					disk.file_system().to_string_lossy().to_string().as_str(),
+				) {
 					continue;
 				}
-				Ok(real_path) => real_path,
-			};
 
-			// Check if disk is a symlink to another disk
-			if real_path != disk_path {
-				// Disk is a symlink to another disk, assign it to the same volume
-				path_to_volume_index.insert(
-					real_path.into_os_string(),
-					path_to_volume_index
-						.get(disk_name)
-						.cloned()
-						.unwrap_or(path_to_volume_index.len()),
-				);
-			}
-		}
-
-		if let Some(volume_index) = path_to_volume_index.get(disk_name) {
-			// Disk already has a volume assigned, update it
-			let volume: &mut Volume = volumes
-				.get_mut(*volume_index)
-				.expect("Volume index is present so the Volume must be present too");
-
-			// Update mount point if not already present
-			let mount_points = &mut volume.mount_points;
-			if mount_point.iter().all(|p| *p != mount_point) {
-				mount_points.push(mount_point);
-				let mount_points_to_check = mount_points.clone();
-				mount_points.retain(|candidate| {
-					!mount_points_to_check
-						.iter()
-						.any(|path| candidate.starts_with(path) && candidate != path)
-				});
-				if !volume.is_root_filesystem {
-					volume.is_root_filesystem = is_root_filesystem;
-				}
+				let volume = create_volume_from_disk(disk, &mount_points).map_err(|e| {
+					VolumeError::Platform(format!("Failed to create volume: {}", e))
+				})?;
+				volumes.push(volume);
 			}
 
-			// Update mount capacity, it can change between mounts due to quotas (ZFS, BTRFS?)
-			if volume.total_capacity < total_capacity {
-				volume.total_capacity = total_capacity;
-			}
+			Ok(volumes)
+		})
+		.await
+		.map_err(|e| VolumeError::Platform(format!("Task join error: {}", e)))?
+	}
 
-			// This shouldn't change between mounts, but just in case
-			if volume.available_capacity > available_capacity {
-				volume.available_capacity = available_capacity;
-			}
+	fn create_volume_from_disk(
+		disk: &sysinfo::Disk,
+		mount_points: &[&str],
+	) -> Result<Volume, VolumeError> {
+		let mount_point = disk.mount_point().to_path_buf();
 
-			continue;
-		}
+		let mount_info = mount_points
+			.iter()
+			.find(|&line| line.contains(&mount_point.to_string_lossy()))
+			.ok_or_else(|| VolumeError::NoMountPoint)?;
 
-		// Assign volume to disk path
-		path_to_volume_index.insert(disk_path.into_os_string(), volumes.len());
+		let is_network = mount_info.starts_with("//") || mount_info.starts_with("nfs");
+		let disk_type = detect_disk_type(&disk.name().to_string_lossy())
+			.map_err(|e| VolumeError::Platform(format!("Failed to detect disk type: {}", e)))?;
 
-		let mut name = disk_name.to_string_lossy().to_string();
-		if name.replace(char::REPLACEMENT_CHARACTER, "") == "" {
-			name = "Unknown".to_string()
-		}
-
-		volumes.push(Volume {
-			name,
-			disk_type: if disk.is_removable() {
-				DiskType::Removable
+		Ok(Volume::new(
+			disk.name().to_string_lossy().to_string(),
+			if is_network {
+				MountType::Network
+			} else if disk.is_removable() {
+				MountType::External
 			} else {
-				match disk.kind() {
-					sysinfo::DiskKind::SSD => DiskType::SSD,
-					sysinfo::DiskKind::HDD => DiskType::HDD,
-					_ => DiskType::Removable,
-				}
+				MountType::System
 			},
-			file_system,
-			mount_points: vec![mount_point],
-			total_capacity,
-			available_capacity,
-			is_root_filesystem,
-		});
+			mount_point,
+			disk_type,
+			FileSystem::from_string(&disk.file_system().to_string_lossy()),
+			disk.total_space(),
+			disk.available_space(),
+		))
 	}
-
-	volumes
 }
-
-#[cfg(target_os = "ios")]
-pub async fn get_volumes() -> Vec<Volume> {
-	use std::os::unix::fs::MetadataExt;
-
-	use icrate::{
-		objc2::runtime::{Class, Object},
-		objc2::{msg_send, sel},
-		Foundation::{self, ns_string, NSFileManager, NSFileSystemSize, NSNumber, NSString},
+#[cfg(target_os = "windows")]
+pub mod windows {
+	use super::*;
+	use std::ffi::OsString;
+	use std::os::windows::ffi::OsStringExt;
+	use windows::Win32::Storage::FileSystem::{
+		GetDiskFreeSpaceExW, GetDriveTypeW, GetVolumeInformationW, DRIVE_FIXED, DRIVE_REMOTE,
+		DRIVE_REMOVABLE,
 	};
+	use windows::Win32::System::Ioctl::STORAGE_PROPERTY_QUERY;
 
-	let mut volumes: Vec<Volume> = Vec::new();
+	pub async fn get_volumes() -> Vec<Volume> {
+		task::spawn_blocking(|| {
+			let mut volumes = Vec::new();
 
-	unsafe {
-		let file_manager = NSFileManager::defaultManager();
+			// Get available drives
+			let drives = unsafe { windows::Win32::Storage::FileSystem::GetLogicalDrives() };
 
-		let root_dir = NSString::from_str("/");
+			for i in 0..26 {
+				if (drives & (1 << i)) != 0 {
+					let drive_letter = (b'A' + i as u8) as char;
+					let path = format!("{}:\\", drive_letter);
+					let wide_path: Vec<u16> = OsString::from(&path)
+						.encode_wide()
+						.chain(std::iter::once(0))
+						.collect();
 
-		let root_dir_ref = root_dir.as_ref();
+					let drive_type = unsafe { GetDriveTypeW(wide_path.as_ptr()) };
 
-		let attributes = file_manager
-			.attributesOfFileSystemForPath_error(root_dir_ref)
-			.unwrap();
+					// Skip CD-ROM drives and other unsupported types
+					if drive_type == DRIVE_FIXED
+						|| drive_type == DRIVE_REMOVABLE
+						|| drive_type == DRIVE_REMOTE
+					{
+						if let Some(volume) = get_volume_info(&path, drive_type) {
+							volumes.push(volume);
+						}
+					}
+				}
+			}
 
-		let attributes_ref = attributes.as_ref();
-
-		// Total space
-		let key = NSString::from_str("NSFileSystemSize");
-		let key_ref = key.as_ref();
-
-		let t = attributes_ref.get(key_ref).unwrap();
-		let total_space: u64 = msg_send![t, unsignedLongLongValue];
-
-		// Used space
-		let key = NSString::from_str("NSFileSystemFreeSize");
-		let key_ref = key.as_ref();
-
-		let t = attributes_ref.get(key_ref).unwrap();
-		let free_space: u64 = msg_send![t, unsignedLongLongValue];
-
-		volumes.push(Volume {
-			name: "Root".to_string(),
-			disk_type: DiskType::SSD,
-			file_system: Some("APFS".to_string()),
-			mount_points: PathBuf::from("/"),
-			total_capacity: total_space,
-			available_capacity: free_space,
-			is_root_filesystem: true,
-		});
+			volumes
+		})
+		.await
+		.unwrap_or_default()
 	}
 
-	volumes
-}
+	fn get_volume_info(path: &str, drive_type: u32) -> Option<Volume> {
+		let wide_path: Vec<u16> = OsString::from(path)
+			.encode_wide()
+			.chain(std::iter::once(0))
+			.collect();
 
-fn sys_guard() -> &'static Mutex<System> {
-	static SYS: OnceLock<Mutex<System>> = OnceLock::new();
-	SYS.get_or_init(|| Mutex::new(System::new_all()))
-}
+		let mut name_buf = [0u16; 256];
+		let mut fs_name_buf = [0u16; 256];
+		let mut serial_number = 0;
+		let mut max_component_length = 0;
+		let mut flags = 0;
 
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct ImageSystemEntity {
-	mount_point: Option<String>,
-}
+		unsafe {
+			let success = GetVolumeInformationW(
+				wide_path.as_ptr(),
+				name_buf.as_mut_ptr(),
+				name_buf.len() as u32,
+				&mut serial_number,
+				&mut max_component_length,
+				&mut flags,
+				fs_name_buf.as_mut_ptr(),
+				fs_name_buf.len() as u32,
+			);
 
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct ImageInfo {
-	system_entities: Vec<ImageSystemEntity>,
-}
+			if success.as_bool() {
+				let mut total_bytes = 0;
+				let mut free_bytes = 0;
+				let mut available_bytes = 0;
 
-#[cfg(target_os = "macos")]
-#[derive(Deserialize)]
-#[serde(rename_all = "kebab-case")]
-struct HDIUtilInfo {
-	images: Vec<ImageInfo>,
+				if GetDiskFreeSpaceExW(
+					wide_path.as_ptr(),
+					&mut available_bytes,
+					&mut total_bytes,
+					&mut free_bytes,
+				)
+				.as_bool()
+				{
+					let mount_type = match drive_type {
+						DRIVE_FIXED => MountType::System,
+						DRIVE_REMOVABLE => MountType::External,
+						DRIVE_REMOTE => MountType::Network,
+						_ => MountType::System,
+					};
+
+					let volume_name = String::from_utf16_lossy(&name_buf)
+						.trim_matches(char::from(0))
+						.to_string();
+
+					let fs_name = String::from_utf16_lossy(&fs_name_buf)
+						.trim_matches(char::from(0))
+						.to_string();
+
+					Some(Volume::new(
+						if volume_name.is_empty() {
+							path.to_string()
+						} else {
+							volume_name
+						},
+						mount_type,
+						PathBuf::from(path),
+						detect_disk_type(path),
+						FileSystem::from_string(&fs_name),
+						total_bytes as u64,
+						available_bytes as u64,
+					))
+				} else {
+					None
+				}
+			} else {
+				None
+			}
+		}
+	}
+
+	fn detect_disk_type(path: &str) -> DiskType {
+		// We would need to use DeviceIoControl to get this information
+		// For brevity, returning Unknown, but you could implement the full detection
+		// using IOCTL_STORAGE_QUERY_PROPERTY
+		DiskType::Unknown
+	}
 }
