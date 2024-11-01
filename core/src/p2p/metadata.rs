@@ -47,7 +47,7 @@ impl PeerMetadata {
 				.get("os")
 				.map(|os| os.parse().map_err(|_| "Unable to parse 'OperationSystem'!"))
 				.transpose()?,
-			device_model: Some(HardwareModel::from_display_name(
+			device_model: Some(HardwareModel::from(
 				data.get("device_model")
 					.map(|s| s.as_str())
 					.unwrap_or("Other"),

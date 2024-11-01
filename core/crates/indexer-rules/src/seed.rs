@@ -1,11 +1,13 @@
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 
-use std::path::{Path, PathBuf};
+use std::{
+	path::{Path, PathBuf},
+	sync::LazyLock,
+};
 
 use chrono::Utc;
 use futures_concurrency::future::Join;
 use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
-use once_cell::sync::Lazy;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -205,7 +207,7 @@ pub async fn new_or_existing_library(db: &PrismaClient) -> Result<(), SeederErro
 	Ok(())
 }
 
-pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
+pub static NO_SYSTEM_FILES: LazyLock<SystemIndexerRule> = LazyLock::new(|| {
 	SystemIndexerRule {
 	// TODO: On windows, beside the listed files, any file with the FILE_ATTRIBUTE_SYSTEM should be considered a system file
 	// https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants#FILE_ATTRIBUTE_SYSTEM
@@ -311,14 +313,14 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
 }
 });
 
-pub static NO_HIDDEN: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule {
+pub static NO_HIDDEN: LazyLock<SystemIndexerRule> = LazyLock::new(|| SystemIndexerRule {
 	name: "No Hidden files",
 	default: false,
 	rules: vec![RulePerKind::new_reject_files_by_globs_str(["**/.*"])
 		.expect("this is hardcoded and should always work")],
 });
 
-pub static NO_GIT: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule {
+pub static NO_GIT: LazyLock<SystemIndexerRule> = LazyLock::new(|| SystemIndexerRule {
 	name: "No Git files",
 	default: true,
 	rules: vec![RulePerKind::new_reject_files_by_globs_str([
@@ -327,14 +329,14 @@ pub static NO_GIT: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule {
 	.expect("this is hardcoded and should always work")],
 });
 
-pub static GITIGNORE: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule {
+pub static GITIGNORE: LazyLock<SystemIndexerRule> = LazyLock::new(|| SystemIndexerRule {
 	name: "Gitignore",
 	default: true,
 	// Empty rules because this rule is only used to allow frontend to toggle GitIgnoreRules
 	rules: vec![],
 });
 
-pub static ONLY_IMAGES: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule {
+pub static ONLY_IMAGES: LazyLock<SystemIndexerRule> = LazyLock::new(|| SystemIndexerRule {
 	name: "Only Images",
 	default: false,
 	rules: vec![RulePerKind::new_accept_files_by_globs_str([

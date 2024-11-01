@@ -25,7 +25,7 @@ const RenameModal = forwardRef<ModalRef>((_, ref) => {
 	const renameFile = useLibraryMutation(['files.renameFile'], {
 		onSuccess: () => {
 			modalRef.current?.dismiss();
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		},
 		onError: () => {
 			toast.error('Failed to rename object');

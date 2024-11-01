@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 /**
  * {@type require('prettier').Config}
  */
@@ -24,6 +26,6 @@ module.exports = {
 	],
 	importOrderParserPlugins: ['typescript', 'jsx', 'decorators'],
 	importOrderTypeScriptVersion: '5.0.0',
-	tailwindConfig: './packages/ui/tailwind.config.js',
+	tailwindConfig: path.resolve(path.join(__dirname, 'packages/ui/tailwind.config.js')),
 	plugins: ['@ianvs/prettier-plugin-sort-imports', 'prettier-plugin-tailwindcss']
 };

@@ -13,7 +13,6 @@ heif = ["dep:libheif-rs", "dep:libheif-sys"]
 [dependencies]
 # Workspace dependencies
 image     = { workspace = true }
-once_cell = { workspace = true }
 rspc      = { workspace = true, optional = true }                        # error conversion
 serde     = { workspace = true, optional = true, features = ["derive"] }
 specta    = { workspace = true, optional = true }
@@ -25,10 +24,10 @@ bincode = { version = "=2.0.0-rc.3", features = ["alloc", "derive"], optional = 
 # Disable defaults for libheif* to avoid bindgen and use pre-compiled headers
 libheif-rs  = { version = "1.0", default-features = false, optional = true }
 libheif-sys = { version = "2.1", default-features = false, optional = true }
-resvg       = "0.43.0"
+resvg       = "0.44.0"
 
 [dependencies.pdfium-render]
 default-features = false
-features         = ["image", "pdfium_6259", "sync", "thread_safe"]
+features         = ["image", "pdfium_6666", "sync", "thread_safe"]
 git              = "https://github.com/HeavenVolkoff/pdfium-render.git"
-rev              = "dd8118c068"
+rev              = "7518e39c1b"

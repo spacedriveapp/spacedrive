@@ -2,12 +2,12 @@
 name    = "sd-core"
 version = "0.4.2"
 
-authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
-description          = "Virtual distributed filesystem engine that powers Spacedrive."
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-rust-version         = "1.78"
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Virtual distributed filesystem engine that powers Spacedrive."
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
 
 [features]
 default = []
@@ -20,6 +20,7 @@ heif   = ["sd-images/heif"]
 
 [dependencies]
 # Inner Core Sub-crates
+sd-core-cloud-services   = { path = "./crates/cloud-services" }
 sd-core-file-path-helper = { path = "./crates/file-path-helper" }
 sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
 sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
@@ -29,7 +30,8 @@ sd-core-sync             = { path = "./crates/sync" }
 # Spacedrive Sub-crates
 sd-actors         = { path = "../crates/actors" }
 sd-ai             = { path = "../crates/ai", optional = true }
-sd-cloud-api      = { path = "../crates/cloud-api" }
+sd-crypto         = { path = "../crates/crypto" }
+sd-ffmpeg         = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext       = { path = "../crates/file-ext" }
 sd-images         = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
 sd-media-metadata = { path = "../crates/media-metadata" }
@@ -49,6 +51,7 @@ async-trait         = { workspace = true }
 axum                = { workspace = true, features = ["ws"] }
 base64              = { workspace = true }
 blake3              = { workspace = true }
+bytes               = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
@@ -57,15 +60,15 @@ image               = { workspace = true }
 itertools           = { workspace = true }
 libc                = { workspace = true }
 normpath            = { workspace = true, features = ["localization"] }
-once_cell           = { workspace = true }
 pin-project-lite    = { workspace = true }
 prisma-client-rust  = { workspace = true, features = ["rspc"] }
 regex               = { workspace = true }
 reqwest             = { workspace = true, features = ["json", "native-tls-vendored"] }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }
-rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "tracing", "unstable", "uuid"] }
-serde               = { workspace = true, features = ["derive"] }
+rspc                = { workspace = true, features = ["alpha", "axum", "chrono", "unstable", "uuid"] }
+sd-cloud-schema     = { workspace = true }
+serde               = { workspace = true, features = ["derive", "rc"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
 strum               = { workspace = true, features = ["derive"] }
@@ -76,28 +79,29 @@ tokio-stream        = { workspace = true, features = ["fs"] }
 tokio-util          = { workspace = true, features = ["io"] }
 tracing             = { workspace = true }
 tracing-subscriber  = { workspace = true, features = ["env-filter"] }
-uuid                = { workspace = true, features = ["serde", "v4"] }
+uuid                = { workspace = true, features = ["serde", "v4", "v7"] }
 
 # Specific Core dependencies
 async-recursion  = "1.1"
 base91           = "0.1.0"
-bytes            = "1.6"
 ctor             = "0.2.8"
 directories      = "5.0"
 flate2           = "1.0"
 hostname         = "0.4.0"
-http-body        = "0.4.6"   # Update blocked by http
+http-body        = "1.0"
 http-range       = "0.1.5"
-int-enum         = "0.5"     # Update blocked due to API breaking changes
+hyper-util       = { version = "0.1.9", features = ["tokio"] }
+int-enum         = "0.5"                                       # Update blocked due to API breaking changes
 mini-moka        = "0.10.3"
 serde-hashkey    = "0.4.5"
 serde_repr       = "0.1.19"
 serde_with       = "3.8"
 slotmap          = "1.0"
-sysinfo          = "0.29.11" # Update blocked due to API breaking changes
+sysinfo          = "0.29.11"                                   # Update blocked due to API breaking changes
 tar              = "0.4.41"
 tower-service    = "0.3.2"
 tracing-appender = "0.2.3"
+whoami           = "1.5.2"
 
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]

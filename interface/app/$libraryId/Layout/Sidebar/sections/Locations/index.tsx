@@ -1,3 +1,4 @@
+import { keepPreviousData } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Link, useMatch } from 'react-router-dom';
 import {
@@ -18,7 +19,9 @@ import { SeeMore } from '../../SidebarLayout/SeeMore';
 import { ContextMenu } from './ContextMenu';
 
 export default function Locations() {
-	const locationsQuery = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const locationsQuery = useLibraryQuery(['locations.list'], {
+		placeholderData: keepPreviousData
+	});
 	const locations = locationsQuery.data;
 	const onlineLocations = useOnlineLocations();
 

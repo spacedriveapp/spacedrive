@@ -106,7 +106,5 @@
 	"i18n-ally.keystyle": "flat",
 	// You need to add this to your locale settings file "i18n-ally.translate.google.apiKey": "xxx"
 	"i18n-ally.translate.engines": ["google"],
-	"prettier.configPath": ".prettierrc.js",
-	"prettier.prettierPath": "./node_modules/prettier",
 	"evenBetterToml.taplo.configFile.path": ".taplo.toml"
 }

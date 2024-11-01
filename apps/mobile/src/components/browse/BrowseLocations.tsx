@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { keepPreviousData } from '@tanstack/react-query';
 import { Plus } from 'phosphor-react-native';
 import { useRef, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
@@ -22,7 +23,7 @@ const BrowseLocations = () => {
 
 	const modalRef = useRef<ModalRef>(null);
 	const [showAll, setShowAll] = useState(false);
-	const result = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+	const result = useLibraryQuery(['locations.list'], { placeholderData: keepPreviousData });
 	const locations = result.data;
 
 	return (

@@ -39,6 +39,7 @@ use super::{
 #[derive(Debug)]
 pub(super) struct EventHandler {
 	location_id: location::id::Type,
+	location_pub_id: location::pub_id::Type,
 	library: Arc<Library>,
 	node: Arc<Node>,
 	last_events_eviction_check: Instant,
@@ -54,12 +55,18 @@ pub(super) struct EventHandler {
 }
 
 impl super::EventHandler for EventHandler {
-	fn new(location_id: location::id::Type, library: Arc<Library>, node: Arc<Node>) -> Self
+	fn new(
+		location_id: location::id::Type,
+		location_pub_id: location::pub_id::Type,
+		library: Arc<Library>,
+		node: Arc<Node>,
+	) -> Self
 	where
 		Self: Sized,
 	{
 		Self {
 			location_id,
+			location_pub_id,
 			library,
 			node,
 			last_events_eviction_check: Instant::now(),
@@ -277,6 +284,7 @@ impl super::EventHandler for EventHandler {
 					&mut self.to_recalculate_size,
 					&mut self.path_and_instant_buffer,
 					self.location_id,
+					self.location_pub_id.clone(),
 					&self.library,
 				)
 				.await

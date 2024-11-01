@@ -1,11 +1,10 @@
 'use client';
 
-/* eslint-disable tailwindcss/migration-from-tailwind-2 */
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import clsx from 'clsx';
 import { forwardRef } from 'react';
 
-export interface RootProps extends RadioGroup.RadioGroupProps {}
+export type RootProps = RadioGroup.RadioGroupProps;
 export const Root = forwardRef<HTMLDivElement, RootProps>(
 	({ children, className, ...props }, ref) => {
 		return (
@@ -20,7 +19,7 @@ export const Root = forwardRef<HTMLDivElement, RootProps>(
 // 	RadioGroup.Item
 // )`rounded-md border border-app-line bg-app-box px-4 py-2 flex items-center space-x-2`;
 
-export interface ItemProps extends RadioGroup.RadioGroupItemProps {}
+export type ItemProps = RadioGroup.RadioGroupItemProps;
 export const Item = ({ children, ...props }: ItemProps) => {
 	return (
 		<div
@@ -31,8 +30,9 @@ export const Item = ({ children, ...props }: ItemProps) => {
 		>
 			<RadioGroup.Item
 				id={'radio' + props.value}
+				// eslint-disable-next-line tailwindcss/migration-from-tailwind-2
 				className={clsx(
-					'peer relative mr-1 mt-1 size-4 flex-shrink-0 rounded-full border border-app-line',
+					'peer relative mr-1 mt-1 size-4 shrink-0 rounded-full border border-app-line',
 					'radix-state-checked:bg-accent',
 					'radix-state-unchecked:bg-app-input',
 					'focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring focus-visible:ring-accent focus-visible:ring-opacity-75 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800'

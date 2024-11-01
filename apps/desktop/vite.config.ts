@@ -37,6 +37,7 @@ export default defineConfig(({ mode }) => {
 		plugins: [
 			devtoolsPlugin,
 			process.env.SENTRY_AUTH_TOKEN &&
+				// All this plugin does is give Sentry access to source maps and release data for errors that users *choose* to report
 				sentryVitePlugin({
 					authToken: process.env.SENTRY_AUTH_TOKEN,
 					org: 'spacedriveapp',

@@ -5,9 +5,9 @@ import {
 	Heart,
 	Icon,
 	SelectionSlash,
-	Tag,
 	Textbox
 } from '@phosphor-icons/react';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useState } from 'react';
 import { InOrNotIn, ObjectKind, SearchFilterArgs, TextMatch, useLibraryQuery } from '@sd/client';
 import { Button, Input } from '@sd/ui';
@@ -436,7 +436,9 @@ export const filterRegistry = [
 				.filter(Boolean) as any;
 		},
 		useOptions: () => {
-			const query = useLibraryQuery(['locations.list'], { keepPreviousData: true });
+			const query = useLibraryQuery(['locations.list'], {
+				placeholderData: keepPreviousData
+			});
 			const locations = query.data;
 
 			return (locations ?? []).map((location) => ({

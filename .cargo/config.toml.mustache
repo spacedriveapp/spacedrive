@@ -24,6 +24,29 @@ rustflags = ["-L", "{{{nativeDeps}}}/lib", "-Csplit-debuginfo=unpacked"]
 [target.aarch64-apple-darwin.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
+
+{{#hasiOS}}
+[target.aarch64-apple-ios]
+rustflags = ["-L", "{{{mobileNativeDeps}}}/aarch64-apple-ios/lib", "-Csplit-debuginfo=unpacked"]
+
+[target.aarch64-apple-ios.heif]
+rustc-link-search = ["{{{mobileNativeDeps}}}/aarch64-apple-ios/lib"]
+rustc-link-lib = ["static:+bundle=heif"]
+
+[target.aarch64-apple-ios-sim]
+rustflags = ["-L", "{{{mobileNativeDeps}}}/aarch64-apple-ios-sim/lib", "-Csplit-debuginfo=unpacked"]
+
+[target.aarch64-apple-ios-sim.heif]
+rustc-link-search = ["{{{mobileNativeDeps}}}/aarch64-apple-ios-sim/lib"]
+rustc-link-lib = ["static:+bundle=heif"]
+
+[target.x86_64-apple-ios]
+rustflags = ["-L", "{{{mobileNativeDeps}}}/x86_64-apple-ios/lib", "-Csplit-debuginfo=unpacked"]
+
+[target.x86_64-apple-ios.heif]
+rustc-link-search = ["{{{mobileNativeDeps}}}/x86_64-apple-ios/lib"]
+rustc-link-lib = ["static:+bundle=heif"]
+{{/hasiOS}}
 {{/isMacOS}}
 
 {{#isWin}}

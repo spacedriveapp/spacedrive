@@ -13,7 +13,7 @@ export function SpacedriveAccount() {
 }
 
 function Account() {
-	const me = useBridgeQuery(['auth.me'], { retry: false });
+	// const me = useBridgeQuery(['auth.me'], { retry: false });
 	const { t } = useLocale();
 
 	return (
@@ -25,7 +25,7 @@ function Account() {
 				</Button>
 			</div>
 			<hr className="mb-4 mt-2 w-full border-app-line" />
-			<span>{t('logged_in_as', { email: me.data?.email })}</span>
+			<span>{t('logged_in_as', 'TODO')}</span>
 		</div>
 	);
 }

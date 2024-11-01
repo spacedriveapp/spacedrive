@@ -13,7 +13,7 @@ export default function OnboardingLogin() {
 	const authState = auth.useStateSnapshot();
 	const navigate = useNavigate();
 
-	const me = useBridgeQuery(['auth.me'], { retry: false });
+	// const me = useBridgeQuery(['auth.me'], { retry: false });
 
 	return (
 		<OnboardingContainer>
@@ -31,7 +31,7 @@ export default function OnboardingLogin() {
 							className="mb-3"
 						/>
 						<h1 className="text-lg text-ink">
-							Logged in as <b>{me.data?.email}</b>
+							Logged in as <b> TODO </b>
 						</h1>
 					</div>
 

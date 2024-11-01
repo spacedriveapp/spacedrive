@@ -27,45 +27,39 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::{crdt_operation, instance, PrismaClient};
-use sd_sync::CRDTOperation;
-
-use std::{
-	collections::HashMap,
-	sync::{atomic::AtomicBool, Arc},
+use sd_prisma::{
+	prisma::{cloud_crdt_operation, crdt_operation},
+	prisma_sync,
 };
+use sd_utils::uuid_to_bytes;
 
-use tokio::sync::{Notify, RwLock};
-use uuid::Uuid;
+use std::{collections::HashMap, sync::Arc};
 
-mod actor;
+use tokio::{sync::RwLock, task::JoinError};
+
 pub mod backfill;
 mod db_operation;
-pub mod ingest;
+mod ingest_utils;
 mod manager;
 
-pub use ingest::*;
-pub use manager::*;
+pub use db_operation::{from_cloud_crdt_ops, from_crdt_ops, write_crdt_op_to_db};
+pub use manager::Manager as SyncManager;
 pub use uhlc::NTP64;
 
 #[derive(Clone, Debug)]
-pub enum SyncMessage {
+pub enum SyncEvent {
 	Ingested,
 	Created,
 }
 
-pub type Timestamps = Arc<RwLock<HashMap<Uuid, NTP64>>>;
+pub use sd_core_prisma_helpers::DevicePubId;
+pub use sd_sync::{
+	CRDTOperation, CompressedCRDTOperation, CompressedCRDTOperationsPerModel,
+	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationFactory, RecordId, RelationSyncId,
+	RelationSyncModel, SharedSyncModel, SyncId, SyncModel,
+};
 
-pub struct SharedState {
-	pub db: Arc<PrismaClient>,
-	pub emit_messages_flag: Arc<AtomicBool>,
-	pub instance: Uuid,
-	pub timestamps: Timestamps,
-	pub clock: uhlc::HLC,
-	pub active: AtomicBool,
-	pub active_notify: Notify,
-	pub actors: Arc<sd_actors::Actors>,
-}
+pub type TimestampPerDevice = Arc<RwLock<HashMap<DevicePubId, NTP64>>>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -75,8 +69,16 @@ pub enum Error {
 	Deserialization(#[from] rmp_serde::decode::Error),
 	#[error("database error: {0}")]
 	Database(#[from] prisma_client_rust::QueryError),
+	#[error("PrismaSync error: {0}")]
+	PrismaSync(#[from] prisma_sync::Error),
 	#[error("invalid model id: {0}")]
-	InvalidModelId(u16),
+	InvalidModelId(ModelId),
+	#[error("tried to write an empty operations list")]
+	EmptyOperations,
+	#[error("device not found: {0}")]
+	DeviceNotFound(DevicePubId),
+	#[error("processes crdt task panicked")]
+	ProcessCrdtPanic(JoinError),
 }
 
 impl From<Error> for rspc::Error {
@@ -105,19 +107,16 @@ pub fn crdt_op_db(op: &CRDTOperation) -> Result<crdt_operation::Create, Error> {
 				op.timestamp.as_u64() as i64
 			}
 		},
-		instance: instance::pub_id::equals(op.instance.as_bytes().to_vec()),
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
-		model: i32::from(op.model),
+		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,
 		_params: vec![],
 	})
 }
 
-pub fn crdt_op_unchecked_db(
-	op: &CRDTOperation,
-	instance_id: i32,
-) -> Result<crdt_operation::CreateUnchecked, Error> {
+pub fn crdt_op_unchecked_db(op: &CRDTOperation) -> Result<crdt_operation::CreateUnchecked, Error> {
 	Ok(crdt_operation::CreateUnchecked {
 		timestamp: {
 			#[allow(clippy::cast_possible_wrap)]
@@ -126,10 +125,28 @@ pub fn crdt_op_unchecked_db(
 				op.timestamp.as_u64() as i64
 			}
 		},
-		instance_id,
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
 		kind: op.kind().to_string(),
 		data: rmp_serde::to_vec(&op.data)?,
-		model: i32::from(op.model),
+		model: i32::from(op.model_id),
+		record_id: rmp_serde::to_vec(&op.record_id)?,
+		_params: vec![],
+	})
+}
+
+pub fn cloud_crdt_op_db(op: &CRDTOperation) -> Result<cloud_crdt_operation::Create, Error> {
+	Ok(cloud_crdt_operation::Create {
+		timestamp: {
+			#[allow(clippy::cast_possible_wrap)]
+			// SAFETY: we had to store using i64 due to SQLite limitations
+			{
+				op.timestamp.as_u64() as i64
+			}
+		},
+		device_pub_id: uuid_to_bytes(&op.device_pub_id),
+		kind: op.data.as_kind().to_string(),
+		data: rmp_serde::to_vec(&op.data)?,
+		model: i32::from(op.model_id),
 		record_id: rmp_serde::to_vec(&op.record_id)?,
 		_params: vec![],
 	})

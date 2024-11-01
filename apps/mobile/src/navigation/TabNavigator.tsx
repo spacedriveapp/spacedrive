@@ -118,40 +118,42 @@ export default function TabNavigator() {
 				tabBarInactiveTintColor: tw.color('ink/50')
 			}}
 		>
-			{TabScreens.map((screen, index) => (
-				<Tab.Screen
-					key={screen.name + index}
-					name={screen.name}
-					component={screen.component}
-					options={({ navigation }) => ({
-						tabBarLabel: screen.label,
-						tabBarLabelStyle: screen.labelStyle,
-						/**
-						 * TouchableWithoutFeedback is used to prevent Android ripple effect
-						 * State is being used to control the animation and make Rive work
-						 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
-						 * This may be revisited in the future to update accordingly
-						 */
-						tabBarIcon: () => (
-							<TouchableWithoutFeedback
-								onPress={() => {
-									navigation.navigate(screen.name);
-									setActiveIndex(index);
-								}}
-							>
-								{screen.icon}
-							</TouchableWithoutFeedback>
-						),
-						tabBarTestID: screen.testID
-					})}
-					listeners={() => ({
-						focus: () => {
-							Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-							setActiveIndex(index);
-						}
-					})}
-				/>
-			))}
+			{TabScreens.map((screen, index) => {
+				return (
+					<Tab.Screen
+						key={screen.name + index}
+						name={screen.name}
+						component={screen.component}
+						options={({ navigation }) => ({
+							tabBarLabel: screen.label,
+							tabBarLabelStyle: screen.labelStyle,
+							/**
+							 * TouchableWithoutFeedback is used to prevent Android ripple effect
+							 * State is being used to control the animation and make Rive work
+							 * Tab.Screen listeners are needed because if a user taps on the tab text only, the animation won't play
+							 * This may be revisited in the future to update accordingly
+							 */
+							tabBarIcon: () => (
+								<TouchableWithoutFeedback
+									onPress={() => {
+										navigation.navigate(screen.name);
+										setActiveIndex(index);
+									}}
+								>
+									{screen.icon}
+								</TouchableWithoutFeedback>
+							),
+							tabBarTestID: screen.testID
+						})}
+						listeners={() => ({
+							focus: () => {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+								setActiveIndex(index);
+							}
+						})}
+					/>
+				);
+			})}
 		</Tab.Navigator>
 	);
 }

@@ -17,22 +17,23 @@ use std::{
 	panic,
 	path::{Path, PathBuf},
 	str::FromStr,
+	sync::LazyLock,
 	time::Duration,
 };
 
 use image::{imageops, DynamicImage, GenericImageView};
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{
-	fs, io,
+	fs::{self, File},
+	io::{self, AsyncWriteExt},
 	sync::{oneshot, Mutex},
 	task::spawn_blocking,
 	time::{sleep, Instant},
 };
 use tracing::{error, instrument, trace};
 use uuid::Uuid;
-use webp::Encoder;
+use webp::{Encoder, WebPConfig};
 
 // Files names constants
 pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
@@ -55,7 +56,7 @@ pub fn get_thumbnails_directory(data_directory: impl AsRef<Path>) -> PathBuf {
 }
 
 #[cfg(feature = "ffmpeg")]
-pub static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static THUMBNAILABLE_VIDEO_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_VIDEO_EXTENSIONS
 		.iter()
 		.copied()
@@ -64,7 +65,7 @@ pub static THUMBNAILABLE_VIDEO_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-pub static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static THUMBNAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	ALL_IMAGE_EXTENSIONS
 		.iter()
 		.copied()
@@ -80,7 +81,7 @@ pub static THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 		.collect()
 });
 
-pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
+pub static ALL_THUMBNAILABLE_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
 	#[cfg(feature = "ffmpeg")]
 	return THUMBNAILABLE_EXTENSIONS
 		.iter()
@@ -91,6 +92,20 @@ pub static ALL_THUMBNAILABLE_EXTENSIONS: Lazy<Vec<Extension>> = Lazy::new(|| {
 	#[cfg(not(feature = "ffmpeg"))]
 	THUMBNAILABLE_EXTENSIONS.clone()
 });
+
+static WEBP_CONFIG: LazyLock<WebPConfig> = LazyLock::new(|| {
+	let mut config = WebPConfig::new().expect("failed to instantiate global webp config");
+	config.lossless = 0;
+	config.alpha_compression = 1;
+	config.quality = TARGET_QUALITY;
+
+	config
+});
+
+const HALF_SEC: Duration = Duration::from_millis(500);
+
+static LAST_SINGLE_THUMB_GENERATED_LOCK: LazyLock<Mutex<Instant>> =
+	LazyLock::new(|| Mutex::new(Instant::now()));
 
 /// This type is used to pass the relevant data to the frontend so it can request the thumbnail.
 /// Tt supports extending the shard hex to support deeper directory structures in the future
@@ -354,10 +369,17 @@ fn inner_generate_image_thumbnail(
 		)
 	})?;
 
+	let thumb = encoder.encode_advanced(&WEBP_CONFIG).map_err(|reason| {
+		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
+			file_path.clone(),
+			format!("{reason:?}"),
+		)
+	})?;
+
 	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
 	// this make us `deref` to have a `&[u8]` and then `to_owned` to make a `Vec<u8>`
 	// which implies on a unwanted clone...
-	Ok(encoder.encode(TARGET_QUALITY).deref().to_owned())
+	Ok(thumb.deref().to_owned())
 }
 
 #[instrument(
@@ -429,15 +451,29 @@ async fn generate_image_thumbnail(
 
 	trace!("Created shard directory and writing it to disk");
 
-	let res = fs::write(output_path, &webp).await.map_err(|e| {
+	let mut file = File::create(output_path).await.map_err(|e| {
+		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+			file_path.clone(),
+			FileIOError::from((output_path, e)).to_string(),
+		)
+	})?;
+
+	file.write_all(&webp).await.map_err(|e| {
+		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+			file_path.clone(),
+			FileIOError::from((output_path, e)).to_string(),
+		)
+	})?;
+
+	file.sync_all().await.map_err(|e| {
 		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
 			file_path,
 			FileIOError::from((output_path, e)).to_string(),
 		)
-	});
+	})?;
 
 	trace!("Wrote thumbnail to disk");
-	res
+	return Ok(());
 }
 
 #[instrument(
@@ -470,10 +506,6 @@ async fn generate_video_thumbnail(
 		)
 	})
 }
-
-const HALF_SEC: Duration = Duration::from_millis(500);
-static LAST_SINGLE_THUMB_GENERATED_LOCK: Lazy<Mutex<Instant>> =
-	Lazy::new(|| Mutex::new(Instant::now()));
 
 /// WARNING!!!! DON'T USE THIS FUNCTION IN A LOOP!!!!!!!!!!!!! It will be pretty slow on purpose!
 pub async fn generate_single_thumbnail(
