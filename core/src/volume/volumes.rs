@@ -108,5 +108,18 @@ impl Volumes {
 		rx.await.map_err(|_| VolumeError::Cancelled)?
 	}
 
+	pub async fn unmount_volume(&self, volume_id: Vec<u8>) -> Result<(), VolumeError> {
+		let (tx, rx) = oneshot::channel();
+		let msg = VolumeManagerMessage::UnmountVolume { volume_id, ack: tx };
+
+		self.message_tx
+			.send(msg)
+			.await
+			.map_err(|_| VolumeError::Cancelled)?;
+
+		rx.await.map_err(|_| VolumeError::Cancelled)?;
+		Ok(())
+	}
+
 	// Other public methods...
 }

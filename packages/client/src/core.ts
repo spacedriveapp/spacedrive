@@ -60,7 +60,8 @@ export type Procedures = {
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ object: { id: number }; date_created: string | null })[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
-        { key: "volumes.list", input: never, result: Volume[] },
+        { key: "volumes.list", input: never, result: Volume[] } | 
+        { key: "volumes.listForLibrary", input: LibraryArgs<null>, result: Volume[] },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
@@ -136,7 +137,9 @@ export type Procedures = {
         { key: "tags.create", input: LibraryArgs<TagCreateArgs>, result: Tag } | 
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
-        { key: "toggleFeatureFlag", input: BackendFeature, result: null },
+        { key: "toggleFeatureFlag", input: BackendFeature, result: null } | 
+        { key: "volumes.track", input: LibraryArgs<TrackVolumeInput>, result: null } | 
+        { key: "volumes.unmount", input: LibraryArgs<number[]>, result: null },
     subscriptions: 
         { key: "cloud.listenCloudServicesNotifications", input: never, result: CloudP2PNotifyUser } | 
         { key: "invalidation.listen", input: never, result: InvalidateOperationEvent[] } | 
@@ -150,7 +153,8 @@ export type Procedures = {
         { key: "notifications.listen", input: never, result: Notification } | 
         { key: "p2p.events", input: never, result: P2PEvent } | 
         { key: "search.ephemeralPaths", input: LibraryArgs<EphemeralPathSearchArgs>, result: { entries: ExplorerItem[]; errors: Error[] } } | 
-        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus }
+        { key: "sync.active", input: LibraryArgs<null>, result: SyncStatus } | 
+        { key: "volumes.events", input: LibraryArgs<null>, result: VolumeEvent }
 };
 
 /**
@@ -786,6 +790,8 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  */
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
+export type TrackVolumeInput = { volume_id: number[] }
+
 export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
@@ -854,3 +860,32 @@ total_bytes_capacity: string;
  * Available storage space in bytes
  */
 total_bytes_available: string }
+
+/**
+ * Events emitted by the Volume Manager when volume state changes
+ */
+export type VolumeEvent = 
+/**
+ * Emitted when a new volume is discovered and added
+ */
+{ VolumeAdded: Volume } | 
+/**
+ * Emitted when a volume is removed from the system
+ */
+{ VolumeRemoved: Volume } | 
+/**
+ * Emitted when a volume's properties are updated
+ */
+{ VolumeUpdated: { old: Volume; new: Volume } } | 
+/**
+ * Emitted when a volume's speed test completes
+ */
+{ VolumeSpeedTested: { id: number[]; read_speed: bigint; write_speed: bigint } } | 
+/**
+ * Emitted when a volume's mount status changes
+ */
+{ VolumeMountChanged: { id: number[]; is_mounted: boolean } } | 
+/**
+ * Emitted when a volume encounters an error
+ */
+{ VolumeError: { id: number[]; error: string } }

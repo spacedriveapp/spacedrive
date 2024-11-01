@@ -13,7 +13,7 @@ use strum_macros::Display;
 use uuid::Uuid;
 
 /// Events emitted by the Volume Manager when volume state changes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Type, Deserialize, Serialize)]
 pub enum VolumeEvent {
 	/// Emitted when a new volume is discovered and added
 	VolumeAdded(Volume),
