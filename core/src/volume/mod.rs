@@ -21,7 +21,7 @@ pub use {
 	actor::VolumeManagerActor,
 	error::VolumeError,
 	manager::VolumeManagerState,
-	types::{DiskType, FileSystem, MountType, Volume, VolumeOptions},
+	types::{DiskType, FileSystem, MountType, Volume, VolumeEvent, VolumeOptions},
 	volumes::Volumes,
 };
 

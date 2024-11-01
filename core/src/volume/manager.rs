@@ -60,6 +60,8 @@ impl VolumeManagerState {
 				continue;
 			}
 
+			// check if vol
+
 			let volume_id = match &volume.pub_id {
 				Some(id) => id.clone(),
 				None => {

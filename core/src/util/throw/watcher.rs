@@ -1,6 +1,9 @@
+use std::path::PathBuf;
+use tokio::task;
+use tracing::{debug, error, warn};
+
 use super::error::VolumeError;
 use super::types::{DiskType, FileSystem, MountType, Volume};
-use tokio::task;
 
 // Re-export platform-specific get_volumes function
 #[cfg(target_os = "linux")]
@@ -12,6 +15,8 @@ pub use self::windows::get_volumes;
 
 /// Common utilities for volume detection across platforms
 mod common {
+	use super::*;
+
 	pub fn parse_size(size_str: &str) -> u64 {
 		size_str
 			.chars()
@@ -28,190 +33,190 @@ mod common {
 		)
 	}
 }
+
 #[cfg(target_os = "macos")]
-pub mod macos {
+mod macos {
 	use super::*;
-	use std::{path::PathBuf, process::Command};
+	use std::process::Command;
 	use sysinfo::{DiskExt, System, SystemExt};
 
-	pub async fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
-		// First collect disk info in blocking context
-		let disk_info: Vec<(String, bool, PathBuf, Vec<u8>, u64, u64)> =
-			task::spawn_blocking(|| {
-				let mut sys = System::new_all();
-				sys.refresh_disks_list();
-
-				sys.disks()
-					.iter()
-					.filter(|disk| {
-						!common::is_virtual_filesystem(
-							std::str::from_utf8(disk.file_system()).unwrap_or(""),
-						)
-					})
-					.map(|disk| {
-						(
-							disk.name().to_string_lossy().to_string(),
-							disk.is_removable(),
-							disk.mount_point().to_path_buf(),
-							disk.file_system().to_vec(),
-							disk.total_space(),
-							disk.available_space(),
-						)
-					})
-					.collect::<Vec<_>>() // Specify that the collection should be a Vec
-			})
-			.await
-			.map_err(|e| VolumeError::Platform(format!("Task join error: {}", e)))?;
-
-		// Then create volumes with the collected info
-		let mut volumes = Vec::new();
-		for (name, is_removable, mount_point, file_system, total_space, available_space) in
-			disk_info
-		{
-			if !mount_point.exists() {
-				continue;
-			}
-			let read_only = is_volume_readonly(&mount_point)?;
-			// Skip adding the `/` mount point if it's both read-only and a system volume
-			if mount_point == PathBuf::from("/") && read_only {
-				continue;
-			}
-			let disk_type = detect_disk_type(&name)?;
-			let mut mount_points = vec![mount_point.clone()];
-
-			// For macOS APFS system volumes
-			if mount_point == PathBuf::from("/") {
-				let data_path = PathBuf::from("/System/Volumes/Data");
-				if data_path.exists() {
-					mount_points.push(data_path);
-				}
-			}
-
-			volumes.push(Volume::new(
-				name,
-				if is_removable {
-					MountType::External
-				} else {
-					MountType::System
-				},
-				mount_point,
-				mount_points,
-				disk_type,
-				FileSystem::from_string(&String::from_utf8_lossy(&file_system)),
-				total_space,
-				available_space,
-				read_only,
-			));
-		}
-
-		Ok(volumes)
-	}
-
-	fn detect_disk_type(device_name: &str) -> Result<DiskType, VolumeError> {
-		let output = Command::new("diskutil")
-			.args(["info", device_name])
-			.output()
-			.map_err(|e| VolumeError::Platform(format!("Failed to run diskutil: {}", e)))?;
-
-		let info = String::from_utf8_lossy(&output.stdout);
-		Ok(if info.contains("Solid State") {
-			DiskType::SSD
-		} else if info.contains("Rotational") {
-			DiskType::HDD
-		} else {
-			DiskType::Unknown
-		})
-	}
-
-	fn is_volume_readonly(mount_point: &std::path::Path) -> Result<bool, VolumeError> {
-		let output = Command::new("mount")
-			.output()
-			.map_err(|e| VolumeError::Platform(format!("Failed to run mount command: {}", e)))?;
-
-		let mount_output = String::from_utf8_lossy(&output.stdout);
-		Ok(mount_output
-			.lines()
-			.find(|line| line.contains(&*mount_point.to_string_lossy()))
-			.map(|line| line.contains("read-only"))
-			.unwrap_or(false))
-	}
-}
-
-#[cfg(target_os = "linux")]
-pub mod linux {
-	use super::*;
-	use std::{fs, process::Command};
-	use sysinfo::{DiskExt, System, SystemExt};
-
-	pub async fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
+	pub async fn get_volumes() -> Vec<Volume> {
 		task::spawn_blocking(|| {
 			let mut volumes = Vec::new();
 			let mut sys = System::new_all();
 			sys.refresh_disks_list();
 
-			// Read /proc/mounts for additional mount information
-			let mounts = fs::read_to_string("/proc/mounts").map_err(|e| {
-				VolumeError::Platform(format!("Failed to read /proc/mounts: {}", e))
-			})?;
-
-			let mount_points: Vec<_> = mounts
-				.lines()
-				.filter(|line| !line.starts_with("none"))
-				.collect();
-
 			for disk in sys.disks() {
+				// Skip virtual filesystems
 				if common::is_virtual_filesystem(
 					disk.file_system().to_string_lossy().to_string().as_str(),
 				) {
 					continue;
 				}
 
-				let volume = create_volume_from_disk(disk, &mount_points).map_err(|e| {
-					VolumeError::Platform(format!("Failed to create volume: {}", e))
-				})?;
+				let mut volume = Volume::new(
+					disk.name().to_string_lossy().to_string(),
+					if disk.is_removable() {
+						MountType::External
+					} else {
+						MountType::System
+					},
+					disk.mount_point().to_path_buf(),
+					detect_disk_type(disk.name().to_string_lossy().as_ref()),
+					FileSystem::from_string(&disk.file_system().to_string_lossy()),
+					disk.total_space(),
+					disk.available_space(),
+				);
+
+				volume.read_only = is_volume_readonly(disk.mount_point());
 				volumes.push(volume);
 			}
 
-			Ok(volumes)
+			volumes
 		})
 		.await
-		.map_err(|e| VolumeError::Platform(format!("Task join error: {}", e)))?
+		.unwrap_or_default()
 	}
 
-	fn create_volume_from_disk(
-		disk: &sysinfo::Disk,
-		mount_points: &[&str],
-	) -> Result<Volume, VolumeError> {
-		let mount_point = disk.mount_point().to_path_buf();
+	fn detect_disk_type(device_name: &str) -> DiskType {
+		let output = Command::new("diskutil")
+			.args(["info", device_name])
+			.output();
 
-		let mount_info = mount_points
-			.iter()
-			.find(|&line| line.contains(&mount_point.to_string_lossy()))
-			.ok_or_else(|| VolumeError::NoMountPoint)?;
+		match output {
+			Ok(output) => {
+				let info = String::from_utf8_lossy(&output.stdout);
+				if info.contains("Solid State") {
+					DiskType::SSD
+				} else if info.contains("Rotational") {
+					DiskType::HDD
+				} else {
+					DiskType::Unknown
+				}
+			}
+			Err(_) => DiskType::Unknown,
+		}
+	}
 
-		let is_network = mount_info.starts_with("//") || mount_info.starts_with("nfs");
-		let disk_type = detect_disk_type(&disk.name().to_string_lossy())
-			.map_err(|e| VolumeError::Platform(format!("Failed to detect disk type: {}", e)))?;
+	fn is_volume_readonly(mount_point: &std::path::Path) -> bool {
+		let output = Command::new("mount")
+			.output()
+			.ok()
+			.map(|o| String::from_utf8_lossy(&o.stdout).to_string());
 
-		Ok(Volume::new(
-			disk.name().to_string_lossy().to_string(),
-			if is_network {
-				MountType::Network
-			} else if disk.is_removable() {
-				MountType::External
-			} else {
-				MountType::System
-			},
-			mount_point,
-			disk_type,
-			FileSystem::from_string(&disk.file_system().to_string_lossy()),
-			disk.total_space(),
-			disk.available_space(),
-		))
+		match output {
+			Some(mount_output) => mount_output
+				.lines()
+				.find(|line| line.contains(&mount_point.to_string_lossy()))
+				.map(|line| line.contains("read-only"))
+				.unwrap_or(false),
+			None => false,
+		}
 	}
 }
+
+#[cfg(target_os = "linux")]
+mod linux {
+	use super::*;
+	use std::{fs, process::Command};
+	use sysinfo::{DiskExt, System, SystemExt};
+
+	pub async fn get_volumes() -> Vec<Volume> {
+		task::spawn_blocking(|| {
+			let mut volumes = Vec::new();
+			let mut sys = System::new_all();
+			sys.refresh_disks_list();
+
+			// Read /proc/mounts for additional mount information
+			let mounts = fs::read_to_string("/proc/mounts").unwrap_or_default();
+			let mount_points: Vec<_> = mounts
+				.lines()
+				.filter(|line| !line.starts_with("none"))
+				.collect();
+
+			for disk in sys.disks() {
+				// Skip virtual filesystems
+				if common::is_virtual_filesystem(
+					disk.file_system().to_string_lossy().to_string().as_str(),
+				) {
+					continue;
+				}
+
+				let mount_point = disk.mount_point().to_path_buf();
+				let mount_info = mount_points
+					.iter()
+					.find(|&line| line.contains(&mount_point.to_string_lossy()));
+
+				let is_network = mount_info
+					.map(|info| info.starts_with("//") || info.starts_with("nfs"))
+					.unwrap_or(false);
+
+				let mount_type = if is_network {
+					MountType::Network
+				} else if disk.is_removable() {
+					MountType::External
+				} else {
+					MountType::System
+				};
+
+				let mut volume = Volume::new(
+					disk.name().to_string_lossy().to_string(),
+					mount_type,
+					mount_point.clone(),
+					detect_disk_type(&disk.name().to_string_lossy()),
+					FileSystem::from_string(&disk.file_system().to_string_lossy()),
+					disk.total_space(),
+					disk.available_space(),
+				);
+
+				volume.read_only = mount_info
+					.map(|info| info.contains("ro,") || info.contains(",ro"))
+					.unwrap_or(false);
+
+				volumes.push(volume);
+			}
+
+			volumes
+		})
+		.await
+		.unwrap_or_default()
+	}
+
+	fn detect_disk_type(device_name: &str) -> DiskType {
+		// Try reading rotational flag from sys
+		if let Ok(rotational) =
+			fs::read_to_string(format!("/sys/block/{}/queue/rotational", device_name))
+		{
+			match rotational.trim() {
+				"0" => return DiskType::SSD,
+				"1" => return DiskType::HDD,
+				_ => {}
+			}
+		}
+
+		// Fallback to lsblk
+		let output = Command::new("lsblk")
+			.args(["-d", "-o", "name,rota", device_name])
+			.output();
+
+		match output {
+			Ok(output) => {
+				let info = String::from_utf8_lossy(&output.stdout);
+				if info.contains(" 0") {
+					DiskType::SSD
+				} else if info.contains(" 1") {
+					DiskType::HDD
+				} else {
+					DiskType::Unknown
+				}
+			}
+			Err(_) => DiskType::Unknown,
+		}
+	}
+}
+
 #[cfg(target_os = "windows")]
-pub mod windows {
+mod windows {
 	use super::*;
 	use std::ffi::OsString;
 	use std::os::windows::ffi::OsStringExt;
@@ -336,5 +341,32 @@ pub mod windows {
 		// For brevity, returning Unknown, but you could implement the full detection
 		// using IOCTL_STORAGE_QUERY_PROPERTY
 		DiskType::Unknown
+	}
+}
+
+// Re-export the platform-specific get_volumes function
+pub use self::get_volumes_impl::get_volumes;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn test_get_volumes() {
+		let volumes = get_volumes().await;
+		assert!(!volumes.is_empty(), "Should detect at least one volume");
+
+		for volume in volumes {
+			println!("Detected volume: {:?}", volume);
+			assert!(
+				!volume.mount_point.as_os_str().is_empty(),
+				"Mount point should not be empty"
+			);
+			assert!(!volume.name.is_empty(), "Volume name should not be empty");
+			assert!(
+				volume.total_bytes_capacity > 0,
+				"Volume should have non-zero capacity"
+			);
+		}
 	}
 }
