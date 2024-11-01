@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 async-channel    = { workspace = true }
+async-trait      = { workspace = true }
 futures          = { workspace = true }
 pin-project-lite = { workspace = true }
 tokio            = { workspace = true }

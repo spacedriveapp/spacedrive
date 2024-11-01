@@ -4,6 +4,7 @@ use sd_core_heavy_lifting::{
 	job_system::report::{Report, Status},
 	OuterContext, ProgressUpdate, UpdateEvent,
 };
+use sd_core_sync::SyncManager;
 
 use std::{
 	ops::{Deref, DerefMut},
@@ -49,7 +50,7 @@ impl OuterContext for NodeContext {
 		&self.library.db
 	}
 
-	fn sync(&self) -> &Arc<sd_core_sync::Manager> {
+	fn sync(&self) -> &SyncManager {
 		&self.library.sync
 	}
 
@@ -96,7 +97,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> OuterContext for JobContext<OuterC
 		self.outer_ctx.db()
 	}
 
-	fn sync(&self) -> &Arc<sd_core_sync::Manager> {
+	fn sync(&self) -> &SyncManager {
 		self.outer_ctx.sync()
 	}
 
@@ -191,7 +192,7 @@ impl<OuterCtx: OuterContext + NodeContextExt> sd_core_heavy_lifting::JobContext<
 
 			spawn({
 				let db = Arc::clone(&library.db);
-				let mut report = report.clone();
+				let report = report.clone();
 				async move {
 					if let Err(e) = report.update(&db).await {
 						error!(

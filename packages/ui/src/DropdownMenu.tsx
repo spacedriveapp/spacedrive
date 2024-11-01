@@ -59,7 +59,7 @@ const Root = (props: PropsWithChildren<DropdownMenuProps>) => {
 
 	const measureRef = useCallback(
 		(ref: HTMLButtonElement | null) => {
-			alignToTrigger && ref && setWidth(ref.getBoundingClientRect().width);
+			if (alignToTrigger && ref) setWidth(ref.getBoundingClientRect().width);
 		},
 		[alignToTrigger]
 	);

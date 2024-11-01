@@ -7,7 +7,7 @@ import { usePlatform } from '~/util/Platform';
 
 const styles = cva(
 	[
-		'max-w flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 text-sm font-medium outline-none',
+		'max-w flex grow flex-row items-center gap-0.5 truncate rounded px-2 py-1 font-plex text-sm font-medium tracking-wide outline-none',
 		'ring-inset ring-transparent ring-offset-0 focus:ring-1 focus:ring-accent focus:ring-offset-0'
 	],
 	{

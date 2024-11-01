@@ -19,7 +19,7 @@ export interface TooltipProps
 	tooltipClassName?: string;
 	labelClassName?: string;
 	asChild?: boolean;
-	keybinds?: Array<String | keyof typeof ModifierKeys>;
+	keybinds?: Array<string | keyof typeof ModifierKeys>;
 }
 
 const separateKeybinds = (keybinds: TooltipProps['keybinds']): TooltipProps['keybinds'] => {

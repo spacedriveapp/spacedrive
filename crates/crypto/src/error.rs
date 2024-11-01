@@ -7,6 +7,8 @@ use tokio::io;
 pub enum Error {
 	#[error("Block too big for oneshot encryption: size in bytes = {0}")]
 	BlockTooBig(usize),
+	#[error("Invalid key size: expected 32 bytes, got {0}")]
+	InvalidKeySize(usize),
 
 	/// Encrypt and decrypt errors, AEAD crate doesn't provide any error context for these
 	/// as it can be a security hazard to leak information about the error.

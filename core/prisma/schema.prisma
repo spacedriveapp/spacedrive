@@ -28,9 +28,10 @@ model CRDTOperation {
   kind      String
   data      Bytes
 
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
+  // We just need the actual device_pub_id here, but we don't need as an actual relation
+  device_pub_id Bytes
 
+  @@index([timestamp])
   @@map("crdt_operation")
 }
 
@@ -46,24 +47,41 @@ model CloudCRDTOperation {
   kind      String
   data      Bytes
 
-  instance_id Int
-  instance    Instance @relation(fields: [instance_id], references: [id])
+  // We just need the actual device_pub_id here, but we don't need as an actual relation
+  device_pub_id Bytes
 
+  @@index([timestamp])
   @@map("cloud_crdt_operation")
 }
 
-/// @deprecated: This model has to exist solely for backwards compatibility.
-/// @local
-model Node {
-  id           Int      @id @default(autoincrement())
-  pub_id       Bytes    @unique
-  name         String
-  // Enum: sd_core::node::Platform
-  platform     Int
-  date_created DateTime
-  identity     Bytes? // TODO: Change to required field in future
+/// Devices are the owner machines connected to this library
+/// @shared(id: pub_id, modelId: 12)
+model Device {
+  id     Int     @id @default(autoincrement())
+  // uuid v7
+  pub_id Bytes   @unique
+  name   String? // Not actually NULLABLE, but we have to comply with current sync implementation BS
 
-  @@map("node")
+  // Enum: sd_cloud_schema::device::DeviceOS
+  os             Int? // Not actually NULLABLE, but we have to comply with current sync implementation BS
+  // Enum: sd_cloud_schema::device::HardwareModel
+  hardware_model Int? // Not actually NULLABLE, but we have to comply with current sync implementation BS
+
+  // clock timestamp for sync
+  timestamp BigInt?
+
+  date_created DateTime? // Not actually NULLABLE, but we have to comply with current sync implementation BS
+  date_deleted DateTime?
+
+  StorageStatistics StorageStatistics?
+  Location          Location[]
+  FilePath          FilePath[]
+  Object            Object[]
+  ExifData          ExifData[]
+  TagOnObject       TagOnObject[]
+  LabelOnObject     LabelOnObject[]
+
+  @@map("device")
 }
 
 // represents a single `.db` file (SQLite DB) that is paired to the current library.
@@ -88,11 +106,7 @@ model Instance {
 
   // clock timestamp for sync
   timestamp BigInt?
-
-  locations          Location[]
-  CRDTOperation      CRDTOperation[]
-  CloudCRDTOperation CloudCRDTOperation[]
-  storage_statistics StorageStatistics?
+  Location  Location[]
 
   @@map("instance")
 }
@@ -158,6 +172,9 @@ model Location {
 
   scan_state Int @default(0) // Enum: sd_core::location::ScanState
 
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
   // this should just be a local-only cache but it's too much effort to broadcast online locations rn (@brendan)
   instance_id Int?
   instance    Instance? @relation(fields: [instance_id], references: [id], onDelete: SetNull)
@@ -208,6 +225,9 @@ model FilePath {
   date_modified DateTime?
   date_indexed  DateTime?
 
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
   // key Key? @relation(fields: [key_id], references: [id])
 
   @@unique([location_id, materialized_path, name, extension])
@@ -254,6 +274,9 @@ model Object {
   // comments   Comment[]
   exif_data   ExifData?
   ffmpeg_data FfmpegData?
+
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   // key Key? @relation(fields: [key_id], references: [id])
 
@@ -322,6 +345,9 @@ model ExifData {
 
   object_id Int    @unique
   object    Object @relation(fields: [object_id], references: [id], onDelete: Cascade)
+
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@map("exif_data")
 }
@@ -509,6 +535,9 @@ model TagOnObject {
 
   date_created DateTime?
 
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
   @@id([tag_id, object_id])
   @@map("tag_on_object")
 }
@@ -536,6 +565,9 @@ model LabelOnObject {
 
   label_id Int
   label    Label @relation(fields: [label_id], references: [id], onDelete: Restrict)
+
+  device_id Int?
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@id([label_id, object_id])
   @@map("label_on_object")
@@ -576,8 +608,8 @@ model StorageStatistics {
   total_capacity     BigInt @default(0)
   available_capacity BigInt @default(0)
 
-  instance_pub_id Bytes?    @unique
-  instance        Instance? @relation(fields: [instance_pub_id], references: [pub_id], onDelete: Cascade)
+  device_id Int?    @unique
+  device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
   @@map("storage_statistics")
 }

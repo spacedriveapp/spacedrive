@@ -2,9 +2,10 @@ use crate::{utils::sub_path, OuterContext};
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_prisma_helpers::CasId;
+use sd_core_sync::DevicePubId;
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
-use sd_prisma::prisma::{file_path, location};
+use sd_prisma::prisma::{device, file_path, location};
 use sd_task_system::{TaskDispatcher, TaskHandle};
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 
@@ -41,6 +42,8 @@ const CHUNK_SIZE: usize = 100;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+	#[error("device not found: <device_pub_id='{0}'")]
+	DeviceNotFound(DevicePubId),
 	#[error("missing field on database: {0}")]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to deserialized stored tasks for job resume: {0}")]
@@ -173,7 +176,7 @@ fn orphan_path_filters_shallow(
 fn orphan_path_filters_deep(
 	location_id: location::id::Type,
 	file_path_id: Option<file_path::id::Type>,
-	maybe_sub_iso_file_path: &Option<IsolatedFilePathData<'_>>,
+	maybe_sub_iso_file_path: Option<&IsolatedFilePathData<'_>>,
 ) -> Vec<file_path::WhereParam> {
 	sd_utils::chain_optional_iter(
 		[
@@ -197,6 +200,7 @@ fn orphan_path_filters_deep(
 async fn dispatch_object_processor_tasks<Iter, Dispatcher>(
 	file_paths_by_cas_id: Iter,
 	ctx: &impl OuterContext,
+	device_id: device::id::Type,
 	dispatcher: &Dispatcher,
 	with_priority: bool,
 ) -> Result<Vec<TaskHandle<crate::Error>>, Dispatcher::DispatchError>
@@ -217,7 +221,8 @@ where
 					.dispatch(tasks::ObjectProcessor::new(
 						HashMap::from([(cas_id, objects_to_create_or_link)]),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
+						device_id,
 						with_priority,
 					))
 					.await?,
@@ -239,7 +244,8 @@ where
 						.dispatch(tasks::ObjectProcessor::new(
 							mem::take(&mut current_batch),
 							Arc::clone(ctx.db()),
-							Arc::clone(ctx.sync()),
+							ctx.sync().clone(),
+							device_id,
 							with_priority,
 						))
 						.await?,
@@ -256,7 +262,8 @@ where
 				.dispatch(tasks::ObjectProcessor::new(
 					current_batch,
 					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
+					ctx.sync().clone(),
+					device_id,
 					with_priority,
 				))
 				.await?,

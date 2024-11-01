@@ -6,7 +6,7 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
 
-use sd_prisma::prisma::{file_path, location, SortOrder};
+use sd_prisma::prisma::{device, file_path, location, SortOrder};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskHandle, TaskOutput, TaskStatus,
 };
@@ -66,6 +66,19 @@ pub async fn shallow(
 		Ok,
 	)?;
 
+	let device_pub_id = &ctx.sync().device_pub_id;
+	let device_id = ctx
+		.db()
+		.device()
+		.find_unique(device::pub_id::equals(device_pub_id.to_db()))
+		.exec()
+		.await
+		.map_err(file_identifier::Error::from)?
+		.ok_or(file_identifier::Error::DeviceNotFound(
+			device_pub_id.clone(),
+		))?
+		.id;
+
 	let mut orphans_count = 0;
 	let mut last_orphan_file_path_id = None;
 
@@ -103,7 +116,8 @@ pub async fn shallow(
 				orphan_paths,
 				true,
 				Arc::clone(ctx.db()),
-				Arc::clone(ctx.sync()),
+				ctx.sync().clone(),
+				device_id,
 			))
 			.await
 		else {
@@ -119,13 +133,14 @@ pub async fn shallow(
 		return Ok(vec![]);
 	}
 
-	process_tasks(identifier_tasks, dispatcher, ctx).await
+	process_tasks(identifier_tasks, dispatcher, ctx, device_id).await
 }
 
 async fn process_tasks(
 	identifier_tasks: Vec<TaskHandle<Error>>,
 	dispatcher: &BaseTaskDispatcher<Error>,
 	ctx: &impl OuterContext,
+	device_id: device::id::Type,
 ) -> Result<Vec<NonCriticalError>, Error> {
 	let total_identifier_tasks = identifier_tasks.len();
 
@@ -169,6 +184,7 @@ async fn process_tasks(
 						let Ok(tasks) = dispatch_object_processor_tasks(
 							file_paths_accumulator.drain(),
 							ctx,
+							device_id,
 							dispatcher,
 							true,
 						)

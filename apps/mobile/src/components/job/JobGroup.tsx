@@ -170,10 +170,11 @@ const toastErrorSuccess = (
 ) => {
 	return {
 		onError: () => {
-			errorMessage && toast.error(errorMessage);
+			if (errorMessage) toast.error(errorMessage);
 		},
 		onSuccess: () => {
-			successMessage && toast.success(successMessage), successCallBack?.();
+			if (successMessage) toast.success(successMessage);
+			successCallBack?.();
 		}
 	};
 };
@@ -190,7 +191,7 @@ function Options({ activeJob, group, setShowChildJobs, showChildJobs }: OptionsP
 
 	const clearJob = useLibraryMutation(['jobs.clear'], {
 		onSuccess: () => {
-			rspc.queryClient.invalidateQueries(['jobs.reports']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['jobs.reports'] });
 		}
 	});
 

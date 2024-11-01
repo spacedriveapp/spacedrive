@@ -1,0 +1,55 @@
+[package]
+name    = "sd-core-cloud-services"
+version = "0.1.0"
+
+edition = "2021"
+
+[dependencies]
+# Core Spacedrive Sub-crates
+sd-core-sync = { path = "../sync" }
+
+# Spacedrive Sub-crates
+sd-actors       = { path = "../../../crates/actors" }
+sd-cloud-schema = { workspace = true }
+sd-crypto       = { path = "../../../crates/crypto" }
+sd-prisma       = { path = "../../../crates/prisma" }
+sd-utils        = { path = "../../../crates/utils" }
+
+# Workspace dependencies
+async-stream        = { workspace = true }
+base64              = { workspace = true }
+blake3              = { workspace = true }
+chrono              = { workspace = true, features = ["serde"] }
+flume               = { workspace = true }
+futures             = { workspace = true }
+futures-concurrency = { workspace = true }
+rmp-serde           = { workspace = true }
+rspc                = { workspace = true }
+serde               = { workspace = true, features = ["derive"] }
+serde_json          = { workspace = true }
+specta              = { workspace = true }
+thiserror           = { workspace = true }
+tokio               = { workspace = true, features = ["sync", "time"] }
+tokio-stream        = { workspace = true }
+tokio-util          = { workspace = true }
+tracing             = { workspace = true }
+uuid                = { workspace = true, features = ["serde"] }
+zeroize             = { workspace = true }
+
+# External dependencies
+anyhow   = "1.0.86"
+dashmap  = "6.1.0"
+iroh-net = { version = "0.27", features = ["discovery-local-network", "iroh-relay"] }
+paste    = "=1.0.15"
+quic-rpc = { version = "0.12.1", features = ["quinn-transport"] }
+quinn    = { package = "iroh-quinn", version = "0.11" }
+# Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
+reqwest                  = { version = "0.12", features = ["json", "native-tls-vendored", "stream"] }
+reqwest-middleware       = { version = "0.3", features = ["json"] }
+reqwest-retry            = "0.6"
+rustls                   = { version = "=0.23.15", default-features = false, features = ["brotli", "ring", "std"] }
+rustls-platform-verifier = "0.3.3"
+
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
