@@ -289,7 +289,22 @@ export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
  */
 export type DiscoveryMethod = "Relay" | "Local" | "Manual"
 
-export type DiskType = "SSD" | "HDD" | "Unknown"
+/**
+ * Represents the type of physical storage device
+ */
+export type DiskType = 
+/**
+ * Solid State Drive
+ */
+"SSD" | 
+/**
+ * Hard Disk Drive
+ */
+"HDD" | 
+/**
+ * Unknown or virtual disk type
+ */
+"Unknown"
 
 export type DoubleClickAction = "openFile" | "quickPreview"
 
@@ -356,7 +371,34 @@ export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "size
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
 
-export type FileSystem = "NTFS" | "FAT32" | "EXT4" | "APFS" | "ExFAT" | { Other: string }
+/**
+ * Represents the filesystem type of the volume
+ */
+export type FileSystem = 
+/**
+ * Windows NTFS filesystem
+ */
+"NTFS" | 
+/**
+ * FAT32 filesystem
+ */
+"FAT32" | 
+/**
+ * Linux EXT4 filesystem
+ */
+"EXT4" | 
+/**
+ * Apple APFS filesystem
+ */
+"APFS" | 
+/**
+ * ExFAT filesystem
+ */
+"ExFAT" | 
+/**
+ * Other/unknown filesystem type
+ */
+{ Other: string }
 
 export type Flash = { 
 /**
@@ -531,7 +573,26 @@ export type MediaLocation = { latitude: number; longitude: number; pluscode: Plu
 
 export type Metadata = { album: string | null; album_artist: string | null; artist: string | null; comment: string | null; composer: string | null; copyright: string | null; creation_time: string | null; date: string | null; disc: number | null; encoder: string | null; encoded_by: string | null; filename: string | null; genre: string | null; language: string | null; performer: string | null; publisher: string | null; service_name: string | null; service_provider: string | null; title: string | null; track: number | null; variant_bit_rate: number | null; custom: { [key in string]: string } }
 
-export type MountType = "System" | "External" | "Network" | "Virtual"
+/**
+ * Represents how the volume is mounted in the system
+ */
+export type MountType = 
+/**
+ * System/boot volume
+ */
+"System" | 
+/**
+ * External/removable volume
+ */
+"External" | 
+/**
+ * Network-attached volume
+ */
+"Network" | 
+/**
+ * Virtual/container volume
+ */
+"Virtual"
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
@@ -729,4 +790,67 @@ export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
 
-export type Volume = { id: number | null; pub_id: number[] | null; name: string; mount_type: MountType; mount_point: string; is_mounted: boolean; disk_type: DiskType; file_system: FileSystem; read_only: boolean; error_status: string | null; read_speed_mbps: bigint | null; write_speed_mbps: bigint | null; total_bytes_capacity: string; total_bytes_available: string }
+/**
+ * Represents a physical or virtual storage volume in the system
+ */
+export type Volume = { 
+/**
+ * Database ID (None if not yet committed to database)
+ */
+id: number | null; 
+/**
+ * Unique public identifier (None if not yet committed)
+ */
+pub_id: number[] | null; 
+/**
+ * Human-readable volume name
+ */
+name: string; 
+/**
+ * Type of mount (system, external, etc)
+ */
+mount_type: MountType; 
+/**
+ * Path where the volume is mounted
+ */
+mount_point: string[]; 
+/**
+ * for APFS volumes like Macintosh HD, additional mount points are returned
+ */
+mount_points: string[]; 
+/**
+ * Whether the volume is currently mounted
+ */
+is_mounted: boolean; 
+/**
+ * Type of storage device (SSD, HDD, etc)
+ */
+disk_type: DiskType; 
+/**
+ * Filesystem type (NTFS, EXT4, etc)
+ */
+file_system: FileSystem; 
+/**
+ * Whether the volume is mounted read-only
+ */
+read_only: boolean; 
+/**
+ * Current error status if any
+ */
+error_status: string | null; 
+/**
+ * Read speed in megabytes per second
+ */
+read_speed_mbps: bigint | null; 
+/**
+ * Write speed in megabytes per second
+ */
+write_speed_mbps: bigint | null; 
+/**
+ * Total storage capacity in bytes
+ */
+total_bytes_capacity: string; 
+/**
+ * Available storage space in bytes
+ */
+total_bytes_available: string }

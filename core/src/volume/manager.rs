@@ -1,157 +1,283 @@
-use sd_prisma::prisma::{device, volume, PrismaClient};
+use super::{
+	error::VolumeError,
+	types::{MountType, Volume, VolumeEvent, VolumeOptions},
+	watcher::{VolumeWatcher, WatcherState},
+};
 
-use super::{os::get_volumes, MountType, Volume, VolumeError};
-use crate::{library::Library, volume::speed::SpeedTest};
-use std::sync::Arc;
-use tracing::{error, info};
+use std::{collections::HashMap, sync::Arc, time::Duration};
+use tokio::sync::broadcast;
+use tokio::time::Instant;
+use tracing::{debug, error, instrument};
+use uuid::Uuid;
 
-pub struct VolumeManager {
-	db: Arc<PrismaClient>,
-	current_device_id: i32,         // the db id of the current device
-	library_volumes: Vec<Volume>,   // Volumes committed to the DB
-	untracked_volumes: Vec<Volume>, // Uncommitted volumes
+// const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Manages the state of all volumes
+#[derive(Debug)]
+pub struct VolumeManagerState {
+	/// All tracked volumes
+	pub volumes: HashMap<Vec<u8>, Volume>,
+	/// Active watchers
+	pub watchers: HashMap<Vec<u8>, WatcherState>,
+	/// Volume manager options
+	pub options: VolumeOptions,
+	/// Event broadcaster
+	event_tx: broadcast::Sender<VolumeEvent>,
+	/// Last scan time
+	pub last_scan: Instant,
 }
 
-// The volume manager must be conservative with when to trigger a sync event.
-// It should only trigger a sync event when a volume is added or removed from the library.
-// not when a volume is mounted or unmounted.
-impl VolumeManager {
-	/// Initializes the VolumeManager by detecting system, external, and network volumes
-	pub async fn new(lib: Arc<Library>) -> Result<Self, VolumeError> {
-		// Detect volumes present in the system
-		let detected_volumes = VolumeManager::detect_system_volumes().await;
+impl VolumeManagerState {
+	/// Creates a new volume manager
+	pub async fn new(options: VolumeOptions) -> Result<Self, VolumeError> {
+		let (event_tx, _) = broadcast::channel(128);
 
-		// Query database for volumes already committed to the library
-		let library_volumes = VolumeManager::query_library_volumes(&lib.db).await;
-
-		// Merge detected volumes with library volumes to find untracked volumes
-		let untracked_volumes =
-			VolumeManager::derive_untracked_volumes(&detected_volumes, &library_volumes);
-
-		let current_device = lib
-			.db
-			.device()
-			.find_unique(device::pub_id::equals(lib.sync.device_pub_id.to_db()))
-			.select(device::select!({ id }))
-			.exec()
-			.await?
-			.ok_or(VolumeError::NoDeviceFound)?;
-
-		Ok(VolumeManager {
-			current_device_id: current_device.id,
-			db: lib.db.clone(),
-			library_volumes,
-			untracked_volumes,
+		Ok(Self {
+			volumes: HashMap::new(),
+			watchers: HashMap::new(),
+			options,
+			event_tx,
+			last_scan: Instant::now(),
 		})
 	}
 
-	/// Detects system volumes (external, system, etc.)
-	async fn detect_system_volumes() -> Vec<Volume> {
-		get_volumes().await
+	/// Scans the system for volumes and updates the state
+	#[instrument(skip(self))]
+	pub async fn scan_volumes(&mut self) -> Result<(), VolumeError> {
+		debug!("Scanning for volumes...");
+		let detected_volumes = super::os::get_volumes().await?;
+		let mut new_volumes = Vec::new();
+		let mut removed_volumes = self.volumes.clone();
+
+		debug!("Found {} volumes during scan", detected_volumes.len());
+
+		// Clear existing volumes and reinsert with new IDs
+		self.volumes.clear();
+
+		for volume in detected_volumes {
+			// Skip virtual volumes if configured
+			if !self.options.include_virtual && matches!(volume.mount_type, MountType::Virtual) {
+				continue;
+			}
+
+			let volume_id = match &volume.pub_id {
+				Some(id) => id.clone(),
+				None => {
+					// New volume, generate ID
+					let id = Uuid::now_v7().as_bytes().to_vec();
+					let mut volume = volume.clone();
+					volume.pub_id = Some(id.clone());
+					new_volumes.push(volume);
+					id
+				}
+			};
+
+			// Remove from potentially removed volumes
+			removed_volumes.remove(&volume_id);
+
+			// Update existing volume or add new one
+			match self.volumes.get_mut(&volume_id) {
+				Some(existing) => {
+					if existing != &volume {
+						let old = existing.clone();
+						*existing = volume;
+						let event = VolumeEvent::VolumeUpdated {
+							old,
+							new: existing.clone(),
+						};
+						self.emit_event(event).await;
+					}
+				}
+				None => {
+					self.volumes.insert(volume_id, volume.clone());
+					self.emit_event(VolumeEvent::VolumeAdded(volume)).await;
+				}
+			}
+		}
+
+		// Handle removed volumes
+		for (id, volume) in removed_volumes {
+			self.volumes.remove(&id);
+			self.watchers.remove(&id);
+			self.emit_event(VolumeEvent::VolumeRemoved(volume)).await;
+		}
+
+		self.last_scan = Instant::now();
+		Ok(())
 	}
 
-	/// Queries volumes already in the library (database)
-	async fn query_library_volumes(db: &PrismaClient) -> Vec<Volume> {
-		match db.volume().find_many(vec![]).exec().await {
-			Ok(volumes) => volumes.into_iter().map(Volume::from).collect(),
-			Err(e) => {
-				error!(?e, "Failed to query library volumes;");
-				vec![]
+	/// Starts watching a volume
+	#[instrument(skip(self))]
+	pub async fn watch_volume(&mut self, volume_id: Vec<u8>) -> Result<(), VolumeError> {
+		if self.watchers.contains_key(&volume_id) {
+			debug!("Already watching volume {:?}", hex::encode(&volume_id));
+			return Ok(());
+		}
+
+		let watcher = Arc::new(VolumeWatcher::new(self.event_tx.clone()));
+		watcher.start().await?;
+
+		self.watchers.insert(
+			volume_id.clone(),
+			WatcherState {
+				watcher,
+				last_event: Instant::now(),
+				paused: false,
+			},
+		);
+
+		debug!("Started watching volume {}", hex::encode(&volume_id));
+		Ok(())
+	}
+
+	/// Stops watching a volume
+	#[instrument(skip(self))]
+	pub async fn unwatch_volume(&mut self, volume_id: &[u8]) -> Result<(), VolumeError> {
+		if let Some(state) = self.watchers.remove(volume_id) {
+			state.watcher.stop().await;
+			debug!("Stopped watching volume {}", hex::encode(volume_id));
+		}
+		Ok(())
+	}
+
+	/// Gets a volume by ID (unsure if used)
+	#[instrument(skip(self))]
+	pub async fn get_volume(&self, volume_id: &[u8]) -> Result<Volume, VolumeError> {
+		match self.volumes.get(volume_id) {
+			Some(volume) => Ok(volume.clone()),
+			None => {
+				// Try to get from database
+				// let volume = self
+				// 	.library
+				// 	.db
+				// 	.volume()
+				// 	.find_unique(volume::pub_id::equals(volume_id.to_vec()))
+				// 	.exec()
+				// 	.await?
+				// 	.ok_or_else(|| VolumeError::InvalidId(hex::encode(volume_id)))?;
+				// Ok(Volume::from(volume))
+				unimplemented!()
 			}
 		}
 	}
 
-	pub async fn track_volume(&mut self, volume_pub_id: Vec<u8>) {
-		// if volume is already tracked, do nothing
-		if self
-			.library_volumes
-			.iter()
-			.any(|vol| vol.pub_id == Some(volume_pub_id.clone()))
-		{
-			return;
+	/// Updates a volume's information
+	#[instrument(skip(self, volume))]
+	pub async fn update_volume(&mut self, volume: Volume) -> Result<(), VolumeError> {
+		let volume_id = volume
+			.pub_id
+			.as_ref()
+			.ok_or(VolumeError::NotInDatabase)?
+			.clone();
+
+		if let Some(old_volume) = self.volumes.get(&volume_id) {
+			if old_volume != &volume {
+				// Convert immutable borrow of `self.volumes` into owned data
+				let old_volume_cloned = old_volume.clone();
+
+				// Update in memory
+				self.volumes.insert(volume_id, volume.clone());
+
+				// Emit event
+				self.emit_event(VolumeEvent::VolumeUpdated {
+					old: old_volume_cloned,
+					new: volume,
+				})
+				.await;
+			}
 		}
-
-		let volume_index = self
-			.untracked_volumes
-			.iter()
-			.position(|vol| vol.pub_id == Some(volume_pub_id.clone()));
-
-		if let Some(index) = volume_index {
-			// remove the volume from the untracked volumes
-			let volume = self.untracked_volumes.swap_remove(index);
-
-			// update the volume in the library
-			self.untracked_volumes
-				.retain(|vol| vol.mount_point != volume.mount_point);
-
-			volume
-				.create(&self.db, self.current_device_id)
-				.await
-				.unwrap_or(());
-
-			self.library_volumes.push(volume.clone());
-			info!("Volume tracked: {:?}", volume);
-
-			// spawn a task to test the speed of the volume
-			tokio::spawn(async move {
-				let mut volume = volume;
-				let speed = volume.speed_test().await.unwrap_or((0.0, 0.0));
-				info!("Volume speed test: {:?}", speed);
-			});
-		}
-	}
-
-	// triggered by the watcher when a volume is added or removed
-	pub async fn evaluate_system_volumes(&self) -> Result<(), VolumeError> {
-		let volumes = get_volumes().await;
-		// get the current volumes on the system
-		let detected_volumes = VolumeManager::detect_system_volumes().await;
-
-		println!("Volumes: {:?}", volumes);
-		println!("Detected Volumes: {:?}", detected_volumes);
 
 		Ok(())
 	}
 
-	// this function will commit the system volumes to the database
-	async fn init_system_volumes(&self) -> Result<(), VolumeError> {
-		// for each volume, if system volume, commit to db
-		for vol in self.untracked_volumes.clone() {
-			if vol.mount_type == MountType::System {
-				println!("ADDING SYSTEM VOLUME");
-				let mut volume_clone = vol.clone();
-				// run speed test but fail silently
-				volume_clone.speed_test().await.unwrap_or((0.0, 0.0));
-
-				volume_clone
-					.create(&self.db, self.current_device_id)
-					.await
-					.unwrap_or(());
-
-				println!("Volume created: {:?}", volume_clone);
+	/// Temporarily pauses a volume watcher
+	#[instrument(skip(self))]
+	pub async fn pause_watcher(&mut self, volume_id: &[u8]) -> Result<(), VolumeError> {
+		if let Some(state) = self.watchers.get_mut(volume_id) {
+			if !state.paused {
+				state.paused = true;
+				debug!("Paused watcher for volume {}", hex::encode(volume_id));
 			}
 		}
 		Ok(())
 	}
 
-	/// Finds untracked volumes by comparing detected and library volumes
-	fn derive_untracked_volumes(
-		detected_volumes: &Vec<Volume>,
-		library_volumes: &Vec<Volume>,
-	) -> Vec<Volume> {
-		// Filter out volumes that are already in the library
-		detected_volumes
-			.iter()
-			.filter(|detected_vol| {
-				!library_volumes
-					.iter()
-					.any(|lib_vol| lib_vol.mount_point == detected_vol.mount_point)
-			})
-			.cloned()
-			.collect()
+	/// Resumes a paused volume watcher
+	#[instrument(skip(self))]
+	pub async fn resume_watcher(&mut self, volume_id: &[u8]) -> Result<(), VolumeError> {
+		if let Some(state) = self.watchers.get_mut(volume_id) {
+			if state.paused {
+				state.paused = false;
+				debug!("Resumed watcher for volume {}", hex::encode(volume_id));
+			}
+		}
+		Ok(())
 	}
 
-	// async fn register_non_system_volumes(db: &PrismaClient, volumes: &Vec<Volume>) {}
-	// pub async fn get_local_volumes(db: &PrismaClient) {}
-	// pub fn get_volume_for_location(&self, location: &Location) -> Option<Volume>
+	/// Helper to emit events
+	async fn emit_event(&self, event: VolumeEvent) {
+		if let Err(e) = self.event_tx.send(event) {
+			error!(?e, "Failed to emit volume event");
+		}
+	}
+
+	/// Performs maintenance tasks
+	pub async fn maintenance(&mut self) -> Result<(), VolumeError> {
+		// Rescan volumes periodically
+		if self.last_scan.elapsed() > Duration::from_secs(300) {
+			self.scan_volumes().await?;
+		}
+
+		// Clean up stale watchers
+		let stale_watchers: Vec<_> = self
+			.watchers
+			.iter()
+			.filter(|(_, state)| state.last_event.elapsed() > Duration::from_secs(3600))
+			.map(|(id, _)| id.clone())
+			.collect();
+
+		for volume_id in stale_watchers {
+			self.unwatch_volume(&volume_id).await?;
+		}
+
+		Ok(())
+	}
 }
+
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
+// 	use tempfile::tempdir;
+
+// 	#[tokio::test]
+// 	async fn test_volume_management() {
+// 		let node = Arc::new(Node::default());
+// 		let options = VolumeOptions::default();
+// 		let mut state = VolumeManagerState::new(node, options).await.unwrap();
+
+// 		// Test volume scanning
+// 		state.scan_volumes().await.unwrap();
+// 		assert!(
+// 			!state.volumes.is_empty(),
+// 			"Should detect at least one volume"
+// 		);
+
+// 		// Test volume watching
+// 		if let Some((volume_id, _)) = state.volumes.iter().next() {
+// 			state.watch_volume(volume_id.clone()).await.unwrap();
+// 			assert!(state.watchers.contains_key(volume_id));
+
+// 			// Test watcher pausing
+// 			state.pause_watcher(volume_id).await.unwrap();
+// 			assert!(state.watchers.get(volume_id).unwrap().paused);
+
+// 			// Test watcher resuming
+// 			state.resume_watcher(volume_id).await.unwrap();
+// 			assert!(!state.watchers.get(volume_id).unwrap().paused);
+
+// 			// Test unwatching
+// 			state.unwatch_volume(volume_id).await.unwrap();
+// 			assert!(!state.watchers.contains_key(volume_id));
+// 		}
+// 	}
+// }

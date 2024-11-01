@@ -5,7 +5,6 @@ use crate::{
 	object::tag,
 	p2p,
 	util::{mpscrr, MaybeUndefined},
-	volume::manager::VolumeManager,
 	Node,
 };
 
@@ -144,18 +143,6 @@ impl Libraries {
 				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, None, true, node)
 					.await?;
-
-				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
-				#[cfg(not(target_os = "linux"))]
-				{
-					use crate::volume::{manager::VolumeManager, watcher::spawn_volume_watcher};
-					let manager = Arc::new(VolumeManager::new(_library_arc.clone()).await.unwrap()); // TODO: Handle error
-					spawn_volume_watcher(manager.clone());
-				}
-
-				// Initialize volume manager
-				let _ = VolumeManager::new(_library_arc.clone()).await;
 			}
 		}
 
