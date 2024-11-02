@@ -8372,9 +8372,9 @@ dependencies = [
 
 [[package]]
 name = "quic-rpc"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77b3ae032988c83ac7ce072be3c2605e90671e8830a34d6ebf24095add68b4d5"
+checksum = "7b0ea1bd0b3124538bb71ed8cedbe92608fd1cf227e4f5ff53fb28746737b794"
 dependencies = [
  "anyhow",
  "bincode 1.3.3",
@@ -9550,7 +9550,7 @@ dependencies = [
 [[package]]
 name = "sd-cloud-schema"
 version = "0.1.0"
-source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=bbc69c5cb2#bbc69c5cb294ab19d18e640995eefd4a5201afb2"
+source = "git+https://github.com/spacedriveapp/cloud-services-schema?rev=99d59e8fab#99d59e8fab398d065f1b2d3fd393f8fac4619062"
 dependencies = [
  "argon2",
  "async-stream",

@@ -1,4 +1,4 @@
-use sd_cloud_schema::{cloud_p2p, sync::groups, Service};
+use sd_cloud_schema::{cloud_p2p, sync::groups, Request, Response};
 use sd_utils::error::FileIOError;
 
 use std::{io, net::AddrParseError};
@@ -68,7 +68,9 @@ pub enum Error {
 	#[error("Failed to connect to Cloud P2P node: {0}")]
 	ConnectToCloudP2PNode(anyhow::Error),
 	#[error("Communication error with Cloud P2P node: {0}")]
-	CloudP2PRpcCommunication(#[from] rpc::Error<QuinnConnection<cloud_p2p::Service>>),
+	CloudP2PRpcCommunication(
+		#[from] rpc::Error<QuinnConnection<cloud_p2p::Response, cloud_p2p::Request>>,
+	),
 	#[error("Cloud P2P not initialized")]
 	CloudP2PNotInitialized,
 	#[error("Failed to initialize LocalSwarmDiscovery: {0}")]
@@ -78,15 +80,15 @@ pub enum Error {
 
 	// Communication errors
 	#[error("Failed to communicate with RPC backend: {0}")]
-	RpcCommunication(#[from] rpc::Error<QuinnConnection<Service>>),
+	RpcCommunication(#[from] rpc::Error<QuinnConnection<Response, Request>>),
 	#[error("Failed to communicate with Server Streaming RPC backend: {0}")]
-	ServerStreamCommunication(#[from] server_streaming::Error<QuinnConnection<Service>>),
+	ServerStreamCommunication(#[from] server_streaming::Error<QuinnConnection<Response, Request>>),
 	#[error("Failed to receive next response from Server Streaming RPC backend: {0}")]
-	ServerStreamRecv(#[from] server_streaming::ItemError<QuinnConnection<Service>>),
+	ServerStreamRecv(#[from] server_streaming::ItemError<QuinnConnection<Response, Request>>),
 	#[error("Failed to communicate with Bidi Streaming RPC backend: {0}")]
-	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnection<Service>>),
+	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnection<Response, Request>>),
 	#[error("Failed to receive next response from Bidi Streaming RPC backend: {0}")]
-	BidiStreamRecv(#[from] bidi_streaming::ItemError<QuinnConnection<Service>>),
+	BidiStreamRecv(#[from] bidi_streaming::ItemError<QuinnConnection<Response, Request>>),
 	#[error("Error from backend: {0}")]
 	Backend(#[from] sd_cloud_schema::Error),
 	#[error("Failed to get access token from refresher: {0}")]
