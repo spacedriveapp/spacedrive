@@ -67,55 +67,27 @@ impl VolumeWatcher {
 					last_check = Instant::now();
 
 					match super::os::get_volumes().await {
-						Ok(current_volumes) => {
-							let actor_state_volumes = actor.lock().await.get_volumes().await;
-
-							debug!("actor_state_volumes: {:?}", actor_state_volumes);
-							// Need device_id for fingerprinting
-							let device_id = device_pub_id.clone(); // We'll need to pass this through from the actor
+						Ok(discovered_volumes) => {
+							let actor = actor.lock().await;
+							let device_id = device_pub_id.clone();
 
 							// Find new volumes
-							for volume in &current_volumes {
+							for volume in &discovered_volumes {
 								let fingerprint = volume.generate_fingerprint(device_id.clone());
 
-								if !actor_state_volumes.iter().any(|v: &Volume| {
-									v.generate_fingerprint(device_id.clone()) == fingerprint
-								}) {
-									debug!(
-										"New volume detected: {} (fingerprint: {})",
-										volume.name,
-										hex::encode(&fingerprint)
-									);
+								let volume_exists = actor.volume_exists(fingerprint.clone()).await;
+								// if the volume doesn't exist in the actor state, we need to send an event
+								if !volume_exists {
 									let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
-								} else if let Some(old_volume) =
-									actor_state_volumes.iter().find(|v| {
-										v.generate_fingerprint(device_id.clone()) == fingerprint
-									}) {
-									if old_volume != volume {
-										debug!(
-											"Volume updated: {} (fingerprint: {})",
-											volume.name,
-											hex::encode(&fingerprint)
-										);
-										let _ = event_tx.send(VolumeEvent::VolumeUpdated {
-											old: old_volume.clone(),
-											new: volume.clone(),
-										});
-									}
 								}
 							}
 
-							// Find removed volumes
-							for volume in &actor_state_volumes {
+							// Find removed volumes and send an event
+							for volume in &actor.get_volumes().await {
 								let fingerprint = volume.generate_fingerprint(device_id.clone());
-								if !current_volumes.iter().any(|v| {
+								if !discovered_volumes.iter().any(|v| {
 									v.generate_fingerprint(device_id.clone()) == fingerprint
 								}) {
-									debug!(
-										"Volume removed: {} (fingerprint: {})",
-										volume.name,
-										hex::encode(&fingerprint)
-									);
 									let _ =
 										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
 								}

@@ -15,7 +15,7 @@ use uuid::Uuid;
 /// Manages the state of all volumes
 #[derive(Debug)]
 pub struct VolumeManagerState {
-	/// All tracked volumes
+	/// All tracked volumes by fingerprint
 	pub volumes: HashMap<Vec<u8>, Volume>,
 	/// Volume manager options
 	pub options: VolumeOptions,
@@ -51,45 +51,12 @@ impl VolumeManagerState {
 		let mut new_state = HashMap::new(); // New state to build with detected volumes
 
 		// Process each detected volume
-		for mut volume in detected_volumes {
+		for volume in detected_volumes {
 			// Generate a unique fingerprint to identify the volume
 			let fingerprint = volume.generate_fingerprint(device_pub_id.clone());
 
-			// Check if this volume is already tracked in the current volumes
-			if let Some(existing) = current_volumes.values().find(|existing| {
-				existing.generate_fingerprint(device_pub_id.clone()) == fingerprint
-			}) {
-				// Compare current and detected volume properties
-				if existing == &volume {
-					// If nothing has changed, just add to the new state and skip VolumeAdded
-					new_state.insert(existing.pub_id.clone().unwrap(), existing.clone());
-					continue;
-				} else {
-					// If properties have changed, update with the new properties and emit an update event
-					self.emit_event(VolumeEvent::VolumeUpdated {
-						old: existing.clone(),
-						new: volume.clone(),
-					})
-					.await;
-				}
-			} else {
-				// If the volume is genuinely new, assign an ID and emit a VolumeAdded event
-				let volume_id = Uuid::now_v7().as_bytes().to_vec();
-				volume.pub_id = Some(volume_id.clone());
-				self.emit_event(VolumeEvent::VolumeAdded(volume.clone()))
-					.await;
-			}
-
 			// Insert volume into new state (whether new or updated)
-			new_state.insert(volume.pub_id.clone().unwrap(), volume);
-		}
-
-		// Identify and handle removed volumes
-		for (id, volume) in &current_volumes {
-			if !new_state.contains_key(id) {
-				self.emit_event(VolumeEvent::VolumeRemoved(volume.clone()))
-					.await;
-			}
+			new_state.insert(fingerprint, volume);
 		}
 
 		// Update the volume manager's state with the new volume list
@@ -121,20 +88,20 @@ impl VolumeManagerState {
 
 	/// Updates a volume's information
 	#[instrument(skip(self, volume))]
-	pub async fn update_volume(&mut self, volume: Volume) -> Result<(), VolumeError> {
-		let volume_id = volume
-			.pub_id
-			.as_ref()
-			.ok_or(VolumeError::NotInDatabase)?
-			.clone();
+	pub async fn update_volume(
+		&mut self,
+		volume: Volume,
+		current_device_pub_id: Vec<u8>,
+	) -> Result<(), VolumeError> {
+		let fingerprint = volume.generate_fingerprint(current_device_pub_id);
 
-		if let Some(old_volume) = self.volumes.get(&volume_id) {
+		if let Some(old_volume) = self.volumes.get(&fingerprint) {
 			if old_volume != &volume {
 				// Convert immutable borrow of `self.volumes` into owned data
 				let old_volume_cloned = old_volume.clone();
 
 				// Update in memory
-				self.volumes.insert(volume_id, volume.clone());
+				self.volumes.insert(fingerprint, volume.clone());
 
 				// Emit event
 				self.emit_event(VolumeEvent::VolumeUpdated {
