@@ -7,8 +7,8 @@ use sd_prisma::prisma::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
-use std::path::Path;
 use std::path::PathBuf;
+use std::{path::Path, sync::Arc};
 use strum_macros::Display;
 use uuid::Uuid;
 
@@ -79,14 +79,22 @@ pub struct Volume {
 	pub total_bytes_available: u64,
 }
 
+// We can use this to see if a volume has changed
 impl PartialEq for Volume {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name
             && self.disk_type == other.disk_type
             && self.file_system == other.file_system
-            // Check if any mount points overlap
-            && (self.mount_points.iter().any(|mp| other.mount_points.contains(mp))
-                || other.mount_points.iter().any(|mp| self.mount_points.contains(mp)))
+			&& self.mount_type == other.mount_type
+			&& self.mount_point == other.mount_point
+			// Check if any mount points overlap
+			&& (self.mount_points.iter().any(|mp| other.mount_points.contains(mp))
+			|| other.mount_points.iter().any(|mp| self.mount_points.contains(mp)))
+			&& self.is_mounted == other.is_mounted
+			&& self.read_only == other.read_only
+			&& self.error_status == other.error_status
+			&& self.total_bytes_capacity == other.total_bytes_capacity
+			&& self.total_bytes_available == other.total_bytes_available
 	}
 }
 
@@ -245,7 +253,7 @@ impl Volume {
 	/// Creates a new volume record in the database
 	pub async fn create(
 		&self,
-		db: &PrismaClient,
+		db: &Arc<PrismaClient>,
 		device_pub_id: Vec<u8>,
 	) -> Result<(), VolumeError> {
 		let pub_id = Uuid::now_v7().as_bytes().to_vec();

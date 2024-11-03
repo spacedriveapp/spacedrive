@@ -47,7 +47,6 @@ impl VolumeManagerState {
 		let detected_volumes = super::os::get_volumes().await?;
 		debug!("Found {} volumes during scan", detected_volumes.len());
 
-		let current_volumes = self.volumes.clone(); // Copy of current state
 		let mut new_state = HashMap::new(); // New state to build with detected volumes
 
 		// Process each detected volume
