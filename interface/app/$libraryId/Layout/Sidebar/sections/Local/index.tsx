@@ -66,6 +66,7 @@ export default function LocalSection() {
 	const volumeEvents = useLibrarySubscription(['volumes.events'], {
 		onData: (data) => {
 			console.log('Volume event received:', data);
+			volumesQuery.refetch();
 		}
 	});
 

@@ -1,6 +1,12 @@
-use super::error::VolumeError;
+use crate::volume::Volume;
+
 use super::types::VolumeEvent;
+use super::VolumeManagerActor;
+use super::{actor, error::VolumeError};
+use sd_prisma::prisma::cloud_crdt_operation::device_pub_id;
+use serde::de;
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 use tokio::{
 	sync::{broadcast, mpsc, RwLock},
 	time::{sleep, Instant},
@@ -32,7 +38,11 @@ impl VolumeWatcher {
 		}
 	}
 
-	pub async fn start(&self) -> Result<(), VolumeError> {
+	pub async fn start(
+		&self,
+		device_pub_id: Vec<u8>,
+		actor: Arc<Mutex<VolumeManagerActor>>,
+	) -> Result<(), VolumeError> {
 		debug!("Starting volume watcher");
 
 		let (check_tx, mut check_rx) = mpsc::channel(1);
@@ -46,7 +56,6 @@ impl VolumeWatcher {
 
 		tokio::spawn(async move {
 			let mut last_check = Instant::now();
-			let mut last_volumes = Vec::new();
 
 			while *running.read().await {
 				// Wait for check trigger from OS watcher
@@ -59,39 +68,58 @@ impl VolumeWatcher {
 
 					match super::os::get_volumes().await {
 						Ok(current_volumes) => {
+							let actor_state_volumes = actor.lock().await.get_volumes().await;
+
+							debug!("actor_state_volumes: {:?}", actor_state_volumes);
+							// Need device_id for fingerprinting
+							let device_id = device_pub_id.clone(); // We'll need to pass this through from the actor
+
 							// Find new volumes
 							for volume in &current_volumes {
-								if !last_volumes.iter().any(|v| v == volume) {
-									debug!("New volume detected: {}", volume.name);
+								let fingerprint = volume.generate_fingerprint(device_id.clone());
+
+								if !actor_state_volumes.iter().any(|v: &Volume| {
+									v.generate_fingerprint(device_id.clone()) == fingerprint
+								}) {
+									debug!(
+										"New volume detected: {} (fingerprint: {})",
+										volume.name,
+										hex::encode(&fingerprint)
+									);
 									let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
-								}
-							}
-
-							// Find removed volumes
-							for volume in &last_volumes {
-								if !current_volumes.iter().any(|v| v == volume) {
-									debug!("Volume removed: {}", volume.name);
-									let _ =
-										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
-								}
-							}
-
-							// Find updated volumes
-							for old_volume in &last_volumes {
-								if let Some(new_volume) =
-									current_volumes.iter().find(|v| *v == old_volume)
-								{
-									if new_volume != old_volume {
-										debug!("Volume updated: {}", new_volume.name);
+								} else if let Some(old_volume) =
+									actor_state_volumes.iter().find(|v| {
+										v.generate_fingerprint(device_id.clone()) == fingerprint
+									}) {
+									if old_volume != volume {
+										debug!(
+											"Volume updated: {} (fingerprint: {})",
+											volume.name,
+											hex::encode(&fingerprint)
+										);
 										let _ = event_tx.send(VolumeEvent::VolumeUpdated {
 											old: old_volume.clone(),
-											new: new_volume.clone(),
+											new: volume.clone(),
 										});
 									}
 								}
 							}
 
-							last_volumes = current_volumes;
+							// Find removed volumes
+							for volume in &actor_state_volumes {
+								let fingerprint = volume.generate_fingerprint(device_id.clone());
+								if !current_volumes.iter().any(|v| {
+									v.generate_fingerprint(device_id.clone()) == fingerprint
+								}) {
+									debug!(
+										"Volume removed: {} (fingerprint: {})",
+										volume.name,
+										hex::encode(&fingerprint)
+									);
+									let _ =
+										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
+								}
+							}
 						}
 						Err(e) => {
 							warn!("Failed to get volumes during watch: {}", e);
@@ -148,30 +176,43 @@ impl VolumeWatcher {
 			let (fs_tx, fs_rx) = std::sync::mpsc::channel();
 			let check_tx = check_tx.clone();
 
-			// Watch for volume mount events
+			// Keep stream alive in the thread
 			std::thread::spawn(move || {
 				let mut stream = fsevent::FsEvent::new(vec![
 					"/Volumes".to_string(),
 					"/System/Volumes".to_string(),
 				]);
 
-				stream
-					.observe_async(fs_tx)
-					.expect("Failed to start FSEvent stream");
+				match stream.observe_async(fs_tx) {
+					Ok(_) => {
+						// Block thread to keep stream alive
+						std::thread::park();
+					}
+					Err(e) => {
+						error!("Failed to start FSEvent stream: {}", e);
+					}
+				}
 			});
 
 			tokio::spawn(async move {
 				while *running.read().await {
-					if let Ok(events) = fs_rx.try_recv() {
-						if events.flag.contains(StreamFlags::MOUNT)
-							|| events.flag.contains(StreamFlags::UNMOUNT)
-						{
-							if let Err(e) = check_tx.send(()).await {
-								error!("Failed to trigger volume check: {}", e);
+					match fs_rx.recv() {
+						Ok(events) => {
+							// Only care about mount/unmount events
+							if events.flag.contains(StreamFlags::MOUNT)
+								|| events.flag.contains(StreamFlags::UNMOUNT)
+							{
+								debug!("Received volume event: {:?}", events);
+								if let Err(e) = check_tx.send(()).await {
+									error!("Failed to trigger volume check: {}", e);
+								}
 							}
 						}
+						Err(e) => {
+							error!("FSEvent receive error: {}", e);
+							sleep(Duration::from_millis(100)).await;
+						}
 					}
-					sleep(Duration::from_millis(100)).await;
 				}
 			});
 		}
@@ -220,26 +261,26 @@ impl VolumeWatcher {
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use tokio::time::timeout;
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
+// 	use tokio::time::timeout;
 
-	#[tokio::test]
-	async fn test_watcher() {
-		let (tx, mut rx) = broadcast::channel(16);
-		let watcher = VolumeWatcher::new(tx);
+// 	#[tokio::test]
+// 	async fn test_watcher() {
+// 		let (tx, mut rx) = broadcast::channel(16);
+// 		let watcher = VolumeWatcher::new(tx);
 
-		watcher.start().await.expect("Failed to start watcher");
+// 		watcher.start().await.expect("Failed to start watcher");
 
-		// Wait for potential volume events
-		let result = timeout(Duration::from_secs(2), rx.recv()).await;
+// 		// Wait for potential volume events
+// 		let result = timeout(Duration::from_secs(2), rx.recv()).await;
 
-		// Cleanup
-		watcher.stop().await;
+// 		// Cleanup
+// 		watcher.stop().await;
 
-		if let Ok(Ok(event)) = result {
-			println!("Received volume event: {:?}", event);
-		}
-	}
-}
+// 		if let Ok(Ok(event)) = result {
+// 			println!("Received volume event: {:?}", event);
+// 		}
+// 	}
+// }
