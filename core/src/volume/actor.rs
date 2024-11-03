@@ -121,7 +121,13 @@ impl VolumeManagerActor {
 							.volumes
 							.remove(&volume.generate_fingerprint(current_device_pub_id.clone()));
 					}
-					VolumeEvent::VolumeUpdated { old, new } => todo!(),
+					VolumeEvent::VolumeUpdated { old: _, new } => {
+						self.state
+							.write()
+							.await
+							.volumes
+							.insert(new.generate_fingerprint(current_device_pub_id.clone()), new);
+					}
 					VolumeEvent::VolumeSpeedTested {
 						id,
 						read_speed,
@@ -142,8 +148,24 @@ impl VolumeManagerActor {
 							.unwrap()
 							.write_speed_mbps = Some(write_speed);
 					}
-					VolumeEvent::VolumeMountChanged { id, is_mounted } => todo!(),
-					VolumeEvent::VolumeError { id, error } => todo!(),
+					VolumeEvent::VolumeMountChanged { id, is_mounted } => {
+						self.state
+							.write()
+							.await
+							.volumes
+							.get_mut(&id)
+							.unwrap()
+							.is_mounted = is_mounted;
+					}
+					VolumeEvent::VolumeError { id, error } => {
+						self.state
+							.write()
+							.await
+							.volumes
+							.get_mut(&id)
+							.unwrap()
+							.error_status = Some(error);
+					}
 				}
 			}
 			warn!("Volume event monitoring ended");
@@ -519,12 +541,6 @@ impl VolumeManagerActor {
 
 		// Call the platform-specific unmount function
 		super::os::unmount_volume(&volume.mount_point).await?;
-
-		// If unmount succeeded, update our state
-		let mut state = self.state.write().await;
-		if let Some(vol) = state.volumes.get_mut(&volume_fingerprint) {
-			vol.is_mounted = false;
-		}
 
 		// Emit unmount event
 		if let Some(pub_id) = volume.pub_id {
