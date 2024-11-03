@@ -35,9 +35,12 @@ impl Volumes {
 	}
 
 	/// Lists all volumes, tracked and not tracked on the system
-	pub async fn list_system_volumes(&self) -> Result<Vec<Volume>, VolumeError> {
+	pub async fn list_system_volumes(
+		&self,
+		library: Arc<Library>,
+	) -> Result<Vec<Volume>, VolumeError> {
 		let (tx, rx) = oneshot::channel();
-		let msg = VolumeManagerMessage::ListSystemVolumes { ack: tx };
+		let msg = VolumeManagerMessage::ListSystemVolumes { ack: tx, library };
 
 		self.message_tx
 			.send(msg)
@@ -67,12 +70,12 @@ impl Volumes {
 	#[instrument(skip(self))]
 	pub async fn track_volume(
 		&self,
-		volume_id: Vec<u8>,
+		volume_fingerprint: Vec<u8>,
 		library: Arc<Library>,
 	) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::TrackVolume {
-			volume_id,
+			volume_fingerprint,
 			library,
 			ack: tx,
 		};
@@ -89,12 +92,12 @@ impl Volumes {
 	#[instrument(skip(self))]
 	pub async fn untrack_volume(
 		&self,
-		volume_id: Vec<u8>,
+		volume_fingerprint: Vec<u8>,
 		library: Arc<Library>,
 	) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::UntrackVolume {
-			volume_id,
+			volume_fingerprint,
 			library,
 			ack: tx,
 		};
@@ -107,9 +110,12 @@ impl Volumes {
 		rx.await.map_err(|_| VolumeError::Cancelled)?
 	}
 
-	pub async fn unmount_volume(&self, volume_id: Vec<u8>) -> Result<(), VolumeError> {
+	pub async fn unmount_volume(&self, volume_fingerprint: Vec<u8>) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
-		let msg = VolumeManagerMessage::UnmountVolume { volume_id, ack: tx };
+		let msg = VolumeManagerMessage::UnmountVolume {
+			volume_fingerprint,
+			ack: tx,
+		};
 
 		self.message_tx
 			.send(msg)

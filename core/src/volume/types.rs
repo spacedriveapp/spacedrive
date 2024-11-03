@@ -1,7 +1,7 @@
 use super::error::VolumeError;
 use sd_prisma::prisma::{
 	device,
-	volume::{self, read_only},
+	volume::{self},
 	PrismaClient,
 };
 use serde::{Deserialize, Serialize};
@@ -39,10 +39,11 @@ pub enum VolumeEvent {
 pub struct Volume {
 	/// Database ID (None if not yet committed to database)
 	pub id: Option<i32>,
-	/// Unique public identifier (None if not yet committed)
+	/// Unique public identifier
 	pub pub_id: Option<Vec<u8>>,
 	/// Database ID of the device this volume is attached to, if any
 	pub device_id: Option<i32>,
+
 	/// Human-readable volume name
 	pub name: String,
 	/// Type of mount (system, external, etc)
@@ -77,6 +78,9 @@ pub struct Volume {
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub total_bytes_available: u64,
+	/// Fingerprint of the volume, not persisted to the database
+	/// Compute using `generate_fingerprint` method at query time
+	pub fingerprint: Option<Vec<u8>>,
 }
 
 // We can use this to see if a volume has changed
@@ -137,6 +141,7 @@ impl From<volume::Data> for Volume {
 				.unwrap_or(0),
 			read_speed_mbps: vol.read_speed_mbps.map(|s| s as u64),
 			write_speed_mbps: vol.write_speed_mbps.map(|s| s as u64),
+			fingerprint: None,
 		}
 	}
 }
@@ -171,6 +176,7 @@ impl Volume {
 			write_speed_mbps: None,
 			total_bytes_capacity,
 			total_bytes_available,
+			fingerprint: None,
 		}
 	}
 	/// Generate a unique fingerprint for a volume that will be consistent across detections
@@ -228,6 +234,7 @@ impl Volume {
 			file_system: system_volume.file_system.clone(),
 			mount_type: system_volume.mount_type.clone(),
 			is_mounted: system_volume.is_mounted,
+			fingerprint: system_volume.fingerprint.clone(),
 
 			// Keep database-tracked properties and metadata
 			id: db_volume.id,
