@@ -18,12 +18,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"list",
 			R.query(|node, _: ()| async move {
-				tracing::debug!("Handling volumes list request");
 				match node.volumes.list_system_volumes().await {
-					Ok(volumes) => {
-						tracing::debug!("Returning {} volumes", volumes.len());
-						Ok(volumes)
-					}
+					Ok(volumes) => Ok(volumes),
 					Err(e) => {
 						tracing::error!("Error listing volumes: {:?}", e);
 						Err(e.into())

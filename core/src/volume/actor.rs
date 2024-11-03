@@ -85,27 +85,36 @@ impl VolumeManagerActor {
 		};
 
 		// Pass event_rx to start monitoring task immediately
-		actor.clone().start_event_monitoring(event_rx);
+		actor
+			.clone()
+			.start_event_monitoring(event_rx, actor.ctx.device_id.clone());
 
 		Ok((manager, actor))
 	}
 
-	fn start_event_monitoring(self, mut event_rx: broadcast::Receiver<VolumeEvent>) {
+	fn start_event_monitoring(
+		self,
+		mut event_rx: broadcast::Receiver<VolumeEvent>,
+		current_device_pub_id: Vec<u8>,
+	) {
 		tokio::spawn(async move {
 			debug!("Starting volume event monitoring");
 			while let Ok(event) = event_rx.recv().await {
 				debug!("Volume event received: {:?}", event);
 
 				match event {
-					VolumeEvent::VolumeAdded(mut volume) => {
-						if let Some(pub_id) = volume.pub_id.take() {
-							self.state.write().await.volumes.insert(pub_id, volume);
-						}
+					VolumeEvent::VolumeAdded(volume) => {
+						self.state.write().await.volumes.insert(
+							volume.generate_fingerprint(current_device_pub_id.clone()),
+							volume,
+						);
 					}
-					VolumeEvent::VolumeRemoved(mut volume) => {
-						if let Some(pub_id) = volume.pub_id.take() {
-							self.state.write().await.volumes.remove(&pub_id);
-						}
+					VolumeEvent::VolumeRemoved(volume) => {
+						self.state
+							.write()
+							.await
+							.volumes
+							.remove(&volume.generate_fingerprint(current_device_pub_id.clone()));
 					}
 					VolumeEvent::VolumeUpdated { old, new } => todo!(),
 					VolumeEvent::VolumeSpeedTested {
@@ -317,11 +326,7 @@ impl VolumeManagerActor {
 		trace!("VolumeManagerActor received message: {:?}", msg);
 		match msg {
 			VolumeManagerMessage::ListSystemVolumes { ack } => {
-				tracing::info!("Handling ListSystemVolumes request");
 				let result = self.handle_list_system_volumes().await;
-				if let Ok(volumes) = &result {
-					tracing::info!("Found {} volumes to return", volumes.len());
-				}
 				let _ = ack.send(result);
 			}
 			VolumeManagerMessage::ListLibraryVolumes { library, ack } => {
@@ -351,7 +356,7 @@ impl VolumeManagerActor {
 	/// Lists all volumes currently mounted on the system
 	async fn handle_list_system_volumes(&self) -> Result<Vec<Volume>, VolumeError> {
 		tracing::info!(
-			"Found {} system volumes",
+			"Currently {} volumes present in the system",
 			self.state.read().await.volumes.len()
 		);
 		// Return volumes from state instead of rescanning
@@ -360,6 +365,10 @@ impl VolumeManagerActor {
 
 	pub async fn get_volumes(&self) -> Vec<Volume> {
 		self.state.read().await.volumes.values().cloned().collect()
+	}
+
+	pub async fn volume_exists(&self, fingerprint: Vec<u8>) -> bool {
+		self.state.read().await.volumes.contains_key(&fingerprint)
 	}
 
 	async fn handle_list_library_volumes(

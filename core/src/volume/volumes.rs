@@ -36,7 +36,6 @@ impl Volumes {
 
 	/// Lists all volumes, tracked and not tracked on the system
 	pub async fn list_system_volumes(&self) -> Result<Vec<Volume>, VolumeError> {
-		tracing::debug!("Requesting system volumes list");
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::ListSystemVolumes { ack: tx };
 
