@@ -10,6 +10,14 @@ pub use self::macos::get_volumes;
 #[cfg(target_os = "windows")]
 pub use self::windows::get_volumes;
 
+// Re-export platform-specific unmount_volume function
+#[cfg(target_os = "linux")]
+pub use self::linux::unmount_volume;
+#[cfg(target_os = "macos")]
+pub use self::macos::unmount_volume;
+#[cfg(target_os = "windows")]
+pub use self::windows::unmount_volume;
+
 /// Common utilities for volume detection across platforms
 mod common {
 	pub fn parse_size(size_str: &str) -> u64 {
@@ -135,6 +143,43 @@ pub mod macos {
 			.map(|line| line.contains("read-only"))
 			.unwrap_or(false))
 	}
+	pub async fn unmount_volume(path: &std::path::Path) -> Result<(), VolumeError> {
+		use std::process::Command;
+		use tokio::process::Command as TokioCommand;
+
+		// First try diskutil
+		let result = TokioCommand::new("diskutil")
+			.arg("unmount")
+			.arg(path)
+			.output()
+			.await;
+
+		match result {
+			Ok(output) => {
+				if output.status.success() {
+					return Ok(());
+				}
+				// If diskutil fails, try umount as fallback
+				let fallback = Command::new("umount")
+					.arg(path)
+					.output()
+					.map_err(|e| VolumeError::Platform(format!("Unmount failed: {}", e)))?;
+
+				if fallback.status.success() {
+					Ok(())
+				} else {
+					Err(VolumeError::Platform(format!(
+						"Failed to unmount volume: {}",
+						String::from_utf8_lossy(&fallback.stderr)
+					)))
+				}
+			}
+			Err(e) => Err(VolumeError::Platform(format!(
+				"Failed to execute unmount command: {}",
+				e
+			))),
+		}
+	}
 }
 
 #[cfg(target_os = "linux")]
@@ -208,6 +253,52 @@ pub mod linux {
 			disk.total_space(),
 			disk.available_space(),
 		))
+	}
+	pub async fn unmount_volume(path: &std::path::Path) -> Result<(), VolumeError> {
+		use tokio::process::Command;
+
+		// Try umount first
+		let result = Command::new("umount")
+			.arg(path)
+			.output()
+			.await
+			.map_err(|e| VolumeError::Platform(format!("Unmount failed: {}", e)))?;
+
+		if result.status.success() {
+			Ok(())
+		} else {
+			// If regular unmount fails, try with force option
+			let force_result = Command::new("umount")
+				.arg("-f") // Force unmount
+				.arg(path)
+				.output()
+				.await
+				.map_err(|e| VolumeError::Platform(format!("Force unmount failed: {}", e)))?;
+
+			if force_result.status.success() {
+				Ok(())
+			} else {
+				// If both attempts fail, try udisksctl as a last resort
+				let udisks_result = Command::new("udisksctl")
+					.arg("unmount")
+					.arg("-b")
+					.arg(path)
+					.output()
+					.await
+					.map_err(|e| {
+						VolumeError::Platform(format!("udisksctl unmount failed: {}", e))
+					})?;
+
+				if udisks_result.status.success() {
+					Ok(())
+				} else {
+					Err(VolumeError::Platform(format!(
+						"All unmount attempts failed: {}",
+						String::from_utf8_lossy(&udisks_result.stderr)
+					)))
+				}
+			}
+		}
 	}
 }
 #[cfg(target_os = "windows")]
@@ -336,5 +427,45 @@ pub mod windows {
 		// For brevity, returning Unknown, but you could implement the full detection
 		// using IOCTL_STORAGE_QUERY_PROPERTY
 		DiskType::Unknown
+	}
+	pub async fn unmount_volume(path: &std::path::Path) -> Result<(), VolumeError> {
+		use std::ffi::OsStr;
+		use std::os::windows::ffi::OsStrExt;
+		use windows::core::PWSTR;
+		use windows::Win32::Storage::FileSystem::{
+			DeleteVolumeMountPointW, GetVolumeNameForVolumeMountPointW,
+		};
+
+		// Convert path to wide string for Windows API
+		let wide_path: Vec<u16> = OsStr::new(path)
+			.encode_wide()
+			.chain(std::iter::once(0))
+			.collect();
+
+		unsafe {
+			// Buffer for volume name
+			let mut volume_name = [0u16; 50];
+			let mut volume_name_ptr = PWSTR(volume_name.as_mut_ptr());
+
+			// Get the volume name for the mount point
+			let result = GetVolumeNameForVolumeMountPointW(wide_path.as_ptr(), volume_name_ptr);
+
+			if !result.as_bool() {
+				return Err(VolumeError::Platform(
+					"Failed to get volume name".to_string(),
+				));
+			}
+
+			// Delete the mount point
+			let result = DeleteVolumeMountPointW(wide_path.as_ptr());
+
+			if result.as_bool() {
+				Ok(())
+			} else {
+				Err(VolumeError::Platform(
+					"Failed to unmount volume".to_string(),
+				))
+			}
+		}
 	}
 }

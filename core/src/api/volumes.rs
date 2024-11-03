@@ -59,9 +59,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"unmount",
 			R.with2(library())
-				.mutation(|(node, _), volume_id: Vec<u8>| async move {
+				.mutation(|(node, _), fingerprint: Vec<u8>| async move {
 					node.volumes
-						.unmount_volume(volume_id)
+						.unmount_volume(fingerprint)
 						.await
 						.map_err(Into::into)
 				}),

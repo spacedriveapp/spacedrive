@@ -24,7 +24,13 @@ import { SeeMore } from '../../SidebarLayout/SeeMore';
 const Name = tw.span`truncate`;
 
 // Improved eject button that actually unmounts the volume
-const EjectButton = ({ volumeId, className }: { volumeId: Uint8Array; className?: string }) => {
+const EjectButton = ({
+	fingerprint,
+	className
+}: {
+	fingerprint: Uint8Array;
+	className?: string;
+}) => {
 	const unmountMutation = useLibraryMutation('volumes.unmount');
 
 	return (
@@ -34,9 +40,7 @@ const EjectButton = ({ volumeId, className }: { volumeId: Uint8Array; className?
 			onClick={async (e: MouseEvent) => {
 				e.preventDefault(); // Prevent navigation
 				try {
-					await unmountMutation.mutateAsync({
-						fingerprint: Array.from(volumeId) // Convert Uint8Array to number[]
-					});
+					await unmountMutation.mutateAsync(Array.from(fingerprint));
 					toast.success('Volume ejected successfully');
 				} catch (error) {
 					toast.error('Failed to eject volume');
@@ -164,8 +168,8 @@ export default function LocalSection() {
 						>
 							<SidebarIcon name={getVolumeIcon(volume)} />
 							<Name>{displayName}</Name>
-							{volume.mount_type === 'External' && volume.pub_id && (
-								<EjectButton volumeId={new Uint8Array(volume.pub_id)} />
+							{volume.mount_type === 'External' && volume.fingerprint && (
+								<EjectButton fingerprint={new Uint8Array(volume.fingerprint)} />
 							)}
 						</EphemeralLocation>
 					);
