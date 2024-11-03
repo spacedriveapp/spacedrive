@@ -1,16 +1,14 @@
 use super::error::VolumeError;
 use super::types::VolumeEvent;
-use crate::volume::{DiskType, FileSystem, MountType};
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{
 	sync::{broadcast, mpsc, RwLock},
 	time::{sleep, Instant},
 };
-use tracing::error;
+use tracing::{debug, error, warn};
 
 const DEBOUNCE_MS: u64 = 100;
 
-/// State of a volume watcher
 #[derive(Debug)]
 pub struct WatcherState {
 	pub watcher: Arc<VolumeWatcher>,
@@ -35,51 +33,181 @@ impl VolumeWatcher {
 	}
 
 	pub async fn start(&self) -> Result<(), VolumeError> {
-		let (platform_tx, mut platform_rx) = mpsc::unbounded_channel();
+		debug!("Starting volume watcher");
 
-		// Start platform-specific watcher
-		self.spawn_platform_watcher(platform_tx).await?;
+		let (check_tx, mut check_rx) = mpsc::channel(1);
 
+		// Start OS-specific watcher
+		self.spawn_platform_watcher(check_tx.clone()).await?;
+
+		// Handle volume checks when triggered by OS events
 		let event_tx = self.event_tx.clone();
-		let ignored_paths = self.ignored_paths.clone();
 		let running = self.running.clone();
 
-		// Event processor
 		tokio::spawn(async move {
-			let mut last_event: Option<VolumeEvent> = None;
+			let mut last_check = Instant::now();
+			let mut last_volumes = Vec::new();
 
-			while let Some(event) = platform_rx.recv().await {
-				if !*running.read().await {
-					break;
-				}
-
-				// Skip ignored paths
-				if let Some(path) = event.path() {
-					if ignored_paths.read().await.contains(path) {
+			while *running.read().await {
+				// Wait for check trigger from OS watcher
+				if check_rx.recv().await.is_some() {
+					// Debounce checks
+					if last_check.elapsed() < Duration::from_millis(DEBOUNCE_MS) {
 						continue;
 					}
-				}
+					last_check = Instant::now();
 
-				// Simple debouncing
-				if let Some(last) = &last_event {
-					if last.matches(&event) {
-						sleep(Duration::from_millis(DEBOUNCE_MS)).await;
-						continue;
+					match super::os::get_volumes().await {
+						Ok(current_volumes) => {
+							// Find new volumes
+							for volume in &current_volumes {
+								if !last_volumes.iter().any(|v| v == volume) {
+									debug!("New volume detected: {}", volume.name);
+									let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
+								}
+							}
+
+							// Find removed volumes
+							for volume in &last_volumes {
+								if !current_volumes.iter().any(|v| v == volume) {
+									debug!("Volume removed: {}", volume.name);
+									let _ =
+										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
+								}
+							}
+
+							// Find updated volumes
+							for old_volume in &last_volumes {
+								if let Some(new_volume) =
+									current_volumes.iter().find(|v| *v == old_volume)
+								{
+									if new_volume != old_volume {
+										debug!("Volume updated: {}", new_volume.name);
+										let _ = event_tx.send(VolumeEvent::VolumeUpdated {
+											old: old_volume.clone(),
+											new: new_volume.clone(),
+										});
+									}
+								}
+							}
+
+							last_volumes = current_volumes;
+						}
+						Err(e) => {
+							warn!("Failed to get volumes during watch: {}", e);
+						}
 					}
 				}
-
-				if let Err(e) = event_tx.send(event.clone()) {
-					error!("Failed to send volume event: {}", e);
-				}
-
-				last_event = Some(event);
 			}
 		});
 
 		Ok(())
 	}
 
+	async fn spawn_platform_watcher(&self, check_tx: mpsc::Sender<()>) -> Result<(), VolumeError> {
+		let running = self.running.clone();
+
+		#[cfg(target_os = "linux")]
+		{
+			use inotify::{Inotify, WatchMask};
+
+			let inotify = Inotify::init().map_err(|e| {
+				VolumeError::Platform(format!("Failed to initialize inotify: {}", e))
+			})?;
+
+			// Watch mount points and device changes
+			for path in ["/dev", "/media", "/mnt", "/run/media"] {
+				if let Err(e) = inotify.add_watch(
+					path,
+					WatchMask::CREATE | WatchMask::DELETE | WatchMask::MODIFY | WatchMask::UNMOUNT,
+				) {
+					warn!("Failed to watch path {}: {}", path, e);
+				}
+			}
+
+			let check_tx = check_tx.clone();
+			tokio::spawn(async move {
+				let mut buffer = [0; 4096];
+				while *running.read().await {
+					match inotify.read_events_blocking(&mut buffer) {
+						Ok(_) => {
+							if let Err(e) = check_tx.send(()).await {
+								error!("Failed to trigger volume check: {}", e);
+							}
+						}
+						Err(e) => error!("Inotify error: {}", e),
+					}
+				}
+			});
+		}
+
+		#[cfg(target_os = "macos")]
+		{
+			use fsevent::{self, StreamFlags};
+
+			let (fs_tx, fs_rx) = std::sync::mpsc::channel();
+			let check_tx = check_tx.clone();
+
+			// Watch for volume mount events
+			std::thread::spawn(move || {
+				let mut stream = fsevent::FsEvent::new(vec![
+					"/Volumes".to_string(),
+					"/System/Volumes".to_string(),
+				]);
+
+				stream
+					.observe_async(fs_tx)
+					.expect("Failed to start FSEvent stream");
+			});
+
+			tokio::spawn(async move {
+				while *running.read().await {
+					if let Ok(events) = fs_rx.try_recv() {
+						if events.flag.contains(StreamFlags::MOUNT)
+							|| events.flag.contains(StreamFlags::UNMOUNT)
+						{
+							if let Err(e) = check_tx.send(()).await {
+								error!("Failed to trigger volume check: {}", e);
+							}
+						}
+					}
+					sleep(Duration::from_millis(100)).await;
+				}
+			});
+		}
+
+		#[cfg(target_os = "windows")]
+		{
+			use windows::Win32::Storage::FileSystem::{
+				FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, ReadDirectoryChangesW,
+				FILE_NOTIFY_CHANGE_DIR_NAME,
+			};
+
+			let check_tx = check_tx.clone();
+			tokio::spawn(async move {
+				while *running.read().await {
+					// Watch for volume arrival/removal
+					unsafe {
+						let mut volume_name = [0u16; 260];
+						let handle = FindFirstVolumeW(volume_name.as_mut_ptr());
+						if !handle.is_invalid() {
+							// Volume change detected
+							if let Err(e) = check_tx.send(()).await {
+								error!("Failed to trigger volume check: {}", e);
+							}
+							FindVolumeClose(handle);
+						}
+					}
+					sleep(Duration::from_millis(100)).await;
+				}
+			});
+		}
+
+		Ok(())
+	}
+
 	pub async fn stop(&self) {
+		debug!("Stopping volume watcher");
 		*self.running.write().await = false;
 	}
 
@@ -89,222 +217,6 @@ impl VolumeWatcher {
 
 	pub async fn unignore_path(&self, path: &PathBuf) {
 		self.ignored_paths.write().await.remove(path);
-	}
-
-	async fn spawn_platform_watcher(
-		&self,
-		tx: mpsc::UnboundedSender<VolumeEvent>,
-	) -> Result<(), VolumeError> {
-		#[cfg(target_os = "linux")]
-		return self.spawn_linux_watcher(tx).await;
-
-		#[cfg(target_os = "macos")]
-		return self.spawn_macos_watcher(tx).await;
-
-		#[cfg(target_os = "windows")]
-		return self.spawn_windows_watcher(tx).await;
-	}
-
-	#[cfg(target_os = "linux")]
-	async fn spawn_linux_watcher(
-		&self,
-		tx: mpsc::UnboundedSender<VolumeEvent>,
-	) -> Result<(), VolumeError> {
-		use inotify::{Inotify, WatchMask};
-		use tokio::io::AsyncReadExt;
-
-		let mut inotify = Inotify::init()
-			.map_err(|e| VolumeError::Watcher(format!("Failed to initialize inotify: {}", e)))?;
-
-		// Watch mount points
-		for path in ["/dev", "/media", "/mnt"] {
-			inotify
-				.add_watch(path, WatchMask::CREATE | WatchMask::DELETE)
-				.map_err(|e| {
-					VolumeError::Watcher(format!("Failed to add watch on {}: {}", path, e))
-				})?;
-		}
-
-		let running = self.running.clone();
-
-		tokio::spawn(async move {
-			let mut buffer = [0; 1024];
-			while *running.read().await {
-				match inotify.read_events_blocking(&mut buffer) {
-					Ok(events) => {
-						for event in events {
-							let event_type = if event.mask.contains(inotify::EventMask::CREATE) {
-								VolumeEvent::VolumeAdded
-							} else {
-								VolumeEvent::VolumeRemoved
-							};
-							let _ = tx.send(event_type);
-						}
-					}
-					Err(e) => error!("Inotify error: {}", e),
-				}
-			}
-		});
-
-		Ok(())
-	}
-	#[cfg(target_os = "macos")]
-	async fn spawn_macos_watcher(
-		&self,
-		tx: mpsc::UnboundedSender<VolumeEvent>,
-	) -> Result<(), VolumeError> {
-		use fsevent::{self, StreamFlags};
-
-		use crate::volume::Volume;
-
-		// Create channels for fsevent
-		let (fs_event_tx, fs_event_rx) = std::sync::mpsc::channel();
-
-		// Spawn thread for fsevent
-		std::thread::spawn(move || {
-			let mut stream = fsevent::FsEvent::new(vec!["/Volumes".to_string()]);
-
-			stream.observe_async(fs_event_tx).unwrap();
-			std::thread::sleep(std::time::Duration::from_secs(5));
-			stream.shutdown_observe();
-		});
-
-		// Spawn task to process events
-		let running = self.running.clone();
-		tokio::spawn(async move {
-			while *running.read().await {
-				match fs_event_rx.try_recv() {
-					Ok(event) => {
-						// Get current volumes after event
-						let volumes_result = super::os::get_volumes().await;
-
-						match volumes_result {
-							Ok(current_volumes) => {
-								if event.flag.contains(StreamFlags::MOUNT) {
-									// Small delay to let the OS finish mounting
-									tokio::time::sleep(Duration::from_millis(500)).await;
-
-									// Find newly mounted volume
-									if let Some(volume) = current_volumes.iter().find(|v| {
-										v.mount_point.to_string_lossy().contains(&event.path)
-									}) {
-										let _ = tx.send(VolumeEvent::VolumeAdded(volume.clone()));
-									}
-								} else if event.flag.contains(StreamFlags::UNMOUNT) {
-									// For unmount, we need to synthesize a basic volume since it's already gone
-									let basic_volume = Volume::new(
-										event.path.clone(),
-										MountType::External,
-										PathBuf::from(&event.path),
-										vec![],
-										DiskType::Unknown,
-										FileSystem::Other("unknown".to_string()),
-										0,
-										0,
-										false,
-									);
-									let _ = tx.send(VolumeEvent::VolumeRemoved(basic_volume));
-								}
-							}
-							Err(e) => {
-								error!("Failed to get volumes after event: {}", e);
-								let _ = tx.send(VolumeEvent::VolumeError {
-									id: vec![],
-									error: format!("Failed to get volumes: {}", e),
-								});
-							}
-						}
-					}
-					Err(std::sync::mpsc::TryRecvError::Empty) => {
-						tokio::time::sleep(Duration::from_millis(100)).await;
-					}
-					Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-						error!("FSEvent channel disconnected");
-						break;
-					}
-				}
-			}
-		});
-
-		Ok(())
-	}
-
-	#[cfg(target_os = "windows")]
-	async fn spawn_windows_watcher(
-		&self,
-		tx: mpsc::UnboundedSender<VolumeEvent>,
-	) -> Result<(), VolumeError> {
-		use windows::Win32::Storage::FileSystem::{
-			ReadDirectoryChangesW, FILE_NOTIFY_CHANGE_DIR_NAME,
-		};
-
-		let path = std::ffi::OsString::from("C:\\")
-			.encode_wide()
-			.chain(std::iter::once(0))
-			.collect::<Vec<_>>();
-
-		unsafe {
-			let handle = windows::Win32::Storage::FileSystem::CreateFileW(
-				path.as_ptr(),
-				windows::Win32::Storage::FileSystem::FILE_LIST_DIRECTORY,
-				windows::Win32::Storage::FileSystem::FILE_SHARE_READ
-					| windows::Win32::Storage::FileSystem::FILE_SHARE_WRITE
-					| windows::Win32::Storage::FileSystem::FILE_SHARE_DELETE,
-				std::ptr::null_mut(),
-				windows::Win32::Storage::FileSystem::OPEN_EXISTING,
-				windows::Win32::Storage::FileSystem::FILE_FLAG_BACKUP_SEMANTICS
-					| windows::Win32::Storage::FileSystem::FILE_FLAG_OVERLAPPED,
-				std::ptr::null_mut(),
-			);
-
-			if handle.is_invalid() {
-				return Err(VolumeError::Watcher(
-					"Failed to open directory for watching".into(),
-				));
-			}
-
-			let running = self.running.clone();
-
-			tokio::spawn(async move {
-				let mut buffer = [0u8; 1024];
-
-				while *running.read().await {
-					match ReadDirectoryChangesW(
-						handle,
-						buffer.as_mut_ptr() as *mut _,
-						buffer.len() as u32,
-						true,
-						FILE_NOTIFY_CHANGE_DIR_NAME as u32,
-						std::ptr::null_mut(),
-						std::ptr::null_mut(),
-						None,
-					) {
-						Ok(_) => {
-							let _ = tx.send(VolumeEvent::VolumeAdded);
-						}
-						Err(e) => error!("ReadDirectoryChangesW error: {}", e),
-					}
-				}
-			});
-		}
-
-		Ok(())
-	}
-}
-
-impl VolumeEvent {
-	fn matches(&self, other: &VolumeEvent) -> bool {
-		std::mem::discriminant(self) == std::mem::discriminant(other)
-	}
-
-	fn path(&self) -> Option<&PathBuf> {
-		match self {
-			VolumeEvent::VolumeAdded(vol) | VolumeEvent::VolumeRemoved(vol) => {
-				Some(&vol.mount_point)
-			}
-			VolumeEvent::VolumeUpdated { new, .. } => Some(&new.mount_point),
-			_ => None,
-		}
 	}
 }
 
@@ -320,14 +232,14 @@ mod tests {
 
 		watcher.start().await.expect("Failed to start watcher");
 
-		// Wait for potential events
-		let result = timeout(Duration::from_secs(1), rx.recv()).await;
+		// Wait for potential volume events
+		let result = timeout(Duration::from_secs(2), rx.recv()).await;
 
 		// Cleanup
 		watcher.stop().await;
 
 		if let Ok(Ok(event)) = result {
-			println!("Received event: {:?}", event);
+			println!("Received volume event: {:?}", event);
 		}
 	}
 }
