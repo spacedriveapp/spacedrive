@@ -160,6 +160,7 @@ model Volume {
   device_id Int?
   device    Device? @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
+  @@unique([device_id, mount_point, name, total_bytes_capacity, file_system])
   @@map("volume")
 }
 

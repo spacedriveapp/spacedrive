@@ -11,6 +11,7 @@ use crate::{
 };
 use async_channel as chan;
 use sd_prisma::prisma::volume;
+use serde::de;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::{broadcast, oneshot, Mutex, RwLock};
 use tracing::{debug, error, info, trace, warn};
@@ -273,7 +274,7 @@ impl VolumeManagerActor {
 		let db_volumes = library
 			.db
 			.volume()
-			.find_many(vec![])
+			.find_many(vec![volume::device_id::equals(Some(db_device.id))])
 			.exec()
 			.await?
 			.into_iter()
@@ -287,13 +288,23 @@ impl VolumeManagerActor {
 		// Create missing system volumes in the database
 		for v in current_volumes.iter() {
 			let fingerprint = v.generate_fingerprint(device_pub_id.clone());
-			// ensure that the volume is not already in the db and is a system volume
-			if !db_volumes
-				.iter()
-				.any(|db_volume| fingerprint == db_volume.fingerprint.clone().unwrap())
-				&& v.mount_type == MountType::System
-			{
+
+			// Check if the volume already exists in the database
+			let existing_volume = db_volumes.iter().find(|db_volume| {
+				db_volume
+					.fingerprint
+					.as_ref()
+					.map(|db_fingerprint| db_fingerprint == &fingerprint)
+					.unwrap_or(false)
+			});
+
+			if existing_volume.is_none() && v.mount_type == MountType::System {
+				// If the volume doesn't exist in the database and is a system volume, create a new entry
 				v.create(&library.db, device_pub_id.clone()).await?;
+			} else if let Some(existing_volume) = existing_volume {
+				// If the volume already exists in the database, update its information
+				let updated_volume = Volume::merge_with_db_volume(v, existing_volume);
+				updated_volume.update(&library.db).await?;
 			}
 		}
 
