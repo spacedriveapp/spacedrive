@@ -16,7 +16,7 @@ pub struct VolumeManagerState {
 	/// All tracked volumes by fingerprint
 	pub volumes: HashMap<Vec<u8>, Volume>,
 	/// Mapping of library volumes to system volumes
-	/// LibraryPubId -> VolumePubId -> Fingerprint
+	/// LibraryPubId -> Fingerprint -> VolumePubId
 	pub library_volume_mapping: HashMap<Vec<u8>, HashMap<Vec<u8>, Vec<u8>>>,
 	/// Volume manager options
 	pub options: VolumeOptions,

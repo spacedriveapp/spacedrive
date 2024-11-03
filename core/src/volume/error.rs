@@ -29,6 +29,10 @@ pub enum VolumeError {
 	#[error("No mount point found for volume")]
 	NoMountPoint,
 
+	/// Volume is already mounted
+	#[error("Volume with fingerprint {} is not found", hex::encode(.0))]
+	NotFound(Vec<u8>),
+
 	/// Volume isn't in database yet
 	#[error("Volume not yet tracked in database")]
 	NotInDatabase,

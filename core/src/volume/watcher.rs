@@ -13,13 +13,6 @@ use tracing::{debug, error, warn};
 const DEBOUNCE_MS: u64 = 100;
 
 #[derive(Debug)]
-pub struct WatcherState {
-	pub watcher: Arc<VolumeWatcher>,
-	pub last_event: Instant,
-	pub paused: bool,
-}
-
-#[derive(Debug)]
 pub struct VolumeWatcher {
 	event_tx: broadcast::Sender<VolumeEvent>,
 	ignored_paths: Arc<RwLock<HashSet<PathBuf>>>,

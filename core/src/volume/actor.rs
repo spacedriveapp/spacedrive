@@ -376,7 +376,10 @@ impl VolumeManagerActor {
 			VolumeManagerMessage::UnmountVolume {
 				volume_fingerprint,
 				ack,
-			} => todo!(),
+			} => {
+				let result = self.handle_unmount_volume(volume_fingerprint).await;
+				let _ = ack.send(result);
+			}
 			VolumeManagerMessage::SpeedTest {
 				volume_fingerprint,
 				ack,
@@ -491,6 +494,45 @@ impl VolumeManagerActor {
 
 		// Create in database with current device association
 		volume.create(&library.db, device_pub_id.into()).await?;
+
+		Ok(())
+	}
+
+	async fn handle_unmount_volume(
+		&mut self,
+		volume_fingerprint: Vec<u8>,
+	) -> Result<(), VolumeError> {
+		// First get the volume from state to get its mount point
+		let volume = self
+			.state
+			.write()
+			.await
+			.volumes
+			.get(&volume_fingerprint)
+			.ok_or(VolumeError::NotFound(volume_fingerprint.clone()))?
+			.clone();
+
+		// Check if volume is actually mounted
+		if !volume.is_mounted {
+			return Err(VolumeError::NotMounted(volume.mount_point.clone()));
+		}
+
+		// Call the platform-specific unmount function
+		super::os::unmount_volume(&volume.mount_point).await?;
+
+		// If unmount succeeded, update our state
+		let mut state = self.state.write().await;
+		if let Some(vol) = state.volumes.get_mut(&volume_fingerprint) {
+			vol.is_mounted = false;
+		}
+
+		// Emit unmount event
+		if let Some(pub_id) = volume.pub_id {
+			let _ = self.event_tx.send(VolumeEvent::VolumeMountChanged {
+				id: pub_id,
+				is_mounted: false,
+			});
+		}
 
 		Ok(())
 	}
