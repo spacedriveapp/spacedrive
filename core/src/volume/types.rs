@@ -187,14 +187,9 @@ impl Volume {
 		for id in current_device_pub_id {
 			hasher.update(&[id]);
 		}
-
-		// Add all mount points to make fingerprint unique
-		for mount_point in &self.mount_points {
-			hasher.update(mount_point.to_string_lossy().as_bytes());
-		}
-
-		// hasher.update(self.name.as_bytes());
-		// hasher.update(&self.total_bytes_capacity.to_be_bytes());
+		hasher.update(self.mount_point.to_string_lossy().as_bytes());
+		hasher.update(self.name.as_bytes());
+		hasher.update(&self.total_bytes_capacity.to_be_bytes());
 		hasher.update(self.file_system.to_string().as_bytes());
 
 		hasher.finalize().as_bytes().to_vec()
