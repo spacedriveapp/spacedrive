@@ -60,7 +60,7 @@ export type Procedures = {
         { key: "tags.getForObject", input: LibraryArgs<number>, result: Tag[] } | 
         { key: "tags.getWithObjects", input: LibraryArgs<number[]>, result: { [key in number]: ({ object: { id: number }; date_created: string | null })[] } } | 
         { key: "tags.list", input: LibraryArgs<null>, result: Tag[] } | 
-        { key: "volumes.list", input: never, result: Volume[] } | 
+        { key: "volumes.list", input: LibraryArgs<null>, result: Volume[] } | 
         { key: "volumes.listForLibrary", input: LibraryArgs<null>, result: Volume[] },
     mutations: 
         { key: "api.sendFeedback", input: Feedback, result: null } | 
@@ -805,7 +805,7 @@ export type Volume = {
  */
 id: number | null; 
 /**
- * Unique public identifier (None if not yet committed)
+ * Unique public identifier
  */
 pub_id: number[] | null; 
 /**
@@ -863,7 +863,12 @@ total_bytes_capacity: string;
 /**
  * Available storage space in bytes
  */
-total_bytes_available: string }
+total_bytes_available: string; 
+/**
+ * Fingerprint of the volume, not persisted to the database
+ * Compute using `generate_fingerprint` method at query time
+ */
+fingerprint: number[] | null }
 
 /**
  * Events emitted by the Volume Manager when volume state changes

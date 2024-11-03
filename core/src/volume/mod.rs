@@ -7,9 +7,9 @@ use std::sync::Arc;
 // Internal modules
 pub(crate) mod actor;
 mod error;
-mod manager;
 mod os;
 mod speed;
+mod state;
 // mod statistics;
 mod types;
 mod volumes;
@@ -20,7 +20,7 @@ use crate::util::mpscrr;
 pub use {
 	actor::VolumeManagerActor,
 	error::VolumeError,
-	manager::VolumeManagerState,
+	state::VolumeManagerState,
 	types::{DiskType, FileSystem, MountType, Volume, VolumeEvent, VolumeOptions},
 	volumes::Volumes,
 };
@@ -76,10 +76,6 @@ pub use os::linux::get_volumes;
 #[cfg(target_os = "macos")]
 pub use os::macos::get_volumes;
 #[cfg(target_os = "windows")]
-pub use os::windows::get_volumes;
-use sd_core_prisma_helpers::location_ids_and_path::device;
-use sd_crypto::ct;
-use sd_prisma::prisma::PrismaClient;
 
 // Internal utilities
 pub(crate) mod util {

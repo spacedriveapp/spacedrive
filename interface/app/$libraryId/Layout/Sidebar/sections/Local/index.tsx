@@ -25,7 +25,7 @@ const Name = tw.span`truncate`;
 
 // Improved eject button that actually unmounts the volume
 const EjectButton = ({ volumeId, className }: { volumeId: Uint8Array; className?: string }) => {
-	const unmountMutation = useLibraryMutation('volumes.track');
+	const unmountMutation = useLibraryMutation('volumes.unmount');
 
 	return (
 		<Button
@@ -35,7 +35,7 @@ const EjectButton = ({ volumeId, className }: { volumeId: Uint8Array; className?
 				e.preventDefault(); // Prevent navigation
 				try {
 					await unmountMutation.mutateAsync({
-						volume_id: Array.from(volumeId) // Convert Uint8Array to number[]
+						fingerprint: Array.from(volumeId) // Convert Uint8Array to number[]
 					});
 					toast.success('Volume ejected successfully');
 				} catch (error) {
@@ -60,7 +60,7 @@ export default function LocalSection() {
 	const locations = locationsQuery.data;
 
 	const homeDir = useHomeDir();
-	const volumesQuery = useBridgeQuery(['volumes.list']);
+	const volumesQuery = useLibraryQuery(['volumes.list']);
 	const volumes = volumesQuery.data;
 
 	const volumeEvents = useLibrarySubscription(['volumes.events'], {
