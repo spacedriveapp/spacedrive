@@ -75,7 +75,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						let mut event_bus_rx = node.volumes.subscribe();
 
 						while let Ok(event) = event_bus_rx.recv().await {
-							tracing::debug!("Volume event: {:?}", event);
 							yield event;
 						}
 				})

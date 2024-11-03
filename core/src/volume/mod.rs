@@ -35,8 +35,9 @@ pub struct VolumeManagerContext {
 pub async fn create_volume_manager(
 	ctx: VolumeManagerContext,
 ) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
+	let device_pub_id = ctx.device_id.clone();
 	let (manager, actor) = VolumeManagerActor::new(Arc::new(ctx)).await?;
-	actor.clone().start().await;
+	actor.clone().start(device_pub_id).await;
 	Ok((manager, actor))
 }
 
@@ -44,8 +45,9 @@ pub async fn create_volume_manager_with_config(
 	ctx: VolumeManagerContext,
 	options: VolumeOptions,
 ) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
+	let device_pub_id = ctx.device_id.clone();
 	let (manager, actor) = VolumeManagerActor::new_with_config(Arc::new(ctx), options).await?;
-	actor.clone().start().await;
+	actor.clone().start(device_pub_id).await;
 	Ok((manager, actor))
 }
 
@@ -75,6 +77,8 @@ pub use os::linux::get_volumes;
 pub use os::macos::get_volumes;
 #[cfg(target_os = "windows")]
 pub use os::windows::get_volumes;
+use sd_core_prisma_helpers::location_ids_and_path::device;
+use sd_crypto::ct;
 use sd_prisma::prisma::PrismaClient;
 
 // Internal utilities

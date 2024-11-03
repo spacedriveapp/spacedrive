@@ -7,6 +7,7 @@ use super::{
 };
 use crate::library::{Library, LibraryManagerEvent};
 use async_channel as chan;
+use sd_prisma::prisma::album::pub_id;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::{broadcast, oneshot, Mutex, RwLock};
 use tokio::time::Instant;
@@ -29,14 +30,6 @@ pub enum VolumeManagerMessage {
 	},
 	UpdateVolume {
 		volume: Volume,
-		ack: oneshot::Sender<Result<(), VolumeError>>,
-	},
-	WatchVolume {
-		volume_id: Vec<u8>,
-		ack: oneshot::Sender<Result<(), VolumeError>>,
-	},
-	UnwatchVolume {
-		volume_id: Vec<u8>,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	MountVolume {
@@ -101,14 +94,50 @@ impl VolumeManagerActor {
 		tokio::spawn(async move {
 			debug!("Starting volume event monitoring");
 			while let Ok(event) = event_rx.recv().await {
-				debug!("Volume event processed: {:?}", event);
+				debug!("Volume event received: {:?}", event);
+
+				match event {
+					VolumeEvent::VolumeAdded(mut volume) => {
+						if let Some(pub_id) = volume.pub_id.take() {
+							self.state.write().await.volumes.insert(pub_id, volume);
+						}
+					}
+					VolumeEvent::VolumeRemoved(mut volume) => {
+						if let Some(pub_id) = volume.pub_id.take() {
+							self.state.write().await.volumes.remove(&pub_id);
+						}
+					}
+					VolumeEvent::VolumeUpdated { old, new } => todo!(),
+					VolumeEvent::VolumeSpeedTested {
+						id,
+						read_speed,
+						write_speed,
+					} => {
+						self.state
+							.write()
+							.await
+							.volumes
+							.get_mut(&id)
+							.unwrap()
+							.read_speed_mbps = Some(read_speed);
+						self.state
+							.write()
+							.await
+							.volumes
+							.get_mut(&id)
+							.unwrap()
+							.write_speed_mbps = Some(write_speed);
+					}
+					VolumeEvent::VolumeMountChanged { id, is_mounted } => todo!(),
+					VolumeEvent::VolumeError { id, error } => todo!(),
+				}
 			}
 			warn!("Volume event monitoring ended");
 		});
 	}
 
 	/// Starts the VolumeManagerActor
-	pub async fn start(self) {
+	pub async fn start(self, device_pub_id: Vec<u8>) {
 		info!("Volume manager actor started");
 		let self_arc = Arc::new(Mutex::new(self));
 
@@ -179,19 +208,14 @@ impl VolumeManagerActor {
 			}
 		});
 
-		// Start the volume watcher
-		let self_arc_watcher = Arc::clone(&self_arc);
-		tokio::spawn(async move {
-			let mut actor = self_arc_watcher.lock().await;
-			let state = actor.state.write().await;
+		let event_tx = self_arc.lock().await.event_tx.clone();
 
-			// Create and start watcher for each volume
-			for (volume_id, volume) in &state.volumes {
-				if let Some(watcher) = state.watchers.get(volume_id) {
-					if let Err(e) = watcher.watcher.start().await {
-						error!(?e, "Failed to start watcher for volume {}", volume.name);
-					}
-				}
+		tokio::spawn(async move {
+			// start one watcher
+			let watcher = VolumeWatcher::new(event_tx);
+			if let Err(e) = watcher.start(device_pub_id.clone(), self_arc.clone()).await {
+				error!(?e, "Failed to start watcher for volumes");
+				return;
 			}
 		});
 
@@ -255,42 +279,6 @@ impl VolumeManagerActor {
 			// Update volumes
 			for (pub_id, volume) in updates {
 				state.volumes.insert(pub_id.clone(), volume);
-
-				// Create and start watcher if it doesn't exist
-				if !state.watchers.contains_key(&pub_id) {
-					let watcher = VolumeWatcher::new(self.event_tx.clone());
-					if let Err(e) = watcher.start().await {
-						error!(
-							?e,
-							"Failed to start watcher for volume {}",
-							hex::encode(&pub_id)
-						);
-						continue;
-					}
-
-					state.watchers.insert(
-						pub_id,
-						WatcherState {
-							watcher: Arc::new(watcher),
-							last_event: Instant::now(),
-							paused: false,
-						},
-					);
-				}
-			}
-
-			// Remove any watchers for volumes that no longer exist
-			let stale_watchers: Vec<_> = state
-				.watchers
-				.keys()
-				.filter(|id| !state.volumes.contains_key(*id))
-				.cloned()
-				.collect();
-
-			for volume_id in stale_watchers {
-				if let Some(watcher_state) = state.watchers.remove(&volume_id) {
-					watcher_state.watcher.stop().await;
-				}
 			}
 		}
 
@@ -315,21 +303,6 @@ impl VolumeManagerActor {
 			drop(state);
 			self.scan_volumes().await?;
 			state = self.state.write().await;
-		}
-
-		// Clean up stale watchers
-		let stale_watchers: Vec<_> = state
-			.watchers
-			.iter()
-			.filter(|(_, state)| state.last_event.elapsed() > Duration::from_secs(3600))
-			.map(|(id, _)| id.clone())
-			.collect();
-
-		for volume_id in stale_watchers {
-			if let Some(watcher_state) = state.watchers.get(&volume_id) {
-				watcher_state.watcher.stop().await;
-			}
-			state.watchers.remove(&volume_id);
 		}
 
 		Ok(())
@@ -369,8 +342,6 @@ impl VolumeManagerActor {
 				ack,
 			} => todo!(),
 			VolumeManagerMessage::UpdateVolume { volume, ack } => todo!(),
-			VolumeManagerMessage::WatchVolume { volume_id, ack } => todo!(),
-			VolumeManagerMessage::UnwatchVolume { volume_id, ack } => todo!(),
 			VolumeManagerMessage::MountVolume { volume_id, ack } => todo!(),
 			VolumeManagerMessage::UnmountVolume { volume_id, ack } => todo!(),
 			VolumeManagerMessage::SpeedTest { volume_id, ack } => todo!(),
@@ -385,6 +356,10 @@ impl VolumeManagerActor {
 		);
 		// Return volumes from state instead of rescanning
 		Ok(self.state.read().await.volumes.values().cloned().collect())
+	}
+
+	pub async fn get_volumes(&self) -> Vec<Volume> {
+		self.state.read().await.volumes.values().cloned().collect()
 	}
 
 	async fn handle_list_library_volumes(

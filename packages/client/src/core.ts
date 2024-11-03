@@ -809,6 +809,10 @@ id: number | null;
  */
 pub_id: number[] | null; 
 /**
+ * Database ID of the device this volume is attached to, if any
+ */
+device_id: number | null; 
+/**
  * Human-readable volume name
  */
 name: string; 

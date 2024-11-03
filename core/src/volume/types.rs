@@ -41,6 +41,8 @@ pub struct Volume {
 	pub id: Option<i32>,
 	/// Unique public identifier (None if not yet committed)
 	pub pub_id: Option<Vec<u8>>,
+	/// Database ID of the device this volume is attached to, if any
+	pub device_id: Option<i32>,
 	/// Human-readable volume name
 	pub name: String,
 	/// Type of mount (system, external, etc)
@@ -95,6 +97,7 @@ impl From<volume::Data> for Volume {
 		Volume {
 			id: Some(vol.id),
 			pub_id: Some(vol.pub_id),
+			device_id: vol.device_id,
 			name: vol.name.unwrap_or_else(|| "Unknown".to_string()),
 			mount_type: vol
 				.mount_type
@@ -146,6 +149,7 @@ impl Volume {
 		Self {
 			id: None,
 			pub_id: None,
+			device_id: None,
 			name,
 			mount_type,
 			mount_point,
@@ -175,8 +179,8 @@ impl Volume {
 			hasher.update(mount_point.to_string_lossy().as_bytes());
 		}
 
-		hasher.update(self.name.as_bytes());
-		hasher.update(&self.total_bytes_capacity.to_be_bytes());
+		// hasher.update(self.name.as_bytes());
+		// hasher.update(&self.total_bytes_capacity.to_be_bytes());
 		hasher.update(self.file_system.to_string().as_bytes());
 
 		hasher.finalize().as_bytes().to_vec()
@@ -219,6 +223,7 @@ impl Volume {
 
 			// Keep database-tracked properties and metadata
 			id: db_volume.id,
+			device_id: db_volume.device_id,
 			pub_id: db_volume.pub_id.clone(),
 			name: db_volume.name.clone(),
 			read_only: db_volume.read_only,
