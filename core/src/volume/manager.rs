@@ -7,7 +7,7 @@ use super::{
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, event, instrument};
 use uuid::Uuid;
 
 // const OPERATION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -29,9 +29,11 @@ pub struct VolumeManagerState {
 
 impl VolumeManagerState {
 	/// Creates a new volume manager
-	pub async fn new(options: VolumeOptions) -> Result<Self, VolumeError> {
-		let (event_tx, _) = broadcast::channel(128);
-
+	// Take event_tx as parameter instead of creating new channel
+	pub async fn new(
+		options: VolumeOptions,
+		event_tx: broadcast::Sender<VolumeEvent>,
+	) -> Result<Self, VolumeError> {
 		Ok(Self {
 			volumes: HashMap::new(),
 			watchers: HashMap::new(),
@@ -42,68 +44,72 @@ impl VolumeManagerState {
 	}
 
 	/// Scans the system for volumes and updates the state
-	#[instrument(skip(self))]
-	pub async fn scan_volumes(&mut self) -> Result<(), VolumeError> {
+	pub async fn scan_volumes(&mut self, device_pub_id: Vec<u8>) -> Result<(), VolumeError> {
 		debug!("Scanning for volumes...");
 		let detected_volumes = super::os::get_volumes().await?;
-		let mut new_volumes = Vec::new();
-		let mut removed_volumes = self.volumes.clone();
-
 		debug!("Found {} volumes during scan", detected_volumes.len());
 
-		// Clear existing volumes and reinsert with new IDs
-		self.volumes.clear();
+		let current_volumes = self.volumes.clone();
+		let mut new_state = HashMap::new();
 
-		for volume in detected_volumes {
+		// Process detected volumes
+		for mut volume in detected_volumes {
 			// Skip virtual volumes if configured
 			if !self.options.include_virtual && matches!(volume.mount_type, MountType::Virtual) {
 				continue;
 			}
 
-			// check if vol
+			// Generate fingerprint for the new volume
+			let fingerprint = volume.generate_fingerprint(device_pub_id.clone());
 
-			let volume_id = match &volume.pub_id {
-				Some(id) => id.clone(),
-				None => {
-					// New volume, generate ID
-					let id = Uuid::now_v7().as_bytes().to_vec();
-					let mut volume = volume.clone();
-					volume.pub_id = Some(id.clone());
-					new_volumes.push(volume);
-					id
-				}
+			// Try to find existing volume by fingerprint
+			let existing_volume = current_volumes.values().find(|existing| {
+				existing.generate_fingerprint(device_pub_id.clone()) == fingerprint
+			});
+
+			let volume_id = if let Some(existing) = existing_volume {
+				// Keep existing ID
+				existing
+					.pub_id
+					.clone()
+					.unwrap_or_else(|| Uuid::now_v7().as_bytes().to_vec())
+			} else {
+				// Generate new ID only for truly new volumes
+				Uuid::now_v7().as_bytes().to_vec()
 			};
 
-			// Remove from potentially removed volumes
-			removed_volumes.remove(&volume_id);
+			volume.pub_id = Some(volume_id.clone());
 
-			// Update existing volume or add new one
-			match self.volumes.get_mut(&volume_id) {
-				Some(existing) => {
-					if existing != &volume {
-						let old = existing.clone();
-						*existing = volume;
-						let event = VolumeEvent::VolumeUpdated {
-							old,
-							new: existing.clone(),
-						};
-						self.emit_event(event).await;
-					}
+			match current_volumes.get(&volume_id) {
+				Some(existing) if existing != &volume => {
+					new_state.insert(volume_id.clone(), volume.clone());
+					self.emit_event(VolumeEvent::VolumeUpdated {
+						old: existing.clone(),
+						new: volume,
+					})
+					.await;
 				}
 				None => {
-					self.volumes.insert(volume_id, volume.clone());
+					new_state.insert(volume_id.clone(), volume.clone());
 					self.emit_event(VolumeEvent::VolumeAdded(volume)).await;
+				}
+				_ => {
+					new_state.insert(volume_id.clone(), volume);
 				}
 			}
 		}
 
-		// Handle removed volumes
-		for (id, volume) in removed_volumes {
-			self.volumes.remove(&id);
-			self.watchers.remove(&id);
-			self.emit_event(VolumeEvent::VolumeRemoved(volume)).await;
+		// Find removed volumes
+		for (id, volume) in &current_volumes {
+			if !new_state.contains_key(id) {
+				self.watchers.remove(id);
+				self.emit_event(VolumeEvent::VolumeRemoved(volume.clone()))
+					.await;
+			}
 		}
 
+		// Update state
+		self.volumes = new_state;
 		self.last_scan = Instant::now();
 		Ok(())
 	}
@@ -224,10 +230,10 @@ impl VolumeManagerState {
 	}
 
 	/// Performs maintenance tasks
-	pub async fn maintenance(&mut self) -> Result<(), VolumeError> {
+	pub async fn maintenance(&mut self, device_pub_id: Vec<u8>) -> Result<(), VolumeError> {
 		// Rescan volumes periodically
 		if self.last_scan.elapsed() > Duration::from_secs(300) {
-			self.scan_volumes().await?;
+			self.scan_volumes(device_pub_id).await?;
 		}
 
 		// Clean up stale watchers
