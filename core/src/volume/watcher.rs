@@ -1,7 +1,9 @@
+use crate::volume::types::VolumeFingerprint;
+
 use super::error::VolumeError;
 use super::types::VolumeEvent;
 use super::VolumeManagerActor;
-
+use sd_core_sync::DevicePubId;
 use std::{collections::HashSet, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tokio::{
@@ -30,7 +32,7 @@ impl VolumeWatcher {
 
 	pub async fn start(
 		&self,
-		device_pub_id: Vec<u8>,
+		device_id: DevicePubId,
 		actor: Arc<Mutex<VolumeManagerActor>>,
 	) -> Result<(), VolumeError> {
 		debug!("Starting volume watcher");
@@ -59,11 +61,10 @@ impl VolumeWatcher {
 					match super::os::get_volumes().await {
 						Ok(discovered_volumes) => {
 							let actor = actor.lock().await;
-							let device_id = device_pub_id.clone();
 
 							// Find new volumes
 							for volume in &discovered_volumes {
-								let fingerprint = volume.generate_fingerprint(device_id.clone());
+								let fingerprint = VolumeFingerprint::new(&device_id, volume);
 
 								let volume_exists = actor.volume_exists(fingerprint.clone()).await;
 								// if the volume doesn't exist in the actor state, we need to send an event
@@ -74,10 +75,11 @@ impl VolumeWatcher {
 
 							// Find removed volumes and send an event
 							for volume in &actor.get_volumes().await {
-								let fingerprint = volume.generate_fingerprint(device_id.clone());
-								if !discovered_volumes.iter().any(|v| {
-									v.generate_fingerprint(device_id.clone()) == fingerprint
-								}) {
+								let fingerprint = VolumeFingerprint::new(&device_id, volume);
+								if !discovered_volumes
+									.iter()
+									.any(|v| VolumeFingerprint::new(&device_id, v) == fingerprint)
+								{
 									let _ =
 										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
 								}

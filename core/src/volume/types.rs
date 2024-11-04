@@ -1,4 +1,5 @@
 use super::error::VolumeError;
+use sd_core_sync::DevicePubId;
 use sd_prisma::prisma::{
 	device,
 	volume::{self},
@@ -7,10 +8,50 @@ use sd_prisma::prisma::{
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
+use std::fmt;
 use std::path::PathBuf;
 use std::{path::Path, sync::Arc};
 use strum_macros::Display;
+use tokio::time::Duration;
 use uuid::Uuid;
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Type)]
+pub struct VolumeFingerprint(pub Vec<u8>);
+
+impl VolumeFingerprint {
+	pub fn new(device_id: &DevicePubId, volume: &Volume) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(&device_id.to_db());
+		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
+		hasher.update(volume.name.as_bytes());
+		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
+		hasher.update(volume.file_system.to_string().as_bytes());
+		Self(hasher.finalize().as_bytes().to_vec())
+	}
+}
+
+impl fmt::Display for VolumeFingerprint {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", hex::encode(&self.0))
+	}
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct VolumePubId(pub Vec<u8>);
+
+impl From<Vec<u8>> for VolumePubId {
+	fn from(v: Vec<u8>) -> Self {
+		Self(v)
+	}
+}
+
+impl Into<Vec<u8>> for VolumePubId {
+	fn into(self) -> Vec<u8> {
+		self.0
+	}
+}
+
+pub type LibraryId = Uuid;
 
 /// Events emitted by the Volume Manager when volume state changes
 #[derive(Debug, Clone, Type, Deserialize, Serialize)]
@@ -23,14 +64,20 @@ pub enum VolumeEvent {
 	VolumeUpdated { old: Volume, new: Volume },
 	/// Emitted when a volume's speed test completes
 	VolumeSpeedTested {
-		id: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		read_speed: u64,
 		write_speed: u64,
 	},
 	/// Emitted when a volume's mount status changes
-	VolumeMountChanged { id: Vec<u8>, is_mounted: bool },
+	VolumeMountChanged {
+		fingerprint: VolumeFingerprint,
+		is_mounted: bool,
+	},
 	/// Emitted when a volume encounters an error
-	VolumeError { id: Vec<u8>, error: String },
+	VolumeError {
+		fingerprint: VolumeFingerprint,
+		error: String,
+	},
 }
 
 /// Represents a physical or virtual storage volume in the system
@@ -80,7 +127,7 @@ pub struct Volume {
 	pub total_bytes_available: u64,
 	/// Fingerprint of the volume, not persisted to the database
 	/// Compute using `generate_fingerprint` method at query time
-	pub fingerprint: Option<Vec<u8>>,
+	pub fingerprint: Option<VolumeFingerprint>,
 }
 
 // We can use this to see if a volume has changed
@@ -257,7 +304,7 @@ impl Volume {
 		&self,
 		db: &Arc<PrismaClient>,
 		device_pub_id: Vec<u8>,
-	) -> Result<(), VolumeError> {
+	) -> Result<Volume, VolumeError> {
 		let pub_id = Uuid::now_v7().as_bytes().to_vec();
 
 		let device_id = db
@@ -269,7 +316,8 @@ impl Volume {
 			.ok_or(VolumeError::DeviceNotFound(device_pub_id))?
 			.id;
 
-		db.volume()
+		let volume = db
+			.volume()
 			.create(
 				pub_id,
 				vec![
@@ -296,7 +344,7 @@ impl Volume {
 			)
 			.exec()
 			.await?;
-		Ok(())
+		Ok(volume.into())
 	}
 
 	/// Updates an existing volume record in the database

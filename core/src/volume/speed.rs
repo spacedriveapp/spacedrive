@@ -127,7 +127,7 @@ impl SpeedTest for Volume {
 		if config.emit_events {
 			if let Some(tx) = event_tx {
 				let _ = tx.send(VolumeEvent::VolumeSpeedTested {
-					id: self.pub_id.clone().unwrap_or_default(),
+					fingerprint: self.fingerprint.clone().unwrap(),
 					read_speed: read_speed as u64,
 					write_speed: write_speed as u64,
 				});

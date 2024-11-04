@@ -3,6 +3,8 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+use super::types::VolumeFingerprint;
+
 /// Errors that can occur during volume operations
 #[derive(Error, Debug)]
 pub enum VolumeError {
@@ -30,16 +32,16 @@ pub enum VolumeError {
 	NoMountPoint,
 
 	/// Volume is already mounted
-	#[error("Volume with fingerprint {} is not found", hex::encode(.0))]
-	NotFound(Vec<u8>),
+	#[error("Volume with fingerprint {} is not found", 0)]
+	NotFound(VolumeFingerprint),
 
 	/// Volume isn't in database yet
 	#[error("Volume not yet tracked in database")]
 	NotInDatabase,
 
 	/// Invalid volume ID
-	#[error("Invalid volume ID: {0}")]
-	InvalidId(String),
+	#[error("Invalid volume fingerprint: {0}")]
+	InvalidFingerprint(VolumeFingerprint),
 
 	/// Directory operation failed
 	#[error("Directory operation failed: {0}")]
@@ -212,9 +214,9 @@ impl From<VolumeError> for rspc::Error {
 	fn from(err: VolumeError) -> Self {
 		// Map error types to appropriate HTTP status codes
 		let code = match &err {
-			VolumeError::NotInDatabase | VolumeError::NoMountPoint | VolumeError::InvalidId(_) => {
-				rspc::ErrorCode::NotFound
-			}
+			VolumeError::NotInDatabase
+			| VolumeError::NoMountPoint
+			| VolumeError::InvalidFingerprint(_) => rspc::ErrorCode::NotFound,
 
 			VolumeError::PermissionDenied(_) => rspc::ErrorCode::Forbidden,
 

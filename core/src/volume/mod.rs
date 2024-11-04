@@ -21,7 +21,9 @@ pub use {
 	actor::VolumeManagerActor,
 	error::VolumeError,
 	state::VolumeManagerState,
-	types::{DiskType, FileSystem, MountType, Volume, VolumeEvent, VolumeOptions},
+	types::{
+		DiskType, FileSystem, MountType, Volume, VolumeEvent, VolumeFingerprint, VolumeOptions,
+	},
 	volumes::Volumes,
 };
 
@@ -35,7 +37,7 @@ pub struct VolumeManagerContext {
 pub async fn create_volume_manager(
 	ctx: VolumeManagerContext,
 ) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
-	let device_pub_id = ctx.device_id.clone();
+	let device_pub_id = ctx.device_id.clone().into();
 	let (manager, actor) = VolumeManagerActor::new(Arc::new(ctx)).await?;
 	actor.clone().start(device_pub_id).await;
 	Ok((manager, actor))
@@ -45,7 +47,7 @@ pub async fn create_volume_manager_with_config(
 	ctx: VolumeManagerContext,
 	options: VolumeOptions,
 ) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
-	let device_pub_id = ctx.device_id.clone();
+	let device_pub_id = ctx.device_id.clone().into();
 	let (manager, actor) = VolumeManagerActor::new_with_config(Arc::new(ctx), options).await?;
 	actor.clone().start(device_pub_id).await;
 	Ok((manager, actor))

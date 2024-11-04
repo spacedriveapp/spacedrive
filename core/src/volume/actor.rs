@@ -5,17 +5,18 @@ use super::{
 	watcher::VolumeWatcher,
 	VolumeManagerContext, VolumeManagerState,
 };
+use crate::volume::types::{VolumeFingerprint, VolumePubId};
 use crate::{
 	library::{self, Library, LibraryManagerEvent},
 	volume::MountType,
 };
 use async_channel as chan;
+use sd_core_sync::DevicePubId;
 use sd_prisma::prisma::volume;
-use serde::de;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::{broadcast, oneshot, Mutex, RwLock};
 use tracing::{debug, error, info, trace, warn};
-use tracing_subscriber::field::debug;
+use tracing_subscriber::registry;
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_CHANNEL_SIZE: usize = 128;
@@ -23,12 +24,12 @@ const DEFAULT_CHANNEL_SIZE: usize = 128;
 #[derive(Debug)]
 pub enum VolumeManagerMessage {
 	TrackVolume {
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		library: Arc<Library>,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	UntrackVolume {
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		library: Arc<Library>,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
@@ -37,15 +38,15 @@ pub enum VolumeManagerMessage {
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	MountVolume {
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	UnmountVolume {
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	SpeedTest {
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	ListSystemVolumes {
@@ -80,7 +81,8 @@ impl VolumeManagerActor {
 		let (event_tx, event_rx) = broadcast::channel(DEFAULT_CHANNEL_SIZE);
 
 		let manager = Volumes::new(message_tx, event_tx.clone());
-		let state = VolumeManagerState::new(options, event_tx.clone()).await?;
+		let state =
+			VolumeManagerState::new(ctx.device_id.clone().into(), options, event_tx.clone());
 
 		let actor = VolumeManagerActor {
 			state: Arc::new(RwLock::new(state)),
@@ -92,7 +94,7 @@ impl VolumeManagerActor {
 		// Pass event_rx to start monitoring task immediately
 		actor
 			.clone()
-			.start_event_monitoring(event_rx, actor.ctx.device_id.clone());
+			.start_event_monitoring(event_rx, actor.ctx.device_id.clone().into());
 
 		Ok((manager, actor))
 	}
@@ -100,45 +102,47 @@ impl VolumeManagerActor {
 	fn start_event_monitoring(
 		self,
 		mut event_rx: broadcast::Receiver<VolumeEvent>,
-		current_device_pub_id: Vec<u8>,
+		device_pub_id: DevicePubId,
 	) {
 		tokio::spawn(async move {
 			debug!("Starting volume event monitoring");
 			while let Ok(event) = event_rx.recv().await {
 				debug!("Volume event received: {:?}", event);
 
-				let mut state = self.state.write().await;
+				let state = self.state.write().await;
+				let mut registry = state.registry.write().await;
 
 				match event {
 					VolumeEvent::VolumeAdded(volume) => {
-						state.volumes.insert(
-							volume.generate_fingerprint(current_device_pub_id.clone()),
-							volume,
-						);
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+						registry.register_volume(volume);
 					}
 					VolumeEvent::VolumeRemoved(volume) => {
-						state
-							.volumes
-							.remove(&volume.generate_fingerprint(current_device_pub_id.clone()));
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+						registry.remove_volume(&fingerprint);
 					}
 					VolumeEvent::VolumeUpdated { old: _, new } => {
-						state
-							.volumes
-							.insert(new.generate_fingerprint(current_device_pub_id.clone()), new);
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &new);
+						registry.update_volume(new);
 					}
 					VolumeEvent::VolumeSpeedTested {
-						id,
+						fingerprint,
 						read_speed,
 						write_speed,
 					} => {
-						state.volumes.get_mut(&id).unwrap().read_speed_mbps = Some(read_speed);
-						state.volumes.get_mut(&id).unwrap().write_speed_mbps = Some(write_speed);
+						if let Some(volume) = registry.get_volume_mut(&fingerprint) {
+							volume.read_speed_mbps = Some(read_speed);
+							volume.write_speed_mbps = Some(write_speed);
+						}
 					}
-					VolumeEvent::VolumeMountChanged { id, is_mounted } => {
-						state.volumes.get_mut(&id).unwrap().is_mounted = is_mounted;
+					VolumeEvent::VolumeMountChanged {
+						fingerprint,
+						is_mounted,
+					} => {
+						registry.get_volume_mut(&fingerprint).unwrap().is_mounted = is_mounted;
 					}
-					VolumeEvent::VolumeError { id, error } => {
-						state.volumes.get_mut(&id).unwrap().error_status = Some(error);
+					VolumeEvent::VolumeError { fingerprint, error } => {
+						registry.get_volume_mut(&fingerprint).unwrap().error_status = Some(error);
 					}
 				}
 			}
@@ -149,7 +153,7 @@ impl VolumeManagerActor {
 	/// Starts the VolumeManagerActor
 	/// This is a blocking function that will run forever
 	/// It will scan volumes, start the watcher, start the maintenance task, and handle messages
-	pub async fn start(self, device_pub_id: Vec<u8>) {
+	pub async fn start(self, device_id: DevicePubId) {
 		info!("Volume manager actor started");
 		let self_arc = Arc::new(Mutex::new(self));
 
@@ -218,7 +222,7 @@ impl VolumeManagerActor {
 		tokio::spawn(async move {
 			let watcher = VolumeWatcher::new(event_tx);
 			if let Err(e) = watcher
-				.start(device_pub_id.clone(), self_arc_watcher.clone())
+				.start(device_id.clone(), self_arc_watcher.clone())
 				.await
 			{
 				error!(?e, "Failed to start watcher for volumes");
@@ -247,26 +251,24 @@ impl VolumeManagerActor {
 		library: Arc<Library>,
 	) -> Result<(), VolumeError> {
 		use sd_prisma::prisma::device;
-		// Use device_id from context instead of node
-		let device_pub_id = self.ctx.device_id.clone();
-		let current_volumes = self.get_volumes().await;
+		let device_id = DevicePubId::from(self.ctx.device_id.clone());
+		let state = self.state.clone();
+		let state = state.write().await;
+		let mut registry = state.registry.write().await;
+		let mut library_registry = state.library_registry.write().await;
 
-		// Register library in the mapping
-		self.state
-			.write()
-			.await
-			.library_volume_mapping
-			.insert(library.id.as_bytes().to_vec(), HashMap::new());
+		// Initialize library in state
+		library_registry.register_library(library.id);
 
 		let db_device = library
 			.db
 			.device()
-			.find_unique(device::pub_id::equals(device_pub_id.clone()))
+			.find_unique(device::pub_id::equals(device_id.to_db()))
 			.exec()
 			.await?
-			.ok_or(VolumeError::DeviceNotFound(device_pub_id.clone()))?;
+			.ok_or(VolumeError::DeviceNotFound(device_id.to_db()))?;
 
-		// Get all volumes from the library database and fingerprint them
+		// Get volumes from database
 		let db_volumes = library
 			.db
 			.volume()
@@ -275,51 +277,38 @@ impl VolumeManagerActor {
 			.await?
 			.into_iter()
 			.map(Volume::from)
-			.map(|mut v| {
-				v.fingerprint = Some(v.generate_fingerprint(device_pub_id.clone()));
-				v
-			})
 			.collect::<Vec<_>>();
 
-		// Create missing system volumes in the database
-		for v in current_volumes.iter() {
-			let fingerprint = v.generate_fingerprint(device_pub_id.clone());
+		let registry_read = state.registry.read().await;
+		// Process each volume
+		for (fingerprint, volume) in registry_read.volumes() {
+			// Find matching database volume
+			if let Some(db_volume) = db_volumes
+				.iter()
+				.find(|db_vol| VolumeFingerprint::new(&device_id, db_vol) == *fingerprint)
+			{
+				// Update existing volume
+				let updated = Volume::merge_with_db_volume(volume, db_volume);
+				registry.register_volume(updated.clone());
 
-			// Check if the volume already exists in the database
-			let existing_volume = db_volumes.iter().find(|db_volume| {
-				db_volume
-					.fingerprint
-					.as_ref()
-					.map(|db_fingerprint| db_fingerprint == &fingerprint)
-					.unwrap_or(false)
-			});
+				// Map to library
+				library_registry.track_volume(
+					library.id,
+					fingerprint.clone(),
+					VolumePubId(db_volume.pub_id.clone().unwrap()),
+				);
+			} else if volume.mount_type == MountType::System {
+				// Create new system volume in database
+				let created = volume.create(&library.db, device_id.to_db()).await?;
 
-			if existing_volume.is_none() && v.mount_type == MountType::System {
-				// If the volume doesn't exist in the database and is a system volume, create a new entry
-				v.create(&library.db, device_pub_id.clone()).await?;
-			} else if let Some(existing_volume) = existing_volume {
-				// If the volume already exists in the database, update its information
-				let updated_volume = Volume::merge_with_db_volume(v, existing_volume);
-				updated_volume.update(&library.db).await?;
+				// Map to library
+				library_registry.track_volume(
+					library.id,
+					fingerprint.clone(),
+					VolumePubId(created.pub_id.unwrap()),
+				);
 			}
 		}
-
-		// Update mapping state with pub_ids and fingerprints
-		for v in db_volumes.iter() {
-			// update mapping
-			self.state
-				.write()
-				.await
-				.library_volume_mapping
-				.get_mut(&library.id.as_bytes().to_vec())
-				.unwrap()
-				.insert(v.pub_id.clone().unwrap(), v.fingerprint.clone().unwrap());
-		}
-
-		info!(
-			"Volume manager initialized for library: {:?}",
-			self.state.read().await
-		);
 
 		Ok(())
 	}
@@ -327,18 +316,12 @@ impl VolumeManagerActor {
 	async fn perform_maintenance(&mut self) -> Result<(), VolumeError> {
 		let mut state = self.state.write().await;
 
-		// Rescan volumes periodically
-		if state.last_scan.elapsed() > Duration::from_secs(300) {
-			drop(state);
-			self.scan_volumes().await?;
-		}
-
 		Ok(())
 	}
 
 	async fn scan_volumes(&mut self) -> Result<(), VolumeError> {
 		let mut state = self.state.write().await;
-		state.scan_volumes(self.ctx.device_id.clone()).await
+		state.scan_volumes().await
 	}
 
 	async fn handle_message(&mut self, msg: VolumeManagerMessage) -> Result<(), VolumeError> {
@@ -352,34 +335,27 @@ impl VolumeManagerActor {
 				todo!();
 			}
 			VolumeManagerMessage::TrackVolume {
-				volume_fingerprint,
+				fingerprint,
 				library,
 				ack,
 			} => {
-				let result = self.handle_track_volume(library, volume_fingerprint).await;
+				let result = self.handle_track_volume(library, fingerprint).await;
 				let _ = ack.send(result);
 			}
 			VolumeManagerMessage::UntrackVolume {
-				volume_fingerprint,
+				fingerprint,
 				library,
 				ack,
 			} => todo!(),
 			VolumeManagerMessage::UpdateVolume { volume, ack } => todo!(),
-			VolumeManagerMessage::MountVolume {
-				volume_fingerprint,
-				ack,
-			} => todo!(),
-			VolumeManagerMessage::UnmountVolume {
-				volume_fingerprint,
-				ack,
-			} => {
-				let result = self.handle_unmount_volume(volume_fingerprint).await;
+			VolumeManagerMessage::MountVolume { fingerprint, ack } => todo!(),
+			VolumeManagerMessage::UnmountVolume { fingerprint, ack } => {
+				let result = self
+					.handle_unmount_volume(fingerprint, self.ctx.device_id.clone().into())
+					.await;
 				let _ = ack.send(result);
 			}
-			VolumeManagerMessage::SpeedTest {
-				volume_fingerprint,
-				ack,
-			} => todo!(),
+			VolumeManagerMessage::SpeedTest { fingerprint, ack } => todo!(),
 		}
 		Ok(())
 	}
@@ -389,37 +365,21 @@ impl VolumeManagerActor {
 		&self,
 		library: Arc<Library>,
 	) -> Result<Vec<Volume>, VolumeError> {
-		tracing::info!(
-			"Currently {} volumes present in the system",
-			self.state.read().await.volumes.len()
-		);
-		let library_pub_id = library.id.as_bytes().to_vec();
-		let current_device_pub_id = self.ctx.device_id.clone();
-		let state = self.state.read().await;
+		tracing::info!("Listing system volumes for library {}", library.id);
 
-		let mut volumes: Vec<Volume> = state.volumes.values().cloned().collect();
-
-		// compute fingerprints and update pub_ids
-		for volume in &mut volumes {
-			volume.fingerprint = Some(volume.generate_fingerprint(current_device_pub_id.clone()));
-			if let Some(pub_id) = &volume.pub_id {
-				if let Some(mappings) = state.library_volume_mapping.get(&library_pub_id) {
-					if let Some(mapped_id) = mappings.get(pub_id) {
-						volume.pub_id = Some(mapped_id.clone());
-					}
-				}
-			}
-		}
-
-		Ok(volumes)
+		self.state
+			.read()
+			.await
+			.get_volumes_for_library(library.id)
+			.await
 	}
 
 	pub async fn get_volumes(&self) -> Vec<Volume> {
-		self.state.read().await.volumes.values().cloned().collect()
+		self.state.read().await.list_volumes().await
 	}
 
-	pub async fn volume_exists(&self, fingerprint: Vec<u8>) -> bool {
-		self.state.read().await.volumes.contains_key(&fingerprint)
+	pub async fn volume_exists(&self, fingerprint: VolumeFingerprint) -> bool {
+		self.state.read().await.volume_exists(&fingerprint).await
 	}
 
 	// async fn handle_list_library_volumes(
@@ -477,15 +437,16 @@ impl VolumeManagerActor {
 	async fn handle_track_volume(
 		&mut self,
 		library: Arc<Library>,
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 	) -> Result<(), VolumeError> {
 		let state = self.state.write().await;
 		let device_pub_id = self.ctx.device_id.clone();
 
 		// Find the volume in our current system volumes
-		let volume = match state.volumes.get(&volume_fingerprint) {
-			Some(v) => v.clone(),
-			None => return Err(VolumeError::InvalidId(hex::encode(&volume_fingerprint))),
+		let registry = state.registry.read().await;
+		let volume = match registry.get_volume(&fingerprint) {
+			Some(v) => v,
+			None => return Err(VolumeError::InvalidFingerprint(fingerprint.clone())),
 		};
 
 		// Create in database with current device association
@@ -496,30 +457,28 @@ impl VolumeManagerActor {
 
 	async fn handle_unmount_volume(
 		&mut self,
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
+		device_pub_id: DevicePubId,
 	) -> Result<(), VolumeError> {
-		// First get the volume from state to get its mount point
-		let volume = self
-			.state
-			.write()
+		let state = self.state.read().await;
+		let volume = state
+			.get_volume(&fingerprint)
 			.await
-			.volumes
-			.get(&volume_fingerprint)
-			.ok_or(VolumeError::NotFound(volume_fingerprint.clone()))?
-			.clone();
+			.ok_or_else(|| VolumeError::NotFound(fingerprint.clone()))?;
 
-		// Check if volume is actually mounted
 		if !volume.is_mounted {
 			return Err(VolumeError::NotMounted(volume.mount_point.clone()));
 		}
 
-		// Call the platform-specific unmount function
+		// Call platform-specific unmount
 		super::os::unmount_volume(&volume.mount_point).await?;
 
+		let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+
 		// Emit unmount event
-		if let Some(pub_id) = volume.pub_id {
+		if let Some(pub_id) = volume.pub_id.as_ref() {
 			let _ = self.event_tx.send(VolumeEvent::VolumeMountChanged {
-				id: pub_id,
+				fingerprint,
 				is_mounted: false,
 			});
 		}
