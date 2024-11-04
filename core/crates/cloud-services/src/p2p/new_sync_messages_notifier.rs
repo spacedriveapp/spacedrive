@@ -1,7 +1,7 @@
 use crate::{token_refresher::TokenRefresher, Error};
 
 use sd_cloud_schema::{
-	cloud_p2p::{Client, CloudP2PALPN, Service},
+	cloud_p2p::{Client, CloudP2PALPN},
 	devices,
 	sync::groups,
 };
@@ -24,8 +24,7 @@ pub async fn dispatch_notifier(
 	devices: Option<(Instant, Vec<(devices::PubId, NodeId)>)>,
 	msgs_tx: flume::Sender<Message>,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Service>,
-		sd_cloud_schema::Service,
+		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	token_refresher: TokenRefresher,
 	endpoint: Endpoint,
@@ -64,8 +63,7 @@ async fn notify_peers(
 	device_pub_id: devices::PubId,
 	devices: Option<(Instant, Vec<(devices::PubId, NodeId)>)>,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Service>,
-		sd_cloud_schema::Service,
+		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	token_refresher: TokenRefresher,
 	endpoint: Endpoint,
@@ -130,7 +128,7 @@ async fn connect_and_send_notification(
 	connection_id: &NodeId,
 	endpoint: &Endpoint,
 ) -> Result<(), Error> {
-	let client = Client::new(RpcClient::new(QuinnConnection::<Service>::from_connection(
+	let client = Client::new(RpcClient::new(QuinnConnection::from_connection(
 		endpoint
 			.connect(*connection_id, CloudP2PALPN::LATEST)
 			.await

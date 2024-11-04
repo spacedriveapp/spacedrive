@@ -48,10 +48,10 @@ mkdir -p "$TARGET_DIRECTORY"
 TARGET_DIRECTORY="$(CDPATH='' cd -- "$TARGET_DIRECTORY" && pwd -P)"
 
 TARGET_CONFIG=debug
-# if [ "${CONFIGURATION:-}" = "Release" ]; then
-#   set -- --release
-#   TARGET_CONFIG=release
-# fi
+if [ "${CONFIGURATION:-}" = "Release" ]; then
+  set -- --release
+  TARGET_CONFIG=release
+fi
 
 trap 'if [ -e "${CARGO_CONFIG}.bak" ]; then mv "${CARGO_CONFIG}.bak" "$CARGO_CONFIG"; fi' EXIT
 
