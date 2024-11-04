@@ -107,24 +107,22 @@ impl VolumeManagerActor {
 			while let Ok(event) = event_rx.recv().await {
 				debug!("Volume event received: {:?}", event);
 
+				let mut state = self.state.write().await;
+
 				match event {
 					VolumeEvent::VolumeAdded(volume) => {
-						self.state.write().await.volumes.insert(
+						state.volumes.insert(
 							volume.generate_fingerprint(current_device_pub_id.clone()),
 							volume,
 						);
 					}
 					VolumeEvent::VolumeRemoved(volume) => {
-						self.state
-							.write()
-							.await
+						state
 							.volumes
 							.remove(&volume.generate_fingerprint(current_device_pub_id.clone()));
 					}
 					VolumeEvent::VolumeUpdated { old: _, new } => {
-						self.state
-							.write()
-							.await
+						state
 							.volumes
 							.insert(new.generate_fingerprint(current_device_pub_id.clone()), new);
 					}
@@ -133,38 +131,14 @@ impl VolumeManagerActor {
 						read_speed,
 						write_speed,
 					} => {
-						self.state
-							.write()
-							.await
-							.volumes
-							.get_mut(&id)
-							.unwrap()
-							.read_speed_mbps = Some(read_speed);
-						self.state
-							.write()
-							.await
-							.volumes
-							.get_mut(&id)
-							.unwrap()
-							.write_speed_mbps = Some(write_speed);
+						state.volumes.get_mut(&id).unwrap().read_speed_mbps = Some(read_speed);
+						state.volumes.get_mut(&id).unwrap().write_speed_mbps = Some(write_speed);
 					}
 					VolumeEvent::VolumeMountChanged { id, is_mounted } => {
-						self.state
-							.write()
-							.await
-							.volumes
-							.get_mut(&id)
-							.unwrap()
-							.is_mounted = is_mounted;
+						state.volumes.get_mut(&id).unwrap().is_mounted = is_mounted;
 					}
 					VolumeEvent::VolumeError { id, error } => {
-						self.state
-							.write()
-							.await
-							.volumes
-							.get_mut(&id)
-							.unwrap()
-							.error_status = Some(error);
+						state.volumes.get_mut(&id).unwrap().error_status = Some(error);
 					}
 				}
 			}
