@@ -1,6 +1,6 @@
 use super::{utils::library, Ctx, R};
 use crate::library::Library;
-use crate::volume::VolumeEvent;
+use crate::volume::{VolumeEvent, VolumeFingerprint};
 use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use specta::Type;
@@ -10,7 +10,7 @@ use tokio_stream::StreamExt;
 
 #[derive(Type, Deserialize)]
 pub struct TrackVolumeInput {
-	pub volume_id: Vec<u8>,
+	pub volume_id: VolumeFingerprint,
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
@@ -56,12 +56,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				}),
 		)
+		// .procedure(
+		// 	"listByDevice",
+		// 	R.with2(library())
+		// 		.query(|(node, library), _: ()| async move {
+		// 			node.volumes
+		// 				.list_by_device(library)
+		// 				.await
+		// 				.map_err(Into::into)
+		// 		}),
+		// )
 		.procedure(
 			"unmount",
 			R.with2(library())
 				.mutation(|(node, _), fingerprint: Vec<u8>| async move {
 					node.volumes
-						.unmount_volume(fingerprint)
+						.unmount_volume(VolumeFingerprint(fingerprint).into())
 						.await
 						.map_err(Into::into)
 				}),

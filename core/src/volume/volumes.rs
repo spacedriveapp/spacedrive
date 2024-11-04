@@ -2,7 +2,7 @@
 use super::{
 	actor::VolumeManagerMessage,
 	error::VolumeError,
-	types::{Volume, VolumeEvent},
+	types::{Volume, VolumeEvent, VolumeFingerprint},
 };
 use crate::library::Library;
 use async_channel as chan;
@@ -70,12 +70,12 @@ impl Volumes {
 	#[instrument(skip(self))]
 	pub async fn track_volume(
 		&self,
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		library: Arc<Library>,
 	) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::TrackVolume {
-			volume_fingerprint,
+			fingerprint,
 			library,
 			ack: tx,
 		};
@@ -92,12 +92,12 @@ impl Volumes {
 	#[instrument(skip(self))]
 	pub async fn untrack_volume(
 		&self,
-		volume_fingerprint: Vec<u8>,
+		fingerprint: VolumeFingerprint,
 		library: Arc<Library>,
 	) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::UntrackVolume {
-			volume_fingerprint,
+			fingerprint,
 			library,
 			ack: tx,
 		};
@@ -110,10 +110,10 @@ impl Volumes {
 		rx.await.map_err(|_| VolumeError::Cancelled)?
 	}
 
-	pub async fn unmount_volume(&self, volume_fingerprint: Vec<u8>) -> Result<(), VolumeError> {
+	pub async fn unmount_volume(&self, fingerprint: VolumeFingerprint) -> Result<(), VolumeError> {
 		let (tx, rx) = oneshot::channel();
 		let msg = VolumeManagerMessage::UnmountVolume {
-			volume_fingerprint,
+			fingerprint,
 			ack: tx,
 		};
 

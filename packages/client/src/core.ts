@@ -790,7 +790,7 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  */
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
-export type TrackVolumeInput = { volume_id: number[] }
+export type TrackVolumeInput = { volume_id: VolumeFingerprint }
 
 export type UpdateThumbnailerPreferences = Record<string, never>
 
@@ -868,7 +868,7 @@ total_bytes_available: string;
  * Fingerprint of the volume, not persisted to the database
  * Compute using `generate_fingerprint` method at query time
  */
-fingerprint: number[] | null }
+fingerprint: VolumeFingerprint | null }
 
 /**
  * Events emitted by the Volume Manager when volume state changes
@@ -889,12 +889,14 @@ export type VolumeEvent =
 /**
  * Emitted when a volume's speed test completes
  */
-{ VolumeSpeedTested: { id: number[]; read_speed: bigint; write_speed: bigint } } | 
+{ VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed: bigint; write_speed: bigint } } | 
 /**
  * Emitted when a volume's mount status changes
  */
-{ VolumeMountChanged: { id: number[]; is_mounted: boolean } } | 
+{ VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | 
 /**
  * Emitted when a volume encounters an error
  */
-{ VolumeError: { id: number[]; error: string } }
+{ VolumeError: { fingerprint: VolumeFingerprint; error: string } }
+
+export type VolumeFingerprint = number[]
