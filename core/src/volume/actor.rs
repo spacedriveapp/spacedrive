@@ -91,63 +91,7 @@ impl VolumeManagerActor {
 			ctx,
 		};
 
-		// Pass event_rx to start monitoring task immediately
-		actor
-			.clone()
-			.start_event_monitoring(event_rx, actor.ctx.device_id.clone().into());
-
 		Ok((manager, actor))
-	}
-
-	fn start_event_monitoring(
-		self,
-		mut event_rx: broadcast::Receiver<VolumeEvent>,
-		device_pub_id: DevicePubId,
-	) {
-		tokio::spawn(async move {
-			debug!("Starting volume event monitoring");
-			while let Ok(event) = event_rx.recv().await {
-				debug!("Volume event received: {:?}", event);
-
-				let state = self.state.write().await;
-				let mut registry = state.registry.write().await;
-
-				match event {
-					VolumeEvent::VolumeAdded(volume) => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
-						registry.register_volume(volume);
-					}
-					VolumeEvent::VolumeRemoved(volume) => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
-						registry.remove_volume(&fingerprint);
-					}
-					VolumeEvent::VolumeUpdated { old: _, new } => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &new);
-						registry.update_volume(new);
-					}
-					VolumeEvent::VolumeSpeedTested {
-						fingerprint,
-						read_speed,
-						write_speed,
-					} => {
-						if let Some(volume) = registry.get_volume_mut(&fingerprint) {
-							volume.read_speed_mbps = Some(read_speed);
-							volume.write_speed_mbps = Some(write_speed);
-						}
-					}
-					VolumeEvent::VolumeMountChanged {
-						fingerprint,
-						is_mounted,
-					} => {
-						registry.get_volume_mut(&fingerprint).unwrap().is_mounted = is_mounted;
-					}
-					VolumeEvent::VolumeError { fingerprint, error } => {
-						registry.get_volume_mut(&fingerprint).unwrap().error_status = Some(error);
-					}
-				}
-			}
-			warn!("Volume event monitoring ended");
-		});
 	}
 
 	/// Starts the VolumeManagerActor
@@ -156,6 +100,14 @@ impl VolumeManagerActor {
 	pub async fn start(self, device_id: DevicePubId) {
 		info!("Volume manager actor started");
 		let self_arc = Arc::new(Mutex::new(self));
+
+		// Start event monitoring
+		let actor = self_arc.lock().await;
+		let event_rx = actor.event_tx.subscribe();
+		actor
+			.clone()
+			.start_event_monitoring(event_rx, device_id.clone());
+		drop(actor);
 
 		// Handle messages
 		let self_arc_msg = Arc::clone(&self_arc);
@@ -243,6 +195,57 @@ impl VolumeManagerActor {
 		});
 
 		info!("Volume manager actor initialized");
+	}
+
+	fn start_event_monitoring(
+		self,
+		mut event_rx: broadcast::Receiver<VolumeEvent>,
+		device_pub_id: DevicePubId,
+	) {
+		tokio::spawn(async move {
+			debug!("Starting volume event monitoring");
+			while let Ok(event) = event_rx.recv().await {
+				debug!("Volume event received: {:?}", event);
+
+				let state = self.state.write().await;
+				let mut registry = state.registry.write().await;
+
+				match event {
+					VolumeEvent::VolumeAdded(volume) => {
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+						registry.register_volume(volume);
+					}
+					VolumeEvent::VolumeRemoved(volume) => {
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+						registry.remove_volume(&fingerprint);
+					}
+					VolumeEvent::VolumeUpdated { old: _, new } => {
+						let fingerprint = VolumeFingerprint::new(&device_pub_id, &new);
+						registry.update_volume(new);
+					}
+					VolumeEvent::VolumeSpeedTested {
+						fingerprint,
+						read_speed,
+						write_speed,
+					} => {
+						if let Some(volume) = registry.get_volume_mut(&fingerprint) {
+							volume.read_speed_mbps = Some(read_speed);
+							volume.write_speed_mbps = Some(write_speed);
+						}
+					}
+					VolumeEvent::VolumeMountChanged {
+						fingerprint,
+						is_mounted,
+					} => {
+						registry.get_volume_mut(&fingerprint).unwrap().is_mounted = is_mounted;
+					}
+					VolumeEvent::VolumeError { fingerprint, error } => {
+						registry.get_volume_mut(&fingerprint).unwrap().error_status = Some(error);
+					}
+				}
+			}
+			warn!("Volume event monitoring ended");
+		});
 	}
 
 	/// Syncs volume memory state with library database

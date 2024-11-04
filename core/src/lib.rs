@@ -13,8 +13,7 @@ use sd_core_prisma_helpers::CasId;
 use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
-use serde::de;
-use volume::create_volume_manager;
+use volume::VolumeManagerActor;
 
 use std::{
 	fmt,
@@ -158,11 +157,11 @@ impl Node {
 
 		let device_id = config.get().await.id;
 		let volume_ctx = volume::VolumeManagerContext {
-			device_id: device_id.into(),
+			device_id: device_id.clone().into(),
 			library_event_tx: libraries.rx.clone(),
 		};
 
-		let (volumes, _actor) = volume::create_volume_manager(volume_ctx).await?;
+		let (volumes, volume_manager_actor) = VolumeManagerActor::new(Arc::new(volume_ctx)).await?;
 
 		let volumes = Arc::new(volumes);
 
@@ -203,6 +202,7 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
+		volume_manager_actor.start(device_id).await;
 
 		node.job_system
 			.init(

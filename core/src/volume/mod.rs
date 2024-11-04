@@ -34,25 +34,6 @@ pub struct VolumeManagerContext {
 	pub library_event_tx: mpscrr::Receiver<LibraryManagerEvent, ()>,
 }
 
-pub async fn create_volume_manager(
-	ctx: VolumeManagerContext,
-) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
-	let device_pub_id = ctx.device_id.clone().into();
-	let (manager, actor) = VolumeManagerActor::new(Arc::new(ctx)).await?;
-	actor.clone().start(device_pub_id).await;
-	Ok((manager, actor))
-}
-
-pub async fn create_volume_manager_with_config(
-	ctx: VolumeManagerContext,
-	options: VolumeOptions,
-) -> Result<(Volumes, VolumeManagerActor), VolumeError> {
-	let device_pub_id = ctx.device_id.clone().into();
-	let (manager, actor) = VolumeManagerActor::new_with_config(Arc::new(ctx), options).await?;
-	actor.clone().start(device_pub_id).await;
-	Ok((manager, actor))
-}
-
 // Extension trait for Volume operations that don't require actor communication
 pub trait VolumeExt {
 	/// Checks if volume is mounted and accessible
