@@ -10,7 +10,7 @@ use sd_cloud_schema::{
 		ClientRegistration, ClientRegistrationFinishParameters, ClientRegistrationFinishResult,
 		ClientRegistrationStartResult,
 	},
-	Client, NodeId, Service, SpacedriveCipherSuite,
+	Client, NodeId, Request, Response, SpacedriveCipherSuite,
 };
 use sd_crypto::{cloud::secret_key::SecretKey, CryptoRng};
 
@@ -149,7 +149,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 }
 
 pub async fn hello(
-	client: &Client<QuinnConnection<Service>, Service>,
+	client: &Client<QuinnConnection<Response, Request>>,
 	access_token: AccessToken,
 	device_pub_id: PubId,
 	hashed_pub_id: Hash,
@@ -270,7 +270,7 @@ pub struct DeviceRegisterData {
 }
 
 pub async fn register(
-	client: &Client<QuinnConnection<Service>, Service>,
+	client: &Client<QuinnConnection<Response, Request>>,
 	access_token: AccessToken,
 	DeviceRegisterData {
 		pub_id,
