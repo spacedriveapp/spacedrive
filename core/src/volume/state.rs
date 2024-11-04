@@ -1,10 +1,16 @@
-use crate::library::Library;
-use crate::volume::types::{LibraryId, Volume, VolumeEvent, VolumeFingerprint, VolumePubId};
+use crate::{
+	library::Library,
+	volume::{
+		speed::SpeedTest,
+		types::{LibraryId, Volume, VolumeEvent, VolumeFingerprint, VolumePubId},
+	},
+};
+
 use sd_core_sync::DevicePubId;
-use std::collections::HashSet;
+use std::{clone, collections::HashSet};
 use std::{collections::HashMap, sync::Arc, time::Instant};
 use tokio::sync::{broadcast, RwLock};
-use tracing::debug;
+use tracing::{debug, error};
 
 use super::{VolumeError, VolumeOptions};
 // Core volume registry
@@ -21,11 +27,15 @@ impl VolumeRegistry {
 		}
 	}
 
-	pub fn register_volume(&mut self, volume: Volume) -> VolumeFingerprint {
-		let id = VolumeFingerprint::new(&self.device_id, &volume);
-		debug!("Registering volume {} with fingerprint {}", volume.name, id);
-		self.volumes.insert(id.clone(), volume);
-		id
+	pub fn register_volume(&mut self, mut volume: Volume) -> (Volume, VolumeFingerprint) {
+		let fingerprint = VolumeFingerprint::new(&self.device_id, &volume);
+		debug!(
+			"Registering volume {} with fingerprint {}",
+			volume.name, fingerprint
+		);
+		volume.fingerprint = Some(fingerprint.clone());
+		self.volumes.insert(fingerprint.clone(), volume.clone());
+		(volume, fingerprint)
 	}
 
 	pub fn get_volume(&self, id: &VolumeFingerprint) -> Option<&Volume> {
@@ -141,18 +151,31 @@ impl VolumeManagerState {
 
 		// Process detected volumes
 		for volume in detected_volumes {
-			let id = registry.register_volume(volume.clone());
-			seen.insert(id.clone());
+			let (volume, fingerprint) = registry.register_volume(volume.clone());
+			seen.insert(fingerprint.clone());
 
 			// Emit event for new volumes
-			if !existing.contains(&id) {
-				let _ = self.event_tx.send(VolumeEvent::VolumeAdded(volume));
+			if !existing.contains(&fingerprint) {
+				let event_tx = self.event_tx.clone();
+				let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
+
+				let mut volume_clone = volume.clone();
+				let event_tx = self.event_tx.clone();
+				drop(registry);
+
+				tokio::spawn(async move {
+					if let Err(e) = volume_clone.speed_test(None, Some(&event_tx)).await {
+						error!(?e, "Failed to perform speed test for volume");
+					}
+				});
+
+				registry = self.registry.write().await;
 			}
 		}
 
 		// Find and remove volumes that no longer exist
-		for id in existing.difference(&seen) {
-			if let Some(volume) = registry.remove_volume(id) {
+		for fingerprint in existing.difference(&seen) {
+			if let Some(volume) = registry.remove_volume(fingerprint) {
 				let _ = self.event_tx.send(VolumeEvent::VolumeRemoved(volume));
 			}
 		}
@@ -199,11 +222,6 @@ impl VolumeManagerState {
 		self.registry.read().await.get_volume(fingerprint).cloned()
 	}
 
-	pub async fn register_volume(&self, volume: Volume) -> VolumeFingerprint {
-		self.registry.write().await.register_volume(volume)
-	}
-
-	// Add these convenience methods to state.rs
 	pub async fn list_volumes(&self) -> Vec<Volume> {
 		self.registry
 			.read()
@@ -223,6 +241,7 @@ impl VolumeManagerState {
 		let mut volumes = Vec::new();
 
 		for (fingerprint, volume) in registry.volumes() {
+			debug!("Processing volume: {:?}", volume);
 			let mut volume = volume.clone();
 
 			// Update volume with library-specific pub_id if available

@@ -124,15 +124,18 @@ impl SpeedTest for Volume {
 		self.write_speed_mbps = Some(write_speed as u64);
 
 		// Emit event if requested
-		if config.emit_events {
+		// if config.emit_events {
+		println!("emitting event for {:?}", self.fingerprint);
+		if let Some(fingerprint) = self.fingerprint.clone() {
 			if let Some(tx) = event_tx {
 				let _ = tx.send(VolumeEvent::VolumeSpeedTested {
-					fingerprint: self.fingerprint.clone().unwrap(),
+					fingerprint,
 					read_speed: read_speed as u64,
 					write_speed: write_speed as u64,
 				});
 			}
 		}
+		// }
 
 		// Cleanup
 		test_location.cleanup().await?;

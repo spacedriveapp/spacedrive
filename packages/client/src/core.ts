@@ -866,9 +866,8 @@ total_bytes_capacity: string;
 total_bytes_available: string; 
 /**
  * Fingerprint of the volume, not persisted to the database
- * Compute using `generate_fingerprint` method at query time
  */
-fingerprint: VolumeFingerprint | null }
+fingerprint: string }
 
 /**
  * Events emitted by the Volume Manager when volume state changes

@@ -1,4 +1,5 @@
 use super::error::VolumeError;
+use crate::volume::speed::SpeedTest;
 use sd_core_sync::DevicePubId;
 use sd_prisma::prisma::{
 	device,
@@ -12,11 +13,32 @@ use std::fmt;
 use std::path::PathBuf;
 use std::{path::Path, sync::Arc};
 use strum_macros::Display;
-use tokio::time::Duration;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Type)]
 pub struct VolumeFingerprint(pub Vec<u8>);
+
+impl Serialize for VolumeFingerprint {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		// Convert to hex string when serializing
+		serializer.serialize_str(&hex::encode(&self.0))
+	}
+}
+
+impl<'de> Deserialize<'de> for VolumeFingerprint {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let s = String::deserialize(deserializer)?;
+		hex::decode(s)
+			.map(VolumeFingerprint)
+			.map_err(serde::de::Error::custom)
+	}
+}
 
 impl VolumeFingerprint {
 	pub fn new(device_id: &DevicePubId, volume: &Volume) -> Self {
@@ -126,7 +148,7 @@ pub struct Volume {
 	#[serde_as(as = "DisplayFromStr")]
 	pub total_bytes_available: u64,
 	/// Fingerprint of the volume, not persisted to the database
-	/// Compute using `generate_fingerprint` method at query time
+	#[specta(type = String)]
 	pub fingerprint: Option<VolumeFingerprint>,
 }
 
@@ -226,26 +248,28 @@ impl Volume {
 			fingerprint: None,
 		}
 	}
-	/// Generate a unique fingerprint for a volume that will be consistent across detections
-	pub fn generate_fingerprint(&self, current_device_pub_id: Vec<u8>) -> Vec<u8> {
-		let mut hasher = blake3::Hasher::new();
+	// /// Generate a unique fingerprint for a volume that will be consistent across detections
+	// pub fn generate_fingerprint(&mut self, current_device_pub_id: Vec<u8>) -> Vec<u8> {
+	// 	let mut hasher = blake3::Hasher::new();
 
-		// Add hardware-specific identifiers that won't change between reboots
-		for id in current_device_pub_id {
-			hasher.update(&[id]);
-		}
-		hasher.update(self.mount_point.to_string_lossy().as_bytes());
-		hasher.update(self.name.as_bytes());
-		hasher.update(&self.total_bytes_capacity.to_be_bytes());
-		hasher.update(self.file_system.to_string().as_bytes());
+	// 	// Add hardware-specific identifiers that won't change between reboots
+	// 	for id in current_device_pub_id {
+	// 		hasher.update(&[id]);
+	// 	}
+	// 	hasher.update(self.mount_point.to_string_lossy().as_bytes());
+	// 	hasher.update(self.name.as_bytes());
+	// 	hasher.update(&self.total_bytes_capacity.to_be_bytes());
+	// 	hasher.update(self.file_system.to_string().as_bytes());
 
-		hasher.finalize().as_bytes().to_vec()
-	}
+	// 	let fingerprint = hasher.finalize().as_bytes().to_vec();
+	// 	self.fingerprint = Some(VolumeFingerprint(fingerprint.clone()));
+	// 	fingerprint
+	// }
 
-	/// Creates a hex string representation of the fingerprint
-	pub fn fingerprint_hex(&self, current_device_pub_id: Vec<u8>) -> String {
-		hex::encode(self.generate_fingerprint(current_device_pub_id))
-	}
+	// /// Creates a hex string representation of the fingerprint
+	// pub fn fingerprint_hex(&mut self, current_device_pub_id: Vec<u8>) -> String {
+	// 	hex::encode(self.generate_fingerprint(current_device_pub_id))
+	// }
 
 	/// Check if a path is under any of this volume's mount points
 	pub fn contains_path(&self, path: &Path) -> bool {
