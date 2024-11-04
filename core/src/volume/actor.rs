@@ -1,5 +1,6 @@
 use super::{
 	error::VolumeError,
+	speed::SpeedTest,
 	types::{Volume, VolumeEvent, VolumeOptions},
 	volumes::Volumes,
 	watcher::VolumeWatcher,
@@ -47,6 +48,7 @@ pub enum VolumeManagerMessage {
 	},
 	SpeedTest {
 		fingerprint: VolumeFingerprint,
+		library: Arc<Library>,
 		ack: oneshot::Sender<Result<(), VolumeError>>,
 	},
 	ListSystemVolumes {
@@ -95,7 +97,6 @@ impl VolumeManagerActor {
 	}
 
 	/// Starts the VolumeManagerActor
-	/// This is a blocking function that will run forever
 	/// It will scan volumes, start the watcher, start the maintenance task, and handle messages
 	pub async fn start(self, device_id: DevicePubId) {
 		info!("Volume manager actor started");
@@ -125,6 +126,7 @@ impl VolumeManagerActor {
 		});
 
 		// Scan for volumes on startup
+		// unlock registry rwlock
 		let _ = self_arc.lock().await.scan_volumes().await;
 
 		// Subscribe to LibraryManagerEvent
@@ -207,40 +209,59 @@ impl VolumeManagerActor {
 			while let Ok(event) = event_rx.recv().await {
 				debug!("Volume event received: {:?}", event);
 
-				let state = self.state.write().await;
-				let mut registry = state.registry.write().await;
-
 				match event {
-					VolumeEvent::VolumeAdded(volume) => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
-						registry.register_volume(volume);
-					}
-					VolumeEvent::VolumeRemoved(volume) => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
-						registry.remove_volume(&fingerprint);
-					}
-					VolumeEvent::VolumeUpdated { old: _, new } => {
-						let fingerprint = VolumeFingerprint::new(&device_pub_id, &new);
-						registry.update_volume(new);
-					}
 					VolumeEvent::VolumeSpeedTested {
 						fingerprint,
 						read_speed,
 						write_speed,
 					} => {
-						if let Some(volume) = registry.get_volume_mut(&fingerprint) {
-							volume.read_speed_mbps = Some(read_speed);
-							volume.write_speed_mbps = Some(write_speed);
+						// Get read lock first to check volume existence
+						let volume_exists = {
+							let state = self.state.read().await;
+							state.get_volume(&fingerprint).await.is_some()
+						};
+
+						if volume_exists {
+							// Then get write lock to update speeds
+							let state = self.state.write().await;
+							let mut registry = state.registry.write().await;
+							if let Some(volume) = registry.get_volume_mut(&fingerprint) {
+								volume.read_speed_mbps = Some(read_speed);
+								volume.write_speed_mbps = Some(write_speed);
+							}
 						}
 					}
-					VolumeEvent::VolumeMountChanged {
-						fingerprint,
-						is_mounted,
-					} => {
-						registry.get_volume_mut(&fingerprint).unwrap().is_mounted = is_mounted;
-					}
-					VolumeEvent::VolumeError { fingerprint, error } => {
-						registry.get_volume_mut(&fingerprint).unwrap().error_status = Some(error);
+					_ => {
+						// Handle other events with a single write lock
+						let state = self.state.write().await;
+						let mut registry = state.registry.write().await;
+
+						match event {
+							VolumeEvent::VolumeAdded(volume) => {
+								registry.register_volume(volume);
+							}
+							VolumeEvent::VolumeRemoved(volume) => {
+								let fingerprint = VolumeFingerprint::new(&device_pub_id, &volume);
+								registry.remove_volume(&fingerprint);
+							}
+							VolumeEvent::VolumeUpdated { old: _, new } => {
+								registry.update_volume(new);
+							}
+							VolumeEvent::VolumeMountChanged {
+								fingerprint,
+								is_mounted,
+							} => {
+								if let Some(volume) = registry.get_volume_mut(&fingerprint) {
+									volume.is_mounted = is_mounted;
+								}
+							}
+							VolumeEvent::VolumeError { fingerprint, error } => {
+								if let Some(volume) = registry.get_volume_mut(&fingerprint) {
+									volume.error_status = Some(error);
+								}
+							}
+							_ => {}
+						}
 					}
 				}
 			}
@@ -358,7 +379,11 @@ impl VolumeManagerActor {
 					.await;
 				let _ = ack.send(result);
 			}
-			VolumeManagerMessage::SpeedTest { fingerprint, ack } => todo!(),
+			VolumeManagerMessage::SpeedTest {
+				fingerprint,
+				ack,
+				library,
+			} => todo!(),
 		}
 		Ok(())
 	}
@@ -446,14 +471,23 @@ impl VolumeManagerActor {
 		let device_pub_id = self.ctx.device_id.clone();
 
 		// Find the volume in our current system volumes
-		let registry = state.registry.read().await;
-		let volume = match registry.get_volume(&fingerprint) {
-			Some(v) => v,
+		let mut registry = state.registry.write().await;
+		let mut volume = match registry.get_volume_mut(&fingerprint) {
+			Some(v) => v.clone(),
 			None => return Err(VolumeError::InvalidFingerprint(fingerprint.clone())),
 		};
 
 		// Create in database with current device association
 		volume.create(&library.db, device_pub_id.into()).await?;
+
+		// Spawn a background task to perform the speed test
+		let event_tx = self.event_tx.clone();
+		let mut volume = volume.clone();
+		tokio::spawn(async move {
+			if let Err(e) = volume.speed_test(None, Some(&event_tx)).await {
+				error!(?e, "Failed to perform speed test for volume");
+			}
+		});
 
 		Ok(())
 	}
