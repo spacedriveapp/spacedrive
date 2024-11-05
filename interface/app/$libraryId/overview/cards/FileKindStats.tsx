@@ -202,7 +202,7 @@ const FileKindStats: React.FC = () => {
 	}, [cardWidth, sortedFileKinds]);
 
 	return (
-		<OverviewCard>
+		<>
 			{loading ? (
 				<div className="mt-4 flex h-full items-center justify-center">
 					<div className="flex flex-col items-center justify-center gap-3">
@@ -303,7 +303,7 @@ const FileKindStats: React.FC = () => {
 					</div>
 				</>
 			)}
-		</OverviewCard>
+		</>
 	);
 };
 

@@ -2,7 +2,7 @@ import { useLibraryQuery } from '@sd/client';
 
 import { ItemsCard } from './ItemsCard';
 
-const FavoriteItemsCard = () => {
+const FavoriteItems = () => {
 	const favoriteItemsQuery = useLibraryQuery([
 		'search.objects',
 		{
@@ -24,4 +24,4 @@ const FavoriteItemsCard = () => {
 	);
 };
 
-export default FavoriteItemsCard;
+export default FavoriteItems;

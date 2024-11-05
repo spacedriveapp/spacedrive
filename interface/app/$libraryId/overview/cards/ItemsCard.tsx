@@ -60,7 +60,7 @@ export const ItemsCard = ({
 	const itemHeight = explorerSettings.settingsStore.gridItemSize + itemDetailsHeight;
 
 	return (
-		<OverviewCard>
+		<>
 			<div className="mb-4 flex items-center justify-between pt-1">
 				<span className="text-sm font-medium">{t(title)}</span>
 				<span className="text-xs text-ink-faint">
@@ -117,6 +117,6 @@ export const ItemsCard = ({
 			>
 				{t(buttonText)}
 			</Button>
-		</OverviewCard>
+		</>
 	);
 };

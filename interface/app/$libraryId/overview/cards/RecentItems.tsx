@@ -2,7 +2,7 @@ import { ObjectOrder, objectOrderingKeysSchema, useLibraryQuery } from '@sd/clie
 
 import { ItemsCard } from './ItemsCard';
 
-const RecentItemsCard = () => {
+const RecentFiles = () => {
 	const recentItemsQuery = useLibraryQuery([
 		'search.objects',
 		{
@@ -24,4 +24,4 @@ const RecentItemsCard = () => {
 	);
 };
 
-export default RecentItemsCard;
+export default RecentFiles;

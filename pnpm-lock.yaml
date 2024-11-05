@@ -710,6 +710,9 @@ importers:
       '@headlessui/react':
         specifier: ^1.7.17
         version: 1.7.18(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      '@hello-pangea/dnd':
+        specifier: ^17.0.0
+        version: 17.0.0(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@icons-pack/react-simple-icons':
         specifier: ^9.1.0
         version: 9.4.0(react@18.2.0)
@@ -3437,6 +3440,12 @@ packages:
     engines: {node: '>=10'}
     peerDependencies:
       tailwindcss: ^3.0
+
+  '@hello-pangea/dnd@17.0.0':
+    resolution: {integrity: sha512-LDDPOix/5N0j5QZxubiW9T0M0+1PR0rTDWeZF5pu1Tz91UQnuVK4qQ/EjY83Qm2QeX0eM8qDXANfDh3VVqtR4Q==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
 
   '@heroicons/react@2.1.3':
     resolution: {integrity: sha512-fEcPfo4oN345SoqdlCDdSa4ivjaKbk0jTd+oubcgNxnNgAfzysfwWfQUr+51wigiWHQQRiZNd1Ao0M5Y3M2EGg==}
@@ -6209,6 +6218,9 @@ packages:
   '@types/unist@3.0.2':
     resolution: {integrity: sha512-dqId9J8K/vGi5Zr7oo212BGii5m3q5Hxlkwy3WpYuKPklmBEvsbMYYyLxAQpSffdLl/gdW0XUpKWFvYmyoWCoQ==}
 
+  '@types/use-sync-external-store@0.0.3':
+    resolution: {integrity: sha512-EwmlvuaxPNej9+T4v5AuBPJa2x2UOJVdjCtDHgcDqitUeOtjnJKJ+apYjVcAoBEMjKW1VVFGZLUb5+qqa09XFA==}
+
   '@types/uuid@9.0.8':
     resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
 
@@ -7630,6 +7642,9 @@ packages:
     resolution: {integrity: sha512-2XN6LeBAWyRLPUAcKrJTBftNc50VVVeU/j1GVU07hEun4Q4KZG9CbUT+YaZEnZo8xexVUBfZLtB5YxSImCnBtQ==}
     engines: {node: '>=18'}
     hasBin: true
+
+  css-box-model@1.2.1:
+    resolution: {integrity: sha512-a7Vr4Q/kd/aw96bnJG332W9V9LkJO69JRcaCYDUqjp6/z0w6VcZjgAcTbgFxEPfBgdnAwlh3iwu+hLopa+flJw==}
 
   css-line-break@2.1.0:
     resolution: {integrity: sha512-FHcKFCZcAha3LwfVBhCQbW2nCNbkZXn7KVUJcsT5/P8YmfsVja0FMPJr0B903j/E69HUphKiV9iQArX8SDYA4w==}
@@ -10664,6 +10679,9 @@ packages:
   memoize-one@5.2.1:
     resolution: {integrity: sha512-zYiwtZUcYyXKo/np96AGZAckk+FWWsUdJ3cHGGmld7+AhvcWmQyGCYUh1hc4Q/pkOhb65dQR/pqCyK0cOaHz4Q==}
 
+  memoize-one@6.0.0:
+    resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
+
   memoizerific@1.11.3:
     resolution: {integrity: sha512-/EuHYwAPdLtXwAwSZkh/Gutery6pD2KYd44oQLhAvQp/50mpyduZh8Q7PYHXTCJ+wuXxt7oij2LXyIJOOYFPog==}
 
@@ -12075,6 +12093,9 @@ packages:
   queue@6.0.2:
     resolution: {integrity: sha512-iHZWu+q3IdFZFX36ro/lKBkSvfkztY5Y7HMiPlOUjhupPcG2JMfst2KKEpu5XndviX/3UhFbRngUPNKtgvtZiA==}
 
+  raf-schd@4.0.3:
+    resolution: {integrity: sha512-tQkJl2GRWh83ui2DiPTJz9wEiMN20syf+5oKfB03yYP7ioZcJwsIK8FjrtLwH1m7C7e+Tt2yYBlrOpdT+dyeIQ==}
+
   raf@3.4.1:
     resolution: {integrity: sha512-Sq4CW4QhwOHE8ucn6J34MqtZCeWFP2aQSmrlroYgqAV1PjStIhJXxYuTgUIfkEk7zTLjmIjLmU5q+fbD1NnOJA==}
 
@@ -12369,6 +12390,18 @@ packages:
     engines: {node: '>=0.10.0'}
     peerDependencies:
       react: ^18.0.0
+
+  react-redux@9.1.2:
+    resolution: {integrity: sha512-0OA4dhM1W48l3uzmv6B7TXPCGmokUU4p1M44DGN2/D9a1FjVPukVjER1PcPX97jIg6aUeLq1XJo1IpfbgULn0w==}
+    peerDependencies:
+      '@types/react': ^18.2.25
+      react: ^18.0
+      redux: ^5.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      redux:
+        optional: true
 
   react-refresh@0.14.2:
     resolution: {integrity: sha512-jCvmsr+1IUSMUyzOkRcvnVbX3ZYC6g9TDrDbFuFmRDq7PD4yaGbLKNQL6k2jnArV8hjYxh7hVhAZB6s9HDGpZA==}
@@ -14140,6 +14173,11 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
+
+  use-memo-one@1.1.3:
+    resolution: {integrity: sha512-g66/K7ZQGYrI6dy8GLpVcMsBp4s17xNkYJVSMvTEevGy3nDxHOfE6z8BVE22+5G5x7t3+bhzrlTDB7ObrEE0cQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
 
   use-resize-observer@9.1.0:
     resolution: {integrity: sha512-R25VqO9Wb3asSD4eqtcxk8sJalvIOYBqS8MNZlpDSQ4l4xMQxC/J7Id9HoTqPq8FwULIn0PVW+OAqF2dyYbjow==}
@@ -17337,7 +17375,7 @@ snapshots:
 
   '@expo/cli@0.18.30(expo-modules-autolinking@1.11.3)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@expo/code-signing-certificates': 0.0.5
       '@expo/config': 9.0.4
       '@expo/config-plugins': 8.0.10
@@ -17737,6 +17775,20 @@ snapshots:
   '@headlessui/tailwindcss@0.2.0(tailwindcss@3.4.1)':
     dependencies:
       tailwindcss: 3.4.1
+
+  '@hello-pangea/dnd@17.0.0(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      '@babel/runtime': 7.25.7
+      css-box-model: 1.2.1
+      memoize-one: 6.0.0
+      raf-schd: 4.0.3
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      react-redux: 9.1.2(@types/react@18.2.67)(react@18.2.0)(redux@5.0.1)
+      redux: 5.0.1
+      use-memo-one: 1.1.3(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
 
   '@heroicons/react@2.1.3(react@18.2.0)':
     dependencies:
@@ -18441,7 +18493,7 @@ snapshots:
 
   '@radix-ui/react-arrow@1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -18547,7 +18599,7 @@ snapshots:
 
   '@radix-ui/react-dismissable-layer@1.0.4(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/primitive': 1.0.1
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -18598,7 +18650,7 @@ snapshots:
 
   '@radix-ui/react-focus-scope@1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-use-callback-ref': 1.0.1(@types/react@18.2.67)(react@18.2.0)
@@ -18681,7 +18733,7 @@ snapshots:
 
   '@radix-ui/react-popper@1.1.2(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@floating-ui/react-dom': 2.0.8(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-arrow': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.67)(react@18.2.0)
@@ -18719,7 +18771,7 @@ snapshots:
 
   '@radix-ui/react-portal@1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/react-primitive': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -18790,7 +18842,7 @@ snapshots:
 
   '@radix-ui/react-roving-focus@1.0.4(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/primitive': 1.0.1
       '@radix-ui/react-collection': 1.0.3(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-compose-refs': 1.0.1(@types/react@18.2.67)(react@18.2.0)
@@ -18964,7 +19016,7 @@ snapshots:
 
   '@radix-ui/react-use-escape-keydown@1.0.3(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/react-use-callback-ref': 1.0.1(@types/react@18.2.67)(react@18.2.0)
       react: 18.2.0
     optionalDependencies:
@@ -18986,7 +19038,7 @@ snapshots:
 
   '@radix-ui/react-use-rect@1.0.1(@types/react@18.2.67)(react@18.2.0)':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@radix-ui/rect': 1.0.1
       react: 18.2.0
     optionalDependencies:
@@ -19012,7 +19064,7 @@ snapshots:
 
   '@radix-ui/rect@1.0.1':
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
 
   '@react-native-async-storage/async-storage@1.23.1(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(react@18.2.0))':
     dependencies:
@@ -21159,7 +21211,7 @@ snapshots:
   '@testing-library/dom@9.3.4':
     dependencies:
       '@babel/code-frame': 7.23.5
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@types/aria-query': 5.0.4
       aria-query: 5.1.3
       chalk: 4.1.2
@@ -21170,7 +21222,7 @@ snapshots:
   '@testing-library/jest-dom@6.4.2':
     dependencies:
       '@adobe/css-tools': 4.3.3
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       aria-query: 5.3.0
       chalk: 3.0.0
       css.escape: 1.5.1
@@ -21665,6 +21717,8 @@ snapshots:
   '@types/unist@2.0.10': {}
 
   '@types/unist@3.0.2': {}
+
+  '@types/use-sync-external-store@0.0.3': {}
 
   '@types/uuid@9.0.8': {}
 
@@ -23525,6 +23579,10 @@ snapshots:
       semver: 7.6.3
       tinyglobby: 0.2.9
 
+  css-box-model@1.2.1:
+    dependencies:
+      tiny-invariant: 1.3.3
+
   css-line-break@2.1.0:
     dependencies:
       utrie: 1.0.2
@@ -24558,7 +24616,7 @@ snapshots:
 
   eslint-plugin-jsx-a11y@6.8.0(eslint@8.57.1):
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       aria-query: 5.3.0
       array-includes: 3.1.7
       array.prototype.flatmap: 1.3.2
@@ -27365,7 +27423,7 @@ snapshots:
 
   mdx-bundler@9.2.1(esbuild@0.21.5):
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
       '@esbuild-plugins/node-resolve': 0.1.4(esbuild@0.21.5)
       '@fal-works/esbuild-plugin-global-externals': 2.1.2
       '@mdx-js/esbuild': 2.3.0(esbuild@0.21.5)
@@ -27397,6 +27455,8 @@ snapshots:
       fs-monkey: 1.0.5
 
   memoize-one@5.2.1: {}
+
+  memoize-one@6.0.0: {}
 
   memoizerific@1.11.3:
     dependencies:
@@ -28989,7 +29049,7 @@ snapshots:
 
   polished@4.3.1:
     dependencies:
-      '@babel/runtime': 7.24.0
+      '@babel/runtime': 7.25.7
 
   popmotion@11.0.3:
     dependencies:
@@ -29293,6 +29353,8 @@ snapshots:
   queue@6.0.2:
     dependencies:
       inherits: 2.0.4
+
+  raf-schd@4.0.3: {}
 
   raf@3.4.1:
     dependencies:
@@ -29777,6 +29839,15 @@ snapshots:
       loose-envify: 1.4.0
       react: 18.2.0
       scheduler: 0.21.0
+
+  react-redux@9.1.2(@types/react@18.2.67)(react@18.2.0)(redux@5.0.1):
+    dependencies:
+      '@types/use-sync-external-store': 0.0.3
+      react: 18.2.0
+      use-sync-external-store: 1.2.0(react@18.2.0)
+    optionalDependencies:
+      '@types/react': 18.2.67
+      redux: 5.0.1
 
   react-refresh@0.14.2: {}
 
@@ -31853,6 +31924,10 @@ snapshots:
       use-isomorphic-layout-effect: 1.1.2(@types/react@18.2.67)(react@18.2.0)
     optionalDependencies:
       '@types/react': 18.2.67
+
+  use-memo-one@1.1.3(react@18.2.0):
+    dependencies:
+      react: 18.2.0
 
   use-resize-observer@9.1.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:

@@ -10,7 +10,7 @@ import { useLocale } from '~/hooks';
 import { OverviewCard } from '..';
 import { AddLocationButton } from '../../settings/library/locations/AddLocationButton';
 
-const RecentLocationsList = () => {
+const RecentLocations = () => {
 	const navigate = useNavigate();
 	const { t } = useLocale();
 	const onlineLocations = useOnlineLocations();
@@ -35,7 +35,7 @@ const RecentLocationsList = () => {
 	const locations = locationsQuery.data ?? [];
 
 	return (
-		<OverviewCard>
+		<>
 			<div className="mb-2 flex items-center justify-between pt-1">
 				<span className="text-sm font-medium">{t('Recent Locations')}</span>
 				<span className="text-xs text-ink-faint">{locations.length} total</span>
@@ -91,8 +91,8 @@ const RecentLocationsList = () => {
 				))}
 				<AddLocationButton className="mt-1 w-full" />
 			</div>
-		</OverviewCard>
+		</>
 	);
 };
 
-export default RecentLocationsList;
+export default RecentLocations;
