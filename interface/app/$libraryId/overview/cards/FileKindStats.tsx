@@ -20,8 +20,7 @@ const INFO_ICON_CLASSLIST =
 const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1 font-plex';
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs font-plex text-ink-faint';
-const BARS_CONTAINER_CLASSLIST =
-	'relative mt-2 grid grow grid-cols-[repeat(auto-fit,_minmax(0,_1fr))] grid-rows-[136px_12px] font-plex tracking-wide items-end justify-items-center gap-x-1 gap-y-1 self-stretch';
+const BARS_CONTAINER_CLASSLIST = 'relative mt-2 flex grow flex-wrap items-end gap-1 self-stretch';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
@@ -76,7 +75,7 @@ const FileKindStats: React.FC = () => {
 	const barsContainerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-	const BAR_MAX_HEIGHT = 115n;
+	const BAR_MAX_HEIGHT = 140n;
 	const BAR_COLOR_START = '#36A3FF';
 	const BAR_COLOR_END = '#004C99';
 
@@ -196,8 +195,9 @@ const FileKindStats: React.FC = () => {
 
 	const getVisibleFileKinds = useCallback(() => {
 		if (cardWidth === 0) return sortedFileKinds;
-		const minWidthPerBar = 32;
-		const maxBars = Math.max(1, Math.floor((cardWidth + 4) / (minWidthPerBar + 4)));
+		const barWidth = 32;
+		const gapWidth = 4;
+		const maxBars = Math.max(1, Math.floor((cardWidth + gapWidth) / (barWidth + gapWidth)));
 		return sortedFileKinds.slice(0, maxBars);
 	}, [cardWidth, sortedFileKinds]);
 
@@ -256,10 +256,13 @@ const FileKindStats: React.FC = () => {
 								'px';
 
 							return (
-								<>
+								<div
+									key={fileKind.kind}
+									className="flex flex-col items-center gap-1"
+									style={{ width: '32px' }}
+								>
 									<Tooltip
 										asChild
-										key={fileKind.kind}
 										label={
 											formatNumberWithCommas(fileKind.count) +
 											' ' +
@@ -294,10 +297,10 @@ const FileKindStats: React.FC = () => {
 											></motion.div>
 										</div>
 									</Tooltip>
-									<div className="sm col-span-1 row-start-2 row-end-auto text-center text-[10px] font-medium text-ink-faint">
+									<div className="text-center text-[10px] font-medium text-ink-faint">
 										{formatCount(fileKind.count)}
 									</div>
-								</>
+								</div>
 							);
 						})}
 					</div>

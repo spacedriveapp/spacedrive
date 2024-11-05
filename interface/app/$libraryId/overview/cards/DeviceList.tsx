@@ -15,11 +15,6 @@ const DeviceList = () => {
 
 	return (
 		<>
-			<div className="mb-2 flex items-center justify-between pt-1">
-				<span className="text-sm font-medium">{t('Devices')}</span>
-				<span className="text-xs text-ink-faint">{devices.length} total</span>
-			</div>
-
 			<div className="grid grid-cols-1 gap-2">
 				{devices?.map((device) => (
 					<button

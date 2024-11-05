@@ -61,12 +61,6 @@ export const ItemsCard = ({
 
 	return (
 		<>
-			<div className="mb-4 flex items-center justify-between pt-1">
-				<span className="text-sm font-medium">{t(title)}</span>
-				<span className="text-xs text-ink-faint">
-					{items.length > 0 && `${displayItems.length} shown`}
-				</span>
-			</div>
 			<ExplorerContextProvider explorer={explorer}>
 				<ExplorerViewContext.Provider
 					value={{

@@ -15,45 +15,48 @@ interface OverviewStore {
 	cards: CardConfig[];
 }
 
+export const defaultCards: CardConfig[] = [
+	{
+		id: 'library-stats',
+		enabled: true,
+		size: 'medium',
+		title: 'Library Statistics'
+	},
+	{
+		id: 'file-kind-stats',
+		enabled: true,
+		size: 'medium',
+		title: 'File Kinds'
+	},
+	{
+		id: 'favorites',
+		enabled: true,
+		size: 'small',
+		title: 'Favorites'
+	},
+	{
+		id: 'recent-locations',
+		enabled: true,
+		size: 'medium',
+		title: 'Recent Locations'
+	},
+	{
+		id: 'device-list',
+		enabled: true,
+		size: 'small',
+		title: 'Devices'
+	},
+
+	{
+		id: 'recent-files',
+		enabled: true,
+		size: 'medium',
+		title: 'Recent Files'
+	}
+];
+
 export const state = proxy<OverviewStore>({
-	cards: [
-		{
-			id: 'library-stats',
-			enabled: true,
-			size: 'large',
-			title: 'Library Statistics'
-		},
-		{
-			id: 'favorites',
-			enabled: true,
-			size: 'small',
-			title: 'Favorites'
-		},
-		{
-			id: 'recent-locations',
-			enabled: true,
-			size: 'medium',
-			title: 'Recent Locations'
-		},
-		{
-			id: 'device-list',
-			enabled: true,
-			size: 'small',
-			title: 'Devices'
-		},
-		{
-			id: 'file-kind-stats',
-			enabled: true,
-			size: 'medium',
-			title: 'File Kinds'
-		},
-		{
-			id: 'recent-files',
-			enabled: true,
-			size: 'medium',
-			title: 'Recent Files'
-		}
-	]
+	cards: defaultCards
 });
 
 // Persist store
