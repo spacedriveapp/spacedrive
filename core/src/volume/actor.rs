@@ -6,20 +6,18 @@ use super::{
 	watcher::VolumeWatcher,
 	VolumeManagerContext, VolumeManagerState,
 };
-use crate::volume::types::{VolumeFingerprint, VolumePubId};
+use crate::volume::types::VolumeFingerprint;
 use crate::{
-	library::{self, Library, LibraryManagerEvent},
+	library::{Library, LibraryManagerEvent},
 	volume::MountType,
 };
 use async_channel as chan;
 use sd_core_sync::DevicePubId;
 use sd_prisma::prisma::volume;
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::{broadcast, oneshot, Mutex, RwLock};
 use tracing::{debug, error, info, trace, warn};
-use tracing_subscriber::registry;
 
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_CHANNEL_SIZE: usize = 128;
 
 #[derive(Debug)]
@@ -80,7 +78,7 @@ impl VolumeManagerActor {
 		options: VolumeOptions,
 	) -> Result<(Volumes, Self), VolumeError> {
 		let (message_tx, message_rx) = chan::bounded(DEFAULT_CHANNEL_SIZE);
-		let (event_tx, event_rx) = broadcast::channel(DEFAULT_CHANNEL_SIZE);
+		let (event_tx, _) = broadcast::channel(DEFAULT_CHANNEL_SIZE);
 
 		let manager = Volumes::new(message_tx, event_tx.clone());
 		let state =
@@ -279,10 +277,6 @@ impl VolumeManagerActor {
 		let state = self.state.clone();
 		let state = state.write().await;
 		let mut registry = state.registry.write().await;
-		let mut library_registry = state.library_registry.write().await;
-
-		// Initialize library in state
-		library_registry.register_library(library.id);
 
 		let db_device = library
 			.db
@@ -312,25 +306,11 @@ impl VolumeManagerActor {
 				.find(|db_vol| VolumeFingerprint::new(&device_id, db_vol) == *fingerprint)
 			{
 				// Update existing volume
-				let updated = Volume::merge_with_db_volume(volume, db_volume);
+				let updated = Volume::merge_with_db(volume, db_volume);
 				registry.register_volume(updated.clone());
-
-				// Map to library
-				library_registry.track_volume(
-					library.id,
-					fingerprint.clone(),
-					VolumePubId(db_volume.pub_id.clone().unwrap()),
-				);
 			} else if volume.mount_type == MountType::System {
 				// Create new system volume in database
 				let created = volume.create(&library.db, device_id.to_db()).await?;
-
-				// Map to library
-				library_registry.track_volume(
-					library.id,
-					fingerprint.clone(),
-					VolumePubId(created.pub_id.unwrap()),
-				);
 			}
 		}
 
@@ -398,7 +378,7 @@ impl VolumeManagerActor {
 		self.state
 			.read()
 			.await
-			.get_volumes_for_library(library.id)
+			.get_volumes_for_library(library)
 			.await
 	}
 

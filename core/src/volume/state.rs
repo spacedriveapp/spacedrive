@@ -7,12 +7,12 @@ use crate::{
 };
 
 use sd_core_sync::DevicePubId;
-use std::{clone, collections::HashSet};
+use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc, time::Instant};
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error};
 
-use super::{VolumeError, VolumeOptions};
+use super::{MountType, VolumeError, VolumeOptions};
 // Core volume registry
 pub struct VolumeRegistry {
 	volumes: HashMap<VolumeFingerprint, Volume>,
@@ -61,66 +61,9 @@ impl VolumeRegistry {
 	}
 }
 
-// Library volume mapping
-#[derive(Default)]
-pub struct LibraryVolumeRegistry {
-	// LibraryId -> (VolumeFingerprint -> VolumePubId)
-	mappings: HashMap<LibraryId, HashMap<VolumeFingerprint, VolumePubId>>,
-}
-
-impl LibraryVolumeRegistry {
-	pub fn new() -> Self {
-		Self {
-			mappings: HashMap::new(),
-		}
-	}
-
-	pub fn register_library(&mut self, library_id: LibraryId) {
-		self.mappings.entry(library_id).or_default();
-	}
-
-	pub fn track_volume(
-		&mut self,
-		library_id: LibraryId,
-		fingerprint: VolumeFingerprint,
-		pub_id: VolumePubId,
-	) {
-		if let Some(mapping) = self.mappings.get_mut(&library_id) {
-			mapping.insert(fingerprint, pub_id);
-		}
-	}
-
-	pub fn get_volume_id(
-		&self,
-		library_id: &LibraryId,
-		fingerprint: &VolumeFingerprint,
-	) -> Option<&VolumePubId> {
-		self.mappings.get(library_id)?.get(fingerprint)
-	}
-
-	///
-	pub fn untrack_volume(&mut self, library_id: &LibraryId, fingerprint: &VolumeFingerprint) {
-		if let Some(mapping) = self.mappings.get_mut(library_id) {
-			mapping.remove(fingerprint);
-		}
-	}
-
-	// Removes all mappings for a library
-	pub fn remove_library(
-		&mut self,
-		library_id: &LibraryId,
-	) -> Vec<(VolumeFingerprint, VolumePubId)> {
-		self.mappings
-			.remove(library_id)
-			.map(|m| m.into_iter().collect())
-			.unwrap_or_default()
-	}
-}
-
 // Main state manager
 pub struct VolumeManagerState {
 	pub registry: Arc<RwLock<VolumeRegistry>>,
-	pub library_registry: Arc<RwLock<LibraryVolumeRegistry>>,
 	options: VolumeOptions,
 	event_tx: broadcast::Sender<VolumeEvent>,
 	last_scan: Instant,
@@ -134,7 +77,6 @@ impl VolumeManagerState {
 	) -> Self {
 		Self {
 			registry: Arc::new(RwLock::new(VolumeRegistry::new(device_id))),
-			library_registry: Arc::new(RwLock::new(LibraryVolumeRegistry::new())),
 			options,
 			event_tx,
 			last_scan: Instant::now(),
@@ -163,11 +105,14 @@ impl VolumeManagerState {
 				let event_tx = self.event_tx.clone();
 				drop(registry);
 
-				tokio::spawn(async move {
-					if let Err(e) = volume_clone.speed_test(None, Some(&event_tx)).await {
-						error!(?e, "Failed to perform speed test for volume");
-					}
-				});
+				// Spawn a background task to perform the speed test only for system volumes
+				if volume.mount_type == MountType::System {
+					tokio::spawn(async move {
+						if let Err(e) = volume_clone.speed_test(None, Some(&event_tx)).await {
+							error!(?e, "Failed to perform speed test for volume");
+						}
+					});
+				}
 
 				registry = self.registry.write().await;
 			}
@@ -184,39 +129,27 @@ impl VolumeManagerState {
 		Ok(())
 	}
 
-	pub async fn register_with_library(
-		&self,
-		library_id: LibraryId,
-		volume: &Volume,
-		library: Arc<Library>,
-	) -> Result<(), VolumeError> {
-		let device_id = self.registry.read().await.device_id.clone();
-		let fingerprint = VolumeFingerprint::new(&device_id, volume);
+	// pub async fn register_with_library(
+	// 	&self,
+	// 	library_id: LibraryId,
+	// 	volume: &Volume,
+	// 	library: Arc<Library>,
+	// ) -> Result<(), VolumeError> {
+	// 	let device_id = self.registry.read().await.device_id.clone();
+	// 	let fingerprint = VolumeFingerprint::new(&device_id, volume);
 
-		// Create in database
-		volume.create(&library.db, device_id.to_db()).await?;
+	// 	// Create in database
+	// 	volume.create(&library.db, device_id.to_db()).await?;
 
-		// Track the relationship
-		self.library_registry.write().await.track_volume(
-			library_id,
-			fingerprint,
-			VolumePubId::from(volume.pub_id.clone().unwrap()),
-		);
+	// 	// Track the relationship
+	// 	self.library_registry.write().await.track_volume(
+	// 		library_id,
+	// 		fingerprint,
+	// 		VolumePubId::from(volume.pub_id.clone().unwrap()),
+	// 	);
 
-		Ok(())
-	}
-
-	pub async fn get_volume_pub_id(
-		&self,
-		library_id: &LibraryId,
-		fingerprint: &VolumeFingerprint,
-	) -> Option<VolumePubId> {
-		self.library_registry
-			.read()
-			.await
-			.get_volume_id(library_id, fingerprint)
-			.cloned()
-	}
+	// 	Ok(())
+	// }
 
 	pub async fn get_volume(&self, fingerprint: &VolumeFingerprint) -> Option<Volume> {
 		self.registry.read().await.get_volume(fingerprint).cloned()
@@ -233,20 +166,34 @@ impl VolumeManagerState {
 
 	pub async fn get_volumes_for_library(
 		&self,
-		library_id: LibraryId,
+		library: Arc<Library>,
 	) -> Result<Vec<Volume>, VolumeError> {
 		let registry = self.registry.read().await;
-		let library_registry = self.library_registry.read().await;
 
 		let mut volumes = Vec::new();
 
+		let device_id = &self.registry.read().await.device_id;
+
+		let db_volumes = library
+			.db
+			.volume()
+			.find_many(vec![])
+			.exec()
+			.await?
+			.into_iter()
+			.map(Volume::from)
+			.map(|v| {
+				// TODO: maybe just store the fingerprint at this point?
+				let fingerprint = VolumeFingerprint::new(device_id, &v);
+				(fingerprint, v)
+			})
+			.collect::<HashMap<VolumeFingerprint, Volume>>();
+
 		for (fingerprint, volume) in registry.volumes() {
-			debug!("Processing volume: {:?}", volume);
 			let mut volume = volume.clone();
 
-			// Update volume with library-specific pub_id if available
-			if let Some(pub_id) = library_registry.get_volume_id(&library_id, fingerprint) {
-				volume.pub_id = Some(pub_id.clone().into());
+			if let Some(db_volume) = db_volumes.get(&fingerprint) {
+				volume = Volume::merge_with_db(&volume, db_volume);
 			}
 
 			volumes.push(volume);

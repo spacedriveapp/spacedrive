@@ -2,21 +2,19 @@
 //!
 //! This module provides functionality for detecting, monitoring, and managing storage volumes
 //! across different platforms.
-use std::sync::Arc;
-
-// Internal modules
+//! Volumes use a fingerprint to identify them as they sometimes are not persisted in the database
+//!
 pub(crate) mod actor;
 mod error;
 mod os;
 mod speed;
 mod state;
-// mod statistics;
 mod types;
 mod volumes;
 mod watcher;
 use crate::library::LibraryManagerEvent;
 use crate::util::mpscrr;
-// Core type exports
+
 pub use {
 	actor::VolumeManagerActor,
 	error::VolumeError,
@@ -59,6 +57,7 @@ pub use os::linux::get_volumes;
 #[cfg(target_os = "macos")]
 pub use os::macos::get_volumes;
 #[cfg(target_os = "windows")]
+pub use os::windows::get_volumes;
 
 // Internal utilities
 pub(crate) mod util {

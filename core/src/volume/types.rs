@@ -15,39 +15,23 @@ use std::{path::Path, sync::Arc};
 use strum_macros::Display;
 use uuid::Uuid;
 
+/// A fingerprint of a volume, used to identify it when it is not persisted in the database
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Type)]
 pub struct VolumeFingerprint(pub Vec<u8>);
 
-impl Serialize for VolumeFingerprint {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		// Convert to hex string when serializing
-		serializer.serialize_str(&hex::encode(&self.0))
-	}
-}
-
-impl<'de> Deserialize<'de> for VolumeFingerprint {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let s = String::deserialize(deserializer)?;
-		hex::decode(s)
-			.map(VolumeFingerprint)
-			.map_err(serde::de::Error::custom)
-	}
-}
-
 impl VolumeFingerprint {
 	pub fn new(device_id: &DevicePubId, volume: &Volume) -> Self {
+		// Hash the device ID, mount point, name, total bytes capacity, and file system
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(&device_id.to_db());
 		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
 		hasher.update(volume.name.as_bytes());
 		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
 		hasher.update(volume.file_system.to_string().as_bytes());
+		// These are all properties that are unique to a volume and unlikely to change
+		// If a .spacedrive file is found in the volume, and is fingerprint does not match,
+		// but the `pub_id` is the same, we can update the values and regenerate the fingerprint
+		// preserving the tracked instance of the volume
 		Self(hasher.finalize().as_bytes().to_vec())
 	}
 }
@@ -106,6 +90,9 @@ pub enum VolumeEvent {
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Volume {
+	/// Fingerprint of the volume as a hash of its properties, not persisted to the database
+	/// Used as the unique identifier for a volume in this module
+	pub fingerprint: Option<VolumeFingerprint>,
 	/// Database ID (None if not yet committed to database)
 	pub id: Option<i32>,
 	/// Unique public identifier
@@ -147,9 +134,6 @@ pub struct Volume {
 	#[specta(type = String)]
 	#[serde_as(as = "DisplayFromStr")]
 	pub total_bytes_available: u64,
-	/// Fingerprint of the volume, not persisted to the database
-	#[specta(type = String)]
-	pub fingerprint: Option<VolumeFingerprint>,
 }
 
 // We can use this to see if a volume has changed
@@ -248,48 +232,14 @@ impl Volume {
 			fingerprint: None,
 		}
 	}
-	// /// Generate a unique fingerprint for a volume that will be consistent across detections
-	// pub fn generate_fingerprint(&mut self, current_device_pub_id: Vec<u8>) -> Vec<u8> {
-	// 	let mut hasher = blake3::Hasher::new();
-
-	// 	// Add hardware-specific identifiers that won't change between reboots
-	// 	for id in current_device_pub_id {
-	// 		hasher.update(&[id]);
-	// 	}
-	// 	hasher.update(self.mount_point.to_string_lossy().as_bytes());
-	// 	hasher.update(self.name.as_bytes());
-	// 	hasher.update(&self.total_bytes_capacity.to_be_bytes());
-	// 	hasher.update(self.file_system.to_string().as_bytes());
-
-	// 	let fingerprint = hasher.finalize().as_bytes().to_vec();
-	// 	self.fingerprint = Some(VolumeFingerprint(fingerprint.clone()));
-	// 	fingerprint
-	// }
-
-	// /// Creates a hex string representation of the fingerprint
-	// pub fn fingerprint_hex(&mut self, current_device_pub_id: Vec<u8>) -> String {
-	// 	hex::encode(self.generate_fingerprint(current_device_pub_id))
-	// }
 
 	/// Check if a path is under any of this volume's mount points
 	pub fn contains_path(&self, path: &Path) -> bool {
 		self.mount_points.iter().any(|mp| path.starts_with(mp))
 	}
 
-	/// Get the preferred mount point for writing (non-read-only if available)
-	// pub fn writable_mount_point(&self) -> Option<&PathBuf> {
-	// 	if !self.read_only {
-	// 		Some(&self.mount_point)
-	// 	} else {
-	// 		// Try to find a non-read-only mount point
-	// 		self.mount_points
-	// 			.iter()
-	// 			.find(|mp| !is_volume_readonly(mp).unwrap_or(true))
-	// 	}
-	// }
-
 	/// Merge system detected volume with database volume, preferring system values for hardware info
-	pub fn merge_with_db_volume(system_volume: &Volume, db_volume: &Volume) -> Volume {
+	pub fn merge_with_db(system_volume: &Volume, db_volume: &Volume) -> Volume {
 		Volume {
 			// Keep system-detected hardware properties
 			mount_point: system_volume.mount_point.clone(),
@@ -301,23 +251,18 @@ impl Volume {
 			mount_type: system_volume.mount_type.clone(),
 			is_mounted: system_volume.is_mounted,
 			fingerprint: system_volume.fingerprint.clone(),
+			name: system_volume.name.clone(),
+			read_only: system_volume.read_only,
+			error_status: system_volume.error_status.clone(),
+			read_speed_mbps: system_volume.read_speed_mbps,
+			write_speed_mbps: system_volume.write_speed_mbps,
 
 			// Keep database-tracked properties and metadata
 			id: db_volume.id,
 			device_id: db_volume.device_id,
 			pub_id: db_volume.pub_id.clone(),
-			name: db_volume.name.clone(),
-			read_only: db_volume.read_only,
-			error_status: db_volume.error_status.clone(),
-			read_speed_mbps: db_volume.read_speed_mbps,
-			write_speed_mbps: db_volume.write_speed_mbps,
 		}
 	}
-
-	/// Check if two volumes represent the same physical device
-	// pub fn is_same_device(&self, other: &Volume) -> bool {
-	// 	self.generate_fingerprint() == other.generate_fingerprint()
-	// }
 
 	pub fn is_volume_tracked(&self) -> bool {
 		self.pub_id.is_some()
@@ -503,5 +448,27 @@ impl Default for VolumeOptions {
 			run_speed_test: true,
 			max_concurrent_speed_tests: 2,
 		}
+	}
+}
+
+impl Serialize for VolumeFingerprint {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		// Convert to hex string when serializing
+		serializer.serialize_str(&hex::encode(&self.0))
+	}
+}
+
+impl<'de> Deserialize<'de> for VolumeFingerprint {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		let s = String::deserialize(deserializer)?;
+		hex::decode(s)
+			.map(VolumeFingerprint)
+			.map_err(serde::de::Error::custom)
 	}
 }

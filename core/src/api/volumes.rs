@@ -1,17 +1,8 @@
 use super::{utils::library, Ctx, R};
-use crate::library::Library;
 use crate::volume::{VolumeEvent, VolumeFingerprint};
 use rspc::alpha::AlphaRouter;
 use serde::Deserialize;
 use specta::Type;
-use std::path::PathBuf;
-use tokio_stream::wrappers::ReceiverStream;
-use tokio_stream::StreamExt;
-
-#[derive(Type, Deserialize)]
-pub struct TrackVolumeInput {
-	pub volume_id: VolumeFingerprint,
-}
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	R.router()
@@ -30,21 +21,22 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		)
 		.procedure(
 			"track",
-			R.with2(library())
-				.mutation(|(node, library), input: TrackVolumeInput| async move {
+			R.with2(library()).mutation(
+				|(node, library), fingerprint: VolumeFingerprint| async move {
 					tracing::debug!(
 						"Handling track volume request for volume_id={:?}",
-						input.volume_id
+						fingerprint
 					);
 
 					node.volumes
-						.track_volume(input.volume_id, library)
+						.track_volume(fingerprint, library)
 						.await
 						.map_err(|e| {
 							tracing::error!("Failed to track volume: {:?}", e);
 							e.into()
 						})
-				}),
+				},
+			),
 		)
 		.procedure(
 			"listForLibrary",
