@@ -14,8 +14,8 @@ import { Card, Loader, Tooltip } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { useCounter, useIsDark, useLocale } from '~/hooks';
 
-import { FileKind } from '.';
-import StorageBar from './StorageBar';
+import { FileKind, OverviewCard } from '..';
+import StorageBar from '../StorageBar';
 
 interface StatItemProps {
 	title: string;
@@ -194,9 +194,8 @@ const LibraryStats = () => {
 			tooltip: `${humanizeSize(otherTotalBytes).value} ${t(`size_${humanizeSize(otherTotalBytes).unit.toLowerCase()}`)}`
 		}
 	];
-
 	return (
-		<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
+		<OverviewCard>
 			{loading ? (
 				<div className="mt-4 flex h-full items-center justify-center">
 					<div className="flex flex-col items-center justify-center gap-3">
@@ -236,7 +235,7 @@ const LibraryStats = () => {
 					</div>
 				</>
 			)}
-		</Card>
+		</OverviewCard>
 	);
 };
 

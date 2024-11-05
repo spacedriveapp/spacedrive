@@ -1,7 +1,9 @@
 import { keepPreviousData } from '@tanstack/react-query';
+import clsx from 'clsx';
 import { Key, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { Card } from '@sd/ui';
 import { useAccessToken, useLocale, useOperatingSystem } from '~/hooks';
 import { useRouteTitle } from '~/hooks/useRouteTitle';
 import { hardwareModelToIcon } from '~/util/hardware';
@@ -11,9 +13,12 @@ import SearchBar from '../search/SearchBar';
 import { AddLocationButton } from '../settings/library/locations/AddLocationButton';
 import { TopBarPortal } from '../TopBar/Portal';
 import TopBarOptions from '../TopBar/TopBarOptions';
-import FileKindStatistics from './FileKindStats';
+import FavoriteItems from './cards/FavoriteItems';
+import FileKindStatistics from './cards/FileKindStats';
+import LibraryStatistics from './cards/LibraryStats';
+import RecentItems from './cards/RecentItems';
+import RecentLocationsList from './cards/RecentLocationsList';
 import OverviewSection from './Layout/Section';
-import LibraryStatistics from './LibraryStats';
 import NewCard from './NewCard';
 import StatisticItem from './StatCard';
 
@@ -22,6 +27,25 @@ export interface FileKind {
 	name: string;
 	count: bigint;
 	total_bytes: bigint;
+}
+
+export function OverviewCard({
+	children,
+	className
+}: {
+	children: React.ReactNode;
+	className?: string;
+}) {
+	return (
+		<Card
+			className={clsx(
+				'hover:bg-app-dark-box flex h-[220px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
+				className
+			)}
+		>
+			{children}
+		</Card>
+	);
 }
 
 export const Component = () => {
@@ -65,75 +89,20 @@ export const Component = () => {
 					center={<SearchBar redirectToSearch />}
 					right={os === 'windows' && <TopBarOptions />}
 				/>
-				<div className="mt-4 flex flex-col gap-3 pt-3">
-					<OverviewSection>
+				<div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
+					<div className="col-span-1 sm:col-span-2 xl:col-span-4">
 						<LibraryStatistics />
-						<FileKindStatistics />
-					</OverviewSection>
-
-					<OverviewSection
-						count={(cloudDevicesList.data?.length ?? 0) + (node ? 1 : 0)}
-						title={t('devices')}
-					>
-						{node && (
-							<StatisticItem
-								name={node.name}
-								icon={hardwareModelToIcon(node.device_model as any)}
-								totalSpace={
-									stats.data?.statistics?.total_local_bytes_capacity || '0'
-								}
-								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
-								color="#0362FF"
-								connectionType={null}
-							/>
-						)}
-						{cloudDevicesList.data?.map((device) => (
-							<StatisticItem
-								key={device.pub_id}
-								name={device.name}
-								icon={hardwareModelToIcon(device.hardware_model as HardwareModel)}
-								totalSpace="0"
-								freeSpace="0"
-								color="#0362FF"
-								connectionType={'cloud'}
-							/>
-						))}
-					</OverviewSection>
-
-					<OverviewSection count={locations.length} title={t('locations')}>
-						{locations?.map((item) => (
-							<Link key={item.id} to={`../location/${item.id}`}>
-								<StatisticItem
-									name={item.name || t('unnamed_location')}
-									icon="Folder"
-									totalSpace={item.size_in_bytes || [0]}
-									color="#0362FF"
-									connectionType={null}
-								/>
-							</Link>
-						))}
-						{!locations?.length && (
-							<NewCard
-								icons={['HDD', 'Folder', 'Globe', 'SD']}
-								text={t('add_location_overview_description')}
-								button={() => <AddLocationButton variant="outline" />}
-							/>
-						)}
-					</OverviewSection>
-
-					<OverviewSection count={0} title={t('cloud_drives')}>
-						<NewCard
-							icons={[
-								'DriveAmazonS3',
-								'DriveDropbox',
-								'DriveGoogleDrive',
-								'DriveOneDrive'
-								// 'DriveBox'
-							]}
-							text={t('connect_cloud_description')}
-							// buttonText={t('connect_cloud)}
-						/>
-					</OverviewSection>
+					</div>
+					<div className="col-span-1 sm:col-span-1">
+						<FavoriteItems />
+					</div>
+					<div className="col-span-1 sm:col-span-1 xl:col-span-2">
+						<RecentLocationsList />
+					</div>
+					<FileKindStatistics />
+					<div className="col-span-1 sm:col-span-2 xl:col-span-4">
+						<RecentItems />
+					</div>
 				</div>
 			</div>
 		</SearchContextProvider>

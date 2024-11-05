@@ -3,20 +3,32 @@ import {
 	Books,
 	Cloud,
 	Database,
+	Devices,
+	Eject,
+	FloppyDisk,
 	FlyingSaucer,
+	Folder,
+	FolderDashed,
 	GearSix,
 	GlobeSimple,
 	HardDrive,
+	HardDrives,
 	Key,
 	KeyReturn,
+	Network,
 	PaintBrush,
 	PuzzlePiece,
 	Receipt,
 	ShareNetwork,
 	ShieldCheck,
+	Tag,
 	TagSimple,
-	User
+	User,
+	UserCircleDashed,
+	UserCircleGear,
+	UsersThree
 } from '@phosphor-icons/react';
+import { Drive } from '@sd/assets/icons';
 import clsx from 'clsx';
 import { useFeatureFlag } from '@sd/client';
 import { tw } from '@sd/ui';
@@ -37,7 +49,7 @@ export default () => {
 	const { sidebar } = useLayoutStore();
 
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
-	const isBackupsEnabled = useFeatureFlag('backups');
+	// const isBackupsEnabled = useFeatureFlag('backups');
 	// const cloudSync = useFeatureFlag('cloudSync');
 
 	const { t } = useLocale();
@@ -65,10 +77,6 @@ export default () => {
 						<Icon component={GearSix} />
 						{t('general')}
 					</SidebarLink>
-					<SidebarLink to="client/account">
-						<Icon component={User} />
-						{t('account')}
-					</SidebarLink>
 					<SidebarLink to="node/libraries">
 						<Icon component={Books} />
 						{t('libraries')}
@@ -82,20 +90,16 @@ export default () => {
 						{t('appearance')}
 					</SidebarLink>
 					<SidebarLink to="client/network">
-						<Icon component={GlobeSimple} />
+						<Icon component={Network} />
 						{t('network')}
 					</SidebarLink>
-					<SidebarLink to="client/backups" disabled={!isBackupsEnabled}>
+					<SidebarLink to="client/backups">
 						<Icon component={Database} />
 						{t('backups')}
 					</SidebarLink>
 					<SidebarLink to="client/keybindings">
 						<Icon component={KeyReturn} />
 						{t('keybinds')}
-					</SidebarLink>
-					<SidebarLink to="client/extensions" disabled>
-						<Icon component={PuzzlePiece} />
-						{t('extensions')}
 					</SidebarLink>
 				</Section>
 				<Section>
@@ -104,32 +108,36 @@ export default () => {
 						<Icon component={GearSix} />
 						{t('general')}
 					</SidebarLink>
-					<SidebarLink to="library/volumes">
-						<Icon component={ShareNetwork} />
-						Volumes
+					<SidebarLink to="library/users">
+						<Icon component={User} />
+						{t('Users')}
 					</SidebarLink>
 					<SidebarLink to="library/sync">
 						<Icon component={ArrowsClockwise} />
 						{t('sync')}
 					</SidebarLink>
+					<SidebarLink to="library/devices">
+						<Icon component={Devices} />
+						{t('devices')}
+					</SidebarLink>
+					<SidebarLink to="library/volumes">
+						<Icon component={HardDrives} />
+						{t('Volumes')}
+					</SidebarLink>
 					<SidebarLink to="library/locations">
-						<Icon component={HardDrive} />
+						<Icon component={Folder} />
 						{t('locations')}
 					</SidebarLink>
 					<SidebarLink to="library/tags">
-						<Icon component={TagSimple} />
+						<Icon component={Tag} />
 						{t('tags')}
 					</SidebarLink>
-					{/* <SidebarLink to="library/saved-searches">
-						<Icon component={MagnifyingGlass} />
-						Saved Searches
-					</SidebarLink> */}
 
-					<SidebarLink disabled to="library/clouds">
+					<SidebarLink to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}
 					</SidebarLink>
-					<SidebarLink to="library/keys" disabled>
+					<SidebarLink to="library/keys">
 						<Icon component={Key} />
 						{t('keys')}
 					</SidebarLink>

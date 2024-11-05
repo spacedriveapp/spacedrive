@@ -16,6 +16,7 @@ export type Procedures = {
         { key: "cloud.syncGroups.leave", input: CloudSyncGroupPubId, result: null } | 
         { key: "cloud.syncGroups.list", input: never, result: CloudSyncGroupBaseData[] } | 
         { key: "cloud.syncGroups.remove_device", input: CloudSyncGroupsRemoveDeviceArgs, result: null } | 
+        { key: "devices.list", input: LibraryArgs<null>, result: Device[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -138,7 +139,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null } | 
-        { key: "volumes.track", input: LibraryArgs<TrackVolumeInput>, result: null } | 
+        { key: "volumes.track", input: LibraryArgs<VolumeFingerprint>, result: null } | 
         { key: "volumes.unmount", input: LibraryArgs<number[]>, result: null },
     subscriptions: 
         { key: "cloud.listenCloudServicesNotifications", input: never, result: CloudP2PNotifyUser } | 
@@ -284,6 +285,8 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type Device = { id: number; pub_id: number[]; name: string | null; os: number | null; hardware_model: number | null; timestamp: bigint | null; date_created: string | null; date_deleted: string | null }
 
 export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 
@@ -790,8 +793,6 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  */
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
-export type TrackVolumeInput = { volume_id: VolumeFingerprint }
-
 export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
@@ -800,6 +801,11 @@ export type VideoProps = { pixel_format: string | null; color_range: string | nu
  * Represents a physical or virtual storage volume in the system
  */
 export type Volume = { 
+/**
+ * Fingerprint of the volume as a hash of its properties, not persisted to the database
+ * Used as the unique identifier for a volume in this module
+ */
+fingerprint: VolumeFingerprint | null; 
 /**
  * Database ID (None if not yet committed to database)
  */
@@ -863,11 +869,7 @@ total_bytes_capacity: string;
 /**
  * Available storage space in bytes
  */
-total_bytes_available: string; 
-/**
- * Fingerprint of the volume, not persisted to the database
- */
-fingerprint: string }
+total_bytes_available: string }
 
 /**
  * Events emitted by the Volume Manager when volume state changes
@@ -898,4 +900,7 @@ export type VolumeEvent =
  */
 { VolumeError: { fingerprint: VolumeFingerprint; error: string } }
 
+/**
+ * A fingerprint of a volume, used to identify it when it is not persisted in the database
+ */
 export type VolumeFingerprint = number[]

@@ -270,6 +270,20 @@ export const AddLocationDialog = ({
 						{t('open_new_location_once_added')}
 					</Label>
 				</div>
+				<div className="mt-4 flex items-center gap-1.5">
+					<Controller
+						name="shouldRedirect"
+						render={({ field }) => (
+							<RadixCheckbox
+								checked={field.value}
+								onCheckedChange={field.onChange}
+								className="size-4 text-xs font-semibold"
+							/>
+						)}
+						control={form.control}
+					/>
+					<Label className="text-xs font-semibold">{t('Track the volume')}</Label>
+				</div>
 			</div>
 		</Dialog>
 	);
