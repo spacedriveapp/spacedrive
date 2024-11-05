@@ -99,6 +99,12 @@ impl SpeedTest for Volume {
 		event_tx: Option<&Sender<VolumeEvent>>,
 	) -> Result<SpeedTestResult, VolumeError> {
 		let config = config.unwrap_or_default();
+
+		// if volume is not mounted or not writable, return an error
+		if !self.is_mounted || self.read_only {
+			return Err(VolumeError::Cancelled);
+		}
+
 		debug!("Starting speed test with config: {:?}", config);
 
 		let test_location = TestLocation::new(&self.mount_point, &self.mount_type).await?;
