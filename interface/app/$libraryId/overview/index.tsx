@@ -1,6 +1,7 @@
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { ArrowsOutCardinal, DotsThreeVertical, GearSix } from '@phosphor-icons/react';
 import clsx from 'clsx';
+import { createElement, lazy, Suspense, useEffect } from 'react';
 import { useSnapshot } from 'valtio';
 import { Button, Card, DropdownMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -13,6 +14,16 @@ export interface FileKind {
 	count: bigint;
 	total_bytes: bigint;
 }
+
+// Define components mapping with component types instead of JSX.Element
+const CARD_COMPONENTS: Record<string, React.ComponentType> = {
+	'library-stats': lazy(() => import('./cards/LibraryStats')),
+	'favorites': lazy(() => import('./cards/FavoriteItems')),
+	'device-list': lazy(() => import('./cards/DeviceList')),
+	'file-kind-stats': lazy(() => import('./cards/FileKindStats')),
+	'recent-files': lazy(() => import('./cards/RecentItems')),
+	'recent-locations': lazy(() => import('./cards/RecentLocations'))
+};
 
 export function OverviewCard({
 	children,
@@ -76,6 +87,12 @@ export function OverviewCard({
 	);
 }
 
+// Add a wrapper component to handle hot reloading
+const CardWrapper = ({ id }: { id: string }) => {
+	const CardComponent = CARD_COMPONENTS[id];
+	return CardComponent ? <CardComponent /> : null;
+};
+
 export const Component = () => {
 	const store = useSnapshot(overviewStore);
 	const { t } = useLocale();
@@ -110,8 +127,8 @@ export const Component = () => {
 	};
 
 	return (
-		<div>
-			<div className="flex justify-end p-4">
+		<div className="relative">
+			<div className="absolute right-0 top-0 flex justify-end p-4">
 				<DropdownMenu.Root
 					trigger={
 						<Button size="icon" variant="outline">
@@ -159,7 +176,9 @@ export const Component = () => {
 													}
 													dragHandleProps={provided.dragHandleProps}
 												>
-													{card.component}
+													<Suspense fallback={<div>Loading...</div>}>
+														<CardWrapper id={card.id} />
+													</Suspense>
 												</OverviewCard>
 											</div>
 										)}
