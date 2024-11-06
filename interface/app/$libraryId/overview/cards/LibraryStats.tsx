@@ -65,7 +65,7 @@ const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'group/stat flex w-36 shrink-0 flex-col font-plex duration-75',
+				'group/stat flex w-[calc(33.33%-1rem)] min-w-[150px] shrink-0 flex-col font-plex duration-75',
 				!bytes && 'hidden'
 			)}
 		>
@@ -204,8 +204,8 @@ const LibraryStats = () => {
 					</div>
 				</div>
 			) : (
-				<>
-					<div className="mb-1 flex overflow-hidden p-4">
+				<div className="flex flex-col gap-4">
+					<div className="flex flex-wrap gap-y-6 px-4 pt-4">
 						{Object.entries(libraryStats ?? {})
 							.sort(
 								([a], [b]) =>
@@ -230,10 +230,8 @@ const LibraryStats = () => {
 								);
 							})}
 					</div>
-					<div>
-						<StorageBar sections={sections} />
-					</div>
-				</>
+					<StorageBar sections={sections} />
+				</div>
 			)}
 		</>
 	);

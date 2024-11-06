@@ -20,7 +20,8 @@ const INFO_ICON_CLASSLIST =
 const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1 font-plex';
 const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs font-plex text-ink-faint';
-const BARS_CONTAINER_CLASSLIST = 'relative mt-2 flex grow flex-wrap items-end gap-1 self-stretch';
+const BARS_CONTAINER_CLASSLIST =
+	'relative mt-[-100px] flex grow flex-wrap items-end gap-1 self-stretch';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
@@ -75,7 +76,7 @@ const FileKindStats: React.FC = () => {
 	const barsContainerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-	const BAR_MAX_HEIGHT = 140n;
+	const BAR_MAX_HEIGHT = 160n;
 	const BAR_COLOR_START = '#36A3FF';
 	const BAR_COLOR_END = '#004C99';
 
@@ -213,33 +214,35 @@ const FileKindStats: React.FC = () => {
 			) : (
 				<>
 					<div className={TOTAL_FILES_CLASSLIST}>
-						<Tooltip className="flex items-center" label={t('bar_graph_info')}>
-							<div className="flex items-center gap-2">
-								<span
-									className={clsx(
-										'text-xl font-black',
-										isDark ? 'text-white' : 'text-black'
-									)}
-								>
-									{data?.total_identified_files
-										? formatNumberWithCommas(data.total_identified_files)
-										: '0'}{' '}
-								</span>
-								<div className="flex items-center">
+						<div className="flex items-center">
+							<Info weight="fill" className={INFO_ICON_CLASSLIST} />
+						</div>
+						<div className="flex flex-col items-end gap-1">
+							<Tooltip className="flex items-center" label={t('bar_graph_info')}>
+								<div className="flex items-center gap-2">
+									<span
+										className={clsx(
+											'text-xl font-black',
+											isDark ? 'text-white' : 'text-black'
+										)}
+									>
+										{data?.total_identified_files
+											? formatNumberWithCommas(data.total_identified_files)
+											: '0'}{' '}
+									</span>
 									{t('total_files')}
-									<Info weight="fill" className={INFO_ICON_CLASSLIST} />
 								</div>
-							</div>
-						</Tooltip>
-						<div className={UNIDENTIFIED_FILES_CLASSLIST}>
-							<Tooltip label={t('unidentified_files_info')}>
-								<span>
-									{data?.total_unidentified_files
-										? formatNumberWithCommas(data.total_unidentified_files)
-										: '0'}{' '}
-									{t('unidentified_files')}
-								</span>
 							</Tooltip>
+							<div className={UNIDENTIFIED_FILES_CLASSLIST}>
+								<Tooltip label={t('unidentified_files_info')}>
+									<span>
+										{data?.total_unidentified_files
+											? formatNumberWithCommas(data.total_unidentified_files)
+											: '0'}{' '}
+										{t('unidentified_files')}
+									</span>
+								</Tooltip>
+							</div>
 						</div>
 					</div>
 					<div className={BARS_CONTAINER_CLASSLIST} ref={barsContainerRef}>

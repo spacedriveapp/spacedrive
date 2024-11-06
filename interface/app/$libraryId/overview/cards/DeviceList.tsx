@@ -4,7 +4,7 @@ import { Device, HardwareModel, useLibraryQuery } from '@sd/client';
 import { Button, buttonStyles, Tooltip } from '@sd/ui';
 import { Icon, Icon as SdIcon } from '~/components';
 import { useLocale } from '~/hooks';
-import { hardwareModelToIcon } from '~/util/hardware';
+import { hardwareModelAsNumberToIcon, hardwareModelToIcon } from '~/util/hardware';
 
 const DeviceList = () => {
 	const navigate = useNavigate();
@@ -24,14 +24,12 @@ const DeviceList = () => {
 					>
 						{device.hardware_model ? (
 							<Icon
-								name={hardwareModelToIcon(
-									device.hardware_model as unknown as HardwareModel
-								)}
+								name={hardwareModelAsNumberToIcon(device.hardware_model)}
 								size={30}
 								className="mr-1"
 							/>
 						) : (
-							<Icon name="Laptop" className="mr-1" />
+							<Icon name="PC" className="mr-1" />
 						)}
 						{device.name}
 					</button>

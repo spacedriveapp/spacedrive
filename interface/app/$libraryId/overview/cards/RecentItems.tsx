@@ -6,7 +6,7 @@ const RecentFiles = () => {
 	const recentItemsQuery = useLibraryQuery([
 		'search.objects',
 		{
-			take: 6,
+			take: 20,
 			orderAndPagination: {
 				orderOnly: { field: 'dateAccessed', value: 'Desc' }
 			},

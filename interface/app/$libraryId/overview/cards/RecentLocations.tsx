@@ -47,12 +47,12 @@ const RecentLocations = () => {
 							className="flex items-center gap-3 rounded-md p-2.5 text-left hover:bg-app-selected/50"
 						>
 							<div className="relative shrink-0">
-								<SdIcon name="Folder" size={32} />
+								<SdIcon name="Folder" size={38} />
 								<div
-									className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full ${
+									className={`absolute -right-0 bottom-1 size-2 rounded-full ${
 										onlineLocations.some((l) => arraysEqual(location.pub_id, l))
 											? 'bg-green-500'
-											: 'bg-red-500'
+											: 'bg-app-selected'
 									}`}
 								/>
 							</div>
@@ -69,16 +69,10 @@ const RecentLocations = () => {
 							</div>
 
 							<Tooltip position="top" label={t('size')}>
-								<div
-									className={buttonStyles({
-										variant: 'gray',
-										className: 'shrink-0 !px-2 !py-0.5'
-									})}
-									onClick={(e) => e.stopPropagation()}
-								>
-									<span className="text-xs text-ink-dull">
+								<div className="shrink-0 rounded-md border border-app-selected/30 bg-app-box px-1 py-0 font-medium">
+									<span className="text-[10px] text-ink-dull">
 										{humanizeSize(location.size_in_bytes).value}
-										<span className="ml-0.5 text-[10px] text-ink-dull/60">
+										<span className="ml-0.5 text-[9px] text-ink-dull/60">
 											{t(
 												`size_${humanizeSize(location.size_in_bytes).unit.toLowerCase()}`
 											)}

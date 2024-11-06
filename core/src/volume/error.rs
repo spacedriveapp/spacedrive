@@ -117,6 +117,25 @@ pub enum VolumeError {
 	/// Resource exhausted
 	#[error("Resource exhausted: {0}")]
 	ResourceExhausted(String),
+
+	/// Volume is not tracked
+	#[error("Volume is not tracked")]
+	NotTracked,
+
+	/// Volume fingerprint is missing
+	#[error("Volume fingerprint is missing")]
+	MissingFingerprint,
+
+	/// IO error
+	#[error("IO error: {0}")]
+	IoError(std::io::Error),
+
+	/// Serialization error
+	#[error("Serialization error: {0}")]
+	SerializationError(serde_json::Error),
+
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
 }
 
 /// Specific kinds of speed test errors

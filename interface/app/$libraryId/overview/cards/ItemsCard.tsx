@@ -27,7 +27,7 @@ export const ItemsCard = ({
 	query,
 	buttonText,
 	buttonLink,
-	maxItems = 6
+	maxItems = 20
 }: ItemsCardProps) => {
 	const navigate = useNavigate();
 	const { t } = useLocale();

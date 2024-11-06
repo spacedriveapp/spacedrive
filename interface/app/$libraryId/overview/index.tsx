@@ -1,9 +1,9 @@
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import { ArrowsOutCardinal, DotsThreeVertical, GearSix } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { createElement, lazy, Suspense, useEffect } from 'react';
+import { createElement, lazy, Suspense, useEffect, useMemo } from 'react';
 import { useSnapshot } from 'valtio';
-import { Button, Card, DropdownMenu } from '@sd/ui';
+import { Button, Card, CheckBox, DropdownMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
 import { CardConfig, defaultCards, overviewStore, type CardSize } from './store';
@@ -34,6 +34,12 @@ interface CardHeadingProps {
 function CardHeading({ title, onSizeChange, dragHandleProps }: CardHeadingProps) {
 	const { t } = useLocale();
 
+	const store = useSnapshot(overviewStore);
+
+	const size = useMemo(() => {
+		return store.cards.find((card) => card.title === title)?.size;
+	}, [store.cards, title]);
+
 	return (
 		<div
 			className="mb-2 flex cursor-grab items-center justify-between active:cursor-grabbing"
@@ -57,12 +63,15 @@ function CardHeading({ title, onSizeChange, dragHandleProps }: CardHeadingProps)
 				alignOffset={-10}
 			>
 				<DropdownMenu.Item onClick={() => onSizeChange?.('small')}>
+					<CheckBox checked={size === 'small'} />
 					{t('small')}
 				</DropdownMenu.Item>
 				<DropdownMenu.Item onClick={() => onSizeChange?.('medium')}>
+					<CheckBox checked={size === 'medium'} />
 					{t('medium')}
 				</DropdownMenu.Item>
 				<DropdownMenu.Item onClick={() => onSizeChange?.('large')}>
+					<CheckBox checked={false} />
 					{t('large')}
 				</DropdownMenu.Item>
 			</DropdownMenu.Root>
@@ -90,7 +99,7 @@ export function OverviewCard({
 	return (
 		<Card
 			className={clsx(
-				'hover:bg-app-dark-box flex h-[300px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
+				'flex h-[300px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
 				className
 			)}
 		>
@@ -161,6 +170,7 @@ export const Component = () => {
 				>
 					{store.cards.map((card) => (
 						<DropdownMenu.Item key={card.id} onClick={() => handleCardToggle(card.id)}>
+							<CheckBox checked={card.enabled} />
 							{card.title}
 						</DropdownMenu.Item>
 					))}

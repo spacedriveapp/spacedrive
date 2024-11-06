@@ -137,7 +137,7 @@ export default () => {
 						<Icon component={Cloud} />
 						{t('clouds')}
 					</SidebarLink>
-					<SidebarLink to="library/keys">
+					<SidebarLink disabled to="library/keys">
 						<Icon component={Key} />
 						{t('keys')}
 					</SidebarLink>

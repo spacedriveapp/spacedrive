@@ -450,17 +450,45 @@ impl VolumeManagerActor {
 		let state = self.state.write().await;
 		let device_pub_id = self.ctx.device_id.clone();
 
-		// Find the volume in our current system volumes
 		let mut registry = state.registry.write().await;
 		let mut volume = match registry.get_volume_mut(&fingerprint) {
 			Some(v) => v.clone(),
 			None => return Err(VolumeError::InvalidFingerprint(fingerprint.clone())),
 		};
 
-		// Create in database with current device association
-		volume.create(&library.db, device_pub_id.into()).await?;
+		// Check for existing .sdvolume file
+		if let Some(volume_file) = volume.read_volume_file().await? {
+			// If pub_id exists in database, use that volume record
+			if let Some(existing_volume) = library
+				.db
+				.volume()
+				.find_unique(volume::pub_id::equals(volume_file.pub_id.clone()))
+				.exec()
+				.await?
+				.map(Volume::from)
+			{
+				// Update volume with existing data
+				volume = Volume::merge_with_db(&volume, &existing_volume);
+				registry.update_volume(volume.clone());
+			}
+		}
 
-		// Spawn a background task to perform the speed test
+		// Create or update in database with sync
+		if volume.pub_id.is_none() {
+			volume = volume
+				.sync_db_create(&library, device_pub_id.into())
+				.await?;
+		} else {
+			volume.sync_db_update(&library).await?;
+		}
+
+		// Write .sdvolume file
+		volume.write_volume_file().await?;
+
+		// Update registry with final state
+		registry.update_volume(volume.clone());
+
+		// Spawn speed test
 		let event_tx = self.event_tx.clone();
 		let mut volume = volume.clone();
 		tokio::spawn(async move {

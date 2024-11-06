@@ -59,6 +59,7 @@ rspcws
 rywalker
 sanjay
 sdvol
+sdvolume
 sharma
 skippable
 spacedrive
