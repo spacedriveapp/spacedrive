@@ -69,6 +69,12 @@ export default function LocalSection() {
 
 	const volumeEvents = useLibrarySubscription(['volumes.events'], {
 		onData: (data) => {
+			if ('VolumeAdded' in data) {
+				toast.success(`Volume mounted: ${data.VolumeAdded.name}`);
+			}
+			if ('VolumeRemoved' in data) {
+				toast.success(`Volume unmounted: ${data.VolumeRemoved.name}`);
+			}
 			console.log('Volume event received:', data);
 			volumesQuery.refetch();
 		}

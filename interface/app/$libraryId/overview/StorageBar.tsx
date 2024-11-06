@@ -68,10 +68,7 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 				})}
 			</div>
 			<div
-				className={clsx(
-					'mt-3 flex flex-wrap gap-6 px-1',
-					isDark ? 'text-ink-dull' : 'text-gray-800'
-				)}
+				className={clsx('mt-3 flex gap-6 px-1', isDark ? 'text-ink-dull' : 'text-gray-800')}
 			>
 				{sections.map((section, index) => (
 					<Tooltip key={index} label={section.tooltip} position="top">

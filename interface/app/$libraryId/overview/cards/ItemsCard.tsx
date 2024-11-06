@@ -73,9 +73,9 @@ export const ItemsCard = ({
 						handleWindowsGridShiftSelection: () => {}
 					}}
 				>
-					<HorizontalScroll className={`h-[${itemHeight + 20}px]`}>
+					<HorizontalScroll>
 						<div
-							className="flex gap-2"
+							className="mt-4 flex gap-2"
 							style={{
 								height: itemHeight
 							}}
@@ -103,14 +103,14 @@ export const ItemsCard = ({
 					</HorizontalScroll>
 				</ExplorerViewContext.Provider>
 			</ExplorerContextProvider>
-			<Button
+			{/* <Button
 				variant="subtle"
 				size="sm"
 				onClick={() => navigate(buttonLink)}
 				className="mt-2 w-full"
 			>
 				{t(buttonText)}
-			</Button>
+			</Button> */}
 		</>
 	);
 };

@@ -52,6 +52,12 @@ export const defaultCards: CardConfig[] = [
 		enabled: true,
 		size: 'medium',
 		title: 'Recent Files'
+	},
+	{
+		id: 'storage-meters',
+		enabled: true,
+		size: 'medium',
+		title: 'Storage Meters'
 	}
 ];
 
@@ -60,4 +66,16 @@ export const state = proxy<OverviewStore>({
 });
 
 // Persist store
-export const overviewStore = valtioPersist('sd-overview-layout', state);
+export const overviewStore = valtioPersist('sd-overview-layout', state, {
+	saveFn: (data) => data,
+
+	// Restore the cards with the default values while allowing new cards to be added
+	restoreFn: (stored) => ({
+		...state,
+		...stored,
+		cards: defaultCards.map((defaultCard) => ({
+			...defaultCard,
+			...stored.cards.find((card: CardConfig) => card.id === defaultCard.id)
+		}))
+	})
+});

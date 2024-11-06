@@ -22,7 +22,8 @@ const CARD_COMPONENTS: Record<string, React.ComponentType> = {
 	'device-list': lazy(() => import('./cards/DeviceList')),
 	'file-kind-stats': lazy(() => import('./cards/FileKindStats')),
 	'recent-files': lazy(() => import('./cards/RecentItems')),
-	'recent-locations': lazy(() => import('./cards/RecentLocations'))
+	'recent-locations': lazy(() => import('./cards/RecentLocations')),
+	'storage-meters': lazy(() => import('./cards/StorageMeters'))
 };
 
 interface CardHeadingProps {
@@ -99,7 +100,7 @@ export function OverviewCard({
 	return (
 		<Card
 			className={clsx(
-				'flex h-[300px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
+				'flex h-[250px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
 				className
 			)}
 		>
@@ -185,7 +186,7 @@ export const Component = () => {
 						<div
 							{...provided.droppableProps}
 							ref={provided.innerRef}
-							className="grid grid-cols-1 gap-4 p-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-4"
+							className="grid auto-rows-[250px] grid-cols-1 gap-4 p-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-4"
 						>
 							{store.cards
 								.filter((card) => card.enabled)

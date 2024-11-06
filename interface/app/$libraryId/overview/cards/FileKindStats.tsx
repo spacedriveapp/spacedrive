@@ -19,9 +19,8 @@ const INFO_ICON_CLASSLIST =
 	'inline size-3 text-ink-faint opacity-0 ml-1 transition-opacity duration-300 group-hover:opacity-70';
 const TOTAL_FILES_CLASSLIST =
 	'flex items-center justify-between whitespace-nowrap text-sm font-medium text-ink-dull mt-2 px-1 font-plex';
-const UNIDENTIFIED_FILES_CLASSLIST = 'relative flex items-center text-xs font-plex text-ink-faint';
 const BARS_CONTAINER_CLASSLIST =
-	'relative mt-[-100px] flex grow flex-wrap items-end gap-1 self-stretch';
+	'relative mt-[-50px] flex grow flex-wrap items-end gap-1 self-stretch';
 
 const mapFractionalValue = (numerator: bigint, denominator: bigint, maxValue: bigint): string => {
 	if (denominator === 0n) return '0';
@@ -76,7 +75,7 @@ const FileKindStats: React.FC = () => {
 	const barsContainerRef = useRef<HTMLDivElement>(null);
 	const iconsRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
-	const BAR_MAX_HEIGHT = 160n;
+	const BAR_MAX_HEIGHT = 130n;
 	const BAR_COLOR_START = '#36A3FF';
 	const BAR_COLOR_END = '#004C99';
 
@@ -233,7 +232,7 @@ const FileKindStats: React.FC = () => {
 									{t('total_files')}
 								</div>
 							</Tooltip>
-							<div className={UNIDENTIFIED_FILES_CLASSLIST}>
+							<div className="'relative flex items-center font-plex text-tiny text-ink-faint/80">
 								<Tooltip label={t('unidentified_files_info')}>
 									<span>
 										{data?.total_unidentified_files
