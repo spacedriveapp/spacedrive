@@ -345,6 +345,8 @@ playwright-report
 .spacedrive
 dev.db-journal
 .build/
+# swift vscode extension index
+.index-build/
 .swiftpm
 /core/migration_test
 sd_init.json
