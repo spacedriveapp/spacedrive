@@ -1,7 +1,13 @@
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
-import { ArrowsOutCardinal, DotsThreeVertical, GearSix } from '@phosphor-icons/react';
+import {
+	ArrowsIn,
+	ArrowsOut,
+	ArrowsOutCardinal,
+	DotsThreeVertical,
+	GearSix
+} from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { createElement, lazy, Suspense, useEffect, useMemo } from 'react';
+import { createElement, lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import { Button, Card, CheckBox, DropdownMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -18,21 +24,33 @@ export interface FileKind {
 // Define components mapping with component types instead of JSX.Element
 const CARD_COMPONENTS: Record<string, React.ComponentType> = {
 	'library-stats': lazy(() => import('./cards/LibraryStats')),
+	'space-wizard': lazy(() => import('./cards/SpaceWizard')),
 	'favorites': lazy(() => import('./cards/FavoriteItems')),
 	'device-list': lazy(() => import('./cards/DeviceList')),
 	'file-kind-stats': lazy(() => import('./cards/FileKindStats')),
 	'recent-files': lazy(() => import('./cards/RecentItems')),
 	'recent-locations': lazy(() => import('./cards/RecentLocations')),
-	'storage-meters': lazy(() => import('./cards/StorageMeters'))
+	'storage-meters': lazy(() => import('./cards/StorageMeters')),
+	'sync-cta': lazy(() => import('./cards/SyncCTA'))
 };
 
 interface CardHeadingProps {
 	title: string;
 	onSizeChange?: (size: CardSize) => void;
 	dragHandleProps?: any;
+	expandable?: boolean;
+	isExpanded?: boolean;
+	onExpandToggle?: () => void;
 }
 
-function CardHeading({ title, onSizeChange, dragHandleProps }: CardHeadingProps) {
+function CardHeading({
+	title,
+	onSizeChange,
+	dragHandleProps,
+	expandable,
+	isExpanded,
+	onExpandToggle
+}: CardHeadingProps) {
 	const { t } = useLocale();
 
 	const store = useSnapshot(overviewStore);
@@ -53,29 +71,47 @@ function CardHeading({ title, onSizeChange, dragHandleProps }: CardHeadingProps)
 				<span className="text-sm font-medium text-ink-dull">{title}</span>
 			</div>
 
-			<DropdownMenu.Root
-				trigger={
-					<Button size="icon" variant="outline">
-						<DotsThreeVertical className="size-4" />
+			<div className="flex items-center gap-2">
+				{expandable && (
+					<Button
+						size="icon"
+						variant="outline"
+						onClick={(e) => {
+							e.stopPropagation();
+							onExpandToggle?.();
+						}}
+					>
+						{isExpanded ? (
+							<ArrowsIn className="size-4" />
+						) : (
+							<ArrowsOut className="size-4" />
+						)}
 					</Button>
-				}
-				side="left"
-				sideOffset={5}
-				alignOffset={-10}
-			>
-				<DropdownMenu.Item onClick={() => onSizeChange?.('small')}>
-					<CheckBox checked={size === 'small'} />
-					{t('small')}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item onClick={() => onSizeChange?.('medium')}>
-					<CheckBox checked={size === 'medium'} />
-					{t('medium')}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item onClick={() => onSizeChange?.('large')}>
-					<CheckBox checked={false} />
-					{t('large')}
-				</DropdownMenu.Item>
-			</DropdownMenu.Root>
+				)}
+				<DropdownMenu.Root
+					trigger={
+						<Button size="icon" variant="outline">
+							<DotsThreeVertical className="size-4" />
+						</Button>
+					}
+					side="left"
+					sideOffset={5}
+					alignOffset={-10}
+				>
+					<DropdownMenu.Item onClick={() => onSizeChange?.('small')}>
+						<CheckBox checked={size === 'small'} />
+						{t('small')}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onClick={() => onSizeChange?.('medium')}>
+						<CheckBox checked={size === 'medium'} />
+						{t('medium')}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onClick={() => onSizeChange?.('large')}>
+						<CheckBox checked={false} />
+						{t('large')}
+					</DropdownMenu.Item>
+				</DropdownMenu.Root>
+			</div>
 		</div>
 	);
 }
@@ -86,6 +122,7 @@ export function OverviewCard({
 	size = 'medium',
 	onSizeChange,
 	id,
+	expandable,
 	dragHandleProps,
 	title
 }: {
@@ -94,22 +131,33 @@ export function OverviewCard({
 	size?: CardSize;
 	onSizeChange?: (size: CardSize) => void;
 	id: string;
+	expandable?: boolean;
 	dragHandleProps?: any;
 	title: string;
 }) {
+	const [isExpanded, setIsExpanded] = useState(false);
+
 	return (
 		<Card
 			className={clsx(
-				'flex h-[250px] flex-col overflow-hidden bg-app-box/70 p-4 transition-colors',
+				'flex flex-col overflow-hidden transition-all duration-200 ease-out',
+				{
+					'fixed bottom-4 left-[calc(180px+1rem)] right-4 top-4 z-50 !h-[calc(100vh-32px)] bg-sidebar/80 backdrop-blur':
+						isExpanded,
+					'h-[250px] bg-app-box/70 p-4': !isExpanded
+				},
 				className
 			)}
 		>
 			<CardHeading
 				title={title}
 				onSizeChange={onSizeChange}
-				dragHandleProps={dragHandleProps}
+				dragHandleProps={!isExpanded ? dragHandleProps : undefined}
+				expandable={expandable}
+				isExpanded={isExpanded}
+				onExpandToggle={() => setIsExpanded(!isExpanded)}
 			/>
-			{children}
+			<div className={clsx('flex-1 overflow-auto', isExpanded && 'p-4')}>{children}</div>
 		</Card>
 	);
 }
@@ -214,6 +262,7 @@ export const Component = () => {
 													}
 													dragHandleProps={provided.dragHandleProps}
 													title={card.title}
+													expandable={true}
 												>
 													<Suspense fallback={<div>Loading...</div>}>
 														<CardWrapper id={card.id} />

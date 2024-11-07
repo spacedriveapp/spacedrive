@@ -1,4 +1,7 @@
-use super::error::VolumeError;
+use super::{
+	// cloud::CloudCredentials,
+	error::{CloudVolumeError, VolumeError},
+};
 use crate::library::Library;
 use sd_core_sync::DevicePubId;
 use sd_prisma::{
@@ -545,6 +548,50 @@ impl Volume {
 
 		Ok(())
 	}
+
+	// pub async fn new_cloud_volume(
+	// 	provider: CloudProvider,
+	// 	credentials: CloudCredentials,
+	// ) -> Result<Self, VolumeError> {
+	// 	let provider_impl = match provider {
+	// 		// CloudProvider::GoogleDrive => Box::new(GoogleDriveProvider::new(credentials)),
+	// 		// CloudProvider::Dropbox => Box::new(DropboxProvider::new(credentials)),
+	// 		_ => return Err(CloudVolumeError::UnsupportedCloudProvider(provider)),
+	// 	};
+
+	// 	let storage_info = provider_impl.get_storage_info().await?;
+
+	// 	Ok(Self {
+	// 		id: None,
+	// 		pub_id: None,
+	// 		device_id: None,
+	// 		name: format!("{} Cloud Storage", provider),
+	// 		mount_type: MountType::Cloud(provider),
+	// 		mount_point: PathBuf::from("/"), // Virtual root path
+	// 		mount_points: vec![],
+	// 		is_mounted: true,
+	// 		disk_type: DiskType::Virtual,
+	// 		file_system: FileSystem::Cloud,
+	// 		read_only: false,
+	// 		error_status: None,
+	// 		read_speed_mbps: None,
+	// 		write_speed_mbps: None,
+	// 		total_bytes_capacity: storage_info.total_bytes_capacity,
+	// 		total_bytes_available: storage_info.total_bytes_available,
+	// 		fingerprint: None,
+	// 	})
+	// }
+
+	// pub async fn refresh_cloud_storage_info(&mut self) -> Result<(), VolumeError> {
+	// 	if let MountType::Cloud(provider) = &self.mount_type {
+	// 		let provider_impl = get_cloud_provider(provider)?;
+	// 		let storage_info = provider_impl.get_storage_info().await?;
+
+	// 		self.total_bytes_capacity = storage_info.total_bytes_capacity;
+	// 		self.total_bytes_available = storage_info.total_bytes_available;
+	// 	}
+	// 	Ok(())
+	// }
 }
 
 /// Represents the type of physical storage device
@@ -555,6 +602,8 @@ pub enum DiskType {
 	SSD,
 	/// Hard Disk Drive
 	HDD,
+	/// Virtual disk type
+	Virtual,
 	/// Unknown or virtual disk type
 	Unknown,
 }
@@ -610,6 +659,8 @@ pub enum MountType {
 	Network,
 	/// Virtual/container volume
 	Virtual,
+	// Cloud mounted as a virtual volume
+	Cloud(CloudProvider),
 }
 
 impl MountType {
@@ -622,6 +673,29 @@ impl MountType {
 			_ => Self::System,
 		}
 	}
+}
+
+/// Represents the cloud storage provider
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+pub enum CloudProvider {
+	SpacedriveCloud,
+	GoogleDrive,
+	Dropbox,
+	OneDrive,
+	ICloud,
+	AmazonS3,
+	Mega,
+	Box,
+	pCloud,
+	Proton,
+	Sync,
+	Backblaze,
+	Wasabi,
+	DigitalOcean,
+	Azure,
+	OwnCloud,
+	NextCloud,
+	WebDAV,
 }
 
 /// Configuration options for volume operations

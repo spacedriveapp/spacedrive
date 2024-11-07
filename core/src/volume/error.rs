@@ -136,6 +136,9 @@ pub enum VolumeError {
 
 	#[error(transparent)]
 	Sync(#[from] sd_core_sync::Error),
+
+	#[error(transparent)]
+	Cloud(#[from] CloudVolumeError),
 }
 
 /// Specific kinds of speed test errors
@@ -325,4 +328,20 @@ impl fmt::Display for SpeedTestErrorKind {
 		};
 		write!(f, "{}", kind_str)
 	}
+}
+
+#[derive(Debug, Error)]
+pub enum CloudVolumeError {
+	#[error("Authentication failed: {0}")]
+	AuthenticationError(String),
+	#[error("Rate limit exceeded")]
+	RateLimitExceeded,
+	#[error("Quota exceeded")]
+	QuotaExceeded,
+	#[error("API Error: {0}")]
+	ApiError(String),
+	#[error("Network Error: {0}")]
+	NetworkError(String),
+	// #[error("Unsupported cloud provider: {0}")]
+	// UnsupportedCloudProvider(CloudProvider),
 }

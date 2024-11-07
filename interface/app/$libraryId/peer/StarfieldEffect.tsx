@@ -1,7 +1,8 @@
+import { clsx } from 'clsx';
 import { t } from 'i18next';
 import React, { useEffect, useRef } from 'react';
 
-const StarfieldEffect: React.FC = () => {
+const StarfieldEffect: React.FC<{ className?: string }> = ({ className }) => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	useEffect(() => {
@@ -50,7 +51,7 @@ const StarfieldEffect: React.FC = () => {
 		const starHolder: any[] = [];
 		const starBgHolder: any[] = [];
 
-		const backgroundColor = { r: 28, g: 29, b: 37, a: 255 };
+		const backgroundColor = { r: 28, g: 29, b: 37, a: 0 };
 
 		const clearImageData = () => {
 			for (let i = 0, l = pix.length; i < l; i += 4) {
@@ -325,7 +326,10 @@ const StarfieldEffect: React.FC = () => {
 	return (
 		<canvas
 			ref={canvasRef}
-			className="block size-full rounded-lg border border-gray-500 transition-all hover:scale-105"
+			className={clsx(
+				'block size-full rounded-lg border border-gray-500 transition-all hover:scale-105',
+				className
+			)}
 		>
 			{t('drop_files_here_to_send_with')}
 		</canvas>

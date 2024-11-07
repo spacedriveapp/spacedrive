@@ -95,6 +95,7 @@ http-range       = "0.1.5"
 hyper-util       = { version = "0.1.9", features = ["tokio"] }
 int-enum         = "0.5"                                       # Update blocked due to API breaking changes
 mini-moka        = "0.10.3"
+oauth2           = "4.4"
 serde-hashkey    = "0.4.5"
 serde_repr       = "0.1.19"
 serde_with       = "3.8"

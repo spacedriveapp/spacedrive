@@ -23,10 +23,10 @@ export const defaultCards: CardConfig[] = [
 		title: 'Library Statistics'
 	},
 	{
-		id: 'file-kind-stats',
+		id: 'space-wizard',
 		enabled: true,
 		size: 'medium',
-		title: 'File Kinds'
+		title: 'Organizer'
 	},
 	{
 		id: 'favorites',
@@ -39,6 +39,18 @@ export const defaultCards: CardConfig[] = [
 		enabled: true,
 		size: 'medium',
 		title: 'Recent Locations'
+	},
+	{
+		id: 'sync-cta',
+		enabled: true,
+		size: 'small',
+		title: 'Enable Sync'
+	},
+	{
+		id: 'file-kind-stats',
+		enabled: true,
+		size: 'small',
+		title: 'File Kinds'
 	},
 	{
 		id: 'device-list',

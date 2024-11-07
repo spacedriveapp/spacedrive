@@ -1,0 +1,105 @@
+// Agent Configuration Schema
+(
+    // Core agent configuration
+    agent: (
+				// The directory agent is used to navigate the file system and evaluate context
+        name: "DirectoryAgent",
+        description: "A configurable LLM-powered agent that can navigate the file system and evaluate context",
+        model: (
+            provider: "ollama",  // or "openai", "ollama", etc.
+            name: "llama3.1-70b-instruct",
+            temperature: 0.7,
+            max_tokens: 4096,
+            system_prompt: "{{system.ron}}",
+        ),
+
+        // Tool definitions
+        tools: [
+            (
+                name: "spacedrive_fs",
+                description: "Search the file system for files and directories",
+                required_params: [
+                    (
+                        name: "path",
+                        type: "String",
+                        description: "The path to search for",
+                    ),
+                ],
+                optional_params: [
+                    (
+                        name: "num_results",
+                        type: "Integer",
+                        default: 5,
+                        description: "Number of results to return",
+                    ),
+                ],
+            ),
+        ],
+
+        // Workflow configuration
+        workflow: (
+            // How the agent should process tasks
+            execution_strategy: "Sequential", // or "Parallel", "Adaptive"
+            max_steps: 10,
+            timeout_seconds: 300,
+
+            // Error handling
+            error_strategy: (
+                max_retries: 3,
+                backoff_seconds: 2,
+                fallback_response: "I encountered an error and couldn't complete the task.",
+            ),
+        ),
+
+        // Memory configuration
+        memory: (
+            type: "Conversational",  // or "Episodic", "Semantic"
+            storage: (
+                type: "InMemory",    // or "Redis", "Postgres"
+                connection_string: None,
+                ttl_seconds: Some(3600),
+            ),
+            max_history_messages: 10,
+        ),
+
+        // Prompt templates for different agent states
+        prompts: (
+            task_planning: r#"
+                Given the following task: {task}
+                And access to these tools: {available_tools}
+                Create a plan to accomplish this task.
+                Plan:
+            "#,
+
+            tool_selection: r#"
+                Based on the current step: {current_step}
+                And available tools: {available_tools}
+                Select the most appropriate tool.
+                Reasoning:
+            "#,
+
+            result_synthesis: r#"
+                Given the tool results: {tool_results}
+                And the original task: {original_task}
+                Synthesize a response.
+                Response:
+            "#,
+        ),
+
+        // Validation rules
+        validation: (
+            required_fields: [
+                "model.provider",
+                "model.name",
+                "workflow.execution_strategy",
+            ],
+            custom_validators: [
+                (
+                    name: "validate_temperature",
+                    condition: "model.temperature >= 0.0 && model.temperature <= 1.0",
+                    error_message: "Temperature must be between 0.0 and 1.0",
+                ),
+            ],
+        ),
+    ),
+)

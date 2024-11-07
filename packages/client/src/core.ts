@@ -216,6 +216,11 @@ export type CloudP2PTicket = bigint
 
 export type CloudP2PUserResponse = { kind: "AcceptDeviceInSyncGroup"; data: { ticket: CloudP2PTicket; accepted: BasicLibraryCreationArgs | null } }
 
+/**
+ * Represents the cloud storage provider
+ */
+export type CloudProvider = "SpacedriveCloud" | "GoogleDrive" | "Dropbox" | "OneDrive" | "ICloud" | "AmazonS3" | "Mega" | "Box" | "pCloud" | "Proton" | "Sync" | "Backblaze" | "Wasabi" | "DigitalOcean" | "Azure" | "OwnCloud" | "NextCloud" | "WebDAV"
+
 export type CloudSyncGroup = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; devices: CloudDevice[]; total_sync_messages_bytes: bigint; total_space_files_bytes: bigint; created_at: string; updated_at: string }
 
 export type CloudSyncGroupBaseData = { pub_id: CloudSyncGroupPubId; latest_key_hash: CloudSyncKeyHash; library: CloudLibrary; created_at: string; updated_at: string }
@@ -308,6 +313,10 @@ export type DiskType =
  * Hard Disk Drive
  */
 "HDD" | 
+/**
+ * Virtual disk type
+ */
+"Virtual" | 
 /**
  * Unknown or virtual disk type
  */
@@ -599,7 +608,7 @@ export type MountType =
 /**
  * Virtual/container volume
  */
-"Virtual"
+"Virtual" | { Cloud: CloudProvider }
 
 export type NodeConfigP2P = { discovery?: P2PDiscoveryState; port: Port; disabled: boolean; disable_ipv6: boolean; disable_relay: boolean; enable_remote_access: boolean; 
 /**
