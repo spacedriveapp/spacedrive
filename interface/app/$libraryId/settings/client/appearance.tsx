@@ -65,7 +65,8 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'zh_CN', label: '中文（简体）' },
 	{ value: 'zh_TW', label: '中文（繁體）' },
 	{ value: 'it', label: 'Italiano' },
-	{ value: 'ja', label: '日本語' }
+	{ value: 'ja', label: '日本語' },
+	{ value: 'uk', label: 'Українська' }
 ];
 
 // Sort the languages by their label
