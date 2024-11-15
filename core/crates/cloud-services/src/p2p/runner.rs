@@ -30,7 +30,7 @@ use futures_concurrency::stream::Merge;
 use iroh_net::{Endpoint, NodeId};
 use quic_rpc::{
 	server::{Accepting, RpcChannel, RpcServerError},
-	transport::quinn::{QuinnConnection, QuinnServerEndpoint},
+	transport::quinn::{QuinnConnector, QuinnListener},
 	RpcClient, RpcServer,
 };
 use tokio::{
@@ -73,7 +73,7 @@ pub struct Runner {
 	current_device_pub_id: devices::PubId,
 	token_refresher: TokenRefresher,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
+		QuinnConnector<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	msgs_tx: flume::Sender<Message>,
 	endpoint: Endpoint,
@@ -111,13 +111,13 @@ impl Clone for Runner {
 }
 
 struct PendingSyncGroupJoin {
-	channel: RpcChannel<Service, QuinnServerEndpoint<cloud_p2p::Request, cloud_p2p::Response>>,
+	channel: RpcChannel<Service, QuinnListener<cloud_p2p::Request, cloud_p2p::Response>>,
 	request: authorize_new_device_in_sync_group::Request,
 	this_device: Device,
 	since: Instant,
 }
 
-type P2PServerEndpoint = QuinnServerEndpoint<cloud_p2p::Request, cloud_p2p::Response>;
+type P2PServerEndpoint = QuinnListener<cloud_p2p::Request, cloud_p2p::Response>;
 
 impl Runner {
 	pub async fn new(
@@ -596,7 +596,7 @@ impl Runner {
 async fn connect_to_first_available_client(
 	endpoint: &Endpoint,
 	devices_in_group: &[(devices::PubId, NodeId)],
-) -> Result<Client<QuinnConnection<cloud_p2p::Response, cloud_p2p::Request>>, CloudP2PError> {
+) -> Result<Client<QuinnConnector<cloud_p2p::Response, cloud_p2p::Request>>, CloudP2PError> {
 	for (device_pub_id, device_connection_id) in devices_in_group {
 		if let Ok(connection) = endpoint
 			.connect(*device_connection_id, CloudP2PALPN::LATEST)
@@ -607,7 +607,7 @@ async fn connect_to_first_available_client(
 			debug!(%device_pub_id, "Connected to authorizor device candidate");
 
 			return Ok(Client::new(RpcClient::new(
-				QuinnConnection::from_connection(connection),
+				QuinnConnector::from_connection(connection),
 			)));
 		}
 	}
@@ -627,7 +627,7 @@ fn setup_server_endpoint(
 	let (connections_tx, connections_rx) = flume::bounded(16);
 
 	(
-		RpcServer::new(QuinnServerEndpoint::handle_connections(
+		RpcServer::new(QuinnListener::handle_connections(
 			connections_rx,
 			local_addr,
 		)),
