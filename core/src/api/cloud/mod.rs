@@ -302,13 +302,7 @@ async fn initialize_cloud_sync(
 
 async fn get_client_and_access_token(
 	node: &Node,
-) -> Result<
-	(
-		Client<QuinnConnector<Response, Request>>,
-		auth::AccessToken,
-	),
-	rspc::Error,
-> {
+) -> Result<(Client<QuinnConnector<Response, Request>>, auth::AccessToken), rspc::Error> {
 	(
 		try_get_cloud_services_client(node),
 		node.cloud_services
