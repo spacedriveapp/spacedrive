@@ -4,7 +4,7 @@ use crate::{
 	Node,
 };
 
-use sd_core_cloud_services::{CloudP2P, KeyManager, QuinnConnection, UserResponse};
+use sd_core_cloud_services::{CloudP2P, KeyManager, QuinnConnector, UserResponse};
 
 use sd_cloud_schema::{
 	auth,
@@ -32,7 +32,7 @@ mod sync_groups;
 
 async fn try_get_cloud_services_client(
 	node: &Node,
-) -> Result<Client<QuinnConnection<Response, Request>>, sd_core_cloud_services::Error> {
+) -> Result<Client<QuinnConnector<Response, Request>>, sd_core_cloud_services::Error> {
 	node.cloud_services
 		.client()
 		.await
@@ -304,7 +304,7 @@ async fn get_client_and_access_token(
 	node: &Node,
 ) -> Result<
 	(
-		Client<QuinnConnection<Response, Request>>,
+		Client<QuinnConnector<Response, Request>>,
 		auth::AccessToken,
 	),
 	rspc::Error,
