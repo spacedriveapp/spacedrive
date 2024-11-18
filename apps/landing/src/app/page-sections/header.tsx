@@ -1,21 +1,31 @@
 import Image from 'next/image';
-import { getLatestRelease, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
+import {
+	getLatestRelease,
+	getReleaseFrontmatter,
+	getRepoStats,
+	githubFetch
+} from '~/app/api/github';
 import { GoldenBadge } from '~/components/golden-badge';
 import { HeroImage } from '~/components/hero-image'; // Import the client-side component
 import { HomeCtaButtons } from '~/components/home-cta-buttons';
+import { PlatformIcons } from '~/components/platform-icons';
 import Particles from '~/components/particles';
 import { toTitleCase } from '~/utils/misc';
 
 export async function Header() {
-	const release = await githubFetch(getLatestRelease);
+	const [release, repoStats] = await Promise.all([
+		githubFetch(getLatestRelease),
+		githubFetch(getRepoStats)
+	]);
 	const { frontmatter } = getReleaseFrontmatter(release);
+	const starCount = (repoStats.stargazers_count / 1000).toFixed(1);
 	return (
 		<div className="flex w-full flex-col items-center px-4">
 			<div className="mt-22 lg:mt-28" id="content" aria-hidden="true" />
 			<div className="mt-24 lg:mt-8" aria-hidden="true" />
 
 			<GoldenBadge
-				headline={`30k+ stars on GitHub`}
+				headline={`${starCount}k stars on GitHub`}
 				className="mt-[50px] lg:mt-0"
 				href={`https://github.com/spacedriveapp/spacedrive`}
 			/>
@@ -41,6 +51,8 @@ export async function Header() {
 					.filter(Boolean)
 					.join(' ')}
 			/>
+
+			<PlatformIcons />
 
 			<div>
 				<div className="xl2:relative z-30 flex h-[255px] w-full px-6 sm:h-[428px] md:mt-12 md:h-[428px] lg:h-auto">
