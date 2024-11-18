@@ -55,7 +55,7 @@ export function CtaPrimaryButton({
 			href={href}
 			className={clsx(
 				props.className,
-				'noise with-rounded-2px-border-images inline-flex flex-row items-center justify-center gap-x-2 overflow-hidden rounded-xl py-3 pe-4 ps-3 transition-all hover:brightness-110',
+				'noise with-rounded-2px-border-images inline-flex flex-row items-center justify-center gap-x-2 overflow-hidden rounded-xl py-2 pe-4 ps-3 transition-all hover:brightness-110',
 				'bg-gradient-to-b from-[#42B2FD] to-[#0078F0] [--border-image:linear-gradient(to_bottom,hsl(200_100%_77%/100%),hsl(200_0%_100%/5%)75%)]',
 				{
 					'shadow-[0_0px_2.5rem_hsl(207_100%_65%/50%)]': glow === 'lg',
@@ -69,7 +69,7 @@ export function CtaPrimaryButton({
 					<stop stopColor="hsl(0 100% 100% / 70%)" offset="100%" />
 				</linearGradient>
 			</Icon>
-			<span className="font-sans text-base font-semibold leading-normal text-center text-white drop-shadow-md">
+			<span className="text-center font-sans text-base font-semibold leading-normal text-white drop-shadow-md">
 				{children}
 			</span>
 		</Link>

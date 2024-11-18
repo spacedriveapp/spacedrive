@@ -11,6 +11,9 @@
 	},
 	"dependencies": {
 		"@docsearch/react": "^3.5.2",
+		"@fortawesome/fontawesome-svg-core": "^6.6.0",
+		"@fortawesome/free-brands-svg-icons": "^6.6.0",
+		"@fortawesome/react-fontawesome": "^0.2.2",
 		"@octokit/webhooks": "^12.0.3",
 		"@phosphor-icons/react": "^2.0.14",
 		"@radix-ui/react-dialog": "^1.0.5",

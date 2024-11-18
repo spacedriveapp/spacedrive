@@ -50,7 +50,7 @@ export function NavBar() {
 				className={clsx(
 					'to-primary-900/20',
 					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-gradient-to-b from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur backdrop-saturate-[1.6]'
+					'overflow-hidden rounded-xl bg-sidebar/90 from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur'
 				)}
 				style={{
 					border: '1px rgba(30, 30, 38, 0.00)'

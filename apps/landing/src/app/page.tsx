@@ -4,7 +4,7 @@ import Mobile from './page-sections/mobile';
 import Tags from './page-sections/tags';
 
 export const metadata = {
-	title: 'Spacedrive — A file manager from the future.',
+	title: 'Spacedrive — Sync, manage, and discover. Across all your devices.',
 	description:
 		'Combine your drives and clouds into one database that you can organize and explore from any device. Designed for creators, hoarders and the painfully disorganized.',
 	keywords:
@@ -20,12 +20,12 @@ export default function Page() {
 		<>
 			<Header />
 			<div className="flex flex-col gap-20 md:gap-[200px]">
-				<Mobile />
-				<Features />
+				{/* <Mobile /> */}
+				{/* <Features /> */}
 				<Explorer />
 				<Tags />
 				<Search />
-				<Assistant />
+				{/* <Assistant /> */}
 				<Github />
 			</div>
 		</>
