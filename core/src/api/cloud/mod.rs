@@ -10,7 +10,7 @@ use sd_cloud_schema::{
 	auth,
 	error::{ClientSideError, Error},
 	sync::groups,
-	users, Client, SecretKey as IrohSecretKey, Service,
+	users, Client, Request, Response, SecretKey as IrohSecretKey,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
 use sd_utils::error::report_error;
@@ -32,7 +32,7 @@ mod sync_groups;
 
 async fn try_get_cloud_services_client(
 	node: &Node,
-) -> Result<Client<QuinnConnection<Service>, Service>, sd_core_cloud_services::Error> {
+) -> Result<Client<QuinnConnection<Response, Request>>, sd_core_cloud_services::Error> {
 	node.cloud_services
 		.client()
 		.await
@@ -302,7 +302,13 @@ async fn initialize_cloud_sync(
 
 async fn get_client_and_access_token(
 	node: &Node,
-) -> Result<(Client<QuinnConnection<Service>, Service>, auth::AccessToken), rspc::Error> {
+) -> Result<
+	(
+		Client<QuinnConnection<Response, Request>>,
+		auth::AccessToken,
+	),
+	rspc::Error,
+> {
 	(
 		try_get_cloud_services_client(node),
 		node.cloud_services

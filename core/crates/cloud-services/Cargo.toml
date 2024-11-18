@@ -41,7 +41,7 @@ anyhow   = "1.0.86"
 dashmap  = "6.1.0"
 iroh-net = { version = "0.27", features = ["discovery-local-network", "iroh-relay"] }
 paste    = "=1.0.15"
-quic-rpc = { version = "0.12.1", features = ["quinn-transport"] }
+quic-rpc = { version = "0.13.0", features = ["quinn-transport"] }
 quinn    = { package = "iroh-quinn", version = "0.11" }
 # Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
 reqwest                  = { version = "0.12", features = ["json", "native-tls-vendored", "stream"] }

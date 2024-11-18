@@ -73,8 +73,7 @@ pub struct Runner {
 	current_device_pub_id: devices::PubId,
 	token_refresher: TokenRefresher,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Service>,
-		sd_cloud_schema::Service,
+		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	msgs_tx: flume::Sender<Message>,
 	endpoint: Endpoint,
@@ -112,11 +111,13 @@ impl Clone for Runner {
 }
 
 struct PendingSyncGroupJoin {
-	channel: RpcChannel<Service, QuinnServerEndpoint<Service>>,
+	channel: RpcChannel<Service, QuinnServerEndpoint<cloud_p2p::Request, cloud_p2p::Response>>,
 	request: authorize_new_device_in_sync_group::Request,
 	this_device: Device,
 	since: Instant,
 }
+
+type P2PServerEndpoint = QuinnServerEndpoint<cloud_p2p::Request, cloud_p2p::Response>;
 
 impl Runner {
 	pub async fn new(
@@ -152,10 +153,7 @@ impl Runner {
 		#[allow(clippy::large_enum_variant)]
 		enum StreamMessage {
 			AcceptResult(
-				Result<
-					Accepting<Service, QuinnServerEndpoint<Service>>,
-					RpcServerError<QuinnServerEndpoint<Service>>,
-				>,
+				Result<Accepting<Service, P2PServerEndpoint>, RpcServerError<P2PServerEndpoint>>,
 			),
 			Message(Message),
 			UserResponse(UserResponse),
@@ -361,7 +359,7 @@ impl Runner {
 	async fn handle_request(
 		&self,
 		request: cloud_p2p::Request,
-		channel: RpcChannel<Service, QuinnServerEndpoint<Service>>,
+		channel: RpcChannel<Service, P2PServerEndpoint>,
 	) {
 		match request {
 			cloud_p2p::Request::AuthorizeNewDeviceInSyncGroup(
@@ -598,7 +596,7 @@ impl Runner {
 async fn connect_to_first_available_client(
 	endpoint: &Endpoint,
 	devices_in_group: &[(devices::PubId, NodeId)],
-) -> Result<Client<QuinnConnection<Service>, Service>, CloudP2PError> {
+) -> Result<Client<QuinnConnection<cloud_p2p::Response, cloud_p2p::Request>>, CloudP2PError> {
 	for (device_pub_id, device_connection_id) in devices_in_group {
 		if let Ok(connection) = endpoint
 			.connect(*device_connection_id, CloudP2PALPN::LATEST)
@@ -607,8 +605,9 @@ async fn connect_to_first_available_client(
 				|e| error!(?e, %device_pub_id, "Failed to connect to authorizor device candidate"),
 			) {
 			debug!(%device_pub_id, "Connected to authorizor device candidate");
+
 			return Ok(Client::new(RpcClient::new(
-				QuinnConnection::<Service>::from_connection(connection),
+				QuinnConnection::from_connection(connection),
 			)));
 		}
 	}
@@ -618,10 +617,7 @@ async fn connect_to_first_available_client(
 
 fn setup_server_endpoint(
 	endpoint: Endpoint,
-) -> (
-	RpcServer<Service, QuinnServerEndpoint<Service>>,
-	JoinHandle<()>,
-) {
+) -> (RpcServer<Service, P2PServerEndpoint>, JoinHandle<()>) {
 	let local_addr = {
 		let (ipv4_addr, maybe_ipv6_addr) = endpoint.bound_sockets();
 		// Trying to give preference to IPv6 addresses because it's 2024
@@ -631,7 +627,7 @@ fn setup_server_endpoint(
 	let (connections_tx, connections_rx) = flume::bounded(16);
 
 	(
-		RpcServer::new(QuinnServerEndpoint::<Service>::handle_connections(
+		RpcServer::new(QuinnServerEndpoint::handle_connections(
 			connections_rx,
 			local_addr,
 		)),

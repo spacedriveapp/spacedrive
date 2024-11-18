@@ -6,7 +6,7 @@ use sd_cloud_schema::{
 		groups,
 		messages::{pull, MessagesCollection},
 	},
-	Client, Service,
+	Client, Request, Response,
 };
 use sd_core_sync::{
 	cloud_crdt_op_db, CRDTOperation, CompressedCRDTOperationsPerModel, SyncManager,
@@ -49,7 +49,7 @@ pub struct Receiver {
 	sync_group_pub_id: groups::PubId,
 	device_pub_id: devices::PubId,
 	cloud_services: Arc<CloudServices>,
-	cloud_client: Client<QuinnConnection<Service>>,
+	cloud_client: Client<QuinnConnection<Response, Request>>,
 	key_manager: Arc<KeyManager>,
 	sync: SyncManager,
 	notifiers: Arc<ReceiveAndIngestNotifiers>,
