@@ -1,12 +1,12 @@
 use crate::p2p::{NotifyUser, UserResponse};
 
-use sd_cloud_schema::{Client, Service, ServicesALPN};
+use sd_cloud_schema::{Client, Request, Response, ServicesALPN};
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use futures::Stream;
 use iroh_net::relay::RelayUrl;
-use quic_rpc::{transport::quinn::QuinnConnection, RpcClient};
+use quic_rpc::{transport::quinn::QuinnConnection, RpcClient, RpcMessage};
 use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
 use reqwest_middleware::{reqwest, ClientBuilder, ClientWithMiddleware};
@@ -19,10 +19,10 @@ use super::{
 };
 
 #[derive(Debug, Default, Clone)]
-enum ClientState {
+enum ClientState<In: RpcMessage, Out: RpcMessage> {
 	#[default]
 	NotConnected,
-	Connected(Client<QuinnConnection<Service>, Service>),
+	Connected(Client<QuinnConnection<In, Out>>),
 }
 
 /// Cloud services are a optional feature that allows you to interact with the cloud services
@@ -35,7 +35,7 @@ enum ClientState {
 /// that core can always operate without the cloud services.
 #[derive(Debug)]
 pub struct CloudServices {
-	client_state: Arc<RwLock<ClientState>>,
+	client_state: Arc<RwLock<ClientState<Response, Request>>>,
 	get_cloud_api_address: Url,
 	http_client: ClientWithMiddleware,
 	domain_name: String,
@@ -157,7 +157,7 @@ impl CloudServices {
 		http_client: &ClientWithMiddleware,
 		get_cloud_api_address: Url,
 		domain_name: String,
-	) -> Result<Client<QuinnConnection<Service>, Service>, Error> {
+	) -> Result<Client<QuinnConnection<Response, Request>>, Error> {
 		let cloud_api_address = http_client
 			.get(get_cloud_api_address)
 			.send()
@@ -256,9 +256,6 @@ impl CloudServices {
 			.map_err(Error::FailedToCreateEndpoint)?;
 		endpoint.set_default_client_config(client_config);
 
-		// TODO(@fogodev): It's possible that we can't keep the connection alive all the time,
-		// and need to use single shot connections. I will only be sure when we have
-		// actually battle-tested the cloud services in core.
 		Ok(Client::new(RpcClient::new(QuinnConnection::new(
 			endpoint,
 			cloud_api_address,
@@ -271,9 +268,9 @@ impl CloudServices {
 	/// If the client is not connected, it will try to connect to the cloud services.
 	/// Available routes documented in
 	/// [`sd_cloud_schema::Service`](https://github.com/spacedriveapp/cloud-services-schema).
-	pub async fn client(&self) -> Result<Client<QuinnConnection<Service>, Service>, Error> {
-		if let ClientState::Connected(client) = { self.client_state.read().await.clone() } {
-			return Ok(client);
+	pub async fn client(&self) -> Result<Client<QuinnConnection<Response, Request>>, Error> {
+		if let ClientState::Connected(client) = { &*self.client_state.read().await } {
+			return Ok(client.clone());
 		}
 
 		// If we're not connected, we need to try to connect.
