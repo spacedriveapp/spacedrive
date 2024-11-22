@@ -163,7 +163,7 @@ export const investors: Array<TeamMemberProps> = [
 	},
 	{
 		name: 'Peer Richelsen',
-		role: 'Cofounder, Cal.com',
+		role: 'Co-Founder, Cal.com',
 		investmentRound: 'Seed',
 		imageUrl: '/images/investors/peer.jpg'
 	},
