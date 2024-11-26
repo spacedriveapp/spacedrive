@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use futures_concurrency::future::Join;
 use iroh_net::{Endpoint, NodeId};
-use quic_rpc::{transport::quinn::QuinnConnection, RpcClient};
+use quic_rpc::{transport::quinn::QuinnConnector, RpcClient};
 use tokio::time::Instant;
 use tracing::{debug, error, instrument, warn};
 
@@ -24,7 +24,7 @@ pub async fn dispatch_notifier(
 	devices: Option<(Instant, Vec<(devices::PubId, NodeId)>)>,
 	msgs_tx: flume::Sender<Message>,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
+		QuinnConnector<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	token_refresher: TokenRefresher,
 	endpoint: Endpoint,
@@ -63,7 +63,7 @@ async fn notify_peers(
 	device_pub_id: devices::PubId,
 	devices: Option<(Instant, Vec<(devices::PubId, NodeId)>)>,
 	cloud_services: sd_cloud_schema::Client<
-		QuinnConnection<sd_cloud_schema::Response, sd_cloud_schema::Request>,
+		QuinnConnector<sd_cloud_schema::Response, sd_cloud_schema::Request>,
 	>,
 	token_refresher: TokenRefresher,
 	endpoint: Endpoint,
@@ -128,7 +128,7 @@ async fn connect_and_send_notification(
 	connection_id: &NodeId,
 	endpoint: &Endpoint,
 ) -> Result<(), Error> {
-	let client = Client::new(RpcClient::new(QuinnConnection::from_connection(
+	let client = Client::new(RpcClient::new(QuinnConnector::from_connection(
 		endpoint
 			.connect(*connection_id, CloudP2PALPN::LATEST)
 			.await
