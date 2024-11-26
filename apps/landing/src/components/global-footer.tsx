@@ -52,6 +52,8 @@ export function GlobalFooter() {
 							651 N Broad St, Suite 201
 							<br />
 							Middletown, DE 19709
+							<br />
+							United States
 						</p>
 
 						<p className="ml-[4.675rem] mt-0 text-xs tracking-[0.01em] text-ink-faint">
@@ -60,6 +62,8 @@ export function GlobalFooter() {
 							402, 329 Railway St
 							<br />
 							Vancouver, BC V6A 1A4
+							<br />
+							Canada
 						</p>
 					</div>
 
