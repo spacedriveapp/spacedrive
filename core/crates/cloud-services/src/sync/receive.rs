@@ -32,7 +32,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures::{FutureExt, StreamExt};
 use futures_concurrency::future::{Race, TryJoin};
-use quic_rpc::transport::quinn::QuinnConnection;
+use quic_rpc::transport::quinn::QuinnConnector;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io, sync::Notify, time::sleep};
 use tracing::{debug, error, instrument, warn};
@@ -49,7 +49,7 @@ pub struct Receiver {
 	sync_group_pub_id: groups::PubId,
 	device_pub_id: devices::PubId,
 	cloud_services: Arc<CloudServices>,
-	cloud_client: Client<QuinnConnection<Response, Request>>,
+	cloud_client: Client<QuinnConnector<Response, Request>>,
 	key_manager: Arc<KeyManager>,
 	sync: SyncManager,
 	notifiers: Arc<ReceiveAndIngestNotifiers>,
