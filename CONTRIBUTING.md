@@ -96,17 +96,22 @@ If you are developing a new test, you can execute Cypress in interactive mode wi
 pnpm web test:interactive
 ```
 
-If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
+##### Troubleshooting
 
-- Rust version: **1.81**
-- Node version: **18.18**
-- Pnpm version: **9.4.0**
+- If you encounter any issues, ensure that you are using the following versions of Rust, Node.js and pnpm:
+  | tool    | version |
+  | ----    | ------- |
+  | Rust    | [`1.81`](rust-toolchain.toml) |
+  | Node.js | [`18.18`](.nvmrc) |
+  | pnpm    | `9.4.0` |
 
-After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `./setup/setup.sh` script.
+  [`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically. 
 
-Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
+ - After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `./setup/setup.sh` script.
 
-After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
+ - Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
+
+ - After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
 
 #### Landing Page
 
