@@ -42,19 +42,19 @@ To make changes locally, follow these steps:
     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
     ```
     Alternately, if you already have the repo cloned from previously, pull the latest changes to the code with: `git pull`
-    > [!TIP]
-    > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
+> [!TIP]
+> Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
 2. Configure your system environment for Spacedrive development
   - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
-      > [!NOTE]
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build via your system's respective package manager.
+> [!NOTE]
+> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build via your system's respective package manager.
   - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
-      > [!NOTE]
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+> [!NOTE]
+> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
 3. Install NodeJS dependencies: `pnpm i`
 4. Prepare the build: `pnpm prep`
-    > [!NOTE]
-    > This will run all necessary codegen and build required dependencies
+> [!NOTE]
+> This will run all necessary codegen and build required dependencies
 
 > [!TIP]
 > Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
