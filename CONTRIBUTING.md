@@ -41,7 +41,7 @@ To make changes locally, follow these steps:
     ```
     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
     ```
-    Alternately, if you already have the repo cloned from previously, pull the latest changes to the code with: `git pull`
+    Alternately, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
 > [!TIP]
 > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
 2. Configure your system environment for Spacedrive development
@@ -59,7 +59,7 @@ To make changes locally, follow these steps:
 > [!TIP]
 > Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
 >
->  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
+>  The test files will be located in a directory called `test-data` in the root of the Spacedrive repo.
 
 To run the **Tauri desktop** app, run:
 ```
@@ -74,9 +74,9 @@ cargo run -p sd-server
 ```
 
 > [!TIP]
-> If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) or `Command + Option + I` (macOS) in the desktop app.
+> If necessary, [DevTools](https://tauri.app/v1/guides/debugging/application/#webview-console) for the WebView can be opened by pressing <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> (Linux and Windows) or <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> (macOS) in the desktop app.
 >
-> Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
+> Also, React DevTools can be launched using `pnpx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
 To run the **web** app (requires the backend to be running), run:
@@ -109,7 +109,7 @@ pnpm web test:interactive
 
   [`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically. 
 
- - After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `./setup/setup.sh` script.
+ - After cleaning out your build artifacts using `pnpm clean`, it's necessary to re-run `pnpm prep`.
 
  - Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
 
