@@ -93,7 +93,7 @@ If you encounter any issues, ensure that you are using the following versions of
 - Node version: **18.18**
 - Pnpm version: **9.4.0**
 
-After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
+After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `setup-system` script.
 
 Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
 
