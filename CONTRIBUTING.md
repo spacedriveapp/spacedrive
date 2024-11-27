@@ -31,61 +31,70 @@ To find an issue that interests you, you can browse through our [existing issues
 
 ### Making Changes
 
-#### Making Changes Locally
+#### Spacedrive Desktop Clients
 
 This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Make sure you have them installed before proceeding.
 
 To make changes locally, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
-2. Navigate to the project directory: `cd spacedrive`
-3. Configure your system environment for Spacedrive development
-   1. For Linux users, run: `./scripts/setup.sh`
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
-   2. For macOS users, run: `./scripts/setup.sh`
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
-   3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
+1. Clone & enter the repository:
+    ```
+    git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
+    ```
+    Alternately, if you already have the repo cloned from previously, pull the latest changes to the code with: `git pull`
+    > [!TIP]
+    > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
+2. Configure your system environment for Spacedrive development
+  - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
+      > [!NOTE]
+      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build via your system's respective package manager.
+  - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
+      > [!NOTE]
       > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
-4. Install dependencies: `pnpm i`
-5. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
+3. Install NodeJS dependencies: `pnpm i`
+4. Prepare the build: `pnpm prep`
+    > [!NOTE]
+    > This will run all necessary codegen and build required dependencies
 
-To quickly run only the desktop app after `prep`, you can use:
+> [!TIP]
+> Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
+>
+>  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
 
-- `pnpm tauri dev`
+To run the **backend server**, run:
+```
+cargo run -p sd-server
+```
 
-  If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) or `Command + Option + I` (macOS) in the desktop app.
+To run the **desktop** app, run:
+```
+pnpm tauri dev
+```
 
-  Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
+> [!TIP]
+> If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) or `Command + Option + I` (macOS) in the desktop app.
+>
+> Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
-You can download a bundle with sample files to test the app by running:
+To run the **web** app (requires the backend to be running), run:
+```
+pnpm web dev
+```
+> [!TIP]
+> You can also quickly launch the web interface together with the backend with:
+> ```
+> pnpm dev:web
+> ```
 
-- `pnpm test-data`
-
-  Only for Linux and macOS (Requires curl and tar).
-  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
-
-To run the web app:
-
-- `pnpm dev:web`
-
-This will start both the server and web interface.
-You can launch these individually if you'd prefer:
-
-- `cargo run -p sd-server` (server)
-- `pnpm web dev` (web interface)
-
-To run the e2e tests for the web app:
-
-- `pnpm web test:e2e`
-
+To run the **e2e tests** for the web app:
+```
+pnpm web test:e2e
+```
 If you are developing a new test, you can execute Cypress in interactive mode with:
-
-- `pnpm web test:interactive`
-
-To run the landing page:
-
-- `pnpm landing dev`
+```
+pnpm web test:interactive
+```
 
 If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
 
@@ -93,13 +102,19 @@ If you encounter any issues, ensure that you are using the following versions of
 - Node version: **18.18**
 - Pnpm version: **9.4.0**
 
-After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `setup-system` script.
+After cleaning out your build artifacts using `pnpm clean`, it is necessary to re-run the `./setup/setup.sh` script.
 
 Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
 
 After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
 
-##### Mobile App
+#### Landing Page
+
+To run the **landing page**, run:
+
+- `pnpm landing dev`
+
+#### Mobile App
 
 To run the mobile app:
 
