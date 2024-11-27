@@ -82,6 +82,12 @@ cargo run -p sd-server
 To run the **web** app (requires the backend to be running), run:
 ```
 pnpm web dev
+```
+> [!TIP]
+> You can also quickly launch the web interface together with the backend with:
+> ```
+> pnpm dev:web
+> ```
 
 To run the **e2e tests** for the web app:
 ```
