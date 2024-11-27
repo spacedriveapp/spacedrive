@@ -14,13 +14,6 @@ indent_style = tab
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# BATS: https://github.com/bats-core/bats-core
-# https://github.com/bats-core/bats-core/master/.editorconfig
-[*.bats]
-insert_final_newline = true
-max_line_length = 80
-trim_trailing_whitespace = true
-
 # CSS
 # https://google.github.io/styleguide/htmlcssguide.xml#General_Formatting_Rules
 # http://cssguidelin.es/#syntax-and-formatting
@@ -32,6 +25,12 @@ trim_trailing_whitespace = true
 [*.{htm,html}]
 trim_trailing_whitespace = true
 
+# Just
+# https://github.com/casey/just/master/justfile
+[{justfile,Justfile}]
+insert_final_newline = true
+indent_style = space
+
 # JavaScript, JSON, JSX, JavaScript Modules, TypeScript
 # https://github.com/feross/standard
 # https://prettier.io
@@ -39,14 +38,20 @@ trim_trailing_whitespace = true
 indent_size = 4
 
 # Kotlin
-# https://android.github.io/kotlin-guides/style.html#indentation
+# https://kotlinlang.org/docs/coding-conventions.html#indentation
 [*.{kt,kts}]
 indent_size = 4
 
-# Python
-# https://www.python.org/dev/peps/pep-0008/#code-lay-out
-[*.py]
+# PowerShell
+# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
+[*.{ps1,psd1,psm1}]
 indent_size = 4
+indent_style = space
+
+# Prisma
+# https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model#formatting
+[*.prisma]
+indent_style = space
 
 # Rust
 # https://github.com/rust-lang/rust/blob/master/src/doc/style/style/whitespace.md
@@ -55,31 +60,14 @@ indent_size = 4
 insert_final_newline = false
 trim_trailing_whitespace = true
 
-# SQL
-# https://www.sqlstyle.guide/
-[*.sql]
-indent_size = 4
-indent_style = space
-
-# Prisma
-# https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-schema/data-model#formatting
-[*.prisma]
-indent_size = 2
-indent_style = space
-
-# YAML
-# http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
-[*.{yaml,yml}]
-indent_style = space
-
 # Shell
 # https://google.github.io/styleguide/shell.xml#Indentation
 [*.{bash,sh,zsh}]
 indent_style = space
 
-# PowerShell
-# https://poshcode.gitbook.io/powershell-practice-and-style/style-guide/code-layout-and-formatting
-[*.{ps1,psd1,psm1}]
+# SQL
+# https://www.sqlstyle.guide/
+[*.sql]
 indent_size = 4
 indent_style = space
 
@@ -88,3 +76,15 @@ indent_style = space
 [*.swift]
 indent_size = 4
 indent_style = space
+
+# Ruby
+# http://www.caliban.org/ruby/rubyguide.shtml#indentation
+[*.{rb,podspec}]
+indent_size = 2
+indent_style = space
+
+# YAML
+# http://yaml.org/spec/1.2/2009-07-21/spec.html#id2576668
+[*.{yaml,yml}]
+indent_style = space
+

@@ -312,6 +312,7 @@ buck-out/
 .fakebuckversion
 
 ### ReactNative.Xcode Stack ###
+ios/
 
 ## Xcode 8 and earlier
 
@@ -319,6 +320,7 @@ buck-out/
 .gradle
 **/build/
 !src/**/build/
+android/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -537,6 +539,10 @@ fabric.properties
 
 # Expo
 web-build/
+android/
+ios/
+!modules/sd-core/android/
+!modules/sd-core/ios/
 
 # Native
 *.orig.*

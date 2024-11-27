@@ -1,5 +1,5 @@
-import { inferSubscriptionResult } from '@oscartbeaumont-sd/rspc-client';
 import { Gear } from '@phosphor-icons/react';
+import { inferSubscriptionResult } from '@spacedrive/rspc-client';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -9,7 +9,7 @@ import {
 	useDebugState,
 	useLibrarySubscription
 } from '@sd/client';
-import { Button, ButtonLink, Tooltip } from '@sd/ui';
+import { Button, ButtonLink, Loader, Tooltip } from '@sd/ui';
 import { useKeysMatcher, useLocale, useShortcut } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -24,10 +24,10 @@ export default () => {
 	const navigate = useNavigate();
 	const symbols = useKeysMatcher(['Meta', 'Shift']);
 
-	useShortcut('navToSettings', (e) => {
-		e.stopPropagation();
-		navigate('settings/client/general');
-	});
+	// useShortcut('navToSettings', (e) => {
+	// 	e.stopPropagation();
+	// 	navigate('settings/client/general');
+	// });
 
 	const updater = usePlatform().updater;
 	const updaterState = updater?.useSnapshot();
@@ -80,5 +80,12 @@ function SyncStatusIndicator() {
 		onData: setStatus
 	});
 
-	return null;
+	return (
+		<div className="flex flex-row items-center gap-1">
+			{status?.cloud_ingest && <Loader className="size-5" color="red" />}
+			{status?.cloud_send && <Loader className="size-5" color="green" />}
+			{status?.cloud_receive && <Loader className="size-5" color="blue" />}
+			{status?.ingest && <Loader className="size-5" color="yellow" />}
+		</div>
+	);
 }

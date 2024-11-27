@@ -144,6 +144,7 @@ pub struct Report {
 	pub status: Status,
 	pub task_count: i32,
 	pub completed_task_count: i32,
+	pub info: String,
 
 	pub phase: String,
 	pub message: String,
@@ -177,6 +178,7 @@ impl TryFrom<job::Data> for Report {
 			metadata,
 			parent_id,
 			task_count,
+			info,
 			completed_task_count,
 			date_estimated_completion,
 			date_created,
@@ -208,6 +210,7 @@ impl TryFrom<job::Data> for Report {
 				.expect("corrupted database"),
 			task_count: task_count.unwrap_or(0),
 			completed_task_count: completed_task_count.unwrap_or(0),
+			info: info.unwrap_or_default(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: date_estimated_completion.map_or_else(Utc::now, DateTime::into),
@@ -232,6 +235,7 @@ impl Report {
 			metadata: vec![],
 			parent_id: None,
 			completed_task_count: 0,
+			info: String::new(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),
@@ -278,6 +282,7 @@ impl Report {
 						job::status::set(Some(self.status as i32)),
 						job::date_started::set(self.started_at.map(Into::into)),
 						job::task_count::set(Some(0)),
+						job::info::set(Some(self.info.clone())),
 						job::completed_task_count::set(Some(0)),
 					],
 					[self
@@ -285,6 +290,7 @@ impl Report {
 						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
 				),
 			)
+			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Create)?;
@@ -295,7 +301,7 @@ impl Report {
 		Ok(())
 	}
 
-	pub async fn update(&mut self, db: &PrismaClient) -> Result<(), ReportError> {
+	pub async fn update(&self, db: &PrismaClient) -> Result<(), ReportError> {
 		db.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),
@@ -307,11 +313,13 @@ impl Report {
 					)?)),
 					job::metadata::set(Some(serde_json::to_vec(&self.metadata)?)),
 					job::task_count::set(Some(self.task_count)),
+					job::info::set(Some(self.info.clone())),
 					job::completed_task_count::set(Some(self.completed_task_count)),
 					job::date_started::set(self.started_at.map(Into::into)),
 					job::date_completed::set(self.completed_at.map(Into::into)),
 				],
 			)
+			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Update)?;
@@ -338,8 +346,10 @@ impl Status {
 		matches!(
 			self,
 			Self::Completed
-				| Self::Canceled | Self::Paused
-				| Self::Failed | Self::CompletedWithErrors
+				| Self::Canceled
+				| Self::Paused
+				| Self::Failed
+				| Self::CompletedWithErrors
 		)
 	}
 }
@@ -388,6 +398,7 @@ impl ReportBuilder {
 			metadata: self.metadata,
 			parent_id: self.parent_id,
 			completed_task_count: 0,
+			info: String::new(),
 			phase: String::new(),
 			message: String::new(),
 			estimated_completion: Utc::now(),
@@ -395,7 +406,7 @@ impl ReportBuilder {
 	}
 
 	#[must_use]
-	pub fn new(id: JobId, name: JobName) -> Self {
+	pub const fn new(id: JobId, name: JobName) -> Self {
 		Self {
 			id,
 			name,

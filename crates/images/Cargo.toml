@@ -1,38 +1,33 @@
 [package]
-name = "sd-images"
+name    = "sd-images"
 version = "0.1.0"
-authors = [
-	"Jake Robinson <jake@spacedrive.com>",
-	"Vítor Vasconcellos <vitor@spacedrive.com>",
-]
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Jake Robinson <jake@spacedrive.com>", "Vítor Vasconcellos <vitor@spacedrive.com>"]
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [features]
 heif = ["dep:libheif-rs", "dep:libheif-sys"]
 
 [dependencies]
 # Workspace dependencies
-image = { workspace = true }
-once_cell = { workspace = true }
-rspc = { workspace = true, optional = true }                         # error conversion
-specta = { workspace = true, optional = true }
-serde = { workspace = true, optional = true, features = ["derive"] }
+image     = { workspace = true }
+rspc      = { workspace = true, optional = true }                        # error conversion
+serde     = { workspace = true, optional = true, features = ["derive"] }
+specta    = { workspace = true, optional = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
+tracing   = { workspace = true }
 
 # Specific Images dependencies
-bincode = { version = "=2.0.0-rc.3", features = [
-	"derive",
-	"alloc",
-], optional = true }
+bincode = { version = "=2.0.0-rc.3", features = ["alloc", "derive"], optional = true }
 # Disable defaults for libheif* to avoid bindgen and use pre-compiled headers
-libheif-rs = { version = "1.0", default-features = false, optional = true }
+libheif-rs  = { version = "1.0", default-features = false, optional = true }
 libheif-sys = { version = "2.1", default-features = false, optional = true }
-pdfium-render = { version = "0.8.15", features = [
-	"sync",
-	"image",
-	"thread_safe",
-] }
-resvg = "0.42.0"
+resvg       = "0.44.0"
+
+[dependencies.pdfium-render]
+default-features = false
+features         = ["image", "pdfium_6666", "sync", "thread_safe"]
+git              = "https://github.com/HeavenVolkoff/pdfium-render.git"
+rev              = "7518e39c1b"

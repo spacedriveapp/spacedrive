@@ -78,7 +78,7 @@ const EditLocationForm = () => {
 		},
 		onSuccess: () => {
 			form.reset(form.getValues());
-			queryClient.invalidateQueries(['locations.list']);
+			queryClient.invalidateQueries({ queryKey: ['locations.list'] });
 		}
 	});
 
@@ -147,18 +147,18 @@ const EditLocationForm = () => {
 
 						<RadioGroupField.Item disabled key="replica" value="replica">
 							<h1 className="font-bold">{t('replica')}</h1>
-							<p className="text-sm text-ink-faint ">{t('location_type_replica')}</p>
+							<p className="text-sm text-ink-faint">{t('location_type_replica')}</p>
 						</RadioGroupField.Item>
 					</RadioGroupField.Root>
 				</div>
 				<Divider />
 				<div className="space-y-2">
 					<ToggleSection>
-						<Label className="grow">{t('generatePreviewMedia_label')}</Label>
+						<Label className="grow">{t('generate_preview_media_label')}</Label>
 						<SwitchField {...form.register('generatePreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>
-						<Label className="grow">{t('syncPreviewMedia_label')}</Label>
+						<Label className="grow">{t('sync_preview_media_label')}</Label>
 						<SwitchField {...form.register('syncPreviewMedia')} size="sm" />
 					</ToggleSection>
 					<ToggleSection>

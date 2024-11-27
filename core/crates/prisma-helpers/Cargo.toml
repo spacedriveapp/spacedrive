@@ -1,18 +1,20 @@
 [package]
-name = "sd-core-prisma-helpers"
+name    = "sd-core-prisma-helpers"
 version = "0.1.0"
-authors = ["Ericson Soares <ericson@spacedrive.com>"]
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+authors              = ["Ericson Soares <ericson@spacedrive.com>"]
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-prisma = { path = "../../../crates/prisma" }
-sd-utils = { path = "../../../crates/utils" }
+sd-cloud-schema = { workspace = true }
+sd-prisma       = { path = "../../../crates/prisma" }
+sd-utils        = { path = "../../../crates/utils" }
 
 # Workspace dependencies
 prisma-client-rust = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-specta = { workspace = true }
-uuid = { workspace = true, features = ["v4", "serde"] }
+serde              = { workspace = true, features = ["derive"] }
+specta             = { workspace = true }
+uuid               = { workspace = true, features = ["serde", "v4"] }

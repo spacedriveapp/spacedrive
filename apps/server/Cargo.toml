@@ -1,29 +1,30 @@
 [package]
-name = "sd-server"
+name    = "sd-server"
 version = "0.1.0"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
 
 [features]
-default = []
-assets = []
 ai-models = ["sd-core/ai"]
+assets    = []
+default   = []
 
 [dependencies]
 # Spacedrive Sub-crates
 sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
 
 # Workspace dependencies
-axum = { workspace = true, features = ["headers"] }
-base64 = { workspace = true }
-http = { workspace = true }
-rspc = { workspace = true, features = ["axum"] }
-tempfile = { workspace = true }
-tokio = { workspace = true, features = ["sync", "rt-multi-thread", "signal"] }
-tracing = { workspace = true }
+axum       = { workspace = true }
+axum-extra = { workspace = true, features = ["typed-header"] }
+http       = { workspace = true }
+rspc       = { workspace = true, features = ["axum"] }
+tempfile   = { workspace = true }
+tokio      = { workspace = true, features = ["rt-multi-thread", "signal", "sync"] }
+tracing    = { workspace = true }
 
 # Specific Desktop dependencies
 include_dir = "0.7.3"
-mime_guess = "2.0"
-secstr = "0.5.1"
+mime_guess  = "2.0"
+secstr      = "0.5.1"

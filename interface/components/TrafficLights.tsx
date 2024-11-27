@@ -59,13 +59,13 @@ function TrafficLight(props: TrafficLightProps) {
 				{
 					'border-red-900 !bg-[#EC6A5E] active:hover:!bg-red-700 dark:active:hover:!bg-red-300':
 						type === 'close' && colorful,
-					'group-hover:!bg-[#EC6A5E] ': type === 'close',
-					'border-[#F4BE4F] !bg-[#F4BE4F]  active:hover:!bg-yellow-600 dark:active:hover:!bg-yellow-200':
+					'group-hover:!bg-[#EC6A5E]': type === 'close',
+					'border-[#F4BE4F] !bg-[#F4BE4F] active:hover:!bg-yellow-600 dark:active:hover:!bg-yellow-200':
 						type === 'minimize' && colorful,
 					'group-hover:!bg-[#F4BE4F]': type === 'minimize',
-					'border-green-900 !bg-[#61C253]  active:hover:!bg-green-700 dark:active:hover:!bg-green-300':
+					'border-green-900 !bg-[#61C253] active:hover:!bg-green-700 dark:active:hover:!bg-green-300':
 						type === 'fullscreen' && colorful,
-					' group-hover:!bg-[#61C253] ': type === 'fullscreen'
+					'group-hover:!bg-[#61C253]': type === 'fullscreen'
 				}
 			)}
 		>

@@ -18,12 +18,12 @@ const AddDeviceDialog = ({ node, ...dialogProps }: Props) => {
 			dialog={useDialog(dialogProps)}
 			form={form}
 			title={t('add_device')}
-			description={t('Add Device Description')}
+			description={t('add_device_description')}
 			icon={
 				<Icon name={hardwareModelToIcon(node?.device_model as HardwareModel)} size={28} />
 			}
-			ctaLabel="Add"
-			closeLabel="Close"
+			closeLabel={t('cancel')}
+			ctaLabel={t('add')}
 		>
 			<div className="mt-4 flex flex-col items-center">
 				<div className="size-32 rounded-lg bg-gray-600 shadow-lg" />

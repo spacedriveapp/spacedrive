@@ -64,7 +64,7 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 	const [currentETA, setCurrentETA] = useState<number | undefined>(eta);
 
 	useEffect(() => {
-		if (currentETA !== undefined && currentETA > 0) {
+		if (currentETA != null && currentETA > 0) {
 			const interval = setInterval(() => {
 				setCurrentETA((prevETA) => {
 					if (prevETA === undefined || prevETA <= 1000) return 0;
@@ -106,7 +106,9 @@ const JobContainer = forwardRef<HTMLLIElement, JobContainerProps>((props, ref) =
 					position="top"
 					label={name}
 				>
-					<p className="w-fit max-w-[83%] truncate pl-1.5 font-semibold">{name}</p>
+					<p className="w-fit max-w-[83%] truncate pl-1.5 font-plex font-semibold tracking-normal">
+						{name}
+					</p>
 				</Tooltip>
 				{textItems?.map((item, index) => {
 					const filteredItems = item.filter((i) => i?.text);

@@ -149,7 +149,7 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
 								<Button
 									variant="gray"
 									onClick={() => {
-										typeof cancel === 'object' && cancel.onClick?.();
+										if (typeof cancel === 'object') cancel.onClick?.();
 										props.onClose?.({ id: props.id, event: 'on-cancel' });
 										toast.dismiss(props.id);
 									}}

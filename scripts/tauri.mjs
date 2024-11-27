@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import { env, exit, umask, platform } from 'node:process'
+import { env, exit, platform, umask } from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 
-import * as toml from '@iarna/toml'
+import { parse as parseTOML } from 'smol-toml'
 
 import { waitLockUnlock } from './utils/flock.mjs'
 import { patchTauri } from './utils/patchTauri.mjs'
@@ -41,17 +40,10 @@ const __cleanup = /** @type {string[]} */ ([])
 const cleanUp = () => Promise.all(__cleanup.map(file => fs.unlink(file).catch(() => {})))
 process.on('SIGINT', cleanUp)
 
-// Check if file/dir exists
-const exists = (/** @type {string} */ path) =>
-	fs
-		.access(path, fs.constants.R_OK)
-		.then(() => true)
-		.catch(() => false)
-
 // Export environment variables defined in cargo.toml
 const cargoConfig = await fs
 	.readFile(path.resolve(__root, '.cargo', 'config.toml'), { encoding: 'binary' })
-	.then(toml.parse)
+	.then(parseTOML)
 if (cargoConfig.env && typeof cargoConfig.env === 'object')
 	for (const [name, value] of Object.entries(cargoConfig.env)) if (!env[name]) env[name] = value
 
@@ -82,7 +74,7 @@ if (process.platform === 'linux' && (args[0] === 'dev' || args[0] === 'build'))
 try {
 	switch (args[0]) {
 		case 'dev': {
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, args)))
 
 			switch (process.platform) {
 				case 'linux':
@@ -103,21 +95,7 @@ try {
 
 			env.GENERATE_SOURCEMAP = 'false'
 
-			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, bundles, args)))
-
-			if (process.platform === 'darwin') {
-				// Configure DMG background
-				env.BACKGROUND_FILE = path.resolve(desktopApp, 'src-tauri', 'dmg-background.png')
-				env.BACKGROUND_FILE_NAME = path.basename(env.BACKGROUND_FILE)
-				env.BACKGROUND_CLAUSE = `set background picture of opts to file ".background:${env.BACKGROUND_FILE_NAME}"`
-
-				if (!(await exists(env.BACKGROUND_FILE)))
-					console.warn(
-						`WARNING: DMG background file not found at ${env.BACKGROUND_FILE}`
-					)
-
-				break
-			}
+			__cleanup.push(...(await patchTauri(__root, nativeDeps, targets, args)))
 		}
 	}
 

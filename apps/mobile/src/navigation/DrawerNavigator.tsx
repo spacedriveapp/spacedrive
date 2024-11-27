@@ -5,8 +5,7 @@ import DrawerContent from '~/components/drawer/DrawerContent';
 import { tw } from '~/lib/tailwind';
 
 import type { RootStackParamList } from '.';
-import type { TabParamList } from './TabNavigator';
-import TabNavigator from './TabNavigator';
+import TabNavigator, { type TabParamList } from './TabNavigator';
 
 const Drawer = createDrawerNavigator<DrawerNavParamList>();
 
@@ -17,6 +16,7 @@ export default function DrawerNavigator() {
 			initialRouteName="Home"
 			screenOptions={{
 				headerShown: false,
+				swipeEnabled: false,
 				drawerStyle: {
 					backgroundColor: tw.color('app-darkBox'),
 					width: '70%',
@@ -27,7 +27,7 @@ export default function DrawerNavigator() {
 				drawerType: 'slide',
 				swipeEdgeWidth: 50
 			}}
-			drawerContent={(props) => <DrawerContent {...(props as any)} />}
+			drawerContent={(props) => <DrawerContent {...props} />}
 		>
 			<Drawer.Screen name="Home" component={TabNavigator} />
 		</Drawer.Navigator>

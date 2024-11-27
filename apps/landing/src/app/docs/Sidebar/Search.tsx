@@ -11,7 +11,7 @@ export function SearchBar() {
 		<div
 			className="mb-5"
 			onClick={() => {
-				menu.open && menu.setOpen(false);
+				if (menu.open) menu.setOpen(false);
 			}}
 		>
 			<DocSearch

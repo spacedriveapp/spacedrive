@@ -1,0 +1,33 @@
+diff --git a/src/views/modern/Drawer.tsx b/src/views/modern/Drawer.tsx
+index 9909e96..a7dd9b7 100644
+--- a/src/views/modern/Drawer.tsx
++++ b/src/views/modern/Drawer.tsx
+@@ -1,5 +1,6 @@
+ import * as React from 'react';
+ import {
++  Dimensions,
+   I18nManager,
+   InteractionManager,
+   Keyboard,
+@@ -72,7 +73,8 @@ export default function Drawer({
+       const percentage = Number(width.replace(/%$/, ''));
+ 
+       if (Number.isFinite(percentage)) {
+-        return dimensions.width * (percentage / 100);
++        const dimensionsWidth = Dimensions.get("screen").width
++        return dimensionsWidth * (percentage / 100);
+       }
+     }
+ 
+@@ -283,9 +285,10 @@ export default function Drawer({
+     return translateX;
+   });
+ 
++  const dimensionsWidth = Dimensions.get("screen").width;
+   const isRTL = I18nManager.getConstants().isRTL;
+   const drawerAnimatedStyle = useAnimatedStyle(() => {
+-    const distanceFromEdge = dimensions.width - drawerWidth;
++    const distanceFromEdge = dimensionsWidth - drawerWidth;
+ 
+     return {
+       transform:

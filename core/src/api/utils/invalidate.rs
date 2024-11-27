@@ -121,6 +121,7 @@ impl InvalidRequests {
 }
 
 /// `invalidate_query` is a macro which stores a list of all of it's invocations so it can ensure all of the queries match the queries attached to the router.
+///
 /// This allows invalidate to be type-safe even when the router keys are stringly typed.
 /// ```ignore
 /// invalidate_query!(

@@ -27,6 +27,10 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use chrono::{DateTime, Utc};
+use uhlc::NTP64;
 use uuid::Uuid;
 
 pub mod db;
@@ -46,9 +50,14 @@ pub fn chain_optional_iter<T>(
 		.collect()
 }
 
+/// A splitted version of `u64`, divided into `(u32, u32)`
+///
+/// rspc/specta doesn't support `BigInt`, so we need this hack
+pub type U64Front = (u32, u32);
+
 #[inline]
 #[must_use]
-pub const fn u64_to_frontend(num: u64) -> (u32, u32) {
+pub const fn u64_to_frontend(num: u64) -> U64Front {
 	#[allow(clippy::cast_possible_truncation)]
 	{
 		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
@@ -56,9 +65,14 @@ pub const fn u64_to_frontend(num: u64) -> (u32, u32) {
 	}
 }
 
+/// A splitted version of `i64`, divided into `(i32, u32)`
+///
+/// rspc/specta doesn't support `BigInt`, so we need this hack
+pub type I64Front = (i32, u32);
+
 #[inline]
 #[must_use]
-pub const fn i64_to_frontend(num: i64) -> (i32, u32) {
+pub const fn i64_to_frontend(num: i64) -> I64Front {
 	#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 	{
 		// SAFETY: We're splitting in (high, low) parts, so we're not going to lose data on truncation
@@ -92,6 +106,23 @@ macro_rules! msgpack {
 
 		value
 	}}
+}
+
+/// Helper function to convert a [`chrono::DateTime<Utc>`] to a [`uhlc::NTP64`]
+#[allow(clippy::missing_panics_doc)] // Doesn't actually panic
+#[must_use]
+pub fn datetime_to_timestamp(latest_time: DateTime<Utc>) -> NTP64 {
+	NTP64::from(
+		SystemTime::from(latest_time)
+			.duration_since(UNIX_EPOCH)
+			.expect("hardcoded earlier time, nothing is earlier than UNIX_EPOCH"),
+	)
+}
+
+/// Helper function to convert a [`uhlc::NTP64`] to a [`chrono::DateTime<Utc>`]
+#[must_use]
+pub fn timestamp_to_datetime(timestamp: NTP64) -> DateTime<Utc> {
+	DateTime::from(timestamp.to_system_time())
 }
 
 // Only used for testing purposes. Do not use in production code.

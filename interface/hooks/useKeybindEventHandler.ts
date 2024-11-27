@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
-import { KeybindEvent } from '../util/keybind';
+import { KeybindEvent } from '../util/events';
 import { useQuickRescan } from './useQuickRescan';
 import { getWindowState } from './useWindowState';
 
@@ -32,10 +32,10 @@ export const useKeybindEventHandler = (libraryId?: string) => {
 					console.log('Add Location!'); // TODO: Implement
 					break;
 				case 'open_settings':
-					libraryId && navigate(`/${libraryId}/settings/client/general`);
+					if (libraryId) navigate(`/${libraryId}/settings/client/general`);
 					break;
 				case 'reload_explorer':
-					!isNaN(id) && rescan(id);
+					if (!isNaN(id)) rescan(id);
 					break;
 				// case 'open_overview':
 				// 	libraryId && navigate(`/${libraryId}/overview`);

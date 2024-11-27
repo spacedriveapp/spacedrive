@@ -11,7 +11,6 @@
 	clippy::unwrap_used,
 	unused_qualifications,
 	rust_2018_idioms,
-	clippy::expect_used,
 	trivial_casts,
 	trivial_numeric_casts,
 	unused_allocation,
@@ -28,29 +27,17 @@
 	clippy::similar_names
 )]
 
-pub mod crypto;
+// pub mod crypto;
+pub mod cloud;
 pub mod ct;
-pub mod encoding;
-pub mod encrypted;
+pub mod erase;
 pub mod error;
-pub mod hashing;
 pub mod primitives;
 pub mod protected;
 pub mod rng;
-pub mod types;
-pub mod utils;
-pub mod vault;
 
-#[cfg(all(
-	feature = "keyring",
-	any(target_os = "macos", target_os = "ios", target_os = "linux")
-))]
-pub mod keyring;
-
-#[cfg(feature = "sys")]
-pub mod sys;
-
-pub use self::error::{Error, Result};
-pub use aead::Payload;
+pub use error::Error;
 pub use protected::Protected;
-pub use zeroize::Zeroize;
+pub use rng::CryptoRng;
+
+pub use rand_core::{RngCore, SeedableRng};

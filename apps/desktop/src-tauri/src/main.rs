@@ -3,6 +3,9 @@
 	windows_subsystem = "windows"
 )]
 
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::{fs, path::PathBuf, process::Command, sync::Arc, time::Duration};
 
 use menu::{set_enabled, MenuEvent};
@@ -10,12 +13,14 @@ use sd_core::{Node, NodeError};
 
 use sd_fda::DiskAccess;
 use serde::{Deserialize, Serialize};
+use specta_typescript::Typescript;
 use tauri::{async_runtime::block_on, webview::PlatformWebview, AppHandle, Manager, WindowEvent};
+use tauri::{Emitter, Listener};
 use tauri_plugins::{sd_error_plugin, sd_server_plugin};
-use tauri_specta::{collect_events, ts};
+use tauri_specta::{collect_events, Builder};
 use tokio::task::block_in_place;
 use tokio::time::sleep;
-use tracing::error;
+use tracing::{debug, error};
 
 mod file;
 mod menu;
@@ -174,52 +179,69 @@ pub enum DragAndDropEvent {
 	Cancelled,
 }
 
-const CLIENT_ID: &str = "2abb241e-40b8-4517-a3e3-5594375c8fbb";
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepLinkEvent {
+	data: String,
+}
 
 #[tokio::main]
 async fn main() -> tauri::Result<()> {
 	#[cfg(target_os = "linux")]
 	sd_desktop_linux::normalize_environment();
 
-	let (invoke_handler, register_events) = {
-		let builder = ts::builder()
-			.events(collect_events![DragAndDropEvent])
-			.commands(tauri_specta::collect_commands![
-				app_ready,
-				reset_spacedrive,
-				open_logs_dir,
-				refresh_menu_bar,
-				reload_webview,
-				set_menu_bar_item_state,
-				request_fda_macos,
-				open_trash_in_os_explorer,
-				file::open_file_paths,
-				file::open_ephemeral_files,
-				file::get_file_path_open_with_apps,
-				file::get_ephemeral_files_open_with_apps,
-				file::open_file_path_with,
-				file::open_ephemeral_file_with,
-				file::reveal_items,
-				theme::lock_app_theme,
-				updater::check_for_update,
-				updater::install_update
-			])
-			.config(specta::ts::ExportConfig::default().formatter(specta::ts::formatter::prettier));
+	let builder = Builder::new()
+		.commands(tauri_specta::collect_commands![
+			app_ready,
+			reset_spacedrive,
+			open_logs_dir,
+			refresh_menu_bar,
+			reload_webview,
+			set_menu_bar_item_state,
+			request_fda_macos,
+			open_trash_in_os_explorer,
+			file::open_file_paths,
+			file::open_ephemeral_files,
+			file::get_file_path_open_with_apps,
+			file::get_ephemeral_files_open_with_apps,
+			file::open_file_path_with,
+			file::open_ephemeral_file_with,
+			file::reveal_items,
+			theme::lock_app_theme,
+			updater::check_for_update,
+			updater::install_update
+		])
+		.events(collect_events![DragAndDropEvent]);
 
-		#[cfg(debug_assertions)]
-		let builder = builder.path("../src/commands.ts");
-
-		builder.build().unwrap()
-	};
+	#[cfg(debug_assertions)]
+	builder
+		.export(
+			Typescript::default()
+				.formatter(specta_typescript::formatter::prettier)
+				.header("/* eslint-disable */"),
+			"../src/commands.ts",
+		)
+		.expect("Failed to export typescript bindings");
 
 	tauri::Builder::default()
-		.invoke_handler(invoke_handler)
+		.invoke_handler(builder.invoke_handler())
+		.plugin(tauri_plugin_deep_link::init())
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.
+			let handle = app.handle().clone();
+			app.listen("deep-link://new-url", move |event| {
+				let deep_link_event = DeepLinkEvent {
+					data: event.payload().to_string(),
+				};
+				println!("Deep link event={:?}", deep_link_event);
+
+				handle.emit("deeplink", deep_link_event).unwrap();
+			});
+
 			block_in_place(|| {
 				block_on(async move {
-					register_events(app);
+					builder.mount_events(app);
 
 					let data_dir = app
 						.path()
@@ -232,10 +254,7 @@ async fn main() -> tauri::Result<()> {
 
 					// The `_guard` must be assigned to variable for flushing remaining logs on main exit through Drop
 					let (_guard, result) = match Node::init_logger(&data_dir) {
-						Ok(guard) => (
-							Some(guard),
-							Node::new(data_dir, sd_core::Env::new(CLIENT_ID)).await,
-						),
+						Ok(guard) => (Some(guard), Node::new(data_dir).await),
 						Err(err) => (None, Err(NodeError::Logger(err))),
 					};
 
@@ -249,7 +268,7 @@ async fn main() -> tauri::Result<()> {
 						}
 					};
 
-					let should_clear_localstorage = node.libraries.get_all().await.is_empty();
+					let should_clear_local_storage = node.libraries.get_all().await.is_empty();
 
 					handle.plugin(rspc::integrations::tauri::plugin(router, {
 						let node = node.clone();
@@ -259,8 +278,8 @@ async fn main() -> tauri::Result<()> {
 					handle.manage(node.clone());
 
 					handle.windows().iter().for_each(|(_, window)| {
-						if should_clear_localstorage {
-							println!("cleaning localStorage");
+						if should_clear_local_storage {
+							debug!("cleaning localStorage");
 							for webview in window.webviews() {
 								webview.eval("localStorage.clear();").ok();
 							}
@@ -337,6 +356,7 @@ async fn main() -> tauri::Result<()> {
 		.plugin(tauri_plugin_dialog::init())
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
+		.plugin(tauri_plugin_http::init())
 		// TODO: Bring back Tauri Plugin Window State - it was buggy so we removed it.
 		.plugin(tauri_plugin_updater::Builder::new().build())
 		.plugin(updater::plugin())

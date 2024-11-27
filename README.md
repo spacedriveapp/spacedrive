@@ -25,7 +25,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 <br/>
 <br/>
 
-> UPDATE: Spacedrive is under the final stages of alpha development (July 6th 2024), full release coming this summer! Some major features currently only accesible via feature flags in development mode, found in the general settings.
+> UPDATE: Spacedrive moving into beta with v0.5 (coming November 2024). Some major features are currently only accessible via feature flags.
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
@@ -47,7 +47,7 @@ For independent creatives, hoarders and those that want to own their digital foo
   <a href="https://www.gnu.org/licenses/agpl-3.0">
     <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
   </a>
-  <img src="https://img.shields.io/static/v1?label=Bundled%20Size&message=16.3MB&color=0974B4" />
+  <img src="https://img.shields.io/static/v1?label=Bundled+size+(avg.)&message=76.26MB&color= 0974B4" />
   <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
   <br />
 </p>

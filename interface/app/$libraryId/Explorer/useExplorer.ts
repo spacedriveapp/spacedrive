@@ -2,16 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import { useDebouncedCallback } from 'use-debounce';
 import { proxy, snapshot, subscribe, useSnapshot } from 'valtio';
 import { z } from 'zod';
-import type {
-	ExplorerItem,
-	ExplorerLayout,
-	ExplorerSettings,
-	FilePath,
-	Location,
-	NodeState,
-	Tag
+import {
+	ObjectKindEnum,
+	type ExplorerItem,
+	type ExplorerLayout,
+	type ExplorerSettings,
+	type FilePath,
+	type Location,
+	type NodeState,
+	type Ordering,
+	type OrderingKeys,
+	type Tag
 } from '@sd/client';
-import { ObjectKindEnum, type Ordering, type OrderingKeys } from '@sd/client';
 
 import { createDefaultExplorerSettings } from './store';
 import { uniqueId } from './util';
@@ -103,7 +105,7 @@ export function useExplorerSettings<TOrder extends Ordering, T>({
 	>;
 	data?: T | null;
 }) {
-	const [store] = useState(() => proxy(settings));
+	const store = useMemo(() => proxy(settings), [settings]);
 
 	const updateSettings = useDebouncedCallback((settings: ExplorerSettings<TOrder>, data: T) => {
 		onSettingsChanged?.(settings, data);
@@ -147,15 +149,8 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 	const itemHashesWeakMap = useRef(new WeakMap<ExplorerItem, string>());
 
 	// Store hashes of items instead as objects are unique by reference but we
-	// still need to differentate between item variants
-	const [selectedItemHashes, setSelectedItemHashes] = useState(() => ({
-		value: new Set<string>()
-	}));
-
-	const updateHashes = useCallback(
-		() => setSelectedItemHashes((h) => ({ ...h })),
-		[setSelectedItemHashes]
-	);
+	// still need to differentiate between item variants
+	const [selectedItemHashes, setSelectedItemHashes] = useState(() => new Set<string>());
 
 	const itemsMap = useMemo(
 		() =>
@@ -170,7 +165,7 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 
 	const selectedItems = useMemo(
 		() =>
-			[...selectedItemHashes.value].reduce((items, hash) => {
+			[...selectedItemHashes].reduce((items, hash) => {
 				const item = itemsMap.get(hash);
 				if (item) items.add(item.data);
 				return items;
@@ -192,37 +187,37 @@ function useSelectedItems(items: ExplorerItem[] | null) {
 			(item: ExplorerItem | ExplorerItem[]) => {
 				const items = Array.isArray(item) ? item : [item];
 
-				for (let i = 0; i < items.length; i++) {
-					selectedItemHashes.value.add(getItemUniqueId(items[i]!));
-				}
-
-				updateHashes();
+				setSelectedItemHashes((oldHashes) => {
+					const newHashes = new Set(oldHashes);
+					for (const it of items) newHashes.add(getItemUniqueId(it));
+					return newHashes;
+				});
 			},
-			[getItemUniqueId, selectedItemHashes.value, updateHashes]
+			[getItemUniqueId]
 		),
 		removeSelectedItem: useCallback(
 			(item: ExplorerItem | ExplorerItem[]) => {
 				const items = Array.isArray(item) ? item : [item];
-
-				for (let i = 0; i < items.length; i++) {
-					selectedItemHashes.value.delete(getItemUniqueId(items[i]!));
-				}
-
-				updateHashes();
+				setSelectedItemHashes((oldHashes) => {
+					const newHashes = new Set(oldHashes);
+					for (const it of items) newHashes.delete(getItemUniqueId(it));
+					return newHashes;
+				});
 			},
-			[getItemUniqueId, selectedItemHashes.value, updateHashes]
+			[getItemUniqueId]
 		),
 		resetSelectedItems: useCallback(
 			(items?: ExplorerItem[]) => {
-				selectedItemHashes.value.clear();
-				items?.forEach((item) => selectedItemHashes.value.add(getItemUniqueId(item)));
-				updateHashes();
+				if (items) {
+					const newHashes = new Set<string>();
+					for (const it of items) newHashes.add(getItemUniqueId(it));
+					setSelectedItemHashes(newHashes);
+				} else {
+					setSelectedItemHashes(new Set());
+				}
 			},
-			[getItemUniqueId, selectedItemHashes.value, updateHashes]
+			[getItemUniqueId]
 		),
-		isItemSelected: useCallback(
-			(item: ExplorerItem) => selectedItems.has(item),
-			[selectedItems]
-		)
+		isItemSelected: (item: ExplorerItem) => selectedItems.has(item)
 	};
 }

@@ -28,7 +28,7 @@ export function useAssignItemsToTag() {
 	const mutation = useLibraryMutation(['tags.assign'], {
 		onSuccess: () => {
 			submitPlausibleEvent({ event: { type: 'tagAssign' } });
-			rspc.queryClient.invalidateQueries(['search.paths']);
+			rspc.queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 		}
 	});
 
@@ -90,7 +90,7 @@ export default (
 			ctaLabel={t('create')}
 			closeLabel={t('close')}
 		>
-			<div className="relative mt-3 ">
+			<div className="relative mt-3">
 				<InputField
 					{...form.register('name', { required: true })}
 					placeholder={t('name')}

@@ -175,7 +175,7 @@ export const View = ({ emptyNotice, ...contextProps }: ExplorerViewProps) => {
 					// This is to allow drag multi-selection
 					if (e.shiftKey || (isWindowsExplorer ? e.ctrlKey : e.metaKey)) return;
 
-					explorer.selectedItems.size !== 0 && explorer.resetSelectedItems();
+					if (explorer.selectedItems.size !== 0) explorer.resetSelectedItems();
 				}}
 			>
 				<div ref={setDroppableRef} className="size-full">

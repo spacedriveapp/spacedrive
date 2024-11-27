@@ -320,6 +320,7 @@ impl OldJobs {
 							job::id::equals(job.id.as_bytes().to_vec()),
 							vec![job::status::set(Some(JobStatus::Canceled as i32))],
 						)
+						.select(job::select!({ id }))
 						.exec()
 						.await?;
 				}
@@ -357,13 +358,11 @@ impl OldJobs {
 
 	/// Check if the manager currently has some active workers.
 	pub async fn has_active_workers(&self, library_id: Uuid) -> bool {
-		for worker in self.running_workers.read().await.values() {
-			if worker.library_id == library_id && !worker.is_paused() {
-				return true;
-			}
-		}
-
-		false
+		self.running_workers
+			.read()
+			.await
+			.values()
+			.any(|worker| worker.library_id == library_id && !worker.is_paused())
 	}
 
 	pub async fn has_job_running(&self, predicate: impl Fn(JobIdentity) -> bool) -> bool {

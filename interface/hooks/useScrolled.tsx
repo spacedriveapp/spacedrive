@@ -12,8 +12,12 @@ export const useScrolled = (ref: React.RefObject<HTMLDivElement>, y = 1) => {
 		};
 
 		onScroll();
-		ref.current?.addEventListener('scroll', onScroll);
-		() => ref.current?.removeEventListener('scroll', onScroll);
+
+		const { current } = ref;
+		if (current) {
+			current.addEventListener('scroll', onScroll);
+			return () => current.removeEventListener('scroll', onScroll);
+		}
 	}, [ref, y]);
 
 	return { isScrolled };

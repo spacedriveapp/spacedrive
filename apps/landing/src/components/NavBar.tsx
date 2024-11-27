@@ -65,7 +65,7 @@ export default function NavBar() {
 					<h3 className="text-xl font-bold text-white">Spacedrive</h3>
 				</Link>
 
-				<div className="m-auto hidden space-x-4 text-white lg:block ">
+				<div className="m-auto hidden space-x-4 text-white lg:block">
 					<NavLink link="/roadmap">Roadmap</NavLink>
 					<NavLink link="/team">Team</NavLink>
 					{/* <NavLink link="/pricing">Pricing</NavLink> */}
@@ -88,7 +88,7 @@ export default function NavBar() {
 							className="ml-[140px] hover:!bg-transparent"
 							size="icon"
 						>
-							<DotsThreeVertical weight="bold" className="size-6 " />
+							<DotsThreeVertical weight="bold" className="size-6" />
 						</Button>
 					}
 					className="right-4 top-2 block h-6 w-44 text-white lg:hidden"

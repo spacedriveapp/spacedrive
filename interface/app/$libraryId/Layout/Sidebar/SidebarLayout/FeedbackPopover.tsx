@@ -53,7 +53,9 @@ export function FeedbackPopover() {
 			popover={{ ...popover, setOpen: handleOpenChange }}
 			trigger={
 				<Button variant="outline" className="flex items-center gap-1">
-					<p className="text-[11px] font-normal text-sidebar-inkFaint">{t('feedback')}</p>
+					<p className="font-plex text-xs font-normal text-sidebar-inkFaint">
+						{t('feedback')}
+					</p>
 				</Button>
 			}
 			className="z-[100]"

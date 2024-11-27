@@ -1,25 +1,31 @@
 [package]
-name = "sd-mobile-core"
+name    = "sd-mobile-core"
 version = "0.1.0"
-rust-version = "1.64"
-license = { workspace = true }
-repository = { workspace = true }
-edition = { workspace = true }
+
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+# Spacedrive Sub-crates
+[target.'cfg(target_os = "ios")'.dependencies]
+sd-core = { default-features = false, features = [
+	"ffmpeg",
+	"heif",
+	"mobile"
+], path = "../../../../../core" }
+
+[target.'cfg(target_os = "android")'.dependencies]
+sd-core = { path = "../../../../../core", features = ["mobile"], default-features = false }
 
 [dependencies]
-# Spacedrive Sub-crates
-sd-core = { path = "../../../../../core", features = [
-	"mobile",
-], default-features = false }
-
 # Workspace dependencies
-futures = { workspace = true }
-once_cell = { workspace = true }
-rspc = { workspace = true }
+futures    = { workspace = true }
+rspc       = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
-tracing = { workspace = true }
+tokio      = { workspace = true }
+tracing    = { workspace = true }
 
 # Specific Mobile Core dependencies
 futures-channel = "0.3.30"
-futures-locks = "0.7.1"
+futures-locks   = "0.7.1"

@@ -1,5 +1,5 @@
 import { useLibraryMutation, useZodForm } from '@sd/client';
-import { CheckBox, Dialog, Tooltip, useDialog, UseDialogProps } from '@sd/ui';
+import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -19,29 +19,32 @@ interface Props extends UseDialogProps {
 
 function getWording(dirCount: number, fileCount: number) {
 	let type = 'file';
+	let translatedType = i18n.t('file', { count: 1 });
 	let prefix = i18n.t('prefix_a');
 
 	if (dirCount == 1 && fileCount == 0) {
-		type = i18n.t('directory');
+		type = 'directory';
+		translatedType = i18n.t('directory', { count: dirCount });
 		prefix = i18n.t('prefix_a');
 	}
 
 	if (dirCount > 1 && fileCount == 0) {
 		type = 'directories';
+		translatedType = i18n.t('directory', { count: dirCount });
 		prefix = dirCount.toString();
 	}
 
 	if (fileCount > 1 && dirCount == 0) {
 		type = 'files';
+		translatedType = i18n.t('file', { count: fileCount });
 		prefix = fileCount.toString();
 	}
 
 	if (fileCount > 0 && dirCount > 0) {
 		type = 'items';
+		translatedType = i18n.t('item', { count: fileCount + dirCount });
 		prefix = (fileCount + dirCount).toString();
 	}
-
-	const translatedType = i18n.t(`${type}`);
 
 	return { type, prefix, translatedType };
 }
@@ -107,7 +110,7 @@ export default (props: Props) => {
 			dialog={useDialog(props)}
 			title={t('delete_dialog_title', { prefix, type: translatedType })}
 			description={description}
-			loading={deleteFile.isLoading}
+			loading={deleteFile.isPending}
 			ctaLabel={t('delete_forever')}
 			ctaSecondLabel={t('move_to_trash')}
 			closeLabel={t('close')}

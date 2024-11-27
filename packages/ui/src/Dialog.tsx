@@ -124,6 +124,7 @@ export interface DialogProps<S extends FieldValues>
 	onSubmitSecond?: ReturnType<UseFormHandleSubmit<S>>;
 	children?: ReactNode;
 	ctaDanger?: boolean;
+	cancelDanger?: boolean;
 	closeLabel?: string;
 	cancelLabel?: string;
 	cancelBtn?: boolean;
@@ -167,8 +168,9 @@ export function Dialog<S extends FieldValues>({
 		<RDialog.Close asChild>
 			<Button
 				size="sm"
-				variant="gray"
+				variant={props.cancelDanger ? 'colored' : 'gray'}
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
+				className={clsx(props.cancelDanger && 'border-red-500 bg-red-500')}
 			>
 				{props.cancelLabel || 'Cancel'}
 			</Button>
@@ -180,7 +182,7 @@ export function Dialog<S extends FieldValues>({
 			<Button
 				disabled={props.loading}
 				size="sm"
-				variant="gray"
+				variant={'gray'}
 				onClick={typeof onCancelled === 'function' ? onCancelled : undefined}
 			>
 				{props.closeLabel || 'Close'}
@@ -261,14 +263,14 @@ export function Dialog<S extends FieldValues>({
 				show ? (
 					<RDialog.Portal forceMount>
 						<AnimatedDialogOverlay
-							className="z-49 fixed inset-0 m-px grid place-items-center overflow-y-auto rounded-xl bg-app/50"
+							className="fixed inset-0 z-[102] m-px grid place-items-center overflow-y-auto rounded-xl bg-app/50"
 							style={{
 								opacity: styles.opacity
 							}}
 						/>
 
 						<AnimatedDialogContent
-							className="!pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto"
+							className="!pointer-events-none fixed inset-0 z-[103] grid place-items-center overflow-y-auto"
 							style={styles}
 							onInteractOutside={(e) =>
 								props.ignoreClickOutside && e.preventDefault()
@@ -286,12 +288,11 @@ export function Dialog<S extends FieldValues>({
 									props.formClassName
 								)}
 							>
+								<RDialog.Title className="flex items-center gap-2.5 border-b border-app-line bg-app-input/60 p-3 font-bold">
+									{props.icon && props.icon}
+									{props.title}
+								</RDialog.Title>
 								<div className="p-5">
-									<RDialog.Title className="mb-3 flex items-center gap-2.5 font-bold">
-										{props.icon && props.icon}
-										{props.title}
-									</RDialog.Title>
-
 									{props.description && (
 										<RDialog.Description className="mb-2 text-sm text-ink-dull">
 											{props.description}
@@ -313,9 +314,7 @@ export function Dialog<S extends FieldValues>({
 									{!props.hideButtons && (
 										<div
 											className={clsx(
-												invertButtonFocus
-													? 'flex-row-reverse'
-													: ' flex-row',
+												invertButtonFocus ? 'flex-row-reverse' : 'flex-row',
 												'flex gap-2'
 											)}
 										>

@@ -86,7 +86,6 @@ export interface ByteSizeOpts {
 	precision?: number;
 	base_unit?: 'decimal' | 'binary';
 	use_plural?: boolean;
-	no_thousands?: boolean;
 }
 
 /**
@@ -108,8 +107,7 @@ export const humanizeSize = (
 		precision = 1,
 		locales,
 		base_unit = 'decimal',
-		use_plural = true,
-		no_thousands = true
+		use_plural = true
 	}: ByteSizeOpts = {}
 ) => {
 	if (value == null) value = 0n;
@@ -138,13 +136,6 @@ export const humanizeSize = (
 			: Number((bytes * BigInt(precisionFactor)) / unit.from) / precisionFactor;
 	const plural = use_plural && value !== 1 ? 's' : '';
 
-	//TODO: Improve this
-	// Convert to thousands when short is TB to show correct progress value
-	//i.e 2.5 TB = 2500
-	if (unit.short === 'TB' && !no_thousands) {
-		value = value * 1000;
-	}
-
 	return {
 		unit: is_bit ? BYTE_TO_BIT[unit.short as keyof typeof BYTE_TO_BIT] : unit.short,
 		long: is_bit ? BYTE_TO_BIT[unit.long as keyof typeof BYTE_TO_BIT] : unit.long,
@@ -154,4 +145,11 @@ export const humanizeSize = (
 			return `${defaultFormat.format(this.value)} ${this.unit}${plural}`;
 		}
 	};
+};
+
+export const compareHumanizedSizes = (
+	size1: ReturnType<typeof humanizeSize>,
+	size2: ReturnType<typeof humanizeSize>
+): boolean => {
+	return size1.bytes === size2.bytes && size1.unit === size2.unit && size1.value === size2.value;
 };

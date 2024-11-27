@@ -31,13 +31,12 @@ export interface RadixCheckboxProps extends ComponentProps<typeof Checkbox.Root>
 export const RadixCheckbox = ({ className, labelClassName, ...props }: RadixCheckboxProps) => (
 	<div className={clsx('flex items-center', className)}>
 		<Checkbox.Root
-			className="flex size-[17px] shrink-0 items-center justify-center rounded-[4px]
-			 border border-gray-300/10 bg-app-selected radix-state-checked:bg-accent"
+			className="flex size-[15px] shrink-0 items-center justify-center rounded-[4px] border border-gray-300/10 bg-app-selected radix-state-checked:bg-accent"
 			id={props.name}
 			{...props}
 		>
 			<Checkbox.Indicator className="text-white">
-				<Check weight="bold" size={14} />
+				<Check weight="bold" size={12} />
 			</Checkbox.Indicator>
 		</Checkbox.Root>
 		{props.label && (

@@ -81,9 +81,9 @@ const Items = ({
 	const paths = selectedEphemeralPaths.map((obj) => obj.path);
 	const { t } = useLocale();
 
-	const { data: apps } = useQuery(
-		['openWith', ids, paths],
-		async () => {
+	const { data: apps } = useQuery({
+		queryKey: ['openWith', ids, paths],
+		queryFn: async () => {
 			const handleError = (res: Result<OpenWithApplication[], null>) => {
 				if (res?.status === 'error') {
 					toast.error('Failed to get applications capable to open file');
@@ -100,10 +100,12 @@ const Items = ({
 				paths.length > 0
 					? actions.getEphemeralFilesOpenWithApps(paths).then(handleError)
 					: Promise.resolve([])
-			]).then((res) => res.flat());
+			])
+				.then((res) => res.flat())
+				.then((res) => res.sort((a, b) => a.name.localeCompare(b.name)));
 		},
-		{ initialData: [] }
-	);
+		initialData: []
+	});
 
 	return (
 		<>

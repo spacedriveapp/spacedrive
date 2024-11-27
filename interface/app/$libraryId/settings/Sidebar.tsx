@@ -27,7 +27,7 @@ import SidebarLink from '../Layout/Sidebar/SidebarLayout/Link';
 import { useLayoutStore } from '../Layout/store';
 import { NavigationButtons } from '../TopBar/NavigationButtons';
 
-const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400`;
+const Heading = tw.div`mb-1 ml-1 text-xs font-semibold text-gray-400 font-plex tracking-wide`;
 const Section = tw.div`space-y-0.5`;
 
 export default () => {
@@ -37,7 +37,7 @@ export default () => {
 
 	// const isPairingEnabled = useFeatureFlag('p2pPairing');
 	const isBackupsEnabled = useFeatureFlag('backups');
-	const cloudSync = useFeatureFlag('cloudSync');
+	// const cloudSync = useFeatureFlag('cloudSync');
 
 	const { t } = useLocale();
 
@@ -123,12 +123,12 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
-					{cloudSync && (
+					{/* {cloudSync && (
 						<SidebarLink to="library/sync">
 							<Icon component={ArrowsClockwise} />
 							{t('sync')}
 						</SidebarLink>
-					)}
+					)} */}
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}

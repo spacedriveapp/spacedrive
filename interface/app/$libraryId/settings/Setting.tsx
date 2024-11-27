@@ -15,7 +15,7 @@ interface Props {
 	infoUrl?: string;
 }
 
-export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
+export default function Setting({ mini, registerName, ...props }: PropsWithChildren<Props>) {
 	const platform = usePlatform();
 
 	if (typeof props.description === 'string')
@@ -26,7 +26,7 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 			<div className={clsx('relative flex flex-row', props.containerClassName)}>
 				<div className={clsx('flex w-full flex-col', !mini && 'pb-6', props.className)}>
 					<div className="mb-1 flex items-center gap-1">
-						<h3 className="text-sm font-medium text-ink">{props.title}</h3>
+						<h3 className="font-plex text-sm font-semibold text-ink">{props.title}</h3>
 						{props.toolTipLabel && (
 							<Tooltip label={props.toolTipLabel as string}>
 								<Info
@@ -38,7 +38,7 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 							</Tooltip>
 						)}
 					</div>
-					<div className="w-[85%]">{props.description}</div>
+					<div className="text-balance">{props.description}</div>
 					{!mini && props.children}
 				</div>
 				{mini && props.children}
@@ -48,4 +48,4 @@ export default ({ mini, registerName, ...props }: PropsWithChildren<Props>) => {
 			) : null}
 		</>
 	);
-};
+}

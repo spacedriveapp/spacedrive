@@ -49,7 +49,8 @@ const dayjsLocales: Record<string, any> = {
 	zh_CN: () => import('dayjs/locale/zh-cn.js'),
 	zh_TW: () => import('dayjs/locale/zh-tw.js'),
 	it: () => import('dayjs/locale/it.js'),
-	ja: () => import('dayjs/locale/ja.js')
+	ja: () => import('dayjs/locale/ja.js'),
+	uk: () => import('dayjs/locale/uk.js')
 };
 
 export function loadDayjsLocale(language: string) {
@@ -73,7 +74,12 @@ export function loadDayjsLocale(language: string) {
 // Generate list of localized formats available in the app
 export function generateLocaleDateFormats(language: string) {
 	language = language.replace('_', '-');
-	const defaultDate = '01/01/2024 23:19';
+	// this is a good example date because:
+	// - day segment is greater than 12, no confusion about the month
+	// - month segment is below 10, no confusion about zero-padding
+	// - hours segment is below 10, no confusion about zero-padding
+	// - is a Monday, just a good day of week for examples
+	const defaultDate = '2024-01-15 08:51';
 	const DATE_FORMATS = [
 		{
 			value: 'L',
@@ -184,4 +190,13 @@ export function translateKindName(kindName: string): string {
 		console.warn(`Translation for ${kindName} not available, falling back to passed value.`);
 		return kindName;
 	}
+}
+
+export function fetchAccessToken(): string {
+	const accessToken: string =
+		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
+			.find((cookie: string) => cookie.startsWith('st-access-token'))
+			?.split('=')[1]
+			.split(';')[0] || '';
+	return accessToken;
 }
