@@ -13,12 +13,6 @@ export const teamMembers: Array<TeamMemberProps> = [
 		}
 	},
 	{
-		name: 'Valerie Wong',
-		location: 'Vancouver, Canada',
-		role: 'Director of Operations',
-		imageUrl: '/images/team/valerie.jpeg'
-	},
-	{
 		name: 'Ericson Soares',
 		location: 'Rio de Janeiro, Brazil',
 		role: 'Head of Engineering - Rust',
