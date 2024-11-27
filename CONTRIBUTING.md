@@ -61,14 +61,16 @@ To make changes locally, follow these steps:
 >
 >  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
 
+To run the **Tauri desktop** app, run:
+```
+pnpm tauri dev
+```
+> [!NOTE]
+> The Tauri desktop app always runs it's own instance of the backend and will not connect to a seperately initiated `sd-server` instance.
+
 To run the **backend server**, run:
 ```
 cargo run -p sd-server
-```
-
-To run the **desktop** app, run:
-```
-pnpm tauri dev
 ```
 
 > [!TIP]
