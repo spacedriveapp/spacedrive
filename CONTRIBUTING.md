@@ -180,7 +180,7 @@ To run the frontend, run the following:
 ```
 pnpm mobile start
 ```
-> ![IMPORTANT]
+> [!IMPORTANT]
 > The frontend is not functional without the sd-core running as well.
 
 
