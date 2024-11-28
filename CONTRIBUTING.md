@@ -29,9 +29,9 @@ If you come across an issue or have a feature request for Spacedrive, please [se
 
 To find an issue that interests you, you can browse through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) and use the available `labels` to narrow down your search (See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information). As a general rule, if you find an issue you want to work on, you are welcome to open a PR with a fix.
 
-### Making Changes
+## Making Changes
 
-#### Web-based Clients
+### Web-based Clients
 
 This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Make sure you have them installed before proceeding.
 
@@ -46,18 +46,16 @@ To make changes locally, follow these steps:
 > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
 2. Configure your system environment for Spacedrive development
   - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
-> [!NOTE]
-> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build via your system's respective package manager.
   - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
 > [!NOTE]
-> This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
+> This script ([unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [win](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
 3. Install NodeJS dependencies: `pnpm i`
 4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
 
 > [!TIP]
 > Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
 >
->  The test files will be located in a directory called `test-data` in the root of the Spacedrive repo.
+> The test files will be located in a directory called `test-data` in the root of the Spacedrive repo.
 
 To run the **desktop** app, run:
 ```
@@ -96,7 +94,7 @@ If you are developing a new test, you can execute Cypress in interactive mode wi
 pnpm web test:interactive
 ```
 
-##### Troubleshooting
+#### Troubleshooting
 
 - If you encounter any issues, ensure that you are using the following versions of Rust, Node.js and pnpm:
   | tool    | version |
@@ -113,19 +111,19 @@ pnpm web test:interactive
 
  - After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
 
-#### Landing Page
+### Landing Page
 
 To run the **landing page**, run:
 
 - `pnpm landing dev`
 
-#### Mobile App
+### Mobile App
 
 To run the mobile app:
 
 - Run `./scripts/setup.sh mobile`
 
-##### Android
+#### Android
 
 - Install Java JDK 17 for Android. Java 21 is [not compatible](https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956).
 - Install [Android Studio](https://developer.android.com/studio). This will set up most of the dependencies required to build the mobile app.
@@ -149,7 +147,7 @@ If you wish to debug directly on a local Android device:
 > adb logcat | grep -i com.spacedrive.app
 > ```
 
-##### iOS 
+#### iOS 
  - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate on your mac.
    - When running Xcode for the first time, make sure to select the latest version of iOS.
  - Run `pnpm mobile ios` in the terminal to build & run the app on Simulator.
