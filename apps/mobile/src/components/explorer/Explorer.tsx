@@ -78,19 +78,16 @@ const Explorer = (props: Props) => {
 			}
 		} else {
 			// iOS
-			const absolutePath = await libraryClient.query([
-				'files.getPath',
-				filePath?.id ?? -1
-			]);
+			const absolutePath = await libraryClient.query(['files.getPath', filePath?.id ?? -1]);
 			if (!absolutePath) return;
 			if (!filePath?.location_id) return;
 			try {
 				// These arguments cannot be null due to compatability with Android (React Native throws an error if even the type is nullable)
 				await NativeFunctions.previewFile(absolutePath!, filePath!.location_id!);
-			  } catch (error) {
+			} catch (error) {
 				console.error('Error previewing file:', error);
 				toast.error('Error previewing file');
-			  }
+			}
 		}
 	}
 
