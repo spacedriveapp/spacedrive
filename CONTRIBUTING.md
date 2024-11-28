@@ -125,21 +125,66 @@ To run the **landing page**, run:
 
 To run the mobile app:
 
-- Install Java JDK <= 17 for Android
-  - Java 21 is not compatible: https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956
-- Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
 - Run `./scripts/setup.sh mobile`
-  - This will set up most of the dependencies required to build the mobile app.
-- Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
-- Run the following commands:
-  - `pnpm mobile android` (runs on Android Emulator)
-    - In order to have locations working on Android, you must run the following command once the application has been installed for the first time (if the app fails to request the `MANAGE_EXTERNAL_STORAGE` permission). Otherwise, locations will not work.
-      - `adb shell appops set --uid com.spacedrive.app MANAGE_EXTERNAL_STORAGE allow`
-    - Run the following commands to access the logs from `sd-core`.
-      - `adb logcat | grep -i com.spacedrive.app`
-  - `pnpm mobile ios` (runs on iOS Emulator)
-    - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
-  - `pnpm mobile start` (runs the metro bundler only)
+
+##### Android
+
+- Install Java JDK 17 for Android. Java 21 is [not compatible](https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956).
+- Install [Android Studio](https://developer.android.com/studio). This will set up most of the dependencies required to build the mobile app.
+  - Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
+- Run `pnpm mobile android` to build the core and begin debugging the app.
+
+> [!TIP]
+> To speed up compilation for android you may temporarily remove uneccecary architectures from the build by removing them from the following line:
+> https://github.com/spacedriveapp/spacedrive/blame/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
+> Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
+
+If you wish to debug directly on a local Android device:
+ - Install [ADB](https://developer.android.com/tools/adb)
+   - On macOS use [homebrew](https://brew.sh/): `brew install adb`
+ - [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
+   - Select "Remember this device" & "Trust" when connecting over USB.
+
+>[!TIP]
+> To access the logs from `sd-core` when running on device, run the following command:
+> ```
+> adb logcat | grep -i com.spacedrive.app
+> ```
+
+##### iOS 
+ - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate on your mac.
+   - When running Xcode for the first time, make sure to select the latest version of iOS.
+ - Run `pnpm mobile ios` in the terminal to build & run the app on Simulator.
+   - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
+     https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
+    You can now get backend (`sd-core`) logs from the Simulator by running the following command:
+    ```
+    xcrun simctl launch --console booted com.spacedrive.app
+    ```
+  - If you'd like to run the app on device, run:
+    ```
+    pnpm mobile ios --device
+    ```
+> [!IMPORTANT]
+> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend seperately.
+
+To run the backend (`sd-core`) seperately, open up Xcode by running:
+```
+xed apps/mobile/ios
+```
+Select from the top if you wish to start on device or Simulator, and press play.
+
+| Select Device | Run | Build & Core logs are found here |
+| --- | --- | --- |
+|![](./apps/landing/public/images/xcode-run-sd-core.01.png)|![](./apps/landing/public/images/xcode-run-sd-core.02.png)|![](./apps/landing/public/images/xcode-run-sd-core.03.png)|
+
+To run the frontend, run the following:
+```
+pnpm mobile start
+```
+> ![!IMPORTANT]
+> The frontend is not functional without the sd-core running as well.
+
 
 ### Pull Request
 
