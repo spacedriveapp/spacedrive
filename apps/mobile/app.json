@@ -64,7 +64,8 @@
 				}
 			],
 			["./scripts/withRiveAssets.js"],
-			["./scripts/withAndroidIntent.js"]
+			["./scripts/withAndroidIntent.js"],
+			["./scripts/withNativeFunctions.js"]
 		]
 	}
 }

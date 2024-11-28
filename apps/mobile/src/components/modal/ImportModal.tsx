@@ -1,8 +1,8 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import { forwardRef, useCallback } from 'react';
-import { Alert, Platform, Text, View } from 'react-native';
+import { Alert, NativeModules, Platform, Text, View } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import { useLibraryMutation, useRspcLibraryContext } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useRspcLibraryContext } from '@sd/client';
 import { Modal, ModalRef } from '~/components/layout/Modal';
 import { Button } from '~/components/primitive/Button';
 import useForwardedRef from '~/hooks/useForwardedRef';
@@ -10,6 +10,18 @@ import { tw } from '~/lib/tailwind';
 
 import { Icon } from '../icons/Icon';
 import { toast } from '../primitive/Toast';
+
+const { NativeFunctions } = NativeModules;
+
+interface DirectoryPickerResult {
+	path: string;
+	bookmarkFile: string;
+}
+
+interface DirectoryPickerModule {
+	pickDirectory(): Promise<DirectoryPickerResult>;
+	resolveBookmark(bookmarkFileName: string): Promise<{ path: string }>;
+}
 
 // import * as ML from 'expo-media-library';
 
@@ -43,7 +55,18 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 					throw new Error('Unimplemented custom remote error handling');
 			}
 		},
-		onSuccess: () => {
+		onSuccess: async (data) => {
+			// Fetch the location's path using the location number
+			const location = await rspc.client.query(['locations.get', data!]);
+			const locationPath = location?.path;
+			try {
+				// These arguments cannot be null due to compatability with Android (React Native throws an error if even the type is nullable)
+				await NativeFunctions.saveLocation(locationPath!, data!);
+			} catch (error) {
+				console.error('Error saving location:', error);
+				toast.error('Error saving location bookmark');
+				return;
+			}
 			toast.success('Location added successfully');
 		},
 		onSettled: () => {
@@ -53,16 +76,24 @@ const ImportModal = forwardRef<ModalRef, unknown>((_, ref) => {
 	});
 
 	const handleFilesButton = useCallback(async () => {
+		const response = await DocumentPicker.pickDirectory({
+			presentationStyle: 'pageSheet'
+		});
+
+		if (!response) return;
+
+		const uri = response.uri;
+
 		try {
-			const response = await DocumentPicker.pickDirectory({
-				presentationStyle: 'pageSheet'
-			});
-
-			if (!response) return;
-
-			const uri = response.uri;
-
 			if (Platform.OS === 'android') {
+				const response = await DocumentPicker.pickDirectory({
+					presentationStyle: 'pageSheet'
+				});
+
+				if (!response) return;
+
+				const uri = response.uri;
+
 				// The following code turns this: content://com.android.externalstorage.documents/tree/[filePath] into this: /storage/emulated/0/[directoryName]
 				// Example: content://com.android.externalstorage.documents/tree/primary%3ADownload%2Ftest into /storage/emulated/0/Download/test
 				const dirName = decodeURIComponent(uri).split('/');
