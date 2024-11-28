@@ -31,7 +31,7 @@ To find an issue that interests you, you can browse through our [existing issues
 
 ### Making Changes
 
-#### Spacedrive Desktop Clients
+#### Web-based Clients
 
 This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Make sure you have them installed before proceeding.
 
@@ -52,9 +52,7 @@ To make changes locally, follow these steps:
 > [!NOTE]
 > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
 3. Install NodeJS dependencies: `pnpm i`
-4. Prepare the build: `pnpm prep`
-> [!NOTE]
-> This will run all necessary codegen and build required dependencies
+4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
 
 > [!TIP]
 > Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
@@ -174,7 +172,7 @@ xed apps/mobile/ios
 ```
 Select from the top if you wish to start on device or Simulator, and press play.
 
-| Select Device | Run | Build & Core logs are found here |
+| Select Device | Run the App | Build & Core logs are found here |
 | --- | --- | --- |
 |![](./apps/landing/public/images/xcode-run-sd-core.01.png)|![](./apps/landing/public/images/xcode-run-sd-core.02.png)|![](./apps/landing/public/images/xcode-run-sd-core.03.png)|
 
@@ -182,7 +180,7 @@ To run the frontend, run the following:
 ```
 pnpm mobile start
 ```
-> ![!IMPORTANT]
+> ![IMPORTANT]
 > The frontend is not functional without the sd-core running as well.
 
 
