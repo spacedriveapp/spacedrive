@@ -140,6 +140,7 @@ If you wish to debug directly on a local Android device:
    - On macOS use [homebrew](https://brew.sh/): `brew install adb`
  - [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
    - Select "Remember this device" & "Trust" when connecting over USB.
+ - Run `pnpm mobile android` with your device connected via USB.
 
 >[!TIP]
 > To access the logs from `sd-core` when running on device, run the following command:
