@@ -47,6 +47,7 @@ tauri-plugin-updater           = "=2.0.2"
 
 # memory allocator
 mimalloc = { workspace = true }
+tauri-plugin-cors-fetch = "2.1.1"
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
