@@ -48,21 +48,21 @@ To make changes locally, follow these steps:
   - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
   - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
 > [!NOTE]
-> This script ([unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [win](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
+> This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
 3. Install NodeJS dependencies: `pnpm i`
 4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
 
 > [!TIP]
 > Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
 >
-> The test files will be located in a directory called `test-data` in the root of the Spacedrive repo.
+> The test files will be located in a directory called `test-data` in the root of the Spacedrive repository.
 
 To run the **desktop** app, run:
 ```
 pnpm tauri dev
 ```
 > [!NOTE]
-> The Tauri desktop app always runs it's own instance of the backend and will not connect to a seperately initiated `sd-server` instance.
+> The Tauri desktop app always runs its own instance of the backend and will not connect to a separately initiated `sd-server` instance.
 
 To run the **backend server**, run:
 ```
@@ -109,7 +109,7 @@ pnpm web test:interactive
 
  - Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
 
- - After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
+ - After you finish making your changes and committing them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
 
 ### Landing Page
 
@@ -131,7 +131,7 @@ To run the mobile app:
 - Run `pnpm mobile android` to build the core and begin debugging the app.
 
 > [!TIP]
-> To speed up compilation for android you may temporarily remove uneccecary architectures from the build by removing them from the following line:
+> To speed up compilation for Android you may temporarily remove unnecessary architectures from the build by removing them from the following line:
 > https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
 > Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
 
@@ -149,9 +149,9 @@ If you wish to debug directly on a local Android device:
 > ```
 
 #### iOS 
- - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate on your mac.
+ - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate an iOS device on your Mac.
    - When running Xcode for the first time, make sure to select the latest version of iOS.
- - Run `pnpm mobile ios` in the terminal to build & run the app on Simulator.
+ - Run `pnpm mobile ios` in the terminal to build & run the app on the Simulator.
    - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
      https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
     You can now get backend (`sd-core`) logs from the Simulator by running the following command:
@@ -163,9 +163,9 @@ If you wish to debug directly on a local Android device:
     pnpm mobile ios --device
     ```
 > [!IMPORTANT]
-> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend seperately.
+> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
 
-To run the backend (`sd-core`) seperately, open up Xcode by running:
+To run the backend (`sd-core`) separately, open up Xcode by running:
 ```
 xed apps/mobile/ios
 ```
