@@ -1,4 +1,3 @@
-import RNFS from '@dr.pogodin/react-native-fs';
 import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';

@@ -82,9 +82,10 @@ impl CloudServices {
 
 		let http_client =
 			ClientBuilder::new(http_client_builder.build().map_err(Error::HttpClientInit)?)
-				.with(RetryTransientMiddleware::new_with_policy(
-					ExponentialBackoff::builder().build_with_max_retries(3),
-				))
+				// TODO: Re-enable retry middleware. It's currently disabled because it's causing blocking issues on mobile core initialization.
+				// .with(RetryTransientMiddleware::new_with_policy(
+				// 	ExponentialBackoff::builder().build_with_max_retries(3),
+				// ))
 				.build();
 		let get_cloud_api_address = get_cloud_api_address
 			.into_url()
