@@ -41,7 +41,7 @@ To make changes locally, follow these steps:
     ```
     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
     ```
-    Alternately, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
+    Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
 > [!TIP]
 > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
 2. Configure your system environment for Spacedrive development
