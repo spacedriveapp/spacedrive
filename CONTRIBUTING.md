@@ -132,7 +132,7 @@ To run the mobile app:
 
 > [!TIP]
 > To speed up compilation for android you may temporarily remove uneccecary architectures from the build by removing them from the following line:
-> https://github.com/spacedriveapp/spacedrive/blame/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
+> https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
 > Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
 
 If you wish to debug directly on a local Android device:
