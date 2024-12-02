@@ -12,6 +12,7 @@ import {
 	PaintBrush,
 	PuzzlePiece,
 	Receipt,
+	ShareNetwork,
 	ShieldCheck,
 	TagSimple,
 	User
@@ -64,10 +65,6 @@ export default () => {
 						<Icon component={GearSix} />
 						{t('general')}
 					</SidebarLink>
-					{/* <SidebarLink to="client/usage">
-						<Icon component={ChartBar} />
-						{t('usage')}
-					</SidebarLink> */}
 					<SidebarLink to="client/account">
 						<Icon component={User} />
 						{t('account')}
@@ -107,10 +104,14 @@ export default () => {
 						<Icon component={GearSix} />
 						{t('general')}
 					</SidebarLink>
-					{/* <SidebarLink to="library/nodes" disabled={!isPairingEnabled}>
+					<SidebarLink to="library/volumes">
 						<Icon component={ShareNetwork} />
-						Nodes
-					</SidebarLink> */}
+						Volumes
+					</SidebarLink>
+					<SidebarLink to="library/sync">
+						<Icon component={ArrowsClockwise} />
+						{t('sync')}
+					</SidebarLink>
 					<SidebarLink to="library/locations">
 						<Icon component={HardDrive} />
 						{t('locations')}
@@ -123,12 +124,7 @@ export default () => {
 						<Icon component={MagnifyingGlass} />
 						Saved Searches
 					</SidebarLink> */}
-					{/* {cloudSync && (
-						<SidebarLink to="library/sync">
-							<Icon component={ArrowsClockwise} />
-							{t('sync')}
-						</SidebarLink>
-					)} */}
+
 					<SidebarLink disabled to="library/clouds">
 						<Icon component={Cloud} />
 						{t('clouds')}

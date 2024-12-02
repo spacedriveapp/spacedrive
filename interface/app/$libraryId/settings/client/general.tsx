@@ -1,15 +1,28 @@
 import { PropsWithChildren } from 'react';
-import { FormProvider } from 'react-hook-form';
+import { Controller, FormProvider } from 'react-hook-form';
 import {
 	ListenerState,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
+	useLibraryQuery,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Switch, Tooltip, tw, z } from '@sd/ui';
-import { Icon } from '~/components';
+import {
+	Button,
+	Card,
+	Input,
+	Label,
+	Select,
+	SelectOption,
+	Slider,
+	Switch,
+	Tooltip,
+	tw,
+	z
+} from '@sd/ui';
+import { Database, Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -44,6 +57,8 @@ export const Component = () => {
 	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
+	const locations = useLibraryQuery(['locations.list']);
+
 	const { t } = useLocale();
 
 	const form = useZodForm({
@@ -57,7 +72,8 @@ export const Component = () => {
 					})
 					.int()
 					.nonnegative()
-					.lte(100)
+					.lte(100),
+				spacedrop_default_location: z.string().optional()
 			})
 			.strict(),
 		reValidateMode: 'onChange',
@@ -173,12 +189,12 @@ export const Component = () => {
 								</Button> */}
 							</div>
 						</div>
-						{/* <div className='mb-1'>
+						<div className="mb-1">
 							<Label className="text-sm font-medium text-ink-faint">
 								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
-						</div> */}
+						</div>
 					</div>
 					{/* <div className="flex items-center mt-5 space-x-3 opacity-50 pointer-events-none">
 						<Switch size="sm" />
@@ -197,7 +213,7 @@ export const Component = () => {
 				/>
 			</Setting>
 			{/* Background Processing */}
-			{/* <Setting
+			<Setting
 				mini
 				registerName="background_processing_percentage"
 				title={t('thumbnailer_cpu_usage')}
@@ -213,22 +229,40 @@ export const Component = () => {
 						max={100}
 						step={25}
 						min={0}
-						value={[watchBackgroundProcessingPercentage]}
+						// value={[watchBackgroundProcessingPercentage]}
 					/>
 					<Input
-						className="after:h-initial relative h-[30px] w-[8ch]
-						after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
-						defaultValue={
-							node.data?.preferences.thumbnailer.background_processing_percentage ||
-							75
-						}
+						className="after:h-initial relative h-[30px] w-[8ch] after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
+						defaultValue={75}
 						maxLength={3}
 						{...form.register('background_processing_percentage', {
 							valueAsNumber: true
 						})}
 					/>
 				</div>
-			</Setting> */}
+			</Setting>
+			{/* Spacedrop default location */}
+			<Setting
+				mini
+				title={t('spacedrop_default_location')}
+				description={t('spacedrop_default_location_description')}
+			>
+				<div className="flex h-[30px]">
+					<Controller
+						name="spacedrop_default_location"
+						control={form.control}
+						render={({ field }) => (
+							<Select {...field} containerClassName="h-[30px] whitespace-nowrap">
+								{locations.data?.map((location, key) => (
+									<SelectOption key={key} value={String(location.id)}>
+										{location.name}
+									</SelectOption>
+								))}
+							</Select>
+						)}
+					/>
+				</div>
+			</Setting>
 			{/* Image Labeler */}
 			{/* <Setting
 				mini

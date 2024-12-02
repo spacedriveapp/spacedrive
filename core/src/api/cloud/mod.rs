@@ -1,4 +1,5 @@
 use crate::{
+	invalidate_query,
 	library::LibraryManagerError,
 	node::{config::NodeConfig, HardwareModel},
 	Node,

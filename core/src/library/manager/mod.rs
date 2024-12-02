@@ -143,14 +143,6 @@ impl Libraries {
 				let _library_arc = self
 					.load(library_id, &db_path, config_path, None, None, true, node)
 					.await?;
-
-				// FIX-ME: Linux releases crashes with *** stack smashing detected *** if spawn_volume_watcher is enabled
-				// No idea why, but this will be irrelevant after the UDisk API is implemented, so let's leave it disabled for now
-				#[cfg(not(target_os = "linux"))]
-				{
-					use crate::volume::watcher::spawn_volume_watcher;
-					spawn_volume_watcher(_library_arc.clone());
-				}
 			}
 		}
 
@@ -668,10 +660,7 @@ async fn special_sync_indexes(db: &PrismaClient) -> Result<(), LibraryManagerErr
 
 	for (model_id, model_name) in [
 		(prisma_sync::device::MODEL_ID, prisma::device::NAME),
-		(
-			prisma_sync::storage_statistics::MODEL_ID,
-			prisma::storage_statistics::NAME,
-		),
+		(prisma_sync::volume::MODEL_ID, prisma::volume::NAME),
 		(prisma_sync::tag::MODEL_ID, prisma::tag::NAME),
 		(prisma_sync::location::MODEL_ID, prisma::location::NAME),
 		(prisma_sync::object::MODEL_ID, prisma::object::NAME),

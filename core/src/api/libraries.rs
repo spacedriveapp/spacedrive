@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
+	library::{Library, LibraryConfig, LibraryName},
 	location::{scan_location, LocationCreateArgs, ScanState},
 	util::MaybeUndefined,
 	Node,
@@ -644,13 +644,13 @@ async fn update_statistics_loop(
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
 			Message::Tick => {
-				if last_received_at.elapsed() < FIVE_MINUTES {
-					if let Err(e) = update_library_statistics(&node, &library).await {
-						error!(?e, "Failed to update library statistics;");
-					} else {
-						invalidate_query!(&library, "library.statistics");
-					}
-				}
+				// if last_received_at.elapsed() < FIVE_MINUTES {
+				// 	if let Err(e) = update_library_statistics(&node, &library).await {
+				// 		error!(?e, "Failed to update library statistics;");
+				// 	} else {
+				// 		invalidate_query!(&library, "library.statistics");
+				// 	}
+				// }
 			}
 			Message::Requested(instant) => {
 				if instant - last_received_at > TWO_MINUTES {

@@ -1,7 +1,14 @@
 import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { PropsWithChildren, useMemo } from 'react';
-import { useBridgeQuery, useLibraryQuery } from '@sd/client';
+import { MouseEvent, PropsWithChildren, useMemo } from 'react';
+import {
+	useBridgeQuery,
+	useLibraryMutation,
+	useLibraryQuery,
+	useLibrarySubscription,
+	Volume
+} from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale } from '~/hooks';
@@ -16,16 +23,34 @@ import { SeeMore } from '../../SidebarLayout/SeeMore';
 
 const Name = tw.span`truncate`;
 
-// TODO: This eject button does nothing!
-const EjectButton = ({ className }: { className?: string }) => (
-	<Button
-		className={clsx('absolute right-[2px] !p-[5px]', className)}
-		variant="subtle"
-		onClick={() => toast.info('Eject button coming soon')}
-	>
-		<EjectSimple weight="fill" size={18} className="size-3 opacity-70" />
-	</Button>
-);
+// Improved eject button that actually unmounts the volume
+const EjectButton = ({
+	fingerprint,
+	className
+}: {
+	fingerprint: Uint8Array;
+	className?: string;
+}) => {
+	const unmountMutation = useLibraryMutation('volumes.unmount');
+
+	return (
+		<Button
+			className={clsx('absolute right-[2px] !p-[5px]', className)}
+			variant="subtle"
+			onClick={async (e: MouseEvent) => {
+				e.preventDefault(); // Prevent navigation
+				try {
+					await unmountMutation.mutateAsync(Array.from(fingerprint));
+					toast.success('Volume ejected successfully');
+				} catch (error) {
+					toast.error('Failed to eject volume');
+				}
+			}}
+		>
+			<EjectSimple weight="fill" size={18} className="size-3 opacity-70" />
+		</Button>
+	);
+};
 
 const SidebarIcon = ({ name }: { name: IconName }) => {
 	return <Icon name={name} size={20} className="mr-1" />;
@@ -33,48 +58,63 @@ const SidebarIcon = ({ name }: { name: IconName }) => {
 
 export default function LocalSection() {
 	const platform = usePlatform();
+	const queryClient = useQueryClient();
+
 	const locationsQuery = useLibraryQuery(['locations.list']);
 	const locations = locationsQuery.data;
 
 	const homeDir = useHomeDir();
-	const result = useBridgeQuery(['volumes.list']);
-	const volumes = result.data;
+	const volumesQuery = useLibraryQuery(['volumes.list']);
+	const volumes = volumesQuery.data;
+
+	const volumeEvents = useLibrarySubscription(['volumes.events'], {
+		onData: (data) => {
+			console.log('Volume event received:', data);
+			volumesQuery.refetch();
+		}
+	});
+
+	// Replace subscription with manual invalidation
+	const handleVolumeChange = () => {};
 
 	const { t } = useLocale();
 
-	// this will return an array of location ids that are also volumes
-	// { "/Mount/Point": 1, "/Mount/Point2": 2"}
+	// Improved volume tracking
+	const trackVolumeMutation = useLibraryMutation('volumes.track');
+
+	// Mapping of volume paths to location IDs
 	const locationIdsForVolumes = useMemo(() => {
 		if (!locations || !volumes) return {};
 
-		const volumePaths = volumes.map((volume) => volume.mount_points[0] ?? null);
-
-		const matchedLocations = locations.filter((location) =>
-			volumePaths.includes(location.path)
-		);
-
-		const locationIdsMap = matchedLocations.reduce(
+		return locations.reduce(
 			(acc, location) => {
-				if (location.path) {
-					acc[location.path] = location.id;
+				const matchingVolume = volumes.find((v) =>
+					v.mount_points.some((mp) => mp === location.path)
+				);
+
+				if (matchingVolume && matchingVolume.pub_id && location.path) {
+					acc[location.path] = {
+						locationId: location.id,
+						volumeId: new Uint8Array(matchingVolume.pub_id)
+					};
 				}
+
 				return acc;
 			},
-			{} as {
-				[key: string]: number;
-			}
+			{} as Record<string, { locationId: number; volumeId: Uint8Array }>
 		);
-
-		return locationIdsMap;
 	}, [locations, volumes]);
 
-	const mountPoints = (volumes || []).flatMap((volume, volumeIndex) =>
-		volume.mount_points.map((mountPoint, index) =>
-			mountPoint !== homeDir.data
-				? { type: 'volume', volume, mountPoint, volumeIndex, index }
-				: null
-		)
-	);
+	// Filter out non-unique volumes and handle mount points
+	const uniqueVolumes = useMemo(() => {
+		if (!volumes) return [];
+
+		return volumes.filter((volume) => {
+			if (volume.mount_type === 'System' && volume.name === 'System Reserved') return false;
+			if (volume.mount_points.some((mp) => mp === homeDir.data)) return false;
+			return true;
+		});
+	}, [volumes, homeDir.data]);
 
 	return (
 		<Section name={t('local')}>
@@ -86,54 +126,51 @@ export default function LocalSection() {
 
 				{homeDir.data && (
 					<EphemeralLocation
-						navigateTo={`ephemeral/0?path=${homeDir.data}`}
-						path={homeDir.data ?? ''}
+						navigateTo={`ephemeral/home?path=${homeDir.data}`}
+						path={homeDir.data}
 					>
 						<SidebarIcon name="Home" />
 						<Name>{t('home')}</Name>
 					</EphemeralLocation>
 				)}
 
-				{mountPoints.map((item) => {
-					if (!item) return;
+				{uniqueVolumes.map((volume) => {
+					const mountPoint = volume.mount_points[0];
+					if (!mountPoint) return null;
+					const key = `${volume.pub_id}-${mountPoint}`;
 
-					const locationId = locationIdsForVolumes[item.mountPoint ?? ''];
+					const locationInfo = locationIdsForVolumes[mountPoint];
+					const isTracked = locationInfo !== undefined;
 
-					const key = `${item.volumeIndex}-${item.index}`;
+					const toPath = isTracked
+						? `location/${locationInfo.locationId}`
+						: `ephemeral/${key}?path=${volume.mount_point}`;
 
-					const name =
-						item.mountPoint === '/'
-							? 'Root'
-							: item.index === 0
-								? item.volume.name
-								: item.mountPoint;
-
-					const toPath =
-						locationId !== undefined
-							? `location/${locationId}`
-							: `ephemeral/${key}?path=${item.mountPoint}`;
+					const displayName = mountPoint === '/' ? 'Root' : volume.name || mountPoint;
 
 					return (
 						<EphemeralLocation
 							key={key}
 							navigateTo={toPath}
-							path={
-								locationId !== undefined
-									? locationId.toString()
-									: (item.mountPoint ?? '')
-							}
-						>
-							<SidebarIcon
-								name={
-									item.volume.file_system === 'exfat'
-										? 'SD'
-										: item.volume.name === 'Macintosh HD'
-											? 'HDD'
-											: 'Drive'
+							path={mountPoint}
+							onTrack={async () => {
+								if (!isTracked && volume.pub_id) {
+									try {
+										await trackVolumeMutation.mutateAsync({
+											volume_id: Array.from(volume.pub_id) // Convert Uint8Array to number[]
+										});
+										toast.success('Volume tracked successfully');
+									} catch (error) {
+										toast.error('Failed to track volume');
+									}
 								}
-							/>
-							<Name>{name}</Name>
-							{item.volume.disk_type === 'Removable' && <EjectButton />}
+							}}
+						>
+							<SidebarIcon name={getVolumeIcon(volume)} />
+							<Name>{displayName}</Name>
+							{volume.mount_type === 'External' && volume.fingerprint && (
+								<EjectButton fingerprint={new Uint8Array(volume.fingerprint)} />
+							)}
 						</EphemeralLocation>
 					);
 				})}
@@ -142,11 +179,26 @@ export default function LocalSection() {
 	);
 }
 
+function getVolumeIcon(volume: Volume): IconName {
+	if (volume.file_system === 'ExFAT') return 'SD';
+	if (volume.name === 'Macintosh HD') return 'HDD';
+	if (volume.disk_type === 'SSD') return 'HDD';
+	if (volume.mount_type === 'Network') return 'Globe';
+	if (volume.mount_type === 'External') return 'SD';
+	return 'Drive';
+}
+
+// Updated EphemeralLocation component to handle tracking separately
 const EphemeralLocation = ({
 	children,
 	path,
-	navigateTo
-}: PropsWithChildren<{ path: string; navigateTo: string }>) => {
+	navigateTo,
+	onTrack
+}: PropsWithChildren<{
+	path: string;
+	navigateTo: string;
+	onTrack?: () => Promise<void>;
+}>) => {
 	const [{ path: ephemeralPath }] = useExplorerSearchParams();
 
 	const { isDroppable, className, setDroppableRef } = useExplorerDroppable({
@@ -155,6 +207,7 @@ const EphemeralLocation = ({
 		data: { type: 'location', path },
 		disabled: navigateTo.startsWith('location/') || ephemeralPath === path,
 		navigateTo: navigateTo
+		// onNavigate: onTrack
 	});
 
 	return (
