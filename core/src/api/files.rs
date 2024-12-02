@@ -17,7 +17,7 @@ use crate::{
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_heavy_lifting::media_processor::{exif_media_data, ffmpeg_media_data};
 use sd_core_prisma_helpers::{
-	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
+	file_path_sisters, file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 	object_with_media_data,
 };
 
@@ -32,6 +32,7 @@ use sd_sync::{sync_db_entry, sync_db_nullable_entry, sync_entry, OperationFactor
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
+	collections::HashSet,
 	ffi::OsString,
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -169,6 +170,32 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.join(&isolated_path)
 						.to_str()
 						.map(|str| str.to_string()))
+				})
+		})
+		.procedure("getDuplicates", {
+			R.with2(library())
+				.query(|(_, library), object_id: i32| async move {
+					let file_paths = library
+						.db
+						.file_path()
+						.find_many(vec![file_path::object_id::equals(Some(object_id))])
+						.select(file_path_sisters::select())
+						.exec()
+						.await?;
+
+					let mut unique_location_ids = HashSet::new();
+					let locations: Vec<_> =
+						file_paths
+							.clone()
+							.into_iter()
+							.filter_map(|file_path| {
+								file_path.location.as_ref().cloned().filter(|location| {
+									unique_location_ids.insert(location.id.clone())
+								})
+							})
+							.collect();
+
+					Ok((locations, file_paths))
 				})
 		})
 		.procedure("setNote", {

@@ -111,6 +111,20 @@ file_path::select!(file_path_to_isolate_with_id {
 	name
 	extension
 });
+file_path::select!(file_path_sisters {
+	id
+	materialized_path
+	is_dir
+	name
+	extension
+	cas_id
+	integrity_checksum
+	location: select {
+		id
+		path
+		name
+	}
+});
 file_path::select!(file_path_walker {
 	pub_id
 	location_id

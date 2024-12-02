@@ -19,6 +19,7 @@ export type Procedures = {
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
+        { key: "files.getDuplicates", input: LibraryArgs<number>, result: [({ id: number; name: string | null; path: string | null })[], FilePathSisters[]] } | 
         { key: "files.getMediaData", input: LibraryArgs<number>, result: MediaData } | 
         { key: "files.getPath", input: LibraryArgs<number>, result: string | null } | 
         { key: "invalidation.test-invalidate", input: never, result: number } | 
@@ -355,6 +356,8 @@ export type FilePathObjectCursor = { dateAccessed: CursorOrderItem<string> } | {
 export type FilePathOrder = { field: "name"; value: SortOrder } | { field: "sizeInBytes"; value: SortOrder } | { field: "dateCreated"; value: SortOrder } | { field: "dateModified"; value: SortOrder } | { field: "dateIndexed"; value: SortOrder } | { field: "object"; value: ObjectOrder }
 
 export type FilePathSearchArgs = { take?: number | null; orderAndPagination?: OrderAndPagination<number, FilePathOrder, FilePathCursor> | null; filters?: SearchFilterArgs[]; groupDirectories?: boolean }
+
+export type FilePathSisters = { id: number; is_dir: boolean | null; cas_id: string | null; integrity_checksum: string | null; location: { id: number; name: string | null; path: string | null } | null; materialized_path: string | null; name: string | null; extension: string | null }
 
 export type Flash = { 
 /**
