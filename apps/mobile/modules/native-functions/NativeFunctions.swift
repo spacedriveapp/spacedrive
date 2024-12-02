@@ -106,31 +106,42 @@ class NativeFunctions: NSObject, QLPreviewControllerDataSource {
                     #endif
                 }
 
-                let fileName = fileURL.lastPathComponent
+                // Get the relative path from the base directory to the file
+                let basePath = directoryURL.path
+                let fullPath = fileURL.path
+
                 #if DEBUG
-                print("📝 File name: \(fileName)")
+                print("📍 Base path: \(basePath)")
+                print("📍 Full path: \(fullPath)")
                 #endif
 
-                let resolvedFileURL = directoryURL.appendingPathComponent(fileName)
-                #if DEBUG
-                print("🎯 Resolved file URL: \(resolvedFileURL)")
-                #endif
-
-                // Check if file exists at resolved path
-                if FileManager.default.fileExists(atPath: resolvedFileURL.path) {
+                // Ensure the file path starts with the base path
+                guard fullPath.hasPrefix(basePath) else {
                     #if DEBUG
-                    print("✅ File exists at resolved path")
+                    print("❌ File is not within the bookmarked directory")
+                    #endif
+                    reject("ERROR", "File is not within the bookmarked directory", nil)
+                    return
+                }
+
+                // Use the full file URL directly
+                self.fileURL = fileURL
+                #if DEBUG
+                print("💾 Set fileURL for QuickLook: \(fileURL)")
+                #endif
+
+                // Verify file exists
+                if FileManager.default.fileExists(atPath: fileURL.path) {
+                    #if DEBUG
+                    print("✅ File exists at path")
                     #endif
                 } else {
                     #if DEBUG
-                    print("⚠️ File does not exist at resolved path")
+                    print("⚠️ File does not exist at path")
                     #endif
+                    reject("ERROR", "File not found at path", nil)
+                    return
                 }
-
-                self.fileURL = resolvedFileURL
-                #if DEBUG
-                print("💾 Set fileURL for QuickLook: \(resolvedFileURL)")
-                #endif
             } else {
                 #if DEBUG
                 print("❌ Bookmark not found at path: \(bookmarkPath)")
@@ -172,7 +183,6 @@ class NativeFunctions: NSObject, QLPreviewControllerDataSource {
             reject("ERROR", "Failed to preview file: \(error.localizedDescription)", nil)
         }
     }
-
 
     // MARK: - QLPreviewControllerDataSource
     func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
