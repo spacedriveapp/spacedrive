@@ -25,7 +25,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 <br/>
 <br/>
 
-> UPDATE: Spacedrive moving into beta with v0.5 (coming November 2024). Some major features are currently only accessible via feature flags.
+> UPDATE: Spacedrive moving into beta with v0.5 (coming early December 2024). Some major features are currently only accessible via feature flags.
 
 Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
 
