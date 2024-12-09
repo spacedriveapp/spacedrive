@@ -167,6 +167,7 @@ export const QuickPreview = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [explorer.selectedItemHashes, explorerView.updateActiveItem]);
 
+	// TODO: look here - jam
 	const handleMoveBetweenItems = (step: number) => {
 		const nextPreviewItem = items[itemIndex + step];
 		if (nextPreviewItem) {
@@ -557,6 +558,7 @@ export const QuickPreview = () => {
 													{(items) => (
 														<DropdownMenu.SubMenu
 															label={t('more_actions')}
+															// @ts-expect-error
 															icon={Plus}
 														>
 															{items}
