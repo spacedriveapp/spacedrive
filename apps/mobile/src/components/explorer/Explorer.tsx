@@ -2,8 +2,8 @@ import { useNavigation } from '@react-navigation/native';
 import { FlashList } from '@shopify/flash-list';
 import { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
-import { useRef } from 'react';
-import { ActivityIndicator } from 'react-native';
+import React, { useRef } from 'react';
+import { ActivityIndicator, NativeModules, Platform } from 'react-native';
 import FileViewer from 'react-native-file-viewer';
 import {
 	getIndexedItemFilePath,
@@ -26,6 +26,8 @@ import FileItem from './FileItem';
 import FileMedia from './FileMedia';
 import FileRow from './FileRow';
 import Menu from './menu/Menu';
+
+const { NativeFunctions } = NativeModules;
 
 type ExplorerProps = {
 	tabHeight?: boolean;
@@ -54,19 +56,37 @@ const Explorer = (props: Props) => {
 
 	//Open file with native api
 	async function handleOpen(data: ExplorerItem) {
-		try {
-			const filePath = getIndexedItemFilePath(data);
+		const filePath = getIndexedItemFilePath(data);
+		if (Platform.OS === 'android') {
+			try {
+				const absolutePath = await libraryClient.query([
+					'files.getPath',
+					filePath?.id ?? -1
+				]);
+				if (!absolutePath) return;
+				await FileViewer.open(absolutePath, {
+					// Android only
+					showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
+					showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
+				});
+				if (filePath && filePath.object_id)
+					await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]);
+			} catch (error) {
+				console.error('Error opening object', error);
+				toast.error('Error opening object');
+			}
+		} else {
+			// iOS
 			const absolutePath = await libraryClient.query(['files.getPath', filePath?.id ?? -1]);
 			if (!absolutePath) return;
-			await FileViewer.open(absolutePath, {
-				// Android only
-				showAppsSuggestions: false, // If there is not an installed app that can open the file, open the Play Store with suggested apps
-				showOpenWithDialog: true // if there is more than one app that can open the file, show an Open With dialogue box
-			});
-			if (filePath && filePath.object_id)
-				await libraryClient.mutation(['files.updateAccessTime', [filePath.object_id]]);
-		} catch (error) {
-			toast.error('Error opening object');
+			if (!filePath?.location_id) return;
+			try {
+				// These arguments cannot be null due to compatability with Android (React Native throws an error if even the type is nullable)
+				await NativeFunctions.previewFile(absolutePath!, filePath!.location_id!);
+			} catch (error) {
+				console.error('Error previewing file:', error);
+				toast.error('Error previewing file');
+			}
 		}
 	}
 

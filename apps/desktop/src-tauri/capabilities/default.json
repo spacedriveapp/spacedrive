@@ -26,6 +26,7 @@
 		"core:window:allow-toggle-maximize",
 		"core:window:allow-start-dragging",
 		"core:webview:allow-internal-toggle-devtools",
+		"cors-fetch:default",
 		{
 			"identifier": "http:default",
 			"allow": [

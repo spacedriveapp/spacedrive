@@ -43,6 +43,12 @@ import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
 
+declare global {
+	interface Window {
+		enableCORSFetch: (enable: boolean) => void;
+	}
+}
+
 SuperTokens.init({
 	appInfo: {
 		apiDomain: AUTH_SERVER_URL,
@@ -65,6 +71,7 @@ export default function App() {
 	useEffect(() => {
 		// This tells Tauri to show the current window because it's finished loading
 		commands.appReady();
+		window.enableCORSFetch(true);
 		// .then(() => {
 		// 	if (import.meta.env.PROD) window.fetch = fetch;
 		// });

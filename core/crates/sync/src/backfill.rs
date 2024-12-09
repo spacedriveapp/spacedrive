@@ -1,7 +1,7 @@
 use sd_prisma::{
 	prisma::{
 		crdt_operation, device, exif_data, file_path, label, label_on_object, location, object,
-		storage_statistics, tag, tag_on_object, PrismaClient, SortOrder,
+		tag, tag_on_object, volume, PrismaClient, SortOrder,
 	},
 	prisma_sync,
 };
@@ -47,7 +47,7 @@ pub async fn backfill_operations(sync: &SyncManager) -> Result<(), Error> {
 			backfill_device(&db, sync, local_device).await?;
 
 			(
-				backfill_storage_statistics(&db, sync, local_device_id),
+				backfill_volumes(&db, sync, local_device_id),
 				paginate_tags(&db, sync),
 				paginate_locations(&db, sync, local_device_id),
 				paginate_objects(&db, sync, local_device_id),
@@ -102,15 +102,15 @@ async fn backfill_device(
 }
 
 #[instrument(skip(db, sync), err)]
-async fn backfill_storage_statistics(
+async fn backfill_volumes(
 	db: &PrismaClient,
 	sync: &SyncManager,
 	device_id: device::id::Type,
 ) -> Result<(), Error> {
-	let Some(stats) = db
-		.storage_statistics()
-		.find_first(vec![storage_statistics::device_id::equals(Some(device_id))])
-		.include(storage_statistics::include!({device: select { pub_id }}))
+	let Some(volume) = db
+		.volume()
+		.find_first(vec![volume::device_id::equals(Some(device_id))])
+		.include(volume::include!({device: select { pub_id }}))
 		.exec()
 		.await?
 	else {
@@ -120,24 +120,29 @@ async fn backfill_storage_statistics(
 
 	db.crdt_operation()
 		.create_many(vec![crdt_op_unchecked_db(&sync.shared_create(
-			prisma_sync::storage_statistics::SyncId {
-				pub_id: stats.pub_id,
+			prisma_sync::volume::SyncId {
+				pub_id: volume.pub_id,
 			},
 			chain_optional_iter(
 				[
-					sync_entry!(stats.total_capacity, storage_statistics::total_capacity),
-					sync_entry!(
-						stats.available_capacity,
-						storage_statistics::available_capacity
-					),
+					sync_entry!(volume.name, volume::name),
+					sync_entry!(volume.mount_type, volume::mount_type),
+					sync_entry!(volume.mount_point, volume::mount_point),
+					sync_entry!(volume.is_mounted, volume::is_mounted),
+					sync_entry!(volume.disk_type, volume::disk_type),
+					sync_entry!(volume.file_system, volume::file_system),
+					sync_entry!(volume.read_only, volume::read_only),
+					sync_entry!(volume.error_status, volume::error_status),
+					sync_entry!(volume.total_bytes_capacity, volume::total_bytes_capacity),
+					sync_entry!(volume.total_bytes_available, volume::total_bytes_available),
 				],
 				[option_sync_entry!(
-					stats.device.map(|device| {
+					volume.device.map(|device| {
 						prisma_sync::device::SyncId {
 							pub_id: device.pub_id,
 						}
 					}),
-					storage_statistics::device
+					volume::device
 				)],
 			),
 		))?])
