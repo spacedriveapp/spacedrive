@@ -226,6 +226,7 @@ async fn main() -> tauri::Result<()> {
 	tauri::Builder::default()
 		.invoke_handler(builder.invoke_handler())
 		.plugin(tauri_plugin_deep_link::init())
+		.plugin(tauri_plugin_cors_fetch::init())
 		.setup(move |app| {
 			// We need a the app handle to determine the data directory now.
 			// This means all the setup code has to be within `setup`, however it doesn't support async so we `block_on`.

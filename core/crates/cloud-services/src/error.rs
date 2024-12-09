@@ -1,11 +1,15 @@
-use sd_cloud_schema::{cloud_p2p, sync::groups, Service};
+use sd_cloud_schema::{
+	cloud_p2p,
+	sync::{self, groups},
+	Request, Response,
+};
 use sd_utils::error::FileIOError;
 
 use std::{io, net::AddrParseError};
 
 use quic_rpc::{
 	pattern::{bidi_streaming, rpc, server_streaming},
-	transport::quinn::QuinnConnection,
+	transport::{mapped::MappedConnector, quinn::QuinnConnector},
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -68,7 +72,9 @@ pub enum Error {
 	#[error("Failed to connect to Cloud P2P node: {0}")]
 	ConnectToCloudP2PNode(anyhow::Error),
 	#[error("Communication error with Cloud P2P node: {0}")]
-	CloudP2PRpcCommunication(#[from] rpc::Error<QuinnConnection<cloud_p2p::Service>>),
+	CloudP2PRpcCommunication(
+		#[from] rpc::Error<QuinnConnector<cloud_p2p::Response, cloud_p2p::Request>>,
+	),
 	#[error("Cloud P2P not initialized")]
 	CloudP2PNotInitialized,
 	#[error("Failed to initialize LocalSwarmDiscovery: {0}")]
@@ -78,15 +84,43 @@ pub enum Error {
 
 	// Communication errors
 	#[error("Failed to communicate with RPC backend: {0}")]
-	RpcCommunication(#[from] rpc::Error<QuinnConnection<Service>>),
+	RpcCommunication(#[from] rpc::Error<QuinnConnector<Response, Request>>),
+	#[error("Failed to communicate with RPC sync backend: {0}")]
+	RpcSyncCommunication(
+		#[from]
+		rpc::Error<
+			MappedConnector<sync::Response, sync::Request, QuinnConnector<Response, Request>>,
+		>,
+	),
 	#[error("Failed to communicate with Server Streaming RPC backend: {0}")]
-	ServerStreamCommunication(#[from] server_streaming::Error<QuinnConnection<Service>>),
+	ServerStreamCommunication(#[from] server_streaming::Error<QuinnConnector<Response, Request>>),
+	#[error("Failed to communicate with Server Streaming RPC sync backend: {0}")]
+	ServerStreamSyncCommunication(
+		#[from]
+		server_streaming::Error<
+			MappedConnector<sync::Response, sync::Request, QuinnConnector<Response, Request>>,
+		>,
+	),
 	#[error("Failed to receive next response from Server Streaming RPC backend: {0}")]
-	ServerStreamRecv(#[from] server_streaming::ItemError<QuinnConnection<Service>>),
+	ServerStreamRecv(#[from] server_streaming::ItemError<QuinnConnector<Response, Request>>),
+	#[error("Failed to receive next response from Server Streaming RPC sync backend: {0}")]
+	ServerStreamSyncRecv(
+		#[from]
+		server_streaming::ItemError<
+			MappedConnector<sync::Response, sync::Request, QuinnConnector<Response, Request>>,
+		>,
+	),
 	#[error("Failed to communicate with Bidi Streaming RPC backend: {0}")]
-	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnection<Service>>),
+	BidiStreamCommunication(#[from] bidi_streaming::Error<QuinnConnector<Response, Request>>),
+	#[error("Failed to communicate with Bidi Streaming RPC sync backend: {0}")]
+	BidiStreamSyncCommunication(
+		#[from]
+		bidi_streaming::Error<
+			MappedConnector<sync::Response, sync::Request, QuinnConnector<Response, Request>>,
+		>,
+	),
 	#[error("Failed to receive next response from Bidi Streaming RPC backend: {0}")]
-	BidiStreamRecv(#[from] bidi_streaming::ItemError<QuinnConnection<Service>>),
+	BidiStreamRecv(#[from] bidi_streaming::ItemError<QuinnConnector<Response, Request>>),
 	#[error("Error from backend: {0}")]
 	Backend(#[from] sd_cloud_schema::Error),
 	#[error("Failed to get access token from refresher: {0}")]

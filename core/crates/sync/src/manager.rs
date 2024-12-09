@@ -372,7 +372,7 @@ impl Manager {
 		total_count += self.ingest_by_model(prisma_sync::device::MODEL_ID).await?;
 
 		total_count += [
-			self.ingest_by_model(prisma_sync::storage_statistics::MODEL_ID),
+			self.ingest_by_model(prisma_sync::volume::MODEL_ID),
 			self.ingest_by_model(prisma_sync::tag::MODEL_ID),
 			self.ingest_by_model(prisma_sync::location::MODEL_ID),
 			self.ingest_by_model(prisma_sync::object::MODEL_ID),

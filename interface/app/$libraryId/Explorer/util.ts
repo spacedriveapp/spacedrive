@@ -49,7 +49,8 @@ const dayjsLocales: Record<string, any> = {
 	zh_CN: () => import('dayjs/locale/zh-cn.js'),
 	zh_TW: () => import('dayjs/locale/zh-tw.js'),
 	it: () => import('dayjs/locale/it.js'),
-	ja: () => import('dayjs/locale/ja.js')
+	ja: () => import('dayjs/locale/ja.js'),
+	uk: () => import('dayjs/locale/uk.js')
 };
 
 export function loadDayjsLocale(language: string) {
