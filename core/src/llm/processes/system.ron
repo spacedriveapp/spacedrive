@@ -1,0 +1,5 @@
+(
+	system: (
+		prompt: "You are a helpful AI assistant with access to various tools.",
+	)
+)

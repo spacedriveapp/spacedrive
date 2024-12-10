@@ -69,6 +69,12 @@ export default function LocalSection() {
 
 	const volumeEvents = useLibrarySubscription(['volumes.events'], {
 		onData: (data) => {
+			if ('VolumeAdded' in data) {
+				toast.success(`Volume mounted: ${data.VolumeAdded.name}`);
+			}
+			if ('VolumeRemoved' in data) {
+				toast.success(`Volume unmounted: ${data.VolumeRemoved.name}`);
+			}
 			console.log('Volume event received:', data);
 			volumesQuery.refetch();
 		}
@@ -82,12 +88,13 @@ export default function LocalSection() {
 	// Improved volume tracking
 	const trackVolumeMutation = useLibraryMutation('volumes.track');
 
-	// Mapping of volume paths to location IDs
+	// Mapping of volume paths to location IDs so we can open the location if root
 	const locationIdsForVolumes = useMemo(() => {
 		if (!locations || !volumes) return {};
 
 		return locations.reduce(
 			(acc, location) => {
+				// match location path to volume mount point
 				const matchingVolume = volumes.find((v) =>
 					v.mount_points.some((mp) => mp === location.path)
 				);
@@ -95,13 +102,13 @@ export default function LocalSection() {
 				if (matchingVolume && matchingVolume.pub_id && location.path) {
 					acc[location.path] = {
 						locationId: location.id,
-						volumeId: new Uint8Array(matchingVolume.pub_id)
+						volumeFingerprint: matchingVolume.fingerprint
 					};
 				}
 
 				return acc;
 			},
-			{} as Record<string, { locationId: number; volumeId: Uint8Array }>
+			{} as Record<string, { locationId: number; volumeFingerprint: string }>
 		);
 	}, [locations, volumes]);
 
@@ -156,9 +163,9 @@ export default function LocalSection() {
 							onTrack={async () => {
 								if (!isTracked && volume.pub_id) {
 									try {
-										await trackVolumeMutation.mutateAsync({
-											volume_id: Array.from(volume.pub_id) // Convert Uint8Array to number[]
-										});
+										await trackVolumeMutation.mutateAsync(
+											Array.from(volume.pub_id)
+										);
 										toast.success('Volume tracked successfully');
 									} catch (error) {
 										toast.error('Failed to track volume');

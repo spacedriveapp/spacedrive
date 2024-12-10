@@ -20,3 +20,22 @@ export function hardwareModelToIcon(hardwareModel: HardwareModel) {
 			return 'Laptop';
 	}
 }
+
+export function hardwareModelAsNumberToIcon(hardwareModel: number) {
+	switch (hardwareModel) {
+		case 1:
+			return 'SilverBox';
+		case 2:
+			return 'Laptop';
+		case 3:
+			return 'Laptop';
+		case 4:
+			return 'MobileAndroid';
+		case 5:
+			return 'MiniSilverBox';
+		case 6:
+			return 'PC';
+		default:
+			return 'Laptop';
+	}
+}

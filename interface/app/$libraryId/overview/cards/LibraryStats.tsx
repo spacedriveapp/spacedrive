@@ -14,8 +14,8 @@ import { Card, Loader, Tooltip } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { useCounter, useIsDark, useLocale } from '~/hooks';
 
-import { FileKind } from '.';
-import StorageBar from './StorageBar';
+import { FileKind, OverviewCard } from '..';
+import StorageBar from '../StorageBar';
 
 interface StatItemProps {
 	title: string;
@@ -65,7 +65,7 @@ const StatItem = ({ title, bytes, isLoading, info }: StatItemProps) => {
 	return (
 		<div
 			className={clsx(
-				'group/stat flex w-36 shrink-0 flex-col font-plex duration-75',
+				'group/stat mt-2 flex min-w-[150px] shrink-0 flex-col font-plex duration-75',
 				!bytes && 'hidden'
 			)}
 		>
@@ -194,9 +194,8 @@ const LibraryStats = () => {
 			tooltip: `${humanizeSize(otherTotalBytes).value} ${t(`size_${humanizeSize(otherTotalBytes).unit.toLowerCase()}`)}`
 		}
 	];
-
 	return (
-		<Card className="flex h-[220px] w-[750px] shrink-0 flex-col bg-app-box/50">
+		<>
 			{loading ? (
 				<div className="mt-4 flex h-full items-center justify-center">
 					<div className="flex flex-col items-center justify-center gap-3">
@@ -205,8 +204,8 @@ const LibraryStats = () => {
 					</div>
 				</div>
 			) : (
-				<>
-					<div className="mb-1 flex overflow-hidden p-4">
+				<div className="flex flex-col gap-4">
+					<div className="flex px-4 pt-4">
 						{Object.entries(libraryStats ?? {})
 							.sort(
 								([a], [b]) =>
@@ -231,12 +230,10 @@ const LibraryStats = () => {
 								);
 							})}
 					</div>
-					<div>
-						<StorageBar sections={sections} />
-					</div>
-				</>
+					<StorageBar sections={sections} />
+				</div>
 			)}
-		</Card>
+		</>
 	);
 };
 

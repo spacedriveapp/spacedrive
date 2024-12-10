@@ -80,6 +80,8 @@ pub enum LocationError {
 	InvalidScanStateValue(i32),
 	#[error(transparent)]
 	Sync(#[from] sd_core_sync::Error),
+	#[error("other error: {0}")]
+	Other(String),
 }
 
 impl From<LocationError> for rspc::Error {

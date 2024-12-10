@@ -166,6 +166,7 @@ impl LocationCreateArgs {
 		let uuid = Uuid::now_v7();
 
 		let location = create_location(
+			node,
 			library,
 			uuid,
 			&self.path,
@@ -249,6 +250,7 @@ impl LocationCreateArgs {
 		let uuid = Uuid::now_v7();
 
 		let location = create_location(
+			node,
 			library,
 			uuid,
 			&self.path,
@@ -705,6 +707,7 @@ pub(crate) fn normalize_path(path: impl AsRef<Path>) -> io::Result<(String, Stri
 }
 
 async fn create_location(
+	_node: &Node,
 	library @ Library { db, sync, .. }: &Library,
 	location_pub_id: Uuid,
 	location_path: impl AsRef<Path>,
@@ -732,6 +735,35 @@ async fn create_location(
 	if dry_run {
 		return Ok(None);
 	}
+
+	// let library_arc = Arc::new(*library);
+	// // Track the volume before creating the location
+	// // Get the volume fingerprint for the location path
+	// let system_volumes = node
+	// 	.volumes
+	// 	.list_system_volumes(library_arc)
+	// 	.await
+	// 	.map_err(|e| {
+	// 		warn!("Failed to list system volumes: {}", e);
+	// 		LocationError::Other(e.to_string())
+	// 	})?;
+
+	// for volume in system_volumes {
+	// 	if let Some(mount_point) = volume.mount_point.as_ref() {
+	// 		if location_path.starts_with(mount_point) {
+	// 			// Track this volume since we're creating a location on it
+	// 			if let Err(e) = node
+	// 				.volumes
+	// 				.track_volume(volume.fingerprint, library.clone())
+	// 				.await
+	// 			{
+	// 				warn!("Failed to track volume for new location: {}", e);
+	// 				// Continue with location creation even if volume tracking fails
+	// 			}
+	// 			break;
+	// 		}
+	// 	}
+	// }
 
 	let (sync_values, mut db_params) = [
 		sync_db_entry!(&name, location::name),

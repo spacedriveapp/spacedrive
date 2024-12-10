@@ -1,9 +1,7 @@
 import clsx from 'clsx';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Tooltip } from '@sd/ui';
 import { useIsDark } from '~/hooks';
-
-const BARWIDTH = 690;
 
 interface Section {
 	name: string;
@@ -19,19 +17,33 @@ interface StorageBarProps {
 const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 	const isDark = useIsDark();
 	const [hoveredSectionIndex, setHoveredSectionIndex] = useState<number | null>(null);
+	const [containerWidth, setContainerWidth] = useState(0);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!containerRef.current) return;
+
+		const resizeObserver = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				setContainerWidth(entry.contentRect.width);
+			}
+		});
+
+		resizeObserver.observe(containerRef.current);
+		return () => resizeObserver.disconnect();
+	}, []);
 
 	const totalSpace = sections.reduce((acc, section) => acc + section.value, 0n);
 
-	const getPercentage = (value: bigint) => {
-		if (value === 0n) return '0px';
+	const getWidth = (value: bigint) => {
+		if (value === 0n) return '2px';
 		const percentage = Number((value * 100n) / totalSpace) / 100;
-		const pixvalue = BARWIDTH * percentage;
-		return `${pixvalue.toFixed(2)}px`;
+		return `${Math.max(2, containerWidth * percentage)}px`;
 	};
 
 	return (
-		<div className="w-auto p-3 font-plex">
-			<div className="relative mt-1 flex h-6 rounded">
+		<div ref={containerRef} className="w-full p-3 font-plex">
+			<div className="relative mt-1 flex h-3 w-full rounded bg-app-box dark:bg-gray-800">
 				{sections.map((section, index) => {
 					const isHovered = hoveredSectionIndex === index;
 
@@ -39,13 +51,11 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 						<Tooltip key={index} label={section.name} position="top">
 							<div
 								className={clsx('relative h-full', {
-									// Add rounded corners to first and last sections
 									'rounded-l': index === 0,
 									'rounded-r': index === sections.length - 1
 								})}
 								style={{
-									width: getPercentage(section.value),
-									minWidth: '2px', // Ensure very small sections are visible
+									width: getWidth(section.value),
 									backgroundColor: section.color,
 									opacity: hoveredSectionIndex === null || isHovered ? 1 : 0.3,
 									transition: 'opacity 0.3s ease-in-out'
@@ -58,12 +68,12 @@ const StorageBar: React.FC<StorageBarProps> = ({ sections }) => {
 				})}
 			</div>
 			<div
-				className={clsx('mt-6 flex flex-wrap', isDark ? 'text-ink-dull' : 'text-gray-800')}
+				className={clsx('mt-3 flex gap-6 px-1', isDark ? 'text-ink-dull' : 'text-gray-800')}
 			>
 				{sections.map((section, index) => (
 					<Tooltip key={index} label={section.tooltip} position="top">
 						<div
-							className="mb-2 mr-6 flex items-center"
+							className="flex items-center"
 							onMouseEnter={() => setHoveredSectionIndex(index)}
 							onMouseLeave={() => setHoveredSectionIndex(null)}
 						>

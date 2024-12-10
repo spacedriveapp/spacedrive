@@ -4,29 +4,6 @@ import clsx from 'clsx';
 import i18n from '~/app/I18n';
 import { Icon as SDIcon } from '~/components';
 
-export const filterTypeCondition = {
-	inOrNotIn: {
-		in: i18n.t('is'),
-		notIn: i18n.t('is_not')
-	},
-	textMatch: {
-		contains: i18n.t('contains'),
-		startsWith: i18n.t('starts_with'),
-		endsWith: i18n.t('ends_with'),
-		equals: i18n.t('equals')
-	},
-	optionalRange: {
-		from: i18n.t('from'),
-		to: i18n.t('to')
-	},
-	trueOrFalse: {
-		true: i18n.t('is'),
-		false: i18n.t('is_not')
-	}
-} as const;
-
-export type FilterTypeCondition = typeof filterTypeCondition;
-
 export const RenderIcon = ({
 	className,
 	icon

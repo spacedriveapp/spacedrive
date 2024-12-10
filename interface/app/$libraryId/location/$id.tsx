@@ -161,12 +161,12 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 						/>
 					}
 				>
-					{search.open && (
+					{/* {search.open && (
 						<>
 							<hr className="w-full border-t border-sidebar-divider bg-sidebar-divider" />
 							<SearchOptions />
 						</>
-					)}
+					)} */}
 				</TopBarPortal>
 			</SearchContextProvider>
 			{isLocationIndexing ? (

@@ -191,17 +191,18 @@ export const Component = () => {
 						</div>
 						<div className="mb-1">
 							<Label className="text-sm font-medium text-ink-faint">
-								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
+								<Icon name="Database" className="mr-1 mt-[-2px] inline h-4 w-4" />{' '}
+								Logs Folder
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
 						</div>
 					</div>
-					{/* <div className="flex items-center mt-5 space-x-3 opacity-50 pointer-events-none">
+					<div className="pointer-events-none mt-5 flex items-center space-x-3 opacity-50">
 						<Switch size="sm" />
 						<span className="text-sm font-medium text-ink-dull">
 							Run Spacedrive in the background when app closed
 						</span>
-					</div> */}
+					</div>
 				</div>
 			</Card>
 			{/* Debug Mode */}

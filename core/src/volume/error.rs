@@ -117,6 +117,28 @@ pub enum VolumeError {
 	/// Resource exhausted
 	#[error("Resource exhausted: {0}")]
 	ResourceExhausted(String),
+
+	/// Volume is not tracked
+	#[error("Volume is not tracked")]
+	NotTracked,
+
+	/// Volume fingerprint is missing
+	#[error("Volume fingerprint is missing")]
+	MissingFingerprint,
+
+	/// IO error
+	#[error("IO error: {0}")]
+	IoError(std::io::Error),
+
+	/// Serialization error
+	#[error("Serialization error: {0}")]
+	SerializationError(serde_json::Error),
+
+	#[error(transparent)]
+	Sync(#[from] sd_core_sync::Error),
+
+	#[error(transparent)]
+	Cloud(#[from] CloudVolumeError),
 }
 
 /// Specific kinds of speed test errors
@@ -306,4 +328,20 @@ impl fmt::Display for SpeedTestErrorKind {
 		};
 		write!(f, "{}", kind_str)
 	}
+}
+
+#[derive(Debug, Error)]
+pub enum CloudVolumeError {
+	#[error("Authentication failed: {0}")]
+	AuthenticationError(String),
+	#[error("Rate limit exceeded")]
+	RateLimitExceeded,
+	#[error("Quota exceeded")]
+	QuotaExceeded,
+	#[error("API Error: {0}")]
+	ApiError(String),
+	#[error("Network Error: {0}")]
+	NetworkError(String),
+	// #[error("Unsupported cloud provider: {0}")]
+	// UnsupportedCloudProvider(CloudProvider),
 }

@@ -1,11 +1,18 @@
-use super::error::VolumeError;
-use crate::volume::speed::SpeedTest;
-use sd_core_sync::DevicePubId;
-use sd_prisma::prisma::{
-	device,
-	volume::{self},
-	PrismaClient,
+use super::{
+	// cloud::CloudCredentials,
+	error::{CloudVolumeError, VolumeError},
 };
+use crate::library::Library;
+use sd_core_sync::DevicePubId;
+use sd_prisma::{
+	prisma::{
+		device,
+		volume::{self},
+		PrismaClient,
+	},
+	prisma_sync,
+};
+use sd_sync::*;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use specta::Type;
@@ -29,7 +36,7 @@ impl VolumeFingerprint {
 		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
 		hasher.update(volume.file_system.to_string().as_bytes());
 		// These are all properties that are unique to a volume and unlikely to change
-		// If a .spacedrive file is found in the volume, and is fingerprint does not match,
+		// If a `.sdvolume` file is found in the volume, and is fingerprint does not match,
 		// but the `pub_id` is the same, we can update the values and regenerate the fingerprint
 		// preserving the tracked instance of the volume
 		Self(hasher.finalize().as_bytes().to_vec())
@@ -348,6 +355,243 @@ impl Volume {
 			.await?;
 		Ok(())
 	}
+
+	/// Writes the .sdvolume file to the volume's root
+	pub async fn write_volume_file(&self) -> Result<(), VolumeError> {
+		if !self.is_mounted || self.read_only {
+			return Ok(()); // Skip if volume isn't mounted or is read-only
+		}
+
+		let fingerprint = self
+			.fingerprint
+			.as_ref()
+			.ok_or(VolumeError::MissingFingerprint)?;
+		let pub_id = self.pub_id.as_ref().ok_or(VolumeError::NotTracked)?;
+
+		let volume_file = SdVolumeFile {
+			pub_id: pub_id.clone(),
+			fingerprint: fingerprint.to_string(),
+			last_seen: chrono::Utc::now(),
+		};
+
+		let path = self.mount_point.join(".sdvolume");
+		let file = tokio::fs::File::create(&path)
+			.await
+			.map_err(|e| VolumeError::IoError(e))?;
+
+		serde_json::to_writer(file.into_std().await, &volume_file)
+			.map_err(|e| VolumeError::SerializationError(e))?;
+
+		Ok(())
+	}
+
+	/// Reads the .sdvolume file from the volume's root if it exists
+	pub async fn read_volume_file(&self) -> Result<Option<SdVolumeFile>, VolumeError> {
+		if !self.is_mounted {
+			return Ok(None);
+		}
+
+		let path = self.mount_point.join(".sdvolume");
+		if !path.exists() {
+			return Ok(None);
+		}
+
+		let file = tokio::fs::File::open(&path)
+			.await
+			.map_err(|e| VolumeError::IoError(e))?;
+
+		let volume_file = serde_json::from_reader(file.into_std().await)
+			.map_err(|e| VolumeError::SerializationError(e))?;
+
+		Ok(Some(volume_file))
+	}
+
+	pub async fn sync_db_create(
+		&self,
+		library: &Library,
+		device_pub_id: Vec<u8>,
+	) -> Result<Volume, VolumeError> {
+		let Library { db, sync, .. } = library;
+		let pub_id = Uuid::now_v7().as_bytes().to_vec();
+
+		let device_id = db
+			.device()
+			.find_unique(device::pub_id::equals(device_pub_id.clone()))
+			.select(device::select!({ id }))
+			.exec()
+			.await?
+			.ok_or(VolumeError::DeviceNotFound(device_pub_id))?
+			.id;
+
+		let (sync_params, db_params) = [
+			sync_db_entry!(self.name.clone(), volume::name),
+			sync_db_entry!(
+				self.mount_point.to_str().unwrap_or_default().to_string(),
+				volume::mount_point
+			),
+			sync_db_entry!(self.mount_type.to_string(), volume::mount_type),
+			sync_db_entry!(
+				self.total_bytes_capacity.to_string(),
+				volume::total_bytes_capacity
+			),
+			sync_db_entry!(
+				self.total_bytes_available.to_string(),
+				volume::total_bytes_available
+			),
+			sync_db_entry!(self.disk_type.to_string(), volume::disk_type),
+			sync_db_entry!(self.file_system.to_string(), volume::file_system),
+			sync_db_entry!(self.is_mounted, volume::is_mounted),
+			sync_db_entry!(
+				self.read_speed_mbps.unwrap_or(0) as i64,
+				volume::read_speed_mbps
+			),
+			sync_db_entry!(
+				self.write_speed_mbps.unwrap_or(0) as i64,
+				volume::write_speed_mbps
+			),
+			sync_db_entry!(self.read_only, volume::read_only),
+			sync_db_entry!(
+				self.error_status.clone().unwrap_or_default(),
+				volume::error_status
+			),
+		]
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+		// Add device connection to db_params
+		let mut db_params = db_params;
+		db_params.push(volume::device::connect(device::id::equals(device_id)));
+
+		let volume = sync
+			.write_op(
+				db,
+				sync.shared_create(
+					prisma_sync::volume::SyncId {
+						pub_id: pub_id.clone(),
+					},
+					sync_params,
+				),
+				db.volume().create(pub_id, db_params),
+			)
+			.await?;
+
+		Ok(volume.into())
+	}
+
+	pub async fn sync_db_update(&self, library: &Library) -> Result<(), VolumeError> {
+		let Library { db, sync, .. } = library;
+		let pub_id = self.pub_id.as_ref().ok_or(VolumeError::NotTracked)?;
+
+		let (sync_params, db_params) = [
+			sync_db_entry!(self.name.clone(), volume::name),
+			sync_db_entry!(
+				self.mount_point.to_str().unwrap_or_default().to_string(),
+				volume::mount_point
+			),
+			sync_db_entry!(self.mount_type.to_string(), volume::mount_type),
+			sync_db_entry!(
+				self.total_bytes_capacity.to_string(),
+				volume::total_bytes_capacity
+			),
+			sync_db_entry!(
+				self.total_bytes_available.to_string(),
+				volume::total_bytes_available
+			),
+			sync_db_entry!(self.disk_type.to_string(), volume::disk_type),
+			sync_db_entry!(self.file_system.to_string(), volume::file_system),
+			sync_db_entry!(self.is_mounted, volume::is_mounted),
+			sync_db_entry!(
+				self.read_speed_mbps.unwrap_or(0) as i64,
+				volume::read_speed_mbps
+			),
+			sync_db_entry!(
+				self.write_speed_mbps.unwrap_or(0) as i64,
+				volume::write_speed_mbps
+			),
+			sync_db_entry!(self.read_only, volume::read_only),
+			sync_db_entry!(
+				self.error_status.clone().unwrap_or_default(),
+				volume::error_status
+			),
+		]
+		.into_iter()
+		.unzip::<_, _, Vec<_>, Vec<_>>();
+
+		sync.write_op(
+			db,
+			sync.shared_update(
+				prisma_sync::volume::SyncId {
+					pub_id: pub_id.clone(),
+				},
+				sync_params,
+			),
+			db.volume()
+				.update(volume::pub_id::equals(pub_id.clone()), db_params),
+		)
+		.await?;
+
+		Ok(())
+	}
+
+	pub async fn sync_db_delete(&self, library: &Library) -> Result<(), VolumeError> {
+		let Library { db, sync, .. } = library;
+		let pub_id = self.pub_id.as_ref().ok_or(VolumeError::NotTracked)?;
+
+		sync.write_op(
+			db,
+			sync.shared_delete(prisma_sync::volume::SyncId {
+				pub_id: pub_id.clone(),
+			}),
+			db.volume().delete(volume::pub_id::equals(pub_id.clone())),
+		)
+		.await?;
+
+		Ok(())
+	}
+
+	// pub async fn new_cloud_volume(
+	// 	provider: CloudProvider,
+	// 	credentials: CloudCredentials,
+	// ) -> Result<Self, VolumeError> {
+	// 	let provider_impl = match provider {
+	// 		// CloudProvider::GoogleDrive => Box::new(GoogleDriveProvider::new(credentials)),
+	// 		// CloudProvider::Dropbox => Box::new(DropboxProvider::new(credentials)),
+	// 		_ => return Err(CloudVolumeError::UnsupportedCloudProvider(provider)),
+	// 	};
+
+	// 	let storage_info = provider_impl.get_storage_info().await?;
+
+	// 	Ok(Self {
+	// 		id: None,
+	// 		pub_id: None,
+	// 		device_id: None,
+	// 		name: format!("{} Cloud Storage", provider),
+	// 		mount_type: MountType::Cloud(provider),
+	// 		mount_point: PathBuf::from("/"), // Virtual root path
+	// 		mount_points: vec![],
+	// 		is_mounted: true,
+	// 		disk_type: DiskType::Virtual,
+	// 		file_system: FileSystem::Cloud,
+	// 		read_only: false,
+	// 		error_status: None,
+	// 		read_speed_mbps: None,
+	// 		write_speed_mbps: None,
+	// 		total_bytes_capacity: storage_info.total_bytes_capacity,
+	// 		total_bytes_available: storage_info.total_bytes_available,
+	// 		fingerprint: None,
+	// 	})
+	// }
+
+	// pub async fn refresh_cloud_storage_info(&mut self) -> Result<(), VolumeError> {
+	// 	if let MountType::Cloud(provider) = &self.mount_type {
+	// 		let provider_impl = get_cloud_provider(provider)?;
+	// 		let storage_info = provider_impl.get_storage_info().await?;
+
+	// 		self.total_bytes_capacity = storage_info.total_bytes_capacity;
+	// 		self.total_bytes_available = storage_info.total_bytes_available;
+	// 	}
+	// 	Ok(())
+	// }
 }
 
 /// Represents the type of physical storage device
@@ -358,6 +602,8 @@ pub enum DiskType {
 	SSD,
 	/// Hard Disk Drive
 	HDD,
+	/// Virtual disk type
+	Virtual,
 	/// Unknown or virtual disk type
 	Unknown,
 }
@@ -413,6 +659,8 @@ pub enum MountType {
 	Network,
 	/// Virtual/container volume
 	Virtual,
+	// Cloud mounted as a virtual volume
+	Cloud(CloudProvider),
 }
 
 impl MountType {
@@ -425,6 +673,29 @@ impl MountType {
 			_ => Self::System,
 		}
 	}
+}
+
+/// Represents the cloud storage provider
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
+pub enum CloudProvider {
+	SpacedriveCloud,
+	GoogleDrive,
+	Dropbox,
+	OneDrive,
+	ICloud,
+	AmazonS3,
+	Mega,
+	Box,
+	pCloud,
+	Proton,
+	Sync,
+	Backblaze,
+	Wasabi,
+	DigitalOcean,
+	Azure,
+	OwnCloud,
+	NextCloud,
+	WebDAV,
 }
 
 /// Configuration options for volume operations
@@ -471,4 +742,11 @@ impl<'de> Deserialize<'de> for VolumeFingerprint {
 			.map(VolumeFingerprint)
 			.map_err(serde::de::Error::custom)
 	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SdVolumeFile {
+	pub pub_id: Vec<u8>,
+	pub fingerprint: String, // Store as hex string
+	pub last_seen: chrono::DateTime<chrono::Utc>,
 }

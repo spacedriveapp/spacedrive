@@ -61,10 +61,10 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 	}, rgba(0, 0, 0, 1) ${lastItemVisible ? '95%' : '85%'}, transparent 99%)`;
 
 	return (
-		<div className={clsx(className, 'relative mb-4 flex pl-6')}>
+		<div className={clsx(className, 'relative mb-4')}>
 			<ArrowButton
 				onClick={() => handleArrowOnClick('right')}
-				className={clsx('left-3', scroll === 0 && 'pointer-events-none opacity-0')}
+				className={clsx('left-0 -ml-1', scroll === 0 && 'pointer-events-none opacity-0')}
 			>
 				<ArrowLeft weight="bold" className="size-4 text-ink" />
 			</ArrowButton>
@@ -72,7 +72,7 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 				ref={ref}
 				{...events}
 				className={clsx(
-					'no-scrollbar flex gap-2 space-x-px overflow-x-scroll pl-1 pr-[60px]',
+					'no-scrollbar flex gap-2 space-x-px overflow-x-scroll pl-1 pr-[30px]',
 					isContentOverflow ? 'cursor-grab' : 'cursor-default'
 				)}
 				style={{
@@ -86,7 +86,10 @@ const HorizontalScroll = ({ children, className }: { children: ReactNode; classN
 			{isContentOverflow && (
 				<ArrowButton
 					onClick={() => handleArrowOnClick('left')}
-					className={clsx('right-3', lastItemVisible && 'pointer-events-none opacity-0')}
+					className={clsx(
+						'right-0 -mr-1',
+						lastItemVisible && 'pointer-events-none opacity-0'
+					)}
 				>
 					<ArrowRight weight="bold" className="size-4 text-ink" />
 				</ArrowButton>

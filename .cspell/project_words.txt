@@ -59,6 +59,7 @@ rspcws
 rywalker
 sanjay
 sdvol
+sdvolume
 sharma
 skippable
 spacedrive
@@ -67,6 +68,7 @@ spacetunnel
 specta
 storedkey
 stringly
+swapy
 thumbstrips
 tobiaslutke
 tokio
