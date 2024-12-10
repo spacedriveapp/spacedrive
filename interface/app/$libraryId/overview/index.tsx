@@ -174,60 +174,61 @@ const CardWrapper = ({ id }: { id: string }) => {
 	return CardComponent ? <CardComponent /> : null;
 };
 
-// Memoized card content component
-const CardContent = memo(({ id, title }: { id: string; title: string }) => {
-	return (
-		<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
-			<div
-				data-swapy-handle
-				className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
-			>
-				<div className="text-ink-dull">
-					<ArrowsOutCardinal className="size-4" />
-				</div>
-				<span className="text-sm font-medium text-ink-dull">
-					{title}
-				</span>
-			</div>
-			<div className="flex-1 p-4">
-				<Suspense fallback={<div>Loading...</div>}>
-					<CardWrapper id={id} />
-				</Suspense>
-			</div>
-		</Card>
-	);
-});
-
 // Draggable wrapper component
-const DraggableCard = memo(({ card, onLoad, cardRefs }: { card: CardConfig; onLoad: () => void; cardRefs: React.MutableRefObject<Map<string, HTMLElement>> }) => {
-	return (
-		<div
-			key={card.id}
-			ref={(el) => {
-				if (el) cardRefs.current.set(card.id, el);
-				else cardRefs.current.delete(card.id);
-			}}
-			data-swapy-slot={card.id}
-			className={clsx('flex-shrink-0', {
-				'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]': card.size === 'small',
-				'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
-				'w-full': card.size === 'large'
-			})}
-			style={{ height: '250px' }}
-		>
+const DraggableCard = memo(
+	({
+		card,
+		onLoad,
+		cardRefs
+	}: {
+		card: CardConfig;
+		onLoad: () => void;
+		cardRefs: React.MutableRefObject<Map<string, HTMLElement>>;
+	}) => {
+		return (
 			<div
-				data-swapy-item={card.id}
-				className="h-full w-full"
-				onTransitionEnd={() => {
-					console.log(`Card ${card.id} ready`);
-					onLoad();
+				key={card.id}
+				ref={(el) => {
+					if (el) cardRefs.current.set(card.id, el);
+					else cardRefs.current.delete(card.id);
 				}}
+				data-swapy-slot={card.id}
+				className={clsx('flex-shrink-0', {
+					'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]': card.size === 'small',
+					'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
+					'w-full': card.size === 'large'
+				})}
+				style={{ height: '250px' }}
 			>
-				<CardContent id={card.id} title={card.title} />
+				<div
+					data-swapy-item={card.id}
+					className="h-full w-full"
+					onTransitionEnd={() => {
+						console.log(`Card ${card.id} ready`);
+						onLoad();
+					}}
+				>
+					<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
+						<div
+							data-swapy-handle
+							className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
+						>
+							<div className="text-ink-dull">
+								<ArrowsOutCardinal className="size-4" />
+							</div>
+							<span className="text-sm font-medium text-ink-dull">{card.title}</span>
+						</div>
+						<div className="flex-1 p-4">
+							<Suspense fallback={<div>Loading...</div>}>
+								<CardWrapper id={card.id} />
+							</Suspense>
+						</div>
+					</Card>
+				</div>
 			</div>
-		</div>
-	);
-});
+		);
+	}
+);
 
 export const Component = () => {
 	const store = useSnapshot(overviewStore);
@@ -545,10 +546,52 @@ export const Component = () => {
 	const renderCard = useCallback(
 		(card: CardConfig) => {
 			return (
-				<DraggableCard key={card.id} card={card} onLoad={handleCardLoad} cardRefs={cardRefs} />
+				<div
+					key={card.id}
+					ref={(el) => {
+						if (el) cardRefs.current.set(card.id, el);
+						else cardRefs.current.delete(card.id);
+					}}
+					data-swapy-slot={card.id}
+					className={clsx('flex-shrink-0', {
+						'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]':
+							card.size === 'small',
+						'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
+						'w-full': card.size === 'large'
+					})}
+					style={{ height: '250px' }}
+				>
+					<div
+						data-swapy-item={card.id}
+						className="h-full w-full"
+						onTransitionEnd={() => {
+							console.log(`Card ${card.id} ready`);
+							handleCardLoad();
+						}}
+					>
+						<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
+							<div
+								data-swapy-handle
+								className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
+							>
+								<div className="text-ink-dull">
+									<ArrowsOutCardinal className="size-4" />
+								</div>
+								<span className="text-sm font-medium text-ink-dull">
+									{card.title}
+								</span>
+							</div>
+							<div className="flex-1 p-4">
+								<Suspense fallback={<div>Loading...</div>}>
+									<CardWrapper id={card.id} />
+								</Suspense>
+							</div>
+						</Card>
+					</div>
+				</div>
 			);
 		},
-		[handleCardLoad, cardRefs]
+		[handleCardLoad]
 	);
 
 	useEffect(() => {

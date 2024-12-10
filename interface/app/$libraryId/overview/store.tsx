@@ -22,12 +22,7 @@ export const defaultCards: CardConfig[] = [
 		size: 'medium',
 		title: 'Library Statistics'
 	},
-	{
-		id: 'space-wizard',
-		enabled: true,
-		size: 'medium',
-		title: 'Organizer'
-	},
+
 	{
 		id: 'favorites',
 		enabled: true,
