@@ -198,11 +198,17 @@ const DraggableCard = memo(
 					'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
 					'w-full': card.size === 'large'
 				})}
-				style={{ height: '250px' }}
+				style={{
+					height: '250px',
+					transition: 'width 300ms ease-in-out'
+				}}
 			>
 				<div
 					data-swapy-item={card.id}
-					className="h-full w-full"
+					className="h-full w-full transform-gpu will-change-transform"
+					style={{
+						transition: 'transform 300ms ease-in-out'
+					}}
 					onTransitionEnd={() => {
 						console.log(`Card ${card.id} ready`);
 						onLoad();
@@ -218,10 +224,14 @@ const DraggableCard = memo(
 							</div>
 							<span className="text-sm font-medium text-ink-dull">{card.title}</span>
 						</div>
-						<div className="flex-1 p-4">
-							<Suspense fallback={<div>Loading...</div>}>
-								<CardWrapper id={card.id} />
-							</Suspense>
+						<div className="relative flex-1 p-4">
+							<div className="absolute inset-0 overflow-auto">
+								<div className="min-h-full min-w-full">
+									<Suspense fallback={<div>Loading...</div>}>
+										<CardWrapper id={card.id} />
+									</Suspense>
+								</div>
+							</div>
 						</div>
 					</Card>
 				</div>
@@ -267,14 +277,12 @@ export const Component = () => {
 	const [isSwapping, setIsSwapping] = useState(false);
 	const swapTimeoutRef = useRef<any>(null);
 
-	const [isInitializing, setIsInitializing] = useState(false);
 	const initializationTimeoutRef = useRef<any>(null);
 	const lastSuccessfulDimensionsRef = useRef<{ width: number; height: number } | null>(null);
 	const retryAttemptsRef = useRef(0);
 	const MAX_RETRY_ATTEMPTS = 3;
 
 	const resetInitializationState = useCallback(() => {
-		setIsInitializing(false);
 		retryAttemptsRef.current = 0;
 		if (initializationTimeoutRef.current) {
 			clearTimeout(initializationTimeoutRef.current);
@@ -303,7 +311,7 @@ export const Component = () => {
 					swapyRef.current = null;
 				}
 
-				setIsInitializing(true);
+				initializeSwapy();
 			}, 100 * retryAttemptsRef.current);
 			return false;
 		}
@@ -391,13 +399,7 @@ export const Component = () => {
 	}, [verifyElements]);
 
 	const initializeSwapy = useCallback(async () => {
-		if (isInitializing) {
-			console.log('Already initializing swapy, skipping');
-			return;
-		}
-
 		try {
-			setIsInitializing(true);
 			const isStable = await checkDomStability();
 
 			if (!isStable) {
@@ -421,7 +423,7 @@ export const Component = () => {
 			});
 
 			const swapy = createSwapy(container, {
-				animation: 'spring',
+				animation: 'dynamic',
 				swapMode: 'hover',
 				continuousMode: true,
 				autoScrollOnDrag: true
@@ -436,7 +438,6 @@ export const Component = () => {
 			retryInitialization();
 		}
 	}, [
-		isInitializing,
 		enabledCards.length,
 		checkDomStability,
 		retryInitialization,
@@ -446,16 +447,10 @@ export const Component = () => {
 
 	// Effect to handle initialization
 	useEffect(() => {
-		if (
-			isInitializing &&
-			containerRef.current &&
-			enabledCards.length &&
-			cardsReady &&
-			!isSwapping
-		) {
+		if (containerRef.current && enabledCards.length && cardsReady && !isSwapping) {
 			initializeSwapy();
 		}
-	}, [isInitializing, enabledCards.length, cardsReady, isSwapping, initializeSwapy]);
+	}, [enabledCards.length, cardsReady, isSwapping, initializeSwapy]);
 
 	const handleCardSizeChange = useCallback((id: string, size: CardSize) => {
 		const cardIndex = overviewStore.cards.findIndex((card) => card.id === id);
@@ -559,11 +554,17 @@ export const Component = () => {
 						'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
 						'w-full': card.size === 'large'
 					})}
-					style={{ height: '250px' }}
+					style={{
+						height: '250px',
+						transition: 'width 300ms ease-in-out'
+					}}
 				>
 					<div
 						data-swapy-item={card.id}
-						className="h-full w-full"
+						className="h-full w-full transform-gpu will-change-transform"
+						style={{
+							transition: 'transform 300ms ease-in-out'
+						}}
 						onTransitionEnd={() => {
 							console.log(`Card ${card.id} ready`);
 							handleCardLoad();
@@ -581,10 +582,14 @@ export const Component = () => {
 									{card.title}
 								</span>
 							</div>
-							<div className="flex-1 p-4">
-								<Suspense fallback={<div>Loading...</div>}>
-									<CardWrapper id={card.id} />
-								</Suspense>
+							<div className="relative flex-1 p-4">
+								<div className="absolute inset-0 overflow-auto">
+									<div className="min-h-full min-w-full">
+										<Suspense fallback={<div>Loading...</div>}>
+											<CardWrapper id={card.id} />
+										</Suspense>
+									</div>
+								</div>
 							</div>
 						</Card>
 					</div>
