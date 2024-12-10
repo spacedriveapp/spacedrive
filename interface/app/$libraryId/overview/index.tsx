@@ -200,14 +200,16 @@ const DraggableCard = memo(
 				})}
 				style={{
 					height: '250px',
-					transition: 'width 300ms ease-in-out'
+					transformStyle: 'preserve-3d',
+					perspective: '1000px'
 				}}
 			>
 				<div
 					data-swapy-item={card.id}
 					className="h-full w-full transform-gpu will-change-transform"
 					style={{
-						transition: 'transform 300ms ease-in-out'
+						transition: 'transform 300ms ease-in-out',
+						transformStyle: 'preserve-3d'
 					}}
 					onTransitionEnd={() => {
 						console.log(`Card ${card.id} ready`);
@@ -226,7 +228,7 @@ const DraggableCard = memo(
 						</div>
 						<div className="relative flex-1 p-4">
 							<div className="absolute inset-0 overflow-auto">
-								<div className="min-h-full min-w-full">
+								<div className="min-h-full min-w-full transform-gpu">
 									<Suspense fallback={<div>Loading...</div>}>
 										<CardWrapper id={card.id} />
 									</Suspense>
@@ -431,6 +433,7 @@ export const Component = () => {
 			});
 
 			swapyRef.current = swapy;
+			container.classList.add('swapy-container');
 			console.log('Swapy initialized successfully');
 			resetInitializationState();
 		} catch (e) {
@@ -556,14 +559,16 @@ export const Component = () => {
 					})}
 					style={{
 						height: '250px',
-						transition: 'width 300ms ease-in-out'
+						transformStyle: 'preserve-3d',
+						perspective: '1000px'
 					}}
 				>
 					<div
 						data-swapy-item={card.id}
 						className="h-full w-full transform-gpu will-change-transform"
 						style={{
-							transition: 'transform 300ms ease-in-out'
+							transition: 'transform 300ms ease-in-out',
+							transformStyle: 'preserve-3d'
 						}}
 						onTransitionEnd={() => {
 							console.log(`Card ${card.id} ready`);
@@ -584,7 +589,7 @@ export const Component = () => {
 							</div>
 							<div className="relative flex-1 p-4">
 								<div className="absolute inset-0 overflow-auto">
-									<div className="min-h-full min-w-full">
+									<div className="min-h-full min-w-full transform-gpu">
 										<Suspense fallback={<div>Loading...</div>}>
 											<CardWrapper id={card.id} />
 										</Suspense>
@@ -605,6 +610,20 @@ export const Component = () => {
 			initializeSwapy();
 		}
 	}, [cardsReady, initializeSwapy]);
+
+	const style = document.createElement('style');
+	style.textContent = `
+		.swapy-container {
+			transform-style: preserve-3d;
+			perspective: 1000px;
+		}
+		.swapy-container [data-swapy-item] {
+			transform-style: preserve-3d;
+			backface-visibility: hidden;
+		}
+	`;
+	document.head.appendChild(style);
+
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 	return (
 		<SearchContextProvider search={search}>
