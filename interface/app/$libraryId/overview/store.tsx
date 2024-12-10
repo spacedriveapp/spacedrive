@@ -77,17 +77,28 @@ export const state = proxy<OverviewStore>({
 	cards: defaultCards
 });
 
-// Persist store
-export const overviewStore = valtioPersist('sd-overview-layout', state, {
-	saveFn: (data) => data,
+// Create a stable store instance
+const createPersistedStore = () => {
+	const persistedStore = valtioPersist('sd-overview-layout', state, {
+		saveFn: (data) => data,
+		// Restore the cards with the default values while allowing new cards to be added
+		restoreFn: (stored) => ({
+			...state,
+			...stored,
+			cards: defaultCards.map((defaultCard) => ({
+				...defaultCard,
+				...stored.cards?.find((card: CardConfig) => card.id === defaultCard.id)
+			}))
+		})
+	});
 
-	// Restore the cards with the default values while allowing new cards to be added
-	restoreFn: (stored) => ({
-		...state,
-		...stored,
-		cards: defaultCards.map((defaultCard) => ({
-			...defaultCard,
-			...stored.cards.find((card: CardConfig) => card.id === defaultCard.id)
-		}))
-	})
+	return persistedStore;
+};
+
+// Export a singleton instance
+export const overviewStore = createPersistedStore();
+
+// Subscribe to changes once
+subscribe(overviewStore, () => {
+	console.log('Store updated:', overviewStore.cards.length, 'cards');
 });

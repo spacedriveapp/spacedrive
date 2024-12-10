@@ -6,7 +6,16 @@ import {
 	GearSix
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { createElement, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	createElement,
+	lazy,
+	Suspense,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState
+} from 'react';
 import { createSwapy } from 'swapy';
 import { useSnapshot } from 'valtio';
 import { Button, Card, CheckBox, DropdownMenu } from '@sd/ui';
@@ -58,23 +67,17 @@ function CardHeading({
 	}, [store.cards, title]);
 
 	return (
-		<div className="mb-2 flex items-center justify-between">
-			<div
-				className="flex cursor-grab items-center gap-2 active:cursor-grabbing"
-				data-swapy-handle
-			>
-				<div className="text-ink-dull">
-					<ArrowsOutCardinal className="size-4" />
-				</div>
-				<span className="text-sm font-medium text-ink-dull">{title}</span>
+		<div className="mb-2 flex items-center justify-between" data-swapy-handle>
+			<div className="text-ink-dull">
+				<ArrowsOutCardinal className="size-4" />
 			</div>
-
+			<span className="text-sm font-medium text-ink-dull">{title}</span>
 			<div className="flex items-center gap-2">
 				{expandable && (
 					<Button
 						size="icon"
 						variant="outline"
-						onClick={(e) => {
+						onClick={(e: any) => {
 							e.stopPropagation();
 							onExpandToggle?.();
 						}}
@@ -121,7 +124,8 @@ export function OverviewCard({
 	onSizeChange,
 	id,
 	expandable,
-	title
+	title,
+	...props
 }: {
 	children: React.ReactNode;
 	className?: string;
@@ -130,6 +134,7 @@ export function OverviewCard({
 	id: string;
 	expandable?: boolean;
 	title: string;
+	[key: string]: any;
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
 
@@ -144,6 +149,7 @@ export function OverviewCard({
 				},
 				className
 			)}
+			{...props}
 		>
 			<CardHeading
 				title={title}
@@ -168,9 +174,116 @@ export const Component = () => {
 	const { t } = useLocale();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const swapyRef = useRef<any>(null);
-	const swapyInitialized = useRef(false);
+	const swapyErrorsRef = useRef(0);
+	const swapyLastErrorRef = useRef(0);
+	const [cardsLoaded, setCardsLoaded] = useState(false);
+	const [cardsReady, setCardsReady] = useState(false);
+	const cardLoadCountRef = useRef(0);
+	const initAttemptRef = useRef(0);
+	const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-	const handleCardSizeChange = (id: string, size: CardSize) => {
+	const enabledCards = useMemo(() => store.cards.filter((card) => card.enabled), [store.cards]);
+
+	const handleSwapyErrorRef = useRef(() => {});
+
+	const handleSwapyError = useCallback(() => {
+		const now = Date.now();
+		swapyErrorsRef.current++;
+
+		if (swapyErrorsRef.current < 3 && now - swapyLastErrorRef.current > 5000) {
+			swapyLastErrorRef.current = now;
+			console.log('Reinitializing swapy after error');
+			// Add a small delay before reinitializing
+			setTimeout(() => {
+				initializeSwapy();
+			}, 100);
+		} else if (swapyErrorsRef.current >= 3) {
+			console.error('Too many swapy errors, disabling drag functionality');
+		}
+	}, []);
+
+	const initializeSwapy = useCallback(() => {
+		const container = containerRef.current;
+		if (!container || !enabledCards.length || !cardsReady) {
+			console.log('Not ready to initialize swapy:', {
+				container: !!container,
+				enabledCards: enabledCards.length,
+				cardsReady,
+				attempt: initAttemptRef.current
+			});
+			return;
+		}
+
+		// Verify all card elements exist and are mounted
+		const allCardsPresent = enabledCards.every((card) => {
+			const element = cardRefs.current.get(card.id);
+			return element && element.isConnected;
+		});
+
+		if (!allCardsPresent) {
+			console.log('Not all cards are mounted yet');
+			if (initAttemptRef.current < 3) {
+				initAttemptRef.current++;
+				setTimeout(() => initializeSwapy(), 100);
+			}
+			return;
+		}
+
+		console.log('Initializing swapy with:', {
+			containerWidth: container.offsetWidth,
+			containerHeight: container.offsetHeight,
+			numCards: enabledCards.length,
+			attempt: initAttemptRef.current
+		});
+
+		// Clean up previous instance
+		if (swapyRef.current) {
+			try {
+				swapyRef.current.destroy();
+			} catch (e) {
+				console.error('Error destroying swapy:', e);
+			}
+			swapyRef.current = null;
+		}
+
+		// Force a reflow and wait a frame
+		container.offsetHeight;
+		requestAnimationFrame(() => {
+			try {
+				const swapy = createSwapy(container, {
+					animation: 'spring',
+					swapMode: 'hover',
+					continuousMode: true,
+					autoScrollOnDrag: true
+				});
+
+				swapy.onSwap(({ data }) => {
+					try {
+						const newOrder = data.array.map((item) => item.itemId).filter(Boolean);
+						overviewStore.cards = overviewStore.cards.sort((a, b) => {
+							const aIndex = newOrder.indexOf(a.id);
+							const bIndex = newOrder.indexOf(b.id);
+							if (aIndex === -1) return 1;
+							if (bIndex === -1) return -1;
+							return aIndex - bIndex;
+						});
+						swapyErrorsRef.current = 0;
+					} catch (e) {
+						console.error('Error in swap handler:', e);
+						handleSwapyErrorRef.current();
+					}
+				});
+
+				swapyRef.current = swapy;
+				console.log('Swapy initialized successfully');
+			} catch (e) {
+				console.error('Error initializing swapy:', e);
+				handleSwapyErrorRef.current();
+			}
+		});
+	}, [enabledCards.length, cardsReady]);
+
+	const handleCardSizeChange = useCallback((id: string, size: CardSize) => {
 		const cardIndex = overviewStore.cards.findIndex((card) => card.id === id);
 		if (cardIndex !== -1 && overviewStore.cards[cardIndex]?.id) {
 			overviewStore.cards[cardIndex] = {
@@ -178,73 +291,131 @@ export const Component = () => {
 				size
 			};
 		}
-	};
+	}, []);
 
-	const handleCardToggle = (id: string) => {
+	const handleCardToggle = useCallback((id: string) => {
 		const cardIndex = overviewStore.cards.findIndex((card) => card.id === id);
 		if (cardIndex !== -1 && overviewStore.cards[cardIndex]?.id) {
 			overviewStore.cards[cardIndex].enabled = !overviewStore.cards[cardIndex].enabled;
 		}
-	};
-
-	const handleResetCards = () => {
-		overviewStore.cards = defaultCards;
-	};
-
-	const enabledCards = useMemo(() => store.cards.filter((card) => card.enabled), [store.cards]);
-
-	// Initialize swapy
-	useEffect(() => {
-		if (!containerRef.current || swapyInitialized.current) return;
-
-		const container = containerRef.current;
-		swapyRef.current = createSwapy(container, {
-			swapMode: 'hover'
-		});
-
-		const handleSwap = ({ data }: { data: any }) => {
-			if (!data?.object) return;
-
-			const newOrder = Object.entries(data.object)
-				.sort(([a], [b]) => Number(a) - Number(b))
-				.map(([_, id]) => id);
-
-			const currentEnabled = [...store.cards].filter((card) => card.enabled);
-			const currentDisabled = [...store.cards].filter((card) => !card.enabled);
-
-			const reorderedCards = newOrder
-				.map((id) => currentEnabled.find((card) => card.id === id))
-				.filter((card): card is CardConfig => card !== undefined);
-
-			if (reorderedCards.length === currentEnabled.length) {
-				overviewStore.cards = [...reorderedCards, ...currentDisabled];
-			}
-		};
-
-		swapyRef.current.onSwap(handleSwap);
-		swapyInitialized.current = true;
-
-		return () => {
-			if (swapyRef.current) {
-				swapyRef.current.destroy();
-				swapyRef.current = null;
-				swapyInitialized.current = false;
-			}
-		};
 	}, []);
 
-	// Re-initialize swapy when cards are enabled/disabled
-	useEffect(() => {
-		if (!swapyInitialized.current || !containerRef.current) return;
+	const handleResetCards = useCallback(() => {
+		overviewStore.cards = defaultCards;
+	}, []);
 
-		swapyRef.current.destroy();
-		swapyRef.current = createSwapy(containerRef.current, {
-			swapMode: 'hover'
-		});
+	useEffect(() => {
+		handleSwapyErrorRef.current = handleSwapyError;
+	}, [handleSwapyError]);
+
+	const handleCardLoad = useCallback(() => {
+		cardLoadCountRef.current++;
+		if (cardLoadCountRef.current === enabledCards.length) {
+			initAttemptRef.current = 0;
+			setTimeout(() => {
+				setCardsReady(true);
+			}, 100);
+		}
 	}, [enabledCards.length]);
 
+	// Reset initialization state when cards change
+	useEffect(() => {
+		setCardsReady(false);
+		cardLoadCountRef.current = 0;
+		initAttemptRef.current = 0;
+		cardRefs.current.clear();
+		if (swapyRef.current) {
+			try {
+				swapyRef.current.destroy();
+			} catch (e) {
+				console.error('Error destroying swapy:', e);
+			}
+			swapyRef.current = null;
+		}
+	}, [enabledCards.length]);
+
+	const renderCard = useCallback(
+		(card: CardConfig) => {
+			return (
+				<div
+					key={card.id}
+					ref={(el) => {
+						if (el) cardRefs.current.set(card.id, el);
+						else cardRefs.current.delete(card.id);
+					}}
+					data-swapy-slot={card.id}
+					className={clsx('flex-shrink-0', {
+						'w-full sm:w-[calc(50%-8px)] lg:w-[calc(25%-12px)]': card.size === 'small',
+						'w-full lg:w-[calc(50%-8px)]': card.size === 'medium',
+						'w-full': card.size === 'large'
+					})}
+					style={{
+						minWidth:
+							card.size === 'small'
+								? '200px'
+								: card.size === 'medium'
+									? '300px'
+									: '400px',
+						minHeight:
+							card.size === 'small'
+								? '150px'
+								: card.size === 'medium'
+									? '200px'
+									: '250px'
+					}}
+				>
+					<div
+						data-swapy-item={card.id}
+						className="h-full w-full"
+						onTransitionEnd={() => {
+							console.log(`Card ${card.id} ready`);
+							handleCardLoad();
+						}}
+					>
+						<div
+							data-swapy-handle
+							className="mb-2 flex cursor-grab items-center gap-2 active:cursor-grabbing"
+							style={{ minHeight: '30px', width: '100%' }}
+						>
+							<div className="text-ink-dull">
+								<ArrowsOutCardinal className="size-4" />
+							</div>
+							<span className="text-sm font-medium text-ink-dull">{card.title}</span>
+						</div>
+						<Card className="flex h-full flex-col overflow-hidden bg-app-box/70 p-4">
+							<div className="flex-1 overflow-auto">
+								<Suspense fallback={<div>Loading...</div>}>
+									<CardWrapper id={card.id} />
+								</Suspense>
+							</div>
+						</Card>
+					</div>
+				</div>
+			);
+		},
+		[handleCardLoad]
+	);
+
+	useEffect(() => {
+		if (cardsReady) {
+			console.log('Cards ready, initializing swapy');
+			initializeSwapy();
+		}
+	}, [cardsReady, initializeSwapy]);
+
+	useEffect(() => {
+		if (swapyRef.current) {
+			try {
+				swapyRef.current.destroy();
+			} catch (e) {
+				console.error('Error cleaning up swapy:', e);
+			}
+			swapyRef.current = null;
+		}
+	}, []);
+
 	return (
-		<div className="relative">
+		<div className="relative flex h-full flex-col overflow-y-auto">
 			<div className="absolute right-0 top-0 flex justify-end p-4">
 				<DropdownMenu.Root
 					trigger={
@@ -266,43 +437,8 @@ export const Component = () => {
 				</DropdownMenu.Root>
 			</div>
 
-			<div className="grid gap-4 p-4" ref={containerRef}>
-				{enabledCards.map((card, index) => (
-					<div
-						key={card.id}
-						data-swapy-slot
-						className={clsx('w-full', {
-							'col-span-1': card.size === 'small',
-							'col-span-1 md:col-span-1 xl:col-span-2': card.size === 'medium',
-							'col-span-1 sm:col-span-2 lg:col-span-4': card.size === 'large'
-						})}
-					>
-						<div data-swapy-item>
-							<div
-								data-swapy-handle
-								className="flex cursor-grab items-center gap-2 p-2 active:cursor-grabbing"
-							>
-								<div className="text-ink-dull">
-									<ArrowsOutCardinal className="size-4" />
-								</div>
-								<span className="text-sm font-medium text-ink-dull">
-									{card.title}
-								</span>
-							</div>
-							<OverviewCard
-								id={card.id}
-								size={card.size}
-								onSizeChange={(size) => handleCardSizeChange(card.id, size)}
-								title={card.title}
-								expandable={true}
-							>
-								<Suspense fallback={<div>Loading...</div>}>
-									<CardWrapper id={card.id} />
-								</Suspense>
-							</OverviewCard>
-						</div>
-					</div>
-				))}
+			<div ref={containerRef} data-overview-container className="grid grid-cols-1 gap-4 p-5">
+				{enabledCards.map(renderCard)}
 			</div>
 		</div>
 	);
