@@ -181,6 +181,7 @@ export const Component = () => {
 	const cardLoadCountRef = useRef(0);
 	const initAttemptRef = useRef(0);
 	const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+	const domCheckIntervalRef = useRef<number>();
 
 	const enabledCards = useMemo(() => store.cards.filter((card) => card.enabled), [store.cards]);
 
@@ -203,11 +204,10 @@ export const Component = () => {
 	}, []);
 
 	const [isSwapping, setIsSwapping] = useState(false);
-	const swapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-	const domCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+	const swapTimeoutRef = useRef<any>(null);
 
 	const [isInitializing, setIsInitializing] = useState(false);
-	const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const initializationTimeoutRef = useRef<any>(null);
 	const lastSuccessfulDimensionsRef = useRef<{ width: number; height: number } | null>(null);
 	const retryAttemptsRef = useRef(0);
 	const MAX_RETRY_ATTEMPTS = 3;
@@ -278,15 +278,17 @@ export const Component = () => {
 	const checkDomStability = useCallback(async () => {
 		let checksCount = 0;
 		const maxChecks = 10;
-		const checkInterval = 50;
 
 		return new Promise<boolean>((resolve) => {
 			const check = () => {
 				const container = containerRef.current;
 				if (!container) {
-					if (checksCount >= maxChecks) resolve(false);
+					if (checksCount >= maxChecks) {
+						resolve(false);
+						return;
+					}
 					checksCount++;
-					setTimeout(check, checkInterval);
+					requestAnimationFrame(check);
 					return;
 				}
 
@@ -302,7 +304,7 @@ export const Component = () => {
 						return;
 					}
 					checksCount++;
-					setTimeout(check, checkInterval);
+					requestAnimationFrame(check);
 					return;
 				}
 
@@ -314,7 +316,7 @@ export const Component = () => {
 						return;
 					}
 					checksCount++;
-					setTimeout(check, checkInterval);
+					requestAnimationFrame(check);
 					return;
 				}
 
@@ -323,7 +325,7 @@ export const Component = () => {
 				resolve(true);
 			};
 
-			check();
+			requestAnimationFrame(check);
 		});
 	}, [verifyElements]);
 
@@ -440,9 +442,6 @@ export const Component = () => {
 		if (swapTimeoutRef.current) {
 			clearTimeout(swapTimeoutRef.current);
 		}
-		if (domCheckIntervalRef.current) {
-			clearInterval(domCheckIntervalRef.current);
-		}
 		if (swapyRef.current) {
 			try {
 				swapyRef.current.destroy();
@@ -470,7 +469,15 @@ export const Component = () => {
 		return () => {
 			resetInitializationState();
 			if (domCheckIntervalRef.current) {
-				clearInterval(domCheckIntervalRef.current);
+				cancelAnimationFrame(domCheckIntervalRef.current);
+			}
+			if (swapyRef.current) {
+				try {
+					swapyRef.current.destroy();
+				} catch (e) {
+					console.error('Error destroying swapy:', e);
+				}
+				swapyRef.current = null;
 			}
 		};
 	}, [resetInitializationState]);
