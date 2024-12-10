@@ -191,7 +191,7 @@ export const Component = () => {
 						</div>
 						<div className="mb-1">
 							<Label className="text-sm font-medium text-ink-faint">
-								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
+								<Database className="mr-1 mt-[-2px] inline size-4" /> Logs Folder
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
 						</div>

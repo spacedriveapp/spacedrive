@@ -11,13 +11,12 @@ use sd_crypto::{CryptoRng, SeedableRng};
 
 use std::{sync::Arc, time::Duration};
 
-use iroh_net::{
+use iroh::{
 	discovery::{
 		dns::DnsDiscovery, local_swarm_discovery::LocalSwarmDiscovery, pkarr::dht::DhtDiscovery,
 		ConcurrentDiscovery, Discovery,
 	},
-	relay::{RelayMap, RelayMode, RelayUrl},
-	Endpoint, NodeId,
+	Endpoint, NodeId, RelayMap, RelayMode, RelayUrl,
 };
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
