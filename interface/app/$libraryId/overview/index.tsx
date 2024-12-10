@@ -9,6 +9,7 @@ import clsx from 'clsx';
 import {
 	createElement,
 	lazy,
+	memo,
 	Suspense,
 	useCallback,
 	useEffect,
@@ -19,8 +20,12 @@ import {
 import { createSwapy } from 'swapy';
 import { useSnapshot } from 'valtio';
 import { Button, Card, CheckBox, DropdownMenu } from '@sd/ui';
+import { Folder } from '~/components';
 import { useLocale } from '~/hooks';
 
+import { SearchContextProvider, SearchOptions, useSearchFromSearchParams } from '../search';
+import SearchBar from '../search/SearchBar';
+import { TopBarPortal } from '../TopBar/Portal';
 import { CardConfig, defaultCards, overviewStore, type CardSize } from './store';
 
 export interface FileKind {
@@ -169,6 +174,61 @@ const CardWrapper = ({ id }: { id: string }) => {
 	return CardComponent ? <CardComponent /> : null;
 };
 
+// Memoized card content component
+const CardContent = memo(({ id, title }: { id: string; title: string }) => {
+	return (
+		<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
+			<div
+				data-swapy-handle
+				className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
+			>
+				<div className="text-ink-dull">
+					<ArrowsOutCardinal className="size-4" />
+				</div>
+				<span className="text-sm font-medium text-ink-dull">
+					{title}
+				</span>
+			</div>
+			<div className="flex-1 p-4">
+				<Suspense fallback={<div>Loading...</div>}>
+					<CardWrapper id={id} />
+				</Suspense>
+			</div>
+		</Card>
+	);
+});
+
+// Draggable wrapper component
+const DraggableCard = memo(({ card, onLoad, cardRefs }: { card: CardConfig; onLoad: () => void; cardRefs: React.MutableRefObject<Map<string, HTMLElement>> }) => {
+	return (
+		<div
+			key={card.id}
+			ref={(el) => {
+				if (el) cardRefs.current.set(card.id, el);
+				else cardRefs.current.delete(card.id);
+			}}
+			data-swapy-slot={card.id}
+			className={clsx('flex-shrink-0', {
+				'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]': card.size === 'small',
+				'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
+				'w-full': card.size === 'large'
+			})}
+			style={{ height: '250px' }}
+		>
+			<div
+				data-swapy-item={card.id}
+				className="h-full w-full"
+				onTransitionEnd={() => {
+					console.log(`Card ${card.id} ready`);
+					onLoad();
+				}}
+			>
+				<CardContent id={card.id} title={card.title} />
+			</div>
+		</div>
+	);
+});
+
 export const Component = () => {
 	const store = useSnapshot(overviewStore);
 	const { t } = useLocale();
@@ -180,7 +240,7 @@ export const Component = () => {
 	const [cardsReady, setCardsReady] = useState(false);
 	const cardLoadCountRef = useRef(0);
 	const initAttemptRef = useRef(0);
-	const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+	const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
 	const domCheckIntervalRef = useRef<number>();
 
 	const enabledCards = useMemo(() => store.cards.filter((card) => card.enabled), [store.cards]);
@@ -363,8 +423,8 @@ export const Component = () => {
 				animation: 'spring',
 				swapMode: 'hover',
 				continuousMode: true,
-				autoScrollOnDrag: true,
-				onError: handleSwapyError
+				autoScrollOnDrag: true
+				// onError: handleSwapyError
 			});
 
 			swapyRef.current = swapy;
@@ -485,56 +545,10 @@ export const Component = () => {
 	const renderCard = useCallback(
 		(card: CardConfig) => {
 			return (
-				<div
-					key={card.id}
-					ref={(el) => {
-						if (el) cardRefs.current.set(card.id, el);
-						else cardRefs.current.delete(card.id);
-					}}
-					data-swapy-slot={card.id}
-					className={clsx('flex-shrink-0', {
-						'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]': card.size === 'small',
-						'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
-						'w-full': card.size === 'large'
-					})}
-					style={{
-						minHeight:
-							card.size === 'small'
-								? '150px'
-								: card.size === 'medium'
-									? '200px'
-									: '250px'
-					}}
-				>
-					<div
-						data-swapy-item={card.id}
-						className="h-full w-full"
-						onTransitionEnd={() => {
-							console.log(`Card ${card.id} ready`);
-							handleCardLoad();
-						}}
-					>
-						<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
-							<div
-								data-swapy-handle
-								className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
-							>
-								<div className="text-ink-dull">
-									<ArrowsOutCardinal className="size-4" />
-								</div>
-								<span className="text-sm font-medium text-ink-dull">{card.title}</span>
-							</div>
-							<div className="flex-1 p-4">
-								<Suspense fallback={<div>Loading...</div>}>
-									<CardWrapper id={card.id} />
-								</Suspense>
-							</div>
-						</Card>
-					</div>
-				</div>
+				<DraggableCard key={card.id} card={card} onLoad={handleCardLoad} cardRefs={cardRefs} />
 			);
 		},
-		[handleCardLoad]
+		[handleCardLoad, cardRefs]
 	);
 
 	useEffect(() => {
@@ -543,36 +557,52 @@ export const Component = () => {
 			initializeSwapy();
 		}
 	}, [cardsReady, initializeSwapy]);
-
+	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 	return (
-		<div className="relative flex h-full flex-col overflow-y-auto">
-			<div className="absolute right-0 top-0 flex justify-end p-4">
-				<DropdownMenu.Root
-					trigger={
-						<Button size="icon" variant="outline">
-							<GearSix className="size-4" />
-						</Button>
-					}
-					side="bottom"
-					sideOffset={5}
-				>
-					{store.cards.map((card) => (
-						<DropdownMenu.Item key={card.id} onClick={() => handleCardToggle(card.id)}>
-							<CheckBox checked={card.enabled} />
-							{card.title}
+		<SearchContextProvider search={search}>
+			<TopBarPortal
+				center={<SearchBar />}
+				left={
+					<div className="flex items-center gap-2">
+						<Folder size={22} className="-mt-px" />
+						<span className="truncate text-sm font-medium">Overview</span>
+					</div>
+				}
+			/>
+			<div className="relative flex h-full flex-col overflow-y-auto">
+				<div className="absolute right-0 top-0 flex justify-end p-4">
+					<DropdownMenu.Root
+						trigger={
+							<Button size="icon" variant="outline">
+								<GearSix className="size-4" />
+							</Button>
+						}
+						side="bottom"
+						sideOffset={5}
+					>
+						{store.cards.map((card) => (
+							<DropdownMenu.Item
+								key={card.id}
+								onClick={() => handleCardToggle(card.id)}
+							>
+								<CheckBox checked={card.enabled} />
+								{card.title}
+							</DropdownMenu.Item>
+						))}
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item onClick={() => handleResetCards()}>
+							Reset
 						</DropdownMenu.Item>
-					))}
-					<DropdownMenu.Separator />
-					<DropdownMenu.Item onClick={() => handleResetCards()}>Reset</DropdownMenu.Item>
-				</DropdownMenu.Root>
-			</div>
+					</DropdownMenu.Root>
+				</div>
 
-			<div
-				ref={containerRef}
-				className="flex h-full w-full flex-wrap content-start gap-4 overflow-y-auto p-5"
-			>
-				{enabledCards.map(renderCard)}
+				<div
+					ref={containerRef}
+					className="flex h-full w-full flex-wrap content-start gap-4 overflow-y-auto p-5"
+				>
+					{enabledCards.map(renderCard)}
+				</div>
 			</div>
-		</div>
+		</SearchContextProvider>
 	);
 };
