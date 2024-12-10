@@ -24,6 +24,7 @@ export type Procedures = {
         { key: "invalidation.test-invalidate", input: never, result: number } | 
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
+        { key: "keys.get", input: never, result: string } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
@@ -108,6 +109,7 @@ export type Procedures = {
         { key: "jobs.objectValidator", input: LibraryArgs<ObjectValidatorArgs>, result: null } | 
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
+        { key: "keys.save", input: string, result: null } | 
         { key: "labels.delete", input: LibraryArgs<number>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
@@ -138,7 +140,7 @@ export type Procedures = {
         { key: "tags.delete", input: LibraryArgs<number>, result: null } | 
         { key: "tags.update", input: LibraryArgs<TagUpdateArgs>, result: null } | 
         { key: "toggleFeatureFlag", input: BackendFeature, result: null } | 
-        { key: "volumes.track", input: LibraryArgs<TrackVolumeInput>, result: null } | 
+        { key: "volumes.track", input: LibraryArgs<VolumeFingerprint>, result: null } | 
         { key: "volumes.unmount", input: LibraryArgs<number[]>, result: null },
     subscriptions: 
         { key: "cloud.listenCloudServicesNotifications", input: never, result: CloudP2PNotifyUser } | 
@@ -790,8 +792,6 @@ export type TextMatch = { contains: string } | { startsWith: string } | { endsWi
  */
 export type ThumbKey = { shard_hex: string; cas_id: CasId; base_directory_str: string }
 
-export type TrackVolumeInput = { volume_id: VolumeFingerprint }
-
 export type UpdateThumbnailerPreferences = Record<string, never>
 
 export type VideoProps = { pixel_format: string | null; color_range: string | null; bits_per_channel: number | null; color_space: string | null; color_primaries: string | null; color_transfer: string | null; field_order: string | null; chroma_location: string | null; width: number; height: number; aspect_ratio_num: number | null; aspect_ratio_den: number | null; properties: string[] }
@@ -800,6 +800,11 @@ export type VideoProps = { pixel_format: string | null; color_range: string | nu
  * Represents a physical or virtual storage volume in the system
  */
 export type Volume = { 
+/**
+ * Fingerprint of the volume as a hash of its properties, not persisted to the database
+ * Used as the unique identifier for a volume in this module
+ */
+fingerprint: VolumeFingerprint | null; 
 /**
  * Database ID (None if not yet committed to database)
  */
@@ -863,11 +868,7 @@ total_bytes_capacity: string;
 /**
  * Available storage space in bytes
  */
-total_bytes_available: string; 
-/**
- * Fingerprint of the volume, not persisted to the database
- */
-fingerprint: string }
+total_bytes_available: string }
 
 /**
  * Events emitted by the Volume Manager when volume state changes
@@ -898,4 +899,7 @@ export type VolumeEvent =
  */
 { VolumeError: { fingerprint: VolumeFingerprint; error: string } }
 
+/**
+ * A fingerprint of a volume, used to identify it when it is not persisted in the database
+ */
 export type VolumeFingerprint = number[]

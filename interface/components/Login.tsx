@@ -6,7 +6,7 @@ import { Dispatch, SetStateAction, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { signIn } from 'supertokens-web-js/recipe/emailpassword';
 import { createCode } from 'supertokens-web-js/recipe/passwordless';
-import { useZodForm } from '@sd/client';
+import { useBridgeMutation, useBridgeQuery, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Input, toast, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { getTokens } from '~/util';
@@ -119,6 +119,9 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 			password: ''
 		}
 	});
+	const testMutation = useBridgeMutation("keys.save");
+	const testQuery = useBridgeQuery(['keys.get']);
+	const [inputValue, setInputValue] = useState("");
 
 	return (
 		<Form
@@ -219,6 +222,39 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 			>
 				Continue with email
 			</Button>
+
+			<div>
+				<input type="hidden" name="csrf" value="true" />
+				{/* Empty string box with a button next to it which sends the input using the mutation */}
+				<div className="flex gap-2 mt-4">
+					<input
+						value={inputValue}
+						onChange={(e) => setInputValue(e.target.value)}
+						className="w-full rounded-md border border-gray-300 p-2"
+						placeholder="Enter a key"
+					/>
+					<Button
+						onClick={() => {
+							testMutation.mutate(inputValue);
+						}}
+						variant="accent"
+						size="md"
+						className="w-1/3"
+					>
+						Save
+					</Button>
+					</div>
+			</div>
+		<Button
+			onClick={() => {
+				console.log(testQuery.data);
+			}}
+			variant="accent"
+			size="md"
+			className="w-full mt-2"
+		>
+			Log Query Data
+		</Button>
 		</Form>
 	);
 };

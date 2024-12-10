@@ -2,7 +2,7 @@
 name    = "sd-crypto"
 version = "0.0.1"
 
-authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>"]
+authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>", "Arnab Chakraborty <arnab@spacedrive.com>"]
 description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.

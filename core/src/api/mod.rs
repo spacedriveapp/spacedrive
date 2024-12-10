@@ -43,6 +43,7 @@ mod tags;
 pub mod utils;
 pub mod volumes;
 mod web_api;
+mod keys;
 
 use libraries::KindStatistic;
 use utils::{InvalidRequests, InvalidateOperationEvent};
@@ -210,6 +211,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("preferences.", preferences::mount())
 		.merge("notifications.", notifications::mount())
 		.merge("backups.", backups::mount())
+		.merge("keys.", keys::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.sd_patch_types_dangerously(|type_map| {
 			let def =
