@@ -27,7 +27,7 @@ use dashmap::DashMap;
 use flume::SendError;
 use futures::StreamExt;
 use futures_concurrency::stream::Merge;
-use iroh_net::{Endpoint, NodeId};
+use iroh::{Endpoint, NodeId};
 use quic_rpc::{
 	server::{Accepting, RpcChannel, RpcServerError},
 	transport::quinn::{QuinnConnector, QuinnListener},

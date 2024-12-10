@@ -1,14 +1,8 @@
-import { ArrowRight, EjectSimple } from '@phosphor-icons/react';
+import { EjectSimple } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { MouseEvent, PropsWithChildren, useMemo } from 'react';
-import {
-	useBridgeQuery,
-	useLibraryMutation,
-	useLibraryQuery,
-	useLibrarySubscription,
-	Volume
-} from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useLibrarySubscription, Volume } from '@sd/client';
 import { Button, toast, tw } from '@sd/ui';
 import { Icon, IconName } from '~/components';
 import { useLocale } from '~/hooks';
@@ -156,9 +150,7 @@ export default function LocalSection() {
 							onTrack={async () => {
 								if (!isTracked && volume.pub_id) {
 									try {
-										await trackVolumeMutation.mutateAsync({
-											volume_id: Array.from(volume.pub_id) // Convert Uint8Array to number[]
-										});
+										await trackVolumeMutation.mutateAsync(volume.pub_id);
 										toast.success('Volume tracked successfully');
 									} catch (error) {
 										toast.error('Failed to track volume');
