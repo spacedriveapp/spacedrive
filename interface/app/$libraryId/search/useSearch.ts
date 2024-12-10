@@ -4,7 +4,7 @@ import { useSearchParams as useRawSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from 'rooks';
 import { SearchFilterArgs } from '@sd/client';
 
-import { argsToOptions, getKey, useSearchStore } from './store';
+import { argsToFilterOptions, getKey, useFilterOptionStore } from './Filters/store';
 
 export type SearchTarget = 'paths' | 'objects';
 
@@ -120,11 +120,11 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 
 	const [searchBarFocused, setSearchBarFocused] = useState(false);
 
-	const searchState = useSearchStore();
+	const filterStore = useFilterOptionStore();
 
 	const filtersAsOptions = useMemo(
-		() => argsToOptions(filters ?? [], searchState.filterOptions),
-		[filters, searchState.filterOptions]
+		() => argsToFilterOptions(filters ?? [], filterStore.filterOptions),
+		[filters, filterStore.filterOptions]
 	);
 
 	const filtersKeys: Set<string> = useMemo(() => {
@@ -140,7 +140,6 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 	}, [filtersAsOptions]);
 
 	// Merging of filters that should be ORed
-
 	const mergedFilters = useMemo(
 		() => filters?.map((arg, removalIndex) => ({ arg, removalIndex })),
 		[filters]
@@ -166,8 +165,8 @@ export function useSearch<TSource extends UseSearchSource>(props: UseSearchProps
 	);
 
 	const allFiltersAsOptions = useMemo(
-		() => argsToOptions(allFilters, searchState.filterOptions),
-		[searchState.filterOptions, allFilters]
+		() => argsToFilterOptions(allFilters, filterStore.filterOptions),
+		[filterStore.filterOptions, allFilters]
 	);
 
 	const allFiltersKeys: Set<string> = useMemo(() => {
