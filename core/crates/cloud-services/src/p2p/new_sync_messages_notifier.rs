@@ -9,7 +9,7 @@ use sd_cloud_schema::{
 use std::time::Duration;
 
 use futures_concurrency::future::Join;
-use iroh_net::{Endpoint, NodeId};
+use iroh::{Endpoint, NodeId};
 use quic_rpc::{transport::quinn::QuinnConnector, RpcClient};
 use tokio::time::Instant;
 use tracing::{debug, error, instrument, warn};

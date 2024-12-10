@@ -5,7 +5,7 @@ use sd_cloud_schema::{Client, Request, Response, ServicesALPN};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use futures::Stream;
-use iroh_net::relay::RelayUrl;
+use iroh::relay::RelayUrl;
 use quic_rpc::{transport::quinn::QuinnConnector, RpcClient, RpcMessage};
 use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
