@@ -493,17 +493,11 @@ export const Component = () => {
 					}}
 					data-swapy-slot={card.id}
 					className={clsx('flex-shrink-0', {
-						'w-full sm:w-[calc(50%-8px)] lg:w-[calc(25%-12px)]': card.size === 'small',
-						'w-full lg:w-[calc(50%-8px)]': card.size === 'medium',
+						'w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-12px)]': card.size === 'small',
+						'w-full lg:w-[calc(66.666%-8px)]': card.size === 'medium',
 						'w-full': card.size === 'large'
 					})}
 					style={{
-						minWidth:
-							card.size === 'small'
-								? '200px'
-								: card.size === 'medium'
-									? '300px'
-									: '400px',
 						minHeight:
 							card.size === 'small'
 								? '150px'
@@ -520,18 +514,17 @@ export const Component = () => {
 							handleCardLoad();
 						}}
 					>
-						<div
-							data-swapy-handle
-							className="mb-2 flex cursor-grab items-center gap-2 active:cursor-grabbing"
-							style={{ minHeight: '30px', width: '100%' }}
-						>
-							<div className="text-ink-dull">
-								<ArrowsOutCardinal className="size-4" />
+						<Card className="flex h-full w-full flex-col overflow-hidden bg-app-box/70">
+							<div
+								data-swapy-handle
+								className="flex cursor-grab items-center gap-2 border-b border-app-line/50 p-3 active:cursor-grabbing"
+							>
+								<div className="text-ink-dull">
+									<ArrowsOutCardinal className="size-4" />
+								</div>
+								<span className="text-sm font-medium text-ink-dull">{card.title}</span>
 							</div>
-							<span className="text-sm font-medium text-ink-dull">{card.title}</span>
-						</div>
-						<Card className="flex h-full flex-col overflow-hidden bg-app-box/70 p-4">
-							<div className="flex-1 overflow-auto">
+							<div className="flex-1 p-4">
 								<Suspense fallback={<div>Loading...</div>}>
 									<CardWrapper id={card.id} />
 								</Suspense>
@@ -574,7 +567,10 @@ export const Component = () => {
 				</DropdownMenu.Root>
 			</div>
 
-			<div ref={containerRef} data-overview-container className="grid grid-cols-1 gap-4 p-5">
+			<div
+				ref={containerRef}
+				className="flex h-full w-full flex-wrap content-start gap-4 overflow-y-auto p-5"
+			>
 				{enabledCards.map(renderCard)}
 			</div>
 		</div>
