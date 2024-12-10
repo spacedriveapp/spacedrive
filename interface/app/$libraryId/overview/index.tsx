@@ -202,86 +202,197 @@ export const Component = () => {
 		}
 	}, []);
 
-	const initializeSwapy = useCallback(() => {
-		const container = containerRef.current;
-		if (!container || !enabledCards.length || !cardsReady) {
-			console.log('Not ready to initialize swapy:', {
-				container: !!container,
-				enabledCards: enabledCards.length,
-				cardsReady,
-				attempt: initAttemptRef.current
-			});
-			return;
+	const [isSwapping, setIsSwapping] = useState(false);
+	const swapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const domCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+	const [isInitializing, setIsInitializing] = useState(false);
+	const initializationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const lastSuccessfulDimensionsRef = useRef<{ width: number; height: number } | null>(null);
+	const retryAttemptsRef = useRef(0);
+	const MAX_RETRY_ATTEMPTS = 3;
+
+	const resetInitializationState = useCallback(() => {
+		setIsInitializing(false);
+		retryAttemptsRef.current = 0;
+		if (initializationTimeoutRef.current) {
+			clearTimeout(initializationTimeoutRef.current);
+			initializationTimeoutRef.current = null;
 		}
+	}, []);
 
-		// Verify all card elements exist and are mounted
-		const allCardsPresent = enabledCards.every((card) => {
-			const element = cardRefs.current.get(card.id);
-			return element && element.isConnected;
-		});
+	const retryInitialization = useCallback(() => {
+		if (retryAttemptsRef.current < MAX_RETRY_ATTEMPTS) {
+			retryAttemptsRef.current++;
+			console.log(
+				`Retrying initialization ${retryAttemptsRef.current}/${MAX_RETRY_ATTEMPTS}`
+			);
+			setTimeout(() => {
+				resetInitializationState();
+				// Use a new function reference to avoid the circular dependency
+				const container = containerRef.current;
+				if (!container || !enabledCards.length || !cardsReady) return;
 
-		if (!allCardsPresent) {
-			console.log('Not all cards are mounted yet');
-			if (initAttemptRef.current < 3) {
-				initAttemptRef.current++;
-				setTimeout(() => initializeSwapy(), 100);
-			}
-			return;
-		}
-
-		console.log('Initializing swapy with:', {
-			containerWidth: container.offsetWidth,
-			containerHeight: container.offsetHeight,
-			numCards: enabledCards.length,
-			attempt: initAttemptRef.current
-		});
-
-		// Clean up previous instance
-		if (swapyRef.current) {
-			try {
-				swapyRef.current.destroy();
-			} catch (e) {
-				console.error('Error destroying swapy:', e);
-			}
-			swapyRef.current = null;
-		}
-
-		// Force a reflow and wait a frame
-		container.offsetHeight;
-		requestAnimationFrame(() => {
-			try {
-				const swapy = createSwapy(container, {
-					animation: 'spring',
-					swapMode: 'hover',
-					continuousMode: true,
-					autoScrollOnDrag: true
-				});
-
-				swapy.onSwap(({ data }) => {
+				if (swapyRef.current) {
 					try {
-						const newOrder = data.array.map((item) => item.itemId).filter(Boolean);
-						overviewStore.cards = overviewStore.cards.sort((a, b) => {
-							const aIndex = newOrder.indexOf(a.id);
-							const bIndex = newOrder.indexOf(b.id);
-							if (aIndex === -1) return 1;
-							if (bIndex === -1) return -1;
-							return aIndex - bIndex;
-						});
-						swapyErrorsRef.current = 0;
+						swapyRef.current.destroy();
 					} catch (e) {
-						console.error('Error in swap handler:', e);
-						handleSwapyErrorRef.current();
+						console.error('Error destroying swapy:', e);
 					}
-				});
+					swapyRef.current = null;
+				}
 
-				swapyRef.current = swapy;
-				console.log('Swapy initialized successfully');
-			} catch (e) {
-				console.error('Error initializing swapy:', e);
-				handleSwapyErrorRef.current();
+				setIsInitializing(true);
+			}, 100 * retryAttemptsRef.current);
+			return false;
+		}
+		console.log('Max retry attempts reached, proceeding anyway');
+		return true;
+	}, [enabledCards.length, cardsReady, resetInitializationState]);
+
+	const verifyElements = useCallback(() => {
+		const container = containerRef.current;
+		if (!container) return false;
+
+		// Verify all card elements exist and have valid dimensions
+		for (const card of enabledCards) {
+			const element = cardRefs.current.get(card.id);
+			if (
+				!element ||
+				!element.isConnected ||
+				element.offsetWidth === 0 ||
+				element.offsetHeight === 0
+			) {
+				return false;
 			}
+		}
+
+		// Verify container has valid dimensions
+		if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+			return false;
+		}
+
+		return true;
+	}, [enabledCards]);
+
+	const checkDomStability = useCallback(async () => {
+		let checksCount = 0;
+		const maxChecks = 10;
+		const checkInterval = 50;
+
+		return new Promise<boolean>((resolve) => {
+			const check = () => {
+				const container = containerRef.current;
+				if (!container) {
+					if (checksCount >= maxChecks) resolve(false);
+					checksCount++;
+					setTimeout(check, checkInterval);
+					return;
+				}
+
+				const currentDimensions = {
+					width: container.offsetWidth,
+					height: container.offsetHeight
+				};
+
+				if (!verifyElements()) {
+					if (checksCount >= maxChecks) {
+						console.warn('DOM elements not stable after max checks');
+						resolve(false);
+						return;
+					}
+					checksCount++;
+					setTimeout(check, checkInterval);
+					return;
+				}
+
+				// If dimensions are 0 but we have previous successful dimensions, wait longer
+				if (currentDimensions.width === 0 && currentDimensions.height === 0) {
+					if (checksCount >= maxChecks) {
+						console.warn('Container dimensions not stable after max checks');
+						resolve(false);
+						return;
+					}
+					checksCount++;
+					setTimeout(check, checkInterval);
+					return;
+				}
+
+				// Store successful dimensions for future reference
+				lastSuccessfulDimensionsRef.current = currentDimensions;
+				resolve(true);
+			};
+
+			check();
 		});
-	}, [enabledCards.length, cardsReady]);
+	}, [verifyElements]);
+
+	const initializeSwapy = useCallback(async () => {
+		if (isInitializing) {
+			console.log('Already initializing swapy, skipping');
+			return;
+		}
+
+		try {
+			setIsInitializing(true);
+			const isStable = await checkDomStability();
+
+			if (!isStable) {
+				console.warn('DOM not stable, retrying initialization');
+				retryInitialization();
+				return;
+			}
+
+			const container = containerRef.current;
+			if (!container) {
+				console.warn('Container not found during initialization');
+				retryInitialization();
+				return;
+			}
+
+			console.log('Initializing swapy with:', {
+				containerWidth: container.offsetWidth,
+				containerHeight: container.offsetHeight,
+				numCards: enabledCards.length,
+				attempt: retryAttemptsRef.current
+			});
+
+			const swapy = createSwapy(container, {
+				animation: 'spring',
+				swapMode: 'hover',
+				continuousMode: true,
+				autoScrollOnDrag: true,
+				onError: handleSwapyError
+			});
+
+			swapyRef.current = swapy;
+			console.log('Swapy initialized successfully');
+			resetInitializationState();
+		} catch (e) {
+			console.error('Error initializing swapy:', e);
+			retryInitialization();
+		}
+	}, [
+		isInitializing,
+		enabledCards.length,
+		checkDomStability,
+		retryInitialization,
+		resetInitializationState,
+		handleSwapyError
+	]);
+
+	// Effect to handle initialization
+	useEffect(() => {
+		if (
+			isInitializing &&
+			containerRef.current &&
+			enabledCards.length &&
+			cardsReady &&
+			!isSwapping
+		) {
+			initializeSwapy();
+		}
+	}, [isInitializing, enabledCards.length, cardsReady, isSwapping, initializeSwapy]);
 
 	const handleCardSizeChange = useCallback((id: string, size: CardSize) => {
 		const cardIndex = overviewStore.cards.findIndex((card) => card.id === id);
@@ -320,10 +431,18 @@ export const Component = () => {
 
 	// Reset initialization state when cards change
 	useEffect(() => {
-		setCardsReady(false);
-		cardLoadCountRef.current = 0;
-		initAttemptRef.current = 0;
-		cardRefs.current.clear();
+		resetInitializationState();
+	}, [enabledCards.length, resetInitializationState]);
+
+	// Reset swap state when cards change
+	useEffect(() => {
+		setIsSwapping(false);
+		if (swapTimeoutRef.current) {
+			clearTimeout(swapTimeoutRef.current);
+		}
+		if (domCheckIntervalRef.current) {
+			clearInterval(domCheckIntervalRef.current);
+		}
 		if (swapyRef.current) {
 			try {
 				swapyRef.current.destroy();
@@ -333,6 +452,28 @@ export const Component = () => {
 			swapyRef.current = null;
 		}
 	}, [enabledCards.length]);
+
+	// Cleanup intervals on unmount
+	useEffect(() => {
+		return () => {
+			if (domCheckIntervalRef.current) {
+				clearInterval(domCheckIntervalRef.current);
+			}
+			if (swapTimeoutRef.current) {
+				clearTimeout(swapTimeoutRef.current);
+			}
+		};
+	}, []);
+
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
+			resetInitializationState();
+			if (domCheckIntervalRef.current) {
+				clearInterval(domCheckIntervalRef.current);
+			}
+		};
+	}, [resetInitializationState]);
 
 	const renderCard = useCallback(
 		(card: CardConfig) => {
@@ -402,17 +543,6 @@ export const Component = () => {
 			initializeSwapy();
 		}
 	}, [cardsReady, initializeSwapy]);
-
-	useEffect(() => {
-		if (swapyRef.current) {
-			try {
-				swapyRef.current.destroy();
-			} catch (e) {
-				console.error('Error cleaning up swapy:', e);
-			}
-			swapyRef.current = null;
-		}
-	}, []);
 
 	return (
 		<div className="relative flex h-full flex-col overflow-y-auto">
