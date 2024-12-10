@@ -68,6 +68,7 @@ spacetunnel
 specta
 storedkey
 stringly
+swapy
 thumbstrips
 tobiaslutke
 tokio

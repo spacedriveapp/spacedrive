@@ -1,4 +1,3 @@
-import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import {
 	ArrowsIn,
 	ArrowsOut,
@@ -7,7 +6,8 @@ import {
 	GearSix
 } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { createElement, lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { createElement, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { createSwapy } from 'swapy';
 import { useSnapshot } from 'valtio';
 import { Button, Card, CheckBox, DropdownMenu } from '@sd/ui';
 import { useLocale } from '~/hooks';
@@ -37,7 +37,6 @@ const CARD_COMPONENTS: Record<string, React.ComponentType> = {
 interface CardHeadingProps {
 	title: string;
 	onSizeChange?: (size: CardSize) => void;
-	dragHandleProps?: any;
 	expandable?: boolean;
 	isExpanded?: boolean;
 	onExpandToggle?: () => void;
@@ -46,7 +45,6 @@ interface CardHeadingProps {
 function CardHeading({
 	title,
 	onSizeChange,
-	dragHandleProps,
 	expandable,
 	isExpanded,
 	onExpandToggle
@@ -60,11 +58,11 @@ function CardHeading({
 	}, [store.cards, title]);
 
 	return (
-		<div
-			className="mb-2 flex cursor-grab items-center justify-between active:cursor-grabbing"
-			{...dragHandleProps}
-		>
-			<div className="flex items-center gap-2">
+		<div className="mb-2 flex items-center justify-between">
+			<div
+				className="flex cursor-grab items-center gap-2 active:cursor-grabbing"
+				data-swapy-handle
+			>
 				<div className="text-ink-dull">
 					<ArrowsOutCardinal className="size-4" />
 				</div>
@@ -123,7 +121,6 @@ export function OverviewCard({
 	onSizeChange,
 	id,
 	expandable,
-	dragHandleProps,
 	title
 }: {
 	children: React.ReactNode;
@@ -132,7 +129,6 @@ export function OverviewCard({
 	onSizeChange?: (size: CardSize) => void;
 	id: string;
 	expandable?: boolean;
-	dragHandleProps?: any;
 	title: string;
 }) {
 	const [isExpanded, setIsExpanded] = useState(false);
@@ -152,7 +148,6 @@ export function OverviewCard({
 			<CardHeading
 				title={title}
 				onSizeChange={onSizeChange}
-				dragHandleProps={!isExpanded ? dragHandleProps : undefined}
 				expandable={expandable}
 				isExpanded={isExpanded}
 				onExpandToggle={() => setIsExpanded(!isExpanded)}
@@ -171,6 +166,9 @@ const CardWrapper = ({ id }: { id: string }) => {
 export const Component = () => {
 	const store = useSnapshot(overviewStore);
 	const { t } = useLocale();
+	const containerRef = useRef<HTMLDivElement>(null);
+	const swapyRef = useRef<any>(null);
+	const swapyInitialized = useRef(false);
 
 	const handleCardSizeChange = (id: string, size: CardSize) => {
 		const cardIndex = overviewStore.cards.findIndex((card) => card.id === id);
@@ -189,21 +187,61 @@ export const Component = () => {
 		}
 	};
 
-	const handleDragEnd = (result: any) => {
-		if (!result.destination) return;
-
-		const items = Array.from(overviewStore.cards);
-		const [reorderedItem] = items.splice(result.source.index, 1);
-		if (reorderedItem) {
-			items.splice(result.destination.index, 0, reorderedItem);
-		}
-
-		overviewStore.cards = items;
-	};
-
 	const handleResetCards = () => {
 		overviewStore.cards = defaultCards;
 	};
+
+	const enabledCards = useMemo(() => store.cards.filter((card) => card.enabled), [store.cards]);
+
+	// Initialize swapy
+	useEffect(() => {
+		if (!containerRef.current || swapyInitialized.current) return;
+
+		const container = containerRef.current;
+		swapyRef.current = createSwapy(container, {
+			swapMode: 'hover'
+		});
+
+		const handleSwap = ({ data }: { data: any }) => {
+			if (!data?.object) return;
+
+			const newOrder = Object.entries(data.object)
+				.sort(([a], [b]) => Number(a) - Number(b))
+				.map(([_, id]) => id);
+
+			const currentEnabled = [...store.cards].filter((card) => card.enabled);
+			const currentDisabled = [...store.cards].filter((card) => !card.enabled);
+
+			const reorderedCards = newOrder
+				.map((id) => currentEnabled.find((card) => card.id === id))
+				.filter((card): card is CardConfig => card !== undefined);
+
+			if (reorderedCards.length === currentEnabled.length) {
+				overviewStore.cards = [...reorderedCards, ...currentDisabled];
+			}
+		};
+
+		swapyRef.current.onSwap(handleSwap);
+		swapyInitialized.current = true;
+
+		return () => {
+			if (swapyRef.current) {
+				swapyRef.current.destroy();
+				swapyRef.current = null;
+				swapyInitialized.current = false;
+			}
+		};
+	}, []);
+
+	// Re-initialize swapy when cards are enabled/disabled
+	useEffect(() => {
+		if (!swapyInitialized.current || !containerRef.current) return;
+
+		swapyRef.current.destroy();
+		swapyRef.current = createSwapy(containerRef.current, {
+			swapMode: 'hover'
+		});
+	}, [enabledCards.length]);
 
 	return (
 		<div className="relative">
@@ -228,55 +266,44 @@ export const Component = () => {
 				</DropdownMenu.Root>
 			</div>
 
-			<DragDropContext onDragEnd={handleDragEnd}>
-				<Droppable droppableId="overview-cards">
-					{(provided) => (
-						<div
-							{...provided.droppableProps}
-							ref={provided.innerRef}
-							className="grid auto-rows-[250px] grid-cols-1 gap-4 p-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-4"
-						>
-							{store.cards
-								.filter((card) => card.enabled)
-								.map((card, index) => (
-									<Draggable key={card.id} draggableId={card.id} index={index}>
-										{(provided) => (
-											<div
-												ref={provided.innerRef}
-												{...provided.draggableProps}
-												className={clsx('w-full', {
-													'col-span-1': card.size === 'small',
-													'col-span-1 sm:col-span-1':
-														card.size === 'small',
-													'col-span-1 md:col-span-1 xl:col-span-2':
-														card.size === 'medium',
-													'col-span-1 sm:col-span-2 lg:col-span-4':
-														card.size === 'large'
-												})}
-											>
-												<OverviewCard
-													id={card.id}
-													size={card.size}
-													onSizeChange={(size) =>
-														handleCardSizeChange(card.id, size)
-													}
-													dragHandleProps={provided.dragHandleProps}
-													title={card.title}
-													expandable={true}
-												>
-													<Suspense fallback={<div>Loading...</div>}>
-														<CardWrapper id={card.id} />
-													</Suspense>
-												</OverviewCard>
-											</div>
-										)}
-									</Draggable>
-								))}
-							{provided.placeholder}
+			<div className="grid gap-4 p-4" ref={containerRef}>
+				{enabledCards.map((card, index) => (
+					<div
+						key={card.id}
+						data-swapy-slot
+						className={clsx('w-full', {
+							'col-span-1': card.size === 'small',
+							'col-span-1 md:col-span-1 xl:col-span-2': card.size === 'medium',
+							'col-span-1 sm:col-span-2 lg:col-span-4': card.size === 'large'
+						})}
+					>
+						<div data-swapy-item>
+							<div
+								data-swapy-handle
+								className="flex cursor-grab items-center gap-2 p-2 active:cursor-grabbing"
+							>
+								<div className="text-ink-dull">
+									<ArrowsOutCardinal className="size-4" />
+								</div>
+								<span className="text-sm font-medium text-ink-dull">
+									{card.title}
+								</span>
+							</div>
+							<OverviewCard
+								id={card.id}
+								size={card.size}
+								onSizeChange={(size) => handleCardSizeChange(card.id, size)}
+								title={card.title}
+								expandable={true}
+							>
+								<Suspense fallback={<div>Loading...</div>}>
+									<CardWrapper id={card.id} />
+								</Suspense>
+							</OverviewCard>
 						</div>
-					)}
-				</Droppable>
-			</DragDropContext>
+					</div>
+				))}
+			</div>
 		</div>
 	);
 };
