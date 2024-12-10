@@ -1,6 +1,6 @@
 import { Plus, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import useResizeObserver from 'use-resize-observer';
 import { useSelector } from '@sd/client';
 import { Tooltip } from '@sd/ui';
@@ -75,7 +75,7 @@ const TopBar = () => {
 			<div
 				data-tauri-drag-region
 				className={clsx(
-					'flex h-12 items-center gap-3.5 overflow-hidden px-3.5',
+					'flex h-[50px] items-center gap-3.5 overflow-hidden px-3.5',
 					'duration-250 transition-[background-color,border-color] ease-out',
 					isDragSelecting && 'pointer-events-none',
 					platform === 'macOS' &&
@@ -84,17 +84,31 @@ const TopBar = () => {
 						'pl-20'
 				)}
 			>
+				<NavigationButtons />
+
 				<div
 					data-tauri-drag-region
-					className="flex flex-1 items-center gap-3.5 overflow-hidden"
+					className={clsx(
+						'flex items-center gap-3.5 overflow-hidden',
+						ctx.isSearchExpanded ? 'w-0 opacity-0' : 'flex-1'
+					)}
 				>
-					<NavigationButtons />
 					<div ref={ctx.setLeft} className="overflow-hidden" />
 				</div>
 
-				<div ref={ctx.setCenter} />
+				<div
+					className={clsx(
+						'transition-all duration-200',
+						ctx.isSearchExpanded ? 'absolute inset-x-14 z-10' : 'relative w-auto'
+					)}
+				>
+					<div ref={(node) => node && ctx.setCenter(node)} />
+				</div>
 
-				<div ref={ctx.setRight} className="flex-1" />
+				<div
+					ref={ctx.setRight}
+					className={clsx('flex-1', ctx.isSearchExpanded ? 'w-0 opacity-0' : 'visible')}
+				/>
 			</div>
 
 			{tabs && <Tabs />}

@@ -1,3 +1,5 @@
+import clsx from 'clsx';
+import { motion } from 'framer-motion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { createSearchParams } from 'react-router-dom';
@@ -7,6 +9,7 @@ import { Input, ModifierKeys, Shortcut } from '@sd/ui';
 import { useLocale, useOperatingSystem } from '~/hooks';
 import { keybindForOs } from '~/util/keybinds';
 
+import { useTopBarContext } from '../TopBar/Context';
 import { useSearchContext } from './context';
 import { useSearchStore } from './store';
 import { SearchTarget } from './useSearch';
@@ -23,6 +26,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const navigate = useNavigate();
 	const searchStore = useSearchStore();
 	const locationState: { focusSearch?: boolean } = useLocation().state;
+	const topBarCtx = useTopBarContext();
 
 	const os = useOperatingSystem(true);
 	const keybind = keybindForOs(os);
@@ -67,6 +71,7 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	}, [blurHandler, focusHandler]);
 
 	const [value, setValue] = useState(search.rawSearch);
+	const [isAnimating, setIsAnimating] = useState(false);
 
 	useEffect(() => {
 		if (search.rawSearch !== undefined) setValue(search.rawSearch);
@@ -105,43 +110,64 @@ export default ({ redirectToSearch, defaultFilters, defaultTarget }: Props) => {
 	const { t } = useLocale();
 
 	return (
-		<Input
-			ref={searchRef}
-			placeholder={t('search')}
-			className="mx-2 w-48 transition-all duration-200 focus-within:w-60"
-			size="sm"
-			value={value}
-			onChange={(e) => {
-				updateValue(e.target.value);
+		<motion.div
+			layout
+			className="mx-auto"
+			style={{ width: topBarCtx.isSearchExpanded ? 'calc(100% - 40px)' : '300px' }}
+			transition={{
+				type: 'spring',
+				stiffness: 300,
+				damping: 30
 			}}
-			autoFocus={locationState?.focusSearch || false}
-			onBlur={() => {
-				if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
-					clearValue();
-					search.setSearchBarFocused(false);
+			onAnimationStart={() => setIsAnimating(true)}
+			onAnimationComplete={() => setIsAnimating(false)}
+		>
+			<Input
+				ref={searchRef}
+				placeholder={
+					isAnimating
+						? ''
+						: topBarCtx.isSearchExpanded
+							? t('Find all files created today')
+							: t('search')
 				}
-			}}
-			onFocus={() => {
-				search.setSearchBarFocused(true);
-				search.setFilters?.((f) => {
-					if (!f) return defaultFilters ?? [];
-					else return f;
-				});
-				search.setTarget?.(search.target ?? defaultTarget);
-			}}
-			right={
-				<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
-					{
-						<Shortcut
-							chars={keybind([ModifierKeys.Control], ['F'])}
-							aria-label={`Press ${
-								os === 'macOS' ? 'Command' : ModifierKeys.Control
-							}-F to focus search bar`}
-							className="border-none"
-						/>
+				className={clsx('mx-2', topBarCtx.isSearchExpanded ? '!rounded-xl' : '!rounded-lg')}
+				size={topBarCtx.isSearchExpanded ? 'md' : 'sm'}
+				value={value}
+				onChange={(e) => {
+					updateValue(e.target.value);
+				}}
+				autoFocus={locationState?.focusSearch || false}
+				onBlur={() => {
+					if (search.rawSearch === '' && !searchStore.interactingWithSearchOptions) {
+						clearValue();
+						search.setSearchBarFocused(false);
+						topBarCtx.setIsSearchExpanded(false);
 					}
-				</div>
-			}
-		/>
+				}}
+				onFocus={() => {
+					search.setSearchBarFocused(true);
+					search.setFilters?.((f) => {
+						if (!f) return defaultFilters ?? [];
+						else return f;
+					});
+					search.setTarget?.(search.target ?? defaultTarget);
+					topBarCtx.setIsSearchExpanded(true);
+				}}
+				right={
+					<div className="pointer-events-none flex h-7 items-center space-x-1 opacity-70 group-focus-within:hidden">
+						{
+							<Shortcut
+								chars={keybind([ModifierKeys.Control], ['F'])}
+								aria-label={`Press ${
+									os === 'macOS' ? 'Command' : ModifierKeys.Control
+								}-F to focus search bar`}
+								className="border-none"
+							/>
+						}
+					</div>
+				}
+			/>
+		</motion.div>
 	);
 };

@@ -10,6 +10,7 @@ export function useContextValue() {
 	const [children, setChildren] = useState<HTMLDivElement | null>(null);
 	const [fixedArgs, setFixedArgs] = useState<SearchFilterArgs[] | null>(null);
 	const [topBarHeight, setTopBarHeight] = useState(0);
+	const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
 	return {
 		left,
@@ -23,7 +24,9 @@ export function useContextValue() {
 		fixedArgs,
 		setFixedArgs,
 		topBarHeight,
-		setTopBarHeight
+		setTopBarHeight,
+		isSearchExpanded,
+		setIsSearchExpanded
 	};
 }
 
