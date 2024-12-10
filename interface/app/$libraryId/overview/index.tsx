@@ -208,7 +208,6 @@ const DraggableCard = memo(
 					data-swapy-item={card.id}
 					className="h-full w-full transform-gpu will-change-transform"
 					style={{
-						transition: 'transform 300ms ease-in-out',
 						transformStyle: 'preserve-3d'
 					}}
 					onTransitionEnd={() => {
@@ -249,7 +248,6 @@ export const Component = () => {
 	const swapyRef = useRef<any>(null);
 	const swapyErrorsRef = useRef(0);
 	const swapyLastErrorRef = useRef(0);
-	const [cardsLoaded, setCardsLoaded] = useState(false);
 	const [cardsReady, setCardsReady] = useState(false);
 	const cardLoadCountRef = useRef(0);
 	const initAttemptRef = useRef(0);
@@ -425,7 +423,7 @@ export const Component = () => {
 			});
 
 			const swapy = createSwapy(container, {
-				animation: 'dynamic',
+				animation: 'none',
 				swapMode: 'hover',
 				continuousMode: true,
 				autoScrollOnDrag: true
@@ -567,7 +565,6 @@ export const Component = () => {
 						data-swapy-item={card.id}
 						className="h-full w-full transform-gpu will-change-transform"
 						style={{
-							transition: 'transform 300ms ease-in-out',
 							transformStyle: 'preserve-3d'
 						}}
 						onTransitionEnd={() => {
