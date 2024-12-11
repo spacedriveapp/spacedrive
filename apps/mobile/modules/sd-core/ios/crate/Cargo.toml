@@ -16,3 +16,7 @@ crate-type = ["staticlib"]
 [target.'cfg(target_os = "ios")'.dependencies]
 # Spacedrive Sub-crates
 sd-mobile-core = { path = "../../core" }
+swift-rs       = { version = "1.0", features = ["serde"] }
+
+[target.'cfg(target_os = "ios")'.build-dependencies]
+swift-rs = { version = "1.0", features = ["build"] }
