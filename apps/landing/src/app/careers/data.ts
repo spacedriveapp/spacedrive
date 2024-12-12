@@ -23,7 +23,7 @@ export const positions: PositionPosting[] = [
 		type: 'Full-time',
 		salary: '$140,000 - $180,000',
 		description:
-			"Lead development of Spacedrive's core storage engine and distributed filesystem in Rust. You'll architect and implement critical systems including hot/cold storage classification, encrypted data sync, and filesystem operations. Deep knowledge of systems programming, distributed systems, and Rust required. Experience with FUSE filesystems and cloud storage systems highly valued."
+			"Lead development of Spacedrive's core storage engine and distributed filesystem in Rust. You'll architect and implement critical systems including storage classification, encrypted data sync, and filesystem operations. Deep knowledge of systems programming, distributed systems, and Rust required. Experience with FUSE filesystems and cloud storage systems highly valued."
 	},
 	{
 		name: 'Client Platform Engineer',
@@ -37,7 +37,7 @@ export const positions: PositionPosting[] = [
 		type: 'Full-time',
 		salary: '$150,000 - $190,000',
 		description:
-			"Design and implement Spacedrive's cloud storage infrastructure, focusing on our innovative hot/cold storage architecture. Build highly scalable systems for data ingestion, storage optimization, and content delivery. Deep experience with cloud infrastructure (AWS/GCP), object storage, and distributed systems required. Knowledge of Rust and TypeScript preferred."
+			"Design and implement Spacedrive's cloud storage infrastructure, focusing on our innovative storage architecture. Build highly scalable systems for data ingestion, storage optimization, and content delivery. Deep experience with cloud infrastructure (AWS/GCP), object storage, and distributed systems required. Knowledge of Rust and TypeScript preferred."
 	},
 	{
 		name: 'Security Engineer',
