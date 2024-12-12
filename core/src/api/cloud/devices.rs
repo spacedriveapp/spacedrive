@@ -1,6 +1,6 @@
 use crate::api::{Ctx, R};
 
-use sd_core_cloud_services::QuinnConnection;
+use sd_core_cloud_services::QuinnConnector;
 
 use sd_cloud_schema::{
 	auth::AccessToken,
@@ -149,7 +149,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 }
 
 pub async fn hello(
-	client: &Client<QuinnConnection<Response, Request>>,
+	client: &Client<QuinnConnector<Response, Request>>,
 	access_token: AccessToken,
 	device_pub_id: PubId,
 	hashed_pub_id: Hash,
@@ -270,7 +270,7 @@ pub struct DeviceRegisterData {
 }
 
 pub async fn register(
-	client: &Client<QuinnConnection<Response, Request>>,
+	client: &Client<QuinnConnector<Response, Request>>,
 	access_token: AccessToken,
 	DeviceRegisterData {
 		pub_id,
