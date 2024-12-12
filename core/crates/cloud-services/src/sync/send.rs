@@ -29,7 +29,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use futures::{FutureExt, StreamExt, TryStreamExt};
 use futures_concurrency::future::{Race, TryJoin};
-use quic_rpc::transport::quinn::QuinnConnection;
+use quic_rpc::transport::quinn::QuinnConnector;
 use tokio::{
 	sync::{broadcast, Notify},
 	time::sleep,
@@ -60,7 +60,7 @@ pub struct Sender {
 	sync_group_pub_id: groups::PubId,
 	sync: SyncManager,
 	cloud_services: Arc<CloudServices>,
-	cloud_client: Client<QuinnConnection<Response, Request>>,
+	cloud_client: Client<QuinnConnector<Response, Request>>,
 	key_manager: Arc<KeyManager>,
 	is_active: Arc<AtomicBool>,
 	state_notify: Arc<Notify>,
