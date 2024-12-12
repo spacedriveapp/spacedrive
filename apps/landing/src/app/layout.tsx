@@ -51,11 +51,11 @@ export default function Layout({ children }: PropsWithChildren) {
 					taggedEvents
 				/>
 			</head>
-			<body className="noise noise-strongest bg-[#0E0E12] font-plex">
+			<body className="noise noise-strongest bg-[#090909] font-plex">
 				<DisclaimerBanner />
 				<ClientProviders>
 					<NavBar />
-					<main className="z-10 m-auto max-w-[100rem]">{children}</main>
+					<main className="z-10 m-auto mt-5 max-w-[100rem]">{children}</main>
 					<GlobalFooter />
 				</ClientProviders>
 			</body>

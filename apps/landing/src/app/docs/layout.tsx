@@ -20,7 +20,7 @@ export default function Layout({ children }: PropsWithChildren) {
 		<MobileSidebarProvider>
 			<div className="flex w-full flex-col items-start sm:flex-row">
 				<MobileSidebarWrapper>{sidebar}</MobileSidebarWrapper>
-				<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden rounded-xl bg-gradient-to-r from-[#0E0E12]/90 from-60% to-primary-900/20 p-5 backdrop-blur backdrop-saturate-[1.6] sm:inline lg:mr-4">
+				<aside className="sticky top-32 mb-20 ml-2 mr-0 mt-32 hidden rounded-xl p-5 backdrop-saturate-[1.6] sm:inline lg:mr-4">
 					{/* Gradient Borders */}
 					<div className="absolute right-0 top-0 h-full w-px bg-gradient-to-b from-transparent via-[#2D2D37]/60 to-transparent" />
 					{sidebar}

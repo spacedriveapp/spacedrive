@@ -13,6 +13,7 @@ import '~/styles/navbar.css';
 
 import { useCurrentPlatform } from '~/utils/current-platform';
 import { ExternalLinkRegex } from '~/utils/regex-external-link';
+import { usePathname } from 'next/navigation';
 
 // If we had pages filled out, we could use this to generate the navigation items
 // const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
@@ -42,6 +43,8 @@ const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = 
 export function NavBar() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const currentPlatform = useCurrentPlatform();
+	const pathname = usePathname();
+	const isDocsPage = pathname.startsWith('/docs');
 
 	return (
 		<>
@@ -49,7 +52,9 @@ export function NavBar() {
 			<motion.nav
 				className={clsx(
 					'to-primary-900/20',
-					'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
+					isDocsPage 
+						? 'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 max-w-[100rem] px-6 sm:px-8'
+						: 'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
 					'overflow-hidden rounded-xl bg-sidebar/90 from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur'
 				)}
 				style={{
@@ -63,7 +68,10 @@ export function NavBar() {
 				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
 				<div className="absolute bottom-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
 				{/* End of Gradient Borders */}
-				<div className="noise noise-faded noise-sm flex flex-nowrap items-center justify-between gap-x-8 overflow-hidden px-6 py-3">
+				<div className={clsx(
+					"noise noise-faded noise-sm flex flex-nowrap items-center justify-between gap-x-8 overflow-hidden py-3",
+					isDocsPage ? 'px-0' : 'px-6'
+				)}>
 					{/* Spacedrive Logo and Links */}
 					<div className="flex items-center gap-[1.125rem]">
 						<Link href="/">
