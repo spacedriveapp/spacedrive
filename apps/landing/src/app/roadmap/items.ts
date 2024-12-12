@@ -137,55 +137,64 @@ export const items: {
 		},
 		{
 			when: '0.5 Beta',
-			subtext: 'October 2024',
+			subtext: 'December 2024',
 			title: 'iOS & Android release',
-			completed: true,
+			completed: false,
 			description: 'Spacedrive will be available on the App Store and Google Play Store.'
 		},
 		{
 			title: 'Spacedrive Cloud',
-			completed: true,
+			completed: false,
 			description:
 				'Sync your library to the cloud, to be accessed from anywhere (mobile & desktop apps).'
 		},
 		{
 			title: "New Authentication Services",
-			completed: true,
+			completed: false,
 			description: "Support for OAuth, Apple ID, Google Sign-In, and more."
 		},
 		{
 			when: '0.6 Beta',
-			subtext: 'Q4 2024',
+			subtext: 'Q1 2025',
 			title: '3rd-Party Authentication',
+			completed: false,
 			description: 'Authenticate with Spacedrive using your Google, Apple, or Github accounts.'
 		},
 		{
 			title: "Peer-to-Peer Sync",
+			completed: false,
 			description: "Sync & Fetch files from your library with other devices on your local network."
 		},
 		{
 			title: 'AI Search',
+			completed: false,
 			description:
 				'Search the contents of your files, including images, audio and video with a deep understanding of context and content.'
 		},
 		{
-			when: '1.0 Release',
-			subtext: '2025',
-			title: 'Security audit',
-			description:
-				'We will hire a third party security firm to audit the codebase and ensure the highest level of security.'
-		},
-		{
-			title: 'Column view',
-			description: 'View files in the beloved column layout with a nested inspector, with trees!'
-		},
-		{
+			when: '0.7 Beta',
+			subtext: 'Q2 2025',
 			title: 'Third-party cloud integrations',
+			completed: false,
 			description:
 				'Filesystem integrations with iCloud, Google Drive, Dropbox, OneDrive & Mega + easy API for the community to add more.'
 		},
 		{
+			title: 'Column view',
+			completed: false,
+			description: 'View files in the beloved column layout with a nested inspector, with trees!'
+		},
+		{
+			when: '1.0 Release',
+			subtext: 'Q3 2025',
+			title: 'Security audit',
+			completed: false,
+			description:
+				'We will hire a third party security firm to audit the codebase and ensure the highest level of security.'
+		},
+		{
 			title: 'Local Server Protection',
+			completed: false,
 			description:
 				"Protect local instances of Spacedrive's server from other clients on your network."
 		},
@@ -198,45 +207,54 @@ export const items: {
 		},
 		{
 			title: 'Extensions',
+			completed: false,
 			description:
 				'Build tools on top of Spacedrive, extend functionality and integrate third party services.'
 		},
 		{
 			title: 'File versioning',
+			completed: false,
 			description:
 				'Automatically save versions of files when they change, with a timeline view and the ability to restore.'
 		},
 		{
 			title: 'CLI',
+			completed: false,
 			description:
 				'Access Spacedrive from the command line, with a rich set of commands to manage your library and devices.'
 		},
 		{
 			title: 'Web portal',
+			completed: false,
 			description:
 				'Access the web interface via the browser, remotely access your library and manage your devices and Spaces.'
 		},
 		{
 			title: 'Spaces',
+			completed: false,
 			description:
 				'Create and manage Spaces, hosted locally or on the cloud, to share with friends or publish on the web. Spaces are AI native, with a custom local language model that can converse with the user and puppeteer the Explorer view.'
 		},
 		{
 			title: 'Key manager',
+			completed: false,
 			description:
 				'View, mount, unmount and hide keys. Mounted keys can be used to instantly encrypt and decrypt any files on your node.'
 		},
 		{
 			title: 'Advanced media analysis',
+			completed: false,
 			description: 'Transcribe audio, identify faces, video scenes and more.'
 		},
 		{
 			title: 'Comments',
+			completed: false,
 			description:
 				'Add comments to files and folders, with support for XY coordinates for photos and timestamp for videos.'
 		},
 		{
 			title: 'File converter',
+			completed: false,
 			description: 'Convert image and video between common formats from the context menu.'
 		},
 	];
