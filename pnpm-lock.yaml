@@ -68,7 +68,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -175,10 +175,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
       vite-tsconfig-paths:
         specifier: ^5.0.1
-        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
 
   apps/landing:
     dependencies:
@@ -187,13 +187,13 @@ importers:
         version: 3.6.0(@algolia/client-search@4.22.1)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(search-insights@2.13.0)
       '@fortawesome/fontawesome-svg-core':
         specifier: ^6.6.0
-        version: 6.6.0
+        version: 6.7.1
       '@fortawesome/free-brands-svg-icons':
         specifier: ^6.6.0
-        version: 6.6.0
+        version: 6.7.1
       '@fortawesome/react-fontawesome':
         specifier: ^0.2.2
-        version: 0.2.2(@fortawesome/fontawesome-svg-core@6.6.0)(react@18.2.0)
+        version: 0.2.2(@fortawesome/fontawesome-svg-core@6.7.1)(react@18.2.0)
       '@octokit/webhooks':
         specifier: ^12.0.3
         version: 12.1.2
@@ -205,10 +205,10 @@ importers:
         version: 1.0.5(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@react-three/drei':
         specifier: ^9.88.13
-        version: 9.102.6(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0))(@types/react@18.2.67)(@types/three@0.162.0)(immer@10.0.4)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(three@0.161.0)
+        version: 9.102.6(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0))(@types/react@18.2.67)(@types/three@0.162.0)(immer@10.0.4)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(three@0.161.0)
       '@react-three/fiber':
         specifier: ^8.15.11
-        version: 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0)
+        version: 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0)
       '@sd/assets':
         specifier: workspace:*
         version: link:../../packages/assets
@@ -633,7 +633,7 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
 
   apps/web:
     dependencies:
@@ -706,10 +706,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
       vite-tsconfig-paths:
         specifier: ^5.0.1
-        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
 
   interface:
     dependencies:
@@ -932,10 +932,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)
       vite-plugin-svgr:
         specifier: ^3.3.0
-        version: 3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1))
 
   packages/assets: {}
 
@@ -1011,7 +1011,7 @@ importers:
         version: 8.8.0(eslint@8.57.1)(typescript@5.6.3)
       '@vitejs/plugin-react-swc':
         specifier: ^3.6.0
-        version: 3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -1047,19 +1047,19 @@ importers:
         version: 3.2.0
       vite-plugin-html:
         specifier: ^3.2.2
-        version: 3.2.2(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 3.2.2(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-i18next-loader:
         specifier: ^2.0.14
-        version: 2.0.14(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 2.0.14(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-inspect:
         specifier: ^0.8.7
-        version: 0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-solid:
         specifier: ^2.10.2
-        version: 2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-svgr:
         specifier: ^3.3.0
-        version: 3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+        version: 3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
 
   packages/ui:
     dependencies:
@@ -3399,16 +3399,16 @@ packages:
   '@fontsource/ibm-plex-sans@5.1.0':
     resolution: {integrity: sha512-v2aFHGh33ogG+At6dVNUCX6vWlNAhQ6STWj5WrBKPxVWX1SsAnHNq8sXQBa7WHEt29Irmozuk7GTp6GzFlpwdQ==}
 
-  '@fortawesome/fontawesome-common-types@6.6.0':
-    resolution: {integrity: sha512-xyX0X9mc0kyz9plIyryrRbl7ngsA9jz77mCZJsUkLl+ZKs0KWObgaEBoSgQiYWAsSmjz/yjl0F++Got0Mdp4Rw==}
+  '@fortawesome/fontawesome-common-types@6.7.1':
+    resolution: {integrity: sha512-gbDz3TwRrIPT3i0cDfujhshnXO9z03IT1UKRIVi/VEjpNHtSBIP2o5XSm+e816FzzCFEzAxPw09Z13n20PaQJQ==}
     engines: {node: '>=6'}
 
-  '@fortawesome/fontawesome-svg-core@6.6.0':
-    resolution: {integrity: sha512-KHwPkCk6oRT4HADE7smhfsKudt9N/9lm6EJ5BVg0tD1yPA5hht837fB87F8pn15D8JfTqQOjhKTktwmLMiD7Kg==}
+  '@fortawesome/fontawesome-svg-core@6.7.1':
+    resolution: {integrity: sha512-8dBIHbfsKlCk2jHQ9PoRBg2Z+4TwyE3vZICSnoDlnsHA6SiMlTwfmW6yX0lHsRmWJugkeb92sA0hZdkXJhuz+g==}
     engines: {node: '>=6'}
 
-  '@fortawesome/free-brands-svg-icons@6.6.0':
-    resolution: {integrity: sha512-1MPD8lMNW/earme4OQi1IFHtmHUwAKgghXlNwWi9GO7QkTfD+IIaYpIai4m2YJEzqfEji3jFHX1DZI5pbY/biQ==}
+  '@fortawesome/free-brands-svg-icons@6.7.1':
+    resolution: {integrity: sha512-nJR76eqPzCnMyhbiGf6X0aclDirZriTPRcFm1YFvuupyJOGwlNF022w3YBqu+yrHRhnKRpzFX+8wJKqiIjWZkA==}
     engines: {node: '>=6'}
 
   '@fortawesome/react-fontawesome@0.2.2':
@@ -17810,6 +17810,22 @@ snapshots:
 
   '@fontsource/ibm-plex-sans@5.1.0': {}
 
+  '@fortawesome/fontawesome-common-types@6.7.1': {}
+
+  '@fortawesome/fontawesome-svg-core@6.7.1':
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 6.7.1
+
+  '@fortawesome/free-brands-svg-icons@6.7.1':
+    dependencies:
+      '@fortawesome/fontawesome-common-types': 6.7.1
+
+  '@fortawesome/react-fontawesome@0.2.2(@fortawesome/fontawesome-svg-core@6.7.1)(react@18.2.0)':
+    dependencies:
+      '@fortawesome/fontawesome-svg-core': 6.7.1
+      prop-types: 15.8.1
+      react: 18.2.0
+
   '@gorhom/bottom-sheet@4.6.1(@types/react@18.3.3)(react-native-gesture-handler@2.16.2(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@gorhom/portal': 1.0.14(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
@@ -18029,13 +18045,13 @@ snapshots:
       '@types/yargs': 17.0.32
       chalk: 4.1.2
 
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
       glob: 7.2.3
       glob-promise: 4.2.2(glob@7.2.3)
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.6.2)
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     optionalDependencies:
       typescript: 5.6.2
 
@@ -19669,6 +19685,29 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@react-native/community-cli-plugin@0.74.87(@babel/core@7.24.0)':
+    dependencies:
+      '@react-native-community/cli-server-api': 13.6.9(encoding@0.1.13)
+      '@react-native-community/cli-tools': 13.6.9(encoding@0.1.13)
+      '@react-native/dev-middleware': 0.74.87(encoding@0.1.13)
+      '@react-native/metro-babel-transformer': 0.74.87(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))
+      chalk: 4.1.2
+      execa: 5.1.1
+      metro: 0.80.12
+      metro-config: 0.80.6
+      metro-core: 0.80.6
+      node-fetch: 2.7.0(encoding@0.1.13)
+      querystring: 0.2.1
+      readline: 1.3.0
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@babel/preset-env'
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
+
   '@react-native/community-cli-plugin@0.74.87(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)':
     dependencies:
       '@react-native-community/cli-server-api': 13.6.9(encoding@0.1.13)
@@ -19800,12 +19839,12 @@ snapshots:
       nullthrows: 1.1.1
       react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0)
 
-  '@react-native/virtualized-lists@0.74.87(@types/react@18.2.67)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)':
+  '@react-native/virtualized-lists@0.74.87(@types/react@18.2.67)(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)':
     dependencies:
       invariant: 2.2.4
       nullthrows: 1.1.1
       react: 18.2.0
-      react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0)
+      react-native: 0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0)
     optionalDependencies:
       '@types/react': 18.2.67
     optional: true
@@ -19923,13 +19962,13 @@ snapshots:
       '@react-spring/types': 9.7.3
       react: 18.2.0
 
-  '@react-spring/three@9.6.1(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0))(react@18.2.0)(three@0.161.0)':
+  '@react-spring/three@9.6.1(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0))(react@18.2.0)(three@0.161.0)':
     dependencies:
       '@react-spring/animated': 9.6.1(react@18.2.0)
       '@react-spring/core': 9.6.1(react@18.2.0)
       '@react-spring/shared': 9.6.1(react@18.2.0)
       '@react-spring/types': 9.6.1
-      '@react-three/fiber': 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0)
+      '@react-three/fiber': 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0)
       react: 18.2.0
       three: 0.161.0
 
@@ -19946,12 +19985,12 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@react-three/drei@9.102.6(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0))(@types/react@18.2.67)(@types/three@0.162.0)(immer@10.0.4)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(three@0.161.0)':
+  '@react-three/drei@9.102.6(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0))(@types/react@18.2.67)(@types/three@0.162.0)(immer@10.0.4)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(three@0.161.0)':
     dependencies:
       '@babel/runtime': 7.24.0
       '@mediapipe/tasks-vision': 0.10.8
-      '@react-spring/three': 9.6.1(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0))(react@18.2.0)(three@0.161.0)
-      '@react-three/fiber': 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0)
+      '@react-spring/three': 9.6.1(@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0))(react@18.2.0)(three@0.161.0)
+      '@react-three/fiber': 8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0)
       '@use-gesture/react': 10.3.0(react@18.2.0)
       camera-controls: 2.8.3(three@0.161.0)
       cross-env: 7.0.3
@@ -19979,7 +20018,7 @@ snapshots:
       - '@types/three'
       - immer
 
-  '@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)))(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)(three@0.161.0)':
+  '@react-three/fiber@8.15.19(expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)))(expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)))(expo@51.0.36(@babel/core@7.24.0))(react-dom@18.2.0(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)(three@0.161.0)':
     dependencies:
       '@babel/runtime': 7.24.0
       '@types/react-reconciler': 0.26.7
@@ -19995,11 +20034,11 @@ snapshots:
       three: 0.161.0
       zustand: 3.7.2(react@18.2.0)
     optionalDependencies:
-      expo: 51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
-      expo-asset: 10.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))
-      expo-file-system: 17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13))
+      expo: 51.0.36(@babel/core@7.24.0)
+      expo-asset: 10.0.10(expo@51.0.36(@babel/core@7.24.0))
+      expo-file-system: 17.0.1(expo@51.0.36(@babel/core@7.24.0))
       react-dom: 18.2.0(react@18.2.0)
-      react-native: 0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0)
+      react-native: 0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0)
 
   '@redux-devtools/extension@3.3.0(redux@5.0.1)':
     dependencies:
@@ -20529,7 +20568,7 @@ snapshots:
       fs-extra: 11.2.0
       magic-string: 0.30.8
       ts-dedent: 2.2.0
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     optionalDependencies:
       typescript: 5.6.2
     transitivePeerDependencies:
@@ -20845,7 +20884,7 @@ snapshots:
 
   '@storybook/react-vite@8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
       '@storybook/builder-vite': 8.0.1(encoding@0.1.13)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
       '@storybook/node-logger': 8.0.1
@@ -20857,7 +20896,7 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       resolve: 1.22.8
       tsconfig-paths: 4.2.0
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -22059,10 +22098,10 @@ snapshots:
 
   '@virtual-grid/shared@2.0.1': {}
 
-  '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
+  '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
       '@swc/core': 1.4.8(@swc/helpers@0.5.5)
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - '@swc/helpers'
 
@@ -25030,6 +25069,16 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  expo-asset@10.0.10(expo@51.0.36(@babel/core@7.24.0)):
+    dependencies:
+      expo: 51.0.36(@babel/core@7.24.0)
+      expo-constants: 16.0.2(expo@51.0.36(@babel/core@7.24.0))
+      invariant: 2.2.4
+      md5-file: 3.2.3
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   expo-av@14.0.7(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
       expo: 51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
@@ -25052,14 +25101,34 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  expo-constants@16.0.2(expo@51.0.36(@babel/core@7.24.0)):
+    dependencies:
+      '@expo/config': 9.0.3
+      '@expo/env': 0.3.0
+      expo: 51.0.36(@babel/core@7.24.0)
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
       expo: 51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
+
+  expo-file-system@17.0.1(expo@51.0.36(@babel/core@7.24.0)):
+    dependencies:
+      expo: 51.0.36(@babel/core@7.24.0)
+    optional: true
 
   expo-font@12.0.10(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
       expo: 51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
       fontfaceobserver: 2.3.0
+
+  expo-font@12.0.10(expo@51.0.36(@babel/core@7.24.0)):
+    dependencies:
+      expo: 51.0.36(@babel/core@7.24.0)
+      fontfaceobserver: 2.3.0
+    optional: true
 
   expo-haptics@13.0.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
@@ -25072,6 +25141,11 @@ snapshots:
   expo-keep-awake@13.0.2(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
       expo: 51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
+
+  expo-keep-awake@13.0.2(expo@51.0.36(@babel/core@7.24.0)):
+    dependencies:
+      expo: 51.0.36(@babel/core@7.24.0)
+    optional: true
 
   expo-linking@6.3.1(expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)):
     dependencies:
@@ -25109,6 +25183,32 @@ snapshots:
       - supports-color
 
   expo-status-bar@1.12.1: {}
+
+  expo@51.0.36(@babel/core@7.24.0):
+    dependencies:
+      '@babel/runtime': 7.24.0
+      '@expo/cli': 0.18.30(encoding@0.1.13)(expo-modules-autolinking@1.11.3)
+      '@expo/config': 9.0.4
+      '@expo/config-plugins': 8.0.10
+      '@expo/metro-config': 0.18.11
+      '@expo/vector-icons': 14.0.4
+      babel-preset-expo: 11.0.14(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))
+      expo-asset: 10.0.10(expo@51.0.36(@babel/core@7.24.0))
+      expo-file-system: 17.0.1(expo@51.0.36(@babel/core@7.24.0))
+      expo-font: 12.0.10(expo@51.0.36(@babel/core@7.24.0))
+      expo-keep-awake: 13.0.2(expo@51.0.36(@babel/core@7.24.0))
+      expo-modules-autolinking: 1.11.3
+      expo-modules-core: 1.12.25
+      fbemitter: 3.0.0(encoding@0.1.13)
+      whatwg-url-without-unicode: 8.0.0-3
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@babel/preset-env'
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
 
   expo@51.0.36(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13):
     dependencies:
@@ -27582,6 +27682,22 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  metro-config@0.80.6:
+    dependencies:
+      connect: 3.7.0
+      cosmiconfig: 5.2.1
+      jest-validate: 29.7.0
+      metro: 0.80.6
+      metro-cache: 0.80.6
+      metro-core: 0.80.6
+      metro-runtime: 0.80.6
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
+
   metro-config@0.80.6(encoding@0.1.13):
     dependencies:
       connect: 3.7.0
@@ -27812,6 +27928,27 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  metro-transform-worker@0.80.6:
+    dependencies:
+      '@babel/core': 7.25.8
+      '@babel/generator': 7.25.7
+      '@babel/parser': 7.25.8
+      '@babel/types': 7.25.8
+      metro: 0.80.6
+      metro-babel-transformer: 0.80.6
+      metro-cache: 0.80.6
+      metro-cache-key: 0.80.6
+      metro-minify-terser: 0.80.6
+      metro-source-map: 0.80.6
+      metro-transform-plugins: 0.80.6
+      nullthrows: 1.1.1
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
+
   metro-transform-worker@0.80.6(encoding@0.1.13):
     dependencies:
       '@babel/core': 7.25.8
@@ -27880,6 +28017,58 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
+
+  metro@0.80.6:
+    dependencies:
+      '@babel/code-frame': 7.25.7
+      '@babel/core': 7.25.8
+      '@babel/generator': 7.25.7
+      '@babel/parser': 7.25.8
+      '@babel/template': 7.25.7
+      '@babel/traverse': 7.24.0
+      '@babel/types': 7.25.8
+      accepts: 1.3.8
+      chalk: 4.1.2
+      ci-info: 2.0.0
+      connect: 3.7.0
+      debug: 2.6.9
+      denodeify: 1.2.1
+      error-stack-parser: 2.1.4
+      graceful-fs: 4.2.11
+      hermes-parser: 0.19.1
+      image-size: 1.1.1
+      invariant: 2.2.4
+      jest-worker: 29.7.0
+      jsc-safe-url: 0.2.4
+      lodash.throttle: 4.1.1
+      metro-babel-transformer: 0.80.6
+      metro-cache: 0.80.6
+      metro-cache-key: 0.80.6
+      metro-config: 0.80.6
+      metro-core: 0.80.6
+      metro-file-map: 0.80.6
+      metro-resolver: 0.80.6
+      metro-runtime: 0.80.6
+      metro-source-map: 0.80.6
+      metro-symbolicate: 0.80.6
+      metro-transform-plugins: 0.80.6
+      metro-transform-worker: 0.80.6
+      mime-types: 2.1.35
+      node-fetch: 2.7.0(encoding@0.1.13)
+      nullthrows: 1.1.1
+      rimraf: 3.0.2
+      serialize-error: 2.1.0
+      source-map: 0.5.7
+      strip-ansi: 6.0.1
+      throat: 5.0.0
+      ws: 7.5.9
+      yargs: 17.7.2
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
 
   metro@0.80.6(encoding@0.1.13):
     dependencies:
@@ -29818,57 +30007,6 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0):
-    dependencies:
-      '@jest/create-cache-key-function': 29.7.0
-      '@react-native-community/cli': 13.6.9(encoding@0.1.13)
-      '@react-native-community/cli-platform-android': 13.6.9(encoding@0.1.13)
-      '@react-native-community/cli-platform-ios': 13.6.9(encoding@0.1.13)
-      '@react-native/assets-registry': 0.74.87
-      '@react-native/codegen': 0.74.87(@babel/preset-env@7.25.4(@babel/core@7.24.0))
-      '@react-native/community-cli-plugin': 0.74.87(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(encoding@0.1.13)
-      '@react-native/gradle-plugin': 0.74.87
-      '@react-native/js-polyfills': 0.74.87
-      '@react-native/normalize-colors': 0.74.87
-      '@react-native/virtualized-lists': 0.74.87(@types/react@18.2.67)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.2.67)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
-      abort-controller: 3.0.0
-      anser: 1.4.10
-      ansi-regex: 5.0.1
-      base64-js: 1.5.1
-      chalk: 4.1.2
-      event-target-shim: 5.0.1
-      flow-enums-runtime: 0.0.6
-      invariant: 2.2.4
-      jest-environment-node: 29.7.0
-      jsc-android: 250231.0.0
-      memoize-one: 5.2.1
-      metro-runtime: 0.80.6
-      metro-source-map: 0.80.6
-      mkdirp: 0.5.6
-      nullthrows: 1.1.1
-      pretty-format: 26.6.2
-      promise: 8.3.0
-      react: 18.2.0
-      react-devtools-core: 5.3.1
-      react-refresh: 0.14.2
-      react-shallow-renderer: 16.15.0(react@18.2.0)
-      regenerator-runtime: 0.13.11
-      scheduler: 0.24.0-canary-efb381bbf-20230505
-      stacktrace-parser: 0.1.10
-      whatwg-fetch: 3.6.20
-      ws: 6.2.2
-      yargs: 17.7.2
-    optionalDependencies:
-      '@types/react': 18.2.67
-    transitivePeerDependencies:
-      - '@babel/core'
-      - '@babel/preset-env'
-      - bufferutil
-      - encoding
-      - supports-color
-      - utf-8-validate
-    optional: true
-
   react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0):
     dependencies:
       '@jest/create-cache-key-function': 29.7.0
@@ -29918,6 +30056,57 @@ snapshots:
       - encoding
       - supports-color
       - utf-8-validate
+
+  react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0):
+    dependencies:
+      '@jest/create-cache-key-function': 29.7.0
+      '@react-native-community/cli': 13.6.9(encoding@0.1.13)
+      '@react-native-community/cli-platform-android': 13.6.9(encoding@0.1.13)
+      '@react-native-community/cli-platform-ios': 13.6.9(encoding@0.1.13)
+      '@react-native/assets-registry': 0.74.87
+      '@react-native/codegen': 0.74.87(@babel/preset-env@7.25.4(@babel/core@7.24.0))
+      '@react-native/community-cli-plugin': 0.74.87(@babel/core@7.24.0)
+      '@react-native/gradle-plugin': 0.74.87
+      '@react-native/js-polyfills': 0.74.87
+      '@react-native/normalize-colors': 0.74.87
+      '@react-native/virtualized-lists': 0.74.87(@types/react@18.2.67)(react-native@0.74.5(@babel/core@7.24.0)(@types/react@18.2.67)(react@18.2.0))(react@18.2.0)
+      abort-controller: 3.0.0
+      anser: 1.4.10
+      ansi-regex: 5.0.1
+      base64-js: 1.5.1
+      chalk: 4.1.2
+      event-target-shim: 5.0.1
+      flow-enums-runtime: 0.0.6
+      invariant: 2.2.4
+      jest-environment-node: 29.7.0
+      jsc-android: 250231.0.0
+      memoize-one: 5.2.1
+      metro-runtime: 0.80.6
+      metro-source-map: 0.80.6
+      mkdirp: 0.5.6
+      nullthrows: 1.1.1
+      pretty-format: 26.6.2
+      promise: 8.3.0
+      react: 18.2.0
+      react-devtools-core: 5.3.1
+      react-refresh: 0.14.2
+      react-shallow-renderer: 16.15.0(react@18.2.0)
+      regenerator-runtime: 0.13.11
+      scheduler: 0.24.0-canary-efb381bbf-20230505
+      stacktrace-parser: 0.1.10
+      whatwg-fetch: 3.6.20
+      ws: 6.2.2
+      yargs: 17.7.2
+    optionalDependencies:
+      '@types/react': 18.2.67
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@babel/preset-env'
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    optional: true
 
   react-parallax-tilt@1.7.250(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
@@ -32148,7 +32337,7 @@ snapshots:
       unist-util-stringify-position: 4.0.0
       vfile-message: 4.0.2
 
-  vite-plugin-html@3.2.2(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-html@3.2.2(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 4.2.1
       colorette: 2.0.20
@@ -32162,9 +32351,9 @@ snapshots:
       html-minifier-terser: 6.1.0
       node-html-parser: 5.4.2
       pathe: 0.2.0
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
 
-  vite-plugin-i18next-loader@2.0.14(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-i18next-loader@2.0.14(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       dot-prop: 9.0.0
       glob-all: 3.3.1
@@ -32172,9 +32361,9 @@ snapshots:
       marked: 13.0.3
       marked-terminal: 7.1.0(marked@13.0.3)
       ts-deepmerge: 7.0.0
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
 
-  vite-plugin-inspect@0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-inspect@0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@antfu/utils': 0.7.10
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
@@ -32185,12 +32374,12 @@ snapshots:
       perfect-debounce: 1.0.0
       picocolors: 1.1.0
       sirv: 2.0.4
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
 
-  vite-plugin-solid@2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-solid@2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@babel/core': 7.24.0
       '@types/babel__core': 7.20.5
@@ -32198,8 +32387,8 @@ snapshots:
       merge-anything: 5.1.7
       solid-js: 1.8.15
       solid-refresh: 0.6.3(solid-js@1.8.15)
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
-      vitefu: 0.2.5(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vitefu: 0.2.5(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
     optionalDependencies:
       '@testing-library/jest-dom': 6.4.2
     transitivePeerDependencies:
@@ -32208,40 +32397,40 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
       '@svgr/core': 8.1.0(typescript@5.6.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.6.2))
-      vite: 5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
       - typescript
 
-  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
       '@svgr/core': 8.1.0(typescript@5.6.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.6.3))
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
       - typescript
 
-  vite-tsconfig-paths@5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vite-tsconfig-paths@5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       debug: 4.3.7(supports-color@8.1.1)
       globrex: 0.1.2
       tsconfck: 3.0.3(typescript@5.6.2)
     optionalDependencies:
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - supports-color
       - typescript
 
-  vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1):
+  vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.4.47
@@ -32249,11 +32438,10 @@ snapshots:
     optionalDependencies:
       '@types/node': 20.11.29
       fsevents: 2.3.3
-      lightningcss: 1.19.0
       sass: 1.72.0
       terser: 5.34.1
 
-  vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1):
+  vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.4.47
@@ -32261,13 +32449,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.7.5
       fsevents: 2.3.3
-      lightningcss: 1.19.0
       sass: 1.72.0
       terser: 5.34.1
 
-  vitefu@0.2.5(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
+  vitefu@0.2.5(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
     optionalDependencies:
-      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
 
   vlq@1.0.1: {}
 
