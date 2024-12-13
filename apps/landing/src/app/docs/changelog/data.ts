@@ -1,5 +1,5 @@
 import { getRecentReleases, getReleaseFrontmatter, githubFetch } from '~/app/api/github';
-import { toTitleCase } from '~/utils/util';
+import { toTitleCase } from '~/utils/misc';
 
 import { SectionMeta } from '../data';
 

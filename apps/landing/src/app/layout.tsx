@@ -1,16 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import { PropsWithChildren } from 'react';
-
-import { Footer } from './Footer';
-import { NavBar } from './NavBar';
+import { GlobalFooter } from '~/components/global-footer';
+import { NavBar } from '~/components/global-nav-bar';
 
 import '@sd/ui/style/style.scss';
 import '~/styles/prism.css';
 import '~/styles/style.scss';
 
+import clsx from 'clsx';
 import PlausibleProvider from 'next-plausible';
+import { DisclaimerBanner } from '~/components/disclaimer-banner';
 
-import { Providers } from './Providers';
+import { ClientProviders } from './client-providers';
+import { interFont, plexSansFont } from './fonts';
 
 export const metadata: Metadata = {
 	metadataBase: new URL('https://spacedrive.com'),
@@ -26,12 +28,21 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-	themeColor: { color: '#E751ED', media: 'not screen' }
+	themeColor: [
+		// background color in Safari
+		{ color: '#0E0E12', media: 'screen' },
+		// MUST BE LAST to actually work on embeds
+		// embed color on discord, for instance
+		{ color: '#E751ED', media: 'not screen' }
+	]
 };
 
 export default function Layout({ children }: PropsWithChildren) {
 	return (
-		<html lang="en" className="dark scroll-smooth">
+		<html
+			lang="en"
+			className={clsx('scroll-smooth text-white', plexSansFont.variable, interFont.variable)}
+		>
 			<head>
 				<PlausibleProvider
 					domain="spacedrive.com"
@@ -40,16 +51,13 @@ export default function Layout({ children }: PropsWithChildren) {
 					taggedEvents
 				/>
 			</head>
-			<body>
-				<Providers>
-					<div className="overflow-hidden dark:bg-[#030014]/60">
-						<NavBar />
-						<main className="dark z-10 m-auto max-w-[100rem] dark:text-white">
-							{children}
-						</main>
-						<Footer />
-					</div>
-				</Providers>
+			<body className="noise noise-strongest bg-[#090909] font-plex">
+				<DisclaimerBanner />
+				<ClientProviders>
+					<NavBar />
+					<main className="z-10 m-auto mt-5 max-w-[100rem]">{children}</main>
+					<GlobalFooter />
+				</ClientProviders>
 			</body>
 		</html>
 	);

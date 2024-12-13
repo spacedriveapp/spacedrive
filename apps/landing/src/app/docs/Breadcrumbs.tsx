@@ -3,7 +3,7 @@
 import { CaretRight } from '@phosphor-icons/react';
 import { useParams } from 'next/navigation';
 import { Fragment } from 'react';
-import { toTitleCase } from '~/utils/util';
+import { toTitleCase } from '~/utils/misc';
 
 export function Breadcrumbs() {
 	const { slug } = useParams<{ slug?: string[] }>();
