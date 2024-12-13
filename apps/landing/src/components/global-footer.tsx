@@ -78,18 +78,27 @@ export function GlobalFooter() {
 									Explorer
 								</a>
 							</li>
-							<li>
-								<a className="transition-colors hover:text-white" href="#">
-									Hybrid Cloud
+							<li className="w-fit cursor-not-allowed">
+								<a
+									className="pointer-events-none cursor-not-allowed text-gray-450"
+									href="#"
+								>
+									Cloud
 								</a>
 							</li>
-							<li>
-								<a className="transition-colors hover:text-white" href="#">
+							<li className="w-fit cursor-not-allowed">
+								<a
+									className="pointer-events-none cursor-not-allowed text-gray-450"
+									href="#"
+								>
 									Teams
 								</a>
 							</li>
-							<li>
-								<a className="transition-colors hover:text-white" href="#">
+							<li className="w-fit cursor-not-allowed">
+								<a
+									className="pointer-events-none cursor-not-allowed text-gray-450"
+									href="#"
+								>
 									Organizer
 								</a>
 							</li>
