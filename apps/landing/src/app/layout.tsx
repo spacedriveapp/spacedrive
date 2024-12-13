@@ -9,7 +9,7 @@ import '~/styles/style.scss';
 
 import clsx from 'clsx';
 import PlausibleProvider from 'next-plausible';
-import { DisclaimerBanner } from '~/components/disclaimer-banner';
+// import { DisclaimerBanner } from '~/components/disclaimer-banner';
 
 import { ClientProviders } from './client-providers';
 import { interFont, plexSansFont } from './fonts';
@@ -52,7 +52,7 @@ export default function Layout({ children }: PropsWithChildren) {
 				/>
 			</head>
 			<body className="noise noise-strongest bg-[#090909] font-plex">
-				<DisclaimerBanner />
+				{/* <DisclaimerBanner /> */}
 				<ClientProviders>
 					<NavBar />
 					<main className="z-10 m-auto mt-5 max-w-[100rem]">{children}</main>
