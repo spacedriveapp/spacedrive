@@ -55,14 +55,16 @@ export function NavBar() {
 					isDocsPage
 						? 'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 max-w-[100rem] px-6 sm:px-8'
 						: 'fixed inset-x-0 top-0 z-[110] mx-auto mt-3 w-[calc(100%-2rem)] max-w-screen-xl sm:px-0',
-					'overflow-hidden rounded-xl bg-sidebar/90 from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur'
+					'overflow-hidden rounded-xl bg-sidebar/90 from-[#0E0E12]/90 from-50% shadow-[0px_-10px_20px_0px_rgba(40,134,213,0.05)] backdrop-blur will-change-transform'
 				)}
 				style={{
-					border: '1px rgba(30, 30, 38, 0.00)'
+					border: '1px rgba(30, 30, 38, 0.00)',
+					transform: 'translate3d(0,0,0)',
+					backfaceVisibility: 'hidden'
 				}}
 				initial={{ opacity: 1 }}
 				animate={{ opacity: isMenuOpen ? 0 : 1 }}
-				transition={{ duration: 0.2 }}
+				transition={{ duration: 0.2, ease: 'easeOut' }}
 			>
 				{/* Gradient Borders */}
 				<div className="absolute top-0 h-px w-full bg-gradient-to-r from-transparent via-[#2D2D37]/60 to-transparent" />
@@ -82,7 +84,11 @@ export function NavBar() {
 								src={appFullLogo}
 								width={200}
 								height={55}
-								className="z-30 mr-[6px] h-14 w-auto select-none"
+								className="z-30 mr-[6px] h-14 w-auto select-none will-change-transform"
+								style={{
+									transform: 'translate3d(0,0,0)',
+									backfaceVisibility: 'hidden'
+								}}
 							/>
 						</Link>
 
