@@ -4,6 +4,7 @@
 
 :root {
 	--noise-texture: url('/images/misc/noise-texture.png');
+	background-color: #090909;
 }
 
 @layer utilities {
@@ -14,7 +15,6 @@
 		position: relative;
 		z-index: 1;
 	}
-
 
 	.video-container {
 		perspective: 1000px; /* Controls the depth of the 3D effect */

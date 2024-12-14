@@ -19,14 +19,14 @@ export interface PositionPosting {
 
 export const positions: PositionPosting[] = [
 	{
-		name: 'Core Systems Engineer',
+		name: 'Core Engineer',
 		type: 'Full-time',
 		salary: '$140,000 - $180,000',
 		description:
 			"Lead development of Spacedrive's core storage engine and distributed filesystem in Rust. You'll architect and implement critical systems including storage classification, encrypted data sync, and filesystem operations. Deep knowledge of systems programming, distributed systems, and Rust required. Experience with FUSE filesystems and cloud storage systems highly valued."
 	},
 	{
-		name: 'Client Platform Engineer',
+		name: 'Platform Engineer',
 		type: 'Full-time',
 		salary: '$130,000 - $170,000',
 		description:

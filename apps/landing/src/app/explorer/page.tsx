@@ -1,11 +1,9 @@
 import React from 'react';
 
-interface PageProps {
-	// props
-}
-
-const Page: React.FC<PageProps> = () => {
-	return <h1>Explorer</h1>;
+const Page: React.FC = () => {
+	return (
+		<h1>Spacedrive Explorer — Open source, cross-platform file manager powered by a VDFS</h1>
+	);
 };
 
 export default Page;

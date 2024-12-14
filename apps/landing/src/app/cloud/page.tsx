@@ -1,10 +1,6 @@
 import React from 'react';
 
-interface PageProps {
-	// props
-}
-
-const Page: React.FC<PageProps> = () => {
+const Page: React.FC = () => {
 	return <h1>Cloud</h1>;
 };
 

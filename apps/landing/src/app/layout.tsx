@@ -9,6 +9,7 @@ import '~/styles/style.scss';
 
 import clsx from 'clsx';
 import PlausibleProvider from 'next-plausible';
+
 // import { DisclaimerBanner } from '~/components/disclaimer-banner';
 
 import { ClientProviders } from './client-providers';
@@ -51,13 +52,15 @@ export default function Layout({ children }: PropsWithChildren) {
 					taggedEvents
 				/>
 			</head>
-			<body className="noise noise-strongest bg-[#090909] font-plex">
-				{/* <DisclaimerBanner /> */}
-				<ClientProviders>
-					<NavBar />
-					<main className="z-10 m-auto mt-5 max-w-[100rem]">{children}</main>
-					<GlobalFooter />
-				</ClientProviders>
+			<body className="noise noise-strongest min-h-screen bg-[#090909] font-plex">
+				<div className="flex min-h-screen flex-col">
+					{/* <DisclaimerBanner /> */}
+					<ClientProviders>
+						<NavBar />
+						<main className="z-10 m-auto w-full max-w-[100rem] flex-1">{children}</main>
+						<GlobalFooter />
+					</ClientProviders>
+				</div>
 			</body>
 		</html>
 	);
