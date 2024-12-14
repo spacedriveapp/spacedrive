@@ -10049,6 +10049,7 @@ version = "0.0.1"
 dependencies = [
  "aead 0.6.0-rc.0",
  "async-stream",
+ "base64 0.22.1",
  "blake3",
  "chacha20poly1305 0.11.0-pre.2",
  "cmov",
@@ -10065,6 +10066,8 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.64",
  "tokio",
+ "tracing",
+ "tracing-test",
  "typenum",
  "zeroize",
 ]
@@ -11761,19 +11764,19 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-cors-fetch"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5216989e3f79e261cc9f5dbed6257ddaace94722624f52b64eea3332cd5b4eaf"
+version = "2.1.1-sd-custom"
 dependencies = [
  "http 0.2.12",
  "once_cell",
  "reqwest 0.11.27",
+ "sd-crypto",
  "serde",
  "serde_json",
  "tauri",
  "tauri-plugin",
  "thiserror 1.0.64",
  "tokio",
+ "tracing",
  "url",
 ]
 

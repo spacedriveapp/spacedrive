@@ -42,4 +42,4 @@ pub use rng::CryptoRng;
 
 pub use rand_core::{RngCore, SeedableRng};
 
-pub mod basic;
+pub mod cookie;

@@ -149,7 +149,7 @@ importers:
         specifier: ^1.0.3
         version: 1.4.3(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       supertokens-web-js:
-        specifier: ^0.13.0
+        specifier: '=0.13.0'
         version: 0.13.0
     devDependencies:
       '@sd/config':
@@ -6484,6 +6484,7 @@ packages:
 
   acorn-import-assertions@1.9.0:
     resolution: {integrity: sha512-cmMwop9x+8KFhxvKrKfPYmN6/pKTYYHBqLa0DfvVZcKMJWNyWLnaqND7dx/qn66R7ewM1UX5XMaDVP5wlVTaVA==}
+    deprecated: package has been renamed to acorn-import-attributes
     peerDependencies:
       acorn: ^8
 
