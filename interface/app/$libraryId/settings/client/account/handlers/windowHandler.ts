@@ -23,32 +23,32 @@ export default function getWindowHandler(original: WindowHandlerInterface): Wind
 				return locationHash;
 			},
 			getOrigin: function () {
-				return "http://localhost:8001";
+				return 'http://localhost:8001';
 			},
 			getHostName: function () {
-				return "localhost";
+				return 'localhost';
 			},
 			getPathName: function () {
 				let locationHash = window.location.hash;
 
-				if (locationHash === "") {
-					return "";
+				if (locationHash === '') {
+					return '';
 				}
 
-				if (locationHash.startsWith("#")) {
+				if (locationHash.startsWith('#')) {
 					// Remove the starting pound symbol
 					locationHash = locationHash.substring(1);
 				}
 
-				locationHash = locationHash.split("?")[0] ?? "";
+				locationHash = locationHash.split('?')[0] ?? '';
 
-				if (locationHash.includes("#")) {
+				if (locationHash.includes('#')) {
 					// Remove location hash
-					locationHash = locationHash.split("#")[0] ?? "";
+					locationHash = locationHash.split('#')[0] ?? '';
 				}
 
 				return locationHash;
-			},
+			}
 		}
 	};
 }

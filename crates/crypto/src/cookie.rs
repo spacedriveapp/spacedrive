@@ -8,13 +8,13 @@
 //! - Base64 encoding/decoding utilities
 
 use base64::Engine;
+use blake3;
 use chacha20poly1305::{
 	aead::{Aead, AeadCore, KeyInit},
 	ChaCha20Poly1305, Key,
 };
 use std::convert::TryFrom;
 use tracing::{debug, error};
-use blake3;
 
 /// Main struct for handling encryption and decryption operations.
 /// Contains an initialized `ChaCha20Poly1305` cipher instance.
@@ -168,7 +168,9 @@ impl CookieCipher {
 
 		if string.is_empty() {
 			error!("Input string is empty");
-			return Err(CryptoCookieError::KeyCreation("Input string is empty".into()));
+			return Err(CryptoCookieError::KeyCreation(
+				"Input string is empty".into(),
+			));
 		}
 
 		// Hash the input string to get a fixed-size output
@@ -180,7 +182,6 @@ impl CookieCipher {
 		debug!("Key generated successfully");
 		Ok(key_array)
 	}
-
 
 	/// Encodes binary data to base64 string.
 	///

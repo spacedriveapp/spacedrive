@@ -1,5 +1,5 @@
-import { CookieHandlerInterface } from "supertokens-website/utils/cookieHandler/types";
-import { nonLibraryClient } from '@sd/client'
+import { CookieHandlerInterface } from 'supertokens-website/utils/cookieHandler/types';
+import { nonLibraryClient } from '@sd/client';
 
 /**
  * Tauri handles cookies differently than in browser environments. The SuperTokens
@@ -9,22 +9,25 @@ import { nonLibraryClient } from '@sd/client'
  * requirements.
  */
 function getCookiesFromStorage(): string {
-	let cookiesFromStorage: string = "";
+	let cookiesFromStorage: string = '';
 
-	nonLibraryClient.query(['keys.get']).then((response) => {
-		// Debugging
-		// console.log("rspc response: ", response);
-		const cookiesArrayFromStorage: string[] = JSON.parse(response);
-		// console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
+	nonLibraryClient
+		.query(['keys.get'])
+		.then((response) => {
+			// Debugging
+			// console.log("rspc response: ", response);
+			const cookiesArrayFromStorage: string[] = JSON.parse(response);
+			// console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
 
-		// Actual
-		cookiesFromStorage = response;
-	}).catch((e) => {
-		console.error("Error fetching cookies from storage: ", e);
-	});
+			// Actual
+			cookiesFromStorage = response;
+		})
+		.catch((e) => {
+			console.error('Error fetching cookies from storage: ', e);
+		});
 
 	if (cookiesFromStorage.length === 0) {
-		return "";
+		return '';
 	}
 
 	/**
@@ -37,20 +40,20 @@ function getCookiesFromStorage(): string {
 
 	for (let cookieIndex = 0; cookieIndex < cookieArrayInStorage.length; cookieIndex++) {
 		const currentCookieString = cookieArrayInStorage[cookieIndex];
-		const parts = currentCookieString?.split(";") ?? [];
-		let expirationString: string = "";
+		const parts = currentCookieString?.split(';') ?? [];
+		let expirationString: string = '';
 
 		for (let partIndex = 0; partIndex < parts.length; partIndex++) {
 			const currentPart = parts[partIndex];
 
-			if (currentPart?.toLocaleLowerCase().includes("expires=")) {
+			if (currentPart?.toLocaleLowerCase().includes('expires=')) {
 				expirationString = currentPart;
 				break;
 			}
 		}
 
-		if (expirationString !== "") {
-			const expirationValueString = expirationString.split("=")[1];
+		if (expirationString !== '') {
+			const expirationValueString = expirationString.split('=')[1];
 			const expirationDate = expirationValueString ? new Date(expirationValueString) : null;
 			const currentTimeInMillis = Date.now();
 
@@ -71,20 +74,19 @@ function getCookiesFromStorage(): string {
 	 */
 	// window.localStorage.setItem(frontendCookiesKey, JSON.stringify(cookieArrayToReturn));
 	try {
-		nonLibraryClient.mutation(['keys.save', JSON.stringify(cookieArrayToReturn)])
+		nonLibraryClient.mutation(['keys.save', JSON.stringify(cookieArrayToReturn)]);
 		// console.log("Cookies set successfully");
 	} catch (e) {
-		console.error("Error setting cookies to storage: ", e);
+		console.error('Error setting cookies to storage: ', e);
 	}
 
-
-	return cookieArrayToReturn.join("; ");
+	return cookieArrayToReturn.join('; ');
 }
 
 async function setCookieToStorage(cookieString: string) {
-	const cookieName = cookieString.split(";")[0]?.split("=")[0];
+	const cookieName = cookieString.split(';')[0]?.split('=')[0];
 
-	let cookiesFromStorage: string = "";
+	let cookiesFromStorage: string = '';
 	try {
 		const response = await nonLibraryClient.query(['keys.get']);
 		// Debugging
@@ -94,7 +96,7 @@ async function setCookieToStorage(cookieString: string) {
 		// Actual
 		cookiesFromStorage = response;
 	} catch (e) {
-		console.error("Error fetching cookies from storage: ", e);
+		console.error('Error fetching cookies from storage: ', e);
 	}
 
 	let cookiesArray: string[] = [];
@@ -131,7 +133,7 @@ async function setCookieToStorage(cookieString: string) {
 		await nonLibraryClient.mutation(['keys.save', JSON.stringify(cookiesArray)]);
 		// console.log("Cookies set successfully");
 	} catch (e) {
-		console.error("Error setting cookies to storage: ", e);
+		console.error('Error setting cookies to storage: ', e);
 		return;
 	}
 
@@ -147,6 +149,6 @@ export default function getCookieHandler(original: CookieHandlerInterface): Cook
 		},
 		setCookie: async function (cookieString: string) {
 			await setCookieToStorage(cookieString);
-		},
+		}
 	};
 }

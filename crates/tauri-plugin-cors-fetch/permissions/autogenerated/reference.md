@@ -2,8 +2,8 @@
 
 Allows all fetch operations
 
-- `allow-cors-request`
 - `allow-cancel-cors-request`
+- `allow-cors-request`
 
 ## Permission Table
 

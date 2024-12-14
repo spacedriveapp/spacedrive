@@ -404,7 +404,10 @@ impl NodeConfig {
 						// Verify that the ID isn't already set to a UUID v7. If it is, we don't want to overwrite it.
 						// Get the current ID, if it's a string, parse it as a UUID and check if it's a UUID v7.
 						// If it's not a UUID v7, set it to a UUID v7.
-						let id = config.get("id").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok());
+						let id = config
+							.get("id")
+							.and_then(|v| v.as_str())
+							.and_then(|s| Uuid::parse_str(s).ok());
 						if let Some(id) = id {
 							if id.get_version() != Some(uuid::Version::Md5) {
 								config.remove("id");
@@ -423,11 +426,17 @@ impl NodeConfig {
 						// );
 
 						// Create a .sdks file in the data directory if it doesn't exist
-						let data_directory = path.parent().expect("Config path must have a parent directory");
+						let data_directory = path
+							.parent()
+							.expect("Config path must have a parent directory");
 						let sdks_file = data_directory.join(".sdks");
 						if !sdks_file.exists() {
 							fs::write(&sdks_file, b"").await.map_err(|e| {
-								FileIOError::from((sdks_file.clone(), e, "Failed to create .sdks file"))
+								FileIOError::from((
+									sdks_file.clone(),
+									e,
+									"Failed to create .sdks file",
+								))
 							})?;
 						}
 

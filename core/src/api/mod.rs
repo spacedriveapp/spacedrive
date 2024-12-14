@@ -29,6 +29,7 @@ mod cloud;
 mod ephemeral_files;
 mod files;
 mod jobs;
+mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -43,7 +44,6 @@ mod tags;
 pub mod utils;
 pub mod volumes;
 mod web_api;
-mod keys;
 
 use libraries::KindStatistic;
 use utils::{InvalidRequests, InvalidateOperationEvent};

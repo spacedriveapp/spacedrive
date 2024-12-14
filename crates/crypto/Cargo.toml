@@ -2,7 +2,11 @@
 name    = "sd-crypto"
 version = "0.0.1"
 
-authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>", "Arnab Chakraborty <arnab@spacedrive.com>"]
+authors = [
+	"Arnab Chakraborty <arnab@spacedrive.com>",
+	"Ericson Soares <ericson@spacedrive.com>",
+	"Jake Robinson <jake@spacedrive.com>"
+]
 description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
@@ -25,9 +29,9 @@ rand         = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
 thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
-zeroize      = { workspace = true, features = ["derive"] }
 tracing      = { workspace = true }
 tracing-test = { workspace = true }
+zeroize      = { workspace = true, features = ["derive"] }
 
 # External dependencies
 aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }

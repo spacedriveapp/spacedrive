@@ -42,7 +42,7 @@ fn main() {
 ```json
 // src-tauri/capabilities/default.json
 {
-  "permissions": ["cors-fetch:default"]
+	"permissions": ["cors-fetch:default"]
 }
 ```
 
@@ -51,9 +51,9 @@ fn main() {
 ```json
 // src-tauri/tauri.conf.json
 {
-  "app": {
-    "withGlobalTauri": true
-  }
+	"app": {
+		"withGlobalTauri": true
+	}
 }
 ```
 
@@ -66,16 +66,16 @@ After installing and initializing the plugin, you can start making `fetch` reque
 window.enableCORSFetch(true);
 
 // Use the hooked fetch with CORS support
-fetch("https://example.com/api")
-  .then((response) => response.json())
-  .then((data) => console.log(data))
-  .catch((error) => console.error(error));
+fetch('https://example.com/api')
+	.then((response) => response.json())
+	.then((data) => console.log(data))
+	.catch((error) => console.error(error));
 
 // Use the hooked fetch directly
-window.hookedFetch("https://example.com/api");
+window.hookedFetch('https://example.com/api');
 
 // Use the original, unhooked fetch
-window.originalFetch("https://example.com/api");
+window.originalFetch('https://example.com/api');
 ```
 
 ## Limitation
