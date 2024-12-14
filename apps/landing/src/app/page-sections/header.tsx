@@ -8,8 +8,8 @@ import {
 import { GoldenBadge } from '~/components/golden-badge';
 import { HeroImage } from '~/components/hero-image'; // Import the client-side component
 import { HomeCtaButtons } from '~/components/home-cta-buttons';
-import { PlatformIcons } from '~/components/platform-icons';
 import Particles from '~/components/particles';
+import { PlatformIcons } from '~/components/platform-icons';
 import { toTitleCase } from '~/utils/misc';
 
 export async function Header() {
@@ -31,7 +31,7 @@ export async function Header() {
 			/>
 
 			<h1 className="fade-in-heading z-30 mb-3 text-center text-3xl font-bold leading-[1.3] tracking-tight md:text-5xl lg:text-6xl">
-				<span className="inline bg-gradient-to-b from-[#EFF1FB] from-15% to-[#B8CEE0] to-85% bg-clip-text text-transparent">
+				<span className="inline bg-gradient-to-b from-[#EFF1FB_15%] to-[#B8CEE0_85%] bg-clip-text text-transparent">
 					{`Sync, manage, & discover.`}
 					<br />
 					{`Across all your devices.`}

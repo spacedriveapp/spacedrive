@@ -79,10 +79,7 @@ export function GlobalFooter() {
 								</a>
 							</li>
 							<li className="w-fit cursor-not-allowed">
-								<a
-									className="pointer-events-none cursor-not-allowed text-gray-450"
-									href="#"
-								>
+								<a className="transition-colors hover:text-white" href="#">
 									Cloud
 								</a>
 							</li>
@@ -118,44 +115,71 @@ export function GlobalFooter() {
 						<ul className="flex flex-col gap-2.5 tracking-[0.04em]">
 							<li>
 								<a
-									className="transition-colors hover:text-white"
+									className="group relative transition-colors hover:text-white"
 									href="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64"
 								>
 									macOS
+									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										alpha
+									</span>
 								</a>
 							</li>
 							<li>
 								<a
-									className="transition-colors hover:text-white"
+									className="group relative transition-colors hover:text-white"
 									href="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64"
 								>
 									macOS - Intel
+									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										alpha
+									</span>
 								</a>
 							</li>
 							<li>
 								<a
-									className="transition-colors hover:text-white"
+									className="group relative transition-colors hover:text-white"
 									href="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64"
 								>
 									Windows
+									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										alpha
+									</span>
 								</a>
 							</li>
 							<li>
 								<a
-									className="transition-colors hover:text-white"
+									className="group relative transition-colors hover:text-white"
 									href="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64"
 								>
 									Linux
+									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										alpha
+									</span>
 								</a>
 							</li>
 							<li className="w-fit">
-								<a href="#">iOS</a>
+								<a href="#" className="group relative">
+									iOS
+									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										testing
+									</span>
+								</a>
 							</li>
 							<li className="w-fit">
-								<a href="#">Android</a>
+								<a href="#" className="group relative">
+									Android
+									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										testing
+									</span>
+								</a>
 							</li>
 							<li className="w-fit">
-								<a href="#">iPadOS</a>
+								<a href="#" className="group relative">
+									iPadOS
+									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										testing
+									</span>
+								</a>
 							</li>
 							<li className="w-fit cursor-not-allowed">
 								<a
@@ -173,12 +197,15 @@ export function GlobalFooter() {
 									watchOS
 								</a>
 							</li>
-							<li className="w-fit cursor-not-allowed">
+							<li className="w-fit">
 								<a
-									className="pointer-events-none cursor-not-allowed text-gray-450"
-									href="#"
+									className="group transition-colors hover:text-white"
+									href="/docs/product/getting-started/setup#docker"
 								>
 									Docker
+									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+										alpha
+									</span>
 								</a>
 							</li>
 						</ul>
