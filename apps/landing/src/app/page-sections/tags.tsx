@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence } from 'framer-motion';
-import React from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import { SelectedVideo, Video } from '~/components/video';
 
 const videos: {
@@ -21,13 +21,20 @@ const videos: {
 	}
 ];
 
-const Tags = () => {
-	const [selectedVideo, setSelectedVideo] = React.useState<null | string>(null);
+const MemoizedVideo = memo(Video);
+
+const MemoizedTags = memo(function Tags() {
+	const [selectedVideo, setSelectedVideo] = useState<null | string>(null);
+
+	const handleVideoSelect = useCallback((src: string | null) => {
+		setSelectedVideo(src);
+	}, []);
+
 	return (
 		<>
 			{selectedVideo ? (
 				<AnimatePresence>
-					<SelectedVideo src={selectedVideo} />
+					<SelectedVideo src={selectedVideo} setSelectedVideo={setSelectedVideo} />
 				</AnimatePresence>
 			) : null}
 			<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 p-4">
@@ -42,10 +49,10 @@ const Tags = () => {
 				<div className="grid w-full grid-cols-1 gap-16 md:grid-cols-2 md:gap-6">
 					{videos.map((video) => (
 						<div key={video.src}>
-							<Video
-								setSelectedVideo={setSelectedVideo}
+							<MemoizedVideo
+								setSelectedVideo={handleVideoSelect}
 								layoutId={`video-${video.src}`}
-								onClick={() => setSelectedVideo(video.src)}
+								onClick={() => handleVideoSelect(video.src)}
 								{...video}
 							/>
 							<h2 className="mt-5 text-lg font-bold text-white">{video.title}</h2>
@@ -56,6 +63,6 @@ const Tags = () => {
 			</div>
 		</>
 	);
-};
+});
 
-export default Tags;
+export default MemoizedTags;

@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ReactNode, useState } from 'react';
+import { memo, ReactNode, useCallback, useState } from 'react';
 import appFullLogo from '~/assets/app_full_logo.svg?url';
 import { CtaPrimaryButton } from '~/components/cta-primary-button';
 
@@ -40,11 +40,15 @@ const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = 
 	{ label: 'Careers', href: '/careers' }
 ];
 
-export function NavBar() {
+const MemoizedNavBar = memo(function NavBar() {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const currentPlatform = useCurrentPlatform();
 	const pathname = usePathname();
 	const isDocsPage = pathname.startsWith('/docs');
+
+	const toggleMenu = useCallback(() => {
+		setIsMenuOpen((prev) => !prev);
+	}, []);
 
 	return (
 		<>
@@ -119,7 +123,7 @@ export function NavBar() {
 					<div className="flex items-center gap-[20px] lg:hidden">
 						<motion.button
 							className="block"
-							onClick={() => setIsMenuOpen(!isMenuOpen)}
+							onClick={toggleMenu}
 							whileTap={{ rotate: isMenuOpen ? -180 : 180 }}
 						>
 							<List className="size-6 text-white" />
@@ -184,7 +188,9 @@ export function NavBar() {
 			</AnimatePresence>
 		</>
 	);
-}
+});
+
+export { MemoizedNavBar as NavBar };
 
 interface NavLinkProps {
 	href: string;

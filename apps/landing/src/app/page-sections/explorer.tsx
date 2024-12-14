@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { SelectedVideo, Video } from '~/components/video';
 
 const videos: {
@@ -26,13 +26,20 @@ const videos: {
 	}
 ];
 
-export const Explorer = () => {
+const MemoizedVideo = memo(Video);
+
+const MemoizedExplorer = memo(function Explorer() {
 	const [selectedVideo, setSelectedVideo] = useState<null | string>(null);
+
+	const handleVideoSelect = useCallback((src: string | null) => {
+		setSelectedVideo(src);
+	}, []);
+
 	return (
 		<>
 			{selectedVideo ? (
 				<AnimatePresence>
-					<SelectedVideo src={selectedVideo} />
+					<SelectedVideo src={selectedVideo} setSelectedVideo={setSelectedVideo} />
 				</AnimatePresence>
 			) : null}
 			<div className="container mx-auto flex flex-col flex-wrap items-center gap-10 px-4">
@@ -48,10 +55,10 @@ export const Explorer = () => {
 				<div className="grid w-full grid-cols-1 gap-16 md:grid-cols-3 md:gap-4">
 					{videos.map((video) => (
 						<div key={video.src}>
-							<Video
-								setSelectedVideo={setSelectedVideo}
+							<MemoizedVideo
+								setSelectedVideo={handleVideoSelect}
 								layoutId={`video-${video.src}`}
-								onClick={() => setSelectedVideo(video.src)}
+								onClick={() => handleVideoSelect(video.src)}
 								{...video}
 							/>
 							<h2 className="mt-5 text-lg font-bold text-white">{video.title}</h2>
@@ -62,4 +69,6 @@ export const Explorer = () => {
 			</div>
 		</>
 	);
-};
+});
+
+export { MemoizedExplorer as Explorer };
