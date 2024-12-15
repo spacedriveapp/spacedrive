@@ -12,7 +12,7 @@ export const Github = () => {
 						See for yourself.
 					</span>
 				</h1>
-				<p className="mt-[12px] font-plex text-lg leading-[125%] tracking-[0.01em] text-ink-dull">
+				<p className="mt-[12px] text-balance font-plex text-lg leading-[125%] tracking-[0.01em] text-ink-dull">
 					When we promise strong privacy and encryption, we mean it. Our app’s source code
 					is entirely open-source and available on GitHub, so if you’re wondering what
 					Spacedrive does with your data or have an improvement to share, you’re welcome
