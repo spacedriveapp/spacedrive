@@ -33,6 +33,9 @@ pub enum JobSystemError {
 
 	#[error("internal job panic! <id='{0}'>")]
 	Panic(JobId),
+
+	#[error("No undo information available for this job")]
+	NoUndoAvailable,
 }
 
 impl From<JobSystemError> for rspc::Error {

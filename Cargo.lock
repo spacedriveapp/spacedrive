@@ -8088,7 +8088,7 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-concurrency",
- "itertools 0.13.0",
+ "itertools",
  "rmp-serde",
  "sd-core-file-path-helper",
  "sd-core-heavy-lifting",

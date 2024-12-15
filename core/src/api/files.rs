@@ -6,7 +6,7 @@ use crate::{
 	location::{get_location_path_from_location_id, LocationError},
 	object::fs::{
 		error::FileSystemJobsError, find_available_filename_for_duplicate,
-		old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
+		old_copy::OldFileCopierJobInit,
 		old_erase::OldFileEraserJobInit,
 	},
 	old_job::OldJob,
@@ -636,15 +636,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.map_err(Into::into)
 				})
 		})
-		.procedure("cutFiles", {
-			R.with2(library())
-				.mutation(|(node, library), args: OldFileCutterJobInit| async move {
-					OldJob::new(args)
-						.spawn(&node, &library)
-						.await
-						.map_err(Into::into)
-				})
-		})
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
 			pub struct RenameOne {
@@ -848,6 +839,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					res
 				},
 			)
+		})
+		.procedure("copy", {
+			#[derive(Type, Deserialize)]
+			pub struct CopyArgs {
+				sources: Vec<PathBuf>,
+				target_dir: PathBuf,
+				location_id: Option<location::id::Type>,
+			}
+
+			R.with2(library())
+				.mutation(|(ctx, library), args: CopyArgs| async move {
+					let job = if let Some(location_id) = args.location_id {
+						// Location-bound copy
+						sd_file_actions::copier::CopyJob::new_in_location(
+							args.sources,
+							args.target_dir,
+							location_id,
+							true,
+						)
+					} else {
+						// Ephemeral copy
+						sd_file_actions::copier::CopyJob::new_ephemeral(
+							args.sources,
+							args.target_dir,
+						)
+					};
+
+					library
+						.job_manager
+						.dispatch(job, args.location_id)
+						.await
+						.map_err(|e| {
+							error!(?e, "Failed to dispatch copy job");
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"Failed to dispatch copy job".to_string(),
+								e,
+							)
+						})?;
+
+					invalidate_query!(library, "search.paths");
+					if args.location_id.is_none() {
+						invalidate_query!(library, "search.ephemeralPaths");
+					}
+
+					Ok(())
+				})
 		})
 }
 

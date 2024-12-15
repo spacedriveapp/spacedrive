@@ -2,16 +2,368 @@
 index: 10
 ---
 
-# Jobs
+# Job System
 
-Spacedrive's job system is designed to handle any tasks that might take time to complete, such as indexing files and generating thumbnails.
+This guide will walk you through creating jobs in Spacedrive's job system. The job system is designed to handle long-running tasks with features like progress tracking, pause/resume capabilities, and error handling.
 
-A small indicator is shown in the bottom left when a job is running; clicking it reveals the job manager.
+## Job System Overview
 
-The job manager allows you to see current jobs, expand them to see various tasks part of that job. Jobs with only one task, such as copying a single file, will not be expandable by clicking.
+The job system consists of several key components:
 
-Jobs can be paused, resumed and canceled. Spacedrive will always try to restart jobs that were cut off by a restart or shutdown of Spacedrive.
+- **Job**: The high-level operation (e.g., file deletion, copying)
+- **Tasks**: Individual units of work within a job
+- **Behaviors**: Implementations of specific operations (e.g., different deletion strategies)
+- **Progress Tracking**: System for monitoring and reporting job progress
+- **State Management**: Handles job persistence and recovery
+- **Undo Support**: Optional capability for jobs to define reversible operations
+- **Location Handling**: Support for both location-bound and location-independent operations
 
-Job history can be cleared by hitting the small trash icon on the job manager. This will not remove any ongoing jobs.
+## Creating a New Job
 
-Up to 3 jobs can run simultaneously, although this may be configurable in the future. More CPU-intensive jobs like thumbnailing and labelling have an upper limit for CPU usage set in the General settings page.
+Let's walk through creating a job using the file deletion system as an example. The complete implementation can be found in `core/crates/file-actions/src/deleter/`.
+
+### 0. Register the Job
+
+Before implementing the job itself, you need to register it in two places:
+
+1. Add it to the `JobName` enum in `job_system/job.rs`:
+
+```rust
+pub enum JobName {
+    Indexer,
+    FileIdentifier,
+    MediaProcessor,
+    Copy,
+    Move,
+    Delete,  // <-- Your new job name here
+    // ...
+}
+```
+
+2. Add your job's metadata type to `ReportInputMetadata` in `job_system/report.rs`:
+
+```rust
+pub enum ReportInputMetadata {
+    // ... other jobs ...
+    Deleter {
+        location_id: location::id::Type,
+        file_path_ids: Vec<file_path::id::Type>,
+    },
+    // Add your job's metadata here with the fields needed to track its progress
+}
+```
+
+This registration is crucial for:
+
+- Job identification in the system
+- Progress tracking and reporting
+- Job persistence and recovery
+- UI display and management
+
+### 1. Define Job Structure
+
+First, create your job structure that will hold the necessary state:
+
+```rust
+#[derive(Debug)]
+pub struct DeleterJob<B> {
+    // Required parameters
+    location_id: Option<location::id::Type>,
+    file_path_ids: Vec<file_path::id::Type>,
+
+    // Task management state
+    pending_tasks: Option<Vec<TaskHandle<e>>>,
+    shutdown_tasks: Option<Vec<Box<dyn Task<e>>>>,
+    accumulative_errors: Option<Vec<e>>,
+
+    // Generic behavior type
+    behavior: PhantomData<fn(B) -> B>,
+}
+```
+
+### 2. Define Job State
+
+Create a serializable state structure for job persistence:
+
+```rust
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeleterState {
+    location_id: Option<location::id::Type>,
+    file_path_ids: Vec<file_path::id::Type>,
+    shutdown_tasks: Option<SerializedTasks>,
+    accumulative_errors: Option<Vec<NonCriticalError>>,
+}
+```
+
+### 3. Define Behavior Trait
+
+If your job supports multiple implementations (like delete vs move to trash), create a behavior trait:
+
+```rust
+pub trait DeleteBehavior {
+    fn delete(file: FileData) -> impl Future<Output = Result<ExecStatus, ()>> + Send;
+
+    fn delete_all<I>(
+        files: I,
+        interrupter: Option<&Interrupter>,
+    ) -> impl Future<Output = Result<ExecStatus, ()>> + Send
+    where
+        I: IntoIterator<Item = FileData> + Send + 'static,
+        I::IntoIter: Send;
+}
+```
+
+### 4. Implement Undo Support (Optional)
+
+If your job needs to support undo operations, implement the `UndoableJob` trait:
+
+```rust
+impl UndoableJob for DeleterJob {
+    fn create_undo_job(&self) -> Option<Box<dyn SerializableJob>> {
+        // Create a job that will reverse the operation
+        // For example, restore files from trash or recreate deleted directories
+        Some(Box::new(RestoreJob {
+            location_id: self.location_id,
+            file_paths: self.file_paths.clone(),
+        }))
+    }
+}
+```
+
+The undo job will be stored in the job history and can be executed later to reverse the operation.
+
+### 5. Implement Behaviors
+
+Create concrete implementations of your behavior:
+
+```rust
+// Permanent deletion behavior
+pub struct RemoveBehavior;
+
+impl DeleteBehavior for RemoveBehavior {
+    async fn delete(file_data: FileData) -> Result<ExecStatus, ()> {
+        if file_data.full_path.is_dir() {
+            tokio::fs::remove_dir_all(&file_data.full_path).await
+        } else {
+            tokio::fs::remove_file(&file_data.full_path).await
+        };
+        Ok(ExecStatus::Done(TaskOutput::Empty))
+    }
+}
+
+// Move to trash behavior
+pub struct MoveToTrashBehavior;
+
+impl DeleteBehavior for MoveToTrashBehavior {
+    async fn delete_all<I>(files: I, interrupter: Option<&Interrupter>) -> Result<ExecStatus, ()>
+    where
+        I: IntoIterator<Item = FileData> + Send + 'static,
+        I::IntoIter: Send + 'static,
+    {
+        if let Some(interrupter) = interrupter {
+            check_interruption!(interrupter);
+        }
+        task::spawn_blocking(|| trash::delete_all(files.into_iter().map(|x| x.full_path))).await;
+        Ok(ExecStatus::Done(().into()))
+    }
+}
+```
+
+### 6. Create Task Implementation
+
+Define the task that will perform the actual work:
+
+```rust
+pub struct RemoveTask<B> {
+    id: TaskId,
+    files: Vec<FileData>,
+    counter: Arc<AtomicU64>,
+    behavior: PhantomData<fn(B) -> B>,
+}
+
+#[async_trait::async_trait]
+impl<B: DeleteBehavior + Send + 'static> Task<Error> for RemoveTask<B> {
+    fn id(&self) -> TaskId {
+        self.id
+    }
+
+    async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, Error> {
+        let size = self.files.len();
+
+        match B::delete_all(self.files.clone(), Some(interrupter)).await {
+            Ok(ExecStatus::Done(_)) => {
+                self.counter.fetch_add(size as _, Ordering::AcqRel);
+                Ok(ExecStatus::Done(().into()))
+            }
+            Ok(status) => Ok(status),
+            Err(_) => Err(Error::Deleter("Task failed".into()))
+        }
+    }
+}
+```
+
+### 7. Implement Job Traits
+
+Implement the required traits for your job:
+
+```rust
+impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<B> {
+    const NAME: JobName = JobName::Delete;
+
+    async fn run<OuterCtx: OuterContext>(
+        mut self,
+        dispatcher: JobTaskDispatcher,
+        ctx: impl JobContext<OuterCtx>,
+    ) -> Result<ReturnStatus, Error> {
+        // Get required data
+        let files = get_many_files_datas(ctx.db(), location_path, &self.file_path_ids).await?;
+
+        // Create and dispatch tasks
+        let counter = Arc::new(AtomicU64::new(0));
+        let task = RemoveTask::new(files, counter.clone());
+        let task_handle = dispatcher.dispatch(task)?;
+
+        // Monitor progress
+        while let Some(status) = task_handle.status().await {
+            match status {
+                TaskStatus::Running => {
+                    let progress = counter.load(Ordering::Relaxed);
+                    ctx.progress(ProgressUpdate::CompletedTaskCount(progress)).await;
+                }
+                TaskStatus::Completed => break,
+                TaskStatus::Failed(e) => return Err(e),
+                _ => continue,
+            }
+        }
+
+        Ok(ReturnStatus::Completed(JobReturn::default()))
+    }
+}
+```
+
+### 8. Implement Serialization
+
+Add serialization support for job persistence:
+
+```rust
+impl<OuterCtx, B> SerializableJob<OuterCtx> for DeleterJob<B>
+where
+    OuterCtx: OuterContext,
+    B: DeleteBehavior + Hash + Send + 'static,
+{
+    fn serialize(mut self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
+        let state = DeleterState {
+            location_id: self.location_id,
+            file_path_ids: self.file_path_ids,
+            shutdown_tasks: self.shutdown_tasks.map(|tasks|
+                tasks.into_iter()
+                    .filter_map(|t| t.serialize().ok())
+                    .collect()),
+            accumulative_errors: self.accumulative_errors,
+        };
+
+        Ok(Some(rmp_serde::to_vec(&state)?))
+    }
+
+    fn deserialize(
+        serialized_job: &[u8],
+        _: &OuterCtx,
+    ) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
+        let state: DeleterState = rmp_serde::from_slice(serialized_job)?;
+
+        Ok(Some((
+            Self {
+                location_id: state.location_id,
+                file_path_ids: state.file_path_ids,
+                pending_tasks: None,
+                shutdown_tasks: None,
+                accumulative_errors: state.accumulative_errors,
+                behavior: PhantomData,
+            },
+            state.shutdown_tasks,
+        )))
+    }
+}
+```
+
+## Best Practices
+
+1. **Error Handling**
+
+   - Use accumulative errors for non-critical failures
+   - Include context in error messages
+   - Handle cleanup on errors
+
+2. **Progress Reporting**
+
+   - Report progress regularly using `ctx.progress()`
+   - Include meaningful progress messages
+   - Use atomic counters for thread-safe progress tracking
+
+3. **Resource Management**
+
+   - Clean up resources on cancellation
+   - Use `Arc` for shared resources
+   - Implement proper task cleanup
+
+4. **State Management**
+   - Keep serialized state minimal
+   - Handle state restoration properly
+   - Use `Option` for non-persistent state
+
+## Common Patterns
+
+1. **Batch Processing**
+
+```rust
+let batch_size = 100;
+for chunk in items.chunks(batch_size) {
+    let task = MyTask::new(chunk.to_vec(), progress_counter.clone());
+    tasks.push(dispatcher.dispatch(task)?);
+}
+```
+
+2. **Progress Updates**
+
+```rust
+ctx.progress(ProgressUpdate::Message(format!(
+    "Processed {} of {} items",
+    completed,
+    total
+))).await;
+```
+
+3. **Error Accumulation**
+
+```rust
+if let Err(e) = result {
+    self.accumulative_errors.get_or_insert(Vec::new()).push(e);
+}
+```
+
+## Debugging Tips
+
+1. Use tracing for better debugging:
+
+```rust
+tracing::debug!(task_id = %self.id, "Starting task execution");
+```
+
+2. Monitor task states:
+
+```rust
+while let Some(status) = task_handle.status().await {
+    match status {
+        TaskStatus::Running => continue,
+        TaskStatus::Paused => handle_pause(),
+        TaskStatus::Completed => break,
+        TaskStatus::Failed(e) => handle_error(e),
+    }
+}
+```
+
+3. Add proper error context:
+
+```rust
+Error::TaskFailed(format!("Failed to process item {}: {}", item_id, e))
+```

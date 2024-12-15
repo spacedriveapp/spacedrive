@@ -27,4 +27,5 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
+pub mod copier;
 pub mod deleter;

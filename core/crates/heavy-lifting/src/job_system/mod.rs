@@ -4,7 +4,9 @@ use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
-use std::{cell::RefCell, collections::hash_map::HashMap, panic, path::Path, sync::Arc};
+use std::{
+	cell::RefCell, collections::hash_map::HashMap, panic, path::Path, sync::Arc, sync::RwLock,
+};
 
 use async_channel as chan;
 use futures::Stream;
@@ -49,6 +51,7 @@ pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,
 	store_jobs_file: Arc<Path>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
+	job_history: Arc<RwLock<Vec<(JobId, Option<Box<dyn SerializableJob>>)>>>,
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, JobCtx> {
@@ -110,6 +113,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 			job_outputs_rx,
 			store_jobs_file,
 			runner_handle,
+			job_history: Arc::new(RwLock::new(Vec::new())),
 		}
 	}
 
@@ -150,22 +154,22 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	pub async fn check_running_jobs(
 		&self,
 		job_names: Vec<JobName>,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 	) -> bool {
 		let (ack_tx, ack_rx) = oneshot::channel();
 
 		self.msgs_tx
-			.send(RunnerMessage::CheckIfJobsAreRunning {
+			.send(RunnerMessage::CheckRunningJobs {
 				job_names,
 				location_id,
 				ack_tx,
 			})
 			.await
-			.expect("runner msgs channel unexpectedly closed on check running job request");
+			.expect("runner msgs channel unexpectedly closed on check running jobs request");
 
 		ack_rx
 			.await
-			.expect("ack channel closed before receiving check running job response")
+			.expect("ack channel closed before receiving check running jobs response")
 	}
 
 	/// Shutdown the job system
@@ -204,7 +208,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	pub async fn dispatch<J: Job + SerializableJob<OuterCtx>>(
 		&self,
 		job: impl IntoJob<J, OuterCtx, JobCtx> + Send,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 		ctx: OuterCtx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
@@ -280,6 +284,17 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 
 	pub async fn cancel(&self, job_id: JobId) -> Result<(), JobSystemError> {
 		self.send_command(job_id, Command::Cancel).await
+	}
+
+	pub async fn undo(&self, job_id: JobId) -> Result<JobId, JobSystemError> {
+		let history = self.job_history.read().await;
+		if let Some((_, Some(undo_job))) = history.iter().find(|(id, _)| *id == job_id) {
+			// Clone the undo job since we need to keep the original in history
+			let undo_job = undo_job.clone();
+			self.dispatch(undo_job, location_id, ctx)
+		} else {
+			Err(JobSystemError::NoUndoAvailable)
+		}
 	}
 }
 

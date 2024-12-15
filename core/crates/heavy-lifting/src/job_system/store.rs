@@ -56,7 +56,7 @@ pub struct StoredJob {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJobEntry {
-	pub(super) location_id: location::id::Type,
+	pub(super) location_id: Option<location::id::Type>,
 	pub(super) root_job: StoredJob,
 	pub(super) next_jobs: Vec<StoredJob>,
 }
@@ -66,7 +66,7 @@ pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	ctx: &OuterCtx,
 ) -> Result<
 	Vec<(
-		location::id::Type,
+		Option<location::id::Type>,
 		Box<dyn DynJob<OuterCtx, JobCtx>>,
 		Option<SerializedTasks>,
 	)>,

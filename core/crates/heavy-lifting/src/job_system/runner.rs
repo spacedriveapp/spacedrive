@@ -42,14 +42,14 @@ const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);
 pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	NewJob {
 		job_id: JobId,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
 		ack_tx: oneshot::Sender<Result<(), JobSystemError>>,
 	},
 	ResumeStoredJob {
 		job_id: JobId,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
 		serialized_tasks: Option<SerializedTasks>,
@@ -65,7 +65,7 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 	},
 	CheckIfJobsAreRunning {
 		job_names: Vec<JobName>,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 		ack_tx: oneshot::Sender<bool>,
 	},
 	Shutdown,
@@ -78,8 +78,8 @@ pub(super) enum RunnerMessage<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 struct JobsWorktables {
 	job_hashes: HashMap<u64, JobId>,
 	job_hashes_by_id: HashMap<JobId, u64>,
-	running_jobs_by_job_id: HashMap<JobId, (JobName, location::id::Type)>,
-	running_jobs_set: HashSet<(JobName, location::id::Type)>,
+	running_jobs_by_job_id: HashMap<JobId, (JobName, Option<location::id::Type>)>,
+	running_jobs_set: HashSet<(JobName, Option<location::id::Type>)>,
 	jobs_to_store_by_ctx_id: HashMap<Uuid, Vec<StoredJobEntry>>,
 }
 
@@ -117,7 +117,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	async fn new_job(
 		&mut self,
 		job_id: JobId,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 		dyn_job: Box<dyn DynJob<OuterCtx, JobCtx>>,
 		ctx: OuterCtx,
 		maybe_existing_tasks: Option<SerializedTasks>,
@@ -243,7 +243,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	fn check_if_jobs_are_running(
 		&self,
 		job_names: Vec<JobName>,
-		location_id: location::id::Type,
+		location_id: Option<location::id::Type>,
 	) -> bool {
 		job_names.into_iter().any(|job_name| {
 			self.worktables
@@ -533,7 +533,7 @@ async fn serialize_next_jobs_to_shutdown<OuterCtx: OuterContext, JobCtx: JobCont
 )]
 async fn try_dispatch_next_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	handle: &mut JobHandle<OuterCtx, JobCtx>,
-	location_id: location::id::Type,
+	location_id: Option<location::id::Type>,
 	base_dispatcher: BaseTaskDispatcher<Error>,
 	JobsWorktables {
 		job_hashes,

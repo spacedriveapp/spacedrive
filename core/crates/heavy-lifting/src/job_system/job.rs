@@ -148,6 +148,17 @@ pub trait Job: Send + Sync + Hash + 'static {
 	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
 
+pub trait UndoableJob: Job + SerializableJob {
+	/// Create an undo job that will reverse this job's effects
+	async fn create_undo_job(
+		&self,
+		ctx: &impl JobContext,
+	) -> Result<Box<dyn SerializableJob>, Error>;
+
+	/// Returns true if this job is an undo operation
+	fn is_undo(&self) -> bool;
+}
+
 pub trait IntoJob<J, OuterCtx, JobCtx>
 where
 	J: Job + SerializableJob<OuterCtx>,
@@ -190,9 +201,10 @@ where
 
 #[derive(Debug)]
 pub struct JobReturn {
-	data: JobOutputData,
-	metadata: Vec<ReportOutputMetadata>,
-	non_critical_errors: Vec<NonCriticalError>,
+	pub(crate) data: JobOutputData,
+	pub(crate) metadata: Vec<ReportOutputMetadata>,
+	pub(crate) non_critical_errors: Vec<NonCriticalError>,
+	pub(crate) undo_job: Option<Box<dyn SerializableJob>>,
 }
 
 impl JobReturn {
@@ -210,6 +222,7 @@ impl Default for JobReturn {
 			data: JobOutputData::Empty,
 			metadata: vec![],
 			non_critical_errors: vec![],
+			undo_job: None,
 		}
 	}
 }
@@ -243,6 +256,12 @@ impl JobReturnBuilder {
 	}
 
 	#[must_use]
+	pub fn with_undo_job(mut self, undo_job: impl SerializableJob + 'static) -> Self {
+		self.job_return.undo_job = Some(Box::new(undo_job));
+		self
+	}
+
+	#[must_use]
 	pub fn build(self) -> JobReturn {
 		self.job_return
 	}
@@ -271,6 +290,7 @@ impl JobOutput {
 			data,
 			metadata,
 			non_critical_errors,
+			undo_job,
 		}: JobReturn,
 		report: &mut Report,
 	) -> Self {
@@ -575,17 +595,33 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		&mut self,
 		job_return: JobReturn,
 	) -> Result<JobOutput, JobSystemError> {
-		let Self { ctx, .. } = self;
+		trace!("JobHandle completing job");
 
-		let mut report = ctx.report_mut().await;
+		let JobReturn {
+			data,
+			metadata,
+			non_critical_errors,
+			undo_job,
+		} = job_return;
 
-		trace!("JobHandle completing");
+		// Store undo information in job history
+		if let Some(undo_job) = undo_job {
+			let mut history = self.job_system.job_history.write().await;
+			history.push((self.id, Some(undo_job)));
+		}
 
-		let output = JobOutput::prepare_output_and_report(job_return, &mut report);
+		let mut report = self.ctx.report_mut().await;
+		let output = JobOutput::prepare_output_and_report(
+			JobReturn {
+				data,
+				metadata,
+				non_critical_errors,
+				undo_job: None, // Don't include undo_job in output
+			},
+			&mut report,
+		);
 
-		report.update(ctx.db()).await?;
-
-		trace!("JobHandle completed");
+		report.update(self.ctx.db()).await?;
 
 		Ok(output)
 	}
@@ -634,6 +670,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			data,
 			metadata,
 			non_critical_errors,
+			undo_job,
 		}: JobReturn,
 	) -> Result<JobOutput, JobSystemError> {
 		trace!("JobHandle canceling job");

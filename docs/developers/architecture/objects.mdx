@@ -11,9 +11,27 @@ All metadata associated with files in Spacedrive is linked to the Object for tha
 
 If two or more files are discovered that are identical, they are linked to the same Object in Spacedrive.
 
-A CAS id is generated from set samples of the byte data, which is used to associate Objects uniquely with Paths found in a Location.
-
 Some Objects are purely virtual, meaning they have no Path and are likely only used in a Space.
+
+## Content Addressable Storage (CAS) IDs
+
+A CAS ID is a unique identifier generated from a file's content using the blake3 hashing algorithm. The ID generation is optimized for different file sizes:
+
+- For small files (<100KB): The entire file content is hashed
+- For large files: A sampling approach is used:
+  - First 8KB (header)
+  - Last 8KB (footer)
+  - 4 samples of 10KB each taken at regular intervals throughout the file
+
+CAS IDs are used to:
+
+- Link identical files to the same Object (deduplication)
+- Track file changes
+- Generate and cache thumbnails
+
+## Hash Validation
+
+Spacedrive uses a full checksum to validate file integrity. This is used for file sync, overwrite protection, and other sensitive operations.
 
 ## Types of object
 

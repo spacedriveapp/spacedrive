@@ -62,9 +62,18 @@ pub enum ReportMetadata {
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
 pub enum ReportInputMetadata {
-	// TODO: Add more variants as needed
-	Location(location::Data),
-	SubPath(PathBuf),
+    Location(location::Data),
+    SubPath(PathBuf),
+    Copier {
+        location_id: Option<location::id::Type>,
+        sources: Vec<PathBuf>,
+        target_dir: PathBuf,
+    },
+    Deleter {
+        location_id: Option<location::id::Type>,
+        paths: Vec<PathBuf>,
+        use_trash: bool,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -87,20 +96,20 @@ pub enum ReportOutputMetadata {
 		thumbnails_skipped: (u32, u32),
 	},
 	Copier {
-		source_location_id: location::id::Type,
-		target_location_id: location::id::Type,
-		sources_file_path_ids: Vec<file_path::id::Type>,
-		target_location_relative_directory_path: PathBuf,
-	},
+        location_id: Option<location::id::Type>,
+        files_copied: (u32, u32),
+        bytes_copied: (u64, u64),
+    },
+    Deleter {
+        location_id: Option<location::id::Type>,
+        files_deleted: (u32, u32),
+        bytes_deleted: (u64, u64),
+    },
 	Mover {
 		source_location_id: location::id::Type,
 		target_location_id: location::id::Type,
 		sources_file_path_ids: Vec<file_path::id::Type>,
 		target_location_relative_directory_path: PathBuf,
-	},
-	Deleter {
-		location_id: location::id::Type,
-		file_path_ids: Vec<file_path::id::Type>,
 	},
 	Eraser {
 		location_id: location::id::Type,

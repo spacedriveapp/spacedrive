@@ -13,6 +13,7 @@ dashmap
 davidmytton
 dayjs
 deel
+Deleter
 elon
 encryptor
 Exif

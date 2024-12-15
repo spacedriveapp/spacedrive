@@ -4,6 +4,142 @@ index: 3
 
 # Nodes
 
-Nodes are instances of the Spacedrive core running on a device, they are able to connect to each other via a peer-to-peer network. A node is able to run many libraries simultaneously, but must be authorized per-library in order to synchronize.
+A Node represents a single running instance of the Spacedrive core. It's the central orchestrator that holds references to all the core services and manages the application's state.
 
-p2p, connecting nodes, protocols.
+## Core Components
+
+The Node structure contains several critical components:
+
+### Essential Services
+
+- **Data Directory**: Base path for all node data storage
+- **Configuration Manager**: Handles node-specific settings and configuration
+- **Libraries Manager**: Manages library instances and their data
+- **Job System**: Coordinates background tasks and processing
+- **Task System**: Handles lower-level task management
+- **Locations Manager**: Manages file system locations and their monitoring
+- **P2P Manager**: Handles peer-to-peer communication and synchronization
+- **Event Bus**: Broadcasts core events throughout the system
+- **Notifications**: Manages system notifications
+
+### Optional Features
+
+- **AI Image Labeller**: When enabled, provides image classification capabilities
+- **Cloud Sync**: Manages synchronization with Spacedrive cloud services
+
+## Initialization Flow
+
+The Node initialization process follows these steps:
+
+1. **Directory Setup**
+
+   - Creates data directory if it doesn't exist
+   - Initializes logging system
+   - Sets up configuration storage
+
+2. **Service Initialization**
+
+   - Creates event broadcast channels
+   - Initializes configuration manager
+   - Sets up location management
+   - Creates job and task systems
+   - Establishes P2P connections
+   - Initializes library management
+
+3. **Feature Activation**
+   - Restores backend feature flags
+   - Initializes optional components (AI, cloud sync)
+   - Sets up platform-specific features
+
+## Key Features
+
+### Event Management
+
+- Centralized event bus for system-wide communication
+- Broadcast channels for real-time updates
+- Event-driven architecture for component coordination
+
+### Configuration Management
+
+- Persistent storage of node settings
+- Feature flag management
+- Environment-specific configurations
+
+### Job Coordination
+
+- Background task scheduling
+- Resource management
+- Progress tracking and reporting
+
+### Library Integration
+
+- Multi-library support
+- Library initialization and management
+- Cross-library operation coordination
+
+### P2P Functionality
+
+- Peer discovery and connection management
+- Data synchronization between nodes
+- Remote library access
+
+## Platform Support
+
+The Node system supports multiple platforms:
+
+- Desktop (Windows, macOS, Linux)
+- Mobile (iOS, Android)
+- Custom platform adaptations
+
+## Error Handling
+
+The Node implements comprehensive error handling through:
+
+- `NodeError` enum for various failure scenarios
+- Graceful shutdown procedures
+- Error propagation and logging
+- Recovery mechanisms
+
+## Best Practices
+
+When working with Nodes:
+
+1. **Initialization**
+
+   - Always initialize nodes with proper error handling
+   - Ensure all required directories exist
+   - Handle platform-specific requirements
+
+2. **Resource Management**
+
+   - Use Arc for shared ownership
+   - Implement proper shutdown procedures
+   - Monitor resource usage
+
+3. **Event Handling**
+
+   - Subscribe to relevant event channels
+   - Handle event bus overflow scenarios
+   - Implement proper error handling for events
+
+4. **Configuration**
+
+   - Use the configuration manager for settings
+   - Handle configuration updates properly
+   - Validate configuration changes
+
+5. **Cross-Platform Development**
+   - Use platform-agnostic APIs when possible
+   - Handle platform-specific features appropriately
+   - Test on all supported platforms
+
+## Related Systems
+
+Nodes interact closely with:
+
+- Library system
+- Location management
+- Job processing
+- P2P networking
+- Cloud services
+- File system operations

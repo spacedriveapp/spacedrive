@@ -2,7 +2,7 @@ use crate::{
 	library::Library,
 	object::{
 		fs::{
-			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
+			old_copy::OldFileCopierJobInit,
 			old_erase::OldFileEraserJobInit,
 		},
 		validation::old_validator_job::OldObjectValidatorJobInit,
@@ -410,7 +410,6 @@ fn initialize_resumable_job(
 		},
 		jobs = [
 			OldObjectValidatorJobInit,
-			OldFileCutterJobInit,
 			OldFileCopierJobInit,
 			OldFileEraserJobInit,
 		]
