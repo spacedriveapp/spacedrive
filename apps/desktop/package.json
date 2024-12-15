@@ -31,7 +31,7 @@
 		"react-dom": "^18.2.0",
 		"react-router-dom": "=6.20.1",
 		"sonner": "^1.0.3",
-		"supertokens-web-js": "^0.13.0"
+		"supertokens-web-js": "=0.13.0"
 	},
 	"devDependencies": {
 		"@sd/config": "workspace:*",

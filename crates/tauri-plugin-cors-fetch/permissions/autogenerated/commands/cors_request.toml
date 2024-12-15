@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-cors-request"
+description = "Enables the cors_request command without any pre-configured scope."
+commands.allow = ["cors_request"]
+
+[[permission]]
+identifier = "deny-cors-request"
+description = "Denies the cors_request command without any pre-configured scope."
+commands.deny = ["cors_request"]
