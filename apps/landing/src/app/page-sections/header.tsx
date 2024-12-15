@@ -38,7 +38,7 @@ export async function Header() {
 				</span>
 			</h1>
 
-			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-center text-gray-450 lg:text-lg lg:leading-8">
+			<p className="animation-delay-1 fade-in-heading text-md leading-2 z-30 mb-8 mt-1 max-w-4xl text-balance text-center text-gray-450 lg:text-lg lg:leading-8">
 				Your files, always within reach. Experience seamless synchronization, intuitive
 				management, and powerful discovery tools — all in one place.
 			</p>
