@@ -25,6 +25,7 @@ export type Procedures = {
         { key: "jobs.isActive", input: LibraryArgs<null>, result: boolean } | 
         { key: "jobs.reports", input: LibraryArgs<null>, result: JobGroup[] } | 
         { key: "keys.get", input: never, result: string } | 
+        { key: "keys.getEmailAddress", input: LibraryArgs<null>, result: string } | 
         { key: "labels.count", input: LibraryArgs<null>, result: number } | 
         { key: "labels.get", input: LibraryArgs<number>, result: Label | null } | 
         { key: "labels.getForObject", input: LibraryArgs<number>, result: Label[] } | 
@@ -110,6 +111,7 @@ export type Procedures = {
         { key: "jobs.pause", input: LibraryArgs<string>, result: null } | 
         { key: "jobs.resume", input: LibraryArgs<string>, result: null } | 
         { key: "keys.save", input: string, result: null } | 
+        { key: "keys.saveEmailAddress", input: LibraryArgs<string>, result: null } | 
         { key: "labels.delete", input: LibraryArgs<number>, result: null } | 
         { key: "library.create", input: CreateLibraryArgs, result: LibraryConfigWrapped } | 
         { key: "library.delete", input: string, result: null } | 
@@ -526,9 +528,13 @@ instance_id: number;
  * cloud_id is the ID of the cloud library this library is linked to.
  * If this is set we can assume the library is synced with the Cloud.
  */
-cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion }
+cloud_id?: string | null; generate_sync_operations?: boolean; version: LibraryConfigVersion; 
+/**
+ * cloud_email_address is the email address of the user who owns the cloud library this library is linked to.
+ */
+cloud_email_address: string | null }
 
-export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10" | "V11"
+export type LibraryConfigVersion = "V0" | "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9" | "V10" | "V11" | "V12"
 
 export type LibraryConfigWrapped = { uuid: string; instance_id: string; instance_public_key: RemoteIdentity; config: LibraryConfig }
 

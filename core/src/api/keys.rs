@@ -1,6 +1,8 @@
+use super::utils::library;
 use super::{Ctx, SanitizedNodeConfig, R};
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_crypto::cookie::CookieCipher;
+use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
@@ -182,5 +184,163 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					Ok(())
 				}
 			})
+		})
+		.procedure("saveEmailAddress", {
+			R.with2(library())
+				.mutation(move |(node, library), args: String| async move {
+					let path = node
+						.libraries
+						.libraries_dir
+						.join(format!("{}.sdlibrary", library.id));
+
+					let mut config = serde_json::from_slice::<Map<String, Value>>(
+						&tokio::fs::read(path.clone()).await.map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								format!("Failed to read library config: {:?}", e.to_string()),
+							)
+						})?,
+					)
+					.map_err(|e: serde_json::Error| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("Failed to parse library config: {:?}", e.to_string()),
+						)
+					})?;
+
+					// Encrypt the email address
+					// Create new cipher with the library id as the key
+					let uuid_key =
+						CookieCipher::generate_key_from_string(library.id.to_string().as_str())
+							.map_err(|e| {
+								error!("Failed to generate key: {:?}", e.to_string());
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"Failed to generate key".to_string(),
+								)
+							})?;
+
+					let cipher = CookieCipher::new(&uuid_key).map_err(|e| {
+						error!("Failed to create cipher: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to create cipher".to_string(),
+						)
+					})?;
+
+					let en_data = cipher.encrypt(args.as_bytes()).map_err(|e| {
+						error!("Failed to encrypt data: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to encrypt data".to_string(),
+						)
+					})?;
+
+					let en_data = CookieCipher::base64_encode(&en_data);
+
+					config.remove("cloud_email_address");
+					config.insert("cloud_email_address".to_string(), json!(en_data));
+
+					tokio::fs::write(
+						path,
+						serde_json::to_vec(&config).map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								format!("Failed to serialize library config: {:?}", e.to_string()),
+							)
+						})?,
+					)
+					.await
+					.map_err(|e| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("Failed to write library config: {:?}", e.to_string()),
+						)
+					})?;
+
+					Ok(())
+				})
+		})
+		.procedure("getEmailAddress", {
+			R.with2(library())
+				.query(move |(node, library), _: ()| async move {
+					let path = node
+						.libraries
+						.libraries_dir
+						.join(format!("{}.sdlibrary", library.id));
+
+					let config = serde_json::from_slice::<Map<String, Value>>(
+						&tokio::fs::read(path.clone()).await.map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								format!("Failed to read library config: {:?}", e.to_string()),
+							)
+						})?,
+					)
+					.map_err(|e: serde_json::Error| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("Failed to parse library config: {:?}", e.to_string()),
+						)
+					})?;
+
+					let en_data = config.get("cloud_email_address").ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to get cloud_email_address".to_string(),
+						)
+					})?;
+
+					let en_data = en_data.as_str().ok_or_else(|| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to get cloud_email_address".to_string(),
+						)
+					})?;
+
+					let en_data = CookieCipher::base64_decode(en_data).map_err(|e| {
+						error!("Failed to decode data: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to decode data".to_string(),
+						)
+					})?;
+
+					let uuid_key =
+						CookieCipher::generate_key_from_string(library.id.to_string().as_str())
+							.map_err(|e| {
+								error!("Failed to generate key: {:?}", e.to_string());
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"Failed to generate key".to_string(),
+								)
+							})?;
+
+					let cipher = CookieCipher::new(&uuid_key).map_err(|e| {
+						error!("Failed to create cipher: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to create cipher".to_string(),
+						)
+					})?;
+
+					let de_data = cipher.decrypt(&en_data).map_err(|e| {
+						error!("Failed to decrypt data: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to decrypt data".to_string(),
+						)
+					})?;
+
+					let de_data = String::from_utf8(de_data).map_err(|e| {
+						error!("Failed to convert data to string: {:?}", e.to_string());
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							"Failed to convert data to string".to_string(),
+						)
+					})?;
+
+					Ok(de_data)
+				})
 		})
 }

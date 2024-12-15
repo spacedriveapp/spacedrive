@@ -1,12 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { RSPCError } from '@spacedrive/rspc-client';
+import { UseMutationResult } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { Dispatch, SetStateAction, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { signUp } from 'supertokens-web-js/recipe/emailpassword';
 import { Button, Form, Input, toast, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
+import { useLibraryMutation } from '@sd/client';
 
 import ShowPassword from './ShowPassword';
+import { getTokens } from '~/util';
 
 const RegisterSchema = z
 	.object({
@@ -26,7 +30,13 @@ const RegisterSchema = z
 	});
 type RegisterType = z.infer<typeof RegisterSchema>;
 
-async function signUpClicked(email: string, password: string) {
+async function signUpClicked(
+	email: string,
+	password: string,
+	reload: Dispatch<SetStateAction<boolean>>,
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>,
+	saveEmailAddress: UseMutationResult<null, RSPCError, string, unknown>
+) {
 	try {
 		const response = await signUp({
 			formFields: [
@@ -62,9 +72,11 @@ async function signUpClicked(email: string, password: string) {
 		} else {
 			// sign up successful. The session tokens are automatically handled by
 			// the frontend SDK.
+			const tokens = await getTokens();
+			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+			saveEmailAddress.mutate(email);
 			toast.success('Sign up successful');
-			// FIXME: This is a temporary workaround. We will provide a better way to handle this.
-			window.location.reload();
+			reload(true);
 		}
 	} catch (err: any) {
 		if (err.isSuperTokensGeneralError === true) {
@@ -76,7 +88,13 @@ async function signUpClicked(email: string, password: string) {
 	}
 }
 
-const Register = () => {
+const Register = ({
+	reload,
+	cloudBootstrap
+}: {
+	reload: Dispatch<SetStateAction<boolean>>;
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>; // Cloud bootstrap mutation
+}) => {
 	const { t } = useLocale();
 	const [showPassword, setShowPassword] = useState(false);
 	// useZodForm seems to be out-dated or needs
@@ -89,12 +107,13 @@ const Register = () => {
 			confirmPassword: ''
 		}
 	});
+	const savedEmailAddress = useLibraryMutation(['keys.saveEmailAddress']);
+
 	return (
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
 				// handle sign-up submission
-				console.log(data);
-				await signUpClicked(data.email, data.password);
+				await signUpClicked(data.email, data.password, reload, cloudBootstrap, savedEmailAddress);
 			})}
 			className="w-full"
 			form={form}
@@ -190,8 +209,7 @@ const Register = () => {
 				size="md"
 				variant="accent"
 				onClick={form.handleSubmit(async (data) => {
-					console.log(data);
-					await signUpClicked(data.email, data.password);
+					await signUpClicked(data.email, data.password, reload, cloudBootstrap, savedEmailAddress);
 				})}
 				disabled={form.formState.isSubmitting}
 			>
