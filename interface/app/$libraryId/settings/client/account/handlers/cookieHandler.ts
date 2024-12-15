@@ -14,12 +14,6 @@ function getCookiesFromStorage(): string {
 	nonLibraryClient
 		.query(['keys.get'])
 		.then((response) => {
-			// Debugging
-			// console.log("rspc response: ", response);
-			const cookiesArrayFromStorage: string[] = JSON.parse(response);
-			// console.log("Cookies fetched from storage: ", cookiesArrayFromStorage);
-
-			// Actual
 			cookiesFromStorage = response;
 		})
 		.catch((e) => {
