@@ -3,16 +3,20 @@ import SwiftRs
 
 @objc
 public enum AppThemeType: Int {
-  case auto = -1
-  case light = 0
-  case dark = 1
+    case auto = -1
+    case light = 0
+    case dark = 1
 }
 
-var activity: NSObjectProtocol?
+private let activityLock = NSLock()
+private var activity: NSObjectProtocol?
+private var isThemeUpdating = false
 
 @_cdecl("disable_app_nap")
 public func disableAppNap(reason: SRString) -> Bool {
-    // Check if App Nap is already disabled
+    activityLock.lock()
+    defer { activityLock.unlock() }
+
     guard activity == nil else {
         return false
     }
@@ -26,37 +30,55 @@ public func disableAppNap(reason: SRString) -> Bool {
 
 @_cdecl("enable_app_nap")
 public func enableAppNap() -> Bool {
-    // Check if App Nap is already enabled
-    guard let pinfo = activity else {
+    activityLock.lock()
+    defer { activityLock.unlock() }
+
+    guard let currentActivity = activity else {
         return false
     }
 
-    ProcessInfo.processInfo.endActivity(pinfo)
+    ProcessInfo.processInfo.endActivity(currentActivity)
     activity = nil
     return true
 }
 
 @_cdecl("lock_app_theme")
 public func lockAppTheme(themeType: AppThemeType) {
-  var theme: NSAppearance?
-  switch themeType {
-  case .auto:
-    theme = nil
-  case .dark:
-    theme = NSAppearance(named: .darkAqua)!
-  case .light:
-    theme = NSAppearance(named: .aqua)!
-  }
-
-  DispatchQueue.main.async {
-    NSApp.appearance = theme
-
-    // Trigger a repaint of the window
-    if let window = NSApplication.shared.mainWindow {
-      window.invalidateShadow()
-      window.displayIfNeeded()
+    // Prevent concurrent theme updates
+    guard !isThemeUpdating else {
+        return
     }
-  }
+
+    isThemeUpdating = true
+
+    let theme: NSAppearance?
+    switch themeType {
+    case .auto:
+        theme = nil
+    case .dark:
+        theme = NSAppearance(named: .darkAqua)
+    case .light:
+        theme = NSAppearance(named: .aqua)
+    }
+
+    // Use sync to ensure completion before return
+    DispatchQueue.main.sync {
+        autoreleasepool {
+            NSApp.appearance = theme
+
+            if let window = NSApplication.shared.mainWindow {
+                NSAnimationContext.runAnimationGroup({ context in
+                    context.duration = 0
+                    window.invalidateShadow()
+                    window.displayIfNeeded()
+                }, completionHandler: {
+                    isThemeUpdating = false
+                })
+            } else {
+                isThemeUpdating = false
+            }
+        }
+    }
 }
 
 @_cdecl("set_titlebar_style")

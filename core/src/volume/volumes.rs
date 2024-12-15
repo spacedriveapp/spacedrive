@@ -122,7 +122,7 @@ impl Volumes {
 			.await
 			.map_err(|_| VolumeError::Cancelled)?;
 
-		rx.await.map_err(|_| VolumeError::Cancelled)?;
+		let _ = rx.await.map_err(|_| VolumeError::Cancelled)?;
 		Ok(())
 	}
 

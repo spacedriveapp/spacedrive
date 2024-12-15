@@ -33,7 +33,16 @@ const Profile = ({
 }) => {
 	const emailName = user.email?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
-	const { accessToken, refreshToken } = getTokens();
+	const [accessToken, setAccessToken] = useState('');
+	const [refreshToken, setRefreshToken] = useState('');
+
+	useEffect(() => {
+		(async () => {
+			const tokens = await getTokens();
+			setAccessToken(tokens.accessToken);
+			setRefreshToken(tokens.refreshToken);
+		})();
+	}, []);
 
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 	const devices = useBridgeQuery(['cloud.devices.list']);

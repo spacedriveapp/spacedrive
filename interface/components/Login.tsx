@@ -44,8 +44,7 @@ async function signInClicked(
 		} else if (response.status === 'SIGN_IN_NOT_ALLOWED') {
 			toast.error(response.reason);
 		} else {
-			const tokens = getTokens();
-			console.log(cloudBootstrap);
+			const tokens = await getTokens();
 			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
 			toast.success('Sign in successful');
 			reload(true);

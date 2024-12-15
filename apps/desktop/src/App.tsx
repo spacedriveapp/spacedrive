@@ -126,13 +126,15 @@ type RedirectPath = { pathname: string; search: string | undefined };
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
 	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-	const tokens = getTokens();
 	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
 
 	useEffect(() => {
-		// If the access token and/or refresh token are missing, we need to skip the cloud bootstrap
-		if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) return;
-		cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+		(async () => {
+			const tokens = await getTokens();
+			// If the access token and/or refresh token are missing, we need to skip the cloud bootstrap
+			if (tokens.accessToken.length === 0 || tokens.refreshToken.length === 0) return;
+			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+		})();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 

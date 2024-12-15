@@ -29,6 +29,7 @@ mod cloud;
 mod ephemeral_files;
 mod files;
 mod jobs;
+mod keys;
 mod labels;
 mod libraries;
 pub mod locations;
@@ -210,6 +211,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("preferences.", preferences::mount())
 		.merge("notifications.", notifications::mount())
 		.merge("backups.", backups::mount())
+		.merge("keys.", keys::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.sd_patch_types_dangerously(|type_map| {
 			let def =
