@@ -140,7 +140,13 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 	return (
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
-				await signInClicked(data.email, data.password, reload, cloudBootstrap, saveEmailAddress);
+				await signInClicked(
+					data.email,
+					data.password,
+					reload,
+					cloudBootstrap,
+					saveEmailAddress
+				);
 			})}
 			className="w-full"
 			form={form}
@@ -211,7 +217,13 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 				variant="accent"
 				size="md"
 				onClick={form.handleSubmit(async (data) => {
-					await signInClicked(data.email, data.password, reload, cloudBootstrap, saveEmailAddress);
+					await signInClicked(
+						data.email,
+						data.password,
+						reload,
+						cloudBootstrap,
+						saveEmailAddress
+					);
 				})}
 				disabled={form.formState.isSubmitting}
 			>
