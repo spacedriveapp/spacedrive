@@ -1,7 +1,8 @@
 use std::{path::{Path, PathBuf}, fmt, time::{Duration, Instant}};
+use uuid::Uuid;
 
 use heavy_lifting::{
-    task::{Task, TaskStatus},
+    task::{Task, TaskStatus, TaskId},
     job::{JobContext, JobError},
 };
 use tokio::fs;
@@ -14,34 +15,20 @@ use super::{
     behaviors::{CopyBehavior, FastCopyBehavior, StreamCopyBehavior},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct CopyTask {
-    batches: Vec<Vec<(PathBuf, PathBuf, u64)>>, // (source_path, target_path, size)
-    current_batch: usize,
+    id: TaskId,
+    source: PathBuf,
+    target: PathBuf,
     progress: CopyProgress,
 }
 
 impl CopyTask {
     pub async fn new(source: PathBuf, target: PathBuf) -> Result<Self, JobError> {
-        // First collect all files and directories
-        let (files, dirs) = collect_copy_entries(&source, &target).await?;
-        
-        // Create all necessary directories
-        for (_, dir) in dirs {
-            fs::create_dir_all(&dir)
-                .await
-                .map_err(|e| JobError::IO(e.into()))?;
-        }
-        
-        // Resolve any name conflicts
-        let files = resolve_name_conflicts(files).await?;
-        
-        // Batch the files for optimal copying
-        let batches = batch_copy_files(files).await?;
-        
         Ok(Self {
-            batches,
-            current_batch: 0,
+            id: Uuid::new_v4(),
+            source,
+            target,
             progress: CopyProgress::default(),
         })
     }
@@ -95,27 +82,25 @@ impl CopyTask {
         }
     }
 
-    pub async fn serialize(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
-        rmp_serde::to_vec_named(self)
-    }
-}
-
-#[async_trait::async_trait]
-impl Task for CopyTask {
-    type Error = JobError;
-
-    fn name(&self) -> &'static str {
-        "copy"
-    }
-
     async fn run(&mut self, ctx: &impl JobContext) -> Result<TaskStatus, JobError> {
-        let total_files = self.batches.iter().map(|batch| batch.len()).sum::<usize>() as u64;
-        let total_bytes: u64 = self.batches.iter().map(|batch| batch.iter().map(|(_, _, size)| size).sum::<u64>()).sum();
-
-        let start_time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        // Collect all files and directories
+        let (files, dirs) = collect_copy_entries(&self.source, &self.target).await?;
+        
+        // Create all necessary directories
+        for (_, dir) in dirs {
+            fs::create_dir_all(&dir)
+                .await
+                .map_err(|e| JobError::IO(e.into()))?;
+        }
+        
+        // Resolve any name conflicts
+        let files = resolve_name_conflicts(files).await?;
+        
+        // Batch the files for optimal copying
+        let batches = batch_copy_files(files).await?;
+        
+        let total_files = batches.iter().map(|batch| batch.sources.len()).sum::<usize>() as u64;
+        let total_bytes = batches.iter().map(|batch| batch.total_size).sum::<u64>();
 
         ctx.progress(CopyProgress::Started {
             total_files,
@@ -126,8 +111,8 @@ impl Task for CopyTask {
         let mut bytes_copied = 0;
         let start = Instant::now();
 
-        for batch in self.batches.iter().enumerate() {
-            for (idx, (source, target, size)) in batch.1.iter().enumerate() {
+        for batch in batches {
+            for (source, target) in batch.sources.into_iter().zip(batch.targets.into_iter()) {
                 let target = Self::find_available_name(target).await?;
                 
                 let file_name = source.file_name()
@@ -137,27 +122,24 @@ impl Task for CopyTask {
 
                 ctx.progress(CopyProgress::File {
                     name: file_name.clone(),
-                    current_file: (files_copied + idx as u64 + 1),
+                    current_file: (files_copied + 1),
                     total_files,
-                    bytes: *size,
+                    bytes: batch.total_size,
                     source: source.clone(),
                     target: target.clone(),
                 }).await;
 
-                let behavior = determine_behavior(source, &target);
-                match behavior.copy_file(source, &target, ctx).await {
+                let behavior = determine_behavior(&source, &target);
+                match behavior.copy_file(&source, &target, ctx).await {
                     Ok(()) => {
                         files_copied += 1;
-                        bytes_copied += size;
+                        bytes_copied += batch.total_size;
                     }
                     Err(e) => {
                         // Clean up and return shutdown status
                         if fs::try_exists(&target).await.map_err(|e| JobError::IO(e.into()))? {
                             fs::remove_file(&target).await.map_err(|e| JobError::IO(e.into()))?;
                         }
-                        
-                        self.current_batch = batch.0;
-                        self.progress = CopyProgress::default();
                         
                         return Ok(TaskStatus::Shutdown(Box::new(self.clone())));
                     }
@@ -180,5 +162,32 @@ impl Task for CopyTask {
         }).await;
 
         Ok(TaskStatus::Complete)
+    }
+
+    pub async fn serialize(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
+        rmp_serde::to_vec_named(self)
+    }
+}
+
+#[async_trait::async_trait]
+impl Task for CopyTask {
+    type Error = JobError;
+
+    fn id(&self) -> TaskId {
+        self.id
+    }
+
+    fn name(&self) -> &'static str {
+        "copy"
+    }
+
+    fn weight(&self) -> u32 {
+        // Directory operations are relatively lightweight
+        1
+    }
+
+    async fn run(&mut self, ctx: &impl JobContext) -> Result<TaskStatus, JobError> {
+        // Implementation remains the same...
+        self.run(ctx).await
     }
 }

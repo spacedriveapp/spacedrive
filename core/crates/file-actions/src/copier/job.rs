@@ -22,10 +22,7 @@ use heavy_lifting::{
 use futures::{future::try_join_all, stream::FuturesUnordered, StreamExt};
 use serde::{Deserialize, Serialize};
 
-use super::tasks::{CopyTask, CreateDirsTask};
-
-const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 800; // 800MB
-const MAX_FILES_PER_STEP: usize = 20;
+use super::tasks::{CopyTask, CreateDirsTask, batch::BatchedCopy};
 
 #[derive(Debug)]
 pub struct CopyJob<C> {
@@ -94,32 +91,11 @@ impl<C> CopyJob<C> {
 		_ctx: &impl JobContext<C>,
 	) -> Result<Vec<Box<dyn Task<Error = Error>>>, JobError> {
 		let mut tasks: Vec<Box<dyn Task<Error = Error>>> = Vec::new();
-		let mut current_batch = Vec::new();
-		let mut current_batch_size = 0;
 
+		// Process each source
 		for source in &self.sources {
-			if source.is_file() {
-				let file_size = source.metadata().map_err(|e| JobError::IO(e.into()))?.len();
-
-				// If adding this file would exceed our batch limits, create a new task
-				if current_batch.len() >= MAX_FILES_PER_STEP
-					|| current_batch_size + file_size > MAX_TOTAL_SIZE_PER_STEP
-				{
-					if !current_batch.is_empty() {
-						tasks.push(Box::new(CopyTask::new(current_batch.clone())));
-						current_batch.clear();
-						current_batch_size = 0;
-					}
-				}
-
-				current_batch.push(source.clone());
-				current_batch_size += file_size;
-			}
-		}
-
-		// Push any remaining files
-		if !current_batch.is_empty() {
-			tasks.push(Box::new(CopyTask::new(current_batch)));
+			let target = self.target_dir.join(source.file_name().unwrap());
+			tasks.push(Box::new(CopyTask::new(source.clone(), target).await?));
 		}
 
 		Ok(tasks)

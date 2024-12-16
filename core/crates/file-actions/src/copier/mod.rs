@@ -4,4 +4,4 @@ mod tasks;
 
 pub use job::CopyJob;
 pub use progress::CopyProgress;
-pub use tasks::{CopyBehavior, FastCopyBehavior, StreamCopyBehavior};
+pub use tasks::{CopyTask, CopyBehavior, FastCopyBehavior, StreamCopyBehavior};
