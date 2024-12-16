@@ -28,4 +28,5 @@
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 pub mod copier;
+pub mod mover;
 pub mod deleter;

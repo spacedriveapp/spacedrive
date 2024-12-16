@@ -1,5 +1,7 @@
 mod copy;
+mod copy_behavior;
 mod create_dirs;
+mod progress;
 
-pub(super) use copy::CopyTask;
-pub(super) use create_dirs::CreateDirsTask;
+pub(crate) use copy::CopyTask;
+pub(crate) use create_dirs::CreateDirsTask;
