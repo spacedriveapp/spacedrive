@@ -10014,7 +10014,7 @@ dependencies = [
  "futures",
  "futures-concurrency",
  "half",
- "image 0.25.5",
+ "image 0.24.9",
  "ndarray",
  "ort",
  "ort-sys",
@@ -10088,7 +10088,7 @@ dependencies = [
  "hyper 1.5.0",
  "hyper-util",
  "icrate",
- "image 0.25.5",
+ "image 0.24.9",
  "int-enum",
  "itertools 0.13.0",
  "libc",
@@ -10227,7 +10227,7 @@ dependencies = [
  "futures",
  "futures-concurrency",
  "globset",
- "image 0.25.5",
+ "image 0.24.9",
  "itertools 0.13.0",
  "lending-stream",
  "prisma-client-rust",
@@ -10437,7 +10437,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ffmpeg-sys-next",
- "image 0.25.5",
+ "image 0.24.9",
  "libc",
  "sd-utils",
  "tempfile",
@@ -10489,7 +10489,7 @@ name = "sd-images"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "image 0.25.5",
+ "image 0.24.9",
  "libheif-rs",
  "libheif-sys",
  "pdfium-render",
@@ -10506,7 +10506,7 @@ name = "sd-media-metadata"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "image 0.25.5",
+ "image 0.24.9",
  "kamadak-exif",
  "sd-ffmpeg",
  "sd-utils",
