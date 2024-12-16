@@ -1,11 +1,11 @@
 use crate::{
-	primitives::{EncryptedBlock, StreamNonce},
+	primitives::{EncryptedBlock, OneShotNonce, StreamNonce},
 	Error,
 };
 
 use aead::{stream::EncryptorLE31, Aead, KeyInit};
 use async_stream::stream;
-use chacha20poly1305::{XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{Tag, XChaCha20Poly1305, XNonce};
 use futures::Stream;
 use rand::CryptoRng;
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
@@ -14,6 +14,10 @@ use super::secret_key::SecretKey;
 
 pub trait OneShotEncryption {
 	fn encrypt(&self, plaintext: &[u8], rng: &mut impl CryptoRng) -> Result<EncryptedBlock, Error>;
+
+	fn cipher_text_size(&self, plain_text_size: usize) -> usize {
+		size_of::<OneShotNonce>() + plain_text_size + size_of::<Tag>()
+	}
 }
 
 pub trait StreamEncryption {
@@ -25,6 +29,13 @@ pub trait StreamEncryption {
 		StreamNonce,
 		impl Stream<Item = Result<Vec<u8>, Error>> + Send,
 	);
+
+	fn cipher_text_size(&self, plain_text_size: usize) -> usize {
+		size_of::<StreamNonce>()
+			+ (plain_text_size / EncryptedBlock::PLAIN_TEXT_SIZE * EncryptedBlock::CIPHER_TEXT_SIZE)
+			+ plain_text_size % EncryptedBlock::PLAIN_TEXT_SIZE
+			+ size_of::<Tag>()
+	}
 }
 
 impl OneShotEncryption for SecretKey {

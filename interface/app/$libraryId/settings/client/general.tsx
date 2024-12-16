@@ -1,25 +1,28 @@
 import { PropsWithChildren } from 'react';
-import { FormProvider } from 'react-hook-form';
+import { Controller, FormProvider } from 'react-hook-form';
 import {
 	ListenerState,
 	useBridgeMutation,
 	useBridgeQuery,
 	useConnectedPeers,
 	useDebugState,
+	useLibraryQuery,
 	useZodForm
 } from '@sd/client';
 import {
 	Button,
 	Card,
 	Input,
+	Label,
 	Select,
 	SelectOption,
+	Slider,
 	Switch,
 	Tooltip,
 	tw,
 	z
 } from '@sd/ui';
-import { Icon } from '~/components';
+import { Database, Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
 
@@ -54,13 +57,15 @@ export const Component = () => {
 	// const image_labeler_versions = useBridgeQuery(['models.image_detection.list']);
 	const updateThumbnailerPreferences = useBridgeMutation('nodes.updateThumbnailerPreferences');
 
+	const locations = useLibraryQuery(['locations.list']);
+
 	const { t } = useLocale();
 
 	const form = useZodForm({
 		schema: z
 			.object({
 				name: z.string().min(1).max(250).optional(),
-				image_labeler_version: z.string().optional(),
+				// image_labeler_version: z.string().optional(),
 				background_processing_percentage: z.coerce
 					.number({
 						invalid_type_error: 'Must use numbers from 0 to 100'
@@ -74,8 +79,8 @@ export const Component = () => {
 			.strict(),
 		reValidateMode: 'onChange',
 		defaultValues: {
-			name: node.data?.name,
-			image_labeler_version: node.data?.image_labeler_version ?? undefined
+			name: node.data?.name
+			// image_labeler_version: node.data?.image_labeler_version ?? undefined
 			// background_processing_percentage:
 			// 	node.data?.preferences.thumbnailer.background_processing_percentage || 50
 		}
@@ -186,12 +191,12 @@ export const Component = () => {
 								</Button> */}
 							</div>
 						</div>
-						{/* <div className='mb-1'>
+						<div className="mb-1">
 							<Label className="text-sm font-medium text-ink-faint">
-								<Database className="mr-1 mt-[-2px] inline h-4 w-4" /> Logs Folder
+								<Database className="mr-1 mt-[-2px] inline size-4" /> Logs Folder
 							</Label>
 							<Input value={node.data?.data_path + '/logs'} />
-						</div> */}
+						</div>
 					</div>
 					{/* <div className="flex items-center mt-5 space-x-3 opacity-50 pointer-events-none">
 						<Switch size="sm" />
@@ -210,7 +215,7 @@ export const Component = () => {
 				/>
 			</Setting>
 			{/* Background Processing */}
-			{/* <Setting
+			<Setting
 				mini
 				registerName="background_processing_percentage"
 				title={t('thumbnailer_cpu_usage')}
@@ -226,15 +231,11 @@ export const Component = () => {
 						max={100}
 						step={25}
 						min={0}
-						value={[watchBackgroundProcessingPercentage]}
+						// value={[watchBackgroundProcessingPercentage]}
 					/>
 					<Input
-						className="after:h-initial relative h-[30px] w-[8ch]
-						after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
-						defaultValue={
-							node.data?.preferences.thumbnailer.background_processing_percentage ||
-							75
-						}
+						className="after:h-initial relative h-[30px] w-[8ch] after:absolute after:right-[0.8em] after:top-1/2 after:inline-block after:-translate-y-2/4 after:content-['%']"
+						defaultValue={75}
 						maxLength={3}
 						{...form.register('background_processing_percentage', {
 							valueAsNumber: true
@@ -243,7 +244,7 @@ export const Component = () => {
 				</div>
 			</Setting>
 			{/* Spacedrop default location */}
-			{/* <Setting
+			<Setting
 				mini
 				title={t('spacedrop_default_location')}
 				description={t('spacedrop_default_location_description')}
@@ -263,7 +264,7 @@ export const Component = () => {
 						)}
 					/>
 				</div>
-			</Setting> */}
+			</Setting>
 			<Setting
 				mini
 				title={t('delete_show_prompt')}

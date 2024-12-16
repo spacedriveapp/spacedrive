@@ -324,6 +324,7 @@ impl OldJobs {
 							job::id::equals(job.id.as_bytes().to_vec()),
 							vec![job::status::set(Some(JobStatus::Canceled as i32))],
 						)
+						.select(job::select!({ id }))
 						.exec()
 						.await?;
 				}

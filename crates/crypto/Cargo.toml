@@ -2,7 +2,11 @@
 name    = "sd-crypto"
 version = "0.0.1"
 
-authors = ["Ericson Soares <ericson@spacedrive.com>", "Jake Robinson <jake@spacedrive.com>"]
+authors = [
+	"Arnab Chakraborty <arnab@spacedrive.com>",
+	"Ericson Soares <ericson@spacedrive.com>",
+	"Jake Robinson <jake@spacedrive.com>"
+]
 description = """
 A cryptographic library that provides safe and high-level
 encryption, hashing, and encoding interfaces.
@@ -18,12 +22,16 @@ rust-version.workspace = true
 [dependencies]
 # Workspace dependencies
 async-stream = { workspace = true }
+base64       = { workspace = true }
 blake3       = { workspace = true }
 futures      = { workspace = true }
 rand         = { workspace = true }
 serde        = { workspace = true, features = ["derive"] }
 thiserror    = { workspace = true }
 tokio        = { workspace = true, features = ["io-util", "macros", "rt-multi-thread", "sync"] }
+tracing      = { workspace = true }
+tracing-test = { workspace = true }
+zeroize      = { workspace = true, features = ["derive"] }
 
 # External dependencies
 aead             = { version = "0.6.0-rc.0", default-features = false, features = ["stream"] }
@@ -35,7 +43,8 @@ rand_chacha      = "0.9.0-alpha.2"
 rand_core        = "0.9.0-alpha.2"
 serdect          = "0.3.0-pre.0"
 typenum          = "1.17"
-zeroize          = { version = "1.7", features = ["aarch64", "derive"] }
+
+old-rand-core = { package = "rand_core", version = "0.6.4" }
 
 [dev-dependencies]
 paste    = "1.0"

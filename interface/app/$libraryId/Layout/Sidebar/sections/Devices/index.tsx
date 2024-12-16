@@ -15,7 +15,11 @@ export default function DevicesSection() {
 	return (
 		<Section name={t('devices')}>
 			{node && (
-				<SidebarLink className="group relative w-full" to={`node/${node.id}`} key={node.id}>
+				<SidebarLink
+					className="group relative w-full"
+					to={`node/${node.id}`}
+					key={node.id as any}
+				>
 					{node.device_model ? (
 						<Icon
 							name={hardwareModelToIcon(node.device_model as HardwareModel)}

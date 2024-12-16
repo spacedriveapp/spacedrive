@@ -11,7 +11,6 @@
 	clippy::unwrap_used,
 	unused_qualifications,
 	rust_2018_idioms,
-	clippy::expect_used,
 	trivial_casts,
 	trivial_numeric_casts,
 	unused_allocation,
@@ -42,3 +41,5 @@ pub use protected::Protected;
 pub use rng::CryptoRng;
 
 pub use rand_core::{RngCore, SeedableRng};
+
+pub mod cookie;

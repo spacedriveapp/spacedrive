@@ -20,8 +20,7 @@ module.exports = function (app, options) {
 				sm: '650px',
 				md: '868px',
 				lg: '1024px',
-				xl: '1280px',
-				...defaultTheme.screens
+				xl: '1280px'
 			},
 			fontFamily: {
 				sans: [...defaultTheme.fontFamily.sans],
@@ -42,6 +41,10 @@ module.exports = function (app, options) {
 				'7xl': '5rem'
 			},
 			extend: {
+				fontFamily: {
+					plex: ['var(--font-plex-sans)', ...defaultTheme.fontFamily.sans],
+					sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans]
+				},
 				colors: {
 					accent: {
 						DEFAULT: alpha('--color-accent'),

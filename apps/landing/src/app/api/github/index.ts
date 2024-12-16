@@ -1,7 +1,7 @@
 import { type components } from '@octokit/openapi-types';
 import { env } from '~/env';
 
-type Release = components['schemas']['release'];
+export type Release = components['schemas']['release'];
 
 const FETCH_META = {
 	headers: new Headers({
@@ -32,11 +32,16 @@ export const getRelease = (tag: string) =>
 		path: `${RELEASES_PATH}/tags/${tag}`
 	}) as FetchConfig<Release>;
 
+export const getRepoStats = {
+	path: `/repos/${env.GITHUB_ORG}/${env.GITHUB_REPO}`
+} as FetchConfig<components['schemas']['repository']>;
+
 export async function githubFetch<T>({ path }: FetchConfig<T>): Promise<T> {
 	return fetch(`https://api.github.com${path}`, {
 		...FETCH_META,
 		next: {
-			tags: [path]
+			tags: [path],
+			revalidate: 43200 // 12 hours in seconds
 		}
 	}).then((r) => r.json());
 }

@@ -49,7 +49,8 @@ const dayjsLocales: Record<string, any> = {
 	zh_CN: () => import('dayjs/locale/zh-cn.js'),
 	zh_TW: () => import('dayjs/locale/zh-tw.js'),
 	it: () => import('dayjs/locale/it.js'),
-	ja: () => import('dayjs/locale/ja.js')
+	ja: () => import('dayjs/locale/ja.js'),
+	uk: () => import('dayjs/locale/uk.js')
 };
 
 export function loadDayjsLocale(language: string) {
@@ -189,4 +190,13 @@ export function translateKindName(kindName: string): string {
 		console.warn(`Translation for ${kindName} not available, falling back to passed value.`);
 		return kindName;
 	}
+}
+
+export function fetchAccessToken(): string {
+	const accessToken: string =
+		JSON.parse(window.localStorage.getItem('frontendCookies') ?? '[]')
+			.find((cookie: string) => cookie.startsWith('st-access-token'))
+			?.split('=')[1]
+			.split(';')[0] || '';
+	return accessToken;
 }

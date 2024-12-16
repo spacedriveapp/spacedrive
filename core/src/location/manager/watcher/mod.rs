@@ -4,7 +4,7 @@ use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::{location_ids_and_path, location_with_indexer_rules};
 
 use sd_prisma::prisma::{location, PrismaClient};
-use sd_utils::db::maybe_missing;
+use sd_utils::{db::maybe_missing, uuid_to_bytes};
 
 use std::{
 	collections::HashSet,
@@ -67,7 +67,9 @@ type Handler = ios::EventHandler;
 pub(super) type IgnorePath = (PathBuf, bool);
 
 type INode = u64;
+
 #[allow(dead_code)] // this is not dead code, it's used with the TS bindings
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows"))]
 type InstantAndPath = (Instant, PathBuf);
 
 const ONE_SECOND: Duration = Duration::from_secs(1);
@@ -75,7 +77,12 @@ const THIRTY_SECONDS: Duration = Duration::from_secs(30);
 const HUNDRED_MILLIS: Duration = Duration::from_millis(100);
 
 trait EventHandler: 'static {
-	fn new(location_id: location::id::Type, library: Arc<Library>, node: Arc<Node>) -> Self
+	fn new(
+		location_id: location::id::Type,
+		location_pub_id: location::pub_id::Type,
+		library: Arc<Library>,
+		node: Arc<Node>,
+	) -> Self
 	where
 		Self: Sized;
 
@@ -199,7 +206,12 @@ impl LocationWatcher {
 			Stop,
 		}
 
-		let mut event_handler = Handler::new(location_id, Arc::clone(&library), Arc::clone(&node));
+		let mut event_handler = Handler::new(
+			location_id,
+			uuid_to_bytes(&location_pub_id),
+			Arc::clone(&library),
+			Arc::clone(&node),
+		);
 
 		let mut last_event_at = Instant::now();
 
@@ -223,6 +235,9 @@ impl LocationWatcher {
 
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
+				StreamMessage::NewEvent(_) => {
+					error!("Unhandled event");
+				}
 				StreamMessage::NewEvent(Ok(event)) => {
 					if let Err(e) = get_cached_indexer_ruler_and_location_path(
 						location_id,

@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
+	library::{Library, LibraryConfig, LibraryName},
 	location::{scan_location, LocationCreateArgs, ScanState},
 	util::MaybeUndefined,
 	Node,
@@ -471,36 +471,18 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure(
 			"actors",
 			R.with2(library()).subscription(|(_, library), _: ()| {
-				let mut rx = library.actors.invalidate_rx.resubscribe();
+				let mut rx = library.cloud_sync_actors.invalidate_rx.resubscribe();
 
 				async_stream::stream! {
-					let actors = library.actors.get_state().await;
+					let actors = library.cloud_sync_actors.get_state().await;
 					yield actors;
 
 					while let Ok(()) = rx.recv().await {
-						let actors = library.actors.get_state().await;
+						let actors = library.cloud_sync_actors.get_state().await;
 						yield actors;
 					}
 				}
 			}),
-		)
-		.procedure(
-			"startActor",
-			R.with2(library())
-				.mutation(|(_, library), name: String| async move {
-					library.actors.start(&name).await;
-
-					Ok(())
-				}),
-		)
-		.procedure(
-			"stopActor",
-			R.with2(library())
-				.mutation(|(_, library), name: String| async move {
-					library.actors.stop(&name).await;
-
-					Ok(())
-				}),
 		)
 		.procedure(
 			"vacuumDb",
@@ -662,13 +644,13 @@ async fn update_statistics_loop(
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
 			Message::Tick => {
-				if last_received_at.elapsed() < FIVE_MINUTES {
-					if let Err(e) = update_library_statistics(&node, &library).await {
-						error!(?e, "Failed to update library statistics;");
-					} else {
-						invalidate_query!(&library, "library.statistics");
-					}
-				}
+				// if last_received_at.elapsed() < FIVE_MINUTES {
+				// 	if let Err(e) = update_library_statistics(&node, &library).await {
+				// 		error!(?e, "Failed to update library statistics;");
+				// 	} else {
+				// 		invalidate_query!(&library, "library.statistics");
+				// 	}
+				// }
 			}
 			Message::Requested(instant) => {
 				if instant - last_received_at > TWO_MINUTES {

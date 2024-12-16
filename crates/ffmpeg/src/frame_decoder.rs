@@ -92,7 +92,7 @@ impl FrameDecoder {
 		})
 	}
 
-	pub(crate) fn use_embedded(&mut self) -> bool {
+	pub(crate) const fn use_embedded(&self) -> bool {
 		self.embedded
 	}
 

@@ -1,5 +1,5 @@
 import { iconConfig } from '~/utils/contentlayer';
-import { toTitleCase } from '~/utils/util';
+import { toTitleCase } from '~/utils/misc';
 
 import { getReleasesCategories } from '../changelog/data';
 import { navigationMeta } from '../data';

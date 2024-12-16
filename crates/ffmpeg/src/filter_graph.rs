@@ -231,9 +231,17 @@ fn thumb_scale_filter_args(
 
 		// if the pixel aspect ratio is defined and is not 1, we have an anamorphic stream
 		if pixel_aspect_ratio.num != 0 && pixel_aspect_ratio.num != pixel_aspect_ratio.den {
-			width = (width * pixel_aspect_ratio.num.unsigned_abs())
-				/ pixel_aspect_ratio.den.unsigned_abs();
-
+			match std::panic::catch_unwind(|| {
+				width
+					.checked_mul(pixel_aspect_ratio.num.unsigned_abs())
+					.and_then(|v| v.checked_div(pixel_aspect_ratio.den.unsigned_abs()))
+			}) {
+				Ok(Some(w)) => width = w,
+				Ok(None) | Err(_) => {
+					eprintln!("Warning: Failed to calculate width with pixel aspect ratio");
+					// Keep the original width as fallback
+				}
+			};
 			if size != 0 {
 				if height > width {
 					width = (width * size) / height;

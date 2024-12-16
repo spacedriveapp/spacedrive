@@ -30,8 +30,10 @@ use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
 };
-use sd_sync::OperationFactory;
+
 use sd_utils::{error::FileIOError, msgpack};
+use sd_sync::{sync_db_entry, sync_db_nullable_entry, sync_entry, OperationFactory};
+use sd_utils::{db::maybe_missing, error::FileIOError};
 
 use std::{
 	ffi::OsString,
@@ -195,19 +197,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})?;
 
+					let (sync_param, db_param) = sync_db_nullable_entry!(args.note, object::note);
+
 					sync.write_op(
 						db,
 						sync.shared_update(
 							prisma_sync::object::SyncId {
 								pub_id: object.pub_id,
 							},
-							object::note::NAME,
-							msgpack!(&args.note),
+							[sync_param],
 						),
-						db.object().update(
-							object::id::equals(args.id),
-							vec![object::note::set(args.note)],
-						),
+						db.object()
+							.update(object::id::equals(args.id), vec![db_param])
+							.select(object::select!({ id })),
 					)
 					.await?;
 
@@ -241,19 +243,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							)
 						})?;
 
+					let (sync_param, db_param) = sync_db_entry!(args.favorite, object::favorite);
+
 					sync.write_op(
 						db,
 						sync.shared_update(
 							prisma_sync::object::SyncId {
 								pub_id: object.pub_id,
 							},
-							object::favorite::NAME,
-							msgpack!(&args.favorite),
+							[sync_param],
 						),
-						db.object().update(
-							object::id::equals(args.id),
-							vec![object::favorite::set(Some(args.favorite))],
-						),
+						db.object()
+							.update(object::id::equals(args.id), vec![db_param])
+							.select(object::select!({ id })),
 					)
 					.await?;
 
@@ -346,34 +348,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 					let date_accessed = Utc::now().into();
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+					let (ops, object_ids) = objects
 						.into_iter()
-						.map(|d| {
+						.map(|object| {
 							(
 								sync.shared_update(
-									prisma_sync::object::SyncId { pub_id: d.pub_id },
-									object::date_accessed::NAME,
-									msgpack!(date_accessed),
+									prisma_sync::object::SyncId {
+										pub_id: object.pub_id,
+									},
+									[sync_entry!(date_accessed, object::date_accessed)],
 								),
-								d.id,
+								object.id,
 							)
 						})
-						.unzip();
+						.unzip::<_, _, Vec<_>, Vec<_>>();
 
-					sync.write_ops(
-						db,
-						(
-							sync_params,
-							db.object().update_many(
-								vec![object::id::in_vec(db_params)],
-								vec![object::date_accessed::set(Some(date_accessed))],
+					if !ops.is_empty() && !object_ids.is_empty() {
+						sync.write_ops(
+							db,
+							(
+								ops,
+								db.object().update_many(
+									vec![object::id::in_vec(object_ids)],
+									vec![object::date_accessed::set(Some(date_accessed))],
+								),
 							),
-						),
-					)
-					.await?;
+						)
+						.await?;
 
-					invalidate_query!(library, "search.paths");
-					invalidate_query!(library, "search.objects");
+						invalidate_query!(library, "search.paths");
+						invalidate_query!(library, "search.objects");
+					}
+
 					Ok(())
 				})
 		})
@@ -389,33 +395,38 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.exec()
 						.await?;
 
-					let (sync_params, db_params): (Vec<_>, Vec<_>) = objects
+					let (ops, object_ids) = objects
 						.into_iter()
-						.map(|d| {
+						.map(|object| {
 							(
 								sync.shared_update(
-									prisma_sync::object::SyncId { pub_id: d.pub_id },
-									object::date_accessed::NAME,
-									msgpack!(nil),
+									prisma_sync::object::SyncId {
+										pub_id: object.pub_id,
+									},
+									[sync_entry!(nil, object::date_accessed)],
 								),
-								d.id,
+								object.id,
 							)
 						})
-						.unzip();
-					sync.write_ops(
-						db,
-						(
-							sync_params,
-							db.object().update_many(
-								vec![object::id::in_vec(db_params)],
-								vec![object::date_accessed::set(None)],
-							),
-						),
-					)
-					.await?;
+						.unzip::<_, _, Vec<_>, Vec<_>>();
 
-					invalidate_query!(library, "search.objects");
-					invalidate_query!(library, "search.paths");
+					if !ops.is_empty() && !object_ids.is_empty() {
+						sync.write_ops(
+							db,
+							(
+								ops,
+								db.object().update_many(
+									vec![object::id::in_vec(object_ids)],
+									vec![object::date_accessed::set(None)],
+								),
+							),
+						)
+						.await?;
+
+						invalidate_query!(library, "search.objects");
+						invalidate_query!(library, "search.paths");
+					}
+
 					Ok(())
 				})
 		})

@@ -37,7 +37,8 @@ Pod::Spec.new do |s|
   ffmpeg_frameworks = [
     "-framework AudioToolbox",
     "-framework VideoToolbox",
-    "-framework AVFoundation"
+    "-framework AVFoundation",
+    "-framework SystemConfiguration",
   ].join(' ')
 
   s.xcconfig = {

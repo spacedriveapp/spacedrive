@@ -11,8 +11,16 @@ export const metadata = {
 
 export default function Page() {
 	return (
-		<div className="lg:prose-xs container prose m-auto mb-20 flex max-w-4xl flex-col gap-20 p-4 pt-32 dark:prose-invert">
-			<section className="flex flex-col items-center">
+		<div className="lg:prose-xs container prose prose-invert m-auto mb-20 mt-40 flex max-w-4xl flex-col gap-20 overflow-x-hidden p-4 md:overflow-visible">
+			<section className="relative flex flex-col items-center">
+				<div
+					className="animation-delay-1 absolute top-[-1025px] size-[1800px] opacity-50 blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
+					style={{
+						backgroundImage: 'url(/images/roadmapbg.webp',
+						backgroundRepeat: 'no-repeat',
+						backgroundSize: 'contain'
+					}}
+				/>
 				<h1 className="fade-in-heading mb-0 text-center text-5xl leading-snug">
 					What's next for Spacedrive?
 				</h1>
@@ -21,10 +29,10 @@ export default function Page() {
 					so far.
 				</p>
 				<p>
-					Last updated: <span className="font-bold text-white">March 13, 2024</span>
+					Last updated: <span className="font-bold text-white">September 19th, 2024</span>
 				</p>
 			</section>
-			<section className="grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
+			<section className="mt-32 grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
 				{items.map((item, i) => (
 					<Fragment key={i}>
 						{/* Using span so i can use the group-last-of-type selector */}
@@ -85,7 +93,7 @@ export default function Page() {
 					</Fragment>
 				))}
 			</section>
-			<section className="space-y-2 rounded-xl bg-gray-850 p-8">
+			<section className="space-y-2 p-8 backdrop-blur-md">
 				<h2 className="my-1">That's not all.</h2>
 				<p>
 					We're always open to ideas and feedback over{' '}

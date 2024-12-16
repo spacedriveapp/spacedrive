@@ -1,5 +1,5 @@
-import { Clock, CurrencyDollar } from '@phosphor-icons/react/dist/ssr';
-import { Button } from '@sd/ui';
+import { ArrowDown, Clock, CurrencyDollar } from '@phosphor-icons/react/dist/ssr';
+import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 import { perks, positions, values } from './data';
 
@@ -10,28 +10,34 @@ export const metadata = {
 
 export default function CareersPage() {
 	return (
-		<div className="container prose prose-invert relative m-auto mb-20 min-h-screen max-w-4xl p-4 pt-32 text-white">
-			<div
-				className="bloom subtle egg-bloom-two -top-60 right-[-400px]"
-				style={{ transform: 'scale(2)' }}
-			/>
-			<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
-				Build the future of files.
-			</h1>
-			<div className="animation-delay-1 z-30 flex flex-col items-center fade-in">
-				<p className="z-40 text-center text-lg text-gray-350">
+		<div className="container prose prose-invert relative m-auto mb-20 mt-40 min-h-screen max-w-4xl overflow-x-hidden p-4 text-white md:overflow-visible">
+			<div className="relative mb-[200px] flex flex-col items-center justify-center overflow-visible xs:mb-32 sm:mb-40 lg:mb-40">
+				<div
+					className="animation-delay-1 absolute right-[-750px] top-[-1000px] mx-auto size-[1700px] blur-sm duration-150 fade-in xs:top-[-1150px] sm:top-[-1200px] md:top-[-1150px]"
+					style={{
+						backgroundImage: 'url(/images/careersbg.webp',
+						backgroundRepeat: 'no-repeat',
+						backgroundSize: 'cover',
+						backgroundPosition: '-300px 40px'
+					}}
+				/>
+				<h1 className="fade-in-heading mb-3 px-2 text-center text-4xl font-black leading-tight text-white md:text-5xl">
+					Build the future of files.
+				</h1>
+				<p className="animation-delay-1 fade-in-heading z-40 text-center text-lg text-gray-350">
 					Spacedrive is redefining the way we think about our personal data, building a
 					open ecosystem to help preserve your digital legacy and make cross-platform file
 					management a breeze.
 				</p>
-				<Button
+				<CtaSecondaryButton
+					icon={<ArrowDown weight="bold" />}
 					href="#open-positions"
-					className="z-30 cursor-pointer border-0"
-					variant="accent"
+					className="fade-in-heading animation-delay-2 z-30 mt-8 min-w-fit cursor-pointer !gap-x-1.5 border-0"
 				>
-					See Open Positions
-				</Button>
-				<hr className="border-1 my-24 w-full border-gray-200 opacity-10" />
+					Open Positions
+				</CtaSecondaryButton>
+			</div>
+			<div className="animation-delay-1 z-30 flex flex-col items-center fade-in">
 				<h2 className="mb-0 px-2 text-center text-4xl font-black leading-tight">
 					Our Values
 				</h2>
@@ -40,7 +46,7 @@ export default function CareersPage() {
 					{values.map((value, index) => (
 						<div
 							key={value.title + index}
-							className="flex flex-col rounded-md border border-gray-500 bg-gray-550/50 p-10"
+							className="bento-border-left relative flex flex-col rounded-[10px] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] p-10"
 						>
 							<value.icon
 								width="1em"

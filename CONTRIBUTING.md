@@ -29,95 +29,159 @@ If you come across an issue or have a feature request for Spacedrive, please [se
 
 To find an issue that interests you, you can browse through our [existing issues](https://github.com/spacedriveapp/spacedrive/issues) and use the available `labels` to narrow down your search (See [Labels](https://github.com/spacedriveapp/spacedrive/labels) for more information). As a general rule, if you find an issue you want to work on, you are welcome to open a PR with a fix.
 
-### Making Changes
+## Making Changes
 
-#### Making Changes Locally
+### Web-based Clients
 
 This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) and [pnpm](https://pnpm.io/installation). Make sure you have them installed before proceeding.
 
 To make changes locally, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/spacedriveapp/spacedrive`
-2. Navigate to the project directory: `cd spacedrive`
-3. Configure your system environment for Spacedrive development
-   1. For Linux users, run: `./scripts/setup.sh`
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L133) will check if Rust and pnpm are installed then proceed to install Clang, NASM, LLVM, libvips, Gstreamer's Plugins, FFmpeg, Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-linux) and any other required dependencies for Spacedrive to build.
-   2. For macOS users, run: `./scripts/setup.sh`
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh#L108) will check if Rust, pnpm and Xcode are installed and proceed to use Homebrew to install NASM, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-macos) and install any other required dependencies for Spacedrive to build.
-   3. For Windows users, run in PowerShell: `.\scripts\setup.ps1`
-      > This [script](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1#L81) will install pnpm, LLVM, FFmpeg, C++ build tools, NASM, Rust + Cargo, Rust tools, Edge Webview 2, Strawberry Perl, [Tauri essentials](https://tauri.app/v1/guides/getting-started/prerequisites/#setting-up-windows) and any other required dependencies for Spacedrive to build.
-4. Install dependencies: `pnpm i`
-5. Prepare the build: `pnpm prep` (This will run all necessary codegen and build required dependencies)
+1. Clone & enter the repository:
+    ```
+    git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
+    ```
+    Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
+> [!TIP]
+> Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
+2. Configure your system environment for Spacedrive development
+  - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
+  - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
+> [!NOTE]
+> This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
+3. Install NodeJS dependencies: `pnpm i`
+4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
 
-To quickly run only the desktop app after `prep`, you can use:
+> [!TIP]
+> Linux & macOS users can download a bundle of sample files for testing via `pnpm test-data` (requires `curl` & `tar`)
+>
+> The test files will be located in a directory called `test-data` in the root of the Spacedrive repository.
 
-- `pnpm tauri dev`
+To run the **desktop** app, run:
+```
+pnpm tauri dev
+```
+> [!NOTE]
+> The Tauri desktop app always runs its own instance of the backend and will not connect to a separately initiated `sd-server` instance.
 
-  If necessary, the [webview devtools](https://tauri.app/v1/guides/debugging/application/#webview-console) can be opened by pressing `Ctrl + Shift + I` (Linux and Windows) or `Command + Option + I` (macOS) in the desktop app.
+To run the **backend server**, run:
+```
+cargo run -p sd-server
+```
 
-  Also, the react-devtools can be launched using `pnpm dlx react-devtools`.
+> [!TIP]
+> If necessary, [DevTools](https://tauri.app/v1/guides/debugging/application/#webview-console) for the WebView can be opened by pressing <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> (Linux and Windows) or <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> (macOS) in the desktop app.
+>
+> Also, React DevTools can be launched using `pnpx react-devtools`.
   However, it must be executed before starting the desktop app for it to connect.
 
-You can download a bundle with sample files to test the app by running:
+To run the **web** app (requires the backend to be running), run:
+```
+pnpm web dev
+```
+> [!TIP]
+> You can also quickly launch the web interface together with the backend with:
+> ```
+> pnpm dev:web
+> ```
 
-- `pnpm test-data`
-
-  Only for Linux and macOS (Requires curl and tar).
-  The test files will be located in a directory called `test-data` in the root of the spacedrive repo.
-
-To run the web app:
-
-- `pnpm dev:web`
-
-This will start both the server and web interface.
-You can launch these individually if you'd prefer:
-
-- `cargo run -p sd-server` (server)
-- `pnpm web dev` (web interface)
-
-To run the e2e tests for the web app:
-
-- `pnpm web test:e2e`
-
+To run the **e2e tests** for the web app:
+```
+pnpm web test:e2e
+```
 If you are developing a new test, you can execute Cypress in interactive mode with:
+```
+pnpm web test:interactive
+```
 
-- `pnpm web test:interactive`
+#### Troubleshooting
 
-To run the landing page:
+- If you encounter any issues, ensure that you are using the following versions of Rust, Node.js and pnpm:
+  | tool    | version |
+  | ----    | ------- |
+  | Rust    | [`1.81`](rust-toolchain.toml) |
+  | Node.js | [`18.18`](.nvmrc) |
+  | pnpm    | `9.4.0` |
+
+  [`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically. 
+
+ - After cleaning out your build artifacts using `pnpm clean`, it's necessary to re-run `pnpm prep`.
+
+ - Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
+
+ - After you finish making your changes and committing them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
+
+### Landing Page
+
+To run the **landing page**, run:
 
 - `pnpm landing dev`
 
-If you encounter any issues, ensure that you are using the following versions of Rust, Node and Pnpm:
-
-- Rust version: **1.79**
-- Node version: **18.18**
-- Pnpm version: **9.4.0**
-
-After cleaning out your build artifacts using `pnpm clean`, `git clean`, or `cargo clean`, it is necessary to re-run the `setup-system` script.
-
-Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
-
-After you finish making your changes and committed them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
-
-##### Mobile App
+### Mobile App
 
 To run the mobile app:
 
-- Install Java JDK <= 17 for Android
-  - Java 21 is not compatible: https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956
-- Install [Android Studio](https://developer.android.com/studio) for Android and [Xcode](https://apps.apple.com/au/app/xcode/id497799835) for iOS development.
 - Run `./scripts/setup.sh mobile`
-  - This will set up most of the dependencies required to build the mobile app.
-- Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
-- Run the following commands:
-  - `pnpm mobile android` (runs on Android Emulator)
-    - In order to have locations working on Android, you must run the following command once the application has been installed for the first time (if the app fails to request the `MANAGE_EXTERNAL_STORAGE` permission). Otherwise, locations will not work.
-      - `adb shell appops set --uid com.spacedrive.app MANAGE_EXTERNAL_STORAGE allow`
-    - Run the following commands to access the logs from `sd-core`.
-      - `adb logcat | grep -i com.spacedrive.app`
-  - `pnpm mobile ios` (runs on iOS Emulator)
-    - `xcrun simctl launch --console booted com.spacedrive.app` allows you to view the console output of the iOS app from `tracing`. However, the application must be built in `debug` mode for this.
-  - `pnpm mobile start` (runs the metro bundler only)
+
+#### Android
+
+- Install Java JDK 17 for Android. Java 21 is [not compatible](https://github.com/react-native-async-storage/async-storage/issues/1057#issuecomment-1925963956).
+- Install [Android Studio](https://developer.android.com/studio). This will set up most of the dependencies required to build the mobile app.
+  - Make sure you have [NDK 26.1.10909125 and CMake](https://developer.android.com/studio/projects/install-ndk#default-version) installed in Android Studio.
+- Run `pnpm mobile android` to build the core and begin debugging the app.
+
+> [!TIP]
+> To speed up compilation for Android you may temporarily remove unnecessary architectures from the build by removing them from the following line:
+> https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/android/build.sh#L61
+> Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
+
+If you wish to debug directly on a local Android device:
+ - Install [ADB](https://developer.android.com/tools/adb)
+   - On macOS use [homebrew](https://brew.sh/): `brew install adb`
+ - [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
+   - Select "Remember this device" & "Trust" when connecting over USB.
+ - Run `pnpm mobile android` with your device connected via USB.
+
+>[!TIP]
+> To access the logs from `sd-core` when running on device, run the following command:
+> ```
+> adb logcat | grep -i com.spacedrive.app
+> ```
+
+#### iOS 
+ - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate an iOS device on your Mac.
+   - When running Xcode for the first time, make sure to select the latest version of iOS.
+ - Run `pnpm mobile ios` in the terminal to build & run the app on the Simulator.
+   - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
+     https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
+    You can now get backend (`sd-core`) logs from the Simulator by running the following command:
+    ```
+    xcrun simctl launch --console booted com.spacedrive.app
+    ```
+  - If you'd like to run the app on device, run:
+    ```
+    pnpm mobile ios --device
+    ```
+> [!IMPORTANT]
+> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
+
+To run the backend (`sd-core`) separately, open up Xcode by running:
+```
+xed apps/mobile/ios
+```
+Select from the top if you wish to start on device or Simulator, and press play.
+
+| Select Device | Run the App | Build & Core logs are found here |
+| --- | --- | --- |
+|![](./apps/landing/public/images/xcode-run-sd-core.01.png)|![](./apps/landing/public/images/xcode-run-sd-core.02.png)|![](./apps/landing/public/images/xcode-run-sd-core.03.png)|
+
+To run the frontend, run the following:
+```
+pnpm mobile start
+```
+> [!IMPORTANT]
+> The frontend is not functional without the sd-core running as well.
+
 
 ### Pull Request
 
@@ -170,4 +234,4 @@ Check out the [i18n README](interface/locales/README.md) for more information on
 
 ### Credits
 
-This CONTRIBUTING.md file was inspired by the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/CONTRIBUTING.md) file, and we extend our gratitude to the original author.
+This CONTRIBUTING.md file was inspired by the [github/docs CONTRIBUTING.md](https://github.com/github/docs/blob/main/.github/CONTRIBUTING.md) file, and we extend our gratitude to the original author.

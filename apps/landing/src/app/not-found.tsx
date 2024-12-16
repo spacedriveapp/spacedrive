@@ -3,7 +3,7 @@
 import { SmileyXEyes } from '@phosphor-icons/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@sd/ui';
-import Markdown from '~/components/Markdown';
+import { MarkdownPage } from '~/components/markdown-page';
 
 export const metadata = {
 	title: 'Not Found - Spacedrive'
@@ -13,7 +13,7 @@ export default function NotFound() {
 	const router = useRouter();
 
 	return (
-		<Markdown classNames="flex w-full justify-center">
+		<MarkdownPage classNames="flex w-full justify-center">
 			<div className="m-auto flex flex-col items-center">
 				<div className="h-32" />
 				<SmileyXEyes className="mb-3 size-44" />
@@ -35,6 +35,6 @@ export default function NotFound() {
 				</div>
 			</div>
 			<div className="h-80" />
-		</Markdown>
+		</MarkdownPage>
 	);
 }
