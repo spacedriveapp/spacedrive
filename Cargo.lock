@@ -7647,8 +7647,8 @@ checksum = "d61c5ce1153ab5b689d0c074c4e7fc613e942dfb7dd9eea5ab202d2ad91fe361"
 
 [[package]]
 name = "pdfium-render"
-version = "0.8.25"
-source = "git+https://github.com/HeavenVolkoff/pdfium-render.git?rev=7518e39c1b#7518e39c1b0f5bdede0e6e920f28d20415317352"
+version = "0.8.27"
+source = "git+https://github.com/spacedriveapp/pdfium-render.git#b546f3ab0f1c0b085a370c39ed49ce651f7fc047"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -7657,9 +7657,9 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "js-sys",
- "libloading 0.8.5",
+ "libloading 0.7.4",
  "log",
  "maybe-owned",
  "once_cell",
