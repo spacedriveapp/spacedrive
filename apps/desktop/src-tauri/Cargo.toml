@@ -37,7 +37,6 @@ uuid               = { workspace = true, features = ["serde"] }
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener                         = { version = "0.7.1", features = ["reveal"], default-features = false }
 specta-typescript              = "=0.0.7"
-tauri-plugin-clipboard-manager = "=2.0.1"
 tauri-plugin-cors-fetch        = { path = "../../../crates/tauri-plugin-cors-fetch" }
 tauri-plugin-deep-link         = "=2.0.1"
 tauri-plugin-dialog            = "=2.0.3"
