@@ -1,7 +1,9 @@
+mod behaviors;
+mod batch;
+mod conflict;
 mod copy;
-mod copy_behavior;
 mod create_dirs;
-mod progress;
 
+pub use behaviors::{CopyBehavior, FastCopyBehavior, StreamCopyBehavior, determine_behavior};
 pub(crate) use copy::CopyTask;
 pub(crate) use create_dirs::CreateDirsTask;

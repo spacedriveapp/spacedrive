@@ -1,24 +1,49 @@
-use std::{path::{Path, PathBuf}, fmt};
+use std::{path::{Path, PathBuf}, fmt, time::{Duration, Instant}};
 
 use heavy_lifting::{
-    task::Task,
+    task::{Task, TaskStatus},
     job::{JobContext, JobError},
 };
 use tokio::fs;
+use serde::{Serialize, Deserialize};
 
+use crate::copier::progress::CopyProgress;
 use super::{
-    copy_behavior::{CopyBehavior, determine_behavior},
-    progress::CopyProgress,
+    batch::{batch_copy_files, collect_copy_entries},
+    conflict::resolve_name_conflicts,
+    behaviors::{CopyBehavior, FastCopyBehavior, StreamCopyBehavior},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct CopyTask {
-    files: Vec<(PathBuf, PathBuf, u64)>, // (source_path, target_path, size)
+    batches: Vec<Vec<(PathBuf, PathBuf, u64)>>, // (source_path, target_path, size)
+    current_batch: usize,
+    progress: CopyProgress,
 }
 
 impl CopyTask {
-    pub fn new(files: Vec<(PathBuf, PathBuf, u64)>) -> Self {
-        Self { files }
+    pub async fn new(source: PathBuf, target: PathBuf) -> Result<Self, JobError> {
+        // First collect all files and directories
+        let (files, dirs) = collect_copy_entries(&source, &target).await?;
+        
+        // Create all necessary directories
+        for (_, dir) in dirs {
+            fs::create_dir_all(&dir)
+                .await
+                .map_err(|e| JobError::IO(e.into()))?;
+        }
+        
+        // Resolve any name conflicts
+        let files = resolve_name_conflicts(files).await?;
+        
+        // Batch the files for optimal copying
+        let batches = batch_copy_files(files).await?;
+        
+        Ok(Self {
+            batches,
+            current_batch: 0,
+            progress: CopyProgress::default(),
+        })
     }
 
     async fn find_available_name(path: impl AsRef<Path>) -> Result<PathBuf, JobError> {
@@ -54,6 +79,25 @@ impl CopyTask {
 
         unreachable!()
     }
+
+    async fn handle_error(&mut self, error: JobError, ctx: &impl JobContext) -> Result<TaskStatus, JobError> {
+        // If we have a current file, we can try to resume from there
+        if let Some((source, target)) = &self.current_file {
+            // Clean up the partially copied file
+            if fs::try_exists(target).await.map_err(|e| JobError::IO(e.into()))? {
+                fs::remove_file(target).await.map_err(|e| JobError::IO(e.into()))?;
+            }
+
+            // Return a shutdown status with our current state
+            Ok(TaskStatus::Shutdown(Box::new(self.clone())))
+        } else {
+            Err(error)
+        }
+    }
+
+    pub async fn serialize(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
+        rmp_serde::to_vec_named(self)
+    }
 }
 
 #[async_trait::async_trait]
@@ -64,47 +108,77 @@ impl Task for CopyTask {
         "copy"
     }
 
-    async fn run(&self, ctx: &impl JobContext) -> Result<(), JobError> {
-        let total_files = self.files.len() as u64;
-        let total_bytes: u64 = self.files.iter().map(|(_, _, size)| size).sum();
+    async fn run(&mut self, ctx: &impl JobContext) -> Result<TaskStatus, JobError> {
+        let total_files = self.batches.iter().map(|batch| batch.len()).sum::<usize>() as u64;
+        let total_bytes: u64 = self.batches.iter().map(|batch| batch.iter().map(|(_, _, size)| size).sum::<u64>()).sum();
+
+        let start_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
         ctx.progress(CopyProgress::Started {
             total_files,
             total_bytes,
         }).await;
 
-        let mut files_copied = 0u64;
-        let mut bytes_copied = 0u64;
+        let mut files_copied = 0;
+        let mut bytes_copied = 0;
+        let start = Instant::now();
 
-        for (idx, (source, target, size)) in self.files.iter().enumerate() {
-            let target = Self::find_available_name(target).await?;
-            
-            let file_name = source.file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
+        for batch in self.batches.iter().enumerate() {
+            for (idx, (source, target, size)) in batch.1.iter().enumerate() {
+                let target = Self::find_available_name(target).await?;
+                
+                let file_name = source.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
 
-            ctx.progress(CopyProgress::File {
-                name: file_name.clone(),
-                current_file: (idx + 1) as u64,
-                total_files,
-                bytes: *size,
-                source: source.clone(),
-                target: target.clone(),
-            }).await;
+                ctx.progress(CopyProgress::File {
+                    name: file_name.clone(),
+                    current_file: (files_copied + idx as u64 + 1),
+                    total_files,
+                    bytes: *size,
+                    source: source.clone(),
+                    target: target.clone(),
+                }).await;
 
-            let behavior = determine_behavior(source, &target);
-            behavior.copy_file(source, &target, ctx).await?;
-
-            files_copied += 1;
-            bytes_copied += size;
+                let behavior = determine_behavior(source, &target);
+                match behavior.copy_file(source, &target, ctx).await {
+                    Ok(()) => {
+                        files_copied += 1;
+                        bytes_copied += size;
+                    }
+                    Err(e) => {
+                        // Clean up and return shutdown status
+                        if fs::try_exists(&target).await.map_err(|e| JobError::IO(e.into()))? {
+                            fs::remove_file(&target).await.map_err(|e| JobError::IO(e.into()))?;
+                        }
+                        
+                        self.current_batch = batch.0;
+                        self.progress = CopyProgress::default();
+                        
+                        return Ok(TaskStatus::Shutdown(Box::new(self.clone())));
+                    }
+                }
+            }
         }
+
+        let duration = start.elapsed();
+        let average_speed = if duration.as_secs() > 0 {
+            bytes_copied / duration.as_secs()
+        } else {
+            bytes_copied
+        };
 
         ctx.progress(CopyProgress::Completed {
             files_copied,
             bytes_copied,
+            total_duration: duration,
+            average_speed,
         }).await;
 
-        Ok(())
+        Ok(TaskStatus::Complete)
     }
 }
