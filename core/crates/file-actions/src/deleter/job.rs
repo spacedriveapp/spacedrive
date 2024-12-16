@@ -234,7 +234,9 @@ impl<B: DeleteBehavior + Hash + Send + 'static, C> DeleterJob<B, C> {
 					.file_path()
 					.find_first(vec![
 						file_path::location_id::equals(Some(location_id)),
-						file_path::materialized_path::equals(path.to_string_lossy().to_string()),
+						file_path::materialized_path::equals(Some(
+							path.to_string_lossy().to_string(),
+						)),
 					])
 					.exec()
 					.await
