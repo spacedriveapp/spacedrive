@@ -4,6 +4,8 @@ use crate::{
 	node::{
 		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
 		get_hardware_model_name, HardwareModel,
+		config::{is_in_docker, DeletePreferences, NodeConfig, NodeConfigP2P, NodePreferences},
+		HardwareModel,
 	},
 	old_job::JobProgressEvent,
 	Node,
@@ -96,7 +98,9 @@ pub struct SanitisedNodeConfig {
 	pub p2p: NodeConfigP2P,
 	pub features: Vec<BackendFeature>,
 	pub preferences: NodePreferences,
-	pub image_labeler_version: Option<String>,
+	pub os: DeviceOS,
+	pub hardware_model: HardwareModel,
+	pub delete_preferences: DeletePreferences,
 }
 
 impl From<NodeConfig> for SanitisedNodeConfig {
@@ -108,7 +112,9 @@ impl From<NodeConfig> for SanitisedNodeConfig {
 			p2p: value.p2p,
 			features: value.features,
 			preferences: value.preferences,
-			image_labeler_version: value.image_labeler_version,
+			os: value.os,
+			hardware_model: value.hardware_model,
+			delete_preferences: value.delete_preferences,
 		}
 	}
 }

@@ -8,7 +8,17 @@ import {
 	useDebugState,
 	useZodForm
 } from '@sd/client';
-import { Button, Card, Input, Switch, Tooltip, tw, z } from '@sd/ui';
+import {
+	Button,
+	Card,
+	Input,
+	Select,
+	SelectOption,
+	Switch,
+	Tooltip,
+	tw,
+	z
+} from '@sd/ui';
 import { Icon } from '~/components';
 import { useDebouncedFormWatch, useLocale } from '~/hooks';
 import { usePlatform } from '~/util/Platform';
@@ -57,7 +67,9 @@ export const Component = () => {
 					})
 					.int()
 					.nonnegative()
-					.lte(100)
+					.lte(100),
+				spacedrop_default_location: z.string().optional(),
+				delete_prefs: z.union([z.literal('Show'), z.literal('Trash'), z.literal('Instant')])
 			})
 			.strict(),
 		reValidateMode: 'onChange',
@@ -81,7 +93,8 @@ export const Component = () => {
 				p2p_relay_disabled: null,
 				p2p_discovery: null,
 				p2p_remote_access: null,
-				p2p_manual_peers: null
+				p2p_manual_peers: null,
+				delete_prefs: value.delete_prefs || 'Show'
 				// image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -228,7 +241,47 @@ export const Component = () => {
 						})}
 					/>
 				</div>
+			</Setting>
+			{/* Spacedrop default location */}
+			{/* <Setting
+				mini
+				title={t('spacedrop_default_location')}
+				description={t('spacedrop_default_location_description')}
+			>
+				<div className="flex h-[30px]">
+					<Controller
+						name="spacedrop_default_location"
+						control={form.control}
+						render={({ field }) => (
+							<Select {...field} containerClassName="h-[30px] whitespace-nowrap">
+								{locations.data?.map((location, key) => (
+									<SelectOption key={key} value={String(location.id)}>
+										{location.name}
+									</SelectOption>
+								))}
+							</Select>
+						)}
+					/>
+				</div>
 			</Setting> */}
+			<Setting
+				mini
+				title={t('delete_show_prompt')}
+				description={
+					<p className="text-sm text-gray-400">{t('delete_show_prompt_description')}</p>
+				}
+			>
+				<Select
+					value={form.watch('delete_prefs') || node.data?.delete_preferences || 'Show'}
+					containerClassName="h-[30px]"
+					className="h-full"
+					onChange={(type) => form.setValue('delete_prefs', type)}
+				>
+					<SelectOption value="Show">{'Show Prompt'}</SelectOption>
+					<SelectOption value="Trash">{'Send to Trash'}</SelectOption>
+					<SelectOption value="Instant">{'Delete Instantly'}</SelectOption>
+				</Select>
+			</Setting>
 			{/* Image Labeler */}
 			{/* <Setting
 				mini

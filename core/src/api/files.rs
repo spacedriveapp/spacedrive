@@ -23,7 +23,7 @@ use sd_core_prisma_helpers::{
 };
 
 use sd_file_ext::kind::ObjectKind;
-use sd_file_track::deleter::{MoveToTrashJob, RemoveJob};
+use sd_file_actions::deleter::{MoveToTrashJob, RemoveJob};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{

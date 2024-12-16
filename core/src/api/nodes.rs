@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
 	invalidate_query,
-	node::config::{P2PDiscoveryState, Port},
+	node::config::{DeletePreferences, P2PDiscoveryState, Port},
 };
 
 use sd_prisma::prisma::{instance, location};
@@ -28,8 +28,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub p2p_manual_peers: Option<HashSet<String>>,
-				#[cfg(feature = "ai")]
-				pub image_labeler_version: Option<String>,
+				pub delete_prefs: Option<DeletePreferences>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
@@ -71,28 +70,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(manual_peers) = args.p2p_manual_peers {
 							config.p2p.manual_peers = manual_peers;
 						};
-
-						#[cfg(feature = "ai")]
-						if let Some(version) = args.image_labeler_version {
-							if config
-								.image_labeler_version
-								.as_ref()
-								.map(|node_version| version != *node_version)
-								.unwrap_or(true)
-							{
-								new_model = sd_ai::old_image_labeler::YoloV8::model(Some(&version))
-									.map_err(|e| {
-										error!(
-											%version,
-											?e,
-											"Failed to crate image_detection model;",
-										);
-									})
-									.ok();
-								if new_model.is_some() {
-									config.image_labeler_version = Some(version);
-								}
-							}
+						if let Some(delete_prefs) = args.delete_prefs {
+							config.delete_preferences = delete_prefs;
 						}
 					})
 					.await

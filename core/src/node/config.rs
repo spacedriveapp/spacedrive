@@ -137,10 +137,23 @@ pub struct NodeConfig {
 	pub sd_api_origin: Option<String>,
 	/// The aggregation of many different preferences for the node
 	pub preferences: NodePreferences,
-	// Model version for the image labeler
-	pub image_labeler_version: Option<String>,
+	/// Operating System of the node
+	pub os: DeviceOS,
+	/// Hardware model of the node
+	pub hardware_model: HardwareModel,
+	/// Delete Preferences
+	#[serde(default)]
+	pub delete_preferences: DeletePreferences,
 
 	version: NodeConfigVersion,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
+pub enum DeletePreferences {
+	#[default]
+	Show,
+	Trash,
+	Instant,
 }
 
 mod identity_serde {
@@ -220,7 +233,9 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			auth_token: None,
 			sd_api_origin: None,
 			preferences: NodePreferences::default(),
-			image_labeler_version,
+			os,
+			hardware_model,
+			delete_preferences: DeletePreferences::default(),
 		})
 	}
 }
@@ -311,6 +326,146 @@ impl NodeConfig {
 						fs::write(path, a)
 							.await
 							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					(NodeConfigVersion::V3, NodeConfigVersion::V4) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.remove("id");
+						config.insert(
+							String::from("id"),
+							serde_json::to_value(Uuid::now_v7())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						config.remove("name");
+
+						#[cfg(not(any(target_os = "ios", target_os = "android")))]
+						config.insert(
+							String::from("name"),
+							serde_json::to_value(whoami::devicename())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						#[cfg(target_os = "ios")]
+						config.insert(
+							String::from("name"),
+							serde_json::to_value("iOS Device")
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						#[cfg(target_os = "android")]
+						config.insert(
+							String::from("name"),
+							serde_json::to_value("Android Device")
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						config.insert(
+							String::from("os"),
+							serde_json::to_value(std::env::consts::OS)
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						let a =
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?;
+
+						fs::write(path, a)
+							.await
+							.map_err(|e| FileIOError::from((path, e)))?;
+					}
+
+					(NodeConfigVersion::V4, NodeConfigVersion::V5) => {
+						let mut config: Map<String, Value> =
+							serde_json::from_slice(&fs::read(path).await.map_err(|e| {
+								FileIOError::from((
+									path,
+									e,
+									"Failed to read node config file for migration",
+								))
+							})?)
+							.map_err(VersionManagerError::SerdeJson)?;
+
+						config.insert(
+							String::from("os"),
+							serde_json::to_value(DeviceOS::from_env())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+						config.insert(
+							String::from("hardware_model"),
+							serde_json::to_value(
+								HardwareModel::try_get().unwrap_or(HardwareModel::Other),
+							)
+							.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						config.remove("features");
+						config.remove("auth_token");
+						config.remove("sd_api_origin");
+						config.remove("image_labeler_version");
+
+						// Verify that the ID isn't already set to a UUID v7. If it is, we don't want to overwrite it.
+						// Get the current ID, if it's a string, parse it as a UUID and check if it's a UUID v7.
+						// If it's not a UUID v7, set it to a UUID v7.
+						let id = config
+							.get("id")
+							.and_then(|v| v.as_str())
+							.and_then(|s| Uuid::parse_str(s).ok());
+						if let Some(id) = id {
+							if id.get_version() != Some(uuid::Version::Md5) {
+								config.remove("id");
+								config.insert(
+									String::from("id"),
+									serde_json::to_value(DevicePubId::from(Uuid::now_v7()))
+										.map_err(VersionManagerError::SerdeJson)?,
+								);
+							}
+						}
+						// config.remove("id");
+						// config.insert(
+						// 	String::from("id"),
+						// 	serde_json::to_value(DevicePubId::from(Uuid::now_v7()))
+						// 		.map_err(VersionManagerError::SerdeJson)?,
+						// );
+
+						// Create a .sdks file in the data directory if it doesn't exist
+						let data_directory = path
+							.parent()
+							.expect("Config path must have a parent directory");
+						let sdks_file = data_directory.join(".sdks");
+						if !sdks_file.exists() {
+							fs::write(&sdks_file, b"").await.map_err(|e| {
+								FileIOError::from((
+									sdks_file.clone(),
+									e,
+									"Failed to create .sdks file",
+								))
+							})?;
+						}
+
+						config.insert(
+							String::from("delete_preferences"),
+							serde_json::to_value(DeletePreferences::default())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
+
+						// Write the updated config back to disk
+						fs::write(
+							path,
+							serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
+						)
+						.await
+						.map_err(|e| {
+							FileIOError::from((path, e, "Failed to write back updated config"))
+						})?;
 					}
 
 					_ => {

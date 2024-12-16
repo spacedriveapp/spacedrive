@@ -1,4 +1,10 @@
-import { useItemsAsEphemeralPaths, useItemsAsFilePaths, type ExplorerItem } from '@sd/client';
+import {
+	useBridgeQuery,
+	useItemsAsEphemeralPaths,
+	useItemsAsFilePaths,
+	useLibraryMutation,
+	type ExplorerItem
+} from '@sd/client';
 import { dialogManager } from '@sd/ui';
 import DeleteDialog from '~/app/$libraryId/Explorer/FilePath/DeleteDialog';
 import { isNonEmpty } from '~/util';
@@ -8,6 +14,11 @@ import { useShortcut } from './useShortcut';
 export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: number | null) => {
 	const filePaths = useItemsAsFilePaths([...selectedItems]);
 	const ephemeralPaths = useItemsAsEphemeralPaths([...selectedItems]);
+	const node = useBridgeQuery(['nodeState']);
+	const moveToTrash = useLibraryMutation('files.moveToTrash');
+	const moveToTrashEphemeral = useLibraryMutation('ephemeralFiles.moveToTrash');
+	const deleteFiles = useLibraryMutation('files.deleteFiles');
+	const deleteEphemeralFiles = useLibraryMutation('ephemeralFiles.deleteFiles');
 
 	const deleteHandler = (e: KeyboardEvent) => {
 		e.preventDefault();
@@ -29,16 +40,40 @@ export const useKeyDeleteFile = (selectedItems: Set<ExplorerItem>, locationId?: 
 			dirCount += entry.is_dir ? 1 : 0;
 			fileCount += entry.is_dir ? 0 : 1;
 		}
-
-		dialogManager.create((dp) => (
-			<DeleteDialog
-				{...dp}
-				indexedArgs={indexedArgs}
-				ephemeralArgs={ephemeralArgs}
-				dirCount={dirCount}
-				fileCount={fileCount}
-			/>
-		));
+		const prefs = node.data?.delete_preferences;
+		switch (prefs) {
+			case 'Show':
+				dialogManager.create((dp) => (
+					<DeleteDialog
+						{...dp}
+						indexedArgs={indexedArgs}
+						ephemeralArgs={ephemeralArgs}
+						dirCount={dirCount}
+						fileCount={fileCount}
+					/>
+				));
+				break;
+			case 'Trash':
+			case 'Instant':
+				if (locationId != null && isNonEmpty(filePaths)) {
+					if (prefs === 'Instant') {
+						deleteFiles.mutate({
+							location_id: locationId,
+							file_path_ids: filePaths.map((p) => p.id)
+						});
+					} else
+						moveToTrash.mutate({
+							location_id: locationId,
+							file_path_ids: filePaths.map((p) => p.id)
+						});
+				} else if (isNonEmpty(ephemeralPaths)) {
+					const { paths } = ephemeralArgs!;
+					if (prefs === 'Instant') {
+						deleteEphemeralFiles.mutate(paths);
+					} else moveToTrashEphemeral.mutate(paths);
+				}
+				break;
+		}
 	};
 
 	useShortcut('delItem', deleteHandler);

@@ -1,5 +1,5 @@
 [package]
-name = "sd-file-track"
+name = "sd-file-actions"
 version = "0.1.0"
 
 authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
