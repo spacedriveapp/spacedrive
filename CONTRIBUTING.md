@@ -41,14 +41,14 @@ To make changes locally, follow these steps:
    `     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
  `
    Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
-   > [!TIP]
-   > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
-2. Configure your system environment for Spacedrive development
+> [!TIP]
+> Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
+3. Configure your system environment for Spacedrive development
 
 - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
 - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
-  > [!NOTE]
-  > This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
+> [!NOTE]
+> This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
 
 3. Install NodeJS dependencies: `pnpm i`
 4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
