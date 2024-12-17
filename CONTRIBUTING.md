@@ -170,14 +170,12 @@ If you wish to debug directly on a local Android device:
   - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
     https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
     You can now get backend (`sd-core`) logs from the Simulator by running the following command:
-  ```
-  xcrun simctl launch --console booted com.spacedrive.app
-  ```
-- If you'd like to run the app on device, run:
-  `     pnpm mobile ios --device
-  `
-  > [!IMPORTANT]
-  > Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
+	  ```
+	  xcrun simctl launch --console booted com.spacedrive.app
+	  ```
+- If you'd like to run the app on device, run: `pnpm mobile ios --device`
+> [!IMPORTANT]
+> Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
 
 To run the backend (`sd-core`) separately, open up Xcode by running:
 
