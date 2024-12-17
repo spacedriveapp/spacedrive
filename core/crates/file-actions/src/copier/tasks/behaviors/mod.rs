@@ -3,15 +3,17 @@ use std::path::Path;
 mod fast;
 mod stream;
 mod utils;
+mod delete;
 
 pub use fast::FastCopyBehavior;
 pub use stream::StreamCopyBehavior;
-
-const FAST_COPY_SIZE_THRESHOLD: u64 = 10 * 1024 * 1024; // 10MB
-const MAX_RETRIES: u32 = 3;
+pub use delete::{DeleteBehavior, LocalDeleteBehavior};
 
 use async_trait::async_trait;
 use heavy_lifting::job::{JobContext, JobError};
+
+const FAST_COPY_SIZE_THRESHOLD: u64 = 10 * 1024 * 1024; // 10MB
+const MAX_RETRIES: u32 = 3;
 
 /// Behavior trait for different copy strategies
 #[async_trait]
