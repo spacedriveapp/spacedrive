@@ -16,7 +16,7 @@ import {
 } from '@sd/interface';
 import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
-import '@sd/ui/style/style.scss';
+import '@sd/ui/style';
 
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';

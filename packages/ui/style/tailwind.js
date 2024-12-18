@@ -7,6 +7,9 @@ function alpha(variableName) {
 }
 
 module.exports = function (app, options) {
+	/**
+	 * @type {import('tailwindcss').Config}
+	 */
 	let config = {
 		content: [
 			`../../apps/${app}/src/**/*.{ts,tsx,html,stories.tsx}`,
@@ -41,10 +44,6 @@ module.exports = function (app, options) {
 				'7xl': '5rem'
 			},
 			extend: {
-				fontFamily: {
-					plex: ['var(--font-plex-sans)', ...defaultTheme.fontFamily.sans],
-					sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans]
-				},
 				colors: {
 					accent: {
 						DEFAULT: alpha('--color-accent'),
@@ -177,6 +176,12 @@ module.exports = function (app, options) {
 			require('@tailwindcss/typography')
 		]
 	};
+
+	if (app === 'landing') {
+		console.log('CONFIGURING TAILWIND for Landing');
+		config.theme.fontFamily.sans = ['var(--font-inter)', ...defaultTheme.fontFamily.sans];
+		config.theme.fontFamily.plex = ['var(--font-plex-sans)', ...defaultTheme.fontFamily.sans];
+	}
 
 	return config;
 };
