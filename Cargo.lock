@@ -10296,6 +10296,7 @@ name = "sd-file-actions"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "blake3",
  "futures",
  "futures-concurrency",
  "itertools 0.13.0",
@@ -10316,6 +10317,7 @@ dependencies = [
  "tokio",
  "tracing",
  "trash",
+ "uuid",
 ]
 
 [[package]]

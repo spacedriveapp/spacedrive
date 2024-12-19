@@ -10,6 +10,7 @@ use crate::{
 	utils::sub_path::get_full_path_from_sub_path,
 	Error, LocationScanState, NonCriticalError, OuterContext,
 };
+
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_prisma_helpers::location_with_indexer_rules;
@@ -24,7 +25,7 @@ use sd_task_system::{
 	AnyTaskOutput, IntoTask, SerializableTask, Task, TaskDispatcher, TaskHandle, TaskId,
 	TaskOutput, TaskStatus,
 };
-use sd_utils::{db::maybe_missing, u64_to_frontend};
+use sd_utils::db::maybe_missing;
 
 use std::{
 	collections::{HashMap, HashSet, VecDeque},
@@ -39,6 +40,7 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tokio::time::Instant;
 use tracing::{debug, instrument, trace, warn, Level};
 
@@ -118,13 +120,13 @@ impl Job for Indexer {
 
 								TaskKind::Save => tasks::Saver::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+									(Arc::clone(ctx.db()), ctx.sync().clone()),
 								)
 								.await
 								.map(IntoTask::into_task),
 								TaskKind::Update => tasks::Updater::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
+									(Arc::clone(ctx.db()), ctx.sync().clone()),
 								)
 								.await
 								.map(IntoTask::into_task),
@@ -720,7 +722,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						self.to_create_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 						device_id,
 					)
 					.into_task(),
@@ -741,7 +743,7 @@ impl Indexer {
 					tasks::Updater::new_deep(
 						self.to_update_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 					.into_task(),
 				);
@@ -794,7 +796,7 @@ impl Indexer {
 					self.location.pub_id.clone(),
 					chunked_saves,
 					Arc::clone(ctx.db()),
-					Arc::clone(ctx.sync()),
+					ctx.sync().clone(),
 					device_id,
 				)
 			})
@@ -843,7 +845,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 						device_id,
 					)
 				})
@@ -862,7 +864,7 @@ impl Indexer {
 					tasks::Updater::new_shallow(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					)
 				})
 				.collect::<Vec<_>>();
@@ -889,7 +891,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 						device_id,
 					));
 				}
@@ -917,7 +919,7 @@ impl Indexer {
 					update_tasks.push(tasks::Updater::new_deep(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						Arc::clone(ctx.sync()),
+						ctx.sync().clone(),
 					));
 				}
 				update_tasks
@@ -978,12 +980,30 @@ impl From<Metadata> for Vec<ReportOutputMetadata> {
 			removed_count,
 		}: Metadata,
 	) -> Self {
-		mean_db_write_time.normalize();
-		mean_scan_read_time.normalize();
+		mean_scan_read_time = mean_scan_read_time.div_f64(f64::from(u32::max(total_walk_tasks, 1))); // To avoid division by zero
+		mean_db_write_time =
+			mean_db_write_time.div_f64(f64::from(total_save_tasks + total_update_tasks + 1)); // +1 to update directories sizes
 
-		vec![ReportOutputMetadata::Indexer {
-			total_paths: (total_paths, total_updated_paths),
-		}]
+		vec![
+			ReportOutputMetadata::Indexer {
+				total_paths: (total_paths as u32, total_updated_paths as u32),
+			},
+			ReportOutputMetadata::Metrics(HashMap::from([
+				(
+					"mean_scan_read_time".into(),
+					json!(mean_scan_read_time.as_secs_f64()),
+				),
+				(
+					"mean_db_write_time".into(),
+					json!(mean_db_write_time.as_secs_f64()),
+				),
+				("total_tasks".into(), json!(total_tasks)),
+				("completed_tasks".into(), json!(completed_tasks)),
+				("indexed_count".into(), json!(indexed_count)),
+				("updated_count".into(), json!(updated_count)),
+				("removed_count".into(), json!(removed_count)),
+			])),
+		]
 	}
 }
 

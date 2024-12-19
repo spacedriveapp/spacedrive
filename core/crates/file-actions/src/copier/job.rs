@@ -1,10 +1,3 @@
-/**
- *
- * This file contains the core file copying functionality for Spacedrive.
- * It implements a robust copy job system that handles both local and
- * cross-device file transfers with detailed progress tracking.
- *
- */
 use super::tasks::{CopyTask, CreateDirsTask};
 use futures::{future::try_join_all, stream::FuturesUnordered, StreamExt};
 use sd_core_heavy_lifting::{
@@ -71,9 +64,9 @@ impl<C> CopyJob<C> {
 		}
 	}
 
-	async fn create_directory_tasks(
+	async fn create_directory_tasks<OuterCtx: OuterContext>(
 		&self,
-		_ctx: &impl JobContext<C>,
+		_ctx: &impl JobContext<OuterCtx>,
 	) -> Result<Vec<Box<dyn Task<Error = Error>>>, JobError> {
 		let mut tasks: Vec<Box<dyn Task<Error = Error>>> = Vec::new();
 
