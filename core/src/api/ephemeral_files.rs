@@ -233,12 +233,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					args.copy(&library).await
 				})
 		})
-		.procedure("cutFiles", {
-			R.with2(library())
-				.mutation(|(_, library), args: EphemeralFileSystemOps| async move {
-					args.cut(&library).await
-				})
-		})
 		.procedure("renameFile", {
 			#[derive(Type, Deserialize)]
 			pub struct EphemeralRenameOne {

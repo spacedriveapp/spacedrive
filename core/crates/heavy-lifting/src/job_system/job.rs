@@ -20,6 +20,11 @@ use std::{
 	time::Duration,
 };
 
+use super::{
+	error::DispatcherError,
+	report::{Report, ReportBuilder, ReportInputMetadata, ReportMetadata, Status},
+	Command, JobId, JobSystemError, SerializableJob, SerializedTasks,
+};
 use async_channel as chan;
 use chrono::{DateTime, Utc};
 use futures::{stream, Future, FutureExt, StreamExt};
@@ -27,7 +32,9 @@ use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
 };
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use specta::Type;
 use strum::{Display, EnumString};
 use tokio::{
@@ -37,14 +44,6 @@ use tokio::{
 };
 use tracing::{debug, error, instrument, trace, warn, Instrument, Level};
 use uuid::Uuid;
-
-use super::{
-	error::DispatcherError,
-	report::{
-		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
-	},
-	Command, JobId, JobSystemError, SerializableJob, SerializedTasks,
-};
 
 #[derive(
 	Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash, PartialEq, Eq,
@@ -79,10 +78,16 @@ impl fmt::Debug for ReturnStatus {
 }
 
 pub enum ProgressUpdate {
+	/// The task progress
 	TaskCount(u64),
+	/// The total of succeeded tasks
 	CompletedTaskCount(u64),
+	/// A simple, informative, message
 	Message(String),
+	/// Inform in which phase of progress the task are, if any.
 	Phase(String),
+	/// Generic statistics that can be passed from any job type
+	Stats(Value),
 }
 
 impl ProgressUpdate {
@@ -95,10 +100,11 @@ impl ProgressUpdate {
 	}
 }
 
+/// Context with the runtime dependent data necessary to run the job
 pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
-	fn sync(&self) -> &SyncManager;
+	fn sync(&self) -> &Arc<SyncManager>;
 	fn invalidate_query(&self, query: &'static str);
 	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
 	fn report_update(&self, update: UpdateEvent);
@@ -125,6 +131,7 @@ pub trait JobContext<OuterCtx: OuterContext>: OuterContext {
 pub trait Job: Send + Sync + Hash + 'static {
 	const NAME: JobName;
 
+	/// Deserializes the given tasks and attempts resume their progress
 	#[allow(unused_variables)]
 	fn resume_tasks<OuterCtx: OuterContext>(
 		&mut self,
@@ -158,7 +165,7 @@ where
 	JobCtx: JobContext<OuterCtx>,
 {
 	fn into_job(self) -> Box<dyn DynJob<OuterCtx, JobCtx>> {
-		let id = JobId::now_v7();
+		let id = JobId::new_v4();
 
 		Box::new(JobHolder {
 			id,
@@ -333,7 +340,7 @@ where
 	}
 
 	pub fn new(job: J) -> Self {
-		let id = JobId::now_v7();
+		let id = JobId::new_v4();
 		Self {
 			id,
 			job,

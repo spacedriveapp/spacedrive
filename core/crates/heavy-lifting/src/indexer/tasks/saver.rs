@@ -34,7 +34,7 @@ pub struct Saver {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: SyncManager,
+	sync: Arc<SyncManager>,
 }
 
 /// [`Save`] Task output
@@ -207,7 +207,7 @@ impl Saver {
 		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 		device_id: device::id::Type,
 	) -> Self {
 		Self {
@@ -228,7 +228,7 @@ impl Saver {
 		location_pub_id: location::pub_id::Type,
 		walked_entries: Vec<WalkedEntry>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 		device_id: device::id::Type,
 	) -> Self {
 		Self {
@@ -260,7 +260,7 @@ impl SerializableTask<Error> for Saver {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

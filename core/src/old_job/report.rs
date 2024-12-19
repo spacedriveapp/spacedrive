@@ -1,10 +1,7 @@
 use crate::{
 	library::Library,
 	object::{
-		fs::{
-			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
-		},
+		fs::{old_copy::OldFileCopierJobInit, old_erase::OldFileEraserJobInit},
 		validation::old_validator_job::OldObjectValidatorJobInit,
 	},
 };
@@ -105,36 +102,6 @@ impl From<OldJobReport> for sd_core_heavy_lifting::job_system::report::Report {
 										target_location_id,
 										sources_file_path_ids,
 										target_location_relative_directory_path,
-									}
-									.into(),
-								);
-							} else if let Ok(OldFileCutterJobInit {
-								source_location_id,
-								target_location_id,
-								sources_file_path_ids,
-								target_location_relative_directory_path,
-							}) =
-								serde_json::from_value::<OldFileCutterJobInit>(metadata.clone())
-							{
-								new_metadata.push(
-									ReportOutputMetadata::Mover {
-										source_location_id,
-										target_location_id,
-										sources_file_path_ids,
-										target_location_relative_directory_path,
-									}
-									.into(),
-								);
-							} else if let Ok(OldFileDeleterJobInit {
-								location_id,
-								file_path_ids,
-							}) =
-								serde_json::from_value::<OldFileDeleterJobInit>(metadata.clone())
-							{
-								new_metadata.push(
-									ReportOutputMetadata::Deleter {
-										location_id,
-										file_path_ids,
 									}
 									.into(),
 								);

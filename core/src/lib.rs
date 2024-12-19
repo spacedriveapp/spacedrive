@@ -47,6 +47,8 @@ pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod old_job;
 pub(crate) mod p2p;
+pub mod path;
+
 pub(crate) mod preferences;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
@@ -276,6 +278,7 @@ impl Node {
 					sd_core={level},\
 					sd_p2p={level},\
 					sd_core_heavy_lifting={level},\
+					sd_file_actions={level},\
 					sd_task_system={level},\
 					sd_ai={level}"
 				),

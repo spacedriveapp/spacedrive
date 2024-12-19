@@ -1,33 +1,37 @@
 use crate::{
 	api::utils::library,
+	context::NodeContext,
 	invalidate_query,
 	library::Library,
 	location::{get_location_path_from_location_id, LocationError},
-	object::{
-		fs::{
-			error::FileSystemJobsError, find_available_filename_for_duplicate,
-			old_copy::OldFileCopierJobInit, old_cut::OldFileCutterJobInit,
-			old_delete::OldFileDeleterJobInit, old_erase::OldFileEraserJobInit,
-		},
-		// media::{exif_media_data_from_prisma_data, ffmpeg_data_from_prisma_data},
+	object::fs::{
+		error::FileSystemJobsError, find_available_filename_for_duplicate,
+		old_copy::OldFileCopierJobInit,
+		old_erase::OldFileEraserJobInit,
 	},
 	old_job::OldJob,
 };
 
 use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_heavy_lifting::media_processor::{exif_media_data, ffmpeg_media_data};
+use sd_core_heavy_lifting::{
+	media_processor::{exif_media_data, ffmpeg_media_data},
+	JobEnqueuer,
+};
 use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 	object_with_media_data,
 };
 
 use sd_file_ext::kind::ObjectKind;
+use sd_file_actions::deleter::{MoveToTrashJob, RemoveJob};
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
 	prisma::{file_path, location, object},
 	prisma_sync,
 };
+
+use sd_utils::{error::FileIOError, msgpack};
 use sd_sync::{sync_db_entry, sync_db_nullable_entry, sync_entry, OperationFactory};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
@@ -44,9 +48,7 @@ use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tokio::{fs, io, task::spawn_blocking};
-use tracing::{error, warn};
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
-use trash;
+use tracing::error;
 
 use super::{Ctx, R};
 
@@ -441,101 +443,33 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		// 		})
 		// })
 		.procedure("deleteFiles", {
+			#[derive(Type, Deserialize)]
+			struct DeleteFilesArgs {
+				location_id: i32,
+				file_path_ids: Vec<i32>,
+			}
 			R.with2(library())
-				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
-					match args.file_path_ids.len() {
-						0 => Ok(()),
-						1 => {
-							let (maybe_location, maybe_file_path) = library
-								.db
-								._batch((
-									library
-										.db
-										.location()
-										.find_unique(location::id::equals(args.location_id))
-										.select(location::select!({ path })),
-									library
-										.db
-										.file_path()
-										.find_unique(file_path::id::equals(args.file_path_ids[0]))
-										.select(file_path_to_isolate::select()),
-								))
-								.await?;
-
-							let location_path = maybe_location
-								.ok_or(LocationError::IdNotFound(args.location_id))?
-								.path
-								.ok_or(LocationError::MissingPath(args.location_id))?;
-
-							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
-								FilePathError::IdNotFound(args.file_path_ids[0]),
-							))?;
-
-							let full_path = Path::new(&location_path).join(
-								IsolatedFilePathData::try_from(&file_path)
-									.map_err(LocationError::MissingField)?,
-							);
-
-							match if maybe_missing(file_path.is_dir, "file_path.is_dir")
-								.map_err(LocationError::MissingField)?
-							{
-								fs::remove_dir_all(&full_path).await
-							} else {
-								fs::remove_file(&full_path).await
-							} {
-								Ok(()) => Ok(()),
-								Err(e) if e.kind() == io::ErrorKind::NotFound => {
-									warn!(
-										path = %full_path.display(),
-										"File not found in the file system, will remove from database;",
-									);
-
-									let file_path_pub_id = library
-										.db
-										.file_path()
-										.find_unique(file_path::id::equals(args.file_path_ids[0]))
-										.select(file_path::select!({ pub_id }))
-										.exec()
-										.await?
-										.ok_or(LocationError::FilePath(FilePathError::IdNotFound(
-											args.file_path_ids[0],
-										)))?
-										.pub_id;
-
-									library
-										.sync
-										.write_op(
-											&library.db,
-											library.sync.shared_delete(
-												prisma_sync::file_path::SyncId {
-													pub_id: file_path_pub_id,
-												},
-											),
-											library.db.file_path().delete(file_path::id::equals(
-												args.file_path_ids[0],
-											)),
-										)
-										.await
-										.map_err(LocationError::from)?;
-
-									Ok(())
-								}
-								Err(e) => {
-									Err(LocationError::from(FileIOError::from((full_path, e)))
-										.into())
-								}
-							}
-						}
-						_ => OldJob::new(args)
-							.spawn(&node, &library)
-							.await
-							.map_err(Into::into),
-					}
+				.mutation(|(node, library), args: DeleteFilesArgs| async move {
+					let job = RemoveJob::new(args.location_id, args.file_path_ids);
+					let ctx = NodeContext {
+						node: Arc::clone(&node),
+						library,
+					};
+					node.job_system
+						.dispatch(job, args.location_id, ctx)
+						.await
+						.map(|_| ()) //  TODO(matheus-consoli):
+						.map_err(Into::into)
 				})
 		})
 		.procedure("moveToTrash", {
+			#[derive(Type, Deserialize)]
+			struct MoveToTrashArgs {
+				location_id: i32,
+				file_path_ids: Vec<i32>,
+			}
 			R.with2(library())
-				.mutation(|(node, library), args: OldFileDeleterJobInit| async move {
+				.mutation(|(node, library), args: MoveToTrashArgs| async move {
 					if cfg!(target_os = "ios") || cfg!(target_os = "android") {
 						return Err(rspc::Error::new(
 							ErrorCode::MethodNotSupported,
@@ -543,59 +477,19 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						));
 					}
 
-					match args.file_path_ids.len() {
-						0 => Ok(()),
-						1 => {
-							let (maybe_location, maybe_file_path) = library
-								.db
-								._batch((
-									library
-										.db
-										.location()
-										.find_unique(location::id::equals(args.location_id))
-										.select(location::select!({ path })),
-									library
-										.db
-										.file_path()
-										.find_unique(file_path::id::equals(args.file_path_ids[0]))
-										.select(file_path_to_isolate::select()),
-								))
-								.await?;
+					let ctx = NodeContext {
+						node: Arc::clone(&node),
+						library,
+					};
 
-							let location_path = maybe_location
-								.ok_or(LocationError::IdNotFound(args.location_id))?
-								.path
-								.ok_or(LocationError::MissingPath(args.location_id))?;
+					let job =
+						JobEnqueuer::new(MoveToTrashJob::new(args.location_id, args.file_path_ids));
 
-							let file_path = maybe_file_path.ok_or(LocationError::FilePath(
-								FilePathError::IdNotFound(args.file_path_ids[0]),
-							))?;
-
-							let full_path = Path::new(&location_path).join(
-								IsolatedFilePathData::try_from(&file_path)
-									.map_err(LocationError::MissingField)?,
-							);
-
-							#[cfg(not(any(target_os = "ios", target_os = "android")))]
-							trash::delete(&full_path).map_err(|e| {
-								FileIOError::from((
-									full_path,
-									match e {
-										#[cfg(all(unix, not(target_os = "macos")))]
-										trash::Error::FileSystem { path: _, source: e } => e,
-										_ => io::Error::other(e),
-									},
-									"Failed to delete file",
-								))
-							})?;
-
-							Ok(())
-						}
-						_ => OldJob::new(args)
-							.spawn(&node, &library)
-							.await
-							.map_err(Into::into),
-					}
+					node.job_system
+						.dispatch(job, args.location_id, ctx)
+						.await
+						.map(|_| ())
+						.map_err(Into::into)
 				})
 		})
 		.procedure("convertImage", {
@@ -747,15 +641,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.procedure("copyFiles", {
 			R.with2(library())
 				.mutation(|(node, library), args: OldFileCopierJobInit| async move {
-					OldJob::new(args)
-						.spawn(&node, &library)
-						.await
-						.map_err(Into::into)
-				})
-		})
-		.procedure("cutFiles", {
-			R.with2(library())
-				.mutation(|(node, library), args: OldFileCutterJobInit| async move {
 					OldJob::new(args)
 						.spawn(&node, &library)
 						.await
@@ -965,6 +850,53 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					res
 				},
 			)
+		})
+		.procedure("copy", {
+			#[derive(Type, Deserialize)]
+			pub struct CopyArgs {
+				sources: Vec<PathBuf>,
+				target_dir: PathBuf,
+				location_id: Option<location::id::Type>,
+			}
+
+			R.with2(library())
+				.mutation(|(ctx, library), args: CopyArgs| async move {
+					let job = if let Some(location_id) = args.location_id {
+						// Location-bound copy
+						sd_file_actions::copier::CopyJob::new_in_location(
+							args.sources,
+							args.target_dir,
+							location_id,
+							true,
+						)
+					} else {
+						// Ephemeral copy
+						sd_file_actions::copier::CopyJob::new_ephemeral(
+							args.sources,
+							args.target_dir,
+						)
+					};
+
+					library
+						.job_manager
+						.dispatch(job, args.location_id)
+						.await
+						.map_err(|e| {
+							error!(?e, "Failed to dispatch copy job");
+							rspc::Error::with_cause(
+								ErrorCode::InternalServerError,
+								"Failed to dispatch copy job".to_string(),
+								e,
+							)
+						})?;
+
+					invalidate_query!(library, "search.paths");
+					if args.location_id.is_none() {
+						invalidate_query!(library, "search.ephemeralPaths");
+					}
+
+					Ok(())
+				})
 		})
 }
 

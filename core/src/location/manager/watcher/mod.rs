@@ -68,6 +68,7 @@ pub(super) type IgnorePath = (PathBuf, bool);
 
 type INode = u64;
 
+#[allow(dead_code)] // this is not dead code, it's used with the TS bindings
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "windows"))]
 type InstantAndPath = (Instant, PathBuf);
 
@@ -234,6 +235,9 @@ impl LocationWatcher {
 
 		while let Some(msg) = msg_stream.next().await {
 			match msg {
+				StreamMessage::NewEvent(_) => {
+					error!("Unhandled event");
+				}
 				StreamMessage::NewEvent(Ok(event)) => {
 					if let Err(e) = get_cached_indexer_ruler_and_location_path(
 						location_id,

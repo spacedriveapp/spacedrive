@@ -222,24 +222,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arboard"
-version = "3.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df099ccb16cd014ff054ac1bf392c67feeef57164b05c42f037cd40f5d4357f4"
-dependencies = [
- "clipboard-win",
- "core-graphics 0.23.2",
- "image",
- "log",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "parking_lot 0.12.3",
- "windows-sys 0.48.0",
- "x11rb",
-]
-
-[[package]]
 name = "arg_enum_proc_macro"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1358,15 +1340,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
-name = "clipboard-win"
-version = "5.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15efe7a882b08f34e38556b14f2fb3daa98769d06c7f0c1b076dfd0d983bc892"
-dependencies = [
- "error-code",
-]
-
-[[package]]
 name = "cmov"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1388,7 +1361,7 @@ dependencies = [
  "block",
  "cocoa-foundation",
  "core-foundation 0.10.0",
- "core-graphics 0.24.0",
+ "core-graphics",
  "foreign-types 0.5.0",
  "libc",
  "objc",
@@ -1652,19 +1625,6 @@ name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
-
-[[package]]
-name = "core-graphics"
-version = "0.23.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c07782be35f9e1140080c6b96f0d44b739e2278479f64e02fdab4e32dfd8b081"
-dependencies = [
- "bitflags 1.3.2",
- "core-foundation 0.9.4",
- "core-graphics-types 0.1.3",
- "foreign-types 0.5.0",
- "libc",
-]
 
 [[package]]
 name = "core-graphics"
@@ -2651,12 +2611,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "error-code"
-version = "3.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
-
-[[package]]
 name = "event-listener"
 version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3360,16 +3314,6 @@ dependencies = [
 
 [[package]]
 name = "gethostname"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0176e0459c2e4a1fe232f984bca6890e681076abb9934f6cea7c326f3fc47818"
-dependencies = [
- "libc",
- "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "gethostname"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc3655aa6818d65bc620d6911f05aa7b6aeb596291e1e9f79e52df85583d1e30"
@@ -3687,7 +3631,7 @@ dependencies = [
  "presser",
  "thiserror 1.0.64",
  "winapi",
- "windows 0.51.1",
+ "windows 0.52.0",
 ]
 
 [[package]]
@@ -4381,7 +4325,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -4510,9 +4454,9 @@ dependencies = [
 
 [[package]]
 name = "image"
-version = "0.25.4"
+version = "0.25.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc144d44a31d753b02ce64093d532f55ff8dc4ebf2ffb8a63c0dda691385acae"
+checksum = "cd6f44aed642f18953a158afeb30206f4d50da59fbc66ecb53c66488de73563b"
 dependencies = [
  "bytemuck",
  "byteorder-lite",
@@ -6155,6 +6099,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea1f30cedd69f0a2954655f7188c6a834246d2bcf1e315e2ac40c4b24dc9519"
 dependencies = [
  "cfg-if",
+ "rayon",
 ]
 
 [[package]]
@@ -7610,8 +7555,8 @@ checksum = "d61c5ce1153ab5b689d0c074c4e7fc613e942dfb7dd9eea5ab202d2ad91fe361"
 
 [[package]]
 name = "pdfium-render"
-version = "0.8.25"
-source = "git+https://github.com/HeavenVolkoff/pdfium-render.git?rev=7518e39c1b#7518e39c1b0f5bdede0e6e920f28d20415317352"
+version = "0.8.27"
+source = "git+https://github.com/spacedriveapp/pdfium-render.git#b546f3ab0f1c0b085a370c39ed49ce651f7fc047"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
@@ -8962,6 +8907,7 @@ dependencies = [
  "loop9",
  "quick-error 2.0.1",
  "rav1e",
+ "rayon",
  "rgb",
 ]
 
@@ -10001,6 +9947,7 @@ dependencies = [
  "sd-core-sync",
  "sd-crypto",
  "sd-ffmpeg",
+ "sd-file-actions",
  "sd-file-ext",
  "sd-images",
  "sd-media-metadata",
@@ -10121,6 +10068,7 @@ dependencies = [
  "sd-core-file-path-helper",
  "sd-core-indexer-rules",
  "sd-core-prisma-helpers",
+ "sd-core-shared-types",
  "sd-core-sync",
  "sd-ffmpeg",
  "sd-file-ext",
@@ -10177,6 +10125,19 @@ dependencies = [
  "sd-utils",
  "serde",
  "specta",
+ "uuid",
+]
+
+[[package]]
+name = "sd-core-shared-types"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-prisma",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 1.0.64",
  "uuid",
 ]
 
@@ -10266,7 +10227,6 @@ dependencies = [
  "strum",
  "tauri",
  "tauri-build",
- "tauri-plugin-clipboard-manager",
  "tauri-plugin-cors-fetch",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
@@ -10329,6 +10289,35 @@ dependencies = [
  "tokio",
  "tracing",
  "webp",
+]
+
+[[package]]
+name = "sd-file-actions"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blake3",
+ "futures",
+ "futures-concurrency",
+ "itertools 0.13.0",
+ "rmp-serde",
+ "sd-core-file-path-helper",
+ "sd-core-heavy-lifting",
+ "sd-core-prisma-helpers",
+ "sd-core-shared-types",
+ "sd-core-sync",
+ "sd-prisma",
+ "sd-sync",
+ "sd-task-system",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 1.0.64",
+ "tokio",
+ "tracing",
+ "trash",
+ "uuid",
 ]
 
 [[package]]
@@ -11064,7 +11053,7 @@ checksum = "18051cdd562e792cad055119e0cdb2cfc137e44e3987532e0f9659a77931bb08"
 dependencies = [
  "bytemuck",
  "cfg_aliases 0.2.1",
- "core-graphics 0.24.0",
+ "core-graphics",
  "foreign-types 0.5.0",
  "js-sys",
  "log",
@@ -11717,7 +11706,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cocoa",
  "core-foundation 0.10.0",
- "core-graphics 0.24.0",
+ "core-graphics",
  "crossbeam-channel",
  "dispatch",
  "dlopen2 0.7.0",
@@ -11913,22 +11902,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-clipboard-manager"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78b7d556886c15849198c0948fd7f4c880492f0461539176da0a8a70272e2904"
-dependencies = [
- "arboard",
- "image",
- "log",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 1.0.64",
-]
-
-[[package]]
 name = "tauri-plugin-cors-fetch"
 version = "2.1.1-sd-custom"
 dependencies = [
@@ -12033,7 +12006,7 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbc5f23a86f37687c7f4fecfdc706b279087bc44f7a46702f7307ff1551ee03a"
 dependencies = [
- "gethostname 0.5.0",
+ "gethostname",
  "log",
  "os_info",
  "serde",
@@ -12793,7 +12766,7 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c92af36a182b46206723bdf8a7942e20838cde1cf062e5b97854d57eb01763b"
 dependencies = [
- "core-graphics 0.24.0",
+ "core-graphics",
  "crossbeam-channel",
  "dirs",
  "libappindicator",
@@ -13705,7 +13678,7 @@ dependencies = [
  "document-features",
  "js-sys",
  "log",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.3",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -13733,7 +13706,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.3",
  "profiling",
  "raw-window-handle",
  "rustc-hash 1.1.0",
@@ -13771,7 +13744,7 @@ dependencies = [
  "ndk-sys 0.5.0+25.2.9519653",
  "objc",
  "once_cell",
- "parking_lot 0.11.2",
+ "parking_lot 0.12.3",
  "profiling",
  "raw-window-handle",
  "renderdoc-sys",
@@ -14389,23 +14362,6 @@ dependencies = [
  "once_cell",
  "pkg-config",
 ]
-
-[[package]]
-name = "x11rb"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d91ffca73ee7f68ce055750bf9f6eca0780b8c85eff9bc046a3b0da41755e12"
-dependencies = [
- "gethostname 0.4.3",
- "rustix",
- "x11rb-protocol",
-]
-
-[[package]]
-name = "x11rb-protocol"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec107c4503ea0b4a98ef47356329af139c0a4f7750e621cf2973cd3385ebcb3d"
 
 [[package]]
 name = "x25519-dalek"

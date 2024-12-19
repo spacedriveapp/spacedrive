@@ -3,3 +3,109 @@ index: 11
 ---
 
 # Search
+
+Spacedrive implements a powerful and flexible search system that allows users to search through both file paths and objects with various filtering and sorting capabilities. The search functionality is implemented in the core API and supports two main search targets: Paths and Objects.
+
+## Architecture Overview
+
+The search system is built on top of Prisma and consists of several key components:
+
+- Search Filters (`SearchFilterArgs`)
+- Ordering and Pagination
+- File Path Search
+- Object Search
+- Ephemeral Path Search
+
+### Search Targets
+
+There are two main search targets:
+
+- `Paths`: Search through file paths and directories
+- `Objects`: Search through objects (files with additional metadata)
+
+## File Path Search
+
+File path search allows searching through the file system with various filters:
+
+- Location-based filtering
+- Path-based filtering with descendant inclusion
+- Name matching (contains, starts with, ends with, equals)
+- Extension filtering
+- Date filters (created, modified, indexed)
+- Hidden file filtering
+
+### File Path Ordering
+
+Files can be ordered by:
+
+- Name
+- Size in bytes
+- Date created
+- Date modified
+- Date indexed
+- Object properties
+
+## Object Search
+
+Object search provides functionality to search through file objects with metadata:
+
+### Object Filters
+
+- Favorite status
+- Hidden status
+- Kind (file type)
+- Tags
+- Labels
+- Date accessed
+
+### Object Ordering
+
+- Date accessed
+- Kind
+- Media data (EXIF)
+
+## Implementation Details
+
+The search implementation uses Prisma queries with:
+
+1. **Filter Composition**: Filters are composed using the `merge_filters` function that combines both file path and object filters.
+
+2. **Pagination**: Supports both offset-based and cursor-based pagination through the `OrderAndPagination` type.
+
+3. **Directory Grouping**: Optional directory grouping that always sorts directories before files.
+
+4. **Query Building**: Uses Prisma's query builder pattern with proper WHERE clause composition using the `andify` helper.
+
+## Ephemeral Path Search
+
+For non-indexed locations, Spacedrive provides ephemeral path search that:
+
+- Walks through directories in real-time
+- Supports hidden file filtering
+- Provides ordering by name, size, and dates
+- Returns results in a streaming fashion
+
+## API Usage
+
+Search queries can be constructed with:
+
+```typescript
+interface FilePathSearchArgs {
+	take?: number;
+	order_and_pagination?: OrderAndPagination;
+	filters: SearchFilterArgs[];
+	group_directories: boolean;
+}
+```
+
+The search results are returned as `SearchData` containing:
+
+- Items: Array of search results
+- Cursor: Optional cursor for pagination
+
+## Performance Considerations
+
+- Directory grouping must be applied before other ordering
+- Filters are combined efficiently to minimize database queries
+- Streaming results for large directories
+- Maximum take limit of 100 items per query

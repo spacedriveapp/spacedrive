@@ -154,7 +154,7 @@ pub async fn shallow(
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
-	sync: &SyncManager,
+	sync: &Arc<SyncManager>,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
@@ -185,7 +185,7 @@ async fn dispatch_media_data_extractor_tasks(
 				parent_iso_file_path.location_id(),
 				Arc::clone(location_path),
 				Arc::clone(db),
-				sync.clone(),
+				Arc::clone(sync),
 			)
 		})
 		.map(IntoTask::into_task)
@@ -201,7 +201,7 @@ async fn dispatch_media_data_extractor_tasks(
 						parent_iso_file_path.location_id(),
 						Arc::clone(location_path),
 						Arc::clone(db),
-						sync.clone(),
+						Arc::clone(sync),
 					)
 				})
 				.map(IntoTask::into_task),

@@ -2,7 +2,6 @@ use crate::{
 	file_identifier,
 	job_system::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
-		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
 	},
@@ -13,7 +12,7 @@ use crate::{
 
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
-
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 use sd_prisma::{
 	prisma::{device, file_path, location, SortOrder},
 	prisma_sync,
@@ -132,14 +131,14 @@ impl Job for FileIdentifier {
 						match task_kind {
 							TaskKind::Identifier => tasks::Identifier::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), ctx.sync().clone()),
+								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 							)
 							.await
 							.map(IntoTask::into_task),
 
 							TaskKind::ObjectProcessor => tasks::ObjectProcessor::deserialize(
 								&task_bytes,
-								(Arc::clone(ctx.db()), ctx.sync().clone()),
+								(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 							)
 							.await
 							.map(IntoTask::into_task),

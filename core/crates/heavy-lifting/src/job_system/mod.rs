@@ -4,13 +4,7 @@ use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
-use std::{
-	cell::RefCell,
-	collections::hash_map::HashMap,
-	panic,
-	path::{Path, PathBuf},
-	sync::Arc,
-};
+use std::{cell::RefCell, collections::hash_map::HashMap, panic, path::Path, sync::Arc};
 
 use async_channel as chan;
 use futures::Stream;
@@ -22,6 +16,7 @@ use uuid::Uuid;
 mod error;
 pub mod job;
 pub mod report;
+pub mod reversible;
 mod runner;
 mod store;
 pub mod utils;
@@ -46,14 +41,19 @@ pub enum Command {
 	Shutdown,
 }
 
+/// The central unit that orchestrates all the Jobs in the system
+///
+/// It is responsible for running the jobs and orchestrating how the job queue is allocated
+/// in which thread
 pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	msgs_tx: chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,
-	store_jobs_file: Arc<PathBuf>,
+	store_jobs_file: Arc<Path>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, JobCtx> {
+	/// Spawn the job system
 	pub fn new(
 		base_dispatcher: BaseTaskDispatcher<Error>,
 		data_directory: impl AsRef<Path>,
@@ -62,12 +62,13 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 		let (job_done_tx, job_done_rx) = chan::bounded(16);
 		let (msgs_tx, msgs_rx) = chan::bounded(8);
 
-		let store_jobs_file = Arc::new(data_directory.as_ref().join(PENDING_JOBS_FILE));
+		let store_jobs_file = Arc::<Path>::from(data_directory.as_ref().join(PENDING_JOBS_FILE));
 
 		let runner_handle = RefCell::new(Some(spawn({
 			let store_jobs_file = Arc::clone(&store_jobs_file);
 			async move {
 				trace!("Job System Runner starting...");
+				// keep trying to spawn the job system (tokio) task until succeed
 				while let Err(e) = spawn({
 					let store_jobs_file = Arc::clone(&store_jobs_file);
 					let base_dispatcher = base_dispatcher.clone();
@@ -147,19 +148,11 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	/// # Panics
 	///
 	/// Panics only happen if internal channels are unexpectedly closed
-	pub async fn check_running_jobs(
-		&self,
-		job_names: Vec<JobName>,
-		location_id: location::id::Type,
-	) -> bool {
+	pub async fn check_running_jobs(&self, job_names: Vec<JobName>) -> bool {
 		let (ack_tx, ack_rx) = oneshot::channel();
 
 		self.msgs_tx
-			.send(RunnerMessage::CheckIfJobsAreRunning {
-				job_names,
-				location_id,
-				ack_tx,
-			})
+			.send(RunnerMessage::CheckIfJobsAreRunning { job_names, ack_tx })
 			.await
 			.expect("runner msgs channel unexpectedly closed on check running job request");
 
@@ -204,7 +197,6 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	pub async fn dispatch<J: Job + SerializableJob<OuterCtx>>(
 		&self,
 		job: impl IntoJob<J, OuterCtx, JobCtx> + Send,
-		location_id: location::id::Type,
 		ctx: OuterCtx,
 	) -> Result<JobId, JobSystemError> {
 		let dyn_job = job.into_job();
@@ -214,7 +206,6 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 		self.msgs_tx
 			.send(RunnerMessage::NewJob {
 				job_id: id,
-				location_id,
 				dyn_job,
 				ctx,
 				ack_tx,
@@ -341,7 +332,7 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 		.flat_map(|(stored_jobs, ctx)| {
 			stored_jobs
 				.into_iter()
-				.map(move |(location_id, dyn_job, serialized_tasks)| {
+				.map(move |(dyn_job, serialized_tasks)| {
 					let ctx = ctx.clone();
 					async move {
 						let (ack_tx, ack_rx) = oneshot::channel();
@@ -349,7 +340,7 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 						msgs_tx
 							.send(RunnerMessage::ResumeStoredJob {
 								job_id: dyn_job.id(),
-								location_id,
+
 								dyn_job,
 								ctx,
 								serialized_tasks,

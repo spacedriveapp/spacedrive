@@ -73,7 +73,7 @@ pub struct Identifier {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: SyncManager,
+	sync: Arc<SyncManager>,
 }
 
 /// Output from the `[Identifier]` task
@@ -328,7 +328,7 @@ impl Identifier {
 		file_paths: Vec<file_path_for_file_identifier::Data>,
 		with_priority: bool,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 		device_id: device::id::Type,
 	) -> Self {
 		let mut output = Output::default();
@@ -517,7 +517,7 @@ impl SerializableTask<Error> for Identifier {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {
@@ -549,30 +549,30 @@ impl SerializableTask<Error> for Identifier {
 		data: &[u8],
 		(db, sync): Self::DeserializeCtx,
 	) -> Result<Self, Self::DeserializeError> {
-		rmp_serde::from_slice::<SaveState>(data).map(
-			|SaveState {
-			     id,
-			     location,
-			     location_path,
-			     device_id,
-			     file_paths_by_id,
-			     identified_files,
-			     file_paths_without_cas_id,
-			     output,
-			     with_priority,
-			 }| Self {
-				id,
-				with_priority,
-				location,
-				location_path,
-				file_paths_by_id,
-				device_id,
-				identified_files,
-				file_paths_without_cas_id,
-				output,
-				db,
-				sync,
-			},
-		)
+		let SaveState {
+			id,
+			with_priority,
+			location,
+			location_path,
+			device_id,
+			file_paths_by_id,
+			identified_files,
+			file_paths_without_cas_id,
+			output,
+		} = rmp_serde::from_slice(data)?;
+
+		Ok(Self {
+			id,
+			with_priority,
+			location,
+			location_path,
+			file_paths_by_id,
+			device_id,
+			identified_files,
+			file_paths_without_cas_id,
+			output,
+			db,
+			sync,
+		})
 	}
 }

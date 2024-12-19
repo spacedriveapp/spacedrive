@@ -4,4 +4,95 @@ index: 10
 
 # Locations
 
-indexing, identifying, watching, .spacedrive folder, online/offline
+Locations are a fundamental concept in Spacedrive that represent directories or paths that are managed and indexed by the application. The Locations system is responsible for tracking, monitoring, and managing these paths across the filesystem.
+
+## Core Components
+
+### Location Manager
+
+The Location system is primarily managed by two key structures:
+
+- `Locations`: The main interface for interacting with locations
+- `LocationManagerActor`: Handles the actual management of locations including watching for changes
+
+The Location Manager provides functionality for:
+
+- Adding and removing locations
+- Managing file system watchers
+- Tracking online/offline status of locations
+- Coordinating file system events
+
+### Location States
+
+Locations can exist in several states tracked by `ScanState`:
+
+- `Pending`: Initial state when location is added
+- `Indexed`: Basic file structure has been indexed
+- `FilesIdentified`: Files have been processed and identified
+- `Completed`: Full indexing and processing is complete
+
+### Key Features
+
+#### File System Watching
+
+- Locations are actively monitored for changes using a file system watcher
+- Changes are detected in real-time and synchronized with the database
+- Watchers can be paused/resumed for maintenance operations
+
+#### Location Management
+
+- **Creation**: New locations are created with `LocationCreateArgs`, specifying path and indexer rules
+- **Updates**: Existing locations can be modified using `LocationUpdateArgs`
+- **Deletion**: Locations can be safely removed with cleanup of associated data
+
+#### Error Handling
+
+The system includes robust error handling through `LocationError` and `LocationManagerError` for various failure scenarios:
+
+- File system errors
+- Database operations
+- Watcher management
+- Path validation
+- Synchronization issues
+
+## Implementation Details
+
+### Location Creation Flow
+
+1. Path validation and normalization
+2. Check for nested locations
+3. Create database entry
+4. Initialize file system watcher
+5. Begin initial scan process
+
+### Synchronization
+
+- Locations maintain online/offline status
+- Changes are tracked and synchronized across the library
+- File operations are coordinated to prevent conflicts
+
+### Guards and Safety
+
+The system provides safety mechanisms through guard types:
+
+- `PauseWatcherGuard`: Temporarily pause watching a location
+- `IgnoreEventsForPathGuard`: Ignore events for specific paths during operations
+
+## Best Practices
+
+When working with Locations:
+
+1. Always use the provided APIs for location operations
+2. Handle errors appropriately using the provided error types
+3. Use guards when performing operations that could trigger unnecessary events
+4. Consider the implications of nested locations
+5. Be aware of the scanning states when implementing features
+
+## Related Components
+
+Locations interact closely with:
+
+- File Path system
+- Indexer Rules
+- Library system
+- Job system for scanning and processing

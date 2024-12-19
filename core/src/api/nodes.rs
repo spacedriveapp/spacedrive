@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
 	invalidate_query,
-	node::config::{P2PDiscoveryState, Port},
+	node::config::{DeletePreferences, P2PDiscoveryState, Port},
 };
 
 use sd_prisma::prisma::{device, location};
@@ -29,6 +29,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				pub p2p_discovery: Option<P2PDiscoveryState>,
 				pub p2p_remote_access: Option<bool>,
 				pub p2p_manual_peers: Option<HashSet<String>>,
+				pub delete_prefs: Option<DeletePreferences>,
 			}
 			R.mutation(|node, args: ChangeNodeNameArgs| async move {
 				if let Some(name) = &args.name {
@@ -67,6 +68,9 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						if let Some(manual_peers) = args.p2p_manual_peers {
 							config.p2p.manual_peers = manual_peers;
 						};
+						if let Some(delete_prefs) = args.delete_prefs {
+							config.delete_preferences = delete_prefs;
+						}
 					})
 					.await
 					.map_err(|e| {

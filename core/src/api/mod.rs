@@ -2,7 +2,7 @@ use crate::{
 	invalidate_query,
 	library::LibraryId,
 	node::{
-		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences},
+		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences, DeletePreferences},
 		HardwareModel,
 	},
 	old_job::JobProgressEvent,
@@ -28,6 +28,7 @@ mod backups;
 mod cloud;
 mod ephemeral_files;
 mod files;
+mod fs_ops;
 mod jobs;
 mod keys;
 mod labels;
@@ -98,6 +99,7 @@ pub struct SanitizedNodeConfig {
 	pub preferences: NodePreferences,
 	pub os: DeviceOS,
 	pub hardware_model: HardwareModel,
+	pub delete_preferences: DeletePreferences,
 }
 
 impl From<NodeConfig> for SanitizedNodeConfig {
@@ -111,6 +113,7 @@ impl From<NodeConfig> for SanitizedNodeConfig {
 			preferences: value.preferences,
 			os: value.os,
 			hardware_model: value.hardware_model,
+			delete_preferences: value.delete_preferences,
 		}
 	}
 }
@@ -211,6 +214,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		.merge("preferences.", preferences::mount())
 		.merge("notifications.", notifications::mount())
 		.merge("backups.", backups::mount())
+		.merge("fs_ops.", fs_ops::mount())
 		.merge("keys.", keys::mount())
 		.merge("invalidation.", utils::mount_invalidate())
 		.sd_patch_types_dangerously(|type_map| {

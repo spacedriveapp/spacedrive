@@ -73,7 +73,8 @@ export const Component = () => {
 					.int()
 					.nonnegative()
 					.lte(100),
-				spacedrop_default_location: z.string().optional()
+				spacedrop_default_location: z.string().optional(),
+				delete_prefs: z.union([z.literal('Show'), z.literal('Trash'), z.literal('Instant')])
 			})
 			.strict(),
 		reValidateMode: 'onChange',
@@ -97,7 +98,8 @@ export const Component = () => {
 				p2p_relay_disabled: null,
 				p2p_discovery: null,
 				p2p_remote_access: null,
-				p2p_manual_peers: null
+				p2p_manual_peers: null,
+				delete_prefs: value.delete_prefs || 'Show'
 				// image_labeler_version: value.image_labeler_version ?? null
 			});
 
@@ -262,6 +264,24 @@ export const Component = () => {
 						)}
 					/>
 				</div>
+			</Setting>
+			<Setting
+				mini
+				title={t('delete_show_prompt')}
+				description={
+					<p className="text-sm text-gray-400">{t('delete_show_prompt_description')}</p>
+				}
+			>
+				<Select
+					value={form.watch('delete_prefs') || node.data?.delete_preferences || 'Show'}
+					containerClassName="h-[30px]"
+					className="h-full"
+					onChange={(type) => form.setValue('delete_prefs', type)}
+				>
+					<SelectOption value="Show">{'Show Prompt'}</SelectOption>
+					<SelectOption value="Trash">{'Send to Trash'}</SelectOption>
+					<SelectOption value="Instant">{'Delete Instantly'}</SelectOption>
+				</Select>
 			</Setting>
 			{/* Image Labeler */}
 			{/* <Setting

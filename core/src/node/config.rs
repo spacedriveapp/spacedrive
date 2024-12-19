@@ -144,8 +144,19 @@ pub struct NodeConfig {
 	pub os: DeviceOS,
 	/// Hardware model of the node
 	pub hardware_model: HardwareModel,
+	/// Delete Preferences
+	#[serde(default)]
+	pub delete_preferences: DeletePreferences,
 
 	version: NodeConfigVersion,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, Type)]
+pub enum DeletePreferences {
+	#[default]
+	Show,
+	Trash,
+	Instant,
 }
 
 mod identity_serde {
@@ -225,6 +236,7 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			preferences: NodePreferences::default(),
 			os,
 			hardware_model,
+			delete_preferences: DeletePreferences::default(),
 		})
 	}
 }
@@ -439,6 +451,12 @@ impl NodeConfig {
 								))
 							})?;
 						}
+
+						config.insert(
+							String::from("delete_preferences"),
+							serde_json::to_value(DeletePreferences::default())
+								.map_err(VersionManagerError::SerdeJson)?,
+						);
 
 						// Write the updated config back to disk
 						fs::write(

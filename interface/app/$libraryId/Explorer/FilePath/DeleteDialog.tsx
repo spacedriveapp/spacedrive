@@ -1,5 +1,6 @@
-import { useLibraryMutation, useZodForm } from '@sd/client';
-import { Dialog, useDialog, UseDialogProps } from '@sd/ui';
+import { useCallback, useState } from 'react';
+import { useBridgeMutation, useBridgeQuery, useLibraryMutation, useZodForm } from '@sd/client';
+import { CheckBox, Dialog, useDialog, UseDialogProps } from '@sd/ui';
 import i18n from '~/app/I18n';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -51,10 +52,13 @@ function getWording(dirCount: number, fileCount: number) {
 
 export default (props: Props) => {
 	const { t } = useLocale();
+	const [savePref, setSavePref] = useState(false);
 	const deleteFile = useLibraryMutation('files.deleteFiles');
 	const deleteEphemeralFile = useLibraryMutation('ephemeralFiles.deleteFiles');
 	const moveToTrashFile = useLibraryMutation('files.moveToTrash');
 	const moveToTrashEphemeralFile = useLibraryMutation('ephemeralFiles.moveToTrash');
+	const node = useBridgeQuery(['nodeState']);
+	const editNode = useBridgeMutation('nodes.edit');
 
 	const form = useZodForm();
 	const { dirCount = 0, fileCount = 0, indexedArgs, ephemeralArgs } = props;
@@ -65,10 +69,31 @@ export default (props: Props) => {
 
 	const description = t('delete_warning', { type: translatedType });
 
+	const saveDeletePrefs = useCallback(
+		async (deletePrefs: 'Show' | 'Trash' | 'Instant') => {
+			if (!savePref) return;
+
+			await editNode.mutateAsync({
+				name: node.data?.name || null,
+				p2p_port: null,
+				p2p_disabled: null,
+				p2p_ipv6_disabled: null,
+				p2p_relay_disabled: null,
+				p2p_discovery: null,
+				p2p_remote_access: null,
+				p2p_manual_peers: null,
+				delete_prefs: deletePrefs
+			});
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[savePref, editNode]
+	);
+
 	return (
 		<Dialog
 			form={form}
 			onSubmit={form.handleSubmit(async () => {
+				await saveDeletePrefs('Instant');
 				if (indexedArgs != undefined) {
 					const { locationId, rescan, pathIds } = indexedArgs;
 					await deleteFile.mutateAsync({
@@ -85,6 +110,7 @@ export default (props: Props) => {
 				}
 			})}
 			onSubmitSecond={form.handleSubmit(async () => {
+				await saveDeletePrefs('Trash');
 				if (indexedArgs != undefined) {
 					console.log(
 						'DEBUG: DeleteDialog.tsx: onSubmitSecond (Move to Trash) -> Indexed Files'
@@ -117,6 +143,14 @@ export default (props: Props) => {
 			ctaDanger
 			className="w-[200px]"
 		>
+			<div className="flex items-center pt-2">
+				<CheckBox
+					checked={savePref}
+					onChange={(e) => setSavePref(e.target.checked)}
+					className="!mt-0"
+				/>
+				<p className="ml-2 text-sm text-ink-dull">Save selected option as default</p>
+			</div>
 			{/* <Tooltip label={t('coming_soon')}>
 				<div className="flex items-center pt-2 opacity-50">
 					<CheckBox disabled className="!mt-0" />
