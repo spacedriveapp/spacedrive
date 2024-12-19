@@ -84,3 +84,6 @@ pub unsafe extern "C" fn sd_core_msg(query: *const c_char, resolve: *const c_voi
 		println!("Error in sd_core_msg: {:?}", err);
 	}
 }
+
+use swift_rs::{swift, Bool, Int, SRData, SRObjectArray, SRString};
+swift!(pub fn fetch_device_name() -> SRString);

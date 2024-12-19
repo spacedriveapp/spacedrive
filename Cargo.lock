@@ -10404,6 +10404,7 @@ name = "sd-mobile-ios"
 version = "0.1.0"
 dependencies = [
  "sd-mobile-core",
+ "swift-rs",
 ]
 
 [[package]]
