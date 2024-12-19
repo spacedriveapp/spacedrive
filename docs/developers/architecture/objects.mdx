@@ -17,7 +17,7 @@ Some Objects are purely virtual, meaning they have no Path and are likely only u
 
 A CAS ID is a unique identifier generated from a file's content using the blake3 hashing algorithm. The ID generation is optimized for different file sizes:
 
-- For small files (<100KB): The entire file content is hashed
+- For small files (~100KB): The entire file content is hashed
 - For large files: A sampling approach is used:
   - First 8KB (header)
   - Last 8KB (footer)

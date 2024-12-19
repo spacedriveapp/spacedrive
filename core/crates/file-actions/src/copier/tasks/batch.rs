@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use heavy_lifting::job::JobError;
+use sd_core_heavy_lifting::job_system::job::JobError;
 use tokio::fs;
 
 const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 800; // 800MB

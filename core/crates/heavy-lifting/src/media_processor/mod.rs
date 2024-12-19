@@ -40,14 +40,7 @@ pub use shallow::shallow;
 use media_data_extractor::NonCriticalMediaDataExtractorError;
 use thumbnailer::{NewThumbnailReporter, NonCriticalThumbnailerError};
 
-#[cfg(target_os = "ios")]
-const BATCH_SIZE: usize = 2; // Much smaller batch size for iOS
-
-#[cfg(target_os = "android")]
-const BATCH_SIZE: usize = 2; // Much smaller batch size for Android
-
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
-const BATCH_SIZE: usize = 10; // Keep original batch size for other platforms
+const BATCH_SIZE: usize = 10;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

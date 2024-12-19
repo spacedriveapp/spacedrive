@@ -28,6 +28,7 @@ use futures_concurrency::{
 	stream::Merge,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use specta::Type;
 use strum::{Display, EnumString};
 use tokio::{
@@ -87,6 +88,8 @@ pub enum ProgressUpdate {
 	Message(String),
 	/// Inform in which phase of progress the task are, if any.
 	Phase(String),
+	/// Generic statistics that can be passed from any job type
+	Stats(Value),
 }
 
 impl ProgressUpdate {
@@ -103,7 +106,7 @@ impl ProgressUpdate {
 pub trait OuterContext: Send + Sync + Clone + 'static {
 	fn id(&self) -> Uuid;
 	fn db(&self) -> &Arc<PrismaClient>;
-	fn sync(&self) -> &SyncManager;
+	fn sync(&self) -> &Arc<SyncManager>;
 	fn invalidate_query(&self, query: &'static str);
 	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
 	fn report_update(&self, update: UpdateEvent);
@@ -148,17 +151,6 @@ pub trait Job: Send + Sync + Hash + 'static {
 	) -> impl Future<Output = Result<ReturnStatus, Error>> + Send;
 }
 
-pub trait UndoableJob: Job + SerializableJob {
-	/// Create an undo job that will reverse this job's effects
-	async fn create_undo_job(
-		&self,
-		ctx: &impl JobContext,
-	) -> Result<Box<dyn SerializableJob>, Error>;
-
-	/// Returns true if this job is an undo operation
-	fn is_undo(&self) -> bool;
-}
-
 pub trait IntoJob<J, OuterCtx, JobCtx>
 where
 	J: Job + SerializableJob<OuterCtx>,
@@ -175,7 +167,7 @@ where
 	JobCtx: JobContext<OuterCtx>,
 {
 	fn into_job(self) -> Box<dyn DynJob<OuterCtx, JobCtx>> {
-		let id = JobId::now_v7();
+		let id = JobId::new_v4();
 
 		Box::new(JobHolder {
 			id,
@@ -201,10 +193,9 @@ where
 
 #[derive(Debug)]
 pub struct JobReturn {
-	pub(crate) data: JobOutputData,
-	pub(crate) metadata: Vec<ReportOutputMetadata>,
-	pub(crate) non_critical_errors: Vec<NonCriticalError>,
-	pub(crate) undo_job: Option<Box<dyn SerializableJob>>,
+	data: JobOutputData,
+	metadata: Vec<ReportOutputMetadata>,
+	non_critical_errors: Vec<NonCriticalError>,
 }
 
 impl JobReturn {
@@ -222,7 +213,6 @@ impl Default for JobReturn {
 			data: JobOutputData::Empty,
 			metadata: vec![],
 			non_critical_errors: vec![],
-			undo_job: None,
 		}
 	}
 }
@@ -256,12 +246,6 @@ impl JobReturnBuilder {
 	}
 
 	#[must_use]
-	pub fn with_undo_job(mut self, undo_job: impl SerializableJob + 'static) -> Self {
-		self.job_return.undo_job = Some(Box::new(undo_job));
-		self
-	}
-
-	#[must_use]
 	pub fn build(self) -> JobReturn {
 		self.job_return
 	}
@@ -290,7 +274,6 @@ impl JobOutput {
 			data,
 			metadata,
 			non_critical_errors,
-			undo_job,
 		}: JobReturn,
 		report: &mut Report,
 	) -> Self {
@@ -359,7 +342,7 @@ where
 	}
 
 	pub fn new(job: J) -> Self {
-		let id = JobId::now_v7();
+		let id = JobId::new_v4();
 		Self {
 			id,
 			job,
@@ -595,33 +578,17 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 		&mut self,
 		job_return: JobReturn,
 	) -> Result<JobOutput, JobSystemError> {
-		trace!("JobHandle completing job");
+		let Self { ctx, .. } = self;
 
-		let JobReturn {
-			data,
-			metadata,
-			non_critical_errors,
-			undo_job,
-		} = job_return;
+		let mut report = ctx.report_mut().await;
 
-		// Store undo information in job history
-		if let Some(undo_job) = undo_job {
-			let mut history = self.job_system.job_history.write().await;
-			history.push((self.id, Some(undo_job)));
-		}
+		trace!("JobHandle completing");
 
-		let mut report = self.ctx.report_mut().await;
-		let output = JobOutput::prepare_output_and_report(
-			JobReturn {
-				data,
-				metadata,
-				non_critical_errors,
-				undo_job: None, // Don't include undo_job in output
-			},
-			&mut report,
-		);
+		let output = JobOutput::prepare_output_and_report(job_return, &mut report);
 
-		report.update(self.ctx.db()).await?;
+		report.update(ctx.db()).await?;
+
+		trace!("JobHandle completed");
 
 		Ok(output)
 	}
@@ -670,7 +637,6 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, J
 			data,
 			metadata,
 			non_critical_errors,
-			undo_job,
 		}: JobReturn,
 	) -> Result<JobOutput, JobSystemError> {
 		trace!("JobHandle canceling job");

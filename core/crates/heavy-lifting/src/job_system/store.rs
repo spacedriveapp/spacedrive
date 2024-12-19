@@ -1,17 +1,15 @@
 use crate::{file_identifier, indexer, media_processor, JobContext};
 
-use sd_prisma::prisma::{job, location};
+use sd_prisma::prisma::job;
 use sd_utils::uuid_to_bytes;
 
 use std::{
 	collections::{HashMap, VecDeque},
 	future::Future,
-	iter,
 	marker::PhantomData,
 	time::Duration,
 };
 
-use futures_concurrency::future::TryJoin;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -56,77 +54,54 @@ pub struct StoredJob {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoredJobEntry {
-	pub(super) location_id: Option<location::id::Type>,
 	pub(super) root_job: StoredJob,
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
-pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	entries: Vec<StoredJobEntry>,
 	ctx: &OuterCtx,
-) -> Result<
-	Vec<(
-		Option<location::id::Type>,
-		Box<dyn DynJob<OuterCtx, JobCtx>>,
-		Option<SerializedTasks>,
-	)>,
-	JobSystemError,
-> {
-	let mut reports = ctx
+) -> Result<Vec<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>, JobSystemError> {
+	let mut jobs_to_load = Vec::with_capacity(entries.len());
+	let mut job_ids = Vec::new();
+
+	// First collect all job IDs we need to load reports for
+	for StoredJobEntry {
+		root_job,
+		next_jobs,
+	} in &entries
+	{
+		job_ids.push(uuid_to_bytes(&root_job.id));
+		job_ids.extend(next_jobs.iter().map(|job| uuid_to_bytes(&job.id)));
+	}
+
+	// Load all reports at once
+	let mut reports: HashMap<JobId, Report> = ctx
 		.db()
 		.job()
-		.find_many(vec![job::id::in_vec(
-			entries
-				.iter()
-				.flat_map(
-					|StoredJobEntry {
-					     root_job: StoredJob { id, .. },
-					     next_jobs,
-					     ..
-					 }| {
-						iter::once(*id).chain(next_jobs.iter().map(|StoredJob { id, .. }| *id))
-					},
-				)
-				.map(|job_id| uuid_to_bytes(&job_id))
-				.collect::<Vec<_>>(),
-		)])
+		.find_many(vec![job::id::in_vec(job_ids)])
+		.take(100)
 		.exec()
-		.await
-		.map_err(JobSystemError::LoadReportsForResume)?
-		.into_iter()
-		.map(Report::try_from)
-		.map(|report_res| report_res.map(|report| (report.id, report)))
-		.collect::<Result<HashMap<_, _>, _>>()?;
-
-	entries
-		.into_iter()
-		.map(
-			|StoredJobEntry {
-			     location_id,
-			     root_job,
-			     next_jobs,
-			 }| {
-				let report = reports
-					.remove(&root_job.id)
-					.ok_or(ReportError::MissingReport(root_job.id))?;
-
-				Ok(async move {
-					load_job(root_job, report, ctx)
-						.await
-						.map(|maybe_loaded_job| {
-							maybe_loaded_job
-								.map(|(dyn_job, tasks)| (location_id, dyn_job, tasks, next_jobs))
-						})
-				})
-			},
-		)
-		.collect::<Result<Vec<_>, JobSystemError>>()?
-		.try_join()
 		.await?
 		.into_iter()
-		.flatten()
-		.map(|(location_id, mut dyn_job, tasks, next_jobs)| {
-			let next_jobs_and_reports = next_jobs
+		.map(|data| Report::try_from(data).map(|report| (report.id, report)))
+		.collect::<Result<_, ReportError>>()?;
+
+	// Process each entry
+	for StoredJobEntry {
+		root_job,
+		next_jobs,
+	} in entries
+	{
+		let report = reports
+			.remove(&root_job.id)
+			.ok_or(ReportError::MissingReport(root_job.id))?;
+
+		let loaded_job = load_job(root_job, report, ctx).await?;
+
+		if let Some((mut dyn_job, tasks)) = loaded_job {
+			// Load and set next jobs
+			let next_jobs_loaded = next_jobs
 				.into_iter()
 				.map(|next_job| {
 					let next_job_id = next_job.id;
@@ -137,38 +112,29 @@ pub async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 				})
 				.collect::<Result<Vec<_>, _>>()?;
 
-			Ok(async move {
-				next_jobs_and_reports
-					.into_iter()
-					.map(|(next_job, report)| async move {
-						load_job(next_job, report, ctx)
-							.await
-							.map(|maybe_loaded_next_job| {
-								maybe_loaded_next_job.map(|(next_dyn_job, next_tasks)| {
-									assert!(
-										next_tasks.is_none(),
-										"Next jobs must not have tasks as they haven't run yet"
-									);
-									assert!(
-										next_dyn_job.next_jobs().is_empty(),
-										"Next jobs must not have next jobs"
-									);
-									next_dyn_job
-								})
-							})
-					})
-					.collect::<Vec<_>>()
-					.try_join()
-					.await
-					.map(|maybe_next_dyn_jobs| {
-						dyn_job.set_next_jobs(maybe_next_dyn_jobs.into_iter().flatten().collect());
-						(location_id, dyn_job, tasks)
-					})
-			})
-		})
-		.collect::<Result<Vec<_>, JobSystemError>>()?
-		.try_join()
-		.await
+			let mut next_dyn_jobs = Vec::new();
+			for (next_job, next_report) in next_jobs_loaded {
+				if let Some((next_dyn_job, next_tasks)) =
+					load_job(next_job, next_report, ctx).await?
+				{
+					assert!(
+						next_tasks.is_none(),
+						"Next jobs must not have tasks as they haven't run yet"
+					);
+					assert!(
+						next_dyn_job.next_jobs().is_empty(),
+						"Next jobs must not have next jobs"
+					);
+					next_dyn_jobs.push(next_dyn_job);
+				}
+			}
+
+			dyn_job.set_next_jobs(next_dyn_jobs.into());
+			jobs_to_load.push((dyn_job, tasks));
+		}
+	}
+
+	Ok(jobs_to_load)
 }
 
 macro_rules! match_deserialize_job {

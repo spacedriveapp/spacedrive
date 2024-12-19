@@ -201,25 +201,25 @@ where
 	}
 }
 
-async fn get_location_path_from_location_id(
-	db: &PrismaClient,
-	location_id: file_path::id::Type,
-) -> Result<PathBuf, sd_utils::error::FileIOError> {
-	db.location()
-		.find_unique(location::id::equals(location_id))
-		.exec()
-		.await
-		.map_err(Into::into)
-		.and_then(|maybe_location| {
-			maybe_location
-				.ok_or_else(|| sd_utils::error::FileIOError::LocationIdNotFound(location_id))
-				.and_then(|location| {
-					location.path.map(PathBuf::from).ok_or_else(|| {
-						sd_utils::error::FileIOError::LocationMissingPath(location_id)
-					})
-				})
-		})
-}
+// async fn get_location_path_from_location_id(
+// 	db: &PrismaClient,
+// 	location_id: file_path::id::Type,
+// ) -> Result<PathBuf, sd_utils::error::FileIOError> {
+// 	db.location()
+// 		.find_unique(location::id::equals(location_id))
+// 		.exec()
+// 		.await
+// 		.map_err(Into::into)
+// 		.and_then(|maybe_location| {
+// 			maybe_location
+// 				.ok_or_else(|| sd_utils::error::FileIOError::LocationIdNotFound(location_id))
+// 				.and_then(|location| {
+// 					location.path.map(PathBuf::from).ok_or_else(|| {
+// 						sd_utils::error::FileIOError::LocationMissingPath(location_id)
+// 					})
+// 				})
+// 		})
+// }
 
 impl<B: DeleteBehavior + Hash + Send + 'static, C> DeleterJob<B, C> {
 	async fn check_index_compatibility(&self, ctx: &impl JobContext<C>) -> Result<(), Error> {
@@ -273,7 +273,7 @@ impl<B: DeleteBehavior + Hash + Send + 'static, C> DeleterJob<B, C> {
 
 		if self.use_trash {
 			if !self.paths.is_empty() {
-				tasks.push(Box::new(tasks::MoveToTrashTask::new(self.paths.clone())));
+				tasks.push(Box::new(tasks::MoveToTrash::new(self.paths.clone())));
 			}
 		} else {
 			if !files.is_empty() {

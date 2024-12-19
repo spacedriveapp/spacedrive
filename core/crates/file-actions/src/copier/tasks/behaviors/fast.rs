@@ -1,6 +1,6 @@
 use std::{path::Path, time::Instant};
 use async_trait::async_trait;
-use heavy_lifting::job::{JobContext, JobError};
+use sd_core_heavy_lifting::job_system::job::{JobContext, JobError};
 use tokio::fs;
 
 use crate::copier::progress::CopyProgress;

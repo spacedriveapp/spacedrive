@@ -36,7 +36,7 @@ pub struct ObjectProcessor {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: SyncManager,
+	sync: Arc<SyncManager>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -201,7 +201,7 @@ impl ObjectProcessor {
 	pub fn new(
 		file_paths_by_cas_id: HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 		device_id: device::id::Type,
 		with_priority: bool,
 	) -> Self {
@@ -277,7 +277,7 @@ async fn assign_existing_objects_to_file_paths(
 	file_paths_by_cas_id: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	objects_by_cas_id: &HashMap<CasId<'static>, ObjectPubId>,
 	db: &PrismaClient,
-	sync: &SyncManager,
+	sync: &Arc<SyncManager>,
 ) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
 	let (ops, queries) = objects_by_cas_id
 		.iter()
@@ -315,7 +315,7 @@ async fn assign_existing_objects_to_file_paths(
 async fn assign_objects_to_duplicated_orphans(
 	file_paths_by_cas_id: &mut HashMap<CasId<'static>, Vec<FilePathToCreateOrLinkObject>>,
 	db: &PrismaClient,
-	sync: &SyncManager,
+	sync: &Arc<SyncManager>,
 	device_id: device::id::Type,
 ) -> Result<(Vec<file_path::id::Type>, u64), file_identifier::Error> {
 	// at least 1 file path per cas_id
@@ -384,7 +384,7 @@ impl SerializableTask<Error> for ObjectProcessor {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

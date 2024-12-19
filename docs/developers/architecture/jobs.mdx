@@ -1,7 +1,3 @@
----
-index: 10
----
-
 # Job System
 
 This guide will walk you through creating jobs in Spacedrive's job system. The job system is designed to handle long-running tasks with features like progress tracking, pause/resume capabilities, and error handling.
@@ -17,6 +13,71 @@ The job system consists of several key components:
 - **State Management**: Handles job persistence and recovery
 - **Undo Support**: Optional capability for jobs to define reversible operations
 - **Location Handling**: Support for both location-bound and location-independent operations
+
+## The Job Trait
+
+The `Job` trait is the core abstraction in Spacedrive's job system. It defines the interface that all jobs must implement:
+
+```rust
+pub trait Job: Send + Sync + Hash + 'static {
+    const TYPE_NAME: JobName;
+    fn name(&self) -> JobName;
+    fn resume_tasks<OuterCtx: OuterContext>(...) -> impl Future<...>;
+    fn run<OuterCtx: OuterContext>(...) -> impl Future<...>;
+}
+```
+
+### Key Features
+
+1. **Asynchronous Execution**: Jobs are async by design, suitable for IO-intensive operations
+2. **Progress Reporting**: Jobs can report their progress through `ProgressUpdate`:
+
+   ```rust
+   pub enum ProgressUpdate {
+       TaskCount(u64),         // Total number of tasks
+       CompletedTaskCount(u64), // Number of completed tasks
+       Message(String),        // Informative message
+       Phase(String),         // Current phase of the job
+   }
+   ```
+
+3. **State Management**: Jobs can be serialized and deserialized for persistence
+4. **Task Dispatching**: Jobs use `JobTaskDispatcher` to manage individual tasks
+5. **Context Access**: Jobs have access to:
+   - Database client
+   - Sync manager
+   - Query invalidation
+   - Event reporting
+   - Data directory
+
+### Return Status
+
+Jobs can complete with different statuses:
+
+```rust
+pub enum ReturnStatus {
+    Completed(JobReturn),
+    Shutdown(Result<Option<Vec<u8>>, EncodeError>),
+    Canceled(JobReturn)
+}
+```
+
+### Built-in Job Types
+
+The system includes several built-in job types:
+
+```rust
+pub enum JobName {
+    Indexer,         // File system indexing
+    FileIdentifier,  // File type identification
+    MediaProcessor,  // Media processing
+    Copy,           // File copying
+    Move,           // File moving
+    Delete,         // File deletion
+    Erase,          // Secure erasure
+    FileValidator   // File validation
+}
+```
 
 ## Creating a New Job
 
@@ -95,7 +156,38 @@ pub struct DeleterState {
 }
 ```
 
-### 3. Define Behavior Trait
+### 3. Implement Job Trait
+
+Implement the `Job` trait for your job structure:
+
+```rust
+impl Job for DeleterJob {
+    const TYPE_NAME: JobName = JobName::Delete;
+
+    fn name(&self) -> JobName {
+        Self::TYPE_NAME
+    }
+
+    async fn run<OuterCtx: OuterContext>(
+        self,
+        dispatcher: JobTaskDispatcher,
+        ctx: impl JobContext<OuterCtx>,
+    ) -> Result<ReturnStatus, Error> {
+        // Your job implementation here
+    }
+
+    async fn resume_tasks<OuterCtx: OuterContext>(
+        &mut self,
+        dispatcher: &JobTaskDispatcher,
+        ctx: &impl JobContext<OuterCtx>,
+        serialized_tasks: SerializedTasks,
+    ) -> Result<(), Error> {
+        // Task resumption logic here
+    }
+}
+```
+
+### 4. Define Behavior Trait
 
 If your job supports multiple implementations (like delete vs move to trash), create a behavior trait:
 
@@ -112,25 +204,6 @@ pub trait DeleteBehavior {
         I::IntoIter: Send;
 }
 ```
-
-### 4. Implement Undo Support (Optional)
-
-If your job needs to support undo operations, implement the `UndoableJob` trait:
-
-```rust
-impl UndoableJob for DeleterJob {
-    fn create_undo_job(&self) -> Option<Box<dyn SerializableJob>> {
-        // Create a job that will reverse the operation
-        // For example, restore files from trash or recreate deleted directories
-        Some(Box::new(RestoreJob {
-            location_id: self.location_id,
-            file_paths: self.file_paths.clone(),
-        }))
-    }
-}
-```
-
-The undo job will be stored in the job history and can be executed later to reverse the operation.
 
 ### 5. Implement Behaviors
 
@@ -182,7 +255,7 @@ pub struct RemoveTask<B> {
 }
 
 #[async_trait::async_trait]
-impl<B: DeleteBehavior + Send + 'static> Task<Error> for RemoveTask<B> {
+impl<B: DeleteBehavior + Send + 'static> Task<e> for RemoveTask<B> {
     fn id(&self) -> TaskId {
         self.id
     }
@@ -202,367 +275,93 @@ impl<B: DeleteBehavior + Send + 'static> Task<Error> for RemoveTask<B> {
 }
 ```
 
-### 7. Implement Performance Optimizations
-
-For jobs that handle large numbers of files or large file sizes, consider implementing these optimizations:
-
-#### Batching
-
-Group related operations into batches for better performance:
-
-```rust
-pub struct BatchedCopy {
-    pub sources: Vec<PathBuf>,
-    pub targets: Vec<PathBuf>,
-    pub total_size: u64,
-}
-
-pub async fn batch_copy_files(
-    files: Vec<(PathBuf, PathBuf)>,
-) -> Result<Vec<BatchedCopy>, JobError> {
-    const MAX_TOTAL_SIZE_PER_STEP: u64 = 1024 * 1024 * 800; // 800MB
-    const MAX_FILES_PER_STEP: usize = 20;
-
-    let mut batches = Vec::new();
-    let mut current_batch = BatchedCopy {
-        sources: Vec::new(),
-        targets: Vec::new(),
-        total_size: 0,
-    };
-
-    for (source, target) in files {
-        // Create new batch if current one exceeds limits
-        if current_batch.sources.len() >= MAX_FILES_PER_STEP
-            || current_batch.total_size > MAX_TOTAL_SIZE_PER_STEP
-        {
-            batches.push(current_batch);
-            current_batch = BatchedCopy::default();
-        }
-
-        current_batch.sources.push(source);
-        current_batch.targets.push(target);
-    }
-
-    Ok(batches)
-}
-```
-
-#### Conflict Resolution
-
-Handle naming conflicts efficiently using a HashSet to track used names:
-
-```rust
-pub async fn resolve_name_conflicts(
-    files: Vec<(PathBuf, PathBuf)>,
-) -> Result<Vec<(PathBuf, PathBuf)>, JobError> {
-    let mut seen_paths = HashSet::new();
-    let mut resolved = Vec::with_capacity(files.len());
-
-    for (source, target) in files {
-        let mut final_target = target.clone();
-
-        // If we've seen this path before or if it exists on disk
-        if seen_paths.contains(&target) || target.exists() {
-            final_target = find_available_name(&target).await?;
-        }
-
-        seen_paths.insert(final_target.clone());
-        resolved.push((source, final_target));
-    }
-
-    Ok(resolved)
-}
-```
-
-#### Adaptive Behaviors
-
-Implement different strategies based on file characteristics:
-
-```rust
-pub trait CopyBehavior: Send + Sync {
-    async fn copy_file(
-        &self,
-        source: impl AsRef<Path>,
-        target: impl AsRef<Path>,
-        ctx: &impl JobContext,
-    ) -> Result<(), JobError>;
-
-    fn is_suitable(
-        &self,
-        file_size: u64,
-        source_fs: &str,
-        target_fs: &str,
-    ) -> bool;
-}
-
-// Fast copy for small files or same filesystem
-pub struct FastCopyBehavior;
-
-// Streaming copy for large files or cross-filesystem
-pub struct StreamCopyBehavior {
-    buffer_size: usize,
-    retry_count: u32,
-}
-
-pub fn determine_behavior(
-    source: impl AsRef<Path>,
-    target: impl AsRef<Path>,
-) -> Box<dyn CopyBehavior> {
-    // Choose appropriate behavior based on file size and filesystem
-    if file_size < FAST_COPY_THRESHOLD && same_filesystem(source, target) {
-        Box::new(FastCopyBehavior)
-    } else {
-        Box::new(StreamCopyBehavior::new())
-    }
-}
-```
-
-### 8. Progress Reporting
-
-Implement detailed progress tracking for better user feedback:
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CopyProgress {
-    Started {
-        total_files: u64,
-        total_bytes: u64,
-    },
-    File {
-        name: String,
-        current_file: u64,
-        total_files: u64,
-        bytes: u64,
-        source: PathBuf,
-        target: PathBuf,
-    },
-    BytesWritten {
-        bytes: u64,
-        speed: f64,  // bytes per second
-    },
-    Complete {
-        files_copied: u64,
-        total_bytes: u64,
-        duration: Duration,
-    }
-}
-
-impl Task for CopyTask {
-    async fn run(&mut self, ctx: &impl JobContext) -> Result<TaskStatus, JobError> {
-        ctx.progress(CopyProgress::Started {
-            total_files,
-            total_bytes,
-        }).await;
-
-        for (idx, file) in files.iter().enumerate() {
-            ctx.progress(CopyProgress::File {
-                name: file.name.clone(),
-                current_file: idx as u64 + 1,
-                total_files,
-                bytes: file.size,
-                source: file.source.clone(),
-                target: file.target.clone(),
-            }).await;
-
-            // Copy file and report progress...
-        }
-
-        ctx.progress(CopyProgress::Complete {
-            files_copied,
-            total_bytes,
-            duration: start.elapsed(),
-        }).await;
-
-        Ok(TaskStatus::Completed)
-    }
-}
-```
-
-### 9. Implement Job Traits
-
-Implement the required traits for your job:
-
-```rust
-impl<B: DeleteBehavior + Hash + Send + 'static> Job for DeleterJob<B> {
-    const NAME: JobName = JobName::Delete;
-
-    async fn run<OuterCtx: OuterContext>(
-        mut self,
-        dispatcher: JobTaskDispatcher,
-        ctx: impl JobContext<OuterCtx>,
-    ) -> Result<ReturnStatus, Error> {
-        // Get required data
-        let files = get_many_files_datas(ctx.db(), location_path, &self.file_path_ids).await?;
-
-        // Create and dispatch tasks
-        let counter = Arc::new(AtomicU64::new(0));
-        let task = RemoveTask::new(files, counter.clone());
-        let task_handle = dispatcher.dispatch(task)?;
-
-        // Monitor progress
-        while let Some(status) = task_handle.status().await {
-            match status {
-                TaskStatus::Running => {
-                    let progress = counter.load(Ordering::Relaxed);
-                    ctx.progress(ProgressUpdate::CompletedTaskCount(progress)).await;
-                }
-                TaskStatus::Completed => break,
-                TaskStatus::Failed(e) => return Err(e),
-                _ => continue,
-            }
-        }
-
-        Ok(ReturnStatus::Completed(JobReturn::default()))
-    }
-}
-```
-
-### 10. Implement Serialization
-
-Add serialization support for job persistence:
-
-```rust
-impl<OuterCtx, B> SerializableJob<OuterCtx> for DeleterJob<B>
-where
-    OuterCtx: OuterContext,
-    B: DeleteBehavior + Hash + Send + 'static,
-{
-    fn serialize(mut self) -> Result<Option<Vec<u8>>, rmp_serde::encode::Error> {
-        let state = DeleterState {
-            location_id: self.location_id,
-            file_path_ids: self.file_path_ids,
-            shutdown_tasks: self.shutdown_tasks.map(|tasks|
-                tasks.into_iter()
-                    .filter_map(|t| t.serialize().ok())
-                    .collect()),
-            accumulative_errors: self.accumulative_errors,
-        };
-
-        Ok(Some(rmp_serde::to_vec(&state)?))
-    }
-
-    fn deserialize(
-        serialized_job: &[u8],
-        _: &OuterCtx,
-    ) -> Result<Option<(Self, Option<SerializedTasks>)>, rmp_serde::decode::Error> {
-        let state: DeleterState = rmp_serde::from_slice(serialized_job)?;
-
-        Ok(Some((
-            Self {
-                location_id: state.location_id,
-                file_path_ids: state.file_path_ids,
-                pending_tasks: None,
-                shutdown_tasks: None,
-                accumulative_errors: state.accumulative_errors,
-                behavior: PhantomData,
-            },
-            state.shutdown_tasks,
-        )))
-    }
-}
-```
-
-## Directory Structure
-
-When implementing a new job, follow this recommended directory structure based on the file-actions crate:
-
-```
-src/
-├── your_job/
-│   ├── mod.rs              # Public exports and job registration
-│   ├── job.rs              # Job implementation and state management
-│   ├── progress.rs         # Progress tracking types
-│   └── tasks/
-│       ├── mod.rs          # Task exports and shared types
-│       ├── behaviors/      # Different implementation strategies
-│       │   ├── mod.rs      # Behavior trait and utilities
-│       │   ├── fast.rs     # Fast implementation (e.g., for small files)
-│       │   └── stream.rs   # Streaming implementation (e.g., for large files)
-│       ├── batch.rs        # Batch processing logic
-│       ├── conflict.rs     # Conflict resolution utilities
-│       └── task_name.rs    # Individual task implementations
-```
-
 ### Key Components
 
 1. **mod.rs**
+
    - Public exports for your job module
    - Re-exports of commonly used types
+
    ```rust
    mod job;
    mod progress;
    mod tasks;
-
-   pub use job::YourJob;
-   pub use progress::JobProgress;
-   pub use tasks::{TaskBehavior, FastBehavior, StreamBehavior};
+   
+   pub use job::*;
+   pub use progress::*;
+   pub use tasks::*;
    ```
 
 2. **job.rs**
+
    - Job struct and implementation
    - State management
    - Task coordination
+
    ```rust
    pub struct YourJob<C> {
        // Job parameters
        params: JobParams,
-       // Task management
-       pending_tasks: Option<Vec<TaskHandle>>,
-       // Error handling
-       accumulative_errors: Option<Vec<JobError>>,
+       // Task coordination
+       tasks: Vec<TaskHandle>,
+       // Progress tracking
+       progress: Arc<AtomicU64>,
    }
    ```
 
 3. **progress.rs**
+
    - Progress tracking enums/structs
    - Progress calculation utilities
+
    ```rust
    #[derive(Debug, Clone, Serialize, Deserialize)]
    pub enum JobProgress {
        Started { total: u64 },
-       Processing { completed: u64, total: u64 },
-       Complete { total_processed: u64 },
+       Progress { current: u64, total: u64 },
    }
    ```
 
 4. **tasks/behaviors/**
+
    - Trait defining behavior interface
    - Different implementation strategies
+
    ```rust
    #[async_trait]
    pub trait TaskBehavior {
-       async fn execute(&self, params: Params) -> Result<(), JobError>;
-       fn is_suitable(&self, params: &Params) -> bool;
+       async fn execute(&self, params: TaskParams) -> Result<(), Error>;
    }
    ```
 
 5. **tasks/batch.rs**
+
    - Batch processing logic
    - Performance optimizations
+
    ```rust
    pub struct BatchedOperation {
        items: Vec<Item>,
-       total_size: u64,
+       batch_size: usize,
+   }
+
+   impl BatchedOperation {
+       pub fn process(&self, dispatcher: &JobTaskDispatcher) -> Result<(), Error> {
+           for chunk in items.chunks(batch_size) {
+               let task = MyTask::new(chunk.to_vec(), progress_counter.clone());
+               tasks.push(dispatcher.dispatch(task)?);
+           }
+       }
    }
    ```
 
-6. **tasks/conflict.rs**
-   - Conflict resolution utilities
-   - Name generation
-   ```rust
-   pub async fn resolve_conflicts(
-       items: Vec<Item>
-   ) -> Result<Vec<Item>, JobError>
-   ```
-
 This structure provides:
+
 - Clear separation of concerns
 - Easy navigation of code
 - Consistent organization across jobs
-- Scalability for complex operations
 - Reusable components
-
-When adding new jobs, mirror this structure to maintain consistency across the codebase.
+- Maintainable implementations
 
 ## Best Practices
 
@@ -739,3 +538,112 @@ These optimizations help ensure your job:
 - Resolves conflicts reliably
 - Adapts to different scenarios
 - Provides detailed progress feedback
+
+## Directory Structure
+
+When implementing a new job, follow this recommended directory structure based on the file-actions crate:
+
+```
+src/
+├── your_job/
+│   ├── mod.rs              # Public exports and job registration
+│   ├── job.rs              # Job implementation and state management
+│   ├── progress.rs         # Progress tracking types
+│   └── tasks/
+│       ├── mod.rs          # Task exports and shared types
+│       ├── behaviors/      # Different implementation strategies
+│       │   ├── mod.rs      # Behavior trait and utilities
+│       │   ├── fast.rs     # Fast implementation (e.g., for small files)
+│       │   └── stream.rs   # Streaming implementation (e.g., for large files)
+│       ├── batch.rs        # Batch processing logic
+│       ├── conflict.rs     # Conflict resolution utilities
+│       └── task_name.rs    # Individual task implementations
+```
+
+### Key Components
+
+1. **mod.rs**
+
+   - Public exports for your job module
+   - Re-exports of commonly used types
+
+   ```rust
+   mod job;
+   mod progress;
+   mod tasks;
+
+   pub use job::*;
+   pub use progress::*;
+   pub use tasks::*;
+   ```
+
+2. **job.rs**
+
+   - Job struct and implementation
+   - State management
+   - Task coordination
+
+   ```rust
+   pub struct YourJob<C> {
+       // Job parameters
+       params: JobParams,
+       // Task management
+       pending_tasks: Option<Vec<TaskHandle>>,
+       // Progress tracking
+       progress: Arc<AtomicU64>,
+   }
+   ```
+
+3. **progress.rs**
+
+   - Progress tracking enums/structs
+   - Progress calculation utilities
+
+   ```rust
+   #[derive(Debug, Clone, Serialize, Deserialize)]
+   pub enum JobProgress {
+       Started { total: u64 },
+       Progress { current: u64, total: u64 },
+   }
+   ```
+
+4. **tasks/behaviors/**
+
+   - Trait defining behavior interface
+   - Different implementation strategies
+
+   ```rust
+   #[async_trait]
+   pub trait TaskBehavior {
+       async fn execute(&self, params: TaskParams) -> Result<(), Error>;
+   }
+   ```
+
+5. **tasks/batch.rs**
+
+   - Batch processing logic
+   - Performance optimizations
+
+   ```rust
+   pub struct BatchedOperation {
+       items: Vec<Item>,
+       batch_size: usize,
+   }
+
+   impl BatchedOperation {
+       pub fn process(&self, dispatcher: &JobTaskDispatcher) -> Result<(), Error> {
+           for chunk in items.chunks(batch_size) {
+               let task = MyTask::new(chunk.to_vec(), progress_counter.clone());
+               tasks.push(dispatcher.dispatch(task)?);
+           }
+       }
+   }
+   ```
+
+This structure provides:
+
+- Clear separation of concerns
+- Easy navigation of code
+- Consistent organization across jobs
+- Reusable components
+- Maintainable implementations

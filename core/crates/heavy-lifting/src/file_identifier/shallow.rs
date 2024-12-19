@@ -116,7 +116,7 @@ pub async fn shallow(
 				orphan_paths,
 				true,
 				Arc::clone(ctx.db()),
-				ctx.sync().clone(),
+				Arc::clone(ctx.sync()),
 				device_id,
 			))
 			.await

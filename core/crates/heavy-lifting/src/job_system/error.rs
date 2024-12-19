@@ -16,8 +16,8 @@ pub enum JobSystemError {
 		already_running_id: JobId,
 	},
 
-	#[error("failed to load job reports from database to resume jobs: {0}")]
-	LoadReportsForResume(#[from] QueryError),
+	#[error("failed to load job reports from database: {0}")]
+	DatabaseError(#[from] QueryError),
 
 	#[error("failed to serialize job to be saved and resumed later: {0}")]
 	Serialize(#[from] rmp_serde::encode::Error),
@@ -33,9 +33,6 @@ pub enum JobSystemError {
 
 	#[error("internal job panic! <id='{0}'>")]
 	Panic(JobId),
-
-	#[error("No undo information available for this job")]
-	NoUndoAvailable,
 }
 
 impl From<JobSystemError> for rspc::Error {

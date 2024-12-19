@@ -62,18 +62,9 @@ pub enum ReportMetadata {
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "type", content = "data")]
 pub enum ReportInputMetadata {
-    Location(location::Data),
-    SubPath(PathBuf),
-    Copier {
-        location_id: Option<location::id::Type>,
-        sources: Vec<PathBuf>,
-        target_dir: PathBuf,
-    },
-    Deleter {
-        location_id: Option<location::id::Type>,
-        paths: Vec<PathBuf>,
-        use_trash: bool,
-    },
+	// TODO: Add more variants as needed
+	Location(location::Data),
+	SubPath(PathBuf),
 }
 
 #[derive(Debug, Serialize, Deserialize, Type, Clone)]
@@ -96,20 +87,20 @@ pub enum ReportOutputMetadata {
 		thumbnails_skipped: (u32, u32),
 	},
 	Copier {
-        location_id: Option<location::id::Type>,
-        files_copied: (u32, u32),
-        bytes_copied: (u64, u64),
-    },
-    Deleter {
-        location_id: Option<location::id::Type>,
-        files_deleted: (u32, u32),
-        bytes_deleted: (u64, u64),
-    },
+		source_location_id: location::id::Type,
+		target_location_id: location::id::Type,
+		sources_file_path_ids: Vec<file_path::id::Type>,
+		target_location_relative_directory_path: PathBuf,
+	},
 	Mover {
 		source_location_id: location::id::Type,
 		target_location_id: location::id::Type,
 		sources_file_path_ids: Vec<file_path::id::Type>,
 		target_location_relative_directory_path: PathBuf,
+	},
+	Deleter {
+		location_id: location::id::Type,
+		file_path_ids: Vec<file_path::id::Type>,
 	},
 	Eraser {
 		location_id: location::id::Type,
@@ -299,7 +290,6 @@ impl Report {
 						.map(|id| job::parent::connect(job::id::equals(id.as_bytes().to_vec())))],
 				),
 			)
-			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Create)?;
@@ -310,7 +300,7 @@ impl Report {
 		Ok(())
 	}
 
-	pub async fn update(&self, db: &PrismaClient) -> Result<(), ReportError> {
+	pub async fn update(&mut self, db: &PrismaClient) -> Result<(), ReportError> {
 		db.job()
 			.update(
 				job::id::equals(self.id.as_bytes().to_vec()),
@@ -328,7 +318,6 @@ impl Report {
 					job::date_completed::set(self.completed_at.map(Into::into)),
 				],
 			)
-			.select(job::select!({ id }))
 			.exec()
 			.await
 			.map_err(ReportError::Update)?;

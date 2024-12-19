@@ -1,7 +1,7 @@
 use std::{path::{Path, PathBuf}, fmt};
 
-use heavy_lifting::{
-    task::{Task, TaskId},
+use sd_core_heavy_lifting::{
+    job_system::task::{Task, TaskId},
     Error,
 };
 use sd_utils::error::FileIOError;

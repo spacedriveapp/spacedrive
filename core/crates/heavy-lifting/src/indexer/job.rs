@@ -120,13 +120,13 @@ impl Job for Indexer {
 
 								TaskKind::Save => tasks::Saver::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), ctx.sync().clone()),
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 								)
 								.await
 								.map(IntoTask::into_task),
 								TaskKind::Update => tasks::Updater::deserialize(
 									&task_bytes,
-									(Arc::clone(ctx.db()), ctx.sync().clone()),
+									(Arc::clone(ctx.db()), Arc::clone(ctx.sync())),
 								)
 								.await
 								.map(IntoTask::into_task),
@@ -722,7 +722,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						self.to_create_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 						device_id,
 					)
 					.into_task(),
@@ -743,7 +743,7 @@ impl Indexer {
 					tasks::Updater::new_deep(
 						self.to_update_buffer.drain(..).collect(),
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 					)
 					.into_task(),
 				);
@@ -796,7 +796,7 @@ impl Indexer {
 					self.location.pub_id.clone(),
 					chunked_saves,
 					Arc::clone(ctx.db()),
-					ctx.sync().clone(),
+					Arc::clone(ctx.sync()),
 					device_id,
 				)
 			})
@@ -845,7 +845,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 						device_id,
 					)
 				})
@@ -864,7 +864,7 @@ impl Indexer {
 					tasks::Updater::new_shallow(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 					)
 				})
 				.collect::<Vec<_>>();
@@ -891,7 +891,7 @@ impl Indexer {
 						self.location.pub_id.clone(),
 						chunked_saves,
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 						device_id,
 					));
 				}
@@ -919,7 +919,7 @@ impl Indexer {
 					update_tasks.push(tasks::Updater::new_deep(
 						chunked_updates,
 						Arc::clone(ctx.db()),
-						ctx.sync().clone(),
+						Arc::clone(ctx.sync()),
 					));
 				}
 				update_tasks
@@ -1054,7 +1054,6 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 			tasks_for_shutdown,
 			..
 		} = self;
-		// pending_tasks_on_resume: Vec<TaskHandle<Error>>
 
 		let serialized_tasks = tasks_for_shutdown
 			.into_iter()

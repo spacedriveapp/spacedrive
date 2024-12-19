@@ -69,7 +69,7 @@ pub struct MediaDataExtractor {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: SyncManager,
+	sync: Arc<SyncManager>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -275,7 +275,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -316,7 +316,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 	) -> Self {
 		Self::new(Kind::Exif, file_paths, location_id, location_path, db, sync)
 	}
@@ -327,7 +327,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: SyncManager,
+		sync: Arc<SyncManager>,
 	) -> Self {
 		Self::new(
 			Kind::FFmpeg,
@@ -550,7 +550,7 @@ impl SerializableTask<Error> for MediaDataExtractor {
 
 	type DeserializeError = rmp_serde::decode::Error;
 
-	type DeserializeCtx = (Arc<PrismaClient>, SyncManager);
+	type DeserializeCtx = (Arc<PrismaClient>, Arc<SyncManager>);
 
 	async fn serialize(self) -> Result<Vec<u8>, Self::SerializeError> {
 		let Self {

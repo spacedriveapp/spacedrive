@@ -10068,6 +10068,7 @@ dependencies = [
  "sd-core-file-path-helper",
  "sd-core-indexer-rules",
  "sd-core-prisma-helpers",
+ "sd-core-shared-types",
  "sd-core-sync",
  "sd-ffmpeg",
  "sd-file-ext",
@@ -10124,6 +10125,18 @@ dependencies = [
  "sd-utils",
  "serde",
  "specta",
+ "uuid",
+]
+
+[[package]]
+name = "sd-core-shared-types"
+version = "0.1.0"
+dependencies = [
+ "prisma-client-rust",
+ "sd-prisma",
+ "serde",
+ "specta",
+ "thiserror 1.0.64",
  "uuid",
 ]
 
@@ -10289,6 +10302,8 @@ dependencies = [
  "sd-core-file-path-helper",
  "sd-core-heavy-lifting",
  "sd-core-prisma-helpers",
+ "sd-core-shared-types",
+ "sd-core-sync",
  "sd-prisma",
  "sd-sync",
  "sd-task-system",

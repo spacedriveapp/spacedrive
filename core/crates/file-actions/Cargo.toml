@@ -1,5 +1,5 @@
 [package]
-name = "sd-file-actions"
+name    = "sd-file-actions"
 version = "0.1.0"
 
 authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
@@ -11,28 +11,30 @@ rust-version.workspace = true
 
 
 [dependencies]
+async-trait         = { workspace = true }
+futures             = { workspace = true }
 futures-concurrency = { workspace = true }
+itertools           = { workspace = true }
+rmp-serde           = { workspace = true }
 serde               = { workspace = true, features = ["derive"] }
 serde_json          = { workspace = true }
 specta              = { workspace = true }
-tracing             = { workspace = true }
-async-trait         = { workspace = true }
-rmp-serde           = { workspace = true }
-itertools           = { workspace = true }
 thiserror           = { workspace = true }
-futures             = { workspace = true }
+tracing             = { workspace = true }
 
 
 # core sub-crates
-sd-core-heavy-lifting  = { path = "../heavy-lifting" }
-sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-file-path-helper = { path = "../file-path-helper" }
+sd-core-heavy-lifting    = { path = "../heavy-lifting" }
+sd-core-prisma-helpers   = { path = "../prisma-helpers" }
+sd-core-shared-types     = { path = "../shared-types" }
+sd-core-sync             = { path = "../sync" }
 
 # spacedrive sub-crates
-sd-prisma              = { path = "../../../crates/prisma" }
-sd-utils               = { path = "../../../crates/utils" }
-sd-sync                = { path = "../../../crates/sync" }
-sd-task-system         = { path = "../../../crates/task-system" }
+sd-prisma      = { path = "../../../crates/prisma" }
+sd-sync        = { path = "../../../crates/sync" }
+sd-task-system = { path = "../../../crates/task-system" }
+sd-utils       = { path = "../../../crates/utils" }
 
 [dependencies.tokio]
 features  = ["io-util", "macros", "process", "rt-multi-thread", "sync", "time"]

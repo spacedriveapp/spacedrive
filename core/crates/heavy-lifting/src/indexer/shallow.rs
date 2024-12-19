@@ -107,7 +107,7 @@ pub async fn shallow(
 		to_create,
 		to_update,
 		Arc::clone(db),
-		sync.clone(),
+		Arc::clone(sync),
 		device_id,
 		dispatcher,
 	)
@@ -215,7 +215,7 @@ async fn save_and_update(
 	to_create: Vec<WalkedEntry>,
 	to_update: Vec<WalkedEntry>,
 	db: Arc<PrismaClient>,
-	sync: SyncManager,
+	sync: Arc<SyncManager>,
 	device_id: device::id::Type,
 	dispatcher: &BaseTaskDispatcher<Error>,
 ) -> Result<Option<Metadata>, Error> {

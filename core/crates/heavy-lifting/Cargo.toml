@@ -17,6 +17,7 @@ ffmpeg = ["dep:sd-ffmpeg"]
 sd-core-file-path-helper = { path = "../file-path-helper" }
 sd-core-indexer-rules    = { path = "../indexer-rules" }
 sd-core-prisma-helpers   = { path = "../prisma-helpers" }
+sd-core-shared-types     = { path = "../shared-types" }
 sd-core-sync             = { path = "../sync" }
 
 # Spacedrive Sub-crates
