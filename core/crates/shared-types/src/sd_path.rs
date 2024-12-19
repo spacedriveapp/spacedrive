@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use super::PathData;
 use sd_prisma::prisma::{device, location, PrismaClient};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -45,24 +44,6 @@ impl SdPath {
 			device,
 			location: Some(location),
 			local_path: path.into(),
-		}
-	}
-
-	/// Convert from PathData
-	pub fn from_path_data(data: PathData) -> Self {
-		Self {
-			device: data.device,
-			location: data.location,
-			local_path: data.path,
-		}
-	}
-
-	/// Convert to PathData
-	pub fn to_path_data(&self) -> PathData {
-		PathData {
-			device: self.device,
-			location: self.location,
-			path: self.local_path.clone(),
 		}
 	}
 

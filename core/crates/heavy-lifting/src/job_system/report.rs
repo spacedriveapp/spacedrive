@@ -1,9 +1,9 @@
 use crate::NonCriticalError;
 
-use sd_prisma::prisma::{file_path, job, location, PrismaClient};
+use sd_prisma::prisma::{job, location, PrismaClient};
 use sd_utils::db::{maybe_missing, MissingFieldError};
 
-use std::{collections::HashMap, fmt, path::PathBuf, str::FromStr};
+use std::{fmt, path::PathBuf, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use prisma_client_rust::QueryError;
@@ -12,6 +12,8 @@ use specta::Type;
 use strum::ParseError;
 
 use super::{job::JobName, JobId};
+
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReportError {
@@ -65,52 +67,6 @@ pub enum ReportInputMetadata {
 	// TODO: Add more variants as needed
 	Location(location::Data),
 	SubPath(PathBuf),
-}
-
-#[derive(Debug, Serialize, Deserialize, Type, Clone)]
-#[serde(rename_all = "snake_case")]
-#[serde(tag = "type", content = "data")]
-pub enum ReportOutputMetadata {
-	Metrics(HashMap<String, serde_json::Value>),
-	Indexer {
-		total_paths: (u32, u32),
-	},
-	FileIdentifier {
-		total_orphan_paths: (u32, u32),
-		total_objects_created: (u32, u32),
-		total_objects_linked: (u32, u32),
-	},
-	MediaProcessor {
-		media_data_extracted: (u32, u32),
-		media_data_skipped: (u32, u32),
-		thumbnails_generated: (u32, u32),
-		thumbnails_skipped: (u32, u32),
-	},
-	Copier {
-		source_location_id: location::id::Type,
-		target_location_id: location::id::Type,
-		sources_file_path_ids: Vec<file_path::id::Type>,
-		target_location_relative_directory_path: PathBuf,
-	},
-	Mover {
-		source_location_id: location::id::Type,
-		target_location_id: location::id::Type,
-		sources_file_path_ids: Vec<file_path::id::Type>,
-		target_location_relative_directory_path: PathBuf,
-	},
-	Deleter {
-		location_id: location::id::Type,
-		file_path_ids: Vec<file_path::id::Type>,
-	},
-	Eraser {
-		location_id: location::id::Type,
-		file_path_ids: Vec<file_path::id::Type>,
-		passes: u32,
-	},
-	FileValidator {
-		location_id: location::id::Type,
-		sub_path: Option<PathBuf>,
-	},
 }
 
 impl From<ReportInputMetadata> for ReportMetadata {

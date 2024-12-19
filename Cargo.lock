@@ -10135,6 +10135,7 @@ dependencies = [
  "prisma-client-rust",
  "sd-prisma",
  "serde",
+ "serde_json",
  "specta",
  "thiserror 1.0.64",
  "uuid",

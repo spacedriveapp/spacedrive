@@ -1,6 +1,5 @@
 use crate::{Error, JobContext};
 
-use sd_prisma::prisma::location;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
 
@@ -31,10 +30,11 @@ use uuid::Uuid;
 
 use super::{
 	job::{DynJob, JobHandle, JobName, JobOutput, OuterContext, ReturnStatus},
-	report::{self, ReportOutputMetadata},
+	report::{self},
 	store::{StoredJob, StoredJobEntry},
 	Command, JobId, JobSystemError, SerializedTasks,
 };
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 
 const JOBS_INITIAL_CAPACITY: usize = 32;
 const FIVE_MINUTES: Duration = Duration::from_secs(5 * 60);

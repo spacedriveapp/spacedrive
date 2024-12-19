@@ -20,6 +20,11 @@ use std::{
 	time::Duration,
 };
 
+use super::{
+	error::DispatcherError,
+	report::{Report, ReportBuilder, ReportInputMetadata, ReportMetadata, Status},
+	Command, JobId, JobSystemError, SerializableJob, SerializedTasks,
+};
 use async_channel as chan;
 use chrono::{DateTime, Utc};
 use futures::{stream, Future, FutureExt, StreamExt};
@@ -27,6 +32,7 @@ use futures_concurrency::{
 	future::{Join, TryJoin},
 	stream::Merge,
 };
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specta::Type;
@@ -38,14 +44,6 @@ use tokio::{
 };
 use tracing::{debug, error, instrument, trace, warn, Instrument, Level};
 use uuid::Uuid;
-
-use super::{
-	error::DispatcherError,
-	report::{
-		Report, ReportBuilder, ReportInputMetadata, ReportMetadata, ReportOutputMetadata, Status,
-	},
-	Command, JobId, JobSystemError, SerializableJob, SerializedTasks,
-};
 
 #[derive(
 	Debug, Serialize, Deserialize, EnumString, Display, Clone, Copy, Type, Hash, PartialEq, Eq,

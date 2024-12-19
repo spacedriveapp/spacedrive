@@ -1,7 +1,6 @@
 use crate::{
 	job_system::{
 		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
-		report::ReportOutputMetadata,
 		utils::cancel_pending_tasks,
 		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
 	},
@@ -13,6 +12,7 @@ use crate::{
 use sd_core_file_path_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
+use sd_core_shared_types::jobs::ReportOutputMetadata;
 use sd_file_ext::extensions::Extension;
 use sd_prisma::{
 	prisma::{location, PrismaClient},
@@ -24,7 +24,6 @@ use sd_task_system::{
 	TaskOutput, TaskStatus, TaskSystemError,
 };
 use sd_utils::{db::maybe_missing, u64_to_frontend};
-
 use std::{
 	collections::{HashMap, HashSet},
 	fmt,

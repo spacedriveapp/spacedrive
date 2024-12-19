@@ -12,6 +12,7 @@ version                = "0.1.0"
 prisma-client-rust = { workspace = true }
 sd-prisma          = { path = "../../../crates/prisma" }
 serde              = { workspace = true, features = ["derive"] }
+serde_json         = { workspace = true }
 specta             = { workspace = true }
 thiserror          = { workspace = true }
 uuid               = { workspace = true, features = ["serde", "v4"] }
