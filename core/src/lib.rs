@@ -46,7 +46,7 @@ pub(crate) mod node;
 pub(crate) mod notifications;
 pub(crate) mod object;
 pub(crate) mod old_job;
-pub(crate) mod p2p;
+pub(crate) mod old_p2p;
 pub(crate) mod preferences;
 #[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
 pub mod util;
@@ -66,7 +66,7 @@ pub struct Node {
 	pub libraries: Arc<library::Libraries>,
 	pub volumes: Arc<volume::Volumes>,
 	pub locations: location::Locations,
-	pub p2p: Arc<p2p::P2PManager>,
+	pub p2p: Arc<old_p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
@@ -151,7 +151,7 @@ impl Node {
 
 		let task_system = TaskSystem::new();
 
-		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+		let (p2p, start_p2p) = old_p2p::P2PManager::new(config.clone(), libraries.clone())
 			.await
 			.map_err(NodeError::P2PManager)?;
 

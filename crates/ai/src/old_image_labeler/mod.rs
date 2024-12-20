@@ -27,7 +27,7 @@ pub struct LabelerOutput {
 pub enum ImageLabelerError {
 	#[error("model executor failed: {0}")]
 	ModelExecutorFailed(#[from] ort::Error),
-	#[error("image load failed <path='{}'>: {0}", .1.display())]
+	#[error("image load failed <path='{path}'>: {0}", path = .1.display())]
 	ImageLoadFailed(image::ImageError, Box<Path>),
 	#[error("failed to get isolated file path data: {0}")]
 	IsolateFilePathData(#[from] MissingFieldError),
