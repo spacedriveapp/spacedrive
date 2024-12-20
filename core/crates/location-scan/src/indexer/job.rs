@@ -1161,3 +1161,54 @@ impl Hash for Indexer {
 		}
 	}
 }
+
+pub struct IndexerSerializationHandler;
+
+impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSerializationHandler<OuterCtx, JobCtx>
+	for IndexerSerializationHandler
+{
+	fn deserialize_job<'a>(
+		&'a self,
+		stored_job: StoredJob,
+		report: Report,
+		ctx: &'a OuterCtx,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Result<
+						Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>,
+						JobSystemError,
+					>,
+				> + Send
+				+ 'a,
+		>,
+	> {
+		Box::pin(async move {
+			let StoredJob {
+				id,
+				name: _,
+				run_time,
+				serialized_job,
+			} = stored_job;
+
+			Indexer::deserialize(&serialized_job, ctx)
+				.await
+				.map(|maybe_job| {
+					maybe_job.map(|(job, maybe_tasks)| {
+						(
+							Box::new(JobHolder {
+								id,
+								job,
+								run_time,
+								report,
+								next_jobs: VecDeque::new(),
+								_ctx: PhantomData,
+							}),
+							maybe_tasks.and_then(|tasks| (!tasks.0.is_empty()).then_some(tasks)),
+						)
+					})
+				})
+				.map_err(Into::into)
+		})
+	}
+}

@@ -11,8 +11,11 @@ pub type LocationId = i32;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SdPath {
+	/// Device ID allows cross-device paths
 	device: DeviceId,
+	/// Location ID optional to support ephemeral paths
 	location: Option<LocationId>,
+	/// absolute file path on a given device
 	local_path: PathBuf,
 }
 

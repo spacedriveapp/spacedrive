@@ -1,4 +1,4 @@
-use crate::{file_identifier, indexer, media_processor, JobContext};
+use crate::JobContext;
 
 use sd_core_job_errors::report::ReportError;
 use sd_prisma::prisma::job;
@@ -8,6 +8,7 @@ use std::{
 	collections::{HashMap, VecDeque},
 	future::Future,
 	marker::PhantomData,
+	pin::Pin,
 	time::Duration,
 };
 
@@ -61,9 +62,63 @@ pub struct StoredJobEntry {
 	pub(super) next_jobs: Vec<StoredJob>,
 }
 
+// Trait for job serialization handlers
+pub trait JobSerializationHandler<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>:
+	Send + Sync
+{
+	fn deserialize_job<'a>(
+		&'a self,
+		stored_job: StoredJob,
+		report: Report,
+		ctx: &'a OuterCtx,
+	) -> Pin<
+		Box<
+			dyn Future<
+					Output = Result<
+						Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>,
+						JobSystemError,
+					>,
+				> + Send
+				+ 'a,
+		>,
+	>;
+}
+
+// Registry for job serialization handlers
+#[derive(Default)]
+pub struct JobSerializationRegistry<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	handlers: HashMap<JobName, Box<dyn JobSerializationHandler<OuterCtx, JobCtx>>>,
+}
+
+pub trait RegisterJobHandler {
+	fn register_handler<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+		registry: &mut JobSerializationRegistry<OuterCtx, JobCtx>,
+	);
+}
+
+impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>
+	JobSerializationRegistry<OuterCtx, JobCtx>
+{
+	pub fn register_handler(
+		&mut self,
+		job_name: JobName,
+		handler: Box<dyn JobSerializationHandler<OuterCtx, JobCtx>>,
+	) {
+		self.handlers.insert(job_name, handler);
+	}
+
+	pub fn get_handler(
+		&self,
+		job_name: &JobName,
+	) -> Option<&dyn JobSerializationHandler<OuterCtx, JobCtx>> {
+		self.handlers.get(job_name).map(|h| h.as_ref())
+	}
+}
+
 pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	entries: Vec<StoredJobEntry>,
 	ctx: &OuterCtx,
+	registry: &JobSerializationRegistry<OuterCtx, JobCtx>,
 ) -> Result<Vec<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>, JobSystemError> {
 	let mut jobs_to_load = Vec::with_capacity(entries.len());
 	let mut job_ids = Vec::new();
@@ -100,7 +155,7 @@ pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 			.remove(&root_job.id)
 			.ok_or(ReportError::MissingReport(root_job.id))?;
 
-		let loaded_job = load_job(root_job, report, ctx).await?;
+		let loaded_job = load_job(root_job, report, ctx, registry).await?;
 
 		if let Some((mut dyn_job, tasks)) = loaded_job {
 			// Load and set next jobs
@@ -118,7 +173,7 @@ pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 			let mut next_dyn_jobs = Vec::new();
 			for (next_job, next_report) in next_jobs_loaded {
 				if let Some((next_dyn_job, next_tasks)) =
-					load_job(next_job, next_report, ctx).await?
+					load_job(next_job, next_report, ctx, registry).await?
 				{
 					assert!(
 						next_tasks.is_none(),
@@ -140,64 +195,15 @@ pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCt
 	Ok(jobs_to_load)
 }
 
-macro_rules! match_deserialize_job {
-	($stored_job:ident, $report:ident, $outer_ctx:ident, $outer_ctx_type:ty, $job_ctx_type:ty, [$($job_type:ty),+ $(,)?]) => {{
-		let StoredJob {
-			id,
-			name,
-			run_time,
-			serialized_job,
-		} = $stored_job;
-
-
-		match name {
-			$(<$job_type as Job>::NAME => <$job_type as SerializableJob<$outer_ctx_type>>::deserialize(
-					&serialized_job,
-					$outer_ctx,
-				).await
-					.map(|maybe_job| maybe_job.map(|(job, maybe_tasks)| -> (
-							Box<dyn DynJob<$outer_ctx_type, $job_ctx_type>>,
-							Option<SerializedTasks>
-						) {
-							(
-								Box::new(JobHolder {
-									id,
-									job,
-									run_time,
-									report: $report,
-									next_jobs: VecDeque::new(),
-									_ctx: PhantomData,
-								}),
-								maybe_tasks.and_then(
-									|tasks| (!tasks.0.is_empty()).then_some(tasks)
-								),
-							)
-						}
-					))
-					.map_err(Into::into),)+
-
-			// TODO(fogodev): this is temporary until we can get rid of the old job system
-			_ => unimplemented!("Job not implemented"),
-		}
-	}};
-}
-
-async fn load_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+pub async fn load_job<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	stored_job: StoredJob,
 	report: Report,
 	ctx: &OuterCtx,
+	registry: &JobSerializationRegistry<OuterCtx, JobCtx>,
 ) -> Result<Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>, JobSystemError> {
-	match_deserialize_job!(
-		stored_job,
-		report,
-		ctx,
-		OuterCtx,
-		JobCtx,
-		[
-			indexer::job::Indexer,
-			file_identifier::job::FileIdentifier,
-			media_processor::job::MediaProcessor,
-			// TODO: Add more jobs here
-		]
-	)
+	if let Some(handler) = registry.get_handler(&stored_job.name) {
+		handler.deserialize_job(stored_job, report, ctx).await
+	} else {
+		Ok(None)
+	}
 }

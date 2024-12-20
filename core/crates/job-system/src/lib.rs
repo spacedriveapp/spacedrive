@@ -55,8 +55,9 @@ use crate::job::JobContext;
 use job::{IntoJob, Job, JobOutput, OuterContext};
 use report::Report;
 use runner::{run, JobSystemRunner, RunnerMessage};
-use store::{load_jobs, StoredJobEntry};
-pub use store::{SerializableJob, SerializedTasks};
+use store::{
+	load_jobs, JobSerializationRegistry, SerializableJob, SerializedTasks, StoredJobEntry,
+};
 
 #[repr(i32)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Eq, PartialEq)]

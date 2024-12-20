@@ -48,6 +48,8 @@ pub use sd_core_job_system::{
 };
 pub use sd_core_shared_types::jobs::JobName;
 
+use sd_job_system::store::{JobSerializationRegistry, RegisterJobHandler};
+
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
@@ -95,4 +97,15 @@ pub enum UpdateEvent {
 	NewIdentifiedObjects {
 		file_path_ids: Vec<file_path::id::Type>,
 	},
+}
+
+pub struct LocationScanJobRegistration;
+
+impl RegisterJobHandler for LocationScanJobRegistration {
+    fn register_handler<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
+        registry: &mut JobSerializationRegistry<OuterCtx, JobCtx>
+    ) {
+        use indexer::job::IndexerSerializationHandler;
+        registry.register_handler(JobName::Indexer, Box::new(IndexerSerializationHandler));
+    }
 }
