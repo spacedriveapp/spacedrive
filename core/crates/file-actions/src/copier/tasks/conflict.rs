@@ -1,4 +1,4 @@
-use sd_core_heavy_lifting::job_system::job::JobError;
+use sd_core_job_system::job::JobError;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use tokio::fs;

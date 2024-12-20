@@ -1,6 +1,6 @@
 use crate::location::LocationError;
 
-use sd_core_file_path_helper::IsolatedFilePathData;
+use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::file_path_with_object;
 
 use sd_prisma::prisma::{file_path, location, PrismaClient};

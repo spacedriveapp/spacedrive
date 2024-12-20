@@ -1,14 +1,11 @@
-use crate::{
-	api::CoreEvent,
-	invalidate_query,
-	library::{Library, LibraryConfig, LibraryName},
-	location::{scan_location, LocationCreateArgs, ScanState},
-	util::MaybeUndefined,
-	Node,
-};
+use crate::{invalidate_query, util::MaybeUndefined};
 
 use sd_core_heavy_lifting::JobId;
 
+use sd_core_device::Node;
+use sd_core_library::{Library, LibraryConfig, LibraryName};
+use sd_core_location::{scan_location, LocationCreateArgs, LocationError, ScanState};
+use sd_core_shared_types::core_event::CoreEvent;
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;
 use sd_prisma::prisma::{file_path, indexer_rule, object, object_kind_statistics, statistics};
@@ -93,14 +90,6 @@ impl LibraryConfigWrapped {
 			config: library.config().await,
 		}
 	}
-}
-
-#[derive(Debug, Serialize, Deserialize, Type, Default, Clone)]
-pub struct KindStatistic {
-	kind: i32,
-	name: String,
-	count: (u32, u32),
-	total_bytes: (u32, u32),
 }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {

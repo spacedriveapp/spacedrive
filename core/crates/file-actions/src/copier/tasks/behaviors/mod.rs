@@ -10,7 +10,7 @@ pub use fast::FastCopyBehavior;
 pub use stream::StreamCopyBehavior;
 
 use async_trait::async_trait;
-use sd_core_heavy_lifting::job_system::job::{JobContext, JobError};
+use sd_core_job_system::job::{JobContext, JobError};
 
 const FAST_COPY_SIZE_THRESHOLD: u64 = 10 * 1024 * 1024; // 10MB
 const MAX_RETRIES: u32 = 3;

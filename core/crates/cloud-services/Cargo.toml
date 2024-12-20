@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 # Core Spacedrive Sub-crates
-sd-core-sync = { path = "../sync" }
+sd-core-library-sync = { path = "../library-sync" }
 
 # Spacedrive Sub-crates
 sd-actors       = { path = "../../../crates/actors" }

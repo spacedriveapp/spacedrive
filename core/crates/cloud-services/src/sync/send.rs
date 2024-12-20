@@ -1,6 +1,6 @@
 use crate::{CloudServices, Error, KeyManager};
 
-use sd_core_sync::{CompressedCRDTOperationsPerModelPerDevice, SyncEvent, SyncManager, NTP64};
+use sd_core_library_sync::{CompressedCRDTOperationsPerModelPerDevice, SyncEvent, SyncManager, NTP64};
 
 use sd_actors::{Actor, Stopper};
 use sd_cloud_schema::{

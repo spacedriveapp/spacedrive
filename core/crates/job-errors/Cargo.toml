@@ -1,0 +1,28 @@
+[package]
+name    = "sd-core-job-errors"
+version = "0.1.0"
+
+authors              = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+
+
+[dependencies]
+prisma-client-rust = { workspace = true }
+rmp-serde          = { workspace = true }
+rspc               = { workspace = true }
+serde              = { workspace = true, features = ["derive", "rc"] }
+serde_json         = { workspace = true }
+specta             = { workspace = true }
+thiserror          = { workspace = true }
+uuid               = { workspace = true, features = ["serde", "v4"] }
+
+
+sd-core-file-helper   = { path = "../file-helper" }
+sd-core-indexer-rules = { path = "../indexer-rules" }
+sd-core-library-sync  = { path = "../library-sync" }
+sd-core-shared-types  = { path = "../shared-types" }
+sd-prisma             = { path = "../../../crates/prisma" }
+sd-task-system        = { path = "../../../crates/task-system" }
+sd-utils              = { path = "../../../crates/utils" }

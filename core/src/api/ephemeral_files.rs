@@ -11,8 +11,8 @@ use crate::{
 	},
 };
 
-use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_heavy_lifting::media_processor::exif_media_data;
+use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_location_scan::media_processor::exif_media_data;
 
 use sd_file_ext::{
 	extensions::{Extension, ImageExtension},

@@ -2,15 +2,15 @@ use crate::{
 	invalidate_query,
 	library::LibraryId,
 	node::{
-		config::{is_in_docker, NodeConfig, NodeConfigP2P, NodePreferences, DeletePreferences},
+		config::{is_in_docker, DeletePreferences, NodeConfig, NodeConfigP2P, NodePreferences},
 		HardwareModel,
 	},
 	old_job::JobProgressEvent,
 	Node,
 };
 
-use sd_core_heavy_lifting::media_processor::ThumbKey;
-use sd_core_sync::DevicePubId;
+use sd_core_library_sync::DevicePubId;
+use sd_core_location_scan::media_processor::ThumbKey;
 
 use sd_cloud_schema::devices::DeviceOS;
 use sd_p2p::RemoteIdentity;
@@ -23,6 +23,8 @@ use rspc::{alpha::Rspc, Config, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::warn;
+
+use sd_core_shared_types::core_event::CoreEvent;
 
 mod backups;
 mod cloud;
@@ -54,20 +56,6 @@ pub(crate) const R: Rspc<Ctx> = Rspc::new();
 
 pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
-
-/// Represents an internal core event, these are exposed to client via a rspc subscription.
-#[derive(Debug, Clone, Serialize, Type)]
-pub enum CoreEvent {
-	NewThumbnail {
-		thumb_key: ThumbKey,
-	},
-	NewIdentifiedObjects {
-		file_path_ids: Vec<file_path::id::Type>,
-	},
-	UpdatedKindStatistic(KindStatistic, LibraryId),
-	JobProgress(JobProgressEvent),
-	InvalidateOperation(InvalidateOperationEvent),
-}
 
 /// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
 ///

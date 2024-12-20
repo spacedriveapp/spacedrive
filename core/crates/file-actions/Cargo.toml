@@ -25,11 +25,12 @@ tracing             = { workspace = true }
 uuid                = { workspace = true, features = ["serde", "v4"] }
 
 # core sub-crates
-sd-core-file-path-helper = { path = "../file-path-helper" }
-sd-core-heavy-lifting    = { path = "../heavy-lifting" }
-sd-core-prisma-helpers   = { path = "../prisma-helpers" }
-sd-core-shared-types     = { path = "../shared-types" }
-sd-core-sync             = { path = "../sync" }
+sd-core-file-helper    = { path = "../file-helper" }
+sd-core-job-system     = { path = "../job-system" }
+sd-core-library-sync   = { path = "../library-sync" }
+sd-core-location-scan  = { path = "../location-scan" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-shared-types   = { path = "../shared-types" }
 
 # spacedrive sub-crates
 sd-prisma      = { path = "../../../crates/prisma" }

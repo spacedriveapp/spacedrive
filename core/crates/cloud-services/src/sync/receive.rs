@@ -8,7 +8,7 @@ use sd_cloud_schema::{
 	},
 	Client, Request, Response,
 };
-use sd_core_sync::{
+use sd_core_library_sync::{
 	cloud_crdt_op_db, CRDTOperation, CompressedCRDTOperationsPerModel, SyncManager,
 };
 
@@ -299,7 +299,7 @@ async fn decrypt_messages(
 pub async fn write_cloud_ops_to_db(
 	ops: Vec<CRDTOperation>,
 	db: &PrismaClient,
-) -> Result<(), sd_core_sync::Error> {
+) -> Result<(), sd_core_library_sync::Error> {
 	db._batch(
 		ops.into_iter()
 			.map(|op| cloud_crdt_op_db(&op).map(|op| op.to_query(db)))

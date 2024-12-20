@@ -1,28 +1,39 @@
 #![recursion_limit = "256"]
 #![warn(clippy::unwrap_used, clippy::panic)]
 
-use crate::{
-	api::{CoreEvent, Router},
-	location::LocationManagerError,
-};
-
+// Core crates
 use sd_core_cloud_services::CloudServices;
-use sd_core_heavy_lifting::{media_processor::ThumbnailKind, JobSystem};
+use sd_core_cloud_services::AUTH_SERVER_URL;
+use sd_core_device::config;
+use sd_core_library::{Libraries, LibraryManagerError};
+use sd_core_location::{LocationManagerError, Locations};
+use sd_core_location_scan::{media_processor::ThumbnailKind, JobSystem};
 use sd_core_prisma_helpers::CasId;
+use sd_core_volume::{VolumeManagerActor, Volumes};
 
+// Shared crates
 use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
-use volume::VolumeManagerActor;
 
+// Local modules
+pub mod api;
+
+pub(crate) mod notifications;
+pub(crate) mod object;
+pub(crate) mod p2p;
+
+#[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
+pub mod util;
+
+// Dependencies
+use chrono::{DateTime, Utc};
+use futures_concurrency::future::Join;
 use std::{
 	fmt,
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-
-use chrono::{DateTime, Utc};
-use futures_concurrency::future::Join;
 use thiserror::Error;
 use tokio::{
 	fs, io,
@@ -37,38 +48,20 @@ use tracing_subscriber::{
 	filter::FromEnvError, fmt::format::Format, prelude::*, registry, EnvFilter,
 };
 
-pub mod api;
-mod context;
-pub mod custom_uri;
-pub mod library;
-pub(crate) mod location;
-pub(crate) mod node;
-pub(crate) mod notifications;
-pub(crate) mod object;
-pub(crate) mod old_job;
-pub(crate) mod p2p;
-pub mod path;
-
-pub(crate) mod preferences;
-#[doc(hidden)] // TODO(@Oscar): Make this private when breaking out `utils` into `sd-utils`
-pub mod util;
-pub(crate) mod volume;
-
+// Local module imports
+use crate::api::{CoreEvent, Router};
 use api::notifications::{Notification, NotificationData, NotificationId};
 use context::{JobContext, NodeContext};
-use node::config;
 use notifications::Notifications;
-use sd_core_cloud_services::AUTH_SERVER_URL;
-
 /// Represents a single running instance of the Spacedrive core.
 /// Holds references to all the services that make up the Spacedrive core.
 pub struct Node {
 	pub data_dir: PathBuf,
 	pub config: Arc<config::Manager>,
-	pub libraries: Arc<library::Libraries>,
-	pub volumes: Arc<volume::Volumes>,
-	pub locations: location::Locations,
-	pub p2p: Arc<p2p::P2PManager>,
+	pub libraries: Arc<Libraries>,
+	pub volumes: Arc<Volumes>,
+	pub locations: Arc<Locations>,
+	// pub p2p: Arc<p2p::P2PManager>,
 	pub event_bus: (broadcast::Sender<CoreEvent>, broadcast::Receiver<CoreEvent>),
 	pub notifications: Notifications,
 	pub task_system: TaskSystem<sd_core_heavy_lifting::Error>,
@@ -77,7 +70,6 @@ pub struct Node {
 	/// This should only be used to generate the seed of local instances of [`CryptoRng`].
 	/// Don't use this as a common RNG, it will fuck up Core's performance due to this Mutex.
 	pub master_rng: Arc<Mutex<CryptoRng>>,
-	pub old_jobs: Arc<old_job::OldJobs>,
 }
 
 impl fmt::Debug for Node {
@@ -106,7 +98,7 @@ impl Node {
 			.map_err(NodeError::FailedToInitializeConfig)?;
 
 		let (locations, locations_actor) = location::Locations::new();
-		let (old_jobs, jobs_actor) = old_job::OldJobs::new();
+		// let (old_jobs, jobs_actor) = old_job::OldJobs::new();
 		let libraries = library::Libraries::new(data_dir.join("libraries")).await?;
 
 		let (
@@ -153,9 +145,9 @@ impl Node {
 
 		let task_system = TaskSystem::new();
 
-		let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
-			.await
-			.map_err(NodeError::P2PManager)?;
+		// let (p2p, start_p2p) = p2p::P2PManager::new(config.clone(), libraries.clone())
+		// 	.await
+		// 	.map_err(NodeError::P2PManager)?;
 
 		let device_id = config.get().await.id;
 		let volume_ctx = volume::VolumeManagerContext {
@@ -174,7 +166,7 @@ impl Node {
 			volumes,
 			locations,
 			notifications: notifications::Notifications::new(),
-			p2p,
+			// p2p,
 			config,
 			event_bus,
 			libraries,
@@ -189,7 +181,7 @@ impl Node {
 				.await?,
 			),
 			master_rng: Arc::new(Mutex::new(CryptoRng::new()?)),
-			old_jobs,
+			// old_jobs,
 		});
 
 		// Setup start actors that depend on the `Node`
@@ -226,25 +218,25 @@ impl Node {
 			)
 			.await?;
 
-		start_p2p(
-			node.clone(),
-			axum::Router::new()
-				.nest(
-					"/uri",
-					custom_uri::base_router().with_state(custom_uri::with_state(node.clone())),
-				)
-				.nest(
-					"/rspc",
-					router
-						.clone()
-						.endpoint({
-							let node = node.clone();
-							move |_| node.clone()
-						})
-						.axum::<()>(),
-				)
-				.into_make_service(),
-		);
+		// start_p2p(
+		// 	node.clone(),
+		// 	axum::Router::new()
+		// 		.nest(
+		// 			"/uri",
+		// 			custom_uri::base_router().with_state(custom_uri::with_state(node.clone())),
+		// 		)
+		// 		.nest(
+		// 			"/rspc",
+		// 			router
+		// 				.clone()
+		// 				.endpoint({
+		// 					let node = node.clone();
+		// 					move |_| node.clone()
+		// 				})
+		// 				.axum::<()>(),
+		// 		)
+		// 		.into_make_service(),
+		// );
 
 		// save_storage_statistics(&node);
 

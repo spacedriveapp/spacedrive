@@ -1,31 +1,29 @@
-use async_trait::async_trait;
-use std::{
-	fmt,
-	path::{Path, PathBuf},
-	sync::Arc,
-	time::{Duration, Instant},
-};
-use uuid::Uuid;
-
-use sd_core_heavy_lifting::{
-	job_system::job::{JobContext, JobError},
-	task::{Task, TaskId, TaskStatus},
-	OuterContext, ProgressUpdate,
-};
-use serde::{Deserialize, Serialize};
-use tokio::fs;
-
-use sd_core_shared_types::sd_path::SdPath;
-
 use super::{
 	batch::{batch_copy_files, collect_copy_entries},
 	behaviors::{CopyBehavior, FastCopyBehavior, StreamCopyBehavior},
 	conflict::resolve_name_conflicts,
 };
 use crate::copier::progress::CopyProgress;
-use sd_core_sync::SyncManager;
+use async_trait::async_trait;
+use sd_core_core_errors::Error;
+use sd_core_job_system::{
+	job_system::job::{JobContext, JobError},
+	task::{Task, TaskId, TaskStatus},
+	OuterContext, ProgressUpdate,
+};
+use sd_core_library_sync::SyncManager;
+use sd_core_shared_types::sd_path::SdPath;
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::SerializableTask;
+use serde::{Deserialize, Serialize};
+use std::{
+	fmt,
+	path::{Path, PathBuf},
+	sync::Arc,
+	time::{Duration, Instant},
+};
+use tokio::fs;
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct CopyTask {

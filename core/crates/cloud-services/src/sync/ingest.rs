@@ -1,6 +1,6 @@
 use crate::Error;
 
-use sd_core_sync::SyncManager;
+use sd_core_library_sync::SyncManager;
 
 use sd_actors::{Actor, Stopper};
 
@@ -96,7 +96,7 @@ impl Ingester {
 			.count(vec![])
 			.exec()
 			.await
-			.map_err(sd_core_sync::Error::from)?;
+			.map_err(sd_core_library_sync::Error::from)?;
 
 		if operations_to_ingest_count == 0 {
 			debug!("Nothing to ingest, early finishing ingester loop");

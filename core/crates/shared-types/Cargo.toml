@@ -9,10 +9,18 @@ rust-version.workspace = true
 version                = "0.1.0"
 
 [dependencies]
+
+# Inner Core Sub-crates
+sd-core-library-sync   = { path = "../library-sync" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+# sd-core-location-scan = { path = "../location-scan" }
+
+chrono             = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
 sd-prisma          = { path = "../../../crates/prisma" }
 serde              = { workspace = true, features = ["derive"] }
 serde_json         = { workspace = true }
 specta             = { workspace = true }
+strum              = { workspace = true, features = ["derive", "phf"] }
 thiserror          = { workspace = true }
 uuid               = { workspace = true, features = ["serde", "v4"] }

@@ -15,18 +15,27 @@ default = []
 mobile = []
 # This feature controls whether the Spacedrive Core contains functionality which requires FFmpeg.
 ai     = ["dep:sd-ai"]
-ffmpeg = ["sd-core-heavy-lifting/ffmpeg", "sd-media-metadata/ffmpeg"]
+ffmpeg = ["sd-core-location-scan/ffmpeg", "sd-media-metadata/ffmpeg"]
 heif   = ["sd-images/heif"]
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-cloud-services   = { path = "./crates/cloud-services" }
-sd-core-file-path-helper = { path = "./crates/file-path-helper" }
-sd-core-heavy-lifting    = { path = "./crates/heavy-lifting" }
-sd-core-indexer-rules    = { path = "./crates/indexer-rules" }
-sd-core-prisma-helpers   = { path = "./crates/prisma-helpers" }
-sd-core-sync             = { path = "./crates/sync" }
-sd-file-actions          	 = { path = "./crates/file-actions" }
+sd-core-cloud-services = { path = "./crates/cloud-services" }
+sd-core-custom-uri     = { path = "./crates/custom-uri" }
+sd-core-device         = { path = "./crates/device" }
+sd-core-file-helper    = { path = "./crates/file-helper" }
+sd-core-indexer-rules  = { path = "./crates/indexer-rules" }
+sd-core-job-system     = { path = "./crates/job-system" }
+sd-core-library        = { path = "./crates/library" }
+sd-core-library-sync   = { path = "./crates/library-sync" }
+sd-core-location       = { path = "./crates/location" }
+sd-core-location-scan  = { path = "./crates/location-scan" }
+sd-core-preferences    = { path = "./crates/preferences" }
+sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
+sd-core-shared-types   = { path = "./crates/shared-types" }
+sd-core-tag            = { path = "./crates/tag" }
+sd-core-volume         = { path = "./crates/volume" }
+sd-file-actions        = { path = "./crates/file-actions" }
 
 # Spacedrive Sub-crates
 sd-actors         = { path = "../crates/actors" }

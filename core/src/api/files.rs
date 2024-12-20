@@ -12,7 +12,7 @@ use crate::{
 	old_job::OldJob,
 };
 
-use sd_core_file_path_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
 use sd_core_heavy_lifting::{
 	media_processor::{exif_media_data, ffmpeg_media_data},
 	JobEnqueuer,

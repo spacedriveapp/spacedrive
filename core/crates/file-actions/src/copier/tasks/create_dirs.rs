@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use sd_core_heavy_lifting::Error;
+use sd_core_core_errors::Error;
 use sd_task_system::{Task, TaskId};
 use sd_utils::error::FileIOError;
 use tokio::fs;

@@ -6,7 +6,7 @@ use crate::{
 };
 
 use prisma_client_rust::Operator;
-use sd_core_heavy_lifting::media_processor::ThumbKey;
+use sd_core_location_scan::media_processor::ThumbKey;
 use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths, CasId};
 use sd_prisma::prisma::{self, PrismaClient};
 
@@ -19,11 +19,7 @@ use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-pub mod exif_data;
-pub mod file_path;
-pub mod object;
 pub mod saved;
-mod utils;
 
 pub use self::{file_path::*, object::*, utils::*};
 

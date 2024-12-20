@@ -1,14 +1,11 @@
 use super::tasks::{CopyTask, CreateDirsTask};
 use futures::{future::try_join_all, stream::FuturesUnordered, StreamExt};
-use sd_core_heavy_lifting::{
-	job_system::{
-		job::{Job, JobContext, JobName, JobTaskDispatcher, OuterContext, ReturnStatus},
-		report::{ReportInputMetadata, ReportOutputMetadata},
-		SerializableJob, SerializedTasks,
-	},
-	Error,
+use sd_core_job_system::{
+	job::{Job, JobContext, JobTaskDispatcher, OuterContext, ReturnStatus},
+	report::ReportInputMetadata,
+	SerializableJob, SerializedTasks,
 };
-use sd_core_shared_types::{sd_path::SdPath, CopyOperation, CopyStats};
+use sd_core_shared_types::{jobs::JobName, sd_path::SdPath, CopyOperation, CopyStats, JobMetadata};
 use sd_task_system::{Task, TaskHandle, TaskStatus};
 use serde::{Deserialize, Serialize};
 use std::{marker::PhantomData, time::Instant};
@@ -210,7 +207,7 @@ impl<C> Job<C> for CopyJob<C> {
 			if errors.is_empty() {
 				Ok(ReturnStatus::Completed(
 					JobReturn::builder()
-						.with_metadata(vec![ReportOutputMetadata::Copier(self.stats.clone())])
+						.with_metadata(vec![JobMetadata::Copier(self.stats.clone())])
 						.build(),
 				))
 			} else {
@@ -219,7 +216,7 @@ impl<C> Job<C> for CopyJob<C> {
 		} else {
 			Ok(ReturnStatus::Completed(
 				JobReturn::builder()
-					.with_metadata(vec![ReportOutputMetadata::Copier(self.stats.clone())])
+					.with_metadata(vec![JobMetadata::Copier(self.stats.clone())])
 					.build(),
 			))
 		}
@@ -300,7 +297,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for CopyJob<OuterCtx> {
 // 			.metadata
 // 			.iter()
 // 			.find_map(|m| {
-// 				if let ReportMetadata::Output(ReportOutputMetadata::Copier {
+// 				if let ReportMetadata::Output(JobMetadata::Copier {
 // 					source_target_pairs,
 // 					..
 // 				}) = m

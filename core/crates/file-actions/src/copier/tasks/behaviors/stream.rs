@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use blake3::Hasher;
-use sd_core_heavy_lifting::job_system::job::{JobContext, JobError};
+use sd_core_job_system::job::{JobContext, JobError};
 use std::{path::Path, time::Instant};
 use tokio::{
 	fs,

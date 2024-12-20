@@ -52,5 +52,5 @@ pub enum ImageLabelerError {
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error(transparent)]
-	Sync(#[from] sd_core_sync::Error),
+	Sync(#[from] sd_core_library_sync::Error),
 }

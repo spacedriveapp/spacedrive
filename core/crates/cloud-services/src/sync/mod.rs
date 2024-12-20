@@ -1,6 +1,6 @@
 use crate::{CloudServices, Error};
 
-use sd_core_sync::SyncManager;
+use sd_core_library_sync::SyncManager;
 
 use sd_actors::{ActorsCollection, IntoActor};
 use sd_cloud_schema::sync::groups;

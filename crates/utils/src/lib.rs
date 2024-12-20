@@ -35,6 +35,7 @@ use uuid::Uuid;
 
 pub mod db;
 pub mod error;
+pub mod version_manager;
 
 /// Combines an iterator of `T` and an iterator of `Option<T>`,
 /// removing any `None` values in the process

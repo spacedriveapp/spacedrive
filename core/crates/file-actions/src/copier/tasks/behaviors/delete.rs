@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sd_core_heavy_lifting::job_system::job::JobError;
+use sd_core_job_system::job::JobError;
 use std::path::Path;
 
 /// Behavior for deleting files, can be implemented for different storage backends

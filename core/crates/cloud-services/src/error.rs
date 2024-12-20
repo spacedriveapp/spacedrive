@@ -132,7 +132,7 @@ pub enum Error {
 
 	// Sync error
 	#[error("Sync error: {0}")]
-	Sync(#[from] sd_core_sync::Error),
+	Sync(#[from] sd_core_library_sync::Error),
 	#[error("Tried to sync messages with a group without having needed key")]
 	MissingSyncGroupKey(groups::PubId),
 	#[error("Failed to encrypt sync messages: {0}")]
