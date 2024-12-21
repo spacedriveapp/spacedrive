@@ -30,14 +30,11 @@
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use thiserror::Error;
 
 pub mod file_identifier;
 pub mod indexer;
 pub mod media_processor;
 pub mod utils;
-
-use sd_core_shared_types::thumbnail::ThumbKey;
 
 use sd_core_job_errors::Error;
 pub use sd_core_job_system::{

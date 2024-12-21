@@ -1,7 +1,4 @@
-use crate::{
-	file_identifier::{self, FileMetadata},
-	Error,
-};
+use crate::{file_identifier::FileMetadata, Error};
 
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_library_sync::SyncManager;

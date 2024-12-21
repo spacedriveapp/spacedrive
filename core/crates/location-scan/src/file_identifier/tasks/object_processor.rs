@@ -1,4 +1,4 @@
-use crate::{file_identifier, Error};
+use crate::Error;
 
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};

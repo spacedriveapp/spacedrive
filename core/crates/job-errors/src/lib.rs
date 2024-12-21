@@ -26,6 +26,9 @@ pub enum Error {
 
 	#[error(transparent)]
 	JobSystem(#[from] JobSystemError),
+
+	#[error(transparent)]
+	SubPath(#[from] sub_path::Error),
 }
 
 impl From<Error> for rspc::Error {
@@ -38,6 +41,7 @@ impl From<Error> for rspc::Error {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
 			Error::JobSystem(e) => e.into(),
+			Error::SubPath(e) => e.into(),
 		}
 	}
 }

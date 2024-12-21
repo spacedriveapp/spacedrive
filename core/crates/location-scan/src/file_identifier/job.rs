@@ -1,12 +1,13 @@
 use crate::{
-	utils::sub_path::maybe_get_iso_file_path_from_sub_path, JobContext, LocationScanState,
+	utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, JobContext, LocationScanState,
 	OuterContext, ProgressUpdate,
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_job_errors::{
+	file_identifier::Error as FileIdentifierError,
 	system::{DispatcherError, JobErrorOrDispatcherError},
-	Error, NonCriticalError,
+	NonCriticalError,
 };
 use sd_core_job_system::{
 	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
@@ -128,7 +129,7 @@ impl Job for FileIdentifier {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(Error::from)?
+					.map_err(|e| FileIdentifierError::from(e))?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
@@ -150,7 +151,7 @@ impl Job for FileIdentifier {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(Error::from)?,
+					.map_err(FileIdentifierError::from)?,
 			)
 			.await
 		{
@@ -186,8 +187,8 @@ impl Job for FileIdentifier {
 			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 			.exec()
 			.await
-			.map_err(Error::from)?
-			.ok_or(Error::DeviceNotFound(device_pub_id.clone()))?
+			.map_err(FileIdentifierError::from)?
+			.ok_or(FileIdentifierError::DeviceNotFound(device_pub_id.clone()))?
 			.id;
 
 		match self
@@ -291,7 +292,7 @@ impl Job for FileIdentifier {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(Error::from)?;
+			.map_err(FileIdentifierError::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -303,7 +304,10 @@ impl Job for FileIdentifier {
 }
 
 impl FileIdentifier {
-	pub fn new(location: location::Data, sub_path: Option<PathBuf>) -> Result<Self, Error> {
+	pub fn new(
+		location: location::Data,
+		sub_path: Option<PathBuf>,
+	) -> Result<Self, FileIdentifierError> {
 		Ok(Self {
 			location_path: maybe_missing(&location.path, "location.path")
 				.map(PathBuf::from)
@@ -328,10 +332,10 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<FileIdentifierError>> {
 		// if we don't have any pending task, then this is a fresh job
 		let db = ctx.db();
-		let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<Error>(
+		let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<FileIdentifierError>(
 			self.location.id,
 			self.sub_path.as_ref(),
 			&*self.location_path,
@@ -347,7 +351,7 @@ impl FileIdentifier {
 			&*self.location_path,
 			true,
 		)
-		.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+		.map_err(FileIdentifierError::from)?;
 
 		if self.pending_tasks_on_resume.is_empty() {
 			ctx.progress([ProgressUpdate::phase(self.phase)]).await;
@@ -672,7 +676,7 @@ impl FileIdentifier {
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<FileIdentifierError>> {
 		let db = ctx.db();
 
 		loop {
@@ -692,7 +696,7 @@ impl FileIdentifier {
 				.select(file_path_for_file_identifier::select())
 				.exec()
 				.await
-				.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+				.map_err(FileIdentifierError::from)?;
 
 			trace!(orphans_count = orphan_paths.len(), "Found orphan paths;");
 
@@ -753,7 +757,7 @@ impl FileIdentifier {
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<FileIdentifierError>> {
 		let db = ctx.db();
 
 		loop {
@@ -773,7 +777,7 @@ impl FileIdentifier {
 				.select(file_path_for_file_identifier::select())
 				.exec()
 				.await
-				.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+				.map_err(FileIdentifierError::from)?;
 
 			// No other orphans to identify, we can break the loop
 			if orphan_paths.is_empty() {

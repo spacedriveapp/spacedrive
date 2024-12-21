@@ -41,7 +41,7 @@ pub(super) async fn apply_indexer_rules(
 		.join()
 		.await
 		.into_iter()
-		.filter_map(|res| res.map_err(|e| errors.push(e)).ok())
+		.filter_map(|res: Result<_, NonCriticalError>| res.map_err(|e| errors.push(e.into())).ok())
 		.collect()
 }
 
@@ -102,7 +102,9 @@ pub(super) async fn process_rules_results(
 			.join()
 			.await
 			.into_iter()
-			.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+			.filter_map(|res: Result<_, NonCriticalError>| {
+				res.map_err(|e| errors.push(e.into())).ok()
+			})
 			.collect(),
 		rejected,
 	)
