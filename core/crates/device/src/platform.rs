@@ -1,7 +1,12 @@
-use crate::NodeError;
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum PlatformDetectionError {
+	#[error("invalid platform integer: {0}")]
+	InvalidPlatformInt(u8),
+}
 
 #[allow(clippy::upper_case_acronyms)]
 #[repr(u8)]
@@ -38,7 +43,7 @@ impl Platform {
 }
 
 impl TryFrom<u8> for Platform {
-	type Error = NodeError;
+	type Error = PlatformDetectionError;
 
 	fn try_from(value: u8) -> Result<Self, Self::Error> {
 		let s = match value {
@@ -48,7 +53,7 @@ impl TryFrom<u8> for Platform {
 			3 => Self::Linux,
 			4 => Self::IOS,
 			5 => Self::Android,
-			_ => return Err(NodeError::InvalidPlatformInt(value)),
+			_ => return Err(PlatformDetectionError::InvalidPlatformInt(value)),
 		};
 
 		Ok(s)

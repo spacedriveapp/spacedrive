@@ -10103,6 +10103,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-trait",
+ "base91",
  "blake3",
  "chrono",
  "futures",
@@ -10119,6 +10120,7 @@ dependencies = [
  "sd-cloud-schema",
  "sd-core-library-sync",
  "sd-core-prisma-helpers",
+ "sd-core-shared-types",
  "sd-p2p",
  "sd-utils",
  "serde",
@@ -10133,6 +10135,7 @@ dependencies = [
  "tracing",
  "uuid",
  "webp",
+ "whoami",
 ]
 
 [[package]]

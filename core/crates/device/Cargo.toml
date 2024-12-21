@@ -12,6 +12,7 @@ version                = "0.1.0"
 # Inner Core Sub-crates
 sd-core-library-sync   = { path = "../library-sync" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-shared-types   = { path = "../shared-types" }
 
 sd-cloud-schema = { workspace = true }
 sd-p2p          = { path = "../../../crates/p2p" }
@@ -29,6 +30,7 @@ futures-concurrency = { workspace = true }
 globset             = { workspace = true }
 image               = { workspace = true }
 # Update blocked due to API breaking changes
+base91             = "0.1.0"
 itertools          = { workspace = true }
 lending-stream     = { workspace = true }
 prisma-client-rust = { workspace = true }
@@ -46,3 +48,4 @@ tokio-stream       = { workspace = true, features = ["fs"] }
 tracing            = { workspace = true }
 uuid               = { workspace = true, features = ["serde", "v4"] }
 webp               = { workspace = true }
+whoami             = "1.5.2"

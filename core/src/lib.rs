@@ -416,4 +416,6 @@ pub enum NodeError {
 	Crypto(#[from] sd_crypto::Error),
 	#[error(transparent)]
 	Volume(#[from] volume::VolumeError),
+	#[error(transparent)]
+	PlatformDetection(#[from] sd_core_device::PlatformDetectionError),
 }

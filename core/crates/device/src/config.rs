@@ -1,11 +1,7 @@
 // TODO: rename this file to node.rs
-use crate::{
-	api::{notifications::Notification, BackendFeature},
-	/*object::media::old_thumbnail::preferences::ThumbnailerPreferences,*/
-};
-
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_library_sync::DevicePubId;
+use sd_core_shared_types::{BackendFeature, Notification};
 use sd_utils::{
 	error::FileIOError,
 	version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},

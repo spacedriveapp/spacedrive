@@ -57,23 +57,6 @@ pub(crate) const R: Rspc<Ctx> = Rspc::new();
 pub type Ctx = Arc<Node>;
 pub type Router = rspc::Router<Ctx>;
 
-/// All of the feature flags provided by the core itself. The frontend has it's own set of feature flags!
-///
-/// If you want a variant of this to show up on the frontend it must be added to `backendFeatures` in `useFeatureFlag.tsx`
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Type)]
-#[serde(rename_all = "camelCase")]
-pub enum BackendFeature {}
-
-// impl BackendFeature {
-// 	pub fn restore(&self, node: &Node) {
-// 		match self {
-// 			BackendFeature::CloudSync => {
-// 				node.cloud_sync_flag.store(true, Ordering::Relaxed);
-// 			}
-// 		}
-// 	}
-// }
-
 /// A version of [`NodeConfig`] that is safe to share with the frontend
 #[derive(Debug, Serialize, Deserialize, Clone, Type)]
 pub struct SanitizedNodeConfig {
