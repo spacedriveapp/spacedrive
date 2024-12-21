@@ -42,10 +42,12 @@ import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 
 declare global {
 	interface Window {
 		enableCORSFetch: (enable: boolean) => void;
+		startDrag: typeof startDrag;
 	}
 }
 
@@ -72,6 +74,7 @@ export default function App() {
 		// This tells Tauri to show the current window because it's finished loading
 		commands.appReady();
 		window.enableCORSFetch(true);
+		window.startDrag = startDrag;
 		// .then(() => {
 		// 	if (import.meta.env.PROD) window.fetch = fetch;
 		// });

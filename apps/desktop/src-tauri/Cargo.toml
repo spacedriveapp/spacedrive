@@ -48,6 +48,7 @@ tauri-plugin-updater           = "=2.0.2"
 
 # memory allocator
 mimalloc = { workspace = true }
+tauri-plugin-drag = "2.0.0"
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]

@@ -1,9 +1,10 @@
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import {
 	getItemFilePath,
 	getItemObject,
 	humanizeSize,
+	libraryClient,
 	Tag,
 	useExplorerLayoutStore,
 	useLibraryQuery,
@@ -11,6 +12,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { useLocale } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
@@ -19,6 +21,7 @@ import { FileThumb } from '../../../FilePath/Thumb';
 import { useFrame } from '../../../FilePath/useFrame';
 import { explorerStore } from '../../../store';
 import { useExplorerDraggable } from '../../../useExplorerDraggable';
+import { useExplorerItemData } from '../../../useExplorerItemData';
 import { RenamableItemText } from '../../RenamableItemText';
 import { ViewItem } from '../../ViewItem';
 import { GridViewItemContext, useGridViewItemContext } from './Context';
@@ -107,6 +110,43 @@ const ItemMetadata = memo(() => {
 	const item = useGridViewItemContext();
 	const { isDroppable } = useExplorerDroppableContext();
 	const explorerLayout = useExplorerLayoutStore();
+	const dragState = useSelector(explorerStore, (s) => s.drag);
+	const platform = usePlatform();
+	const itemData = useExplorerItemData(item.data);
+
+	useEffect(() => {
+		if (dragState?.type === 'dragging' && dragState.items.length > 0) {
+			// Convert the items into a list with the following format:
+			// { type: 'explorer-item', file_path: '/path/to/file', thumbnail_path: '/path/to/thumbnail' }
+			const items = dragState.items.map((item) => {
+				// const thumbnail = 'thumbnail' in item.item ? itemData.customIcon : Array.from(itemData.thumbnails.keys()).find((key) => key);
+				// if item.item.path exists, it is a file in the ephemeral directory
+				const file_path = 'path' in item.item ? item.item.path : '';
+
+				// const queriedFullPath = libraryClient.query(['files.getPath', item.item.id ?? -1], {
+				// 	enabled: filePathData != null && readyToFetch
+				// });
+
+				return {
+					type: 'explorer-item',
+					file_path: file_path
+					// thumbnail_path: itemData.customIcon,
+				};
+			});
+
+			console.log('Dragging items:', items);
+
+			// Start Drag for the list of items
+			(window as any)
+				.startDrag({
+					item: items.map((item) => item.file_path),
+					icon: '/Downloads/1600px-HD_transparent_picture.png'
+				})
+				.then(() => {
+					console.log('Drag Ended');
+				});
+		}
+	}, [dragState]);
 
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
 
