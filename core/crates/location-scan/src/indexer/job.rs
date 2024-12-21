@@ -1,4 +1,5 @@
 use crate::{utils::sub_path::get_full_path_from_sub_path, LocationScanState, OuterContext};
+use futures_concurrency::future::TryJoin;
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_job_errors::{
@@ -1156,7 +1157,7 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 	}
 }
 
-impl_job_serialization_handler!(IndexerSerializationHandler, Indexer);
+// impl_job_serialization_handler!(IndexerSerializationHandler, Indexer);
 
 impl Hash for Indexer {
 	fn hash<H: Hasher>(&self, state: &mut H) {

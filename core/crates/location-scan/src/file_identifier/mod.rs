@@ -1,13 +1,12 @@
-use crate::{utils::sub_path, OuterContext};
+use crate::OuterContext;
 
-use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_library_sync::DevicePubId;
+use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_prisma_helpers::CasId;
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::{device, file_path, location};
 use sd_task_system::{TaskDispatcher, TaskHandle};
-use sd_utils::{db::MissingFieldError, error::FileIOError};
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::{hash_map::Entry, HashMap},
@@ -17,13 +16,8 @@ use std::{
 	sync::Arc,
 };
 
-use prisma_client_rust::QueryError;
-use rspc::ErrorCode;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use tokio::fs;
 use tracing::trace;
-use uuid::Uuid;
 
 mod cas_id;
 pub mod job;

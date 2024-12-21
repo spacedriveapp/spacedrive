@@ -135,7 +135,7 @@ macro_rules! impl_job_serialization_handler {
 									Box<dyn $crate::job::DynJob<OuterCtx, JobCtx>>,
 									Option<$crate::store::SerializedTasks>,
 								)>,
-								$crate::JobSystemError,
+								sd_core_job_errors::system::JobSystemError,
 							>,
 						> + Send
 						+ 'a,
@@ -164,7 +164,7 @@ macro_rules! impl_job_serialization_handler {
 									report,
 									next_jobs: std::collections::VecDeque::new(),
 									_ctx: std::marker::PhantomData,
-								}),
+								}) as Box<dyn $crate::job::DynJob<OuterCtx, JobCtx>>,
 								maybe_tasks
 									.and_then(|tasks| (!tasks.0.is_empty()).then_some(tasks)),
 							)

@@ -1,8 +1,5 @@
 use crate::{
-	indexer::{
-		self,
-		tasks::walker::rules::{apply_indexer_rules, process_rules_results},
-	},
+	indexer::tasks::walker::rules::{apply_indexer_rules, process_rules_results},
 	Error,
 };
 

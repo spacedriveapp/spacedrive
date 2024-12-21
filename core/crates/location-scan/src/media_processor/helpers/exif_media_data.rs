@@ -1,5 +1,6 @@
-use crate::media_processor::{self, media_data_extractor};
-
+use sd_core_job_errors::media_processor::{
+	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
+};
 use sd_core_library_sync::{DevicePubId, SyncManager};
 use sd_core_prisma_helpers::ObjectPubId;
 
@@ -100,11 +101,11 @@ fn to_query(
 
 pub async fn extract(
 	path: impl AsRef<Path> + Send,
-) -> Result<Option<ExifMetadata>, media_processor::NonCriticalMediaProcessorError> {
+) -> Result<Option<ExifMetadata>, NonCriticalMediaProcessorError> {
 	let path = path.as_ref();
 
 	ExifMetadata::from_path(&path).await.map_err(|e| {
-		media_data_extractor::NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
+		NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
 			path.to_path_buf(),
 			e.to_string(),
 		)

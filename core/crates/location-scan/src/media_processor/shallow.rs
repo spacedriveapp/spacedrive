@@ -1,21 +1,3 @@
-use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, OuterContext};
-use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::NonCriticalError;
-use sd_core_library_sync::SyncManager;
-
-use sd_core_job_errors::media_processor::Error;
-use sd_prisma::prisma::{location, PrismaClient};
-use sd_task_system::{
-	BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskHandle, TaskOutput,
-	TaskStatus,
-};
-use sd_utils::db::maybe_missing;
-
-use std::{
-	path::{Path, PathBuf},
-	sync::Arc,
-};
-
 use super::{
 	get_direct_children_files_by_extensions,
 	helpers::{self, exif_media_data, ffmpeg_media_data},
@@ -25,8 +7,24 @@ use super::{
 	},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
+use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, OuterContext};
 use futures::{stream::FuturesUnordered, StreamExt};
+use futures_concurrency::future::TryJoin;
+use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::media_processor::Error;
+use sd_core_job_errors::NonCriticalError;
+use sd_core_library_sync::SyncManager;
 use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
+use sd_prisma::prisma::{location, PrismaClient};
+use sd_task_system::{
+	BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskHandle, TaskOutput,
+	TaskStatus,
+};
+use sd_utils::db::maybe_missing;
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use tracing::{debug, warn};
 
 #[allow(clippy::missing_panics_doc)] // SAFETY: It doesn't actually panics
@@ -41,18 +39,21 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(sd_core_job_errors::media_processor::Error::from)?;
+		.map_err(Error::from)?;
 
 	let location = Arc::new(location);
 
-	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<
-		sd_core_job_errors::media_processor::Error,
-	>(location.id, Some(sub_path), &*location_path, ctx.db())
+	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<Error>(
+		location.id,
+		Some(sub_path),
+		&*location_path,
+		ctx.db(),
+	)
 	.await?
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-				.map_err(sd_core_job_errors::media_processor::Error::from)
+				.map_err(Error::from)
 		},
 		Ok,
 	)?;

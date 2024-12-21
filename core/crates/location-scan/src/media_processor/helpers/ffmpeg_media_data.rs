@@ -1,7 +1,7 @@
-use crate::media_processor::{self, media_data_extractor};
-
+use sd_core_job_errors::media_processor::{
+	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
+};
 use sd_core_prisma_helpers::object_with_media_data;
-
 use sd_file_ext::extensions::{
 	AudioExtension, Extension, VideoExtension, ALL_AUDIO_EXTENSIONS, ALL_VIDEO_EXTENSIONS,
 };
@@ -100,11 +100,11 @@ pub const fn can_extract_for_video(video_extension: VideoExtension) -> bool {
 
 pub async fn extract(
 	path: impl AsRef<Path> + Send,
-) -> Result<FFmpegMetadata, media_processor::NonCriticalMediaProcessorError> {
+) -> Result<FFmpegMetadata, NonCriticalMediaProcessorError> {
 	let path = path.as_ref();
 
 	FFmpegMetadata::from_path(&path).await.map_err(|e| {
-		media_data_extractor::NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
+		NonCriticalMediaDataExtractorError::FailedToExtractImageMediaData(
 			path.to_path_buf(),
 			e.to_string(),
 		)

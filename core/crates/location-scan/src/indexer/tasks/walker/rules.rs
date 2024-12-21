@@ -1,7 +1,6 @@
-use crate::{indexer, NonCriticalError};
-
 use sd_core_file_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, MetadataForIndexerRules, RuleKind};
+use sd_core_job_errors::{indexer::NonCriticalIndexerError, NonCriticalError};
 
 use sd_utils::error::FileIOError;
 
@@ -36,13 +35,13 @@ pub(super) async fn apply_indexer_rules(
 				.map(|acceptance_per_rule_kind| {
 					(current_path, (metadata, acceptance_per_rule_kind))
 				})
-				.map_err(|e| sd_core_job_errors::indexer::NonCriticalIndexerError::IndexerRule(e.to_string()))
+				.map_err(|e| NonCriticalIndexerError::IndexerRule(e.to_string()).into())
 		})
 		.collect::<Vec<_>>()
 		.join()
 		.await
 		.into_iter()
-		.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
+		.filter_map(|res| res.map_err(|e| errors.push(e)).ok())
 		.collect()
 }
 
@@ -80,9 +79,10 @@ pub(super) async fn process_rules_results(
 				fs::metadata(&ancestor_path)
 					.await
 					.map_err(|e| {
-						sd_core_job_errors::sd_core_job_errors::indexer::NonCriticalIndexerError::Metadata(
+						NonCriticalIndexerError::Metadata(
 							FileIOError::from((&ancestor_path, e)).to_string(),
 						)
+						.into()
 					})
 					.and_then(|metadata| {
 						FilePathMetadata::from_path(&ancestor_path, &metadata)
@@ -94,7 +94,7 @@ pub(super) async fn process_rules_results(
 								.into()
 							})
 							.map_err(|e| {
-								sd_core_job_errors::indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string())
+								NonCriticalIndexerError::FilePathMetadata(e.to_string()).into()
 							})
 					})
 			})
@@ -241,7 +241,7 @@ fn accept_path_and_ancestors(
 		.take_while(|&ancestor| ancestor != root)
 	{
 		if let Ok(iso_file_path) = iso_file_path_factory.build(ancestor, true).map_err(|e| {
-			errors.push(sd_core_job_errors::indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
+			errors.push(NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
 		}) {
 			match accepted_ancestors.entry(iso_file_path) {
 				Entry::Occupied(_) => {

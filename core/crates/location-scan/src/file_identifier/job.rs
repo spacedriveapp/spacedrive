@@ -1,17 +1,18 @@
 use crate::{
-	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, JobContext,
-	LocationScanState, OuterContext, ProgressUpdate, UpdateEvent,
+	utils::sub_path::maybe_get_iso_file_path_from_sub_path, JobContext, LocationScanState,
+	OuterContext, ProgressUpdate,
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_job_errors::{
 	system::{DispatcherError, JobErrorOrDispatcherError},
-	NonCriticalError,
+	Error, NonCriticalError,
 };
 use sd_core_job_system::{
 	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
+	UpdateEvent,
 };
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
@@ -127,7 +128,7 @@ impl Job for FileIdentifier {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(sd_core_job_errors::file_identifier::Error::from)?
+					.map_err(Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
@@ -149,7 +150,7 @@ impl Job for FileIdentifier {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(sd_core_job_errors::file_identifier::Error::from)?,
+					.map_err(Error::from)?,
 			)
 			.await
 		{
@@ -185,10 +186,8 @@ impl Job for FileIdentifier {
 			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 			.exec()
 			.await
-			.map_err(sd_core_job_errors::file_identifier::Error::from)?
-			.ok_or(file_identifier::Error::DeviceNotFound(
-				device_pub_id.clone(),
-			))?
+			.map_err(Error::from)?
+			.ok_or(Error::DeviceNotFound(device_pub_id.clone()))?
 			.id;
 
 		match self
@@ -292,7 +291,7 @@ impl Job for FileIdentifier {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+			.map_err(Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -304,10 +303,7 @@ impl Job for FileIdentifier {
 }
 
 impl FileIdentifier {
-	pub fn new(
-		location: location::Data,
-		sub_path: Option<PathBuf>,
-	) -> Result<Self, file_identifier::Error> {
+	pub fn new(location: location::Data, sub_path: Option<PathBuf>) -> Result<Self, Error> {
 		Ok(Self {
 			location_path: maybe_missing(&location.path, "location.path")
 				.map(PathBuf::from)
@@ -332,17 +328,16 @@ impl FileIdentifier {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		let db = ctx.db();
-		let maybe_sub_iso_file_path =
-			maybe_get_iso_file_path_from_sub_path::<file_identifier::Error>(
-				self.location.id,
-				self.sub_path.as_ref(),
-				&*self.location_path,
-				db,
-			)
-			.await?;
+		let maybe_sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<Error>(
+			self.location.id,
+			self.sub_path.as_ref(),
+			&*self.location_path,
+			db,
+		)
+		.await?;
 
 		let start = Instant::now();
 
@@ -677,7 +672,7 @@ impl FileIdentifier {
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
@@ -758,7 +753,7 @@ impl FileIdentifier {
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
 		pending_running_tasks: &FuturesUnordered<TaskHandle<Error>>,
-	) -> Result<(), JobErrorOrDispatcherError<file_identifier::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::file_identifier::Error>> {
 		let db = ctx.db();
 
 		loop {
@@ -790,7 +785,7 @@ impl FileIdentifier {
 				Some(orphan_paths.last().expect("orphan_paths is not empty").id);
 
 			orphan_paths.retain(|file_path_for_file_identifier::Data { id, .. }| {
-				!self.file_paths_ids_with_priority.contains(*id)
+				!self.file_paths_ids_with_priority.contains(id)
 			});
 
 			// If we don't have any new orphan paths after filtering out, we can skip this iteration
