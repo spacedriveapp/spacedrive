@@ -184,7 +184,7 @@ impl Task<Error> for Saver {
 				),
 			)
 			.await
-			.map_err(indexer::Error::from)? as u64;
+			.map_err(sd_core_job_errors::indexer::Error::from)? as u64;
 
 		let save_duration = start_time.elapsed();
 

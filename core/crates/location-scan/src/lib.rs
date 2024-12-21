@@ -53,7 +53,7 @@ use sd_job_system::store::{JobSerializationRegistry, RegisterJobHandler};
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
-	Indexer(#[from] indexer::Error),
+	Indexer(#[from] sd_core_job_errors::indexer::Error),
 	#[error(transparent)]
 	FileIdentifier(#[from] file_identifier::Error),
 	#[error(transparent)]

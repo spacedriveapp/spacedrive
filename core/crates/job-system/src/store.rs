@@ -4,18 +4,12 @@ use sd_core_job_errors::report::ReportError;
 use sd_prisma::prisma::job;
 use sd_utils::uuid_to_bytes;
 
-use std::{
-	collections::{HashMap, VecDeque},
-	future::Future,
-	marker::PhantomData,
-	pin::Pin,
-	time::Duration,
-};
+use std::{collections::HashMap, future::Future, pin::Pin, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
 use super::{
-	job::{DynJob, Job, JobHolder, OuterContext},
+	job::{DynJob, OuterContext},
 	report::Report,
 	JobId, JobSystemError,
 };
@@ -84,21 +78,28 @@ pub trait JobSerializationHandler<OuterCtx: OuterContext, JobCtx: JobContext<Out
 	>;
 }
 
-// Registry for job serialization handlers
-#[derive(Default)]
-pub struct JobSerializationRegistry<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
-	handlers: HashMap<JobName, Box<dyn JobSerializationHandler<OuterCtx, JobCtx>>>,
-}
-
+/// Trait for registering job handlers with the serialization registry.
+/// Implement this trait for job types to provide their serialization handlers.
 pub trait RegisterJobHandler {
 	fn register_handler<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 		registry: &mut JobSerializationRegistry<OuterCtx, JobCtx>,
 	);
 }
 
+// Registry for job serialization handlers
+pub struct JobSerializationRegistry<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
+	handlers: HashMap<JobName, Box<dyn JobSerializationHandler<OuterCtx, JobCtx>>>,
+}
+
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>
 	JobSerializationRegistry<OuterCtx, JobCtx>
 {
+	pub fn new() -> Self {
+		Self {
+			handlers: HashMap::new(),
+		}
+	}
+
 	pub fn register_handler(
 		&mut self,
 		job_name: JobName,
@@ -113,6 +114,67 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>
 	) -> Option<&dyn JobSerializationHandler<OuterCtx, JobCtx>> {
 		self.handlers.get(job_name).map(|h| h.as_ref())
 	}
+}
+
+#[macro_export]
+macro_rules! impl_job_serialization_handler {
+	($handler:ty, $job:ty) => {
+		impl<OuterCtx: $crate::job::OuterContext, JobCtx: $crate::JobContext<OuterCtx>>
+			$crate::store::JobSerializationHandler<OuterCtx, JobCtx> for $handler
+		{
+			fn deserialize_job<'a>(
+				&'a self,
+				stored_job: $crate::store::StoredJob,
+				report: $crate::report::Report,
+				ctx: &'a OuterCtx,
+			) -> std::pin::Pin<
+				Box<
+					dyn std::future::Future<
+							Output = Result<
+								Option<(
+									Box<dyn $crate::job::DynJob<OuterCtx, JobCtx>>,
+									Option<$crate::store::SerializedTasks>,
+								)>,
+								$crate::JobSystemError,
+							>,
+						> + Send
+						+ 'a,
+				>,
+			> {
+				Box::pin(async move {
+					let $crate::store::StoredJob {
+						id,
+						name: _,
+						run_time,
+						serialized_job,
+					} = stored_job;
+
+					<$job as $crate::store::SerializableJob<OuterCtx>>::deserialize(
+						&serialized_job,
+						ctx,
+					)
+					.await
+					.map(|maybe_job| {
+						maybe_job.map(|(job, maybe_tasks)| {
+							(
+								Box::new($crate::job::JobHolder {
+									id,
+									job,
+									run_time,
+									report,
+									next_jobs: std::collections::VecDeque::new(),
+									_ctx: std::marker::PhantomData,
+								}),
+								maybe_tasks
+									.and_then(|tasks| (!tasks.0.is_empty()).then_some(tasks)),
+							)
+						})
+					})
+					.map_err(Into::into)
+				})
+			}
+		}
+	};
 }
 
 pub(super) async fn load_jobs<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(

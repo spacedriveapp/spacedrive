@@ -3,7 +3,7 @@ use crate::{
 		self,
 		tasks::walker::rules::{apply_indexer_rules, process_rules_results},
 	},
-	Error, NonCriticalError,
+	Error,
 };
 
 use sd_core_file_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
@@ -11,6 +11,7 @@ use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, MetadataForIndexerRules, RuleKind,
 };
+use sd_core_job_errors::NonCriticalError;
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -60,7 +61,8 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, indexer::Error>> + Send;
+	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, sd_core_job_errors::indexer::Error>>
+	       + Send;
 
 	fn fetch_file_paths_to_remove(
 		&self,
@@ -68,7 +70,10 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 		existing_inodes: HashSet<Vec<u8>>,
 		unique_location_id_materialized_path_name_extension_params: Vec<file_path::WhereParam>,
 	) -> impl Future<
-		Output = Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError>,
+		Output = Result<
+			Vec<file_path_pub_and_cas_ids::Data>,
+			sd_core_job_errors::indexer::NonCriticalIndexerError,
+		>,
 	> + Send;
 }
 
@@ -201,7 +206,7 @@ where
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
 							|e| {
-								indexer::Error::FileIO(
+								sd_core_job_errors::indexer::Error::FileIO(
 									(&path, e, "Failed to open directory to read its entries")
 										.into(),
 								)
@@ -229,7 +234,7 @@ where
 							}
 							Err(e) => {
 								errors.push(NonCriticalError::Indexer(
-									indexer::NonCriticalIndexerError::FailedDirectoryEntry(
+									sd_core_job_errors::indexer::NonCriticalIndexerError::FailedDirectoryEntry(
 										FileIOError::from((&path, e)).to_string(),
 									),
 								));
@@ -444,7 +449,7 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-	) -> Result<Self, indexer::Error> {
+	) -> Result<Self, sd_core_job_errors::indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -473,7 +478,7 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-	) -> Result<Self, indexer::Error> {
+	) -> Result<Self, sd_core_job_errors::indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -608,7 +613,9 @@ where
 						db_proxy.clone(),
 					)
 					.map_err(|e| {
-						indexer::NonCriticalIndexerError::DispatchKeepWalking(e.to_string())
+						sd_core_job_errors::indexer::NonCriticalIndexerError::DispatchKeepWalking(
+							e.to_string(),
+						)
 					})
 				})
 				.filter_map(|res| res.map_err(|e| errors.push(e.into())).ok())
@@ -627,7 +634,7 @@ async fn collect_metadata(
 			fs::metadata(&current_path)
 				.await
 				.map_err(|e| {
-					indexer::NonCriticalIndexerError::Metadata(
+					sd_core_job_errors::indexer::NonCriticalIndexerError::Metadata(
 						FileIOError::from((&current_path, e)).to_string(),
 					)
 				})
@@ -671,8 +678,12 @@ async fn gather_file_paths_to_remove(
 					)
 				})
 				.map_err(|e| {
-					errors
-						.push(indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
+					errors.push(
+						sd_core_job_errors::indexer::NonCriticalIndexerError::IsoFilePath(
+							e.to_string(),
+						)
+						.into(),
+					);
 				})
 				.ok()
 		})
@@ -729,7 +740,7 @@ mod tests {
 		async fn fetch_file_paths(
 			&self,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_walker::Data>, indexer::Error> {
+		) -> Result<Vec<file_path_walker::Data>, sd_core_job_errors::indexer::Error> {
 			Ok(vec![])
 		}
 
@@ -738,7 +749,10 @@ mod tests {
 			_: &IsolatedFilePathData<'_>,
 			_: HashSet<Vec<u8>>,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_pub_and_cas_ids::Data>, indexer::NonCriticalIndexerError> {
+		) -> Result<
+			Vec<file_path_pub_and_cas_ids::Data>,
+			sd_core_job_errors::indexer::NonCriticalIndexerError,
+		> {
 			Ok(vec![])
 		}
 	}

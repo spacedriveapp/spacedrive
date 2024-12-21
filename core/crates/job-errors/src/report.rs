@@ -1,14 +1,12 @@
-use std::string::ParseError;
-
 use prisma_client_rust::QueryError;
 use sd_utils::db::MissingFieldError;
-
+use std::string::ParseError;
+use strum::ParseError as StrumParseError;
 use uuid::Uuid;
 
 pub type JobId = Uuid;
 
 #[derive(thiserror::Error, Debug)]
-
 pub enum ReportError {
 	#[error("failed to create job report in database: {0}")]
 	Create(QueryError),
@@ -24,6 +22,8 @@ pub enum ReportError {
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to parse job name from database: {0}")]
 	JobNameParse(#[from] ParseError),
+	#[error("strum parse error: {0}")]
+	StrumParse(#[from] StrumParseError),
 }
 
 impl From<ReportError> for rspc::Error {
@@ -39,6 +39,9 @@ impl From<ReportError> for rspc::Error {
 				Self::with_cause(rspc::ErrorCode::NotFound, e.to_string(), e)
 			}
 			ReportError::Json(_) | ReportError::MissingField(_) | ReportError::JobNameParse(_) => {
+				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
+			}
+			ReportError::StrumParse(_) => {
 				Self::with_cause(rspc::ErrorCode::InternalServerError, e.to_string(), e)
 			}
 		}

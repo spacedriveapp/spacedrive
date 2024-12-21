@@ -95,7 +95,7 @@ impl Job for Indexer {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(indexer::Error::from)?
+					.map_err(sd_core_job_errors::indexer::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
 						let indexer_ruler = self.indexer_ruler.clone();
@@ -134,7 +134,7 @@ impl Job for Indexer {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(indexer::Error::from)?,
+					.map_err(sd_core_job_errors::indexer::Error::from)?,
 			)
 			.await
 		{
@@ -170,8 +170,8 @@ impl Job for Indexer {
 			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 			.exec()
 			.await
-			.map_err(indexer::Error::from)?
-			.ok_or(indexer::Error::DeviceNotFound(device_pub_id.clone()))?
+			.map_err(sd_core_job_errors::indexer::Error::from)?
+			.ok_or(sd_core_job_errors::indexer::Error::DeviceNotFound(device_pub_id.clone()))?
 			.id;
 
 		match self
@@ -307,7 +307,7 @@ impl Job for Indexer {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(indexer::Error::from)?;
+			.map_err(sd_core_job_errors::indexer::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -322,7 +322,7 @@ impl Indexer {
 	pub fn new(
 		location: location_with_indexer_rules::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, indexer::Error> {
+	) -> Result<Self, sd_core_job_errors::indexer::Error> {
 		Ok(Self {
 			indexer_ruler: location
 				.indexer_rules
@@ -368,7 +368,7 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
 		self.metadata.completed_tasks += 1;
 
 		if any_task_output.is::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>() {
@@ -435,7 +435,7 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
 		self.metadata.mean_scan_read_time += scan_time;
 		#[allow(clippy::cast_possible_truncation)]
 		// SAFETY: we know that `keep_walking_tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks
@@ -641,11 +641,11 @@ impl Indexer {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<indexer::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		let updates = if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
-				get_full_path_from_sub_path::<indexer::Error>(
+				get_full_path_from_sub_path::<sd_core_job_errors::indexer::Error>(
 					self.location.id,
 					self.sub_path.as_ref(),
 					&*self.iso_file_path_factory.location_path,
@@ -1153,62 +1153,13 @@ impl<OuterCtx: OuterContext> SerializableJob<OuterCtx> for Indexer {
 	}
 }
 
+impl_job_serialization_handler!(IndexerSerializationHandler, Indexer);
+
 impl Hash for Indexer {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.location.id.hash(state);
 		if let Some(ref sub_path) = self.sub_path {
 			sub_path.hash(state);
 		}
-	}
-}
-
-pub struct IndexerSerializationHandler;
-
-impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSerializationHandler<OuterCtx, JobCtx>
-	for IndexerSerializationHandler
-{
-	fn deserialize_job<'a>(
-		&'a self,
-		stored_job: StoredJob,
-		report: Report,
-		ctx: &'a OuterCtx,
-	) -> Pin<
-		Box<
-			dyn Future<
-					Output = Result<
-						Option<(Box<dyn DynJob<OuterCtx, JobCtx>>, Option<SerializedTasks>)>,
-						JobSystemError,
-					>,
-				> + Send
-				+ 'a,
-		>,
-	> {
-		Box::pin(async move {
-			let StoredJob {
-				id,
-				name: _,
-				run_time,
-				serialized_job,
-			} = stored_job;
-
-			Indexer::deserialize(&serialized_job, ctx)
-				.await
-				.map(|maybe_job| {
-					maybe_job.map(|(job, maybe_tasks)| {
-						(
-							Box::new(JobHolder {
-								id,
-								job,
-								run_time,
-								report,
-								next_jobs: VecDeque::new(),
-								_ctx: PhantomData,
-							}),
-							maybe_tasks.and_then(|tasks| (!tasks.0.is_empty()).then_some(tasks)),
-						)
-					})
-				})
-				.map_err(Into::into)
-		})
 	}
 }

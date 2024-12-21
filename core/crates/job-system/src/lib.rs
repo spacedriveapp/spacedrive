@@ -56,7 +56,8 @@ use job::{IntoJob, Job, JobOutput, OuterContext};
 use report::Report;
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{
-	load_jobs, JobSerializationRegistry, SerializableJob, SerializedTasks, StoredJobEntry,
+	load_jobs, JobSerializationRegistry, RegisterJobHandler, SerializableJob, SerializedTasks,
+	StoredJobEntry,
 };
 
 #[repr(i32)]
@@ -99,6 +100,8 @@ pub struct JobSystem<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 	job_outputs_rx: chan::Receiver<(JobId, Result<JobOutput, Error>)>,
 	store_jobs_file: Arc<Path>,
 	runner_handle: RefCell<Option<JoinHandle<()>>>,
+	previously_existing_job_contexts: HashMap<Uuid, OuterCtx>,
+	serialization_registry: JobSerializationRegistry<OuterCtx, JobCtx>,
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, JobCtx> {
@@ -160,16 +163,24 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 			job_outputs_rx,
 			store_jobs_file,
 			runner_handle,
+			previously_existing_job_contexts: HashMap::new(),
+			serialization_registry: JobSerializationRegistry::new(),
 		}
 	}
 
+	pub fn register_handler<H: RegisterJobHandler>(&mut self) {
+		H::register_handler(&mut self.serialization_registry);
+	}
+
 	pub async fn init(
-		&self,
+		&mut self,
 		previously_existing_contexts: &HashMap<Uuid, OuterCtx>,
 	) -> Result<(), JobSystemError> {
+		self.previously_existing_job_contexts = previously_existing_contexts.clone();
 		load_stored_job_entries(
 			&*self.store_jobs_file,
-			previously_existing_contexts,
+			&self.previously_existing_job_contexts,
+			&self.serialization_registry,
 			&self.msgs_tx,
 		)
 		.await
@@ -333,6 +344,7 @@ unsafe impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> Sync
 async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>(
 	store_jobs_file: impl AsRef<Path> + Send,
 	previously_existing_job_contexts: &HashMap<Uuid, OuterCtx>,
+	registry: &JobSerializationRegistry<OuterCtx, JobCtx>,
 	msgs_tx: &chan::Sender<RunnerMessage<OuterCtx, JobCtx>>,
 ) -> Result<(), JobSystemError> {
 	let store_jobs_file = store_jobs_file.as_ref();
@@ -366,7 +378,7 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 			)
 		})
 		.map(|(entries, ctx)| async move {
-			load_jobs(entries, &ctx)
+			load_jobs(entries, &ctx, registry)
 				.await
 				.map(|stored_jobs| (stored_jobs, ctx))
 		})
@@ -389,7 +401,6 @@ async fn load_stored_job_entries<OuterCtx: OuterContext, JobCtx: JobContext<Oute
 						msgs_tx
 							.send(RunnerMessage::ResumeStoredJob {
 								job_id: dyn_job.id(),
-
 								dyn_job,
 								ctx,
 								serialized_tasks,

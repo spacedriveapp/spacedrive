@@ -36,7 +36,7 @@ pub(super) async fn apply_indexer_rules(
 				.map(|acceptance_per_rule_kind| {
 					(current_path, (metadata, acceptance_per_rule_kind))
 				})
-				.map_err(|e| indexer::NonCriticalIndexerError::IndexerRule(e.to_string()))
+				.map_err(|e| sd_core_job_errors::indexer::NonCriticalIndexerError::IndexerRule(e.to_string()))
 		})
 		.collect::<Vec<_>>()
 		.join()
@@ -80,7 +80,7 @@ pub(super) async fn process_rules_results(
 				fs::metadata(&ancestor_path)
 					.await
 					.map_err(|e| {
-						indexer::NonCriticalIndexerError::Metadata(
+						sd_core_job_errors::sd_core_job_errors::indexer::NonCriticalIndexerError::Metadata(
 							FileIOError::from((&ancestor_path, e)).to_string(),
 						)
 					})
@@ -94,7 +94,7 @@ pub(super) async fn process_rules_results(
 								.into()
 							})
 							.map_err(|e| {
-								indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string())
+								sd_core_job_errors::indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string())
 							})
 					})
 			})
@@ -241,7 +241,7 @@ fn accept_path_and_ancestors(
 		.take_while(|&ancestor| ancestor != root)
 	{
 		if let Ok(iso_file_path) = iso_file_path_factory.build(ancestor, true).map_err(|e| {
-			errors.push(indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
+			errors.push(sd_core_job_errors::indexer::NonCriticalIndexerError::IsoFilePath(e.to_string()).into());
 		}) {
 			match accepted_ancestors.entry(iso_file_path) {
 				Entry::Occupied(_) => {

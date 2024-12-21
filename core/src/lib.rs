@@ -218,6 +218,10 @@ impl Node {
 			)
 			.await?;
 
+		// Register all job handlers
+		node.job_system
+			.register_handler::<LocationScanJobRegistration>();
+
 		// start_p2p(
 		// 	node.clone(),
 		// 	axum::Router::new()

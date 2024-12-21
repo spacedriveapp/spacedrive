@@ -10,10 +10,46 @@ version                = "0.1.0"
 
 
 [dependencies]
-prisma-client-rust = { workspace = true }
-sd-prisma          = { path = "../../../crates/prisma" }
-serde              = { workspace = true, features = ["derive"] }
-serde_json         = { workspace = true }
-specta             = { workspace = true }
-thiserror          = { workspace = true }
-uuid               = { workspace = true, features = ["serde", "v4"] }
+# Inner Core Sub-crates
+sd-core-location-scan  = { path = "../location-scan" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-shared-types   = { path = "../shared-types" }
+
+# Spacedrive Sub-crates
+sd-p2p       = { path = "../../../crates/p2p", features = ["specta"] }
+sd-p2p-block = { path = "../../../crates/p2p/crates/block" }
+sd-prisma    = { path = "../../../crates/prisma" }
+sd-sync      = { path = "../../../crates/sync" }
+
+# Workspace dependencies
+async-channel       = { workspace = true }
+async-trait         = { workspace = true }
+blake3              = { workspace = true }
+chrono              = { workspace = true, features = ["serde"] }
+futures             = { workspace = true }
+futures-concurrency = { workspace = true }
+globset             = { workspace = true }
+itertools           = { workspace = true }
+lending-stream      = { workspace = true }
+prisma-client-rust  = { workspace = true }
+rmp-serde           = { workspace = true }
+rmpv                = { workspace = true }
+rspc                = { workspace = true }
+serde               = { workspace = true, features = ["derive", "rc"] }
+serde_json          = { workspace = true }
+specta              = { workspace = true }
+strum               = { workspace = true, features = ["derive", "phf"] }
+thiserror           = { workspace = true }
+tokio               = { workspace = true, features = ["fs", "parking_lot", "sync"] }
+tokio-stream        = { workspace = true, features = ["fs"] }
+tokio-util          = { workspace = true, features = ["io"] }
+tracing             = { workspace = true }
+uuid                = { workspace = true, features = ["serde", "v4"] }
+webp                = { workspace = true }
+
+# Specific Heavy Lifting dependencies
+static_assertions = "1.1"
+
+[dev-dependencies]
+tempfile     = { workspace = true }
+tracing-test = { workspace = true }

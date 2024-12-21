@@ -15,9 +15,10 @@ rspc               = { workspace = true }
 serde              = { workspace = true, features = ["derive", "rc"] }
 serde_json         = { workspace = true }
 specta             = { workspace = true }
+strum              = { workspace = true, features = ["derive", "phf"] }
+strum_macros       = { workspace = true }
 thiserror          = { workspace = true }
 uuid               = { workspace = true, features = ["serde", "v4"] }
-
 
 sd-core-file-helper   = { path = "../file-helper" }
 sd-core-indexer-rules = { path = "../indexer-rules" }
