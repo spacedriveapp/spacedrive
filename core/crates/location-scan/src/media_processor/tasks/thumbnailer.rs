@@ -9,20 +9,19 @@
 //!       └── <`cas_id`>.webp
 
 use crate::{
-	media_processor::{
-		self,
-		helpers::thumbnailer::{
-			generate_thumbnail, GenerateThumbnailArgs, GenerationStatus, THUMBNAILER_TASK_TIMEOUT,
-		},
-		ThumbKey, ThumbnailKind,
+	media_processor::helpers::thumbnailer::{
+		generate_thumbnail, GenerateThumbnailArgs, GenerationStatus, THUMBNAILER_TASK_TIMEOUT,
 	},
 	Error,
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::media_processor::{
+	NonCriticalMediaProcessorError, NonCriticalThumbnailerError,
+};
 use sd_core_prisma_helpers::{file_path_for_media_processor, CasId};
-
-use sd_prisma::prisma::{file_path, location};
+use sd_core_shared_types::thumbnail::{ThumbKey, ThumbnailKind};
+use sd_prisma::prisma::location;
 use sd_task_system::{
 	ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput, SerializableTask, Task, TaskId,
 };
@@ -38,12 +37,12 @@ use std::{
 	time::Duration,
 };
 
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{stream::FuturesUnordered, FutureExt};
 use futures_concurrency::future::Race;
 use serde::{Deserialize, Serialize};
-use specta::Type;
+
 use tokio::time::Instant;
-use tracing::{error, instrument, trace, Level};
+use tracing::{instrument, trace, Level};
 use uuid::Uuid;
 
 pub type ThumbnailId = u32;
@@ -287,7 +286,7 @@ impl Thumbnailer {
 						IsolatedFilePathData::try_from((location_id, file_path))
 							.map_err(|e| {
 								errors.push(
-									media_processor::NonCriticalMediaProcessorError::from(
+									NonCriticalMediaProcessorError::from(
 										NonCriticalThumbnailerError::FailedToExtractIsolatedFilePathData(
 											file_path_id,
 											e.to_string(),
@@ -300,7 +299,7 @@ impl Thumbnailer {
 							.map(|iso_file_path| (file_path_id, cas_id, iso_file_path))
 					} else {
 						errors.push(
-							media_processor::NonCriticalMediaProcessorError::from(
+							NonCriticalMediaProcessorError::from(
 								NonCriticalThumbnailerError::MissingCasId(file_path.id),
 							)
 							.into(),
@@ -373,7 +372,7 @@ fn process_thumbnail_generation_output(
 			}
 		}
 		Err(e) => {
-			errors.push(media_processor::NonCriticalMediaProcessorError::from(e).into());
+			errors.push(NonCriticalMediaProcessorError::from(e).into());
 			*skipped += 1;
 		}
 	}

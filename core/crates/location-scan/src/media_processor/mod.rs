@@ -4,6 +4,7 @@ use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_job_system::UpdateEvent;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
+use sd_core_shared_types::thumbnail::ThumbKey;
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{file_path, object, PrismaClient};
 
@@ -19,18 +20,16 @@ pub mod job;
 mod shallow;
 mod tasks;
 
-pub use tasks::{
-	media_data_extractor::{self, MediaDataExtractor},
-	thumbnailer::{self, Thumbnailer},
-};
-
 pub use helpers::{
 	exif_media_data, ffmpeg_media_data,
 	thumbnailer::{
 		can_generate_thumbnail_for_document, can_generate_thumbnail_for_image,
-		generate_single_thumbnail, get_shard_hex, get_thumbnails_directory, GenerateThumbnailArgs,
-		ThumbKey, ThumbnailKind, WEBP_EXTENSION,
+		generate_single_thumbnail, GenerateThumbnailArgs,
 	},
+};
+pub use tasks::{
+	media_data_extractor::{self, MediaDataExtractor},
+	thumbnailer::{self, Thumbnailer},
 };
 
 #[cfg(feature = "ffmpeg")]

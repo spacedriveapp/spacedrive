@@ -3,7 +3,7 @@ pub mod jobs;
 pub mod kind_statistic;
 pub mod notification;
 pub mod sd_path;
-pub mod thumb_key;
+pub mod thumbnail;
 
 pub use jobs::metadata::*;
 pub use notification::*;

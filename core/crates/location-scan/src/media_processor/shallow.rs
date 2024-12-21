@@ -1,10 +1,9 @@
-use crate::{
-	media_processor, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, OuterContext,
-};
+use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, OuterContext};
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_job_errors::NonCriticalError;
 use sd_core_library_sync::SyncManager;
 
+use sd_core_job_errors::media_processor::Error;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskHandle, TaskOutput,
@@ -17,18 +16,18 @@ use std::{
 	sync::Arc,
 };
 
-use futures::{stream::FuturesUnordered, StreamExt};
-use tracing::{debug, warn};
-
 use super::{
 	get_direct_children_files_by_extensions,
-	helpers::{self, exif_media_data, ffmpeg_media_data, thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
+	helpers::{self, exif_media_data, ffmpeg_media_data},
 	tasks::{
 		self, media_data_extractor,
 		thumbnailer::{self, NewThumbnailReporter},
 	},
 	NewThumbnailsReporter, BATCH_SIZE,
 };
+use futures::{stream::FuturesUnordered, StreamExt};
+use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
+use tracing::{debug, warn};
 
 #[allow(clippy::missing_panics_doc)] // SAFETY: It doesn't actually panics
 pub async fn shallow(

@@ -7,16 +7,17 @@ use crate::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::media_processor::{
+	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
+};
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::{file_path_for_media_processor, ObjectPubId};
-
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};
 use sd_task_system::{
 	check_interruption, ExecStatus, Interrupter, InterruptionKind, IntoAnyTaskOutput,
 	SerializableTask, Task, TaskId,
 };
-
 use std::{
 	collections::{HashMap, HashSet},
 	future::{Future, IntoFuture},
@@ -30,7 +31,6 @@ use std::{
 use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
 use futures_concurrency::future::Race;
 use serde::{Deserialize, Serialize};
-use specta::Type;
 use tokio::time::Instant;
 use tracing::{debug, instrument, trace, Level};
 
@@ -279,7 +279,7 @@ impl MediaDataExtractor {
 						true
 					} else {
 						output.errors.push(
-							media_processor::NonCriticalMediaProcessorError::from(
+							NonCriticalMediaProcessorError::from(
 								NonCriticalMediaDataExtractorError::FilePathMissingObjectId(
 									file_path.id,
 								),
@@ -389,7 +389,7 @@ fn filter_files_to_extract_media_data(
 			IsolatedFilePathData::try_from((location_id, file_path))
 				.map_err(|e| {
 					errors.push(
-						media_processor::NonCriticalMediaProcessorError::from(
+						NonCriticalMediaProcessorError::from(
 							NonCriticalMediaDataExtractorError::FailedToConstructIsolatedFilePathData(
 								file_path.id,
 								e.to_string(),
@@ -416,8 +416,8 @@ fn filter_files_to_extract_media_data(
 }
 
 enum ExtractionOutputKind {
-	Exif(Result<Option<ExifMetadata>, media_processor::NonCriticalMediaProcessorError>),
-	FFmpeg(Result<FFmpegMetadata, media_processor::NonCriticalMediaProcessorError>),
+	Exif(Result<Option<ExifMetadata>, NonCriticalMediaProcessorError>),
+	FFmpeg(Result<FFmpegMetadata, NonCriticalMediaProcessorError>),
 }
 
 struct ExtractionOutput {

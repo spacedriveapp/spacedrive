@@ -1,7 +1,8 @@
-use crate::media_processor::thumbnailer;
-
+use sd_core_job_errors::media_processor::NonCriticalThumbnailerError;
 use sd_core_prisma_helpers::CasId;
-
+use sd_core_shared_types::thumbnail::{
+	get_shard_hex, ThumbKey, ThumbnailKind, EPHEMERAL_DIR, WEBP_EXTENSION,
+};
 use sd_file_ext::extensions::{
 	DocumentExtension, Extension, ImageExtension, ALL_DOCUMENT_EXTENSIONS, ALL_IMAGE_EXTENSIONS,
 };
@@ -23,7 +24,7 @@ use std::{
 
 use image::{imageops, DynamicImage, GenericImageView};
 use serde::{Deserialize, Serialize};
-use specta::Type;
+
 use tokio::{
 	fs::{self, File},
 	io::{self, AsyncWriteExt},
@@ -32,13 +33,8 @@ use tokio::{
 	time::{sleep, Instant},
 };
 use tracing::{error, instrument, trace};
-use uuid::Uuid;
-use webp::{Encoder, WebPConfig};
 
-// Files names constants
-pub const THUMBNAIL_CACHE_DIR_NAME: &str = "thumbnails";
-pub const WEBP_EXTENSION: &str = "webp";
-pub const EPHEMERAL_DIR: &str = "ephemeral";
+use webp::{Encoder, WebPConfig};
 
 /// This is the target pixel count for all thumbnails to be resized to, and it is eventually downscaled
 /// to [`TARGET_QUALITY`].
@@ -50,10 +46,6 @@ pub const TARGET_QUALITY: f32 = 60.0;
 
 /// How much time we allow for the thumbnailer task to complete before we give up.
 pub const THUMBNAILER_TASK_TIMEOUT: Duration = Duration::from_secs(60 * 5);
-
-pub fn get_thumbnails_directory(data_directory: impl AsRef<Path>) -> PathBuf {
-	data_directory.as_ref().join(THUMBNAIL_CACHE_DIR_NAME)
-}
 
 #[cfg(feature = "ffmpeg")]
 pub static THUMBNAILABLE_VIDEO_EXTENSIONS: LazyLock<Vec<Extension>> = LazyLock::new(|| {
@@ -107,70 +99,6 @@ const HALF_SEC: Duration = Duration::from_millis(500);
 static LAST_SINGLE_THUMB_GENERATED_LOCK: LazyLock<Mutex<Instant>> =
 	LazyLock::new(|| Mutex::new(Instant::now()));
 
-/// This type is used to pass the relevant data to the frontend so it can request the thumbnail.
-/// Tt supports extending the shard hex to support deeper directory structures in the future
-#[derive(Debug, Serialize, Deserialize, Type, Clone)]
-pub struct ThumbKey {
-	pub shard_hex: String,
-	pub cas_id: CasId<'static>,
-	pub base_directory_str: String,
-}
-
-impl ThumbKey {
-	#[must_use]
-	pub fn new(cas_id: CasId<'static>, kind: &ThumbnailKind) -> Self {
-		Self {
-			shard_hex: get_shard_hex(&cas_id).to_string(),
-			cas_id,
-			base_directory_str: match kind {
-				ThumbnailKind::Ephemeral => String::from(EPHEMERAL_DIR),
-				ThumbnailKind::Indexed(library_id) => library_id.to_string(),
-			},
-		}
-	}
-
-	#[must_use]
-	pub fn new_indexed(cas_id: CasId<'static>, library_id: Uuid) -> Self {
-		Self {
-			shard_hex: get_shard_hex(&cas_id).to_string(),
-			cas_id,
-			base_directory_str: library_id.to_string(),
-		}
-	}
-
-	#[must_use]
-	pub fn new_ephemeral(cas_id: CasId<'static>) -> Self {
-		Self {
-			shard_hex: get_shard_hex(&cas_id).to_string(),
-			cas_id,
-			base_directory_str: String::from(EPHEMERAL_DIR),
-		}
-	}
-}
-
-#[derive(Debug, Serialize, Deserialize, Type, Clone, Copy)]
-pub enum ThumbnailKind {
-	Ephemeral,
-	Indexed(Uuid),
-}
-
-impl ThumbnailKind {
-	pub fn compute_path(&self, data_directory: impl AsRef<Path>, cas_id: &CasId<'_>) -> PathBuf {
-		let mut thumb_path = get_thumbnails_directory(data_directory);
-		match self {
-			Self::Ephemeral => thumb_path.push(EPHEMERAL_DIR),
-			Self::Indexed(library_id) => {
-				thumb_path.push(library_id.to_string());
-			}
-		}
-		thumb_path.push(get_shard_hex(cas_id));
-		thumb_path.push(cas_id.as_str());
-		thumb_path.set_extension(WEBP_EXTENSION);
-
-		thumb_path
-	}
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GenerateThumbnailArgs<'cas_id> {
 	pub extension: String,
@@ -187,22 +115,6 @@ impl<'cas_id> GenerateThumbnailArgs<'cas_id> {
 			path,
 		}
 	}
-}
-
-/// The practice of dividing files into hex coded folders, often called "sharding,"
-/// is mainly used to optimize file system performance. File systems can start to slow down
-/// as the number of files in a directory increases. Thus, it's often beneficial to split
-/// files into multiple directories to avoid this performance degradation.
-///
-/// `get_shard_hex` takes a `cas_id` (a hexadecimal hash) as input and returns the first
-/// three characters of the hash as the directory name. Because we're using these first
-/// three characters of a the hash, this will give us 4096 (16^3) possible directories,
-/// named 000 to fff.
-#[inline]
-#[must_use]
-pub fn get_shard_hex<'cas_id>(cas_id: &'cas_id CasId<'cas_id>) -> &'cas_id str {
-	// Use the first three characters of the hash as the directory name
-	&cas_id.as_str()[0..3]
 }
 
 #[cfg(feature = "ffmpeg")]
@@ -250,7 +162,7 @@ pub async fn generate_thumbnail(
 	should_regenerate: bool,
 ) -> (
 	Duration,
-	Result<(ThumbKey, GenerationStatus), thumbnailer::NonCriticalThumbnailerError>,
+	Result<(ThumbKey, GenerationStatus), NonCriticalThumbnailerError>,
 ) {
 	trace!("Generating thumbnail");
 	let start = Instant::now();
@@ -330,10 +242,9 @@ pub async fn generate_thumbnail(
 
 fn inner_generate_image_thumbnail(
 	file_path: &PathBuf,
-) -> Result<Vec<u8>, thumbnailer::NonCriticalThumbnailerError> {
-	let mut img = format_image(file_path).map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::FormatImage(file_path.clone(), e.to_string())
-	})?;
+) -> Result<Vec<u8>, NonCriticalThumbnailerError> {
+	let mut img = format_image(file_path)
+		.map_err(|e| NonCriticalThumbnailerError::FormatImage(file_path.clone(), e.to_string()))?;
 
 	let (w, h) = img.dimensions();
 
@@ -363,17 +274,11 @@ fn inner_generate_image_thumbnail(
 
 	// Create the WebP encoder for the above image
 	let encoder = Encoder::from_image(&img).map_err(|reason| {
-		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
-			file_path.clone(),
-			reason.to_string(),
-		)
+		NonCriticalThumbnailerError::WebPEncoding(file_path.clone(), reason.to_string())
 	})?;
 
 	let thumb = encoder.encode_advanced(&WEBP_CONFIG).map_err(|reason| {
-		thumbnailer::NonCriticalThumbnailerError::WebPEncoding(
-			file_path.clone(),
-			format!("{reason:?}"),
-		)
+		NonCriticalThumbnailerError::WebPEncoding(file_path.clone(), format!("{reason:?}"))
 	})?;
 
 	// Type `WebPMemory` is !Send, which makes the `Future` in this function `!Send`,
@@ -392,7 +297,7 @@ fn inner_generate_image_thumbnail(
 async fn generate_image_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
-) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
+) -> Result<(), NonCriticalThumbnailerError> {
 	let file_path = file_path.as_ref().to_path_buf();
 
 	let (tx, rx) = oneshot::channel();
@@ -408,12 +313,10 @@ async fn generate_image_thumbnail(
 			let _ = tx.send(
 				panic::catch_unwind(|| inner_generate_image_thumbnail(&file_path)).unwrap_or_else(
 					move |_| {
-						Err(
-							thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
-								file_path,
-								"Internal panic on third party crate".to_string(),
-							),
-						)
+						Err(NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
+							file_path,
+							"Internal panic on third party crate".to_string(),
+						))
 					},
 				),
 			);
@@ -424,15 +327,13 @@ async fn generate_image_thumbnail(
 		res?
 	} else {
 		error!("Failed to generate thumbnail");
-		return Err(
-			thumbnailer::NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
-				file_path,
-				handle
-					.await
-					.expect_err("as the channel was closed, then the spawned task panicked")
-					.to_string(),
-			),
-		);
+		return Err(NonCriticalThumbnailerError::PanicWhileGeneratingThumbnail(
+			file_path,
+			handle
+				.await
+				.expect_err("as the channel was closed, then the spawned task panicked")
+				.to_string(),
+		));
 	};
 
 	trace!("Generated thumbnail bytes");
@@ -441,7 +342,7 @@ async fn generate_image_thumbnail(
 
 	if let Some(shard_dir) = output_path.parent() {
 		fs::create_dir_all(shard_dir).await.map_err(|e| {
-			thumbnailer::NonCriticalThumbnailerError::CreateShardDirectory(
+			NonCriticalThumbnailerError::CreateShardDirectory(
 				FileIOError::from((shard_dir, e)).to_string(),
 			)
 		})?;
@@ -452,21 +353,21 @@ async fn generate_image_thumbnail(
 	trace!("Created shard directory and writing it to disk");
 
 	let mut file = File::create(output_path).await.map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+		NonCriticalThumbnailerError::SaveThumbnail(
 			file_path.clone(),
 			FileIOError::from((output_path, e)).to_string(),
 		)
 	})?;
 
 	file.write_all(&webp).await.map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+		NonCriticalThumbnailerError::SaveThumbnail(
 			file_path.clone(),
 			FileIOError::from((output_path, e)).to_string(),
 		)
 	})?;
 
 	file.sync_all().await.map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::SaveThumbnail(
+		NonCriticalThumbnailerError::SaveThumbnail(
 			file_path,
 			FileIOError::from((output_path, e)).to_string(),
 		)
@@ -487,7 +388,7 @@ async fn generate_image_thumbnail(
 async fn generate_video_thumbnail(
 	file_path: impl AsRef<Path> + Send,
 	output_path: impl AsRef<Path> + Send,
-) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
+) -> Result<(), NonCriticalThumbnailerError> {
 	use sd_ffmpeg::{to_thumbnail, ThumbnailSize};
 
 	let file_path = file_path.as_ref();
@@ -500,7 +401,7 @@ async fn generate_video_thumbnail(
 	)
 	.await
 	.map_err(|e| {
-		thumbnailer::NonCriticalThumbnailerError::VideoThumbnailGenerationFailed(
+		NonCriticalThumbnailerError::VideoThumbnailGenerationFailed(
 			file_path.to_path_buf(),
 			e.to_string(),
 		)
@@ -514,7 +415,7 @@ pub async fn generate_single_thumbnail(
 	cas_id: CasId<'static>,
 	path: impl AsRef<Path> + Send,
 	kind: ThumbnailKind,
-) -> Result<(), thumbnailer::NonCriticalThumbnailerError> {
+) -> Result<(), NonCriticalThumbnailerError> {
 	let mut last_single_thumb_generated_guard = LAST_SINGLE_THUMB_GENERATED_LOCK.lock().await;
 
 	let elapsed = Instant::now() - *last_single_thumb_generated_guard;

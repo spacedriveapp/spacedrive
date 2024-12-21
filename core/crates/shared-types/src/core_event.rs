@@ -1,4 +1,4 @@
-use crate::thumb_key::ThumbKey;
+use crate::thumbnail::ThumbKey;
 use crate::{jobs::progress::JobProgressEvent, kind_statistic::KindStatistic, LibraryId};
 use sd_prisma::prisma::file_path;
 use serde::Serialize;

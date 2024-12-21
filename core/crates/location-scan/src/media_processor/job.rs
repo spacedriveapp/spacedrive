@@ -1,5 +1,5 @@
 use crate::{
-	media_processor::{self, helpers::thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
+	media_processor::{self},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
 	JobContext, LocationScanState, OuterContext, ProgressUpdate,
 };
@@ -15,6 +15,7 @@ use sd_core_job_system::{
 };
 use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
+use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 use sd_file_ext::extensions::Extension;
 use sd_prisma::{
 	prisma::{location, PrismaClient},

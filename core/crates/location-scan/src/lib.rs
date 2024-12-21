@@ -28,9 +28,6 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_prisma::prisma::file_path;
-use sd_task_system::TaskSystemError;
-
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
@@ -40,7 +37,7 @@ pub mod indexer;
 pub mod media_processor;
 pub mod utils;
 
-use media_processor::ThumbKey;
+use sd_core_shared_types::thumbnail::ThumbKey;
 
 use sd_core_job_errors::Error;
 pub use sd_core_job_system::{

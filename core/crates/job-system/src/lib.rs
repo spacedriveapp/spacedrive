@@ -33,7 +33,8 @@ use futures::Stream;
 use futures_concurrency::future::{Join, TryJoin};
 use sd_core_job_errors::system::JobSystemError;
 use sd_core_job_errors::Error;
-use sd_core_shared_types::{jobs::JobName, thumb_key::ThumbKey};
+use sd_core_shared_types::{jobs::JobName, thumbnail::ThumbKey};
+
 use sd_prisma::prisma::file_path;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
