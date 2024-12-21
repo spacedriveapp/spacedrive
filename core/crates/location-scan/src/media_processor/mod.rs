@@ -1,17 +1,18 @@
-use crate::{utils::sub_path, OuterContext, UpdateEvent};
+use crate::OuterContext;
 
-use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_system::UpdateEvent;
 use sd_core_prisma_helpers::file_path_for_media_processor;
 
 use sd_file_ext::extensions::Extension;
 use sd_prisma::prisma::{file_path, object, PrismaClient};
-use sd_utils::db::MissingFieldError;
 
 use std::{collections::HashMap, fmt};
 
 use prisma_client_rust::{raw, PrismaValue};
-use serde::{Deserialize, Serialize};
-use specta::Type;
+use serde::Deserialize;
+
+use sd_core_job_errors::media_processor::Error;
 
 mod helpers;
 pub mod job;
@@ -36,9 +37,7 @@ pub use helpers::{
 pub use helpers::thumbnailer::can_generate_thumbnail_for_video;
 
 pub use shallow::shallow;
-
-use media_data_extractor::NonCriticalMediaDataExtractorError;
-use thumbnailer::{NewThumbnailReporter, NonCriticalThumbnailerError};
+use thumbnailer::NewThumbnailReporter;
 
 const BATCH_SIZE: usize = 10;
 

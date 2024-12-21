@@ -1,14 +1,13 @@
 use sd_core_file_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
-	FilePathError, IsolatedFilePathData,
+	IsolatedFilePathData,
 };
 
 use sd_prisma::prisma::{location, PrismaClient};
 
 use std::path::{Path, PathBuf};
 
-use prisma_client_rust::QueryError;
-use rspc::ErrorCode;
+use sd_core_job_errors::sub_path::Error;
 
 pub async fn get_full_path_from_sub_path<E: From<Error>>(
 	location_id: location::id::Type,

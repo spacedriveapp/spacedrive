@@ -1,22 +1,22 @@
-use crate::{utils::sub_path, OuterContext};
-
+use crate::OuterContext;
+use itertools::Itertools;
+use prisma_client_rust::{operator::or, QueryError, Select};
 use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_library_sync::{DevicePubId, SyncManager};
+use sd_core_job_errors::indexer::{Error, NonCriticalIndexerError};
+use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
 };
-
 use sd_prisma::{
-	prisma::{file_path, indexer_rule, location, PrismaClient, SortOrder},
+	prisma::{file_path, location, PrismaClient, SortOrder},
 	prisma_sync,
 };
 use sd_sync::{sync_db_entry, OperationFactory};
 use sd_utils::{
-	db::{size_in_bytes_from_db, size_in_bytes_to_db, MissingFieldError},
-	error::{FileIOError, NonUtf8PathError},
+	db::{size_in_bytes_from_db, size_in_bytes_to_db},
 	from_bytes_to_uuid,
 };
-
+use serde::{Deserialize, Serialize};
 use std::{
 	collections::{HashMap, HashSet},
 	hash::BuildHasher,
@@ -24,12 +24,6 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-
-use itertools::Itertools;
-use prisma_client_rust::{operator::or, QueryError, Select};
-use rspc::ErrorCode;
-use serde::{Deserialize, Serialize};
-use specta::Type;
 use tracing::{instrument, warn};
 
 pub mod job;
@@ -205,7 +199,7 @@ pub async fn reverse_update_directories_sizes(
 	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-	errors: &mut Vec<crate::NonCriticalError>,
+	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
 ) -> Result<(), Error> {
 	let location_path = location_path.as_ref();
 
@@ -305,7 +299,7 @@ async fn compute_sizes(
 	materialized_paths: Vec<String>,
 	pub_id_by_ancestor_materialized_path: &mut HashMap<String, (file_path::pub_id::Type, u64)>,
 	db: &PrismaClient,
-	errors: &mut Vec<crate::NonCriticalError>,
+	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
 ) -> Result<(), QueryError> {
 	for file_path in db
 		.file_path()

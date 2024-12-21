@@ -119,7 +119,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>>
 #[macro_export]
 macro_rules! impl_job_serialization_handler {
 	($handler:ty, $job:ty) => {
-		impl<OuterCtx: $crate::job::OuterContext, JobCtx: $crate::JobContext<OuterCtx>>
+		impl<OuterCtx: $crate::job::OuterContext, JobCtx: $crate::job::JobContext<OuterCtx>>
 			$crate::store::JobSerializationHandler<OuterCtx, JobCtx> for $handler
 		{
 			fn deserialize_job<'a>(

@@ -1,10 +1,6 @@
-use crate::{
-	library::{Library, LibraryManagerEvent},
-	Node,
-};
-
+use sd_core_device::Node;
 use sd_core_file_helper::FilePathError;
-
+use sd_core_library::{Library, LibraryManagerEvent};
 use sd_prisma::prisma::location;
 use sd_utils::{db::MissingFieldError, error::FileIOError};
 

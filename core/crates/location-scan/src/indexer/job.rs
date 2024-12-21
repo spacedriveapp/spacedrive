@@ -1,16 +1,16 @@
-use crate::{
-	indexer,
-	job_system::{
-		job::{Job, JobContext, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus},
-		utils::cancel_pending_tasks,
-		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
-	},
-	utils::sub_path::get_full_path_from_sub_path,
-	Error, LocationScanState, NonCriticalError, OuterContext,
-};
-
+use crate::{utils::sub_path::get_full_path_from_sub_path, LocationScanState, OuterContext};
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
+use sd_core_job_errors::{
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	Error, NonCriticalError,
+};
+use sd_core_job_system::{
+	impl_job_serialization_handler,
+	job::{Job, JobContext, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus},
+	store::{SerializableJob, SerializedTasks},
+	utils::cancel_pending_tasks,
+};
 use sd_core_prisma_helpers::location_with_indexer_rules;
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 
@@ -35,7 +35,6 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -171,7 +170,9 @@ impl Job for Indexer {
 			.exec()
 			.await
 			.map_err(sd_core_job_errors::indexer::Error::from)?
-			.ok_or(sd_core_job_errors::indexer::Error::DeviceNotFound(device_pub_id.clone()))?
+			.ok_or(sd_core_job_errors::indexer::Error::DeviceNotFound(
+				device_pub_id.clone(),
+			))?
 			.id;
 
 		match self
@@ -368,7 +369,8 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>>
+	{
 		self.metadata.completed_tasks += 1;
 
 		if any_task_output.is::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>() {
@@ -435,7 +437,8 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>>
+	{
 		self.metadata.mean_scan_read_time += scan_time;
 		#[allow(clippy::cast_possible_truncation)]
 		// SAFETY: we know that `keep_walking_tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks

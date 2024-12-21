@@ -1,8 +1,7 @@
-use crate::{
-	indexer, utils::sub_path::get_full_path_from_sub_path, Error, NonCriticalError, OuterContext,
-};
+use crate::{utils::sub_path::get_full_path_from_sub_path, Error, OuterContext};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
+use sd_core_job_errors::NonCriticalError;
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::location_with_indexer_rules;
 

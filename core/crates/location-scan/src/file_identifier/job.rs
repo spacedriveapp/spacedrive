@@ -1,16 +1,18 @@
 use crate::{
-	file_identifier,
-	job_system::{
-		job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
-		utils::cancel_pending_tasks,
-		DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
-	},
-	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobContext, LocationScanState, NonCriticalError, OuterContext, ProgressUpdate,
-	UpdateEvent,
+	file_identifier, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, JobContext,
+	LocationScanState, OuterContext, ProgressUpdate, UpdateEvent,
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::{
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	NonCriticalError,
+};
+use sd_core_job_system::{
+	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
+	store::{SerializableJob, SerializedTasks},
+	utils::cancel_pending_tasks,
+};
 use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 use sd_prisma::{
@@ -125,7 +127,7 @@ impl Job for FileIdentifier {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(file_identifier::Error::from)?
+					.map_err(sd_core_job_errors::file_identifier::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| async move {
 						match task_kind {
@@ -147,7 +149,7 @@ impl Job for FileIdentifier {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(file_identifier::Error::from)?,
+					.map_err(sd_core_job_errors::file_identifier::Error::from)?,
 			)
 			.await
 		{
@@ -183,7 +185,7 @@ impl Job for FileIdentifier {
 			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 			.exec()
 			.await
-			.map_err(file_identifier::Error::from)?
+			.map_err(sd_core_job_errors::file_identifier::Error::from)?
 			.ok_or(file_identifier::Error::DeviceNotFound(
 				device_pub_id.clone(),
 			))?
@@ -290,7 +292,7 @@ impl Job for FileIdentifier {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(file_identifier::Error::from)?;
+			.map_err(sd_core_job_errors::file_identifier::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -350,7 +352,7 @@ impl FileIdentifier {
 			&*self.location_path,
 			true,
 		)
-		.map_err(file_identifier::Error::from)?;
+		.map_err(sd_core_job_errors::file_identifier::Error::from)?;
 
 		if self.pending_tasks_on_resume.is_empty() {
 			ctx.progress([ProgressUpdate::phase(self.phase)]).await;
@@ -695,7 +697,7 @@ impl FileIdentifier {
 				.select(file_path_for_file_identifier::select())
 				.exec()
 				.await
-				.map_err(file_identifier::Error::from)?;
+				.map_err(sd_core_job_errors::file_identifier::Error::from)?;
 
 			trace!(orphans_count = orphan_paths.len(), "Found orphan paths;");
 
@@ -776,7 +778,7 @@ impl FileIdentifier {
 				.select(file_path_for_file_identifier::select())
 				.exec()
 				.await
-				.map_err(file_identifier::Error::from)?;
+				.map_err(sd_core_job_errors::file_identifier::Error::from)?;
 
 			// No other orphans to identify, we can break the loop
 			if orphan_paths.is_empty() {

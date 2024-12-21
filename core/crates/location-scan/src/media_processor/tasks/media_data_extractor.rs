@@ -94,7 +94,7 @@ pub struct Output {
 	/// Time spent writing media data to database
 	pub db_write_time: Duration,
 	/// Errors encountered during the task
-	pub errors: Vec<crate::NonCriticalError>,
+	pub errors: Vec<sd_core_job_errors::NonCriticalError>,
 }
 
 #[async_trait::async_trait]

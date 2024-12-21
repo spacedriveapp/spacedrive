@@ -48,7 +48,7 @@ pub mod job;
 pub mod report;
 pub mod reversible;
 mod runner;
-mod store;
+pub mod store;
 pub mod utils;
 
 use crate::job::JobContext;

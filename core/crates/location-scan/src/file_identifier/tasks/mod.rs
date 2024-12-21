@@ -1,7 +1,7 @@
 use crate::file_identifier;
 
-use sd_core_prisma_helpers::{file_path_id, FilePathPubId, ObjectPubId};
 use sd_core_library_sync::SyncManager;
+use sd_core_prisma_helpers::{file_path_id, FilePathPubId, ObjectPubId};
 
 use sd_file_ext::kind::ObjectKind;
 use sd_prisma::{
@@ -72,7 +72,7 @@ async fn create_objects_and_update_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 	device_id: device::id::Type,
-) -> Result<HashMap<file_path::id::Type, ObjectPubId>, file_identifier::Error> {
+) -> Result<HashMap<file_path::id::Type, ObjectPubId>, sd_core_job_errors::file_identifier::Error> {
 	trace!("Preparing objects");
 	let (object_create_args, file_path_args) = files_and_kinds
 		.into_iter()

@@ -1,9 +1,8 @@
 use crate::{
-	media_processor, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error,
-	NonCriticalError, OuterContext,
+	media_processor, utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, OuterContext,
 };
-
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::NonCriticalError;
 use sd_core_library_sync::SyncManager;
 
 use sd_prisma::prisma::{location, PrismaClient};
@@ -19,8 +18,6 @@ use std::{
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
-use futures_concurrency::future::TryJoin;
-use itertools::Itertools;
 use tracing::{debug, warn};
 
 use super::{
@@ -45,21 +42,18 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(media_processor::Error::from)?;
+		.map_err(sd_core_job_errors::media_processor::Error::from)?;
 
 	let location = Arc::new(location);
 
-	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<media_processor::Error>(
-		location.id,
-		Some(sub_path),
-		&*location_path,
-		ctx.db(),
-	)
+	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<
+		sd_core_job_errors::media_processor::Error,
+	>(location.id, Some(sub_path), &*location_path, ctx.db())
 	.await?
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-				.map_err(media_processor::Error::from)
+				.map_err(sd_core_job_errors::media_processor::Error::from)
 		},
 		Ok,
 	)?;

@@ -199,7 +199,7 @@ impl Task<Error> for Thumbnailer {
 pub struct Output {
 	pub generated: u64,
 	pub skipped: u64,
-	pub errors: Vec<crate::NonCriticalError>,
+	pub errors: Vec<sd_core_job_errors::NonCriticalError>,
 	pub total_time: Duration,
 	pub mean_time_acc: f64,
 	pub std_dev_acc: f64,
@@ -210,7 +210,7 @@ impl Thumbnailer {
 		thumbs_kind: ThumbnailKind,
 		thumbnails_directory_path: Arc<PathBuf>,
 		thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs<'static>>,
-		errors: Vec<crate::NonCriticalError>,
+		errors: Vec<sd_core_job_errors::NonCriticalError>,
 		should_regenerate: bool,
 		with_priority: bool,
 		reporter: Arc<dyn NewThumbnailReporter>,

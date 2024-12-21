@@ -1,13 +1,17 @@
-use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_system::{
-	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
-	utils::cancel_pending_tasks,
-	DispatcherError, JobErrorOrDispatcherError, SerializableJob, SerializedTasks,
-};
-use sd_core_location_scan::{
+use crate::{
 	media_processor::{self, helpers::thumbnailer::THUMBNAIL_CACHE_DIR_NAME},
 	utils::sub_path::maybe_get_iso_file_path_from_sub_path,
-	Error, JobContext, LocationScanState, OuterContext, ProgressUpdate,
+	JobContext, LocationScanState, OuterContext, ProgressUpdate,
+};
+use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_job_errors::{
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	Error,
+};
+use sd_core_job_system::{
+	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
+	store::{SerializableJob, SerializedTasks},
+	utils::cancel_pending_tasks,
 };
 use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
@@ -95,7 +99,7 @@ pub struct MediaProcessor {
 
 	// Run data
 	metadata: Metadata,
-	errors: Vec<crate::NonCriticalError>,
+	errors: Vec<sd_core_job_errors::NonCriticalError>,
 
 	// On shutdown data
 	pending_tasks_on_resume: Vec<TaskHandle<Error>>,
@@ -117,7 +121,7 @@ impl Job for MediaProcessor {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(media_processor::Error::from)?
+					.map_err(sd_core_job_errors::media_processor::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
 						let reporter = Arc::clone(&reporter);
@@ -143,7 +147,7 @@ impl Job for MediaProcessor {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(media_processor::Error::from)?,
+					.map_err(sd_core_job_errors::media_processor::Error::from)?,
 			)
 			.await
 		{
@@ -233,7 +237,7 @@ impl Job for MediaProcessor {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(media_processor::Error::from)?;
+			.map_err(sd_core_job_errors::media_processor::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -249,7 +253,7 @@ impl MediaProcessor {
 		location: location::Data,
 		sub_path: Option<PathBuf>,
 		regenerate_thumbnails: bool,
-	) -> Result<Self, media_processor::Error> {
+	) -> Result<Self, sd_core_job_errors::media_processor::Error> {
 		Ok(Self {
 			location_path: maybe_missing(&location.path, "location.path")
 				.map(PathBuf::from)
@@ -275,13 +279,15 @@ impl MediaProcessor {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		job_ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<media_processor::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::media_processor::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let location_id = self.location.id;
 			let location_path = &*self.location_path;
 
-			let iso_file_path = maybe_get_iso_file_path_from_sub_path::<media_processor::Error>(
+			let iso_file_path = maybe_get_iso_file_path_from_sub_path::<
+				sd_core_job_errors::media_processor::Error,
+			>(
 				location_id,
 				self.sub_path.as_ref(),
 				&*self.location_path,
@@ -291,7 +297,7 @@ impl MediaProcessor {
 			.map_or_else(
 				|| {
 					IsolatedFilePathData::new(location_id, location_path, location_path, true)
-						.map_err(media_processor::Error::from)
+						.map_err(sd_core_job_errors::media_processor::Error::from)
 				},
 				Ok,
 			)?;
@@ -451,8 +457,8 @@ impl MediaProcessor {
 						"Thumbnailer task timed out, we will keep processing the rest of the tasks;",
 					);
 					self.errors.push(
-						media_processor::NonCriticalMediaProcessorError::Thumbnailer(
-							media_processor::NonCriticalThumbnailerError::TaskTimeout(task_id),
+						sd_core_job_errors::media_processor::NonCriticalMediaProcessorError::Thumbnailer(
+							sd_core_job_errors::media_processor::NonCriticalThumbnailerError::TaskTimeout(task_id),
 						)
 						.into(),
 					);
@@ -974,7 +980,7 @@ struct SaveState {
 
 	metadata: Metadata,
 
-	errors: Vec<crate::NonCriticalError>,
+	errors: Vec<sd_core_job_errors::NonCriticalError>,
 
 	tasks_for_shutdown_bytes: Option<SerializedTasks>,
 }

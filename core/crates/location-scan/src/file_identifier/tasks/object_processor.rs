@@ -1,7 +1,7 @@
 use crate::{file_identifier, Error};
 
-use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
 use sd_core_library_sync::SyncManager;
+use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
 
 use sd_prisma::prisma::{device, file_path, object, PrismaClient};
 use sd_task_system::{
@@ -223,7 +223,7 @@ impl ObjectProcessor {
 async fn fetch_existing_objects_by_cas_id<'cas_id, Iter>(
 	cas_ids: Iter,
 	db: &PrismaClient,
-) -> Result<HashMap<CasId<'static>, ObjectPubId>, file_identifier::Error>
+) -> Result<HashMap<CasId<'static>, ObjectPubId>, sd_core_job_errors::file_identifier::Error>
 where
 	Iter: IntoIterator<Item = &'cas_id CasId<'cas_id>> + Send,
 	Iter::IntoIter: Send,
@@ -231,7 +231,7 @@ where
 	async fn inner(
 		stringed_cas_ids: Vec<String>,
 		db: &PrismaClient,
-	) -> Result<HashMap<CasId<'static>, ObjectPubId>, file_identifier::Error> {
+	) -> Result<HashMap<CasId<'static>, ObjectPubId>, sd_core_job_errors::file_identifier::Error> {
 		db.object()
 			.find_many(vec![object::file_paths::some(vec![
 				file_path::cas_id::in_vec(stringed_cas_ids),
@@ -278,7 +278,7 @@ async fn assign_existing_objects_to_file_paths(
 	objects_by_cas_id: &HashMap<CasId<'static>, ObjectPubId>,
 	db: &PrismaClient,
 	sync: &Arc<SyncManager>,
-) -> Result<Vec<file_path::id::Type>, file_identifier::Error> {
+) -> Result<Vec<file_path::id::Type>, sd_core_job_errors::file_identifier::Error> {
 	let (ops, queries) = objects_by_cas_id
 		.iter()
 		.flat_map(|(cas_id, object_pub_id)| {
@@ -317,7 +317,7 @@ async fn assign_objects_to_duplicated_orphans(
 	db: &PrismaClient,
 	sync: &Arc<SyncManager>,
 	device_id: device::id::Type,
-) -> Result<(Vec<file_path::id::Type>, u64), file_identifier::Error> {
+) -> Result<(Vec<file_path::id::Type>, u64), sd_core_job_errors::file_identifier::Error> {
 	// at least 1 file path per cas_id
 	let mut selected_file_paths = Vec::with_capacity(file_paths_by_cas_id.len());
 	let mut cas_ids_by_file_path_id = HashMap::with_capacity(file_paths_by_cas_id.len());

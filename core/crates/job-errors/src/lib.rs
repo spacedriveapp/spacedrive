@@ -15,7 +15,7 @@ use crate::system::JobSystemError;
 #[derive(Error, Debug)]
 pub enum Error {
 	#[error(transparent)]
-	Indexer(#[from] sd_core_job_errors::indexer::Error),
+	Indexer(#[from] indexer::Error),
 	#[error(transparent)]
 	FileIdentifier(#[from] file_identifier::Error),
 	#[error(transparent)]

@@ -18,8 +18,9 @@ sd-core-file-helper    = { path = "../file-helper" }
 sd-core-indexer-rules  = { path = "../indexer-rules" }
 sd-core-job-errors     = { path = "../job-errors" }
 sd-core-job-system     = { path = "../job-system" }
+sd-core-library-sync   = { path = "../library-sync" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
-
+sd-core-shared-types   = { path = "../shared-types" }
 
 # Spacedrive Sub-crates
 sd-ffmpeg         = { path = "../../../crates/ffmpeg", optional = true }

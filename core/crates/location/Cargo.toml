@@ -13,9 +13,11 @@ ffmpeg = ["dep:sd-ffmpeg"]
 
 [dependencies]
 # Inner Core Sub-crates
+sd-core-device         = { path = "../device" }
 sd-core-file-helper    = { path = "../file-helper" }
 sd-core-indexer-rules  = { path = "../indexer-rules" }
 sd-core-job-system     = { path = "../job-system" }
+sd-core-library        = { path = "../library" }
 sd-core-library-sync   = { path = "../library-sync" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-shared-types   = { path = "../shared-types" }
