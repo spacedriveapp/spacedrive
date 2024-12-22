@@ -1,8 +1,7 @@
 use crate::sub_path;
 use prisma_client_rust::QueryError;
 use rspc::ErrorCode;
-use sd_core_file_helper::FilePathError;
-use sd_core_library_sync::DevicePubId;
+\use sd_core_library_sync::DevicePubId;
 use sd_prisma::prisma::indexer_rule;
 use sd_utils::db::MissingFieldError;
 use sd_utils::error::{FileIOError, NonUtf8PathError};
@@ -27,9 +26,9 @@ pub enum Error {
 	#[error(transparent)]
 	NonUtf8Path(#[from] NonUtf8PathError),
 	#[error(transparent)]
-	IsoFilePath(#[from] FilePathError),
+	IsoFilePath(#[from] crate::file_helper::Error),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] crate::library_sync::Error),
 	#[error("missing field on database: {0}")]
 	MissingField(#[from] MissingFieldError),
 	#[error("failed to deserialized stored tasks for job resume: {0}")]
@@ -37,7 +36,7 @@ pub enum Error {
 
 	// Mixed errors
 	#[error(transparent)]
-	Rules(#[from] sd_core_indexer_rules::Error),
+	Rules(#[from] crate::indexer_rules::Error),
 }
 
 impl From<Error> for rspc::Error {

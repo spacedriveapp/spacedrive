@@ -1,4 +1,4 @@
-use sd_core_job_errors::media_processor::{
+use sd_core_shared_errors::job::media_processor::{
 	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
 };
 use sd_core_library_sync::{DevicePubId, SyncManager};

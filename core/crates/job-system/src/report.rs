@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
-use sd_core_job_errors::report::ReportError;
-use sd_core_job_errors::NonCriticalError;
+use sd_core_shared_errors::job::report::ReportError;
+use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 use sd_prisma::prisma::{job, location, PrismaClient};
 use sd_utils::db::maybe_missing;

@@ -1,6 +1,6 @@
 use sd_core_file_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{IndexerRuler, MetadataForIndexerRules, RuleKind};
-use sd_core_job_errors::{indexer::NonCriticalIndexerError, NonCriticalError};
+use sd_core_shared_errors::job::{indexer::NonCriticalIndexerError, NonCriticalError};
 
 use sd_utils::error::FileIOError;
 

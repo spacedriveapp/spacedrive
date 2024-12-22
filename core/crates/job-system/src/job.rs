@@ -1,6 +1,6 @@
 use crate::UpdateEvent;
 use futures_concurrency::stream::Merge;
-use sd_core_job_errors::{system::DispatcherError, Error, NonCriticalError};
+use sd_core_shared_errors::job::{system::DispatcherError, Error, NonCriticalError};
 use sd_core_library_sync::SyncManager;
 use sd_prisma::prisma::PrismaClient;
 use sd_task_system::{

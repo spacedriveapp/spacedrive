@@ -1,6 +1,6 @@
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRuler, RuleKind};
-use sd_core_job_errors::{Error, NonCriticalError};
+use sd_core_shared_errors::job::{Error, NonCriticalError};
 use sd_core_prisma_helpers::file_path_pub_and_cas_ids;
 
 use std::{

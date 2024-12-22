@@ -1,7 +1,6 @@
+use sd_prisma::prisma::location;
 use std::path::Path;
 use thiserror::Error;
-
-use sd_prisma::prisma::location;
 
 #[derive(Error, Debug)]
 pub enum LocationManagerError {
@@ -31,13 +30,13 @@ pub enum LocationManagerError {
 	MissingField(#[from] sd_utils::db::MissingFieldError),
 
 	#[error(transparent)]
-	FilePath(#[from] sd_core_file_helper::FilePathError),
+	FilePath(#[from] crate::file_helper::Error),
 	#[error(transparent)]
-	IndexerRuler(#[from] sd_core_indexer_rules::Error),
+	IndexerRuler(#[from] crate::indexer_rules::Error),
 	#[error(transparent)]
-	JobSystem(#[from] sd_core_job_errors::Error),
+	JobSystem(#[from] crate::job::Error),
 	#[error(transparent)]
 	FileIO(#[from] sd_utils::error::FileIOError),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] crate::library_sync::Error),
 }

@@ -1,4 +1,4 @@
-use sd_core_job_errors::Error;
+use sd_core_shared_errors::job::Error;
 
 use sd_task_system::{TaskHandle, TaskStatus};
 

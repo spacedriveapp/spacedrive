@@ -13,7 +13,7 @@ use crate::media_processor::helpers::thumbnailer::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::{
+use sd_core_shared_errors::job::{
 	media_processor::{NonCriticalMediaProcessorError, NonCriticalThumbnailerError},
 	Error,
 };
@@ -197,7 +197,7 @@ impl Task<Error> for Thumbnailer {
 pub struct Output {
 	pub generated: u64,
 	pub skipped: u64,
-	pub errors: Vec<sd_core_job_errors::NonCriticalError>,
+	pub errors: Vec<sd_core_shared_errors::job::NonCriticalError>,
 	pub total_time: Duration,
 	pub mean_time_acc: f64,
 	pub std_dev_acc: f64,
@@ -208,7 +208,7 @@ impl Thumbnailer {
 		thumbs_kind: ThumbnailKind,
 		thumbnails_directory_path: Arc<PathBuf>,
 		thumbnails_to_generate: HashMap<ThumbnailId, GenerateThumbnailArgs<'static>>,
-		errors: Vec<sd_core_job_errors::NonCriticalError>,
+		errors: Vec<sd_core_shared_errors::job::NonCriticalError>,
 		should_regenerate: bool,
 		with_priority: bool,
 		reporter: Arc<dyn NewThumbnailReporter>,

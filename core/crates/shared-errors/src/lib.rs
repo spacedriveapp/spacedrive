@@ -1,13 +1,16 @@
-use thiserror::Error;
-
-pub mod indexer_rules;
-pub mod library;
-pub mod location;
-pub mod volume;
 use sd_utils::error::FileIOError;
-
+use thiserror::Error;
 use tracing_subscriber::filter::FromEnvError;
 // use sd_utils::version_manager::VersionManagerError;
+
+pub mod cloud_services;
+pub mod file_helper;
+pub mod indexer_rules;
+pub mod job;
+pub mod library;
+pub mod library_sync;
+pub mod location;
+pub mod volume;
 
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
@@ -28,9 +31,9 @@ pub enum NodeError {
 	#[error("logger error: {0}")]
 	Logger(#[from] FromEnvError),
 	#[error(transparent)]
-	JobSystem(#[from] sd_core_job_errors::system::JobSystemError),
+	JobSystem(#[from] job::system::JobSystemError),
 	#[error(transparent)]
-	CloudServices(#[from] sd_core_cloud_services::Error),
+	CloudServices(#[from] crate::cloud_services::Error),
 	#[error(transparent)]
 	Crypto(#[from] sd_crypto::Error),
 	#[error(transparent)]

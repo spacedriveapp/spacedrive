@@ -1,4 +1,4 @@
-use sd_core_job_errors::media_processor::{
+use sd_core_shared_errors::job::media_processor::{
 	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
 };
 use sd_core_prisma_helpers::object_with_media_data;

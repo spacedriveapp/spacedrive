@@ -29,7 +29,7 @@
 
 use sd_prisma::prisma::{indexer_rule, PrismaClient};
 use sd_utils::{
-	db::{maybe_missing, MissingFieldError},
+	db::maybe_missing,
 	error::{FileIOError, NonUtf8PathError},
 };
 use seed::SystemIndexerRule;
@@ -47,8 +47,7 @@ use futures_concurrency::future::TryJoin;
 use gix_ignore::{glob::pattern::Case, Search};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{decode, encode};
-use rspc::ErrorCode;
-
+use sd_core_shared_errors::indexer_rule::Error;
 use specta::Type;
 use thiserror::Error;
 use tokio::fs;

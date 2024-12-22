@@ -12,8 +12,10 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::{media_processor::Error as MediaProcessorError, Error, NonCriticalError};
 use sd_core_library_sync::SyncManager;
+use sd_core_shared_errors::job::{
+	media_processor::Error as MediaProcessorError, Error, NonCriticalError,
+};
 use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_task_system::{

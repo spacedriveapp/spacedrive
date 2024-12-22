@@ -48,9 +48,9 @@ pub enum LibraryManagerError {
 	#[error(transparent)]
 	LibraryConfig(#[from] LibraryConfigError),
 	#[error(transparent)]
-	CloudServices(#[from] sd_core_cloud_services::Error),
+	CloudServices(#[from] crate::cloud_services::Error),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] crate::library_sync::Error),
 }
 
 impl From<LibraryManagerError> for rspc::Error {

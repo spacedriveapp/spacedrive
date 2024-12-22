@@ -23,7 +23,7 @@ impl InnerMetadata {
 	pub fn new(
 		path: impl AsRef<Path> + Copy,
 		metadata: &Metadata,
-	) -> Result<Self, sd_core_job_errors::indexer::NonCriticalIndexerError> {
+	) -> Result<Self, sd_core_shared_errors::job::indexer::NonCriticalIndexerError> {
 		let FilePathMetadata {
 			inode,
 			size_in_bytes,
@@ -31,7 +31,7 @@ impl InnerMetadata {
 			modified_at,
 			hidden,
 		} = FilePathMetadata::from_path(path, metadata)
-			.map_err(|e| sd_core_job_errors::indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string()))?;
+			.map_err(|e| sd_core_shared_errors::job::indexer::NonCriticalIndexerError::FilePathMetadata(e.to_string()))?;
 
 		Ok(Self {
 			is_dir: metadata.is_dir(),

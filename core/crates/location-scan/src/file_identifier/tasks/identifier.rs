@@ -96,7 +96,7 @@ pub struct Output {
 	pub total_identified_files: u64,
 
 	/// Non critical errors that happened during the task execution
-	pub errors: Vec<sd_core_job_errors::NonCriticalError>,
+	pub errors: Vec<sd_core_shared_errors::job::NonCriticalError>,
 }
 
 #[async_trait::async_trait]
@@ -363,7 +363,7 @@ impl Identifier {
 					None => {
 						warn!(%file_path.id, "file path without is_dir field, skipping;");
 						output.errors.push(
-							sd_core_job_errors::file_identifier::NonCriticalFileIdentifierError::FilePathWithoutIsDirField(
+							sd_core_shared_errors::job::file_identifier::NonCriticalFileIdentifierError::FilePathWithoutIsDirField(
 							file_path.id,
 						)
 						.into(),
@@ -396,7 +396,7 @@ async fn assign_cas_id_to_file_paths(
 	identified_files: &HashMap<FilePathPubId, IdentifiedFile>,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<(), sd_core_job_errors::file_identifier::Error> {
+) -> Result<(), sd_core_shared_errors::job::file_identifier::Error> {
 	let (ops, queries) = identified_files
 		.iter()
 		.map(|(pub_id, IdentifiedFile { cas_id, .. })| {
@@ -430,7 +430,7 @@ async fn assign_cas_id_to_file_paths(
 fn handle_non_critical_errors(
 	file_path_pub_id: FilePathPubId,
 	e: &FileIOError,
-	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
+	errors: &mut Vec<sd_core_shared_errors::job::NonCriticalError>,
 ) {
 	let formatted_error = format!("<file_path_pub_id='{file_path_pub_id}', error={e}>");
 
@@ -457,7 +457,7 @@ fn handle_non_critical_errors(
 	#[cfg(not(target_os = "windows"))]
 	{
 		errors.push(
-			sd_core_job_errors::file_identifier::NonCriticalFileIdentifierError::FailedToExtractFileMetadata(
+			sd_core_shared_errors::job::file_identifier::NonCriticalFileIdentifierError::FailedToExtractFileMetadata(
 				formatted_error,
 			)
 			.into(),
@@ -479,7 +479,7 @@ fn try_iso_file_path_extraction(
 	file_path_pub_id: FilePathPubId,
 	file_path: &file_path_for_file_identifier::Data,
 	location_path: Arc<PathBuf>,
-	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
+	errors: &mut Vec<sd_core_shared_errors::job::NonCriticalError>,
 ) -> Option<(FilePathPubId, IsolatedFilePathData<'static>, Arc<PathBuf>)> {
 	match IsolatedFilePathData::try_from((location_id, file_path))
 		.map(IsolatedFilePathData::to_owned)
@@ -488,7 +488,7 @@ fn try_iso_file_path_extraction(
 		Err(e) => {
 			error!(?e, %file_path_pub_id, "Failed to extract isolated file path data;");
 			errors.push(
-				sd_core_job_errors::file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData { file_path_pub_id: file_path_pub_id.into(), error: e.to_string() }.into(),
+				sd_core_shared_errors::job::file_identifier::NonCriticalFileIdentifierError::FailedToExtractIsolatedFilePathData { file_path_pub_id: file_path_pub_id.into(), error: e.to_string() }.into(),
 
 			);
 			None

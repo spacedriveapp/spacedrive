@@ -4,7 +4,7 @@ use crate::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::{
+use sd_core_shared_errors::job::{
 	file_identifier::Error as FileIdentifierError,
 	system::{DispatcherError, JobErrorOrDispatcherError},
 	NonCriticalError,

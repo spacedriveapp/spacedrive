@@ -6,7 +6,7 @@ use super::{
 	JobId, JobSystem, JobSystemError,
 };
 
-use sd_core_job_errors::Error;
+use sd_core_shared_errors::job::Error;
 
 /// Extension trait for jobs that can be undone
 #[async_trait]

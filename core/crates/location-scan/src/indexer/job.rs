@@ -2,7 +2,7 @@ use crate::{utils::sub_path::get_full_path_from_sub_path, LocationScanState, Out
 use futures_concurrency::future::TryJoin;
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
-use sd_core_job_errors::{
+use sd_core_shared_errors::job::{
 	system::{DispatcherError, JobErrorOrDispatcherError},
 	Error, NonCriticalError,
 };
@@ -95,7 +95,7 @@ impl Job for Indexer {
 		if let Ok(tasks) = dispatcher
 			.dispatch_many_boxed(
 				rmp_serde::from_slice::<Vec<(TaskKind, Vec<u8>)>>(&serialized_tasks)
-					.map_err(sd_core_job_errors::indexer::Error::from)?
+					.map_err(sd_core_shared_errors::job::indexer::Error::from)?
 					.into_iter()
 					.map(|(task_kind, task_bytes)| {
 						let indexer_ruler = self.indexer_ruler.clone();
@@ -134,7 +134,7 @@ impl Job for Indexer {
 					.collect::<Vec<_>>()
 					.try_join()
 					.await
-					.map_err(sd_core_job_errors::indexer::Error::from)?,
+					.map_err(sd_core_shared_errors::job::indexer::Error::from)?,
 			)
 			.await
 		{
@@ -170,8 +170,8 @@ impl Job for Indexer {
 			.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 			.exec()
 			.await
-			.map_err(sd_core_job_errors::indexer::Error::from)?
-			.ok_or(sd_core_job_errors::indexer::Error::DeviceNotFound(
+			.map_err(sd_core_shared_errors::job::indexer::Error::from)?
+			.ok_or(sd_core_shared_errors::job::indexer::Error::DeviceNotFound(
 				device_pub_id.clone(),
 			))?
 			.id;
@@ -309,7 +309,7 @@ impl Job for Indexer {
 					.select(location::select!({ id })),
 			)
 			.await
-			.map_err(sd_core_job_errors::indexer::Error::from)?;
+			.map_err(sd_core_shared_errors::job::indexer::Error::from)?;
 
 		Ok(ReturnStatus::Completed(
 			JobReturn::builder()
@@ -324,7 +324,7 @@ impl Indexer {
 	pub fn new(
 		location: location_with_indexer_rules::Data,
 		sub_path: Option<PathBuf>,
-	) -> Result<Self, sd_core_job_errors::indexer::Error> {
+	) -> Result<Self, sd_core_shared_errors::job::indexer::Error> {
 		Ok(Self {
 			indexer_ruler: location
 				.indexer_rules
@@ -370,7 +370,7 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>>
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>>
 	{
 		self.metadata.completed_tasks += 1;
 
@@ -438,7 +438,7 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>>
+	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>>
 	{
 		self.metadata.mean_scan_read_time += scan_time;
 		#[allow(clippy::cast_possible_truncation)]
@@ -645,11 +645,11 @@ impl Indexer {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<sd_core_job_errors::indexer::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>> {
 		// if we don't have any pending task, then this is a fresh job
 		let updates = if self.pending_tasks_on_resume.is_empty() {
 			let walker_root_path = Arc::new(
-				get_full_path_from_sub_path::<sd_core_job_errors::indexer::Error>(
+				get_full_path_from_sub_path::<sd_core_shared_errors::job::indexer::Error>(
 					self.location.id,
 					self.sub_path.as_ref(),
 					&*self.iso_file_path_factory.location_path,

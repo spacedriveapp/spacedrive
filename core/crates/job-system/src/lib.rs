@@ -31,8 +31,8 @@
 use async_channel as chan;
 use futures::Stream;
 use futures_concurrency::future::{Join, TryJoin};
-use sd_core_job_errors::system::JobSystemError;
-use sd_core_job_errors::Error;
+use sd_core_shared_errors::job::system::JobSystemError;
+use sd_core_shared_errors::job::Error;
 use sd_core_shared_types::{jobs::JobName, thumbnail::ThumbKey};
 
 use sd_prisma::prisma::file_path;

@@ -6,7 +6,7 @@ use super::{
 use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, OuterContext};
 use futures::{stream::FuturesUnordered, StreamExt};
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::NonCriticalError;
+use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_job_system::UpdateEvent;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
 use sd_prisma::prisma::{device, file_path, location, SortOrder};
@@ -41,18 +41,18 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+		.map_err(sd_core_shared_errors::job::file_identifier::Error::from)?;
 
 	let location = Arc::new(location);
 
 	let sub_iso_file_path = maybe_get_iso_file_path_from_sub_path::<
-		sd_core_job_errors::file_identifier::Error,
+		sd_core_shared_errors::job::file_identifier::Error,
 	>(location.id, Some(sub_path.as_ref()), &*location_path, db)
 	.await?
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-				.map_err(sd_core_job_errors::file_identifier::Error::from)
+				.map_err(sd_core_shared_errors::job::file_identifier::Error::from)
 		},
 		Ok,
 	)?;
@@ -64,8 +64,8 @@ pub async fn shallow(
 		.find_unique(device::pub_id::equals(device_pub_id.to_db()))
 		.exec()
 		.await
-		.map_err(sd_core_job_errors::file_identifier::Error::from)?
-		.ok_or(sd_core_job_errors::file_identifier::Error::DeviceNotFound(
+		.map_err(sd_core_shared_errors::job::file_identifier::Error::from)?
+		.ok_or(sd_core_shared_errors::job::file_identifier::Error::DeviceNotFound(
 			device_pub_id.clone(),
 		))?
 		.id;
@@ -90,7 +90,7 @@ pub async fn shallow(
 			.select(file_path_for_file_identifier::select())
 			.exec()
 			.await
-			.map_err(sd_core_job_errors::file_identifier::Error::from)?;
+			.map_err(sd_core_shared_errors::job::file_identifier::Error::from)?;
 
 		let Some(last_orphan) = orphan_paths.last() else {
 			// No orphans here!

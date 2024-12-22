@@ -7,7 +7,7 @@ use sd_prisma::prisma::{location, PrismaClient};
 
 use std::path::{Path, PathBuf};
 
-use sd_core_job_errors::sub_path::Error;
+use sd_core_shared_errors::job::sub_path::Error;
 
 pub async fn get_full_path_from_sub_path<E: From<Error>>(
 	location_id: location::id::Type,

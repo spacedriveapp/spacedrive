@@ -8,7 +8,7 @@ use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, MetadataForIndexerRules, RuleKind,
 };
-use sd_core_job_errors::NonCriticalError;
+use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
 
 use sd_prisma::prisma::file_path;
@@ -58,7 +58,7 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, sd_core_job_errors::indexer::Error>>
+	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, sd_core_shared_errors::job::indexer::Error>>
 	       + Send;
 
 	fn fetch_file_paths_to_remove(
@@ -69,7 +69,7 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	) -> impl Future<
 		Output = Result<
 			Vec<file_path_pub_and_cas_ids::Data>,
-			sd_core_job_errors::indexer::NonCriticalIndexerError,
+			sd_core_shared_errors::job::indexer::NonCriticalIndexerError,
 		>,
 	> + Send;
 }
@@ -203,7 +203,7 @@ where
 					*stage = WalkerStage::Walking {
 						read_dir_stream: ReadDirStream::new(fs::read_dir(&path).await.map_err(
 							|e| {
-								sd_core_job_errors::indexer::Error::FileIO(
+								sd_core_shared_errors::job::indexer::Error::FileIO(
 									(&path, e, "Failed to open directory to read its entries")
 										.into(),
 								)
@@ -231,7 +231,7 @@ where
 							}
 							Err(e) => {
 								errors.push(NonCriticalError::Indexer(
-									sd_core_job_errors::indexer::NonCriticalIndexerError::FailedDirectoryEntry(
+									sd_core_shared_errors::job::indexer::NonCriticalIndexerError::FailedDirectoryEntry(
 										FileIOError::from((&path, e)).to_string(),
 									),
 								));
@@ -446,7 +446,7 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-	) -> Result<Self, sd_core_job_errors::indexer::Error> {
+	) -> Result<Self, sd_core_shared_errors::job::indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -475,7 +475,7 @@ where
 		indexer_ruler: IndexerRuler,
 		iso_file_path_factory: IsoPathFactory,
 		db_proxy: DBProxy,
-	) -> Result<Self, sd_core_job_errors::indexer::Error> {
+	) -> Result<Self, sd_core_shared_errors::job::indexer::Error> {
 		let entry = entry.into();
 		Ok(Self {
 			id: TaskId::new_v4(),
@@ -610,7 +610,7 @@ where
 						db_proxy.clone(),
 					)
 					.map_err(|e| {
-						sd_core_job_errors::indexer::NonCriticalIndexerError::DispatchKeepWalking(
+						sd_core_shared_errors::job::indexer::NonCriticalIndexerError::DispatchKeepWalking(
 							e.to_string(),
 						)
 					})
@@ -631,7 +631,7 @@ async fn collect_metadata(
 			fs::metadata(&current_path)
 				.await
 				.map_err(|e| {
-					sd_core_job_errors::indexer::NonCriticalIndexerError::Metadata(
+					sd_core_shared_errors::job::indexer::NonCriticalIndexerError::Metadata(
 						FileIOError::from((&current_path, e)).to_string(),
 					)
 				})
@@ -676,7 +676,7 @@ async fn gather_file_paths_to_remove(
 				})
 				.map_err(|e| {
 					errors.push(
-						sd_core_job_errors::indexer::NonCriticalIndexerError::IsoFilePath(
+						sd_core_shared_errors::job::indexer::NonCriticalIndexerError::IsoFilePath(
 							e.to_string(),
 						)
 						.into(),
@@ -737,7 +737,7 @@ mod tests {
 		async fn fetch_file_paths(
 			&self,
 			_: Vec<file_path::WhereParam>,
-		) -> Result<Vec<file_path_walker::Data>, sd_core_job_errors::indexer::Error> {
+		) -> Result<Vec<file_path_walker::Data>, sd_core_shared_errors::job::indexer::Error> {
 			Ok(vec![])
 		}
 
@@ -748,7 +748,7 @@ mod tests {
 			_: Vec<file_path::WhereParam>,
 		) -> Result<
 			Vec<file_path_pub_and_cas_ids::Data>,
-			sd_core_job_errors::indexer::NonCriticalIndexerError,
+			sd_core_shared_errors::job::indexer::NonCriticalIndexerError,
 		> {
 			Ok(vec![])
 		}

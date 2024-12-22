@@ -1,6 +1,6 @@
 use crate::JobContext;
 
-use sd_core_job_errors::report::ReportError;
+use sd_core_shared_errors::job::report::ReportError;
 use sd_prisma::prisma::job;
 use sd_utils::uuid_to_bytes;
 
@@ -135,7 +135,7 @@ macro_rules! impl_job_serialization_handler {
 									Box<dyn $crate::job::DynJob<OuterCtx, JobCtx>>,
 									Option<$crate::store::SerializedTasks>,
 								)>,
-								sd_core_job_errors::system::JobSystemError,
+								sd_core_shared_errors::job::system::JobSystemError,
 							>,
 						> + Send
 						+ 'a,

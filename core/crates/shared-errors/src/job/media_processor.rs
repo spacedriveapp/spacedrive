@@ -1,5 +1,4 @@
 use crate::sub_path;
-use sd_core_file_helper::FilePathError;
 use sd_prisma::prisma::file_path;
 use sd_task_system::TaskId;
 use sd_utils::db::MissingFieldError;
@@ -17,11 +16,11 @@ pub enum Error {
 	DeserializeTasks(#[from] rmp_serde::decode::Error),
 
 	#[error(transparent)]
-	FilePathError(#[from] FilePathError),
+	FilePathError(#[from] crate::file_helper::Error),
 	#[error(transparent)]
 	SubPath(#[from] sub_path::Error),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] crate::library_sync::Error),
 	// #[error(transparent)]
 	// TaskSystem(#[from] sd_task_system::TaskSystemError),
 }

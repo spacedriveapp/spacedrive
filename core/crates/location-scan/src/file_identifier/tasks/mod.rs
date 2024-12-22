@@ -70,7 +70,7 @@ async fn create_objects_and_update_file_paths(
 	db: &PrismaClient,
 	sync: &SyncManager,
 	device_id: device::id::Type,
-) -> Result<HashMap<file_path::id::Type, ObjectPubId>, sd_core_job_errors::file_identifier::Error> {
+) -> Result<HashMap<file_path::id::Type, ObjectPubId>, sd_core_shared_errors::job::file_identifier::Error> {
 	trace!("Preparing objects");
 	let (object_create_args, file_path_args) = files_and_kinds
 		.into_iter()

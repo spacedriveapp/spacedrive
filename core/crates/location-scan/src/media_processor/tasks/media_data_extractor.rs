@@ -7,7 +7,7 @@ use crate::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::media_processor::{
+use sd_core_shared_errors::job::media_processor::{
 	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
 };
 use sd_core_library_sync::SyncManager;
@@ -94,7 +94,7 @@ pub struct Output {
 	/// Time spent writing media data to database
 	pub db_write_time: Duration,
 	/// Errors encountered during the task
-	pub errors: Vec<sd_core_job_errors::NonCriticalError>,
+	pub errors: Vec<sd_core_shared_errors::job::NonCriticalError>,
 }
 
 #[async_trait::async_trait]

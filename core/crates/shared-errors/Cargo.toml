@@ -9,12 +9,10 @@ version                = "0.1.0"
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-cloud-services = { path = "../cloud-services" }
-sd-core-file-helper    = { path = "../file-helper" }
-sd-core-indexer-rules  = { path = "../indexer-rules" }
-sd-core-job-errors     = { path = "../job-errors" }
-sd-core-library-sync   = { path = "../library-sync" }
-sd-core-shared-types   = { path = "../shared-types" }
+# sd-core-cloud-services = { path = "../cloud-services" }
+# sd-core-file-helper    = { path = "../file-helper" }
+# sd-core-library-sync = { path = "../library-sync" }
+sd-core-shared-types = { path = "../shared-types" }
 
 sd-cloud-schema = { workspace = true }
 sd-crypto       = { path = "../../../crates/crypto" }

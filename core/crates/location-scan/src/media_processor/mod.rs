@@ -13,7 +13,7 @@ use std::{collections::HashMap, fmt};
 use prisma_client_rust::{raw, PrismaValue};
 use serde::Deserialize;
 
-use sd_core_job_errors::media_processor::Error;
+use sd_core_shared_errors::job::media_processor::Error;
 
 mod helpers;
 pub mod job;

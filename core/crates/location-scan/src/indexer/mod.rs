@@ -2,7 +2,7 @@ use crate::OuterContext;
 use itertools::Itertools;
 use prisma_client_rust::{operator::or, QueryError, Select};
 use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_job_errors::indexer::{Error, NonCriticalIndexerError};
+use sd_core_shared_errors::job::indexer::{Error, NonCriticalIndexerError};
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
@@ -199,7 +199,7 @@ pub async fn reverse_update_directories_sizes(
 	location_path: impl AsRef<Path> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
+	errors: &mut Vec<sd_core_shared_errors::job::NonCriticalError>,
 ) -> Result<(), Error> {
 	let location_path = location_path.as_ref();
 
@@ -299,7 +299,7 @@ async fn compute_sizes(
 	materialized_paths: Vec<String>,
 	pub_id_by_ancestor_materialized_path: &mut HashMap<String, (file_path::pub_id::Type, u64)>,
 	db: &PrismaClient,
-	errors: &mut Vec<sd_core_job_errors::NonCriticalError>,
+	errors: &mut Vec<sd_core_shared_errors::job::NonCriticalError>,
 ) -> Result<(), QueryError> {
 	for file_path in db
 		.file_path()
