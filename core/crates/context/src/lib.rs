@@ -1,6 +1,6 @@
 use crate::invalidate_query;
 
-use sd_core_device::Node;
+use sd_core_node::Node;
 use sd_core_heavy_lifting::{
 	job_system::report::{Report, Status},
 	OuterContext, ProgressUpdate, UpdateEvent,

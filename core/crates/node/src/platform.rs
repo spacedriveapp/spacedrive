@@ -1,12 +1,6 @@
+use sd_core_shared_errors::PlatformDetectionError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum PlatformDetectionError {
-	#[error("invalid platform integer: {0}")]
-	InvalidPlatformInt(u8),
-}
 
 #[allow(clippy::upper_case_acronyms)]
 #[repr(u8)]

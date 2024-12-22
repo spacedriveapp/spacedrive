@@ -19,6 +19,7 @@ Deleter
 elon
 encryptor
 Exif
+Fingerprintable
 Flac
 fsevent
 graps
@@ -27,6 +28,7 @@ haoyuan
 haris
 Iconoir
 inotify
+Itertools
 josephjacks
 justinhoffman
 Keychain
@@ -49,6 +51,7 @@ naveen
 neha
 noco
 Normalised
+normpath
 NTFS
 OSSC
 poonen

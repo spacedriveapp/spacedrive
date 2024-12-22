@@ -1,10 +1,7 @@
-use crate::{
-	library::{Library, LibraryId},
-	Node,
-};
+use crate::{library::Library, Node};
 
 use sd_core_prisma_helpers::location_ids_and_path;
-
+use sd_core_shared_types::LibraryId;
 use sd_prisma::prisma::location;
 use sd_utils::db::maybe_missing;
 

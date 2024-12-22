@@ -1,6 +1,9 @@
 use super::error::VolumeError;
 use crate::volume::speed::SpeedTest;
 use sd_core_library_sync::DevicePubId;
+use sd_core_shared_types::volume::{
+	DiskType, FileSystem, Fingerprintable, MountType, VolumeEvent, VolumeFingerprint, VolumePubId,
+};
 use sd_prisma::prisma::{
 	device,
 	volume::{self},
@@ -15,76 +18,7 @@ use std::{path::Path, sync::Arc};
 use strum_macros::Display;
 use uuid::Uuid;
 
-/// A fingerprint of a volume, used to identify it when it is not persisted in the database
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Type)]
-pub struct VolumeFingerprint(pub Vec<u8>);
-
-impl VolumeFingerprint {
-	pub fn new(device_id: &DevicePubId, volume: &Volume) -> Self {
-		// Hash the device ID, mount point, name, total bytes capacity, and file system
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(&device_id.to_db());
-		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
-		hasher.update(volume.name.as_bytes());
-		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
-		hasher.update(volume.file_system.to_string().as_bytes());
-		// These are all properties that are unique to a volume and unlikely to change
-		// If a .spacedrive file is found in the volume, and is fingerprint does not match,
-		// but the `pub_id` is the same, we can update the values and regenerate the fingerprint
-		// preserving the tracked instance of the volume
-		Self(hasher.finalize().as_bytes().to_vec())
-	}
-}
-
-impl fmt::Display for VolumeFingerprint {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", hex::encode(&self.0))
-	}
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct VolumePubId(pub Vec<u8>);
-
-impl From<Vec<u8>> for VolumePubId {
-	fn from(v: Vec<u8>) -> Self {
-		Self(v)
-	}
-}
-
-impl Into<Vec<u8>> for VolumePubId {
-	fn into(self) -> Vec<u8> {
-		self.0
-	}
-}
-
 pub type LibraryId = Uuid;
-
-/// Events emitted by the Volume Manager when volume state changes
-#[derive(Debug, Clone, Type, Deserialize, Serialize)]
-pub enum VolumeEvent {
-	/// Emitted when a new volume is discovered and added
-	VolumeAdded(Volume),
-	/// Emitted when a volume is removed from the system
-	VolumeRemoved(Volume),
-	/// Emitted when a volume's properties are updated
-	VolumeUpdated { old: Volume, new: Volume },
-	/// Emitted when a volume's speed test completes
-	VolumeSpeedTested {
-		fingerprint: VolumeFingerprint,
-		read_speed: u64,
-		write_speed: u64,
-	},
-	/// Emitted when a volume's mount status changes
-	VolumeMountChanged {
-		fingerprint: VolumeFingerprint,
-		is_mounted: bool,
-	},
-	/// Emitted when a volume encounters an error
-	VolumeError {
-		fingerprint: VolumeFingerprint,
-		error: String,
-	},
-}
 
 /// Represents a physical or virtual storage volume in the system
 #[serde_as]
@@ -99,7 +33,6 @@ pub struct Volume {
 	pub pub_id: Option<Vec<u8>>,
 	/// Database ID of the device this volume is attached to, if any
 	pub device_id: Option<i32>,
-
 	/// Human-readable volume name
 	pub name: String,
 	/// Type of mount (system, external, etc)
@@ -120,7 +53,6 @@ pub struct Volume {
 	pub read_only: bool,
 	/// Current error status if any
 	pub error_status: Option<String>,
-
 	// Performance metrics
 	/// Read speed in megabytes per second
 	pub read_speed_mbps: Option<u64>,
@@ -142,16 +74,16 @@ impl PartialEq for Volume {
 		self.name == other.name
             && self.disk_type == other.disk_type
             && self.file_system == other.file_system
-			&& self.mount_type == other.mount_type
-			&& self.mount_point == other.mount_point
-			// Check if any mount points overlap
-			&& (self.mount_points.iter().any(|mp| other.mount_points.contains(mp))
-			|| other.mount_points.iter().any(|mp| self.mount_points.contains(mp)))
-			&& self.is_mounted == other.is_mounted
-			&& self.read_only == other.read_only
-			&& self.error_status == other.error_status
-			&& self.total_bytes_capacity == other.total_bytes_capacity
-			&& self.total_bytes_available == other.total_bytes_available
+            && self.mount_type == other.mount_type
+            && self.mount_point == other.mount_point
+            // Check if any mount points overlap
+            && (self.mount_points.iter().any(|mp| other.mount_points.contains(mp))
+            || other.mount_points.iter().any(|mp| self.mount_points.contains(mp)))
+            && self.is_mounted == other.is_mounted
+            && self.read_only == other.read_only
+            && self.error_status == other.error_status
+            && self.total_bytes_capacity == other.total_bytes_capacity
+            && self.total_bytes_available == other.total_bytes_available
 	}
 }
 
@@ -350,80 +282,22 @@ impl Volume {
 	}
 }
 
-/// Represents the type of physical storage device
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
-#[allow(clippy::upper_case_acronyms)]
-pub enum DiskType {
-	/// Solid State Drive
-	SSD,
-	/// Hard Disk Drive
-	HDD,
-	/// Unknown or virtual disk type
-	Unknown,
-}
-
-impl DiskType {
-	pub fn from_string(disk_type: &str) -> Self {
-		match disk_type.to_uppercase().as_str() {
-			"SSD" => Self::SSD,
-			"HDD" => Self::HDD,
-			_ => Self::Unknown,
+impl Fingerprintable for Volume {
+	fn fingerprint(&self) -> VolumeFingerprint {
+		// Hash the device ID, mount point, name, total bytes capacity, and file system
+		let mut hasher = blake3::Hasher::new();
+		if let Some(device_id) = &self.device_pub_id {
+			hasher.update(device_id);
 		}
-	}
-}
-
-/// Represents the filesystem type of the volume
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
-pub enum FileSystem {
-	/// Windows NTFS filesystem
-	NTFS,
-	/// FAT32 filesystem
-	FAT32,
-	/// Linux EXT4 filesystem
-	EXT4,
-	/// Apple APFS filesystem
-	APFS,
-	/// ExFAT filesystem
-	ExFAT,
-	/// Other/unknown filesystem type
-	Other(String),
-}
-
-impl FileSystem {
-	pub fn from_string(fs: &str) -> Self {
-		match fs.to_uppercase().as_str() {
-			"NTFS" => FileSystem::NTFS,
-			"FAT32" => FileSystem::FAT32,
-			"EXT4" => FileSystem::EXT4,
-			"APFS" => FileSystem::APFS,
-			"EXFAT" => FileSystem::ExFAT,
-			other => FileSystem::Other(other.to_string()),
-		}
-	}
-}
-
-/// Represents how the volume is mounted in the system
-#[derive(Serialize, Deserialize, Debug, Clone, Type, Hash, PartialEq, Eq, Display)]
-pub enum MountType {
-	/// System/boot volume
-	System,
-	/// External/removable volume
-	External,
-	/// Network-attached volume
-	Network,
-	/// Virtual/container volume
-	Virtual,
-}
-
-impl MountType {
-	pub fn from_string(mount_type: &str) -> Self {
-		match mount_type.to_uppercase().as_str() {
-			"SYSTEM" => Self::System,
-			"EXTERNAL" => Self::External,
-			"NETWORK" => Self::Network,
-			"VIRTUAL" => Self::Virtual,
-			_ => Self::System,
-		}
+		hasher.update(self.mount_point.to_string_lossy().as_bytes());
+		hasher.update(self.name.as_bytes());
+		hasher.update(&self.total_bytes_capacity.to_be_bytes());
+		hasher.update(self.file_system.to_string().as_bytes());
+		// These are all properties that are unique to a volume and unlikely to change
+		// If a .spacedrive file is found in the volume, and is fingerprint does not match,
+		// but the `pub_id` is the same, we can update the values and regenerate the fingerprint
+		// preserving the tracked instance of the volume
+		VolumeFingerprint(hasher.finalize().as_bytes().to_vec())
 	}
 }
 
@@ -448,27 +322,5 @@ impl Default for VolumeOptions {
 			run_speed_test: true,
 			max_concurrent_speed_tests: 2,
 		}
-	}
-}
-
-impl Serialize for VolumeFingerprint {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		// Convert to hex string when serializing
-		serializer.serialize_str(&hex::encode(&self.0))
-	}
-}
-
-impl<'de> Deserialize<'de> for VolumeFingerprint {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		let s = String::deserialize(deserializer)?;
-		hex::decode(s)
-			.map(VolumeFingerprint)
-			.map_err(serde::de::Error::custom)
 	}
 }

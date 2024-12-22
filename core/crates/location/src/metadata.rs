@@ -1,4 +1,5 @@
-use crate::library::LibraryId;
+use super::LocationPubId;
+use sd_core_shared_types::LibraryId;
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -14,8 +15,6 @@ use tokio::{
 };
 use tracing::error;
 use uuid::Uuid;
-
-use super::LocationPubId;
 
 static SPACEDRIVE_LOCATION_METADATA_FILE: &str = ".spacedrive";
 

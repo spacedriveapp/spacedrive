@@ -5,7 +5,6 @@
 //! Volumes use a fingerprint to identify them as they sometimes are not persisted in the database
 //!
 pub(crate) mod actor;
-mod error;
 mod os;
 mod speed;
 mod state;

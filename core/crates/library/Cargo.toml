@@ -14,15 +14,16 @@ ffmpeg = ["dep:sd-ffmpeg"]
 
 [dependencies]
 # Inner Core Sub-crates
+sd-cloud-schema        = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "4e4565bee4" }
 sd-core-cloud-services = { path = "../cloud-services" }
 sd-core-file-helper    = { path = "../file-helper" }
 sd-core-indexer-rules  = { path = "../indexer-rules" }
 sd-core-library-sync   = { path = "../library-sync" }
+sd-core-location       = { path = "../location" }
 sd-core-location-scan  = { path = "../location-scan" }
+sd-core-node           = { path = "../node" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-shared-types   = { path = "../shared-types" }
-
-sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "4e4565bee4" }
 
 
 # Spacedrive Sub-crates

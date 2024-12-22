@@ -11,6 +11,7 @@ version                = "0.1.0"
 
 [dependencies]
 # Inner Core Sub-crates
+sd-core-file-helper    = { path = "../file-helper" }
 sd-core-location-scan  = { path = "../location-scan" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-shared-types   = { path = "../shared-types" }
@@ -20,17 +21,24 @@ sd-p2p       = { path = "../../../crates/p2p", features = ["specta"] }
 sd-p2p-block = { path = "../../../crates/p2p/crates/block" }
 sd-prisma    = { path = "../../../crates/prisma" }
 sd-sync      = { path = "../../../crates/sync" }
+sd-utils     = { path = "../../../crates/utils" }
 
 # Workspace dependencies
 async-channel       = { workspace = true }
+async-stream        = { workspace = true }
 async-trait         = { workspace = true }
+axum                = { workspace = true }
 blake3              = { workspace = true }
+bytes               = { workspace = true }
 chrono              = { workspace = true, features = ["serde"] }
 futures             = { workspace = true }
 futures-concurrency = { workspace = true }
 globset             = { workspace = true }
+http-range          = "0.1.5"
+hyper               = { workspace = true }
 itertools           = { workspace = true }
 lending-stream      = { workspace = true }
+mini-moka           = "0.10.3"
 prisma-client-rust  = { workspace = true }
 rmp-serde           = { workspace = true }
 rmpv                = { workspace = true }

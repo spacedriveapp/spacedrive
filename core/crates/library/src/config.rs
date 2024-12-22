@@ -1,5 +1,5 @@
 use crate::util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError};
-use sd_core_device::config::NodeConfig;
+use sd_core_node::config::NodeConfig;
 use sd_p2p::{Identity, RemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
@@ -442,25 +442,4 @@ impl LibraryConfig {
 			.await
 			.map_err(|e| FileIOError::from((path, e)).into())
 	}
-}
-
-#[derive(Error, Debug)]
-pub enum LibraryConfigError {
-	#[error("database error: {0}")]
-	Database(#[from] prisma_client_rust::QueryError),
-	#[error("there are too many nodes in the database, this should not happen!")]
-	TooManyNodes,
-	#[error("there are too many instances in the database, this should not happen!")]
-	TooManyInstances,
-	#[error("missing instances")]
-	MissingInstance,
-	#[error("your library version can't be automatically updated, please recreate your library")]
-	CriticalUpdateError,
-
-	#[error(transparent)]
-	SerdeJson(#[from] serde_json::Error),
-	#[error(transparent)]
-	VersionManager(#[from] VersionManagerError<LibraryConfigVersion>),
-	#[error(transparent)]
-	FileIO(#[from] FileIOError),
 }

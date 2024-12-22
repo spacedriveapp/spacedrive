@@ -13,16 +13,6 @@ use uuid::Uuid;
 
 use super::{Error, IndexerRule, RulePerKind};
 
-#[derive(thiserror::Error, Debug)]
-pub enum SeederError {
-	#[error("Failed to run indexer rules seeder: {0}")]
-	IndexerRules(#[from] Error),
-	#[error("An error occurred with the database while applying migrations: {0}")]
-	DatabaseError(#[from] prisma_client_rust::QueryError),
-	#[error("Failed to parse indexer rules based on external system")]
-	InheritedExternalRules,
-}
-
 #[derive(Debug)]
 pub struct GitIgnoreRules {
 	rules: RulePerKind,

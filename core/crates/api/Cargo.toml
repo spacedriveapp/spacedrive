@@ -1,0 +1,51 @@
+[package]
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+edition.workspace      = true
+license.workspace      = true
+name                   = "sd-core-api"
+repository.workspace   = true
+rust-version.workspace = true
+version                = "0.1.0"
+
+[dependencies]
+# Inner Core Sub-crates
+sd-core-library-sync   = { path = "../library-sync" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-shared-errors  = { path = "../shared-errors" }
+sd-core-shared-types   = { path = "../shared-types" }
+
+sd-cloud-schema = { workspace = true }
+sd-p2p          = { path = "../../../crates/p2p" }
+sd-utils        = { path = "../../../crates/utils" }
+
+int-enum   = "0.5"
+serde_repr = "0.1.19"
+
+async-channel       = { workspace = true }
+async-trait         = { workspace = true }
+blake3              = { workspace = true }
+chrono              = { workspace = true, features = ["serde"] }
+futures             = { workspace = true }
+futures-concurrency = { workspace = true }
+globset             = { workspace = true }
+image               = { workspace = true }
+# Update blocked due to API breaking changes
+base91             = "0.1.0"
+itertools          = { workspace = true }
+lending-stream     = { workspace = true }
+prisma-client-rust = { workspace = true }
+rmp-serde          = { workspace = true }
+rmpv               = { workspace = true }
+rspc               = { workspace = true }
+serde              = { workspace = true, features = ["derive", "rc"] }
+serde_json         = { workspace = true }
+specta             = { workspace = true }
+strum              = { workspace = true, features = ["derive", "phf"] }
+strum_macros       = { workspace = true }
+thiserror          = { workspace = true }
+tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"] }
+tokio-stream       = { workspace = true, features = ["fs"] }
+tracing            = { workspace = true }
+uuid               = { workspace = true, features = ["serde", "v4"] }
+webp               = { workspace = true }
+whoami             = "1.5.2"

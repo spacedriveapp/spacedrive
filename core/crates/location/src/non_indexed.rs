@@ -5,13 +5,13 @@ use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
 	IndexerRule, IndexerRuler, RulerDecision,
 };
-use sd_core_job_system::{
+use sd_core_location_scan::{
 	file_identifier::generate_cas_id,
 	media_processor::{
-		self, get_thumbnails_directory, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs,
-		NewThumbnailsReporter, ThumbKey,
+		self, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs, NewThumbnailsReporter,
 	},
 };
+use sd_core_shared_types::thumbnail::{get_thumbnails_directory, ThumbKey};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::location;

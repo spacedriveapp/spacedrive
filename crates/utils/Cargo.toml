@@ -12,6 +12,7 @@ rust-version.workspace = true
 sd-prisma = { path = "../prisma" }
 
 # Workspace dependencies
+axum               = { workspace = true }
 chrono             = { workspace = true }
 int-enum           = "0.5"
 itertools          = { workspace = true }

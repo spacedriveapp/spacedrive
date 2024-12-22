@@ -1,11 +1,12 @@
-// TODO: rename this file to node.rs
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_library_sync::DevicePubId;
-use sd_core_shared_types::{BackendFeature, Notification};
+use sd_core_shared_types::{notification::Notification, BackendFeature};
 use sd_utils::{
 	error::FileIOError,
 	version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
+
+use sd_core_shared_errors::NodeConfigError;
 
 use std::{
 	collections::HashSet,
@@ -18,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use specta::Type;
-use thiserror::Error;
 use tokio::{
 	fs,
 	sync::{watch, RwLock},
@@ -563,14 +563,4 @@ impl Manager {
 
 		config.save(&self.config_file_path).await
 	}
-}
-
-#[derive(Error, Debug)]
-pub enum NodeConfigError {
-	#[error(transparent)]
-	SerdeJson(#[from] serde_json::Error),
-	#[error(transparent)]
-	VersionManager(#[from] VersionManagerError<NodeConfigVersion>),
-	#[error(transparent)]
-	FileIO(#[from] FileIOError),
 }

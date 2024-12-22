@@ -4,9 +4,10 @@ pub mod kind_statistic;
 pub mod notification;
 pub mod sd_path;
 pub mod thumbnail;
+pub mod volume;
 
 pub use jobs::metadata::*;
-pub use notification::*;
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 

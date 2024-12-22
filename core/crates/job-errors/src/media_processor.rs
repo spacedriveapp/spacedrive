@@ -22,6 +22,8 @@ pub enum Error {
 	SubPath(#[from] sub_path::Error),
 	#[error(transparent)]
 	Sync(#[from] sd_core_library_sync::Error),
+	// #[error(transparent)]
+	// TaskSystem(#[from] sd_task_system::TaskSystemError),
 }
 
 impl From<Error> for rspc::Error {

@@ -9,11 +9,13 @@ rust-version.workspace = true
 version                = "0.1.0"
 
 [dependencies]
+hex = "0.4.3"
 
 # Inner Core Sub-crates
+# TO AVOID CYCLIC DEPENDENCIES BE CAREFUL WHEN ADDING LOCAL CRATES HERE
 sd-core-library-sync   = { path = "../library-sync" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
-# sd-core-location-scan = { path = "../location-scan" }
+
 
 chrono             = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
@@ -23,4 +25,5 @@ serde_json         = { workspace = true }
 specta             = { workspace = true }
 strum              = { workspace = true, features = ["derive", "phf"] }
 thiserror          = { workspace = true }
+tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"] }
 uuid               = { workspace = true, features = ["serde", "v4"] }

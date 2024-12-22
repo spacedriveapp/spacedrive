@@ -2,9 +2,9 @@ use crate::{invalidate_query, util::MaybeUndefined};
 
 use sd_core_heavy_lifting::JobId;
 
-use sd_core_device::Node;
 use sd_core_library::{Library, LibraryConfig, LibraryName};
 use sd_core_location::{scan_location, LocationCreateArgs, LocationError, ScanState};
+use sd_core_node::Node;
 use sd_core_shared_types::core_event::CoreEvent;
 use sd_file_ext::kind::ObjectKind;
 use sd_p2p::RemoteIdentity;

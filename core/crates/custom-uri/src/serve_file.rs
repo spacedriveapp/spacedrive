@@ -1,4 +1,4 @@
-use crate::util::InfallibleResponse;
+use sd_utils::InfallibleResponse;
 
 use std::{fs::Metadata, time::UNIX_EPOCH};
 

@@ -1,0 +1,39 @@
+[package]
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+edition.workspace      = true
+license.workspace      = true
+name                   = "sd-core-shared-errors"
+repository.workspace   = true
+rust-version.workspace = true
+version                = "0.1.0"
+
+[dependencies]
+# Inner Core Sub-crates
+sd-core-cloud-services = { path = "../cloud-services" }
+sd-core-file-helper    = { path = "../file-helper" }
+sd-core-indexer-rules  = { path = "../indexer-rules" }
+sd-core-job-errors     = { path = "../job-errors" }
+sd-core-library-sync   = { path = "../library-sync" }
+sd-core-shared-types   = { path = "../shared-types" }
+
+sd-cloud-schema = { workspace = true }
+sd-crypto       = { path = "../../../crates/crypto" }
+sd-p2p          = { path = "../../../crates/p2p" }
+sd-prisma       = { path = "../../../crates/prisma" }
+sd-utils        = { path = "../../../crates/utils" }
+
+globset            = { workspace = true }
+notify             = "5.1.1"
+prisma-client-rust = { workspace = true }
+rmp-serde          = { workspace = true }
+rspc               = { workspace = true }
+serde              = { workspace = true, features = ["derive", "rc"] }
+serde_json         = { workspace = true }
+specta             = { workspace = true }
+strum              = { workspace = true, features = ["derive", "phf"] }
+strum_macros       = { workspace = true }
+thiserror          = { workspace = true }
+tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"] }
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+uuid               = { workspace = true, features = ["serde", "v4"] }

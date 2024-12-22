@@ -22,7 +22,6 @@ heif   = ["sd-images/heif"]
 # Inner Core Sub-crates
 sd-core-cloud-services = { path = "./crates/cloud-services" }
 sd-core-custom-uri     = { path = "./crates/custom-uri" }
-sd-core-device         = { path = "./crates/device" }
 sd-core-file-helper    = { path = "./crates/file-helper" }
 sd-core-indexer-rules  = { path = "./crates/indexer-rules" }
 sd-core-job-system     = { path = "./crates/job-system" }
@@ -30,6 +29,7 @@ sd-core-library        = { path = "./crates/library" }
 sd-core-library-sync   = { path = "./crates/library-sync" }
 sd-core-location       = { path = "./crates/location" }
 sd-core-location-scan  = { path = "./crates/location-scan" }
+sd-core-node           = { path = "./crates/node" }
 sd-core-preferences    = { path = "./crates/preferences" }
 sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
 sd-core-shared-types   = { path = "./crates/shared-types" }

@@ -10,9 +10,9 @@ use super::{
 use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, OuterContext};
 use futures::{stream::FuturesUnordered, StreamExt};
 use futures_concurrency::future::TryJoin;
+use itertools::Itertools;
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_job_errors::media_processor::Error;
-use sd_core_job_errors::NonCriticalError;
+use sd_core_job_errors::{media_processor::Error as MediaProcessorError, Error, NonCriticalError};
 use sd_core_library_sync::SyncManager;
 use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 use sd_prisma::prisma::{location, PrismaClient};
@@ -39,7 +39,7 @@ pub async fn shallow(
 	let location_path = maybe_missing(&location.path, "location.path")
 		.map(PathBuf::from)
 		.map(Arc::new)
-		.map_err(Error::from)?;
+		.map_err(MediaProcessorError::from)?;
 
 	let location = Arc::new(location);
 
@@ -53,7 +53,7 @@ pub async fn shallow(
 	.map_or_else(
 		|| {
 			IsolatedFilePathData::new(location.id, &*location_path, &*location_path, true)
-				.map_err(Error::from)
+				.map_err(MediaProcessorError::from)
 		},
 		Ok,
 	)?;

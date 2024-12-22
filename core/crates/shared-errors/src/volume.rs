@@ -1,9 +1,8 @@
 //! Error types for volume management operations
+use sd_core_shared_types::volume::VolumeFingerprint;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-
-use super::types::VolumeFingerprint;
 
 /// Errors that can occur during volume operations
 #[derive(Error, Debug)]

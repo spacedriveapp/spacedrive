@@ -4571,6 +4571,17 @@ dependencies = [
 
 [[package]]
 name = "inotify"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8069d3ec154eb856955c1c0fbffefbf5f3c40a104ec912d4797314c1801abff"
+dependencies = [
+ "bitflags 1.3.2",
+ "inotify-sys",
+ "libc",
+]
+
+[[package]]
+name = "inotify"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdd168d97690d0b8c412d6b6c10360277f4d7ee495c5d0d5d5fe0854923255cc"
@@ -6759,13 +6770,31 @@ dependencies = [
 
 [[package]]
 name = "notify"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "729f63e1ca555a43fe3efa4f3efdf4801c479da85b432242a7b726f353c88486"
+dependencies = [
+ "bitflags 1.3.2",
+ "crossbeam-channel",
+ "filetime",
+ "fsevent-sys",
+ "inotify 0.9.6",
+ "kqueue",
+ "libc",
+ "mio 0.8.11",
+ "walkdir",
+ "windows-sys 0.45.0",
+]
+
+[[package]]
+name = "notify"
 version = "6.1.1"
 source = "git+https://github.com/notify-rs/notify.git?rev=c3929ed114#c3929ed114fbb0bc7457a9a498260461596b00ca"
 dependencies = [
  "bitflags 2.6.0",
  "filetime",
  "fsevent-sys",
- "inotify",
+ "inotify 0.10.2",
  "kqueue",
  "libc",
  "log",
@@ -9925,7 +9954,7 @@ dependencies = [
  "libc",
  "mini-moka",
  "normpath",
- "notify",
+ "notify 6.1.1",
  "openssl",
  "openssl-sys",
  "pin-project-lite",
@@ -9941,7 +9970,6 @@ dependencies = [
  "sd-cloud-schema",
  "sd-core-cloud-services",
  "sd-core-custom-uri",
- "sd-core-device",
  "sd-core-file-helper",
  "sd-core-indexer-rules",
  "sd-core-job-system",
@@ -9949,6 +9977,7 @@ dependencies = [
  "sd-core-library-sync",
  "sd-core-location",
  "sd-core-location-scan",
+ "sd-core-node",
  "sd-core-preferences",
  "sd-core-prisma-helpers",
  "sd-core-shared-types",
@@ -9994,6 +10023,48 @@ dependencies = [
  "uuid",
  "whoami",
  "windows 0.58.0",
+]
+
+[[package]]
+name = "sd-core-api"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "base91",
+ "blake3",
+ "chrono",
+ "futures",
+ "futures-concurrency",
+ "globset",
+ "image",
+ "int-enum",
+ "itertools 0.13.0",
+ "lending-stream",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rmpv",
+ "rspc",
+ "sd-cloud-schema",
+ "sd-core-library-sync",
+ "sd-core-prisma-helpers",
+ "sd-core-shared-errors",
+ "sd-core-shared-types",
+ "sd-p2p",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "specta",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.64",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+ "webp",
+ "whoami",
 ]
 
 [[package]]
@@ -10062,18 +10133,25 @@ name = "sd-core-custom-uri"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "async-stream",
  "async-trait",
+ "axum",
  "blake3",
+ "bytes",
  "chrono",
  "futures",
  "futures-concurrency",
  "globset",
+ "http-range",
+ "hyper 1.5.0",
  "itertools 0.13.0",
  "lending-stream",
+ "mini-moka",
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
  "rspc",
+ "sd-core-file-helper",
  "sd-core-location-scan",
  "sd-core-prisma-helpers",
  "sd-core-shared-types",
@@ -10081,6 +10159,7 @@ dependencies = [
  "sd-p2p-block",
  "sd-prisma",
  "sd-sync",
+ "sd-utils",
  "serde",
  "serde_json",
  "specta",
@@ -10095,47 +10174,6 @@ dependencies = [
  "tracing-test",
  "uuid",
  "webp",
-]
-
-[[package]]
-name = "sd-core-device"
-version = "0.1.0"
-dependencies = [
- "async-channel",
- "async-trait",
- "base91",
- "blake3",
- "chrono",
- "futures",
- "futures-concurrency",
- "globset",
- "image",
- "int-enum",
- "itertools 0.13.0",
- "lending-stream",
- "prisma-client-rust",
- "rmp-serde",
- "rmpv",
- "rspc",
- "sd-cloud-schema",
- "sd-core-library-sync",
- "sd-core-prisma-helpers",
- "sd-core-shared-types",
- "sd-p2p",
- "sd-utils",
- "serde",
- "serde_json",
- "serde_repr",
- "specta",
- "strum",
- "strum_macros",
- "thiserror 1.0.64",
- "tokio",
- "tokio-stream",
- "tracing",
- "uuid",
- "webp",
- "whoami",
 ]
 
 [[package]]
@@ -10272,7 +10310,9 @@ dependencies = [
  "sd-core-file-helper",
  "sd-core-indexer-rules",
  "sd-core-library-sync",
+ "sd-core-location",
  "sd-core-location-scan",
+ "sd-core-node",
  "sd-core-prisma-helpers",
  "sd-core-shared-types",
  "sd-crypto",
@@ -10343,16 +10383,19 @@ dependencies = [
  "image",
  "itertools 0.13.0",
  "lending-stream",
+ "normpath",
+ "notify 6.1.1",
  "prisma-client-rust",
  "rmp-serde",
  "rmpv",
  "rspc",
- "sd-core-device",
  "sd-core-file-helper",
  "sd-core-indexer-rules",
+ "sd-core-job-errors",
  "sd-core-job-system",
- "sd-core-library",
  "sd-core-library-sync",
+ "sd-core-location-scan",
+ "sd-core-node",
  "sd-core-prisma-helpers",
  "sd-core-shared-types",
  "sd-ffmpeg",
@@ -10424,6 +10467,48 @@ dependencies = [
  "tracing-test",
  "uuid",
  "webp",
+]
+
+[[package]]
+name = "sd-core-node"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "async-trait",
+ "base91",
+ "blake3",
+ "chrono",
+ "futures",
+ "futures-concurrency",
+ "globset",
+ "image",
+ "int-enum",
+ "itertools 0.13.0",
+ "lending-stream",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rmpv",
+ "rspc",
+ "sd-cloud-schema",
+ "sd-core-library-sync",
+ "sd-core-prisma-helpers",
+ "sd-core-shared-errors",
+ "sd-core-shared-types",
+ "sd-p2p",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "specta",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.64",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+ "webp",
+ "whoami",
 ]
 
 [[package]]
@@ -10534,10 +10619,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-core-shared-errors"
+version = "0.1.0"
+dependencies = [
+ "globset",
+ "notify 5.2.0",
+ "prisma-client-rust",
+ "rmp-serde",
+ "rspc",
+ "sd-cloud-schema",
+ "sd-core-cloud-services",
+ "sd-core-file-helper",
+ "sd-core-indexer-rules",
+ "sd-core-job-errors",
+ "sd-core-library-sync",
+ "sd-core-shared-types",
+ "sd-crypto",
+ "sd-p2p",
+ "sd-prisma",
+ "sd-utils",
+ "serde",
+ "serde_json",
+ "specta",
+ "strum",
+ "strum_macros",
+ "thiserror 1.0.64",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "sd-core-shared-types"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "hex",
  "prisma-client-rust",
  "sd-core-library-sync",
  "sd-core-prisma-helpers",
@@ -10547,6 +10665,7 @@ dependencies = [
  "specta",
  "strum",
  "thiserror 1.0.64",
+ "tokio",
  "uuid",
 ]
 
@@ -11010,6 +11129,7 @@ dependencies = [
 name = "sd-utils"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "int-enum",
  "itertools 0.13.0",

@@ -35,7 +35,10 @@ use uuid::Uuid;
 
 pub mod db;
 pub mod error;
+pub mod infallible_request;
 pub mod version_manager;
+
+pub use infallible_request::*;
 
 /// Combines an iterator of `T` and an iterator of `Option<T>`,
 /// removing any `None` values in the process
