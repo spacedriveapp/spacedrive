@@ -1,4 +1,4 @@
-use crate::sub_path;
+use crate::job::sub_path;
 use sd_prisma::prisma::file_path;
 use sd_task_system::TaskId;
 use sd_utils::db::MissingFieldError;
@@ -21,8 +21,8 @@ pub enum Error {
 	SubPath(#[from] sub_path::Error),
 	#[error(transparent)]
 	Sync(#[from] crate::library_sync::Error),
-	// #[error(transparent)]
-	// TaskSystem(#[from] sd_task_system::TaskSystemError),
+	#[error(transparent)]
+	TaskSystem(#[from] sd_task_system::TaskSystemError),
 }
 
 impl From<Error> for rspc::Error {

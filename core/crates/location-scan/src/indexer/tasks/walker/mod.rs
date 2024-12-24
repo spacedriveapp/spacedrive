@@ -3,13 +3,13 @@ use crate::{
 	Error,
 };
 
-use sd_core_file_helper::{FilePathError, FilePathMetadata, IsolatedFilePathData};
+use sd_core_file_helper::{FilePathMetadata, IsolatedFilePathData};
 use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, MetadataForIndexerRules, RuleKind,
 };
-use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+use sd_core_shared_errors::{file_helper::Error as FilePathError, job::NonCriticalError};
 
 use sd_prisma::prisma::file_path;
 use sd_task_system::{
@@ -58,8 +58,9 @@ pub trait WalkerDBProxy: Clone + Send + Sync + fmt::Debug + 'static {
 	fn fetch_file_paths(
 		&self,
 		found_paths: Vec<file_path::WhereParam>,
-	) -> impl Future<Output = Result<Vec<file_path_walker::Data>, sd_core_shared_errors::job::indexer::Error>>
-	       + Send;
+	) -> impl Future<
+		Output = Result<Vec<file_path_walker::Data>, sd_core_shared_errors::job::indexer::Error>,
+	> + Send;
 
 	fn fetch_file_paths_to_remove(
 		&self,

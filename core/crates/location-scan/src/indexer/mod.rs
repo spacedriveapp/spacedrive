@@ -1,11 +1,14 @@
 use crate::OuterContext;
 use itertools::Itertools;
 use prisma_client_rust::{operator::or, QueryError, Select};
-use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
-use sd_core_shared_errors::job::indexer::{Error, NonCriticalIndexerError};
+use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::{
 	file_path_pub_and_cas_ids, file_path_to_isolate_with_pub_id, file_path_walker,
+};
+use sd_core_shared_errors::{
+	file_helper::Error as FilePathError,
+	job::indexer::{Error, NonCriticalIndexerError},
 };
 use sd_prisma::{
 	prisma::{file_path, location, PrismaClient, SortOrder},

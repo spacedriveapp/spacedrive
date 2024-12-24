@@ -18,7 +18,7 @@ use std::{
 use regex::RegexSet;
 use serde::{Deserialize, Serialize};
 
-use super::FilePathError;
+use sd_core_shared_errors::file_helper::Error as FilePathError;
 
 static FORBIDDEN_FILE_NAMES: OnceLock<RegexSet> = OnceLock::new();
 

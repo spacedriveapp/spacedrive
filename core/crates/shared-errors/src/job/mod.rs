@@ -10,7 +10,7 @@ pub mod report;
 pub mod sub_path;
 pub mod system;
 
-use crate::system::JobSystemError;
+use crate::job::system::JobSystemError;
 
 #[derive(Error, Debug)]
 pub enum Error {

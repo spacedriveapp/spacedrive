@@ -18,11 +18,15 @@ sd-cloud-schema = { workspace = true }
 sd-crypto       = { path = "../../../crates/crypto" }
 sd-p2p          = { path = "../../../crates/p2p" }
 sd-prisma       = { path = "../../../crates/prisma" }
+sd-sync         = { path = "../../../crates/sync" }
+sd-task-system  = { path = "../../../crates/task-system" }
 sd-utils        = { path = "../../../crates/utils" }
 
 globset            = { workspace = true }
 notify             = "5.1.1"
 prisma-client-rust = { workspace = true }
+quic-rpc           = { version = "0.17.1", features = ["iroh-transport", "quinn-transport"] }
+quinn              = { package = "iroh-quinn", version = "0.12" }
 rmp-serde          = { workspace = true }
 rspc               = { workspace = true }
 serde              = { workspace = true, features = ["derive", "rc"] }
@@ -35,3 +39,9 @@ tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"
 tracing            = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 uuid               = { workspace = true, features = ["serde", "v4"] }
+# Using whatever version of reqwest that reqwest-middleware uses, just putting here to enable some features
+anyhow             = "1.0.86"
+base64             = "0.21.2"
+int-enum           = "0.5"
+reqwest            = { version = "0.12", features = ["json", "native-tls-vendored", "stream"] }
+reqwest-middleware = { version = "0.4", features = ["json"] }

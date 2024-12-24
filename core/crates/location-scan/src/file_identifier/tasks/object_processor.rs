@@ -1,7 +1,8 @@
 use crate::Error;
 
 use sd_core_library_sync::SyncManager;
-use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, CasId, ObjectPubId};
+use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, ObjectPubId};
+use sd_core_shared_types::cas_id::CasId;
 
 use sd_prisma::prisma::{device, file_path, object, PrismaClient};
 use sd_task_system::{
@@ -231,7 +232,10 @@ where
 	async fn inner(
 		stringed_cas_ids: Vec<String>,
 		db: &PrismaClient,
-	) -> Result<HashMap<CasId<'static>, ObjectPubId>, sd_core_shared_errors::job::file_identifier::Error> {
+	) -> Result<
+		HashMap<CasId<'static>, ObjectPubId>,
+		sd_core_shared_errors::job::file_identifier::Error,
+	> {
 		db.object()
 			.find_many(vec![object::file_paths::some(vec![
 				file_path::cas_id::in_vec(stringed_cas_ids),

@@ -1,9 +1,9 @@
 use crate::{utils::sub_path::get_full_path_from_sub_path, Error, OuterContext};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
-use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_library_sync::SyncManager;
 use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_errors::job::NonCriticalError;
 
 use sd_prisma::prisma::{device, PrismaClient};
 use sd_task_system::{BaseTaskDispatcher, CancelTaskOnDrop, IntoTask, TaskDispatcher, TaskOutput};
@@ -70,7 +70,7 @@ pub async fn shallow(
 		.await
 		.map_err(sd_core_shared_errors::job::indexer::Error::from)?
 		.ok_or(sd_core_shared_errors::job::indexer::Error::DeviceNotFound(
-			device_pub_id.clone(),
+			device_pub_id.clone().into(),
 		))?
 		.id;
 

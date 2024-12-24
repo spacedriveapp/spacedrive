@@ -1,6 +1,5 @@
 use prisma_client_rust::QueryError;
 use rspc::ErrorCode;
-use sd_core_file_helper::FilePathError;
 use std::path::Path;
 
 #[derive(thiserror::Error, Debug)]
@@ -12,7 +11,7 @@ pub enum Error {
 	Database(#[from] QueryError),
 
 	#[error(transparent)]
-	IsoFilePath(#[from] FilePathError),
+	IsoFilePath(#[from] crate::file_helper::Error),
 }
 
 impl From<Error> for rspc::Error {

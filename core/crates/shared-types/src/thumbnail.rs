@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use sd_core_prisma_helpers::CasId;
+use crate::cas_id::CasId;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;

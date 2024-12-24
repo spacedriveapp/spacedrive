@@ -6,7 +6,7 @@ use sd_utils::{
 	version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_core_shared_errors::NodeConfigError;
+use crate::NodeConfigError;
 
 use std::{
 	collections::HashSet,

@@ -1,8 +1,9 @@
-use sd_core_shared_errors::job::media_processor::{
-	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
-};
 use sd_core_library_sync::{DevicePubId, SyncManager};
 use sd_core_prisma_helpers::ObjectPubId;
+use sd_core_shared_errors::{
+	job::media_processor::{NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError},
+	library_sync::Error,
+};
 
 use sd_file_ext::extensions::{Extension, ImageExtension, ALL_IMAGE_EXTENSIONS};
 use sd_media_metadata::ExifMetadata;
@@ -117,7 +118,7 @@ pub async fn save(
 	exif_datas: impl IntoIterator<Item = (ExifMetadata, object::id::Type, ObjectPubId)> + Send,
 	db: &PrismaClient,
 	sync: &SyncManager,
-) -> Result<u64, sd_core_library_sync::Error> {
+) -> Result<u64, Error> {
 	exif_datas
 		.into_iter()
 		.map(|(exif_data, object_id, object_pub_id)| async move {

@@ -8,6 +8,7 @@ use std::{
 use chrono::Utc;
 use futures_concurrency::future::Join;
 use gix_ignore::{glob::search::pattern::List, search::Ignore, Search};
+use sd_core_shared_errors::indexer_rules::SeederError;
 use tokio::fs;
 use uuid::Uuid;
 

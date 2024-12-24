@@ -37,8 +37,10 @@ use super::{
 	crdt_op_db,
 	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
 	ingest_utils::{bulk_ingest_create_only_ops, process_crdt_operations},
-	Error, SyncEvent, TimestampPerDevice, NTP64,
+	SyncEvent, TimestampPerDevice, NTP64,
 };
+
+use sd_core_shared_errors::library_sync::Error;
 
 const INGESTION_BATCH_SIZE: i64 = 10_000;
 

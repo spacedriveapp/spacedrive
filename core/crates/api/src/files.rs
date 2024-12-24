@@ -6,13 +6,12 @@ use crate::{
 	location::{get_location_path_from_location_id, LocationError},
 	object::fs::{
 		error::FileSystemJobsError, find_available_filename_for_duplicate,
-		old_copy::OldFileCopierJobInit,
-		old_erase::OldFileEraserJobInit,
+		old_copy::OldFileCopierJobInit, old_erase::OldFileEraserJobInit,
 	},
 	old_job::OldJob,
 };
 
-use sd_core_file_helper::{FilePathError, IsolatedFilePathData};
+use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_heavy_lifting::{
 	media_processor::{exif_media_data, ffmpeg_media_data},
 	JobEnqueuer,
@@ -21,9 +20,10 @@ use sd_core_prisma_helpers::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 	object_with_media_data,
 };
+use sd_core_shared_errors::file_helper::Error as FileHelperError;
 
-use sd_file_ext::kind::ObjectKind;
 use sd_file_actions::deleter::{MoveToTrashJob, RemoveJob};
+use sd_file_ext::kind::ObjectKind;
 use sd_images::ConvertibleExtension;
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::{
@@ -31,9 +31,9 @@ use sd_prisma::{
 	prisma_sync,
 };
 
-use sd_utils::{error::FileIOError, msgpack};
 use sd_sync::{sync_db_entry, sync_db_nullable_entry, sync_entry, OperationFactory};
 use sd_utils::{db::maybe_missing, error::FileIOError};
+use sd_utils::{error::FileIOError, msgpack};
 
 use std::{
 	ffi::OsString,

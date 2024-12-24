@@ -13,11 +13,12 @@ use crate::media_processor::helpers::thumbnailer::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_prisma_helpers::file_path_for_media_processor;
 use sd_core_shared_errors::job::{
 	media_processor::{NonCriticalMediaProcessorError, NonCriticalThumbnailerError},
 	Error,
 };
-use sd_core_prisma_helpers::{file_path_for_media_processor, CasId};
+use sd_core_shared_types::cas_id::CasId;
 use sd_core_shared_types::thumbnail::{ThumbKey, ThumbnailKind};
 use sd_prisma::prisma::location;
 use sd_task_system::{

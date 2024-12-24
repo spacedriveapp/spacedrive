@@ -4,16 +4,16 @@ use crate::{
 	JobContext, LocationScanState, OuterContext, ProgressUpdate,
 };
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_shared_errors::job::{
-	system::{DispatcherError, JobErrorOrDispatcherError},
-	Error,
-};
 use sd_core_job_system::{
 	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
 };
 use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_shared_errors::job::{
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	Error,
+};
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 use sd_file_ext::extensions::Extension;
@@ -280,7 +280,8 @@ impl MediaProcessor {
 		pending_running_tasks: &mut FuturesUnordered<TaskHandle<Error>>,
 		job_ctx: &impl JobContext<OuterCtx>,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<(), JobErrorOrDispatcherError<sd_core_shared_errors::job::media_processor::Error>> {
+	) -> Result<(), JobErrorOrDispatcherError<sd_core_shared_errors::job::media_processor::Error>>
+	{
 		// if we don't have any pending task, then this is a fresh job
 		if self.pending_tasks_on_resume.is_empty() {
 			let location_id = self.location.id;

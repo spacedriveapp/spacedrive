@@ -15,7 +15,7 @@ use sd_core_cloud_services::AUTH_SERVER_URL;
 use sd_core_library::{Libraries, LibraryManagerError};
 use sd_core_location::{LocationManagerError, Locations};
 use sd_core_location_scan::{media_processor::ThumbnailKind, JobSystem};
-use sd_core_prisma_helpers::CasId;
+use sd_core_shared_types::cas_id::CasId;
 use sd_core_shared_types::notification::Notifications;
 use sd_core_volume::{VolumeManagerActor, Volumes};
 
@@ -23,6 +23,13 @@ use sd_core_volume::{VolumeManagerActor, Volumes};
 use sd_crypto::CryptoRng;
 use sd_task_system::TaskSystem;
 use sd_utils::error::FileIOError;
+
+// Error type aliases
+use sd_core_shared_errors::{
+	NodeConfigError as GenericNodeConfigError, NodeError as GenericNodeError,
+};
+pub type NodeError = GenericNodeError<NodeConfigVersion>;
+pub type NodeConfigError = GenericNodeConfigError<NodeConfigVersion>;
 
 // Dependencies
 use chrono::{DateTime, Utc};

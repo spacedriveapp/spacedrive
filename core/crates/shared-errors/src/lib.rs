@@ -3,6 +3,8 @@ use thiserror::Error;
 use tracing_subscriber::filter::FromEnvError;
 // use sd_utils::version_manager::VersionManagerError;
 
+use int_enum::IntEnum;
+
 pub mod cloud_services;
 pub mod file_helper;
 pub mod indexer_rules;
@@ -14,9 +16,9 @@ pub mod volume;
 
 /// Error type for Node related errors.
 #[derive(Error, Debug)]
-pub enum NodeError {
+pub enum NodeError<Version: IntEnum<Int = u64>> {
 	#[error("NodeError::FailedToInitializeConfig({0})")]
-	FailedToInitializeConfig(NodeConfigError),
+	FailedToInitializeConfig(NodeConfigError<Version>),
 	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("failed to initialize location manager: {0}")]
@@ -43,11 +45,11 @@ pub enum NodeError {
 }
 
 #[derive(Error, Debug)]
-pub enum NodeConfigError {
+pub enum NodeConfigError<Version: IntEnum<Int = u64>> {
 	#[error(transparent)]
 	SerdeJson(#[from] serde_json::Error),
 	#[error(transparent)]
-	VersionManager(#[from] VersionManagerError<Ver>),
+	VersionManager(#[from] sd_utils::version_manager::VersionManagerError<Version>),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 }

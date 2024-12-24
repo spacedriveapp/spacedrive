@@ -1,13 +1,9 @@
+use super::report::ReportError;
+use crate::job::report::JobId;
+use prisma_client_rust::QueryError;
+use sd_core_shared_types::jobs::JobName;
 use sd_task_system::{DispatcherShutdownError, Task};
 use sd_utils::error::FileIOError;
-
-use prisma_client_rust::QueryError;
-
-use crate::report::JobId;
-
-use super::report::ReportError;
-
-use sd_core_shared_types::jobs::JobName;
 
 #[derive(thiserror::Error, Debug)]
 pub enum JobSystemError {
@@ -62,19 +58,19 @@ pub enum DispatcherError {
 	#[error("job canceled: <id='{0}'>")]
 	JobCanceled(JobId),
 	#[error("system entered on shutdown mode <task_count={}>", .0.len())]
-	Shutdown(Vec<Box<dyn Task<crate::Error>>>),
+	Shutdown(Vec<Box<dyn Task<crate::job::Error>>>),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum JobErrorOrDispatcherError<JobError: Into<crate::Error>> {
+pub enum JobErrorOrDispatcherError<JobError: Into<crate::job::Error>> {
 	#[error(transparent)]
 	JobError(#[from] JobError),
 	#[error(transparent)]
 	Dispatcher(#[from] DispatcherError),
 }
 
-impl From<DispatcherShutdownError<crate::Error>> for DispatcherError {
-	fn from(DispatcherShutdownError(tasks): DispatcherShutdownError<crate::Error>) -> Self {
+impl From<DispatcherShutdownError<crate::job::Error>> for DispatcherError {
+	fn from(DispatcherShutdownError(tasks): DispatcherShutdownError<crate::job::Error>) -> Self {
 		Self::Shutdown(tasks)
 	}
 }

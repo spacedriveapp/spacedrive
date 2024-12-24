@@ -1,4 +1,4 @@
-use sd_core_prisma_helpers::CasId;
+use sd_core_shared_types::cas_id::CasId;
 
 use std::path::Path;
 

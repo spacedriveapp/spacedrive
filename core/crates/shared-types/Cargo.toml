@@ -13,13 +13,11 @@ hex = "0.4.3"
 
 # Inner Core Sub-crates
 # TO AVOID CYCLIC DEPENDENCIES BE CAREFUL WHEN ADDING LOCAL CRATES HERE
-sd-core-library-sync   = { path = "../library-sync" }
-sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-prisma = { path = "../../../crates/prisma" }
 
 
 chrono             = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
-sd-prisma          = { path = "../../../crates/prisma" }
 serde              = { workspace = true, features = ["derive"] }
 serde_json         = { workspace = true }
 specta             = { workspace = true }

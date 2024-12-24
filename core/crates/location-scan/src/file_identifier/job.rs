@@ -4,19 +4,22 @@ use crate::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_shared_errors::job::{
-	file_identifier::Error as FileIdentifierError,
-	system::{DispatcherError, JobErrorOrDispatcherError},
-	NonCriticalError,
-};
 use sd_core_job_system::{
 	job::{Job, JobReturn, JobTaskDispatcher, ReturnStatus},
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
 	UpdateEvent,
 };
-use sd_core_prisma_helpers::{file_path_for_file_identifier, CasId};
-use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
+use sd_core_prisma_helpers::file_path_for_file_identifier;
+use sd_core_shared_errors::job::{
+	file_identifier::Error as FileIdentifierError,
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	NonCriticalError,
+};
+use sd_core_shared_types::{
+	cas_id::CasId,
+	jobs::{JobName, ReportOutputMetadata},
+};
 use sd_prisma::{
 	prisma::{device, file_path, location, SortOrder},
 	prisma_sync,
@@ -188,7 +191,9 @@ impl Job for FileIdentifier {
 			.exec()
 			.await
 			.map_err(FileIdentifierError::from)?
-			.ok_or(FileIdentifierError::DeviceNotFound(device_pub_id.clone()))?
+			.ok_or(FileIdentifierError::DeviceNotFound(
+				device_pub_id.clone().into(),
+			))?
 			.id;
 
 		match self

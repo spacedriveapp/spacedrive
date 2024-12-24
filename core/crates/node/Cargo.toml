@@ -10,13 +10,25 @@ version                = "0.1.0"
 
 [dependencies]
 # Inner Core Sub-crates
+sd-core-cloud-services = { path = "../cloud-services" }
+sd-core-custom-uri     = { path = "../custom-uri" }
+sd-core-job-system     = { path = "../job-system" }
+sd-core-library        = { path = "../library" }
 sd-core-library-sync   = { path = "../library-sync" }
+sd-core-location       = { path = "../location" }
+sd-core-location-scan  = { path = "../location-scan" }
+sd-core-preferences    = { path = "../preferences" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-search         = { path = "../search" }
 sd-core-shared-errors  = { path = "../shared-errors" }
 sd-core-shared-types   = { path = "../shared-types" }
+sd-core-tag            = { path = "../tag" }
+sd-core-volume         = { path = "../volume" }
 
 sd-cloud-schema = { workspace = true }
+sd-crypto       = { path = "../../../crates/crypto" }
 sd-p2p          = { path = "../../../crates/p2p" }
+sd-task-system  = { path = "../../../crates/task-system" }
 sd-utils        = { path = "../../../crates/utils" }
 
 int-enum   = "0.5"

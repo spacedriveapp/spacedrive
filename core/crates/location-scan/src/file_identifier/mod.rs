@@ -1,7 +1,7 @@
 use crate::OuterContext;
 
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::CasId;
+use sd_core_shared_types::cas_id::CasId;
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::{device, file_path, location};

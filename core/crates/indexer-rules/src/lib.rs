@@ -47,7 +47,7 @@ use futures_concurrency::future::TryJoin;
 use gix_ignore::{glob::pattern::Case, Search};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use rmp_serde::{decode, encode};
-use sd_core_shared_errors::indexer_rule::Error;
+use sd_core_shared_errors::indexer_rules::Error;
 use specta::Type;
 use thiserror::Error;
 use tokio::fs;

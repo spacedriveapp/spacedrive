@@ -13,6 +13,7 @@ rust-version.workspace = true
 # Inner Core Sub-crates
 sd-core-library-sync   = { path = "../library-sync" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
+sd-core-shared-errors  = { path = "../shared-errors" }
 
 # Spacedrive Sub-crates
 sd-prisma = { path = "../../../crates/prisma" }

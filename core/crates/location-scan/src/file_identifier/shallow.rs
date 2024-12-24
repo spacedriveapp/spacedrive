@@ -6,9 +6,9 @@ use super::{
 use crate::{utils::sub_path::maybe_get_iso_file_path_from_sub_path, Error, OuterContext};
 use futures::{stream::FuturesUnordered, StreamExt};
 use sd_core_file_helper::IsolatedFilePathData;
-use sd_core_shared_errors::job::NonCriticalError;
 use sd_core_job_system::UpdateEvent;
 use sd_core_prisma_helpers::file_path_for_file_identifier;
+use sd_core_shared_errors::job::NonCriticalError;
 use sd_prisma::prisma::{device, file_path, location, SortOrder};
 use sd_task_system::{
 	BaseTaskDispatcher, CancelTaskOnDrop, TaskDispatcher, TaskHandle, TaskOutput, TaskStatus,
@@ -65,9 +65,11 @@ pub async fn shallow(
 		.exec()
 		.await
 		.map_err(sd_core_shared_errors::job::file_identifier::Error::from)?
-		.ok_or(sd_core_shared_errors::job::file_identifier::Error::DeviceNotFound(
-			device_pub_id.clone(),
-		))?
+		.ok_or(
+			sd_core_shared_errors::job::file_identifier::Error::DeviceNotFound(
+				device_pub_id.clone().into(),
+			),
+		)?
 		.id;
 
 	let mut orphans_count = 0;

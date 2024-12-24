@@ -18,7 +18,6 @@ sd-core-indexer-rules  = { path = "../indexer-rules" }
 sd-core-job-system     = { path = "../job-system" }
 sd-core-library-sync   = { path = "../library-sync" }
 sd-core-location-scan  = { path = "../location-scan" }
-sd-core-node           = { path = "../node" }
 sd-core-prisma-helpers = { path = "../prisma-helpers" }
 sd-core-shared-errors  = { path = "../shared-errors" }
 sd-core-shared-types   = { path = "../shared-types" }

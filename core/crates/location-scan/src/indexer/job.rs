@@ -2,10 +2,6 @@ use crate::{utils::sub_path::get_full_path_from_sub_path, LocationScanState, Out
 use futures_concurrency::future::TryJoin;
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
-use sd_core_shared_errors::job::{
-	system::{DispatcherError, JobErrorOrDispatcherError},
-	Error, NonCriticalError,
-};
 use sd_core_job_system::{
 	impl_job_serialization_handler,
 	job::{Job, JobContext, JobReturn, JobTaskDispatcher, ProgressUpdate, ReturnStatus},
@@ -13,6 +9,10 @@ use sd_core_job_system::{
 	utils::cancel_pending_tasks,
 };
 use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_errors::job::{
+	system::{DispatcherError, JobErrorOrDispatcherError},
+	Error, NonCriticalError,
+};
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 
 use sd_prisma::{
@@ -172,7 +172,7 @@ impl Job for Indexer {
 			.await
 			.map_err(sd_core_shared_errors::job::indexer::Error::from)?
 			.ok_or(sd_core_shared_errors::job::indexer::Error::DeviceNotFound(
-				device_pub_id.clone(),
+				device_pub_id.clone().into(),
 			))?
 			.id;
 
@@ -370,8 +370,10 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>>
-	{
+	) -> Result<
+		Vec<TaskHandle<Error>>,
+		JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>,
+	> {
 		self.metadata.completed_tasks += 1;
 
 		if any_task_output.is::<walker::Output<WalkerDBProxy, IsoFilePathFactory>>() {
@@ -438,8 +440,10 @@ impl Indexer {
 		ctx: &impl JobContext<OuterCtx>,
 		device_id: device::id::Type,
 		dispatcher: &JobTaskDispatcher,
-	) -> Result<Vec<TaskHandle<Error>>, JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>>
-	{
+	) -> Result<
+		Vec<TaskHandle<Error>>,
+		JobErrorOrDispatcherError<sd_core_shared_errors::job::indexer::Error>,
+	> {
 		self.metadata.mean_scan_read_time += scan_time;
 		#[allow(clippy::cast_possible_truncation)]
 		// SAFETY: we know that `keep_walking_tasks.len()` is a valid u32 as we wouldn't dispatch more than `u32::MAX` tasks

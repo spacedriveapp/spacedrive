@@ -1,9 +1,11 @@
-use crate::sub_path;
+use crate::file_helper::Error as FilePathError;
+use crate::job::sub_path;
+use crate::library_sync;
+
 use prisma_client_rust::QueryError;
 use rspc::ErrorCode;
-use sd_core_file_helper::FilePathError;
-use sd_core_library_sync::DevicePubId;
 use sd_prisma::prisma::file_path;
+use sd_sync::DevicePubId;
 use sd_utils::db::MissingFieldError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -25,7 +27,7 @@ pub enum Error {
 	#[error(transparent)]
 	SubPath(#[from] sub_path::Error),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] library_sync::Error),
 }
 
 impl From<Error> for rspc::Error {

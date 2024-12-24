@@ -28,7 +28,7 @@ pub async fn backfill_operations(sync: &SyncManager) -> Result<(), Error> {
 		.find_unique(device::pub_id::equals(sync.device_pub_id.to_db()))
 		.exec()
 		.await?
-		.ok_or(Error::DeviceNotFound(sync.device_pub_id.clone()))?;
+		.ok_or(Error::DeviceNotFound(sync.device_pub_id.clone().into()))?;
 
 	let local_device_id = local_device.id;
 

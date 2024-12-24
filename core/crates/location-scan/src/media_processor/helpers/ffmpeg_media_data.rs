@@ -1,7 +1,8 @@
-use sd_core_shared_errors::job::media_processor::{
-	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
-};
 use sd_core_prisma_helpers::object_with_media_data;
+use sd_core_shared_errors::{
+	job::media_processor::{NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError},
+	library_sync::Error,
+};
 use sd_file_ext::extensions::{
 	AudioExtension, Extension, VideoExtension, ALL_AUDIO_EXTENSIONS, ALL_VIDEO_EXTENSIONS,
 };
@@ -115,7 +116,7 @@ pub async fn extract(
 pub async fn save(
 	ffmpeg_datas: impl IntoIterator<Item = (FFmpegMetadata, object::id::Type)> + Send,
 	db: &PrismaClient,
-) -> Result<u64, sd_core_library_sync::Error> {
+) -> Result<u64, Error> {
 	ffmpeg_datas
 		.into_iter()
 		.map(
