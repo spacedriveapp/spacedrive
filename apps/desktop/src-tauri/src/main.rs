@@ -358,6 +358,7 @@ async fn main() -> tauri::Result<()> {
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
 		.plugin(tauri_plugin_http::init())
+		.plugin(tauri_plugin_drag::init())
 		// TODO: Bring back Tauri Plugin Window State - it was buggy so we removed it.
 		.plugin(tauri_plugin_updater::Builder::new().build())
 		.plugin(updater::plugin())

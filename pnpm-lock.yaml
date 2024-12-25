@@ -91,6 +91,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@crabnebula/tauri-plugin-drag':
+        specifier: ^2.0.0
+        version: 2.0.0
       '@remix-run/router':
         specifier: '=1.13.1'
         version: 1.13.1(patch_hash=rgixflaa47ddt4t677o2d275p4)
@@ -2665,6 +2668,9 @@ packages:
     peerDependenciesMeta:
       '@effect-ts/otel-node':
         optional: true
+
+  '@crabnebula/tauri-plugin-drag@2.0.0':
+    resolution: {integrity: sha512-HgYEwqvbwVY2/nqaGNI9jVAnhKvuzR85jpBgjkZjsxFYS0MToWQUywbNjYNvfGQFavxsL9EXkVIoB3EXA1ypCA==}
 
   '@cspell/cspell-bundled-dicts@8.15.2':
     resolution: {integrity: sha512-e+hxoD/GW7iyK1zMeRFd10yBr9tcClnnqFLxJM+tH1cSzLQ66ouXMIMuJpcd8LOCm7zMRdjTm4R72LehMgL79g==}
@@ -15175,7 +15181,7 @@ snapshots:
       '@babel/traverse': 7.25.7
       '@babel/types': 7.25.8
       convert-source-map: 2.0.0
-      debug: 4.3.7
+      debug: 4.3.7(supports-color@8.1.1)
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -16829,7 +16835,7 @@ snapshots:
       '@babel/parser': 7.25.8
       '@babel/template': 7.25.7
       '@babel/types': 7.25.8
-      debug: 4.3.7
+      debug: 4.3.7(supports-color@8.1.1)
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
@@ -16947,6 +16953,10 @@ snapshots:
       oo-ascii-tree: 1.95.0
       ts-pattern: 4.3.0
       type-fest: 3.13.1
+
+  '@crabnebula/tauri-plugin-drag@2.0.0':
+    dependencies:
+      '@tauri-apps/api': 2.0.3
 
   '@cspell/cspell-bundled-dicts@8.15.2':
     dependencies:
@@ -23911,10 +23921,6 @@ snapshots:
     optionalDependencies:
       supports-color: 8.1.1
 
-  debug@4.3.7:
-    dependencies:
-      ms: 2.1.3
-
   debug@4.3.7(supports-color@8.1.1):
     dependencies:
       ms: 2.1.3
@@ -28347,7 +28353,7 @@ snapshots:
   micromark@4.0.0:
     dependencies:
       '@types/debug': 4.1.12
-      debug: 4.3.7
+      debug: 4.3.7(supports-color@8.1.1)
       decode-named-character-reference: 1.0.2
       devlop: 1.1.0
       micromark-core-commonmark: 2.0.0

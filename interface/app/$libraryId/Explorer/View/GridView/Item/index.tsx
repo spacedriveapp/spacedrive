@@ -1,9 +1,11 @@
+import { Transparent } from '@sd/assets/images';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import {
 	getItemFilePath,
 	getItemObject,
 	humanizeSize,
+	libraryClient,
 	Tag,
 	useExplorerLayoutStore,
 	useLibraryQuery,
@@ -11,6 +13,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { useLocale } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
@@ -19,6 +22,7 @@ import { FileThumb } from '../../../FilePath/Thumb';
 import { useFrame } from '../../../FilePath/useFrame';
 import { explorerStore } from '../../../store';
 import { useExplorerDraggable } from '../../../useExplorerDraggable';
+import { useExplorerItemData } from '../../../useExplorerItemData';
 import { RenamableItemText } from '../../RenamableItemText';
 import { ViewItem } from '../../ViewItem';
 import { GridViewItemContext, useGridViewItemContext } from './Context';
@@ -107,6 +111,38 @@ const ItemMetadata = memo(() => {
 	const item = useGridViewItemContext();
 	const { isDroppable } = useExplorerDroppableContext();
 	const explorerLayout = useExplorerLayoutStore();
+	const dragState = useSelector(explorerStore, (s) => s.drag);
+
+	useEffect(() => {
+		(async () => {
+			if (dragState?.type === 'dragging' && dragState.items.length > 0) {
+				const items = await Promise.all(
+					dragState.items.map(async (item) => {
+						const data = getItemFilePath(item);
+						if (!data) return;
+
+						const file_path =
+							'path' in data
+								? data.path
+								: await libraryClient.query(['files.getPath', data.id]);
+
+						return {
+							type: 'explorer-item',
+							file_path: file_path
+						};
+					})
+				);
+
+				// get image src from Transparent
+				const image = Transparent.split('/@fs')[1];
+
+				(window as any).startDrag({
+					item: items.filter(Boolean).map((item) => item?.file_path),
+					icon: image
+				});
+			}
+		})();
+	}, [dragState]);
 
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
 
