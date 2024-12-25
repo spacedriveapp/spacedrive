@@ -18,6 +18,7 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style';
 
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
 import Passwordless from 'supertokens-web-js/recipe/passwordless';
@@ -42,7 +43,6 @@ import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
-import { startDrag } from '@crabnebula/tauri-plugin-drag';
 
 declare global {
 	interface Window {
