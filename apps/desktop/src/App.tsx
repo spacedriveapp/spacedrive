@@ -18,6 +18,7 @@ import { RouteTitleContext } from '@sd/interface/hooks/useRouteTitle';
 
 import '@sd/ui/style';
 
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import SuperTokens from 'supertokens-web-js';
 import EmailPassword from 'supertokens-web-js/recipe/emailpassword';
 import Passwordless from 'supertokens-web-js/recipe/passwordless';
@@ -46,6 +47,7 @@ import { createUpdater } from './updater';
 declare global {
 	interface Window {
 		enableCORSFetch: (enable: boolean) => void;
+		startDrag: typeof startDrag;
 	}
 }
 
@@ -72,6 +74,7 @@ export default function App() {
 		// This tells Tauri to show the current window because it's finished loading
 		commands.appReady();
 		window.enableCORSFetch(true);
+		window.startDrag = startDrag;
 		// .then(() => {
 		// 	if (import.meta.env.PROD) window.fetch = fetch;
 		// });
