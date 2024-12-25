@@ -1,3 +1,4 @@
+import { Transparent } from '@sd/assets/images';
 import clsx from 'clsx';
 import { memo, useEffect, useMemo } from 'react';
 import {
@@ -134,17 +135,13 @@ const ItemMetadata = memo(() => {
 				};
 			});
 
-			console.log('Dragging items:', items);
+			// get image src from Transparent
+			const image = Transparent.split('/@fs')[1];
 
-			// Start Drag for the list of items
-			(window as any)
-				.startDrag({
-					item: items.map((item) => item.file_path),
-					icon: '/Downloads/1600px-HD_transparent_picture.png'
-				})
-				.then(() => {
-					console.log('Drag Ended');
-				});
+			(window as any).startDrag({
+				item: items.map((item) => item.file_path),
+				icon: image,
+			});
 		}
 	}, [dragState]);
 
