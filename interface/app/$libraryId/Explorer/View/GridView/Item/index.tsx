@@ -112,8 +112,6 @@ const ItemMetadata = memo(() => {
 	const { isDroppable } = useExplorerDroppableContext();
 	const explorerLayout = useExplorerLayoutStore();
 	const dragState = useSelector(explorerStore, (s) => s.drag);
-	const platform = usePlatform();
-	const itemData = useExplorerItemData(item.data);
 
 	useEffect(() => {
 		if (dragState?.type === 'dragging' && dragState.items.length > 0) {
@@ -140,7 +138,7 @@ const ItemMetadata = memo(() => {
 
 			(window as any).startDrag({
 				item: items.map((item) => item.file_path),
-				icon: image,
+				icon: image
 			});
 		}
 	}, [dragState]);
