@@ -114,33 +114,34 @@ const ItemMetadata = memo(() => {
 	const dragState = useSelector(explorerStore, (s) => s.drag);
 
 	useEffect(() => {
-		if (dragState?.type === 'dragging' && dragState.items.length > 0) {
-			// Convert the items into a list with the following format:
-			// { type: 'explorer-item', file_path: '/path/to/file', thumbnail_path: '/path/to/thumbnail' }
-			const items = dragState.items.map((item) => {
-				// const thumbnail = 'thumbnail' in item.item ? itemData.customIcon : Array.from(itemData.thumbnails.keys()).find((key) => key);
-				// if item.item.path exists, it is a file in the ephemeral directory
-				const file_path = 'path' in item.item ? item.item.path : '';
+		(async () => {
+			if (dragState?.type === 'dragging' && dragState.items.length > 0) {
+				const items = await Promise.all(
+					dragState.items.map(async (item) => {
+						const data = getItemFilePath(item);
+						if (!data) return;
 
-				// const queriedFullPath = libraryClient.query(['files.getPath', item.item.id ?? -1], {
-				// 	enabled: filePathData != null && readyToFetch
-				// });
+						const file_path =
+							'path' in data
+								? data.path
+								: await libraryClient.query(['files.getPath', data.id]);
 
-				return {
-					type: 'explorer-item',
-					file_path: file_path
-					// thumbnail_path: itemData.customIcon,
-				};
-			});
+						return {
+							type: 'explorer-item',
+							file_path: file_path
+						};
+					})
+				);
 
-			// get image src from Transparent
-			const image = Transparent.split('/@fs')[1];
+				// get image src from Transparent
+				const image = Transparent.split('/@fs')[1];
 
-			(window as any).startDrag({
-				item: items.map((item) => item.file_path),
-				icon: image
-			});
-		}
+				(window as any).startDrag({
+					item: items.filter(Boolean).map((item) => item?.file_path),
+					icon: image
+				});
+			}
+		})();
 	}, [dragState]);
 
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
