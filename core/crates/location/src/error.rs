@@ -1,5 +1,3 @@
-use sd_core_file_helper::FilePathError;
-
 use sd_prisma::prisma::location;
 use sd_utils::{
 	db::MissingFieldError,
@@ -12,7 +10,10 @@ use rspc::ErrorCode;
 use thiserror::Error;
 use uuid::Uuid;
 
-use super::{manager::LocationManagerError, metadata::LocationMetadataError};
+use sd_core_shared_errors::file_helper::Error as FilePathError;
+use sd_core_shared_errors::location::Error as LocationManagerError;
+
+use super::metadata::LocationMetadataError;
 
 /// Error type for location related errors
 #[derive(Error, Debug)]
@@ -69,7 +70,7 @@ pub enum LocationError {
 	#[error(transparent)]
 	LocationManager(#[from] LocationManagerError),
 	#[error(transparent)]
-	FilePath(#[from] FilePathError),
+	FilePath(#[from] sd_core_shared_errors::file_helper::Error),
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),
 	#[error("location missing path <id='{0}'>")]
@@ -79,7 +80,7 @@ pub enum LocationError {
 	#[error("invalid location scan state value: {0}")]
 	InvalidScanStateValue(i32),
 	#[error(transparent)]
-	Sync(#[from] sd_core_library_sync::Error),
+	Sync(#[from] sd_core_shared_errors::library_sync::Error),
 }
 
 impl From<LocationError> for rspc::Error {

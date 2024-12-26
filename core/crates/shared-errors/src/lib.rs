@@ -22,7 +22,7 @@ pub enum NodeError<Version: IntEnum<Int = u64>> {
 	#[error("failed to initialize library manager: {0}")]
 	FailedToInitializeLibraryManager(#[from] library::LibraryManagerError),
 	#[error("failed to initialize location manager: {0}")]
-	LocationManager(#[from] location::LocationManagerError),
+	LocationManager(#[from] location::Error),
 	#[error("failed to initialize p2p manager: {0}")]
 	P2PManager(String),
 	#[error("invalid platform integer: {0}")]

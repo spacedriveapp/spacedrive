@@ -10,17 +10,17 @@ version                = "0.1.0"
 
 
 [dependencies]
-sd-core-library      = { path = "../library" }
-sd-core-library-sync = { path = "../library-sync" }
-sd-core-shared-types = { path = "../shared-types" }
+sd-core-library        = { path = "../library" }
+sd-core-library-sync   = { path = "../library-sync" }
+sd-core-node           = { path = "../node" }
+sd-core-shared-context = { path = "../shared-context" }
+sd-core-shared-types   = { path = "../shared-types" }
 
-chrono             = { workspace = true, features = ["serde"] }
-prisma-client-rust = { workspace = true }
-sd-prisma          = { path = "../../../crates/prisma" }
-serde              = { workspace = true, features = ["derive"] }
-serde_json         = { workspace = true }
-specta             = { workspace = true }
-thiserror          = { workspace = true }
-tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"] }
-tracing            = { workspace = true }
-uuid               = { workspace = true, features = ["serde", "v4"] }
+chrono     = { workspace = true, features = ["serde"] }
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta     = { workspace = true }
+thiserror  = { workspace = true }
+tokio      = { workspace = true, features = ["fs", "parking_lot", "sync"] }
+tracing    = { workspace = true }
+uuid       = { workspace = true, features = ["serde", "v4"] }

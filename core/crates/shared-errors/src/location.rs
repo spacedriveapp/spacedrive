@@ -3,7 +3,7 @@ use std::path::Path;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum LocationManagerError {
+pub enum Error {
 	#[error("location not found in database: <id={0}>")]
 	LocationNotFound(location::id::Type),
 

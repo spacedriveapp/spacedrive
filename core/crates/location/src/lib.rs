@@ -4,12 +4,13 @@ mod manager;
 mod metadata;
 mod non_indexed;
 
-pub use error::*;
 pub use manager::*;
 pub use metadata::*;
 pub use non_indexed::*;
 
-use crate::{context::NodeContext, invalidate_query, library::Library, Node};
+use crate::{
+	context::NodeContext, error::LocationError as Error, invalidate_query, library::Library, Node,
+};
 
 use sd_core_file_helper::{
 	filter_existing_file_path_params, IsolatedFilePathData, IsolatedFilePathDataParts,
@@ -21,7 +22,8 @@ use sd_core_location_scan::{
 	media_processor::{self, job::MediaProcessor},
 	JobEnqueuer, JobId,
 };
-use sd_core_prisma_helpers::{location_with_indexer_rules, CasId};
+use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_types::cas_id::CasId;
 
 use sd_prisma::{
 	prisma::{device, file_path, indexer_rules_in_location, instance, location, PrismaClient},
@@ -41,7 +43,10 @@ use std::{
 };
 
 use chrono::Utc;
+pub use error::LocationError;
 use futures::future::TryFutureExt;
+pub use manager::Locations;
+use metadata::SpacedriveLocationMetadataFile;
 use normpath::PathExt;
 use prisma_client_rust::{operator::and, or, QueryError};
 use serde::{Deserialize, Serialize};
@@ -49,10 +54,6 @@ use specta::Type;
 use tokio::{fs, io, time::Instant};
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
-
-pub use error::LocationError;
-pub use manager::{LocationManagerError, Locations};
-use metadata::SpacedriveLocationMetadataFile;
 
 pub type LocationPubId = Uuid;
 
@@ -441,7 +442,7 @@ pub async fn scan_location(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	location_scan_state: ScanState,
-) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
+) -> Result<Option<JobId>, Error> {
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
 	if location.instance_id != Some(library.config().await.instance_id) {
 		warn!("Tried to scan a location on a different instance");
@@ -520,7 +521,7 @@ pub async fn scan_location_sub_path(
 	library: &Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path> + Send,
-) -> Result<Option<JobId>, sd_core_heavy_lifting::Error> {
+) -> Result<Option<JobId>, Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -576,7 +577,7 @@ pub async fn light_scan_location(
 	library: Arc<Library>,
 	location: location_with_indexer_rules::Data,
 	sub_path: impl AsRef<Path>,
-) -> Result<(), sd_core_heavy_lifting::Error> {
+) -> Result<(), Error> {
 	let sub_path = sub_path.as_ref().to_path_buf();
 
 	// TODO(N): This isn't gonna work with removable media and this will likely permanently break if the DB is restored from a backup.
@@ -886,7 +887,7 @@ pub async fn delete_directory(
 	library: &Library,
 	location_id: location::id::Type,
 	parent_iso_file_path: Option<&IsolatedFilePathData<'_>>,
-) -> Result<(), sd_core_library_sync::Error> {
+) -> Result<(), Error> {
 	let Library { db, .. } = library;
 
 	let children_params = sd_utils::chain_optional_iter(
@@ -1007,7 +1008,7 @@ pub async fn update_location_size(
 	location_id: location::id::Type,
 	location_pub_id: location::pub_id::Type,
 	library: &Library,
-) -> Result<(), sd_core_library_sync::Error> {
+) -> Result<(), Error> {
 	let Library { db, sync, .. } = library;
 
 	let total_size = size_in_bytes_to_db(

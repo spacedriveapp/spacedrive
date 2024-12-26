@@ -11,7 +11,10 @@ use sd_core_location_scan::{
 		self, thumbnailer::NewThumbnailReporter, GenerateThumbnailArgs, NewThumbnailsReporter,
 	},
 };
-use sd_core_shared_types::thumbnail::{get_thumbnails_directory, ThumbKey};
+use sd_core_shared_types::{
+	explorer_item::NonIndexedPathItem,
+	thumbnail::{get_thumbnails_directory, ThumbKey},
+};
 
 use sd_file_ext::{extensions::Extension, kind::ObjectKind};
 use sd_prisma::prisma::location;
@@ -81,19 +84,6 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 			Self::FileIO(FileIOError::from((path, source)))
 		}
 	}
-}
-
-#[derive(Serialize, Type, Debug)]
-pub struct NonIndexedPathItem {
-	pub path: String,
-	pub name: String,
-	pub extension: String,
-	pub kind: i32,
-	pub is_dir: bool,
-	pub date_created: DateTime<Utc>,
-	pub date_modified: DateTime<Utc>,
-	pub size_in_bytes_bytes: Vec<u8>,
-	pub hidden: bool,
 }
 
 // #[instrument(name = "non_indexed::walk", skip(sort_fn))]

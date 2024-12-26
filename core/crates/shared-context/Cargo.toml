@@ -1,0 +1,19 @@
+[package]
+authors                = ["Spacedrive Technology Inc <support@spacedrive.com>"]
+description            = "Spacedrive's shared context traits and types"
+edition.workspace      = true
+license.workspace      = true
+name                   = "sd-core-shared-context"
+repository.workspace   = true
+rust-version.workspace = true
+version                = "0.1.0"
+
+[dependencies]
+sd-core-shared-types = { path = "../shared-types" }
+sd-prisma            = { path = "../../../crates/prisma" }
+
+chrono     = { workspace = true, features = ["serde"] }
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio      = { workspace = true, features = ["sync"] }
+uuid       = { workspace = true, features = ["serde", "v4"] }

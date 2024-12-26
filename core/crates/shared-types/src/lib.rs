@@ -1,8 +1,10 @@
 pub mod cas_id;
 pub mod core_event;
+pub mod explorer_item;
 pub mod jobs;
 pub mod kind_statistic;
 pub mod notification;
+pub mod peer_metadata;
 pub mod sd_path;
 pub mod thumbnail;
 pub mod volume;

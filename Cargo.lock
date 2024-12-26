@@ -10114,11 +10114,11 @@ name = "sd-core-context"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "prisma-client-rust",
  "sd-core-library",
  "sd-core-library-sync",
+ "sd-core-node",
+ "sd-core-shared-context",
  "sd-core-shared-types",
- "sd-prisma",
  "serde",
  "serde_json",
  "specta",
@@ -10611,6 +10611,19 @@ dependencies = [
  "tracing-test",
  "uuid",
  "webp",
+]
+
+[[package]]
+name = "sd-core-shared-context"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "sd-core-shared-types",
+ "sd-prisma",
+ "serde",
+ "serde_json",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
