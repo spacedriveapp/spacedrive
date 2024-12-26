@@ -12,10 +12,9 @@ rust-version.workspace = true
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-file-helper    = { path = "../../core/crates/file-helper" }
-sd-core-library-sync   = { path = "../../core/crates/library-sync" }
-sd-core-prisma-helpers = { path = "../../core/crates/prisma-helpers" }
-
+sd-core-file-helper  = { path = "../../core/crates/file-helper" }
+sd-core-library-sync = { path = "../../core/crates/library-sync" }
+sd-core-shared-types = { path = "../../core/crates/shared-types" }
 # Spacedrive Sub-crates
 sd-prisma = { path = "../prisma" }
 sd-sync   = { path = "../sync" }

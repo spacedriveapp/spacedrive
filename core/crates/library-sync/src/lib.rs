@@ -51,7 +51,7 @@ pub enum SyncEvent {
 	Created,
 }
 
-pub use sd_core_prisma_helpers::DevicePubId;
+pub use sd_core_shared_types::db_types::DevicePubId;
 pub use sd_sync::{
 	CRDTOperation, CompressedCRDTOperation, CompressedCRDTOperationsPerModel,
 	CompressedCRDTOperationsPerModelPerDevice, ModelId, OperationFactory, RecordId, RelationSyncId,

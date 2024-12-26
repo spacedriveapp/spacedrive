@@ -14,14 +14,17 @@ hex = "0.4.3"
 # Inner Core Sub-crates
 # TO AVOID CYCLIC DEPENDENCIES BE CAREFUL WHEN ADDING LOCAL CRATES HERE
 sd-prisma = { path = "../../../crates/prisma" }
-
+sd-utils  = { path = "../../../crates/utils" }
 
 chrono             = { workspace = true, features = ["serde"] }
 prisma-client-rust = { workspace = true }
+sd-cloud-schema    = { workspace = true }
 serde              = { workspace = true, features = ["derive"] }
 serde_json         = { workspace = true }
 specta             = { workspace = true }
 strum              = { workspace = true, features = ["derive", "phf"] }
+strum_macros       = { workspace = true }
 thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["fs", "parking_lot", "sync"] }
+tracing            = { workspace = true }
 uuid               = { workspace = true, features = ["serde", "v4"] }

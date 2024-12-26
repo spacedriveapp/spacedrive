@@ -27,7 +27,7 @@ use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, RulerDecision,
 };
-use sd_core_prisma_helpers::{
+use sd_core_shared_types::db_types::{
 	file_path_watcher_remove, file_path_with_object, object_ids, CasId, ObjectPubId,
 };
 

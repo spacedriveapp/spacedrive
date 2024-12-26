@@ -1,11 +1,13 @@
+use crate::{
+	db_types::{file_path_for_frontend, label_with_objects, object_with_file_paths},
+	peer_metadata::PeerMetadata,
+	thumbnail::ThumbKey,
+};
 use chrono::{DateTime, Utc};
+use sd_prisma::prisma::location;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tracing::{debug, error};
-
-use crate::thumbnail::ThumbKey;
-
-use sd_core_prisma_helpers::{file_path_for_frontend, label_with_objects, object_with_file_paths};
 
 #[derive(Serialize, Type, Debug)]
 #[serde(tag = "type")]

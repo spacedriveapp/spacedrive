@@ -11,7 +11,7 @@ use crate::{
 
 use sd_core_heavy_lifting::{media_processor::ThumbKey, JobName};
 use sd_core_indexer_rules::IndexerRuleCreateArgs;
-use sd_core_prisma_helpers::{
+use sd_core_shared_types::db_types::{
 	file_path_for_frontend, label_with_objects, location_with_indexer_rules, object_with_file_paths,
 };
 

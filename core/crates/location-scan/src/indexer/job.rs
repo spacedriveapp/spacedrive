@@ -8,7 +8,7 @@ use sd_core_job_system::{
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
 };
-use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_types::db_types::location_with_indexer_rules;
 use sd_core_shared_errors::job::{
 	system::{DispatcherError, JobErrorOrDispatcherError},
 	Error, NonCriticalError,

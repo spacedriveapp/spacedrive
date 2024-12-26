@@ -1,4 +1,4 @@
-use crate::node::{HardwareModel, Platform};
+use crate::{hardware::HardwareModel, platform::Platform};
 
 use std::{collections::HashMap, env, fmt::Display, str::FromStr};
 

@@ -1,4 +1,4 @@
-use sd_core_prisma_helpers::{
+use sd_core_shared_types::db_types::{
 	file_path_for_file_identifier, file_path_for_media_processor, file_path_for_object_validator,
 	file_path_to_full_path, file_path_to_handle_custom_uri, file_path_to_handle_p2p_serve_file,
 	file_path_to_isolate, file_path_to_isolate_with_id, file_path_to_isolate_with_pub_id,

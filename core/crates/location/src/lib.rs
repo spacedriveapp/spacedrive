@@ -22,7 +22,7 @@ use sd_core_location_scan::{
 	media_processor::{self, job::MediaProcessor},
 	JobEnqueuer, JobId,
 };
-use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_types::db_types::location_with_indexer_rules;
 use sd_core_shared_types::cas_id::CasId;
 
 use sd_prisma::{

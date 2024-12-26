@@ -2,7 +2,7 @@ use crate::{file_identifier::FileMetadata, Error};
 
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_library_sync::SyncManager;
-use sd_core_prisma_helpers::{file_path_for_file_identifier, FilePathPubId};
+use sd_core_shared_types::db_types::{file_path_for_file_identifier, FilePathPubId};
 use sd_core_shared_types::cas_id::CasId;
 
 use sd_file_ext::kind::ObjectKind;

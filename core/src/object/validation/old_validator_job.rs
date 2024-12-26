@@ -9,7 +9,7 @@ use sd_core_file_helper::{
 	ensure_file_path_exists, ensure_sub_path_is_directory, ensure_sub_path_is_in_location,
 	IsolatedFilePathData,
 };
-use sd_core_prisma_helpers::file_path_for_object_validator;
+use sd_core_shared_types::db_types::file_path_for_object_validator;
 
 use sd_prisma::{
 	prisma::{file_path, location},

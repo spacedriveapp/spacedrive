@@ -1,4 +1,4 @@
-use sd_core_prisma_helpers::DevicePubId;
+use sd_core_shared_types::db_types::DevicePubId;
 
 use sd_prisma::{
 	prisma::{crdt_operation, PrismaClient},

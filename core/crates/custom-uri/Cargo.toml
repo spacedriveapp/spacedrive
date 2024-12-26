@@ -11,10 +11,9 @@ version                = "0.1.0"
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-file-helper    = { path = "../file-helper" }
-sd-core-location-scan  = { path = "../location-scan" }
-sd-core-prisma-helpers = { path = "../prisma-helpers" }
-sd-core-shared-types   = { path = "../shared-types" }
+sd-core-file-helper   = { path = "../file-helper" }
+sd-core-location-scan = { path = "../location-scan" }
+sd-core-shared-types  = { path = "../shared-types" }
 
 # Spacedrive Sub-crates
 sd-p2p       = { path = "../../../crates/p2p", features = ["specta"] }

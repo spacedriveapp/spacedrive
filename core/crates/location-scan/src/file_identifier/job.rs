@@ -10,7 +10,7 @@ use sd_core_job_system::{
 	utils::cancel_pending_tasks,
 	UpdateEvent,
 };
-use sd_core_prisma_helpers::file_path_for_file_identifier;
+use sd_core_shared_types::db_types::file_path_for_file_identifier;
 use sd_core_shared_errors::job::{
 	file_identifier::Error as FileIdentifierError,
 	system::{DispatcherError, JobErrorOrDispatcherError},

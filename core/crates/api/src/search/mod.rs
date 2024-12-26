@@ -7,7 +7,7 @@ use crate::{
 
 use prisma_client_rust::Operator;
 use sd_core_location_scan::media_processor::ThumbKey;
-use sd_core_prisma_helpers::{file_path_for_frontend, object_with_file_paths, CasId};
+use sd_core_shared_types::db_types::{file_path_for_frontend, object_with_file_paths, CasId};
 use sd_prisma::prisma::{self, PrismaClient};
 
 use std::path::PathBuf;

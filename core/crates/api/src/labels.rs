@@ -1,7 +1,7 @@
 use crate::{invalidate_query, library::Library};
 
 use sd_core_location_scan::media_processor::ThumbKey;
-use sd_core_prisma_helpers::{label_with_objects, CasId};
+use sd_core_shared_types::db_types::{label_with_objects, CasId};
 
 use sd_prisma::{
 	prisma::{label, label_on_object, object, SortOrder},

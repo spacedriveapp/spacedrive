@@ -11,7 +11,7 @@ use sd_core_shared_errors::job::media_processor::{
 	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
 };
 use sd_core_library_sync::SyncManager;
-use sd_core_prisma_helpers::{file_path_for_media_processor, ObjectPubId};
+use sd_core_shared_types::db_types::{file_path_for_media_processor, ObjectPubId};
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};
 use sd_task_system::{

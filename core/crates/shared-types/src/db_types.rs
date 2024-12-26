@@ -28,7 +28,7 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-use sd_core_shared_types::cas_id::CasId;
+use crate::cas_id::CasId;
 
 use sd_prisma::prisma::{file_path, job, label, location, object};
 use sd_utils::{from_bytes_to_uuid, uuid_to_bytes};

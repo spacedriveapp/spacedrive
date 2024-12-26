@@ -5,7 +5,7 @@ use std::{future::Future, path::PathBuf};
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use sd_core_core_errors::Error;
-use sd_core_prisma_helpers::file_path_with_object;
+use sd_core_shared_types::db_types::file_path_with_object;
 use sd_task_system::{check_interruption, ExecStatus, Interrupter};
 use serde::{Deserialize, Serialize};
 

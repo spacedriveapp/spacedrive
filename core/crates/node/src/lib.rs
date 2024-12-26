@@ -2,7 +2,6 @@
 #![warn(clippy::unwrap_used, clippy::panic)]
 
 mod config;
-mod hardware;
 mod platform;
 
 pub use config::*;

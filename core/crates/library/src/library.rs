@@ -2,7 +2,7 @@ use sd_core_cloud_services::{declare_cloud_sync, CloudSyncActors, CloudSyncActor
 use sd_core_node::Node;
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_library_sync::{backfill::backfill_operations, SyncManager};
-use sd_core_prisma_helpers::{file_path_to_full_path, CasId};
+use sd_core_shared_types::db_types::{file_path_to_full_path, CasId};
 use sd_core_shared_types::{core_event::CoreEvent, thumbnail::ThumbnailKind};
 
 use sd_actors::ActorsCollection;

@@ -5,7 +5,7 @@ use std::{
 };
 
 use sd_core_file_path_helper::IsolatedFilePathData;
-use sd_core_prisma_helpers::file_path_to_handle_p2p_serve_file;
+use sd_core_shared_types::db_types::file_path_to_handle_p2p_serve_file;
 use sd_p2p::{Identity, RemoteIdentity, UnicastStream, P2P};
 use sd_p2p_block::{BlockSize, Range, SpaceblockRequest, SpaceblockRequests, Transfer};
 use sd_prisma::prisma::file_path;

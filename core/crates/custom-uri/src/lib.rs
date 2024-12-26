@@ -8,7 +8,7 @@ use crate::{
 
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_location_scan::media_processor::WEBP_EXTENSION;
-use sd_core_prisma_helpers::file_path_to_handle_custom_uri;
+use sd_core_shared_types::db_types::file_path_to_handle_custom_uri;
 
 use sd_file_ext::text::is_text;
 use sd_p2p::{RemoteIdentity, P2P};

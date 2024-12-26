@@ -2,7 +2,7 @@ use crate::{utils::sub_path::get_full_path_from_sub_path, Error, OuterContext};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
 use sd_core_library_sync::SyncManager;
-use sd_core_prisma_helpers::location_with_indexer_rules;
+use sd_core_shared_types::db_types::location_with_indexer_rules;
 use sd_core_shared_errors::job::NonCriticalError;
 
 use sd_prisma::prisma::{device, PrismaClient};

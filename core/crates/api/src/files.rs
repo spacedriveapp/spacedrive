@@ -16,11 +16,11 @@ use sd_core_heavy_lifting::{
 	media_processor::{exif_media_data, ffmpeg_media_data},
 	JobEnqueuer,
 };
-use sd_core_prisma_helpers::{
+use sd_core_shared_errors::file_helper::Error as FileHelperError;
+use sd_core_shared_types::db_types::{
 	file_path_to_isolate, file_path_to_isolate_with_id, object_with_file_paths,
 	object_with_media_data,
 };
-use sd_core_shared_errors::file_helper::Error as FileHelperError;
 
 use sd_file_actions::deleter::{MoveToTrashJob, RemoveJob};
 use sd_file_ext::kind::ObjectKind;

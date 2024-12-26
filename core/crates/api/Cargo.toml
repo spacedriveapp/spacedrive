@@ -9,10 +9,9 @@ version                = "0.1.0"
 
 [dependencies]
 # Inner Core Sub-crates
-sd-core-library-sync   = { path = "../library-sync" }
-sd-core-prisma-helpers = { path = "../prisma-helpers" }
-sd-core-shared-errors  = { path = "../shared-errors" }
-sd-core-shared-types   = { path = "../shared-types" }
+sd-core-library-sync  = { path = "../library-sync" }
+sd-core-shared-errors = { path = "../shared-errors" }
+sd-core-shared-types  = { path = "../shared-types" }
 
 sd-cloud-schema = { workspace = true }
 sd-p2p          = { path = "../../../crates/p2p" }

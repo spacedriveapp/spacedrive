@@ -9,7 +9,7 @@ use sd_core_job_system::{
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
 };
-use sd_core_prisma_helpers::file_path_for_media_processor;
+use sd_core_shared_types::db_types::file_path_for_media_processor;
 use sd_core_shared_errors::job::{
 	system::{DispatcherError, JobErrorOrDispatcherError},
 	Error,

@@ -1,5 +1,5 @@
 use sd_core_library_sync::{DevicePubId, SyncManager};
-use sd_core_prisma_helpers::ObjectPubId;
+use sd_core_shared_types::db_types::ObjectPubId;
 use sd_core_shared_errors::{
 	job::media_processor::{NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError},
 	library_sync::Error,

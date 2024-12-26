@@ -31,7 +31,6 @@ sd-core-location       = { path = "./crates/location" }
 sd-core-location-scan  = { path = "./crates/location-scan" }
 sd-core-node           = { path = "./crates/node" }
 sd-core-preferences    = { path = "./crates/preferences" }
-sd-core-prisma-helpers = { path = "./crates/prisma-helpers" }
 sd-core-shared-types   = { path = "./crates/shared-types" }
 sd-core-tag            = { path = "./crates/tag" }
 sd-core-volume         = { path = "./crates/volume" }

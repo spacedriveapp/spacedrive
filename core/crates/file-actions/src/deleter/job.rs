@@ -8,7 +8,7 @@ use sd_core_job_system::{
 	Error, JobContext, NonCriticalError, OuterContext, ProgressUpdate, SerializableJob,
 	SerializedTasks,
 };
-use sd_core_prisma_helpers::file_path_with_object;
+use sd_core_shared_types::db_types::file_path_with_object;
 use sd_core_shared_types::jobs::JobName;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_task_system::{SerializableTask, Task, TaskDispatcher, TaskHandle, TaskStatus};

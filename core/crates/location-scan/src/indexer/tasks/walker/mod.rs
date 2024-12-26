@@ -8,7 +8,7 @@ use sd_core_indexer_rules::{
 	seed::{GitIgnoreRules, GITIGNORE},
 	IndexerRuler, MetadataForIndexerRules, RuleKind,
 };
-use sd_core_prisma_helpers::{file_path_pub_and_cas_ids, file_path_walker};
+use sd_core_shared_types::db_types::{file_path_pub_and_cas_ids, file_path_walker};
 use sd_core_shared_errors::{file_helper::Error as FilePathError, job::NonCriticalError};
 
 use sd_prisma::prisma::file_path;
@@ -704,7 +704,7 @@ mod tests {
 	use super::*;
 
 	use sd_core_indexer_rules::{IndexerRule, RulePerKind};
-	use sd_core_prisma_helpers::FilePathPubId;
+	use sd_core_shared_types::db_types::FilePathPubId;
 	use sd_task_system::{TaskOutput, TaskStatus, TaskSystem};
 
 	use chrono::Utc;

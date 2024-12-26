@@ -1,7 +1,7 @@
 use crate::{library::Library, Node};
 
 use sd_core_indexer_rules::{IndexerRule, IndexerRuler};
-use sd_core_prisma_helpers::{location_ids_and_path, location_with_indexer_rules};
+use sd_core_shared_types::db_types::{location_ids_and_path, location_with_indexer_rules};
 
 use sd_prisma::prisma::{location, PrismaClient};
 use sd_utils::{db::maybe_missing, uuid_to_bytes};

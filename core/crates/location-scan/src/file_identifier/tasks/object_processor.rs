@@ -1,7 +1,7 @@
 use crate::Error;
 
 use sd_core_library_sync::SyncManager;
-use sd_core_prisma_helpers::{file_path_id, object_for_file_identifier, ObjectPubId};
+use sd_core_shared_types::db_types::{file_path_id, object_for_file_identifier, ObjectPubId};
 use sd_core_shared_types::cas_id::CasId;
 
 use sd_prisma::prisma::{device, file_path, object, PrismaClient};

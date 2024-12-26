@@ -1,6 +1,6 @@
 use sd_core_file_helper::{FilePathMetadata, IsolatedFilePathData};
 
-use sd_core_prisma_helpers::FilePathPubId;
+use sd_core_shared_types::db_types::FilePathPubId;
 use sd_prisma::prisma::file_path;
 
 use std::{
