@@ -8,11 +8,8 @@ use std::{collections::HashMap, future::Future, pin::Pin, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-	job::{DynJob, OuterContext},
-	report::Report,
-	JobId, JobSystemError,
-};
+use super::{job::DynJob, report::Report, JobId, JobSystemError};
+pub use sd_core_shared_context::OuterContext;
 
 use sd_core_shared_types::jobs::JobName;
 

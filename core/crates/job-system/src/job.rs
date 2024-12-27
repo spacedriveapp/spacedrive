@@ -1,8 +1,8 @@
-use crate::UpdateEvent;
 use futures_concurrency::stream::Merge;
+
+use sd_core_shared_context::OuterContext;
 use sd_core_shared_errors::job::{system::DispatcherError, Error, NonCriticalError};
-use sd_core_library_sync::SyncManager;
-use sd_prisma::prisma::PrismaClient;
+
 use sd_task_system::{
 	BaseTaskDispatcher, Task, TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystemError,
 };
@@ -10,11 +10,11 @@ use sd_task_system::{
 use std::{
 	collections::{hash_map::DefaultHasher, VecDeque},
 	fmt,
+	future::Future,
 	hash::{Hash, Hasher},
 	marker::PhantomData,
 	ops::{Deref, DerefMut},
 	panic::AssertUnwindSafe,
-	path::Path,
 	pin::pin,
 	sync::Arc,
 	time::Duration,
@@ -26,7 +26,7 @@ use super::{
 };
 use async_channel as chan;
 use chrono::{DateTime, Utc};
-use futures::{stream, Future, FutureExt, StreamExt};
+use futures::{stream, FutureExt, StreamExt};
 use futures_concurrency::future::{Join, TryJoin};
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 use serde::Serialize;
@@ -38,7 +38,6 @@ use tokio::{
 	time::Instant,
 };
 use tracing::{debug, error, instrument, trace, warn, Instrument, Level};
-use uuid::Uuid;
 
 pub enum ReturnStatus {
 	Completed(JobReturn),
@@ -80,17 +79,7 @@ impl ProgressUpdate {
 }
 
 /// Context with the runtime dependent data necessary to run the job
-pub trait OuterContext: Send + Sync + Clone + 'static {
-	fn id(&self) -> Uuid;
-	fn db(&self) -> &Arc<PrismaClient>;
-	fn sync(&self) -> &Arc<SyncManager>;
-	fn invalidate_query(&self, query: &'static str);
-	fn query_invalidator(&self) -> impl Fn(&'static str) + Send + Sync;
-	fn report_update(&self, update: UpdateEvent);
-	fn get_data_directory(&self) -> &Path;
-}
-
-pub trait JobContext<OuterCtx: OuterContext>: OuterContext {
+pub trait JobContext<OuterCtx: OuterContext>: OuterContext + Clone + Send + Sync + 'static {
 	fn new(report: Report, ctx: OuterCtx) -> Self;
 	fn progress(
 		&self,
@@ -389,7 +378,9 @@ pub struct JobHandle<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> {
 }
 
 impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobHandle<OuterCtx, JobCtx> {
-	#[instrument(skip(self, outer_ack_tx), fields(job_id = %self.id))]
+	#[instrument(
+		skip(self, outer_ack_tx), fields(job_id = %self.id),
+	)]
 	pub async fn send_command(
 		&mut self,
 		command: Command,
@@ -843,8 +834,11 @@ async fn to_spawn_job<OuterCtx, JobCtx, J>(
 	J: Job,
 {
 	enum StreamMessage {
+		/// The task progress
 		Commands((Command, oneshot::Sender<()>)),
+		/// The total of succeeded tasks
 		NewRemoteController(TaskRemoteController),
+		/// A simple, informative, message
 		Done(Result<ReturnStatus, Error>),
 	}
 

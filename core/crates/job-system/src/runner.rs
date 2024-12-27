@@ -1,4 +1,5 @@
 use crate::JobContext;
+pub use sd_core_shared_context::OuterContext;
 use sd_core_shared_errors::job::Error;
 use sd_task_system::BaseTaskDispatcher;
 use sd_utils::error::FileIOError;
@@ -29,7 +30,7 @@ use tracing::{debug, error, info, instrument, trace, warn};
 use uuid::Uuid;
 
 use super::{
-	job::{DynJob, JobHandle, JobOutput, OuterContext, ReturnStatus},
+	job::{DynJob, JobHandle, JobOutput, ReturnStatus},
 	report::{self},
 	store::{StoredJob, StoredJobEntry},
 	Command, JobId, JobSystemError, SerializedTasks,

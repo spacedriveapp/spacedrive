@@ -1,9 +1,6 @@
 #![recursion_limit = "256"]
 #![warn(clippy::unwrap_used, clippy::panic)]
 
-// Local modules
-pub mod api;
-
 pub(crate) mod object;
 pub(crate) mod p2p;
 

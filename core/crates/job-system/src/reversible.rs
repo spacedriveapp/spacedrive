@@ -1,10 +1,11 @@
 use async_trait::async_trait;
 
 use super::{
-	job::{DynJob, Job, JobContext, JobTaskDispatcher, OuterContext},
+	job::{DynJob, Job, JobContext, JobTaskDispatcher},
 	report::Report,
 	JobId, JobSystem, JobSystemError,
 };
+pub use sd_core_shared_context::OuterContext;
 
 use sd_core_shared_errors::job::Error;
 

@@ -52,8 +52,10 @@ mod runner;
 pub mod store;
 pub mod utils;
 
+pub use job::{IntoJob, Job, JobOutput};
+pub use sd_core_shared_context::OuterContext;
+
 use crate::job::JobContext;
-use job::{IntoJob, Job, JobOutput, OuterContext};
 use report::Report;
 use runner::{run, JobSystemRunner, RunnerMessage};
 use store::{

@@ -1,10 +1,11 @@
-use crate::{api::locations::ExplorerItem, context::NodeContext, library::Library, Node};
+use crate::{api::locations::ExplorerItem, library::Library, Node};
 
 use sd_core_file_helper::{path_is_hidden, MetadataExt};
 use sd_core_indexer_rules::{
 	seed::{NO_HIDDEN, NO_SYSTEM_FILES},
 	IndexerRule, IndexerRuler, RulerDecision,
 };
+use sd_core_job_system::OuterContext;
 use sd_core_location_scan::{
 	file_identifier::generate_cas_id,
 	media_processor::{
@@ -32,8 +33,6 @@ use chrono::{DateTime, Utc};
 use futures::Stream;
 use itertools::{Either, Itertools};
 use rspc::ErrorCode;
-use serde::Serialize;
-use specta::Type;
 use thiserror::Error;
 use tokio::{io, spawn, sync::mpsc, task::JoinError};
 use tokio_stream::wrappers::ReceiverStream;
@@ -87,10 +86,10 @@ impl<P: AsRef<Path>> From<(P, io::Error)> for NonIndexedLocationError {
 }
 
 // #[instrument(name = "non_indexed::walk", skip(sort_fn))]
-pub async fn walk(
+pub async fn walk<C: OuterContext>(
 	path: PathBuf,
 	with_hidden_files: bool,
-	node: Arc<Node>,
+	ctx: Arc<C>,
 	library: Arc<Library>,
 	sort_fn: impl FnOnce(&mut Vec<Entry>) + Send,
 ) -> Result<
@@ -211,7 +210,7 @@ pub async fn walk(
 							));
 						}
 
-						let thumb_exists = node
+						let thumb_exists = ctx
 							.ephemeral_thumbnail_exists(&cas_id)
 							.await
 							.map_err(NonIndexedLocationError::from)?;
@@ -245,15 +244,11 @@ pub async fn walk(
 
 		thumbnails_to_generate.extend(document_thumbnails_to_generate);
 
-		let thumbnails_directory = Arc::new(get_thumbnails_directory(node.config.data_directory()));
-		let reporter: Arc<dyn NewThumbnailReporter> = Arc::new(NewThumbnailsReporter {
-			ctx: NodeContext {
-				node: Arc::clone(&node),
-				library: Arc::clone(&library),
-			},
-		});
+		let thumbnails_directory = Arc::new(get_thumbnails_directory(ctx.get_data_directory()));
+		let reporter: Arc<dyn NewThumbnailReporter> =
+			Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });
 
-		if node
+		if ctx
 			.task_system
 			.dispatch_many(
 				thumbnails_to_generate
@@ -368,7 +363,6 @@ impl Entry {
 ///  - takes 11ms per 10 000 files
 ///
 /// and
-///
 ///  - consumes 0.16MB of RAM per 10 000 entries.
 ///
 /// The reason we collect these all up is so we can apply ordering, and then begin streaming the data as it's processed to the frontend.
