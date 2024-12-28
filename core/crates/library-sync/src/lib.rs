@@ -45,12 +45,6 @@ pub use db_operation::{from_cloud_crdt_ops, from_crdt_ops, write_crdt_op_to_db};
 pub use manager::Manager as SyncManager;
 pub use uhlc::NTP64;
 
-#[derive(Clone, Debug)]
-pub enum SyncEvent {
-	Ingested,
-	Created,
-}
-
 pub use sd_core_shared_types::db_types::DevicePubId;
 pub use sd_sync::{
 	CRDTOperation, CompressedCRDTOperation, CompressedCRDTOperationsPerModel,

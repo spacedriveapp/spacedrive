@@ -11,9 +11,11 @@ version                = "0.1.0"
 [dependencies]
 sd-core-shared-types = { path = "../shared-types" }
 sd-prisma            = { path = "../../../crates/prisma" }
+sd-sync              = { path = "../../../crates/sync" }
 
-chrono     = { workspace = true, features = ["serde"] }
-serde      = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-tokio      = { workspace = true, features = ["sync"] }
-uuid       = { workspace = true, features = ["serde", "v4"] }
+chrono             = { workspace = true, features = ["serde"] }
+prisma-client-rust = { workspace = true }
+serde              = { workspace = true, features = ["derive"] }
+serde_json         = { workspace = true }
+tokio              = { workspace = true, features = ["sync"] }
+uuid               = { workspace = true, features = ["serde", "v4"] }

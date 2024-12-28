@@ -288,7 +288,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystem<OuterCtx, J
 	///
 	/// Panics only happen if internal channels are unexpectedly closed
 	pub async fn has_active_jobs(&self, ctx: OuterCtx) -> bool {
-		let ctx_id = ctx.id();
+		let ctx_id = ctx.library_id();
 
 		let (ack_tx, ack_rx) = oneshot::channel();
 		self.msgs_tx

@@ -351,7 +351,7 @@ impl Node {
 		info!("Spacedrive Core shutdown successful!");
 	}
 
-	pub(crate) fn emit(&self, event: CoreEvent) {
+	pub fn emit(&self, event: CoreEvent) {
 		if let Err(e) = self.event_bus.0.send(event) {
 			warn!(?e, "Error sending event to event bus;");
 		}

@@ -318,7 +318,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 
 						worktables
 							.jobs_to_store_by_ctx_id
-							.entry(handle.ctx.id())
+							.entry(handle.ctx.library_id())
 							.or_default()
 							.push(StoredJobEntry {
 								root_job: StoredJob {
@@ -457,7 +457,7 @@ impl<OuterCtx: OuterContext, JobCtx: JobContext<OuterCtx>> JobSystemRunner<Outer
 	fn has_active_jobs(&self, ctx_id: Uuid) -> bool {
 		self.handles
 			.values()
-			.any(|handle| handle.ctx.id() == ctx_id && handle.is_running)
+			.any(|handle| handle.ctx.library_id() == ctx_id && handle.is_running)
 	}
 
 	async fn dispatch_shutdown_command_to_jobs(&mut self) {

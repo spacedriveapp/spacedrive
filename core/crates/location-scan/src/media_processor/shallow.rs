@@ -13,6 +13,7 @@ use futures_concurrency::future::TryJoin;
 use itertools::Itertools;
 use sd_core_file_helper::IsolatedFilePathData;
 use sd_core_library_sync::SyncManager;
+use sd_core_shared_context::SyncManagerInterface;
 use sd_core_shared_errors::job::{
 	media_processor::Error as MediaProcessorError, Error, NonCriticalError,
 };
@@ -64,7 +65,7 @@ pub async fn shallow(
 
 	let media_data_extraction_tasks = dispatch_media_data_extractor_tasks(
 		ctx.db(),
-		ctx.sync(),
+		ctx.sync_interface(),
 		&sub_iso_file_path,
 		&location_path,
 		dispatcher,
@@ -150,7 +151,7 @@ pub async fn shallow(
 
 async fn dispatch_media_data_extractor_tasks(
 	db: &Arc<PrismaClient>,
-	sync: &Arc<SyncManager>,
+	sync: &Arc<dyn SyncManagerInterface>,
 	parent_iso_file_path: &IsolatedFilePathData<'_>,
 	location_path: &Arc<PathBuf>,
 	dispatcher: &BaseTaskDispatcher<Error>,
@@ -223,7 +224,7 @@ async fn dispatch_thumbnailer_tasks(
 	let thumbnails_directory_path =
 		Arc::new(ctx.get_data_directory().join(THUMBNAIL_CACHE_DIR_NAME));
 	let location_id = parent_iso_file_path.location_id();
-	let library_id = ctx.id();
+	let library_id = ctx.library_id();
 	let db = ctx.db();
 	let reporter: Arc<dyn NewThumbnailReporter> =
 		Arc::new(NewThumbnailsReporter { ctx: ctx.clone() });

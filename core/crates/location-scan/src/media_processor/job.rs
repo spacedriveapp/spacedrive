@@ -9,11 +9,11 @@ use sd_core_job_system::{
 	store::{SerializableJob, SerializedTasks},
 	utils::cancel_pending_tasks,
 };
-use sd_core_shared_types::db_types::file_path_for_media_processor;
 use sd_core_shared_errors::job::{
 	system::{DispatcherError, JobErrorOrDispatcherError},
 	Error,
 };
+use sd_core_shared_types::db_types::file_path_for_media_processor;
 use sd_core_shared_types::jobs::{JobName, ReportOutputMetadata};
 use sd_core_shared_types::thumbnail::THUMBNAIL_CACHE_DIR_NAME;
 use sd_file_ext::extensions::Extension;
@@ -131,7 +131,7 @@ impl Job for MediaProcessor {
 								TaskKind::MediaDataExtractor => {
 									tasks::MediaDataExtractor::deserialize(
 										&task_bytes,
-										(Arc::clone(ctx.db()), ctx.sync().clone()),
+										(Arc::clone(ctx.db()), ctx.sync_interface()),
 									)
 									.await
 									.map(IntoTask::into_task)

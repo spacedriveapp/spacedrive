@@ -1,3 +1,4 @@
+use sd_core_shared_context::{SyncEvent, SyncReturn};
 use sd_core_shared_types::db_types::DevicePubId;
 
 use sd_prisma::{
@@ -37,7 +38,7 @@ use super::{
 	crdt_op_db,
 	db_operation::{from_cloud_crdt_ops, from_crdt_ops},
 	ingest_utils::{bulk_ingest_create_only_ops, process_crdt_operations},
-	SyncEvent, TimestampPerDevice, NTP64,
+	TimestampPerDevice, NTP64,
 };
 
 use sd_core_shared_errors::library_sync::Error;
@@ -486,28 +487,6 @@ impl Manager {
 		Ok(ret)
 	}
 
-	// pub async fn get_device_ops(
-	// 	&self,
-	// 	count: u32,
-	// 	device_pub_id: DevicePubId,
-	// 	timestamp: NTP64,
-	// ) -> Result<Vec<CRDTOperation>, Error> {
-	// 	self.db
-	// 		.crdt_operation()
-	// 		.find_many(vec![
-	// 			crdt_operation::device_pub_id::equals(device_pub_id.into()),
-	// 			#[allow(clippy::cast_possible_wrap)]
-	// 			crdt_operation::timestamp::gt(timestamp.as_u64() as i64),
-	// 		])
-	// 		.take(i64::from(count))
-	// 		.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-	// 		.exec()
-	// 		.await?
-	// 		.into_iter()
-	// 		.map(from_crdt_ops)
-	// 		.collect()
-	// }
-
 	pub fn stream_device_ops<'a>(
 		&'a self,
 		device_pub_id: &'a DevicePubId,
@@ -563,100 +542,97 @@ impl Manager {
 			}
 		}
 	}
+}
 
-	// pub async fn get_ops(
-	// 	&self,
-	// 	count: u32,
-	// 	timestamp_per_device: Vec<(DevicePubId, NTP64)>,
-	// ) -> Result<Vec<CRDTOperation>, Error> {
-	// 	let mut ops = self
-	// 		.db
-	// 		.crdt_operation()
-	// 		.find_many(vec![or(timestamp_per_device
-	// 			.iter()
-	// 			.map(|(device_pub_id, timestamp)| {
-	// 				and![
-	// 					crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
-	// 					crdt_operation::timestamp::gt({
-	// 						#[allow(clippy::cast_possible_wrap)]
-	// 						// SAFETY: we had to store using i64 due to SQLite limitations
-	// 						{
-	// 							timestamp.as_u64() as i64
-	// 						}
-	// 					})
-	// 				]
-	// 			})
-	// 			.chain([crdt_operation::device_pub_id::not_in_vec(
-	// 				timestamp_per_device
-	// 					.iter()
-	// 					.map(|(device_pub_id, _)| device_pub_id.to_db())
-	// 					.collect(),
-	// 			)])
-	// 			.collect())])
-	// 		.take(i64::from(count))
-	// 		.order_by(crdt_operation::timestamp::order(SortOrder::Asc))
-	// 		.exec()
-	// 		.await?;
+// impl sd_core_shared_context::SyncManagerInterface for Manager {
+// 	fn get_device_pub_id(&self) -> Uuid {
+// 		self.device_pub_id.clone().into()
+// 	}
 
-	// 	ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
-	// 		cmp::Ordering::Equal => {
-	// 			from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
-	// 		}
-	// 		o => o,
-	// 	});
+// 	fn subscribe(&self) -> broadcast::Receiver<SyncEvent> {
+// 		self.tx.subscribe()
+// 	}
 
-	// 	ops.into_iter()
-	// 		.take(count as usize)
-	// 		.map(from_crdt_ops)
-	// 		.collect()
-	// }
+// 	fn is_active(&self) -> bool {
+// 		self.active.load(atomic::Ordering::Relaxed)
+// 	}
 
-	// pub async fn get_cloud_ops(
-	// 	&self,
-	// 	count: u32,
-	// 	timestamp_per_device: Vec<(DevicePubId, NTP64)>,
-	// ) -> Result<Vec<(cloud_crdt_operation::id::Type, CRDTOperation)>, Error> {
-	// 	let mut ops = self
-	// 		.db
-	// 		.cloud_crdt_operation()
-	// 		.find_many(vec![or(timestamp_per_device
-	// 			.iter()
-	// 			.map(|(device_pub_id, timestamp)| {
-	// 				and![
-	// 					cloud_crdt_operation::device_pub_id::equals(device_pub_id.to_db()),
-	// 					cloud_crdt_operation::timestamp::gt({
-	// 						#[allow(clippy::cast_possible_wrap)]
-	// 						// SAFETY: we had to store using i64 due to SQLite limitations
-	// 						{
-	// 							timestamp.as_u64() as i64
-	// 						}
-	// 					})
-	// 				]
-	// 			})
-	// 			.chain([cloud_crdt_operation::device_pub_id::not_in_vec(
-	// 				timestamp_per_device
-	// 					.iter()
-	// 					.map(|(device_pub_id, _)| device_pub_id.to_db())
-	// 					.collect(),
-	// 			)])
-	// 			.collect())])
-	// 		.take(i64::from(count))
-	// 		.order_by(cloud_crdt_operation::timestamp::order(SortOrder::Asc))
-	// 		.exec()
-	// 		.await?;
+// 	fn get_timestamp(&self) -> i64 {
+// 		unimplemented!();
+// 		// self.get_clock().now().into()
+// 	}
 
-	// 	ops.sort_by(|a, b| match a.timestamp.cmp(&b.timestamp) {
-	// 		cmp::Ordering::Equal => {
-	// 			from_bytes_to_uuid(&a.device_pub_id).cmp(&from_bytes_to_uuid(&b.device_pub_id))
-	// 		}
-	// 		o => o,
-	// 	});
+// 	fn ingest_ops(&self) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
+// 		unimplemented!();
+// 		// self.ingest_ops().map_err(|e| e.into())
+// 	}
 
-	// 	ops.into_iter()
-	// 		.take(count as usize)
-	// 		.map(from_cloud_crdt_ops)
-	// 		.collect()
-	// }
+// fn write_ops(
+// 	&self,
+// 	tx: &PrismaClient,
+// 	ops: Vec<CRDTOperation>,
+// 	query: Box<dyn std::any::Any + Send>,
+// ) -> Box<dyn std::future::Future<Output = SyncReturn> + Send> {
+// 	Box::new(async move {
+// 		// Since BatchItem is not object safe, we'll need to handle specific types
+// 		// that implement BatchItem here
+// 		match query.downcast::<sd_prisma::prisma::location::UpsertQuery>() {
+// 			Ok(q) => self
+// 				.write_ops(tx, (ops, *q))
+// 				.await
+// 				.map(|v| Box::new(v) as Box<dyn std::any::Any + Send>)
+// 				.map_err(|e| e.into()),
+// 			Err(query) => match query.downcast::<sd_prisma::prisma::file_path::UpsertQuery>() {
+// 				Ok(q) => self
+// 					.write_ops(tx, (ops, *q))
+// 					.await
+// 					.map(|v| Box::new(v) as Box<dyn std::any::Any + Send>)
+// 					.map_err(|e| e.into()),
+// 				Err(_) => Err("Unsupported query type".into()),
+// 			},
+// 		}
+// 	})
+// }
+
+// fn write_op(
+// 	&self,
+// 	tx: &PrismaClient,
+// 	op: CRDTOperation,
+// 	query: Box<dyn std::any::Any + Send>,
+// ) -> Box<dyn std::future::Future<Output = SyncReturn> + Send> {
+// 	Box::new(async move {
+// 		// Handle specific types that implement BatchItem
+// 		match query.downcast::<sd_prisma::prisma::location::UpsertQuery>() {
+// 			Ok(q) => self
+// 				.write_op(tx, op, *q)
+// 				.await
+// 				.map(|v| Box::new(v) as Box<dyn std::any::Any + Send>)
+// 				.map_err(|e| e.into()),
+// 			Err(query) => match query.downcast::<sd_prisma::prisma::file_path::UpsertQuery>() {
+// 				Ok(q) => self
+// 					.write_op(tx, op, *q)
+// 					.await
+// 					.map(|v| Box::new(v) as Box<dyn std::any::Any + Send>)
+// 					.map_err(|e| e.into()),
+// 				Err(_) => Err("Unsupported query type".into()),
+// 			},
+// 		}
+// 	})
+// }
+
+// 	fn as_any(&self) -> &dyn std::any::Any {
+// 		self
+// 	}
+// }
+
+impl OperationFactory for Manager {
+	fn get_clock(&self) -> &HLC {
+		&self.clock
+	}
+
+	fn get_device_pub_id(&self) -> sd_sync::DevicePubId {
+		sd_sync::DevicePubId::from(&self.device_pub_id)
+	}
 }
 
 async fn bulk_process_of_create_only_ops(
@@ -739,14 +715,4 @@ async fn bulk_process_of_create_only_ops(
 		.collect::<Result<Vec<_>, _>>()?
 		.into_iter()
 		.sum())
-}
-
-impl OperationFactory for Manager {
-	fn get_clock(&self) -> &HLC {
-		&self.clock
-	}
-
-	fn get_device_pub_id(&self) -> sd_sync::DevicePubId {
-		sd_sync::DevicePubId::from(&self.device_pub_id)
-	}
 }

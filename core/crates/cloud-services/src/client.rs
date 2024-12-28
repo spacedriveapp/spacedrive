@@ -14,9 +14,8 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use tokio::sync::{Mutex, RwLock};
 use tracing::warn;
 
-use super::{
-	error::Error, key_manager::KeyManager, p2p::CloudP2P, token_refresher::TokenRefresher,
-};
+use super::{key_manager::KeyManager, p2p::CloudP2P, token_refresher::TokenRefresher};
+use super::{Error, GetTokenError};
 
 #[derive(Debug, Default, Clone)]
 enum ClientState<In: RpcMessage, Out: RpcMessage> {

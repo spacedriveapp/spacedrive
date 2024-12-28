@@ -36,14 +36,14 @@ pub mod indexer;
 pub mod media_processor;
 pub mod utils;
 
-use sd_core_shared_errors::job::Error;
+use sd_core_shared_context::OuterContext;
+
 pub use sd_core_job_system::{
-	job::{
-		IntoJob, JobContext, JobEnqueuer, JobOutput, JobOutputData, OuterContext, ProgressUpdate,
-	},
+	job::{IntoJob, JobContext, JobEnqueuer, JobOutput, JobOutputData, ProgressUpdate},
 	report::Report,
 	JobId, JobSystem,
 };
+use sd_core_shared_errors::job::Error;
 pub use sd_core_shared_types::jobs::JobName;
 
 #[repr(i32)]

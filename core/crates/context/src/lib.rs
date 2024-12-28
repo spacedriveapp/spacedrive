@@ -18,14 +18,35 @@ use tokio::{spawn, sync::RwLock};
 use tracing::{error, trace};
 use uuid::Uuid;
 
+/// A helper extension trait for easier downcasting
+pub trait SyncManagerExt {
+	/// Attempt to downcast to a concrete SyncManager type
+	fn as_sync_manager(&self) -> Option<&Arc<SyncManager>>;
+}
+
+impl SyncManagerExt for Arc<dyn SyncManagerInterface> {
+	fn as_sync_manager(&self) -> Option<&Arc<SyncManager>> {
+		(**self).as_any().downcast_ref::<Arc<SyncManager>>()
+	}
+}
+
 #[derive(Clone)]
 pub struct NodeContext {
 	pub node: Arc<Node>,
 	pub library: Arc<Library>,
 }
 
+impl NodeContext {
+	pub fn new(node: Arc<Node>, library: Arc<Library>) -> Self {
+		Self {
+			node,
+			library: Arc::clone(&library),
+		}
+	}
+}
+
 impl OuterContext for NodeContext {
-	fn id(&self) -> Uuid {
+	fn library_id(&self) -> Uuid {
 		self.library.id
 	}
 
@@ -33,8 +54,12 @@ impl OuterContext for NodeContext {
 		&self.library.db
 	}
 
-	fn sync(&self) -> &Arc<impl Send + Sync> {
+	fn sync_interface(&self) -> &Arc<dyn SyncManagerInterface> {
 		&self.library.sync
+	}
+
+	fn sync(&self) -> Arc<dyn SyncManagerInterface> {
+		Arc::clone(&self.library.sync)
 	}
 
 	fn invalidate_query(&self, query: &'static str) {
@@ -147,7 +172,8 @@ impl<OuterCtx: OuterContext> JobContext<OuterCtx> for JobContextImpl<OuterCtx> {
 			// Emit progress update
 			self.outer_ctx
 				.report_update(UpdateEvent::Progress(JobProgressEvent {
-					library_id: self.outer_ctx.id(),
+					id: report.id,
+					library_id: self.outer_ctx.library_id(),
 					task_count,
 					completed_task_count,
 					message: report.message.try_read().unwrap_or_default().clone(),

@@ -9,8 +9,9 @@ default = []
 
 [dependencies]
 # Spacedrive Sub-crates
-sd-core-shared-errors = { path = "../shared-errors" }
-sd-core-shared-types  = { path = "../shared-types" }
+sd-core-shared-context = { path = "../shared-context" }
+sd-core-shared-errors  = { path = "../shared-errors" }
+sd-core-shared-types   = { path = "../shared-types" }
 
 sd-actors = { path = "../../../crates/actors" }
 sd-prisma = { path = "../../../crates/prisma" }

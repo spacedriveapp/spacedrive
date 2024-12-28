@@ -7,10 +7,11 @@ use crate::{
 };
 
 use sd_core_file_helper::IsolatedFilePathData;
+use sd_core_library_sync::SyncManager;
+use sd_core_shared_context::SyncManagerInterface;
 use sd_core_shared_errors::job::media_processor::{
 	NonCriticalMediaDataExtractorError, NonCriticalMediaProcessorError,
 };
-use sd_core_library_sync::SyncManager;
 use sd_core_shared_types::db_types::{file_path_for_media_processor, ObjectPubId};
 use sd_media_metadata::{ExifMetadata, FFmpegMetadata};
 use sd_prisma::prisma::{exif_data, ffmpeg_data, file_path, location, object, PrismaClient};
@@ -59,7 +60,7 @@ pub struct MediaDataExtractor {
 
 	// Dependencies
 	db: Arc<PrismaClient>,
-	sync: Arc<SyncManager>,
+	sync: Arc<dyn SyncManagerInterface>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -265,7 +266,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: Arc<dyn SyncManagerInterface>,
 	) -> Self {
 		let mut output = Output::default();
 
@@ -306,7 +307,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: Arc<dyn SyncManagerInterface>,
 	) -> Self {
 		Self::new(Kind::Exif, file_paths, location_id, location_path, db, sync)
 	}
@@ -317,7 +318,7 @@ impl MediaDataExtractor {
 		location_id: location::id::Type,
 		location_path: Arc<PathBuf>,
 		db: Arc<PrismaClient>,
-		sync: Arc<SyncManager>,
+		sync: Arc<dyn SyncManagerInterface>,
 	) -> Self {
 		Self::new(
 			Kind::FFmpeg,

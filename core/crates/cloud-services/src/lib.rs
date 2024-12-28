@@ -28,8 +28,6 @@
 #![forbid(deprecated_in_future)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
-mod error;
-
 mod client;
 mod key_manager;
 mod p2p;
@@ -37,15 +35,16 @@ mod sync;
 mod token_refresher;
 
 pub use client::CloudServices;
-pub use error::{Error, GetTokenError};
 pub use key_manager::KeyManager;
 pub use p2p::{
 	CloudP2P, JoinSyncGroupResponse, JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse,
 };
+pub use sd_core_shared_errors::cloud_services::{Error, GetTokenError};
 pub use sync::{
 	declare_actors as declare_cloud_sync, SyncActors as CloudSyncActors,
 	SyncActorsState as CloudSyncActorsState,
 };
+pub use token_refresher::TokenRefresher;
 
 // Re-exports
 pub use quic_rpc::transport::quinn::QuinnConnector;
