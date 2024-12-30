@@ -111,38 +111,6 @@ const ItemMetadata = memo(() => {
 	const item = useGridViewItemContext();
 	const { isDroppable } = useExplorerDroppableContext();
 	const explorerLayout = useExplorerLayoutStore();
-	const dragState = useSelector(explorerStore, (s) => s.drag);
-
-	useEffect(() => {
-		(async () => {
-			if (dragState?.type === 'dragging' && dragState.items.length > 0) {
-				const items = await Promise.all(
-					dragState.items.map(async (item) => {
-						const data = getItemFilePath(item);
-						if (!data) return;
-
-						const file_path =
-							'path' in data
-								? data.path
-								: await libraryClient.query(['files.getPath', data.id]);
-
-						return {
-							type: 'explorer-item',
-							file_path: file_path
-						};
-					})
-				);
-
-				// get image src from Transparent
-				const image = Transparent.split('/@fs')[1];
-
-				(window as any).startDrag({
-					item: items.filter(Boolean).map((item) => item?.file_path),
-					icon: image
-				});
-			}
-		})();
-	}, [dragState]);
 
 	const isRenaming = useSelector(explorerStore, (s) => s.isRenaming && item.selected);
 

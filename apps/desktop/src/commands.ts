@@ -49,6 +49,31 @@ export const commands = {
 			else return { status: 'error', error: e as any };
 		}
 	},
+	/**
+	 * Initiates a drag and drop operation with cursor position tracking
+	 *
+	 * # Arguments
+	 * * `window` - The Tauri window instance
+	 * * `_state` - Current drag state (unused)
+	 * * `files` - Vector of file paths to be dragged
+	 * * `icon_path` - Path to the preview icon for the drag operation
+	 * * `on_event` - Channel for communicating drag operation events back to the frontend
+	 */
+	async startDrag(
+		files: string[],
+		iconPath: string,
+		onEvent: TAURI_CHANNEL<CallbackResult>
+	): Promise<Result<null, string>> {
+		try {
+			return {
+				status: 'ok',
+				data: await TAURI_INVOKE('start_drag', { files, iconPath, onEvent })
+			};
+		} catch (e) {
+			if (e instanceof Error) throw e;
+			else return { status: 'error', error: e as any };
+		}
+	},
 	async openFilePaths(
 		library: string,
 		ids: number[]
@@ -162,6 +187,7 @@ export const events = __makeEvents__<{
 /** user-defined types **/
 
 export type AppThemeType = 'Auto' | 'Light' | 'Dark';
+export type CallbackResult = { result: WrappedDragResult; cursorPos: WrappedCursorPosition };
 export type DragAndDropEvent =
 	| { type: 'Hovered'; paths: string[]; x: number; y: number }
 	| { type: 'Dropped'; paths: string[]; x: number; y: number }
@@ -199,6 +225,8 @@ export type RevealItem =
 	| { FilePath: { id: number } }
 	| { Ephemeral: { path: string } };
 export type Update = { version: string };
+export type WrappedCursorPosition = { x: number; y: number };
+export type WrappedDragResult = 'Dropped' | 'Cancel';
 
 type __EventObj__<T> = {
 	listen: (cb: TAURI_API_EVENT.EventCallback<T>) => ReturnType<typeof TAURI_API_EVENT.listen<T>>;
