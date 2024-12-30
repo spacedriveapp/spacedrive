@@ -429,7 +429,7 @@ function AppInner() {
 								tab.element
 							)
 						)}
-						<SizeDisplay />
+						{/* <SizeDisplay /> */}
 						<div ref={ref} />
 					</SpacedriveInterfaceRoot>
 				</PlatformUpdaterProvider>
