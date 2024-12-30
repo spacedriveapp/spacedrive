@@ -22,6 +22,7 @@ use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::{debug, error};
 
+mod drag;
 mod file;
 mod menu;
 mod tauri_plugins;
@@ -200,6 +201,7 @@ async fn main() -> tauri::Result<()> {
 			set_menu_bar_item_state,
 			request_fda_macos,
 			open_trash_in_os_explorer,
+			drag::start_drag,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
@@ -358,11 +360,11 @@ async fn main() -> tauri::Result<()> {
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
 		.plugin(tauri_plugin_http::init())
-		.plugin(tauri_plugin_drag::init())
 		// TODO: Bring back Tauri Plugin Window State - it was buggy so we removed it.
 		.plugin(tauri_plugin_updater::Builder::new().build())
 		.plugin(updater::plugin())
 		.manage(updater::State::default())
+		.manage(drag::DragState::default())
 		.build(tauri::generate_context!())?
 		.run(|_, _| {});
 

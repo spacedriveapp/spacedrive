@@ -32,6 +32,7 @@ thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["sync"] }
 tracing            = { workspace = true }
 uuid               = { workspace = true, features = ["serde"] }
+base64             = { workspace = true }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
@@ -45,10 +46,11 @@ tauri-plugin-http              = "=2.0.3"
 tauri-plugin-os                = "=2.0.1"
 tauri-plugin-shell             = "=2.0.2"
 tauri-plugin-updater           = "=2.0.2"
+tauri-plugin-drag = "2.0.0"
+drag = "2.0.0"
 
 # memory allocator
 mimalloc          = { workspace = true }
-tauri-plugin-drag = "2.0.0"
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]
