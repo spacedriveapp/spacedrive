@@ -1,10 +1,10 @@
 # Usage
-# .\script.ps1 dev        # Will prompt for relay server modification
-# .\script.ps1 prod       # Will prompt for relay server modification
-# .\script.ps1 dev -r     # Will automatically modify relay servers
-# .\script.ps1 prod -r    # Will automatically modify relay servers
-# .\script.ps1 dev -s     # Will skip relay server modification without prompting
-# .\script.ps1 prod -s    # Will skip relay server modification without prompting
+# .\switch_servers.ps1 dev        # Will prompt for relay server modification
+# .\switch_servers.ps1 prod       # Will prompt for relay server modification
+# .\switch_servers.ps1 dev -r     # Will automatically modify relay servers
+# .\switch_servers.ps1 prod -r    # Will automatically modify relay servers
+# .\switch_servers.ps1 dev -s     # Will skip relay server modification without prompting
+# .\switch_servers.ps1 prod -s    # Will skip relay server modification without prompting
 
 
 # File paths

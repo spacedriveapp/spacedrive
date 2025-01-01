@@ -1,12 +1,12 @@
 #!/bin/bash
 
 ## Usage:
-# ./script.sh dev        # Will prompt for relay server modification
-# ./script.sh prod       # Will prompt for relay server modification
-# ./script.sh dev -r     # Will automatically modify relay servers
-# ./script.sh prod -r    # Will automatically modify relay servers
-# ./script.sh dev -s     # Will skip relay server modification without prompting
-# ./script.sh prod -s    # Will skip relay server modification without prompting
+# ./switch_servers.sh dev        # Will prompt for relay server modification
+# ./switch_servers.sh prod       # Will prompt for relay server modification
+# ./switch_servers.sh dev -r     # Will automatically modify relay servers
+# ./switch_servers.sh prod -r    # Will automatically modify relay servers
+# ./switch_servers.sh dev -s     # Will skip relay server modification without prompting
+# ./switch_servers.sh prod -s    # Will skip relay server modification without prompting
 
 
 
