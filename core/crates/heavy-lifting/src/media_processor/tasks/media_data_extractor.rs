@@ -36,7 +36,7 @@ use tracing::{debug, instrument, trace, Level};
 
 #[derive(thiserror::Error, Debug, Serialize, Deserialize, Type, Clone)]
 pub enum NonCriticalMediaDataExtractorError {
-	#[error("failed to extract media data from <file='{}'>: {1}", .0.display())]
+	#[error("failed to extract media data from <file='{path}'>: {1}", path = .0.display())]
 	FailedToExtractImageMediaData(PathBuf, String),
 	#[error("file path missing object id: <file_path_id='{0}'>")]
 	FilePathMissingObjectId(file_path::id::Type),
