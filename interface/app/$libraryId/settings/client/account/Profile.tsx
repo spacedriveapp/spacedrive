@@ -31,7 +31,7 @@ const Profile = ({
 	user: User;
 	setReload: Dispatch<SetStateAction<boolean>>;
 }) => {
-	const emailName = user.email?.split('@')[0];
+	const emailName = user.email[0]?.split('@')[0];
 	const capitalizedEmailName = (emailName?.charAt(0).toUpperCase() ?? '') + emailName?.slice(1);
 	const [accessToken, setAccessToken] = useState('');
 	const [refreshToken, setRefreshToken] = useState('');
@@ -85,9 +85,7 @@ const Profile = ({
 					<div className="flex flex-col gap-3">
 						<div>
 							<p className="font-medium">Joined on</p>
-							<p className="text-ink-dull">
-								{new Date(user.timejoined).toLocaleDateString()}
-							</p>
+							<p className="text-ink-dull">{new Date(user.timejoined).toLocaleDateString()}</p>
 						</div>
 						<div>
 							<p className="font-medium">User ID</p>
@@ -106,9 +104,7 @@ const Profile = ({
 							<div
 								className={clsx(
 									'mr-2 size-[15px] rounded-full bg-app-box',
-									syncStatus?.[status as keyof SyncStatus]
-										? 'bg-accent'
-										: 'bg-app-input'
+									syncStatus?.[status as keyof SyncStatus] ? 'bg-accent' : 'bg-app-input'
 								)}
 							/>
 							<h3 className="text-sm font-semibold">{status}</h3>
