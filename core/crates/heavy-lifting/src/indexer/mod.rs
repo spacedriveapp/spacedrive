@@ -518,6 +518,7 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				.file_path()
 				.find_many(vec![
 					file_path::location_id::equals(Some(self.location_id)),
+					file_path::id::gte(cursor),
 					if existing_inodes.is_empty() {
 						materialized_path_param
 					} else {
@@ -529,7 +530,6 @@ impl walker::WalkerDBProxy for WalkerDBProxy {
 				])
 				.order_by(file_path::id::order(SortOrder::Asc))
 				.take(BATCH_SIZE)
-				.cursor(file_path::id::equals(cursor))
 				.select(file_path::select!({ id pub_id cas_id inode }))
 				.exec()
 				.await
