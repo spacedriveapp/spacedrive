@@ -26,6 +26,7 @@ use tracing::warn;
 
 mod backups;
 mod cloud;
+mod devices;
 mod ephemeral_files;
 mod files;
 mod jobs;
@@ -195,6 +196,7 @@ pub(crate) fn mount() -> Arc<Router> {
 		})
 		.merge("api.", web_api::mount())
 		.merge("cloud.", cloud::mount())
+		.merge("devices.", devices::mount())
 		.merge("search.", search::mount())
 		.merge("library.", libraries::mount())
 		.merge("volumes.", volumes::mount())
