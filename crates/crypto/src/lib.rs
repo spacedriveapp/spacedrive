@@ -41,3 +41,5 @@ pub use protected::Protected;
 pub use rng::CryptoRng;
 
 pub use rand_core::{RngCore, SeedableRng};
+
+pub mod cookie;

@@ -22,3 +22,17 @@ Migrations are run by the Prisma migration engine on app launch.
 The databases file is SQLite and can be opened in any SQL viewer.
 
 ![A Spacedrive library database file open in Table Plus](/database-table-plus.webp)
+
+### Environment Variables
+
+The following environment variables can be used to control database behavior:
+
+- `SD_ACCEPT_DATA_LOSS`: When set to `"true"`, allows operations that might result in data loss. This should only be used in development or testing environments where data loss is acceptable.
+
+- `SD_FORCE_RESET_DB`: When set to `"true"`, forces a reset of the database. This will clear all existing data. Use with extreme caution and only in development environments.
+
+You can set these variables when running the app, e.g. `SD_ACCEPT_DATA_LOSS=true pnpm tauri dev`.
+
+These environment variables are primarily used during development and testing. They should not be used in production environments unless you fully understand the implications.
+
+⚠️ **Warning**: Setting these variables can result in permanent data loss. Use them only in development environments or when you explicitly need to reset or modify database behavior.

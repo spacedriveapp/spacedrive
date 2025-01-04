@@ -38,17 +38,18 @@ This project uses [Cargo](https://doc.rust-lang.org/cargo/getting-started/instal
 To make changes locally, follow these steps:
 
 1. Clone & enter the repository:
-    ```
-    git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
-    ```
-    Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
+   `     git clone https://github.com/spacedriveapp/spacedrive && cd spacedrive
+ `
+   Alternatively, if you’ve already cloned the repo locally, pull the latest changes with: `git pull`
 > [!TIP]
 > Consider running `pnpm clean` after pulling the repository if you're returning to it from previously to avoid old files conflicting.
-2. Configure your system environment for Spacedrive development
-  - For Unix users (Linux / macOS), run: `./scripts/setup.sh`
-  - For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
+3. Configure your system environment for Spacedrive development
+
+- For Unix users (Linux / macOS), run: `./scripts/setup.sh`
+- For Windows users, run: `.\scripts\setup.ps1` via PowerShell.
 > [!NOTE]
 > This script ([Unix](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.sh) / [Windows](https://github.com/spacedriveapp/spacedrive/blob/main/scripts/setup.ps1)) will check for if Rust and pnpm are installed then proceed to install any other required dependencies for Spacedrive to build via your system's respective package manager.
+
 3. Install NodeJS dependencies: `pnpm i`
 4. Prepare the build: `pnpm prep`. This will run all necessary codegen and build required dependencies.
 
@@ -58,13 +59,16 @@ To make changes locally, follow these steps:
 > The test files will be located in a directory called `test-data` in the root of the Spacedrive repository.
 
 To run the **desktop** app, run:
+
 ```
 pnpm tauri dev
 ```
+
 > [!NOTE]
 > The Tauri desktop app always runs its own instance of the backend and will not connect to a separately initiated `sd-server` instance.
 
 To run the **backend server**, run:
+
 ```
 cargo run -p sd-server
 ```
@@ -73,23 +77,29 @@ cargo run -p sd-server
 > If necessary, [DevTools](https://tauri.app/v1/guides/debugging/application/#webview-console) for the WebView can be opened by pressing <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> (Linux and Windows) or <kbd>Command</kbd>+<kbd>Option</kbd>+<kbd>I</kbd> (macOS) in the desktop app.
 >
 > Also, React DevTools can be launched using `pnpx react-devtools`.
-  However, it must be executed before starting the desktop app for it to connect.
+> However, it must be executed before starting the desktop app for it to connect.
 
 To run the **web** app (requires the backend to be running), run:
+
 ```
 pnpm web dev
 ```
+
 > [!TIP]
 > You can also quickly launch the web interface together with the backend with:
+>
 > ```
 > pnpm dev:web
 > ```
 
 To run the **e2e tests** for the web app:
+
 ```
 pnpm web test:e2e
 ```
+
 If you are developing a new test, you can execute Cypress in interactive mode with:
+
 ```
 pnpm web test:interactive
 ```
@@ -97,19 +107,21 @@ pnpm web test:interactive
 #### Troubleshooting
 
 - If you encounter any issues, ensure that you are using the following versions of Rust, Node.js and pnpm:
-  | tool    | version |
-  | ----    | ------- |
-  | Rust    | [`1.81`](rust-toolchain.toml) |
+  | tool | version |
+  | ---- | ------- |
+  | Rust | [`1.81`](rust-toolchain.toml) |
   | Node.js | [`18.18`](.nvmrc) |
-  | pnpm    | `9.4.0` |
+  | pnpm | `9.4.0` |
 
-  [`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically. 
+> **Note**: If you get a local migration error in development, you might need to set the following environment variables: [database documentation](docs/developers/architecture/database.mdx#environment-variables).
 
- - After cleaning out your build artifacts using `pnpm clean`, it's necessary to re-run `pnpm prep`.
+[`rustup`](https://rustup.rs/) & [`nvm`](https://github.com/nvm-sh/nvm) should both pick up on the appropriate versions of the Rust Toolchain & Node respectively from the project automatically.
 
- - Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
+- After cleaning out your build artifacts using `pnpm clean`, it's necessary to re-run `pnpm prep`.
 
- - After you finish making your changes and committing them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
+- Make sure to read the [guidelines](https://spacedrive.com/docs/developers/prerequisites/guidelines) to ensure that your code follows a similar style to ours.
+
+- After you finish making your changes and committing them to your branch, make sure to execute `pnpm autoformat` to fix any style inconsistency in your code.
 
 ### Landing Page
 
@@ -136,52 +148,55 @@ To run the mobile app:
 > Most modern phones use `arm64-v8a` while the Android Studio embedded emulator runs `x86_64`
 
 If you wish to debug directly on a local Android device:
- - Install [ADB](https://developer.android.com/tools/adb)
-   - On macOS use [homebrew](https://brew.sh/): `brew install adb`
- - [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
-   - Select "Remember this device" & "Trust" when connecting over USB.
- - Run `pnpm mobile android` with your device connected via USB.
 
->[!TIP]
+- Install [ADB](https://developer.android.com/tools/adb)
+  - On macOS use [homebrew](https://brew.sh/): `brew install adb`
+- [Configure debugging on your device](https://developer.android.com/tools/adb#Enabling)
+  - Select "Remember this device" & "Trust" when connecting over USB.
+- Run `pnpm mobile android` with your device connected via USB.
+
+> [!TIP]
 > To access the logs from `sd-core` when running on device, run the following command:
+>
 > ```
 > adb logcat | grep -i com.spacedrive.app
 > ```
 
-#### iOS 
- - Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate an iOS device on your Mac.
-   - When running Xcode for the first time, make sure to select the latest version of iOS.
- - Run `pnpm mobile ios` in the terminal to build & run the app on the Simulator.
-   - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
-     https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
+#### iOS
+
+- Install the latest version of [Xcode](https://apps.apple.com/au/app/xcode/id497799835) and Simulator if you wish to emulate an iOS device on your Mac.
+  - When running Xcode for the first time, make sure to select the latest version of iOS.
+- Run `pnpm mobile ios` in the terminal to build & run the app on the Simulator.
+  - To run the app in debug mode with backend (`sd-core`) logging, comment out the following lines before running the above command:
+    https://github.com/spacedriveapp/spacedrive/blob/d180261ca5a93388486742e8f921e895e9ec26a4/apps/mobile/modules/sd-core/ios/build-rust.sh#L51-L54
     You can now get backend (`sd-core`) logs from the Simulator by running the following command:
-    ```
-    xcrun simctl launch --console booted com.spacedrive.app
-    ```
-  - If you'd like to run the app on device, run:
-    ```
-    pnpm mobile ios --device
-    ```
+	  ```
+	  xcrun simctl launch --console booted com.spacedrive.app
+	  ```
+- If you'd like to run the app on device, run: `pnpm mobile ios --device`
 > [!IMPORTANT]
 > Note that you can only get `sd-core` logs from the app when running it on device by running the frontend and backend separately.
 
 To run the backend (`sd-core`) separately, open up Xcode by running:
+
 ```
 xed apps/mobile/ios
 ```
+
 Select from the top if you wish to start on device or Simulator, and press play.
 
-| Select Device | Run the App | Build & Core logs are found here |
-| --- | --- | --- |
-|![](./apps/landing/public/images/xcode-run-sd-core.01.png)|![](./apps/landing/public/images/xcode-run-sd-core.02.png)|![](./apps/landing/public/images/xcode-run-sd-core.03.png)|
+| Select Device                                              | Run the App                                                | Build & Core logs are found here                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| ![](./apps/landing/public/images/xcode-run-sd-core.01.png) | ![](./apps/landing/public/images/xcode-run-sd-core.02.png) | ![](./apps/landing/public/images/xcode-run-sd-core.03.png) |
 
 To run the frontend, run the following:
+
 ```
 pnpm mobile start
 ```
+
 > [!IMPORTANT]
 > The frontend is not functional without the sd-core running as well.
-
 
 ### Pull Request
 

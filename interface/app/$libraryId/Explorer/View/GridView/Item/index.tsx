@@ -1,9 +1,11 @@
+import { Transparent } from '@sd/assets/images';
 import clsx from 'clsx';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import {
 	getItemFilePath,
 	getItemObject,
 	humanizeSize,
+	libraryClient,
 	Tag,
 	useExplorerLayoutStore,
 	useLibraryQuery,
@@ -11,6 +13,7 @@ import {
 	type ExplorerItem
 } from '@sd/client';
 import { useLocale } from '~/hooks';
+import { usePlatform } from '~/util/Platform';
 
 import { useExplorerContext } from '../../../Context';
 import { ExplorerDraggable } from '../../../ExplorerDraggable';
@@ -19,6 +22,7 @@ import { FileThumb } from '../../../FilePath/Thumb';
 import { useFrame } from '../../../FilePath/useFrame';
 import { explorerStore } from '../../../store';
 import { useExplorerDraggable } from '../../../useExplorerDraggable';
+import { useExplorerItemData } from '../../../useExplorerItemData';
 import { RenamableItemText } from '../../RenamableItemText';
 import { ViewItem } from '../../ViewItem';
 import { GridViewItemContext, useGridViewItemContext } from './Context';

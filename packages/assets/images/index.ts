@@ -14,6 +14,7 @@ import Dropbox from './Dropbox.png';
 import GoogleDrive from './GoogleDrive.png';
 import iCloud from './iCloud.png';
 import Mega from './Mega.png';
+import Transparent from './Transparent.png';
 
 export {
 	AlphaBg,
@@ -26,5 +27,6 @@ export {
 	Dropbox,
 	GoogleDrive,
 	Mega,
-	iCloud
+	iCloud,
+	Transparent
 };

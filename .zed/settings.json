@@ -1,0 +1,66 @@
+// Folder-specific settings
+//
+// For a full list of overridable settings, and general information on folder-specific settings,
+// see the documentation: https://zed.dev/docs/configuring-zed#settings-files
+{
+	"inlay_hints": {
+		"enabled": false
+	},
+	"languages": {
+		"Rust": {
+			"enable_language_server": true,
+			"formatter": "language_server",
+			"inlay_hints": {
+				"enabled": true,
+				"show_type_hints": true,
+				"show_parameter_hints": true,
+				"show_other_hints": true,
+				"show_background": false,
+				"edit_debounce_ms": 700,
+				"scroll_debounce_ms": 50
+			}
+		},
+		"TOML": {
+			"formatter": "language_server"
+		}
+	},
+	"lsp": {
+		"rust-analyzer": {
+			"initialization_options": {
+				"procMacro": {
+					"enable": true
+				},
+				"diagnostics": {
+					"experimental": {
+						"enable": false
+					}
+				},
+				"showUnlinkedFileNotification": false
+			}
+		}
+	},
+	"file_scan_exclusions": [
+		"node_modules",
+		"**/node_modules",
+		"**/bower_components",
+		"**/*.code-search",
+		"**/*.contentlayer",
+		"**/*.next",
+		"**/dist",
+		"apps/mobile/ios/Pods",
+		"apps/mobile/android",
+		"apps/mobile/ios",
+		"**/.git",
+		"**/.svn",
+		"**/.hg",
+		"**/CVS",
+		"**/.DS_Store"
+	],
+	"format_on_save": "on",
+	"ensure_final_newline_on_save": true,
+	"remove_trailing_whitespace_on_save": true,
+	"tab_size": 4,
+	"hard_tabs": false,
+	"show_whitespaces": "selection",
+	"show_completion_documentation": true
+}
