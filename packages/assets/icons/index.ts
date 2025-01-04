@@ -47,6 +47,7 @@ import Document_doc from './Document_doc.png';
 import Document_Light from './Document_Light.png';
 import Document_pdf_Light from './Document_pdf_Light.png';
 import Document_pdf from './Document_pdf.png';
+import Document_srt from './Document_srt.png';
 import Document_xls_Light from './Document_xls_Light.png';
 import Document_xls from './Document_xls.png';
 import Document_xmp from './Document_xmp.png';
@@ -242,6 +243,7 @@ export {
 	Document_doc_Light,
 	Document_pdf,
 	Document_pdf_Light,
+	Document_srt,
 	Document_xls,
 	Document_xls_Light,
 	Document_xmp,
