@@ -17,7 +17,36 @@ export interface PositionPosting {
 	description: string;
 }
 
-export const positions: PositionPosting[] = [];
+export const positions: PositionPosting[] = [
+	{
+		name: 'Core Engineer',
+		type: 'Full-time',
+		salary: '$140,000 - $180,000',
+		description:
+			"Lead development of Spacedrive's core storage engine and distributed filesystem in Rust. You'll architect and implement critical systems including storage classification, encrypted data sync, and filesystem operations. Deep knowledge of systems programming, distributed systems, and Rust required. Experience with FUSE filesystems and cloud storage systems highly valued."
+	},
+	{
+		name: 'Platform Engineer',
+		type: 'Full-time',
+		salary: '$130,000 - $170,000',
+		description:
+			"Own Spacedrive's cross-platform client applications built with Tauri and React. Focus on performance optimization, native platform integration, and smooth user experience across desktop and mobile. Strong TypeScript/React experience required, with knowledge of Rust and native platform APIs (Windows, macOS, Linux, iOS, Android) highly valued."
+	},
+	{
+		name: 'Cloud Infrastructure Engineer',
+		type: 'Full-time',
+		salary: '$150,000 - $190,000',
+		description:
+			"Design and implement Spacedrive's cloud storage infrastructure, focusing on our innovative storage architecture. Build highly scalable systems for data ingestion, storage optimization, and content delivery. Deep experience with cloud infrastructure (AWS/GCP), object storage, and distributed systems required. Knowledge of Rust and TypeScript preferred."
+	},
+	{
+		name: 'Security Engineer',
+		type: 'Full-time',
+		salary: '$160,000 - $200,000',
+		description:
+			"Lead security architecture for Spacedrive's zero-knowledge encrypted storage platform. Design and implement end-to-end encryption, secure key management, and audit systems. Expertise in cryptography, secure systems design, and penetration testing required. Experience with Rust and secure storage systems highly valued."
+	}
+];
 
 export const values = [
 	{

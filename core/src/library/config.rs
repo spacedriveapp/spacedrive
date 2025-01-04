@@ -46,6 +46,8 @@ pub struct LibraryConfig {
 
 	#[serde(skip, default)]
 	pub config_path: PathBuf,
+	/// cloud_email_address is the email address of the user who owns the cloud library this library is linked to.
+	pub cloud_email_address: Option<String>,
 }
 
 #[derive(
@@ -74,10 +76,11 @@ pub enum LibraryConfigVersion {
 	V9 = 9,
 	V10 = 10,
 	V11 = 11,
+	V12 = 12,
 }
 
 impl ManagedVersion<LibraryConfigVersion> for LibraryConfig {
-	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V11;
+	const LATEST_VERSION: LibraryConfigVersion = LibraryConfigVersion::V12;
 
 	const KIND: Kind = Kind::Json("version");
 
@@ -99,6 +102,7 @@ impl LibraryConfig {
 			cloud_id: None,
 			generate_sync_operations: Arc::new(AtomicBool::new(false)),
 			config_path: path.as_ref().to_path_buf(),
+			cloud_email_address: None,
 		};
 
 		this.save(path).await.map(|()| this)
@@ -394,6 +398,25 @@ impl LibraryConfig {
 							)
 							.exec()
 							.await?;
+					}
+
+					(LibraryConfigVersion::V11, LibraryConfigVersion::V12) => {
+						// Add the `cloud_email_address` field to the library config.
+						let mut config = serde_json::from_slice::<Map<String, Value>>(
+							&fs::read(path).await.map_err(|e| {
+								VersionManagerError::FileIO(FileIOError::from((path, e)))
+							})?,
+						)
+						.map_err(VersionManagerError::SerdeJson)?;
+
+						config.insert(String::from("cloud_email_address"), Value::Null);
+
+						fs::write(
+							path,
+							&serde_json::to_vec(&config).map_err(VersionManagerError::SerdeJson)?,
+						)
+						.await
+						.map_err(|e| VersionManagerError::FileIO(FileIOError::from((path, e))))?;
 					}
 
 					_ => {

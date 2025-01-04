@@ -3,7 +3,7 @@ import { getMDXComponent } from 'next-contentlayer/hooks';
 import { notFound } from 'next/navigation';
 import { getRelease, githubFetch } from '~/app/api/github';
 import { DocMDXComponents } from '~/components/mdx';
-import { toTitleCase } from '~/utils/util';
+import { toTitleCase } from '~/utils/misc';
 
 import { Markdown } from '../../../Markdown';
 import { getReleasesCategories } from '../../data';

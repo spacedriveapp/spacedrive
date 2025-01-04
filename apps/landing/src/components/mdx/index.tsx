@@ -2,9 +2,9 @@ import { MDXComponents } from 'mdx/types';
 import NextImage, { ImageProps } from 'next/image';
 import { env } from '~/env';
 
-import Notice from './Notice';
-import Pre from './Pre';
-import Video from './Video';
+import Notice from './notice';
+import Pre from './pre';
+import Video from './video';
 
 const Image = (props: ImageProps) => (
 	<NextImage

@@ -136,7 +136,7 @@ export const Authentication = ({
 				{activeTab === 'Login' ? (
 					<Login reload={reload} cloudBootstrap={cloudBootstrap} />
 				) : (
-					<Register />
+					<Register reload={reload} cloudBootstrap={cloudBootstrap} />
 				)}
 				<div className="text-center text-sm text-ink-faint">
 					Social auth and SSO (Single Sign On) available soon!

@@ -2,11 +2,11 @@ import { ArrowLeft } from '@phosphor-icons/react';
 import { RSPCError } from '@spacedrive/rspc-client';
 import { UseMutationResult } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { Controller } from 'react-hook-form';
 import { signIn } from 'supertokens-web-js/recipe/emailpassword';
 import { createCode } from 'supertokens-web-js/recipe/passwordless';
-import { useZodForm } from '@sd/client';
+import { useLibraryMutation, useLibraryQuery, useZodForm } from '@sd/client';
 import { Button, Divider, Form, Input, toast, z } from '@sd/ui';
 import { useLocale } from '~/hooks';
 import { getTokens } from '~/util';
@@ -17,7 +17,8 @@ async function signInClicked(
 	email: string,
 	password: string,
 	reload: Dispatch<SetStateAction<boolean>>,
-	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown> // Cloud bootstrap mutation
+	cloudBootstrap: UseMutationResult<null, RSPCError, [string, string], unknown>, // Cloud bootstrap mutation
+	saveEmailAddress: UseMutationResult<null, RSPCError, string, unknown> // Save email mutation
 ) {
 	try {
 		const response = await signIn({
@@ -44,9 +45,9 @@ async function signInClicked(
 		} else if (response.status === 'SIGN_IN_NOT_ALLOWED') {
 			toast.error(response.reason);
 		} else {
-			const tokens = getTokens();
-			console.log(cloudBootstrap);
+			const tokens = await getTokens();
 			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
+			saveEmailAddress.mutate(email);
 			toast.success('Sign in successful');
 			reload(true);
 		}
@@ -112,18 +113,40 @@ interface LoginProps {
 const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps) => {
 	const { t } = useLocale();
 	const [showPassword, setShowPassword] = useState(false);
+	const savedEmailAddress = useLibraryQuery(['keys.getEmailAddress']);
+	const saveEmailAddress = useLibraryMutation(['keys.saveEmailAddress']);
+
 	const form = useZodForm({
 		schema: LoginSchema,
 		defaultValues: {
-			email: '',
+			email: savedEmailAddress.data ?? '',
 			password: ''
 		}
 	});
 
+	useEffect(() => {
+		savedEmailAddress.refetch();
+	}, []);
+
+	useEffect(() => {
+		if (savedEmailAddress.data) {
+			form.reset({
+				email: savedEmailAddress.data,
+				password: ''
+			});
+		}
+	}, [savedEmailAddress.data]);
+
 	return (
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
-				await signInClicked(data.email, data.password, reload, cloudBootstrap);
+				await signInClicked(
+					data.email,
+					data.password,
+					reload,
+					cloudBootstrap,
+					saveEmailAddress
+				);
 			})}
 			className="w-full"
 			form={form}
@@ -194,7 +217,13 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 				variant="accent"
 				size="md"
 				onClick={form.handleSubmit(async (data) => {
-					await signInClicked(data.email, data.password, reload, cloudBootstrap);
+					await signInClicked(
+						data.email,
+						data.password,
+						reload,
+						cloudBootstrap,
+						saveEmailAddress
+					);
 				})}
 				disabled={form.formState.isSubmitting}
 			>

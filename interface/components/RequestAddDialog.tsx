@@ -1,18 +1,26 @@
 import { ArrowRight } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { HardwareModel, useBridgeMutation, useZodForm } from '@sd/client';
+import {
+	CloudDevice,
+	CloudP2PNotifyUser,
+	CloudP2PTicket,
+	CloudSyncGroupWithDevices,
+	HardwareModel,
+	useBridgeMutation,
+	useZodForm
+} from '@sd/client';
 import { Dialog, toast, useDialog, UseDialogProps, z } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
 import { hardwareModelToIcon } from '~/util/hardware';
 import { usePlatform } from '~/util/Platform';
 
+type ReceivedJoinRequest = Extract<CloudP2PNotifyUser, { kind: 'ReceivedJoinSyncGroupRequest' }>;
+
 export default (
 	props: {
-		device_name: string;
-		device_model: HardwareModel;
-		library_name: string;
+		data: ReceivedJoinRequest['data'];
 	} & UseDialogProps
 ) => {
 	// PROPS = device_name, device_model, library_name
@@ -27,24 +35,40 @@ export default (
 	const queryClient = useQueryClient();
 
 	const form = useZodForm({ defaultValues: { libraryId: 'select_library' } });
+	const userResponse = useBridgeMutation('cloud.userResponse');
 
 	// adapted from another dialog - we can change the form submit/remove form if needed but didn't want to
 	// unnecessarily remove code
-	const onSubmit = form.handleSubmit(async (data) => {
+	const onSubmit = form.handleSubmit(async (_d) => {
 		try {
 			// const library = await joinLibrary.mutateAsync(data.libraryId);
-			const library = { uuid: '1234' }; // dummy data
+			userResponse.mutate({
+				kind: 'AcceptDeviceInSyncGroup',
+				data: {
+					ticket: props.data.ticket,
+					accepted: {
+						id: props.data.sync_group.library.pub_id,
+						name: props.data.sync_group.library.name,
+						description: null
+					}
+				}
+			});
 
 			queryClient.setQueryData(['library.list'], (libraries: any) => {
 				// The invalidation system beat us to it
-				if ((libraries || []).find((l: any) => l.uuid === library.uuid)) return libraries;
+				if (
+					(libraries || []).find(
+						(l: any) => l.uuid === props.data.sync_group.library.pub_id
+					)
+				)
+					return libraries;
 
-				return [...(libraries || []), library];
+				return [...(libraries || []), props.data.sync_group.library];
 			});
 
 			if (platform.refreshMenuBar) platform.refreshMenuBar();
 
-			navigate(`/${library.uuid}`, { replace: true });
+			navigate(`/${props.data.sync_group.library.pub_id}`, { replace: true });
 		} catch (e: any) {
 			console.error(e);
 			toast.error(e);
@@ -71,12 +95,12 @@ export default (
 				<div className="flex flex-col items-center justify-center gap-2">
 					<Icon
 						// once backend endpoint is populated need to check if this is working correctly i.e fetching correct icons for devices
-						name={hardwareModelToIcon(props.device_model)}
+						name={hardwareModelToIcon(props.data.asking_device.hardware_model)}
 						alt="Device icon"
 						size={48}
 						className="mr-2"
 					/>
-					<p className="text-sm text-ink-dull">{props.device_name}</p>
+					<p className="text-sm text-ink-dull">{props.data.asking_device.name}</p>
 				</div>
 				<ArrowRight color="#ABACBA" size={18}></ArrowRight>
 				{/* library */}
@@ -88,7 +112,7 @@ export default (
 						size={48}
 						className="mr-2"
 					/>
-					<p className="text-sm text-ink-dull">{props.library_name}</p>
+					<p className="text-sm text-ink-dull">{props.data.sync_group.library.name}</p>
 				</div>
 			</div>
 		</Dialog>

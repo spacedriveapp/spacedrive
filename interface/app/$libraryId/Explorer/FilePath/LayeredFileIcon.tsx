@@ -15,8 +15,8 @@ const SUPPORTED_ICONS = ['Document', 'Code', 'Text', 'Config'];
 
 const positionConfig: Record<string, string> = {
 	Text: 'flex h-full w-full items-center justify-center',
-	Code: 'flex h-full w-full items-center justify-center',
-	Config: 'flex h-full w-full items-center justify-center'
+	Code: 'flex h-full w-full items-center justify-center pt-[18px]',
+	Config: 'flex h-full w-full items-center justify-center pt-[18px]'
 };
 
 const LayeredFileIcon = forwardRef<HTMLImageElement, LayeredFileIconProps>(
@@ -51,7 +51,7 @@ const LayeredFileIcon = forwardRef<HTMLImageElement, LayeredFileIconProps>(
 					className={clsx('pointer-events-none absolute bottom-0 right-0', positionClass)}
 				>
 					<Suspense>
-						<IconComponent viewBox="0 0 16 16" height="40%" width="40%" />
+						<IconComponent viewBox="0 0 16 16" height="50%" width="50%" />
 					</Suspense>
 				</div>
 			</div>

@@ -32,22 +32,25 @@ thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["sync"] }
 tracing            = { workspace = true }
 uuid               = { workspace = true, features = ["serde"] }
+base64             = { workspace = true }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
 opener                         = { version = "0.7.1", features = ["reveal"], default-features = false }
 specta-typescript              = "=0.0.7"
 tauri-plugin-clipboard-manager = "=2.0.1"
+tauri-plugin-cors-fetch        = { path = "../../../crates/tauri-plugin-cors-fetch" }
 tauri-plugin-deep-link         = "=2.0.1"
 tauri-plugin-dialog            = "=2.0.3"
 tauri-plugin-http              = "=2.0.3"
 tauri-plugin-os                = "=2.0.1"
 tauri-plugin-shell             = "=2.0.2"
 tauri-plugin-updater           = "=2.0.2"
+tauri-plugin-drag = "2.0.0"
+drag = "2.0.0"
 
 # memory allocator
-mimalloc = { workspace = true }
-tauri-plugin-cors-fetch = "2.1.1"
+mimalloc          = { workspace = true }
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]

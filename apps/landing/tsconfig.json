@@ -28,13 +28,6 @@
 			}
 		]
 	},
-	"include": [
-		"src/plugins",
-		"next-env.d.ts",
-		"**/*.ts",
-		"**/*.tsx",
-		"src/drizzle.config.ts",
-		".next/types/**/*.ts"
-	],
+	"include": ["src/plugins", "next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
 	"exclude": ["node_modules"]
 }

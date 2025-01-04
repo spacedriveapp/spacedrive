@@ -1,0 +1,20 @@
+@media (min-width: 1010px) {
+	.custom-md\:flex {
+		display: flex;
+	}
+	.custom-md\:items-center {
+		align-items: center;
+	}
+	.custom-md\:justify-center {
+		justify-content: center;
+	}
+	.custom-md\:p-10 {
+		padding: 2.5rem;
+	}
+	.custom-md\:hidden {
+		display: none;
+	}
+	.custom-md\:block {
+		display: block;
+	}
+}

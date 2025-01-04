@@ -96,27 +96,7 @@ export function SpacedriveInterfaceRoot({ children }: PropsWithChildren) {
 			console.log('Received cloud service notification', d);
 			switch (d.kind) {
 				case 'ReceivedJoinSyncGroupRequest':
-					// WARNING: This is a debug solution to accept the device into the sync group. THIS SHOULD NOT MAKE IT TO PRODUCTION
-					userResponse.mutate({
-						kind: 'AcceptDeviceInSyncGroup',
-						data: {
-							ticket: d.data.ticket,
-							accepted: {
-								id: d.data.sync_group.library.pub_id,
-								name: d.data.sync_group.library.name,
-								description: null
-							}
-						}
-					});
-					// TODO: Move the code above into the dialog below (@Rocky43007)
-					// dialogManager.create((dp) => (
-					// 	<RequestAddDialog
-					// 		device_model={'MacBookPro'}
-					// 		device_name={"Arnab's Macbook"}
-					// 		library_name={"Arnab's Library"}
-					// 		{...dp}
-					// 	/>
-					// ));
+					dialogManager.create((dp) => <RequestAddDialog data={d.data} {...dp} />);
 					break;
 				default:
 					toast({ title: 'Cloud Service Notification', body: d.kind }, { type: 'info' });
