@@ -1,4 +1,4 @@
-import { HardwareModel, useBridgeQuery } from '@sd/client';
+import { HardwareModel, useBridgeQuery, useLibraryQuery } from '@sd/client';
 import { Button, dialogManager, Tooltip } from '@sd/ui';
 import { Icon } from '~/components';
 import { useLocale } from '~/hooks';
@@ -10,19 +10,20 @@ import AddDeviceDialog from './AddDeviceDialog';
 
 export default function DevicesSection() {
 	const { data: node } = useBridgeQuery(['nodeState']);
+	const { data: devices } = useLibraryQuery(['devices.list'], {});
 	const { t } = useLocale();
 
 	return (
 		<Section name={t('devices')}>
-			{node && (
+			{devices?.map((device) => (
 				<SidebarLink
 					className="group relative w-full"
-					to={`node/${node.id}`}
-					key={node.id as any}
+					to={`node/${device.id}`}
+					key={device.id as any}
 				>
-					{node.device_model ? (
+					{device.hardware_model ? (
 						<Icon
-							name={hardwareModelToIcon(node.device_model as HardwareModel)}
+							name={hardwareModelToIcon(device.hardware_model)}
 							size={20}
 							className="mr-1"
 						/>
@@ -30,9 +31,9 @@ export default function DevicesSection() {
 						<Icon name="Laptop" className="mr-1" />
 					)}
 
-					<span className="truncate">{node.name}</span>
+					<span className="truncate">{device.name}</span>
 				</SidebarLink>
-			)}
+			))}
 			<Tooltip label={t('devices_coming_soon_tooltip')} position="right">
 				<Button
 					disabled={!import.meta.env.DEV}

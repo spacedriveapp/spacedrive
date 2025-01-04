@@ -16,6 +16,7 @@ export type Procedures = {
         { key: "cloud.syncGroups.leave", input: CloudSyncGroupPubId, result: null } | 
         { key: "cloud.syncGroups.list", input: never, result: CloudSyncGroupBaseData[] } | 
         { key: "cloud.syncGroups.remove_device", input: CloudSyncGroupsRemoveDeviceArgs, result: null } | 
+        { key: "devices.list", input: LibraryArgs<null>, result: Device[] } | 
         { key: "ephemeralFiles.getMediaData", input: string, result: MediaData | null } | 
         { key: "files.get", input: LibraryArgs<number>, result: ObjectWithFilePaths2 | null } | 
         { key: "files.getConvertibleImageExtensions", input: never, result: string[] } | 
@@ -288,6 +289,8 @@ export type CreateLibraryArgs = { name: LibraryName; default_locations: DefaultL
 export type CursorOrderItem<T> = { order: SortOrder; data: T }
 
 export type DefaultLocations = { desktop: boolean; documents: boolean; downloads: boolean; pictures: boolean; music: boolean; videos: boolean }
+
+export type Device = { id: number; pub_id: CoreDevicePubId; name: string; os: DeviceOS; hardware_model: CoreHardwareModel; date_created: string; is_current_device: boolean }
 
 export type DeviceOS = "Linux" | "Windows" | "MacOS" | "iOS" | "Android"
 

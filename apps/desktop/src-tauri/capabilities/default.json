@@ -2,7 +2,9 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
 	"description": "Capability for the main window",
-	"windows": ["main"],
+	"windows": [
+		"main"
+	],
 	"permissions": [
 		"core:app:default",
 		"core:event:default",
@@ -51,6 +53,9 @@
 				},
 				{
 					"url": "https://plausible.io"
+				},
+				{
+					"url": "http://localhost:3567"
 				}
 			]
 		}
