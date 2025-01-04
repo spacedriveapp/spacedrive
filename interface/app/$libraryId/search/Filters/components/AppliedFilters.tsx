@@ -1,14 +1,16 @@
 import { MagnifyingGlass, X } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import { forwardRef } from 'react';
 import { SearchFilterArgs } from '@sd/client';
-import { tw } from '@sd/ui';
+import { Dropdown, DropdownMenu, tw } from '@sd/ui';
 import { useLocale } from '~/hooks';
 
-import { useSearchContext } from '.';
-import HorizontalScroll from '../overview/Layout/HorizontalScroll';
-import { filterRegistry } from './Filters';
-import { useSearchStore } from './store';
-import { RenderIcon } from './util';
+import { SearchOptionItem, useSearchContext } from '../..';
+import HorizontalScroll from '../../../overview/Layout/HorizontalScroll';
+import { filterRegistry } from '../../Filters/index';
+import { RenderIcon } from '../../util';
+import { useFilterOptionStore } from '../store';
+import { FilterOptionList } from './FilterOptionList';
 
 export const FilterContainer = tw.div`flex flex-row items-center rounded bg-app-box overflow-hidden shrink-0 h-6`;
 
@@ -29,6 +31,8 @@ export const CloseTab = forwardRef<HTMLDivElement, { onClick: () => void }>(({ o
 		</div>
 	);
 });
+
+const MENU_STYLES = `!rounded-md border !border-app-line !bg-app-box`;
 
 export const AppliedFilters = () => {
 	const search = useSearchContext();
@@ -75,16 +79,21 @@ export const AppliedFilters = () => {
 };
 
 export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?: () => void }) {
-	const searchStore = useSearchStore();
+	const search = useSearchContext();
+
+	const filterStore = useFilterOptionStore();
 	const { t } = useLocale();
 
 	const filter = filterRegistry.find((f) => f.extract(arg));
 	if (!filter) return;
 
-	const activeOptions = filter.argsToOptions(
+	const activeOptions = filter.argsToFilterOptions(
 		filter.extract(arg)! as any,
-		searchStore.filterOptions
+		filterStore.filterOptions
 	);
+
+	// get all options for this filter
+	const options = filterStore.filterOptions.get(filter.name) || [];
 
 	function isFilterDescriptionDisplayed() {
 		if (filter?.translationKey === 'hidden' || filter?.translationKey === 'favorite') {
@@ -102,44 +111,63 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 			</StaticSection>
 			{isFilterDescriptionDisplayed() && (
 				<>
-					<InteractiveSection className="border-l">
-						{/* {Object.entries(filter.conditions).map(([value, displayName]) => (
-                            <div key={value}>{displayName}</div>
-                        ))} */}
-						{
-							(filter.conditions as any)[
-								filter.getCondition(filter.extract(arg) as any) as any
-							]
+					<DropdownMenu.Root
+						onKeyDown={(e) => e.stopPropagation()}
+						className={clsx(MENU_STYLES, 'explorer-scroll max-w-fit')}
+						trigger={
+							<InteractiveSection className="border-l hover:bg-app-lightBox/30">
+								{
+									(filter.conditions as any)[
+										filter.getCondition(filter.extract(arg) as any) as any
+									]
+								}
+							</InteractiveSection>
 						}
-					</InteractiveSection>
-
-					<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm">
-						{activeOptions && (
-							<>
-								{activeOptions.length === 1 ? (
-									<RenderIcon className="size-4" icon={activeOptions[0]!.icon} />
-								) : (
-									<div className="relative flex gap-0.5 self-center">
-										{activeOptions.map((option, index) => (
-											<div
-												key={index}
-												style={{
-													zIndex: activeOptions.length - index
-												}}
-											>
-												<RenderIcon className="size-4" icon={option.icon} />
+					>
+						<SearchOptionItem>Is</SearchOptionItem>
+						<SearchOptionItem>Is Not</SearchOptionItem>
+					</DropdownMenu.Root>
+					<DropdownMenu.Root
+						onKeyDown={(e) => e.stopPropagation()}
+						className={clsx(MENU_STYLES, 'explorer-scroll max-w-fit')}
+						trigger={
+							<InteractiveSection className="gap-1 border-l border-app-darkerBox/70 py-0.5 pl-1.5 pr-2 text-sm hover:bg-app-lightBox/30">
+								{activeOptions && (
+									<>
+										{activeOptions.length === 1 ? (
+											<RenderIcon
+												className="size-4"
+												icon={activeOptions[0]!.icon}
+											/>
+										) : (
+											<div className="relative flex gap-0.5 self-center">
+												{activeOptions.map((option, index) => (
+													<div
+														key={index}
+														style={{
+															zIndex: activeOptions.length - index
+														}}
+													>
+														<RenderIcon
+															className="size-4"
+															icon={option.icon}
+														/>
+													</div>
+												))}
 											</div>
-										))}
-									</div>
+										)}
+										<span className="max-w-[150px] truncate">
+											{activeOptions.length > 1
+												? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
+												: activeOptions[0]?.name}
+										</span>
+									</>
 								)}
-								<span className="max-w-[150px] truncate">
-									{activeOptions.length > 1
-										? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
-										: activeOptions[0]?.name}
-								</span>
-							</>
-						)}
-					</InteractiveSection>
+							</InteractiveSection>
+						}
+					>
+						<FilterOptionList filter={filter} options={options} search={search} />
+					</DropdownMenu.Root>
 				</>
 			)}
 
