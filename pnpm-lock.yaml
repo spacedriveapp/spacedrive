@@ -202,7 +202,7 @@ importers:
         version: 12.1.2
       '@phosphor-icons/react':
         specifier: ^2.0.14
-        version: 2.0.15(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        version: 2.1.7(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-dialog':
         specifier: ^1.0.5
         version: 1.0.5(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -729,8 +729,8 @@ importers:
         specifier: ^9.1.0
         version: 9.4.0(react@18.2.0)
       '@phosphor-icons/react':
-        specifier: ^2.0.13
-        version: 2.0.15(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+        specifier: ^2.1.7
+        version: 2.1.7(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-dialog':
         specifier: ^1.0.5
         version: 1.0.5(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -827,6 +827,9 @@ importers:
       react-colorful:
         specifier: ^5.6.1
         version: 5.6.1(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      react-date-picker:
+        specifier: ^11.0.0
+        version: 11.0.0(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
@@ -4055,6 +4058,13 @@ packages:
       react: '>= 16.8'
       react-dom: '>= 16.8'
 
+  '@phosphor-icons/react@2.1.7':
+    resolution: {integrity: sha512-g2e2eVAn1XG2a+LI09QU3IORLhnFNAFkNbo2iwbX6NOKSLOwvEMmTa7CgOzEbgNWR47z8i8kwjdvYZ5fkGx1mQ==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      react: '>= 16.8'
+      react-dom: '>= 16.8'
+
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
@@ -6461,6 +6471,9 @@ packages:
   '@webassemblyjs/wast-printer@1.12.1':
     resolution: {integrity: sha512-+X4WAlOisVWQMikjbcvY2e0rwPsKQ9F688lksZhBcPycBBuii3O7m8FACbDMWDojpAqvjIncrG8J0XHKyQfVeA==}
 
+  '@wojtekmaj/date-utils@1.5.1':
+    resolution: {integrity: sha512-+i7+JmNiE/3c9FKxzWFi2IjRJ+KzZl1QPu6QNrsgaa2MuBgXvUy4gA1TVzf/JMdIIloB76xSKikTWuyYAIVLww==}
+
   '@xmldom/xmldom@0.7.13':
     resolution: {integrity: sha512-lm2GW5PkosIzccsaZIz7tp8cPADSIlIHWDFTR1N0SzfinhhYgeIQjFMz4rYzanCScr3DqQLeomUDArp6MWKm+g==}
     engines: {node: '>=10.0.0'}
@@ -7991,6 +8004,9 @@ packages:
     resolution: {integrity: sha512-2sJGJTaXIIaR1w4iJSNoN0hnMY7Gpc/n8D4qSCJw8QqFWXf7cuAgnEHxBpweaVcPevC2l3KpjYCx3NypQQgaJg==}
     engines: {node: '>= 0.8', npm: 1.2.8000 || >= 1.4.16}
 
+  detect-element-overflow@1.4.2:
+    resolution: {integrity: sha512-4m6cVOtvm/GJLjo7WFkPfwXoEIIbM7GQwIh4WEa4g7IsNi1YzwUsGL5ApNLrrHL29bHeNeQ+/iZhw+YHqgE2Fw==}
+
   detect-gpu@5.0.38:
     resolution: {integrity: sha512-36QeGHSXYcJ/RfrnPEScR8GDprbXFG4ZhXsfVNVHztZr38+fRxgHnJl3CjYXXjbeRUhu3ZZBJh6Lg0A9v0Qd8A==}
 
@@ -9180,8 +9196,8 @@ packages:
   get-tsconfig@4.7.3:
     resolution: {integrity: sha512-ZvkrzoUA0PQZM6fy6+/Hce561s+faD1rsNwhnO5FelNjyy7EMGJ3Rz1AQ8GYDWjhRs/7dBLOEJvhK8MiEJOAFg==}
 
-  get-tsconfig@4.8.1:
-    resolution: {integrity: sha512-k9PN+cFBmaLWtVz29SkUoqU5O0slLuHJXt/2P+tMVFT+phsSGXGkp9t3rQIqdz0e+06EHNGs3oM6ZX1s2zHxRg==}
+  get-user-locale@2.3.2:
+    resolution: {integrity: sha512-O2GWvQkhnbDoWFUJfaBlDIKUEdND8ATpBXD6KXcbhxlfktyD/d8w6mkzM/IlQEqGZAMz/PW6j6Hv53BiigKLUQ==}
 
   getenv@1.0.0:
     resolution: {integrity: sha512-7yetJWqbS9sbn0vIfliPsFgoXMKn/YMF+Wuiog97x+urnSRRRZ7xB+uVkwGKzRgq9CDFfMQnE9ruL5DHv9c6Xg==}
@@ -10729,6 +10745,10 @@ packages:
     resolution: {integrity: sha512-qvwipnozMohxLXG1pOqoLiZKNkC4r4qqRucSoDwXowsNGDSULiqFTRUF05vcZWnwJSG22qTsynQhxbaMtnX9gw==}
     engines: {node: '>=8'}
 
+  mem@8.1.1:
+    resolution: {integrity: sha512-qFCFUDs7U3b8mBDPyz5EToEKoAkgCzqquIgi9nkkR9bixxOVOre+09lbuH7+9Kn2NFpm56M3GUWVbU2hQgdACA==}
+    engines: {node: '>=10'}
+
   memfs@3.5.3:
     resolution: {integrity: sha512-UERzLsxzllchadvbPs5aolHh65ISpKpM+ccLbOJ8/vvpBKmAWf+la7dXFy7Mr0ySHbdHrFv5kGFCUHHe6GFEmw==}
     engines: {node: '>= 4.0.0'}
@@ -11115,6 +11135,10 @@ packages:
   mimic-fn@2.1.0:
     resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
     engines: {node: '>=6'}
+
+  mimic-fn@3.1.0:
+    resolution: {integrity: sha512-Ysbi9uYW9hFyfrThdDEQuykN4Ey6BuwPD2kpI5ES/nFTDn/98yxYNLZJcgUAKPT/mcrLLKaGzJR9YVxJrIdASQ==}
+    engines: {node: '>=8'}
 
   mimic-fn@4.0.0:
     resolution: {integrity: sha512-vqiC06CuhBTUdZH+RYl8sFrL096vA45Ok5ISO6sE/Mr1jRbGH4Csnhi8f3wKVl7x8mO4Au7Ir9D3Oyv1VYMFJw==}
@@ -12207,6 +12231,16 @@ packages:
       react: '>=0.14.0'
       react-dom: '>=0.14.0'
 
+  react-calendar@5.0.0:
+    resolution: {integrity: sha512-bHcE5e5f+VUKLd4R19BGkcSQLpuwjKBVG0fKz74cwPW5xDfNsReHdDbfd4z3mdjuUuZzVtw4Q920mkwK5/ZOEg==}
+    peerDependencies:
+      '@types/react': ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
   react-cmdk@1.3.9:
     resolution: {integrity: sha512-MSVmAQZ9iqY7hO3r++XP6yWSHzGfMDGMvY3qlDT8k5RiWoRFwO1CGPlsWzhvcUbPilErzsMKK7uB4McEcX4B6g==}
     peerDependencies:
@@ -12223,6 +12257,16 @@ packages:
     resolution: {integrity: sha512-1uWd07EME6XZvMfapwZmc7NgCZqDemcvicRi3wMJzXsQLvZ3L7fTHVyPy1bZdnWXM4iPjYuNE+uJ41MLKeTtnA==}
     peerDependencies:
       react: ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0
+
+  react-date-picker@11.0.0:
+    resolution: {integrity: sha512-l+siu5HSZ/ciGL1293KCAHl4o9aD5rw16V4tB0C43h7QbMv2dWGgj7Dxgt8iztLaPVtEfOt/+sxNiTYw4WVq6A==}
+    peerDependencies:
+      '@types/react': ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   react-device-detect@2.2.3:
     resolution: {integrity: sha512-buYY3qrCnQVlIFHrC5UcUoAj7iANs/+srdkwsnNjI7anr3Tt7UY6MqNxtMLlr0tMBied0O49UZVK8XKs3ZIiPw==}
@@ -12260,6 +12304,19 @@ packages:
     resolution: {integrity: sha512-b6PwbdSv8XeOSYvjt8LpgpKrZ0yGdtZokYwkwV2wlcZbxgopHX/hgPl5VgpnoVOWd868n1hktM8Qm4b+02MiLQ==}
     peerDependencies:
       react: '>=16.13.1'
+
+  react-fit@2.0.1:
+    resolution: {integrity: sha512-Eip6ALs/+6Jv82Si0I9UnfysdwVlAhkkZRycgmMdnj7jwUg69SVFp84ICxwB8zszkfvJJ2MGAAo9KAYM8ZUykQ==}
+    peerDependencies:
+      '@types/react': ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      '@types/react-dom': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
 
   react-force-graph-2d@1.25.5:
     resolution: {integrity: sha512-3u8WjZZorpwZSDs3n3QeOS9ZoxFPM+IR9SStYJVQ/qKECydMHarxnf7ynV/MKJbC6kUsc60soD0V+Uq/r2vz7Q==}
@@ -14196,6 +14253,9 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  update-input-width@1.4.2:
+    resolution: {integrity: sha512-/p0XLhrQQQ4bMWD7bL9duYObwYCO1qGr8R19xcMmoMSmXuQ7/1//veUnCObQ7/iW6E2pGS6rFkS4TfH4ur7e/g==}
+
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
@@ -14491,6 +14551,9 @@ packages:
 
   warn-once@0.1.1:
     resolution: {integrity: sha512-VkQZJbO8zVImzYFteBXvBOZEl1qL175WH8VmZcxF2fZAoudNhNDvHi+doCaAEdU2l2vtcIwa2zn0QK5+I1HQ3Q==}
+
+  warning@4.0.3:
+    resolution: {integrity: sha512-rpJyN222KWIvHJ/F53XSZv0Zl/accqHR8et1kpaMTD/fLCRxtV8iX8czMzY7sVZupTI3zcUTg8eycS2kNF9l6w==}
 
   watchpack@2.4.1:
     resolution: {integrity: sha512-8wrBCMtVhqcXP2Sup1ctSkga6uc2Bx0IIvKyT7yTFier5AXHooSI+QyQQAtTb7+E0IUCCKyTFmXqdqgum2XWGg==}
@@ -18508,6 +18571,11 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
+  '@phosphor-icons/react@2.1.7(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -22196,6 +22264,8 @@ snapshots:
       '@webassemblyjs/ast': 1.12.1
       '@xtuc/long': 4.2.2
 
+  '@wojtekmaj/date-utils@1.5.1': {}
+
   '@xmldom/xmldom@0.7.13': {}
 
   '@xmldom/xmldom@0.8.10': {}
@@ -24051,6 +24121,8 @@ snapshots:
 
   destroy@1.2.0: {}
 
+  detect-element-overflow@1.4.2: {}
+
   detect-gpu@5.0.38:
     dependencies:
       webgl-constants: 1.1.1
@@ -24746,7 +24818,7 @@ snapshots:
       builtins: 5.1.0
       eslint: 8.57.1
       eslint-plugin-es-x: 7.8.0(eslint@8.57.1)
-      get-tsconfig: 4.8.1
+      get-tsconfig: 4.7.3
       globals: 13.24.0
       ignore: 5.3.2
       is-builtin-module: 3.2.1
@@ -25657,9 +25729,9 @@ snapshots:
     dependencies:
       resolve-pkg-maps: 1.0.0
 
-  get-tsconfig@4.8.1:
+  get-user-locale@2.3.2:
     dependencies:
-      resolve-pkg-maps: 1.0.0
+      mem: 8.1.1
 
   getenv@1.0.0: {}
 
@@ -27525,6 +27597,11 @@ snapshots:
       mimic-fn: 2.1.0
       p-is-promise: 2.1.0
 
+  mem@8.1.1:
+    dependencies:
+      map-age-cleaner: 0.1.3
+      mimic-fn: 3.1.0
+
   memfs@3.5.3:
     dependencies:
       fs-monkey: 1.0.5
@@ -28413,6 +28490,8 @@ snapshots:
   mimic-fn@1.2.0: {}
 
   mimic-fn@2.1.0: {}
+
+  mimic-fn@3.1.0: {}
 
   mimic-fn@4.0.0: {}
 
@@ -29515,6 +29594,17 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       snapsvg-cjs: 0.0.6(eve@0.5.4)
 
+  react-calendar@5.0.0(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      '@wojtekmaj/date-utils': 1.5.1
+      clsx: 2.1.0
+      get-user-locale: 2.3.2
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      warning: 4.0.3
+    optionalDependencies:
+      '@types/react': 18.2.67
+
   react-cmdk@1.3.9(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(webpack@5.90.3):
     dependencies:
       '@headlessui/react': 1.7.18(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
@@ -29535,6 +29625,22 @@ snapshots:
     dependencies:
       prop-types: 15.8.1
       react: 18.2.0
+
+  react-date-picker@11.0.0(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      '@wojtekmaj/date-utils': 1.5.1
+      clsx: 2.1.0
+      get-user-locale: 2.3.2
+      make-event-props: 1.6.2
+      react: 18.2.0
+      react-calendar: 5.0.0(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      react-dom: 18.2.0(react@18.2.0)
+      react-fit: 2.0.1(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
+      update-input-width: 1.4.2
+    optionalDependencies:
+      '@types/react': 18.2.67
+    transitivePeerDependencies:
+      - '@types/react-dom'
 
   react-device-detect@2.2.3(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
     dependencies:
@@ -29595,6 +29701,16 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.24.0
       react: 18.2.0
+
+  react-fit@2.0.1(@types/react-dom@18.2.22)(@types/react@18.2.67)(react-dom@18.2.0(react@18.2.0))(react@18.2.0):
+    dependencies:
+      detect-element-overflow: 1.4.2
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      warning: 4.0.3
+    optionalDependencies:
+      '@types/react': 18.2.67
+      '@types/react-dom': 18.2.22
 
   react-force-graph-2d@1.25.5(react@18.2.0):
     dependencies:
@@ -31994,6 +32110,8 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.0
 
+  update-input-width@1.4.2: {}
+
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
@@ -32320,6 +32438,10 @@ snapshots:
       makeerror: 1.0.12
 
   warn-once@0.1.1: {}
+
+  warning@4.0.3:
+    dependencies:
+      loose-envify: 1.4.0
 
   watchpack@2.4.1:
     dependencies:
