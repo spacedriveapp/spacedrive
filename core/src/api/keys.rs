@@ -168,17 +168,54 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.mutation(move |node, args: String| {
 				let cipher_cache = cipher_cache.clone();
 				async move {
+					let base_dir = node.config.data_directory();
+					let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+
+					// Read and decrypt existing data if it exists
+					let existing_decrypted = if let Ok(existing_data) = read_file(&path).await {
+						let cipher = get_cipher(&node, cipher_cache.clone()).await?;
+						let data_str = String::from_utf8(existing_data).map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Failed to convert data to string".to_string(),
+							)
+						})?;
+						let decoded = CookieCipher::base64_decode(&data_str).map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Failed to decode data".to_string(),
+							)
+						})?;
+						let decrypted = cipher.decrypt(&decoded).map_err(|e| {
+							rspc::Error::new(
+								ErrorCode::InternalServerError,
+								"Failed to decrypt data".to_string(),
+							)
+						})?;
+						String::from_utf8(decrypted).ok()
+					} else {
+						None
+					};
+
+					// Compare unencrypted data
+					if let Some(existing) = existing_decrypted {
+						if existing == args {
+							debug!("Data unchanged, skipping write operation");
+							return Ok(());
+						}
+					}
+
+					// Only encrypt and write if data changed
 					let cipher = get_cipher(&node, cipher_cache).await?;
 					let en_data = cipher.encrypt(args.as_bytes()).map_err(|e| {
-						error!("Failed to encrypt data: {:?}", e.to_string());
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							"Failed to encrypt data".to_string(),
 						)
 					})?;
+
 					let en_data = CookieCipher::base64_encode(&en_data);
-					let base_dir = node.config.data_directory();
-					let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+
 					write_file(&path, en_data.as_bytes()).await?;
 					debug!("Saved data to {:?}", path);
 					Ok(())
@@ -208,8 +245,59 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						)
 					})?;
 
-					// Encrypt the email address
-					// Create new cipher with the library id as the key
+					// Decrypt existing email if present
+					let existing_email = if let Some(encrypted) = config.get("cloud_email_address")
+					{
+						if let Some(encrypted_str) = encrypted.as_str() {
+							let uuid_key = CookieCipher::generate_key_from_string(
+								library.id.to_string().as_str(),
+							)
+							.map_err(|e| {
+								error!("Failed to generate key: {:?}", e.to_string());
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"Failed to generate key".to_string(),
+								)
+							})?;
+							let cipher = CookieCipher::new(&uuid_key).map_err(|e| {
+								error!("Failed to create cipher: {:?}", e.to_string());
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"Failed to create cipher".to_string(),
+								)
+							})?;
+							let decoded =
+								CookieCipher::base64_decode(encrypted_str).map_err(|e| {
+									error!("Failed to decode data: {:?}", e.to_string());
+									rspc::Error::new(
+										ErrorCode::InternalServerError,
+										"Failed to decode data".to_string(),
+									)
+								})?;
+							let decrypted = cipher.decrypt(&decoded).map_err(|e| {
+								error!("Failed to decrypt data: {:?}", e.to_string());
+								rspc::Error::new(
+									ErrorCode::InternalServerError,
+									"Failed to decrypt data".to_string(),
+								)
+							})?;
+							String::from_utf8(decrypted).ok()
+						} else {
+							None
+						}
+					} else {
+						None
+					};
+
+					// Compare unencrypted data
+					if let Some(existing) = existing_email {
+						if existing == args {
+							debug!("Email unchanged, skipping write operation");
+							return Ok(());
+						}
+					}
+
+					// Only encrypt and write if email changed
 					let uuid_key =
 						CookieCipher::generate_key_from_string(library.id.to_string().as_str())
 							.map_err(|e| {
@@ -219,7 +307,6 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 									"Failed to generate key".to_string(),
 								)
 							})?;
-
 					let cipher = CookieCipher::new(&uuid_key).map_err(|e| {
 						error!("Failed to create cipher: {:?}", e.to_string());
 						rspc::Error::new(
@@ -227,31 +314,24 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 							"Failed to create cipher".to_string(),
 						)
 					})?;
-
 					let en_data = cipher.encrypt(args.as_bytes()).map_err(|e| {
-						error!("Failed to encrypt data: {:?}", e.to_string());
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							"Failed to encrypt data".to_string(),
 						)
 					})?;
-
 					let en_data = CookieCipher::base64_encode(&en_data);
 
-					config.remove("cloud_email_address");
 					config.insert("cloud_email_address".to_string(), json!(en_data));
 
-					tokio::fs::write(
-						path,
-						serde_json::to_vec(&config).map_err(|e| {
-							rspc::Error::new(
-								ErrorCode::InternalServerError,
-								format!("Failed to serialize library config: {:?}", e.to_string()),
-							)
-						})?,
-					)
-					.await
-					.map_err(|e| {
+					let config_vec = serde_json::to_vec(&config).map_err(|e| {
+						rspc::Error::new(
+							ErrorCode::InternalServerError,
+							format!("Failed to serialize library config: {:?}", e.to_string()),
+						)
+					})?;
+
+					tokio::fs::write(path, config_vec).await.map_err(|e| {
 						rspc::Error::new(
 							ErrorCode::InternalServerError,
 							format!("Failed to write library config: {:?}", e.to_string()),
