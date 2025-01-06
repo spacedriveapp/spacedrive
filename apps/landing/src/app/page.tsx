@@ -1,5 +1,9 @@
+import { getIcon, getIconByName, getLayeredIcon, IconTypes } from '@sd/assets/util';
 import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
 
+import { Icon } from './Icon';
+import { Bento } from './page-sections/bento';
+import { Companies } from './page-sections/companies';
 import Mobile from './page-sections/mobile';
 import Tags from './page-sections/tags';
 
@@ -19,11 +23,11 @@ export default function Page() {
 	return (
 		<>
 			<Header />
-			<div className="flex flex-col gap-20 md:gap-[200px]">
-				{/* <Mobile /> */}
-				{/* <Features /> */}
+			<div className="flex flex-col gap-20 md:gap-[150px]">
+				<Companies />
 				<Explorer />
 				<Tags />
+				<Bento />
 				<Search />
 				{/* <Assistant /> */}
 				<Github />

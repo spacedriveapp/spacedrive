@@ -68,7 +68,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
 
   .github/actions/publish-artifacts:
     dependencies:
@@ -178,10 +178,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
       vite-tsconfig-paths:
         specifier: ^5.0.1
-        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
 
   apps/landing:
     dependencies:
@@ -383,7 +383,7 @@ importers:
         version: 6.5.20(@react-navigation/native@6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.10.5(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-screens@3.31.1(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
       '@react-navigation/drawer':
         specifier: ^6.6.15
-        version: 6.6.15(patch_hash=sdhplsrp4vqvq5oj3pphja7dki)(l5rogr5th5sdeqqihx6dztlim4)
+        version: 6.6.15(patch_hash=sdhplsrp4vqvq5oj3pphja7dki)(@react-navigation/native@6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-gesture-handler@2.16.2(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.10.5(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-screens@3.31.1(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
       '@react-navigation/native':
         specifier: ^6.1.16
         version: 6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
@@ -587,7 +587,7 @@ importers:
         version: 8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.6.2)
       '@storybook/react-vite':
         specifier: ^8.0.1
-        version: 8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       '@storybook/testing-library':
         specifier: ^0.2.2
         version: 0.2.2
@@ -636,7 +636,7 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
 
   apps/web:
     dependencies:
@@ -709,10 +709,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
       vite-tsconfig-paths:
         specifier: ^5.0.1
-        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
 
   interface:
     dependencies:
@@ -729,7 +729,7 @@ importers:
         specifier: ^9.1.0
         version: 9.4.0(react@18.2.0)
       '@phosphor-icons/react':
-        specifier: ^2.1.7
+        specifier: ^2.0.13
         version: 2.1.7(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@radix-ui/react-dialog':
         specifier: ^1.0.5
@@ -938,10 +938,10 @@ importers:
         version: 5.6.2
       vite:
         specifier: ^5.4.9
-        version: 5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)
+        version: 5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
       vite-plugin-svgr:
         specifier: ^3.3.0
-        version: 3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1))
+        version: 3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
 
   packages/assets: {}
 
@@ -1017,7 +1017,7 @@ importers:
         version: 8.8.0(eslint@8.57.1)(typescript@5.6.3)
       '@vitejs/plugin-react-swc':
         specifier: ^3.6.0
-        version: 3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -1053,19 +1053,19 @@ importers:
         version: 3.2.0
       vite-plugin-html:
         specifier: ^3.2.2
-        version: 3.2.2(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 3.2.2(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-i18next-loader:
         specifier: ^2.0.14
-        version: 2.0.14(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 2.0.14(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-inspect:
         specifier: ^0.8.7
-        version: 0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-solid:
         specifier: ^2.10.2
-        version: 2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       vite-plugin-svgr:
         specifier: ^3.3.0
-        version: 3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+        version: 3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
 
   packages/ui:
     dependencies:
@@ -10563,6 +10563,9 @@ packages:
     resolution: {integrity: sha512-g3FeP20LNwhALb/6Cz6Dd4F2ngze0jz7tbzrD2wAV+o9FeNHe4rL+yK2md0J/fiSf1sa1ADhXqi5+oVwOM/eGw==}
     engines: {node: '>=8'}
 
+  make-event-props@1.6.2:
+    resolution: {integrity: sha512-iDwf7mA03WPiR8QxvcVHmVWEPfMY1RZXerDVNCRYW7dUr2ppH3J58Rwb39/WG39yTZdRSxr3x+2v22tvI0VEvA==}
+
   make-fetch-happen@13.0.1:
     resolution: {integrity: sha512-cKTUFc/rbKUd/9meOvgrpJ2WrNzymt6jfRDdwg5UCnVzv9dTpEj9JS5m3wtziXVCjluIXyL8pcaukYqezIzZQA==}
     engines: {node: ^16.14.0 || >=18.0.0}
@@ -18118,13 +18121,13 @@ snapshots:
       '@types/yargs': 17.0.32
       chalk: 4.1.2
 
-  '@joshwooding/vite-plugin-react-docgen-typescript@0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
+  '@joshwooding/vite-plugin-react-docgen-typescript@0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
       glob: 7.2.3
       glob-promise: 4.2.2(glob@7.2.3)
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.6.2)
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     optionalDependencies:
       typescript: 5.6.2
 
@@ -19934,8 +19937,8 @@ snapshots:
       react-is: 16.13.1
       use-latest-callback: 0.1.9(react@18.2.0)
 
-  '@react-navigation/drawer@6.6.15(patch_hash=sdhplsrp4vqvq5oj3pphja7dki)(l5rogr5th5sdeqqihx6dztlim4)':
-    dependencies:
+  ? '@react-navigation/drawer@6.6.15(patch_hash=sdhplsrp4vqvq5oj3pphja7dki)(@react-navigation/native@6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-gesture-handler@2.16.2(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-reanimated@3.10.1(@babel/core@7.24.0)(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.10.5(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-screens@3.31.1(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)'
+  : dependencies:
       '@react-navigation/elements': 1.3.30(@react-navigation/native@6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.10.5(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
       '@react-navigation/native': 6.1.17(react-native@0.74.5(@babel/core@7.24.0)(@babel/preset-env@7.25.4(@babel/core@7.24.0))(@types/react@18.3.3)(encoding@0.1.13)(react@18.2.0))(react@18.2.0)
       color: 4.2.3
@@ -20604,7 +20607,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@storybook/builder-vite@8.0.1(encoding@0.1.13)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
+  '@storybook/builder-vite@8.0.1(encoding@0.1.13)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
       '@storybook/channels': 8.0.1
       '@storybook/client-logger': 8.0.1
@@ -20623,7 +20626,7 @@ snapshots:
       fs-extra: 11.2.0
       magic-string: 0.30.8
       ts-dedent: 2.2.0
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     optionalDependencies:
       typescript: 5.6.2
     transitivePeerDependencies:
@@ -20937,11 +20940,11 @@ snapshots:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
 
-  '@storybook/react-vite@8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
+  '@storybook/react-vite@8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
-      '@joshwooding/vite-plugin-react-docgen-typescript': 0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+      '@joshwooding/vite-plugin-react-docgen-typescript': 0.3.0(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
-      '@storybook/builder-vite': 8.0.1(encoding@0.1.13)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+      '@storybook/builder-vite': 8.0.1(encoding@0.1.13)(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
       '@storybook/node-logger': 8.0.1
       '@storybook/react': 8.0.1(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.6.2)
       find-up: 5.0.0
@@ -20951,7 +20954,7 @@ snapshots:
       react-dom: 18.2.0(react@18.2.0)
       resolve: 1.22.8
       tsconfig-paths: 4.2.0
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -22153,10 +22156,10 @@ snapshots:
 
   '@virtual-grid/shared@2.0.1': {}
 
-  '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))':
+  '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.5)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))':
     dependencies:
       '@swc/core': 1.4.8(@swc/helpers@0.5.5)
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - '@swc/helpers'
 
@@ -24666,7 +24669,7 @@ snapshots:
       debug: 4.3.7(supports-color@8.1.1)
       enhanced-resolve: 5.16.0
       eslint: 8.57.1
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.1)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1))(eslint@8.57.1)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@8.8.0(eslint@8.57.1)(typescript@5.6.3))(eslint@8.57.1)
       fast-glob: 3.3.2
       get-tsconfig: 4.7.3
@@ -24678,7 +24681,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.1):
+  eslint-module-utils@2.8.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.6.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.1))(eslint@8.57.1):
     dependencies:
       debug: 3.2.7(supports-color@8.1.1)
     optionalDependencies:
@@ -27224,6 +27227,8 @@ snapshots:
   make-dir@3.1.0:
     dependencies:
       semver: 6.3.1
+
+  make-event-props@1.6.2: {}
 
   make-fetch-happen@13.0.1:
     dependencies:
@@ -32292,7 +32297,7 @@ snapshots:
       unist-util-stringify-position: 4.0.0
       vfile-message: 4.0.2
 
-  vite-plugin-html@3.2.2(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-html@3.2.2(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 4.2.1
       colorette: 2.0.20
@@ -32306,9 +32311,9 @@ snapshots:
       html-minifier-terser: 6.1.0
       node-html-parser: 5.4.2
       pathe: 0.2.0
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
 
-  vite-plugin-i18next-loader@2.0.14(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-i18next-loader@2.0.14(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       dot-prop: 9.0.0
       glob-all: 3.3.1
@@ -32316,9 +32321,9 @@ snapshots:
       marked: 13.0.3
       marked-terminal: 7.1.0(marked@13.0.3)
       ts-deepmerge: 7.0.0
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
 
-  vite-plugin-inspect@0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-inspect@0.8.7(rollup@4.24.0)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@antfu/utils': 0.7.10
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
@@ -32329,12 +32334,12 @@ snapshots:
       perfect-debounce: 1.0.0
       picocolors: 1.1.0
       sirv: 2.0.4
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
 
-  vite-plugin-solid@2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-solid@2.10.2(@testing-library/jest-dom@6.4.2)(solid-js@1.8.15)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@babel/core': 7.24.0
       '@types/babel__core': 7.20.5
@@ -32342,8 +32347,8 @@ snapshots:
       merge-anything: 5.1.7
       solid-js: 1.8.15
       solid-refresh: 0.6.3(solid-js@1.8.15)
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
-      vitefu: 0.2.5(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1))
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
+      vitefu: 0.2.5(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1))
     optionalDependencies:
       '@testing-library/jest-dom': 6.4.2
     transitivePeerDependencies:
@@ -32352,40 +32357,40 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.2)(vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
       '@svgr/core': 8.1.0(typescript@5.6.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.6.2))
-      vite: 5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
       - typescript
 
-  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-plugin-svgr@3.3.0(rollup@4.24.0)(typescript@5.6.3)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@4.24.0)
       '@svgr/core': 8.1.0(typescript@5.6.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.6.3))
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - rollup
       - supports-color
       - typescript
 
-  vite-tsconfig-paths@5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vite-tsconfig-paths@5.0.1(typescript@5.6.2)(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     dependencies:
       debug: 4.3.7(supports-color@8.1.1)
       globrex: 0.1.2
       tsconfck: 3.0.3(typescript@5.6.2)
     optionalDependencies:
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
     transitivePeerDependencies:
       - supports-color
       - typescript
 
-  vite@5.4.9(@types/node@20.11.29)(sass@1.72.0)(terser@5.34.1):
+  vite@5.4.9(@types/node@20.11.29)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.4.47
@@ -32393,10 +32398,11 @@ snapshots:
     optionalDependencies:
       '@types/node': 20.11.29
       fsevents: 2.3.3
+      lightningcss: 1.19.0
       sass: 1.72.0
       terser: 5.34.1
 
-  vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1):
+  vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.4.47
@@ -32404,12 +32410,13 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.7.5
       fsevents: 2.3.3
+      lightningcss: 1.19.0
       sass: 1.72.0
       terser: 5.34.1
 
-  vitefu@0.2.5(vite@5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)):
+  vitefu@0.2.5(vite@5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)):
     optionalDependencies:
-      vite: 5.4.9(@types/node@22.7.5)(sass@1.72.0)(terser@5.34.1)
+      vite: 5.4.9(@types/node@22.7.5)(lightningcss@1.19.0)(sass@1.72.0)(terser@5.34.1)
 
   vlq@1.0.1: {}
 
