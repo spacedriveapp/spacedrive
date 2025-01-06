@@ -206,11 +206,11 @@ pub async fn start_drag(
 									// We have this for now, but technically, it doesn't do anything.
 									// I'm still trying to figure out how to cancel mid-drag without the user having to cancel the dragging on the frontend too.
 									// - @Rocky43007
-									if let Some(session) =
-										drag_session_clone.lock().unwrap().as_ref()
-									{
-										session.cancel();
-									}
+									// if let Some(session) =
+									// 	drag_session_clone.lock().unwrap().as_ref()
+									// {
+									// 	session.cancel();
+									// }
 								}
 							})
 							.unwrap_or_default();
