@@ -13,9 +13,22 @@ interface Props {
 }
 
 export async function generateStaticParams(): Promise<Array<Props['params']>> {
-	const categories = await getReleasesCategories();
+  try {
+    const categories = await getReleasesCategories();
 
-	return categories.flatMap((c) => c.docs.map((d) => ({ category: c.slug, tag: d.slug })));
+    // Handle null/undefined case
+    if (!categories) return [];
+
+    return categories.flatMap((c) =>
+      c.docs.map((d) => ({
+        category: c.slug,
+        tag: d.slug
+      }))
+    );
+  } catch (error) {
+    // Return empty array if error occurs
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: Props) {
