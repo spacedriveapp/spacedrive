@@ -5,3 +5,6 @@ export * from './github';
 export * from './features';
 export * from './search';
 export * from './tags';
+export * from './companies';
+export * from './bento';
+export * from './vdfs';

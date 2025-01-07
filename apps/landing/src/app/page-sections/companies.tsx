@@ -2,17 +2,18 @@ export function Companies() {
 	const companies = [
 		'Microsoft',
 		'Apache',
+		'Cloudflare',
+		'Google',
 		'CrabNebula',
 		'Nvidia',
-		'Google',
 		'Gitpod',
 		'PostHog',
 		'NixOS',
 		'Github',
 		'1Password',
 		'Netflix',
-		'Cloudflare',
 		'Datadog',
+		'RunPod',
 		'ClickHouse'
 	];
 

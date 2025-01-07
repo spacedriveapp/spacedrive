@@ -1,5 +1,5 @@
 import { getIcon, getIconByName, getLayeredIcon, IconTypes } from '@sd/assets/util';
-import { Assistant, Explorer, Features, Github, Header, Search } from '~/app/page-sections';
+import { Assistant, Explorer, Features, Github, Header, Search, Vdfs } from '~/app/page-sections';
 
 import { Icon } from './Icon';
 import { Bento } from './page-sections/bento';
@@ -28,6 +28,7 @@ export default function Page() {
 				<Explorer />
 				<Tags />
 				<Bento />
+				<Vdfs />
 				<Search />
 				{/* <Assistant /> */}
 				<Github />
