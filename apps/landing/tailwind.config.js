@@ -17,6 +17,9 @@ module.exports = {
 					'0%': { transform: 'translateX(0)' },
 					'100%': { transform: 'translateX(-50%)' }
 				}
+			},
+			gridTemplateColumns: {
+				20: 'repeat(20, minmax(0, 1fr))'
 			}
 		}
 	}

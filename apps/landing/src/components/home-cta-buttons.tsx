@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CtaPrimaryButton } from '~/components/cta-primary-button';
 import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
@@ -15,6 +15,19 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 	const currentPlatform = useCurrentPlatform();
 
 	const [dockerDialogOpen, setDockerDialogOpen] = useState(false);
+
+	const [downloads, setDownloads] = useState<number | null>(null);
+
+	useEffect(() => {
+		fetch('/api/github-stats')
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.downloads) {
+					setDownloads(data.downloads);
+				}
+			})
+			.catch(console.error);
+	}, []);
 
 	const [formattedVersion, note] = (() => {
 		const platform = selectedPlatform ?? currentPlatform;
@@ -59,26 +72,6 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 
 				<CtaSecondaryButton />
 			</div>
-
-			{/* {selectedPlatform?.links && selectedPlatform.links.length > 1 && (
-				<div className="z-50 flex flex-row gap-3 mt-4 mb-2 fade-in">
-					{selectedPlatform.links.map(({ name, arch }) => (
-						<HomeCTA
-							key={name}
-							size="md"
-							text={name}
-							rel="noopener"
-							href={`${BASE_DL_LINK}/${selectedPlatform.os}/${arch}`}
-							onClick={() => {
-								plausible('download', {
-									props: { os: selectedPlatform.name + ' ' + arch }
-								});
-							}}
-							className="z-5 relative !py-1 !text-sm"
-						/>
-					))}
-				</div>
-			)} */}
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
 				{latestVersion}
 				{formattedVersion && (
@@ -93,43 +86,13 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 						{note}
 					</>
 				)}
+				{downloads !== null && (
+					<>
+						<span className="mx-2 opacity-50">|</span>
+						{new Intl.NumberFormat().format(downloads)} Downloads
+					</>
+				)}
 			</p>
-			{/* Platform icons */}
-			{/* <div className="relative z-10 flex gap-3 mt-5">
-				{Object.values<Platform>(platforms).map((platform, i) => {
-					return (
-						<motion.div
-							initial={{ opacity: 0, y: 20 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={{ delay: i * 0.2, ease: 'easeInOut' }}
-							key={platform.name}
-						>
-							<Platform
-								key={platform.name}
-								platform={platform}
-								className={clsx(platform.name === 'Docker' && 'cursor-pointer')}
-								onClick={() => {
-									if (platform.name === 'Docker') {
-										setDockerDialogOpen(true);
-										return;
-									}
-									if (platform.links) {
-										if (platform.links.length === 1) {
-											plausible('download', {
-												props: { os: platform.name }
-											});
-										} else {
-											setSelectedPlatform(platform);
-										}
-									}
-								}}
-							/>
-						</motion.div>
-					);
-				})}
-			</div> */}
-			{/* Docker Dialog */}
-			{/* <DockerDialog open={dockerDialogOpen} setOpen={setDockerDialogOpen} /> */}
 		</>
 	);
 }

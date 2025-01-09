@@ -1,10 +1,11 @@
 import { getIcon, getIconByName, getLayeredIcon, IconTypes } from '@sd/assets/util';
-import { Assistant, Explorer, Features, Github, Header, Search, Vdfs } from '~/app/page-sections';
+import { Explorer, Features, Github, Header, Search, Vdfs } from '~/app/page-sections';
 
 import { Icon } from './Icon';
 import { Bento } from './page-sections/bento';
 import { Companies } from './page-sections/companies';
 import Mobile from './page-sections/mobile';
+import { Security } from './page-sections/security';
 import Tags from './page-sections/tags';
 
 export const metadata = {
@@ -27,10 +28,10 @@ export default function Page() {
 				<Companies />
 				<Explorer />
 				<Tags />
-				<Bento />
 				<Vdfs />
+				<Bento />
+				<Security />
 				<Search />
-				{/* <Assistant /> */}
 				<Github />
 			</div>
 		</>

@@ -23,6 +23,7 @@
 		"@sd/ui": "workspace:*",
 		"@t3-oss/env-nextjs": "^0.7.1",
 		"@tsparticles/react": "^3.0.0",
+		"@vercel/edge-config": "^1.4.0",
 		"clsx": "^2.0.0",
 		"contentlayer": "^0.3.4",
 		"dayjs": "^1.11.10",
