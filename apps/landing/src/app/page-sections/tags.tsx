@@ -65,4 +65,4 @@ const MemoizedTags = memo(function Tags() {
 	);
 });
 
-export default MemoizedTags;
+export { MemoizedTags as Tags };

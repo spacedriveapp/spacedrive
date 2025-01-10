@@ -1,7 +1,6 @@
-import { Icon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import Link from 'next/link';
-import { ComponentProps, ReactNode, useId } from 'react';
+import { ComponentProps, ReactNode } from 'react';
 
 interface CtaButtonProps extends ComponentProps<'button'> {
 	icon?: ReactNode;
@@ -19,8 +18,6 @@ export function CtaButton({
 	highlighted = false,
 	...props
 }: CtaButtonProps) {
-	const id = useId();
-
 	return (
 		<Link
 			href={href}

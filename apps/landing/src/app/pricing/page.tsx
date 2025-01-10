@@ -2,6 +2,7 @@
 
 import { ArrowCircleDown, ArrowRight } from '@phosphor-icons/react';
 import clsx from 'clsx';
+import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import React, { useState } from 'react';
 import { Switch } from '@sd/ui';
@@ -183,9 +184,20 @@ export default function PricingPage() {
 														</span>
 													</div>
 													{yearlyBilling && tier.name !== 'Free' && (
-														<span className="text-xs text-gray-400">
-															billed {tier.price.yearly} yearly
-														</span>
+														<AnimatePresence>
+															<motion.span
+																initial={{ opacity: 0, y: -10 }}
+																animate={{ opacity: 1, y: 0 }}
+																exit={{ opacity: 0, y: -10 }}
+																transition={{
+																	duration: 0.2,
+																	ease: 'easeOut'
+																}}
+																className="text-xs text-gray-400"
+															>
+																billed {tier.price.yearly} yearly
+															</motion.span>
+														</AnimatePresence>
 													)}
 												</>
 											) : (

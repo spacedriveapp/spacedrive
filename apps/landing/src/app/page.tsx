@@ -1,12 +1,9 @@
-import { getIcon, getIconByName, getLayeredIcon, IconTypes } from '@sd/assets/util';
-import { Explorer, Features, Github, Header, Search, Vdfs } from '~/app/page-sections';
+import { Explorer, Github, Header, Search, Vdfs } from '~/app/page-sections';
 
-import { Icon } from './Icon';
 import { Bento } from './page-sections/bento';
 import { Companies } from './page-sections/companies';
-import Mobile from './page-sections/mobile';
 import { Security } from './page-sections/security';
-import Tags from './page-sections/tags';
+import { Tags } from './page-sections/tags';
 
 export const metadata = {
 	title: 'Spacedrive — Sync, manage, and discover. Across all your devices.',

@@ -1,7 +1,9 @@
+import { ArrowRight } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 
+import { CtaButton } from '../../components/cta-button';
 import { Icon, IconName } from '../Icon';
 
 interface BentoCardProps {
@@ -79,11 +81,14 @@ export function Bento() {
 						height={380}
 						alt="Spacedrive vault"
 					/>
-					<div className="text-center">
+					<div className="mb-8 text-center">
 						<h3 className="text-2xl font-bold">Spacedrive Cloud</h3>
 						<p className="text-sm text-ink-faint">
 							Store your files in the cloud with our secure cloud storage solution.
 						</p>
+						<CtaButton className="my-4" href="/pricing" highlighted>
+							View Plans
+						</CtaButton>
 					</div>
 				</BentoCard>
 				<BentoCard
