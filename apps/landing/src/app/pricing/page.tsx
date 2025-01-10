@@ -1,15 +1,20 @@
 'use client';
 
 import { ArrowCircleDown, ArrowRight } from '@phosphor-icons/react';
+import clsx from 'clsx';
 import Image from 'next/image';
-import React from 'react';
+import React, { useState } from 'react';
+import { Switch } from '@sd/ui';
 import { CtaButton } from '~/components/cta-button';
 
 const BENTO_BASE_CLASS = `bento-border-left relative flex flex-col rounded-[10px] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] overflow-hidden group`;
 
 interface PricingTier {
 	name: string;
-	price: string;
+	price: {
+		monthly: string;
+		yearly: string;
+	};
 	description: string;
 	features: string[];
 	highlighted?: boolean;
@@ -23,7 +28,10 @@ interface PricingTier {
 const pricingTiers: PricingTier[] = [
 	{
 		name: 'Free',
-		price: '$0',
+		price: {
+			monthly: '$0',
+			yearly: '$0'
+		},
 		description: 'Your personal data command center',
 		features: [
 			'All client apps',
@@ -41,7 +49,10 @@ const pricingTiers: PricingTier[] = [
 	},
 	{
 		name: 'Sync',
-		price: '$2.99',
+		price: {
+			monthly: '$2.99',
+			yearly: '$29.99'
+		},
 		description: 'Seamless multi-device experience',
 		features: [
 			'Everything in Free',
@@ -59,7 +70,10 @@ const pricingTiers: PricingTier[] = [
 	},
 	{
 		name: 'Pro',
-		price: '$9.99',
+		price: {
+			monthly: '$9.99',
+			yearly: '$99.99'
+		},
 		description: 'Power user cloud features',
 		features: [
 			'Everything in Sync',
@@ -77,7 +91,10 @@ const pricingTiers: PricingTier[] = [
 	},
 	{
 		name: 'Enterprise',
-		price: 'Contact us',
+		price: {
+			monthly: 'Contact us',
+			yearly: 'Contact us'
+		},
 		description: 'Custom-built for your team',
 		features: [
 			'Per-seat licensing model',
@@ -95,7 +112,9 @@ const pricingTiers: PricingTier[] = [
 	}
 ];
 
-const Page: React.FC = () => {
+export default function PricingPage() {
+	const [yearlyBilling, setYearlyBilling] = useState(true);
+
 	return (
 		<div className="container mx-auto mt-[50px] px-4 pt-24">
 			<div className="flex flex-col items-center">
@@ -117,63 +136,94 @@ const Page: React.FC = () => {
 					capabilities.
 				</p>
 
+				<div className="mb-8 flex items-center gap-3">
+					<span className="text-sm font-medium text-gray-400">Monthly</span>
+					<Switch
+						checked={yearlyBilling}
+						onCheckedChange={setYearlyBilling}
+						className="data-[state=checked]:bg-accent"
+					/>
+					<span className="text-sm font-medium text-gray-400">
+						Yearly <span className="text-accent">(Save 20%)</span>
+					</span>
+				</div>
+
 				<div className="grid w-full max-w-7xl gap-6 px-4 md:grid-cols-2 lg:grid-cols-4">
-					{pricingTiers.map((tier) => (
-						<div
-							key={tier.name}
-							className={`${BENTO_BASE_CLASS} ${
-								tier.highlighted ? 'border-2 border-primary' : ''
-							}`}
-						>
-							<div className="flex h-full flex-col p-6">
-								<div className="mb-4">
-									<h3 className="text-xl font-semibold text-white">
-										{tier.name}
-									</h3>
-									<div className="mt-2">
-										<span className="text-2xl font-bold text-white">
-											{tier.price}
-										</span>
-										{tier.price !== 'Contact us' && (
-											<span className="text-gray-400">/month</span>
-										)}
+					{pricingTiers.map((tier) => {
+						const monthlyPrice =
+							tier.name === 'Free'
+								? '0'
+								: yearlyBilling
+									? (parseFloat(tier.price.yearly.replace('$', '')) / 12).toFixed(
+											2
+										)
+									: tier.price.monthly.replace('$', '');
+
+						return (
+							<div
+								key={tier.name}
+								className={clsx(BENTO_BASE_CLASS, {
+									'border-2 border-accent': tier.highlighted
+								})}
+							>
+								<div className="flex h-full flex-col gap-6 p-6">
+									<div>
+										<h3 className="text-lg font-bold text-white">
+											{tier.name}
+										</h3>
+										<div className="mt-2 flex flex-col">
+											{tier.price.monthly !== 'Contact us' ? (
+												<>
+													<div className="flex items-end gap-1">
+														<span className="text-2xl font-bold text-white">
+															${monthlyPrice}
+														</span>
+														<span className="mb-0.5 text-sm text-gray-400">
+															/mo
+														</span>
+													</div>
+													{yearlyBilling && tier.name !== 'Free' && (
+														<span className="text-xs text-gray-400">
+															billed {tier.price.yearly} yearly
+														</span>
+													)}
+												</>
+											) : (
+												<span className="text-2xl font-bold text-white">
+													Contact us
+												</span>
+											)}
+										</div>
+										<p className="mt-2 text-sm text-gray-400">
+											{tier.description}
+										</p>
 									</div>
-									<p className="mt-2 text-sm text-gray-400">{tier.description}</p>
-								</div>
-								<ul className="mb-6 flex-grow space-y-3">
-									{tier.features.map((feature) => (
-										<li key={feature} className="flex items-start">
-											<svg
-												className="mr-2 h-5 w-5 flex-shrink-0 text-primary"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
+
+									<ul className="flex flex-1 flex-col gap-3">
+										{tier.features.map((feature) => (
+											<li
+												key={feature}
+												className="flex items-center gap-2 text-sm text-white"
 											>
-												<path
-													strokeLinecap="round"
-													strokeLinejoin="round"
-													strokeWidth={2}
-													d="M5 13l4 4L19 7"
-												/>
-											</svg>
-											<span className="text-sm text-gray-300">{feature}</span>
-										</li>
-									))}
-								</ul>
-								<CtaButton
-									href={tier.href}
-									icon={tier.cta.icon}
-									highlighted={tier.highlighted}
-								>
-									{tier.cta.text}
-								</CtaButton>
+												<div className="size-1 rounded-full bg-accent" />
+												{feature}
+											</li>
+										))}
+									</ul>
+
+									<CtaButton
+										href={tier.href}
+										icon={tier.cta.icon}
+										highlighted={tier.highlighted}
+									>
+										{tier.cta.text}
+									</CtaButton>
+								</div>
 							</div>
-						</div>
-					))}
+						);
+					})}
 				</div>
 			</div>
 		</div>
 	);
-};
-
-export default Page;
+}
