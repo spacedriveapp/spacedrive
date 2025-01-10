@@ -130,6 +130,11 @@ export const items: {
 			'Support for creating, copying, moving, renaming, and deleting files and folders between devices.'
 	},
 	{
+		title: 'OS Drag & Drop',
+		completed: true,
+		description: 'Drag and drop files and folders to and from the operating system.'
+	},
+	{
 		title: 'Spacedrive Cloud',
 		completed: true,
 		description:

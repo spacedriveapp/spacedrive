@@ -57,7 +57,7 @@ const pricingTiers: PricingTier[] = [
 		description: 'Seamless multi-device experience',
 		features: [
 			'Everything in Free',
-			'Always-on cloud sync',
+			'Always-on encrypted cloud sync',
 			'10GB cloud backup for library & previews',
 			'Global P2P relay network',
 			'Email support'
@@ -96,7 +96,7 @@ const pricingTiers: PricingTier[] = [
 			monthly: 'Contact us',
 			yearly: 'Contact us'
 		},
-		description: 'Custom-built for your team',
+		description: 'Scale to meet your needs',
 		features: [
 			'Per-seat licensing model',
 			'Team workspace & management',

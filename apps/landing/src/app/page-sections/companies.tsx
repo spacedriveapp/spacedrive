@@ -8,7 +8,6 @@ export function Companies() {
 		'Nvidia',
 		'Gitpod',
 		'PostHog',
-		'NixOS',
 		'Github',
 		'1Password',
 		'Netflix',
