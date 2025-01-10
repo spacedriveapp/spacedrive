@@ -70,7 +70,8 @@ const Layout = () => {
 					'flex h-screen select-none overflow-hidden text-ink',
 					os === 'macOS' && [
 						'has-blur-effects',
-						!windowState.isFullScreen && 'frame rounded-[10px] border border-transparent'
+						!windowState.isFullScreen &&
+							'frame rounded-[10px] border border-transparent'
 					]
 				)}
 				onContextMenu={(e) => {
@@ -90,7 +91,9 @@ const Layout = () => {
 							{library ? (
 								<QuickPreviewContextProvider>
 									<LibraryContextProvider library={library}>
-										<Suspense fallback={<div className="h-screen w-screen bg-app" />}>
+										<Suspense
+											fallback={<div className="h-screen w-screen bg-app" />}
+										>
 											<Outlet />
 											<CMDK />
 											<DragOverlay />

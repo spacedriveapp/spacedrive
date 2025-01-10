@@ -18,6 +18,7 @@ sd-prisma = { path = "../../../crates/prisma" }
 # Workspace dependencies
 axum               = { workspace = true, features = ["query"] }
 axum-extra         = { workspace = true, features = ["typed-header"] }
+base64             = { workspace = true }
 futures            = { workspace = true }
 http               = { workspace = true }
 hyper              = { workspace = true }
@@ -32,25 +33,24 @@ thiserror          = { workspace = true }
 tokio              = { workspace = true, features = ["sync"] }
 tracing            = { workspace = true }
 uuid               = { workspace = true, features = ["serde"] }
-base64             = { workspace = true }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
+drag                           = { git = "https://github.com/spacedriveapp/drag-rs", rev = "157b2cd9" }
 opener                         = { version = "0.7.1", features = ["reveal"], default-features = false }
 specta-typescript              = "=0.0.7"
 tauri-plugin-clipboard-manager = "=2.0.1"
 tauri-plugin-cors-fetch        = { path = "../../../crates/tauri-plugin-cors-fetch" }
 tauri-plugin-deep-link         = "=2.0.1"
 tauri-plugin-dialog            = "=2.0.3"
+tauri-plugin-drag              = "2.0.0"
 tauri-plugin-http              = "=2.0.3"
 tauri-plugin-os                = "=2.0.1"
 tauri-plugin-shell             = "=2.0.2"
 tauri-plugin-updater           = "=2.0.2"
-tauri-plugin-drag = "2.0.0"
-drag = { git = "https://github.com/spacedriveapp/drag-rs", rev = "157b2cd9" }
 
 # memory allocator
-mimalloc          = { workspace = true }
+mimalloc = { workspace = true }
 
 [dependencies.tauri]
 features = ["linux-libxdo", "macos-private-api", "native-tls-vendored", "unstable"]

@@ -100,7 +100,9 @@ function useDragAndDrop() {
 						}
 
 						const file_path =
-							'path' in data ? data.path : await libraryClient.query(['files.getPath', data.id]);
+							'path' in data
+								? data.path
+								: await libraryClient.query(['files.getPath', data.id]);
 
 						console.log('Resolved file path:', file_path);
 						return {
@@ -386,7 +388,8 @@ function AppInner() {
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const { pathname, search } = selectedTab.router.state.location;
+											const { pathname, search } =
+												selectedTab.router.state.location;
 											const newTab = createTab({ pathname, search });
 											const newTabs = [...tabs, newTab];
 

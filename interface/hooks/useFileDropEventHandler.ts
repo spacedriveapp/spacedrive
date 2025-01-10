@@ -22,7 +22,10 @@ export const useFileDropEventHandler = (libraryId?: string) => {
 			const paths = e.detail.paths;
 
 			if (libraryId && path) {
-				libraryClient.mutation(['ephemeralFiles.cutFiles', { sources: paths, target_dir: path! }]);
+				libraryClient.mutation([
+					'ephemeralFiles.cutFiles',
+					{ sources: paths, target_dir: path! }
+				]);
 			} else if (libraryId) {
 				// Get Materialized Path using the location id
 				const locationId = id;
