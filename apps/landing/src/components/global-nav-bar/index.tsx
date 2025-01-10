@@ -30,13 +30,13 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
 	// { label: 'Explorer', href: '#' },
 
-	{ label: 'Roadmap', href: '/roadmap' },
-	{ label: 'Team', href: '/team' },
-	{ label: 'Cloud', href: '/cloud' },
+	{ label: 'Pricing', href: '/pricing' },
 	// { label: 'Assistant', href: '#', adornment: 'New' },
 	// { label: 'Store', href: '#' },
 	// { label: 'Use Cases', href: '/use-cases' },
 	{ label: 'Blog', href: '/blog' },
+	{ label: 'Team', href: '/team' },
+	{ label: 'Roadmap', href: '/roadmap' },
 	{ label: 'Docs', href: '/docs/product/getting-started/introduction' },
 	{ label: 'Careers', href: '/careers' }
 ];

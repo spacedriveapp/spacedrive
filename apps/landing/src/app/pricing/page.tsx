@@ -21,26 +21,27 @@ const pricingTiers: PricingTier[] = [
 	{
 		name: 'Free',
 		price: '$0',
-		description: 'Perfect for personal use',
+		description: 'Your personal data command center',
 		features: [
 			'All client apps',
-			'All core features',
-			'Self-hosting cloud services',
+			'Full core feature set',
+			'Your devices are your cloud',
+			'Connect custom S3 storage',
 			'Local P2P sync & transfer',
-			'Personal use'
+			'Unlimited personal use'
 		],
 		href: '/download'
 	},
 	{
 		name: 'Sync',
 		price: '$2.99',
-		description: 'A seamless Spacedrive experience',
+		description: 'Seamless multi-device experience',
 		features: [
 			'Everything in Free',
 			'Always-on cloud sync',
-			'Library and preview media backup up to 10GB',
-			'Relay service for P2P internet file transfer',
-			'Basic support'
+			'10GB cloud backup for library & previews',
+			'Global P2P relay network',
+			'Email support'
 		],
 		highlighted: true,
 		href: '/cloud/subscribe/sync'
@@ -48,28 +49,28 @@ const pricingTiers: PricingTier[] = [
 	{
 		name: 'Pro',
 		price: '$9.99',
-		description: 'Advanced Spacedrive experience',
+		description: 'Power user cloud features',
 		features: [
 			'Everything in Sync',
-			'Always-on cloud sync',
-			'Custom sd.app share links',
-			'1TB cloud storage',
-			'100GB cloud transfer',
-			'Premium support'
+			'1TB managed cloud storage',
+			'100GB monthly transfer quota',
+			'Custom sd.app share URLs',
+			'Unlimited sharing capabilities',
+			'Priority support'
 		],
 		href: '/cloud/subscribe/pro'
 	},
 	{
 		name: 'Enterprise',
 		price: 'Contact us',
-		description: 'For teams and organizations',
+		description: 'Custom-built for your team',
 		features: [
-			'Per-seat licensing',
-			'Team management',
-			'Inter-cloud transfer',
-			'Self-hosted option',
-			'Custom integrations',
-			'Dedicated support'
+			'Per-seat licensing model',
+			'Team workspace & management',
+			'Cross-cloud data transfer',
+			'Self-hosted infrastructure',
+			'Custom integration support',
+			'Dedicated success manager'
 		],
 		href: '/enterprise'
 	}
@@ -93,8 +94,8 @@ const Page: React.FC = () => {
 				</h1>
 				<p className="text-md z-30 mb-16 mt-1 max-w-5xl text-balance text-center text-gray-450 lg:text-lg lg:leading-8">
 					Choose the perfect plan for your needs, from personal projects to enterprise
-					solutions. All plans include client-side encryption, and come with free
-					self-hosting.
+					solutions. All plans include client-side encryption and optional self-hosting
+					capabilities.
 				</p>
 
 				<div className="grid w-full max-w-7xl gap-6 px-4 md:grid-cols-2 lg:grid-cols-4">
