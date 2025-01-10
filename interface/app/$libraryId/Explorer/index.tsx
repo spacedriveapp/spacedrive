@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { CSSProperties, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -86,8 +86,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		e.stopPropagation();
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
-
-	window.useDragAndDrop();
 
 	useKeyRevealFinder();
 

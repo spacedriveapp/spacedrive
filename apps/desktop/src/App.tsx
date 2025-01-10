@@ -14,6 +14,7 @@ import {
 	createRoutes,
 	DeeplinkEvent,
 	ErrorPage,
+	FileDropEvent,
 	KeybindEvent,
 	PlatformProvider,
 	SpacedriveInterfaceRoot,
@@ -183,10 +184,14 @@ export default function App() {
 			if (!url) return;
 			document.dispatchEvent(new DeeplinkEvent(url));
 		});
+		const fileDropListener = listen('tauri://drag-drop', async (data) => {
+			document.dispatchEvent(new FileDropEvent((data.payload as { paths: string[] }).paths));
+		});
 
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
 			deeplinkListener.then((unlisten) => unlisten());
+			fileDropListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
