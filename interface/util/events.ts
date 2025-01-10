@@ -2,6 +2,7 @@ declare global {
 	interface GlobalEventHandlersEventMap {
 		keybindexec: KeybindEvent;
 		deeplink: DeeplinkEvent;
+		filedrop: FileDropEvent;
 	}
 }
 
@@ -20,6 +21,16 @@ export class DeeplinkEvent extends CustomEvent<{ url: string }> {
 		super('deeplink', {
 			detail: {
 				url
+			}
+		});
+	}
+}
+
+export class FileDropEvent extends CustomEvent<{ paths: string[] }> {
+	constructor(paths: string[]) {
+		super('filedrop', {
+			detail: {
+				paths
 			}
 		});
 	}

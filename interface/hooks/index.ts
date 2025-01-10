@@ -10,6 +10,7 @@ export * from './useIsDark';
 export * from './useKeyDeleteFile';
 export * from './useKeybind';
 export * from './useKeybindEventHandler';
+export * from './useFileDropEventHandler';
 export * from './useOperatingSystem';
 export * from './useScrolled';
 // export * from './useSearchStore';

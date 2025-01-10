@@ -1,5 +1,5 @@
 import cryptoRandomString from 'crypto-random-string';
-import { nonLibraryClient } from '@sd/client';
+import { ExplorerItem, getIndexedItemFilePath, nonLibraryClient } from '@sd/client';
 
 // NOTE: `crypto` module is not available in RN so this can't be in client
 export const generatePassword = (length: number) =>
