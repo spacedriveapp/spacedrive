@@ -1,6 +1,6 @@
-use crate::p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
+use crate::old_p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
 
-use sd_p2p::{PeerConnectionCandidate, RemoteIdentity};
+use sd_old_p2p::{PeerConnectionCandidate, RemoteIdentity};
 
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use serde::Deserialize;

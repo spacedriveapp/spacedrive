@@ -1,7 +1,7 @@
 use crate::{
 	api::{utils::InvalidateOperationEvent, CoreEvent},
 	library::Library,
-	p2p::operations::{self, request_file},
+	old_p2p::operations::{self, request_file},
 	util::InfallibleResponse,
 	Node,
 };
@@ -11,8 +11,8 @@ use sd_core_heavy_lifting::media_processor::WEBP_EXTENSION;
 use sd_core_prisma_helpers::file_path_to_handle_custom_uri;
 
 use sd_file_ext::text::is_text;
-use sd_p2p::{RemoteIdentity, P2P};
-use sd_p2p_block::Range;
+use sd_old_p2p::{RemoteIdentity, P2P};
+use sd_old_p2p_block::Range;
 use sd_prisma::prisma::{file_path, location};
 use sd_utils::db::maybe_missing;
 use tokio_util::sync::PollSender;

@@ -13,7 +13,7 @@ use sd_core_heavy_lifting::media_processor::ThumbKey;
 use sd_core_sync::DevicePubId;
 
 use sd_cloud_schema::devices::DeviceOS;
-use sd_p2p::RemoteIdentity;
+use sd_old_p2p::RemoteIdentity;
 use sd_prisma::prisma::file_path;
 
 use std::sync::Arc;
