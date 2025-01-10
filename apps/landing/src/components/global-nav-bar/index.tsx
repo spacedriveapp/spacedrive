@@ -29,9 +29,10 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
 	// { label: 'Explorer', href: '#' },
-	// { label: 'Cloud', href: '#' },
+
 	{ label: 'Roadmap', href: '/roadmap' },
 	{ label: 'Team', href: '/team' },
+	{ label: 'Cloud', href: '/cloud' },
 	// { label: 'Assistant', href: '#', adornment: 'New' },
 	// { label: 'Store', href: '#' },
 	// { label: 'Use Cases', href: '/use-cases' },
