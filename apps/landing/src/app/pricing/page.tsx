@@ -1,10 +1,9 @@
 'use client';
 
-import { ArrowRight } from '@phosphor-icons/react';
+import { ArrowCircleDown, ArrowRight } from '@phosphor-icons/react';
 import Image from 'next/image';
 import React from 'react';
-import { CtaPrimaryButton } from '~/components/cta-primary-button';
-import { CtaSecondaryButton } from '~/components/cta-secondary-button';
+import { CtaButton } from '~/components/cta-button';
 
 const BENTO_BASE_CLASS = `bento-border-left relative flex flex-col rounded-[10px] bg-[radial-gradient(66.79%_83.82%_at_0%_3.69%,#1B1D25_0%,#15161C_100%)] overflow-hidden group`;
 
@@ -15,6 +14,10 @@ interface PricingTier {
 	features: string[];
 	highlighted?: boolean;
 	href: string;
+	cta: {
+		text: string;
+		icon: React.ReactNode;
+	};
 }
 
 const pricingTiers: PricingTier[] = [
@@ -30,7 +33,11 @@ const pricingTiers: PricingTier[] = [
 			'Local P2P sync & transfer',
 			'Unlimited personal use'
 		],
-		href: '/download'
+		href: '/download',
+		cta: {
+			text: 'Download',
+			icon: <ArrowCircleDown weight="bold" size={22} />
+		}
 	},
 	{
 		name: 'Sync',
@@ -44,7 +51,11 @@ const pricingTiers: PricingTier[] = [
 			'Email support'
 		],
 		highlighted: true,
-		href: '/cloud/subscribe/sync'
+		href: '/cloud/subscribe/sync',
+		cta: {
+			text: 'Get Started',
+			icon: <ArrowRight weight="bold" size={22} />
+		}
 	},
 	{
 		name: 'Pro',
@@ -58,7 +69,11 @@ const pricingTiers: PricingTier[] = [
 			'Unlimited sharing capabilities',
 			'Priority support'
 		],
-		href: '/cloud/subscribe/pro'
+		href: '/cloud/subscribe/pro',
+		cta: {
+			text: 'Get Started',
+			icon: <ArrowRight className="size-5 opacity-60" />
+		}
 	},
 	{
 		name: 'Enterprise',
@@ -72,7 +87,11 @@ const pricingTiers: PricingTier[] = [
 			'Custom integration support',
 			'Dedicated success manager'
 		],
-		href: '/enterprise'
+		href: '/enterprise',
+		cta: {
+			text: 'Contact Sales',
+			icon: <ArrowRight className="size-5 opacity-60" />
+		}
 	}
 ];
 
@@ -141,23 +160,13 @@ const Page: React.FC = () => {
 										</li>
 									))}
 								</ul>
-								{tier.highlighted ? (
-									<CtaPrimaryButton
-										href={tier.href}
-										icon={<ArrowRight weight="bold" />}
-									>
-										Get Started
-									</CtaPrimaryButton>
-								) : (
-									<CtaSecondaryButton
-										href={tier.href}
-										icon={<ArrowRight className="size-5 opacity-60" />}
-									>
-										{tier.name === 'Enterprise'
-											? 'Contact Sales'
-											: 'Get Started'}
-									</CtaSecondaryButton>
-								)}
+								<CtaButton
+									href={tier.href}
+									icon={tier.cta.icon}
+									highlighted={tier.highlighted}
+								>
+									{tier.cta.text}
+								</CtaButton>
 							</div>
 						</div>
 					))}

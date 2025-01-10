@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import companyLogoFull from '~/assets/company_full_logo.svg?url';
-import { CtaPrimaryButton } from '~/components/cta-primary-button';
-import { useCurrentPlatform } from '~/utils/current-platform';
 
+import { useCurrentPlatform } from '../utils/current-platform';
+import { DownloadButton } from './download-button';
 import Particles from './particles';
 
 export function GlobalFooter() {
@@ -15,7 +15,7 @@ export function GlobalFooter() {
 			{/* Download Button */}
 			<div className="relative z-20 col-span-2 mt-20 flex translate-y-2 flex-col items-center justify-center">
 				<div className="relative translate-y-3.5">
-					<CtaPrimaryButton platform={currentPlatform} />
+					<DownloadButton platform={currentPlatform} />
 				</div>
 			</div>
 			<div className="absolute inset-x-0 top-[-40px] mx-auto size-[200px] md:top-[-70px] md:size-[500px]">

@@ -1,53 +1,22 @@
-import { ArrowCircleDown, Icon } from '@phosphor-icons/react';
+import { Icon } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import Link from 'next/link';
 import { ComponentProps, ReactNode, useId } from 'react';
-import { Platform } from '~/utils/current-platform';
 
-type CtaButtonProps = {
-	iconComponent?: Icon;
+interface CtaPrimaryButtonProps extends ComponentProps<'button'> {
+	icon?: Icon | ReactNode;
 	glow?: 'lg' | 'sm' | 'none';
-	shrinksOnSmallScreen?: boolean;
-} & (
-	| {
-			href: string;
-			children: ReactNode;
-	  }
-	| {
-			platform: Platform | null;
-	  }
-) &
-	ComponentProps<'button'>;
+	href: string;
+	children: ReactNode;
+}
 
 export function CtaPrimaryButton({
-	iconComponent: Icon = ArrowCircleDown,
+	icon: Icon,
 	glow = 'lg',
-	shrinksOnSmallScreen = false,
+	href,
+	children,
 	...props
-}: CtaButtonProps) {
-	const href =
-		'href' in props
-			? props.href
-			: `https://spacedrive.com/api/releases/desktop/stable/${props.platform?.os ?? 'linux'}/x86_64`;
-	const platformName =
-		'platform' in props
-			? props.platform?.name === 'macOS'
-				? 'Mac'
-				: props.platform?.name
-			: undefined;
-	const children =
-		'children' in props ? (
-			props.children
-		) : (
-			<>
-				Download
-				<span className={shrinksOnSmallScreen ? 'max-xl:hidden' : undefined}>
-					{' '}
-					for {platformName ?? 'Linux'}
-				</span>
-			</>
-		);
-
+}: CtaPrimaryButtonProps) {
 	const id = useId();
 
 	return (
@@ -63,12 +32,16 @@ export function CtaPrimaryButton({
 				}
 			)}
 		>
-			<Icon weight="bold" size={22} fill={`url(#${id}-cta-gradient)`}>
-				<linearGradient id={`${id}-cta-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
-					<stop stopColor="hsl(0 100% 100% / 100%)" offset="0%" />
-					<stop stopColor="hsl(0 100% 100% / 70%)" offset="100%" />
-				</linearGradient>
-			</Icon>
+			{typeof Icon === 'function' ? (
+				<Icon weight="bold" size={22} fill={`url(#${id}-cta-gradient)`}>
+					<linearGradient id={`${id}-cta-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
+						<stop stopColor="hsl(0 100% 100% / 100%)" offset="0%" />
+						<stop stopColor="hsl(0 100% 100% / 70%)" offset="100%" />
+					</linearGradient>
+				</Icon>
+			) : (
+				Icon
+			)}
 			<span className="text-center font-sans text-base font-semibold leading-normal text-white drop-shadow-md">
 				{children}
 			</span>

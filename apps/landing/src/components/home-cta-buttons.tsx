@@ -1,10 +1,12 @@
 'use client';
 
+import { Discord } from '@sd/assets/svgs/brands';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { CtaPrimaryButton } from '~/components/cta-primary-button';
-import { CtaSecondaryButton } from '~/components/cta-secondary-button';
 
 import { useCurrentPlatform, type Platform } from '../utils/current-platform';
+import { CtaButton } from './cta-button';
+import { DownloadButton } from './download-button';
 
 interface Props {
 	latestVersion: string;
@@ -43,34 +45,20 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 	})();
 
 	return (
-		<>
-			<div className="fade-in-heading animation-delay-2 relative z-10 flex flex-row flex-wrap justify-center gap-3">
+		<div className="animation-delay-2 z-30 flex flex-col items-center fade-in">
+			<div className="flex flex-col gap-3 sm:flex-row">
 				{currentPlatform &&
 					(() => {
 						const { links } = currentPlatform;
 
-						return (
-							// <HomeCTA
-							// 	href={
-							// 		links?.length === 1
-							// 			? `${BASE_DL_LINK}/${currentPlatform.os}/${links[0].arch}`
-							// 			: undefined
-							// 	}
-							// 	className={`z-5 relative !bg-[#88D7FF]`}
-							// 	icon={<ArrowCircleDown />}
-							// 	text={`Download for ${currentPlatform.name}`}
-							// 	onClick={() => {
-							// 		plausible('download', {
-							// 			props: { os: currentPlatform.name }
-							// 		});
-							// 		setSelectedPlatform(currentPlatform);
-							// 	}}
-							// />
-							<CtaPrimaryButton platform={currentPlatform} />
-						);
+						return <DownloadButton platform={currentPlatform} />;
 					})()}
-
-				<CtaSecondaryButton />
+				<CtaButton
+					href="https://discord.gg/gTaF2Z44f5"
+					icon={<Discord className="size-5 opacity-60" />}
+				>
+					Chat on Discord
+				</CtaButton>
 			</div>
 			<p className="animation-delay-3 z-30 mt-3 px-6 text-center text-sm text-gray-400 fade-in">
 				{latestVersion}
@@ -93,6 +81,6 @@ export function HomeCtaButtons({ latestVersion }: Props) {
 					</>
 				)}
 			</p>
-		</>
+		</div>
 	);
 }
