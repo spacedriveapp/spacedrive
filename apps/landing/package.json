@@ -15,7 +15,7 @@
 		"@fortawesome/free-brands-svg-icons": "^6.6.0",
 		"@fortawesome/react-fontawesome": "^0.2.2",
 		"@octokit/webhooks": "^12.0.3",
-		"@phosphor-icons/react": "^2.0.14",
+		"@phosphor-icons/react": "^2.1.0",
 		"@radix-ui/react-dialog": "^1.0.5",
 		"@react-three/drei": "^9.88.13",
 		"@react-three/fiber": "^8.15.11",

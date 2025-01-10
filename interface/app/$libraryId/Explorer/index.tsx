@@ -1,5 +1,5 @@
 import { FolderNotchOpen } from '@phosphor-icons/react';
-import { CSSProperties, type PropsWithChildren, type ReactNode } from 'react';
+import { CSSProperties, useEffect, type PropsWithChildren, type ReactNode } from 'react';
 import {
 	explorerLayout,
 	useExplorerLayoutStore,
@@ -87,8 +87,6 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 		explorer.settingsStore.showHiddenFiles = !explorer.settingsStore.showHiddenFiles;
 	});
 
-	window.useDragAndDrop();
-
 	useKeyRevealFinder();
 
 	useExplorerDnd();
@@ -118,13 +116,18 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 						contextMenu={props.contextMenu ? props.contextMenu() : <ContextMenu />}
 						emptyNotice={
 							props.emptyNotice ?? (
-								<EmptyNotice icon={FolderNotchOpen} message="This folder is empty" />
+								<EmptyNotice
+									icon={FolderNotchOpen}
+									message="This folder is empty"
+								/>
 							)
 						}
 						listViewOptions={{ hideHeaderBorder: true }}
 						scrollPadding={{
 							top: topBar.topBarHeight,
-							bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : undefined
+							bottom: showPathBar
+								? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0)
+								: undefined
 						}}
 					/>
 				</div>
@@ -144,7 +147,9 @@ export default function Explorer(props: PropsWithChildren<Props>) {
 					)}
 					style={{
 						paddingTop: topBar.topBarHeight + 12,
-						bottom: showPathBar ? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0) : 0
+						bottom: showPathBar
+							? PATH_BAR_HEIGHT + (showTagBar ? TAG_BAR_HEIGHT : 0)
+							: 0
 					}}
 				/>
 			)}

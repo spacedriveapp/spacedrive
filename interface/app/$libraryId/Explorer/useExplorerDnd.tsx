@@ -12,7 +12,7 @@ import { useAssignItemsToTag } from '../settings/library/tags/CreateDialog';
 import { useExplorerContext } from './Context';
 import { explorerStore } from './store';
 import { explorerDroppableSchema } from './useExplorerDroppable';
-import { useExplorerSearchParams } from './util';
+import { getPathIdsPerLocation, useExplorerSearchParams } from './util';
 
 export const getPaths = async (items: ExplorerItem[]) => {
 	const paths = items.map(async (item) => {
@@ -25,21 +25,6 @@ export const getPaths = async (items: ExplorerItem[]) => {
 	});
 
 	return (await Promise.all(paths)).filter((path): path is string => Boolean(path));
-};
-
-const getPathIdsPerLocation = (items: ExplorerItem[]) => {
-	return items.reduce(
-		(items, item) => {
-			const path = getIndexedItemFilePath(item);
-			if (!path || path.location_id === null) return items;
-
-			return {
-				...items,
-				[path.location_id]: [...(items[path.location_id] ?? []), path.id]
-			};
-		},
-		{} as Record<number, number[]>
-	);
 };
 
 export const useExplorerDnd = () => {

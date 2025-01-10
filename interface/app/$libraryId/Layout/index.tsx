@@ -16,6 +16,7 @@ import { LibraryIdParamsSchema } from '~/app/route-schemas';
 import ErrorFallback, { BetterErrorBoundary } from '~/ErrorFallback';
 import {
 	useDeeplinkEventHandler,
+	useFileDropEventHandler,
 	useKeybindEventHandler,
 	useOperatingSystem,
 	useRedirectToNewLocation,
@@ -42,6 +43,9 @@ const Layout = () => {
 
 	useKeybindEventHandler(library?.uuid);
 	useDeeplinkEventHandler();
+	useFileDropEventHandler(library?.uuid);
+
+	window.useDragAndDrop();
 
 	const layoutRef = useRef<HTMLDivElement>(null);
 

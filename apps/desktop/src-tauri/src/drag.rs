@@ -1,4 +1,3 @@
-// Import required dependencies for drag and drop operations, serialization, and async functionality
 use drag::{DragItem, Image, Options};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -162,6 +161,8 @@ pub async fn start_drag(
 						let is_completed = is_completed_clone.clone();
 						let cancel_flag_clone = cancel_flag.clone();
 						let window_for_drag = window_owned.clone();
+						let drag_session = Arc::new(Mutex::new(None));
+						let drag_session_clone = drag_session.clone();
 
 						// Execute drag operation on main thread
 						app_handle_owned
@@ -176,7 +177,7 @@ pub async fn start_drag(
 										Image::File(PathBuf::from(&icon_path_for_drag));
 
 									// Start the drag operation
-									if let Ok(_) = drag::start_drag(
+									if let Ok(session) = drag::start_drag(
 										&window_for_drag,
 										item,
 										preview_icon,
@@ -190,9 +191,14 @@ pub async fn start_drag(
 											is_completed.store(true, Ordering::SeqCst);
 											TRACKING.store(false, Ordering::SeqCst);
 										},
-										Options::default(),
+										Options {
+											skip_animatation_on_cancel_or_failure: false,
+											mode: drag::DragMode::Move,
+										},
 									) {
 										println!("Drag operation started");
+										// Store drag session for cancellation
+										*drag_session_clone.lock().unwrap() = Some(session);
 									}
 								} else {
 									println!("Cursor returned to window");

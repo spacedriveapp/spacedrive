@@ -21,7 +21,7 @@
 	"dependencies": {
 		"@fontsource/ibm-plex-sans": "^5.1.0",
 		"@headlessui/react": "^1.7.17",
-		"@phosphor-icons/react": "^2.0.13",
+		"@phosphor-icons/react": "^2.1.0",
 		"@radix-ui/react-checkbox": "^1.0.4",
 		"@radix-ui/react-context-menu": "^2.1.5",
 		"@radix-ui/react-dialog": "^1.0.5",
