@@ -57,7 +57,7 @@ export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 			.map(([category, docs]) => ({
 				title: toTitleCase(category),
 				slug: category,
-				categoryIndex: docs[0]?.categoryIndex ?? 0,
+				categoryIndex: docs[0]?.index ?? 0,
 				docs: docs.sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
 			}))
 			.sort((a, b) => a.categoryIndex - b.categoryIndex);

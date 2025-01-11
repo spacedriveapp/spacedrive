@@ -1,7 +1,7 @@
 import { allPosts } from '@contentlayer/generated';
 import dayjs from 'dayjs';
 import { Metadata } from 'next';
-import { useMDXComponent } from 'next-contentlayer/hooks';
+import { useMDXComponent } from 'next-contentlayer2/hooks';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { BlogTag } from '~/components/blog-tag';

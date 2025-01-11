@@ -1,5 +1,5 @@
 import { bundleMDX } from 'mdx-bundler';
-import { getMDXComponent } from 'next-contentlayer/hooks';
+import { getMDXComponent } from 'next-contentlayer2/hooks';
 import { notFound } from 'next/navigation';
 import { getRelease, githubFetch } from '~/app/api/github';
 import { DocMDXComponents } from '~/components/mdx';
