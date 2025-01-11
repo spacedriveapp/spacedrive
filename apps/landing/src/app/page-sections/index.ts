@@ -8,3 +8,5 @@ export * from './tags';
 export * from './companies';
 export * from './bento';
 export * from './vdfs';
+export * from './security';
+export * from './mobile';

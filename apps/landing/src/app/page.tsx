@@ -1,9 +1,15 @@
-import { Explorer, Github, Header, Search, Vdfs } from '~/app/page-sections';
-
-import { Bento } from './page-sections/bento';
-import { Companies } from './page-sections/companies';
-import { Security } from './page-sections/security';
-import { Tags } from './page-sections/tags';
+import {
+	Bento,
+	Companies,
+	Explorer,
+	Github,
+	Header,
+	Mobile,
+	Search,
+	Security,
+	Tags,
+	Vdfs
+} from '~/app/page-sections';
 
 export const metadata = {
 	title: 'Spacedrive — Sync, manage, and discover. Across all your devices.',
@@ -23,6 +29,7 @@ export default function Page() {
 			<Header />
 			<div className="flex flex-col gap-20 md:gap-[150px]">
 				<Companies />
+				<Mobile />
 				<Explorer />
 				<Tags />
 				<Vdfs />
