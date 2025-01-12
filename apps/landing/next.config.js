@@ -20,9 +20,7 @@ const nextConfig = {
 		ignoreBuildErrors: true
 	},
 	experimental: {
-		optimizePackageImports: ['@sd/ui'],
-		// Disable edge runtime
-		runtime: 'nodejs'
+		optimizePackageImports: ['@sd/ui']
 	},
 	headers: async () => [
 		{
