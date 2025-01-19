@@ -142,9 +142,9 @@ impl Node {
 				(
 					"https://auth.spacedrive.com/cloud-api-address".to_string(),
 					"https://relay.spacedrive.com/".to_string(),
-					"irohdns.spacedrive.com".to_string(),
-					"irohdns.spacedrive.com/pkarr".to_string(),
-					"cloud.spacedrive.com".to_string(),
+					"https://irohdns.spacedrive.com".to_string(),
+					"https://irohdns.spacedrive.com/pkarr".to_string(),
+					"https://cloud.spacedrive.com".to_string(),
 				)
 			}
 		};
