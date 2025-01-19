@@ -10000,6 +10000,7 @@ dependencies = [
  "mini-moka",
  "normpath",
  "notify",
+ "once_cell",
  "openssl",
  "openssl-sys",
  "pin-project-lite",

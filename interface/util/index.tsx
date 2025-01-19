@@ -10,8 +10,8 @@ export type NonEmptyArray<T> = [T, ...T[]];
 export const isNonEmpty = <T,>(input: T[]): input is NonEmptyArray<T> => input.length > 0;
 export const isNonEmptyObject = (input: object) => Object.keys(input).length > 0;
 
-// export const AUTH_SERVER_URL = 'https://auth.spacedrive.com';
-export const AUTH_SERVER_URL = 'http://localhost:9420';
+export const AUTH_SERVER_URL = 'https://auth.spacedrive.com';
+// export const AUTH_SERVER_URL = 'http://localhost:9420';
 
 export async function getTokens(): Promise<{ accessToken: string; refreshToken: string }> {
 	const tokens = await nonLibraryClient.query(['keys.get']);

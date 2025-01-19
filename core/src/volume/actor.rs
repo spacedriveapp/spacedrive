@@ -296,6 +296,10 @@ impl VolumeManagerActor {
 			.into_iter()
 			.map(Volume::from)
 			.collect::<Vec<_>>();
+		if db_volumes.is_empty() {
+			info!("No volumes found for device {}", device_id);
+			return Ok(());
+		}
 
 		let registry_read = state.registry.read().await;
 		// Process each volume
