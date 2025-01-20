@@ -7,6 +7,8 @@ use tokio::task;
 pub use self::linux::get_volumes;
 #[cfg(target_os = "macos")]
 pub use self::macos::get_volumes;
+#[cfg(any(target_os = "ios", target_os = "android"))]
+pub use self::mobile::get_volumes;
 #[cfg(target_os = "windows")]
 pub use self::windows::get_volumes;
 
@@ -15,6 +17,8 @@ pub use self::windows::get_volumes;
 pub use self::linux::unmount_volume;
 #[cfg(target_os = "macos")]
 pub use self::macos::unmount_volume;
+#[cfg(any(target_os = "ios", target_os = "android"))]
+pub use self::mobile::unmount_volume;
 #[cfg(target_os = "windows")]
 pub use self::windows::unmount_volume;
 
@@ -467,5 +471,21 @@ pub mod windows {
 				))
 			}
 		}
+	}
+}
+
+#[cfg(any(target_os = "ios", target_os = "android"))]
+pub mod mobile {
+	use super::*;
+
+	pub async fn get_volumes() -> Result<Vec<Volume>, VolumeError> {
+		// Mobile platforms don't have mountable volumes
+		Ok(Vec::new())
+	}
+
+	pub async fn unmount_volume(_path: &std::path::Path) -> Result<(), VolumeError> {
+		Err(VolumeError::Platform(
+			"Volumes not supported on mobile platforms".to_string(),
+		))
 	}
 }
