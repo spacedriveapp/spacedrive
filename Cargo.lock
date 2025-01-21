@@ -2406,6 +2406,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "drag"
+version = "2.0.0"
+source = "git+https://github.com/spacedriveapp/drag-rs?rev=157b2cd9#157b2cd99f68b63d826d0081de75a8d64b8341ed"
+dependencies = [
+ "cocoa",
+ "core-graphics 0.24.0",
+ "dunce",
+ "gdk",
+ "gdkx11",
+ "gtk",
+ "objc",
+ "raw-window-handle",
+ "thiserror 1.0.64",
+ "windows 0.52.0",
+ "windows-core 0.58.0",
+]
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3707,7 +3725,7 @@ dependencies = [
  "presser",
  "thiserror 1.0.64",
  "winapi",
- "windows 0.52.0",
+ "windows 0.51.1",
 ]
 
 [[package]]
@@ -4401,7 +4419,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.52.0",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -5440,7 +5458,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -10267,7 +10285,7 @@ dependencies = [
  "axum-extra",
  "base64 0.22.1",
  "dbus",
- "drag",
+ "drag 2.0.0 (git+https://github.com/spacedriveapp/drag-rs?rev=157b2cd9)",
  "futures",
  "http 1.1.0",
  "hyper 1.5.0",
@@ -12015,7 +12033,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a25f35672f11127f90f96fbe787ed93ca3eecd2e2f23bd198351d3991afa9079"
 dependencies = [
  "base64 0.21.7",
- "drag",
+ "drag 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "tauri",

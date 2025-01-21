@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { type ExplorerItem } from '@sd/client';
+import { getIndexedItemFilePath, type ExplorerItem } from '@sd/client';
 import i18n from '~/app/I18n';
 import { ExplorerParamsSchema } from '~/app/route-schemas';
 import { useZodSearchParams } from '~/hooks';
@@ -200,3 +200,18 @@ export function fetchAccessToken(): string {
 			.split(';')[0] || '';
 	return accessToken;
 }
+
+export const getPathIdsPerLocation = (items: ExplorerItem[]) => {
+	return items.reduce(
+		(items, item) => {
+			const path = getIndexedItemFilePath(item);
+			if (!path || path.location_id === null) return items;
+
+			return {
+				...items,
+				[path.location_id]: [...(items[path.location_id] ?? []), path.id]
+			};
+		},
+		{} as Record<number, number[]>
+	);
+};

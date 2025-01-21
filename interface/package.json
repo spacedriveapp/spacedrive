@@ -13,7 +13,7 @@
 		"@dnd-kit/utilities": "^3.2.2",
 		"@headlessui/react": "^1.7.17",
 		"@icons-pack/react-simple-icons": "^9.1.0",
-		"@phosphor-icons/react": "^2.0.13",
+		"@phosphor-icons/react": "^2.1.0",
 		"@radix-ui/react-dialog": "^1.0.5",
 		"@radix-ui/react-dropdown-menu": "^2.0.6",
 		"@radix-ui/react-progress": "^1.0.1",

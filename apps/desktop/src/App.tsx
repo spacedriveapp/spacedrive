@@ -14,6 +14,7 @@ import {
 	createRoutes,
 	DeeplinkEvent,
 	ErrorPage,
+	FileDropEvent,
 	KeybindEvent,
 	PlatformProvider,
 	SpacedriveInterfaceRoot,
@@ -100,7 +101,9 @@ function useDragAndDrop() {
 						}
 
 						const file_path =
-							'path' in data ? data.path : await libraryClient.query(['files.getPath', data.id]);
+							'path' in data
+								? data.path
+								: await libraryClient.query(['files.getPath', data.id]);
 
 						console.log('Resolved file path:', file_path);
 						return {
@@ -135,6 +138,8 @@ function useDragAndDrop() {
 								y: payload.cursorPos.y,
 								screen: window.screen
 							});
+							// Refetch explorer files after successful drop
+							queryClient.invalidateQueries({ queryKey: ['search.paths'] });
 						}
 
 						explorerStore.drag = null;
@@ -182,10 +187,14 @@ export default function App() {
 			if (!url) return;
 			document.dispatchEvent(new DeeplinkEvent(url));
 		});
+		const fileDropListener = listen('tauri://drag-drop', async (data) => {
+			document.dispatchEvent(new FileDropEvent((data.payload as { paths: string[] }).paths));
+		});
 
 		return () => {
 			keybindListener.then((unlisten) => unlisten());
 			deeplinkListener.then((unlisten) => unlisten());
+			fileDropListener.then((unlisten) => unlisten());
 		};
 	}, []);
 
@@ -380,7 +389,8 @@ function AppInner() {
 								new Promise((res) => {
 									startTransition(() => {
 										setTabs((tabs) => {
-											const { pathname, search } = selectedTab.router.state.location;
+											const { pathname, search } =
+												selectedTab.router.state.location;
 											const newTab = createTab({ pathname, search });
 											const newTabs = [...tabs, newTab];
 
