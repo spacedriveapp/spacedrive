@@ -164,6 +164,7 @@ impl Node {
 		let (volumes, volume_manager_actor) = VolumeManagerActor::new(Arc::new(volume_ctx)).await?;
 
 		let volumes = Arc::new(volumes);
+		volume_manager_actor.start(device_id).await;
 
 		let node = Arc::new(Node {
 			data_dir: data_dir.to_path_buf(),
@@ -217,7 +218,6 @@ impl Node {
 		locations_actor.start(node.clone());
 		node.libraries.init(&node).await?;
 		jobs_actor.start(node.clone());
-		volume_manager_actor.start(device_id).await;
 
 		node.job_system
 			.init(
