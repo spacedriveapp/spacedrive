@@ -59,21 +59,22 @@ declare global {
 	}
 }
 
-SuperTokens.init({
-	appInfo: {
-		apiDomain: AUTH_SERVER_URL,
-		apiBasePath: '/api/auth',
-		appName: 'Spacedrive Auth Service'
-	},
-	cookieHandler: getCookieHandler,
-	windowHandler: getWindowHandler,
-	recipeList: [
-		Session.init({ tokenTransferMethod: 'header' }),
-		EmailPassword.init(),
-		ThirdParty.init(),
-		Passwordless.init()
-	]
-});
+// Disabling until sync is ready.
+// SuperTokens.init({
+// 	appInfo: {
+// 		apiDomain: AUTH_SERVER_URL,
+// 		apiBasePath: '/api/auth',
+// 		appName: 'Spacedrive Auth Service'
+// 	},
+// 	cookieHandler: getCookieHandler,
+// 	windowHandler: getWindowHandler,
+// 	recipeList: [
+// 		Session.init({ tokenTransferMethod: 'header' }),
+// 		EmailPassword.init(),
+// 		ThirdParty.init(),
+// 		Passwordless.init()
+// 	]
+// });
 
 const startupError = (window as any).__SD_ERROR__ as string | undefined;
 
