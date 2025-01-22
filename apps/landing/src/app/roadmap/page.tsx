@@ -16,7 +16,7 @@ export default function Page() {
 				<div
 					className="animation-delay-1 absolute top-[-1025px] size-[1800px] opacity-50 blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
 					style={{
-						backgroundImage: 'url(/images/roadmapbg.webp',
+						backgroundImage: 'url(/images/roadmapbg.webp)',
 						backgroundRepeat: 'no-repeat',
 						backgroundSize: 'contain'
 					}}
