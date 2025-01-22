@@ -50,7 +50,7 @@ export function Vdfs() {
 					Your Files. Every Device. Instantly.
 				</h1>
 				<p className="max-w-2xl text-lg text-gray-400">
-					Built in Rust for unmatched speed and memory safety, VDFS unites your devices
+					Built in Rust for unmatched speed and memory safety, the VDFS unites your devices
 					into a single, seamless file management experience.
 				</p>
 			</div>

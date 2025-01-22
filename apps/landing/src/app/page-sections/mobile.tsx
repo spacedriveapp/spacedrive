@@ -108,11 +108,17 @@ const Mobile = () => {
 					Access your files from anywhere, on any device, with the Spacedrive app.
 				</p>
 				<div className="mx-auto mt-4 flex flex-row flex-wrap justify-center gap-4">
-					<CtaSecondaryButton icon={<GooglePlayLogo />}>
+					{/* <CtaSecondaryButton icon={<GooglePlayLogo />}>
 						Open Play Store
 					</CtaSecondaryButton>
 					<CtaSecondaryButton icon={<Apple className="size-4" />}>
 						Open App Store
+					</CtaSecondaryButton> */}
+					<CtaSecondaryButton
+						icon={<></>}
+						disabled={true}
+					>
+						Coming Soon
 					</CtaSecondaryButton>
 				</div>
 			</div>

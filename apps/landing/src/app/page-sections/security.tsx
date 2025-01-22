@@ -35,6 +35,9 @@ function BinaryBackground({ isInView }: { isInView: boolean }) {
 			generateDigits();
 			const interval = setInterval(generateDigits, 100);
 			return () => clearInterval(interval);
+		} else {
+			setIsVisible(false);
+			animationStartedRef.current = false;
 		}
 	}, [isInView]);
 
