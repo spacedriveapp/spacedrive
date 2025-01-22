@@ -135,36 +135,36 @@ export const items: {
 		description: 'Drag and drop files and folders to and from the operating system.'
 	},
 	{
-		title: 'Spacedrive Cloud',
-		completed: true,
+		title: 'New Overview Design',
 		description:
-			'Sync your library to the cloud, to be accessed from anywhere (mobile & desktop apps).'
-	},
-	{
-		title: 'Peer-to-Peer Sync',
+			'New Overview design with a focus on the most important information about your library.',
 		completed: true,
-		description:
-			'Sync & Fetch files from your library with other devices on your local network.'
-	},
-	{
-		title: 'iOS & Android release',
-		completed: true,
-		description:
-			'Spacedrive will be available on the App Store and Google Play Store (TestFlight to start).'
 	},
 	{
 		when: '0.5 Beta',
-		subtext: 'Jan 2025',
+		subtext: 'To be determined',
 		title: 'Video thumbstrips',
 		completed: false,
 		description:
 			'Generate and display thumbstrips for videos, with a scrubber to preview the video.'
 	},
 	{
-		title: 'New Overview Design',
+		title: 'Spacedrive Cloud',
+		completed: false,
 		description:
-			'New Overview design with a focus on the most important information about your library.',
-		completed: false
+			'Sync your library to the cloud, to be accessed from anywhere (mobile & desktop apps).'
+	},
+	{
+		title: 'Peer-to-Peer Sync',
+		completed: false,
+		description:
+			'Sync & Fetch files from your library with other devices on your local network.'
+	},
+	{
+		title: 'iOS & Android release',
+		completed: false,
+		description:
+			'Spacedrive will be available on the App Store and Google Play Store (TestFlight to start).'
 	},
 	{
 		title: '3rd-Party Authentication',
@@ -195,7 +195,7 @@ export const items: {
 	},
 	{
 		when: '0.6 Beta',
-		subtext: 'Q2 2025',
+		subtext: 'To be determined',
 		title: 'Third-party cloud integrations',
 		completed: false,
 		description:
@@ -242,7 +242,7 @@ export const items: {
 	},
 	{
 		when: '1.0 Release',
-		subtext: 'Q3 2025',
+		subtext: 'To be determined',
 		title: 'Security audit',
 		completed: false,
 		description:
@@ -251,12 +251,6 @@ export const items: {
 	{
 		when: 'The Future',
 		subtext: 'To be determined',
-		title: 'Security audit',
-		description:
-			'We will hire a third party security firm to audit the codebase and ensure the highest level of security.'
-	},
-
-	{
 		title: 'Web portal',
 		completed: false,
 		description:

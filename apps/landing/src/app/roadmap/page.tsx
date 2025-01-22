@@ -29,7 +29,7 @@ export default function Page() {
 					so far.
 				</p>
 				<p>
-					Last updated: <span className="font-bold text-white">September 19th, 2024</span>
+					Last updated: <span className="font-bold text-white">January 21st, 2025</span>
 				</p>
 			</section>
 			<section className="mt-32 grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">
