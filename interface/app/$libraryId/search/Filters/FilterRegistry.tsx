@@ -19,11 +19,11 @@ export const filterRegistry: ReadonlyArray<RenderSearchFilter<any>> = [
 	kindFilter,
 	nameFilter,
 	extensionFilter,
-	// filePathDateCreated,
-	// filePathDateModified,
-	// objectDateAccessed,
-	// filePathDateIndexed,
-	// mediaDateTaken,
+	filePathDateCreated,
+	filePathDateModified,
+	objectDateAccessed,
+	filePathDateIndexed,
+	mediaDateTaken,
 	favoriteFilter,
 	hiddenFilter
 ] as const;

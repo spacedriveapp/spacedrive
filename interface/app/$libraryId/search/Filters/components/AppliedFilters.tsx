@@ -159,7 +159,7 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 										<span className="max-w-[150px] truncate">
 											{activeOptions.length > 1
 												? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
-												: activeOptions[0]?.name}
+												: activeOptions[0]?.name === "custom-date-range" ? activeOptions[0]?.value : activeOptions[0]?.name}
 										</span>
 									</>
 								)}

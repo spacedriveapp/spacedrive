@@ -28,8 +28,23 @@ const filterOptionStore = proxy({
 });
 
 // Generate a unique key for a filter option
-export const getKey = (filter: FilterOptionWithType) =>
-	`${filter.type}-${filter.name}-${filter.value}`;
+export const getKey = (filter: FilterOptionWithType) => {
+	const valueToString = (val: any) => {
+		if (typeof val === 'string') return val;
+		if (typeof val === 'number') return val.toString();
+		return JSON.stringify(val);
+	};
+
+	// If the filter value is a range, we need to send a different key with the following setup:
+	if (filter.value.from !== undefined) {
+		if (filter.type === 'Date Created') {
+			return `${filter.type}-custom-date-range-${filter.value.from}`;
+		}
+		return `${filter.type}-${filter.value.from}-${filter.value.from}`;
+	}
+
+	return `${filter.type}-${filter.name}-${valueToString(filter.value)}`;
+};
 
 // Hook to register filter options into the local store
 export const useRegisterFilterOptions = (
