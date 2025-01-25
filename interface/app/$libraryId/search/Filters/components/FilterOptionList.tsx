@@ -39,7 +39,7 @@ export const FilterOptionList = ({
 										select: value
 									});
 								}}
-								key={option.value}
+								key={option.name}
 								icon={option.icon}
 							>
 								{option.name}
