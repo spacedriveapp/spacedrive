@@ -81,8 +81,10 @@ impl VolumeManagerActor {
 		let (event_tx, _) = broadcast::channel(DEFAULT_CHANNEL_SIZE);
 
 		let manager = Volumes::new(message_tx, event_tx.clone());
+		debug!("Volume manager event_tx initialized");
 		let state =
 			VolumeManagerState::new(ctx.device_id.clone().into(), options, event_tx.clone());
+		debug!("Volume manager state initialized");
 
 		let actor = VolumeManagerActor {
 			state: Arc::new(RwLock::new(state)),
@@ -139,8 +141,10 @@ impl VolumeManagerActor {
 				.subscribe(move |event| {
 					let self_arc_inner = Arc::clone(&self_arc_subscribe);
 					async move {
+						debug!("Received library event: {:?}", event);
 						match event {
 							LibraryManagerEvent::Load(library) => {
+								debug!("Initializing volume manager for library");
 								if let Err(e) = {
 									let mut actor = self_arc_inner.lock().await;
 
@@ -276,7 +280,6 @@ impl VolumeManagerActor {
 		let device_id = DevicePubId::from(self.ctx.device_id.clone());
 		let state = self.state.clone();
 		let state = state.write().await;
-		let mut registry = state.registry.write().await;
 
 		let db_device = library
 			.db
@@ -307,6 +310,7 @@ impl VolumeManagerActor {
 			{
 				// Update existing volume
 				let updated = Volume::merge_with_db(volume, db_volume);
+				let mut registry = state.registry.write().await;
 				registry.register_volume(updated.clone());
 			} else if volume.mount_type == MountType::System {
 				// Create new system volume in database

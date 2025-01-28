@@ -103,6 +103,17 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 		}
 	}
 
+	function readableDate(name: string, value: string) {
+		if (
+			name === 'custom-date-range' ||
+			(name == value && new Date(value) instanceof Date && !isNaN(Number(new Date(value))))
+		) {
+			return new Date(value).toLocaleDateString();
+		}
+
+		return null;
+	}
+
 	return (
 		<FilterContainer>
 			<StaticSection>
@@ -159,7 +170,10 @@ export function FilterArg({ arg, onDelete }: { arg: SearchFilterArgs; onDelete?:
 										<span className="max-w-[150px] truncate">
 											{activeOptions.length > 1
 												? `${activeOptions.length} ${t(`${filter.translationKey}`, { count: activeOptions.length })}`
-												: activeOptions[0]?.name}
+												: readableDate(
+														activeOptions[0]?.name ?? '',
+														activeOptions[0]?.value
+													) || activeOptions[0]?.name}
 										</span>
 									</>
 								)}

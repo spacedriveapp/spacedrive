@@ -142,9 +142,9 @@ impl Node {
 				(
 					"https://auth.spacedrive.com/cloud-api-address".to_string(),
 					"https://relay.spacedrive.com/".to_string(),
-					"irohdns.spacedrive.com".to_string(),
-					"irohdns.spacedrive.com/pkarr".to_string(),
-					"api.spacedrive.com".to_string(),
+					"https://irohdns.spacedrive.com".to_string(),
+					"https://irohdns.spacedrive.com/pkarr".to_string(),
+					"https://cloud.spacedrive.com".to_string(),
 				)
 			}
 		};
@@ -194,6 +194,21 @@ impl Node {
 		#[cfg(debug_assertions)]
 		if let Some(init_data) = init_data {
 			init_data.apply(&node.libraries, &node).await?;
+		}
+
+		// Create the .sdks file if it doesn't exist
+		let temp_data_dir_clone = data_dir.to_path_buf();
+		let data_directory = temp_data_dir_clone
+			.parent()
+			.expect("Config path must have a parent directory");
+		let sdks_file = data_directory.join(".sdks");
+		if !sdks_file.exists() {
+			fs::write(&sdks_file, b"")
+				.await
+				.map_err(|e| {
+					FileIOError::from((sdks_file.clone(), e, "Failed to create .sdks file"))
+				})
+				.map_err(|e| NodeError::FileIO(e))?;
 		}
 
 		let router = api::mount();
@@ -417,4 +432,6 @@ pub enum NodeError {
 	Crypto(#[from] sd_crypto::Error),
 	#[error(transparent)]
 	Volume(#[from] volume::VolumeError),
+	#[error(transparent)]
+	FileIO(#[from] FileIOError),
 }

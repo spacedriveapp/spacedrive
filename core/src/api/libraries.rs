@@ -1,7 +1,7 @@
 use crate::{
 	api::CoreEvent,
 	invalidate_query,
-	library::{Library, LibraryConfig, LibraryName},
+	library::{update_library_statistics, Library, LibraryConfig, LibraryName},
 	location::{scan_location, LocationCreateArgs, ScanState},
 	util::MaybeUndefined,
 	Node,
@@ -132,23 +132,27 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			}
 			R.with2(library())
 				.query(|(node, library), _: ()| async move {
+					debug!("Getting statistics for library");
 					let statistics = library
 						.db
 						.statistics()
 						.find_unique(statistics::id::equals(1))
 						.exec()
 						.await?;
+					debug!(?statistics, "Got statistics for library");
 
 					match STATISTICS_UPDATERS.lock().await.entry(library.id) {
 						Entry::Occupied(entry) => {
 							if entry.get().send(Instant::now()).await.is_err() {
 								error!("Failed to send statistics update request;");
 							}
+							debug!("Sent statistics update request;");
 						}
 						Entry::Vacant(entry) => {
 							let (tx, rx) = chan::bounded(1);
 							entry.insert(tx);
 
+							debug!("Spawning statistics updater loop;");
 							spawn(update_statistics_loop(node, library, rx));
 						}
 					}
@@ -644,13 +648,13 @@ async fn update_statistics_loop(
 	while let Some(msg) = msg_stream.next().await {
 		match msg {
 			Message::Tick => {
-				// if last_received_at.elapsed() < FIVE_MINUTES {
-				// 	if let Err(e) = update_library_statistics(&node, &library).await {
-				// 		error!(?e, "Failed to update library statistics;");
-				// 	} else {
-				// 		invalidate_query!(&library, "library.statistics");
-				// 	}
-				// }
+				if last_received_at.elapsed() < FIVE_MINUTES {
+					if let Err(e) = update_library_statistics(&node, &library).await {
+						error!(?e, "Failed to update library statistics;");
+					} else {
+						invalidate_query!(&library, "library.statistics");
+					}
+				}
 			}
 			Message::Requested(instant) => {
 				if instant - last_received_at > TWO_MINUTES {

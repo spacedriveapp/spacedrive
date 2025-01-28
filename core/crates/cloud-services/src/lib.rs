@@ -51,5 +51,5 @@ pub use sync::{
 pub use quic_rpc::transport::quinn::QuinnConnector;
 
 // Export URL for the auth server
-// pub const AUTH_SERVER_URL: &str = "https://auth.spacedrive.com";
-pub const AUTH_SERVER_URL: &str = "http://localhost:9420";
+pub const AUTH_SERVER_URL: &str = "https://auth.spacedrive.com";
+// pub const AUTH_SERVER_URL: &str = "http://localhost:9420";

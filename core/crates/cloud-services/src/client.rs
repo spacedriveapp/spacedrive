@@ -64,7 +64,7 @@ impl CloudServices {
 		cloud_p2p_dns_origin_name: String,
 		domain_name: String,
 	) -> Result<Self, Error> {
-		let http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(3));
+		let mut http_client_builder = reqwest::Client::builder().timeout(Duration::from_secs(3));
 
 		#[cfg(not(debug_assertions))]
 		{

@@ -1,5 +1,6 @@
 use super::utils::library;
 use super::{Ctx, SanitizedNodeConfig, R};
+use once_cell::sync::Lazy;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_crypto::cookie::CookieCipher;
 use serde_json::{json, Map, Value};
@@ -8,6 +9,8 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;
 use tracing::{debug, error};
+
+static CACHE: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
 
 #[derive(Clone)]
 struct CipherCache {
@@ -91,31 +94,31 @@ async fn write_file(path: &Path, data: &[u8]) -> Result<(), rspc::Error> {
 	})
 }
 
-fn sanitize_path(base_dir: &Path, path: &Path) -> Result<PathBuf, rspc::Error> {
-	let abs_base = base_dir.canonicalize().map_err(|e| {
-		error!("Failed to canonicalize base directory: {:?}", e.to_string());
-		rspc::Error::new(
-			ErrorCode::InternalServerError,
-			"Failed to canonicalize base directory".to_string(),
-		)
-	})?;
-	let abs_path = abs_base.join(path).canonicalize().map_err(|e| {
-		error!("Failed to canonicalize path: {:?}", e.to_string());
-		rspc::Error::new(
-			ErrorCode::InternalServerError,
-			"Failed to canonicalize path".to_string(),
-		)
-	})?;
-	if abs_path.starts_with(&abs_base) {
-		Ok(abs_path)
-	} else {
-		error!("Path injection attempt detected: {:?}", abs_path);
-		Err(rspc::Error::new(
-			ErrorCode::InternalServerError,
-			"Invalid path".to_string(),
-		))
-	}
-}
+// fn sanitize_path(base_dir: &Path, path: &Path) -> Result<PathBuf, rspc::Error> {
+// 	let abs_base = base_dir.canonicalize().map_err(|e| {
+// 		error!("Failed to canonicalize base directory: {:?}", e.to_string());
+// 		rspc::Error::new(
+// 			ErrorCode::InternalServerError,
+// 			"Failed to canonicalize base directory".to_string(),
+// 		)
+// 	})?;
+// 	let abs_path = abs_base.join(path).canonicalize().map_err(|e| {
+// 		error!("Failed to canonicalize path: {:?}", e.to_string());
+// 		rspc::Error::new(
+// 			ErrorCode::InternalServerError,
+// 			"Failed to canonicalize path".to_string(),
+// 		)
+// 	})?;
+// 	if abs_path.starts_with(&abs_base) {
+// 		Ok(abs_path)
+// 	} else {
+// 		error!("Path injection attempt detected: {:?}", abs_path);
+// 		Err(rspc::Error::new(
+// 			ErrorCode::InternalServerError,
+// 			"Invalid path".to_string(),
+// 		))
+// 	}
+// }
 
 pub(crate) fn mount() -> AlphaRouter<Ctx> {
 	let cipher_cache = Arc::new(RwLock::new(None));
@@ -126,8 +129,15 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 			R.query(move |node, _: ()| {
 				let cipher_cache = cipher_cache.clone();
 				async move {
+					let cache_guard = CACHE.read().await;
+					if let Some(cached_data) = cache_guard.clone().as_ref() {
+						debug!("Returning cached data");
+						return Ok(cached_data.clone());
+					}
+
 					let base_dir = node.config.data_directory();
-					let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+					// let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+					let path = base_dir.join(".sdks");
 					let data = read_file(&path).await?;
 					let cipher = get_cipher(&node, cipher_cache).await?;
 
@@ -169,7 +179,8 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 				let cipher_cache = cipher_cache.clone();
 				async move {
 					let base_dir = node.config.data_directory();
-					let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+					// let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
+					let path = base_dir.join(".sdks");
 
 					// Read and decrypt existing data if it exists
 					let existing_decrypted = if let Ok(existing_data) = read_file(&path).await {
@@ -217,6 +228,10 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					let en_data = CookieCipher::base64_encode(&en_data);
 
 					write_file(&path, en_data.as_bytes()).await?;
+					let mut cache_guard = CACHE.write().await;
+					*cache_guard = Some(args.clone());
+					debug!("Written to read cache");
+
 					debug!("Saved data to {:?}", path);
 					Ok(())
 				}
