@@ -6,7 +6,7 @@ use crate::{
 
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_sync::DevicePubId;
-use sd_p2p::Identity;
+use sd_old_p2p::Identity;
 use sd_utils::error::FileIOError;
 
 use std::{
@@ -149,7 +149,7 @@ pub struct NodeConfig {
 }
 
 mod identity_serde {
-	use sd_p2p::Identity;
+	use sd_old_p2p::Identity;
 	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>

@@ -35,10 +35,10 @@ sd-ffmpeg         = { path = "../crates/ffmpeg", optional = true }
 sd-file-ext       = { path = "../crates/file-ext" }
 sd-images         = { path = "../crates/images", features = ["rspc", "serde", "specta"] }
 sd-media-metadata = { path = "../crates/media-metadata" }
-sd-p2p            = { path = "../crates/p2p", features = ["specta"] }
-sd-p2p-block      = { path = "../crates/p2p/crates/block" }
-sd-p2p-proto      = { path = "../crates/p2p/crates/proto" }
-sd-p2p-tunnel     = { path = "../crates/p2p/crates/tunnel" }
+sd-old-p2p            = { path = "../crates/old-p2p", features = ["specta"] }
+sd-old-p2p-block      = { path = "../crates/old-p2p/crates/block" }
+sd-old-p2p-proto      = { path = "../crates/old-p2p/crates/proto" }
+sd-old-p2p-tunnel     = { path = "../crates/old-p2p/crates/tunnel" }
 sd-prisma         = { path = "../crates/prisma" }
 sd-sync           = { path = "../crates/sync" }
 sd-task-system    = { path = "../crates/task-system" }

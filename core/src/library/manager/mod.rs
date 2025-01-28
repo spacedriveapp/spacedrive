@@ -3,14 +3,14 @@ use crate::{
 	invalidate_query,
 	location::metadata::{LocationMetadataError, SpacedriveLocationMetadataFile},
 	object::tag,
-	p2p,
+	old_p2p,
 	util::{mpscrr, MaybeUndefined},
 	Node,
 };
 
 use sd_core_sync::{SyncEvent, SyncManager};
 
-use sd_p2p::{Identity, RemoteIdentity};
+use sd_old_p2p::{Identity, RemoteIdentity};
 use sd_prisma::{
 	prisma::{self, device, instance, location, PrismaClient},
 	prisma_sync,
@@ -629,7 +629,7 @@ async fn sync_rx_actor(
 				InvalidateOperationEvent::all(),
 			)),
 			SyncEvent::Created => {
-				p2p::sync::originator(library.clone(), &library.sync, &node.p2p).await
+				old_p2p::sync::originator(library.clone(), &library.sync, &node.p2p).await
 			}
 		}
 	}

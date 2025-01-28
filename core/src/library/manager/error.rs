@@ -3,7 +3,7 @@ use crate::{library::LibraryConfigError, location::LocationManagerError, volume}
 use sd_core_indexer_rules::seed::SeederError;
 use sd_core_sync::DevicePubId;
 
-use sd_p2p::IdentityErr;
+use sd_old_p2p::IdentityErr;
 use sd_utils::{
 	db::{self, MissingFieldError},
 	error::{FileIOError, NonUtf8PathError},

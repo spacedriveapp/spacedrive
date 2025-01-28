@@ -3,7 +3,7 @@ use crate::{
 	util::version_manager::{Kind, ManagedVersion, VersionManager, VersionManagerError},
 };
 
-use sd_p2p::{Identity, RemoteIdentity};
+use sd_old_p2p::{Identity, RemoteIdentity};
 use sd_prisma::prisma::{file_path, indexer_rule, instance, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 
