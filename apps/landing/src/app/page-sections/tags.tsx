@@ -43,7 +43,7 @@ const MemoizedTags = memo(function Tags() {
 					<span className="bg-gradient-to-r from-zinc-400 to-zinc-600 bg-clip-text text-transparent">
 						{/* Some controlled line breaks here based on breakpoint to make sure the breaks looks nice always :) */}
 						<br className="lg:hidden" />
-						quickly organize your files.
+						Quickly organize your files.
 					</span>
 				</h1>
 				<div className="grid w-full grid-cols-1 gap-16 md:grid-cols-2 md:gap-6">
@@ -65,4 +65,4 @@ const MemoizedTags = memo(function Tags() {
 	);
 });
 
-export default MemoizedTags;
+export { MemoizedTags as Tags };

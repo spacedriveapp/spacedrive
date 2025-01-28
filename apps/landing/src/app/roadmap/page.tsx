@@ -16,7 +16,7 @@ export default function Page() {
 				<div
 					className="animation-delay-1 absolute top-[-1025px] size-[1800px] opacity-50 blur-sm duration-150 fade-in sm:right-[-400px] md:right-[-400px] lg:right-[-500px]"
 					style={{
-						backgroundImage: 'url(/images/roadmapbg.webp',
+						backgroundImage: 'url(/images/roadmapbg.webp)',
 						backgroundRepeat: 'no-repeat',
 						backgroundSize: 'contain'
 					}}
@@ -29,7 +29,7 @@ export default function Page() {
 					so far.
 				</p>
 				<p>
-					Last updated: <span className="font-bold text-white">September 19th, 2024</span>
+					Last updated: <span className="font-bold text-white">January 21st, 2025</span>
 				</p>
 			</section>
 			<section className="mt-32 grid auto-cols-auto grid-flow-row grid-cols-[auto_1fr] gap-x-4">

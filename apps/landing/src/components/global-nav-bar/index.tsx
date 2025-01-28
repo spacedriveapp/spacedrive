@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { memo, ReactNode, useCallback, useState } from 'react';
 import appFullLogo from '~/assets/app_full_logo.svg?url';
-import { CtaPrimaryButton } from '~/components/cta-primary-button';
+import { DownloadButton } from '~/components/download-button';
 
 import '~/styles/navbar.css';
 
@@ -29,13 +29,14 @@ import { ExternalLinkRegex } from '~/utils/regex-external-link';
 
 const NAVIGATION_ITEMS: { label: string; href: string; adornment?: string }[] = [
 	// { label: 'Explorer', href: '#' },
-	// { label: 'Cloud', href: '#' },
-	{ label: 'Roadmap', href: '/roadmap' },
-	{ label: 'Team', href: '/team' },
+
+	{ label: 'Pricing', href: '/pricing' },
 	// { label: 'Assistant', href: '#', adornment: 'New' },
 	// { label: 'Store', href: '#' },
 	// { label: 'Use Cases', href: '/use-cases' },
 	{ label: 'Blog', href: '/blog' },
+	{ label: 'Team', href: '/team' },
+	{ label: 'Roadmap', href: '/roadmap' },
 	{ label: 'Docs', href: '/docs/product/getting-started/introduction' },
 	{ label: 'Careers', href: '/careers' }
 ];
@@ -111,12 +112,8 @@ const MemoizedNavBar = memo(function NavBar() {
 					</div>
 
 					{/* Download Button */}
-					<div className="hidden items-center gap-[20px] lg:flex">
-						<CtaPrimaryButton
-							shrinksOnSmallScreen
-							platform={currentPlatform}
-							glow={'sm'}
-						/>
+					<div className="hidden items-center gap-2 lg:flex">
+						<DownloadButton platform={currentPlatform} />
 					</div>
 
 					{/* List Icon */}
@@ -176,11 +173,9 @@ const MemoizedNavBar = memo(function NavBar() {
 										)}
 									</NavLink>
 								))}
-								<CtaPrimaryButton
-									className="relative top-2"
-									glow={'sm'}
-									platform={currentPlatform}
-								/>
+								<div className="flex flex-col gap-4">
+									<DownloadButton platform={currentPlatform} />
+								</div>
 							</div>
 						</motion.div>
 					</>

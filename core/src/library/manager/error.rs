@@ -1,4 +1,4 @@
-use crate::{library::LibraryConfigError, location::LocationManagerError};
+use crate::{library::LibraryConfigError, location::LocationManagerError, volume};
 
 use sd_core_indexer_rules::seed::SeederError;
 use sd_core_sync::DevicePubId;
@@ -41,6 +41,8 @@ pub enum LibraryManagerError {
 	CurrentDeviceNotFound(DevicePubId),
 	#[error("missing-field: {0}")]
 	MissingField(#[from] MissingFieldError),
+	#[error("Error in volumes: {0}")]
+	VolumeError(#[from] volume::VolumeError),
 
 	#[error(transparent)]
 	FileIO(#[from] FileIOError),

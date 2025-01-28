@@ -60,7 +60,7 @@ export function createDateRangeFilter<T extends string | number>(
 
 		applyAdd: (data, option) => {
 			if ('from' in data) {
-				data.from = option.value;
+				data.from = option.value.from || option.value;
 			} else if ('to' in data) {
 				data.to = option.value;
 			} else {

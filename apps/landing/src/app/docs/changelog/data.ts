@@ -8,7 +8,10 @@ export async function getReleasesCategories(): Promise<SectionMeta['categories']
 
 	const categories: Record<string, SectionMeta['categories'][number]> = {};
 
-	for (const release of releases ?? []) {
+	// Ensure releases is an array before iteration
+	const releasesArray = Array.isArray(releases) ? releases : [];
+
+	for (const release of releasesArray) {
 		if (release.draft) continue;
 
 		const { frontmatter } = getReleaseFrontmatter(release);

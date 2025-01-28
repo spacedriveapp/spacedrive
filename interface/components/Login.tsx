@@ -49,6 +49,7 @@ async function signInClicked(
 			cloudBootstrap.mutate([tokens.accessToken, tokens.refreshToken]);
 			saveEmailAddress.mutate(email);
 			toast.success('Sign in successful');
+			console.log('Reloading state');
 			reload(true);
 		}
 	} catch (err: any) {
@@ -140,13 +141,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 	return (
 		<Form
 			onSubmit={form.handleSubmit(async (data) => {
-				await signInClicked(
-					data.email,
-					data.password,
-					reload,
-					cloudBootstrap,
-					saveEmailAddress
-				);
+				await signInClicked(data.email, data.password, reload, cloudBootstrap, saveEmailAddress);
 			})}
 			className="w-full"
 			form={form}
@@ -170,9 +165,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 						)}
 					/>
 					{form.formState.errors.email && (
-						<p className="text-xs text-red-500">
-							{form.formState.errors.email.message}
-						</p>
+						<p className="text-xs text-red-500">{form.formState.errors.email.message}</p>
 					)}
 				</div>
 
@@ -196,17 +189,12 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 										field.onChange(pastedText);
 									}}
 								/>
-								<ShowPassword
-									showPassword={showPassword}
-									setShowPassword={setShowPassword}
-								/>
+								<ShowPassword showPassword={showPassword} setShowPassword={setShowPassword} />
 							</div>
 						)}
 					/>
 					{form.formState.errors.password && (
-						<p className="text-xs text-red-500">
-							{form.formState.errors.password.message}
-						</p>
+						<p className="text-xs text-red-500">{form.formState.errors.password.message}</p>
 					)}
 				</div>
 			</div>
@@ -217,13 +205,7 @@ const LoginForm = ({ reload, cloudBootstrap, setContinueWithEmail }: LoginProps)
 				variant="accent"
 				size="md"
 				onClick={form.handleSubmit(async (data) => {
-					await signInClicked(
-						data.email,
-						data.password,
-						reload,
-						cloudBootstrap,
-						saveEmailAddress
-					);
+					await signInClicked(data.email, data.password, reload, cloudBootstrap, saveEmailAddress);
 				})}
 				disabled={form.formState.isSubmitting}
 			>
@@ -292,9 +274,7 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 									size="md"
 									className="w-full"
 									placeholder="johndoe@gmail.com"
-									error={Boolean(
-										ContinueWithEmailForm.formState.errors.email?.message
-									)}
+									error={Boolean(ContinueWithEmailForm.formState.errors.email?.message)}
 								/>
 							)}
 						/>
@@ -322,9 +302,7 @@ const ContinueWithEmail = ({ setContinueWithEmail, reload, cloudBootstrap }: Pro
 						<p>{t('login_link_sent')}</p>
 						<p>
 							{t('check_your_inbox')}{' '}
-							<span className="font-bold">
-								{ContinueWithEmailForm.getValues().email}
-							</span>
+							<span className="font-bold">{ContinueWithEmailForm.getValues().email}</span>
 						</p>
 					</div>
 				</div>

@@ -2,7 +2,7 @@ import { allDocs } from '@contentlayer/generated';
 import { CaretRight } from '@phosphor-icons/react/dist/ssr';
 import { Github } from '@sd/assets/svgs/brands';
 import { Metadata } from 'next';
-import { getMDXComponent } from 'next-contentlayer/hooks';
+import { getMDXComponent } from 'next-contentlayer2/hooks';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { DocMDXComponents } from '~/components/mdx';

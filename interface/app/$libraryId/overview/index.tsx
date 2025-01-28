@@ -48,6 +48,7 @@ export const Component = () => {
 	}, []);
 	const { data: node } = useBridgeQuery(['nodeState']);
 	const stats = useLibraryQuery(['library.statistics']);
+	console.log('stats', stats.data);
 
 	const search = useSearchFromSearchParams({ defaultTarget: 'paths' });
 
@@ -57,9 +58,7 @@ export const Component = () => {
 				<TopBarPortal
 					left={
 						<div className="flex items-center gap-2">
-							<span className="truncate text-sm font-medium">
-								{t('library_overview')}
-							</span>
+							<span className="truncate text-sm font-medium">{t('library_overview')}</span>
 						</div>
 					}
 					center={<SearchBar redirectToSearch />}
@@ -79,9 +78,7 @@ export const Component = () => {
 							<StatisticItem
 								name={node.name}
 								icon={hardwareModelToIcon(node.device_model as any)}
-								totalSpace={
-									stats.data?.statistics?.total_local_bytes_capacity || '0'
-								}
+								totalSpace={stats.data?.statistics?.total_local_bytes_capacity || '0'}
 								freeSpace={stats.data?.statistics?.total_local_bytes_free || '0'}
 								color="#0362FF"
 								connectionType={null}

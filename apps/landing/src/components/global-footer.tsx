@@ -1,21 +1,94 @@
 'use client';
 
+import clsx from 'clsx';
 import Image from 'next/image';
+import { use, useEffect, useState } from 'react';
+import { getLatestRelease, githubFetch } from '~/app/api/github';
 import companyLogoFull from '~/assets/company_full_logo.svg?url';
-import { CtaPrimaryButton } from '~/components/cta-primary-button';
-import { useCurrentPlatform } from '~/utils/current-platform';
 
+import { useCurrentPlatform } from '../utils/current-platform';
+import { DownloadButton } from './download-button';
 import Particles from './particles';
+
+const versionPill = ({ state }: { state: 'Alpha' | 'Testing' }) => (
+	<span
+		className={clsx(
+			`ml-1.5 rounded px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100`,
+			{
+				'bg-primary-500': state === 'Alpha',
+				'bg-amber-500': state === 'Testing'
+			}
+		)}
+	>
+		{state}
+	</span>
+);
+
+interface DownloadProps {
+	title: string;
+	state: 'Alpha' | 'Testing';
+	version:
+		| 'Windows'
+		| { type: 'macOS'; isArm: boolean }
+		| 'Linux'
+		| 'iOS'
+		| 'Android'
+		| 'iPadOS'
+		| 'visionOS'
+		| 'Docker';
+	disabled?: boolean;
+}
+
+const Download = ({ title, state, version, disabled }: DownloadProps) => {
+	const getDownloadUrl = () => {
+		switch (version) {
+			case 'Windows':
+				return 'https://spacedrive.com/api/releases/desktop/stable/windows/x86_64';
+			case 'Linux':
+				return 'https://spacedrive.com/api/releases/desktop/stable/linux/x86_64';
+			case 'Docker':
+				return 'https://github.com/spacedriveapp/spacedrive/pkgs/container/spacedrive%2Fserver';
+			default:
+				if (typeof version === 'object' && version.type === 'macOS') {
+					return `https://spacedrive.com/api/releases/desktop/stable/macos/${
+						version.isArm ? 'aarch64' : 'x86_64'
+					}`;
+				}
+				return '#';
+		}
+	};
+
+	const css = disabled
+		? 'cursor-not-allowed text-gray-450'
+		: 'transition-colors hover:text-white';
+
+	return (
+		<a className={clsx('group relative', css)} href={getDownloadUrl()}>
+			{title}
+			{disabled ? null : versionPill({ state })}
+		</a>
+	);
+};
 
 export function GlobalFooter() {
 	const currentPlatform = useCurrentPlatform();
+	const [releaseTag, setReleaseTag] = useState<string | null>(null);
+
+	useEffect(() => {
+		async function fetchRelease() {
+			const release = await githubFetch(getLatestRelease);
+			setReleaseTag(release.tag_name);
+		}
+
+		fetchRelease();
+	}, []);
 
 	return (
 		<div className="relative">
 			{/* Download Button */}
 			<div className="relative z-20 col-span-2 mt-20 flex translate-y-2 flex-col items-center justify-center">
 				<div className="relative translate-y-3.5">
-					<CtaPrimaryButton platform={currentPlatform} />
+					<DownloadButton platform={currentPlatform} />
 				</div>
 			</div>
 			<div className="absolute inset-x-0 top-[-40px] mx-auto size-[200px] md:top-[-70px] md:size-[500px]">
@@ -100,7 +173,12 @@ export function GlobalFooter() {
 								</a>
 							</li>
 							<li>
-								<a className="transition-colors hover:text-white" href="#">
+								<a
+									className="transition-colors hover:text-white"
+									href={`http://localhost:3000/docs/changelog/alpha/${
+										releaseTag
+									}`}
+								>
 									Changelog
 								</a>
 							</li>
@@ -114,99 +192,59 @@ export function GlobalFooter() {
 						</h2>
 						<ul className="flex flex-col gap-2.5 tracking-[0.04em]">
 							<li>
-								<a
-									className="group relative transition-colors hover:text-white"
-									href="https://spacedrive.com/api/releases/desktop/stable/darwin/aarch64"
-								>
-									macOS
-									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										alpha
-									</span>
-								</a>
+								<Download
+									title="macOS - Apple Silicon"
+									state="Alpha"
+									version={{ type: 'macOS', isArm: true }}
+								/>
 							</li>
 							<li>
-								<a
-									className="group relative transition-colors hover:text-white"
-									href="https://spacedrive.com/api/releases/desktop/stable/darwin/x86_64"
-								>
-									macOS - Intel
-									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										alpha
-									</span>
-								</a>
+								<Download
+									title="macOS - Intel"
+									state="Alpha"
+									version={{ type: 'macOS', isArm: false }}
+								/>
 							</li>
 							<li>
-								<a
-									className="group relative transition-colors hover:text-white"
-									href="https://spacedrive.com/api/releases/desktop/stable/windows/x86_64"
-								>
-									Windows
-									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										alpha
-									</span>
-								</a>
+								<Download title="Windows" state="Alpha" version="Windows" />
 							</li>
 							<li>
-								<a
-									className="group relative transition-colors hover:text-white"
-									href="https://spacedrive.com/api/releases/desktop/stable/linux/x86_64"
-								>
-									Linux
-									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										alpha
-									</span>
-								</a>
+								<Download title="Linux" state="Alpha" version="Linux" />
 							</li>
 							<li className="w-fit">
-								<a href="#" className="group relative">
-									iOS
-									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										testing
-									</span>
-								</a>
+								<Download
+									title="iOS"
+									state="Testing"
+									version="iOS"
+									disabled={true}
+								/>
 							</li>
 							<li className="w-fit">
-								<a href="#" className="group relative">
-									Android
-									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										testing
-									</span>
-								</a>
+								<Download
+									title="Android"
+									state="Testing"
+									version="Android"
+									disabled={true}
+								/>
 							</li>
 							<li className="w-fit">
-								<a href="#" className="group relative">
-									iPadOS
-									<span className="ml-1.5 rounded bg-amber-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										testing
-									</span>
-								</a>
+								<Download
+									title="iPadOS"
+									state="Testing"
+									version="iPadOS"
+									disabled={true}
+								/>
 							</li>
 							<li className="w-fit cursor-not-allowed">
-								<a
-									className="pointer-events-none cursor-not-allowed text-gray-450"
-									href="#"
-								>
-									visionOS
-								</a>
-							</li>
-							<li className="w-fit cursor-not-allowed">
-								<a
-									className="pointer-events-none cursor-not-allowed text-gray-450"
-									href="#"
-								>
-									watchOS
-								</a>
+								<Download
+									title="visionOS"
+									state="Testing"
+									version="visionOS"
+									disabled={true}
+								/>
 							</li>
 							<li className="w-fit">
-								<a
-									className="group transition-colors hover:text-white"
-									href="/docs/product/getting-started/setup#docker"
-								>
-									Docker
-									<span className="ml-1.5 rounded bg-primary-500 px-1.5 py-0.5 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-										alpha
-									</span>
-								</a>
+								<Download title="Docker" state="Alpha" version="Docker" />
 							</li>
 						</ul>
 					</div>

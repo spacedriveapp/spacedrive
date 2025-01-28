@@ -28,7 +28,7 @@ export function PlatformIcons() {
 			>
 				<FontAwesomeIcon
 					icon={faWindows}
-					className="h-5 w-5 cursor-pointer text-white/50 transition-colors hover:text-white"
+					className="size-5 cursor-pointer text-white/50 transition-colors hover:text-white"
 				/>
 			</a>
 
@@ -39,7 +39,7 @@ export function PlatformIcons() {
 			>
 				<FontAwesomeIcon
 					icon={faLinux}
-					className="h-5 w-5 cursor-pointer text-white/50 transition-colors hover:text-white"
+					className="size-5 cursor-pointer text-white/50 transition-colors hover:text-white"
 				/>
 			</a>
 
@@ -47,18 +47,18 @@ export function PlatformIcons() {
 			<span className="w-fit cursor-not-allowed">
 				<FontAwesomeIcon
 					icon={faAndroid}
-					className="h-5 w-5 cursor-not-allowed text-white/30"
+					className="size-5 cursor-not-allowed text-white/30"
 				/>
 			</span>
 
 			{/* Docker */}
 			<a
-				href="https://github.com/spacedriveapp/spacedrive/pkgs/container/spacedrive"
+				href="https://github.com/spacedriveapp/spacedrive/pkgs/container/spacedrive%2Fserver"
 				className="group relative"
 			>
 				<FontAwesomeIcon
 					icon={faDocker}
-					className="h-5 w-5 cursor-pointer text-white/50 transition-colors hover:text-white"
+					className="size-5 cursor-pointer text-white/50 transition-colors hover:text-white"
 				/>
 			</a>
 		</div>

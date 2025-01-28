@@ -56,6 +56,8 @@ impl VolumeExt for Volume {
 pub use os::linux::get_volumes;
 #[cfg(target_os = "macos")]
 pub use os::macos::get_volumes;
+#[cfg(any(target_os = "ios", target_os = "android"))]
+pub use os::mobile::get_volumes;
 #[cfg(target_os = "windows")]
 pub use os::windows::get_volumes;
 

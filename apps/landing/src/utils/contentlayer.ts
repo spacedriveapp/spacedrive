@@ -19,12 +19,16 @@ type DocsSection = {
 export type DocsNavigation = DocsSection[];
 
 export function getDocsNavigation(docs: Doc[]): DocsNavigation {
+	if (!Array.isArray(docs)) return [];
+
 	const coreDocs = allCoreContent(docs);
+	if (!coreDocs.length) return [];
 
 	const docsNavigation: DocsNavigation = [];
 
 	const docsBySection = coreDocs.reduce(
 		(acc, doc) => {
+			if (!doc?.section) return acc;
 			const section = doc.section;
 			acc[section] = acc[section] || [];
 			acc[section].push(doc);
@@ -33,12 +37,13 @@ export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 		{} as Record<string, CoreContent<Doc>[]>
 	);
 
-	// console.log('docsBySection', docsBySection);
-
 	for (const section in docsBySection) {
+		if (!docsBySection[section]?.length) continue;
+
 		const docs = docsBySection[section];
 		const docsByCategory = docs.reduce(
 			(acc, doc) => {
+				if (!doc?.category) return acc;
 				const category = doc.category;
 				acc[category] = acc[category] || [];
 				acc[category].push(doc);
@@ -47,35 +52,23 @@ export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 			{} as Record<string, CoreContent<Doc>[]>
 		);
 
-		// console.log('docsByCategory', docsByCategory);
-
-		const sectionNavigation: DocsCategory[] = [];
-		for (const category in docsByCategory) {
-			const docs = docsByCategory[category];
-			docs.sort((a, b) => a.index - b.index);
-			const categoryIndex = docs[0].index;
-			sectionNavigation.push({
+		const categories = Object.entries(docsByCategory)
+			.filter(([_, docs]) => Array.isArray(docs) && docs.length > 0)
+			.map(([category, docs]) => ({
 				title: toTitleCase(category),
 				slug: category,
-				categoryIndex,
-				docs
+				categoryIndex: docs[0]?.index ?? 0,
+				docs: docs.sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+			}))
+			.sort((a, b) => a.categoryIndex - b.categoryIndex);
+
+		if (categories.length > 0) {
+			docsNavigation.push({
+				slug: section,
+				categories
 			});
 		}
-
-		sectionNavigation.sort((a, b) => a.categoryIndex - b.categoryIndex);
-
-		docsNavigation.push({
-			slug: section,
-			categories: sectionNavigation
-		});
 	}
-
-	// Sort the sections using the order on iconConfig
-	docsNavigation.sort((a, b) => {
-		const aIndex = Object.keys(iconConfig).indexOf(a.slug);
-		const bIndex = Object.keys(iconConfig).indexOf(b.slug);
-		return aIndex - bIndex;
-	});
 
 	return docsNavigation;
 }
@@ -84,29 +77,27 @@ export function getDocsNavigation(docs: Doc[]): DocsNavigation {
 export const iconConfig: Record<string, Icon> = {
 	product: Sparkle,
 	developers: Cube,
-	company: Circle,
-	changelog: Star
+	company: Star,
+	changelog: Circle
 };
 
 export function getSortedDocs(docs: Doc[]) {
-	return docs.sort((a, b) => a.index - b.index);
+	return docs.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
 }
 
-// This function is used to omit the fields that are not needed in the sidebar navigation
-export const omit = <Obj, Keys extends keyof Obj>(obj: Obj, keys: Keys[]): Omit<Obj, Keys> => {
-	const result = Object.assign({}, obj);
-	keys.forEach((key) => {
-		delete result[key];
-	});
+function omit<Obj extends object, Keys extends keyof Obj>(obj: Obj, keys: Keys[]): Omit<Obj, Keys> {
+	const result = { ...obj };
+	keys.forEach((key) => delete result[key]);
 	return result;
-};
+}
 
-export type CoreContent<T> = Omit<T, 'body' | '_raw' | '_id'>;
+type CoreContent<T> = Omit<T, 'body' | '_raw' | '_id'>;
 
-export function coreContent<T extends DocumentTypes>(content: T) {
+function coreContent<T extends DocumentTypes>(content: T): CoreContent<T> {
 	return omit(content, ['body', '_raw', '_id']);
 }
 
-export function allCoreContent<T extends DocumentTypes>(contents: T[]) {
+function allCoreContent<T extends DocumentTypes>(contents: T[]) {
+	if (!Array.isArray(contents)) return [];
 	return contents.map((c) => coreContent(c));
 }

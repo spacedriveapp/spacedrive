@@ -695,6 +695,8 @@
   "spacedrop_already_progress": "Spacedrop already in progress",
   "spacedrop_contacts_only": "Contacts Only",
   "spacedrop_description": "Share instantly with devices running Spacedrive on your network.",
+  "spacedrop_default_location": "Default location for Spacedrop",
+  "spacedrop_default_location_description": "Share instantly with devices running Spacedrive on your network.",
   "spacedrop_disabled": "Disabled",
   "spacedrop_everyone": "Everyone",
   "spacedrop_rejected": "Spacedrop rejected",

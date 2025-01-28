@@ -12,6 +12,8 @@ import Particles from '~/components/particles';
 import { PlatformIcons } from '~/components/platform-icons';
 import { toTitleCase } from '~/utils/misc';
 
+import { Icon } from '../Icon';
+
 export async function Header() {
 	const [release, repoStats] = await Promise.all([
 		githubFetch(getLatestRelease),
@@ -32,9 +34,9 @@ export async function Header() {
 
 			<h1 className="fade-in-heading z-30 mb-3 text-center text-3xl font-bold leading-[1.3] tracking-tight md:text-5xl lg:text-6xl">
 				<span className="inline bg-gradient-to-b from-[#EFF1FB_15%] to-[#B8CEE0_85%] bg-clip-text text-transparent">
-					{`Sync, manage, & discover.`}
+					Sync, manage, & discover.
 					<br />
-					{`Across all your devices.`}
+					Across all your devices.
 				</span>
 			</h1>
 
@@ -78,12 +80,19 @@ export async function Header() {
 					/>
 					{/* 2nd light */}
 					<div className="animation-delay-2 absolute-horizontal-center top-[450px] size-[150px] rounded-full bg-gradient-to-t from-transparent to-[#328FDD]/40 blur-[20px] fade-in xs:top-[180px] md:top-[500px] md:h-[500px] md:w-[240px] md:blur-2xl" />
-					<HeroImage
-						src="/images/app/app.webp"
-						alt="Spacedrive App Image"
-						width={1200}
-						height={800}
-					/>
+					<div className="relative">
+						<Icon
+							name="FolderNoSpace"
+							size={200}
+							className="absolute -left-32 top-[400px] -z-[1] rotate-[-30deg] fade-in"
+						/>
+						<HeroImage
+							src="/images/app/AppHero.png"
+							alt="Spacedrive App Image"
+							width={1200}
+							height={800}
+						/>
+					</div>
 				</div>
 			</div>
 		</div>
