@@ -8,7 +8,7 @@ use crate::{
 	Node,
 };
 
-use sd_core_sync::{SyncEvent, SyncManager};
+use sd_core_sync::{DevicePubId, SyncEvent, SyncManager};
 
 use sd_p2p::{Identity, RemoteIdentity};
 use sd_prisma::{
@@ -470,7 +470,7 @@ impl Libraries {
 		}
 
 		let node_config = node.config.get().await;
-		let device_pub_id = node_config.id.clone();
+		let device_pub_id: DevicePubId = node_config.id.clone();
 		let config = LibraryConfig::load(config_path, &node_config, &db).await?;
 
 		let instances = db.instance().find_many(vec![]).exec().await?;
@@ -490,7 +490,17 @@ impl Libraries {
 			.iter()
 			.any(|device| device.pub_id == device_pub_id_to_db)
 		{
-			return Err(LibraryManagerError::CurrentDeviceNotFound(device_pub_id));
+			// return Err(LibraryManagerError::CurrentDeviceNotFound(device_pub_id));
+			// Create the device if it doesn't exist
+			device::Create {
+				pub_id: device_pub_id_to_db,
+				_params: vec![
+					device::name::set(Some(node_config.name.clone())),
+					device::os::set(Some(node_config.os as i32)),
+					device::hardware_model::set(Some(node_config.hardware_model as i32)),
+					device::date_created::set(Some(Utc::now().fixed_offset())),
+				],
+			}.to_query(&db).exec().await?;
 		}
 
 		let identity = match instance.identity.as_ref() {

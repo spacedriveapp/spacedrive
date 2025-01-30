@@ -2,19 +2,33 @@
   Warnings:
 
   - You are about to drop the `node` table. If the table is not empty, all the data it contains will be lost.
+  - You are about to drop the `storage_statistics` table. If the table is not empty, all the data it contains will be lost.
   - You are about to drop the column `instance_id` on the `cloud_crdt_operation` table. All the data in the column will be lost.
   - You are about to drop the column `instance_id` on the `crdt_operation` table. All the data in the column will be lost.
-  - You are about to drop the column `instance_pub_id` on the `storage_statistics` table. All the data in the column will be lost.
+  - You are about to drop the column `filesystem` on the `volume` table. All the data in the column will be lost.
+  - You are about to drop the column `is_system` on the `volume` table. All the data in the column will be lost.
   - Added the required column `device_pub_id` to the `cloud_crdt_operation` table without a default value. This is not possible if the table is not empty.
   - Added the required column `device_pub_id` to the `crdt_operation` table without a default value. This is not possible if the table is not empty.
+  - Added the required column `pub_id` to the `volume` table without a default value. This is not possible if the table is not empty.
 
 */
 -- DropIndex
 DROP INDEX "node_pub_id_key";
 
+-- DropIndex
+DROP INDEX "storage_statistics_instance_pub_id_key";
+
+-- DropIndex
+DROP INDEX "storage_statistics_pub_id_key";
+
 -- DropTable
 PRAGMA foreign_keys=off;
 DROP TABLE "node";
+PRAGMA foreign_keys=on;
+
+-- DropTable
+PRAGMA foreign_keys=off;
+DROP TABLE "storage_statistics";
 PRAGMA foreign_keys=on;
 
 -- CreateTable
@@ -39,8 +53,7 @@ CREATE TABLE "new_cloud_crdt_operation" (
     "record_id" BLOB NOT NULL,
     "kind" TEXT NOT NULL,
     "data" BLOB NOT NULL,
-    "device_pub_id" BLOB NOT NULL,
-    CONSTRAINT "cloud_crdt_operation_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "device_pub_id" BLOB NOT NULL
 );
 INSERT INTO "new_cloud_crdt_operation" ("data", "id", "kind", "model", "record_id", "timestamp") SELECT "data", "id", "kind", "model", "record_id", "timestamp" FROM "cloud_crdt_operation";
 DROP TABLE "cloud_crdt_operation";
@@ -53,8 +66,7 @@ CREATE TABLE "new_crdt_operation" (
     "record_id" BLOB NOT NULL,
     "kind" TEXT NOT NULL,
     "data" BLOB NOT NULL,
-    "device_pub_id" BLOB NOT NULL,
-    CONSTRAINT "crdt_operation_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "device_pub_id" BLOB NOT NULL
 );
 INSERT INTO "new_crdt_operation" ("data", "id", "kind", "model", "record_id", "timestamp") SELECT "data", "id", "kind", "model", "record_id", "timestamp" FROM "crdt_operation";
 DROP TABLE "crdt_operation";
@@ -72,9 +84,9 @@ CREATE TABLE "new_exif_data" (
     "exif_version" TEXT,
     "epoch_time" BIGINT,
     "object_id" INTEGER NOT NULL,
-    "device_pub_id" BLOB,
+    "device_id" INTEGER,
     CONSTRAINT "exif_data_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "exif_data_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "exif_data_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_exif_data" ("artist", "camera_data", "copyright", "description", "epoch_time", "exif_version", "id", "media_date", "media_location", "object_id", "resolution") SELECT "artist", "camera_data", "copyright", "description", "epoch_time", "exif_version", "id", "media_date", "media_location", "object_id", "resolution" FROM "exif_data";
 DROP TABLE "exif_data";
@@ -99,10 +111,10 @@ CREATE TABLE "new_file_path" (
     "date_created" DATETIME,
     "date_modified" DATETIME,
     "date_indexed" DATETIME,
-    "device_pub_id" BLOB,
+    "device_id" INTEGER,
     CONSTRAINT "file_path_location_id_fkey" FOREIGN KEY ("location_id") REFERENCES "location" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "file_path_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
-    CONSTRAINT "file_path_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "file_path_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_file_path" ("cas_id", "date_created", "date_indexed", "date_modified", "extension", "hidden", "id", "inode", "integrity_checksum", "is_dir", "key_id", "location_id", "materialized_path", "name", "object_id", "pub_id", "size_in_bytes", "size_in_bytes_bytes") SELECT "cas_id", "date_created", "date_indexed", "date_modified", "extension", "hidden", "id", "inode", "integrity_checksum", "is_dir", "key_id", "location_id", "materialized_path", "name", "object_id", "pub_id", "size_in_bytes", "size_in_bytes_bytes" FROM "file_path";
 DROP TABLE "file_path";
@@ -116,12 +128,12 @@ CREATE TABLE "new_label_on_object" (
     "date_created" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "object_id" INTEGER NOT NULL,
     "label_id" INTEGER NOT NULL,
-    "device_pub_id" BLOB,
+    "device_id" INTEGER,
 
     PRIMARY KEY ("label_id", "object_id"),
     CONSTRAINT "label_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "label_on_object_label_id_fkey" FOREIGN KEY ("label_id") REFERENCES "label" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "label_on_object_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "label_on_object_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_label_on_object" ("date_created", "label_id", "object_id") SELECT "date_created", "label_id", "object_id" FROM "label_on_object";
 DROP TABLE "label_on_object";
@@ -140,9 +152,9 @@ CREATE TABLE "new_location" (
     "hidden" BOOLEAN,
     "date_created" DATETIME,
     "scan_state" INTEGER NOT NULL DEFAULT 0,
-    "device_pub_id" BLOB,
+    "device_id" INTEGER,
     "instance_id" INTEGER,
-    CONSTRAINT "location_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "location_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "location_instance_id_fkey" FOREIGN KEY ("instance_id") REFERENCES "instance" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 INSERT INTO "new_location" ("available_capacity", "date_created", "generate_preview_media", "hidden", "id", "instance_id", "is_archived", "name", "path", "pub_id", "scan_state", "size_in_bytes", "sync_preview_media", "total_capacity") SELECT "available_capacity", "date_created", "generate_preview_media", "hidden", "id", "instance_id", "is_archived", "name", "path", "pub_id", "scan_state", "size_in_bytes", "sync_preview_media", "total_capacity" FROM "location";
@@ -160,40 +172,51 @@ CREATE TABLE "new_object" (
     "note" TEXT,
     "date_created" DATETIME,
     "date_accessed" DATETIME,
-    "device_pub_id" BLOB,
-    CONSTRAINT "object_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
+    "device_id" INTEGER,
+    CONSTRAINT "object_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_object" ("date_accessed", "date_created", "favorite", "hidden", "id", "important", "key_id", "kind", "note", "pub_id") SELECT "date_accessed", "date_created", "favorite", "hidden", "id", "important", "key_id", "kind", "note", "pub_id" FROM "object";
 DROP TABLE "object";
 ALTER TABLE "new_object" RENAME TO "object";
 CREATE UNIQUE INDEX "object_pub_id_key" ON "object"("pub_id");
-CREATE TABLE "new_storage_statistics" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "pub_id" BLOB NOT NULL,
-    "total_capacity" BIGINT NOT NULL DEFAULT 0,
-    "available_capacity" BIGINT NOT NULL DEFAULT 0,
-    "device_pub_id" BLOB,
-    CONSTRAINT "storage_statistics_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-INSERT INTO "new_storage_statistics" ("available_capacity", "id", "pub_id", "total_capacity") SELECT "available_capacity", "id", "pub_id", "total_capacity" FROM "storage_statistics";
-DROP TABLE "storage_statistics";
-ALTER TABLE "new_storage_statistics" RENAME TO "storage_statistics";
-CREATE UNIQUE INDEX "storage_statistics_pub_id_key" ON "storage_statistics"("pub_id");
-CREATE UNIQUE INDEX "storage_statistics_device_pub_id_key" ON "storage_statistics"("device_pub_id");
 CREATE TABLE "new_tag_on_object" (
     "object_id" INTEGER NOT NULL,
     "tag_id" INTEGER NOT NULL,
     "date_created" DATETIME,
-    "device_pub_id" BLOB,
+    "device_id" INTEGER,
 
     PRIMARY KEY ("tag_id", "object_id"),
     CONSTRAINT "tag_on_object_object_id_fkey" FOREIGN KEY ("object_id") REFERENCES "object" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT "tag_on_object_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tag" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT "tag_on_object_device_pub_id_fkey" FOREIGN KEY ("device_pub_id") REFERENCES "device" ("pub_id") ON DELETE CASCADE ON UPDATE CASCADE
+    CONSTRAINT "tag_on_object_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 INSERT INTO "new_tag_on_object" ("date_created", "object_id", "tag_id") SELECT "date_created", "object_id", "tag_id" FROM "tag_on_object";
 DROP TABLE "tag_on_object";
 ALTER TABLE "new_tag_on_object" RENAME TO "tag_on_object";
+CREATE TABLE "new_volume" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "pub_id" BLOB NOT NULL,
+    "name" TEXT,
+    "mount_point" TEXT,
+    "mount_type" TEXT,
+    "total_bytes_capacity" TEXT,
+    "total_bytes_available" TEXT,
+    "disk_type" TEXT,
+    "file_system" TEXT,
+    "date_modified" DATETIME,
+    "is_mounted" BOOLEAN,
+    "read_speed_mbps" BIGINT,
+    "write_speed_mbps" BIGINT,
+    "read_only" BOOLEAN,
+    "error_status" TEXT,
+    "device_id" INTEGER,
+    CONSTRAINT "volume_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "device" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+INSERT INTO "new_volume" ("date_modified", "disk_type", "id", "mount_point", "name", "total_bytes_available", "total_bytes_capacity") SELECT "date_modified", "disk_type", "id", "mount_point", "name", "total_bytes_available", "total_bytes_capacity" FROM "volume";
+DROP TABLE "volume";
+ALTER TABLE "new_volume" RENAME TO "volume";
+CREATE UNIQUE INDEX "volume_pub_id_key" ON "volume"("pub_id");
+CREATE UNIQUE INDEX "volume_device_id_mount_point_name_total_bytes_capacity_file_system_key" ON "volume"("device_id", "mount_point", "name", "total_bytes_capacity", "file_system");
 PRAGMA foreign_keys=ON;
 PRAGMA defer_foreign_keys=OFF;
 
