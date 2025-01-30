@@ -7,7 +7,8 @@ use crate::{
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_sync::DevicePubId;
 use sd_p2p::Identity;
-use sd_utils::error::FileIOError;
+use sd_prisma::prisma::device;
+use sd_utils::{db, error::FileIOError};
 
 use std::{
 	collections::HashSet,
@@ -418,12 +419,6 @@ impl NodeConfig {
 								);
 							}
 						}
-						// config.remove("id");
-						// config.insert(
-						// 	String::from("id"),
-						// 	serde_json::to_value(DevicePubId::from(Uuid::now_v7()))
-						// 		.map_err(VersionManagerError::SerdeJson)?,
-						// );
 
 						// Create a .sdks file in the data directory if it doesn't exist
 						let data_directory = path
