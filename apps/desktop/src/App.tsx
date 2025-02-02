@@ -89,6 +89,10 @@ function useDragAndDrop() {
 		});
 
 		(async () => {
+			if (['linux', 'browser'].includes(await platform.getOs())) {
+				console.log('Skipping drag operation on Linux or Browser');
+				return;
+			}
 			if (dragState?.type === 'dragging' && dragState.items.length > 0) {
 				console.log('Starting drag operation with items:', dragState.items);
 
