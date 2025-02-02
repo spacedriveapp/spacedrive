@@ -46,12 +46,12 @@ import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/accou
 import { useLocale } from '@sd/interface/hooks';
 import { AUTH_SERVER_URL, getTokens } from '@sd/interface/util';
 
+import { Transparent } from '../../../packages/assets/images';
 import { commands } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
-import { Transparent } from '../../../packages/assets/images';
 
 declare global {
 	interface Window {
@@ -146,7 +146,9 @@ function useDragAndDrop() {
 						explorerStore.drag = null;
 					};
 
-					const image = !Transparent.includes('/@fs/') ? Transparent : Transparent.replace('/@fs', '');
+					const image = !Transparent.includes('/@fs/')
+						? Transparent
+						: Transparent.replace('/@fs', '');
 
 					await invoke('start_drag', {
 						files: validFiles,
