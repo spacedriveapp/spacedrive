@@ -46,12 +46,12 @@ import getWindowHandler from '@sd/interface/app/$libraryId/settings/client/accou
 import { useLocale } from '@sd/interface/hooks';
 import { AUTH_SERVER_URL, getTokens } from '@sd/interface/util';
 
-import { Transparent } from '../../../packages/assets/images';
 import { commands } from './commands';
 import { platform } from './platform';
 import { queryClient } from './query';
 import { createMemoryRouterWithHistory } from './router';
 import { createUpdater } from './updater';
+import { Transparent } from '../../../packages/assets/images';
 
 declare global {
 	interface Window {
@@ -113,9 +113,6 @@ function useDragAndDrop() {
 					})
 				);
 
-				const image = Transparent.split('/@fs')[1]!;
-				console.log('Using preview image:', image);
-
 				const validFiles = items.filter(Boolean).map((item) => item?.file_path);
 				console.log('Invoking start_drag with files:', validFiles);
 
@@ -147,7 +144,7 @@ function useDragAndDrop() {
 
 					await invoke('start_drag', {
 						files: validFiles,
-						iconPath: image,
+						image: Transparent,
 						onEvent: channel
 					});
 					console.log('start_drag invoked successfully');
@@ -155,6 +152,9 @@ function useDragAndDrop() {
 					console.error('Failed to start drag:', error);
 					explorerStore.drag = null;
 				}
+			} else {
+				console.log('Drag operation cancelled');
+				await invoke('stop_drag');
 			}
 		})();
 	}, [dragState]);

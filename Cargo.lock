@@ -2408,7 +2408,7 @@ dependencies = [
 [[package]]
 name = "drag"
 version = "2.0.0"
-source = "git+https://github.com/spacedriveapp/drag-rs?rev=157b2cd9#157b2cd99f68b63d826d0081de75a8d64b8341ed"
+source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#8d00b5b9409494e2aab359c90a4d5376d4e09aa9"
 dependencies = [
  "cocoa",
  "core-graphics 0.24.0",
@@ -10285,7 +10285,7 @@ dependencies = [
  "axum-extra",
  "base64 0.22.1",
  "dbus",
- "drag 2.0.0 (git+https://github.com/spacedriveapp/drag-rs?rev=157b2cd9)",
+ "drag 2.0.0 (git+https://github.com/spacedriveapp/drag-rs?branch=move-operation)",
  "futures",
  "http 1.1.0",
  "hyper 1.5.0",

@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use drag::{DragItem, Image, Options};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -59,7 +60,6 @@ impl From<drag::CursorPosition> for WrappedCursorPosition {
 // Global flag to track if position tracking is active
 static TRACKING: AtomicBool = AtomicBool::new(false);
 
-#[tauri::command(async)]
 /// Initiates a drag and drop operation with cursor position tracking
 ///
 /// # Arguments
@@ -68,14 +68,28 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// * `files` - Vector of file paths to be dragged
 /// * `icon_path` - Path to the preview icon for the drag operation
 /// * `on_event` - Channel for communicating drag operation events back to the frontend
+#[tauri::command(async)]
 #[specta::specta]
 pub async fn start_drag(
 	window: WebviewWindow,
 	_state: State<'_, DragState>,
 	files: Vec<String>,
-	icon_path: String,
+	image: String,
 	on_event: Channel<CallbackResult>,
 ) -> Result<(), String> {
+	// Check if image string is base64 encoded
+	let icon_path = if image.starts_with("data:image/") {
+		image
+	} else {
+		// If not, assume it's a file path and convert to base64
+		let icon_data = std::fs::read(&image).map_err(|e| e.to_string())?;
+		format!("data:image/png;base64,{}", base64::encode(icon_data))
+	};
+
+	// Convert the base64 string to a vec<u8>
+	let base64_str = icon_path.split(",").last().unwrap();
+	let image_raw = STANDARD.decode(base64_str).unwrap();
+
 	// Fast atomic swap for tracking state
 	match TRACKING.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst) {
 		Ok(_) => {
@@ -161,8 +175,7 @@ pub async fn start_drag(
 						let is_completed = is_completed_clone.clone();
 						let cancel_flag_clone = cancel_flag.clone();
 						let window_for_drag = window_owned.clone();
-						let drag_session = Arc::new(Mutex::new(None));
-						let drag_session_clone = drag_session.clone();
+						let image_raw_for_drag = image_raw.clone();
 
 						// Execute drag operation on main thread
 						app_handle_owned
@@ -174,7 +187,7 @@ pub async fn start_drag(
 										files_for_drag.iter().map(PathBuf::from).collect();
 									let item = DragItem::Files(paths);
 									let preview_icon =
-										Image::File(PathBuf::from(&icon_path_for_drag));
+										Image::Raw(image_raw_for_drag.clone());
 
 									// Start the drag operation
 									if let Ok(session) = drag::start_drag(
@@ -182,6 +195,7 @@ pub async fn start_drag(
 										item,
 										preview_icon,
 										move |result, cursor_pos| {
+											println!("Drag operation completed");
 											// Send result back to frontend
 											let _ = on_event_for_drag.send(CallbackResult {
 												result: result.into(),
@@ -198,7 +212,7 @@ pub async fn start_drag(
 									) {
 										println!("Drag operation started");
 										// Store drag session for cancellation
-										*drag_session_clone.lock().unwrap() = Some(session);
+										// *drag_session_clone.lock().unwrap() = Some(session);
 									}
 								} else {
 									println!("Cursor returned to window");
@@ -226,4 +240,10 @@ pub async fn start_drag(
 	});
 
 	Ok(())
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+pub async fn stop_drag() {
+	TRACKING.store(false, Ordering::SeqCst);
 }

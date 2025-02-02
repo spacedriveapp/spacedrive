@@ -74,6 +74,9 @@ export const commands = {
 			else return { status: 'error', error: e as any };
 		}
 	},
+	async stopDrag(): Promise<void> {
+		await TAURI_INVOKE('stop_drag');
+	},
 	async openFilePaths(
 		library: string,
 		ids: number[]

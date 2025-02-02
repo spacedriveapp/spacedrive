@@ -202,6 +202,7 @@ async fn main() -> tauri::Result<()> {
 			request_fda_macos,
 			open_trash_in_os_explorer,
 			drag::start_drag,
+			drag::stop_drag,
 			file::open_file_paths,
 			file::open_ephemeral_files,
 			file::get_file_path_open_with_apps,
