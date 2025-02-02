@@ -77,11 +77,11 @@ pub async fn start_drag(
 	image: String,
 	on_event: Channel<CallbackResult>,
 ) -> Result<(), String> {
+	// If on linux, do not run and throw an error saying that it is not supported for now
 	#[cfg(target_os = "linux")]
-	let window = window
-		.gtk_window()
-		.map_err(|_| "Failed to downcast to ApplicationWindow")?;
-
+	{
+		return Err("Drag and drop is not supported on Linux yet.".to_string());
+	}
 	// Check if image string is base64 encoded
 	let icon_path = if image.starts_with("data:image/") {
 		image

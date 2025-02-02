@@ -61,13 +61,13 @@ export const commands = {
 	 */
 	async startDrag(
 		files: string[],
-		iconPath: string,
+		image: string,
 		onEvent: TAURI_CHANNEL<CallbackResult>
 	): Promise<Result<null, string>> {
 		try {
 			return {
 				status: 'ok',
-				data: await TAURI_INVOKE('start_drag', { files, iconPath, onEvent })
+				data: await TAURI_INVOKE('start_drag', { files, image, onEvent })
 			};
 		} catch (e) {
 			if (e instanceof Error) throw e;
