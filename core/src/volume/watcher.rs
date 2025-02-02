@@ -103,7 +103,7 @@ impl VolumeWatcher {
 		{
 			use inotify::{Inotify, WatchMask};
 
-			let inotify = Inotify::init().map_err(|e| {
+			let mut inotify = Inotify::init().map_err(|e| {
 				VolumeError::Platform(format!("Failed to initialize inotify: {}", e))
 			})?;
 
