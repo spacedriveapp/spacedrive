@@ -66,7 +66,7 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// * `window` - The Tauri window instance
 /// * `_state` - Current drag state (unused)
 /// * `files` - Vector of file paths to be dragged
-/// * `icon_path` - Path to the preview icon for the drag operation
+/// * `image` - Base64 encoded image to be used as drag icon
 /// * `on_event` - Channel for communicating drag operation events back to the frontend
 #[tauri::command(async)]
 #[specta::specta]

@@ -142,9 +142,11 @@ function useDragAndDrop() {
 						explorerStore.drag = null;
 					};
 
+					const image = !Transparent.includes('/@fs/') ? Transparent : Transparent.replace('/@fs', '');
+
 					await invoke('start_drag', {
 						files: validFiles,
-						image: Transparent,
+						image: image,
 						onEvent: channel
 					});
 					console.log('start_drag invoked successfully');
