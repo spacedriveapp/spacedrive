@@ -111,7 +111,7 @@ impl VolumeWatcher {
 			for path in ["/dev", "/media", "/mnt", "/run/media"] {
 				if let Err(e) = inotify.add_watch(
 					path,
-					WatchMask::CREATE | WatchMask::DELETE | WatchMask::MODIFY | WatchMask::UNMOUNT,
+					WatchMask::CREATE | WatchMask::DELETE | WatchMask::MODIFY,
 				) {
 					warn!("Failed to watch path {}: {}", path, e);
 				}
