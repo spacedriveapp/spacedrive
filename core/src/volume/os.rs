@@ -210,7 +210,7 @@ pub mod linux {
 
 			for disk in sys.disks() {
 				if common::is_virtual_filesystem(
-					disk.file_system().to_string_lossy().to_string().as_str(),
+					disk.file_system().to_str_lossy().to_string().as_str(),
 				) {
 					continue;
 				}

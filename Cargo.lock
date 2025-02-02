@@ -3725,7 +3725,7 @@ dependencies = [
  "presser",
  "thiserror 1.0.64",
  "winapi",
- "windows 0.51.1",
+ "windows 0.52.0",
 ]
 
 [[package]]
@@ -4419,7 +4419,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core 0.51.1",
+ "windows-core 0.52.0",
 ]
 
 [[package]]
@@ -4672,6 +4672,19 @@ dependencies = [
  "bitflags 1.3.2",
  "inotify-sys",
  "libc",
+]
+
+[[package]]
+name = "inotify"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37dccff2791ab604f9babef0ba14fbe0be30bd368dc541e2b08d07c8aa908f3"
+dependencies = [
+ "bitflags 2.6.0",
+ "futures-core",
+ "inotify-sys",
+ "libc",
+ "tokio",
 ]
 
 [[package]]
@@ -5458,7 +5471,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -6858,7 +6871,7 @@ dependencies = [
  "bitflags 2.6.0",
  "filetime",
  "fsevent-sys",
- "inotify",
+ "inotify 0.10.2",
  "kqueue",
  "libc",
  "log",
@@ -10012,6 +10025,7 @@ dependencies = [
  "hyper-util",
  "icrate",
  "image",
+ "inotify 0.11.0",
  "int-enum",
  "itertools 0.13.0",
  "libc",
