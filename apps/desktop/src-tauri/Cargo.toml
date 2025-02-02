@@ -36,7 +36,7 @@ uuid               = { workspace = true, features = ["serde"] }
 
 # Specific Desktop dependencies
 # WARNING: Do NOT enable default features, as that vendors dbus (see below)
-drag                           = { git = "https://github.com/spacedriveapp/drag-rs", rev = "157b2cd9" }
+drag                           = { git = "https://github.com/spacedriveapp/drag-rs", branch = "move-operation" }
 opener                         = { version = "0.7.1", features = ["reveal"], default-features = false }
 specta-typescript              = "=0.0.7"
 tauri-plugin-clipboard-manager = "=2.0.1"
