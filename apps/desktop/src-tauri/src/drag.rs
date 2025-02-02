@@ -80,8 +80,6 @@ pub async fn start_drag(
 	#[cfg(target_os = "linux")]
 	let window = window
 		.gtk_window()
-		.ok_or("Failed to get GTK window")?
-		.downcast::<gtk::ApplicationWindow>()
 		.map_err(|_| "Failed to downcast to ApplicationWindow")?;
 
 	// Check if image string is base64 encoded
