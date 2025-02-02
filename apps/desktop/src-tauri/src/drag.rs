@@ -70,6 +70,7 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// * `on_event` - Channel for communicating drag operation events back to the frontend
 #[tauri::command(async)]
 #[specta::specta]
+#[cfg(not(target_os = "linux"))]
 pub async fn start_drag(
 	window: WebviewWindow,
 	_state: State<'_, DragState>,
@@ -77,11 +78,6 @@ pub async fn start_drag(
 	image: String,
 	on_event: Channel<CallbackResult>,
 ) -> Result<(), String> {
-	// If on linux, do not run and throw an error saying that it is not supported for now
-	#[cfg(target_os = "linux")]
-	{
-		return Err("Drag and drop is not supported on Linux yet.".to_string());
-	}
 	// Check if image string is base64 encoded
 	let icon_path = if image.starts_with("data:image/") {
 		image
@@ -246,6 +242,20 @@ pub async fn start_drag(
 	Ok(())
 }
 
+#[tauri::command(async)]
+#[specta::specta]
+#[cfg(target_os = "linux")]
+pub async fn start_drag(
+	_window: WebviewWindow,
+	_state: State<'_, DragState>,
+	_files: Vec<String>,
+	_image: String,
+	_on_event: Channel<CallbackResult>,
+) -> Result<(), String> {
+	Err("Drag and drop is not supported on Linux".to_string())
+}
+
+/// Stops the cursor position tracking for drag operations
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn stop_drag() {
