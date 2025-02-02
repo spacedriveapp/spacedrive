@@ -131,6 +131,7 @@ trash = "5.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 trash = "5.1"
+inotify = "0.11.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 trash   = "5.1"
