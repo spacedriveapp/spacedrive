@@ -77,13 +77,20 @@ pub async fn start_drag(
 	image: String,
 	on_event: Channel<CallbackResult>,
 ) -> Result<(), String> {
+	#[cfg(target_os = "linux")]
+	let window = window
+		.gtk_window()
+		.ok_or("Failed to get GTK window")?
+		.downcast::<gtk::ApplicationWindow>()
+		.map_err(|_| "Failed to downcast to ApplicationWindow")?;
+
 	// Check if image string is base64 encoded
 	let icon_path = if image.starts_with("data:image/") {
 		image
 	} else {
 		// If not, assume it's a file path and convert to base64
 		let icon_data = std::fs::read(&image).map_err(|e| e.to_string())?;
-		format!("data:image/png;base64,{}", base64::encode(icon_data))
+		format!("data:image/png;base64,{}", STANDARD.encode(icon_data))
 	};
 
 	// Convert the base64 string to a vec<u8>
@@ -186,8 +193,7 @@ pub async fn start_drag(
 									let paths: Vec<PathBuf> =
 										files_for_drag.iter().map(PathBuf::from).collect();
 									let item = DragItem::Files(paths);
-									let preview_icon =
-										Image::Raw(image_raw_for_drag.clone());
+									let preview_icon = Image::Raw(image_raw_for_drag.clone());
 
 									// Start the drag operation
 									if let Ok(session) = drag::start_drag(
