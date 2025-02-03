@@ -1,0 +1,90 @@
+name: Flatpak Release
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/flatpak.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  build:
+    name: Build Tauri
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: 'true'
+          remove-codeql: 'true'
+          remove-haskell: 'true'
+          remove-docker-images: 'true'
+          
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          target: x86_64-unknown-linux-gnu
+          
+      - name: Build Tauri
+        run:  |
+          pnpm tauri build --ci -v --target x86_64-unknown-linux-gnu --bundles deb
+
+      - name: Upload Tauri Build
+        uses: ./.github/actions/publish-artifacts
+        with:
+          os: linux
+          arch: x86_64
+          target: x86_64-unknown-linux-gnu
+          profile: release
+          
+  flatpak-build:
+    runs-on: ubuntu-latest
+    name: Flatpak Build
+    needs: build
+    permissions:
+      contents: write
+    steps:
+  
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+      
+      - name: Add Submodules
+        run: git submodule add https://github.com/flathub/shared-modules.git .github/flatpak/shared-modules
+        
+      - name: Install FlatPak dependencies
+        run: |
+          df -h
+          mkdir -p out
+          sudo apt-get update
+          sudo apt-get install -y libc6 libxdo3 dbus libwebkit2gtk-4.1-0 gstreamer1.0-plugins-ugly gstreamer1.0-plugins-bad libgtk-3-0 librsvg2-dev patchelf flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y runtime/org.gnome.Platform/x86_64/46 runtime/org.gnome.Sdk/x86_64/46
+          mv ./Spacedrive-linux-x86_64.deb/Spacedrive-linux-x86_64.deb .github/flatpak/
+          
+      - name: Build Flatpak
+        run: flatpak-builder --repo=local ./out .github/flatpak/com.spacedrive.Desktop.yml
+            
+      - name: Build Flatpak Bundle
+        run: flatpak build-bundle local com.spacedrive.Desktop.flatpak com.spacedrive.Desktop
+
+      - name: Upload Flatpak Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: com.spacedrive.Desktop.flatpak
+          path: ./com.spacedrive.Desktop.flatpak

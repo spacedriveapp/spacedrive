@@ -1,0 +1,266 @@
+name: gstreamer
+buildsystem: meson
+builddir: true
+config-opts:
+  - --buildtype=release
+
+  - -Dbad=enabled
+  - -Ddevtools=disabled
+  - -Ddoc=disabled
+  - -Dexamples=disabled
+  - -Dges=disabled
+  - -Dgpl=enabled
+  - -Dgst-examples=disabled
+  - -Dgtk_doc=disabled
+  - -Dlibav=enabled
+  - -Dpython=disabled
+  - -Dqt5=disabled
+  - -Drtsp_server=disabled
+  - -Dtests=disabled
+  - -Dtools=disabled
+  - -Dugly=enabled
+
+  - -Dgstreamer:check=disabled
+
+  - -Dgst-plugins-base:ogg=enabled
+  - -Dgst-plugins-base:opus=enabled
+  - -Dgst-plugins-base:vorbis=enabled
+  - -Dgst-plugins-base:app=enabled
+
+  - -Dgst-plugins-good:bz2=enabled
+  - -Dgst-plugins-good:dv=enabled
+  - -Dgst-plugins-good:flac=enabled
+  - -Dgst-plugins-good:gtk3=disabled
+  - -Dgst-plugins-good:mpg123=enabled
+  - -Dgst-plugins-good:pulse=enabled
+  - -Dgst-plugins-good:speex=enabled
+  - -Dgst-plugins-good:vpx=enabled
+  - -Dgst-plugins-good:wavpack=enabled
+  - -Dgst-plugins-good:autodetect=enabled
+  - -Dgst-plugins-good:qt6=disabled
+
+  - -Dgst-plugins-ugly:a52dec=enabled
+  - -Dgst-plugins-ugly:mpeg2dec=enabled
+
+  - -Dgst-plugins-bad:aom=enabled
+  - -Dgst-plugins-bad:assrender=enabled
+  - -Dgst-plugins-bad:bz2=enabled
+  - -Dgst-plugins-bad:closedcaption=enabled
+  - -Dgst-plugins-bad:dash=enabled
+  - -Dgst-plugins-bad:dtls=enabled
+  - -Dgst-plugins-bad:dts=enabled
+  - -Dgst-plugins-bad:faad=enabled
+  - -Dgst-plugins-bad:fluidsynth=enabled
+  - -Dgst-plugins-bad:gl=enabled
+  - -Dgst-plugins-bad:ldac=enabled
+  - -Dgst-plugins-bad:libde265=enabled
+  - -Dgst-plugins-bad:nvcodec=enabled
+  - -Dgst-plugins-bad:openh264=enabled
+  - -Dgst-plugins-bad:openjpeg=enabled
+  - -Dgst-plugins-bad:opus=enabled
+  - -Dgst-plugins-bad:ttml=enabled
+  - -Dgst-plugins-bad:va=enabled
+
+  - -Dorc:benchmarks=disabled
+  - -Dorc:orc-test=disabled
+
+build-options:
+  arch:
+      x86_64:
+        config-opts:
+          - -Dgst-plugins-bad:qsv=enabled
+          - -Dbad=enabled
+          - -Ddevtools=disabled
+          - -Ddoc=disabled
+          - -Dexamples=disabled
+          - -Dges=disabled
+          - -Dgpl=enabled
+          - -Dgst-examples=disabled
+          - -Dgtk_doc=disabled
+          - -Dlibav=enabled
+          - -Dpython=disabled
+          - -Dqt5=disabled
+          - -Drtsp_server=disabled
+          - -Dtests=disabled
+          - -Dtools=disabled
+          - -Dugly=enabled
+
+          - -Dgstreamer:check=disabled
+
+          - -Dgst-plugins-base:ogg=enabled
+          - -Dgst-plugins-base:opus=enabled
+          - -Dgst-plugins-base:vorbis=enabled
+          - -Dgst-plugins-base:app=enabled
+
+          - -Dgst-plugins-good:bz2=enabled
+          - -Dgst-plugins-good:dv=enabled
+          - -Dgst-plugins-good:flac=enabled
+          - -Dgst-plugins-good:gtk3=disabled
+          - -Dgst-plugins-good:mpg123=enabled
+          - -Dgst-plugins-good:pulse=enabled
+          - -Dgst-plugins-good:speex=enabled
+          - -Dgst-plugins-good:vpx=enabled
+          - -Dgst-plugins-good:wavpack=enabled
+          - -Dgst-plugins-good:autodetect=enabled
+          - -Dgst-plugins-good:qt6=disabled
+
+          - -Dgst-plugins-ugly:a52dec=enabled
+          - -Dgst-plugins-ugly:mpeg2dec=enabled
+
+          - -Dgst-plugins-bad:aom=enabled
+          - -Dgst-plugins-bad:assrender=enabled
+          - -Dgst-plugins-bad:bz2=enabled
+          - -Dgst-plugins-bad:closedcaption=enabled
+          - -Dgst-plugins-bad:dash=enabled
+          - -Dgst-plugins-bad:dtls=enabled
+          - -Dgst-plugins-bad:dts=enabled
+          - -Dgst-plugins-bad:faad=enabled
+          - -Dgst-plugins-bad:fluidsynth=enabled
+          - -Dgst-plugins-bad:gl=enabled
+          - -Dgst-plugins-bad:ldac=enabled
+          - -Dgst-plugins-bad:libde265=enabled
+          - -Dgst-plugins-bad:nvcodec=enabled
+          - -Dgst-plugins-bad:openh264=enabled
+          - -Dgst-plugins-bad:openjpeg=enabled
+          - -Dgst-plugins-bad:opus=enabled
+          - -Dgst-plugins-bad:ttml=enabled
+          - -Dgst-plugins-bad:va=enabled
+
+sources:
+  - type: archive
+    url: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/archive/1.24.1/gstreamer-1.24.1.tar.bz2
+    sha256: 8bb3f93e3f4bdbff27266aed982a96062b0dcb5d5005e8dd2cdc1fc054ba5850
+
+  - type: archive
+    url: https://gitlab.freedesktop.org/gstreamer/meson-ports/gl-headers/-/archive/5c8c7c0d3ca1f0b783272dac0b95e09414e49bc8/gl-headers-5c8c7c0d3ca1f0b783272dac0b95e09414e49bc8.tar.bz2
+    sha256: 46b771874c9e14c2a94575eaf579877f34060950f7090e50b2b91f22399700a3
+    dest: subprojects/gl-headers
+
+  - type: archive
+    url: https://gitlab.freedesktop.org/gstreamer/orc/-/archive/0.4.38/orc-0.4.38.tar.bz2
+    sha256: 947e26f97aaad0478b3cfc38c8bd684748b492e759283b216f521d40b9710d52
+    dest: subprojects/orc
+
+  - type: archive
+    url: https://gitlab.freedesktop.org/gstreamer/meson-ports/libdv/-/archive/4a28ebb4/libdv-4a28ebb4.tar.bz2
+    sha256: 23f608ae1db094ac4a8af8ab61b2c20e33ca5518c1e7c2b82d4a4cf8b698ff8f
+    dest: subprojects/dv
+
+modules:
+  - name: faad2
+    buildsystem: cmake
+    sources:
+      - type: archive
+        url: https://github.com/knik0/faad2/archive/2.11.1.tar.gz
+        sha256: 72dbc0494de9ee38d240f670eccf2b10ef715fd0508c305532ca3def3225bb06
+
+  - name: libde265
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://github.com/strukturag/libde265/releases/download/v1.0.15/libde265-1.0.15.tar.gz
+        sha256: 00251986c29d34d3af7117ed05874950c875dd9292d016be29d3b3762666511d
+    config-opts:
+      - --disable-dec265
+      - --disable-sherlock265
+
+  - name: mjpegtools
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://downloads.sourceforge.net/mjpeg/mjpegtools-2.2.1.tar.gz
+        sha256: b180536d7d9960b05e0023a197b00dcb100929a49aab71d19d55f4a1b210f49a
+
+  - name: soundtouch
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://codeberg.org/soundtouch/soundtouch/archive/2.3.2.tar.gz
+        sha256: ed714f84a3e748de87b24f385ec69d3bdc51ca47b7f4710d2048b84b2761e7ff
+
+  - name: a52dec
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://distfiles.adelielinux.org/source/a52dec/a52dec-0.8.0.tar.gz
+        sha256: 03c181ce9c3fe0d2f5130de18dab9bd8bc63c354071515aa56983c74a9cffcc9
+
+  - name: opencore-amr
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://downloads.sourceforge.net/sourceforge/opencore-amr/opencore-amr-0.1.6.tar.gz
+        sha512: 8955169954b09d2d5e2190888602c75771b72455290db131ab7f40b587df32ea6a60f205126b09193b90064d0fd82b7d678032e2b4c684189788e175b83d0aa7
+
+  - name: libmpeg2
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://libmpeg2.sourceforge.io/files/libmpeg2-0.5.1.tar.gz
+        sha256: dee22e893cb5fc2b2b6ebd60b88478ab8556cb3b93f9a0d7ce8f3b61851871d4
+
+      - type: file
+        path: autotools/config.guess
+        dest: .auto/
+
+      - type: file
+        path: autotools/config.sub
+        dest: .auto/
+
+  - name: libass
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/releases/download/0.17.1/libass-0.17.1.tar.xz
+        sha256: f0da0bbfba476c16ae3e1cfd862256d30915911f7abaa1b16ce62ee653192784
+
+  - name: libdca
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://download.videolan.org/pub/videolan/libdca/0.0.7/libdca-0.0.7.tar.bz2
+        sha256: 3a0b13815f582c661d2388ffcabc2f1ea82f471783c400f765f2ec6c81065f6a
+
+  - name: fluidsynth
+    buildsystem: cmake
+    sources:
+      - type: archive
+        url: https://github.com/FluidSynth/fluidsynth/archive/refs/tags/v2.3.4.tar.gz
+        sha256: 1529ef5bc3b9ef3adc2a7964505912f7305103e269e50cc0316f500b22053ac9
+
+  - name: ldacBT
+    buildsystem: cmake
+    sources:
+      - type: archive
+        url: https://github.com/EHfive/ldacBT/releases/download/v2.0.2.3/ldacBT-2.0.2.3.tar.gz
+        sha256: 4bd8eece78bb5c1361fab95743e7100506e2408a25c4a592a0f8d349746dc5b4
+
+  - name: intel-onevpl-runtime
+    only-arches:
+      - x86_64
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - '-DCMAKE_BUILD_TYPE=Release'
+      - '-DBUILD_SAMPLES=OFF'
+      - '-DBUILD_TESTS=OFF'
+      - '-DBUILD_TOOLS=OFF'
+    sources:
+      - type: archive
+        url: https://github.com/oneapi-src/oneVPL-intel-gpu/archive/intel-onevpl-24.1.5.tar.gz
+        sha256: 0cb58a2a944ade72a85340d69352df1bd76b0afce09ca4faac69cc339a5a8732
+
+  - name: intel-libvpl
+    skip-arches:
+      - aarch64
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - '-DCMAKE_BUILD_TYPE=Release'
+      - '-DBUILD_SAMPLES=OFF'
+      - '-DBUILD_TESTS=OFF'
+      - '-DBUILD_TOOLS=OFF'
+    sources:
+      - type: archive
+        url: https://github.com/intel/libvpl/archive/refs/tags/v2.10.2.tar.gz
+        sha256: ad956ea7ecf14614325f59dfb44cc5ba08e2fcac373342d61c7db152ac651253
