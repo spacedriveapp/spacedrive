@@ -80,71 +80,30 @@ export function generateLocaleDateFormats(language: string) {
 	// - hours segment is below 10, no confusion about zero-padding
 	// - is a Monday, just a good day of week for examples
 	const defaultDate = '2024-01-15 08:51';
-	const DATE_FORMATS = [
-		{
-			value: 'L',
-			label: dayjs(defaultDate).locale(language).format('L')
-		},
-		{
-			value: 'L, LT',
-			label: dayjs(defaultDate).locale(language).format('L, LT')
-		},
-		{
-			value: 'll',
-			label: dayjs(defaultDate).locale(language).format('ll')
-		},
-		{
-			value: 'LL',
-			label: dayjs(defaultDate).locale(language).format('LL')
-		},
-		{
-			value: 'lll',
-			label: dayjs(defaultDate).locale(language).format('lll')
-		},
-		{
-			value: 'LLL',
-			label: dayjs(defaultDate).locale(language).format('LLL')
-		},
-		{
-			value: 'llll',
-			label: dayjs(defaultDate).locale(language).format('llll')
-		}
-	];
+	const DATE_FORMATS = ['YYYY-MM-DD HH:mm', 'L', 'L, LT', 'll', 'LL', 'lll', 'LLL', 'llll'].map(
+		(format) => ({
+			value: format,
+			label: dayjs(defaultDate).locale(language).format(format)
+		})
+	);
+	
 	if (language === 'en') {
 		const additionalFormats = [
-			{
-				value: 'DD/MM/YYYY',
-				label: dayjs(defaultDate).locale('en').format('DD/MM/YYYY')
-			},
-			{
-				value: 'DD/MM/YYYY HH:mm',
-				label: dayjs(defaultDate).locale('en').format('DD/MM/YYYY HH:mm')
-			},
-			{
-				value: 'D MMM, YYYY',
-				label: dayjs(defaultDate).locale('en').format('D MMM, YYYY')
-			},
-			{
-				value: 'D MMMM, YYYY',
-				label: dayjs(defaultDate).locale('en').format('D MMMM, YYYY')
-			},
-			{
-				value: 'D MMM, YYYY HH:mm',
-				label: dayjs(defaultDate).locale('en').format('D MMM, YYYY HH:mm')
-			},
-			{
-				value: 'D MMMM, YYYY HH:mm',
-				label: dayjs(defaultDate).locale('en').format('D MMMM, YYYY HH:mm')
-			},
-			{
-				value: 'ddd, D MMM, YYYY HH:mm',
-				label: dayjs(defaultDate).locale('en').format('ddd, D MMMM, YYYY HH:mm')
-			}
-		];
+			'DD/MM/YYYY',
+			'DD/MM/YYYY HH:mm',
+			'D MMM, YYYY',
+			'D MMMM, YYYY',
+			'D MMM, YYYY HH:mm',
+			'D MMMM, YYYY HH:mm',
+			'ddd, D MMM, YYYY HH:mm'
+		].map((format) => ({
+			value: format,
+			label: dayjs(defaultDate).locale('en').format(format)
+		}));
 		return DATE_FORMATS.concat(additionalFormats);
-	} else {
-		return DATE_FORMATS;
 	}
+
+	return DATE_FORMATS;
 }
 
 const kinds: Record<string, string> = {
