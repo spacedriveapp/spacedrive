@@ -38,13 +38,13 @@ function BentoCard({
 				className
 			)}
 		>
-			{comingSoon && (
+			{/* {comingSoon && (
 				<div className="absolute right-3 top-3">
 					<span className="inline-flex items-center rounded-full bg-[#1B1D25]/80 px-3 py-1.5 text-xs font-medium tracking-wider text-primary/80 ring-1 ring-primary/20 backdrop-blur-sm">
 						COMING SOON
 					</span>
 				</div>
-			)}
+			)} */}
 			<div
 				className={clsx(
 					'flex w-full flex-col gap-3',
