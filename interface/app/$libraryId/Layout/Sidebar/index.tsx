@@ -29,7 +29,7 @@ export default function Sidebar() {
 					<SavedSearches />
 					{/* <Devices /> */}
 					<Locations />
-					<Categories />
+					{/* <Categories /> */}
 					<Peers />
 					<Tags />
 				</LibraryContextProvider>
