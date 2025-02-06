@@ -57,112 +57,39 @@ impl From<u32> for FlashMode {
 }
 
 impl From<FlashValue> for Option<Flash> {
-	// TODO(brxken128): This can be heavily optimized with bitwise AND
-	// e.g. to see if flash was fired, `(value & 1) != 0`
-	// or to see if red eye reduction was enabled, `(value & 64) != 0`
-	// May not be worth it as some states may be invalid according to `https://www.awaresystems.be/imaging/tiff/tifftags/privateifd/exif/flash.html`
 	fn from(value: FlashValue) -> Self {
-		#[allow(clippy::as_conversions)]
-		let mut data = Flash {
-			mode: FlashMode::from(value as u32),
-			..Default::default()
+		let numeric_value = value as u32;
+
+		// Bit 0 indicates if flash fired
+		let fired = (numeric_value & 0x01) != 0;
+
+		// Bits 1-2 indicate return state
+		let returned = match numeric_value & 0x06 {
+			0x06 => Some(true),  // Returned
+			0x02 => Some(false), // No return
+			_ => None,           // No data
 		};
 
-		#[allow(clippy::match_same_arms)]
-		match value {
-			FlashValue::Fired => {
-				data.fired = Some(true);
-			}
-			FlashValue::NoFire => {
-				data.fired = Some(false);
-			}
-			FlashValue::FiredReturn => {
-				data.fired = Some(true);
-				data.returned = Some(true);
-			}
-			FlashValue::FiredNoReturn => {
-				data.fired = Some(true);
-				data.returned = Some(false);
-			}
-			FlashValue::AutoFired => {
-				data.fired = Some(true);
-			}
-			FlashValue::AutoFiredNoReturn => {
-				data.fired = Some(true);
-				data.returned = Some(false);
-			}
-			FlashValue::OffNoFire => data.fired = Some(false),
-			FlashValue::AutoNoFire => data.fired = Some(false),
-			FlashValue::NoFlashFunction | FlashValue::OffNoFlashFunction | FlashValue::Unknown => {
-				data = Flash::default();
-			}
-			FlashValue::AutoFiredRedEyeReduction => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-			}
-			FlashValue::AutoFiredRedEyeReductionNoReturn => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(false);
-			}
-			FlashValue::AutoFiredRedEyeReductionReturn => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(true);
-			}
-			FlashValue::OnFired => {
-				data.fired = Some(true);
-			}
-			FlashValue::OnNoFire => {
-				data.fired = Some(false);
-			}
-			FlashValue::AutoFiredReturn => {
-				data.fired = Some(true);
-				data.returned = Some(true);
-			}
-			FlashValue::OnReturn => {
-				data.returned = Some(true);
-			}
-			FlashValue::OnNoReturn => data.returned = Some(false),
-			FlashValue::AutoNoFireRedEyeReduction => {
-				data.fired = Some(false);
-				data.red_eye_reduction = Some(true);
-			}
-			FlashValue::OffNoFireNoReturn => {
-				data.fired = Some(false);
-				data.returned = Some(false);
-			}
-			FlashValue::OffRedEyeReduction => data.red_eye_reduction = Some(true),
-			FlashValue::OnRedEyeReduction => data.red_eye_reduction = Some(true),
-			FlashValue::FiredRedEyeReductionNoReturn => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(false);
-			}
-			FlashValue::FiredRedEyeReduction => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-			}
-			FlashValue::FiredRedEyeReductionReturn => {
-				data.fired = Some(true);
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(false);
-			}
-			FlashValue::OnRedEyeReductionReturn => {
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(true);
-			}
-			FlashValue::OnRedEyeReductionNoReturn => {
-				data.red_eye_reduction = Some(true);
-				data.returned = Some(false);
-			}
-		}
+		// Bit 6 indicates red-eye reduction
+		let red_eye_reduction = if (numeric_value & 0x40) != 0 {
+			Some(true)
+		} else {
+			None
+		};
 
-		// this means it had a value of Flash::NoFlashFunctionality
-		if data == Flash::default() {
+		let mode = FlashMode::from(numeric_value);
+
+		let flash = Flash {
+			mode,
+			fired: Some(fired),
+			returned,
+			red_eye_reduction,
+		};
+
+		if flash == Flash::default() {
 			None
 		} else {
-			Some(data)
+			Some(flash)
 		}
 	}
 }
