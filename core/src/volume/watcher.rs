@@ -58,7 +58,15 @@ impl VolumeWatcher {
 					}
 					last_check = Instant::now();
 
-					let discovered_volumes = super::os::get_volumes().await;
+					let discovered_volumes = match super::os::get_volumes().await {
+						Ok(volumes) => volumes,
+						Err(e) => {
+							error!("Failed to get volumes: {}", e);
+							// Return empty volumes to avoid sending events
+							vec![]
+						}
+					};
+
 					let actor = actor.lock().await;
 
 					// Find new volumes

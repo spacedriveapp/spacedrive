@@ -100,10 +100,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run pnpm prep
-        run: |
-          pnpm prep
-
       - name: Build
         run: |
           pnpm tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}

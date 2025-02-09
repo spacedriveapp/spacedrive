@@ -74,6 +74,9 @@ export const commands = {
 			else return { status: 'error', error: e as any };
 		}
 	},
+	/**
+	 * Stops the cursor position tracking for drag operations
+	 */
 	async stopDrag(): Promise<void> {
 		await TAURI_INVOKE('stop_drag');
 	},
