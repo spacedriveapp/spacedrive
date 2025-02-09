@@ -10,7 +10,7 @@ use tokio::{
 	sync::{broadcast, mpsc, RwLock},
 	time::{sleep, Instant},
 };
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 const DEBOUNCE_MS: u64 = 100;
 
@@ -58,35 +58,28 @@ impl VolumeWatcher {
 					}
 					last_check = Instant::now();
 
-					match super::os::get_volumes().await {
-						Ok(discovered_volumes) => {
-							let actor = actor.lock().await;
+					let discovered_volumes = super::os::get_volumes().await;
+					let actor = actor.lock().await;
 
-							// Find new volumes
-							for volume in &discovered_volumes {
-								let fingerprint = VolumeFingerprint::new(&device_id, volume);
+					// Find new volumes
+					for volume in &discovered_volumes {
+						let fingerprint = VolumeFingerprint::new(&device_id, volume);
 
-								let volume_exists = actor.volume_exists(fingerprint.clone()).await;
-								// if the volume doesn't exist in the actor state, we need to send an event
-								if !volume_exists {
-									let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
-								}
-							}
-
-							// Find removed volumes and send an event
-							for volume in &actor.get_volumes().await {
-								let fingerprint = VolumeFingerprint::new(&device_id, volume);
-								if !discovered_volumes
-									.iter()
-									.any(|v| VolumeFingerprint::new(&device_id, v) == fingerprint)
-								{
-									let _ =
-										event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
-								}
-							}
+						let volume_exists = actor.volume_exists(fingerprint.clone()).await;
+						// if the volume doesn't exist in the actor state, we need to send an event
+						if !volume_exists {
+							let _ = event_tx.send(VolumeEvent::VolumeAdded(volume.clone()));
 						}
-						Err(e) => {
-							warn!("Failed to get volumes during watch: {}", e);
+					}
+
+					// Find removed volumes and send an event
+					for volume in &actor.get_volumes().await {
+						let fingerprint = VolumeFingerprint::new(&device_id, volume);
+						if !discovered_volumes
+							.iter()
+							.any(|v| VolumeFingerprint::new(&device_id, v) == fingerprint)
+						{
+							let _ = event_tx.send(VolumeEvent::VolumeRemoved(volume.clone()));
 						}
 					}
 				}
@@ -183,10 +176,7 @@ impl VolumeWatcher {
 
 		#[cfg(target_os = "windows")]
 		{
-			use windows::Win32::Storage::FileSystem::{
-				FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, ReadDirectoryChangesW,
-				FILE_NOTIFY_CHANGE_DIR_NAME,
-			};
+			use ::windows::Win32::Storage::FileSystem::{FindFirstVolumeW, FindVolumeClose};
 
 			let check_tx = check_tx.clone();
 			tokio::spawn(async move {
@@ -194,13 +184,23 @@ impl VolumeWatcher {
 					// Watch for volume arrival/removal
 					unsafe {
 						let mut volume_name = [0u16; 260];
-						let handle = FindFirstVolumeW(volume_name.as_mut_ptr());
-						if !handle.is_invalid() {
+						let mut volume_change_detected = false;
+						match FindFirstVolumeW(volume_name.as_mut_slice()) {
+							Ok(handle) => {
+								if !handle.is_invalid() {
+									volume_change_detected = true;
+									FindVolumeClose(handle);
+								}
+							}
+							Err(e) => {
+								error!("Failed to get a volume handle: {}", e);
+							}
+						}
+						if volume_change_detected {
 							// Volume change detected
 							if let Err(e) = check_tx.send(()).await {
 								error!("Failed to trigger volume check: {}", e);
 							}
-							FindVolumeClose(handle);
 						}
 					}
 					sleep(Duration::from_millis(100)).await;
