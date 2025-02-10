@@ -84,7 +84,12 @@ impl VolumeManagerState {
 	}
 
 	pub async fn scan_volumes(&mut self) -> Result<(), VolumeError> {
+		#[cfg(any(target_os = "linux", target_os = "macos"))]
 		let detected_volumes = super::os::get_volumes().await?;
+
+		#[cfg(target_os = "windows")]
+		let detected_volumes = super::os::get_volumes().await;
+
 		let mut registry = self.registry.write().await;
 
 		// Track existing volumes for removal detection

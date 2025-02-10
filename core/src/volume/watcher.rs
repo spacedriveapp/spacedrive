@@ -58,6 +58,7 @@ impl VolumeWatcher {
 					}
 					last_check = Instant::now();
 
+					#[cfg(any(target_os = "linux", target_os = "macos"))]
 					let discovered_volumes = match super::os::get_volumes().await {
 						Ok(volumes) => volumes,
 						Err(e) => {
@@ -66,6 +67,9 @@ impl VolumeWatcher {
 							vec![]
 						}
 					};
+
+					#[cfg(target_os = "windows")]
+					let discovered_volumes = super::os::get_volumes().await;
 
 					let actor = actor.lock().await;
 
