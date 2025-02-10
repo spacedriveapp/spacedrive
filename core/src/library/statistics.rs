@@ -39,7 +39,11 @@ pub async fn update_library_statistics(
 
 	if total_capacity == 0 && available_capacity == 0 {
 		// Failed to fetch volume statistics from database, so we compute from local volumes
+		#[cfg(any(target_os = "linux", target_os = "macos"))]
 		let volumes = crate::volume::get_volumes().await?;
+
+		#[cfg(target_os = "windows")]
+		let volumes = crate::volume::get_volumes().await;
 
 		let mut local_total_capacity: u64 = 0;
 		let mut local_available_capacity: u64 = 0;

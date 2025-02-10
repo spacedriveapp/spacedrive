@@ -10,7 +10,6 @@ use quic_rpc::{transport::quinn::QuinnConnector, RpcClient, RpcMessage};
 use quinn::{crypto::rustls::QuicClientConfig, ClientConfig, Endpoint};
 use reqwest::{IntoUrl, Url};
 use reqwest_middleware::{reqwest, ClientBuilder, ClientWithMiddleware};
-use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 use tokio::sync::{Mutex, RwLock};
 use tracing::warn;
 
