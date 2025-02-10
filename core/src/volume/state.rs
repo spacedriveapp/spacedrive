@@ -2,7 +2,7 @@ use crate::{
 	library::Library,
 	volume::{
 		speed::SpeedTest,
-		types::{LibraryId, Volume, VolumeEvent, VolumeFingerprint, VolumePubId},
+		types::{Volume, VolumeEvent, VolumeFingerprint},
 	},
 };
 
@@ -84,7 +84,12 @@ impl VolumeManagerState {
 	}
 
 	pub async fn scan_volumes(&mut self) -> Result<(), VolumeError> {
+		#[cfg(any(target_os = "linux", target_os = "macos"))]
 		let detected_volumes = super::os::get_volumes().await?;
+
+		#[cfg(target_os = "windows")]
+		let detected_volumes = super::os::get_volumes().await;
+
 		let mut registry = self.registry.write().await;
 
 		// Track existing volumes for removal detection
@@ -192,7 +197,7 @@ impl VolumeManagerState {
 		for (fingerprint, volume) in registry.volumes() {
 			let mut volume = volume.clone();
 
-			if let Some(db_volume) = db_volumes.get(&fingerprint) {
+			if let Some(db_volume) = db_volumes.get(fingerprint) {
 				volume = Volume::merge_with_db(&volume, db_volume);
 			}
 

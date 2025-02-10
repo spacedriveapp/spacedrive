@@ -27,7 +27,7 @@ mod common {
 	pub fn parse_size(size_str: &str) -> u64 {
 		size_str
 			.chars()
-			.filter(|c| c.is_digit(10))
+			.filter(|c| c.is_ascii_digit())
 			.collect::<String>()
 			.parse()
 			.unwrap_or(0)
@@ -315,19 +315,23 @@ pub mod linux {
 pub mod windows {
 	use super::*;
 	use std::ffi::OsString;
-	use std::os::windows::ffi::OsStringExt;
-	use windows::Win32::Storage::FileSystem::{
-		GetDiskFreeSpaceExW, GetDriveTypeW, GetVolumeInformationW, DRIVE_FIXED, DRIVE_REMOTE,
-		DRIVE_REMOVABLE,
+	use std::path::PathBuf;
+
+	use ::windows::core::PCWSTR;
+	use ::windows::Win32::Storage::FileSystem::{
+		GetDiskFreeSpaceExW, GetDriveTypeW, GetVolumeInformationW,
 	};
-	use windows::Win32::System::Ioctl::STORAGE_PROPERTY_QUERY;
+	use ::windows::Win32::System::WindowsProgramming::{
+		DRIVE_FIXED, DRIVE_REMOTE, DRIVE_REMOVABLE,
+	};
+	use std::os::windows::ffi::OsStrExt;
 
 	pub async fn get_volumes() -> Vec<Volume> {
 		task::spawn_blocking(|| {
 			let mut volumes = Vec::new();
 
 			// Get available drives
-			let drives = unsafe { windows::Win32::Storage::FileSystem::GetLogicalDrives() };
+			let drives = unsafe { ::windows::Win32::Storage::FileSystem::GetLogicalDrives() };
 
 			for i in 0..26 {
 				if (drives & (1 << i)) != 0 {
@@ -338,7 +342,7 @@ pub mod windows {
 						.chain(std::iter::once(0))
 						.collect();
 
-					let drive_type = unsafe { GetDriveTypeW(wide_path.as_ptr()) };
+					let drive_type = unsafe { GetDriveTypeW(PCWSTR(wide_path.as_ptr())) };
 
 					// Skip CD-ROM drives and other unsupported types
 					if drive_type == DRIVE_FIXED
@@ -379,29 +383,25 @@ pub mod windows {
 
 		unsafe {
 			let success = GetVolumeInformationW(
-				wide_path.as_ptr(),
-				name_buf.as_mut_ptr(),
-				name_buf.len() as u32,
-				&mut serial_number,
-				&mut max_component_length,
-				&mut flags,
-				fs_name_buf.as_mut_ptr(),
-				fs_name_buf.len() as u32,
+				PCWSTR(wide_path.as_ptr()),
+				Some(name_buf.as_mut_slice()),
+				Some(&mut serial_number),
+				Some(&mut max_component_length),
+				Some(&mut flags),
+				Some(&mut fs_name_buf),
 			);
 
-			if success.as_bool() {
+			if let Ok(_) = success {
 				let mut total_bytes = 0;
 				let mut free_bytes = 0;
 				let mut available_bytes = 0;
 
-				if GetDiskFreeSpaceExW(
-					wide_path.as_ptr(),
-					&mut available_bytes,
-					&mut total_bytes,
-					&mut free_bytes,
-				)
-				.as_bool()
-				{
+				if let Ok(_) = GetDiskFreeSpaceExW(
+					PCWSTR(wide_path.as_ptr()),
+					Some(&mut available_bytes),
+					Some(&mut total_bytes),
+					Some(&mut free_bytes),
+				) {
 					let mount_type = match drive_type {
 						DRIVE_FIXED => MountType::System,
 						DRIVE_REMOVABLE => MountType::External,
@@ -425,10 +425,12 @@ pub mod windows {
 						},
 						mount_type,
 						PathBuf::from(path),
+						vec![PathBuf::from(path)],
 						detect_disk_type(path),
 						FileSystem::from_string(&fs_name),
-						total_bytes as u64,
-						available_bytes as u64,
+						total_bytes,
+						available_bytes,
+						false,
 					))
 				} else {
 					None
@@ -440,37 +442,39 @@ pub mod windows {
 	}
 
 	pub async fn unmount_volume(path: &std::path::Path) -> Result<(), VolumeError> {
-		use std::ffi::OsStr;
-		use std::os::windows::ffi::OsStrExt;
-		use windows::core::PWSTR;
-		use windows::Win32::Storage::FileSystem::{
+		use ::windows::core::PWSTR;
+		use ::windows::Win32::Storage::FileSystem::{
 			DeleteVolumeMountPointW, GetVolumeNameForVolumeMountPointW,
 		};
+		use std::ffi::OsStr;
+		use std::os::windows::ffi::OsStrExt;
 
 		// Convert path to wide string for Windows API
-		let wide_path: Vec<u16> = OsStr::new(path)
+		let mut wide_path: Vec<u16> = OsStr::new(path)
 			.encode_wide()
 			.chain(std::iter::once(0))
 			.collect();
 
+		let wide_path_ptr = PWSTR(wide_path.as_mut_ptr());
+
 		unsafe {
 			// Buffer for volume name
 			let mut volume_name = [0u16; 50];
-			let mut volume_name_ptr = PWSTR(volume_name.as_mut_ptr());
 
 			// Get the volume name for the mount point
-			let result = GetVolumeNameForVolumeMountPointW(wide_path.as_ptr(), volume_name_ptr);
+			let result =
+				GetVolumeNameForVolumeMountPointW(wide_path_ptr, volume_name.as_mut_slice());
 
-			if !result.as_bool() {
+			if result.is_err() {
 				return Err(VolumeError::Platform(
 					"Failed to get volume name".to_string(),
 				));
 			}
 
 			// Delete the mount point
-			let result = DeleteVolumeMountPointW(wide_path.as_ptr());
+			let result = DeleteVolumeMountPointW(wide_path_ptr);
 
-			if result.as_bool() {
+			if let Ok(_) = result {
 				Ok(())
 			} else {
 				Err(VolumeError::Platform(
