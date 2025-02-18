@@ -70,7 +70,6 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// * `on_event` - Channel for communicating drag operation events back to the frontend
 #[tauri::command(async)]
 #[specta::specta]
-#[cfg(not(target_os = "linux"))]
 pub async fn start_drag(
 	window: WebviewWindow,
 	_state: State<'_, DragState>,
@@ -189,9 +188,15 @@ pub async fn start_drag(
 									let item = DragItem::Files(paths);
 									let preview_icon = Image::Raw(image_raw_for_drag.clone());
 
+									// Get the final window beng passed into drag::start_drag
+									#[cfg(target_os = "linux")]
+									let final_window = window_for_drag.gtk_window().unwrap();
+									#[cfg(not(target_os = "linux"))]
+									let final_window = window_for_drag.clone();
+
 									// Start the drag operation
 									if let Ok(session) = drag::start_drag(
-										&window_for_drag,
+										&final_window,
 										item,
 										preview_icon,
 										move |result, cursor_pos| {
@@ -240,19 +245,6 @@ pub async fn start_drag(
 	});
 
 	Ok(())
-}
-
-#[tauri::command(async)]
-#[specta::specta]
-#[cfg(target_os = "linux")]
-pub async fn start_drag(
-	_window: WebviewWindow,
-	_state: State<'_, DragState>,
-	_files: Vec<String>,
-	_image: String,
-	_on_event: Channel<CallbackResult>,
-) -> Result<(), String> {
-	Err("Drag and drop is not supported on Linux".to_string())
 }
 
 /// Stops the cursor position tracking for drag operations
