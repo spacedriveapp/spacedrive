@@ -49,16 +49,6 @@ export const commands = {
 			else return { status: 'error', error: e as any };
 		}
 	},
-	/**
-	 * Initiates a drag and drop operation with cursor position tracking
-	 *
-	 * # Arguments
-	 * * `window` - The Tauri window instance
-	 * * `_state` - Current drag state (unused)
-	 * * `files` - Vector of file paths to be dragged
-	 * * `image` - Base64 encoded image to be used as drag icon
-	 * * `on_event` - Channel for communicating drag operation events back to the frontend
-	 */
 	async startDrag(
 		files: string[],
 		image: string,

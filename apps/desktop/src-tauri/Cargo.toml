@@ -70,6 +70,9 @@ sd-desktop-linux = { path = "../crates/linux" }
 dbus = { version = "0.9.7", features = ["stdfd"] }
 # https://github.com/tauri-apps/tauri/blob/tauri-v2.0.0/crates/tauri/Cargo.toml#L101
 webkit2gtk = { version = "=2.0.1", features = ["v2_40"] }
+gtk = { version = "0.18", features = ["v3_24"] }
+tao = { version = "0.31.1", features = ["serde"] }
+
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Spacedrive Sub-crates
