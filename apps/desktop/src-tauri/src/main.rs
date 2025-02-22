@@ -243,6 +243,13 @@ async fn main() -> tauri::Result<()> {
 				handle.emit("deeplink", deep_link_event).unwrap();
 			});
 
+			#[cfg(debug_assertions)] // only include this code on debug builds
+			{
+			  let window = app.get_webview_window("main").unwrap();
+			  window.open_devtools();
+			  window.close_devtools();
+			}
+
 			block_in_place(|| {
 				block_on(async move {
 					builder.mount_events(app);

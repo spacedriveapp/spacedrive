@@ -1,0 +1,1024 @@
+
+> @sd/monorepo@ tauri /home/rocky/spacedrive
+> pnpm desktop tauri "dev"
+
+
+> @sd/monorepo@ desktop /home/rocky/spacedrive
+> pnpm --filter @sd/desktop -- "tauri" "dev"
+
+
+> @sd/desktop@ tauri /home/rocky/spacedrive/apps/desktop
+> pnpm --filter @sd/scripts -- tauri "dev"
+
+
+> @sd/scripts@ tauri /home/rocky/spacedrive/scripts
+> node tauri.mjs "dev"
+
+
+> @sd/desktop@ dev /home/rocky/spacedrive/apps/desktop
+> vite dev
+
+
+  VITE v5.4.9  ready in 4536 ms
+
+  ➜  Local:   http://localhost:8001/
+  ➜  Network: use --host to expose
+
+> @sd/monorepo@ tauri /home/rocky/spacedrive
+> pnpm desktop tauri "dev"
+
+
+> @sd/monorepo@ desktop /home/rocky/spacedrive
+> pnpm --filter @sd/desktop -- "tauri" "dev"
+
+
+> @sd/desktop@ tauri /home/rocky/spacedrive/apps/desktop
+> pnpm --filter @sd/scripts -- tauri "dev"
+
+
+> @sd/scripts@ tauri /home/rocky/spacedrive/scripts
+> node tauri.mjs "dev"
+
+
+> @sd/desktop@ dev /home/rocky/spacedrive/apps/desktop
+> vite dev
+
+
+  VITE v5.4.9  ready in 3029 ms
+
+  ➜  Local:   http://localhost:8001/
+  ➜  Network: use --host to expose
+  [2m2025-02-21T01:14:58.603532Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mStarting core;, [1;32mdata_directory[0m[32m: /home/rocky/.local/share/spacedrive/dev[0m
+    [2;3mat[0m core/src/lib.rs:93
+
+  [2m2025-02-21T01:14:58.605281Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::node::config::NodeConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+
+  [2m2025-02-21T01:14:58.605795Z[0m [34mDEBUG[0m [1;34msd_core::location::manager[0m[34m: [34mStarting location manager actor[0m
+    [2;3mat[0m core/src/location/manager/mod.rs:216
+
+  [2m2025-02-21T01:14:58.606617Z[0m [32m INFO[0m [1;32msd_task_system::system[0m[32m: [32mTask system online!, [1;32mworkers_count[0m[32m: 4[0m
+    [2;3mat[0m crates/task-system/src/system.rs:99
+
+  [2m2025-02-21T01:14:58.608432Z[0m [32m INFO[0m [1;32mlibp2p_swarm[0m[32m: [1;32mlocal_peer_id[0m[32m: 12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rust-libp2p-5bf6f5083e224a9a/1024411/swarm/src/lib.rs:372
+
+  [2m2025-02-21T01:14:58.608843Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv4 listener;, [1;32mipv4_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:220
+
+  [2m2025-02-21T01:14:58.608922Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv6 listener;, [1;32mipv6_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:243
+
+  [2m2025-02-21T01:14:58.609027Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mNode is now online listening;, [1;32mremote_identity[0m[32m: +hmlI/BRfRgbkcT/wUR6eMJU1NuaZgefAEVPvwf7TN8, [1;32mpeer_id[0m[32m: Libp2pPeerId(PeerId("12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA")), [1;32maddresses[0m[32m: [Listener { id: ListenerId(0), name: "libp2p-quic", addrs: {} }][0m
+    [2;3mat[0m core/src/p2p/manager.rs:104
+
+  [2m2025-02-21T01:14:58.609228Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager event_tx initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:84
+
+  [2m2025-02-21T01:14:58.609273Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager state initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:87
+
+  [2m2025-02-21T01:14:58.696125Z[0m [32m INFO[0m [1;32mquaint::pooled[0m[32m: [32mStarting a sqlite pool with 1 connections.[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/quaint/src/pooled.rs:342
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.704182Z[0m [32m INFO[0m [1;32mschema_core::commands::apply_migrations[0m[32m: [32mAnalysis run in 3ms, [1;32manalysis_duration_ms[0m[32m: 3[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/schema-engine/core/src/commands/apply_migrations.rs:44
+
+  [2m2025-02-21T01:14:58.732697Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal mode to WAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.732947Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet synchronous to NORMAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.733200Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet mmap_size to 512MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.733431Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal size limit to 64MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.733595Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet cache size to 10k pages[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.733808Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Device"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.733951Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Volume"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734095Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Tag"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734238Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Location"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734357Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Object"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734472Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Label"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734582Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "ExifData"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734690Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "FilePath"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734801Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "TagOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.734914Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "LabelOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.735549Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::library::config::LibraryConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:14:58.751536Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:14:58.751650Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:14:58.752587Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:14:58.752686Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:14:58.753516Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:14:58.753608Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:14:58.754227Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor started[0m
+    [2;3mat[0m core/src/volume/actor.rs:102
+
+  [2m2025-02-21T01:14:58.754323Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mStarting volume event monitoring[0m
+    [2;3mat[0m core/src/volume/actor.rs:210
+
+  [2m2025-02-21T01:14:58.881797Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.881939Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.881986Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.882059Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([27, 44, 36, 129, 248, 99, 228, 151, 98, 171, 15, 5, 213, 35, 166, 33, 208, 58, 171, 201, 156, 31, 188, 104, 212, 8, 114, 148, 224, 47, 11, 110])), id: None, pub_id: None, device_id: None, name: "/dev/vda1", mount_type: System, mount_point: "/", mount_points: ["/"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: true, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 102915489792, total_bytes_available: 70432550912 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:14:58.882100Z[0m [31mERROR[0m [1;31msd_core::volume::state[0m[31m: [31mFailed to perform speed test for volume, [1;31me[0m[31m: Cancelled[0m
+    [2;3mat[0m core/src/volume/state.rs:117
+
+  [2m2025-02-21T01:14:58.882118Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.882102Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:14:58.882129Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:14:58.882159Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200])), id: None, pub_id: None, device_id: None, name: "/dev/vda13", mount_type: System, mount_point: "/boot", mount_points: ["/boot"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 1036431360, total_bytes_available: 847003648 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:14:58.882182Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.882205Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228])), id: None, pub_id: None, device_id: None, name: "/dev/vda15", mount_type: System, mount_point: "/boot/efi", mount_points: ["/boot/efi"], is_mounted: true, disk_type: Unknown, file_system: Other("VFAT"), read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 109395456, total_bytes_available: 103012352 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:14:58.882233Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:14:58.883714Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:201
+
+  [2m2025-02-21T01:14:58.883746Z[0m [34mDEBUG[0m [1;34msd_core::volume::watcher[0m[34m: [34mStarting volume watcher[0m
+    [2;3mat[0m core/src/volume/watcher.rs:38
+
+  [2m2025-02-21T01:14:58.883868Z[0m [33m WARN[0m [1;33msd_core::volume::watcher[0m[33m: [33mFailed to watch path /run/media: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/watcher.rs:121
+
+  [2m2025-02-21T01:14:58.883914Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::job_system[0m[34m: [34mNo pending jobs found on disk[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/job_system/mod.rs:304
+
+  [2m2025-02-21T01:14:58.884450Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mSpacedrive online![0m
+    [2;3mat[0m core/src/lib.rs:264
+
+  [2m2025-02-21T01:14:58.884876Z[0m [32m INFO[0m [1;32msd_desktop::tauri_plugins[0m[32m: [32mInternal server listening on: http://127.0.0.1:38507[0m
+    [2;3mat[0m apps/desktop/src-tauri/src/tauri_plugins.rs:71
+
+emitting event for Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]))
+  [2m2025-02-21T01:14:58.920055Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]), read_speed: 613, write_speed: 844 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:14:58.920200Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 844.1648832980036, read_speed: 613.000176727951, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+emitting event for Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]))
+  [2m2025-02-21T01:14:58.923780Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]), read_speed: 562, write_speed: 825 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:14:58.923888Z[0m [31mERROR[0m [1;31msd_core::volume::speed[0m[31m: [31mFailed to remove test file: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/speed.rs:79
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:14:58.923949Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 825.351360327605, read_speed: 562.1557323160564, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:14:59.006635Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mUpdated p2p relay configuration successfully.[0m
+    [2;3mat[0m core/src/p2p/manager.rs:157
+
+
+  ⚡ Million.js 2.6.4
+  - Tip:     enable { mute: true } to disable info logs
+  - Hotline: https://million.dev/hotline
+
+ ⚡ <Spacedrop> now renders ~17% faster
+ ⚡ <Tags> now renders ~25% faster
+ ⚡ <Demo3> now renders ~43% faster
+ ⚡ <Folder> now renders ~11% faster
+ ⚡ <Database> now renders ~11% faster
+ ⚡ <PasswordMeter> now renders ~43% faster
+ ⚡ <TrafficLight> now renders ~25% faster
+Window did not emit `app_ready` event fast enough. Showing window...
+ ⚡ <Video> now renders ~9% faster
+ ○ <Sparkles> was ignored
+ ⚡ <RuleButton> now renders ~9% faster
+ ⚡ <JobManager> now renders ~9% faster
+ ○ <TopBar> was ignored
+ ○ <ExplorerTagBar> was ignored
+  [2m2025-02-21T01:15:07.023969Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:15:07.024438Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:15:07.024664Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("3oy91pxrmun"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:15:07.024679Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("v90t664z6a"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+ ○ <DateHeader> was ignored
+  [2m2025-02-21T01:15:08.363259Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mListing system volumes for library 01951a96-a285-7a62-8412-2f0b6860915c[0m
+    [2;3mat[0m core/src/volume/actor.rs:380
+
+  [2m2025-02-21T01:15:52.682039Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::indexer::shallow[0m[34m: [1;34mnon_indexed_paths_count[0m[34m: 1[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/indexer/shallow.rs:98
+    [2;3min[0m sd_core_heavy_lifting::indexer::shallow::[1mshallow[0m [2;3mwith[0m location_id=2 location_path=Some("/home/rocky/Desktop") sub_path=
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+  [2m2025-02-21T01:15:52.685840Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::media_processor::shallow[0m[34m: [34mDispatching thumbnails to be processed;, [1;34mthumbs_count[0m[34m: 0, [1;34mpriority_tasks_count[0m[34m: 0[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/media_processor/shallow.rs:262
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+1:24:03 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+1:24:05 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+  [2m2025-02-21T01:24:05.997674Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mStarting core;, [1;32mdata_directory[0m[32m: /home/rocky/.local/share/spacedrive/dev[0m
+    [2;3mat[0m core/src/lib.rs:93
+
+  [2m2025-02-21T01:24:05.999200Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::node::config::NodeConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+
+  [2m2025-02-21T01:24:05.999704Z[0m [34mDEBUG[0m [1;34msd_core::location::manager[0m[34m: [34mStarting location manager actor[0m
+    [2;3mat[0m core/src/location/manager/mod.rs:216
+
+  [2m2025-02-21T01:24:06.000321Z[0m [32m INFO[0m [1;32msd_task_system::system[0m[32m: [32mTask system online!, [1;32mworkers_count[0m[32m: 4[0m
+    [2;3mat[0m crates/task-system/src/system.rs:99
+
+  [2m2025-02-21T01:24:06.001817Z[0m [32m INFO[0m [1;32mlibp2p_swarm[0m[32m: [1;32mlocal_peer_id[0m[32m: 12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rust-libp2p-5bf6f5083e224a9a/1024411/swarm/src/lib.rs:372
+
+  [2m2025-02-21T01:24:06.002165Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv4 listener;, [1;32mipv4_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:220
+
+  [2m2025-02-21T01:24:06.002229Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv6 listener;, [1;32mipv6_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:243
+
+  [2m2025-02-21T01:24:06.002314Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mNode is now online listening;, [1;32mremote_identity[0m[32m: +hmlI/BRfRgbkcT/wUR6eMJU1NuaZgefAEVPvwf7TN8, [1;32mpeer_id[0m[32m: Libp2pPeerId(PeerId("12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA")), [1;32maddresses[0m[32m: [Listener { id: ListenerId(0), name: "libp2p-quic", addrs: {} }][0m
+    [2;3mat[0m core/src/p2p/manager.rs:104
+
+  [2m2025-02-21T01:24:06.002474Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager event_tx initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:84
+
+  [2m2025-02-21T01:24:06.002507Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager state initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:87
+
+  [2m2025-02-21T01:24:06.083114Z[0m [32m INFO[0m [1;32mquaint::pooled[0m[32m: [32mStarting a sqlite pool with 1 connections.[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/quaint/src/pooled.rs:342
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+1:24:06 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /@fs/home/rocky/spacedrive/interface/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/useTable.tsx, /updater.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/index.tsx, /@fs/home/rocky/spacedrive/interface/ErrorFallback.tsx, /@fs/home/rocky/spacedrive/interface/app/index.tsx, /@fs/home/rocky/spacedrive/interface/components/RequestAddDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/toast.tsx, /@fs/home/rocky/spacedrive/interface/app/p2p/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ParentContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/$id.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Local/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tools/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/ephemeral.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerPathBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDnd.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/hooks/useExplorerCopyPaste.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ViewItem.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/Item.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDraggable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/AppliedFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionList.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionBoolean.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/LocationFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/TagsFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/DateFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/RenamableItemText.tsx, /@fs/home/rocky/spacedrive/interface/components/AlertDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/components/DragRegion.tsx, /@fs/home/rocky/spacedrive/interface/components/Folder.tsx, /@fs/home/rocky/spacedrive/interface/components/Icon.tsx, /@fs/home/rocky/spacedrive/interface/components/Loader.tsx, /@fs/home/rocky/spacedrive/interface/components/PDFViewer.tsx, /@fs/home/rocky/spacedrive/interface/components/TruncatedText.tsx, /@fs/home/rocky/spacedrive/interface/components/Authentication.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/creating-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/locations.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/full-disk.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/new-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/prerelease.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/privacy.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Original.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Thumb.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/LayeredFileIcon.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/useFrame.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/AssignTagMenuItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/Note.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/MediaData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/RenameTextBox.tsx, /@fs/home/rocky/spacedrive/interface/components/Login.tsx, /@fs/home/rocky/spacedrive/interface/components/Register.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DragOverlay.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/Sparkles.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Library/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Peers/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/SavedSearches/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/PathInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/SeeMore.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/Footer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/LibrariesDropdown.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RulesForm.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/DebugPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/FeedbackPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/JobManagerPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/node/libraries/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerOperatingSystem.tsx, /@fs/home/rocky/spacedrive/interface/components/LoginButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/JobGroup.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/Job.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/NavigationButtons.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerTagBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/KeyManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/Object/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/SharedItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/RevealInNativeExplorer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/CopyAsPath.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/CutCopyItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/OpenWith.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/useKeySelection.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/Item/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/DateHeader.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/IconSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/TextSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/LocationOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerItemData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDroppable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/Layout.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/useDragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/DragSelect/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/Item.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useKeyDeleteFile.tsx, /@fs/home/rocky/spacedrive/interface/components/TextViewer/prism.tsx, /@fs/home/rocky/spacedrive/interface/components/Devtools.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useDismissibleNoticeStore.tsx, /@fs/home/rocky/spacedrive/packages/client/src/hooks/useClientContext.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.solid.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/index.tsx, /@fs/home/rocky/spacedrive/interface/components/PasswordMeter.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.react.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/FavoriteButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKLocations.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKTags.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Debug/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/IsRunningJob.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/DragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/ImageSlider.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/Item.tsx
+  [2m2025-02-21T01:24:06.093718Z[0m [32m INFO[0m [1;32mschema_core::commands::apply_migrations[0m[32m: [32mAnalysis run in 5ms, [1;32manalysis_duration_ms[0m[32m: 5[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/schema-engine/core/src/commands/apply_migrations.rs:44
+
+  [2m2025-02-21T01:24:06.122327Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal mode to WAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.122589Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet synchronous to NORMAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.122821Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet mmap_size to 512MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123101Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal size limit to 64MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123297Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet cache size to 10k pages[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123503Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Device"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123646Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Volume"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123795Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Tag"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.123922Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Location"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124061Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Object"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124189Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Label"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124321Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "ExifData"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124436Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "FilePath"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124549Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "TagOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.124664Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "LabelOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.125213Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::library::config::LibraryConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:24:06.141288Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:24:06.141384Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:24:06.142094Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:24:06.142196Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:24:06.142916Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:24:06.142976Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:24:06.144257Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor started[0m
+    [2;3mat[0m core/src/volume/actor.rs:102
+
+  [2m2025-02-21T01:24:06.144371Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mStarting volume event monitoring[0m
+    [2;3mat[0m core/src/volume/actor.rs:210
+
+  [2m2025-02-21T01:24:06.272335Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.272452Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.272480Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.272551Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([27, 44, 36, 129, 248, 99, 228, 151, 98, 171, 15, 5, 213, 35, 166, 33, 208, 58, 171, 201, 156, 31, 188, 104, 212, 8, 114, 148, 224, 47, 11, 110])), id: None, pub_id: None, device_id: None, name: "/dev/vda1", mount_type: System, mount_point: "/", mount_points: ["/"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: true, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 102915489792, total_bytes_available: 70428549120 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:24:06.272625Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.272637Z[0m [31mERROR[0m [1;31msd_core::volume::state[0m[31m: [31mFailed to perform speed test for volume, [1;31me[0m[31m: Cancelled[0m
+    [2;3mat[0m core/src/volume/state.rs:117
+
+  [2m2025-02-21T01:24:06.272683Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:24:06.272668Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:24:06.272687Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200])), id: None, pub_id: None, device_id: None, name: "/dev/vda13", mount_type: System, mount_point: "/boot", mount_points: ["/boot"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 1036431360, total_bytes_available: 847003648 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:24:06.272786Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.272837Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228])), id: None, pub_id: None, device_id: None, name: "/dev/vda15", mount_type: System, mount_point: "/boot/efi", mount_points: ["/boot/efi"], is_mounted: true, disk_type: Unknown, file_system: Other("VFAT"), read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 109395456, total_bytes_available: 103012352 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:24:06.272878Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:24:06.273081Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:201
+
+  [2m2025-02-21T01:24:06.273119Z[0m [34mDEBUG[0m [1;34msd_core::volume::watcher[0m[34m: [34mStarting volume watcher[0m
+    [2;3mat[0m core/src/volume/watcher.rs:38
+
+  [2m2025-02-21T01:24:06.273208Z[0m [33m WARN[0m [1;33msd_core::volume::watcher[0m[33m: [33mFailed to watch path /run/media: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/watcher.rs:121
+
+  [2m2025-02-21T01:24:06.273275Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::job_system[0m[34m: [34mNo pending jobs found on disk[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/job_system/mod.rs:304
+
+  [2m2025-02-21T01:24:06.273709Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mSpacedrive online![0m
+    [2;3mat[0m core/src/lib.rs:264
+
+  [2m2025-02-21T01:24:06.274020Z[0m [32m INFO[0m [1;32msd_desktop::tauri_plugins[0m[32m: [32mInternal server listening on: http://127.0.0.1:34619[0m
+    [2;3mat[0m apps/desktop/src-tauri/src/tauri_plugins.rs:71
+
+emitting event for Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]))
+  [2m2025-02-21T01:24:06.324654Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]), read_speed: 413, write_speed: 609 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:24:06.324787Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 609.3400743407078, read_speed: 413.07602056936827, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+emitting event for Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]))
+  [2m2025-02-21T01:24:06.326804Z[0m [31mERROR[0m [1;31msd_core::volume::speed[0m[31m: [31mFailed to remove test file: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/speed.rs:79
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:24:06.326851Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 667.2888913148547, read_speed: 412.3259736995404, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:24:06.327016Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]), read_speed: 412, write_speed: 667 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:24:06.388012Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mUpdated p2p relay configuration successfully.[0m
+    [2;3mat[0m core/src/p2p/manager.rs:157
+
+Window did not emit `app_ready` event fast enough. Showing window...
+  [2m2025-02-21T01:24:11.198815Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:24:11.198928Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("64xzeoli2b3"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:24:11.198957Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:24:11.199054Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("kvbijau6f6g"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:24:13.415946Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mListing system volumes for library 01951a96-a285-7a62-8412-2f0b6860915c[0m
+    [2;3mat[0m core/src/volume/actor.rs:380
+
+  [2m2025-02-21T01:24:29.010577Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::indexer::shallow[0m[34m: [1;34mnon_indexed_paths_count[0m[34m: 1[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/indexer/shallow.rs:98
+    [2;3min[0m sd_core_heavy_lifting::indexer::shallow::[1mshallow[0m [2;3mwith[0m location_id=2 location_path=Some("/home/rocky/Desktop") sub_path=
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+  [2m2025-02-21T01:24:29.014436Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::media_processor::shallow[0m[34m: [34mDispatching thumbnails to be processed;, [1;34mthumbs_count[0m[34m: 0, [1;34mpriority_tasks_count[0m[34m: 0[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/media_processor/shallow.rs:262
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+1:30:51 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+1:30:53 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+  [2m2025-02-21T01:30:54.095342Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mStarting core;, [1;32mdata_directory[0m[32m: /home/rocky/.local/share/spacedrive/dev[0m
+    [2;3mat[0m core/src/lib.rs:93
+
+  [2m2025-02-21T01:30:54.096926Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::node::config::NodeConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+
+  [2m2025-02-21T01:30:54.097471Z[0m [34mDEBUG[0m [1;34msd_core::location::manager[0m[34m: [34mStarting location manager actor[0m
+    [2;3mat[0m core/src/location/manager/mod.rs:216
+
+  [2m2025-02-21T01:30:54.098163Z[0m [32m INFO[0m [1;32msd_task_system::system[0m[32m: [32mTask system online!, [1;32mworkers_count[0m[32m: 4[0m
+    [2;3mat[0m crates/task-system/src/system.rs:99
+
+  [2m2025-02-21T01:30:54.099864Z[0m [32m INFO[0m [1;32mlibp2p_swarm[0m[32m: [1;32mlocal_peer_id[0m[32m: 12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rust-libp2p-5bf6f5083e224a9a/1024411/swarm/src/lib.rs:372
+
+  [2m2025-02-21T01:30:54.100265Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv4 listener;, [1;32mipv4_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:220
+
+  [2m2025-02-21T01:30:54.100336Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv6 listener;, [1;32mipv6_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:243
+
+  [2m2025-02-21T01:30:54.100424Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mNode is now online listening;, [1;32mremote_identity[0m[32m: +hmlI/BRfRgbkcT/wUR6eMJU1NuaZgefAEVPvwf7TN8, [1;32mpeer_id[0m[32m: Libp2pPeerId(PeerId("12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA")), [1;32maddresses[0m[32m: [Listener { id: ListenerId(0), name: "libp2p-quic", addrs: {} }][0m
+    [2;3mat[0m core/src/p2p/manager.rs:104
+
+  [2m2025-02-21T01:30:54.100613Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager event_tx initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:84
+
+  [2m2025-02-21T01:30:54.100641Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager state initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:87
+
+1:30:54 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /@fs/home/rocky/spacedrive/interface/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/useTable.tsx, /updater.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/index.tsx, /@fs/home/rocky/spacedrive/interface/ErrorFallback.tsx, /@fs/home/rocky/spacedrive/interface/app/index.tsx, /@fs/home/rocky/spacedrive/interface/components/RequestAddDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/toast.tsx, /@fs/home/rocky/spacedrive/interface/app/p2p/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ParentContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/$id.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Local/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tools/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/ephemeral.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerPathBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDnd.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/hooks/useExplorerCopyPaste.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ViewItem.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/Item.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDraggable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/AppliedFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionList.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionBoolean.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/LocationFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/TagsFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/DateFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/RenamableItemText.tsx, /@fs/home/rocky/spacedrive/interface/components/AlertDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/components/DragRegion.tsx, /@fs/home/rocky/spacedrive/interface/components/Folder.tsx, /@fs/home/rocky/spacedrive/interface/components/Icon.tsx, /@fs/home/rocky/spacedrive/interface/components/Loader.tsx, /@fs/home/rocky/spacedrive/interface/components/PDFViewer.tsx, /@fs/home/rocky/spacedrive/interface/components/TruncatedText.tsx, /@fs/home/rocky/spacedrive/interface/components/Authentication.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/creating-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/locations.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/full-disk.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/new-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/prerelease.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/privacy.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Original.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Thumb.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/LayeredFileIcon.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/useFrame.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/AssignTagMenuItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/Note.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/MediaData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/RenameTextBox.tsx, /@fs/home/rocky/spacedrive/interface/components/Login.tsx, /@fs/home/rocky/spacedrive/interface/components/Register.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DragOverlay.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/Sparkles.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Library/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Peers/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/SavedSearches/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/PathInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/SeeMore.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/Footer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/LibrariesDropdown.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RulesForm.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/DebugPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/FeedbackPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/JobManagerPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/node/libraries/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerOperatingSystem.tsx, /@fs/home/rocky/spacedrive/interface/components/LoginButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/JobGroup.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/Job.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/NavigationButtons.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerTagBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/KeyManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/Object/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/SharedItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/RevealInNativeExplorer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/CopyAsPath.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/CutCopyItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/OpenWith.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/useKeySelection.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/Item/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/DateHeader.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/IconSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/TextSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/LocationOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerItemData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDroppable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/Layout.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/useDragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/DragSelect/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/Item.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useKeyDeleteFile.tsx, /@fs/home/rocky/spacedrive/interface/components/TextViewer/prism.tsx, /@fs/home/rocky/spacedrive/interface/components/Devtools.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useDismissibleNoticeStore.tsx, /@fs/home/rocky/spacedrive/packages/client/src/hooks/useClientContext.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.solid.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/index.tsx, /@fs/home/rocky/spacedrive/interface/components/PasswordMeter.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.react.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/FavoriteButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKLocations.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKTags.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Debug/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/IsRunningJob.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/DragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/ImageSlider.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/Item.tsx
+  [2m2025-02-21T01:30:54.173428Z[0m [32m INFO[0m [1;32mquaint::pooled[0m[32m: [32mStarting a sqlite pool with 1 connections.[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/quaint/src/pooled.rs:342
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.181251Z[0m [32m INFO[0m [1;32mschema_core::commands::apply_migrations[0m[32m: [32mAnalysis run in 3ms, [1;32manalysis_duration_ms[0m[32m: 3[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/schema-engine/core/src/commands/apply_migrations.rs:44
+
+  [2m2025-02-21T01:30:54.203792Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal mode to WAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.204096Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet synchronous to NORMAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.204358Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet mmap_size to 512MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.204582Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal size limit to 64MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.204744Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet cache size to 10k pages[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.204948Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Device"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205106Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Volume"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205244Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Tag"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205366Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Location"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205492Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Object"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205604Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Label"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205716Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "ExifData"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205824Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "FilePath"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.205935Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "TagOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.206076Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "LabelOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.206699Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::library::config::LibraryConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:30:54.222532Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:30:54.222674Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:30:54.223630Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:30:54.223720Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:30:54.224903Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:30:54.224976Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:30:54.225645Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor started[0m
+    [2;3mat[0m core/src/volume/actor.rs:102
+
+  [2m2025-02-21T01:30:54.225736Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mStarting volume event monitoring[0m
+    [2;3mat[0m core/src/volume/actor.rs:210
+
+  [2m2025-02-21T01:30:54.339255Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339390Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339428Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339512Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([27, 44, 36, 129, 248, 99, 228, 151, 98, 171, 15, 5, 213, 35, 166, 33, 208, 58, 171, 201, 156, 31, 188, 104, 212, 8, 114, 148, 224, 47, 11, 110])), id: None, pub_id: None, device_id: None, name: "/dev/vda1", mount_type: System, mount_point: "/", mount_points: ["/"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: true, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 102915489792, total_bytes_available: 70418538496 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:30:54.339561Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:30:54.339539Z[0m [31mERROR[0m [1;31msd_core::volume::state[0m[31m: [31mFailed to perform speed test for volume, [1;31me[0m[31m: Cancelled[0m
+    [2;3mat[0m core/src/volume/state.rs:117
+
+  [2m2025-02-21T01:30:54.339612Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339618Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:201
+
+  [2m2025-02-21T01:30:54.339654Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:30:54.339689Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200])), id: None, pub_id: None, device_id: None, name: "/dev/vda13", mount_type: System, mount_point: "/boot", mount_points: ["/boot"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 1036431360, total_bytes_available: 847003648 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:30:54.339728Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339739Z[0m [34mDEBUG[0m [1;34msd_core::volume::watcher[0m[34m: [34mStarting volume watcher[0m
+    [2;3mat[0m core/src/volume/watcher.rs:38
+
+  [2m2025-02-21T01:30:54.339782Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228])), id: None, pub_id: None, device_id: None, name: "/dev/vda15", mount_type: System, mount_point: "/boot/efi", mount_points: ["/boot/efi"], is_mounted: true, disk_type: Unknown, file_system: Other("VFAT"), read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 109395456, total_bytes_available: 103012352 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:30:54.339844Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:30:54.339844Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::job_system[0m[34m: [34mNo pending jobs found on disk[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/job_system/mod.rs:304
+
+  [2m2025-02-21T01:30:54.339853Z[0m [33m WARN[0m [1;33msd_core::volume::watcher[0m[33m: [33mFailed to watch path /run/media: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/watcher.rs:121
+
+  [2m2025-02-21T01:30:54.340541Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mSpacedrive online![0m
+    [2;3mat[0m core/src/lib.rs:264
+
+  [2m2025-02-21T01:30:54.341091Z[0m [32m INFO[0m [1;32msd_desktop::tauri_plugins[0m[32m: [32mInternal server listening on: http://127.0.0.1:36405[0m
+    [2;3mat[0m apps/desktop/src-tauri/src/tauri_plugins.rs:71
+
+emitting event for Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]))
+  [2m2025-02-21T01:30:54.375274Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]), read_speed: 658, write_speed: 811 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:30:54.375448Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 811.9179157482522, read_speed: 658.9427592898573, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+emitting event for Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]))
+  [2m2025-02-21T01:30:54.378287Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]), read_speed: 700, write_speed: 730 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:30:54.378504Z[0m [31mERROR[0m [1;31msd_core::volume::speed[0m[31m: [31mFailed to remove test file: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/speed.rs:79
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:30:54.378559Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 730.8470210017662, read_speed: 700.9318608717546, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:30:54.425966Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mUpdated p2p relay configuration successfully.[0m
+    [2;3mat[0m core/src/p2p/manager.rs:157
+
+Window did not emit `app_ready` event fast enough. Showing window...
+  [2m2025-02-21T01:30:59.299960Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:30:59.300090Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("4isx1k77ayp"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:30:59.301032Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:30:59.301430Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("mptxqwlfcy9"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:31:01.275150Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mListing system volumes for library 01951a96-a285-7a62-8412-2f0b6860915c[0m
+    [2;3mat[0m core/src/volume/actor.rs:380
+
+  [2m2025-02-21T01:31:18.128034Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::indexer::shallow[0m[34m: [1;34mnon_indexed_paths_count[0m[34m: 1[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/indexer/shallow.rs:98
+    [2;3min[0m sd_core_heavy_lifting::indexer::shallow::[1mshallow[0m [2;3mwith[0m location_id=2 location_path=Some("/home/rocky/Desktop") sub_path=
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+  [2m2025-02-21T01:31:18.135584Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::media_processor::shallow[0m[34m: [34mDispatching thumbnails to be processed;, [1;34mthumbs_count[0m[34m: 0, [1;34mpriority_tasks_count[0m[34m: 0[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/media_processor/shallow.rs:262
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+Starting drag operation
+Drag operation completed
+1:37:04 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+1:37:06 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /updater.tsx
+  [2m2025-02-21T01:37:06.396947Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mStarting core;, [1;32mdata_directory[0m[32m: /home/rocky/.local/share/spacedrive/dev[0m
+    [2;3mat[0m core/src/lib.rs:93
+
+  [2m2025-02-21T01:37:06.399231Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::node::config::NodeConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+
+  [2m2025-02-21T01:37:06.399746Z[0m [34mDEBUG[0m [1;34msd_core::location::manager[0m[34m: [34mStarting location manager actor[0m
+    [2;3mat[0m core/src/location/manager/mod.rs:216
+
+  [2m2025-02-21T01:37:06.400362Z[0m [32m INFO[0m [1;32msd_task_system::system[0m[32m: [32mTask system online!, [1;32mworkers_count[0m[32m: 4[0m
+    [2;3mat[0m crates/task-system/src/system.rs:99
+
+  [2m2025-02-21T01:37:06.401535Z[0m [32m INFO[0m [1;32mlibp2p_swarm[0m[32m: [1;32mlocal_peer_id[0m[32m: 12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rust-libp2p-5bf6f5083e224a9a/1024411/swarm/src/lib.rs:372
+
+  [2m2025-02-21T01:37:06.401878Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv4 listener;, [1;32mipv4_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:220
+
+  [2m2025-02-21T01:37:06.401985Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mSetting quic ipv6 listener;, [1;32mipv6_port[0m[32m: None[0m
+    [2;3mat[0m core/src/p2p/manager.rs:243
+
+  [2m2025-02-21T01:37:06.402167Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mNode is now online listening;, [1;32mremote_identity[0m[32m: +hmlI/BRfRgbkcT/wUR6eMJU1NuaZgefAEVPvwf7TN8, [1;32mpeer_id[0m[32m: Libp2pPeerId(PeerId("12D3KooWSeemqchtKezrRf8txhkw12cst6Rsj9rDwQ2QoCLra4WA")), [1;32maddresses[0m[32m: [Listener { id: ListenerId(0), name: "libp2p-quic", addrs: {} }][0m
+    [2;3mat[0m core/src/p2p/manager.rs:104
+
+  [2m2025-02-21T01:37:06.402401Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager event_tx initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:84
+
+  [2m2025-02-21T01:37:06.402526Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume manager state initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:87
+
+  [2m2025-02-21T01:37:06.458485Z[0m [32m INFO[0m [1;32mquaint::pooled[0m[32m: [32mStarting a sqlite pool with 1 connections.[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/quaint/src/pooled.rs:342
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+1:37:06 AM [vite] hmr update /App.tsx, /@fs/home/rocky/spacedrive/packages/ui/style/style.scss, /@fs/home/rocky/spacedrive/interface/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/useTable.tsx, /updater.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/index.tsx, /@fs/home/rocky/spacedrive/interface/ErrorFallback.tsx, /@fs/home/rocky/spacedrive/interface/app/index.tsx, /@fs/home/rocky/spacedrive/interface/components/RequestAddDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Spacedrop/toast.tsx, /@fs/home/rocky/spacedrive/interface/app/p2p/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ParentContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/$id.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Local/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tools/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/ephemeral.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerPathBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDnd.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/hooks/useExplorerCopyPaste.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ViewItem.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/Item.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDraggable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/AppliedFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionList.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/components/FilterOptionBoolean.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/LocationFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/TagsFilter.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/Filters/registry/DateFilters.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/RenamableItemText.tsx, /@fs/home/rocky/spacedrive/interface/components/AlertDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/components/DragRegion.tsx, /@fs/home/rocky/spacedrive/interface/components/Folder.tsx, /@fs/home/rocky/spacedrive/interface/components/Icon.tsx, /@fs/home/rocky/spacedrive/interface/components/Loader.tsx, /@fs/home/rocky/spacedrive/interface/components/PDFViewer.tsx, /@fs/home/rocky/spacedrive/interface/components/TruncatedText.tsx, /@fs/home/rocky/spacedrive/interface/components/Authentication.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/creating-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/locations.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/full-disk.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/new-library.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/prerelease.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/privacy.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Original.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/Thumb.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/LayeredFileIcon.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/useFrame.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/AssignTagMenuItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/Note.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/MediaData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/FilePath/RenameTextBox.tsx, /@fs/home/rocky/spacedrive/interface/components/Login.tsx, /@fs/home/rocky/spacedrive/interface/components/Register.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DragOverlay.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationDialog.tsx, /@fs/home/rocky/spacedrive/interface/components/Sparkles.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Library/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Peers/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/SavedSearches/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/PathInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/SeeMore.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Locations/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/AddLocationButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Tags/ContextMenu.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/Footer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/LibrariesDropdown.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RulesForm.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/tags/DeleteDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/DebugPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/FeedbackPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/SidebarLayout/JobManagerPopover.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/node/libraries/CreateDialog.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerOperatingSystem.tsx, /@fs/home/rocky/spacedrive/interface/components/LoginButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/settings/library/locations/IndexerRuleEditor/RuleInput.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/JobGroup.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/Job.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/TopBarOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/NavigationButtons.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/DismissibleNotice.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ExplorerTagBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/KeyManager/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/Object/Items.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/SharedItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/RevealInNativeExplorer.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/CopyAsPath.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/FilePath/CutCopyItems.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/OpenWith.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/useKeySelection.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/GridView/Item/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/DateHeader.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/IconSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/OptionsPanel/ListView/TextSize.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/search/SearchBar.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/location/LocationOptions.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerItemData.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/useExplorerDroppable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/TopBar/Layout.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/useDragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/Grid/DragSelect/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/ListView/Item.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useKeyDeleteFile.tsx, /@fs/home/rocky/spacedrive/interface/components/TextViewer/prism.tsx, /@fs/home/rocky/spacedrive/interface/components/Devtools.tsx, /@fs/home/rocky/spacedrive/interface/hooks/useDismissibleNoticeStore.tsx, /@fs/home/rocky/spacedrive/packages/client/src/hooks/useClientContext.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.solid.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/index.tsx, /@fs/home/rocky/spacedrive/interface/components/PasswordMeter.tsx, /@fs/home/rocky/spacedrive/interface/app/demo.react.tsx, /@fs/home/rocky/spacedrive/interface/app/onboarding/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/Inspector/FavoriteButton.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKLocations.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/CMDK/pages/CMDKTags.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/sections/Debug/index.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Layout/Sidebar/JobManager/IsRunningJob.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/ContextMenu/context.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/DragScrollable.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/QuickPreview/ImageSlider.tsx, /@fs/home/rocky/spacedrive/interface/app/$libraryId/Explorer/View/MediaView/Item.tsx
+  [2m2025-02-21T01:37:06.465563Z[0m [32m INFO[0m [1;32mschema_core::commands::apply_migrations[0m[32m: [32mAnalysis run in 2ms, [1;32manalysis_duration_ms[0m[32m: 2[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/prisma-engines-27ace036a11c2dbf/9a8a66a/schema-engine/core/src/commands/apply_migrations.rs:44
+
+  [2m2025-02-21T01:37:06.493610Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal mode to WAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.493865Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet synchronous to NORMAL[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.494127Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet mmap_size to 512MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.494365Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet journal size limit to 64MB[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.494526Z[0m [32m INFO[0m [1;32msd_core::library::manager::pragmas[0m[32m: [32mSet cache size to 10k pages[0m
+    [2;3mat[0m core/src/library/manager/pragmas.rs:41
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.494725Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Device"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.494881Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Volume"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495027Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Tag"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495158Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Location"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495278Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Object"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495393Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "Label"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495508Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "ExifData"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495641Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "FilePath"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495773Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "TagOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.495889Z[0m [34mDEBUG[0m [1;34msd_core::library::manager[0m[34m: [34mCreated sync partial index, [1;34mmodel_name[0m[34m: "LabelOnObject"[0m
+    [2;3mat[0m core/src/library/manager/mod.rs:666
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.496365Z[0m [34mDEBUG[0m [1;34msd_core::util::version_manager[0m[34m: [34mNo migration required;, [1;34mconfig[0m[34m: sd_core::library::config::LibraryConfig[0m
+    [2;3mat[0m core/src/util/version_manager.rs:212
+    [2;3min[0m sd_core::library::manager::[1mload[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c db_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.db config_path=/home/rocky/.local/share/spacedrive/dev/libraries/01951a96-a285-7a62-8412-2f0b6860915c.sdlibrary should_seed=true
+
+  [2m2025-02-21T01:37:06.512763Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:37:06.512849Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=1 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Documents")
+
+  [2m2025-02-21T01:37:06.513819Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:37:06.513919Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=2 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Desktop")
+
+  [2m2025-02-21T01:37:06.515176Z[0m [34mDEBUG[0m [1;34msd_core::location::manager::watcher[0m[34m: [34mStopping Location Manager event handler for location[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:280
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:37:06.515282Z[0m [32m INFO[0m [1;32msd_core::location::manager::watcher[0m[32m: [32mLocation watcher gracefully shutdown[0m
+    [2;3mat[0m core/src/location/manager/watcher/mod.rs:177
+    [2;3min[0m sd_core::location::manager::watcher::[1mlocation_watcher[0m [2;3mwith[0m location_id=3 library_id=01951a96-a285-7a62-8412-2f0b6860915c location_path=Some("/home/rocky/Downloads")
+
+  [2m2025-02-21T01:37:06.516158Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor started[0m
+    [2;3mat[0m core/src/volume/actor.rs:102
+
+  [2m2025-02-21T01:37:06.516236Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mStarting volume event monitoring[0m
+    [2;3mat[0m core/src/volume/actor.rs:210
+
+  [2m2025-02-21T01:37:06.684008Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:37:06.684156Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:37:06.684198Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:37:06.684295Z[0m [31mERROR[0m [1;31msd_core::volume::state[0m[31m: [31mFailed to perform speed test for volume, [1;31me[0m[31m: Cancelled[0m
+    [2;3mat[0m core/src/volume/state.rs:117
+
+  [2m2025-02-21T01:37:06.684307Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:37:06.684309Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mStarting speed test with config: SpeedTestConfig { file_size_mb: 10, timeout_secs: 30, emit_events: true }[0m
+    [2;3mat[0m core/src/volume/speed.rs:108
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:37:06.684475Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mVolume manager actor initialized[0m
+    [2;3mat[0m core/src/volume/actor.rs:201
+
+  [2m2025-02-21T01:37:06.684542Z[0m [34mDEBUG[0m [1;34msd_core::volume::watcher[0m[34m: [34mStarting volume watcher[0m
+    [2;3mat[0m core/src/volume/watcher.rs:38
+
+  [2m2025-02-21T01:37:06.684633Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::job_system[0m[34m: [34mNo pending jobs found on disk[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/job_system/mod.rs:304
+
+  [2m2025-02-21T01:37:06.684648Z[0m [33m WARN[0m [1;33msd_core::volume::watcher[0m[33m: [33mFailed to watch path /run/media: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/watcher.rs:121
+
+  [2m2025-02-21T01:37:06.685295Z[0m [32m INFO[0m [1;32msd_core[0m[32m: [32mSpacedrive online![0m
+    [2;3mat[0m core/src/lib.rs:264
+
+  [2m2025-02-21T01:37:06.685709Z[0m [32m INFO[0m [1;32msd_desktop::tauri_plugins[0m[32m: [32mInternal server listening on: http://127.0.0.1:41975[0m
+    [2;3mat[0m apps/desktop/src-tauri/src/tauri_plugins.rs:71
+
+  [2m2025-02-21T01:37:06.688061Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([27, 44, 36, 129, 248, 99, 228, 151, 98, 171, 15, 5, 213, 35, 166, 33, 208, 58, 171, 201, 156, 31, 188, 104, 212, 8, 114, 148, 224, 47, 11, 110])), id: None, pub_id: None, device_id: None, name: "/dev/vda1", mount_type: System, mount_point: "/", mount_points: ["/"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: true, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 102915489792, total_bytes_available: 70411317248 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:37:06.688173Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda1 with fingerprint 1b2c2481f863e49762ab0f05d523a621d03aabc99c1fbc68d4087294e02f0b6e[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:37:06.688255Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200])), id: None, pub_id: None, device_id: None, name: "/dev/vda13", mount_type: System, mount_point: "/boot", mount_points: ["/boot"], is_mounted: true, disk_type: Unknown, file_system: EXT4, read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 1036431360, total_bytes_available: 847003648 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:37:06.688307Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda13 with fingerprint f127b20af31ffa9fcaf13ce5e285c651316b9657fb49b301e89370f952fa4fc8[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+  [2m2025-02-21T01:37:06.688359Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeAdded(Volume { fingerprint: Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228])), id: None, pub_id: None, device_id: None, name: "/dev/vda15", mount_type: System, mount_point: "/boot/efi", mount_points: ["/boot/efi"], is_mounted: true, disk_type: Unknown, file_system: Other("VFAT"), read_only: false, error_status: None, read_speed_mbps: None, write_speed_mbps: None, total_bytes_capacity: 109395456, total_bytes_available: 103012352 })[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:37:06.688405Z[0m [34mDEBUG[0m [1;34msd_core::volume::state[0m[34m: [34mRegistering volume /dev/vda15 with fingerprint 750c383c61c7879de9b391a5cd39e1bd64ed6777939fe17bd94a0f35f445c4e4[0m
+    [2;3mat[0m core/src/volume/state.rs:32
+
+emitting event for Some(VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]))
+  [2m2025-02-21T01:37:06.736779Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 537.647098229899, read_speed: 450.8792325386196, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda15
+
+  [2m2025-02-21T01:37:06.736891Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([117, 12, 56, 60, 97, 199, 135, 157, 233, 179, 145, 165, 205, 57, 225, 189, 100, 237, 103, 119, 147, 159, 225, 123, 217, 74, 15, 53, 244, 69, 196, 228]), read_speed: 450, write_speed: 537 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+emitting event for Some(VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]))
+  [2m2025-02-21T01:37:06.761584Z[0m [31mERROR[0m [1;31msd_core::volume::speed[0m[31m: [31mFailed to remove test file: No such file or directory (os error 2)[0m
+    [2;3mat[0m core/src/volume/speed.rs:79
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:37:06.761624Z[0m [34mDEBUG[0m [1;34msd_core::volume::speed[0m[34m: [34mSpeed test completed: SpeedTestResult { write_speed: 390.4914397247566, read_speed: 268.55038649771626, duration: 30.0 }[0m
+    [2;3mat[0m core/src/volume/speed.rs:149
+    [2;3min[0m sd_core::volume::speed::[1mspeed_test[0m [2;3mwith[0m volume_name=/dev/vda13
+
+  [2m2025-02-21T01:37:06.761698Z[0m [34mDEBUG[0m [1;34msd_core::volume::actor[0m[34m: [34mVolume event received: VolumeSpeedTested { fingerprint: VolumeFingerprint([241, 39, 178, 10, 243, 31, 250, 159, 202, 241, 60, 229, 226, 133, 198, 81, 49, 107, 150, 87, 251, 73, 179, 1, 232, 147, 112, 249, 82, 250, 79, 200]), read_speed: 268, write_speed: 390 }[0m
+    [2;3mat[0m core/src/volume/actor.rs:212
+
+  [2m2025-02-21T01:37:06.791350Z[0m [32m INFO[0m [1;32msd_core::p2p::manager[0m[32m: [32mUpdated p2p relay configuration successfully.[0m
+    [2;3mat[0m core/src/p2p/manager.rs:157
+
+Window did not emit `app_ready` event fast enough. Showing window...
+  [2m2025-02-21T01:37:11.261601Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:37:11.261681Z[0m [31mERROR[0m [1;31msd_core::api::keys[0m[31m: [31mFailed to read file: "No such file or directory (os error 2)"[0m
+    [2;3mat[0m core/src/api/keys.rs:66
+
+  [2m2025-02-21T01:37:11.261847Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("qafzd5398c"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:37:11.261872Z[0m [31mERROR[0m [1;31mrspc::internal::jsonrpc_exec[0m[31m: [31mError executing query operation String("clrfa7x4npt"): ErrResolverError(Error { code: InternalServerError, message: "Failed to read file \"/home/rocky/.local/share/spacedrive/dev/.sdks\"", cause: None })[0m
+    [2;3mat[0m /home/rocky/.cargo/git/checkouts/rspc-264254b19e111e45/6a77167/src/internal/jsonrpc_exec.rs:224
+
+  [2m2025-02-21T01:37:13.078909Z[0m [32m INFO[0m [1;32msd_core::volume::actor[0m[32m: [32mListing system volumes for library 01951a96-a285-7a62-8412-2f0b6860915c[0m
+    [2;3mat[0m core/src/volume/actor.rs:380
+
+  [2m2025-02-21T01:37:52.515927Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::indexer::shallow[0m[34m: [1;34mnon_indexed_paths_count[0m[34m: 1[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/indexer/shallow.rs:98
+    [2;3min[0m sd_core_heavy_lifting::indexer::shallow::[1mshallow[0m [2;3mwith[0m location_id=2 location_path=Some("/home/rocky/Desktop") sub_path=
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+  [2m2025-02-21T01:37:52.518292Z[0m [34mDEBUG[0m [1;34msd_core_heavy_lifting::media_processor::shallow[0m[34m: [34mDispatching thumbnails to be processed;, [1;34mthumbs_count[0m[34m: 0, [1;34mpriority_tasks_count[0m[34m: 0[0m
+    [2;3mat[0m core/crates/heavy-lifting/src/media_processor/shallow.rs:262
+    [2;3min[0m sd_core::location::[1mlight_scan_location[0m [2;3mwith[0m library_id=01951a96-a285-7a62-8412-2f0b6860915c location_id=2 sub_path=
+
+Starting drag operation
+Drag operation completed
+Result: Dropped
+Cursor position: CursorPosition { x: 913, y: 291 }

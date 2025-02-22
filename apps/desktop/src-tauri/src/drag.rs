@@ -70,6 +70,7 @@ static TRACKING: AtomicBool = AtomicBool::new(false);
 /// * `on_event` - Channel for communicating drag operation events back to the frontend
 #[tauri::command(async)]
 #[specta::specta]
+#[cfg(not(target_os = "linux"))]
 pub async fn start_drag(
 	window: WebviewWindow,
 	_state: State<'_, DragState>,
@@ -188,15 +189,9 @@ pub async fn start_drag(
 									let item = DragItem::Files(paths);
 									let preview_icon = Image::Raw(image_raw_for_drag.clone());
 
-									// Get the final window beng passed into drag::start_drag
-									#[cfg(target_os = "linux")]
-									let final_window = window_for_drag.gtk_window().unwrap();
-									#[cfg(not(target_os = "linux"))]
-									let final_window = window_for_drag.clone();
-
 									// Start the drag operation
 									if let Ok(session) = drag::start_drag(
-										&final_window,
+										&window_for_drag,
 										item,
 										preview_icon,
 										move |result, cursor_pos| {
@@ -245,6 +240,88 @@ pub async fn start_drag(
 	});
 
 	Ok(())
+}
+
+// /// Initiates a drag and drop operation with cursor position tracking - WIP
+// ///
+// /// # Arguments
+// /// * `window` - The Tauri window instance
+// /// * `_state` - Current drag state (unused)
+// /// * `files` - Vector of file paths to be dragged
+// /// * `image` - Base64 encoded image to be used as drag icon
+// /// * `on_event` - Channel for communicating drag operation events back to the frontend
+// #[tauri::command(async)]
+// #[specta::specta]
+// #[cfg(target_os = "linux")]
+// pub async fn start_drag(
+// 	window: WebviewWindow,
+// 	_state: State<'_, DragState>,
+// 	files: Vec<String>,
+// 	image: String,
+// 	on_event: Channel<CallbackResult>,
+// ) -> Result<(), String> {
+// 	use drag::{CursorPosition, DragResult};
+// 	use tao::platform::unix::WindowExtUnix;
+
+// 	// Convert file paths to PathBuf
+// 	let paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
+
+// 	// Handle preview image
+// 	let preview_icon = if image.starts_with("data:image/") {
+// 		let base64_str = image.split(",").last().unwrap();
+// 		let image_raw = STANDARD.decode(base64_str).unwrap();
+// 		Image::Raw(image_raw)
+// 	} else {
+// 		Image::File(PathBuf::from(image))
+// 	};
+
+// 	// Get main thread handle
+// 	let app_handle = window.app_handle();
+// 	let window_clone = window.clone();
+
+// 	app_handle
+// 		.run_on_main_thread(move || {
+// 			// Get GTK window handle
+// 			let gtk_window = window_clone.gtk_window().expect("Failed to get GTK window");
+// 			let item = DragItem::Files(paths);
+// 			println!("Starting drag operation");
+
+// 			// Start drag operation
+// 			let _ = drag::start_drag(
+// 				&gtk_window,
+// 				item,
+// 				preview_icon,
+// 				move |result, cursor_pos| {
+// 					println!("Drag operation completed");
+// 					println!("Result: {:?}", result);
+// 					println!("Cursor position: {:?}", cursor_pos);
+// 					let _ = on_event.send(CallbackResult {
+// 						result: result.into(),
+// 						cursor_pos: cursor_pos.into(),
+// 					});
+// 				},
+// 				Options {
+// 					skip_animatation_on_cancel_or_failure: false,
+// 					mode: drag::DragMode::Move,
+// 				},
+// 			);
+// 		})
+// 		.unwrap_or_default();
+
+// 	Ok(())
+// }
+
+#[tauri::command(async)]
+#[specta::specta]
+#[cfg(target_os = "linux")]
+pub async fn start_drag(
+	_window: WebviewWindow,
+	_state: State<'_, DragState>,
+	_files: Vec<String>,
+	_image: String,
+	_on_event: Channel<CallbackResult>,
+) -> Result<(), String> {
+	Err("Drag and drop is not supported on Linux".to_string())
 }
 
 /// Stops the cursor position tracking for drag operations

@@ -2408,7 +2408,7 @@ dependencies = [
 [[package]]
 name = "drag"
 version = "2.0.0"
-source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#ee63190ff86f9fdfea05f5ee1c26b1d40148ad6a"
+source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#ae964401b6ff18f6ee05260cb7890d2892ba087f"
 dependencies = [
  "cocoa",
  "core-graphics 0.24.0",
@@ -10301,6 +10301,7 @@ dependencies = [
  "dbus",
  "drag 2.0.0 (git+https://github.com/spacedriveapp/drag-rs?branch=move-operation)",
  "futures",
+ "gtk",
  "http 1.1.0",
  "hyper 1.5.0",
  "mimalloc",
@@ -10319,6 +10320,7 @@ dependencies = [
  "specta",
  "specta-typescript",
  "strum",
+ "tao 0.31.1",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
@@ -11804,6 +11806,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "tao"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3731d04d4ac210cd5f344087733943b9bfb1a32654387dad4d1c70de21aee2c9"
+dependencies = [
+ "bitflags 2.6.0",
+ "cocoa",
+ "core-foundation 0.10.0",
+ "core-graphics 0.24.0",
+ "crossbeam-channel",
+ "dispatch",
+ "dlopen2 0.7.0",
+ "dpi",
+ "gdkwayland-sys",
+ "gdkx11-sys",
+ "gtk",
+ "jni 0.21.1",
+ "lazy_static",
+ "libc",
+ "log",
+ "ndk",
+ "ndk-context",
+ "ndk-sys 0.6.0+11769913",
+ "objc",
+ "once_cell",
+ "parking_lot 0.12.3",
+ "raw-window-handle",
+ "scopeguard",
+ "serde",
+ "tao-macros",
+ "unicode-segmentation",
+ "url",
+ "windows 0.58.0",
+ "windows-core 0.58.0",
+ "windows-version",
+ "x11-dl",
+]
+
+[[package]]
 name = "tao-macros"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12202,7 +12243,7 @@ dependencies = [
  "percent-encoding",
  "raw-window-handle",
  "softbuffer",
- "tao",
+ "tao 0.30.3",
  "tauri-runtime",
  "tauri-utils",
  "url",
