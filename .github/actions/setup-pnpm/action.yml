@@ -10,6 +10,7 @@ runs:
   steps:
     - name: Install ffmpeg
       if: runner.os == 'Linux'
+      shell: 'bash'
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
