@@ -12,6 +12,7 @@ runs:
       if: runner.os == 'Linux'
       shell: 'bash'
       run: |
+        sudo add-apt-repository ppa:ubuntuhandbook1/ffmpeg7 -y
         sudo apt-get update
         sudo apt-get install -y ffmpeg
 
