@@ -8,6 +8,12 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Install ffmpeg
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+
     - name: Install pnpm
       uses: pnpm/action-setup@v4
 
