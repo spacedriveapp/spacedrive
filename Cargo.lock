@@ -2408,7 +2408,7 @@ dependencies = [
 [[package]]
 name = "drag"
 version = "2.0.0"
-source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#ae964401b6ff18f6ee05260cb7890d2892ba087f"
+source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#35739c3e5e5b05165ce08947d7148357e8dbe640"
 dependencies = [
  "cocoa",
  "core-graphics 0.24.0",
