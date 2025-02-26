@@ -215,6 +215,19 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			HardwareModel::Other
 		});
 
+		// Create .sdks file in the data directory if it doesn't exist
+		let data_directory = Path::new(NODE_STATE_CONFIG_NAME)
+			.parent()
+			.expect("Config path must have a parent directory");
+		let sdks_file = data_directory.join(".sdks");
+		if !sdks_file.exists() {
+			std::fs::write(&sdks_file, b"")
+				.map_err(|e| {
+					FileIOError::from((sdks_file.clone(), e, "Failed to create .sdks file"))
+				})
+				.expect("Panicked to initialize .sdks file");
+		}
+
 		Some(Self {
 			id: Uuid::now_v7().into(),
 			name,

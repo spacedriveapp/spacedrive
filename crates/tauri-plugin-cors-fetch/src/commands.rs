@@ -269,45 +269,49 @@ pub async fn get_response(
 					let cipher = CookieCipher::new(&key).unwrap();
 
 					// Read .sdks file
-					let sdks_path = data_dir.join(".sdks");
+					let sdks_path = NODE_DATA_DIR.get().unwrap().clone().join("spacedrive").join(".sdks");
+					debug!("Reading .sdks file: {:?}", sdks_path);
 					let data = std::fs::read(sdks_path.clone()).unwrap();
 
-					let data_str = String::from_utf8(data)
-						.map_err(|e| {
-							error!("Failed to convert data to string: {:?}", e.to_string());
-						})
-						.unwrap();
-					let data = CookieCipher::base64_decode(&data_str)
-						.map_err(|e| {
-							error!("Failed to decode data: {:?}", e.to_string());
-						})
-						.unwrap();
-					let de_data = cipher
-						.decrypt(&data)
-						.map_err(|e| {
-							error!("Failed to decrypt data: {:?}", e.to_string());
-						})
-						.unwrap();
-					let de_data = String::from_utf8(de_data)
-						.map_err(|e| {
-							error!("Failed to convert data to string: {:?}", e.to_string());
-						})
-						.unwrap();
-
-					debug!("Decrypted Data: {:?}", de_data);
+					let mut de_data: Vec<String> = Vec::new();
+					// Try to read existing cookies if file exists and has content
+					if !data.is_empty() {
+						let data_str = String::from_utf8(data)
+							.map_err(|e| {
+								error!("Failed to convert data to string: {:?}", e.to_string());
+							})
+							.unwrap();
+						let data = CookieCipher::base64_decode(&data_str)
+							.map_err(|e| {
+								error!("Failed to decode data: {:?}", e.to_string());
+							})
+							.unwrap();
+						let decrypted = cipher
+							.decrypt(&data)
+							.map_err(|e| {
+								error!("Failed to decrypt data: {:?}", e.to_string());
+							})
+							.unwrap();
+						let decrypted_str = String::from_utf8(decrypted)
+							.map_err(|e| {
+								error!("Failed to convert data to string: {:?}", e.to_string());
+							})
+							.unwrap();
+						de_data = serde_json::from_str(&decrypted_str).unwrap();
+					}
 
 					debug!("\nCookies:");
 					for (name, value) in &cookie_store {
 						debug!("  {} = {}", name, value);
 					}
 
-					let mut de_data: Vec<String> = serde_json::from_str(&de_data).unwrap();
-					for cookie in &mut de_data {
-						for (name, value) in &cookie_store {
-							if cookie.starts_with(name) {
-								*cookie = format!("{}={};expires=Fri, 31 Dec 9999 23:59:59 GMT;path=/;samesite=lax", name, value);
-							}
-						}
+					// Update or add new cookies
+					for (name, value) in &cookie_store {
+						let cookie_str = format!("{}={};expires=Fri, 31 Dec 9999 23:59:59 GMT;path=/;samesite=lax", name, value);
+						// Remove existing cookie if present
+						de_data.retain(|c| !c.starts_with(name));
+						// Add new cookie
+						de_data.push(cookie_str);
 					}
 
 					debug!("Updated Cookies: {:?}", de_data);

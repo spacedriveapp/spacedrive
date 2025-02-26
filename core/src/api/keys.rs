@@ -136,6 +136,12 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 					}
 
 					let base_dir = node.config.data_directory();
+					// Remove /dev from Path
+					let base_dir = if base_dir.ends_with("dev") {
+						base_dir.parent().unwrap_or(&base_dir).to_path_buf()
+					} else {
+						base_dir
+					};
 					// let path = sanitize_path(&base_dir, Path::new(".sdks"))?;
 					let path = base_dir.join(".sdks");
 					let data = read_file(&path).await?;
