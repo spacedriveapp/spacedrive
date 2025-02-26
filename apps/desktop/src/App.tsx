@@ -8,6 +8,7 @@ import {
 	libraryClient,
 	RspcProvider,
 	useBridgeMutation,
+	useLibraryMutation,
 	useSelector
 } from '@sd/client';
 import {
@@ -232,7 +233,7 @@ type RedirectPath = { pathname: string; search: string | undefined };
 function AppInner() {
 	const [tabs, setTabs] = useState(() => [createTab()]);
 	const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+	const cloudBootstrap = useLibraryMutation('cloud.bootstrap');
 
 	useEffect(() => {
 		(async () => {

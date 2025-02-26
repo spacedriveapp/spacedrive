@@ -272,6 +272,10 @@ pub async fn get_response(
 					let sdks_path = NODE_DATA_DIR.get().unwrap().clone().join("spacedrive").join(".sdks");
 					debug!("Reading .sdks file: {:?}", sdks_path);
 					let data = std::fs::read(sdks_path.clone()).unwrap();
+					// If the .sdks file doesn't exist, create it
+					if !sdks_path.exists() {
+						std::fs::write(sdks_path.clone(), "").unwrap();
+					}
 
 					let mut de_data: Vec<String> = Vec::new();
 					// Try to read existing cookies if file exists and has content

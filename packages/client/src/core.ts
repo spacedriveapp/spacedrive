@@ -70,7 +70,7 @@ export type Procedures = {
         { key: "backups.backup", input: LibraryArgs<null>, result: string } | 
         { key: "backups.delete", input: string, result: null } | 
         { key: "backups.restore", input: string, result: null } | 
-        { key: "cloud.bootstrap", input: [AccessToken, RefreshToken], result: null } | 
+        { key: "cloud.bootstrap", input: LibraryArgs<[AccessToken, RefreshToken]>, result: null } | 
         { key: "cloud.devices.delete", input: CloudDevicePubId, result: null } | 
         { key: "cloud.devices.update", input: CloudUpdateDeviceArgs, result: null } | 
         { key: "cloud.libraries.create", input: LibraryArgs<null>, result: null } | 
