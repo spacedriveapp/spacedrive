@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 					headers: github.HEADERS
 				});
 
-				if (existingBranch.status !== 404)
+				if (existingBranch.status === 200)
 					return Response.json({
 						response_type: 'ephemeral',
 						blocks: [
