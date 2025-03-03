@@ -129,9 +129,9 @@ curl -LSs 'https://gist.githubusercontent.com/HeavenVolkoff/0993c42bdb0b952eb5bf
   | gzip -9 >"${_tmp}/data/usr/share/man/man1/spacedrive.1.gz"
 
 # Fill the Categories entry in .desktop file
-sed -i 's/^Categories=.*/Categories=System;FileTools;FileManager;/' "${_tmp}/data/usr/share/applications/spacedrive.desktop"
+sed -i 's/^Categories=.*/Categories=System;FileTools;FileManager;/' "${_tmp}/data/usr/share/applications/Spacedrive.desktop"
 # Rename sd-desktop to spacedrive
-sed -i 's/=sd-desktop/=spacedrive/' "${_tmp}/data/usr/share/applications/spacedrive.desktop"
+sed -i 's/=sd-desktop/=spacedrive/' "${_tmp}/data/usr/share/applications/Spacedrive.desktop"
 
 # Fix data permissions
 find "${_tmp}/data" -type d -exec chmod 755 {} +
