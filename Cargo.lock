@@ -2366,6 +2366,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "drag"
+version = "2.0.0"
+source = "git+https://github.com/spacedriveapp/drag-rs?branch=move-operation#35739c3e5e5b05165ce08947d7148357e8dbe640"
+dependencies = [
+ "cocoa",
+ "core-graphics 0.24.0",
+ "dunce",
+ "gdk",
+ "gdkx11",
+ "gtk",
+ "objc",
+ "raw-window-handle",
+ "thiserror 1.0.64",
+ "windows 0.52.0",
+ "windows-core 0.58.0",
+]
+
+[[package]]
+name = "drag"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67fd9ae1736d6ebb2e472740fbee86fb2178b8d56feb98a6751411d4c95b7e72"
+dependencies = [
+ "cocoa",
+ "core-graphics 0.24.0",
+ "dunce",
+ "gdk",
+ "gdkx11",
+ "gtk",
+ "log",
+ "objc",
+ "raw-window-handle",
+ "serde",
+ "thiserror 1.0.64",
+ "windows 0.52.0",
+ "windows-core 0.58.0",
+]
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4585,6 +4624,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "inotify"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37dccff2791ab604f9babef0ba14fbe0be30bd368dc541e2b08d07c8aa908f3"
+dependencies = [
+ "bitflags 2.6.0",
+ "futures-core",
+ "inotify-sys",
+ "libc",
+ "tokio",
+]
+
+[[package]]
 name = "inotify-sys"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6798,7 +6850,7 @@ dependencies = [
  "bitflags 2.6.0",
  "filetime",
  "fsevent-sys",
- "inotify",
+ "inotify 0.10.2",
  "kqueue",
  "libc",
  "log",
@@ -9967,12 +10019,14 @@ dependencies = [
  "hyper-util",
  "icrate",
  "image",
+ "inotify 0.11.0",
  "int-enum",
  "itertools 0.13.0",
  "libc",
  "mini-moka",
  "normpath",
  "notify",
+ "once_cell",
  "openssl",
  "openssl-sys",
  "pin-project-lite",
@@ -10235,6 +10289,7 @@ version = "0.0.1"
 dependencies = [
  "aead 0.6.0-rc.0",
  "async-stream",
+ "base64 0.22.1",
  "blake3",
  "chacha20poly1305 0.11.0-pre.2",
  "cmov",
@@ -10251,6 +10306,8 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.8",
  "tokio",
+ "tracing",
+ "tracing-test",
  "typenum",
  "zeroize",
 ]
@@ -10261,8 +10318,11 @@ version = "0.5.0"
 dependencies = [
  "axum",
  "axum-extra",
+ "base64 0.22.1",
  "dbus",
+ "drag 2.0.0",
  "futures",
+ "gtk",
  "http 1.2.0",
  "hyper 1.5.2",
  "mimalloc",
@@ -10281,12 +10341,14 @@ dependencies = [
  "specta",
  "specta-typescript",
  "strum",
+ "tao 0.31.1",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-cors-fetch",
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
+ "tauri-plugin-drag",
  "tauri-plugin-http",
  "tauri-plugin-os",
  "tauri-plugin-shell",
@@ -11765,6 +11827,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "tao"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3731d04d4ac210cd5f344087733943b9bfb1a32654387dad4d1c70de21aee2c9"
+dependencies = [
+ "bitflags 2.6.0",
+ "cocoa",
+ "core-foundation 0.10.0",
+ "core-graphics 0.24.0",
+ "crossbeam-channel",
+ "dispatch",
+ "dlopen2 0.7.0",
+ "dpi",
+ "gdkwayland-sys",
+ "gdkx11-sys",
+ "gtk",
+ "jni 0.21.1",
+ "lazy_static",
+ "libc",
+ "log",
+ "ndk",
+ "ndk-context",
+ "ndk-sys 0.6.0+11769913",
+ "objc",
+ "once_cell",
+ "parking_lot 0.12.3",
+ "raw-window-handle",
+ "scopeguard",
+ "serde",
+ "tao-macros",
+ "unicode-segmentation",
+ "url",
+ "windows 0.58.0",
+ "windows-core 0.58.0",
+ "windows-version",
+ "x11-dl",
+]
+
+[[package]]
 name = "tao-macros"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11941,19 +12042,19 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-cors-fetch"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5216989e3f79e261cc9f5dbed6257ddaace94722624f52b64eea3332cd5b4eaf"
+version = "2.1.1-sd-custom"
 dependencies = [
  "http 0.2.12",
  "once_cell",
  "reqwest 0.11.27",
+ "sd-crypto",
  "serde",
  "serde_json",
  "tauri",
  "tauri-plugin",
  "thiserror 1.0.64",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -11993,6 +12094,21 @@ dependencies = [
  "tauri-plugin-fs",
  "thiserror 1.0.64",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-drag"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57788e3175d71de47f449e642ebf135e86a41279be1e4714c7eb8c682abb37ca"
+dependencies = [
+ "base64 0.21.7",
+ "drag 2.1.0",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 1.0.64",
 ]
 
 [[package]]
@@ -12142,7 +12258,7 @@ dependencies = [
  "percent-encoding",
  "raw-window-handle",
  "softbuffer",
- "tao",
+ "tao 0.30.3",
  "tauri-runtime",
  "tauri-utils",
  "url",
@@ -13902,6 +14018,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48a53791691ab099e5e2ad123536d0fff50652600abaf43bbf952894110d0be"
 dependencies = [
  "windows-core 0.52.0",
+ "windows-implement 0.52.0",
+ "windows-interface 0.52.0",
  "windows-targets 0.52.6",
 ]
 
@@ -13970,6 +14088,17 @@ dependencies = [
 
 [[package]]
 name = "windows-implement"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12168c33176773b86799be25e2a2ba07c7aab9968b37541f1094dbd7a60c8946"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "windows-implement"
 version = "0.56.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6fc35f58ecd95a9b71c4f2329b911016e6bec66b3f2e6a4aad86bd2e99e2f9b"
@@ -13984,6 +14113,17 @@ name = "windows-implement"
 version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d8dc32e0095a7eeccebd0e3f09e9509365ecb3fc6ac4d6f5f14a3f6392942d1"
 dependencies = [
  "proc-macro2",
  "quote",
