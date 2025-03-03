@@ -8,7 +8,7 @@
 		},
 		"moduleResolution": "bundler"
 	},
-	"include": ["src"],
+	"include": ["src", "tailwind.config.mjs", "postcss.config.mjs", ".eslintrc.mjs"],
 	"references": [
 		{
 			"path": "../../interface"
