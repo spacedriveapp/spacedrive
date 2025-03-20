@@ -1,5 +1,4 @@
 use crate::{
-	invalidate_query,
 	library::LibraryManagerError,
 	node::{config::NodeConfig, HardwareModel},
 	Node,
@@ -14,6 +13,7 @@ use sd_cloud_schema::{
 	users, Client, Request, Response, SecretKey as IrohSecretKey,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
+use sd_prisma::prisma::{location, SortOrder};
 use sd_utils::error::report_error;
 
 use std::pin::pin;
@@ -24,12 +24,13 @@ use futures_concurrency::future::TryJoin;
 use rspc::alpha::AlphaRouter;
 use tracing::{debug, error, instrument};
 
-use super::{Ctx, R};
+use super::{utils::library, Ctx, R};
 
 mod devices;
 mod libraries;
 mod locations;
 mod sync_groups;
+mod thumbnails;
 
 async fn try_get_cloud_services_client(
 	node: &Node,
@@ -46,9 +47,11 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.merge("locations.", locations::mount())
 		.merge("devices.", devices::mount())
 		.merge("syncGroups.", sync_groups::mount())
+		.merge("thumbnails.", thumbnails::mount())
 		.procedure("bootstrap", {
-			R.mutation(
-				|node, (access_token, refresh_token): (auth::AccessToken, auth::RefreshToken)| async move {
+			R.with2(library()).mutation(
+				|(node, library),
+				 (access_token, refresh_token): (auth::AccessToken, auth::RefreshToken)| async move {
 					use sd_cloud_schema::devices;
 
 					// Only allow a single bootstrap request in flight at a time
@@ -133,7 +136,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							debug!("Device hello successful");
 
-							KeyManager::load(master_key, data_directory).await?
+							KeyManager::load(master_key, data_directory.clone()).await?
 						}
 						Err(Error::Client(ClientSideError::NotFound(_))) => {
 							// Device not registered, we execute a device register flow
@@ -162,7 +165,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							debug!("Device registered successfully");
 
-							KeyManager::new(master_key, iroh_secret_key, data_directory, &mut rng)
+							KeyManager::new(master_key, iroh_secret_key, data_directory.clone(), &mut rng)
 								.await?
 						}
 						Err(e) => return Err(e.into()),
@@ -182,6 +185,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 								node.cloud_services.cloud_p2p_dns_origin_name.clone(),
 								node.cloud_services.cloud_p2p_dns_pkarr_url.clone(),
 								node.cloud_services.cloud_p2p_relay_url.clone(),
+								data_directory.clone(),
 							)
 							.await?,
 						)
@@ -230,6 +234,76 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 						.collect::<Vec<_>>()
 						.try_join()
 						.await?;
+
+					// If locations are not saved in the cloud, we need to save them
+					// Get locations from library db
+					let locations = library
+						.db
+						.location()
+						.find_many(vec![])
+						.order_by(location::date_created::order(SortOrder::Desc))
+						.exec()
+						.await?;
+
+					let library_pub_id = sd_cloud_schema::libraries::PubId(library.id);
+
+					// Fetch locations from cloud
+					let sd_cloud_schema::locations::list::Response(cloud_locations) = handle_comm_error(
+						client
+							.locations()
+							.list(sd_cloud_schema::locations::list::Request {
+								access_token: node
+									.cloud_services
+									.token_refresher
+									.get_access_token()
+									.await?,
+								library_pub_id,
+								with_library: true,
+								with_device: true,
+							})
+							.await,
+						"Failed to list locations on bootstrap",
+					)??;
+
+					// Save locations that are not in the cloud
+					for location in locations {
+						let location_uuid = uuid::Uuid::from_slice(&location.pub_id).unwrap();
+						debug!(
+							location_id = %location_uuid,
+							"Processing location during bootstrap"
+						);
+
+						if !cloud_locations.iter().any(|l| l.pub_id.0 == location_uuid) {
+							debug!(
+								location_id = %location_uuid,
+								location_name = %location.name.clone().unwrap_or_else(|| format!("Location {}", location.id)),
+								"Creating location in cloud during bootstrap"
+							);
+
+							handle_comm_error(
+								client
+									.locations()
+									.create(sd_cloud_schema::locations::create::Request {
+										access_token: node
+											.cloud_services
+											.token_refresher
+											.get_access_token()
+											.await?,
+										pub_id: sd_cloud_schema::locations::PubId(location_uuid),
+										name: location.name.clone().unwrap_or_else(|| format!("Location {}", location.id)),
+										library_pub_id,
+										device_pub_id: node.config.get().await.id.into(),
+									})
+									.await,
+								"Failed to create location on bootstrap",
+							)?;
+						} else {
+							debug!(
+								location_id = %location_uuid,
+								"Location already exists in cloud, skipping creation"
+							);
+						}
+					}
 
 					*has_bootstrapped_lock = true;
 

@@ -10,7 +10,7 @@ use crate::{
 use sd_core_heavy_lifting::JobId;
 
 use sd_file_ext::kind::ObjectKind;
-use sd_p2p::RemoteIdentity;
+use sd_old_p2p::RemoteIdentity;
 use sd_prisma::prisma::{file_path, indexer_rule, object, object_kind_statistics, statistics};
 use sd_utils::{db::size_in_bytes_from_db, u64_to_frontend};
 

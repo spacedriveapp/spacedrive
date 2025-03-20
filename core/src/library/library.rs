@@ -9,7 +9,7 @@ use sd_core_sync::{backfill::backfill_operations, SyncManager};
 use sd_actors::ActorsCollection;
 use sd_cloud_schema::sync::groups;
 use sd_crypto::{CryptoRng, SeedableRng};
-use sd_p2p::Identity;
+use sd_old_p2p::Identity;
 use sd_prisma::prisma::{file_path, location, PrismaClient};
 use sd_utils::{db::maybe_missing, error::FileIOError};
 

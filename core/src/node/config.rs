@@ -6,9 +6,8 @@ use crate::{
 
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_sync::DevicePubId;
-use sd_p2p::Identity;
-use sd_prisma::prisma::device;
-use sd_utils::{db, error::FileIOError};
+use sd_old_p2p::Identity;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashSet,
@@ -150,7 +149,7 @@ pub struct NodeConfig {
 }
 
 mod identity_serde {
-	use sd_p2p::Identity;
+	use sd_old_p2p::Identity;
 	use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 	pub fn serialize<S>(identity: &Identity, serializer: S) -> Result<S::Ok, S::Error>
@@ -214,6 +213,19 @@ impl ManagedVersion<NodeConfigVersion> for NodeConfig {
 			error!(?e, "Failed to get hardware model");
 			HardwareModel::Other
 		});
+
+		// Create .sdks file in the data directory if it doesn't exist
+		let data_directory = Path::new(NODE_STATE_CONFIG_NAME)
+			.parent()
+			.expect("Config path must have a parent directory");
+		let sdks_file = data_directory.join(".sdks");
+		if !sdks_file.exists() {
+			std::fs::write(&sdks_file, b"")
+				.map_err(|e| {
+					FileIOError::from((sdks_file.clone(), e, "Failed to create .sdks file"))
+				})
+				.expect("Panicked to initialize .sdks file");
+		}
 
 		Some(Self {
 			id: Uuid::now_v7().into(),

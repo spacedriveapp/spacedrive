@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { subscribe } from 'valtio';
 import {
 	compareHumanizedSizes,
 	getExplorerItemData,
 	humanizeSize,
 	ThumbKey,
+	useBridgeMutation,
+	useBridgeQuery,
+	useClientContext,
 	type ExplorerItem
 } from '@sd/client';
 import { usePlatform } from '~/util/Platform';
@@ -25,6 +28,18 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 	const platform = usePlatform();
 	const cachedSize = useRef<ReturnType<typeof humanizeSize> | null>(null);
 	const [newThumbnails, setNewThumbnails] = useState<Map<string, string | null>>(new Map());
+	const { currentLibraryId } = useClientContext();
+	const currentLocation = useMemo(
+		() => explorerStore.currentLocation,
+		[explorerStore.currentLocation]
+	);
+
+	// Move the hook call to the top level
+	const thumbnailGet = useBridgeMutation('cloud.thumbnails.get');
+	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
+
+	// Keep track of which thumbnails we've already requested to avoid duplicates
+	const requestedThumbnails = useRef(new Set<string>());
 
 	let thumbnails: ThumbKey | ThumbKey[] | null = null;
 	switch (explorerItem.type) {
@@ -50,7 +65,31 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 				const thumbs = thumbnailKeys.reduce<Map<string, string | null>>((acc, thumbKey) => {
 					const url = platform.getThumbnailUrlByThumbKey(thumbKey);
 					const thumbId = flattenThumbnailKey(thumbKey);
-					acc.set(url, explorerStore.newThumbnails.has(thumbId) ? thumbId : null);
+
+					// Check if we already have a thumbnail locally
+					const hasLocalThumb = explorerStore.newThumbnails.has(thumbId);
+
+					// If no local thumbnail and we have the required info, fetch from remote device && check that device_id is not 1
+					if (
+						!hasLocalThumb &&
+						currentDevice?.data?.pub_id !== currentLocation?.device_pub_id &&
+						thumbKey.cas_id &&
+						currentLocation?.device_pub_id &&
+						currentLibraryId &&
+						!requestedThumbnails.current.has(thumbKey.cas_id)
+					) {
+						// Mark as requested to avoid duplicate requests
+						requestedThumbnails.current.add(thumbKey.cas_id);
+
+						// Initiate the thumbnail fetch
+						thumbnailGet.mutate({
+							cas_id: thumbKey.cas_id,
+							library_pub_id: currentLibraryId,
+							device_pub_id: currentLocation.device_pub_id
+						});
+					}
+
+					acc.set(url, hasLocalThumb ? thumbId : null);
 					return acc;
 				}, new Map());
 
@@ -66,12 +105,12 @@ export function useExplorerItemData(explorerItem: ExplorerItem) {
 		updateThumbnails();
 
 		return subscribe(explorerStore, updateThumbnails);
-	}, [thumbnails, platform]);
+	}, [thumbnails, platform, currentLocation, currentLibraryId, thumbnailGet]);
 
 	return useMemo(() => {
 		const explorerItemData = getExplorerItemData(explorerItem);
 
-		// Avoid unecessary re-renders
+		// Avoid unnecessary re-renders
 		if (
 			cachedSize.current == null ||
 			!compareHumanizedSizes(cachedSize.current, explorerItemData.size)

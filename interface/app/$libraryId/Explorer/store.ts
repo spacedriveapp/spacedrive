@@ -113,7 +113,15 @@ const state = {
 	isContextMenuOpen: false,
 	quickRescanLastRun: Date.now() - 200,
 	// Map = { hotkey: '0'...'9', tagId: 1234 }
-	tagBulkAssignHotkeys: [] as Array<{ hotkey: string; tagId: number }>
+	tagBulkAssignHotkeys: [] as Array<{ hotkey: string; tagId: number }>,
+	// Used to check if location is remote or not:
+	currentLocation: {
+		id: 0,
+		device_id: 0,
+		device_pub_id: '',
+		device_name: '',
+		name: ''
+	}
 };
 
 export function flattenThumbnailKey(thumbKey: ThumbKey) {

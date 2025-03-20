@@ -6,6 +6,7 @@ import {
 	useBridgeMutation,
 	useBridgeQuery,
 	useBridgeSubscription,
+	useClientContext,
 	useLibraryMutation,
 	useLibrarySubscription
 } from '@sd/client';
@@ -44,7 +45,7 @@ const Profile = ({
 		})();
 	}, []);
 
-	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+	const cloudBootstrap = useLibraryMutation('cloud.bootstrap');
 	const devices = useBridgeQuery(['cloud.devices.list']);
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
 	const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
@@ -85,7 +86,9 @@ const Profile = ({
 					<div className="flex flex-col gap-3">
 						<div>
 							<p className="font-medium">Joined on</p>
-							<p className="text-ink-dull">{new Date(user.timejoined).toLocaleDateString()}</p>
+							<p className="text-ink-dull">
+								{new Date(user.timejoined).toLocaleDateString()}
+							</p>
 						</div>
 						<div>
 							<p className="font-medium">User ID</p>
@@ -104,7 +107,9 @@ const Profile = ({
 							<div
 								className={clsx(
 									'mr-2 size-[15px] rounded-full bg-app-box',
-									syncStatus?.[status as keyof SyncStatus] ? 'bg-accent' : 'bg-app-input'
+									syncStatus?.[status as keyof SyncStatus]
+										? 'bg-accent'
+										: 'bg-app-input'
 								)}
 							/>
 							<h3 className="text-sm font-semibold">{status}</h3>

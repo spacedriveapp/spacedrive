@@ -177,10 +177,22 @@ pub enum Error {
 	ReadNonceStreamDecryption(io::Error),
 	#[error("Incomplete download bytes sync messages")]
 	IncompleteDownloadBytesSyncMessages,
+	#[error("Timed out while waiting to recive thumbnail data")]
+	ThumbnailRequestTimeout,
 
 	// Temporary errors
 	#[error("Device missing secret key for decrypting sync messages")]
 	MissingKeyHash,
+	#[error("Not Implemented yet")]
+	NotImplemented,
+	#[error("Device not found")]
+	DeviceNotFound,
+	#[error("Invalid CAS ID")]
+	InvalidCasId,
+	#[error("Internal Error")]
+	InternalError,
+	#[error("Remote Device Error")]
+	RemoteDeviceError,
 }
 
 #[derive(thiserror::Error, Debug)]

@@ -66,10 +66,10 @@ export default () => {
 						{t('general')}
 					</SidebarLink>
 					{/* Disabling for now until sync is ready. */}
-					{/* <SidebarLink to="client/account">
+					<SidebarLink to="client/account">
 						<Icon component={User} />
 						{t('account')}
-					</SidebarLink> */}
+					</SidebarLink>
 					<SidebarLink to="node/libraries">
 						<Icon component={Books} />
 						{t('libraries')}
