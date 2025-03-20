@@ -624,9 +624,6 @@ impl Runner {
 								"Received thumbnail request from device {:?}", device_pub_id
 							);
 
-							// Implement the actual thumbnail fetching logic here
-							// This is where you'd access your local storage to retrieve the thumbnail
-							// For this example, I'll just demonstrate the structure:
 							match fetch_local_thumbnail(
 								Some(cas_id.clone()),
 								self.data_directory.clone(),
