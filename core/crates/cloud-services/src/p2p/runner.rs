@@ -376,65 +376,6 @@ impl Runner {
 		});
 	}
 
-	// async fn dispatch_get_thumbnail(
-	// 	&self,
-	// 	device_pub_id: devices::PubId,
-	// 	cas_id: cas_id::Type,
-	// 	tx: oneshot::Sender<RecivedGetThumbnailArgs>,
-	// ) {
-	// 	debug!(?device_pub_id, ?cas_id, "Received request for thumbnail");
-
-	// 	// Fetch from the devices list the specific device with the given pub id
-	// 	let Some((_, device_connection_id)) = self
-	// 		.cached_devices_per_group
-	// 		.values()
-	// 		.find(|(_, devices)| devices.iter().any(|(pub_id, _)| pub_id == &device_pub_id))
-	// 		.and_then(|(_, devices)| devices.iter().find(|(pub_id, _)| pub_id == &device_pub_id))
-	// 	else {
-	// 		error!("Failed to find device in the cached devices list");
-	// 		if tx
-	// 			.send(RecivedGetThumbnailArgs {
-	// 				cas_id,
-	// 				thumbnail: None,
-	// 				error: Some(Error::DeviceNotFound),
-	// 			})
-	// 			.is_err()
-	// 		{
-	// 			error!("Failed to send response to user;");
-	// 		};
-
-	// 		return;
-	// 	};
-
-	// 	debug!("Device Connection ID: {:?}", device_connection_id);
-	// 	// Connect to the device
-	// 	let Ok(client) = connect_to_specific_client(&self.endpoint, device_connection_id).await
-	// 	else {
-	// 		error!("Failed to connect to device");
-	// 		if tx
-	// 			.send(RecivedGetThumbnailArgs {
-	// 				cas_id,
-	// 				thumbnail: None,
-	// 				error: Some(Error::DeviceNotFound),
-	// 			})
-	// 			.is_err()
-	// 		{
-	// 			error!("Failed to send response to user;");
-	// 		};
-
-	// 		return;
-	// 	};
-
-	// 	let response = RecivedGetThumbnailArgs {
-	// 		cas_id,
-	// 		thumbnail: None,
-	// 		error: Some(Error::NotImplemented),
-	// 	};
-
-	// 	if tx.send(response).is_err() {
-	// 		error!("Failed to send response to user;");
-	// 	}
-	// }
 	#[allow(clippy::too_many_lines)]
 	fn dispatch_get_thumbnail(
 		&self,
