@@ -81,6 +81,7 @@ export type Procedures = {
         { key: "cloud.syncGroups.create", input: LibraryArgs<null>, result: null } | 
         { key: "cloud.syncGroups.delete", input: CloudSyncGroupPubId, result: null } | 
         { key: "cloud.syncGroups.request_join", input: SyncGroupsRequestJoinArgs, result: null } | 
+        { key: "cloud.thumbnails.get", input: CloudThumbnailRequestArgs, result: null } | 
         { key: "cloud.userResponse", input: CloudP2PUserResponse, result: null } | 
         { key: "ephemeralFiles.copyFiles", input: LibraryArgs<EphemeralFileSystemOps>, result: null } | 
         { key: "ephemeralFiles.createFile", input: LibraryArgs<CreateEphemeralFileArgs>, result: string } | 
@@ -235,6 +236,8 @@ export type CloudSyncGroupWithDevices = { pub_id: CloudSyncGroupPubId; latest_ke
 export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: CloudSyncGroupPubId; to_remove_device_pub_id: CloudDevicePubId }
 
 export type CloudSyncKeyHash = string
+
+export type CloudThumbnailRequestArgs = { device_pub_id: CloudDevicePubId; cas_id: string | null }
 
 export type CloudUpdateDeviceArgs = { pub_id: CloudDevicePubId; name: string }
 

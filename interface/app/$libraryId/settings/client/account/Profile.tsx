@@ -44,7 +44,7 @@ const Profile = ({
 		})();
 	}, []);
 
-	const cloudBootstrap = useBridgeMutation('cloud.bootstrap');
+	const cloudBootstrap = useLibraryMutation('cloud.bootstrap');
 	const devices = useBridgeQuery(['cloud.devices.list']);
 	const addLibraryToCloud = useLibraryMutation('cloud.libraries.create');
 	const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
@@ -60,6 +60,8 @@ const Profile = ({
 	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
 	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
 	const hasBootstrapped = useBridgeQuery(['cloud.hasBootstrapped']);
+
+	const thumbnailGet = useBridgeMutation('cloud.thumbnails.get');
 
 	// Refetch libraries and devices every 10 seconds
 	useEffect(() => {
@@ -85,7 +87,9 @@ const Profile = ({
 					<div className="flex flex-col gap-3">
 						<div>
 							<p className="font-medium">Joined on</p>
-							<p className="text-ink-dull">{new Date(user.timejoined).toLocaleDateString()}</p>
+							<p className="text-ink-dull">
+								{new Date(user.timejoined).toLocaleDateString()}
+							</p>
 						</div>
 						<div>
 							<p className="font-medium">User ID</p>
@@ -104,7 +108,9 @@ const Profile = ({
 							<div
 								className={clsx(
 									'mr-2 size-[15px] rounded-full bg-app-box',
-									syncStatus?.[status as keyof SyncStatus] ? 'bg-accent' : 'bg-app-input'
+									syncStatus?.[status as keyof SyncStatus]
+										? 'bg-accent'
+										: 'bg-app-input'
 								)}
 							/>
 							<h3 className="text-sm font-semibold">{status}</h3>
@@ -192,6 +198,18 @@ const Profile = ({
 					connectionType={'cloud'}
 				/>
 			))}
+
+			{/* Test Button for Get Mutation  */}
+			<Button
+				onClick={async () => {
+					thumbnailGet.mutate({
+						cas_id: "33bca0a734e1ad83",
+						device_pub_id: "01954413-add8-73b3-8fff-2acebdb72a76"
+					});
+				}}
+			>
+				Test Get Thumbnail Mutation
+			</Button>
 		</div>
 	);
 };

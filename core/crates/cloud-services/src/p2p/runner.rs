@@ -12,6 +12,7 @@ use sd_cloud_schema::{
 	sync::groups,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
+use sd_prisma::prisma::{device, file_path::cas_id};
 
 use std::{
 	collections::HashMap,
@@ -27,7 +28,7 @@ use dashmap::DashMap;
 use flume::SendError;
 use futures::StreamExt;
 use futures_concurrency::stream::Merge;
-use iroh::{Endpoint, NodeId};
+use iroh::{key::PublicKey, Endpoint, NodeId};
 use quic_rpc::{
 	server::{Accepting, RpcChannel, RpcServerError},
 	transport::quinn::{QuinnConnector, QuinnListener},
@@ -44,7 +45,7 @@ use tracing::{debug, error, warn};
 
 use super::{
 	new_sync_messages_notifier::dispatch_notifier, BasicLibraryCreationArgs, JoinSyncGroupResponse,
-	JoinedLibraryCreateArgs, NotifyUser, Ticket, UserResponse,
+	JoinedLibraryCreateArgs, NotifyUser, RecivedGetThumbnailArgs, Ticket, UserResponse,
 };
 
 const TEN_SECONDS: Duration = Duration::from_secs(10);
@@ -64,6 +65,11 @@ pub enum Request {
 		req: authorize_new_device_in_sync_group::Request,
 		devices_in_group: Vec<(devices::PubId, NodeId)>,
 		tx: oneshot::Sender<JoinedLibraryCreateArgs>,
+	},
+	GetThumbnail {
+		device_pub_id: devices::PubId,
+		cas_id: cas_id::Type,
+		tx: oneshot::Sender<RecivedGetThumbnailArgs>,
 	},
 }
 
@@ -201,6 +207,12 @@ impl Runner {
 					devices_in_group,
 					tx,
 				})) => self.dispatch_join_requests(req, devices_in_group, &mut rng, tx),
+
+				StreamMessage::Message(Message::Request(Request::GetThumbnail {
+					device_pub_id,
+					cas_id,
+					tx,
+				})) => self.dispatch_get_thumbnail(device_pub_id, cas_id, tx),
 
 				StreamMessage::Message(Message::RegisterSyncMessageNotifier((
 					group_pub_id,
@@ -356,6 +368,132 @@ impl Runner {
 		});
 	}
 
+	// async fn dispatch_get_thumbnail(
+	// 	&self,
+	// 	device_pub_id: devices::PubId,
+	// 	cas_id: cas_id::Type,
+	// 	tx: oneshot::Sender<RecivedGetThumbnailArgs>,
+	// ) {
+	// 	debug!(?device_pub_id, ?cas_id, "Received request for thumbnail");
+
+	// 	// Fetch from the devices list the specific device with the given pub id
+	// 	let Some((_, device_connection_id)) = self
+	// 		.cached_devices_per_group
+	// 		.values()
+	// 		.find(|(_, devices)| devices.iter().any(|(pub_id, _)| pub_id == &device_pub_id))
+	// 		.and_then(|(_, devices)| devices.iter().find(|(pub_id, _)| pub_id == &device_pub_id))
+	// 	else {
+	// 		error!("Failed to find device in the cached devices list");
+	// 		if tx
+	// 			.send(RecivedGetThumbnailArgs {
+	// 				cas_id,
+	// 				thumbnail: None,
+	// 				error: Some(Error::DeviceNotFound),
+	// 			})
+	// 			.is_err()
+	// 		{
+	// 			error!("Failed to send response to user;");
+	// 		};
+
+	// 		return;
+	// 	};
+
+	// 	debug!("Device Connection ID: {:?}", device_connection_id);
+	// 	// Connect to the device
+	// 	let Ok(client) = connect_to_specific_client(&self.endpoint, device_connection_id).await
+	// 	else {
+	// 		error!("Failed to connect to device");
+	// 		if tx
+	// 			.send(RecivedGetThumbnailArgs {
+	// 				cas_id,
+	// 				thumbnail: None,
+	// 				error: Some(Error::DeviceNotFound),
+	// 			})
+	// 			.is_err()
+	// 		{
+	// 			error!("Failed to send response to user;");
+	// 		};
+
+	// 		return;
+	// 	};
+
+	// 	let response = RecivedGetThumbnailArgs {
+	// 		cas_id,
+	// 		thumbnail: None,
+	// 		error: Some(Error::NotImplemented),
+	// 	};
+
+	// 	if tx.send(response).is_err() {
+	// 		error!("Failed to send response to user;");
+	// 	}
+	// }
+	fn dispatch_get_thumbnail(
+		&self,
+		device_pub_id: devices::PubId,
+		cas_id: cas_id::Type,
+		tx: oneshot::Sender<RecivedGetThumbnailArgs>,
+	) {
+		debug!(?device_pub_id, ?cas_id, "Received request for thumbnail");
+		let current_device_pub_id = self.current_device_pub_id;
+
+		let (_, device_connection_id) = self
+			.cached_devices_per_group
+			.values()
+			.find(|(_, devices)| devices.iter().any(|(pub_id, _)| pub_id == &device_pub_id))
+			.and_then(|(_, devices)| devices.iter().find(|(pub_id, _)| pub_id == &device_pub_id))
+			.ok_or_else(|| {
+				error!("Failed to find device in the cached devices list");
+				if tx
+					.send(RecivedGetThumbnailArgs {
+						cas_id: cas_id.clone(),
+						thumbnail: None,
+						error: Some(Error::DeviceNotFound),
+					})
+					.is_err()
+				{
+					error!("Failed to send response to user;");
+				}
+			})
+			.expect("Device must be in the cached devices list");
+
+		debug!("Device Connection ID: {:?}", device_connection_id);
+
+		// Spawn a separate task to avoid blocking the runner
+		spawn({
+			let endpoint = self.endpoint.clone();
+			let device_connection_id = *device_connection_id;
+
+			async move {
+				// Connect to the device
+				let Ok(client) = connect_to_specific_client(&endpoint, &device_connection_id).await
+				else {
+					error!("Failed to connect to device");
+					return;
+				};
+
+				// Create the request
+				let request = cloud_p2p::get_thumbnail::Request {
+					cas_id: cas_id.clone().unwrap_or_default(),
+					device_pub_id: current_device_pub_id,
+				};
+
+				// Send the request
+				match client.get_thumbnail(request).await {
+					Ok(Ok(cloud_p2p::get_thumbnail::Response { thumbnail })) => {
+						debug!(?cas_id, "Successfully received thumbnail");
+					}
+					Ok(Err(e)) => {
+						error!(?e, "Remote device returned error for thumbnail request");
+					}
+					Err(e) => {
+						error!(?e, "Failed to send thumbnail request to remote device");
+					}
+				}
+			}
+		});
+	}
+
+	#[allow(clippy::too_many_lines)]
 	async fn handle_request(
 		&self,
 		request: cloud_p2p::Request,
@@ -430,6 +568,48 @@ impl Runner {
 						?e,
 						"Failed to reply to new sync messages notification request"
 					);
+				}
+			}
+
+			cloud_p2p::Request::GetThumbnail(req) => {
+				if let Err(e) = channel
+					.rpc(
+						req,
+						(),
+						|(),
+						 cloud_p2p::get_thumbnail::Request {
+						     cas_id,
+						     device_pub_id,
+						 }| async move {
+							debug!(
+								?cas_id,
+								"Received thumbnail request from device {:?}", device_pub_id
+							);
+
+							// Implement the actual thumbnail fetching logic here
+							// This is where you'd access your local storage to retrieve the thumbnail
+							// For this example, I'll just demonstrate the structure:
+							match fetch_local_thumbnail(Some(cas_id.clone())).await {
+								Ok(Some(thumbnail_data)) => {
+									debug!(?cas_id, "Found thumbnail locally");
+									Ok(cloud_p2p::get_thumbnail::Response {
+										thumbnail: Some(thumbnail_data),
+									})
+								}
+								Ok(None) => {
+									debug!(?cas_id, "Thumbnail not found locally");
+									Err(CloudP2PError::Rejected)
+								}
+								Err(e) => {
+									error!(?e, ?cas_id, "Error fetching thumbnail");
+									Err(CloudP2PError::Rejected)
+								}
+							}
+						},
+					)
+					.await
+				{
+					error!(?e, "Failed to send get thumbnail response;");
 				}
 			}
 		}
@@ -615,6 +795,24 @@ async fn connect_to_first_available_client(
 	Err(CloudP2PError::UnableToConnect)
 }
 
+async fn connect_to_specific_client(
+	endpoint: &Endpoint,
+	device_connection_id: &PublicKey,
+) -> Result<Client<QuinnConnector<cloud_p2p::Response, cloud_p2p::Request>>, CloudP2PError> {
+	// Get the connection id by fetching using the device pub id
+	let connection = endpoint
+		.connect(*device_connection_id, CloudP2PALPN::LATEST)
+		.await
+		.map_err(|e| {
+			error!(?e, "Failed to connect to authorizor device candidate");
+			CloudP2PError::UnableToConnect
+		})?;
+	debug!(%device_connection_id, "Connected to authorizor device candidate");
+	Ok(Client::new(RpcClient::new(
+		QuinnConnector::from_connection(connection),
+	)))
+}
+
 fn setup_server_endpoint(
 	endpoint: Endpoint,
 ) -> (RpcServer<Service, P2PServerEndpoint>, JoinHandle<()>) {
@@ -644,4 +842,16 @@ fn setup_server_endpoint(
 			}
 		}),
 	)
+}
+
+// Add this function somewhere appropriate in your code
+async fn fetch_local_thumbnail(cas_id: cas_id::Type) -> Result<Option<Vec<u8>>, Error> {
+	// Implementation for fetching a thumbnail from your local storage
+	// This would typically query your database for the thumbnail location
+	// and then read it from the filesystem
+
+	debug!(?cas_id, "Fetching thumbnail from local storage");
+
+	// For now returning None, you'll need to implement this based on your storage architecture
+	Ok(None)
 }

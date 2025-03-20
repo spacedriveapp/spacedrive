@@ -31,6 +31,7 @@ mod devices;
 mod libraries;
 mod locations;
 mod sync_groups;
+mod thumbnails;
 
 async fn try_get_cloud_services_client(
 	node: &Node,
@@ -47,6 +48,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 		.merge("locations.", locations::mount())
 		.merge("devices.", devices::mount())
 		.merge("syncGroups.", sync_groups::mount())
+		.merge("thumbnails.", thumbnails::mount())
 		.procedure("bootstrap", {
 			R.with2(library()).mutation(
 				|(node, library),
