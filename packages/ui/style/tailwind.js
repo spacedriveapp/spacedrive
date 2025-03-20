@@ -25,6 +25,18 @@ module.exports = function (app, options) {
 				lg: '1024px',
 				xl: '1280px'
 			},
+			fontWeight: {
+				thin: '100',
+				extralight: '200',
+				light: '200',
+				normal: '300',
+				medium: '400',
+				semibold: '500',
+				bold: '600',
+				extrabold: '700',
+				black: '800',
+				extrablack: '900'
+			},
 			fontFamily: {
 				sans: [...defaultTheme.fontFamily.sans],
 				plex: ['IBM Plex Sans', ...defaultTheme.fontFamily.sans]
