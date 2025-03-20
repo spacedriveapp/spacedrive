@@ -6,6 +6,7 @@ import {
 	useBridgeMutation,
 	useBridgeQuery,
 	useBridgeSubscription,
+	useClientContext,
 	useLibraryMutation,
 	useLibrarySubscription
 } from '@sd/client';
@@ -60,8 +61,6 @@ const Profile = ({
 	const requestJoinSyncGroup = useBridgeMutation('cloud.syncGroups.request_join');
 	const currentDevice = useBridgeQuery(['cloud.devices.get_current_device']);
 	const hasBootstrapped = useBridgeQuery(['cloud.hasBootstrapped']);
-
-	const thumbnailGet = useBridgeMutation('cloud.thumbnails.get');
 
 	// Refetch libraries and devices every 10 seconds
 	useEffect(() => {
@@ -198,18 +197,6 @@ const Profile = ({
 					connectionType={'cloud'}
 				/>
 			))}
-
-			{/* Test Button for Get Mutation  */}
-			<Button
-				onClick={async () => {
-					thumbnailGet.mutate({
-						cas_id: "33bca0a734e1ad83",
-						device_pub_id: "01954413-add8-73b3-8fff-2acebdb72a76"
-					});
-				}}
-			>
-				Test Get Thumbnail Mutation
-			</Button>
 		</div>
 	);
 };

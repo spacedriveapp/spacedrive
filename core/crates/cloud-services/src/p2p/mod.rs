@@ -39,7 +39,6 @@ pub struct JoinedLibraryCreateArgs {
 #[derive(Debug)]
 pub struct RecivedGetThumbnailArgs {
 	pub cas_id: cas_id::Type,
-	pub thumbnail: Option<Vec<u8>>,
 	pub error: Option<Error>,
 }
 
@@ -116,7 +115,7 @@ impl CloudP2P {
 		dns_origin_domain: String,
 		dns_pkarr_url: Url,
 		relay_url: RelayUrl,
-		data_directory: PathBuf
+		data_directory: PathBuf,
 	) -> Result<Self, Error> {
 		let dht_discovery = DhtDiscovery::builder()
 			.secret_key(iroh_secret_key.clone())
@@ -165,7 +164,7 @@ impl CloudP2P {
 				cloud_services,
 				msgs_tx.clone(),
 				endpoint,
-				data_directory
+				data_directory,
 			)
 			.await?;
 			let user_response_rx = cloud_services.user_response_rx.clone();
@@ -251,12 +250,14 @@ impl CloudP2P {
 		&self,
 		device_pub_id: devices::PubId,
 		cas_id: cas_id::Type,
+		library_pub_id: libraries::PubId,
 		tx: oneshot::Sender<RecivedGetThumbnailArgs>,
 	) {
 		self.msgs_tx
 			.send_async(runner::Message::Request(runner::Request::GetThumbnail {
 				device_pub_id,
 				cas_id,
+				library_pub_id,
 				tx,
 			}))
 			.await

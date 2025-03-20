@@ -7,6 +7,7 @@ import {
 	FilePathOrder,
 	filePathOrderingKeysSchema,
 	Location,
+	useClientContext,
 	useLibraryQuery,
 	useLibrarySubscription,
 	useOnlineLocations
@@ -133,6 +134,27 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const isLocationIndexing = useIsLocationIndexing(location.id);
 
 	const { t } = useLocale();
+
+	// Get list of devices and map the public_id to the device_ids
+	const devices = useLibraryQuery(['devices.list'], {
+		placeholderData: keepPreviousData
+	});
+	const deviceId = devices.data?.find((device) => device.id === location.device_id)?.pub_id as any;
+	// Get UUID of the device from the pub_id, as CorePubId = { Uuid: string } | { Vec: number[] }
+	// and we need to convert it to a string
+	const deviceIdString = deviceId?.Uuid ?? (deviceId?.Vec ? stringify(deviceId.Vec) : '');
+	const deviceName = devices.data?.find((device) => device.id === location.device_id)?.name;
+
+	// Set state to current location
+	useEffect(() => {
+		explorerStore.currentLocation = {
+			id: location.id,
+			device_id: location.device_id ?? -1,
+			device_pub_id: deviceIdString ?? '',
+			device_name: deviceName ?? '',
+			name: location.name ?? 'Unknown'
+		};
+	}, [location, deviceIdString, deviceName]);
 
 	return (
 		<ExplorerContextProvider explorer={explorer}>

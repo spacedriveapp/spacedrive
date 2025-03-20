@@ -9,6 +9,7 @@ use sd_cloud_schema::{
 		CloudP2PError, Service,
 	},
 	devices::{self, Device},
+	libraries::{self, Library},
 	sync::groups,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
@@ -70,6 +71,7 @@ pub enum Request {
 	GetThumbnail {
 		device_pub_id: devices::PubId,
 		cas_id: cas_id::Type,
+		library_pub_id: libraries::PubId,
 		tx: oneshot::Sender<RecivedGetThumbnailArgs>,
 	},
 }
@@ -216,8 +218,9 @@ impl Runner {
 				StreamMessage::Message(Message::Request(Request::GetThumbnail {
 					device_pub_id,
 					cas_id,
+					library_pub_id,
 					tx,
-				})) => self.dispatch_get_thumbnail(device_pub_id, cas_id, tx),
+				})) => self.dispatch_get_thumbnail(device_pub_id, cas_id, library_pub_id, tx),
 
 				StreamMessage::Message(Message::RegisterSyncMessageNotifier((
 					group_pub_id,
@@ -432,66 +435,154 @@ impl Runner {
 	// 		error!("Failed to send response to user;");
 	// 	}
 	// }
+	#[allow(clippy::too_many_lines)]
 	fn dispatch_get_thumbnail(
 		&self,
 		device_pub_id: devices::PubId,
 		cas_id: cas_id::Type,
+		library_pub_id: libraries::PubId,
 		tx: oneshot::Sender<RecivedGetThumbnailArgs>,
 	) {
 		debug!(?device_pub_id, ?cas_id, "Received request for thumbnail");
 		let current_device_pub_id = self.current_device_pub_id;
+		let cas_id_clone = cas_id.clone();
 
-		let (_, device_connection_id) = self
+		// Put tx in an Arc to allow multiple references to it
+		let tx = Arc::new(Mutex::new(Some(tx)));
+
+		let device_connection = self
 			.cached_devices_per_group
 			.values()
 			.find(|(_, devices)| devices.iter().any(|(pub_id, _)| pub_id == &device_pub_id))
 			.and_then(|(_, devices)| devices.iter().find(|(pub_id, _)| pub_id == &device_pub_id))
 			.ok_or_else(|| {
 				error!("Failed to find device in the cached devices list");
-				if tx
-					.send(RecivedGetThumbnailArgs {
-						cas_id: cas_id.clone(),
-						thumbnail: None,
-						error: Some(Error::DeviceNotFound),
-					})
-					.is_err()
-				{
-					error!("Failed to send response to user;");
-				}
+
+				// Use a clone of the channel to send the error response
+				let tx_clone = tx.clone();
+				spawn(async move {
+					if let Some(tx) = tx_clone.lock().await.take() {
+						if tx
+							.send(RecivedGetThumbnailArgs {
+								cas_id: cas_id_clone.clone(),
+								error: Some(Error::DeviceNotFound),
+							})
+							.is_err()
+						{
+							error!("Failed to send response to user;");
+						}
+					}
+				});
 			})
 			.expect("Device must be in the cached devices list");
 
+		let (_, device_connection_id) = device_connection;
+
 		debug!("Device Connection ID: {:?}", device_connection_id);
+		let data_dir_clone = self.data_directory.clone();
 
 		// Spawn a separate task to avoid blocking the runner
 		spawn({
 			let endpoint = self.endpoint.clone();
 			let device_connection_id = *device_connection_id;
+			let tx = tx.clone();
+			let cas_id_clone_clone = cas_id.clone();
 
 			async move {
 				// Connect to the device
-				let Ok(client) = connect_to_specific_client(&endpoint, &device_connection_id).await
-				else {
-					error!("Failed to connect to device");
-					return;
-				};
+				let client =
+					match connect_to_specific_client(&endpoint, &device_connection_id).await {
+						Ok(client) => client,
+						Err(e) => {
+							error!(?e, "Failed to connect to device");
+							// Send the error through the channel
+							if let Some(tx) = tx.lock().await.take() {
+								if tx
+									.send(RecivedGetThumbnailArgs {
+										cas_id: cas_id_clone_clone,
+										error: Some(Error::DeviceNotFound),
+									})
+									.is_err()
+								{
+									error!("Failed to send response to user;");
+								}
+							}
+							return;
+						}
+					};
 
 				// Create the request
 				let request = cloud_p2p::get_thumbnail::Request {
-					cas_id: cas_id.clone().unwrap_or_default(),
+					cas_id: cas_id_clone_clone.clone().unwrap_or_default(),
 					device_pub_id: current_device_pub_id,
+					library_pub_id,
 				};
 
 				// Send the request
 				match client.get_thumbnail(request).await {
 					Ok(Ok(cloud_p2p::get_thumbnail::Response { thumbnail })) => {
 						debug!(?cas_id, "Successfully received thumbnail");
+
+						// Convert cas_id to a string
+						let cas_id_str = cas_id_clone_clone.clone().unwrap_or_default();
+
+						// If we received a thumbnail, try to save it locally
+						if let Some(thumbnail_data) = &thumbnail {
+							// Try to save the thumbnail, but don't fail if saving fails
+							if let Err(e) = save_remote_thumbnail(
+								&cas_id_str,
+								thumbnail_data,
+								data_dir_clone,
+								library_pub_id.clone(),
+							)
+							.await
+							{
+								error!(?e, "Failed to save remote thumbnail locally, but continuing with response");
+							}
+						}
+
+						// Send the response via the oneshot channel
+						if let Some(tx) = tx.lock().await.take() {
+							if tx
+								.send(RecivedGetThumbnailArgs {
+									cas_id: cas_id_clone_clone.clone(),
+									error: None,
+								})
+								.is_err()
+							{
+								error!("Failed to send thumbnail response to user");
+							}
+						}
 					}
 					Ok(Err(e)) => {
 						error!(?e, "Remote device returned error for thumbnail request");
+						// Send the error through the channel
+						if let Some(tx) = tx.lock().await.take() {
+							if tx
+								.send(RecivedGetThumbnailArgs {
+									cas_id: cas_id_clone_clone.clone(),
+									error: Some(Error::RemoteDeviceError),
+								})
+								.is_err()
+							{
+								error!("Failed to send response to user;");
+							}
+						}
 					}
 					Err(e) => {
 						error!(?e, "Failed to send thumbnail request to remote device");
+						// Send the error through the channel
+						if let Some(tx) = tx.lock().await.take() {
+							if tx
+								.send(RecivedGetThumbnailArgs {
+									cas_id: cas_id_clone_clone.clone(),
+									error: Some(Error::InternalError),
+								})
+								.is_err()
+							{
+								error!("Failed to send response to user;");
+							}
+						}
 					}
 				}
 			}
@@ -585,6 +676,7 @@ impl Runner {
 						 cloud_p2p::get_thumbnail::Request {
 						     cas_id,
 						     device_pub_id,
+						     library_pub_id,
 						 }| async move {
 							debug!(
 								?cas_id,
@@ -594,8 +686,12 @@ impl Runner {
 							// Implement the actual thumbnail fetching logic here
 							// This is where you'd access your local storage to retrieve the thumbnail
 							// For this example, I'll just demonstrate the structure:
-							match fetch_local_thumbnail(Some(cas_id.clone()), self.data_directory.clone())
-								.await
+							match fetch_local_thumbnail(
+								Some(cas_id.clone()),
+								self.data_directory.clone(),
+								library_pub_id,
+							)
+							.await
 							{
 								Ok(Some(thumbnail_data)) => {
 									debug!(?cas_id, "Found thumbnail locally");
@@ -854,6 +950,7 @@ fn setup_server_endpoint(
 async fn fetch_local_thumbnail(
 	cas_id: cas_id::Type,
 	data_directory: PathBuf,
+	library_pub_id: libraries::PubId,
 ) -> Result<Option<Vec<u8>>, Error> {
 	use tokio::fs;
 	use tracing::{debug, error};
@@ -865,43 +962,83 @@ async fn fetch_local_thumbnail(
 
 	let cas_id = sd_core_prisma_helpers::CasId::from(cas_id);
 
-	// Use ThumbnailKind to compute the path
-	// We'll search in all libraries first, then ephemeral
 	let thumbnails_directory =
 		sd_core_heavy_lifting::media_processor::get_thumbnails_directory(data_directory);
-
-	// First, get all subdirectories in the thumbnails directory
-	let mut directories = match fs::read_dir(&thumbnails_directory).await {
-		Ok(dirs) => dirs,
-		Err(e) => {
-			error!(?e, "Failed to read thumbnails directory");
-			return Err(Error::InternalError);
-		}
-	};
 
 	// Get the shard hex for the cas_id
 	let shard_hex = sd_core_heavy_lifting::media_processor::get_shard_hex(&cas_id);
 
-	// Try to find the thumbnail in any library or ephemeral directories
-	while let Ok(Some(entry)) = directories.next_entry().await {
-		let library_path = entry.path();
+	// First try to find the thumbnail in the specific library folder
+	let library_path = thumbnails_directory.join(library_pub_id.to_string());
+	let shard_path = library_path.join(shard_hex);
+	let thumbnail_path = shard_path.join(format!("{}.webp", cas_id.as_str()));
 
-		// Skip files and only process directories
-		if !library_path.is_dir() {
+	debug!("Checking for thumbnail at {:?}", thumbnail_path);
+
+	// If the thumbnail exists in the specific library folder, read it
+	if fs::metadata(&thumbnail_path).await.is_ok() {
+		match fs::read(&thumbnail_path).await {
+			Ok(data) => {
+				debug!("Found thumbnail at {:?}", thumbnail_path);
+				return Ok(Some(data));
+			}
+			Err(e) => {
+				error!(?e, "Failed to read thumbnail file");
+				return Err(Error::InternalError);
+			}
+		}
+	}
+
+	// If not found in the specific library, try the ephemeral directory
+	let ephemeral_dir = thumbnails_directory.join("ephemeral");
+	let ephemeral_shard_path = ephemeral_dir.join(shard_hex);
+	let ephemeral_thumbnail_path = ephemeral_shard_path.join(format!("{}.webp", cas_id.as_str()));
+
+	debug!(
+		"Checking for thumbnail in ephemeral at {:?}",
+		ephemeral_thumbnail_path
+	);
+
+	// If the thumbnail exists in ephemeral, read it
+	if fs::metadata(&ephemeral_thumbnail_path).await.is_ok() {
+		match fs::read(&ephemeral_thumbnail_path).await {
+			Ok(data) => {
+				debug!("Found thumbnail at {:?}", ephemeral_thumbnail_path);
+				return Ok(Some(data));
+			}
+			Err(e) => {
+				error!(?e, "Failed to read thumbnail file");
+				return Err(Error::InternalError);
+			}
+		}
+	}
+
+	// If we still don't have the thumbnail, search all library folders as a fallback
+	// This is to handle cases where the library ID might have changed
+	let Ok(mut directories) = fs::read_dir(&thumbnails_directory).await else {
+		debug!("No thumbnails directory found");
+		return Ok(None);
+	};
+
+	// Try to find the thumbnail in any other library directories
+	while let Ok(Some(entry)) = directories.next_entry().await {
+		let dir_path = entry.path();
+
+		// Skip files and already checked directories
+		if !dir_path.is_dir() || dir_path == library_path || dir_path == ephemeral_dir {
 			continue;
 		}
 
-		// Compute potential thumbnail path in this library folder
-		let shard_path = library_path.join(shard_hex);
-		let thumbnail_path = shard_path.join(format!("{}.webp", cas_id.as_str()));
+		// Check if thumbnail exists in this directory
+		let other_shard_path = dir_path.join(shard_hex);
+		let other_thumbnail_path = other_shard_path.join(format!("{}.webp", cas_id.as_str()));
 
-		debug!("Checking for thumbnail at {:?}", thumbnail_path);
+		debug!("Checking for thumbnail at {:?}", other_thumbnail_path);
 
-		// If the thumbnail exists, read it
-		if thumbnail_path.exists() {
-			match fs::read(&thumbnail_path).await {
+		if fs::metadata(&other_thumbnail_path).await.is_ok() {
+			match fs::read(&other_thumbnail_path).await {
 				Ok(data) => {
-					debug!("Found thumbnail at {:?}", thumbnail_path);
+					debug!("Found thumbnail at {:?}", other_thumbnail_path);
 					return Ok(Some(data));
 				}
 				Err(e) => {
@@ -912,7 +1049,123 @@ async fn fetch_local_thumbnail(
 		}
 	}
 
-	// If we get here, the thumbnail doesn't exist
+	// If we get here, the thumbnail doesn't exist anywhere
 	debug!("Thumbnail not found for {}", cas_id.as_str());
 	Ok(None)
+}
+
+async fn save_remote_thumbnail(
+	cas_id: &str,
+	thumbnail_data: &[u8],
+	data_directory: PathBuf,
+	library_pub_id: libraries::PubId,
+) -> Result<PathBuf, Error> {
+	use tokio::fs;
+	use tracing::{debug, error};
+
+	debug!(?cas_id, "Saving remote thumbnail to local storage");
+
+	// Convert to CasId for path computation
+	let cas_id = sd_core_prisma_helpers::CasId::from(cas_id);
+
+	// Get the thumbnails directory
+	let thumbnails_directory =
+		sd_core_heavy_lifting::media_processor::get_thumbnails_directory(data_directory);
+	let library_dir = thumbnails_directory.join(library_pub_id.to_string());
+
+	// Get the shard hex for organizing thumbnails
+	let shard_hex = sd_core_heavy_lifting::media_processor::get_shard_hex(&cas_id);
+
+	// Create the full directory path
+	let shard_dir = library_dir.join(shard_hex);
+
+	// Create the directories if they don't exist
+	if let Err(e) = fs::create_dir_all(&shard_dir).await {
+		error!(?e, "Failed to create thumbnail directory structure in library folder, falling back to ephemeral");
+
+		// If we can't create in library folder, fall back to ephemeral
+		let ephemeral_dir = thumbnails_directory.join("ephemeral");
+		let ephemeral_shard_dir = ephemeral_dir.join(shard_hex);
+
+		if let Err(e) = fs::create_dir_all(&ephemeral_shard_dir).await {
+			error!(
+				?e,
+				"Failed to create thumbnail directory structure in ephemeral folder"
+			);
+			return Err(Error::InternalError);
+		}
+
+		// Create the full path for the thumbnail in ephemeral
+		let thumbnail_path = ephemeral_shard_dir.join(format!("{}.webp", cas_id.as_str()));
+
+		// Write the thumbnail data to disk
+		match fs::write(&thumbnail_path, thumbnail_data).await {
+			Ok(_) => {
+				debug!(
+					"Successfully saved remote thumbnail to ephemeral: {:?}",
+					thumbnail_path
+				);
+				return Ok(thumbnail_path);
+			}
+			Err(e) => {
+				error!(
+					?e,
+					"Failed to write remote thumbnail to disk in ephemeral folder"
+				);
+				return Err(Error::InternalError);
+			}
+		}
+	}
+
+	// Create the full path for the thumbnail in the library folder
+	let thumbnail_path = shard_dir.join(format!("{}.webp", cas_id.as_str()));
+
+	// Write the thumbnail data to disk
+	match fs::write(&thumbnail_path, thumbnail_data).await {
+		Ok(_) => {
+			debug!(
+				"Successfully saved remote thumbnail to library folder: {:?}",
+				thumbnail_path
+			);
+			Ok(thumbnail_path)
+		}
+		Err(e) => {
+			error!(
+				?e,
+				"Failed to write remote thumbnail to disk in library folder"
+			);
+
+			// If writing to library folder fails, try ephemeral as a fallback
+			let ephemeral_dir = thumbnails_directory.join("ephemeral");
+			let ephemeral_shard_dir = ephemeral_dir.join(shard_hex);
+
+			if let Err(e) = fs::create_dir_all(&ephemeral_shard_dir).await {
+				error!(
+					?e,
+					"Failed to create thumbnail directory structure in ephemeral folder"
+				);
+				return Err(Error::InternalError);
+			}
+
+			let ephemeral_thumbnail_path =
+				ephemeral_shard_dir.join(format!("{}.webp", cas_id.as_str()));
+
+			match fs::write(&ephemeral_thumbnail_path, thumbnail_data).await {
+				Ok(_) => {
+					debug!(
+						"Successfully saved remote thumbnail to ephemeral fallback: {:?}",
+						ephemeral_thumbnail_path
+					);
+					Ok(ephemeral_thumbnail_path)
+				}
+				Err(e) => {
+					error!(
+						?e,
+						"Failed to write remote thumbnail to disk in ephemeral fallback folder"
+					);
+					Err(Error::InternalError)
+				}
+			}
+		}
+	}
 }

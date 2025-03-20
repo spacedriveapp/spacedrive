@@ -237,7 +237,7 @@ export type CloudSyncGroupsRemoveDeviceArgs = { group_pub_id: CloudSyncGroupPubI
 
 export type CloudSyncKeyHash = string
 
-export type CloudThumbnailRequestArgs = { device_pub_id: CloudDevicePubId; cas_id: string | null }
+export type CloudThumbnailRequestArgs = { device_pub_id: CloudDevicePubId; library_pub_id: CloudLibraryPubId; cas_id: string | null }
 
 export type CloudUpdateDeviceArgs = { pub_id: CloudDevicePubId; name: string }
 

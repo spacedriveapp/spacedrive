@@ -27,6 +27,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 		#[derive(Deserialize, specta::Type)]
 		struct CloudThumbnailRequestArgs {
 			device_pub_id: devices::PubId,
+			library_pub_id: libraries::PubId,
 			cas_id: cas_id::Type,
 		}
 
@@ -34,6 +35,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 			|node,
 			 CloudThumbnailRequestArgs {
 			     device_pub_id,
+			     library_pub_id,
 			     cas_id,
 			 }: CloudThumbnailRequestArgs| async move {
 				let ((client, access_token), cloud_p2p) = (
@@ -48,7 +50,7 @@ pub fn mount() -> AlphaRouter<Ctx> {
 				let (tx, rx) = oneshot::channel();
 
 				cloud_p2p
-					.request_thumbnail_data(device_pub_id, cas_id, tx)
+					.request_thumbnail_data(device_pub_id, cas_id, library_pub_id, tx)
 					.await;
 
 				// Log rx output

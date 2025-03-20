@@ -191,6 +191,8 @@ pub enum Error {
 	InvalidCasId,
 	#[error("Internal Error")]
 	InternalError,
+	#[error("Remote Device Error")]
+	RemoteDeviceError,
 }
 
 #[derive(thiserror::Error, Debug)]
