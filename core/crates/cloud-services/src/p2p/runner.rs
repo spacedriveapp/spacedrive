@@ -16,6 +16,7 @@ use sd_prisma::prisma::{device, file_path::cas_id};
 
 use std::{
 	collections::HashMap,
+	path::PathBuf,
 	pin::pin,
 	sync::{
 		atomic::{AtomicU64, Ordering},
@@ -91,6 +92,7 @@ pub struct Runner {
 	pending_sync_group_join_requests: Arc<Mutex<HashMap<Ticket, PendingSyncGroupJoin>>>,
 	cached_devices_per_group: HashMap<groups::PubId, (Instant, Vec<(devices::PubId, NodeId)>)>,
 	timeout_checker_buffer: Vec<(Ticket, PendingSyncGroupJoin)>,
+	data_directory: PathBuf,
 }
 
 impl Clone for Runner {
@@ -112,6 +114,7 @@ impl Clone for Runner {
 			cached_devices_per_group: HashMap::new(),
 			// This one is a temporary buffer only used for timeout checker
 			timeout_checker_buffer: vec![],
+			data_directory: self.data_directory.clone(),
 		}
 	}
 }
@@ -131,6 +134,7 @@ impl Runner {
 		cloud_services: &CloudServices,
 		msgs_tx: flume::Sender<Message>,
 		endpoint: Endpoint,
+		data_directory: PathBuf,
 	) -> Result<Self, Error> {
 		Ok(Self {
 			current_device_pub_id,
@@ -145,6 +149,7 @@ impl Runner {
 			pending_sync_group_join_requests: Arc::default(),
 			cached_devices_per_group: HashMap::new(),
 			timeout_checker_buffer: vec![],
+			data_directory,
 		})
 	}
 
@@ -589,7 +594,9 @@ impl Runner {
 							// Implement the actual thumbnail fetching logic here
 							// This is where you'd access your local storage to retrieve the thumbnail
 							// For this example, I'll just demonstrate the structure:
-							match fetch_local_thumbnail(Some(cas_id.clone())).await {
+							match fetch_local_thumbnail(Some(cas_id.clone()), self.data_directory.clone())
+								.await
+							{
 								Ok(Some(thumbnail_data)) => {
 									debug!(?cas_id, "Found thumbnail locally");
 									Ok(cloud_p2p::get_thumbnail::Response {
@@ -844,14 +851,68 @@ fn setup_server_endpoint(
 	)
 }
 
-// Add this function somewhere appropriate in your code
-async fn fetch_local_thumbnail(cas_id: cas_id::Type) -> Result<Option<Vec<u8>>, Error> {
-	// Implementation for fetching a thumbnail from your local storage
-	// This would typically query your database for the thumbnail location
-	// and then read it from the filesystem
+async fn fetch_local_thumbnail(
+	cas_id: cas_id::Type,
+	data_directory: PathBuf,
+) -> Result<Option<Vec<u8>>, Error> {
+	use tokio::fs;
+	use tracing::{debug, error};
 
 	debug!(?cas_id, "Fetching thumbnail from local storage");
 
-	// For now returning None, you'll need to implement this based on your storage architecture
+	// Convert cas_id to a string
+	let cas_id = cas_id.unwrap_or_default();
+
+	let cas_id = sd_core_prisma_helpers::CasId::from(cas_id);
+
+	// Use ThumbnailKind to compute the path
+	// We'll search in all libraries first, then ephemeral
+	let thumbnails_directory =
+		sd_core_heavy_lifting::media_processor::get_thumbnails_directory(data_directory);
+
+	// First, get all subdirectories in the thumbnails directory
+	let mut directories = match fs::read_dir(&thumbnails_directory).await {
+		Ok(dirs) => dirs,
+		Err(e) => {
+			error!(?e, "Failed to read thumbnails directory");
+			return Err(Error::InternalError);
+		}
+	};
+
+	// Get the shard hex for the cas_id
+	let shard_hex = sd_core_heavy_lifting::media_processor::get_shard_hex(&cas_id);
+
+	// Try to find the thumbnail in any library or ephemeral directories
+	while let Ok(Some(entry)) = directories.next_entry().await {
+		let library_path = entry.path();
+
+		// Skip files and only process directories
+		if !library_path.is_dir() {
+			continue;
+		}
+
+		// Compute potential thumbnail path in this library folder
+		let shard_path = library_path.join(shard_hex);
+		let thumbnail_path = shard_path.join(format!("{}.webp", cas_id.as_str()));
+
+		debug!("Checking for thumbnail at {:?}", thumbnail_path);
+
+		// If the thumbnail exists, read it
+		if thumbnail_path.exists() {
+			match fs::read(&thumbnail_path).await {
+				Ok(data) => {
+					debug!("Found thumbnail at {:?}", thumbnail_path);
+					return Ok(Some(data));
+				}
+				Err(e) => {
+					error!(?e, "Failed to read thumbnail file");
+					return Err(Error::InternalError);
+				}
+			}
+		}
+	}
+
+	// If we get here, the thumbnail doesn't exist
+	debug!("Thumbnail not found for {}", cas_id.as_str());
 	Ok(None)
 }

@@ -10,7 +10,7 @@ use sd_cloud_schema::{
 use sd_crypto::{CryptoRng, SeedableRng};
 use sd_prisma::prisma::file_path::cas_id;
 
-use std::{sync::Arc, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use iroh::{
 	discovery::{
@@ -116,6 +116,7 @@ impl CloudP2P {
 		dns_origin_domain: String,
 		dns_pkarr_url: Url,
 		relay_url: RelayUrl,
+		data_directory: PathBuf
 	) -> Result<Self, Error> {
 		let dht_discovery = DhtDiscovery::builder()
 			.secret_key(iroh_secret_key.clone())
@@ -164,6 +165,7 @@ impl CloudP2P {
 				cloud_services,
 				msgs_tx.clone(),
 				endpoint,
+				data_directory
 			)
 			.await?;
 			let user_response_rx = cloud_services.user_response_rx.clone();

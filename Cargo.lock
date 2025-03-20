@@ -10113,6 +10113,8 @@ dependencies = [
  "rustls-platform-verifier 0.4.0",
  "sd-actors",
  "sd-cloud-schema",
+ "sd-core-heavy-lifting",
+ "sd-core-prisma-helpers",
  "sd-core-sync",
  "sd-crypto",
  "sd-prisma",

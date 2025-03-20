@@ -7,13 +7,15 @@ edition = "2021"
 [dependencies]
 # Core Spacedrive Sub-crates
 sd-core-sync = { path = "../sync" }
+sd-core-heavy-lifting = { path = "../heavy-lifting" }
+sd-core-prisma-helpers = { path = "../prisma-helpers" }
 
 # Spacedrive Sub-crates
-sd-actors       = { path = "../../../crates/actors" }
-sd-cloud-schema = { workspace = true }
-sd-crypto       = { path = "../../../crates/crypto" }
-sd-prisma       = { path = "../../../crates/prisma" }
-sd-utils        = { path = "../../../crates/utils" }
+sd-actors        = { path = "../../../crates/actors" }
+sd-cloud-schema  = { workspace = true }
+sd-crypto        = { path = "../../../crates/crypto" }
+sd-prisma        = { path = "../../../crates/prisma" }
+sd-utils         = { path = "../../../crates/utils" }
 
 # Workspace dependencies
 anyhow              = { workspace = true }

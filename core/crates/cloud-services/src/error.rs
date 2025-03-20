@@ -187,6 +187,10 @@ pub enum Error {
 	NotImplemented,
 	#[error("Device not found")]
 	DeviceNotFound,
+	#[error("Invalid CAS ID")]
+	InvalidCasId,
+	#[error("Internal Error")]
+	InternalError,
 }
 
 #[derive(thiserror::Error, Debug)]
