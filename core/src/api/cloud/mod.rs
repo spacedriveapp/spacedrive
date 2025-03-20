@@ -137,7 +137,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							debug!("Device hello successful");
 
-							KeyManager::load(master_key, data_directory).await?
+							KeyManager::load(master_key, data_directory.clone()).await?
 						}
 						Err(Error::Client(ClientSideError::NotFound(_))) => {
 							// Device not registered, we execute a device register flow
@@ -166,7 +166,7 @@ pub(crate) fn mount() -> AlphaRouter<Ctx> {
 
 							debug!("Device registered successfully");
 
-							KeyManager::new(master_key, iroh_secret_key, data_directory, &mut rng)
+							KeyManager::new(master_key, iroh_secret_key, data_directory.clone(), &mut rng)
 								.await?
 						}
 						Err(e) => return Err(e.into()),
