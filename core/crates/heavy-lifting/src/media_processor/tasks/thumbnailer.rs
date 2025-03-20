@@ -211,17 +211,17 @@ pub enum NonCriticalThumbnailerError {
 	MissingCasId(file_path::id::Type),
 	#[error("failed to extract isolated file path data from file path <id='{0}'>: {1}")]
 	FailedToExtractIsolatedFilePathData(file_path::id::Type, String),
-	#[error("failed to generate video file thumbnail <path='{}'>: {1}", .0.display())]
+	#[error("failed to generate video file thumbnail <path='{path}'>: {1}", path = .0.display())]
 	VideoThumbnailGenerationFailed(PathBuf, String),
-	#[error("failed to format image <path='{}'>: {1}", .0.display())]
+	#[error("failed to format image <path='{path}'>: {1}", path = .0.display())]
 	FormatImage(PathBuf, String),
-	#[error("failed to encode webp image <path='{}'>: {1}", .0.display())]
+	#[error("failed to encode webp image <path='{path}'>: {1}", path = .0.display())]
 	WebPEncoding(PathBuf, String),
-	#[error("processing thread panicked while generating thumbnail from <path='{}'>: {1}", .0.display())]
+	#[error("processing thread panicked while generating thumbnail from <path='{path}'>: {1}", path = .0.display())]
 	PanicWhileGeneratingThumbnail(PathBuf, String),
 	#[error("failed to create shard directory for thumbnail: {0}")]
 	CreateShardDirectory(String),
-	#[error("failed to save thumbnail <path='{}'>: {1}", .0.display())]
+	#[error("failed to save thumbnail <path='{path}'>: {1}", path = .0.display())]
 	SaveThumbnail(PathBuf, String),
 	#[error("task timed out: {0}")]
 	TaskTimeout(TaskId),

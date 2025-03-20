@@ -4,7 +4,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	#[error("there was an i/o at path '{}' error: {0}", .1.display())]
+	#[error("there was an i/o at path '{path}' error: {0}", path = .1.display())]
 	Io(std::io::Error, Box<Path>),
 
 	#[error("the image provided is unsupported")]

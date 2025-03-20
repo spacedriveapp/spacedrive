@@ -5,7 +5,7 @@ use crate::{
 		relink_location, scan_location, scan_location_sub_path, LocationCreateArgs, LocationError,
 		LocationUpdateArgs, ScanState,
 	},
-	p2p::PeerMetadata,
+	old_p2p::PeerMetadata,
 	util::AbortOnDrop,
 };
 
