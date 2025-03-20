@@ -139,7 +139,8 @@ const LocationExplorer = ({ location }: { location: Location; path?: string }) =
 	const devices = useLibraryQuery(['devices.list'], {
 		placeholderData: keepPreviousData
 	});
-	const deviceId = devices.data?.find((device) => device.id === location.device_id)?.pub_id as any;
+	const deviceId = devices.data?.find((device) => device.id === location.device_id)
+		?.pub_id as any;
 	// Get UUID of the device from the pub_id, as CorePubId = { Uuid: string } | { Vec: number[] }
 	// and we need to convert it to a string
 	const deviceIdString = deviceId?.Uuid ?? (deviceId?.Vec ? stringify(deviceId.Vec) : '');

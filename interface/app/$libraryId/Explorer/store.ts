@@ -71,31 +71,31 @@ export const createDefaultExplorerSettings = <TOrder extends Ordering>(args?: {
 
 export type CutCopyState =
 	| {
-		type: 'Idle';
-	}
+			type: 'Idle';
+	  }
 	| {
-		type: 'Cut' | 'Copy';
-		sourceParentPath: string; // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
-		indexedArgs?: {
-			sourceLocationId: number;
-			sourcePathIds: number[];
-		};
-		ephemeralArgs?: {
-			sourcePaths: string[];
-		};
-	};
+			type: 'Cut' | 'Copy';
+			sourceParentPath: string; // this is used solely for preventing copy/cutting to the same path (as that will truncate the file)
+			indexedArgs?: {
+				sourceLocationId: number;
+				sourcePathIds: number[];
+			};
+			ephemeralArgs?: {
+				sourcePaths: string[];
+			};
+	  };
 
 type DragState =
 	| {
-		type: 'touched';
-	}
+			type: 'touched';
+	  }
 	| {
-		type: 'dragging';
-		items: ExplorerItem[];
-		sourcePath?: string;
-		sourceLocationId?: number;
-		sourceTagId?: number;
-	};
+			type: 'dragging';
+			items: ExplorerItem[];
+			sourcePath?: string;
+			sourceLocationId?: number;
+			sourceTagId?: number;
+	  };
 
 const state = {
 	showInspector: false,
@@ -120,7 +120,7 @@ const state = {
 		device_id: 0,
 		device_pub_id: '',
 		device_name: '',
-		name: '',
+		name: ''
 	}
 };
 

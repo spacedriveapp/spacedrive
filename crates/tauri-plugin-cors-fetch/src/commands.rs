@@ -269,7 +269,12 @@ pub async fn get_response(
 					let cipher = CookieCipher::new(&key).unwrap();
 
 					// Read .sdks file
-					let sdks_path = NODE_DATA_DIR.get().unwrap().clone().join("spacedrive").join(".sdks");
+					let sdks_path = NODE_DATA_DIR
+						.get()
+						.unwrap()
+						.clone()
+						.join("spacedrive")
+						.join(".sdks");
 					debug!("Reading .sdks file: {:?}", sdks_path);
 					let data = std::fs::read(sdks_path.clone()).unwrap();
 					// If the .sdks file doesn't exist, create it
@@ -311,7 +316,10 @@ pub async fn get_response(
 
 					// Update or add new cookies
 					for (name, value) in &cookie_store {
-						let cookie_str = format!("{}={};expires=Fri, 31 Dec 9999 23:59:59 GMT;path=/;samesite=lax", name, value);
+						let cookie_str = format!(
+							"{}={};expires=Fri, 31 Dec 9999 23:59:59 GMT;path=/;samesite=lax",
+							name, value
+						);
 						// Remove existing cookie if present
 						de_data.retain(|c| !c.starts_with(name));
 						// Add new cookie

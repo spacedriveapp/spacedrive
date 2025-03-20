@@ -1,5 +1,7 @@
 //! DEPRICATED FOR NEW SYSTEM. DO NOT USE THIS API
-use crate::old_p2p::{operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata};
+use crate::old_p2p::{
+	operations, ConnectionMethod, DiscoveryMethod, Header, P2PEvent, PeerMetadata,
+};
 
 use sd_old_p2p::{PeerConnectionCandidate, RemoteIdentity};
 

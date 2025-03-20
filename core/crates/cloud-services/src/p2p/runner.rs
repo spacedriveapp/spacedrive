@@ -9,11 +9,11 @@ use sd_cloud_schema::{
 		CloudP2PError, Service,
 	},
 	devices::{self, Device},
-	libraries::{self, Library},
+	libraries::{self},
 	sync::groups,
 };
 use sd_crypto::{CryptoRng, SeedableRng};
-use sd_prisma::prisma::{device, file_path::cas_id};
+use sd_prisma::prisma::file_path::cas_id;
 
 use std::{
 	collections::HashMap,
@@ -533,7 +533,7 @@ impl Runner {
 								&cas_id_str,
 								thumbnail_data,
 								data_dir_clone,
-								library_pub_id.clone(),
+								library_pub_id,
 							)
 							.await
 							{
@@ -1100,7 +1100,7 @@ async fn save_remote_thumbnail(
 
 		// Write the thumbnail data to disk
 		match fs::write(&thumbnail_path, thumbnail_data).await {
-			Ok(_) => {
+			Ok(()) => {
 				debug!(
 					"Successfully saved remote thumbnail to ephemeral: {:?}",
 					thumbnail_path
@@ -1122,7 +1122,7 @@ async fn save_remote_thumbnail(
 
 	// Write the thumbnail data to disk
 	match fs::write(&thumbnail_path, thumbnail_data).await {
-		Ok(_) => {
+		Ok(()) => {
 			debug!(
 				"Successfully saved remote thumbnail to library folder: {:?}",
 				thumbnail_path
@@ -1151,7 +1151,7 @@ async fn save_remote_thumbnail(
 				ephemeral_shard_dir.join(format!("{}.webp", cas_id.as_str()));
 
 			match fs::write(&ephemeral_thumbnail_path, thumbnail_data).await {
-				Ok(_) => {
+				Ok(()) => {
 					debug!(
 						"Successfully saved remote thumbnail to ephemeral fallback: {:?}",
 						ephemeral_thumbnail_path

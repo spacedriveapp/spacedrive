@@ -500,7 +500,10 @@ impl Libraries {
 					device::hardware_model::set(Some(node_config.hardware_model as i32)),
 					device::date_created::set(Some(Utc::now().fixed_offset())),
 				],
-			}.to_query(&db).exec().await?;
+			}
+			.to_query(&db)
+			.exec()
+			.await?;
 		}
 
 		let identity = match instance.identity.as_ref() {

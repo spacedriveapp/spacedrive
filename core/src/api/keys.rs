@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use rspc::{alpha::AlphaRouter, ErrorCode};
 use sd_crypto::cookie::CookieCipher;
 use serde_json::{json, Map, Value};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::RwLock;

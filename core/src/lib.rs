@@ -208,7 +208,7 @@ impl Node {
 				.map_err(|e| {
 					FileIOError::from((sdks_file.clone(), e, "Failed to create .sdks file"))
 				})
-				.map_err(|e| NodeError::FileIO(e))?;
+				.map_err(NodeError::FileIO)?;
 		}
 
 		let router = api::mount();

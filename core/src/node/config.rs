@@ -6,8 +6,8 @@ use crate::{
 
 use sd_cloud_schema::devices::DeviceOS;
 use sd_core_sync::DevicePubId;
-use sd_utils::error::FileIOError;
 use sd_old_p2p::Identity;
+use sd_utils::error::FileIOError;
 
 use std::{
 	collections::HashSet,

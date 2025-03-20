@@ -72,7 +72,7 @@ SuperTokens.init({
 	windowHandler: getWindowHandler,
 	recipeList: [
 		Session.init({ tokenTransferMethod: 'header' }),
-		EmailPassword.init(),
+		EmailPassword.init()
 		// ThirdParty.init(),
 		// Passwordless.init()
 	]
