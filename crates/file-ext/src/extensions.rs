@@ -184,6 +184,8 @@ extension_category_enum! {
 		Rtf,
 		Md,
 		Markdown,
+		Csv,
+		Tsv,
 	}
 }
 // config file extensions
