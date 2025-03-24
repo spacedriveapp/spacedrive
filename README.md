@@ -26,7 +26,7 @@ Spacedrive is an open source cross-platform file manager, powered by a virtual d
 <br/>
 
 > [!IMPORTANT] 
-> We regret to inform our valued Spacedrive community that we must temporarily pause our development roadmap beyond our latest update. Due to current funding constraints and related challenges, we cannot deliver new features or updates for the foreseeable future.
+> We regret to inform our valued Spacedrive community that we must temporarily pause our development roadmap beyond our [latest update](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3). Due to current funding constraints and related challenges, we cannot deliver new features or updates for the foreseeable future.
 >
 > While this was a tough decision, our team remains committed to Spacedrive's vision and will explore options to resume development when circumstances allow. We deeply appreciate your understanding and continued support during this challenging period.
 > 
