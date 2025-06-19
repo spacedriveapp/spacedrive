@@ -1,5 +1,34 @@
-//! Job system for background processing
+//! Job system for Spacedrive
+//! 
+//! Provides a minimal-boilerplate job execution framework built on top of the task-system.
 
-pub struct JobSystem {
-    // TODO: Implement job queue
+pub mod context;
+pub mod database;
+pub mod error;
+pub mod executor;
+pub mod handle;
+pub mod manager;
+pub mod output;
+pub mod progress;
+pub mod registry;
+pub mod traits;
+pub mod types;
+
+// Re-export commonly used types
+pub mod prelude {
+    pub use super::{
+        context::JobContext,
+        error::{JobError, JobResult},
+        handle::JobHandle,
+        output::JobOutput,
+        progress::{JobProgress, Progress},
+        traits::{Job, JobHandler},
+        types::{JobId, JobStatus},
+    };
+    
+    // Re-export derive macros when implemented
+    // pub use spacedrive_jobs_derive::{Job, job_handler};
 }
+
+pub use manager::JobManager;
+pub use registry::JobRegistry;

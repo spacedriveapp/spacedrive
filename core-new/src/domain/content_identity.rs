@@ -211,6 +211,109 @@ pub const CURRENT_CAS_VERSION: u8 = 2;
 /// Size threshold for sampling vs full hashing (10MB)
 pub const SMALL_FILE_THRESHOLD: u64 = 10 * 1024 * 1024;
 
+/// Content-Addressable Storage ID generator
+pub struct CasGenerator;
+
+impl CasGenerator {
+    /// Generate a CAS ID for a file
+    /// Uses sampling for large files, full hash for small files
+    pub async fn generate_cas_id(path: &std::path::Path) -> Result<String, CasError> {
+        let metadata = tokio::fs::metadata(path).await?;
+        let file_size = metadata.len();
+        
+        if file_size <= SMALL_FILE_THRESHOLD {
+            // Small file: hash entire content
+            Self::generate_full_hash(path).await
+        } else {
+            // Large file: use sampling algorithm
+            Self::generate_sampled_hash(path, file_size).await
+        }
+    }
+    
+    /// Generate full SHA-256 hash for small files
+    async fn generate_full_hash(path: &std::path::Path) -> Result<String, CasError> {
+        use sha2::{Sha256, Digest};
+        
+        let content = tokio::fs::read(path).await?;
+        let mut hasher = Sha256::new();
+        hasher.update(&content);
+        let hash = hasher.finalize();
+        
+        Ok(format!("v{}_full:{:x}", CURRENT_CAS_VERSION, hash))
+    }
+    
+    /// Generate sampled hash for large files
+    /// Samples from beginning, middle, and end of file
+    async fn generate_sampled_hash(path: &std::path::Path, file_size: u64) -> Result<String, CasError> {
+        use sha2::{Sha256, Digest};
+        use tokio::io::{AsyncReadExt, AsyncSeekExt};
+        
+        const SAMPLE_SIZE: u64 = 8192; // 8KB samples
+        const NUM_SAMPLES: u64 = 3;
+        
+        let mut file = tokio::fs::File::open(path).await?;
+        let mut hasher = Sha256::new();
+        
+        // Include file size in hash to distinguish files of different sizes
+        hasher.update(&file_size.to_le_bytes());
+        
+        // Sample from beginning
+        let mut buffer = vec![0u8; SAMPLE_SIZE as usize];
+        file.seek(std::io::SeekFrom::Start(0)).await?;
+        let bytes_read = file.read(&mut buffer).await?;
+        hasher.update(&buffer[..bytes_read]);
+        
+        // Sample from middle (if file is large enough)
+        if file_size > SAMPLE_SIZE * 2 {
+            let middle_pos = file_size / 2 - SAMPLE_SIZE / 2;
+            file.seek(std::io::SeekFrom::Start(middle_pos)).await?;
+            let bytes_read = file.read(&mut buffer).await?;
+            hasher.update(&buffer[..bytes_read]);
+        }
+        
+        // Sample from end (if file is large enough)
+        if file_size > SAMPLE_SIZE * NUM_SAMPLES {
+            let end_pos = file_size.saturating_sub(SAMPLE_SIZE);
+            file.seek(std::io::SeekFrom::Start(end_pos)).await?;
+            let bytes_read = file.read(&mut buffer).await?;
+            hasher.update(&buffer[..bytes_read]);
+        }
+        
+        let hash = hasher.finalize();
+        Ok(format!("v{}_sampled:{:x}", CURRENT_CAS_VERSION, hash))
+    }
+    
+    /// Generate CAS ID from raw content (for in-memory data)
+    pub fn generate_from_content(content: &[u8]) -> String {
+        use sha2::{Sha256, Digest};
+        
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        let hash = hasher.finalize();
+        
+        format!("v{}_content:{:x}", CURRENT_CAS_VERSION, hash)
+    }
+    
+    /// Verify a CAS ID matches the current content of a file
+    pub async fn verify_cas_id(path: &std::path::Path, expected_cas_id: &str) -> Result<bool, CasError> {
+        let current_cas_id = Self::generate_cas_id(path).await?;
+        Ok(current_cas_id == expected_cas_id)
+    }
+}
+
+/// Errors that can occur during CAS ID generation
+#[derive(Debug, thiserror::Error)]
+pub enum CasError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    
+    #[error("Invalid file path")]
+    InvalidPath,
+    
+    #[error("File too large to process")]
+    FileTooLarge,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

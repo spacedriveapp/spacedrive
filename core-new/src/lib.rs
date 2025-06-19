@@ -11,12 +11,16 @@ pub mod library;
 pub mod operations;
 pub mod services;
 pub mod shared;
+// Temporarily disabled for indexer database testing
+// pub mod volume;
 
 use crate::config::AppConfig;
 use crate::device::DeviceManager;
 use crate::infrastructure::events::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::services::Services;
+// Temporarily disabled for indexer database testing
+// use crate::volume::{VolumeManager, VolumeDetectionConfig};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -32,6 +36,9 @@ pub struct Core {
     
     /// Library manager
     pub libraries: Arc<LibraryManager>,
+    
+    /// Volume manager (temporarily disabled)
+    // pub volumes: Arc<VolumeManager>,
     
     /// Event bus for state changes
     pub events: Arc<EventBus>,
@@ -64,27 +71,45 @@ impl Core {
         // 3. Create event bus
         let events = Arc::new(EventBus::default());
         
-        // 4. Initialize library manager with libraries directory
+        // 4. Initialize volume manager (temporarily disabled)
+        // let volume_config = VolumeDetectionConfig::default();
+        // let volumes = Arc::new(VolumeManager::new(volume_config, events.clone()));
+        
+        // 5. Initialize volume detection (temporarily disabled)
+        // info!("Initializing volume detection...");
+        // match volumes.initialize().await {
+        //     Ok(()) => info!("Volume manager initialized"),
+        //     Err(e) => error!("Failed to initialize volume manager: {}", e),
+        // }
+        
+        // 6. Initialize library manager with libraries directory
         let libraries_dir = config.read().await.libraries_dir();
         let libraries = Arc::new(LibraryManager::new_with_dir(libraries_dir, events.clone()));
         
-        // 5. Auto-load all libraries
+        // 7. Auto-load all libraries
         info!("Loading existing libraries...");
         match libraries.load_all().await {
             Ok(count) => info!("Loaded {} libraries", count),
             Err(e) => error!("Failed to load libraries: {}", e),
         }
         
-        // 6. Initialize services (placeholder for now)
-        let services = Services::new();
+        // 8. Initialize and start services
+        let services = Services::new(events.clone());
         
-        // 7. Emit startup event
+        info!("Starting background services...");
+        match services.start_all().await {
+            Ok(()) => info!("Background services started"),
+            Err(e) => error!("Failed to start services: {}", e),
+        }
+        
+        // 9. Emit startup event
         events.emit(Event::CoreStarted);
         
         Ok(Self {
             config,
             device,
             libraries,
+            // volumes, // temporarily disabled
             events,
             services,
         })
@@ -95,12 +120,60 @@ impl Core {
         self.config.clone()
     }
     
+    /// Add a location to the file system watcher
+    pub async fn add_watched_location(
+        &self,
+        location_id: uuid::Uuid,
+        library_id: uuid::Uuid,
+        path: std::path::PathBuf,
+        enabled: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::services::location_watcher::WatchedLocation;
+        
+        let watched_location = WatchedLocation {
+            id: location_id,
+            library_id,
+            path,
+            enabled,
+        };
+        
+        self.services.location_watcher.add_location(watched_location).await?;
+        Ok(())
+    }
+    
+    /// Remove a location from the file system watcher
+    pub async fn remove_watched_location(
+        &self,
+        location_id: uuid::Uuid,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.services.location_watcher.remove_location(location_id).await?;
+        Ok(())
+    }
+    
+    /// Update file watching settings for a location
+    pub async fn update_watched_location(
+        &self,
+        location_id: uuid::Uuid,
+        enabled: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.services.location_watcher.update_location(location_id, enabled).await?;
+        Ok(())
+    }
+    
+    /// Get all currently watched locations
+    pub async fn get_watched_locations(&self) -> Vec<crate::services::location_watcher::WatchedLocation> {
+        self.services.location_watcher.get_watched_locations().await
+    }
+    
     /// Shutdown the core gracefully
     pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
         info!("Shutting down Spacedrive Core...");
         
         // Stop all services
         self.services.stop_all().await?;
+        
+        // Stop volume monitoring (temporarily disabled)
+        // self.volumes.stop_monitoring().await;
         
         // Close all libraries
         self.libraries.close_all().await?;

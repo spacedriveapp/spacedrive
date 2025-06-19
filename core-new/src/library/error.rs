@@ -51,6 +51,10 @@ pub enum LibraryError {
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
     
+    /// Job system error
+    #[error("Job system error: {0}")]
+    JobError(#[from] crate::infrastructure::jobs::error::JobError),
+    
     /// Generic error
     #[error("{0}")]
     Other(String),

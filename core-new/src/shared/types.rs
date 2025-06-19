@@ -1,6 +1,7 @@
 //! Core type definitions
 
 use std::path::{Path, PathBuf};
+use std::fmt;
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 
@@ -100,6 +101,12 @@ impl SdPath {
     }
 }
 
+impl fmt::Display for SdPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.display())
+    }
+}
+
 use std::sync::RwLock;
 
 /// Global reference to current device ID
@@ -108,7 +115,7 @@ pub static CURRENT_DEVICE_ID: once_cell::sync::Lazy<RwLock<Uuid>> =
     once_cell::sync::Lazy::new(|| RwLock::new(Uuid::nil()));
 
 /// Initialize the current device ID
-pub(crate) fn set_current_device_id(id: Uuid) {
+pub fn set_current_device_id(id: Uuid) {
     if let Ok(mut device_id) = CURRENT_DEVICE_ID.write() {
         *device_id = id;
     }

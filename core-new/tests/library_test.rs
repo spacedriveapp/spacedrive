@@ -8,16 +8,12 @@ async fn test_library_lifecycle() {
     // Create temporary directory for test
     let temp_dir = TempDir::new().unwrap();
     
-    // Initialize core
-    let core = Core::new().await.unwrap();
+    // Initialize core with custom data directory
+    let core = Core::new_with_config(temp_dir.path().to_path_buf()).await.unwrap();
     
-    // Add temp directory as search path
-    let mut manager = core.libraries.clone();
-    // Note: In real implementation, we'd make add_search_path accessible
-    
-    // Create library
+    // Create library (will be created in the libraries directory)
     let library = core.libraries
-        .create_library("Test Library", Some(temp_dir.path().to_path_buf()))
+        .create_library("Test Library", None)
         .await
         .unwrap();
     
@@ -51,15 +47,19 @@ async fn test_library_lifecycle() {
     assert_eq!(config.description, Some("Test description".to_string()));
     assert_eq!(config.settings.thumbnail_quality, 90);
     
-    // Close library
+    // Close library  
     let lib_id = library.id();
+    let lib_path = library.path().to_path_buf();
     core.libraries.close_library(lib_id).await.unwrap();
+    
+    // Drop the library reference to release the lock
+    drop(library);
     
     // Verify can't close again
     assert!(core.libraries.close_library(lib_id).await.is_err());
     
     // Re-open library
-    let reopened = core.libraries.open_library(lib_path).await.unwrap();
+    let reopened = core.libraries.open_library(&lib_path).await.unwrap();
     assert_eq!(reopened.id(), lib_id);
     assert_eq!(reopened.name().await, "Test Library");
     
@@ -72,11 +72,11 @@ async fn test_library_lifecycle() {
 #[tokio::test]
 async fn test_library_locking() {
     let temp_dir = TempDir::new().unwrap();
-    let core = Core::new().await.unwrap();
+    let core = Core::new_with_config(temp_dir.path().to_path_buf()).await.unwrap();
     
     // Create library
     let library = core.libraries
-        .create_library("Lock Test", Some(temp_dir.path().to_path_buf()))
+        .create_library("Lock Test", None)
         .await
         .unwrap();
     
@@ -87,7 +87,11 @@ async fn test_library_locking() {
     assert!(result.is_err());
     
     // Close library
-    core.libraries.close_library(library.id()).await.unwrap();
+    let lib_id = library.id();
+    core.libraries.close_library(lib_id).await.unwrap();
+    
+    // Drop the library reference to release the lock
+    drop(library);
     
     // Now should be able to open
     let reopened = core.libraries.open_library(&lib_path).await.unwrap();
@@ -97,44 +101,51 @@ async fn test_library_locking() {
 #[tokio::test]
 async fn test_library_discovery() {
     let temp_dir = TempDir::new().unwrap();
-    let core = Core::new().await.unwrap();
+    let core = Core::new_with_config(temp_dir.path().to_path_buf()).await.unwrap();
     
     // Create multiple libraries
     let lib1 = core.libraries
-        .create_library("Library 1", Some(temp_dir.path().to_path_buf()))
+        .create_library("Library 1", None)
         .await
         .unwrap();
     
     let lib2 = core.libraries
-        .create_library("Library 2", Some(temp_dir.path().to_path_buf()))
+        .create_library("Library 2", None)
         .await
         .unwrap();
     
     // Close both
-    core.libraries.close_library(lib1.id()).await.unwrap();
-    core.libraries.close_library(lib2.id()).await.unwrap();
+    let lib1_id = lib1.id();
+    let lib2_id = lib2.id();
+    core.libraries.close_library(lib1_id).await.unwrap();
+    core.libraries.close_library(lib2_id).await.unwrap();
     
-    // Scan for libraries
-    // Note: In real implementation, we'd need to add temp_dir to search paths
-    let discovered = core.libraries.scan_for_libraries().await.unwrap();
+    // Drop library references to release locks
+    drop(lib1);
+    drop(lib2);
     
-    // Should find at least our two libraries
-    let names: Vec<String> = discovered.iter()
-        .map(|d| d.config.name.clone())
-        .collect();
+    // Test auto-loading - reload all libraries
+    let loaded_count = core.libraries.load_all().await.unwrap();
+    assert!(loaded_count >= 2);
     
-    assert!(names.iter().any(|n| n.contains("Library 1")));
-    assert!(names.iter().any(|n| n.contains("Library 2")));
+    // Verify libraries were loaded
+    let open_libraries = core.libraries.list().await;
+    let names: Vec<String> = futures::future::join_all(
+        open_libraries.iter().map(|lib| lib.name())
+    ).await;
+    
+    assert!(names.iter().any(|n| n == "Library 1"));
+    assert!(names.iter().any(|n| n == "Library 2"));
 }
 
 #[tokio::test]
 async fn test_library_name_sanitization() {
     let temp_dir = TempDir::new().unwrap();
-    let core = Core::new().await.unwrap();
+    let core = Core::new_with_config(temp_dir.path().to_path_buf()).await.unwrap();
     
     // Create library with problematic name
     let library = core.libraries
-        .create_library("My/Library:Name*", Some(temp_dir.path().to_path_buf()))
+        .create_library("My/Library:Name*", None)
         .await
         .unwrap();
     

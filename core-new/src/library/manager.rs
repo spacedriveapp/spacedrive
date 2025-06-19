@@ -6,8 +6,11 @@ use super::{
     lock::LibraryLock,
     Library, LIBRARY_CONFIG_VERSION, LIBRARY_EXTENSION,
 };
-use crate::infrastructure::database::Database;
-use crate::infrastructure::events::{Event, EventBus};
+use crate::infrastructure::{
+    database::Database,
+    events::{Event, EventBus},
+    jobs::manager::JobManager,
+};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -160,13 +163,20 @@ impl LibraryManager {
         let db_path = path.join("database.db");
         let db = Arc::new(Database::open(&db_path).await?);
         
+        // Create job manager (without library reference initially)
+        let job_manager = Arc::new(JobManager::new(path.to_path_buf()).await?);
+        
         // Create library instance
         let library = Arc::new(Library {
             path: path.to_path_buf(),
             config: RwLock::new(config.clone()),
             db,
+            jobs: job_manager.clone(),
             _lock: lock,
         });
+        
+        // Set library reference in job manager
+        job_manager.set_library(library.clone()).await;
         
         // Register library
         {

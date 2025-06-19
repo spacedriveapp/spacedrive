@@ -1,13 +1,19 @@
 //! Background services management
 
+use crate::infrastructure::events::EventBus;
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::info;
 
+pub mod location_watcher;
+
+use location_watcher::{LocationWatcher, LocationWatcherConfig};
+
 /// Container for all background services
 pub struct Services {
-    // TODO: Add actual services when implemented
-    // pub locations: Arc<LocationWatcher>,
+    /// File system watcher for locations
+    pub location_watcher: Arc<LocationWatcher>,
+    // TODO: Add other services when implemented
     // pub jobs: Arc<JobManager>,
     // pub thumbnails: Arc<ThumbnailService>,
     // pub sync: Arc<SyncService>,
@@ -16,27 +22,43 @@ pub struct Services {
 
 impl Services {
     /// Create new services container
-    pub fn new() -> Self {
+    pub fn new(events: Arc<EventBus>) -> Self {
         info!("Initializing background services");
         
-        // TODO: Initialize actual services
-        // let locations = Arc::new(LocationWatcher::new());
+        let location_watcher_config = LocationWatcherConfig::default();
+        let location_watcher = Arc::new(LocationWatcher::new(location_watcher_config, events));
+        
+        // TODO: Initialize other services
         // let jobs = Arc::new(JobManager::new());
         // let thumbnails = Arc::new(ThumbnailService::new());
         
         Self {
-            // locations,
+            location_watcher,
             // jobs,
             // thumbnails,
         }
+    }
+    
+    /// Start all services
+    pub async fn start_all(&self) -> Result<()> {
+        info!("Starting all background services");
+        
+        self.location_watcher.start().await?;
+        
+        // TODO: Start other services
+        // self.jobs.start().await?;
+        // self.thumbnails.start().await?;
+        
+        Ok(())
     }
     
     /// Stop all services gracefully
     pub async fn stop_all(&self) -> Result<()> {
         info!("Stopping all background services");
         
-        // TODO: Stop actual services
-        // self.locations.stop().await?;
+        self.location_watcher.stop().await?;
+        
+        // TODO: Stop other services
         // self.jobs.stop().await?;
         // self.thumbnails.stop().await?;
         

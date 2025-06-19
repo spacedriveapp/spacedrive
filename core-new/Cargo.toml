@@ -34,10 +34,17 @@ anyhow = "1.0"
 # File operations
 notify = "6.1"  # File system watching
 blake3 = "1.5"  # Content addressing
+sha2 = "0.10"   # SHA-256 hashing for CAS IDs
+hex = "0.4"     # Hex encoding for volume fingerprints
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Job system dependencies
+rmp-serde = "1.3"     # MessagePack serialization for job state
+inventory = "0.3"     # Automatic job registration
+sd-task-system = { path = "../crates/task-system" }
 
 # Utils
 uuid = { version = "1.11", features = ["v4", "v7", "serde"] }
@@ -45,6 +52,7 @@ chrono = { version = "0.4", features = ["serde"] }
 once_cell = "1.20"
 dirs = "5.0"
 whoami = "1.5"
+rand = "0.8"  # Random number generation for secure delete
 
 [dev-dependencies]
 tempfile = "3.14"

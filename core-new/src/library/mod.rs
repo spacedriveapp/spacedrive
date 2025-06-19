@@ -14,7 +14,10 @@ pub use error::{LibraryError, Result};
 pub use lock::LibraryLock;
 pub use manager::{LibraryManager, DiscoveredLibrary};
 
-use crate::infrastructure::database::Database;
+use crate::infrastructure::{
+    database::Database,
+    jobs::manager::JobManager,
+};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -30,6 +33,9 @@ pub struct Library {
     
     /// Database connection
     db: Arc<Database>,
+    
+    /// Job manager for this library
+    jobs: Arc<JobManager>,
     
     /// Lock preventing concurrent access
     _lock: LibraryLock,
@@ -58,6 +64,11 @@ impl Library {
     /// Get the database
     pub fn db(&self) -> &Arc<Database> {
         &self.db
+    }
+    
+    /// Get the job manager
+    pub fn jobs(&self) -> &Arc<JobManager> {
+        &self.jobs
     }
     
     /// Get a copy of the current configuration
