@@ -121,33 +121,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create path_prefixes table for efficient path storage
-        manager
-            .create_table(
-                Table::create()
-                    .table(PathPrefixes::Table)
-                    .if_not_exists()
-                    .col(ColumnDef::new(PathPrefixes::Id).integer().not_null().auto_increment().primary_key())
-                    .col(ColumnDef::new(PathPrefixes::DeviceId).integer().not_null())
-                    .col(ColumnDef::new(PathPrefixes::Prefix).string().not_null())
-                    .col(ColumnDef::new(PathPrefixes::CreatedAt).timestamp_with_time_zone().not_null())
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(PathPrefixes::Table, PathPrefixes::DeviceId)
-                            .to(Devices::Table, Devices::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_path_prefix_unique")
-                            .table(PathPrefixes::Table)
-                            .col(PathPrefixes::DeviceId)
-                            .col(PathPrefixes::Prefix)
-                            .unique()
-                    )
-                    .to_owned(),
-            )
-            .await?;
 
         // Create content_identities table with hybrid ID system
         manager
@@ -210,14 +183,13 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(ColumnDef::new(Entries::Id).integer().not_null().auto_increment().primary_key())
                     .col(ColumnDef::new(Entries::Uuid).uuid().not_null().unique_key())
-                    .col(ColumnDef::new(Entries::PrefixId).integer().not_null())
+                    .col(ColumnDef::new(Entries::LocationId).integer().not_null())
                     .col(ColumnDef::new(Entries::RelativePath).string().not_null())
                     .col(ColumnDef::new(Entries::Name).string().not_null())
                     .col(ColumnDef::new(Entries::Kind).integer().not_null())
                     .col(ColumnDef::new(Entries::Extension).string())
                     .col(ColumnDef::new(Entries::MetadataId).integer())
                     .col(ColumnDef::new(Entries::ContentId).integer())
-                    .col(ColumnDef::new(Entries::LocationId).integer())
                     .col(ColumnDef::new(Entries::Size).big_integer().not_null())
                     .col(ColumnDef::new(Entries::AggregateSize).big_integer().not_null().default(0))
                     .col(ColumnDef::new(Entries::ChildCount).integer().not_null().default(0))
@@ -229,8 +201,8 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Entries::Inode).big_integer())
                     .foreign_key(
                         ForeignKey::create()
-                            .from(Entries::Table, Entries::PrefixId)
-                            .to(PathPrefixes::Table, PathPrefixes::Id)
+                            .from(Entries::Table, Entries::LocationId)
+                            .to(Locations::Table, Locations::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                     )
                     .foreign_key(
@@ -244,12 +216,6 @@ impl MigrationTrait for Migration {
                             .from(Entries::Table, Entries::ContentId)
                             .to(ContentIdentities::Table, ContentIdentities::Id)
                             .on_delete(ForeignKeyAction::SetNull)
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(Entries::Table, Entries::LocationId)
-                            .to(Locations::Table, Locations::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
                     )
                     .to_owned(),
             )
@@ -348,9 +314,9 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
-                    .name("idx_entries_prefix_path")
+                    .name("idx_entries_location_path")
                     .table(Entries::Table)
-                    .col(Entries::PrefixId)
+                    .col(Entries::LocationId)
                     .col(Entries::RelativePath)
                     .to_owned(),
             )
@@ -409,9 +375,6 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(ContentKinds::Table).to_owned())
-            .await?;
-        manager
-            .drop_table(Table::drop().table(PathPrefixes::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Locations::Table).to_owned())
@@ -481,15 +444,6 @@ enum Locations {
 }
 
 #[derive(Iden)]
-enum PathPrefixes {
-    Table,
-    Id,
-    DeviceId,
-    Prefix,
-    CreatedAt,
-}
-
-#[derive(Iden)]
 enum ContentIdentities {
     Table,
     Id,
@@ -525,14 +479,13 @@ enum Entries {
     Table,
     Id,
     Uuid,
-    PrefixId,
+    LocationId,
     RelativePath,
     Name,
     Kind,
     Extension,
     MetadataId,
     ContentId,
-    LocationId,
     Size,
     AggregateSize,
     ChildCount,

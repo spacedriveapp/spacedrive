@@ -9,14 +9,13 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub uuid: Uuid,
-    pub prefix_id: i32,  // References path_prefixes table
-    pub relative_path: String,  // Path relative to prefix
+    pub location_id: i32,  // References location table
+    pub relative_path: String,  // Directory path within location
     pub name: String,
     pub kind: i32,  // Entry type: 0=File, 1=Directory, 2=Symlink
     pub extension: Option<String>,  // File extension (without dot), None for directories
     pub metadata_id: Option<i32>,  // Optional - only when user adds metadata
     pub content_id: Option<i32>,  // Optional - for deduplication
-    pub location_id: Option<i32>,
     pub size: i64,
     pub aggregate_size: i64,  // Total size including all children (for directories)
     pub child_count: i32,  // Total number of direct children
@@ -31,11 +30,11 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::path_prefix::Entity",
-        from = "Column::PrefixId",
-        to = "super::path_prefix::Column::Id"
+        belongs_to = "super::location::Entity",
+        from = "Column::LocationId",
+        to = "super::location::Column::Id"
     )]
-    PathPrefix,
+    Location,
     #[sea_orm(
         belongs_to = "super::user_metadata::Entity",
         from = "Column::MetadataId",
@@ -48,18 +47,6 @@ pub enum Relation {
         to = "super::content_identity::Column::Id"
     )]
     ContentIdentity,
-    #[sea_orm(
-        belongs_to = "super::location::Entity",
-        from = "Column::LocationId",
-        to = "super::location::Column::Id"
-    )]
-    Location,
-}
-
-impl Related<super::path_prefix::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PathPrefix.def()
-    }
 }
 
 impl Related<super::user_metadata::Entity> for Entity {

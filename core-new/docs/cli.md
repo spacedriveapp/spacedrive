@@ -1,15 +1,17 @@
 # Spacedrive CLI
 
-A comprehensive command-line interface for managing Spacedrive Core, including libraries, locations, indexing, and job management.
+A comprehensive command-line interface for managing Spacedrive Core with full daemon architecture, real-time monitoring, and cross-device file management.
 
 ## Features
 
-- **Library Management**: Create, open, switch, and manage multiple libraries
-- **Location Management**: Add, remove, and monitor indexed locations
-- **Job Management**: View, monitor, and control background jobs
-- **Real-time Monitoring**: Beautiful TUI for monitoring job progress and system events
-- **Indexing Control**: Start indexing jobs with different modes
-- **Status Overview**: Quick system and library status checks
+- **🏗️ Daemon Architecture**: Background daemon with client-server communication
+- **📚 Library Management**: Create, open, switch, and manage multiple libraries
+- **📁 Location Management**: Add, remove, and monitor indexed locations with real-time watching
+- **⚙️ Job Management**: View, monitor, and control background jobs with live progress
+- **📊 Real-time Monitoring**: Beautiful TUI for monitoring job progress and system events
+- **🔍 Indexing Control**: Start indexing jobs with different modes (shallow/content/deep)
+- **🖥️ Cross-platform**: Works on macOS, Linux, and Windows
+- **🎨 Rich UI**: Colored output, progress bars, and formatted tables
 
 ## Installation
 
@@ -21,7 +23,40 @@ cargo build --release --bin spacedrive
 cargo install --path . --bin spacedrive
 ```
 
+## Quick Start
+
+```bash
+# Start the Spacedrive daemon
+spacedrive start
+
+# Create a library and add a location
+spacedrive library create "Personal" 
+spacedrive location add ~/Desktop --name "Desktop"
+
+# Monitor indexing progress
+spacedrive job monitor
+
+# Check system status
+spacedrive status
+```
+
 ## Usage
+
+### Daemon Management
+
+```bash
+# Start daemon in background
+spacedrive start
+
+# Start daemon in foreground (for debugging)
+spacedrive start --foreground
+
+# Stop the daemon
+spacedrive stop
+
+# Check daemon status
+spacedrive daemon
+```
 
 ### Basic Commands
 
@@ -63,24 +98,22 @@ spacedrive library close
 ### Location Management
 
 ```bash
-# Add a location to index
+# Add a location to index (automatically starts watching)
 spacedrive location add ~/Documents
 spacedrive location add ~/Pictures --name "My Photos" --mode deep
 
-# List all locations
+# List all locations with status
 spacedrive location list
 
-# Get location details
-spacedrive location info 1
-spacedrive location info ~/Documents
+# Remove a location (stops watching and indexing)
+spacedrive location remove <location-id>
 
-# Remove a location
-spacedrive location remove 1
-
-# Rescan a location
-spacedrive location rescan 1
-spacedrive location rescan 1 --force  # Full rescan, ignore change detection
+# Rescan a location (triggers re-indexing)
+spacedrive location rescan <location-id>
+spacedrive location rescan <location-id> --force  # Full rescan, ignore change detection
 ```
+
+**Note**: Location IDs are UUIDs displayed in the list command. All location operations work with the daemon automatically.
 
 ### Indexing
 
@@ -99,22 +132,29 @@ spacedrive index ~/Documents --watch
 ### Job Management
 
 ```bash
-# List all jobs
+# List all jobs with colored status and progress
 spacedrive job list
-spacedrive job list --recent              # Show only recent jobs
 spacedrive job list --status running      # Filter by status
 
-# Show job details
-spacedrive job info 12345678-1234-1234-1234-123456789012
+# Show detailed job information
+spacedrive job info <job-id>
 
-# Monitor jobs in real-time (TUI)
+# Monitor jobs in real-time with live progress bars
 spacedrive job monitor
+spacedrive job monitor --job-id <job-id>  # Monitor specific job
 
-# Control jobs
+# Control jobs (planned features)
 spacedrive job pause <job-id>
 spacedrive job resume <job-id>
 spacedrive job cancel <job-id>
 ```
+
+**Job Monitor Features:**
+- 🔴 Live progress bars for running jobs
+- 🎨 Color-coded status (running: yellow, completed: green, failed: red)
+- ⏱️ Real-time updates every second
+- 🧹 Automatic cleanup of completed jobs
+- ⌨️ Ctrl+C to exit gracefully
 
 ### System Commands
 
@@ -128,25 +168,31 @@ spacedrive monitor
 
 ## Real-time Job Monitor
 
-The job monitor provides a beautiful TUI for monitoring jobs and system events:
+The job monitor provides live progress tracking with beautiful visual indicators:
 
 ```bash
 spacedrive job monitor
 ```
 
-### Monitor Controls
+### Monitor Features
 
-- **↑/↓**: Navigate between jobs
-- **q/ESC**: Quit monitor
-- **c**: Clear event log
+- **🎯 Multi-job tracking**: Monitor all running jobs simultaneously
+- **📊 Progress bars**: Visual progress indicators with percentage
+- **🎨 Color coding**: Status-based colors (yellow=running, green=completed, red=failed)
+- **⚡ Real-time updates**: Updates every second with latest progress
+- **🧹 Smart cleanup**: Completed jobs automatically marked and removed
+- **🔍 Job filtering**: Option to monitor specific jobs
 
-### Monitor Display
+### Sample Output
 
-The monitor shows:
-- **Jobs List**: All jobs with status, progress, and duration
-- **Job Details**: Detailed information about the selected job
-- **Event Log**: Real-time system events and job updates
-- **Progress Bar**: Visual progress indicator for running jobs
+```
+📡 Spacedrive Job Monitor - Press Ctrl+C to exit
+═══════════════════════════════════════════
+
+⠚ Indexing Desktop [fdbe777d] [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 25% | Status: Running
+⠂ Indexing Photos [a1b2c3d4]  [██████████████████████████████████████████] 100% | ✅ Completed
+⠈ Content Analysis [e5f6g7h8] [██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 15% | Status: Running
+```
 
 ## Indexing Modes
 
@@ -156,13 +202,26 @@ The monitor shows:
 
 ## Examples
 
-### Quick Start
+### Complete Workflow
 
 ```bash
-# Create a library and index your desktop
+# 1. Start the daemon
+spacedrive start
+
+# 2. Create a library
 spacedrive library create "Personal"
-spacedrive location add ~/Desktop --mode content
-spacedrive job monitor  # Watch the indexing progress
+
+# 3. Add locations with different index modes
+spacedrive location add ~/Desktop --name "Desktop" --mode content
+spacedrive location add ~/Documents --name "Documents" --mode content  
+spacedrive location add ~/Pictures --name "Photos" --mode deep
+
+# 4. Monitor the indexing progress
+spacedrive job monitor
+
+# 5. Check the results
+spacedrive location list
+spacedrive job list
 ```
 
 ### Multiple Libraries
@@ -186,54 +245,113 @@ spacedrive location add ~/Downloads --name "Downloads" --mode shallow
 spacedrive job list --status running
 ```
 
-## Configuration
+## Architecture
 
-The CLI stores its state in `cli_state.json` within the data directory:
+### Daemon-Client Model
 
-```json
-{
-  "current_library_id": "12345678-1234-1234-1234-123456789012",
-  "last_library_path": "/path/to/library",
-  "command_history": [...],
-  "max_history": 100
-}
+The Spacedrive CLI uses a daemon-client architecture for optimal performance:
+
+```
+┌─────────────────┐    Unix Socket    ┌─────────────────┐
+│   CLI Client    │ ◄─────────────► │  Spacedrive     │
+│   (Commands)    │                  │  Daemon         │
+└─────────────────┘                  └─────────────────┘
+                                            │
+                                            ▼
+                                    ┌─────────────────┐
+                                    │  Background     │
+                                    │  Jobs, Watching │
+                                    │  & File System  │
+                                    └─────────────────┘
 ```
 
-## Tips
+**Benefits:**
+- 🚀 **Fast responses**: Daemon keeps state in memory
+- 🔄 **Background processing**: Jobs continue when CLI exits
+- 📡 **Real-time updates**: File system changes processed immediately
+- 💾 **Persistent state**: Libraries and locations survive restarts
 
-1. **Use Tab Completion**: The CLI supports shell completion for commands and arguments
-2. **Monitor Long Jobs**: Use `--watch` flag or `job monitor` for long-running operations
-3. **Check Status First**: Run `spacedrive status` to ensure everything is working
-4. **Start Simple**: Begin with shallow indexing for quick results, then upgrade to deeper modes
+### Configuration
+
+The daemon stores data in the specified data directory:
+
+```
+spacedrive-cli-data/
+├── libraries/           # Library database files
+├── daemon.sock         # Unix socket for communication
+├── daemon.pid          # Process ID file
+└── cli_state.json      # CLI preferences and history
+```
+
+## Tips & Best Practices
+
+1. **🔧 Start Daemon First**: Always run `spacedrive start` before other commands
+2. **📊 Monitor Progress**: Use `spacedrive job monitor` for real-time feedback on indexing
+3. **💻 Use Verbose Mode**: Add `-v` flag for detailed logging during troubleshooting
+4. **🚀 Start Simple**: Begin with shallow indexing for quick results, then upgrade to deeper modes
+5. **📁 Organize by Purpose**: Create separate libraries for different use cases (Work, Personal, etc.)
+6. **⚡ Daemon Persistence**: The daemon keeps running in the background - jobs continue even if you close the terminal
 
 ## Troubleshooting
 
-### Library Not Found
+### Daemon Issues
 ```bash
-# Check if library exists
-spacedrive library list
+# Check if daemon is running
+spacedrive daemon
 
-# Re-open library
-spacedrive library open /path/to/library
+# Restart daemon
+spacedrive stop
+spacedrive start
+
+# Run daemon in foreground for debugging
+spacedrive start --foreground -v
 ```
 
-### Indexing Issues
+### Communication Errors
 ```bash
-# Check job status
-spacedrive job list --recent
+# Check daemon status
+spacedrive daemon
 
-# View job details for errors
+# Look for socket file
+ls -la spacedrive-cli-data/daemon.sock
+
+# Restart daemon if socket is missing
+spacedrive stop && spacedrive start
+```
+
+### Job Issues
+```bash
+# Check job status with details
+spacedrive job list -v
+
+# View specific job information
 spacedrive job info <job-id>
 
-# Force rescan if needed
-spacedrive location rescan <location-id> --force
+# Monitor jobs in real-time
+spacedrive job monitor
 ```
 
-### Performance
+### Location Issues
+```bash
+# Check location status
+spacedrive location list
+
+# Force rescan if files not updating
+spacedrive location rescan <location-id> --force
+
+# Remove and re-add problematic locations
+spacedrive location remove <location-id>
+spacedrive location add /path/to/location
+```
+
+### Performance Issues
 ```bash
 # Use shallow mode for large directories
-spacedrive index /large/directory --mode shallow
+spacedrive location add /large/directory --mode shallow
 
-# Monitor system resources
-spacedrive monitor
+# Check system status
+spacedrive status
+
+# Monitor daemon resources with verbose output
+spacedrive start --foreground -v
 ```

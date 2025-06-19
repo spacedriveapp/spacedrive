@@ -432,14 +432,7 @@ async fn create_sample_database_entries(
         .await?
         .ok_or_else(|| LocationError::InvalidPath("No device found".to_string()))?;
 
-    // Create a path prefix for efficient storage
-    let prefix_model = entities::path_prefix::ActiveModel {
-        id: Set(0), // Auto-increment
-        device_id: Set(device.id),
-        prefix: Set("/sample".to_string()),
-        created_at: Set(chrono::Utc::now()),
-    };
-    let prefix_record = prefix_model.insert(library.db().conn()).await?;
+    // No need for path prefixes with materialized path approach
 
     // Create sample entries
     for i in 0..count {
@@ -460,14 +453,13 @@ async fn create_sample_database_entries(
         let entry_model = entities::entry::ActiveModel {
             id: Set(0), // Auto-increment
             uuid: Set(Uuid::new_v4()),
-            prefix_id: Set(prefix_record.id),
+            location_id: Set(location_id),
             relative_path: Set(String::new()), // Sample files in root directory
             name: Set(format!("sample_file_{}", i)), // Name without extension
             kind: Set(0), // File
             extension: Set(Some("txt".to_string())),
             metadata_id: Set(Some(metadata_record.id)),
             content_id: Set(None),
-            location_id: Set(Some(location_id)),
             size: Set(1024 * (i as i64 + 1)),
             aggregate_size: Set(0), // Files don't have aggregate size
             child_count: Set(0), // Files don't have children

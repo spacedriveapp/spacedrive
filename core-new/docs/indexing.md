@@ -46,7 +46,7 @@ Creates or updates database entries for discovered items.
 - Change detection using inode/modified time
 - Materialized path storage (no parent_id needed)
 - Entry creation/update in database
-- Path prefix optimization
+- Direct path storage for efficient queries
 ```
 
 **Output**: Database entries with proper relationships
@@ -85,7 +85,7 @@ The main file/directory entry table using materialized paths:
 ```sql
 - id: i32 (primary key)
 - uuid: UUID
-- prefix_id: i32 (→ path_prefixes)
+- location_id: i32 (→ locations)
 - relative_path: String (materialized path - parent directory path)
 - name: String (filename without extension)
 - kind: i32 (0=File, 1=Directory, 2=Symlink)
@@ -150,14 +150,6 @@ Dynamic table for discovered MIME types:
 - uuid: UUID (for syncing)
 - mime_type: String (unique)
 - created_at: DateTime
-```
-
-#### `path_prefixes`
-Optimizes path storage:
-```sql
-- id: i32 (primary key)
-- device_id: i32 (→ devices)
-- prefix: String (e.g., "/Users/john/Documents")
 ```
 
 ## File Type Detection
@@ -348,14 +340,44 @@ The indexer state is serialized using MessagePack for efficient storage and quic
 - **macOS**: Native inode support
 - **Linux**: Full inode and permission tracking
 
+## CLI Usage
+
+The indexing system is easily accessible through the CLI:
+
+```bash
+# Start the daemon first
+spacedrive start
+
+# Add locations with different indexing modes
+spacedrive location add ~/Documents --mode shallow    # Fast metadata only
+spacedrive location add ~/Pictures --mode content     # With content hashing 
+spacedrive location add ~/Videos --mode deep          # Full media analysis
+
+# Monitor indexing progress in real-time
+spacedrive job monitor
+
+# Check job status
+spacedrive job list --status running
+
+# Force re-indexing of a location
+spacedrive location rescan <location-id> --force
+```
+
+For complete CLI documentation, see [CLI Documentation](./cli.md).
+
 ## Debugging
 
 Enable detailed logging:
 ```bash
+# For CLI daemon
+spacedrive start --foreground -v
+
+# For development
 RUST_LOG=sd_core_new::operations::indexing=debug cargo run
 ```
 
 Common issues:
 1. **Slow indexing**: Check filter rules and batch sizes
-2. **High memory usage**: Reduce batch size
+2. **High memory usage**: Reduce batch size  
 3. **Missing files**: Verify permissions and filter rules
+4. **No progress shown**: Ensure daemon is running and use `spacedrive job monitor`

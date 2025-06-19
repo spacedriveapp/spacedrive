@@ -1,52 +1,41 @@
-# Optimized Storage Design
+# Storage Design
 
 ## Problem Statement
 
-Storing UUIDs repeatedly for millions of files creates massive database bloat:
-- Each UUID is 16 bytes (binary) or 36 bytes (string)
-- With millions of files, device_id and location_id alone can consume gigabytes
-- Serialized JSON paths add even more overhead
+File system storage needs to balance several concerns:
+- **Space efficiency** - Minimize database size for large collections
+- **Query performance** - Fast path-based operations
+- **Simplicity** - Avoid complex joins for common operations
+- **Cross-device compatibility** - Work consistently across devices
 
-## Solution: Hybrid ID System
+## Solution: Materialized Path Storage
 
 ### 1. Integer IDs for Internal Storage
 - Use auto-incrementing integers internally (4-8 bytes)
 - Keep UUIDs only for external APIs and cross-device sync
 - 75% reduction in ID storage size
 
-### 2. Path Prefix Interning
-Cross-device compatible path compression:
+### 2. Materialized Path Approach
+Simple and efficient path storage:
 
 ```sql
--- Instead of storing full paths repeatedly:
-/Users/jamie/Documents/Projects/spacedrive/src/main.rs
-/Users/jamie/Documents/Projects/spacedrive/src/lib.rs
-/Users/jamie/Documents/Projects/spacedrive/Cargo.toml
-
--- Store prefix once:
-path_prefixes: id=1, device_id=1, prefix="/Users/jamie/Documents/Projects/spacedrive"
-
--- Then store only:
-entries: prefix_id=1, relative_path="src/main.rs"
-entries: prefix_id=1, relative_path="src/lib.rs"  
-entries: prefix_id=1, relative_path="Cargo.toml"
+-- Store paths directly with materialized hierarchy:
+entries: location_id=1, relative_path="src", name="main.rs"
+entries: location_id=1, relative_path="src", name="lib.rs"
+entries: location_id=1, relative_path="", name="Cargo.toml"
 ```
 
-### 3. Size Comparison
+### 3. Benefits
 
-For 1 million files across 3 devices:
+**Performance:**
+- **Simple queries** - No joins needed for most path operations
+- **Fast hierarchy queries** - Direct LIKE patterns on relative_path
+- **Efficient indexing** - Single index covers most queries
 
-**Before optimization:**
-- UUID device_id: 16 bytes × 1M = 16 MB
-- UUID location_id: 16 bytes × 1M = 16 MB
-- Serialized SdPath JSON: ~120 bytes × 1M = 120 MB
-- **Total: ~152 MB**
-
-**After optimization:**
-- Integer device_id: 4 bytes × 1M = 4 MB
-- Integer location_id: 4 bytes × 1M = 4 MB
-- Prefix ID + relative path: ~35 bytes × 1M = 35 MB
-- **Total: ~43 MB (72% reduction!)**
+**Simplicity:**
+- **No complex relationships** - Avoid recursive parent_id patterns
+- **Direct path access** - Build full paths with simple concatenation
+- **Easy migrations** - Straightforward schema changes
 
 ## Implementation Details
 
@@ -61,19 +50,12 @@ CREATE TABLE devices (
     -- ... other fields
 );
 
--- Path prefixes (cross-device)
-CREATE TABLE path_prefixes (
-    id INTEGER PRIMARY KEY,
-    device_id INTEGER NOT NULL,
-    prefix TEXT NOT NULL,
-    UNIQUE(device_id, prefix)
-);
-
--- Entries (optimized)
+-- Entries (materialized paths)
 CREATE TABLE entries (
     id INTEGER PRIMARY KEY,
-    prefix_id INTEGER NOT NULL,      -- Includes device info!
-    relative_path TEXT NOT NULL,     -- Just the relative part
+    location_id INTEGER NOT NULL,    -- Reference to location
+    relative_path TEXT NOT NULL,     -- Directory path within location
+    name TEXT NOT NULL,              -- File/directory name
     metadata_id INTEGER NOT NULL,
     -- ... other fields
 );
@@ -82,27 +64,35 @@ CREATE TABLE entries (
 ### API Translation Layer
 
 ```rust
-// External API uses UUIDs
+// External API uses UUIDs and SdPath
 pub struct SdPath {
     pub device_id: Uuid,
     pub path: PathBuf,
 }
 
-// Internal storage uses integers
+// Internal storage uses integers and materialized paths
 pub struct EntryStorage {
     pub id: i64,
-    pub prefix_id: i32,
+    pub location_id: i32,
     pub relative_path: String,
+    pub name: String,
 }
 
 // Translation happens at API boundary
 impl Entry {
     pub fn to_sdpath(&self) -> SdPath {
-        let prefix = self.get_prefix();
-        let device = self.get_device();
+        let location = self.get_location();
+        let device = location.get_device();
+        
+        let full_path = if self.relative_path.is_empty() {
+            PathBuf::from(&self.name)
+        } else {
+            PathBuf::from(&self.relative_path).join(&self.name)
+        };
+        
         SdPath {
             device_id: device.uuid,
-            path: prefix.join(&self.relative_path),
+            path: PathBuf::from(&location.path).join(full_path),
         }
     }
 }

@@ -110,50 +110,6 @@ impl EntryProcessor {
         })
     }
     
-    /// Get or create a path prefix for efficient storage
-    pub async fn get_or_create_location_prefix(
-        state: &mut IndexerState,
-        ctx: &JobContext<'_>,
-        device_id: i32,
-        location_root_path: &Path,
-    ) -> Result<i32, JobError> {
-        let root_path_str = location_root_path.to_string_lossy().to_string();
-        
-        // Check cache first
-        if let Some(&prefix_id) = state.path_prefix_cache.get(&root_path_str) {
-            return Ok(prefix_id);
-        }
-        
-        // Look up existing prefix in database
-        let existing = entities::path_prefix::Entity::find()
-            .filter(entities::path_prefix::Column::DeviceId.eq(device_id))
-            .filter(entities::path_prefix::Column::Prefix.eq(&root_path_str))
-            .one(ctx.library_db())
-            .await
-            .map_err(|e| JobError::execution(format!("Failed to query path prefix: {}", e)))?;
-        
-        let prefix_id = if let Some(existing) = existing {
-            existing.id
-        } else {
-            // Create new prefix for the location root
-            let new_prefix = entities::path_prefix::ActiveModel {
-                device_id: Set(device_id),
-                prefix: Set(root_path_str.clone()),
-                created_at: Set(chrono::Utc::now()),
-                ..Default::default()
-            };
-            
-            let result = new_prefix.insert(ctx.library_db()).await
-                .map_err(|e| JobError::execution(format!("Failed to create location path prefix: {}", e)))?;
-            
-            result.id
-        };
-        
-        // Cache for future use
-        state.path_prefix_cache.insert(root_path_str, prefix_id);
-        
-        Ok(prefix_id)
-    }
     
     /// Create an entry record in the database
     pub async fn create_entry(
@@ -179,10 +135,6 @@ impl EntryProcessor {
         } else {
             String::new()
         };
-        
-        let prefix_id = Self::get_or_create_location_prefix(
-            state, ctx, device_id, location_root_path
-        ).await?;
         
         // Extract file extension (without dot) for files, None for directories
         let extension = match entry.kind {
@@ -214,14 +166,13 @@ impl EntryProcessor {
         // Create entry
         let new_entry = entities::entry::ActiveModel {
             uuid: Set(Uuid::new_v4()),
-            prefix_id: Set(prefix_id),
+            location_id: Set(location_id),
             relative_path: Set(relative_path),
             name: Set(name),
             kind: Set(Self::entry_kind_to_int(entry.kind)),
             extension: Set(extension),
             metadata_id: Set(None), // User metadata only created when user adds metadata
             content_id: Set(None), // Will be set later if content indexing is enabled
-            location_id: Set(Some(location_id)),
             size: Set(entry.size as i64),
             aggregate_size: Set(0), // Will be calculated in aggregation phase
             child_count: Set(0), // Will be calculated in aggregation phase

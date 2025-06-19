@@ -24,7 +24,6 @@ Core v2 uses a modern database stack built on SeaORM and SQLite, replacing the a
 -- Core entities
 CREATE TABLE devices (...)         -- Device identity
 CREATE TABLE locations (...)       -- Indexed directories
-CREATE TABLE path_prefixes (...)   -- Path compression
 CREATE TABLE entries (...)         -- Files and directories
 CREATE TABLE content_identity (...) -- Content deduplication
 
@@ -39,44 +38,30 @@ CREATE TABLE metadata_label (...)  -- Many-to-many: metadata ↔ labels
 CREATE TABLE jobs (...)            -- Job system persistence
 ```
 
-## Optimized Storage Design
+## Storage Design
 
-### Path Compression
+### Materialized Path Approach
 
-The biggest optimization is path storage compression, reducing database size by **70%+ for large collections**:
+We use a materialized path approach for storing file system hierarchies, providing excellent query performance:
 
-**Before (naive approach):**
 ```sql
--- Storing full paths repeatedly
+-- Direct path storage with materialized paths
 CREATE TABLE entries (
     id INTEGER PRIMARY KEY,
-    full_path TEXT,  -- "/Users/james/Documents/file1.txt"
-    -- ...
-);
-```
-
-**After (optimized approach):**
-```sql
--- Store common prefixes once
-CREATE TABLE path_prefixes (
-    id INTEGER PRIMARY KEY,
-    device_id INTEGER,
-    prefix TEXT  -- "/Users/james/Documents"
-);
-
--- Reference prefix + unique portion
-CREATE TABLE entries (
-    id INTEGER PRIMARY KEY,
-    prefix_id INTEGER REFERENCES path_prefixes(id),
-    relative_path TEXT,  -- "file1.txt"
-    -- ...
+    uuid BLOB UNIQUE NOT NULL,
+    location_id INTEGER NOT NULL REFERENCES locations(id),
+    relative_path TEXT NOT NULL,    -- Directory path (e.g. "Documents/Projects")
+    name TEXT NOT NULL,             -- Entry name (e.g. "file.txt")
+    kind TEXT NOT NULL,             -- "file" or "directory"
+    -- ... other columns
 );
 ```
 
 **Benefits:**
-- **Massive space savings** - Common directory prefixes stored once
-- **Faster queries** - Smaller indexes, better cache utilization
-- **Easier path operations** - Simpler normalization and comparison
+- **Simple queries** - No complex joins needed for path operations
+- **Fast hierarchy queries** - Direct path matching with LIKE patterns
+- **No parent_id complexity** - Avoid recursive queries for deep hierarchies
+- **Efficient indexing** - Single index on relative_path for most queries
 
 ### Example Storage Efficiency
 
@@ -112,27 +97,13 @@ CREATE INDEX idx_devices_uuid ON devices(uuid);
 CREATE INDEX idx_devices_online ON devices(is_online);
 ```
 
-### Path Prefixes Table
-
-```sql
-CREATE TABLE path_prefixes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    device_id INTEGER NOT NULL REFERENCES devices(id),
-    prefix TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_path_prefixes_unique ON path_prefixes(device_id, prefix);
-CREATE INDEX idx_path_prefixes_device ON path_prefixes(device_id);
-```
-
 ### Entries Table (Core File/Directory Model)
 
 ```sql
 CREATE TABLE entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid BLOB UNIQUE NOT NULL,
-    prefix_id INTEGER NOT NULL REFERENCES path_prefixes(id),
+    location_id INTEGER NOT NULL REFERENCES locations(id),
     relative_path TEXT NOT NULL,  -- Materialized path (parent directory path)
     name TEXT NOT NULL,           -- Entry name without extension
     kind TEXT NOT NULL CHECK (kind IN ('file', 'directory')),
@@ -285,12 +256,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::path_prefix::Entity",
-        from = "Column::PrefixId",
-        to = "super::path_prefix::Column::Id"
-    )]
-    PathPrefix,
-    #[sea_orm(
         belongs_to = "super::user_metadata::Entity",
         from = "Column::MetadataId",
         to = "super::user_metadata::Column::Id"
@@ -308,20 +273,6 @@ pub enum Relation {
         to = "super::location::Column::Id"
     )]
     Location,
-    #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ParentId",
-        to = "Column::Id"
-    )]
-    Parent,
-    #[sea_orm(has_many = "Entity")]
-    Children,
-}
-
-impl Related<super::path_prefix::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PathPrefix.def()
-    }
 }
 
 impl Related<super::user_metadata::Entity> for Entity {
@@ -368,15 +319,15 @@ let duplicates = ContentIdentity::find()
 
 **Reconstruct full path:**
 ```rust
-let entry_with_prefix = Entry::find_by_id(entry_id)
-    .find_with_related(PathPrefix)
+let entry = Entry::find_by_id(entry_id)
     .one(db)
     .await?;
 
-let full_path = format!("{}/{}", 
-    entry_with_prefix.1[0].prefix,
-    entry_with_prefix.0.relative_path
-);
+let full_path = if entry.relative_path.is_empty() {
+    entry.name
+} else {
+    format!("{}/{}", entry.relative_path, entry.name)
+};
 ```
 
 ### Complex Queries
@@ -385,13 +336,12 @@ let full_path = format!("{}/{}",
 ```rust
 let large_files_by_dir = Entry::find()
     .select_only()
-    .column_as(path_prefix::Column::Prefix, "directory")
+    .column_as(entry::Column::RelativePath, "directory")
     .column_as(entry::Column::Size.sum(), "total_size")
     .column_as(entry::Column::Id.count(), "file_count")
-    .join(JoinType::InnerJoin, entry::Relation::PathPrefix.def())
     .filter(entry::Column::Kind.eq("file"))
     .filter(entry::Column::Size.gt(100 * 1024 * 1024)) // > 100MB
-    .group_by(path_prefix::Column::Prefix)
+    .group_by(entry::Column::RelativePath)
     .order_by_desc(entry::Column::Size.sum())
     .into_tuple::<(String, Option<i64>, Option<i64>)>()
     .all(db)
@@ -485,7 +435,7 @@ let status = Migrator::status(db).await?;
 - `locations(scan_state)` - Indexing status
 
 **Composite indexes** - Multi-column queries:
-- `path_prefixes(device_id, prefix)` - Unique path constraints
+- `entries(location_id, relative_path)` - Fast directory hierarchy queries
 - `locations(device_id, path)` - Device-specific location lookup
 
 ### Query Optimization

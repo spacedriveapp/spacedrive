@@ -1,8 +1,23 @@
 # Examples and Usage
 
-This document provides working examples of Core v2 functionality. All examples are runnable and tested.
+This document provides working examples of Core v2 functionality in both code and CLI forms. All examples are runnable and tested.
 
-## Running Examples
+## CLI Examples
+
+For interactive usage, see the [CLI Documentation](./cli.md). Quick example:
+
+```bash
+# Build and start the daemon
+cargo build --release
+./target/release/spacedrive start
+
+# Create a library and add locations
+./target/release/spacedrive library create "Personal"
+./target/release/spacedrive location add ~/Documents --name "Documents"
+./target/release/spacedrive job monitor
+```
+
+## Running Code Examples
 
 ```bash
 # Library management and database operations
@@ -175,27 +190,18 @@ async fn create_entry_example(library: &Library) -> Result<(), Box<dyn std::erro
     };
     let metadata_record = metadata.insert(db.conn()).await?;
     
-    // Create path prefix for optimization
-    let prefix = entities::path_prefix::ActiveModel {
-        id: NotSet,
-        device_id: Set(1), // Assume device exists
-        prefix: Set("/home/user/Documents".to_string()),
-        created_at: Set(chrono::Utc::now()),
-    };
-    let prefix_record = prefix.insert(db.conn()).await?;
+    // No need for path prefixes - we use materialized paths directly
     
     // Create the entry
     let entry = entities::entry::ActiveModel {
         id: NotSet,
         uuid: Set(Uuid::new_v4()),
-        prefix_id: Set(prefix_record.id),
-        relative_path: Set("important.pdf".to_string()),
+        location_id: Set(1), // Assume location exists
+        relative_path: Set("".to_string()), // Root of location
         name: Set("important.pdf".to_string()),
         kind: Set("file".to_string()),
         metadata_id: Set(metadata_record.id),
         content_id: Set(None), // Will be set during content analysis
-        location_id: Set(None),
-        parent_id: Set(None),
         size: Set(1024 * 1024), // 1MB
         permissions: Set(Some("644".to_string())),
         created_at: Set(chrono::Utc::now()),

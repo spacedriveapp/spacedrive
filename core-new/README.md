@@ -151,15 +151,24 @@ pub async fn copy_files(paths: Vec<PathBuf>, destination: PathBuf) -> Result<()>
 ## Getting Started
 
 ```bash
-# Install dependencies
-cargo build
+# Build the project
+cargo build --release
 
 # Run tests
 cargo test
 
-# Start development server
-cargo run
+# Start the CLI daemon
+./target/release/spacedrive start
+
+# Create your first library and location
+./target/release/spacedrive library create "My Library"
+./target/release/spacedrive location add ~/Documents --name "Documents"
+
+# Monitor indexing progress
+./target/release/spacedrive job monitor
 ```
+
+For detailed CLI usage, see [CLI Documentation](./docs/cli.md).
 
 ## Architecture Decisions Log
 

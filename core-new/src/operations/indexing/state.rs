@@ -94,7 +94,6 @@ pub struct IndexerState {
     pub(crate) entries_for_content: Vec<(i32, PathBuf)>, // (entry_id, path)
     
     // Database operations
-    pub(crate) path_prefix_cache: HashMap<String, i32>, // prefix -> prefix_id
     pub(crate) entry_id_cache: HashMap<PathBuf, i32>, // path -> entry_id for parent lookups
     
     // Change detection
@@ -128,7 +127,6 @@ impl IndexerState {
             seen_paths: HashSet::new(),
             entry_batches: Vec::new(),
             entries_for_content: Vec::new(),
-            path_prefix_cache: HashMap::new(),
             entry_id_cache: HashMap::new(),
             existing_entries: HashMap::new(),
             stats: Default::default(),

@@ -54,25 +54,20 @@ pub enum EntryKind {
 The path storage system dramatically reduces database size:
 
 ```rust
-// PathPrefix table stores common prefixes once
-pub struct PathPrefix {
-    pub id: i32,
-    pub device_id: i32,
-    pub prefix: String,  // e.g., "/Users/james/Documents"
-}
-
-// Entry stores only the unique portion
+// Entry stores materialized paths directly
 pub struct Entry {
-    pub prefix_id: i32,      // References PathPrefix
-    pub relative_path: String, // e.g., "photos/vacation.jpg"
+    pub location_id: i32,        // References Location
+    pub relative_path: String,   // e.g., "photos" (directory path)
+    pub name: String,            // e.g., "vacation.jpg" (file name)
     // ...
 }
 ```
 
 **Benefits:**
-- **70%+ space savings** for large file collections
-- **Faster queries** on path-based searches
-- **Easier path manipulation** and normalization
+- **Simple queries** without complex joins
+- **Fast hierarchy queries** using path patterns
+- **Direct path access** for file operations
+- **Efficient indexing** on relative_path column
 
 ## UserMetadata - Immediate Organization
 
@@ -305,7 +300,6 @@ Device (1) ──→ (N) Location
 Location (1) ──→ (N) Entry
 Entry (1) ──→ (1) UserMetadata
 Entry (1) ──→ (0..1) ContentIdentity
-Entry (1) ──→ (1) PathPrefix
 
 UserMetadata (N) ──→ (N) Tag
 UserMetadata (N) ──→ (N) Label

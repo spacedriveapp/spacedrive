@@ -113,13 +113,10 @@ Path compression reduces storage requirements by 70%+ for large collections:
 // /Users/james/Documents/file2.txt
 // /Users/james/Documents/subdir/file3.txt
 
-// We store once:
-PathPrefix { prefix: "/Users/james/Documents" }
-
-// And reference:
-Entry { relative_path: "file1.txt", prefix_id: 1 }
-Entry { relative_path: "file2.txt", prefix_id: 1 }  
-Entry { relative_path: "subdir/file3.txt", prefix_id: 1 }
+// We store materialized paths directly:
+Entry { relative_path: "", name: "file1.txt", location_id: 1 }
+Entry { relative_path: "", name: "file2.txt", location_id: 1 }  
+Entry { relative_path: "subdir", name: "file3.txt", location_id: 1 }
 ```
 
 ## Infrastructure Layer
