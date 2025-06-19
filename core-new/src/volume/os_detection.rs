@@ -61,7 +61,7 @@ mod macos {
             let df_text = String::from_utf8_lossy(&df_output.stdout);
             
             for line in df_text.lines().skip(1) { // Skip header
-                if let Some(volume) = parse_df_line(line, config)? {
+                if let Some(volume) = parse_df_line(line, &config)? {
                     volumes.push(volume);
                 }
             }
@@ -206,7 +206,7 @@ mod linux {
             let df_text = String::from_utf8_lossy(&output.stdout);
             
             for line in df_text.lines().skip(1) { // Skip header
-                if let Some(volume) = parse_df_line(line, config)? {
+                if let Some(volume) = parse_df_line(line, &config)? {
                     volumes.push(volume);
                 }
             }

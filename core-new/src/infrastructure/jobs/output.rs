@@ -66,6 +66,28 @@ impl JobOutput {
     pub fn custom<T: Serialize>(data: T) -> Self {
         Self::Custom(serde_json::to_value(data).unwrap_or(serde_json::Value::Null))
     }
+    
+    /// Get indexed output if this is an indexed job
+    pub fn as_indexed(&self) -> Option<IndexedOutput> {
+        match self {
+            Self::Indexed { total_files, total_dirs, total_bytes } => {
+                Some(IndexedOutput {
+                    total_files: *total_files,
+                    total_dirs: *total_dirs,
+                    total_bytes: *total_bytes,
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Typed output for indexed jobs
+#[derive(Debug, Clone)]
+pub struct IndexedOutput {
+    pub total_files: u64,
+    pub total_dirs: u64,
+    pub total_bytes: u64,
 }
 
 impl Default for JobOutput {

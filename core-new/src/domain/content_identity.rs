@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
+use int_enum::IntEnum;
 
 /// Represents unique content for deduplication
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,26 +50,52 @@ pub struct ContentIdentity {
 }
 
 /// Type of content
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, IntEnum)]
 #[serde(rename_all = "snake_case")]
+#[repr(i32)]
 pub enum ContentKind {
-    Image,
-    Video,
-    Audio,
-    Document,
-    Archive,
-    Code,
-    Text,
-    Database,
-    Book,
-    Font,
-    Mesh,
-    Config,
-    Encrypted,
-    Key,
-    Executable,
-    Binary,
-    Unknown,
+    Unknown = 0,
+    Image = 1,
+    Video = 2,
+    Audio = 3,
+    Document = 4,
+    Archive = 5,
+    Code = 6,
+    Text = 7,
+    Database = 8,
+    Book = 9,
+    Font = 10,
+    Mesh = 11,
+    Config = 12,
+    Encrypted = 13,
+    Key = 14,
+    Executable = 15,
+    Binary = 16,
+}
+
+impl std::fmt::Display for ContentKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ContentKind::Unknown => "unknown",
+            ContentKind::Image => "image",
+            ContentKind::Video => "video",
+            ContentKind::Audio => "audio",
+            ContentKind::Document => "document",
+            ContentKind::Archive => "archive",
+            ContentKind::Code => "code",
+            ContentKind::Text => "text",
+            ContentKind::Database => "database",
+            ContentKind::Book => "book",
+            ContentKind::Font => "font",
+            ContentKind::Mesh => "mesh",
+            ContentKind::Config => "config",
+            ContentKind::Encrypted => "encrypted",
+            ContentKind::Key => "key",
+            ContentKind::Executable => "executable",
+            ContentKind::Binary => "binary",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 /// Media-specific metadata

@@ -12,8 +12,8 @@ pub struct Model {
     pub full_hash: Option<String>,
     pub cas_id: String,
     pub cas_version: i16,
-    pub mime_type: Option<String>,
-    pub kind: String,  // ContentKind as string
+    pub mime_type_id: Option<i32>,
+    pub kind_id: i32,  // ContentKind foreign key
     pub media_data: Option<Json>,  // MediaData as JSON
     pub text_content: Option<String>,
     pub total_size: i64,
@@ -26,11 +26,35 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::entry::Entity")]
     Entries,
+    #[sea_orm(
+        belongs_to = "super::content_kind::Entity",
+        from = "Column::KindId",
+        to = "super::content_kind::Column::Id"
+    )]
+    ContentKind,
+    #[sea_orm(
+        belongs_to = "super::mime_type::Entity",
+        from = "Column::MimeTypeId",
+        to = "super::mime_type::Column::Id"
+    )]
+    MimeType,
 }
 
 impl Related<super::entry::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Entries.def()
+    }
+}
+
+impl Related<super::content_kind::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ContentKind.def()
+    }
+}
+
+impl Related<super::mime_type::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::MimeType.def()
     }
 }
 

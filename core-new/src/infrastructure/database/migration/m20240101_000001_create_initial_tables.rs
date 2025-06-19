@@ -26,8 +26,68 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Devices::IsOnline).boolean().not_null().default(false))
                     .col(ColumnDef::new(Devices::LastSeenAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(Devices::Capabilities).json().not_null())
+                    .col(ColumnDef::new(Devices::SyncLeadership).json().not_null())
                     .col(ColumnDef::new(Devices::CreatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(Devices::UpdatedAt).timestamp_with_time_zone().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create content_kinds lookup table
+        manager
+            .create_table(
+                Table::create()
+                    .table(ContentKinds::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(ContentKinds::Id).integer().not_null().primary_key())
+                    .col(ColumnDef::new(ContentKinds::Name).string().not_null().unique_key())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Populate content_kinds table with enum values
+        let content_kinds = vec![
+            (0, "unknown"),
+            (1, "image"),
+            (2, "video"),
+            (3, "audio"),
+            (4, "document"),
+            (5, "archive"),
+            (6, "code"),
+            (7, "text"),
+            (8, "database"),
+            (9, "book"),
+            (10, "font"),
+            (11, "mesh"),
+            (12, "config"),
+            (13, "encrypted"),
+            (14, "key"),
+            (15, "executable"),
+            (16, "binary"),
+        ];
+
+        for (id, name) in content_kinds {
+            manager
+                .exec_stmt(
+                    Query::insert()
+                        .into_table(ContentKinds::Table)
+                        .columns([ContentKinds::Id, ContentKinds::Name])
+                        .values_panic([id.into(), name.into()])
+                        .to_owned(),
+                )
+                .await?;
+        }
+
+        // Create mime_types table for runtime discovered MIME types
+        manager
+            .create_table(
+                Table::create()
+                    .table(MimeTypes::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(MimeTypes::Id).integer().not_null().auto_increment().primary_key())
+                    .col(ColumnDef::new(MimeTypes::Uuid).uuid().not_null().unique_key())
+                    .col(ColumnDef::new(MimeTypes::MimeType).string().not_null().unique_key())
+                    .col(ColumnDef::new(MimeTypes::CreatedAt).timestamp_with_time_zone().not_null())
                     .to_owned(),
             )
             .await?;
@@ -100,14 +160,26 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(ContentIdentities::FullHash).string())
                     .col(ColumnDef::new(ContentIdentities::CasId).string().not_null())
                     .col(ColumnDef::new(ContentIdentities::CasVersion).small_integer().not_null())
-                    .col(ColumnDef::new(ContentIdentities::MimeType).string())
-                    .col(ColumnDef::new(ContentIdentities::Kind).string().not_null())
+                    .col(ColumnDef::new(ContentIdentities::MimeTypeId).integer())
+                    .col(ColumnDef::new(ContentIdentities::KindId).integer().not_null())
                     .col(ColumnDef::new(ContentIdentities::MediaData).json())
                     .col(ColumnDef::new(ContentIdentities::TextContent).text())
                     .col(ColumnDef::new(ContentIdentities::TotalSize).big_integer().not_null().default(0))
                     .col(ColumnDef::new(ContentIdentities::EntryCount).integer().not_null().default(0))
                     .col(ColumnDef::new(ContentIdentities::FirstSeenAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(ContentIdentities::LastVerifiedAt).timestamp_with_time_zone().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(ContentIdentities::Table, ContentIdentities::KindId)
+                            .to(ContentKinds::Table, ContentKinds::Id)
+                            .on_delete(ForeignKeyAction::Restrict)
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(ContentIdentities::Table, ContentIdentities::MimeTypeId)
+                            .to(MimeTypes::Table, MimeTypes::Id)
+                            .on_delete(ForeignKeyAction::SetNull)
+                    )
                     .to_owned(),
             )
             .await?;
@@ -141,16 +213,21 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Entries::PrefixId).integer().not_null())
                     .col(ColumnDef::new(Entries::RelativePath).string().not_null())
                     .col(ColumnDef::new(Entries::Name).string().not_null())
-                    .col(ColumnDef::new(Entries::Kind).string().not_null())
-                    .col(ColumnDef::new(Entries::MetadataId).integer().not_null())
+                    .col(ColumnDef::new(Entries::Kind).integer().not_null())
+                    .col(ColumnDef::new(Entries::Extension).string())
+                    .col(ColumnDef::new(Entries::MetadataId).integer())
                     .col(ColumnDef::new(Entries::ContentId).integer())
                     .col(ColumnDef::new(Entries::LocationId).integer())
                     .col(ColumnDef::new(Entries::ParentId).integer())
                     .col(ColumnDef::new(Entries::Size).big_integer().not_null())
+                    .col(ColumnDef::new(Entries::AggregateSize).big_integer().not_null().default(0))
+                    .col(ColumnDef::new(Entries::ChildCount).integer().not_null().default(0))
+                    .col(ColumnDef::new(Entries::FileCount).integer().not_null().default(0))
                     .col(ColumnDef::new(Entries::CreatedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(Entries::ModifiedAt).timestamp_with_time_zone().not_null())
                     .col(ColumnDef::new(Entries::AccessedAt).timestamp_with_time_zone())
                     .col(ColumnDef::new(Entries::Permissions).string())
+                    .col(ColumnDef::new(Entries::Inode).big_integer())
                     .foreign_key(
                         ForeignKey::create()
                             .from(Entries::Table, Entries::PrefixId)
@@ -307,6 +384,17 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        // Create index on parent_id for efficient hierarchical queries
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_entries_parent_id")
+                    .table(Entries::Table)
+                    .col(Entries::ParentId)
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -332,6 +420,12 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(ContentIdentities::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(MimeTypes::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ContentKinds::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(PathPrefixes::Table).to_owned())
@@ -364,8 +458,25 @@ enum Devices {
     IsOnline,
     LastSeenAt,
     Capabilities,
+    SyncLeadership,
     CreatedAt,
     UpdatedAt,
+}
+
+#[derive(Iden)]
+enum ContentKinds {
+    Table,
+    Id,
+    Name,
+}
+
+#[derive(Iden)]
+enum MimeTypes {
+    Table,
+    Id,
+    Uuid,
+    MimeType,
+    CreatedAt,
 }
 
 #[derive(Iden)]
@@ -403,8 +514,8 @@ enum ContentIdentities {
     FullHash,
     CasId,
     CasVersion,
-    MimeType,
-    Kind,
+    MimeTypeId,
+    KindId,
     MediaData,
     TextContent,
     TotalSize,
@@ -435,15 +546,20 @@ enum Entries {
     RelativePath,
     Name,
     Kind,
+    Extension,
     MetadataId,
     ContentId,
     LocationId,
     ParentId,
     Size,
+    AggregateSize,
+    ChildCount,
+    FileCount,
     CreatedAt,
     ModifiedAt,
     AccessedAt,
     Permissions,
+    Inode,
 }
 
 #[derive(Iden)]

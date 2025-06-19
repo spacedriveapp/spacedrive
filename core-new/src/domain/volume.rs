@@ -246,7 +246,7 @@ impl Volume {
             file_system: FileSystem::from_runtime_filesystem(&runtime_vol.file_system),
             total_capacity: runtime_vol.total_bytes_capacity,
             available_space: runtime_vol.total_bytes_available,
-            is_read_only: runtime_vol.is_read_only,
+            is_read_only: runtime_vol.read_only,
             is_mounted: runtime_vol.is_mounted,
             is_tracked: false,
             hardware_id: runtime_vol.hardware_id.clone(),
@@ -272,7 +272,7 @@ impl Volume {
         self.mount_points = runtime_vol.mount_points.clone();
         self.total_capacity = runtime_vol.total_bytes_capacity;
         self.available_space = runtime_vol.total_bytes_available;
-        self.is_read_only = runtime_vol.is_read_only;
+        self.is_read_only = runtime_vol.read_only;
         self.is_mounted = runtime_vol.is_mounted;
         self.hardware_id = runtime_vol.hardware_id.clone();
         self.read_speed_mbps = runtime_vol.read_speed_mbps;
@@ -370,6 +370,7 @@ impl VolumeType {
             crate::volume::MountType::System => VolumeType::System,
             crate::volume::MountType::External => VolumeType::External,
             crate::volume::MountType::Network => VolumeType::Network,
+            crate::volume::MountType::Virtual => VolumeType::Virtual,
         }
     }
 }
@@ -380,6 +381,7 @@ impl MountType {
             crate::volume::MountType::System => MountType::System,
             crate::volume::MountType::External => MountType::External,
             crate::volume::MountType::Network => MountType::Network,
+            crate::volume::MountType::Virtual => MountType::User, // Map Virtual to User as closest equivalent
         }
     }
 }
@@ -389,8 +391,9 @@ impl DiskType {
         match disk_type {
             crate::volume::DiskType::SSD => DiskType::SSD,
             crate::volume::DiskType::HDD => DiskType::HDD,
-            crate::volume::DiskType::Network => DiskType::Network,
-            crate::volume::DiskType::Virtual => DiskType::Virtual,
+            // Map network and virtual to Unknown since they don't exist in the volume types
+            // crate::volume::DiskType::Network => DiskType::Unknown,
+            // crate::volume::DiskType::Virtual => DiskType::Unknown,
             crate::volume::DiskType::Unknown => DiskType::Unknown,
         }
     }
@@ -401,7 +404,7 @@ impl FileSystem {
         match fs {
             crate::volume::FileSystem::APFS => FileSystem::APFS,
             crate::volume::FileSystem::NTFS => FileSystem::NTFS,
-            crate::volume::FileSystem::Ext4 => FileSystem::Ext4,
+            crate::volume::FileSystem::EXT4 => FileSystem::Ext4,
             crate::volume::FileSystem::Btrfs => FileSystem::Btrfs,
             crate::volume::FileSystem::ZFS => FileSystem::ZFS,
             crate::volume::FileSystem::ReFS => FileSystem::ReFS,

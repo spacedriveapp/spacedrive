@@ -2,6 +2,8 @@
 //! 
 //! These map our domain models to database tables.
 
+pub mod content_kind;
+pub mod mime_type;
 pub mod device;
 pub mod location;
 pub mod path_prefix;

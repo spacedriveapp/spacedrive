@@ -354,7 +354,7 @@ impl VolumeManager {
     pub async fn track_volume(
         &self,
         fingerprint: &VolumeFingerprint,
-        library_ctx: &crate::library::LibraryContext,
+        library: &crate::library::Library,
         display_name: Option<String>,
     ) -> VolumeResult<()> {
         let volumes = self.volumes.read().await;
@@ -368,7 +368,7 @@ impl VolumeManager {
             );
             
             // Track the volume for this library
-            domain_volume.track(Some(library_ctx.id));
+            domain_volume.track(Some(library.id()));
             
             // Set custom display name if provided
             if let Some(name) = display_name {
@@ -380,7 +380,7 @@ impl VolumeManager {
             
             info!("Tracked volume '{}' for library '{}'", 
                 domain_volume.display_name(), 
-                library_ctx.name
+                library.name().await
             );
             
             // Emit tracking event
@@ -388,7 +388,7 @@ impl VolumeManager {
                 event_type: "VolumeTracked".to_string(),
                 data: serde_json::json!({
                     "fingerprint": fingerprint.to_string(),
-                    "library_id": library_ctx.id,
+                    "library_id": library.id(),
                     "volume_name": domain_volume.display_name(),
                 }),
             });
@@ -403,14 +403,14 @@ impl VolumeManager {
     pub async fn untrack_volume(
         &self,
         fingerprint: &VolumeFingerprint,
-        library_ctx: &crate::library::LibraryContext,
+        library: &crate::library::Library,
     ) -> VolumeResult<()> {
         // TODO: Update database to mark as untracked
         // library_ctx.db.volume().untrack(fingerprint).await?;
         
         info!("Untracked volume '{}' from library '{}'", 
             fingerprint.to_string(),
-            library_ctx.name
+            library.name().await
         );
         
         // Emit untracking event
@@ -418,7 +418,7 @@ impl VolumeManager {
             event_type: "VolumeUntracked".to_string(),
             data: serde_json::json!({
                 "fingerprint": fingerprint.to_string(),
-                "library_id": library_ctx.id,
+                "library_id": library.id(),
             }),
         });
         
@@ -428,12 +428,12 @@ impl VolumeManager {
     /// Get tracked volumes for a library
     pub async fn get_tracked_volumes(
         &self,
-        library_ctx: &crate::library::LibraryContext,
+        library: &crate::library::Library,
     ) -> VolumeResult<Vec<crate::domain::volume::Volume>> {
         // TODO: Query database for tracked volumes
-        // library_ctx.db.volume().find_by_library(library_ctx.id).await
+        // library_ctx.db.volume().find_by_library(library.id()).await
         
-        debug!("Getting tracked volumes for library '{}'", library_ctx.name);
+        debug!("Getting tracked volumes for library '{}'", library.name().await);
         Ok(Vec::new())
     }
 

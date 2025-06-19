@@ -17,6 +17,7 @@ pub struct Model {
     pub is_online: bool,
     pub last_seen_at: DateTimeUtc,
     pub capabilities: Json,  // DeviceCapabilities as JSON
+    pub sync_leadership: Json,  // HashMap<Uuid, SyncRole> as JSON
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

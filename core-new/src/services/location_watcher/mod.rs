@@ -50,8 +50,6 @@ pub struct LocationWatcher {
     watched_locations: Arc<RwLock<HashMap<Uuid, WatchedLocation>>>,
     /// File system watcher
     watcher: Arc<RwLock<Option<RecommendedWatcher>>>,
-    /// Channel for receiving file system events
-    event_receiver: Arc<RwLock<Option<mpsc::Receiver<WatcherEvent>>>>,
     /// Whether the service is running
     is_running: Arc<RwLock<bool>>,
     /// Platform-specific event handler
@@ -81,7 +79,6 @@ impl LocationWatcher {
             events,
             watched_locations: Arc::new(RwLock::new(HashMap::new())),
             watcher: Arc::new(RwLock::new(None)),
-            event_receiver: Arc::new(RwLock::new(None)),
             is_running: Arc::new(RwLock::new(false)),
             platform_handler,
         }
@@ -103,7 +100,7 @@ impl LocationWatcher {
 
         // Add to file system watcher if running
         if *self.is_running.read().await {
-            if let Some(watcher) = self.watcher.read().await.as_ref() {
+            if let Some(watcher) = self.watcher.write().await.as_mut() {
                 watcher.watch(&location.path, RecursiveMode::Recursive)?;
                 info!("Started watching location: {}", location.path.display());
             }
@@ -120,7 +117,7 @@ impl LocationWatcher {
         if let Some(location) = locations.remove(&location_id) {
             // Remove from file system watcher if running
             if *self.is_running.read().await {
-                if let Some(watcher) = self.watcher.read().await.as_ref() {
+                if let Some(watcher) = self.watcher.write().await.as_mut() {
                     watcher.unwatch(&location.path)?;
                     info!("Stopped watching location: {}", location.path.display());
                 }
@@ -139,7 +136,7 @@ impl LocationWatcher {
             location.enabled = enabled;
 
             if *self.is_running.read().await {
-                if let Some(watcher) = self.watcher.read().await.as_ref() {
+                if let Some(watcher) = self.watcher.write().await.as_mut() {
                     match (was_enabled, enabled) {
                         (false, true) => {
                             // Enable watching
@@ -209,14 +206,11 @@ impl LocationWatcher {
         }
         drop(locations);
 
-        // Store watcher and receiver
+        // Store watcher
         *self.watcher.write().await = Some(watcher);
-        *self.event_receiver.write().await = Some(rx);
 
         // Start event processing loop
         tokio::spawn(async move {
-            let mut rx = rx;
-            
             while *is_running.read().await {
                 tokio::select! {
                     Some(event) = rx.recv() => {
@@ -296,7 +290,6 @@ impl Service for LocationWatcher {
         
         // Clean up watcher
         *self.watcher.write().await = None;
-        *self.event_receiver.write().await = None;
         
         info!("Location watcher service stopped");
         Ok(())

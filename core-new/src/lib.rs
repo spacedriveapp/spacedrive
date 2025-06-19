@@ -8,19 +8,18 @@ pub mod domain;
 pub mod file_type;
 pub mod infrastructure;
 pub mod library;
+pub mod location;
 pub mod operations;
 pub mod services;
 pub mod shared;
-// Temporarily disabled for indexer database testing
-// pub mod volume;
+pub mod volume;
 
 use crate::config::AppConfig;
 use crate::device::DeviceManager;
 use crate::infrastructure::events::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::services::Services;
-// Temporarily disabled for indexer database testing
-// use crate::volume::{VolumeManager, VolumeDetectionConfig};
+use crate::volume::{VolumeManager, VolumeDetectionConfig};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -37,8 +36,8 @@ pub struct Core {
     /// Library manager
     pub libraries: Arc<LibraryManager>,
     
-    /// Volume manager (temporarily disabled)
-    // pub volumes: Arc<VolumeManager>,
+    /// Volume manager
+    pub volumes: Arc<VolumeManager>,
     
     /// Event bus for state changes
     pub events: Arc<EventBus>,
@@ -71,16 +70,16 @@ impl Core {
         // 3. Create event bus
         let events = Arc::new(EventBus::default());
         
-        // 4. Initialize volume manager (temporarily disabled)
-        // let volume_config = VolumeDetectionConfig::default();
-        // let volumes = Arc::new(VolumeManager::new(volume_config, events.clone()));
+        // 4. Initialize volume manager
+        let volume_config = VolumeDetectionConfig::default();
+        let volumes = Arc::new(VolumeManager::new(volume_config, events.clone()));
         
-        // 5. Initialize volume detection (temporarily disabled)
-        // info!("Initializing volume detection...");
-        // match volumes.initialize().await {
-        //     Ok(()) => info!("Volume manager initialized"),
-        //     Err(e) => error!("Failed to initialize volume manager: {}", e),
-        // }
+        // 5. Initialize volume detection
+        info!("Initializing volume detection...");
+        match volumes.initialize().await {
+            Ok(()) => info!("Volume manager initialized"),
+            Err(e) => error!("Failed to initialize volume manager: {}", e),
+        }
         
         // 6. Initialize library manager with libraries directory
         let libraries_dir = config.read().await.libraries_dir();
@@ -109,7 +108,7 @@ impl Core {
             config,
             device,
             libraries,
-            // volumes, // temporarily disabled
+            volumes,
             events,
             services,
         })
@@ -172,8 +171,8 @@ impl Core {
         // Stop all services
         self.services.stop_all().await?;
         
-        // Stop volume monitoring (temporarily disabled)
-        // self.volumes.stop_monitoring().await;
+        // Stop volume monitoring
+        self.volumes.stop_monitoring().await;
         
         // Close all libraries
         self.libraries.close_all().await?;

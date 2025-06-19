@@ -30,29 +30,29 @@ pub enum Event {
         new_path: String 
     },
 
-    // Volume events (temporarily disabled)
-    // VolumeAdded(crate::volume::Volume),
-    // VolumeRemoved { 
-    //     fingerprint: crate::volume::VolumeFingerprint 
-    // },
-    // VolumeUpdated {
-    //     fingerprint: crate::volume::VolumeFingerprint,
-    //     old_info: crate::volume::VolumeInfo,
-    //     new_info: crate::volume::VolumeInfo,
-    // },
-    // VolumeSpeedTested {
-    //     fingerprint: crate::volume::VolumeFingerprint,
-    //     read_speed_mbps: u64,
-    //     write_speed_mbps: u64,
-    // },
-    // VolumeMountChanged {
-    //     fingerprint: crate::volume::VolumeFingerprint,
-    //     is_mounted: bool,
-    // },
-    // VolumeError {
-    //     fingerprint: crate::volume::VolumeFingerprint,
-    //     error: String,
-    // },
+    // Volume events
+    VolumeAdded(crate::volume::Volume),
+    VolumeRemoved { 
+        fingerprint: crate::volume::VolumeFingerprint 
+    },
+    VolumeUpdated {
+        fingerprint: crate::volume::VolumeFingerprint,
+        old_info: crate::volume::VolumeInfo,
+        new_info: crate::volume::VolumeInfo,
+    },
+    VolumeSpeedTested {
+        fingerprint: crate::volume::VolumeFingerprint,
+        read_speed_mbps: u64,
+        write_speed_mbps: u64,
+    },
+    VolumeMountChanged {
+        fingerprint: crate::volume::VolumeFingerprint,
+        is_mounted: bool,
+    },
+    VolumeError {
+        fingerprint: crate::volume::VolumeFingerprint,
+        error: String,
+    },
 
     // Job events
     JobQueued { job_id: String, job_type: String },
@@ -134,7 +134,7 @@ pub enum FileOperation {
 }
 
 /// Event bus for broadcasting events
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EventBus {
     sender: broadcast::Sender<Event>,
 }
@@ -233,17 +233,15 @@ impl EventFilter for Event {
     }
 
     fn is_volume_event(&self) -> bool {
-        // Temporarily disabled for indexer database testing
-        false
-        // matches!(
-        //     self,
-        //     Event::VolumeAdded(_)
-        //         | Event::VolumeRemoved { .. }
-        //         | Event::VolumeUpdated { .. }
-        //         | Event::VolumeSpeedTested { .. }
-        //         | Event::VolumeMountChanged { .. }
-        //         | Event::VolumeError { .. }
-        // )
+        matches!(
+            self,
+            Event::VolumeAdded(_)
+                | Event::VolumeRemoved { .. }
+                | Event::VolumeUpdated { .. }
+                | Event::VolumeSpeedTested { .. }
+                | Event::VolumeMountChanged { .. }
+                | Event::VolumeError { .. }
+        )
     }
 
     fn is_job_event(&self) -> bool {

@@ -12,16 +12,21 @@ pub struct Model {
     pub prefix_id: i32,  // References path_prefixes table
     pub relative_path: String,  // Path relative to prefix
     pub name: String,
-    pub kind: String,  // "file" or "directory"
-    pub metadata_id: i32,  // ALWAYS exists - key innovation!
+    pub kind: i32,  // Entry type: 0=File, 1=Directory, 2=Symlink
+    pub extension: Option<String>,  // File extension (without dot), None for directories
+    pub metadata_id: Option<i32>,  // Optional - only when user adds metadata
     pub content_id: Option<i32>,  // Optional - for deduplication
     pub location_id: Option<i32>,
     pub parent_id: Option<i32>,
     pub size: i64,
+    pub aggregate_size: i64,  // Total size including all children (for directories)
+    pub child_count: i32,  // Total number of direct children
+    pub file_count: i32,  // Total number of files in this directory and subdirectories
     pub created_at: DateTimeUtc,
     pub modified_at: DateTimeUtc,
     pub accessed_at: Option<DateTimeUtc>,
     pub permissions: Option<String>,  // Unix permissions as string
+    pub inode: Option<i64>,  // Platform-specific file identifier for change detection
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

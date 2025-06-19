@@ -10,8 +10,7 @@ pub mod device;
 pub mod entry;
 pub mod location;
 pub mod user_metadata;
-// Temporarily disabled for indexer database testing
-// pub mod volume;
+pub mod volume;
 
 // Re-export commonly used types
 pub use content_identity::{ContentIdentity, ContentKind, MediaData};
@@ -19,5 +18,4 @@ pub use device::{Device, OperatingSystem};
 pub use entry::{Entry, EntryKind, SdPathSerialized};
 pub use location::{Location, IndexMode, ScanState};
 pub use user_metadata::{UserMetadata, Tag, Label};
-// Temporarily disabled for indexer database testing
-// pub use volume::{Volume as DomainVolume, VolumeType, MountType as DomainMountType, DiskType as DomainDiskType, FileSystem as DomainFileSystem};
+pub use volume::{Volume as DomainVolume, VolumeType, MountType as DomainMountType, DiskType as DomainDiskType, FileSystem as DomainFileSystem};

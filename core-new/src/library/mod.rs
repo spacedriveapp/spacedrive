@@ -155,6 +155,9 @@ impl Library {
     }
 }
 
+// Note: Library does not implement Clone due to the exclusive lock
+// Use Arc<Library> when you need shared access
+
 /// Current library configuration version
 pub const LIBRARY_CONFIG_VERSION: u32 = 2;
 

@@ -21,7 +21,7 @@ pub fn register_all_jobs() {
     register_job::<file_ops::validation_job::ValidationJob>();
     
     // Indexing jobs
-    register_job::<indexing::indexer_job::IndexerJob>();
+    register_job::<indexing::IndexerJob>();
 }
 
 /// Register a single job type with the job system

@@ -6,7 +6,7 @@ This document outlines a simplified sync system for Spacedrive Core v2 that prio
 
 ## Core Principles
 
-1. **One Leader Device** - A single device maintains the authoritative sync log
+1. **One Leader Per Library** - Each library has a designated leader device that maintains the sync log
 2. **Automatic Tracking** - SeaORM hooks capture changes without manual intervention
 3. **Domain Control** - Each model decides its own sync behavior
 4. **Simple Conflicts** - Last-write-wins with optional field-level merging
@@ -15,21 +15,28 @@ This document outlines a simplified sync system for Spacedrive Core v2 that prio
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Leader Device │     │ Follower Device │     │ Follower Device │
-│                 │     │                 │     │                 │
-│  ┌───────────┐  │     │  ┌───────────┐  │     │  ┌───────────┐  │
-│  │  Sync Log │  │────▶│  │  Local DB │  │────▶│  │  Local DB │  │
-│  │           │  │     │  └───────────┘  │     │  └───────────┘  │
-│  │ Change #1 │  │     │                 │     │                 │
-│  │ Change #2 │  │     │  Sync Client    │     │  Sync Client    │
-│  │ Change #3 │  │     │  - Pull changes │     │  - Pull changes │
-│  └───────────┘  │     │  - Apply local  │     │  - Apply local  │
-│                 │     │                 │     │                 │
-│  Sync Server    │     └─────────────────┘     └─────────────────┘
-│  - Serve log    │
-│  - Accept push  │
-└─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          Library A                               │
+│  ┌─────────────────┐     ┌─────────────────┐                   │
+│  │ Leader: Device 1│     │Follower: Device 2│                   │
+│  │  ┌───────────┐  │     │  ┌───────────┐  │                   │
+│  │  │  Sync Log │  │────▶│  │  Local DB │  │                   │
+│  │  └───────────┘  │     │  └───────────┘  │                   │
+│  └─────────────────┘     └─────────────────┘                   │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                          Library B                               │
+│  ┌─────────────────┐     ┌─────────────────┐                   │
+│  │Follower: Device 1│     │ Leader: Device 2│                   │
+│  │  ┌───────────┐  │◀────│  ┌───────────┐  │                   │
+│  │  │  Local DB │  │     │  │  Sync Log │  │                   │
+│  │  └───────────┘  │     │  └───────────┘  │                   │
+│  └─────────────────┘     └─────────────────┘                   │
+└─────────────────────────────────────────────────────────────────┘
+
+Each library can have a different leader device, distributing the sync
+responsibility across devices based on usage patterns and availability.
 ```
 
 ## Implementation
@@ -67,28 +74,76 @@ Using SeaORM's lifecycle hooks:
 
 ```rust
 impl ActiveModelBehavior for DeviceActiveModel {
-    async fn after_save(model: Model, db: &DatabaseConnection) -> Result<Model, DbErr> {
-        if let Some(sync_log) = db.extension::<SyncLog>() {
-            sync_log.record_change(
+    // Triggered after insert or update
+    fn after_save(self, insert: bool) -> Result<Self, DbErr> {
+        // Record change in sync log (would need async runtime)
+        if let Some(sync_log) = SYNC_LOG.get() {
+            let change_type = if insert { 
+                ChangeType::Insert 
+            } else { 
+                ChangeType::Update 
+            };
+            
+            // Convert ActiveModel to Model for serialization
+            let model = self.clone().try_into_model()?;
+            
+            // Queue sync operation (processed by background task)
+            sync_log.queue_change(
                 Device::SYNC_ID,
-                model.id,
-                ChangeType::Upsert,
-                model.clone(),
-            ).await?;
+                model.id.to_string(),
+                change_type,
+                serde_json::to_value(&model).ok(),
+            );
         }
-        Ok(model)
+        Ok(self)
     }
     
-    async fn after_delete(model: Model, db: &DatabaseConnection) -> Result<Model, DbErr> {
-        if let Some(sync_log) = db.extension::<SyncLog>() {
-            sync_log.record_change(
-                Device::SYNC_ID,
-                model.id,
-                ChangeType::Delete,
-                model.clone(),
-            ).await?;
+    // Triggered after delete
+    fn after_delete(self) -> Result<Self, DbErr> {
+        if let Some(sync_log) = SYNC_LOG.get() {
+            if let Ok(model) = self.clone().try_into_model() {
+                sync_log.queue_change(
+                    Device::SYNC_ID,
+                    model.id.to_string(),
+                    ChangeType::Delete,
+                    None, // No data needed for deletes
+                );
+            }
         }
-        Ok(model)
+        Ok(self)
+    }
+}
+
+// Global sync log (initialized during core startup)
+static SYNC_LOG: OnceCell<Arc<SyncLog>> = OnceCell::new();
+
+// Background task processes queued changes
+impl SyncLog {
+    pub fn queue_change(&self, model_type: &str, record_id: String, 
+                       change_type: ChangeType, data: Option<Value>) {
+        self.queue.push(QueuedChange {
+            model_type: model_type.to_string(),
+            record_id,
+            change_type,
+            data,
+            timestamp: Utc::now(),
+        });
+    }
+    
+    pub async fn process_queue(&self, db: &DatabaseConnection) -> Result<()> {
+        while let Some(change) = self.queue.pop() {
+            // Insert into sync_log table
+            sync_log::ActiveModel {
+                seq: NotSet, // Auto-increment
+                timestamp: Set(change.timestamp),
+                device_id: Set(get_current_device_id()),
+                model_type: Set(change.model_type),
+                record_id: Set(change.record_id),
+                change_type: Set(change.change_type),
+                data: Set(change.data),
+            }.insert(db).await?;
+        }
+        Ok(())
     }
 }
 ```
@@ -101,6 +156,9 @@ Simple append-only log on the leader device:
 pub struct SyncLogEntry {
     /// Auto-incrementing sequence number
     pub seq: u64,
+    
+    /// Which library this change belongs to
+    pub library_id: Uuid,
     
     /// When this change occurred
     pub timestamp: DateTime<Utc>,
@@ -219,17 +277,54 @@ impl Syncable for temp_file::ActiveModel {
 
 ## Sync Process
 
-### Leader Device
+### Leader Device (Per Library)
 
-1. **Capture Changes**: SeaORM hooks automatically log all changes
-2. **Serve Log**: Expose sync log via API/P2P protocol
-3. **Maintain State**: Track each device's sync position
+1. **Check Leadership**: Verify this device is the leader for the library
+2. **Capture Changes**: SeaORM hooks automatically log all changes
+3. **Serve Log**: Expose sync log via API/P2P protocol
+4. **Maintain State**: Track each device's sync position
 
 ### Follower Device
 
-1. **Pull Changes**: Request changes since last sync
-2. **Apply Changes**: Process in order, using merge logic for conflicts
-3. **Track Position**: Remember last processed sequence number
+1. **Find Leader**: Query which device is the leader for this library
+2. **Pull Changes**: Request changes since last sync from the leader
+3. **Apply Changes**: Process in order, using merge logic for conflicts
+4. **Track Position**: Remember last processed sequence number
+
+### Leadership Management
+
+```rust
+/// Determine sync leader for a library
+async fn get_sync_leader(library_id: Uuid) -> Result<DeviceId> {
+    // Query all devices in the library
+    let devices = library.get_devices().await?;
+    
+    // Find the designated leader
+    let leader = devices
+        .iter()
+        .find(|d| d.is_sync_leader(&library_id))
+        .ok_or("No sync leader assigned")?;
+    
+    Ok(leader.id)
+}
+
+/// Assign new sync leader (when current leader is offline)
+async fn reassign_leader(library_id: Uuid, new_leader: DeviceId) -> Result<()> {
+    // Update old leader
+    if let Some(old_leader) = find_current_leader(library_id).await? {
+        old_leader.set_sync_role(library_id, SyncRole::Follower);
+    }
+    
+    // Update new leader
+    let new_leader_device = get_device(new_leader).await?;
+    new_leader_device.set_sync_role(library_id, SyncRole::Leader);
+    
+    // Notify all devices of leadership change
+    broadcast_leadership_change(library_id, new_leader).await?;
+    
+    Ok(())
+}
+```
 
 ### Initial Sync
 
@@ -367,6 +462,135 @@ db.transaction_with_no_sync(|txn| async move {
 sync_log.force_record(location).await?;
 ```
 
+## SeaORM Integration Details
+
+### Hook Limitations
+
+SeaORM hooks are synchronous, but sync logging needs async database operations. Solutions:
+
+1. **Queue-based**: Queue changes in hooks, process asynchronously
+```rust
+// In hook (sync)
+sync_log.queue_change(...);
+
+// Background task (async)
+loop {
+    sync_log.process_queue(&db).await?;
+    tokio::time::sleep(Duration::from_millis(100)).await;
+}
+```
+
+2. **Thread-local Storage**: Store pending changes per-thread
+```rust
+thread_local! {
+    static PENDING_CHANGES: RefCell<Vec<QueuedChange>> = RefCell::new(Vec::new());
+}
+
+// Flush after transaction
+db.transaction(|txn| async move {
+    // Do work...
+    Ok(())
+}).await?;
+
+// Flush pending changes
+flush_pending_sync_changes(&db).await?;
+```
+
+### Making Models Sync-Aware
+
+Simple macro to reduce boilerplate:
+
+```rust
+#[macro_export]
+macro_rules! impl_syncable {
+    ($model:ty, $active_model:ty, $sync_id:expr) => {
+        impl Syncable for $active_model {
+            const SYNC_ID: &'static str = $sync_id;
+        }
+        
+        impl ActiveModelBehavior for $active_model {
+            fn after_save(self, insert: bool) -> Result<Self, DbErr> {
+                if <$active_model as Syncable>::should_sync(&self) {
+                    queue_sync_change(Self::SYNC_ID, self.clone(), insert);
+                }
+                Ok(self)
+            }
+            
+            fn after_delete(self) -> Result<Self, DbErr> {
+                if <$active_model as Syncable>::should_sync(&self) {
+                    queue_sync_delete(Self::SYNC_ID, self.clone());
+                }
+                Ok(self)
+            }
+        }
+    };
+}
+
+// Usage
+impl_syncable!(device::Model, device::ActiveModel, "device");
+impl_syncable!(location::Model, location::ActiveModel, "location");
+```
+
+### Database Schema
+
+Sync log table:
+
+```sql
+CREATE TABLE sync_log (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    library_id TEXT NOT NULL,
+    timestamp DATETIME NOT NULL,
+    device_id TEXT NOT NULL,
+    model_type TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    change_type TEXT NOT NULL,
+    data TEXT, -- JSON
+    INDEX idx_sync_log_seq (seq),
+    INDEX idx_sync_log_library (library_id, seq),
+    INDEX idx_sync_log_model (model_type, record_id)
+);
+
+-- Sync position tracking per library
+CREATE TABLE sync_positions (
+    device_id TEXT NOT NULL,
+    library_id TEXT NOT NULL,
+    last_seq INTEGER NOT NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (device_id, library_id)
+);
+
+-- Device sync roles (part of device table)
+-- sync_leadership: JSON map of library_id -> role
+```
+
+## Implementation Roadmap
+
+### Phase 1: Core Infrastructure (Week 1)
+- [ ] Create `Syncable` trait
+- [ ] Implement sync log table and models
+- [ ] Build queue-based change tracking
+- [ ] Add `impl_syncable!` macro
+
+### Phase 2: Model Integration (Week 2)
+- [ ] Add sync support to Device model
+- [ ] Add sync support to Location model
+- [ ] Add sync support to Tag model
+- [ ] Test change tracking
+
+### Phase 3: Sync Protocol (Week 3)
+- [ ] Implement pull request/response
+- [ ] Build sync client
+- [ ] Add conflict resolution
+- [ ] Test leader/follower sync
+
+### Phase 4: Production Features (Week 4)
+- [ ] Add compression for consecutive operations
+- [ ] Implement selective sync
+- [ ] Add offline queue
+- [ ] Build sync status UI
+
 ## Conclusion
 
 This design prioritizes simplicity and developer experience over theoretical perfection. By accepting some limitations (single leader, last-write-wins defaults), we gain a system that's easy to understand, implement, and debug. The automatic change tracking eliminates the biggest pain point of the original system while the flexible trait system allows models to customize their sync behavior as needed.
+
+The SeaORM integration, while requiring some workarounds for async operations, provides a clean abstraction that keeps sync logic separate from business logic. With the macro system, adding sync to a model is as simple as a single line of code.
