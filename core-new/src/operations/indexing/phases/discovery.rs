@@ -2,8 +2,9 @@
 
 use crate::{
     infrastructure::jobs::prelude::{JobContext, JobError, Progress},
+    infrastructure::jobs::generic_progress::ToGenericProgress,
     operations::indexing::{
-        state::{IndexerState, DirEntry, EntryKind, IndexPhase, IndexError},
+        state::{IndexerState, DirEntry, EntryKind, IndexPhase, IndexError, IndexerProgress},
         filters::should_skip_path,
         entry::EntryProcessor,
     },
@@ -38,7 +39,7 @@ pub async fn run_discovery_phase(
         }
         
         // Update progress
-        ctx.progress(Progress::structured(crate::operations::indexing::IndexerProgress {
+        let indexer_progress = IndexerProgress {
             phase: IndexPhase::Discovery { 
                 dirs_queued: state.dirs_to_walk.len() 
             },
@@ -46,7 +47,8 @@ pub async fn run_discovery_phase(
             total_found: state.stats,
             processing_rate: state.calculate_rate(),
             estimated_remaining: state.estimate_remaining(),
-        }));
+        };
+        ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
         // Read directory entries
         match read_directory(&dir_path).await {

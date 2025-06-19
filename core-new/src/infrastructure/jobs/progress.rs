@@ -1,5 +1,6 @@
 //! Progress reporting for jobs
 
+use crate::infrastructure::jobs::generic_progress::GenericProgress;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -21,6 +22,9 @@ pub enum Progress {
     
     /// Custom structured progress
     Structured(serde_json::Value),
+    
+    /// Generic progress (recommended for all jobs)
+    Generic(GenericProgress),
 }
 
 impl Progress {
@@ -49,6 +53,11 @@ impl Progress {
         Self::Structured(serde_json::to_value(data).unwrap_or(serde_json::Value::Null))
     }
     
+    /// Create generic progress
+    pub fn generic(progress: GenericProgress) -> Self {
+        Self::Generic(progress)
+    }
+    
     /// Get progress as a percentage (0.0 to 1.0)
     pub fn as_percentage(&self) -> Option<f32> {
         match self {
@@ -59,6 +68,7 @@ impl Progress {
             Self::Bytes { current, total } if *total > 0 => {
                 Some(*current as f32 / *total as f32)
             }
+            Self::Generic(progress) => Some(progress.as_percentage()),
             _ => None,
         }
     }
@@ -79,6 +89,7 @@ impl fmt::Display for Progress {
                 write!(f, "{}/{}", format_bytes(*current), format_bytes(*total))
             }
             Self::Structured(_) => write!(f, "[structured progress]"),
+            Self::Generic(progress) => write!(f, "{}", progress.format_progress()),
         }
     }
 }

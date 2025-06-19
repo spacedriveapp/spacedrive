@@ -6,6 +6,7 @@ pub mod context;
 pub mod database;
 pub mod error;
 pub mod executor;
+pub mod generic_progress;
 pub mod handle;
 pub mod manager;
 pub mod output;
@@ -19,6 +20,7 @@ pub mod prelude {
     pub use super::{
         context::JobContext,
         error::{JobError, JobResult},
+        generic_progress::{GenericProgress, ToGenericProgress},
         handle::JobHandle,
         output::JobOutput,
         progress::{JobProgress, Progress},

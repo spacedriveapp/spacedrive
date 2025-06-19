@@ -3,10 +3,11 @@
 use crate::{
     infrastructure::{
         jobs::prelude::{JobContext, JobError, Progress},
+        jobs::generic_progress::ToGenericProgress,
         database::entities,
     },
     operations::indexing::{
-        state::{IndexerState, IndexPhase, Phase},
+        state::{IndexerState, IndexPhase, Phase, IndexerProgress},
     },
 };
 use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder, DbErr, DatabaseConnection, ActiveModelTrait, ActiveValue::Set};
@@ -57,13 +58,14 @@ pub async fn run_aggregation_phase(
         ctx.check_interrupt().await?;
         
         processed += 1;
-        ctx.progress(Progress::structured(crate::operations::indexing::IndexerProgress {
+        let indexer_progress = IndexerProgress {
             phase: IndexPhase::Finalizing,
             current_path: format!("Aggregating directory {}/{}: {}", processed, total_dirs, directory.name),
             total_found: state.stats,
             processing_rate: state.calculate_rate(),
             estimated_remaining: state.estimate_remaining(),
-        }));
+        };
+        ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
         // Calculate aggregate values for this directory
         match aggregator.aggregate_directory(&directory).await {

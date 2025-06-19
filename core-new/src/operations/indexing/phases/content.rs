@@ -2,8 +2,9 @@
 
 use crate::{
     infrastructure::jobs::prelude::{JobContext, JobError, Progress},
+    infrastructure::jobs::generic_progress::ToGenericProgress,
     operations::indexing::{
-        state::{IndexerState, IndexPhase, IndexError},
+        state::{IndexerState, IndexPhase, IndexError, IndexerProgress},
         entry::EntryProcessor,
     },
     domain::content_identity::CasGenerator,
@@ -38,7 +39,7 @@ pub async fn run_content_phase(
         
         processed += chunk.len();
         
-        ctx.progress(Progress::structured(crate::operations::indexing::IndexerProgress {
+        let indexer_progress = IndexerProgress {
             phase: IndexPhase::ContentIdentification { 
                 current: processed, 
                 total 
@@ -47,7 +48,8 @@ pub async fn run_content_phase(
             total_found: state.stats,
             processing_rate: state.calculate_rate(),
             estimated_remaining: state.estimate_remaining(),
-        }));
+        };
+        ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
         // Process chunk in parallel for better performance
         let cas_futures: Vec<_> = chunk.iter()

@@ -14,6 +14,7 @@ pub mod entry;
 pub mod filters;
 pub mod metrics;
 pub mod phases;
+pub mod progress;
 pub mod change_detection;
 
 // Re-exports for convenience

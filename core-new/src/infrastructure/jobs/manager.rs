@@ -38,6 +38,7 @@ struct RunningJob {
     handle: JobHandle,
     task_handle: TaskHandle<JobError>,
     status_tx: watch::Sender<JobStatus>,
+    latest_progress: Arc<Mutex<Option<Progress>>>,
 }
 
 impl JobManager {
@@ -121,8 +122,26 @@ impl JobManager {
         
         // Create channels
         let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
-        let (progress_tx, _) = mpsc::unbounded_channel();
+        let (progress_tx, progress_rx) = mpsc::unbounded_channel();
         let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+        
+        // Create storage for latest progress
+        let latest_progress = Arc::new(Mutex::new(None));
+        
+        // Create progress forwarding task to bridge mpsc -> broadcast
+        let broadcast_tx_clone = broadcast_tx.clone();
+        let latest_progress_clone = latest_progress.clone();
+        tokio::spawn(async move {
+            let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
+            while let Some(progress) = progress_rx.recv().await {
+                // Store latest progress
+                *latest_progress_clone.lock().await = Some(progress.clone());
+                
+                // Forward progress from mpsc to broadcast
+                // Ignore errors if no one is listening
+                let _ = broadcast_tx_clone.send(progress);
+            }
+        });
         
         // Get library reference
         let library = self.library.read().await
@@ -167,6 +186,7 @@ impl JobManager {
                         handle: handle.clone(),
                         task_handle: handle_result,
                         status_tx,
+                        latest_progress: latest_progress.clone(),
                     },
                 );
                 
@@ -200,12 +220,19 @@ impl JobManager {
             
             // Only include active jobs (running or paused)
             if status.is_active() {
+                // Get latest progress
+                let progress_percentage = if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
+                    progress.as_percentage().unwrap_or(0.0)
+                } else {
+                    0.0
+                };
+                
                 // Create JobInfo from in-memory state
                 let job_info = JobInfo {
                     id: job_id.0,
                     name: format!("Job {}", job_id), // Use job ID as name for now
                     status,
-                    progress: 0.0, // TODO: Get actual progress from handle
+                    progress: progress_percentage,
                     started_at: chrono::Utc::now(), // TODO: Get actual start time
                     completed_at: None,
                     error_message: None,
@@ -213,7 +240,7 @@ impl JobManager {
                 };
                 
                 job_infos.push(job_info);
-                info!("Added active job {} to result", job_id);
+                info!("Added active job {} to result with progress {:.1}%", job_id, progress_percentage * 100.0);
             } else {
                 info!("Skipping job {} with status {:?} (not active)", job_id, status);
             }

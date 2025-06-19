@@ -3,10 +3,11 @@
 use crate::{
     infrastructure::{
         jobs::prelude::{JobContext, JobError, Progress},
+        jobs::generic_progress::ToGenericProgress,
         database::entities,
     },
     operations::indexing::{
-        state::{IndexerState, IndexPhase, IndexError, EntryKind},
+        state::{IndexerState, IndexPhase, IndexError, EntryKind, IndexerProgress},
         entry::EntryProcessor,
         IndexMode,
         change_detection::{ChangeDetector, Change},
@@ -56,7 +57,7 @@ pub async fn run_processing_phase(
         batch_number += 1;
         let batch_size = batch.len();
         
-        ctx.progress(Progress::structured(crate::operations::indexing::IndexerProgress {
+        let indexer_progress = IndexerProgress {
             phase: IndexPhase::Processing { 
                 batch: batch_number, 
                 total_batches 
@@ -65,7 +66,8 @@ pub async fn run_processing_phase(
             total_found: state.stats,
             processing_rate: state.calculate_rate(),
             estimated_remaining: state.estimate_remaining(),
-        }));
+        };
+        ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
         // Sort batch by path depth first, then by type to ensure parents are processed before children
         batch.sort_by(|a, b| {
