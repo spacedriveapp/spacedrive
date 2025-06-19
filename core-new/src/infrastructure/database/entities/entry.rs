@@ -17,7 +17,6 @@ pub struct Model {
     pub metadata_id: Option<i32>,  // Optional - only when user adds metadata
     pub content_id: Option<i32>,  // Optional - for deduplication
     pub location_id: Option<i32>,
-    pub parent_id: Option<i32>,
     pub size: i64,
     pub aggregate_size: i64,  // Total size including all children (for directories)
     pub child_count: i32,  // Total number of direct children
@@ -55,12 +54,6 @@ pub enum Relation {
         to = "super::location::Column::Id"
     )]
     Location,
-    #[sea_orm(
-        belongs_to = "Entity",
-        from = "Column::ParentId",
-        to = "Column::Id"
-    )]
-    Parent,
 }
 
 impl Related<super::path_prefix::Entity> for Entity {

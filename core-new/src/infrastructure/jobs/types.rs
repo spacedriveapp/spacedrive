@@ -122,3 +122,16 @@ pub trait ErasedJob: Send + Sync + 'static {
     fn as_task(&mut self) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
     fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError>;
 }
+
+/// Information about a job (for display/querying)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobInfo {
+    pub id: Uuid,
+    pub name: String,
+    pub status: JobStatus,
+    pub progress: f32,
+    pub started_at: chrono::DateTime<chrono::Utc>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub error_message: Option<String>,
+    pub parent_job_id: Option<Uuid>,
+}

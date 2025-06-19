@@ -96,6 +96,23 @@ impl DeviceManager {
             .map_err(|_| DeviceError::LockPoisoned)
     }
     
+    /// Get the current device as a domain Device object
+    pub async fn current_device(&self) -> Device {
+        let config = self.config.read().unwrap();
+        Device {
+            id: config.id,
+            name: config.name.clone(),
+            os: parse_os(&config.os),
+            hardware_model: config.hardware_model.clone(),
+            network_addresses: vec![],
+            is_online: true,
+            sync_leadership: std::collections::HashMap::new(),
+            last_seen_at: chrono::Utc::now(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+    
     /// Get the current device configuration
     pub fn config(&self) -> Result<DeviceConfig, DeviceError> {
         self.config

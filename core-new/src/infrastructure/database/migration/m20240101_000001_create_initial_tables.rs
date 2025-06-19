@@ -218,7 +218,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Entries::MetadataId).integer())
                     .col(ColumnDef::new(Entries::ContentId).integer())
                     .col(ColumnDef::new(Entries::LocationId).integer())
-                    .col(ColumnDef::new(Entries::ParentId).integer())
                     .col(ColumnDef::new(Entries::Size).big_integer().not_null())
                     .col(ColumnDef::new(Entries::AggregateSize).big_integer().not_null().default(0))
                     .col(ColumnDef::new(Entries::ChildCount).integer().not_null().default(0))
@@ -250,12 +249,6 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .from(Entries::Table, Entries::LocationId)
                             .to(Locations::Table, Locations::Id)
-                            .on_delete(ForeignKeyAction::Cascade)
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(Entries::Table, Entries::ParentId)
-                            .to(Entries::Table, Entries::Id)
                             .on_delete(ForeignKeyAction::Cascade)
                     )
                     .to_owned(),
@@ -384,16 +377,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // Create index on parent_id for efficient hierarchical queries
-        manager
-            .create_index(
-                Index::create()
-                    .name("idx_entries_parent_id")
-                    .table(Entries::Table)
-                    .col(Entries::ParentId)
-                    .to_owned(),
-            )
-            .await?;
 
         Ok(())
     }
@@ -550,7 +533,6 @@ enum Entries {
     MetadataId,
     ContentId,
     LocationId,
-    ParentId,
     Size,
     AggregateSize,
     ChildCount,

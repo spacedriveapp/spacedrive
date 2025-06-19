@@ -133,13 +133,12 @@ CREATE TABLE entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     uuid BLOB UNIQUE NOT NULL,
     prefix_id INTEGER NOT NULL REFERENCES path_prefixes(id),
-    relative_path TEXT NOT NULL,
-    name TEXT NOT NULL,
+    relative_path TEXT NOT NULL,  -- Materialized path (parent directory path)
+    name TEXT NOT NULL,           -- Entry name without extension
     kind TEXT NOT NULL CHECK (kind IN ('file', 'directory')),
     metadata_id INTEGER NOT NULL REFERENCES user_metadata(id),
     content_id INTEGER REFERENCES content_identity(id),
     location_id INTEGER REFERENCES locations(id),
-    parent_id INTEGER REFERENCES entries(id),
     size INTEGER NOT NULL,
     permissions TEXT,
     created_at TEXT NOT NULL,
@@ -153,7 +152,6 @@ CREATE INDEX idx_entries_name ON entries(name);
 CREATE INDEX idx_entries_kind ON entries(kind);
 CREATE INDEX idx_entries_size ON entries(size);
 CREATE INDEX idx_entries_prefix_path ON entries(prefix_id, relative_path);
-CREATE INDEX idx_entries_parent ON entries(parent_id);
 CREATE INDEX idx_entries_location ON entries(location_id);
 CREATE INDEX idx_entries_content ON entries(content_id);
 CREATE INDEX idx_entries_metadata ON entries(metadata_id);

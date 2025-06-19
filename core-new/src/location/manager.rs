@@ -8,7 +8,7 @@ use crate::{
         jobs::{manager::JobManager, traits::Job},
     },
     library::Library,
-    operations::indexing::indexer_job::IndexerJob,
+    operations::indexing::job::IndexerJob,
     shared::types::SdPath,
 };
 use sea_orm::{
@@ -19,33 +19,27 @@ use tokio::fs;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-/// Manages locations within a library
+/// Manages locations and their lifecycle
+#[derive(Clone)]
 pub struct LocationManager {
-    /// Event bus for notifications
-    events: Arc<EventBus>,
+    events: EventBus,
 }
 
 impl LocationManager {
-    /// Create a new location manager
-    pub fn new(events: Arc<EventBus>) -> Self {
+    pub fn new(events: EventBus) -> Self {
         Self { events }
     }
 
-    /// Add a new location to a library and start indexing
+    /// Add a new location to the library
     pub async fn add_location(
         &self,
-        library: &Library,
+        library: Arc<Library>,
         path: PathBuf,
         name: Option<String>,
         device_id: i32,
         index_mode: IndexMode,
-        watch_enabled: bool,
-    ) -> LocationResult<ManagedLocation> {
-        info!(
-            "Adding location '{}' to library '{}'",
-            path.display(),
-            library.id()
-        );
+    ) -> LocationResult<(Uuid, String)> {
+        info!("Adding location: {}", path.display());
 
         // Validate the path
         self.validate_path(&path).await?;
@@ -70,7 +64,7 @@ impl LocationManager {
         });
 
         let location_model = entities::location::ActiveModel {
-            id: Set(0), // Auto-increment
+            id: sea_orm::ActiveValue::NotSet,
             uuid: Set(location_id),
             device_id: Set(device_id),
             path: Set(path.to_string_lossy().to_string()),
@@ -97,7 +91,7 @@ impl LocationManager {
             library_id: library.id(),
             indexing_enabled: true,
             index_mode,
-            watch_enabled,
+            watch_enabled: true,
         };
 
         // Emit location added event
@@ -106,26 +100,38 @@ impl LocationManager {
             location_id,
             path: path.clone(),
         });
+        
+        // Also emit indexing started event
+        self.events.emit(Event::IndexingStarted { location_id });
 
-        // Submit indexing job
-        match self.start_indexing(library, &managed_location).await {
+        // Start indexing job
+        let job_id = match self.start_indexing(library, &managed_location).await {
             Ok(job_id) => {
                 info!("Started indexing job {} for location '{}'", job_id, path.display());
+                
+                // Emit job started event
+                self.events.emit(Event::JobStarted {
+                    job_id: job_id.clone(),
+                    job_type: "Indexing".to_string(),
+                });
+                
+                job_id
             }
             Err(e) => {
                 error!("Failed to start indexing for location '{}': {}", path.display(), e);
-                // Don't fail the whole operation, just log the error
+                // Return empty job ID if indexing fails
+                String::new()
             }
-        }
+        };
 
         info!("Successfully added location '{}'", path.display());
-        Ok(managed_location)
+        Ok((location_id, job_id))
     }
 
     /// Start indexing for a location
     pub async fn start_indexing(
         &self,
-        library: &Library,
+        library: Arc<Library>,
         location: &ManagedLocation,
     ) -> LocationResult<String> {
         info!(
@@ -134,11 +140,11 @@ impl LocationManager {
             location.index_mode
         );
 
-        // Update scan state to "running"
-        self.update_scan_state(library, location.id, "running", None).await?;
+        // Update scan state to "scanning"
+        self.update_scan_state(&library, location.id, "scanning", None).await?;
 
         // Create SdPath for the location
-        let device_uuid = self.get_device_uuid(library, location.device_id).await?;
+        let device_uuid = self.get_device_uuid(&library, location.device_id).await?;
         let location_sd_path = SdPath::new(device_uuid, location.path.clone());
 
         // Create indexer job
@@ -148,191 +154,19 @@ impl LocationManager {
             location.index_mode.into(),
         );
 
-        let job_id = format!("indexer_{}", location.id);
-
-        // Submit to job manager (this is the proper way)
+        // Submit to job manager
         let job_manager = library.jobs();
+        let job_handle = job_manager.dispatch(indexer_job).await?;
+        let job_id = job_handle.id();
         
-        // For the demo, let's use a simulated approach since the full job manager
-        // submission requires more infrastructure that we haven't fully implemented yet
-        info!("Job '{}' would be submitted to job manager", job_id);
-        info!("Job type: {}", IndexerJob::NAME);
-        info!("Job resumable: {}", IndexerJob::RESUMABLE);
-
-        // Simulate job execution for demo purposes
-        let library_clone = library.clone();
-        let location_clone = location.clone();
-        let events = self.events.clone();
-        let manager = self.clone();
-
-        tokio::spawn(async move {
-            info!("Simulating indexer job execution for location '{}'", location_clone.path.display());
-            
-            // Emit indexing started event
-            events.emit(Event::IndexingStarted {
-                location_id: location_clone.id,
-            });
-
-            // Simulate the indexing process
-            match manager.simulate_indexing(&library_clone, &location_clone).await {
-                Ok(stats) => {
-                    info!(
-                        "Indexing completed for '{}': {} files, {} dirs",
-                        location_clone.path.display(),
-                        stats.files,
-                        stats.dirs
-                    );
-
-                    // Update location stats
-                    if let Err(e) = manager.update_location_stats(
-                        &library_clone,
-                        location_clone.id,
-                        stats.files as i32,
-                        stats.total_size as i64,
-                    ).await {
-                        error!("Failed to update location stats: {}", e);
-                    }
-
-                    // Update scan state to completed
-                    if let Err(e) = manager.update_scan_state(
-                        &library_clone,
-                        location_clone.id,
-                        "completed",
-                        None,
-                    ).await {
-                        error!("Failed to update scan state: {}", e);
-                    }
-
-                    // Emit completion event
-                    events.emit(Event::IndexingCompleted {
-                        location_id: location_clone.id,
-                        total_files: stats.files,
-                        total_dirs: stats.dirs,
-                    });
-
-                    // Emit files indexed event for library stats
-                    events.emit(Event::FilesIndexed {
-                        library_id: location_clone.library_id,
-                        location_id: location_clone.id,
-                        count: stats.files as usize,
-                    });
-                }
-                Err(e) => {
-                    error!("Indexing failed for '{}': {}", location_clone.path.display(), e);
-
-                    // Update scan state to failed
-                    if let Err(update_err) = manager.update_scan_state(
-                        &library_clone,
-                        location_clone.id,
-                        "failed",
-                        Some(e.to_string()),
-                    ).await {
-                        error!("Failed to update scan state: {}", update_err);
-                    }
-
-                    // Emit failure event
-                    events.emit(Event::IndexingFailed {
-                        location_id: location_clone.id,
-                        error: e.to_string(),
-                    });
-                }
-            }
-        });
-
-        Ok(job_id)
-    }
-
-    /// Simulate indexing process (demo implementation)
-    async fn simulate_indexing(
-        &self,
-        library: &Library,
-        location: &ManagedLocation,
-    ) -> LocationResult<IndexingStats> {
-        info!("Simulating full indexing process for '{}'", location.path.display());
-
-        // Calculate directory stats
-        let stats = self.calculate_indexing_stats(&location.path).await?;
+        info!("Started indexing job {} for location '{}'", job_id, location.path.display());
         
-        info!("Discovered {} files and {} directories", stats.files, stats.dirs);
-
-        // Simulate creating database entries (this is what the real indexer would do)
-        // For the demo, we'll create a few sample entries to show the database integration
-        if stats.files > 0 {
-            info!("Creating sample database entries...");
-            if let Err(e) = self.create_sample_entries(library, location, &stats).await {
-                warn!("Failed to create sample entries: {}", e);
-            }
-        }
-
-        // Add a small delay to simulate processing time
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-        Ok(stats)
-    }
-
-    /// Create sample database entries to demonstrate database integration
-    async fn create_sample_entries(
-        &self,
-        library: &Library,
-        location: &ManagedLocation,
-        stats: &IndexingStats,
-    ) -> LocationResult<()> {
-        use sea_orm::ActiveValue::Set;
-
-        info!("Creating sample database entries to demonstrate indexer integration");
-
-        // Create a path prefix for efficient storage
-        let prefix_model = entities::path_prefix::ActiveModel {
-            id: Set(0), // Auto-increment
-            device_id: Set(location.device_id),
-            path: Set(location.path.to_string_lossy().to_string()),
-            entry_count: Set(std::cmp::min(stats.files, 5) as i32), // Sample count
-            created_at: Set(chrono::Utc::now()),
-            updated_at: Set(chrono::Utc::now()),
-        };
-        let prefix_record = prefix_model.insert(library.db().conn()).await?;
-
-        // Create some sample entries
-        let sample_count = std::cmp::min(stats.files, 5) as usize;
+        // The job system will handle:
+        // - Progress updates via the event bus
+        // - Updating scan state when complete/failed
+        // - Emitting appropriate events
         
-        for i in 0..sample_count {
-            // Create user metadata first (key innovation!)
-            let metadata_model = entities::user_metadata::ActiveModel {
-                id: Set(0), // Auto-increment
-                created_at: Set(chrono::Utc::now()),
-                updated_at: Set(chrono::Utc::now()),
-            };
-            let metadata_record = metadata_model.insert(library.db().conn()).await?;
-
-            // Create sample entry
-            let entry_model = entities::entry::ActiveModel {
-                id: Set(0), // Auto-increment
-                uuid: Set(Uuid::new_v4()),
-                prefix_id: Set(prefix_record.id),
-                relative_path: Set(format!("sample_file_{}.txt", i)),
-                metadata_id: Set(metadata_record.id),
-                content_identity_id: Set(None), // Could link to content identity for deduplication
-                location_id: Set(location.device_id), // This should be location table ID, but using device_id for demo
-                kind: Set("file".to_string()),
-                size_bytes: Set(Some(1024 * (i as i64 + 1))), // Sample sizes
-                created_at: Set(chrono::Utc::now()),
-                updated_at: Set(chrono::Utc::now()),
-            };
-            entry_model.insert(library.db().conn()).await?;
-        }
-
-        info!("Created {} sample entries with user metadata", sample_count);
-        Ok(())
-    }
-
-    /// Get device UUID from device ID
-    async fn get_device_uuid(&self, library: &Library, device_id: i32) -> LocationResult<Uuid> {
-        let device = entities::device::Entity::find_by_id(device_id)
-            .one(library.db().conn())
-            .await?
-            .ok_or_else(|| LocationError::InvalidPath("Device not found".to_string()))?;
-
-        Ok(device.uuid)
+        Ok(job_id.to_string())
     }
 
     /// Update scan state for a location
@@ -340,7 +174,7 @@ impl LocationManager {
         &self,
         library: &Library,
         location_id: Uuid,
-        state: &str,
+        scan_state: &str,
         error_message: Option<String>,
     ) -> LocationResult<()> {
         use sea_orm::ActiveValue::Set;
@@ -352,20 +186,19 @@ impl LocationManager {
             .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
         let mut active_location: entities::location::ActiveModel = location.into();
-        active_location.scan_state = Set(state.to_string());
+        active_location.scan_state = Set(scan_state.to_string());
         active_location.error_message = Set(error_message);
-        active_location.updated_at = Set(chrono::Utc::now());
-
-        if state == "running" {
+        if scan_state == "completed" {
             active_location.last_scan_at = Set(Some(chrono::Utc::now()));
         }
+        active_location.updated_at = Set(chrono::Utc::now());
 
         active_location.update(library.db().conn()).await?;
         Ok(())
     }
 
     /// Update location statistics
-    async fn update_location_stats(
+    pub async fn update_location_stats(
         &self,
         library: &Library,
         location_id: Uuid,
@@ -381,7 +214,7 @@ impl LocationManager {
             .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
         let mut active_location: entities::location::ActiveModel = location.into();
-        active_location.total_file_count = Set(file_count);
+        active_location.total_file_count = Set(file_count as i64);
         active_location.total_byte_size = Set(total_size);
         active_location.updated_at = Set(chrono::Utc::now());
 
@@ -389,122 +222,147 @@ impl LocationManager {
         Ok(())
     }
 
-    /// Calculate indexing statistics by scanning directory
-    async fn calculate_indexing_stats(&self, path: &PathBuf) -> LocationResult<IndexingStats> {
-        let mut files = 0u64;
-        let mut dirs = 0u64;
-        let mut total_size = 0u64;
+    /// Get device UUID from device ID
+    async fn get_device_uuid(&self, library: &Library, device_id: i32) -> LocationResult<Uuid> {
+        let device = entities::device::Entity::find_by_id(device_id)
+            .one(library.db().conn())
+            .await?
+            .ok_or_else(|| LocationError::Other(format!("Device {} not found", device_id)))?;
 
-        let mut stack = vec![path.clone()];
-
-        while let Some(current_path) = stack.pop() {
-            if let Ok(mut entries) = fs::read_dir(&current_path).await {
-                while let Ok(Some(entry)) = entries.next_entry().await {
-                    if let Ok(metadata) = entry.metadata().await {
-                        if metadata.is_file() {
-                            files += 1;
-                            total_size += metadata.len();
-                        } else if metadata.is_dir() {
-                            dirs += 1;
-                            stack.push(entry.path());
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(IndexingStats {
-            files,
-            dirs,
-            total_size,
-        })
+        Ok(device.uuid)
     }
 
-    /// Validate that a path exists and is accessible
+    /// Validate a path before creating a location
     async fn validate_path(&self, path: &PathBuf) -> LocationResult<()> {
+        // Check if path exists
         if !path.exists() {
-            return Err(LocationError::PathNotFound { path: path.clone() });
+            return Err(LocationError::PathNotFound { 
+                path: path.clone() 
+            });
         }
 
-        if !path.is_dir() {
+        // Check if it's a directory
+        let metadata = fs::metadata(path).await?;
+        if !metadata.is_dir() {
             return Err(LocationError::InvalidPath(
-                "Path must be a directory".to_string(),
+                "Path must be a directory".to_string()
             ));
         }
 
-        // Try to read the directory
+        // Check if we have read permissions
         match fs::read_dir(path).await {
             Ok(_) => Ok(()),
-            Err(_) => Err(LocationError::PathNotAccessible { path: path.clone() }),
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::PermissionDenied => {
+                    Err(LocationError::PathNotAccessible { 
+                        path: path.clone() 
+                    })
+                }
+                _ => Err(LocationError::Io(e)),
+            }
         }
     }
 
-    /// Get all locations for a library
-    pub async fn list_locations(&self, library: &Library) -> LocationResult<Vec<ManagedLocation>> {
-        let locations = entities::location::Entity::find()
-            .all(library.db().conn())
-            .await?;
-
-        let mut managed_locations = Vec::new();
-
-        for location in locations {
-            let managed = ManagedLocation {
-                id: location.uuid,
-                name: location.name.unwrap_or_else(|| "Unnamed".to_string()),
-                path: PathBuf::from(location.path),
-                device_id: location.device_id,
-                library_id: library.id(),
-                indexing_enabled: true, // TODO: Store this in DB
-                index_mode: IndexMode::from(location.index_mode.as_str()),
-                watch_enabled: true, // TODO: Store this in DB
-            };
-            managed_locations.push(managed);
-        }
-
-        Ok(managed_locations)
-    }
-
-    /// Remove a location from the library
+    /// Remove a location
     pub async fn remove_location(
         &self,
         library: &Library,
         location_id: Uuid,
     ) -> LocationResult<()> {
+        info!("Removing location {}", location_id);
+
+        // Find the location
         let location = entities::location::Entity::find()
             .filter(entities::location::Column::Uuid.eq(location_id))
             .one(library.db().conn())
             .await?
             .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
-        // Delete the location
+        // Delete the location (cascades to entries)
         entities::location::Entity::delete_by_id(location.id)
             .exec(library.db().conn())
             .await?;
 
-        // Emit removal event
+        // Emit event
         self.events.emit(Event::LocationRemoved {
             library_id: library.id(),
             location_id,
         });
 
-        info!("Removed location {} from library", location_id);
+        info!("Successfully removed location {}", location_id);
         Ok(())
+    }
+
+    /// List all locations for a library
+    pub async fn list_locations(
+        &self,
+        library: &Library,
+    ) -> LocationResult<Vec<ManagedLocation>> {
+        let locations = entities::location::Entity::find()
+            .all(library.db().conn())
+            .await?;
+
+        let mut managed_locations = Vec::new();
+        for loc in locations {
+            managed_locations.push(ManagedLocation {
+                id: loc.uuid,
+                name: loc.name.unwrap_or_else(|| "Unknown".to_string()),
+                path: PathBuf::from(&loc.path),
+                device_id: loc.device_id,
+                library_id: library.id(),
+                indexing_enabled: true,
+                index_mode: loc.index_mode.parse().unwrap_or(IndexMode::Content),
+                watch_enabled: true,
+            });
+        }
+
+        Ok(managed_locations)
+    }
+
+    /// Rescan a location
+    pub async fn rescan_location(
+        &self,
+        library: Arc<Library>,
+        location_id: Uuid,
+        force: bool,
+    ) -> LocationResult<String> {
+        info!("Rescanning location {} (force: {})", location_id, force);
+
+        // Get the location
+        let location = entities::location::Entity::find()
+            .filter(entities::location::Column::Uuid.eq(location_id))
+            .one(library.db().conn())
+            .await?
+            .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
+
+        let managed_location = ManagedLocation {
+            id: location.uuid,
+            name: location.name.unwrap_or_else(|| "Unknown".to_string()),
+            path: PathBuf::from(&location.path),
+            device_id: location.device_id,
+            library_id: library.id(),
+            indexing_enabled: true,
+            index_mode: location.index_mode.parse().unwrap_or(IndexMode::Content),
+            watch_enabled: true,
+        };
+
+        // Start indexing (the indexer will handle incremental updates unless force is true)
+        self.start_indexing(library, &managed_location).await
     }
 }
 
-impl Clone for LocationManager {
-    fn clone(&self) -> Self {
-        Self {
-            events: self.events.clone(),
+
+impl std::str::FromStr for IndexMode {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "shallow" => Ok(IndexMode::Shallow),
+            "quick" => Ok(IndexMode::Quick),
+            "content" => Ok(IndexMode::Content),
+            "deep" => Ok(IndexMode::Deep),
+            "full" => Ok(IndexMode::Full),
+            _ => Err(format!("Unknown index mode: {}", s)),
         }
     }
 }
-
-/// Statistics from indexing operation
-#[derive(Debug)]
-struct IndexingStats {
-    files: u64,
-    dirs: u64,
-    total_size: u64,
-}
-

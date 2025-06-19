@@ -51,71 +51,6 @@ impl From<DirEntry> for EntryMetadata {
 pub struct EntryProcessor;
 
 impl EntryProcessor {
-    /// Get the parent entry ID for a given path
-    async fn get_parent_id(
-        state: &mut IndexerState,
-        ctx: &JobContext<'_>,
-        path: &Path,
-        location_id: i32,
-        location_root_path: &Path,
-    ) -> Result<Option<i32>, JobError> {
-        // Get parent path
-        let parent_path = match path.parent() {
-            Some(p) => p,
-            None => return Ok(None), // Root has no parent
-        };
-        
-        // If parent is the location root itself, no parent entry
-        if parent_path == location_root_path {
-            return Ok(None);
-        }
-        
-        // Check cache first
-        if let Some(&parent_id) = state.entry_id_cache.get(parent_path) {
-            return Ok(Some(parent_id));
-        }
-        
-        // Calculate parent's relative path from location root
-        let parent_relative_path = if let Ok(rel_path) = parent_path.strip_prefix(location_root_path) {
-            if let Some(parent_parent) = rel_path.parent() {
-                if parent_parent == std::path::Path::new("") {
-                    String::new()
-                } else {
-                    parent_parent.to_string_lossy().to_string()
-                }
-            } else {
-                String::new()
-            }
-        } else {
-            return Ok(None);
-        };
-        
-        // Get parent name
-        let parent_name = parent_path.file_stem()
-            .map(|stem| stem.to_string_lossy().to_string())
-            .unwrap_or_else(|| "unknown".to_string());
-        
-        // Query database for parent entry by matching relative path and name
-        let parent_entry = entities::entry::Entity::find()
-            .filter(entities::entry::Column::LocationId.eq(location_id))
-            .filter(entities::entry::Column::Kind.eq(1)) // Directory
-            .filter(entities::entry::Column::RelativePath.eq(&parent_relative_path))
-            .filter(entities::entry::Column::Name.eq(&parent_name))
-            .one(ctx.library_db())
-            .await
-            .map_err(|e| JobError::execution(format!("Failed to query parent entry: {}", e)))?;
-        
-        if let Some(parent) = parent_entry {
-            // Cache for future lookups
-            state.entry_id_cache.insert(parent_path.to_path_buf(), parent.id);
-            tracing::debug!("Found parent entry {} for path {}", parent.id, path.display());
-            Ok(Some(parent.id))
-        } else {
-            tracing::debug!("No parent entry found for path {} (parent_path: {}, relative: {}, name: {})", 
-                path.display(), parent_path.display(), parent_relative_path, parent_name);
-            Ok(None)
-        }
-    }
     /// Get platform-specific inode
     #[cfg(unix)]
     pub fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
@@ -275,15 +210,6 @@ impl EntryProcessor {
             ))
             .unwrap_or_else(|| chrono::Utc::now());
         
-        // Get parent ID
-        let parent_id = Self::get_parent_id(state, ctx, &entry.path, location_id, location_root_path)
-            .await
-            .ok()
-            .flatten();
-        
-        if let Some(pid) = parent_id {
-            tracing::debug!("Setting parent_id={} for entry {}", pid, entry.path.display());
-        }
         
         // Create entry
         let new_entry = entities::entry::ActiveModel {
@@ -296,7 +222,6 @@ impl EntryProcessor {
             metadata_id: Set(None), // User metadata only created when user adds metadata
             content_id: Set(None), // Will be set later if content indexing is enabled
             location_id: Set(Some(location_id)),
-            parent_id: Set(parent_id),
             size: Set(entry.size as i64),
             aggregate_size: Set(0), // Will be calculated in aggregation phase
             child_count: Set(0), // Will be calculated in aggregation phase

@@ -10,9 +10,12 @@ use super::{
     progress::Progress,
     registry::REGISTRY,
     traits::{Job, JobHandler},
-    types::{JobId, JobPriority, JobStatus},
+    types::{JobId, JobPriority, JobStatus, JobInfo},
 };
-use crate::library::Library;
+use crate::{
+    library::Library,
+    infrastructure::events::{Event, EventBus},
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
@@ -28,6 +31,7 @@ pub struct JobManager {
     dispatcher: Arc<TaskSystem<JobError>>,
     running_jobs: Arc<RwLock<HashMap<JobId, RunningJob>>>,
     shutdown_tx: watch::Sender<bool>,
+    event_bus: Option<Arc<EventBus>>,
 }
 
 struct RunningJob {
@@ -54,6 +58,7 @@ impl JobManager {
             dispatcher: Arc::new(dispatcher),
             running_jobs: Arc::new(RwLock::new(HashMap::new())),
             shutdown_tx,
+            event_bus: None,
         };
         
         Ok(manager)
@@ -180,8 +185,46 @@ impl JobManager {
             .map(|j| j.handle.clone())
     }
     
+    /// List currently running jobs from memory (for live monitoring)
+    pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
+        let running_jobs = self.running_jobs.read().await;
+        let mut job_infos = Vec::new();
+        
+        info!("list_running_jobs: Found {} jobs in running_jobs map", running_jobs.len());
+        
+        for (job_id, running_job) in running_jobs.iter() {
+            let handle = &running_job.handle;
+            let status = handle.status();
+            
+            info!("Job {}: status = {:?}", job_id, status);
+            
+            // Only include active jobs (running or paused)
+            if status.is_active() {
+                // Create JobInfo from in-memory state
+                let job_info = JobInfo {
+                    id: job_id.0,
+                    name: format!("Job {}", job_id), // Use job ID as name for now
+                    status,
+                    progress: 0.0, // TODO: Get actual progress from handle
+                    started_at: chrono::Utc::now(), // TODO: Get actual start time
+                    completed_at: None,
+                    error_message: None,
+                    parent_job_id: None,
+                };
+                
+                job_infos.push(job_info);
+                info!("Added active job {} to result", job_id);
+            } else {
+                info!("Skipping job {} with status {:?} (not active)", job_id, status);
+            }
+        }
+        
+        info!("Returning {} active jobs", job_infos.len());
+        job_infos
+    }
+    
     /// List all jobs with a specific status
-    pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobId>> {
+    pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {
         use sea_orm::QueryFilter;
         
         let mut query = database::jobs::Entity::find();
@@ -194,8 +237,80 @@ impl JobManager {
         let jobs = query.all(self.db.conn()).await?;
         
         Ok(jobs.into_iter()
-            .filter_map(|j| j.id.parse::<Uuid>().ok().map(JobId))
+            .filter_map(|j| {
+                let id = j.id.parse::<Uuid>().ok()?;
+                let status = match j.status.as_str() {
+                    "queued" => JobStatus::Queued,
+                    "running" => JobStatus::Running,
+                    "paused" => JobStatus::Paused,
+                    "completed" => JobStatus::Completed,
+                    "failed" => JobStatus::Failed,
+                    "cancelled" => JobStatus::Cancelled,
+                    _ => return None,
+                };
+                
+                // Parse progress from bytes if available
+                let progress = if let Some(progress_data) = &j.progress_data {
+                    rmp_serde::from_slice::<Progress>(progress_data)
+                        .ok()
+                        .and_then(|p| p.as_percentage())
+                        .unwrap_or(0.0)
+                } else {
+                    0.0
+                };
+                
+                Some(JobInfo {
+                    id,
+                    name: j.name,
+                    status,
+                    progress,
+                    started_at: j.started_at.unwrap_or(j.created_at),
+                    completed_at: j.completed_at,
+                    error_message: j.error_message,
+                    parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
+                })
+            })
             .collect())
+    }
+    
+    /// Get detailed information about a specific job
+    pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
+        let job = database::jobs::Entity::find_by_id(id.to_string())
+            .one(self.db.conn())
+            .await?;
+            
+        Ok(job.and_then(|j| {
+            let id = j.id.parse::<Uuid>().ok()?;
+            let status = match j.status.as_str() {
+                "queued" => JobStatus::Queued,
+                "running" => JobStatus::Running,
+                "paused" => JobStatus::Paused,
+                "completed" => JobStatus::Completed,
+                "failed" => JobStatus::Failed,
+                "cancelled" => JobStatus::Cancelled,
+                _ => return None,
+            };
+            
+            let progress = if let Some(progress_data) = &j.progress_data {
+                rmp_serde::from_slice::<Progress>(progress_data)
+                    .ok()
+                    .and_then(|p| p.as_percentage())
+                    .unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            
+            Some(JobInfo {
+                id,
+                name: j.name,
+                status,
+                progress,
+                started_at: j.started_at.unwrap_or(j.created_at),
+                completed_at: j.completed_at,
+                error_message: j.error_message,
+                parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
+            })
+        }))
     }
     
     /// Resume interrupted jobs from the last run

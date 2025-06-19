@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder, DbErr, DatabaseConnection, ActiveModelTrait, ActiveValue::Set};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Run the directory aggregation phase
@@ -31,23 +31,23 @@ pub async fn run_aggregation_phase(
     
     let location_id_i32 = location_record.id;
     
-    // Find all directories in this location
-    let directories = entities::entry::Entity::find()
+    // Find all directories in this location, ordered by path depth (deepest first)
+    let mut directories = entities::entry::Entity::find()
         .filter(entities::entry::Column::LocationId.eq(location_id_i32))
         .filter(entities::entry::Column::Kind.eq(1)) // Directory
-        .order_by_desc(entities::entry::Column::RelativePath) // Process deepest first
         .all(ctx.library_db())
         .await
         .map_err(|e| JobError::execution(format!("Failed to query directories: {}", e)))?;
     
+    // Sort by path depth (deepest first) to ensure we process children before parents
+    directories.sort_by(|a, b| {
+        let a_depth = a.relative_path.matches('/').count() + 1;
+        let b_depth = b.relative_path.matches('/').count() + 1;
+        b_depth.cmp(&a_depth)
+    });
+    
     let total_dirs = directories.len();
     ctx.log(format!("Found {} directories to aggregate", total_dirs));
-    
-    // Build parent->children mapping
-    let mut children_by_parent: HashMap<Option<i32>, Vec<i32>> = HashMap::new();
-    for dir in &directories {
-        children_by_parent.entry(dir.parent_id).or_default().push(dir.id);
-    }
     
     // Process directories from leaves to root
     let mut processed = 0;
@@ -108,9 +108,17 @@ impl DirectoryAggregator {
     
     /// Calculate aggregate size, child count, and file count for a directory
     async fn aggregate_directory(&self, directory: &entities::entry::Model) -> Result<(i64, i32, i32), DbErr> {
-        // Get all direct children
+        // Build the path for children of this directory
+        let children_path = if directory.relative_path.is_empty() {
+            directory.name.clone()
+        } else {
+            format!("{}/{}", directory.relative_path, directory.name)
+        };
+        
+        // Get all direct children (entries whose relative_path equals this directory's full path)
         let children = entities::entry::Entity::find()
-            .filter(entities::entry::Column::ParentId.eq(directory.id))
+            .filter(entities::entry::Column::LocationId.eq(directory.location_id))
+            .filter(entities::entry::Column::RelativePath.eq(&children_path))
             .all(&self.db)
             .await?;
         

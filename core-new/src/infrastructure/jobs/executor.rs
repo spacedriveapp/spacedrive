@@ -57,6 +57,36 @@ impl<J: JobHandler> JobExecutor<J> {
             },
         }
     }
+    
+    /// Update job status in the database
+    async fn update_job_status_in_db(&self, status: super::types::JobStatus) -> JobResult<()> {
+        use super::database;
+        use chrono::Utc;
+        use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+        
+        let mut job = database::jobs::ActiveModel {
+            id: Set(self.state.job_id.to_string()),
+            status: Set(status.to_string()),
+            ..Default::default()
+        };
+        
+        // Update timestamps based on status
+        match status {
+            super::types::JobStatus::Running => {
+                job.started_at = Set(Some(Utc::now()));
+            }
+            super::types::JobStatus::Paused => {
+                job.paused_at = Set(Some(Utc::now()));
+            }
+            super::types::JobStatus::Completed | super::types::JobStatus::Failed | super::types::JobStatus::Cancelled => {
+                job.completed_at = Set(Some(Utc::now()));
+            }
+            _ => {}
+        }
+        
+        job.update(self.state.library.db().conn()).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -75,6 +105,11 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
         
         // Update status to running
         let _ = self.state.status_tx.send(super::types::JobStatus::Running);
+        
+        // Also persist status to database
+        if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Running).await {
+            error!("Failed to update job status in database: {}", e);
+        }
         
         // Create job context
         let ctx = JobContext {
@@ -109,6 +144,11 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
                 // Update status
                 let _ = self.state.status_tx.send(super::types::JobStatus::Completed);
                 
+                // Also persist status to database
+                if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Completed).await {
+                    error!("Failed to update job completion status in database: {}", e);
+                }
+                
                 info!("Job {} completed successfully", self.state.job_id);
                 Ok(ExecStatus::Done(sd_task_system::TaskOutput::Empty))
             }
@@ -119,12 +159,22 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
                     // Update status
                     let _ = self.state.status_tx.send(super::types::JobStatus::Cancelled);
                     
+                    // Also persist status to database
+                    if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Cancelled).await {
+                        error!("Failed to update job cancellation status in database: {}", e);
+                    }
+                    
                     Ok(ExecStatus::Canceled)
                 } else {
                     error!("Job {} failed: {}", self.state.job_id, e);
                     
                     // Update status
                     let _ = self.state.status_tx.send(super::types::JobStatus::Failed);
+                    
+                    // Also persist status to database
+                    if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Failed).await {
+                        error!("Failed to update job failure status in database: {}", e);
+                    }
                     
                     Err(e)
                 }

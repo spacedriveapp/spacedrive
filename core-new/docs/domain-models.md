@@ -17,7 +17,7 @@ pub struct Entry {
     pub metadata_id: i32,           // Always present - immediate tagging!
     pub content_id: Option<i32>,    // Optional - for deduplication
     pub location_id: Option<i32>,   // Optional - for organized files
-    pub parent_id: Option<i32>,     // Optional - for hierarchies
+    pub relative_path: String,        // Materialized path for hierarchy
     pub size: u64,                  // Size in bytes
     pub permissions: Option<String>, // File system permissions
     // Timestamps
@@ -45,7 +45,7 @@ pub enum EntryKind {
 - Enables efficient deduplication when desired
 
 **3. Flexible Relationships**
-- `parent_id` supports hierarchical views
+- `relative_path` provides hierarchy through materialized paths
 - `location_id` links to organized collections
 - Can represent the same physical file in multiple organizational contexts
 
@@ -123,7 +123,7 @@ pub struct Label {
     pub uuid: Uuid,
     pub name: String,               // "Projects/Web Development"
     pub color: Option<String>,
-    pub parent_id: Option<i32>,     // Hierarchical structure
+    // Hierarchy determined by relative_path
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

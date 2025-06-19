@@ -23,7 +23,7 @@ pub mod prelude {
         output::JobOutput,
         progress::{JobProgress, Progress},
         traits::{Job, JobHandler},
-        types::{JobId, JobStatus},
+        types::{JobId, JobStatus, JobInfo},
     };
     
     // Re-export derive macros when implemented
@@ -32,3 +32,4 @@ pub mod prelude {
 
 pub use manager::JobManager;
 pub use registry::JobRegistry;
+pub use types::{JobInfo, JobStatus};

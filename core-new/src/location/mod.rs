@@ -1,5 +1,7 @@
 //! Location management - simplified implementation matching core patterns
 
+pub mod manager;
+
 use crate::{
     infrastructure::{
         database::entities,
@@ -18,6 +20,8 @@ use tokio::fs;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
+pub use manager::LocationManager;
+
 /// Location creation arguments (simplified from production version)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LocationCreateArgs {
@@ -31,18 +35,37 @@ pub struct LocationCreateArgs {
 pub enum IndexMode {
     /// Only scan file/directory structure
     Shallow,
+    /// Quick scan (metadata only)
+    Quick,
     /// Include content hashing for deduplication
     Content,
     /// Full indexing with content analysis and metadata
     Deep,
+    /// Full indexing with all features
+    Full,
 }
 
 impl From<IndexMode> for JobIndexMode {
     fn from(mode: IndexMode) -> Self {
         match mode {
             IndexMode::Shallow => JobIndexMode::Shallow,
+            IndexMode::Quick => JobIndexMode::Content,
             IndexMode::Content => JobIndexMode::Content,
             IndexMode::Deep => JobIndexMode::Deep,
+            IndexMode::Full => JobIndexMode::Deep,
+        }
+    }
+}
+
+impl From<&str> for IndexMode {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "shallow" => IndexMode::Shallow,
+            "quick" => IndexMode::Quick,
+            "content" => IndexMode::Content,
+            "deep" => IndexMode::Deep,
+            "full" => IndexMode::Full,
+            _ => IndexMode::Full,
         }
     }
 }
@@ -51,10 +74,25 @@ impl std::fmt::Display for IndexMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IndexMode::Shallow => write!(f, "shallow"),
+            IndexMode::Quick => write!(f, "quick"),
             IndexMode::Content => write!(f, "content"),
             IndexMode::Deep => write!(f, "deep"),
+            IndexMode::Full => write!(f, "full"),
         }
     }
+}
+
+/// Managed location representation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ManagedLocation {
+    pub id: Uuid,
+    pub name: String,
+    pub path: PathBuf,
+    pub device_id: i32,
+    pub library_id: Uuid,
+    pub indexing_enabled: bool,
+    pub index_mode: IndexMode,
+    pub watch_enabled: bool,
 }
 
 /// Location management errors
@@ -64,6 +102,8 @@ pub enum LocationError {
     Database(#[from] sea_orm::DbErr),
     #[error("Path does not exist: {path}")]
     PathNotFound { path: PathBuf },
+    #[error("Path not accessible: {path}")]
+    PathNotAccessible { path: PathBuf },
     #[error("Location already exists: {path}")]
     LocationExists { path: PathBuf },
     #[error("Location not found: {id}")]
@@ -72,6 +112,8 @@ pub enum LocationError {
     Io(#[from] std::io::Error),
     #[error("Invalid path: {0}")]
     InvalidPath(String),
+    #[error("Job error: {0}")]
+    Job(#[from] crate::infrastructure::jobs::error::JobError),
     #[error("Other error: {0}")]
     Other(String),
 }
@@ -426,7 +468,6 @@ async fn create_sample_database_entries(
             metadata_id: Set(Some(metadata_record.id)),
             content_id: Set(None),
             location_id: Set(Some(location_id)),
-            parent_id: Set(None),
             size: Set(1024 * (i as i64 + 1)),
             aggregate_size: Set(0), // Files don't have aggregate size
             child_count: Set(0), // Files don't have children

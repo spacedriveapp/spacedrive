@@ -55,6 +55,24 @@ dirs = "5.0"
 whoami = "1.5"
 rand = "0.8"  # Random number generation for secure delete
 
+# CLI dependencies
+clap = { version = "4.5", features = ["derive", "env"] }
+ratatui = "0.29"
+crossterm = "0.28"
+indicatif = "0.17"
+console = "0.15"
+dialoguer = "0.11"
+colored = "2.1"
+comfy-table = "7.1"
+
+# Platform specific
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[[bin]]
+name = "spacedrive"
+path = "src/bin/cli.rs"
+
 [dev-dependencies]
 tempfile = "3.14"
 pretty_assertions = "1.4"
