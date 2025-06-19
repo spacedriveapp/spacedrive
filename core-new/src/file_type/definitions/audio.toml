@@ -1,0 +1,293 @@
+# Audio file type definitions
+
+[[file_types]]
+id = "audio/mpeg"
+name = "MP3 Audio"
+extensions = ["mp3"]
+mime_types = ["audio/mpeg", "audio/mp3"]
+uti = "public.mp3"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "49 44 33"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "FF FB"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+lossy = true
+supports_id3 = true
+
+[[file_types]]
+id = "audio/mp2"
+name = "MP2 Audio"
+extensions = ["mp2"]
+mime_types = ["audio/mp2"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "FF F3"
+offset = 0
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "FF F2"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "audio/m4a"
+name = "M4A Audio"
+extensions = ["m4a"]
+mime_types = ["audio/m4a", "audio/mp4"]
+uti = "com.apple.m4a-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70 4D 34 41"
+offset = 4
+priority = 100
+
+[[file_types]]
+id = "audio/x-wav"
+name = "WAV Audio"
+extensions = ["wav"]
+mime_types = ["audio/wav", "audio/x-wav", "audio/wave"]
+uti = "com.microsoft.waveform-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "52 49 46 46 ?? ?? ?? ?? 57 41 56 45"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+lossless = true
+
+[[file_types]]
+id = "audio/x-aiff"
+name = "AIFF Audio"
+extensions = ["aiff", "aif"]
+mime_types = ["audio/x-aiff", "audio/aiff"]
+uti = "public.aiff-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "46 4F 52 4D ?? ?? ?? ?? 41 49 46 46"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+lossless = true
+
+[[file_types]]
+id = "audio/flac"
+name = "FLAC Audio"
+extensions = ["flac"]
+mime_types = ["audio/flac", "audio/x-flac"]
+uti = "org.xiph.flac"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 4C 61 43"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+lossless = true
+supports_metadata = true
+
+[[file_types]]
+id = "audio/ogg"
+name = "Ogg Audio"
+extensions = ["ogg", "oga"]
+mime_types = ["audio/ogg"]
+uti = "org.xiph.ogg-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4F 67 67 53"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "audio/opus"
+name = "Opus Audio"
+extensions = ["opus"]
+mime_types = ["audio/opus"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4F 67 67 53"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+lossy = true
+low_latency = true
+
+[[file_types]]
+id = "audio/x-ms-wma"
+name = "Windows Media Audio"
+extensions = ["wma"]
+mime_types = ["audio/x-ms-wma"]
+uti = "com.microsoft.windows-media-wma"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "30 26 B2 75 8E 66 CF 11 A6 D9 00 AA 00 62 CE 6C"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "audio/amr"
+name = "AMR Audio"
+extensions = ["amr"]
+mime_types = ["audio/amr"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "23 21 41 4D 52"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "audio/aac"
+name = "AAC Audio"
+extensions = ["aac"]
+mime_types = ["audio/aac"]
+uti = "public.aac-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "FF F1"
+offset = 0
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "FF F9"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+lossy = true
+
+[[file_types]]
+id = "audio/x-wavpack"
+name = "WavPack Audio"
+extensions = ["wv"]
+mime_types = ["audio/x-wavpack"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "77 76 70 6B"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+hybrid = true
+
+[[file_types]]
+id = "audio/voc"
+name = "VOC Audio"
+extensions = ["voc"]
+mime_types = ["audio/voc", "audio/x-voc"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "43 72 65 61 74 69 76 65 20 56 6F 69 63 65 20 46 69 6C 65"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "audio/x-tta"
+name = "TrueAudio"
+extensions = ["tta"]
+mime_types = ["audio/x-tta"]
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "54 54 41 31"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+lossless = true
+
+[[file_types]]
+id = "audio/vnd.loas"
+name = "LOAS Audio"
+extensions = ["loas"]
+mime_types = ["audio/vnd.loas"]
+category = "audio"
+priority = 100
+
+[[file_types]]
+id = "audio/x-caf"
+name = "Core Audio Format"
+extensions = ["caf"]
+mime_types = ["audio/x-caf"]
+uti = "com.apple.coreaudio-format"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "63 61 66 66"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "audio/aptx"
+name = "aptX Audio"
+extensions = ["aptx"]
+mime_types = ["audio/aptx"]
+category = "audio"
+priority = 100
+
+[[file_types]]
+id = "audio/vnd.dlna.adts"
+name = "ADTS Audio"
+extensions = ["adts"]
+mime_types = ["audio/vnd.dlna.adts"]
+category = "audio"
+priority = 100
+
+[[file_types]]
+id = "audio/x-ast"
+name = "AST Audio"
+extensions = ["ast"]
+mime_types = ["audio/x-ast"]
+category = "audio"
+priority = 100
+
+[[file_types]]
+id = "audio/midi"
+name = "MIDI Audio"
+extensions = ["mid", "midi"]
+mime_types = ["audio/midi", "audio/x-midi"]
+uti = "public.midi-audio"
+category = "audio"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4D 54 68 64"
+offset = 0
+priority = 100

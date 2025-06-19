@@ -1,0 +1,657 @@
+# Programming language file type definitions
+
+# Script languages
+[[file_types]]
+id = "text/applescript"
+name = "AppleScript"
+extensions = ["scpt", "scptd", "applescript"]
+mime_types = ["text/applescript"]
+uti = "com.apple.applescript.text"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "applescript"
+text_file = true
+
+# Shell scripts
+[[file_types]]
+id = "application/x-sh"
+name = "Shell Script"
+extensions = ["sh"]
+mime_types = ["application/x-sh", "text/x-shellscript"]
+uti = "public.shell-script"
+category = "code"
+priority = 80
+
+[[file_types.magic_bytes]]
+pattern = "23 21 2F 62 69 6E 2F 73 68"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+language = "shell"
+text_file = true
+executable = true
+
+[[file_types]]
+id = "application/x-zsh"
+name = "Zsh Script"
+extensions = ["zsh"]
+mime_types = ["application/x-zsh"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "zsh"
+text_file = true
+executable = true
+
+[[file_types]]
+id = "application/x-fish"
+name = "Fish Script"
+extensions = ["fish"]
+mime_types = ["application/x-fish"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "fish"
+text_file = true
+executable = true
+
+[[file_types]]
+id = "application/x-bash"
+name = "Bash Script"
+extensions = ["bash"]
+mime_types = ["application/x-bash"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "bash"
+text_file = true
+executable = true
+
+# C/C++ family
+[[file_types]]
+id = "text/x-c"
+name = "C Source"
+extensions = ["c"]
+mime_types = ["text/x-c", "text/x-csrc"]
+uti = "public.c-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "c"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-c++"
+name = "C++ Source"
+extensions = ["cpp", "cc", "cxx", "c++"]
+mime_types = ["text/x-c++", "text/x-c++src"]
+uti = "public.c-plus-plus-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "cpp"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-chdr"
+name = "C Header"
+extensions = ["h"]
+mime_types = ["text/x-chdr"]
+uti = "public.c-header"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "c"
+text_file = true
+header_file = true
+
+[[file_types]]
+id = "text/x-c++hdr"
+name = "C++ Header"
+extensions = ["hpp", "hh", "hxx", "h++"]
+mime_types = ["text/x-c++hdr"]
+uti = "public.c-plus-plus-header"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "cpp"
+text_file = true
+header_file = true
+
+# Web technologies
+[[file_types]]
+id = "text/javascript"
+name = "JavaScript"
+extensions = ["js", "mjs"]
+mime_types = ["text/javascript", "application/javascript", "application/x-javascript"]
+uti = "com.netscape.javascript-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "javascript"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/jsx"
+name = "JavaScript JSX"
+extensions = ["jsx"]
+mime_types = ["text/jsx"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "javascript"
+text_file = true
+react = true
+
+[[file_types]]
+id = "text/typescript"
+name = "TypeScript"
+extensions = ["ts", "mts"]
+mime_types = ["text/typescript", "application/typescript"]
+category = "code"
+priority = 50
+
+[file_types.metadata]
+language = "typescript"
+text_file = true
+transpiled = true
+
+[[file_types]]
+id = "text/tsx"
+name = "TypeScript JSX"
+extensions = ["tsx"]
+mime_types = ["text/tsx"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "typescript"
+text_file = true
+react = true
+
+[[file_types]]
+id = "text/html"
+name = "HTML"
+extensions = ["html", "htm"]
+mime_types = ["text/html"]
+uti = "public.html"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "html"
+text_file = true
+markup = true
+
+[[file_types]]
+id = "text/css"
+name = "CSS"
+extensions = ["css"]
+mime_types = ["text/css"]
+uti = "public.css"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "css"
+text_file = true
+
+[[file_types]]
+id = "text/x-sass"
+name = "Sass"
+extensions = ["sass"]
+mime_types = ["text/x-sass"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "sass"
+text_file = true
+preprocessor = true
+
+[[file_types]]
+id = "text/x-scss"
+name = "SCSS"
+extensions = ["scss"]
+mime_types = ["text/x-scss"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "scss"
+text_file = true
+preprocessor = true
+
+[[file_types]]
+id = "text/less"
+name = "Less"
+extensions = ["less"]
+mime_types = ["text/less"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "less"
+text_file = true
+preprocessor = true
+
+# Other languages
+[[file_types]]
+id = "text/x-ruby"
+name = "Ruby"
+extensions = ["rb"]
+mime_types = ["text/x-ruby", "application/x-ruby"]
+uti = "public.ruby-script"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "ruby"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-crystal"
+name = "Crystal"
+extensions = ["cr"]
+mime_types = ["text/x-crystal"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "crystal"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-csharp"
+name = "C#"
+extensions = ["cs", "csx"]
+mime_types = ["text/x-csharp"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "csharp"
+text_file = true
+dotnet = true
+
+[[file_types]]
+id = "text/x-d"
+name = "D"
+extensions = ["d"]
+mime_types = ["text/x-d"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "d"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-dart"
+name = "Dart"
+extensions = ["dart"]
+mime_types = ["text/x-dart", "application/dart"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "dart"
+text_file = true
+
+[[file_types]]
+id = "text/x-dockerfile"
+name = "Dockerfile"
+extensions = ["dockerfile"]
+mime_types = ["text/x-dockerfile"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "dockerfile"
+text_file = true
+
+[[file_types]]
+id = "text/x-go"
+name = "Go"
+extensions = ["go"]
+mime_types = ["text/x-go"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "go"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-haskell"
+name = "Haskell"
+extensions = ["hs"]
+mime_types = ["text/x-haskell"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "haskell"
+text_file = true
+functional = true
+
+[[file_types]]
+id = "text/x-java"
+name = "Java"
+extensions = ["java"]
+mime_types = ["text/x-java", "text/x-java-source"]
+uti = "com.sun.java-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "java"
+text_file = true
+jvm = true
+
+[[file_types]]
+id = "text/x-kotlin"
+name = "Kotlin"
+extensions = ["kt", "kts"]
+mime_types = ["text/x-kotlin"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "kotlin"
+text_file = true
+jvm = true
+
+[[file_types]]
+id = "text/x-lua"
+name = "Lua"
+extensions = ["lua"]
+mime_types = ["text/x-lua"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "lua"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-makefile"
+name = "Makefile"
+extensions = ["make", "makefile", "mk"]
+mime_types = ["text/x-makefile"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "make"
+text_file = true
+
+[[file_types]]
+id = "text/x-nim"
+name = "Nim"
+extensions = ["nim", "nims"]
+mime_types = ["text/x-nim"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "nim"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-objc"
+name = "Objective-C"
+extensions = ["m", "mm"]
+mime_types = ["text/x-objc"]
+uti = "public.objective-c-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "objc"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-ocaml"
+name = "OCaml"
+extensions = ["ml", "mli", "mll", "mly"]
+mime_types = ["text/x-ocaml"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "ocaml"
+text_file = true
+functional = true
+
+[[file_types]]
+id = "text/x-perl"
+name = "Perl"
+extensions = ["pl", "pm"]
+mime_types = ["text/x-perl", "application/x-perl"]
+uti = "public.perl-script"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "perl"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-php"
+name = "PHP"
+extensions = ["php", "php3", "php4", "php5", "php6", "phps", "phpt", "phtml"]
+mime_types = ["text/x-php", "application/x-php"]
+uti = "public.php-script"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "php"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-powershell"
+name = "PowerShell"
+extensions = ["ps1", "psd1", "psm1"]
+mime_types = ["text/x-powershell", "application/x-powershell"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "powershell"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-python"
+name = "Python"
+extensions = ["py"]
+mime_types = ["text/x-python", "application/x-python"]
+uti = "public.python-script"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "python"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-qml"
+name = "QML"
+extensions = ["qml"]
+mime_types = ["text/x-qml"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "qml"
+text_file = true
+
+[[file_types]]
+id = "text/x-r"
+name = "R"
+extensions = ["r"]
+mime_types = ["text/x-r"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "r"
+text_file = true
+interpreted = true
+
+[[file_types]]
+id = "text/x-rust"
+name = "Rust"
+extensions = ["rs"]
+mime_types = ["text/x-rust", "text/rust"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "rust"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-solidity"
+name = "Solidity"
+extensions = ["sol"]
+mime_types = ["text/x-solidity"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "solidity"
+text_file = true
+blockchain = true
+
+[[file_types]]
+id = "application/sql"
+name = "SQL"
+extensions = ["sql"]
+mime_types = ["application/sql", "text/x-sql"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "sql"
+text_file = true
+
+[[file_types]]
+id = "text/x-swift"
+name = "Swift"
+extensions = ["swift"]
+mime_types = ["text/x-swift"]
+uti = "public.swift-source"
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "swift"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-vala"
+name = "Vala"
+extensions = ["vala"]
+mime_types = ["text/x-vala"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "vala"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-zig"
+name = "Zig"
+extensions = ["zig"]
+mime_types = ["text/x-zig"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "zig"
+text_file = true
+compiled = true
+
+[[file_types]]
+id = "text/x-vue"
+name = "Vue"
+extensions = ["vue"]
+mime_types = ["text/x-vue"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "vue"
+text_file = true
+framework = "vue"
+
+[[file_types]]
+id = "text/x-scala"
+name = "Scala"
+extensions = ["scala"]
+mime_types = ["text/x-scala"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "scala"
+text_file = true
+jvm = true
+
+[[file_types]]
+id = "text/mdx"
+name = "MDX"
+extensions = ["mdx"]
+mime_types = ["text/mdx"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "mdx"
+text_file = true
+markup = true
+
+[[file_types]]
+id = "text/x-astro"
+name = "Astro"
+extensions = ["astro"]
+mime_types = ["text/x-astro"]
+category = "code"
+priority = 80
+
+[file_types.metadata]
+language = "astro"
+text_file = true
+framework = "astro"

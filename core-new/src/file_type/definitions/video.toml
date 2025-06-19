@@ -1,0 +1,287 @@
+# Video file type definitions
+
+[[file_types]]
+id = "video/avi"
+name = "AVI Video"
+extensions = ["avi"]
+mime_types = ["video/x-msvideo", "video/avi"]
+uti = "public.avi"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "52 49 46 46 ?? ?? ?? ?? 41 56 49 20"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/avif-sequence"
+name = "AVIF Video"
+extensions = ["avifs"]
+mime_types = ["video/avif-sequence"]
+category = "video"
+priority = 100
+
+[[file_types]]
+id = "video/quicktime"
+name = "QuickTime Video"
+extensions = ["qt", "mov"]
+mime_types = ["video/quicktime"]
+uti = "com.apple.quicktime-movie"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70 71 74 20 20"
+offset = 4
+priority = 100
+
+[[file_types]]
+id = "application/x-shockwave-flash"
+name = "Flash Video"
+extensions = ["swf"]
+mime_types = ["application/x-shockwave-flash"]
+uti = "com.adobe.flash.video"
+category = "video"
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "43 57 53"
+offset = 0
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "46 57 53"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "video/x-motion-jpeg"
+name = "Motion JPEG"
+extensions = ["mjpeg"]
+mime_types = ["video/x-motion-jpeg"]
+category = "video"
+priority = 90
+
+[[file_types]]
+id = "video/mp2t"
+name = "MPEG Transport Stream"
+extensions = ["ts", "mts", "m2ts"]
+mime_types = ["video/mp2t"]
+category = "video"
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "47"
+offset = 0
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "?? ?? ?? 47"
+offset = 0
+priority = 80
+
+[[file_types]]
+id = "video/mpeg"
+name = "MPEG Video"
+extensions = ["mpeg", "mpg", "mpe", "m2v"]
+mime_types = ["video/mpeg"]
+uti = "public.mpeg"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "00 00 01 BA"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "00 00 01 B3"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/mxf"
+name = "MXF Video"
+extensions = ["mxf"]
+mime_types = ["application/mxf"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "06 0E 2B 34 02 05 01 01 0D 01 02"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/x-flv"
+name = "Flash Video"
+extensions = ["flv"]
+mime_types = ["video/x-flv"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "46 4C 56"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/x-ms-wm"
+name = "Windows Media"
+extensions = ["wm"]
+mime_types = ["video/x-ms-wm"]
+category = "video"
+priority = 90
+
+[[file_types]]
+id = "video/3gpp"
+name = "3GP Video"
+extensions = ["3gp"]
+mime_types = ["video/3gpp"]
+uti = "public.3gpp"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70 33 67"
+offset = 4
+priority = 100
+
+[[file_types]]
+id = "video/x-m4v"
+name = "M4V Video"
+extensions = ["m4v"]
+mime_types = ["video/x-m4v"]
+uti = "com.apple.m4v-video"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70"
+offset = 4
+priority = 90
+
+[[file_types]]
+id = "video/x-ms-wmv"
+name = "Windows Media Video"
+extensions = ["wmv"]
+mime_types = ["video/x-ms-wmv"]
+uti = "com.microsoft.windows-media-wmv"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "30 26 B2 75 8E 66 CF 11 A6 D9 00 AA 00 62 CE 6C"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/x-ms-asf"
+name = "ASF Video"
+extensions = ["asf"]
+mime_types = ["video/x-ms-asf"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "30 26 B2 75 8E 66 CF 11 A6 D9 00 AA 00 62 CE 6C"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/mp4"
+name = "MP4 Video"
+extensions = ["mp4"]
+mime_types = ["video/mp4"]
+uti = "public.mpeg-4"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70"
+offset = 4
+priority = 90
+
+[[file_types]]
+id = "video/webm"
+name = "WebM Video"
+extensions = ["webm"]
+mime_types = ["video/webm"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "1A 45 DF A3"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/x-matroska"
+name = "Matroska Video"
+extensions = ["mkv"]
+mime_types = ["video/x-matroska"]
+uti = "org.matroska.mkv"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "1A 45 DF A3"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/dvd"
+name = "DVD Video"
+extensions = ["vob"]
+mime_types = ["video/dvd"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "00 00 01 BA"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "video/ogg"
+name = "Ogg Video"
+extensions = ["ogv"]
+mime_types = ["video/ogg"]
+uti = "org.xiph.ogg-video"
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4F 67 67 53"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "video/x-ms-wtv"
+name = "Windows TV Recording"
+extensions = ["wtv"]
+mime_types = ["video/x-ms-wtv"]
+category = "video"
+priority = 100
+
+[[file_types]]
+id = "video/x-hevc"
+name = "HEVC Video"
+extensions = ["hevc"]
+mime_types = ["video/x-hevc"]
+category = "video"
+priority = 100
+
+[[file_types]]
+id = "video/x-f4v"
+name = "F4V Video"
+extensions = ["f4v"]
+mime_types = ["video/x-f4v"]
+category = "video"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70"
+offset = 4
+priority = 90

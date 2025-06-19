@@ -1,0 +1,51 @@
+[package]
+name = "sd-core-new"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.40", features = ["full"] }
+futures = "0.3"
+async-trait = "0.1"
+
+# Database
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "uuid", "with-json", "with-chrono"] }
+sea-orm-migration = { version = "1.1", features = ["runtime-tokio-rustls", "sqlx-sqlite"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
+
+# API (temporarily disabled)
+# axum = "0.7"
+# async-graphql = "7.0"
+# async-graphql-axum = "7.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+
+# File operations
+notify = "6.1"  # File system watching
+blake3 = "1.5"  # Content addressing
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utils
+uuid = { version = "1.11", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+once_cell = "1.20"
+dirs = "5.0"
+whoami = "1.5"
+
+[dev-dependencies]
+tempfile = "3.14"
+pretty_assertions = "1.4"

@@ -1,0 +1,297 @@
+# Image file type definitions
+
+[[file_types]]
+id = "image/jpeg"
+name = "JPEG Image"
+extensions = ["jpg", "jpeg", "jpe"]
+mime_types = ["image/jpeg"]
+uti = "public.jpeg"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "FF D8"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/png"
+name = "PNG Image"
+extensions = ["png"]
+mime_types = ["image/png"]
+uti = "public.png"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "89 50 4E 47 0D 0A 1A 0A"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/apng"
+name = "Animated PNG"
+extensions = ["apng"]
+mime_types = ["image/apng"]
+uti = "public.apng"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "89 50 4E 47 0D 0A 1A 0A"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/gif"
+name = "GIF Image"
+extensions = ["gif"]
+mime_types = ["image/gif"]
+uti = "com.compuserve.gif"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "47 49 46 38 37 61"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "47 49 46 38 39 61"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/bmp"
+name = "Bitmap Image"
+extensions = ["bmp"]
+mime_types = ["image/bmp", "image/x-bmp"]
+uti = "com.microsoft.bmp"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "42 4D"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/tiff"
+name = "TIFF Image"
+extensions = ["tiff", "tif"]
+mime_types = ["image/tiff"]
+uti = "public.tiff"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "49 49 2A 00"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4D 4D 00 2A"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "image/webp"
+name = "WebP Image"
+extensions = ["webp"]
+mime_types = ["image/webp"]
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "52 49 46 46 ?? ?? ?? ?? 57 45 42 50"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+lossy = true
+supports_transparency = true
+supports_animation = true
+
+[[file_types]]
+id = "image/svg+xml"
+name = "SVG Image"
+extensions = ["svg"]
+mime_types = ["image/svg+xml"]
+uti = "public.svg-image"
+category = "image"
+priority = 100
+
+[file_types.metadata]
+vector = true
+text_based = true
+
+[[file_types]]
+id = "image/x-icon"
+name = "Icon"
+extensions = ["ico"]
+mime_types = ["image/x-icon", "image/vnd.microsoft.icon"]
+uti = "com.microsoft.ico"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "00 00 01 00"
+offset = 0
+priority = 100
+
+# HEIF/HEIC formats
+[[file_types]]
+id = "image/heic"
+name = "HEIC Image"
+extensions = ["heic", "heics"]
+mime_types = ["image/heic", "image/heic-sequence"]
+uti = "public.heic"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70"
+offset = 4
+priority = 90
+
+[[file_types]]
+id = "image/heif"
+name = "HEIF Image"
+extensions = ["heif", "heifs", "hif"]
+mime_types = ["image/heif", "image/heif-sequence"]
+uti = "public.heif"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70"
+offset = 4
+priority = 90
+
+# AVIF formats
+[[file_types]]
+id = "image/avif"
+name = "AVIF Image"
+extensions = ["avif"]
+mime_types = ["image/avif"]
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "66 74 79 70 61 76 69 66"
+offset = 4
+priority = 100
+
+[[file_types]]
+id = "image/avci"
+name = "AVCI Image"
+extensions = ["avci"]
+mime_types = ["image/avci"]
+category = "image"
+priority = 100
+
+[[file_types]]
+id = "image/avcs"
+name = "AVCS Image"
+extensions = ["avcs"]
+mime_types = ["image/avcs"]
+category = "image"
+priority = 100
+
+# RAW image formats
+[[file_types]]
+id = "image/x-raw"
+name = "RAW Image"
+extensions = ["raw"]
+mime_types = ["image/x-raw"]
+category = "image"
+priority = 90
+
+[file_types.metadata]
+raw_format = true
+
+[[file_types]]
+id = "image/x-adobe-dng"
+name = "Adobe DNG"
+extensions = ["dng"]
+mime_types = ["image/x-adobe-dng"]
+uti = "com.adobe.raw-image"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "49 49 2A 00"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Adobe"
+
+[[file_types]]
+id = "image/x-canon-cr2"
+name = "Canon CR2"
+extensions = ["cr2"]
+mime_types = ["image/x-canon-cr2"]
+uti = "com.canon.cr2-raw-image"
+category = "image"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "49 49 2A 00 10 00 00 00 43 52"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Canon"
+
+[[file_types]]
+id = "image/x-kodak-dcr"
+name = "Kodak DCR"
+extensions = ["dcr"]
+mime_types = ["image/x-kodak-dcr"]
+category = "image"
+priority = 100
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Kodak"
+
+[[file_types]]
+id = "image/x-nikon-nef"
+name = "Nikon NEF"
+extensions = ["nef"]
+mime_types = ["image/x-nikon-nef"]
+uti = "com.nikon.raw-image"
+category = "image"
+priority = 100
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Nikon"
+
+[[file_types]]
+id = "image/x-sony-arw"
+name = "Sony ARW"
+extensions = ["arw"]
+mime_types = ["image/x-sony-arw"]
+uti = "com.sony.raw-image"
+category = "image"
+priority = 100
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Sony"
+
+[[file_types]]
+id = "image/x-panasonic-rw2"
+name = "Panasonic RW2"
+extensions = ["rw2"]
+mime_types = ["image/x-panasonic-rw2"]
+category = "image"
+priority = 100
+
+[file_types.metadata]
+raw_format = true
+manufacturer = "Panasonic"

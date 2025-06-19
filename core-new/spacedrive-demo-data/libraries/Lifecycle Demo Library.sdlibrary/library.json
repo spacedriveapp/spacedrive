@@ -1,0 +1,36 @@
+{
+  "version": 2,
+  "id": "a7c4ab8a-ad9d-4303-ba5a-bfd6a11d49c2",
+  "name": "Lifecycle Demo Library",
+  "description": null,
+  "created_at": "2025-06-19T01:09:32.051753Z",
+  "updated_at": "2025-06-19T01:09:32.051755Z",
+  "settings": {
+    "generate_thumbnails": true,
+    "thumbnail_quality": 85,
+    "enable_ai_tagging": false,
+    "sync_enabled": false,
+    "encryption_enabled": false,
+    "thumbnail_sizes": [
+      128,
+      256,
+      512
+    ],
+    "ignored_extensions": [
+      ".tmp",
+      ".temp",
+      ".cache",
+      ".part"
+    ],
+    "max_file_size": 107374182400
+  },
+  "statistics": {
+    "total_files": 0,
+    "total_size": 0,
+    "location_count": 0,
+    "tag_count": 0,
+    "thumbnail_count": 0,
+    "last_indexed": null,
+    "updated_at": "2025-06-19T01:09:32.051771Z"
+  }
+}

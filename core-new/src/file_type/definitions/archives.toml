@@ -1,0 +1,144 @@
+# Archive file type definitions
+
+[[file_types]]
+id = "application/zip"
+name = "ZIP Archive"
+extensions = ["zip"]
+mime_types = ["application/zip"]
+uti = "public.zip-archive"
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 05 06"
+offset = 0
+priority = 90
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 07 08"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+compression = true
+encryption_capable = true
+
+[[file_types]]
+id = "application/x-rar-compressed"
+name = "RAR Archive"
+extensions = ["rar"]
+mime_types = ["application/x-rar-compressed", "application/vnd.rar"]
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "52 61 72 21 1A 07 00"
+offset = 0
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "52 61 72 21 1A 07 01 00"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+compression = true
+encryption_capable = true
+
+[[file_types]]
+id = "application/x-tar"
+name = "TAR Archive"
+extensions = ["tar"]
+mime_types = ["application/x-tar"]
+uti = "public.tar-archive"
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "75 73 74 61 72 00 30 30"
+offset = 257
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "75 73 74 61 72 20 20 00"
+offset = 257
+priority = 100
+
+[file_types.metadata]
+compression = false
+container_only = true
+
+[[file_types]]
+id = "application/gzip"
+name = "Gzip Archive"
+extensions = ["gz"]
+mime_types = ["application/gzip", "application/x-gzip"]
+uti = "org.gnu.gnu-zip-archive"
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "1F 8B"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+compression = true
+single_file = true
+
+[[file_types]]
+id = "application/x-bzip2"
+name = "Bzip2 Archive"
+extensions = ["bz2"]
+mime_types = ["application/x-bzip2"]
+uti = "public.bzip2-archive"
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "42 5A 68"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+compression = true
+single_file = true
+
+[[file_types]]
+id = "application/x-7z-compressed"
+name = "7-Zip Archive"
+extensions = ["7z"]
+mime_types = ["application/x-7z-compressed"]
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "37 7A BC AF 27 1C"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+compression = true
+encryption_capable = true
+
+[[file_types]]
+id = "application/x-xz"
+name = "XZ Archive"
+extensions = ["xz"]
+mime_types = ["application/x-xz"]
+category = "archive"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "FD 37 7A 58 5A 00"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+compression = true
+single_file = true

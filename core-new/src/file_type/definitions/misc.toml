@@ -1,0 +1,526 @@
+# Miscellaneous file type definitions
+
+# Text files
+[[file_types]]
+id = "text/plain"
+name = "Plain Text"
+extensions = ["txt", "text"]
+mime_types = ["text/plain"]
+uti = "public.plain-text"
+category = "text"
+priority = 10
+
+[file_types.metadata]
+text_file = true
+
+[[file_types]]
+id = "text/rtf"
+name = "Rich Text Format"
+extensions = ["rtf"]
+mime_types = ["text/rtf", "application/rtf"]
+uti = "public.rtf"
+category = "text"
+priority = 80
+
+[[file_types.magic_bytes]]
+pattern = "7B 5C 72 74 66 31"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+text_file = true
+rich_text = true
+
+[[file_types]]
+id = "text/markdown"
+name = "Markdown"
+extensions = ["md", "markdown"]
+mime_types = ["text/markdown", "text/x-markdown"]
+uti = "net.daringfireball.markdown"
+category = "text"
+priority = 70
+
+[file_types.metadata]
+text_file = true
+markup = true
+
+# Executable files
+[[file_types]]
+id = "application/x-executable"
+name = "Windows Executable"
+extensions = ["exe"]
+mime_types = ["application/x-msdownload", "application/x-exe"]
+uti = "com.microsoft.windows-executable"
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4D 5A"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/x-apple-diskimage"
+name = "Apple Disk Image"
+extensions = ["dmg"]
+mime_types = ["application/x-apple-diskimage"]
+uti = "com.apple.disk-image"
+category = "executable"
+priority = 100
+
+[[file_types]]
+id = "application/vnd.android.package-archive"
+name = "Android Package"
+extensions = ["apk"]
+mime_types = ["application/vnd.android.package-archive"]
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/x-debian-package"
+name = "Debian Package"
+extensions = ["deb"]
+mime_types = ["application/x-debian-package", "application/vnd.debian.binary-package"]
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "21 3C 61 72 63 68 3E"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/x-redhat-package"
+name = "RPM Package"
+extensions = ["rpm"]
+mime_types = ["application/x-rpm", "application/x-redhat-package-manager"]
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "ED AB EE DB"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/x-apple-installer"
+name = "macOS Package"
+extensions = ["pkg"]
+mime_types = ["application/x-apple-installer"]
+category = "executable"
+priority = 100
+
+[[file_types]]
+id = "application/x-msi"
+name = "Windows Installer"
+extensions = ["msi"]
+mime_types = ["application/x-msi", "application/x-msdownload"]
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/java-archive"
+name = "Java Archive"
+extensions = ["jar"]
+mime_types = ["application/java-archive"]
+uti = "com.sun.java-archive"
+category = "executable"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[file_types.metadata]
+java = true
+
+[[file_types]]
+id = "application/x-bat"
+name = "Batch File"
+extensions = ["bat", "cmd"]
+mime_types = ["application/x-bat", "application/x-msdos-program"]
+category = "executable"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+windows_script = true
+
+[[file_types]]
+id = "application/x-apple-application"
+name = "macOS Application"
+extensions = ["app"]
+mime_types = ["application/x-apple-application"]
+uti = "com.apple.application-bundle"
+category = "executable"
+priority = 100
+
+[file_types.metadata]
+bundle = true
+
+# Fonts
+[[file_types]]
+id = "font/ttf"
+name = "TrueType Font"
+extensions = ["ttf"]
+mime_types = ["font/ttf"]
+uti = "public.truetype-font"
+category = "font"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "00 01 00 00"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "font/otf"
+name = "OpenType Font"
+extensions = ["otf"]
+mime_types = ["font/otf"]
+uti = "public.opentype-font"
+category = "font"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "4F 54 54 4F"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "font/woff"
+name = "Web Open Font Format"
+extensions = ["woff"]
+mime_types = ["font/woff"]
+category = "font"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "77 4F 46 46"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "font/woff2"
+name = "Web Open Font Format 2"
+extensions = ["woff2"]
+mime_types = ["font/woff2"]
+category = "font"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "77 4F 46 32"
+offset = 0
+priority = 100
+
+# 3D/Mesh
+[[file_types]]
+id = "model/fbx"
+name = "FBX 3D Model"
+extensions = ["fbx"]
+mime_types = ["model/fbx"]
+category = "mesh"
+priority = 100
+
+[[file_types]]
+id = "model/obj"
+name = "Wavefront OBJ"
+extensions = ["obj"]
+mime_types = ["model/obj", "text/plain"]
+category = "mesh"
+priority = 100
+
+[file_types.metadata]
+text_based = true
+
+# Database
+[[file_types]]
+id = "application/x-sqlite3"
+name = "SQLite Database"
+extensions = ["sqlite", "sqlite3", "db"]
+mime_types = ["application/x-sqlite3", "application/vnd.sqlite3"]
+category = "database"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "53 51 4C 69 74 65 20 66 6F 72 6D 61 74 20 33 00"
+offset = 0
+priority = 100
+
+# Books
+[[file_types]]
+id = "application/x-mobipocket-ebook"
+name = "Mobipocket eBook"
+extensions = ["mobi", "azw", "azw3"]
+mime_types = ["application/x-mobipocket-ebook"]
+category = "book"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "42 4F 4F 4B 4D 4F 42 49"
+offset = 60
+priority = 100
+
+[[file_types]]
+id = "application/epub+zip"
+name = "EPUB eBook"
+extensions = ["epub"]
+mime_types = ["application/epub+zip"]
+category = "book"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+# Config files
+[[file_types]]
+id = "application/x-ini"
+name = "INI Configuration"
+extensions = ["ini"]
+mime_types = ["text/plain"]
+category = "config"
+priority = 70
+
+[file_types.metadata]
+text_file = true
+configuration = true
+
+[[file_types]]
+id = "application/json"
+name = "JSON"
+extensions = ["json"]
+mime_types = ["application/json"]
+uti = "public.json"
+category = "config"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+structured = true
+
+[[file_types]]
+id = "application/x-yaml"
+name = "YAML"
+extensions = ["yaml", "yml"]
+mime_types = ["text/yaml", "application/x-yaml"]
+category = "config"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+structured = true
+
+[[file_types]]
+id = "application/toml"
+name = "TOML"
+extensions = ["toml"]
+mime_types = ["application/toml"]
+category = "config"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+structured = true
+
+[[file_types]]
+id = "application/xml"
+name = "XML"
+extensions = ["xml"]
+mime_types = ["application/xml", "text/xml"]
+uti = "public.xml"
+category = "config"
+priority = 80
+
+[[file_types.magic_bytes]]
+pattern = "3C 3F 78 6D 6C"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+text_file = true
+markup = true
+
+[[file_types]]
+id = "application/mathml+xml"
+name = "MathML"
+extensions = ["mathml"]
+mime_types = ["application/mathml+xml"]
+category = "config"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+markup = true
+
+[[file_types]]
+id = "application/rss+xml"
+name = "RSS Feed"
+extensions = ["rss"]
+mime_types = ["application/rss+xml"]
+category = "config"
+priority = 80
+
+[file_types.metadata]
+text_file = true
+feed = true
+
+[[file_types]]
+id = "text/csv"
+name = "CSV"
+extensions = ["csv"]
+mime_types = ["text/csv"]
+uti = "public.comma-separated-values-text"
+category = "config"
+priority = 70
+
+[file_types.metadata]
+text_file = true
+tabular = true
+
+[[file_types]]
+id = "application/x-config"
+name = "Configuration File"
+extensions = ["cfg", "conf"]
+mime_types = ["text/plain"]
+category = "config"
+priority = 60
+
+[file_types.metadata]
+text_file = true
+configuration = true
+
+[[file_types]]
+id = "application/x-docker-compose"
+name = "Docker Compose"
+extensions = ["compose"]
+mime_types = ["application/x-yaml"]
+category = "config"
+priority = 85
+
+[file_types.metadata]
+text_file = true
+docker = true
+
+[[file_types]]
+id = "application/x-typescript-config"
+name = "TypeScript Config"
+extensions = ["tsconfig"]
+mime_types = ["application/json"]
+category = "config"
+priority = 85
+
+[file_types.metadata]
+text_file = true
+typescript = true
+
+# Encrypted/Spacedrive specific
+[[file_types]]
+id = "application/x-spacedrive-encrypted"
+name = "Spacedrive Encrypted"
+extensions = ["bytes"]
+mime_types = ["application/x-spacedrive-encrypted"]
+category = "encrypted"
+priority = 100
+
+[file_types.metadata]
+spacedrive = true
+encrypted = true
+
+[[file_types]]
+id = "application/x-spacedrive-container"
+name = "Spacedrive Container"
+extensions = ["container"]
+mime_types = ["application/x-spacedrive-container"]
+category = "encrypted"
+priority = 100
+
+[file_types.metadata]
+spacedrive = true
+container = true
+
+[[file_types]]
+id = "application/x-spacedrive-block"
+name = "Spacedrive Block Storage"
+extensions = ["block"]
+mime_types = ["application/x-spacedrive-block"]
+category = "encrypted"
+priority = 100
+
+[file_types.metadata]
+spacedrive = true
+block_storage = true
+
+# Keys
+[[file_types]]
+id = "application/pgp-keys"
+name = "PGP Key"
+extensions = ["pgp", "gpg", "asc"]
+mime_types = ["application/pgp-keys"]
+category = "key"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "2D 2D 2D 2D 2D 42 45 47 49 4E 20 50 47 50"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/x-pem-file"
+name = "PEM Certificate"
+extensions = ["pem", "cer", "crt"]
+mime_types = ["application/x-pem-file", "application/x-x509-ca-cert"]
+category = "key"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "2D 2D 2D 2D 2D 42 45 47 49 4E"
+offset = 0
+priority = 100
+
+[[file_types]]
+id = "application/x-ssh-key"
+name = "SSH Public Key"
+extensions = ["pub"]
+mime_types = ["application/x-ssh-key"]
+category = "key"
+priority = 100
+
+[file_types.metadata]
+text_file = true
+
+[[file_types]]
+id = "application/x-pkcs12"
+name = "PKCS12 Certificate"
+extensions = ["p12", "pfx"]
+mime_types = ["application/x-pkcs12"]
+category = "key"
+priority = 100
+
+[[file_types]]
+id = "application/x-pkcs8"
+name = "PKCS8 Private Key"
+extensions = ["p8", "key"]
+mime_types = ["application/x-pkcs8", "application/pkcs8"]
+category = "key"
+priority = 100
+
+[[file_types]]
+id = "application/x-apple-keychain"
+name = "Apple Keychain"
+extensions = ["keychain"]
+mime_types = ["application/x-apple-keychain"]
+category = "key"
+priority = 100

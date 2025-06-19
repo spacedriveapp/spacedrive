@@ -1,0 +1,198 @@
+# Document file type definitions
+
+[[file_types]]
+id = "application/pdf"
+name = "PDF Document"
+extensions = ["pdf"]
+mime_types = ["application/pdf"]
+uti = "com.adobe.pdf"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "25 50 44 46 2D"
+offset = 0
+priority = 100
+
+# Apple iWork
+[[file_types]]
+id = "application/x-iwork-keynote"
+name = "Keynote Presentation"
+extensions = ["key"]
+mime_types = ["application/x-iwork-keynote-sffkey"]
+uti = "com.apple.keynote.key"
+category = "document"
+priority = 100
+
+[[file_types]]
+id = "application/x-iwork-pages"
+name = "Pages Document"
+extensions = ["pages"]
+mime_types = ["application/x-iwork-pages-sffpages"]
+uti = "com.apple.pages.pages"
+category = "document"
+priority = 100
+
+[[file_types]]
+id = "application/x-iwork-numbers"
+name = "Numbers Spreadsheet"
+extensions = ["numbers"]
+mime_types = ["application/x-iwork-numbers-sffnumbers"]
+uti = "com.apple.numbers.numbers"
+category = "document"
+priority = 100
+
+# Microsoft Office - Legacy formats
+[[file_types]]
+id = "application/msword"
+name = "Word Document"
+extensions = ["doc"]
+mime_types = ["application/msword"]
+uti = "com.microsoft.word.doc"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.ms-excel"
+name = "Excel Spreadsheet"
+extensions = ["xls"]
+mime_types = ["application/vnd.ms-excel"]
+uti = "com.microsoft.excel.xls"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.ms-powerpoint"
+name = "PowerPoint Presentation"
+extensions = ["ppt"]
+mime_types = ["application/vnd.ms-powerpoint"]
+uti = "com.microsoft.powerpoint.ppt"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 90
+
+# Microsoft Office - Modern formats
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+name = "Word Document (OOXML)"
+extensions = ["docx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+uti = "org.openxmlformats.wordprocessingml.document"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+name = "Excel Spreadsheet (OOXML)"
+extensions = ["xlsx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+uti = "org.openxmlformats.spreadsheetml.sheet"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+name = "PowerPoint Presentation (OOXML)"
+extensions = ["pptx"]
+mime_types = ["application/vnd.openxmlformats-officedocument.presentationml.presentation"]
+uti = "org.openxmlformats.presentationml.presentation"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+# OpenDocument formats
+[[file_types]]
+id = "application/vnd.oasis.opendocument.text"
+name = "OpenDocument Text"
+extensions = ["odt"]
+mime_types = ["application/vnd.oasis.opendocument.text"]
+uti = "org.oasis-open.opendocument.text"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.oasis.opendocument.spreadsheet"
+name = "OpenDocument Spreadsheet"
+extensions = ["ods"]
+mime_types = ["application/vnd.oasis.opendocument.spreadsheet"]
+uti = "org.oasis-open.opendocument.spreadsheet"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+[[file_types]]
+id = "application/vnd.oasis.opendocument.presentation"
+name = "OpenDocument Presentation"
+extensions = ["odp"]
+mime_types = ["application/vnd.oasis.opendocument.presentation"]
+uti = "org.oasis-open.opendocument.presentation"
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "50 4B 03 04"
+offset = 0
+priority = 90
+
+# Other document formats
+[[file_types]]
+id = "text/calendar"
+name = "iCalendar"
+extensions = ["ics"]
+mime_types = ["text/calendar"]
+uti = "com.apple.ical.ics"
+category = "document"
+priority = 100
+
+[file_types.metadata]
+text_based = true
+
+[[file_types]]
+id = "application/x-hwp"
+name = "Hangul Word Processor"
+extensions = ["hwp"]
+mime_types = ["application/x-hwp", "application/haansofthwp"]
+category = "document"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "D0 CF 11 E0 A1 B1 1A E1"
+offset = 0
+priority = 80
