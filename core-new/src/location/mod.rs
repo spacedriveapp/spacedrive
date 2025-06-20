@@ -9,7 +9,7 @@ use crate::{
         jobs::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
     },
     library::Library,
-    operations::indexing::{IndexerJob, IndexMode as JobIndexMode},
+    operations::indexing::{IndexerJob, IndexerJobConfig, IndexMode as JobIndexMode},
     shared::types::SdPath,
 };
 
@@ -220,8 +220,9 @@ async fn start_location_indexing(
     let device_uuid = get_device_uuid(library.clone()).await?;
     let location_sd_path = SdPath::new(device_uuid, path.clone());
 
-    // Create and dispatch indexer job through the proper job manager
-    let indexer_job = IndexerJob::new(location_uuid, location_sd_path, index_mode.into());
+    // Create and dispatch indexer job through the proper job manager  
+    let config = IndexerJobConfig::new(location_uuid, location_sd_path, index_mode.into());
+    let indexer_job = IndexerJob::new(config);
     
     match library.jobs().dispatch(indexer_job).await {
         Ok(job_handle) => {

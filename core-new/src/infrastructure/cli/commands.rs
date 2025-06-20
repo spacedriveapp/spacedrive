@@ -43,6 +43,16 @@ impl From<IndexMode> for crate::location::IndexMode {
     }
 }
 
+impl From<IndexMode> for crate::operations::indexing::IndexMode {
+    fn from(mode: IndexMode) -> Self {
+        match mode {
+            IndexMode::Shallow => crate::operations::indexing::IndexMode::Shallow,
+            IndexMode::Content => crate::operations::indexing::IndexMode::Content,
+            IndexMode::Deep => crate::operations::indexing::IndexMode::Deep,
+        }
+    }
+}
+
 impl From<IndexScope> for crate::operations::indexing::IndexScope {
     fn from(scope: IndexScope) -> Self {
         match scope {
@@ -831,7 +841,7 @@ pub async fn handle_index_command(
             let sd_path = SdPath::new(device.id, PathBuf::from(&location.path));
 
             // Create appropriate job configuration
-            let mut config = IndexerJobConfig::new(location.uuid, sd_path, mode.into().into());
+            let mut config = IndexerJobConfig::new(location.uuid, sd_path, mode.into());
             config.scope = scope.into();
 
             let job = IndexerJob::new(config);

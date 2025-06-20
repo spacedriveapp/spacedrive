@@ -8,7 +8,7 @@ use crate::{
         jobs::{manager::JobManager, traits::Job},
     },
     library::Library,
-    operations::indexing::job::IndexerJob,
+    operations::indexing::job::{IndexerJob, IndexerJobConfig},
     shared::types::SdPath,
 };
 use sea_orm::{
@@ -147,12 +147,9 @@ impl LocationManager {
         let device_uuid = self.get_device_uuid(&library, location.device_id).await?;
         let location_sd_path = SdPath::new(device_uuid, location.path.clone());
 
-        // Create indexer job
-        let indexer_job = IndexerJob::new(
-            location.id,
-            location_sd_path,
-            location.index_mode.into(),
-        );
+        // Create indexer job using new configuration pattern
+        let config = IndexerJobConfig::new(location.id, location_sd_path, location.index_mode.into());
+        let indexer_job = IndexerJob::new(config);
 
         // Submit to job manager
         let job_manager = library.jobs();

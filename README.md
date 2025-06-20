@@ -4,38 +4,29 @@
   </p>
 	<h1 align="center"><b>Spacedrive</b></h1>
 	<p align="center">
-		A file explorer from the future.
+		The comeback. A file explorer from the future.
     <br />
     <a href="https://spacedrive.com"><strong>spacedrive.com »</strong></a>
     <br />
     <br />
-    <b>Download for </b>
-    macOS (<a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/aarch64">Apple Silicon</a> |
-    <a href="https://www.spacedrive.com/api/releases/desktop/stable/darwin/x86_64">Intel</a>) ·
-		<a href="https://www.spacedrive.com/api/releases/desktop/stable/windows/x86_64">Windows</a> ·
-		<a href="https://www.spacedrive.com/api/releases/desktop/stable/linux/x86_64">Linux</a> ·
-		iOS ·
-		Android
+    🚀 <strong>Development resuming with revolutionary new architecture</strong> 🚀
     <br />
-    <i>~ Links for iOS & Android will be added once a release is available. ~</i>
+    <br />
+    <b>Status:</b> Core rewrite in progress ·
+    <b>Stage:</b> Foundation ·
+    <b>Goal:</b> Ship working VDFS in 2025
   </p>
 </p>
 
-Spacedrive is an open source cross-platform file manager, powered by a virtual distributed filesystem (<a href="#what-is-a-vdfs">VDFS</a>) written in Rust.
-<br/>
+Spacedrive is back. After learning from 500,000 installs and 34,000 stars, we're building the file manager that should have shipped: **your files, everywhere, unified**.
+
+What started as an ambitious vision became an engineering lesson. Now we're shipping that vision with battle-tested architecture.
+
 <br/>
 
-> [!IMPORTANT] 
-> We regret to inform our valued Spacedrive community that we must temporarily pause our development roadmap beyond our [latest update](https://github.com/spacedriveapp/spacedrive/releases/tag/0.4.3). Due to current funding constraints and related challenges, we cannot deliver new features or updates for the foreseeable future.
->
-> While this was a tough decision, our team remains committed to Spacedrive's vision and will explore options to resume development when circumstances allow. We deeply appreciate your understanding and continued support during this challenging period.
+> **The Revolution**
 > 
-> The Spacedrive Team
-
-
-Organize files across many devices in one place. From cloud services to offline hard drives, Spacedrive combines the storage capacity and processing power of your devices into one personal distributed cloud, that is both secure and intuitive to use.
-
-For independent creatives, hoarders and those that want to own their digital footprint, Spacedrive provides a free file management experience like no other.
+> Copy files between your iPhone and MacBook as easily as moving between folders. Search across all your devices with a single query. Organize photos that live anywhere. **Device boundaries disappear.**
 
 <p align="center">
   <img src="apps/landing/public/github.webp" alt="App screenshot">
@@ -53,71 +44,288 @@ For independent creatives, hoarders and those that want to own their digital foo
   <a href="https://www.gnu.org/licenses/agpl-3.0">
     <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
   </a>
-  <img src="https://img.shields.io/static/v1?label=Bundled+size+(avg.)&message=76.26MB&color= 0974B4" />
-  <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
+  <img src="https://img.shields.io/static/v1?label=Stage&message=Reborn&color=2BB4AB" />
   <br />
 </p>
 
-# What is a VDFS?
+## The Vision Realized
 
-A VDFS (virtual distributed filesystem) is a filesystem designed to work across a variety of storage layers. With a uniform API to manipulate and access content across many devices, VDFS is not restricted to a single machine. It achieves this by maintaining a virtual index of all storage locations, synchronizing the database between clients in realtime. This implementation also uses [CAS](https://en.wikipedia.org/wiki/Content-addressable_storage) (Content-addressable storage) to uniquely identify files, while keeping record of logical file paths relative to the storage locations.
+**Copy iPhone video to MacBook storage?** Done.  
+**Search across all devices instantly?** Built-in.  
+**Organize files that live everywhere?** Native.  
+**Keep it private and lightning fast?** Always.
 
-The first implementation of a VDFS can be found in this UC Berkeley [paper](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.pdf) by Haoyuan Li. This paper describes its use for cloud computing, however the underlying concepts can be translated to open consumer software.
+The original Spacedrive captured imaginations with a bold promise: the **Virtual Distributed File System**. Manage all your files across all your devices as if they were one giant drive. We delivered impressive file management, but the revolutionary cross-device magic remained just out of reach.
 
-# Motivation
+**Now it's real.**
 
-Many of us have multiple cloud accounts, drives that aren’t backed up and data at risk of loss. We depend on cloud services like Google Photos and iCloud, but are locked in with limited capacity and almost zero interoperability between services and operating systems. Photo albums shouldn’t be stuck in a device ecosystem, or harvested for advertising data. They should be OS agnostic, permanent and personally owned. Data we create is our legacy, that will long outlive us—open source technology is the only way to ensure we retain absolute control over the data that defines our lives, at unlimited scale.
+## What Makes This Different
 
-# Roadmap
+Your files are scattered across devices, cloud services, and external drives. Traditional file managers trap you in local boundaries. Spacedrive makes those boundaries disappear:
 
-View a list of our planned features here: [spacedrive.com/roadmap](https://spacedrive.com/roadmap)
+**🌐 Universal File Access**
+- Browse files on any device from any device
+- External drives, cloud storage, remote servers - all unified
+- Offline files show up with cached metadata
 
-# Developer Guide
+**⚡ Lightning Search**
+- Find files across all locations with a single search
+- Content search inside documents, PDFs, and media
+- AI-powered semantic search: "find sunset photos from vacation"
 
-Please refer to the [contributing guide](CONTRIBUTING.md) for how to install Spacedrive from sources.
+**🔄 Seamless Operations**
+- Copy, move, and organize files between any devices
+- Drag and drop across device boundaries
+- Batch operations on distributed collections
 
-# Security Policy
+**🔒 Privacy First**
+- Your data stays on your devices
+- Optional cloud sync, never required
+- End-to-end encryption for all transfers
 
-Please refer to the [security policy](SECURITY.md) for details and information on how to responsibly report a security vulnerability or issue.
+## The Journey: Lessons Learned
 
-# Architecture
+The original Spacedrive got 500,000 installs because the vision was right. Development paused because the execution was flawed:
 
-This project is using what I'm calling the **"PRRTT"** stack (Prisma, Rust, React, TypeScript, Tauri).
+### The Problems (2022-2024)
+- **Split personality**: Couldn't copy between different location types
+- **Search limitations**: Basic filename matching, not true content discovery
+- **Technical debt**: Built on foundations that couldn't scale
+- **Feature paralysis**: Perfect became the enemy of good
 
-- Prisma on the front-end? 🤯 Made possible thanks to [prisma-client-rust](https://github.com/brendonovich/prisma-client-rust), developed by [Brendonovich](https://github.com/brendonovich). Gives us access to the powerful migration CLI in development, along with the Prisma syntax for our schema. The application bundles with the Prisma query engine and codegen for a beautiful Rust API. Our lightweight migration runner is custom built for a desktop app context.
-- Tauri allows us to create a pure Rust native OS webview, without the overhead of your average Electron app. This brings the bundle size and average memory usage down dramatically. It also contributes to a more native feel, especially on macOS due to Safari's close integration with the OS.
-- We also use [rspc](https://rspc.dev), created by Oscar Beaumont, which allows us to define functions in Rust and call them on the TypeScript frontend in a completely typesafe manner.
-- The core (`sdcore`) is written in pure Rust.
+### The Breakthrough (2024-2025)
+- **Unified experience**: Every operation works everywhere
+- **Real search**: Content indexing, semantic understanding, instant results
+- **Modern foundation**: Built for performance and extensibility
+- **Ship early, improve fast**: Real features over perfect architecture
 
-## Monorepo structure:
+We kept the revolutionary vision. We rebuilt the foundation to deliver it.
 
-### Apps:
+## Experience the New Spacedrive
 
-- `desktop`: A [Tauri](https://tauri.app) app.
-- `mobile`: A [React Native](https://reactnative.dev/) app.
-- `web`: A [React](https://reactjs.org) webapp.
-- `landing`: A [React](https://reactjs.org) app using [Next.js](https://nextjs.org).
-- `server`: A [Rust](https://www.rust-lang.org) server for the webapp.
-- `cli`: A [Rust](https://www.rust-lang.org) command line interface. (planned)
-- `storybook`: A [React](https://reactjs.org) storybook for the UI components.
+### Desktop App: Your Command Center
 
-### Core:
+```
+┌─ Spacedrive ──────────────────────────────────────────┐
+│ ≡ Locations           📱 iPhone (via P2P)             │
+│   📁 Desktop            📁 Photos (1,234 items)       │
+│   📁 Documents          📁 Documents                   │
+│   📁 Downloads          🔗 iCloud Drive               │
+│   💾 External Drive     📱 iPad                       │
+│   ☁️  iCloud Drive       📱 Android Phone             │
+│   🖥️  Server             ⚙️  Background indexing...   │
+└───────────────────────────────────────────────────────┘
+```
 
-- `core`: The [Rust](https://www.rust-lang.org) core, referred to internally as `sdcore`. Contains filesystem, database and networking logic. Can be deployed in a variety of host applications.
-- `crates`: Shared Rust libraries used by the core and other Rust applications.
+**Cross-device operations made simple:**
+- Drag photos from your iPhone to external storage
+- Search finds files regardless of which device they're on
+- Organize distributed media collections as if they were local
 
-### Interface:
+### CLI & Server: Power User Paradise
 
-- `interface`: The complete user interface in React (used by apps `desktop`, `web`)
+```bash
+# Start the core daemon
+spacedrive start
 
-### Packages:
+# Manage your digital life from anywhere
+spacedrive search "presentation slides" --device laptop
+spacedrive copy iPhone:/DCIM/vacation.mov ~/Desktop/
+spacedrive sync-status --all-devices
 
-- `assets`: Shared assets (images, fonts, etc).
-- `client`: A [TypeScript](https://www.typescriptlang.org/) client library to handle dataflow via RPC between UI and the Rust core.
-- `config`: `eslint` configurations (includes `eslint-config-next`, `eslint-config-prettier` and all `tsconfig.json` configs used throughout the monorepo).
-- `ui`: A [React](https://reactjs.org) Shared component library.
+# Server mode: access from anywhere
+spacedrive server --host 0.0.0.0 --port 8080
+```
 
-- `macos`: A [Swift](https://developer.apple.com/swift/) Native binary for MacOS system extensions (planned).
-- `ios`: A [Swift](https://developer.apple.com/swift/) Native binary (planned).
-- `windows`: A [C#](https://docs.microsoft.com/en-us/dotnet/csharp/) Native binary (planned).
-- `android`: A [Kotlin](https://kotlinlang.org/) Native binary (planned).
+**Perfect for:**
+- **Creators**: Manage media across multiple workstations
+- **Developers**: Sync projects between dev environments  
+- **Families**: Shared photo organization across devices
+- **Self-hosters**: Private cloud with true file management
+
+### Web Interface: Universal Access
+
+Access your files from any browser, anywhere. Full Spacedrive functionality without installing anything.
+
+## Architecture: Built to Last
+
+### Self-Contained Libraries
+```
+My Photos.sdlibrary/
+├── library.json      # Configuration & device registry
+├── database.db       # All metadata and search indices
+├── thumbnails/       # Generated previews
+└── .lock            # Concurrency protection
+```
+
+**Portable by design:**
+- **Backup** = copy the folder
+- **Share** = send the folder  
+- **Migrate** = move the folder
+
+### Unified Operations
+No more confusion between "indexed" and "direct" files. Every file operation works the same way:
+
+- **Indexed locations**: Rich metadata, lightning search, smart organization
+- **Direct access**: Immediate operations, no waiting for scans
+- **Hybrid mode**: Best of both worlds automatically
+
+### Real Search Engine
+```
+🔍 Search: "sunset photos from vacation"
+
+Results across all devices:
+📱 iPhone/Photos/Vacation2024/sunset_beach.jpg
+💾 External/Backup/2024/vacation_sunset.mov  
+☁️  iCloud/Memories/golden_hour_sunset.heic
+```
+
+**Beyond filename matching:**
+- Full-text content search in documents
+- Image recognition and scene detection
+- Vector search for semantic queries
+- Instant results even for offline files
+
+## What's Shipping: The VDFS Roadmap
+
+### Q1 2025: Foundation
+- ✅ **Core rewrite** with unified file system
+- ✅ **Working CLI** with daemon architecture
+- 🚧 **Desktop app** rebuilt on new foundation
+- 🚧 **Real search** with content indexing
+
+### Q2 2025: Device Communication  
+- 🔄 **P2P discovery** and secure connections
+- 🔄 **Cross-device operations** (copy, move, sync)
+- 🔄 **Mobile apps** with desktop feature parity
+- 🔄 **Web interface** for universal access
+
+### Q3 2025: Intelligence
+- 🎯 **AI-powered organization** with local models
+- 🎯 **Smart collections** and auto-tagging
+- 🎯 **Cloud integrations** (iCloud, Google Drive, etc.)
+- 🎯 **Advanced media analysis**
+
+### Q4 2025: Ecosystem
+- 🚀 **Extension system** for community features
+- 🚀 **Professional tools** for creators and teams
+- 🚀 **Enterprise features** and compliance
+- 🚀 **Plugin marketplace** and developer APIs
+
+## Try It Today
+
+The foundation is working. The CLI proves the architecture:
+
+```bash
+# Download and install
+curl -fsSL https://install.spacedrive.com | sh
+
+# Create your first library
+spacedrive library create "My Files"
+
+# Add locations across devices
+spacedrive location add ~/Documents
+spacedrive location add /media/external
+
+# Smart indexing
+spacedrive index ~/Pictures --deep    # Full analysis with AI
+spacedrive browse /tmp --ephemeral    # Quick exploration
+
+# Real-time monitoring
+spacedrive job monitor
+```
+
+**Working today:**
+- ✅ Multi-location management
+- ✅ Smart indexing with progress tracking
+- ✅ Content-aware search
+- ✅ Real-time job monitoring
+- ✅ Portable library format
+
+## Sustainable Open Source
+
+### Always Free & Open
+- **Core file management** and VDFS operations
+- **Local search** and organization features
+- **P2P sync** between your own devices
+- **Privacy-first** architecture
+
+### Premium Value-Adds
+- **Spacedrive Cloud**: Cross-internet sync and backup
+- **Advanced AI**: Professional media analysis and organization
+- **Team features**: Shared libraries and collaboration
+- **Enterprise**: SSO, compliance, and enterprise deployment
+
+### Community First
+- **Weekly dev streams** showing real progress
+- **Open roadmap** with community voting
+- **Contributor rewards** and recognition program
+- **Plugin marketplace** revenue sharing
+
+## Why It Will Work This Time
+
+### Technical Maturity
+From 500k installs and 34k stars, we learned what users actually need:
+- **Performance first**: Sub-second search, responsive UI, efficient sync
+- **Reliability**: Robust error handling, data integrity, graceful failures
+- **Simplicity**: Complex features with simple interfaces
+
+### Market Reality
+The world has changed since 2022:
+- **Privacy concerns** have intensified with cloud services
+- **AI expectations** for semantic search and smart organization
+- **Multi-device life** is now universal, not niche
+- **Creator economy** needs professional file management tools
+
+### Execution Discipline
+No more feature paralysis:
+- **Ship working features**, enhance over time
+- **Measure real usage**, not just code metrics
+- **Community feedback** drives priority decisions
+- **Multiple revenue streams** support sustainable development
+
+## Get Involved
+
+### For Users
+- ⭐ **Star the repo** to follow development
+- 💬 **Join Discord** for updates and early access
+- 🐛 **Report issues** and request features
+- 📖 **Beta testing** as features ship
+
+### For Developers
+- 🔧 **Contribute code** to the core rewrite
+- 📚 **Improve docs** and tutorials
+- 🧪 **Write tests** and benchmarks
+- 🎨 **Design interfaces** for new features
+
+### For Organizations
+- 💼 **Early access** to enterprise features
+- 🤝 **Partnership** opportunities
+- 💰 **Sponsorship** and development funding
+- 🎯 **Custom development** services
+
+## The Return
+
+Spacedrive paused because we built complexity where we needed simplicity. We solved perfect problems instead of real problems. We got paralyzed by architectural purity instead of shipping user value.
+
+**Now we're back with wisdom.**
+
+The vision was right: files scattered across devices need a unified experience. The execution was wrong: we over-engineered where we should have shipped.
+
+The future of file management isn't about better folder hierarchies or cloud storage. It's about making all your files feel local, searchable, and organized - regardless of where they actually live.
+
+**That future is shipping in 2025.**
+
+---
+
+<p align="center">
+  <strong>Follow the comeback</strong><br/>
+  <a href="https://spacedrive.com">Website</a> · 
+  <a href="https://discord.gg/gTaF2Z44f5">Discord</a> · 
+  <a href="https://x.com/spacedriveapp">Twitter</a> ·
+  <a href="https://github.com/spacedriveapp/spacedrive/tree/main/core-new">Core Development</a>
+</p>
+
+<p align="center">
+  <em>The file manager that should exist. Finally being built right.</em>
+</p>
