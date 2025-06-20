@@ -16,6 +16,11 @@ pub struct IndexerProgress {
     pub total_found: IndexerStats,
     pub processing_rate: f32,
     pub estimated_remaining: Option<Duration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope: Option<super::job::IndexScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persistence: Option<super::job::IndexPersistence>,
+    pub is_ephemeral: bool,
 }
 
 /// Statistics collected during indexing

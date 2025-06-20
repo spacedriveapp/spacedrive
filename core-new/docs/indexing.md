@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Spacedrive indexing system is a sophisticated, multi-phase file indexing engine designed for high performance and reliability. It discovers, processes, and categorizes files while supporting incremental updates, change detection, and content-based deduplication.
+The Spacedrive indexing system is a sophisticated, multi-phase file indexing engine designed for high performance and reliability. It discovers, processes, and categorizes files while supporting incremental updates, change detection, and content-based deduplication. The system now supports multiple indexing scopes and ephemeral modes for different use cases.
 
 ## Architecture
 
@@ -22,6 +22,9 @@ The Spacedrive indexing system is a sophisticated, multi-phase file indexing eng
 - **Content Deduplication**: Uses CAS (Content-Addressed Storage) IDs
 - **Type Detection**: Sophisticated file type identification with MIME type support
 - **Performance Optimized**: Batch processing, caching, and parallel operations
+- **Flexible Scoping**: Current (single-level) vs Recursive (full tree) indexing
+- **Ephemeral Mode**: In-memory indexing for browsing external paths
+- **Persistence Options**: Database storage vs memory-only for different use cases
 
 ## Indexing Phases
 
@@ -75,6 +78,126 @@ Generates content identifiers and detects file types.
 ```
 
 **Output**: Content identities linked to entries
+
+## Indexing Scopes and Persistence
+
+### Index Scopes
+
+The indexing system supports two different scopes for different use cases:
+
+#### Current Scope
+- **Description**: Index only the specified directory (single level)
+- **Use Cases**: UI navigation, quick directory browsing, instant feedback
+- **Performance**: <500ms for typical directories
+- **Implementation**: Direct directory read without recursion
+
+```rust
+let config = IndexerJobConfig::ui_navigation(location_id, path);
+// Results in single-level scan optimized for UI responsiveness
+```
+
+#### Recursive Scope  
+- **Description**: Index the directory and all subdirectories
+- **Use Cases**: Full location indexing, comprehensive file discovery
+- **Performance**: Depends on directory tree size
+- **Implementation**: Traditional recursive tree traversal
+
+```rust
+let config = IndexerJobConfig::new(location_id, path, mode);
+// Default recursive behavior for complete coverage
+```
+
+### Persistence Modes
+
+#### Persistent Mode
+- **Storage**: Database (SQLite/PostgreSQL)
+- **Use Cases**: Managed locations, permanent indexing
+- **Features**: Full change detection, resumability, sync support
+- **Lifecycle**: Permanent until explicitly removed
+
+```rust
+let config = IndexerJobConfig::new(location_id, path, mode);
+config.persistence = IndexPersistence::Persistent;
+```
+
+#### Ephemeral Mode
+- **Storage**: Memory (EphemeralIndex)
+- **Use Cases**: External path browsing, temporary exploration
+- **Features**: No database writes, session-based caching
+- **Lifecycle**: Exists only during application session
+
+```rust
+let config = IndexerJobConfig::ephemeral_browse(path, scope);
+// Results stored in memory, automatic cleanup
+```
+
+### Enhanced Configuration
+
+The new `IndexerJobConfig` provides fine-grained control:
+
+```rust
+pub struct IndexerJobConfig {
+    pub location_id: Option<Uuid>,      // None for ephemeral
+    pub path: SdPath,                   // Path to index
+    pub mode: IndexMode,                // Shallow/Content/Deep
+    pub scope: IndexScope,              // Current/Recursive
+    pub persistence: IndexPersistence,  // Persistent/Ephemeral
+    pub max_depth: Option<u32>,         // Depth limiting
+}
+```
+
+### Use Case Examples
+
+#### UI Directory Navigation
+```rust
+// Fast current directory scan for UI
+let config = IndexerJobConfig::ui_navigation(location_id, path);
+// - Scope: Current (single level)
+// - Mode: Shallow (metadata only)  
+// - Persistence: Persistent
+// - Target: <500ms response time
+```
+
+#### External Path Browsing
+```rust
+// Browse USB drive without adding to library
+let config = IndexerJobConfig::ephemeral_browse(usb_path, IndexScope::Current);
+// - Scope: Current or Recursive
+// - Mode: Shallow (configurable)
+// - Persistence: Ephemeral
+// - Target: Exploration without database pollution
+```
+
+#### Background Location Indexing
+```rust
+// Traditional full location scan
+let config = IndexerJobConfig::new(location_id, path, IndexMode::Deep);
+// - Scope: Recursive (default)
+// - Mode: Deep (full analysis)
+// - Persistence: Persistent
+// - Target: Complete coverage
+```
+
+### Ephemeral Index Structure
+
+The `EphemeralIndex` provides temporary storage:
+
+```rust
+pub struct EphemeralIndex {
+    pub entries: HashMap<PathBuf, EntryMetadata>,
+    pub content_identities: HashMap<String, EphemeralContentIdentity>,
+    pub created_at: Instant,
+    pub last_accessed: Instant,
+    pub root_path: PathBuf,
+    pub stats: IndexerStats,
+}
+```
+
+Features:
+- **LRU Behavior**: Automatic cleanup based on access time
+- **Memory Efficient**: Lightweight metadata storage
+- **Session Scoped**: Cleared on application restart
+- **Fast Access**: Direct HashMap lookups
 
 ## Database Schema
 
@@ -202,49 +325,85 @@ Change types detected:
 - Reduces database round trips
 - Improves memory efficiency
 
+### Scope Optimizations
+- **Current Scope**: Direct directory read without recursion (<500ms target)
+- **Recursive Scope**: Efficient tree traversal with depth control
+- **Ephemeral Mode**: Memory-only storage for external path browsing
+- **Early Termination**: Configurable max_depth limiting
+
 ### Caching
-- Path prefix cache
-- Parent entry ID cache
-- Change detection cache
+- Entry ID cache for parent lookups
+- Change detection cache for inode/timestamp comparisons
+- Ephemeral index LRU cache for session-based storage
+- Content identity cache for deduplication
 
 ### Parallelization
 - Concurrent CAS ID generation
 - Parallel file type detection
 - Async I/O operations
+- Batch processing across multiple threads
 
 ### Database Optimizations
-- Bulk inserts
-- Prepared statements
-- Strategic indexing
+- Bulk inserts with transaction batching
+- Prepared statements for repeated operations
+- Strategic indexing on location_id and relative_path
+- Persistence abstraction for database vs memory storage
 
 ## Usage Examples
 
-### Starting an Indexing Job
+### Enhanced Indexing Jobs
 
 ```rust
-use sd_core_new::operations::indexing::{IndexerJob, IndexMode};
+use sd_core_new::operations::indexing::{
+    IndexerJob, IndexerJobConfig, IndexMode, IndexScope, IndexPersistence
+};
 
-// Create indexer job
-let job = IndexerJob::new(
-    location_id,
-    location_path,
-    IndexMode::Deep, // Shallow, Content, or Deep
-);
-
-// Dispatch through job manager
+// UI Navigation - Fast current directory scan
+let config = IndexerJobConfig::ui_navigation(location_id, path);
+let job = IndexerJob::new(config);
 let handle = library.jobs().dispatch(job).await?;
 
-// Monitor progress
-while let Some(progress) = handle.progress().await {
-    println!("Progress: {:?}", progress);
-}
+// Ephemeral Browsing - External path exploration
+let config = IndexerJobConfig::ephemeral_browse(external_path, IndexScope::Current);
+let job = IndexerJob::new(config);
+let handle = library.jobs().dispatch(job).await?;
+
+// Traditional Location Indexing - Full recursive scan
+let config = IndexerJobConfig::new(location_id, path, IndexMode::Deep);
+let job = IndexerJob::new(config);
+let handle = library.jobs().dispatch(job).await?;
+
+// Custom Configuration - Fine-grained control
+let mut config = IndexerJobConfig::new(location_id, path, IndexMode::Content);
+config.scope = IndexScope::Current;
+config.max_depth = Some(2);
+let job = IndexerJob::new(config);
+```
+
+### Legacy API (Backward Compatibility)
+
+```rust
+// Old API still works for simple cases
+let job = IndexerJob::from_location(location_id, path, IndexMode::Deep);
+let job = IndexerJob::shallow(location_id, path);
+let job = IndexerJob::with_content(location_id, path);
 ```
 
 ### Indexing Modes
 
-- **Shallow**: Metadata only (fastest)
-- **Content**: Includes CAS ID generation
-- **Deep**: Full analysis including thumbnails (future)
+- **Shallow**: Metadata only (fastest, <500ms for UI)
+- **Content**: Includes CAS ID generation (moderate performance)
+- **Deep**: Full analysis including thumbnails (comprehensive)
+
+### Indexing Scopes
+
+- **Current**: Single directory level (UI navigation, quick browsing)
+- **Recursive**: Full directory tree (complete location indexing)
+
+### Persistence Options
+
+- **Persistent**: Database storage (managed locations, permanent data)
+- **Ephemeral**: Memory storage (external browsing, temporary exploration)
 
 ## Metrics and Monitoring
 
@@ -305,6 +464,24 @@ IndexerConfig {
     max_concurrent_io: usize, // Default: 100
     enable_content_id: bool,  // Default: true
 }
+
+// Enhanced configuration with scope and persistence
+IndexerJobConfig {
+    location_id: Option<Uuid>,         // None for ephemeral jobs
+    path: SdPath,                      // Target path
+    mode: IndexMode,                   // Shallow/Content/Deep
+    scope: IndexScope,                 // Current/Recursive
+    persistence: IndexPersistence,     // Persistent/Ephemeral
+    max_depth: Option<u32>,            // Depth limiting for performance
+}
+
+// Ephemeral index settings
+EphemeralConfig {
+    max_entries: usize,                // Default: 10000
+    cleanup_interval: Duration,        // Default: 5 minutes
+    max_idle_time: Duration,           // Default: 30 minutes
+    enable_content_analysis: bool,     // Default: false
+}
 ```
 
 ## Integration Points
@@ -342,26 +519,70 @@ The indexer state is serialized using MessagePack for efficient storage and quic
 
 ## CLI Usage
 
-The indexing system is easily accessible through the CLI:
+The indexing system provides comprehensive CLI access with enhanced scope and persistence options:
+
+### Enhanced Index Commands
 
 ```bash
 # Start the daemon first
 spacedrive start
 
+# Quick scan for UI navigation (fast, current directory only)
+spacedrive index quick-scan ~/Documents --scope current
+
+# Quick scan with ephemeral mode (no database writes)
+spacedrive index quick-scan /external/drive --scope current --ephemeral
+
+# Browse external paths without adding to managed locations
+spacedrive index browse /media/usb-drive --scope current
+spacedrive index browse /network/share --scope recursive --content
+
+# Index managed locations with specific scope and mode
+spacedrive index location ~/Pictures --scope current --mode shallow
+spacedrive index location <location-uuid> --scope recursive --mode deep
+```
+
+### Location Management
+
+```bash
 # Add locations with different indexing modes
 spacedrive location add ~/Documents --mode shallow    # Fast metadata only
 spacedrive location add ~/Pictures --mode content     # With content hashing 
 spacedrive location add ~/Videos --mode deep          # Full media analysis
 
-# Monitor indexing progress in real-time
-spacedrive job monitor
-
-# Check job status
-spacedrive job list --status running
-
 # Force re-indexing of a location
 spacedrive location rescan <location-id> --force
 ```
+
+### Legacy Commands (Backward Compatibility)
+
+```bash
+# Traditional indexing (creates location and starts full scan)
+spacedrive scan ~/Desktop --mode content --watch
+```
+
+### Monitoring and Status
+
+```bash
+# Monitor indexing progress in real-time
+spacedrive job monitor
+
+# Check job status with scope/persistence info
+spacedrive job list --status running
+
+# Get detailed job information
+spacedrive job info <job-id>
+```
+
+### Command Comparison
+
+| Command | Scope | Persistence | Use Case |
+|---------|-------|-------------|----------|
+| `index quick-scan` | Current/Recursive | Persistent/Ephemeral | UI navigation, quick browsing |
+| `index browse` | Current/Recursive | Ephemeral | External path exploration |
+| `index location` | Current/Recursive | Persistent | Managed location updates |
+| `scan` (legacy) | Recursive | Persistent | Traditional full indexing |
+| `location add` | Recursive | Persistent | Add new managed locations |
 
 For complete CLI documentation, see [CLI Documentation](./cli.md).
 

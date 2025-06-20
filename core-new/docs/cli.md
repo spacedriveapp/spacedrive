@@ -115,19 +115,42 @@ spacedrive location rescan <location-id> --force  # Full rescan, ignore change d
 
 **Note**: Location IDs are UUIDs displayed in the list command. All location operations work with the daemon automatically.
 
-### Indexing
+### Enhanced Indexing
+
+The new indexing system supports different scopes and persistence modes:
 
 ```bash
-# Start indexing with default settings (content mode)
-spacedrive index ~/Desktop
+# Quick scan of current directory only (no subdirectories)
+spacedrive index quick-scan /path/to/directory --scope current
 
-# Index with specific mode
-spacedrive index ~/Videos --mode shallow  # Metadata only
-spacedrive index ~/Photos --mode deep     # Full analysis
+# Quick scan with ephemeral mode (no database writes)
+spacedrive index quick-scan /path/to/directory --scope current --ephemeral
 
-# Index and watch progress
-spacedrive index ~/Documents --watch
+# Browse external paths without adding to managed locations
+spacedrive index browse /media/external-drive --scope current
+spacedrive index browse /network/drive --scope recursive --content
+
+# Index managed locations with specific scope
+spacedrive index location /managed/location --scope current --mode shallow
+spacedrive index location <location-uuid> --scope recursive --mode deep
+
+# Legacy full location indexing (backward compatibility)
+spacedrive scan /path/to/directory --mode content --watch
 ```
+
+**Index Scopes:**
+- `current`: Index only the specified directory (single level)
+- `recursive`: Index the directory and all subdirectories
+
+**Index Modes:**
+- `shallow`: Metadata only (fastest)
+- `content`: Metadata + content hashing (moderate)
+- `deep`: Full analysis including media metadata (slowest)
+
+**Use Cases:**
+- **UI Navigation**: `quick-scan --scope current` for instant directory viewing
+- **External Browsing**: `browse --ephemeral` for exploring non-managed paths
+- **Location Updates**: `location --scope current` to refresh specific directories
 
 ### Job Management
 

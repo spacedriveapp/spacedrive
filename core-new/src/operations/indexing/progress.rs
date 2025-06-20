@@ -88,6 +88,9 @@ mod tests {
             total_found: IndexerStats::default(),
             processing_rate: 0.0,
             estimated_remaining: None,
+            scope: None,
+            persistence: None,
+            is_ephemeral: false,
         };
 
         let generic = indexer_progress.to_generic_progress();
@@ -111,6 +114,9 @@ mod tests {
             },
             processing_rate: 25.5,
             estimated_remaining: Some(Duration::from_secs(120)),
+            scope: None,
+            persistence: None,
+            is_ephemeral: false,
         };
 
         let generic = indexer_progress.to_generic_progress();
@@ -131,6 +137,9 @@ mod tests {
             total_found: IndexerStats::default(),
             processing_rate: 12.0,
             estimated_remaining: Some(Duration::from_secs(30)),
+            scope: None,
+            persistence: None,
+            is_ephemeral: false,
         };
 
         let generic = indexer_progress.to_generic_progress();
@@ -148,6 +157,9 @@ mod tests {
             total_found: IndexerStats::default(),
             processing_rate: 0.0,
             estimated_remaining: Some(Duration::from_secs(5)),
+            scope: None,
+            persistence: None,
+            is_ephemeral: false,
         };
 
         let generic = indexer_progress.to_generic_progress();

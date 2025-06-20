@@ -39,8 +39,12 @@ pub enum Commands {
     #[command(subcommand)]
     Job(commands::JobCommands),
     
-    /// Start an indexing job
-    Index {
+    /// Enhanced indexing with scope and persistence options
+    #[command(subcommand)]
+    Index(commands::IndexCommands),
+    
+    /// Start a traditional indexing job (legacy)
+    Scan {
         /// Path to index
         path: PathBuf,
         
@@ -139,8 +143,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Library(cmd) => commands::handle_library_command(cmd, &core, &mut state).await?,
         Commands::Location(cmd) => commands::handle_location_command(cmd, &core, &mut state).await?,
         Commands::Job(cmd) => commands::handle_job_command(cmd, &core, &mut state).await?,
-        Commands::Index { path, mode, watch } => {
-            commands::handle_index_command(path, mode, watch, &core, &mut state).await?
+        Commands::Index(cmd) => commands::handle_index_command(cmd, &core, &mut state).await?,
+        Commands::Scan { path, mode, watch } => {
+            commands::handle_legacy_scan_command(path, mode, watch, &core, &mut state).await?
         }
         Commands::Monitor => monitor::run_monitor(&core).await?,
         Commands::Status => commands::handle_status_command(&core, &state).await?,

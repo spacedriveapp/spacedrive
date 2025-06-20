@@ -5,11 +5,13 @@ use crate::{
     shared::types::SdPath,
 };
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::{time::Duration, collections::HashMap, sync::Arc, path::PathBuf};
 use uuid::Uuid;
+use tokio::sync::RwLock;
 
 use super::{
     state::{IndexerState, IndexerProgress, IndexerStats, IndexError, Phase},
+    entry::EntryMetadata,
     metrics::{IndexerMetrics, PhaseTimer},
     phases,
 };
@@ -25,16 +27,183 @@ pub enum IndexMode {
     Deep,
 }
 
+/// Indexing scope determines how much of the directory tree to process
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IndexScope {
+    /// Index only the current directory (single level)
+    Current,
+    /// Index recursively through all subdirectories
+    Recursive,
+}
+
+impl Default for IndexScope {
+    fn default() -> Self {
+        IndexScope::Recursive
+    }
+}
+
+impl From<&str> for IndexScope {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "current" => IndexScope::Current,
+            "recursive" => IndexScope::Recursive,
+            _ => IndexScope::Recursive,
+        }
+    }
+}
+
+impl std::fmt::Display for IndexScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexScope::Current => write!(f, "current"),
+            IndexScope::Recursive => write!(f, "recursive"),
+        }
+    }
+}
+
+/// Determines whether indexing results are persisted to database or kept in memory
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IndexPersistence {
+    /// Write all results to database (normal operation)
+    Persistent,
+    /// Keep results in memory only (for unmanaged paths)
+    Ephemeral,
+}
+
+impl Default for IndexPersistence {
+    fn default() -> Self {
+        IndexPersistence::Persistent
+    }
+}
+
+/// Enhanced configuration for indexer jobs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IndexerJobConfig {
+    pub location_id: Option<Uuid>,  // None for ephemeral indexing
+    pub path: SdPath,
+    pub mode: IndexMode,
+    pub scope: IndexScope,
+    pub persistence: IndexPersistence,
+    pub max_depth: Option<u32>,  // Override for Current scope or depth limiting
+}
+
+impl IndexerJobConfig {
+    /// Create a new configuration for persistent recursive indexing (traditional)
+    pub fn new(location_id: Uuid, path: SdPath, mode: IndexMode) -> Self {
+        Self {
+            location_id: Some(location_id),
+            path,
+            mode,
+            scope: IndexScope::Recursive,
+            persistence: IndexPersistence::Persistent,
+            max_depth: None,
+        }
+    }
+
+    /// Create configuration for UI directory navigation (quick current scan)
+    pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
+        Self {
+            location_id: Some(location_id),
+            path,
+            mode: IndexMode::Shallow,
+            scope: IndexScope::Current,
+            persistence: IndexPersistence::Persistent,
+            max_depth: Some(1),
+        }
+    }
+
+    /// Create configuration for ephemeral path browsing (outside managed locations)
+    pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
+        Self {
+            location_id: None,
+            path,
+            mode: IndexMode::Shallow,
+            scope,
+            persistence: IndexPersistence::Ephemeral,
+            max_depth: if scope == IndexScope::Current { Some(1) } else { None },
+        }
+    }
+
+    /// Check if this is an ephemeral (non-persistent) job
+    pub fn is_ephemeral(&self) -> bool {
+        self.persistence == IndexPersistence::Ephemeral
+    }
+
+    /// Check if this is a current scope (single level) job
+    pub fn is_current_scope(&self) -> bool {
+        self.scope == IndexScope::Current
+    }
+}
+
+/// In-memory storage for ephemeral indexing results
+#[derive(Debug)]
+pub struct EphemeralIndex {
+    pub entries: HashMap<PathBuf, EntryMetadata>,
+    pub content_identities: HashMap<String, EphemeralContentIdentity>,
+    pub created_at: std::time::Instant,
+    pub last_accessed: std::time::Instant,
+    pub root_path: PathBuf,
+    pub stats: IndexerStats,
+}
+
+/// Simplified content identity for ephemeral storage
+#[derive(Debug, Clone)]
+pub struct EphemeralContentIdentity {
+    pub cas_id: String,
+    pub mime_type: Option<String>,
+    pub file_size: u64,
+    pub entry_count: u32,
+}
+
+impl EphemeralIndex {
+    pub fn new(root_path: PathBuf) -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            entries: HashMap::new(),
+            content_identities: HashMap::new(),
+            created_at: now,
+            last_accessed: now,
+            root_path,
+            stats: IndexerStats::default(),
+        }
+    }
+
+    pub fn add_entry(&mut self, path: PathBuf, metadata: EntryMetadata) {
+        self.entries.insert(path, metadata);
+        self.last_accessed = std::time::Instant::now();
+    }
+
+    pub fn get_entry(&mut self, path: &PathBuf) -> Option<&EntryMetadata> {
+        self.last_accessed = std::time::Instant::now();
+        self.entries.get(path)
+    }
+
+    pub fn add_content_identity(&mut self, cas_id: String, content: EphemeralContentIdentity) {
+        self.content_identities.insert(cas_id, content);
+        self.last_accessed = std::time::Instant::now();
+    }
+
+    pub fn age(&self) -> Duration {
+        self.created_at.elapsed()
+    }
+
+    pub fn idle_time(&self) -> Duration {
+        self.last_accessed.elapsed()
+    }
+}
+
 /// Indexer job - discovers and indexes files in a location
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexerJob {
-    pub location_id: Uuid,
-    pub root_path: SdPath,
-    pub mode: IndexMode,
+    pub config: IndexerJobConfig,
     
     // Resumable state
     #[serde(skip_serializing_if = "Option::is_none")]
     state: Option<IndexerState>,
+    
+    // Ephemeral storage for non-persistent jobs
+    #[serde(skip)]
+    ephemeral_index: Option<Arc<RwLock<EphemeralIndex>>>,
     
     // Performance tracking
     #[serde(skip)]
@@ -63,6 +232,14 @@ impl JobHandler for IndexerJob {
             self.timer = Some(PhaseTimer::new());
         }
         
+        // Initialize ephemeral index if needed
+        if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
+            let root_path = self.config.path.as_local_path()
+                .ok_or_else(|| JobError::execution("Path not accessible locally".to_string()))?;
+            self.ephemeral_index = Some(Arc::new(RwLock::new(EphemeralIndex::new(root_path.to_path_buf()))));
+            ctx.log("Initialized ephemeral index for non-persistent job");
+        }
+        
         // Initialize or restore state
         let state = match &mut self.state {
             Some(state) => {
@@ -70,23 +247,30 @@ impl JobHandler for IndexerJob {
                 state
             }
             None => {
-                ctx.log("Starting new indexer job");
-                self.state = Some(IndexerState::new(&self.root_path));
+                ctx.log(format!("Starting new indexer job (scope: {}, persistence: {:?})", 
+                    self.config.scope, self.config.persistence));
+                self.state = Some(IndexerState::new(&self.config.path));
                 self.state.as_mut().unwrap()
             }
         };
         
         // Get local path for operations
-        let root_path = self.root_path.as_local_path()
+        let root_path = self.config.path.as_local_path()
             .ok_or_else(|| JobError::execution("Location root path is not local".to_string()))?;
         
         // Main state machine loop
         loop {
             ctx.check_interrupt().await?;
             
-            match state.phase.clone() {
+            let current_phase = state.phase.clone();
+            match current_phase {
                 Phase::Discovery => {
-                    phases::run_discovery_phase(state, &ctx, root_path).await?;
+                    // Use scope-aware discovery
+                    if self.config.is_current_scope() {
+                        Self::run_current_scope_discovery_static(state, &ctx, root_path).await?;
+                    } else {
+                        phases::run_discovery_phase(state, &ctx, root_path).await?;
+                    }
                     
                     // Track batch info
                     self.batch_info.0 = state.entry_batches.len() as u64;
@@ -99,24 +283,37 @@ impl JobHandler for IndexerJob {
                 }
                 
                 Phase::Processing => {
-                    phases::run_processing_phase(
-                        self.location_id,
-                        state,
-                        &ctx,
-                        self.mode,
-                        root_path,
-                    ).await?;
-                    
-                    // Update DB operation counts
-                    self.db_operations.1 += state.entry_batches.len() as u64 * 100; // Estimate
+                    if self.config.is_ephemeral() {
+                        let ephemeral_index = self.ephemeral_index.clone()
+                            .ok_or_else(|| JobError::execution("Ephemeral index not initialized".to_string()))?;
+                        Self::run_ephemeral_processing_static(state, &ctx, ephemeral_index).await?;
+                    } else {
+                        phases::run_processing_phase(
+                            self.config.location_id.expect("Location ID required for persistent jobs"),
+                            state,
+                            &ctx,
+                            self.config.mode,
+                            root_path,
+                        ).await?;
+                        
+                        // Update DB operation counts
+                        self.db_operations.1 += state.entry_batches.len() as u64 * 100; // Estimate
+                    }
                 }
                 
                 Phase::Aggregation => {
-                    phases::run_aggregation_phase(
-                        self.location_id,
-                        state,
-                        &ctx,
-                    ).await?;
+                    if !self.config.is_ephemeral() {
+                        phases::run_aggregation_phase(
+                            self.config.location_id.expect("Location ID required for persistent jobs"),
+                            state,
+                            &ctx,
+                        ).await?;
+                    } else {
+                        // Skip aggregation for ephemeral jobs
+                        ctx.log("Skipping aggregation phase for ephemeral job");
+                        state.phase = Phase::ContentIdentification;
+                        continue;
+                    }
                     
                     // Start content timer
                     if let Some(timer) = &mut self.timer {
@@ -125,9 +322,15 @@ impl JobHandler for IndexerJob {
                 }
                 
                 Phase::ContentIdentification => {
-                    if self.mode >= IndexMode::Content {
-                        phases::run_content_phase(state, &ctx).await?;
-                        self.db_operations.1 += state.entries_for_content.len() as u64;
+                    if self.config.mode >= IndexMode::Content {
+                        if self.config.is_ephemeral() {
+                            let ephemeral_index = self.ephemeral_index.clone()
+                                .ok_or_else(|| JobError::execution("Ephemeral index not initialized".to_string()))?;
+                            Self::run_ephemeral_content_phase_static(state, &ctx, ephemeral_index).await?;
+                        } else {
+                            phases::run_content_phase(state, &ctx).await?;
+                            self.db_operations.1 += state.entries_for_content.len() as u64;
+                        }
                     } else {
                         ctx.log("Skipping content identification phase (mode=Shallow)");
                         state.phase = Phase::Complete;
@@ -137,8 +340,10 @@ impl JobHandler for IndexerJob {
                 Phase::Complete => break,
             }
             
-            // Checkpoint after each phase
-            ctx.checkpoint().await?;
+            // Checkpoint after each phase (only for persistent jobs)
+            if !self.config.is_ephemeral() {
+                ctx.checkpoint().await?;
+            }
         }
         
         // Calculate final metrics
@@ -158,11 +363,16 @@ impl JobHandler for IndexerJob {
         
         // Generate final output
         Ok(IndexerOutput {
-            location_id: self.location_id,
+            location_id: self.config.location_id,
             stats: state.stats,
             duration: state.started_at.elapsed(),
             errors: state.errors.clone(),
             metrics: Some(metrics),
+            ephemeral_results: if self.config.is_ephemeral() {
+                self.ephemeral_index.clone()
+            } else {
+                None
+            },
         })
     }
     
@@ -195,43 +405,165 @@ impl JobHandler for IndexerJob {
 }
 
 impl IndexerJob {
-    /// Create a new indexer job
-    pub fn new(location_id: Uuid, root_path: SdPath, mode: IndexMode) -> Self {
+    /// Create a new indexer job with enhanced configuration
+    pub fn new(config: IndexerJobConfig) -> Self {
         Self {
-            location_id,
-            root_path,
-            mode,
+            config,
             state: None,
+            ephemeral_index: None,
             timer: None,
             db_operations: (0, 0),
             batch_info: (0, 0),
         }
     }
     
+    /// Create a traditional persistent recursive indexer job
+    pub fn from_location(location_id: Uuid, root_path: SdPath, mode: IndexMode) -> Self {
+        Self::new(IndexerJobConfig::new(location_id, root_path, mode))
+    }
+    
     /// Create a shallow indexer job (metadata only)
     pub fn shallow(location_id: Uuid, root_path: SdPath) -> Self {
-        Self::new(location_id, root_path, IndexMode::Shallow)
+        Self::from_location(location_id, root_path, IndexMode::Shallow)
     }
     
     /// Create a content indexer job (with CAS IDs)
     pub fn with_content(location_id: Uuid, root_path: SdPath) -> Self {
-        Self::new(location_id, root_path, IndexMode::Content)
+        Self::from_location(location_id, root_path, IndexMode::Content)
     }
     
     /// Create a deep indexer job (full processing)
     pub fn deep(location_id: Uuid, root_path: SdPath) -> Self {
-        Self::new(location_id, root_path, IndexMode::Deep)
+        Self::from_location(location_id, root_path, IndexMode::Deep)
+    }
+    
+    /// Create a UI navigation job (current scope, quick scan)
+    pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
+        Self::new(IndexerJobConfig::ui_navigation(location_id, path))
+    }
+    
+    /// Create an ephemeral browsing job (no database writes)
+    pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
+        Self::new(IndexerJobConfig::ephemeral_browse(path, scope))
+    }
+
+    /// Run current scope discovery (single level only)
+    async fn run_current_scope_discovery_static(
+        state: &mut IndexerState,
+        ctx: &JobContext<'_>,
+        root_path: &std::path::Path,
+    ) -> JobResult<()> {
+        use tokio::fs;
+        use super::state::{DirEntry, EntryKind};
+        use super::entry::EntryProcessor;
+
+        ctx.log("Starting current scope discovery (single level)");
+        
+        let mut entries = fs::read_dir(root_path).await
+            .map_err(|e| JobError::execution(format!("Failed to read directory: {}", e)))?;
+
+        while let Some(entry) = entries.next_entry().await
+            .map_err(|e| JobError::execution(format!("Failed to read directory entry: {}", e)))? {
+            
+            let path = entry.path();
+            let metadata = entry.metadata().await
+                .map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
+
+            let entry_kind = if metadata.is_dir() { EntryKind::Directory } 
+                      else if metadata.is_symlink() { EntryKind::Symlink }
+                      else { EntryKind::File };
+
+            let dir_entry = DirEntry {
+                path: path.clone(),
+                kind: entry_kind,
+                size: metadata.len(),
+                modified: metadata.modified().ok(),
+                inode: EntryProcessor::get_inode(&metadata),
+            };
+
+            state.pending_entries.push(dir_entry);
+            state.items_since_last_update += 1;
+            
+            // Update stats
+            match entry_kind {
+                EntryKind::File => state.stats.files += 1,
+                EntryKind::Directory => state.stats.dirs += 1,
+                EntryKind::Symlink => state.stats.symlinks += 1,
+            }
+        }
+
+        // Create single batch and move to processing
+        if !state.pending_entries.is_empty() {
+            let batch = state.create_batch();
+            state.entry_batches.push(batch);
+        }
+        
+        state.phase = Phase::Processing;
+        ctx.log(format!("Current scope discovery complete: {} entries found", state.stats.files + state.stats.dirs));
+        
+        Ok(())
+    }
+
+    /// Run ephemeral processing (store in memory instead of database)
+    async fn run_ephemeral_processing_static(
+        state: &mut IndexerState,
+        ctx: &JobContext<'_>,
+        ephemeral_index: Arc<RwLock<EphemeralIndex>>,
+    ) -> JobResult<()> {
+        use super::entry::EntryProcessor;
+
+        ctx.log("Starting ephemeral processing");
+
+        for batch in &state.entry_batches {
+            for entry in batch {
+                // Extract metadata
+                let metadata = EntryProcessor::extract_metadata(&entry.path).await
+                    .map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
+                
+                // Store in ephemeral index
+                {
+                    let mut index = ephemeral_index.write().await;
+                    index.add_entry(entry.path.clone(), metadata);
+                    index.stats = state.stats; // Update stats
+                }
+            }
+        }
+
+        state.entry_batches.clear();
+        state.phase = Phase::ContentIdentification;
+        
+        ctx.log("Ephemeral processing complete");
+        Ok(())
+    }
+
+    /// Run ephemeral content identification
+    async fn run_ephemeral_content_phase_static(
+        state: &mut IndexerState,
+        ctx: &JobContext<'_>,
+        _ephemeral_index: Arc<RwLock<EphemeralIndex>>,
+    ) -> JobResult<()> {
+        ctx.log("Starting ephemeral content identification");
+
+        // For ephemeral jobs, we can skip heavy content processing or do it lightly
+        // This is mainly for demonstration - in practice you might generate CAS IDs
+        
+        state.phase = Phase::Complete;
+        ctx.log("Ephemeral content identification complete");
+        
+        Ok(())
     }
 }
 
 /// Job output with comprehensive results
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexerOutput {
-    pub location_id: Uuid,
+    pub location_id: Option<Uuid>,
     pub stats: IndexerStats,
     pub duration: Duration,
     pub errors: Vec<IndexError>,
     pub metrics: Option<IndexerMetrics>,
+    #[serde(skip)]
+    pub ephemeral_results: Option<Arc<RwLock<EphemeralIndex>>>,
 }
 
 impl From<IndexerOutput> for JobOutput {

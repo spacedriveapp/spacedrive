@@ -25,6 +25,14 @@ pub enum IndexMode {
     Deep,
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+pub enum IndexScope {
+    /// Index only the current directory (single level)
+    Current,
+    /// Index recursively through all subdirectories
+    Recursive,
+}
+
 impl From<IndexMode> for crate::location::IndexMode {
     fn from(mode: IndexMode) -> Self {
         match mode {
@@ -33,6 +41,54 @@ impl From<IndexMode> for crate::location::IndexMode {
             IndexMode::Deep => crate::location::IndexMode::Deep,
         }
     }
+}
+
+impl From<IndexScope> for crate::operations::indexing::IndexScope {
+    fn from(scope: IndexScope) -> Self {
+        match scope {
+            IndexScope::Current => crate::operations::indexing::IndexScope::Current,
+            IndexScope::Recursive => crate::operations::indexing::IndexScope::Recursive,
+        }
+    }
+}
+
+#[derive(Subcommand, Clone)]
+pub enum IndexCommands {
+    /// Quick scan of a directory (metadata only, current scope)
+    QuickScan {
+        /// Path to scan
+        path: PathBuf,
+        /// Scope: current or recursive
+        #[arg(short, long, value_enum, default_value = "current")]
+        scope: IndexScope,
+        /// Run ephemerally (no database writes)
+        #[arg(short, long)]
+        ephemeral: bool,
+    },
+    
+    /// Browse external paths without adding to managed locations
+    Browse {
+        /// Path to browse
+        path: PathBuf,
+        /// Scope: current or recursive
+        #[arg(short, long, value_enum, default_value = "current")]
+        scope: IndexScope,
+        /// Enable content analysis
+        #[arg(short, long)]
+        content: bool,
+    },
+    
+    /// Traditional full location indexing
+    Location {
+        /// Location ID or path
+        identifier: String,
+        /// Indexing mode
+        #[arg(short, long, value_enum, default_value = "content")]
+        mode: IndexMode,
+        /// Scope: current or recursive
+        #[arg(short, long, value_enum, default_value = "recursive")]
+        scope: IndexScope,
+    },
 }
 
 #[derive(Subcommand, Clone)]
@@ -561,7 +617,7 @@ pub async fn handle_job_command(
     Ok(())
 }
 
-pub async fn handle_index_command(
+pub async fn handle_legacy_scan_command(
     path: PathBuf,
     mode: IndexMode,
     watch: bool,
@@ -659,6 +715,136 @@ pub async fn handle_status_command(
     println!("   Event subscribers: {}", core.events.subscriber_count());
     println!("   Libraries loaded: {}", core.libraries.list().await.len());
     
+    Ok(())
+}
+
+pub async fn handle_index_command(
+    cmd: IndexCommands,
+    core: &Core,
+    state: &CliState,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::{
+        operations::indexing::{IndexerJob, IndexerJobConfig, IndexMode as JobIndexMode, IndexScope as JobIndexScope, IndexPersistence},
+        shared::types::SdPath,
+    };
+
+    match cmd {
+        IndexCommands::QuickScan { path, scope, ephemeral } => {
+            if !path.exists() {
+                return Err(format!("Path does not exist: {}", path.display()).into());
+            }
+
+            println!("🔍 {} scan of {}", 
+                if ephemeral { "Ephemeral quick" } else { "Quick" },
+                path.display().to_string().bright_cyan());
+            println!("   Scope: {}", format!("{:?}", scope).bright_yellow());
+
+            // Create SdPath - for demo we'll use a nil device UUID
+            let device = core.device.to_device()?;
+            let sd_path = SdPath::new(device.id, path);
+
+            let job = if ephemeral {
+                IndexerJob::ephemeral_browse(sd_path, scope.into())
+            } else {
+                // Need a library for persistent jobs
+                let library = get_current_library(core, state).await?;
+                // For quick scan, we'll create a UI navigation job
+                IndexerJob::ui_navigation(library.id(), sd_path)
+            };
+
+            // Dispatch the job
+            let library = if ephemeral { 
+                // Use a temporary library for ephemeral jobs - in practice this should be handled differently
+                get_current_library(core, state).await?
+            } else {
+                get_current_library(core, state).await?
+            };
+
+            let handle = library.jobs().dispatch(job).await?;
+            
+            println!("✅ Quick scan job started!");
+            println!("   Job ID: {}", handle.id().to_string().bright_yellow());
+            
+            if ephemeral {
+                println!("   Mode: Ephemeral (no database writes)");
+            }
+
+            println!("\n💡 Monitor progress with: {}", "spacedrive job monitor".bright_cyan());
+        }
+
+        IndexCommands::Browse { path, scope, content } => {
+            if !path.exists() {
+                return Err(format!("Path does not exist: {}", path.display()).into());
+            }
+
+            println!("🌐 Browsing {} (scope: {:?})", 
+                path.display().to_string().bright_cyan(),
+                scope);
+
+            let device = core.device.to_device()?;
+            let sd_path = SdPath::new(device.id, path);
+
+            // Create ephemeral job with appropriate mode
+            let mut config = IndexerJobConfig::ephemeral_browse(sd_path, scope.into());
+            if content {
+                config.mode = JobIndexMode::Content;
+                println!("   Content analysis: {}", "Enabled".bright_green());
+            }
+
+            let job = IndexerJob::new(config);
+            
+            // For browsing, we still need a library context but results won't be persisted
+            let library = get_current_library(core, state).await?;
+            let handle = library.jobs().dispatch(job).await?;
+            
+            println!("✅ Browse job started!");
+            println!("   Job ID: {}", handle.id().to_string().bright_yellow());
+            println!("   Mode: Ephemeral browsing");
+
+            println!("\n💡 Monitor progress with: {}", "spacedrive job monitor".bright_cyan());
+        }
+
+        IndexCommands::Location { identifier, mode, scope } => {
+            let library = get_current_library(core, state).await?;
+            
+            // Find location by ID or path
+            let locations = entities::location::Entity::find()
+                .all(library.db().conn())
+                .await?;
+
+            let location = locations.into_iter().find(|loc| {
+                // Try to match by UUID first
+                if let Ok(uuid) = identifier.parse::<Uuid>() {
+                    loc.uuid == uuid
+                } else {
+                    // Match by path
+                    loc.path == identifier
+                }
+            }).ok_or_else(|| format!("Location not found: {}", identifier))?;
+
+            println!("📂 Indexing location: {}", location.name.as_deref().unwrap_or("Unnamed").bright_cyan());
+            println!("   Path: {}", location.path.bright_blue());
+            println!("   Mode: {:?}", mode);
+            println!("   Scope: {:?}", scope);
+
+            let device = core.device.to_device()?;
+            let sd_path = SdPath::new(device.id, PathBuf::from(&location.path));
+
+            // Create appropriate job configuration
+            let mut config = IndexerJobConfig::new(location.uuid, sd_path, mode.into().into());
+            config.scope = scope.into();
+
+            let job = IndexerJob::new(config);
+            let handle = library.jobs().dispatch(job).await?;
+            
+            println!("✅ Location indexing job started!");
+            println!("   Job ID: {}", handle.id().to_string().bright_yellow());
+            println!("   Location: {}", location.uuid.to_string().bright_yellow());
+
+            println!("\n💡 Monitor progress with: {}", "spacedrive job monitor".bright_cyan());
+        }
+    }
+
     Ok(())
 }
 

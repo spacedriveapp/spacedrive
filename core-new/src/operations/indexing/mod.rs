@@ -16,13 +16,19 @@ pub mod metrics;
 pub mod phases;
 pub mod progress;
 pub mod change_detection;
+pub mod persistence;
 
 // Re-exports for convenience
-pub use job::{IndexerJob, IndexMode};
+pub use job::{
+    IndexerJob, IndexMode, IndexScope, IndexPersistence, 
+    IndexerJobConfig, EphemeralIndex, EphemeralContentIdentity,
+    IndexerOutput
+};
 pub use state::{IndexerState, IndexerProgress, IndexPhase, IndexerStats};
 pub use entry::{EntryProcessor, EntryMetadata};
 pub use filters::should_skip_path;
 pub use metrics::IndexerMetrics;
+pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 
 // Rules system will be integrated here in the future
 // pub mod rules;

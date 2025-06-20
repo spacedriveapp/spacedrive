@@ -48,6 +48,9 @@ pub async fn run_content_phase(
             total_found: state.stats,
             processing_rate: state.calculate_rate(),
             estimated_remaining: state.estimate_remaining(),
+            scope: None,
+            persistence: None,
+            is_ephemeral: false,
         };
         ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
