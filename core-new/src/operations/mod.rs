@@ -8,6 +8,7 @@
 
 pub mod file_ops;
 pub mod indexing;
+pub mod media_processing;
 
 /// Register all jobs with the job system
 /// 
@@ -22,6 +23,9 @@ pub fn register_all_jobs() {
     
     // Indexing jobs
     register_job::<indexing::IndexerJob>();
+    
+    // Media processing jobs
+    register_job::<media_processing::ThumbnailJob>();
 }
 
 /// Register a single job type with the job system

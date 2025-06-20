@@ -1,602 +1,307 @@
-# Spacedrive Core v2: The Architecture That Delivers VDFS
+# Spacedrive Core v2: Clean Architecture for the VDFS Future
 
-A ground-up reimplementation of Spacedrive's core that **actually** solves the Virtual Distributed File System promise. After 500,000 installs taught us what doesn't work, we rebuilt everything that does.
+A complete reimplementation of Spacedrive's core with modern Rust patterns, unified file operations, and a foundation built for the Virtual Distributed File System vision.
 
-## The Problems We Solved
+## The Foundation We Built
 
-The original core was architecturally flawed in fundamental ways:
+This core rewrite addresses fundamental architectural issues from the original implementation while establishing clean patterns for future development:
 
-### 1. **The Dual System Nightmare**
+### 1. **Unified File System Architecture**
+Single abstraction for all file operations:
 ```rust
-// Original: Two completely separate file systems
-copy_indexed_files(location_id, file_path_ids) // Database-driven
-copy_ephemeral_files(sources: Vec<PathBuf>, target: PathBuf) // Direct filesystem
+// No more dual systems - everything works through SdPath
+pub struct SdPath {
+    device_id: Uuid,    // Which device
+    path: PathBuf,      // Path on that device  
+}
 
-// Result: You literally couldn't copy between indexed and non-indexed locations
+// Same operations work everywhere
+copy_files(sources: Vec<SdPath>, destination: SdPath)
 ```
 
-### 2. **The Prisma Trap**
-- Locked into `prisma-client-rust` - **a fork we created and then abandoned**
-- Custom CRDT sync generation that only worked with our Prisma fork
-- No migration path as Prisma moves away from Rust
+### 2. **Modern Database Foundation**
+Built on SeaORM with SQLite:
+- No abandoned dependencies
+- Proper migration system
+- Type-safe queries
+- Clean entity relationships
 
-### 3. **The invalidate_query! Anti-Pattern**
+### 3. **Clean Job System**
+Background processing with proper patterns:
 ```rust
-// Backend hardcoded with frontend React Query keys
-invalidate_query!(library, "search.paths");
-invalidate_query!(library, "search.ephemeralPaths");
-// Violated every architectural principle
+// Standardized job configuration
+pub struct IndexerJobConfig {
+    location_id: Option<Uuid>,
+    path: SdPath,
+    mode: IndexMode,
+    scope: IndexScope,        // Current vs Recursive
+    persistence: IndexPersistence, // Database vs Ephemeral
+}
 ```
 
-### 4. **Identity Crisis**
-Three different concepts for the same thing (a device):
-- **Node**: P2P identity
-- **Device**: Sync identity  
-- **Instance**: Library-specific identity
-
-### 5. **Scattered Core Logic**
-```
-/core/src/
-  old_job/           # Replaced but still referenced
-  old_p2p/           # Replaced but still used
-  object/fs/old_*.rs # Core file operations hidden in "old" files
-  heavy-lifting/     # Critical indexing buried in vague name
+### 4. **Event-Driven Architecture**
+Replace invalidation anti-patterns:
+```rust
+pub enum CoreEvent {
+    FileCreated { path: SdPath },
+    IndexingProgress { location_id: Uuid, progress: f64 },
+    DeviceConnected { device_id: Uuid },
+}
 ```
 
-## The Architectural Revolution
+### 5. **Domain-Driven Organization**
+Clear separation of concerns:
+```
+src/
+├── domain/           # Core business entities
+├── operations/       # What users do (copy, index, search)
+├── infrastructure/   # External interfaces (CLI, API, database)
+└── shared/          # Common types and utilities
+```
 
-### 1. **SdPath: Device Boundaries Disappear**
+## Core Features
 
-The breakthrough that makes VDFS real:
+### 1. **SdPath: Cross-Device File Operations**
+
+The foundation for virtual distributed file systems:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SdPath {
-    device_id: Uuid,     // Which device
-    path: PathBuf,       // Path on that device
+    device_id: Uuid,            // Which device
+    path: PathBuf,              // Path on that device
+    library_id: Option<Uuid>,   // Optional library context
 }
 
 impl SdPath {
-    pub fn new(device_id: Uuid, path: impl Into<PathBuf>) -> Self {
-        Self { device_id, path: path.into() }
-    }
-    
-    // Cross-device operations become trivial
-    pub async fn copy_to(&self, dest: SdPath, core: &Core) -> Result<()> {
-        copy_files(core, vec![self.clone()], dest).await
-    }
-}
-
-// Revolutionary: Same API for local and remote operations
-async fn copy_files(
-    core: &Core,
-    sources: Vec<SdPath>,    // From any devices
-    destination: SdPath,     // To any device
-) -> Result<()>
-```
-
-**Why this changes everything:**
-- Device becomes just another path component
-- Network complexity handled transparently in the core
-- File operations work the same everywhere
-- Enables true Virtual Distributed File System
-
-### 2. **Unified File Operations**
-
-No more dual systems:
-
-```rust
-pub enum LocationTarget {
-    Indexed(ManagedLocation),     // Rich metadata, database tracking
-    Ephemeral(PathBuf),          // Direct filesystem access
-    Hybrid(ManagedLocation, PathBuf), // Best of both worlds
-}
-
-// But exposed through a single, consistent interface
-impl FileOperations for LocationTarget {
-    async fn copy(&self, sources: Vec<SdPath>, dest: SdPath) -> Result<()> {
-        match self {
-            Indexed(location) => self.copy_with_metadata(sources, dest).await,
-            Ephemeral(path) => self.copy_direct(sources, dest).await,
-            Hybrid(location, path) => self.copy_smart(sources, dest).await,
-        }
-    }
+    pub fn new(device_id: Uuid, path: impl Into<PathBuf>) -> Self;
+    pub fn local(path: impl Into<PathBuf>) -> Self;
+    pub fn is_local(&self) -> bool;
+    pub fn display(&self) -> String;
 }
 ```
 
-**The breakthrough:**
-- Every file operation works everywhere
-- Cross-boundary operations "just work"
-- Single code path, multiple optimizations
+**Design benefits:**
+- Unified abstraction for all file locations
+- Prepares foundation for cross-device operations  
+- Clean API that works locally today, networked tomorrow
 
-### 3. **SeaORM: Modern, Maintainable Persistence**
+### 2. **Enhanced Indexing System**
+
+Flexible indexing with scope and persistence control:
 
 ```rust
-// Clean, modern ORM with active development
-use sea_orm::{entity::prelude::*, Database, EntityTrait};
+pub enum IndexScope {
+    Current,    // Single directory level (<500ms target)
+    Recursive,  // Full tree traversal
+}
 
+pub enum IndexPersistence {
+    Persistent,  // Database storage
+    Ephemeral,   // Memory-only browsing
+}
+
+pub struct IndexerJobConfig {
+    location_id: Option<Uuid>,
+    path: SdPath,
+    mode: IndexMode,
+    scope: IndexScope,
+    persistence: IndexPersistence,
+}
+```
+
+**Key capabilities:**
+- **Current scope**: Fast directory browsing for UI navigation
+- **Ephemeral mode**: Browse external paths without database pollution
+- **Smart constructors**: Pre-configured patterns for common use cases
+
+### 3. **Modern Database Layer**
+
+Built on SeaORM with SQLite for reliability:
+
+```rust
+// Entry - universal file/directory model
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "entries")]
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub uuid: Uuid,
-    pub location_id: Uuid,
-    pub relative_path: String,  // Materialized path for 69% size reduction
+    pub location_id: i32,
+    pub relative_path: String,      // Materialized paths for efficiency
     pub name: String,
-    pub kind: EntryKind,
-    pub size: i64,
-    pub modified_at: Option<DateTime<Utc>>,
-    pub content_id: Option<i32>,
-}
-
-// Relationships that actually work
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(belongs_to = "super::location::Entity", from = "Column::LocationId", to = "super::location::Column::Uuid")]
-    Location,
-    #[sea_orm(belongs_to = "super::content_identity::Entity", from = "Column::ContentId", to = "super::content_identity::Column::Id")]
-    ContentIdentity,
+    pub kind: String,               // "file" or "directory"
+    pub metadata_id: i32,           // Always present - immediate metadata
+    pub content_id: Option<i32>,    // Optional content addressing
+    pub size: u64,
+    // ... timestamps and metadata
 }
 ```
 
-**Architectural benefits:**
-- No abandoned dependencies
-- Modern async patterns throughout
+**Architecture benefits:**
+- Modern async ORM with active maintenance
+- Materialized path storage for query performance
+- Type-safe database operations
 - Proper migration system
-- Clean entity relationships
 
-### 4. **Event-Driven Architecture**
+### 4. **Working CLI Interface**
 
-```rust
-// Clean event system replaces invalidation anti-pattern
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CoreEvent {
-    // File system events
-    FileCreated { path: SdPath, metadata: EntryMetadata },
-    FileDeleted { path: SdPath },
-    FileMoved { from: SdPath, to: SdPath },
-    
-    // Device events  
-    DeviceConnected { device_id: Uuid, capabilities: DeviceCapabilities },
-    DeviceDisconnected { device_id: Uuid },
-    
-    // Indexing events
-    IndexingStarted { location_id: Uuid, scope: IndexScope },
-    IndexingProgress { location_id: Uuid, progress: IndexerProgress },
-    IndexingComplete { location_id: Uuid, stats: IndexerStats },
-}
-
-// Backend emits events, frontend decides what to invalidate
-impl EventBus {
-    pub async fn emit(&self, event: CoreEvent) {
-        for subscriber in &self.subscribers {
-            subscriber.handle_event(&event).await;
-        }
-    }
-}
-```
-
-**Architectural improvement:**
-- Backend stays focused on domain logic
-- Frontend controls its own state management
-- Type-safe event definitions
-- Extensible for future features
-
-### 5. **Production-Grade Indexing System**
-
-The original indexing was actually sophisticated. We kept the good parts:
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IndexerJobConfig {
-    pub location_id: Option<Uuid>,      // None for ephemeral
-    pub path: SdPath,                   // What to index
-    pub mode: IndexMode,                // Shallow/Content/Deep
-    pub scope: IndexScope,              // Current/Recursive
-    pub persistence: IndexPersistence,  // Persistent/Ephemeral
-    pub max_depth: Option<u32>,         // Performance control
-}
-
-// Smart constructors for common patterns
-impl IndexerJobConfig {
-    /// UI navigation: fast current directory scan
-    pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
-        Self {
-            location_id: Some(location_id),
-            path,
-            mode: IndexMode::Shallow,
-            scope: IndexScope::Current,     // <500ms target
-            persistence: IndexPersistence::Persistent,
-            max_depth: Some(1),
-        }
-    }
-    
-    /// External browsing: no database pollution
-    pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
-        Self {
-            location_id: None,
-            path,
-            mode: IndexMode::Shallow,
-            scope,
-            persistence: IndexPersistence::Ephemeral,  // Memory only
-            max_depth: if scope == IndexScope::Current { Some(1) } else { None },
-        }
-    }
-}
-```
-
-**Enhanced capabilities:**
-- **Scope control**: Current (single-level) vs Recursive (full tree)
-- **Ephemeral mode**: Browse external paths without database writes
-- **Performance targets**: <500ms for UI navigation
-- **Progress tracking**: Real-time updates with detailed metrics
-
-### 6. **Self-Contained Libraries**
-
-```rust
-// Libraries are just folders - radically simple
-pub struct LibraryLayout {
-    root: PathBuf,           // ~/Documents/My Photos.sdlibrary/
-    config: PathBuf,         // library.json
-    database: PathBuf,       // database.db (all metadata + search indices)
-    thumbnails: PathBuf,     // Generated previews
-    lock_file: PathBuf,      // .lock (concurrency control)
-}
-
-impl LibraryLayout {
-    // Portable operations
-    pub fn backup(&self, dest: PathBuf) -> Result<()> {
-        fs::copy_dir(&self.root, dest) // Just copy the folder
-    }
-    
-    pub fn migrate(&self, dest: PathBuf) -> Result<()> {
-        fs::move_dir(&self.root, dest) // Just move the folder
-    }
-    
-    pub fn share(&self) -> Result<Archive> {
-        create_archive(&self.root) // Just zip the folder
-    }
-}
-```
-
-**Radical simplicity:**
-- **Backup** = copy the folder
-- **Share** = send the folder
-- **Migrate** = move the folder
-- No complex export/import systems
-
-### 7. **Domain-Driven Organization**
-
-```rust
-// Architecture that reflects what Spacedrive does
-src/
-├── domain/                    # Core business entities
-│   ├── library/               # Library management and metadata
-│   ├── location/              # Location tracking and indexing 
-│   ├── device/                # Device identity and capabilities
-│   └── content_identity/      # Content addressing and deduplication
-├── operations/                # What users actually do
-│   ├── file_ops/              # Copy, move, delete - CLEARLY VISIBLE
-│   │   ├── copy.rs            # Cross-device copy operations
-│   │   ├── move_files.rs      # Move with conflict resolution
-│   │   ├── delete.rs          # Safe deletion with recycle bin
-│   │   └── common.rs          # Shared file operation logic
-│   ├── indexing/              # File discovery and metadata extraction
-│   │   ├── job.rs             # Enhanced indexing with scope control
-│   │   ├── phases/            # Multi-stage indexing pipeline
-│   │   └── ephemeral.rs       # Non-persistent browsing
-│   └── search/                # Content discovery and search
-│       ├── engine.rs          # SQLite FTS5 + vector search
-│       ├── content.rs         # Document and media content extraction
-│       └── semantic.rs        # AI-powered semantic search
-├── infrastructure/            # External interfaces
-│   ├── api/                   # GraphQL API with full type safety
-│   ├── database/              # SeaORM entities and migrations
-│   ├── events/                # Event bus and subscriptions
-│   ├── jobs/                  # Background task management
-│   └── cli/                   # Command-line interface
-└── shared/                    # Common foundations
-    ├── types.rs               # SdPath and core types
-    ├── errors.rs              # Unified error handling
-    └── utils.rs               # Common utilities
-```
-
-**Why this structure works:**
-- **Domain**: Core business logic is protected and clear
-- **Operations**: What Spacedrive does is immediately visible
-- **Infrastructure**: External concerns stay at the edges
-- **No "heavy-lifting"**: Descriptive names for important code
-
-## Technical Innovations
-
-### 1. **Materialized Path Storage**
-
-```rust
-// 69% database size reduction through intelligent path compression
-#[derive(Debug, Clone)]
-pub struct MaterializedPath {
-    relative_path: String,  // Parent directory path
-    name: String,          // File/folder name
-}
-
-// Example: /Users/jamie/Documents/Projects/spacedrive/README.md
-// Old:  parent_id chain requiring recursive queries
-// New:  relative_path="Users/jamie/Documents/Projects/spacedrive", name="README"
-//       Direct queries, 3x faster performance
-```
-
-### 2. **Progressive Enhancement Metadata Model**
-
-```rust
-// Any file gets basic functionality immediately
-pub struct FileCore {
-    path: SdPath,           // Always available
-    basic_metadata: Metadata, // Size, modified, etc.
-}
-
-// Rich metadata added progressively during indexing
-pub struct EnhancedFile {
-    core: FileCore,
-    user_metadata: UserMetadata,        // Tags, labels, notes (always works)
-    content_identity: Option<ContentId>, // Deduplication (requires indexing)
-    search_data: Option<SearchData>,    // Full-text content (requires extraction)
-    ai_analysis: Option<AiMetadata>,    // Semantic understanding (requires AI)
-}
-```
-
-**Benefits:**
-- Tag files immediately without waiting for indexing
-- Metadata persists when files move or change
-- Graceful degradation when services unavailable
-
-### 3. **Advanced Indexing Pipeline**
-
-```rust
-// Multi-stage pipeline with resumability
-#[derive(Debug, Clone)]
-pub enum IndexerPhase {
-    Discovery,      // File system traversal
-    Processing,     // Database entry creation
-    Aggregation,    // Directory statistics
-    ContentIdentification, // CAS ID generation
-    Complete,
-}
-
-// Sophisticated state management
-pub struct IndexerState {
-    pub phase: IndexerPhase,
-    pub entry_batches: Vec<Vec<DirEntry>>,  // Batch processing
-    pub processed_entries: u64,
-    pub errors: Vec<IndexError>,
-    pub stats: IndexerStats,
-    pub started_at: Instant,
-}
-
-// Resumable execution with checkpoints
-impl IndexerJob {
-    async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<IndexerOutput> {
-        // Resume from saved state or start fresh
-        let state = self.state.get_or_insert_with(|| IndexerState::new(&self.config.path));
-        
-        loop {
-            ctx.check_interrupt().await?; // Graceful cancellation
-            
-            match state.phase {
-                Phase::Discovery => {
-                    if self.config.is_current_scope() {
-                        self.run_current_scope_discovery(state, &ctx).await?;
-                    } else {
-                        phases::run_discovery_phase(state, &ctx, root_path).await?;
-                    }
-                }
-                Phase::Processing => {
-                    if self.config.is_ephemeral() {
-                        self.run_ephemeral_processing(state, &ctx).await?;
-                    } else {
-                        phases::run_processing_phase(/* ... */).await?;
-                    }
-                }
-                // ... other phases
-                Phase::Complete => break,
-            }
-            
-            ctx.checkpoint().await?; // Save state for resumability
-        }
-    }
-}
-```
-
-### 4. **Real Search Architecture**
-
-```rust
-// Production search stack from day one
-pub trait SearchEngine {
-    async fn index_content(&self, file: &SdPath) -> Result<()>;
-    async fn search(&self, query: &SearchQuery) -> Result<SearchResults>;
-    async fn semantic_search(&self, embedding: Vec<f32>) -> Result<SearchResults>;
-}
-
-// SQLite FTS5 for instant text search
-impl SqliteSearchEngine {
-    async fn create_fts_tables(&self) -> Result<()> {
-        self.db.execute(
-            "CREATE VIRTUAL TABLE documents_fts USING fts5(
-                content, 
-                path UNINDEXED, 
-                content_type UNINDEXED
-            )"
-        ).await
-    }
-    
-    async fn full_text_search(&self, query: &str) -> Result<Vec<SearchResult>> {
-        let results = self.db.query_all(
-            "SELECT path, rank FROM documents_fts 
-             WHERE documents_fts MATCH ? 
-             ORDER BY rank LIMIT 100",
-            [query]
-        ).await?;
-        
-        Ok(results.into_iter().map(SearchResult::from).collect())
-    }
-}
-
-// Vector embeddings for semantic search
-impl VectorSearchEngine {
-    async fn embed_content(&self, content: &str) -> Result<Vec<f32>> {
-        self.model.encode(content).await
-    }
-    
-    async fn similarity_search(&self, query_embedding: Vec<f32>) -> Result<Vec<SearchResult>> {
-        // Cosine similarity search against stored embeddings
-        self.vector_db.search(query_embedding, 100).await
-    }
-}
-```
-
-## Working CLI: Proof of Architecture
-
-The CLI proves every architectural decision works:
+Proof-of-concept CLI demonstrating the architecture:
 
 ```bash
 # Library management
 spacedrive library create "My Files"
 spacedrive library list
-spacedrive library switch "My Files"
+spacedrive library open ~/Documents/My\ Files.sdlibrary
 
-# Location management with scope control
+# Location management  
 spacedrive location add ~/Documents --name "Documents"
-spacedrive location add /media/external --name "External"
+spacedrive location list
 
-# Enhanced indexing
-spacedrive index quick-scan ~/Desktop --scope current    # <500ms UI navigation
-spacedrive index browse /tmp --ephemeral               # No database pollution
-spacedrive index location ~/Pictures --scope recursive # Full analysis
+# Enhanced indexing capabilities
+spacedrive index quick-scan ~/Desktop --scope current
+spacedrive index browse /tmp --ephemeral --scope recursive
+spacedrive index location ~/Pictures --mode deep
 
-# Real-time monitoring
-spacedrive job monitor  # Live progress bars, detailed stats
+# Job monitoring
 spacedrive job list --status running
-spacedrive job info <job-id>
-
-# System status
+spacedrive job monitor
 spacedrive status
-spacedrive daemon
 ```
 
-**Features working today:**
-- ✅ Unified file operations across location types
-- ✅ Smart indexing with current/recursive scopes  
-- ✅ Ephemeral browsing without database pollution
-- ✅ Real-time job monitoring with progress bars
-- ✅ Self-contained library management
-- ✅ Event-driven architecture with type safety
+### 5. **Self-Contained Libraries**
 
-## Performance & Reliability
+Libraries are portable directories:
+- `library.json` - Configuration and device registry
+- `database.db` - All metadata and search indices  
+- `thumbnails/` - Generated previews
+- `.lock` - Concurrency protection
 
-### Benchmarks
-- **Index current directory**: <500ms (target for UI navigation)
-- **Database size reduction**: 69% through materialized paths
-- **Query performance**: 3x faster with optimized schema
-- **Memory usage**: 60% reduction through streaming operations
+**Benefits:**
+- **Backup** = copy the directory
+- **Share** = send the directory
+- **Migrate** = move the directory
 
-### Production Features
-- **Graceful error handling**: Jobs continue despite individual file errors
-- **Resumable operations**: All long-running tasks can be paused/resumed
-- **Progress tracking**: Real-time metrics with detailed breakdowns
-- **Resource management**: Bounded memory usage, configurable parallelism
+## Technical Foundation
 
-## Migration Strategy
+### 1. **Materialized Path Storage**
 
-### From Original Core
-1. **Run in parallel**: Both cores operational during transition
-2. **API compatibility**: GraphQL maintains interface contracts
-3. **Data migration**: Automated scripts for schema transformation
-4. **Feature parity**: No functionality lost in transition
+Efficient file hierarchy representation:
+```rust
+pub struct Entry {
+    relative_path: String,  // Directory path: "Documents/Projects"
+    name: String,          // File name: "README.md"
+    // ... other fields
+}
+```
 
-### Rollout Plan
-- **Phase 1**: CLI as proof of concept ✅ **Done**
-- **Phase 2**: Desktop app backend replacement 🚧 **In Progress**
-- **Phase 3**: Mobile app integration 📋 **Planned**
-- **Phase 4**: Legacy core deprecation 🎯 **Future**
+Benefits:
+- Direct path queries without complex joins
+- Efficient indexing for hierarchy operations
+- Simple reconstruction of full paths
 
-## Development Setup
+### 2. **Unified Metadata Model**
+
+Every entry gets immediate metadata capabilities:
+```rust
+pub struct Entry {
+    metadata_id: i32,           // Always present
+    content_id: Option<i32>,    // Optional content addressing
+    // ... other fields
+}
+```
+
+Design benefits:
+- Tag and organize files immediately  
+- No waiting for indexing to complete
+- Progressive enhancement as analysis runs
+
+### 3. **Multi-Phase Indexing**
+
+Structured indexing pipeline:
+- **Discovery**: File system traversal
+- **Processing**: Database entry creation  
+- **Aggregation**: Directory statistics
+- **Content Identification**: Hash generation (if enabled)
+
+Features:
+- Resumable operations with state checkpoints
+- Graceful error handling for individual files
+- Real-time progress reporting
+
+## Development Status
+
+Currently working features:
+
+### ✅ Foundation
+- **Library management**: Create, open, list libraries
+- **Location management**: Add, list, and monitor indexed directories
+- **Device identity**: Unified device tracking and capabilities
+- **Database layer**: SeaORM entities with proper migrations
+
+### ✅ Indexing System
+- **Scope control**: Current directory vs recursive indexing
+- **Persistence modes**: Database storage vs ephemeral browsing
+- **Multi-phase pipeline**: Discovery, processing, aggregation
+- **Progress tracking**: Real-time job monitoring
+
+### ✅ CLI Interface
+- Working command-line interface demonstrating all features
+- Library and location management commands
+- Enhanced indexing with scope and persistence options
+- Job monitoring and system status
+
+### 🚧 In Development
+- **File operations**: Copy, move, delete jobs (infrastructure ready)
+- **Search system**: SQLite FTS integration for content search
+- **Event system**: Core event broadcasting for UI updates
+- **Network layer**: P2P device communication
+
+### 📋 Planned
+- **Cross-device operations**: Copy/move files between devices
+- **Advanced search**: Content indexing and semantic search
+- **Desktop app integration**: Replace original core as backend
+- **Cloud sync**: Optional cloud backup and synchronization
+
+## Quick Start
 
 ```bash
-# Prerequisites
-rustc 1.75+ (2021 edition)
-sqlite3 (for local development)
-
-# Build and test
+# Clone and build
+git clone https://github.com/spacedriveapp/spacedrive
+cd spacedrive/core-new
 cargo build --release
-cargo test --all-features
-cargo clippy -- -D warnings
 
-# Database setup
-cargo run --bin spacedrive -- library create "Development"
-
-# Development with hot reload
-cargo watch -x "run --bin spacedrive"
-
-# Documentation
-cargo doc --open --no-deps
+# Try the CLI
+cargo run --bin spacedrive -- library create "Test Library"
+cargo run --bin spacedrive -- location add ~/Documents
+cargo run --bin spacedrive -- job monitor
 ```
 
-## Architecture Decisions
+## Architecture Principles
 
-### Why SeaORM over Prisma?
-- **Active maintenance**: No abandoned forks
-- **Native async**: Built for Rust's async ecosystem
-- **Migration system**: Proper versioning and rollback
-- **Community**: Large ecosystem and support
+### Clean Separation
+- **Domain**: Business logic and entities
+- **Operations**: User-facing functionality
+- **Infrastructure**: External interfaces and persistence
+- **Shared**: Common types and utilities
 
-### Why Event-Driven over Invalidation?
-- **Decoupling**: Backend and frontend independent
-- **Extensibility**: Plugins can subscribe to events
-- **Performance**: Targeted updates instead of broad invalidation
-- **Type safety**: Compile-time event verification
+### Modern Rust Patterns
+- **Type safety**: Compile-time guarantees throughout
+- **Async/await**: Non-blocking operations by default  
+- **Error handling**: Comprehensive `Result` types
+- **Memory safety**: No unsafe code in core business logic
 
-### Why Domain-Driven Design?
-- **Clarity**: Business logic clearly separated
-- **Maintainability**: Changes isolated to appropriate layers
-- **Testing**: Domain logic testable without infrastructure
-- **Evolution**: Can change infrastructure without affecting domain
-
-### Why Unified File Operations?
-- **User experience**: Cross-boundary operations "just work"
-- **Code simplification**: Single implementation path
-- **Performance**: Optimizations benefit all operation types
-- **Mental model**: Developers understand one system, not two
+### Extensible Design
+- **Plugin-ready**: Clear interfaces for future extensions
+- **Event-driven**: Loose coupling between components
+- **Configuration**: Flexible behavior through configuration
+- **Testing**: Mockable interfaces for reliable testing
 
 ## Contributing
 
-### Code Organization
-- **Domain layer**: Pure business logic, no external dependencies
-- **Operations layer**: Orchestrates domain objects for user operations
-- **Infrastructure layer**: External interfaces (database, API, filesystem)
-- **Shared layer**: Common types and utilities
+See individual module documentation:
+- [`docs/`](./docs/) - Comprehensive architecture documentation
+- [`examples/`](./examples/) - Working code examples
+- [`src/`](./src/) - Well-documented source code
 
-### Testing Strategy
-- **Unit tests**: Domain logic and individual functions
-- **Integration tests**: Cross-layer operations and database interactions  
-- **End-to-end tests**: Full CLI workflows and API operations
-- **Performance tests**: Benchmarks for critical paths
-
-### Documentation Standards
-- **API documentation**: All public interfaces documented
-- **Architecture decisions**: Major choices explained with rationale
-- **Examples**: Working code samples for complex operations
-- **Migration guides**: Clear upgrade paths for breaking changes
-
-## The Result
-
-We solved the fundamental problems that made the original VDFS impossible:
-
-1. **SdPath enables true cross-device operations** - the breakthrough that makes VDFS real
-2. **Unified file system eliminates dual system complexity** - every operation works everywhere
-3. **Modern foundation with SeaORM** - no more abandoned dependencies
-4. **Event-driven architecture** - clean separation of concerns
-5. **Domain-driven organization** - code structure matches user mental model
-
-This isn't just a rewrite. It's the architecture that **actually delivers** the Virtual Distributed File System promise.
-
-The CLI proves it works. The foundation is solid. The future is being built on firm ground.
+The codebase prioritizes clarity and maintainability over clever solutions. We believe the best code is code that's easy to understand, modify, and extend.

@@ -9,6 +9,7 @@ pub mod file_type;
 pub mod infrastructure;
 pub mod library;
 pub mod location;
+pub mod networking;
 pub mod operations;
 pub mod services;
 pub mod shared;
@@ -44,6 +45,9 @@ pub struct Core {
     
     /// Background services
     services: Services,
+    
+    /// Networking module
+    pub network: Option<Arc<crate::networking::Network>>,
 }
 
 impl Core {
@@ -111,12 +115,34 @@ impl Core {
             volumes,
             events,
             services,
+            network: None, // Network will be initialized separately if needed
         })
     }
     
     /// Get the application configuration
     pub fn config(&self) -> Arc<RwLock<AppConfig>> {
         self.config.clone()
+    }
+    
+    /// Initialize networking with password
+    pub async fn init_networking(
+        &mut self,
+        password: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::networking::Network;
+        use crate::networking::manager::NetworkConfig;
+        use crate::networking::identity::NetworkIdentity;
+        
+        // Create network identity from existing device configuration
+        let identity = NetworkIdentity::from_device_manager(&self.device, password).await?;
+        
+        // Create network with default config
+        let config = NetworkConfig::default();
+        let network = Network::new(identity, config).await?;
+        
+        self.network = Some(Arc::new(network));
+        
+        Ok(())
     }
     
     /// Add a location to the file system watcher

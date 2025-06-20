@@ -60,29 +60,157 @@ This document outlines a flexible networking system for Spacedrive that supports
 
 ### 1. Device Identity & Authentication
 
-Using a 1Password-style approach:
+**CRITICAL: Integration with Existing Device Identity**
+
+The networking module MUST integrate with Spacedrive's existing persistent device identity system (see `core-new/src/device/`). The current device system provides:
+
+- **Persistent Device UUID**: Stored in `device.json`, survives restarts
+- **Device Configuration**: Name, OS, hardware model, creation time
+- **Cross-Instance Consistency**: Multiple Spacedrive instances on same device share identity
+
+**Problem with Original Design:**
+- NetworkingDeviceId derived from public key changes each restart
+- No persistence of cryptographic keys
+- Multiple instances would have different network identities
+- Device pairing would break after restart
+
+**Corrected Architecture:**
 
 ```rust
-pub struct DeviceIdentity {
-    /// Device's public key (Ed25519)
+/// Network identity tied to persistent device identity
+pub struct NetworkIdentity {
+    /// MUST match the persistent device UUID from DeviceManager
+    pub device_id: Uuid, // From existing device system
+    
+    /// Device's public key (Ed25519) - STORED PERSISTENTLY
     pub public_key: PublicKey,
     
-    /// Device's private key (encrypted at rest)
+    /// Device's private key (encrypted at rest) - STORED PERSISTENTLY  
     private_key: EncryptedPrivateKey,
     
-    /// Human-readable device name
+    /// Human-readable device name (from DeviceConfig)
     pub device_name: String,
     
-    /// Device ID (derived from public key)
-    pub device_id: DeviceId,
+    /// Network-specific identifier (derived from device_id + public_key)
+    pub network_fingerprint: NetworkFingerprint,
+}
+
+/// Network fingerprint for wire protocol identification
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct NetworkFingerprint([u8; 32]);
+
+impl NetworkFingerprint {
+    /// Create network fingerprint from device UUID and public key
+    fn from_device(device_id: Uuid, public_key: &PublicKey) -> Self {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(device_id.as_bytes());
+        hasher.update(public_key.as_bytes());
+        let hash = hasher.finalize();
+        let mut fingerprint = [0u8; 32];
+        fingerprint.copy_from_slice(hash.as_bytes());
+        NetworkFingerprint(fingerprint)
+    }
+}
+
+/// Extended device configuration with networking keys
+#[derive(Serialize, Deserialize)]
+pub struct ExtendedDeviceConfig {
+    /// Base device configuration
+    #[serde(flatten)]
+    pub device: DeviceConfig,
+    
+    /// Network cryptographic keys (encrypted)
+    pub network_keys: Option<EncryptedNetworkKeys>,
+    
+    /// When network identity was created
+    pub network_identity_created_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EncryptedNetworkKeys {
+    /// Ed25519 private key encrypted with user password
+    pub encrypted_private_key: EncryptedPrivateKey,
+    
+    /// Public key (not encrypted)
+    pub public_key: PublicKey,
+    
+    /// Salt for key derivation
+    pub salt: [u8; 32],
+    
+    /// Key derivation parameters
+    pub kdf_params: KeyDerivationParams,
+}
+
+/// Integration with DeviceManager
+impl NetworkIdentity {
+    /// Create network identity from existing device configuration
+    pub async fn from_device_manager(
+        device_manager: &DeviceManager,
+        password: &str,
+    ) -> Result<Self, NetworkError> {
+        let device_config = device_manager.config()?;
+        
+        // Try to load existing network keys
+        if let Some(keys) = Self::load_network_keys(&device_config.id, password)? {
+            return Ok(Self {
+                device_id: device_config.id,
+                public_key: keys.public_key,
+                private_key: keys.encrypted_private_key,
+                device_name: device_config.name,
+                network_fingerprint: NetworkFingerprint::from_device(
+                    device_config.id, 
+                    &keys.public_key
+                ),
+            });
+        }
+        
+        // Generate new network keys if none exist
+        let (public_key, private_key) = Self::generate_keys(password)?;
+        let network_fingerprint = NetworkFingerprint::from_device(
+            device_config.id, 
+            &public_key
+        );
+        
+        // Save keys persistently
+        Self::save_network_keys(&device_config.id, &public_key, &private_key, password)?;
+        
+        Ok(Self {
+            device_id: device_config.id,
+            public_key,
+            private_key,
+            device_name: device_config.name,
+            network_fingerprint,
+        })
+    }
+    
+    /// Load network keys from device-specific storage
+    fn load_network_keys(
+        device_id: &Uuid, 
+        password: &str
+    ) -> Result<Option<EncryptedNetworkKeys>, NetworkError> {
+        // Keys stored in device-specific file: <data_dir>/network_keys.json
+        // This ensures multiple Spacedrive instances share the same keys
+        todo!("Load from persistent storage")
+    }
+    
+    /// Save network keys to device-specific storage  
+    fn save_network_keys(
+        device_id: &Uuid,
+        public_key: &PublicKey,
+        private_key: &EncryptedPrivateKey,
+        password: &str,
+    ) -> Result<(), NetworkError> {
+        // Store encrypted keys alongside device.json
+        todo!("Save to persistent storage")
+    }
 }
 
 pub struct MasterKey {
     /// User's master password derives this
     key_encryption_key: [u8; 32],
     
-    /// Encrypted with key_encryption_key
-    device_private_keys: HashMap<DeviceId, EncryptedPrivateKey>,
+    /// Encrypted with key_encryption_key - NOW USES PERSISTENT DEVICE IDs
+    device_private_keys: HashMap<Uuid, EncryptedPrivateKey>, // UUID not derived ID
 }
 
 /// Pairing process for new devices
@@ -95,6 +223,53 @@ pub struct PairingCode {
     
     /// Visual representation (6 words from BIP39 wordlist)
     words: [String; 6],
+}
+```
+
+**Integration Flow:**
+
+```rust
+// In Core initialization
+impl Core {
+    pub async fn init_networking(&mut self, password: &str) -> Result<()> {
+        // Use existing device manager - NO separate identity creation
+        let network_identity = NetworkIdentity::from_device_manager(
+            &self.device, 
+            password
+        ).await?;
+        
+        let network = Network::new(network_identity, config).await?;
+        self.network = Some(Arc::new(network));
+        Ok(())
+    }
+}
+```
+
+**Key Benefits of This Approach:**
+
+1. **Persistent Identity**: Device ID survives restarts, OS reinstalls (if backed up)
+2. **Cross-Instance Consistency**: Multiple Spacedrive instances = same network identity
+3. **Pairing Persistence**: Paired devices stay paired across restarts
+4. **Migration Support**: Network identity travels with device backup/restore
+5. **Debugging**: Easy to correlate network traffic with device logs
+
+**Wire Protocol Changes:**
+
+```rust
+// Network messages now include persistent device UUID for correlation
+#[derive(Serialize, Deserialize)]
+pub struct NetworkMessage {
+    /// Persistent device UUID (for logs, correlation)
+    pub device_id: Uuid,
+    
+    /// Network fingerprint (for wire protocol security)
+    pub network_fingerprint: NetworkFingerprint,
+    
+    /// Message payload
+    pub payload: MessagePayload,
+    
+    /// Cryptographic signature
+    pub signature: Signature,
 }
 ```
 

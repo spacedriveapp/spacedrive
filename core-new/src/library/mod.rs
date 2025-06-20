@@ -98,26 +98,31 @@ impl Library {
         self.path.join("thumbnails")
     }
     
-    /// Get the path for a specific thumbnail
-    pub fn thumbnail_path(&self, cas_id: &str) -> PathBuf {
-        if cas_id.len() < 2 {
+    /// Get the path for a specific thumbnail with size
+    pub fn thumbnail_path(&self, cas_id: &str, size: u32) -> PathBuf {
+        if cas_id.len() < 4 {
             // Fallback for short IDs
-            return self.thumbnails_dir().join(format!("{}.webp", cas_id));
+            return self.thumbnails_dir().join(format!("{}_{}.webp", cas_id, size));
         }
         
-        // Two-level sharding based on first two characters
-        let first = &cas_id[0..1];
-        let second = &cas_id[1..2];
+        // Two-level sharding based on first four characters
+        let shard1 = &cas_id[0..2];
+        let shard2 = &cas_id[2..4];
         
         self.thumbnails_dir()
-            .join(first)
-            .join(second)
-            .join(format!("{}.webp", cas_id))
+            .join(shard1)
+            .join(shard2)
+            .join(format!("{}_{}.webp", cas_id, size))
     }
     
-    /// Save a thumbnail
-    pub async fn save_thumbnail(&self, cas_id: &str, data: &[u8]) -> Result<()> {
-        let path = self.thumbnail_path(cas_id);
+    /// Get the path for any thumbnail size (legacy compatibility)
+    pub fn thumbnail_path_legacy(&self, cas_id: &str) -> PathBuf {
+        self.thumbnail_path(cas_id, 256) // Default to 256px
+    }
+    
+    /// Save a thumbnail with specific size
+    pub async fn save_thumbnail(&self, cas_id: &str, size: u32, data: &[u8]) -> Result<()> {
+        let path = self.thumbnail_path(cas_id, size);
         
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -130,17 +135,65 @@ impl Library {
         Ok(())
     }
     
-    /// Check if a thumbnail exists
-    pub async fn has_thumbnail(&self, cas_id: &str) -> bool {
-        tokio::fs::metadata(self.thumbnail_path(cas_id))
+    /// Check if a thumbnail exists for a specific size
+    pub async fn has_thumbnail(&self, cas_id: &str, size: u32) -> bool {
+        tokio::fs::metadata(self.thumbnail_path(cas_id, size))
             .await
             .is_ok()
     }
     
-    /// Get thumbnail data
-    pub async fn get_thumbnail(&self, cas_id: &str) -> Result<Vec<u8>> {
-        let path = self.thumbnail_path(cas_id);
+    /// Check if thumbnails exist for all specified sizes
+    pub async fn has_all_thumbnails(&self, cas_id: &str, sizes: &[u32]) -> bool {
+        for &size in sizes {
+            if !self.has_thumbnail(cas_id, size).await {
+                return false;
+            }
+        }
+        true
+    }
+    
+    /// Get thumbnail data for specific size
+    pub async fn get_thumbnail(&self, cas_id: &str, size: u32) -> Result<Vec<u8>> {
+        let path = self.thumbnail_path(cas_id, size);
         Ok(tokio::fs::read(path).await?)
+    }
+    
+    /// Get the best available thumbnail (largest size available)
+    pub async fn get_best_thumbnail(&self, cas_id: &str, preferred_sizes: &[u32]) -> Result<Option<(u32, Vec<u8>)>> {
+        // Try sizes in descending order
+        let mut sizes = preferred_sizes.to_vec();
+        sizes.sort_by(|a, b| b.cmp(a));
+        
+        for &size in &sizes {
+            if self.has_thumbnail(cas_id, size).await {
+                let data = self.get_thumbnail(cas_id, size).await?;
+                return Ok(Some((size, data)));
+            }
+        }
+        
+        Ok(None)
+    }
+    
+    /// Start thumbnail generation job
+    pub async fn generate_thumbnails(&self, entry_ids: Option<Vec<Uuid>>) -> Result<crate::infrastructure::jobs::handle::JobHandle> {
+        use crate::operations::media_processing::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
+        
+        let config = ThumbnailJobConfig {
+            sizes: self.config().await.settings.thumbnail_sizes.clone(),
+            quality: self.config().await.settings.thumbnail_quality,
+            regenerate: false,
+            batch_size: 50,
+            max_concurrent: 4,
+        };
+        
+        let job = if let Some(ids) = entry_ids {
+            ThumbnailJob::for_entries(ids, config)
+        } else {
+            ThumbnailJob::new(config)
+        };
+        
+        self.jobs().dispatch(job).await
+            .map_err(|e| LibraryError::JobError(e))
     }
     
     /// Update library statistics

@@ -29,6 +29,14 @@ pub enum JobOutput {
         failed_count: usize,
     },
     
+    /// Thumbnail generation output (detailed)
+    ThumbnailGeneration {
+        generated_count: u64,
+        skipped_count: u64,
+        error_count: u64,
+        total_size_bytes: u64,
+    },
+    
     /// File move/rename operation output
     FileMove {
         moved_count: usize,
@@ -110,6 +118,10 @@ impl fmt::Display for JobOutput {
             Self::ThumbnailsGenerated { generated_count, failed_count } => {
                 write!(f, "Generated {} thumbnails ({} failed)", 
                     generated_count, failed_count)
+            }
+            Self::ThumbnailGeneration { generated_count, skipped_count, error_count, total_size_bytes } => {
+                write!(f, "Generated {} thumbnails ({} skipped, {} errors, {} bytes)", 
+                    generated_count, skipped_count, error_count, total_size_bytes)
             }
             Self::FileMove { moved_count, failed_count, total_bytes } => {
                 write!(f, "Moved {} files ({} failed, {} bytes)", 

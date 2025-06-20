@@ -3,6 +3,11 @@ name = "sd-core-new"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+# FFmpeg support for video thumbnails
+ffmpeg = ["dep:sd-ffmpeg"]
+
 [workspace]
 
 [dependencies]
@@ -46,6 +51,42 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rmp-serde = "1.3"     # MessagePack serialization for job state
 inventory = "0.3"     # Automatic job registration
 sd-task-system = { path = "../crates/task-system" }
+
+# Media processing dependencies
+sd-images = { path = "../crates/images" }
+sd-ffmpeg = { path = "../crates/ffmpeg", optional = true }
+webp = "0.3"
+image = "0.25"
+tokio-rustls = "0.26"
+
+# Networking
+# quinn = "0.10"              # QUIC for local/direct connections (disabled for now)
+# tokio-tungstenite = "0.20"  # WebSocket for relay fallback (disabled for now)
+mdns = "3.0"                # Local network discovery (enabled for pairing)
+# if-watch = "3.0"            # Network monitoring (disabled for now)
+snow = "0.9"                # Noise Protocol encryption
+ring = "0.16"               # Crypto primitives
+argon2 = "0.5"              # Password derivation
+async-stream = "0.3"        # File streaming
+backoff = "0.4"             # Retry logic
+bincode = "2.0.0-rc.3"      # Efficient encoding
+# futures-util = "0.3"        # WebSocket utilities (disabled for now)
+rustls = { version = "0.23", features = ["aws_lc_rs"] } # TLS implementation (enabled for pairing)
+rcgen = "0.11"              # Certificate generation (enabled for pairing)
+tokio-stream = "0.1"        # Async streams
+
+# BIP39 wordlist support
+bip39 = "2.0"
+
+# Additional cryptography
+x25519-dalek = "2.0"
+hkdf = "0.12"
+hmac = "0.12"
+
+# Network utilities
+if-watch = "3.0"
+local-ip-address = "0.5"
+# colored already defined above
 
 # Utils
 uuid = { version = "1.11", features = ["v4", "v7", "serde"] }
