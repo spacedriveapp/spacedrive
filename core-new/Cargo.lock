@@ -5705,6 +5705,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "snow",
+ "spacedrive-jobs-derive",
  "sqlx",
  "tempfile",
  "thiserror 1.0.69",
@@ -6250,6 +6251,15 @@ checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "spacedrive-jobs-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.103",
 ]
 
 [[package]]

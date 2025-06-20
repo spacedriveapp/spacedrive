@@ -4,6 +4,7 @@
 //! file system changes in real-time.
 
 use sd_core_new::{infrastructure::events::Event, Core};
+use std::path::PathBuf;
 use tokio::time::{sleep, Duration};
 use tracing::info;
 use uuid::Uuid;
@@ -29,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	info!("Created demo library: {}", library_id);
 
 	// Add a location to watch
-	let watch_dir = std::env::temp_dir().join("spacedrive_watcher_demo");
+	let watch_dir = PathBuf::from("./data/spacedrive_watcher_demo");
 	tokio::fs::create_dir_all(&watch_dir).await?;
 
 	let location_id = Uuid::new_v4();

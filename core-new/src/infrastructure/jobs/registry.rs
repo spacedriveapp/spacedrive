@@ -29,6 +29,7 @@ impl JobRegistry {
                 name: registration.name,
                 schema_fn: registration.schema_fn,
                 create_fn: registration.create_fn,
+                deserialize_fn: registration.deserialize_fn,
             });
         }
         
@@ -56,6 +57,15 @@ impl JobRegistry {
             .map_err(|e| JobError::serialization(e))
     }
     
+    /// Deserialize a job instance from binary data (for resumption)
+    pub fn deserialize_job(&self, name: &str, data: &[u8]) -> JobResult<Box<dyn ErasedJob>> {
+        let registration = self.jobs.get(name)
+            .ok_or_else(|| JobError::NotFound(format!("Job type '{}' not found", name)))?;
+        
+        (registration.deserialize_fn)(data)
+            .map_err(|e| JobError::serialization(e))
+    }
+    
     /// Check if a job type is registered
     pub fn has_job(&self, name: &str) -> bool {
         self.jobs.contains_key(name)
@@ -76,6 +86,10 @@ macro_rules! register_job {
                 schema_fn: <$job_type as $crate::infrastructure::jobs::traits::Job>::schema,
                 create_fn: |data| {
                     let job: $job_type = serde_json::from_value(data)?;
+                    Ok(Box::new($crate::infrastructure::jobs::executor::JobExecutor::new(job)))
+                },
+                deserialize_fn: |data| {
+                    let job: $job_type = rmp_serde::from_slice(data)?;
                     Ok(Box::new($crate::infrastructure::jobs::executor::JobExecutor::new(job)))
                 },
             }

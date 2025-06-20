@@ -115,11 +115,21 @@ pub struct JobRegistration {
     pub name: &'static str,
     pub schema_fn: fn() -> JobSchema,
     pub create_fn: fn(serde_json::Value) -> Result<Box<dyn ErasedJob>, serde_json::Error>,
+    pub deserialize_fn: fn(&[u8]) -> Result<Box<dyn ErasedJob>, rmp_serde::decode::Error>,
 }
 
 /// Type-erased job for dynamic dispatch
-pub trait ErasedJob: Send + Sync + 'static {
-    fn as_task(&mut self) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
+pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
+    fn create_executor(
+        self: Box<Self>,
+        job_id: JobId,
+        library: std::sync::Arc<crate::library::Library>,
+        status_tx: tokio::sync::watch::Sender<JobStatus>,
+        progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::jobs::progress::Progress>,
+        broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,
+        checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
+    ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
+    
     fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError>;
 }
 

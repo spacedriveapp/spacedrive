@@ -14,7 +14,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Migration Test ===\n");
     
     // Create a temporary database for testing
-    let db_path = "./test_migration.db";
+    std::fs::create_dir_all("./data")?;
+    let db_path = "./data/test_migration.db";
     if std::path::Path::new(db_path).exists() {
         std::fs::remove_file(db_path)?;
     }

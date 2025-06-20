@@ -190,16 +190,4 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
     }
 }
 
-// Implement ErasedJob for the executor
-impl<J: JobHandler> ErasedJob for JobExecutor<J> {
-    fn as_task(&mut self) -> Box<dyn Task<JobError>> {
-        // This is a bit of a hack to get around lifetime issues
-        // In practice, we'd use unsafe or refactor the trait
-        todo!("Implement proper type erasure")
-    }
-    
-    fn serialize_state(&self) -> Result<Vec<u8>, JobError> {
-        rmp_serde::to_vec(&self.job)
-            .map_err(|e| JobError::serialization(format!("{}", e)))
-    }
-}
+// Note: ErasedJob is now implemented by the derive macro on individual job types

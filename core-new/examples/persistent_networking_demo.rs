@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("=== Spacedrive Persistent Networking Demo ===");
     
     // Create temporary directories for the demo
-    let temp_dir = std::env::temp_dir().join(format!("spacedrive-demo-{}", Uuid::new_v4()));
+    let temp_dir = PathBuf::from("./data").join(format!("spacedrive-demo-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&temp_dir)?;
     
     info!("Demo directory: {:?}", temp_dir);
@@ -130,7 +130,7 @@ async fn demonstrate_spacedrop_simulation(core: &Core) -> Result<(), Box<dyn std
     info!("=== Simulating Spacedrop ===");
     
     // Create a demo file for Spacedrop
-    let demo_file = std::env::temp_dir().join("spacedrop_demo.txt");
+    let demo_file = PathBuf::from("./data/spacedrop_demo.txt");
     std::fs::write(&demo_file, "Hello from Spacedrive Persistent Networking!")?;
     
     // Get a device to send to (in a real scenario, this would be a connected device)
@@ -173,7 +173,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_core_networking_integration() {
-        let temp_dir = std::env::temp_dir().join(format!("test-{}", Uuid::new_v4()));
+        let temp_dir = PathBuf::from("./data").join(format!("test-{}", Uuid::new_v4()));
         std::fs::create_dir_all(&temp_dir).unwrap();
         
         let mut core = Core::new_with_config(temp_dir.clone()).await.unwrap();

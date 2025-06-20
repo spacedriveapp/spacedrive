@@ -51,6 +51,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rmp-serde = "1.3"     # MessagePack serialization for job state
 inventory = "0.3"     # Automatic job registration
 sd-task-system = { path = "../crates/task-system" }
+spacedrive-jobs-derive = { path = "spacedrive-jobs-derive" } # Job derive macros
 
 # Media processing dependencies
 sd-images = { path = "../crates/images" }

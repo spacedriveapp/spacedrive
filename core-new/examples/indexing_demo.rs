@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// 1. Initialize Spacedrive Core
 	println!("1. 🔧 Initializing Spacedrive Core...");
-	let data_dir = PathBuf::from("./spacedrive-desktop-demo");
+	let data_dir = PathBuf::from("./data/spacedrive-desktop-demo");
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	println!("   ✅ Core initialized");
 	println!("   📱 Device ID: {}", core.device.device_id()?);
@@ -282,7 +282,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		// Check checkpoint progress by querying actual checkpoint data
 		let checkpoint_estimate = {
 			// Try to get the latest checkpoint size from the jobs database
-			if let Ok(metadata) = tokio::fs::metadata("./spacedrive-desktop-demo/jobs.db").await {
+			if let Ok(metadata) = tokio::fs::metadata("./data/spacedrive-desktop-demo/jobs.db").await {
 				metadata.len()
 			} else {
 				0

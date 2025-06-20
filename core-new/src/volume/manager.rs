@@ -475,7 +475,6 @@ impl Drop for VolumeManager {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::volume::types::{DiskType, FileSystem, MountType};
 
 	fn create_test_events() -> Arc<EventBus> {
 		Arc::new(EventBus::default())

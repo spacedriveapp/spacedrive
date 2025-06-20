@@ -28,8 +28,8 @@ pub mod prelude {
         types::{JobId, JobStatus, JobInfo},
     };
     
-    // Re-export derive macros when implemented
-    // pub use spacedrive_jobs_derive::{Job, job_handler};
+    // Re-export derive macros
+    pub use spacedrive_jobs_derive::Job;
 }
 
 pub use manager::JobManager;

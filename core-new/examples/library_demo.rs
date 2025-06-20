@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// 1. Initialize core with custom data directory
 	println!("1. Initializing Spacedrive Core...");
-	let data_dir = PathBuf::from("./spacedrive-demo-data");
+	let data_dir = PathBuf::from("./data/spacedrive-demo-data");
 	let core = Core::new_with_config(data_dir.clone()).await?;
 	println!("   ✓ Core initialized with data directory: {:?}", data_dir);
 	println!("   ✓ Device UUID: {}", core.device.device_id()?);
