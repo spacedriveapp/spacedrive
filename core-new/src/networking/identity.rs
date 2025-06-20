@@ -101,7 +101,10 @@ pub struct EncryptedPrivateKey {
 }
 
 /// Ed25519 private key (decrypted in memory)
-pub struct PrivateKey(signature::Ed25519KeyPair);
+pub struct PrivateKey {
+    key_pair: signature::Ed25519KeyPair,
+    pkcs8_bytes: Vec<u8>,
+}
 
 impl PrivateKey {
     /// Generate a new Ed25519 key pair
@@ -113,17 +116,20 @@ impl PrivateKey {
         let key_pair = signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref())
             .map_err(|e| NetworkError::EncryptionError(format!("Key parsing failed: {:?}", e)))?;
         
-        Ok(PrivateKey(key_pair))
+        Ok(PrivateKey {
+            key_pair,
+            pkcs8_bytes: pkcs8_bytes.as_ref().to_vec(),
+        })
     }
 
     /// Get public key
     pub fn public_key(&self) -> PublicKey {
-        PublicKey(self.0.public_key().as_ref().to_vec())
+        PublicKey(self.key_pair.public_key().as_ref().to_vec())
     }
 
     /// Sign data
     pub fn sign(&self, data: &[u8]) -> Result<Signature> {
-        let signature_bytes = self.0.sign(data).as_ref().to_vec();
+        let signature_bytes = self.key_pair.sign(data).as_ref().to_vec();
         Ok(Signature(signature_bytes))
     }
 
@@ -159,10 +165,8 @@ impl PrivateKey {
             .map_err(|e| NetworkError::EncryptionError(format!("Key creation failed: {:?}", e)))?;
         let sealing_key = aead::LessSafeKey::new(unbound_key);
 
-        // For ring's Ed25519KeyPair, we need to get the PKCS8 representation
-        // This is a simplified approach - in production we'd want to store the key material properly
-        let private_key_bytes = vec![0u8; 85]; // Placeholder for now
-        let mut ciphertext = private_key_bytes;
+        // Use the stored PKCS8 bytes from this private key
+        let mut ciphertext = self.pkcs8_bytes.clone();
         sealing_key
             .seal_in_place_append_tag(aead::Nonce::assume_unique_for_key(nonce), aead::Aad::empty(), &mut ciphertext)
             .map_err(|e| NetworkError::EncryptionError(format!("Encryption failed: {:?}", e)))?;
@@ -207,7 +211,10 @@ impl PrivateKey {
         let key_pair = signature::Ed25519KeyPair::from_pkcs8(plaintext)
             .map_err(|e| NetworkError::EncryptionError(format!("Key parsing failed: {:?}", e)))?;
 
-        Ok(PrivateKey(key_pair))
+        Ok(PrivateKey {
+            key_pair,
+            pkcs8_bytes: plaintext.to_vec(),
+        })
     }
 }
 
@@ -316,7 +323,7 @@ impl NetworkIdentity {
         let keys = EncryptedNetworkKeys {
             encrypted_private_key: private_key.clone(),
             public_key: public_key.clone(),
-            salt: [0u8; 32], // TODO: Use proper salt
+            salt: private_key.salt,
             created_at: Utc::now(),
         };
         

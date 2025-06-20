@@ -1,24 +1,27 @@
-//! mDNS-based device discovery for pairing
+//! Production-ready mDNS-based device discovery for pairing
 
-// use std::collections::HashMap; // Reserved for future use
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::time::Duration;
-// use chrono::{DateTime, Utc}; // Reserved for future use
 use tokio::sync::mpsc;
+use mdns_sd::{ServiceDaemon, ServiceInfo, ServiceEvent};
 
 use crate::networking::{DeviceInfo, NetworkError, Result};
 use super::{PairingCode, PairingTarget};
 
-/// mDNS service for pairing discovery
+/// Production mDNS service for pairing discovery
 pub struct PairingDiscovery {
-    /// mDNS service instance (placeholder for now)
-    mdns_service: Option<std::marker::PhantomData<()>>,
+    /// mDNS service daemon
+    mdns_daemon: ServiceDaemon,
+    /// Current pairing service info
+    current_service: Option<ServiceInfo>,
     /// Current pairing code being broadcast
     current_code: Option<PairingCode>,
     /// Device information
     device_info: DeviceInfo,
     /// Discovery event sender
     event_sender: Option<mpsc::UnboundedSender<DiscoveryEvent>>,
+    /// Service type for Spacedrive pairing
+    service_type: &'static str,
 }
 
 /// Discovery events
@@ -46,14 +49,22 @@ pub enum DiscoveryEvent {
 }
 
 impl PairingDiscovery {
+    /// Service type for Spacedrive pairing
+    const SERVICE_TYPE: &'static str = "_spacedrive-pairing._tcp.local.";
+    
     /// Create new pairing discovery service
-    pub fn new(device_info: DeviceInfo) -> Self {
-        Self {
-            mdns_service: None,
+    pub fn new(device_info: DeviceInfo) -> Result<Self> {
+        let mdns_daemon = ServiceDaemon::new()
+            .map_err(|e| NetworkError::TransportError(format!("Failed to create mDNS daemon: {}", e)))?;
+        
+        Ok(Self {
+            mdns_daemon,
+            current_service: None,
             current_code: None,
             device_info,
             event_sender: None,
-        }
+            service_type: Self::SERVICE_TYPE,
+        })
     }
     
     /// Set event handler for discovery events
@@ -69,23 +80,46 @@ impl PairingDiscovery {
     ) -> Result<()> {
         self.stop_broadcast().await?;
         
-        // Create mDNS service for broadcasting
-        let service_name = "_spacedrive-pairing._tcp.local.";
+        // Create unique instance name with fingerprint
+        let instance_name = format!(
+            "{}-{}", 
+            self.device_info.device_name.replace(' ', "-").replace('.', "-"),
+            hex::encode(&code.discovery_fingerprint[..4])
+        );
         
-        let txt_records = vec![
-            format!("fp={}", hex::encode(code.discovery_fingerprint)),
-            format!("device={}", self.device_info.device_name),
-            format!("version=1"),
-            format!("expires={}", code.expires_at.timestamp()),
+        // Get local IP address for service registration
+        let local_ip = self.get_local_ip_address()?;
+        let host_name = format!("{}.local.", instance_name);
+        
+        // Create TXT record properties
+        let properties = vec![
+            ("fp", hex::encode(code.discovery_fingerprint)),
+            ("device", self.device_info.device_name.clone()),
+            ("version", "1".to_string()),
+            ("expires", code.expires_at.timestamp().to_string()),
+            ("device_id", self.device_info.device_id.to_string()),
         ];
         
-        // Note: This is a simplified implementation. In production, you'd use a proper mDNS library
-        // For now, we'll create a placeholder service
-        tracing::warn!("mDNS service creation is simplified for demo - using placeholder");
+        // Convert to string tuples for mdns-sd
+        let properties_str: Vec<(&str, &str)> = properties.iter()
+            .map(|(k, v)| (k.as_ref(), v.as_ref()))
+            .collect();
         
-        // In a real implementation, this would properly initialize mDNS
-        let service: std::marker::PhantomData<()> = std::marker::PhantomData;
+        // Create service info
+        let service_info = ServiceInfo::new(
+            self.service_type,
+            &instance_name,
+            &host_name,
+            &local_ip.to_string(),
+            port,
+            &properties_str[..],
+        ).map_err(|e| NetworkError::TransportError(format!("Failed to create service info: {}", e)))?;
         
+        // Register the service
+        self.mdns_daemon.register(service_info.clone())
+            .map_err(|e| NetworkError::TransportError(format!("Failed to register mDNS service: {}", e)))?;
+        
+        self.current_service = Some(service_info);
         self.current_code = Some(code.clone());
         
         // Notify event handler
@@ -96,8 +130,10 @@ impl PairingDiscovery {
         }
         
         tracing::info!(
-            "Started pairing broadcast for device {} with fingerprint {}",
+            "Started mDNS pairing broadcast for device {} on {}:{} with fingerprint {}",
             self.device_info.device_name,
+            local_ip,
+            port,
             hex::encode(code.discovery_fingerprint)
         );
         
@@ -106,16 +142,17 @@ impl PairingDiscovery {
     
     /// Stop broadcasting pairing availability
     pub async fn stop_broadcast(&mut self) -> Result<()> {
-        if let Some(_service) = self.mdns_service.take() {
-            // In real implementation, would unregister mDNS service
-            tracing::info!("Stopping mDNS broadcast (placeholder)");
+        if let Some(service_info) = self.current_service.take() {
+            // Unregister the service
+            self.mdns_daemon.unregister(service_info.get_fullname())
+                .map_err(|e| NetworkError::TransportError(format!("Failed to unregister mDNS service: {}", e)))?;
+            
+            tracing::info!("Stopped mDNS pairing broadcast");
             
             // Notify event handler
             if let Some(sender) = &self.event_sender {
                 let _ = sender.send(DiscoveryEvent::BroadcastStopped);
             }
-            
-            tracing::info!("Stopped pairing broadcast");
         }
         
         self.current_code = None;
@@ -136,49 +173,137 @@ impl PairingDiscovery {
             timeout
         );
         
-        // Simplified scanning for demo - in production would use real mDNS
-        tracing::warn!("mDNS scanning is simplified for demo");
+        // Browse for Spacedrive pairing services
+        let receiver = self.mdns_daemon.browse(self.service_type)
+            .map_err(|e| NetworkError::TransportError(format!("Failed to start mDNS browse: {}", e)))?;
         
-        // For demo purposes, simulate that no devices are found
-        let services: Vec<std::marker::PhantomData<()>> = Vec::new();
+        // Use tokio timeout to limit scanning duration
+        let result = tokio::time::timeout(timeout, async {
+            loop {
+                match receiver.recv() {
+                    Ok(ServiceEvent::ServiceResolved(info)) => {
+                        tracing::debug!("Found service: {}", info.get_fullname());
+                        
+                        // Extract fingerprint from TXT records
+                        if let Some(fp_value) = info.get_property_val_str("fp") {
+                            if fp_value == target_fingerprint {
+                                tracing::info!("Found matching pairing device: {}", info.get_fullname());
+                                
+                                // Extract device information
+                                let device_name = info.get_property_val_str("device")
+                                    .unwrap_or("Unknown Device").to_string();
+                                
+                                let expires_timestamp = info.get_property_val_str("expires")
+                                    .and_then(|s| s.parse::<i64>().ok())
+                                    .and_then(|ts| chrono::DateTime::from_timestamp(ts, 0));
+                                
+                                // Get IP address from service info
+                                let addresses = info.get_addresses();
+                                let address = if let Some(addr) = addresses.iter().next() {
+                                    *addr
+                                } else {
+                                    return Err(NetworkError::TransportError("No IP address in service info".to_string()));
+                                };
+                                
+                                return Ok(PairingTarget {
+                                    address,
+                                    port: info.get_port(),
+                                    device_name,
+                                    expires_at: expires_timestamp,
+                                });
+                            }
+                        }
+                    }
+                    Ok(ServiceEvent::ServiceRemoved(_, _)) => {
+                        // Service was removed, continue scanning
+                        continue;
+                    }
+                    Ok(_) => {
+                        // Other events, continue scanning
+                        continue;
+                    }
+                    Err(e) => {
+                        tracing::warn!("mDNS browse error: {}", e);
+                        break;
+                    }
+                }
+            }
+            
+            Err(NetworkError::DeviceNotFound(uuid::Uuid::nil()))
+        }).await;
         
-        // In a real implementation, this would scan and match services
-        // For demo, we don't find any devices
-        
-        Err(NetworkError::DeviceNotFound(
-            uuid::Uuid::new_v4() // Placeholder since we don't have device ID yet
-        ))
+        match result {
+            Ok(target_result) => target_result,
+            Err(_) => {
+                tracing::warn!("mDNS scan timeout after {:?}", timeout);
+                Err(NetworkError::DeviceNotFound(uuid::Uuid::nil()))
+            }
+        }
     }
     
     /// Start continuous scanning for pairing devices
     pub async fn start_continuous_scan(
         &mut self,
-        scan_interval: Duration,
     ) -> Result<mpsc::UnboundedReceiver<DiscoveryEvent>> {
         let (tx, rx) = mpsc::unbounded_channel();
         self.event_sender = Some(tx.clone());
         
+        // Browse for Spacedrive pairing services
+        let receiver = self.mdns_daemon.browse(self.service_type)
+            .map_err(|e| NetworkError::TransportError(format!("Failed to start continuous mDNS browse: {}", e)))?;
+        
         // Spawn background scanning task
         let scanner_tx = tx.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(scan_interval);
-            
             loop {
-                interval.tick().await;
-                
-                // Scan for pairing services
-                match Self::scan_all_pairing_devices().await {
-                    Ok(devices) => {
-                        for (target, fingerprint) in devices {
-                            let _ = scanner_tx.send(DiscoveryEvent::DeviceFound {
-                                target,
-                                fingerprint,
-                            });
+                match receiver.recv() {
+                    Ok(ServiceEvent::ServiceResolved(info)) => {
+                        tracing::debug!("Discovered service: {}", info.get_fullname());
+                        
+                        // Extract fingerprint from TXT records
+                        if let Some(fp_hex) = info.get_property_val_str("fp") {
+                            if let Ok(fp_bytes) = hex::decode(&fp_hex) {
+                                if fp_bytes.len() >= 16 {
+                                    let mut fingerprint = [0u8; 16];
+                                    fingerprint.copy_from_slice(&fp_bytes[..16]);
+                                    
+                                    // Extract device information
+                                    let device_name = info.get_property_val_str("device")
+                                        .unwrap_or("Unknown Device").to_string();
+                                    
+                                    let expires_timestamp = info.get_property_val_str("expires")
+                                        .and_then(|s| s.parse::<i64>().ok())
+                                        .and_then(|ts| chrono::DateTime::from_timestamp(ts, 0));
+                                    
+                                    // Get IP address from service info
+                                    if let Some(addr) = info.get_addresses().iter().next() {
+                                        let target = PairingTarget {
+                                            address: *addr,
+                                            port: info.get_port(),
+                                            device_name,
+                                            expires_at: expires_timestamp,
+                                        };
+                                        
+                                        let _ = scanner_tx.send(DiscoveryEvent::DeviceFound {
+                                            target,
+                                            fingerprint,
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
+                    Ok(ServiceEvent::ServiceRemoved(_, fullname)) => {
+                        tracing::debug!("Service removed: {}", fullname);
+                        // Could parse IP from fullname if needed for DeviceLost events
+                    }
+                    Ok(_) => {
+                        // Other events, continue
+                    }
                     Err(e) => {
+                        tracing::warn!("mDNS browse error: {}", e);
                         let _ = scanner_tx.send(DiscoveryEvent::Error {
-                            error: format!("Scan error: {}", e),
+                            error: format!("mDNS browse error: {}", e),
                         });
                     }
                 }
@@ -188,16 +313,27 @@ impl PairingDiscovery {
         Ok(rx)
     }
     
-    /// Scan for all pairing devices (internal helper)
-    async fn scan_all_pairing_devices() -> Result<Vec<(PairingTarget, [u8; 16])>> {
-        // Simplified for demo - in production would do real mDNS scanning
-        tracing::warn!("scan_all_pairing_devices is simplified for demo");
-        Ok(Vec::new())
+    /// Get local IP address for service registration
+    fn get_local_ip_address(&self) -> Result<Ipv4Addr> {
+        use local_ip_address::local_ip;
+        
+        match local_ip() {
+            Ok(IpAddr::V4(ipv4)) => Ok(ipv4),
+            Ok(IpAddr::V6(_)) => {
+                // Fall back to localhost if only IPv6 is available
+                tracing::warn!("Only IPv6 address available, using localhost for mDNS");
+                Ok(Ipv4Addr::LOCALHOST)
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get local IP address, using localhost: {}", e);
+                Ok(Ipv4Addr::LOCALHOST)
+            }
+        }
     }
     
     /// Get current broadcast status
     pub fn is_broadcasting(&self) -> bool {
-        self.mdns_service.is_some()
+        self.current_service.is_some()
     }
     
     /// Get current pairing code
@@ -208,8 +344,11 @@ impl PairingDiscovery {
 
 impl Drop for PairingDiscovery {
     fn drop(&mut self) {
-        if let Some(_service) = self.mdns_service.take() {
-            // In real implementation, would unregister mDNS service
+        if let Some(service_info) = self.current_service.take() {
+            // Unregister the service on drop
+            if let Err(e) = self.mdns_daemon.unregister(service_info.get_fullname()) {
+                tracing::warn!("Failed to unregister mDNS service on drop: {}", e);
+            }
         }
     }
 }
@@ -229,6 +368,8 @@ mod tests {
         let device_info = create_test_device_info();
         let discovery = PairingDiscovery::new(device_info);
         
+        assert!(discovery.is_ok());
+        let discovery = discovery.unwrap();
         assert!(!discovery.is_broadcasting());
         assert!(discovery.current_code().is_none());
     }
@@ -238,7 +379,7 @@ mod tests {
         use super::super::PairingCode;
         
         let device_info = create_test_device_info();
-        let mut discovery = PairingDiscovery::new(device_info);
+        let mut discovery = PairingDiscovery::new(device_info).unwrap();
         let code = PairingCode::generate().unwrap();
         
         // Note: This test may fail in CI environments without mDNS support

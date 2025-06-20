@@ -1,36 +1,40 @@
-//! Production-ready device pairing demonstration
+//! Production-ready device pairing demonstration with mDNS discovery
 //! 
-//! This demo shows the complete pairing protocol in action:
+//! This demo shows the complete pairing protocol with two connection methods:
+//! - Automatic mDNS discovery (recommended)
+//! - Direct IP connection (fallback)
+//!
+//! Features demonstrated:
 //! - Real TCP/TLS connections
+//! - Automatic device discovery via mDNS
 //! - Full challenge-response authentication
-//! - Actual session key establishment
+//! - Session key establishment
 //! - Complete error handling
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::{sleep, timeout};
+use tokio::time::timeout;
 use uuid::Uuid;
-use rustls::crypto::aws_lc_rs;
 
 use sd_core_new::networking::{
-    identity::{DeviceInfo, NetworkIdentity, PrivateKey, PublicKey},
+    identity::{DeviceInfo, PrivateKey},
     pairing::{
-        PairingCode, PairingConnection, PairingServer, PairingTarget,
+        PairingCode, PairingConnection, PairingServer, PairingTarget, PairingDiscovery,
         PairingProtocolHandler, PairingUserInterface, PairingState,
-        PairingManager, PairingSession
+        DiscoveryEvent
     },
     NetworkError, Result,
 };
 
-/// Production UI that actually prompts the user
-struct ProductionUI {
+/// Enhanced UI that shows discovery results
+struct DiscoveryUI {
     device_name: String,
     auto_accept: bool,
 }
 
 #[async_trait::async_trait]
-impl PairingUserInterface for ProductionUI {
+impl PairingUserInterface for DiscoveryUI {
     async fn show_pairing_error(&self, error: &NetworkError) {
         println!("❌ Pairing error: {}", error);
     }
@@ -42,14 +46,14 @@ impl PairingUserInterface for ProductionUI {
         println!("    {}", code);
         println!();
         println!("⏰ Expires in {} seconds", expires_in_seconds);
-        println!("💡 The other device should enter these 6 words");
+        println!("💡 The other device should enter these 12 words or find you via network discovery");
         println!();
     }
     
-    async fn prompt_pairing_code(&self) -> Result<[String; 6]> {
+    async fn prompt_pairing_code(&self) -> Result<[String; 12]> {
         println!("\n📥 Enter Pairing Code");
-        println!("Please enter the 6-word pairing code from the other device:");
-        println!("(Format: word1 word2 word3 word4 word5 word6)");
+        println!("Please enter the 12-word pairing code from the other device:");
+        println!("(Format: word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12)");
         print!("> ");
         
         use std::io::{self, Write};
@@ -63,7 +67,7 @@ impl PairingUserInterface for ProductionUI {
                 .map(|s| s.to_string())
                 .collect();
             
-            if words.len() == 6 {
+            if words.len() == 12 {
                 return Ok([
                     words[0].clone(),
                     words[1].clone(),
@@ -71,6 +75,12 @@ impl PairingUserInterface for ProductionUI {
                     words[3].clone(),
                     words[4].clone(),
                     words[5].clone(),
+                    words[6].clone(),
+                    words[7].clone(),
+                    words[8].clone(),
+                    words[9].clone(),
+                    words[10].clone(),
+                    words[11].clone(),
                 ]);
             }
         }
@@ -109,8 +119,8 @@ impl PairingUserInterface for ProductionUI {
     async fn show_pairing_progress(&self, state: PairingState) {
         match state {
             PairingState::GeneratingCode => println!("🔐 Generating pairing code..."),
-            PairingState::Broadcasting => println!("📡 Broadcasting availability for pairing..."),
-            PairingState::Scanning => println!("🔍 Scanning for pairing devices..."),
+            PairingState::Broadcasting => println!("📡 Broadcasting availability via mDNS..."),
+            PairingState::Scanning => println!("🔍 Scanning for pairing devices via mDNS..."),
             PairingState::Connecting => println!("🔗 Establishing secure connection..."),
             PairingState::Authenticating => println!("🔐 Performing mutual authentication..."),
             PairingState::ExchangingKeys => println!("🔄 Exchanging device information..."),
@@ -121,7 +131,91 @@ impl PairingUserInterface for ProductionUI {
             _ => {}
         }
     }
+}
+
+impl DiscoveryUI {
+    /// Display discovered devices and let user choose
+    async fn choose_discovered_device(&self, devices: Vec<(PairingTarget, [u8; 16])>) -> Result<Option<PairingTarget>> {
+        if devices.is_empty() {
+            println!("🔍 No pairing devices found on the network");
+            return Ok(None);
+        }
+        
+        println!("\n📱 Discovered Pairing Devices:");
+        println!("=====================================");
+        
+        for (i, (target, fingerprint)) in devices.iter().enumerate() {
+            println!("{}. {} ({}:{})", 
+                i + 1, 
+                target.device_name, 
+                target.address, 
+                target.port
+            );
+            println!("   🔐 Fingerprint: {}", hex::encode(fingerprint));
+            if let Some(expires) = target.expires_at {
+                println!("   ⏰ Expires: {}", expires);
+            }
+            println!();
+        }
+        
+        println!("{}. Enter pairing code manually", devices.len() + 1);
+        println!("{}. Connect to IP address directly", devices.len() + 2);
+        println!();
+        
+        loop {
+            print!("Choose device [1-{}]: ", devices.len() + 2);
+            use std::io::{self, Write};
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_ok() {
+                if let Ok(choice) = input.trim().parse::<usize>() {
+                    if choice >= 1 && choice <= devices.len() {
+                        return Ok(Some(devices[choice - 1].0.clone()));
+                    } else if choice == devices.len() + 1 {
+                        // Manual pairing code entry
+                        return Ok(None);
+                    } else if choice == devices.len() + 2 {
+                        // Direct IP connection
+                        return self.prompt_direct_ip_connection().await;
+                    }
+                }
+                println!("❌ Invalid choice. Please enter a number between 1 and {}", devices.len() + 2);
+            }
+        }
+    }
     
+    /// Prompt for direct IP connection
+    async fn prompt_direct_ip_connection(&self) -> Result<Option<PairingTarget>> {
+        println!("\n🌐 Direct IP Connection");
+        println!("Enter the IP address and port of the device to connect to:");
+        print!("Address (format: IP:PORT): ");
+        
+        use std::io::{self, Write};
+        io::stdout().flush().unwrap();
+        
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_ok() {
+            if let Ok(addr) = input.trim().parse::<SocketAddr>() {
+                println!("📥 Now enter the pairing code from that device:");
+                let words = self.prompt_pairing_code().await?;
+                let code = PairingCode::from_words(&words)?;
+                
+                let target = PairingTarget {
+                    address: addr.ip(),
+                    port: addr.port(),
+                    device_name: "Direct Connection".to_string(),
+                    expires_at: Some(code.expires_at),
+                };
+                
+                return Ok(Some(target));
+            } else {
+                println!("❌ Invalid address format. Please use IP:PORT (e.g., 192.168.1.100:12345)");
+            }
+        }
+        
+        Ok(None)
+    }
 }
 
 /// Create a test device identity
@@ -138,7 +232,7 @@ async fn create_test_device(name: &str) -> Result<(DeviceInfo, PrivateKey)> {
     Ok((device_info, private_key))
 }
 
-/// Production pairing initiator (Alice)
+/// Production pairing initiator with mDNS broadcasting
 async fn run_pairing_initiator() -> Result<()> {
     println!("🚀 Starting Production Pairing Demo - Initiator");
     println!("==============================================");
@@ -147,30 +241,43 @@ async fn run_pairing_initiator() -> Result<()> {
     let (local_device, local_private_key) = create_test_device("Alice's MacBook Pro").await?;
     
     // Create UI
-    let ui = Arc::new(ProductionUI {
+    let ui = Arc::new(DiscoveryUI {
         device_name: local_device.device_name.clone(),
         auto_accept: false,
     });
     
     // Generate pairing code
     let pairing_code = PairingCode::generate()?;
-    ui.display_pairing_code(&pairing_code).await?;
+    ui.show_pairing_code(&pairing_code.as_string(), 
+        pairing_code.time_remaining().unwrap_or_default().num_seconds() as u32).await;
     
-    // Start pairing server
-    let server_addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
+    // Start pairing server on random port
+    let server_addr: SocketAddr = "0.0.0.0:0".parse().unwrap();
     let server = PairingServer::bind(server_addr, local_device.clone()).await?;
     let actual_addr = server.local_addr()?;
     
     println!("🎧 Pairing server listening on {}", actual_addr);
-    println!("💡 Waiting for the other device to connect...");
+    
+    // Start mDNS discovery and broadcasting
+    let mut discovery = PairingDiscovery::new(local_device.clone())?;
+    ui.show_pairing_progress(PairingState::Broadcasting).await;
+    discovery.start_broadcast(&pairing_code, actual_addr.port()).await?;
+    
+    println!("📡 Broadcasting pairing availability via mDNS");
+    println!("💡 Other devices can now discover this device automatically");
+    println!("💡 Or they can connect directly to: {}", actual_addr);
+    println!("⏳ Waiting for connection...");
     
     // Accept incoming pairing connection
     let timeout_duration = Duration::from_secs(300); // 5 minutes
     let connection_result = timeout(timeout_duration, server.accept()).await;
     
+    // Stop broadcasting when someone connects
+    discovery.stop_broadcast().await?;
+    
     match connection_result {
         Ok(Ok(mut connection)) => {
-            println!("✅ Incoming connection accepted");
+            println!("✅ Incoming connection accepted from {}", connection.peer_addr()?);
             
             // Perform authentication as initiator
             ui.show_pairing_progress(PairingState::Authenticating).await;
@@ -220,39 +327,88 @@ async fn run_pairing_initiator() -> Result<()> {
     Ok(())
 }
 
-/// Production pairing joiner (Bob)
-async fn run_pairing_joiner(server_addr: SocketAddr) -> Result<()> {
+/// Production pairing joiner with automatic discovery
+async fn run_pairing_joiner() -> Result<()> {
     println!("🚀 Starting Production Pairing Demo - Joiner");
     println!("===========================================");
     
     // Create device identity
     let (local_device, local_private_key) = create_test_device("Bob's iPhone").await?;
     
-    // Create UI with auto-accept for demo
-    let ui = Arc::new(ProductionUI {
+    // Create UI
+    let ui = Arc::new(DiscoveryUI {
         device_name: local_device.device_name.clone(),
-        auto_accept: true, // Auto-accept for demo purposes
+        auto_accept: false,
     });
     
-    // Get pairing code from user
-    let words = ui.get_pairing_code_from_user().await?;
-    let pairing_code = PairingCode::from_words(&words.try_into().unwrap())?;
+    // Start mDNS discovery
+    let mut discovery = PairingDiscovery::new(local_device.clone())?;
+    ui.show_pairing_progress(PairingState::Scanning).await;
+    
+    println!("🔍 Scanning for pairing devices on the network...");
+    println!("⏳ Please wait while we search for available devices...");
+    
+    // Start continuous scanning
+    let mut event_receiver = discovery.start_continuous_scan().await?;
+    let mut discovered_devices = Vec::new();
+    
+    // Collect devices for a few seconds
+    let scan_timeout = Duration::from_secs(10);
+    let _scan_result = timeout(scan_timeout, async {
+        loop {
+            match event_receiver.recv().await {
+                Some(DiscoveryEvent::DeviceFound { target, fingerprint }) => {
+                    println!("📱 Found device: {} at {}:{}", 
+                        target.device_name, target.address, target.port);
+                    discovered_devices.push((target, fingerprint));
+                }
+                Some(DiscoveryEvent::DeviceLost { address }) => {
+                    println!("📤 Device lost: {}", address);
+                    discovered_devices.retain(|(target, _)| target.address != address);
+                }
+                Some(DiscoveryEvent::Error { error }) => {
+                    println!("⚠️  Discovery error: {}", error);
+                }
+                Some(DiscoveryEvent::BroadcastStarted { .. }) => {
+                    // Ignore broadcast events in joiner mode
+                }
+                Some(DiscoveryEvent::BroadcastStopped) => {
+                    // Ignore broadcast events in joiner mode
+                }
+                None => break,
+            }
+        }
+    }).await;
+    
+    // Present discovery results to user
+    let target_option = ui.choose_discovered_device(discovered_devices).await?;
+    
+    let (target, pairing_code) = if let Some(target) = target_option {
+        // User selected a discovered device, now get the pairing code
+        println!("📥 Selected device: {} at {}:{}", target.device_name, target.address, target.port);
+        let words = ui.prompt_pairing_code().await?;
+        let code = PairingCode::from_words(&words)?;
+        (target, code)
+    } else {
+        // User chose manual entry, get both target and code
+        println!("📥 Manual pairing code entry selected");
+        let words = ui.prompt_pairing_code().await?;
+        let code = PairingCode::from_words(&words)?;
+        
+        // Try to discover the device with this code
+        println!("🔍 Searching for device with pairing code...");
+        let discovered_target = discovery.scan_for_pairing_device(&code, Duration::from_secs(30)).await?;
+        (discovered_target, code)
+    };
     
     println!("✅ Pairing code accepted");
     println!("   🔍 Discovery fingerprint: {}", hex::encode(pairing_code.discovery_fingerprint));
     
-    // Connect to pairing server
-    let target = PairingTarget {
-        address: server_addr.ip(),
-        port: server_addr.port(),
-        device_name: "Unknown Device".to_string(),
-        expires_at: None,
-    };
-    
-    println!("🔗 Connecting to pairing server at {}...", server_addr);
+    // Connect to the target
+    println!("🔗 Connecting to {}:{}...", target.address, target.port);
     ui.show_pairing_progress(PairingState::Connecting).await;
     
-    let mut connection = PairingConnection::connect_to_target(target, local_device.clone()).await?;
+    let mut connection = PairingConnection::connect_to_target(target.clone(), local_device.clone()).await?;
     println!("✅ Connection established");
     
     // Perform authentication as joiner
@@ -269,7 +425,7 @@ async fn run_pairing_joiner(server_addr: SocketAddr) -> Result<()> {
     println!("✅ Device information exchange successful");
     println!("   📱 Remote device: {}", remote_device.device_name);
     
-    // User confirmation (auto-accepted in demo)
+    // User confirmation
     ui.show_pairing_progress(PairingState::AwaitingConfirmation).await;
     let confirmed = ui.confirm_pairing(&remote_device).await?;
     if !confirmed {
@@ -305,10 +461,18 @@ async fn main() -> Result<()> {
     
     println!("🔗 Spacedrive Production Pairing Protocol Demo");
     println!("===============================================");
-    println!("This demo performs REAL network pairing between two devices.");
+    println!("This demo performs REAL network pairing with automatic device discovery!");
+    println!();
+    println!("🌟 Features:");
+    println!("  • Automatic mDNS device discovery");
+    println!("  • Manual pairing code entry");
+    println!("  • Direct IP connection fallback");
+    println!("  • Real TLS encryption");
+    println!("  • Challenge-response authentication");
+    println!();
     println!("Choose your role:");
-    println!("1. Initiator (generates pairing code and waits for connections)");
-    println!("2. Joiner (enters pairing code and connects to initiator)");
+    println!("1. Initiator (generates pairing code and broadcasts availability)");
+    println!("2. Joiner (discovers and connects to pairing devices)");
     println!();
     
     loop {
@@ -325,18 +489,7 @@ async fn main() -> Result<()> {
                 }
                 "2" => {
                     println!("\n🎯 You chose: Joiner");
-                    println!("Enter the server address (format: IP:PORT):");
-                    print!("> ");
-                    io::stdout().flush().unwrap();
-                    
-                    let mut addr_input = String::new();
-                    if io::stdin().read_line(&mut addr_input).is_ok() {
-                        if let Ok(addr) = addr_input.trim().parse::<SocketAddr>() {
-                            return run_pairing_joiner(addr).await;
-                        } else {
-                            println!("❌ Invalid address format. Please use IP:PORT (e.g., 127.0.0.1:8080)");
-                        }
-                    }
+                    return run_pairing_joiner().await;
                 }
                 _ => {
                     println!("❌ Invalid choice. Please enter 1 or 2.");

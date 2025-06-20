@@ -173,7 +173,7 @@ impl Network {
         let device_info = self.identity.to_device_info();
         
         // Start discovery service
-        let mut discovery = PairingDiscovery::new(device_info);
+        let mut discovery = PairingDiscovery::new(device_info)?;
         
         // Bind to a random port for pairing
         let addr = std::net::SocketAddr::new(
@@ -190,14 +190,14 @@ impl Network {
     }
     
     /// Complete device pairing as joiner
-    pub async fn complete_pairing(&self, words: [String; 6]) -> Result<DeviceInfo> {
+    pub async fn complete_pairing(&self, words: [String; 12]) -> Result<DeviceInfo> {
         self.complete_pairing_with_ui(words, &ConsolePairingUI).await
     }
     
     /// Complete device pairing with custom UI
     pub async fn complete_pairing_with_ui<UI: PairingUserInterface>(
         &self, 
-        words: [String; 6],
+        words: [String; 12],
         ui: &UI
     ) -> Result<DeviceInfo> {
         let code = PairingCode::from_words(&words)?;
@@ -210,7 +210,7 @@ impl Network {
         let device_info = self.identity.to_device_info();
         
         // Create discovery service
-        let discovery = PairingDiscovery::new(device_info.clone());
+        let discovery = PairingDiscovery::new(device_info.clone())?;
         
         // Scan for the pairing device
         ui.show_pairing_progress(crate::networking::PairingState::Scanning).await;

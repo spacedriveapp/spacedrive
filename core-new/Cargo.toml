@@ -62,7 +62,7 @@ tokio-rustls = "0.26"
 # Networking
 # quinn = "0.10"              # QUIC for local/direct connections (disabled for now)
 # tokio-tungstenite = "0.20"  # WebSocket for relay fallback (disabled for now)
-mdns = "3.0"                # Local network discovery (enabled for pairing)
+mdns-sd = "0.13"             # mDNS service discovery and advertising (enabled for pairing)
 # if-watch = "3.0"            # Network monitoring (disabled for now)
 snow = "0.9"                # Noise Protocol encryption
 ring = "0.16"               # Crypto primitives

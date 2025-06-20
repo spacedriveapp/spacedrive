@@ -20,7 +20,7 @@ pub trait PairingUserInterface: Send + Sync {
     async fn show_pairing_code(&self, code: &str, expires_in_seconds: u32);
     
     /// Prompt user to enter pairing code
-    async fn prompt_pairing_code(&self) -> Result<[String; 6]>;
+    async fn prompt_pairing_code(&self) -> Result<[String; 12]>;
     
     /// Display pairing code object to user
     async fn display_pairing_code(&self, code: &super::PairingCode) -> Result<()> {
@@ -108,30 +108,30 @@ impl PairingUserInterface for ConsolePairingUI {
         println!("💡 The other device should enter these words to pair with you.");
     }
     
-    async fn prompt_pairing_code(&self) -> Result<[String; 6]> {
+    async fn prompt_pairing_code(&self) -> Result<[String; 12]> {
         use dialoguer::Input;
         use colored::*;
         
         println!("\n🔑 Enter Pairing Code");
         println!("====================");
-        println!("Enter the 6-word pairing code from the other device:");
+        println!("Enter the 12-word pairing code from the other device:");
         println!();
         
         let mut words = Vec::new();
         
-        for i in 1..=6 {
+        for i in 1..=12 {
             let word: String = Input::new()
-                .with_prompt(&format!("Word {}/6", i))
+                .with_prompt(&format!("Word {}/12", i))
                 .interact()
                 .map_err(|e| NetworkError::AuthenticationFailed(format!("Input failed: {}", e)))?;
             
             words.push(word.trim().to_lowercase());
         }
         
-        // Validate we have exactly 6 words
-        if words.len() != 6 {
+        // Validate we have exactly 12 words
+        if words.len() != 12 {
             return Err(NetworkError::AuthenticationFailed(
-                "Must provide exactly 6 words".to_string()
+                "Must provide exactly 12 words".to_string()
             ));
         }
         
@@ -145,6 +145,12 @@ impl PairingUserInterface for ConsolePairingUI {
             words[3].clone(),
             words[4].clone(),
             words[5].clone(),
+            words[6].clone(),
+            words[7].clone(),
+            words[8].clone(),
+            words[9].clone(),
+            words[10].clone(),
+            words[11].clone(),
         ])
     }
 }
@@ -152,7 +158,7 @@ impl PairingUserInterface for ConsolePairingUI {
 /// Mock UI for testing
 pub struct MockPairingUI {
     pub should_confirm: bool,
-    pub pairing_code_response: Option<[String; 6]>,
+    pub pairing_code_response: Option<[String; 12]>,
 }
 
 impl MockPairingUI {
@@ -163,7 +169,7 @@ impl MockPairingUI {
         }
     }
     
-    pub fn with_pairing_code(mut self, code: [String; 6]) -> Self {
+    pub fn with_pairing_code(mut self, code: [String; 12]) -> Self {
         self.pairing_code_response = Some(code);
         self
     }
@@ -187,7 +193,7 @@ impl PairingUserInterface for MockPairingUI {
         // Silent for tests
     }
     
-    async fn prompt_pairing_code(&self) -> Result<[String; 6]> {
+    async fn prompt_pairing_code(&self) -> Result<[String; 12]> {
         self.pairing_code_response
             .clone()
             .ok_or_else(|| NetworkError::AuthenticationFailed("No pairing code set in mock".to_string()))
@@ -231,6 +237,12 @@ mod tests {
             "word4".to_string(),
             "word5".to_string(),
             "word6".to_string(),
+            "word7".to_string(),
+            "word8".to_string(),
+            "word9".to_string(),
+            "word10".to_string(),
+            "word11".to_string(),
+            "word12".to_string(),
         ];
         
         let ui = MockPairingUI::new(true).with_pairing_code(test_code.clone());
