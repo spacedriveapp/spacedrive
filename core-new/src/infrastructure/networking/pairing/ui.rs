@@ -207,7 +207,19 @@ mod tests {
     use uuid::Uuid;
 
     fn create_test_device_info() -> DeviceInfo {
-        crate::networking::test_utils::test_helpers::create_test_device_info()
+        use crate::networking::{DeviceInfo, PublicKey, NetworkFingerprint};
+        use chrono::Utc;
+        
+        let device_id = Uuid::new_v4();
+        let public_key = PublicKey::from_bytes(vec![42u8; 32]).unwrap();
+        
+        DeviceInfo {
+            device_id,
+            device_name: "Test Device".to_string(),
+            public_key: public_key.clone(),
+            network_fingerprint: NetworkFingerprint::from_device(device_id, &public_key),
+            last_seen: Utc::now(),
+        }
     }
 
     #[tokio::test]

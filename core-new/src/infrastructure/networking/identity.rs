@@ -312,7 +312,7 @@ impl NetworkIdentity {
         }
         
         let content = std::fs::read_to_string(&path)
-            .map_err(|e| NetworkError::IoError(e))?;
+            .map_err(|e| NetworkError::IoError(e.to_string()))?;
         
         let keys: EncryptedNetworkKeys = serde_json::from_str(&content)
             .map_err(|e| NetworkError::SerializationError(format!("Failed to parse network keys: {}", e)))?;
@@ -335,7 +335,7 @@ impl NetworkIdentity {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| NetworkError::IoError(e))?;
+                .map_err(|e| NetworkError::IoError(e.to_string()))?;
         }
         
         let keys = EncryptedNetworkKeys {
@@ -349,7 +349,7 @@ impl NetworkIdentity {
             .map_err(|e| NetworkError::SerializationError(format!("Failed to serialize network keys: {}", e)))?;
         
         std::fs::write(&path, content)
-            .map_err(|e| NetworkError::IoError(e))?;
+            .map_err(|e| NetworkError::IoError(e.to_string()))?;
         
         tracing::info!("Network keys saved for device {}", device_id);
         Ok(())

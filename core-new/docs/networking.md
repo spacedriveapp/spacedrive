@@ -39,7 +39,7 @@ networking/
 Manages cryptographic identities for devices:
 
 ```rust
-use sd_core_new::networking::{NetworkIdentity, DeviceInfo, PrivateKey};
+use sd_core_new::infrastructure::networking::{NetworkIdentity, DeviceInfo, PrivateKey};
 
 // Create a network identity for this device
 let identity = NetworkIdentity::new_temporary(
@@ -64,7 +64,7 @@ let device_info = DeviceInfo::new(device_id, device_name, public_key);
 The main production-ready pairing implementation:
 
 ```rust
-use sd_core_new::networking::{LibP2PPairingProtocol, PairingCode};
+use sd_core_new::infrastructure::networking::{LibP2PPairingProtocol, PairingCode};
 
 // Create pairing protocol
 let mut pairing_protocol = LibP2PPairingProtocol::new(
@@ -91,7 +91,7 @@ let (remote_device, session_keys) = pairing_protocol
 BIP39-based 12-word pairing codes for device discovery:
 
 ```rust
-use sd_core_new::networking::PairingCode;
+use sd_core_new::infrastructure::networking::PairingCode;
 
 // Generate a new pairing code
 let code = PairingCode::generate()?;
@@ -110,7 +110,7 @@ let fingerprint = code.discovery_fingerprint;
 Combines multiple libp2p protocols:
 
 ```rust
-use sd_core_new::networking::SpacedriveBehaviour;
+use sd_core_new::infrastructure::networking::SpacedriveBehaviour;
 
 // The behavior combines:
 // - Kademlia DHT for global discovery
@@ -123,7 +123,7 @@ use sd_core_new::networking::SpacedriveBehaviour;
 Defines the interface for pairing interactions:
 
 ```rust
-use sd_core_new::networking::PairingUserInterface;
+use sd_core_new::infrastructure::networking::PairingUserInterface;
 
 #[async_trait::async_trait]
 impl PairingUserInterface for MyUI {
@@ -232,7 +232,7 @@ See `examples/production_pairing_demo.rs` for a full working example.
 ### Basic Integration
 
 ```rust
-use sd_core_new::networking::*;
+use sd_core_new::infrastructure::networking::*;
 
 // 1. Create device identity
 let (device_info, private_key) = create_device_identity("My Device").await?;

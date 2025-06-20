@@ -7,6 +7,8 @@
 //! - Noise Protocol encryption
 //! - Efficient device pairing and authentication
 //! - Request-response messaging over libp2p
+//! - Persistent device connections with auto-reconnection
+//! - Protocol-agnostic message system for all device communication
 
 pub mod identity;
 pub mod manager;
@@ -16,6 +18,9 @@ pub mod pairing;
 pub mod behavior;
 pub mod codec;
 pub mod discovery;
+
+// Persistent connections system
+pub mod persistent;
 
 pub use identity::{NetworkIdentity, NetworkFingerprint, MasterKey, DeviceInfo, PublicKey, PrivateKey, Signature};
 pub use pairing::{
@@ -27,6 +32,13 @@ pub use behavior::SpacedriveBehaviour;
 pub use codec::PairingCodec;
 pub use discovery::LibP2PDiscovery;
 pub use pairing::protocol::LibP2PPairingProtocol;
+
+// Persistent connections exports
+pub use persistent::{
+    NetworkingService, PersistentConnectionManager, PersistentNetworkIdentity,
+    DeviceMessage, ConnectionState, TrustLevel, ProtocolHandler,
+    init_persistent_networking, handle_successful_pairing,
+};
 
 // LibP2P events and channels
 use libp2p::{Multiaddr, PeerId};
@@ -51,7 +63,7 @@ pub fn create_event_channel() -> (EventSender, EventReceiver) {
 
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum NetworkError {
     #[error("Connection failed: {0}")]
     ConnectionFailed(String),
@@ -72,7 +84,7 @@ pub enum NetworkError {
     ProtocolError(String),
     
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    IoError(String),
     
     #[error("Serialization error: {0}")]
     SerializationError(String),

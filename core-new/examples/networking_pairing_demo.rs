@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
-use sd_core_new::networking::{
+use sd_core_new::infrastructure::networking::{
     identity::{DeviceInfo, PrivateKey, NetworkIdentity},
     pairing::{PairingCode, PairingUserInterface, PairingState},
     LibP2PPairingProtocol,
