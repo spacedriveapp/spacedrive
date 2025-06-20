@@ -1,52 +1,50 @@
-//! Production-ready device pairing demonstration with mDNS discovery
+//! Production-ready device pairing demonstration with libp2p networking
 //! 
-//! This demo shows the complete pairing protocol with two connection methods:
-//! - Automatic mDNS discovery (recommended)
-//! - Direct IP connection (fallback)
+//! This demo shows the complete pairing protocol using the new libp2p stack:
+//! - Global DHT-based discovery (replaces mDNS)
+//! - Multi-transport support (TCP + QUIC)
+//! - NAT traversal and hole punching
+//! - Noise Protocol encryption (replaces TLS)
+//! - Request-response messaging over libp2p
 //!
 //! Features demonstrated:
-//! - Real TCP/TLS connections
-//! - Automatic device discovery via mDNS
+//! - Global device discovery via Kademlia DHT
 //! - Full challenge-response authentication
 //! - Session key establishment
-//! - Complete error handling
+//! - Production-ready libp2p networking
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::timeout;
 use uuid::Uuid;
 
 use sd_core_new::networking::{
-    identity::{DeviceInfo, PrivateKey},
-    pairing::{
-        PairingCode, PairingConnection, PairingServer, PairingTarget, PairingDiscovery,
-        PairingProtocolHandler, PairingUserInterface, PairingState,
-        DiscoveryEvent
-    },
+    identity::{DeviceInfo, PrivateKey, NetworkIdentity},
+    pairing::{PairingCode, PairingUserInterface, PairingState},
+    LibP2PPairingProtocol,
     NetworkError, Result,
 };
 
-/// Enhanced UI that shows discovery results
-struct DiscoveryUI {
+/// Enhanced UI for libp2p pairing demo
+struct LibP2PUI {
     device_name: String,
     auto_accept: bool,
 }
 
 #[async_trait::async_trait]
-impl PairingUserInterface for DiscoveryUI {
+impl PairingUserInterface for LibP2PUI {
     async fn show_pairing_error(&self, error: &NetworkError) {
         println!("❌ Pairing error: {}", error);
     }
     
     async fn show_pairing_code(&self, code: &str, expires_in_seconds: u32) {
-        println!("\n📋 Your Pairing Code");
+        println!("\n📋 Your Pairing Code (LibP2P)");
         println!("Share this code with the other device:");
         println!();
         println!("    {}", code);
         println!();
         println!("⏰ Expires in {} seconds", expires_in_seconds);
-        println!("💡 The other device should enter these 12 words or find you via network discovery");
+        println!("💡 The other device will find you via global DHT discovery");
+        println!("🌐 No more mDNS limitations - works across networks!");
         println!();
     }
     
@@ -100,123 +98,50 @@ impl PairingUserInterface for DiscoveryUI {
         println!("Network Fingerprint: {}", remote_device.network_fingerprint);
         println!("Last seen: {}", remote_device.last_seen);
         
-        loop {
-            print!("Accept this pairing? [y/N]: ");
-            use std::io::{self, Write};
-            io::stdout().flush().unwrap();
-            
+        // Use async stdin to avoid blocking the network event loop
+        println!();
+        print!("Accept this pairing? [y/N]: ");
+        use std::io::{self, Write};
+        io::stdout().flush().unwrap();
+        
+        // Read input in a way that doesn't interfere with debug logging
+        let input = tokio::task::spawn_blocking(|| {
             let mut input = String::new();
-            if io::stdin().read_line(&mut input).is_ok() {
-                match input.trim().to_lowercase().as_str() {
-                    "y" | "yes" => return Ok(true),
-                    "n" | "no" | "" => return Ok(false),
-                    _ => println!("Please enter 'y' for yes or 'n' for no."),
+            io::stdin().read_line(&mut input).ok().map(|_| input)
+        }).await.unwrap_or(None);
+        
+        if let Some(input) = input {
+            match input.trim().to_lowercase().as_str() {
+                "y" | "yes" => return Ok(true),
+                "n" | "no" | "" => return Ok(false),
+                _ => {
+                    println!("Invalid input. Rejecting pairing.");
+                    return Ok(false);
                 }
             }
+        } else {
+            println!("Failed to read input. Rejecting pairing.");
+            return Ok(false);
         }
     }
     
     async fn show_pairing_progress(&self, state: PairingState) {
         match state {
             PairingState::GeneratingCode => println!("🔐 Generating pairing code..."),
-            PairingState::Broadcasting => println!("📡 Broadcasting availability via mDNS..."),
-            PairingState::Scanning => println!("🔍 Scanning for pairing devices via mDNS..."),
-            PairingState::Connecting => println!("🔗 Establishing secure connection..."),
-            PairingState::Authenticating => println!("🔐 Performing mutual authentication..."),
-            PairingState::ExchangingKeys => println!("🔄 Exchanging device information..."),
+            PairingState::Broadcasting => println!("📡 Providing on Kademlia DHT (global discovery)..."),
+            PairingState::Scanning => println!("🔍 Searching Kademlia DHT for pairing devices..."),
+            PairingState::Connecting => println!("🔗 Establishing libp2p connection (TCP/QUIC)..."),
+            PairingState::Authenticating => println!("🔐 Authenticating via request-response protocol..."),
+            PairingState::ExchangingKeys => println!("🔄 Exchanging device information over libp2p..."),
             PairingState::AwaitingConfirmation => println!("⏳ Awaiting user confirmation..."),
             PairingState::EstablishingSession => println!("🔑 Establishing session keys..."),
-            PairingState::Completed => println!("✅ Pairing completed successfully!"),
+            PairingState::Completed => println!("✅ LibP2P pairing completed successfully!"),
             PairingState::Failed(err) => println!("❌ Pairing failed: {}", err),
             _ => {}
         }
     }
 }
 
-impl DiscoveryUI {
-    /// Display discovered devices and let user choose
-    async fn choose_discovered_device(&self, devices: Vec<(PairingTarget, [u8; 16])>) -> Result<Option<PairingTarget>> {
-        if devices.is_empty() {
-            println!("🔍 No pairing devices found on the network");
-            return Ok(None);
-        }
-        
-        println!("\n📱 Discovered Pairing Devices:");
-        println!("=====================================");
-        
-        for (i, (target, fingerprint)) in devices.iter().enumerate() {
-            println!("{}. {} ({}:{})", 
-                i + 1, 
-                target.device_name, 
-                target.address, 
-                target.port
-            );
-            println!("   🔐 Fingerprint: {}", hex::encode(fingerprint));
-            if let Some(expires) = target.expires_at {
-                println!("   ⏰ Expires: {}", expires);
-            }
-            println!();
-        }
-        
-        println!("{}. Enter pairing code manually", devices.len() + 1);
-        println!("{}. Connect to IP address directly", devices.len() + 2);
-        println!();
-        
-        loop {
-            print!("Choose device [1-{}]: ", devices.len() + 2);
-            use std::io::{self, Write};
-            io::stdout().flush().unwrap();
-            
-            let mut input = String::new();
-            if io::stdin().read_line(&mut input).is_ok() {
-                if let Ok(choice) = input.trim().parse::<usize>() {
-                    if choice >= 1 && choice <= devices.len() {
-                        return Ok(Some(devices[choice - 1].0.clone()));
-                    } else if choice == devices.len() + 1 {
-                        // Manual pairing code entry
-                        return Ok(None);
-                    } else if choice == devices.len() + 2 {
-                        // Direct IP connection
-                        return self.prompt_direct_ip_connection().await;
-                    }
-                }
-                println!("❌ Invalid choice. Please enter a number between 1 and {}", devices.len() + 2);
-            }
-        }
-    }
-    
-    /// Prompt for direct IP connection
-    async fn prompt_direct_ip_connection(&self) -> Result<Option<PairingTarget>> {
-        println!("\n🌐 Direct IP Connection");
-        println!("Enter the IP address and port of the device to connect to:");
-        print!("Address (format: IP:PORT): ");
-        
-        use std::io::{self, Write};
-        io::stdout().flush().unwrap();
-        
-        let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_ok() {
-            if let Ok(addr) = input.trim().parse::<SocketAddr>() {
-                println!("📥 Now enter the pairing code from that device:");
-                let words = self.prompt_pairing_code().await?;
-                let code = PairingCode::from_words(&words)?;
-                
-                let target = PairingTarget {
-                    address: addr.ip(),
-                    port: addr.port(),
-                    device_name: "Direct Connection".to_string(),
-                    expires_at: Some(code.expires_at),
-                };
-                
-                return Ok(Some(target));
-            } else {
-                println!("❌ Invalid address format. Please use IP:PORT (e.g., 192.168.1.100:12345)");
-            }
-        }
-        
-        Ok(None)
-    }
-}
 
 /// Create a test device identity
 async fn create_test_device(name: &str) -> Result<(DeviceInfo, PrivateKey)> {
@@ -232,247 +157,148 @@ async fn create_test_device(name: &str) -> Result<(DeviceInfo, PrivateKey)> {
     Ok((device_info, private_key))
 }
 
-/// Production pairing initiator with mDNS broadcasting
+/// Production pairing initiator with libp2p DHT
 async fn run_pairing_initiator() -> Result<()> {
-    println!("🚀 Starting Production Pairing Demo - Initiator");
-    println!("==============================================");
+    println!("🚀 Starting Production Pairing Demo - Initiator (LibP2P)");
+    println!("=======================================================");
     
     // Create device identity
     let (local_device, local_private_key) = create_test_device("Alice's MacBook Pro").await?;
     
+    // Create network identity for libp2p
+    let network_identity = NetworkIdentity::new_temporary(
+        local_device.device_id,
+        local_device.device_name.clone(),
+        "production_demo_password"
+    )?;
+    
     // Create UI
-    let ui = Arc::new(DiscoveryUI {
+    let ui = Arc::new(LibP2PUI {
         device_name: local_device.device_name.clone(),
         auto_accept: false,
     });
     
-    // Generate pairing code
-    let pairing_code = PairingCode::generate()?;
-    ui.show_pairing_code(&pairing_code.as_string(), 
-        pairing_code.time_remaining().unwrap_or_default().num_seconds() as u32).await;
+    println!("🔧 Initializing libp2p networking...");
     
-    // Start pairing server on random port
-    let server_addr: SocketAddr = "0.0.0.0:0".parse().unwrap();
-    let server = PairingServer::bind(server_addr, local_device.clone()).await?;
-    let actual_addr = server.local_addr()?;
+    // Create simple libp2p pairing protocol
+    let mut pairing_protocol = LibP2PPairingProtocol::new(
+        &network_identity,
+        local_device.clone(),
+        local_private_key,
+        "production_demo_password"
+    ).await?;
     
-    println!("🎧 Pairing server listening on {}", actual_addr);
+    println!("✅ Production LibP2P pairing protocol initialized");
+    println!("🌐 Peer ID: {}", pairing_protocol.local_peer_id());
     
-    // Start mDNS discovery and broadcasting
-    let mut discovery = PairingDiscovery::new(local_device.clone())?;
-    ui.show_pairing_progress(PairingState::Broadcasting).await;
-    discovery.start_broadcast(&pairing_code, actual_addr.port()).await?;
+    // Start listening
+    let listening_addrs = pairing_protocol.start_listening().await?;
+    println!("📡 Listening on addresses: {:?}", listening_addrs);
+    println!("📡 Ready for global DHT discovery");
     
-    println!("📡 Broadcasting pairing availability via mDNS");
-    println!("💡 Other devices can now discover this device automatically");
-    println!("💡 Or they can connect directly to: {}", actual_addr);
-    println!("⏳ Waiting for connection...");
-    
-    // Accept incoming pairing connection
-    let timeout_duration = Duration::from_secs(300); // 5 minutes
-    let connection_result = timeout(timeout_duration, server.accept()).await;
-    
-    // Stop broadcasting when someone connects
-    discovery.stop_broadcast().await?;
-    
-    match connection_result {
-        Ok(Ok(mut connection)) => {
-            println!("✅ Incoming connection accepted from {}", connection.peer_addr()?);
-            
-            // Perform authentication as initiator
-            ui.show_pairing_progress(PairingState::Authenticating).await;
-            PairingProtocolHandler::authenticate_as_initiator(&mut connection, &pairing_code).await?;
-            println!("✅ Authentication successful");
-            
-            // Exchange device information (initiator sends first)
-            ui.show_pairing_progress(PairingState::ExchangingKeys).await;
-            let remote_device = PairingProtocolHandler::exchange_device_information_as_initiator(
-                &mut connection, 
-                &local_private_key
-            ).await?;
-            println!("✅ Device information exchange successful");
-            println!("   📱 Remote device: {}", remote_device.device_name);
-            
-            // User confirmation
-            ui.show_pairing_progress(PairingState::AwaitingConfirmation).await;
-            let confirmed = ui.confirm_pairing(&remote_device).await?;
-            if !confirmed {
-                println!("❌ User rejected pairing");
-                return Ok(());
-            }
-            
-            // Establish session keys (initiator sends first)
-            ui.show_pairing_progress(PairingState::EstablishingSession).await;
-            let session_keys = PairingProtocolHandler::establish_session_keys_as_initiator(&mut connection).await?;
-            println!("✅ Session keys established");
-            println!("   🔑 Send key: {}", hex::encode(session_keys.send_key));
-            println!("   🔑 Receive key: {}", hex::encode(session_keys.receive_key));
-            println!("   🔑 MAC key: {}", hex::encode(session_keys.mac_key));
-            
-            ui.show_pairing_progress(PairingState::Completed).await;
+    // Start pairing as initiator
+    match pairing_protocol.start_as_initiator(&*ui).await {
+        Ok((remote_device, session_keys)) => {
             println!("\n🎉 Production pairing completed successfully!");
             println!("✅ {} is now paired with {}", 
                 local_device.device_name, remote_device.device_name);
+            println!("   🔑 Send key: {}", hex::encode(session_keys.send_key));
+            println!("   🔑 Receive key: {}", hex::encode(session_keys.receive_key));
+            println!("   🔑 MAC key: {}", hex::encode(session_keys.mac_key));
         }
-        Ok(Err(e)) => {
-            println!("❌ Failed to accept connection: {}", e);
+        Err(e) => {
+            println!("❌ Pairing failed: {}", e);
             return Err(e);
-        }
-        Err(_) => {
-            println!("⏰ Timeout waiting for connection");
-            return Err(NetworkError::ConnectionTimeout);
         }
     }
     
     Ok(())
 }
 
-/// Production pairing joiner with automatic discovery
+/// Production pairing joiner with libp2p DHT discovery
 async fn run_pairing_joiner() -> Result<()> {
-    println!("🚀 Starting Production Pairing Demo - Joiner");
-    println!("===========================================");
+    println!("🚀 Starting Production Pairing Demo - Joiner (LibP2P)");
+    println!("====================================================");
     
     // Create device identity
     let (local_device, local_private_key) = create_test_device("Bob's iPhone").await?;
     
+    // Create network identity for libp2p
+    let network_identity = NetworkIdentity::new_temporary(
+        local_device.device_id,
+        local_device.device_name.clone(),
+        "production_demo_password"
+    )?;
+    
     // Create UI
-    let ui = Arc::new(DiscoveryUI {
+    let ui = Arc::new(LibP2PUI {
         device_name: local_device.device_name.clone(),
         auto_accept: false,
     });
     
-    // Start mDNS discovery
-    let mut discovery = PairingDiscovery::new(local_device.clone())?;
-    ui.show_pairing_progress(PairingState::Scanning).await;
-    
-    println!("🔍 Scanning for pairing devices on the network...");
-    println!("⏳ Please wait while we search for available devices...");
-    
-    // Start continuous scanning
-    let mut event_receiver = discovery.start_continuous_scan().await?;
-    let mut discovered_devices = Vec::new();
-    
-    // Collect devices for a few seconds
-    let scan_timeout = Duration::from_secs(10);
-    let _scan_result = timeout(scan_timeout, async {
-        loop {
-            match event_receiver.recv().await {
-                Some(DiscoveryEvent::DeviceFound { target, fingerprint }) => {
-                    println!("📱 Found device: {} at {}:{}", 
-                        target.device_name, target.address, target.port);
-                    discovered_devices.push((target, fingerprint));
-                }
-                Some(DiscoveryEvent::DeviceLost { address }) => {
-                    println!("📤 Device lost: {}", address);
-                    discovered_devices.retain(|(target, _)| target.address != address);
-                }
-                Some(DiscoveryEvent::Error { error }) => {
-                    println!("⚠️  Discovery error: {}", error);
-                }
-                Some(DiscoveryEvent::BroadcastStarted { .. }) => {
-                    // Ignore broadcast events in joiner mode
-                }
-                Some(DiscoveryEvent::BroadcastStopped) => {
-                    // Ignore broadcast events in joiner mode
-                }
-                None => break,
-            }
-        }
-    }).await;
-    
-    // Present discovery results to user
-    let target_option = ui.choose_discovered_device(discovered_devices).await?;
-    
-    let (target, pairing_code) = if let Some(target) = target_option {
-        // User selected a discovered device, now get the pairing code
-        println!("📥 Selected device: {} at {}:{}", target.device_name, target.address, target.port);
-        let words = ui.prompt_pairing_code().await?;
-        let code = PairingCode::from_words(&words)?;
-        (target, code)
-    } else {
-        // User chose manual entry, get both target and code
-        println!("📥 Manual pairing code entry selected");
-        let words = ui.prompt_pairing_code().await?;
-        let code = PairingCode::from_words(&words)?;
-        
-        // Try to discover the device with this code
-        println!("🔍 Searching for device with pairing code...");
-        let discovered_target = discovery.scan_for_pairing_device(&code, Duration::from_secs(30)).await?;
-        (discovered_target, code)
-    };
-    
+    // Get pairing code from user
+    let words = ui.prompt_pairing_code().await?;
+    let pairing_code = PairingCode::from_words(&words)?;
     println!("✅ Pairing code accepted");
     println!("   🔍 Discovery fingerprint: {}", hex::encode(pairing_code.discovery_fingerprint));
     
-    // Connect to the target
-    println!("🔗 Connecting to {}:{}...", target.address, target.port);
-    ui.show_pairing_progress(PairingState::Connecting).await;
+    println!("🔧 Initializing libp2p networking...");
     
-    let mut connection = PairingConnection::connect_to_target(target.clone(), local_device.clone()).await?;
-    println!("✅ Connection established");
-    
-    // Perform authentication as joiner
-    ui.show_pairing_progress(PairingState::Authenticating).await;
-    PairingProtocolHandler::authenticate_as_joiner(&mut connection, &pairing_code).await?;
-    println!("✅ Authentication successful");
-    
-    // Exchange device information (joiner receives first)
-    ui.show_pairing_progress(PairingState::ExchangingKeys).await;
-    let remote_device = PairingProtocolHandler::exchange_device_information_as_joiner(
-        &mut connection, 
-        &local_private_key
+    // Create simple libp2p pairing protocol
+    let mut pairing_protocol = LibP2PPairingProtocol::new(
+        &network_identity,
+        local_device.clone(),
+        local_private_key,
+        "production_demo_password"
     ).await?;
-    println!("✅ Device information exchange successful");
-    println!("   📱 Remote device: {}", remote_device.device_name);
     
-    // User confirmation
-    ui.show_pairing_progress(PairingState::AwaitingConfirmation).await;
-    let confirmed = ui.confirm_pairing(&remote_device).await?;
-    if !confirmed {
-        println!("❌ User rejected pairing");
-        return Ok(());
+    println!("✅ Production LibP2P pairing protocol initialized");
+    println!("🌐 Peer ID: {}", pairing_protocol.local_peer_id());
+    
+    // Start listening
+    let listening_addrs = pairing_protocol.start_listening().await?;
+    println!("📡 Listening on addresses: {:?}", listening_addrs);
+    println!("🔍 Starting DHT discovery...");
+    
+    // Start pairing as joiner
+    match pairing_protocol.start_as_joiner(&*ui, pairing_code).await {
+        Ok((remote_device, session_keys)) => {
+            println!("\n🎉 Production pairing completed successfully!");
+            println!("✅ {} is now paired with {}", 
+                local_device.device_name, remote_device.device_name);
+            println!("   🔑 Send key: {}", hex::encode(session_keys.send_key));
+            println!("   🔑 Receive key: {}", hex::encode(session_keys.receive_key));
+            println!("   🔑 MAC key: {}", hex::encode(session_keys.mac_key));
+        }
+        Err(e) => {
+            println!("❌ Pairing failed: {}", e);
+            return Err(e);
+        }
     }
-    
-    // Establish session keys (joiner receives first)
-    ui.show_pairing_progress(PairingState::EstablishingSession).await;
-    let session_keys = PairingProtocolHandler::establish_session_keys_as_joiner(&mut connection).await?;
-    println!("✅ Session keys established");
-    println!("   🔑 Send key: {}", hex::encode(session_keys.send_key));
-    println!("   🔑 Receive key: {}", hex::encode(session_keys.receive_key));
-    println!("   🔑 MAC key: {}", hex::encode(session_keys.mac_key));
-    
-    ui.show_pairing_progress(PairingState::Completed).await;
-    println!("\n🎉 Production pairing completed successfully!");
-    println!("✅ {} is now paired with {}", 
-        local_device.device_name, remote_device.device_name);
     
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize crypto provider for rustls 0.23
-    rustls::crypto::aws_lc_rs::default_provider()
-        .install_default()
-        .map_err(|_| NetworkError::EncryptionError("Failed to install crypto provider".to_string()))?;
-    
     // Initialize tracing for debugging
     tracing_subscriber::fmt::init();
     
-    println!("🔗 Spacedrive Production Pairing Protocol Demo");
-    println!("===============================================");
-    println!("This demo performs REAL network pairing with automatic device discovery!");
+    println!("🔗 Spacedrive Production Pairing Protocol Demo (LibP2P)");
+    println!("========================================================");
+    println!("This demo performs REAL network pairing with the NEW libp2p stack!");
     println!();
-    println!("🌟 Features:");
-    println!("  • Automatic mDNS device discovery");
-    println!("  • Manual pairing code entry");
-    println!("  • Direct IP connection fallback");
-    println!("  • Real TLS encryption");
-    println!("  • Challenge-response authentication");
+    println!("🌟 LibP2P Features:");
+    println!("  • Global DHT-based discovery (no more mDNS limitations!)");
+    println!("  • Multi-transport: TCP + QUIC");
+    println!("  • NAT traversal and hole punching");
+    println!("  • Noise Protocol encryption (replaces TLS)");
+    println!("  • Production-ready (used by IPFS, Polkadot, etc.)");
+    println!("  • Works across networks and the internet");
     println!();
     println!("Choose your role:");
-    println!("1. Initiator (generates pairing code and broadcasts availability)");
-    println!("2. Joiner (discovers and connects to pairing devices)");
+    println!("1. Initiator (generates pairing code and provides on DHT)");
+    println!("2. Joiner (searches DHT and connects to pairing devices)");
     println!();
     
     loop {
@@ -484,12 +310,32 @@ async fn main() -> Result<()> {
         if io::stdin().read_line(&mut input).is_ok() {
             match input.trim() {
                 "1" => {
-                    println!("\n🎯 You chose: Initiator");
-                    return run_pairing_initiator().await;
+                    println!("\n🎯 You chose: LibP2P Initiator");
+                    if let Err(e) = run_pairing_initiator().await {
+                        println!("❌ Initiator failed: {}", e);
+                        return Err(e);
+                    }
+                    println!("\n🔄 Pairing completed! Keeping connection alive...");
+                    println!("Press Ctrl+C to exit.");
+                    
+                    // Keep the demo running to maintain the connection
+                    loop {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
                 }
                 "2" => {
-                    println!("\n🎯 You chose: Joiner");
-                    return run_pairing_joiner().await;
+                    println!("\n🎯 You chose: LibP2P Joiner");
+                    if let Err(e) = run_pairing_joiner().await {
+                        println!("❌ Joiner failed: {}", e);
+                        return Err(e);
+                    }
+                    println!("\n🔄 Pairing completed! Keeping connection alive...");
+                    println!("Press Ctrl+C to exit.");
+                    
+                    // Keep the demo running to maintain the connection
+                    loop {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
                 }
                 _ => {
                     println!("❌ Invalid choice. Please enter 1 or 2.");

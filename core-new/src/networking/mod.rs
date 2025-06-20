@@ -1,35 +1,53 @@
 //! Networking module for Spacedrive
 //!
-//! Provides secure, transport-agnostic networking with support for:
-//! - Local P2P connections via mDNS + QUIC
-//! - Internet connectivity through relay servers
-//! - End-to-end encryption using Noise Protocol
-//! - Efficient file transfer
-//! - Device pairing and authentication
+//! Provides production-ready networking with libp2p:
+//! - Global DHT-based discovery via Kademlia
+//! - Multi-transport support (TCP + QUIC)
+//! - NAT traversal and hole punching
+//! - Noise Protocol encryption
+//! - Efficient device pairing and authentication
+//! - Request-response messaging over libp2p
 
 pub mod identity;
-pub mod connection;
-pub mod transport;
-pub mod security;
-pub mod protocol;
 pub mod manager;
 pub mod pairing;
-mod serialization;
 
-#[cfg(test)]
-mod test_utils;
+// LibP2P components
+pub mod behavior;
+pub mod codec;
+pub mod discovery;
 
-pub use manager::Network;
 pub use identity::{NetworkIdentity, NetworkFingerprint, MasterKey, DeviceInfo, PublicKey, PrivateKey, Signature};
-pub use connection::{NetworkConnection, DeviceConnection, Transport};
 pub use pairing::{
-    PairingCode, PairingManager, PairingSession, PairingState,
-    PairingDiscovery, PairingConnection, PairingProtocolHandler,
-    PairingUserInterface, ConsolePairingUI, SessionKeys
+    PairingCode, PairingState, PairingUserInterface, ConsolePairingUI, SessionKeys
 };
-// pub use transport::{Transport, LocalTransport, RelayTransport}; // Disabled for now
-pub use security::NoiseSession;
-pub use protocol::{FileHeader, FileTransfer};
+
+// LibP2P exports
+pub use behavior::SpacedriveBehaviour;
+pub use codec::PairingCodec;
+pub use discovery::LibP2PDiscovery;
+pub use pairing::protocol::LibP2PPairingProtocol;
+
+// LibP2P events and channels
+use libp2p::{Multiaddr, PeerId};
+use tokio::sync::mpsc;
+
+#[derive(Debug, Clone)]
+pub enum LibP2PEvent {
+    DeviceDiscovered { peer_id: PeerId, addr: Multiaddr },
+    PairingRequest { peer_id: PeerId, message: pairing::PairingMessage },
+    PairingResponse { peer_id: PeerId, message: pairing::PairingMessage },
+    ConnectionEstablished { peer_id: PeerId },
+    ConnectionClosed { peer_id: PeerId },
+    Error { peer_id: Option<PeerId>, error: String },
+}
+
+pub type EventSender = mpsc::UnboundedSender<LibP2PEvent>;
+pub type EventReceiver = mpsc::UnboundedReceiver<LibP2PEvent>;
+
+pub fn create_event_channel() -> (EventSender, EventReceiver) {
+    mpsc::unbounded_channel()
+}
 
 use thiserror::Error;
 

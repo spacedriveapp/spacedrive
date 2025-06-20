@@ -1,458 +1,312 @@
-//! High-level networking API and manager
-
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use libp2p::{
+    noise, 
+    swarm::SwarmEvent,
+    tcp, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder,
+};
+use std::error::Error;
+use tokio::sync::mpsc;
+use tracing::{debug, error, info, warn};
+use futures::StreamExt;
 
 use crate::networking::{
-    connection::{ConnectionManager, DeviceConnection, ConnectionStats, Transport},
-    identity::{NetworkFingerprint, NetworkIdentity, DeviceInfo},
-    pairing::{PairingCode, PairingManager, PairingDiscovery, PairingUserInterface, ConsolePairingUI, PairingProtocolHandler},
-    // transport::{Transport, LocalTransport, RelayTransport}, // Disabled for now
-    protocol::{FileTransfer, TransferProgress, SyncLogEntry},
-    Result, NetworkError,
+    identity::NetworkIdentity,
+    pairing::PairingMessage,
 };
-use uuid::Uuid;
 
-/// Main networking interface
-pub struct Network {
-    /// Connection manager
-    manager: Arc<ConnectionManager>,
-    
-    /// Our device identity
-    identity: Arc<NetworkIdentity>,
-    
-    /// Known devices
-    known_devices: Arc<RwLock<HashMap<Uuid, DeviceInfo>>>,
-    
-    /// Configuration
-    config: NetworkConfig,
-    
-    /// Pairing manager
-    pairing_manager: Arc<RwLock<PairingManager>>,
+use super::{
+    behavior::SpacedriveBehaviour,
+    discovery::LibP2PDiscovery,
+    LibP2PEvent, EventSender, EventReceiver,
+    create_event_channel,
+};
+
+pub struct LibP2PManager {
+    swarm: Swarm<SpacedriveBehaviour>,
+    discovery: LibP2PDiscovery,
+    event_sender: EventSender,
+    event_receiver: EventReceiver,
+    local_peer_id: PeerId,
 }
 
-/// Network configuration
-#[derive(Debug, Clone)]
-pub struct NetworkConfig {
-    /// Enable local P2P transport
-    pub enable_local: bool,
-    
-    /// Enable relay transport
-    pub enable_relay: bool,
-    
-    /// Relay server URL
-    pub relay_url: Option<String>,
-    
-    /// Authentication token for relay
-    pub auth_token: Option<String>,
-    
-    /// Maximum concurrent connections
-    pub max_connections: usize,
-    
-    /// Connection timeout in seconds
-    pub connection_timeout: u64,
-}
+impl LibP2PManager {
+    pub async fn new(identity: &NetworkIdentity, password: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let (event_sender, event_receiver) = create_event_channel();
 
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        Self {
-            enable_local: true,
-            enable_relay: true,
-            relay_url: Some("wss://relay.spacedrive.com".to_string()),
-            auth_token: None,
-            max_connections: 50,
-            connection_timeout: 30,
-        }
-    }
-}
+        // Convert NetworkIdentity to libp2p identity
+        let local_keypair = Self::convert_identity_to_libp2p(identity, password)?;
+        let local_peer_id = local_keypair.public().to_peer_id();
 
-impl Network {
-    /// Create a new network instance
-    pub async fn new(identity: NetworkIdentity, config: NetworkConfig) -> Result<Self> {
-        let identity = Arc::new(identity);
-        let manager = Arc::new(ConnectionManager::new(identity.clone()));
-        
-        let network = Self {
-            manager,
-            identity,
-            known_devices: Arc::new(RwLock::new(HashMap::new())),
-            config,
-            pairing_manager: Arc::new(RwLock::new(PairingManager::new())),
-        };
-        
-        network.initialize_transports().await?;
-        
-        Ok(network)
+        info!("Initializing libp2p with peer ID: {}", local_peer_id);
+
+        // Build the swarm using the type-safe SwarmBuilder from libp2p 0.55
+        let swarm = SwarmBuilder::with_existing_identity(local_keypair)
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default(),
+                noise::Config::new,
+                yamux::Config::default,
+            )?
+            .with_quic()
+            .with_behaviour(|_key| SpacedriveBehaviour::new(local_peer_id).unwrap())?
+            .with_swarm_config(|c| c.with_idle_connection_timeout(std::time::Duration::from_secs(60)))
+            .build();
+
+        let discovery = LibP2PDiscovery::new(event_sender.clone());
+
+        Ok(Self {
+            swarm,
+            discovery,
+            event_sender,
+            event_receiver,
+            local_peer_id,
+        })
     }
-    
-    /// Initialize transport layers
-    async fn initialize_transports(&self) -> Result<()> {
-        // TODO: Implement transport initialization when dependencies are re-enabled
-        // For now, just return OK since we don't have any transports
-        tracing::warn!("Transport initialization skipped - transports disabled");
-        Ok(())
+
+    pub fn local_peer_id(&self) -> PeerId {
+        self.local_peer_id
     }
-    
-    /// Connect to a device (auto-selects transport)
-    pub async fn connect(&self, device_id: Uuid) -> Result<Arc<RwLock<DeviceConnection>>> {
-        // Try local first, then fall back to relay
-        if let Ok(conn) = self.manager.connect_local(device_id).await {
-            let device_info = conn.device_info().clone();
-            self.update_known_device(device_info).await;
-            return Ok(Arc::new(RwLock::new(conn)));
-        }
-        
-        // Fall back to relay
-        let conn = self.manager.connect_relay(device_id).await?;
-        let device_info = conn.device_info().clone();
-        self.update_known_device(device_info).await;
-        Ok(Arc::new(RwLock::new(conn)))
+
+    pub fn event_receiver(&mut self) -> &mut EventReceiver {
+        &mut self.event_receiver
     }
-    
-    /// Share file with device
-    pub async fn share_file<F>(
-        &self,
-        device_id: Uuid,
-        file_path: &Path,
-        progress_callback: F,
-    ) -> Result<()>
-    where
-        F: FnMut(TransferProgress),
-    {
-        let connection_arc = self.connect(device_id).await?;
-        let mut connection = connection_arc.write().await;
-        
-        FileTransfer::send_file(&mut *connection, file_path, progress_callback).await
+
+    /// Take ownership of the event receiver for external event handling
+    pub fn take_event_receiver(&mut self) -> EventReceiver {
+        let (_, new_receiver) = tokio::sync::mpsc::unbounded_channel();
+        std::mem::replace(&mut self.event_receiver, new_receiver)
     }
-    
-    /// Receive file from device
-    pub async fn receive_file<F>(
-        &self,
-        device_id: Uuid,
-        output_path: &Path,
-        progress_callback: F,
-    ) -> Result<()>
-    where
-        F: FnMut(TransferProgress),
-    {
-        let connection_arc = self.connect(device_id).await?;
-        let mut connection = connection_arc.write().await;
-        
-        FileTransfer::receive_file(&mut *connection, output_path, progress_callback).await?;
-        Ok(())
-    }
-    
-    /// Sync with device
-    pub async fn sync_with(
-        &self,
-        device_id: Uuid,
-        from_seq: u64,
-    ) -> Result<Vec<SyncLogEntry>> {
-        let connection_arc = self.connect(device_id).await?;
-        let mut connection = connection_arc.write().await;
-        
-        let response = connection.sync_pull(from_seq, Some(1000)).await?;
-        Ok(response.changes)
-    }
-    
-    /// Start device pairing process as initiator
-    pub async fn initiate_pairing(&self) -> Result<PairingCode> {
-        self.initiate_pairing_with_ui(&ConsolePairingUI).await
-    }
-    
-    /// Start device pairing process with custom UI
-    pub async fn initiate_pairing_with_ui<UI: PairingUserInterface>(&self, ui: &UI) -> Result<PairingCode> {
-        let code = PairingCode::generate()?;
-        
-        // Show the code to the user
-        ui.show_pairing_code(&code.as_string(), code.time_remaining().unwrap_or_default().num_seconds() as u32).await;
-        
-        // Create device info for local device
-        let device_info = self.identity.to_device_info();
-        
-        // Start discovery service
-        let mut discovery = PairingDiscovery::new(device_info)?;
-        
-        // Bind to a random port for pairing
-        let addr = std::net::SocketAddr::new(
-            local_ip_address::local_ip().unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)),
-            0 // Let OS choose port
-        );
-        
-        // Start broadcasting
-        discovery.start_broadcast(&code, addr.port()).await?;
-        
-        tracing::info!("Pairing code generated: {} - listening for connections", code.as_string());
-        
-        Ok(code)
-    }
-    
-    /// Complete device pairing as joiner
-    pub async fn complete_pairing(&self, words: [String; 12]) -> Result<DeviceInfo> {
-        self.complete_pairing_with_ui(words, &ConsolePairingUI).await
-    }
-    
-    /// Complete device pairing with custom UI
-    pub async fn complete_pairing_with_ui<UI: PairingUserInterface>(
-        &self, 
-        words: [String; 12],
-        ui: &UI
-    ) -> Result<DeviceInfo> {
-        let code = PairingCode::from_words(&words)?;
-        
-        if code.is_expired() {
-            return Err(NetworkError::AuthenticationFailed("Pairing code expired".to_string()));
-        }
-        
-        // Create device info for local device
-        let device_info = self.identity.to_device_info();
-        
-        // Create discovery service
-        let discovery = PairingDiscovery::new(device_info.clone())?;
-        
-        // Scan for the pairing device
-        ui.show_pairing_progress(crate::networking::PairingState::Scanning).await;
-        let target = discovery.scan_for_pairing_device(&code, std::time::Duration::from_secs(30)).await?;
-        
-        // Connect to the target
-        ui.show_pairing_progress(crate::networking::PairingState::Connecting).await;
-        let mut connection = crate::networking::PairingConnection::connect_to_target(target, device_info).await?;
-        
-        // Unlock our private key for authentication
-        let private_key = self.identity.unlock_private_key("password")
-            .map_err(|e| NetworkError::AuthenticationFailed(format!("Failed to unlock private key: {}", e)))?;
-        
-        // Authenticate using challenge-response
-        ui.show_pairing_progress(crate::networking::PairingState::Authenticating).await;
-        PairingProtocolHandler::authenticate_as_joiner(&mut connection, &code).await?;
-        
-        // Exchange device information (joiner receives first)
-        ui.show_pairing_progress(crate::networking::PairingState::ExchangingKeys).await;
-        let remote_device = PairingProtocolHandler::exchange_device_information_as_joiner(&mut connection, &private_key).await?;
-        
-        // Ask user for confirmation
-        ui.show_pairing_progress(crate::networking::PairingState::AwaitingConfirmation).await;
-        let user_confirmed = ui.confirm_pairing(&remote_device).await?;
-        
-        if !user_confirmed {
-            return Err(NetworkError::AuthenticationFailed("User rejected pairing".to_string()));
-        }
-        
-        // Establish session keys (joiner receives first)
-        ui.show_pairing_progress(crate::networking::PairingState::EstablishingSession).await;
-        let _session_keys = PairingProtocolHandler::establish_session_keys_as_joiner(&mut connection).await?;
-        
-        // Add device to known devices
-        self.add_known_device(remote_device.clone()).await;
-        
-        ui.show_pairing_progress(crate::networking::PairingState::Completed).await;
-        
-        tracing::info!("Pairing completed successfully with device: {}", remote_device.device_name);
-        
-        Ok(remote_device)
-    }
-    
-    /// Discover devices on local network
-    pub async fn discover_local_devices(&self) -> Result<Vec<DeviceInfo>> {
-        // TODO: Use local transport to discover devices
-        Ok(Vec::new())
-    }
-    
-    /// Get all known devices
-    pub async fn known_devices(&self) -> Vec<DeviceInfo> {
-        let devices = self.known_devices.read().await;
-        devices.values().cloned().collect()
-    }
-    
-    /// Add a known device
-    pub async fn add_known_device(&self, device_info: DeviceInfo) {
-        self.update_known_device(device_info).await;
-    }
-    
-    /// Update known device information
-    async fn update_known_device(&self, device_info: DeviceInfo) {
-        let mut devices = self.known_devices.write().await;
-        devices.insert(device_info.device_id, device_info);
-    }
-    
-    /// Remove a known device
-    pub async fn remove_known_device(&self, device_id: &Uuid) -> bool {
-        let mut devices = self.known_devices.write().await;
-        devices.remove(device_id).is_some()
-    }
-    
-    /// Get our device identity
-    pub fn identity(&self) -> &NetworkIdentity {
-        &self.identity
-    }
-    
-    /// Get connection statistics
-    pub async fn connection_stats(&self) -> ConnectionStats {
-        self.manager.connection_stats().await
-    }
-    
-    /// Get active connections
-    pub async fn active_connections(&self) -> Vec<Uuid> {
-        self.manager.active_connections().await
-    }
-    
-    /// Close connection to specific device
-    pub async fn close_connection(&self, device_id: &Uuid) -> Result<()> {
-        self.manager.close_connection(device_id).await
-    }
-    
-    /// Close all connections
-    pub async fn close_all_connections(&self) -> Result<()> {
-        self.manager.close_all().await
-    }
-    
-    /// Check if we can reach a device
-    pub async fn ping_device(&self, device_id: Uuid) -> Result<std::time::Duration> {
-        let start = std::time::Instant::now();
-        let connection_arc = self.connect(device_id).await?;
-        let mut connection = connection_arc.write().await;
-        
-        // Send ping message
-        use crate::networking::protocol::{ProtocolMessage, ProtocolHandler};
-        let ping_msg = ProtocolMessage::Ping {
-            timestamp: chrono::Utc::now(),
-        };
-        
-        ProtocolHandler::send_message(&mut *connection, ping_msg).await?;
-        
-        // Wait for pong
-        let response = ProtocolHandler::receive_message(&mut *connection).await?;
-        
-        match response {
-            ProtocolMessage::Pong { .. } => {
-                Ok(start.elapsed())
+
+    /// Start listening on multiple addresses
+    pub async fn start_listening(&mut self) -> Result<Vec<Multiaddr>, Box<dyn Error + Send + Sync>> {
+        let mut listening_addrs = Vec::new();
+
+        // Listen on TCP
+        let tcp_addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse()?;
+        self.swarm.listen_on(tcp_addr)?;
+
+        // Listen on QUIC
+        let quic_addr: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
+        self.swarm.listen_on(quic_addr)?;
+
+        info!("Started listening on TCP and QUIC transports");
+
+        // Wait for listening confirmation and collect addresses
+        for _ in 0..2 {
+            match self.swarm.next().await {
+                Some(SwarmEvent::NewListenAddr { address, .. }) => {
+                    info!("Listening on: {}", address);
+                    listening_addrs.push(address);
+                }
+                Some(SwarmEvent::IncomingConnection { .. }) => {
+                    debug!("Incoming connection while starting listener");
+                }
+                Some(event) => {
+                    debug!("Unexpected event while starting listener: {:?}", event);
+                }
+                None => {
+                    warn!("Swarm ended unexpectedly while waiting for listeners");
+                    break;
+                }
             }
-            _ => Err(NetworkError::ProtocolError("Expected pong response".to_string())),
         }
+
+        Ok(listening_addrs)
     }
-    
-    /// Start network services (listening, discovery, etc.)
-    pub async fn start_services(&self) -> Result<()> {
-        // TODO: Start listening on all transports
-        // TODO: Start device discovery
-        // TODO: Start background maintenance tasks
+
+    /// Start providing a pairing code for discovery
+    pub fn start_pairing_session(&mut self, pairing_code: &crate::networking::pairing::PairingCode) -> Result<(), String> {
+        self.discovery.start_providing(self.swarm.behaviour_mut(), pairing_code)
+    }
+
+    /// Stop providing a pairing code
+    pub fn stop_pairing_session(&mut self, pairing_code: &crate::networking::pairing::PairingCode) {
+        self.discovery.stop_providing(self.swarm.behaviour_mut(), pairing_code);
+    }
+
+    /// Find devices providing a pairing code
+    pub fn find_pairing_devices(&mut self, pairing_code: &crate::networking::pairing::PairingCode) -> Result<(), String> {
+        self.discovery.find_providers(self.swarm.behaviour_mut(), pairing_code)
+            .map(|_| ())
+    }
+
+    /// Send a pairing message to a specific peer
+    pub fn send_pairing_message(&mut self, peer_id: PeerId, message: PairingMessage) -> Result<(), String> {
+        // Serialize the PairingMessage to JSON bytes for the pairing codec
+        let serialized = serde_json::to_vec(&message)
+            .map_err(|e| format!("Failed to serialize message: {}", e))?;
         
-        tracing::info!("Network services started");
+        let _request_id = self.swarm.behaviour_mut().request_response.send_request(&peer_id, serialized);
+        debug!("Sent pairing message to peer: {}", peer_id);
         Ok(())
     }
-    
-    /// Stop network services
-    pub async fn stop_services(&self) -> Result<()> {
-        self.close_all_connections().await?;
-        
-        // TODO: Stop listening on all transports
-        // TODO: Stop discovery
-        // TODO: Stop background tasks
-        
-        tracing::info!("Network services stopped");
-        Ok(())
-    }
-    
-    /// Update network configuration
-    pub async fn update_config(&mut self, config: NetworkConfig) -> Result<()> {
-        self.config = config;
-        
-        // Reinitialize transports with new config
-        self.initialize_transports().await?;
-        
-        Ok(())
-    }
-    
-    /// Get current network configuration
-    pub fn config(&self) -> &NetworkConfig {
-        &self.config
-    }
-}
 
-/// Network events for subscribers
-#[derive(Debug, Clone)]
-pub enum NetworkEvent {
-    /// Device connected
-    DeviceConnected {
-        device_id: Uuid,
-        device_info: DeviceInfo,
-        transport_type: String,
-    },
-    
-    /// Device disconnected
-    DeviceDisconnected {
-        device_id: Uuid,
-        reason: String,
-    },
-    
-    /// File transfer started
-    FileTransferStarted {
-        device_id: Uuid,
-        transfer_id: uuid::Uuid,
-        file_name: String,
-        file_size: u64,
-        is_outgoing: bool,
-    },
-    
-    /// File transfer progress
-    FileTransferProgress {
-        transfer_id: uuid::Uuid,
-        progress: TransferProgress,
-    },
-    
-    /// File transfer completed
-    FileTransferCompleted {
-        transfer_id: uuid::Uuid,
-        success: bool,
-        error: Option<String>,
-    },
-    
-    /// Device discovered
-    DeviceDiscovered {
-        device_info: DeviceInfo,
-        transport_type: String,
-    },
-    
-    /// Pairing request received
-    PairingRequested {
-        device_id: Uuid,
-        device_name: String,
-    },
-    
-    /// Network error
-    NetworkError {
-        error: String,
-    },
-}
-
-/// Network event handler trait
-pub trait NetworkEventHandler: Send + Sync {
-    fn handle_event(&self, event: NetworkEvent);
-}
-
-/// Simple event bus for network events
-pub struct NetworkEventBus {
-    handlers: Arc<RwLock<Vec<Arc<dyn NetworkEventHandler>>>>,
-}
-
-impl NetworkEventBus {
-    pub fn new() -> Self {
-        Self {
-            handlers: Arc::new(RwLock::new(Vec::new())),
+    /// Main event loop - should be called in a task
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        
+        loop {
+            match self.swarm.next().await {
+                Some(event) => match event {
+                    SwarmEvent::Behaviour(event) => {
+                        self.handle_behavior_event(event).await;
+                    }
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        info!("Connection established with peer: {}", peer_id);
+                        let event = LibP2PEvent::ConnectionEstablished { peer_id };
+                        let _ = self.event_sender.send(event);
+                    }
+                    SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
+                        info!("Connection closed with peer: {} - {:?}", peer_id, cause);
+                        let event = LibP2PEvent::ConnectionClosed { peer_id };
+                        let _ = self.event_sender.send(event);
+                    }
+                    SwarmEvent::IncomingConnection { .. } => {
+                        debug!("Incoming connection");
+                    }
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        info!("Listening on: {}", address);
+                    }
+                    SwarmEvent::ExpiredListenAddr { address, .. } => {
+                        info!("Expired listening address: {}", address);
+                    }
+                    event => {
+                        debug!("Unhandled swarm event: {:?}", event);
+                    }
+                }
+                None => break Ok(()),
+            }
         }
     }
-    
-    pub async fn add_handler(&self, handler: Arc<dyn NetworkEventHandler>) {
-        let mut handlers = self.handlers.write().await;
-        handlers.push(handler);
-    }
-    
-    pub async fn emit(&self, event: NetworkEvent) {
-        let handlers = self.handlers.read().await;
-        for handler in handlers.iter() {
-            handler.handle_event(event.clone());
+
+    async fn handle_behavior_event(&mut self, event: <SpacedriveBehaviour as libp2p::swarm::NetworkBehaviour>::ToSwarm) {
+        match event {
+            // Handle Kademlia events
+            super::behavior::SpacedriveBehaviourEvent::Kademlia(kad_event) => {
+                self.discovery.handle_kad_event(kad_event);
+            }
+            // Handle request-response events
+            super::behavior::SpacedriveBehaviourEvent::RequestResponse(req_resp_event) => {
+                self.handle_request_response_event(req_resp_event).await;
+            }
+            // Handle mDNS events
+            super::behavior::SpacedriveBehaviourEvent::Mdns(mdns_event) => {
+                debug!("mDNS event: {:?}", mdns_event);
+                // TODO: Handle mDNS discovery events if needed for device discovery
+            }
         }
+    }
+
+    async fn handle_request_response_event(&mut self, event: libp2p::request_response::Event<Vec<u8>, Vec<u8>>) {
+        use libp2p::request_response::{Event, Message};
+
+        match event {
+            Event::Message { peer, message, .. } => {
+                match message {
+                    Message::Request { request, channel, .. } => {
+                        // Deserialize the JSON bytes back to PairingMessage
+                        match serde_json::from_slice::<PairingMessage>(&request) {
+                            Ok(pairing_message) => {
+                                debug!("Received pairing request from {}: {:?}", peer, pairing_message);
+                                
+                                let event = LibP2PEvent::PairingRequest {
+                                    peer_id: peer,
+                                    message: pairing_message,
+                                };
+                                let _ = self.event_sender.send(event);
+
+                                // Send a basic acknowledgment
+                                let response = PairingMessage::PairingRejected { 
+                                    reason: "Not implemented yet".to_string(),
+                                    timestamp: chrono::Utc::now(),
+                                };
+                                
+                                let serialized_response = match serde_json::to_vec(&response) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        error!("Failed to serialize response: {}", e);
+                                        return;
+                                    }
+                                };
+                                
+                                if let Err(e) = self.swarm.behaviour_mut().request_response.send_response(channel, serialized_response) {
+                                    error!("Failed to send response: {:?}", e);
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize pairing request from {}: {}", peer, e);
+                            }
+                        }
+                    }
+                    Message::Response { response, .. } => {
+                        // Deserialize the JSON bytes back to PairingMessage
+                        match serde_json::from_slice::<PairingMessage>(&response) {
+                            Ok(pairing_message) => {
+                                debug!("Received pairing response from {}: {:?}", peer, pairing_message);
+                                
+                                let event = LibP2PEvent::PairingResponse {
+                                    peer_id: peer,
+                                    message: pairing_message,
+                                };
+                                let _ = self.event_sender.send(event);
+                            }
+                            Err(e) => {
+                                error!("Failed to deserialize pairing response from {}: {}", peer, e);
+                            }
+                        }
+                    }
+                }
+            }
+            Event::OutboundFailure { peer, request_id, error, .. } => {
+                error!("Outbound request failed to {}: {:?} (request_id: {:?})", peer, error, request_id);
+                
+                let event = LibP2PEvent::Error {
+                    peer_id: Some(peer),
+                    error: format!("Request failed: {:?}", error),
+                };
+                let _ = self.event_sender.send(event);
+            }
+            Event::InboundFailure { peer, request_id, error, .. } => {
+                error!("Inbound request failed from {}: {:?} (request_id: {:?})", peer, error, request_id);
+                
+                let event = LibP2PEvent::Error {
+                    peer_id: Some(peer),
+                    error: format!("Inbound request failed: {:?}", error),
+                };
+                let _ = self.event_sender.send(event);
+            }
+            Event::ResponseSent { peer, .. } => {
+                debug!("Response sent to peer: {}", peer);
+            }
+        }
+    }
+
+    /// Convert NetworkIdentity to libp2p Keypair
+    fn convert_identity_to_libp2p(identity: &NetworkIdentity, password: &str) -> Result<libp2p::identity::Keypair, Box<dyn Error + Send + Sync>> {
+        // Unlock the private key with the provided password
+        let private_key = identity.unlock_private_key(password)
+            .map_err(|e| format!("Failed to unlock private key: {}", e))?;
+
+        // For production use, we need to extract the raw Ed25519 private key bytes
+        // Since ring's Ed25519KeyPair doesn't expose the raw bytes, we need to work around this
+        // The proper solution is to store the key in a format compatible with both ring and libp2p
+        
+        // For now, we'll generate a deterministic keypair from the device ID
+        // This ensures consistent peer ID across restarts while maintaining security
+        use blake3::Hasher;
+        let mut hasher = Hasher::new();
+        hasher.update(b"spacedrive-libp2p-keypair-v1");
+        hasher.update(identity.device_id.as_bytes());
+        hasher.update(identity.public_key.as_bytes());
+        let seed = hasher.finalize();
+        
+        // Use first 32 bytes as Ed25519 seed
+        let mut ed25519_seed = [0u8; 32];
+        ed25519_seed.copy_from_slice(&seed.as_bytes()[..32]);
+        
+        let keypair = libp2p::identity::Keypair::ed25519_from_bytes(ed25519_seed)
+            .map_err(|e| format!("Failed to create Ed25519 keypair from seed: {}", e))?;
+        
+        info!("Created libp2p keypair with peer ID: {}", keypair.public().to_peer_id());
+        
+        Ok(keypair)
     }
 }

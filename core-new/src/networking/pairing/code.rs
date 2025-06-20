@@ -194,6 +194,11 @@ impl PairingCode {
         self.words.join(" ")
     }
     
+    /// Get the words as a space-separated string (alias for UI compatibility)
+    pub fn as_words(&self) -> String {
+        self.as_string()
+    }
+    
     /// Get remaining time until expiration
     pub fn time_remaining(&self) -> Option<Duration> {
         let now = Utc::now();

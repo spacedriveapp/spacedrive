@@ -60,19 +60,30 @@ image = "0.25"
 tokio-rustls = "0.26"
 
 # Networking
-# quinn = "0.10"              # QUIC for local/direct connections (disabled for now)
-# tokio-tungstenite = "0.20"  # WebSocket for relay fallback (disabled for now)
-mdns-sd = "0.13"             # mDNS service discovery and advertising (enabled for pairing)
-# if-watch = "3.0"            # Network monitoring (disabled for now)
-snow = "0.9"                # Noise Protocol encryption
+# LibP2P networking (production)
+libp2p = { version = "0.55", features = [
+    "kad",                # Kademlia DHT for discovery
+    "request-response",   # Request/response protocol
+    "noise",             # Noise Protocol encryption  
+    "yamux",             # Multiplexing
+    "tcp",               # TCP transport
+    "quic",              # QUIC transport
+    "tokio",             # Async runtime integration
+    "macros",            # Derive macros for NetworkBehaviour
+    "mdns"               # mDNS for local discovery
+]}
+
+# Legacy networking (kept for compatibility during transition)
+mdns-sd = "0.13"             # mDNS service discovery (DEPRECATED - use libp2p DHT)
+snow = "0.9"                # Noise Protocol encryption (DEPRECATED - use libp2p noise)
 ring = "0.16"               # Crypto primitives
 argon2 = "0.5"              # Password derivation
 async-stream = "0.3"        # File streaming
 backoff = "0.4"             # Retry logic
 bincode = "2.0.0-rc.3"      # Efficient encoding
 # futures-util = "0.3"        # WebSocket utilities (disabled for now)
-rustls = { version = "0.23", features = ["aws_lc_rs"] } # TLS implementation (enabled for pairing)
-rcgen = "0.11"              # Certificate generation (enabled for pairing)
+rustls = { version = "0.23", features = ["aws_lc_rs"] } # TLS implementation (DEPRECATED - use libp2p noise)
+rcgen = "0.11"              # Certificate generation (DEPRECATED - use libp2p noise)
 tokio-stream = "0.1"        # Async streams
 
 # BIP39 wordlist support

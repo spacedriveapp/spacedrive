@@ -238,6 +238,24 @@ pub struct NetworkIdentity {
 }
 
 impl NetworkIdentity {
+    /// Create a new network identity for testing/demo purposes
+    /// WARNING: This generates new keys and is NOT suitable for production
+    pub fn new_temporary(device_id: Uuid, device_name: String, password: &str) -> Result<Self> {
+        // Generate new keys (NOT production-ready)
+        let private_key = PrivateKey::generate()?;
+        let public_key = private_key.public_key();
+        let encrypted_private_key = private_key.encrypt(password)?;
+        let network_fingerprint = NetworkFingerprint::from_device(device_id, &public_key);
+        
+        Ok(Self {
+            device_id,
+            public_key,
+            private_key: encrypted_private_key,
+            device_name,
+            network_fingerprint,
+        })
+    }
+
     /// Create network identity from existing device configuration
     pub async fn from_device_manager(
         device_manager: &DeviceManager,
