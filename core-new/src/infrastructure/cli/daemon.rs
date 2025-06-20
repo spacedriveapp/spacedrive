@@ -63,6 +63,19 @@ pub enum DaemonCommand {
 
 	// Subscribe to events
 	SubscribeEvents,
+
+	// Networking commands  
+	InitNetworking { password: String },
+	StartNetworking,
+	StopNetworking,
+	ListConnectedDevices,
+	RevokeDevice { device_id: Uuid },
+	SendSpacedrop { 
+		device_id: Uuid, 
+		file_path: String, 
+		sender_name: String, 
+		message: Option<String> 
+	},
 }
 
 /// Responses from the daemon
@@ -87,6 +100,10 @@ pub enum DaemonResponse {
 	Jobs(Vec<JobInfo>),
 	JobInfo(Option<JobInfo>),
 	Event(String), // Serialized event
+	
+	// Networking responses
+	ConnectedDevices(Vec<ConnectedDeviceInfo>),
+	SpacedropStarted { transfer_id: Uuid },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,6 +138,14 @@ pub struct JobInfo {
 	pub progress: f32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConnectedDeviceInfo {
+	pub device_id: Uuid,
+	pub device_name: String,
+	pub status: String,
+	pub last_seen: String,
+}
+
 /// The daemon server
 pub struct Daemon {
 	core: Arc<Core>,
@@ -133,6 +158,75 @@ impl Daemon {
 	/// Create a new daemon instance
 	pub async fn new(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
 		let core = Arc::new(Core::new_with_config(data_dir).await?);
+
+		// Ensure device is registered for all libraries
+		let libraries = core.libraries.list().await;
+		for library in libraries {
+			// Register device if not already registered
+			let db = library.db();
+			let device = core.device.to_device()?;
+
+			// Check if device exists
+			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+			let existing = entities::device::Entity::find()
+				.filter(entities::device::Column::Uuid.eq(device.id))
+				.one(db.conn())
+				.await?;
+
+			if existing.is_none() {
+				// Register the device
+				use sea_orm::ActiveValue::Set;
+				let device_model = entities::device::ActiveModel {
+					id: sea_orm::ActiveValue::NotSet,
+					uuid: Set(device.id),
+					name: Set(device.name),
+					os: Set(device.os.to_string()),
+					os_version: Set(None),
+					hardware_model: Set(device.hardware_model),
+					network_addresses: Set(serde_json::json!(device.network_addresses)),
+					is_online: Set(true),
+					last_seen_at: Set(device.last_seen_at),
+					capabilities: Set(serde_json::json!({
+						"indexing": true,
+						"p2p": true,
+						"volume_detection": true
+					})),
+					sync_leadership: Set(serde_json::json!(device.sync_leadership)),
+					created_at: Set(device.created_at),
+					updated_at: Set(device.updated_at),
+				};
+
+				use sea_orm::ActiveModelTrait;
+				device_model.insert(db.conn()).await?;
+				info!(
+					"Registered device {} in library {}",
+					device.id,
+					library.id()
+				);
+			}
+		}
+
+		Ok(Self {
+			core,
+			config: DaemonConfig::default(),
+			start_time: std::time::Instant::now(),
+			shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
+		})
+	}
+
+	/// Create a new daemon instance with networking enabled
+	pub async fn new_with_networking(
+		data_dir: PathBuf, 
+		networking_password: &str
+	) -> Result<Self, Box<dyn std::error::Error>> {
+		let mut core = Core::new_with_config(data_dir).await?;
+		
+		// Initialize networking
+		core.init_networking(networking_password).await?;
+		core.start_networking().await?;
+		
+		let core = Arc::new(core);
 
 		// Ensure device is registered for all libraries
 		let libraries = core.libraries.list().await;
@@ -685,6 +779,71 @@ async fn handle_command(
 		DaemonCommand::SubscribeEvents => {
 			// TODO: Implement event subscription
 			DaemonResponse::Error("Event subscription not yet implemented".to_string())
+		}
+
+		// Networking commands
+		DaemonCommand::InitNetworking { password } => {
+			// Check if networking is already initialized
+			if core.networking().is_some() {
+				DaemonResponse::Ok // Networking is already available
+			} else {
+				// Networking not available - daemon needs to be restarted with networking
+				DaemonResponse::Error(
+					"Networking not available. Restart daemon with: spacedrive start --enable-networking".to_string()
+				)
+			}
+		}
+
+		DaemonCommand::StartNetworking => {
+			match core.start_networking().await {
+				Ok(_) => DaemonResponse::Ok,
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::StopNetworking => {
+			// TODO: Implement networking stop when available
+			DaemonResponse::Error("Stop networking not yet implemented".to_string())
+		}
+
+		DaemonCommand::ListConnectedDevices => {
+			match core.get_connected_devices().await {
+				Ok(device_ids) => {
+					// For now, return minimal device info
+					// In a real implementation, we'd get full device details
+					let devices: Vec<ConnectedDeviceInfo> = device_ids
+						.into_iter()
+						.map(|id| ConnectedDeviceInfo {
+							device_id: id,
+							device_name: format!("Device-{}", &id.to_string()[..8]),
+							status: "connected".to_string(),
+							last_seen: "now".to_string(),
+						})
+						.collect();
+
+					DaemonResponse::ConnectedDevices(devices)
+				}
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::RevokeDevice { device_id } => {
+			match core.revoke_device(device_id).await {
+				Ok(_) => DaemonResponse::Ok,
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::SendSpacedrop { 
+			device_id, 
+			file_path, 
+			sender_name, 
+			message 
+		} => {
+			match core.send_spacedrop(device_id, &file_path, sender_name, message).await {
+				Ok(transfer_id) => DaemonResponse::SpacedropStarted { transfer_id },
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
 		}
 	}
 }

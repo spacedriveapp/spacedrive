@@ -144,6 +144,26 @@ impl Core {
 		Ok(())
 	}
 
+	/// Initialize persistent networking from Arc<Core> - for daemon use
+	pub async fn init_networking_shared(
+		core: Arc<Core>,
+		password: &str,
+	) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
+		info!("Initializing persistent networking for shared core...");
+
+		// This is a workaround - in production we'd restructure this differently
+		// For now, we'll create a new Core with networking enabled
+		let mut new_core = Core::new_with_config(
+			core.config().read().await.data_dir.clone()
+		).await?;
+
+		// Initialize networking on the new core
+		new_core.init_networking(password).await?;
+
+		info!("Persistent networking initialized successfully for shared core");
+		Ok(Arc::new(new_core))
+	}
+
 	/// Start the networking service (must be called after init_networking)
 	pub async fn start_networking(&self) -> Result<(), Box<dyn std::error::Error>> {
 		if let Some(networking) = &self.networking {

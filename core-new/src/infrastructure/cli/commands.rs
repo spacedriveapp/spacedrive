@@ -214,6 +214,45 @@ pub enum JobCommands {
 	},
 }
 
+#[derive(Subcommand, Clone)]
+pub enum NetworkCommands {
+	/// Initialize networking with a password
+	Init {
+		/// Password for encrypted device storage
+		#[arg(short, long)]
+		password: String,
+	},
+	
+	/// Start networking service
+	Start,
+	
+	/// Stop networking service
+	Stop,
+	
+	/// List connected devices
+	Devices,
+	
+	/// Revoke trust from a device
+	Revoke {
+		/// Device ID to revoke
+		device_id: Uuid,
+	},
+	
+	/// Send a file via Spacedrop
+	Spacedrop {
+		/// Target device ID
+		device_id: Uuid,
+		/// File path to send
+		file_path: PathBuf,
+		/// Your name as sender
+		#[arg(short, long, default_value = "Unknown")]
+		sender: String,
+		/// Optional message
+		#[arg(short, long)]
+		message: Option<String>,
+	},
+}
+
 pub async fn handle_library_command(
 	cmd: LibraryCommands,
 	core: &Core,
@@ -664,6 +703,142 @@ pub async fn handle_job_command(
 		}
 	}
 
+	Ok(())
+}
+
+pub async fn handle_network_command(
+	cmd: NetworkCommands,
+	_core: &Core,
+	_state: &mut CliState,
+) -> Result<(), Box<dyn std::error::Error>> {
+	use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand};
+	
+	let client = DaemonClient::new();
+	
+	// Check if daemon is running for most commands
+	match &cmd {
+		NetworkCommands::Init { .. } => {
+			// Init doesn't require daemon to be running
+		}
+		_ => {
+			if !client.is_running() {
+				println!("{} Daemon is not running. Start it with: {}", 
+					"✗".red(), 
+					"spacedrive start".bright_blue());
+				return Ok(());
+			}
+		}
+	}
+	
+	match cmd {
+		NetworkCommands::Init { password } => {
+			match client.send_command(DaemonCommand::InitNetworking { password }).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+					println!("{} Networking initialized successfully", "✓".green());
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+		
+		NetworkCommands::Start => {
+			match client.send_command(DaemonCommand::StartNetworking).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+					println!("{} Networking service started", "✓".green());
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+		
+		NetworkCommands::Stop => {
+			match client.send_command(DaemonCommand::StopNetworking).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+					println!("{} Networking service stopped", "✓".green());
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+		
+		NetworkCommands::Devices => {
+			match client.send_command(DaemonCommand::ListConnectedDevices).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::ConnectedDevices(devices) => {
+					if devices.is_empty() {
+						println!("No devices currently connected");
+					} else {
+						println!("Connected devices:");
+						let mut table = Table::new();
+						table.load_preset(UTF8_FULL);
+						table.set_header(vec!["Device ID", "Name", "Status", "Last Seen"]);
+						
+						for device in devices {
+							table.add_row(vec![
+								Cell::new(&device.device_id.to_string()[..8]),
+								Cell::new(&device.device_name),
+								Cell::new(&device.status),
+								Cell::new(&device.last_seen),
+							]);
+						}
+						
+						println!("{}", table);
+					}
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+		
+		NetworkCommands::Revoke { device_id } => {
+			match client.send_command(DaemonCommand::RevokeDevice { device_id }).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+					println!("{} Device {} revoked", "✓".green(), device_id);
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+		
+		NetworkCommands::Spacedrop { device_id, file_path, sender, message } => {
+			match client.send_command(DaemonCommand::SendSpacedrop { 
+				device_id, 
+				file_path: file_path.to_string_lossy().to_string(), 
+				sender_name: sender, 
+				message 
+			}).await? {
+				crate::infrastructure::cli::daemon::DaemonResponse::SpacedropStarted { transfer_id } => {
+					println!("{} Spacedrop started with transfer ID: {}", "✓".green(), transfer_id);
+				}
+				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+					println!("{} {}", "✗".red(), err);
+				}
+				_ => {
+					println!("{} Unexpected response", "✗".red());
+				}
+			}
+		}
+	}
+	
 	Ok(())
 }
 
