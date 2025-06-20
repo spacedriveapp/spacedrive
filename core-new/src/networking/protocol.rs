@@ -166,8 +166,7 @@ impl FileTransfer {
     {
         // Create and send header
         let header = FileHeader::from_path(path).await?;
-        let header_data = serde_json::to_vec(&header)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to serialize header: {}", e)))?;
+        let header_data = crate::networking::serialization::serialize_with_context(&header, "Failed to serialize file header")?;
         connection.send(&header_data).await?;
         
         // Open file for reading
@@ -230,8 +229,7 @@ impl FileTransfer {
     {
         // Receive header
         let header_data = connection.receive().await?;
-        let header: FileHeader = serde_json::from_slice(&header_data)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to deserialize header: {}", e)))?;
+        let header: FileHeader = crate::networking::serialization::deserialize_with_context(&header_data, "Failed to deserialize file header")?;
         
         // Create output file
         let mut file = File::create(output_path).await
@@ -385,8 +383,7 @@ impl ProtocolHandler {
         connection: &mut dyn NetworkConnection,
         message: ProtocolMessage,
     ) -> Result<()> {
-        let data = serde_json::to_vec(&message)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to serialize message: {}", e)))?;
+        let data = crate::networking::serialization::serialize_with_context(&message, "Failed to serialize protocol message")?;
         connection.send(&data).await
     }
     
@@ -395,9 +392,7 @@ impl ProtocolHandler {
         connection: &mut dyn NetworkConnection,
     ) -> Result<ProtocolMessage> {
         let data = connection.receive().await?;
-        let message: ProtocolMessage = serde_json::from_slice(&data)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to deserialize message: {}", e)))?;
-        Ok(message)
+        crate::networking::serialization::deserialize_with_context(&data, "Failed to deserialize protocol message")
     }
     
     /// Handle ping-pong keepalive

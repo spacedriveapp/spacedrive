@@ -15,25 +15,12 @@ use super::PairingTarget; // PairingCode used in future certificate validation
 pub struct PairingConnection {
     /// TLS stream
     stream: Box<dyn PairingStream>,
-    /// Connection state
-    state: PairingConnectionState,
     /// Local device information
     local_device: DeviceInfo,
     /// Remote device information (filled during pairing)
     remote_device: Option<DeviceInfo>,
     /// Whether we are the initiator
     is_initiator: bool,
-}
-
-/// Pairing connection state
-#[derive(Debug, Clone, PartialEq)]
-pub enum PairingConnectionState {
-    Connecting,
-    Authenticating,
-    ExchangingKeys,
-    AwaitingConfirmation,
-    Completed,
-    Failed(String),
 }
 
 /// Trait for TLS stream abstraction
@@ -159,7 +146,6 @@ impl PairingConnection {
         
         Ok(Self {
             stream,
-            state: PairingConnectionState::Connecting,
             local_device,
             remote_device: None,
             is_initiator: false, // Client is joiner
@@ -183,7 +169,6 @@ impl PairingConnection {
         
         Ok(Self {
             stream,
-            state: PairingConnectionState::Connecting,
             local_device,
             remote_device: None,
             is_initiator: true, // Server is initiator
@@ -222,11 +207,6 @@ impl PairingConnection {
             .map_err(|e| NetworkError::EncryptionError(format!("TLS config creation failed: {:?}", e)))?;
         
         Ok(config)
-    }
-    
-    /// Get current connection state
-    pub fn state(&self) -> &PairingConnectionState {
-        &self.state
     }
     
     /// Get local device info
@@ -290,11 +270,6 @@ impl PairingConnection {
     /// Get peer address
     pub fn peer_addr(&self) -> Result<SocketAddr> {
         self.stream.peer_addr()
-    }
-    
-    /// Update connection state
-    pub fn set_state(&mut self, state: PairingConnectionState) {
-        self.state = state;
     }
     
     /// Set remote device info
@@ -398,11 +373,7 @@ mod tests {
     use uuid::Uuid;
 
     fn create_test_device_info() -> DeviceInfo {
-        DeviceInfo::new(
-            Uuid::new_v4(),
-            "Test Device".to_string(),
-            PublicKey::from_bytes(vec![0u8; 32]).unwrap(),
-        )
+        crate::networking::test_utils::test_helpers::create_test_device_info()
     }
 
     #[tokio::test]

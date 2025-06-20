@@ -350,6 +350,15 @@ impl NetworkIdentity {
         let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.public_key.as_bytes());
         public_key.verify(data, signature).is_ok()
     }
+
+    /// Create DeviceInfo from this identity
+    pub fn to_device_info(&self) -> DeviceInfo {
+        DeviceInfo::new(
+            self.device_id,
+            self.device_name.clone(),
+            self.public_key.clone(),
+        )
+    }
 }
 
 /// Network keys stored persistently

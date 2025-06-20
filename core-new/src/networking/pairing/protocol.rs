@@ -311,18 +311,14 @@ impl PairingProtocolHandler {
     
     /// Helper method to send messages
     async fn send_message(connection: &mut PairingConnection, message: PairingMessage) -> Result<()> {
-        let data = serde_json::to_vec(&message)
-            .map_err(|e| NetworkError::SerializationError(format!("Message serialization failed: {}", e)))?;
-        
+        let data = crate::networking::serialization::serialize_with_context(&message, "Pairing message serialization failed")?;
         connection.send_message(&data).await
     }
     
     /// Helper method to receive messages
     async fn receive_message(connection: &mut PairingConnection) -> Result<PairingMessage> {
         let data = connection.receive_message().await?;
-        
-        serde_json::from_slice(&data)
-            .map_err(|e| NetworkError::SerializationError(format!("Message deserialization failed: {}", e)))
+        crate::networking::serialization::deserialize_with_context(&data, "Pairing message deserialization failed")
     }
 }
 

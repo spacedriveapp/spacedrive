@@ -170,11 +170,7 @@ impl Network {
         ui.show_pairing_code(&code.as_string(), code.time_remaining().unwrap_or_default().num_seconds() as u32).await;
         
         // Create device info for local device
-        let device_info = DeviceInfo::new(
-            self.identity.device_id,
-            self.identity.device_name.clone(),
-            self.identity.public_key.clone(),
-        );
+        let device_info = self.identity.to_device_info();
         
         // Start discovery service
         let mut discovery = PairingDiscovery::new(device_info);
@@ -211,11 +207,7 @@ impl Network {
         }
         
         // Create device info for local device
-        let device_info = DeviceInfo::new(
-            self.identity.device_id,
-            self.identity.device_name.clone(),
-            self.identity.public_key.clone(),
-        );
+        let device_info = self.identity.to_device_info();
         
         // Create discovery service
         let discovery = PairingDiscovery::new(device_info.clone());

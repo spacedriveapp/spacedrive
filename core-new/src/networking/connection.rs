@@ -113,14 +113,12 @@ impl DeviceConnection {
         }
 
         let request = PullRequest { from_seq, limit };
-        let request_data = serde_json::to_vec(&request)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to serialize request: {}", e)))?;
+        let request_data = crate::networking::serialization::serialize_with_context(&request, "Failed to serialize sync request")?;
         
         self.send(&request_data).await?;
         
         let response_data = self.receive().await?;
-        let response: PullResponse = serde_json::from_slice(&response_data)
-            .map_err(|e| NetworkError::SerializationError(format!("Failed to deserialize response: {}", e)))?;
+        let response: PullResponse = crate::networking::serialization::deserialize_with_context(&response_data, "Failed to deserialize sync response")?;
         
         Ok(response)
     }

@@ -201,11 +201,7 @@ mod tests {
     use uuid::Uuid;
 
     fn create_test_device_info() -> DeviceInfo {
-        DeviceInfo::new(
-            Uuid::new_v4(),
-            "Test Device".to_string(),
-            PublicKey::from_bytes(vec![0u8; 32]).unwrap(),
-        )
+        crate::networking::test_utils::test_helpers::create_test_device_info()
     }
 
     #[tokio::test]

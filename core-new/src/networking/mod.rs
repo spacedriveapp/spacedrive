@@ -14,6 +14,10 @@ pub mod security;
 pub mod protocol;
 pub mod manager;
 pub mod pairing;
+mod serialization;
+
+#[cfg(test)]
+mod test_utils;
 
 pub use manager::Network;
 pub use identity::{NetworkIdentity, NetworkFingerprint, MasterKey, DeviceInfo, PublicKey, PrivateKey, Signature};
