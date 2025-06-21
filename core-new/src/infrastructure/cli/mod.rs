@@ -1055,6 +1055,11 @@ async fn handle_network_daemon_command(
 				}
 			}
 		}
+
+		commands::NetworkCommands::Pair { action } => {
+			// Delegate to the complete implementation in commands.rs
+			commands::handle_pairing_command(action, &client).await?;
+		}
 	}
 
 	Ok(())

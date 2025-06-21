@@ -117,16 +117,15 @@ impl NetworkingService {
 		// Register default protocol handlers
 		self.register_default_handlers().await?;
 
-		// Start connection manager directly (not in background task)
-		{
-			let mut manager = self.connection_manager.write().await;
-			if let Err(e) = manager.start().await {
-				tracing::error!("Connection manager failed: {}", e);
-				return Err(e);
-			}
-		} // manager is dropped here
+		// Initialize connection manager without blocking
+		// The actual event loop will start when events are processed
 
-		// Process network events directly
+		Ok(())
+	}
+
+	/// Start event processing (call this after start() to begin processing events in background)
+	pub async fn start_event_processing(&mut self) -> Result<()> {
+		// Process network events in event loop
 		self.process_events().await
 	}
 

@@ -76,6 +76,14 @@ pub enum DaemonCommand {
 		sender_name: String, 
 		message: Option<String> 
 	},
+
+	// Pairing commands
+	StartPairingAsInitiator { auto_accept: bool },
+	StartPairingAsJoiner { code: String },
+	GetPairingStatus,
+	ListPendingPairings,
+	AcceptPairing { request_id: Uuid },
+	RejectPairing { request_id: Uuid },
 }
 
 /// Responses from the daemon
@@ -104,6 +112,12 @@ pub enum DaemonResponse {
 	// Networking responses
 	ConnectedDevices(Vec<ConnectedDeviceInfo>),
 	SpacedropStarted { transfer_id: Uuid },
+
+	// Pairing responses
+	PairingCodeGenerated { code: String, expires_in_seconds: u32 },
+	PairingInProgress,
+	PairingStatus { status: String, remote_device: Option<ConnectedDeviceInfo> },
+	PendingPairings(Vec<PairingRequestInfo>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -144,6 +158,14 @@ pub struct ConnectedDeviceInfo {
 	pub device_name: String,
 	pub status: String,
 	pub last_seen: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PairingRequestInfo {
+	pub request_id: Uuid,
+	pub device_id: Uuid,
+	pub device_name: String,
+	pub received_at: String,
 }
 
 /// The daemon server
@@ -842,6 +864,71 @@ async fn handle_command(
 		} => {
 			match core.send_spacedrop(device_id, &file_path, sender_name, message).await {
 				Ok(transfer_id) => DaemonResponse::SpacedropStarted { transfer_id },
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		// Pairing commands
+		DaemonCommand::StartPairingAsInitiator { auto_accept } => {
+			match core.start_pairing_as_initiator(auto_accept).await {
+				Ok((code, expires_in_seconds)) => DaemonResponse::PairingCodeGenerated { 
+					code, 
+					expires_in_seconds 
+				},
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::StartPairingAsJoiner { code } => {
+			match core.start_pairing_as_joiner(&code).await {
+				Ok(_) => DaemonResponse::PairingInProgress,
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::GetPairingStatus => {
+			match core.get_pairing_status().await {
+				Ok((status, remote_device)) => {
+					let device_info = remote_device.map(|device| ConnectedDeviceInfo {
+						device_id: device.device_id,
+						device_name: device.device_name,
+						status: "connected".to_string(),
+						last_seen: device.last_seen.to_string(),
+					});
+					DaemonResponse::PairingStatus { 
+						status, 
+						remote_device: device_info 
+					}
+				}
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::ListPendingPairings => {
+			match core.list_pending_pairings().await {
+				Ok(requests) => {
+					let pairing_requests = requests.into_iter().map(|req| PairingRequestInfo {
+						request_id: req.request_id,
+						device_id: req.device_id,
+						device_name: req.device_name,
+						received_at: req.received_at.to_string(),
+					}).collect();
+					DaemonResponse::PendingPairings(pairing_requests)
+				}
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::AcceptPairing { request_id } => {
+			match core.accept_pairing_request(request_id).await {
+				Ok(_) => DaemonResponse::Ok,
+				Err(e) => DaemonResponse::Error(e.to_string()),
+			}
+		}
+
+		DaemonCommand::RejectPairing { request_id } => {
+			match core.reject_pairing_request(request_id).await {
+				Ok(_) => DaemonResponse::Ok,
 				Err(e) => DaemonResponse::Error(e.to_string()),
 			}
 		}
