@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "spacedrive")]
-#[command(about = "Spacedrive CLI - Manage your libraries, locations, and jobs", long_about = None)]
+#[command(about = "Spacedrive v2 CLI - Manage your libraries, locations, and jobs", long_about = None)]
 pub struct Cli {
 	/// Path to Spacedrive data directory
 	#[arg(short, long, global = true)]
@@ -99,11 +99,14 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	// Determine data directory
 	let data_dir = cli
 		.data_dir
-		.unwrap_or_else(|| PathBuf::from("./spacedrive-cli-data"));
+		.unwrap_or_else(|| PathBuf::from("./data/spacedrive-cli-data"));
 
 	// Handle daemon commands first (they don't need Core)
 	match &cli.command {
-		Commands::Start { foreground, enable_networking } => {
+		Commands::Start {
+			foreground,
+			enable_networking,
+		} => {
 			return handle_start_daemon(data_dir, *foreground, *enable_networking).await;
 		}
 		Commands::Stop => {
@@ -201,7 +204,7 @@ async fn handle_start_daemon(
 			println!("🔐 Starting daemon with networking enabled...");
 			println!("   Using default networking configuration.");
 			println!("   Use 'spacedrive network init --password <your_password>' to set a custom password.");
-			
+
 			match daemon::Daemon::new_with_networking(data_dir.clone(), default_password).await {
 				Ok(daemon) => daemon.start().await?,
 				Err(e) => {
@@ -225,7 +228,7 @@ async fn handle_start_daemon(
 			.arg("--foreground")
 			.arg("--data-dir")
 			.arg(data_dir);
-		
+
 		if enable_networking {
 			cmd.arg("--enable-networking");
 		}
