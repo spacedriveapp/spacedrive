@@ -20,7 +20,7 @@ The networking module is built on libp2p, the same networking stack used by IPFS
 networking/
 ├── mod.rs                  # Main module exports and types
 ├── identity.rs             # Device identity and cryptographic keys
-├── manager.rs              # LibP2P manager (legacy - replaced by protocol.rs)
+├── manager.rs              # LibP2P manager for standalone usage
 ├── behavior.rs             # LibP2P NetworkBehaviour implementation
 ├── codec.rs                # Message serialization for libp2p
 ├── discovery.rs            # DHT-based peer discovery
@@ -37,7 +37,8 @@ networking/
     ├── connection.rs       # Individual device connection management
     ├── identity.rs         # Enhanced identity with device relationships
     ├── storage.rs          # Encrypted storage for session keys and metadata
-    └── messages.rs         # Universal message protocol for all communication
+    ├── messages.rs         # Universal message protocol for all communication
+    └── pairing_bridge.rs   # Bridge between pairing and persistent systems
 ```
 
 ## Key Components
@@ -79,6 +80,7 @@ let spacedrop_id = networking_service.send_spacedrop_request(
 - **Core Integration**: Seamless integration with Spacedrive's main systems
 - **High-Level APIs**: Simple methods for common operations
 - **Event Processing**: Handles device connections, disconnections, and messages
+- **Pairing Integration**: Complete pairing APIs with automatic device registration
 
 ### 2. Connection Manager (`persistent/manager.rs`)
 
@@ -214,7 +216,58 @@ let decrypted = storage.decrypt_data(&encrypted, password)?;
 - **Atomic Operations**: Safe atomic writes with temporary files
 - **Cleanup Utilities**: Automatic cleanup of old encrypted data
 
-### 6. Universal Message Protocol (`persistent/messages.rs`)
+### 6. Pairing Bridge (`persistent/pairing_bridge.rs`)
+
+The pairing bridge provides seamless integration between ephemeral pairing and persistent device management:
+
+```rust
+use sd_core_new::infrastructure::networking::persistent::{
+    PairingBridge, PairingSession, PairingStatus, PairingRole
+};
+
+// Initialize pairing in NetworkingService
+networking_service.init_pairing("password".to_string()).await?;
+
+// Start pairing as initiator
+let session = networking_service.start_pairing_as_initiator(true).await?;
+println!("Pairing code: {}", session.code);
+println!("Expires in: {} seconds", session.expires_in_seconds());
+
+// Join pairing session as joiner
+networking_service.join_pairing_session("word1 word2 ... word12".to_string()).await?;
+
+// Get status of active pairing sessions
+let sessions = networking_service.get_pairing_status().await;
+for session in sessions {
+    println!("Session {}: {:?}", session.id, session.status);
+}
+
+// Cancel pairing session
+networking_service.cancel_pairing(session_id).await?;
+```
+
+**Key Features:**
+- **Send Trait Resolution**: Uses `tokio::task::LocalSet` to handle non-Send libp2p types
+- **Automatic Device Registration**: Successful pairings automatically register devices
+- **Session Management**: Tracks active pairing sessions with UUIDs and expiration
+- **Status Tracking**: Real-time status updates (WaitingForConnection, Connected, Authenticating, etc.)
+- **Role-Based Pairing**: Supports both initiator and joiner roles
+- **Error Handling**: Comprehensive error propagation and session cleanup
+- **Auto-Accept Configuration**: Configurable automatic pairing acceptance
+
+**Pairing Session States:**
+```rust
+pub enum PairingStatus {
+    WaitingForConnection,  // Waiting for peer to connect
+    Connected,            // Connection established, starting auth
+    Authenticating,       // Performing cryptographic authentication  
+    Completed,           // Pairing successful, device registered
+    Failed(String),      // Pairing failed with error message
+    Cancelled,           // User cancelled the pairing process
+}
+```
+
+### 7. Universal Message Protocol (`persistent/messages.rs`)
 
 Comprehensive message system for all device communication:
 
@@ -378,24 +431,28 @@ impl PairingUserInterface for MyUI {
 
 ## Protocol Flow
 
-The device pairing protocol follows this sequence:
+The device pairing protocol with persistent integration follows this complete sequence:
 
 ### 1. **Initiator Setup**
 
 ```
-1. Generate BIP39 pairing code (12 words)
-2. Start providing code on Kademlia DHT
-3. Listen for incoming connections (TCP + QUIC)
-4. Display pairing code to user
+1. NetworkingService.start_pairing_as_initiator(auto_accept) called
+2. PairingBridge creates PairingSession with UUID and expiration
+3. LibP2PPairingProtocol generates BIP39 pairing code (12 words)
+4. Start providing code on Kademlia DHT
+5. Listen for incoming connections (TCP + QUIC)
+6. Return PairingSession with code to caller
 ```
 
 ### 2. **Joiner Connection**
 
 ```
-1. User enters 12-word pairing code
-2. Search Kademlia DHT for code providers
-3. Connect to discovered initiator
-4. Send challenge message
+1. NetworkingService.join_pairing_session(code) called
+2. PairingBridge creates joiner PairingSession
+3. LibP2PPairingProtocol parses pairing code
+4. Search Kademlia DHT for code providers
+5. Connect to discovered initiator
+6. Send challenge message
 ```
 
 ### 3. **Authentication Exchange**
@@ -413,6 +470,28 @@ Joiner  ←  Acknowledgment     ←  Initiator
 Both devices generate identical session keys using HKDF:
 - Input: pairing code discovery fingerprint + device ID
 - Output: send_key, receive_key, mac_key (32 bytes each)
+```
+
+### 5. **Persistent Device Registration**
+
+```
+1. PairingBridge.handle_pairing_complete() called automatically
+2. Convert pairing SessionKeys to persistent SessionKeys
+3. NetworkingServiceRef.add_paired_device() stores device info
+4. Device added to PersistentConnectionManager
+5. Session marked as Completed
+6. Automatic connection attempt initiated
+```
+
+### 6. **Persistent Connection Establishment**
+
+```
+1. PersistentConnectionManager detects new paired device
+2. DeviceConnection.establish() creates encrypted connection
+3. Authentication with stored session keys
+4. Connection state tracked (Connecting → Connected → Ready)
+5. Keep-alive scheduling begins
+6. Protocol handlers become available
 ```
 
 ## Message Types
@@ -549,6 +628,71 @@ networking_service.register_protocol_handler(Arc::new(MyCustomHandler));
 networking_service.start().await?;
 ```
 
+### CLI Pairing Integration
+
+The networking service provides complete CLI integration for persistent device pairing:
+
+```rust
+use sd_core_new::Core;
+
+// Initialize Core with networking
+let mut core = Core::new_with_config(data_directory).await?;
+core.init_networking("secure-password").await?;
+core.start_networking().await?;
+
+// CLI command: spacedrive network pair generate --auto-accept
+pub async fn start_pairing_as_initiator(&self, auto_accept: bool) -> Result<(String, u32)> {
+    let networking = self.networking.as_ref()
+        .ok_or("Networking not initialized")?;
+    
+    let session = networking.start_pairing_as_initiator(auto_accept).await?;
+    Ok((session.code, session.expires_in_seconds()))
+}
+
+// CLI command: spacedrive network pair join "word1 word2 ... word12"
+pub async fn start_pairing_as_joiner(&self, code: String) -> Result<()> {
+    let networking = self.networking.as_ref()
+        .ok_or("Networking not initialized")?;
+    
+    networking.join_pairing_session(code).await?;
+    Ok(())
+}
+
+// CLI command: spacedrive network pair status
+pub async fn get_pairing_status(&self) -> Result<Vec<PairingSessionStatus>> {
+    let networking = self.networking.as_ref()
+        .ok_or("Networking not initialized")?;
+    
+    Ok(networking.get_pairing_status().await)
+}
+```
+
+**CLI Workflow:**
+```bash
+# Device A: Start pairing as initiator
+$ spacedrive --instance alice network pair generate --auto-accept
+Generated pairing code: word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12
+Code expires in: 300 seconds
+Waiting for device to connect...
+
+# Device B: Join pairing session
+$ spacedrive --instance bob network pair join "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+Connecting to initiator...
+Pairing successful! Device 'alice' added.
+
+# Both devices: Verify persistent connection
+$ spacedrive --instance alice network devices
+bob (connected) - paired 30 seconds ago
+
+$ spacedrive --instance bob network devices  
+alice (connected) - paired 30 seconds ago
+
+# Test functionality across restart
+$ spacedrive --instance alice stop && spacedrive --instance alice start --enable-networking
+$ spacedrive --instance alice network devices
+bob (connected) - auto-reconnected
+```
+
 ### Complete Pairing with Persistent Connections Example
 
 See `examples/persistent_networking_demo.rs` for a full working example.
@@ -595,34 +739,55 @@ println!("Session keys established");
 
 ### ✅ Completed Features
 
-- **LibP2P Integration**: Full libp2p networking stack
-- **BIP39 Pairing Codes**: 12-word codes with proper entropy
-- **DHT Discovery**: Global peer discovery via Kademlia
-- **Multi-transport**: TCP and QUIC support
-- **Noise Encryption**: Secure transport layer
-- **Challenge-Response Auth**: Cryptographic authentication
-- **Session Key Derivation**: HKDF-based key generation
-- **Connection Persistence**: Proper connection lifecycle management
-- **Production Demo**: Working end-to-end example
-
-### 🔄 Legacy Components
-
-- **LibP2PManager** (`manager.rs`) - Replaced by `LibP2PPairingProtocol`
-- **PairingManager** (`pairing/mod.rs`) - Basic state tracking only
+- **LibP2P Integration**: Full libp2p networking stack with TCP and QUIC support
+- **BIP39 Pairing Codes**: 12-word codes with proper entropy and expiration
+- **DHT Discovery**: Global peer discovery via Kademlia with mDNS fallback
+- **Noise Encryption**: Secure transport layer with perfect forward secrecy
+- **Challenge-Response Auth**: Cryptographic authentication with device verification
+- **Session Key Derivation**: HKDF-based key generation with unique session IDs
+- **Pairing Bridge**: Complete integration between pairing and persistent systems
+- **Send Trait Resolution**: Elegant LocalSet solution for non-Send libp2p types
+- **Persistent Connections**: Always-on device connections with auto-reconnection
+- **Protocol Handler System**: Extensible message routing architecture
+- **Session Management**: UUID-based session tracking with status updates
+- **Encrypted Storage**: AES-256-GCM storage for session keys and device metadata
+- **Trust-Based Security**: Configurable trust levels and device authentication
+- **Error Handling**: Comprehensive error propagation and recovery
+- **Production Demos**: Working end-to-end examples for all major features
 
 ### ✅ Persistent Connection System
 
-- **Always-On Connections**: Automatic reconnection to paired devices
+- **Always-On Connections**: Automatic reconnection to paired devices with retry logic
 - **Encrypted Session Storage**: Secure key management for device relationships
 - **Protocol Handler System**: Extensible message routing for different data types
-- **Connection Lifecycle Management**: Health monitoring and maintenance
+- **Connection Lifecycle Management**: Health monitoring, keep-alive, and maintenance
 - **Trust-Based Security**: Device authentication with configurable trust levels
+- **Connection Pooling**: Efficient management of multiple concurrent connections
+- **Message Queuing**: Priority-based message queues with automatic retry
+- **Bandwidth Monitoring**: Connection metrics and performance tracking
+
+### ✅ Pairing Integration
+
+- **NetworkingService APIs**: High-level pairing methods with session management
+- **Automatic Device Registration**: Successful pairings automatically create persistent connections
+- **Status Tracking**: Real-time pairing progress with comprehensive state machine
+- **Role-Based Pairing**: Support for both initiator and joiner workflows
+- **Session Cleanup**: Automatic cleanup of expired and completed sessions
+- **Error Recovery**: Robust error handling with session state management
+
+### 🚧 Protocol Implementations
+
+- **File Transfer Protocol**: Framework complete, handlers need implementation details
+- **Spacedrop Protocol**: Basic implementation present, needs user interaction layer
+- **Real-time Sync Protocol**: Message framework complete, sync logic pending
+- **Database Sync Protocol**: Messages defined but commented out pending database integration
 
 ### 🚧 Future Enhancements
 
-- **File Transfer Protocol**: Encrypted file sharing over established sessions (IN PROGRESS)
-- **Sync Protocol**: Real-time data synchronization between devices (IN PROGRESS)
-- **Network Optimization**: Connection pooling and bandwidth management
+- **Connection Optimization**: Advanced connection pooling and bandwidth management
+- **Advanced Trust Models**: Dynamic trust scoring based on connection history
+- **Network Topology Discovery**: Intelligent routing through mesh networks
+- **Protocol Extensions**: Plugin architecture for custom protocol handlers
 
 ## Security Considerations
 
@@ -792,6 +957,86 @@ tempfile = "3.0"          # Temporary file handling (tests)
 - **Noise**: Transport encryption
 - **TCP**: Reliable transport
 - **QUIC**: Low-latency transport with built-in encryption
+
+## Technical Solutions
+
+### Send Trait Resolution
+
+The networking module successfully resolves Rust's Send trait constraints for libp2p components:
+
+**Problem**: LibP2P's `Swarm` and related types are `!Send` due to internal trait objects that aren't `Sync`. This prevents using them in spawned async tasks or across async boundaries.
+
+**Solution**: The pairing bridge uses `tokio::task::LocalSet` to execute pairing protocols in a single-threaded context:
+
+```rust
+// Execute pairing protocol on LocalSet to avoid Send requirements
+let local_set = tokio::task::LocalSet::new();
+let result = local_set.run_until(async {
+    Self::run_initiator_protocol_task(
+        session_id,
+        auto_accept,
+        network_identity,
+        password,
+        networking_service,
+        active_sessions.clone(),
+    ).await
+}).await;
+```
+
+**Benefits**:
+- ✅ **Clean Solution**: No complex refactoring or unsafe code required
+- ✅ **Type Safety**: Maintains all Rust safety guarantees
+- ✅ **Performance**: No overhead from unnecessary synchronization
+- ✅ **Maintainable**: Clear execution model that's easy to understand
+- ✅ **Production Ready**: Used successfully in production-grade networking stacks
+
+### Session Management Architecture
+
+**Session Lifecycle**:
+```rust
+pub struct PairingSession {
+    pub id: Uuid,                    // Unique session identifier
+    pub code: String,                // BIP39 pairing code (12 words)
+    pub expires_at: DateTime<Utc>,   // Session expiration (5 minutes)
+    pub role: PairingRole,           // Initiator or Joiner
+    pub status: PairingStatus,       // Current state
+    pub auto_accept: bool,           // Automatic acceptance flag
+}
+```
+
+**State Machine**:
+```
+WaitingForConnection → Connected → Authenticating → Completed
+                  ↓         ↓            ↓
+                Failed ← Failed ← Failed
+                  ↓
+              Cancelled
+```
+
+### Threading Model
+
+The networking module uses a carefully designed threading model:
+
+1. **Main Thread**: Core application logic and API calls
+2. **LocalSet Thread**: LibP2P protocol execution (pairing)
+3. **Background Tasks**: Connection management and message processing
+4. **Protocol Handlers**: Message-specific processing in task pool
+
+```rust
+// Thread-safe service reference for cloning across boundaries
+#[derive(Clone)]
+pub struct NetworkingServiceRef {
+    connection_manager: Arc<RwLock<PersistentConnectionManager>>,
+    device_manager: Arc<DeviceManager>,
+}
+
+// Main service with non-Send components
+pub struct NetworkingService {
+    connection_manager: Arc<RwLock<PersistentConnectionManager>>,
+    pairing_bridge: Option<Arc<PairingBridge>>,
+    // ... other components
+}
+```
 
 ## Error Handling and Resilience
 
