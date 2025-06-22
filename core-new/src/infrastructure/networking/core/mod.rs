@@ -1,0 +1,222 @@
+//! Core networking engine with unified LibP2P swarm
+
+pub mod behavior;
+pub mod discovery;
+pub mod event_loop;
+pub mod swarm;
+
+use crate::device::DeviceManager;
+use crate::infrastructure::networking::{
+	device::{DeviceInfo, DeviceRegistry},
+	protocols::ProtocolRegistry,
+	utils::NetworkIdentity,
+	NetworkingError, Result,
+};
+use libp2p::{Multiaddr, PeerId, Swarm};
+use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
+use uuid::Uuid;
+
+pub use behavior::{UnifiedBehaviour, UnifiedBehaviourEvent};
+pub use event_loop::NetworkingEventLoop;
+
+/// Central networking event types
+#[derive(Debug, Clone)]
+pub enum NetworkEvent {
+	// Discovery events
+	PeerDiscovered {
+		peer_id: PeerId,
+		addresses: Vec<Multiaddr>,
+	},
+	PeerDisconnected {
+		peer_id: PeerId,
+	},
+
+	// Pairing events
+	PairingRequest {
+		session_id: Uuid,
+		device_info: DeviceInfo,
+		peer_id: PeerId,
+	},
+	PairingCompleted {
+		device_id: Uuid,
+		device_info: DeviceInfo,
+	},
+	PairingFailed {
+		session_id: Uuid,
+		reason: String,
+	},
+
+	// Connection events
+	ConnectionEstablished {
+		device_id: Uuid,
+		peer_id: PeerId,
+	},
+	ConnectionLost {
+		device_id: Uuid,
+		peer_id: PeerId,
+	},
+	MessageReceived {
+		from: Uuid,
+		protocol: String,
+		data: Vec<u8>,
+	},
+}
+
+/// Main networking core - single source of truth for all networking operations
+pub struct NetworkingCore {
+	/// Our network identity
+	identity: NetworkIdentity,
+
+	/// LibP2P swarm with unified behavior
+	swarm: Swarm<UnifiedBehaviour>,
+
+	/// Shutdown sender for stopping the event loop
+	shutdown_sender: Option<mpsc::UnboundedSender<()>>,
+
+	/// Command sender for sending commands to the event loop
+	command_sender: Option<mpsc::UnboundedSender<event_loop::EventLoopCommand>>,
+
+	/// Registry for protocol handlers
+	protocol_registry: Arc<RwLock<ProtocolRegistry>>,
+
+	/// Registry for device state and connections
+	device_registry: Arc<RwLock<DeviceRegistry>>,
+
+	/// Event sender for broadcasting network events
+	event_sender: mpsc::UnboundedSender<NetworkEvent>,
+
+	/// Event receiver for subscribers
+	event_receiver: Arc<RwLock<Option<mpsc::UnboundedReceiver<NetworkEvent>>>>,
+}
+
+impl NetworkingCore {
+	/// Create a new networking core
+	pub async fn new(device_manager: Arc<DeviceManager>) -> Result<Self> {
+		// Generate network identity
+		let identity = NetworkIdentity::new().await?;
+
+		// Create LibP2P swarm
+		let swarm = swarm::create_swarm(identity.clone()).await?;
+
+		// Create event channel
+		let (event_sender, event_receiver) = mpsc::unbounded_channel();
+
+		// Create registries
+		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
+		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager)));
+
+		Ok(Self {
+			identity,
+			swarm,
+			shutdown_sender: None,
+			command_sender: None,
+			protocol_registry,
+			device_registry,
+			event_sender,
+			event_receiver: Arc::new(RwLock::new(Some(event_receiver))),
+		})
+	}
+
+	/// Start the networking service
+	pub async fn start(&mut self) -> Result<()> {
+		// Start LibP2P listeners
+		self.swarm
+			.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
+			.map_err(|e| NetworkingError::Transport(e.to_string()))?;
+		self.swarm
+			.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().unwrap())
+			.map_err(|e| NetworkingError::Transport(e.to_string()))?;
+
+		// Create and start event loop by moving the swarm
+		let swarm = std::mem::replace(&mut self.swarm, {
+			// Create a new swarm for the replace (this won't be used)
+			swarm::create_swarm(self.identity.clone()).await?
+		});
+
+		let event_loop = NetworkingEventLoop::new(
+			swarm,
+			self.protocol_registry.clone(),
+			self.device_registry.clone(),
+			self.event_sender.clone(),
+		);
+
+		// Store shutdown and command senders before starting
+		let shutdown_sender = event_loop.shutdown_sender();
+		let command_sender = event_loop.command_sender();
+
+		// Start the event processing in background (consumes event_loop)
+		event_loop.start().await?;
+
+		// Store senders for later use
+		self.shutdown_sender = Some(shutdown_sender);
+		self.command_sender = Some(command_sender);
+
+		Ok(())
+	}
+
+	/// Stop the networking service
+	pub async fn shutdown(&mut self) -> Result<()> {
+		if let Some(shutdown_sender) = self.shutdown_sender.take() {
+			let _ = shutdown_sender.send(());
+			// Wait a bit for graceful shutdown
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+		Ok(())
+	}
+
+	/// Subscribe to network events
+	pub async fn subscribe_events(&self) -> Option<mpsc::UnboundedReceiver<NetworkEvent>> {
+		self.event_receiver.write().await.take()
+	}
+
+	/// Get our network identity
+	pub fn identity(&self) -> &NetworkIdentity {
+		&self.identity
+	}
+
+	/// Get our peer ID
+	pub fn peer_id(&self) -> PeerId {
+		self.identity.peer_id()
+	}
+
+	/// Get connected devices
+	pub async fn get_connected_devices(&self) -> Vec<DeviceInfo> {
+		self.device_registry.read().await.get_connected_devices()
+	}
+
+	/// Send a message to a device
+	pub async fn send_message(&self, device_id: Uuid, protocol: &str, data: Vec<u8>) -> Result<()> {
+		if let Some(command_sender) = &self.command_sender {
+			let command = event_loop::EventLoopCommand::SendMessage {
+				device_id,
+				protocol: protocol.to_string(),
+				data,
+			};
+
+			command_sender.send(command).map_err(|_| {
+				NetworkingError::ConnectionFailed("Event loop not running".to_string())
+			})?;
+
+			Ok(())
+		} else {
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
+		}
+	}
+
+	/// Get protocol registry for registering new protocols
+	pub fn protocol_registry(&self) -> Arc<RwLock<ProtocolRegistry>> {
+		self.protocol_registry.clone()
+	}
+
+	/// Get device registry for device management
+	pub fn device_registry(&self) -> Arc<RwLock<DeviceRegistry>> {
+		self.device_registry.clone()
+	}
+}
+
+// Ensure NetworkingCore is Send + Sync for proper async usage
+unsafe impl Send for NetworkingCore {}
+unsafe impl Sync for NetworkingCore {}

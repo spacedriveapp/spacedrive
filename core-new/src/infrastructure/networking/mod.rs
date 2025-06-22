@@ -1,113 +1,68 @@
-//! Networking module for Spacedrive
+//! Spacedrive Networking v2 - Unified Architecture
 //!
-//! Provides production-ready networking with libp2p:
-//! - Global DHT-based discovery via Kademlia
-//! - Multi-transport support (TCP + QUIC)
-//! - NAT traversal and hole punching
-//! - Noise Protocol encryption
-//! - Efficient device pairing and authentication
-//! - Request-response messaging over libp2p
-//! - Persistent device connections with auto-reconnection
-//! - Protocol-agnostic message system for all device communication
+//! This is a complete redesign of the networking system that addresses the fundamental
+//! issues in the original implementation:
+//! - Single LibP2P swarm instead of multiple competing swarms
+//! - Proper Send/Sync design for background task execution
+//! - Centralized event system and state management
+//! - Modular protocol handling
+//!
+//! Key components:
+//! - `core`: Central networking engine with unified LibP2P swarm
+//! - `protocols`: Modular protocol handlers (pairing, messaging, file transfer)
+//! - `device`: Device registry and connection management
+//! - `utils`: Shared utilities (identity, codecs, logging)
 
-pub mod identity;
-pub mod logging;
-pub mod manager;
-pub mod pairing;
+pub mod core;
+pub mod protocols;
+pub mod device;
+pub mod utils;
 
-// LibP2P components
-pub mod behavior;
-pub mod codec;
-pub mod discovery;
+// Re-export main types for easy access
+pub use core::{NetworkingCore, NetworkEvent};
+pub use device::{DeviceInfo, DeviceRegistry, DeviceState};
+pub use protocols::{ProtocolHandler, ProtocolRegistry};
+pub use utils::{NetworkIdentity, NetworkLogger, SilentLogger};
 
-// Persistent connections system
-pub mod persistent;
+// Re-export specific protocol types for CLI compatibility
+pub use protocols::pairing::{PairingState, PairingSession};
 
-pub use identity::{NetworkIdentity, NetworkFingerprint, MasterKey, DeviceInfo, PublicKey, PrivateKey, Signature};
-pub use logging::{NetworkLogger, SilentLogger, MockLogger};
-pub use pairing::{
-    PairingCode, PairingState, PairingUserInterface, SessionKeys
-};
-
-// LibP2P exports
-pub use behavior::SpacedriveBehaviour;
-pub use codec::PairingCodec;
-pub use discovery::LibP2PDiscovery;
-pub use pairing::protocol::LibP2PPairingProtocol;
-
-// Persistent connections exports
-pub use persistent::{
-    NetworkingService, PersistentConnectionManager, PersistentNetworkIdentity,
-    DeviceMessage, ConnectionState, TrustLevel, ProtocolHandler,
-    init_persistent_networking, handle_successful_pairing,
-};
-
-// LibP2P events and channels
-use libp2p::{Multiaddr, PeerId};
-use tokio::sync::mpsc;
-
-#[derive(Debug, Clone)]
-pub enum LibP2PEvent {
-    DeviceDiscovered { peer_id: PeerId, addr: Multiaddr },
-    PairingRequest { peer_id: PeerId, message: pairing::PairingMessage },
-    PairingResponse { peer_id: PeerId, message: pairing::PairingMessage },
-    ConnectionEstablished { peer_id: PeerId },
-    ConnectionClosed { peer_id: PeerId },
-    Error { peer_id: Option<PeerId>, error: String },
-}
-
-pub type EventSender = mpsc::UnboundedSender<LibP2PEvent>;
-pub type EventReceiver = mpsc::UnboundedReceiver<LibP2PEvent>;
-
-pub fn create_event_channel() -> (EventSender, EventReceiver) {
-    mpsc::unbounded_channel()
-}
-
-use thiserror::Error;
-
-#[derive(Error, Debug, Clone)]
-pub enum NetworkError {
-    #[error("Connection failed: {0}")]
-    ConnectionFailed(String),
+/// Main error type for networking operations
+#[derive(Debug, thiserror::Error)]
+pub enum NetworkingError {
+    #[error("LibP2P error: {0}")]
+    LibP2P(String),
+    
+    #[error("Protocol error: {0}")]
+    Protocol(String),
     
     #[error("Device not found: {0}")]
     DeviceNotFound(uuid::Uuid),
     
+    #[error("Connection failed: {0}")]
+    ConnectionFailed(String),
+    
     #[error("Authentication failed: {0}")]
     AuthenticationFailed(String),
     
-    #[error("Encryption error: {0}")]
-    EncryptionError(String),
-    
-    #[error("Transport error: {0}")]
-    TransportError(String),
-    
-    #[error("Protocol error: {0}")]
-    ProtocolError(String),
+    #[error("Timeout: {0}")]
+    Timeout(String),
     
     #[error("IO error: {0}")]
-    IoError(String),
+    Io(#[from] std::io::Error),
     
     #[error("Serialization error: {0}")]
-    SerializationError(String),
+    Serialization(#[from] serde_json::Error),
     
-    #[error("Connection timeout")]
-    ConnectionTimeout,
-    
-    #[error("Not initialized: {0}")]
-    NotInitialized(String),
-    
-    #[error("Pairing failed: {0}")]
-    PairingFailed(String),
-    
-    #[error("Pairing cancelled")]
-    PairingCancelled,
-    
-    #[error("Device not connected: {0}")]
-    DeviceNotConnected(uuid::Uuid),
-    
-    #[error("Serialization error: {0}")]
-    Serialization(String),
+    #[error("Transport error: {0}")]
+    Transport(String),
 }
 
-pub type Result<T> = std::result::Result<T, NetworkError>;
+pub type Result<T> = std::result::Result<T, NetworkingError>;
+
+/// Initialize the new networking system
+pub async fn init_networking(
+    device_manager: std::sync::Arc<crate::device::DeviceManager>,
+) -> Result<NetworkingCore> {
+    NetworkingCore::new(device_manager).await
+}

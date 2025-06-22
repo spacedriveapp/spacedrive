@@ -1007,17 +1007,23 @@ async fn handle_command(
 		DaemonCommand::GetPairingStatus => {
 			match core.get_pairing_status().await {
 				Ok(sessions) => {
-					// Convert sessions to old format for compatibility
+					// Convert sessions to status format for compatibility
 					if let Some(session) = sessions.first() {
-						let status = match &session.status {
-							crate::networking::persistent::PairingStatus::GeneratingCode => "generating_code",
-							crate::networking::persistent::PairingStatus::Broadcasting => "broadcasting",
-							crate::networking::persistent::PairingStatus::WaitingForConnection => "waiting_for_connection",
-							crate::networking::persistent::PairingStatus::Connected => "connected",
-							crate::networking::persistent::PairingStatus::Authenticating => "authenticating",
-							crate::networking::persistent::PairingStatus::Completed => "completed",
-							crate::networking::persistent::PairingStatus::Failed(_) => "failed",
-							crate::networking::persistent::PairingStatus::Cancelled => "cancelled",
+						let status = match &session.state {
+							crate::networking::PairingState::Idle => "idle",
+							crate::networking::PairingState::GeneratingCode => "generating_code",
+							crate::networking::PairingState::Broadcasting => "broadcasting",
+							crate::networking::PairingState::Scanning => "scanning",
+							crate::networking::PairingState::WaitingForConnection => "waiting_for_connection",
+							crate::networking::PairingState::Connecting => "connecting",
+							crate::networking::PairingState::Authenticating => "authenticating",
+							crate::networking::PairingState::ExchangingKeys => "exchanging_keys",
+							crate::networking::PairingState::AwaitingConfirmation => "awaiting_confirmation",
+							crate::networking::PairingState::EstablishingSession => "establishing_session",
+							crate::networking::PairingState::ChallengeReceived { .. } => "authenticating",
+							crate::networking::PairingState::ResponseSent => "authenticating",
+							crate::networking::PairingState::Completed => "completed",
+							crate::networking::PairingState::Failed { .. } => "failed",
 						}.to_string();
 						
 						DaemonResponse::PairingStatus { 

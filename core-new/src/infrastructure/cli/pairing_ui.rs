@@ -1,11 +1,21 @@
 //! CLI-specific pairing user interface implementations
 //!
-//! This module contains CLI-specific implementations of the PairingUserInterface trait,
+//! This module contains CLI-specific implementations for pairing interactions,
 //! providing console-based interactions for device pairing.
 
 use async_trait::async_trait;
-use crate::networking::{DeviceInfo, NetworkError, PairingUserInterface, Result};
-use crate::networking::pairing::PairingState;
+use crate::networking::{DeviceInfo, NetworkingError as NetworkError, Result};
+use crate::networking::PairingState;
+
+/// CLI-specific pairing user interface trait
+#[async_trait]
+pub trait PairingUserInterface: Send + Sync {
+    async fn confirm_pairing(&self, remote_device: &DeviceInfo) -> Result<bool>;
+    async fn show_pairing_progress(&self, state: PairingState);
+    async fn show_pairing_error(&self, error: &NetworkError);
+    async fn show_pairing_code(&self, code: &str, expires_in_seconds: u32);
+    async fn prompt_pairing_code(&self) -> Result<[String; 12]>;
+}
 
 /// Console-based pairing UI for CLI applications
 pub struct ConsolePairingUI;
@@ -46,13 +56,16 @@ impl PairingUserInterface for ConsolePairingUI {
             PairingState::GeneratingCode => ("🔄", "Generating pairing code..."),
             PairingState::Broadcasting => ("📡", "Broadcasting pairing availability"),
             PairingState::Scanning => ("🔍", "Scanning for devices to pair with"),
+            PairingState::WaitingForConnection => ("⏳", "Waiting for connection"),
             PairingState::Connecting => ("🔗", "Establishing secure connection"),
             PairingState::Authenticating => ("🔐", "Authenticating pairing code"),
             PairingState::ExchangingKeys => ("🔑", "Exchanging device information"),
             PairingState::AwaitingConfirmation => ("⏳", "Waiting for user confirmation"),
             PairingState::EstablishingSession => ("🛡️", "Establishing session keys"),
+            PairingState::ChallengeReceived { .. } => ("🔐", "Processing challenge"),
+            PairingState::ResponseSent => ("📤", "Response sent"),
             PairingState::Completed => ("✅", "Pairing completed successfully"),
-            PairingState::Failed(ref error) => ("❌", error.as_str()),
+            PairingState::Failed { ref reason } => ("❌", reason.as_str()),
         };
         
         println!("{} {}", status, message.bright_white());
@@ -185,13 +198,16 @@ impl PairingUserInterface for SimplePairingUI {
             PairingState::GeneratingCode => tracing::info!("Generating pairing code..."),
             PairingState::Broadcasting => tracing::info!("Broadcasting on DHT..."),
             PairingState::Scanning => tracing::info!("Scanning DHT for devices..."),
+            PairingState::WaitingForConnection => tracing::info!("Waiting for connection..."),
             PairingState::Connecting => tracing::info!("Establishing connection..."),
             PairingState::Authenticating => tracing::info!("Authenticating..."),
             PairingState::ExchangingKeys => tracing::info!("Exchanging keys..."),
             PairingState::AwaitingConfirmation => tracing::info!("Awaiting confirmation..."),
             PairingState::EstablishingSession => tracing::info!("Establishing session..."),
+            PairingState::ChallengeReceived { .. } => tracing::info!("Processing challenge..."),
+            PairingState::ResponseSent => tracing::info!("Response sent..."),
             PairingState::Completed => tracing::info!("Pairing completed!"),
-            PairingState::Failed(err) => tracing::error!("Pairing failed: {}", err),
+            PairingState::Failed { reason } => tracing::error!("Pairing failed: {}", reason),
             _ => {}
         }
     }
@@ -216,9 +232,5 @@ impl crate::networking::NetworkLogger for CliNetworkLogger {
     
     async fn warn(&self, message: &str) {
         tracing::warn!("{}", message);
-    }
-    
-    async fn trace(&self, message: &str) {
-        tracing::trace!("{}", message);
     }
 }

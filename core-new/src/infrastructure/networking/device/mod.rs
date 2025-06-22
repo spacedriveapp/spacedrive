@@ -1,0 +1,129 @@
+//! Device registry and connection management
+
+pub mod connection;
+pub mod registry;
+
+use chrono::{DateTime, Utc};
+use libp2p::PeerId;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
+
+pub use connection::DeviceConnection;
+pub use registry::DeviceRegistry;
+
+/// Information about a device on the network
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceInfo {
+	pub device_id: Uuid,
+	pub device_name: String,
+	pub device_type: DeviceType,
+	pub os_version: String,
+	pub app_version: String,
+	pub network_fingerprint: crate::infrastructure::networking::utils::identity::NetworkFingerprint,
+	pub last_seen: DateTime<Utc>,
+}
+
+/// Type of device
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DeviceType {
+	Desktop,
+	Laptop,
+	Mobile,
+	Server,
+	Other(String),
+}
+
+impl Default for DeviceType {
+	fn default() -> Self {
+		Self::Desktop
+	}
+}
+
+/// State of a device in the registry
+#[derive(Debug, Clone)]
+pub enum DeviceState {
+	/// Device discovered via mDNS/DHT but not yet connected
+	Discovered {
+		peer_id: PeerId,
+		addresses: Vec<libp2p::Multiaddr>,
+		discovered_at: DateTime<Utc>,
+	},
+	/// Device currently in pairing process
+	Pairing {
+		peer_id: PeerId,
+		session_id: Uuid,
+		started_at: DateTime<Utc>,
+	},
+	/// Device successfully paired but not currently connected
+	Paired {
+		info: DeviceInfo,
+		session_keys: SessionKeys,
+		paired_at: DateTime<Utc>,
+	},
+	/// Device currently connected and active
+	Connected {
+		info: DeviceInfo,
+		connection: DeviceConnection,
+		connected_at: DateTime<Utc>,
+	},
+	/// Device was connected but is now disconnected
+	Disconnected {
+		info: DeviceInfo,
+		last_seen: DateTime<Utc>,
+		reason: DisconnectionReason,
+	},
+}
+
+/// Reason for disconnection
+#[derive(Debug, Clone)]
+pub enum DisconnectionReason {
+	UserInitiated,
+	NetworkError(String),
+	Timeout,
+	AuthenticationFailed,
+	ProtocolError(String),
+}
+
+/// Session keys for encrypted communication
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionKeys {
+	pub shared_secret: Vec<u8>,
+	pub send_key: Vec<u8>,
+	pub receive_key: Vec<u8>,
+	pub created_at: DateTime<Utc>,
+	pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl SessionKeys {
+	/// Generate new session keys from a shared secret
+	pub fn from_shared_secret(shared_secret: Vec<u8>) -> Self {
+		// Use HKDF to derive send/receive keys from shared secret
+		use hkdf::Hkdf;
+		use sha2::Sha256;
+
+		let hk = Hkdf::<Sha256>::new(None, &shared_secret);
+		let mut send_key = [0u8; 32];
+		let mut receive_key = [0u8; 32];
+
+		hk.expand(b"spacedrive-send", &mut send_key).unwrap();
+		hk.expand(b"spacedrive-receive", &mut receive_key).unwrap();
+
+		Self {
+			shared_secret,
+			send_key: send_key.to_vec(),
+			receive_key: receive_key.to_vec(),
+			created_at: Utc::now(),
+			expires_at: Some(Utc::now() + chrono::Duration::hours(24)), // 24 hour expiry
+		}
+	}
+
+	/// Check if keys are expired
+	pub fn is_expired(&self) -> bool {
+		if let Some(expires_at) = self.expires_at {
+			Utc::now() > expires_at
+		} else {
+			false
+		}
+	}
+}

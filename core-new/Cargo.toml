@@ -72,7 +72,9 @@ libp2p = { version = "0.55", features = [
     "tokio",             # Async runtime integration
     "macros",            # Derive macros for NetworkBehaviour
     "mdns",              # mDNS for local discovery
-    "identify"           # Peer identification protocol
+    "identify",          # Peer identification protocol
+    "cbor",              # CBOR encoding support
+    "json"               # JSON encoding support
 ]}
 
 # Legacy networking (kept for compatibility during transition)
