@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod daemon;
 pub mod monitor;
+pub mod networking_commands;
+pub mod pairing_ui;
 pub mod state;
 
 use crate::Core;

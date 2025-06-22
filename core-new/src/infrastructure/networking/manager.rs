@@ -5,12 +5,13 @@ use libp2p::{
 };
 use std::error::Error;
 use tokio::sync::mpsc;
-use tracing::{debug, error, info, warn};
+use std::sync::Arc;
 use futures::StreamExt;
 
 use crate::networking::{
     identity::NetworkIdentity,
     pairing::PairingMessage,
+    logging::NetworkLogger,
 };
 
 use super::{
@@ -26,17 +27,22 @@ pub struct LibP2PManager {
     event_sender: EventSender,
     event_receiver: EventReceiver,
     local_peer_id: PeerId,
+    logger: Arc<dyn NetworkLogger>,
 }
 
 impl LibP2PManager {
-    pub async fn new(identity: &NetworkIdentity, password: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub async fn new(
+        identity: &NetworkIdentity, 
+        password: &str,
+        logger: Arc<dyn NetworkLogger>
+    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let (event_sender, event_receiver) = create_event_channel();
 
         // Convert NetworkIdentity to libp2p identity
         let local_keypair = Self::convert_identity_to_libp2p(identity, password)?;
         let local_peer_id = local_keypair.public().to_peer_id();
 
-        info!("Initializing libp2p with peer ID: {}", local_peer_id);
+        logger.info(&format!("Initializing libp2p with peer ID: {}", local_peer_id)).await;
 
         // Build the swarm using the type-safe SwarmBuilder from libp2p 0.55
         let swarm = SwarmBuilder::with_existing_identity(local_keypair)
@@ -59,6 +65,7 @@ impl LibP2PManager {
             event_sender,
             event_receiver,
             local_peer_id,
+            logger,
         })
     }
 
@@ -88,23 +95,23 @@ impl LibP2PManager {
         let quic_addr: Multiaddr = "/ip4/0.0.0.0/udp/0/quic-v1".parse()?;
         self.swarm.listen_on(quic_addr)?;
 
-        info!("Started listening on TCP and QUIC transports");
+        self.logger.info("Started listening on TCP and QUIC transports").await;
 
         // Wait for listening confirmation and collect addresses
         for _ in 0..2 {
             match self.swarm.next().await {
                 Some(SwarmEvent::NewListenAddr { address, .. }) => {
-                    info!("Listening on: {}", address);
+                    self.logger.info(&format!("Listening on: {}", address)).await;
                     listening_addrs.push(address);
                 }
                 Some(SwarmEvent::IncomingConnection { .. }) => {
-                    debug!("Incoming connection while starting listener");
+                    self.logger.debug("Incoming connection while starting listener").await;
                 }
                 Some(event) => {
-                    debug!("Unexpected event while starting listener: {:?}", event);
+                    self.logger.debug(&format!("Unexpected event while starting listener: {:?}", event)).await;
                 }
                 None => {
-                    warn!("Swarm ended unexpectedly while waiting for listeners");
+                    self.logger.warn("Swarm ended unexpectedly while waiting for listeners").await;
                     break;
                 }
             }
@@ -130,13 +137,13 @@ impl LibP2PManager {
     }
 
     /// Send a pairing message to a specific peer
-    pub fn send_pairing_message(&mut self, peer_id: PeerId, message: PairingMessage) -> Result<(), String> {
+    pub async fn send_pairing_message(&mut self, peer_id: PeerId, message: PairingMessage) -> Result<(), String> {
         // Serialize the PairingMessage to JSON bytes for the pairing codec
         let serialized = serde_json::to_vec(&message)
             .map_err(|e| format!("Failed to serialize message: {}", e))?;
         
         let _request_id = self.swarm.behaviour_mut().request_response.send_request(&peer_id, serialized);
-        debug!("Sent pairing message to peer: {}", peer_id);
+        self.logger.debug(&format!("Sent pairing message to peer: {}", peer_id)).await;
         Ok(())
     }
 
@@ -150,26 +157,26 @@ impl LibP2PManager {
                         self.handle_behavior_event(event).await;
                     }
                     SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                        info!("Connection established with peer: {}", peer_id);
+                        self.logger.info(&format!("Connection established with peer: {}", peer_id)).await;
                         let event = LibP2PEvent::ConnectionEstablished { peer_id };
                         let _ = self.event_sender.send(event);
                     }
                     SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                        info!("Connection closed with peer: {} - {:?}", peer_id, cause);
+                        self.logger.info(&format!("Connection closed with peer: {} - {:?}", peer_id, cause)).await;
                         let event = LibP2PEvent::ConnectionClosed { peer_id };
                         let _ = self.event_sender.send(event);
                     }
                     SwarmEvent::IncomingConnection { .. } => {
-                        debug!("Incoming connection");
+                        self.logger.debug("Incoming connection").await;
                     }
                     SwarmEvent::NewListenAddr { address, .. } => {
-                        info!("Listening on: {}", address);
+                        self.logger.info(&format!("Listening on: {}", address)).await;
                     }
                     SwarmEvent::ExpiredListenAddr { address, .. } => {
-                        info!("Expired listening address: {}", address);
+                        self.logger.info(&format!("Expired listening address: {}", address)).await;
                     }
                     event => {
-                        debug!("Unhandled swarm event: {:?}", event);
+                        self.logger.debug(&format!("Unhandled swarm event: {:?}", event)).await;
                     }
                 }
                 None => break Ok(()),
@@ -189,7 +196,7 @@ impl LibP2PManager {
             }
             // Handle mDNS events
             super::behavior::SpacedriveBehaviourEvent::Mdns(mdns_event) => {
-                debug!("mDNS event: {:?}", mdns_event);
+                self.logger.debug(&format!("mDNS event: {:?}", mdns_event)).await;
                 // TODO: Handle mDNS discovery events if needed for device discovery
             }
         }
@@ -205,7 +212,7 @@ impl LibP2PManager {
                         // Deserialize the JSON bytes back to PairingMessage
                         match serde_json::from_slice::<PairingMessage>(&request) {
                             Ok(pairing_message) => {
-                                debug!("Received pairing request from {}: {:?}", peer, pairing_message);
+                                self.logger.debug(&format!("Received pairing request from {}: {:?}", peer, pairing_message)).await;
                                 
                                 let event = LibP2PEvent::PairingRequest {
                                     peer_id: peer,
@@ -222,17 +229,17 @@ impl LibP2PManager {
                                 let serialized_response = match serde_json::to_vec(&response) {
                                     Ok(s) => s,
                                     Err(e) => {
-                                        error!("Failed to serialize response: {}", e);
+                                        self.logger.error(&format!("Failed to serialize response: {}", e)).await;
                                         return;
                                     }
                                 };
                                 
                                 if let Err(e) = self.swarm.behaviour_mut().request_response.send_response(channel, serialized_response) {
-                                    error!("Failed to send response: {:?}", e);
+                                    self.logger.error(&format!("Failed to send response: {:?}", e)).await;
                                 }
                             }
                             Err(e) => {
-                                error!("Failed to deserialize pairing request from {}: {}", peer, e);
+                                self.logger.error(&format!("Failed to deserialize pairing request from {}: {}", peer, e)).await;
                             }
                         }
                     }
@@ -240,7 +247,7 @@ impl LibP2PManager {
                         // Deserialize the JSON bytes back to PairingMessage
                         match serde_json::from_slice::<PairingMessage>(&response) {
                             Ok(pairing_message) => {
-                                debug!("Received pairing response from {}: {:?}", peer, pairing_message);
+                                self.logger.debug(&format!("Received pairing response from {}: {:?}", peer, pairing_message)).await;
                                 
                                 let event = LibP2PEvent::PairingResponse {
                                     peer_id: peer,
@@ -249,14 +256,14 @@ impl LibP2PManager {
                                 let _ = self.event_sender.send(event);
                             }
                             Err(e) => {
-                                error!("Failed to deserialize pairing response from {}: {}", peer, e);
+                                self.logger.error(&format!("Failed to deserialize pairing response from {}: {}", peer, e)).await;
                             }
                         }
                     }
                 }
             }
             Event::OutboundFailure { peer, request_id, error, .. } => {
-                error!("Outbound request failed to {}: {:?} (request_id: {:?})", peer, error, request_id);
+                self.logger.error(&format!("Outbound request failed to {}: {:?} (request_id: {:?})", peer, error, request_id)).await;
                 
                 let event = LibP2PEvent::Error {
                     peer_id: Some(peer),
@@ -265,7 +272,7 @@ impl LibP2PManager {
                 let _ = self.event_sender.send(event);
             }
             Event::InboundFailure { peer, request_id, error, .. } => {
-                error!("Inbound request failed from {}: {:?} (request_id: {:?})", peer, error, request_id);
+                self.logger.error(&format!("Inbound request failed from {}: {:?} (request_id: {:?})", peer, error, request_id)).await;
                 
                 let event = LibP2PEvent::Error {
                     peer_id: Some(peer),
@@ -274,7 +281,7 @@ impl LibP2PManager {
                 let _ = self.event_sender.send(event);
             }
             Event::ResponseSent { peer, .. } => {
-                debug!("Response sent to peer: {}", peer);
+                self.logger.debug(&format!("Response sent to peer: {}", peer)).await;
             }
         }
     }
@@ -305,7 +312,9 @@ impl LibP2PManager {
         let keypair = libp2p::identity::Keypair::ed25519_from_bytes(ed25519_seed)
             .map_err(|e| format!("Failed to create Ed25519 keypair from seed: {}", e))?;
         
-        info!("Created libp2p keypair with peer ID: {}", keypair.public().to_peer_id());
+        // Log critical network initialization info (using eprintln for static method)
+        eprintln!("INFO: Created libp2p keypair with peer ID: {}", keypair.public().to_peer_id());
+        
         
         Ok(keypair)
     }

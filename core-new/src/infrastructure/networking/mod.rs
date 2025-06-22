@@ -11,6 +11,7 @@
 //! - Protocol-agnostic message system for all device communication
 
 pub mod identity;
+pub mod logging;
 pub mod manager;
 pub mod pairing;
 
@@ -23,8 +24,9 @@ pub mod discovery;
 pub mod persistent;
 
 pub use identity::{NetworkIdentity, NetworkFingerprint, MasterKey, DeviceInfo, PublicKey, PrivateKey, Signature};
+pub use logging::{NetworkLogger, SilentLogger, MockLogger};
 pub use pairing::{
-    PairingCode, PairingState, PairingUserInterface, ConsolePairingUI, SessionKeys
+    PairingCode, PairingState, PairingUserInterface, SessionKeys
 };
 
 // LibP2P exports

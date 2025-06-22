@@ -37,62 +37,8 @@ pub struct PendingPairingRequest {
 	pub received_at: chrono::DateTime<chrono::Utc>,
 }
 
-/// Simple UI implementation for CLI pairing that captures the pairing code
-struct SimplePairingUI {
-	auto_accept: bool,
-	code_sender: Option<tokio::sync::oneshot::Sender<(String, u32)>>,
-}
-
-#[async_trait::async_trait]
-impl networking::pairing::PairingUserInterface for SimplePairingUI {
-	async fn show_pairing_error(&self, error: &networking::NetworkError) {
-		error!("Pairing error: {}", error);
-	}
-
-	async fn show_pairing_code(&self, code: &str, expires_in_seconds: u32) {
-		info!("Pairing code generated: {} (expires in {} seconds)", code, expires_in_seconds);
-		
-		// Send the code back to the waiting CLI
-		if let Some(sender) = &self.code_sender {
-			// We can't move out of self, so we'll log here and let the pairing method handle it differently
-			// This is a limitation of the current UI interface design
-		}
-	}
-
-	async fn prompt_pairing_code(&self) -> networking::Result<[String; 12]> {
-		// This should not be called in the CLI daemon context
-		Err(networking::NetworkError::AuthenticationFailed(
-			"Interactive pairing code input not supported in daemon mode".to_string(),
-		))
-	}
-
-	async fn confirm_pairing(&self, remote_device: &networking::DeviceInfo) -> networking::Result<bool> {
-		if self.auto_accept {
-			info!("Auto-accepting pairing with device: {}", remote_device.device_name);
-			Ok(true)
-		} else {
-			info!("Pairing request from device: {} (manual confirmation required)", remote_device.device_name);
-			// In daemon mode, we'll store the request and let the user decide via CLI
-			Ok(false)
-		}
-	}
-
-	async fn show_pairing_progress(&self, state: networking::pairing::PairingState) {
-		match state {
-			networking::pairing::PairingState::GeneratingCode => info!("Generating pairing code..."),
-			networking::pairing::PairingState::Broadcasting => info!("Broadcasting on DHT..."),
-			networking::pairing::PairingState::Scanning => info!("Scanning DHT for devices..."),
-			networking::pairing::PairingState::Connecting => info!("Establishing connection..."),
-			networking::pairing::PairingState::Authenticating => info!("Authenticating..."),
-			networking::pairing::PairingState::ExchangingKeys => info!("Exchanging keys..."),
-			networking::pairing::PairingState::AwaitingConfirmation => info!("Awaiting confirmation..."),
-			networking::pairing::PairingState::EstablishingSession => info!("Establishing session..."),
-			networking::pairing::PairingState::Completed => info!("Pairing completed!"),
-			networking::pairing::PairingState::Failed(err) => error!("Pairing failed: {}", err),
-			_ => {}
-		}
-	}
-}
+// NOTE: SimplePairingUI has been moved to CLI infrastructure
+// See: src/infrastructure/cli/pairing_ui.rs for CLI-specific implementations
 
 /// The main context for all core operations
 pub struct Core {
@@ -193,13 +139,24 @@ impl Core {
 	}
 
 	/// Initialize persistent networking with password
+	/// Uses silent logging by default - CLI implementations should use init_networking_with_logger
 	pub async fn init_networking(
 		&mut self,
 		password: &str,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		info!("Initializing persistent networking...");
+		// Use silent logger by default in core - CLI implementations should provide their own
+		self.init_networking_with_logger(password, Arc::new(networking::SilentLogger)).await
+	}
 
-		// Initialize the persistent networking service
+	/// Initialize persistent networking with password and custom logger
+	pub async fn init_networking_with_logger(
+		&mut self,
+		password: &str,
+		logger: Arc<dyn networking::NetworkLogger>,
+	) -> Result<(), Box<dyn std::error::Error>> {
+		logger.info("Initializing persistent networking...").await;
+
+		// Initialize the persistent networking service  
 		let mut networking_service =
 			networking::init_persistent_networking(self.device.clone(), password).await?;
 
@@ -209,7 +166,7 @@ impl Core {
 		// Store the service in the Core
 		self.networking = Some(Arc::new(RwLock::new(networking_service)));
 
-		info!("Persistent networking initialized successfully");
+		logger.info("Persistent networking initialized successfully").await;
 		Ok(())
 	}
 

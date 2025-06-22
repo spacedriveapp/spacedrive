@@ -880,7 +880,33 @@ pub async fn handle_network_command(
 		}
 
 		NetworkCommands::Pair { action } => {
-			handle_pairing_command(action, &client).await?;
+			// Convert from legacy PairingCommands to new PairingAction
+			let action = match action {
+				PairingCommands::Generate { auto_accept } => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Generate { auto_accept }
+				}
+				PairingCommands::Join { code } => {
+					let code = match code {
+						Some(c) => c,
+						None => {
+							use dialoguer::Input;
+							Input::new()
+								.with_prompt("Enter the 12-word pairing code")
+								.interact_text()?
+						}
+					};
+					crate::infrastructure::cli::networking_commands::PairingAction::Join { code }
+				}
+				PairingCommands::Status => crate::infrastructure::cli::networking_commands::PairingAction::Status,
+				PairingCommands::ListPending => crate::infrastructure::cli::networking_commands::PairingAction::List,
+				PairingCommands::Accept { request_id } => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Accept { request_id }
+				}
+				PairingCommands::Reject { request_id } => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Reject { request_id }
+				}
+			};
+			crate::infrastructure::cli::networking_commands::handle_pairing_command(action, &client).await?;
 		}
 	}
 	

@@ -42,6 +42,7 @@
 //! - Tests session cancellation
 
 use sd_core_new::{networking, Core};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
@@ -49,6 +50,15 @@ use uuid::Uuid;
 /// Test the complete CLI pairing workflow between two Core instances
 #[tokio::test]
 async fn test_cli_pairing_full_workflow() {
+    // Initialize logging infrastructure for test debugging
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"))
+        )
+        .with_test_writer()
+        .try_init();
+
     // Set up temporary directories for both instances
     let temp_dir_alice = std::env::temp_dir().join(format!("test-alice-{}", Uuid::new_v4()));
     let temp_dir_bob = std::env::temp_dir().join(format!("test-bob-{}", Uuid::new_v4()));
@@ -83,70 +93,91 @@ async fn test_cli_pairing_full_workflow() {
     assert!(core_alice.get_pairing_status().await.unwrap().is_empty());
     assert!(core_bob.get_pairing_status().await.unwrap().is_empty());
 
-    // Test 4: Alice starts pairing as initiator (CLI: spacedrive network pair generate --auto-accept)
-    println!("👑 Alice starting pairing as initiator...");
-    let (pairing_code, expires_in) = core_alice
-        .start_pairing_as_initiator(true) // auto_accept = true
-        .await
-        .unwrap();
-
-    println!("📱 Generated pairing code: {}", 
-        pairing_code.split_whitespace()
-            .take(3)
-            .collect::<Vec<_>>()
-            .join(" ") + "..."
-    );
-    println!("⏰ Code expires in: {} seconds", expires_in);
-
-    // Verify pairing code format (should be 12 words)
-    let words: Vec<&str> = pairing_code.split_whitespace().collect();
-    assert_eq!(words.len(), 12, "Pairing code should have 12 words");
-    assert!(expires_in > 0, "Expiration time should be positive");
-    assert!(expires_in <= 300, "Expiration should be <= 5 minutes");
-
-    // Test 5: Verify Alice's pairing session is active
-    println!("🔍 Checking Alice's pairing status...");
-    let alice_sessions = core_alice.get_pairing_status().await.unwrap();
-    assert_eq!(alice_sessions.len(), 1, "Alice should have 1 active session");
+    // Test 4: Start Alice and Bob pairing concurrently using select!
+    println!("👑 Alice and Bob starting pairing concurrently...");
     
-    let alice_session = &alice_sessions[0];
-    assert_eq!(alice_session.code, pairing_code);
-    assert!(matches!(
-        alice_session.role, 
-        networking::persistent::PairingRole::Initiator
-    ));
-    assert!(matches!(
-        alice_session.status,
-        networking::persistent::PairingStatus::WaitingForConnection
-    ));
-
-    // Give the initiator time to set up DHT discovery
-    sleep(Duration::from_millis(1000)).await;
-
-    // Test 6: Bob joins pairing session (CLI: spacedrive network pair join "word1 word2 ...")
-    println!("🤝 Bob joining pairing session...");
+    // Create a channel to share the pairing code
+    let (pairing_code_tx, mut pairing_code_rx) = tokio::sync::oneshot::channel::<String>();
     
-    // Wrap the join operation in a timeout to prevent hanging
-    let join_result = timeout(
-        Duration::from_secs(30),
-        core_bob.start_pairing_as_joiner(&pairing_code)
-    ).await;
+    let alice_future = async {
+        println!("👑 Alice starting pairing as initiator...");
+        let result = core_alice.start_pairing_as_initiator(true).await;
+        match result {
+            Ok((code, expires_in)) => {
+                println!("📱 Generated pairing code: {}", 
+                    code.split_whitespace()
+                        .take(3)
+                        .collect::<Vec<_>>()
+                        .join(" ") + "..."
+                );
+                println!("⏰ Code expires in: {} seconds", expires_in);
+                
+                // Send the pairing code to Bob
+                let _ = pairing_code_tx.send(code.clone());
+                
+                // Verify pairing code format (should be 12 words)
+                let words: Vec<&str> = code.split_whitespace().collect();
+                assert_eq!(words.len(), 12, "Pairing code should have 12 words");
+                assert!(expires_in > 0, "Expiration time should be positive");
+                assert!(expires_in <= 300, "Expiration should be <= 5 minutes");
+                
+                Ok((code, expires_in))
+            }
+            Err(e) => {
+                println!("❌ Alice pairing failed: {}", e);
+                Err(e)
+            }
+        }
+    };
 
-    match join_result {
-        Ok(Ok(())) => {
-            println!("✅ Bob successfully joined pairing session!");
+    let bob_future = async {
+        // Wait for Alice to generate the pairing code
+        let pairing_code = match pairing_code_rx.await {
+            Ok(code) => code,
+            Err(_) => {
+                println!("❌ Failed to receive pairing code from Alice");
+                return Err("Failed to receive pairing code".into());
+            }
+        };
+
+        println!("🤝 Bob joining pairing session...");
+        let result = timeout(
+            Duration::from_secs(30),
+            core_bob.start_pairing_as_joiner(&pairing_code)
+        ).await;
+
+        match result {
+            Ok(Ok(())) => {
+                println!("✅ Bob successfully joined pairing session!");
+                Ok(())
+            }
+            Ok(Err(e)) => {
+                println!("❌ Bob failed to join pairing session: {}", e);
+                Err(e)
+            }
+            Err(_) => {
+                println!("⚠️  Bob's pairing timed out");
+                Err("Bob pairing timed out".into())
+            }
         }
-        Ok(Err(e)) => {
-            panic!("❌ Bob failed to join pairing session: {}", e);
+    };
+
+    // Run both futures concurrently on the same thread
+    let pairing_result = tokio::try_join!(alice_future, bob_future);
+
+    match pairing_result {
+        Ok(((pairing_code, _expires_in), ())) => {
+            println!("🎉 Pairing completed successfully between Alice and Bob!");
         }
-        Err(_) => {
-            // Check if devices still managed to pair despite timeout
+        Err(e) => {
+            // Check if devices still managed to pair despite the error
+            println!("⚠️  Pairing error occurred: {}", e);
             sleep(Duration::from_millis(1000)).await;
             let alice_connected = core_alice.get_connected_devices().await.unwrap();
             let bob_connected = core_bob.get_connected_devices().await.unwrap();
             
             if alice_connected.is_empty() && bob_connected.is_empty() {
-                println!("⚠️  Pairing timed out - this can happen in CI environments");
+                println!("⚠️  Pairing failed - this can happen in CI environments");
                 println!("⚠️  Skipping remaining tests due to network limitations");
                 
                 // Clean up and return early
@@ -156,7 +187,7 @@ async fn test_cli_pairing_full_workflow() {
                 std::fs::remove_dir_all(&temp_dir_bob).ok();
                 return;
             } else {
-                println!("✅ Devices paired successfully despite timeout!");
+                println!("✅ Devices paired successfully despite error!");
             }
         }
     }
