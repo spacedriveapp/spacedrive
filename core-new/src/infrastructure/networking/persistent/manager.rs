@@ -778,6 +778,12 @@ impl PersistentConnectionManager {
 			.collect()
 	}
 
+	/// Get the core network identity for pairing operations
+	pub async fn get_network_identity(&self) -> Result<NetworkIdentity> {
+		let identity = self.local_identity.read().await;
+		Ok(identity.identity.clone())
+	}
+
 	/// Helper methods
 	async fn find_device_by_peer_id(&self, peer_id: &PeerId) -> Option<Uuid> {
 		for (device_id, connection) in &self.active_connections {

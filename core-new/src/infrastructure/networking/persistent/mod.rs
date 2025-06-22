@@ -8,6 +8,7 @@ pub mod connection;
 pub mod identity;
 pub mod manager;
 pub mod messages;
+pub mod pairing_bridge;
 pub mod service;
 pub mod storage;
 
@@ -39,6 +40,10 @@ pub use manager::{
 pub use service::{
 	DatabaseSyncHandler, FileTransferHandler, NetworkingService, ProtocolHandler,
 	RealtimeSyncHandler, SpacedropHandler,
+};
+
+pub use pairing_bridge::{
+	PairingBridge, PairingRole, PairingSession, PairingStatus,
 };
 
 use crate::networking::Result;

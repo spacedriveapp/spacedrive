@@ -12,6 +12,7 @@ use uuid::Uuid;
 use super::storage::{EncryptedData, SecureStorage};
 use crate::device::DeviceManager;
 use crate::networking::{DeviceInfo, NetworkError, NetworkIdentity, PublicKey, Result};
+use crate::networking::pairing;
 
 /// Enhanced network identity with device relationships
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -310,6 +311,19 @@ impl SessionKeys {
 	/// Check if keys need rotation based on age
 	pub fn needs_rotation(&self, rotation_interval: Duration) -> bool {
 		Utc::now().signed_duration_since(self.created_at) > rotation_interval
+	}
+}
+
+/// Convert from pairing SessionKeys to persistent SessionKeys
+impl From<pairing::SessionKeys> for SessionKeys {
+	fn from(pairing_keys: pairing::SessionKeys) -> Self {
+		Self {
+			send_key: pairing_keys.send_key,
+			receive_key: pairing_keys.receive_key,
+			mac_key: pairing_keys.mac_key,
+			session_id: Uuid::new_v4(),
+			created_at: Utc::now(),
+		}
 	}
 }
 

@@ -1006,16 +1006,27 @@ async fn handle_command(
 
 		DaemonCommand::GetPairingStatus => {
 			match core.get_pairing_status().await {
-				Ok((status, remote_device)) => {
-					let device_info = remote_device.map(|device| ConnectedDeviceInfo {
-						device_id: device.device_id,
-						device_name: device.device_name,
-						status: "connected".to_string(),
-						last_seen: device.last_seen.to_string(),
-					});
-					DaemonResponse::PairingStatus { 
-						status, 
-						remote_device: device_info 
+				Ok(sessions) => {
+					// Convert sessions to old format for compatibility
+					if let Some(session) = sessions.first() {
+						let status = match &session.status {
+							crate::networking::persistent::PairingStatus::WaitingForConnection => "waiting_for_connection",
+							crate::networking::persistent::PairingStatus::Connected => "connected",
+							crate::networking::persistent::PairingStatus::Authenticating => "authenticating",
+							crate::networking::persistent::PairingStatus::Completed => "completed",
+							crate::networking::persistent::PairingStatus::Failed(_) => "failed",
+							crate::networking::persistent::PairingStatus::Cancelled => "cancelled",
+						}.to_string();
+						
+						DaemonResponse::PairingStatus { 
+							status, 
+							remote_device: None // No device info available yet in new system
+						}
+					} else {
+						DaemonResponse::PairingStatus { 
+							status: "no_active_pairing".to_string(), 
+							remote_device: None 
+						}
 					}
 				}
 				Err(e) => DaemonResponse::Error(e.to_string()),

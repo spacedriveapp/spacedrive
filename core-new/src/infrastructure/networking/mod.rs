@@ -91,6 +91,15 @@ pub enum NetworkError {
     
     #[error("Connection timeout")]
     ConnectionTimeout,
+    
+    #[error("Not initialized: {0}")]
+    NotInitialized(String),
+    
+    #[error("Pairing failed: {0}")]
+    PairingFailed(String),
+    
+    #[error("Pairing cancelled")]
+    PairingCancelled,
 }
 
 pub type Result<T> = std::result::Result<T, NetworkError>;

@@ -14,9 +14,10 @@ use super::{
 	identity::SessionKeys,
 	manager::{NetworkEvent, PersistentConnectionManager},
 	messages::DeviceMessage,
+	pairing_bridge::{PairingBridge, PairingSession, PairingStatus},
 };
 use crate::device::DeviceManager;
-use crate::networking::{DeviceInfo, Result};
+use crate::networking::{DeviceInfo, NetworkError, Result};
 
 /// Trait for handling specific protocol messages
 #[async_trait]
@@ -35,6 +36,27 @@ pub trait ProtocolHandler: Send + Sync {
 	fn supported_messages(&self) -> Vec<&str>;
 }
 
+/// Lightweight reference to core networking service components (cloneable)
+#[derive(Clone)]
+pub struct NetworkingServiceRef {
+	/// Persistent connection manager
+	connection_manager: Arc<RwLock<PersistentConnectionManager>>,
+	/// Device manager reference
+	device_manager: Arc<DeviceManager>,
+}
+
+impl NetworkingServiceRef {
+	/// Add a paired device to the network
+	pub async fn add_paired_device(
+		&self,
+		device_info: DeviceInfo,
+		session_keys: SessionKeys,
+	) -> Result<()> {
+		let mut manager = self.connection_manager.write().await;
+		manager.add_paired_device(device_info, session_keys).await
+	}
+}
+
 /// Integration with the core Spacedrive system
 pub struct NetworkingService {
 	/// Persistent connection manager
@@ -51,6 +73,9 @@ pub struct NetworkingService {
 
 	/// Device manager reference
 	device_manager: Arc<DeviceManager>,
+
+	/// Pairing bridge for device pairing operations
+	pairing_bridge: Option<Arc<PairingBridge>>,
 
 	/// Service state
 	is_running: bool,
@@ -95,6 +120,7 @@ impl NetworkingService {
 			event_sender,
 			protocol_handlers: HashMap::new(),
 			device_manager,
+			pairing_bridge: None, // Will be initialized when networking is started
 			is_running: false,
 		})
 	}
@@ -376,6 +402,68 @@ impl NetworkingService {
 	pub async fn get_connected_devices(&self) -> Result<Vec<Uuid>> {
 		let manager = self.connection_manager.read().await;
 		Ok(manager.get_connected_devices())
+	}
+
+	/// Initialize pairing bridge with network identity and password
+	pub async fn init_pairing(&mut self, password: String) -> Result<()> {
+		if self.pairing_bridge.is_some() {
+			return Ok(()); // Already initialized
+		}
+
+		// Get network identity from connection manager
+		let network_identity = {
+			let manager = self.connection_manager.read().await;
+			manager.get_network_identity().await?
+		};
+
+		// Create pairing bridge
+		let networking_service_ref = Arc::new(NetworkingServiceRef {
+			connection_manager: self.connection_manager.clone(),
+			device_manager: self.device_manager.clone(),
+		});
+		
+		let pairing_bridge = Arc::new(PairingBridge::new(
+			networking_service_ref,
+			network_identity,
+			password,
+		));
+
+		self.pairing_bridge = Some(pairing_bridge);
+		tracing::info!("Pairing bridge initialized successfully");
+		Ok(())
+	}
+
+	/// Start pairing as initiator with persistence integration
+	pub async fn start_pairing_as_initiator(&self, auto_accept: bool) -> Result<PairingSession> {
+		let bridge = self.pairing_bridge.as_ref()
+			.ok_or_else(|| NetworkError::NotInitialized("Pairing bridge not initialized. Call init_pairing() first.".to_string()))?;
+
+		bridge.start_pairing_as_initiator(auto_accept).await
+	}
+
+	/// Join pairing session with persistence integration  
+	pub async fn join_pairing_session(&self, code: String) -> Result<()> {
+		let bridge = self.pairing_bridge.as_ref()
+			.ok_or_else(|| NetworkError::NotInitialized("Pairing bridge not initialized. Call init_pairing() first.".to_string()))?;
+
+		bridge.join_pairing_session(code).await
+	}
+
+	/// Get status of active pairing sessions
+	pub async fn get_pairing_status(&self) -> Vec<PairingSession> {
+		if let Some(bridge) = &self.pairing_bridge {
+			bridge.get_pairing_status().await
+		} else {
+			Vec::new()
+		}
+	}
+
+	/// Cancel active pairing session
+	pub async fn cancel_pairing(&self, session_id: Uuid) -> Result<()> {
+		let bridge = self.pairing_bridge.as_ref()
+			.ok_or_else(|| NetworkError::NotInitialized("Pairing bridge not initialized. Call init_pairing() first.".to_string()))?;
+
+		bridge.cancel_pairing(session_id).await
 	}
 
 	/// Add a paired device to the network

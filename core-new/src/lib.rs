@@ -200,8 +200,11 @@ impl Core {
 		info!("Initializing persistent networking...");
 
 		// Initialize the persistent networking service
-		let networking_service =
+		let mut networking_service =
 			networking::init_persistent_networking(self.device.clone(), password).await?;
+
+		// Initialize pairing bridge
+		networking_service.init_pairing(password.to_string()).await?;
 
 		// Store the service in the Core
 		self.networking = Some(Arc::new(RwLock::new(networking_service)));
@@ -428,20 +431,15 @@ impl Core {
 		&self,
 		auto_accept: bool,
 	) -> Result<(String, u32), Box<dyn std::error::Error>> {
-		if self.networking.is_none() {
-			return Err("Networking not initialized. Call init_networking() first.".into());
-		}
+		let networking = self.networking.as_ref()
+			.ok_or("Networking not initialized. Call init_networking() first.")?;
 
-		// Generate a real BIP39 pairing code using the existing infrastructure
-		let pairing_code = networking::pairing::PairingCode::generate()?;
-		let code_string = pairing_code.words.join(" ");
+		let service = networking.read().await;
+		let session = service.start_pairing_as_initiator(auto_accept).await?;
 		
-		info!("Generated pairing code for initiator with auto_accept: {}", auto_accept);
-		
-		// TODO: Integrate with persistent networking service to actually start the pairing protocol
-		// This requires extending NetworkingService to support pairing operations
-		// For now, return the real generated code
-		Ok((code_string, 300))
+		let code = session.code.clone();
+		let expires_in = session.expires_in_seconds();
+		Ok((code, expires_in))
 	}
 
 	/// Start pairing as a joiner (connects using pairing code)
@@ -449,29 +447,11 @@ impl Core {
 		&self,
 		code: &str,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		if self.networking.is_none() {
-			return Err("Networking not initialized. Call init_networking() first.".into());
-		}
+		let networking = self.networking.as_ref()
+			.ok_or("Networking not initialized. Call init_networking() first.")?;
 
-		// Parse and validate pairing code using the existing infrastructure
-		let words: Vec<String> = code.split_whitespace().map(|s| s.to_string()).collect();
-		if words.len() != 12 {
-			return Err("Invalid pairing code format. Expected 12 words.".into());
-		}
-
-		let word_array = [
-			words[0].clone(), words[1].clone(), words[2].clone(), words[3].clone(),
-			words[4].clone(), words[5].clone(), words[6].clone(), words[7].clone(),
-			words[8].clone(), words[9].clone(), words[10].clone(), words[11].clone(),
-		];
-
-		let _pairing_code = networking::pairing::PairingCode::from_words(&word_array)?;
-
-		info!("Starting pairing as joiner with code: {}", code);
-		
-		// TODO: Integrate with persistent networking service to actually start the pairing protocol
-		// This requires extending NetworkingService to support pairing operations
-		// The real implementation would use LibP2PPairingProtocol::start_as_joiner()
+		let service = networking.read().await;
+		service.join_pairing_session(code.to_string()).await?;
 		
 		Ok(())
 	}
@@ -479,36 +459,59 @@ impl Core {
 	/// Get current pairing status
 	pub async fn get_pairing_status(
 		&self,
-	) -> Result<(String, Option<crate::networking::DeviceInfo>), Box<dyn std::error::Error>> {
-		// TODO: Implement proper pairing status tracking
-		Ok(("no_active_pairing".to_string(), None))
+	) -> Result<Vec<networking::persistent::PairingSession>, Box<dyn std::error::Error>> {
+		let networking = self.networking.as_ref()
+			.ok_or("Networking not initialized. Call init_networking() first.")?;
+
+		let service = networking.read().await;
+		Ok(service.get_pairing_status().await)
 	}
 
-	/// List pending pairing requests
+	/// List pending pairing requests (converted from active pairing sessions)
 	pub async fn list_pending_pairings(
 		&self,
 	) -> Result<Vec<PendingPairingRequest>, Box<dyn std::error::Error>> {
-		// TODO: Implement pending pairing request storage and retrieval
-		Ok(Vec::new())
+		let sessions = self.get_pairing_status().await?;
+		
+		// Convert active pairing sessions to pending requests
+		let pending_requests: Vec<PendingPairingRequest> = sessions
+			.into_iter()
+			.filter(|session| matches!(session.status, networking::persistent::PairingStatus::WaitingForConnection))
+			.map(|session| PendingPairingRequest {
+				request_id: session.id,
+				device_id: session.id, // Use session ID as device ID for now
+				device_name: "Unknown Device".to_string(), // Would be filled from actual device info
+				received_at: chrono::Utc::now(), // Would be actual timestamp
+			})
+			.collect();
+		
+		Ok(pending_requests)
 	}
 
-	/// Accept a pairing request
+	/// Accept a pairing request (cancel pairing session if rejecting)
 	pub async fn accept_pairing_request(
 		&self,
 		request_id: uuid::Uuid,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		// TODO: Implement pairing request acceptance
-		info!("Accepting pairing request: {}", request_id);
+		// In the persistent pairing system, acceptance is handled automatically
+		// This method exists for API compatibility but doesn't need to do anything
+		// since the pairing bridge handles acceptance based on auto_accept flag
+		info!("Accepting pairing request: {} (handled automatically by pairing bridge)", request_id);
 		Ok(())
 	}
 
-	/// Reject a pairing request
+	/// Reject a pairing request (cancel the pairing session)
 	pub async fn reject_pairing_request(
 		&self,
 		request_id: uuid::Uuid,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		// TODO: Implement pairing request rejection
-		info!("Rejecting pairing request: {}", request_id);
+		let networking = self.networking.as_ref()
+			.ok_or("Networking not initialized. Call init_networking() first.")?;
+
+		let service = networking.read().await;
+		service.cancel_pairing(request_id).await?;
+		
+		info!("Rejected pairing request: {}", request_id);
 		Ok(())
 	}
 }

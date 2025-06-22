@@ -199,6 +199,25 @@ impl PairingCode {
         self.as_string()
     }
     
+    /// Parse pairing code from space-separated string
+    pub fn from_string(code_str: &str) -> Result<Self> {
+        let words: Vec<String> = code_str.split_whitespace().map(|s| s.to_string()).collect();
+        
+        if words.len() != 12 {
+            return Err(NetworkError::EncryptionError(format!(
+                "Invalid pairing code: expected 12 words, got {}", words.len()
+            )));
+        }
+        
+        let words_array: [String; 12] = [
+            words[0].clone(), words[1].clone(), words[2].clone(), words[3].clone(),
+            words[4].clone(), words[5].clone(), words[6].clone(), words[7].clone(),
+            words[8].clone(), words[9].clone(), words[10].clone(), words[11].clone(),
+        ];
+        
+        Self::from_words(&words_array)
+    }
+
     /// Get remaining time until expiration
     pub fn time_remaining(&self) -> Option<Duration> {
         let now = Utc::now();
