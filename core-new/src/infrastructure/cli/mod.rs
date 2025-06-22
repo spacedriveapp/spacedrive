@@ -21,6 +21,10 @@ pub struct Cli {
 	#[arg(short = 'v', long, global = true)]
 	pub verbose: bool,
 
+	/// Daemon instance name (for multiple daemon support)
+	#[arg(long, global = true)]
+	pub instance: Option<String>,
+
 	#[command(subcommand)]
 	pub command: Commands,
 }
@@ -79,9 +83,26 @@ pub enum Commands {
 	/// Check if the daemon is running
 	Daemon,
 
+	/// Manage daemon instances
+	#[command(subcommand)]
+	Instance(InstanceCommands),
+
 	/// Manage device networking and connections
 	#[command(subcommand)]
 	Network(commands::NetworkCommands),
+}
+
+#[derive(Subcommand, Clone)]
+pub enum InstanceCommands {
+	/// List all daemon instances
+	List,
+	/// Stop a specific daemon instance
+	Stop { 
+		/// Instance name to stop
+		name: String 
+	},
+	/// Show currently targeted instance
+	Current,
 }
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -96,10 +117,16 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		))
 		.init();
 
-	// Determine data directory
-	let data_dir = cli
+	// Determine data directory with instance isolation
+	let base_data_dir = cli
 		.data_dir
 		.unwrap_or_else(|| PathBuf::from("./data/spacedrive-cli-data"));
+		
+	let data_dir = if let Some(ref instance) = cli.instance {
+		base_data_dir.join(format!("instance-{}", instance))
+	} else {
+		base_data_dir
+	};
 
 	// Handle daemon commands first (they don't need Core)
 	match &cli.command {
@@ -107,19 +134,27 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			foreground,
 			enable_networking,
 		} => {
-			return handle_start_daemon(data_dir, *foreground, *enable_networking).await;
+			return handle_start_daemon(data_dir, *foreground, *enable_networking, cli.instance.clone()).await;
 		}
 		Commands::Stop => {
-			return handle_stop_daemon().await;
+			return handle_stop_daemon(cli.instance.clone()).await;
 		}
 		Commands::Daemon => {
-			return handle_daemon_status().await;
+			return handle_daemon_status(cli.instance.clone()).await;
+		}
+		Commands::Instance(instance_cmd) => {
+			return handle_instance_command(instance_cmd.clone()).await;
 		}
 		_ => {
 			// For all other commands, check if daemon is running
-			if !daemon::Daemon::is_running() {
-				println!("❌ Spacedrive daemon is not running");
-				println!("   Start it with: spacedrive start");
+			if !daemon::Daemon::is_running_instance(cli.instance.clone()) {
+				let instance_display = cli.instance.as_deref().unwrap_or("default");
+				println!("❌ Spacedrive daemon instance '{}' is not running", instance_display);
+				if cli.instance.is_some() {
+					println!("   Start it with: spacedrive --instance {} start", instance_display);
+				} else {
+					println!("   Start it with: spacedrive start");
+				}
 				return Ok(());
 			}
 		}
@@ -128,16 +163,16 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	// For library, location, and job commands, use the daemon
 	match &cli.command {
 		Commands::Library(library_cmd) => {
-			return handle_library_daemon_command(library_cmd.clone()).await;
+			return handle_library_daemon_command(library_cmd.clone(), cli.instance.clone()).await;
 		}
 		Commands::Location(location_cmd) => {
-			return handle_location_daemon_command(location_cmd.clone()).await;
+			return handle_location_daemon_command(location_cmd.clone(), cli.instance.clone()).await;
 		}
 		Commands::Job(job_cmd) => {
-			return handle_job_daemon_command(job_cmd.clone()).await;
+			return handle_job_daemon_command(job_cmd.clone(), cli.instance.clone()).await;
 		}
 		Commands::Network(network_cmd) => {
-			return handle_network_daemon_command(network_cmd.clone()).await;
+			return handle_network_daemon_command(network_cmd.clone(), cli.instance.clone()).await;
 		}
 		Commands::Monitor => {
 			// Special case - monitor needs event streaming
@@ -151,7 +186,12 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize core (temporary - for commands not yet converted to daemon)
 	let core = Core::new_with_config(data_dir.clone()).await?;
 
-	// Load CLI state
+	// Load CLI state (instance-specific)
+	let state_path = if cli.instance.is_some() {
+		data_dir.join("cli_state.json")
+	} else {
+		data_dir.join("cli_state.json")
+	};
 	let mut state = state::CliState::load(&data_dir)?;
 
 	// Execute command
@@ -168,7 +208,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		}
 		Commands::Monitor => monitor::run_monitor(&core).await?,
 		Commands::Status => commands::handle_status_command(&core, &state).await?,
-		Commands::Start { .. } | Commands::Stop | Commands::Daemon | Commands::Network(_) => {
+		Commands::Start { .. } | Commands::Stop | Commands::Daemon | Commands::Instance(_) | Commands::Network(_) => {
 			// These are handled above, should never reach here
 			unreachable!()
 		}
@@ -187,9 +227,11 @@ async fn handle_start_daemon(
 	data_dir: PathBuf,
 	foreground: bool,
 	enable_networking: bool,
+	instance_name: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-	if daemon::Daemon::is_running() {
-		println!("⚠️  Spacedrive daemon is already running");
+	if daemon::Daemon::is_running_instance(instance_name.clone()) {
+		let instance_display = instance_name.as_deref().unwrap_or("default");
+		println!("⚠️  Spacedrive daemon instance '{}' is already running", instance_display);
 		return Ok(());
 	}
 
@@ -205,17 +247,17 @@ async fn handle_start_daemon(
 			println!("   Using default networking configuration.");
 			println!("   Use 'spacedrive network init --password <your_password>' to set a custom password.");
 
-			match daemon::Daemon::new_with_networking(data_dir.clone(), default_password).await {
+			match daemon::Daemon::new_with_networking_and_instance(data_dir.clone(), default_password, instance_name.clone()).await {
 				Ok(daemon) => daemon.start().await?,
 				Err(e) => {
 					println!("❌ Failed to start daemon with networking: {}", e);
 					println!("   Falling back to daemon without networking...");
-					let daemon = daemon::Daemon::new(data_dir).await?;
+					let daemon = daemon::Daemon::new_with_instance(data_dir, instance_name.clone()).await?;
 					daemon.start().await?;
 				}
 			}
 		} else {
-			let daemon = daemon::Daemon::new(data_dir).await?;
+			let daemon = daemon::Daemon::new_with_instance(data_dir, instance_name.clone()).await?;
 			daemon.start().await?;
 		}
 	} else {
@@ -228,6 +270,10 @@ async fn handle_start_daemon(
 			.arg("--foreground")
 			.arg("--data-dir")
 			.arg(data_dir);
+
+		if let Some(ref instance) = instance_name {
+			cmd.arg("--instance").arg(instance);
+		}
 
 		if enable_networking {
 			cmd.arg("--enable-networking");
@@ -255,45 +301,51 @@ async fn handle_start_daemon(
 		// Wait a bit to see if it started
 		tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-		if daemon::Daemon::is_running() {
-			println!("✅ Spacedrive daemon started successfully");
+		if daemon::Daemon::is_running_instance(instance_name.clone()) {
+			let instance_display = instance_name.as_deref().unwrap_or("default");
+			println!("✅ Spacedrive daemon instance '{}' started successfully", instance_display);
 		} else {
-			println!("❌ Failed to start Spacedrive daemon");
+			let instance_display = instance_name.as_deref().unwrap_or("default");
+			println!("❌ Failed to start Spacedrive daemon instance '{}'", instance_display);
 		}
 	}
 
 	Ok(())
 }
 
-async fn handle_stop_daemon() -> Result<(), Box<dyn std::error::Error>> {
-	if !daemon::Daemon::is_running() {
-		println!("⚠️  Spacedrive daemon is not running");
+async fn handle_stop_daemon(instance_name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+	if !daemon::Daemon::is_running_instance(instance_name.clone()) {
+		let instance_display = instance_name.as_deref().unwrap_or("default");
+		println!("⚠️  Spacedrive daemon instance '{}' is not running", instance_display);
 		return Ok(());
 	}
 
-	println!("🛑 Stopping Spacedrive daemon...");
-	daemon::Daemon::stop().await?;
+	let instance_display = instance_name.as_deref().unwrap_or("default");
+	println!("🛑 Stopping Spacedrive daemon instance '{}'...", instance_display);
+	daemon::Daemon::stop_instance(instance_name.clone()).await?;
 
 	// Wait a bit to ensure it's stopped
 	tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-	if !daemon::Daemon::is_running() {
-		println!("✅ Spacedrive daemon stopped");
+	if !daemon::Daemon::is_running_instance(instance_name.clone()) {
+		println!("✅ Spacedrive daemon instance '{}' stopped", instance_display);
 	} else {
-		println!("❌ Failed to stop Spacedrive daemon");
+		println!("❌ Failed to stop Spacedrive daemon instance '{}'", instance_display);
 	}
 
 	Ok(())
 }
 
-async fn handle_daemon_status() -> Result<(), Box<dyn std::error::Error>> {
+async fn handle_daemon_status(instance_name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	if daemon::Daemon::is_running() {
-		println!("✅ Spacedrive daemon is running");
+	let instance_display = instance_name.as_deref().unwrap_or("default");
+	
+	if daemon::Daemon::is_running_instance(instance_name.clone()) {
+		println!("✅ Spacedrive daemon instance '{}' is running", instance_display);
 
 		// Try to get more info from daemon
-		let client = daemon::DaemonClient::new();
+		let client = daemon::DaemonClient::new_with_instance(instance_name);
 
 		// Get status
 		match client.send_command(daemon::DaemonCommand::GetStatus).await {
@@ -364,8 +416,73 @@ async fn handle_daemon_status() -> Result<(), Box<dyn std::error::Error>> {
 			_ => {}
 		}
 	} else {
-		println!("❌ Spacedrive daemon is not running");
-		println!("   Start it with: spacedrive start");
+		println!("❌ Spacedrive daemon instance '{}' is not running", instance_display);
+		if instance_name.is_some() {
+			println!("   Start it with: spacedrive --instance {} start", instance_display);
+		} else {
+			println!("   Start it with: spacedrive start");
+		}
+	}
+
+	Ok(())
+}
+
+async fn handle_instance_command(
+	cmd: InstanceCommands,
+) -> Result<(), Box<dyn std::error::Error>> {
+	use colored::Colorize;
+
+	match cmd {
+		InstanceCommands::List => {
+			match daemon::Daemon::list_instances() {
+				Ok(instances) => {
+					if instances.is_empty() {
+						println!("📭 No daemon instances found");
+					} else {
+						use comfy_table::Table;
+						let mut table = Table::new();
+						table.set_header(vec!["Instance", "Status", "Socket Path"]);
+
+						for instance in instances {
+							let status = if instance.is_running {
+								"Running".green()
+							} else {
+								"Stopped".red()
+							};
+
+							table.add_row(vec![
+								instance.display_name().to_string(),
+								status.to_string(),
+								instance.socket_path.display().to_string(),
+							]);
+						}
+
+						println!("{}", table);
+					}
+				}
+				Err(e) => {
+					println!("❌ Failed to list instances: {}", e);
+				}
+			}
+		}
+
+		InstanceCommands::Stop { name } => {
+			let instance_name = if name == "default" { None } else { Some(name.clone()) };
+			match daemon::Daemon::stop_instance(instance_name).await {
+				Ok(_) => {
+					println!("✅ Daemon instance '{}' stopped", name);
+				}
+				Err(e) => {
+					println!("❌ Failed to stop instance '{}': {}", name, e);
+				}
+			}
+		}
+
+		InstanceCommands::Current => {
+			// This would show the current instance based on CLI args or context
+			println!("Current instance functionality not yet implemented");
+			println!("Use --instance <name> flag to target specific instances");
+		}
 	}
 
 	Ok(())
@@ -373,10 +490,11 @@ async fn handle_daemon_status() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn handle_library_daemon_command(
 	cmd: commands::LibraryCommands,
+	instance_name: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new();
+	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::LibraryCommands::Create { name, path } => {
@@ -500,10 +618,11 @@ async fn handle_library_daemon_command(
 
 async fn handle_location_daemon_command(
 	cmd: commands::LocationCommands,
+	instance_name: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new();
+	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::LocationCommands::Add { path, name, mode } => {
@@ -700,10 +819,11 @@ async fn handle_location_daemon_command(
 
 async fn handle_job_daemon_command(
 	cmd: commands::JobCommands,
+	instance_name: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new();
+	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::JobCommands::List { status, recent: _ } => {
@@ -898,10 +1018,11 @@ async fn handle_job_daemon_command(
 
 async fn handle_network_daemon_command(
 	cmd: commands::NetworkCommands,
+	instance_name: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new();
+	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	// Check if daemon is running for most commands
 	match &cmd {

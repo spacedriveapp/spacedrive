@@ -18,19 +18,47 @@ pub struct DaemonConfig {
 	pub socket_path: PathBuf,
 	pub pid_file: PathBuf,
 	pub log_file: Option<PathBuf>,
+	pub instance_name: Option<String>,
 }
 
 impl Default for DaemonConfig {
 	fn default() -> Self {
+		Self::new(None)
+	}
+}
+
+impl DaemonConfig {
+	/// Create a new daemon config with optional instance name
+	pub fn new(instance_name: Option<String>) -> Self {
 		let runtime_dir = dirs::runtime_dir()
 			.or_else(|| dirs::cache_dir())
 			.unwrap_or_else(|| PathBuf::from("/tmp"));
 
+		let (socket_name, pid_name, log_name) = if let Some(ref name) = instance_name {
+			(
+				format!("spacedrive-{}.sock", name),
+				format!("spacedrive-{}.pid", name),
+				format!("spacedrive-{}.log", name)
+			)
+		} else {
+			(
+				"spacedrive.sock".to_string(),
+				"spacedrive.pid".to_string(),
+				"spacedrive.log".to_string()
+			)
+		};
+
 		Self {
-			socket_path: runtime_dir.join("spacedrive.sock"),
-			pid_file: runtime_dir.join("spacedrive.pid"),
-			log_file: Some(runtime_dir.join("spacedrive.log")),
+			socket_path: runtime_dir.join(socket_name),
+			pid_file: runtime_dir.join(pid_name),
+			log_file: Some(runtime_dir.join(log_name)),
+			instance_name,
 		}
+	}
+
+	/// Get instance display name ("default" for None, or the actual name)
+	pub fn instance_display_name(&self) -> &str {
+		self.instance_name.as_deref().unwrap_or("default")
 	}
 }
 
@@ -179,6 +207,14 @@ pub struct Daemon {
 impl Daemon {
 	/// Create a new daemon instance
 	pub async fn new(data_dir: PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+		Self::new_with_instance(data_dir, None).await
+	}
+
+	/// Create a new daemon instance with optional instance name
+	pub async fn new_with_instance(
+		data_dir: PathBuf,
+		instance_name: Option<String>,
+	) -> Result<Self, Box<dyn std::error::Error>> {
 		let core = Arc::new(Core::new_with_config(data_dir).await?);
 
 		// Ensure device is registered for all libraries
@@ -231,7 +267,7 @@ impl Daemon {
 
 		Ok(Self {
 			core,
-			config: DaemonConfig::default(),
+			config: DaemonConfig::new(instance_name.clone()),
 			start_time: std::time::Instant::now(),
 			shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
 		})
@@ -241,6 +277,15 @@ impl Daemon {
 	pub async fn new_with_networking(
 		data_dir: PathBuf, 
 		networking_password: &str
+	) -> Result<Self, Box<dyn std::error::Error>> {
+		Self::new_with_networking_and_instance(data_dir, networking_password, None).await
+	}
+
+	/// Create a new daemon instance with networking enabled and optional instance name
+	pub async fn new_with_networking_and_instance(
+		data_dir: PathBuf, 
+		networking_password: &str,
+		instance_name: Option<String>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
 		let mut core = Core::new_with_config(data_dir).await?;
 		
@@ -300,7 +345,7 @@ impl Daemon {
 
 		Ok(Self {
 			core,
-			config: DaemonConfig::default(),
+			config: DaemonConfig::new(instance_name.clone()),
 			start_time: std::time::Instant::now(),
 			shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
 		})
@@ -353,7 +398,12 @@ impl Daemon {
 
 	/// Check if daemon is running
 	pub fn is_running() -> bool {
-		let config = DaemonConfig::default();
+		Self::is_running_instance(None)
+	}
+
+	/// Check if daemon instance is running
+	pub fn is_running_instance(instance_name: Option<String>) -> bool {
+		let config = DaemonConfig::new(instance_name);
 
 		if let Ok(pid_str) = std::fs::read_to_string(&config.pid_file) {
 			if let Ok(pid) = pid_str.trim().parse::<u32>() {
@@ -377,11 +427,16 @@ impl Daemon {
 
 	/// Stop a running daemon
 	pub async fn stop() -> Result<(), Box<dyn std::error::Error>> {
-		let config = DaemonConfig::default();
+		Self::stop_instance(None).await
+	}
+
+	/// Stop a running daemon instance
+	pub async fn stop_instance(instance_name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+		let config = DaemonConfig::new(instance_name.clone());
 
 		// First check if daemon is actually running
-		if !Self::is_running() {
-			return Err("Daemon is not running".into());
+		if !Self::is_running_instance(instance_name) {
+			return Err(format!("Daemon instance '{}' is not running", config.instance_display_name()).into());
 		}
 
 		// Try to connect and send shutdown command
@@ -416,6 +471,69 @@ impl Daemon {
 		std::fs::remove_file(&config.pid_file).ok();
 
 		Ok(())
+	}
+
+	/// List all daemon instances
+	pub fn list_instances() -> Result<Vec<DaemonInstance>, Box<dyn std::error::Error>> {
+		let runtime_dir = dirs::runtime_dir()
+			.or_else(|| dirs::cache_dir())
+			.unwrap_or_else(|| PathBuf::from("/tmp"));
+
+		let mut instances = Vec::new();
+
+		// Find all spacedrive-*.sock files
+		if let Ok(entries) = std::fs::read_dir(&runtime_dir) {
+			for entry in entries.flatten() {
+				let file_name = entry.file_name();
+				let file_str = file_name.to_string_lossy();
+
+				if file_str.starts_with("spacedrive") && file_str.ends_with(".sock") {
+					let instance_name = if file_str == "spacedrive.sock" {
+						None // Default instance
+					} else {
+						// Extract instance name from spacedrive-{name}.sock
+						Some(file_str.strip_prefix("spacedrive-")
+								   .and_then(|s| s.strip_suffix(".sock"))
+								   .unwrap_or("unknown")
+								   .to_string())
+					};
+
+					let is_running = Self::is_running_instance(instance_name.clone());
+					instances.push(DaemonInstance {
+						name: instance_name,
+						socket_path: entry.path(),
+						is_running,
+					});
+				}
+			}
+		}
+
+		// Sort by name for consistent output
+		instances.sort_by(|a, b| {
+			match (&a.name, &b.name) {
+				(None, None) => std::cmp::Ordering::Equal,
+				(None, Some(_)) => std::cmp::Ordering::Less, // Default first
+				(Some(_), None) => std::cmp::Ordering::Greater,
+				(Some(a), Some(b)) => a.cmp(b),
+			}
+		});
+
+		Ok(instances)
+	}
+}
+
+/// Daemon instance information
+#[derive(Debug)]
+pub struct DaemonInstance {
+	pub name: Option<String>,  // None for default instance
+	pub socket_path: PathBuf,
+	pub is_running: bool,
+}
+
+impl DaemonInstance {
+	/// Get instance display name (\"default\" for None, or the actual name)
+	pub fn display_name(&self) -> &str {
+		self.name.as_deref().unwrap_or("default")
 	}
 }
 
@@ -938,12 +1056,19 @@ async fn handle_command(
 /// Client for communicating with the daemon
 pub struct DaemonClient {
 	socket_path: PathBuf,
+	instance_name: Option<String>,
 }
 
 impl DaemonClient {
 	pub fn new() -> Self {
+		Self::new_with_instance(None)
+	}
+
+	pub fn new_with_instance(instance_name: Option<String>) -> Self {
+		let config = DaemonConfig::new(instance_name.clone());
 		Self {
-			socket_path: DaemonConfig::default().socket_path,
+			socket_path: config.socket_path,
+			instance_name,
 		}
 	}
 
@@ -969,6 +1094,6 @@ impl DaemonClient {
 
 	/// Check if daemon is running
 	pub fn is_running(&self) -> bool {
-		Daemon::is_running()
+		Daemon::is_running_instance(self.instance_name.clone())
 	}
 }
