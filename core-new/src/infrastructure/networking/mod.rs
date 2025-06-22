@@ -102,6 +102,12 @@ pub enum NetworkError {
     
     #[error("Pairing cancelled")]
     PairingCancelled,
+    
+    #[error("Device not connected: {0}")]
+    DeviceNotConnected(uuid::Uuid),
+    
+    #[error("Serialization error: {0}")]
+    Serialization(String),
 }
 
 pub type Result<T> = std::result::Result<T, NetworkError>;

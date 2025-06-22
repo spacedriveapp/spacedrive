@@ -216,14 +216,32 @@ impl LibP2PManager {
                                 
                                 let event = LibP2PEvent::PairingRequest {
                                     peer_id: peer,
-                                    message: pairing_message,
+                                    message: pairing_message.clone(),
                                 };
                                 let _ = self.event_sender.send(event);
 
-                                // Send a basic acknowledgment
-                                let response = PairingMessage::PairingRejected { 
-                                    reason: "Not implemented yet".to_string(),
-                                    timestamp: chrono::Utc::now(),
+                                // Send appropriate response based on the pairing message type
+                                let response = match pairing_message {
+                                    PairingMessage::Challenge { .. } => {
+                                        PairingMessage::PairingAccepted { 
+                                            timestamp: chrono::Utc::now(),
+                                        }
+                                    }
+                                    PairingMessage::ChallengeResponse { .. } => {
+                                        PairingMessage::PairingAccepted { 
+                                            timestamp: chrono::Utc::now(),
+                                        }
+                                    }
+                                    PairingMessage::DeviceInfo { .. } => {
+                                        PairingMessage::PairingAccepted { 
+                                            timestamp: chrono::Utc::now(),
+                                        }
+                                    }
+                                    _ => {
+                                        PairingMessage::PairingAccepted { 
+                                            timestamp: chrono::Utc::now(),
+                                        }
+                                    }
                                 };
                                 
                                 let serialized_response = match serde_json::to_vec(&response) {

@@ -100,27 +100,21 @@ impl LibP2PPairingProtocol {
 
         info!("Started listening on TCP and QUIC transports");
 
-        // Wait for listening confirmation and collect addresses
-        for _ in 0..3 {
-            match timeout(Duration::from_secs(5), self.swarm.next()).await {
-                Ok(Some(SwarmEvent::NewListenAddr { address, .. })) => {
-                    info!("Listening on: {}", address);
-                    listening_addrs.push(address);
-                }
-                Ok(Some(SwarmEvent::IncomingConnection { .. })) => {
-                    debug!("Incoming connection while starting listener");
-                }
-                Ok(Some(event)) => {
-                    debug!("Unexpected event while starting listener: {:?}", event);
-                }
-                Ok(None) => {
-                    warn!("Swarm ended unexpectedly while waiting for listeners");
-                    break;
-                }
-                Err(_) => {
-                    warn!("Timeout waiting for listening addresses");
-                    break;
-                }
+        // Give the swarm a moment to start listeners and gather real addresses
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        
+        // Get actual listening addresses from the swarm
+        listening_addrs = self.swarm.listeners().cloned().collect();
+        
+        if listening_addrs.is_empty() {
+            warn!("No listening addresses found, using localhost defaults");
+            // Fallback to localhost if no addresses discovered
+            listening_addrs.push("/ip4/127.0.0.1/tcp/0".parse().unwrap());
+            listening_addrs.push("/ip4/127.0.0.1/udp/0/quic-v1".parse().unwrap());
+        } else {
+            info!("Found {} actual listening addresses", listening_addrs.len());
+            for addr in &listening_addrs {
+                info!("Listening on: {}", addr);
             }
         }
 
@@ -215,6 +209,9 @@ impl LibP2PPairingProtocol {
                 Ok(Some(SwarmEvent::ConnectionClosed { peer_id, cause, .. })) => {
                     info!("Connection closed with peer: {} - {:?}", peer_id, cause);
                 }
+                Ok(Some(SwarmEvent::NewListenAddr { address, .. })) => {
+                    info!("Now listening on: {}", address);
+                }
                 Ok(Some(event)) => {
                     debug!("Unhandled swarm event: {:?}", event);
                 }
@@ -255,6 +252,9 @@ impl LibP2PPairingProtocol {
                 }
                 Ok(Some(SwarmEvent::ConnectionClosed { peer_id, cause, .. })) => {
                     info!("Connection closed with peer: {} - {:?}", peer_id, cause);
+                }
+                Ok(Some(SwarmEvent::NewListenAddr { address, .. })) => {
+                    info!("Now listening on: {}", address);
                 }
                 Ok(Some(event)) => {
                     debug!("Unhandled swarm event: {:?}", event);

@@ -546,10 +546,43 @@ impl PersistentConnectionManager {
 	/// Handle behavior events from libp2p
 	async fn handle_behaviour_event(
 		&mut self,
-		_event: super::super::behavior::SpacedriveBehaviourEvent,
+		event: super::super::behavior::SpacedriveBehaviourEvent,
 	) {
-		// Handle Kademlia, request-response, and mDNS events
-		// Implementation would depend on the specific behavior event types
+		use super::super::behavior::SpacedriveBehaviourEvent;
+		
+		match event {
+			SpacedriveBehaviourEvent::Kademlia(kad_event) => {
+				tracing::debug!("Kademlia event: {:?}", kad_event);
+				// Forward to discovery handler if needed
+			}
+			SpacedriveBehaviourEvent::RequestResponse(req_resp_event) => {
+				tracing::debug!("Request-response event: {:?}", req_resp_event);
+				// Forward to pairing or other request handlers
+			}
+			SpacedriveBehaviourEvent::Mdns(mdns_event) => {
+				tracing::debug!("mDNS event: {:?}", mdns_event);
+				// Process mDNS discovery events for device discovery
+				if let Some(discovered_peers) = self.extract_discovered_peers(&mdns_event) {
+					for peer_id in discovered_peers {
+						tracing::info!("Discovered peer via mDNS: {}", peer_id);
+						// Could trigger connection attempts here
+					}
+				}
+			}
+		}
+	}
+	
+	/// Extract discovered peers from mDNS events
+	fn extract_discovered_peers(&self, mdns_event: &libp2p::mdns::Event) -> Option<Vec<libp2p::PeerId>> {
+		match mdns_event {
+			libp2p::mdns::Event::Discovered(list) => {
+				Some(list.iter().map(|(peer_id, _)| *peer_id).collect())
+			}
+			libp2p::mdns::Event::Expired(list) => {
+				tracing::debug!("mDNS peers expired: {:?}", list);
+				None
+			}
+		}
 	}
 
 	/// Perform periodic maintenance
@@ -776,6 +809,12 @@ impl PersistentConnectionManager {
 			.filter(|(_, conn)| matches!(conn.state(), ConnectionState::Connected))
 			.map(|(&device_id, _)| device_id)
 			.collect()
+	}
+
+	/// Get connection to a specific device
+	pub fn get_connection(&self, device_id: &Uuid) -> Option<&DeviceConnection> {
+		self.active_connections.get(device_id)
+			.filter(|conn| matches!(conn.state(), ConnectionState::Connected))
 	}
 
 	/// Get the core network identity for pairing operations

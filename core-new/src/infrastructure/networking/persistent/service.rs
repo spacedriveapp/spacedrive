@@ -384,17 +384,24 @@ impl NetworkingService {
 
 	/// Send message to specific device
 	pub async fn send_to_device(&self, device_id: Uuid, message: DeviceMessage) -> Result<()> {
-		let _manager = self.connection_manager.read().await;
+		let mut manager = self.connection_manager.write().await;
 
-		// This would be manager.send_to_device(device_id, message).await in a complete implementation
-		// For now, we'll implement a placeholder
 		tracing::debug!(
 			"Sending {} message to device {}",
 			message.message_type(),
 			device_id
 		);
 
-		// TODO: Implement actual message sending through connection manager
+		// Use the manager's send_to_device method which handles the connection properly
+		manager.send_to_device(device_id, message).await
+			.map_err(|e| match e {
+				crate::networking::NetworkError::DeviceNotFound(id) => {
+					crate::networking::NetworkError::DeviceNotConnected(id)
+				}
+				other => other,
+			})?;
+		
+		tracing::info!("Message sent successfully to device {}", device_id);
 		Ok(())
 	}
 
