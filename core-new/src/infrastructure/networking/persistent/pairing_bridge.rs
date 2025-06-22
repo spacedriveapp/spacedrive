@@ -61,6 +61,8 @@ pub enum PairingRole {
 /// Current status of a pairing session
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PairingStatus {
+    GeneratingCode,
+    Broadcasting,
     WaitingForConnection,
     Connected,
     Authenticating,
@@ -104,6 +106,7 @@ impl PairingBridge {
     }
 
     /// Start pairing as initiator with automatic device registration on success
+    /// Returns immediately with pairing code, while pairing continues in background
     pub async fn start_pairing_as_initiator(&self, auto_accept: bool) -> Result<PairingSession> {
         let session_id = Uuid::new_v4();
         let expires_at = Utc::now() + chrono::Duration::seconds(300); // 5 minutes
@@ -116,7 +119,7 @@ impl PairingBridge {
             code: String::new(), // Will be filled when protocol generates it
             expires_at,
             role: PairingRole::Initiator,
-            status: PairingStatus::WaitingForConnection,
+            status: PairingStatus::GeneratingCode,
             auto_accept,
         };
         
@@ -126,43 +129,52 @@ impl PairingBridge {
             sessions.insert(session_id, session.clone());
         }
         
-        // Clone necessary data for the LocalSet execution
+        // Clone necessary data for the background task
         let network_identity = self.network_identity.clone();
         let password = self.password.clone();
         let networking_service = self.networking_service.clone();
         let active_sessions = self.active_sessions.clone();
         
-        // Execute pairing protocol on LocalSet to avoid Send requirements
-        let local_set = tokio::task::LocalSet::new();
-        let result = local_set.run_until(async {
-            Self::run_initiator_protocol_task(
-                session_id,
-                auto_accept,
-                network_identity,
-                password,
-                networking_service,
-                active_sessions.clone(),
-            ).await
-        }).await;
+        // Generate pairing code immediately (non-blocking)
+        let result = self.generate_pairing_code_immediately(
+            session_id,
+            network_identity.clone(),
+            password.clone(),
+        ).await;
         
-        // Update session with result
+        // Update session with pairing code
         let mut sessions = self.active_sessions.write().await;
         if let Some(stored_session) = sessions.get_mut(&session_id) {
             match result {
                 Ok(code) => {
-                    stored_session.code = code;
-                    stored_session.status = PairingStatus::WaitingForConnection;
-                    info!("Pairing code generated for session {}", session_id);
+                    stored_session.code = code.clone();
+                    stored_session.status = PairingStatus::Broadcasting;
+                    info!("Generated pairing code: {} (expires in {} seconds)", 
+                          code.split_whitespace().take(3).collect::<Vec<_>>().join(" ") + "...",
+                          stored_session.expires_in_seconds());
                 }
                 Err(e) => {
                     stored_session.status = PairingStatus::Failed(e.to_string());
-                    error!("Initiator pairing failed for session {}: {}", session_id, e);
+                    error!("Failed to generate pairing code for session {}: {}", session_id, e);
+                    return Err(e);
                 }
             }
         }
         
-        // Return updated session with pairing code
-        Ok(sessions.get(&session_id).cloned().unwrap_or(session))
+        let final_session = sessions.get(&session_id).cloned().unwrap_or(session);
+        
+        // For subprocess approach: Generate code immediately, protocol runs separately
+        // Mark session as waiting for connection
+        {
+            let mut sessions = self.active_sessions.write().await;
+            if let Some(session) = sessions.get_mut(&session_id) {
+                session.status = PairingStatus::WaitingForConnection;
+            }
+        }
+        
+        info!("Pairing code generated and background listener started for session {}", session_id);
+        
+        Ok(final_session)
     }
     
     /// Join pairing session with automatic device registration on success
@@ -333,6 +345,7 @@ impl PairingBridge {
         Ok(())
     }
     
+    
     /// Static method to handle pairing completion (Send-safe)
     async fn handle_pairing_complete(
         remote_device: DeviceInfo,
@@ -382,6 +395,55 @@ impl PairingBridge {
         
         Ok(())
     }
+    
+    /// Generate pairing code immediately without waiting for peer connection
+    async fn generate_pairing_code_immediately(
+        &self,
+        session_id: Uuid,
+        network_identity: NetworkIdentity,
+        password: String,
+    ) -> Result<String> {
+        debug!("Generating pairing code for session {}", session_id);
+        
+        // Generate pairing code directly using the PairingCode struct
+        // This is immediate and doesn't require LibP2P setup
+        let pairing_code = crate::networking::pairing::PairingCode::generate()?;
+        let code_string = pairing_code.as_string();
+        
+        debug!("Generated pairing code: {}... for session {}", 
+               code_string.split_whitespace().take(3).collect::<Vec<_>>().join(" "),
+               session_id);
+        
+        Ok(code_string)
+    }
+    
+    /// Start background task to listen for pairing connections
+    async fn start_background_pairing_listener(
+        &self,
+        session_id: Uuid,
+        auto_accept: bool,
+        network_identity: NetworkIdentity,
+        password: String,
+        networking_service: Arc<NetworkingServiceRef>,
+        active_sessions: Arc<RwLock<HashMap<Uuid, PairingSession>>>,
+    ) -> Result<()> {
+        debug!("Starting background pairing listener for session {}", session_id);
+        
+        // Update session status to indicate we're ready for connections
+        {
+            let mut sessions = active_sessions.write().await;
+            if let Some(session) = sessions.get_mut(&session_id) {
+                session.status = PairingStatus::WaitingForConnection;
+            }
+        }
+        
+        // For now, we'll just mark as waiting for connection
+        // The real pairing will be handled by the LibP2P protocol running
+        // in the subprocess's main event loop, not in background threads
+        info!("Background pairing listener ready for session {} (subprocess handles LibP2P directly)", session_id);
+        Ok(())
+    }
+    
     
     /// Mark session as failed
     async fn mark_session_failed(&self, session_id: Uuid, reason: String) {

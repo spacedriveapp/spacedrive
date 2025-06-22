@@ -1010,6 +1010,8 @@ async fn handle_command(
 					// Convert sessions to old format for compatibility
 					if let Some(session) = sessions.first() {
 						let status = match &session.status {
+							crate::networking::persistent::PairingStatus::GeneratingCode => "generating_code",
+							crate::networking::persistent::PairingStatus::Broadcasting => "broadcasting",
 							crate::networking::persistent::PairingStatus::WaitingForConnection => "waiting_for_connection",
 							crate::networking::persistent::PairingStatus::Connected => "connected",
 							crate::networking::persistent::PairingStatus::Authenticating => "authenticating",
