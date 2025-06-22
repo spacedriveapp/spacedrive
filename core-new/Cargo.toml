@@ -71,7 +71,8 @@ libp2p = { version = "0.55", features = [
     "quic",              # QUIC transport
     "tokio",             # Async runtime integration
     "macros",            # Derive macros for NetworkBehaviour
-    "mdns"               # mDNS for local discovery
+    "mdns",              # mDNS for local discovery
+    "identify"           # Peer identification protocol
 ]}
 
 # Legacy networking (kept for compatibility during transition)

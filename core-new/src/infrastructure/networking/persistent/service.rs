@@ -488,6 +488,12 @@ impl NetworkingService {
 		let mut manager = self.connection_manager.write().await;
 		manager.revoke_device(device_id).await
 	}
+
+	/// Get network identity for LibP2P protocol creation
+	pub async fn get_network_identity(&self) -> Result<crate::networking::NetworkIdentity> {
+		let manager = self.connection_manager.read().await;
+		manager.get_network_identity().await
+	}
 }
 
 // Protocol Handler Implementations

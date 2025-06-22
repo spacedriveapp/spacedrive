@@ -471,4 +471,13 @@ impl Core {
 		info!("Rejected pairing request: {}", request_id);
 		Ok(())
 	}
+
+	/// Get network identity for subprocess helper
+	pub async fn get_network_identity(&self) -> Result<networking::NetworkIdentity, Box<dyn std::error::Error>> {
+		let networking = self.networking.as_ref()
+			.ok_or("Networking not initialized. Call init_networking() first.")?;
+
+		let service = networking.read().await;
+		service.get_network_identity().await.map_err(|e| e.into())
+	}
 }

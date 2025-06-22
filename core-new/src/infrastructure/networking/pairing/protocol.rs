@@ -168,16 +168,7 @@ impl LibP2PPairingProtocol {
         let _query_id = self.swarm.behaviour_mut().kademlia.get_providers(key.clone());
         debug!("Started searching for pairing code providers on DHT");
         
-        // For development/testing, also try connecting to common local ports
-        let common_ports = [52063, 52064, 52065, 52066, 52067];
-        for port in common_ports {
-            if let Ok(addr) = format!("/ip4/127.0.0.1/tcp/{}", port).parse::<Multiaddr>() {
-                debug!("Attempting to dial localhost:{}", port);
-                if let Err(e) = self.swarm.dial(addr.clone()) {
-                    debug!("Failed to dial {}: {}", addr, e);
-                }
-            }
-        }
+        // Let mDNS discovery and DHT handle peer discovery
 
         // Run the main event loop as joiner
         self.run_joiner_event_loop(ui, &pairing_code).await

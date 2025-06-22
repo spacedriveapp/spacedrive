@@ -72,6 +72,7 @@ pub enum PairingStatus {
 }
 
 /// Bridge between pairing protocol and persistent networking
+#[derive(Clone)]
 pub struct PairingBridge {
     /// Networking service for persistence integration
     networking_service: Arc<NetworkingServiceRef>,
@@ -142,29 +143,34 @@ impl PairingBridge {
             password.clone(),
         ).await;
         
-        // Update session with pairing code
-        let mut sessions = self.active_sessions.write().await;
-        if let Some(stored_session) = sessions.get_mut(&session_id) {
-            match result {
-                Ok(code) => {
-                    stored_session.code = code.clone();
-                    stored_session.status = PairingStatus::Broadcasting;
-                    info!("Generated pairing code: {} (expires in {} seconds)", 
-                          code.split_whitespace().take(3).collect::<Vec<_>>().join(" ") + "...",
-                          stored_session.expires_in_seconds());
-                }
-                Err(e) => {
-                    stored_session.status = PairingStatus::Failed(e.to_string());
-                    error!("Failed to generate pairing code for session {}: {}", session_id, e);
-                    return Err(e);
+        // Update session with pairing code and get final session
+        let final_session = {
+            let mut sessions = self.active_sessions.write().await;
+            if let Some(stored_session) = sessions.get_mut(&session_id) {
+                match result {
+                    Ok(code) => {
+                        stored_session.code = code.clone();
+                        stored_session.status = PairingStatus::Broadcasting;
+                        info!("Generated pairing code: {} (expires in {} seconds)", 
+                              code.split_whitespace().take(3).collect::<Vec<_>>().join(" ") + "...",
+                              stored_session.expires_in_seconds());
+                    }
+                    Err(e) => {
+                        stored_session.status = PairingStatus::Failed(e.to_string());
+                        error!("Failed to generate pairing code for session {}: {}", session_id, e);
+                        return Err(e);
+                    }
                 }
             }
-        }
+            
+            sessions.get(&session_id).cloned().unwrap_or(session)
+        }; // Write lock released here
         
-        let final_session = sessions.get(&session_id).cloned().unwrap_or(session);
+        // Start LibP2P protocol in background to handle incoming connections
+        // This creates the networking setup but returns the code immediately
+        info!("Preparing LibP2P protocol for session {}", session_id);
         
-        // For subprocess approach: Generate code immediately, protocol runs separately
-        // Mark session as waiting for connection
+        // Mark session as waiting for connections
         {
             let mut sessions = self.active_sessions.write().await;
             if let Some(session) = sessions.get_mut(&session_id) {
@@ -172,7 +178,58 @@ impl PairingBridge {
             }
         }
         
-        info!("Pairing code generated and background listener started for session {}", session_id);
+        // Start LibP2P listeners for Alice to become discoverable to Bob
+        info!("Starting LibP2P protocol for session {} to make Alice discoverable", session_id);
+        
+        // We need to start the LibP2P protocol in a way that doesn't block returning the pairing code
+        // The key insight is that the pairing code is already generated above, so now we just need
+        // to start the LibP2P listeners to make Alice discoverable to Bob
+        
+        // Clone the data we need for the background protocol
+        let session_id_clone = session_id;
+        let auto_accept_clone = auto_accept;
+        let network_identity_clone = self.network_identity.clone();
+        let password_clone = self.password.clone();
+        let networking_service_clone = self.networking_service.clone();
+        let active_sessions_clone = self.active_sessions.clone();
+        
+        // Use tokio::spawn_local within a LocalSet to avoid Send constraints
+        let local_set = tokio::task::LocalSet::new();
+        local_set.spawn_local(async move {
+            info!("Background LibP2P protocol starting for session {}", session_id_clone);
+            
+            let result = Self::run_initiator_protocol_task(
+                session_id_clone,
+                auto_accept_clone,
+                network_identity_clone,
+                password_clone,
+                networking_service_clone,
+                active_sessions_clone.clone(),
+            ).await;
+            
+            // Update session status based on protocol result
+            let mut sessions = active_sessions_clone.write().await;
+            if let Some(session) = sessions.get_mut(&session_id_clone) {
+                match result {
+                    Ok(_) => {
+                        session.status = PairingStatus::Completed;
+                        info!("Background LibP2P protocol completed successfully for session {}", session_id_clone);
+                    }
+                    Err(e) => {
+                        session.status = PairingStatus::Failed(e.to_string());
+                        error!("Background LibP2P protocol failed for session {}: {}", session_id_clone, e);
+                    }
+                }
+            }
+        });
+        
+        // Run the LocalSet briefly to start the background task, then continue
+        let _ = tokio::time::timeout(std::time::Duration::from_millis(50), local_set.run_until(async {
+            // This will start the spawn_local task but not wait for it to complete
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        })).await;
+        
+        info!("LibP2P protocol started in background for session {}", session_id);
         
         Ok(final_session)
     }
@@ -267,7 +324,7 @@ impl PairingBridge {
         
         Ok(())
     }
-    
+
     /// Static task method for initiator protocol (Send-safe)
     async fn run_initiator_protocol_task(
         session_id: Uuid,
@@ -452,19 +509,9 @@ impl PairingBridge {
             session.status = PairingStatus::Failed(reason);
         }
     }
+    
 }
 
-impl Clone for PairingBridge {
-    fn clone(&self) -> Self {
-        Self {
-            networking_service: self.networking_service.clone(),
-            active_sessions: self.active_sessions.clone(),
-            pairing_tasks: self.pairing_tasks.clone(),
-            network_identity: self.network_identity.clone(),
-            password: self.password.clone(),
-        }
-    }
-}
 
 /// UI interface for pairing that updates session status
 struct BridgePairingUI {

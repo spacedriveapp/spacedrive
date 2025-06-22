@@ -110,13 +110,23 @@ pub enum InstanceCommands {
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let cli = Cli::parse();
 
-	// Set up logging
+	// Set up logging with networking debug support
 	let log_level = if cli.verbose { "debug" } else { "info" };
-	tracing_subscriber::fmt()
-		.with_env_filter(format!(
+	let env_filter = if cli.verbose {
+		// Enable detailed networking and libp2p logging when verbose
+		format!(
+			"sd_core_new={},spacedrive_cli={},libp2p_mdns=debug,libp2p_swarm=debug,libp2p_kad=debug",
+			log_level, log_level
+		)
+	} else {
+		format!(
 			"sd_core_new={},spacedrive_cli={}",
 			log_level, log_level
-		))
+		)
+	};
+	
+	tracing_subscriber::fmt()
+		.with_env_filter(env_filter)
 		.init();
 
 	// Determine data directory with instance isolation
