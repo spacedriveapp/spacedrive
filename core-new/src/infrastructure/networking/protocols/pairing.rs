@@ -55,13 +55,18 @@ impl PairingCode {
 
 	/// Generate a pairing code from a session ID (for compatibility)
 	pub fn from_session_id(session_id: Uuid) -> Self {
-		// Use session ID bytes as basis for secret
-		let session_bytes = session_id.as_bytes();
+		// CRITICAL FIX: Instead of deriving secret from session_id, 
+		// we should make session_id derivable from secret.
+		// This ensures Alice and Bob get the same session_id when they
+		// both process the same BIP39 words.
+		
+		// Generate a fresh secret and derive session_id from it consistently
+		use rand::RngCore;
 		let mut secret = [0u8; 32];
+		rand::thread_rng().fill_bytes(&mut secret);
 
-		// Derive full secret from session ID using BLAKE3
-		let hash = blake3::hash(session_bytes);
-		secret.copy_from_slice(hash.as_bytes());
+		// Both Alice and Bob will derive the same session_id from this secret
+		let derived_session_id = Self::derive_session_id(&secret);
 
 		// Generate BIP39 words from secret
 		let words = Self::encode_to_bip39_words(&secret).unwrap_or_else(|_| {
@@ -72,7 +77,7 @@ impl PairingCode {
 		Self {
 			secret,
 			words,
-			session_id,
+			session_id: derived_session_id, // Use derived session_id, not original
 			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
 		}
 	}
@@ -100,7 +105,7 @@ impl PairingCode {
 		// Decode BIP39 words back to secret
 		let secret = Self::decode_from_bip39_words(words)?;
 
-		// Derive session ID from secret
+		// Derive session ID from secret - this will match Alice's derivation
 		let session_id = Self::derive_session_id(&secret);
 
 		Ok(PairingCode {
@@ -315,6 +320,12 @@ impl PairingProtocolHandler {
 	/// Returns the session ID which should be advertised via DHT by the caller
 	pub async fn start_pairing_session(&self) -> Result<Uuid> {
 		let session_id = Uuid::new_v4();
+		self.start_pairing_session_with_id(session_id).await?;
+		Ok(session_id)
+	}
+
+	/// Start a new pairing session with a specific session ID
+	pub async fn start_pairing_session_with_id(&self, session_id: Uuid) -> Result<()> {
 		let session = PairingSession {
 			id: session_id,
 			state: PairingState::WaitingForConnection,
@@ -329,7 +340,7 @@ impl PairingProtocolHandler {
 			.insert(session_id, session);
 
 		println!("Started pairing session: {}", session_id);
-		Ok(session_id)
+		Ok(())
 	}
 
 	/// Join an existing pairing session with a specific session ID
@@ -405,12 +416,11 @@ impl PairingProtocolHandler {
 
 	/// Get active pairing sessions
 	pub async fn get_active_sessions(&self) -> Vec<PairingSession> {
-		self.active_sessions
-			.read()
-			.await
-			.values()
-			.cloned()
-			.collect()
+		let sessions = {
+			let read_guard = self.active_sessions.read().await;
+			read_guard.values().cloned().collect::<Vec<_>>()
+		};
+		sessions
 	}
 	
 	/// Clean up expired pairing sessions
@@ -469,7 +479,12 @@ impl PairingProtocolHandler {
 		println!("🔥 ALICE: Generated challenge of {} bytes for session {}", challenge.len(), session_id);
 
 		// Check for existing session and transition state properly
-		if let Some(existing_session) = self.active_sessions.read().await.get(&session_id) {
+		let existing_session_info = {
+			let read_guard = self.active_sessions.read().await;
+			read_guard.get(&session_id).cloned()
+		};
+		
+		if let Some(existing_session) = existing_session_info {
 			if matches!(existing_session.state, PairingState::WaitingForConnection) {
 				println!("Transitioning existing session {} from WaitingForConnection to ChallengeReceived", session_id);
 				

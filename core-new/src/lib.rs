@@ -492,11 +492,12 @@ impl Core {
 			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
 			.ok_or("Invalid pairing handler type")?;
 
-		// Start pairing session first to get the actual session ID
-		let actual_session_id = pairing_handler.start_pairing_session().await?;
+		// Generate BIP39 pairing code first to get the consistent session ID
+		let pairing_code = networking::protocols::pairing::PairingCode::generate()?;
+		let session_id = pairing_code.session_id();
 
-		// Generate BIP39 pairing code using the actual session ID  
-		let pairing_code = networking::protocols::pairing::PairingCode::from_session_id(actual_session_id);
+		// Start pairing session with the session ID from the pairing code
+		pairing_handler.start_pairing_session_with_id(session_id).await?;
 
 		// Create pairing advertisement for DHT
 		let advertisement = networking::protocols::pairing::PairingAdvertisement {
@@ -510,11 +511,11 @@ impl Core {
 		};
 
 		// CRITICAL FIX: Use actual session ID for DHT key (not pairing code session ID)
-		let key = libp2p::kad::RecordKey::new(&actual_session_id.as_bytes());
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
 		let value = serde_json::to_vec(&advertisement)?;
 		
 		let query_id = service.publish_dht_record(key, value).await?;
-		println!("Published pairing session to DHT: session={}, query_id={:?}", actual_session_id, query_id);
+		println!("Published pairing session to DHT: session={}, query_id={:?}", session_id, query_id);
 
 		let expires_in = 300; // 5 minutes
 
