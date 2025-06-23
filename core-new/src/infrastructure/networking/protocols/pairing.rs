@@ -207,8 +207,10 @@ impl PairingCode {
 
 	/// Derive session ID from secret
 	fn derive_session_id(secret: &[u8; 32]) -> Uuid {
-		// Use BLAKE3 to derive UUID from secret
-		let hash = blake3::hash(secret);
+		// For pairing codes, derive session ID from the entropy that survives BIP39 round-trip
+		// This ensures Alice (who generates) and Bob (who parses) get the same session ID
+		// This is critical for DHT-based pairing where session IDs must match
+		let hash = blake3::hash(&secret[..16]); // Use only the first 16 bytes (BIP39 entropy)
 		let bytes = hash.as_bytes();
 
 		let uuid_bytes = [

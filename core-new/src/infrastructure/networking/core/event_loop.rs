@@ -498,15 +498,15 @@ impl NetworkingEventLoop {
 		Ok(())
 	}
 
-	/// Attempt direct pairing when discovering peers via mDNS
-	/// Returns the number of pairing requests sent
-	async fn attempt_direct_pairing_on_mdns_discovery(
+	/// Schedule pairing requests for mDNS discovered peers (wait for connection establishment)
+	/// Returns the number of pairing sessions scheduled for connection
+	async fn schedule_pairing_on_mdns_discovery(
 		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
 		identity: &NetworkIdentity,
-		swarm: &mut Swarm<UnifiedBehaviour>,
 		discovered_peer_id: PeerId,
+		pending_pairing_connections: &mut std::collections::HashMap<uuid::Uuid, (PeerId, crate::infrastructure::networking::device::DeviceInfo, u32, chrono::DateTime<chrono::Utc>)>,
 	) -> Result<u32> {
-		let mut requests_sent = 0;
+		let mut sessions_scheduled = 0;
 
 		// Get pairing handler from protocol registry with proper error handling
 		let registry = protocol_registry.read().await;
@@ -531,44 +531,52 @@ impl NetworkingEventLoop {
 		
 		// Process each session that's actively scanning for peers
 		for session in &active_sessions {
-			// Only send requests for sessions where we're actively scanning (Bob's role)
+			// Only schedule requests for sessions where we're actively scanning (Bob's role)
 			if matches!(session.state, crate::infrastructure::networking::protocols::pairing::PairingState::Scanning) {
-				println!("🔍 Found scanning session {} - sending pairing request to peer {}", session.id, discovered_peer_id);
+				println!("🔍 Found scanning session {} - scheduling pairing request for peer {} (waiting for connection)", session.id, discovered_peer_id);
 				
-				// Create pairing request message
-				let pairing_request = super::behavior::PairingMessage::PairingRequest {
-					session_id: session.id,
+				// Create device info for this session
+				let device_info = crate::infrastructure::networking::device::DeviceInfo {
 					device_id: identity.device_id(),
 					device_name: Self::get_device_name_for_pairing(),
-					public_key: identity.public_key_bytes(),
+					device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+					os_version: std::env::consts::OS.to_string(),
+					app_version: env!("CARGO_PKG_VERSION").to_string(),
+					network_fingerprint: identity.network_fingerprint(),
+					last_seen: chrono::Utc::now(),
 				};
 				
-				// Send pairing request directly to the discovered peer
-				let request_id = swarm.behaviour_mut().pairing.send_request(&discovered_peer_id, pairing_request);
-				println!("✅ mDNS Direct Pairing: Sent request to peer {} for session {} (request_id: {:?})", 
-						 discovered_peer_id, session.id, request_id);
+				// Add to pending connections - pairing request will be sent after connection establishment
+				// Using 5-minute timeout (300 seconds) and current time
+				pending_pairing_connections.insert(
+					session.id,
+					(discovered_peer_id, device_info, 300, chrono::Utc::now())
+				);
 				
-				requests_sent += 1;
+				println!("✅ mDNS Discovery: Scheduled pairing request for session {} with peer {} (pending connection)", 
+						 session.id, discovered_peer_id);
+				
+				sessions_scheduled += 1;
 			} else {
 				// Log other session states for debugging
 				match &session.state {
 					crate::infrastructure::networking::protocols::pairing::PairingState::WaitingForConnection => {
-						// This is Alice waiting for Bob - don't send requests
-						println!("🔍 Found waiting session {} (Alice side) - not sending request", session.id);
+						// This is Alice waiting for Bob - don't schedule requests
+						println!("🔍 Found waiting session {} (Alice side) - not scheduling request", session.id);
 					}
 					_ => {
 						// Other states like Completed, Failed, etc.
-						println!("🔍 Found session {} in state {:?} - not sending request", session.id, session.state);
+						println!("🔍 Found session {} in state {:?} - not scheduling request", session.id, session.state);
 					}
 				}
 			}
 		}
 
-		if requests_sent == 0 && !active_sessions.is_empty() {
+		if sessions_scheduled == 0 && !active_sessions.is_empty() {
 			println!("🔍 mDNS Discovery: Found {} active sessions but none in Scanning state", active_sessions.len());
 		}
 
-		Ok(requests_sent)
+		Ok(sessions_scheduled)
 	}
 
 	/// Get device name for pairing (production-ready with fallback)
@@ -746,21 +754,21 @@ impl NetworkingEventLoop {
 								println!("Bootstrapping Kademlia DHT with query ID: {:?}", query_id);
 							}
 
-							// PRODUCTION: Check if we have active pairing sessions and attempt direct pairing
+							// PRODUCTION: Schedule pairing requests for mDNS discovered peers (wait for connection)
 							// This handles the case where Bob discovers Alice via mDNS during pairing
-							match Self::attempt_direct_pairing_on_mdns_discovery(
+							match Self::schedule_pairing_on_mdns_discovery(
 								&protocol_registry,
 								&identity,
-								swarm,
 								peer_id,
+								pending_pairing_connections,
 							).await {
-								Ok(requests_sent) => {
-									if requests_sent > 0 {
-										println!("🔍 mDNS Discovery: Sent {} direct pairing requests to peer {}", requests_sent, peer_id);
+								Ok(sessions_scheduled) => {
+									if sessions_scheduled > 0 {
+										println!("🔍 mDNS Discovery: Scheduled {} pairing sessions for peer {} (waiting for connection)", sessions_scheduled, peer_id);
 									}
 								}
 								Err(e) => {
-									println!("⚠️ mDNS Discovery: Failed to attempt direct pairing with peer {}: {}", peer_id, e);
+									println!("⚠️ mDNS Discovery: Failed to schedule pairing with peer {}: {}", peer_id, e);
 								}
 							}
 

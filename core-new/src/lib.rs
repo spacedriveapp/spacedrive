@@ -570,17 +570,35 @@ impl Core {
 		println!("⏳ Waiting for mDNS discovery to trigger pairing requests...");
 		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
-		// Hybrid approach: Try local pairing first, then DHT fallback for remote pairing
+		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
+		// Both methods run in parallel, first successful response completes pairing
 		
-		// 1. Attempt direct pairing with any currently connected peers (local pairing)
-		// This handles the common case where Alice and Bob are on the same network
+		println!("🔄 Starting unified pairing flow for session: {}", session_id);
+		
+		// Method 1: mDNS-based local pairing (already handled by event loop)
+		// The event loop automatically detects mDNS peers and schedules pairing requests
+		// This handles Alice and Bob on the same network
+		println!("📡 mDNS pairing: Listening for local network discoveries...");
+		
+		// Method 2: DHT-based remote pairing (for cross-network scenarios)
+		// Query DHT for Alice's published session record
+		println!("🌐 DHT pairing: Querying distributed hash table...");
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		match service.query_dht_record(key).await {
+			Ok(query_id) => {
+				println!("🔍 DHT Query initiated: session={}, query_id={:?}", session_id, query_id);
+			}
+			Err(e) => {
+				println!("⚠️ DHT Query failed: {}", e);
+			}
+		}
+		
+		// Method 3: Direct requests to any currently connected peers (immediate attempt)
+		// This covers cases where Alice is already connected but not yet paired
 		let connected_peers = service.get_connected_peers().await;
 		if !connected_peers.is_empty() {
-			println!("Attempting direct pairing with {} connected peers for session: {}", 
-					 connected_peers.len(), session_id);
+			println!("🔗 Direct pairing: Sending requests to {} connected peers", connected_peers.len());
 			
-			// Send pairing requests to all connected peers
-			// One of them might be Alice with the matching session
 			for peer_id in connected_peers {
 				let pairing_request = networking::core::behavior::PairingMessage::PairingRequest {
 					session_id,
@@ -594,36 +612,32 @@ impl Core {
 					"pairing", 
 					serde_json::to_vec(&pairing_request).unwrap_or_default()
 				).await {
-					Ok(_) => println!("Sent direct pairing request to peer: {}", peer_id),
-					Err(e) => println!("Failed to send pairing request to {}: {}", peer_id, e),
+					Ok(_) => println!("📤 Sent direct pairing request to peer: {}", peer_id),
+					Err(e) => println!("❌ Failed to send pairing request to {}: {}", peer_id, e),
 				}
 			}
 		}
 		
-		// 2. Query DHT for remote pairing (primary method when mDNS fails)
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
-		let query_id = service.query_dht_record(key).await?;
-		println!("🔍 Querying DHT for pairing session: session={}, query_id={:?}", session_id, query_id);
-		
-		// 3. Add periodic DHT queries as backup in case the first query fails
-		// This is important for test environments where mDNS might not work
+		// Add periodic DHT retries for reliability in challenging network conditions
 		let networking_ref = networking.clone();
 		let session_id_clone = session_id;
 		tokio::spawn(async move {
 			for i in 1..=3 {
-				tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+				tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 				let key = libp2p::kad::RecordKey::new(&session_id_clone.as_bytes());
 				let service = networking_ref.read().await;
 				match service.query_dht_record(key).await {
 					Ok(query_id) => {
-						println!("🔍 DHT Retry {}: Querying for session {} (query_id: {:?})", i, session_id_clone, query_id);
+						println!("🔄 DHT Retry {}: session={}, query_id={:?}", i, session_id_clone, query_id);
 					}
 					Err(e) => {
-						println!("⚠️ DHT Retry {}: Failed to query session {}: {}", i, session_id_clone, e);
+						println!("⚠️ DHT Retry {} failed: {}", i, e);
 					}
 				}
 			}
 		});
+		
+		println!("✅ Unified pairing flow initiated - waiting for responses from any method...");
 
 		Ok(())
 	}
