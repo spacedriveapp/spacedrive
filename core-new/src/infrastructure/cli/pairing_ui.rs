@@ -66,6 +66,7 @@ impl PairingUserInterface for ConsolePairingUI {
             PairingState::ResponseSent => ("📤", "Response sent"),
             PairingState::Completed => ("✅", "Pairing completed successfully"),
             PairingState::Failed { ref reason } => ("❌", reason.as_str()),
+            PairingState::ResponsePending { .. } => ("🔄", "Preparing challenge response"),
         };
         
         println!("{} {}", status, message.bright_white());

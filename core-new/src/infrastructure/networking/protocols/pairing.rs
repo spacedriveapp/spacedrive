@@ -269,6 +269,7 @@ pub enum PairingState {
 	AwaitingConfirmation,
 	EstablishingSession,
 	ChallengeReceived { challenge: Vec<u8> },
+	ResponsePending { challenge: Vec<u8>, response_data: Vec<u8>, remote_peer_id: Option<PeerId> },
 	ResponseSent,
 	Completed,
 	Failed { reason: String },
@@ -557,28 +558,63 @@ impl PairingProtocolHandler {
 		session_id: Uuid,
 		challenge: Vec<u8>,
 	) -> Result<Vec<u8>> {
-		println!("🔥 BOB: Received challenge for session {} with {} bytes", session_id, challenge.len());
+		println!("🔥 BOB: handle_pairing_challenge ENTRY - session {} with {} bytes", session_id, challenge.len());
 		
 		// Sign the challenge
-		let signature = self.identity.sign(&challenge)?;
-		println!("🔥 BOB: Signed challenge, signature is {} bytes", signature.len());
+		println!("🔥 BOB: About to sign challenge...");
+		let signature = match self.identity.sign(&challenge) {
+			Ok(sig) => {
+				println!("🔥 BOB: Successfully signed challenge, signature is {} bytes", sig.len());
+				sig
+			}
+			Err(e) => {
+				println!("🔥 BOB: FAILED to sign challenge: {}", e);
+				return Err(e);
+			}
+		};
 
 		// Get local device info
-		let device_info = self.device_registry.read().await.get_local_device_info()?;
+		println!("🔥 BOB: About to get local device info...");
+		let device_info = match self.device_registry.read().await.get_local_device_info() {
+			Ok(info) => {
+				println!("🔥 BOB: Successfully got local device info for device {}", info.device_id);
+				info
+			}
+			Err(e) => {
+				println!("🔥 BOB: FAILED to get local device info: {}", e);
+				return Err(e);
+			}
+		};
 
 		// Update session state
-		if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
-			session.state = PairingState::ResponseSent;
+		println!("🔥 BOB: About to update session state to ResponseSent...");
+		{
+			let mut sessions = self.active_sessions.write().await;
+			if let Some(session) = sessions.get_mut(&session_id) {
+				println!("🔥 BOB: Found session {}, updating state from {:?} to ResponseSent", session_id, session.state);
+				session.state = PairingState::ResponseSent;
+				println!("🔥 BOB: Session {} state updated to ResponseSent", session_id);
+			} else {
+				println!("🔥 BOB: ERROR: Session {} not found when trying to update to ResponseSent", session_id);
+			}
 		}
 
 		// Send response
+		println!("🔥 BOB: About to create response message...");
 		let response = PairingMessage::Response {
 			session_id,
 			response: signature,
 			device_info,
 		};
 
-		serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+		println!("🔥 BOB: About to serialize response...");
+		let serialized = serde_json::to_vec(&response).map_err(|e| {
+			println!("🔥 BOB: FAILED to serialize response: {}", e);
+			NetworkingError::Serialization(e)
+		})?;
+		
+		println!("🔥 BOB: handle_pairing_challenge SUCCESS - returning {} bytes", serialized.len());
+		Ok(serialized)
 	}
 
 	async fn handle_pairing_response(
@@ -743,8 +779,108 @@ impl ProtocolHandler for PairingProtocolHandler {
 		result
 	}
 
-	async fn handle_response(&self, _from_device: Uuid, _response_data: Vec<u8>) -> Result<()> {
-		// Pairing protocol doesn't use separate responses
+	async fn handle_response(&self, from_device: Uuid, from_peer: libp2p::PeerId, response_data: Vec<u8>) -> Result<()> {
+		println!("🔥 BOB: handle_response called with {} bytes from device {}", response_data.len(), from_device);
+		
+		// Parse the response message
+		let message: PairingMessage = serde_json::from_slice(&response_data)
+			.map_err(|e| NetworkingError::Serialization(e))?;
+
+		println!("🔥 BOB: Parsed message type successfully");
+
+		// Process the response based on the message type
+		match message {
+			PairingMessage::Challenge { session_id, challenge } => {
+				println!("🔥 BOB: Received challenge for session {} with {} byte challenge", session_id, challenge.len());
+				
+				// Check session state before processing
+				{
+					let sessions = self.active_sessions.read().await;
+					if let Some(session) = sessions.get(&session_id) {
+						println!("🔥 BOB: Session {} state before challenge processing: {:?}", session_id, session.state);
+					} else {
+						println!("🔥 BOB: No session found for {}", session_id);
+					}
+				}
+				
+				println!("🔥 BOB: About to call handle_pairing_challenge...");
+				
+				// Call the existing handle_pairing_challenge method
+				match self.handle_pairing_challenge(session_id, challenge.clone()).await {
+					Ok(response_data) => {
+						println!("🔥 BOB: handle_pairing_challenge succeeded, generated {} byte response", response_data.len());
+						
+						// Check session state after handle_pairing_challenge
+						{
+							let sessions = self.active_sessions.read().await;
+							if let Some(session) = sessions.get(&session_id) {
+								println!("🔥 BOB: Session {} state after handle_pairing_challenge: {:?}", session_id, session.state);
+							}
+						}
+						
+						// Use the peer ID directly from the method parameter (this is Alice's peer ID)
+						let remote_peer_id = Some(from_peer);
+						println!("🔥 BOB: Using peer ID from method parameter: {:?}", from_peer);
+						
+						// Update the session state to ResponsePending so the unified pairing flow can send it
+						{
+							let mut sessions = self.active_sessions.write().await;
+							if let Some(session) = sessions.get_mut(&session_id) {
+								session.state = PairingState::ResponsePending { 
+									challenge: challenge.clone(),
+									response_data: response_data.clone(),
+									remote_peer_id,
+								};
+								println!("🔥 BOB: Session {} updated to ResponsePending state", session_id);
+							} else {
+								println!("🔥 BOB: ERROR: Session {} not found when trying to update to ResponsePending", session_id);
+							}
+						}
+						
+						// Verify state change
+						{
+							let sessions = self.active_sessions.read().await;
+							if let Some(session) = sessions.get(&session_id) {
+								println!("🔥 BOB: Session {} final state: {:?}", session_id, session.state);
+							}
+						}
+						
+						println!("🔥 BOB: Challenge response ready to send for session {}", session_id);
+					}
+					Err(e) => {
+						println!("🔥 BOB: handle_pairing_challenge FAILED for session {}: {}", session_id, e);
+					}
+				}
+			}
+			PairingMessage::Complete { session_id, success, reason } => {
+				println!("🔥 BOB: Received completion message for session {} - success: {}", session_id, success);
+				
+				// Update session state based on completion result
+				{
+					let mut sessions = self.active_sessions.write().await;
+					if let Some(session) = sessions.get_mut(&session_id) {
+						if success {
+							session.state = PairingState::Completed;
+							println!("🔥 BOB: Session {} marked as completed", session_id);
+						} else {
+							let failure_reason = reason.unwrap_or_else(|| "Pairing failed".to_string());
+							session.state = PairingState::Failed {
+								reason: failure_reason.clone(),
+							};
+							println!("🔥 BOB: Session {} marked as failed: {}", session_id, failure_reason);
+						}
+					} else {
+						println!("🔥 BOB: ERROR: Session {} not found when processing completion", session_id);
+					}
+				}
+			}
+			_ => {
+				// Other message types are handled by handle_request
+				println!("🔥 BOB: Received non-challenge response message, ignoring");
+			}
+		}
+
+		println!("🔥 BOB: handle_response completed");
 		Ok(())
 	}
 

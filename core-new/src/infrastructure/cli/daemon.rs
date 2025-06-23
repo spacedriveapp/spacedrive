@@ -1024,6 +1024,7 @@ async fn handle_command(
 							crate::networking::PairingState::ResponseSent => "authenticating",
 							crate::networking::PairingState::Completed => "completed",
 							crate::networking::PairingState::Failed { .. } => "failed",
+							crate::networking::PairingState::ResponsePending { .. } => "responding",
 						}.to_string();
 						
 						DaemonResponse::PairingStatus { 

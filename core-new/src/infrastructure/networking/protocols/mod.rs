@@ -23,7 +23,7 @@ pub trait ProtocolHandler: Send + Sync {
 	async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>>;
 
 	/// Handle an incoming response (for request-response protocols)
-	async fn handle_response(&self, from_device: Uuid, response_data: Vec<u8>) -> Result<()>;
+	async fn handle_response(&self, from_device: Uuid, from_peer: libp2p::PeerId, response_data: Vec<u8>) -> Result<()>;
 
 	/// Handle protocol-specific events
 	async fn handle_event(&self, event: ProtocolEvent) -> Result<()>;

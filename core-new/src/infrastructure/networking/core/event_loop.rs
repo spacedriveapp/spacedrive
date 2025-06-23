@@ -803,12 +803,57 @@ impl NetworkingEventLoop {
 						} => {
 							println!("Received pairing request from {}", peer);
 
-							// Get device ID from peer ID (or use placeholder if not found)
-							let device_id = device_registry
+							// Extract session_id and device_id from the pairing message
+							let (session_id, device_id_from_request) = match &request {
+								super::behavior::PairingMessage::PairingRequest { 
+									session_id, 
+									device_id, 
+									.. 
+								} => (*session_id, *device_id),
+								super::behavior::PairingMessage::Response { 
+									session_id, 
+									device_info,
+									.. 
+								} => (*session_id, device_info.device_id),
+								super::behavior::PairingMessage::Challenge { 
+									session_id, 
+									.. 
+								} => (*session_id, Uuid::new_v4()), // Generate placeholder for challenge-only messages
+								super::behavior::PairingMessage::Complete { 
+									session_id, 
+									.. 
+								} => (*session_id, Uuid::new_v4()), // Generate placeholder for complete messages
+							};
+
+							// Check if we already know this peer
+							let existing_device_id = device_registry
 								.read()
 								.await
-								.get_device_by_peer(peer)
-								.unwrap_or_else(|| Uuid::new_v4());
+								.get_device_by_peer(peer);
+
+							let device_id = if let Some(existing_id) = existing_device_id {
+								println!("Using existing device ID {} for peer {}", existing_id, peer);
+								existing_id
+							} else {
+								// Register this new pairing relationship in the device registry
+								println!("Registering new pairing: device {} with peer {} for session {}", 
+									device_id_from_request, peer, session_id);
+								
+								match device_registry.write().await.start_pairing(
+									device_id_from_request, 
+									peer, 
+									session_id
+								) {
+									Ok(()) => {
+										println!("Successfully registered pairing in device registry");
+										device_id_from_request
+									}
+									Err(e) => {
+										eprintln!("Failed to register pairing in device registry: {}", e);
+										device_id_from_request // Use the device ID from request anyway
+									}
+								}
+							};
 
 							// Handle the request through the protocol registry
 							match protocol_registry
@@ -856,6 +901,7 @@ impl NetworkingEventLoop {
 								.handle_response(
 									"pairing",
 									device_id,
+									peer,
 									serde_json::to_vec(&response).unwrap_or_default(),
 								)
 								.await 
@@ -890,6 +936,7 @@ impl NetworkingEventLoop {
 								.handle_response(
 									"messaging",
 									Uuid::new_v4(),
+									peer,
 									serde_json::to_vec(&response).unwrap_or_default(),
 								)
 								.await;

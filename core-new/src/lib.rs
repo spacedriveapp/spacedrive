@@ -594,6 +594,44 @@ impl Core {
 			}
 		}
 		
+		// Check if Bob has a challenge response pending to send
+		let pairing_handler = registry.read().await.get_handler("pairing")
+			.ok_or("Pairing protocol not registered")?;
+		let pairing_handler = pairing_handler
+			.as_any()
+			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
+			.ok_or("Invalid pairing handler type")?;
+		
+		let active_sessions = pairing_handler.get_active_sessions().await;
+		for session in &active_sessions {
+			if session.id == session_id {
+				if let networking::protocols::pairing::PairingState::ResponsePending { 
+					response_data, 
+					remote_peer_id,
+					.. 
+				} = &session.state {
+					if let Some(peer_id) = remote_peer_id {
+						println!("🔥 BOB: Sending challenge response to Alice at peer {}", peer_id);
+						
+						// Send the challenge response to Alice
+						match service.send_message_to_peer(
+							*peer_id,
+							"pairing",
+							response_data.clone()
+						).await {
+							Ok(_) => {
+								println!("📤 BOB: Successfully sent challenge response to Alice");
+							}
+							Err(e) => println!("❌ BOB: Failed to send challenge response: {}", e),
+						}
+					} else {
+						println!("⚠️ BOB: No remote peer ID available to send challenge response");
+					}
+				}
+				break;
+			}
+		}
+
 		// Method 3: Direct requests to any currently connected peers (immediate attempt)
 		// This covers cases where Alice is already connected but not yet paired
 		let connected_peers = service.get_connected_peers().await;

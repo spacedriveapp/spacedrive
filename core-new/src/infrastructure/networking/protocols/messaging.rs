@@ -160,7 +160,7 @@ impl ProtocolHandler for MessagingProtocolHandler {
 		}
 	}
 
-	async fn handle_response(&self, _from_device: Uuid, _response_data: Vec<u8>) -> Result<()> {
+	async fn handle_response(&self, _from_device: Uuid, _from_peer: libp2p::PeerId, _response_data: Vec<u8>) -> Result<()> {
 		// Messaging protocol handles responses in handle_request
 		Ok(())
 	}
