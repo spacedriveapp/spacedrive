@@ -1,0 +1,3 @@
+[submodule "spacedrive-cloud"]
+	path = spacedrive-cloud
+	url = ./spacedrive-cloud
