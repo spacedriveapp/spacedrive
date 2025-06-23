@@ -1,0 +1,224 @@
+//! Initiator-specific pairing logic
+
+use super::{
+    messages::PairingMessage,
+    types::{PairingSession, PairingState},
+    PairingProtocolHandler,
+};
+use crate::infrastructure::networking::{
+    device::{DeviceInfo, SessionKeys},
+    NetworkingError, Result,
+};
+use uuid::Uuid;
+
+impl PairingProtocolHandler {
+    /// Handle an incoming pairing request (Initiator receives this from Joiner)
+    pub(crate) async fn handle_pairing_request(
+        &self,
+        from_device: Uuid,
+        session_id: Uuid,
+        device_info: DeviceInfo,
+        public_key: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        self.log_info(&format!(
+            "Received pairing request from device {} for session {}",
+            from_device, session_id
+        )).await;
+
+        // Generate challenge
+        let challenge = self.generate_challenge()?;
+        self.log_debug(&format!(
+            "Generated challenge of {} bytes for session {}",
+            challenge.len(),
+            session_id
+        )).await;
+
+        // Check for existing session and transition state properly
+        let existing_session_info = {
+            let read_guard = self.active_sessions.read().await;
+            read_guard.get(&session_id).cloned()
+        };
+
+        if let Some(existing_session) = existing_session_info {
+            if matches!(existing_session.state, PairingState::WaitingForConnection) {
+                self.log_debug(&format!("Transitioning existing session {} from WaitingForConnection to ChallengeReceived", session_id)).await;
+
+                // Transition existing session to ChallengeReceived
+                let updated_session = PairingSession {
+                    id: session_id,
+                    state: PairingState::ChallengeReceived {
+                        challenge: challenge.clone(),
+                    },
+                    remote_device_id: Some(from_device),
+                    remote_device_info: Some(device_info.clone()),
+                    shared_secret: existing_session.shared_secret.clone(),
+                    created_at: existing_session.created_at,
+                };
+
+                self.active_sessions
+                    .write()
+                    .await
+                    .insert(session_id, updated_session);
+            } else {
+                self.log_debug(&format!(
+                    "Session {} already exists in state {:?}, updating with new challenge",
+                    session_id, existing_session.state
+                )).await;
+
+                // Update existing session with new challenge
+                let updated_session = PairingSession {
+                    id: session_id,
+                    state: PairingState::ChallengeReceived {
+                        challenge: challenge.clone(),
+                    },
+                    remote_device_id: Some(from_device),
+                    remote_device_info: Some(device_info.clone()),
+                    shared_secret: existing_session.shared_secret.clone(),
+                    created_at: existing_session.created_at,
+                };
+
+                self.active_sessions
+                    .write()
+                    .await
+                    .insert(session_id, updated_session);
+            }
+        } else {
+            self.log_debug(&format!("Creating new session {} for pairing request", session_id)).await;
+
+            // Create new session only if none exists
+            let session = PairingSession {
+                id: session_id,
+                state: PairingState::ChallengeReceived {
+                    challenge: challenge.clone(),
+                },
+                remote_device_id: Some(from_device),
+                remote_device_info: Some(device_info.clone()),
+                shared_secret: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            self.active_sessions
+                .write()
+                .await
+                .insert(session_id, session);
+        }
+
+        // Send challenge response
+        let local_device_info = self
+            .device_registry
+            .read()
+            .await
+            .get_local_device_info()
+            .map_err(|e| {
+                NetworkingError::Protocol(format!("Failed to get initiator device info: {}", e))
+            })?;
+
+        let response = PairingMessage::Challenge {
+            session_id,
+            challenge: challenge.clone(),
+            device_info: local_device_info,
+        };
+
+        self.log_info(&format!(
+            "Sending Challenge response for session {} with {} byte challenge",
+            session_id,
+            challenge.len()
+        )).await;
+        serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+    }
+
+    /// Handle a pairing response (Initiator receives this from Joiner)
+    pub(crate) async fn handle_pairing_response(
+        &self,
+        from_device: Uuid,
+        session_id: Uuid,
+        response: Vec<u8>,
+        device_info: DeviceInfo,
+    ) -> Result<Vec<u8>> {
+        // Verify the response signature
+        let session = self
+            .active_sessions
+            .read()
+            .await
+            .get(&session_id)
+            .cloned()
+            .ok_or_else(|| NetworkingError::Protocol("Session not found".to_string()))?;
+
+        let challenge = match &session.state {
+            PairingState::ChallengeReceived { challenge } => challenge.clone(),
+            _ => {
+                return Err(NetworkingError::Protocol(
+                    "Invalid session state".to_string(),
+                ))
+            }
+        };
+
+        // In a real implementation, we'd verify the signature using the remote device's public key
+        // For now, we'll assume the signature is valid
+
+        // Generate session keys
+        let shared_secret = self.generate_shared_secret()?;
+        let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
+
+        // Complete pairing in device registry with proper lock scoping
+        {
+            let mut registry = self.device_registry.write().await;
+            registry.complete_pairing(
+                from_device,
+                device_info.clone(),
+                session_keys.clone(),
+            )?;
+        } // Release write lock here
+
+        // Get peer ID for device connection with separate read lock
+        let peer_id = {
+            let registry = self.device_registry.read().await;
+            registry.get_peer_by_device(from_device)
+                .unwrap_or_else(libp2p::PeerId::random)
+        }; // Release read lock here
+
+        // Mark device as connected since pairing is successful
+        let (connection, _message_receiver) =
+            crate::infrastructure::networking::device::DeviceConnection::new(
+                peer_id,
+                device_info.clone(),
+                session_keys.clone(),
+            );
+
+        if let Err(e) = {
+            let mut registry = self.device_registry.write().await;
+            registry.mark_connected(from_device, connection)
+        }
+        {
+            self.log_warn(&format!(
+                "Warning - failed to mark device as connected: {}",
+                e
+            )).await;
+        } else {
+            self.log_info(&format!(
+                "Successfully marked device {} as connected",
+                from_device
+            )).await;
+        }
+
+        // Update session
+        if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
+            session.state = PairingState::Completed;
+            session.shared_secret = Some(shared_secret);
+            session.remote_device_id = Some(from_device);
+            self.log_info(&format!(
+                "Session {} updated with shared secret and remote device ID {}",
+                session_id, from_device
+            )).await;
+        }
+
+        // Send completion message
+        let response = PairingMessage::Complete {
+            session_id,
+            success: true,
+            reason: None,
+        };
+
+        serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
+    }
+}

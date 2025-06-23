@@ -244,9 +244,11 @@ impl Core {
 		&self,
 		networking: &networking::NetworkingCore,
 	) -> Result<(), Box<dyn std::error::Error>> {
+		let logger = std::sync::Arc::new(networking::utils::logging::ConsoleLogger);
 		let pairing_handler = networking::protocols::PairingProtocolHandler::new(
 			networking.identity().clone(),
 			networking.device_registry(),
+			logger,
 		);
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
@@ -303,6 +305,19 @@ impl Core {
 			let service = networking.read().await;
 			let devices = service.get_connected_devices().await;
 			Ok(devices.into_iter().map(|d| d.device_id).collect())
+		} else {
+			Ok(Vec::new())
+		}
+	}
+
+	/// Get detailed information about connected devices
+	pub async fn get_connected_devices_info(
+		&self,
+	) -> Result<Vec<networking::DeviceInfo>, Box<dyn std::error::Error>> {
+		if let Some(networking) = &self.networking {
+			let service = networking.read().await;
+			let devices = service.get_connected_devices().await;
+			Ok(devices)
 		} else {
 			Ok(Vec::new())
 		}
@@ -516,7 +531,7 @@ impl Core {
 			addresses: service.get_external_addresses().await.into_iter()
 				.map(|addr| addr.to_string())
 				.collect(),
-			device_info: pairing_handler.get_device_info(),
+			device_info: pairing_handler.get_device_info().await?,
 			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
 			created_at: chrono::Utc::now(),
 		};
@@ -650,10 +665,25 @@ impl Core {
 			println!("🔗 Direct pairing: Sending requests to {} connected peers", connected_peers.len());
 			
 			for peer_id in connected_peers {
+				// Get local device info for the joiner
+				let local_device_info = {
+					let device_registry = service.device_registry();
+					let registry = device_registry.read().await;
+					registry.get_local_device_info()
+						.unwrap_or_else(|_| networking::device::DeviceInfo {
+							device_id: service.device_id(),
+							device_name: "Joiner Device".to_string(),
+							device_type: networking::device::DeviceType::Desktop,
+							os_version: std::env::consts::OS.to_string(),
+							app_version: env!("CARGO_PKG_VERSION").to_string(),
+							network_fingerprint: service.identity().network_fingerprint(),
+							last_seen: chrono::Utc::now(),
+						})
+				};
+				
 				let pairing_request = networking::core::behavior::PairingMessage::PairingRequest {
 					session_id,
-					device_id: service.device_id(),
-					device_name: "Bob's Device".to_string(), // TODO: Get from device manager
+					device_info: local_device_info,
 					public_key: service.identity().public_key_bytes(),
 				};
 				

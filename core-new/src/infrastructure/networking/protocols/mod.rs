@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub use messaging::MessagingProtocolHandler;
-pub use pairing::{PairingProtocolHandler, PairingSession, PairingState};
+pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;
 
 /// Trait for handling specific protocols

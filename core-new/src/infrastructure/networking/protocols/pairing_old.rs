@@ -943,11 +943,11 @@ impl ProtocolHandler for PairingProtocolHandler {
 
 								// Get Alice's device info from the original pairing request (stored in session)
 								let alice_device_info = {
-								let sessions = self.active_sessions.read().await;
-								if let Some(session) = sessions.get(&session_id) {
-									// In a real implementation, we would have stored Alice's device info
-									// For now, create a proper placeholder that we can use
-									crate::infrastructure::networking::device::DeviceInfo {
+									let sessions = self.active_sessions.read().await;
+									if let Some(session) = sessions.get(&session_id) {
+										// In a real implementation, we would have stored Alice's device info
+										// For now, create a proper placeholder that we can use
+										crate::infrastructure::networking::device::DeviceInfo {
 										device_id: alice_device_id,
 										device_name: "Alice's Device".to_string(),
 										device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
@@ -959,12 +959,12 @@ impl ProtocolHandler for PairingProtocolHandler {
 										},
 										last_seen: chrono::Utc::now(),
 									}
-								} else {
-									return Err(crate::infrastructure::networking::NetworkingError::Protocol(
+									} else {
+										return Err(crate::infrastructure::networking::NetworkingError::Protocol(
 										"Session not found when completing pairing".to_string()
 									));
-								}
-							};
+									}
+								};
 
 								// Complete pairing in device registry
 								match self.device_registry.write().await.complete_pairing(
@@ -1017,7 +1017,10 @@ impl ProtocolHandler for PairingProtocolHandler {
 										let mut sessions = self.active_sessions.write().await;
 										if let Some(session) = sessions.get_mut(&session_id) {
 											session.state = PairingState::Failed {
-												reason: format!("Failed to complete pairing: {}", e),
+												reason: format!(
+													"Failed to complete pairing: {}",
+													e
+												),
 											};
 										}
 									}
@@ -1274,42 +1277,46 @@ impl ProtocolHandler for PairingProtocolHandler {
 								)
 							}; // Release write lock here
 
-								match pairing_result {
-									Ok(()) => {
-										// Update session state FIRST before any other operations that might fail
-										{
-											let mut sessions = self.active_sessions.write().await;
-											if let Some(session) = sessions.get_mut(&session_id) {
-												session.state = PairingState::Completed;
-												session.shared_secret = Some(shared_secret.clone());
-												session.remote_device_id = Some(alice_device_id);
-											}
+							match pairing_result {
+								Ok(()) => {
+									// Update session state FIRST before any other operations that might fail
+									{
+										let mut sessions = self.active_sessions.write().await;
+										if let Some(session) = sessions.get_mut(&session_id) {
+											session.state = PairingState::Completed;
+											session.shared_secret = Some(shared_secret.clone());
+											session.remote_device_id = Some(alice_device_id);
 										}
+									}
 
-										// Mark Alice as connected (optional - pairing already completed)
-										let alice_peer_id = {
-											let registry = self.device_registry.read().await;
-											registry.get_peer_by_device(alice_device_id)
-												.or_else(|| Some(from_peer)) // Fallback to peer from completion message
-										};
+									// Mark Alice as connected (optional - pairing already completed)
+									let alice_peer_id = {
+										let registry = self.device_registry.read().await;
+										registry
+											.get_peer_by_device(alice_device_id)
+											.or_else(|| Some(from_peer)) // Fallback to peer from completion message
+									};
 
-										if let Some(peer_id) = alice_peer_id {
-											let (connection, _message_receiver) = crate::infrastructure::networking::device::DeviceConnection::new(
+									if let Some(peer_id) = alice_peer_id {
+										let (connection, _message_receiver) = crate::infrastructure::networking::device::DeviceConnection::new(
 												peer_id,
 												alice_device_info.clone(),
 												session_keys.clone(),
 											);
 
-											let _mark_result = {
-												let mut registry = self.device_registry.write().await;
-												registry.mark_connected(alice_device_id, connection)
-											};
-										}
-									}
-									Err(e) => {
-										println!("🔥 BOB: Failed to complete pairing in device registry: {}", e);
+										let _mark_result = {
+											let mut registry = self.device_registry.write().await;
+											registry.mark_connected(alice_device_id, connection)
+										};
 									}
 								}
+								Err(e) => {
+									println!(
+										"🔥 BOB: Failed to complete pairing in device registry: {}",
+										e
+									);
+								}
+							}
 						}
 						Err(e) => {
 							println!("🔥 BOB: Failed to generate shared secret: {}", e);

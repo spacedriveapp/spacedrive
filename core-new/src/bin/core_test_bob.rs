@@ -46,6 +46,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	};
 
+	// Set Bob's test device name
+	println!("🏷️ Bob: Setting device name for testing...");
+	if let Err(e) = core.device.set_name("Bob's Test Device".to_string()) {
+		println!("❌ Bob: Failed to set device name: {}", e);
+		return Err(e.into());
+	}
+
 	// Initialize networking
 	println!("🌐 Bob: Initializing networking...");
 	match timeout(
@@ -165,16 +172,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 	}
 
-	// Check connected devices
+	// Check connected devices with detailed info
 	println!("🔗 Bob: Checking connected devices...");
-	match timeout(Duration::from_secs(5), core.get_connected_devices()).await {
+	match timeout(Duration::from_secs(5), core.get_connected_devices_info()).await {
 		Ok(Ok(devices)) => {
-			println!("✅ Bob: Connected devices: {:?}", devices);
-			if !devices.is_empty() {
+			println!("✅ Bob: Connected {} devices", devices.len());
+			for device in &devices {
 				println!(
-					"PAIRING_SUCCESS: Bob has {} connected devices",
-					devices.len()
+					"📱 Bob sees: {} (ID: {}, OS: {}, App: {})",
+					device.device_name,
+					device.device_id,
+					device.os_version,
+					device.app_version
 				);
+			}
+			if !devices.is_empty() {
+				// Check if we found Alice specifically  
+				let found_alice = devices.iter().any(|d| 
+					d.device_name.contains("Alice's Test Device") && 
+					d.device_id != uuid::Uuid::nil()
+				);
+				if found_alice {
+					println!("PAIRING_SUCCESS: Bob connected to Alice successfully");
+				} else {
+					println!("⚠️ Bob: Connected to devices but could not identify Alice");
+				}
 			} else {
 				println!("⚠️ Bob: No devices connected after pairing");
 			}

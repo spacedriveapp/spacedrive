@@ -1,0 +1,213 @@
+(base) ➜  core-new git:(main) ✗ target/debug/core_test_alice --data-dir /tmp/alice-test
+🟦 Alice: Starting Core pairing test
+📁 Alice: Data dir: /tmp/alice-test
+🔧 Alice: Initializing Core...
+✅ Alice: Core initialized successfully
+🏷️ Alice: Setting device name for testing...
+🌐 Alice: Initializing networking...
+🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability
+🔧 mDNS: Using default configuration for compatibility with working test
+🔧 Request-Response: Configured 30s request timeout to prevent timeouts
+🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability
+🔧 mDNS: Using default configuration for compatibility with working test
+🔧 Request-Response: Configured 30s request timeout to prevent timeouts
+✅ Alice: Networking initialized successfully
+🔑 Alice: Starting pairing as initiator...
+[NETWORKING INFO] [PAIRING] Started pairing session: e9ac52f9-1585-3e8b-4673-53821b4391ca
+📊 Alice: Registered in device registry - device: 812893ea-5d3d-22fa-4e6b-64ffc3d4ab74, session: e9ac52f9-1585-3e8b-4673-53821b4391ca
+Kademlia mode changed: Server
+Listening on: /ip4/127.0.0.1/tcp/61942
+Listening on: /ip4/192.168.0.156/tcp/61942
+Current listening addresses: [/ip4/192.168.0.156/tcp/61942]
+Publishing DHT record with query ID: QueryId(0)
+Published pairing session to DHT: session=e9ac52f9-1585-3e8b-4673-53821b4391ca, query_id=QueryId(0)
+✅ Alice: Pairing code generated: frame garden half... (expires in 300s)
+DHT record publish failed: query_id=QueryId(0), key=Key(b"\xe9\xacR\xf9\x15\x85>\x8bFsS\x82\x1bC\x91\xca"), success=[], quorum=1
+📝 Alice: Pairing code written to /tmp/spacedrive-pairing-test/pairing_code.txt
+⏳ Alice: Waiting for pairing to complete...
+🔍 Alice: Pairing status check 1 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: WaitingForConnection, remote_device_id: None, shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+Discovered peer via mDNS: 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ at /ip4/192.168.0.156/tcp/51419/p2p/12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Added peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ to Kademlia routing table with address /ip4/192.168.0.156/tcp/51419/p2p/12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Bootstrapping Kademlia DHT with query ID: QueryId(1)
+🔍 Found waiting session e9ac52f9-1585-3e8b-4673-53821b4391ca (Alice side) - not scheduling request
+🔍 mDNS Discovery: Found 1 active sessions but none in Scanning state
+Discovered peer via mDNS: 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR at /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Added peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR to Kademlia routing table with address /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Bootstrapping Kademlia DHT with query ID: QueryId(2)
+🔍 Found waiting session e9ac52f9-1585-3e8b-4673-53821b4391ca (Alice side) - not scheduling request
+🔍 mDNS Discovery: Found 1 active sessions but none in Scanning state
+Kademlia routing updated: peer=12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Kademlia routing updated: peer=12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Other Kademlia event: OutboundQueryProgressed { id: QueryId(1), result: Bootstrap(Ok(BootstrapOk { peer: PeerId("12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST"), num_remaining: 6 })), stats: QueryStats { requests: 1, success: 0, failure: 1, start: Some(Instant { tv_sec: 61327, tv_nsec: 802879125 }), end: Some(Instant { tv_sec: 61327, tv_nsec: 803278791 }) }, step: ProgressStep { count: 1, last: false } }
+Connection established with: 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR at /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Added connected peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR to Kademlia routing table
+Connection established with: 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ at /ip4/192.168.0.156/tcp/51419
+Added connected peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ to Kademlia routing table
+Other Kademlia event: InboundRequest { request: FindNode { num_closer_peers: 1 } }
+Other Kademlia event: OutboundQueryProgressed { id: QueryId(1), result: Bootstrap(Ok(BootstrapOk { peer: PeerId("1AgAd7TRo28jWWo6KJ6C3SfR3WBPBg5w4JAC3UuxR7VkTY"), num_remaining: 5 })), stats: QueryStats { requests: 21, success: 1, failure: 20, start: Some(Instant { tv_sec: 61327, tv_nsec: 804154833 }), end: Some(Instant { tv_sec: 61327, tv_nsec: 807817333 }) }, step: ProgressStep { count: 2, last: false } }
+Other Kademlia event: OutboundQueryProgressed { id: QueryId(2), result: Bootstrap(Ok(BootstrapOk { peer: PeerId("12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST"), num_remaining: 6 })), stats: QueryStats { requests: 21, success: 1, failure: 20, start: Some(Instant { tv_sec: 61327, tv_nsec: 802879125 }), end: Some(Instant { tv_sec: 61327, tv_nsec: 807992375 }) }, step: ProgressStep { count: 1, last: false } }
+🔍 Alice: Pairing status check 2 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: WaitingForConnection, remote_device_id: None, shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+🔍 Alice: Pairing status check 3 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: WaitingForConnection, remote_device_id: None, shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+🔍 Alice: Pairing status check 4 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: WaitingForConnection, remote_device_id: None, shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+🔍 Alice: Pairing status check 5 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: WaitingForConnection, remote_device_id: None, shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+Discovered peer via mDNS: 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU at /ip4/192.168.0.156/tcp/61943/p2p/12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Added peer 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU to Kademlia routing table with address /ip4/192.168.0.156/tcp/61943/p2p/12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Bootstrapping Kademlia DHT with query ID: QueryId(3)
+🔍 Found waiting session e9ac52f9-1585-3e8b-4673-53821b4391ca (Alice side) - not scheduling request
+🔍 mDNS Discovery: Found 1 active sessions but none in Scanning state
+Kademlia routing updated: peer=12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Other Kademlia event: InboundRequest { request: FindNode { num_closer_peers: 2 } }
+Connection established with: 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU at /ip4/192.168.0.156/tcp/61943/p2p/12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Added connected peer 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU to Kademlia routing table
+Received pairing request from 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Registering new pairing: device 4547e8e8-bbbf-bdac-af8e-e10464ae8a73 with peer 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU for session e9ac52f9-1585-3e8b-4673-53821b4391ca
+Successfully registered pairing in device registry
+[NETWORKING INFO] [PAIRING] Received pairing request from device 4547e8e8-bbbf-bdac-af8e-e10464ae8a73 for session e9ac52f9-1585-3e8b-4673-53821b4391ca
+[NETWORKING DEBUG] [PAIRING] Generated challenge of 32 bytes for session e9ac52f9-1585-3e8b-4673-53821b4391ca
+[NETWORKING DEBUG] [PAIRING] Transitioning existing session e9ac52f9-1585-3e8b-4673-53821b4391ca from WaitingForConnection to ChallengeReceived
+[NETWORKING INFO] [PAIRING] Sending Challenge response for session e9ac52f9-1585-3e8b-4673-53821b4391ca with 32 byte challenge
+Sent pairing response to 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Other Kademlia event: InboundRequest { request: FindNode { num_closer_peers: 2 } }
+🔍 Alice: Pairing status check 6 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: ChallengeReceived { challenge: [32 items (truncated)] }, remote_device_id: Some(4547e8e8-bbbf-bdac-af8e-e10464ae8a73), shared_secret: None, created_at: 2025-06-23 20:14:33.872756 UTC }
+Other Kademlia event: InboundRequest { request: GetRecord { num_closer_peers: 2, present_locally: true } }
+Received pairing request from 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+Using existing device ID 4547e8e8-bbbf-bdac-af8e-e10464ae8a73 for peer 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+[NETWORKING INFO] [PAIRING] Successfully marked device 4547e8e8-bbbf-bdac-af8e-e10464ae8a73 as connected
+[NETWORKING INFO] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca updated with shared secret and remote device ID 4547e8e8-bbbf-bdac-af8e-e10464ae8a73
+Sent pairing response to 12D3KooWPQLeDDDcy3HirpUh5Vr7rz4J449AxCTNXtWYBuZfSMqU
+🔍 Alice: Pairing status check 7 - 1 sessions
+📊 Alice: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: Completed, remote_device_id: Some(4547e8e8-bbbf-bdac-af8e-e10464ae8a73), shared_secret: [PRESENT], created_at: 2025-06-23 20:14:33.872756 UTC }
+🎉 Alice: Pairing completed successfully!
+🔗 Alice: Checking connected devices...
+✅ Alice: Connected 1 devices
+📱 Alice sees: Bob's Test Device (ID: daa647d3-11a3-4df0-bd38-c10cd62b7e56, OS: macos, App: 0.1.0)
+PAIRING_SUCCESS: Alice connected to Bob successfully
+🧹 Alice: Test completed
+
+
+---
+
+
+(base) ➜  core-new git:(main) ✗ target/debug/core_test_bob --data-dir /tmp/bob-test
+🟨 Bob: Starting Core pairing test
+📁 Bob: Data dir: /tmp/bob-test
+🔧 Bob: Initializing Core...
+✅ Bob: Core initialized successfully
+🏷️ Bob: Setting device name for testing...
+🌐 Bob: Initializing networking...
+🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability
+🔧 mDNS: Using default configuration for compatibility with working test
+🔧 Request-Response: Configured 30s request timeout to prevent timeouts
+🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability
+🔧 mDNS: Using default configuration for compatibility with working test
+🔧 Request-Response: Configured 30s request timeout to prevent timeouts
+✅ Bob: Networking initialized successfully
+⏳ Bob: Waiting for Alice's pairing code...
+✅ Bob: Found pairing code: frame garden half...
+🤝 Bob: Joining pairing with code...
+Kademlia mode changed: Server
+[NETWORKING INFO] [PAIRING] Joined pairing session: e9ac52f9-1585-3e8b-4673-53821b4391ca (state: Scanning)
+[NETWORKING DEBUG] [PAIRING] Pairing session verified in Scanning state: e9ac52f9-1585-3e8b-4673-53821b4391ca
+Bob joined Alice's pairing session: e9ac52f9-1585-3e8b-4673-53821b4391ca
+✅ Bob's session verified: e9ac52f9-1585-3e8b-4673-53821b4391ca in state Scanning
+⏳ Waiting for mDNS discovery to trigger pairing requests...
+Listening on: /ip4/127.0.0.1/tcp/61943
+Listening on: /ip4/192.168.0.156/tcp/61943
+Discovered peer via mDNS: 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR at /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Added peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR to Kademlia routing table with address /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Bootstrapping Kademlia DHT with query ID: QueryId(0)
+🔍 Found scanning session e9ac52f9-1585-3e8b-4673-53821b4391ca - scheduling pairing request for peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR (waiting for connection)
+✅ mDNS Discovery: Scheduled pairing request for session e9ac52f9-1585-3e8b-4673-53821b4391ca with peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR (pending connection)
+🔍 mDNS Discovery: Scheduled 1 pairing sessions for peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR (waiting for connection)
+Discovered peer via mDNS: 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ at /ip4/192.168.0.156/tcp/51419/p2p/12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Added peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ to Kademlia routing table with address /ip4/192.168.0.156/tcp/51419/p2p/12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Bootstrapping Kademlia DHT with query ID: QueryId(1)
+🔍 Found scanning session e9ac52f9-1585-3e8b-4673-53821b4391ca - scheduling pairing request for peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ (waiting for connection)
+✅ mDNS Discovery: Scheduled pairing request for session e9ac52f9-1585-3e8b-4673-53821b4391ca with peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ (pending connection)
+🔍 mDNS Discovery: Scheduled 1 pairing sessions for peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ (waiting for connection)
+Discovered peer via mDNS: 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST at /ip4/192.168.0.156/tcp/61942/p2p/12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+Added peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST to Kademlia routing table with address /ip4/192.168.0.156/tcp/61942/p2p/12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+Bootstrapping Kademlia DHT with query ID: QueryId(2)
+🔍 Found scanning session e9ac52f9-1585-3e8b-4673-53821b4391ca - scheduling pairing request for peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST (waiting for connection)
+✅ mDNS Discovery: Scheduled pairing request for session e9ac52f9-1585-3e8b-4673-53821b4391ca with peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST (pending connection)
+🔍 mDNS Discovery: Scheduled 1 pairing sessions for peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST (waiting for connection)
+Kademlia routing updated: peer=12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Kademlia routing updated: peer=12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Kademlia routing updated: peer=12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+Connection established with: 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR at /ip4/192.168.0.156/tcp/51412/p2p/12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR
+Added connected peer 12D3KooWPP9xf9KhqdgwV4aiighYiUKd5Q8vEYrzs35r985TgrnR to Kademlia routing table
+Connection established with: 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ at /ip4/192.168.0.156/tcp/51419/p2p/12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ
+Added connected peer 12D3KooWP6QXmKF1A5s3H2KTUSR8YFMAsgXk9VLtLzGbaRYqsFYQ to Kademlia routing table
+Connection established with: 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST at /ip4/192.168.0.156/tcp/61942
+Added connected peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST to Kademlia routing table
+Connection established for pairing session: e9ac52f9-1585-3e8b-4673-53821b4391ca with peer: 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+Sent pairing request for session e9ac52f9-1585-3e8b-4673-53821b4391ca with request ID: OutboundRequestId(1)
+Other Kademlia event: InboundRequest { request: FindNode { num_closer_peers: 2 } }
+Received pairing response from 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+[NETWORKING DEBUG] [PAIRING] handle_response called with 493 bytes from device d1b33eba-1ebf-4e13-9727-2217267813a5
+[NETWORKING DEBUG] [PAIRING] Parsed message type successfully
+[NETWORKING INFO] [PAIRING] Received challenge for session e9ac52f9-1585-3e8b-4673-53821b4391ca with 32 byte challenge
+[NETWORKING DEBUG] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca state before challenge processing: Scanning
+[NETWORKING DEBUG] [PAIRING] About to call handle_pairing_challenge...
+[NETWORKING INFO] [PAIRING] handle_pairing_challenge ENTRY - session e9ac52f9-1585-3e8b-4673-53821b4391ca with 32 bytes
+[NETWORKING DEBUG] [PAIRING] About to sign challenge...
+[NETWORKING DEBUG] [PAIRING] Successfully signed challenge, signature is 64 bytes
+[NETWORKING DEBUG] [PAIRING] About to get local device info...
+[NETWORKING DEBUG] [PAIRING] Successfully got local device info for device daa647d3-11a3-4df0-bd38-c10cd62b7e56
+[NETWORKING DEBUG] [PAIRING] About to update session state to ResponseSent...
+[NETWORKING DEBUG] [PAIRING] Found session e9ac52f9-1585-3e8b-4673-53821b4391ca, updating state from Scanning to ResponseSent
+[NETWORKING DEBUG] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca state updated to ResponseSent with initiator device info for Alice's Test Device
+[NETWORKING DEBUG] [PAIRING] About to create response message...
+[NETWORKING DEBUG] [PAIRING] About to serialize response...
+[NETWORKING INFO] [PAIRING] handle_pairing_challenge SUCCESS - returning 596 bytes
+[NETWORKING DEBUG] [PAIRING] handle_pairing_challenge succeeded, generated 596 byte response
+[NETWORKING DEBUG] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca state after handle_pairing_challenge: ResponseSent
+[NETWORKING DEBUG] [PAIRING] Using peer ID from method parameter: PeerId("12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST")
+[NETWORKING DEBUG] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca updated to ResponsePending state
+[NETWORKING DEBUG] [PAIRING] Session e9ac52f9-1585-3e8b-4673-53821b4391ca final state: ResponsePending { challenge: [32 items (truncated)], response_data: [596 items (truncated)], .. }
+[NETWORKING INFO] [PAIRING] Challenge response ready to send for session e9ac52f9-1585-3e8b-4673-53821b4391ca
+[NETWORKING DEBUG] [PAIRING] handle_response completed
+🔄 Starting unified pairing flow for session: e9ac52f9-1585-3e8b-4673-53821b4391ca
+📡 mDNS pairing: Listening for local network discoveries...
+🌐 DHT pairing: Querying distributed hash table...
+Querying DHT record with query ID: QueryId(3)
+🔍 DHT Query initiated: session=e9ac52f9-1585-3e8b-4673-53821b4391ca, query_id=QueryId(3)
+🔥 BOB: Sending challenge response to Alice at peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+📤 BOB: Successfully sent challenge response to Alice
+✅ Unified pairing flow initiated - waiting for responses from any method...
+✅ Bob: Successfully joined pairing
+⏳ Bob: Waiting for pairing to complete...
+🔍 Bob: Pairing status check 1 - 1 sessions
+📊 Bob: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: ResponsePending { challenge: [32 items (truncated)], response_data: [596 items (truncated)], .. }, remote_device_id: Some(8dc25a50-f92e-438e-bb9d-75e348714427), shared_secret: None, created_at: 2025-06-23 20:14:38.412991 UTC }
+Sending pairing message to peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST: 596 bytes
+Sent direct pairing request with ID: OutboundRequestId(2)
+DHT record found: query_id=QueryId(3), key=Key(b"\xe9\xacR\xf9\x15\x85>\x8bFsS\x82\x1bC\x91\xca"), 551 bytes
+Found pairing advertisement from peer: "12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST"
+Emitted pairing session discovery event for session: e9ac52f9-1585-3e8b-4673-53821b4391ca
+Dialing discovered peer 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST at /ip4/192.168.0.156/tcp/61942
+Tracking pending pairing connection for session: e9ac52f9-1585-3e8b-4673-53821b4391ca -> peer: 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+Received pairing response from 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST
+[NETWORKING DEBUG] [PAIRING] handle_response called with 95 bytes from device 1ffe665f-a2c5-4d2b-aea7-3729eb08a199
+[NETWORKING DEBUG] [PAIRING] Parsed message type successfully
+[NETWORKING INFO] [PAIRING] Received completion message for session e9ac52f9-1585-3e8b-4673-53821b4391ca - success: true
+[NETWORKING DEBUG] [PAIRING] Generated shared secret of 32 bytes
+[NETWORKING INFO] [PAIRING] Successfully completed pairing
+[NETWORKING DEBUG] [PAIRING] handle_response completed
+Connection closed with 12D3KooWQDMwGbkZHfsCyBEP5AqpEByvMwCmsr7RWwqtwGLaAVST: Some(IO(Custom { kind: Other, error: Error(Right(Closed)) }))
+Pairing connection failed for session e9ac52f9-1585-3e8b-4673-53821b4391ca, retrying (1/3)
+Scheduling retry for pairing session e9ac52f9-1585-3e8b-4673-53821b4391ca
+🔍 Bob: Pairing status check 2 - 1 sessions
+📊 Bob: Session state: PairingSession { id: e9ac52f9-1585-3e8b-4673-53821b4391ca, state: Completed, remote_device_id: Some(1ffe665f-a2c5-4d2b-aea7-3729eb08a199), shared_secret: [PRESENT], created_at: 2025-06-23 20:14:38.412991 UTC }
+🎉 Bob: Pairing completed successfully!
+🔗 Bob: Checking connected devices...
+✅ Bob: Connected 1 devices
+📱 Bob sees: Alice's Test Device (ID: 8dc25a50-f92e-438e-bb9d-75e348714427, OS: macos, App: 0.1.0)
+PAIRING_SUCCESS: Bob connected to Alice successfully
+🧹 Bob: Test completed
+(base) ➜  core-new git:(main) ✗

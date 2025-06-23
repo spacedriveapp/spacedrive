@@ -9,7 +9,7 @@ use crate::device::DeviceManager;
 use crate::infrastructure::networking::{
 	device::{DeviceInfo, DeviceRegistry},
 	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
-	utils::NetworkIdentity,
+	utils::{logging::ConsoleLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
 use libp2p::{kad::{QueryId, RecordKey}, Multiaddr, PeerId, Swarm};
@@ -350,9 +350,11 @@ impl NetworkingCore {
 		device_registry: &Arc<RwLock<DeviceRegistry>>,
 	) -> Result<()> {
 		// Register pairing protocol handler
+		let logger = Arc::new(ConsoleLogger);
 		let pairing_handler = Arc::new(PairingProtocolHandler::new(
 			identity.clone(),
 			device_registry.clone(),
+			logger,
 		));
 		
 		// Start cleanup task for expired sessions
@@ -364,6 +366,7 @@ impl NetworkingCore {
 			.register_handler(pairing_handler)
 			.map_err(|e| NetworkingError::Protocol(format!("Failed to register pairing handler: {}", e)))?;
 		
+		// Using a simple print here as we don't have access to the logger yet
 		println!("Registered pairing protocol handler with session cleanup");
 		
 		Ok(())

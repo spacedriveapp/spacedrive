@@ -1,5 +1,6 @@
 //! Unified LibP2P behavior combining all networking protocols
 
+pub use crate::infrastructure::networking::protocols::pairing::PairingMessage;
 use libp2p::{
 	kad::{self, store::MemoryStore},
 	mdns,
@@ -109,34 +110,6 @@ impl UnifiedBehaviour {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PairingMessage {
-	// Pairing request with device info
-	PairingRequest {
-		session_id: uuid::Uuid,
-		device_id: uuid::Uuid,
-		device_name: String,
-		public_key: Vec<u8>,
-	},
-	// Pairing challenge
-	Challenge {
-		session_id: uuid::Uuid,
-		challenge: Vec<u8>,
-		device_id: uuid::Uuid, // Alice's device ID for Bob to register
-	},
-	// Pairing response with signed challenge
-	Response {
-		session_id: uuid::Uuid,
-		response: Vec<u8>,
-		device_info: crate::infrastructure::networking::device::DeviceInfo,
-	},
-	// Pairing completion
-	Complete {
-		session_id: uuid::Uuid,
-		success: bool,
-		reason: Option<String>,
-	},
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DeviceMessage {

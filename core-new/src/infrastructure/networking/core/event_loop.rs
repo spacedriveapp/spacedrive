@@ -438,10 +438,9 @@ impl NetworkingEventLoop {
 					);
 
 					// Send pairing request message
-					let pairing_request = super::behavior::PairingMessage::PairingRequest {
+					let pairing_request = crate::infrastructure::networking::protocols::pairing::PairingMessage::PairingRequest {
 						session_id,
-						device_id: device_info.device_id,
-						device_name: device_info.device_name.clone(),
+						device_info: device_info.clone(),
 						public_key: identity.public_key_bytes(),
 					};
 
@@ -925,9 +924,9 @@ impl NetworkingEventLoop {
 							let (session_id, device_id_from_request) = match &request {
 								super::behavior::PairingMessage::PairingRequest {
 									session_id,
-									device_id,
+									device_info,
 									..
-								} => (*session_id, *device_id),
+								} => (*session_id, device_info.device_id),
 								super::behavior::PairingMessage::Response {
 									session_id,
 									device_info,
@@ -935,9 +934,9 @@ impl NetworkingEventLoop {
 								} => (*session_id, device_info.device_id),
 								super::behavior::PairingMessage::Challenge {
 									session_id,
-									device_id,
+									device_info,
 									..
-								} => (*session_id, *device_id),
+								} => (*session_id, device_info.device_id),
 								super::behavior::PairingMessage::Complete {
 									session_id, ..
 								} => {
