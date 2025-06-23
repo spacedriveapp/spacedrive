@@ -239,6 +239,7 @@ pub struct PairingSession {
     pub state: PairingState,
     pub remote_device_id: Option<Uuid>,
     pub remote_device_info: Option<DeviceInfo>,
+    pub remote_public_key: Option<Vec<u8>>,
     pub shared_secret: Option<Vec<u8>>,
     pub created_at: DateTime<Utc>,
 }

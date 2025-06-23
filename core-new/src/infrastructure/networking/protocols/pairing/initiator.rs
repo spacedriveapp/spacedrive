@@ -2,6 +2,7 @@
 
 use super::{
     messages::PairingMessage,
+    security::PairingSecurity,
     types::{PairingSession, PairingState},
     PairingProtocolHandler,
 };
@@ -20,6 +21,8 @@ impl PairingProtocolHandler {
         device_info: DeviceInfo,
         public_key: Vec<u8>,
     ) -> Result<Vec<u8>> {
+        // Validate the public key format first
+        super::security::PairingSecurity::validate_public_key(&public_key)?;
         self.log_info(&format!(
             "Received pairing request from device {} for session {}",
             from_device, session_id
@@ -51,6 +54,7 @@ impl PairingProtocolHandler {
                     },
                     remote_device_id: Some(from_device),
                     remote_device_info: Some(device_info.clone()),
+                    remote_public_key: Some(public_key.clone()),
                     shared_secret: existing_session.shared_secret.clone(),
                     created_at: existing_session.created_at,
                 };
@@ -73,6 +77,7 @@ impl PairingProtocolHandler {
                     },
                     remote_device_id: Some(from_device),
                     remote_device_info: Some(device_info.clone()),
+                    remote_public_key: Some(public_key.clone()),
                     shared_secret: existing_session.shared_secret.clone(),
                     created_at: existing_session.created_at,
                 };
@@ -93,6 +98,7 @@ impl PairingProtocolHandler {
                 },
                 remote_device_id: Some(from_device),
                 remote_device_info: Some(device_info.clone()),
+                remote_public_key: Some(public_key.clone()),
                 shared_secret: None,
                 created_at: chrono::Utc::now(),
             };
@@ -153,8 +159,48 @@ impl PairingProtocolHandler {
             }
         };
 
-        // In a real implementation, we'd verify the signature using the remote device's public key
-        // For now, we'll assume the signature is valid
+        // Get the public key from the session (stored during pairing request)
+        let device_public_key = session.remote_public_key
+            .as_ref()
+            .ok_or_else(|| NetworkingError::Protocol(
+                "Device public key not found in session for signature verification".to_string()
+            ))?
+            .clone();
+
+        // Validate inputs
+        PairingSecurity::validate_challenge(&challenge)?;
+        PairingSecurity::validate_signature(&response)?;
+        PairingSecurity::validate_public_key(&device_public_key)?;
+
+        // Verify the signature
+        let signature_valid = PairingSecurity::verify_challenge_response(
+            &device_public_key,
+            &challenge,
+            &response,
+        )?;
+
+        if !signature_valid {
+            self.log_error(&format!(
+                "Invalid signature for session {} from device {}",
+                session_id, from_device
+            )).await;
+            
+            // Mark session as failed
+            if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
+                session.state = PairingState::Failed {
+                    reason: "Invalid challenge signature".to_string(),
+                };
+            }
+            
+            return Err(NetworkingError::Protocol(
+                "Challenge signature verification failed".to_string(),
+            ));
+        }
+
+        self.log_info(&format!(
+            "Signature verified successfully for session {} from device {}",
+            session_id, from_device
+        )).await;
 
         // Generate session keys
         let shared_secret = self.generate_shared_secret()?;

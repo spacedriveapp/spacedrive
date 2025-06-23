@@ -3,6 +3,8 @@
 pub mod initiator;
 pub mod joiner;
 pub mod messages;
+pub mod persistence;
+pub mod security;
 pub mod types;
 
 // Re-export main types
@@ -17,7 +19,10 @@ use crate::infrastructure::networking::{
 };
 use async_trait::async_trait;
 use libp2p::{Multiaddr, PeerId};
+use persistence::PairingPersistence;
+use security::PairingSecurity;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -38,6 +43,9 @@ pub struct PairingProtocolHandler {
     
     /// Current pairing role
     role: Option<PairingRole>,
+    
+    /// Session persistence manager
+    persistence: Option<Arc<PairingPersistence>>,
 }
 
 impl PairingProtocolHandler {
@@ -53,7 +61,52 @@ impl PairingProtocolHandler {
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
             logger,
             role: None,
+            persistence: None,
         }
+    }
+
+    /// Create a new pairing protocol handler with persistence
+    pub fn new_with_persistence(
+        identity: NetworkIdentity, 
+        device_registry: Arc<RwLock<DeviceRegistry>>,
+        logger: Arc<dyn NetworkLogger>,
+        data_dir: PathBuf,
+    ) -> Self {
+        let persistence = Arc::new(PairingPersistence::new(data_dir));
+        Self {
+            identity,
+            device_registry,
+            active_sessions: Arc::new(RwLock::new(HashMap::new())),
+            logger,
+            role: None,
+            persistence: Some(persistence),
+        }
+    }
+
+    /// Initialize sessions from persistence (call after construction)
+    pub async fn load_persisted_sessions(&self) -> Result<usize> {
+        if let Some(persistence) = &self.persistence {
+            let sessions = persistence.load_sessions().await?;
+            let count = sessions.len();
+            
+            if count > 0 {
+                *self.active_sessions.write().await = sessions;
+                self.log_info(&format!("Loaded {} persisted pairing sessions", count)).await;
+            }
+            
+            Ok(count)
+        } else {
+            Ok(0)
+        }
+    }
+
+    /// Save current sessions to persistence
+    async fn save_sessions_to_persistence(&self) -> Result<()> {
+        if let Some(persistence) = &self.persistence {
+            let sessions = self.active_sessions.read().await;
+            persistence.save_sessions(&sessions).await?;
+        }
+        Ok(())
     }
 
     /// Log info message with role prefix
@@ -111,6 +164,7 @@ impl PairingProtocolHandler {
             state: PairingState::WaitingForConnection,
             remote_device_id: None,
             remote_device_info: None,
+            remote_public_key: None,
             shared_secret: None,
             created_at: chrono::Utc::now(),
         };
@@ -119,6 +173,9 @@ impl PairingProtocolHandler {
             .write()
             .await
             .insert(session_id, session);
+
+        // Save to persistence
+        self.save_sessions_to_persistence().await?;
 
         self.log_info(&format!("Started pairing session: {}", session_id)).await;
         Ok(())
@@ -145,6 +202,7 @@ impl PairingProtocolHandler {
             state: PairingState::Scanning, // Joiner starts in scanning state
             remote_device_id: None,
             remote_device_info: None,
+            remote_public_key: None,
             shared_secret: None,
             created_at: chrono::Utc::now(),
         };
@@ -154,6 +212,9 @@ impl PairingProtocolHandler {
             let mut sessions = self.active_sessions.write().await;
             sessions.insert(session_id, session);
         }
+
+        // Save to persistence
+        self.save_sessions_to_persistence().await?;
 
         self.log_info(&format!(
             "Joined pairing session: {} (state: Scanning)",
@@ -199,6 +260,7 @@ impl PairingProtocolHandler {
     /// Cancel a pairing session
     pub async fn cancel_session(&self, session_id: Uuid) -> Result<()> {
         self.active_sessions.write().await.remove(&session_id);
+        self.save_sessions_to_persistence().await?;
         Ok(())
     }
 
