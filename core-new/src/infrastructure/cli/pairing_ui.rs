@@ -140,16 +140,14 @@ impl PairingUserInterface for ConsolePairingUI {
     }
 }
 
-/// Simple pairing UI for daemon mode with configurable auto-accept
+/// Simple pairing UI for daemon mode (auto-accepts valid requests)
 pub struct SimplePairingUI {
-    auto_accept: bool,
     code_sender: Option<tokio::sync::oneshot::Sender<(String, u32)>>,
 }
 
 impl SimplePairingUI {
-    pub fn new(auto_accept: bool) -> Self {
+    pub fn new() -> Self {
         Self {
-            auto_accept,
             code_sender: None,
         }
     }
@@ -184,14 +182,8 @@ impl PairingUserInterface for SimplePairingUI {
     }
 
     async fn confirm_pairing(&self, remote_device: &DeviceInfo) -> Result<bool> {
-        if self.auto_accept {
-            tracing::info!("Auto-accepting pairing with device: {}", remote_device.device_name);
-            Ok(true)
-        } else {
-            tracing::info!("Pairing request from device: {} (manual confirmation required)", remote_device.device_name);
-            // In daemon mode, we'll store the request and let the user decide via CLI
-            Ok(false)
-        }
+        tracing::info!("Auto-accepting pairing with device: {}", remote_device.device_name);
+        Ok(true)
     }
 
     async fn show_pairing_progress(&self, state: PairingState) {

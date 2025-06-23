@@ -106,7 +106,7 @@ pub enum DaemonCommand {
 	},
 
 	// Pairing commands
-	StartPairingAsInitiator { auto_accept: bool },
+	StartPairingAsInitiator,
 	StartPairingAsJoiner { code: String },
 	GetPairingStatus,
 	ListPendingPairings,
@@ -987,8 +987,8 @@ async fn handle_command(
 		}
 
 		// Pairing commands
-		DaemonCommand::StartPairingAsInitiator { auto_accept } => {
-			match core.start_pairing_as_initiator(auto_accept).await {
+		DaemonCommand::StartPairingAsInitiator => {
+			match core.start_pairing_as_initiator().await {
 				Ok((code, expires_in_seconds)) => DaemonResponse::PairingCodeGenerated { 
 					code, 
 					expires_in_seconds 

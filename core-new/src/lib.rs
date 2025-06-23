@@ -15,6 +15,8 @@ pub mod services;
 pub mod shared;
 pub mod volume;
 
+pub mod test_framework;
+
 pub use infrastructure::networking;
 use infrastructure::networking::protocols::PairingProtocolHandler;
 
@@ -485,7 +487,6 @@ impl Core {
 	/// Start pairing as an initiator (generates pairing code)
 	pub async fn start_pairing_as_initiator(
 		&self,
-		auto_accept: bool,
 	) -> Result<(String, u32), Box<dyn std::error::Error>> {
 		let networking = self
 			.networking

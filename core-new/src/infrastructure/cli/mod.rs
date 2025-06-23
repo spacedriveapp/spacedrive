@@ -1194,8 +1194,38 @@ async fn handle_network_daemon_command(
 		}
 
 		commands::NetworkCommands::Pair { action } => {
-			// Delegate to the complete implementation in commands.rs
-			commands::handle_pairing_command(action, &client).await?;
+			// Convert to PairingAction and use the networking commands handler
+			let pairing_action = match action {
+				commands::PairingCommands::Generate => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Generate
+				}
+				commands::PairingCommands::Join { code } => {
+					let code = match code {
+						Some(c) => c,
+						None => {
+							use dialoguer::Input;
+							Input::new()
+								.with_prompt("Enter the 12-word pairing code")
+								.interact_text()?
+						}
+					};
+					crate::infrastructure::cli::networking_commands::PairingAction::Join { code }
+				}
+				commands::PairingCommands::Status => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Status
+				}
+				commands::PairingCommands::ListPending => {
+					crate::infrastructure::cli::networking_commands::PairingAction::List
+				}
+				commands::PairingCommands::Accept { request_id } => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Accept { request_id }
+				}
+				commands::PairingCommands::Reject { request_id } => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Reject { request_id }
+				}
+			};
+			
+			crate::infrastructure::cli::networking_commands::handle_pairing_command(pairing_action, &client).await?;
 		}
 	}
 

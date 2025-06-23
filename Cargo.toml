@@ -9,7 +9,7 @@ members = [
 	"core",
 	"core/crates/*",
 	"crates/*"
-]
+, "spacedrive-cloud"]
 resolver = "2"
 
 [workspace.package]

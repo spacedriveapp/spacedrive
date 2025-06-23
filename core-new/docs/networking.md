@@ -11,8 +11,9 @@ The networking module is built on libp2p, the same networking stack used by IPFS
 - **NAT traversal and hole punching**
 - **Noise Protocol encryption** (replaces TLS)
 - **Production-ready networking** that works across networks and the internet
-- **Secure device pairing** with BIP39 word-based codes
+- **Secure device pairing** with BIP39 word-based codes (see [Device Pairing](./pairing.md))
 - **Request-response messaging** over libp2p
+- **Persistent connections** with automatic reconnection
 
 ## Architecture
 
@@ -24,12 +25,11 @@ networking/
 ├── behavior.rs             # LibP2P NetworkBehaviour implementation
 ├── codec.rs                # Message serialization for libp2p
 ├── discovery.rs            # DHT-based peer discovery
-├── pairing/
-│   ├── mod.rs              # Pairing module exports and core types
-│   ├── code.rs             # BIP39-based pairing codes
-│   ├── ui.rs               # User interface abstractions for pairing
-│   ├── protocol.rs         # Complete libp2p pairing protocol
-│   └── tests.rs            # Test implementations
+├── protocols/
+│   ├── pairing/            # Device pairing protocol (see pairing.md)
+│   ├── file_transfer/      # File transfer protocol
+│   ├── spacedrop/          # Spacedrop protocol
+│   └── sync/               # Real-time sync protocol
 └── persistent/
     ├── mod.rs              # Persistent connections module exports
     ├── manager.rs          # Connection manager and retry logic
@@ -216,56 +216,15 @@ let decrypted = storage.decrypt_data(&encrypted, password)?;
 - **Atomic Operations**: Safe atomic writes with temporary files
 - **Cleanup Utilities**: Automatic cleanup of old encrypted data
 
-### 6. Pairing Bridge (`persistent/pairing_bridge.rs`)
+### 6. Device Pairing Integration
 
-The pairing bridge provides seamless integration between ephemeral pairing and persistent device management:
+The networking service integrates with the device pairing system to provide secure device-to-device connections. For detailed information about the pairing protocol, cryptographic verification, and session management, see [Device Pairing Documentation](./pairing.md).
 
-```rust
-use sd_core_new::infrastructure::networking::persistent::{
-    PairingBridge, PairingSession, PairingStatus, PairingRole
-};
-
-// Initialize pairing in NetworkingService
-networking_service.init_pairing("password".to_string()).await?;
-
-// Start pairing as initiator
-let session = networking_service.start_pairing_as_initiator(true).await?;
-println!("Pairing code: {}", session.code);
-println!("Expires in: {} seconds", session.expires_in_seconds());
-
-// Join pairing session as joiner
-networking_service.join_pairing_session("word1 word2 ... word12".to_string()).await?;
-
-// Get status of active pairing sessions
-let sessions = networking_service.get_pairing_status().await;
-for session in sessions {
-    println!("Session {}: {:?}", session.id, session.status);
-}
-
-// Cancel pairing session
-networking_service.cancel_pairing(session_id).await?;
-```
-
-**Key Features:**
-- **Send Trait Resolution**: Uses `tokio::task::LocalSet` to handle non-Send libp2p types
-- **Automatic Device Registration**: Successful pairings automatically register devices
-- **Session Management**: Tracks active pairing sessions with UUIDs and expiration
-- **Status Tracking**: Real-time status updates (WaitingForConnection, Connected, Authenticating, etc.)
-- **Role-Based Pairing**: Supports both initiator and joiner roles
-- **Error Handling**: Comprehensive error propagation and session cleanup
-- **Auto-Accept Configuration**: Configurable automatic pairing acceptance
-
-**Pairing Session States:**
-```rust
-pub enum PairingStatus {
-    WaitingForConnection,  // Waiting for peer to connect
-    Connected,            // Connection established, starting auth
-    Authenticating,       // Performing cryptographic authentication  
-    Completed,           // Pairing successful, device registered
-    Failed(String),      // Pairing failed with error message
-    Cancelled,           // User cancelled the pairing process
-}
-```
+**Key Integration Points:**
+- **Automatic Device Registration**: Successful pairings automatically register devices with persistent connections
+- **Session Bridge**: Seamless integration between ephemeral pairing and persistent device management
+- **Protocol Handler Integration**: Pairing protocol works alongside other networking protocols
+- **CLI Integration**: Full command-line interface support for pairing operations
 
 ### 7. Universal Message Protocol (`persistent/messages.rs`)
 
@@ -353,53 +312,7 @@ let device_info = DeviceInfo::new(device_id, device_name, public_key);
 - `PrivateKey` / `PublicKey` - Ed25519 cryptographic keys
 - `NetworkFingerprint` - Unique device fingerprint for verification
 
-### 2. LibP2P Pairing Protocol (`pairing/protocol.rs`)
-
-The main production-ready pairing implementation:
-
-```rust
-use sd_core_new::infrastructure::networking::{LibP2PPairingProtocol, PairingCode};
-
-// Create pairing protocol
-let mut pairing_protocol = LibP2PPairingProtocol::new(
-    &network_identity,
-    local_device,
-    private_key,
-    "password"
-).await?;
-
-// Start listening for connections
-let listening_addrs = pairing_protocol.start_listening().await?;
-
-// As initiator: generate code and wait for joiner
-let (remote_device, session_keys) = pairing_protocol
-    .start_as_initiator(&ui).await?;
-
-// As joiner: connect using pairing code
-let (remote_device, session_keys) = pairing_protocol
-    .start_as_joiner(&ui, pairing_code).await?;
-```
-
-### 3. Pairing Codes (`pairing/code.rs`)
-
-BIP39-based 12-word pairing codes for device discovery:
-
-```rust
-use sd_core_new::infrastructure::networking::PairingCode;
-
-// Generate a new pairing code
-let code = PairingCode::generate()?;
-let words = code.as_string(); // "word1 word2 word3 ... word12"
-
-// Parse from user input
-let words = ["risk", "cinnamon", "deny", /* ... 9 more words */];
-let code = PairingCode::from_words(&words)?;
-
-// Get discovery fingerprint for DHT lookup
-let fingerprint = code.discovery_fingerprint;
-```
-
-### 4. LibP2P Behavior (`behavior.rs`)
+### 8. LibP2P Behavior (`behavior.rs`)
 
 Combines multiple libp2p protocols:
 
@@ -412,111 +325,34 @@ use sd_core_new::infrastructure::networking::SpacedriveBehaviour;
 // - Request-response for pairing messages
 ```
 
-### 5. User Interface Abstraction (`pairing/ui.rs`)
+## Protocol Overview
 
-Defines the interface for pairing interactions:
+The networking module supports multiple protocols:
 
-```rust
-use sd_core_new::infrastructure::networking::PairingUserInterface;
+### 1. **Device Pairing Protocol**
+Secure device-to-device connection establishment using BIP39 codes. See [Device Pairing Documentation](./pairing.md) for complete details on:
+- Challenge-response authentication
+- Ed25519 cryptographic verification
+- Session persistence and management
+- DHT/mDNS discovery methods
 
-#[async_trait::async_trait]
-impl PairingUserInterface for MyUI {
-    async fn show_pairing_code(&self, code: &str, expires_in_seconds: u32);
-    async fn prompt_pairing_code(&self) -> Result<[String; 12]>;
-    async fn confirm_pairing(&self, remote_device: &DeviceInfo) -> Result<bool>;
-    async fn show_pairing_progress(&self, state: PairingState);
-    async fn show_pairing_error(&self, error: &NetworkError);
-}
-```
+### 2. **Persistent Connection Protocol**
+Always-on encrypted connections between paired devices:
+- Automatic reconnection with exponential backoff
+- Session key management and rotation
+- Health monitoring and keep-alive
+- Message queuing with priority handling
 
-## Protocol Flow
-
-The device pairing protocol with persistent integration follows this complete sequence:
-
-### 1. **Initiator Setup**
-
-```
-1. NetworkingService.start_pairing_as_initiator(auto_accept) called
-2. PairingBridge creates PairingSession with UUID and expiration
-3. LibP2PPairingProtocol generates BIP39 pairing code (12 words)
-4. Start providing code on Kademlia DHT
-5. Listen for incoming connections (TCP + QUIC)
-6. Return PairingSession with code to caller
-```
-
-### 2. **Joiner Connection**
-
-```
-1. NetworkingService.join_pairing_session(code) called
-2. PairingBridge creates joiner PairingSession
-3. LibP2PPairingProtocol parses pairing code
-4. Search Kademlia DHT for code providers
-5. Connect to discovered initiator
-6. Send challenge message
-```
-
-### 3. **Authentication Exchange**
-
-```
-Joiner  →  Challenge          →  Initiator
-Joiner  ←  DeviceInfo         ←  Initiator
-Joiner  →  PairingAccepted    →  Initiator
-Joiner  ←  Acknowledgment     ←  Initiator
-```
-
-### 4. **Session Key Generation**
-
-```
-Both devices generate identical session keys using HKDF:
-- Input: pairing code discovery fingerprint + device ID
-- Output: send_key, receive_key, mac_key (32 bytes each)
-```
-
-### 5. **Persistent Device Registration**
-
-```
-1. PairingBridge.handle_pairing_complete() called automatically
-2. Convert pairing SessionKeys to persistent SessionKeys
-3. NetworkingServiceRef.add_paired_device() stores device info
-4. Device added to PersistentConnectionManager
-5. Session marked as Completed
-6. Automatic connection attempt initiated
-```
-
-### 6. **Persistent Connection Establishment**
-
-```
-1. PersistentConnectionManager detects new paired device
-2. DeviceConnection.establish() creates encrypted connection
-3. Authentication with stored session keys
-4. Connection state tracked (Connecting → Connected → Ready)
-5. Keep-alive scheduling begins
-6. Protocol handlers become available
-```
+### 3. **Application Protocols**
+Higher-level protocols built on the persistent connection layer:
+- **File Transfer**: Large file transfer with resumption
+- **Spacedrop**: User-initiated file sharing with notifications
+- **Real-time Sync**: Live synchronization of library changes
+- **Custom Protocols**: Extensible protocol handler system
 
 ## Message Types
 
-### Core Pairing Messages
-
-```rust
-pub enum PairingMessage {
-    Challenge {
-        initiator_nonce: [u8; 16],
-        timestamp: DateTime<Utc>,
-    },
-    DeviceInfo {
-        device_info: DeviceInfo,
-        timestamp: DateTime<Utc>,
-    },
-    PairingAccepted {
-        timestamp: DateTime<Utc>,
-    },
-    PairingRejected {
-        reason: String,
-        timestamp: DateTime<Utc>,
-    },
-}
-```
+The networking module defines comprehensive message types for different protocols. For pairing-specific messages, see [Device Pairing Documentation](./pairing.md).
 
 ### Session Keys
 
@@ -640,12 +476,12 @@ let mut core = Core::new_with_config(data_directory).await?;
 core.init_networking("secure-password").await?;
 core.start_networking().await?;
 
-// CLI command: spacedrive network pair generate --auto-accept
-pub async fn start_pairing_as_initiator(&self, auto_accept: bool) -> Result<(String, u32)> {
+// CLI command: spacedrive network pair generate
+pub async fn start_pairing_as_initiator(&self) -> Result<(String, u32)> {
     let networking = self.networking.as_ref()
         .ok_or("Networking not initialized")?;
     
-    let session = networking.start_pairing_as_initiator(auto_accept).await?;
+    let session = networking.start_pairing_as_initiator().await?;
     Ok((session.code, session.expires_in_seconds()))
 }
 
@@ -670,10 +506,10 @@ pub async fn get_pairing_status(&self) -> Result<Vec<PairingSessionStatus>> {
 **CLI Workflow:**
 ```bash
 # Device A: Start pairing as initiator
-$ spacedrive --instance alice network pair generate --auto-accept
+$ spacedrive --instance alice network pair generate
 Generated pairing code: word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12
 Code expires in: 300 seconds
-Waiting for device to connect...
+Pairing will auto-accept valid requests...
 
 # Device B: Join pairing session
 $ spacedrive --instance bob network pair join "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
@@ -697,43 +533,15 @@ bob (connected) - auto-reconnected
 
 See `examples/persistent_networking_demo.rs` for a full working example.
 
-### Basic Integration
+### Integration Overview
 
-```rust
-use sd_core_new::infrastructure::networking::*;
+For detailed integration examples including device identity creation, pairing protocol setup, and low-level API usage, see [Device Pairing Documentation](./pairing.md). The pairing documentation includes complete examples for:
 
-// 1. Create device identity
-let (device_info, private_key) = create_device_identity("My Device").await?;
-
-let network_identity = NetworkIdentity::new_temporary(
-    device_info.device_id,
-    device_info.device_name.clone(),
-    "password"
-)?;
-
-// 2. Create pairing protocol
-let mut protocol = LibP2PPairingProtocol::new(
-    &network_identity,
-    device_info,
-    private_key,
-    "password"
-).await?;
-
-// 3. Start listening
-let _addrs = protocol.start_listening().await?;
-
-// 4. Pair with another device
-let ui = ConsolePairingUI::new("My Device");
-
-// As initiator:
-let (remote_device, keys) = protocol.start_as_initiator(&ui).await?;
-
-// As joiner:
-// let (remote_device, keys) = protocol.start_as_joiner(&ui, code).await?;
-
-println!("Paired with: {}", remote_device.device_name);
-println!("Session keys established");
-```
+- Creating device identities
+- Setting up pairing protocols
+- Starting pairing sessions (both initiator and joiner)
+- Handling authentication and session management
+- Integrating with Core networking services
 
 ## Implementation Status
 
@@ -813,7 +621,8 @@ println!("Session keys established");
 
 - Challenge-response prevents replay attacks
 - Cryptographic device fingerprints ensure identity
-- User confirmation required for all pairings
+- Automatic acceptance of cryptographically valid pairing requests
+- See [Device Pairing Documentation](./pairing.md) for detailed security analysis
 
 ## Development Workflow
 
@@ -974,7 +783,6 @@ let local_set = tokio::task::LocalSet::new();
 let result = local_set.run_until(async {
     Self::run_initiator_protocol_task(
         session_id,
-        auto_accept,
         network_identity,
         password,
         networking_service,
@@ -1000,7 +808,6 @@ pub struct PairingSession {
     pub expires_at: DateTime<Utc>,   // Session expiration (5 minutes)
     pub role: PairingRole,           // Initiator or Joiner
     pub status: PairingStatus,       // Current state
-    pub auto_accept: bool,           // Automatic acceptance flag
 }
 ```
 

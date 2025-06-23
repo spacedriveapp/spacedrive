@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("🔑 Alice: Starting pairing as initiator...");
 	let (pairing_code, _expires_in) = match timeout(
 		Duration::from_secs(15),
-		core.start_pairing_as_initiator(true),
+		core.start_pairing_as_initiator(),
 	)
 	.await
 	{

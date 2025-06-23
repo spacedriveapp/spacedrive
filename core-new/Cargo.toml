@@ -110,6 +110,10 @@ once_cell = "1.20"
 dirs = "5.0"
 whoami = "1.5"
 rand = "0.8"  # Random number generation for secure delete
+tempfile = "3.14"  # Temporary directories for testing
+
+# Secure storage
+keyring = "3.6"
 
 # CLI dependencies
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -128,6 +132,10 @@ libc = "0.2"
 [[bin]]
 name = "spacedrive"
 path = "src/bin/cli.rs"
+
+[[bin]]
+name = "test_core"
+path = "src/bin/test_core.rs"
 
 [dev-dependencies]
 tempfile = "3.14"

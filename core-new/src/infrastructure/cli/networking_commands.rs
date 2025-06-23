@@ -13,7 +13,7 @@ use crate::networking::DeviceInfo;
 #[derive(Debug, Clone)]
 pub enum PairingAction {
     /// Generate a pairing code and wait for another device
-    Generate { auto_accept: bool },
+    Generate,
     /// Join another device using a pairing code
     Join { code: String },
     /// Show current pairing status
@@ -36,11 +36,11 @@ pub async fn handle_pairing_command(
     // PairingAction is defined in this module
 
     match action {
-        PairingAction::Generate { auto_accept } => {
+        PairingAction::Generate => {
             println!("🔑 Generating pairing code...");
             
             match client
-                .send_command(DaemonCommand::StartPairingAsInitiator { auto_accept })
+                .send_command(DaemonCommand::StartPairingAsInitiator)
                 .await?
             {
                 DaemonResponse::PairingCodeGenerated { code, expires_in_seconds } => {
@@ -55,11 +55,8 @@ pub async fn handle_pairing_command(
                     println!();
                     println!("💡 The other device should run:");
                     println!("   spacedrive network pair join \"{}\"", code.bright_blue());
-                    
-                    if auto_accept {
-                        println!();
-                        println!("🤖 Auto-accept enabled - pairing will complete automatically");
-                    }
+                    println!();
+                    println!("✨ Pairing will auto-accept valid requests");
                 }
                 DaemonResponse::Error(err) => {
                     println!("{} Failed to generate pairing code: {}", "✗".red(), err);

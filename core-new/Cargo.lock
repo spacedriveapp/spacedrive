@@ -2976,6 +2976,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyring"
+version = "3.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1961983669d57bdfe6c0f3ef8e4c229b5ef751afcc7d87e4271d2f71f6ccfa8b"
+dependencies = [
+ "log",
+]
+
+[[package]]
 name = "kqueue"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5718,6 +5727,7 @@ dependencies = [
  "indicatif",
  "int-enum",
  "inventory",
+ "keyring",
  "libc",
  "libp2p",
  "local-ip-address",

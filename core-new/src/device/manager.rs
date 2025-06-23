@@ -1,6 +1,7 @@
 //! Device manager for handling device lifecycle
 
 use super::config::DeviceConfig;
+use super::master_key::{MasterKeyManager, MasterKeyError};
 use crate::domain::device::{Device, OperatingSystem};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -27,12 +28,17 @@ pub enum DeviceError {
     
     #[error("Lock poisoned")]
     LockPoisoned,
+    
+    #[error("Master key error: {0}")]
+    MasterKey(#[from] MasterKeyError),
 }
 
 /// Manages the current device state
 pub struct DeviceManager {
     /// Current device configuration
     config: Arc<RwLock<DeviceConfig>>,
+    /// Master encryption key manager
+    master_key_manager: MasterKeyManager,
 }
 
 impl DeviceManager {
@@ -58,8 +64,13 @@ impl DeviceManager {
             Err(e) => return Err(e),
         };
         
+        let master_key_manager = MasterKeyManager::new()?;
+        // Initialize master key on first run
+        master_key_manager.get_or_create_master_key()?;
+        
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
+            master_key_manager,
         })
     }
     
@@ -83,8 +94,13 @@ impl DeviceManager {
             Err(e) => return Err(e),
         };
         
+        let master_key_manager = MasterKeyManager::new()?;
+        // Initialize master key on first run
+        master_key_manager.get_or_create_master_key()?;
+        
         Ok(Self {
             config: Arc::new(RwLock::new(config)),
+            master_key_manager,
         })
     }
     
@@ -145,6 +161,21 @@ impl DeviceManager {
         config.save()?;
         
         Ok(())
+    }
+    
+    /// Get the master encryption key
+    pub fn master_key(&self) -> Result<[u8; 32], DeviceError> {
+        Ok(self.master_key_manager.get_master_key()?)
+    }
+    
+    /// Get the master encryption key as hex string
+    pub fn master_key_hex(&self) -> Result<String, DeviceError> {
+        Ok(self.master_key_manager.get_master_key_hex()?)
+    }
+    
+    /// Regenerate the master encryption key (dangerous operation)
+    pub fn regenerate_master_key(&self) -> Result<[u8; 32], DeviceError> {
+        Ok(self.master_key_manager.regenerate_master_key()?)
     }
 }
 
