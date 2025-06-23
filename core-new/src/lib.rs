@@ -496,7 +496,25 @@ impl Core {
 		let session_id = pairing_code.session_id();
 
 		// Start pairing session with the generated session ID
-		let _session_id = pairing_handler.start_pairing_session().await?;
+		let actual_session_id = pairing_handler.start_pairing_session().await?;
+
+		// Create pairing advertisement for DHT
+		let advertisement = networking::protocols::pairing::PairingAdvertisement {
+			peer_id: service.peer_id().to_string(),
+			addresses: service.get_external_addresses().await.into_iter()
+				.map(|addr| addr.to_string())
+				.collect(),
+			device_info: pairing_handler.get_device_info(),
+			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
+			created_at: chrono::Utc::now(),
+		};
+
+		// Publish DHT record for discovery
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		let value = serde_json::to_vec(&advertisement)?;
+		
+		let query_id = service.publish_dht_record(key, value).await?;
+		println!("Published pairing session to DHT: session={}, query_id={:?}", session_id, query_id);
 
 		let expires_in = 300; // 5 minutes
 
@@ -517,11 +535,18 @@ impl Core {
 		let pairing_code = networking::protocols::pairing::PairingCode::from_string(code)?;
 		let session_id = pairing_code.session_id();
 
-		// Use networking core to join pairing session
 		let service = networking.read().await;
-		service
-			.send_message(session_id, "pairing", b"join_request".to_vec())
-			.await?;
+
+		// Query DHT for initiator's pairing advertisement
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		let query_id = service.query_dht_record(key).await?;
+		println!("Querying DHT for pairing session: session={}, query_id={:?}", session_id, query_id);
+
+		// Note: The actual DHT response will be handled in the event loop
+		// When the record is found, it will contain the peer_id and addresses
+		// The application should wait for the DHT query to complete and then connect
+		// For now, we return success - the pairing will continue asynchronously
+		println!("DHT query initiated for pairing session: {}", session_id);
 
 		Ok(())
 	}

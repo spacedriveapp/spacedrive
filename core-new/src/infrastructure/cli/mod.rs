@@ -110,20 +110,24 @@ pub enum InstanceCommands {
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let cli = Cli::parse();
 
-	// Set up logging with networking debug support
+	// Set up logging - respect RUST_LOG environment variable with fallback defaults
 	let log_level = if cli.verbose { "debug" } else { "info" };
-	let env_filter = if cli.verbose {
-		// Enable detailed networking and libp2p logging when verbose
-		format!(
-			"sd_core_new={},spacedrive_cli={},libp2p_mdns=debug,libp2p_swarm=debug,libp2p_kad=debug",
-			log_level, log_level
-		)
-	} else {
-		format!(
-			"sd_core_new={},spacedrive_cli={}",
-			log_level, log_level
-		)
-	};
+	let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+		.unwrap_or_else(|_| {
+			// Fallback to hardcoded filters if RUST_LOG not set
+			if cli.verbose {
+				// Enable detailed networking and libp2p logging when verbose
+				tracing_subscriber::EnvFilter::new(&format!(
+					"sd_core_new={},spacedrive_cli={},libp2p=debug",
+					log_level, log_level
+				))
+			} else {
+				tracing_subscriber::EnvFilter::new(&format!(
+					"sd_core_new={},spacedrive_cli={}",
+					log_level, log_level
+				))
+			}
+		});
 	
 	tracing_subscriber::fmt()
 		.with_env_filter(env_filter)

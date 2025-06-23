@@ -12,7 +12,7 @@ use crate::infrastructure::networking::{
 	utils::NetworkIdentity,
 	NetworkingError, Result,
 };
-use libp2p::{Multiaddr, PeerId, Swarm};
+use libp2p::{kad::{QueryId, RecordKey}, Multiaddr, PeerId, Swarm};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
@@ -37,6 +37,12 @@ pub enum NetworkEvent {
 		session_id: Uuid,
 		device_info: DeviceInfo,
 		peer_id: PeerId,
+	},
+	PairingSessionDiscovered {
+		session_id: Uuid,
+		peer_id: PeerId,
+		addresses: Vec<Multiaddr>,
+		device_info: DeviceInfo,
 	},
 	PairingCompleted {
 		device_id: Uuid,
@@ -214,6 +220,62 @@ impl NetworkingCore {
 	/// Get device registry for device management
 	pub fn device_registry(&self) -> Arc<RwLock<DeviceRegistry>> {
 		self.device_registry.clone()
+	}
+
+	/// Publish a DHT record for pairing session discovery
+	pub async fn publish_dht_record(&self, key: RecordKey, value: Vec<u8>) -> Result<QueryId> {
+		if let Some(command_sender) = &self.command_sender {
+			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+			let command = event_loop::EventLoopCommand::PublishDhtRecord {
+				key,
+				value,
+				response_channel: response_tx,
+			};
+
+			command_sender.send(command).map_err(|_| {
+				NetworkingError::ConnectionFailed("Event loop not running".to_string())
+			})?;
+
+			response_rx.await.map_err(|_| {
+				NetworkingError::ConnectionFailed("Failed to receive DHT response".to_string())
+			})?
+		} else {
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
+		}
+	}
+
+	/// Query a DHT record for pairing session discovery
+	pub async fn query_dht_record(&self, key: RecordKey) -> Result<QueryId> {
+		if let Some(command_sender) = &self.command_sender {
+			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+			let command = event_loop::EventLoopCommand::QueryDhtRecord {
+				key,
+				response_channel: response_tx,
+			};
+
+			command_sender.send(command).map_err(|_| {
+				NetworkingError::ConnectionFailed("Event loop not running".to_string())
+			})?;
+
+			response_rx.await.map_err(|_| {
+				NetworkingError::ConnectionFailed("Failed to receive DHT response".to_string())
+			})?
+		} else {
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
+		}
+	}
+
+	/// Get external addresses for advertising in DHT records
+	pub async fn get_external_addresses(&self) -> Vec<Multiaddr> {
+		// For now, return local addresses that we're listening on
+		// In production, this should include external addresses discovered via STUN/UPnP
+		vec![
+			"/ip4/127.0.0.1/tcp/0".parse().unwrap(), // Will be replaced with actual port
+		]
 	}
 }
 

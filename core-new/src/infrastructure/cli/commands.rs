@@ -222,22 +222,22 @@ pub enum NetworkCommands {
 		#[arg(short, long)]
 		password: String,
 	},
-	
+
 	/// Start networking service
 	Start,
-	
+
 	/// Stop networking service
 	Stop,
-	
+
 	/// List connected devices
 	Devices,
-	
+
 	/// Revoke trust from a device
 	Revoke {
 		/// Device ID to revoke
 		device_id: Uuid,
 	},
-	
+
 	/// Send a file via Spacedrop
 	Spacedrop {
 		/// Target device ID
@@ -753,9 +753,9 @@ pub async fn handle_network_command(
 	_state: &mut CliState,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand};
-	
+
 	let client = DaemonClient::new();
-	
+
 	// Check if daemon is running for most commands
 	match &cmd {
 		NetworkCommands::Init { .. } => {
@@ -763,17 +763,22 @@ pub async fn handle_network_command(
 		}
 		_ => {
 			if !client.is_running() {
-				println!("{} Daemon is not running. Start it with: {}", 
-					"✗".red(), 
-					"spacedrive start".bright_blue());
+				println!(
+					"{} Daemon is not running. Start it with: {}",
+					"✗".red(),
+					"spacedrive start".bright_blue()
+				);
 				return Ok(());
 			}
 		}
 	}
-	
+
 	match cmd {
 		NetworkCommands::Init { password } => {
-			match client.send_command(DaemonCommand::InitNetworking { password }).await? {
+			match client
+				.send_command(DaemonCommand::InitNetworking { password })
+				.await?
+			{
 				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
 					println!("{} Networking initialized successfully", "✓".green());
 				}
@@ -785,7 +790,7 @@ pub async fn handle_network_command(
 				}
 			}
 		}
-		
+
 		NetworkCommands::Start => {
 			match client.send_command(DaemonCommand::StartNetworking).await? {
 				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
@@ -799,23 +804,24 @@ pub async fn handle_network_command(
 				}
 			}
 		}
-		
-		NetworkCommands::Stop => {
-			match client.send_command(DaemonCommand::StopNetworking).await? {
-				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
-					println!("{} Networking service stopped", "✓".green());
-				}
-				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
-					println!("{} {}", "✗".red(), err);
-				}
-				_ => {
-					println!("{} Unexpected response", "✗".red());
-				}
+
+		NetworkCommands::Stop => match client.send_command(DaemonCommand::StopNetworking).await? {
+			crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+				println!("{} Networking service stopped", "✓".green());
 			}
-		}
-		
+			crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+				println!("{} {}", "✗".red(), err);
+			}
+			_ => {
+				println!("{} Unexpected response", "✗".red());
+			}
+		},
+
 		NetworkCommands::Devices => {
-			match client.send_command(DaemonCommand::ListConnectedDevices).await? {
+			match client
+				.send_command(DaemonCommand::ListConnectedDevices)
+				.await?
+			{
 				crate::infrastructure::cli::daemon::DaemonResponse::ConnectedDevices(devices) => {
 					if devices.is_empty() {
 						println!("No devices currently connected");
@@ -824,7 +830,7 @@ pub async fn handle_network_command(
 						let mut table = Table::new();
 						table.load_preset(UTF8_FULL);
 						table.set_header(vec!["Device ID", "Name", "Status", "Last Seen"]);
-						
+
 						for device in devices {
 							table.add_row(vec![
 								Cell::new(&device.device_id.to_string()[..8]),
@@ -833,7 +839,7 @@ pub async fn handle_network_command(
 								Cell::new(&device.last_seen),
 							]);
 						}
-						
+
 						println!("{}", table);
 					}
 				}
@@ -845,9 +851,12 @@ pub async fn handle_network_command(
 				}
 			}
 		}
-		
+
 		NetworkCommands::Revoke { device_id } => {
-			match client.send_command(DaemonCommand::RevokeDevice { device_id }).await? {
+			match client
+				.send_command(DaemonCommand::RevokeDevice { device_id })
+				.await?
+			{
 				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
 					println!("{} Device {} revoked", "✓".green(), device_id);
 				}
@@ -859,16 +868,30 @@ pub async fn handle_network_command(
 				}
 			}
 		}
-		
-		NetworkCommands::Spacedrop { device_id, file_path, sender, message } => {
-			match client.send_command(DaemonCommand::SendSpacedrop { 
-				device_id, 
-				file_path: file_path.to_string_lossy().to_string(), 
-				sender_name: sender, 
-				message 
-			}).await? {
-				crate::infrastructure::cli::daemon::DaemonResponse::SpacedropStarted { transfer_id } => {
-					println!("{} Spacedrop started with transfer ID: {}", "✓".green(), transfer_id);
+
+		NetworkCommands::Spacedrop {
+			device_id,
+			file_path,
+			sender,
+			message,
+		} => {
+			match client
+				.send_command(DaemonCommand::SendSpacedrop {
+					device_id,
+					file_path: file_path.to_string_lossy().to_string(),
+					sender_name: sender,
+					message,
+				})
+				.await?
+			{
+				crate::infrastructure::cli::daemon::DaemonResponse::SpacedropStarted {
+					transfer_id,
+				} => {
+					println!(
+						"{} Spacedrop started with transfer ID: {}",
+						"✓".green(),
+						transfer_id
+					);
 				}
 				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
 					println!("{} {}", "✗".red(), err);
@@ -883,7 +906,9 @@ pub async fn handle_network_command(
 			// Convert from legacy PairingCommands to new PairingAction
 			let action = match action {
 				PairingCommands::Generate { auto_accept } => {
-					crate::infrastructure::cli::networking_commands::PairingAction::Generate { auto_accept }
+					crate::infrastructure::cli::networking_commands::PairingAction::Generate {
+						auto_accept,
+					}
 				}
 				PairingCommands::Join { code } => {
 					let code = match code {
@@ -897,19 +922,30 @@ pub async fn handle_network_command(
 					};
 					crate::infrastructure::cli::networking_commands::PairingAction::Join { code }
 				}
-				PairingCommands::Status => crate::infrastructure::cli::networking_commands::PairingAction::Status,
-				PairingCommands::ListPending => crate::infrastructure::cli::networking_commands::PairingAction::List,
+				PairingCommands::Status => {
+					crate::infrastructure::cli::networking_commands::PairingAction::Status
+				}
+				PairingCommands::ListPending => {
+					crate::infrastructure::cli::networking_commands::PairingAction::List
+				}
 				PairingCommands::Accept { request_id } => {
-					crate::infrastructure::cli::networking_commands::PairingAction::Accept { request_id }
+					crate::infrastructure::cli::networking_commands::PairingAction::Accept {
+						request_id,
+					}
 				}
 				PairingCommands::Reject { request_id } => {
-					crate::infrastructure::cli::networking_commands::PairingAction::Reject { request_id }
+					crate::infrastructure::cli::networking_commands::PairingAction::Reject {
+						request_id,
+					}
 				}
 			};
-			crate::infrastructure::cli::networking_commands::handle_pairing_command(action, &client).await?;
+			crate::infrastructure::cli::networking_commands::handle_pairing_command(
+				action, &client,
+			)
+			.await?;
 		}
 	}
-	
+
 	Ok(())
 }
 
@@ -919,50 +955,100 @@ pub async fn handle_pairing_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use crate::infrastructure::cli::daemon::{DaemonCommand, DaemonResponse};
 	use colored::Colorize;
-	
+
 	match action {
 		PairingCommands::Generate { auto_accept } => {
 			println!("🔐 Generating pairing code...");
-			
-			match client.send_command(DaemonCommand::StartPairingAsInitiator { auto_accept }).await? {
-				DaemonResponse::PairingCodeGenerated { code, expires_in_seconds } => {
-					println!("\n📋 {} {}", "Your Pairing Code:".bright_cyan().bold(), "Share this with the other device".dimmed());
+
+			match client
+				.send_command(DaemonCommand::StartPairingAsInitiator { auto_accept })
+				.await?
+			{
+				DaemonResponse::PairingCodeGenerated {
+					code,
+					expires_in_seconds,
+				} => {
+					println!(
+						"\n📋 {} {}",
+						"Your Pairing Code:".bright_cyan().bold(),
+						"Share this with the other device".dimmed()
+					);
 					println!();
 					println!("    {}", code.bright_white().bold());
 					println!();
-					println!("⏰ {} {} {}", "Expires in".yellow(), expires_in_seconds.to_string().bright_yellow().bold(), "seconds".yellow());
-					println!("💡 {} {}", "Tip:".bright_blue(), "The other device should use 'spacedrive network pair join'".dimmed());
-					
+					println!(
+						"⏰ {} {} {}",
+						"Expires in".yellow(),
+						expires_in_seconds.to_string().bright_yellow().bold(),
+						"seconds".yellow()
+					);
+					println!(
+						"💡 {} {}",
+						"Tip:".bright_blue(),
+						"BOZO The other device should use 'spacedrive network pair join'".dimmed()
+					);
+
 					if auto_accept {
-						println!("🤖 {} {}", "Auto-accept enabled:".bright_green(), "Will automatically accept any pairing request".dimmed());
+						println!(
+							"🤖 {} {}",
+							"Auto-accept enabled:".bright_green(),
+							"Will automatically accept any pairing request".dimmed()
+						);
 					} else {
-						println!("👤 {} {}", "Manual approval:".bright_yellow(), "You'll be asked to confirm pairing requests".dimmed());
+						println!(
+							"👤 {} {}",
+							"Manual approval:".bright_yellow(),
+							"You'll be asked to confirm pairing requests".dimmed()
+						);
 					}
-					
+
 					println!("\n📡 Waiting for devices to connect...");
 					println!("   Press Ctrl+C to cancel");
-					
+
 					// Wait for pairing completion or timeout
 					loop {
 						tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-						
+
 						match client.send_command(DaemonCommand::GetPairingStatus).await? {
-							DaemonResponse::PairingStatus { status, remote_device } => {
+							DaemonResponse::PairingStatus {
+								status,
+								remote_device,
+							} => {
 								match status.as_str() {
 									"completed" => {
 										if let Some(device) = remote_device {
-											println!("\n🎉 {} {}", "Pairing completed successfully!".bright_green().bold(), "Device connected".dimmed());
-											println!("   Device: {}", device.device_name.bright_cyan());
-											println!("   ID: {}", device.device_id.to_string().bright_blue());
+											println!(
+												"\n🎉 {} {}",
+												"Pairing completed successfully!"
+													.bright_green()
+													.bold(),
+												"Device connected".dimmed()
+											);
+											println!(
+												"   Device: {}",
+												device.device_name.bright_cyan()
+											);
+											println!(
+												"   ID: {}",
+												device.device_id.to_string().bright_blue()
+											);
 										}
 										break;
 									}
 									"failed" => {
-										println!("\n❌ {} {}", "Pairing failed".bright_red().bold(), "Please try again".dimmed());
+										println!(
+											"\n❌ {} {}",
+											"Pairing failed".bright_red().bold(),
+											"Please try again".dimmed()
+										);
 										break;
 									}
 									"expired" => {
-										println!("\n⏰ {} {}", "Pairing code expired".bright_yellow().bold(), "Generate a new code to try again".dimmed());
+										println!(
+											"\n⏰ {} {}",
+											"Pairing code expired".bright_yellow().bold(),
+											"Generate a new code to try again".dimmed()
+										);
 										break;
 									}
 									_ => {
@@ -984,50 +1070,84 @@ pub async fn handle_pairing_command(
 				}
 			}
 		}
-		
+
 		PairingCommands::Join { code } => {
 			let pairing_code = if let Some(code) = code {
 				code
 			} else {
-				println!("📥 {} {}", "Enter Pairing Code".bright_cyan().bold(), "From the other device".dimmed());
+				println!(
+					"📥 {} {}",
+					"Enter Pairing Code".bright_cyan().bold(),
+					"From the other device".dimmed()
+				);
 				println!("Format: word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12");
 				print!("> ");
-				
+
 				use std::io::{self, Write};
 				io::stdout().flush()?;
-				
+
 				let mut input = String::new();
 				io::stdin().read_line(&mut input)?;
 				input.trim().to_string()
 			};
-			
+
 			println!("🔍 Connecting to device...");
-			
-			match client.send_command(DaemonCommand::StartPairingAsJoiner { code: pairing_code }).await? {
+
+			match client
+				.send_command(DaemonCommand::StartPairingAsJoiner { code: pairing_code })
+				.await?
+			{
 				DaemonResponse::PairingInProgress => {
-					println!("📡 {} {}", "Searching for device...".bright_blue(), "This may take a moment".dimmed());
-					
+					println!(
+						"📡 {} {}",
+						"Searching for device...".bright_blue(),
+						"This may take a moment".dimmed()
+					);
+
 					// Wait for pairing completion
 					loop {
 						tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-						
+
 						match client.send_command(DaemonCommand::GetPairingStatus).await? {
-							DaemonResponse::PairingStatus { status, remote_device } => {
+							DaemonResponse::PairingStatus {
+								status,
+								remote_device,
+							} => {
 								match status.as_str() {
 									"completed" => {
 										if let Some(device) = remote_device {
-											println!("\n🎉 {} {}", "Pairing completed successfully!".bright_green().bold(), "Device connected".dimmed());
-											println!("   Device: {}", device.device_name.bright_cyan());
-											println!("   ID: {}", device.device_id.to_string().bright_blue());
+											println!(
+												"\n🎉 {} {}",
+												"Pairing completed successfully!"
+													.bright_green()
+													.bold(),
+												"Device connected".dimmed()
+											);
+											println!(
+												"   Device: {}",
+												device.device_name.bright_cyan()
+											);
+											println!(
+												"   ID: {}",
+												device.device_id.to_string().bright_blue()
+											);
 										}
 										break;
 									}
 									"failed" => {
-										println!("\n❌ {} {}", "Pairing failed".bright_red().bold(), "Check the pairing code and try again".dimmed());
+										println!(
+											"\n❌ {} {}",
+											"Pairing failed".bright_red().bold(),
+											"Check the pairing code and try again".dimmed()
+										);
 										break;
 									}
 									"expired" => {
-										println!("\n⏰ {} {}", "Pairing code expired".bright_yellow().bold(), "Ask for a new pairing code".dimmed());
+										println!(
+											"\n⏰ {} {}",
+											"Pairing code expired".bright_yellow().bold(),
+											"Ask for a new pairing code".dimmed()
+										);
 										break;
 									}
 									_ => {
@@ -1049,19 +1169,33 @@ pub async fn handle_pairing_command(
 				}
 			}
 		}
-		
+
 		PairingCommands::Status => {
 			match client.send_command(DaemonCommand::GetPairingStatus).await? {
-				DaemonResponse::PairingStatus { status, remote_device } => {
-					println!("📊 {} {}", "Pairing Status:".bright_cyan().bold(), status.bright_white());
-					
+				DaemonResponse::PairingStatus {
+					status,
+					remote_device,
+				} => {
+					println!(
+						"📊 {} {}",
+						"Pairing Status:".bright_cyan().bold(),
+						status.bright_white()
+					);
+
 					if let Some(device) = remote_device {
 						println!("   Remote Device: {}", device.device_name.bright_cyan());
-						println!("   Device ID: {}", device.device_id.to_string().bright_blue());
+						println!(
+							"   Device ID: {}",
+							device.device_id.to_string().bright_blue()
+						);
 						println!("   Status: {}", device.status.bright_green());
 						println!("   Last Seen: {}", device.last_seen.bright_yellow());
 					} else {
-						println!("   {} {}", "No active pairing session".dimmed(), "Use 'pair generate' or 'pair join' to start pairing".dimmed());
+						println!(
+							"   {} {}",
+							"No active pairing session".dimmed(),
+							"Use 'pair generate' or 'pair join' to start pairing".dimmed()
+						);
 					}
 				}
 				DaemonResponse::Error(err) => {
@@ -1072,24 +1206,56 @@ pub async fn handle_pairing_command(
 				}
 			}
 		}
-		
+
 		PairingCommands::ListPending => {
-			match client.send_command(DaemonCommand::ListPendingPairings).await? {
+			match client
+				.send_command(DaemonCommand::ListPendingPairings)
+				.await?
+			{
 				DaemonResponse::PendingPairings(requests) => {
 					if requests.is_empty() {
-						println!("📭 {} {}", "No pending pairing requests".dimmed(), "Devices will appear here when they try to pair".dimmed());
+						println!(
+							"📭 {} {}",
+							"No pending pairing requests".dimmed(),
+							"Devices will appear here when they try to pair".dimmed()
+						);
 					} else {
-						println!("📋 {} {}", "Pending Pairing Requests:".bright_cyan().bold(), format!("({} total)", requests.len()).dimmed());
-						
+						println!(
+							"📋 {} {}",
+							"Pending Pairing Requests:".bright_cyan().bold(),
+							format!("({} total)", requests.len()).dimmed()
+						);
+
 						for request in requests {
 							println!();
-							println!("   🔐 {} {}", "Request ID:".bright_blue(), request.request_id.to_string().bright_white());
-							println!("   📱 {} {}", "Device:".bright_blue(), request.device_name.bright_cyan());
-							println!("   🆔 {} {}", "Device ID:".bright_blue(), request.device_id.to_string().bright_blue());
-							println!("   ⏰ {} {}", "Received:".bright_blue(), request.received_at.bright_yellow());
-							println!("   💬 {} {} {}", "Actions:".bright_blue(), 
-								format!("spacedrive network pair accept {}", request.request_id).bright_green(),
-								format!("spacedrive network pair reject {}", request.request_id).bright_red());
+							println!(
+								"   🔐 {} {}",
+								"Request ID:".bright_blue(),
+								request.request_id.to_string().bright_white()
+							);
+							println!(
+								"   📱 {} {}",
+								"Device:".bright_blue(),
+								request.device_name.bright_cyan()
+							);
+							println!(
+								"   🆔 {} {}",
+								"Device ID:".bright_blue(),
+								request.device_id.to_string().bright_blue()
+							);
+							println!(
+								"   ⏰ {} {}",
+								"Received:".bright_blue(),
+								request.received_at.bright_yellow()
+							);
+							println!(
+								"   💬 {} {} {}",
+								"Actions:".bright_blue(),
+								format!("spacedrive network pair accept {}", request.request_id)
+									.bright_green(),
+								format!("spacedrive network pair reject {}", request.request_id)
+									.bright_red()
+							);
 						}
 					}
 				}
@@ -1101,13 +1267,24 @@ pub async fn handle_pairing_command(
 				}
 			}
 		}
-		
+
 		PairingCommands::Accept { request_id } => {
-			println!("✅ {} {}...", "Accepting pairing request".bright_green(), request_id.to_string().bright_blue());
-			
-			match client.send_command(DaemonCommand::AcceptPairing { request_id }).await? {
+			println!(
+				"✅ {} {}...",
+				"Accepting pairing request".bright_green(),
+				request_id.to_string().bright_blue()
+			);
+
+			match client
+				.send_command(DaemonCommand::AcceptPairing { request_id })
+				.await?
+			{
 				DaemonResponse::Ok => {
-					println!("{} {}", "✓".green(), "Pairing request accepted successfully".bright_green());
+					println!(
+						"{} {}",
+						"✓".green(),
+						"Pairing request accepted successfully".bright_green()
+					);
 				}
 				DaemonResponse::Error(err) => {
 					println!("{} {}", "✗".red(), err);
@@ -1117,13 +1294,24 @@ pub async fn handle_pairing_command(
 				}
 			}
 		}
-		
+
 		PairingCommands::Reject { request_id } => {
-			println!("❌ {} {}...", "Rejecting pairing request".bright_red(), request_id.to_string().bright_blue());
-			
-			match client.send_command(DaemonCommand::RejectPairing { request_id }).await? {
+			println!(
+				"❌ {} {}...",
+				"Rejecting pairing request".bright_red(),
+				request_id.to_string().bright_blue()
+			);
+
+			match client
+				.send_command(DaemonCommand::RejectPairing { request_id })
+				.await?
+			{
 				DaemonResponse::Ok => {
-					println!("{} {}", "✓".green(), "Pairing request rejected".bright_yellow());
+					println!(
+						"{} {}",
+						"✓".green(),
+						"Pairing request rejected".bright_yellow()
+					);
 				}
 				DaemonResponse::Error(err) => {
 					println!("{} {}", "✗".red(), err);
@@ -1134,7 +1322,7 @@ pub async fn handle_pairing_command(
 			}
 		}
 	}
-	
+
 	Ok(())
 }
 

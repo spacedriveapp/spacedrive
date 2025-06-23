@@ -7,6 +7,7 @@ use crate::infrastructure::networking::{
 	NetworkingError, Result,
 };
 use async_trait::async_trait;
+use libp2p::{Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -265,6 +266,37 @@ pub enum PairingState {
 	Failed { reason: String },
 }
 
+/// DHT advertisement for pairing session discovery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PairingAdvertisement {
+	/// The peer ID of the initiator (as string for serialization)
+	pub peer_id: String,
+	/// The network addresses where the initiator can be reached (as strings for serialization)
+	pub addresses: Vec<String>,
+	/// Device information of the initiator
+	pub device_info: DeviceInfo,
+	/// When this advertisement expires
+	pub expires_at: chrono::DateTime<chrono::Utc>,
+	/// When this advertisement was created
+	pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl PairingAdvertisement {
+	/// Convert peer ID string back to PeerId
+	pub fn peer_id(&self) -> Result<PeerId> {
+		self.peer_id.parse()
+			.map_err(|e| NetworkingError::Protocol(format!("Invalid peer ID: {}", e)))
+	}
+
+	/// Convert address strings back to Multiaddr
+	pub fn addresses(&self) -> Result<Vec<Multiaddr>> {
+		self.addresses.iter()
+			.map(|addr| addr.parse()
+				.map_err(|e| NetworkingError::Protocol(format!("Invalid address: {}", e))))
+			.collect()
+	}
+}
+
 /// Pairing messages
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PairingMessage {
@@ -304,6 +336,7 @@ impl PairingProtocolHandler {
 	}
 
 	/// Start a new pairing session as initiator
+	/// Returns the session ID which should be advertised via DHT by the caller
 	pub async fn start_pairing_session(&self) -> Result<Uuid> {
 		let session_id = Uuid::new_v4();
 		let session = PairingSession {
@@ -318,7 +351,22 @@ impl PairingProtocolHandler {
 			.write()
 			.await
 			.insert(session_id, session);
+
+		println!("Started pairing session: {}", session_id);
 		Ok(session_id)
+	}
+
+	/// Get device info for advertising in DHT records
+	pub fn get_device_info(&self) -> DeviceInfo {
+		DeviceInfo {
+			device_id: self.identity.device_id(),
+			device_name: "Spacedrive Device".to_string(), // TODO: Get from device manager
+			device_type: crate::infrastructure::networking::device::DeviceType::Desktop, // TODO: Get from device manager
+			os_version: std::env::consts::OS.to_string(),
+			app_version: "0.1.0".to_string(), // TODO: Get from application version
+			network_fingerprint: self.identity.network_fingerprint(),
+			last_seen: chrono::Utc::now(),
+		}
 	}
 
 	/// Cancel a pairing session

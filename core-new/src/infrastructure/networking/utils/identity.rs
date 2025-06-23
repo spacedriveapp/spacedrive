@@ -3,6 +3,7 @@
 use crate::infrastructure::networking::{NetworkingError, Result};
 use libp2p::{identity::Keypair, PeerId};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Network identity containing keypair and peer ID
 #[derive(Clone)]
@@ -52,6 +53,30 @@ impl NetworkIdentity {
 	/// Verify signature with this identity's public key
 	pub fn verify(&self, data: &[u8], signature: &[u8]) -> bool {
 		self.keypair.public().verify(data, signature)
+	}
+
+	/// Get a deterministic device ID from the network identity
+	pub fn device_id(&self) -> Uuid {
+		// Create a deterministic UUID from the peer ID
+		let peer_id_bytes = self.peer_id.to_bytes();
+		
+		// Use the first 16 bytes of the peer ID hash to create a UUID
+		let mut uuid_bytes = [0u8; 16];
+		let hash = blake3::hash(&peer_id_bytes);
+		uuid_bytes.copy_from_slice(&hash.as_bytes()[..16]);
+		
+		Uuid::from_bytes(uuid_bytes)
+	}
+
+	/// Get network fingerprint for device identification
+	pub fn network_fingerprint(&self) -> NetworkFingerprint {
+		let public_key_bytes = self.public_key_bytes();
+		let public_key_hash = blake3::hash(&public_key_bytes);
+		
+		NetworkFingerprint {
+			peer_id: self.peer_id.to_string(),
+			public_key_hash: hex::encode(&public_key_hash.as_bytes()[..16]),
+		}
 	}
 }
 

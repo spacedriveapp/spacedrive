@@ -11,6 +11,7 @@ use crate::infrastructure::networking::{
 };
 use futures::StreamExt;
 use libp2p::{
+	kad::{self, QueryId, RecordKey},
 	swarm::{Swarm, SwarmEvent},
 	Multiaddr, PeerId,
 };
@@ -25,6 +26,17 @@ pub enum EventLoopCommand {
 		device_id: Uuid,
 		protocol: String,
 		data: Vec<u8>,
+	},
+	/// Publish a DHT record for pairing session discovery
+	PublishDhtRecord {
+		key: RecordKey,
+		value: Vec<u8>,
+		response_channel: tokio::sync::oneshot::Sender<Result<QueryId>>,
+	},
+	/// Query a DHT record for pairing session discovery
+	QueryDhtRecord {
+		key: RecordKey,
+		response_channel: tokio::sync::oneshot::Sender<Result<QueryId>>,
 	},
 }
 
@@ -232,6 +244,38 @@ impl NetworkingEventLoop {
 					println!("Device {} not found or not connected", device_id);
 				}
 			}
+			EventLoopCommand::PublishDhtRecord {
+				key,
+				value,
+				response_channel,
+			} => {
+				// Create a DHT record with the provided key and value
+				let record = kad::Record::new(key, value);
+				
+				// Publish the record to the DHT
+				match swarm.behaviour_mut().kademlia.put_record(record, kad::Quorum::One) {
+					Ok(query_id) => {
+						println!("Publishing DHT record with query ID: {:?}", query_id);
+						let _ = response_channel.send(Ok(query_id));
+					}
+					Err(e) => {
+						println!("Failed to publish DHT record: {:?}", e);
+						let _ = response_channel.send(Err(NetworkingError::Protocol(format!("DHT put failed: {:?}", e))));
+					}
+				}
+			}
+			EventLoopCommand::QueryDhtRecord {
+				key,
+				response_channel,
+			} => {
+				// Query the DHT for the record
+				let query_id = swarm.behaviour_mut().kademlia.get_record(key);
+				
+				println!("Querying DHT record with query ID: {:?}", query_id);
+				
+				// Send the query ID back to the caller
+				let _ = response_channel.send(Ok(query_id));
+			}
 		}
 
 		Ok(())
@@ -302,7 +346,105 @@ impl NetworkingEventLoop {
 	) -> Result<()> {
 		match event {
 			UnifiedBehaviourEvent::Kademlia(kad_event) => {
-				println!("Kademlia event: {:?}", kad_event);
+				use libp2p::kad;
+				match kad_event {
+					kad::Event::OutboundQueryProgressed {
+						id,
+						result: kad::QueryResult::PutRecord(put_result),
+						..
+					} => {
+						match put_result {
+							Ok(kad::PutRecordOk { key }) => {
+								println!("DHT record published successfully: query_id={:?}, key={:?}", id, key);
+							}
+							Err(kad::PutRecordError::QuorumFailed { key, success, quorum }) => {
+								println!("DHT record publish failed: query_id={:?}, key={:?}, success={:?}, quorum={:?}", id, key, success, quorum);
+							}
+							Err(kad::PutRecordError::Timeout { key, .. }) => {
+								println!("DHT record publish timed out: query_id={:?}, key={:?}", id, key);
+							}
+						}
+					}
+					kad::Event::OutboundQueryProgressed {
+						id,
+						result: kad::QueryResult::GetRecord(get_result),
+						..
+					} => {
+						match get_result {
+							Ok(kad::GetRecordOk::FoundRecord(record)) => {
+								println!("DHT record found: query_id={:?}, key={:?}, {} bytes", id, record.record.key, record.record.value.len());
+								
+								// Try to deserialize as pairing advertisement
+								if let Ok(advertisement) = serde_json::from_slice::<crate::infrastructure::networking::protocols::pairing::PairingAdvertisement>(&record.record.value) {
+									println!("Found pairing advertisement from peer: {:?}", advertisement.peer_id);
+									
+									// Convert strings back to libp2p types
+									if let (Ok(peer_id), Ok(addresses)) = (advertisement.peer_id(), advertisement.addresses()) {
+										// Extract session ID from the DHT key
+										if let Ok(session_id_bytes) = record.record.key.as_ref().try_into() {
+											let session_id = Uuid::from_bytes(session_id_bytes);
+											
+											// Emit pairing discovery event
+											let _ = event_sender.send(NetworkEvent::PairingSessionDiscovered {
+												session_id,
+												peer_id,
+												addresses: addresses.clone(),
+												device_info: advertisement.device_info.clone(),
+											});
+											
+											println!("Emitted pairing session discovery event for session: {}", session_id);
+											
+											// Automatically connect to the discovered peer
+											for address in &addresses {
+												match swarm.dial(address.clone()) {
+													Ok(_) => {
+														println!("Dialing discovered peer {} at {}", peer_id, address);
+														break; // Try only the first successful dial
+													}
+													Err(e) => {
+														println!("Failed to dial {}: {:?}", address, e);
+													}
+												}
+											}
+										}
+									} else {
+										println!("Failed to parse peer_id or addresses from pairing advertisement");
+									}
+								}
+							}
+							Ok(kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. }) => {
+								println!("DHT query finished, no additional records: query_id={:?}", id);
+							}
+							Err(kad::GetRecordError::NotFound { key, .. }) => {
+								println!("DHT record not found: query_id={:?}, key={:?}", id, key);
+							}
+							Err(kad::GetRecordError::QuorumFailed { key, .. }) => {
+								println!("DHT query quorum failed: query_id={:?}, key={:?}", id, key);
+							}
+							Err(kad::GetRecordError::Timeout { key }) => {
+								println!("DHT query timed out: query_id={:?}, key={:?}", id, key);
+							}
+						}
+					}
+					kad::Event::ModeChanged { new_mode } => {
+						println!("Kademlia mode changed: {:?}", new_mode);
+					}
+					kad::Event::RoutingUpdated { peer, .. } => {
+						println!("Kademlia routing updated: peer={}", peer);
+					}
+					kad::Event::UnroutablePeer { peer } => {
+						println!("Kademlia unroutable peer: {}", peer);
+					}
+					kad::Event::RoutablePeer { peer, .. } => {
+						println!("Kademlia routable peer: {}", peer);
+					}
+					kad::Event::PendingRoutablePeer { peer, .. } => {
+						println!("Kademlia pending routable peer: {}", peer);
+					}
+					_ => {
+						println!("Other Kademlia event: {:?}", kad_event);
+					}
+				}
 			}
 
 			UnifiedBehaviourEvent::Mdns(mdns_event) => {
