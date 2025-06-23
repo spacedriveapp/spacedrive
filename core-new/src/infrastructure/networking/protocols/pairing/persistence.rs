@@ -100,10 +100,11 @@ impl PairingPersistence {
     /// Create a new persistence manager
     pub fn new(data_dir: impl AsRef<Path>) -> Self {
         let data_dir = data_dir.as_ref().to_path_buf();
-        let sessions_file = data_dir.join("pairing_sessions.json");
+        let networking_dir = data_dir.join("networking");
+        let sessions_file = networking_dir.join("pairing_sessions.json");
 
         Self {
-            data_dir,
+            data_dir: networking_dir,
             sessions_file,
         }
     }
