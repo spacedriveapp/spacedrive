@@ -2,8 +2,7 @@
 
 use super::{behavior::UnifiedBehaviour, NetworkingError, Result};
 use crate::infrastructure::networking::utils::NetworkIdentity;
-use futures::future::Either;
-use libp2p::{noise, quic, swarm::Swarm, tcp, yamux, Multiaddr, PeerId, Transport};
+use libp2p::{noise, swarm::Swarm, tcp, yamux, Multiaddr, PeerId, Transport};
 
 /// Create a new LibP2P swarm with unified behavior
 pub async fn create_swarm(identity: NetworkIdentity) -> Result<Swarm<UnifiedBehaviour>> {
@@ -26,7 +25,8 @@ pub async fn create_swarm(identity: NetworkIdentity) -> Result<Swarm<UnifiedBeha
 	Ok(swarm)
 }
 
-/// Create the transport stack with TCP + QUIC, Noise encryption, and Yamux multiplexing
+/// Create the transport stack with TCP-only, Noise encryption, and Yamux multiplexing
+/// Simplified to match working mDNS test configuration (no QUIC complexity)
 async fn create_transport(
 	identity: &NetworkIdentity,
 ) -> Result<libp2p::core::transport::Boxed<(PeerId, libp2p::core::muxing::StreamMuxerBox)>> {
@@ -36,28 +36,14 @@ async fn create_transport(
 	let noise_config = noise::Config::new(&keypair)
 		.map_err(|e| NetworkingError::Protocol(format!("Noise config error: {}", e)))?;
 
-	// Create TCP transport
-	let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+	// Create TCP-only transport (simplified to match working mDNS test)
+	let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
 		.upgrade(libp2p::core::upgrade::Version::V1)
-		.authenticate(noise_config.clone())
+		.authenticate(noise_config)
 		.multiplex(yamux::Config::default())
 		.boxed();
 
-	// Create QUIC transport
-	let quic_transport = quic::tokio::Transport::new(quic::Config::new(&keypair)).boxed();
-
-	// Combine transports
-	let transport = tcp_transport
-		.or_transport(quic_transport)
-		.map(|either_output, _| match either_output {
-			Either::Left((peer_id, muxer)) => {
-				(peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
-			}
-			Either::Right((peer_id, muxer)) => {
-				(peer_id, libp2p::core::muxing::StreamMuxerBox::new(muxer))
-			}
-		})
-		.boxed();
+	println!("🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability");
 
 	Ok(transport)
 }

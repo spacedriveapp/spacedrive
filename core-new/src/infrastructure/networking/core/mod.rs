@@ -129,13 +129,11 @@ impl NetworkingCore {
 
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
-		// Start LibP2P listeners
+		// Start LibP2P listeners (TCP-only to match simplified transport)
 		self.swarm
 			.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
 			.map_err(|e| NetworkingError::Transport(e.to_string()))?;
-		self.swarm
-			.listen_on("/ip4/0.0.0.0/udp/0/quic-v1".parse().unwrap())
-			.map_err(|e| NetworkingError::Transport(e.to_string()))?;
+		// Removed QUIC UDP listener to match TCP-only transport configuration
 
 		// Create and start event loop by moving the swarm
 		let swarm = std::mem::replace(&mut self.swarm, {

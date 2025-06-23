@@ -72,31 +72,33 @@ impl UnifiedBehaviour {
 			kademlia_config,
 		);
 
-		// Configure mDNS for local discovery
-		let mdns_config = mdns::Config {
-			ttl: std::time::Duration::from_secs(300), // 5 minutes
-			query_interval: std::time::Duration::from_secs(30),
-			enable_ipv6: false, // Disable IPv6 for simplicity initially
-		};
-		let mdns = mdns::tokio::Behaviour::new(mdns_config, local_peer_id)?;
+		// Configure mDNS for local discovery (use default config to match working test)
+		let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?;
+		println!("🔧 mDNS: Using default configuration for compatibility with working test");
 
-		// Configure request-response for pairing using CBOR codec
+		// Configure request-response for pairing using CBOR codec with longer timeouts
+		let mut pairing_config = request_response::Config::default();
+		pairing_config = pairing_config.with_request_timeout(std::time::Duration::from_secs(30)); // 30s request timeout
 		let pairing = request_response::cbor::Behaviour::new(
 			std::iter::once((
 				StreamProtocol::new("/spacedrive/pairing/1.0.0"),
 				ProtocolSupport::Full,
 			)),
-			request_response::Config::default(),
+			pairing_config,
 		);
 
-		// Configure request-response for device messaging using CBOR codec
+		// Configure request-response for device messaging using CBOR codec with longer timeouts  
+		let mut messaging_config = request_response::Config::default();
+		messaging_config = messaging_config.with_request_timeout(std::time::Duration::from_secs(30)); // 30s request timeout
 		let messaging = request_response::cbor::Behaviour::new(
 			std::iter::once((
 				StreamProtocol::new("/spacedrive/device/1.0.0"),
 				ProtocolSupport::Full,
 			)),
-			request_response::Config::default(),
+			messaging_config,
 		);
+
+		println!("🔧 Request-Response: Configured 30s request timeout to prevent timeouts");
 
 		Ok(Self {
 			kademlia,
