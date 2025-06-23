@@ -499,6 +499,17 @@ impl Core {
 		// Start pairing session with the session ID from the pairing code
 		pairing_handler.start_pairing_session_with_id(session_id).await?;
 
+		// CRITICAL FIX: Register Alice in the device registry with the session mapping
+		// This creates the session_id → device_id mapping that Bob needs to find Alice
+		let alice_device_id = service.device_id();
+		let alice_peer_id = service.peer_id();
+		let device_registry = service.device_registry();
+		{
+			let mut registry = device_registry.write().await;
+			registry.start_pairing(alice_device_id, alice_peer_id, session_id)?;
+			println!("📊 Alice: Registered in device registry - device: {}, session: {}", alice_device_id, session_id);
+		}
+
 		// Create pairing advertisement for DHT
 		let advertisement = networking::protocols::pairing::PairingAdvertisement {
 			peer_id: service.peer_id().to_string(),
