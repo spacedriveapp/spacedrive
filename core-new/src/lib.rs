@@ -16,6 +16,7 @@ pub mod shared;
 pub mod volume;
 
 pub use infrastructure::networking;
+use infrastructure::networking::protocols::PairingProtocolHandler;
 
 use crate::config::AppConfig;
 use crate::device::DeviceManager;
@@ -491,12 +492,11 @@ impl Core {
 			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
 			.ok_or("Invalid pairing handler type")?;
 
-		// Generate proper BIP39 pairing code
-		let pairing_code = networking::protocols::pairing::PairingCode::generate()?;
-		let session_id = pairing_code.session_id();
-
-		// Start pairing session with the generated session ID
+		// Start pairing session first to get the actual session ID
 		let actual_session_id = pairing_handler.start_pairing_session().await?;
+
+		// Generate BIP39 pairing code using the actual session ID  
+		let pairing_code = networking::protocols::pairing::PairingCode::from_session_id(actual_session_id);
 
 		// Create pairing advertisement for DHT
 		let advertisement = networking::protocols::pairing::PairingAdvertisement {
@@ -509,12 +509,12 @@ impl Core {
 			created_at: chrono::Utc::now(),
 		};
 
-		// Publish DHT record for discovery
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		// CRITICAL FIX: Use actual session ID for DHT key (not pairing code session ID)
+		let key = libp2p::kad::RecordKey::new(&actual_session_id.as_bytes());
 		let value = serde_json::to_vec(&advertisement)?;
 		
 		let query_id = service.publish_dht_record(key, value).await?;
-		println!("Published pairing session to DHT: session={}, query_id={:?}", session_id, query_id);
+		println!("Published pairing session to DHT: session={}, query_id={:?}", actual_session_id, query_id);
 
 		let expires_in = 300; // 5 minutes
 
@@ -537,16 +537,93 @@ impl Core {
 
 		let service = networking.read().await;
 
-		// Query DHT for initiator's pairing advertisement
+		// CRITICAL FIX: Join Alice's pairing session using her session ID
+		let registry = service.protocol_registry();
+		let pairing_handler = registry.read().await.get_handler("pairing")
+			.ok_or("Pairing protocol not registered")?;
+		let pairing_handler = pairing_handler
+			.as_any()
+			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
+			.ok_or("Invalid pairing handler type")?;
+		
+		// Join Alice's pairing session using the session ID from the pairing code
+		pairing_handler.join_pairing_session(session_id).await?;
+		println!("Bob joined Alice's pairing session: {}", session_id);
+
+		// Verify Bob's session was created correctly
+		let bob_sessions = pairing_handler.get_active_sessions().await;
+		let bob_session = bob_sessions.iter().find(|s| s.id == session_id);
+		match bob_session {
+			Some(session) => {
+				println!("✅ Bob's session verified: {} in state {:?}", session.id, session.state);
+				if !matches!(session.state, networking::protocols::pairing::PairingState::Scanning) {
+					return Err(format!("Bob's session is in wrong state: {:?}, expected Scanning", session.state).into());
+				}
+			}
+			None => {
+				return Err("Failed to create Bob's pairing session".into());
+			}
+		}
+
+		// PRODUCTION FIX: Wait for mDNS discovery to trigger direct pairing attempts
+		// The mDNS event loop needs time to see Bob's new Scanning session and send pairing requests
+		println!("⏳ Waiting for mDNS discovery to trigger pairing requests...");
+		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+		// Hybrid approach: Try local pairing first, then DHT fallback for remote pairing
+		
+		// 1. Attempt direct pairing with any currently connected peers (local pairing)
+		// This handles the common case where Alice and Bob are on the same network
+		let connected_peers = service.get_connected_peers().await;
+		if !connected_peers.is_empty() {
+			println!("Attempting direct pairing with {} connected peers for session: {}", 
+					 connected_peers.len(), session_id);
+			
+			// Send pairing requests to all connected peers
+			// One of them might be Alice with the matching session
+			for peer_id in connected_peers {
+				let pairing_request = networking::core::behavior::PairingMessage::PairingRequest {
+					session_id,
+					device_id: service.device_id(),
+					device_name: "Bob's Device".to_string(), // TODO: Get from device manager
+					public_key: service.identity().public_key_bytes(),
+				};
+				
+				match service.send_message_to_peer(
+					peer_id, 
+					"pairing", 
+					serde_json::to_vec(&pairing_request).unwrap_or_default()
+				).await {
+					Ok(_) => println!("Sent direct pairing request to peer: {}", peer_id),
+					Err(e) => println!("Failed to send pairing request to {}: {}", peer_id, e),
+				}
+			}
+		}
+		
+		// 2. Query DHT for remote pairing (primary method when mDNS fails)
 		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
 		let query_id = service.query_dht_record(key).await?;
-		println!("Querying DHT for pairing session: session={}, query_id={:?}", session_id, query_id);
-
-		// Note: The actual DHT response will be handled in the event loop
-		// When the record is found, it will contain the peer_id and addresses
-		// The application should wait for the DHT query to complete and then connect
-		// For now, we return success - the pairing will continue asynchronously
-		println!("DHT query initiated for pairing session: {}", session_id);
+		println!("🔍 Querying DHT for pairing session: session={}, query_id={:?}", session_id, query_id);
+		
+		// 3. Add periodic DHT queries as backup in case the first query fails
+		// This is important for test environments where mDNS might not work
+		let networking_ref = networking.clone();
+		let session_id_clone = session_id;
+		tokio::spawn(async move {
+			for i in 1..=3 {
+				tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+				let key = libp2p::kad::RecordKey::new(&session_id_clone.as_bytes());
+				let service = networking_ref.read().await;
+				match service.query_dht_record(key).await {
+					Ok(query_id) => {
+						println!("🔍 DHT Retry {}: Querying for session {} (query_id: {:?})", i, session_id_clone, query_id);
+					}
+					Err(e) => {
+						println!("⚠️ DHT Retry {}: Failed to query session {}: {}", i, session_id_clone, e);
+					}
+				}
+			}
+		});
 
 		Ok(())
 	}
@@ -569,8 +646,13 @@ impl Core {
 			.get_handler("pairing")
 			.ok_or("Pairing protocol not registered")?;
 
-		// For now, return empty list - in full implementation we'd get sessions from handler
-		Ok(Vec::new())
+		// Downcast to concrete pairing handler type to access sessions
+		if let Some(pairing_handler) = pairing_handler.as_any().downcast_ref::<PairingProtocolHandler>() {
+			let sessions = pairing_handler.get_active_sessions().await;
+			Ok(sessions)
+		} else {
+			Err("Failed to downcast pairing handler".into())
+		}
 	}
 
 	/// List pending pairing requests (converted from active pairing sessions)

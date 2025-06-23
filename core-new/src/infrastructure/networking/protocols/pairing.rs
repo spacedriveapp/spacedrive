@@ -2,8 +2,9 @@
 
 use super::{ProtocolEvent, ProtocolHandler};
 use crate::infrastructure::networking::{
+	core::behavior::PairingMessage,
 	device::{DeviceInfo, DeviceRegistry, SessionKeys},
-	utils::NetworkIdentity,
+	utils::{identity::NetworkFingerprint, NetworkIdentity},
 	NetworkingError, Result,
 };
 use async_trait::async_trait;
@@ -297,33 +298,6 @@ impl PairingAdvertisement {
 	}
 }
 
-/// Pairing messages
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum PairingMessage {
-	/// Initial pairing request
-	Request {
-		session_id: Uuid,
-		device_info: DeviceInfo,
-		public_key: Vec<u8>,
-	},
-	/// Challenge for authentication
-	Challenge {
-		session_id: Uuid,
-		challenge: Vec<u8>,
-	},
-	/// Response to challenge
-	Response {
-		session_id: Uuid,
-		response: Vec<u8>,
-		device_info: DeviceInfo,
-	},
-	/// Pairing completion
-	Complete {
-		session_id: Uuid,
-		success: bool,
-		reason: Option<String>,
-	},
-}
 
 impl PairingProtocolHandler {
 	/// Create a new pairing protocol handler
@@ -356,6 +330,58 @@ impl PairingProtocolHandler {
 		Ok(session_id)
 	}
 
+	/// Join an existing pairing session with a specific session ID
+	/// This allows a joiner to participate in an initiator's session
+	pub async fn join_pairing_session(&self, session_id: Uuid) -> Result<()> {
+		// Check if session already exists to prevent conflicts
+		{
+			let sessions = self.active_sessions.read().await;
+			if let Some(existing_session) = sessions.get(&session_id) {
+				return Err(NetworkingError::Protocol(format!(
+					"Session {} already exists in state {:?}",
+					session_id, existing_session.state
+				)));
+			}
+		}
+
+		// Create new scanning session for Bob (the joiner)
+		let session = PairingSession {
+			id: session_id,
+			state: PairingState::Scanning, // Joiner starts in scanning state
+			remote_device_id: None,
+			shared_secret: None,
+			created_at: chrono::Utc::now(),
+		};
+
+		// Insert the session
+		{
+			let mut sessions = self.active_sessions.write().await;
+			sessions.insert(session_id, session);
+		}
+
+		println!("✅ Joined pairing session: {} (state: Scanning)", session_id);
+		
+		// Verify session was created correctly
+		let sessions = self.active_sessions.read().await;
+		if let Some(created_session) = sessions.get(&session_id) {
+			if matches!(created_session.state, PairingState::Scanning) {
+				println!("✅ Bob's pairing session verified in Scanning state: {}", session_id);
+			} else {
+				return Err(NetworkingError::Protocol(format!(
+					"Session {} created in wrong state: {:?}",
+					session_id, created_session.state
+				)));
+			}
+		} else {
+			return Err(NetworkingError::Protocol(format!(
+				"Failed to verify session creation: {}",
+				session_id
+			)));
+		}
+
+		Ok(())
+	}
+
 	/// Get device info for advertising in DHT records
 	pub fn get_device_info(&self) -> DeviceInfo {
 		DeviceInfo {
@@ -384,6 +410,48 @@ impl PairingProtocolHandler {
 			.cloned()
 			.collect()
 	}
+	
+	/// Clean up expired pairing sessions
+	pub async fn cleanup_expired_sessions(&self) -> Result<usize> {
+		let now = chrono::Utc::now();
+		let timeout_duration = chrono::Duration::minutes(10); // 10 minute timeout
+		
+		let mut sessions = self.active_sessions.write().await;
+		let initial_count = sessions.len();
+		
+		// Remove sessions older than timeout duration
+		sessions.retain(|_, session| {
+			let age = now.signed_duration_since(session.created_at);
+			if age > timeout_duration {
+				println!("Cleaning up expired pairing session: {} (age: {} minutes)", session.id, age.num_minutes());
+				false
+			} else {
+				true
+			}
+		});
+		
+		let cleaned_count = initial_count - sessions.len();
+		if cleaned_count > 0 {
+			println!("Cleaned up {} expired pairing sessions", cleaned_count);
+		}
+		
+		Ok(cleaned_count)
+	}
+	
+	/// Start a background task to periodically clean up expired sessions
+	pub fn start_cleanup_task(handler: Arc<Self>) {
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60)); // Check every minute
+			
+			loop {
+				interval.tick().await;
+				
+				if let Err(e) = handler.cleanup_expired_sessions().await {
+					eprintln!("Error during session cleanup: {}", e);
+				}
+			}
+		});
+	}
 
 	async fn handle_pairing_request(
 		&self,
@@ -392,31 +460,78 @@ impl PairingProtocolHandler {
 		device_info: DeviceInfo,
 		public_key: Vec<u8>,
 	) -> Result<Vec<u8>> {
+		println!("🔥 ALICE: Received pairing request from device {} for session {}", from_device, session_id);
+		
 		// Generate challenge
 		let challenge = self.generate_challenge()?;
+		println!("🔥 ALICE: Generated challenge of {} bytes for session {}", challenge.len(), session_id);
 
-		// Store session
-		let session = PairingSession {
-			id: session_id,
-			state: PairingState::ChallengeReceived {
-				challenge: challenge.clone(),
-			},
-			remote_device_id: Some(from_device),
-			shared_secret: None,
-			created_at: chrono::Utc::now(),
-		};
+		// Check for existing session and transition state properly
+		if let Some(existing_session) = self.active_sessions.read().await.get(&session_id) {
+			if matches!(existing_session.state, PairingState::WaitingForConnection) {
+				println!("Transitioning existing session {} from WaitingForConnection to ChallengeReceived", session_id);
+				
+				// Transition existing session to ChallengeReceived
+				let updated_session = PairingSession {
+					id: session_id,
+					state: PairingState::ChallengeReceived {
+						challenge: challenge.clone(),
+					},
+					remote_device_id: Some(from_device),
+					shared_secret: existing_session.shared_secret.clone(),
+					created_at: existing_session.created_at,
+				};
+				
+				self.active_sessions
+					.write()
+					.await
+					.insert(session_id, updated_session);
+			} else {
+				println!("Session {} already exists in state {:?}, updating with new challenge", session_id, existing_session.state);
+				
+				// Update existing session with new challenge
+				let updated_session = PairingSession {
+					id: session_id,
+					state: PairingState::ChallengeReceived {
+						challenge: challenge.clone(),
+					},
+					remote_device_id: Some(from_device),
+					shared_secret: existing_session.shared_secret.clone(),
+					created_at: existing_session.created_at,
+				};
+				
+				self.active_sessions
+					.write()
+					.await
+					.insert(session_id, updated_session);
+			}
+		} else {
+			println!("Creating new session {} for pairing request", session_id);
+			
+			// Create new session only if none exists
+			let session = PairingSession {
+				id: session_id,
+				state: PairingState::ChallengeReceived {
+					challenge: challenge.clone(),
+				},
+				remote_device_id: Some(from_device),
+				shared_secret: None,
+				created_at: chrono::Utc::now(),
+			};
 
-		self.active_sessions
-			.write()
-			.await
-			.insert(session_id, session);
+			self.active_sessions
+				.write()
+				.await
+				.insert(session_id, session);
+		}
 
 		// Send challenge response
 		let response = PairingMessage::Challenge {
 			session_id,
-			challenge,
+			challenge: challenge.clone(),
 		};
 
+		println!("🔥 ALICE: Sending Challenge response for session {} with {} byte challenge", session_id, challenge.len());
 		serde_json::to_vec(&response).map_err(|e| NetworkingError::Serialization(e))
 	}
 
@@ -425,8 +540,11 @@ impl PairingProtocolHandler {
 		session_id: Uuid,
 		challenge: Vec<u8>,
 	) -> Result<Vec<u8>> {
+		println!("🔥 BOB: Received challenge for session {} with {} bytes", session_id, challenge.len());
+		
 		// Sign the challenge
 		let signature = self.identity.sign(&challenge)?;
+		println!("🔥 BOB: Signed challenge, signature is {} bytes", signature.len());
 
 		// Get local device info
 		let device_info = self.device_registry.read().await.get_local_device_info()?;
@@ -526,12 +644,26 @@ impl ProtocolHandler for PairingProtocolHandler {
 		let message: PairingMessage =
 			serde_json::from_slice(&request_data).map_err(|e| NetworkingError::Serialization(e))?;
 
-		match message {
-			PairingMessage::Request {
+		let result = match message {
+			PairingMessage::PairingRequest {
 				session_id,
-				device_info,
+				device_id,
+				device_name,
 				public_key,
 			} => {
+				// Convert device_id and device_name to DeviceInfo
+				let device_info = DeviceInfo {
+					device_id,
+					device_name,
+					device_type: crate::infrastructure::networking::device::DeviceType::Desktop, // Default
+					os_version: "Unknown".to_string(),
+					app_version: "Unknown".to_string(),  
+					network_fingerprint: NetworkFingerprint {
+						peer_id: "unknown".to_string(),
+						public_key_hash: "unknown".to_string(),
+					},
+					last_seen: chrono::Utc::now(),
+				};
 				self.handle_pairing_request(from_device, session_id, device_info, public_key)
 					.await
 			}
@@ -566,7 +698,32 @@ impl ProtocolHandler for PairingProtocolHandler {
 				// Return empty response for completion
 				Ok(Vec::new())
 			}
+		};
+
+		// Handle errors by marking session as failed
+		if let Err(ref error) = result {
+			// Try to extract session ID from the original message for error tracking
+			if let Ok(message) = serde_json::from_slice::<PairingMessage>(&request_data) {
+				let session_id = match message {
+					PairingMessage::PairingRequest { session_id, .. } => Some(session_id),
+					PairingMessage::Challenge { session_id, .. } => Some(session_id),
+					PairingMessage::Response { session_id, .. } => Some(session_id),
+					PairingMessage::Complete { session_id, .. } => Some(session_id),
+				};
+
+				if let Some(session_id) = session_id {
+					// Mark session as failed
+					if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
+						session.state = PairingState::Failed {
+							reason: error.to_string(),
+						};
+						println!("Marked pairing session {} as failed: {}", session_id, error);
+					}
+				}
+			}
 		}
+
+		result
 	}
 
 	async fn handle_response(&self, _from_device: Uuid, _response_data: Vec<u8>) -> Result<()> {

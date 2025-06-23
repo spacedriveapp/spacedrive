@@ -240,6 +240,12 @@ impl DeviceRegistry {
 		None
 	}
 
+	/// Get all currently connected peer IDs
+	pub fn get_connected_peers(&self) -> Vec<PeerId> {
+		self.peer_to_device.keys().cloned().collect()
+	}
+
+
 	/// Get our local device info
 	pub fn get_local_device_info(&self) -> Result<DeviceInfo> {
 		let device_id = self

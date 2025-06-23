@@ -8,7 +8,7 @@ pub mod swarm;
 use crate::device::DeviceManager;
 use crate::infrastructure::networking::{
 	device::{DeviceInfo, DeviceRegistry},
-	protocols::ProtocolRegistry,
+	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
 	utils::NetworkIdentity,
 	NetworkingError, Result,
 };
@@ -111,6 +111,9 @@ impl NetworkingCore {
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
 		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager)));
+		
+		// Note: Protocol handlers will be registered by the Core during init_networking
+		// to avoid duplicate registrations
 
 		Ok(Self {
 			identity,
@@ -145,6 +148,7 @@ impl NetworkingCore {
 			self.protocol_registry.clone(),
 			self.device_registry.clone(),
 			self.event_sender.clone(),
+			self.identity.clone(),
 		);
 
 		// Store shutdown and command senders before starting
@@ -269,13 +273,102 @@ impl NetworkingCore {
 		}
 	}
 
+	/// Get currently connected peers for direct pairing attempts
+	pub async fn get_connected_peers(&self) -> Vec<PeerId> {
+		// Get connected peers from device registry
+		let registry = self.device_registry.read().await;
+		registry.get_connected_peers()
+	}
+
+	/// Get the local device ID
+	pub fn device_id(&self) -> Uuid {
+		self.identity.device_id()
+	}
+
+
+	/// Send message to a specific peer ID (bypassing device lookup)
+	pub async fn send_message_to_peer(&self, peer_id: PeerId, protocol: &str, data: Vec<u8>) -> Result<()> {
+		if let Some(command_sender) = &self.command_sender {
+			let command = event_loop::EventLoopCommand::SendMessageToPeer {
+				peer_id,
+				protocol: protocol.to_string(),
+				data,
+			};
+
+			command_sender.send(command).map_err(|_| {
+				NetworkingError::ConnectionFailed("Event loop not running".to_string())
+			})?;
+
+			Ok(())
+		} else {
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
+		}
+	}
+
 	/// Get external addresses for advertising in DHT records
 	pub async fn get_external_addresses(&self) -> Vec<Multiaddr> {
-		// For now, return local addresses that we're listening on
-		// In production, this should include external addresses discovered via STUN/UPnP
-		vec![
-			"/ip4/127.0.0.1/tcp/0".parse().unwrap(), // Will be replaced with actual port
-		]
+		// Query the event loop for current listening addresses
+		if let Some(command_sender) = &self.command_sender {
+			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+			
+			let command = event_loop::EventLoopCommand::GetListeningAddresses {
+				response_channel: response_tx,
+			};
+			
+			if let Err(e) = command_sender.send(command) {
+				eprintln!("Failed to send GetListeningAddresses command: {}", e);
+				return Vec::new();
+			}
+			
+			match response_rx.await {
+				Ok(addresses) => {
+					if addresses.is_empty() {
+						// Fallback to default addresses if no external addresses found
+						eprintln!("No external addresses found, using fallback");
+						vec![
+							"/ip4/0.0.0.0/tcp/0".parse().unwrap(), // Will bind to available port
+						]
+					} else {
+						addresses
+					}
+				}
+				Err(e) => {
+					eprintln!("Failed to receive listening addresses: {}", e);
+					Vec::new()
+				}
+			}
+		} else {
+			eprintln!("Event loop not started, cannot get listening addresses");
+			Vec::new()
+		}
+	}
+	
+	/// Register default protocol handlers
+	async fn register_default_protocols(
+		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
+		identity: &NetworkIdentity,
+		device_registry: &Arc<RwLock<DeviceRegistry>>,
+	) -> Result<()> {
+		// Register pairing protocol handler
+		let pairing_handler = Arc::new(PairingProtocolHandler::new(
+			identity.clone(),
+			device_registry.clone(),
+		));
+		
+		// Start cleanup task for expired sessions
+		PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
+		
+		protocol_registry
+			.write()
+			.await
+			.register_handler(pairing_handler)
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to register pairing handler: {}", e)))?;
+		
+		println!("Registered pairing protocol handler with session cleanup");
+		
+		Ok(())
 	}
 }
 
