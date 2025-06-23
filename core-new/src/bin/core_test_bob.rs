@@ -138,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				// Check if we have any completed pairings
 				if !status.is_empty() {
 					for session in &status {
-						println!("📊 Bob: Session state: {:?}", session);
+						println!("📊 Bob: Session state: {}", session);
 					}
 
 					// Look for successful pairing

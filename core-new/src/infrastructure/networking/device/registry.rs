@@ -86,13 +86,6 @@ impl DeviceRegistry {
 		info: DeviceInfo,
 		session_keys: SessionKeys,
 	) -> Result<()> {
-		// Remove from session mapping
-		if let Some(state) = self.devices.get(&device_id) {
-			if let DeviceState::Pairing { session_id, .. } = state {
-				self.session_to_device.remove(session_id);
-			}
-		}
-
 		let state = DeviceState::Paired {
 			info,
 			session_keys,
@@ -278,13 +271,36 @@ impl DeviceRegistry {
 	pub fn cleanup_expired(&mut self) {
 		let now = Utc::now();
 		let mut to_remove = Vec::new();
+		let mut session_mappings_to_remove = Vec::new();
 
 		for (device_id, state) in &self.devices {
 			match state {
-				DeviceState::Pairing { started_at, .. } => {
+				DeviceState::Pairing { started_at, session_id, .. } => {
 					// Remove pairing sessions older than 10 minutes
 					if now.signed_duration_since(*started_at).num_minutes() > 10 {
 						to_remove.push(*device_id);
+						session_mappings_to_remove.push(*session_id);
+					}
+				}
+				DeviceState::Paired { paired_at, .. } => {
+					// Remove session mappings for paired devices older than 1 hour
+					// (pairing completed successfully, no need to keep session mapping)
+					if now.signed_duration_since(*paired_at).num_hours() > 1 {
+						// Find session ID to remove
+						for (session_id, &dev_id) in &self.session_to_device {
+							if dev_id == *device_id {
+								session_mappings_to_remove.push(*session_id);
+							}
+						}
+					}
+				}
+				DeviceState::Connected { .. } => {
+					// Remove session mappings for connected devices
+					// (no longer needed for active connections)
+					for (session_id, &dev_id) in &self.session_to_device {
+						if dev_id == *device_id {
+							session_mappings_to_remove.push(*session_id);
+						}
 					}
 				}
 				DeviceState::Disconnected { last_seen, .. } => {
@@ -297,8 +313,14 @@ impl DeviceRegistry {
 			}
 		}
 
+		// Remove expired devices
 		for device_id in to_remove {
 			let _ = self.remove_device(device_id);
+		}
+		
+		// Remove expired session mappings
+		for session_id in session_mappings_to_remove {
+			self.session_to_device.remove(&session_id);
 		}
 	}
 }

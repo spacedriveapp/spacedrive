@@ -122,6 +122,7 @@ pub enum PairingMessage {
 	Challenge {
 		session_id: uuid::Uuid,
 		challenge: Vec<u8>,
+		device_id: uuid::Uuid, // Alice's device ID for Bob to register
 	},
 	// Pairing response with signed challenge
 	Response {
