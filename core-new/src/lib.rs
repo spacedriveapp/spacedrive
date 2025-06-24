@@ -264,16 +264,14 @@ impl Core {
 		);
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
-		// TODO: Re-enable file transfer handler once protocol conflicts are resolved
-		// let file_transfer_handler = networking::protocols::FileTransferProtocolHandler::new_default();
+		let file_transfer_handler = networking::protocols::FileTransferProtocolHandler::new_default();
 
 		let protocol_registry = networking.protocol_registry();
 		{
 			let mut registry = protocol_registry.write().await;
 			registry.register_handler(Arc::new(pairing_handler))?;
 			registry.register_handler(Arc::new(messaging_handler))?;
-			// TODO: Re-enable file transfer handler registration
-			// registry.register_handler(Arc::new(file_transfer_handler))?;
+			registry.register_handler(Arc::new(file_transfer_handler))?;
 		}
 
 		Ok(())

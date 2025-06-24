@@ -356,8 +356,9 @@ impl FileTransferProtocolHandler {
             // Record chunk received
             self.record_chunk_received(&transfer_id, chunk_index, data.len() as u64)?;
 
-            // TODO: Write chunk to file
-            // This would involve opening the destination file and writing the chunk at the correct offset
+            // Write chunk to file
+            self.write_chunk_to_file(&transfer_id, chunk_index, &data).await
+                .map_err(|e| NetworkingError::Protocol(format!("Failed to write chunk to file: {}", e)))?;
 
             // Calculate next expected chunk
             let next_expected = {
@@ -443,6 +444,61 @@ impl FileTransferProtocolHandler {
                 _ => session.created_at > cutoff,
             }
         });
+    }
+
+    /// Write a file chunk to the destination file
+    async fn write_chunk_to_file(
+        &self,
+        transfer_id: &Uuid,
+        chunk_index: u32,
+        data: &[u8],
+    ) -> std::result::Result<(), String> {
+        use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+        
+        // Get session info to determine file path and chunk size
+        let (file_path, chunk_size) = {
+            let sessions = self.sessions.read().unwrap();
+            let session = sessions.get(transfer_id)
+                .ok_or_else(|| "Transfer session not found".to_string())?;
+            
+            // Create destination file path (for now, use a temp directory)
+            // TODO: Use proper destination path from transfer request
+            let temp_dir = std::env::temp_dir();
+            let file_path = temp_dir.join(format!("spacedrive_transfer_{}", transfer_id))
+                .join(&session.file_metadata.name);
+            
+            (file_path, 64 * 1024u32) // 64KB chunk size
+        };
+        
+        // Ensure parent directory exists
+        if let Some(parent) = file_path.parent() {
+            tokio::fs::create_dir_all(parent).await
+                .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+        }
+        
+        // Open file for writing (create if doesn't exist)
+        let mut file = tokio::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(&file_path)
+            .await
+            .map_err(|e| format!("Failed to open file for writing: {}", e))?;
+        
+        // Calculate file offset for this chunk
+        let offset = chunk_index as u64 * chunk_size as u64;
+        
+        // Seek to the correct position and write the chunk
+        file.seek(std::io::SeekFrom::Start(offset)).await
+            .map_err(|e| format!("Failed to seek in file: {}", e))?;
+        file.write_all(data).await
+            .map_err(|e| format!("Failed to write chunk data: {}", e))?;
+        file.flush().await
+            .map_err(|e| format!("Failed to flush file: {}", e))?;
+        
+        println!("📝 Wrote chunk {} ({} bytes) to file: {}", 
+            chunk_index, data.len(), file_path.display());
+        
+        Ok(())
     }
 }
 

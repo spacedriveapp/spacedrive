@@ -389,7 +389,7 @@ impl FileCopyJob {
 			.downcast_ref::<crate::infrastructure::networking::protocols::FileTransferProtocolHandler>()
 			.ok_or_else(|| "Invalid file transfer protocol handler".to_string())?;
 
-		// Initiate transfer
+		// Initiate transfer locally (create session)
 		let transfer_id = file_transfer_protocol.initiate_transfer(
 			self.destination.device_id,
 			local_path.to_path_buf(),
@@ -397,6 +397,36 @@ impl FileCopyJob {
 		).await.map_err(|e| format!("Failed to initiate transfer: {}", e))?;
 
 		ctx.log(format!("📋 Transfer initiated with ID: {}", transfer_id));
+
+		// Send transfer request to remote device
+		let chunk_size = 64 * 1024u32;
+		let total_chunks = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
+		
+		let transfer_request = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::TransferRequest {
+			transfer_id,
+			file_metadata: file_metadata.clone(),
+			transfer_mode: crate::infrastructure::networking::protocols::TransferMode::TrustedCopy,
+			chunk_size,
+			total_chunks,
+			checksum: Some(file_metadata.checksum.unwrap_or([0u8; 32])),
+		};
+
+		let request_data = rmp_serde::to_vec(&transfer_request)
+			.map_err(|e| format!("Failed to serialize transfer request: {}", e))?;
+
+		// Send transfer request over network
+		networking_guard.send_message(
+			self.destination.device_id,
+			"file_transfer",
+			request_data,
+		).await.map_err(|e| format!("Failed to send transfer request: {}", e))?;
+
+		ctx.log(format!("📤 Transfer request sent to device {}", self.destination.device_id));
+
+		// For trusted devices, assume acceptance and start streaming immediately
+		// TODO: Wait for actual acceptance response in production
+		drop(networking_guard);
+		drop(registry_guard);
 
 		// Stream file data
 		self.stream_file_data(
@@ -421,6 +451,11 @@ impl FileCopyJob {
 		ctx: &JobContext<'_>,
 	) -> Result<(), String> {
 		use tokio::io::AsyncReadExt;
+		use blake3::Hasher;
+
+		// Get networking service for sending chunks
+		let networking = ctx.networking_service()
+			.ok_or_else(|| "Networking service not available".to_string())?;
 
 		let mut file = tokio::fs::File::open(file_path).await
 			.map_err(|e| format!("Failed to open file: {}", e))?;
@@ -431,7 +466,7 @@ impl FileCopyJob {
 		let mut chunk_index = 0u32;
 		let mut bytes_transferred = 0u64;
 
-		ctx.log(format!("📦 Starting to stream {} chunks", total_chunks));
+		ctx.log(format!("📦 Starting to stream {} chunks to device {}", total_chunks, self.destination.device_id));
 
 		loop {
 			ctx.check_interrupt().await
@@ -443,6 +478,10 @@ impl FileCopyJob {
 			if bytes_read == 0 {
 				break; // End of file
 			}
+
+			// Calculate chunk checksum
+			let chunk_data = &buffer[..bytes_read];
+			let chunk_checksum = blake3::hash(chunk_data);
 
 			// Update progress
 			bytes_transferred += bytes_read as u64;
@@ -456,7 +495,26 @@ impl FileCopyJob {
 				estimated_remaining: None,
 			}));
 
-			// Record chunk in protocol handler (simulates sending over network)
+			// Create file chunk message
+			let chunk_message = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::FileChunk {
+				transfer_id,
+				chunk_index,
+				data: chunk_data.to_vec(),
+				chunk_checksum: *chunk_checksum.as_bytes(),
+			};
+
+			// Serialize and send chunk over network
+			let chunk_data = rmp_serde::to_vec(&chunk_message)
+				.map_err(|e| format!("Failed to serialize chunk: {}", e))?;
+
+			let networking_guard = networking.read().await;
+			networking_guard.send_message(
+				self.destination.device_id,
+				"file_transfer",
+				chunk_data,
+			).await.map_err(|e| format!("Failed to send chunk over network: {}", e))?;
+
+			// Record chunk in local protocol handler for tracking
 			file_transfer_protocol.record_chunk_received(
 				&transfer_id,
 				chunk_index,
@@ -465,17 +523,38 @@ impl FileCopyJob {
 
 			chunk_index += 1;
 
-			// Small delay to simulate network transfer
-			tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+			ctx.log(format!("📤 Sent chunk {}/{} ({} bytes)", chunk_index, total_chunks, bytes_read));
+
+			// Small delay to prevent overwhelming the network
+			tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 		}
 
-		// Mark transfer as completed
+		// Send transfer completion message
+		let final_checksum = self.calculate_file_checksum(file_path).await?;
+		let completion_message = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::TransferComplete {
+			transfer_id,
+			final_checksum,
+			total_bytes: bytes_transferred,
+		};
+
+		let completion_data = rmp_serde::to_vec(&completion_message)
+			.map_err(|e| format!("Failed to serialize completion: {}", e))?;
+
+		let networking_guard = networking.read().await;
+		networking_guard.send_message(
+			self.destination.device_id,
+			"file_transfer",
+			completion_data,
+		).await.map_err(|e| format!("Failed to send completion over network: {}", e))?;
+
+		// Mark transfer as completed locally
 		file_transfer_protocol.update_session_state(
 			&transfer_id,
 			crate::infrastructure::networking::protocols::file_transfer::TransferState::Completed,
 		).map_err(|e| format!("Failed to complete transfer: {}", e))?;
 
-		ctx.log(format!("✅ File streaming completed: {} chunks, {} bytes", chunk_index, bytes_transferred));
+		ctx.log(format!("✅ File streaming completed: {} chunks, {} bytes sent to device {}", 
+			chunk_index, bytes_transferred, self.destination.device_id));
 		Ok(())
 	}
 
