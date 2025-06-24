@@ -269,7 +269,10 @@ impl Core {
 		);
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
-		let file_transfer_handler = networking::protocols::FileTransferProtocolHandler::new_default();
+		let mut file_transfer_handler = networking::protocols::FileTransferProtocolHandler::new_default();
+		
+		// Inject device registry into file transfer handler for encryption
+		file_transfer_handler.set_device_registry(networking.device_registry());
 
 		let protocol_registry = networking.protocol_registry();
 		{

@@ -500,12 +500,25 @@ impl FileCopyJob {
 				estimated_remaining: None,
 			}));
 
-			// Create file chunk message
+			// Get session keys for encryption
+			let session_keys = file_transfer_protocol.get_session_keys_for_device(self.destination.device_id).await
+				.map_err(|e| format!("Failed to get session keys: {}", e))?;
+
+			// Encrypt chunk using file transfer protocol
+			let (encrypted_data, nonce) = file_transfer_protocol.encrypt_chunk(
+				&session_keys.send_key,
+				&transfer_id,
+				chunk_index,
+				chunk_data,
+			).map_err(|e| format!("Failed to encrypt chunk: {}", e))?;
+
+			// Create encrypted file chunk message
 			let chunk_message = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::FileChunk {
 				transfer_id,
 				chunk_index,
-				data: chunk_data.to_vec(),
-				chunk_checksum: *chunk_checksum.as_bytes(),
+				data: encrypted_data,
+				nonce,
+				chunk_checksum: *chunk_checksum.as_bytes(), // Checksum of original unencrypted data
 			};
 
 			// Serialize and send chunk over network

@@ -112,9 +112,15 @@ impl DeviceRegistry {
 			.get(&device_id)
 			.ok_or_else(|| NetworkingError::DeviceNotFound(device_id))?;
 
-		let (info, peer_id): (DeviceInfo, Option<PeerId>) = match current_state {
-			DeviceState::Paired { info, .. } => (info.clone(), None),
-			DeviceState::Disconnected { info, .. } => (info.clone(), None),
+		let (info, session_keys): (DeviceInfo, super::SessionKeys) = match current_state {
+			DeviceState::Paired { info, session_keys, .. } => (info.clone(), session_keys.clone()),
+			DeviceState::Disconnected { info, .. } => {
+				// For disconnected devices, we need to find their session keys from a previous state
+				// This is a limitation - we should store session keys with disconnected devices too
+				return Err(NetworkingError::Protocol(
+					"Cannot connect disconnected device without session keys".to_string(),
+				));
+			}
 			DeviceState::Discovered { peer_id, .. } => {
 				// Need device info - this shouldn't happen normally
 				return Err(NetworkingError::Protocol(
@@ -136,6 +142,7 @@ impl DeviceRegistry {
 		let state = DeviceState::Connected {
 			info,
 			connection,
+			session_keys,
 			connected_at: Utc::now(),
 		};
 
@@ -245,6 +252,24 @@ impl DeviceRegistry {
 			println!("   {} -> {}", peer_id, mapped_device_id);
 		}
 		None
+	}
+
+	/// Get session keys for a device
+	pub fn get_session_keys(&self, device_id: Uuid) -> Option<super::SessionKeys> {
+		match self.devices.get(&device_id) {
+			Some(DeviceState::Paired { session_keys, .. }) => {
+				println!("🔑 REGISTRY_DEBUG: Found session keys for paired device {}", device_id);
+				Some(session_keys.clone())
+			}
+			Some(DeviceState::Connected { session_keys, .. }) => {
+				println!("🔑 REGISTRY_DEBUG: Found session keys for connected device {}", device_id);
+				Some(session_keys.clone())
+			}
+			_ => {
+				println!("🔑 REGISTRY_DEBUG: Device {} not found or not paired/connected", device_id);
+				None
+			}
+		}
 	}
 
 	/// Get all currently connected peer IDs

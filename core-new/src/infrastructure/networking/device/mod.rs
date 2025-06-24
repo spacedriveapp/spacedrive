@@ -65,6 +65,7 @@ pub enum DeviceState {
 	Connected {
 		info: DeviceInfo,
 		connection: DeviceConnection,
+		session_keys: SessionKeys,
 		connected_at: DateTime<Utc>,
 	},
 	/// Device was connected but is now disconnected

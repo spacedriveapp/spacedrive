@@ -12,12 +12,29 @@ use std::{
 use tokio::{fs::File, io::AsyncReadExt};
 use uuid::Uuid;
 
+// Encryption imports
+use chacha20poly1305::{
+    aead::{Aead, AeadCore, KeyInit, OsRng},
+    ChaCha20Poly1305, Nonce,
+};
+use hkdf::Hkdf;
+use sha2::Sha256;
+
+/// Session keys for device-to-device encryption
+#[derive(Debug, Clone)]
+pub struct SessionKeys {
+    pub send_key: Vec<u8>,      // 32-byte HKDF-derived send key  
+    pub receive_key: Vec<u8>,   // 32-byte HKDF-derived receive key
+}
+
 /// File transfer protocol handler
 pub struct FileTransferProtocolHandler {
     /// Active transfer sessions
     sessions: Arc<RwLock<HashMap<Uuid, TransferSession>>>,
     /// Protocol configuration
     config: TransferConfig,
+    /// Device registry for session keys
+    device_registry: Option<Arc<tokio::sync::RwLock<crate::infrastructure::networking::device::DeviceRegistry>>>,
 }
 
 /// Configuration for file transfers
@@ -123,8 +140,9 @@ pub enum FileTransferMessage {
     FileChunk {
         transfer_id: Uuid,
         chunk_index: u32,
-        data: Vec<u8>,
-        chunk_checksum: [u8; 32],
+        data: Vec<u8>,            // Encrypted data
+        nonce: [u8; 12],          // ChaCha20-Poly1305 nonce
+        chunk_checksum: [u8; 32], // Checksum of original (unencrypted) data
     },
     
     /// Acknowledge received chunk
@@ -169,7 +187,74 @@ impl FileTransferProtocolHandler {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             config,
+            device_registry: None,
         }
+    }
+
+    /// Set the device registry for session key lookup
+    pub fn set_device_registry(&mut self, device_registry: Arc<tokio::sync::RwLock<crate::infrastructure::networking::device::DeviceRegistry>>) {
+        self.device_registry = Some(device_registry);
+    }
+
+    /// Derive chunk encryption key from session keys
+    fn derive_chunk_key(&self, session_send_key: &[u8], transfer_id: &Uuid, chunk_index: u32) -> Result<[u8; 32]> {
+        let hk = Hkdf::<Sha256>::new(None, session_send_key);
+        let info = format!("spacedrive-chunk-{}-{}", transfer_id, chunk_index);
+        let mut key = [0u8; 32];
+        hk.expand(info.as_bytes(), &mut key)
+            .map_err(|e| NetworkingError::Protocol(format!("Key derivation failed: {}", e)))?;
+        Ok(key)
+    }
+
+    /// Encrypt chunk data using ChaCha20-Poly1305
+    pub fn encrypt_chunk(&self, session_send_key: &[u8], transfer_id: &Uuid, chunk_index: u32, data: &[u8]) -> Result<(Vec<u8>, [u8; 12])> {
+        // Derive chunk-specific key
+        let chunk_key = self.derive_chunk_key(session_send_key, transfer_id, chunk_index)?;
+        
+        // Create cipher
+        let cipher = ChaCha20Poly1305::new_from_slice(&chunk_key)
+            .map_err(|e| NetworkingError::Protocol(format!("Cipher creation failed: {}", e)))?;
+        
+        // Generate nonce
+        let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
+        
+        // Encrypt data
+        let ciphertext = cipher.encrypt(&nonce, data)
+            .map_err(|e| NetworkingError::Protocol(format!("Encryption failed: {}", e)))?;
+        
+        Ok((ciphertext, nonce.into()))
+    }
+
+    /// Decrypt chunk data using ChaCha20-Poly1305
+    fn decrypt_chunk(&self, session_receive_key: &[u8], transfer_id: &Uuid, chunk_index: u32, encrypted_data: &[u8], nonce: &[u8; 12]) -> Result<Vec<u8>> {
+        // Derive same chunk-specific key (using receive key)
+        let chunk_key = self.derive_chunk_key(session_receive_key, transfer_id, chunk_index)?;
+        
+        // Create cipher
+        let cipher = ChaCha20Poly1305::new_from_slice(&chunk_key)
+            .map_err(|e| NetworkingError::Protocol(format!("Cipher creation failed: {}", e)))?;
+        
+        // Decrypt data
+        let nonce = Nonce::from_slice(nonce);
+        let plaintext = cipher.decrypt(nonce, encrypted_data)
+            .map_err(|e| NetworkingError::Protocol(format!("Decryption failed: {}", e)))?;
+        
+        Ok(plaintext)
+    }
+
+    /// Get session keys for a device from the device registry
+    pub async fn get_session_keys_for_device(&self, device_id: Uuid) -> Result<SessionKeys> {
+        let device_registry = self.device_registry.as_ref()
+            .ok_or_else(|| NetworkingError::Protocol("Device registry not set".to_string()))?;
+        
+        let registry_guard = device_registry.read().await;
+        let session_keys = registry_guard.get_session_keys(device_id)
+            .ok_or_else(|| NetworkingError::Protocol(format!("No session keys found for device {}", device_id)))?;
+        
+        Ok(SessionKeys {
+            send_key: session_keys.send_key,
+            receive_key: session_keys.receive_key,
+        })
     }
 
     /// Create with default configuration
@@ -342,12 +427,25 @@ impl FileTransferProtocolHandler {
             transfer_id,
             chunk_index,
             data,
+            nonce,
             chunk_checksum,
         } = chunk
         {
-            // Verify chunk checksum
+            // Get session keys for decryption
+            let session_keys = self.get_session_keys_for_device(from_device).await?;
+            
+            // Decrypt chunk data
+            let decrypted_data = self.decrypt_chunk(
+                &session_keys.receive_key,
+                &transfer_id,
+                chunk_index,
+                &data,
+                &nonce,
+            )?;
+
+            // Verify chunk checksum (of decrypted data)
             if self.config.verify_checksums {
-                let calculated_checksum = blake3::hash(&data);
+                let calculated_checksum = blake3::hash(&decrypted_data);
                 if calculated_checksum.as_bytes() != &chunk_checksum {
                     return Ok(FileTransferMessage::TransferError {
                         transfer_id,
@@ -358,11 +456,11 @@ impl FileTransferProtocolHandler {
                 }
             }
 
-            // Record chunk received
-            self.record_chunk_received(&transfer_id, chunk_index, data.len() as u64)?;
+            // Record chunk received (using decrypted size)
+            self.record_chunk_received(&transfer_id, chunk_index, decrypted_data.len() as u64)?;
 
-            // Write chunk to file
-            self.write_chunk_to_file(&transfer_id, chunk_index, &data).await
+            // Write decrypted chunk to file
+            self.write_chunk_to_file(&transfer_id, chunk_index, &decrypted_data).await
                 .map_err(|e| NetworkingError::Protocol(format!("Failed to write chunk to file: {}", e)))?;
 
             // Calculate next expected chunk

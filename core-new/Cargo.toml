@@ -94,8 +94,9 @@ tokio-stream = "0.1"        # Async streams
 bip39 = "2.0"
 
 # Additional cryptography
+chacha20poly1305 = "0.10"    # Authenticated encryption for chunk-level security
+hkdf = "0.12"                # Key derivation function for session keys
 x25519-dalek = "2.0"
-hkdf = "0.12"
 hmac = "0.12"
 
 # Network utilities
