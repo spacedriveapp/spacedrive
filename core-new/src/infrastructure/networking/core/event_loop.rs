@@ -1105,10 +1105,60 @@ impl NetworkingEventLoop {
 						message,
 						connection_id: _,
 					} => match message {
-						request_response::Message::Request { request, .. } => {
+						request_response::Message::Request {
+							request,
+							channel,
+							request_id: _,
+						} => {
 							println!("🔄 Received file transfer request from {}", peer);
-							// TODO: Route to file transfer protocol handler
-							// For now, just log the received request
+
+							// Get device ID from device registry using peer ID
+							let device_id = match device_registry.read().await.get_device_by_peer(peer) {
+								Some(id) => {
+									println!("🔗 File Transfer: Found device {} for peer {}", id, peer);
+									id
+								}
+								None => {
+									eprintln!("❌ File Transfer: No device mapping found for peer {}", peer);
+									return Ok(()); // Skip processing this request
+								}
+							};
+
+							// Handle the request through the protocol registry
+							match protocol_registry
+								.read()
+								.await
+								.handle_request(
+									"file_transfer",
+									device_id,
+									rmp_serde::to_vec(&request).unwrap_or_default(),
+								)
+								.await
+							{
+								Ok(response_data) => {
+									// Deserialize response back to FileTransferMessage for LibP2P
+									if let Ok(response_message) = rmp_serde::from_slice::<
+										super::behavior::FileTransferMessage,
+									>(&response_data)
+									{
+										// Send response back through LibP2P
+										if let Err(e) = swarm
+											.behaviour_mut()
+											.file_transfer
+											.send_response(channel, response_message)
+										{
+											eprintln!("Failed to send file transfer response: {:?}", e);
+										} else {
+											println!("✅ Sent file transfer response to {}", peer);
+										}
+									} else {
+										eprintln!("❌ Failed to deserialize file transfer response");
+									}
+								}
+								Err(e) => {
+									eprintln!("❌ File transfer protocol handler error: {}", e);
+								}
+							}
 						}
 						request_response::Message::Response { response, .. } => {
 							println!("✅ Received file transfer response from {}", peer);

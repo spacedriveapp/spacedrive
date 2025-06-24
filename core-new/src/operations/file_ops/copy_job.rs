@@ -57,6 +57,7 @@ impl JobHandler for FileCopyJob {
 	type Output = FileCopyOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		println!("🔍 FILECOPY_DEBUG: FileCopyJob::run called with {} sources", self.sources.paths.len());
 		ctx.log(format!(
 			"Starting copy operation on {} files",
 			self.sources.paths.len()
@@ -95,6 +96,7 @@ impl JobHandler for FileCopyJob {
 				.await?;
 			} else {
 				// Cross-device copy
+				println!("🔍 FILECOPY_DEBUG: Processing cross-device copies for device {}", device_id);
 				self.process_cross_device_copies(
 					device_paths.iter().collect(),
 					&ctx,
@@ -289,6 +291,7 @@ impl FileCopyJob {
 		total_files: usize,
 		estimated_total_bytes: u64,
 	) -> JobResult<()> {
+		println!("🔍 FILECOPY_DEBUG: process_cross_device_copies called with {} paths", paths.len());
 		for source in paths {
 			ctx.check_interrupt().await?;
 
@@ -343,6 +346,7 @@ impl FileCopyJob {
 		source: &SdPath,
 		ctx: &JobContext<'_>,
 	) -> Result<u64, String> {
+		println!("🔍 FILECOPY_DEBUG: transfer_file_to_device called for source: {}", source.display());
 		// Get networking service
 		let networking = ctx.networking_service()
 			.ok_or_else(|| "Networking service not available".to_string())?;
@@ -409,6 +413,7 @@ impl FileCopyJob {
 			chunk_size,
 			total_chunks,
 			checksum: Some(file_metadata.checksum.unwrap_or([0u8; 32])),
+			destination_path: self.destination.path.to_string_lossy().to_string(),
 		};
 
 		let request_data = rmp_serde::to_vec(&transfer_request)

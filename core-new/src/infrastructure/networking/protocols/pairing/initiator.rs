@@ -109,12 +109,10 @@ impl PairingProtocolHandler {
                 .insert(session_id, session);
         }
 
-        // Send challenge response
+        // Send challenge response with proper network fingerprint
         let local_device_info = self
-            .device_registry
-            .read()
+            .get_device_info()
             .await
-            .get_local_device_info()
             .map_err(|e| {
                 NetworkingError::Protocol(format!("Failed to get initiator device info: {}", e))
             })?;
@@ -207,10 +205,12 @@ impl PairingProtocolHandler {
         let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
 
         // Complete pairing in device registry with proper lock scoping
+        // Use the actual device ID from device_info to ensure consistency
+        let actual_device_id = device_info.device_id;
         {
             let mut registry = self.device_registry.write().await;
             registry.complete_pairing(
-                from_device,
+                actual_device_id,
                 device_info.clone(),
                 session_keys.clone(),
             )?;
@@ -219,7 +219,7 @@ impl PairingProtocolHandler {
         // Get peer ID for device connection with separate read lock
         let peer_id = {
             let registry = self.device_registry.read().await;
-            registry.get_peer_by_device(from_device)
+            registry.get_peer_by_device(actual_device_id)
                 .unwrap_or_else(libp2p::PeerId::random)
         }; // Release read lock here
 
@@ -233,7 +233,7 @@ impl PairingProtocolHandler {
 
         if let Err(e) = {
             let mut registry = self.device_registry.write().await;
-            registry.mark_connected(from_device, connection)
+            registry.mark_connected(actual_device_id, connection)
         }
         {
             self.log_warn(&format!(
@@ -243,7 +243,7 @@ impl PairingProtocolHandler {
         } else {
             self.log_info(&format!(
                 "Successfully marked device {} as connected",
-                from_device
+                actual_device_id
             )).await;
         }
 
@@ -251,10 +251,10 @@ impl PairingProtocolHandler {
         if let Some(session) = self.active_sessions.write().await.get_mut(&session_id) {
             session.state = PairingState::Completed;
             session.shared_secret = Some(shared_secret);
-            session.remote_device_id = Some(from_device);
+            session.remote_device_id = Some(actual_device_id);
             self.log_info(&format!(
                 "Session {} updated with shared secret and remote device ID {}",
-                session_id, from_device
+                session_id, actual_device_id
             )).await;
         }
 

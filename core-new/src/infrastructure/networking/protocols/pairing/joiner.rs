@@ -42,13 +42,13 @@ impl PairingProtocolHandler {
             }
         };
 
-        // Get local device info
+        // Get local device info with proper network fingerprint
         self.log_debug("About to get local device info...").await;
-        let device_info = match self.device_registry.read().await.get_local_device_info() {
+        let device_info = match self.get_device_info().await {
             Ok(info) => {
                 self.log_debug(&format!(
-                    "Successfully got local device info for device {}",
-                    info.device_id
+                    "Successfully got local device info for device {} with peer_id {}",
+                    info.device_id, info.network_fingerprint.peer_id
                 )).await;
                 info
             }
@@ -129,8 +129,6 @@ impl PairingProtocolHandler {
                     let session_keys =
                         SessionKeys::from_shared_secret(shared_secret.clone());
 
-                    let initiator_device_id = from_device;
-
                     // Get Initiator's device info from the session state (received in Challenge message)
                     let initiator_device_info = {
                         let sessions = self.active_sessions.read().await;
@@ -142,8 +140,8 @@ impl PairingProtocolHandler {
                                 // Fallback if no device info stored (shouldn't happen in normal flow)
                                 self.log_warn("No remote device info stored in session, using fallback").await;
                                 crate::infrastructure::networking::device::DeviceInfo {
-                                    device_id: initiator_device_id,
-                                    device_name: format!("Remote Device {}", &initiator_device_id.to_string()[..8]),
+                                    device_id: from_device,
+                                    device_name: format!("Remote Device {}", &from_device.to_string()[..8]),
                                     device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
                                     os_version: "Unknown".to_string(),
                                     app_version: "Unknown".to_string(),
@@ -162,10 +160,12 @@ impl PairingProtocolHandler {
                     };
 
                     // Complete pairing in device registry
+                    // Use the actual device ID from device_info to ensure consistency
+                    let actual_device_id = initiator_device_info.device_id;
                     let pairing_result = {
                         let mut registry = self.device_registry.write().await;
                         registry.complete_pairing(
-                            initiator_device_id,
+                            actual_device_id,
                             initiator_device_info.clone(),
                             session_keys.clone(),
                         )
@@ -179,7 +179,7 @@ impl PairingProtocolHandler {
                                 if let Some(session) = sessions.get_mut(&session_id) {
                                     session.state = PairingState::Completed;
                                     session.shared_secret = Some(shared_secret.clone());
-                                    session.remote_device_id = Some(initiator_device_id);
+                                    session.remote_device_id = Some(actual_device_id);
                                 }
                             }
 
@@ -197,7 +197,7 @@ impl PairingProtocolHandler {
 
                                 let _mark_result = {
                                     let mut registry = self.device_registry.write().await;
-                                    registry.mark_connected(initiator_device_id, connection)
+                                    registry.mark_connected(actual_device_id, connection)
                                 };
                             }
                         }

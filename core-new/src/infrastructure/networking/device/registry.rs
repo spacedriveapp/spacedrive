@@ -236,8 +236,13 @@ impl DeviceRegistry {
 		// Look through peer_to_device map in reverse
 		for (peer_id, &dev_id) in &self.peer_to_device {
 			if dev_id == device_id {
+				println!("🔗 REGISTRY_DEBUG: Found peer {} for device {}", peer_id, device_id);
 				return Some(*peer_id);
 			}
+		}
+		println!("⚠️ REGISTRY_DEBUG: No peer found for device {}. Available mappings:", device_id);
+		for (peer_id, mapped_device_id) in &self.peer_to_device {
+			println!("   {} -> {}", peer_id, mapped_device_id);
 		}
 		None
 	}

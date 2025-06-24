@@ -355,6 +355,7 @@ pub async fn run_file_copy_sender(data_dir: &Path, device_name: &str) -> Result<
         if !connected_devices.is_empty() {
             receiver_device_id = Some(connected_devices[0]);
             println!("🎉 {}: Receiver connected! Device ID: {}", device_name, connected_devices[0]);
+            println!("🔍 ALICE_DEBUG: About to use device ID {} for file copy", connected_devices[0]);
             break;
         }
         
@@ -420,6 +421,7 @@ pub async fn run_file_copy_sender(data_dir: &Path, device_name: &str) -> Result<
             // Wait for transfers to complete
             println!("⏳ {}: Waiting for transfers to complete...", device_name);
             for transfer_id in &transfer_ids {
+                println!("🔍 ALICE_DEBUG: Checking status for transfer_id: {:?}", transfer_id);
                 let mut completed = false;
                 for _ in 0..30 { // Wait up to 30 seconds
                     tokio::time::sleep(Duration::from_secs(1)).await;

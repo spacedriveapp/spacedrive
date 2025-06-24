@@ -56,6 +56,7 @@ pub struct TransferSession {
     pub chunks_received: Vec<u32>,
     pub source_device: Option<Uuid>,
     pub destination_device: Option<Uuid>,
+    pub destination_path: String,
 }
 
 /// Transfer state machine
@@ -107,6 +108,7 @@ pub enum FileTransferMessage {
         chunk_size: u32,
         total_chunks: u32,
         checksum: Option<[u8; 32]>,
+        destination_path: String,
     },
     
     /// Response to transfer request
@@ -213,6 +215,7 @@ impl FileTransferProtocolHandler {
             chunks_received: Vec::new(),
             source_device: None, // Will be set when we know our device ID
             destination_device: Some(target_device),
+            destination_path: "/tmp".to_string(), // Default destination, will be set by caller
         };
 
         // Store session
@@ -285,6 +288,7 @@ impl FileTransferProtocolHandler {
             transfer_id,
             file_metadata,
             transfer_mode,
+            destination_path,
             ..
         } = request
         {
@@ -310,6 +314,7 @@ impl FileTransferProtocolHandler {
                     chunks_received: Vec::new(),
                     source_device: Some(from_device),
                     destination_device: None, // We are the destination
+                    destination_path,
                 };
 
                 let mut sessions = self.sessions.write().unwrap();
@@ -461,11 +466,9 @@ impl FileTransferProtocolHandler {
             let session = sessions.get(transfer_id)
                 .ok_or_else(|| "Transfer session not found".to_string())?;
             
-            // Create destination file path (for now, use a temp directory)
-            // TODO: Use proper destination path from transfer request
-            let temp_dir = std::env::temp_dir();
-            let file_path = temp_dir.join(format!("spacedrive_transfer_{}", transfer_id))
-                .join(&session.file_metadata.name);
+            // Use the destination path from the transfer request
+            let destination_path = PathBuf::from(&session.destination_path);
+            let file_path = destination_path.join(&session.file_metadata.name);
             
             (file_path, 64 * 1024u32) // 64KB chunk size
         };

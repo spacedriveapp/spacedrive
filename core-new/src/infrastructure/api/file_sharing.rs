@@ -122,7 +122,9 @@ impl FileSharing {
 
     /// Check if file sharing has a job manager configured
     pub async fn has_job_manager(&self) -> bool {
-        self.job_manager.is_some()
+        let has_jm = self.job_manager.is_some();
+        println!("🔍 FILE_SHARING_DEBUG: has_job_manager = {}", has_jm);
+        has_jm
     }
 
     /// Share files with automatic protocol selection based on device relationship
@@ -166,6 +168,7 @@ impl FileSharing {
         device_id: Uuid,
         options: SharingOptions,
     ) -> Result<Vec<TransferId>, SharingError> {
+        println!("🔍 FILE_SHARING_DEBUG: copy_to_paired_device called with device {}", device_id);
         let job_manager = self.job_manager.as_ref()
             .ok_or(SharingError::NetworkingUnavailable)?;
 
@@ -283,10 +286,13 @@ impl FileSharing {
                     .ok_or(SharingError::NetworkingUnavailable)?;
 
                 // Query job system for status
+                println!("🔍 FILE_SHARING_DEBUG: About to call get_job_info for job {}", job_id);
                 let job_info = job_manager.get_job_info(*job_id).await
                     .map_err(|e| SharingError::JobError(e.to_string()))?;
 
+                println!("🔍 FILE_SHARING_DEBUG: get_job_info returned: {:?}", job_info.is_some());
                 if let Some(info) = job_info {
+                    println!("🔍 FILE_SHARING_DEBUG: Job info found - status: {:?}", info.status);
                     let state = match info.status {
                         crate::infrastructure::jobs::types::JobStatus::Queued => TransferState::Pending,
                         crate::infrastructure::jobs::types::JobStatus::Running => TransferState::Active,

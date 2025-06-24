@@ -140,6 +140,7 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
+		println!("🔍 JOB_DEBUG: Successfully inserted job {} into database", job_id);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -257,6 +258,7 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
+		println!("🔍 JOB_DEBUG: Successfully inserted job {} into database", job_id);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -469,11 +471,19 @@ impl JobManager {
 
 	/// Get detailed information about a specific job
 	pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
+		println!("🔍 JOB_DEBUG: Looking up job {} in database", id);
 		let job = database::jobs::Entity::find_by_id(id.to_string())
 			.one(self.db.conn())
 			.await?;
+		
+		if job.is_some() {
+			println!("🔍 JOB_DEBUG: Found job {} in database", id);
+		} else {
+			println!("⚠️ JOB_DEBUG: Job {} NOT found in database", id);
+		}
 
 		Ok(job.and_then(|j| {
+			println!("🔍 JOB_DEBUG: Converting database job - status: {}, name: {}", j.status, j.name);
 			let id = j.id.parse::<Uuid>().ok()?;
 			let status = match j.status.as_str() {
 				"queued" => JobStatus::Queued,

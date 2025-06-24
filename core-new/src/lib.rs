@@ -177,7 +177,12 @@ impl Core {
 			Err(e) => error!("Failed to load libraries: {}", e),
 		}
 
-		// 8. Initialize and start services
+		// 8. Register all job types
+		info!("Registering job types...");
+		crate::operations::register_all_jobs();
+		info!("Job types registered");
+
+		// 9. Initialize and start services
 		let services = Services::new(events.clone());
 
 		info!("Starting background services...");
@@ -186,7 +191,7 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
-		// 9. Emit startup event
+		// 10. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -403,28 +408,36 @@ impl Core {
 
 	/// Ensure file sharing has a job manager (lazy initialization of default library)
 	async fn ensure_file_sharing_ready(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+		println!("🔍 CORE_DEBUG: ensure_file_sharing_ready called");
 		if let Some(file_sharing_arc) = &self.file_sharing {
 			let file_sharing = file_sharing_arc.read().await;
 			// Check if file sharing already has a job manager
 			if file_sharing.has_job_manager().await {
+				println!("🔍 CORE_DEBUG: File sharing already has job manager");
 				return Ok(());
 			}
 			drop(file_sharing);
+			println!("🔍 CORE_DEBUG: File sharing needs job manager setup");
 
 			// Initialize default library if needed
 			let open_libraries = self.libraries.get_open_libraries().await;
+			println!("🔍 CORE_DEBUG: Found {} open libraries", open_libraries.len());
 			if open_libraries.is_empty() {
 				info!("Creating default library for file operations");
+				println!("🔍 CORE_DEBUG: Creating default library");
 				let default_library = self.libraries.create_library("Default", None).await?;
 				
 				// Set job manager and networking
 				let mut file_sharing = file_sharing_arc.write().await;
+				println!("🔍 CORE_DEBUG: Setting job manager on file sharing");
 				file_sharing.set_job_manager(default_library.jobs().clone());
 				if let Some(networking) = &self.networking {
+					println!("🔍 CORE_DEBUG: Setting networking on job manager");
 					default_library.jobs().set_networking(networking.clone()).await;
 				}
 				
 				info!("Default library created and configured for file sharing");
+				println!("🔍 CORE_DEBUG: File sharing setup complete");
 			} else {
 				// Use first available library
 				let library = &open_libraries[0];
