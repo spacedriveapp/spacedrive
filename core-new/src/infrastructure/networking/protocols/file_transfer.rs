@@ -1,0 +1,587 @@
+//! File transfer protocol for cross-device file operations
+
+use crate::infrastructure::networking::{NetworkingError, Result};
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+    time::{Duration, SystemTime},
+};
+use tokio::{fs::File, io::AsyncReadExt};
+use uuid::Uuid;
+
+/// File transfer protocol handler
+pub struct FileTransferProtocolHandler {
+    /// Active transfer sessions
+    sessions: Arc<RwLock<HashMap<Uuid, TransferSession>>>,
+    /// Protocol configuration
+    config: TransferConfig,
+}
+
+/// Configuration for file transfers
+#[derive(Debug, Clone)]
+pub struct TransferConfig {
+    /// Default chunk size for file streaming
+    pub chunk_size: u32,
+    /// Maximum concurrent transfers
+    pub max_concurrent_transfers: u32,
+    /// Transfer timeout
+    pub transfer_timeout: Duration,
+    /// Enable integrity verification
+    pub verify_checksums: bool,
+}
+
+impl Default for TransferConfig {
+    fn default() -> Self {
+        Self {
+            chunk_size: 64 * 1024, // 64KB chunks
+            max_concurrent_transfers: 10,
+            transfer_timeout: Duration::from_secs(300), // 5 minutes
+            verify_checksums: true,
+        }
+    }
+}
+
+/// Active transfer session
+#[derive(Debug, Clone)]
+pub struct TransferSession {
+    pub id: Uuid,
+    pub file_metadata: FileMetadata,
+    pub mode: TransferMode,
+    pub state: TransferState,
+    pub created_at: SystemTime,
+    pub bytes_transferred: u64,
+    pub chunks_received: Vec<u32>,
+    pub source_device: Option<Uuid>,
+    pub destination_device: Option<Uuid>,
+}
+
+/// Transfer state machine
+#[derive(Debug, Clone, PartialEq)]
+pub enum TransferState {
+    /// Waiting for transfer to be accepted
+    Pending,
+    /// Transfer in progress
+    Active,
+    /// Transfer completed successfully
+    Completed,
+    /// Transfer failed
+    Failed(String),
+    /// Transfer cancelled
+    Cancelled,
+}
+
+/// Transfer modes for different use cases
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransferMode {
+    /// Trusted device copy (automatic, uses session keys)
+    TrustedCopy,
+    /// Ephemeral sharing (requires consent, uses ephemeral keys)
+    EphemeralShare {
+        ephemeral_pubkey: [u8; 32],
+        sender_identity: String,
+    },
+}
+
+/// File metadata for transfer operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileMetadata {
+    pub name: String,
+    pub size: u64,
+    pub modified: Option<SystemTime>,
+    pub is_directory: bool,
+    pub checksum: Option<[u8; 32]>,
+    pub mime_type: Option<String>,
+}
+
+/// Universal message types for file operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FileTransferMessage {
+    /// Request to initiate file transfer
+    TransferRequest {
+        transfer_id: Uuid,
+        file_metadata: FileMetadata,
+        transfer_mode: TransferMode,
+        chunk_size: u32,
+        total_chunks: u32,
+        checksum: Option<[u8; 32]>,
+    },
+    
+    /// Response to transfer request
+    TransferResponse {
+        transfer_id: Uuid,
+        accepted: bool,
+        reason: Option<String>,
+        supported_resume: bool,
+    },
+    
+    /// File data chunk
+    FileChunk {
+        transfer_id: Uuid,
+        chunk_index: u32,
+        data: Vec<u8>,
+        chunk_checksum: [u8; 32],
+    },
+    
+    /// Acknowledge received chunk
+    ChunkAck {
+        transfer_id: Uuid,
+        chunk_index: u32,
+        next_expected: u32,
+    },
+    
+    /// Transfer completion notification
+    TransferComplete {
+        transfer_id: Uuid,
+        final_checksum: [u8; 32],
+        total_bytes: u64,
+    },
+    
+    /// Transfer error or cancellation
+    TransferError {
+        transfer_id: Uuid,
+        error_type: TransferErrorType,
+        message: String,
+        recoverable: bool,
+    },
+}
+
+/// Types of transfer errors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransferErrorType {
+    NetworkError,
+    FileSystemError,
+    PermissionDenied,
+    InsufficientSpace,
+    ChecksumMismatch,
+    Timeout,
+    Cancelled,
+    ProtocolError,
+}
+
+impl FileTransferProtocolHandler {
+    /// Create a new file transfer protocol handler
+    pub fn new(config: TransferConfig) -> Self {
+        Self {
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            config,
+        }
+    }
+
+    /// Create with default configuration
+    pub fn new_default() -> Self {
+        Self::new(TransferConfig::default())
+    }
+
+    /// Initiate a file transfer to a device
+    pub async fn initiate_transfer(
+        &self,
+        target_device: Uuid,
+        file_path: PathBuf,
+        transfer_mode: TransferMode,
+    ) -> Result<Uuid> {
+        // Read file metadata
+        let metadata = tokio::fs::metadata(&file_path).await
+            .map_err(|e| NetworkingError::file_system_error(format!("Failed to read file metadata: {}", e)))?;
+
+        let file_metadata = FileMetadata {
+            name: file_path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            size: metadata.len(),
+            modified: metadata.modified().ok(),
+            is_directory: metadata.is_dir(),
+            checksum: if self.config.verify_checksums {
+                Some(self.calculate_file_checksum(&file_path).await?)
+            } else {
+                None
+            },
+            mime_type: None, // TODO: Add MIME type detection
+        };
+
+        let transfer_id = Uuid::new_v4();
+        let session = TransferSession {
+            id: transfer_id,
+            file_metadata: file_metadata.clone(),
+            mode: transfer_mode.clone(),
+            state: TransferState::Pending,
+            created_at: SystemTime::now(),
+            bytes_transferred: 0,
+            chunks_received: Vec::new(),
+            source_device: None, // Will be set when we know our device ID
+            destination_device: Some(target_device),
+        };
+
+        // Store session
+        {
+            let mut sessions = self.sessions.write().unwrap();
+            sessions.insert(transfer_id, session);
+        }
+
+        Ok(transfer_id)
+    }
+
+    /// Get transfer session by ID
+    pub fn get_session(&self, transfer_id: &Uuid) -> Option<TransferSession> {
+        let sessions = self.sessions.read().unwrap();
+        sessions.get(transfer_id).cloned()
+    }
+
+    /// Update transfer session state
+    pub fn update_session_state(&self, transfer_id: &Uuid, state: TransferState) -> Result<()> {
+        let mut sessions = self.sessions.write().unwrap();
+        if let Some(session) = sessions.get_mut(transfer_id) {
+            session.state = state;
+            Ok(())
+        } else {
+            Err(NetworkingError::transfer_not_found_error(*transfer_id))
+        }
+    }
+
+    /// Record chunk received
+    pub fn record_chunk_received(&self, transfer_id: &Uuid, chunk_index: u32, bytes: u64) -> Result<()> {
+        let mut sessions = self.sessions.write().unwrap();
+        if let Some(session) = sessions.get_mut(transfer_id) {
+            session.chunks_received.push(chunk_index);
+            session.bytes_transferred += bytes;
+            Ok(())
+        } else {
+            Err(NetworkingError::transfer_not_found_error(*transfer_id))
+        }
+    }
+
+    /// Calculate file checksum using Blake3
+    async fn calculate_file_checksum(&self, path: &PathBuf) -> Result<[u8; 32]> {
+        let mut file = File::open(path).await
+            .map_err(|e| NetworkingError::file_system_error(format!("Failed to open file: {}", e)))?;
+
+        let mut hasher = blake3::Hasher::new();
+        let mut buffer = [0u8; 8192];
+
+        loop {
+            let bytes_read = file.read(&mut buffer).await
+                .map_err(|e| NetworkingError::file_system_error(format!("Failed to read file: {}", e)))?;
+
+            if bytes_read == 0 {
+                break;
+            }
+
+            hasher.update(&buffer[..bytes_read]);
+        }
+
+        Ok(hasher.finalize().into())
+    }
+
+    /// Handle transfer request message
+    async fn handle_transfer_request(
+        &self,
+        from_device: Uuid,
+        request: FileTransferMessage,
+    ) -> Result<FileTransferMessage> {
+        if let FileTransferMessage::TransferRequest {
+            transfer_id,
+            file_metadata,
+            transfer_mode,
+            ..
+        } = request
+        {
+            // For trusted devices, auto-accept transfers
+            let accepted = match transfer_mode {
+                TransferMode::TrustedCopy => true,
+                TransferMode::EphemeralShare { .. } => {
+                    // For ephemeral shares, would need user consent
+                    // For now, auto-accept but this should trigger UI prompt
+                    true
+                }
+            };
+
+            if accepted {
+                // Create session for incoming transfer
+                let session = TransferSession {
+                    id: transfer_id,
+                    file_metadata,
+                    mode: transfer_mode,
+                    state: TransferState::Active,
+                    created_at: SystemTime::now(),
+                    bytes_transferred: 0,
+                    chunks_received: Vec::new(),
+                    source_device: Some(from_device),
+                    destination_device: None, // We are the destination
+                };
+
+                let mut sessions = self.sessions.write().unwrap();
+                sessions.insert(transfer_id, session);
+            }
+
+            Ok(FileTransferMessage::TransferResponse {
+                transfer_id,
+                accepted,
+                reason: if accepted { None } else { Some("User declined".to_string()) },
+                supported_resume: true,
+            })
+        } else {
+            Err(NetworkingError::Protocol("Invalid transfer request message".to_string()))
+        }
+    }
+
+    /// Handle file chunk message
+    async fn handle_file_chunk(
+        &self,
+        from_device: Uuid,
+        chunk: FileTransferMessage,
+    ) -> Result<FileTransferMessage> {
+        if let FileTransferMessage::FileChunk {
+            transfer_id,
+            chunk_index,
+            data,
+            chunk_checksum,
+        } = chunk
+        {
+            // Verify chunk checksum
+            if self.config.verify_checksums {
+                let calculated_checksum = blake3::hash(&data);
+                if calculated_checksum.as_bytes() != &chunk_checksum {
+                    return Ok(FileTransferMessage::TransferError {
+                        transfer_id,
+                        error_type: TransferErrorType::ChecksumMismatch,
+                        message: format!("Chunk {} checksum mismatch", chunk_index),
+                        recoverable: true,
+                    });
+                }
+            }
+
+            // Record chunk received
+            self.record_chunk_received(&transfer_id, chunk_index, data.len() as u64)?;
+
+            // TODO: Write chunk to file
+            // This would involve opening the destination file and writing the chunk at the correct offset
+
+            // Calculate next expected chunk
+            let next_expected = {
+                let sessions = self.sessions.read().unwrap();
+                if let Some(session) = sessions.get(&transfer_id) {
+                    let mut received_chunks = session.chunks_received.clone();
+                    received_chunks.sort();
+                    
+                    // Find the first missing chunk
+                    let mut next = 0;
+                    for &chunk in &received_chunks {
+                        if chunk == next {
+                            next += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    next
+                } else {
+                    return Err(NetworkingError::transfer_not_found_error(transfer_id));
+                }
+            };
+
+            Ok(FileTransferMessage::ChunkAck {
+                transfer_id,
+                chunk_index,
+                next_expected,
+            })
+        } else {
+            Err(NetworkingError::Protocol("Invalid file chunk message".to_string()))
+        }
+    }
+
+    /// Handle transfer completion
+    async fn handle_transfer_complete(
+        &self,
+        from_device: Uuid,
+        completion: FileTransferMessage,
+    ) -> Result<()> {
+        if let FileTransferMessage::TransferComplete {
+            transfer_id,
+            final_checksum,
+            total_bytes,
+        } = completion
+        {
+            // Verify final checksum if configured
+            if self.config.verify_checksums {
+                // TODO: Calculate checksum of received file and compare
+            }
+
+            // Mark transfer as completed
+            self.update_session_state(&transfer_id, TransferState::Completed)?;
+
+            println!("✅ File transfer {} completed: {} bytes", transfer_id, total_bytes);
+            Ok(())
+        } else {
+            Err(NetworkingError::Protocol("Invalid transfer complete message".to_string()))
+        }
+    }
+
+    /// Get active transfers
+    pub fn get_active_transfers(&self) -> Vec<TransferSession> {
+        let sessions = self.sessions.read().unwrap();
+        sessions.values()
+            .filter(|session| matches!(session.state, TransferState::Active | TransferState::Pending))
+            .cloned()
+            .collect()
+    }
+
+    /// Cancel a transfer
+    pub fn cancel_transfer(&self, transfer_id: &Uuid) -> Result<()> {
+        self.update_session_state(transfer_id, TransferState::Cancelled)
+    }
+
+    /// Clean up completed/failed transfers older than specified duration
+    pub fn cleanup_old_transfers(&self, max_age: Duration) {
+        let mut sessions = self.sessions.write().unwrap();
+        let cutoff = SystemTime::now() - max_age;
+        
+        sessions.retain(|_, session| {
+            match session.state {
+                TransferState::Active | TransferState::Pending => true,
+                _ => session.created_at > cutoff,
+            }
+        });
+    }
+}
+
+#[async_trait]
+impl super::ProtocolHandler for FileTransferProtocolHandler {
+    fn protocol_name(&self) -> &str {
+        "file_transfer"
+    }
+
+    async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>> {
+        // Deserialize the request
+        let request: FileTransferMessage = rmp_serde::from_slice(&request_data)
+            .map_err(|e| NetworkingError::Protocol(format!("Failed to deserialize request: {}", e)))?;
+
+        let response = match request {
+            FileTransferMessage::TransferRequest { .. } => {
+                self.handle_transfer_request(from_device, request).await?
+            }
+            FileTransferMessage::FileChunk { .. } => {
+                self.handle_file_chunk(from_device, request).await?
+            }
+            FileTransferMessage::TransferComplete { .. } => {
+                self.handle_transfer_complete(from_device, request).await?;
+                // No response needed for completion
+                return Ok(Vec::new());
+            }
+            _ => {
+                return Err(NetworkingError::Protocol(
+                    "Unsupported request message type".to_string()
+                ));
+            }
+        };
+
+        // Serialize the response
+        rmp_serde::to_vec(&response)
+            .map_err(|e| NetworkingError::Protocol(format!("Failed to serialize response: {}", e)))
+    }
+
+    async fn handle_response(&self, from_device: Uuid, _from_peer: libp2p::PeerId, response_data: Vec<u8>) -> Result<()> {
+        // Deserialize the response
+        let response: FileTransferMessage = rmp_serde::from_slice(&response_data)
+            .map_err(|e| NetworkingError::Protocol(format!("Failed to deserialize response: {}", e)))?;
+
+        match response {
+            FileTransferMessage::TransferResponse { transfer_id, accepted, reason, .. } => {
+                if accepted {
+                    self.update_session_state(&transfer_id, TransferState::Active)?;
+                    println!("✅ Transfer {} accepted by device {}", transfer_id, from_device);
+                } else {
+                    let reason = reason.unwrap_or_else(|| "No reason given".to_string());
+                    self.update_session_state(&transfer_id, TransferState::Failed(reason.clone()))?;
+                    println!("❌ Transfer {} rejected by device {}: {}", transfer_id, from_device, reason);
+                }
+            }
+            FileTransferMessage::ChunkAck { transfer_id, chunk_index, next_expected } => {
+                println!("📦 Chunk {} acknowledged for transfer {}, next expected: {}", 
+                    chunk_index, transfer_id, next_expected);
+                // TODO: Continue sending next chunks
+            }
+            FileTransferMessage::TransferError { transfer_id, error_type, message, .. } => {
+                self.update_session_state(&transfer_id, TransferState::Failed(message.clone()))?;
+                println!("❌ Transfer {} error: {:?} - {}", transfer_id, error_type, message);
+            }
+            _ => {
+                return Err(NetworkingError::Protocol(
+                    "Unsupported response message type".to_string()
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_event(&self, event: super::ProtocolEvent) -> Result<()> {
+        match event {
+            super::ProtocolEvent::DeviceConnected { device_id } => {
+                println!("🔗 Device {} connected - file transfer available", device_id);
+            }
+            super::ProtocolEvent::DeviceDisconnected { device_id } => {
+                println!("🔌 Device {} disconnected - pausing active transfers", device_id);
+                // TODO: Pause transfers to this device
+            }
+            super::ProtocolEvent::ConnectionFailed { device_id, reason } => {
+                println!("❌ Connection to device {} failed: {} - cancelling transfers", device_id, reason);
+                // TODO: Cancel transfers to this device
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+/// Error extensions for file transfer
+impl NetworkingError {
+    pub fn transfer_not_found(transfer_id: Uuid) -> Self {
+        Self::Protocol(format!("Transfer not found: {}", transfer_id))
+    }
+
+    pub fn file_system(message: String) -> Self {
+        Self::Protocol(format!("File system error: {}", message))
+    }
+}
+
+// Custom error variants for file transfer
+impl NetworkingError {
+    pub fn transfer_not_found_error(transfer_id: Uuid) -> Self {
+        Self::Protocol(format!("Transfer not found: {}", transfer_id))
+    }
+
+    pub fn file_system_error(message: String) -> Self {
+        Self::Protocol(format!("File system error: {}", message))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infrastructure::networking::protocols::ProtocolHandler;
+
+    #[tokio::test]
+    async fn test_file_transfer_handler_creation() {
+        let handler = FileTransferProtocolHandler::new_default();
+        assert_eq!(handler.protocol_name(), "file_transfer");
+        assert!(handler.get_active_transfers().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_transfer_session_lifecycle() {
+        let handler = FileTransferProtocolHandler::new_default();
+        let transfer_id = Uuid::new_v4();
+        
+        // Initially no session
+        assert!(handler.get_session(&transfer_id).is_none());
+        
+        // Update state should fail for non-existent session
+        assert!(handler.update_session_state(&transfer_id, TransferState::Active).is_err());
+    }
+}

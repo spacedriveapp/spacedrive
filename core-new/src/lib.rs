@@ -22,7 +22,10 @@ use infrastructure::networking::protocols::PairingProtocolHandler;
 
 use crate::config::AppConfig;
 use crate::device::DeviceManager;
-use crate::infrastructure::events::{Event, EventBus};
+use crate::infrastructure::{
+	events::{Event, EventBus},
+	api::{FileSharing, SharingTarget, SharingOptions, TransferId, SharingError},
+};
 use crate::library::LibraryManager;
 use crate::services::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
@@ -123,6 +126,9 @@ pub struct Core {
 
 	/// Networking service for device connections
 	pub networking: Option<Arc<RwLock<networking::NetworkingCore>>>,
+
+	/// File sharing subsystem
+	pub file_sharing: Option<Arc<RwLock<FileSharing>>>,
 }
 
 impl Core {
@@ -191,6 +197,7 @@ impl Core {
 			events,
 			services,
 			networking: None, // Network will be initialized separately if needed
+			file_sharing: None, // File sharing will be initialized when networking is ready
 		})
 	}
 
@@ -237,6 +244,9 @@ impl Core {
 		// Store the networking core
 		self.networking = Some(Arc::new(RwLock::new(networking_core)));
 
+		// Initialize file sharing subsystem with deferred library setup
+		self.init_file_sharing().await?;
+
 		logger.info("Networking initialized successfully").await;
 		Ok(())
 	}
@@ -254,12 +264,16 @@ impl Core {
 		);
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
+		// TODO: Re-enable file transfer handler once protocol conflicts are resolved
+		// let file_transfer_handler = networking::protocols::FileTransferProtocolHandler::new_default();
 
 		let protocol_registry = networking.protocol_registry();
 		{
 			let mut registry = protocol_registry.write().await;
 			registry.register_handler(Arc::new(pairing_handler))?;
 			registry.register_handler(Arc::new(messaging_handler))?;
+			// TODO: Re-enable file transfer handler registration
+			// registry.register_handler(Arc::new(file_transfer_handler))?;
 		}
 
 		Ok(())
@@ -360,6 +374,147 @@ impl Core {
 		} else {
 			Err("Networking not initialized".into())
 		}
+	}
+
+	/// Initialize file sharing subsystem (lazy initialization)
+	async fn init_file_sharing(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+		let mut file_sharing = FileSharing::new(
+			self.networking.clone(),
+			self.device.clone(),
+		);
+		
+		// Set job manager from the first available library
+		let open_libraries = self.libraries.get_open_libraries().await;
+		if let Some(library) = open_libraries.first() {
+			file_sharing.set_job_manager(library.jobs().clone());
+			
+			// Also set networking for the job manager
+			if let Some(networking) = &self.networking {
+				library.jobs().set_networking(networking.clone()).await;
+			}
+		} else {
+			// Defer library creation to avoid interfering with pairing initialization
+			// The file sharing will initialize a default library when first used
+			info!("No libraries open yet - file sharing will initialize default library when first used");
+		}
+		
+		self.file_sharing = Some(Arc::new(RwLock::new(file_sharing)));
+		info!("File sharing subsystem initialized (library setup deferred)");
+		Ok(())
+	}
+
+	/// Ensure file sharing has a job manager (lazy initialization of default library)
+	async fn ensure_file_sharing_ready(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+		if let Some(file_sharing_arc) = &self.file_sharing {
+			let file_sharing = file_sharing_arc.read().await;
+			// Check if file sharing already has a job manager
+			if file_sharing.has_job_manager().await {
+				return Ok(());
+			}
+			drop(file_sharing);
+
+			// Initialize default library if needed
+			let open_libraries = self.libraries.get_open_libraries().await;
+			if open_libraries.is_empty() {
+				info!("Creating default library for file operations");
+				let default_library = self.libraries.create_library("Default", None).await?;
+				
+				// Set job manager and networking
+				let mut file_sharing = file_sharing_arc.write().await;
+				file_sharing.set_job_manager(default_library.jobs().clone());
+				if let Some(networking) = &self.networking {
+					default_library.jobs().set_networking(networking.clone()).await;
+				}
+				
+				info!("Default library created and configured for file sharing");
+			} else {
+				// Use first available library
+				let library = &open_libraries[0];
+				let mut file_sharing = file_sharing_arc.write().await;
+				file_sharing.set_job_manager(library.jobs().clone());
+				if let Some(networking) = &self.networking {
+					library.jobs().set_networking(networking.clone()).await;
+				}
+				info!("File sharing configured with existing library");
+			}
+		}
+		Ok(())
+	}
+
+	/// High-level API for sharing files
+	pub async fn share_files(
+		&mut self,
+		files: Vec<PathBuf>,
+		target: SharingTarget,
+		options: SharingOptions,
+	) -> Result<Vec<TransferId>, SharingError> {
+		// Ensure file sharing is ready with job manager
+		self.ensure_file_sharing_ready().await
+			.map_err(|e| SharingError::JobError(e.to_string()))?;
+
+		let file_sharing = self.file_sharing.as_ref()
+			.ok_or(SharingError::NetworkingUnavailable)?;
+		
+		let file_sharing = file_sharing.read().await;
+		file_sharing.share_files(files, target, options).await
+	}
+
+	/// Share files with a paired device
+	pub async fn share_with_device(
+		&mut self,
+		files: Vec<PathBuf>,
+		device_id: uuid::Uuid,
+		destination_path: Option<PathBuf>,
+	) -> Result<Vec<TransferId>, SharingError> {
+		let options = SharingOptions {
+			destination_path: destination_path.unwrap_or_else(|| PathBuf::from("/tmp/spacedrive")),
+			..Default::default()
+		};
+
+		self.share_files(files, SharingTarget::PairedDevice(device_id), options).await
+	}
+
+	/// Start spacedrop session for nearby devices
+	pub async fn start_spacedrop(
+		&mut self,
+		files: Vec<PathBuf>,
+		sender_name: String,
+		message: Option<String>,
+	) -> Result<Vec<TransferId>, SharingError> {
+		let options = SharingOptions {
+			sender_name,
+			message,
+			..Default::default()
+		};
+
+		self.share_files(files, SharingTarget::NearbyDevices, options).await
+	}
+
+	/// Get status of a file transfer
+	pub async fn get_transfer_status(&self, transfer_id: &TransferId) -> Result<crate::infrastructure::api::TransferStatus, SharingError> {
+		let file_sharing = self.file_sharing.as_ref()
+			.ok_or(SharingError::NetworkingUnavailable)?;
+		
+		let file_sharing = file_sharing.read().await;
+		file_sharing.get_transfer_status(transfer_id).await
+	}
+
+	/// Cancel a file transfer
+	pub async fn cancel_transfer(&self, transfer_id: &TransferId) -> Result<(), SharingError> {
+		let file_sharing = self.file_sharing.as_ref()
+			.ok_or(SharingError::NetworkingUnavailable)?;
+		
+		let file_sharing = file_sharing.read().await;
+		file_sharing.cancel_transfer(transfer_id).await
+	}
+
+	/// Get all active transfers
+	pub async fn get_active_transfers(&self) -> Result<Vec<crate::infrastructure::api::TransferStatus>, SharingError> {
+		let file_sharing = self.file_sharing.as_ref()
+			.ok_or(SharingError::NetworkingUnavailable)?;
+		
+		let file_sharing = file_sharing.read().await;
+		file_sharing.get_active_transfers().await
 	}
 
 	/// Send a file via Spacedrop to a device

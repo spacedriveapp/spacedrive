@@ -51,9 +51,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "discovery" => {
             scenarios::run_discovery_test(&args.data_dir, &args.device_name).await?;
         }
+        "file_copy_sender" => {
+            scenarios::run_file_copy_sender(&args.data_dir, &args.device_name).await?;
+        }
+        "file_copy_receiver" => {
+            scenarios::run_file_copy_receiver(&args.data_dir, &args.device_name).await?;
+        }
         _ => {
             eprintln!("❌ Unknown mode: {}", args.mode);
-            eprintln!("Available modes: initiator, joiner, peer, sync_server, sync_client, discovery");
+            eprintln!("Available modes: initiator, joiner, peer, sync_server, sync_client, discovery, file_copy_sender, file_copy_receiver");
             std::process::exit(1);
         }
     }

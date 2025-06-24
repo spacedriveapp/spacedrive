@@ -1,6 +1,6 @@
 //! Unified LibP2P behavior combining all networking protocols
 
-pub use crate::infrastructure::networking::protocols::pairing::PairingMessage;
+pub use crate::infrastructure::networking::protocols::{pairing::PairingMessage, file_transfer::FileTransferMessage};
 use libp2p::{
 	kad::{self, store::MemoryStore},
 	mdns,
@@ -25,6 +25,9 @@ pub struct UnifiedBehaviour {
 
 	/// Request-response for device messaging (using CBOR)
 	pub messaging: request_response::cbor::Behaviour<DeviceMessage, DeviceMessage>,
+
+	/// Request-response for file transfer (using CBOR)
+	pub file_transfer: request_response::cbor::Behaviour<FileTransferMessage, FileTransferMessage>,
 }
 
 /// Events from the unified behavior
@@ -34,6 +37,7 @@ pub enum UnifiedBehaviourEvent {
 	Mdns(mdns::Event),
 	Pairing(request_response::Event<PairingMessage, PairingMessage>),
 	Messaging(request_response::Event<DeviceMessage, DeviceMessage>),
+	FileTransfer(request_response::Event<FileTransferMessage, FileTransferMessage>),
 }
 
 impl From<kad::Event> for UnifiedBehaviourEvent {
@@ -57,6 +61,12 @@ impl From<request_response::Event<PairingMessage, PairingMessage>> for UnifiedBe
 impl From<request_response::Event<DeviceMessage, DeviceMessage>> for UnifiedBehaviourEvent {
 	fn from(event: request_response::Event<DeviceMessage, DeviceMessage>) -> Self {
 		UnifiedBehaviourEvent::Messaging(event)
+	}
+}
+
+impl From<request_response::Event<FileTransferMessage, FileTransferMessage>> for UnifiedBehaviourEvent {
+	fn from(event: request_response::Event<FileTransferMessage, FileTransferMessage>) -> Self {
+		UnifiedBehaviourEvent::FileTransfer(event)
 	}
 }
 
@@ -99,13 +109,26 @@ impl UnifiedBehaviour {
 			messaging_config,
 		);
 
+		// Configure request-response for file transfer using CBOR codec with longer timeouts for large files
+		let mut file_transfer_config = request_response::Config::default();
+		file_transfer_config = file_transfer_config.with_request_timeout(std::time::Duration::from_secs(300)); // 5 min timeout for file operations
+		let file_transfer = request_response::cbor::Behaviour::new(
+			std::iter::once((
+				StreamProtocol::new("/spacedrive/file-transfer/1.0.0"),
+				ProtocolSupport::Full,
+			)),
+			file_transfer_config,
+		);
+
 		println!("🔧 Request-Response: Configured 30s request timeout to prevent timeouts");
+		println!("🔧 File Transfer: Configured 5min request timeout for large file operations");
 
 		Ok(Self {
 			kademlia,
 			mdns,
 			pairing,
 			messaging,
+			file_transfer,
 		})
 	}
 }

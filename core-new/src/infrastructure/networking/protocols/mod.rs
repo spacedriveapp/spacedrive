@@ -1,5 +1,6 @@
 //! Protocol handling system for different message types
 
+pub mod file_transfer;
 pub mod messaging;
 pub mod pairing;
 pub mod registry;
@@ -9,6 +10,7 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub use file_transfer::{FileTransferMessage, FileTransferProtocolHandler, FileMetadata, TransferMode, TransferSession};
 pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;

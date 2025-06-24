@@ -12,3 +12,9 @@ pub mod move_job;
 pub mod delete_job;
 pub mod duplicate_detection_job;
 pub mod validation_job;
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+pub use tests::*;

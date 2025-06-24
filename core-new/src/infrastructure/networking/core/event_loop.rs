@@ -1083,6 +1083,38 @@ impl NetworkingEventLoop {
 					_ => {}
 				}
 			}
+
+			UnifiedBehaviourEvent::FileTransfer(req_resp_event) => {
+				use libp2p::request_response;
+				match req_resp_event {
+					request_response::Event::Message {
+						peer,
+						message,
+						connection_id: _,
+					} => match message {
+						request_response::Message::Request { request, .. } => {
+							println!("🔄 Received file transfer request from {}", peer);
+							// TODO: Route to file transfer protocol handler
+							// For now, just log the received request
+						}
+						request_response::Message::Response { response, .. } => {
+							println!("✅ Received file transfer response from {}", peer);
+
+							let _ = protocol_registry
+								.read()
+								.await
+								.handle_response(
+									"file_transfer",
+									Uuid::new_v4(),
+									peer,
+									rmp_serde::to_vec(&response).unwrap_or_default(),
+								)
+								.await;
+						}
+					},
+					_ => {}
+				}
+			}
 		}
 
 		Ok(())

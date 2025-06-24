@@ -28,6 +28,7 @@ pub struct JobManager {
 	running_jobs: Arc<RwLock<HashMap<JobId, RunningJob>>>,
 	shutdown_tx: watch::Sender<bool>,
 	event_bus: Option<Arc<EventBus>>,
+	networking: RwLock<Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>>,
 }
 
 struct RunningJob {
@@ -56,6 +57,7 @@ impl JobManager {
 			running_jobs: Arc::new(RwLock::new(HashMap::new())),
 			shutdown_tx,
 			event_bus: None,
+			networking: RwLock::new(None),
 		};
 
 		Ok(manager)
@@ -68,6 +70,11 @@ impl JobManager {
 		if let Err(e) = self.resume_interrupted_jobs().await {
 			error!("Failed to resume interrupted jobs: {}", e);
 		}
+	}
+
+	/// Set the networking service reference
+	pub async fn set_networking(&self, networking: Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>) {
+		*self.networking.write().await = Some(networking);
 	}
 
 	/// Dispatch a job for execution
@@ -162,6 +169,9 @@ impl JobManager {
 			.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
 			.clone();
 
+		// Get networking reference
+		let networking = self.networking.read().await.clone();
+
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
@@ -172,6 +182,7 @@ impl JobManager {
 			Arc::new(DbCheckpointHandler {
 				db: self.db.clone(),
 			}),
+			networking,
 		);
 
 		// Create handle
@@ -279,6 +290,9 @@ impl JobManager {
 			.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
 			.clone();
 
+		// Get networking reference
+		let networking = self.networking.read().await.clone();
+
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
@@ -290,6 +304,7 @@ impl JobManager {
 			Arc::new(DbCheckpointHandler {
 				db: self.db.clone(),
 			}),
+			networking,
 		);
 
 		// Create handle
@@ -539,6 +554,9 @@ impl JobManager {
 							.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
 							.clone();
 
+						// Get networking reference
+						let networking = self.networking.read().await.clone();
+
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
@@ -549,6 +567,7 @@ impl JobManager {
 							Arc::new(DbCheckpointHandler {
 								db: self.db.clone(),
 							}),
+							networking,
 						);
 
 						// Create handle

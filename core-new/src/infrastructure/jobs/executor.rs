@@ -31,6 +31,7 @@ pub struct JobExecutorState {
     pub checkpoint_handler: Arc<dyn CheckpointHandler>,
     pub metrics: JobMetrics,
     pub output: Option<JobOutput>,
+    pub networking: Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -42,6 +43,7 @@ impl<J: JobHandler> JobExecutor<J> {
         progress_tx: mpsc::UnboundedSender<Progress>,
         broadcast_tx: broadcast::Sender<Progress>,
         checkpoint_handler: Arc<dyn CheckpointHandler>,
+        networking: Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
     ) -> Self {
         Self {
             job,
@@ -54,6 +56,7 @@ impl<J: JobHandler> JobExecutor<J> {
                 checkpoint_handler,
                 metrics: Default::default(),
                 output: None,
+                networking,
             },
         }
     }
@@ -120,6 +123,7 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
             metrics: Arc::new(Mutex::new(self.state.metrics.clone())),
             checkpoint_handler: self.state.checkpoint_handler.clone(),
             child_handles: Arc::new(Mutex::new(Vec::new())),
+            networking: self.state.networking.clone(),
         };
         
         // Forward progress to broadcast channel
