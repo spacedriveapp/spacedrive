@@ -436,12 +436,12 @@ impl JobManager {
 			.filter_map(|j| {
 				let id = j.id.parse::<Uuid>().ok()?;
 				let status = match j.status.as_str() {
-					"queued" => JobStatus::Queued,
-					"running" => JobStatus::Running,
-					"paused" => JobStatus::Paused,
-					"completed" => JobStatus::Completed,
-					"failed" => JobStatus::Failed,
-					"cancelled" => JobStatus::Cancelled,
+					"Queued" => JobStatus::Queued,
+					"Running" => JobStatus::Running,
+					"Paused" => JobStatus::Paused,
+					"Completed" => JobStatus::Completed,
+					"Failed" => JobStatus::Failed,
+					"Cancelled" => JobStatus::Cancelled,
 					_ => return None,
 				};
 
@@ -471,7 +471,44 @@ impl JobManager {
 
 	/// Get detailed information about a specific job
 	pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
-		println!("🔍 JOB_DEBUG: Looking up job {} in database", id);
+		let job_id = JobId(id);
+		
+		// First check if job is running in memory (for live status and progress)
+		println!("🔍 JOB_DEBUG: Checking for job {} in running jobs memory", id);
+		if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
+			println!("🔍 JOB_DEBUG: Found job {} in memory with live status", id);
+			let handle = &running_job.handle;
+			let status = handle.status();
+			
+			// Get latest progress from memory
+			let progress = if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
+				progress.as_percentage().unwrap_or(0.0)
+			} else {
+				0.0
+			};
+			
+			// For running jobs, we also need the job name from database
+			let job_name = match database::jobs::Entity::find_by_id(id.to_string())
+				.one(self.db.conn())
+				.await? {
+				Some(db_job) => db_job.name,
+				None => format!("Job {}", id), // Fallback if not in DB
+			};
+			
+			return Ok(Some(JobInfo {
+				id,
+				name: job_name,
+				status,
+				progress,
+				started_at: chrono::Utc::now(), // TODO: Get actual start time from DB
+				completed_at: None, // Running jobs aren't completed yet
+				error_message: None, // TODO: Get from handle if failed
+				parent_job_id: None, // TODO: Get from DB if needed
+			}));
+		}
+		
+		// Job not in memory, check database for completed/failed jobs
+		println!("🔍 JOB_DEBUG: Job {} not in memory, looking up in database", id);
 		let job = database::jobs::Entity::find_by_id(id.to_string())
 			.one(self.db.conn())
 			.await?;
@@ -486,12 +523,12 @@ impl JobManager {
 			println!("🔍 JOB_DEBUG: Converting database job - status: {}, name: {}", j.status, j.name);
 			let id = j.id.parse::<Uuid>().ok()?;
 			let status = match j.status.as_str() {
-				"queued" => JobStatus::Queued,
-				"running" => JobStatus::Running,
-				"paused" => JobStatus::Paused,
-				"completed" => JobStatus::Completed,
-				"failed" => JobStatus::Failed,
-				"cancelled" => JobStatus::Cancelled,
+				"Queued" => JobStatus::Queued,
+				"Running" => JobStatus::Running,
+				"Paused" => JobStatus::Paused,
+				"Completed" => JobStatus::Completed,
+				"Failed" => JobStatus::Failed,
+				"Cancelled" => JobStatus::Cancelled,
 				_ => return None,
 			};
 
