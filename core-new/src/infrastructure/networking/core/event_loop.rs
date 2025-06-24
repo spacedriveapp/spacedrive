@@ -269,6 +269,19 @@ impl NetworkingEventLoop {
 								println!("Sent message request with ID: {:?}", request_id);
 							}
 						}
+						"file_transfer" => {
+							// Send file transfer message
+							use crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage;
+							if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&data) {
+								let request_id = swarm
+									.behaviour_mut()
+									.file_transfer
+									.send_request(&peer_id, message);
+								println!("📤 Sent file transfer request with ID: {:?}", request_id);
+							} else {
+								println!("❌ Failed to deserialize file transfer message");
+							}
+						}
 						_ => {
 							println!("Unknown protocol: {}", protocol);
 						}

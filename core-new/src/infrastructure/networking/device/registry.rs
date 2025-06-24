@@ -86,6 +86,15 @@ impl DeviceRegistry {
 		info: DeviceInfo,
 		session_keys: SessionKeys,
 	) -> Result<()> {
+		// Parse peer ID from network fingerprint
+		if let Ok(peer_id) = info.network_fingerprint.peer_id.parse::<libp2p::PeerId>() {
+			// Add peer-to-device mapping so device can be found for messaging
+			self.peer_to_device.insert(peer_id, device_id);
+			println!("🔗 Added peer-to-device mapping: {} -> {}", peer_id, device_id);
+		} else {
+			println!("⚠️ Failed to parse peer ID from network fingerprint: {}", info.network_fingerprint.peer_id);
+		}
+
 		let state = DeviceState::Paired {
 			info,
 			session_keys,
