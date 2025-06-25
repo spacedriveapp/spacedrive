@@ -1,70 +1,55 @@
-Pragmatic Sync System Design
-Overview
-This document outlines the new sync system for Spacedrive Core v2 that prioritizes pragmatism over theoretical perfection. The system is built on Spacedrive's job architecture and networking infrastructure, focusing on three distinct sync domains: index sync (filesystem mirroring), user metadata sync (tags, ratings), and file operations (separate from sync).
+# Pragmatic Sync System Design
 
-Sync Domain Separation
+## Overview
+
+This document outlines the new sync system for Spacedrive Core v2 that prioritizes pragmatism over theoretical perfection. The system is built on Spacedrive's job architecture and networking infrastructure, focusing on three distinct sync domains: **index sync** (filesystem mirroring), **user metadata sync** (tags, ratings), and **file operations** (separate from sync).
+
+## Sync Domain Separation
+
 Spacedrive distinguishes between three separate data synchronization concerns:
 
-1. Index Sync (Filesystem Mirror)
+### 1\. Index Sync (Filesystem Mirror)
 
-Purpose: Mirror each device's local filesystem index and file-specific metadata
+- **Purpose**: Mirror each device's local filesystem index and file-specific metadata
+- **Data**: Entry records, device-specific paths, file-level tags, location metadata
+- **Conflicts**: Minimal - each device owns its filesystem index exclusively
+- **Transport**: Via sync jobs over the networking layer
+- **Source of Truth**: Local filesystem watcher events
 
-Data: Entry records, device-specific paths, file-level tags, location metadata
+### 2\. User Metadata Sync (Library Content)
 
-Conflicts: Minimal - each device owns its filesystem index exclusively
+- **Purpose**: Sync content-universal metadata across all instances of the same content within a library
+- **Data**: Content-level tags, ContentIdentity metadata, library-scoped favorites
+- **Conflicts**: Possible - multiple users can tag the same content simultaneously
+- **Resolution**: Union merge for content tags, deterministic ContentIdentity UUIDs prevent most conflicts
+- **Transport**: Real-time sync via networking + batch jobs for backfill
 
-Transport: Via sync jobs over the networking layer
+### 3\. File Operations (Remote Operations)
 
-Source of Truth: Local filesystem watcher events
+- **Purpose**: Actual file transfer, copying, and cross-device movement
+- **Protocol**: Separate from sync - uses dedicated file transfer protocol
+- **Trigger**: User-initiated operations (Spacedrop, cross-device copy/move)
+- **Relationship**: File operations trigger filesystem changes → watcher events → index sync
 
-2. User Metadata Sync (Library Content)
+> **Key Insight**: Index sync is largely conflict-free because devices only modify their own filesystem indices. User metadata sync operates on library-scoped ContentIdentity, enabling content-universal tagging that follows the content across devices within the same library.
 
-Purpose: Sync content-universal metadata across all instances of the same content within a library
+## Core Principles
 
-Data: Content-level tags, ContentIdentity metadata, library-scoped favorites
+1.  **Universal Dependency Awareness** - Every sync operation automatically respects foreign key constraints and dependency order
+2.  **Job-Based Architecture** - All sync operations run as Spacedrive jobs with progress tracking, resumability, and error handling
+3.  **Networking Integration** - Built on the persistent networking layer with automatic device connection management
+4.  **Library-Scoped ContentIdentity** - Content is addressable within each library via deterministic UUIDs derived from content_id hash
+5.  **Dual Tagging System** - Users can tag individual files (Entry-level) or all instances of content (ContentIdentity-level)
+6.  **Domain Separation** - Index, user metadata, and file operations are distinct protocols with different conflict resolution
+7.  **One Leader Per Library** - Each library has a designated leader device that maintains the sync log
+8.  **Hybrid Change Tracking** - SeaORM hooks with async queuing + event system for comprehensive coverage
+9.  **Intelligent Conflicts** - Union merge for content tags, deterministic UUIDs prevent ContentIdentity conflicts
+10. **Sync Readiness** - UUIDs optional until content identification complete, preventing premature sync of incomplete data
+11. **Declarative Dependencies** - Simple `depends_on = ["location", "device"]` syntax with automatic circular resolution
 
-Conflicts: Possible - multiple users can tag the same content simultaneously
+## Architecture
 
-Resolution: Union merge for content tags, deterministic ContentIdentity UUIDs prevent most conflicts
-
-Transport: Real-time sync via networking + batch jobs for backfill
-
-3. File Operations (Remote Operations)
-
-Purpose: Actual file transfer, copying, and cross-device movement
-
-Protocol: Separate from sync - uses dedicated file transfer protocol
-
-Trigger: User-initiated operations (Spacedrop, cross-device copy/move)
-
-Relationship: File operations trigger filesystem changes → watcher events → index sync
-
-Key Insight: Index sync is largely conflict-free because devices only modify their own filesystem indices. User metadata sync operates on library-scoped ContentIdentity, enabling content-universal tagging that follows the content across devices within the same library.
-
-Core Principles
-Universal Dependency Awareness - Every sync operation automatically respects foreign key constraints and dependency order
-
-Job-Based Architecture - All sync operations run as Spacedrive jobs with progress tracking, resumability, and error handling
-
-Networking Integration - Built on the persistent networking layer with automatic device connection management
-
-Library-Scoped ContentIdentity - Content is addressable within each library via deterministic UUIDs derived from content_id hash
-
-Dual Tagging System - Users can tag individual files (Entry-level) or all instances of content (ContentIdentity-level)
-
-Domain Separation - Index, user metadata, and file operations are distinct protocols with different conflict resolution
-
-One Leader Per Library - Each library has a designated leader device that maintains the sync log
-
-Hybrid Change Tracking - SeaORM hooks with async queuing + event system for comprehensive coverage
-
-Intelligent Conflicts - Union merge for content tags, deterministic UUIDs prevent ContentIdentity conflicts
-
-Sync Readiness - UUIDs optional until content identification complete, preventing premature sync of incomplete data
-
-Declarative Dependencies - Simple depends_on = ["location", "device"] syntax with automatic circular resolution
-
-Architecture
+```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Library A (Photos)                           │
 │  ┌─────────────────┐     ┌─────────────────┐                   │
@@ -109,14 +94,17 @@ Architecture
 
 Each library can have a different leader device. When enabling sync between
 devices with existing libraries, users choose to merge or keep separate.
-Implementation
-1. Job-Based Sync Architecture
+```
+
+## Implementation
+
+### 1\. Job-Based Sync Architecture
 
 All sync operations are implemented as Spacedrive jobs, providing automatic progress tracking, resumability, and error handling:
 
-Initial Sync Job
+#### Initial Sync Job
 
-Rust
+```rust
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct InitialSyncJob {
     pub library_id: Uuid,
@@ -159,9 +147,11 @@ impl JobHandler for InitialSyncJob {
         Ok(self.generate_output())
     }
 }
-Live Sync Job
+```
 
-Rust
+#### Live Sync Job
+
+```rust
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct LiveSyncJob {
     pub library_id: Uuid,
@@ -178,11 +168,13 @@ impl Job for LiveSyncJob {
 }
 
 // Runs continuously, processes real-time sync messages
-2. Universal Dependency-Aware Sync Trait
+```
+
+### 2\. Universal Dependency-Aware Sync Trait
 
 Every syncable domain model implements a simple trait with built-in dependency awareness:
 
-Rust
+```rust
 #[async_trait]
 pub trait Syncable: ActiveModelTrait {
     /// Unique sync identifier for this model type
@@ -247,13 +239,15 @@ pub enum MergeResult<T> {
     Merged(T),
     Conflict(T, T, ConflictType),
 }
-3. Library Sync Setup & Merging
+```
+
+### 3\. Library Sync Setup & Merging
 
 When users enable sync between two devices, the system handles existing libraries intelligently:
 
-Sync Enablement Workflow
+#### Sync Enablement Workflow
 
-Rust
+```rust
 pub struct SyncSetupJob {
     pub local_device_id: Uuid,
     pub remote_device_id: Uuid,
@@ -279,9 +273,11 @@ pub enum LibraryAction {
         remote_library_id: Uuid
     },
 }
-Library Merging Process
+```
 
-Rust
+#### Library Merging Process
+
+```rust
 impl SyncSetupJob {
     async fn merge_libraries(&mut self, ctx: JobContext<'_>) -> JobResult<Library> {
         match &self.setup_options.action {
@@ -311,11 +307,13 @@ impl SyncSetupJob {
         }
     }
 }
-4. Networking Integration
+```
+
+### 4\. Networking Integration
 
 Sync jobs leverage the persistent networking layer for device communication:
 
-Rust
+```rust
 impl InitialSyncJob {
     async fn pull_changes_from_leader(
         &mut self,
@@ -362,15 +360,17 @@ impl InitialSyncJob {
         Ok(())
     }
 }
-5. Three-Phase Sync Architecture
+```
+
+### 5\. Three-Phase Sync Architecture
 
 The sync system operates in three distinct phases, each with different dependency handling requirements:
 
-Phase 1: Creating Sync Operations (Local Change Capture)
+#### Phase 1: Creating Sync Operations (Local Change Capture)
 
 When changes occur locally, we capture them without dependency ordering concerns:
 
-Rust
+```rust
 impl ActiveModelBehavior for EntryActiveModel {
     fn after_save(self, insert: bool) -> Result<Self, DbErr> {
         // PHASE 1: CAPTURE - No dependency ordering needed yet
@@ -397,11 +397,13 @@ impl ActiveModelBehavior for EntryActiveModel {
         Ok(self)
     }
 }
-Phase 2: Storing Sync Operations (Leader Log Management)
+```
+
+#### Phase 2: Storing Sync Operations (Leader Log Management)
 
 The leader device processes captured changes and stores them in dependency order:
 
-Rust
+```rust
 pub struct SyncLeaderService {
     sync_log: SyncLog,
     dependency_resolver: DependencyResolver,
@@ -446,11 +448,13 @@ impl SyncLeaderService {
         Ok(())
     }
 }
-Phase 3: Ingesting Sync Operations (Follower Application)
+```
+
+#### Phase 3: Ingesting Sync Operations (Follower Application)
 
 Followers receive changes and must apply them in dependency order, even if they arrive out of order:
 
-Rust
+```rust
 pub struct SyncFollowerService {
     pending_changes: BTreeMap<u64, SyncChange>, // Buffer for out-of-order changes
     dependency_resolver: DependencyResolver,
@@ -510,73 +514,42 @@ impl SyncFollowerService {
         Ok(())
     }
 }
-Key Differences Between Phases
+```
+
+### Key Differences Between Phases
 
 The three phases have fundamentally different requirements:
 
-Phase
+| Phase       | Dependency Ordering | Performance Priority | Error Handling          |
+| ----------- | ------------------- | -------------------- | ----------------------- |
+| **Capture** | Not needed          | Minimal latency      | Never fail              |
+| **Store**   | Required            | Consistency          | Retry with backoff      |
+| **Ingest**  | Critical            | Batch efficiency     | Out-of-order resilience |
 
-Dependency Ordering
+#### Why This Separation Matters
 
-Performance Priority
+**1. Capture Phase Simplicity:**
 
-Error Handling
+- Must be synchronous and fast (called from SeaORM hooks)
+- Can't afford dependency graph calculations
+- Just records "something changed" without ordering
 
-Capture
+**2. Leader Store Phase Consistency:**
 
-Not needed
+- Can be asynchronous and more expensive
+- Must establish canonical dependency order
+- Handles circular dependency resolution once
+- Assigns authoritative sequence numbers
 
-Minimal latency
+**3. Follower Ingest Phase Resilience:**
 
-Never fail
+- Must handle network delays and out-of-order delivery
+- Re-applies dependency ordering on received changes
+- Buffers changes until dependencies are satisfied
 
-Store
+#### Example: Creating an Entry with UserMetadata
 
-Required
-
-Consistency
-
-Retry with backoff
-
-Ingest
-
-Critical
-
-Batch efficiency
-
-Out-of-order resilience
-
-Why This Separation Matters
-
-1. Capture Phase Simplicity:
-
-Must be synchronous and fast (called from SeaORM hooks)
-
-Can't afford dependency graph calculations
-
-Just records "something changed" without ordering
-
-2. Leader Store Phase Consistency:
-
-Can be asynchronous and more expensive
-
-Must establish canonical dependency order
-
-Handles circular dependency resolution once
-
-Assigns authoritative sequence numbers
-
-3. Follower Ingest Phase Resilience:
-
-Must handle network delays and out-of-order delivery
-
-Re-applies dependency ordering on received changes
-
-Buffers changes until dependencies are satisfied
-
-Example: Creating an Entry with UserMetadata
-
-Rust
+```rust
 // Phase 1: CAPTURE (happens synchronously in transaction)
 let entry = EntryActiveModel.insert(db).await?;
 // -> Queues SyncChange for "entry" (no dependency ordering)
@@ -673,11 +646,13 @@ async fn process*received_changes(&mut self, ctx: JobContext<'*>) -> JobResult<(
     }
 
 }
-6. Sync Log Structure
+```
+
+### 6\. Sync Log Structure
 
 Domain-aware append-only log on the leader device:
 
-Rust
+```rust
 pub struct SyncLogEntry {
     /// Auto-incrementing sequence number
     pub seq: u64,
@@ -714,11 +689,13 @@ pub enum ChangeType {
     Upsert, // Insert or Update
     Delete,
 }
-7. Sync Protocol (Networking Integration)
+```
+
+### 7\. Sync Protocol (Networking Integration)
 
 Built on the existing networking message protocol:
 
-Rust
+```rust
 // Sync messages integrated into DeviceMessage enum
 pub enum DeviceMessage {
     // ... existing messages ...
@@ -756,27 +733,33 @@ pub enum DeviceMessage {
         conflicts: Vec<MergeConflict>,
     },
 }
-8. Model Examples with Elegant Dependency Declarations
+```
 
-Device (Independent)
+### 8\. Model Examples with Elegant Dependency Declarations
 
-Rust
+#### Device (Independent)
+
+```rust
 impl Syncable for device::ActiveModel {
     const SYNC_ID: &'static str = "device";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::Index;
     // No dependencies - devices sync first
 }
-Tag (Independent)
+```
 
-Rust
+#### Tag (Independent)
+
+```rust
 impl Syncable for tag::ActiveModel {
     const SYNC_ID: &'static str = "tag";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::UserMetadata;
     // No dependencies - tag definitions sync early
 }
-ContentIdentity (Independent within Library)
+```
 
-Rust
+#### ContentIdentity (Independent within Library)
+
+```rust
 impl Syncable for content_identity::ActiveModel {
     const SYNC_ID: &'static str = "content_identity";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::UserMetadata;
@@ -787,9 +770,11 @@ impl Syncable for content_identity::ActiveModel {
         self.uuid.as_ref().is_some()
     }
 }
-Location (Depends on Device)
+```
 
-Rust
+#### Location (Depends on Device)
+
+```rust
 impl Syncable for location::ActiveModel {
     const SYNC_ID: &'static str = "location";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::Index;
@@ -797,9 +782,11 @@ impl Syncable for location::ActiveModel {
 
     // location.device_id -> device.id
 }
-Entry (Depends on Location, Optional ContentIdentity)
+```
 
-Rust
+#### Entry (Depends on Location, Optional ContentIdentity)
+
+```rust
 impl Syncable for entry::ActiveModel {
     const SYNC_ID: &'static str = "entry";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::Index;
@@ -815,9 +802,11 @@ impl Syncable for entry::ActiveModel {
         Some(CircularResolution::NullableReference("metadata_id"))
     }
 }
-UserMetadata (Depends on Entry OR ContentIdentity + Circular Resolution)
+```
 
-Rust
+#### UserMetadata (Depends on Entry OR ContentIdentity + Circular Resolution)
+
+```rust
 impl Syncable for user_metadata::ActiveModel {
     const SYNC_ID: &'static str = "user_metadata";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::None; // Dynamic based on scope
@@ -841,9 +830,11 @@ impl Syncable for user_metadata::ActiveModel {
         None
     }
 }
-UserMetadataTag Junction (Depends on UserMetadata + Tag)
+```
 
-Rust
+#### UserMetadataTag Junction (Depends on UserMetadata + Tag)
+
+```rust
 impl Syncable for user_metadata_tag::ActiveModel {
     const SYNC_ID: &'static str = "user_metadata_tag";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::None; // Inherits domain from parent UserMetadata
@@ -858,9 +849,11 @@ impl Syncable for user_metadata_tag::ActiveModel {
         SyncDomain::UserMetadata // Default to UserMetadata domain
     }
 }
-Library-Scoped ContentIdentity (Deterministic within Library)
+```
 
-Rust
+#### Library-Scoped ContentIdentity (Deterministic within Library)
+
+```rust
 impl Syncable for content_identity::ActiveModel {
     const SYNC_ID: &'static str = "content_identity";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::UserMetadata;
@@ -891,9 +884,11 @@ impl Syncable for content_identity::ActiveModel {
         })
     }
 }
-Tags (via UserMetadata Junction Table)
+```
 
-Rust
+#### Tags (via UserMetadata Junction Table)
+
+```rust
 impl Syncable for user_metadata_tag::ActiveModel {
     const SYNC_ID: &'static str = "user_metadata_tag";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::None; // Syncs with parent UserMetadata
@@ -906,9 +901,11 @@ impl Syncable for user_metadata_tag::ActiveModel {
     // Examples of entry-scoped tags: "desktop-shortcut", "work-presentation-draft"
     // Examples of content-scoped tags: "family-photos", "important-documents"
 }
-Tag Entity
+```
 
-Rust
+#### Tag Entity
+
+```rust
 impl Syncable for tag::ActiveModel {
     const SYNC_ID: &'static str = "tag";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::UserMetadata;
@@ -916,9 +913,11 @@ impl Syncable for tag::ActiveModel {
     // Tag definitions sync across all devices
     // The actual tag applications sync via UserMetadata relationships
 }
-UserMetadata (Hierarchical Scoping)
+```
 
-Rust
+#### UserMetadata (Hierarchical Scoping)
+
+```rust
 impl Syncable for user_metadata::ActiveModel {
     const SYNC_ID: &'static str = "user_metadata";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::None; // Default, overridden by get_sync_domain
@@ -981,9 +980,11 @@ impl Syncable for user_metadata::ActiveModel {
     // Only created when user adds notes/favorites/custom data
     // Mutual exclusivity enforced by database constraints
 }
-Location (Index Domain)
+```
 
-Rust
+#### Location (Index Domain)
+
+```rust
 impl Syncable for location::ActiveModel {
     const SYNC_ID: &'static str = "location";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::Index;
@@ -1000,39 +1001,38 @@ impl Syncable for location::ActiveModel {
         // Excludes device-specific: mount_point, available_space, is_mounted
     }
 }
-No Sync (TempFile)
+```
 
-Rust
+#### No Sync (TempFile)
+
+```rust
 impl Syncable for temp_file::ActiveModel {
     const SYNC_ID: &'static str = "temp_file";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::None;
 
     // Temp files never sync
 }
-Sync Process
-Leader Device (Per Library)
+```
 
-Check Leadership: Verify this device is the leader for the library
+## Sync Process
 
-Capture Changes: SeaORM hooks automatically log all changes
+### Leader Device (Per Library)
 
-Serve Log: Expose sync log via API/P2P protocol
+1.  **Check Leadership**: Verify this device is the leader for the library
+2.  **Capture Changes**: SeaORM hooks automatically log all changes
+3.  **Serve Log**: Expose sync log via API/P2P protocol
+4.  **Maintain State**: Track each device's sync position
 
-Maintain State: Track each device's sync position
+### Follower Device
 
-Follower Device
+1.  **Find Leader**: Query which device is the leader for this library
+2.  **Pull Changes**: Request changes since last sync from the leader
+3.  **Apply Changes**: Process in order, using merge logic for conflicts
+4.  **Track Position**: Remember last processed sequence number
 
-Find Leader: Query which device is the leader for this library
+### Leadership Management
 
-Pull Changes: Request changes since last sync from the leader
-
-Apply Changes: Process in order, using merge logic for conflicts
-
-Track Position: Remember last processed sequence number
-
-Leadership Management
-
-Rust
+```rust
 /// Determine sync leader for a library
 async fn get_sync_leader(library_id: Uuid) -> Result<DeviceId> {
     // Query all devices in the library
@@ -1063,13 +1063,15 @@ async fn reassign_leader(library_id: Uuid, new_leader: DeviceId) -> Result<()> {
 
     Ok(())
 }
-Initial Sync & Backfill Strategy
+```
 
-Full Backfill for New Devices
+### Initial Sync & Backfill Strategy
+
+#### Full Backfill for New Devices
 
 When a new device joins a library, it needs to backfill all existing data:
 
-Rust
+```rust
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct BackfillSyncJob {
     pub library_id: Uuid,
@@ -1233,11 +1235,13 @@ impl BackfillSyncJob {
         Ok(())
     }
 }
-Handling Pre-Sync Entries
+```
+
+#### Handling Pre-Sync Entries
 
 For existing entries without UUIDs (created before sync was enabled):
 
-Rust
+```rust
 // The indexer handles UUID assignment during normal operation
 // No separate backfill job needed - just re-index locations
 
@@ -1280,21 +1284,19 @@ impl JobHandler for SyncReadinessJob {
 // - Empty files: UUID assigned immediately
 // - Regular files: UUID assigned after content identification
 // - No separate "backfill" needed - it's part of normal indexing
-Backfill Scenarios Summary
+```
 
-New Device Joins: Full backfill from sequence 0
+#### Backfill Scenarios Summary
 
-Device Reconnects: Incremental backfill from last known sequence
+1.  **New Device Joins**: Full backfill from sequence 0
+2.  **Device Reconnects**: Incremental backfill from last known sequence
+3.  **Sync Log Gaps**: Detect missing sequences and request specific ranges
+4.  **Pre-Sync Data**: Re-index locations to assign UUIDs (not a separate backfill)
+5.  **Failed Sync Operations**: Retry mechanism with exponential backoff
 
-Sync Log Gaps: Detect missing sequences and request specific ranges
+#### Sync Position Tracking
 
-Pre-Sync Data: Re-index locations to assign UUIDs (not a separate backfill)
-
-Failed Sync Operations: Retry mechanism with exponential backoff
-
-Sync Position Tracking
-
-Rust
+```rust
 pub struct SyncPosition {
     pub device_id: Uuid,
     pub library_id: Uuid,
@@ -1378,13 +1380,15 @@ impl SyncPositionManager {
         Ok(())
     }
 }
-Universal Dependency-Aware Sync (Built Into Core Protocol)
+```
 
-The sync system automatically builds dependency graphs from model declarations and always syncs in dependency order. No special jobs or configurations needed.
+### Universal Dependency-Aware Sync (Built Into Core Protocol)
 
-Automatic Dependency Resolution
+The sync system automatically builds dependency graphs from model declarations and **always** syncs in dependency order. No special jobs or configurations needed.
 
-Rust
+#### Automatic Dependency Resolution
+
+```rust
 /// The sync registry automatically builds dependency graphs from Syncable trait implementations
 pub struct SyncRegistry {
     models: HashMap<&'static str, Box<dyn SyncableInfo>>,
@@ -1459,11 +1463,13 @@ impl SyncProtocol {
         Ok(())
     }
 }
-Automatic Circular Dependency Resolution
+```
+
+#### Automatic Circular Dependency Resolution
 
 The sync system automatically resolves circular dependencies using the model declarations:
 
-Rust
+```rust
 impl SyncProtocol {
     /// Apply a batch with automatic circular dependency resolution
     async fn apply_batch_with_circular_resolution(&self, batch: SyncBatch) -> Result<()> {
@@ -1523,9 +1529,11 @@ impl SyncProtocol {
         Ok(())
     }
 }
-Transaction Safety for Dependency Chains
+```
 
-Rust
+#### Transaction Safety for Dependency Chains
+
+```rust
 // Ensure entire dependency chain is applied atomically
 pub async fn apply_dependency_chain(
     changes: Vec<SyncChange>,
@@ -1551,9 +1559,11 @@ fn group_changes_by_dependency(changes: Vec<SyncChange>) -> Vec<SyncBatch> {
     // Use the global sync registry for consistent dependency ordering
     SYNC_REGISTRY.batch_changes_by_dependencies(changes)
 }
-Sync Protocol Enhancement
+```
 
-Rust
+#### Sync Protocol Enhancement
+
+```rust
 // Enhanced sync protocol with universal dependency awareness
 pub enum SyncRequest {
     PullChanges {
@@ -1585,147 +1595,144 @@ pub enum SyncResponse {
 }
 
 // DependencyMetadata no longer needed - dependency ordering is automatic and universal
-File Change Sync Behavior
+```
+
+### File Change Sync Behavior
 
 When file content changes (as described in ENTITY_REFACTOR_DESIGN.md):
 
-Entry UUID preserved - Maintains sync continuity
-
-Entry-scoped metadata preserved - Continues to sync in Index domain
-
-Content link cleared - content_id = None propagates via sync
-
-Content-scoped metadata orphaned - No longer referenced by this entry
-
-New content identification - Creates new ContentIdentity with new UUID
+1.  **Entry UUID preserved** - Maintains sync continuity
+2.  **Entry-scoped metadata preserved** - Continues to sync in Index domain
+3.  **Content link cleared** - `content_id = None` propagates via sync
+4.  **Content-scoped metadata orphaned** - No longer referenced by this entry
+5.  **New content identification** - Creates new ContentIdentity with new UUID
 
 This ensures sync system handles the unlinking gracefully without losing entry-level data.
 
-Conflict Resolution Strategies
-Index Domain (Minimal Conflicts)
+## Conflict Resolution Strategies
 
+### Index Domain (Minimal Conflicts)
+
+```
 Device A: Creates entry for /photos/vacation.jpg
 Device B: Creates entry for /docs/vacation.jpg (same content, different path)
 Result: No conflict - different devices, different entries, same ContentIdentity
-Entry-Scoped Tags (Device-Specific)
+```
 
+### Entry-Scoped Tags (Device-Specific)
+
+```
 Device A: Creates UserMetadata for "photo.jpg" with tags ["desktop-wallpaper"] (Entry-scoped)
 Device B: Tags same file with ["screensaver"] via its own Entry (Entry-scoped)
 Result: Device A sees ["desktop-wallpaper"], Device B sees ["screensaver"]
-Content-Scoped Tags (Union Merge)
+```
 
+### Content-Scoped Tags (Union Merge)
+
+```
 Device A: Creates UserMetadata for content with tags ["vacation"] (Content-scoped)
 Device B: Tags same content with ["family"] (Content-scoped)
 Result: Both devices see content tagged with ["vacation", "family"]
-ContentIdentity Statistics (Additive Merge)
+```
 
+### ContentIdentity Statistics (Additive Merge)
+
+```
 Device A: ContentIdentity has 2 entries, 10MB total (only after content identification assigns UUID)
 Device B: ContentIdentity has 3 entries, 15MB total (only after content identification assigns UUID)
 Result: ContentIdentity shows 5 entries, 25MB total across devices
-True Conflicts (Rare)
+```
 
+### True Conflicts (Rare)
+
+```
 Device A: Sets UserMetadata notes="Important document" for entry X
 Device B: Sets UserMetadata notes="Draft version" for same entry X
 Result: Conflict prompt - keep which notes? (should be rare due to device ownership)
-File Content Changes
+```
 
+### File Content Changes
+
+```
 Device A: User adds UserMetadata to "report.pdf" with tag "important" (Entry-scoped)
 Device A: User edits report.pdf (content changes → new ContentIdentity UUID)
 Device B: Syncs changes
 Result: Entry-scoped metadata with tag "important" preserved, any content-scoped metadata lost
-Advantages of Universal Dependency-Aware Sync Design
-Core Sync Features
+```
 
-Sync Safety: UUID assignment during content identification prevents race conditions and incomplete data sync
+## Advantages of Universal Dependency-Aware Sync Design
 
-Content-Universal Metadata: Tag content once, appears everywhere that content exists within the library
+### Core Sync Features
 
-Conflict-Free Content Identity: Deterministic UUIDs prevent ContentIdentity conflicts within libraries
+1.  **Sync Safety**: UUID assignment during content identification prevents race conditions and incomplete data sync
+2.  **Content-Universal Metadata**: Tag content once, appears everywhere that content exists within the library
+3.  **Conflict-Free Content Identity**: Deterministic UUIDs prevent ContentIdentity conflicts within libraries
+4.  **Dual Tagging System**: Users choose between file-specific tags (follow the file) and content-universal tags (follow the content)
+5.  **Hierarchical Metadata**: UserMetadata supports both entry-scoped and content-scoped organization
+6.  **Library Isolation**: Maintains Spacedrive's zero-knowledge principle between libraries
+7.  **Clean Domain Separation**: Index sync vs content metadata sync have different conflict strategies
 
-Dual Tagging System: Users choose between file-specific tags (follow the file) and content-universal tags (follow the content)
+### Universal Dependency Management
 
-Hierarchical Metadata: UserMetadata supports both entry-scoped and content-scoped organization
+8.  **Built-In Dependency Awareness**: Every sync operation automatically respects foreign key constraints
+9.  **Declarative Dependencies**: Simple `depends_on = ["location", "device"]` syntax in model definitions
+10. **Automatic Circular Resolution**: Entry ↔ UserMetadata and other circular dependencies resolved transparently
+11. **Three-Phase Architecture**: Capture (no ordering), Store (dependency ordering), Ingest (out-of-order resilience)
+12. **Developer Experience**: Adding sync to a model takes 3 lines with the derive macro
+13. **Compile-Time Safety**: Dependencies declared at compile time, validated during sync system initialization
+14. **Priority-Based Ordering**: `SYNC_PRIORITY` allows fine-grained control within dependency levels
 
-Library Isolation: Maintains Spacedrive's zero-knowledge principle between libraries
+### Technical Excellence
 
-Clean Domain Separation: Index sync vs content metadata sync have different conflict strategies
+15. **Job-Based Reliability**: All sync operations benefit from progress tracking and resumability
+16. **Transport Agnostic**: Works over any connection (HTTP, WebSocket, P2P)
+17. **Incremental Sync**: Can sync partially, resume after interruption
+18. **Backward Compatible**: Builds on existing hybrid ID system without breaking changes
+19. **Comprehensive Change Capture**: SeaORM hooks ensure no database changes are missed
+20. **Performance**: In-memory queuing minimizes sync overhead during normal operations
+21. **Efficient Deduplication**: Accurate library-scoped statistics for storage optimization
 
-Universal Dependency Management
+### Simplicity & Maintainability
 
-Built-In Dependency Awareness: Every sync operation automatically respects foreign key constraints
+23. **Zero Configuration**: Sync system builds dependency graph automatically from model declarations
+24. **Self-Documenting**: Dependencies are visible in the model definition, not hidden in separate files
+25. **Consistent Behavior**: All sync operations follow the same dependency-aware pattern
+26. **Reduced Complexity**: No separate dependency-aware sync jobs, batching logic, or coordination code
+27. **Easy Testing**: Dependency order is deterministic and can be unit tested
+28. **Preserves UX Patterns**: UserMetadata stays optional, tags work before/during/after indexing
 
-Declarative Dependencies: Simple depends_on = ["location", "device"] syntax in model definitions
+## Migration Path
 
-Automatic Circular Resolution: Entry ↔ UserMetadata and other circular dependencies resolved transparently
+1.  **Phase 1**: Implement sync traits on core models
+2.  **Phase 2**: Implement hybrid change tracking (SeaORM hooks + in-memory queue + transaction flushing)
+3.  **Phase 3**: Build simple HTTP-based sync for testing
+4.  **Phase 4**: Add P2P transport when ready
+5.  **Phase 5**: Consider multi-leader for advanced users
 
-Three-Phase Architecture: Capture (no ordering), Store (dependency ordering), Ingest (out-of-order resilience)
+## Future Enhancements
 
-Developer Experience: Adding sync to a model takes 3 lines with the derive macro
+### Compression
 
-Compile-Time Safety: Dependencies declared at compile time, validated during sync system initialization
-
-Priority-Based Ordering: SYNC_PRIORITY allows fine-grained control within dependency levels
-
-Technical Excellence
-
-Job-Based Reliability: All sync operations benefit from progress tracking and resumability
-
-Transport Agnostic: Works over any connection (HTTP, WebSocket, P2P)
-
-Incremental Sync: Can sync partially, resume after interruption
-
-Backward Compatible: Builds on existing hybrid ID system without breaking changes
-
-Comprehensive Change Capture: SeaORM hooks ensure no database changes are missed
-
-Performance: In-memory queuing minimizes sync overhead during normal operations
-
-Efficient Deduplication: Accurate library-scoped statistics for storage optimization
-
-Simplicity & Maintainability
-
-Zero Configuration: Sync system builds dependency graph automatically from model declarations
-
-Self-Documenting: Dependencies are visible in the model definition, not hidden in separate files
-
-Consistent Behavior: All sync operations follow the same dependency-aware pattern
-
-Reduced Complexity: No separate dependency-aware sync jobs, batching logic, or coordination code
-
-Easy Testing: Dependency order is deterministic and can be unit tested
-
-Preserves UX Patterns: UserMetadata stays optional, tags work before/during/after indexing
-
-Migration Path
-Phase 1: Implement sync traits on core models
-
-Phase 2: Implement hybrid change tracking (SeaORM hooks + in-memory queue + transaction flushing)
-
-Phase 3: Build simple HTTP-based sync for testing
-
-Phase 4: Add P2P transport when ready
-
-Phase 5: Consider multi-leader for advanced users
-
-Future Enhancements
-Compression
-
-Rust
+```rust
 // Compress similar consecutive operations
 [Update(id=1, name="A"), Update(id=1, name="B"), Update(id=1, name="C")]
 // Becomes:
 [Update(id=1, name="C")]
-Selective Sync
+```
 
-Rust
+### Selective Sync
+
+```rust
 // Sync only specific libraries or models
 sync_client.pull_changes(from_seq, Some(1000), SyncFilter {
     libraries: Some(vec![library_id]),
     models: Some(vec!["location", "tag"]),
 }).await?
-Offline Changes
+```
 
-Rust
+### Offline Changes
+
+```rust
 // Queue changes when offline
 pub struct OfflineQueue {
     changes: Vec<LocalChange>,
@@ -1739,10 +1746,13 @@ impl OfflineQueue {
         Ok(())
     }
 }
-Example Usage
-Making a Model Syncable
+```
 
-Rust
+## Example Usage
+
+### Making a Model Syncable
+
+```rust
 // 1. Add to domain model with dependency declaration
 #[derive(DeriveEntityModel, Syncable)]
 #[sea_orm(table_name = "locations")]
@@ -1757,9 +1767,11 @@ pub struct Model {
 }
 
 // 2. That's it! Sync happens automatically with dependency ordering
-Manual Sync Control
+```
 
-Rust
+### Manual Sync Control
+
+```rust
 // Disable sync for specific operation
 db.transaction_with_no_sync(|txn| async move {
     // These changes won't be synced
@@ -1772,22 +1784,22 @@ db.transaction_with_no_sync(|txn| async move {
 
 // Force sync of specific model
 sync_log.force_record(location).await?;
-Hybrid Change Tracking: SeaORM Hooks + Async Processing
-Why Hybrid Approach
+```
+
+## Hybrid Change Tracking: SeaORM Hooks + Async Processing
+
+### Why Hybrid Approach
 
 We use both SeaORM hooks and event system for comprehensive change tracking:
 
-SeaORM Hooks: Automatic capture - impossible to miss database changes
+1.  **SeaORM Hooks**: Automatic capture - impossible to miss database changes
+2.  **In-Memory Queue**: Bridge between sync hooks and async processing
+3.  **Event System**: Manual control for complex scenarios and transaction boundaries
+4.  **Transaction Safety**: Flush queues at transaction boundaries to prevent data loss
 
-In-Memory Queue: Bridge between sync hooks and async processing
+### In-Memory Sync Queue
 
-Event System: Manual control for complex scenarios and transaction boundaries
-
-Transaction Safety: Flush queues at transaction boundaries to prevent data loss
-
-In-Memory Sync Queue
-
-Rust
+```rust
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
 
@@ -1851,9 +1863,11 @@ impl SyncQueue {
         Ok(())
     }
 }
-Transaction-Aware Database Operations
+```
 
-Rust
+### Transaction-Aware Database Operations
+
+```rust
 // Enhanced database operations with sync queue flushing
 pub async fn create_entry_with_sync(
     entry_data: EntryData,
@@ -1873,9 +1887,11 @@ pub async fn create_entry_with_sync(
 
     Ok(entry)
 }
-Event System for Complex Scenarios
+```
 
-Rust
+### Event System for Complex Scenarios
+
+```rust
 // Event system for scenarios requiring manual control
 pub enum CoreEvent {
     // Sync-specific events
@@ -1903,9 +1919,11 @@ pub async fn handle_content_identification(
 
     Ok(())
 }
-Background Queue Processing
+```
 
-Rust
+### Background Queue Processing
+
+```rust
 // Background task processes queue continuously
 impl LiveSyncJob {
     async fn process_sync_queue(&mut self, ctx: JobContext<'_>) -> JobResult<()> {
@@ -1927,13 +1945,15 @@ impl LiveSyncJob {
         }
     }
 }
-Elegant Declarative API for Sync
+```
+
+### Elegant Declarative API for Sync
 
 Choose between derive macro or explicit implementation:
 
-Option 1: Derive Macro (Recommended)
+#### Option 1: Derive Macro (Recommended)
 
-Rust
+```rust
 #[derive(Syncable)]
 #[sync(
     id = "entry",
@@ -1951,9 +1971,11 @@ pub struct Entry {
 
     // ... other fields sync automatically
 }
-Option 2: Manual Implementation
+```
 
-Rust
+#### Option 2: Manual Implementation
+
+```rust
 impl Syncable for entry::ActiveModel {
     const SYNC_ID: &'static str = "entry";
     const SYNC_DOMAIN: SyncDomain = SyncDomain::Index;
@@ -1968,9 +1990,11 @@ impl Syncable for entry::ActiveModel {
         Some(CircularResolution::NullableReference("metadata_id"))
     }
 }
-Complete Working Example
+```
 
-Rust
+#### Complete Working Example
+
+```rust
 // Simple case - no dependencies
 #[derive(Syncable)]
 #[sync(id = "device", domain = "Index")]
@@ -2005,9 +2029,11 @@ pub struct Entry {
 // - Dependency declarations
 // - Circular resolution logic
 // - Automatic sync queue integration
-Macro-Generated Implementation (Internal)
+```
 
-Rust
+#### Macro-Generated Implementation (Internal)
+
+```rust
 // What the macro generates internally:
 impl Syncable for entry::ActiveModel {
     const SYNC_ID: &'static str = "entry";
@@ -2054,13 +2080,15 @@ inventory::submit! {
     SyncableModel::new::<entry::ActiveModel>()
 }
 
-Comprehensive Sync Logging
+```
+
+### Comprehensive Sync Logging
 
 Following the pattern from the networking logger, the sync system provides structured logging across all three phases:
 
-Sync Logger Trait
+#### Sync Logger Trait
 
-Rust
+```rust
 use async_trait::async_trait;
 use serde_json::Value;
 use uuid::Uuid;
@@ -2099,9 +2127,11 @@ pub struct SyncContext {
     pub dependency_level: Option<usize>,
     pub metadata: Value, // Additional context as JSON
 }
-Production Sync Logger
+```
 
-Rust
+#### Production Sync Logger
+
+```rust
 use tracing::{info, warn, error, debug, instrument};
 
 /// Production logger using the tracing crate for structured logging
@@ -2247,9 +2277,11 @@ impl SyncLogger for ProductionSyncLogger {
         );
     }
 }
-Development Sync Logger
+```
 
-Rust
+#### Development Sync Logger
+
+```rust
 /// Development logger with detailed console output (like NetworkLogger::ConsoleLogger)
 pub struct ConsoleSyncLogger;
 
@@ -2358,9 +2390,11 @@ impl SyncLogger for ConsoleSyncLogger {
             conflict_type, model, resolution);
     }
 }
-Integration with Sync Operations
+```
 
-Rust
+#### Integration with Sync Operations
+
+```rust
 // Example usage in sync operations
 impl SyncLeaderService {
     async fn process_captured_changes(&self, changes: Vec<SyncChange>) -> Result<()> {
@@ -2445,8 +2479,11 @@ impl SyncLeaderService {
         Ok(())
     }
 }
-Example Log Output
+```
 
+#### Example Log Output
+
+```
 🔍 [SYNC STORE DEBUG] Starting dependency resolution for captured changes | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
 🔗 [SYNC DEP] Resolved mixed_models dependencies: ["device", "location", "entry", "user_metadata"] in 2ms
 🔍 [SYNC STORE DEBUG] Processing dependency level 0 | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
@@ -2457,11 +2494,13 @@ Example Log Output
 🔄 [SYNC CIRCULAR] Detected cycle: ["entry", "user_metadata"] -> Resolved with: NullableReference("metadata_id")
 📦 [SYNC BATCH] Processed 2 models in 23ms: ["entry", "user_metadata"]
 [SYNC STORE INFO] Completed dependency-ordered storage of changes | lib:a1b2c3d4 dev:e5f6g7h8 model:None seq:None
-Database Schema
+```
+
+### Database Schema
 
 Sync log table:
 
-SQL
+```sql
 CREATE TABLE sync_log (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
     library_id TEXT NOT NULL,
@@ -2487,103 +2526,82 @@ CREATE TABLE sync_positions (
 
 -- Device sync roles (part of device table)
 -- sync_leadership: JSON map of library_id -> role
-Implementation Roadmap
-Phase 1: Universal Sync Infrastructure (Week 1)
+```
 
-[ ] Create Syncable trait with built-in dependency support
+## Implementation Roadmap
 
-[ ] Implement #[derive(Syncable)] macro with dependency declarations
+### Phase 1: Universal Sync Infrastructure (Week 1)
 
-[ ] Build automatic dependency graph generation
+- [ ] Create `Syncable` trait with built-in dependency support
+- [ ] Implement `#[derive(Syncable)]` macro with dependency declarations
+- [ ] Build automatic dependency graph generation
+- [ ] Implement sync log table and models
+- [ ] Build hybrid change tracking (SeaORM hooks + in-memory queue)
 
-[ ] Implement sync log table and models
+### Phase 2: Core Models with Dependencies (Week 2)
 
-[ ] Build hybrid change tracking (SeaORM hooks + in-memory queue)
+- [ ] Add sync to Device model (no dependencies)
+- [ ] Add sync to Tag model (no dependencies)
+- [ ] Add sync to ContentIdentity model (no dependencies)
+- [ ] Add sync to Location model (depends on Device)
+- [ ] Add sync to Entry model (depends on Location, ContentIdentity, circular with UserMetadata)
+- [ ] Add sync to UserMetadata model (depends on Entry or ContentIdentity)
+- [ ] Test automatic dependency ordering
 
-Phase 2: Core Models with Dependencies (Week 2)
+### Phase 3: Universal Sync Protocol (Week 3)
 
-[ ] Add sync to Device model (no dependencies)
+- [ ] Implement automatic dependency-aware pull/push
+- [ ] Build sync client with built-in ordering
+- [ ] Add automatic circular reference resolution
+- [ ] Implement backfill strategies respecting dependencies
+- [ ] Add sync position tracking
+- [ ] Test end-to-end dependency-aware sync
 
-[ ] Add sync to Tag model (no dependencies)
+### Phase 4: Production Polish (Week 4)
 
-[ ] Add sync to ContentIdentity model (no dependencies)
+- [ ] Add sync priority optimization within dependency levels
+- [ ] Implement selective sync with dependency validation
+- [ ] Add offline queue with dependency preservation
+- [ ] Build sync status UI showing dependency progress
+- [ ] Performance optimization for large dependency graphs
 
-[ ] Add sync to Location model (depends on Device)
+## Conclusion
 
-[ ] Add sync to Entry model (depends on Location, ContentIdentity, circular with UserMetadata)
+This universal dependency-aware sync design eliminates the complexity of managing foreign key constraints during synchronization by making dependency awareness a core feature, not an add-on. The elegant declarative API means developers simply declare `depends_on = ["location", "device"]` and the sync system handles all ordering automatically.
 
-[ ] Add sync to UserMetadata model (depends on Entry or ContentIdentity)
+By embedding dependency management directly into the `Syncable` trait and making it the default behavior for every sync operation, we ensure that Spacedrive's relational model "just works" without developers needing to think about constraint ordering, circular references, or special sync jobs.
 
-[ ] Test automatic dependency ordering
-
-Phase 3: Universal Sync Protocol (Week 3)
-
-[ ] Implement automatic dependency-aware pull/push
-
-[ ] Build sync client with built-in ordering
-
-[ ] Add automatic circular reference resolution
-
-[ ] Implement backfill strategies respecting dependencies
-
-[ ] Add sync position tracking
-
-[ ] Test end-to-end dependency-aware sync
-
-Phase 4: Production Polish (Week 4)
-
-[ ] Add sync priority optimization within dependency levels
-
-[ ] Implement selective sync with dependency validation
-
-[ ] Add offline queue with dependency preservation
-
-[ ] Build sync status UI showing dependency progress
-
-[ ] Performance optimization for large dependency graphs
-
-Conclusion
-This universal dependency-aware sync design eliminates the complexity of managing foreign key constraints during synchronization by making dependency awareness a core feature, not an add-on. The elegant declarative API means developers simply declare depends_on = ["location", "device"] and the sync system handles all ordering automatically.
-
-By embedding dependency management directly into the Syncable trait and making it the default behavior for every sync operation, we ensure that Spacedrive's relational model "just works" without developers needing to think about constraint ordering, circular references, or special sync jobs.
-
-The #[derive(Syncable)] macro reduces adding sync support to a model down to 3-5 lines of declarative code, while the automatic dependency graph generation ensures all sync operations respect foreign key constraints without any manual coordination.
+The `#[derive(Syncable)]` macro reduces adding sync support to a model down to 3-5 lines of declarative code, while the automatic dependency graph generation ensures all sync operations respect foreign key constraints without any manual coordination.
 
 This approach transforms sync from a complex, error-prone subsystem into a simple, declarative feature that scales naturally with Spacedrive's data model complexity.
 
-Further Enhancements & Detailed Considerations
+## Further Enhancements & Detailed Considerations
+
 This section elaborates on key areas to provide more robust details and address potential challenges in the sync system's design and implementation.
 
-1. Enhanced Leadership Management
+### 1\. Enhanced Leadership Management
 
 To ensure high availability and resilience for library leadership:
 
-Initial Leader Selection
+#### Initial Leader Selection
 
 When a new library is created, the device initiating its creation automatically becomes the initial leader.
 When existing libraries are merged during pairing, the user explicitly chooses which device becomes the leader (either the local device, the remote device, or a newly created shared library leader).
 
-Offline Leader Detection & Reassignment
+#### Offline Leader Detection & Reassignment
 
-Heartbeats: Leader devices periodically send heartbeats to their followers over the persistent networking layer.
+- **Heartbeats**: Leader devices periodically send heartbeats to their followers over the persistent networking layer.
+- **Failure Detection**: Followers continuously monitor these heartbeats. If a follower misses a configurable number of consecutive heartbeats from the leader, it will consider the leader potentially offline.
+- **Leader Election Protocol**:
+  1.  Upon detecting an offline leader, followers will initiate a leader election protocol. This could involve a simple deterministic rule (e.g., the device with the lexicographically smallest `device_id` among the online followers becomes the new candidate leader) or a more robust consensus algorithm (e.g., Paxos or Raft-lite adapted for a small, dynamic peer group).
+  2.  The candidate leader attempts to broadcast its claim to leadership to all other known library devices.
+  3.  Followers that agree on the new candidate (e.g., by verifying the previous leader's prolonged absence) update their `sync_leadership` role for that library.
+  4.  The newly elected leader updates its `sync_leadership` role in its local database and notifies other devices of the transition.
+- **Timeout & Retries**: The leader election process will have configurable timeouts and retry mechanisms to handle network transience.
 
-Failure Detection: Followers continuously monitor these heartbeats. If a follower misses a configurable number of consecutive heartbeats from the leader, it will consider the leader potentially offline.
+**Rust Design for Leader Election:**
 
-Leader Election Protocol:
-
-Upon detecting an offline leader, followers will initiate a leader election protocol. This could involve a simple deterministic rule (e.g., the device with the lexicographically smallest device_id among the online followers becomes the new candidate leader) or a more robust consensus algorithm (e.g., Paxos or Raft-lite adapted for a small, dynamic peer group).
-
-The candidate leader attempts to broadcast its claim to leadership to all other known library devices.
-
-Followers that agree on the new candidate (e.g., by verifying the previous leader's prolonged absence) update their sync_leadership role for that library.
-
-The newly elected leader updates its sync_leadership role in its local database and notifies other devices of the transition.
-
-Timeout & Retries: The leader election process will have configurable timeouts and retry mechanisms to handle network transience.
-
-Rust Design for Leader Election:
-
-Rust
+```rust
 // In persistent/service.rs or a dedicated leader_election.rs
 pub enum LeaderElectionMessage {
     ProposeLeader { library_id: Uuid, candidate_device_id: Uuid, epoch: u64 },
@@ -2640,15 +2658,16 @@ impl SyncLeaderService {
         Ok(())
     }
 }
-Split-Brain Prevention
+```
 
-Quorum (for multi-leader support): While the current design is "One Leader Per Library", if future enhancements consider multi-leader or more dynamic leadership, a quorum-based approach would be necessary to prevent split-brain. This means a new leader can only be elected if a majority of the known devices (or a predefined set of trusted devices) agree.
+#### Split-Brain Prevention
 
-Last-Write-Wins with Epochs (for single-leader): For the current single-leader model, each leadership transition could involve an incrementing "epoch" number. Any sync operation would carry the current epoch. If a device receives an operation from a leader with an older epoch, it would reject it and initiate a new leader election or update its knowledge of the current leader.
+- **Quorum (for multi-leader support)**: While the current design is "One Leader Per Library", if future enhancements consider multi-leader or more dynamic leadership, a quorum-based approach would be necessary to prevent split-brain. This means a new leader can only be elected if a majority of the known devices (or a predefined set of trusted devices) agree.
+- **Last-Write-Wins with Epochs (for single-leader)**: For the current single-leader model, each leadership transition could involve an incrementing "epoch" number. Any sync operation would carry the current epoch. If a device receives an operation from a leader with an older epoch, it would reject it and initiate a new leader election or update its knowledge of the current leader.
 
-Rust Design for Epochs:
+**Rust Design for Epochs:**
 
-Rust
+```rust
 // Add epoch to SyncLogEntry
 pub struct SyncLogEntry {
     // ... existing fields
@@ -2699,49 +2718,40 @@ impl SyncFollowerService {
         Ok(())
     }
 }
-2. Detailed Conflict Resolution & User Experience
+```
 
-Conflict Prompting and User Interface
+### 2\. Detailed Conflict Resolution & User Experience
 
-For "True Conflicts" (e.g., UserMetadata notes where changes diverge):
+#### Conflict Prompting and User Interface
 
-Conflict Indicator: The UI will display a clear visual indicator on the conflicting item (e.g., an icon on the Entry or ContentIdentity details view).
+For "True Conflicts" (e.g., `UserMetadata` notes where changes diverge):
 
-Conflict Resolution View: Clicking the indicator will open a dedicated conflict resolution view. This view will:
+- **Conflict Indicator**: The UI will display a clear visual indicator on the conflicting item (e.g., an icon on the `Entry` or `ContentIdentity` details view).
+- **Conflict Resolution View**: Clicking the indicator will open a dedicated conflict resolution view. This view will:
+  - Show the local version of the data.
+  - Show the remote conflicting version of the data.
+  - Display a diff (if applicable, e.g., for text notes).
+  - Provide options: "Keep Local," "Keep Remote," "Merge Manually" (for text fields), or "Discard All."
+- **Batch Resolution**: For multiple conflicts, the UI may offer a batch resolution interface with general rules (e.g., "Always Keep Local for all similar conflicts").
+- **Background Notification**: Users will receive a system notification (e.g., a toast notification or a badge on the sync status icon) when conflicts are detected, directing them to the conflict resolution area.
 
-Show the local version of the data.
+#### Automatic Fallback Strategies
 
-Show the remote conflicting version of the data.
+- **Default Behavior (User-Configurable)**: Users will be able to set a default conflict resolution strategy in settings, such as:
+  - **"Latest Wins"**: The most recently modified version is automatically applied.
+  - **"Local Always Wins"**: The local version is always preserved.
+  - **"Remote Always Wins"**: The remote version is always applied.
+  - **"Prompt Always"**: Always requires manual intervention.
+- **Notes Merge Logic**: For `UserMetadata` notes, the `merge_notes` function will by default concatenate notes with timestamps, providing a historical record: `merge_notes(local.notes, remote.notes)` could result in:
+  ```
+  "Local notes (last modified 2025-06-24 10:00:00): Original text.
+  Remote notes (last modified 2025-06-24 10:01:30): Conflicting text."
+  ```
+- **Custom Data Merge Logic**: The `merge_custom_data` function (for `custom_data` in `UserMetadata`) will perform a deep merge of JSON objects, prioritizing the remote value for conflicting keys, but adding new keys from both sides. For arrays, it could perform a union.
 
-Display a diff (if applicable, e.g., for text notes).
+**Rust Design for Conflict Handling:**
 
-Provide options: "Keep Local," "Keep Remote," "Merge Manually" (for text fields), or "Discard All."
-
-Batch Resolution: For multiple conflicts, the UI may offer a batch resolution interface with general rules (e.g., "Always Keep Local for all similar conflicts").
-
-Background Notification: Users will receive a system notification (e.g., a toast notification or a badge on the sync status icon) when conflicts are detected, directing them to the conflict resolution area.
-
-Automatic Fallback Strategies
-
-Default Behavior (User-Configurable): Users will be able to set a default conflict resolution strategy in settings, such as:
-
-"Latest Wins": The most recently modified version is automatically applied.
-
-"Local Always Wins": The local version is always preserved.
-
-"Remote Always Wins": The remote version is always applied.
-
-"Prompt Always": Always requires manual intervention.
-
-Notes Merge Logic: For UserMetadata notes, the merge_notes function will by default concatenate notes with timestamps, providing a historical record: merge_notes(local.notes, remote.notes) could result in:
-
-"Local notes (last modified 2025-06-24 10:00:00): Original text.
-Remote notes (last modified 2025-06-24 10:01:30): Conflicting text."
-Custom Data Merge Logic: The merge_custom_data function (for custom_data in UserMetadata) will perform a deep merge of JSON objects, prioritizing the remote value for conflicting keys, but adding new keys from both sides. For arrays, it could perform a union.
-
-Rust Design for Conflict Handling:
-
-Rust
+```rust
 pub enum ConflictType {
     ManualResolutionRequired,
     LatestWins,
@@ -2817,21 +2827,20 @@ async fn apply_change_directly(&self, change: SyncChange) -> Result<()> {
 pub struct ConflictManager {
     // Stores conflicts in persistent storage
 }
-3. Scalability and Maintenance of Sync Log and Positions
+```
 
-Sync Log Pruning and Archiving
+### 3\. Scalability and Maintenance of Sync Log and Positions
 
-Configurable Retention: Users/administrators can configure a retention period for sync_log entries (e.g., 3 months, 1 year, indefinite).
+#### Sync Log Pruning and Archiving
 
-Archiving: Old sync_log entries (beyond the retention period) could be archived to a separate, less frequently accessed storage location (e.g., compressed files) to reduce the primary database size.
+- **Configurable Retention**: Users/administrators can configure a retention period for `sync_log` entries (e.g., 3 months, 1 year, indefinite).
+- **Archiving**: Old `sync_log` entries (beyond the retention period) could be archived to a separate, less frequently accessed storage location (e.g., compressed files) to reduce the primary database size.
+- **Summarization**: Periodically, the system could run a background job to summarize change history for long-lived records, allowing older detailed entries to be pruned while retaining an aggregated view.
+- **`first_seen_at` and `last_verified_at`**: These fields in `ContentIdentity` already contribute to long-term data consistency and can aid in pruning older, less relevant `SyncLogEntry` data.
 
-Summarization: Periodically, the system could run a background job to summarize change history for long-lived records, allowing older detailed entries to be pruned while retaining an aggregated view.
+**Rust Design for Log Management:**
 
-first_seen_at and last_verified_at: These fields in ContentIdentity already contribute to long-term data consistency and can aid in pruning older, less relevant SyncLogEntry data.
-
-Rust Design for Log Management:
-
-Rust
+```rust
 // In a dedicated log_manager.rs
 pub struct SyncLogManager {
     db: DatabaseConnection,
@@ -2871,27 +2880,25 @@ impl SyncLogManager {
         });
     }
 }
-SyncPositionManager Scalability
+```
 
-The sync_positions table's primary key on (device_id, library_id) is efficient for direct lookups.
+#### `SyncPositionManager` Scalability
 
-As the number of devices and libraries scales, indexing on updated_at could be beneficial for quickly identifying stale positions or devices that need re-syncing.
+- The `sync_positions` table's primary key on `(device_id, library_id)` is efficient for direct lookups.
+- As the number of devices and libraries scales, indexing on `updated_at` could be beneficial for quickly identifying stale positions or devices that need re-syncing.
+- The actual sync log entries themselves are processed in batches, which limits the in-memory load during active sync operations, rather than needing to load the entire history.
 
-The actual sync log entries themselves are processed in batches, which limits the in-memory load during active sync operations, rather than needing to load the entire history.
+### 4\. Performance Optimization for Backfill and Entity Requests
 
-4. Performance Optimization for Backfill and Entity Requests
+#### Parallelizing Backfill
 
-Parallelizing Backfill
+- **Domain-based Parallelism**: During `full_backfill` and `incremental_backfill`, instead of strictly sequential processing of all changes from `current_seq`, the system can fetch and process changes from _different_ `SyncDomain`s in parallel, as their conflict resolution strategies are distinct and often independent at the high level.
+- **Batching within Domains**: While the current design pulls batches of changes, further optimization can be achieved by allowing multiple concurrent pull requests for different sequence ranges within the same domain, provided dependencies within those ranges are respected at the application phase.
+- **Network Service Enhancements**: The `NetworkingService` could expose an API to pull multiple `SyncLogEntry` batches concurrently, managing the underlying LibP2P streams efficiently.
 
-Domain-based Parallelism: During full_backfill and incremental_backfill, instead of strictly sequential processing of all changes from current_seq, the system can fetch and process changes from different SyncDomains in parallel, as their conflict resolution strategies are distinct and often independent at the high level.
+**Rust Design for Parallel Backfill:**
 
-Batching within Domains: While the current design pulls batches of changes, further optimization can be achieved by allowing multiple concurrent pull requests for different sequence ranges within the same domain, provided dependencies within those ranges are respected at the application phase.
-
-Network Service Enhancements: The NetworkingService could expose an API to pull multiple SyncLogEntry batches concurrently, managing the underlying LibP2P streams efficiently.
-
-Rust Design for Parallel Backfill:
-
-Rust
+```rust
 impl BackfillSyncJob {
     async fn full_backfill(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
         let networking = ctx.networking_service()
@@ -2954,15 +2961,16 @@ impl BackfillSyncJob {
         Ok(())
     }
 }
-Batching sync_ready_backfill Requests
+```
 
-Batched Entity Requests: Instead of request_entity_from_leader for each entity_uuid, the sync_ready_backfill strategy will gather lists of entity_uuids for a given model_type and send a single SyncPullModelBatch request (or similar) to the leader. The leader would then return the full data for all requested entities in a single response. This significantly reduces round-trip times and network overhead.
+#### Batching `sync_ready_backfill` Requests
 
-Progress Granularity: Progress updates for these batched operations will be based on the completion of full batches rather than individual entities.
+- **Batched Entity Requests**: Instead of `request_entity_from_leader` for each `entity_uuid`, the `sync_ready_backfill` strategy will gather lists of `entity_uuid`s for a given `model_type` and send a single `SyncPullModelBatch` request (or similar) to the leader. The leader would then return the full data for all requested entities in a single response. This significantly reduces round-trip times and network overhead.
+- **Progress Granularity**: Progress updates for these batched operations will be based on the completion of full batches rather than individual entities.
 
-Rust Design for Batched Entity Requests:
+**Rust Design for Batched Entity Requests:**
 
-Rust
+```rust
 // Add new message type to DeviceMessage
 pub enum DeviceMessage {
     // ... existing messages
@@ -3029,19 +3037,19 @@ impl BackfillSyncJob {
         Ok(())
     }
 }
-5. UserMetadataTag Junction Sync Domain Resolution
+```
 
-The user_metadata_tag::ActiveModel's get_sync_domain which returns SyncDomain::UserMetadata by default, requires clarification.
+### 5\. `UserMetadataTag Junction` Sync Domain Resolution
 
-Explicit Parent Lookup: During the "Store" and "Ingest" phases, when processing a user_metadata_tag change, the SyncLeaderService and SyncFollowerService will explicitly perform a lookup to its associated UserMetadata record.
+The `user_metadata_tag::ActiveModel`'s `get_sync_domain` which returns `SyncDomain::UserMetadata` by default, requires clarification.
 
-Dynamic Domain Assignment: The looked-up UserMetadata record's get_sync_domain method will then be called to determine the final SyncDomain (either Index for entry-scoped metadata or UserMetadata for content-scoped metadata). This ensures the tag correctly inherits the conflict resolution strategy of its parent metadata.
+- **Explicit Parent Lookup**: During the "Store" and "Ingest" phases, when processing a `user_metadata_tag` change, the `SyncLeaderService` and `SyncFollowerService` will explicitly perform a lookup to its associated `UserMetadata` record.
+- **Dynamic Domain Assignment**: The looked-up `UserMetadata` record's `get_sync_domain` method will then be called to determine the final `SyncDomain` (either `Index` for entry-scoped metadata or `UserMetadata` for content-scoped metadata). This ensures the tag correctly inherits the conflict resolution strategy of its parent metadata.
+- **Performance Impact**: This lookup adds a minor database query overhead for each `user_metadata_tag` change during phases 2 and 3. Given that tags are typically part of a larger `UserMetadata` operation, this overhead is considered acceptable and ensures correct domain-specific merging.
 
-Performance Impact: This lookup adds a minor database query overhead for each user_metadata_tag change during phases 2 and 3. Given that tags are typically part of a larger UserMetadata operation, this overhead is considered acceptable and ensures correct domain-specific merging.
+**Rust Design for Dynamic Domain Lookup:**
 
-Rust Design for Dynamic Domain Lookup:
-
-Rust
+```rust
 // In user_metadata_tag::ActiveModel implementation of Syncable
 impl Syncable for user_metadata_tag::ActiveModel {
     // ...
@@ -3074,21 +3082,20 @@ async fn process_user_metadata_tag_change(&self, change: SyncChange) -> Result<(
     // Proceed with storing/applying processed_change
     Ok(())
 }
-6. Offline Queue Persistence
+```
 
-The OfflineQueue for changes collected when a device is offline will be persisted to disk to prevent data loss upon application shutdown or crash:
+### 6\. Offline Queue Persistence
 
-Transactional Persistence: When SYNC_QUEUE.flush_for_transaction is called during database operations, in addition to persisting to the sync_log (on the leader), or buffering for later application (on the follower), these changes will also be written to a local, append-only "offline journal" file before the transaction commits.
+The `OfflineQueue` for changes collected when a device is offline will be persisted to disk to prevent data loss upon application shutdown or crash:
 
-Journal Structure: The offline journal will store serialized SyncChange objects in a structured, fault-tolerant format (e.g., line-delimited JSON or a simple binary log).
+- **Transactional Persistence**: When `SYNC_QUEUE.flush_for_transaction` is called during database operations, in addition to persisting to the `sync_log` (on the leader), or buffering for later application (on the follower), these changes will also be written to a local, append-only "offline journal" file before the transaction commits.
+- **Journal Structure**: The offline journal will store serialized `SyncChange` objects in a structured, fault-tolerant format (e.g., line-delimited JSON or a simple binary log).
+- **Recovery on Startup**: Upon application startup, before any new changes are captured, the system will check for and replay any pending changes from the offline journal. Successfully replayed changes will be marked as processed or removed from the journal.
+- **Deduplication**: When replaying, the system will handle potential duplicates (e.g., if a change was partially synced before going offline) using the `record_id` and `timestamp` from `SyncChange`.
 
-Recovery on Startup: Upon application startup, before any new changes are captured, the system will check for and replay any pending changes from the offline journal. Successfully replayed changes will be marked as processed or removed from the journal.
+**Rust Design for Offline Journal:**
 
-Deduplication: When replaying, the system will handle potential duplicates (e.g., if a change was partially synced before going offline) using the record_id and timestamp from SyncChange.
-
-Rust Design for Offline Journal:
-
-Rust
+```rust
 // In persistent/offline_journal.rs
 pub struct OfflineJournal {
     path: PathBuf,
@@ -3165,19 +3172,18 @@ impl SyncQueue {
         Ok(())
     }
 }
-7. Refined Security Considerations
+```
 
-Rate Limiting on Pairing Attempts:
+### 7\. Refined Security Considerations
 
-Per-IP/Per-Device Limiting: The networking service will implement rate limiting on PairingRequest messages. This will involve tracking incoming requests from specific IP addresses or LibP2P PeerIds.
+- **Rate Limiting on Pairing Attempts**:
+  - **Per-IP/Per-Device Limiting**: The networking service will implement rate limiting on `PairingRequest` messages. This will involve tracking incoming requests from specific IP addresses or LibP2P `PeerId`s.
+  - **Sliding Window/Token Bucket**: A sliding window or token bucket algorithm will be used to limit the number of pairing attempts within a given time frame (e.g., 5 attempts per minute from a single source).
+  - **Blocking**: Excessive attempts will result in temporary blocking of the source.
 
-Sliding Window/Token Bucket: A sliding window or token bucket algorithm will be used to limit the number of pairing attempts within a given time frame (e.g., 5 attempts per minute from a single source).
+**Rust Design for Rate Limiting:**
 
-Blocking: Excessive attempts will result in temporary blocking of the source.
-
-Rust Design for Rate Limiting:
-
-Rust
+```rust
 // In networking/protocols/pairing/protocol.rs or a middleware
 use governor::{Quota, RateLimiter};
 use governor::state::keyed::Default};
@@ -3220,17 +3226,16 @@ impl ProtocolHandler for PairingProtocolHandler {
         Ok(None)
     }
 }
-User Confirmation UI for Pairing Requests:
+```
 
-Explicit Approval: After a PairingRequest is received and cryptographically verified, the initiator device (Alice) will not automatically complete the pairing. Instead, a UI prompt will appear, asking the user to confirm the pairing with the remote device (Bob's DeviceInfo will be displayed).
+- **User Confirmation UI for Pairing Requests**:
+  - **Explicit Approval**: After a `PairingRequest` is received and cryptographically verified, the initiator device (Alice) will _not_ automatically complete the pairing. Instead, a UI prompt will appear, asking the user to confirm the pairing with the remote device (Bob's `DeviceInfo` will be displayed).
+  - **Timeout for Confirmation**: If the user does not respond within a configurable timeout, the pairing session will expire and fail.
+  - **API for Confirmation**: The `NetworkingService` will expose an API (e.g., `confirm_pairing_request(session_id, accept: bool)`) that the UI can call based on user interaction.
 
-Timeout for Confirmation: If the user does not respond within a configurable timeout, the pairing session will expire and fail.
+**Rust Design for User Confirmation:**
 
-API for Confirmation: The NetworkingService will expose an API (e.g., confirm_pairing_request(session_id, accept: bool)) that the UI can call based on user interaction.
-
-Rust Design for User Confirmation:
-
-Rust
+```rust
 // New state for PairingSession
 pub enum PairingState {
     // ... existing states
@@ -3277,15 +3282,15 @@ impl PairingProtocolHandler {
 
 // When PairingProtocolHandler receives Response message, transition to ConfirmationPending
 // if auto-accept is not enabled.
-Device Limits:
+```
 
-User-Configurable Limits: Spacedrive will allow users to configure limits on the total number of devices that can be paired to a single library or across all libraries.
+- **Device Limits**:
+  - **User-Configurable Limits**: Spacedrive will allow users to configure limits on the total number of devices that can be paired to a single library or across all libraries.
+  - **Policy Enforcement**: When a new pairing request is initiated, the system will check against these limits. If exceeded, the pairing will be rejected, and the user will be notified.
 
-Policy Enforcement: When a new pairing request is initiated, the system will check against these limits. If exceeded, the pairing will be rejected, and the user will be notified.
+**Rust Design for Device Limits:**
 
-Rust Design for Device Limits:
-
-Rust
+```rust
 // In Core configuration or Library settings
 pub struct AppConfig {
     // ...
@@ -3308,17 +3313,16 @@ impl PairingProtocolHandler {
         Ok(())
     }
 }
-Data Encryption in Sync Log:
+```
 
-The data field in SyncLogEntry, which stores the serialized model data as JSON, will be encrypted before being written to the database.
+- **Data Encryption in Sync Log**:
+  - The `data` field in `SyncLogEntry`, which stores the serialized model data as JSON, will be encrypted _before_ being written to the database.
+  - **Column-Level Encryption**: This can be achieved using a symmetric key derived from the library's master key (which itself is secured by the user's password) to encrypt the `data` field (e.g., using AES-256-GCM).
+  - **Key Management**: The encryption key for the `sync_log` will be managed by the `SecureStorage` module, ensuring it is only accessible when the user's password unlocks the device's secure storage.
 
-Column-Level Encryption: This can be achieved using a symmetric key derived from the library's master key (which itself is secured by the user's password) to encrypt the data field (e.g., using AES-256-GCM).
+**Rust Design for Sync Log Data Encryption:**
 
-Key Management: The encryption key for the sync_log will be managed by the SecureStorage module, ensuring it is only accessible when the user's password unlocks the device's secure storage.
-
-Rust Design for Sync Log Data Encryption:
-
-Rust
+```rust
 // In sync_log_entry::ActiveModel
 #[derive(Debug, Clone, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "sync_log")]
@@ -3376,71 +3380,76 @@ impl SyncLogEntry {
 }
 
 // The EncryptionService would wrap ring for AES-GCM and integrate with SecureStorage for keys.
+```
 
+## Folder Structure
 
-
-Areas for Consideration & Potential Challenges
-
-The design is very strong, but here are some areas where further thought or clarification could be beneficial.
-
-1. Leader Availability and Election
-
-The "One Leader Per Library" model is excellent for simplicity and consistency. The "Enhanced Leadership Management" section  correctly identifies the need for an election protocol when a leader goes offline.
-
-
-User Experience During Election: What is the expected user experience while a leader is offline and an election is underway? Are write operations to user metadata paused library-wide? Your design should clarify if followers enter a read-only or degraded state for the sync-log until a new leader is confirmed.
-
-Epoch Management: The use of epochs to prevent split-brain is the correct approach. It's crucial that the epoch number is durably stored and reliably incremented by the new leader
-
-before it starts accepting any changes. The process for reaching consensus on the new epoch number during an election must be flawless to prevent a split-brain scenario. The design in
-
-SyncFollowerService to reject changes from an old epoch is a critical safeguard.
-
-2. Sync Log Management and Growth
-
-An append-only log on the leader is a great model for a change history, but it can grow indefinitely.
-
-Pruning Strategy: The design proposes a configurable retention period and a pruning job. This is a good solution. It would be beneficial to consider the performance impact of the
-
-
-DELETE operations on the leader's database during a prune. For very large logs, this could cause temporary locking or performance degradation. An alternative might be to archive logs by moving them to a different table or file.
-
-Backfill from Snapshot: For a new device joining a library with a very long history, a full backfill from sequence 0 could be time-consuming. You might consider a future enhancement where the leader can periodically create a compressed snapshot of the current state of all data. A new device could then download the latest snapshot and perform an incremental backfill of only the changes that occurred since the snapshot was created, significantly speeding up the initial sync.
-
-
-3. Merge and Conflict Complexity
-
-The library merging process is a powerful feature but also one of the most complex user-facing interactions.
-
-True Conflict Frequency: The design correctly notes that true conflicts (e.g., simultaneous edits to the same note on different devices) should be rare. However, the UI and workflow for resolving them must be flawless. The proposed conflict resolution view is well-conceived. It would be good to analyze user workflows to see if any patterns might lead to more conflicts than anticipated and whether default behaviors (e.g., "Latest Wins") can be made smarter.
-
-
-
-UserMetadataTag Domain Resolution: The dynamic lookup of the parent UserMetadata's domain for a user_metadata_tag is the correct approach for ensuring data consistency. As noted in the document, this adds a minor overhead. This seems like a perfectly acceptable trade-off for correctness, but it's worth flagging as a performance consideration to monitor.
-
-
-Specific Feedback & Questions
-
-In the
-
-InitialSyncJob::run function, the phases are listed as establishing a connection, exchanging metadata, pulling changes, and then applying them. This is a solid, linear flow for a follower initiating sync.
-
-
-The
-
-Syncable trait's merge function correctly routes logic based on the SYNC_DOMAIN. This is a clean and effective way to enforce domain-specific conflict rules.
-
-The parallel backfill logic proposed in
-
-BackfillSyncJob::full_backfill  is an excellent optimization. Fetching Index and UserMetadata domains concurrently and then relying on the
-
-batch_changes_by_dependencies function to reorder them is both efficient and safe.
-
-The plan for persisting the
-
-OfflineQueue to an "offline journal" is a critical feature for data integrity, preventing data loss if the application is closed while offline. The design to append to the journal before committing the database transaction is the right way to ensure atomicity.
-
-
-Conclusion
-
-This is a top-tier design document. You have successfully translated a complex set of requirements into a clear, robust, and maintainable architecture. The emphasis on declarative systems, developer experience, and pragmatic solutions to hard problems like dependency management and conflict resolution is highly commendable. The potential challenges identified are not flaws in the design but rather inherent complexities of distributed systems, and your document already contains thoughtful and effective strategies to address them. This design is on a clear path to a successful implementation.
+```
+src/
+├── sync/
+│   ├── mod.rs                      # Main sync module exports (SyncService, SyncManager)
+│   ├── types.rs                    # Core sync types (SyncDomain, ChangeType, SyncChange, SyncContext, SyncPhase)
+│   ├── traits.rs                   # Defines Syncable trait and related enums (CircularResolution, MergeResult, ConflictType)
+│   ├── registry.rs                 # Manages Syncable models and builds dependency graph (SyncRegistry)
+│   ├── manager.rs                  # Orchestrates sync jobs (SyncJobManager - high-level interface for Core)
+│   ├── jobs/                       # Definitions for sync-related jobs
+│   │   ├── mod.rs                  # Job module exports
+│   │   ├── initial_sync.rs         # InitialSyncJob implementation
+│   │   ├── live_sync.rs            # LiveSyncJob implementation
+│   │   ├── backfill_sync.rs        # BackfillSyncJob implementation
+│   │   ├── sync_readiness.rs       # SyncReadinessJob for pre-sync entries
+│   │   └── sync_setup.rs           # SyncSetupJob for library merging
+│   ├── protocol/                   # Handles sync-specific message logic (client/server for sync data)
+│   │   ├── mod.rs                  # Protocol exports
+│   │   ├── handler.rs              # Implements ProtocolHandler for sync messages (SyncProtocolHandler)
+│   │   ├── messages.rs             # Sync-specific messages (SyncPullRequest, SyncPullResponse, SyncChange, SyncPullModelBatchRequest/Response)
+│   │   └── services.rs             # Encapsulates core sync logic (SyncLeaderService, SyncFollowerService)
+│   ├── state/                      # Manages persistent sync state
+│   │   ├── mod.rs                  # State exports
+│   │   ├── sync_log.rs             # Sync log table operations (SyncLogManager)
+│   │   ├── sync_position.rs        # Sync position tracking (SyncPositionManager)
+│   │   ├── conflict_manager.rs     # Manages detected conflicts for UI resolution
+│   │   └── offline_journal.rs      # Offline journal for unsynced changes
+│   ├── logging.rs                  # Sync-specific logging (SyncLogger trait, ProductionSyncLogger, ConsoleSyncLogger)
+│   └── util/                       # Utility functions for sync operations
+│       ├── mod.rs                  # Utility exports
+│       ├── dependency_resolver.rs  # Logic for building/traversing dependency graphs
+│       ├── change_queue.rs         # In-memory queue for captured changes (SYNC_QUEUE)
+│       └── conflict_merge.rs       # Specific merge logic for complex types (e.g., merge_notes, merge_custom_data)
+│
+├── infrastructure/
+│   ├── networking/                 # Existing networking module
+│   │   ├── mod.rs
+│   │   ├── protocols/
+│   │   │   ├── sync/               # Pointer to sync/protocol/handler.rs for integration
+│   │   │   └── pairing/            # Existing pairing protocol
+│   │   │       ├── mod.rs
+│   │   │       ├── security.rs
+│   │   │       ├── persistence.rs
+│   │   │       ├── protocol.rs     # Likely contains PairingProtocolHandler logic
+│   │   │       ├── rate_limiter.rs # New: for pairing request rate limiting
+│   │   │       └── user_confirmation.rs # New: for user confirmation logic
+│   │   └── persistent/             # Existing persistent networking components
+│   │       ├── service.rs          # `NetworkingService` - will register SyncProtocolHandler
+│   │       ├── manager.rs          # `PersistentConnectionManager`
+│   │       ├── identity.rs         # `PersistentNetworkIdentity`
+│   │       ├── storage.rs          # `SecureStorage` (used by sync for encrypted log data)
+│   │       ├── messages.rs         # `DeviceMessage` enum (includes sync messages)
+│   │       └── leader_election.rs  # New: Dedicated logic for leader election messages/state
+│   │
+│   ├── database/                   # Existing database integration
+│   │   ├── mod.rs
+│   │   ├── models/
+│   │   │   ├── mod.rs
+│   │   │   ├── sync_log_entry.rs   # Model definition for sync_log table
+│   │   │   ├── sync_position.rs    # Model definition for sync_positions table
+│   │   │   └── (other models that implement Syncable)
+│   │   └── behaviors.rs            # SeaORM ActiveModelBehavior implementations for `after_save` hooks
+│   │
+│   └── config/                     # Application configuration
+│       └── mod.rs                  # AppConfig (includes max_paired_devices_per_library, max_total_paired_devices, sync_log_retention_policy)
+│
+└── core/                           # Main application core
+    ├── mod.rs
+    └── services.rs                 # Initializes NetworkingService and SyncJobManager
+```
