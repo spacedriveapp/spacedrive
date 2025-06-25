@@ -33,21 +33,21 @@ impl LinuxHandler {
     async fn should_debounce(&self, path: &PathBuf) -> bool {
         let mut recent = self.recent_events.write().await;
         let now = Instant::now();
-        
+
         // Check if we've seen this path recently
         if let Some(&last_seen) = recent.get(path) {
             if now.duration_since(last_seen) < self.debounce_duration {
                 return true;
             }
         }
-        
+
         recent.insert(path.clone(), now);
-        
+
         // Cleanup old entries
         recent.retain(|_, &mut last_seen| {
             now.duration_since(last_seen) < Duration::from_secs(1)
         });
-        
+
         false
     }
 
@@ -151,7 +151,7 @@ impl EventHandler for LinuxHandler {
         // Linux inotify is generally more reliable and doesn't need as much cleanup
         let mut recent = self.recent_events.write().await;
         let now = Instant::now();
-        
+
         // Clean up old debounce entries
         recent.retain(|_, &mut last_seen| {
             now.duration_since(last_seen) < Duration::from_secs(5)
@@ -176,13 +176,13 @@ mod tests {
     async fn test_debounce_logic() {
         let handler = LinuxHandler::new();
         let path = PathBuf::from("/test/file.txt");
-        
+
         // First event should not be debounced
         assert!(!handler.should_debounce(&path).await);
-        
+
         // Second immediate event should be debounced
         assert!(handler.should_debounce(&path).await);
-        
+
         // Wait for debounce period and try again
         tokio::time::sleep(Duration::from_millis(60)).await;
         assert!(!handler.should_debounce(&path).await);
@@ -192,7 +192,7 @@ mod tests {
     async fn test_rename_event_handling() {
         let handler = LinuxHandler::new();
         let watched_locations = Arc::new(RwLock::new(HashMap::new()));
-        
+
         let event = WatcherEvent {
             kind: WatcherEventKind::Rename {
                 from: PathBuf::from("/test/old.txt"),

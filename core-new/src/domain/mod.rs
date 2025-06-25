@@ -13,7 +13,7 @@ pub mod user_metadata;
 pub mod volume;
 
 // Re-export commonly used types
-pub use content_identity::{ContentIdentity, ContentKind, MediaData};
+pub use content_identity::{ContentKind, MediaData, ContentHashGenerator, ContentHashError};
 pub use device::{Device, OperatingSystem};
 pub use entry::{Entry, EntryKind, SdPathSerialized};
 pub use location::{Location, IndexMode, ScanState};

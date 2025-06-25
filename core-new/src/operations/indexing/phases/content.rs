@@ -7,13 +7,14 @@ use crate::{
         state::{IndexerState, IndexPhase, IndexError, IndexerProgress},
         entry::EntryProcessor,
     },
-    domain::content_identity::CasGenerator,
+    domain::content_identity::ContentHashGenerator,
 };
 
 /// Run the content identification phase
 pub async fn run_content_phase(
     state: &mut IndexerState,
     ctx: &JobContext<'_>,
+    library_id: uuid::Uuid,
 ) -> Result<(), JobError> {
     let total = state.entries_for_content.len();
     ctx.log(format!("Content identification phase starting with {} files", total));
@@ -55,23 +56,23 @@ pub async fn run_content_phase(
         ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
         // Process chunk in parallel for better performance
-        let cas_futures: Vec<_> = chunk.iter()
+        let content_hash_futures: Vec<_> = chunk.iter()
             .map(|(entry_id, path)| async move {
-                let cas_result = CasGenerator::generate_cas_id(path).await;
-                (*entry_id, path.clone(), cas_result)
+                let hash_result = ContentHashGenerator::generate_content_hash(path).await;
+                (*entry_id, path.clone(), hash_result)
             })
             .collect();
         
-        // Wait for all CAS generations to complete
-        let cas_results = futures::future::join_all(cas_futures).await;
+        // Wait for all content hash generations to complete
+        let hash_results = futures::future::join_all(content_hash_futures).await;
         
         // Process results
-        for (entry_id, path, cas_result) in cas_results {
-            match cas_result {
-                Ok(cas_id) => {
-                    match EntryProcessor::create_content_identity(ctx, entry_id, &path, cas_id.clone()).await {
+        for (entry_id, path, hash_result) in hash_results {
+            match hash_result {
+                Ok(content_hash) => {
+                    match EntryProcessor::link_to_content_identity(ctx, entry_id, &path, content_hash.clone(), library_id).await {
                         Ok(()) => {
-                            ctx.log(format!("✅ Created content identity for {}: {}", path.display(), cas_id));
+                            ctx.log(format!("✅ Created content identity for {}: {}", path.display(), content_hash));
                             success_count += 1;
                         }
                         Err(e) => {
@@ -86,7 +87,7 @@ pub async fn run_content_phase(
                     }
                 }
                 Err(e) => {
-                    let error_msg = format!("Failed to generate CAS ID for {}: {}", path.display(), e);
+                    let error_msg = format!("Failed to generate content hash for {}: {}", path.display(), e);
                     ctx.add_non_critical_error(error_msg);
                     state.add_error(IndexError::ContentId { 
                         path: path.to_string_lossy().to_string(), 

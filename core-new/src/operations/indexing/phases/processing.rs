@@ -40,7 +40,8 @@ pub async fn run_processing_phase(
     let location_id_i32 = location_record.id;
     ctx.log(format!("Found location record: device_id={}, location_id={}", device_id, location_id_i32));
     
-    // Load existing entries for change detection if we have any
+    // Load existing entries for change detection scoped to the indexing path
+    // Note: location_root_path is the actual path being indexed (could be a subpath of the location)
     let mut change_detector = ChangeDetector::new();
     if !state.existing_entries.is_empty() || mode != IndexMode::Shallow {
         ctx.log("Loading existing entries for change detection...");

@@ -79,25 +79,25 @@ impl Default for SharingOptions {
 pub enum SharingError {
     #[error("Networking not available")]
     NetworkingUnavailable,
-    
+
     #[error("Device not found: {0}")]
     DeviceNotFound(Uuid),
-    
+
     #[error("File not found: {0}")]
     FileNotFound(PathBuf),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Transfer failed: {0}")]
     TransferFailed(String),
-    
+
     #[error("Invalid sharing target")]
     InvalidTarget,
-    
+
     #[error("Job system error: {0}")]
     JobError(String),
-    
+
     #[error("Network error: {0}")]
     NetworkError(String),
 }
@@ -190,9 +190,9 @@ impl FileSharing {
         // Submit job to job system
         let handle = job_manager.dispatch(copy_job).await
             .map_err(|e| SharingError::JobError(e.to_string()))?;
-        
+
         println!("📋 Submitted cross-device copy job {} for device {}", handle.id(), device_id);
-        
+
         Ok(vec![TransferId::JobId(handle.id().into())])
     }
 
@@ -209,18 +209,18 @@ impl FileSharing {
 
         for file_path in files {
             let file_metadata = self.create_file_metadata(&file_path).await?;
-            
+
             // TODO: Implement Spacedrop protocol
             // For now, simulate the process
             let transfer_id = Uuid::new_v4();
-            
-            println!("🚀 Starting Spacedrop session {} for file: {}", 
+
+            println!("🚀 Starting Spacedrop session {} for file: {}",
                 transfer_id, file_path.display());
             println!("   Sender: {}", options.sender_name);
             if let Some(ref message) = options.message {
                 println!("   Message: {}", message);
             }
-            
+
             transfer_ids.push(TransferId::SpacedropId(transfer_id));
         }
 
@@ -438,7 +438,7 @@ mod tests {
     async fn test_file_sharing_creation() {
         let device_manager = Arc::new(DeviceManager::init().unwrap());
         let file_sharing = FileSharing::new(None, device_manager);
-        
+
         // Should be able to create without networking
         assert!(file_sharing.networking.is_none());
     }
@@ -456,13 +456,13 @@ mod tests {
     async fn test_file_not_found_error() {
         let device_manager = Arc::new(DeviceManager::init().unwrap());
         let file_sharing = FileSharing::new(None, device_manager);
-        
+
         let result = file_sharing.share_files(
             vec![PathBuf::from("/nonexistent/file.txt")],
             SharingTarget::PairedDevice(Uuid::new_v4()),
             SharingOptions::default(),
         ).await;
-        
+
         assert!(matches!(result, Err(SharingError::FileNotFound(_))));
     }
 
@@ -470,12 +470,12 @@ mod tests {
     async fn test_create_file_metadata() {
         let device_manager = Arc::new(DeviceManager::init().unwrap());
         let file_sharing = FileSharing::new(None, device_manager);
-        
+
         // Create a temporary file
         let temp_dir = tempdir().unwrap();
         let file_path = temp_dir.path().join("test.txt");
         tokio::fs::write(&file_path, b"test content").await.unwrap();
-        
+
         let metadata = file_sharing.create_file_metadata(&file_path).await.unwrap();
         assert_eq!(metadata.name, "test.txt");
         assert_eq!(metadata.size, 12);

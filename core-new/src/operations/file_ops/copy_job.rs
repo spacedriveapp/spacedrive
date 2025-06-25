@@ -159,7 +159,7 @@ impl FileCopyJob {
 			started_at: Instant::now(),
 		}
 	}
-	
+
 	/// Create an empty job (used by derive macro)
 	pub fn empty() -> Self {
 		Self {
@@ -385,10 +385,10 @@ impl FileCopyJob {
 		let networking_guard = networking.read().await;
 		let protocol_registry = networking_guard.protocol_registry();
 		let registry_guard = protocol_registry.read().await;
-		
+
 		let file_transfer_handler = registry_guard.get_handler("file_transfer")
 			.ok_or_else(|| "File transfer protocol not registered".to_string())?;
-		
+
 		let file_transfer_protocol = file_transfer_handler.as_any()
 			.downcast_ref::<crate::infrastructure::networking::protocols::FileTransferProtocolHandler>()
 			.ok_or_else(|| "Invalid file transfer protocol handler".to_string())?;
@@ -405,7 +405,7 @@ impl FileCopyJob {
 		// Send transfer request to remote device
 		let chunk_size = 64 * 1024u32;
 		let total_chunks = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
-		
+
 		let transfer_request = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::TransferRequest {
 			transfer_id,
 			file_metadata: file_metadata.clone(),
@@ -571,7 +571,7 @@ impl FileCopyJob {
 			crate::infrastructure::networking::protocols::file_transfer::TransferState::Completed,
 		).map_err(|e| format!("Failed to complete transfer: {}", e))?;
 
-		ctx.log(format!("✅ File streaming completed: {} chunks, {} bytes sent to device {}", 
+		ctx.log(format!("✅ File streaming completed: {} chunks, {} bytes sent to device {}",
 			chunk_index, bytes_transferred, self.destination.device_id));
 		Ok(())
 	}

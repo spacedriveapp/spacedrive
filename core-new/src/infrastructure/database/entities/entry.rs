@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
-    pub uuid: Uuid,
+    pub uuid: Option<Uuid>, // None until content identification phase complete (sync readiness indicator)
     pub location_id: i32,  // References location table
     pub relative_path: String,  // Directory path within location
     pub name: String,
@@ -68,3 +68,47 @@ impl Related<super::location::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EntryKind {
+    File = 0,
+    Directory = 1,
+    Symlink = 2,
+}
+
+impl From<i32> for EntryKind {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => EntryKind::File,
+            1 => EntryKind::Directory,
+            2 => EntryKind::Symlink,
+            _ => EntryKind::File, // Default fallback
+        }
+    }
+}
+
+impl From<EntryKind> for i32 {
+    fn from(kind: EntryKind) -> Self {
+        kind as i32
+    }
+}
+
+impl Model {
+    /// Get the entry kind as enum
+    pub fn entry_kind(&self) -> EntryKind {
+        EntryKind::from(self.kind)
+    }
+
+    /// UUID Assignment Rules:
+    /// - Directories: Assign UUID immediately (no content to identify)
+    /// - Empty files: Assign UUID immediately (size = 0, no content to hash)
+    /// - Regular files: Assign UUID after content identification completes
+    pub fn should_assign_uuid_immediately(&self) -> bool {
+        self.entry_kind() == EntryKind::Directory || self.size == 0
+    }
+
+    /// Check if this entry is ready for sync (has UUID assigned)
+    pub fn is_sync_ready(&self) -> bool {
+        self.uuid.is_some()
+    }
+}

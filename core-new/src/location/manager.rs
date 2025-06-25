@@ -100,7 +100,7 @@ impl LocationManager {
             location_id,
             path: path.clone(),
         });
-        
+
         // Also emit indexing started event
         self.events.emit(Event::IndexingStarted { location_id });
 
@@ -108,13 +108,13 @@ impl LocationManager {
         let job_id = match self.start_indexing(library, &managed_location).await {
             Ok(job_id) => {
                 info!("Started indexing job {} for location '{}'", job_id, path.display());
-                
+
                 // Emit job started event
                 self.events.emit(Event::JobStarted {
                     job_id: job_id.clone(),
                     job_type: "Indexing".to_string(),
                 });
-                
+
                 job_id
             }
             Err(e) => {
@@ -155,14 +155,14 @@ impl LocationManager {
         let job_manager = library.jobs();
         let job_handle = job_manager.dispatch(indexer_job).await?;
         let job_id = job_handle.id();
-        
+
         info!("Started indexing job {} for location '{}'", job_id, location.path.display());
-        
+
         // The job system will handle:
         // - Progress updates via the event bus
         // - Updating scan state when complete/failed
         // - Emitting appropriate events
-        
+
         Ok(job_id.to_string())
     }
 
@@ -233,8 +233,8 @@ impl LocationManager {
     async fn validate_path(&self, path: &PathBuf) -> LocationResult<()> {
         // Check if path exists
         if !path.exists() {
-            return Err(LocationError::PathNotFound { 
-                path: path.clone() 
+            return Err(LocationError::PathNotFound {
+                path: path.clone()
             });
         }
 
@@ -251,8 +251,8 @@ impl LocationManager {
             Ok(_) => Ok(()),
             Err(e) => match e.kind() {
                 std::io::ErrorKind::PermissionDenied => {
-                    Err(LocationError::PathNotAccessible { 
-                        path: path.clone() 
+                    Err(LocationError::PathNotAccessible {
+                        path: path.clone()
                     })
                 }
                 _ => Err(LocationError::Io(e)),
@@ -351,7 +351,7 @@ impl LocationManager {
 
 impl std::str::FromStr for IndexMode {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "shallow" => Ok(IndexMode::Shallow),

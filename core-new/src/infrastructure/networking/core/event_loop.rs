@@ -272,7 +272,8 @@ impl NetworkingEventLoop {
 						"file_transfer" => {
 							// Send file transfer message
 							use crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage;
-							if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&data) {
+							if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&data)
+							{
 								let request_id = swarm
 									.behaviour_mut()
 									.file_transfer
@@ -1113,16 +1114,23 @@ impl NetworkingEventLoop {
 							println!("🔄 Received file transfer request from {}", peer);
 
 							// Get device ID from device registry using peer ID
-							let device_id = match device_registry.read().await.get_device_by_peer(peer) {
-								Some(id) => {
-									println!("🔗 File Transfer: Found device {} for peer {}", id, peer);
-									id
-								}
-								None => {
-									eprintln!("❌ File Transfer: No device mapping found for peer {}", peer);
-									return Ok(()); // Skip processing this request
-								}
-							};
+							let device_id =
+								match device_registry.read().await.get_device_by_peer(peer) {
+									Some(id) => {
+										println!(
+											"🔗 File Transfer: Found device {} for peer {}",
+											id, peer
+										);
+										id
+									}
+									None => {
+										eprintln!(
+											"❌ File Transfer: No device mapping found for peer {}",
+											peer
+										);
+										return Ok(()); // Skip processing this request
+									}
+								};
 
 							// Handle the request through the protocol registry
 							match protocol_registry
@@ -1147,12 +1155,17 @@ impl NetworkingEventLoop {
 											.file_transfer
 											.send_response(channel, response_message)
 										{
-											eprintln!("Failed to send file transfer response: {:?}", e);
+											eprintln!(
+												"Failed to send file transfer response: {:?}",
+												e
+											);
 										} else {
 											println!("✅ Sent file transfer response to {}", peer);
 										}
 									} else {
-										eprintln!("❌ Failed to deserialize file transfer response");
+										eprintln!(
+											"❌ Failed to deserialize file transfer response"
+										);
 									}
 								}
 								Err(e) => {

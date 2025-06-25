@@ -122,16 +122,19 @@ pub async fn init_database(path: &Path) -> JobResult<DatabaseConnection> {
 async fn create_tables(db: &DatabaseConnection) -> JobResult<()> {
     let schema = Schema::new(DbBackend::Sqlite);
     
-    // Create jobs table
-    let jobs_statement = schema.create_table_from_entity(jobs::Entity);
+    // Create jobs table if not exists
+    let mut jobs_statement = schema.create_table_from_entity(jobs::Entity);
+    jobs_statement.if_not_exists();
     db.execute(db.get_database_backend().build(&jobs_statement)).await?;
     
-    // Create history table  
-    let history_statement = schema.create_table_from_entity(history::Entity);
+    // Create history table if not exists
+    let mut history_statement = schema.create_table_from_entity(history::Entity);
+    history_statement.if_not_exists();
     db.execute(db.get_database_backend().build(&history_statement)).await?;
     
-    // Create checkpoint table
-    let checkpoint_statement = schema.create_table_from_entity(checkpoint::Entity);
+    // Create checkpoint table if not exists
+    let mut checkpoint_statement = schema.create_table_from_entity(checkpoint::Entity);
+    checkpoint_statement.if_not_exists();
     db.execute(db.get_database_backend().build(&checkpoint_statement)).await?;
     
     Ok(())

@@ -12,6 +12,7 @@ pub mod content_identity;
 pub mod tag;
 pub mod label;
 pub mod metadata_tag;
+pub use metadata_tag as user_metadata_tag; // Alias for hierarchical metadata operations
 pub mod metadata_label;
 
 // Re-export all entities
@@ -22,6 +23,7 @@ pub use user_metadata::Entity as UserMetadata;
 pub use content_identity::Entity as ContentIdentity;
 pub use tag::Entity as Tag;
 pub use label::Entity as Label;
+pub use metadata_tag::Entity as UserMetadataTag;
 
 // Re-export active models for easy access
 pub use device::ActiveModel as DeviceActive;
@@ -31,3 +33,4 @@ pub use user_metadata::ActiveModel as UserMetadataActive;
 pub use content_identity::ActiveModel as ContentIdentityActive;
 pub use tag::ActiveModel as TagActive;
 pub use label::ActiveModel as LabelActive;
+pub use metadata_tag::ActiveModel as UserMetadataTagActive;

@@ -73,75 +73,41 @@ impl ChangeDetector {
 		}
 	}
 
-	/// Load existing entries from database for a location
+	/// Load existing entries from database for a location, scoped to indexing path
 	pub async fn load_existing_entries(
 		&mut self,
 		ctx: &JobContext<'_>,
 		location_id: i32,
-		location_root: &Path,
+		indexing_path: &Path,
 	) -> Result<(), crate::infrastructure::jobs::prelude::JobError> {
 		use crate::infrastructure::jobs::prelude::JobError;
+		use super::persistence::{DatabasePersistence, IndexPersistence};
 
-		// Query all entries for this location
-		let entries = entities::entry::Entity::find()
-			.filter(entities::entry::Column::LocationId.eq(location_id))
-			.select_only()
-			.column(entities::entry::Column::Id)
-			.column(entities::entry::Column::RelativePath)
-			.column(entities::entry::Column::Name)
-			.column(entities::entry::Column::Extension)
-			.column(entities::entry::Column::Kind)
-			.column(entities::entry::Column::Size)
-			.column(entities::entry::Column::ModifiedAt)
-			.column(entities::entry::Column::Inode)
-			.into_tuple::<(
-				i32,
-				String,
-				String,
-				Option<String>,
-				i32,
-				i64,
-				chrono::DateTime<chrono::Utc>,
-				Option<i64>,
-			)>()
-			.all(ctx.library_db())
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to load existing entries: {}", e)))?;
-
-		// Process entries
-		for (id, relative_path, name, extension, kind, size, modified, inode) in entries {
-			// Reconstruct full path
-			let mut full_path = location_root.to_path_buf();
-			if !relative_path.is_empty() {
-				full_path.push(&relative_path);
-			}
-
-			// Add filename with extension
-			let filename = if let Some(ext) = extension {
-				format!("{}.{}", name, ext)
+		// Create a database persistence instance to leverage the scoped query logic
+		let persistence = DatabasePersistence::new(ctx, location_id, 0); // device_id not needed for query
+		
+		// Use the scoped query method
+		let existing_entries = persistence.get_existing_entries(indexing_path).await?;
+		
+		// Process the results into our internal data structures
+		for (full_path, (id, inode, modified_time)) in existing_entries {
+			// Determine entry kind from the path (we could query this, but for change detection we mainly care about existence)
+			// For now, we'll assume File for simplicity since change detection primarily cares about path/inode/timestamp
+			let entry_kind = if full_path.is_dir() {
+				EntryKind::Directory
 			} else {
-				name
-			};
-			full_path.push(filename);
-
-			// Convert types
-			let entry_kind = match kind {
-				0 => EntryKind::File,
-				1 => EntryKind::Directory,
-				2 => EntryKind::Symlink,
-				_ => continue, // Skip unknown types
+				EntryKind::File
 			};
 
-			let modified_time = SystemTime::UNIX_EPOCH
-				+ std::time::Duration::from_secs(modified.timestamp() as u64);
-
+			// We don't have size from the scoped query, but it's not critical for change detection
+			// The actual size comparison happens during processing when we have fresh metadata
 			let db_entry = DatabaseEntry {
 				id,
 				path: full_path.clone(),
 				kind: entry_kind,
-				size: size as u64,
-				modified: Some(modified_time),
-				inode: inode.map(|i| i as u64),
+				size: 0, // Will be verified during actual change detection
+				modified: modified_time,
+				inode,
 			};
 
 			// Track by path
@@ -149,7 +115,7 @@ impl ChangeDetector {
 
 			// Track by inode if available
 			if let Some(inode_val) = inode {
-				self.inode_to_path.insert(inode_val as u64, full_path);
+				self.inode_to_path.insert(inode_val, full_path);
 			}
 		}
 

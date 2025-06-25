@@ -54,7 +54,7 @@ impl JobStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
     }
-    
+
     pub fn is_active(&self) -> bool {
         matches!(self, Self::Running | Self::Paused)
     }
@@ -130,7 +130,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
         checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
         networking: Option<std::sync::Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
     ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
-    
+
     fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError>;
 }
 

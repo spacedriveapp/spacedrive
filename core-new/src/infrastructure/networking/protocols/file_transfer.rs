@@ -23,7 +23,7 @@ use sha2::Sha256;
 /// Session keys for device-to-device encryption
 #[derive(Debug, Clone)]
 pub struct SessionKeys {
-    pub send_key: Vec<u8>,      // 32-byte HKDF-derived send key  
+    pub send_key: Vec<u8>,      // 32-byte HKDF-derived send key
     pub receive_key: Vec<u8>,   // 32-byte HKDF-derived receive key
 }
 
@@ -127,7 +127,7 @@ pub enum FileTransferMessage {
         checksum: Option<[u8; 32]>,
         destination_path: String,
     },
-    
+
     /// Response to transfer request
     TransferResponse {
         transfer_id: Uuid,
@@ -135,7 +135,7 @@ pub enum FileTransferMessage {
         reason: Option<String>,
         supported_resume: bool,
     },
-    
+
     /// File data chunk
     FileChunk {
         transfer_id: Uuid,
@@ -144,21 +144,21 @@ pub enum FileTransferMessage {
         nonce: [u8; 12],          // ChaCha20-Poly1305 nonce
         chunk_checksum: [u8; 32], // Checksum of original (unencrypted) data
     },
-    
+
     /// Acknowledge received chunk
     ChunkAck {
         transfer_id: Uuid,
         chunk_index: u32,
         next_expected: u32,
     },
-    
+
     /// Transfer completion notification
     TransferComplete {
         transfer_id: Uuid,
         final_checksum: [u8; 32],
         total_bytes: u64,
     },
-    
+
     /// Transfer error or cancellation
     TransferError {
         transfer_id: Uuid,
@@ -210,18 +210,18 @@ impl FileTransferProtocolHandler {
     pub fn encrypt_chunk(&self, session_send_key: &[u8], transfer_id: &Uuid, chunk_index: u32, data: &[u8]) -> Result<(Vec<u8>, [u8; 12])> {
         // Derive chunk-specific key
         let chunk_key = self.derive_chunk_key(session_send_key, transfer_id, chunk_index)?;
-        
+
         // Create cipher
         let cipher = ChaCha20Poly1305::new_from_slice(&chunk_key)
             .map_err(|e| NetworkingError::Protocol(format!("Cipher creation failed: {}", e)))?;
-        
+
         // Generate nonce
         let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng);
-        
+
         // Encrypt data
         let ciphertext = cipher.encrypt(&nonce, data)
             .map_err(|e| NetworkingError::Protocol(format!("Encryption failed: {}", e)))?;
-        
+
         Ok((ciphertext, nonce.into()))
     }
 
@@ -229,16 +229,16 @@ impl FileTransferProtocolHandler {
     fn decrypt_chunk(&self, session_receive_key: &[u8], transfer_id: &Uuid, chunk_index: u32, encrypted_data: &[u8], nonce: &[u8; 12]) -> Result<Vec<u8>> {
         // Derive same chunk-specific key (using receive key)
         let chunk_key = self.derive_chunk_key(session_receive_key, transfer_id, chunk_index)?;
-        
+
         // Create cipher
         let cipher = ChaCha20Poly1305::new_from_slice(&chunk_key)
             .map_err(|e| NetworkingError::Protocol(format!("Cipher creation failed: {}", e)))?;
-        
+
         // Decrypt data
         let nonce = Nonce::from_slice(nonce);
         let plaintext = cipher.decrypt(nonce, encrypted_data)
             .map_err(|e| NetworkingError::Protocol(format!("Decryption failed: {}", e)))?;
-        
+
         Ok(plaintext)
     }
 
@@ -246,11 +246,11 @@ impl FileTransferProtocolHandler {
     pub async fn get_session_keys_for_device(&self, device_id: Uuid) -> Result<SessionKeys> {
         let device_registry = self.device_registry.as_ref()
             .ok_or_else(|| NetworkingError::Protocol("Device registry not set".to_string()))?;
-        
+
         let registry_guard = device_registry.read().await;
         let session_keys = registry_guard.get_session_keys(device_id)
             .ok_or_else(|| NetworkingError::Protocol(format!("No session keys found for device {}", device_id)))?;
-        
+
         Ok(SessionKeys {
             send_key: session_keys.send_key,
             receive_key: session_keys.receive_key,
@@ -433,7 +433,7 @@ impl FileTransferProtocolHandler {
         {
             // Get session keys for decryption
             let session_keys = self.get_session_keys_for_device(from_device).await?;
-            
+
             // Decrypt chunk data
             let decrypted_data = self.decrypt_chunk(
                 &session_keys.receive_key,
@@ -469,7 +469,7 @@ impl FileTransferProtocolHandler {
                 if let Some(session) = sessions.get(&transfer_id) {
                     let mut received_chunks = session.chunks_received.clone();
                     received_chunks.sort();
-                    
+
                     // Find the first missing chunk
                     let mut next = 0;
                     for &chunk in &received_chunks {
@@ -540,7 +540,7 @@ impl FileTransferProtocolHandler {
     pub fn cleanup_old_transfers(&self, max_age: Duration) {
         let mut sessions = self.sessions.write().unwrap();
         let cutoff = SystemTime::now() - max_age;
-        
+
         sessions.retain(|_, session| {
             match session.state {
                 TransferState::Active | TransferState::Pending => true,
@@ -557,26 +557,26 @@ impl FileTransferProtocolHandler {
         data: &[u8],
     ) -> std::result::Result<(), String> {
         use tokio::io::{AsyncSeekExt, AsyncWriteExt};
-        
+
         // Get session info to determine file path and chunk size
         let (file_path, chunk_size) = {
             let sessions = self.sessions.read().unwrap();
             let session = sessions.get(transfer_id)
                 .ok_or_else(|| "Transfer session not found".to_string())?;
-            
+
             // Use the destination path from the transfer request
             let destination_path = PathBuf::from(&session.destination_path);
             let file_path = destination_path.join(&session.file_metadata.name);
-            
+
             (file_path, 64 * 1024u32) // 64KB chunk size
         };
-        
+
         // Ensure parent directory exists
         if let Some(parent) = file_path.parent() {
             tokio::fs::create_dir_all(parent).await
                 .map_err(|e| format!("Failed to create parent directory: {}", e))?;
         }
-        
+
         // Open file for writing (create if doesn't exist)
         let mut file = tokio::fs::OpenOptions::new()
             .create(true)
@@ -584,10 +584,10 @@ impl FileTransferProtocolHandler {
             .open(&file_path)
             .await
             .map_err(|e| format!("Failed to open file for writing: {}", e))?;
-        
+
         // Calculate file offset for this chunk
         let offset = chunk_index as u64 * chunk_size as u64;
-        
+
         // Seek to the correct position and write the chunk
         file.seek(std::io::SeekFrom::Start(offset)).await
             .map_err(|e| format!("Failed to seek in file: {}", e))?;
@@ -595,10 +595,10 @@ impl FileTransferProtocolHandler {
             .map_err(|e| format!("Failed to write chunk data: {}", e))?;
         file.flush().await
             .map_err(|e| format!("Failed to flush file: {}", e))?;
-        
-        println!("📝 Wrote chunk {} ({} bytes) to file: {}", 
+
+        println!("📝 Wrote chunk {} ({} bytes) to file: {}",
             chunk_index, data.len(), file_path.display());
-        
+
         Ok(())
     }
 }
@@ -655,7 +655,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
                 }
             }
             FileTransferMessage::ChunkAck { transfer_id, chunk_index, next_expected } => {
-                println!("📦 Chunk {} acknowledged for transfer {}, next expected: {}", 
+                println!("📦 Chunk {} acknowledged for transfer {}, next expected: {}",
                     chunk_index, transfer_id, next_expected);
                 // TODO: Continue sending next chunks
             }
@@ -734,10 +734,10 @@ mod tests {
     async fn test_transfer_session_lifecycle() {
         let handler = FileTransferProtocolHandler::new_default();
         let transfer_id = Uuid::new_v4();
-        
+
         // Initially no session
         assert!(handler.get_session(&transfer_id).is_none());
-        
+
         // Update state should fail for non-existent session
         assert!(handler.update_session_state(&transfer_id, TransferState::Active).is_err());
     }

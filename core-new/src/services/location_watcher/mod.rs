@@ -73,7 +73,7 @@ impl LocationWatcher {
     /// Create a new location watcher
     pub fn new(config: LocationWatcherConfig, events: Arc<EventBus>) -> Self {
         let platform_handler = Arc::new(PlatformHandler::new());
-        
+
         Self {
             config,
             events,
@@ -92,7 +92,7 @@ impl LocationWatcher {
         }
 
         let mut locations = self.watched_locations.write().await;
-        
+
         if locations.contains_key(&location.id) {
             warn!("Location {} is already being watched", location.id);
             return Ok(());
@@ -113,7 +113,7 @@ impl LocationWatcher {
     /// Remove a location from watching
     pub async fn remove_location(&self, location_id: Uuid) -> Result<()> {
         let mut locations = self.watched_locations.write().await;
-        
+
         if let Some(location) = locations.remove(&location_id) {
             // Remove from file system watcher if running
             if *self.is_running.read().await {
@@ -130,7 +130,7 @@ impl LocationWatcher {
     /// Update a location's settings
     pub async fn update_location(&self, location_id: Uuid, enabled: bool) -> Result<()> {
         let mut locations = self.watched_locations.write().await;
-        
+
         if let Some(location) = locations.get_mut(&location_id) {
             let was_enabled = location.enabled;
             location.enabled = enabled;
@@ -171,7 +171,7 @@ impl LocationWatcher {
         let debug_mode = self.config.debug_mode;
 
         let (tx, mut rx) = mpsc::channel(self.config.event_buffer_size);
-        
+
         // Create file system watcher
         let mut watcher = notify::recommended_watcher(move |res| {
             match res {
@@ -179,10 +179,10 @@ impl LocationWatcher {
                     if debug_mode {
                         debug!("Raw file system event: {:?}", event);
                     }
-                    
+
                     // Convert notify event to our WatcherEvent
                     let watcher_event = WatcherEvent::from_notify_event(event);
-                    
+
                     if let Err(e) = tx.try_send(watcher_event) {
                         warn!("Failed to send watcher event: {}", e);
                     }
@@ -231,7 +231,7 @@ impl LocationWatcher {
                         if let Err(e) = platform_handler.tick().await {
                             error!("Error during platform handler tick: {}", e);
                         }
-                        
+
                         // Handle platform-specific tick events that might generate additional events
                         #[cfg(target_os = "macos")]
                         {
@@ -241,7 +241,7 @@ impl LocationWatcher {
                                 }
                             }
                         }
-                        
+
                         #[cfg(target_os = "windows")]
                         {
                             if let Ok(tick_events) = platform_handler.inner.tick_with_locations(&watched_locations).await {
@@ -253,7 +253,7 @@ impl LocationWatcher {
                     }
                 }
             }
-            
+
             info!("Location watcher event loop stopped");
         });
 
@@ -270,11 +270,11 @@ impl Service for LocationWatcher {
         }
 
         info!("Starting location watcher service");
-        
+
         *self.is_running.write().await = true;
-        
+
         self.start_event_loop().await?;
-        
+
         info!("Location watcher service started");
         Ok(())
     }
@@ -285,12 +285,12 @@ impl Service for LocationWatcher {
         }
 
         info!("Stopping location watcher service");
-        
+
         *self.is_running.write().await = false;
-        
+
         // Clean up watcher
         *self.watcher.write().await = None;
-        
+
         info!("Location watcher service stopped");
         Ok(())
     }
@@ -319,7 +319,7 @@ mod tests {
         let config = LocationWatcherConfig::default();
         let events = create_test_events();
         let watcher = LocationWatcher::new(config, events);
-        
+
         assert!(!watcher.is_running());
         assert_eq!(watcher.name(), "location_watcher");
     }
@@ -329,7 +329,7 @@ mod tests {
         let config = LocationWatcherConfig::default();
         let events = create_test_events();
         let watcher = LocationWatcher::new(config, events);
-        
+
         let temp_dir = TempDir::new().unwrap();
         let location = WatchedLocation {
             id: Uuid::new_v4(),
@@ -337,19 +337,19 @@ mod tests {
             path: temp_dir.path().to_path_buf(),
             enabled: true,
         };
-        
+
         let location_id = location.id;
-        
+
         // Add location
         watcher.add_location(location).await.unwrap();
-        
+
         let locations = watcher.get_watched_locations().await;
         assert_eq!(locations.len(), 1);
         assert_eq!(locations[0].id, location_id);
-        
+
         // Remove location
         watcher.remove_location(location_id).await.unwrap();
-        
+
         let locations = watcher.get_watched_locations().await;
         assert_eq!(locations.len(), 0);
     }

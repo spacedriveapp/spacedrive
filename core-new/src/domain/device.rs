@@ -1,5 +1,5 @@
 //! Unified device model - no more node/device/instance confusion
-//! 
+//!
 //! A Device represents a machine running Spacedrive. This unifies the old
 //! concepts of Node, Device, and Instance into one clear model.
 
@@ -13,31 +13,31 @@ use uuid::Uuid;
 pub struct Device {
     /// Unique identifier for this device
     pub id: Uuid,
-    
+
     /// Human-readable name
     pub name: String,
-    
+
     /// Operating system
     pub os: OperatingSystem,
-    
+
     /// Hardware model (e.g., "MacBook Pro", "iPhone 15")
     pub hardware_model: Option<String>,
-    
+
     /// Network addresses for P2P connections
     pub network_addresses: Vec<String>,
-    
+
     /// Whether this device is currently online
     pub is_online: bool,
-    
+
     /// Sync leadership status per library
     pub sync_leadership: HashMap<Uuid, SyncRole>,
-    
+
     /// Last time this device was seen
     pub last_seen_at: DateTime<Utc>,
-    
+
     /// When this device was first added
     pub created_at: DateTime<Utc>,
-    
+
     /// When this device info was last updated
     pub updated_at: DateTime<Utc>,
 }
@@ -47,10 +47,10 @@ pub struct Device {
 pub enum SyncRole {
     /// This device maintains the sync log for the library
     Leader,
-    
+
     /// This device syncs from the leader
     Follower,
-    
+
     /// This device doesn't participate in sync for this library
     Inactive,
 }
@@ -83,52 +83,52 @@ impl Device {
             updated_at: now,
         }
     }
-    
+
     /// Create the current device
     pub fn current() -> Self {
         Self::new(get_device_name())
     }
-    
+
     /// Update network addresses
     pub fn update_network_addresses(&mut self, addresses: Vec<String>) {
         self.network_addresses = addresses;
         self.updated_at = Utc::now();
     }
-    
+
     /// Mark device as online
     pub fn mark_online(&mut self) {
         self.is_online = true;
         self.last_seen_at = Utc::now();
         self.updated_at = Utc::now();
     }
-    
+
     /// Mark device as offline
     pub fn mark_offline(&mut self) {
         self.is_online = false;
         self.updated_at = Utc::now();
     }
-    
+
     /// Check if this is the current device
     pub fn is_current(&self) -> bool {
         self.id == crate::shared::types::get_current_device_id()
     }
-    
+
     /// Set sync role for a library
     pub fn set_sync_role(&mut self, library_id: Uuid, role: SyncRole) {
         self.sync_leadership.insert(library_id, role);
         self.updated_at = Utc::now();
     }
-    
+
     /// Get sync role for a library
     pub fn sync_role(&self, library_id: &Uuid) -> SyncRole {
         self.sync_leadership.get(library_id).copied().unwrap_or(SyncRole::Inactive)
     }
-    
+
     /// Check if this device is the sync leader for a library
     pub fn is_sync_leader(&self, library_id: &Uuid) -> bool {
         matches!(self.sync_role(library_id), SyncRole::Leader)
     }
-    
+
     /// Get all libraries where this device is the leader
     pub fn leader_libraries(&self) -> Vec<Uuid> {
         self.sync_leadership
@@ -150,7 +150,7 @@ fn get_device_name() -> String {
     {
         return whoami::devicename();
     }
-    
+
     #[cfg(any(target_os = "windows", target_os = "linux"))]
     {
         if let Ok(name) = hostname::get() {
@@ -159,7 +159,7 @@ fn get_device_name() -> String {
             }
         }
     }
-    
+
     "Unknown Device".to_string()
 }
 
@@ -167,19 +167,19 @@ fn get_device_name() -> String {
 fn detect_operating_system() -> OperatingSystem {
     #[cfg(target_os = "macos")]
     return OperatingSystem::MacOS;
-    
+
     #[cfg(target_os = "windows")]
     return OperatingSystem::Windows;
-    
+
     #[cfg(target_os = "linux")]
     return OperatingSystem::Linux;
-    
+
     #[cfg(target_os = "ios")]
     return OperatingSystem::IOs;
-    
+
     #[cfg(target_os = "android")]
     return OperatingSystem::Android;
-    
+
     #[cfg(not(any(
         target_os = "macos",
         target_os = "windows",
@@ -217,7 +217,7 @@ use sea_orm::ActiveValue;
 impl From<Device> for entities::device::ActiveModel {
     fn from(device: Device) -> Self {
         use sea_orm::ActiveValue::*;
-        
+
         entities::device::ActiveModel {
             id: NotSet, // Auto-increment
             uuid: Set(device.id),
@@ -242,11 +242,11 @@ impl From<Device> for entities::device::ActiveModel {
 
 impl TryFrom<entities::device::Model> for Device {
     type Error = serde_json::Error;
-    
+
     fn try_from(model: entities::device::Model) -> Result<Self, Self::Error> {
         let network_addresses: Vec<String> = serde_json::from_value(model.network_addresses)?;
         let sync_leadership: HashMap<Uuid, SyncRole> = serde_json::from_value(model.sync_leadership)?;
-        
+
         Ok(Device {
             id: model.uuid,
             name: model.name,

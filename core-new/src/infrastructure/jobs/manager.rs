@@ -72,6 +72,11 @@ impl JobManager {
 		}
 	}
 
+	/// Clear the library reference to break circular references
+	pub async fn clear_library(&self) {
+		*self.library.write().await = None;
+	}
+
 	/// Set the networking service reference
 	pub async fn set_networking(&self, networking: Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>) {
 		*self.networking.write().await = Some(networking);

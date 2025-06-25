@@ -169,16 +169,27 @@ impl EntryProcessor {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
+		// Determine if UUID should be assigned immediately
+		// - Directories: Assign UUID immediately (no content to identify)
+		// - Empty files: Assign UUID immediately (size = 0, no content to hash)
+		// - Regular files: Assign UUID after content identification completes
+		let should_assign_uuid = entry.kind == EntryKind::Directory || entry.size == 0;
+		let entry_uuid = if should_assign_uuid {
+			Some(Uuid::new_v4())
+		} else {
+			None // Will be assigned during content identification phase
+		};
+
 		// Create entry
 		let new_entry = entities::entry::ActiveModel {
-			uuid: Set(Uuid::new_v4()),
+			uuid: Set(entry_uuid),
 			location_id: Set(location_id),
 			relative_path: Set(relative_path),
 			name: Set(name),
 			kind: Set(Self::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
 			metadata_id: Set(None), // User metadata only created when user adds metadata
-			content_id: Set(None),  // Will be set later if content indexing is enabled
+			content_id: Set(None),  // Will be set later during content identification phase
 			size: Set(entry.size as i64),
 			aggregate_size: Set(0), // Will be calculated in aggregation phase
 			child_count: Set(0),    // Will be calculated in aggregation phase
@@ -252,22 +263,24 @@ impl EntryProcessor {
 		}
 	}
 
-	/// Create or find content identity and link to entry
-	pub async fn create_content_identity(
+	/// Create or find content identity and link to entry with deterministic UUID
+	/// This method implements the content identification phase logic
+	pub async fn link_to_content_identity(
 		ctx: &JobContext<'_>,
 		entry_id: i32,
 		path: &Path,
-		cas_id: String,
+		content_hash: String,
+		library_id: Uuid,
 	) -> Result<(), JobError> {
-		// Check if content identity already exists
+		// Check if content identity already exists by content_hash
 		let existing = entities::content_identity::Entity::find()
-			.filter(entities::content_identity::Column::CasId.eq(&cas_id))
+			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
 			.one(ctx.library_db())
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to query content identity: {}", e)))?;
 
 		let content_id = if let Some(existing) = existing {
-			// Update entry count and last verification
+			// Increment entry count for existing content
 			let existing_id = existing.id;
 			let mut existing_active: entities::content_identity::ActiveModel = existing.into();
 			existing_active.entry_count = Set(existing_active.entry_count.unwrap() + 1);
@@ -282,11 +295,22 @@ impl EntryProcessor {
 
 			existing_id
 		} else {
-			// Create new content identity
+			// Create new content identity with deterministic UUID (ready for sync)
 			let file_size = tokio::fs::metadata(path)
 				.await
 				.map(|m| m.len() as i64)
 				.unwrap_or(0);
+
+			// Generate deterministic UUID from content_hash + library_id
+			let deterministic_uuid = {
+				const LIBRARY_NAMESPACE: uuid::Uuid = uuid::Uuid::from_bytes([
+					0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f,
+					0xd4, 0x30, 0xc8,
+				]);
+				// We use v5 to ensure the UUID is deterministic and unique within the library
+				let namespace = uuid::Uuid::new_v5(&LIBRARY_NAMESPACE, library_id.as_bytes());
+				uuid::Uuid::new_v5(&namespace, content_hash.as_bytes())
+			};
 
 			// Detect file type using the file type registry
 			let registry = FileTypeRegistry::default();
@@ -344,13 +368,12 @@ impl EntryProcessor {
 			};
 
 			let new_content = entities::content_identity::ActiveModel {
-				uuid: Set(Uuid::new_v4()),
-				full_hash: Set(None), // Could implement full hash later
-				cas_id: Set(cas_id),
-				cas_version: Set(1), // CAS version
+				uuid: Set(Some(deterministic_uuid)), // Deterministic UUID for sync
+				integrity_hash: Set(None),           // Generated later by validate job
+				content_hash: Set(content_hash),
 				mime_type_id: Set(mime_type_id),
 				kind_id: Set(kind_id),
-				media_data: Set(None),   // TODO: Extract media metadata
+				media_data: Set(None),   // Set during media analysis
 				text_content: Set(None), // TODO: Extract text content for indexing
 				total_size: Set(file_size),
 				entry_count: Set(1),
@@ -366,7 +389,7 @@ impl EntryProcessor {
 			result.id
 		};
 
-		// Update entry to link to content identity
+		// Update Entry with content_id AND assign UUID (now ready for sync)
 		let entry = entities::entry::Entity::find_by_id(entry_id)
 			.one(ctx.library_db())
 			.await
@@ -375,6 +398,11 @@ impl EntryProcessor {
 
 		let mut entry_active: entities::entry::ActiveModel = entry.into();
 		entry_active.content_id = Set(Some(content_id));
+
+		// Assign UUID if not already assigned (Entry now ready for sync)
+		if let Set(None) = entry_active.uuid {
+			entry_active.uuid = Set(Some(Uuid::new_v4()));
+		}
 
 		entry_active.update(ctx.library_db()).await.map_err(|e| {
 			JobError::execution(format!("Failed to link content identity to entry: {}", e))

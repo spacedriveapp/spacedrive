@@ -37,13 +37,13 @@ pub struct PairingProtocolHandler {
 
     /// Active pairing sessions
     active_sessions: Arc<RwLock<HashMap<Uuid, PairingSession>>>,
-    
+
     /// Logger for structured logging
     logger: Arc<dyn NetworkLogger>,
-    
+
     /// Current pairing role
     role: Option<PairingRole>,
-    
+
     /// Session persistence manager
     persistence: Option<Arc<PairingPersistence>>,
 }
@@ -51,7 +51,7 @@ pub struct PairingProtocolHandler {
 impl PairingProtocolHandler {
     /// Create a new pairing protocol handler
     pub fn new(
-        identity: NetworkIdentity, 
+        identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
     ) -> Self {
@@ -67,7 +67,7 @@ impl PairingProtocolHandler {
 
     /// Create a new pairing protocol handler with persistence
     pub fn new_with_persistence(
-        identity: NetworkIdentity, 
+        identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
         data_dir: PathBuf,
@@ -88,12 +88,12 @@ impl PairingProtocolHandler {
         if let Some(persistence) = &self.persistence {
             let sessions = persistence.load_sessions().await?;
             let count = sessions.len();
-            
+
             if count > 0 {
                 *self.active_sessions.write().await = sessions;
                 self.log_info(&format!("Loaded {} persisted pairing sessions", count)).await;
             }
-            
+
             Ok(count)
         } else {
             Ok(0)
@@ -184,7 +184,7 @@ impl PairingProtocolHandler {
     /// Join an existing pairing session with a specific session ID
     /// This allows a joiner to participate in an initiator's session
     pub async fn join_pairing_session(&self, session_id: Uuid) -> Result<()> {
-        
+
         // Check if session already exists to prevent conflicts
         {
             let sessions = self.active_sessions.read().await;
@@ -249,11 +249,11 @@ impl PairingProtocolHandler {
     pub async fn get_device_info(&self) -> Result<DeviceInfo> {
         // Get device info from device registry (which uses device manager)
         let mut device_info = self.device_registry.read().await.get_local_device_info()?;
-        
+
         // Update network fingerprint with current identity
         device_info.network_fingerprint = self.identity.network_fingerprint();
         device_info.last_seen = chrono::Utc::now();
-        
+
         Ok(device_info)
     }
 
@@ -316,7 +316,7 @@ impl PairingProtocolHandler {
         });
     }
 
-    
+
     fn generate_challenge(&self) -> Result<Vec<u8>> {
         use rand::RngCore;
         let mut challenge = vec![0u8; 32];
@@ -515,7 +515,7 @@ impl ProtocolHandler for PairingProtocolHandler {
             } => {
                 self.handle_completion(session_id, success, reason, from_device, from_peer).await?;
             }
-            // These are handled by handle_request, not handle_response  
+            // These are handled by handle_request, not handle_response
             PairingMessage::PairingRequest { .. } | PairingMessage::Response { .. } => {
                 self.log_warn("Received PairingRequest or Response in handle_response - this should be handled by handle_request").await;
             }

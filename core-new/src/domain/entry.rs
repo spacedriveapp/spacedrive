@@ -1,6 +1,6 @@
 //! Entry - the core file/directory representation in Spacedrive
-//! 
-//! An Entry represents any filesystem item (file, directory, symlink) that 
+//!
+//! An Entry represents any filesystem item (file, directory, symlink) that
 //! Spacedrive knows about. It's the foundation of the VDFS.
 
 use crate::shared::types::SdPath;
@@ -13,40 +13,40 @@ use uuid::Uuid;
 pub struct Entry {
     /// Unique identifier for this entry
     pub id: Uuid,
-    
+
     /// The virtual path including device context
     pub sd_path: SdPathSerialized,
-    
+
     /// File/directory name
     pub name: String,
-    
+
     /// Type of entry
     pub kind: EntryKind,
-    
+
     /// Size in bytes (None for directories)
     pub size: Option<u64>,
-    
+
     /// Filesystem timestamps
     pub created_at: Option<DateTime<Utc>>,
     pub modified_at: Option<DateTime<Utc>>,
     pub accessed_at: Option<DateTime<Utc>>,
-    
+
     /// Platform-specific identifiers
     pub inode: Option<u64>,      // Unix/macOS
     pub file_id: Option<u64>,     // Windows
-    
+
     /// Parent directory entry ID
     pub parent_id: Option<Uuid>,
-    
+
     /// Location this entry belongs to (if indexed)
     pub location_id: Option<Uuid>,
-    
+
     /// User metadata (ALWAYS exists - key innovation!)
     pub metadata_id: Uuid,
-    
+
     /// Content identity for deduplication (optional)
     pub content_id: Option<Uuid>,
-    
+
     /// Tracking information
     pub first_seen_at: DateTime<Utc>,
     pub last_indexed_at: Option<DateTime<Utc>>,
@@ -56,18 +56,18 @@ pub struct Entry {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum EntryKind {
     /// Regular file
-    File { 
+    File {
         /// File extension (without dot)
-        extension: Option<String> 
+        extension: Option<String>
     },
-    
+
     /// Directory
     Directory,
-    
+
     /// Symbolic link
-    Symlink { 
+    Symlink {
         /// Target path
-        target: String 
+        target: String
     },
 }
 
@@ -76,10 +76,10 @@ pub enum EntryKind {
 pub struct SdPathSerialized {
     /// Device where this entry exists
     pub device_id: Uuid,
-    
+
     /// Normalized path on that device
     pub path: String,
-    
+
     /// Optional library context
     pub library_id: Option<Uuid>,
 }
@@ -93,7 +93,7 @@ impl SdPathSerialized {
             library_id: sdpath.library_id,
         }
     }
-    
+
     /// Convert back to SdPath
     pub fn to_sdpath(&self) -> SdPath {
         SdPath {
@@ -113,7 +113,7 @@ impl Entry {
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
-        
+
         let kind = if metadata.is_dir() {
             EntryKind::Directory
         } else if metadata.is_symlink() {
@@ -128,13 +128,13 @@ impl Entry {
                 .map(|e| e.to_string());
             EntryKind::File { extension }
         };
-        
+
         let size = if metadata.is_file() {
             Some(metadata.len())
         } else {
             None
         };
-        
+
         Self {
             id: Uuid::new_v4(),
             sd_path: SdPathSerialized::from_sdpath(&sd_path),
@@ -154,17 +154,17 @@ impl Entry {
             last_indexed_at: None,
         }
     }
-    
+
     /// Check if this is a file
     pub fn is_file(&self) -> bool {
         matches!(self.kind, EntryKind::File { .. })
     }
-    
+
     /// Check if this is a directory
     pub fn is_directory(&self) -> bool {
         matches!(self.kind, EntryKind::Directory)
     }
-    
+
     /// Get the file extension if this is a file
     pub fn extension(&self) -> Option<&str> {
         match &self.kind {
@@ -172,7 +172,7 @@ impl Entry {
             _ => None,
         }
     }
-    
+
     /// Get the SdPath for this entry
     pub fn sd_path(&self) -> SdPath {
         self.sd_path.to_sdpath()

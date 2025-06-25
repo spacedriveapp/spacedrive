@@ -36,20 +36,20 @@ impl WindowsHandler {
     async fn should_debounce(&self, path: &PathBuf) -> bool {
         let mut recent = self.recent_events.write().await;
         let now = Instant::now();
-        
+
         if let Some(&last_seen) = recent.get(path) {
             if now.duration_since(last_seen) < self.debounce_duration {
                 return true;
             }
         }
-        
+
         recent.insert(path.clone(), now);
-        
+
         // Cleanup old entries
         recent.retain(|_, &mut last_seen| {
             now.duration_since(last_seen) < Duration::from_secs(2)
         });
-        
+
         false
     }
 
@@ -81,7 +81,7 @@ impl WindowsHandler {
         let mut events = Vec::new();
         let mut pending = self.pending_deletions.write().await;
         let now = Instant::now();
-        
+
         let mut to_remove = Vec::new();
         for (path, timestamp) in pending.iter() {
             if now.duration_since(*timestamp) > Duration::from_millis(500) {
@@ -103,18 +103,18 @@ impl WindowsHandler {
                 to_remove.push(path.clone());
             }
         }
-        
+
         for path in to_remove {
             pending.remove(&path);
         }
-        
+
         Ok(events)
     }
 
     /// Handle Windows-specific temporary file patterns
     fn is_windows_temp_file(&self, path: &PathBuf) -> bool {
         let path_str = path.to_string_lossy().to_lowercase();
-        
+
         // Windows common temporary file patterns
         path_str.contains("~$") || // Office temp files
         path_str.ends_with(".tmp") ||
@@ -245,13 +245,13 @@ mod tests {
     #[tokio::test]
     async fn test_windows_temp_file_detection() {
         let handler = WindowsHandler::new();
-        
+
         // Should detect Windows temp files
         assert!(handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\~$document.docx")));
         assert!(handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\file.tmp")));
         assert!(handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\Thumbs.db")));
         assert!(handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\desktop.ini")));
-        
+
         // Should not detect normal files
         assert!(!handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\document.docx")));
         assert!(!handler.is_windows_temp_file(&PathBuf::from(r"C:\temp\image.jpg")));
@@ -261,10 +261,10 @@ mod tests {
     async fn test_debounce_logic() {
         let handler = WindowsHandler::new();
         let path = PathBuf::from(r"C:\test\file.txt");
-        
+
         // First event should not be debounced
         assert!(!handler.should_debounce(&path).await);
-        
+
         // Second immediate event should be debounced
         assert!(handler.should_debounce(&path).await);
     }

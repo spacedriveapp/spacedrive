@@ -108,7 +108,7 @@ impl EventHandler for DefaultHandler {
                     // Generate a placeholder entry ID for now
                     // In a real implementation, this would look up or create an entry
                     let entry_id = Uuid::new_v4();
-                    
+
                     if let Some(core_event) = event.to_core_event(location.library_id, Some(entry_id)) {
                         events.push(core_event);
                     }

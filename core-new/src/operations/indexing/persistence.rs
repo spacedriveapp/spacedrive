@@ -39,10 +39,10 @@ pub trait IndexPersistence: Send + Sync {
 		cas_id: String,
 	) -> JobResult<()>;
 
-	/// Get existing entries for change detection
+	/// Get existing entries for change detection, scoped to the indexing path
 	async fn get_existing_entries(
 		&self,
-		path: &Path,
+		indexing_path: &Path,
 	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>)>>;
 
 	/// Update an existing entry
@@ -131,9 +131,20 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			})
 			.unwrap_or_else(|| chrono::Utc::now());
 
+		// Determine if UUID should be assigned immediately
+		// - Directories: Assign UUID immediately (no content to identify)
+		// - Empty files: Assign UUID immediately (size = 0, no content to hash)
+		// - Regular files: Assign UUID after content identification completes
+		let should_assign_uuid = entry.kind == EntryKind::Directory || entry.size == 0;
+		let entry_uuid = if should_assign_uuid {
+			Some(Uuid::new_v4())
+		} else {
+			None // Will be assigned during content identification phase
+		};
+
 		// Create entry
 		let new_entry = entities::entry::ActiveModel {
-			uuid: Set(Uuid::new_v4()),
+			uuid: Set(entry_uuid),
 			location_id: Set(self.location_id),
 			relative_path: Set(relative_path),
 			name: Set(name),
@@ -175,17 +186,115 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	) -> JobResult<()> {
 		use super::entry::EntryProcessor;
 
-		// Delegate to existing implementation
-		EntryProcessor::create_content_identity(self.ctx, entry_id, path, cas_id).await
+		// Use the library ID from the context
+		let library_id = self.ctx.library().id();
+
+		// Delegate to existing implementation with the library_id
+		EntryProcessor::link_to_content_identity(self.ctx, entry_id, path, cas_id, library_id).await
 	}
 
 	async fn get_existing_entries(
 		&self,
-		_path: &Path,
+		indexing_path: &Path,
 	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>)>>
 	{
-		// TODO: Implement change detection query
-		Ok(HashMap::new())
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// Get location root to calculate relative path for the indexing scope
+		let location_record = entities::location::Entity::find_by_id(self.location_id)
+			.one(self.ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
+			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
+
+		// Parse the location path to determine the root
+		let location_root = std::path::Path::new(&location_record.path);
+
+		// Calculate the relative path being indexed
+		let relative_indexing_path = if let Ok(rel_path) = indexing_path.strip_prefix(location_root)
+		{
+			if rel_path == std::path::Path::new("") {
+				// Indexing entire location - use optimized query for root
+				None
+			} else {
+				// Indexing subpath - scope the query
+				Some(rel_path.to_string_lossy().to_string())
+			}
+		} else {
+			return Err(JobError::execution(format!(
+				"Indexing path {} is not within location root {}",
+				indexing_path.display(),
+				location_root.display()
+			)));
+		};
+
+		// Build scoped query based on indexing path
+		// NOTE: This query benefits from these indexes:
+		// CREATE INDEX idx_entries_location_relative_path ON entries(location_id, relative_path);
+		// CREATE INDEX idx_entries_location_path_prefix ON entries(location_id, relative_path varchar_pattern_ops); -- PostgreSQL
+		let mut query = entities::entry::Entity::find()
+			.filter(entities::entry::Column::LocationId.eq(self.location_id));
+
+		// If indexing a subpath, filter entries to that subtree only
+		if let Some(ref rel_path) = relative_indexing_path {
+			// Include entries that are:
+			// 1. Direct children: relative_path = rel_path
+			// 2. Descendants: relative_path starts with rel_path + "/"
+			query = query.filter(
+				entities::entry::Column::RelativePath
+					.eq(rel_path)
+					.or(entities::entry::Column::RelativePath.like(format!("{}/%", rel_path)))
+					.or(entities::entry::Column::RelativePath.like(format!("{}\\%", rel_path))), // Windows paths
+			);
+		}
+
+		let existing_entries = query
+			.all(self.ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
+
+		let mut result = HashMap::new();
+
+		// Log the scope for debugging
+		if let Some(rel_path) = &relative_indexing_path {
+			self.ctx.log(format!(
+				"Loading {} existing entries for subpath: {}",
+				existing_entries.len(),
+				rel_path
+			));
+		} else {
+			self.ctx.log(format!(
+				"Loading {} existing entries for entire location",
+				existing_entries.len()
+			));
+		}
+
+		for entry in existing_entries {
+			// Reconstruct full path from relative_path and name
+			let full_path = if entry.relative_path.is_empty() {
+				location_root.join(&entry.name)
+			} else {
+				location_root.join(&entry.relative_path).join(&entry.name)
+			};
+
+			// Convert timestamp to SystemTime for comparison
+			let modified_time =
+				entry
+					.modified_at
+					.timestamp()
+					.try_into()
+					.ok()
+					.and_then(|secs: u64| {
+						std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(secs))
+					});
+
+			result.insert(
+				full_path,
+				(entry.id, entry.inode.map(|i| i as u64), modified_time),
+			);
+		}
+
+		Ok(result)
 	}
 
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
@@ -291,7 +400,7 @@ impl IndexPersistence for EphemeralPersistence {
 
 	async fn get_existing_entries(
 		&self,
-		_path: &Path,
+		_indexing_path: &Path,
 	) -> JobResult<HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>)>>
 	{
 		// Ephemeral persistence doesn't support change detection

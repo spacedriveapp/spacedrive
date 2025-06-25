@@ -6,7 +6,7 @@ use uuid::Uuid;
 use serde::{Serialize, Deserialize};
 
 /// A path within the Spacedrive Virtual Distributed File System
-/// 
+///
 /// This is the core abstraction that enables cross-device operations.
 /// An SdPath can represent:
 /// - A local file on this device
@@ -17,10 +17,10 @@ use serde::{Serialize, Deserialize};
 pub struct SdPath {
     /// The device where this file exists
     pub device_id: Uuid,
-    
+
     /// The local path on that device
     pub path: PathBuf,
-    
+
     /// Optional library context
     /// If None, uses the current active library
     pub library_id: Option<Uuid>,
@@ -35,7 +35,7 @@ impl SdPath {
             library_id: None,
         }
     }
-    
+
     /// Create an SdPath with a specific library
     pub fn with_library(device_id: Uuid, path: impl Into<PathBuf>, library_id: Uuid) -> Self {
         Self {
@@ -44,7 +44,7 @@ impl SdPath {
             library_id: Some(library_id),
         }
     }
-    
+
     /// Create an SdPath for a local file on this device
     pub fn local(path: impl Into<PathBuf>) -> Self {
         Self {
@@ -53,12 +53,12 @@ impl SdPath {
             library_id: None,
         }
     }
-    
+
     /// Check if this path is on the current device
     pub fn is_local(&self) -> bool {
         self.device_id == get_current_device_id()
     }
-    
+
     /// Get the local PathBuf if this is a local path
     pub fn as_local_path(&self) -> Option<&Path> {
         if self.is_local() {
@@ -67,7 +67,7 @@ impl SdPath {
             None
         }
     }
-    
+
     /// Convert to a display string
     pub fn display(&self) -> String {
         if self.is_local() {
@@ -76,12 +76,12 @@ impl SdPath {
             format!("{}:{}", self.device_id, self.path.display())
         }
     }
-    
+
     /// Get just the file name
     pub fn file_name(&self) -> Option<&str> {
         self.path.file_name()?.to_str()
     }
-    
+
     /// Get the parent directory as an SdPath
     pub fn parent(&self) -> Option<SdPath> {
         self.path.parent().map(|p| SdPath {
@@ -90,7 +90,7 @@ impl SdPath {
             library_id: self.library_id,
         })
     }
-    
+
     /// Join with another path component
     pub fn join(&self, path: impl AsRef<Path>) -> SdPath {
         SdPath {
@@ -111,7 +111,7 @@ use std::sync::RwLock;
 
 /// Global reference to current device ID
 /// This is set during Core initialization
-pub static CURRENT_DEVICE_ID: once_cell::sync::Lazy<RwLock<Uuid>> = 
+pub static CURRENT_DEVICE_ID: once_cell::sync::Lazy<RwLock<Uuid>> =
     once_cell::sync::Lazy::new(|| RwLock::new(Uuid::nil()));
 
 /// Initialize the current device ID
@@ -140,14 +140,14 @@ impl SdPathBatch {
     pub fn new(paths: Vec<SdPath>) -> Self {
         Self { paths }
     }
-    
+
     /// Filter to only local paths
     pub fn local_only(&self) -> Vec<&Path> {
         self.paths.iter()
             .filter_map(|p| p.as_local_path())
             .collect()
     }
-    
+
     /// Group by device
     pub fn by_device(&self) -> std::collections::HashMap<Uuid, Vec<&SdPath>> {
         let mut map = std::collections::HashMap::new();
@@ -161,22 +161,22 @@ impl SdPathBatch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_sdpath_creation() {
         let device_id = Uuid::new_v4();
         let path = SdPath::new(device_id, "/home/user/file.txt");
-        
+
         assert_eq!(path.device_id, device_id);
         assert_eq!(path.path, PathBuf::from("/home/user/file.txt"));
         assert_eq!(path.library_id, None);
     }
-    
+
     #[test]
     fn test_sdpath_display() {
         let device_id = Uuid::new_v4();
         let path = SdPath::new(device_id, "/home/user/file.txt");
-        
+
         let display = path.display();
         assert!(display.contains(&device_id.to_string()));
         assert!(display.contains("/home/user/file.txt"));
