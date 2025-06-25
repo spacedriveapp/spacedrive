@@ -2576,3 +2576,124 @@ By embedding dependency management directly into the `Syncable` trait and making
 The `#[derive(Syncable)]` macro reduces adding sync support to a model down to 3-5 lines of declarative code, while the automatic dependency graph generation ensures all sync operations respect foreign key constraints without any manual coordination.
 
 This approach transforms sync from a complex, error-prone subsystem into a simple, declarative feature that scales naturally with Spacedrive's data model complexity.
+
+## Further Enhancements & Detailed Considerations
+
+This section elaborates on key areas to provide more robust details and address potential challenges in the sync system's design and implementation.
+
+### 1. Enhanced Leadership Management
+
+To ensure high availability and resilience for library leadership:
+
+#### Initial Leader Selection
+
+When a new library is created, the device initiating its creation automatically becomes the initial leader.
+When existing libraries are merged during pairing, the user explicitly chooses which device becomes the leader (either the local device, the remote device, or a newly created shared library leader).
+
+#### Offline Leader Detection & Reassignment
+
+- **Heartbeats**: Leader devices periodically send heartbeats to their followers over the persistent networking layer.
+- **Failure Detection**: Followers continuously monitor these heartbeats. If a follower misses a configurable number of consecutive heartbeats from the leader, it will consider the leader potentially offline.
+- **Leader Election Protocol**:
+  1.  Upon detecting an offline leader, followers will initiate a leader election protocol. This could involve a simple deterministic rule (e.g., the device with the lexicographically smallest `device_id` among the online followers becomes the new candidate leader) or a more robust consensus algorithm (e.g., Paxos or Raft-lite adapted for a small, dynamic peer group).
+  2.  The candidate leader attempts to broadcast its claim to leadership to all other known library devices.
+  3.  Followers that agree on the new candidate (e.g., by verifying the previous leader's prolonged absence) update their `sync_leadership` role for that library.
+  4.  The newly elected leader updates its `sync_leadership` role in its local database and notifies other devices of the transition.
+- **Timeout & Retries**: The leader election process will have configurable timeouts and retry mechanisms to handle network transience.
+
+#### Split-Brain Prevention
+
+- **Quorum (for multi-leader support)**: While the current design is "One Leader Per Library", if future enhancements consider multi-leader or more dynamic leadership, a quorum-based approach would be necessary to prevent split-brain. This means a new leader can only be elected if a majority of the known devices (or a predefined set of trusted devices) agree.
+- **Last-Write-Wins with Epochs (for single-leader)**: For the current single-leader model, each leadership transition could involve an incrementing "epoch" number. Any sync operation would carry the current epoch. If a device receives an operation from a leader with an older epoch, it would reject it and initiate a new leader election or update its knowledge of the current leader.
+
+### 2. Detailed Conflict Resolution & User Experience
+
+#### Conflict Prompting and User Interface
+
+For "True Conflicts" (e.g., `UserMetadata` notes where changes diverge):
+
+- **Conflict Indicator**: The UI will display a clear visual indicator on the conflicting item (e.g., an icon on the `Entry` or `ContentIdentity` details view).
+- **Conflict Resolution View**: Clicking the indicator will open a dedicated conflict resolution view. This view will:
+  - Show the local version of the data.
+  - Show the remote conflicting version of the data.
+  - Display a diff (if applicable, e.g., for text notes).
+  - Provide options: "Keep Local," "Keep Remote," "Merge Manually" (for text fields), or "Discard All."
+- **Batch Resolution**: For multiple conflicts, the UI may offer a batch resolution interface with general rules (e.g., "Always Keep Local for all similar conflicts").
+- **Background Notification**: Users will receive a system notification (e.g., a toast notification or a badge on the sync status icon) when conflicts are detected, directing them to the conflict resolution area.
+
+#### Automatic Fallback Strategies
+
+- **Default Behavior (User-Configurable)**: Users will be able to set a default conflict resolution strategy in settings, such as:
+  - **"Latest Wins"**: The most recently modified version is automatically applied.
+  - **"Local Always Wins"**: The local version is always preserved.
+  - **"Remote Always Wins"**: The remote version is always applied.
+  - **"Prompt Always"**: Always requires manual intervention.
+- **Notes Merge Logic**: For `UserMetadata` notes, the `merge_notes` function will by default concatenate notes with timestamps, providing a historical record: `merge_notes(local.notes, remote.notes)` could result in:
+  ```
+  "Local notes (last modified YYYY-MM-DD HH:MM:SS): Original text.
+  Remote notes (last modified YYYY-MM-DD HH:MM:SS): Conflicting text."
+  ```
+- **Custom Data Merge Logic**: The `merge_custom_data` function (for `custom_data` in `UserMetadata`) will perform a deep merge of JSON objects, prioritizing the remote value for conflicting keys, but adding new keys from both sides. For arrays, it could perform a union.
+
+### 3. Scalability and Maintenance of Sync Log and Positions
+
+#### Sync Log Pruning and Archiving
+
+- **Configurable Retention**: Users/administrators can configure a retention period for `sync_log` entries (e.g., 3 months, 1 year, indefinite).
+- **Archiving**: Old `sync_log` entries (beyond the retention period) could be archived to a separate, less frequently accessed storage location (e.g., compressed files) to reduce the primary database size.
+- **Summarization**: Periodically, the system could run a background job to summarize change history for long-lived records, allowing older detailed entries to be pruned while retaining an aggregated view.
+- **`first_seen_at` and `last_verified_at`**: These fields in `ContentIdentity` already contribute to long-term data consistency and can aid in pruning older, less relevant `SyncLogEntry` data.
+
+#### `SyncPositionManager` Scalability
+
+- The `sync_positions` table's primary key on `(device_id, library_id)` is efficient for direct lookups.
+- As the number of devices and libraries scales, indexing on `updated_at` could be beneficial for quickly identifying stale positions or devices that need re-syncing.
+- The actual sync log entries themselves are processed in batches, which limits the in-memory load during active sync operations, rather than needing to load the entire history.
+
+### 4. Performance Optimization for Backfill and Entity Requests
+
+#### Parallelizing Backfill
+
+- **Domain-based Parallelism**: During `full_backfill` and `incremental_backfill`, instead of strictly sequential processing of all changes from `current_seq`, the system can fetch and process changes from _different_ `SyncDomain`s in parallel, as their conflict resolution strategies are distinct and often independent at the high level.
+- **Batching within Domains**: While the current design pulls batches of changes, further optimization can be achieved by allowing multiple concurrent pull requests for different sequence ranges within the same domain, provided dependencies within those ranges are respected at the application phase.
+- **Network Service Enhancements**: The `NetworkingService` could expose an API to pull multiple `SyncLogEntry` batches concurrently, managing the underlying LibP2P streams efficiently.
+
+#### Batching `sync_ready_backfill` Requests
+
+- **Batched Entity Requests**: Instead of `request_entity_from_leader` for each `entity_uuid`, the `sync_ready_backfill` strategy will gather lists of `entity_uuid`s for a given `model_type` and send a single `SyncPullModelBatch` request (or similar) to the leader. The leader would then return the full data for all requested entities in a single response. This significantly reduces round-trip times and network overhead.
+- **Progress Granularity**: Progress updates for these batched operations will be based on the completion of full batches rather than individual entities.
+
+### 5. `UserMetadataTag Junction` Sync Domain Resolution
+
+The `user_metadata_tag::ActiveModel`'s `get_sync_domain` which returns `SyncDomain::UserMetadata` by default, requires clarification.
+
+- **Explicit Parent Lookup**: During the "Store" and "Ingest" phases, when processing a `user_metadata_tag` change, the `SyncLeaderService` and `SyncFollowerService` will explicitly perform a lookup to its associated `UserMetadata` record.
+- **Dynamic Domain Assignment**: The looked-up `UserMetadata` record's `get_sync_domain` method will then be called to determine the final `SyncDomain` (either `Index` for entry-scoped metadata or `UserMetadata` for content-scoped metadata). This ensures the tag correctly inherits the conflict resolution strategy of its parent metadata.
+- **Performance Impact**: This lookup adds a minor database query overhead for each `user_metadata_tag` change during phases 2 and 3. Given that tags are typically part of a larger `UserMetadata` operation, this overhead is considered acceptable and ensures correct domain-specific merging.
+
+### 6. Offline Queue Persistence
+
+The `OfflineQueue` for changes collected when a device is offline will be persisted to disk to prevent data loss upon application shutdown or crash:
+
+- **Transactional Persistence**: When `SYNC_QUEUE.flush_for_transaction` is called during database operations, in addition to persisting to the `sync_log` (on the leader), or buffering for later application (on the follower), these changes will also be written to a local, append-only "offline journal" file before the transaction commits.
+- **Journal Structure**: The offline journal will store serialized `SyncChange` objects in a structured, fault-tolerant format (e.g., line-delimited JSON or a simple binary log).
+- **Recovery on Startup**: Upon application startup, before any new changes are captured, the system will check for and replay any pending changes from the offline journal. Successfully replayed changes will be marked as processed or removed from the journal.
+- **Deduplication**: When replaying, the system will handle potential duplicates (e.g., if a change was partially synced before going offline) using the `record_id` and `timestamp` from `SyncChange`.
+
+### 7. Refined Security Considerations
+
+- **Rate Limiting on Pairing Attempts**:
+  - **Per-IP/Per-Device Limiting**: The networking service will implement rate limiting on `PairingRequest` messages. This will involve tracking incoming requests from specific IP addresses or LibP2P `PeerId`s.
+  - **Sliding Window/Token Bucket**: A sliding window or token bucket algorithm will be used to limit the number of pairing attempts within a given time frame (e.g., 5 attempts per minute from a single source).
+  - **Blocking**: Excessive attempts will result in temporary blocking of the source.
+- **User Confirmation UI for Pairing Requests**:
+  - **Explicit Approval**: After a `PairingRequest` is received and cryptographically verified, the initiator device (Alice) will _not_ automatically complete the pairing. Instead, a UI prompt will appear, asking the user to confirm the pairing with the remote device (Bob's `DeviceInfo` will be displayed).
+  - **Timeout for Confirmation**: If the user does not respond within a configurable timeout, the pairing session will expire and fail.
+  - **API for Confirmation**: The `NetworkingService` will expose an API (e.g., `confirm_pairing_request(session_id, accept: bool)`) that the UI can call based on user interaction.
+- **Device Limits**:
+  - **User-Configurable Limits**: Spacedrive will allow users to configure limits on the total number of devices that can be paired to a single library or across all libraries.
+  - **Policy Enforcement**: When a new pairing request is initiated, the system will check against these limits. If exceeded, the pairing will be rejected, and the user will be notified.
+- **Data Encryption in Sync Log**:
+  - The `data` field in `SyncLogEntry`, which stores the serialized model data as JSON, will be encrypted _before_ being written to the database.
+  - **Column-Level Encryption**: This can be achieved using a symmetric key derived from the library's master key (which itself is secured by the user's password) to encrypt the `data` field (e.g., using AES-256-GCM).
+  - **Key Management**: The encryption key for the `sync_log` will be managed by the `SecureStorage` module, ensuring it is only accessible when the user's password unlocks the device's secure storage.
