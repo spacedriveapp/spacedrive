@@ -231,14 +231,22 @@ async fn bob_pairing_scenario() {
 
 /// Main test orchestrator - spawns cargo test subprocesses
 #[tokio::test]
-async fn test_core_pairing_cargo_subprocess() {
+async fn test_core_pairing() {
+	const PAIRING_CODE_PATH: &str = "/tmp/spacedrive-pairing-test/pairing_code.txt";
+
+	// Clean up stale pairing code file from previous test runs
+	// This prevents Bob from reading old data and fixes the file I/O race condition
+	if std::path::Path::new(PAIRING_CODE_PATH).exists() {
+		let _ = std::fs::remove_file(PAIRING_CODE_PATH);
+		println!("🧹 Cleaned up stale pairing code file");
+	}
 	println!("🧪 Testing Core pairing with cargo test subprocess framework");
 
 	// Clean up any old pairing files to avoid race conditions
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-pairing-test");
 	std::fs::create_dir_all("/tmp/spacedrive-pairing-test").unwrap();
 
-	let mut runner = CargoTestRunner::new()
+	let mut runner = CargoTestRunner::for_test_file("test_core_pairing")
 		.with_timeout(Duration::from_secs(180))
 		.add_subprocess("alice", "alice_pairing_scenario")
 		.add_subprocess("bob", "bob_pairing_scenario");

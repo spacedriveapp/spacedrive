@@ -49,22 +49,21 @@ impl PairingCode {
 
     /// Generate a pairing code from a session ID
     pub fn from_session_id(session_id: Uuid) -> Self {
-        // Use the session ID as the canonical source of truth
-        // Encode it directly into the BIP39 entropy
-        let mut entropy = [0u8; 16];
-        entropy.copy_from_slice(session_id.as_bytes());
+        // Use the session ID as the BIP39 entropy source (16 bytes)
+        let entropy = session_id.as_bytes();
 
         // Expand entropy to full 32-byte secret deterministically
+        // This matches the logic in decode_from_bip39_words to ensure round-trip compatibility
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"spacedrive-pairing-entropy-extension-v1");
-        hasher.update(&entropy);
+        hasher.update(entropy);
         let derived_bytes = hasher.finalize();
         
         let mut secret = [0u8; 32];
-        secret[..16].copy_from_slice(&entropy);
+        secret[..16].copy_from_slice(entropy);
         secret[16..].copy_from_slice(&derived_bytes.as_bytes()[..16]);
 
-        // Generate BIP39 words from the entropy (first 16 bytes)
+        // Generate BIP39 words from the entropy (first 16 bytes only, as per BIP39 standard)
         let words = Self::encode_to_bip39_words(&secret).unwrap_or_else(|_| {
             // Fallback to empty words if BIP39 fails
             [const { String::new() }; 12]

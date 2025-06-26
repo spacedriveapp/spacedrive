@@ -118,7 +118,7 @@ impl PairingProtocolHandler {
 
         if success {
             // Generate shared secret and complete pairing on joiner's side
-            match self.generate_shared_secret() {
+            match self.generate_shared_secret(session_id).await {
                 Ok(shared_secret) => {
                     self.log_debug(&format!(
                         "Generated shared secret of {} bytes",

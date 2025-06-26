@@ -715,9 +715,9 @@ impl Core {
 		let session_id = uuid::Uuid::new_v4();
 		let pairing_code = networking::protocols::pairing::PairingCode::from_session_id(session_id);
 
-		// Start pairing session with the session ID from the pairing code
+		// Start pairing session with the session ID and pairing code
 		pairing_handler
-			.start_pairing_session_with_id(session_id)
+			.start_pairing_session_with_id(session_id, pairing_code.clone())
 			.await?;
 
 		// CRITICAL FIX: Register Alice in the device registry with the session mapping
@@ -797,8 +797,8 @@ impl Core {
 			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
 			.ok_or("Invalid pairing handler type")?;
 
-		// Join Alice's pairing session using the session ID from the pairing code
-		pairing_handler.join_pairing_session(session_id).await?;
+		// Join Alice's pairing session using the session ID and pairing code
+		pairing_handler.join_pairing_session(session_id, pairing_code).await?;
 		println!("Bob joined Alice's pairing session: {}", session_id);
 
 		// Verify Bob's session was created correctly

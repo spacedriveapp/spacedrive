@@ -38,6 +38,9 @@ pub struct PairingProtocolHandler {
     /// Active pairing sessions
     active_sessions: Arc<RwLock<HashMap<Uuid, PairingSession>>>,
 
+    /// Pairing codes for active sessions (session_id -> pairing_code)
+    pairing_codes: Arc<RwLock<HashMap<Uuid, PairingCode>>>,
+
     /// Logger for structured logging
     logger: Arc<dyn NetworkLogger>,
 
@@ -63,6 +66,7 @@ impl PairingProtocolHandler {
             identity,
             device_registry,
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
+            pairing_codes: Arc::new(RwLock::new(HashMap::new())),
             logger,
             command_sender,
             role: None,
@@ -83,6 +87,7 @@ impl PairingProtocolHandler {
             identity,
             device_registry,
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
+            pairing_codes: Arc::new(RwLock::new(HashMap::new())),
             logger,
             command_sender,
             role: None,
@@ -160,12 +165,13 @@ impl PairingProtocolHandler {
     /// Returns the session ID which should be advertised via DHT by the caller
     pub async fn start_pairing_session(&self) -> Result<Uuid> {
         let session_id = Uuid::new_v4();
-        self.start_pairing_session_with_id(session_id).await?;
+        let pairing_code = PairingCode::from_session_id(session_id);
+        self.start_pairing_session_with_id(session_id, pairing_code).await?;
         Ok(session_id)
     }
 
-    /// Start a new pairing session with a specific session ID
-    pub async fn start_pairing_session_with_id(&self, session_id: Uuid) -> Result<()> {
+    /// Start a new pairing session with a specific session ID and pairing code
+    pub async fn start_pairing_session_with_id(&self, session_id: Uuid, pairing_code: PairingCode) -> Result<()> {
         let session = PairingSession {
             id: session_id,
             state: PairingState::WaitingForConnection,
@@ -181,6 +187,12 @@ impl PairingProtocolHandler {
             .await
             .insert(session_id, session);
 
+        // Store the pairing code for this session
+        self.pairing_codes
+            .write()
+            .await
+            .insert(session_id, pairing_code);
+
         // Save to persistence
         self.save_sessions_to_persistence().await?;
 
@@ -188,9 +200,9 @@ impl PairingProtocolHandler {
         Ok(())
     }
 
-    /// Join an existing pairing session with a specific session ID
+    /// Join an existing pairing session with a specific session ID and pairing code
     /// This allows a joiner to participate in an initiator's session
-    pub async fn join_pairing_session(&self, session_id: Uuid) -> Result<()> {
+    pub async fn join_pairing_session(&self, session_id: Uuid, pairing_code: PairingCode) -> Result<()> {
 
         // Check if session already exists to prevent conflicts
         {
@@ -219,6 +231,12 @@ impl PairingProtocolHandler {
             let mut sessions = self.active_sessions.write().await;
             sessions.insert(session_id, session);
         }
+
+        // Store the pairing code for this session
+        self.pairing_codes
+            .write()
+            .await
+            .insert(session_id, pairing_code);
 
         // Save to persistence
         self.save_sessions_to_persistence().await?;
@@ -267,6 +285,7 @@ impl PairingProtocolHandler {
     /// Cancel a pairing session
     pub async fn cancel_session(&self, session_id: Uuid) -> Result<()> {
         self.active_sessions.write().await.remove(&session_id);
+        self.pairing_codes.write().await.remove(&session_id);
         self.save_sessions_to_persistence().await?;
         Ok(())
     }
@@ -286,21 +305,25 @@ impl PairingProtocolHandler {
         let timeout_duration = chrono::Duration::minutes(10); // 10 minute timeout
 
         let mut sessions = self.active_sessions.write().await;
+        let mut pairing_codes = self.pairing_codes.write().await;
         let initial_count = sessions.len();
 
-        // Remove sessions older than timeout duration
-        let handler = self;
-        sessions.retain(|_, session| {
+        // Collect session IDs to remove first
+        let mut sessions_to_remove = Vec::new();
+        for (session_id, session) in sessions.iter() {
             let age = now.signed_duration_since(session.created_at);
             if age > timeout_duration {
-                // Note: Can't use async logging inside retain closure
-                false
-            } else {
-                true
+                sessions_to_remove.push(*session_id);
             }
-        });
+        }
 
-        let cleaned_count = initial_count - sessions.len();
+        // Remove expired sessions and their pairing codes
+        for session_id in &sessions_to_remove {
+            sessions.remove(session_id);
+            pairing_codes.remove(session_id);
+        }
+
+        let cleaned_count = sessions_to_remove.len();
         if cleaned_count > 0 {
             self.log_info(&format!("Cleaned up {} expired pairing sessions", cleaned_count)).await;
         }
@@ -418,11 +441,16 @@ impl PairingProtocolHandler {
         Ok(challenge)
     }
 
-    fn generate_shared_secret(&self) -> Result<Vec<u8>> {
-        use rand::RngCore;
-        let mut secret = vec![0u8; 32];
-        rand::thread_rng().fill_bytes(&mut secret);
-        Ok(secret)
+    /// Generate shared secret for a pairing session using the pairing code secret
+    async fn generate_shared_secret(&self, session_id: Uuid) -> Result<Vec<u8>> {
+        let pairing_codes = self.pairing_codes.read().await;
+        let pairing_code = pairing_codes.get(&session_id)
+            .ok_or_else(|| NetworkingError::Protocol(
+                format!("No pairing code found for session {}", session_id)
+            ))?;
+        
+        // Use the pairing code secret as the shared secret
+        Ok(pairing_code.secret().to_vec())
     }
 }
 

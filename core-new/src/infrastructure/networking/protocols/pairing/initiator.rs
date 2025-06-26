@@ -163,8 +163,8 @@ impl PairingProtocolHandler {
             session_id, from_device
         )).await;
 
-        // Generate session keys
-        let shared_secret = self.generate_shared_secret()?;
+        // Generate session keys using pairing code secret
+        let shared_secret = self.generate_shared_secret(session_id).await?;
         let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
 
         // Complete pairing in device registry with proper lock scoping
