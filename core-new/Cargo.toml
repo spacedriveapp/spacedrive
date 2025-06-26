@@ -138,6 +138,7 @@ path = "src/bin/cli.rs"
 name = "test_core"
 path = "src/bin/test_core.rs"
 
+
 [dev-dependencies]
 tempfile = "3.14"
 pretty_assertions = "1.4"

@@ -16,6 +16,7 @@ pub mod shared;
 pub mod volume;
 
 pub mod test_framework;
+pub mod test_framework_new;
 
 pub use infrastructure::networking;
 use infrastructure::networking::protocols::PairingProtocolHandler;
