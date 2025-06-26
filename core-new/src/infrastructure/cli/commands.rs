@@ -820,30 +820,81 @@ pub async fn handle_network_command(
 			{
 				crate::infrastructure::cli::daemon::DaemonResponse::ConnectedDevices(devices) => {
 					if devices.is_empty() {
-						println!("No devices currently connected");
+						println!("📭 No devices currently connected");
+						println!();
+						println!("💡 To connect devices:");
+						println!("   • Generate pairing code: spacedrive network pair generate");
+						println!("   • Join with code: spacedrive network pair join \"<code>\"");
 					} else {
-						println!("Connected devices:");
+						println!("🌐 Connected Devices ({}):", devices.len());
+						println!();
+						
 						let mut table = Table::new();
 						table.load_preset(UTF8_FULL);
-						table.set_header(vec!["Device ID", "Name", "Status", "Last Seen"]);
+						table.set_header(vec![
+							"Device ID", 
+							"Name", 
+							"Type",
+							"OS", 
+							"App Version",
+							"Peer ID",
+							"Status", 
+							"Active",
+							"Last Seen"
+						]);
 
-						for device in devices {
+						for device in &devices {
+							let status_color = if device.connection_active {
+								"🟢 Connected".green()
+							} else {
+								"🔴 Disconnected".red()
+							};
+							
+							let active_indicator = if device.connection_active {
+								"✓".green()
+							} else {
+								"✗".red()
+							};
+
 							table.add_row(vec![
-								Cell::new(&device.device_id.to_string()[..8]),
+								Cell::new(&format!("{}...", &device.device_id.to_string()[..8])),
 								Cell::new(&device.device_name),
-								Cell::new(&device.status),
+								Cell::new(&device.device_type),
+								Cell::new(&device.os_version),
+								Cell::new(&device.app_version),
+								Cell::new(&format!("{}...", &device.peer_id[..std::cmp::min(8, device.peer_id.len())])),
+								Cell::new(&status_color.to_string()),
+								Cell::new(&active_indicator.to_string()),
 								Cell::new(&device.last_seen),
 							]);
 						}
 
 						println!("{}", table);
+						
+						// Show summary stats if we have active connections
+						let active_connections = devices.iter().filter(|d| d.connection_active).count();
+						if active_connections > 0 {
+							println!();
+							println!("📊 Connection Summary:");
+							println!("   • Active connections: {}/{}", active_connections, devices.len());
+							
+							let total_sent: u64 = devices.iter().map(|d| d.bytes_sent).sum();
+							let total_received: u64 = devices.iter().map(|d| d.bytes_received).sum();
+							
+							if total_sent > 0 || total_received > 0 {
+								println!("   • Data transferred: {} sent, {} received", 
+									format_bytes(total_sent),
+									format_bytes(total_received)
+								);
+							}
+						}
 					}
 				}
 				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
-					println!("{} {}", "✗".red(), err);
+					println!("{} Failed to list devices: {}", "✗".red(), err);
 				}
 				_ => {
-					println!("{} Unexpected response", "✗".red());
+					println!("{} Unexpected response from daemon", "✗".red());
 				}
 			}
 		}

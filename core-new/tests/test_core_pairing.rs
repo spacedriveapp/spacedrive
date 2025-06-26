@@ -8,8 +8,6 @@ use sd_core_new::Core;
 use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
-use tempfile;
-use tokio::process::Command;
 use tokio::time::timeout;
 
 /// Alice's pairing scenario - ALL logic stays in this test file!
@@ -107,6 +105,10 @@ async fn alice_pairing_scenario() {
 
 			// Write success marker for orchestrator to detect
 			std::fs::write("/tmp/spacedrive-pairing-test/alice_success.txt", "success").unwrap();
+			
+			// Wait a bit longer to give Bob time to detect the connection before Alice exits
+			println!("⏳ Alice: Waiting for Bob to also detect the connection...");
+			tokio::time::sleep(Duration::from_secs(5)).await;
 			break;
 		}
 

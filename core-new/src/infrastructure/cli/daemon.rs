@@ -184,8 +184,16 @@ pub struct JobInfo {
 pub struct ConnectedDeviceInfo {
 	pub device_id: Uuid,
 	pub device_name: String,
+	pub device_type: String,
+	pub os_version: String,
+	pub app_version: String,
+	pub peer_id: String,
 	pub status: String,
+	pub connection_active: bool,
 	pub last_seen: String,
+	pub connected_at: Option<String>,
+	pub bytes_sent: u64,
+	pub bytes_received: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -947,21 +955,39 @@ async fn handle_command(
 		}
 
 		DaemonCommand::ListConnectedDevices => {
-			match core.get_connected_devices().await {
-				Ok(device_ids) => {
-					// For now, return minimal device info
-					// In a real implementation, we'd get full device details
-					let devices: Vec<ConnectedDeviceInfo> = device_ids
+			match core.get_connected_devices_info().await {
+				Ok(devices) => {
+					let connected_devices: Vec<ConnectedDeviceInfo> = devices
 						.into_iter()
-						.map(|id| ConnectedDeviceInfo {
-							device_id: id,
-							device_name: format!("Device-{}", &id.to_string()[..8]),
-							status: "connected".to_string(),
-							last_seen: "now".to_string(),
+						.map(|device| {
+							// Get connection status from networking service
+							let (peer_id, connection_active, connected_at, bytes_sent, bytes_received) = 
+								if let Some(networking) = &core.networking {
+									// Try to get connection details - this is a simplified version
+									// In a real implementation, we'd access the connection registry
+									("unknown".to_string(), true, Some("now".to_string()), 0, 0)
+								} else {
+									("unavailable".to_string(), false, None, 0, 0)
+								};
+
+							ConnectedDeviceInfo {
+								device_id: device.device_id,
+								device_name: device.device_name,
+								device_type: format!("{:?}", device.device_type),
+								os_version: device.os_version,
+								app_version: device.app_version,
+								peer_id,
+								status: "connected".to_string(),
+								connection_active,
+								last_seen: device.last_seen.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+								connected_at,
+								bytes_sent,
+								bytes_received,
+							}
 						})
 						.collect();
 
-					DaemonResponse::ConnectedDevices(devices)
+					DaemonResponse::ConnectedDevices(connected_devices)
 				}
 				Err(e) => DaemonResponse::Error(e.to_string()),
 			}
