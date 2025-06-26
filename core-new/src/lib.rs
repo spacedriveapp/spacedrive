@@ -807,10 +807,9 @@ impl Core {
 			}
 		}
 
-		// PRODUCTION FIX: Wait for mDNS discovery to trigger direct pairing attempts
-		// The mDNS event loop needs time to see Bob's new Scanning session and send pairing requests
+		// Wait for mDNS discovery to trigger pairing attempts by monitoring network events
 		println!("⏳ Waiting for mDNS discovery to trigger pairing requests...");
-		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+		self.wait_for_discovery_activity(&service, session_id).await?;
 
 		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
 		// Both methods run in parallel, first successful response completes pairing
@@ -1063,5 +1062,68 @@ impl Core {
 
 		let service = networking.read().await;
 		Ok(service.identity().clone())
+	}
+
+	/// Wait for mDNS discovery activity or timeout after reasonable duration
+	/// This method monitors both peer discovery and pairing session state changes
+	/// to provide more deterministic waiting than arbitrary sleep
+	async fn wait_for_discovery_activity(
+		&self,
+		service: &networking::NetworkingCore,
+		session_id: uuid::Uuid,
+	) -> Result<(), Box<dyn std::error::Error>> {
+		const MAX_WAIT_MS: u64 = 2000; // 2 seconds max
+		const POLL_INTERVAL_MS: u64 = 100; // Check every 100ms
+		
+		let start_time = std::time::Instant::now();
+		
+		// Get initial peer count
+		let initial_peers = service.get_connected_peers().await.len();
+		
+		// Event-based waiting would be more efficient, but requires access to event receiver
+		// For now, use smart polling that checks multiple indicators of discovery activity
+		loop {
+			// Check if we've discovered any new peers
+			let current_peers = service.get_connected_peers().await.len();
+			
+			// Also check if our pairing session has advanced beyond scanning
+			if let Some(networking) = &self.networking {
+				let networking_service = networking.read().await;
+				let registry = networking_service.protocol_registry();
+				let registry_guard = registry.read().await;
+				if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
+					if let Some(handler) = pairing_handler
+						.as_any()
+						.downcast_ref::<networking::protocols::PairingProtocolHandler>()
+					{
+						let sessions = handler.get_active_sessions().await;
+						if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
+							// If session is no longer in Scanning state, mDNS likely triggered activity
+							if !matches!(
+								session.state,
+								networking::protocols::pairing::PairingState::Scanning
+							) {
+								println!("✅ Pairing session advanced beyond scanning - discovery activity detected");
+								return Ok(());
+							}
+						}
+					}
+				}
+			}
+			
+			// Check for new peer discoveries
+			if current_peers > initial_peers {
+				println!("✅ New peers discovered via mDNS ({} -> {})", initial_peers, current_peers);
+				return Ok(());
+			}
+			
+			// Timeout check - proceed with other discovery methods
+			if start_time.elapsed().as_millis() as u64 >= MAX_WAIT_MS {
+				println!("⏰ mDNS discovery timeout reached ({}ms) - proceeding with DHT and direct methods", MAX_WAIT_MS);
+				return Ok(());
+			}
+			
+			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL_MS)).await;
+		}
 	}
 }
