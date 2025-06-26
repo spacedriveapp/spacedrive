@@ -49,17 +49,22 @@ impl PairingCode {
 
     /// Generate a pairing code from a session ID
     pub fn from_session_id(session_id: Uuid) -> Self {
-        // Generate a fresh secret and derive session_id from it consistently
-        // This ensures Initiator and Joiner get the same session_id when they
-        // both process the same BIP39 words.
-        use rand::RngCore;
+        // Use the session ID as the canonical source of truth
+        // Encode it directly into the BIP39 entropy
+        let mut entropy = [0u8; 16];
+        entropy.copy_from_slice(session_id.as_bytes());
+
+        // Expand entropy to full 32-byte secret deterministically
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"spacedrive-pairing-entropy-extension-v1");
+        hasher.update(&entropy);
+        let derived_bytes = hasher.finalize();
+        
         let mut secret = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut secret);
+        secret[..16].copy_from_slice(&entropy);
+        secret[16..].copy_from_slice(&derived_bytes.as_bytes()[..16]);
 
-        // Both Initiator and Joiner will derive the same session_id from this secret
-        let derived_session_id = Self::derive_session_id(&secret);
-
-        // Generate BIP39 words from secret
+        // Generate BIP39 words from the entropy (first 16 bytes)
         let words = Self::encode_to_bip39_words(&secret).unwrap_or_else(|_| {
             // Fallback to empty words if BIP39 fails
             [const { String::new() }; 12]
@@ -68,7 +73,7 @@ impl PairingCode {
         Self {
             secret,
             words,
-            session_id: derived_session_id,
+            session_id, // Use the provided session_id directly
             expires_at: Utc::now() + chrono::Duration::minutes(5),
         }
     }
@@ -98,8 +103,12 @@ impl PairingCode {
         // Decode BIP39 words back to secret
         let secret = Self::decode_from_bip39_words(words)?;
 
-        // Derive session ID from secret - this will match Initiator's derivation
-        let session_id = Self::derive_session_id(&secret);
+        // Extract session ID directly from the first 16 bytes (entropy)
+        let session_id = Uuid::from_bytes(secret[..16].try_into().map_err(|_| {
+            crate::infrastructure::networking::NetworkingError::Protocol(
+                "Failed to extract session ID from entropy".to_string(),
+            )
+        })?);
 
         Ok(PairingCode {
             secret,

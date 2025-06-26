@@ -193,6 +193,25 @@ impl NetworkingCore {
 		self.device_registry.read().await.get_connected_devices()
 	}
 
+	/// Get raw connected peers directly from swarm (bypasses DeviceRegistry)
+	/// This is critical for handling the race condition where connections exist
+	/// but devices haven't been registered yet
+	pub async fn get_raw_connected_peers(&self) -> Vec<PeerId> {
+		if let Some(command_sender) = &self.command_sender {
+			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+			let command = event_loop::EventLoopCommand::GetRawConnectedPeers {
+				response_channel: response_tx,
+			};
+
+			if command_sender.send(command).is_ok() {
+				if let Ok(peers) = response_rx.await {
+					return peers;
+				}
+			}
+		}
+		Vec::new()
+	}
+
 	/// Send a message to a device
 	pub async fn send_message(&self, device_id: Uuid, protocol: &str, data: Vec<u8>) -> Result<()> {
 		if let Some(command_sender) = &self.command_sender {
@@ -278,9 +297,15 @@ impl NetworkingCore {
 		registry.get_connected_peers()
 	}
 
+
 	/// Get the local device ID
 	pub fn device_id(&self) -> Uuid {
 		self.identity.device_id()
+	}
+
+	/// Get the command sender for the event loop
+	pub fn command_sender(&self) -> Option<&mpsc::UnboundedSender<event_loop::EventLoopCommand>> {
+		self.command_sender.as_ref()
 	}
 
 
@@ -305,72 +330,76 @@ impl NetworkingCore {
 		}
 	}
 
+	/// Dial a peer at a specific address
+	pub async fn dial_peer(&self, peer_id: PeerId, address: Multiaddr) -> Result<()> {
+		if let Some(command_sender) = &self.command_sender {
+			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+			let command = event_loop::EventLoopCommand::DialPeer {
+				peer_id,
+				address: address.clone(),
+				response_channel: response_tx,
+			};
+
+			command_sender.send(command).map_err(|_| {
+				NetworkingError::ConnectionFailed("Event loop not running".to_string())
+			})?;
+
+			response_rx.await.map_err(|_| {
+				NetworkingError::ConnectionFailed("Failed to receive dial response".to_string())
+			})?
+		} else {
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
+		}
+	}
+
 	/// Get external addresses for advertising in DHT records
 	pub async fn get_external_addresses(&self) -> Vec<Multiaddr> {
 		// Query the event loop for current listening addresses
 		if let Some(command_sender) = &self.command_sender {
-			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-			
-			let command = event_loop::EventLoopCommand::GetListeningAddresses {
-				response_channel: response_tx,
-			};
-			
-			if let Err(e) = command_sender.send(command) {
-				eprintln!("Failed to send GetListeningAddresses command: {}", e);
-				return Vec::new();
-			}
-			
-			match response_rx.await {
-				Ok(addresses) => {
-					if addresses.is_empty() {
-						// Fallback to default addresses if no external addresses found
-						eprintln!("No external addresses found, using fallback");
-						vec![
-							"/ip4/0.0.0.0/tcp/0".parse().unwrap(), // Will bind to available port
-						]
-					} else {
-						addresses
+			// Retry a few times to allow swarm to establish listeners
+			for attempt in 1..=3 {
+				let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+				
+				let command = event_loop::EventLoopCommand::GetListeningAddresses {
+					response_channel: response_tx,
+				};
+				
+				if let Err(e) = command_sender.send(command) {
+					eprintln!("Failed to send GetListeningAddresses command: {}", e);
+					return Vec::new();
+				}
+				
+				match response_rx.await {
+					Ok(addresses) => {
+						if addresses.is_empty() {
+							if attempt < 3 {
+								println!("No external addresses found on attempt {}, retrying...", attempt);
+								tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+								continue;
+							} else {
+								eprintln!("No external addresses found after {} attempts", attempt);
+								return Vec::new();
+							}
+						} else {
+							println!("Found external addresses for advertising: {:?}", addresses);
+							return addresses;
+						}
+					}
+					Err(e) => {
+						eprintln!("Failed to receive listening addresses: {}", e);
+						return Vec::new();
 					}
 				}
-				Err(e) => {
-					eprintln!("Failed to receive listening addresses: {}", e);
-					Vec::new()
-				}
 			}
+			Vec::new()
 		} else {
 			eprintln!("Event loop not started, cannot get listening addresses");
 			Vec::new()
 		}
 	}
 	
-	/// Register default protocol handlers
-	async fn register_default_protocols(
-		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
-		identity: &NetworkIdentity,
-		device_registry: &Arc<RwLock<DeviceRegistry>>,
-	) -> Result<()> {
-		// Register pairing protocol handler
-		let logger = Arc::new(ConsoleLogger);
-		let pairing_handler = Arc::new(PairingProtocolHandler::new(
-			identity.clone(),
-			device_registry.clone(),
-			logger,
-		));
-		
-		// Start cleanup task for expired sessions
-		PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
-		
-		protocol_registry
-			.write()
-			.await
-			.register_handler(pairing_handler)
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to register pairing handler: {}", e)))?;
-		
-		// Using a simple print here as we don't have access to the logger yet
-		println!("Registered pairing protocol handler with session cleanup");
-		
-		Ok(())
-	}
 }
 
 // Ensure NetworkingCore is Send + Sync for proper async usage

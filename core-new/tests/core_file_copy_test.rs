@@ -8,6 +8,20 @@ use tokio::process::Command;
 
 #[tokio::test]
 async fn test_cross_device_file_copy() {
+	const PAIRING_CODE_PATH: &str = "/tmp/spacedrive-file-copy-test/pairing_code.txt";
+	const EXPECTED_FILES_PATH: &str = "/tmp/spacedrive-file-copy-test/expected_files.txt";
+
+	// Clean up stale files from previous test runs
+	if std::path::Path::new(PAIRING_CODE_PATH).exists() {
+		let _ = std::fs::remove_file(PAIRING_CODE_PATH);
+	}
+	if std::path::Path::new(EXPECTED_FILES_PATH).exists() {
+		let _ = std::fs::remove_file(EXPECTED_FILES_PATH);
+	}
+	if std::path::Path::new("/tmp/received_files").exists() {
+		let _ = std::fs::remove_dir_all("/tmp/received_files");
+	}
+
 	println!("🧪 Testing cross-device file copy using Core API and job system");
 
 	let mut runner = SimpleTestRunner::new()

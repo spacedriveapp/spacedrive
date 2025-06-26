@@ -36,11 +36,17 @@ async fn create_transport(
 	let noise_config = noise::Config::new(&keypair)
 		.map_err(|e| NetworkingError::Protocol(format!("Noise config error: {}", e)))?;
 
-	// Create TCP-only transport (simplified to match working mDNS test)
-	let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+	// Create TCP-only transport with keep-alive configuration
+	let mut tcp_config = tcp::Config::default();
+	tcp_config = tcp_config.nodelay(true);
+	
+	// Configure Yamux with default settings (libp2p version doesn't expose many config options)
+	let yamux_config = yamux::Config::default();
+	
+	let transport = tcp::tokio::Transport::new(tcp_config)
 		.upgrade(libp2p::core::upgrade::Version::V1)
 		.authenticate(noise_config)
-		.multiplex(yamux::Config::default())
+		.multiplex(yamux_config)
 		.boxed();
 
 	println!("🔧 Transport: Using TCP-only configuration (no QUIC) for connection stability");

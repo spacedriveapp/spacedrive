@@ -48,6 +48,16 @@ pub enum EventLoopCommand {
 	GetListeningAddresses {
 		response_channel: tokio::sync::oneshot::Sender<Vec<Multiaddr>>,
 	},
+	/// Dial a specific peer at an address
+	DialPeer {
+		peer_id: PeerId,
+		address: Multiaddr,
+		response_channel: tokio::sync::oneshot::Sender<Result<()>>,
+	},
+	/// Get raw connected peers directly from the swarm (bypasses DeviceRegistry)
+	GetRawConnectedPeers {
+		response_channel: tokio::sync::oneshot::Sender<Vec<PeerId>>,
+	},
 }
 
 /// Central event loop for processing all LibP2P events
@@ -376,23 +386,49 @@ impl NetworkingEventLoop {
 			EventLoopCommand::GetListeningAddresses { response_channel } => {
 				// Get all current listening addresses from the swarm
 				let addresses: Vec<Multiaddr> = swarm.listeners().cloned().collect();
+				println!("Raw listening addresses: {:?}", addresses);
 
-				// Filter out invalid or non-routable addresses
+				// Filter for external addresses, being more careful about port filtering
 				let external_addresses: Vec<Multiaddr> = addresses
 					.into_iter()
 					.filter(|addr| {
-						// Remove localhost and zero port addresses
 						let addr_str = addr.to_string();
+						// Filter out localhost addresses but be more specific about port 0
 						!addr_str.contains("127.0.0.1")
-							&& !addr_str.contains("tcp/0")
 							&& !addr_str.contains("::1")
+							&& !addr_str.ends_with("/tcp/0")  // Only filter if it literally ends with /tcp/0
 					})
 					.collect();
 
-				println!("Current listening addresses: {:?}", external_addresses);
+				println!("Filtered external addresses: {:?}", external_addresses);
 
 				// Send the addresses back to the caller
 				let _ = response_channel.send(external_addresses);
+			}
+			EventLoopCommand::DialPeer {
+				peer_id,
+				address,
+				response_channel,
+			} => {
+				// Dial the specific peer at the given address
+				match swarm.dial(address.clone()) {
+					Ok(_) => {
+						println!("Successfully initiated dial to peer {} at {}", peer_id, address);
+						let _ = response_channel.send(Ok(()));
+					}
+					Err(e) => {
+						println!("Failed to dial peer {} at {}: {:?}", peer_id, address, e);
+						let _ = response_channel.send(Err(NetworkingError::ConnectionFailed(
+							format!("Failed to dial peer: {:?}", e)
+						)));
+					}
+				}
+			}
+			EventLoopCommand::GetRawConnectedPeers { response_channel } => {
+				// Get connected peers directly from the swarm's network state
+				let peers = swarm.connected_peers().cloned().collect::<Vec<_>>();
+				println!("Raw connected peers from swarm: {:?}", peers);
+				let _ = response_channel.send(peers);
 			}
 		}
 
@@ -636,10 +672,10 @@ impl NetworkingEventLoop {
 				};
 
 				// Add to pending connections - pairing request will be sent after connection establishment
-				// Using 5-minute timeout (300 seconds) and current time
+				// Using 0 retries initially and current time
 				pending_pairing_connections.insert(
 					session.id,
-					(discovered_peer_id, device_info, 300, chrono::Utc::now()),
+					(discovered_peer_id, device_info, 0, chrono::Utc::now()),
 				);
 
 				println!("✅ mDNS Discovery: Scheduled pairing request for session {} with peer {} (pending connection)",

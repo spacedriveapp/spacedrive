@@ -41,6 +41,9 @@ pub struct PairingProtocolHandler {
     /// Logger for structured logging
     logger: Arc<dyn NetworkLogger>,
 
+    /// Command sender for dispatching commands to the NetworkingEventLoop
+    command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
+
     /// Current pairing role
     role: Option<PairingRole>,
 
@@ -54,12 +57,14 @@ impl PairingProtocolHandler {
         identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
+        command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
     ) -> Self {
         Self {
             identity,
             device_registry,
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
             logger,
+            command_sender,
             role: None,
             persistence: None,
         }
@@ -70,6 +75,7 @@ impl PairingProtocolHandler {
         identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
+        command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
         data_dir: PathBuf,
     ) -> Self {
         let persistence = Arc::new(PairingPersistence::new(data_dir));
@@ -78,6 +84,7 @@ impl PairingProtocolHandler {
             device_registry,
             active_sessions: Arc::new(RwLock::new(HashMap::new())),
             logger,
+            command_sender,
             role: None,
             persistence: Some(persistence),
         }
@@ -314,6 +321,93 @@ impl PairingProtocolHandler {
                 }
             }
         });
+    }
+
+    /// Start the background task for managing pairing state transitions
+    pub fn start_state_machine_task(handler: Arc<Self>) {
+        tokio::spawn(async move {
+            // Check the state every 200 milliseconds
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_millis(200));
+
+            loop {
+                interval.tick().await;
+                if let Err(e) = handler.process_state_transitions().await {
+                    handler.log_error(&format!("State machine error: {}", e)).await;
+                }
+            }
+        });
+    }
+
+    /// The core logic of the state machine - processes state transitions for all active sessions
+    async fn process_state_transitions(&self) -> Result<()> {
+        // Get a write lock because we may need to modify session states
+        let mut sessions = self.active_sessions.write().await;
+
+        for session in sessions.values_mut() {
+            // Match on the current state to decide the next action
+            match &session.state {
+                // This is the critical missing logic - handle ResponsePending state
+                PairingState::ResponsePending { response_data, remote_peer_id, .. } => {
+                    if let Some(peer_id) = remote_peer_id {
+                        self.log_info(&format!(
+                            "State Machine: Found ResponsePending for session {}, sending response to peer {}",
+                            session.id, peer_id
+                        )).await;
+
+                        // Create the command to send the message
+                        let command = crate::infrastructure::networking::core::event_loop::EventLoopCommand::SendMessageToPeer {
+                            peer_id: *peer_id,
+                            protocol: "pairing".to_string(),
+                            data: response_data.clone(),
+                        };
+
+                        // Send the command to the NetworkingEventLoop
+                        if self.command_sender.send(command).is_ok() {
+                            // Transition the state to prevent re-sending
+                            session.state = PairingState::ResponseSent;
+                            self.log_info(&format!(
+                                "State Machine: Response sent for session {}, transitioned to ResponseSent",
+                                session.id
+                            )).await;
+                        } else {
+                            self.log_error("State Machine: Failed to send command to event loop.").await;
+                            session.state = PairingState::Failed { 
+                                reason: "Internal channel closed".to_string() 
+                            };
+                        }
+                    } else {
+                        self.log_error(&format!(
+                            "State Machine: Session {} in ResponsePending but no remote peer ID",
+                            session.id
+                        )).await;
+                        session.state = PairingState::Failed { 
+                            reason: "No remote peer ID for response".to_string() 
+                        };
+                    }
+                }
+
+                // Optional: Add logic to time out sessions stuck in scanning for too long
+                PairingState::Scanning => {
+                    let age = chrono::Utc::now().signed_duration_since(session.created_at);
+                    if age > chrono::Duration::minutes(5) { // 5 minute timeout for scanning
+                        self.log_warn(&format!(
+                            "State Machine: Session {} timed out while scanning, marking as failed",
+                            session.id
+                        )).await;
+                        session.state = PairingState::Failed { 
+                            reason: "Scanning timeout".to_string() 
+                        };
+                    }
+                }
+
+                // No action needed for other states in this loop
+                _ => {
+                    // Other states are handled elsewhere or don't need periodic processing
+                }
+            }
+        }
+
+        Ok(())
     }
 
 

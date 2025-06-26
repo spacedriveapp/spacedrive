@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, Command};
+use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use tokio::time::{interval, timeout};
 
 /// A single subprocess in a multi-process test
@@ -13,6 +13,8 @@ pub struct TestProcess {
     pub data_dir: TempDir,
     pub child: Option<Child>,
     pub output: String,
+    pub stdout_reader: Option<BufReader<ChildStdout>>,
+    pub stderr_reader: Option<BufReader<ChildStderr>>,
 }
 
 /// Simple multi-process test runner
@@ -46,6 +48,8 @@ impl SimpleTestRunner {
             data_dir,
             child: None,
             output: String::new(),
+            stdout_reader: None,
+            stderr_reader: None,
         };
         
         self.processes.push(process);
@@ -71,11 +75,17 @@ impl SimpleTestRunner {
         let data_dir = process.data_dir.path();
         let mut command = command_builder(data_dir);
         
-        let child = command
+        let mut child = command
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to spawn {}: {}", name, e))?;
+        
+        // Create and store readers without consuming handles
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
+        process.stdout_reader = Some(BufReader::new(stdout));
+        process.stderr_reader = Some(BufReader::new(stderr));
         
         process.child = Some(child);
         println!("🚀 Spawned process: {}", name);
@@ -119,20 +129,44 @@ impl SimpleTestRunner {
         }
     }
     
-    /// Read output from all running processes
+    /// Read output from all running processes using non-blocking reads
     async fn read_all_output(&mut self) {
         for process in &mut self.processes {
-            if let Some(child) = &mut process.child {
-                // Read stdout
-                if let Some(stdout) = child.stdout.take() {
-                    let mut reader = BufReader::new(stdout).lines();
-                    while let Ok(Some(line)) = reader.next_line().await {
-                        println!("{}: {}", process.name, line);
-                        process.output.push_str(&line);
-                        process.output.push('\n');
+            // Read stdout lines with a very short timeout to avoid blocking
+            if let Some(stdout_reader) = &mut process.stdout_reader {
+                loop {
+                    let mut line = String::new();
+                    match timeout(Duration::from_millis(10), stdout_reader.read_line(&mut line)).await {
+                        Ok(Ok(0)) => break, // EOF
+                        Ok(Ok(_)) => {
+                            let line = line.trim_end().to_string();
+                            if !line.is_empty() {
+                                println!("{}: {}", process.name, line);
+                                process.output.push_str(&line);
+                                process.output.push('\n');
+                            }
+                        }
+                        _ => break, // Timeout or error
                     }
-                    // Note: We lose the stdout handle here, which is fine for simple cases
-                    // For continuous monitoring, we'd need a different approach
+                }
+            }
+            
+            // Read stderr lines with a very short timeout to avoid blocking
+            if let Some(stderr_reader) = &mut process.stderr_reader {
+                loop {
+                    let mut line = String::new();
+                    match timeout(Duration::from_millis(10), stderr_reader.read_line(&mut line)).await {
+                        Ok(Ok(0)) => break, // EOF
+                        Ok(Ok(_)) => {
+                            let line = line.trim_end().to_string();
+                            if !line.is_empty() {
+                                println!("{}: [STDERR] {}", process.name, line);
+                                process.output.push_str(&format!("[STDERR] {}", line));
+                                process.output.push('\n');
+                            }
+                        }
+                        _ => break, // Timeout or error
+                    }
                 }
             }
         }

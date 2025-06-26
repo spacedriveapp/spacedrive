@@ -36,58 +36,23 @@ impl PairingProtocolHandler {
             session_id
         )).await;
 
-        // Check for existing session and transition state properly
-        let existing_session_info = {
-            let read_guard = self.active_sessions.read().await;
-            read_guard.get(&session_id).cloned()
-        };
-
-        if let Some(existing_session) = existing_session_info {
-            if matches!(existing_session.state, PairingState::WaitingForConnection) {
-                self.log_debug(&format!("Transitioning existing session {} from WaitingForConnection to ChallengeReceived", session_id)).await;
-
-                // Transition existing session to ChallengeReceived
-                let updated_session = PairingSession {
-                    id: session_id,
-                    state: PairingState::ChallengeReceived {
-                        challenge: challenge.clone(),
-                    },
-                    remote_device_id: Some(from_device),
-                    remote_device_info: Some(device_info.clone()),
-                    remote_public_key: Some(public_key.clone()),
-                    shared_secret: existing_session.shared_secret.clone(),
-                    created_at: existing_session.created_at,
-                };
-
-                self.active_sessions
-                    .write()
-                    .await
-                    .insert(session_id, updated_session);
-            } else {
-                self.log_debug(&format!(
-                    "Session {} already exists in state {:?}, updating with new challenge",
-                    session_id, existing_session.state
-                )).await;
-
-                // Update existing session with new challenge
-                let updated_session = PairingSession {
-                    id: session_id,
-                    state: PairingState::ChallengeReceived {
-                        challenge: challenge.clone(),
-                    },
-                    remote_device_id: Some(from_device),
-                    remote_device_info: Some(device_info.clone()),
-                    remote_public_key: Some(public_key.clone()),
-                    shared_secret: existing_session.shared_secret.clone(),
-                    created_at: existing_session.created_at,
-                };
-
-                self.active_sessions
-                    .write()
-                    .await
-                    .insert(session_id, updated_session);
-            }
+        // Hold the write lock for the entire duration to prevent any scoping issues
+        let mut sessions = self.active_sessions.write().await;
+        println!("🔍 ALICE_HANDLER_DEBUG: Looking for session {} in {} total sessions", session_id, sessions.len());
+        
+        if let Some(existing_session) = sessions.get_mut(&session_id) {
+            println!("🔍 ALICE_HANDLER_DEBUG: Found existing session {} in state {:?}", session_id, existing_session.state);
+            self.log_debug(&format!("Transitioning existing session {} to ChallengeReceived", session_id)).await;
+            
+            // Update the existing session in place
+            existing_session.state = PairingState::ChallengeReceived {
+                challenge: challenge.clone(),
+            };
+            existing_session.remote_device_id = Some(from_device);
+            existing_session.remote_device_info = Some(device_info.clone());
+            existing_session.remote_public_key = Some(public_key.clone());
         } else {
+            println!("🔍 ALICE_HANDLER_DEBUG: No existing session found for {}, creating new session", session_id);
             self.log_debug(&format!("Creating new session {} for pairing request", session_id)).await;
 
             // Create new session only if none exists
@@ -103,11 +68,9 @@ impl PairingProtocolHandler {
                 created_at: chrono::Utc::now(),
             };
 
-            self.active_sessions
-                .write()
-                .await
-                .insert(session_id, session);
+            sessions.insert(session_id, session);
         }
+        // Write lock is automatically released here
 
         // Send challenge response with proper network fingerprint
         let local_device_info = self

@@ -89,7 +89,7 @@ impl UnifiedBehaviour {
 
 		// Configure request-response for pairing using CBOR codec with longer timeouts
 		let mut pairing_config = request_response::Config::default();
-		pairing_config = pairing_config.with_request_timeout(std::time::Duration::from_secs(30)); // 30s request timeout
+		pairing_config = pairing_config.with_request_timeout(std::time::Duration::from_secs(60)); // 60s request timeout for pairing stability
 		let pairing = request_response::cbor::Behaviour::new(
 			std::iter::once((
 				StreamProtocol::new("/spacedrive/pairing/1.0.0"),

@@ -231,11 +231,11 @@ impl Core {
 		// Initialize the new networking core
 		let mut networking_core = networking::NetworkingCore::new(self.device.clone()).await?;
 
-		// Register default protocol handlers
-		self.register_default_protocols(&networking_core).await?;
-
-		// Start networking
+		// Start networking first to initialize the command channel
 		networking_core.start().await?;
+
+		// Register default protocol handlers (now that command_sender is available)
+		self.register_default_protocols(&networking_core).await?;
 
 		// Set up event bridge to integrate with core event system
 		let event_bridge = NetworkEventBridge::new(
@@ -263,11 +263,24 @@ impl Core {
 		networking: &networking::NetworkingCore,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let logger = std::sync::Arc::new(networking::utils::logging::ConsoleLogger);
-		let pairing_handler = networking::protocols::PairingProtocolHandler::new(
+		
+		// Get command sender for the pairing handler's state machine
+		let command_sender = networking.command_sender()
+			.ok_or("NetworkingEventLoop command sender not available")?
+			.clone();
+
+		let pairing_handler = Arc::new(networking::protocols::PairingProtocolHandler::new(
 			networking.identity().clone(),
 			networking.device_registry(),
 			logger,
-		);
+			command_sender,
+		));
+
+		// Start the state machine task for pairing
+		networking::protocols::PairingProtocolHandler::start_state_machine_task(pairing_handler.clone());
+
+		// Start cleanup task for expired sessions
+		networking::protocols::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
 		let mut file_transfer_handler =
@@ -279,7 +292,7 @@ impl Core {
 		let protocol_registry = networking.protocol_registry();
 		{
 			let mut registry = protocol_registry.write().await;
-			registry.register_handler(Arc::new(pairing_handler))?;
+			registry.register_handler(pairing_handler)?;
 			registry.register_handler(Arc::new(messaging_handler))?;
 			registry.register_handler(Arc::new(file_transfer_handler))?;
 		}
@@ -698,9 +711,9 @@ impl Core {
 			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
 			.ok_or("Invalid pairing handler type")?;
 
-		// Generate BIP39 pairing code first to get the consistent session ID
-		let pairing_code = networking::protocols::pairing::PairingCode::generate()?;
-		let session_id = pairing_code.session_id();
+		// Generate session ID first as canonical source of truth
+		let session_id = uuid::Uuid::new_v4();
+		let pairing_code = networking::protocols::pairing::PairingCode::from_session_id(session_id);
 
 		// Start pairing session with the session ID from the pairing code
 		pairing_handler
@@ -721,15 +734,21 @@ impl Core {
 			);
 		}
 
+		// Get external addresses for advertising
+		let external_addresses = service.get_external_addresses().await;
+		let address_strings: Vec<String> = external_addresses
+			.into_iter()
+			.map(|addr| addr.to_string())
+			.collect();
+
+		if address_strings.is_empty() {
+			return Err("No external addresses available for advertising - pairing cannot start".into());
+		}
+
 		// Create pairing advertisement for DHT
 		let advertisement = networking::protocols::pairing::PairingAdvertisement {
 			peer_id: service.peer_id().to_string(),
-			addresses: service
-				.get_external_addresses()
-				.await
-				.into_iter()
-				.map(|addr| addr.to_string())
-				.collect(),
+			addresses: address_strings,
 			device_info: pairing_handler.get_device_info().await?,
 			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
 			created_at: chrono::Utc::now(),
@@ -741,8 +760,8 @@ impl Core {
 
 		let query_id = service.publish_dht_record(key, value).await?;
 		println!(
-			"Published pairing session to DHT: session={}, query_id={:?}",
-			session_id, query_id
+			"Published pairing session to DHT: session={}, query_id={:?}, addresses={:?}",
+			session_id, query_id, advertisement.addresses
 		);
 
 		let expires_in = 300; // 5 minutes
@@ -807,9 +826,9 @@ impl Core {
 			}
 		}
 
-		// Wait for mDNS discovery to trigger pairing attempts by monitoring network events
-		println!("⏳ Waiting for mDNS discovery to trigger pairing requests...");
-		self.wait_for_discovery_activity(&service, session_id).await?;
+		// Wait a bit for mDNS discovery to establish connections, then ensure pairing requests are sent
+		println!("⏳ Waiting for mDNS discovery and ensuring pairing requests are sent...");
+		self.ensure_pairing_requests_sent(&service, session_id).await?;
 
 		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
 		// Both methods run in parallel, first successful response completes pairing
@@ -1064,9 +1083,96 @@ impl Core {
 		Ok(service.identity().clone())
 	}
 
-	/// Wait for mDNS discovery activity or timeout after reasonable duration
-	/// This method monitors both peer discovery and pairing session state changes
-	/// to provide more deterministic waiting than arbitrary sleep
+	/// Enhanced pairing request sending with robust active polling
+	/// This method continuously checks for connections and ensures requests are sent
+	/// regardless of when the connection was established (fixes race condition)
+	async fn ensure_pairing_requests_sent(
+		&self,
+		service: &networking::NetworkingCore,
+		session_id: uuid::Uuid,
+	) -> Result<(), Box<dyn std::error::Error>> {
+		const MAX_WAIT_TIME: u64 = 15000; // 15 seconds
+		const POLL_INTERVAL: u64 = 500; // Check every 500ms
+		let start_time = std::time::Instant::now();
+
+		println!("🔍 Bob: Enhanced pairing request logic running...");
+
+		loop {
+			// First, check if the session has already advanced. If so, our job is done.
+			if let Some(networking) = &self.networking {
+				let registry = networking.read().await.protocol_registry();
+				let registry_guard = registry.read().await;
+				if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
+					if let Some(handler) = pairing_handler
+						.as_any()
+						.downcast_ref::<networking::protocols::PairingProtocolHandler>()
+					{
+						let sessions = handler.get_active_sessions().await;
+						if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
+							if !matches!(
+								session.state,
+								networking::protocols::pairing::PairingState::Scanning
+							) {
+								println!("✅ Bob: Pairing session advanced to {:?} - pairing request succeeded!", session.state);
+								return Ok(());
+							}
+						}
+					}
+				}
+			}
+
+			// If not, actively check for connected peers and send the request.
+			// CRITICAL: Use raw swarm connections, not DeviceRegistry (fixes Catch-22)
+			let connected_peers = service.get_raw_connected_peers().await;
+			if !connected_peers.is_empty() {
+				println!("🔗 Bob: Found {} raw network connection(s), ensuring request is sent.", connected_peers.len());
+
+				for peer_id in &connected_peers {
+					let local_device_info = {
+						let device_registry = service.device_registry();
+						let registry = device_registry.read().await;
+						registry.get_local_device_info().unwrap_or_else(|_| {
+							networking::device::DeviceInfo {
+								device_id: service.device_id(),
+								device_name: "Bob's Test Device".to_string(),
+								device_type: networking::device::DeviceType::Desktop,
+								os_version: std::env::consts::OS.to_string(),
+								app_version: env!("CARGO_PKG_VERSION").to_string(),
+								network_fingerprint: service.identity().network_fingerprint(),
+								last_seen: chrono::Utc::now(),
+							}
+						})
+					};
+
+					let pairing_request =
+						networking::core::behavior::PairingMessage::PairingRequest {
+							session_id,
+							device_info: local_device_info,
+							public_key: service.identity().public_key_bytes(),
+						};
+					
+					// This is an idempotent action; sending the request multiple times is okay
+					// as Alice's handler will just re-send the same challenge.
+					match service.send_message_to_peer(
+						*peer_id,
+						"pairing",
+						serde_json::to_vec(&pairing_request)?,
+					).await {
+						Ok(_) => println!("🚀 Bob: Sent/Re-sent pairing request to {}", peer_id),
+						Err(e) => println!("⚠️ Bob: Failed to send pairing request to {}: {}", peer_id, e),
+					}
+				}
+			}
+
+			// Check for timeout
+			if start_time.elapsed().as_millis() > MAX_WAIT_TIME as u128 {
+				return Err("Pairing timeout: Did not receive challenge from Alice.".into());
+			}
+
+			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL)).await;
+		}
+	}
+
 	async fn wait_for_discovery_activity(
 		&self,
 		service: &networking::NetworkingCore,

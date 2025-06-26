@@ -8,6 +8,15 @@ use tokio::process::Command;
 
 #[tokio::test]
 async fn test_core_pairing_subprocess() {
+	const PAIRING_CODE_PATH: &str = "/tmp/spacedrive-pairing-test/pairing_code.txt";
+
+	// Clean up stale pairing code file from previous test runs
+	// This prevents Bob from reading old data and fixes the file I/O race condition
+	if std::path::Path::new(PAIRING_CODE_PATH).exists() {
+		let _ = std::fs::remove_file(PAIRING_CODE_PATH);
+		println!("🧹 Cleaned up stale pairing code file");
+	}
+
 	println!("🧪 Testing Core pairing methods using new test framework");
 
 	let mut runner = SimpleTestRunner::new()
@@ -92,9 +101,9 @@ async fn test_core_pairing_subprocess() {
 		}
 		Err(e) => {
 			println!("❌ Pairing test failed: {}", e);
-			for (name, output) in runner.get_all_outputs() {
-				println!("\n{} output:\n{}", name, output);
-			}
+			// for (name, output) in runner.get_all_outputs() {
+			// 	println!("\n{} output:\n{}", name, output);
+			// }
 			panic!("Pairing test failed - devices did not properly recognize each other");
 		}
 	}
