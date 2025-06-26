@@ -826,10 +826,6 @@ impl Core {
 			}
 		}
 
-		// Wait a bit for mDNS discovery to establish connections, then ensure pairing requests are sent
-		println!("⏳ Waiting for mDNS discovery and ensuring pairing requests are sent...");
-		self.ensure_pairing_requests_sent(&service, session_id).await?;
-
 		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
 		// Both methods run in parallel, first successful response completes pairing
 
@@ -838,13 +834,8 @@ impl Core {
 			session_id
 		);
 
-		// Method 1: mDNS-based local pairing (already handled by event loop)
-		// The event loop automatically detects mDNS peers and schedules pairing requests
-		// This handles Alice and Bob on the same network
-		println!("📡 mDNS pairing: Listening for local network discoveries...");
-
-		// Method 2: DHT-based remote pairing (for cross-network scenarios)
-		// Query DHT for Alice's published session record
+		// Method 1: DHT-based remote pairing (for cross-network scenarios)
+		// Query DHT for Alice's published session record - THIS MUST BE FIRST
 		println!("🌐 DHT pairing: Querying distributed hash table...");
 		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
 		match service.query_dht_record(key).await {
@@ -858,6 +849,15 @@ impl Core {
 				println!("⚠️ DHT Query failed: {}", e);
 			}
 		}
+
+		// Method 2: mDNS-based local pairing (already handled by event loop)
+		// The event loop automatically detects mDNS peers and schedules pairing requests
+		// This handles Alice and Bob on the same network
+		println!("📡 mDNS pairing: Listening for local network discoveries...");
+
+		// Method 3: Wait for connections to be established and ensure pairing requests are sent
+		println!("⏳ Waiting for connections and ensuring pairing requests are sent...");
+		self.ensure_pairing_requests_sent(&service, session_id).await?;
 
 		// Check if Bob has a challenge response pending to send
 		let pairing_handler = registry
@@ -903,7 +903,7 @@ impl Core {
 			}
 		}
 
-		// Method 3: Direct requests to any currently connected peers (immediate attempt)
+		// Method 4: Direct requests to any currently connected peers (immediate attempt)
 		// This covers cases where Alice is already connected but not yet paired
 		let connected_peers = service.get_connected_peers().await;
 		if !connected_peers.is_empty() {

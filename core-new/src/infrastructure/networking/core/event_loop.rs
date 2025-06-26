@@ -931,7 +931,16 @@ impl NetworkingEventLoop {
 							{
 								Ok(sessions_scheduled) => {
 									if sessions_scheduled > 0 {
-										println!("🔍 mDNS Discovery: Scheduled {} pairing sessions for peer {} (waiting for connection)", sessions_scheduled, peer_id);
+										println!("🔍 mDNS Discovery: Scheduled {} pairing sessions for peer {}", sessions_scheduled, peer_id);
+										
+										// CRITICAL FIX: Explicitly dial the discovered peer to establish connection
+										// This fixes the race condition where scheduling pairing doesn't guarantee connection
+										println!("🤝 mDNS Discovery: Explicitly dialing peer {} at {}", peer_id, addr);
+										if let Err(e) = swarm.dial(addr.clone()) {
+											println!("❌ Failed to dial mDNS peer {}: {:?}", peer_id, e);
+										} else {
+											println!("✅ Successfully initiated connection to mDNS peer {}", peer_id);
+										}
 									}
 								}
 								Err(e) => {
