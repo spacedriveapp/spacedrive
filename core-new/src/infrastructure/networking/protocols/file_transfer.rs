@@ -110,7 +110,7 @@ pub struct FileMetadata {
     pub size: u64,
     pub modified: Option<SystemTime>,
     pub is_directory: bool,
-    pub checksum: Option<[u8; 32]>,
+    pub checksum: Option<String>, // ContentHashGenerator hash
     pub mime_type: Option<String>,
 }
 
@@ -124,7 +124,6 @@ pub enum FileTransferMessage {
         transfer_mode: TransferMode,
         chunk_size: u32,
         total_chunks: u32,
-        checksum: Option<[u8; 32]>,
         destination_path: String,
     },
 
@@ -155,7 +154,7 @@ pub enum FileTransferMessage {
     /// Transfer completion notification
     TransferComplete {
         transfer_id: Uuid,
-        final_checksum: [u8; 32],
+        final_checksum: String, // ContentHashGenerator hash
         total_bytes: u64,
     },
 
@@ -346,25 +345,19 @@ impl FileTransferProtocolHandler {
         }
     }
 
-    /// Calculate file checksum using Blake3
-    async fn calculate_file_checksum(&self, path: &PathBuf) -> Result<[u8; 32]> {
-        let mut file = File::open(path).await
-            .map_err(|e| NetworkingError::file_system_error(format!("Failed to open file: {}", e)))?;
+    /// Calculate file checksum using ContentHashGenerator
+    async fn calculate_file_checksum(&self, path: &PathBuf) -> Result<String> {
+        crate::domain::content_identity::ContentHashGenerator::generate_content_hash(path)
+            .await
+            .map_err(|e| NetworkingError::file_system_error(format!("Failed to generate content hash: {}", e)))
+    }
 
+    /// Calculate file checksum as bytes for compatibility
+    async fn calculate_file_checksum_bytes(&self, path: &PathBuf) -> Result<[u8; 32]> {
+        // Generate the content hash and then hash it again for 32-byte output
+        let content_hash = self.calculate_file_checksum(path).await?;
         let mut hasher = blake3::Hasher::new();
-        let mut buffer = [0u8; 8192];
-
-        loop {
-            let bytes_read = file.read(&mut buffer).await
-                .map_err(|e| NetworkingError::file_system_error(format!("Failed to read file: {}", e)))?;
-
-            if bytes_read == 0 {
-                break;
-            }
-
-            hasher.update(&buffer[..bytes_read]);
-        }
-
+        hasher.update(content_hash.as_bytes());
         Ok(hasher.finalize().into())
     }
 
@@ -514,7 +507,35 @@ impl FileTransferProtocolHandler {
         {
             // Verify final checksum if configured
             if self.config.verify_checksums {
-                // TODO: Calculate checksum of received file and compare
+                // Get the received file path
+                let received_file_path = {
+                    let sessions = self.sessions.read().unwrap();
+                    if let Some(session) = sessions.get(&transfer_id) {
+                        let destination_path = PathBuf::from(&session.destination_path);
+                        destination_path.join(&session.file_metadata.name)
+                    } else {
+                        return Err(NetworkingError::transfer_not_found_error(transfer_id));
+                    }
+                };
+
+                // Calculate checksum of received file
+                let received_checksum = self.calculate_file_checksum(&received_file_path).await?;
+                
+                // Compare with sender's checksum
+                if received_checksum != final_checksum {
+                    self.update_session_state(&transfer_id, TransferState::Failed(
+                        format!("Final checksum mismatch: expected {}, got {}", final_checksum, received_checksum)
+                    ))?;
+                    
+                    return Ok(FileTransferMessage::TransferError {
+                        transfer_id,
+                        error_type: TransferErrorType::ChecksumMismatch,
+                        message: "Final file checksum verification failed".to_string(),
+                        recoverable: false,
+                    });
+                }
+                
+                println!("✅ File checksum verified: {}", received_checksum);
             }
 
             // Mark transfer as completed

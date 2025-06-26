@@ -412,7 +412,6 @@ impl FileCopyJob {
 			transfer_mode: crate::infrastructure::networking::protocols::TransferMode::TrustedCopy,
 			chunk_size,
 			total_chunks,
-			checksum: Some(file_metadata.checksum.unwrap_or([0u8; 32])),
 			destination_path: self.destination.path.to_string_lossy().to_string(),
 		};
 
@@ -577,27 +576,10 @@ impl FileCopyJob {
 	}
 
 	/// Calculate file checksum for integrity verification
-	async fn calculate_file_checksum(&self, path: &std::path::Path) -> Result<[u8; 32], String> {
-		use tokio::io::AsyncReadExt;
-
-		let mut file = tokio::fs::File::open(path).await
-			.map_err(|e| format!("Failed to open file for checksum: {}", e))?;
-
-		let mut hasher = blake3::Hasher::new();
-		let mut buffer = [0u8; 8192];
-
-		loop {
-			let bytes_read = file.read(&mut buffer).await
-				.map_err(|e| format!("Failed to read file for checksum: {}", e))?;
-
-			if bytes_read == 0 {
-				break;
-			}
-
-			hasher.update(&buffer[..bytes_read]);
-		}
-
-		Ok(hasher.finalize().into())
+	async fn calculate_file_checksum(&self, path: &std::path::Path) -> Result<String, String> {
+		crate::domain::content_identity::ContentHashGenerator::generate_content_hash(path)
+			.await
+			.map_err(|e| format!("Failed to generate content hash: {}", e))
 	}
 
 	/// Copy a local file or directory

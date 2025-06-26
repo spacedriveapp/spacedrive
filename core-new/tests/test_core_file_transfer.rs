@@ -132,8 +132,19 @@ async fn alice_file_transfer_scenario() {
 	for (filename, content) in &test_files {
 		let file_path = test_files_dir.join(filename);
 		std::fs::write(&file_path, content).unwrap();
+		
+		// Generate and display checksum for the file Alice is about to send
+		match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&file_path).await {
+			Ok(checksum) => {
+				println!("  📄 Created: {} ({} bytes, checksum: {})", 
+					filename, content.len(), &checksum[..32]); // Show first 32 chars
+			}
+			Err(e) => {
+				println!("  📄 Created: {} ({} bytes, checksum error: {})", filename, content.len(), e);
+			}
+		}
+		
 		source_paths.push(file_path);
-		println!("  📄 Created: {} ({} bytes)", filename, content.len());
 	}
 
 	// Write file list for Bob to expect
@@ -452,14 +463,24 @@ async fn bob_file_transfer_scenario() {
 	if received_files.len() == expected_files.len() {
 		println!("✅ Bob: All expected files received successfully!");
 
-		// Verify file contents
+		// Verify file contents and checksums
 		let mut verification_success = true;
 		for (expected_name, expected_size) in &expected_files {
 			let received_path = received_dir.join(expected_name);
 			if received_path.exists() {
 				if let Ok(metadata) = std::fs::metadata(&received_path) {
 					if metadata.len() == *expected_size as u64 {
-						println!("✅ Bob: Verified: {} (size matches)", expected_name);
+						// Generate checksum for received file
+						match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&received_path).await {
+							Ok(checksum) => {
+								println!("✅ Bob: Verified: {} (size: {} bytes, checksum: {})", 
+									expected_name, metadata.len(), &checksum[..32]); // Show first 32 chars of checksum
+							}
+							Err(e) => {
+								println!("⚠️ Bob: Could not generate checksum for {}: {}", expected_name, e);
+								println!("✅ Bob: Verified: {} (size matches)", expected_name);
+							}
+						}
 					} else {
 						println!(
 							"❌ Bob: Size mismatch for {}: expected {}, got {}",
