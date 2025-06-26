@@ -166,6 +166,11 @@ pub enum FileTransferMessage {
         message: String,
         recoverable: bool,
     },
+
+    /// Final acknowledgment from receiver after getting TransferComplete
+    TransferFinalAck {
+        transfer_id: Uuid,
+    },
 }
 
 /// Types of transfer errors
@@ -500,7 +505,7 @@ impl FileTransferProtocolHandler {
         &self,
         from_device: Uuid,
         completion: FileTransferMessage,
-    ) -> Result<()> {
+    ) -> Result<FileTransferMessage> {
         if let FileTransferMessage::TransferComplete {
             transfer_id,
             final_checksum,
@@ -516,7 +521,9 @@ impl FileTransferProtocolHandler {
             self.update_session_state(&transfer_id, TransferState::Completed)?;
 
             println!("✅ File transfer {} completed: {} bytes", transfer_id, total_bytes);
-            Ok(())
+            
+            // Return final acknowledgment
+            Ok(FileTransferMessage::TransferFinalAck { transfer_id })
         } else {
             Err(NetworkingError::Protocol("Invalid transfer complete message".to_string()))
         }
@@ -622,9 +629,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
                 self.handle_file_chunk(from_device, request).await?
             }
             FileTransferMessage::TransferComplete { .. } => {
-                self.handle_transfer_complete(from_device, request).await?;
-                // No response needed for completion
-                return Ok(Vec::new());
+                self.handle_transfer_complete(from_device, request).await?
             }
             _ => {
                 return Err(NetworkingError::Protocol(
@@ -662,6 +667,10 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
             FileTransferMessage::TransferError { transfer_id, error_type, message, .. } => {
                 self.update_session_state(&transfer_id, TransferState::Failed(message.clone()))?;
                 println!("❌ Transfer {} error: {:?} - {}", transfer_id, error_type, message);
+            }
+            FileTransferMessage::TransferFinalAck { transfer_id } => {
+                println!("🎉 Transfer {} fully acknowledged by receiver", transfer_id);
+                // The sender can now consider the transfer fully and cleanly closed
             }
             _ => {
                 return Err(NetworkingError::Protocol(
