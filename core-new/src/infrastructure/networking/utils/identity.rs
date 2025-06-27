@@ -21,6 +21,24 @@ impl NetworkIdentity {
 		Ok(Self { keypair, peer_id })
 	}
 
+	/// Create a deterministic network identity from master key
+	pub async fn from_master_key(master_key: &[u8; 32]) -> Result<Self> {
+		// Derive Ed25519 keypair from master key using HKDF
+		use hkdf::Hkdf;
+		use sha2::Sha256;
+		
+		let hk = Hkdf::<Sha256>::new(None, master_key);
+		let mut seed = [0u8; 32];
+		hk.expand(b"spacedrive-network-identity", &mut seed)
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to derive network key: {}", e)))?;
+		
+		let keypair = Keypair::ed25519_from_bytes(seed)
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to create keypair: {}", e)))?;
+		let peer_id = PeerId::from(keypair.public());
+
+		Ok(Self { keypair, peer_id })
+	}
+
 	/// Create network identity from existing keypair
 	pub fn from_keypair(keypair: Keypair) -> Self {
 		let peer_id = PeerId::from(keypair.public());

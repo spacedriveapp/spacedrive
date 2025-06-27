@@ -176,7 +176,7 @@ impl PairingProtocolHandler {
                 actual_device_id,
                 device_info.clone(),
                 session_keys.clone(),
-            )?;
+            ).await?;
         } // Release write lock here
 
         // Get peer ID for device connection with separate read lock
@@ -196,7 +196,7 @@ impl PairingProtocolHandler {
 
         if let Err(e) = {
             let mut registry = self.device_registry.write().await;
-            registry.mark_connected(actual_device_id, connection)
+            registry.mark_connected(actual_device_id, connection).await
         }
         {
             self.log_warn(&format!(

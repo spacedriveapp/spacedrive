@@ -212,11 +212,8 @@ impl Core {
 		self.config.clone()
 	}
 
-	/// Initialize networking with password
-	pub async fn init_networking(
-		&mut self,
-		_password: &str,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	/// Initialize networking using master key
+	pub async fn init_networking(&mut self) -> Result<(), Box<dyn std::error::Error>> {
 		self.init_networking_with_logger(Arc::new(networking::SilentLogger))
 			.await
 	}
@@ -229,7 +226,8 @@ impl Core {
 		logger.info("Initializing networking...").await;
 
 		// Initialize the new networking core
-		let mut networking_core = networking::NetworkingCore::new(self.device.clone()).await?;
+		let data_dir = self.config.read().await.data_dir.clone();
+		let mut networking_core = networking::NetworkingCore::new(self.device.clone(), data_dir).await?;
 
 		// Start networking first to initialize the command channel
 		networking_core.start().await?;
@@ -303,7 +301,6 @@ impl Core {
 	/// Initialize networking from Arc<Core> - for daemon use
 	pub async fn init_networking_shared(
 		core: Arc<Core>,
-		password: &str,
 	) -> Result<Arc<Core>, Box<dyn std::error::Error>> {
 		info!("Initializing networking for shared core...");
 
@@ -312,7 +309,7 @@ impl Core {
 			Core::new_with_config(core.config().read().await.data_dir.clone()).await?;
 
 		// Initialize networking on the new core
-		new_core.init_networking(password).await?;
+		new_core.init_networking().await?;
 
 		info!("Networking initialized successfully for shared core");
 		Ok(Arc::new(new_core))
@@ -371,7 +368,7 @@ impl Core {
 			let device_registry = service.device_registry();
 			{
 				let mut registry = device_registry.write().await;
-				registry.complete_pairing(device_info.device_id, device_info, session_keys)?;
+				registry.complete_pairing(device_info.device_id, device_info, session_keys).await?;
 			}
 			Ok(())
 		} else {

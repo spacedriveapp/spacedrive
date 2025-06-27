@@ -63,6 +63,7 @@ pub type Result<T> = std::result::Result<T, NetworkingError>;
 /// Initialize the new networking system
 pub async fn init_networking(
     device_manager: std::sync::Arc<crate::device::DeviceManager>,
+    data_dir: impl AsRef<std::path::Path>,
 ) -> Result<NetworkingCore> {
-    NetworkingCore::new(device_manager).await
+    NetworkingCore::new(device_manager, data_dir).await
 }

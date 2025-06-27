@@ -1,6 +1,7 @@
 //! Device registry and connection management
 
 pub mod connection;
+pub mod persistence;
 pub mod registry;
 
 use chrono::{DateTime, Utc};
@@ -10,6 +11,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 pub use connection::DeviceConnection;
+pub use persistence::{DevicePersistence, PersistedPairedDevice, TrustLevel};
 pub use registry::DeviceRegistry;
 
 /// Information about a device on the network

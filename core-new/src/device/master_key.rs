@@ -31,6 +31,12 @@ impl MasterKeyManager {
         Ok(Self { entry })
     }
 
+    #[cfg(test)]
+    pub fn new_for_test(service: &str, username: &str) -> Result<Self, MasterKeyError> {
+        let entry = Entry::new(service, username)?;
+        Ok(Self { entry })
+    }
+
     pub fn get_or_create_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], MasterKeyError> {
         match self.entry.get_password() {
             Ok(key_hex) => {

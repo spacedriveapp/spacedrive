@@ -1,11 +1,12 @@
 //! Device registry for centralized state management
 
-use super::{DeviceConnection, DeviceInfo, DeviceState, SessionKeys};
+use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
 use crate::infrastructure::networking::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use libp2p::{Multiaddr, PeerId};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -22,17 +23,48 @@ pub struct DeviceRegistry {
 
 	/// Map of session ID to device ID for pairing lookup
 	session_to_device: HashMap<Uuid, Uuid>,
+
+	/// Persistence manager for paired devices
+	persistence: DevicePersistence,
 }
 
 impl DeviceRegistry {
 	/// Create a new device registry
-	pub fn new(device_manager: Arc<DeviceManager>) -> Self {
-		Self {
+	pub fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<Path>) -> Result<Self> {
+		let persistence = DevicePersistence::new(data_dir)?;
+		
+		Ok(Self {
 			device_manager,
 			devices: HashMap::new(),
 			peer_to_device: HashMap::new(),
 			session_to_device: HashMap::new(),
+			persistence,
+		})
+	}
+
+	/// Load paired devices from persistence on startup
+	pub async fn load_paired_devices(&mut self) -> Result<Vec<Uuid>> {
+		let paired_devices = self.persistence.load_paired_devices().await?;
+		let mut loaded_device_ids = Vec::new();
+
+		for (device_id, persisted_device) in paired_devices {
+			// Add device to registry in Paired state
+			let state = DeviceState::Paired {
+				info: persisted_device.device_info.clone(),
+				session_keys: persisted_device.session_keys.clone(),
+				paired_at: persisted_device.paired_at,
+			};
+
+			self.devices.insert(device_id, state);
+			loaded_device_ids.push(device_id);
 		}
+
+		Ok(loaded_device_ids)
+	}
+
+	/// Get devices that should auto-reconnect
+	pub async fn get_auto_reconnect_devices(&self) -> Result<Vec<(Uuid, PersistedPairedDevice)>> {
+		self.persistence.get_auto_reconnect_devices().await
 	}
 
 	/// Add a discovered peer
@@ -80,33 +112,54 @@ impl DeviceRegistry {
 	}
 
 	/// Complete pairing for a device
-	pub fn complete_pairing(
+	pub async fn complete_pairing(
 		&mut self,
 		device_id: Uuid,
 		info: DeviceInfo,
 		session_keys: SessionKeys,
 	) -> Result<()> {
 		// Parse peer ID from network fingerprint
-		if let Ok(peer_id) = info.network_fingerprint.peer_id.parse::<libp2p::PeerId>() {
+		let addresses = if let Ok(peer_id) = info.network_fingerprint.peer_id.parse::<libp2p::PeerId>() {
 			// Add peer-to-device mapping so device can be found for messaging
 			self.peer_to_device.insert(peer_id, device_id);
 			println!("🔗 Added peer-to-device mapping: {} -> {}", peer_id, device_id);
+			
+			// Get current addresses from discovered state if available
+			match self.devices.get(&device_id) {
+				Some(DeviceState::Discovered { addresses, .. }) => {
+					addresses.iter().map(|addr| addr.to_string()).collect()
+				}
+				Some(DeviceState::Pairing { .. }) => {
+					vec![] // Pairing state doesn't have addresses
+				}
+				_ => vec![]
+			}
 		} else {
 			println!("⚠️ Failed to parse peer ID from network fingerprint: {}", info.network_fingerprint.peer_id);
-		}
+			vec![]
+		};
 
 		let state = DeviceState::Paired {
-			info,
-			session_keys,
+			info: info.clone(),
+			session_keys: session_keys.clone(),
 			paired_at: Utc::now(),
 		};
 
 		self.devices.insert(device_id, state);
+
+		// Persist the paired device for future reconnection
+		if let Err(e) = self.persistence.add_paired_device(device_id, info.clone(), session_keys.clone(), addresses).await {
+			eprintln!("⚠️ Failed to persist paired device {}: {}", device_id, e);
+			// Continue anyway - pairing succeeded even if persistence failed
+		} else {
+			println!("✅ Persisted paired device: {}", device_id);
+		}
+
 		Ok(())
 	}
 
 	/// Mark device as connected
-	pub fn mark_connected(&mut self, device_id: Uuid, connection: DeviceConnection) -> Result<()> {
+	pub async fn mark_connected(&mut self, device_id: Uuid, connection: DeviceConnection) -> Result<()> {
 		let current_state = self
 			.devices
 			.get(&device_id)
@@ -147,11 +200,17 @@ impl DeviceRegistry {
 		};
 
 		self.devices.insert(device_id, state);
+
+		// Update persistence - device connected successfully
+		if let Err(e) = self.persistence.update_device_connection(device_id, true, None).await {
+			eprintln!("⚠️ Failed to update device connection status {}: {}", device_id, e);
+		}
+
 		Ok(())
 	}
 
 	/// Mark device as disconnected
-	pub fn mark_disconnected(
+	pub async fn mark_disconnected(
 		&mut self,
 		device_id: Uuid,
 		reason: super::DisconnectionReason,
@@ -178,6 +237,12 @@ impl DeviceRegistry {
 		};
 
 		self.devices.insert(device_id, state);
+
+		// Update persistence - device disconnected
+		if let Err(e) = self.persistence.update_device_connection(device_id, false, None).await {
+			eprintln!("⚠️ Failed to update device disconnection status {}: {}", device_id, e);
+		}
+
 		Ok(())
 	}
 

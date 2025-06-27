@@ -93,7 +93,7 @@ pub enum DaemonCommand {
 	SubscribeEvents,
 
 	// Networking commands  
-	InitNetworking { password: String },
+	InitNetworking,
 	StartNetworking,
 	StopNetworking,
 	ListConnectedDevices,
@@ -283,22 +283,20 @@ impl Daemon {
 
 	/// Create a new daemon instance with networking enabled
 	pub async fn new_with_networking(
-		data_dir: PathBuf, 
-		networking_password: &str
+		data_dir: PathBuf
 	) -> Result<Self, Box<dyn std::error::Error>> {
-		Self::new_with_networking_and_instance(data_dir, networking_password, None).await
+		Self::new_with_networking_and_instance(data_dir, None).await
 	}
 
 	/// Create a new daemon instance with networking enabled and optional instance name
 	pub async fn new_with_networking_and_instance(
-		data_dir: PathBuf, 
-		networking_password: &str,
+		data_dir: PathBuf,
 		instance_name: Option<String>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
 		let mut core = Core::new_with_config(data_dir).await?;
 		
 		// Initialize networking
-		core.init_networking(networking_password).await?;
+		core.init_networking().await?;
 		core.start_networking().await?;
 		
 		let core = Arc::new(core);
@@ -930,7 +928,7 @@ async fn handle_command(
 		}
 
 		// Networking commands
-		DaemonCommand::InitNetworking { password } => {
+		DaemonCommand::InitNetworking => {
 			// Check if networking is already initialized
 			if core.networking().is_some() {
 				DaemonResponse::Ok // Networking is already available

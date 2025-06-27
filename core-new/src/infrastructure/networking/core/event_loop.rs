@@ -577,7 +577,7 @@ impl NetworkingEventLoop {
 							crate::infrastructure::networking::device::DisconnectionReason::NetworkError(
 								format!("{:?}", cause)
 							),
-						);
+						).await;
 
 						let _ =
 							event_sender.send(NetworkEvent::ConnectionLost { device_id, peer_id });

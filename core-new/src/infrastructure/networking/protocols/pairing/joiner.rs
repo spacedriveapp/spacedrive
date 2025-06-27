@@ -168,7 +168,7 @@ impl PairingProtocolHandler {
                             actual_device_id,
                             initiator_device_info.clone(),
                             session_keys.clone(),
-                        )
+                        ).await
                     }; // Release write lock here
 
                     match pairing_result {
@@ -197,7 +197,7 @@ impl PairingProtocolHandler {
 
                                 let _mark_result = {
                                     let mut registry = self.device_registry.write().await;
-                                    registry.mark_connected(actual_device_id, connection)
+                                    registry.mark_connected(actual_device_id, connection).await
                                 };
                             }
                         }

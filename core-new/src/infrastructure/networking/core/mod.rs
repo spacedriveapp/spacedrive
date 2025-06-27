@@ -18,7 +18,7 @@ use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 pub use behavior::{UnifiedBehaviour, UnifiedBehaviourEvent};
-pub use event_loop::NetworkingEventLoop;
+pub use event_loop::{EventLoopCommand, NetworkingEventLoop};
 
 /// Central networking event types
 #[derive(Debug, Clone)]
@@ -98,9 +98,11 @@ pub struct NetworkingCore {
 
 impl NetworkingCore {
 	/// Create a new networking core
-	pub async fn new(device_manager: Arc<DeviceManager>) -> Result<Self> {
-		// Generate network identity
-		let identity = NetworkIdentity::new().await?;
+	pub async fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<std::path::Path>) -> Result<Self> {
+		// Generate network identity from master key
+		let master_key = device_manager.master_key()
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to get master key: {}", e)))?;
+		let identity = NetworkIdentity::from_master_key(&master_key).await?;
 
 		// Create LibP2P swarm
 		let swarm = swarm::create_swarm(identity.clone()).await?;
@@ -110,7 +112,7 @@ impl NetworkingCore {
 
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
-		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager)));
+		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager, data_dir)?));
 		
 		// Note: Protocol handlers will be registered by the Core during init_networking
 		// to avoid duplicate registrations
@@ -160,7 +162,166 @@ impl NetworkingCore {
 		self.shutdown_sender = Some(shutdown_sender);
 		self.command_sender = Some(command_sender);
 
+		// Load and attempt to reconnect to paired devices
+		self.load_and_reconnect_devices().await?;
+
+		// Start periodic reconnection attempts
+		self.start_periodic_reconnection().await;
+
 		Ok(())
+	}
+
+	/// Load paired devices from persistence and attempt reconnection
+	async fn load_and_reconnect_devices(&mut self) -> Result<()> {
+		let mut device_registry = self.device_registry.write().await;
+		
+		// Load paired devices from persistence
+		let loaded_device_ids = device_registry.load_paired_devices().await?;
+		println!("📱 Loaded {} paired devices from persistence", loaded_device_ids.len());
+
+		// Get devices that should auto-reconnect
+		let auto_reconnect_devices = device_registry.get_auto_reconnect_devices().await?;
+		println!("🔄 Found {} devices for auto-reconnection", auto_reconnect_devices.len());
+
+		drop(device_registry); // Release the lock for async operations
+
+		// Start background reconnection attempts
+		self.start_background_reconnection(auto_reconnect_devices).await;
+
+		Ok(())
+	}
+
+	/// Start background reconnection attempts for paired devices
+	async fn start_background_reconnection(&self, auto_reconnect_devices: Vec<(Uuid, crate::infrastructure::networking::device::PersistedPairedDevice)>) {
+		for (device_id, persisted_device) in auto_reconnect_devices {
+			let command_sender = self.command_sender.clone();
+			
+			// Spawn a background task for each device reconnection
+			tokio::spawn(async move {
+				Self::attempt_device_reconnection(device_id, persisted_device, command_sender).await;
+			});
+		}
+	}
+
+	/// Attempt to reconnect to a specific device
+	async fn attempt_device_reconnection(
+		device_id: Uuid,
+		persisted_device: crate::infrastructure::networking::device::PersistedPairedDevice,
+		command_sender: Option<tokio::sync::mpsc::UnboundedSender<EventLoopCommand>>,
+	) {
+		println!("🔄 Starting reconnection attempts for device: {}", device_id);
+
+		// Try each known address with exponential backoff
+		let mut attempt = 0;
+		let max_attempts = 3;
+		
+		for address_str in &persisted_device.last_seen_addresses {
+			if attempt >= max_attempts {
+				break;
+			}
+
+			if let Ok(multiaddr) = address_str.parse::<libp2p::Multiaddr>() {
+				println!("🔍 Attempt {}: Connecting to device {} at {}", attempt + 1, device_id, multiaddr);
+				
+				if let Some(ref sender) = command_sender {
+					// Extract peer ID from the persisted device info
+					if let Ok(peer_id) = persisted_device.device_info.network_fingerprint.peer_id.parse::<PeerId>() {
+						// Create a one-shot channel for the response
+						let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+
+						// Send dial command to the networking event loop
+						let dial_command = EventLoopCommand::DialPeer {
+							peer_id,
+							address: multiaddr.clone(),
+							response_channel: response_tx,
+						};
+
+						if let Err(e) = sender.send(dial_command) {
+							eprintln!("Failed to send dial command for device {}: {}", device_id, e);
+							continue;
+						}
+
+						// Wait for the dial result
+						match tokio::time::timeout(tokio::time::Duration::from_secs(10), response_rx).await {
+							Ok(Ok(Ok(()))) => {
+								println!("✅ Successfully connected to device {} at {}", device_id, multiaddr);
+								return; // Success, exit reconnection attempts
+							}
+							Ok(Ok(Err(e))) => {
+								println!("❌ Failed to connect to device {} at {}: {}", device_id, multiaddr, e);
+							}
+							Ok(Err(_)) => {
+								println!("❌ Channel closed while connecting to device {} at {}", device_id, multiaddr);
+							}
+							Err(_) => {
+								println!("⏰ Timeout connecting to device {} at {}", device_id, multiaddr);
+							}
+						}
+					} else {
+						eprintln!("⚠️ Invalid peer ID for device {}: {}", device_id, persisted_device.device_info.network_fingerprint.peer_id);
+					}
+
+					// Wait before next attempt with exponential backoff
+					let delay = tokio::time::Duration::from_secs(2_u64.pow(attempt as u32));
+					tokio::time::sleep(delay).await;
+				}
+			}
+
+			attempt += 1;
+		}
+
+		if attempt >= max_attempts {
+			println!("⚠️ Failed to reconnect to device {} after {} attempts", device_id, max_attempts);
+		}
+	}
+
+	/// Start periodic reconnection attempts for disconnected devices
+	async fn start_periodic_reconnection(&self) {
+		let device_registry = self.device_registry.clone();
+		let command_sender = self.command_sender.clone();
+
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30)); // Check every 30 seconds
+			
+			loop {
+				interval.tick().await;
+
+				// Get disconnected devices that should be reconnected
+				if let Ok(auto_reconnect_devices) = {
+					let registry = device_registry.read().await;
+					registry.get_auto_reconnect_devices().await
+				} {
+					// Only attempt reconnection for devices we haven't seen recently
+					let now = chrono::Utc::now();
+					for (device_id, persisted_device) in auto_reconnect_devices {
+						// Skip if device was seen recently (within last 5 minutes)
+						if let Some(last_connected) = persisted_device.last_connected_at {
+							if now.signed_duration_since(last_connected) < chrono::Duration::minutes(5) {
+								continue;
+							}
+						}
+
+						// Check if device is currently disconnected in registry
+						let is_disconnected = {
+							let registry = device_registry.read().await;
+							if let Some(device_state) = registry.get_device_state(device_id) {
+								matches!(device_state, crate::infrastructure::networking::device::DeviceState::Disconnected { .. })
+							} else {
+								true // Not in registry, try to reconnect
+							}
+						};
+
+						if is_disconnected {
+							println!("🔄 Attempting periodic reconnection to device: {}", device_id);
+							let cmd_sender = command_sender.clone();
+							tokio::spawn(async move {
+								Self::attempt_device_reconnection(device_id, persisted_device, cmd_sender).await;
+							});
+						}
+					}
+				}
+			}
+		});
 	}
 
 	/// Stop the networking service

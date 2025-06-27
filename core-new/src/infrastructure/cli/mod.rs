@@ -257,13 +257,10 @@ async fn handle_start_daemon(
 		// Run in foreground
 		if enable_networking {
 			// For networking enabled startup, we need a default password
-			// In production, this would be handled more securely
-			let default_password = "spacedrive_default_key"; // This should be configurable
 			println!("🔐 Starting daemon with networking enabled...");
-			println!("   Using default networking configuration.");
-			println!("   Use 'spacedrive network init --password <your_password>' to set a custom password.");
+			println!("   Using master key for secure device authentication.");
 
-			match daemon::Daemon::new_with_networking_and_instance(data_dir.clone(), default_password, instance_name.clone()).await {
+			match daemon::Daemon::new_with_networking_and_instance(data_dir.clone(), instance_name.clone()).await {
 				Ok(daemon) => daemon.start().await?,
 				Err(e) => {
 					println!("❌ Failed to start daemon with networking: {}", e);
@@ -1058,9 +1055,9 @@ async fn handle_network_daemon_command(
 	}
 
 	match cmd {
-		commands::NetworkCommands::Init { password } => {
+		commands::NetworkCommands::Init => {
 			match client
-				.send_command(daemon::DaemonCommand::InitNetworking { password })
+				.send_command(daemon::DaemonCommand::InitNetworking)
 				.await?
 			{
 				daemon::DaemonResponse::Ok => {

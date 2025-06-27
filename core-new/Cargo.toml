@@ -82,6 +82,7 @@ mdns-sd = "0.13"             # mDNS service discovery (DEPRECATED - use libp2p D
 snow = "0.9"                # Noise Protocol encryption (DEPRECATED - use libp2p noise)
 ring = "0.16"               # Crypto primitives
 argon2 = "0.5"              # Password derivation
+aes-gcm = "0.10"            # AES-GCM encryption for secure storage
 async-stream = "0.3"        # File streaming
 backoff = "0.4"             # Retry logic
 bincode = "2.0.0-rc.3"      # Efficient encoding

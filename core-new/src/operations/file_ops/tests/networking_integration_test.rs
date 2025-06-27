@@ -14,7 +14,7 @@ async fn test_job_manager_has_networking_service() {
     // Initialize networking (which should trigger library creation and networking setup)
     timeout(
         Duration::from_secs(10),
-        core.init_networking("test-password"),
+        core.init_networking(),
     ).await.unwrap().unwrap();
     
     // Verify that libraries were created and have networking

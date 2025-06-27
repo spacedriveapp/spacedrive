@@ -216,12 +216,8 @@ pub enum JobCommands {
 
 #[derive(Subcommand, Clone)]
 pub enum NetworkCommands {
-	/// Initialize networking with a password
-	Init {
-		/// Password for encrypted device storage
-		#[arg(short, long)]
-		password: String,
-	},
+	/// Initialize networking using master key
+	Init,
 
 	/// Start networking service
 	Start,
@@ -770,9 +766,9 @@ pub async fn handle_network_command(
 	}
 
 	match cmd {
-		NetworkCommands::Init { password } => {
+		NetworkCommands::Init => {
 			match client
-				.send_command(DaemonCommand::InitNetworking { password })
+				.send_command(DaemonCommand::InitNetworking)
 				.await?
 			{
 				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {

@@ -33,7 +33,7 @@ pub async fn run_pairing_initiator(
 	println!("🌐 {}: Initializing networking...", device_name);
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await??;
 	println!("✅ {}: Networking initialized successfully", device_name);
@@ -153,7 +153,7 @@ pub async fn run_pairing_joiner(
 	println!("🌐 {}: Initializing networking...", device_name);
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await??;
 	println!("✅ {}: Networking initialized successfully", device_name);
@@ -268,7 +268,7 @@ pub async fn run_file_copy_sender(
 	println!("🌐 {}: Initializing networking...", device_name);
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await??;
 	println!("✅ {}: Networking initialized successfully", device_name);
@@ -487,7 +487,7 @@ pub async fn run_file_copy_receiver(
 	println!("🌐 {}: Initializing networking...", device_name);
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await??;
 	println!("✅ {}: Networking initialized successfully", device_name);

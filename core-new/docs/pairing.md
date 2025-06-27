@@ -1,143 +1,109 @@
-# Spacedrive Device Pairing System
+# Spacedrive v2: Device Pairing Protocol
+
+The Spacedrive v2 device pairing system is a secure, robust protocol for establishing a trusted, end-to-end encrypted connection between two devices, regardless of whether they are on the same local network or across the internet. It is built upon the unified libp2p networking stack and uses a combination of modern cryptographic principles and user-friendly codes to deliver a seamless pairing experience.
 
 ## Overview
 
-The Spacedrive pairing system enables secure device-to-device connection establishment using human-readable BIP39 pairing codes. This system is built on LibP2P networking with Ed25519 cryptographic verification and includes session persistence for reliability.
+The primary goal of the pairing system is to create a secure relationship between two devices, allowing them to communicate directly, exchange session keys, and perform operations like file transfer and synchronization. This is achieved through a challenge-response handshake initiated by a user-friendly 12-word BIP39 code.
 
-## Architecture
+## Key Features
 
-### Core Components
+- **Cryptographic Security**: Pairing is secured using an Ed25519 challenge-response signature verification, ensuring that only the intended device can complete the process. All transport-level communication is encrypted using the Noise Protocol.
+- **Dual-Discovery Mechanism**: The system uses a unified discovery approach. It queries the Kademlia Distributed Hash Table (DHT) for remote discovery (across different networks) while simultaneously listening for local peers via mDNS. The first successful discovery method is used, providing both speed on local networks and reachability over the internet.
+- **User-Friendly Pairing Codes**: Instead of complex hashes, the system generates a 12-word BIP39 mnemonic code. This code is easy for users to read and type, yet contains enough entropy to securely identify a pairing session.
+- **State Machine Architecture**: The entire pairing process is managed by a robust state machine within the `PairingProtocolHandler`, which tracks each session from initiation to completion or failure.
+- **Automatic Device Registration**: Upon successful pairing, devices are automatically added to each other's `DeviceRegistry`, and persistent, encrypted session keys are established for all future communication.
 
-```
-src/infrastructure/networking/protocols/pairing/
-├── mod.rs           # Main PairingProtocolHandler with session management
-├── types.rs         # PairingSession, PairingState, PairingCode definitions
-├── messages.rs      # Protocol message types for communication
-├── initiator.rs     # Alice-side pairing logic (code generator)
-├── joiner.rs        # Bob-side pairing logic (code consumer)
-├── security.rs      # Ed25519 signature verification and validation
-└── persistence.rs   # Session persistence for restart survival
-```
+## Core Components
 
-### System Flow
+The pairing system is a collaboration between several key components in the new architecture:
 
-```
-Device A (Initiator/Alice)              Device B (Joiner/Bob)
-        │                                       │
-        ▼                                       ▼
-   Generate BIP39 Code                    Enter BIP39 Code
-        │                                       │
-        ▼                                       ▼
-   Start Pairing Session                 Join Pairing Session
-        │                                       │
-        ▼                                       ▼
-   Publish DHT Record                    Query DHT + mDNS Discovery
-        │                                       │
-        ▼                                       ▼
-   Wait for Connection              ←────── Establish Connection
-        │                                       │
-        ▼                                       ▼
-   Send Challenge                         Receive Challenge
-        │                                       │
-        ▼                                       ▼
-   Verify Response               ←────── Sign & Send Response
-        │                                       │
-        ▼                                       ▼
-   Send Completion                       Receive Completion
-        │                                       │
-        ▼                                       ▼
-   Store Device Info                     Store Device Info
-        │                                       │
-        ▼                                       ▼
-   PAIRING SUCCESS                       PAIRING SUCCESS
-```
+1.  **`Core` (`src/lib.rs`)**: Provides the high-level public API for initiating pairing. The `start_pairing_as_initiator()` and `start_pairing_as_joiner()` methods are the entry points for the entire process.
+2.  **`PairingProtocolHandler` (`src/infrastructure/networking/protocols/pairing/mod.rs`)**: This is the heart of the pairing system. It acts as a state machine, managing active pairing sessions, generating cryptographic challenges, verifying responses, and orchestrating the entire protocol flow.
+3.  **`PairingCode` & `PairingSession` (`types.rs`)**: These structs define the data model for pairing.
+    - `PairingCode`: Represents the 12-word code and the cryptographic secret from which the session ID is derived.
+    - `PairingSession`: Tracks the state (`PairingState` enum) of a single pairing attempt, including remote device info and derived keys.
+4.  **`DeviceRegistry` (`device/registry.rs`)**: The central registry for device state. During pairing, it maps an ephemeral `session_id` to a permanent `device_id` and stores the final `SessionKeys` upon completion.
+5.  **`UnifiedBehaviour` (`core/behavior.rs`)**: The unified libp2p behavior that enables discovery. Its Kademlia DHT component is used to publish and query pairing advertisements, while the mDNS component listens for local peers.
 
-## Core Types
+## The Pairing Flow
 
-### PairingCode (BIP39-based)
+The pairing process involves two roles: the **Initiator** (who generates the code) and the **Joiner** (who uses the code).
 
-```rust
-pub struct PairingCode {
-    /// 256-bit cryptographic secret
-    secret: [u8; 32],
-    
-    /// 12 words from BIP39 wordlist (user-friendly)
-    words: [String; 12],
-    
-    /// Session ID derived from secret
-    session_id: Uuid,
-    
-    /// Expiration timestamp (5 minutes)
-    expires_at: DateTime<Utc>,
-}
-```
+### Initiator Flow (e.g., Alice)
 
-**Key Features:**
-- **Human-readable**: 12 BIP39 words like "frame garden half repair lucky swamp..."
-- **Cryptographically secure**: 256-bit entropy
-- **Deterministic**: Same words always produce same session ID
-- **Short-lived**: 5-minute expiration for security
+1.  **Initiation**: A user triggers the pairing process, calling `core.start_pairing_as_initiator()`.
+2.  **Code Generation**: A cryptographically secure `PairingCode` is generated. A unique `session_id` is derived from this code's entropy.
+3.  **DHT Advertisement**:
+    - The Initiator gathers its public `DeviceInfo` (name, OS, etc.) and its external network addresses (e.g., `/ip4/1.2.3.4/tcp/5678`).
+    - This information is packaged into a `PairingAdvertisement`.
+    - The advertisement is published to the Kademlia DHT. The DHT `RecordKey` is the `session_id`, making it discoverable by the Joiner.
+4.  **Waiting State**: The Initiator's `PairingSession` enters the `WaitingForConnection` state. It now listens for incoming connections from any peer.
+5.  **Challenge Issuance**:
+    - When a Joiner connects and sends a `PairingRequest` message containing its public key and `DeviceInfo`, the Initiator's `PairingProtocolHandler` receives it.
+    - The handler generates a random 32-byte cryptographic `challenge`.
+    - It sends this `challenge` back to the Joiner in a `Challenge` message. The session state transitions to `ChallengeReceived`.
+6.  **Response Verification**:
+    - The Initiator receives a `Response` message from the Joiner. This message contains the original challenge signed with the Joiner's private device key.
+    - The `PairingSecurity` module is used to verify the signature against the Joiner's public key (received in step 5).
+7.  **Completion**:
+    - If the signature is valid, the pairing is successful.
+    - The Initiator derives the shared session keys.
+    - It updates its `DeviceRegistry` to mark the Joiner as a trusted, paired device.
+    - It sends a final `Complete` message to the Joiner. The session is now `Completed`.
 
-### PairingSession
+### Joiner Flow (e.g., Bob)
 
-```rust
-pub struct PairingSession {
-    pub id: Uuid,
-    pub state: PairingState,
-    pub remote_device_id: Option<Uuid>,
-    pub remote_device_info: Option<DeviceInfo>,
-    pub remote_public_key: Option<Vec<u8>>,  // For signature verification
-    pub shared_secret: Option<Vec<u8>>,
-    pub created_at: DateTime<Utc>,
-}
-```
+1.  **Code Entry**: The user enters the 12-word `PairingCode` provided by the Initiator.
+2.  **Session ID Extraction**: The `PairingCode` is parsed to deterministically reconstruct the same `session_id` the Initiator created.
+3.  **Unified Discovery**:
+    - The `core.start_pairing_as_joiner()` method is called.
+    - The `NetworkingCore` immediately begins querying the DHT using the `session_id` to find the Initiator's `PairingAdvertisement`.
+    - Simultaneously, the mDNS service listens for the Initiator on the local network.
+4.  **Connection**:
+    - Once the Initiator's address is discovered (via DHT or mDNS), the system establishes a direct TCP connection.
+5.  **Sending Request**:
+    - As soon as the connection is established, the Joiner sends a `PairingRequest` message. This message includes its own `DeviceInfo` and, crucially, its public key.
+6.  **Signing Challenge**:
+    - The Joiner receives the `Challenge` message from the Initiator.
+    - It uses its private `NetworkIdentity` key to sign the 32-byte challenge.
+    - It sends the resulting 64-byte signature back in a `Response` message.
+7.  **Completion**:
+    - The Joiner receives the final `Complete` message from the Initiator.
+    - It derives the same shared session keys.
+    - It updates its `DeviceRegistry` to add the Initiator as a trusted, paired device. The connection is now fully authenticated and encrypted for all future communication.
 
-### PairingState
+## Security Model
+
+The pairing protocol is designed with security as a primary concern.
+
+- **Transport Encryption**: All communication, from the very first connection attempt, is encrypted using the **Noise Protocol**, which provides forward secrecy.
+- **Cryptographic Authentication**: The identity of the joining device is verified using an **Ed25519 digital signature**. The challenge-response mechanism prevents replay attacks and ensures that the device joining is the one that possesses the private key corresponding to the public key it presented.
+- **Session Key Derivation**: Once authenticated, the shared secret from the pairing code is used as input to a **Key Derivation Function (HKDF)**. This generates strong, unique symmetric keys for sending and receiving data between the two devices, ensuring all subsequent communication is confidential and authenticated.
+- **Ephemeral & Discoverable Session ID**: The `session_id` used for DHT discovery is derived from the pairing code but is not the secret itself. This allows the session to be publicly discoverable for a short period without exposing any sensitive information. The codes and sessions expire after 5-10 minutes to limit the window of opportunity for attacks.
+
+## Implementation Details
+
+The core of the logic is implemented in the `PairingProtocolHandler`, which uses a `PairingState` enum to manage the lifecycle of each `PairingSession`.
 
 ```rust
-pub enum PairingState {
-    WaitingForConnection,     // Alice waiting for Bob
-    Scanning,                 // Bob searching for Alice
-    ChallengeReceived { challenge: Vec<u8> },
-    ResponsePending { 
-        challenge: Vec<u8>, 
-        response_data: Vec<u8>,
-        remote_peer_id: Option<PeerId>,
-    },
-    ResponseSent,
-    Completed,
-    Failed { reason: String },
-}
-```
-
-## Protocol Messages
-
-### Message Types
-
-```rust
+// from src/infrastructure/networking/protocols/pairing/messages.rs
 pub enum PairingMessage {
-    // Bob → Alice: Initial pairing request
     PairingRequest {
         session_id: Uuid,
         device_info: DeviceInfo,
         public_key: Vec<u8>,
     },
-    
-    // Alice → Bob: Challenge for authentication
     Challenge {
         session_id: Uuid,
-        challenge: Vec<u8>,        // 32-byte random challenge
-        device_info: DeviceInfo,   // Alice's device info
+        challenge: Vec<u8>,
+        device_info: DeviceInfo,
     },
-    
-    // Bob → Alice: Signed challenge response
     Response {
         session_id: Uuid,
-        response: Vec<u8>,         // Ed25519 signature of challenge
-        device_info: DeviceInfo,   // Bob's device info
+        response: Vec<u8>,
+        device_info: DeviceInfo,
     },
-    
-    // Alice → Bob: Completion confirmation
     Complete {
         session_id: Uuid,
         success: bool,
@@ -146,438 +112,4 @@ pub enum PairingMessage {
 }
 ```
 
-## Main Components
-
-### PairingProtocolHandler
-
-**Core functionality:**
-```rust
-impl PairingProtocolHandler {
-    // Session management
-    pub async fn start_pairing_session_with_id(&self, session_id: Uuid) -> Result<()>
-    pub async fn join_pairing_session(&self, session_id: Uuid) -> Result<()>
-    pub async fn get_active_sessions(&self) -> Vec<PairingSession>
-    
-    // Device info for DHT advertising
-    pub async fn get_device_info(&self) -> Result<DeviceInfo>
-    
-    // Session cleanup
-    pub async fn cleanup_expired_sessions(&self) -> Result<usize>
-    
-    // Persistence (optional)
-    pub async fn load_persisted_sessions(&self) -> Result<usize>
-}
-```
-
-**Key features:**
-- **Session state management** with atomic transitions
-- **Automatic persistence** on state changes (if enabled)
-- **Background cleanup** of expired sessions
-- **Role-based logging** with [INITIATOR]/[JOINER] prefixes
-
-### Security Module
-
-**Cryptographic verification:**
-```rust
-impl PairingSecurity {
-    // Real Ed25519 signature verification using libp2p
-    pub fn verify_challenge_response(
-        public_key_bytes: &[u8],    // Protobuf-encoded libp2p key
-        challenge: &[u8],           // 32-byte challenge
-        signature: &[u8],           // 64-byte Ed25519 signature
-    ) -> Result<bool>
-    
-    // Input validation
-    pub fn validate_public_key(public_key_bytes: &[u8]) -> Result<()>
-    pub fn validate_challenge(challenge: &[u8]) -> Result<()>
-    pub fn validate_signature(signature: &[u8]) -> Result<()>
-}
-```
-
-**Security features:**
-- **Real Ed25519 verification** (not placeholders)
-- **Protobuf key format** support for libp2p compatibility
-- **Input validation** against weak/malformed data
-- **Comprehensive test coverage** with crypto demonstrations
-
-### Persistence Module
-
-**Session persistence:**
-```rust
-impl PairingPersistence {
-    // Save/load sessions to JSON files
-    pub async fn save_sessions(&self, sessions: &HashMap<Uuid, PairingSession>) -> Result<()>
-    pub async fn load_sessions(&self) -> Result<HashMap<Uuid, PairingSession>>
-    
-    // Cleanup operations
-    pub async fn cleanup_expired_sessions(&self) -> Result<usize>
-    pub async fn clear_all_sessions(&self) -> Result<()>
-}
-```
-
-**Persistence features:**
-- **Atomic file operations** (write to temp, then rename)
-- **Automatic expiration** (1-hour session lifetime)
-- **State filtering** (only persists meaningful states)
-- **Error recovery** with proper IO error handling
-
-## Discovery Methods
-
-### 1. mDNS (Local Network)
-
-**How it works:**
-- Alice broadcasts mDNS service with session fingerprint
-- Bob scans mDNS services for matching fingerprint
-- Direct peer-to-peer connection on local network
-- **Fast and reliable** for same-network devices
-
-### 2. DHT (Distributed Hash Table)
-
-**How it works:**
-- Alice publishes session record to DHT using session ID as key
-- Bob queries DHT using session ID from pairing code
-- **Works across networks** and NAT boundaries
-- Includes retry logic for network resilience
-
-### 3. Unified Approach
-
-The system runs **both methods simultaneously**:
-```rust
-// Alice (Initiator)
-1. Generate pairing code with session ID
-2. Start local session in WaitingForConnection state
-3. Publish DHT record with device info and addresses
-4. Broadcast mDNS service with session fingerprint
-5. Wait for connections from any method
-
-// Bob (Joiner) 
-1. Parse pairing code to get session ID
-2. Create local session in Scanning state
-3. Query DHT for session record (with retries)
-4. Scan mDNS for matching fingerprint
-5. Connect via whichever method finds peer first
-```
-
-## Authentication Flow
-
-### Challenge-Response Protocol
-
-```
-Alice                           Bob
-  │                              │
-  │ 1. PairingRequest             │
-  │ ◄─────────────────────────────┤ (device_info + public_key)
-  │                              │
-  │ 2. Challenge                 │
-  │ ──────────────────────────── ► │ (32-byte random + device_info)
-  │                              │
-  │ 3. Response                  │
-  │ ◄─────────────────────────────┤ (Ed25519 signature + device_info)
-  │                              │
-  │ 4. Complete                  │
-  │ ──────────────────────────── ► │ (success=true)
-  │                              │
-```
-
-### Security Verification
-
-**Step-by-step validation:**
-
-1. **Public Key Validation**: Format and protobuf decoding
-2. **Challenge Generation**: 32-byte cryptographically random
-3. **Signature Creation**: Bob signs challenge with his private key  
-4. **Signature Verification**: Alice verifies using Bob's public key
-5. **Device Registration**: Store device info with session keys
-
-**Cryptographic details:**
-- **Key type**: Ed25519 (via libp2p identity)
-- **Key encoding**: Protobuf format (32-44 bytes typically)
-- **Signature size**: 64 bytes
-- **Challenge size**: 32 bytes
-
-## Integration with Core
-
-### Initialization
-
-```rust
-// Basic handler (no persistence)
-let pairing_handler = PairingProtocolHandler::new(
-    identity,           // NetworkIdentity with Ed25519 keypair
-    device_registry,    // Shared device state
-    logger,            // Structured logging
-);
-
-// Handler with persistence (recommended)
-let pairing_handler = PairingProtocolHandler::new_with_persistence(
-    identity,
-    device_registry,
-    logger,
-    data_dir,          // Path for session storage
-);
-
-// Load any persisted sessions
-pairing_handler.load_persisted_sessions().await?;
-```
-
-### Starting Pairing (Alice)
-
-```rust
-// Generate BIP39 pairing code
-let pairing_code = PairingCode::generate()?;
-let session_id = pairing_code.session_id();
-
-// Start pairing session
-pairing_handler.start_pairing_session_with_id(session_id).await?;
-
-// Register in device registry  
-let device_registry = networking_core.device_registry();
-device_registry.write().await.start_pairing(
-    device_id, 
-    peer_id, 
-    session_id
-)?;
-
-// Publish to DHT for remote discovery
-let advertisement = PairingAdvertisement {
-    peer_id: peer_id.to_string(),
-    addresses: external_addresses,
-    device_info: device_info,
-    expires_at: Utc::now() + Duration::minutes(5),
-    created_at: Utc::now(),
-};
-
-let key = RecordKey::new(&session_id.as_bytes());
-let value = serde_json::to_vec(&advertisement)?;
-networking_core.publish_dht_record(key, value).await?;
-
-println!("Pairing code: {}", pairing_code.to_string());
-```
-
-### Joining Pairing (Bob)
-
-```rust
-// Parse user-entered pairing code
-let pairing_code = PairingCode::from_string(user_input)?;
-let session_id = pairing_code.session_id();
-
-// Join Alice's session
-pairing_handler.join_pairing_session(session_id).await?;
-
-// Query DHT for Alice's advertisement
-let key = RecordKey::new(&session_id.as_bytes());
-networking_core.query_dht_record(key).await?;
-
-// mDNS discovery happens automatically in background
-// Connection establishment and authentication follow
-```
-
-### Monitoring Progress
-
-```rust
-// Check pairing status
-let sessions = pairing_handler.get_active_sessions().await;
-for session in sessions {
-    println!("Session {}: {:?}", session.id, session.state);
-}
-
-// Get connected devices after successful pairing
-let devices = networking_core.get_connected_devices().await;
-println!("Connected to {} devices", devices.len());
-```
-
-## Configuration
-
-### Timeouts and Limits
-
-```rust
-// Session expiration (in cleanup_expired_sessions)
-const SESSION_TIMEOUT: Duration = Duration::minutes(10);
-
-// Pairing code expiration  
-const CODE_EXPIRATION: Duration = Duration::minutes(5);
-
-// DHT retry intervals
-const DHT_RETRY_INTERVAL: Duration = Duration::seconds(3);
-const DHT_MAX_RETRIES: usize = 3;
-
-// Challenge size
-const CHALLENGE_SIZE: usize = 32;
-
-// Signature size (Ed25519)
-const SIGNATURE_SIZE: usize = 64;
-```
-
-### Persistence Settings
-
-```rust
-// Session file location
-let sessions_file = data_dir.join("pairing_sessions.json");
-
-// Automatic persistence triggers
-- Session state changes
-- New session creation
-- Session completion/failure
-
-// Cleanup schedule  
-- Expired sessions removed on load
-- Background cleanup every 60 seconds
-- Sessions older than 1 hour discarded
-```
-
-## Error Handling
-
-### Common Errors
-
-```rust
-pub enum NetworkingError {
-    // Connection issues
-    LibP2P(String),              // LibP2P transport errors
-    ConnectionFailed(String),    // Network connectivity
-    Timeout(String),            // Operation timeouts
-    
-    // Protocol issues  
-    Protocol(String),           // Invalid messages/states
-    AuthenticationFailed(String), // Crypto verification failures
-    
-    // Device issues
-    DeviceNotFound(Uuid),       // Unknown device ID
-    
-    // System issues
-    Io(std::io::Error),         // File system operations
-    Serialization(serde_json::Error), // JSON parsing
-}
-```
-
-### Error Recovery
-
-**Session failure handling:**
-```rust
-// Mark session as failed with reason
-session.state = PairingState::Failed { 
-    reason: error.to_string() 
-};
-
-// Clean up resources
-pairing_handler.cancel_session(session_id).await?;
-
-// Retry logic (user-initiated)
-// Generate new pairing code and start fresh
-```
-
-**Network failure handling:**
-```rust
-// DHT queries include automatic retries
-// mDNS discovery is continuous during scanning
-// Connection failures trigger reconnection attempts
-// Session persistence survives application restarts
-```
-
-## Testing
-
-### Unit Tests
-
-**Security module:**
-```bash
-cargo test infrastructure::networking::protocols::pairing::security::tests
-```
-
-**Persistence module:**
-```bash
-cargo test infrastructure::networking::protocols::pairing::persistence::tests  
-```
-
-### Integration Tests
-
-**Alice/Bob pairing flow:**
-```bash
-# Terminal 1 (Alice)
-cargo run --bin core_test_alice --data-dir /tmp/alice-test
-
-# Terminal 2 (Bob)  
-cargo run --bin core_test_bob --data-dir /tmp/bob-test
-```
-
-**Expected output:**
-```
-Alice: Generated pairing code: frame garden half repair lucky swamp...
-Bob: Found pairing code and connecting...
-Alice sees: Bob's Test Device 
-Bob sees: Alice's Test Device
-PAIRING_SUCCESS: Both devices connected
-```
-
-### Test Coverage
-
-- ✅ **Cryptographic verification** (real Ed25519 signatures)
-- ✅ **Session persistence** (save/load/cleanup)
-- ✅ **Protocol message handling** (all message types)
-- ✅ **Error conditions** (invalid data, timeouts)
-- ✅ **End-to-end flow** (Alice/Bob integration)
-
-## Performance Characteristics
-
-### Typical Timings
-
-- **Code generation**: < 1ms
-- **mDNS discovery**: 1-3 seconds (local network)
-- **DHT discovery**: 3-10 seconds (remote network)
-- **Authentication**: < 100ms
-- **Total pairing time**: 2-15 seconds
-
-### Resource Usage
-
-- **Memory**: ~1MB per active session
-- **Storage**: ~1KB per persisted session  
-- **Network**: ~2KB total protocol overhead
-- **CPU**: Minimal (Ed25519 is fast)
-
-### Scalability
-
-- **Concurrent sessions**: Limited by memory (~1000s)
-- **Session persistence**: Limited by disk space
-- **DHT load**: Distributed across network
-- **mDNS load**: Local network only
-
-## Security Considerations
-
-### Threat Model
-
-**Protected against:**
-- ✅ **Eavesdropping**: All crypto verification
-- ✅ **Man-in-the-middle**: Challenge-response authentication  
-- ✅ **Replay attacks**: Session IDs and timestamps
-- ✅ **Brute force**: 256-bit entropy, short expiration
-- ✅ **Invalid signatures**: Real Ed25519 verification
-
-**Current limitations:**
-- ⚠️ **No rate limiting** on pairing attempts
-- ⚠️ **No user confirmation** (auto-accepts valid requests)
-- ⚠️ **No device limits** (unlimited paired devices)
-
-### Cryptographic Strength
-
-- **Secret generation**: 256-bit cryptographically secure random
-- **Key derivation**: Blake3 hashing for session IDs
-- **Signature algorithm**: Ed25519 (industry standard)
-- **Key encoding**: LibP2P protobuf format
-- **Validation**: Comprehensive input checking
-
-## Future Enhancements
-
-### Planned Improvements
-
-1. **Rate limiting** on pairing requests
-2. **User confirmation UI** for pairing requests
-3. **Device trust levels** and revocation
-4. **Pairing request queuing** for better UX
-5. **QR code generation** for mobile pairing
-6. **Connection retry logic** for reliability
-
-### Performance Optimizations
-
-1. **Connection pooling** for reused connections
-2. **DHT caching** to reduce query load
-3. **mDNS response caching** for faster discovery
-4. **Background session cleanup** optimization
-
-The Spacedrive pairing system provides a robust, secure foundation for device-to-device connections with real cryptographic verification, automatic persistence, and comprehensive error handling.
+This message-passing design, combined with a robust state machine, ensures that the pairing process is reliable and secure from start to finish.

@@ -41,7 +41,7 @@ async fn alice_pairing_scenario() {
 	println!("🌐 Alice: Initializing networking...");
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await
 	.unwrap()
@@ -156,7 +156,7 @@ async fn bob_pairing_scenario() {
 	println!("🌐 Bob: Initializing networking...");
 	timeout(
 		Duration::from_secs(10),
-		core.init_networking("test-password"),
+		core.init_networking(),
 	)
 	.await
 	.unwrap()
