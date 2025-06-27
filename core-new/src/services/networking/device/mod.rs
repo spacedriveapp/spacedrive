@@ -22,7 +22,7 @@ pub struct DeviceInfo {
 	pub device_type: DeviceType,
 	pub os_version: String,
 	pub app_version: String,
-	pub network_fingerprint: crate::infrastructure::networking::utils::identity::NetworkFingerprint,
+	pub network_fingerprint: crate::services::networking::utils::identity::NetworkFingerprint,
 	pub last_seen: DateTime<Utc>,
 }
 

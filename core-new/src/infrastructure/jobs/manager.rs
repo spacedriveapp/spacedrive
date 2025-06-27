@@ -28,7 +28,7 @@ pub struct JobManager {
 	running_jobs: Arc<RwLock<HashMap<JobId, RunningJob>>>,
 	shutdown_tx: watch::Sender<bool>,
 	event_bus: Option<Arc<EventBus>>,
-	networking: RwLock<Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>>,
+	networking: RwLock<Option<Arc<crate::services::networking::NetworkingService>>>,
 }
 
 struct RunningJob {
@@ -78,7 +78,7 @@ impl JobManager {
 	}
 
 	/// Set the networking service reference
-	pub async fn set_networking(&self, networking: Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>) {
+	pub async fn set_networking(&self, networking: Arc<crate::services::networking::NetworkingService>) {
 		*self.networking.write().await = Some(networking);
 	}
 

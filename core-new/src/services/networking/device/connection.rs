@@ -1,7 +1,7 @@
 //! Individual device connection handling
 
 use super::{DeviceInfo, SessionKeys};
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use libp2p::PeerId;
 use std::sync::Arc;

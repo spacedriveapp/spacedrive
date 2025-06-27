@@ -2,7 +2,7 @@
 
 use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use libp2p::{Multiaddr, PeerId};
 use std::collections::HashMap;
@@ -363,7 +363,7 @@ impl DeviceRegistry {
 			os_version: std::env::consts::OS.to_string(),
 			app_version: env!("CARGO_PKG_VERSION").to_string(),
 			network_fingerprint:
-				crate::infrastructure::networking::utils::identity::NetworkFingerprint {
+				crate::services::networking::utils::identity::NetworkFingerprint {
 					peer_id: "placeholder".to_string(), // Will be filled in by caller
 					public_key_hash: "placeholder".to_string(),
 				},

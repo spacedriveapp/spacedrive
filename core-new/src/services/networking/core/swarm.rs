@@ -1,7 +1,7 @@
 //! LibP2P swarm creation and configuration
 
 use super::{behavior::UnifiedBehaviour, NetworkingError, Result};
-use crate::infrastructure::networking::utils::NetworkIdentity;
+use crate::services::networking::utils::NetworkIdentity;
 use libp2p::{noise, swarm::Swarm, tcp, yamux, Multiaddr, PeerId, Transport};
 
 /// Create a new LibP2P swarm with unified behavior

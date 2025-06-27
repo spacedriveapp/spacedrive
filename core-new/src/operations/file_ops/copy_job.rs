@@ -369,7 +369,7 @@ impl FileCopyJob {
 		));
 
 		// Create file metadata for transfer
-		let file_metadata = crate::infrastructure::networking::protocols::FileMetadata {
+		let file_metadata = crate::services::networking::protocols::FileMetadata {
 			name: local_path.file_name()
 				.unwrap_or_default()
 				.to_string_lossy()
@@ -382,7 +382,7 @@ impl FileCopyJob {
 		};
 
 		// Get file transfer protocol handler
-		let networking_guard = networking.read().await;
+		let networking_guard = &*networking;
 		let protocol_registry = networking_guard.protocol_registry();
 		let registry_guard = protocol_registry.read().await;
 
@@ -390,14 +390,14 @@ impl FileCopyJob {
 			.ok_or_else(|| "File transfer protocol not registered".to_string())?;
 
 		let file_transfer_protocol = file_transfer_handler.as_any()
-			.downcast_ref::<crate::infrastructure::networking::protocols::FileTransferProtocolHandler>()
+			.downcast_ref::<crate::services::networking::protocols::FileTransferProtocolHandler>()
 			.ok_or_else(|| "Invalid file transfer protocol handler".to_string())?;
 
 		// Initiate transfer locally (create session)
 		let transfer_id = file_transfer_protocol.initiate_transfer(
 			self.destination.device_id,
 			local_path.to_path_buf(),
-			crate::infrastructure::networking::protocols::TransferMode::TrustedCopy,
+			crate::services::networking::protocols::TransferMode::TrustedCopy,
 		).await.map_err(|e| format!("Failed to initiate transfer: {}", e))?;
 
 		ctx.log(format!("📋 Transfer initiated with ID: {}", transfer_id));
@@ -406,10 +406,10 @@ impl FileCopyJob {
 		let chunk_size = 64 * 1024u32;
 		let total_chunks = ((file_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
 
-		let transfer_request = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::TransferRequest {
+		let transfer_request = crate::services::networking::protocols::file_transfer::FileTransferMessage::TransferRequest {
 			transfer_id,
 			file_metadata: file_metadata.clone(),
-			transfer_mode: crate::infrastructure::networking::protocols::TransferMode::TrustedCopy,
+			transfer_mode: crate::services::networking::protocols::TransferMode::TrustedCopy,
 			chunk_size,
 			total_chunks,
 			destination_path: self.destination.path.to_string_lossy().to_string(),
@@ -450,7 +450,7 @@ impl FileCopyJob {
 		&self,
 		file_path: &std::path::Path,
 		transfer_id: uuid::Uuid,
-		file_transfer_protocol: &crate::infrastructure::networking::protocols::FileTransferProtocolHandler,
+		file_transfer_protocol: &crate::services::networking::protocols::FileTransferProtocolHandler,
 		total_size: u64,
 		ctx: &JobContext<'_>,
 	) -> Result<(), String> {
@@ -512,7 +512,7 @@ impl FileCopyJob {
 			).map_err(|e| format!("Failed to encrypt chunk: {}", e))?;
 
 			// Create encrypted file chunk message
-			let chunk_message = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::FileChunk {
+			let chunk_message = crate::services::networking::protocols::file_transfer::FileTransferMessage::FileChunk {
 				transfer_id,
 				chunk_index,
 				data: encrypted_data,
@@ -524,7 +524,7 @@ impl FileCopyJob {
 			let chunk_data = rmp_serde::to_vec(&chunk_message)
 				.map_err(|e| format!("Failed to serialize chunk: {}", e))?;
 
-			let networking_guard = networking.read().await;
+			let networking_guard = &*networking;
 			networking_guard.send_message(
 				self.destination.device_id,
 				"file_transfer",
@@ -548,7 +548,7 @@ impl FileCopyJob {
 
 		// Send transfer completion message
 		let final_checksum = self.calculate_file_checksum(file_path).await?;
-		let completion_message = crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage::TransferComplete {
+		let completion_message = crate::services::networking::protocols::file_transfer::FileTransferMessage::TransferComplete {
 			transfer_id,
 			final_checksum,
 			total_bytes: bytes_transferred,
@@ -557,7 +557,7 @@ impl FileCopyJob {
 		let completion_data = rmp_serde::to_vec(&completion_message)
 			.map_err(|e| format!("Failed to serialize completion: {}", e))?;
 
-		let networking_guard = networking.read().await;
+		let networking_guard = &*networking;
 		networking_guard.send_message(
 			self.destination.device_id,
 			"file_transfer",
@@ -567,7 +567,7 @@ impl FileCopyJob {
 		// Mark transfer as completed locally
 		file_transfer_protocol.update_session_state(
 			&transfer_id,
-			crate::infrastructure::networking::protocols::file_transfer::TransferState::Completed,
+			crate::services::networking::protocols::file_transfer::TransferState::Completed,
 		).map_err(|e| format!("Failed to complete transfer: {}", e))?;
 
 		ctx.log(format!("✅ File streaming completed: {} chunks, {} bytes sent to device {}",

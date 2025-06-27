@@ -1,6 +1,6 @@
 //! Peer discovery utilities
 
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use libp2p::{Multiaddr, PeerId};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

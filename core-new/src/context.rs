@@ -2,7 +2,8 @@
 
 use crate::{
     device::DeviceManager,
-    infrastructure::{events::EventBus, networking::NetworkingCore},
+    infrastructure::events::EventBus,
+    services::networking::NetworkingService,
     library::LibraryManager,
 };
 use std::sync::Arc;
@@ -15,7 +16,7 @@ pub struct CoreContext {
     pub device_manager: Arc<DeviceManager>,
     pub library_manager: Arc<LibraryManager>,
     // This is wrapped in an RwLock to allow it to be set after initialization
-    pub networking: Arc<RwLock<Option<Arc<RwLock<NetworkingCore>>>>>,
+    pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 }
 
 impl CoreContext {
@@ -33,13 +34,13 @@ impl CoreContext {
         }
     }
 
-    /// Helper method for services to get the networking core
-    pub async fn get_networking(&self) -> Option<Arc<RwLock<NetworkingCore>>> {
+    /// Helper method for services to get the networking service
+    pub async fn get_networking(&self) -> Option<Arc<NetworkingService>> {
         self.networking.read().await.clone()
     }
     
     /// Method for Core to set networking after it's initialized
-    pub async fn set_networking(&self, networking: Arc<RwLock<NetworkingCore>>) {
+    pub async fn set_networking(&self, networking: Arc<NetworkingService>) {
         *self.networking.write().await = Some(networking);
     }
 }

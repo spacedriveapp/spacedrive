@@ -1,7 +1,7 @@
 //! Session persistence for pairing protocol
 
 use super::types::{PairingSession, PairingState};
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

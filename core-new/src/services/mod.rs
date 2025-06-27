@@ -8,10 +8,12 @@ use tracing::info;
 pub mod location_watcher;
 pub mod file_sharing;
 pub mod device;
+pub mod networking;
 
 use location_watcher::{LocationWatcher, LocationWatcherConfig};
 use file_sharing::FileSharingService;
 use device::DeviceService;
+use networking::NetworkingService;
 
 /// Container for all background services
 pub struct Services {
@@ -21,6 +23,8 @@ pub struct Services {
     pub file_sharing: Arc<FileSharingService>,
     /// Device management service
     pub device: Arc<DeviceService>,
+    /// Networking service for device connections
+    pub networking: Option<Arc<NetworkingService>>,
     /// Shared context for all services
     context: Arc<CoreContext>,
 }
@@ -39,6 +43,7 @@ impl Services {
             location_watcher,
             file_sharing,
             device,
+            networking: None,  // Initialized separately when needed
             context,
         }
     }
@@ -54,6 +59,8 @@ impl Services {
         
         self.location_watcher.start().await?;
         
+        // Networking service is already started during initialization
+        
         // TODO: Start other services
         // self.jobs.start().await?;
         // self.thumbnails.start().await?;
@@ -67,11 +74,47 @@ impl Services {
         
         self.location_watcher.stop().await?;
         
+        // Stop networking service if initialized
+        if let Some(networking) = &self.networking {
+            networking.shutdown().await.map_err(|e| anyhow::anyhow!("Failed to stop networking: {}", e))?;
+        }
+        
         // TODO: Stop other services
         // self.jobs.stop().await?;
         // self.thumbnails.stop().await?;
         
         Ok(())
+    }
+
+    /// Initialize networking service
+    pub async fn init_networking(&mut self, device_manager: std::sync::Arc<crate::device::DeviceManager>, data_dir: impl AsRef<std::path::Path>) -> Result<()> {
+        use crate::services::networking::NetworkingService;
+        
+        info!("Initializing networking service");
+        let networking_service = NetworkingService::new(device_manager, data_dir).await
+            .map_err(|e| anyhow::anyhow!("Failed to create networking service: {}", e))?;
+        
+        self.networking = Some(Arc::new(networking_service));
+        Ok(())
+    }
+
+    /// Start networking service after initialization
+    pub async fn start_networking(&self) -> Result<()> {
+        if let Some(networking) = &self.networking {
+            // Create a temporary mutable reference to start the service
+            // This is safe because start() is only called once during initialization
+            let networking_ptr = Arc::as_ptr(networking) as *mut crate::services::networking::NetworkingService;
+            unsafe {
+                (*networking_ptr).start().await
+                    .map_err(|e| anyhow::anyhow!("Failed to start networking service: {}", e))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Get networking service if initialized
+    pub fn networking(&self) -> Option<Arc<NetworkingService>> {
+        self.networking.clone()
     }
 }
 

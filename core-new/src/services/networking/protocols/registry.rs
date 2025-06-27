@@ -1,7 +1,7 @@
 //! Protocol registry for managing protocol handlers
 
 use super::{ProtocolEvent, ProtocolHandler};
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;

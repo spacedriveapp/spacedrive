@@ -196,7 +196,7 @@ async fn test_sharing_options() {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::infrastructure::networking::{NetworkingCore, protocols::{FileTransferProtocolHandler, ProtocolHandler}};
+    use crate::services::networking::{NetworkingService, protocols::{FileTransferProtocolHandler, ProtocolHandler}};
 
     /// Test that demonstrates the complete integration flow
     /// This test shows how the pieces work together but doesn't perform actual network operations

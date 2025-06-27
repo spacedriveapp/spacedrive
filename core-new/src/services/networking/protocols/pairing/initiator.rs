@@ -6,7 +6,7 @@ use super::{
     types::{PairingSession, PairingState},
     PairingProtocolHandler,
 };
-use crate::infrastructure::networking::{
+use crate::services::networking::{
     device::{DeviceInfo, SessionKeys},
     NetworkingError, Result,
 };
@@ -188,7 +188,7 @@ impl PairingProtocolHandler {
 
         // Mark device as connected since pairing is successful
         let (connection, _message_receiver) =
-            crate::infrastructure::networking::device::DeviceConnection::new(
+            crate::services::networking::device::DeviceConnection::new(
                 peer_id,
                 device_info.clone(),
                 session_keys.clone(),

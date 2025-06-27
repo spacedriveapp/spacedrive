@@ -1,6 +1,6 @@
 //! File transfer protocol for cross-device file operations
 
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -34,7 +34,7 @@ pub struct FileTransferProtocolHandler {
     /// Protocol configuration
     config: TransferConfig,
     /// Device registry for session keys
-    device_registry: Option<Arc<tokio::sync::RwLock<crate::infrastructure::networking::device::DeviceRegistry>>>,
+    device_registry: Option<Arc<tokio::sync::RwLock<crate::services::networking::device::DeviceRegistry>>>,
 }
 
 /// Configuration for file transfers
@@ -196,7 +196,7 @@ impl FileTransferProtocolHandler {
     }
 
     /// Set the device registry for session key lookup
-    pub fn set_device_registry(&mut self, device_registry: Arc<tokio::sync::RwLock<crate::infrastructure::networking::device::DeviceRegistry>>) {
+    pub fn set_device_registry(&mut self, device_registry: Arc<tokio::sync::RwLock<crate::services::networking::device::DeviceRegistry>>) {
         self.device_registry = Some(device_registry);
     }
 
@@ -751,7 +751,7 @@ impl NetworkingError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::networking::protocols::ProtocolHandler;
+    use crate::services::networking::protocols::ProtocolHandler;
 
     #[tokio::test]
     async fn test_file_transfer_handler_creation() {

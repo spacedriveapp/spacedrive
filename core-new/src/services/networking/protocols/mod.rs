@@ -5,7 +5,7 @@ pub mod messaging;
 pub mod pairing;
 pub mod registry;
 
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use uuid::Uuid;

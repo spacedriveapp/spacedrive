@@ -2,7 +2,7 @@
 
 use super::{DeviceInfo, SessionKeys};
 use crate::device::MasterKeyManager;
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Key, Nonce,
@@ -378,7 +378,7 @@ impl DevicePersistence {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::infrastructure::networking::utils::identity::NetworkFingerprint;
+    use crate::services::networking::utils::identity::NetworkFingerprint;
     use tempfile::TempDir;
 
     async fn create_test_persistence() -> (DevicePersistence, TempDir) {

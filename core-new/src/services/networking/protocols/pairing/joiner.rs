@@ -5,7 +5,7 @@ use super::{
     types::{PairingSession, PairingState},
     PairingProtocolHandler,
 };
-use crate::infrastructure::networking::{
+use crate::services::networking::{
     device::{DeviceInfo, SessionKeys},
     NetworkingError, Result,
 };
@@ -139,13 +139,13 @@ impl PairingProtocolHandler {
                             } else {
                                 // Fallback if no device info stored (shouldn't happen in normal flow)
                                 self.log_warn("No remote device info stored in session, using fallback").await;
-                                crate::infrastructure::networking::device::DeviceInfo {
+                                crate::services::networking::device::DeviceInfo {
                                     device_id: from_device,
                                     device_name: format!("Remote Device {}", &from_device.to_string()[..8]),
-                                    device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+                                    device_type: crate::services::networking::device::DeviceType::Desktop,
                                     os_version: "Unknown".to_string(),
                                     app_version: "Unknown".to_string(),
-                                    network_fingerprint: crate::infrastructure::networking::utils::identity::NetworkFingerprint {
+                                    network_fingerprint: crate::services::networking::utils::identity::NetworkFingerprint {
                                         peer_id: from_peer.to_string(),
                                         public_key_hash: "unknown".to_string(),
                                     },
@@ -153,7 +153,7 @@ impl PairingProtocolHandler {
                                 }
                             }
                         } else {
-                            return Err(crate::infrastructure::networking::NetworkingError::Protocol(
+                            return Err(crate::services::networking::NetworkingError::Protocol(
                                 "Session not found when completing pairing".to_string()
                             ));
                         }
@@ -189,7 +189,7 @@ impl PairingProtocolHandler {
                             let initiator_peer_id = Some(from_peer); // Use peer from completion message
 
                             if let Some(peer_id) = initiator_peer_id {
-                                let (connection, _message_receiver) = crate::infrastructure::networking::device::DeviceConnection::new(
+                                let (connection, _message_receiver) = crate::services::networking::device::DeviceConnection::new(
                                     peer_id,
                                     initiator_device_info.clone(),
                                     session_keys.clone(),

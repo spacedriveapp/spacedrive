@@ -1,6 +1,6 @@
 //! Unified LibP2P behavior combining all networking protocols
 
-pub use crate::infrastructure::networking::protocols::{pairing::PairingMessage, file_transfer::FileTransferMessage};
+pub use crate::services::networking::protocols::{pairing::PairingMessage, file_transfer::FileTransferMessage};
 use libp2p::{
 	kad::{self, store::MemoryStore},
 	mdns,

@@ -1,6 +1,6 @@
 //! Network identity management - peer ID and key generation
 
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use libp2p::{identity::Keypair, PeerId};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

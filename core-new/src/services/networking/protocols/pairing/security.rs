@@ -1,6 +1,6 @@
 //! Security utilities for pairing protocol
 
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use libp2p::identity::PublicKey;
 
 /// Security operations for pairing protocol

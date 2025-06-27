@@ -18,8 +18,12 @@ pub mod volume;
 
 pub mod test_framework_new;
 
-pub use infrastructure::networking;
-use infrastructure::networking::protocols::PairingProtocolHandler;
+use services::networking::protocols::PairingProtocolHandler;
+
+// Compatibility module for legacy networking references
+pub mod networking {
+    pub use crate::services::networking::*;
+}
 
 use crate::config::AppConfig;
 use crate::context::CoreContext;
@@ -120,8 +124,6 @@ pub struct Core {
 	/// Event bus for state changes
 	pub events: Arc<EventBus>,
 
-	/// Networking service for device connections
-	pub networking: Option<Arc<RwLock<networking::NetworkingCore>>>,
 
 	/// Container for high-level services
 	pub services: Services,
@@ -203,7 +205,6 @@ impl Core {
 			libraries,
 			volumes,
 			events,
-			networking: None,   // Network will be initialized separately if needed
 			services,
 		})
 	}
@@ -226,32 +227,28 @@ impl Core {
 	) -> Result<(), Box<dyn std::error::Error>> {
 		logger.info("Initializing networking...").await;
 
-		// Initialize the new networking core
+		// Initialize networking service through the services container
 		let data_dir = self.config.read().await.data_dir.clone();
-		let mut networking_core = networking::NetworkingCore::new(self.device.clone(), data_dir).await?;
+		self.services.init_networking(self.device.clone(), data_dir).await?;
+		
+		// Start the networking service
+		self.services.start_networking().await?;
 
-		// Start networking first to initialize the command channel
-		networking_core.start().await?;
+		// Get the networking service for protocol registration
+		if let Some(networking_service) = self.services.networking() {
+			// Register default protocol handlers
+			self.register_default_protocols(&networking_service).await?;
 
-		// Register default protocol handlers (now that command_sender is available)
-		self.register_default_protocols(&networking_core).await?;
-
-		// Set up event bridge to integrate with core event system
-		let event_bridge = NetworkEventBridge::new(
-			networking_core.subscribe_events().await.unwrap_or_else(|| {
-				let (_, rx) = tokio::sync::mpsc::unbounded_channel();
-				rx
-			}),
-			self.events.clone(),
-		);
-		tokio::spawn(event_bridge.run());
-
-		// Store the networking core
-		let networking_arc = Arc::new(RwLock::new(networking_core));
-		self.networking = Some(networking_arc.clone());
-
-		// Update the context with the now-available networking service
-		self.services.context().set_networking(networking_arc).await;
+			// Set up event bridge to integrate with core event system
+			let event_bridge = NetworkEventBridge::new(
+				networking_service.subscribe_events().await.unwrap_or_else(|| {
+					let (_, rx) = tokio::sync::mpsc::unbounded_channel();
+					rx
+				}),
+				self.events.clone(),
+			);
+			tokio::spawn(event_bridge.run());
+		}
 
 		logger.info("Networking initialized successfully").await;
 		Ok(())
@@ -260,7 +257,7 @@ impl Core {
 	/// Register default protocol handlers
 	async fn register_default_protocols(
 		&self,
-		networking: &networking::NetworkingCore,
+		networking: &networking::NetworkingService,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let logger = std::sync::Arc::new(networking::utils::logging::ConsoleLogger);
 		
@@ -319,7 +316,7 @@ impl Core {
 
 	/// Start the networking service (must be called after init_networking)
 	pub async fn start_networking(&self) -> Result<(), Box<dyn std::error::Error>> {
-		if let Some(_networking) = &self.networking {
+		if let Some(_networking) = self.services.networking() {
 			// Networking is already started in init_networking
 			info!("Networking system is active and ready");
 			Ok(())
@@ -329,8 +326,8 @@ impl Core {
 	}
 
 	/// Get the networking service (if initialized)
-	pub fn networking(&self) -> Option<Arc<RwLock<networking::NetworkingCore>>> {
-		self.networking.clone()
+	pub fn networking(&self) -> Option<Arc<networking::NetworkingService>> {
+		self.services.networking()
 	}
 
 	/// Get list of connected devices
@@ -396,12 +393,7 @@ impl Core {
 	pub async fn shutdown(&self) -> Result<(), Box<dyn std::error::Error>> {
 		info!("Shutting down Spacedrive Core...");
 
-		// Stop networking service
-		if let Some(_networking) = &self.networking {
-			info!("Shutting down networking service...");
-			// The networking service will be dropped when Core is dropped
-			// Individual connections will be closed gracefully by their drop handlers
-		}
+		// Networking service is stopped by services.stop_all()
 
 		// Stop all services
 		self.services.stop_all().await?;

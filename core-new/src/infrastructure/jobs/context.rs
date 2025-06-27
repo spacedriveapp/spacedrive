@@ -6,7 +6,7 @@ use super::{
     progress::Progress,
     types::{JobId, JobMetrics},
 };
-use crate::{library::Library, networking::NetworkingCore};
+use crate::{library::Library, services::networking::NetworkingService};
 use sea_orm::DatabaseConnection;
 use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub struct JobContext<'a> {
     pub(crate) metrics: Arc<Mutex<JobMetrics>>,
     pub(crate) checkpoint_handler: Arc<dyn CheckpointHandler>,
     pub(crate) child_handles: Arc<Mutex<Vec<JobHandle>>>,
-    pub(crate) networking: Option<Arc<RwLock<NetworkingCore>>>,
+    pub(crate) networking: Option<Arc<NetworkingService>>,
 }
 
 impl<'a> JobContext<'a> {
@@ -43,7 +43,7 @@ impl<'a> JobContext<'a> {
     }
     
     /// Get networking service if available
-    pub fn networking_service(&self) -> Option<Arc<RwLock<NetworkingCore>>> {
+    pub fn networking_service(&self) -> Option<Arc<NetworkingService>> {
         self.networking.clone()
     }
     

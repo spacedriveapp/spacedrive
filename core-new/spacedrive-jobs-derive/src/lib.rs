@@ -65,7 +65,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                 progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::jobs::progress::Progress>,
                 broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,
                 checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
-                networking: Option<std::sync::Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
+                networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
             ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>> {
                 Box::new(crate::infrastructure::jobs::executor::JobExecutor::new(
                     *self,

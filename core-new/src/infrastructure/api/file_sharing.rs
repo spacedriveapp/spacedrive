@@ -2,7 +2,7 @@
 
 use crate::{
     device::DeviceManager,
-    infrastructure::networking::{NetworkingCore, protocols::file_transfer::{FileTransferProtocolHandler, FileMetadata, TransferMode}},
+    services::networking::{NetworkingService, protocols::file_transfer::{FileTransferProtocolHandler, FileMetadata, TransferMode}},
     operations::file_ops::copy_job::{FileCopyJob, CopyOptions},
     shared::types::{SdPath, SdPathBatch},
 };
@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 /// High-level file sharing API that automatically chooses protocol
 pub struct FileSharing {
-    networking: Option<Arc<RwLock<NetworkingCore>>>,
+    networking: Option<Arc<NetworkingService>>,
     device_manager: Arc<DeviceManager>,
     job_manager: Option<Arc<crate::infrastructure::jobs::manager::JobManager>>,
 }
@@ -105,7 +105,7 @@ pub enum SharingError {
 impl FileSharing {
     /// Create a new file sharing API instance
     pub fn new(
-        networking: Option<Arc<RwLock<NetworkingCore>>>,
+        networking: Option<Arc<NetworkingService>>,
         device_manager: Arc<DeviceManager>,
     ) -> Self {
         Self {

@@ -31,7 +31,7 @@ pub struct JobExecutorState {
     pub checkpoint_handler: Arc<dyn CheckpointHandler>,
     pub metrics: JobMetrics,
     pub output: Option<JobOutput>,
-    pub networking: Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
+    pub networking: Option<Arc<crate::services::networking::NetworkingService>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -43,7 +43,7 @@ impl<J: JobHandler> JobExecutor<J> {
         progress_tx: mpsc::UnboundedSender<Progress>,
         broadcast_tx: broadcast::Sender<Progress>,
         checkpoint_handler: Arc<dyn CheckpointHandler>,
-        networking: Option<Arc<tokio::sync::RwLock<crate::networking::NetworkingCore>>>,
+        networking: Option<Arc<crate::services::networking::NetworkingService>>,
     ) -> Self {
         Self {
             job,

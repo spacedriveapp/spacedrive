@@ -6,7 +6,7 @@ pub mod event_loop;
 pub mod swarm;
 
 use crate::device::DeviceManager;
-use crate::infrastructure::networking::{
+use crate::services::networking::{
 	device::{DeviceInfo, DeviceRegistry},
 	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
 	utils::{logging::ConsoleLogger, NetworkIdentity},
@@ -69,8 +69,8 @@ pub enum NetworkEvent {
 	},
 }
 
-/// Main networking core - single source of truth for all networking operations
-pub struct NetworkingCore {
+/// Main networking service - single source of truth for all networking operations
+pub struct NetworkingService {
 	/// Our network identity
 	identity: NetworkIdentity,
 
@@ -78,7 +78,7 @@ pub struct NetworkingCore {
 	swarm: Swarm<UnifiedBehaviour>,
 
 	/// Shutdown sender for stopping the event loop
-	shutdown_sender: Option<mpsc::UnboundedSender<()>>,
+	shutdown_sender: Arc<RwLock<Option<mpsc::UnboundedSender<()>>>>,
 
 	/// Command sender for sending commands to the event loop
 	command_sender: Option<mpsc::UnboundedSender<event_loop::EventLoopCommand>>,
@@ -96,7 +96,7 @@ pub struct NetworkingCore {
 	event_receiver: Arc<RwLock<Option<mpsc::UnboundedReceiver<NetworkEvent>>>>,
 }
 
-impl NetworkingCore {
+impl NetworkingService {
 	/// Create a new networking core
 	pub async fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<std::path::Path>) -> Result<Self> {
 		// Generate network identity from master key
@@ -120,7 +120,7 @@ impl NetworkingCore {
 		Ok(Self {
 			identity,
 			swarm,
-			shutdown_sender: None,
+			shutdown_sender: Arc::new(RwLock::new(None)),
 			command_sender: None,
 			protocol_registry,
 			device_registry,
@@ -159,7 +159,7 @@ impl NetworkingCore {
 		event_loop.start().await?;
 
 		// Store senders for later use
-		self.shutdown_sender = Some(shutdown_sender);
+		*self.shutdown_sender.write().await = Some(shutdown_sender);
 		self.command_sender = Some(command_sender);
 
 		// Load and attempt to reconnect to paired devices
@@ -192,7 +192,7 @@ impl NetworkingCore {
 	}
 
 	/// Start background reconnection attempts for paired devices
-	async fn start_background_reconnection(&self, auto_reconnect_devices: Vec<(Uuid, crate::infrastructure::networking::device::PersistedPairedDevice)>) {
+	async fn start_background_reconnection(&self, auto_reconnect_devices: Vec<(Uuid, crate::services::networking::device::PersistedPairedDevice)>) {
 		for (device_id, persisted_device) in auto_reconnect_devices {
 			let command_sender = self.command_sender.clone();
 			
@@ -206,7 +206,7 @@ impl NetworkingCore {
 	/// Attempt to reconnect to a specific device
 	async fn attempt_device_reconnection(
 		device_id: Uuid,
-		persisted_device: crate::infrastructure::networking::device::PersistedPairedDevice,
+		persisted_device: crate::services::networking::device::PersistedPairedDevice,
 		command_sender: Option<tokio::sync::mpsc::UnboundedSender<EventLoopCommand>>,
 	) {
 		println!("🔄 Starting reconnection attempts for device: {}", device_id);
@@ -305,7 +305,7 @@ impl NetworkingCore {
 						let is_disconnected = {
 							let registry = device_registry.read().await;
 							if let Some(device_state) = registry.get_device_state(device_id) {
-								matches!(device_state, crate::infrastructure::networking::device::DeviceState::Disconnected { .. })
+								matches!(device_state, crate::services::networking::device::DeviceState::Disconnected { .. })
 							} else {
 								true // Not in registry, try to reconnect
 							}
@@ -325,8 +325,8 @@ impl NetworkingCore {
 	}
 
 	/// Stop the networking service
-	pub async fn shutdown(&mut self) -> Result<()> {
-		if let Some(shutdown_sender) = self.shutdown_sender.take() {
+	pub async fn shutdown(&self) -> Result<()> {
+		if let Some(shutdown_sender) = self.shutdown_sender.write().await.take() {
 			let _ = shutdown_sender.send(());
 			// Wait a bit for graceful shutdown
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -576,12 +576,12 @@ impl NetworkingCore {
 		// Cast to pairing handler to access pairing-specific methods
 		let pairing_handler = pairing_handler
 			.as_any()
-			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+			.downcast_ref::<crate::services::networking::protocols::PairingProtocolHandler>()
 			.ok_or(NetworkingError::Protocol("Invalid pairing handler type".to_string()))?;
 
 		// Generate session ID first as canonical source of truth
 		let session_id = uuid::Uuid::new_v4();
-		let pairing_code = crate::infrastructure::networking::protocols::pairing::PairingCode::from_session_id(session_id);
+		let pairing_code = crate::services::networking::protocols::pairing::PairingCode::from_session_id(session_id);
 
 		// Start pairing session with the session ID and pairing code
 		pairing_handler
@@ -610,7 +610,7 @@ impl NetworkingCore {
 		}
 
 		// Create pairing advertisement for DHT
-		let advertisement = crate::infrastructure::networking::protocols::pairing::PairingAdvertisement {
+		let advertisement = crate::services::networking::protocols::pairing::PairingAdvertisement {
 			peer_id: self.peer_id().to_string(),
 			addresses: address_strings,
 			device_info: pairing_handler.get_device_info().await?,
@@ -635,7 +635,7 @@ impl NetworkingCore {
 		code: &str,
 	) -> Result<()> {
 		// Parse BIP39 pairing code
-		let pairing_code = crate::infrastructure::networking::protocols::pairing::PairingCode::from_string(code)?;
+		let pairing_code = crate::services::networking::protocols::pairing::PairingCode::from_string(code)?;
 		let session_id = pairing_code.session_id();
 
 		// CRITICAL FIX: Join Alice's pairing session using her session ID
@@ -647,7 +647,7 @@ impl NetworkingCore {
 			.ok_or(NetworkingError::Protocol("Pairing protocol not registered".to_string()))?;
 		let pairing_handler = pairing_handler
 			.as_any()
-			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+			.downcast_ref::<crate::services::networking::protocols::PairingProtocolHandler>()
 			.ok_or(NetworkingError::Protocol("Invalid pairing handler type".to_string()))?;
 
 		// Join Alice's pairing session using the session ID and pairing code
@@ -678,10 +678,10 @@ impl NetworkingCore {
 					let device_registry = self.device_registry();
 					let registry = device_registry.read().await;
 					registry.get_local_device_info().unwrap_or_else(|_| {
-						crate::infrastructure::networking::device::DeviceInfo {
+						crate::services::networking::device::DeviceInfo {
 							device_id: self.device_id(),
 							device_name: "Joiner Device".to_string(),
-							device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+							device_type: crate::services::networking::device::DeviceType::Desktop,
 							os_version: std::env::consts::OS.to_string(),
 							app_version: env!("CARGO_PKG_VERSION").to_string(),
 							network_fingerprint: self.identity().network_fingerprint(),
@@ -690,7 +690,7 @@ impl NetworkingCore {
 					})
 				};
 
-				let pairing_request = crate::infrastructure::networking::core::behavior::PairingMessage::PairingRequest {
+				let pairing_request = crate::services::networking::core::behavior::PairingMessage::PairingRequest {
 					session_id,
 					device_info: local_device_info,
 					public_key: self.identity().public_key_bytes(),
@@ -730,7 +730,7 @@ impl NetworkingCore {
 	/// Get current pairing status
 	pub async fn get_pairing_status(
 		&self,
-	) -> Result<Vec<crate::infrastructure::networking::PairingSession>> {
+	) -> Result<Vec<crate::services::networking::PairingSession>> {
 		// Get pairing handler from protocol registry
 		let registry = self.protocol_registry();
 		let pairing_handler = registry
@@ -742,7 +742,7 @@ impl NetworkingCore {
 		// Downcast to concrete pairing handler type to access sessions
 		if let Some(pairing_handler) = pairing_handler
 			.as_any()
-			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+			.downcast_ref::<crate::services::networking::protocols::PairingProtocolHandler>()
 		{
 			let sessions = pairing_handler.get_active_sessions().await;
 			Ok(sessions)
@@ -769,13 +769,13 @@ impl NetworkingCore {
 			if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
 				if let Some(handler) = pairing_handler
 					.as_any()
-					.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+					.downcast_ref::<crate::services::networking::protocols::PairingProtocolHandler>()
 				{
 					let sessions = handler.get_active_sessions().await;
 					if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
 						if !matches!(
 							session.state,
-							crate::infrastructure::networking::protocols::pairing::PairingState::Scanning
+							crate::services::networking::protocols::pairing::PairingState::Scanning
 						) {
 							return Ok(());
 						}
@@ -793,10 +793,10 @@ impl NetworkingCore {
 						let device_registry = self.device_registry();
 						let registry = device_registry.read().await;
 						registry.get_local_device_info().unwrap_or_else(|_| {
-							crate::infrastructure::networking::device::DeviceInfo {
+							crate::services::networking::device::DeviceInfo {
 								device_id: self.device_id(),
 								device_name: "Bob's Test Device".to_string(),
-								device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+								device_type: crate::services::networking::device::DeviceType::Desktop,
 								os_version: std::env::consts::OS.to_string(),
 								app_version: env!("CARGO_PKG_VERSION").to_string(),
 								network_fingerprint: self.identity().network_fingerprint(),
@@ -806,7 +806,7 @@ impl NetworkingCore {
 					};
 
 					let pairing_request =
-						crate::infrastructure::networking::core::behavior::PairingMessage::PairingRequest {
+						crate::services::networking::core::behavior::PairingMessage::PairingRequest {
 							session_id,
 							device_info: local_device_info,
 							public_key: self.identity().public_key_bytes(),
@@ -833,6 +833,6 @@ impl NetworkingCore {
 	
 }
 
-// Ensure NetworkingCore is Send + Sync for proper async usage
-unsafe impl Send for NetworkingCore {}
-unsafe impl Sync for NetworkingCore {}
+// Ensure NetworkingService is Send + Sync for proper async usage
+unsafe impl Send for NetworkingService {}
+unsafe impl Sync for NetworkingService {}

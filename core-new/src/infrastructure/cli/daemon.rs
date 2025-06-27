@@ -960,7 +960,7 @@ async fn handle_command(
 						.map(|device| {
 							// Get connection status from networking service
 							let (peer_id, connection_active, connected_at, bytes_sent, bytes_received) = 
-								if let Some(networking) = &core.networking {
+								if let Some(networking) = core.networking() {
 									// Try to get connection details - this is a simplified version
 									// In a real implementation, we'd access the connection registry
 									("unknown".to_string(), true, Some("now".to_string()), 0, 0)
@@ -993,7 +993,7 @@ async fn handle_command(
 
 		DaemonCommand::RevokeDevice { device_id } => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				let device_registry = service.device_registry();
 				let result = {
 					let mut registry = device_registry.write().await;
@@ -1015,7 +1015,7 @@ async fn handle_command(
 			message 
 		} => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				
 				// Create spacedrop request message  
 				let transfer_id = uuid::Uuid::new_v4();
@@ -1043,7 +1043,7 @@ async fn handle_command(
 		// Pairing commands
 		DaemonCommand::StartPairingAsInitiator => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				match service.start_pairing_as_initiator().await {
 					Ok((code, expires_in_seconds)) => DaemonResponse::PairingCodeGenerated { 
 						code, 
@@ -1058,7 +1058,7 @@ async fn handle_command(
 
 		DaemonCommand::StartPairingAsJoiner { code } => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				match service.start_pairing_as_joiner(&code).await {
 					Ok(_) => DaemonResponse::PairingInProgress,
 					Err(e) => DaemonResponse::Error(e.to_string()),
@@ -1070,7 +1070,7 @@ async fn handle_command(
 
 		DaemonCommand::GetPairingStatus => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				match service.get_pairing_status().await {
 				Ok(sessions) => {
 					// Convert sessions to status format for compatibility
@@ -1113,7 +1113,7 @@ async fn handle_command(
 
 		DaemonCommand::ListPendingPairings => {
 			if let Some(networking) = core.networking() {
-				let service = networking.read().await;
+				let service = &*networking;
 				match service.get_pairing_status().await {
 					Ok(sessions) => {
 						// Convert active pairing sessions to pending requests

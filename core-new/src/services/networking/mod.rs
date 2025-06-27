@@ -19,7 +19,10 @@ pub mod device;
 pub mod utils;
 
 // Re-export main types for easy access
-pub use core::{NetworkingCore, NetworkEvent};
+pub use core::{NetworkingService, NetworkEvent};
+
+// Compatibility alias for legacy code
+pub use NetworkingService as NetworkingCore;
 pub use device::{DeviceInfo, DeviceRegistry, DeviceState};
 pub use protocols::{ProtocolHandler, ProtocolRegistry};
 pub use utils::{NetworkIdentity, NetworkLogger, SilentLogger};
@@ -64,6 +67,6 @@ pub type Result<T> = std::result::Result<T, NetworkingError>;
 pub async fn init_networking(
     device_manager: std::sync::Arc<crate::device::DeviceManager>,
     data_dir: impl AsRef<std::path::Path>,
-) -> Result<NetworkingCore> {
-    NetworkingCore::new(device_manager, data_dir).await
+) -> Result<NetworkingService> {
+    NetworkingService::new(device_manager, data_dir).await
 }

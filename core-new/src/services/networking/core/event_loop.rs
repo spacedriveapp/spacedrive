@@ -4,7 +4,7 @@ use super::{
 	behavior::{UnifiedBehaviour, UnifiedBehaviourEvent},
 	NetworkEvent,
 };
-use crate::infrastructure::networking::{
+use crate::services::networking::{
 	device::{DeviceConnection, DeviceInfo, DeviceRegistry},
 	protocols::{ProtocolEvent, ProtocolRegistry},
 	utils::NetworkIdentity,
@@ -98,7 +98,7 @@ pub struct NetworkingEventLoop {
 		Uuid,
 		(
 			PeerId,
-			crate::infrastructure::networking::device::DeviceInfo,
+			crate::services::networking::device::DeviceInfo,
 			u32,
 			chrono::DateTime<chrono::Utc>,
 		),
@@ -281,7 +281,7 @@ impl NetworkingEventLoop {
 						}
 						"file_transfer" => {
 							// Send file transfer message
-							use crate::infrastructure::networking::protocols::file_transfer::FileTransferMessage;
+							use crate::services::networking::protocols::file_transfer::FileTransferMessage;
 							if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&data)
 							{
 								let request_id = swarm
@@ -445,7 +445,7 @@ impl NetworkingEventLoop {
 			Uuid,
 			(
 				PeerId,
-				crate::infrastructure::networking::device::DeviceInfo,
+				crate::services::networking::device::DeviceInfo,
 				u32,
 				chrono::DateTime<chrono::Utc>,
 			),
@@ -488,7 +488,7 @@ impl NetworkingEventLoop {
 					);
 
 					// Send pairing request message
-					let pairing_request = crate::infrastructure::networking::protocols::pairing::PairingMessage::PairingRequest {
+					let pairing_request = crate::services::networking::protocols::pairing::PairingMessage::PairingRequest {
 						session_id,
 						device_info: device_info.clone(),
 						public_key: identity.public_key_bytes(),
@@ -574,7 +574,7 @@ impl NetworkingEventLoop {
 					{
 						let _ = device_registry.write().await.mark_disconnected(
 							device_id,
-							crate::infrastructure::networking::device::DisconnectionReason::NetworkError(
+							crate::services::networking::device::DisconnectionReason::NetworkError(
 								format!("{:?}", cause)
 							),
 						).await;
@@ -616,7 +616,7 @@ impl NetworkingEventLoop {
 			uuid::Uuid,
 			(
 				PeerId,
-				crate::infrastructure::networking::device::DeviceInfo,
+				crate::services::networking::device::DeviceInfo,
 				u32,
 				chrono::DateTime<chrono::Utc>,
 			),
@@ -638,7 +638,7 @@ impl NetworkingEventLoop {
 		let pairing_handler =
 			match pairing_handler
 				.as_any()
-				.downcast_ref::<crate::infrastructure::networking::protocols::pairing::PairingProtocolHandler>(
+				.downcast_ref::<crate::services::networking::protocols::pairing::PairingProtocolHandler>(
 			) {
 				Some(handler) => handler,
 				None => {
@@ -656,15 +656,15 @@ impl NetworkingEventLoop {
 			// Only schedule requests for sessions where we're actively scanning (Bob's role)
 			if matches!(
 				session.state,
-				crate::infrastructure::networking::protocols::pairing::PairingState::Scanning
+				crate::services::networking::protocols::pairing::PairingState::Scanning
 			) {
 				println!("🔍 Found scanning session {} - scheduling pairing request for peer {} (waiting for connection)", session.id, discovered_peer_id);
 
 				// Create device info for this session
-				let device_info = crate::infrastructure::networking::device::DeviceInfo {
+				let device_info = crate::services::networking::device::DeviceInfo {
 					device_id: identity.device_id(),
 					device_name: Self::get_device_name_for_pairing(),
-					device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+					device_type: crate::services::networking::device::DeviceType::Desktop,
 					os_version: std::env::consts::OS.to_string(),
 					app_version: env!("CARGO_PKG_VERSION").to_string(),
 					network_fingerprint: identity.network_fingerprint(),
@@ -685,7 +685,7 @@ impl NetworkingEventLoop {
 			} else {
 				// Log other session states for debugging
 				match &session.state {
-					crate::infrastructure::networking::protocols::pairing::PairingState::WaitingForConnection => {
+					crate::services::networking::protocols::pairing::PairingState::WaitingForConnection => {
 						// This is Alice waiting for Bob - don't schedule requests
 						println!("🔍 Found waiting session {} (Alice side) - not scheduling request", session.id);
 					}
@@ -735,7 +735,7 @@ impl NetworkingEventLoop {
 			Uuid,
 			(
 				PeerId,
-				crate::infrastructure::networking::device::DeviceInfo,
+				crate::services::networking::device::DeviceInfo,
 				u32,
 				chrono::DateTime<chrono::Utc>,
 			),
@@ -787,7 +787,7 @@ impl NetworkingEventLoop {
 								);
 
 								// Try to deserialize as pairing advertisement
-								if let Ok(advertisement) = serde_json::from_slice::<crate::infrastructure::networking::protocols::pairing::PairingAdvertisement>(&record.record.value) {
+								if let Ok(advertisement) = serde_json::from_slice::<crate::services::networking::protocols::pairing::PairingAdvertisement>(&record.record.value) {
 									println!("Found pairing advertisement from peer: {:?}", advertisement.peer_id);
 
 									// Convert strings back to libp2p types

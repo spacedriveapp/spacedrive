@@ -1,7 +1,7 @@
 //! Basic messaging protocol handler
 
 use super::{ProtocolEvent, ProtocolHandler};
-use crate::infrastructure::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

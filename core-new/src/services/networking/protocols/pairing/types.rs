@@ -1,6 +1,6 @@
 //! Pairing protocol types and state definitions
 
-use crate::infrastructure::networking::{
+use crate::services::networking::{
     device::{DeviceInfo, SessionKeys},
     utils::identity::NetworkFingerprint,
 };
@@ -27,7 +27,7 @@ pub struct PairingCode {
 
 impl PairingCode {
     /// Generate a new pairing code using BIP39 wordlist
-    pub fn generate() -> crate::infrastructure::networking::Result<Self> {
+    pub fn generate() -> crate::services::networking::Result<Self> {
         use rand::RngCore;
 
         let mut secret = [0u8; 32];
@@ -78,18 +78,18 @@ impl PairingCode {
     }
 
     /// Parse a pairing code from a BIP39 mnemonic string
-    pub fn from_string(code: &str) -> crate::infrastructure::networking::Result<Self> {
+    pub fn from_string(code: &str) -> crate::services::networking::Result<Self> {
         let words: Vec<String> = code.split_whitespace().map(|s| s.to_lowercase()).collect();
 
         if words.len() != 12 {
-            return Err(crate::infrastructure::networking::NetworkingError::Protocol(
+            return Err(crate::services::networking::NetworkingError::Protocol(
                 "Invalid pairing code format - must be 12 BIP39 words".to_string(),
             ));
         }
 
         // Convert Vec to array
         let words_array: [String; 12] = words.try_into().map_err(|_| {
-            crate::infrastructure::networking::NetworkingError::Protocol(
+            crate::services::networking::NetworkingError::Protocol(
                 "Failed to convert words to array".to_string(),
             )
         })?;
@@ -98,13 +98,13 @@ impl PairingCode {
     }
 
     /// Create pairing code from BIP39 words
-    pub fn from_words(words: &[String; 12]) -> crate::infrastructure::networking::Result<Self> {
+    pub fn from_words(words: &[String; 12]) -> crate::services::networking::Result<Self> {
         // Decode BIP39 words back to secret
         let secret = Self::decode_from_bip39_words(words)?;
 
         // Extract session ID directly from the first 16 bytes (entropy)
         let session_id = Uuid::from_bytes(secret[..16].try_into().map_err(|_| {
-            crate::infrastructure::networking::NetworkingError::Protocol(
+            crate::services::networking::NetworkingError::Protocol(
                 "Failed to extract session ID from entropy".to_string(),
             )
         })?);
@@ -138,7 +138,7 @@ impl PairingCode {
     }
 
     /// Encode bytes to BIP39 words using proper mnemonic generation
-    fn encode_to_bip39_words(secret: &[u8; 32]) -> crate::infrastructure::networking::Result<[String; 12]> {
+    fn encode_to_bip39_words(secret: &[u8; 32]) -> crate::services::networking::Result<[String; 12]> {
         use bip39::{Language, Mnemonic};
 
         // For 12 words, we need 128 bits of entropy (standard BIP39)
@@ -147,7 +147,7 @@ impl PairingCode {
 
         // Generate mnemonic from entropy
         let mnemonic = Mnemonic::from_entropy(entropy).map_err(|e| {
-            crate::infrastructure::networking::NetworkingError::Protocol(format!(
+            crate::services::networking::NetworkingError::Protocol(format!(
                 "BIP39 generation failed: {}",
                 e
             ))
@@ -157,7 +157,7 @@ impl PairingCode {
         let word_list: Vec<&str> = mnemonic.words().collect();
 
         if word_list.len() != 12 {
-            return Err(crate::infrastructure::networking::NetworkingError::Protocol(
+            return Err(crate::services::networking::NetworkingError::Protocol(
                 format!("Expected 12 words, got {}", word_list.len()),
             ));
         }
@@ -179,7 +179,7 @@ impl PairingCode {
     }
 
     /// Decode BIP39 words back to secret
-    fn decode_from_bip39_words(words: &[String; 12]) -> crate::infrastructure::networking::Result<[u8; 32]> {
+    fn decode_from_bip39_words(words: &[String; 12]) -> crate::services::networking::Result<[u8; 32]> {
         use bip39::{Language, Mnemonic};
 
         // Join words with spaces to create mnemonic string
@@ -187,7 +187,7 @@ impl PairingCode {
 
         // Parse the mnemonic
         let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic_str).map_err(|e| {
-            crate::infrastructure::networking::NetworkingError::Protocol(format!(
+            crate::services::networking::NetworkingError::Protocol(format!(
                 "Invalid BIP39 mnemonic: {}",
                 e
             ))
@@ -197,7 +197,7 @@ impl PairingCode {
         let entropy = mnemonic.to_entropy();
 
         if entropy.len() != 16 {
-            return Err(crate::infrastructure::networking::NetworkingError::Protocol(
+            return Err(crate::services::networking::NetworkingError::Protocol(
                 format!("Expected 16 bytes of entropy, got {}", entropy.len()),
             ));
         }
@@ -369,9 +369,9 @@ pub struct PairingAdvertisement {
 
 impl PairingAdvertisement {
     /// Convert peer ID string back to PeerId
-    pub fn peer_id(&self) -> crate::infrastructure::networking::Result<PeerId> {
+    pub fn peer_id(&self) -> crate::services::networking::Result<PeerId> {
         self.peer_id.parse().map_err(|e| {
-            crate::infrastructure::networking::NetworkingError::Protocol(format!(
+            crate::services::networking::NetworkingError::Protocol(format!(
                 "Invalid peer ID: {}",
                 e
             ))
@@ -379,12 +379,12 @@ impl PairingAdvertisement {
     }
 
     /// Convert address strings back to Multiaddr
-    pub fn addresses(&self) -> crate::infrastructure::networking::Result<Vec<libp2p::Multiaddr>> {
+    pub fn addresses(&self) -> crate::services::networking::Result<Vec<libp2p::Multiaddr>> {
         self.addresses
             .iter()
             .map(|addr| {
                 addr.parse().map_err(|e| {
-                    crate::infrastructure::networking::NetworkingError::Protocol(format!(
+                    crate::services::networking::NetworkingError::Protocol(format!(
                         "Invalid address: {}",
                         e
                     ))

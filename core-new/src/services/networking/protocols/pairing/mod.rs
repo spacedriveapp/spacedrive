@@ -12,7 +12,7 @@ pub use messages::PairingMessage;
 pub use types::{PairingAdvertisement, PairingCode, PairingRole, PairingSession, PairingState};
 
 use super::{ProtocolEvent, ProtocolHandler};
-use crate::infrastructure::networking::{
+use crate::services::networking::{
     device::{DeviceInfo, DeviceRegistry, SessionKeys},
     utils::{identity::NetworkFingerprint, logging::NetworkLogger, NetworkIdentity},
     NetworkingError, Result,
@@ -45,7 +45,7 @@ pub struct PairingProtocolHandler {
     logger: Arc<dyn NetworkLogger>,
 
     /// Command sender for dispatching commands to the NetworkingEventLoop
-    command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
+    command_sender: tokio::sync::mpsc::UnboundedSender<crate::services::networking::core::event_loop::EventLoopCommand>,
 
     /// Current pairing role
     role: Option<PairingRole>,
@@ -60,7 +60,7 @@ impl PairingProtocolHandler {
         identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
-        command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
+        command_sender: tokio::sync::mpsc::UnboundedSender<crate::services::networking::core::event_loop::EventLoopCommand>,
     ) -> Self {
         Self {
             identity,
@@ -79,7 +79,7 @@ impl PairingProtocolHandler {
         identity: NetworkIdentity,
         device_registry: Arc<RwLock<DeviceRegistry>>,
         logger: Arc<dyn NetworkLogger>,
-        command_sender: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::networking::core::event_loop::EventLoopCommand>,
+        command_sender: tokio::sync::mpsc::UnboundedSender<crate::services::networking::core::event_loop::EventLoopCommand>,
         data_dir: PathBuf,
     ) -> Self {
         let persistence = Arc::new(PairingPersistence::new(data_dir));
@@ -378,7 +378,7 @@ impl PairingProtocolHandler {
                         )).await;
 
                         // Create the command to send the message
-                        let command = crate::infrastructure::networking::core::event_loop::EventLoopCommand::SendMessageToPeer {
+                        let command = crate::services::networking::core::event_loop::EventLoopCommand::SendMessageToPeer {
                             peer_id: *peer_id,
                             protocol: "pairing".to_string(),
                             data: response_data.clone(),
