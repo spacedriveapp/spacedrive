@@ -4,6 +4,7 @@
 //! A unified, simplified architecture for cross-platform file management.
 
 pub mod config;
+pub mod context;
 pub mod device;
 pub mod domain;
 pub mod file_type;
@@ -15,18 +16,15 @@ pub mod services;
 pub mod shared;
 pub mod volume;
 
-pub mod test_framework;
 pub mod test_framework_new;
 
 pub use infrastructure::networking;
 use infrastructure::networking::protocols::PairingProtocolHandler;
 
 use crate::config::AppConfig;
+use crate::context::CoreContext;
 use crate::device::DeviceManager;
-use crate::infrastructure::{
-	api::{FileSharing, SharingError, SharingOptions, SharingTarget, TransferId},
-	events::{Event, EventBus},
-};
+use crate::infrastructure::events::{Event, EventBus};
 use crate::library::LibraryManager;
 use crate::services::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
@@ -108,7 +106,7 @@ impl NetworkEventBridge {
 /// The main context for all core operations
 pub struct Core {
 	/// Application configuration
-	config: Arc<RwLock<AppConfig>>,
+	pub config: Arc<RwLock<AppConfig>>,
 
 	/// Device manager
 	pub device: Arc<DeviceManager>,
@@ -122,14 +120,11 @@ pub struct Core {
 	/// Event bus for state changes
 	pub events: Arc<EventBus>,
 
-	/// Background services
-	services: Services,
-
 	/// Networking service for device connections
 	pub networking: Option<Arc<RwLock<networking::NetworkingCore>>>,
 
-	/// File sharing subsystem
-	pub file_sharing: Option<Arc<RwLock<FileSharing>>>,
+	/// Container for high-level services
+	pub services: Services,
 }
 
 impl Core {
@@ -183,8 +178,15 @@ impl Core {
 		crate::operations::register_all_jobs();
 		info!("Job types registered");
 
-		// 9. Initialize and start services
-		let services = Services::new(events.clone());
+		// 9. Create the context that will be shared with services
+		let context = Arc::new(CoreContext::new(
+			events.clone(),
+			device.clone(),
+			libraries.clone(),
+		));
+
+		// 10. Initialize services, passing them the context
+		let services = Services::new(context.clone());
 
 		info!("Starting background services...");
 		match services.start_all().await {
@@ -192,7 +194,7 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
-		// 10. Emit startup event
+		// 11. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -201,9 +203,8 @@ impl Core {
 			libraries,
 			volumes,
 			events,
-			services,
 			networking: None,   // Network will be initialized separately if needed
-			file_sharing: None, // File sharing will be initialized when networking is ready
+			services,
 		})
 	}
 
@@ -246,10 +247,11 @@ impl Core {
 		tokio::spawn(event_bridge.run());
 
 		// Store the networking core
-		self.networking = Some(Arc::new(RwLock::new(networking_core)));
+		let networking_arc = Arc::new(RwLock::new(networking_core));
+		self.networking = Some(networking_arc.clone());
 
-		// Initialize file sharing subsystem with deferred library setup
-		self.init_file_sharing().await?;
+		// Update the context with the now-available networking service
+		self.services.context().set_networking(networking_arc).await;
 
 		logger.info("Networking initialized successfully").await;
 		Ok(())
@@ -335,268 +337,16 @@ impl Core {
 	pub async fn get_connected_devices(
 		&self,
 	) -> Result<Vec<uuid::Uuid>, Box<dyn std::error::Error>> {
-		if let Some(networking) = &self.networking {
-			let service = networking.read().await;
-			let devices = service.get_connected_devices().await;
-			Ok(devices.into_iter().map(|d| d.device_id).collect())
-		} else {
-			Ok(Vec::new())
-		}
+		Ok(self.services.device.get_connected_devices().await?)
 	}
 
 	/// Get detailed information about connected devices
 	pub async fn get_connected_devices_info(
 		&self,
 	) -> Result<Vec<networking::DeviceInfo>, Box<dyn std::error::Error>> {
-		if let Some(networking) = &self.networking {
-			let service = networking.read().await;
-			let devices = service.get_connected_devices().await;
-			Ok(devices)
-		} else {
-			Ok(Vec::new())
-		}
+		Ok(self.services.device.get_connected_devices_info().await?)
 	}
 
-	/// Add a paired device to the network
-	pub async fn add_paired_device(
-		&self,
-		device_info: networking::DeviceInfo,
-		session_keys: networking::device::SessionKeys,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		if let Some(networking) = &self.networking {
-			let service = networking.read().await;
-			let device_registry = service.device_registry();
-			{
-				let mut registry = device_registry.write().await;
-				registry.complete_pairing(device_info.device_id, device_info, session_keys).await?;
-			}
-			Ok(())
-		} else {
-			Err("Networking not initialized".into())
-		}
-	}
-
-	/// Revoke a paired device
-	pub async fn revoke_device(
-		&self,
-		device_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		if let Some(networking) = &self.networking {
-			let service = networking.read().await;
-			let device_registry = service.device_registry();
-			{
-				let mut registry = device_registry.write().await;
-				registry.remove_device(device_id)?;
-			}
-			Ok(())
-		} else {
-			Err("Networking not initialized".into())
-		}
-	}
-
-	/// Initialize file sharing subsystem (lazy initialization)
-	async fn init_file_sharing(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		let mut file_sharing = FileSharing::new(self.networking.clone(), self.device.clone());
-
-		// Set job manager from the first available library
-		let open_libraries = self.libraries.get_open_libraries().await;
-		if let Some(library) = open_libraries.first() {
-			file_sharing.set_job_manager(library.jobs().clone());
-
-			// Also set networking for the job manager
-			if let Some(networking) = &self.networking {
-				library.jobs().set_networking(networking.clone()).await;
-			}
-		} else {
-			// Defer library creation to avoid interfering with pairing initialization
-			// The file sharing will initialize a default library when first used
-			info!("No libraries open yet - file sharing will initialize default library when first used");
-		}
-
-		self.file_sharing = Some(Arc::new(RwLock::new(file_sharing)));
-		info!("File sharing subsystem initialized (library setup deferred)");
-		Ok(())
-	}
-
-	/// Ensure file sharing has a job manager (lazy initialization of default library)
-	async fn ensure_file_sharing_ready(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-		println!("🔍 CORE_DEBUG: ensure_file_sharing_ready called");
-		if let Some(file_sharing_arc) = &self.file_sharing {
-			let file_sharing = file_sharing_arc.read().await;
-			// Check if file sharing already has a job manager
-			if file_sharing.has_job_manager().await {
-				println!("🔍 CORE_DEBUG: File sharing already has job manager");
-				return Ok(());
-			}
-			drop(file_sharing);
-			println!("🔍 CORE_DEBUG: File sharing needs job manager setup");
-
-			// Initialize default library if needed
-			let open_libraries = self.libraries.get_open_libraries().await;
-			println!(
-				"🔍 CORE_DEBUG: Found {} open libraries",
-				open_libraries.len()
-			);
-			if open_libraries.is_empty() {
-				info!("Creating default library for file operations");
-				println!("🔍 CORE_DEBUG: Creating default library");
-				let default_library = self.libraries.create_library("Default", None).await?;
-
-				// Set job manager and networking
-				let mut file_sharing = file_sharing_arc.write().await;
-				println!("🔍 CORE_DEBUG: Setting job manager on file sharing");
-				file_sharing.set_job_manager(default_library.jobs().clone());
-				if let Some(networking) = &self.networking {
-					println!("🔍 CORE_DEBUG: Setting networking on job manager");
-					default_library
-						.jobs()
-						.set_networking(networking.clone())
-						.await;
-				}
-
-				info!("Default library created and configured for file sharing");
-				println!("🔍 CORE_DEBUG: File sharing setup complete");
-			} else {
-				// Use first available library
-				let library = &open_libraries[0];
-				let mut file_sharing = file_sharing_arc.write().await;
-				file_sharing.set_job_manager(library.jobs().clone());
-				if let Some(networking) = &self.networking {
-					library.jobs().set_networking(networking.clone()).await;
-				}
-				info!("File sharing configured with existing library");
-			}
-		}
-		Ok(())
-	}
-
-	/// High-level API for sharing files
-	pub async fn share_files(
-		&mut self,
-		files: Vec<PathBuf>,
-		target: SharingTarget,
-		options: SharingOptions,
-	) -> Result<Vec<TransferId>, SharingError> {
-		// Ensure file sharing is ready with job manager
-		self.ensure_file_sharing_ready()
-			.await
-			.map_err(|e| SharingError::JobError(e.to_string()))?;
-
-		let file_sharing = self
-			.file_sharing
-			.as_ref()
-			.ok_or(SharingError::NetworkingUnavailable)?;
-
-		let file_sharing = file_sharing.read().await;
-		file_sharing.share_files(files, target, options).await
-	}
-
-	/// Share files with a paired device
-	pub async fn share_with_device(
-		&mut self,
-		files: Vec<PathBuf>,
-		device_id: uuid::Uuid,
-		destination_path: Option<PathBuf>,
-	) -> Result<Vec<TransferId>, SharingError> {
-		let options = SharingOptions {
-			destination_path: destination_path.unwrap_or_else(|| PathBuf::from("/tmp/spacedrive")),
-			..Default::default()
-		};
-
-		self.share_files(files, SharingTarget::PairedDevice(device_id), options)
-			.await
-	}
-
-	/// Start spacedrop session for nearby devices
-	pub async fn start_spacedrop(
-		&mut self,
-		files: Vec<PathBuf>,
-		sender_name: String,
-		message: Option<String>,
-	) -> Result<Vec<TransferId>, SharingError> {
-		let options = SharingOptions {
-			sender_name,
-			message,
-			..Default::default()
-		};
-
-		self.share_files(files, SharingTarget::NearbyDevices, options)
-			.await
-	}
-
-	/// Get status of a file transfer
-	pub async fn get_transfer_status(
-		&self,
-		transfer_id: &TransferId,
-	) -> Result<crate::infrastructure::api::TransferStatus, SharingError> {
-		let file_sharing = self
-			.file_sharing
-			.as_ref()
-			.ok_or(SharingError::NetworkingUnavailable)?;
-
-		let file_sharing = file_sharing.read().await;
-		file_sharing.get_transfer_status(transfer_id).await
-	}
-
-	/// Cancel a file transfer
-	pub async fn cancel_transfer(&self, transfer_id: &TransferId) -> Result<(), SharingError> {
-		let file_sharing = self
-			.file_sharing
-			.as_ref()
-			.ok_or(SharingError::NetworkingUnavailable)?;
-
-		let file_sharing = file_sharing.read().await;
-		file_sharing.cancel_transfer(transfer_id).await
-	}
-
-	/// Get all active transfers
-	pub async fn get_active_transfers(
-		&self,
-	) -> Result<Vec<crate::infrastructure::api::TransferStatus>, SharingError> {
-		let file_sharing = self
-			.file_sharing
-			.as_ref()
-			.ok_or(SharingError::NetworkingUnavailable)?;
-
-		let file_sharing = file_sharing.read().await;
-		file_sharing.get_active_transfers().await
-	}
-
-	/// Send a file via Spacedrop to a device
-	pub async fn send_spacedrop(
-		&self,
-		device_id: uuid::Uuid,
-		file_path: &str,
-		sender_name: String,
-		message: Option<String>,
-	) -> Result<uuid::Uuid, Box<dyn std::error::Error>> {
-		if let Some(networking) = &self.networking {
-			let service = networking.read().await;
-
-			// Create spacedrop request message
-			let transfer_id = uuid::Uuid::new_v4();
-			let spacedrop_request = SpacedropRequest {
-				transfer_id,
-				file_path: file_path.to_string(),
-				sender_name,
-				message,
-				file_size: std::fs::metadata(file_path)?.len(),
-			};
-
-			// Send via messaging protocol
-			service
-				.send_message(
-					device_id,
-					"spacedrop",
-					serde_json::to_vec(&spacedrop_request)?,
-				)
-				.await?;
-
-			Ok(transfer_id)
-		} else {
-			Err("Networking not initialized".into())
-		}
-	}
 
 	/// Add a location to the file system watcher
 	pub async fn add_watched_location(
@@ -615,11 +365,7 @@ impl Core {
 			enabled,
 		};
 
-		self.services
-			.location_watcher
-			.add_location(watched_location)
-			.await?;
-		Ok(())
+		Ok(self.services.location_watcher.add_location(watched_location).await?)
 	}
 
 	/// Remove a location from the file system watcher
@@ -627,11 +373,7 @@ impl Core {
 		&self,
 		location_id: uuid::Uuid,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		self.services
-			.location_watcher
-			.remove_location(location_id)
-			.await?;
-		Ok(())
+		Ok(self.services.location_watcher.remove_location(location_id).await?)
 	}
 
 	/// Update file watching settings for a location
@@ -640,11 +382,7 @@ impl Core {
 		location_id: uuid::Uuid,
 		enabled: bool,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		self.services
-			.location_watcher
-			.update_location(location_id, enabled)
-			.await?;
-		Ok(())
+		Ok(self.services.location_watcher.update_location(location_id, enabled).await?)
 	}
 
 	/// Get all currently watched locations
@@ -684,549 +422,4 @@ impl Core {
 		Ok(())
 	}
 
-	/// Start pairing as an initiator (generates pairing code)
-	pub async fn start_pairing_as_initiator(
-		&self,
-	) -> Result<(String, u32), Box<dyn std::error::Error>> {
-		let networking = self
-			.networking
-			.as_ref()
-			.ok_or("Networking not initialized. Call init_networking() first.")?;
-
-		// Get pairing handler from protocol registry
-		let service = networking.read().await;
-		let registry = service.protocol_registry();
-		let pairing_handler = registry
-			.read()
-			.await
-			.get_handler("pairing")
-			.ok_or("Pairing protocol not registered")?;
-
-		// Cast to pairing handler to access pairing-specific methods
-		let pairing_handler = pairing_handler
-			.as_any()
-			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
-			.ok_or("Invalid pairing handler type")?;
-
-		// Generate session ID first as canonical source of truth
-		let session_id = uuid::Uuid::new_v4();
-		let pairing_code = networking::protocols::pairing::PairingCode::from_session_id(session_id);
-
-		// Start pairing session with the session ID and pairing code
-		pairing_handler
-			.start_pairing_session_with_id(session_id, pairing_code.clone())
-			.await?;
-
-		// CRITICAL FIX: Register Alice in the device registry with the session mapping
-		// This creates the session_id → device_id mapping that Bob needs to find Alice
-		let alice_device_id = service.device_id();
-		let alice_peer_id = service.peer_id();
-		let device_registry = service.device_registry();
-		{
-			let mut registry = device_registry.write().await;
-			registry.start_pairing(alice_device_id, alice_peer_id, session_id)?;
-			println!(
-				"📊 Alice: Registered in device registry - device: {}, session: {}",
-				alice_device_id, session_id
-			);
-		}
-
-		// Get external addresses for advertising
-		let external_addresses = service.get_external_addresses().await;
-		let address_strings: Vec<String> = external_addresses
-			.into_iter()
-			.map(|addr| addr.to_string())
-			.collect();
-
-		if address_strings.is_empty() {
-			return Err("No external addresses available for advertising - pairing cannot start".into());
-		}
-
-		// Create pairing advertisement for DHT
-		let advertisement = networking::protocols::pairing::PairingAdvertisement {
-			peer_id: service.peer_id().to_string(),
-			addresses: address_strings,
-			device_info: pairing_handler.get_device_info().await?,
-			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
-			created_at: chrono::Utc::now(),
-		};
-
-		// CRITICAL FIX: Use actual session ID for DHT key (not pairing code session ID)
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
-		let value = serde_json::to_vec(&advertisement)?;
-
-		let query_id = service.publish_dht_record(key, value).await?;
-		println!(
-			"Published pairing session to DHT: session={}, query_id={:?}, addresses={:?}",
-			session_id, query_id, advertisement.addresses
-		);
-
-		let expires_in = 300; // 5 minutes
-
-		Ok((pairing_code.to_string(), expires_in))
-	}
-
-	/// Start pairing as a joiner (connects using pairing code)
-	pub async fn start_pairing_as_joiner(
-		&self,
-		code: &str,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		let networking = self
-			.networking
-			.as_ref()
-			.ok_or("Networking not initialized. Call init_networking() first.")?;
-
-		// Parse BIP39 pairing code
-		let pairing_code = networking::protocols::pairing::PairingCode::from_string(code)?;
-		let session_id = pairing_code.session_id();
-
-		let service = networking.read().await;
-
-		// CRITICAL FIX: Join Alice's pairing session using her session ID
-		let registry = service.protocol_registry();
-		let pairing_handler = registry
-			.read()
-			.await
-			.get_handler("pairing")
-			.ok_or("Pairing protocol not registered")?;
-		let pairing_handler = pairing_handler
-			.as_any()
-			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
-			.ok_or("Invalid pairing handler type")?;
-
-		// Join Alice's pairing session using the session ID and pairing code
-		pairing_handler.join_pairing_session(session_id, pairing_code).await?;
-		println!("Bob joined Alice's pairing session: {}", session_id);
-
-		// Verify Bob's session was created correctly
-		let bob_sessions = pairing_handler.get_active_sessions().await;
-		let bob_session = bob_sessions.iter().find(|s| s.id == session_id);
-		match bob_session {
-			Some(session) => {
-				println!(
-					"✅ Bob's session verified: {} in state {:?}",
-					session.id, session.state
-				);
-				if !matches!(
-					session.state,
-					networking::protocols::pairing::PairingState::Scanning
-				) {
-					return Err(format!(
-						"Bob's session is in wrong state: {:?}, expected Scanning",
-						session.state
-					)
-					.into());
-				}
-			}
-			None => {
-				return Err("Failed to create Bob's pairing session".into());
-			}
-		}
-
-		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
-		// Both methods run in parallel, first successful response completes pairing
-
-		println!(
-			"🔄 Starting unified pairing flow for session: {}",
-			session_id
-		);
-
-		// Method 1: DHT-based remote pairing (for cross-network scenarios)
-		// Query DHT for Alice's published session record - THIS MUST BE FIRST
-		println!("🌐 DHT pairing: Querying distributed hash table...");
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
-		match service.query_dht_record(key).await {
-			Ok(query_id) => {
-				println!(
-					"🔍 DHT Query initiated: session={}, query_id={:?}",
-					session_id, query_id
-				);
-			}
-			Err(e) => {
-				println!("⚠️ DHT Query failed: {}", e);
-			}
-		}
-
-		// Method 2: mDNS-based local pairing (already handled by event loop)
-		// The event loop automatically detects mDNS peers and schedules pairing requests
-		// This handles Alice and Bob on the same network
-		println!("📡 mDNS pairing: Listening for local network discoveries...");
-
-		// Method 3: Wait for connections to be established and ensure pairing requests are sent
-		println!("⏳ Waiting for connections and ensuring pairing requests are sent...");
-		self.ensure_pairing_requests_sent(&service, session_id).await?;
-
-		// Check if Bob has a challenge response pending to send
-		let pairing_handler = registry
-			.read()
-			.await
-			.get_handler("pairing")
-			.ok_or("Pairing protocol not registered")?;
-		let pairing_handler = pairing_handler
-			.as_any()
-			.downcast_ref::<networking::protocols::PairingProtocolHandler>()
-			.ok_or("Invalid pairing handler type")?;
-
-		let active_sessions = pairing_handler.get_active_sessions().await;
-		for session in &active_sessions {
-			if session.id == session_id {
-				if let networking::protocols::pairing::PairingState::ResponsePending {
-					response_data,
-					remote_peer_id,
-					..
-				} = &session.state
-				{
-					if let Some(peer_id) = remote_peer_id {
-						println!(
-							"🔥 BOB: Sending challenge response to Alice at peer {}",
-							peer_id
-						);
-
-						// Send the challenge response to Alice
-						match service
-							.send_message_to_peer(*peer_id, "pairing", response_data.clone())
-							.await
-						{
-							Ok(_) => {
-								println!("📤 BOB: Successfully sent challenge response to Alice");
-							}
-							Err(e) => println!("❌ BOB: Failed to send challenge response: {}", e),
-						}
-					} else {
-						println!("⚠️ BOB: No remote peer ID available to send challenge response");
-					}
-				}
-				break;
-			}
-		}
-
-		// Method 4: Direct requests to any currently connected peers (immediate attempt)
-		// This covers cases where Alice is already connected but not yet paired
-		let connected_peers = service.get_connected_peers().await;
-		if !connected_peers.is_empty() {
-			println!(
-				"🔗 Direct pairing: Sending requests to {} connected peers",
-				connected_peers.len()
-			);
-
-			for peer_id in connected_peers {
-				// Get local device info for the joiner
-				let local_device_info = {
-					let device_registry = service.device_registry();
-					let registry = device_registry.read().await;
-					registry.get_local_device_info().unwrap_or_else(|_| {
-						networking::device::DeviceInfo {
-							device_id: service.device_id(),
-							device_name: "Joiner Device".to_string(),
-							device_type: networking::device::DeviceType::Desktop,
-							os_version: std::env::consts::OS.to_string(),
-							app_version: env!("CARGO_PKG_VERSION").to_string(),
-							network_fingerprint: service.identity().network_fingerprint(),
-							last_seen: chrono::Utc::now(),
-						}
-					})
-				};
-
-				let pairing_request = networking::core::behavior::PairingMessage::PairingRequest {
-					session_id,
-					device_info: local_device_info,
-					public_key: service.identity().public_key_bytes(),
-				};
-
-				match service
-					.send_message_to_peer(
-						peer_id,
-						"pairing",
-						serde_json::to_vec(&pairing_request).unwrap_or_default(),
-					)
-					.await
-				{
-					Ok(_) => println!("📤 Sent direct pairing request to peer: {}", peer_id),
-					Err(e) => println!("❌ Failed to send pairing request to {}: {}", peer_id, e),
-				}
-			}
-		}
-
-		// Add periodic DHT retries for reliability in challenging network conditions
-		let networking_ref = networking.clone();
-		let session_id_clone = session_id;
-		tokio::spawn(async move {
-			for i in 1..=3 {
-				tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-				let key = libp2p::kad::RecordKey::new(&session_id_clone.as_bytes());
-				let service = networking_ref.read().await;
-				match service.query_dht_record(key).await {
-					Ok(query_id) => {
-						println!(
-							"🔄 DHT Retry {}: session={}, query_id={:?}",
-							i, session_id_clone, query_id
-						);
-					}
-					Err(e) => {
-						println!("⚠️ DHT Retry {} failed: {}", i, e);
-					}
-				}
-			}
-		});
-
-		println!("✅ Unified pairing flow initiated - waiting for responses from any method...");
-
-		Ok(())
-	}
-
-	/// Get current pairing status
-	pub async fn get_pairing_status(
-		&self,
-	) -> Result<Vec<networking::PairingSession>, Box<dyn std::error::Error>> {
-		let networking = self
-			.networking
-			.as_ref()
-			.ok_or("Networking not initialized. Call init_networking() first.")?;
-
-		// Get pairing handler from protocol registry
-		let service = networking.read().await;
-		let registry = service.protocol_registry();
-		let pairing_handler = registry
-			.read()
-			.await
-			.get_handler("pairing")
-			.ok_or("Pairing protocol not registered")?;
-
-		// Downcast to concrete pairing handler type to access sessions
-		if let Some(pairing_handler) = pairing_handler
-			.as_any()
-			.downcast_ref::<PairingProtocolHandler>()
-		{
-			let sessions = pairing_handler.get_active_sessions().await;
-			Ok(sessions)
-		} else {
-			Err("Failed to downcast pairing handler".into())
-		}
-	}
-
-	/// List pending pairing requests (converted from active pairing sessions)
-	pub async fn list_pending_pairings(
-		&self,
-	) -> Result<Vec<PendingPairingRequest>, Box<dyn std::error::Error>> {
-		let sessions = self.get_pairing_status().await?;
-
-		// Convert active pairing sessions to pending requests
-		let pending_requests: Vec<PendingPairingRequest> = sessions
-			.into_iter()
-			.filter(|session| {
-				matches!(
-					session.state,
-					networking::PairingState::WaitingForConnection
-				)
-			})
-			.map(|session| PendingPairingRequest {
-				request_id: session.id,
-				device_id: session.remote_device_id.unwrap_or(session.id),
-				device_name: "Unknown Device".to_string(),
-				received_at: session.created_at,
-			})
-			.collect();
-
-		Ok(pending_requests)
-	}
-
-	/// Accept a pairing request (cancel pairing session if rejecting)
-	pub async fn accept_pairing_request(
-		&self,
-		request_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		// Pairing acceptance is handled automatically in the new system
-		info!(
-			"Accepting pairing request: {} (handled automatically)",
-			request_id
-		);
-		Ok(())
-	}
-
-	/// Reject a pairing request (cancel the pairing session)
-	pub async fn reject_pairing_request(
-		&self,
-		request_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		let networking = self
-			.networking
-			.as_ref()
-			.ok_or("Networking not initialized. Call init_networking() first.")?;
-
-		// Get pairing handler and cancel session
-		let service = networking.read().await;
-		let registry = service.protocol_registry();
-		let _pairing_handler = registry
-			.read()
-			.await
-			.get_handler("pairing")
-			.ok_or("Pairing protocol not registered")?;
-
-		// For now, just log - in full implementation we'd cancel the session
-		info!("Rejected pairing request: {}", request_id);
-		Ok(())
-	}
-
-	/// Get network identity for subprocess helper
-	pub async fn get_network_identity(
-		&self,
-	) -> Result<networking::NetworkIdentity, Box<dyn std::error::Error>> {
-		let networking = self
-			.networking
-			.as_ref()
-			.ok_or("Networking not initialized. Call init_networking() first.")?;
-
-		let service = networking.read().await;
-		Ok(service.identity().clone())
-	}
-
-	/// Enhanced pairing request sending with robust active polling
-	/// This method continuously checks for connections and ensures requests are sent
-	/// regardless of when the connection was established (fixes race condition)
-	async fn ensure_pairing_requests_sent(
-		&self,
-		service: &networking::NetworkingCore,
-		session_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		const MAX_WAIT_TIME: u64 = 15000; // 15 seconds
-		const POLL_INTERVAL: u64 = 500; // Check every 500ms
-		let start_time = std::time::Instant::now();
-
-		println!("🔍 Bob: Enhanced pairing request logic running...");
-
-		loop {
-			// First, check if the session has already advanced. If so, our job is done.
-			if let Some(networking) = &self.networking {
-				let registry = networking.read().await.protocol_registry();
-				let registry_guard = registry.read().await;
-				if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
-					if let Some(handler) = pairing_handler
-						.as_any()
-						.downcast_ref::<networking::protocols::PairingProtocolHandler>()
-					{
-						let sessions = handler.get_active_sessions().await;
-						if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
-							if !matches!(
-								session.state,
-								networking::protocols::pairing::PairingState::Scanning
-							) {
-								println!("✅ Bob: Pairing session advanced to {:?} - pairing request succeeded!", session.state);
-								return Ok(());
-							}
-						}
-					}
-				}
-			}
-
-			// If not, actively check for connected peers and send the request.
-			// CRITICAL: Use raw swarm connections, not DeviceRegistry (fixes Catch-22)
-			let connected_peers = service.get_raw_connected_peers().await;
-			if !connected_peers.is_empty() {
-				println!("🔗 Bob: Found {} raw network connection(s), ensuring request is sent.", connected_peers.len());
-
-				for peer_id in &connected_peers {
-					let local_device_info = {
-						let device_registry = service.device_registry();
-						let registry = device_registry.read().await;
-						registry.get_local_device_info().unwrap_or_else(|_| {
-							networking::device::DeviceInfo {
-								device_id: service.device_id(),
-								device_name: "Bob's Test Device".to_string(),
-								device_type: networking::device::DeviceType::Desktop,
-								os_version: std::env::consts::OS.to_string(),
-								app_version: env!("CARGO_PKG_VERSION").to_string(),
-								network_fingerprint: service.identity().network_fingerprint(),
-								last_seen: chrono::Utc::now(),
-							}
-						})
-					};
-
-					let pairing_request =
-						networking::core::behavior::PairingMessage::PairingRequest {
-							session_id,
-							device_info: local_device_info,
-							public_key: service.identity().public_key_bytes(),
-						};
-					
-					// This is an idempotent action; sending the request multiple times is okay
-					// as Alice's handler will just re-send the same challenge.
-					match service.send_message_to_peer(
-						*peer_id,
-						"pairing",
-						serde_json::to_vec(&pairing_request)?,
-					).await {
-						Ok(_) => println!("🚀 Bob: Sent/Re-sent pairing request to {}", peer_id),
-						Err(e) => println!("⚠️ Bob: Failed to send pairing request to {}: {}", peer_id, e),
-					}
-				}
-			}
-
-			// Check for timeout
-			if start_time.elapsed().as_millis() > MAX_WAIT_TIME as u128 {
-				return Err("Pairing timeout: Did not receive challenge from Alice.".into());
-			}
-
-			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL)).await;
-		}
-	}
-
-	async fn wait_for_discovery_activity(
-		&self,
-		service: &networking::NetworkingCore,
-		session_id: uuid::Uuid,
-	) -> Result<(), Box<dyn std::error::Error>> {
-		const MAX_WAIT_MS: u64 = 2000; // 2 seconds max
-		const POLL_INTERVAL_MS: u64 = 100; // Check every 100ms
-		
-		let start_time = std::time::Instant::now();
-		
-		// Get initial peer count
-		let initial_peers = service.get_connected_peers().await.len();
-		
-		// Event-based waiting would be more efficient, but requires access to event receiver
-		// For now, use smart polling that checks multiple indicators of discovery activity
-		loop {
-			// Check if we've discovered any new peers
-			let current_peers = service.get_connected_peers().await.len();
-			
-			// Also check if our pairing session has advanced beyond scanning
-			if let Some(networking) = &self.networking {
-				let networking_service = networking.read().await;
-				let registry = networking_service.protocol_registry();
-				let registry_guard = registry.read().await;
-				if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
-					if let Some(handler) = pairing_handler
-						.as_any()
-						.downcast_ref::<networking::protocols::PairingProtocolHandler>()
-					{
-						let sessions = handler.get_active_sessions().await;
-						if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
-							// If session is no longer in Scanning state, mDNS likely triggered activity
-							if !matches!(
-								session.state,
-								networking::protocols::pairing::PairingState::Scanning
-							) {
-								println!("✅ Pairing session advanced beyond scanning - discovery activity detected");
-								return Ok(());
-							}
-						}
-					}
-				}
-			}
-			
-			// Check for new peer discoveries
-			if current_peers > initial_peers {
-				println!("✅ New peers discovered via mDNS ({} -> {})", initial_peers, current_peers);
-				return Ok(());
-			}
-			
-			// Timeout check - proceed with other discovery methods
-			if start_time.elapsed().as_millis() as u64 >= MAX_WAIT_MS {
-				println!("⏰ mDNS discovery timeout reached ({}ms) - proceeding with DHT and direct methods", MAX_WAIT_MS);
-				return Ok(());
-			}
-			
-			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL_MS)).await;
-		}
-	}
 }

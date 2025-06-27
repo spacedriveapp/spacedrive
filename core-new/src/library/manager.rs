@@ -229,6 +229,11 @@ impl LibraryManager {
         self.libraries.read().await.values().cloned().collect()
     }
 
+    /// Get the primary library (first available library)
+    pub async fn get_primary_library(&self) -> Option<Arc<Library>> {
+        self.get_open_libraries().await.into_iter().next()
+    }
+
     /// List all open libraries
     pub async fn list(&self) -> Vec<Arc<Library>> {
         self.get_open_libraries().await

@@ -39,13 +39,10 @@ async fn alice_pairing_scenario() {
 
 	// Initialize networking
 	println!("🌐 Alice: Initializing networking...");
-	timeout(
-		Duration::from_secs(10),
-		core.init_networking(),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
@@ -53,11 +50,18 @@ async fn alice_pairing_scenario() {
 
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator...");
-	let (pairing_code, expires_in) =
-		timeout(Duration::from_secs(15), core.start_pairing_as_initiator())
-			.await
-			.unwrap()
-			.unwrap();
+	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
+		let service = networking.read().await;
+		timeout(
+			Duration::from_secs(15),
+			service.start_pairing_as_initiator(),
+		)
+		.await
+		.unwrap()
+		.unwrap()
+	} else {
+		panic!("Networking not initialized");
+	};
 
 	let short_code = pairing_code
 		.split_whitespace()
@@ -105,7 +109,7 @@ async fn alice_pairing_scenario() {
 
 			// Write success marker for orchestrator to detect
 			std::fs::write("/tmp/spacedrive-pairing-test/alice_success.txt", "success").unwrap();
-			
+
 			// Wait a bit longer to give Bob time to detect the connection before Alice exits
 			println!("⏳ Alice: Waiting for Bob to also detect the connection...");
 			tokio::time::sleep(Duration::from_secs(5)).await;
@@ -154,13 +158,10 @@ async fn bob_pairing_scenario() {
 
 	// Initialize networking
 	println!("🌐 Bob: Initializing networking...");
-	timeout(
-		Duration::from_secs(10),
-		core.init_networking(),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
@@ -178,13 +179,18 @@ async fn bob_pairing_scenario() {
 
 	// Join pairing session
 	println!("🤝 Bob: Joining pairing with code...");
-	timeout(
-		Duration::from_secs(15),
-		core.start_pairing_as_joiner(&pairing_code),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	if let Some(networking) = core.networking() {
+		let service = networking.read().await;
+		timeout(
+			Duration::from_secs(15),
+			service.start_pairing_as_joiner(&pairing_code),
+		)
+		.await
+		.unwrap()
+		.unwrap();
+	} else {
+		panic!("Networking not initialized");
+	}
 	println!("✅ Bob: Successfully joined pairing");
 
 	// Wait for pairing completion

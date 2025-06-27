@@ -135,9 +135,6 @@ libc = "0.2"
 name = "spacedrive"
 path = "src/bin/cli.rs"
 
-[[bin]]
-name = "test_core"
-path = "src/bin/test_core.rs"
 
 
 [dev-dependencies]

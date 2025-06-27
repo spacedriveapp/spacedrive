@@ -1,42 +1,51 @@
 //! Background services management
 
-use crate::infrastructure::events::EventBus;
+use crate::{context::CoreContext, infrastructure::events::EventBus};
 use anyhow::Result;
 use std::sync::Arc;
 use tracing::info;
 
 pub mod location_watcher;
+pub mod file_sharing;
+pub mod device;
 
 use location_watcher::{LocationWatcher, LocationWatcherConfig};
+use file_sharing::FileSharingService;
+use device::DeviceService;
 
 /// Container for all background services
 pub struct Services {
     /// File system watcher for locations
     pub location_watcher: Arc<LocationWatcher>,
-    // TODO: Add other services when implemented
-    // pub jobs: Arc<JobManager>,
-    // pub thumbnails: Arc<ThumbnailService>,
-    // pub sync: Arc<SyncService>,
-    // pub p2p: Arc<P2PService>,
+    /// File sharing service
+    pub file_sharing: Arc<FileSharingService>,
+    /// Device management service
+    pub device: Arc<DeviceService>,
+    /// Shared context for all services
+    context: Arc<CoreContext>,
 }
 
 impl Services {
-    /// Create new services container
-    pub fn new(events: Arc<EventBus>) -> Self {
+    /// Create new services container with context
+    pub fn new(context: Arc<CoreContext>) -> Self {
         info!("Initializing background services");
         
         let location_watcher_config = LocationWatcherConfig::default();
-        let location_watcher = Arc::new(LocationWatcher::new(location_watcher_config, events));
-        
-        // TODO: Initialize other services
-        // let jobs = Arc::new(JobManager::new());
-        // let thumbnails = Arc::new(ThumbnailService::new());
+        let location_watcher = Arc::new(LocationWatcher::new(location_watcher_config, context.events.clone()));
+        let file_sharing = Arc::new(FileSharingService::new(context.clone()));
+        let device = Arc::new(DeviceService::new(context.clone()));
         
         Self {
             location_watcher,
-            // jobs,
-            // thumbnails,
+            file_sharing,
+            device,
+            context,
         }
+    }
+
+    /// Get the shared context
+    pub fn context(&self) -> Arc<CoreContext> {
+        self.context.clone()
     }
     
     /// Start all services

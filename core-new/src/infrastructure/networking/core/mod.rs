@@ -560,6 +560,276 @@ impl NetworkingCore {
 			Vec::new()
 		}
 	}
+
+	/// Start pairing as an initiator (generates pairing code)
+	pub async fn start_pairing_as_initiator(
+		&self,
+	) -> Result<(String, u32)> {
+		// Get pairing handler from protocol registry
+		let registry = self.protocol_registry();
+		let pairing_handler = registry
+			.read()
+			.await
+			.get_handler("pairing")
+			.ok_or(NetworkingError::Protocol("Pairing protocol not registered".to_string()))?;
+
+		// Cast to pairing handler to access pairing-specific methods
+		let pairing_handler = pairing_handler
+			.as_any()
+			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+			.ok_or(NetworkingError::Protocol("Invalid pairing handler type".to_string()))?;
+
+		// Generate session ID first as canonical source of truth
+		let session_id = uuid::Uuid::new_v4();
+		let pairing_code = crate::infrastructure::networking::protocols::pairing::PairingCode::from_session_id(session_id);
+
+		// Start pairing session with the session ID and pairing code
+		pairing_handler
+			.start_pairing_session_with_id(session_id, pairing_code.clone())
+			.await?;
+
+		// CRITICAL FIX: Register Alice in the device registry with the session mapping
+		// This creates the session_id → device_id mapping that Bob needs to find Alice
+		let alice_device_id = self.device_id();
+		let alice_peer_id = self.peer_id();
+		let device_registry = self.device_registry();
+		{
+			let mut registry = device_registry.write().await;
+			registry.start_pairing(alice_device_id, alice_peer_id, session_id)?;
+		}
+
+		// Get external addresses for advertising
+		let external_addresses = self.get_external_addresses().await;
+		let address_strings: Vec<String> = external_addresses
+			.into_iter()
+			.map(|addr| addr.to_string())
+			.collect();
+
+		if address_strings.is_empty() {
+			return Err(NetworkingError::Protocol("No external addresses available for advertising - pairing cannot start".to_string()));
+		}
+
+		// Create pairing advertisement for DHT
+		let advertisement = crate::infrastructure::networking::protocols::pairing::PairingAdvertisement {
+			peer_id: self.peer_id().to_string(),
+			addresses: address_strings,
+			device_info: pairing_handler.get_device_info().await?,
+			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
+			created_at: chrono::Utc::now(),
+		};
+
+		// CRITICAL FIX: Use actual session ID for DHT key (not pairing code session ID)
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		let value = serde_json::to_vec(&advertisement).map_err(|e| NetworkingError::Protocol(e.to_string()))?;
+
+		let _query_id = self.publish_dht_record(key, value).await?;
+
+		let expires_in = 300; // 5 minutes
+
+		Ok((pairing_code.to_string(), expires_in))
+	}
+
+	/// Start pairing as a joiner (connects using pairing code)
+	pub async fn start_pairing_as_joiner(
+		&self,
+		code: &str,
+	) -> Result<()> {
+		// Parse BIP39 pairing code
+		let pairing_code = crate::infrastructure::networking::protocols::pairing::PairingCode::from_string(code)?;
+		let session_id = pairing_code.session_id();
+
+		// CRITICAL FIX: Join Alice's pairing session using her session ID
+		let registry = self.protocol_registry();
+		let pairing_handler = registry
+			.read()
+			.await
+			.get_handler("pairing")
+			.ok_or(NetworkingError::Protocol("Pairing protocol not registered".to_string()))?;
+		let pairing_handler = pairing_handler
+			.as_any()
+			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+			.ok_or(NetworkingError::Protocol("Invalid pairing handler type".to_string()))?;
+
+		// Join Alice's pairing session using the session ID and pairing code
+		pairing_handler.join_pairing_session(session_id, pairing_code).await?;
+
+		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
+		// Both methods run in parallel, first successful response completes pairing
+
+		// Method 1: DHT-based remote pairing (for cross-network scenarios)
+		// Query DHT for Alice's published session record - THIS MUST BE FIRST
+		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		let _ = self.query_dht_record(key).await;
+
+		// Method 2: mDNS-based local pairing (already handled by event loop)
+		// The event loop automatically detects mDNS peers and schedules pairing requests
+		// This handles Alice and Bob on the same network
+
+		// Method 3: Wait for connections to be established and ensure pairing requests are sent
+		self.ensure_pairing_requests_sent(session_id).await?;
+
+		// Method 4: Direct requests to any currently connected peers (immediate attempt)
+		// This covers cases where Alice is already connected but not yet paired
+		let connected_peers = self.get_connected_peers().await;
+		if !connected_peers.is_empty() {
+			for peer_id in connected_peers {
+				// Get local device info for the joiner
+				let local_device_info = {
+					let device_registry = self.device_registry();
+					let registry = device_registry.read().await;
+					registry.get_local_device_info().unwrap_or_else(|_| {
+						crate::infrastructure::networking::device::DeviceInfo {
+							device_id: self.device_id(),
+							device_name: "Joiner Device".to_string(),
+							device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+							os_version: std::env::consts::OS.to_string(),
+							app_version: env!("CARGO_PKG_VERSION").to_string(),
+							network_fingerprint: self.identity().network_fingerprint(),
+							last_seen: chrono::Utc::now(),
+						}
+					})
+				};
+
+				let pairing_request = crate::infrastructure::networking::core::behavior::PairingMessage::PairingRequest {
+					session_id,
+					device_info: local_device_info,
+					public_key: self.identity().public_key_bytes(),
+				};
+
+				let _ = self
+					.send_message_to_peer(
+						peer_id,
+						"pairing",
+						serde_json::to_vec(&pairing_request).unwrap_or_default(),
+					)
+					.await;
+			}
+		}
+
+		// Add periodic DHT retries for reliability in challenging network conditions
+		let command_sender = self.command_sender.clone();
+		let session_id_clone = session_id;
+		if let Some(command_sender) = command_sender {
+			tokio::spawn(async move {
+				for _i in 1..=3 {
+					tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+					let key = libp2p::kad::RecordKey::new(&session_id_clone.as_bytes());
+					let (response_tx, _response_rx) = tokio::sync::oneshot::channel();
+					let command = event_loop::EventLoopCommand::QueryDhtRecord {
+						key,
+						response_channel: response_tx,
+					};
+					let _ = command_sender.send(command);
+				}
+			});
+		}
+
+		Ok(())
+	}
+
+	/// Get current pairing status
+	pub async fn get_pairing_status(
+		&self,
+	) -> Result<Vec<crate::infrastructure::networking::PairingSession>> {
+		// Get pairing handler from protocol registry
+		let registry = self.protocol_registry();
+		let pairing_handler = registry
+			.read()
+			.await
+			.get_handler("pairing")
+			.ok_or(NetworkingError::Protocol("Pairing protocol not registered".to_string()))?;
+
+		// Downcast to concrete pairing handler type to access sessions
+		if let Some(pairing_handler) = pairing_handler
+			.as_any()
+			.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+		{
+			let sessions = pairing_handler.get_active_sessions().await;
+			Ok(sessions)
+		} else {
+			Err(NetworkingError::Protocol("Failed to downcast pairing handler".to_string()))
+		}
+	}
+
+	/// Enhanced pairing request sending with robust active polling
+	/// This method continuously checks for connections and ensures requests are sent
+	/// regardless of when the connection was established (fixes race condition)
+	async fn ensure_pairing_requests_sent(
+		&self,
+		session_id: uuid::Uuid,
+	) -> Result<()> {
+		const MAX_WAIT_TIME: u64 = 15000; // 15 seconds
+		const POLL_INTERVAL: u64 = 500; // Check every 500ms
+		let start_time = std::time::Instant::now();
+
+		loop {
+			// First, check if the session has already advanced. If so, our job is done.
+			let registry = self.protocol_registry();
+			let registry_guard = registry.read().await;
+			if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
+				if let Some(handler) = pairing_handler
+					.as_any()
+					.downcast_ref::<crate::infrastructure::networking::protocols::PairingProtocolHandler>()
+				{
+					let sessions = handler.get_active_sessions().await;
+					if let Some(session) = sessions.iter().find(|s| s.id == session_id) {
+						if !matches!(
+							session.state,
+							crate::infrastructure::networking::protocols::pairing::PairingState::Scanning
+						) {
+							return Ok(());
+						}
+					}
+				}
+			}
+			drop(registry_guard);
+
+			// If not, actively check for connected peers and send the request.
+			// CRITICAL: Use raw swarm connections, not DeviceRegistry (fixes Catch-22)
+			let connected_peers = self.get_raw_connected_peers().await;
+			if !connected_peers.is_empty() {
+				for peer_id in &connected_peers {
+					let local_device_info = {
+						let device_registry = self.device_registry();
+						let registry = device_registry.read().await;
+						registry.get_local_device_info().unwrap_or_else(|_| {
+							crate::infrastructure::networking::device::DeviceInfo {
+								device_id: self.device_id(),
+								device_name: "Bob's Test Device".to_string(),
+								device_type: crate::infrastructure::networking::device::DeviceType::Desktop,
+								os_version: std::env::consts::OS.to_string(),
+								app_version: env!("CARGO_PKG_VERSION").to_string(),
+								network_fingerprint: self.identity().network_fingerprint(),
+								last_seen: chrono::Utc::now(),
+							}
+						})
+					};
+
+					let pairing_request =
+						crate::infrastructure::networking::core::behavior::PairingMessage::PairingRequest {
+							session_id,
+							device_info: local_device_info,
+							public_key: self.identity().public_key_bytes(),
+						};
+					
+					// This is an idempotent action; sending the request multiple times is okay
+					// as Alice's handler will just re-send the same challenge.
+					let _ = self.send_message_to_peer(
+						*peer_id,
+						"pairing",
+						serde_json::to_vec(&pairing_request).unwrap_or_default(),
+					).await;
+				}
+			}
+
+			// Check for timeout
+			if start_time.elapsed().as_millis() > MAX_WAIT_TIME as u128 {
+				return Err(NetworkingError::Protocol("Pairing timeout: Did not receive challenge from Alice.".to_string()));
+			}
+
+			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL)).await;
+		}
+	}
 	
 }
 

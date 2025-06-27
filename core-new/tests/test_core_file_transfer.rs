@@ -1,6 +1,6 @@
 //! Core file transfer test using the new cargo test subprocess framework
 //!
-//! This test demonstrates cross-device file sharing functionality where Alice 
+//! This test demonstrates cross-device file sharing functionality where Alice
 //! (sender) pairs with Bob (receiver) and transfers multiple test files.
 
 use sd_core_new::test_framework_new::CargoTestRunner;
@@ -27,10 +27,13 @@ async fn alice_file_transfer_scenario() {
 
 	// Initialize Core
 	println!("🔧 Alice: Initializing Core...");
-	let mut core = timeout(Duration::from_secs(10), Core::new_with_config(data_dir.clone()))
-		.await
-		.unwrap()
-		.unwrap();
+	let mut core = timeout(
+		Duration::from_secs(10),
+		Core::new_with_config(data_dir.clone()),
+	)
+	.await
+	.unwrap()
+	.unwrap();
 	println!("✅ Alice: Core initialized successfully");
 
 	// Set device name
@@ -39,25 +42,34 @@ async fn alice_file_transfer_scenario() {
 
 	// Initialize networking
 	println!("🌐 Alice: Initializing networking...");
-	timeout(
-		Duration::from_secs(10),
-		core.init_networking(),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("✅ Alice: Networking initialized successfully");
 
+	// Create a library for job dispatch (required for file transfers)
+	println!("📚 Alice: Creating library for file transfer jobs...");
+	let _library = core.libraries.create_library("Alice Transfer Library", None).await.unwrap();
+	println!("✅ Alice: Library created successfully");
+
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator for file transfer...");
-	let (pairing_code, expires_in) =
-		timeout(Duration::from_secs(15), core.start_pairing_as_initiator())
-			.await
-			.unwrap()
-			.unwrap();
+	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
+		let service = networking.read().await;
+		timeout(
+			Duration::from_secs(15),
+			service.start_pairing_as_initiator(),
+		)
+		.await
+		.unwrap()
+		.unwrap()
+	} else {
+		panic!("Networking not initialized");
+	};
 
 	let short_code = pairing_code
 		.split_whitespace()
@@ -76,7 +88,9 @@ async fn alice_file_transfer_scenario() {
 		&pairing_code,
 	)
 	.unwrap();
-	println!("📝 Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt");
+	println!(
+		"📝 Alice: Pairing code written to /tmp/spacedrive-file-transfer-test/pairing_code.txt"
+	);
 
 	// Wait for pairing completion
 	println!("⏳ Alice: Waiting for Bob to connect...");
@@ -94,7 +108,7 @@ async fn alice_file_transfer_scenario() {
 				"🎉 Alice: Bob connected! Device ID: {}",
 				connected_devices[0]
 			);
-			
+
 			// Wait a bit longer to ensure session keys are properly established
 			println!("🔑 Alice: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
@@ -132,18 +146,31 @@ async fn alice_file_transfer_scenario() {
 	for (filename, content) in &test_files {
 		let file_path = test_files_dir.join(filename);
 		std::fs::write(&file_path, content).unwrap();
-		
+
 		// Generate and display checksum for the file Alice is about to send
-		match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&file_path).await {
+		match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(
+			&file_path,
+		)
+		.await
+		{
 			Ok(checksum) => {
-				println!("  📄 Created: {} ({} bytes, checksum: {})", 
-					filename, content.len(), &checksum[..32]); // Show first 32 chars
+				println!(
+					"  📄 Created: {} ({} bytes, checksum: {})",
+					filename,
+					content.len(),
+					&checksum[..32]
+				); // Show first 32 chars
 			}
 			Err(e) => {
-				println!("  📄 Created: {} ({} bytes, checksum error: {})", filename, content.len(), e);
+				println!(
+					"  📄 Created: {} ({} bytes, checksum error: {})",
+					filename,
+					content.len(),
+					e
+				);
 			}
 		}
-		
+
 		source_paths.push(file_path);
 	}
 
@@ -162,7 +189,10 @@ async fn alice_file_transfer_scenario() {
 	let alice_devices = core.get_connected_devices_info().await.unwrap();
 	println!("🔍 Alice: Connected devices before transfer:");
 	for device in &alice_devices {
-		println!("  📱 Device: {} (ID: {})", device.device_name, device.device_id);
+		println!(
+			"  📱 Device: {} (ID: {})",
+			device.device_name, device.device_id
+		);
 	}
 
 	// Initiate cross-device file transfer
@@ -170,6 +200,8 @@ async fn alice_file_transfer_scenario() {
 	println!("🎯 Alice: Sending files to device ID: {}", receiver_id);
 
 	let transfer_results = core
+		.services
+		.file_sharing
 		.share_with_device(
 			source_paths,
 			receiver_id,
@@ -178,96 +210,105 @@ async fn alice_file_transfer_scenario() {
 		.await;
 
 	match transfer_results {
-		Ok(transfer_ids) => {
+		Ok(transfer_id) => {
 			println!("✅ Alice: File transfer initiated successfully!");
-			println!("📋 Alice: Transfer IDs: {:?}", transfer_ids);
+			println!("📋 Alice: Transfer ID: {:?}", transfer_id);
 
-			// Wait for transfers to complete
-			println!("⏳ Alice: Waiting for transfers to complete...");
-			let mut all_completed = true;
-			
-			for transfer_id in &transfer_ids {
-				let mut completed = false;
-				for _ in 0..30 {
-					// Wait up to 30 seconds per transfer
-					tokio::time::sleep(Duration::from_secs(1)).await;
+			// Wait for transfer to complete
+			println!("⏳ Alice: Waiting for transfer to complete...");
+			let mut completed = false;
+			for _ in 0..30 {
+				// Wait up to 30 seconds
+				tokio::time::sleep(Duration::from_secs(1)).await;
 
-					match core.get_transfer_status(transfer_id).await {
-						Ok(status) => {
-							match status.state {
-								sd_core_new::infrastructure::api::TransferState::Completed => {
+				match core
+					.services
+					.file_sharing
+					.get_transfer_status(&transfer_id)
+					.await
+				{
+					Ok(status) => {
+						match status.state {
+							sd_core_new::services::file_sharing::TransferState::Completed => {
+								println!(
+									"✅ Alice: Transfer {:?} completed successfully",
+									transfer_id
+								);
+								completed = true;
+								break;
+							}
+							sd_core_new::services::file_sharing::TransferState::Failed => {
+								println!(
+									"❌ Alice: Transfer {:?} failed: {:?}",
+									transfer_id, status.error
+								);
+								completed = false;
+								break;
+							}
+							_ => {
+								// Still in progress
+								if status.progress.bytes_transferred > 0 {
 									println!(
-										"✅ Alice: Transfer {:?} completed successfully",
-										transfer_id
+										"📊 Alice: Transfer progress: {} / {} bytes",
+										status.progress.bytes_transferred,
+										status.progress.total_bytes
 									);
-									completed = true;
-									break;
-								}
-								sd_core_new::infrastructure::api::TransferState::Failed => {
-									println!(
-										"❌ Alice: Transfer {:?} failed: {:?}",
-										transfer_id, status.error
-									);
-									all_completed = false;
-									break;
-								}
-								_ => {
-									// Still in progress
-									if status.progress.bytes_transferred > 0 {
-										println!(
-											"📊 Alice: Transfer progress: {} / {} bytes",
-											status.progress.bytes_transferred,
-											status.progress.total_bytes
-										);
-									}
 								}
 							}
 						}
-						Err(e) => {
-							println!("⚠️ Alice: Could not get transfer status: {}", e);
-						}
 					}
-				}
-
-				if !completed {
-					println!(
-						"⚠️ Alice: Transfer {:?} did not complete in time",
-						transfer_id
-					);
-					all_completed = false;
+					Err(e) => {
+						println!("⚠️ Alice: Could not get transfer status: {}", e);
+					}
 				}
 			}
 
-			if all_completed {
-				println!("✅ Alice: All transfers completed, now waiting for Bob's confirmation...");
-				
+			if completed {
+				println!(
+					"✅ Alice: All transfers completed, now waiting for Bob's confirmation..."
+				);
+
 				// Wait for Bob to confirm receipt and verification
 				let mut bob_confirmed = false;
-				for attempt in 1..=60 { // Wait up to 60 seconds for Bob's confirmation
-					if std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt")
-						.map(|content| content.starts_with("received_and_verified:"))
-						.unwrap_or(false)
+				for attempt in 1..=60 {
+					// Wait up to 60 seconds for Bob's confirmation
+					if std::fs::read_to_string(
+						"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt",
+					)
+					.map(|content| content.starts_with("received_and_verified:"))
+					.unwrap_or(false)
 					{
 						println!("✅ Alice: Bob confirmed file receipt and verification!");
 						bob_confirmed = true;
 						break;
 					}
-					
+
 					if attempt % 10 == 0 {
-						println!("🔍 Alice: Still waiting for Bob's confirmation... ({}s)", attempt);
+						println!(
+							"🔍 Alice: Still waiting for Bob's confirmation... ({}s)",
+							attempt
+						);
 					}
 					tokio::time::sleep(Duration::from_secs(1)).await;
 				}
-				
+
 				if bob_confirmed {
 					println!("FILE_TRANSFER_SUCCESS: Alice completed all file transfers and Bob confirmed receipt");
 					// Write success marker for orchestrator to detect
-					std::fs::write("/tmp/spacedrive-file-transfer-test/alice_success.txt", "success").unwrap();
+					std::fs::write(
+						"/tmp/spacedrive-file-transfer-test/alice_success.txt",
+						"success",
+					)
+					.unwrap();
 				} else {
 					panic!("Alice: Bob did not confirm file receipt within timeout");
 				}
 			} else {
-				panic!("Alice: Some file transfers failed");
+				println!(
+					"⚠️ Alice: Transfer {:?} did not complete in time",
+					transfer_id
+				);
+				panic!("Alice: File transfer did not complete in time");
 			}
 		}
 		Err(e) => {
@@ -308,22 +349,26 @@ async fn bob_file_transfer_scenario() {
 
 	// Initialize networking
 	println!("🌐 Bob: Initializing networking...");
-	timeout(
-		Duration::from_secs(10),
-		core.init_networking(),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	timeout(Duration::from_secs(10), core.init_networking())
+		.await
+		.unwrap()
+		.unwrap();
 
 	// Wait longer for networking to fully initialize and detect external addresses
 	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("✅ Bob: Networking initialized successfully");
 
+	// Create a library for job dispatch (required for file transfers)
+	println!("📚 Bob: Creating library for file transfer jobs...");
+	let _library = core.libraries.create_library("Bob Transfer Library", None).await.unwrap();
+	println!("✅ Bob: Library created successfully");
+
 	// Wait for Alice to create pairing code
 	println!("🔍 Bob: Looking for pairing code from Alice...");
 	let pairing_code = loop {
-		if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/pairing_code.txt") {
+		if let Ok(code) =
+			std::fs::read_to_string("/tmp/spacedrive-file-transfer-test/pairing_code.txt")
+		{
 			break code.trim().to_string();
 		}
 		tokio::time::sleep(Duration::from_millis(500)).await;
@@ -332,13 +377,18 @@ async fn bob_file_transfer_scenario() {
 
 	// Join pairing session
 	println!("🤝 Bob: Joining pairing with Alice...");
-	timeout(
-		Duration::from_secs(15),
-		core.start_pairing_as_joiner(&pairing_code),
-	)
-	.await
-	.unwrap()
-	.unwrap();
+	if let Some(networking) = core.networking() {
+		let service = networking.read().await;
+		timeout(
+			Duration::from_secs(15),
+			service.start_pairing_as_joiner(&pairing_code),
+		)
+		.await
+		.unwrap()
+		.unwrap();
+	} else {
+		panic!("Networking not initialized");
+	}
 	println!("✅ Bob: Successfully joined pairing");
 
 	// Wait for pairing completion
@@ -354,12 +404,15 @@ async fn bob_file_transfer_scenario() {
 		if !connected_devices.is_empty() {
 			println!("🎉 Bob: Pairing completed successfully!");
 			println!("✅ Bob: Connected {} devices", connected_devices.len());
-			
+
 			// Debug: Show Bob's view of connected devices
 			let bob_devices = core.get_connected_devices_info().await.unwrap();
 			println!("🔍 Bob: Connected devices after pairing:");
 			for device in &bob_devices {
-				println!("  📱 Device: {} (ID: {})", device.device_name, device.device_id);
+				println!(
+					"  📱 Device: {} (ID: {})",
+					device.device_name, device.device_id
+				);
 			}
 
 			// Wait a bit longer to ensure session keys are properly established
@@ -446,7 +499,11 @@ async fn bob_file_transfer_scenario() {
 			println!("🔍 Bob: Still waiting for files... checking directory:");
 			if let Ok(entries) = std::fs::read_dir(received_dir) {
 				let file_count = entries.count();
-				println!("  📁 Found {} items in {}", file_count, received_dir.display());
+				println!(
+					"  📁 Found {} items in {}",
+					file_count,
+					received_dir.display()
+				);
 			}
 		}
 
@@ -473,7 +530,7 @@ async fn bob_file_transfer_scenario() {
 						// Generate checksum for received file
 						match sd_core_new::domain::content_identity::ContentHashGenerator::generate_content_hash(&received_path).await {
 							Ok(checksum) => {
-								println!("✅ Bob: Verified: {} (size: {} bytes, checksum: {})", 
+								println!("✅ Bob: Verified: {} (size: {} bytes, checksum: {})",
 									expected_name, metadata.len(), &checksum[..32]); // Show first 32 chars of checksum
 							}
 							Err(e) => {
@@ -503,17 +560,22 @@ async fn bob_file_transfer_scenario() {
 		if verification_success {
 			println!("FILE_TRANSFER_SUCCESS: Bob verified all received files");
 			// Write success marker for orchestrator to detect
-			std::fs::write("/tmp/spacedrive-file-transfer-test/bob_success.txt", "success").unwrap();
-			
+			std::fs::write(
+				"/tmp/spacedrive-file-transfer-test/bob_success.txt",
+				"success",
+			)
+			.unwrap();
+
 			// Also write a timestamped confirmation that Alice can detect
 			let timestamp = std::time::SystemTime::now()
 				.duration_since(std::time::UNIX_EPOCH)
 				.unwrap()
 				.as_secs();
 			std::fs::write(
-				"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt", 
-				format!("received_and_verified:{}", timestamp)
-			).unwrap();
+				"/tmp/spacedrive-file-transfer-test/bob_received_confirmation.txt",
+				format!("received_and_verified:{}", timestamp),
+			)
+			.unwrap();
 			println!("✅ Bob: Wrote confirmation signal for Alice");
 		} else {
 			panic!("Bob: File verification failed");
