@@ -1,7 +1,7 @@
 //! Persistence for paired devices and their connection info
 
 use super::{DeviceInfo, SessionKeys};
-use crate::device::MasterKeyManager;
+use crate::keys::device_key_manager::DeviceKeyManager;
 use crate::services::networking::{NetworkingError, Result};
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -69,7 +69,7 @@ struct PersistedPairedDevices {
 pub struct DevicePersistence {
     data_dir: PathBuf,
     devices_file: PathBuf,
-    master_key_manager: MasterKeyManager,
+    device_key_manager: DeviceKeyManager,
 }
 
 impl DevicePersistence {
@@ -79,13 +79,13 @@ impl DevicePersistence {
         let networking_dir = data_dir.join("networking");
         let devices_file = networking_dir.join("paired_devices.json");
         
-        let master_key_manager = MasterKeyManager::new()
+        let device_key_manager = DeviceKeyManager::new()
             .map_err(|e| NetworkingError::Protocol(format!("Failed to initialize master key manager: {}", e)))?;
 
         Ok(Self {
             data_dir: networking_dir,
             devices_file,
-            master_key_manager,
+            device_key_manager,
         })
     }
 
@@ -105,23 +105,23 @@ impl DevicePersistence {
         }
         
         // Create test master key manager and ensure it has a key
-        let master_key_manager = MasterKeyManager::new_for_test(TEST_SERVICE, TEST_USERNAME)
+        let device_key_manager = DeviceKeyManager::new_for_test(TEST_SERVICE, TEST_USERNAME)
             .map_err(|e| NetworkingError::Protocol(format!("Failed to create test master key manager: {}", e)))?;
         
         // Ensure the test key exists
-        let _ = master_key_manager.get_or_create_master_key()
+        let _ = device_key_manager.get_or_create_master_key()
             .map_err(|e| NetworkingError::Protocol(format!("Failed to create test master key: {}", e)))?;
 
         Ok(Self {
             data_dir: networking_dir,
             devices_file,
-            master_key_manager,
+            device_key_manager,
         })
     }
 
     /// Derive encryption key from master key for device persistence
     fn derive_encryption_key(&self, salt: &[u8]) -> Result<[u8; 32]> {
-        let master_key = self.master_key_manager.get_or_create_master_key()
+        let master_key = self.device_key_manager.get_or_create_master_key()
             .map_err(|e| NetworkingError::Protocol(format!("Failed to get or create master key: {}", e)))?;
         
         let hk = Hkdf::<Sha256>::new(Some(salt), &master_key);

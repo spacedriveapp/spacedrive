@@ -6,11 +6,11 @@ use thiserror::Error;
 use uuid::Uuid;
 
 const KEYRING_SERVICE: &str = "Spacedrive";
-const MASTER_KEY_USERNAME: &str = "master_encryption_key";
+const DEVICE_KEY_USERNAME: &str = "master_encryption_key";
 const MASTER_KEY_LENGTH: usize = 32; // 256 bits
 
 #[derive(Error, Debug)]
-pub enum MasterKeyError {
+pub enum DeviceKeyError {
     #[error("Keyring error: {0}")]
     Keyring(#[from] KeyringError),
     
@@ -21,30 +21,30 @@ pub enum MasterKeyError {
     KeyGenerationFailed,
 }
 
-pub struct MasterKeyManager {
+pub struct DeviceKeyManager {
     entry: Entry,
 }
 
-impl MasterKeyManager {
-    pub fn new() -> Result<Self, MasterKeyError> {
-        let entry = Entry::new(KEYRING_SERVICE, MASTER_KEY_USERNAME)?;
+impl DeviceKeyManager {
+    pub fn new() -> Result<Self, DeviceKeyError> {
+        let entry = Entry::new(KEYRING_SERVICE, DEVICE_KEY_USERNAME)?;
         Ok(Self { entry })
     }
 
     #[cfg(test)]
-    pub fn new_for_test(service: &str, username: &str) -> Result<Self, MasterKeyError> {
+    pub fn new_for_test(service: &str, username: &str) -> Result<Self, DeviceKeyError> {
         let entry = Entry::new(service, username)?;
         Ok(Self { entry })
     }
 
-    pub fn get_or_create_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], MasterKeyError> {
+    pub fn get_or_create_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
         match self.entry.get_password() {
             Ok(key_hex) => {
                 let key_bytes = hex::decode(key_hex)
-                    .map_err(|_| MasterKeyError::InvalidKeyFormat)?;
+                    .map_err(|_| DeviceKeyError::InvalidKeyFormat)?;
                 
                 if key_bytes.len() != MASTER_KEY_LENGTH {
-                    return Err(MasterKeyError::InvalidKeyFormat);
+                    return Err(DeviceKeyError::InvalidKeyFormat);
                 }
                 
                 let mut key = [0u8; MASTER_KEY_LENGTH];
@@ -57,17 +57,17 @@ impl MasterKeyManager {
                 self.entry.set_password(&key_hex)?;
                 Ok(key)
             }
-            Err(e) => Err(MasterKeyError::Keyring(e)),
+            Err(e) => Err(DeviceKeyError::Keyring(e)),
         }
     }
 
-    pub fn get_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], MasterKeyError> {
+    pub fn get_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
         let key_hex = self.entry.get_password()?;
         let key_bytes = hex::decode(key_hex)
-            .map_err(|_| MasterKeyError::InvalidKeyFormat)?;
+            .map_err(|_| DeviceKeyError::InvalidKeyFormat)?;
         
         if key_bytes.len() != MASTER_KEY_LENGTH {
-            return Err(MasterKeyError::InvalidKeyFormat);
+            return Err(DeviceKeyError::InvalidKeyFormat);
         }
         
         let mut key = [0u8; MASTER_KEY_LENGTH];
@@ -75,25 +75,25 @@ impl MasterKeyManager {
         Ok(key)
     }
 
-    pub fn get_master_key_hex(&self) -> Result<String, MasterKeyError> {
+    pub fn get_master_key_hex(&self) -> Result<String, DeviceKeyError> {
         let key = self.get_master_key()?;
         Ok(hex::encode(key))
     }
 
-    fn generate_new_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], MasterKeyError> {
+    fn generate_new_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
         let mut key = [0u8; MASTER_KEY_LENGTH];
         thread_rng().fill(&mut key);
         Ok(key)
     }
 
-    pub fn regenerate_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], MasterKeyError> {
+    pub fn regenerate_master_key(&self) -> Result<[u8; MASTER_KEY_LENGTH], DeviceKeyError> {
         let key = self.generate_new_master_key()?;
         let key_hex = hex::encode(key);
         self.entry.set_password(&key_hex)?;
         Ok(key)
     }
 
-    pub fn delete_master_key(&self) -> Result<(), MasterKeyError> {
+    pub fn delete_master_key(&self) -> Result<(), DeviceKeyError> {
         self.entry.delete_credential()?;
         Ok(())
     }
@@ -107,9 +107,9 @@ mod tests {
     const TEST_SERVICE: &str = "SpacedriveTest";
     const TEST_USERNAME: &str = "test_master_key";
 
-    fn create_test_manager() -> MasterKeyManager {
+    fn create_test_manager() -> DeviceKeyManager {
         let entry = Entry::new(TEST_SERVICE, TEST_USERNAME).unwrap();
-        MasterKeyManager { entry }
+        DeviceKeyManager { entry }
     }
 
     fn cleanup_test_key() {

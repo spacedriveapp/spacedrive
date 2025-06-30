@@ -51,10 +51,9 @@ async fn alice_pairing_scenario() {
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator...");
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
-		let service = networking.read().await;
 		timeout(
 			Duration::from_secs(15),
-			service.start_pairing_as_initiator(),
+			networking.start_pairing_as_initiator(),
 		)
 		.await
 		.unwrap()
@@ -180,10 +179,9 @@ async fn bob_pairing_scenario() {
 	// Join pairing session
 	println!("🤝 Bob: Joining pairing with code...");
 	if let Some(networking) = core.networking() {
-		let service = networking.read().await;
 		timeout(
 			Duration::from_secs(15),
-			service.start_pairing_as_joiner(&pairing_code),
+			networking.start_pairing_as_joiner(&pairing_code),
 		)
 		.await
 		.unwrap()

@@ -495,7 +495,10 @@ pub struct TransferProgress {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{device::DeviceManager, infrastructure::events::EventBus, library::LibraryManager};
+	use crate::{
+		device::DeviceManager, infrastructure::events::EventBus,
+		keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
+	};
 	use tempfile::tempdir;
 
 	#[tokio::test]
@@ -510,7 +513,15 @@ mod tests {
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
-		let context = Arc::new(CoreContext::new(events, device_manager, library_manager, volume_manager));
+		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
+		let context = Arc::new(CoreContext::new(
+			events,
+			device_manager,
+			library_manager,
+			volume_manager,
+			library_key_manager,
+		));
+
 		let _file_sharing = FileSharingService::new(context);
 	}
 
@@ -535,7 +546,14 @@ mod tests {
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
-		let context = Arc::new(CoreContext::new(events, device_manager, library_manager, volume_manager));
+		let library_key_manager = Arc::new(LibraryKeyManager::new().unwrap());
+		let context = Arc::new(CoreContext::new(
+			events,
+			device_manager,
+			library_manager,
+			volume_manager,
+			library_key_manager,
+		));
 		let file_sharing = FileSharingService::new(context);
 
 		// Create a temporary file

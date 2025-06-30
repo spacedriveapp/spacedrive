@@ -9,20 +9,20 @@ pub mod device;
 pub mod domain;
 pub mod file_type;
 pub mod infrastructure;
+pub mod keys;
 pub mod library;
 pub mod location;
 pub mod operations;
 pub mod services;
 pub mod shared;
-pub mod volume;
-
 pub mod test_framework_new;
+pub mod volume;
 
 use services::networking::protocols::PairingProtocolHandler;
 
 // Compatibility module for legacy networking references
 pub mod networking {
-    pub use crate::services::networking::*;
+	pub use crate::services::networking::*;
 }
 
 use crate::config::AppConfig;
@@ -124,7 +124,6 @@ pub struct Core {
 	/// Event bus for state changes
 	pub events: Arc<EventBus>,
 
-
 	/// Container for high-level services
 	pub services: Services,
 }
@@ -168,27 +167,32 @@ impl Core {
 		let libraries_dir = config.read().await.libraries_dir();
 		let libraries = Arc::new(LibraryManager::new_with_dir(libraries_dir, events.clone()));
 
-		// 7. Auto-load all libraries
+		// 7. Initialize library key manager
+		let library_key_manager =
+			Arc::new(crate::keys::library_key_manager::LibraryKeyManager::new()?);
+
+		// 8. Auto-load all libraries
 		info!("Loading existing libraries...");
 		match libraries.load_all().await {
 			Ok(count) => info!("Loaded {} libraries", count),
 			Err(e) => error!("Failed to load libraries: {}", e),
 		}
 
-		// 8. Register all job types
+		// 9. Register all job types
 		info!("Registering job types...");
 		crate::operations::register_all_jobs();
 		info!("Job types registered");
 
-		// 9. Create the context that will be shared with services
+		// 10. Create the context that will be shared with services
 		let context = Arc::new(CoreContext::new(
 			events.clone(),
 			device.clone(),
 			libraries.clone(),
 			volumes.clone(),
+			library_key_manager.clone(),
 		));
 
-		// 10. Initialize services, passing them the context
+		// 11. Initialize services, passing them the context
 		let services = Services::new(context.clone());
 
 		info!("Starting background services...");
@@ -197,7 +201,7 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
-		// 11. Emit startup event
+		// 12. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -230,8 +234,14 @@ impl Core {
 
 		// Initialize networking service through the services container
 		let data_dir = self.config.read().await.data_dir.clone();
-		self.services.init_networking(self.device.clone(), data_dir).await?;
-		
+		self.services
+			.init_networking(
+				self.device.clone(),
+				self.services.library_key_manager.clone(),
+				data_dir,
+			)
+			.await?;
+
 		// Start the networking service
 		self.services.start_networking().await?;
 
@@ -242,10 +252,13 @@ impl Core {
 
 			// Set up event bridge to integrate with core event system
 			let event_bridge = NetworkEventBridge::new(
-				networking_service.subscribe_events().await.unwrap_or_else(|| {
-					let (_, rx) = tokio::sync::mpsc::unbounded_channel();
-					rx
-				}),
+				networking_service
+					.subscribe_events()
+					.await
+					.unwrap_or_else(|| {
+						let (_, rx) = tokio::sync::mpsc::unbounded_channel();
+						rx
+					}),
 				self.events.clone(),
 			);
 			tokio::spawn(event_bridge.run());
@@ -261,9 +274,10 @@ impl Core {
 		networking: &networking::NetworkingService,
 	) -> Result<(), Box<dyn std::error::Error>> {
 		let logger = std::sync::Arc::new(networking::utils::logging::ConsoleLogger);
-		
+
 		// Get command sender for the pairing handler's state machine
-		let command_sender = networking.command_sender()
+		let command_sender = networking
+			.command_sender()
 			.ok_or("NetworkingEventLoop command sender not available")?
 			.clone();
 
@@ -275,7 +289,9 @@ impl Core {
 		));
 
 		// Start the state machine task for pairing
-		networking::protocols::PairingProtocolHandler::start_state_machine_task(pairing_handler.clone());
+		networking::protocols::PairingProtocolHandler::start_state_machine_task(
+			pairing_handler.clone(),
+		);
 
 		// Start cleanup task for expired sessions
 		networking::protocols::PairingProtocolHandler::start_cleanup_task(pairing_handler.clone());
@@ -345,7 +361,6 @@ impl Core {
 		Ok(self.services.device.get_connected_devices_info().await?)
 	}
 
-
 	/// Add a location to the file system watcher
 	pub async fn add_watched_location(
 		&self,
@@ -363,7 +378,11 @@ impl Core {
 			enabled,
 		};
 
-		Ok(self.services.location_watcher.add_location(watched_location).await?)
+		Ok(self
+			.services
+			.location_watcher
+			.add_location(watched_location)
+			.await?)
 	}
 
 	/// Remove a location from the file system watcher
@@ -371,7 +390,11 @@ impl Core {
 		&self,
 		location_id: uuid::Uuid,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		Ok(self.services.location_watcher.remove_location(location_id).await?)
+		Ok(self
+			.services
+			.location_watcher
+			.remove_location(location_id)
+			.await?)
 	}
 
 	/// Update file watching settings for a location
@@ -380,7 +403,11 @@ impl Core {
 		location_id: uuid::Uuid,
 		enabled: bool,
 	) -> Result<(), Box<dyn std::error::Error>> {
-		Ok(self.services.location_watcher.update_location(location_id, enabled).await?)
+		Ok(self
+			.services
+			.location_watcher
+			.update_location(location_id, enabled)
+			.await?)
 	}
 
 	/// Get all currently watched locations
@@ -414,5 +441,4 @@ impl Core {
 		info!("Spacedrive Core shutdown complete");
 		Ok(())
 	}
-
 }

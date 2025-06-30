@@ -53,16 +53,19 @@ async fn alice_file_transfer_scenario() {
 
 	// Create a library for job dispatch (required for file transfers)
 	println!("📚 Alice: Creating library for file transfer jobs...");
-	let _library = core.libraries.create_library("Alice Transfer Library", None).await.unwrap();
+	let _library = core
+		.libraries
+		.create_library("Alice Transfer Library", None)
+		.await
+		.unwrap();
 	println!("✅ Alice: Library created successfully");
 
 	// Start pairing as initiator
 	println!("🔑 Alice: Starting pairing as initiator for file transfer...");
 	let (pairing_code, expires_in) = if let Some(networking) = core.networking() {
-		let service = networking.read().await;
 		timeout(
 			Duration::from_secs(15),
-			service.start_pairing_as_initiator(),
+			networking.start_pairing_as_initiator(),
 		)
 		.await
 		.unwrap()
@@ -360,7 +363,11 @@ async fn bob_file_transfer_scenario() {
 
 	// Create a library for job dispatch (required for file transfers)
 	println!("📚 Bob: Creating library for file transfer jobs...");
-	let _library = core.libraries.create_library("Bob Transfer Library", None).await.unwrap();
+	let _library = core
+		.libraries
+		.create_library("Bob Transfer Library", None)
+		.await
+		.unwrap();
 	println!("✅ Bob: Library created successfully");
 
 	// Wait for Alice to create pairing code
@@ -378,10 +385,9 @@ async fn bob_file_transfer_scenario() {
 	// Join pairing session
 	println!("🤝 Bob: Joining pairing with Alice...");
 	if let Some(networking) = core.networking() {
-		let service = networking.read().await;
 		timeout(
 			Duration::from_secs(15),
-			service.start_pairing_as_joiner(&pairing_code),
+			networking.start_pairing_as_joiner(&pairing_code),
 		)
 		.await
 		.unwrap()

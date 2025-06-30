@@ -4,11 +4,9 @@
 
 mod config;
 mod manager;
-mod master_key;
-
 pub use config::DeviceConfig;
 pub use manager::{DeviceManager, DeviceError};
-pub use master_key::{MasterKeyManager, MasterKeyError};
+pub use crate::keys::device_key_manager::{DeviceKeyManager, DeviceKeyError};
 
 // Re-export domain types
 pub use crate::domain::device::{Device, OperatingSystem};
