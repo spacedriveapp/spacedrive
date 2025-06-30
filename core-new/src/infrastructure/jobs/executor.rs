@@ -32,6 +32,7 @@ pub struct JobExecutorState {
     pub metrics: JobMetrics,
     pub output: Option<JobOutput>,
     pub networking: Option<Arc<crate::services::networking::NetworkingService>>,
+    pub volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -44,6 +45,7 @@ impl<J: JobHandler> JobExecutor<J> {
         broadcast_tx: broadcast::Sender<Progress>,
         checkpoint_handler: Arc<dyn CheckpointHandler>,
         networking: Option<Arc<crate::services::networking::NetworkingService>>,
+        volume_manager: Option<Arc<crate::volume::VolumeManager>>,
     ) -> Self {
         Self {
             job,
@@ -57,6 +59,7 @@ impl<J: JobHandler> JobExecutor<J> {
                 metrics: Default::default(),
                 output: None,
                 networking,
+                volume_manager,
             },
         }
     }
@@ -124,6 +127,7 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
             checkpoint_handler: self.state.checkpoint_handler.clone(),
             child_handles: Arc::new(Mutex::new(Vec::new())),
             networking: self.state.networking.clone(),
+            volume_manager: self.state.volume_manager.clone(),
         };
         
         // Forward progress to broadcast channel

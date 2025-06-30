@@ -66,6 +66,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                 broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,
                 checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
                 networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
+                volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
             ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>> {
                 Box::new(crate::infrastructure::jobs::executor::JobExecutor::new(
                     *self,
@@ -76,6 +77,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                     broadcast_tx,
                     checkpoint_handler,
                     networking,
+                    volume_manager,
                 ))
             }
             

@@ -29,6 +29,7 @@ pub struct JobManager {
 	shutdown_tx: watch::Sender<bool>,
 	event_bus: Option<Arc<EventBus>>,
 	networking: RwLock<Option<Arc<crate::services::networking::NetworkingService>>>,
+	volume_manager: RwLock<Option<Arc<crate::volume::VolumeManager>>>,
 }
 
 struct RunningJob {
@@ -58,6 +59,7 @@ impl JobManager {
 			shutdown_tx,
 			event_bus: None,
 			networking: RwLock::new(None),
+			volume_manager: RwLock::new(None),
 		};
 
 		Ok(manager)
@@ -80,6 +82,11 @@ impl JobManager {
 	/// Set the networking service reference
 	pub async fn set_networking(&self, networking: Arc<crate::services::networking::NetworkingService>) {
 		*self.networking.write().await = Some(networking);
+	}
+
+	/// Set the volume manager reference
+	pub async fn set_volume_manager(&self, volume_manager: Arc<crate::volume::VolumeManager>) {
+		*self.volume_manager.write().await = Some(volume_manager);
 	}
 
 	/// Dispatch a job for execution
@@ -177,6 +184,9 @@ impl JobManager {
 
 		// Get networking reference
 		let networking = self.networking.read().await.clone();
+		
+		// Get volume manager reference
+		let volume_manager = self.volume_manager.read().await.clone();
 
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
@@ -189,6 +199,7 @@ impl JobManager {
 				db: self.db.clone(),
 			}),
 			networking,
+			volume_manager,
 		);
 
 		// Create handle
@@ -299,6 +310,9 @@ impl JobManager {
 
 		// Get networking reference
 		let networking = self.networking.read().await.clone();
+		
+		// Get volume manager reference
+		let volume_manager = self.volume_manager.read().await.clone();
 
 		// Create executor
 		let executor = JobExecutor::new(
@@ -312,6 +326,7 @@ impl JobManager {
 				db: self.db.clone(),
 			}),
 			networking,
+			volume_manager,
 		);
 
 		// Create handle
@@ -608,6 +623,9 @@ impl JobManager {
 
 						// Get networking reference
 						let networking = self.networking.read().await.clone();
+						
+						// Get volume manager reference
+						let volume_manager = self.volume_manager.read().await.clone();
 
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
@@ -620,6 +638,7 @@ impl JobManager {
 								db: self.db.clone(),
 							}),
 							networking,
+							volume_manager,
 						);
 
 						// Create handle

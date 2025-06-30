@@ -129,6 +129,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
         broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,
         checkpoint_handler: std::sync::Arc<dyn crate::infrastructure::jobs::context::CheckpointHandler>,
         networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
+        volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
     ) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
 
     fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError>;

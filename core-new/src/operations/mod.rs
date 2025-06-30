@@ -19,7 +19,7 @@ pub mod metadata;
 pub fn register_all_jobs() {
 	// File operation jobs
 	register_job::<file_ops::copy_job::FileCopyJob>();
-	register_job::<file_ops::move_job::MoveJob>();
+	register_job::<file_ops::copy_job::MoveJob>();
 	register_job::<file_ops::delete_job::DeleteJob>();
 	register_job::<file_ops::duplicate_detection_job::DuplicateDetectionJob>();
 	register_job::<file_ops::validation_job::ValidationJob>();

@@ -185,6 +185,8 @@ impl FileSharing {
                 overwrite: options.overwrite,
                 verify_checksum: true,
                 preserve_timestamps: options.preserve_timestamps,
+                delete_after_copy: false,
+                move_mode: None,
             });
 
         // Submit job to job system

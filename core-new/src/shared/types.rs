@@ -99,6 +99,28 @@ impl SdPath {
             library_id: self.library_id,
         }
     }
+
+    /// Get the volume that contains this path (if local and volume manager available)
+    pub async fn get_volume(&self, volume_manager: &crate::volume::VolumeManager) -> Option<crate::volume::Volume> {
+        if let Some(local_path) = self.as_local_path() {
+            volume_manager.volume_for_path(local_path).await
+        } else {
+            None
+        }
+    }
+    
+    /// Check if this path is on the same volume as another path
+    pub async fn same_volume(&self, other: &SdPath, volume_manager: &crate::volume::VolumeManager) -> bool {
+        if !self.is_local() || !other.is_local() {
+            return false;
+        }
+        
+        if let (Some(self_path), Some(other_path)) = (self.as_local_path(), other.as_local_path()) {
+            volume_manager.same_volume(self_path, other_path).await
+        } else {
+            false
+        }
+    }
 }
 
 impl fmt::Display for SdPath {

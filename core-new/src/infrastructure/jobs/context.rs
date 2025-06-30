@@ -24,6 +24,7 @@ pub struct JobContext<'a> {
     pub(crate) checkpoint_handler: Arc<dyn CheckpointHandler>,
     pub(crate) child_handles: Arc<Mutex<Vec<JobHandle>>>,
     pub(crate) networking: Option<Arc<NetworkingService>>,
+    pub(crate) volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 }
 
 impl<'a> JobContext<'a> {
@@ -45,6 +46,11 @@ impl<'a> JobContext<'a> {
     /// Get networking service if available
     pub fn networking_service(&self) -> Option<Arc<NetworkingService>> {
         self.networking.clone()
+    }
+    
+    /// Get volume manager if available
+    pub fn volume_manager(&self) -> Option<Arc<crate::volume::VolumeManager>> {
+        self.volume_manager.clone()
     }
     
     /// Report progress

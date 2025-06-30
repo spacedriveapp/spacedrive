@@ -185,6 +185,7 @@ impl Core {
 			events.clone(),
 			device.clone(),
 			libraries.clone(),
+			volumes.clone(),
 		));
 
 		// 10. Initialize services, passing them the context

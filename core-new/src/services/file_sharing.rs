@@ -207,6 +207,8 @@ impl FileSharingService {
 			overwrite: options.overwrite,
 			verify_checksum: true,
 			preserve_timestamps: options.preserve_timestamps,
+			delete_after_copy: false,
+			move_mode: None,
 		});
 
 		// Submit job to job system
@@ -504,7 +506,11 @@ mod tests {
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
 		));
-		let context = Arc::new(CoreContext::new(events, device_manager, library_manager));
+		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
+			crate::volume::VolumeDetectionConfig::default(),
+			events.clone(),
+		));
+		let context = Arc::new(CoreContext::new(events, device_manager, library_manager, volume_manager));
 		let _file_sharing = FileSharingService::new(context);
 	}
 
@@ -525,7 +531,11 @@ mod tests {
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
 		));
-		let context = Arc::new(CoreContext::new(events, device_manager, library_manager));
+		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
+			crate::volume::VolumeDetectionConfig::default(),
+			events.clone(),
+		));
+		let context = Arc::new(CoreContext::new(events, device_manager, library_manager, volume_manager));
 		let file_sharing = FileSharingService::new(context);
 
 		// Create a temporary file

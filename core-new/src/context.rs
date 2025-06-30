@@ -5,6 +5,7 @@ use crate::{
     infrastructure::events::EventBus,
     services::networking::NetworkingService,
     library::LibraryManager,
+    volume::VolumeManager,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -15,6 +16,7 @@ pub struct CoreContext {
     pub events: Arc<EventBus>,
     pub device_manager: Arc<DeviceManager>,
     pub library_manager: Arc<LibraryManager>,
+    pub volume_manager: Arc<VolumeManager>,
     // This is wrapped in an RwLock to allow it to be set after initialization
     pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 }
@@ -25,11 +27,13 @@ impl CoreContext {
         events: Arc<EventBus>,
         device_manager: Arc<DeviceManager>,
         library_manager: Arc<LibraryManager>,
+        volume_manager: Arc<VolumeManager>,
     ) -> Self {
         Self {
             events,
             device_manager,
             library_manager,
+            volume_manager,
             networking: Arc::new(RwLock::new(None)),
         }
     }
