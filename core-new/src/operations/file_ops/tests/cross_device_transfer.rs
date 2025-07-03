@@ -2,7 +2,7 @@
 
 use crate::{
     infrastructure::api::{FileSharing, SharingTarget, SharingOptions, TransferId},
-    operations::file_ops::copy_job::FileCopyJob,
+    operations::file_ops::copy::FileCopyJob,
     shared::types::SdPath,
     device::DeviceManager,
 };

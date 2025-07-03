@@ -3,7 +3,7 @@
 use crate::{
     device::DeviceManager,
     services::networking::{NetworkingService, protocols::file_transfer::{FileTransferProtocolHandler, FileMetadata, TransferMode}},
-    operations::file_ops::copy_job::{FileCopyJob, CopyOptions},
+    operations::file_ops::copy::{FileCopyJob, CopyOptions},
     shared::types::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};

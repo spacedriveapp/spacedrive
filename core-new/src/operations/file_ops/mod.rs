@@ -7,10 +7,13 @@
 //! - Duplicate detection and analysis
 //! - File validation and integrity checking
 
-pub mod copy_job;
+pub mod copy;
 pub mod delete_job;
 pub mod duplicate_detection_job;
 pub mod validation_job;
+
+// Re-export the copy module types for easy access
+pub use copy::{FileCopyJob, CopyOptions, MoveMode, MoveJob};
 
 #[cfg(test)]
 mod tests;
