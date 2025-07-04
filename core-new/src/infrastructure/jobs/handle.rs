@@ -11,6 +11,7 @@ use sd_task_system::TaskHandle;
 use tokio::sync::{broadcast, watch, Mutex};
 
 /// Handle to a running job
+#[derive(Debug)]
 pub struct JobHandle {
     pub(crate) id: JobId,
     pub(crate) task_handle: Arc<Mutex<Option<TaskHandle<JobError>>>>,

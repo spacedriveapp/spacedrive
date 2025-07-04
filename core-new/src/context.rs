@@ -5,6 +5,7 @@
 use crate::{
 	device::DeviceManager, infrastructure::events::EventBus,
 	keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
+	operations::actions::manager::ActionManager,
 	services::networking::NetworkingService, volume::VolumeManager,
 };
 use std::sync::Arc;
@@ -19,6 +20,7 @@ pub struct CoreContext {
 	pub volume_manager: Arc<VolumeManager>,
 	pub library_key_manager: Arc<LibraryKeyManager>,
 	// This is wrapped in an RwLock to allow it to be set after initialization
+	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
 }
 
@@ -37,6 +39,7 @@ impl CoreContext {
 			library_manager,
 			volume_manager,
 			library_key_manager,
+			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
 		}
 	}
@@ -49,5 +52,15 @@ impl CoreContext {
 	/// Method for Core to set networking after it's initialized
 	pub async fn set_networking(&self, networking: Arc<NetworkingService>) {
 		*self.networking.write().await = Some(networking);
+	}
+
+	/// Helper method to get the action manager
+	pub async fn get_action_manager(&self) -> Option<Arc<ActionManager>> {
+		self.action_manager.read().await.clone()
+	}
+
+	/// Method for Core to set action manager after it's initialized
+	pub async fn set_action_manager(&self, action_manager: Arc<ActionManager>) {
+		*self.action_manager.write().await = Some(action_manager);
 	}
 }

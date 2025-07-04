@@ -7,6 +7,7 @@
 //! - Content operations (deduplication, statistics)
 //! - Metadata operations (hierarchical tagging)
 
+pub mod actions;
 pub mod content;
 pub mod file_ops;
 pub mod indexing;

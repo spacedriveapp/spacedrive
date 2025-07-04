@@ -3,6 +3,11 @@ use crate::{
 	infrastructure::{database::entities, jobs::types::JobStatus},
 	library::Library,
 	location::{create_location, LocationCreateArgs},
+	operations::{
+		actions::{Action, IndexMode as ActionIndexMode},
+		indexing::{IndexMode, IndexScope},
+	},
+	shared::types::SdPath,
 	Core,
 };
 use clap::{Subcommand, ValueEnum};
@@ -12,8 +17,9 @@ use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use std::{path::PathBuf, sync::Arc};
 use uuid::Uuid;
 
+// We need to create a wrapper for clap ValueEnum since the original IndexMode doesn't have it
 #[derive(Clone, Debug, ValueEnum)]
-pub enum IndexMode {
+pub enum CliIndexMode {
 	/// Only metadata (fast)
 	Shallow,
 	/// Metadata + content hashing
@@ -22,39 +28,40 @@ pub enum IndexMode {
 	Deep,
 }
 
+impl From<CliIndexMode> for IndexMode {
+	fn from(mode: CliIndexMode) -> Self {
+		match mode {
+			CliIndexMode::Shallow => IndexMode::Shallow,
+			CliIndexMode::Content => IndexMode::Content,
+			CliIndexMode::Deep => IndexMode::Deep,
+		}
+	}
+}
+
+impl From<CliIndexMode> for crate::location::IndexMode {
+	fn from(mode: CliIndexMode) -> Self {
+		match mode {
+			CliIndexMode::Shallow => crate::location::IndexMode::Shallow,
+			CliIndexMode::Content => crate::location::IndexMode::Content,
+			CliIndexMode::Deep => crate::location::IndexMode::Deep,
+		}
+	}
+}
+
+// We need to create a wrapper for clap ValueEnum since the original IndexScope doesn't have it
 #[derive(Clone, Debug, ValueEnum)]
-pub enum IndexScope {
+pub enum CliIndexScope {
 	/// Index only the current directory (single level)
 	Current,
 	/// Index recursively through all subdirectories
 	Recursive,
 }
 
-impl From<IndexMode> for crate::location::IndexMode {
-	fn from(mode: IndexMode) -> Self {
-		match mode {
-			IndexMode::Shallow => crate::location::IndexMode::Shallow,
-			IndexMode::Content => crate::location::IndexMode::Content,
-			IndexMode::Deep => crate::location::IndexMode::Deep,
-		}
-	}
-}
-
-impl From<IndexMode> for crate::operations::indexing::IndexMode {
-	fn from(mode: IndexMode) -> Self {
-		match mode {
-			IndexMode::Shallow => crate::operations::indexing::IndexMode::Shallow,
-			IndexMode::Content => crate::operations::indexing::IndexMode::Content,
-			IndexMode::Deep => crate::operations::indexing::IndexMode::Deep,
-		}
-	}
-}
-
-impl From<IndexScope> for crate::operations::indexing::IndexScope {
-	fn from(scope: IndexScope) -> Self {
+impl From<CliIndexScope> for crate::operations::indexing::IndexScope {
+	fn from(scope: CliIndexScope) -> Self {
 		match scope {
-			IndexScope::Current => crate::operations::indexing::IndexScope::Current,
-			IndexScope::Recursive => crate::operations::indexing::IndexScope::Recursive,
+			CliIndexScope::Current => crate::operations::indexing::IndexScope::Current,
+			CliIndexScope::Recursive => crate::operations::indexing::IndexScope::Recursive,
 		}
 	}
 }
@@ -67,7 +74,7 @@ pub enum IndexCommands {
 		path: PathBuf,
 		/// Scope: current or recursive
 		#[arg(short, long, value_enum, default_value = "current")]
-		scope: IndexScope,
+		scope: CliIndexScope,
 		/// Run ephemerally (no database writes)
 		#[arg(short, long)]
 		ephemeral: bool,
@@ -79,7 +86,7 @@ pub enum IndexCommands {
 		path: PathBuf,
 		/// Scope: current or recursive
 		#[arg(short, long, value_enum, default_value = "current")]
-		scope: IndexScope,
+		scope: CliIndexScope,
 		/// Enable content analysis
 		#[arg(short, long)]
 		content: bool,
@@ -91,10 +98,10 @@ pub enum IndexCommands {
 		identifier: String,
 		/// Indexing mode
 		#[arg(short, long, value_enum, default_value = "content")]
-		mode: IndexMode,
+		mode: CliIndexMode,
 		/// Scope: current or recursive
 		#[arg(short, long, value_enum, default_value = "recursive")]
-		scope: IndexScope,
+		scope: CliIndexScope,
 	},
 }
 
@@ -142,7 +149,7 @@ pub enum LocationCommands {
 		name: Option<String>,
 		/// Indexing mode
 		#[arg(short, long, value_enum, default_value = "content")]
-		mode: IndexMode,
+		mode: CliIndexMode,
 	},
 
 	/// List all locations in the current library
@@ -295,16 +302,58 @@ pub async fn handle_library_command(
 		LibraryCommands::Create { name, path } => {
 			println!("📚 Creating library '{}'...", name.bright_cyan());
 
-			let library = core.libraries.create_library(&name, path).await?;
-			let lib_id = library.id();
-			let lib_path = library.path().to_path_buf();
+			// Get the action manager from core context
+			let action_manager = core
+				.context
+				.get_action_manager()
+				.await
+				.ok_or("Action manager not available")?;
 
-			state.set_current_library(lib_id, lib_path.clone());
+			// Create the action
+			let action = Action::LibraryCreate {
+				name: name.clone(),
+				path: path.clone(),
+			};
 
-			println!("✅ Library created successfully!");
-			println!("   ID: {}", lib_id.to_string().bright_yellow());
-			println!("   Path: {}", lib_path.display().to_string().bright_blue());
-			println!("   Status: {}", "Active".bright_green());
+			// Dispatch the action
+			// For library creation, we don't have a library_id yet, so we'll use a placeholder
+			// The action manager will need to handle this case appropriately
+			match action_manager.dispatch(uuid::Uuid::nil(), action).await {
+				Ok(receipt) => {
+					if let Some(payload) = receipt.result_payload {
+						if let (Some(lib_id), Some(lib_path)) = (
+							payload
+								.get("library_id")
+								.and_then(|v| v.as_str())
+								.and_then(|s| uuid::Uuid::parse_str(s).ok()),
+							payload.get("path").and_then(|v| v.as_str()),
+						) {
+							state.set_current_library(lib_id, std::path::PathBuf::from(lib_path));
+
+							println!("✅ Library created successfully!");
+							println!("   ID: {}", lib_id.to_string().bright_yellow());
+							println!("   Path: {}", lib_path.bright_blue());
+							println!("   Status: {}", "Active".bright_green());
+						} else {
+							println!("✅ Library created successfully!");
+							println!(
+								"   Action ID: {}",
+								receipt.action_id.to_string().bright_yellow()
+							);
+						}
+					} else {
+						println!("✅ Library creation initiated!");
+						println!(
+							"   Action ID: {}",
+							receipt.action_id.to_string().bright_yellow()
+						);
+					}
+				}
+				Err(e) => {
+					println!("❌ Failed to create library: {}", e);
+					return Err(Box::new(e));
+				}
+			}
 		}
 
 		LibraryCommands::List => {
@@ -439,40 +488,84 @@ pub async fn handle_location_command(
 				path.display().to_string().bright_blue()
 			);
 
-			// Get device from database
-			let db = library.db();
-			let device = core.device.to_device()?;
+			// Get the action manager from core context
+			let action_manager = core
+				.context
+				.get_action_manager()
+				.await
+				.ok_or("Action manager not available")?;
 
-			let device_record = entities::device::Entity::find()
-				.filter(entities::device::Column::Uuid.eq(device.id))
-				.one(db.conn())
-				.await?
-				.ok_or("Device not registered in database")?;
-
-			// Create location
-			let location_args = LocationCreateArgs {
-				path: path.clone(),
-				name: name.clone(),
-				index_mode: mode.into(),
+			// Convert CliIndexMode to ActionIndexMode
+			let action_mode = match mode {
+				CliIndexMode::Shallow => ActionIndexMode::Shallow,
+				CliIndexMode::Content => ActionIndexMode::Deep, // Map Content to Deep for now
+				CliIndexMode::Deep => ActionIndexMode::Deep,
 			};
 
-			let location_id =
-				create_location(library, &core.events, location_args, device_record.id).await?;
+			// Create the action
+			let action = Action::LocationAdd {
+				library_id: library.id(),
+				path: path.clone(),
+				name: name.clone(),
+				mode: action_mode,
+			};
 
-			println!("✅ Location added successfully!");
-			println!("   ID: {}", location_id.to_string().bright_yellow());
-			println!(
-				"   Name: {}",
-				name.unwrap_or_else(|| path.file_name().unwrap().to_string_lossy().to_string())
-					.bright_cyan()
-			);
-			println!("   Path: {}", path.display().to_string().bright_blue());
-			println!("   Status: {} (job dispatched)", "Indexing".bright_yellow());
+			// Dispatch the action
+			match action_manager.dispatch(library.id(), action).await {
+				Ok(receipt) => {
+					if let Some(payload) = receipt.result_payload {
+						if let Some(location_id) =
+							payload.get("location_id").and_then(|v| v.as_str())
+						{
+							println!("✅ Location added successfully!");
+							println!("   ID: {}", location_id.bright_yellow());
+							println!(
+								"   Name: {}",
+								name.unwrap_or_else(|| path
+									.file_name()
+									.unwrap()
+									.to_string_lossy()
+									.to_string())
+									.bright_cyan()
+							);
+							println!("   Path: {}", path.display().to_string().bright_blue());
 
-			println!(
-				"\n💡 Tip: Monitor indexing progress with: {}",
-				"spacedrive job monitor".bright_cyan()
-			);
+							if receipt.job_handle.is_some() {
+								println!(
+									"   Status: {} (job dispatched)",
+									"Indexing".bright_yellow()
+								);
+								println!(
+									"\n💡 Tip: Monitor indexing progress with: {}",
+									"spacedrive job monitor".bright_cyan()
+								);
+							} else {
+								println!("   Status: {}", "Ready".bright_green());
+							}
+						} else {
+							println!("✅ Location addition initiated!");
+							println!(
+								"   Action ID: {}",
+								receipt.action_id.to_string().bright_yellow()
+							);
+						}
+					} else if receipt.job_handle.is_some() {
+						println!("✅ Location addition job started!");
+						println!(
+							"   Action ID: {}",
+							receipt.action_id.to_string().bright_yellow()
+						);
+						println!(
+							"\n💡 Tip: Monitor progress with: {}",
+							"spacedrive job monitor".bright_cyan()
+						);
+					}
+				}
+				Err(e) => {
+					println!("❌ Failed to add location: {}", e);
+					return Err(Box::new(e));
+				}
+			}
 		}
 
 		LocationCommands::List => {
@@ -766,22 +859,17 @@ pub async fn handle_network_command(
 	}
 
 	match cmd {
-		NetworkCommands::Init => {
-			match client
-				.send_command(DaemonCommand::InitNetworking)
-				.await?
-			{
-				crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
-					println!("{} Networking initialized successfully", "✓".green());
-				}
-				crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
-					println!("{} {}", "✗".red(), err);
-				}
-				_ => {
-					println!("{} Unexpected response", "✗".red());
-				}
+		NetworkCommands::Init => match client.send_command(DaemonCommand::InitNetworking).await? {
+			crate::infrastructure::cli::daemon::DaemonResponse::Ok => {
+				println!("{} Networking initialized successfully", "✓".green());
 			}
-		}
+			crate::infrastructure::cli::daemon::DaemonResponse::Error(err) => {
+				println!("{} {}", "✗".red(), err);
+			}
+			_ => {
+				println!("{} Unexpected response", "✗".red());
+			}
+		},
 
 		NetworkCommands::Start => {
 			match client.send_command(DaemonCommand::StartNetworking).await? {
@@ -824,19 +912,19 @@ pub async fn handle_network_command(
 					} else {
 						println!("🌐 Connected Devices ({}):", devices.len());
 						println!();
-						
+
 						let mut table = Table::new();
 						table.load_preset(UTF8_FULL);
 						table.set_header(vec![
-							"Device ID", 
-							"Name", 
+							"Device ID",
+							"Name",
 							"Type",
-							"OS", 
+							"OS",
 							"App Version",
 							"Peer ID",
-							"Status", 
+							"Status",
 							"Active",
-							"Last Seen"
+							"Last Seen",
 						]);
 
 						for device in &devices {
@@ -845,7 +933,7 @@ pub async fn handle_network_command(
 							} else {
 								"🔴 Disconnected".red()
 							};
-							
+
 							let active_indicator = if device.connection_active {
 								"✓".green()
 							} else {
@@ -858,7 +946,10 @@ pub async fn handle_network_command(
 								Cell::new(&device.device_type),
 								Cell::new(&device.os_version),
 								Cell::new(&device.app_version),
-								Cell::new(&format!("{}...", &device.peer_id[..std::cmp::min(8, device.peer_id.len())])),
+								Cell::new(&format!(
+									"{}...",
+									&device.peer_id[..std::cmp::min(8, device.peer_id.len())]
+								)),
 								Cell::new(&status_color.to_string()),
 								Cell::new(&active_indicator.to_string()),
 								Cell::new(&device.last_seen),
@@ -866,19 +957,26 @@ pub async fn handle_network_command(
 						}
 
 						println!("{}", table);
-						
+
 						// Show summary stats if we have active connections
-						let active_connections = devices.iter().filter(|d| d.connection_active).count();
+						let active_connections =
+							devices.iter().filter(|d| d.connection_active).count();
 						if active_connections > 0 {
 							println!();
 							println!("📊 Connection Summary:");
-							println!("   • Active connections: {}/{}", active_connections, devices.len());
-							
+							println!(
+								"   • Active connections: {}/{}",
+								active_connections,
+								devices.len()
+							);
+
 							let total_sent: u64 = devices.iter().map(|d| d.bytes_sent).sum();
-							let total_received: u64 = devices.iter().map(|d| d.bytes_received).sum();
-							
+							let total_received: u64 =
+								devices.iter().map(|d| d.bytes_received).sum();
+
 							if total_sent > 0 || total_received > 0 {
-								println!("   • Data transferred: {} sent, {} received", 
+								println!(
+									"   • Data transferred: {} sent, {} received",
 									format_bytes(total_sent),
 									format_bytes(total_received)
 								);
@@ -990,10 +1088,9 @@ pub async fn handle_network_command(
 	Ok(())
 }
 
-
 pub async fn handle_legacy_scan_command(
 	path: PathBuf,
-	mode: IndexMode,
+	mode: CliIndexMode,
 	watch: bool,
 	core: &Core,
 	state: &mut CliState,

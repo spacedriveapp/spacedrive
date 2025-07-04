@@ -30,6 +30,7 @@ use crate::context::CoreContext;
 use crate::device::DeviceManager;
 use crate::infrastructure::events::{Event, EventBus};
 use crate::library::LibraryManager;
+use crate::operations::actions::manager::ActionManager;
 use crate::services::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
 use std::path::PathBuf;
@@ -126,6 +127,9 @@ pub struct Core {
 
 	/// Container for high-level services
 	pub services: Services,
+	
+	/// Shared context for core components
+	pub context: Arc<CoreContext>,
 }
 
 impl Core {
@@ -201,7 +205,11 @@ impl Core {
 			Err(e) => error!("Failed to start services: {}", e),
 		}
 
-		// 12. Emit startup event
+		// 12. Initialize ActionManager and set it in context
+		let action_manager = Arc::new(crate::operations::actions::manager::ActionManager::new(context.clone()));
+		context.set_action_manager(action_manager).await;
+
+		// 13. Emit startup event
 		events.emit(Event::CoreStarted);
 
 		Ok(Self {
@@ -211,6 +219,7 @@ impl Core {
 			volumes,
 			events,
 			services,
+			context,
 		})
 	}
 
