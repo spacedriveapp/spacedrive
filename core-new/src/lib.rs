@@ -30,7 +30,7 @@ use crate::context::CoreContext;
 use crate::device::DeviceManager;
 use crate::infrastructure::events::{Event, EventBus};
 use crate::library::LibraryManager;
-use crate::operations::actions::manager::ActionManager;
+use crate::infrastructure::actions::manager::ActionManager;
 use crate::services::Services;
 use crate::volume::{VolumeDetectionConfig, VolumeManager};
 use std::path::PathBuf;
@@ -206,7 +206,7 @@ impl Core {
 		}
 
 		// 12. Initialize ActionManager and set it in context
-		let action_manager = Arc::new(crate::operations::actions::manager::ActionManager::new(context.clone()));
+		let action_manager = Arc::new(crate::infrastructure::actions::manager::ActionManager::new(context.clone()));
 		context.set_action_manager(action_manager).await;
 
 		// 13. Emit startup event

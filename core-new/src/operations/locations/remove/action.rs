@@ -1,0 +1,74 @@
+//! Location remove action handler
+
+use crate::{
+    context::CoreContext,
+    location::manager::LocationManager,
+    infrastructure::actions::{
+        Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+    },
+    register_action_handler,
+};
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocationRemoveAction {
+    pub location_id: Uuid,
+}
+
+pub struct LocationRemoveHandler;
+
+impl LocationRemoveHandler {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[async_trait]
+impl ActionHandler for LocationRemoveHandler {
+    async fn execute(
+        &self,
+        context: Arc<CoreContext>,
+        action: Action,
+    ) -> ActionResult<ActionReceipt> {
+        if let Action::LocationRemove { library_id, action } = action {
+            let library_manager = &context.library_manager;
+            
+            // Get the specific library
+            let library = library_manager
+                .get_library(library_id)
+                .await
+                .ok_or(ActionError::LibraryNotFound(library_id))?;
+
+            // Remove the location
+            let location_manager = LocationManager::new(context.events.as_ref().clone());
+            location_manager
+                .remove_location(&library, action.location_id)
+                .await
+                .map_err(|e| ActionError::Internal(e.to_string()))?;
+
+            Ok(ActionReceipt::immediate(
+                Uuid::new_v4(),
+                Some(serde_json::json!({
+                    "location_id": action.location_id,
+                    "removed": true
+                })),
+            ))
+        } else {
+            Err(ActionError::InvalidActionType)
+        }
+    }
+
+    fn can_handle(&self, action: &Action) -> bool {
+        matches!(action, Action::LocationRemove { .. })
+    }
+
+    fn supported_actions() -> &'static [&'static str] {
+        &["location.remove"]
+    }
+}
+
+// Register this handler
+register_action_handler!(LocationRemoveHandler, "location.remove");

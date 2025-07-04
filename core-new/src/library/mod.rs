@@ -176,7 +176,7 @@ impl Library {
     
     /// Start thumbnail generation job
     pub async fn generate_thumbnails(&self, entry_ids: Option<Vec<Uuid>>) -> Result<crate::infrastructure::jobs::handle::JobHandle> {
-        use crate::operations::media_processing::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
+        use crate::operations::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
         
         let config = ThumbnailJobConfig {
             sizes: self.config().await.settings.thumbnail_sizes.clone(),

@@ -8,6 +8,7 @@
 //! - Comprehensive error handling
 //! - Performance monitoring and metrics
 
+pub mod action;
 pub mod job;
 pub mod state;
 pub mod entry;
@@ -29,6 +30,7 @@ pub use entry::{EntryProcessor, EntryMetadata};
 pub use filters::should_skip_path;
 pub use metrics::IndexerMetrics;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
+pub use action::IndexingAction;
 
 // Rules system will be integrated here in the future
 // pub mod rules;

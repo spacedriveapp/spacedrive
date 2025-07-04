@@ -2,7 +2,7 @@
 
 use sd_core_new::{
 	infrastructure::jobs::{prelude::*, registry::REGISTRY},
-	operations::file_ops::copy::FileCopyJob,
+	operations::files::copy::job::FileCopyJob,
 	shared::types::SdPath,
 };
 use uuid::Uuid;
@@ -23,7 +23,7 @@ async fn test_job_registration() {
 	let schema = schema.unwrap();
 	assert_eq!(schema.name, "file_copy");
 	assert_eq!(schema.resumable, true);
-	assert_eq!(schema.description, Some("Copy files to a destination"));
+	assert_eq!(schema.description, Some("Copy or move files to a destination"));
 }
 
 #[tokio::test]

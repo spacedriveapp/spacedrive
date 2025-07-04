@@ -1,5 +1,7 @@
 //! Content operations for library-scoped content management
 
+pub mod action;
+
 use chrono::{DateTime, Utc};
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
@@ -10,6 +12,8 @@ use crate::infrastructure::database::entities::{
 	content_identity::{self, Entity as ContentIdentity, Model as ContentIdentityModel},
 	entry::{self, Entity as Entry, Model as EntryModel},
 };
+
+pub use action::ContentAction;
 use crate::shared::errors::Result;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

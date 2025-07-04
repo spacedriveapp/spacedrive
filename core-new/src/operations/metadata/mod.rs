@@ -1,5 +1,7 @@
 //! Metadata operations for hierarchical metadata management
 
+pub mod action;
+
 use chrono::{DateTime, Utc};
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
@@ -18,6 +20,8 @@ use crate::infrastructure::database::entities::{
 		self, ActiveModel as UserMetadataTagActiveModel, Entity as UserMetadataTag,
 	},
 };
+
+pub use action::MetadataAction;
 use crate::shared::errors::Result;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

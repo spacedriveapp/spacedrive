@@ -7,11 +7,12 @@
 //! - Content operations (deduplication, statistics)
 //! - Metadata operations (hierarchical tagging)
 
-pub mod actions;
 pub mod content;
-pub mod file_ops;
+pub mod files;
+pub mod libraries;
+pub mod locations;
 pub mod indexing;
-pub mod media_processing;
+pub mod media;
 pub mod metadata;
 
 /// Register all jobs with the job system
@@ -19,17 +20,17 @@ pub mod metadata;
 /// This should be called during core initialization to register all available job types
 pub fn register_all_jobs() {
 	// File operation jobs
-	register_job::<file_ops::copy::FileCopyJob>();
-	register_job::<file_ops::copy::MoveJob>();
-	register_job::<file_ops::delete_job::DeleteJob>();
-	register_job::<file_ops::duplicate_detection_job::DuplicateDetectionJob>();
-	register_job::<file_ops::validation_job::ValidationJob>();
+	register_job::<files::copy::FileCopyJob>();
+	register_job::<files::copy::MoveJob>();
+	register_job::<files::delete::DeleteJob>();
+	register_job::<files::duplicate_detection::DuplicateDetectionJob>();
+	register_job::<files::validation::ValidationJob>();
 
 	// Indexing jobs
 	register_job::<indexing::IndexerJob>();
 
 	// Media processing jobs
-	register_job::<media_processing::ThumbnailJob>();
+	register_job::<media::ThumbnailJob>();
 }
 
 /// Register a single job type with the job system

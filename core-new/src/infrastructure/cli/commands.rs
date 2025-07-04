@@ -3,8 +3,8 @@ use crate::{
 	infrastructure::{database::entities, jobs::types::JobStatus},
 	library::Library,
 	location::{create_location, LocationCreateArgs},
+	infrastructure::actions::Action,
 	operations::{
-		actions::{Action, IndexMode as ActionIndexMode},
 		indexing::{IndexMode, IndexScope},
 	},
 	shared::types::SdPath,
@@ -310,15 +310,15 @@ pub async fn handle_library_command(
 				.ok_or("Action manager not available")?;
 
 			// Create the action
-			let action = Action::LibraryCreate {
-				name: name.clone(),
-				path: path.clone(),
-			};
+			let action = Action::LibraryCreate(
+				crate::operations::libraries::create::action::LibraryCreateAction {
+					name: name.clone(),
+					path: path.clone(),
+				}
+			);
 
 			// Dispatch the action
-			// For library creation, we don't have a library_id yet, so we'll use a placeholder
-			// The action manager will need to handle this case appropriately
-			match action_manager.dispatch(uuid::Uuid::nil(), action).await {
+			match action_manager.dispatch(action).await {
 				Ok(receipt) => {
 					if let Some(payload) = receipt.result_payload {
 						if let (Some(lib_id), Some(lib_path)) = (
@@ -495,23 +495,25 @@ pub async fn handle_location_command(
 				.await
 				.ok_or("Action manager not available")?;
 
-			// Convert CliIndexMode to ActionIndexMode
+			// Convert CliIndexMode to IndexMode
 			let action_mode = match mode {
-				CliIndexMode::Shallow => ActionIndexMode::Shallow,
-				CliIndexMode::Content => ActionIndexMode::Deep, // Map Content to Deep for now
-				CliIndexMode::Deep => ActionIndexMode::Deep,
+				CliIndexMode::Shallow => IndexMode::Shallow,
+				CliIndexMode::Content => IndexMode::Content,
+				CliIndexMode::Deep => IndexMode::Deep,
 			};
 
 			// Create the action
 			let action = Action::LocationAdd {
 				library_id: library.id(),
-				path: path.clone(),
-				name: name.clone(),
-				mode: action_mode,
+				action: crate::operations::locations::add::action::LocationAddAction {
+					path: path.clone(),
+					name: name.clone(),
+					mode: action_mode,
+				}
 			};
 
 			// Dispatch the action
-			match action_manager.dispatch(library.id(), action).await {
+			match action_manager.dispatch(action).await {
 				Ok(receipt) => {
 					if let Some(payload) = receipt.result_payload {
 						if let Some(location_id) =

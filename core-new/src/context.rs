@@ -5,7 +5,7 @@
 use crate::{
 	device::DeviceManager, infrastructure::events::EventBus,
 	keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
-	operations::actions::manager::ActionManager,
+	infrastructure::actions::manager::ActionManager,
 	services::networking::NetworkingService, volume::VolumeManager,
 };
 use std::sync::Arc;

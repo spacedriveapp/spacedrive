@@ -2,7 +2,7 @@
 
 use crate::{
 	context::CoreContext,
-	operations::file_ops::copy::{CopyOptions, FileCopyJob},
+	operations::files::copy::{CopyOptions, FileCopyJob},
 	services::networking::protocols::file_transfer::FileMetadata,
 	shared::types::SdPath,
 };
