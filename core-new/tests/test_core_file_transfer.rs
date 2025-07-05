@@ -3,7 +3,7 @@
 //! This test demonstrates cross-device file sharing functionality where Alice
 //! (sender) pairs with Bob (receiver) and transfers multiple test files.
 
-use sd_core_new::test_framework_new::CargoTestRunner;
+use sd_core_new::test_framework::CargoTestRunner;
 use sd_core_new::Core;
 use std::env;
 use std::path::PathBuf;
