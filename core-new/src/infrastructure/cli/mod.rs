@@ -1,3 +1,4 @@
+pub mod adapters;
 pub mod commands;
 pub mod daemon;
 pub mod monitor;
@@ -92,6 +93,9 @@ pub enum Commands {
 	/// Manage device networking and connections
 	#[command(subcommand)]
 	Network(commands::NetworkCommands),
+
+	/// Copy files using the action system
+	Copy(adapters::FileCopyCliArgs),
 }
 
 #[derive(Subcommand, Clone)]
@@ -229,6 +233,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		Commands::Job(cmd) => commands::handle_job_command(cmd, &core, &mut state).await?,
 		Commands::Index(cmd) => commands::handle_index_command(cmd, &core, &mut state).await?,
 		Commands::Network(cmd) => commands::handle_network_command(cmd, &core, &mut state).await?,
+		Commands::Copy(args) => {
+			commands::handle_copy_command(args, &core, &mut state).await?
+		}
 		Commands::Scan { path, mode, watch } => {
 			commands::handle_legacy_scan_command(path, mode, watch, &core, &mut state).await?
 		}

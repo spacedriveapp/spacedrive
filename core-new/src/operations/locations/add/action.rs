@@ -6,7 +6,7 @@ use crate::{
     location::manager::LocationManager,
     infrastructure::{
         actions::{
-            Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+            Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
         },
     },
     operations::{
@@ -66,7 +66,7 @@ impl ActionHandler for LocationAddHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let Action::LocationAdd { library_id, action } = action {
             let library_manager = &context.library_manager;
             
@@ -121,15 +121,7 @@ impl ActionHandler for LocationAddHandler {
                 Some(job_handle)
             };
 
-            Ok(ActionReceipt::hybrid(
-                Uuid::new_v4(),
-                Some(serde_json::json!({
-                    "location_id": location_id,
-                    "name": location_name,
-                    "path": action.path.display().to_string()
-                })),
-                job_handle,
-            ))
+            Ok(ActionOutput::location_add(location_id, action.path))
         } else {
             Err(ActionError::InvalidActionType)
         }

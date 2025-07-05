@@ -1,6 +1,7 @@
 //! Modular file copy operations using the Strategy Pattern
 
 pub mod action;
+pub mod input;
 pub mod job;
 pub mod routing;
 pub mod strategy;

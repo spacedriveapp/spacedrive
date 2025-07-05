@@ -4,7 +4,7 @@ use crate::{
     context::CoreContext,
     location::manager::LocationManager,
     infrastructure::actions::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
     },
     register_action_handler,
 };
@@ -32,7 +32,7 @@ impl ActionHandler for LocationRemoveHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let Action::LocationRemove { library_id, action } = action {
             let library_manager = &context.library_manager;
             
@@ -49,13 +49,7 @@ impl ActionHandler for LocationRemoveHandler {
                 .await
                 .map_err(|e| ActionError::Internal(e.to_string()))?;
 
-            Ok(ActionReceipt::immediate(
-                Uuid::new_v4(),
-                Some(serde_json::json!({
-                    "location_id": action.location_id,
-                    "removed": true
-                })),
-            ))
+            Ok(ActionOutput::location_remove(action.location_id))
         } else {
             Err(ActionError::InvalidActionType)
         }

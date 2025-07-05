@@ -4,7 +4,7 @@ use crate::{
     context::CoreContext,
     infrastructure::{
         actions::{
-            Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+            Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
         },
     },
     operations::{
@@ -38,7 +38,7 @@ impl ActionHandler for LocationIndexHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let Action::LocationIndex { library_id, action } = action {
             let library_manager = &context.library_manager;
             
@@ -62,7 +62,7 @@ impl ActionHandler for LocationIndexHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionReceipt::job_based(Uuid::new_v4(), job_handle))
+            Ok(ActionOutput::Success)
         } else {
             Err(ActionError::InvalidActionType)
         }

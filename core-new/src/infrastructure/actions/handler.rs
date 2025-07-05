@@ -1,6 +1,6 @@
 //! Action handler trait and related types
 
-use super::{Action, error::ActionResult, receipt::ActionReceipt};
+use super::{Action, error::ActionResult, output::ActionOutput};
 use crate::context::CoreContext;
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -8,12 +8,12 @@ use std::sync::Arc;
 /// Trait that all action handlers must implement
 #[async_trait]
 pub trait ActionHandler: Send + Sync {
-    /// Execute the action and return a receipt
+    /// Execute the action and return output
     async fn execute(
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt>;
+    ) -> ActionResult<ActionOutput>;
     
     /// Validate the action before execution (optional)
     async fn validate(

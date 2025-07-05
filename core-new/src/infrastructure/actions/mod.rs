@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+pub mod builder;
 pub mod error;
 pub mod handler;
 pub mod manager;
+pub mod output;
 pub mod receipt;
 pub mod registry;
 #[cfg(test)]

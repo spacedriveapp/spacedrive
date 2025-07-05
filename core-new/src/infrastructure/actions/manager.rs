@@ -1,7 +1,7 @@
 //! Action manager - central router for all actions
 
 use super::{
-    Action, error::{ActionError, ActionResult}, receipt::ActionReceipt, registry::REGISTRY,
+    Action, error::{ActionError, ActionResult}, output::ActionOutput, registry::REGISTRY,
 };
 use crate::{
     context::CoreContext,
@@ -27,7 +27,7 @@ impl ActionManager {
     pub async fn dispatch(
         &self,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         // 1. Find the correct handler in the registry
         let handler = REGISTRY
             .get(action.kind())
@@ -87,7 +87,7 @@ impl ActionManager {
     async fn finalize_audit_log(
         &self,
         mut entry: audit_log::Model,
-        result: &ActionResult<ActionReceipt>,
+        result: &ActionResult<ActionOutput>,
     ) -> ActionResult<()> {
         // We need to get the library_id to update the audit log
         // For now, we'll need to store this in the audit entry or pass it through
@@ -100,11 +100,17 @@ impl ActionManager {
         let db = library.db().conn();
 
         match result {
-            Ok(receipt) => {
+            Ok(output) => {
                 entry.status = audit_log::ActionStatus::Completed;
                 entry.completed_at = Some(chrono::Utc::now());
-                entry.job_id = receipt.job_handle.as_ref().map(|h| h.id().0);
-                entry.result_payload = receipt.result_payload.clone().map(Into::into);
+                // Extract job_id from output if it contains one
+                entry.job_id = match output {
+                    ActionOutput::FileCopyDispatched { job_id, .. } => Some(*job_id),
+                    ActionOutput::FileDeleteDispatched { job_id, .. } => Some(*job_id),
+                    ActionOutput::FileIndexDispatched { job_id, .. } => Some(*job_id),
+                    _ => None,
+                };
+                entry.result_payload = Some(serde_json::to_value(output).unwrap_or(serde_json::Value::Null));
             }
             Err(error) => {
                 entry.status = audit_log::ActionStatus::Failed;

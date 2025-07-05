@@ -3,7 +3,7 @@
 use crate::{
     context::CoreContext,
     infrastructure::actions::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
     },
     register_action_handler,
     shared::types::{SdPath, SdPathBatch},
@@ -52,7 +52,7 @@ impl ActionHandler for FileDeleteHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let Action::FileDelete { library_id, action } = action {
             let library_manager = &context.library_manager;
             
@@ -62,7 +62,8 @@ impl ActionHandler for FileDeleteHandler {
                 .await
                 .ok_or(ActionError::LibraryNotFound(library_id))?;
             
-            // Create job instance directly
+            // Create job instance directly (no JSON roundtrip)
+            let targets_count = action.targets.len();
             let targets = action.targets
                 .into_iter()
                 .map(|path| SdPath::local(path))
@@ -83,7 +84,8 @@ impl ActionHandler for FileDeleteHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionReceipt::job_based(Uuid::new_v4(), job_handle))
+            // Return action output instead of receipt
+            Ok(ActionOutput::file_delete_dispatched(job_handle.id().into(), targets_count))
         } else {
             Err(ActionError::InvalidActionType)
         }

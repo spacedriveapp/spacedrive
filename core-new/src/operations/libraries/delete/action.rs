@@ -3,7 +3,7 @@
 use crate::{
     context::CoreContext,
     infrastructure::actions::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, receipt::ActionReceipt,
+        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
     },
     register_action_handler,
 };
@@ -31,7 +31,7 @@ impl ActionHandler for LibraryDeleteHandler {
         &self,
         context: Arc<CoreContext>,
         action: Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let Action::LibraryDelete(action) = action {
             // For now, library deletion is not implemented in the library manager
             // This would need to be implemented as a proper method

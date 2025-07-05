@@ -3,8 +3,12 @@ use crate::{
 	infrastructure::{database::entities, jobs::types::JobStatus},
 	library::Library,
 	location::{create_location, LocationCreateArgs},
-	infrastructure::actions::Action,
+	infrastructure::{
+		actions::{Action, builder::ActionBuilder},
+		cli::adapters::FileCopyCliArgs,
+	},
 	operations::{
+		files::copy::action::FileCopyActionBuilder,
 		indexing::{IndexMode, IndexScope},
 	},
 	shared::types::SdPath,
@@ -319,34 +323,21 @@ pub async fn handle_library_command(
 
 			// Dispatch the action
 			match action_manager.dispatch(action).await {
-				Ok(receipt) => {
-					if let Some(payload) = receipt.result_payload {
-						if let (Some(lib_id), Some(lib_path)) = (
-							payload
-								.get("library_id")
-								.and_then(|v| v.as_str())
-								.and_then(|s| uuid::Uuid::parse_str(s).ok()),
-							payload.get("path").and_then(|v| v.as_str()),
-						) {
-							state.set_current_library(lib_id, std::path::PathBuf::from(lib_path));
+				Ok(output) => {
+					match output {
+						crate::infrastructure::actions::output::ActionOutput::LibraryCreate { library_id, name, path } => {
+							state.set_current_library(library_id, path.clone());
 
 							println!("✅ Library created successfully!");
-							println!("   ID: {}", lib_id.to_string().bright_yellow());
-							println!("   Path: {}", lib_path.bright_blue());
+							println!("   ID: {}", library_id.to_string().bright_yellow());
+							println!("   Name: {}", name.bright_blue());
+							println!("   Path: {}", path.display().to_string().bright_blue());
 							println!("   Status: {}", "Active".bright_green());
-						} else {
-							println!("✅ Library created successfully!");
-							println!(
-								"   Action ID: {}",
-								receipt.action_id.to_string().bright_yellow()
-							);
 						}
-					} else {
-						println!("✅ Library creation initiated!");
-						println!(
-							"   Action ID: {}",
-							receipt.action_id.to_string().bright_yellow()
-						);
+						_ => {
+							println!("✅ Library created successfully!");
+							println!("   Output: {}", output);
+						}
 					}
 				}
 				Err(e) => {
@@ -514,13 +505,11 @@ pub async fn handle_location_command(
 
 			// Dispatch the action
 			match action_manager.dispatch(action).await {
-				Ok(receipt) => {
-					if let Some(payload) = receipt.result_payload {
-						if let Some(location_id) =
-							payload.get("location_id").and_then(|v| v.as_str())
-						{
+				Ok(output) => {
+					match output {
+						crate::infrastructure::actions::output::ActionOutput::LocationAdd { location_id, path: location_path } => {
 							println!("✅ Location added successfully!");
-							println!("   ID: {}", location_id.bright_yellow());
+							println!("   ID: {}", location_id.to_string().bright_yellow());
 							println!(
 								"   Name: {}",
 								name.unwrap_or_else(|| path
@@ -530,37 +519,13 @@ pub async fn handle_location_command(
 									.to_string())
 									.bright_cyan()
 							);
-							println!("   Path: {}", path.display().to_string().bright_blue());
-
-							if receipt.job_handle.is_some() {
-								println!(
-									"   Status: {} (job dispatched)",
-									"Indexing".bright_yellow()
-								);
-								println!(
-									"\n💡 Tip: Monitor indexing progress with: {}",
-									"spacedrive job monitor".bright_cyan()
-								);
-							} else {
-								println!("   Status: {}", "Ready".bright_green());
-							}
-						} else {
-							println!("✅ Location addition initiated!");
-							println!(
-								"   Action ID: {}",
-								receipt.action_id.to_string().bright_yellow()
-							);
+							println!("   Path: {}", location_path.display().to_string().bright_blue());
+							println!("   Status: {}", "Ready".bright_green());
 						}
-					} else if receipt.job_handle.is_some() {
-						println!("✅ Location addition job started!");
-						println!(
-							"   Action ID: {}",
-							receipt.action_id.to_string().bright_yellow()
-						);
-						println!(
-							"\n💡 Tip: Monitor progress with: {}",
-							"spacedrive job monitor".bright_cyan()
-						);
+						_ => {
+							println!("✅ Location added successfully!");
+							println!("   Output: {}", output);
+						}
 					}
 				}
 				Err(e) => {
@@ -1402,4 +1367,88 @@ fn format_bytes(bytes: u64) -> String {
 	}
 
 	format!("{:.2} {}", size, UNITS[unit_index])
+}
+
+/// Handle file copy command using the builder pattern with input abstraction
+pub async fn handle_copy_command(
+	args: FileCopyCliArgs,
+	core: &Core,
+	state: &mut CliState,
+) -> Result<(), Box<dyn std::error::Error>> {
+	use colored::Colorize;
+
+	// Get the current library
+	let library = get_current_library(core, state).await?;
+	let library_id = library.id();
+
+	// Convert CLI args to core input and validate
+	let input = match args.validate_and_convert() {
+		Ok(input) => input,
+		Err(e) => {
+			println!("❌ Invalid copy operation: {}", e);
+			return Ok(());
+		}
+	};
+
+	println!("📁 {}", input.summary().bright_cyan());
+
+	// Use the builder pattern to create the action
+	let action = match FileCopyActionBuilder::from_input(input.clone()).build() {
+		Ok(action) => action,
+		Err(e) => {
+			println!("❌ Failed to build copy action: {}", e);
+			return Ok(());
+		}
+	};
+
+	// Create the full Action enum
+	let full_action = Action::FileCopy {
+		library_id,
+		action,
+	};
+
+	// Get the action manager and dispatch the action
+	let action_manager = core
+		.context
+		.get_action_manager()
+		.await
+		.ok_or("Action manager not available")?;
+
+	// Dispatch the action and handle the result
+	match action_manager.dispatch(full_action).await {
+		Ok(output) => {
+			match output {
+				crate::infrastructure::actions::output::ActionOutput::FileCopyDispatched { job_id, sources_count } => {
+					println!("✅ {} operation dispatched successfully!", 
+						if input.move_files { "Move" } else { "Copy" });
+					println!("   Job ID: {}", job_id.to_string().bright_yellow());
+					println!("   Sources: {} file(s)", sources_count);
+					println!("   Destination: {}", input.destination.display().to_string().bright_blue());
+					
+					if input.overwrite {
+						println!("   Mode: {} existing files", "Overwrite".bright_red());
+					}
+					if input.verify_checksum {
+						println!("   Verification: {}", "Enabled".bright_green());
+					}
+					if input.move_files {
+						println!("   Type: {} (delete source after copy)", "Move".bright_yellow());
+					}
+
+					println!("\n💡 Tip: Monitor progress with: {}", 
+						"spacedrive job monitor".bright_cyan());
+				}
+				_ => {
+					println!("✅ Copy operation completed!");
+					println!("   Output: {}", output);
+				}
+			}
+		}
+		Err(e) => {
+			println!("❌ Failed to copy files: {}", e);
+			return Err(Box::new(e));
+		}
+	}
+
+	Ok(())
 }

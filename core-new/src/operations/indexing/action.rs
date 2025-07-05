@@ -5,7 +5,7 @@ use crate::{
     infrastructure::actions::{
         error::{ActionError, ActionResult}, 
         handler::ActionHandler, 
-        receipt::ActionReceipt,
+        output::ActionOutput,
     },
     register_action_handler,
     shared::types::SdPath,
@@ -54,7 +54,7 @@ impl ActionHandler for IndexingHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infrastructure::actions::Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let crate::infrastructure::actions::Action::Index { library_id, action } = action {
             let library_manager = &context.library_manager;
             
@@ -84,7 +84,7 @@ impl ActionHandler for IndexingHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionReceipt::job_based(Uuid::new_v4(), job_handle))
+            Ok(ActionOutput::Success)
         } else {
             Err(ActionError::InvalidActionType)
         }

@@ -5,7 +5,7 @@ use crate::{
     infrastructure::actions::{
         error::{ActionError, ActionResult}, 
         handler::ActionHandler, 
-        receipt::ActionReceipt,
+        output::ActionOutput,
     },
     register_action_handler,
 };
@@ -52,19 +52,16 @@ impl ActionHandler for LibraryCreateHandler {
         &self,
         context: Arc<CoreContext>,
         action: crate::infrastructure::actions::Action,
-    ) -> ActionResult<ActionReceipt> {
+    ) -> ActionResult<ActionOutput> {
         if let crate::infrastructure::actions::Action::LibraryCreate(action) = action {
             let library_manager = &context.library_manager;
-            let new_library = library_manager.create_library(action.name, action.path).await?;
+            let new_library = library_manager.create_library(action.name.clone(), action.path.clone()).await?;
 
             let library_name = new_library.name().await;
-            Ok(ActionReceipt::immediate(
-                Uuid::new_v4(),
-                Some(serde_json::json!({
-                    "library_id": new_library.id(),
-                    "name": library_name,
-                    "path": new_library.path().display().to_string()
-                })),
+            Ok(ActionOutput::library_create(
+                new_library.id(),
+                library_name,
+                new_library.path().to_path_buf(),
             ))
         } else {
             Err(ActionError::InvalidActionType)
