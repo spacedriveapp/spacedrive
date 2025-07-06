@@ -84,7 +84,7 @@ impl ActionHandler for IndexingHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("Indexing job dispatched successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }

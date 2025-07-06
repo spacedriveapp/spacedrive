@@ -79,7 +79,7 @@ impl ActionHandler for ThumbnailHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("Thumbnail generation job dispatched successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }

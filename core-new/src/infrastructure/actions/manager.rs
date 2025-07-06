@@ -103,13 +103,10 @@ impl ActionManager {
             Ok(output) => {
                 entry.status = audit_log::ActionStatus::Completed;
                 entry.completed_at = Some(chrono::Utc::now());
-                // Extract job_id from output if it contains one
-                entry.job_id = match output {
-                    ActionOutput::FileCopyDispatched { job_id, .. } => Some(*job_id),
-                    ActionOutput::FileDeleteDispatched { job_id, .. } => Some(*job_id),
-                    ActionOutput::FileIndexDispatched { job_id, .. } => Some(*job_id),
-                    _ => None,
-                };
+                // Extract job_id from output data if it contains one
+                entry.job_id = output.data.get("job_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| Uuid::parse_str(s).ok());
                 entry.result_payload = Some(serde_json::to_value(output).unwrap_or(serde_json::Value::Null));
             }
             Err(error) => {

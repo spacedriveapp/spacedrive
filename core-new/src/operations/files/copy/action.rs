@@ -1,11 +1,15 @@
 //! File copy action handler
 
-use super::{input::FileCopyInput, job::{CopyOptions, FileCopyJob}};
+use super::{
+	input::FileCopyInput,
+	job::{CopyOptions, FileCopyJob},
+	output::FileCopyActionOutput,
+};
 use crate::{
 	context::CoreContext,
 	infrastructure::{
 		actions::{
-			builder::{ActionBuilder, ActionBuildError},
+			builder::{ActionBuildError, ActionBuilder},
 			error::{ActionError, ActionResult},
 			handler::ActionHandler,
 			output::ActionOutput,
@@ -54,12 +58,14 @@ impl FileCopyActionBuilder {
 	}
 
 	/// Add multiple source files
-	pub fn sources<I, P>(mut self, sources: I) -> Self 
-	where 
+	pub fn sources<I, P>(mut self, sources: I) -> Self
+	where
 		I: IntoIterator<Item = P>,
-		P: Into<PathBuf>
+		P: Into<PathBuf>,
 	{
-		self.input.sources.extend(sources.into_iter().map(|p| p.into()));
+		self.input
+			.sources
+			.extend(sources.into_iter().map(|p| p.into()));
 		self
 	}
 
@@ -110,11 +116,14 @@ impl FileCopyActionBuilder {
 		// Then do filesystem validation
 		for source in &self.input.sources {
 			if !source.exists() {
-				self.errors.push(format!("Source file does not exist: {}", source.display()));
+				self.errors
+					.push(format!("Source file does not exist: {}", source.display()));
 			} else if source.is_dir() && !source.read_dir().is_ok() {
-				self.errors.push(format!("Cannot read directory: {}", source.display()));
+				self.errors
+					.push(format!("Cannot read directory: {}", source.display()));
 			} else if source.is_file() && std::fs::metadata(source).is_err() {
-				self.errors.push(format!("Cannot access file: {}", source.display()));
+				self.errors
+					.push(format!("Cannot access file: {}", source.display()));
 			}
 		}
 	}
@@ -123,7 +132,10 @@ impl FileCopyActionBuilder {
 	fn validate_destination(&mut self) {
 		if let Some(parent) = self.input.destination.parent() {
 			if !parent.exists() {
-				self.errors.push(format!("Destination directory does not exist: {}", parent.display()));
+				self.errors.push(format!(
+					"Destination directory does not exist: {}",
+					parent.display()
+				));
 			}
 		}
 	}
@@ -172,18 +184,21 @@ impl FileCopyAction {
 	}
 
 	/// Quick builder for copying a single file
-	pub fn copy_file<S: Into<PathBuf>, D: Into<PathBuf>>(source: S, dest: D) -> FileCopyActionBuilder {
+	pub fn copy_file<S: Into<PathBuf>, D: Into<PathBuf>>(
+		source: S,
+		dest: D,
+	) -> FileCopyActionBuilder {
 		FileCopyActionBuilder::new()
 			.source(source)
 			.destination(dest)
 	}
 
 	/// Quick builder for copying multiple files
-	pub fn copy_files<I, P, D>(sources: I, dest: D) -> FileCopyActionBuilder 
-	where 
+	pub fn copy_files<I, P, D>(sources: I, dest: D) -> FileCopyActionBuilder
+	where
 		I: IntoIterator<Item = P>,
 		P: Into<PathBuf>,
-		D: Into<PathBuf>
+		D: Into<PathBuf>,
 	{
 		FileCopyActionBuilder::new()
 			.sources(sources)
@@ -242,6 +257,7 @@ impl ActionHandler for FileCopyHandler {
 
 			// Create job instance directly (no JSON roundtrip)
 			let sources_count = action.sources.len();
+			let destination_display = action.destination.display().to_string();
 			let sources = action
 				.sources
 				.into_iter()
@@ -259,8 +275,13 @@ impl ActionHandler for FileCopyHandler {
 				.await
 				.map_err(ActionError::Job)?;
 
-			// Return action output instead of receipt
-			Ok(ActionOutput::file_copy_dispatched(job_handle.id().into(), sources_count))
+			// Return domain-specific output
+			let output = FileCopyActionOutput::new(
+				job_handle.id().into(),
+				sources_count,
+				destination_display,
+			);
+			Ok(ActionOutput::from_trait(output))
 		} else {
 			Err(ActionError::InvalidActionType)
 		}
@@ -308,9 +329,7 @@ mod tests {
 
 	#[test]
 	fn test_builder_validation_empty_sources() {
-		let result = FileCopyAction::builder()
-			.destination("/dest/")
-			.build();
+		let result = FileCopyAction::builder().destination("/dest/").build();
 
 		assert!(result.is_err());
 		match result.unwrap_err() {
@@ -323,18 +342,18 @@ mod tests {
 
 	#[test]
 	fn test_builder_from_input() {
-		let input = FileCopyInput::new(
-			vec!["/file1.txt".into(), "/file2.txt".into()],
-			"/dest/"
-		)
-		.with_overwrite(true)
-		.with_verification(true)
-		.with_move(false);
+		let input = FileCopyInput::new(vec!["/file1.txt".into(), "/file2.txt".into()], "/dest/")
+			.with_overwrite(true)
+			.with_verification(true)
+			.with_move(false);
 
 		let builder = FileCopyActionBuilder::from_input(input.clone());
-		
+
 		// Test that builder has correct values from input
-		assert_eq!(builder.input.sources, vec![PathBuf::from("/file1.txt"), PathBuf::from("/file2.txt")]);
+		assert_eq!(
+			builder.input.sources,
+			vec![PathBuf::from("/file1.txt"), PathBuf::from("/file2.txt")]
+		);
 		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
 		assert!(builder.input.overwrite);
 		assert!(builder.input.verify_checksum);
@@ -353,7 +372,7 @@ mod tests {
 		};
 
 		let builder = FileCopyActionBuilder::from_cli_args(args);
-		
+
 		// Test that builder has correct values set from CLI args
 		assert_eq!(builder.input.sources, vec![PathBuf::from("/src/file.txt")]);
 		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
@@ -373,7 +392,10 @@ mod tests {
 		// Test multiple files copy
 		let sources = vec!["/src/file1.txt", "/src/file2.txt"];
 		let builder = FileCopyAction::copy_files(sources.clone(), "/dest/");
-		assert_eq!(builder.input.sources, sources.into_iter().map(PathBuf::from).collect::<Vec<_>>());
+		assert_eq!(
+			builder.input.sources,
+			sources.into_iter().map(PathBuf::from).collect::<Vec<_>>()
+		);
 		assert_eq!(builder.input.destination, PathBuf::from("/dest/"));
 	}
 
@@ -417,7 +439,7 @@ mod tests {
 
 		// Create builder from input
 		let builder = FileCopyActionBuilder::from_input(input);
-		
+
 		// Verify the copy options are correct
 		let copy_options = builder.input.to_copy_options();
 		assert!(!copy_options.overwrite);

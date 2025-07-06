@@ -3,10 +3,12 @@
 pub mod action;
 pub mod input;
 pub mod job;
+pub mod output;
 pub mod routing;
 pub mod strategy;
 
-pub use job::{FileCopyJob, CopyOptions, MoveMode, FileCopyOutput, CopyProgress, CopyError};
+pub use job::{FileCopyJob, CopyOptions, MoveMode, CopyProgress, CopyError};
+pub use output::FileCopyActionOutput;
 pub use strategy::{CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy, RemoteTransferStrategy};
 pub use routing::CopyStrategyRouter;
 

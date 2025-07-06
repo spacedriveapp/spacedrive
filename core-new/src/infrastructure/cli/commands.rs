@@ -324,21 +324,16 @@ pub async fn handle_library_command(
 			// Dispatch the action
 			match action_manager.dispatch(action).await {
 				Ok(output) => {
-					match output {
-						crate::infrastructure::actions::output::ActionOutput::LibraryCreate { library_id, name, path } => {
-							state.set_current_library(library_id, path.clone());
-
-							println!("✅ Library created successfully!");
-							println!("   ID: {}", library_id.to_string().bright_yellow());
-							println!("   Name: {}", name.bright_blue());
-							println!("   Path: {}", path.display().to_string().bright_blue());
-							println!("   Status: {}", "Active".bright_green());
-						}
-						_ => {
-							println!("✅ Library created successfully!");
-							println!("   Output: {}", output);
+					// Check if this is a library creation output by type
+					if output.output_type == "library.create" {
+						if let Some(library_id) = output.data.get("library_id").and_then(|v| v.as_str()) {
+							if let Ok(id) = Uuid::parse_str(library_id) {
+								state.set_current_library(id, path.clone());
+							}
 						}
 					}
+					
+					println!("✅ {}", output.message);
 				}
 				Err(e) => {
 					println!("❌ Failed to create library: {}", e);
@@ -506,27 +501,7 @@ pub async fn handle_location_command(
 			// Dispatch the action
 			match action_manager.dispatch(action).await {
 				Ok(output) => {
-					match output {
-						crate::infrastructure::actions::output::ActionOutput::LocationAdd { location_id, path: location_path } => {
-							println!("✅ Location added successfully!");
-							println!("   ID: {}", location_id.to_string().bright_yellow());
-							println!(
-								"   Name: {}",
-								name.unwrap_or_else(|| path
-									.file_name()
-									.unwrap()
-									.to_string_lossy()
-									.to_string())
-									.bright_cyan()
-							);
-							println!("   Path: {}", location_path.display().to_string().bright_blue());
-							println!("   Status: {}", "Ready".bright_green());
-						}
-						_ => {
-							println!("✅ Location added successfully!");
-							println!("   Output: {}", output);
-						}
-					}
+					println!("✅ {}", output.message);
 				}
 				Err(e) => {
 					println!("❌ Failed to add location: {}", e);
@@ -1417,31 +1392,30 @@ pub async fn handle_copy_command(
 	// Dispatch the action and handle the result
 	match action_manager.dispatch(full_action).await {
 		Ok(output) => {
-			match output {
-				crate::infrastructure::actions::output::ActionOutput::FileCopyDispatched { job_id, sources_count } => {
-					println!("✅ {} operation dispatched successfully!", 
-						if input.move_files { "Move" } else { "Copy" });
+			println!("✅ {}", output.message);
+			
+			// Extract job info from the output data if available
+			if output.output_type == "file.copy.dispatched" {
+				if let Some(job_id) = output.data.get("job_id") {
 					println!("   Job ID: {}", job_id.to_string().bright_yellow());
+				}
+				if let Some(sources_count) = output.data.get("sources_count") {
 					println!("   Sources: {} file(s)", sources_count);
-					println!("   Destination: {}", input.destination.display().to_string().bright_blue());
-					
-					if input.overwrite {
-						println!("   Mode: {} existing files", "Overwrite".bright_red());
-					}
-					if input.verify_checksum {
-						println!("   Verification: {}", "Enabled".bright_green());
-					}
-					if input.move_files {
-						println!("   Type: {} (delete source after copy)", "Move".bright_yellow());
-					}
+				}
+				println!("   Destination: {}", input.destination.display().to_string().bright_blue());
+				
+				if input.overwrite {
+					println!("   Mode: {} existing files", "Overwrite".bright_red());
+				}
+				if input.verify_checksum {
+					println!("   Verification: {}", "Enabled".bright_green());
+				}
+				if input.move_files {
+					println!("   Type: {} (delete source after copy)", "Move".bright_yellow());
+				}
 
-					println!("\n💡 Tip: Monitor progress with: {}", 
-						"spacedrive job monitor".bright_cyan());
-				}
-				_ => {
-					println!("✅ Copy operation completed!");
-					println!("   Output: {}", output);
-				}
+				println!("\n💡 Tip: Monitor progress with: {}", 
+					"spacedrive job monitor".bright_cyan());
 			}
 		}
 		Err(e) => {

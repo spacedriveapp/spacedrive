@@ -71,7 +71,7 @@ impl ActionHandler for MetadataHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("Metadata extraction job dispatched successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }

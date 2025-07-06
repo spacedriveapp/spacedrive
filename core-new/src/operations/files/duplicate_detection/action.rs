@@ -85,7 +85,7 @@ impl ActionHandler for DuplicateDetectionHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("Duplicate detection job dispatched successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }

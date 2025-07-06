@@ -62,7 +62,7 @@ impl ActionHandler for LocationIndexHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("Location indexed successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }

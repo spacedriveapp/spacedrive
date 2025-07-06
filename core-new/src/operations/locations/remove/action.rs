@@ -8,6 +8,7 @@ use crate::{
     },
     register_action_handler,
 };
+use super::output::LocationRemoveOutput;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -49,7 +50,8 @@ impl ActionHandler for LocationRemoveHandler {
                 .await
                 .map_err(|e| ActionError::Internal(e.to_string()))?;
 
-            Ok(ActionOutput::location_remove(action.location_id))
+            let output = LocationRemoveOutput::new(action.location_id, None);
+            Ok(ActionOutput::from_trait(output))
         } else {
             Err(ActionError::InvalidActionType)
         }

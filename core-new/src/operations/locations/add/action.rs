@@ -15,6 +15,7 @@ use crate::{
     register_action_handler,
     shared::types::SdPath,
 };
+use super::output::LocationAddOutput;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -99,6 +100,9 @@ impl ActionHandler for LocationAddHandler {
                 IndexMode::Deep => crate::location::IndexMode::Deep,
             };
             
+            // Store the name to use for output since we're moving it
+            let name_for_output = action.name.clone();
+            
             let (location_id, location_name) = location_manager
                 .add_location(library.clone(), action.path.clone(), action.name, device_record.id, location_mode)
                 .await
@@ -121,7 +125,8 @@ impl ActionHandler for LocationAddHandler {
                 Some(job_handle)
             };
 
-            Ok(ActionOutput::location_add(location_id, action.path))
+            let output = LocationAddOutput::new(location_id, action.path.clone(), name_for_output);
+            Ok(ActionOutput::from_trait(output))
         } else {
             Err(ActionError::InvalidActionType)
         }

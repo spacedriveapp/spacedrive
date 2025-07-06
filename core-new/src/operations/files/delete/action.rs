@@ -1,14 +1,18 @@
 //! File delete action handler
 
+use super::job::{DeleteJob, DeleteMode, DeleteOptions};
+use super::output::FileDeleteOutput;
 use crate::{
-    context::CoreContext,
-    infrastructure::actions::{
-        Action, error::{ActionError, ActionResult}, handler::ActionHandler, output::ActionOutput,
-    },
-    register_action_handler,
-    shared::types::{SdPath, SdPathBatch},
+	context::CoreContext,
+	infrastructure::actions::{
+		error::{ActionError, ActionResult},
+		handler::ActionHandler,
+		output::ActionOutput,
+		Action,
+	},
+	register_action_handler,
+	shared::types::{SdPath, SdPathBatch},
 };
-use super::job::{DeleteOptions, DeleteJob, DeleteMode};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
@@ -16,88 +20,90 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileDeleteAction {
-    pub targets: Vec<PathBuf>,
-    pub options: DeleteOptions,
+	pub targets: Vec<PathBuf>,
+	pub options: DeleteOptions,
 }
 
 pub struct FileDeleteHandler;
 
 impl FileDeleteHandler {
-    pub fn new() -> Self {
-        Self
-    }
+	pub fn new() -> Self {
+		Self
+	}
 }
 
 #[async_trait]
 impl ActionHandler for FileDeleteHandler {
-    async fn validate(
-        &self,
-        _context: Arc<CoreContext>,
-        action: &Action,
-    ) -> ActionResult<()> {
-        if let Action::FileDelete { library_id: _, action } = action {
-            if action.targets.is_empty() {
-                return Err(ActionError::Validation {
-                    field: "targets".to_string(),
-                    message: "At least one target file must be specified".to_string(),
-                });
-            }
-            Ok(())
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+	async fn validate(&self, _context: Arc<CoreContext>, action: &Action) -> ActionResult<()> {
+		if let Action::FileDelete {
+			library_id: _,
+			action,
+		} = action
+		{
+			if action.targets.is_empty() {
+				return Err(ActionError::Validation {
+					field: "targets".to_string(),
+					message: "At least one target file must be specified".to_string(),
+				});
+			}
+			Ok(())
+		} else {
+			Err(ActionError::InvalidActionType)
+		}
+	}
 
-    async fn execute(
-        &self,
-        context: Arc<CoreContext>,
-        action: Action,
-    ) -> ActionResult<ActionOutput> {
-        if let Action::FileDelete { library_id, action } = action {
-            let library_manager = &context.library_manager;
-            
-            // Get the specific library
-            let library = library_manager
-                .get_library(library_id)
-                .await
-                .ok_or(ActionError::LibraryNotFound(library_id))?;
-            
-            // Create job instance directly (no JSON roundtrip)
-            let targets_count = action.targets.len();
-            let targets = action.targets
-                .into_iter()
-                .map(|path| SdPath::local(path))
-                .collect();
+	async fn execute(
+		&self,
+		context: Arc<CoreContext>,
+		action: Action,
+	) -> ActionResult<ActionOutput> {
+		if let Action::FileDelete { library_id, action } = action {
+			let library_manager = &context.library_manager;
 
-            let mode = if action.options.permanent {
-                DeleteMode::Permanent
-            } else {
-                DeleteMode::Trash
-            };
+			// Get the specific library
+			let library = library_manager
+				.get_library(library_id)
+				.await
+				.ok_or(ActionError::LibraryNotFound(library_id))?;
 
-            let job = DeleteJob::new(SdPathBatch::new(targets), mode);
+			// Create job instance directly (no JSON roundtrip)
+			let targets_count = action.targets.len();
+			let targets = action
+				.targets
+				.into_iter()
+				.map(|path| SdPath::local(path))
+				.collect();
 
-            // Dispatch the job directly
-            let job_handle = library
-                .jobs()
-                .dispatch(job)
-                .await
-                .map_err(ActionError::Job)?;
+			let mode = if action.options.permanent {
+				DeleteMode::Permanent
+			} else {
+				DeleteMode::Trash
+			};
 
-            // Return action output instead of receipt
-            Ok(ActionOutput::file_delete_dispatched(job_handle.id().into(), targets_count))
-        } else {
-            Err(ActionError::InvalidActionType)
-        }
-    }
+			let job = DeleteJob::new(SdPathBatch::new(targets), mode);
 
-    fn can_handle(&self, action: &Action) -> bool {
-        matches!(action, Action::FileDelete { .. })
-    }
+			// Dispatch the job directly
+			let job_handle = library
+				.jobs()
+				.dispatch(job)
+				.await
+				.map_err(ActionError::Job)?;
 
-    fn supported_actions() -> &'static [&'static str] {
-        &["file.delete"]
-    }
+			// Return action output instead of receipt
+			let output = FileDeleteOutput::new(job_handle.id().into(), targets_count);
+			Ok(ActionOutput::from_trait(output))
+		} else {
+			Err(ActionError::InvalidActionType)
+		}
+	}
+
+	fn can_handle(&self, action: &Action) -> bool {
+		matches!(action, Action::FileDelete { .. })
+	}
+
+	fn supported_actions() -> &'static [&'static str] {
+		&["file.delete"]
+	}
 }
 
 // Register this handler

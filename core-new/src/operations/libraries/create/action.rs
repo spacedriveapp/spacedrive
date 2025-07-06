@@ -9,6 +9,7 @@ use crate::{
     },
     register_action_handler,
 };
+use super::output::LibraryCreateOutput;
 use async_trait::async_trait;
 use std::sync::Arc;
 use std::path::PathBuf;
@@ -58,11 +59,12 @@ impl ActionHandler for LibraryCreateHandler {
             let new_library = library_manager.create_library(action.name.clone(), action.path.clone()).await?;
 
             let library_name = new_library.name().await;
-            Ok(ActionOutput::library_create(
+            let output = LibraryCreateOutput::new(
                 new_library.id(),
                 library_name,
                 new_library.path().to_path_buf(),
-            ))
+            );
+            Ok(ActionOutput::from_trait(output))
         } else {
             Err(ActionError::InvalidActionType)
         }

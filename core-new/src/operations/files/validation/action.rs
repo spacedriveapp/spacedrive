@@ -85,7 +85,7 @@ impl ActionHandler for ValidationHandler {
                 .await
                 .map_err(ActionError::Job)?;
 
-            Ok(ActionOutput::Success)
+            Ok(ActionOutput::success("File validation job dispatched successfully"))
         } else {
             Err(ActionError::InvalidActionType)
         }
