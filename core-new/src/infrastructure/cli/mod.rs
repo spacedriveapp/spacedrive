@@ -189,7 +189,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	}
 
-	// For library, location, and job commands, use the daemon
+	// All commands require daemon to be running - no fallback Core creation
 	match &cli.command {
 		Commands::Library(library_cmd) => {
 			return handle_library_daemon_command(library_cmd.clone(), cli.instance.clone()).await;
@@ -204,58 +204,38 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 		Commands::Network(network_cmd) => {
 			return handle_network_daemon_command(network_cmd.clone(), cli.instance.clone()).await;
 		}
+		Commands::Copy(args) => {
+			return handle_copy_daemon_command(args.clone(), cli.instance.clone()).await;
+		}
 		Commands::Monitor => {
 			// Special case - monitor needs event streaming
 			println!("📊 Job monitor not yet implemented for daemon mode");
 			println!("   Use 'spacedrive job list' to see current jobs");
 			return Ok(());
 		}
-		_ => {}
-	}
-
-	// Initialize core (temporary - for commands not yet converted to daemon)
-	let core = Core::new_with_config(data_dir.clone()).await?;
-
-	// Load CLI state (instance-specific)
-	let state_path = if cli.instance.is_some() {
-		data_dir.join("cli_state.json")
-	} else {
-		data_dir.join("cli_state.json")
-	};
-	let mut state = state::CliState::load(&data_dir)?;
-
-	// Execute command
-	match cli.command {
-		Commands::Library(cmd) => commands::handle_library_command(cmd, &core, &mut state).await?,
-		Commands::Location(cmd) => {
-			commands::handle_location_command(cmd, &core, &mut state).await?
+		Commands::Index(cmd) => {
+			println!("❌ Index command not yet implemented for daemon mode");
+			println!("   This command will be available in a future update");
+			return Ok(());
 		}
-		Commands::Job(cmd) => commands::handle_job_command(cmd, &core, &mut state).await?,
-		Commands::Index(cmd) => commands::handle_index_command(cmd, &core, &mut state).await?,
-		Commands::Network(cmd) => commands::handle_network_command(cmd, &core, &mut state).await?,
-		Commands::Copy(args) => {
-			commands::handle_copy_command(args, &core, &mut state).await?
+		Commands::Scan { .. } => {
+			println!("❌ Scan command not yet implemented for daemon mode"); 
+			println!("   Use 'spacedrive location add' and 'spacedrive index' instead");
+			return Ok(());
 		}
-		Commands::Scan { path, mode, watch } => {
-			commands::handle_legacy_scan_command(path, mode, watch, &core, &mut state).await?
+		Commands::Status => {
+			println!("❌ Status command not yet implemented for daemon mode");
+			println!("   Use 'spacedrive daemon' to check daemon status");
+			return Ok(());
 		}
-		Commands::Monitor => monitor::run_monitor(&core).await?,
-		Commands::Status => commands::handle_status_command(&core, &state).await?,
 		Commands::Start { .. }
 		| Commands::Stop
 		| Commands::Daemon
-		| Commands::Instance(_)
-		| Commands::Network(_) => {
+		| Commands::Instance(_) => {
 			// These are handled above, should never reach here
 			unreachable!()
 		}
 	}
-
-	// Save state
-	state.save(&data_dir)?;
-
-	// Shutdown core
-	core.shutdown().await?;
 
 	Ok(())
 }
@@ -1292,6 +1272,73 @@ async fn handle_network_daemon_command(
 				&client,
 			)
 			.await?;
+		}
+	}
+
+	Ok(())
+}
+
+async fn handle_copy_daemon_command(
+	args: adapters::FileCopyCliArgs,
+	instance_name: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	use colored::Colorize;
+
+	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+
+	// Convert CLI args to daemon command format
+	let input = match args.validate_and_convert() {
+		Ok(input) => input,
+		Err(e) => {
+			println!("❌ Invalid copy operation: {}", e);
+			return Ok(());
+		}
+	};
+
+	println!("📁 {}", input.summary().bright_cyan());
+
+	// Send copy command to daemon
+	match client
+		.send_command(daemon::DaemonCommand::Copy {
+			sources: input.sources.clone(),
+			destination: input.destination.clone(),
+			overwrite: input.overwrite,
+			verify: input.verify_checksum,
+			preserve_timestamps: input.preserve_timestamps,
+			move_files: input.move_files,
+		})
+		.await
+	{
+		Ok(daemon::DaemonResponse::CopyStarted { job_id, sources_count }) => {
+			println!("✅ Copy operation started successfully!");
+			println!("   Job ID: {}", job_id.to_string().bright_yellow());
+			println!("   Sources: {} file(s)", sources_count);
+			println!("   Destination: {}", input.destination.display().to_string().bright_blue());
+			
+			if input.overwrite {
+				println!("   Mode: {} existing files", "Overwrite".bright_red());
+			}
+			if input.verify_checksum {
+				println!("   Verification: {}", "Enabled".bright_green());
+			}
+			if input.move_files {
+				println!("   Type: {} (delete source after copy)", "Move".bright_yellow());
+			}
+
+			println!("\n💡 Tip: Monitor progress with: {}", 
+				"sd job monitor".bright_cyan());
+		}
+		Ok(daemon::DaemonResponse::Ok) => {
+			println!("✅ Copy operation completed successfully!");
+		}
+		Ok(daemon::DaemonResponse::Error(e)) => {
+			println!("❌ Failed to copy files: {}", e);
+		}
+		Err(e) => {
+			println!("❌ Failed to communicate with daemon: {}", e);
+		}
+		_ => {
+			println!("❌ Unexpected response from daemon");
 		}
 	}
 

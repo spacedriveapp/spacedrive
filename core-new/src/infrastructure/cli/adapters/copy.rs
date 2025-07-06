@@ -12,7 +12,7 @@ pub struct FileCopyCliArgs {
     pub sources: Vec<PathBuf>,
 
     /// Destination path
-    #[arg(short, long)]
+    #[arg(short = 'o', long)]
     pub destination: PathBuf,
 
     /// Overwrite existing files

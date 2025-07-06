@@ -3,7 +3,7 @@
 //! The daemon runs in the background and handles all core operations.
 //! The CLI communicates with it via Unix domain socket (on Unix) or named pipe (on Windows).
 
-use crate::{infrastructure::database::entities, Core};
+use crate::{infrastructure::{database::entities, actions::builder::ActionBuilder}, Core};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -89,6 +89,16 @@ pub enum DaemonCommand {
 	ResumeJob { id: Uuid },
 	CancelJob { id: Uuid },
 
+	// File operations
+	Copy { 
+		sources: Vec<PathBuf>, 
+		destination: PathBuf, 
+		overwrite: bool, 
+		verify: bool, 
+		preserve_timestamps: bool, 
+		move_files: bool 
+	},
+
 	// Subscribe to events
 	SubscribeEvents,
 
@@ -135,6 +145,10 @@ pub enum DaemonResponse {
 	Locations(Vec<LocationInfo>),
 	Jobs(Vec<JobInfo>),
 	JobInfo(Option<JobInfo>),
+	CopyStarted {
+		job_id: Uuid,
+		sources_count: usize,
+	},
 	Event(String), // Serialized event
 	
 	// Networking responses
@@ -920,6 +934,71 @@ async fn handle_command(
 		DaemonCommand::CancelJob { id } => {
 			// TODO: Implement job cancel when job manager supports it
 			DaemonResponse::Error("Job cancel not yet implemented".to_string())
+		}
+
+		DaemonCommand::Copy { sources, destination, overwrite, verify, preserve_timestamps, move_files } => {
+			// Get current library
+			let libraries = core.libraries.list().await;
+			if let Some(library) = libraries.first() {
+				let library_id = library.id();
+				
+				// Create the copy input
+				let input = crate::operations::files::copy::input::FileCopyInput {
+					sources: sources.clone(),
+					destination: destination.clone(),
+					overwrite,
+					verify_checksum: verify,
+					preserve_timestamps,
+					move_files,
+				};
+
+				// Validate input
+				if let Err(errors) = input.validate() {
+					return DaemonResponse::Error(format!("Invalid copy operation: {}", errors.join("; ")));
+				}
+
+				// Get the action manager
+				match core.context.get_action_manager().await {
+					Some(action_manager) => {
+						// Create the copy action
+						let action = match crate::operations::files::copy::action::FileCopyActionBuilder::from_input(input).build() {
+							Ok(action) => action,
+							Err(e) => {
+								return DaemonResponse::Error(format!("Failed to build copy action: {}", e));
+							}
+						};
+
+						// Create the full Action enum
+						let full_action = crate::infrastructure::actions::Action::FileCopy {
+							library_id,
+							action,
+						};
+
+						// Dispatch the action
+						match action_manager.dispatch(full_action).await {
+							Ok(output) => {
+								// Extract job ID if available
+								if let Some(job_id) = output.data.get("job_id").and_then(|v| v.as_str()) {
+									if let Ok(uuid) = job_id.parse::<Uuid>() {
+										DaemonResponse::CopyStarted {
+											job_id: uuid,
+											sources_count: sources.len(),
+										}
+									} else {
+										DaemonResponse::Ok
+									}
+								} else {
+									DaemonResponse::Ok
+								}
+							}
+							Err(e) => DaemonResponse::Error(format!("Failed to start copy operation: {}", e)),
+						}
+					}
+					None => DaemonResponse::Error("Action manager not available".to_string()),
+				}
+			} else {
+				DaemonResponse::Error("No library available. Create or open a library first.".to_string())
+			}
 		}
 
 		DaemonCommand::SubscribeEvents => {
