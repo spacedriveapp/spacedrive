@@ -8,6 +8,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // Create the table first
         manager
             .create_table(
                 Table::create()
@@ -20,45 +21,71 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(AuditLog::Uuid).uuid().not_null().unique_key())
+                    .col(ColumnDef::new(AuditLog::Uuid).text().not_null().unique_key())
                     .col(ColumnDef::new(AuditLog::ActionType).string().not_null())
-                    .col(ColumnDef::new(AuditLog::ActorDeviceId).uuid().not_null())
-                    .col(ColumnDef::new(AuditLog::Targets).json().not_null())
+                    .col(ColumnDef::new(AuditLog::ActorDeviceId).text().not_null())
+                    .col(ColumnDef::new(AuditLog::Targets).text().not_null())
                     .col(ColumnDef::new(AuditLog::Status).string().not_null())
-                    .col(ColumnDef::new(AuditLog::JobId).uuid())
+                    .col(ColumnDef::new(AuditLog::JobId).text())
                     .col(
                         ColumnDef::new(AuditLog::CreatedAt)
-                            .timestamp_with_time_zone()
+                            .timestamp()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(AuditLog::CompletedAt).timestamp_with_time_zone())
+                    .col(ColumnDef::new(AuditLog::CompletedAt).timestamp())
                     .col(ColumnDef::new(AuditLog::ErrorMessage).text())
-                    .col(ColumnDef::new(AuditLog::ResultPayload).json())
-                    .index(
-                        Index::create()
-                            .name("idx_audit_log_action_type")
-                            .col(AuditLog::ActionType),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_audit_log_actor_device_id")
-                            .col(AuditLog::ActorDeviceId),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_audit_log_status")
-                            .col(AuditLog::Status),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_audit_log_job_id")
-                            .col(AuditLog::JobId),
-                    )
-                    .index(
-                        Index::create()
-                            .name("idx_audit_log_created_at")
-                            .col(AuditLog::CreatedAt),
-                    )
+                    .col(ColumnDef::new(AuditLog::ResultPayload).text())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Create indexes separately
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_audit_log_action_type")
+                    .table(AuditLog::Table)
+                    .col(AuditLog::ActionType)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_audit_log_actor_device_id")
+                    .table(AuditLog::Table)
+                    .col(AuditLog::ActorDeviceId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_audit_log_status")
+                    .table(AuditLog::Table)
+                    .col(AuditLog::Status)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_audit_log_job_id")
+                    .table(AuditLog::Table)
+                    .col(AuditLog::JobId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_audit_log_created_at")
+                    .table(AuditLog::Table)
+                    .col(AuditLog::CreatedAt)
                     .to_owned(),
             )
             .await

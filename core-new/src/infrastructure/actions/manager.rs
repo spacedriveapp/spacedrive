@@ -38,7 +38,8 @@ impl ActionManager {
 
         // 3. Create the initial audit log entry (if library-scoped)
         let audit_entry = if let Some(library_id) = action.library_id() {
-            Some(self.create_audit_log(library_id, &action).await?)
+            let entry = self.create_audit_log(library_id, &action).await?;
+            Some((entry, library_id))
         } else {
             None
         };
@@ -47,8 +48,8 @@ impl ActionManager {
         let result = handler.execute(self.context.clone(), action).await;
 
         // 5. Update the audit log with the final status (if we created one)
-        if let Some(entry) = audit_entry {
-            self.finalize_audit_log(entry, &result).await?;
+        if let Some((entry, library_id)) = audit_entry {
+            self.finalize_audit_log(entry, &result, library_id).await?;
         }
 
         result
@@ -64,10 +65,10 @@ impl ActionManager {
         let db = library.db().conn();
         
         let audit_entry = AuditLogActive {
-            uuid: Set(Uuid::new_v4()),
+            uuid: Set(Uuid::new_v4().to_string()),
             action_type: Set(action.kind().to_string()),
-            actor_device_id: Set(get_current_device_id()),
-            targets: Set(action.targets_summary()),
+            actor_device_id: Set(get_current_device_id().to_string()),
+            targets: Set(serde_json::to_string(&action.targets_summary()).unwrap_or_default()),
             status: Set(audit_log::ActionStatus::InProgress),
             job_id: Set(None),
             created_at: Set(chrono::Utc::now()),
@@ -88,26 +89,15 @@ impl ActionManager {
         &self,
         mut entry: audit_log::Model,
         result: &ActionResult<ActionOutput>,
+        library_id: Uuid,
     ) -> ActionResult<()> {
-        // We need to get the library_id to update the audit log
-        // For now, we'll need to store this in the audit entry or pass it through
-        // This is a temporary limitation that would be resolved by adding library_id to audit_log table
-        
-        // For this implementation, let's assume we can find any open library for the audit update
-        let libraries = self.context.library_manager.get_open_libraries().await;
-        let library = libraries.first()
-            .ok_or(ActionError::Internal("No libraries available for audit log update".to_string()))?;
+        let library = self.get_library(library_id).await?;
         let db = library.db().conn();
 
         match result {
-            Ok(output) => {
+            Ok(_) => {
                 entry.status = audit_log::ActionStatus::Completed;
                 entry.completed_at = Some(chrono::Utc::now());
-                // Extract job_id from output data if it contains one
-                entry.job_id = output.data.get("job_id")
-                    .and_then(|v| v.as_str())
-                    .and_then(|s| Uuid::parse_str(s).ok());
-                entry.result_payload = Some(serde_json::to_value(output).unwrap_or(serde_json::Value::Null));
             }
             Err(error) => {
                 entry.status = audit_log::ActionStatus::Failed;
@@ -116,7 +106,26 @@ impl ActionManager {
             }
         }
 
-        let active_model: AuditLogActive = entry.into();
+        // Convert to active model and explicitly mark changed fields
+        let mut active_model: AuditLogActive = entry.into();
+        
+        // Explicitly mark the fields we want to update as "Set" (changed)
+        match result {
+            Ok(output) => {
+                active_model.status = Set(audit_log::ActionStatus::Completed);
+                active_model.completed_at = Set(Some(chrono::Utc::now()));
+                if let Some(job_id_str) = output.data.get("job_id").and_then(|v| v.as_str()) {
+                    active_model.job_id = Set(Some(job_id_str.to_string()));
+                }
+                active_model.result_payload = Set(Some(serde_json::to_string(output).unwrap_or_default()));
+            }
+            Err(error) => {
+                active_model.status = Set(audit_log::ActionStatus::Failed);
+                active_model.completed_at = Set(Some(chrono::Utc::now()));
+                active_model.error_message = Set(Some(error.to_string()));
+            }
+        }
+        
         active_model
             .update(db)
             .await

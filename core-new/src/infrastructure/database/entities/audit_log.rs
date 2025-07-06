@@ -12,30 +12,28 @@ pub struct Model {
     pub id: i32,
     
     #[sea_orm(unique)]
-    pub uuid: Uuid,
+    pub uuid: String,
 
     #[sea_orm(indexed)]
     pub action_type: String,
 
     #[sea_orm(indexed)]
-    pub actor_device_id: Uuid,
+    pub actor_device_id: String,
 
-    #[sea_orm(column_type = "Json")]
-    pub targets: Json,
+    pub targets: String,
 
     #[sea_orm(indexed)]
     pub status: ActionStatus,
 
     #[sea_orm(indexed, nullable)]
-    pub job_id: Option<Uuid>,
+    pub job_id: Option<String>,
 
     pub created_at: DateTimeUtc,
     pub completed_at: Option<DateTimeUtc>,
     
     pub error_message: Option<String>,
     
-    #[sea_orm(column_type = "Json", nullable)]
-    pub result_payload: Option<Json>,
+    pub result_payload: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
@@ -55,7 +53,7 @@ pub enum Relation {}
 impl ActiveModelBehavior for ActiveModel {
     fn new() -> Self {
         Self {
-            uuid: Set(Uuid::new_v4()),
+            uuid: Set(Uuid::new_v4().to_string()),
             created_at: Set(chrono::Utc::now()),
             ..ActiveModelTrait::default()
         }

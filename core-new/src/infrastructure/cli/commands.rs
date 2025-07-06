@@ -328,7 +328,15 @@ pub async fn handle_library_command(
 					if output.output_type == "library.create" {
 						if let Some(library_id) = output.data.get("library_id").and_then(|v| v.as_str()) {
 							if let Ok(id) = Uuid::parse_str(library_id) {
-								state.set_current_library(id, path.clone());
+								// Use the library path from the output or fall back to the provided path
+								if let Some(lib_path) = output.data.get("library_path")
+									.and_then(|v| v.as_str())
+									.map(|s| PathBuf::from(s))
+								{
+									state.set_current_library(id, lib_path);
+								} else if let Some(provided_path) = path.clone() {
+									state.set_current_library(id, provided_path);
+								}
 							}
 						}
 					}
