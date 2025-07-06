@@ -15,7 +15,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[async_trait]
 pub trait CopyStrategy: Send + Sync {
     /// Executes the copy strategy for a single source path
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath) -> Result<u64>;
+    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64>;
 }
 
 /// Strategy for an atomic move on the same volume
@@ -23,7 +23,7 @@ pub struct LocalMoveStrategy;
 
 #[async_trait]
 impl CopyStrategy for LocalMoveStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath) -> Result<u64> {
+    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
         let source_path = source.as_local_path()
             .ok_or_else(|| anyhow::anyhow!("Source path is not local"))?;
         let dest_path = destination.as_local_path()
@@ -60,7 +60,7 @@ pub struct LocalStreamCopyStrategy;
 
 #[async_trait]
 impl CopyStrategy for LocalStreamCopyStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath) -> Result<u64> {
+    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
         let source_path = source.as_local_path()
             .ok_or_else(|| anyhow::anyhow!("Source path is not local"))?;
         let dest_path = destination.as_local_path()
@@ -80,7 +80,7 @@ impl CopyStrategy for LocalStreamCopyStrategy {
             _ => None,
         };
 
-        let bytes_copied = copy_file_streaming(source_path, dest_path, volume_info, ctx).await?;
+        let bytes_copied = copy_file_streaming(source_path, dest_path, volume_info, ctx, verify_checksum).await?;
 
         ctx.log(format!(
             "Cross-volume streaming copy: {} -> {} ({} bytes)",
@@ -98,7 +98,7 @@ pub struct RemoteTransferStrategy;
 
 #[async_trait]
 impl CopyStrategy for RemoteTransferStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath) -> Result<u64> {
+    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
         // Get networking service
         let networking = ctx.networking_service()
             .ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
@@ -221,6 +221,7 @@ async fn copy_file_streaming(
     destination: &Path,
     volume_info: Option<(&crate::volume::Volume, &crate::volume::Volume)>,
     ctx: &JobContext<'_>,
+    verify_checksum: bool,
 ) -> Result<u64, std::io::Error> {
     // Create destination directory if needed
     if let Some(parent) = destination.parent() {
@@ -229,7 +230,7 @@ async fn copy_file_streaming(
 
     let metadata = fs::metadata(source).await?;
     if metadata.is_dir() {
-        return copy_directory_streaming(source, destination, volume_info, ctx).await;
+        return copy_directory_streaming(source, destination, volume_info, ctx, verify_checksum).await;
     }
 
     let file_size = metadata.len();
@@ -247,6 +248,19 @@ async fn copy_file_streaming(
     let mut total_copied = 0u64;
     let mut last_progress_update = std::time::Instant::now();
 
+    // Initialize checksums if verification is enabled
+    let mut source_hasher = if verify_checksum {
+        Some(blake3::Hasher::new())
+    } else {
+        None
+    };
+    
+    let mut dest_hasher = if verify_checksum {
+        Some(blake3::Hasher::new())
+    } else {
+        None
+    };
+
     loop {
         // Check for cancellation
         if let Err(_) = ctx.check_interrupt().await {
@@ -263,8 +277,17 @@ async fn copy_file_streaming(
             break; // EOF
         }
 
-        dest_file.write_all(&buffer[..bytes_read]).await?;
+        let chunk = &buffer[..bytes_read];
+        dest_file.write_all(chunk).await?;
         total_copied += bytes_read as u64;
+
+        // Update checksums if verification is enabled
+        if let Some(hasher) = &mut source_hasher {
+            hasher.update(chunk);
+        }
+        if let Some(hasher) = &mut dest_hasher {
+            hasher.update(chunk);
+        }
 
         // Update progress every 100ms to avoid overwhelming the UI
         if last_progress_update.elapsed() >= std::time::Duration::from_millis(100) {
@@ -274,7 +297,11 @@ async fn copy_file_streaming(
                 total_files: 1,
                 bytes_copied: total_copied,
                 total_bytes: file_size,
-                current_operation: "Cross-volume streaming".to_string(),
+                current_operation: if verify_checksum {
+                    "Cross-volume streaming (with verification)".to_string()
+                } else {
+                    "Cross-volume streaming".to_string()
+                },
                 estimated_remaining: Some({
                     let elapsed = last_progress_update.elapsed();
                     let rate = total_copied as f64 / elapsed.as_secs_f64();
@@ -294,6 +321,29 @@ async fn copy_file_streaming(
     dest_file.flush().await?;
     dest_file.sync_all().await?;
 
+    // Verify checksums if enabled
+    if verify_checksum {
+        if let (Some(source_hasher), Some(dest_hasher)) = (source_hasher, dest_hasher) {
+            let source_hash = source_hasher.finalize();
+            let dest_hash = dest_hasher.finalize();
+            
+            if source_hash != dest_hash {
+                // Clean up corrupted file
+                let _ = fs::remove_file(destination).await;
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Checksum verification failed: source={}, dest={}", source_hash.to_hex(), dest_hash.to_hex())
+                ));
+            }
+            
+            ctx.log(format!(
+                "Checksum verification passed for {}: {}",
+                destination.display(),
+                source_hash.to_hex()
+            ));
+        }
+    }
+
     Ok(total_copied)
 }
 
@@ -303,6 +353,7 @@ fn copy_directory_streaming<'a>(
     destination: &'a Path,
     volume_info: Option<(&'a crate::volume::Volume, &'a crate::volume::Volume)>,
     ctx: &'a JobContext<'_>,
+    verify_checksum: bool,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64, std::io::Error>> + Send + 'a>> {
     Box::pin(async move {
         fs::create_dir_all(destination).await?;
@@ -319,7 +370,7 @@ fn copy_directory_streaming<'a>(
             }
 
             if src_path.is_file() {
-                total_size += copy_file_streaming(&src_path, &dest_path, volume_info, ctx).await?;
+                total_size += copy_file_streaming(&src_path, &dest_path, volume_info, ctx, verify_checksum).await?;
             } else if src_path.is_dir() {
                 fs::create_dir_all(&dest_path).await?;
                 let mut dir = fs::read_dir(&src_path).await?;

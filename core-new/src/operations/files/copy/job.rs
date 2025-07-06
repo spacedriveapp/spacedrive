@@ -56,7 +56,7 @@ pub struct FileCopyJob {
 
     // Internal state for resumption
     #[serde(default)]
-    completed_indices: Vec<usize>,
+    pub completed_indices: Vec<usize>,
     #[serde(skip, default = "Instant::now")]
     started_at: Instant,
 }
@@ -96,8 +96,15 @@ impl JobHandler for FileCopyJob {
         let estimated_total_bytes = self.calculate_total_size(&ctx).await?;
 
         // Process each source using the appropriate strategy
-        for source in &self.sources.paths {
+        for (index, source) in self.sources.paths.iter().enumerate() {
             ctx.check_interrupt().await?;
+
+            // Skip files that have already been completed (resume logic)
+            if self.completed_indices.contains(&index) {
+                ctx.log(format!("Skipping already completed file: {}", source.display()));
+                copied_count += 1; // Count as copied for progress tracking
+                continue;
+            }
 
             let final_destination = if self.sources.paths.len() > 1 {
                 // If multiple sources, treat destination as a directory
@@ -131,10 +138,13 @@ impl JobHandler for FileCopyJob {
             ).await;
 
             // 2. Execute the strategy
-            match strategy.execute(&ctx, source, &final_destination).await {
+            match strategy.execute(&ctx, source, &final_destination, self.options.verify_checksum).await {
                 Ok(bytes) => {
                     copied_count += 1;
                     total_bytes += bytes;
+
+                    // Track successful completion for resume
+                    self.completed_indices.push(index);
 
                     // If this is a move operation and the strategy didn't handle deletion,
                     // we need to delete the source after successful copy
@@ -178,7 +188,7 @@ impl JobHandler for FileCopyJob {
                 }
             }
 
-            // Checkpoint every 20 files
+            // Checkpoint every 20 files to save completed_indices
             if copied_count % 20 == 0 {
                 ctx.checkpoint().await?;
             }
