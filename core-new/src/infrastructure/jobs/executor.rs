@@ -2,6 +2,7 @@
 
 use super::{
     context::{CheckpointHandler, JobContext},
+    database::JobDb,
     error::{JobError, JobResult},
     handle::JobHandle,
     output::JobOutput,
@@ -25,6 +26,7 @@ pub struct JobExecutor<J: JobHandler> {
 pub struct JobExecutorState {
     pub job_id: JobId,
     pub library: Arc<Library>,
+    pub job_db: Arc<JobDb>,
     pub status_tx: watch::Sender<super::types::JobStatus>,
     pub progress_tx: mpsc::UnboundedSender<Progress>,
     pub broadcast_tx: broadcast::Sender<Progress>,
@@ -40,6 +42,7 @@ impl<J: JobHandler> JobExecutor<J> {
         job: J,
         job_id: JobId,
         library: Arc<Library>,
+        job_db: Arc<JobDb>,
         status_tx: watch::Sender<super::types::JobStatus>,
         progress_tx: mpsc::UnboundedSender<Progress>,
         broadcast_tx: broadcast::Sender<Progress>,
@@ -52,6 +55,7 @@ impl<J: JobHandler> JobExecutor<J> {
             state: JobExecutorState {
                 job_id,
                 library,
+                job_db,
                 status_tx,
                 progress_tx,
                 broadcast_tx,
@@ -90,7 +94,7 @@ impl<J: JobHandler> JobExecutor<J> {
             _ => {}
         }
         
-        job.update(self.state.library.db().conn()).await?;
+        job.update(self.state.job_db.conn()).await?;
         Ok(())
     }
 }

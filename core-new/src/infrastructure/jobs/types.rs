@@ -124,6 +124,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
         self: Box<Self>,
         job_id: JobId,
         library: std::sync::Arc<crate::library::Library>,
+        job_db: std::sync::Arc<crate::infrastructure::jobs::database::JobDb>,
         status_tx: tokio::sync::watch::Sender<JobStatus>,
         progress_tx: tokio::sync::mpsc::UnboundedSender<crate::infrastructure::jobs::progress::Progress>,
         broadcast_tx: tokio::sync::broadcast::Sender<crate::infrastructure::jobs::progress::Progress>,

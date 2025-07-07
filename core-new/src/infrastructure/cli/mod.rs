@@ -67,6 +67,16 @@ pub enum Commands {
 	/// Monitor all system activity in real-time
 	Monitor,
 
+	/// Monitor daemon logs in real-time
+	Logs {
+		/// Number of lines to show initially
+		#[arg(short, long, default_value = "50")]
+		lines: usize,
+		/// Follow logs in real-time
+		#[arg(short, long)]
+		follow: bool,
+	},
+
 	/// Show system status
 	Status,
 
@@ -114,25 +124,28 @@ pub enum InstanceCommands {
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let cli = Cli::parse();
 
-	// Set up logging - respect RUST_LOG environment variable with fallback defaults
-	let log_level = if cli.verbose { "debug" } else { "info" };
-	let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-		// Fallback to hardcoded filters if RUST_LOG not set
-		if cli.verbose {
-			// Enable detailed networking and libp2p logging when verbose
-			tracing_subscriber::EnvFilter::new(&format!(
-				"sd_core_new={},spacedrive_cli={},libp2p=debug",
-				log_level, log_level
-			))
-		} else {
-			tracing_subscriber::EnvFilter::new(&format!(
-				"sd_core_new={},spacedrive_cli={}",
-				log_level, log_level
-			))
-		}
-	});
+	// Set up logging - skip for daemon start commands as they handle their own logging
+	let is_daemon_start = matches!(&cli.command, Commands::Start { .. });
+	if !is_daemon_start {
+		let log_level = if cli.verbose { "debug" } else { "info" };
+		let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+			// Fallback to hardcoded filters if RUST_LOG not set
+			if cli.verbose {
+				// Enable detailed networking and libp2p logging when verbose
+				tracing_subscriber::EnvFilter::new(&format!(
+					"sd_core_new={},spacedrive_cli={},libp2p=debug",
+					log_level, log_level
+				))
+			} else {
+				tracing_subscriber::EnvFilter::new(&format!(
+					"sd_core_new={},spacedrive_cli={}",
+					log_level, log_level
+				))
+			}
+		});
 
-	tracing_subscriber::fmt().with_env_filter(env_filter).init();
+		tracing_subscriber::fmt().with_env_filter(env_filter).init();
+	}
 
 	// Determine data directory with instance isolation
 	let base_data_dir = cli
@@ -212,6 +225,9 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			println!("📊 Job monitor not yet implemented for daemon mode");
 			println!("   Use 'spacedrive job list' to see current jobs");
 			return Ok(());
+		}
+		Commands::Logs { lines, follow } => {
+			return handle_logs_command(*lines, *follow, cli.instance.clone()).await;
 		}
 		Commands::Index(cmd) => {
 			println!("❌ Index command not yet implemented for daemon mode");
@@ -1343,4 +1359,95 @@ async fn handle_copy_daemon_command(
 	}
 
 	Ok(())
+}
+
+async fn handle_logs_command(
+	lines: usize,
+	follow: bool,
+	instance_name: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+	use colored::Colorize;
+	use std::fs::File;
+	use std::io::{BufRead, BufReader, Seek, SeekFrom};
+	use std::time::Duration;
+	use tokio::time::sleep;
+
+	// Get the daemon config to find the log file path
+	let config = daemon::DaemonConfig::new(instance_name.clone());
+	
+	let log_file_path = config.log_file.ok_or("No log file configured for daemon")?;
+	
+	if !log_file_path.exists() {
+		let instance_display = instance_name.as_deref().unwrap_or("default");
+		println!("❌ Log file not found for daemon instance '{}'", instance_display);
+		println!("   Expected at: {}", log_file_path.display());
+		println!("   Make sure the daemon is running with logging enabled");
+		return Ok(());
+	}
+
+	println!("📋 {} - Press Ctrl+C to exit", 
+		format!("Spacedrive Daemon Logs ({})", 
+			instance_name.as_deref().unwrap_or("default")).bright_cyan());
+	println!("   Log file: {}", log_file_path.display().to_string().bright_blue());
+	println!("═══════════════════════════════════════════");
+
+	// Read initial lines
+	let file = File::open(&log_file_path)?;
+	let reader = BufReader::new(file);
+	let all_lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
+	
+	// Show last N lines
+	let start_index = if all_lines.len() > lines {
+		all_lines.len() - lines
+	} else {
+		0
+	};
+	
+	for line in &all_lines[start_index..] {
+		println!("{}", format_log_line(line));
+	}
+
+	if follow {
+		// Follow mode - watch for new lines
+		let mut file = File::open(&log_file_path)?;
+		file.seek(SeekFrom::End(0))?;
+		let mut reader = BufReader::new(file);
+		
+		loop {
+			let mut line = String::new();
+			match reader.read_line(&mut line) {
+				Ok(0) => {
+					// No new data, sleep and try again
+					sleep(Duration::from_millis(100)).await;
+				}
+				Ok(_) => {
+					// New line found
+					print!("{}", format_log_line(&line));
+				}
+				Err(e) => {
+					println!("❌ Error reading log file: {}", e);
+					break;
+				}
+			}
+		}
+	}
+
+	Ok(())
+}
+
+fn format_log_line(line: &str) -> String {
+	use colored::Colorize;
+	
+	// Basic log formatting - colorize by log level
+	if line.contains("ERROR") {
+		line.red().to_string()
+	} else if line.contains("WARN") {
+		line.yellow().to_string()
+	} else if line.contains("INFO") {
+		line.normal().to_string()
+	} else if line.contains("DEBUG") {
+		line.bright_black().to_string()
+	} else {
+		line.to_string()
+	}
 }

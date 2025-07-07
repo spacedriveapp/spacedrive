@@ -80,8 +80,8 @@ impl LibraryLock {
         }
     }
     
-    /// Check if a lock file is stale (older than 1 hour)
-    fn is_lock_stale(lock_path: &Path) -> Result<bool> {
+    /// Check if a lock file is stale (older than 1 hour or process no longer running)
+    pub fn is_lock_stale(lock_path: &Path) -> Result<bool> {
         let metadata = std::fs::metadata(lock_path)?;
         let modified = metadata.modified()?;
         let age = SystemTime::now()
@@ -89,7 +89,21 @@ impl LibraryLock {
             .unwrap_or(Duration::ZERO);
         
         // Consider lock stale if older than 1 hour
-        Ok(age > Duration::from_secs(3600))
+        if age > Duration::from_secs(3600) {
+            return Ok(true);
+        }
+        
+        // Also check if the process is still running
+        if let Ok(contents) = std::fs::read_to_string(lock_path) {
+            if let Ok(lock_info) = serde_json::from_str::<LockInfo>(&contents) {
+                // Check if process is still running
+                if !is_process_running(lock_info.process_id) {
+                    return Ok(true);
+                }
+            }
+        }
+        
+        Ok(false)
     }
     
     /// Try to read lock information (for debugging)
@@ -104,6 +118,41 @@ impl LibraryLock {
         let info: LockInfo = serde_json::from_str(&contents)?;
         
         Ok(Some(info))
+    }
+}
+
+/// Check if a process is still running (Unix-specific implementation)
+#[cfg(unix)]
+fn is_process_running(pid: u32) -> bool {
+    use std::process::Command;
+    
+    match Command::new("ps")
+        .arg("-p")
+        .arg(pid.to_string())
+        .output()
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
+/// Check if a process is still running (Windows implementation)
+#[cfg(windows)]
+fn is_process_running(pid: u32) -> bool {
+    use std::process::Command;
+    
+    match Command::new("tasklist")
+        .arg("/fi")
+        .arg(&format!("pid eq {}", pid))
+        .arg("/fo")
+        .arg("csv")
+        .output()
+    {
+        Ok(output) => {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+            output_str.lines().count() > 1 // Header + process line if exists
+        }
+        Err(_) => false,
     }
 }
 

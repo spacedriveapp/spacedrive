@@ -9,9 +9,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, RwLock};
 use tracing::{error, info, warn};
 use uuid::Uuid;
+
+use super::state::CliState;
+use crate::library::Library;
 
 /// Daemon configuration
 pub struct DaemonConfig {
@@ -224,6 +227,8 @@ pub struct Daemon {
 	config: DaemonConfig,
 	start_time: std::time::Instant,
 	shutdown_tx: Arc<tokio::sync::Mutex<Option<oneshot::Sender<()>>>>,
+	cli_state: Arc<RwLock<CliState>>,
+	data_dir: PathBuf,
 }
 
 impl Daemon {
@@ -237,7 +242,29 @@ impl Daemon {
 		data_dir: PathBuf,
 		instance_name: Option<String>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
-		let core = Arc::new(Core::new_with_config(data_dir).await?);
+		// Set up logging BEFORE initializing Core
+		let config = DaemonConfig::new(instance_name.clone());
+		if let Some(ref log_file) = config.log_file {
+			Self::setup_file_logging_static(log_file)?;
+		}
+
+		let core = Arc::new(Core::new_with_config(data_dir.clone()).await?);
+
+		// Load CLI state
+		let mut cli_state = CliState::load(&data_dir).unwrap_or_default();
+		
+		// Auto-select first library if no current library is set
+		let libraries = core.libraries.list().await;
+		if cli_state.current_library_id.is_none() && !libraries.is_empty() {
+			let first_lib = &libraries[0];
+			cli_state.set_current_library(first_lib.id(), first_lib.path().to_path_buf());
+			// Save the state immediately
+			if let Err(e) = cli_state.save(&data_dir) {
+				warn!("Failed to save CLI state: {}", e);
+			}
+		}
+		
+		let cli_state = Arc::new(RwLock::new(cli_state));
 
 		// Ensure device is registered for all libraries
 		let libraries = core.libraries.list().await;
@@ -292,6 +319,8 @@ impl Daemon {
 			config: DaemonConfig::new(instance_name.clone()),
 			start_time: std::time::Instant::now(),
 			shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
+			cli_state,
+			data_dir,
 		})
 	}
 
@@ -307,13 +336,35 @@ impl Daemon {
 		data_dir: PathBuf,
 		instance_name: Option<String>,
 	) -> Result<Self, Box<dyn std::error::Error>> {
-		let mut core = Core::new_with_config(data_dir).await?;
+		// Set up logging BEFORE initializing Core
+		let config = DaemonConfig::new(instance_name.clone());
+		if let Some(ref log_file) = config.log_file {
+			Self::setup_file_logging_static(log_file)?;
+		}
+
+		let mut core = Core::new_with_config(data_dir.clone()).await?;
 		
 		// Initialize networking
 		core.init_networking().await?;
 		core.start_networking().await?;
 		
 		let core = Arc::new(core);
+
+		// Load CLI state
+		let mut cli_state = CliState::load(&data_dir).unwrap_or_default();
+		
+		// Auto-select first library if no current library is set
+		let libraries = core.libraries.list().await;
+		if cli_state.current_library_id.is_none() && !libraries.is_empty() {
+			let first_lib = &libraries[0];
+			cli_state.set_current_library(first_lib.id(), first_lib.path().to_path_buf());
+			// Save the state immediately
+			if let Err(e) = cli_state.save(&data_dir) {
+				warn!("Failed to save CLI state: {}", e);
+			}
+		}
+		
+		let cli_state = Arc::new(RwLock::new(cli_state));
 
 		// Ensure device is registered for all libraries
 		let libraries = core.libraries.list().await;
@@ -368,11 +419,59 @@ impl Daemon {
 			config: DaemonConfig::new(instance_name.clone()),
 			start_time: std::time::Instant::now(),
 			shutdown_tx: Arc::new(tokio::sync::Mutex::new(None)),
+			cli_state,
+			data_dir,
 		})
+	}
+
+	/// Set up comprehensive file logging for daemon and core (static version)
+	fn setup_file_logging_static(log_file: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+		use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+		use std::fs::OpenOptions;
+		
+		// Create log file directory if it doesn't exist
+		if let Some(parent) = log_file.parent() {
+			std::fs::create_dir_all(parent)?;
+		}
+		
+		// Open log file for appending
+		let file = OpenOptions::new()
+			.create(true)
+			.append(true)
+			.open(log_file)?;
+		
+		// Set up file logging with both console and file output
+		let file_layer = fmt::layer()
+			.with_writer(file)
+			.with_ansi(false) // No color codes in file
+			.with_target(true)
+			.with_thread_ids(true)
+			.with_line_number(true);
+			
+		let console_layer = fmt::layer()
+			.with_writer(std::io::stderr) // Console output to stderr
+			.with_target(false); // Less verbose for console
+		
+		// Use info level for daemon by default, can be overridden with RUST_LOG
+		let filter = EnvFilter::try_from_default_env()
+			.unwrap_or_else(|_| EnvFilter::new("info,sd_core_new=debug"));
+		
+		// Set up comprehensive logging for the entire daemon process
+		tracing_subscriber::registry()
+			.with(filter)
+			.with(file_layer)
+			.with(console_layer)
+			.init();
+		
+		tracing::info!("Daemon logging initialized, writing to: {}", log_file.display());
+		tracing::info!("All Core application logs will be captured");
+		Ok(())
 	}
 
 	/// Start the daemon server
 	pub async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
+		// Logging is already set up in the constructor
+		
 		// Remove old socket if it exists
 		if self.config.socket_path.exists() {
 			std::fs::remove_file(&self.config.socket_path)?;
@@ -396,9 +495,11 @@ impl Daemon {
 					let core = self.core.clone();
 					let start_time = self.start_time;
 					let shutdown_tx = self.shutdown_tx.clone();
+					let cli_state = self.cli_state.clone();
+					let data_dir = self.data_dir.clone();
 
 					// Handle client directly without spawning background task
-					if let Err(e) = handle_client(stream, core, start_time, shutdown_tx).await {
+					if let Err(e) = handle_client(stream, core, start_time, shutdown_tx, cli_state, data_dir).await {
 						error!("Error handling client: {}", e);
 					}
 				}
@@ -563,6 +664,8 @@ async fn handle_client(
 	core: Arc<Core>,
 	start_time: std::time::Instant,
 	shutdown_tx: Arc<tokio::sync::Mutex<Option<oneshot::Sender<()>>>>,
+	cli_state: Arc<RwLock<CliState>>,
+	data_dir: PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	let (reader, mut writer) = stream.into_split();
 	let mut reader = BufReader::new(reader);
@@ -578,7 +681,7 @@ async fn handle_client(
 		match serde_json::from_str::<DaemonCommand>(trimmed) {
 			Ok(cmd) => {
 				let is_shutdown = matches!(cmd, DaemonCommand::Shutdown);
-				let response = handle_command(cmd, &core, start_time).await;
+				let response = handle_command(cmd, &core, start_time, cli_state.clone(), data_dir.clone()).await;
 				let json = serde_json::to_string(&response)?;
 				writer.write_all(format!("{}\n", json).as_bytes()).await?;
 
@@ -604,24 +707,47 @@ async fn handle_client(
 	Ok(())
 }
 
+/// Helper function to get the current library from CLI state
+async fn get_current_library(
+	core: &Arc<Core>,
+	cli_state: Arc<RwLock<CliState>>,
+) -> Option<Arc<Library>> {
+	let state = cli_state.read().await;
+	if let Some(current_id) = state.current_library_id {
+		core.libraries.get_library(current_id).await
+	} else {
+		// Fallback to first library if no current library is set
+		let libraries = core.libraries.list().await;
+		libraries.first().cloned()
+	}
+}
+
 /// Handle a daemon command
 async fn handle_command(
 	cmd: DaemonCommand,
 	core: &Arc<Core>,
 	start_time: std::time::Instant,
+	cli_state: Arc<RwLock<CliState>>,
+	data_dir: PathBuf,
 ) -> DaemonResponse {
 	info!("Handling daemon command: {:?}", cmd);
 	match cmd {
 		DaemonCommand::Ping => DaemonResponse::Pong,
 
 		DaemonCommand::Shutdown => {
-			// Shutdown will be handled by the daemon after sending response
+			// Gracefully shutdown core (this will close all libraries and cleanup locks)
+			if let Err(e) = core.shutdown().await {
+				error!("Error during core shutdown: {}", e);
+			}
 			DaemonResponse::Ok
 		}
 
 		DaemonCommand::GetStatus => {
-			let libraries = core.libraries.list().await;
-			let current_library = libraries.first().map(|l| l.id());
+			let current_library = if let Some(library) = get_current_library(core, cli_state.clone()).await {
+				Some(library.id())
+			} else {
+				None
+			};
 
 			DaemonResponse::Status(DaemonStatus {
 				version: env!("CARGO_PKG_VERSION").to_string(),
@@ -648,7 +774,7 @@ async fn handle_command(
 		}
 
 		DaemonCommand::CreateLibrary { name, path } => {
-			match core.libraries.create_library(&name, path).await {
+			match core.libraries.create_library(&name, path, core.context.clone()).await {
 				Ok(library) => {
 					// Register device in the new library
 					let db = library.db();
@@ -703,10 +829,7 @@ async fn handle_command(
 		}
 
 		DaemonCommand::GetCurrentLibrary => {
-			// For now, return the first library as current
-			// TODO: Implement proper current library tracking
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				DaemonResponse::CurrentLibrary(Some(LibraryInfo {
 					id: library.id(),
 					name: library.name().await,
@@ -718,9 +841,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::AddLocation { path, name } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				// Get current device from database
 				let db = library.db();
 				let device = match core.device.to_device() {
@@ -771,9 +893,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::ListLocations => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let location_manager =
 					crate::location::LocationManager::new((*core.events).clone());
 
@@ -801,9 +922,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::RemoveLocation { id } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let location_manager =
 					crate::location::LocationManager::new((*core.events).clone());
 
@@ -817,9 +937,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::RescanLocation { id } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let location_manager =
 					crate::location::LocationManager::new((*core.events).clone());
 
@@ -836,9 +955,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::ListJobs { status } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let job_manager = library.jobs();
 
 				// For running jobs, get from memory for live monitoring
@@ -892,9 +1010,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::GetJobInfo { id } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let job_manager = library.jobs();
 
 				match job_manager.get_job_info(id).await {
@@ -912,9 +1029,17 @@ async fn handle_command(
 		}
 
 		DaemonCommand::SwitchLibrary { id } => {
-			// For now, we don't actually switch - just verify the library exists
 			let libraries = core.libraries.list().await;
-			if libraries.iter().any(|lib| lib.id() == id) {
+			if let Some(library) = libraries.iter().find(|lib| lib.id() == id) {
+				// Update CLI state
+				let mut state = cli_state.write().await;
+				state.set_current_library(library.id(), library.path().to_path_buf());
+				
+				// Save state to disk
+				if let Err(e) = state.save(&data_dir) {
+					warn!("Failed to save CLI state: {}", e);
+				}
+				
 				DaemonResponse::Ok
 			} else {
 				DaemonResponse::Error("Library not found".to_string())
@@ -937,9 +1062,8 @@ async fn handle_command(
 		}
 
 		DaemonCommand::Copy { sources, destination, overwrite, verify, preserve_timestamps, move_files } => {
-			// Get current library
-			let libraries = core.libraries.list().await;
-			if let Some(library) = libraries.first() {
+			// Get current library from CLI state
+			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let library_id = library.id();
 				
 				// Create the copy input

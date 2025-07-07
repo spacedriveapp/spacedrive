@@ -1,4 +1,5 @@
 //! Job manager for scheduling and executing jobs
+//! The job manager has its own database in the library directory, not the global library database.
 
 use super::{
 	context::CheckpointHandler,
@@ -11,7 +12,7 @@ use super::{
 	traits::{Job, JobHandler},
 	types::{JobId, JobInfo, JobPriority, JobStatus},
 };
-use crate::{infrastructure::events::EventBus, library::Library};
+use crate::{context::CoreContext, infrastructure::events::EventBus, library::Library};
 use async_trait::async_trait;
 use chrono::Utc;
 use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
@@ -22,14 +23,12 @@ use tracing::{debug, error, info, warn};
 
 /// Manages job execution for a library
 pub struct JobManager {
-	library: RwLock<Option<Arc<Library>>>,
 	db: Arc<JobDb>,
 	dispatcher: Arc<TaskSystem<JobError>>,
 	running_jobs: Arc<RwLock<HashMap<JobId, RunningJob>>>,
 	shutdown_tx: watch::Sender<bool>,
-	event_bus: Option<Arc<EventBus>>,
-	networking: RwLock<Option<Arc<crate::services::networking::NetworkingService>>>,
-	volume_manager: RwLock<Option<Arc<crate::volume::VolumeManager>>>,
+	context: Arc<CoreContext>,
+	library_id: uuid::Uuid,
 }
 
 struct RunningJob {
@@ -41,7 +40,11 @@ struct RunningJob {
 
 impl JobManager {
 	/// Create a new job manager
-	pub async fn new(data_dir: PathBuf) -> JobResult<Self> {
+	pub async fn new(
+		data_dir: PathBuf,
+		context: Arc<CoreContext>,
+		library_id: uuid::Uuid,
+	) -> JobResult<Self> {
 		// Initialize job database
 		let job_db_path = data_dir.join("jobs.db");
 		let db = database::init_database(&job_db_path).await?;
@@ -52,41 +55,23 @@ impl JobManager {
 		let (shutdown_tx, _) = watch::channel(false);
 
 		let manager = Self {
-			library: RwLock::new(None),
 			db: Arc::new(JobDb::new(db)),
 			dispatcher: Arc::new(dispatcher),
 			running_jobs: Arc::new(RwLock::new(HashMap::new())),
 			shutdown_tx,
-			event_bus: None,
-			networking: RwLock::new(None),
-			volume_manager: RwLock::new(None),
+			context,
+			library_id,
 		};
 
 		Ok(manager)
 	}
 
-	/// Set the library reference after creation
-	pub async fn set_library(&self, library: Arc<Library>) {
-		*self.library.write().await = Some(library);
-		// Resume any interrupted jobs after library is set
+	/// Initialize job manager (resume interrupted jobs)
+	pub async fn initialize(&self) -> JobResult<()> {
 		if let Err(e) = self.resume_interrupted_jobs().await {
 			error!("Failed to resume interrupted jobs: {}", e);
 		}
-	}
-
-	/// Clear the library reference to break circular references
-	pub async fn clear_library(&self) {
-		*self.library.write().await = None;
-	}
-
-	/// Set the networking service reference
-	pub async fn set_networking(&self, networking: Arc<crate::services::networking::NetworkingService>) {
-		*self.networking.write().await = Some(networking);
-	}
-
-	/// Set the volume manager reference
-	pub async fn set_volume_manager(&self, volume_manager: Arc<crate::volume::VolumeManager>) {
-		*self.volume_manager.write().await = Some(volume_manager);
+		Ok(())
 	}
 
 	/// Dispatch a job for execution
@@ -152,7 +137,10 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
-		println!("🔍 JOB_DEBUG: Successfully inserted job {} into database", job_id);
+		println!(
+			"🔍 JOB_DEBUG: Successfully inserted job {} into database",
+			job_id
+		);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -173,25 +161,25 @@ impl JobManager {
 			}
 		});
 
-		// Get library reference
+		// Get library from context using stored library_id
 		let library = self
-			.library
-			.read()
+			.context
+			.library_manager
+			.get_library(self.library_id)
 			.await
-			.as_ref()
-			.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
-			.clone();
+			.ok_or_else(|| {
+				JobError::invalid_state(&format!("Library {} not found", self.library_id))
+			})?;
 
-		// Get networking reference
-		let networking = self.networking.read().await.clone();
-		
-		// Get volume manager reference
-		let volume_manager = self.volume_manager.read().await.clone();
+		// Get services from context
+		let networking = self.context.get_networking().await;
+		let volume_manager = Some(self.context.volume_manager.clone());
 
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
 			library,
+			self.db.clone(),
 			status_tx.clone(),
 			progress_tx,
 			broadcast_tx,
@@ -274,7 +262,10 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
-		println!("🔍 JOB_DEBUG: Successfully inserted job {} into database", job_id);
+		println!(
+			"🔍 JOB_DEBUG: Successfully inserted job {} into database",
+			job_id
+		);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -299,26 +290,26 @@ impl JobManager {
 			}
 		});
 
-		// Get library reference
+		// Get library from context using stored library_id
 		let library = self
-			.library
-			.read()
+			.context
+			.library_manager
+			.get_library(self.library_id)
 			.await
-			.as_ref()
-			.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
-			.clone();
+			.ok_or_else(|| {
+				JobError::invalid_state(&format!("Library {} not found", self.library_id))
+			})?;
 
-		// Get networking reference
-		let networking = self.networking.read().await.clone();
-		
-		// Get volume manager reference
-		let volume_manager = self.volume_manager.read().await.clone();
+		// Get services from context
+		let networking = self.context.get_networking().await;
+		let volume_manager = Some(self.context.volume_manager.clone());
 
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
 			job_id,
 			library,
+			self.db.clone(),
 			status_tx.clone(),
 			progress_tx,
 			broadcast_tx,
@@ -492,47 +483,55 @@ impl JobManager {
 	/// Get detailed information about a specific job
 	pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
 		let job_id = JobId(id);
-		
+
 		// First check if job is running in memory (for live status and progress)
-		println!("🔍 JOB_DEBUG: Checking for job {} in running jobs memory", id);
+		println!(
+			"🔍 JOB_DEBUG: Checking for job {} in running jobs memory",
+			id
+		);
 		if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
 			println!("🔍 JOB_DEBUG: Found job {} in memory with live status", id);
 			let handle = &running_job.handle;
 			let status = handle.status();
-			
+
 			// Get latest progress from memory
-			let progress = if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
+			let progress = if let Some(progress) = running_job.latest_progress.lock().await.as_ref()
+			{
 				progress.as_percentage().unwrap_or(0.0)
 			} else {
 				0.0
 			};
-			
+
 			// For running jobs, we also need the job name from database
 			let job_name = match database::jobs::Entity::find_by_id(id.to_string())
 				.one(self.db.conn())
-				.await? {
+				.await?
+			{
 				Some(db_job) => db_job.name,
 				None => format!("Job {}", id), // Fallback if not in DB
 			};
-			
+
 			return Ok(Some(JobInfo {
 				id,
 				name: job_name,
 				status,
 				progress,
 				started_at: chrono::Utc::now(), // TODO: Get actual start time from DB
-				completed_at: None, // Running jobs aren't completed yet
-				error_message: None, // TODO: Get from handle if failed
-				parent_job_id: None, // TODO: Get from DB if needed
+				completed_at: None,             // Running jobs aren't completed yet
+				error_message: None,            // TODO: Get from handle if failed
+				parent_job_id: None,            // TODO: Get from DB if needed
 			}));
 		}
-		
+
 		// Job not in memory, check database for completed/failed jobs
-		println!("🔍 JOB_DEBUG: Job {} not in memory, looking up in database", id);
+		println!(
+			"🔍 JOB_DEBUG: Job {} not in memory, looking up in database",
+			id
+		);
 		let job = database::jobs::Entity::find_by_id(id.to_string())
 			.one(self.db.conn())
 			.await?;
-		
+
 		if job.is_some() {
 			println!("🔍 JOB_DEBUG: Found job {} in database", id);
 		} else {
@@ -540,7 +539,10 @@ impl JobManager {
 		}
 
 		Ok(job.and_then(|j| {
-			println!("🔍 JOB_DEBUG: Converting database job - status: {}, name: {}", j.status, j.name);
+			println!(
+				"🔍 JOB_DEBUG: Converting database job - status: {}, name: {}",
+				j.status, j.name
+			);
 			let id = j.id.parse::<Uuid>().ok()?;
 			let status = match j.status.as_str() {
 				"Queued" => JobStatus::Queued,
@@ -612,25 +614,28 @@ impl JobManager {
 							}
 						});
 
-						// Get library reference
+						// Get library from context using stored library_id
 						let library = self
-							.library
-							.read()
+							.context
+							.library_manager
+							.get_library(self.library_id)
 							.await
-							.as_ref()
-							.ok_or_else(|| JobError::invalid_state("Library not initialized"))?
-							.clone();
+							.ok_or_else(|| {
+								JobError::invalid_state(&format!(
+									"Library {} not found",
+									self.library_id
+								))
+							})?;
 
-						// Get networking reference
-						let networking = self.networking.read().await.clone();
-						
-						// Get volume manager reference
-						let volume_manager = self.volume_manager.read().await.clone();
+						// Get services from context
+						let networking = self.context.get_networking().await;
+						let volume_manager = Some(self.context.volume_manager.clone());
 
 						// Create executor using the erased job
 						let executor = erased_job.create_executor(
 							job_id,
 							library,
+							self.db.clone(),
 							status_tx.clone(),
 							progress_tx,
 							broadcast_tx,

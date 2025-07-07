@@ -6,10 +6,13 @@ use super::{
     lock::LibraryLock,
     Library, LIBRARY_CONFIG_VERSION, LIBRARY_EXTENSION,
 };
-use crate::infrastructure::{
-    database::Database,
-    events::{Event, EventBus},
-    jobs::manager::JobManager,
+use crate::{
+    context::CoreContext,
+    infrastructure::{
+        database::Database,
+        events::{Event, EventBus},
+        jobs::manager::JobManager,
+    },
 };
 use chrono::Utc;
 use std::collections::HashMap;
@@ -73,6 +76,26 @@ impl LibraryManager {
         }
     }
 
+
+    /// Load all discovered libraries with context for job manager initialization
+    pub async fn load_all_with_context(&self, context: Arc<CoreContext>) -> Result<usize> {
+        let discovered = self.scan_for_libraries().await?;
+        let mut loaded_count = 0;
+
+        for disc in discovered {
+            if !disc.is_locked {
+                match self.open_library_with_context(&disc.path, context.clone()).await {
+                    Ok(_) => loaded_count += 1,
+                    Err(e) => {
+                        warn!("Failed to load library at {:?}: {}", disc.path, e);
+                    }
+                }
+            }
+        }
+
+        Ok(loaded_count)
+    }
+
     /// Add a search path for libraries
     pub fn add_search_path(&mut self, path: PathBuf) {
         if !self.search_paths.contains(&path) {
@@ -85,6 +108,7 @@ impl LibraryManager {
         &self,
         name: impl Into<String>,
         location: Option<PathBuf>,
+        context: Arc<CoreContext>,
     ) -> Result<Arc<Library>> {
         let name = name.into();
 
@@ -121,8 +145,8 @@ impl LibraryManager {
         // Initialize library
         self.initialize_library(&library_path, name).await?;
 
-        // Open the newly created library
-        let library = self.open_library(&library_path).await?;
+        // Open the newly created library with context
+        let library = self.open_library_with_context(&library_path, context.clone()).await?;
 
         // Emit event
         self.event_bus.emit(Event::LibraryCreated {
@@ -163,20 +187,48 @@ impl LibraryManager {
         let db_path = path.join("database.db");
         let db = Arc::new(Database::open(&db_path).await?);
 
-        // Create job manager (without library reference initially)
-        let job_manager = Arc::new(JobManager::new(path.to_path_buf()).await?);
+        // This method now requires context - redirect to open_library_with_context
+        return Err(LibraryError::Other("Context required for library creation".to_string()));
+    }
+
+    /// Open a library with CoreContext for job manager initialization
+    pub async fn open_library_with_context(
+        &self,
+        path: &Path,
+        context: Arc<CoreContext>,
+    ) -> Result<Arc<Library>> {
+        info!("Opening library at {:?}", path);
+
+        // Acquire lock
+        let lock = LibraryLock::acquire(path)?;
+
+        // Load config
+        let config_path = path.join("library.json");
+        let config = LibraryConfig::load(&config_path).await?;
+
+        // Ensure library ID is set
+        if config.id.is_nil() {
+            return Err(LibraryError::Other(
+                "Library config has nil ID".to_string(),
+            ));
+        }
+
+        // Open database
+        let db_path = path.join("database.db");
+        let db = Arc::new(Database::open(&db_path).await?);
+
+        // Create job manager with context
+        let job_manager = Arc::new(JobManager::new(path.to_path_buf(), context, config.id).await?);
+        job_manager.initialize().await?;
 
         // Create library instance
         let library = Arc::new(Library {
             path: path.to_path_buf(),
             config: RwLock::new(config.clone()),
             db,
-            jobs: job_manager.clone(),
+            jobs: job_manager,
             _lock: lock,
         });
-
-        // Set library reference in job manager
-        job_manager.set_library(library.clone()).await;
 
         // Register library
         {
@@ -206,8 +258,7 @@ impl LibraryManager {
         if let Some(library) = library {
             let name = library.name().await;
 
-            // Break the circular reference by clearing the library from the job manager
-            library.jobs().clear_library().await;
+            // Job manager will be dropped with the library
 
             // Emit event
             self.event_bus.emit(Event::LibraryClosed { id, name });
@@ -369,8 +420,14 @@ impl LibraryManager {
         let config_data = tokio::fs::read_to_string(&config_path).await?;
         let config: LibraryConfig = serde_json::from_str(&config_data)?;
 
-        // Check if locked
-        let is_locked = path.join(".sdlibrary.lock").exists();
+        // Check if locked (but ignore stale locks)
+        let lock_path = path.join(".sdlibrary.lock");
+        let is_locked = if lock_path.exists() {
+            // Use the LibraryLock's stale detection logic
+            !LibraryLock::is_lock_stale(&lock_path).unwrap_or(true)
+        } else {
+            false
+        };
 
         Ok(DiscoveredLibrary {
             path: path.to_path_buf(),

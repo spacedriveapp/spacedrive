@@ -194,7 +194,7 @@ impl EphemeralIndex {
 }
 
 /// Indexer job - discovers and indexes files in a location
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct IndexerJob {
 	pub config: IndexerJobConfig,
 
@@ -611,6 +611,3 @@ impl From<IndexerOutput> for JobOutput {
 		}
 	}
 }
-
-// TODO: Job registration needs to be fixed
-// crate::register_job!(IndexerJob);

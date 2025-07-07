@@ -175,19 +175,12 @@ impl Core {
 		let library_key_manager =
 			Arc::new(crate::keys::library_key_manager::LibraryKeyManager::new()?);
 
-		// 8. Auto-load all libraries
-		info!("Loading existing libraries...");
-		match libraries.load_all().await {
-			Ok(count) => info!("Loaded {} libraries", count),
-			Err(e) => error!("Failed to load libraries: {}", e),
-		}
-
-		// 9. Register all job types
+		// 8. Register all job types
 		info!("Registering job types...");
 		crate::operations::register_all_jobs();
 		info!("Job types registered");
 
-		// 10. Create the context that will be shared with services
+		// 9. Create the context that will be shared with services
 		let context = Arc::new(CoreContext::new(
 			events.clone(),
 			device.clone(),
@@ -195,6 +188,13 @@ impl Core {
 			volumes.clone(),
 			library_key_manager.clone(),
 		));
+
+		// 10. Auto-load all libraries with context for job manager initialization
+		info!("Loading existing libraries...");
+		match libraries.load_all_with_context(context.clone()).await {
+			Ok(count) => info!("Loaded {} libraries", count),
+			Err(e) => error!("Failed to load libraries: {}", e),
+		}
 
 		// 11. Initialize services, passing them the context
 		let services = Services::new(context.clone());

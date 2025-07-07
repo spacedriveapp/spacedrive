@@ -60,6 +60,17 @@ pub struct LibrarySettings {
     pub max_file_size: Option<u64>,
 }
 
+impl LibraryConfig {
+    /// Load library configuration from a JSON file
+    pub async fn load(path: &std::path::Path) -> Result<Self, super::error::LibraryError> {
+        let config_data = tokio::fs::read_to_string(path).await
+            .map_err(|e| super::error::LibraryError::IoError(e))?;
+        let config: LibraryConfig = serde_json::from_str(&config_data)
+            .map_err(|e| super::error::LibraryError::JsonError(e))?;
+        Ok(config)
+    }
+}
+
 impl Default for LibrarySettings {
     fn default() -> Self {
         Self {

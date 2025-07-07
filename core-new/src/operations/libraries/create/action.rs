@@ -56,7 +56,7 @@ impl ActionHandler for LibraryCreateHandler {
     ) -> ActionResult<ActionOutput> {
         if let crate::infrastructure::actions::Action::LibraryCreate(action) = action {
             let library_manager = &context.library_manager;
-            let new_library = library_manager.create_library(action.name.clone(), action.path.clone()).await?;
+            let new_library = library_manager.create_library(action.name.clone(), action.path.clone(), context.clone()).await?;
 
             let library_name = new_library.name().await;
             let output = LibraryCreateOutput::new(
