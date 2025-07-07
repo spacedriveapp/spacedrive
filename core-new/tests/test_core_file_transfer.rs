@@ -55,7 +55,7 @@ async fn alice_file_transfer_scenario() {
 	println!("📚 Alice: Creating library for file transfer jobs...");
 	let _library = core
 		.libraries
-		.create_library("Alice Transfer Library", None)
+		.create_library("Alice Transfer Library", None, core.context.clone())
 		.await
 		.unwrap();
 	println!("✅ Alice: Library created successfully");

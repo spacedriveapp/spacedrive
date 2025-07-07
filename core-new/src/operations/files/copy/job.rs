@@ -107,10 +107,22 @@ impl JobHandler for FileCopyJob {
             }
 
             let final_destination = if self.sources.paths.len() > 1 {
-                // If multiple sources, treat destination as a directory
+                // Multiple sources: destination must be a directory
                 self.destination.join(source.path.file_name().unwrap_or_default())
             } else {
-                self.destination.clone()
+                // Single source: check if destination is a directory
+                if let Some(dest_path) = self.destination.as_local_path() {
+                    if dest_path.is_dir() {
+                        // Destination is a directory, join with source filename
+                        self.destination.join(source.path.file_name().unwrap_or_default())
+                    } else {
+                        // Destination is a file path, use as-is
+                        self.destination.clone()
+                    }
+                } else {
+                    // Non-local destination, assume file copy
+                    self.destination.clone()
+                }
             };
 
             // Update progress
