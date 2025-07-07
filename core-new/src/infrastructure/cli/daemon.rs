@@ -1074,6 +1074,7 @@ async fn handle_command(
 					verify_checksum: verify,
 					preserve_timestamps,
 					move_files,
+					copy_method: crate::operations::files::copy::input::CopyMethod::Auto,
 				};
 
 				// Validate input

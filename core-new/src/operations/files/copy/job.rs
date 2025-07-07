@@ -1,6 +1,6 @@
 //! Simplified FileCopyJob using the Strategy Pattern
 
-use super::routing::CopyStrategyRouter;
+use super::{input::CopyMethod, routing::CopyStrategyRouter};
 use crate::{
     infrastructure::jobs::prelude::*,
     shared::types::{SdPath, SdPathBatch},
@@ -32,6 +32,7 @@ pub struct CopyOptions {
     pub preserve_timestamps: bool,
     pub delete_after_copy: bool,
     pub move_mode: Option<MoveMode>,
+    pub copy_method: CopyMethod,
 }
 
 impl Default for CopyOptions {
@@ -42,6 +43,7 @@ impl Default for CopyOptions {
             preserve_timestamps: true,
             delete_after_copy: false,
             move_mode: None,
+            copy_method: CopyMethod::Auto,
         }
     }
 }
@@ -136,6 +138,7 @@ impl JobHandler for FileCopyJob {
                     source,
                     &final_destination,
                     is_move,
+                    &self.options.copy_method,
                     volume_manager.as_deref(),
                 ).await,
                 estimated_remaining: None,
@@ -146,6 +149,7 @@ impl JobHandler for FileCopyJob {
                 source,
                 &final_destination,
                 is_move,
+                &self.options.copy_method,
                 volume_manager.as_deref(),
             ).await;
 

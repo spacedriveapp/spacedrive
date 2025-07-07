@@ -1,7 +1,25 @@
 //! Core input types for file copy operations
 
 use super::job::CopyOptions;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+/// Copy method preference for file operations
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CopyMethod {
+    /// Automatically select the best method based on source and destination
+    Auto,
+    /// Use atomic move (rename) for same-volume operations
+    AtomicMove,
+    /// Use streaming copy for cross-volume operations
+    StreamingCopy,
+}
+
+impl Default for CopyMethod {
+    fn default() -> Self {
+        CopyMethod::Auto
+    }
+}
 
 /// Core input structure for file copy operations
 /// This is the canonical interface that all external APIs (CLI, GraphQL, REST) convert to
@@ -24,6 +42,9 @@ pub struct FileCopyInput {
     
     /// Whether to delete source files after copying (move operation)
     pub move_files: bool,
+    
+    /// Preferred copy method to use
+    pub copy_method: CopyMethod,
 }
 
 impl FileCopyInput {
@@ -36,6 +57,7 @@ impl FileCopyInput {
             verify_checksum: false,
             preserve_timestamps: true,
             move_files: false,
+            copy_method: CopyMethod::Auto,
         }
     }
     
@@ -68,6 +90,12 @@ impl FileCopyInput {
         self
     }
     
+    /// Set copy method preference
+    pub fn with_copy_method(mut self, copy_method: CopyMethod) -> Self {
+        self.copy_method = copy_method;
+        self
+    }
+    
     /// Convert to CopyOptions for the job system
     pub fn to_copy_options(&self) -> CopyOptions {
         CopyOptions {
@@ -76,6 +104,7 @@ impl FileCopyInput {
             preserve_timestamps: self.preserve_timestamps,
             delete_after_copy: self.move_files,
             move_mode: None, // Will be determined by job system
+            copy_method: self.copy_method.clone(),
         }
     }
     
@@ -134,6 +163,7 @@ impl Default for FileCopyInput {
             verify_checksum: false,
             preserve_timestamps: true,
             move_files: false,
+            copy_method: CopyMethod::Auto,
         }
     }
 }

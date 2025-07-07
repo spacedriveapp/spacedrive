@@ -209,6 +209,7 @@ impl FileSharingService {
 			preserve_timestamps: options.preserve_timestamps,
 			delete_after_copy: false,
 			move_mode: None,
+			copy_method: crate::operations::files::copy::input::CopyMethod::Auto,
 		});
 
 		// Submit job to job system

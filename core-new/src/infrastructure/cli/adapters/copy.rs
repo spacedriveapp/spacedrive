@@ -1,8 +1,35 @@
 //! CLI adapter for file copy operations
 
-use crate::operations::files::copy::input::FileCopyInput;
-use clap::Parser;
+use crate::operations::files::copy::input::{CopyMethod, FileCopyInput};
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
+
+/// CLI-specific copy method values
+#[derive(Debug, Clone, ValueEnum)]
+pub enum CopyMethodCli {
+    /// Automatically select the best method based on source and destination
+    Auto,
+    /// Use atomic move (rename) for same-volume operations
+    AtomicMove,
+    /// Use streaming copy for cross-volume operations
+    Streaming,
+}
+
+impl Default for CopyMethodCli {
+    fn default() -> Self {
+        CopyMethodCli::Auto
+    }
+}
+
+impl From<CopyMethodCli> for CopyMethod {
+    fn from(cli_method: CopyMethodCli) -> Self {
+        match cli_method {
+            CopyMethodCli::Auto => CopyMethod::Auto,
+            CopyMethodCli::AtomicMove => CopyMethod::AtomicMove,
+            CopyMethodCli::Streaming => CopyMethod::StreamingCopy,
+        }
+    }
+}
 
 /// CLI-specific arguments for file copy command
 /// This struct handles CLI parsing and converts to the core FileCopyInput type
@@ -30,6 +57,10 @@ pub struct FileCopyCliArgs {
     /// Move files instead of copying (delete source after copy)
     #[arg(long)]
     pub move_files: bool,
+
+    /// Copy method to use (auto, atomic-move, streaming)
+    #[arg(long, value_enum, default_value = "auto")]
+    pub method: CopyMethodCli,
 }
 
 impl From<FileCopyCliArgs> for FileCopyInput {
@@ -41,6 +72,7 @@ impl From<FileCopyCliArgs> for FileCopyInput {
             verify_checksum: args.verify,
             preserve_timestamps: args.preserve_timestamps,
             move_files: args.move_files,
+            copy_method: args.method.into(),
         }
     }
 }
@@ -75,6 +107,7 @@ mod tests {
             verify: false,
             preserve_timestamps: true,
             move_files: false,
+            method: CopyMethodCli::Auto,
         };
 
         let input: FileCopyInput = cli_args.into();
@@ -85,6 +118,7 @@ mod tests {
         assert!(!input.verify_checksum);
         assert!(input.preserve_timestamps);
         assert!(!input.move_files);
+        assert_eq!(input.copy_method, CopyMethod::Auto);
     }
 
     #[test]
@@ -96,6 +130,7 @@ mod tests {
             verify: true,
             preserve_timestamps: false,
             move_files: true,
+            method: CopyMethodCli::Streaming,
         };
 
         let result = cli_args.validate_and_convert();
@@ -106,6 +141,7 @@ mod tests {
         assert!(input.verify_checksum);
         assert!(!input.preserve_timestamps);
         assert!(input.move_files);
+        assert_eq!(input.copy_method, CopyMethod::StreamingCopy);
     }
 
     #[test]
@@ -117,6 +153,7 @@ mod tests {
             verify: false,
             preserve_timestamps: true,
             move_files: false,
+            method: CopyMethodCli::Auto,
         };
 
         let result = cli_args.validate_and_convert();
@@ -134,9 +171,19 @@ mod tests {
             verify: false,
             preserve_timestamps: true, // Should default to true
             move_files: false,
+            method: CopyMethodCli::Auto, // Should default to Auto
         };
 
         let input = cli_args.to_input();
         assert!(input.preserve_timestamps); // Default should be true
+        assert_eq!(input.copy_method, CopyMethod::Auto); // Default should be Auto
+    }
+
+    #[test]
+    fn test_copy_method_conversion() {
+        // Test all copy method variants
+        assert_eq!(CopyMethod::from(CopyMethodCli::Auto), CopyMethod::Auto);
+        assert_eq!(CopyMethod::from(CopyMethodCli::AtomicMove), CopyMethod::AtomicMove);
+        assert_eq!(CopyMethod::from(CopyMethodCli::Streaming), CopyMethod::StreamingCopy);
     }
 }
