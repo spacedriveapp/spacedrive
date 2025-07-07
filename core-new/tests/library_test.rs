@@ -16,7 +16,7 @@ async fn test_library_lifecycle() {
 	// Create library (will be created in the libraries directory)
 	let library = core
 		.libraries
-		.create_library("Test Library", None)
+		.create_library("Test Library", None, core.context.clone())
 		.await
 		.unwrap();
 
@@ -85,7 +85,7 @@ async fn test_library_locking() {
 	// Create library
 	let library = core
 		.libraries
-		.create_library("Lock Test", None)
+		.create_library("Lock Test", None, core.context.clone())
 		.await
 		.unwrap();
 
@@ -117,13 +117,13 @@ async fn test_library_discovery() {
 	// Create multiple libraries
 	let lib1 = core
 		.libraries
-		.create_library("Library 1", None)
+		.create_library("Library 1", None, core.context.clone())
 		.await
 		.unwrap();
 
 	let lib2 = core
 		.libraries
-		.create_library("Library 2", None)
+		.create_library("Library 2", None, core.context.clone())
 		.await
 		.unwrap();
 
@@ -160,7 +160,7 @@ async fn test_library_name_sanitization() {
 	// Create library with problematic name
 	let library = core
 		.libraries
-		.create_library("My/Library:Name*", None)
+		.create_library("My/Library:Name*", None, core.context.clone())
 		.await
 		.unwrap();
 

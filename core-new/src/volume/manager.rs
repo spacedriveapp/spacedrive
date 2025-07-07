@@ -212,10 +212,20 @@ impl VolumeManager {
 	/// Get volume information for a specific path
 	#[instrument(skip(self))]
 	pub async fn volume_for_path(&self, path: &Path) -> Option<Volume> {
-		// Check cache first
+		// Canonicalize the path to handle relative paths properly
+		let canonical_path = match path.canonicalize() {
+			Ok(p) => p,
+			Err(e) => {
+				debug!("Failed to canonicalize path {}: {}", path.display(), e);
+				// If canonicalization fails, try with the original path
+				path.to_path_buf()
+			}
+		};
+
+		// Check cache first (use canonical path for cache key)
 		{
 			let cache = self.path_cache.read().await;
-			if let Some(fingerprint) = cache.get(path) {
+			if let Some(fingerprint) = cache.get(&canonical_path) {
 				let volumes = self.volumes.read().await;
 				if let Some(volume) = volumes.get(fingerprint) {
 					return Some(volume.clone());
@@ -223,18 +233,18 @@ impl VolumeManager {
 			}
 		}
 
-		// Search through all volumes
+		// Search through all volumes using canonical path
 		let volumes = self.volumes.read().await;
 		for volume in volumes.values() {
-			if volume.contains_path(&path.to_path_buf()) {
-				// Cache the result
+			if volume.contains_path(&canonical_path) {
+				// Cache the result using canonical path
 				let mut cache = self.path_cache.write().await;
-				cache.insert(path.to_path_buf(), volume.fingerprint.clone());
+				cache.insert(canonical_path.clone(), volume.fingerprint.clone());
 				return Some(volume.clone());
 			}
 		}
 
-		debug!("No volume found for path: {}", path.display());
+		debug!("No volume found for path: {}", canonical_path.display());
 		None
 	}
 

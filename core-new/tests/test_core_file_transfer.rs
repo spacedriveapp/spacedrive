@@ -365,7 +365,7 @@ async fn bob_file_transfer_scenario() {
 	println!("📚 Bob: Creating library for file transfer jobs...");
 	let _library = core
 		.libraries
-		.create_library("Bob Transfer Library", None)
+		.create_library("Bob Transfer Library", None, core.context.clone())
 		.await
 		.unwrap();
 	println!("✅ Bob: Library created successfully");

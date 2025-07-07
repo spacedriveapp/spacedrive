@@ -79,10 +79,23 @@ mod macos {
         }
         
         let filesystem = parts[0];
+        
+        // Handle special case where autofs filesystem has name and target split across columns
+        if filesystem == "map" && parts.len() > 1 && parts[1].contains("auto") {
+            debug!("Skipping autofs filesystem: map {}", parts[1]);
+            return Ok(None);
+        }
+        
         let size_str = parts[1];
         let used_str = parts[2];
         let available_str = parts[3];
         let mount_point = parts[8];
+        
+        // Skip autofs and other special filesystems
+        if filesystem.starts_with("map") || filesystem.contains("auto_") {
+            debug!("Skipping autofs filesystem: {}", filesystem);
+            return Ok(None);
+        }
         
         // Skip system filesystems unless requested
         if !config.include_system && is_system_filesystem(filesystem) {
@@ -350,14 +363,20 @@ fn is_system_filesystem(filesystem: &str) -> bool {
 }
 
 fn is_virtual_filesystem(filesystem: &str) -> bool {
+    let fs_lower = filesystem.to_lowercase();
     matches!(
-        filesystem.to_lowercase().as_str(),
+        fs_lower.as_str(),
         "devfs" | "sysfs" | "proc" | "tmpfs" | "ramfs" | "devtmpfs" | "overlay" | "fuse"
-    )
+    ) || fs_lower.starts_with("map ") || fs_lower.contains("auto_")
 }
 
 fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
     if size_str == "-" {
+        return Ok(0);
+    }
+    
+    // Skip invalid size strings that don't look like numbers
+    if size_str.is_empty() || size_str.chars().all(char::is_alphabetic) {
         return Ok(0);
     }
     
