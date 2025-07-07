@@ -128,21 +128,22 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 	let is_daemon_start = matches!(&cli.command, Commands::Start { .. });
 	if !is_daemon_start {
 		let log_level = if cli.verbose { "debug" } else { "info" };
-		let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-			// Fallback to hardcoded filters if RUST_LOG not set
-			if cli.verbose {
-				// Enable detailed networking and libp2p logging when verbose
-				tracing_subscriber::EnvFilter::new(&format!(
-					"sd_core_new={},spacedrive_cli={},libp2p=debug",
-					log_level, log_level
-				))
-			} else {
-				tracing_subscriber::EnvFilter::new(&format!(
-					"sd_core_new={},spacedrive_cli={}",
-					log_level, log_level
-				))
-			}
-		});
+		let env_filter =
+			tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+				// Fallback to hardcoded filters if RUST_LOG not set
+				if cli.verbose {
+					// Enable detailed networking and libp2p logging when verbose
+					tracing_subscriber::EnvFilter::new(&format!(
+						"sd_core_new={},spacedrive_cli={},libp2p=debug",
+						log_level, log_level
+					))
+				} else {
+					tracing_subscriber::EnvFilter::new(&format!(
+						"sd_core_new={},spacedrive_cli={}",
+						log_level, log_level
+					))
+				}
+			});
 
 		tracing_subscriber::fmt().with_env_filter(env_filter).init();
 	}
@@ -235,7 +236,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			return Ok(());
 		}
 		Commands::Scan { .. } => {
-			println!("❌ Scan command not yet implemented for daemon mode"); 
+			println!("❌ Scan command not yet implemented for daemon mode");
 			println!("   Use 'spacedrive location add' and 'spacedrive index' instead");
 			return Ok(());
 		}
@@ -244,10 +245,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			println!("   Use 'spacedrive daemon' to check daemon status");
 			return Ok(());
 		}
-		Commands::Start { .. }
-		| Commands::Stop
-		| Commands::Daemon
-		| Commands::Instance(_) => {
+		Commands::Start { .. } | Commands::Stop | Commands::Daemon | Commands::Instance(_) => {
 			// These are handled above, should never reach here
 			unreachable!()
 		}
@@ -1061,10 +1059,6 @@ async fn handle_job_daemon_command(
 									}
 									should_keep
 								});
-
-								if jobs.is_empty() && job_bars.is_empty() {
-									println!("📭 No active jobs found");
-								}
 							}
 							_ => {}
 						}
@@ -1325,12 +1319,18 @@ async fn handle_copy_daemon_command(
 		})
 		.await
 	{
-		Ok(daemon::DaemonResponse::CopyStarted { job_id, sources_count }) => {
+		Ok(daemon::DaemonResponse::CopyStarted {
+			job_id,
+			sources_count,
+		}) => {
 			println!("✅ Copy operation started successfully!");
 			println!("   Job ID: {}", job_id.to_string().bright_yellow());
 			println!("   Sources: {} file(s)", sources_count);
-			println!("   Destination: {}", input.destination.display().to_string().bright_blue());
-			
+			println!(
+				"   Destination: {}",
+				input.destination.display().to_string().bright_blue()
+			);
+
 			if input.overwrite {
 				println!("   Mode: {} existing files", "Overwrite".bright_red());
 			}
@@ -1338,11 +1338,16 @@ async fn handle_copy_daemon_command(
 				println!("   Verification: {}", "Enabled".bright_green());
 			}
 			if input.move_files {
-				println!("   Type: {} (delete source after copy)", "Move".bright_yellow());
+				println!(
+					"   Type: {} (delete source after copy)",
+					"Move".bright_yellow()
+				);
 			}
 
-			println!("\n💡 Tip: Monitor progress with: {}", 
-				"sd job monitor".bright_cyan());
+			println!(
+				"\n💡 Tip: Monitor progress with: {}",
+				"sd job monitor".bright_cyan()
+			);
 		}
 		Ok(daemon::DaemonResponse::Ok) => {
 			println!("✅ Copy operation completed successfully!");
@@ -1374,35 +1379,46 @@ async fn handle_logs_command(
 
 	// Get the daemon config to find the log file path
 	let config = daemon::DaemonConfig::new(instance_name.clone());
-	
+
 	let log_file_path = config.log_file.ok_or("No log file configured for daemon")?;
-	
+
 	if !log_file_path.exists() {
 		let instance_display = instance_name.as_deref().unwrap_or("default");
-		println!("❌ Log file not found for daemon instance '{}'", instance_display);
+		println!(
+			"❌ Log file not found for daemon instance '{}'",
+			instance_display
+		);
 		println!("   Expected at: {}", log_file_path.display());
 		println!("   Make sure the daemon is running with logging enabled");
 		return Ok(());
 	}
 
-	println!("📋 {} - Press Ctrl+C to exit", 
-		format!("Spacedrive Daemon Logs ({})", 
-			instance_name.as_deref().unwrap_or("default")).bright_cyan());
-	println!("   Log file: {}", log_file_path.display().to_string().bright_blue());
+	println!(
+		"📋 {} - Press Ctrl+C to exit",
+		format!(
+			"Spacedrive Daemon Logs ({})",
+			instance_name.as_deref().unwrap_or("default")
+		)
+		.bright_cyan()
+	);
+	println!(
+		"   Log file: {}",
+		log_file_path.display().to_string().bright_blue()
+	);
 	println!("═══════════════════════════════════════════");
 
 	// Read initial lines
 	let file = File::open(&log_file_path)?;
 	let reader = BufReader::new(file);
 	let all_lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
-	
+
 	// Show last N lines
 	let start_index = if all_lines.len() > lines {
 		all_lines.len() - lines
 	} else {
 		0
 	};
-	
+
 	for line in &all_lines[start_index..] {
 		println!("{}", format_log_line(line));
 	}
@@ -1412,7 +1428,7 @@ async fn handle_logs_command(
 		let mut file = File::open(&log_file_path)?;
 		file.seek(SeekFrom::End(0))?;
 		let mut reader = BufReader::new(file);
-		
+
 		loop {
 			let mut line = String::new();
 			match reader.read_line(&mut line) {
@@ -1437,7 +1453,7 @@ async fn handle_logs_command(
 
 fn format_log_line(line: &str) -> String {
 	use colored::Colorize;
-	
+
 	// Basic log formatting - colorize by log level
 	if line.contains("ERROR") {
 		line.red().to_string()
