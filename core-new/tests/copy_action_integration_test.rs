@@ -9,9 +9,12 @@ use sd_core_new::{
 		database::entities::{audit_log, AuditLog},
 		jobs::types::{JobId, JobStatus},
 	},
-	operations::files::copy::{
-		action::FileCopyAction,
-		job::{CopyOptions, MoveMode},
+	operations::files::{
+		copy::{
+			action::FileCopyAction,
+			job::{CopyOptions, MoveMode},
+		},
+		input::CopyMethod,
 	},
 	Core,
 };
@@ -86,6 +89,7 @@ async fn test_copy_action_full_integration() {
 		destination: dest_dir.clone(),
 		options: CopyOptions {
 			overwrite: false,
+			copy_method: CopyMethod::Auto,
 			verify_checksum: true,
 			preserve_timestamps: true,
 			delete_after_copy: false,
@@ -263,6 +267,7 @@ async fn test_copy_action_with_move_operation() {
 		destination: dest_file.clone(),
 		options: CopyOptions {
 			overwrite: false,
+			copy_method: CopyMethod::Auto,
 			verify_checksum: false,
 			preserve_timestamps: true,
 			delete_after_copy: true, // This makes it a move operation

@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Create a test library
 	let library = core
 		.libraries
-		.create_library("Watcher Demo Library", None)
+		.create_library("Watcher Demo Library", None, core.context.clone())
 		.await?;
 
 	let library_id = library.id();

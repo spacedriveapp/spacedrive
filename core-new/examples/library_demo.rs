@@ -52,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("\n5. Creating new library...");
 		let library = core
 			.libraries
-			.create_library("Lifecycle Demo Library", None)
+			.create_library("Lifecycle Demo Library", None, core.context.clone())
 			.await?;
 		println!("   ✓ Library created: {}", library.name().await);
 		println!("   ✓ ID: {}", library.id());

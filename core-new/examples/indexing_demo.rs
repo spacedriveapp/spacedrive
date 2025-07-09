@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		println!("   Creating new library...");
 		let lib = core
 			.libraries
-			.create_library("Desktop Demo Library", None)
+			.create_library("Desktop Demo Library", None, core.context.clone())
 			.await?;
 		println!("   ✅ Created library: {}", lib.name().await);
 		lib
@@ -282,7 +282,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		// Check checkpoint progress by querying actual checkpoint data
 		let checkpoint_estimate = {
 			// Try to get the latest checkpoint size from the jobs database
-			if let Ok(metadata) = tokio::fs::metadata("./data/spacedrive-desktop-demo/jobs.db").await {
+			if let Ok(metadata) =
+				tokio::fs::metadata("./data/spacedrive-desktop-demo/jobs.db").await
+			{
 				metadata.len()
 			} else {
 				0
