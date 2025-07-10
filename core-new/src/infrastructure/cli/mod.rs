@@ -1,10 +1,11 @@
 pub mod adapters;
 pub mod commands;
 pub mod daemon;
-pub mod monitor;
+pub mod monitoring;
 pub mod networking_commands;
 pub mod pairing_ui;
 pub mod state;
+pub mod utils;
 
 use crate::Core;
 use clap::{Parser, Subcommand};
@@ -14,7 +15,7 @@ use uuid::Uuid;
 
 #[derive(Parser)]
 #[command(name = "spacedrive")]
-#[command(about = "Spacedrive v2 CLI - Manage your libraries, locations, and jobs", long_about = None)]
+#[command(about = "Spacedrive v2 CLI", long_about = None)]
 pub struct Cli {
 	/// Path to Spacedrive data directory
 	#[arg(short, long, global = true)]
@@ -562,7 +563,7 @@ async fn handle_library_daemon_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+	let mut client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::LibraryCommands::Create { name, path } => {
@@ -690,7 +691,7 @@ async fn handle_location_daemon_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+	let mut client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::LocationCommands::Add { path, name, mode } => {
@@ -891,7 +892,7 @@ async fn handle_job_daemon_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+	let mut client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
 		commands::JobCommands::List { status, recent: _ } => {
@@ -949,8 +950,17 @@ async fn handle_job_daemon_command(
 		}
 
 		commands::JobCommands::Info { id } => {
+			// Parse the job ID string to UUID
+			let job_id = match id.parse::<Uuid>() {
+				Ok(uuid) => uuid,
+				Err(_) => {
+					println!("❌ Invalid job ID format");
+					return Ok(());
+				}
+			};
+			
 			match client
-				.send_command(daemon::DaemonCommand::GetJobInfo { id })
+				.send_command(daemon::DaemonCommand::GetJobInfo { id: job_id })
 				.await
 			{
 				Ok(daemon::DaemonResponse::JobInfo(Some(job))) => {
@@ -984,92 +994,7 @@ async fn handle_job_daemon_command(
 		}
 
 		commands::JobCommands::Monitor { job_id } => {
-			println!(
-				"📡 {} - Press Ctrl+C to exit",
-				"Spacedrive Job Monitor".bright_cyan()
-			);
-			println!("═══════════════════════════════════════════");
-			println!();
-
-			// Create progress bars for active jobs
-			use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-			let multi_progress = MultiProgress::new();
-			let mut job_bars: HashMap<String, ProgressBar> = HashMap::new();
-
-			let style = ProgressStyle::with_template(
-				"{spinner:.green} {prefix:.bold.cyan} [{bar:40.green/blue}] {percent}% | {msg}",
-			)
-			.unwrap()
-			.progress_chars("█▓▒░");
-
-			// If monitoring specific job
-			if let Some(ref specific_job_id) = job_id {
-				println!(
-					"📊 Monitoring job {}...\n",
-					specific_job_id
-						.chars()
-						.take(8)
-						.collect::<String>()
-						.bright_yellow()
-				);
-			} else {
-				println!("⏳ Monitoring all jobs...\n");
-			}
-
-			// Poll for job updates
-			loop {
-				tokio::select! {
-					_ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-						// Get job list
-						match client.send_command(daemon::DaemonCommand::ListJobs { status: Some("running".to_string()) }).await {
-							Ok(daemon::DaemonResponse::Jobs(jobs)) => {
-								for job in &jobs {
-									// Filter by specific job if requested
-									if let Some(ref specific_id) = job_id {
-										if !job.id.to_string().starts_with(specific_id) {
-											continue;
-										}
-									}
-
-									// Get or create progress bar
-									let pb = job_bars.entry(job.id.to_string()).or_insert_with(|| {
-										let bar = multi_progress.add(ProgressBar::new(100));
-										bar.set_style(style.clone());
-										bar.set_prefix(format!("{} [{}]",
-											job.name.bright_cyan(),
-											job.id.to_string().chars().take(8).collect::<String>()
-										));
-										bar
-									});
-
-									// Update progress
-									pb.set_position((job.progress * 100.0) as u64);
-									pb.set_message(format!("Status: {}", job.status.bright_yellow()));
-								}
-
-								// Clean up completed jobs
-								let active_job_ids: std::collections::HashSet<String> = jobs.iter()
-									.map(|j| j.id.to_string())
-									.collect();
-
-								job_bars.retain(|job_id, pb| {
-									let should_keep = active_job_ids.contains(job_id);
-									if !should_keep {
-										pb.finish_with_message("✅ Completed".bright_green().to_string());
-									}
-									should_keep
-								});
-							}
-							_ => {}
-						}
-					}
-
-					_ = tokio::signal::ctrl_c() => {
-						println!("\n\n👋 Exiting monitor...");
-						break;
-					}
-				}
-			}
+			monitoring::daemon_monitor::monitor_jobs(&mut client, job_id).await?;
 		}
 
 		_ => {
@@ -1086,7 +1011,7 @@ async fn handle_network_daemon_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+	let mut client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	// Check if daemon is running for most commands
 	match &cmd {
@@ -1194,8 +1119,17 @@ async fn handle_network_daemon_command(
 		}
 
 		commands::NetworkCommands::Revoke { device_id } => {
+			// Parse the device ID string to UUID
+			let device_uuid = match device_id.parse::<Uuid>() {
+				Ok(uuid) => uuid,
+				Err(_) => {
+					println!("❌ Invalid device ID format");
+					return Ok(());
+				}
+			};
+			
 			match client
-				.send_command(daemon::DaemonCommand::RevokeDevice { device_id })
+				.send_command(daemon::DaemonCommand::RevokeDevice { device_id: device_uuid })
 				.await?
 			{
 				daemon::DaemonResponse::Ok => {
@@ -1216,11 +1150,23 @@ async fn handle_network_daemon_command(
 			sender,
 			message,
 		} => {
+			// Parse device_id to UUID
+			let device_uuid = match device_id.parse::<Uuid>() {
+				Ok(uuid) => uuid,
+				Err(_) => {
+					println!("❌ Invalid device ID format");
+					return Ok(());
+				}
+			};
+			
+			// Use sender name or default
+			let sender_name = sender.unwrap_or_else(|| "Anonymous".to_string());
+			
 			match client
 				.send_command(daemon::DaemonCommand::SendSpacedrop {
-					device_id,
+					device_id: device_uuid,
 					file_path: file_path.to_string_lossy().to_string(),
-					sender_name: sender,
+					sender_name,
 					message,
 				})
 				.await?
@@ -1248,15 +1194,7 @@ async fn handle_network_daemon_command(
 					crate::infrastructure::cli::networking_commands::PairingAction::Generate
 				}
 				commands::PairingCommands::Join { code } => {
-					let code = match code {
-						Some(c) => c,
-						None => {
-							use dialoguer::Input;
-							Input::new()
-								.with_prompt("Enter the 12-word pairing code")
-								.interact_text()?
-						}
-					};
+					// Code is already a String, not Optional
 					crate::infrastructure::cli::networking_commands::PairingAction::Join { code }
 				}
 				commands::PairingCommands::Status => {
@@ -1266,13 +1204,29 @@ async fn handle_network_daemon_command(
 					crate::infrastructure::cli::networking_commands::PairingAction::List
 				}
 				commands::PairingCommands::Accept { request_id } => {
+					// Parse request_id to UUID
+					let uuid = match request_id.parse::<Uuid>() {
+						Ok(id) => id,
+						Err(_) => {
+							println!("❌ Invalid request ID format");
+							return Ok(());
+						}
+					};
 					crate::infrastructure::cli::networking_commands::PairingAction::Accept {
-						request_id,
+						request_id: uuid,
 					}
 				}
 				commands::PairingCommands::Reject { request_id } => {
+					// Parse request_id to UUID
+					let uuid = match request_id.parse::<Uuid>() {
+						Ok(id) => id,
+						Err(_) => {
+							println!("❌ Invalid request ID format");
+							return Ok(());
+						}
+					};
 					crate::infrastructure::cli::networking_commands::PairingAction::Reject {
-						request_id,
+						request_id: uuid,
 					}
 				}
 			};
@@ -1294,7 +1248,7 @@ async fn handle_copy_daemon_command(
 ) -> Result<(), Box<dyn std::error::Error>> {
 	use colored::Colorize;
 
-	let client = daemon::DaemonClient::new_with_instance(instance_name.clone());
+	let mut client = daemon::DaemonClient::new_with_instance(instance_name.clone());
 
 	// Convert CLI args to daemon command format
 	let input = match args.validate_and_convert() {

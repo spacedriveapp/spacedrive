@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub async fn format_library_info(library: &Arc<Library>) -> String {
     let mut output = String::new();
     
-    output.push_str(&format!("{}\n", style("Library Information").bold().underline()));
+    output.push_str(&format!("{}\n", style("Library Information").bold().underlined()));
     output.push_str(&format!("  {} {}\n", style("Name:").bold(), style(library.name().await).cyan()));
     output.push_str(&format!("  {} {}\n", style("ID:").bold(), style(library.id()).yellow()));
     output.push_str(&format!("  {} {}\n", style("Path:").bold(), style(library.path().display()).dim()));
@@ -23,11 +23,11 @@ pub async fn format_library_info(library: &Arc<Library>) -> String {
     }
     
     // Statistics
-    output.push_str(&format!("\n{}\n", style("Statistics").bold().underline()));
-    output.push_str(&format!("  {} {}\n", style("Total files:").bold(), style(config.statistics.total_file_count).cyan()));
-    output.push_str(&format!("  {} {}\n", style("Total size:").bold(), format_bytes(config.statistics.total_byte_size)));
+    output.push_str(&format!("\n{}\n", style("Statistics").bold().underlined()));
+    output.push_str(&format!("  {} {}\n", style("Total files:").bold(), style(config.statistics.total_files).cyan()));
+    output.push_str(&format!("  {} {}\n", style("Total size:").bold(), format_bytes(config.statistics.total_size)));
     output.push_str(&format!("  {} {}\n", style("Locations:").bold(), style(config.statistics.location_count).cyan()));
-    output.push_str(&format!("  {} {}\n", style("Indexed files:").bold(), style(config.statistics.indexed_file_count).cyan()));
+    output.push_str(&format!("  {} {}\n", style("Indexed files:").bold(), style(config.statistics.total_files).cyan()));
     
     output
 }
@@ -36,7 +36,7 @@ pub async fn format_library_info(library: &Arc<Library>) -> String {
 pub fn format_location_info(location: &ManagedLocation) -> String {
     let mut output = String::new();
     
-    output.push_str(&format!("{}\n", style("Location Information").bold().underline()));
+    output.push_str(&format!("{}\n", style("Location Information").bold().underlined()));
     output.push_str(&format!("  {} {}\n", style("Name:").bold(), style(&location.name).cyan()));
     output.push_str(&format!("  {} {}\n", style("ID:").bold(), style(location.id).yellow()));
     output.push_str(&format!("  {} {}\n", style("Path:").bold(), style(location.path.display()).dim()));
@@ -59,7 +59,7 @@ pub fn print_job_info(
     progress: Option<f64>,
     message: Option<&str>,
 ) {
-    println!("{}", style("Job Information").bold().underline());
+    println!("{}", style("Job Information").bold().underlined());
     println!("  {} {}", style("ID:").bold(), style(job_id).yellow());
     println!("  {} {}", style("Type:").bold(), style(job_type).cyan());
     println!("  {} {}", style("Status:").bold(), format_status(status));
@@ -117,7 +117,7 @@ pub fn format_bytes(bytes: u64) -> String {
     }
 }
 
-/// Format duration into human-readable string
+/// Format duration into human-readable string from seconds
 pub fn format_duration(seconds: u64) -> String {
     if seconds < 60 {
         format!("{}s", seconds)
@@ -126,6 +126,25 @@ pub fn format_duration(seconds: u64) -> String {
     } else {
         format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
     }
+}
+
+/// Format duration from std::time::Duration
+pub fn format_duration_from_std(duration: std::time::Duration) -> String {
+    format_duration(duration.as_secs())
+}
+
+/// Format bytes into parts (used by networking commands)
+pub fn format_bytes_parts(bytes: u64) -> (f64, &'static str) {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB", "PB"];
+    let mut size = bytes as f64;
+    let mut unit_index = 0;
+    
+    while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+    
+    (size, UNITS[unit_index])
 }
 
 /// Print a table with headers and rows
@@ -189,14 +208,47 @@ pub fn print_table(headers: Vec<&str>, rows: Vec<Vec<String>>) {
     }
 }
 
+/// Progress style constants and builders
+pub mod progress_styles {
+    use indicatif::ProgressStyle;
+    
+    pub const BASIC_TEMPLATE: &str = "{spinner:.green} {prefix:.bold.cyan} [{bar:40.green/blue}] {percent}% | {msg}";
+    pub const ENHANCED_TEMPLATE: &str = "{spinner:.green} {prefix:.bold.cyan} [{bar:40.green/blue}] {percent}% | {msg}\n     {wide_msg}";
+    pub const ELAPSED_TEMPLATE: &str = "{spinner:.green} [{elapsed_precise}] [{bar:50.cyan/blue}] {percent:>3}% | {msg}";
+    pub const SPINNER_TEMPLATE: &str = "{spinner:.green} {msg}";
+    pub const DEFAULT_CHARS: &str = "█▓▒░";
+    pub const SPINNER_CHARS: &str = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+    
+    pub fn basic_style() -> ProgressStyle {
+        ProgressStyle::with_template(BASIC_TEMPLATE)
+            .unwrap()
+            .progress_chars(DEFAULT_CHARS)
+    }
+    
+    pub fn enhanced_style() -> ProgressStyle {
+        ProgressStyle::with_template(ENHANCED_TEMPLATE)
+            .unwrap()
+            .progress_chars(DEFAULT_CHARS)
+    }
+    
+    pub fn elapsed_style() -> ProgressStyle {
+        ProgressStyle::with_template(ELAPSED_TEMPLATE)
+            .unwrap()
+            .progress_chars(DEFAULT_CHARS)
+            .tick_chars(SPINNER_CHARS)
+    }
+    
+    pub fn spinner_style() -> ProgressStyle {
+        ProgressStyle::default_spinner()
+            .template(SPINNER_TEMPLATE)
+            .unwrap()
+    }
+}
+
 /// Create a simple spinner for long-running operations
 pub fn create_spinner(message: &str) -> ProgressBar {
     let spinner = ProgressBar::new_spinner();
-    spinner.set_style(
-        ProgressStyle::default_spinner()
-            .template("{spinner:.green} {msg}")
-            .unwrap(),
-    );
+    spinner.set_style(progress_styles::spinner_style());
     spinner.set_message(message.to_string());
     spinner.enable_steady_tick(std::time::Duration::from_millis(100));
     spinner

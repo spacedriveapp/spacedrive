@@ -4,6 +4,7 @@
 //! separated from the core daemon functionality to maintain clean separation.
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
+use crate::infrastructure::cli::utils::format_bytes_parts;
 use crate::networking::DeviceInfo;
 use colored::*;
 use std::path::PathBuf;
@@ -406,25 +407,11 @@ pub fn format_transfer_progress(bytes_transferred: u64, total_bytes: u64) -> Str
 	}
 
 	let percentage = (bytes_transferred as f64 / total_bytes as f64) * 100.0;
-	let (transferred_size, transferred_unit) = format_bytes(bytes_transferred);
-	let (total_size, total_unit) = format_bytes(total_bytes);
+	let (transferred_size, transferred_unit) = format_bytes_parts(bytes_transferred);
+	let (total_size, total_unit) = format_bytes_parts(total_bytes);
 
 	format!(
 		"{:.1}% ({:.1} {} / {:.1} {})",
 		percentage, transferred_size, transferred_unit, total_size, total_unit
 	)
-}
-
-/// Helper function to format byte sizes
-fn format_bytes(bytes: u64) -> (f64, &'static str) {
-	const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
-	let mut size = bytes as f64;
-	let mut unit_index = 0;
-
-	while size >= 1024.0 && unit_index < UNITS.len() - 1 {
-		size /= 1024.0;
-		unit_index += 1;
-	}
-
-	(size, UNITS[unit_index])
 }
