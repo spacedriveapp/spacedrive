@@ -302,7 +302,10 @@ register_action_handler!(FileCopyHandler, "file.copy");
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::infrastructure::cli::adapters::FileCopyCliArgs;
+	use crate::{
+		infrastructure::cli::adapters::{copy::CopyMethodCli, FileCopyCliArgs},
+		operations::files::input::CopyMethod,
+	};
 	use std::path::PathBuf;
 
 	#[test]
@@ -365,6 +368,7 @@ mod tests {
 		let args = FileCopyCliArgs {
 			sources: vec!["/src/file.txt".into()],
 			destination: "/dest/".into(),
+			method: CopyMethodCli::Auto,
 			overwrite: true,
 			verify: false,
 			preserve_timestamps: true,
@@ -424,6 +428,7 @@ mod tests {
 		let cli_args = FileCopyCliArgs {
 			sources: vec!["/source.txt".into()],
 			destination: "/dest.txt".into(),
+			method: CopyMethodCli::Auto,
 			overwrite: false,
 			verify: true,
 			preserve_timestamps: false,

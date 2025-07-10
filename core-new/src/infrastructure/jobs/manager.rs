@@ -153,11 +153,40 @@ impl JobManager {
 		// Create progress forwarding task
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
+		let event_bus = self.context.events.clone();
+		let job_id_clone = job_id.clone();
+		let job_type_str = job_name.to_string();
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 			while let Some(progress) = progress_rx.recv().await {
 				*latest_progress_clone.lock().await = Some(progress.clone());
-				let _ = broadcast_tx_clone.send(progress);
+				let _ = broadcast_tx_clone.send(progress.clone());
+
+				// Emit enhanced progress event
+				use crate::infrastructure::events::Event;
+				
+				// Extract generic progress data if available
+				let generic_progress = match &progress {
+					Progress::Structured(value) => {
+						// Try to deserialize CopyProgress and convert to GenericProgress
+						if let Ok(copy_progress) = serde_json::from_value::<crate::operations::files::copy::CopyProgress>(value.clone()) {
+							use crate::infrastructure::jobs::generic_progress::ToGenericProgress;
+							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+						} else {
+							None
+						}
+					}
+					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+					_ => None,
+				}.flatten();
+				
+				event_bus.emit(Event::JobProgress {
+					job_id: job_id_clone.to_string(),
+					job_type: job_type_str.to_string(),
+					progress: progress.as_percentage().unwrap_or(0.0) as f64,
+					message: Some(progress.to_string()),
+					generic_progress,
+				});
 			}
 		});
 
@@ -278,6 +307,9 @@ impl JobManager {
 		// Create progress forwarding task to bridge mpsc -> broadcast
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
+		let event_bus = self.context.events.clone();
+		let job_id_clone = job_id.clone();
+		let job_type_str = J::NAME;
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 			while let Some(progress) = progress_rx.recv().await {
@@ -286,7 +318,33 @@ impl JobManager {
 
 				// Forward progress from mpsc to broadcast
 				// Ignore errors if no one is listening
-				let _ = broadcast_tx_clone.send(progress);
+				let _ = broadcast_tx_clone.send(progress.clone());
+
+				// Emit enhanced progress event
+				use crate::infrastructure::events::Event;
+				
+				// Extract generic progress data if available
+				let generic_progress = match &progress {
+					Progress::Structured(value) => {
+						// Try to deserialize CopyProgress and convert to GenericProgress
+						if let Ok(copy_progress) = serde_json::from_value::<crate::operations::files::copy::CopyProgress>(value.clone()) {
+							use crate::infrastructure::jobs::generic_progress::ToGenericProgress;
+							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
+						} else {
+							None
+						}
+					}
+					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
+					_ => None,
+				}.flatten();
+				
+				event_bus.emit(Event::JobProgress {
+					job_id: job_id_clone.to_string(),
+					job_type: job_type_str.to_string(),
+					progress: progress.as_percentage().unwrap_or(0.0) as f64,
+					message: Some(progress.to_string()),
+					generic_progress,
+				});
 			}
 		});
 

@@ -59,8 +59,11 @@ pub enum Event {
     JobStarted { job_id: String, job_type: String },
     JobProgress { 
         job_id: String, 
+        job_type: String,
         progress: f64, 
-        message: Option<String> 
+        message: Option<String>,
+        // Enhanced progress data - serialized GenericProgress
+        generic_progress: Option<serde_json::Value>,
     },
     JobCompleted { job_id: String, job_type: String },
     JobFailed { 

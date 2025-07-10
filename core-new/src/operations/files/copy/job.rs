@@ -1,8 +1,9 @@
 //! Simplified FileCopyJob using the Strategy Pattern
 
-use super::{input::CopyMethod, routing::CopyStrategyRouter};
+use super::{input::CopyMethod, routing::CopyStrategyRouter, database::CopyDatabaseQuery};
 use crate::{
     infrastructure::jobs::prelude::*,
+    infrastructure::jobs::generic_progress::{GenericProgress, ToGenericProgress},
     shared::types::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
@@ -79,6 +80,20 @@ impl JobHandler for FileCopyJob {
             self.sources.paths.len()
         ));
 
+        // Phase 1: Initializing
+        ctx.progress(Progress::structured(CopyProgress {
+            phase: CopyPhase::Initializing,
+            current_file: String::new(),
+            files_copied: 0,
+            total_files: 0,
+            bytes_copied: 0,
+            total_bytes: 0,
+            current_operation: "Initializing copy operation".to_string(),
+            estimated_remaining: None,
+            preparation_complete: false,
+            error_count: 0,
+        }));
+
         // Group by device for efficient processing
         let by_device: HashMap<Uuid, Vec<SdPath>> = self
             .sources
@@ -94,8 +109,86 @@ impl JobHandler for FileCopyJob {
         let is_move = self.options.delete_after_copy;
         let volume_manager = ctx.volume_manager();
 
-        // Calculate total size for progress
+        // Phase 2: Database Query - Try to get instant estimates
+        ctx.progress(Progress::structured(CopyProgress {
+            phase: CopyPhase::DatabaseQuery,
+            current_file: String::new(),
+            files_copied: 0,
+            total_files: 0,
+            bytes_copied: 0,
+            total_bytes: 0,
+            current_operation: "Querying database for file information...".to_string(),
+            estimated_remaining: None,
+            preparation_complete: false,
+            error_count: 0,
+        }));
+
+        // Try to get estimates from database
+        let db_estimates = {
+            let db_query = CopyDatabaseQuery::new(ctx.library_db().clone());
+            match db_query.get_estimates_for_paths(&self.sources.paths).await {
+                Ok(estimates) => {
+                    ctx.log(format!(
+                        "Database estimates: {} files, {} bytes ({:.0}% coverage)",
+                        estimates.file_count,
+                        estimates.total_size,
+                        estimates.confidence() * 100.0
+                    ));
+                    Some(estimates)
+                }
+                Err(e) => {
+                    ctx.log(format!("Database query failed, will calculate from filesystem: {}", e));
+                    None
+                }
+            }
+        };
+
+        // Use database estimates if available, otherwise show preparation phase
+        let (estimated_files, estimated_bytes) = if let Some(ref estimates) = db_estimates {
+            if estimates.is_complete() {
+                // We have complete information from database
+                (estimates.file_count as usize, estimates.total_size)
+            } else {
+                // Partial information - still useful for initial display
+                (total_files.max(estimates.file_count as usize), estimates.total_size)
+            }
+        } else {
+            (total_files, 0)
+        };
+
+        // Phase 3: Preparation - Calculate actual total size
+        ctx.progress(Progress::structured(CopyProgress {
+            phase: CopyPhase::Preparation,
+            current_file: String::new(),
+            files_copied: 0,
+            total_files: estimated_files,
+            bytes_copied: 0,
+            total_bytes: estimated_bytes,
+            current_operation: if db_estimates.is_some() {
+                "Verifying file sizes...".to_string()
+            } else {
+                "Calculating total size...".to_string()
+            },
+            estimated_remaining: None,
+            preparation_complete: false,
+            error_count: 0,
+        }));
+
         let estimated_total_bytes = self.calculate_total_size(&ctx).await?;
+
+        // Update progress with calculated size
+        ctx.progress(Progress::structured(CopyProgress {
+            phase: CopyPhase::Preparation,
+            current_file: String::new(),
+            files_copied: 0,
+            total_files: total_files,
+            bytes_copied: 0,
+            total_bytes: estimated_total_bytes,
+            current_operation: "Preparation complete".to_string(),
+            estimated_remaining: None,
+            preparation_complete: true,
+            error_count: 0,
+        }));
 
         // Process each source using the appropriate strategy
         for (index, source) in self.sources.paths.iter().enumerate() {
@@ -129,6 +222,7 @@ impl JobHandler for FileCopyJob {
 
             // Update progress
             ctx.progress(Progress::structured(CopyProgress {
+                phase: CopyPhase::Copying,
                 current_file: source.display(),
                 files_copied: copied_count,
                 total_files,
@@ -142,6 +236,8 @@ impl JobHandler for FileCopyJob {
                     volume_manager.as_deref(),
                 ).await,
                 estimated_remaining: None,
+                preparation_complete: true,
+                error_count: failed_copies.len(),
             }));
 
             // 1. Select the strategy
@@ -210,6 +306,20 @@ impl JobHandler for FileCopyJob {
             }
         }
 
+        // Phase 4: Complete
+        ctx.progress(Progress::structured(CopyProgress {
+            phase: CopyPhase::Complete,
+            current_file: String::new(),
+            files_copied: copied_count,
+            total_files: total_files,
+            bytes_copied: total_bytes,
+            total_bytes: estimated_total_bytes,
+            current_operation: "Copy operation complete".to_string(),
+            estimated_remaining: None,
+            preparation_complete: true,
+            error_count: failed_copies.len(),
+        }));
+
         ctx.log(format!(
             "Copy operation completed: {} copied, {} failed",
             copied_count,
@@ -227,9 +337,32 @@ impl JobHandler for FileCopyJob {
     }
 }
 
+/// Copy operation phases
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CopyPhase {
+    Initializing,
+    DatabaseQuery,
+    Preparation,
+    Copying,
+    Complete,
+}
+
+impl CopyPhase {
+    fn as_str(&self) -> &'static str {
+        match self {
+            CopyPhase::Initializing => "Initializing",
+            CopyPhase::DatabaseQuery => "Database Query",
+            CopyPhase::Preparation => "Preparation",
+            CopyPhase::Copying => "Copying",
+            CopyPhase::Complete => "Complete",
+        }
+    }
+}
+
 /// Copy progress information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CopyProgress {
+    pub phase: CopyPhase,
     pub current_file: String,
     pub files_copied: usize,
     pub total_files: usize,
@@ -237,9 +370,74 @@ pub struct CopyProgress {
     pub total_bytes: u64,
     pub current_operation: String,
     pub estimated_remaining: Option<Duration>,
+    pub preparation_complete: bool,
+    pub error_count: usize,
 }
 
 impl JobProgress for CopyProgress {}
+
+impl ToGenericProgress for CopyProgress {
+    fn to_generic_progress(&self) -> GenericProgress {
+        // Calculate percentage based on bytes if available, otherwise use file count
+        let percentage = if self.total_bytes > 0 {
+            (self.bytes_copied as f32 / self.total_bytes as f32).clamp(0.0, 1.0)
+        } else if self.total_files > 0 {
+            (self.files_copied as f32 / self.total_files as f32).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+
+        // Create appropriate message based on phase
+        let message = match self.phase {
+            CopyPhase::Initializing => "Initializing copy operation...".to_string(),
+            CopyPhase::DatabaseQuery => "Querying database for file information...".to_string(),
+            CopyPhase::Preparation => {
+                if self.total_files > 0 {
+                    format!("Preparing to copy {} files...", self.total_files)
+                } else {
+                    "Preparing copy operation...".to_string()
+                }
+            }
+            CopyPhase::Copying => {
+                if !self.current_file.is_empty() {
+                    format!("Copying: {}", self.current_file)
+                } else {
+                    self.current_operation.clone()
+                }
+            }
+            CopyPhase::Complete => format!("Copy complete: {} files", self.files_copied),
+        };
+
+        // Build generic progress
+        let mut progress = GenericProgress::new(percentage, self.phase.as_str(), message)
+            .with_completion(self.files_copied as u64, self.total_files as u64)
+            .with_bytes(self.bytes_copied, self.total_bytes);
+
+        // Add performance metrics if we're actively copying
+        if self.phase == CopyPhase::Copying && self.bytes_copied > 0 {
+            // Calculate rate if we have timing information
+            // For now, just pass through the estimated remaining time
+            progress = progress.with_performance(
+                0.0, // Rate will be calculated by job system
+                self.estimated_remaining,
+                None, // Elapsed time tracked by job system
+            );
+        }
+
+        // Add error count if any
+        if self.error_count > 0 {
+            progress = progress.with_errors(self.error_count as u64, 0);
+        }
+
+        // Add current file path if available
+        if !self.current_file.is_empty() && self.phase == CopyPhase::Copying {
+            // Convert current file string to SdPath if possible
+            // For now, we'll skip this as we'd need device_id context
+        }
+
+        progress
+    }
+}
 
 /// Error information for failed copies
 #[derive(Debug, Clone, Serialize, Deserialize)]

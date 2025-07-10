@@ -4,6 +4,7 @@ use crate::{
     infrastructure::jobs::prelude::*,
     shared::types::SdPath,
     volume::VolumeManager,
+    operations::files::copy::job::CopyPhase,
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -292,6 +293,7 @@ async fn copy_file_streaming(
         // Update progress every 100ms to avoid overwhelming the UI
         if last_progress_update.elapsed() >= std::time::Duration::from_millis(100) {
             ctx.progress(Progress::structured(super::CopyProgress {
+                phase: CopyPhase::Copying,
                 current_file: format!("Streaming {}", source.display()),
                 files_copied: 0, // Will be updated by caller
                 total_files: 1,
@@ -312,6 +314,8 @@ async fn copy_file_streaming(
                         std::time::Duration::from_secs(0)
                     }
                 }),
+                preparation_complete: true,
+                error_count: 0,
             }));
             last_progress_update = std::time::Instant::now();
         }
@@ -435,6 +439,7 @@ async fn stream_file_data(
         // Update progress
         bytes_transferred += bytes_read as u64;
         ctx.progress(Progress::structured(super::CopyProgress {
+            phase: CopyPhase::Copying,
             current_file: format!("Transferring {}", file_path.display()),
             files_copied: 0, // Will be updated by caller
             total_files: 1,
@@ -442,6 +447,8 @@ async fn stream_file_data(
             total_bytes: total_size,
             current_operation: format!("Chunk {}/{}", chunk_index + 1, total_chunks),
             estimated_remaining: None,
+            preparation_complete: true,
+            error_count: 0,
         }));
 
         // Get session keys for encryption
