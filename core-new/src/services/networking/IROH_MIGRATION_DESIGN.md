@@ -181,12 +181,24 @@ pub struct NetworkingConfig {
 - Test coverage: Maintain >80%
 - User feedback: Improved reliability scores
 
-## Implementation Order
+## Implementation Order (per Iroh founder feedback)
 
-1. **Core Module**: Replace NetworkingService with Iroh
-2. **Protocols**: Update pairing, file transfer, messaging
-3. **Tests**: Update all integration tests
-4. **Documentation**: Update networking docs
+1. **Endpoint Migration** (Priority 1)
+   - Replace libp2p Swarm with iroh::Endpoint
+   - This is the foundation - get this working first
+   
+2. **Pairing Protocol as Custom Iroh Protocol** (Priority 2)
+   - Express the full pairing flow as an Iroh protocol
+   - This will exercise the entire Iroh API surface area
+   - Once this works, everything else is downhill
+
+3. **Remaining Protocols**
+   - File transfer (straightforward after pairing works)
+   - Messaging (simple stream-based)
+
+4. **Tests & Documentation**
+   - Update integration tests
+   - Update networking docs
 
 ## Conclusion
 
