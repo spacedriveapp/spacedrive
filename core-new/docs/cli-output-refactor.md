@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines a proposed refactoring of the CLI output system to replace the current `println!` usage with a more structured and consistent approach.
+This document outlines a proposed refactoring of the CLI output system to replace the current `println!` usage with a more structured and consistent approach using existing Rust libraries.
 
 ## Current State
 
@@ -21,6 +21,64 @@ This document outlines a proposed refactoring of the CLI output system to replac
 - `comfy-table` - Table formatting
 - `tracing` - Structured logging (underutilized for CLI output)
 
+## Library Options
+
+### Recommended Libraries
+
+After evaluating various options, here are the recommended libraries for different aspects:
+
+1. **Terminal UI Framework: `ratatui`** (for TUI mode)
+   - Modern terminal UI framework
+   - Great for the planned TUI mode
+   - Handles layout, widgets, and rendering
+
+2. **CLI Output: `dialoguer` + `console`**
+   - `dialoguer`: High-level constructs (prompts, selections, progress)
+   - `console`: Low-level terminal control
+   - Both work well together
+
+3. **Structured Output: `owo-colors` + `supports-color`**
+   - More modern than `colored` crate
+   - Better performance
+   - Automatic color detection
+
+4. **Progress Bars: Keep `indicatif`**
+   - Already in use
+   - Best-in-class for progress indication
+
+5. **Table Formatting: Keep `comfy-table`**
+   - Already in use
+   - Good API and customization
+
+### Alternative: All-in-One Solution with `dialoguer`
+
+```rust
+use dialoguer::{theme::ColorfulTheme, console::style};
+use console::{Term, Emoji};
+
+// Emojis with fallback
+static SUCCESS: Emoji = Emoji("✅ ", "[OK] ");
+static ERROR: Emoji = Emoji("❌ ", "[ERROR] ");
+static INFO: Emoji = Emoji("ℹ️  ", "[INFO] ");
+
+// Structured output
+let term = Term::stdout();
+term.clear_line()?;
+term.write_line(&format!("{}{}", SUCCESS, style("Library created").green()))?;
+
+// Progress bars
+let pb = indicatif::ProgressBar::new(100);
+pb.set_style(
+    indicatif::ProgressStyle::default_bar()
+        .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+        .progress_chars("#>-")
+);
+
+// Tables (keep comfy-table)
+let mut table = comfy_table::Table::new();
+table.set_header(vec!["ID", "Name", "Status"]);
+```
+
 ## Proposed Solution
 
 ### Core Design Principles
@@ -29,6 +87,74 @@ This document outlines a proposed refactoring of the CLI output system to replac
 3. **Flexibility** - Support multiple output formats (human, json, quiet)
 4. **Consistency** - Unified visual language across all commands
 5. **Context-aware** - Respect user preferences (color, verbosity, format)
+
+### Lightweight Wrapper Approach
+
+Instead of building a complex abstraction, we'll create a thin wrapper around these libraries:
+
+```rust
+// src/infrastructure/cli/output.rs
+use console::{style, Emoji, Term};
+use dialoguer::theme::ColorfulTheme;
+use serde::Serialize;
+use std::io::Write;
+
+pub struct CliOutput {
+    term: Term,
+    format: OutputFormat,
+    theme: ColorfulTheme,
+}
+
+// Simple emoji constants with fallbacks
+const SUCCESS: Emoji = Emoji("✅ ", "[OK] ");
+const ERROR: Emoji = Emoji("❌ ", "[ERROR] ");
+const WARNING: Emoji = Emoji("⚠️  ", "[WARN] ");
+const INFO: Emoji = Emoji("ℹ️  ", "[INFO] ");
+
+impl CliOutput {
+    pub fn success(&self, msg: &str) -> std::io::Result<()> {
+        match self.format {
+            OutputFormat::Human => {
+                self.term.write_line(&format!("{}{}", SUCCESS, style(msg).green()))
+            }
+            OutputFormat::Json => {
+                let output = json!({"type": "success", "message": msg});
+                self.term.write_line(&output.to_string())
+            }
+            OutputFormat::Quiet => Ok(()),
+        }
+    }
+    
+    pub fn section(&self) -> OutputSection {
+        OutputSection::new(self)
+    }
+}
+
+// Fluent builder for sections
+pub struct OutputSection<'a> {
+    output: &'a CliOutput,
+    lines: Vec<String>,
+}
+
+impl<'a> OutputSection<'a> {
+    pub fn title(mut self, text: &str) -> Self {
+        self.lines.push(format!("\n{}", style(text).bold().cyan()));
+        self
+    }
+    
+    pub fn item(mut self, label: &str, value: &str) -> Self {
+        self.lines.push(format!("  {}: {}", label, style(value).bright()));
+        self
+    }
+    
+    pub fn render(self) -> std::io::Result<()> {
+        for line in self.lines {
+            self.output.term.write_line(&line)?;
+        }
+        Ok(())
+    }
+}
+```
 
 ### Architecture
 
@@ -103,6 +229,45 @@ impl OutputContext {
     }
 }
 ```
+
+### Output Grouping and Spacing
+
+One of the major improvements is eliminating the "println! soup" pattern where multiple `println!()` calls are used for spacing:
+
+#### Current (Ugly) Pattern
+```rust
+println!("🔍 Checking pairing status...");
+println!();
+println!("📊 Current Pairing Status: {}", status);
+println!();
+println!("📭 No pending pairing requests");
+println!();
+println!("💡 To start pairing:");
+println!("   • Generate a code: spacedrive network pair generate");
+```
+
+#### New Pattern
+```rust
+// Using output groups
+output.print(Message::PairingStatus {
+    status: status.clone(),
+    pending_requests: vec![],
+    help_text: true,
+});
+
+// Or using a builder pattern for complex outputs
+output.section("Checking pairing status")
+    .status("Current Pairing Status", &status)
+    .empty_line()
+    .info("No pending pairing requests")
+    .empty_line()
+    .help()
+        .item("Generate a code: spacedrive network pair generate")
+        .item("Join with a code: spacedrive network pair join <code>")
+    .render();
+```
+
+The formatter handles appropriate spacing based on context, eliminating manual spacing management.
 
 ### Human-Readable Formatter
 
@@ -260,14 +425,100 @@ impl ProgressContext {
 4. **Output plugins** - Custom formatters for specific tools
 5. **Streaming JSON** - For real-time event monitoring
 
+### Section Builder API
+
+For complex multi-line outputs, a fluent builder API makes the code much cleaner:
+
+```rust
+pub struct OutputSection<'a> {
+    output: &'a mut OutputContext,
+    lines: Vec<Line>,
+}
+
+impl<'a> OutputSection<'a> {
+    pub fn title(mut self, text: &str) -> Self {
+        self.lines.push(Line::Title(text.to_string()));
+        self
+    }
+    
+    pub fn status(mut self, label: &str, value: &str) -> Self {
+        self.lines.push(Line::Status(label.to_string(), value.to_string()));
+        self
+    }
+    
+    pub fn table(mut self, table: Table) -> Self {
+        self.lines.push(Line::Table(table));
+        self
+    }
+    
+    pub fn empty_line(mut self) -> Self {
+        self.lines.push(Line::Empty);
+        self
+    }
+    
+    pub fn render(self) {
+        // Smart spacing: removes duplicate empty lines, adds appropriate spacing
+        let formatted = self.output.formatter.format_section(&self.lines);
+        self.output.write(formatted);
+    }
+}
+
+// Usage example - much cleaner than multiple println!s
+output.section()
+    .title("📊 System Status")
+    .status("Version", &status.version)
+    .status("Uptime", &format_duration(status.uptime))
+    .empty_line()
+    .title("📚 Libraries")
+    .table(library_table)
+    .empty_line()
+    .help()
+        .item("Create a library: spacedrive library create <name>")
+        .item("Switch library: spacedrive library switch <name>")
+    .render();
+```
+
 ## Implementation Checklist
 
-- [ ] Create output module structure
-- [ ] Define core Message enum with all CLI messages
-- [ ] Implement HumanFormatter
-- [ ] Implement JsonFormatter  
-- [ ] Add OutputContext to CLI args
-- [ ] Migrate domain handlers one by one
-- [ ] Add tests for output formatting
-- [ ] Update CLI documentation
-- [ ] Add examples of JSON usage for scripting
+### Phase 1: Add Dependencies
+- [ ] Add `dialoguer` to Cargo.toml
+- [ ] Add `owo-colors` to Cargo.toml (or stick with `colored`)
+- [ ] Keep existing `console`, `indicatif`, `comfy-table`
+
+### Phase 2: Create Simple Wrapper
+- [ ] Create `src/infrastructure/cli/output.rs`
+- [ ] Implement basic `CliOutput` struct with library wrappers
+- [ ] Add output format enum (Human, Json, Quiet)
+- [ ] Create section builder using `console` styling
+
+### Phase 3: Gradual Migration
+- [ ] Start with one domain (e.g., library commands)
+- [ ] Replace `println!` calls with output methods
+- [ ] Test both human and JSON output
+- [ ] Migrate remaining domains one by one
+
+### Phase 4: Advanced Features
+- [ ] Add interactive prompts with `dialoguer`
+- [ ] Implement TUI mode with `ratatui`
+- [ ] Add output templates for customization
+- [ ] Integrate with tracing for debug output
+
+## Example Migration
+
+```rust
+// Before:
+println!("🚀 Starting Spacedrive daemon...");
+println!();
+println!("✅ Daemon started successfully");
+println!("   PID: {}", pid);
+println!("   Socket: {}", socket_path);
+
+// After:
+let output = CliOutput::new(format);
+output.info("Starting Spacedrive daemon...")?;
+output.success("Daemon started successfully")?;
+output.section()
+    .item("PID", &pid.to_string())
+    .item("Socket", &socket_path.display().to_string())
+    .render()?;
+```
