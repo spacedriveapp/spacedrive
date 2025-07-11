@@ -101,6 +101,32 @@ pub enum DaemonCommand {
 		preserve_timestamps: bool, 
 		move_files: bool 
 	},
+	
+	// Indexing operations
+	QuickScan { 
+		path: PathBuf, 
+		scope: String, 
+		ephemeral: bool 
+	},
+	Browse { 
+		path: PathBuf, 
+		scope: String, 
+		content: bool 
+	},
+	IndexPath { 
+		path: PathBuf, 
+		mode: String, 
+		scope: String, 
+		depth: Option<u32>, 
+		create_location: bool 
+	},
+	IndexAll { 
+		force: bool 
+	},
+	IndexLocation { 
+		location: String, 
+		force: bool 
+	},
 
 	// Subscribe to events
 	SubscribeEvents,
@@ -1124,6 +1150,32 @@ async fn handle_command(
 			} else {
 				DaemonResponse::Error("No library available. Create or open a library first.".to_string())
 			}
+		}
+
+		// Indexing operations
+		DaemonCommand::QuickScan { path, scope, ephemeral } => {
+			// TODO: Implement quick scan
+			DaemonResponse::Error("Quick scan not yet implemented".to_string())
+		}
+
+		DaemonCommand::Browse { path, scope, content } => {
+			// TODO: Implement browse
+			DaemonResponse::Error("Browse not yet implemented".to_string())
+		}
+
+		DaemonCommand::IndexPath { path, mode, scope, depth, create_location } => {
+			// TODO: Implement index path
+			DaemonResponse::Error("Index path not yet implemented".to_string())
+		}
+
+		DaemonCommand::IndexAll { force } => {
+			// TODO: Implement index all
+			DaemonResponse::Error("Index all not yet implemented".to_string())
+		}
+
+		DaemonCommand::IndexLocation { location, force } => {
+			// TODO: Implement index location
+			DaemonResponse::Error("Index location not yet implemented".to_string())
 		}
 
 		DaemonCommand::SubscribeEvents => {
