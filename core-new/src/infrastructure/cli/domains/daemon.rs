@@ -6,10 +6,11 @@
 //! - Managing multiple daemon instances
 
 use crate::infrastructure::cli::daemon::{Daemon, DaemonClient, DaemonCommand, DaemonConfig, DaemonResponse};
+use crate::infrastructure::cli::output::{CliOutput, Message};
+use crate::infrastructure::cli::output::messages::{LibraryInfo as OutputLibraryInfo};
 use clap::Subcommand;
-use colored::Colorize;
-use std::path::PathBuf;
 use comfy_table::Table;
+use std::path::PathBuf;
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum DaemonCommands {
@@ -51,22 +52,23 @@ pub async fn handle_daemon_command(
     cmd: DaemonCommands,
     data_dir: PathBuf,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         DaemonCommands::Start {
             foreground,
             enable_networking,
         } => {
-            handle_start_daemon(data_dir, foreground, enable_networking, instance_name).await
+            handle_start_daemon(data_dir, foreground, enable_networking, instance_name, output).await
         }
         DaemonCommands::Stop => {
-            handle_stop_daemon(instance_name).await
+            handle_stop_daemon(instance_name, output).await
         }
         DaemonCommands::Status => {
-            handle_daemon_status(instance_name).await
+            handle_daemon_status(instance_name, output).await
         }
         DaemonCommands::Instance(instance_cmd) => {
-            handle_instance_command(instance_cmd).await
+            handle_instance_command(instance_cmd, output).await
         }
     }
 }
@@ -76,24 +78,27 @@ async fn handle_start_daemon(
     foreground: bool,
     enable_networking: bool,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if Daemon::is_running_instance(instance_name.clone()) {
         let instance_display = instance_name.as_deref().unwrap_or("default");
-        println!(
-            "⚠️  Spacedrive daemon instance '{}' is already running",
+        output.warning(&format!(
+            "Spacedrive daemon instance '{}' is already running",
             instance_display
-        );
+        ))?;
         return Ok(());
     }
 
-    println!("🚀 Starting Spacedrive daemon...");
+    output.print(Message::DaemonStarting {
+        instance: instance_name.as_deref().unwrap_or("default").to_string(),
+    })?;
 
     if foreground {
         // Run in foreground
         if enable_networking {
             // For networking enabled startup, we need a default password
-            println!("🔐 Starting daemon with networking enabled...");
-            println!("   Using master key for secure device authentication.");
+            output.info("Starting daemon with networking enabled...")?;
+            output.info("Using master key for secure device authentication.")?;
 
             match Daemon::new_with_networking_and_instance(
                 data_dir.clone(),
@@ -103,8 +108,8 @@ async fn handle_start_daemon(
             {
                 Ok(daemon) => daemon.start().await?,
                 Err(e) => {
-                    println!("❌ Failed to start daemon with networking: {}", e);
-                    println!("   Falling back to daemon without networking...");
+                    output.error(Message::Error(format!("Failed to start daemon with networking: {}", e)))?;
+                    output.info("Falling back to daemon without networking...")?;
                     let daemon =
                         Daemon::new_with_instance(data_dir, instance_name.clone()).await?;
                     daemon.start().await?;
@@ -158,16 +163,16 @@ async fn handle_start_daemon(
 
         if Daemon::is_running_instance(instance_name.clone()) {
             let instance_display = instance_name.as_deref().unwrap_or("default");
-            println!(
-                "✅ Spacedrive daemon instance '{}' started successfully",
+            output.success(&format!(
+                "Spacedrive daemon instance '{}' started successfully",
                 instance_display
-            );
+            ))?;
         } else {
             let instance_display = instance_name.as_deref().unwrap_or("default");
-            println!(
-                "❌ Failed to start Spacedrive daemon instance '{}'",
+            output.error(Message::Error(format!(
+                "Failed to start Spacedrive daemon instance '{}'",
                 instance_display
-            );
+            )))?;
         }
     }
 
@@ -176,36 +181,35 @@ async fn handle_start_daemon(
 
 async fn handle_stop_daemon(
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !Daemon::is_running_instance(instance_name.clone()) {
         let instance_display = instance_name.as_deref().unwrap_or("default");
-        println!(
-            "⚠️  Spacedrive daemon instance '{}' is not running",
+        output.warning(&format!(
+            "Spacedrive daemon instance '{}' is not running",
             instance_display
-        );
+        ))?;
         return Ok(());
     }
 
     let instance_display = instance_name.as_deref().unwrap_or("default");
-    println!(
-        "🛑 Stopping Spacedrive daemon instance '{}'...",
-        instance_display
-    );
+    output.print(Message::DaemonStopping {
+        instance: instance_display.to_string(),
+    })?;
     Daemon::stop_instance(instance_name.clone()).await?;
 
     // Wait a bit to ensure it's stopped
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     if !Daemon::is_running_instance(instance_name.clone()) {
-        println!(
-            "✅ Spacedrive daemon instance '{}' stopped",
-            instance_display
-        );
+        output.print(Message::DaemonStopped {
+            instance: instance_display.to_string(),
+        })?;
     } else {
-        println!(
-            "❌ Failed to stop Spacedrive daemon instance '{}'",
+        output.error(Message::Error(format!(
+            "Failed to stop Spacedrive daemon instance '{}'",
             instance_display
-        );
+        )))?;
     }
 
     Ok(())
@@ -213,14 +217,15 @@ async fn handle_stop_daemon(
 
 async fn handle_daemon_status(
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let instance_display = instance_name.as_deref().unwrap_or("default");
 
     if Daemon::is_running_instance(instance_name.clone()) {
-        println!(
-            "✅ Spacedrive daemon instance '{}' is running",
+        output.success(&format!(
+            "Spacedrive daemon instance '{}' is running",
             instance_display
-        );
+        ))?;
 
         // Try to get more info from daemon
         let client = DaemonClient::new_with_instance(instance_name);
@@ -228,20 +233,16 @@ async fn handle_daemon_status(
         // Get status
         match client.send_command(DaemonCommand::GetStatus).await {
             Ok(DaemonResponse::Status(status)) => {
-                println!("\n📊 Status:");
-                println!("   Version: {}", status.version.bright_blue());
-                println!(
-                    "   Uptime: {} seconds",
-                    status.uptime_secs.to_string().bright_yellow()
-                );
-                println!(
-                    "   Active Jobs: {}",
-                    status.active_jobs.to_string().bright_green()
-                );
-                println!("   Total Locations: {}", status.total_locations);
+                output.section()
+                    .title("Status")
+                    .status("Version", &status.version)
+                    .status("Uptime", &format!("{} seconds", status.uptime_secs))
+                    .status("Active Jobs", &status.active_jobs.to_string())
+                    .status("Total Locations", &status.total_locations.to_string())
+                    .render()?;
             }
             Err(e) => {
-                println!("   ⚠️  Could not get status: {}", e);
+                output.warning(&format!("Could not get status: {}", e))?;
             }
             _ => {}
         }
@@ -252,21 +253,21 @@ async fn handle_daemon_status(
             .await
         {
             Ok(DaemonResponse::Libraries(libraries)) => {
-                println!("\n📚 Libraries:");
-                if libraries.is_empty() {
-                    println!("   No libraries found");
-                } else {
+                if !libraries.is_empty() {
+                    output.section()
+                        .empty_line()
+                        .title("Libraries")
+                        .render()?;
+                    
                     for lib in &libraries {
-                        println!(
-                            "   • {} ({})",
-                            lib.name.bright_cyan(),
-                            lib.id.to_string().bright_yellow()
-                        );
+                        output.section()
+                            .text(&format!("   • {} ({})", lib.name, lib.id))
+                            .render()?;
                     }
                 }
             }
             Err(e) => {
-                println!("   ⚠️  Could not get libraries: {}", e);
+                output.warning(&format!("Could not get libraries: {}", e))?;
             }
             _ => {}
         }
@@ -276,56 +277,63 @@ async fn handle_daemon_status(
             .send_command(DaemonCommand::GetCurrentLibrary)
             .await
         {
-            Ok(DaemonResponse::CurrentLibrary(Some(lib))) => {
-                println!("\n🔍 Current Library:");
-                println!(
-                    "   {} ({})",
-                    lib.name.bright_cyan().bold(),
-                    lib.id.to_string().bright_yellow()
-                );
-                println!("   Path: {}", lib.path.display().to_string().bright_blue());
-            }
-            Ok(DaemonResponse::CurrentLibrary(None)) => {
-                println!("\n🔍 Current Library: None selected");
+            Ok(DaemonResponse::CurrentLibrary(lib_opt)) => {
+                if let Some(lib) = lib_opt {
+                    output.section()
+                        .empty_line()
+                        .title("Current Library")
+                        .item("Name", &lib.name)
+                        .item("ID", &lib.id.to_string())
+                        .item("Path", &lib.path.display().to_string())
+                        .render()?;
+                } else {
+                    output.section()
+                        .empty_line()
+                        .title("Current Library")
+                        .text("None selected")
+                        .render()?;
+                }
             }
             Err(e) => {
-                println!("   ⚠️  Could not get current library: {}", e);
+                output.warning(&format!("Could not get current library: {}", e))?;
             }
             _ => {}
         }
     } else {
-        println!(
-            "❌ Spacedrive daemon instance '{}' is not running",
-            instance_display
-        );
-        if instance_name.is_some() {
-            println!(
-                "   Start it with: spacedrive --instance {} start",
-                instance_display
-            );
+        output.error(Message::DaemonNotRunning {
+            instance: instance_display.to_string(),
+        })?;
+        
+        let start_cmd = if instance_name.is_some() {
+            format!("spacedrive --instance {} start", instance_display)
         } else {
-            println!("   Start it with: spacedrive start");
-        }
+            "spacedrive start".to_string()
+        };
+        
+        output.section()
+            .help()
+                .item(&format!("Start it with: {}", start_cmd))
+            .render()?;
     }
 
     Ok(())
 }
 
-async fn handle_instance_command(cmd: InstanceCommands) -> Result<(), Box<dyn std::error::Error>> {
+async fn handle_instance_command(cmd: InstanceCommands, mut output: CliOutput) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         InstanceCommands::List => match Daemon::list_instances() {
             Ok(instances) => {
                 if instances.is_empty() {
-                    println!("📭 No daemon instances found");
+                    output.info("No daemon instances found")?;
                 } else {
                     let mut table = Table::new();
                     table.set_header(vec!["Instance", "Status", "Socket Path"]);
 
                     for instance in instances {
                         let status = if instance.is_running {
-                            "Running".green()
+                            "Running"
                         } else {
-                            "Stopped".red()
+                            "Stopped"
                         };
 
                         table.add_row(vec![
@@ -335,11 +343,13 @@ async fn handle_instance_command(cmd: InstanceCommands) -> Result<(), Box<dyn st
                         ]);
                     }
 
-                    println!("{}", table);
+                    output.section()
+                        .table(table)
+                        .render()?;
                 }
             }
             Err(e) => {
-                println!("❌ Failed to list instances: {}", e);
+                output.error(Message::Error(format!("Failed to list instances: {}", e)))?;
             }
         },
 
@@ -351,18 +361,17 @@ async fn handle_instance_command(cmd: InstanceCommands) -> Result<(), Box<dyn st
             };
             match Daemon::stop_instance(instance_name).await {
                 Ok(_) => {
-                    println!("✅ Daemon instance '{}' stopped", name);
+                    output.success(&format!("Daemon instance '{}' stopped", name))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to stop instance '{}': {}", name, e);
+                    output.error(Message::Error(format!("Failed to stop instance '{}': {}", name, e)))?;
                 }
             }
         }
 
         InstanceCommands::Current => {
-            // This would show the current instance based on CLI args or context
-            println!("Current instance functionality not yet implemented");
-            println!("Use --instance <name> flag to target specific instances");
+            output.info("Current instance functionality not yet implemented")?;
+            output.info("Use --instance <name> flag to target specific instances")?;
         }
     }
 
