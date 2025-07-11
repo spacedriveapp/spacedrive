@@ -7,8 +7,8 @@
 
 use crate::infrastructure::cli::adapters::FileCopyCliArgs;
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
+use crate::infrastructure::cli::output::{CliOutput, Message};
 use clap::{Subcommand, ValueEnum};
-use colored::Colorize;
 use std::path::PathBuf;
 
 // Re-export from the commands module for consistency
@@ -130,18 +130,19 @@ pub enum IndexCommands {
 pub async fn handle_file_command(
     cmd: FileCommands,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = DaemonClient::new_with_instance(instance_name.clone());
 
     match cmd {
         FileCommands::Copy(args) => {
-            handle_copy_command(args, &mut client).await
+            handle_copy_command(args, &mut client, &mut output).await
         }
         FileCommands::Index(cmd) => {
-            handle_index_command(cmd, &mut client).await
+            handle_index_command(cmd, &mut client, &mut output).await
         }
         FileCommands::Scan { path, mode, watch } => {
-            handle_scan_command(path, mode, watch, &mut client).await
+            handle_scan_command(path, mode, watch, &mut client, &mut output).await
         }
     }
 }
@@ -149,17 +150,18 @@ pub async fn handle_file_command(
 async fn handle_copy_command(
     args: FileCopyCliArgs,
     client: &mut DaemonClient,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Convert CLI args to daemon command format
     let input = match args.validate_and_convert() {
         Ok(input) => input,
         Err(e) => {
-            println!("❌ Invalid copy operation: {}", e);
+            output.error(Message::Error(format!("Invalid copy operation: {}", e)))?;
             return Ok(());
         }
     };
 
-    println!("📁 {}", input.summary().bright_cyan());
+    output.info(&input.summary())?;
 
     // Send copy command to daemon
     match client
@@ -177,43 +179,39 @@ async fn handle_copy_command(
             job_id,
             sources_count,
         }) => {
-            println!("✅ Copy operation started successfully!");
-            println!("   Job ID: {}", job_id.to_string().bright_yellow());
-            println!("   Sources: {} file(s)", sources_count);
-            println!(
-                "   Destination: {}",
-                input.destination.display().to_string().bright_blue()
-            );
-
+            output.success("Copy operation started successfully!")?;
+            
+            let mut section = output.section();
+            section.item("Job ID", &job_id.to_string())
+                .item("Sources", &format!("{} file(s)", sources_count))
+                .item("Destination", &input.destination.display().to_string());
+            
             if input.overwrite {
-                println!("   Mode: {} existing files", "Overwrite".bright_red());
+                section.item("Mode", "Overwrite existing files");
             }
             if input.verify_checksum {
-                println!("   Verification: {}", "Enabled".bright_green());
+                section.item("Verification", "Enabled");
             }
             if input.move_files {
-                println!(
-                    "   Type: {} (delete source after copy)",
-                    "Move".bright_yellow()
-                );
+                section.item("Type", "Move (delete source after copy)");
             }
-
-            println!(
-                "\n💡 Tip: Monitor progress with: {}",
-                "spacedrive job monitor".bright_cyan()
-            );
+            
+            section.empty_line()
+                .help()
+                    .item("Monitor progress with", "spacedrive job monitor")
+                .render()?;
         }
         Ok(DaemonResponse::Ok) => {
-            println!("✅ Copy operation completed successfully!");
+            output.success("Copy operation completed successfully!")?;
         }
         Ok(DaemonResponse::Error(e)) => {
-            println!("❌ Failed to copy files: {}", e);
+            output.error(Message::Error(format!("Failed to copy files: {}", e)))?;
         }
         Err(e) => {
-            println!("❌ Failed to communicate with daemon: {}", e);
+            output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
         }
         _ => {
-            println!("❌ Unexpected response from daemon");
+            output.error(Message::Error("Unexpected response from daemon".to_string()))?;
         }
     }
 
@@ -223,12 +221,13 @@ async fn handle_copy_command(
 async fn handle_index_command(
     cmd: IndexCommands,
     client: &mut DaemonClient,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         IndexCommands::QuickScan { path, scope, ephemeral } => {
-            println!("🔍 Quick scanning {}...", path.display());
+            output.info(&format!("Quick scanning {}...", path.display()))?;
             if ephemeral {
-                println!("   Running in ephemeral mode (no database writes)");
+                output.info("Running in ephemeral mode (no database writes)")?;
             }
             
             let scope_str = match scope {
@@ -246,24 +245,24 @@ async fn handle_index_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Quick scan completed successfully");
+                    output.success("Quick scan completed successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Quick scan failed: {}", e);
+                    output.error(Message::Error(format!("Quick scan failed: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
         
         IndexCommands::Browse { path, scope, content } => {
-            println!("👀 Browsing {}...", path.display());
+            output.info(&format!("Browsing {}...", path.display()))?;
             if content {
-                println!("   Content analysis enabled");
+                output.info("Content analysis enabled")?;
             }
             
             let scope_str = match scope {
@@ -281,22 +280,22 @@ async fn handle_index_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Browse completed successfully");
+                    output.success("Browse completed successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Browse failed: {}", e);
+                    output.error(Message::Error(format!("Browse failed: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
         
         IndexCommands::Path { path, mode, scope, depth, create_location, watch } => {
-            println!("📁 Indexing path {}...", path.display());
+            output.info(&format!("Indexing path {}...", path.display()))?;
             
             let mode_str = match mode {
                 CliIndexMode::Shallow => "shallow",
@@ -321,48 +320,48 @@ async fn handle_index_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Path indexing started successfully");
+                    output.success("Path indexing started successfully")?;
                     if watch {
-                        println!("   Use 'spacedrive job monitor' to track progress");
+                        output.info("Use 'spacedrive job monitor' to track progress")?;
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Path indexing failed: {}", e);
+                    output.error(Message::Error(format!("Path indexing failed: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
         IndexCommands::All { force, watch } => {
-            println!("🔄 Re-indexing all locations...");
+            output.info("Re-indexing all locations...")?;
             
             match client
                 .send_command(DaemonCommand::IndexAll { force })
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Re-indexing of all locations started successfully");
+                    output.success("Re-indexing of all locations started successfully")?;
                     if watch {
-                        println!("   Use 'spacedrive job monitor' to track progress");
+                        output.info("Use 'spacedrive job monitor' to track progress")?;
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Re-indexing failed: {}", e);
+                    output.error(Message::Error(format!("Re-indexing failed: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
         IndexCommands::Location { location, force, watch } => {
-            println!("📍 Indexing location {}...", location);
+            output.info(&format!("Indexing location {}...", location))?;
             
             match client
                 .send_command(DaemonCommand::IndexLocation {
@@ -372,19 +371,19 @@ async fn handle_index_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Location indexing started successfully");
+                    output.success("Location indexing started successfully")?;
                     if watch {
-                        println!("   Use 'spacedrive job monitor' to track progress");
+                        output.info("Use 'spacedrive job monitor' to track progress")?;
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Location indexing failed: {}", e);
+                    output.error(Message::Error(format!("Location indexing failed: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -397,8 +396,9 @@ async fn handle_scan_command(
     mode: CliIndexMode,
     watch: bool,
     client: &mut DaemonClient,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("🔍 Scanning {}...", path.display());
+    output.info(&format!("Scanning {}...", path.display()))?;
     
     let mode_str = match mode {
         CliIndexMode::Shallow => "shallow",
@@ -418,19 +418,19 @@ async fn handle_scan_command(
         .await
     {
         Ok(DaemonResponse::Ok) => {
-            println!("✅ Scan started successfully");
+            output.success("Scan started successfully")?;
             if watch {
-                println!("   Use 'spacedrive job monitor' to track progress");
+                output.info("Use 'spacedrive job monitor' to track progress")?;
             }
         }
         Ok(DaemonResponse::Error(e)) => {
-            println!("❌ Scan failed: {}", e);
+            output.error(Message::Error(format!("Scan failed: {}", e)))?;
         }
         Err(e) => {
-            println!("❌ Failed to communicate with daemon: {}", e);
+            output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
         }
         _ => {
-            println!("❌ Unexpected response from daemon");
+            output.error(Message::Error("Unexpected response from daemon".to_string()))?;
         }
     }
     

@@ -7,10 +7,11 @@
 //! - Spacedrop file sharing
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
+use crate::infrastructure::cli::output::{CliOutput, Message};
+use crate::infrastructure::cli::output::messages::{DeviceInfo as OutputDeviceInfo, DeviceStatus, PairingRequest};
 use crate::infrastructure::cli::utils::format_bytes_parts;
 use crate::services::networking::DeviceInfo;
 use clap::Subcommand;
-use colored::Colorize;
 use comfy_table::{presets::UTF8_FULL, Table};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -89,6 +90,7 @@ pub enum PairingCommands {
 pub async fn handle_network_command(
     cmd: NetworkCommands,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = DaemonClient::new_with_instance(instance_name.clone());
 
@@ -99,11 +101,9 @@ pub async fn handle_network_command(
         }
         _ => {
             if !client.is_running() {
-                println!(
-                    "{} Daemon is not running. Start it with: {}",
-                    "✗".red(),
-                    "spacedrive daemon start".bright_blue()
-                );
+                output.error(Message::DaemonNotRunning {
+                    instance: instance_name.as_deref().unwrap_or("default").to_string(),
+                })?;
                 return Ok(());
             }
         }
@@ -116,13 +116,13 @@ pub async fn handle_network_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Networking initialized successfully", "✓".green());
+                    output.print(Message::NetworkingInitialized)?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
@@ -133,13 +133,13 @@ pub async fn handle_network_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Networking service started", "✓".green());
+                    output.print(Message::NetworkingStarted)?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
@@ -150,13 +150,13 @@ pub async fn handle_network_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Networking service stopped", "✓".green());
+                    output.print(Message::NetworkingStopped)?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
@@ -168,30 +168,51 @@ pub async fn handle_network_command(
             {
                 DaemonResponse::ConnectedDevices(devices) => {
                     if devices.is_empty() {
-                        println!("No devices currently connected");
+                        output.info("No devices currently connected")?;
                     } else {
-                        println!("Connected devices:");
-                        let mut table = Table::new();
-                        table.load_preset(UTF8_FULL);
-                        table.set_header(vec!["Device ID", "Name", "Status", "Last Seen"]);
+                        let output_devices: Vec<OutputDeviceInfo> = devices.into_iter()
+                            .map(|device| OutputDeviceInfo {
+                                id: device.device_id.to_string(),
+                                name: device.device_name.clone(),
+                                status: match device.status.as_str() {
+                                    "online" => DeviceStatus::Online,
+                                    "offline" => DeviceStatus::Offline,
+                                    "paired" => DeviceStatus::Paired,
+                                    "discovered" => DeviceStatus::Discovered,
+                                    _ => DeviceStatus::Offline,
+                                },
+                                peer_id: None, // TODO: Get from daemon if available
+                            })
+                            .collect();
+                        
+                        if matches!(output.format(), crate::infrastructure::cli::output::OutputFormat::Json) {
+                            output.print(Message::DevicesList { devices: output_devices })?;
+                        } else {
+                            // For human output, use a table
+                            let mut table = Table::new();
+                            table.load_preset(UTF8_FULL);
+                            table.set_header(vec!["Device ID", "Name", "Status"]);
 
-                        for device in devices {
-                            table.add_row(vec![
-                                &device.device_id.to_string()[..8],
-                                &device.device_name,
-                                &device.status,
-                                &device.last_seen,
-                            ]);
+                            for device in output_devices {
+                                table.add_row(vec![
+                                    &device.id[..8.min(device.id.len())],
+                                    &device.name,
+                                    &format!("{:?}", device.status),
+                                ]);
+                            }
+
+                            output.section()
+                                .title("Connected Devices")
+                                .table(table)
+                                .render()?;
                         }
-
-                        println!("{}", table);
                     }
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
@@ -201,7 +222,7 @@ pub async fn handle_network_command(
             let device_uuid = match device_id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid device ID format");
+                    output.error(Message::Error("Invalid device ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -211,13 +232,13 @@ pub async fn handle_network_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Device {} revoked", "✓".green(), device_id);
+                    output.success(&format!("Device {} revoked", device_id))?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
@@ -232,7 +253,7 @@ pub async fn handle_network_command(
             let device_uuid = match device_id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid device ID format");
+                    output.error(Message::Error("Invalid device ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -244,29 +265,29 @@ pub async fn handle_network_command(
                 .send_command(DaemonCommand::SendSpacedrop {
                     device_id: device_uuid,
                     file_path: file_path.to_string_lossy().to_string(),
-                    sender_name,
+                    sender_name: sender_name.clone(),
                     message,
                 })
                 .await?
             {
                 DaemonResponse::SpacedropStarted { transfer_id } => {
-                    println!(
-                        "{} Spacedrop started with transfer ID: {}",
-                        "✓".green(),
-                        transfer_id
-                    );
+                    output.print(Message::SpacedropSent {
+                        file_name: file_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                        device_name: device_id.clone(),
+                    })?;
+                    output.info(&format!("Transfer ID: {}", transfer_id))?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} {}", "✗".red(), err);
+                    output.error(Message::Error(err))?;
                 }
                 _ => {
-                    println!("{} Unexpected response", "✗".red());
+                    output.error(Message::Error("Unexpected response".to_string()))?;
                 }
             }
         }
 
         NetworkCommands::Pair { action } => {
-            handle_pairing_command(action, &client).await?;
+            handle_pairing_command(action, &client, &mut output).await?;
         }
     }
 
@@ -277,10 +298,11 @@ pub async fn handle_network_command(
 async fn handle_pairing_command(
     action: PairingCommands,
     client: &DaemonClient,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match action {
         PairingCommands::Generate => {
-            println!("🔑 Generating pairing code...");
+            output.info("Generating pairing code...")?;
 
             match client
                 .send_command(DaemonCommand::StartPairingAsInitiator)
@@ -290,63 +312,55 @@ async fn handle_pairing_command(
                     code,
                     expires_in_seconds,
                 } => {
-                    println!("\n🔗 Your Pairing Code");
-                    println!("==================");
-                    println!();
-                    println!("Share this code with the other device:");
-                    println!();
-                    println!("    {}", code.bright_cyan().bold());
-                    println!();
-                    println!(
-                        "⏰ This code expires in {} seconds",
-                        expires_in_seconds.to_string().yellow()
-                    );
-                    println!();
-                    println!("💡 The other device should run:");
-                    println!("   spacedrive network pair join \"{}\"", code.bright_blue());
-                    println!();
-                    println!("✨ Pairing will auto-accept valid requests");
+                    output.print(Message::PairingCodeGenerated { code: code.clone() })?;
+                    
+                    output.section()
+                        .empty_line()
+                        .text(&format!("This code expires in {} seconds", expires_in_seconds))
+                        .empty_line()
+                        .help()
+                            .item(&format!("The other device should run: spacedrive network pair join \"{}\"", code))
+                            .item("Pairing will auto-accept valid requests")
+                        .render()?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to generate pairing code: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to generate pairing code: {}", err)))?;
                 }
                 _ => {
-                    println!("{} Unexpected response from daemon", "✗".red());
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
 
         PairingCommands::Join { code } => {
-            println!("🔗 Joining pairing session...");
-            println!(
-                "   Code: {}...",
-                code.split_whitespace()
-                    .take(3)
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            );
+            output.info("Joining pairing session...")?;
+            let code_preview = code.split_whitespace()
+                .take(3)
+                .collect::<Vec<_>>()
+                .join(" ");
+            output.info(&format!("Code: {}...", code_preview))?;
 
             match client
                 .send_command(DaemonCommand::StartPairingAsJoiner { code: code.clone() })
                 .await?
             {
                 DaemonResponse::PairingInProgress => {
-                    println!("{} Successfully joined pairing session!", "✓".green());
-                    println!("   Pairing process started - this may take a few moments...");
+                    output.print(Message::PairingInProgress { 
+                        device_name: "remote device".to_string() 
+                    })?;
+                    output.info("Pairing process started - this may take a few moments...")?;
 
                     // Monitor pairing status
-                    println!();
-                    println!("📊 Monitoring pairing progress...");
+                    output.info("")?;
+                    output.info("Monitoring pairing progress...")?;
 
                     let mut attempts = 0;
                     let max_attempts = 30; // 30 seconds timeout
 
                     loop {
                         if attempts >= max_attempts {
-                            println!("⏰ Pairing monitoring timed out");
-                            println!(
-                                "   Use 'spacedrive network pair status' to check final result"
-                            );
+                            output.warning("Pairing monitoring timed out")?;
+                            output.info("Use 'spacedrive network pair status' to check final result")?;
                             break;
                         }
 
@@ -361,64 +375,65 @@ async fn handle_pairing_command(
                             }) => {
                                 match status.as_str() {
                                     "completed" => {
-                                        println!(
-                                            "{} Pairing completed successfully!",
-                                            "✅".green()
-                                        );
                                         if let Some(device) = remote_device {
-                                            println!("   Paired with: {}", device.device_name);
+                                            output.print(Message::PairingSuccess {
+                                                device_name: device.device_name,
+                                                device_id: device.device_id.to_string(),
+                                            })?;
+                                        } else {
+                                            output.success("Pairing completed successfully!")?;
                                         }
                                         break;
                                     }
                                     s if s.contains("failed") => {
-                                        println!("{} Pairing failed: {}", "❌".red(), s);
+                                        output.print(Message::PairingFailed { reason: s.to_string() })?;
                                         break;
                                     }
                                     "cancelled" | "canceled" => {
-                                        println!("{} Pairing was cancelled", "⚠️".yellow());
+                                        output.warning("Pairing was cancelled")?;
                                         break;
                                     }
                                     s @ ("in_progress" | "waiting" | "connecting"
                                     | "authenticating") => {
                                         // Still in progress - show periodic updates
                                         if attempts % 5 == 0 {
-                                            println!(
-                                                "   ⏳ Still pairing... ({}/{}) [{}]",
+                                            output.info(&format!(
+                                                "Still pairing... ({}/{}) [{}]",
                                                 attempts, max_attempts, s
-                                            );
+                                            ))?;
                                         }
                                     }
                                     s => {
                                         // Unknown status - log and continue
                                         if attempts % 10 == 0 {
-                                            println!(
-                                                "   ℹ️  Status: {} ({}/{})",
+                                            output.info(&format!(
+                                                "Status: {} ({}/{})",
                                                 s, attempts, max_attempts
-                                            );
+                                            ))?;
                                         }
                                     }
                                 }
                             }
                             Ok(DaemonResponse::Error(err)) => {
-                                println!("{} Daemon error: {}", "❌".red(), err);
+                                output.error(Message::Error(format!("Daemon error: {}", err)))?;
                                 break;
                             }
                             Ok(_) => {
                                 // Unexpected response type
                                 if attempts % 20 == 0 {
-                                    println!(
-                                        "   ⚠️  Unexpected response type from daemon ({}/{})",
+                                    output.warning(&format!(
+                                        "Unexpected response type from daemon ({}/{})",
                                         attempts, max_attempts
-                                    );
+                                    ))?;
                                 }
                             }
                             Err(e) => {
                                 // Network/communication error
                                 if attempts % 15 == 0 {
-                                    println!(
-                                        "   ⚠️  Connection issue: {} ({}/{})",
+                                    output.warning(&format!(
+                                        "Connection issue: {} ({}/{})",
                                         e, attempts, max_attempts
-                                    );
+                                    ))?;
                                 }
                                 // Continue trying - daemon might be busy
                             }
@@ -426,45 +441,44 @@ async fn handle_pairing_command(
                     }
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to join pairing session: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to join pairing session: {}", err)))?;
                 }
                 response => {
-                    println!(
-                        "{} Unexpected response from daemon: {:?}",
-                        "✗".red(),
+                    output.error(Message::Error(format!(
+                        "Unexpected response from daemon: {:?}",
                         response
-                    );
+                    )))?;
                 }
             }
         }
 
         PairingCommands::Status => {
             // Show current pairing status first
-            println!("🔍 Checking pairing status...");
-            println!();
+            output.info("Checking pairing status...")?;
+            output.info("")?;
 
             match client.send_command(DaemonCommand::GetPairingStatus).await {
                 Ok(DaemonResponse::PairingStatus {
                     status,
                     remote_device,
                 }) => {
-                    println!("📊 Current Pairing Status: {}", status.bright_blue());
+                    let mut section = output.section();
+                    section.title("Current Pairing Status")
+                        .item("Status", &status);
+                    
                     if let Some(device) = remote_device {
-                        println!(
-                            "🔗 Connected Device: {} ({})",
+                        section.item("Connected Device", &format!("{} ({})", 
                             device.device_name,
-                            device.device_id.to_string()[..8].bright_cyan()
-                        );
+                            &device.device_id.to_string()[..8]
+                        ));
                     }
-                    println!();
+                    section.render()?;
                 }
                 Ok(DaemonResponse::Error(err)) => {
-                    println!("⚠️  Status check error: {}", err.yellow());
-                    println!();
+                    output.warning(&format!("Status check error: {}", err))?;
                 }
                 _ => {
-                    println!("⚠️  Could not determine current status");
-                    println!();
+                    output.warning("Could not determine current status")?;
                 }
             }
 
@@ -475,40 +489,33 @@ async fn handle_pairing_command(
             {
                 DaemonResponse::PendingPairings(requests) => {
                     if requests.is_empty() {
-                        println!("📭 No pending pairing requests");
-                        println!();
-                        println!("💡 To start pairing:");
-                        println!("   • Generate a code: spacedrive network pair generate");
-                        println!("   • Join with a code: spacedrive network pair join \"<code>\"");
+                        output.info("No pending pairing requests")?;
+                        output.section()
+                            .help()
+                                .title("To start pairing:")
+                                .item("Generate a code", "spacedrive network pair generate")
+                                .item("Join with a code", "spacedrive network pair join \"<code>\"")
+                            .render()?;
                     } else {
-                        use comfy_table::{presets::UTF8_FULL, Table};
-                        let mut table = Table::new();
-                        table.load_preset(UTF8_FULL);
-                        table.set_header(vec![
-                            "Request ID",
-                            "Device ID",
-                            "Device Name",
-                            "Received At",
-                        ]);
-
-                        for request in requests {
-                            table.add_row(vec![
-                                &request.request_id.to_string()[..8],
-                                &request.device_id.to_string()[..8],
-                                &request.device_name,
-                                &request.received_at,
-                            ]);
-                        }
-
-                        println!("📬 Pending Pairing Requests");
-                        println!("{}", table);
+                        let pending_requests: Vec<PairingRequest> = requests.into_iter()
+                            .map(|req| PairingRequest {
+                                id: req.request_id.to_string(),
+                                device_name: req.device_name,
+                                timestamp: 0, // TODO: Parse from received_at string
+                            })
+                            .collect();
+                        
+                        output.print(Message::PairingStatus {
+                            status: "active".to_string(),
+                            pending_requests,
+                        })?;
                     }
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to get pairing status: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to get pairing status: {}", err)))?;
                 }
                 _ => {
-                    println!("{} Unexpected response from daemon", "✗".red());
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -521,9 +528,8 @@ async fn handle_pairing_command(
             {
                 DaemonResponse::PendingPairings(requests) => {
                     if requests.is_empty() {
-                        println!("📭 No pending pairing requests");
+                        output.info("No pending pairing requests")?;
                     } else {
-                        use comfy_table::{presets::UTF8_FULL, Table};
                         let mut table = Table::new();
                         table.load_preset(UTF8_FULL);
                         table.set_header(vec![
@@ -542,21 +548,21 @@ async fn handle_pairing_command(
                             ]);
                         }
 
-                        println!("📬 Pending Pairing Requests");
-                        println!("{}", table);
-
-                        println!();
-                        println!("💡 To accept a request:");
-                        println!("   spacedrive network pair accept <request_id>");
-                        println!("💡 To reject a request:");
-                        println!("   spacedrive network pair reject <request_id>");
+                        output.section()
+                            .title("Pending Pairing Requests")
+                            .table(table)
+                            .empty_line()
+                            .help()
+                                .item("To accept a request", "spacedrive network pair accept <request_id>")
+                                .item("To reject a request", "spacedrive network pair reject <request_id>")
+                            .render()?;
                     }
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to list pending pairings: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to list pending pairings: {}", err)))?;
                 }
                 _ => {
-                    println!("{} Unexpected response from daemon", "✗".red());
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -565,7 +571,7 @@ async fn handle_pairing_command(
             let request_uuid = match request_id.parse::<Uuid>() {
                 Ok(id) => id,
                 Err(_) => {
-                    println!("❌ Invalid request ID format");
+                    output.error(Message::Error("Invalid request ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -575,13 +581,13 @@ async fn handle_pairing_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Pairing request {} accepted", "✓".green(), request_id);
+                    output.success(&format!("Pairing request {} accepted", request_id))?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to accept pairing request: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to accept pairing request: {}", err)))?;
                 }
                 _ => {
-                    println!("{} Unexpected response from daemon", "✗".red());
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -590,7 +596,7 @@ async fn handle_pairing_command(
             let request_uuid = match request_id.parse::<Uuid>() {
                 Ok(id) => id,
                 Err(_) => {
-                    println!("❌ Invalid request ID format");
+                    output.error(Message::Error("Invalid request ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -600,43 +606,19 @@ async fn handle_pairing_command(
                 .await?
             {
                 DaemonResponse::Ok => {
-                    println!("{} Pairing request {} rejected", "✓".green(), request_id);
+                    output.success(&format!("Pairing request {} rejected", request_id))?;
                 }
                 DaemonResponse::Error(err) => {
-                    println!("{} Failed to reject pairing request: {}", "✗".red(), err);
+                    output.error(Message::Error(format!("Failed to reject pairing request: {}", err)))?;
                 }
                 _ => {
-                    println!("{} Unexpected response from daemon", "✗".red());
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
     }
 
     Ok(())
-}
-
-/// Helper function to display device connection information
-pub fn display_device_info(devices: &[DeviceInfo]) {
-    if devices.is_empty() {
-        println!("📭 No devices found");
-        return;
-    }
-
-    use comfy_table::{presets::UTF8_FULL, Table};
-    let mut table = Table::new();
-    table.load_preset(UTF8_FULL);
-    table.set_header(vec!["Device ID", "Name", "Fingerprint", "Last Seen"]);
-
-    for device in devices {
-        table.add_row(vec![
-            &device.device_id.to_string()[..8],
-            &device.device_name,
-            &device.network_fingerprint.to_string()[..8],
-            &device.last_seen.format("%Y-%m-%d %H:%M:%S").to_string(),
-        ]);
-    }
-
-    println!("{}", table);
 }
 
 /// Helper function to format file transfer progress

@@ -7,8 +7,9 @@
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
 use crate::infrastructure::cli::monitoring;
+use crate::infrastructure::cli::output::{CliOutput, Message};
+use crate::infrastructure::cli::output::messages::{JobInfo as OutputJobInfo, JobStatus as OutputJobStatus};
 use clap::Subcommand;
-use colored::Colorize;
 use comfy_table::Table;
 use uuid::Uuid;
 
@@ -74,6 +75,7 @@ pub enum JobCommands {
 pub async fn handle_job_command(
     cmd: JobCommands,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = DaemonClient::new_with_instance(instance_name.clone());
 
@@ -89,44 +91,61 @@ pub async fn handle_job_command(
             {
                 Ok(DaemonResponse::Jobs(jobs)) => {
                     if jobs.is_empty() {
-                        println!("📭 No jobs found");
+                        output.info("No jobs found")?;
                     } else {
-                        let mut table = Table::new();
-                        table.set_header(vec!["ID", "Name", "Status", "Progress"]);
+                        let output_jobs: Vec<OutputJobInfo> = jobs.into_iter()
+                            .map(|job| OutputJobInfo {
+                                id: job.id,
+                                name: job.name.clone(),
+                                status: match job.status.as_str() {
+                                    "queued" => OutputJobStatus::Queued,
+                                    "running" => OutputJobStatus::Running,
+                                    "completed" => OutputJobStatus::Completed,
+                                    "failed" => OutputJobStatus::Failed,
+                                    "paused" => OutputJobStatus::Paused,
+                                    _ => OutputJobStatus::Queued,
+                                },
+                                progress: Some(job.progress),
+                                started_at: 0, // TODO: Get actual timestamp from daemon
+                                completed_at: None,
+                            })
+                            .collect();
+                        
+                        if matches!(output.format(), crate::infrastructure::cli::output::OutputFormat::Json) {
+                            output.print(Message::JobList { jobs: output_jobs })?;
+                        } else {
+                            // For human output, use a table
+                            let mut table = Table::new();
+                            table.set_header(vec!["ID", "Name", "Status", "Progress"]);
 
-                        for job in jobs {
-                            let progress_str = if job.status == "running" {
-                                format!("{}%", (job.progress * 100.0) as u32)
-                            } else {
-                                "-".to_string()
-                            };
+                            for job in output_jobs {
+                                let progress_str = match job.status {
+                                    OutputJobStatus::Running => format!("{}%", (job.progress.unwrap_or(0.0) * 100.0) as u32),
+                                    _ => "-".to_string(),
+                                };
 
-                            let status_colored = match job.status.as_str() {
-                                "running" => job.status.bright_yellow(),
-                                "completed" => job.status.bright_green(),
-                                "failed" => job.status.bright_red(),
-                                _ => job.status.normal(),
-                            };
+                                table.add_row(vec![
+                                    job.id.to_string(),
+                                    job.name,
+                                    format!("{:?}", job.status),
+                                    progress_str,
+                                ]);
+                            }
 
-                            table.add_row(vec![
-                                job.id.to_string(),
-                                job.name,
-                                status_colored.to_string(),
-                                progress_str,
-                            ]);
+                            output.section()
+                                .table(table)
+                                .render()?;
                         }
-
-                        println!("{}", table);
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to list jobs: {}", e);
+                    output.error(Message::Error(format!("Failed to list jobs: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -136,7 +155,7 @@ pub async fn handle_job_command(
             let job_id = match id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid job ID format");
+                    output.error(Message::Error("Invalid job ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -146,36 +165,31 @@ pub async fn handle_job_command(
                 .await
             {
                 Ok(DaemonResponse::JobInfo(Some(job))) => {
-                    println!("📋 Job Information");
-                    println!("   ID: {}", job.id.to_string().bright_yellow());
-                    println!("   Name: {}", job.name.bright_cyan());
-                    println!(
-                        "   Status: {}",
-                        match job.status.as_str() {
-                            "running" => job.status.bright_yellow(),
-                            "completed" => job.status.bright_green(),
-                            "failed" => job.status.bright_red(),
-                            _ => job.status.normal(),
-                        }
-                    );
-                    println!("   Progress: {}%", (job.progress * 100.0) as u32);
+                    output.section()
+                        .title("Job Information")
+                        .item("ID", &job.id.to_string())
+                        .item("Name", &job.name)
+                        .item("Status", &job.status)
+                        .item("Progress", &format!("{}%", (job.progress * 100.0) as u32))
+                        .render()?;
                 }
                 Ok(DaemonResponse::JobInfo(None)) => {
-                    println!("❌ Job not found");
+                    output.error(Message::Error("Job not found".to_string()))?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Error: {}", e);
+                    output.error(Message::Error(format!("Error: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
 
         JobCommands::Monitor { job_id, exit_on_complete } => {
+            // Monitor command handles its own output
             monitoring::daemon_monitor::monitor_jobs(&mut client, job_id).await?;
         }
 
@@ -183,7 +197,7 @@ pub async fn handle_job_command(
             let job_id = match id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid job ID format");
+                    output.error(Message::Error("Invalid job ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -193,16 +207,16 @@ pub async fn handle_job_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Job paused successfully");
+                    output.success("Job paused successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to pause job: {}", e);
+                    output.error(Message::Error(format!("Failed to pause job: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -211,7 +225,7 @@ pub async fn handle_job_command(
             let job_id = match id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid job ID format");
+                    output.error(Message::Error("Invalid job ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -221,16 +235,16 @@ pub async fn handle_job_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Job resumed successfully");
+                    output.success("Job resumed successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to resume job: {}", e);
+                    output.error(Message::Error(format!("Failed to resume job: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -244,7 +258,7 @@ pub async fn handle_job_command(
                     .interact()?;
                 
                 if !confirm {
-                    println!("Operation cancelled");
+                    output.info("Operation cancelled")?;
                     return Ok(());
                 }
             }
@@ -252,7 +266,7 @@ pub async fn handle_job_command(
             let job_id = match id.parse::<Uuid>() {
                 Ok(uuid) => uuid,
                 Err(_) => {
-                    println!("❌ Invalid job ID format");
+                    output.error(Message::Error("Invalid job ID format".to_string()))?;
                     return Ok(());
                 }
             };
@@ -262,16 +276,16 @@ pub async fn handle_job_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Job cancelled successfully");
+                    output.success("Job cancelled successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to cancel job: {}", e);
+                    output.error(Message::Error(format!("Failed to cancel job: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -289,13 +303,13 @@ pub async fn handle_job_command(
                     .interact()?;
                 
                 if !confirm {
-                    println!("Operation cancelled");
+                    output.info("Operation cancelled")?;
                     return Ok(());
                 }
             }
             
-            println!("❌ Clear command not yet implemented");
-            println!("   This command will be available in a future update");
+            output.error(Message::Error("Clear command not yet implemented".to_string()))?;
+            output.info("This command will be available in a future update")?;
         }
     }
 
