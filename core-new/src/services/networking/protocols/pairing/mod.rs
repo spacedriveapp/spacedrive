@@ -18,7 +18,8 @@ use crate::services::networking::{
     NetworkingError, Result,
 };
 use async_trait::async_trait;
-use libp2p::{Multiaddr, PeerId};
+use iroh::net::NodeAddr;
+use iroh::net::key::NodeId;
 use persistence::PairingPersistence;
 use security::PairingSecurity;
 use std::collections::HashMap;
@@ -26,6 +27,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use blake3;
 
 /// Pairing protocol handler
 pub struct PairingProtocolHandler {
@@ -370,16 +372,16 @@ impl PairingProtocolHandler {
             // Match on the current state to decide the next action
             match &session.state {
                 // This is the critical missing logic - handle ResponsePending state
-                PairingState::ResponsePending { response_data, remote_peer_id, .. } => {
-                    if let Some(peer_id) = remote_peer_id {
+                PairingState::ResponsePending { response_data, remote_node_id, .. } => {
+                    if let Some(node_id) = remote_node_id {
                         self.log_info(&format!(
-                            "State Machine: Found ResponsePending for session {}, sending response to peer {}",
-                            session.id, peer_id
+                            "State Machine: Found ResponsePending for session {}, sending response to node {}",
+                            session.id, node_id
                         )).await;
 
                         // Create the command to send the message
-                        let command = crate::services::networking::core::event_loop::EventLoopCommand::SendMessageToPeer {
-                            peer_id: *peer_id,
+                        let command = crate::services::networking::core::event_loop::EventLoopCommand::SendMessageToNode {
+                            node_id: *node_id,
                             protocol: "pairing".to_string(),
                             data: response_data.clone(),
                         };
@@ -400,11 +402,11 @@ impl PairingProtocolHandler {
                         }
                     } else {
                         self.log_error(&format!(
-                            "State Machine: Session {} in ResponsePending but no remote peer ID",
+                            "State Machine: Session {} in ResponsePending but no remote node ID",
                             session.id
                         )).await;
                         session.state = PairingState::Failed { 
-                            reason: "No remote peer ID for response".to_string() 
+                            reason: "No remote node ID for response".to_string() 
                         };
                     }
                 }
@@ -452,12 +454,171 @@ impl PairingProtocolHandler {
         // Use the pairing code secret as the shared secret
         Ok(pairing_code.secret().to_vec())
     }
+    
+    /// Handle a pairing message received over stream
+    async fn handle_pairing_message(&self, message: PairingMessage, remote_node_id: NodeId) -> Result<Option<Vec<u8>>> {
+        match message {
+            PairingMessage::PairingRequest { session_id, device_info, public_key } => {
+                // Generate a temporary device ID based on node ID
+                let from_device = self.get_device_id_for_node(remote_node_id).await;
+                let response = self.handle_pairing_request(from_device, session_id, device_info, public_key).await?;
+                Ok(Some(response))
+            }
+            PairingMessage::Challenge { session_id, challenge, device_info } => {
+                let response = self.handle_pairing_challenge(session_id, challenge, device_info).await?;
+                Ok(Some(response))
+            }
+            PairingMessage::Response { session_id, response, device_info } => {
+                let from_device = self.get_device_id_for_node(remote_node_id).await;
+                let response = self.handle_pairing_response(from_device, session_id, response, device_info).await?;
+                Ok(Some(response))
+            }
+            PairingMessage::Complete { session_id, success, reason } => {
+                let from_device = self.get_device_id_for_node(remote_node_id).await;
+                self.handle_completion(session_id, success, reason, from_device, remote_node_id).await?;
+                Ok(None) // No response needed
+            }
+        }
+    }
+    
+    /// Get or create a device ID for a node
+    async fn get_device_id_for_node(&self, node_id: NodeId) -> Uuid {
+        let registry = self.device_registry.read().await;
+        registry.get_device_by_node(node_id)
+            .unwrap_or_else(|| {
+                // Generate a deterministic UUID from the node ID
+                let mut hasher = blake3::Hasher::new();
+                hasher.update(b"spacedrive-device-id");
+                hasher.update(node_id.as_bytes());
+                let hash = hasher.finalize();
+                let mut uuid_bytes = [0u8; 16];
+                uuid_bytes.copy_from_slice(&hash.as_bytes()[..16]);
+                Uuid::from_bytes(uuid_bytes)
+            })
+    }
+    
+    /// Send a pairing message to a specific node using Iroh streams
+    pub async fn send_pairing_message_to_node(
+        &self,
+        endpoint: &iroh::net::Endpoint,
+        node_id: NodeId,
+        message: &PairingMessage,
+    ) -> Result<Option<PairingMessage>> {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        
+        // Create node address and connect
+        let node_addr = NodeAddr::new(node_id);
+        let conn = endpoint.connect(node_addr, crate::services::networking::core::PAIRING_ALPN).await
+            .map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e)))?;
+        
+        // Open a bidirectional stream
+        let (mut send, mut recv) = conn.open_bi().await
+            .map_err(|e| NetworkingError::ConnectionFailed(format!("Failed to open stream: {}", e)))?;
+        
+        // Serialize the message
+        let msg_data = serde_json::to_vec(message)
+            .map_err(|e| NetworkingError::Serialization(e))?;
+        
+        // Send message length
+        let len = msg_data.len() as u32;
+        send.write_all(&len.to_be_bytes()).await
+            .map_err(|e| NetworkingError::Transport(format!("Failed to write length: {}", e)))?;
+        
+        // Send message
+        send.write_all(&msg_data).await
+            .map_err(|e| NetworkingError::Transport(format!("Failed to write message: {}", e)))?;
+        
+        // Flush
+        send.flush().await
+            .map_err(|e| NetworkingError::Transport(format!("Failed to flush: {}", e)))?;
+        
+        // Read response length
+        let mut len_buf = [0u8; 4];
+        match recv.read_exact(&mut len_buf).await {
+            Ok(_) => {
+                let resp_len = u32::from_be_bytes(len_buf) as usize;
+                
+                // Read response
+                let mut resp_buf = vec![0u8; resp_len];
+                recv.read_exact(&mut resp_buf).await
+                    .map_err(|e| NetworkingError::Transport(format!("Failed to read response: {}", e)))?;
+                
+                // Deserialize response
+                let response: PairingMessage = serde_json::from_slice(&resp_buf)
+                    .map_err(|e| NetworkingError::Serialization(e))?;
+                
+                Ok(Some(response))
+            }
+            Err(_) => Ok(None), // No response
+        }
+    }
 }
 
 #[async_trait]
 impl ProtocolHandler for PairingProtocolHandler {
     fn protocol_name(&self) -> &str {
         "pairing"
+    }
+
+    async fn handle_stream(
+        &self,
+        mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
+        mut recv: Box<dyn tokio::io::AsyncRead + Send + Unpin>,
+        remote_node_id: NodeId,
+    ) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        
+        // Read the message length (4 bytes)
+        let mut len_buf = [0u8; 4];
+        if let Err(e) = recv.read_exact(&mut len_buf).await {
+            eprintln!("Failed to read message length: {}", e);
+            return;
+        }
+        let msg_len = u32::from_be_bytes(len_buf) as usize;
+        
+        // Read the message
+        let mut msg_buf = vec![0u8; msg_len];
+        if let Err(e) = recv.read_exact(&mut msg_buf).await {
+            eprintln!("Failed to read message: {}", e);
+            return;
+        }
+        
+        // Deserialize and handle the message
+        let message: PairingMessage = match serde_json::from_slice(&msg_buf) {
+            Ok(msg) => msg,
+            Err(e) => {
+                eprintln!("Failed to deserialize pairing message: {}", e);
+                return;
+            }
+        };
+        
+        // Process the message and get response
+        let response = match self.handle_pairing_message(message, remote_node_id).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                eprintln!("Failed to handle pairing message: {}", e);
+                return;
+            }
+        };
+        
+        // Send response if any
+        if let Some(response_data) = response {
+            // Write message length
+            let len = response_data.len() as u32;
+            if let Err(e) = send.write_all(&len.to_be_bytes()).await {
+                eprintln!("Failed to write response length: {}", e);
+                return;
+            }
+            
+            // Write message
+            if let Err(e) = send.write_all(&response_data).await {
+                eprintln!("Failed to write response: {}", e);
+                return;
+            }
+            
+            // Flush the stream
+            let _ = send.flush().await;
+        }
     }
 
     async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>> {
@@ -518,7 +679,7 @@ impl ProtocolHandler for PairingProtocolHandler {
     async fn handle_response(
         &self,
         from_device: Uuid,
-        from_peer: PeerId,
+        from_node: NodeId,
         response_data: Vec<u8>,
     ) -> Result<()> {
         self.log_debug(&format!(
@@ -581,11 +742,11 @@ impl ProtocolHandler for PairingProtocolHandler {
                             }
                         }
 
-                        // Use the peer ID directly from the method parameter (this is Initiator's peer ID)
-                        let remote_peer_id = Some(from_peer);
+                        // Use the node ID directly from the method parameter (this is Initiator's node ID)
+                        let remote_node_id = Some(from_node);
                         self.log_debug(&format!(
-                            "Using peer ID from method parameter: {:?}",
-                            from_peer
+                            "Using node ID from method parameter: {:?}",
+                            from_node
                         )).await;
 
                         // Update the session state to ResponsePending so the unified pairing flow can send it
@@ -595,7 +756,7 @@ impl ProtocolHandler for PairingProtocolHandler {
                                 session.state = PairingState::ResponsePending {
                                     challenge: challenge.clone(),
                                     response_data: response_data.clone(),
-                                    remote_peer_id,
+                                    remote_node_id,
                                 };
                                 self.log_debug(&format!(
                                     "Session {} updated to ResponsePending state",
@@ -635,7 +796,7 @@ impl ProtocolHandler for PairingProtocolHandler {
                 success,
                 reason,
             } => {
-                self.handle_completion(session_id, success, reason, from_device, from_peer).await?;
+                self.handle_completion(session_id, success, reason, from_device, from_node).await?;
             }
             // These are handled by handle_request, not handle_response
             PairingMessage::PairingRequest { .. } | PairingMessage::Response { .. } => {

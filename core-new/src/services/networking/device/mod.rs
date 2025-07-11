@@ -5,12 +5,21 @@ pub mod persistence;
 pub mod registry;
 
 use chrono::{DateTime, Utc};
-use libp2p::PeerId;
+use iroh::net::NodeAddr;
+use iroh::net::key::NodeId;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub use connection::DeviceConnection;
+// Note: The connection module has a more complex DeviceConnection for active connections
+// This simpler one is used in DeviceState
+#[derive(Debug, Clone)]
+pub struct DeviceConnection {
+	pub addresses: Vec<String>,  // Node addresses as strings
+	pub latency_ms: Option<u32>,
+	pub rx_bytes: u64,
+	pub tx_bytes: u64,
+}
 pub use persistence::{DevicePersistence, PersistedPairedDevice, TrustLevel};
 pub use registry::DeviceRegistry;
 
@@ -45,15 +54,15 @@ impl Default for DeviceType {
 /// State of a device in the registry
 #[derive(Debug, Clone)]
 pub enum DeviceState {
-	/// Device discovered via mDNS/DHT but not yet connected
+	/// Device discovered via Iroh discovery but not yet connected
 	Discovered {
-		peer_id: PeerId,
-		addresses: Vec<libp2p::Multiaddr>,
+		node_id: NodeId,
+		node_addr: NodeAddr,
 		discovered_at: DateTime<Utc>,
 	},
 	/// Device currently in pairing process
 	Pairing {
-		peer_id: PeerId,
+		node_id: NodeId,
 		session_id: Uuid,
 		started_at: DateTime<Utc>,
 	},

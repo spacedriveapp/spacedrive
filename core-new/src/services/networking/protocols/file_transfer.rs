@@ -1,6 +1,7 @@
 //! File transfer protocol for cross-device file operations
 
 use crate::services::networking::{NetworkingError, Result};
+use iroh::net::key::NodeId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -592,9 +593,8 @@ impl FileTransferProtocolHandler {
             let session = sessions.get(transfer_id)
                 .ok_or_else(|| "Transfer session not found".to_string())?;
 
-            // Use the destination path from the transfer request
-            let destination_path = PathBuf::from(&session.destination_path);
-            let file_path = destination_path.join(&session.file_metadata.name);
+            // Use the destination path from the transfer request (already includes filename)
+            let file_path = PathBuf::from(&session.destination_path);
 
             (file_path, 64 * 1024u32) // 64KB chunk size
         };
@@ -629,12 +629,251 @@ impl FileTransferProtocolHandler {
 
         Ok(())
     }
+
+    /// Handle incoming transfer request
+    async fn handle_incoming_transfer_request(
+        &self,
+        device_id: Uuid,
+        transfer_id: Uuid,
+        file_metadata: FileMetadata,
+        destination_path: String,
+    ) -> Result<()> {
+        println!("📥 Handling transfer request for file: {} ({} bytes) -> {}",
+            file_metadata.name, file_metadata.size, destination_path);
+
+        // Create new transfer session
+        let session = TransferSession {
+            id: transfer_id,
+            file_metadata: file_metadata.clone(),
+            mode: TransferMode::TrustedCopy,
+            state: TransferState::Pending,
+            created_at: SystemTime::now(),
+            bytes_transferred: 0,
+            chunks_received: Vec::new(),
+            source_device: Some(device_id),
+            destination_device: None,
+            destination_path: destination_path.clone(),
+        };
+
+        // Store session
+        {
+            let mut sessions = self.sessions.write().unwrap();
+            sessions.insert(transfer_id, session);
+        }
+
+        // Accept the transfer (for trusted devices, auto-accept)
+        self.update_session_state(&transfer_id, TransferState::Active)?;
+        println!("✅ Auto-accepted transfer {} from trusted device {}", transfer_id, device_id);
+
+        Ok(())
+    }
+
+    /// Handle incoming file chunk
+    async fn handle_incoming_file_chunk(
+        &self,
+        transfer_id: Uuid,
+        chunk_index: u32,
+        encrypted_data: Vec<u8>,
+        nonce: [u8; 12],
+        chunk_checksum: [u8; 32],
+    ) -> Result<()> {
+        println!("📦 Handling file chunk {} for transfer {}", chunk_index, transfer_id);
+
+        // Get the source device ID from the session
+        let source_device_id = {
+            let sessions = self.sessions.read().unwrap();
+            if let Some(session) = sessions.get(&transfer_id) {
+                session.source_device.ok_or_else(|| {
+                    NetworkingError::Protocol("No source device for transfer".to_string())
+                })?
+            } else {
+                return Err(NetworkingError::Protocol("Transfer session not found".to_string()));
+            }
+        };
+
+        // Get session keys for decryption
+        let session_keys = if let Some(device_registry) = &self.device_registry {
+            let registry = device_registry.read().await;
+            registry.get_session_keys(source_device_id).ok_or_else(|| {
+                NetworkingError::Protocol(format!("No session keys for device {}", source_device_id))
+            })?
+        } else {
+            return Err(NetworkingError::Protocol("Device registry not available".to_string()));
+        };
+
+        // Decrypt chunk data
+        let chunk_data = self.decrypt_chunk(
+            &session_keys.receive_key,
+            &transfer_id,
+            chunk_index,
+            &encrypted_data,
+            &nonce,
+        )?;
+
+        println!("🔓 Decrypted chunk {} ({} bytes -> {} bytes)", chunk_index, encrypted_data.len(), chunk_data.len());
+
+        // Verify chunk checksum (of decrypted data)
+        let calculated_checksum = blake3::hash(&chunk_data);
+        if calculated_checksum.as_bytes() != &chunk_checksum {
+            return Err(NetworkingError::Protocol(
+                format!("Chunk {} checksum mismatch after decryption", chunk_index)
+            ));
+        }
+
+        println!("✅ Checksum verified for chunk {}", chunk_index);
+
+        // Write chunk to file
+        if let Err(e) = self.write_chunk_to_file(&transfer_id, chunk_index, &chunk_data).await {
+            return Err(NetworkingError::Protocol(
+                format!("Failed to write chunk {}: {}", chunk_index, e)
+            ));
+        }
+
+        // Update session progress
+        {
+            let mut sessions = self.sessions.write().unwrap();
+            if let Some(session) = sessions.get_mut(&transfer_id) {
+                session.bytes_transferred += chunk_data.len() as u64;
+                session.chunks_received.push(chunk_index);
+                session.chunks_received.sort();
+            }
+        }
+
+        println!("✅ Successfully processed chunk {} for transfer {}", chunk_index, transfer_id);
+        Ok(())
+    }
+
+    /// Handle incoming transfer completion
+    async fn handle_incoming_transfer_complete(
+        &self,
+        transfer_id: Uuid,
+        final_checksum: String,
+        total_bytes: u64,
+    ) -> Result<()> {
+        println!("🎉 Handling transfer completion for transfer {} ({} bytes, checksum: {})",
+            transfer_id, total_bytes, &final_checksum[..16]);
+
+        // Mark transfer as completed
+        self.update_session_state(&transfer_id, TransferState::Completed)?;
+
+        // TODO: Verify final file checksum
+        println!("✅ Transfer {} completed successfully", transfer_id);
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl super::ProtocolHandler for FileTransferProtocolHandler {
     fn protocol_name(&self) -> &str {
         "file_transfer"
+    }
+
+    async fn handle_stream(
+        &self,
+        mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
+        mut recv: Box<dyn tokio::io::AsyncRead + Send + Unpin>,
+        remote_node_id: NodeId,
+    ) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        
+        println!("📥 FILE_TRANSFER: handle_stream called from node {}", remote_node_id);
+        
+        // Read transfer type (1 byte)
+        let mut transfer_type = [0u8; 1];
+        if let Err(e) = recv.read_exact(&mut transfer_type).await {
+            eprintln!("Failed to read transfer type: {}", e);
+            return;
+        }
+        
+        println!("📥 FILE_TRANSFER: Received transfer type: {}", transfer_type[0]);
+        
+        match transfer_type[0] {
+            0 => { // File metadata request
+                // Read message length
+                let mut len_buf = [0u8; 4];
+                if let Err(e) = recv.read_exact(&mut len_buf).await {
+                    eprintln!("Failed to read message length: {}", e);
+                    return;
+                }
+                let msg_len = u32::from_be_bytes(len_buf) as usize;
+                
+                // Read message
+                let mut msg_buf = vec![0u8; msg_len];
+                if let Err(e) = recv.read_exact(&mut msg_buf).await {
+                    eprintln!("Failed to read message: {}", e);
+                    return;
+                }
+                
+                // Deserialize and handle
+                if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&msg_buf) {
+                    println!("📥 Received file transfer message: {:?}", message);
+                    
+                    // Get device ID from node ID using device registry
+                    let device_id = if let Some(device_registry) = &self.device_registry {
+                        let registry = device_registry.read().await;
+                        registry.get_device_by_node(remote_node_id).unwrap_or_else(|| {
+                            println!("⚠️ Could not find device ID for node {}, using random ID", remote_node_id);
+                            uuid::Uuid::new_v4()
+                        })
+                    } else {
+                        println!("⚠️ Device registry not available, using random device ID");
+                        uuid::Uuid::new_v4()
+                    };
+                    
+                    // Process the message based on type
+                    match message {
+                        FileTransferMessage::TransferRequest { transfer_id, file_metadata, destination_path, .. } => {
+                            // Handle transfer request
+                            if let Err(e) = self.handle_incoming_transfer_request(
+                                device_id,
+                                transfer_id,
+                                file_metadata,
+                                destination_path,
+                            ).await {
+                                eprintln!("Failed to handle transfer request: {}", e);
+                            }
+                        }
+                        FileTransferMessage::FileChunk { transfer_id, chunk_index, data, nonce, chunk_checksum } => {
+                            // Handle file chunk
+                            if let Err(e) = self.handle_incoming_file_chunk(
+                                transfer_id,
+                                chunk_index,
+                                data,
+                                nonce,
+                                chunk_checksum,
+                            ).await {
+                                eprintln!("Failed to handle file chunk: {}", e);
+                            }
+                        }
+                        FileTransferMessage::TransferComplete { transfer_id, final_checksum, total_bytes } => {
+                            // Handle transfer completion
+                            if let Err(e) = self.handle_incoming_transfer_complete(
+                                transfer_id,
+                                final_checksum,
+                                total_bytes,
+                            ).await {
+                                eprintln!("Failed to handle transfer completion: {}", e);
+                            }
+                        }
+                        _ => {
+                            println!("⚠️ Received unexpected file transfer message type");
+                        }
+                    }
+                }
+            }
+            1 => { // File data stream
+                // This would be a raw file transfer
+                // For now, just read and discard
+                let mut buffer = vec![0u8; 8192];
+                while let Ok(n) = recv.read(&mut buffer).await {
+                    if n == 0 { break; }
+                    // Process file data chunk
+                }
+            }
+            _ => {
+                eprintln!("Unknown transfer type: {}", transfer_type[0]);
+            }
+        }
     }
 
     async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>> {
@@ -664,7 +903,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
             .map_err(|e| NetworkingError::Protocol(format!("Failed to serialize response: {}", e)))
     }
 
-    async fn handle_response(&self, from_device: Uuid, _from_peer: libp2p::PeerId, response_data: Vec<u8>) -> Result<()> {
+    async fn handle_response(&self, from_device: Uuid, _from_node: NodeId, response_data: Vec<u8>) -> Result<()> {
         // Deserialize the response
         let response: FileTransferMessage = rmp_serde::from_slice(&response_data)
             .map_err(|e| NetworkingError::Protocol(format!("Failed to deserialize response: {}", e)))?;

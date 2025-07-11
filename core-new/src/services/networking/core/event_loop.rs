@@ -1,1247 +1,521 @@
-//! Central event loop for processing LibP2P events
+//! Networking event loop for handling Iroh connections and messages
 
-use super::{
-	behavior::{UnifiedBehaviour, UnifiedBehaviourEvent},
-	NetworkEvent,
-};
 use crate::services::networking::{
-	device::{DeviceConnection, DeviceInfo, DeviceRegistry},
-	protocols::{ProtocolEvent, ProtocolRegistry},
+	core::{NetworkEvent, PAIRING_ALPN, FILE_TRANSFER_ALPN, MESSAGING_ALPN},
+	device::DeviceRegistry,
+	protocols::ProtocolRegistry,
 	utils::NetworkIdentity,
 	NetworkingError, Result,
 };
-use futures::StreamExt;
-use libp2p::{
-	kad::{self, QueryId, RecordKey},
-	swarm::{Swarm, SwarmEvent},
-	Multiaddr, PeerId,
-};
-use std::{collections::HashMap, sync::Arc};
+use iroh::net::{Endpoint, NodeAddr};
+use iroh::net::key::NodeId;
+use iroh::net::endpoint::Connection;
+use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
 /// Commands that can be sent to the event loop
 #[derive(Debug)]
 pub enum EventLoopCommand {
+	// Connection management
+	ConnectionEstablished {
+		device_id: Uuid,
+		node_id: NodeId,
+	},
+	
+	// Message sending
 	SendMessage {
 		device_id: Uuid,
 		protocol: String,
 		data: Vec<u8>,
 	},
-	SendMessageToPeer {
-		peer_id: PeerId,
+	SendMessageToNode {
+		node_id: NodeId,
 		protocol: String,
 		data: Vec<u8>,
 	},
-	/// Publish a DHT record for pairing session discovery
-	PublishDhtRecord {
-		key: RecordKey,
-		value: Vec<u8>,
-		response_channel: tokio::sync::oneshot::Sender<Result<QueryId>>,
-	},
-	/// Query a DHT record for pairing session discovery
-	QueryDhtRecord {
-		key: RecordKey,
-		response_channel: tokio::sync::oneshot::Sender<Result<QueryId>>,
-	},
-	/// Get current listening addresses from the swarm
-	GetListeningAddresses {
-		response_channel: tokio::sync::oneshot::Sender<Vec<Multiaddr>>,
-	},
-	/// Dial a specific peer at an address
-	DialPeer {
-		peer_id: PeerId,
-		address: Multiaddr,
-		response_channel: tokio::sync::oneshot::Sender<Result<()>>,
-	},
-	/// Get raw connected peers directly from the swarm (bypasses DeviceRegistry)
-	GetRawConnectedPeers {
-		response_channel: tokio::sync::oneshot::Sender<Vec<PeerId>>,
-	},
+	
+	// Shutdown
+	Shutdown,
 }
 
-/// Central event loop for processing all LibP2P events
+/// Networking event loop that processes Iroh connections
 pub struct NetworkingEventLoop {
-	/// LibP2P swarm
-	swarm: Swarm<UnifiedBehaviour>,
-
-	/// Protocol registry for handling messages
+	/// Iroh endpoint
+	endpoint: Endpoint,
+	
+	/// Protocol registry for routing messages
 	protocol_registry: Arc<RwLock<ProtocolRegistry>>,
-
-	/// Device registry for state management
+	
+	/// Device registry for managing device state
 	device_registry: Arc<RwLock<DeviceRegistry>>,
-
-	/// Event sender for broadcasting events
+	
+	/// Event sender for broadcasting network events
 	event_sender: mpsc::UnboundedSender<NetworkEvent>,
-
-	/// Network identity for signing and key operations
+	
+	/// Command receiver
+	command_rx: mpsc::UnboundedReceiver<EventLoopCommand>,
+	
+	/// Command sender (for cloning)
+	command_tx: mpsc::UnboundedSender<EventLoopCommand>,
+	
+	/// Shutdown receiver
+	shutdown_rx: mpsc::UnboundedReceiver<()>,
+	
+	/// Shutdown sender (for cloning)
+	shutdown_tx: mpsc::UnboundedSender<()>,
+	
+	/// Our network identity
 	identity: NetworkIdentity,
-
-	/// Channel for receiving shutdown signal
-	shutdown_receiver: Option<mpsc::UnboundedReceiver<()>>,
-
-	/// Channel for sending shutdown signal
-	shutdown_sender: mpsc::UnboundedSender<()>,
-
-	/// Channel for receiving commands
-	command_receiver: Option<mpsc::UnboundedReceiver<EventLoopCommand>>,
-
-	/// Channel for sending commands
-	command_sender: mpsc::UnboundedSender<EventLoopCommand>,
-
-	/// Running state
-	is_running: bool,
-
-	/// Pending pairing sessions where we're waiting for connections
-	/// Maps session_id -> (peer_id, device_info, retry_count, last_attempt)
-	pending_pairing_connections: std::collections::HashMap<
-		Uuid,
-		(
-			PeerId,
-			crate::services::networking::device::DeviceInfo,
-			u32,
-			chrono::DateTime<chrono::Utc>,
-		),
-	>,
+	
+	/// Active connections tracker
+	active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
 }
 
 impl NetworkingEventLoop {
-	/// Create a new event loop
+	/// Create a new networking event loop
 	pub fn new(
-		swarm: Swarm<UnifiedBehaviour>,
+		endpoint: Endpoint,
 		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
 		device_registry: Arc<RwLock<DeviceRegistry>>,
 		event_sender: mpsc::UnboundedSender<NetworkEvent>,
 		identity: NetworkIdentity,
+		active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
 	) -> Self {
-		let (shutdown_sender, shutdown_receiver) = mpsc::unbounded_channel();
-		let (command_sender, command_receiver) = mpsc::unbounded_channel();
-
+		let (command_tx, command_rx) = mpsc::unbounded_channel();
+		let (shutdown_tx, shutdown_rx) = mpsc::unbounded_channel();
+		
 		Self {
-			swarm,
+			endpoint,
 			protocol_registry,
 			device_registry,
 			event_sender,
+			command_rx,
+			command_tx,
+			shutdown_rx,
+			shutdown_tx,
 			identity,
-			shutdown_receiver: Some(shutdown_receiver),
-			shutdown_sender,
-			command_receiver: Some(command_receiver),
-			command_sender,
-			is_running: false,
-			pending_pairing_connections: HashMap::new(),
+			active_connections,
 		}
 	}
-
-	/// Start the event loop (consumes self to move swarm ownership)
+	
+	/// Get the command sender for sending commands to the event loop
+	pub fn command_sender(&self) -> mpsc::UnboundedSender<EventLoopCommand> {
+		self.command_tx.clone()
+	}
+	
+	/// Get the shutdown sender
+	pub fn shutdown_sender(&self) -> mpsc::UnboundedSender<()> {
+		self.shutdown_tx.clone()
+	}
+	
+	/// Start the event loop (consumes self)
 	pub async fn start(mut self) -> Result<()> {
-		if self.is_running {
-			return Err(NetworkingError::Protocol(
-				"Event loop already running".to_string(),
-			));
+		// Spawn the event loop task
+		tokio::spawn(async move {
+			if let Err(e) = self.run().await {
+				eprintln!("Networking event loop error: {}", e);
+			}
+		});
+		
+		Ok(())
+	}
+	
+	/// Main event loop
+	async fn run(&mut self) -> Result<()> {
+		println!("🚀 Networking event loop started");
+		
+		loop {
+			tokio::select! {
+				// Handle incoming connections
+				Some(incoming) = self.endpoint.accept() => {
+					let conn = match incoming.await {
+						Ok(c) => c,
+						Err(e) => {
+							eprintln!("Failed to establish connection: {}", e);
+							continue;
+						}
+					};
+					
+					// Handle the connection based on ALPN
+					self.handle_connection(conn).await;
+				}
+				
+				// Handle commands
+				Some(cmd) = self.command_rx.recv() => {
+					match cmd {
+						EventLoopCommand::Shutdown => {
+							println!("Shutting down networking event loop");
+							break;
+						}
+						_ => self.handle_command(cmd).await,
+					}
+				}
+				
+				// Handle shutdown signal
+				Some(_) = self.shutdown_rx.recv() => {
+					println!("Received shutdown signal");
+					break;
+				}
+			}
 		}
-
-		// Take shutdown receiver
-		let mut shutdown_receiver = self
-			.shutdown_receiver
-			.take()
-			.ok_or_else(|| NetworkingError::Protocol("Event loop already started".to_string()))?;
-
-		// Take command receiver
-		let mut command_receiver = self
-			.command_receiver
-			.take()
-			.ok_or_else(|| NetworkingError::Protocol("Event loop already started".to_string()))?;
-
-		// Clone necessary components for the task
+		
+		println!("🛑 Networking event loop stopped");
+		Ok(())
+	}
+	
+	/// Handle an incoming connection
+	async fn handle_connection(&self, conn: Connection) {
+		// Extract the remote node ID from the connection
+		let remote_node_id = match iroh::net::endpoint::get_remote_node_id(&conn) {
+			Ok(key) => key,
+			Err(e) => {
+				eprintln!("Failed to get remote node ID: {}", e);
+				return;
+			}
+		};
+		
+		// Track the connection
+		{
+			let mut connections = self.active_connections.write().await;
+			connections.insert(remote_node_id, conn.clone());
+		}
+		
+		// For now, we'll need to detect ALPN from the first stream
+		// TODO: Find the correct way to get ALPN from iroh Connection
+		let alpn = PAIRING_ALPN; // Default to pairing, will be overridden based on stream detection
+		
+		println!("📥 Incoming connection from {:?}", remote_node_id);
+		println!("🔍 ROUTING: Detecting protocol from incoming streams...");
+		
+		// Clone necessary components for the spawned task
 		let protocol_registry = self.protocol_registry.clone();
 		let device_registry = self.device_registry.clone();
 		let event_sender = self.event_sender.clone();
-
-		// Move swarm, state, and identity into the task
-		let mut swarm = self.swarm;
-		let mut pending_pairing_connections = self.pending_pairing_connections;
-		let identity = self.identity;
-
-		// Spawn the main event processing task
+		let active_connections = self.active_connections.clone();
+		
+		// Spawn a task to handle this connection
 		tokio::spawn(async move {
-			loop {
-				tokio::select! {
-					// Handle shutdown signal
-					_ = shutdown_receiver.recv() => {
-						println!("Event loop shutdown requested");
-						break;
-					}
-
-					// Handle commands
-					Some(command) = command_receiver.recv() => {
-						if let Err(e) = Self::handle_command(
-							command,
-							&mut swarm,
-							&device_registry,
-						).await {
-							eprintln!("Error handling command: {}", e);
-						}
-					}
-
-					// Handle LibP2P swarm events
-					event = swarm.select_next_some() => {
-						if let Err(e) = Self::handle_swarm_event(
-							event,
-							&protocol_registry,
-							&device_registry,
-							&mut swarm,
-							&mut pending_pairing_connections,
-							&identity,
-							&event_sender,
-						).await {
-							eprintln!("Error handling swarm event: {}", e);
-						}
-					}
-				}
-			}
-
-			println!("Event loop stopped");
-		});
-
-		Ok(())
-	}
-
-	/// Get a shutdown sender for stopping the event loop
-	pub fn shutdown_sender(&self) -> mpsc::UnboundedSender<()> {
-		self.shutdown_sender.clone()
-	}
-
-	/// Get a command sender for sending commands to the event loop
-	pub fn command_sender(&self) -> mpsc::UnboundedSender<EventLoopCommand> {
-		self.command_sender.clone()
-	}
-
-	/// Send a message to a device via the command channel
-	pub async fn send_message(&self, device_id: Uuid, protocol: &str, data: Vec<u8>) -> Result<()> {
-		let command = EventLoopCommand::SendMessage {
-			device_id,
-			protocol: protocol.to_string(),
-			data,
-		};
-
-		self.command_sender
-			.send(command)
-			.map_err(|_| NetworkingError::ConnectionFailed("Event loop not running".to_string()))?;
-
-		Ok(())
-	}
-
-	/// Handle commands sent to the event loop
-	async fn handle_command(
-		command: EventLoopCommand,
-		swarm: &mut Swarm<UnifiedBehaviour>,
-		device_registry: &Arc<RwLock<DeviceRegistry>>,
-	) -> Result<()> {
-		match command {
-			EventLoopCommand::SendMessage {
-				device_id,
-				protocol,
-				data,
-			} => {
-				// Look up the peer ID for the device
-				if let Some(peer_id) = device_registry.read().await.get_peer_by_device(device_id) {
-					println!(
-						"Sending {} message to device {} (peer {}): {} bytes",
-						protocol,
-						device_id,
-						peer_id,
-						data.len()
-					);
-
-					// Send the message via the appropriate protocol
-					match protocol.as_str() {
-						"pairing" => {
-							// Send pairing message
-							if let Ok(message) =
-								serde_json::from_slice::<super::behavior::PairingMessage>(&data)
-							{
-								let request_id = swarm
-									.behaviour_mut()
-									.pairing
-									.send_request(&peer_id, message);
-								println!("Sent pairing request with ID: {:?}", request_id);
-							}
-						}
-						"messaging" => {
-							// Send generic message
-							if let Ok(message) =
-								serde_json::from_slice::<super::behavior::DeviceMessage>(&data)
-							{
-								let request_id = swarm
-									.behaviour_mut()
-									.messaging
-									.send_request(&peer_id, message);
-								println!("Sent message request with ID: {:?}", request_id);
-							}
-						}
-						"file_transfer" => {
-							// Send file transfer message
-							use crate::services::networking::protocols::file_transfer::FileTransferMessage;
-							if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&data)
-							{
-								let request_id = swarm
-									.behaviour_mut()
-									.file_transfer
-									.send_request(&peer_id, message);
-								println!("📤 Sent file transfer request with ID: {:?}", request_id);
-							} else {
-								println!("❌ Failed to deserialize file transfer message");
-							}
-						}
-						_ => {
-							println!("Unknown protocol: {}", protocol);
-						}
-					}
-				} else {
-					println!("Device {} not found or not connected", device_id);
-				}
-			}
-			EventLoopCommand::SendMessageToPeer {
-				peer_id,
-				protocol,
-				data,
-			} => {
-				println!(
-					"Sending {} message to peer {}: {} bytes",
-					protocol,
-					peer_id,
-					data.len()
-				);
-
-				// Send the message directly via the appropriate protocol
-				match protocol.as_str() {
-					"pairing" => {
-						// Send pairing message
-						if let Ok(message) =
-							serde_json::from_slice::<super::behavior::PairingMessage>(&data)
-						{
-							let request_id = swarm
-								.behaviour_mut()
-								.pairing
-								.send_request(&peer_id, message);
-							println!("Sent direct pairing request with ID: {:?}", request_id);
-						}
-					}
-					"messaging" => {
-						// Send generic message
-						if let Ok(message) =
-							serde_json::from_slice::<super::behavior::DeviceMessage>(&data)
-						{
-							let request_id = swarm
-								.behaviour_mut()
-								.messaging
-								.send_request(&peer_id, message);
-							println!("Sent direct message request with ID: {:?}", request_id);
-						}
-					}
-					_ => {
-						println!("Unknown protocol: {}", protocol);
-					}
-				}
-			}
-			EventLoopCommand::PublishDhtRecord {
-				key,
-				value,
-				response_channel,
-			} => {
-				// Create a DHT record with the provided key and value
-				let record = kad::Record::new(key, value);
-
-				// Publish the record to the DHT
-				match swarm
-					.behaviour_mut()
-					.kademlia
-					.put_record(record, kad::Quorum::One)
-				{
-					Ok(query_id) => {
-						println!("Publishing DHT record with query ID: {:?}", query_id);
-						let _ = response_channel.send(Ok(query_id));
-					}
-					Err(e) => {
-						println!("Failed to publish DHT record: {:?}", e);
-						let _ = response_channel.send(Err(NetworkingError::Protocol(format!(
-							"DHT put failed: {:?}",
-							e
-						))));
-					}
-				}
-			}
-			EventLoopCommand::QueryDhtRecord {
-				key,
-				response_channel,
-			} => {
-				// Query the DHT for the record
-				let query_id = swarm.behaviour_mut().kademlia.get_record(key);
-
-				println!("Querying DHT record with query ID: {:?}", query_id);
-
-				// Send the query ID back to the caller
-				let _ = response_channel.send(Ok(query_id));
-			}
-			EventLoopCommand::GetListeningAddresses { response_channel } => {
-				// Get all current listening addresses from the swarm
-				let addresses: Vec<Multiaddr> = swarm.listeners().cloned().collect();
-				println!("Raw listening addresses: {:?}", addresses);
-
-				// Filter for external addresses, being more careful about port filtering
-				let external_addresses: Vec<Multiaddr> = addresses
-					.into_iter()
-					.filter(|addr| {
-						let addr_str = addr.to_string();
-						// Filter out localhost addresses but be more specific about port 0
-						!addr_str.contains("127.0.0.1")
-							&& !addr_str.contains("::1")
-							&& !addr_str.ends_with("/tcp/0")  // Only filter if it literally ends with /tcp/0
-					})
-					.collect();
-
-				println!("Filtered external addresses: {:?}", external_addresses);
-
-				// Send the addresses back to the caller
-				let _ = response_channel.send(external_addresses);
-			}
-			EventLoopCommand::DialPeer {
-				peer_id,
-				address,
-				response_channel,
-			} => {
-				// Dial the specific peer at the given address
-				match swarm.dial(address.clone()) {
-					Ok(_) => {
-						println!("Successfully initiated dial to peer {} at {}", peer_id, address);
-						let _ = response_channel.send(Ok(()));
-					}
-					Err(e) => {
-						println!("Failed to dial peer {} at {}: {:?}", peer_id, address, e);
-						let _ = response_channel.send(Err(NetworkingError::ConnectionFailed(
-							format!("Failed to dial peer: {:?}", e)
-						)));
-					}
-				}
-			}
-			EventLoopCommand::GetRawConnectedPeers { response_channel } => {
-				// Get connected peers directly from the swarm's network state
-				let peers = swarm.connected_peers().cloned().collect::<Vec<_>>();
-				println!("Raw connected peers from swarm: {:?}", peers);
-				let _ = response_channel.send(peers);
-			}
-		}
-
-		Ok(())
-	}
-
-	/// Handle a single swarm event
-	async fn handle_swarm_event(
-		event: SwarmEvent<UnifiedBehaviourEvent>,
-		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
-		device_registry: &Arc<RwLock<DeviceRegistry>>,
-		swarm: &mut Swarm<UnifiedBehaviour>,
-		pending_pairing_connections: &mut HashMap<
-			Uuid,
-			(
-				PeerId,
-				crate::services::networking::device::DeviceInfo,
-				u32,
-				chrono::DateTime<chrono::Utc>,
-			),
-		>,
-		identity: &NetworkIdentity,
-		event_sender: &mpsc::UnboundedSender<NetworkEvent>,
-	) -> Result<()> {
-		match event {
-			SwarmEvent::NewListenAddr { address, .. } => {
-				println!("Listening on: {}", address);
-			}
-
-			SwarmEvent::ConnectionEstablished {
-				peer_id, endpoint, ..
-			} => {
-				println!(
-					"Connection established with: {} at {}",
-					peer_id,
-					endpoint.get_remote_address()
-				);
-
-				// CRITICAL FIX: Ensure connected peer is in Kademlia routing table
-				// This is needed when connections are established without prior mDNS discovery
-				swarm
-					.behaviour_mut()
-					.kademlia
-					.add_address(&peer_id, endpoint.get_remote_address().clone());
-				println!("Added connected peer {} to Kademlia routing table", peer_id);
-
-				// Check if this is a pending pairing connection
-				let pending_session = pending_pairing_connections
-					.iter()
-					.find(|(_, (pending_peer_id, _, _, _))| *pending_peer_id == peer_id)
-					.map(|(session_id, (_, device_info, _, _))| (*session_id, device_info.clone()));
-
-				if let Some((session_id, device_info)) = pending_session {
-					println!(
-						"Connection established for pairing session: {} with peer: {}",
-						session_id, peer_id
-					);
-
-					// Send pairing request message
-					let pairing_request = crate::services::networking::protocols::pairing::PairingMessage::PairingRequest {
-						session_id,
-						device_info: device_info.clone(),
-						public_key: identity.public_key_bytes(),
-					};
-
-					let request_id = swarm
-						.behaviour_mut()
-						.pairing
-						.send_request(&peer_id, pairing_request);
-
-					println!(
-						"Sent pairing request for session {} with request ID: {:?}",
-						session_id, request_id
-					);
-
-					// Remove from pending connections
-					pending_pairing_connections
-						.retain(|_, (pending_peer_id, _, _, _)| *pending_peer_id != peer_id);
-				} else {
-					// Normal connection - look up device by peer ID
-					if let Some(device_id) =
-						device_registry.read().await.get_device_by_peer(peer_id)
-					{
-						let _ = event_sender
-							.send(NetworkEvent::ConnectionEstablished { device_id, peer_id });
-					}
-				}
-			}
-
-			SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-				println!("Connection closed with {}: {:?}", peer_id, cause);
-
-				// Check if this was a pending pairing connection that failed
-				let failed_pairing = pending_pairing_connections
-					.iter()
-					.find(|(_, (pending_peer_id, _, _, _))| *pending_peer_id == peer_id)
-					.map(|(session_id, (_, device_info, retry_count, _))| {
-						(*session_id, device_info.clone(), *retry_count)
-					});
-
-				if let Some((session_id, device_info, retry_count)) = failed_pairing {
-					const MAX_RETRIES: u32 = 3;
-
-					if retry_count < MAX_RETRIES {
-						println!(
-							"Pairing connection failed for session {}, retrying ({}/{})",
-							session_id,
-							retry_count + 1,
-							MAX_RETRIES
-						);
-
-						// Update retry count and last attempt time
-						if let Some((_, _, ref mut count, ref mut last_attempt)) =
-							pending_pairing_connections.get_mut(&session_id)
-						{
-							*count += 1;
-							*last_attempt = chrono::Utc::now();
-						}
-
-						// TODO: Implement proper retry mechanism through command channel
-						println!("Scheduling retry for pairing session {}", session_id);
-					} else {
-						println!(
-							"Pairing connection failed permanently for session {} after {} retries",
-							session_id, MAX_RETRIES
-						);
-
-						// Remove from pending connections and emit failure event
-						pending_pairing_connections.remove(&session_id);
-
-						let _ = event_sender.send(NetworkEvent::PairingFailed {
-							session_id,
-							reason: format!(
-								"Connection failed after {} retries: {:?}",
-								MAX_RETRIES, cause
-							),
-						});
-					}
-				} else {
-					// Normal disconnection - look up device by peer ID
-					if let Some(device_id) =
-						device_registry.read().await.get_device_by_peer(peer_id)
-					{
-						let _ = device_registry.write().await.mark_disconnected(
-							device_id,
-							crate::services::networking::device::DisconnectionReason::NetworkError(
-								format!("{:?}", cause)
-							),
-						).await;
-
-						let _ =
-							event_sender.send(NetworkEvent::ConnectionLost { device_id, peer_id });
-					}
-				}
-			}
-
-			SwarmEvent::Behaviour(behaviour_event) => {
-				Self::handle_behaviour_event(
-					behaviour_event,
-					protocol_registry,
-					device_registry,
-					swarm,
-					pending_pairing_connections,
-					identity,
-					event_sender,
-				)
-				.await?;
-			}
-
-			_ => {
-				// Handle other events as needed
-			}
-		}
-
-		Ok(())
-	}
-
-	/// Schedule pairing requests for mDNS discovered peers (wait for connection establishment)
-	/// Returns the number of pairing sessions scheduled for connection
-	async fn schedule_pairing_on_mdns_discovery(
-		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
-		identity: &NetworkIdentity,
-		discovered_peer_id: PeerId,
-		pending_pairing_connections: &mut std::collections::HashMap<
-			uuid::Uuid,
-			(
-				PeerId,
-				crate::services::networking::device::DeviceInfo,
-				u32,
-				chrono::DateTime<chrono::Utc>,
-			),
-		>,
-	) -> Result<u32> {
-		let mut sessions_scheduled = 0;
-
-		// Get pairing handler from protocol registry with proper error handling
-		let registry = protocol_registry.read().await;
-		let pairing_handler = match registry.get_handler("pairing") {
-			Some(handler) => handler,
-			None => {
-				// No pairing handler registered - this is normal if pairing is not active
-				return Ok(0);
-			}
-		};
-
-		// Downcast to concrete pairing handler type
-		let pairing_handler =
-			match pairing_handler
-				.as_any()
-				.downcast_ref::<crate::services::networking::protocols::pairing::PairingProtocolHandler>(
-			) {
-				Some(handler) => handler,
-				None => {
-					return Err(NetworkingError::Protocol(
-						"Invalid pairing handler type".to_string(),
-					));
-				}
-			};
-
-		// Get active pairing sessions
-		let active_sessions = pairing_handler.get_active_sessions().await;
-
-		// Process each session that's actively scanning for peers
-		for session in &active_sessions {
-			// Only schedule requests for sessions where we're actively scanning (Bob's role)
-			if matches!(
-				session.state,
-				crate::services::networking::protocols::pairing::PairingState::Scanning
-			) {
-				println!("🔍 Found scanning session {} - scheduling pairing request for peer {} (waiting for connection)", session.id, discovered_peer_id);
-
-				// Create device info for this session
-				let device_info = crate::services::networking::device::DeviceInfo {
-					device_id: identity.device_id(),
-					device_name: Self::get_device_name_for_pairing(),
-					device_type: crate::services::networking::device::DeviceType::Desktop,
-					os_version: std::env::consts::OS.to_string(),
-					app_version: env!("CARGO_PKG_VERSION").to_string(),
-					network_fingerprint: identity.network_fingerprint(),
-					last_seen: chrono::Utc::now(),
-				};
-
-				// Add to pending connections - pairing request will be sent after connection establishment
-				// Using 0 retries initially and current time
-				pending_pairing_connections.insert(
-					session.id,
-					(discovered_peer_id, device_info, 0, chrono::Utc::now()),
-				);
-
-				println!("✅ mDNS Discovery: Scheduled pairing request for session {} with peer {} (pending connection)",
-						 session.id, discovered_peer_id);
-
-				sessions_scheduled += 1;
+			// Handle incoming connection by accepting streams and routing based on content
+			Self::handle_incoming_connection(
+				conn.clone(),
+				protocol_registry,
+				device_registry,
+				event_sender,
+				remote_node_id,
+			).await;
+			
+			// Only remove connection if it's actually closed
+			if conn.close_reason().is_some() {
+				let mut connections = active_connections.write().await;
+				connections.remove(&remote_node_id);
+				println!("🔌 Connection to {} removed (closed)", remote_node_id);
 			} else {
-				// Log other session states for debugging
-				match &session.state {
-					crate::services::networking::protocols::pairing::PairingState::WaitingForConnection => {
-						// This is Alice waiting for Bob - don't schedule requests
-						println!("🔍 Found waiting session {} (Alice side) - not scheduling request", session.id);
+				println!("🔌 Connection to {} still active after stream handling", remote_node_id);
+			}
+		});
+	}
+	
+	/// Handle an incoming connection by detecting protocol from streams
+	async fn handle_incoming_connection(
+		conn: Connection,
+		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
+		device_registry: Arc<RwLock<DeviceRegistry>>,
+		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		remote_node_id: NodeId,
+	) {
+		loop {
+			// Try to accept different types of streams
+			tokio::select! {
+				// Try bidirectional stream (pairing/messaging)
+				bi_result = conn.accept_bi() => {
+					match bi_result {
+						Ok((send, recv)) => {
+							println!("📥 Accepted bidirectional stream from {}", remote_node_id);
+							// For now, assume bidirectional streams are pairing
+							let registry = protocol_registry.read().await;
+							if let Some(handler) = registry.get_handler("pairing") {
+								println!("🔀 ROUTING: Directing bidirectional stream to pairing handler");
+								handler.handle_stream(
+									Box::new(send),
+									Box::new(recv),
+									remote_node_id,
+								).await;
+							}
+						}
+						Err(e) => {
+							println!("Failed to accept bidirectional stream: {}", e);
+							break;
+						}
 					}
-					_ => {
-						// Other states like Completed, Failed, etc.
-						println!("🔍 Found session {} in state {} - not scheduling request", session.id, session.state);
+				}
+				// Try unidirectional stream (file transfer)  
+				uni_result = conn.accept_uni() => {
+					match uni_result {
+						Ok(recv) => {
+							println!("📥 Accepted unidirectional stream from {}", remote_node_id);
+							// Unidirectional streams are for file transfer
+							let registry = protocol_registry.read().await;
+							if let Some(handler) = registry.get_handler("file_transfer") {
+								println!("🔀 ROUTING: Directing unidirectional stream to file transfer handler");
+								handler.handle_stream(
+									Box::new(tokio::io::empty()), // No send stream for unidirectional
+									Box::new(recv),
+									remote_node_id,
+								).await;
+							}
+						}
+						Err(e) => {
+							println!("Failed to accept unidirectional stream: {}", e);
+							break;
+						}
 					}
 				}
 			}
 		}
-
-		if sessions_scheduled == 0 && !active_sessions.is_empty() {
-			println!(
-				"🔍 mDNS Discovery: Found {} active sessions but none in Scanning state",
-				active_sessions.len()
-			);
-		}
-
-		Ok(sessions_scheduled)
 	}
-
-	/// Get device name for pairing (production-ready with fallback)
-	fn get_device_name_for_pairing() -> String {
-		// Try to get hostname first
-		if let Ok(hostname) = std::env::var("HOSTNAME") {
-			if !hostname.is_empty() {
-				return format!("{} (Spacedrive)", hostname);
+	
+	/// Handle a pairing connection
+	async fn handle_pairing_connection(
+		conn: Connection,
+		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
+		device_registry: Arc<RwLock<DeviceRegistry>>,
+		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		remote_node_id: NodeId,
+	) {
+		// Wait for incoming streams with a timeout
+		let timeout_duration = std::time::Duration::from_secs(30); // 30 second timeout
+		
+		loop {
+			match tokio::time::timeout(timeout_duration, conn.accept_bi()).await {
+				Ok(Ok((send, recv))) => {
+					// Get pairing handler
+					let registry = protocol_registry.read().await;
+					if let Some(handler) = registry.get_handler("pairing") {
+						// Route to pairing protocol handler
+						handler.handle_stream(
+							Box::new(send),
+							Box::new(recv),
+							remote_node_id,
+						).await;
+					} else {
+						eprintln!("Pairing protocol handler not registered");
+					}
+					// Continue to handle more streams on this connection
+				}
+				Ok(Err(e)) => {
+					eprintln!("Failed to accept pairing stream: {}", e);
+					break; // Exit loop on connection error
+				}
+				Err(_) => {
+					// Timeout - connection is still active but no streams
+					eprintln!("Timeout waiting for pairing stream from {}", remote_node_id);
+					break; // Exit loop on timeout
+				}
 			}
 		}
-
-		// Fallback to OS-specific naming
-		match std::env::consts::OS {
-			"macos" => "Mac (Spacedrive)".to_string(),
-			"windows" => "Windows PC (Spacedrive)".to_string(),
-			"linux" => "Linux (Spacedrive)".to_string(),
-			_ => "Spacedrive Device".to_string(),
+	}
+	
+	/// Handle a file transfer connection
+	async fn handle_file_transfer_connection(
+		conn: Connection,
+		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
+		device_registry: Arc<RwLock<DeviceRegistry>>,
+		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		remote_node_id: NodeId,
+	) {
+		// Accept a unidirectional stream for file transfer
+		match conn.accept_uni().await {
+			Ok(recv) => {
+				// Get file transfer handler
+				let registry = protocol_registry.read().await;
+				if let Some(handler) = registry.get_handler("file_transfer") {
+					// Route to file transfer protocol handler
+					handler.handle_stream(
+						Box::new(tokio::io::empty()), // No send stream for uni-directional
+						Box::new(recv),
+						NodeId::from_bytes(&[0u8; 32]).unwrap(), // TODO: get actual node ID
+					).await;
+				} else {
+					eprintln!("File transfer protocol handler not registered");
+				}
+			}
+			Err(e) => {
+				eprintln!("Failed to accept file transfer stream: {}", e);
+			}
 		}
 	}
-
-	/// Handle behavior-specific events
-	async fn handle_behaviour_event(
-		event: UnifiedBehaviourEvent,
-		protocol_registry: &Arc<RwLock<ProtocolRegistry>>,
-		device_registry: &Arc<RwLock<DeviceRegistry>>,
-		swarm: &mut Swarm<UnifiedBehaviour>,
-		pending_pairing_connections: &mut HashMap<
-			Uuid,
-			(
-				PeerId,
-				crate::services::networking::device::DeviceInfo,
-				u32,
-				chrono::DateTime<chrono::Utc>,
-			),
-		>,
-		identity: &NetworkIdentity,
-		event_sender: &mpsc::UnboundedSender<NetworkEvent>,
-	) -> Result<()> {
-		match event {
-			UnifiedBehaviourEvent::Kademlia(kad_event) => {
-				use libp2p::kad;
-				match kad_event {
-					kad::Event::OutboundQueryProgressed {
-						id,
-						result: kad::QueryResult::PutRecord(put_result),
-						..
-					} => match put_result {
-						Ok(kad::PutRecordOk { key }) => {
-							println!(
-								"DHT record published successfully: query_id={:?}, key={:?}",
-								id, key
-							);
-						}
-						Err(kad::PutRecordError::QuorumFailed {
-							key,
-							success,
-							quorum,
-						}) => {
-							println!("DHT record publish failed: query_id={:?}, key={:?}, success={:?}, quorum={:?}", id, key, success, quorum);
-						}
-						Err(kad::PutRecordError::Timeout { key, .. }) => {
-							println!(
-								"DHT record publish timed out: query_id={:?}, key={:?}",
-								id, key
-							);
-						}
-					},
-					kad::Event::OutboundQueryProgressed {
-						id,
-						result: kad::QueryResult::GetRecord(get_result),
-						..
-					} => {
-						match get_result {
-							Ok(kad::GetRecordOk::FoundRecord(record)) => {
-								println!(
-									"DHT record found: query_id={:?}, key={:?}, {} bytes",
-									id,
-									record.record.key,
-									record.record.value.len()
-								);
-
-								// Try to deserialize as pairing advertisement
-								if let Ok(advertisement) = serde_json::from_slice::<crate::services::networking::protocols::pairing::PairingAdvertisement>(&record.record.value) {
-									println!("Found pairing advertisement from peer: {:?}", advertisement.peer_id);
-
-									// Convert strings back to libp2p types
-									if let (Ok(peer_id), Ok(addresses)) = (advertisement.peer_id(), advertisement.addresses()) {
-										// Extract session ID from the DHT key
-										if let Ok(session_id_bytes) = record.record.key.as_ref().try_into() {
-											let session_id = Uuid::from_bytes(session_id_bytes);
-
-											// Emit pairing discovery event
-											let _ = event_sender.send(NetworkEvent::PairingSessionDiscovered {
-												session_id,
-												peer_id,
-												addresses: addresses.clone(),
-												device_info: advertisement.device_info.clone(),
-											});
-
-											println!("Emitted pairing session discovery event for session: {}", session_id);
-
-											// Automatically connect to the discovered peer
-											for address in &addresses {
-												match swarm.dial(address.clone()) {
-													Ok(_) => {
-														println!("Dialing discovered peer {} at {}", peer_id, address);
-
-														// Track this as a pending pairing connection with retry info
-														pending_pairing_connections.insert(session_id, (peer_id, advertisement.device_info.clone(), 0, chrono::Utc::now()));
-														println!("Tracking pending pairing connection for session: {} -> peer: {}", session_id, peer_id);
-
-														break; // Try only the first successful dial
-													}
-													Err(e) => {
-														println!("Failed to dial {}: {:?}", address, e);
-													}
-												}
-											}
-										}
-									} else {
-										println!("Failed to parse peer_id or addresses from pairing advertisement");
+	
+	/// Handle a messaging connection
+	async fn handle_messaging_connection(
+		conn: Connection,
+		protocol_registry: Arc<RwLock<ProtocolRegistry>>,
+		device_registry: Arc<RwLock<DeviceRegistry>>,
+		event_sender: mpsc::UnboundedSender<NetworkEvent>,
+		remote_node_id: NodeId,
+	) {
+		// Accept a bidirectional stream for messaging
+		match conn.accept_bi().await {
+			Ok((send, recv)) => {
+				// Get messaging handler
+				let registry = protocol_registry.read().await;
+				if let Some(handler) = registry.get_handler("messaging") {
+					// Route to messaging protocol handler
+					handler.handle_stream(
+						Box::new(send),
+						Box::new(recv),
+						remote_node_id,
+					).await;
+				} else {
+					eprintln!("Messaging protocol handler not registered");
+				}
+			}
+			Err(e) => {
+				eprintln!("Failed to accept messaging stream: {}", e);
+			}
+		}
+	}
+	
+	/// Handle a command from the main thread
+	async fn handle_command(&self, command: EventLoopCommand) {
+		match command {
+			EventLoopCommand::ConnectionEstablished { device_id, node_id } => {
+				// Update device registry
+				let mut registry = self.device_registry.write().await;
+				if let Err(e) = registry.set_device_connected(device_id, node_id) {
+					eprintln!("Failed to update device connection state: {}", e);
+				}
+				
+				// Send connection event
+				let _ = self.event_sender.send(NetworkEvent::ConnectionEstablished {
+					device_id,
+					node_id,
+				});
+			}
+			
+			EventLoopCommand::SendMessage { device_id, protocol, data } => {
+				// Look up node ID for device
+				let node_id = {
+					let registry = self.device_registry.read().await;
+					registry.get_node_id_for_device(device_id)
+				};
+				
+				if let Some(node_id) = node_id {
+					// Send to node
+					self.send_to_node(node_id, &protocol, data).await;
+				} else {
+					eprintln!("No node ID found for device {}", device_id);
+				}
+			}
+			
+			EventLoopCommand::SendMessageToNode { node_id, protocol, data } => {
+				self.send_to_node(node_id, &protocol, data).await;
+			}
+			
+			EventLoopCommand::Shutdown => {
+				// Handled in main loop
+			}
+		}
+	}
+	
+	/// Send a message to a specific node
+	async fn send_to_node(&self, node_id: NodeId, protocol: &str, data: Vec<u8>) {
+		println!("🚀 SEND_TO_NODE: Sending {} message to {} ({} bytes)", protocol, node_id, data.len());
+		
+		// Determine ALPN based on protocol
+		let alpn = match protocol {
+			"pairing" => PAIRING_ALPN,
+			"file_transfer" => {
+				println!("🔗 FILE_TRANSFER: Using ALPN: {:?}", String::from_utf8_lossy(FILE_TRANSFER_ALPN));
+				FILE_TRANSFER_ALPN
+			},
+			"messaging" => MESSAGING_ALPN,
+			_ => {
+				eprintln!("Unknown protocol: {}", protocol);
+				return;
+			}
+		};
+		
+		// Create node address (Iroh will use existing connection if available)
+		let node_addr = NodeAddr::new(node_id);
+		
+		// Connect with specific ALPN
+		println!("🔗 CONNECT: Attempting to connect to {} with ALPN: {:?}", node_id, String::from_utf8_lossy(alpn));
+		match self.endpoint.connect(node_addr, alpn).await {
+			Ok(conn) => {
+				println!("✅ CONNECT: Successfully connected to {} with ALPN: {:?}", node_id, String::from_utf8_lossy(alpn));
+				// Track the connection
+				{
+					let mut connections = self.active_connections.write().await;
+					connections.insert(node_id, conn.clone());
+				}
+				
+				// Open appropriate stream based on protocol
+				match protocol {
+					"pairing" | "messaging" => {
+						// Bidirectional stream
+						match conn.open_bi().await {
+							Ok((mut send, _recv)) => {
+								// For pairing, send with length prefix like send_pairing_message_to_node does
+								if protocol == "pairing" {
+									// Send message length first
+									let len = data.len() as u32;
+									if let Err(e) = send.write_all(&len.to_be_bytes()).await {
+										eprintln!("Failed to write pairing message length: {}", e);
+										return;
 									}
 								}
-							}
-							Ok(kad::GetRecordOk::FinishedWithNoAdditionalRecord { .. }) => {
-								println!(
-									"DHT query finished, no additional records: query_id={:?}",
-									id
-								);
-							}
-							Err(kad::GetRecordError::NotFound { key, .. }) => {
-								println!("DHT record not found: query_id={:?}, key={:?}", id, key);
-
-								// Emit pairing failure event for not found records
-								if let Ok(session_id_bytes) = key.as_ref().try_into() {
-									let session_id = Uuid::from_bytes(session_id_bytes);
-									let _ = event_sender.send(NetworkEvent::PairingFailed {
-										session_id,
-										reason: "Pairing session not found in DHT".to_string(),
-									});
+								
+								// Send the data
+								if let Err(e) = send.write_all(&data).await {
+									eprintln!("Failed to send {} message: {}", protocol, e);
 								}
+								let _ = send.finish();
 							}
-							Err(kad::GetRecordError::QuorumFailed { key, .. }) => {
-								println!(
-									"DHT query quorum failed: query_id={:?}, key={:?}",
-									id, key
-								);
-
-								// For quorum failures, we could implement retry logic
-								println!("DHT quorum failed - network may be degraded");
-							}
-							Err(kad::GetRecordError::Timeout { key }) => {
-								println!("DHT query timed out: query_id={:?}, key={:?}", id, key);
-
-								// For timeouts, emit failure event as the session likely expired
-								if let Ok(session_id_bytes) = key.as_ref().try_into() {
-									let session_id = Uuid::from_bytes(session_id_bytes);
-									let _ = event_sender.send(NetworkEvent::PairingFailed {
-										session_id,
-										reason: "DHT query timed out - session may have expired"
-											.to_string(),
-									});
-								}
+							Err(e) => {
+								eprintln!("Failed to open {} stream: {}", protocol, e);
 							}
 						}
 					}
-					kad::Event::ModeChanged { new_mode } => {
-						println!("Kademlia mode changed: {:?}", new_mode);
-					}
-					kad::Event::RoutingUpdated { peer, .. } => {
-						println!("Kademlia routing updated: peer={}", peer);
-					}
-					kad::Event::UnroutablePeer { peer } => {
-						println!("Kademlia unroutable peer: {}", peer);
-					}
-					kad::Event::RoutablePeer { peer, .. } => {
-						println!("Kademlia routable peer: {}", peer);
-					}
-					kad::Event::PendingRoutablePeer { peer, .. } => {
-						println!("Kademlia pending routable peer: {}", peer);
-					}
-					_ => {
-						println!("Other Kademlia event: {:?}", kad_event);
-					}
-				}
-			}
-
-			UnifiedBehaviourEvent::Mdns(mdns_event) => {
-				use libp2p::mdns;
-				match mdns_event {
-					mdns::Event::Discovered(list) => {
-						for (peer_id, addr) in list {
-							println!("Discovered peer via mDNS: {} at {}", peer_id, addr);
-
-							// CRITICAL FIX: Add discovered peer to Kademlia DHT routing table
-							// This enables DHT operations between locally discovered peers
-							swarm
-								.behaviour_mut()
-								.kademlia
-								.add_address(&peer_id, addr.clone());
-							println!(
-								"Added peer {} to Kademlia routing table with address {}",
-								peer_id, addr
-							);
-
-							// Bootstrap the Kademlia DHT if this is our first peer
-							// This activates the DHT network between discovered peers
-							if let Ok(query_id) = swarm.behaviour_mut().kademlia.bootstrap() {
-								println!(
-									"Bootstrapping Kademlia DHT with query ID: {:?}",
-									query_id
-								);
-							}
-
-							// PRODUCTION: Schedule pairing requests for mDNS discovered peers (wait for connection)
-							// This handles the case where Bob discovers Alice via mDNS during pairing
-							match Self::schedule_pairing_on_mdns_discovery(
-								&protocol_registry,
-								&identity,
-								peer_id,
-								pending_pairing_connections,
-							)
-							.await
-							{
-								Ok(sessions_scheduled) => {
-									if sessions_scheduled > 0 {
-										println!("🔍 mDNS Discovery: Scheduled {} pairing sessions for peer {}", sessions_scheduled, peer_id);
-										
-										// CRITICAL FIX: Explicitly dial the discovered peer to establish connection
-										// This fixes the race condition where scheduling pairing doesn't guarantee connection
-										println!("🤝 mDNS Discovery: Explicitly dialing peer {} at {}", peer_id, addr);
-										if let Err(e) = swarm.dial(addr.clone()) {
-											println!("❌ Failed to dial mDNS peer {}: {:?}", peer_id, e);
-										} else {
-											println!("✅ Successfully initiated connection to mDNS peer {}", peer_id);
-										}
-									}
+					"file_transfer" => {
+						// Unidirectional stream
+						println!("📤 FILE_TRANSFER: Opening unidirectional stream to {}", node_id);
+						match conn.open_uni().await {
+							Ok(mut send) => {
+								println!("✅ FILE_TRANSFER: Opened stream, sending data");
+								// Send with the expected format for file transfer protocol
+								// Transfer type: 0 for file metadata request
+								if let Err(e) = send.write_all(&[0u8]).await {
+									eprintln!("Failed to write file transfer type: {}", e);
+									return;
 								}
-								Err(e) => {
-									println!("⚠️ mDNS Discovery: Failed to schedule pairing with peer {}: {}", peer_id, e);
+								
+								// Send message length (big-endian u32)
+								let len = data.len() as u32;
+								if let Err(e) = send.write_all(&len.to_be_bytes()).await {
+									eprintln!("Failed to write file transfer message length: {}", e);
+									return;
 								}
-							}
-
-							let _ = event_sender.send(NetworkEvent::PeerDiscovered {
-								peer_id,
-								addresses: vec![addr],
-							});
-						}
-					}
-					mdns::Event::Expired(list) => {
-						for (peer_id, _) in list {
-							println!("mDNS peer expired: {}", peer_id);
-
-							let _ = event_sender.send(NetworkEvent::PeerDisconnected { peer_id });
-						}
-					}
-				}
-			}
-
-			UnifiedBehaviourEvent::Pairing(req_resp_event) => {
-				use libp2p::request_response;
-				match req_resp_event {
-					request_response::Event::Message {
-						peer,
-						message,
-						connection_id: _,
-					} => match message {
-						request_response::Message::Request {
-							request,
-							channel,
-							request_id,
-						} => {
-							println!("Received pairing request from {}", peer);
-
-							// Extract session_id and device_id from the pairing message
-							let (session_id, device_id_from_request) = match &request {
-								super::behavior::PairingMessage::PairingRequest {
-									session_id,
-									device_info,
-									..
-								} => (*session_id, device_info.device_id),
-								super::behavior::PairingMessage::Response {
-									session_id,
-									device_info,
-									..
-								} => (*session_id, device_info.device_id),
-								super::behavior::PairingMessage::Challenge {
-									session_id,
-									device_info,
-									..
-								} => (*session_id, device_info.device_id),
-								super::behavior::PairingMessage::Complete {
-									session_id, ..
-								} => {
-									// For complete messages, lookup the device ID from existing mappings
-									let registry = device_registry.read().await;
-									let device_id = registry
-										.get_device_by_session(*session_id)
-										.or_else(|| registry.get_device_by_peer(peer))
-										.unwrap_or_else(Uuid::new_v4);
-									drop(registry);
-									(*session_id, device_id)
-								}
-							};
-
-							// Check if we already know this peer
-							let existing_device_id =
-								device_registry.read().await.get_device_by_peer(peer);
-
-							let device_id =
-								if let Some(existing_id) = existing_device_id {
-									println!(
-										"Using existing device ID {} for peer {}",
-										existing_id, peer
-									);
-									existing_id
+								
+								// Send the actual message data
+								if let Err(e) = send.write_all(&data).await {
+									eprintln!("Failed to send file transfer data: {}", e);
 								} else {
-									// Register this new pairing relationship in the device registry
-									println!("Registering new pairing: device {} with peer {} for session {}",
-									device_id_from_request, peer, session_id);
-
-									match device_registry.write().await.start_pairing(
-										device_id_from_request,
-										peer,
-										session_id,
-									) {
-										Ok(()) => {
-											println!("Successfully registered pairing in device registry");
-											device_id_from_request
-										}
-										Err(e) => {
-											eprintln!(
-												"Failed to register pairing in device registry: {}",
-												e
-											);
-											device_id_from_request // Use the device ID from request anyway
-										}
-									}
-								};
-
-							// Handle the request through the protocol registry
-							match protocol_registry
-								.read()
-								.await
-								.handle_request(
-									"pairing",
-									device_id,
-									serde_json::to_vec(&request).unwrap_or_default(),
-								)
-								.await
-							{
-								Ok(response_data) => {
-									// Deserialize response back to PairingMessage for LibP2P
-									if let Ok(response_message) = serde_json::from_slice::<
-										super::behavior::PairingMessage,
-									>(&response_data)
-									{
-										// Send response back through LibP2P
-										if let Err(e) = swarm
-											.behaviour_mut()
-											.pairing
-											.send_response(channel, response_message)
-										{
-											eprintln!("Failed to send pairing response: {:?}", e);
-										} else {
-											println!("Sent pairing response to {}", peer);
-										}
-									} else {
-										eprintln!("Failed to deserialize pairing response");
-									}
+									println!("📤 FILE_TRANSFER: Successfully sent {} bytes", data.len());
 								}
-								Err(e) => {
-									eprintln!("Protocol handler error: {}", e);
-								}
+								let _ = send.finish();
+							}
+							Err(e) => {
+								eprintln!("❌ FILE_TRANSFER: Failed to open stream: {}", e);
 							}
 						}
-						request_response::Message::Response { response, .. } => {
-							println!("Received pairing response from {}", peer);
-
-							// Get device ID from peer ID (or use placeholder if not found)
-							let device_id = device_registry
-								.read()
-								.await
-								.get_device_by_peer(peer)
-								.unwrap_or_else(|| Uuid::new_v4());
-
-							// Handle the response through the protocol registry
-							if let Err(e) = protocol_registry
-								.read()
-								.await
-								.handle_response(
-									"pairing",
-									device_id,
-									peer,
-									serde_json::to_vec(&response).unwrap_or_default(),
-								)
-								.await
-							{
-								eprintln!("Protocol handler error handling response: {}", e);
-							}
-						}
-					},
+					}
 					_ => {}
 				}
 			}
-
-			UnifiedBehaviourEvent::Messaging(req_resp_event) => {
-				use libp2p::request_response;
-				match req_resp_event {
-					request_response::Event::Message {
-						peer,
-						message,
-						connection_id: _,
-					} => match message {
-						request_response::Message::Request { request, .. } => {
-							println!("Received message request from {}", peer);
-							// TODO: Implement messaging protocol handler similar to pairing
-							// For now, just log the received message
-						}
-						request_response::Message::Response { response, .. } => {
-							println!("Received message response from {}", peer);
-
-							let _ = protocol_registry
-								.read()
-								.await
-								.handle_response(
-									"messaging",
-									Uuid::new_v4(),
-									peer,
-									serde_json::to_vec(&response).unwrap_or_default(),
-								)
-								.await;
-						}
-					},
-					_ => {}
-				}
-			}
-
-			UnifiedBehaviourEvent::FileTransfer(req_resp_event) => {
-				use libp2p::request_response;
-				match req_resp_event {
-					request_response::Event::Message {
-						peer,
-						message,
-						connection_id: _,
-					} => match message {
-						request_response::Message::Request {
-							request,
-							channel,
-							request_id: _,
-						} => {
-							println!("🔄 Received file transfer request from {}", peer);
-
-							// Get device ID from device registry using peer ID
-							let device_id =
-								match device_registry.read().await.get_device_by_peer(peer) {
-									Some(id) => {
-										println!(
-											"🔗 File Transfer: Found device {} for peer {}",
-											id, peer
-										);
-										id
-									}
-									None => {
-										eprintln!(
-											"❌ File Transfer: No device mapping found for peer {}",
-											peer
-										);
-										return Ok(()); // Skip processing this request
-									}
-								};
-
-							// Handle the request through the protocol registry
-							match protocol_registry
-								.read()
-								.await
-								.handle_request(
-									"file_transfer",
-									device_id,
-									rmp_serde::to_vec(&request).unwrap_or_default(),
-								)
-								.await
-							{
-								Ok(response_data) => {
-									// Deserialize response back to FileTransferMessage for LibP2P
-									if let Ok(response_message) = rmp_serde::from_slice::<
-										super::behavior::FileTransferMessage,
-									>(&response_data)
-									{
-										// Send response back through LibP2P
-										if let Err(e) = swarm
-											.behaviour_mut()
-											.file_transfer
-											.send_response(channel, response_message)
-										{
-											eprintln!(
-												"Failed to send file transfer response: {:?}",
-												e
-											);
-										} else {
-											println!("✅ Sent file transfer response to {}", peer);
-										}
-									} else {
-										eprintln!(
-											"❌ Failed to deserialize file transfer response"
-										);
-									}
-								}
-								Err(e) => {
-									eprintln!("❌ File transfer protocol handler error: {}", e);
-								}
-							}
-						}
-						request_response::Message::Response { response, .. } => {
-							println!("✅ Received file transfer response from {}", peer);
-
-							let _ = protocol_registry
-								.read()
-								.await
-								.handle_response(
-									"file_transfer",
-									Uuid::new_v4(),
-									peer,
-									rmp_serde::to_vec(&response).unwrap_or_default(),
-								)
-								.await;
-						}
-					},
-					_ => {}
-				}
+			Err(e) => {
+				eprintln!("Failed to connect to {}: {}", node_id, e);
 			}
 		}
-
-		Ok(())
 	}
 }
-
-// Ensure event loop is Send + Sync
-unsafe impl Send for NetworkingEventLoop {}
-unsafe impl Sync for NetworkingEventLoop {}

@@ -273,6 +273,9 @@ impl Core {
 				self.events.clone(),
 			);
 			tokio::spawn(event_bridge.run());
+
+			// Make networking service available to the context for other services
+			self.context.set_networking(networking_service).await;
 		}
 
 		logger.info("Networking initialized successfully").await;

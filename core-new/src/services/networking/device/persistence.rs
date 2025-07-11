@@ -395,7 +395,7 @@ mod tests {
             os_version: "Test OS 1.0".to_string(),
             app_version: "1.0.0".to_string(),
             network_fingerprint: NetworkFingerprint {
-                peer_id: "test_peer_id".to_string(),
+                node_id: "test_node_id".to_string(),
                 public_key_hash: "test_hash".to_string(),
             },
             last_seen: Utc::now(),

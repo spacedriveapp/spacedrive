@@ -1,6 +1,7 @@
 //! Protocol registry for managing protocol handlers
 
 use super::{ProtocolEvent, ProtocolHandler};
+use iroh::net::key::NodeId;
 use crate::services::networking::{NetworkingError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -67,14 +68,14 @@ impl ProtocolRegistry {
 		&self,
 		protocol_name: &str,
 		from_device: Uuid,
-		from_peer: libp2p::PeerId,
+		from_node: NodeId,
 		response_data: Vec<u8>,
 	) -> Result<()> {
 		let handler = self.get_handler(protocol_name).ok_or_else(|| {
 			NetworkingError::Protocol(format!("No handler for protocol {}", protocol_name))
 		})?;
 
-		handler.handle_response(from_device, from_peer, response_data).await
+		handler.handle_response(from_device, from_node, response_data).await
 	}
 
 	/// Broadcast an event to all protocol handlers

@@ -3,7 +3,7 @@
 use super::{DeviceInfo, SessionKeys};
 use crate::services::networking::{NetworkingError, Result};
 use chrono::{DateTime, Utc};
-use libp2p::PeerId;
+use iroh::net::key::NodeId;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
@@ -11,8 +11,8 @@ use uuid::Uuid;
 /// Represents an active connection to a remote device
 #[derive(Debug, Clone)]
 pub struct DeviceConnection {
-	/// The peer ID of the remote device
-	pub peer_id: PeerId,
+	/// The node ID of the remote device
+	pub node_id: NodeId,
 
 	/// Device information
 	pub device_info: DeviceInfo,
@@ -63,14 +63,14 @@ pub struct OutgoingMessage {
 impl DeviceConnection {
 	/// Create a new device connection
 	pub fn new(
-		peer_id: PeerId,
+		node_id: NodeId,
 		device_info: DeviceInfo,
 		session_keys: SessionKeys,
 	) -> (Self, mpsc::UnboundedReceiver<OutgoingMessage>) {
 		let (message_sender, message_receiver) = mpsc::unbounded_channel();
 
 		let connection = Self {
-			peer_id,
+			node_id,
 			device_info,
 			session_keys,
 			stats: ConnectionStats::default(),
