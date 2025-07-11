@@ -118,8 +118,8 @@ impl SessionKeys {
 		let mut send_key = [0u8; 32];
 		let mut receive_key = [0u8; 32];
 
-		// Use the same salt for both keys to ensure Alice's send key 
-		// matches Bob's receive key, enabling successful decryption
+		// Use the same salt for both keys to ensure initiator's send key 
+		// matches joiner's receive key, enabling successful decryption
 		hk.expand(b"spacedrive-symmetric-key", &mut send_key).unwrap();
 		hk.expand(b"spacedrive-symmetric-key", &mut receive_key).unwrap();
 

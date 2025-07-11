@@ -2,7 +2,7 @@
 
 use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
-use crate::services::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result, utils::logging::NetworkLogger};
 use chrono::{DateTime, Utc};
 use iroh::net::NodeAddr;
 use iroh::net::key::NodeId;
@@ -27,11 +27,14 @@ pub struct DeviceRegistry {
 
 	/// Persistence manager for paired devices
 	persistence: DevicePersistence,
+
+	/// Logger for device registry operations
+	logger: Arc<dyn NetworkLogger>,
 }
 
 impl DeviceRegistry {
 	/// Create a new device registry
-	pub fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<Path>) -> Result<Self> {
+	pub fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<Path>, logger: Arc<dyn NetworkLogger>) -> Result<Self> {
 		let persistence = DevicePersistence::new(data_dir)?;
 		
 		Ok(Self {
@@ -40,6 +43,7 @@ impl DeviceRegistry {
 			node_to_device: HashMap::new(),
 			session_to_device: HashMap::new(),
 			persistence,
+			logger,
 		})
 	}
 
@@ -123,7 +127,7 @@ impl DeviceRegistry {
 		let addresses = if let Ok(node_id) = info.network_fingerprint.node_id.parse::<NodeId>() {
 			// Add node-to-device mapping so device can be found for messaging
 			self.node_to_device.insert(node_id, device_id);
-			println!("🔗 Added node-to-device mapping: {} -> {}", node_id, device_id);
+			// Successfully added node-to-device mapping: node_id -> device_id
 			
 			// Get current addresses from discovered state if available
 			match self.devices.get(&device_id) {
@@ -137,7 +141,7 @@ impl DeviceRegistry {
 				_ => vec![]
 			}
 		} else {
-			println!("⚠️ Failed to parse node ID from network fingerprint: {}", info.network_fingerprint.node_id);
+			// Warning: Failed to parse node ID from network fingerprint
 			vec![]
 		};
 
@@ -151,10 +155,10 @@ impl DeviceRegistry {
 
 		// Persist the paired device for future reconnection
 		if let Err(e) = self.persistence.add_paired_device(device_id, info.clone(), session_keys.clone(), addresses).await {
-			eprintln!("⚠️ Failed to persist paired device {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to persist paired device {}: {}", device_id, e)).await;
 			// Continue anyway - pairing succeeded even if persistence failed
 		} else {
-			println!("✅ Persisted paired device: {}", device_id);
+			self.logger.debug(&format!("✅ Persisted paired device: {}", device_id)).await;
 		}
 
 		Ok(())
@@ -205,7 +209,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device connected successfully
 		if let Err(e) = self.persistence.update_device_connection(device_id, true, None).await {
-			eprintln!("⚠️ Failed to update device connection status {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to update device connection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())
@@ -242,7 +246,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device disconnected
 		if let Err(e) = self.persistence.update_device_connection(device_id, false, None).await {
-			eprintln!("⚠️ Failed to update device disconnection status {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to update device disconnection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())
@@ -310,14 +314,11 @@ impl DeviceRegistry {
 		// Look through node_to_device map in reverse
 		for (node_id, &dev_id) in &self.node_to_device {
 			if dev_id == device_id {
-				println!("🔗 REGISTRY_DEBUG: Found node {} for device {}", node_id, device_id);
+				// Found node for device
 				return Some(*node_id);
 			}
 		}
-		println!("⚠️ REGISTRY_DEBUG: No peer found for device {}. Available mappings:", device_id);
-		for (node_id, mapped_device_id) in &self.node_to_device {
-			println!("   {} -> {}", node_id, mapped_device_id);
-		}
+		// No peer found for device - check node_to_device mappings
 		None
 	}
 
@@ -330,15 +331,15 @@ impl DeviceRegistry {
 	pub fn get_session_keys(&self, device_id: Uuid) -> Option<super::SessionKeys> {
 		match self.devices.get(&device_id) {
 			Some(DeviceState::Paired { session_keys, .. }) => {
-				println!("🔑 REGISTRY_DEBUG: Found session keys for paired device {}", device_id);
+				// Found session keys for paired device
 				Some(session_keys.clone())
 			}
 			Some(DeviceState::Connected { session_keys, .. }) => {
-				println!("🔑 REGISTRY_DEBUG: Found session keys for connected device {}", device_id);
+				// Found session keys for connected device
 				Some(session_keys.clone())
 			}
 			_ => {
-				println!("🔑 REGISTRY_DEBUG: Device {} not found or not paired/connected", device_id);
+				// Device not found or not paired/connected
 				None
 			}
 		}

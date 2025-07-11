@@ -136,7 +136,7 @@ impl NetworkingService {
 
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
-		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager, data_dir)?));
+		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager, data_dir, logger.clone())?));
 
 		Ok(Self {
 			endpoint: None,
@@ -199,6 +199,7 @@ impl NetworkingService {
 			self.event_sender.clone(),
 			self.identity.clone(),
 			self.active_connections.clone(),
+			self.logger.clone(),
 		);
 
 		// Store shutdown and command senders before starting
@@ -543,7 +544,7 @@ impl NetworkingService {
 				let mut connections = self.active_connections.write().await;
 				connections.insert(node_id, conn);
 				self.logger
-					.info(&format!("🔗 Bob: Tracked outbound connection to {}", node_id))
+					.info(&format!("🔗 Joiner: Tracked outbound connection to {}", node_id))
 					.await;
 			}
 
@@ -711,7 +712,7 @@ impl NetworkingService {
 			.await;
 		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-		// Query discovery for Alice's advertisement (even though it returns empty with LocalSwarmDiscovery)
+		// Query discovery for initiator's advertisement (even though it returns empty with LocalSwarmDiscovery)
 		let key = session_id.as_bytes();
 		let mut node_addrs = self.query_discovery_record(key).await?;
 
@@ -724,9 +725,9 @@ impl NetworkingService {
 				>(&data)
 				{
 					if let Ok(initiator_node_addr) = advertisement.node_addr() {
-						println!(
-							"📄 Bob: Found Initiator's session info, attempting connection..."
-						);
+						self.logger
+							.info("📄 Joiner: Found Initiator's session info, attempting connection...")
+							.await;
 						node_addrs.push(initiator_node_addr);
 					}
 				}
@@ -767,15 +768,15 @@ impl NetworkingService {
 
 		// Send pairing request to any connected nodes
 		let connected_nodes = self.get_raw_connected_nodes().await;
-		println!(
+		self.logger.debug(&format!(
 			"🔍 Joiner: Found {} raw connected nodes",
 			connected_nodes.len()
-		);
+		)).await;
 		if !connected_nodes.is_empty() {
-			println!(
+			self.logger.info(&format!(
 				"📡 Joiner: Found {} connected nodes, sending pairing requests...",
 				connected_nodes.len()
-			);
+			)).await;
 			for node_id in connected_nodes {
 				// Get local device info
 				let local_device_info = {
@@ -809,16 +810,20 @@ impl NetworkingService {
 						if let Some(pairing_handler) =
 							handler.as_any().downcast_ref::<PairingProtocolHandler>()
 						{
-							println!("📤 Bob: Sending pairing request to node {}", node_id);
+							self.logger
+								.info(&format!("📤 Joiner: Sending pairing request to node {}", node_id))
+								.await;
 							match pairing_handler
 								.send_pairing_message_to_node(endpoint, node_id, &pairing_request)
 								.await
 							{
 								Ok(Some(response)) => {
-									println!("📥 Joiner: Received response from Initiator!");
+									self.logger
+										.info("📥 Joiner: Received response from Initiator!")
+										.await;
 									// Process the response via the trait's handle_response method
 									if let Ok(msg_bytes) = serde_json::to_vec(&response) {
-										let device_id = self.device_id(); // Bob's own device ID
+										let device_id = self.device_id(); // Joiner's own device ID
 										let _ = handler
 											.handle_response(device_id, node_id, msg_bytes)
 											.await;
@@ -827,10 +832,14 @@ impl NetworkingService {
 									break;
 								}
 								Ok(None) => {
-									println!("⚠️ Joiner: No response received from Initiator");
+									self.logger
+										.warn("⚠️ Joiner: No response received from Initiator")
+										.await;
 								}
 								Err(e) => {
-									println!("❌ Joiner: Failed to send pairing request: {}", e);
+									self.logger
+										.error(&format!("❌ Joiner: Failed to send pairing request: {}", e))
+										.await;
 								}
 							}
 						}
@@ -949,10 +958,12 @@ impl NetworkingService {
 									.await
 								{
 									Ok(Some(response)) => {
-										println!("📥 Joiner: Received challenge response from Initiator!");
+										self.logger
+											.info("📥 Joiner: Received challenge response from Initiator!")
+											.await;
 										// Process the response via the trait's handle_response method
 										if let Ok(msg_bytes) = serde_json::to_vec(&response) {
-											let device_id = self.device_id(); // Bob's own device ID
+											let device_id = self.device_id(); // Joiner's own device ID
 											let _ = handler
 												.handle_response(device_id, *node_id, msg_bytes)
 												.await;
@@ -961,10 +972,14 @@ impl NetworkingService {
 										return Ok(());
 									}
 									Ok(None) => {
-										println!("⚠️ Joiner: No response received in ensure_pairing_requests_sent");
+										self.logger
+											.warn("⚠️ Joiner: No response received in ensure_pairing_requests_sent")
+											.await;
 									}
 									Err(e) => {
-										println!("❌ Joiner: Failed to send pairing request in ensure_pairing_requests_sent: {}", e);
+										self.logger
+											.error(&format!("❌ Joiner: Failed to send pairing request in ensure_pairing_requests_sent: {}", e))
+											.await;
 									}
 								}
 							}

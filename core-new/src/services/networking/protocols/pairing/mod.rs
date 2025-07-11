@@ -217,7 +217,7 @@ impl PairingProtocolHandler {
             }
         }
 
-        // Create new scanning session for Bob (the joiner)
+        // Create new scanning session for the joiner
         let session = PairingSession {
             id: session_id,
             state: PairingState::Scanning, // Joiner starts in scanning state
@@ -335,6 +335,7 @@ impl PairingProtocolHandler {
 
     /// Start a background task to periodically clean up expired sessions
     pub fn start_cleanup_task(handler: Arc<Self>) {
+        let logger = handler.logger.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(60)); // Check every minute
 
@@ -342,7 +343,7 @@ impl PairingProtocolHandler {
                 interval.tick().await;
 
                 if let Err(e) = handler.cleanup_expired_sessions().await {
-                    eprintln!("Error during session cleanup: {}", e);
+                    logger.error(&format!("Error during session cleanup: {}", e)).await;
                 }
             }
         });
@@ -571,7 +572,7 @@ impl ProtocolHandler for PairingProtocolHandler {
         // Read the message length (4 bytes)
         let mut len_buf = [0u8; 4];
         if let Err(e) = recv.read_exact(&mut len_buf).await {
-            eprintln!("Failed to read message length: {}", e);
+            self.logger.error(&format!("Failed to read message length: {}", e)).await;
             return;
         }
         let msg_len = u32::from_be_bytes(len_buf) as usize;
@@ -579,7 +580,7 @@ impl ProtocolHandler for PairingProtocolHandler {
         // Read the message
         let mut msg_buf = vec![0u8; msg_len];
         if let Err(e) = recv.read_exact(&mut msg_buf).await {
-            eprintln!("Failed to read message: {}", e);
+            self.logger.error(&format!("Failed to read message: {}", e)).await;
             return;
         }
         
@@ -587,7 +588,7 @@ impl ProtocolHandler for PairingProtocolHandler {
         let message: PairingMessage = match serde_json::from_slice(&msg_buf) {
             Ok(msg) => msg,
             Err(e) => {
-                eprintln!("Failed to deserialize pairing message: {}", e);
+                self.logger.error(&format!("Failed to deserialize pairing message: {}", e)).await;
                 return;
             }
         };
@@ -596,7 +597,7 @@ impl ProtocolHandler for PairingProtocolHandler {
         let response = match self.handle_pairing_message(message, remote_node_id).await {
             Ok(resp) => resp,
             Err(e) => {
-                eprintln!("Failed to handle pairing message: {}", e);
+                self.logger.error(&format!("Failed to handle pairing message: {}", e)).await;
                 return;
             }
         };
@@ -606,13 +607,13 @@ impl ProtocolHandler for PairingProtocolHandler {
             // Write message length
             let len = response_data.len() as u32;
             if let Err(e) = send.write_all(&len.to_be_bytes()).await {
-                eprintln!("Failed to write response length: {}", e);
+                self.logger.error(&format!("Failed to write response length: {}", e)).await;
                 return;
             }
             
             // Write message
             if let Err(e) = send.write_all(&response_data).await {
-                eprintln!("Failed to write response: {}", e);
+                self.logger.error(&format!("Failed to write response: {}", e)).await;
                 return;
             }
             
