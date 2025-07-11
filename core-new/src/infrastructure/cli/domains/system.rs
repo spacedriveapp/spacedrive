@@ -64,16 +64,16 @@ async fn handle_status_command(
     
     match client.send_command(DaemonCommand::GetStatus).await {
         Ok(DaemonResponse::Status(status)) => {
-            let mut section = output.section();
-            section.title("System Status")
+            let section = output.section()
+                .title("System Status")
                 .item("Version", &status.version)
                 .item("Uptime", &format!("{} seconds", status.uptime_secs));
             
-            if let Some(library_id) = status.current_library {
-                section.item("Current Library", &library_id.to_string());
+            let section = if let Some(library_id) = status.current_library {
+                section.item("Current Library", &library_id.to_string())
             } else {
-                section.item("Current Library", "None");
-            }
+                section.item("Current Library", "None")
+            };
             
             section.item("Active Jobs", &status.active_jobs.to_string())
                 .item("Total Locations", &status.total_locations.to_string())
@@ -126,7 +126,7 @@ async fn handle_logs_command(
             "Spacedrive Daemon Logs ({}) - Press Ctrl+C to exit",
             instance_name.as_deref().unwrap_or("default")
         ))
-        .status_line("Log file", &log_file_path.display().to_string())
+        .status("Log file", &log_file_path.display().to_string())
         .text("═══════════════════════════════════════════")
         .render()?;
 

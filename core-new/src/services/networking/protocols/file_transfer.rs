@@ -1237,17 +1237,20 @@ impl NetworkingError {
 mod tests {
 	use super::*;
 	use crate::services::networking::protocols::ProtocolHandler;
+	use crate::services::networking::utils::logging::SilentLogger;
 
 	#[tokio::test]
 	async fn test_file_transfer_handler_creation() {
-		let handler = FileTransferProtocolHandler::new_default(0);
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
 		assert_eq!(handler.protocol_name(), "file_transfer");
 		assert!(handler.get_active_transfers().is_empty());
 	}
 
 	#[tokio::test]
 	async fn test_transfer_session_lifecycle() {
-		let handler = FileTransferProtocolHandler::new_default(0);
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
 		let transfer_id = Uuid::new_v4();
 
 		// Initially no session

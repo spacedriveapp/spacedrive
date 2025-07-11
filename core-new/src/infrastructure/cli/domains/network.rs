@@ -462,16 +462,18 @@ async fn handle_pairing_command(
                     status,
                     remote_device,
                 }) => {
-                    let mut section = output.section();
-                    section.title("Current Pairing Status")
+                    let section = output.section()
+                        .title("Current Pairing Status")
                         .item("Status", &status);
                     
-                    if let Some(device) = remote_device {
+                    let section = if let Some(device) = remote_device {
                         section.item("Connected Device", &format!("{} ({})", 
                             device.device_name,
                             &device.device_id.to_string()[..8]
-                        ));
-                    }
+                        ))
+                    } else {
+                        section
+                    };
                     section.render()?;
                 }
                 Ok(DaemonResponse::Error(err)) => {
@@ -491,10 +493,10 @@ async fn handle_pairing_command(
                     if requests.is_empty() {
                         output.info("No pending pairing requests")?;
                         output.section()
+                            .title("To start pairing:")
                             .help()
-                                .title("To start pairing:")
-                                .item("Generate a code", "spacedrive network pair generate")
-                                .item("Join with a code", "spacedrive network pair join \"<code>\"")
+                                .item("Generate a code: spacedrive network pair generate")
+                                .item("Join with a code: spacedrive network pair join \"<code>\"")
                             .render()?;
                     } else {
                         let pending_requests: Vec<PairingRequest> = requests.into_iter()
@@ -553,8 +555,8 @@ async fn handle_pairing_command(
                             .table(table)
                             .empty_line()
                             .help()
-                                .item("To accept a request", "spacedrive network pair accept <request_id>")
-                                .item("To reject a request", "spacedrive network pair reject <request_id>")
+                                .item("To accept a request: spacedrive network pair accept <request_id>")
+                                .item("To reject a request: spacedrive network pair reject <request_id>")
                             .render()?;
                     }
                 }

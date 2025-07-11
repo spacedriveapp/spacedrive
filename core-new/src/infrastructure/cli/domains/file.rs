@@ -181,24 +181,24 @@ async fn handle_copy_command(
         }) => {
             output.success("Copy operation started successfully!")?;
             
-            let mut section = output.section();
-            section.item("Job ID", &job_id.to_string())
+            let mut section = output.section()
+                .item("Job ID", &job_id.to_string())
                 .item("Sources", &format!("{} file(s)", sources_count))
                 .item("Destination", &input.destination.display().to_string());
             
             if input.overwrite {
-                section.item("Mode", "Overwrite existing files");
+                section = section.item("Mode", "Overwrite existing files");
             }
             if input.verify_checksum {
-                section.item("Verification", "Enabled");
+                section = section.item("Verification", "Enabled");
             }
             if input.move_files {
-                section.item("Type", "Move (delete source after copy)");
+                section = section.item("Type", "Move (delete source after copy)");
             }
             
             section.empty_line()
                 .help()
-                    .item("Monitor progress with", "spacedrive job monitor")
+                    .item("Monitor progress with: spacedrive job monitor")
                 .render()?;
         }
         Ok(DaemonResponse::Ok) => {
