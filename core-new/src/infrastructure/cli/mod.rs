@@ -2,7 +2,6 @@ pub mod adapters;
 pub mod daemon;
 pub mod domains;
 pub mod monitoring;
-pub mod networking_commands;
 pub mod pairing_ui;
 pub mod state;
 pub mod utils;
@@ -41,7 +40,23 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Daemon lifecycle management
+    /// Start the Spacedrive daemon in the background
+    Start {
+        /// Run in foreground instead of daemonizing
+        #[arg(short, long)]
+        foreground: bool,
+        /// Enable networking on startup
+        #[arg(long)]
+        enable_networking: bool,
+    },
+
+    /// Stop the Spacedrive daemon
+    Stop,
+
+    /// Check if the daemon is running and show status
+    Status,
+
+    /// Daemon lifecycle management (advanced)
     #[command(subcommand)]
     Daemon(DaemonCommands),
 
@@ -74,7 +89,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     // Set up logging - skip for daemon start commands as they handle their own logging
-    let is_daemon_start = matches!(&cli.command, Commands::Daemon(DaemonCommands::Start { .. }));
+    let is_daemon_start = matches!(&cli.command, Commands::Start { .. } | Commands::Daemon(DaemonCommands::Start { .. }));
     if !is_daemon_start {
         let log_level = if cli.verbose { "debug" } else { "info" };
         let env_filter =
@@ -110,6 +125,26 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     // Route to appropriate domain handler
     match &cli.command {
+        Commands::Start { foreground, enable_networking } => {
+            // Handle start command
+            handle_daemon_command(
+                DaemonCommands::Start {
+                    foreground: *foreground,
+                    enable_networking: *enable_networking,
+                },
+                data_dir,
+                cli.instance.clone(),
+            )
+            .await
+        }
+        Commands::Stop => {
+            // Handle stop command
+            handle_daemon_command(DaemonCommands::Stop, data_dir, cli.instance.clone()).await
+        }
+        Commands::Status => {
+            // Handle status command
+            handle_daemon_command(DaemonCommands::Status, data_dir, cli.instance.clone()).await
+        }
         Commands::Daemon(daemon_cmd) => {
             // Daemon commands don't need daemon to be running
             handle_daemon_command(daemon_cmd.clone(), data_dir, cli.instance.clone()).await
@@ -184,10 +219,10 @@ fn print_daemon_not_running(instance_name: &Option<String>) {
     );
     if instance_name.is_some() {
         println!(
-            "   Start it with: spacedrive --instance {} daemon start",
+            "   Start it with: spacedrive --instance {} start",
             instance_display
         );
     } else {
-        println!("   Start it with: spacedrive daemon start");
+        println!("   Start it with: spacedrive start");
     }
 }

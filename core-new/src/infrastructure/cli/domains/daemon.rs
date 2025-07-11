@@ -300,11 +300,11 @@ async fn handle_daemon_status(
         );
         if instance_name.is_some() {
             println!(
-                "   Start it with: spacedrive --instance {} daemon start",
+                "   Start it with: spacedrive --instance {} start",
                 instance_display
             );
         } else {
-            println!("   Start it with: spacedrive daemon start");
+            println!("   Start it with: spacedrive start");
         }
     }
 
