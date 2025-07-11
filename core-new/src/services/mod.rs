@@ -103,11 +103,12 @@ impl Services {
 		library_key_manager: std::sync::Arc<crate::keys::library_key_manager::LibraryKeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
 	) -> Result<()> {
-		use crate::services::networking::NetworkingService;
+		use crate::services::networking::{NetworkingService, utils::logging::ConsoleLogger};
 
 		info!("Initializing networking service");
+		let logger = std::sync::Arc::new(ConsoleLogger);
 		let networking_service =
-			NetworkingService::new(device_manager, library_key_manager, data_dir)
+			NetworkingService::new(device_manager, library_key_manager, data_dir, logger)
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to create networking service: {}", e))?;
 
