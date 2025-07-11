@@ -6,8 +6,8 @@
 //! - Real-time monitoring
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonConfig, DaemonResponse};
+use crate::infrastructure::cli::output::{CliOutput, Message};
 use clap::Subcommand;
-use colored::Colorize;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
 use std::time::Duration;
@@ -38,55 +38,58 @@ pub enum SystemCommands {
 pub async fn handle_system_command(
     cmd: SystemCommands,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         SystemCommands::Status => {
-            handle_status_command(instance_name).await
+            handle_status_command(instance_name, &mut output).await
         }
         SystemCommands::Logs { lines, follow } => {
-            handle_logs_command(lines, follow, instance_name).await
+            handle_logs_command(lines, follow, instance_name, &mut output).await
         }
         SystemCommands::Monitor => {
-            handle_monitor_command(instance_name).await
+            handle_monitor_command(instance_name, &mut output).await
         }
         SystemCommands::Tui => {
-            handle_tui_command(instance_name).await
+            handle_tui_command(instance_name, &mut output).await
         }
     }
 }
 
 async fn handle_status_command(
     instance_name: Option<String>,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = DaemonClient::new_with_instance(instance_name.clone());
     
     match client.send_command(DaemonCommand::GetStatus).await {
         Ok(DaemonResponse::Status(status)) => {
-            println!("📊 System Status");
-            println!("  Version: {}", status.version.bright_cyan());
-            println!("  Uptime: {} seconds", status.uptime_secs);
+            let mut section = output.section();
+            section.title("System Status")
+                .item("Version", &status.version)
+                .item("Uptime", &format!("{} seconds", status.uptime_secs));
             
             if let Some(library_id) = status.current_library {
-                println!("  Current Library: {}", library_id.to_string().bright_yellow());
+                section.item("Current Library", &library_id.to_string());
             } else {
-                println!("  Current Library: {}", "None".bright_red());
+                section.item("Current Library", "None");
             }
             
-            println!("  Active Jobs: {}", status.active_jobs);
-            println!("  Total Locations: {}", status.total_locations);
-            
-            // Show basic system info
-            println!("  OS: {}", std::env::consts::OS);
-            println!("  Architecture: {}", std::env::consts::ARCH);
+            section.item("Active Jobs", &status.active_jobs.to_string())
+                .item("Total Locations", &status.total_locations.to_string())
+                .empty_line()
+                .item("OS", std::env::consts::OS)
+                .item("Architecture", std::env::consts::ARCH)
+                .render()?;
         }
         Ok(DaemonResponse::Error(e)) => {
-            println!("❌ Failed to get system status: {}", e);
+            output.error(Message::Error(format!("Failed to get system status: {}", e)))?;
         }
         Err(e) => {
-            println!("❌ Failed to communicate with daemon: {}", e);
+            output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
         }
         _ => {
-            println!("❌ Unexpected response from daemon");
+            output.error(Message::Error("Unexpected response from daemon".to_string()))?;
         }
     }
     
@@ -97,6 +100,7 @@ async fn handle_logs_command(
     lines: usize,
     follow: bool,
     instance_name: Option<String>,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Get the daemon config to find the log file path
     let config = DaemonConfig::new(instance_name.clone());
@@ -105,28 +109,26 @@ async fn handle_logs_command(
 
     if !log_file_path.exists() {
         let instance_display = instance_name.as_deref().unwrap_or("default");
-        println!(
-            "❌ Log file not found for daemon instance '{}'",
+        output.error(Message::Error(format!(
+            "Log file not found for daemon instance '{}'",
             instance_display
-        );
-        println!("   Expected at: {}", log_file_path.display());
-        println!("   Make sure the daemon is running with logging enabled");
+        )))?;
+        output.section()
+            .text(&format!("Expected at: {}", log_file_path.display()))
+            .text("Make sure the daemon is running with logging enabled")
+            .render()?;
         return Ok(());
     }
 
-    println!(
-        "📋 {} - Press Ctrl+C to exit",
-        format!(
-            "Spacedrive Daemon Logs ({})",
+    output.print(Message::LogsShowing { path: log_file_path.clone() })?;
+    output.section()
+        .text(&format!(
+            "Spacedrive Daemon Logs ({}) - Press Ctrl+C to exit",
             instance_name.as_deref().unwrap_or("default")
-        )
-        .bright_cyan()
-    );
-    println!(
-        "   Log file: {}",
-        log_file_path.display().to_string().bright_blue()
-    );
-    println!("═══════════════════════════════════════════");
+        ))
+        .status_line("Log file", &log_file_path.display().to_string())
+        .text("═══════════════════════════════════════════")
+        .render()?;
 
     // Read initial lines
     let file = File::open(&log_file_path)?;
@@ -141,7 +143,9 @@ async fn handle_logs_command(
     };
 
     for line in &all_lines[start_index..] {
-        println!("{}", format_log_line(line));
+        // For logs, we intentionally use println! to output directly to stdout
+        // This preserves exact log formatting and bypasses the output system's formatting
+        println!("{}", format_log_line(line, output));
     }
 
     if follow {
@@ -158,11 +162,11 @@ async fn handle_logs_command(
                     sleep(Duration::from_millis(100)).await;
                 }
                 Ok(_) => {
-                    // New line found
-                    print!("{}", format_log_line(&line));
+                    // New line found - use print! for real-time output without newline
+                    print!("{}", format_log_line(&line, output));
                 }
                 Err(e) => {
-                    println!("❌ Error reading log file: {}", e);
+                    output.error(Message::Error(format!("Error reading log file: {}", e)))?;
                     break;
                 }
             }
@@ -174,38 +178,47 @@ async fn handle_logs_command(
 
 async fn handle_monitor_command(
     instance_name: Option<String>,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Special case - monitor needs event streaming
-    println!("📊 Job monitor not yet implemented for daemon mode");
-    println!("   Use 'spacedrive job list' to see current jobs");
+    output.info("Job monitor not yet implemented for daemon mode")?;
+    output.info("Use 'spacedrive job list' to see current jobs")?;
     Ok(())
 }
 
 async fn handle_tui_command(
     instance_name: Option<String>,
+    output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("🖥️  Launching Terminal User Interface...");
-    println!("❌ TUI command not yet implemented for daemon mode");
-    println!("   This command will be available in a future update");
-    println!("   The TUI will provide real-time monitoring of:");
-    println!("   - Library overview and statistics");
-    println!("   - Location management and indexing status");
-    println!("   - Job progress and monitoring");
-    println!("   - Event stream and system activity");
-    println!("   - Interactive controls and navigation");
+    output.info("Launching Terminal User Interface...")?;
+    output.error(Message::Error("TUI command not yet implemented for daemon mode".to_string()))?;
+    output.section()
+        .text("This command will be available in a future update")
+        .text("The TUI will provide real-time monitoring of:")
+        .text("- Library overview and statistics")
+        .text("- Location management and indexing status")
+        .text("- Job progress and monitoring")
+        .text("- Event stream and system activity")
+        .text("- Interactive controls and navigation")
+        .render()?;
     Ok(())
 }
 
-fn format_log_line(line: &str) -> String {
-    // Basic log formatting - colorize by log level
+fn format_log_line(line: &str, output: &CliOutput) -> String {
+    // Basic log formatting - colorize by log level if colors are enabled
+    if !output.use_color() {
+        return line.to_string();
+    }
+    
+    use owo_colors::OwoColorize;
     if line.contains("ERROR") {
         line.red().to_string()
     } else if line.contains("WARN") {
         line.yellow().to_string()
     } else if line.contains("INFO") {
-        line.normal().to_string()
+        line.to_string()
     } else if line.contains("DEBUG") {
-        line.bright_black().to_string()
+        line.dimmed().to_string()
     } else {
         line.to_string()
     }

@@ -7,8 +7,9 @@
 //! - Rescanning locations for changes
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
+use crate::infrastructure::cli::output::{CliOutput, Message};
+use crate::infrastructure::cli::output::messages::{LocationInfo as OutputLocationInfo};
 use clap::{Subcommand, ValueEnum};
-use colored::Colorize;
 use comfy_table::Table;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -69,15 +70,13 @@ pub enum LocationCommands {
 pub async fn handle_location_command(
     cmd: LocationCommands,
     instance_name: Option<String>,
+    mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = DaemonClient::new_with_instance(instance_name.clone());
 
     match cmd {
         LocationCommands::Add { path, name, mode } => {
-            println!(
-                "📁 Adding location {}...",
-                path.display().to_string().bright_blue()
-            );
+            output.info(&format!("Adding location {}...", path.display()))?;
 
             match client
                 .send_command(DaemonCommand::AddLocation {
@@ -90,25 +89,20 @@ pub async fn handle_location_command(
                     location_id,
                     job_id,
                 }) => {
-                    println!("✅ Location added successfully!");
-                    println!("   Path: {}", path.display().to_string().bright_blue());
-                    println!(
-                        "   Location ID: {}",
-                        location_id.to_string().bright_yellow()
-                    );
+                    output.print(Message::LocationAdded {
+                        path: path.clone(),
+                        id: location_id,
+                    })?;
 
                     if !job_id.is_empty() {
-                        println!(
-                            "   Job ID: {}",
-                            job_id.chars().take(8).collect::<String>().bright_yellow()
-                        );
-
-                        // Automatically show brief progress info
-                        println!("\n📊 Indexing started...");
-                        println!(
-                            "   To monitor detailed progress, run: {}",
-                            "spacedrive job monitor".bright_cyan()
-                        );
+                        output.section()
+                            .item("Job ID", &job_id.chars().take(8).collect::<String>())
+                            .empty_line()
+                            .text("Indexing started...")
+                            .help()
+                                .item("To monitor detailed progress, run: spacedrive job monitor")
+                            .end()
+                            .render()?;
 
                         // Show basic progress by checking job status periodically
                         let mut last_status = String::new();
@@ -123,11 +117,12 @@ pub async fn handle_location_command(
                                 {
                                     Ok(DaemonResponse::JobInfo(Some(job))) => {
                                         if job.status != last_status {
-                                            println!(
-                                                "   Status: {} ({}%)",
-                                                job.status.bright_yellow(),
-                                                (job.progress * 100.0) as u32
-                                            );
+                                            output.print(Message::JobProgress {
+                                                id: uuid,
+                                                name: "Indexing".to_string(),
+                                                progress: job.progress,
+                                                message: Some(job.status.clone()),
+                                            })?;
                                             last_status = job.status.clone();
                                         }
 
@@ -140,17 +135,17 @@ pub async fn handle_location_command(
                             }
                         }
                     } else {
-                        println!("   Status: Location added but indexing failed to start");
+                        output.warning("Location added but indexing failed to start")?;
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to add location: {}", e);
+                    output.error(Message::Error(format!("Failed to add location: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -162,33 +157,45 @@ pub async fn handle_location_command(
             {
                 Ok(DaemonResponse::Locations(locations)) => {
                     if locations.is_empty() {
-                        println!(
-                            "📭 No locations found. Add one with: spacedrive location add <path>"
-                        );
+                        output.info("No locations found. Add one with: spacedrive location add <path>")?;
                     } else {
-                        let mut table = Table::new();
-                        table.set_header(vec!["ID", "Name", "Path", "Status"]);
+                        let output_locations: Vec<OutputLocationInfo> = locations.into_iter()
+                            .map(|loc| OutputLocationInfo {
+                                id: loc.id,
+                                path: loc.path,
+                                indexed_files: 0, // TODO: Get actual count from daemon
+                            })
+                            .collect();
+                        
+                        if matches!(output.format(), crate::infrastructure::cli::output::OutputFormat::Json) {
+                            output.print(Message::LocationList { locations: output_locations })?;
+                        } else {
+                            // For human output, use a table
+                            let mut table = Table::new();
+                            table.set_header(vec!["ID", "Path", "Files"]);
 
-                        for loc in locations {
-                            table.add_row(vec![
-                                loc.id.to_string(),
-                                loc.name,
-                                loc.path.display().to_string(),
-                                loc.status,
-                            ]);
+                            for loc in output_locations {
+                                table.add_row(vec![
+                                    loc.id.to_string(),
+                                    loc.path.display().to_string(),
+                                    loc.indexed_files.to_string(),
+                                ]);
+                            }
+
+                            output.section()
+                                .table(table)
+                                .render()?;
                         }
-
-                        println!("{}", table);
                     }
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to list locations: {}", e);
+                    output.error(Message::Error(format!("Failed to list locations: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
@@ -202,17 +209,17 @@ pub async fn handle_location_command(
                     .interact()?;
                 
                 if !confirm {
-                    println!("Operation cancelled");
+                    output.info("Operation cancelled")?;
                     return Ok(());
                 }
             }
-            println!("🗑️  Removing location {}...", identifier.bright_yellow());
+            output.info(&format!("Removing location {}...", identifier))?;
 
             // Try to parse as UUID
             let id = match identifier.parse::<Uuid>() {
                 Ok(id) => id,
                 Err(_) => {
-                    println!("❌ Invalid location ID: {}", identifier);
+                    output.error(Message::Error(format!("Invalid location ID: {}", identifier)))?;
                     return Ok(());
                 }
             };
@@ -222,28 +229,28 @@ pub async fn handle_location_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Location removed successfully");
+                    output.success("Location removed successfully")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to remove location: {}", e);
+                    output.error(Message::Error(format!("Failed to remove location: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
 
         LocationCommands::Rescan { identifier, force } => {
-            println!("🔄 Rescanning location {}...", identifier.bright_yellow());
+            output.info(&format!("Rescanning location {}...", identifier))?;
 
             // Try to parse as UUID
             let id = match identifier.parse::<Uuid>() {
                 Ok(id) => id,
                 Err(_) => {
-                    println!("❌ Invalid location ID: {}", identifier);
+                    output.error(Message::Error(format!("Invalid location ID: {}", identifier)))?;
                     return Ok(());
                 }
             };
@@ -253,23 +260,23 @@ pub async fn handle_location_command(
                 .await
             {
                 Ok(DaemonResponse::Ok) => {
-                    println!("✅ Rescan started successfully");
-                    println!("   Use 'spacedrive job monitor' to track progress");
+                    output.success("Rescan started successfully")?;
+                    output.info("Use 'spacedrive job monitor' to track progress")?;
                 }
                 Ok(DaemonResponse::Error(e)) => {
-                    println!("❌ Failed to rescan location: {}", e);
+                    output.error(Message::Error(format!("Failed to rescan location: {}", e)))?;
                 }
                 Err(e) => {
-                    println!("❌ Failed to communicate with daemon: {}", e);
+                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
                 }
                 _ => {
-                    println!("❌ Unexpected response from daemon");
+                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
                 }
             }
         }
 
         LocationCommands::Info { identifier } => {
-            println!("❌ Location info command not yet implemented");
+            output.error(Message::Error("Location info command not yet implemented".to_string()))?;
         }
     }
 
