@@ -199,6 +199,43 @@ impl FileTransferProtocolHandler {
 		}
 	}
 
+	/// Helper function to create a truncated version of FileTransferMessage for logging
+	fn truncate_message_for_logging(message: &FileTransferMessage) -> String {
+		match message {
+			FileTransferMessage::TransferRequest { transfer_id, file_metadata, transfer_mode, chunk_size, total_chunks, destination_path } => {
+				format!("TransferRequest {{ transfer_id: {}, file_metadata: FileMetadata {{ name: \"{}\", size: {}, is_directory: {}, checksum: {:?}, .. }}, transfer_mode: {:?}, chunk_size: {}, total_chunks: {}, destination_path: \"{}\" }}", 
+					transfer_id, file_metadata.name, file_metadata.size, file_metadata.is_directory, 
+					file_metadata.checksum.as_ref().map(|c| &c[..16]).unwrap_or("None"), 
+					transfer_mode, chunk_size, total_chunks, destination_path)
+			},
+			FileTransferMessage::FileChunk { transfer_id, chunk_index, data, nonce, chunk_checksum } => {
+				format!("FileChunk {{ transfer_id: {}, chunk_index: {}, data: [{} bytes], nonce: [{} bytes], chunk_checksum: [{} bytes] }}", 
+					transfer_id, chunk_index, data.len(), nonce.len(), chunk_checksum.len())
+			},
+			FileTransferMessage::TransferComplete { transfer_id, final_checksum, total_bytes } => {
+				format!("TransferComplete {{ transfer_id: {}, final_checksum: \"{}\", total_bytes: {} }}", 
+					transfer_id, 
+					if final_checksum.len() > 16 { format!("{}...", &final_checksum[..16]) } else { final_checksum.clone() }, 
+					total_bytes)
+			},
+			FileTransferMessage::TransferResponse { transfer_id, accepted, reason, supported_resume } => {
+				format!("TransferResponse {{ transfer_id: {}, accepted: {}, reason: {:?}, supported_resume: {} }}", 
+					transfer_id, accepted, reason, supported_resume)
+			},
+			FileTransferMessage::ChunkAck { transfer_id, chunk_index, next_expected } => {
+				format!("ChunkAck {{ transfer_id: {}, chunk_index: {}, next_expected: {} }}", 
+					transfer_id, chunk_index, next_expected)
+			},
+			FileTransferMessage::TransferError { transfer_id, error_type, message, recoverable } => {
+				format!("TransferError {{ transfer_id: {}, error_type: {:?}, message: \"{}\", recoverable: {} }}", 
+					transfer_id, error_type, message, recoverable)
+			},
+			FileTransferMessage::TransferFinalAck { transfer_id } => {
+				format!("TransferFinalAck {{ transfer_id: {} }}", transfer_id)
+			}
+		}
+	}
+
 	/// Set the device registry for session key lookup
 	pub fn set_device_registry(
 		&mut self,
@@ -868,12 +905,17 @@ impl FileTransferProtocolHandler {
 		final_checksum: String,
 		total_bytes: u64,
 	) -> Result<()> {
+		let truncated_checksum = if final_checksum.len() > 16 {
+			format!("{}...", &final_checksum[..16])
+		} else {
+			final_checksum.clone()
+		};
 		self.logger
 			.info(&format!(
 				"Handling transfer completion for transfer {} ({} bytes, checksum: {})",
 				transfer_id,
 				total_bytes,
-				&final_checksum[..16]
+				truncated_checksum
 			))
 			.await;
 
@@ -950,7 +992,7 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 				// Deserialize and handle
 				if let Ok(message) = rmp_serde::from_slice::<FileTransferMessage>(&msg_buf) {
 					self.logger
-						.debug(&format!("Received file transfer message: {:?}", message))
+						.debug(&format!("Received file transfer message: {}", Self::truncate_message_for_logging(&message)))
 						.await;
 
 					// Get device ID from node ID using device registry
