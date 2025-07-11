@@ -298,7 +298,7 @@ impl Core {
 		let pairing_handler = Arc::new(networking::protocols::PairingProtocolHandler::new(
 			networking.identity().clone(),
 			networking.device_registry(),
-			logger,
+			logger.clone(),
 			command_sender,
 		));
 
@@ -312,7 +312,7 @@ impl Core {
 
 		let messaging_handler = networking::protocols::MessagingProtocolHandler::new();
 		let mut file_transfer_handler =
-			networking::protocols::FileTransferProtocolHandler::new_default();
+			networking::protocols::FileTransferProtocolHandler::new_default(logger.clone());
 
 		// Inject device registry into file transfer handler for encryption
 		file_transfer_handler.set_device_registry(networking.device_registry());
