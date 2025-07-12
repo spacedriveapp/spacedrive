@@ -6,7 +6,7 @@ use crate::device::DeviceManager;
 use crate::services::networking::{
 	device::{DeviceInfo, DeviceRegistry},
 	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
-	utils::{NetworkIdentity, logging::NetworkLogger},
+	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
 use iroh::net::endpoint::Connection;
@@ -136,7 +136,11 @@ impl NetworkingService {
 
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
-		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager, data_dir, logger.clone())?));
+		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(
+			device_manager,
+			data_dir,
+			logger.clone(),
+		)?));
 
 		Ok(Self {
 			endpoint: None,
@@ -230,7 +234,7 @@ impl NetworkingService {
 		let loaded_device_ids = device_registry.load_paired_devices().await?;
 		self.logger
 			.info(&format!(
-				"📱 Loaded {} paired devices from persistence",
+				"Loaded {} paired devices from persistence",
 				loaded_device_ids.len()
 			))
 			.await;
@@ -239,7 +243,7 @@ impl NetworkingService {
 		let auto_reconnect_devices = device_registry.get_auto_reconnect_devices().await?;
 		self.logger
 			.info(&format!(
-				"🔄 Found {} devices for auto-reconnection",
+				"Found {} devices for auto-reconnection",
 				auto_reconnect_devices.len()
 			))
 			.await;
@@ -290,7 +294,7 @@ impl NetworkingService {
 	) {
 		logger
 			.info(&format!(
-				"🔄 Starting reconnection attempts for device: {}",
+				"Starting reconnection attempts for device: {}",
 				device_id
 			))
 			.await;
@@ -317,7 +321,10 @@ impl NetworkingService {
 				match endpoint.connect(node_addr, &[]).await {
 					Ok(_conn) => {
 						logger
-							.info(&format!("✅ Successfully connected to device {}", device_id))
+							.info(&format!(
+								"✅ Successfully connected to device {}",
+								device_id
+							))
 							.await;
 
 						// Send connection established command
@@ -326,7 +333,10 @@ impl NetworkingService {
 					}
 					Err(e) => {
 						logger
-							.error(&format!("❌ Failed to connect to device {}: {}", device_id, e))
+							.error(&format!(
+								"❌ Failed to connect to device {}: {}",
+								device_id, e
+							))
 							.await;
 					}
 				}
@@ -377,7 +387,7 @@ impl NetworkingService {
 						if is_disconnected {
 							logger
 								.info(&format!(
-									"🔄 Attempting periodic reconnection to device: {}",
+									"Attempting periodic reconnection to device: {}",
 									device_id
 								))
 								.await;
@@ -544,7 +554,7 @@ impl NetworkingService {
 				let mut connections = self.active_connections.write().await;
 				connections.insert(node_id, conn);
 				self.logger
-					.info(&format!("🔗 Joiner: Tracked outbound connection to {}", node_id))
+					.info(&format!("Tracked outbound connection to {}", node_id))
 					.await;
 			}
 
@@ -616,16 +626,16 @@ impl NetworkingService {
 		let node_addr = self.get_node_addr().await?;
 
 		self.logger
-			.info(&format!("🌐 Initiator: Node address: {:?}", node_addr))
+			.info(&format!("Node address: {:?}", node_addr))
 			.await;
 		self.logger
 			.info(&format!(
-				"🌐 Initiator: Direct addresses: {:?}",
+				"Direct addresses: {:?}",
 				node_addr.direct_addresses().collect::<Vec<_>>()
 			))
 			.await;
 		self.logger
-			.info(&format!("🌐 Initiator: Relay URL: {:?}", node_addr.relay_url()))
+			.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
 			.await;
 
 		// Create pairing advertisement
@@ -659,14 +669,14 @@ impl NetworkingService {
 			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
 			if let Err(e) = std::fs::write(&session_file, &value) {
 				self.logger
-					.warn(&format!("Warning: Could not write pairing session file: {}", e))
+					.warn(&format!(
+						"Warning: Could not write pairing session file: {}",
+						e
+					))
 					.await;
 			} else {
 				self.logger
-					.info(&format!(
-						"📄 Initiator: Wrote pairing session info to {}",
-						session_file
-					))
+					.info(&format!("Wrote pairing session info to {}", session_file))
 					.await;
 			}
 		}
@@ -708,7 +718,7 @@ impl NetworkingService {
 		// With LocalSwarmDiscovery, peers should auto-discover on the local network
 		// Wait a moment for discovery to happen
 		self.logger
-			.info("🔍 Waiting for peer discovery on local network...")
+			.info("Waiting for peer discovery on local network...")
 			.await;
 		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
@@ -726,7 +736,7 @@ impl NetworkingService {
 				{
 					if let Ok(initiator_node_addr) = advertisement.node_addr() {
 						self.logger
-							.info("📄 Joiner: Found Initiator's session info, attempting connection...")
+							.info("Found Initiator's session info, attempting connection...")
 							.await;
 						node_addrs.push(initiator_node_addr);
 					}
@@ -736,30 +746,26 @@ impl NetworkingService {
 
 		// Try to connect to discovered nodes
 		for node_addr in node_addrs {
+			self.logger.info("Attempting to connect to node...").await;
 			self.logger
-				.info("🔗 Joiner: Attempting to connect to node...")
-				.await;
-			self.logger
-				.info(&format!("🔗 Joiner: Node address: {:?}", node_addr))
+				.info(&format!("Node address: {:?}", node_addr))
 				.await;
 			self.logger
 				.info(&format!(
-					"🔗 Joiner: Direct addresses: {:?}",
+					"Direct addresses: {:?}",
 					node_addr.direct_addresses().collect::<Vec<_>>()
 				))
 				.await;
 			self.logger
-				.info(&format!("🔗 Joiner: Relay URL: {:?}", node_addr.relay_url()))
+				.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
 				.await;
 
 			if let Err(e) = self.connect_to_node(node_addr.clone()).await {
 				self.logger
-					.error(&format!("❌ Joiner: Failed to connect to {:?}: {}", node_addr, e))
+					.error(&format!("Failed to connect to {:?}: {}", node_addr, e))
 					.await;
 			} else {
-				self.logger
-					.info("✅ Joiner: Successfully connected to peer!")
-					.await;
+				self.logger.info("Successfully connected to peer!").await;
 			}
 		}
 
@@ -768,15 +774,19 @@ impl NetworkingService {
 
 		// Send pairing request to any connected nodes
 		let connected_nodes = self.get_raw_connected_nodes().await;
-		self.logger.debug(&format!(
-			"🔍 Joiner: Found {} raw connected nodes",
-			connected_nodes.len()
-		)).await;
-		if !connected_nodes.is_empty() {
-			self.logger.info(&format!(
-				"📡 Joiner: Found {} connected nodes, sending pairing requests...",
+		self.logger
+			.debug(&format!(
+				"Found {} raw connected nodes",
 				connected_nodes.len()
-			)).await;
+			))
+			.await;
+		if !connected_nodes.is_empty() {
+			self.logger
+				.info(&format!(
+					"Found {} connected nodes, sending pairing requests...",
+					connected_nodes.len()
+				))
+				.await;
 			for node_id in connected_nodes {
 				// Get local device info
 				let local_device_info = {
@@ -811,16 +821,14 @@ impl NetworkingService {
 							handler.as_any().downcast_ref::<PairingProtocolHandler>()
 						{
 							self.logger
-								.info(&format!("📤 Joiner: Sending pairing request to node {}", node_id))
+								.info(&format!("Sending pairing request to node {}", node_id))
 								.await;
 							match pairing_handler
 								.send_pairing_message_to_node(endpoint, node_id, &pairing_request)
 								.await
 							{
 								Ok(Some(response)) => {
-									self.logger
-										.info("📥 Joiner: Received response from Initiator!")
-										.await;
+									self.logger.info("Received response from Initiator!").await;
 									// Process the response via the trait's handle_response method
 									if let Ok(msg_bytes) = serde_json::to_vec(&response) {
 										let device_id = self.device_id(); // Joiner's own device ID
@@ -833,12 +841,12 @@ impl NetworkingService {
 								}
 								Ok(None) => {
 									self.logger
-										.warn("⚠️ Joiner: No response received from Initiator")
+										.warn("No response received from Initiator")
 										.await;
 								}
 								Err(e) => {
 									self.logger
-										.error(&format!("❌ Joiner: Failed to send pairing request: {}", e))
+										.error(&format!("Failed to send pairing request: {}", e))
 										.await;
 								}
 							}
@@ -959,7 +967,7 @@ impl NetworkingService {
 								{
 									Ok(Some(response)) => {
 										self.logger
-											.info("📥 Joiner: Received challenge response from Initiator!")
+											.info("Received challenge response from Initiator!")
 											.await;
 										// Process the response via the trait's handle_response method
 										if let Ok(msg_bytes) = serde_json::to_vec(&response) {
@@ -973,12 +981,12 @@ impl NetworkingService {
 									}
 									Ok(None) => {
 										self.logger
-											.warn("⚠️ Joiner: No response received in ensure_pairing_requests_sent")
+											.warn("No response received in ensure_pairing_requests_sent")
 											.await;
 									}
 									Err(e) => {
 										self.logger
-											.error(&format!("❌ Joiner: Failed to send pairing request in ensure_pairing_requests_sent: {}", e))
+											.error(&format!("Failed to send pairing request in ensure_pairing_requests_sent: {}", e))
 											.await;
 									}
 								}
