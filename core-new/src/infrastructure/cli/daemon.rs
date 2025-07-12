@@ -3,7 +3,10 @@
 //! The daemon runs in the background and handles all core operations.
 //! The CLI communicates with it via Unix domain socket (on Unix) or named pipe (on Windows).
 
-use crate::{infrastructure::{database::entities, actions::builder::ActionBuilder}, Core};
+use crate::{
+	infrastructure::{actions::builder::ActionBuilder, database::entities},
+	Core,
+};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -41,13 +44,13 @@ impl DaemonConfig {
 			(
 				format!("spacedrive-{}.sock", name),
 				format!("spacedrive-{}.pid", name),
-				format!("spacedrive-{}.log", name)
+				format!("spacedrive-{}.log", name),
 			)
 		} else {
 			(
 				"spacedrive.sock".to_string(),
 				"spacedrive.pid".to_string(),
-				"spacedrive.log".to_string()
+				"spacedrive.log".to_string(),
 			)
 		};
 
@@ -74,83 +77,113 @@ pub enum DaemonCommand {
 	GetStatus,
 
 	// Library commands
-	CreateLibrary { name: String, path: Option<PathBuf> },
+	CreateLibrary {
+		name: String,
+		path: Option<PathBuf>,
+	},
 	ListLibraries,
-	SwitchLibrary { id: Uuid },
+	SwitchLibrary {
+		id: Uuid,
+	},
 	GetCurrentLibrary,
 
 	// Location commands
-	AddLocation { path: PathBuf, name: Option<String> },
+	AddLocation {
+		path: PathBuf,
+		name: Option<String>,
+	},
 	ListLocations,
-	RescanLocation { id: Uuid },
-	RemoveLocation { id: Uuid },
+	RescanLocation {
+		id: Uuid,
+	},
+	RemoveLocation {
+		id: Uuid,
+	},
 
 	// Job commands
-	ListJobs { status: Option<String> },
-	GetJobInfo { id: Uuid },
-	PauseJob { id: Uuid },
-	ResumeJob { id: Uuid },
-	CancelJob { id: Uuid },
+	ListJobs {
+		status: Option<String>,
+	},
+	GetJobInfo {
+		id: Uuid,
+	},
+	PauseJob {
+		id: Uuid,
+	},
+	ResumeJob {
+		id: Uuid,
+	},
+	CancelJob {
+		id: Uuid,
+	},
 
 	// File operations
-	Copy { 
-		sources: Vec<PathBuf>, 
-		destination: PathBuf, 
-		overwrite: bool, 
-		verify: bool, 
-		preserve_timestamps: bool, 
-		move_files: bool 
+	Copy {
+		sources: Vec<PathBuf>,
+		destination: PathBuf,
+		overwrite: bool,
+		verify: bool,
+		preserve_timestamps: bool,
+		move_files: bool,
 	},
-	
+
 	// Indexing operations
-	QuickScan { 
-		path: PathBuf, 
-		scope: String, 
-		ephemeral: bool 
+	QuickScan {
+		path: PathBuf,
+		scope: String,
+		ephemeral: bool,
 	},
-	Browse { 
-		path: PathBuf, 
-		scope: String, 
-		content: bool 
+	Browse {
+		path: PathBuf,
+		scope: String,
+		content: bool,
 	},
-	IndexPath { 
-		path: PathBuf, 
-		mode: String, 
-		scope: String, 
-		depth: Option<u32>, 
-		create_location: bool 
+	IndexPath {
+		path: PathBuf,
+		mode: String,
+		scope: String,
+		depth: Option<u32>,
+		create_location: bool,
 	},
-	IndexAll { 
-		force: bool 
+	IndexAll {
+		force: bool,
 	},
-	IndexLocation { 
-		location: String, 
-		force: bool 
+	IndexLocation {
+		location: String,
+		force: bool,
 	},
 
 	// Subscribe to events
 	SubscribeEvents,
 
-	// Networking commands  
+	// Networking commands
 	InitNetworking,
 	StartNetworking,
 	StopNetworking,
 	ListConnectedDevices,
-	RevokeDevice { device_id: Uuid },
-	SendSpacedrop { 
-		device_id: Uuid, 
-		file_path: String, 
-		sender_name: String, 
-		message: Option<String> 
+	RevokeDevice {
+		device_id: Uuid,
+	},
+	SendSpacedrop {
+		device_id: Uuid,
+		file_path: String,
+		sender_name: String,
+		message: Option<String>,
 	},
 
 	// Pairing commands
 	StartPairingAsInitiator,
-	StartPairingAsJoiner { code: String },
+	StartPairingAsJoiner {
+		code: String,
+	},
 	GetPairingStatus,
 	ListPendingPairings,
-	AcceptPairing { request_id: Uuid },
-	RejectPairing { request_id: Uuid },
+	AcceptPairing {
+		request_id: Uuid,
+	},
+	RejectPairing {
+		request_id: Uuid,
+	},
 }
 
 /// Responses from the daemon
@@ -179,15 +212,23 @@ pub enum DaemonResponse {
 		sources_count: usize,
 	},
 	Event(String), // Serialized event
-	
+
 	// Networking responses
 	ConnectedDevices(Vec<ConnectedDeviceInfo>),
-	SpacedropStarted { transfer_id: Uuid },
+	SpacedropStarted {
+		transfer_id: Uuid,
+	},
 
 	// Pairing responses
-	PairingCodeGenerated { code: String, expires_in_seconds: u32 },
+	PairingCodeGenerated {
+		code: String,
+		expires_in_seconds: u32,
+	},
 	PairingInProgress,
-	PairingStatus { status: String, remote_device: Option<ConnectedDeviceInfo> },
+	PairingStatus {
+		status: String,
+		remote_device: Option<ConnectedDeviceInfo>,
+	},
 	PendingPairings(Vec<PairingRequestInfo>),
 }
 
@@ -278,7 +319,7 @@ impl Daemon {
 
 		// Load CLI state
 		let mut cli_state = CliState::load(&data_dir).unwrap_or_default();
-		
+
 		// Auto-select first library if no current library is set
 		let libraries = core.libraries.list().await;
 		if cli_state.current_library_id.is_none() && !libraries.is_empty() {
@@ -289,7 +330,7 @@ impl Daemon {
 				warn!("Failed to save CLI state: {}", e);
 			}
 		}
-		
+
 		let cli_state = Arc::new(RwLock::new(cli_state));
 
 		// Ensure device is registered for all libraries
@@ -352,7 +393,7 @@ impl Daemon {
 
 	/// Create a new daemon instance with networking enabled
 	pub async fn new_with_networking(
-		data_dir: PathBuf
+		data_dir: PathBuf,
 	) -> Result<Self, Box<dyn std::error::Error>> {
 		Self::new_with_networking_and_instance(data_dir, None).await
 	}
@@ -369,16 +410,16 @@ impl Daemon {
 		}
 
 		let mut core = Core::new_with_config(data_dir.clone()).await?;
-		
+
 		// Initialize networking
 		core.init_networking().await?;
 		core.start_networking().await?;
-		
+
 		let core = Arc::new(core);
 
 		// Load CLI state
 		let mut cli_state = CliState::load(&data_dir).unwrap_or_default();
-		
+
 		// Auto-select first library if no current library is set
 		let libraries = core.libraries.list().await;
 		if cli_state.current_library_id.is_none() && !libraries.is_empty() {
@@ -389,7 +430,7 @@ impl Daemon {
 				warn!("Failed to save CLI state: {}", e);
 			}
 		}
-		
+
 		let cli_state = Arc::new(RwLock::new(cli_state));
 
 		// Ensure device is registered for all libraries
@@ -451,21 +492,23 @@ impl Daemon {
 	}
 
 	/// Set up comprehensive file logging for daemon and core (static version)
-	fn setup_file_logging_static(log_file: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-		use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+	fn setup_file_logging_static(
+		log_file: &std::path::Path,
+	) -> Result<(), Box<dyn std::error::Error>> {
 		use std::fs::OpenOptions;
-		
+		use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
 		// Create log file directory if it doesn't exist
 		if let Some(parent) = log_file.parent() {
 			std::fs::create_dir_all(parent)?;
 		}
-		
+
 		// Open log file for appending
 		let file = OpenOptions::new()
 			.create(true)
 			.append(true)
 			.open(log_file)?;
-		
+
 		// Set up file logging with both console and file output
 		let file_layer = fmt::layer()
 			.with_writer(file)
@@ -473,23 +516,26 @@ impl Daemon {
 			.with_target(true)
 			.with_thread_ids(true)
 			.with_line_number(true);
-			
+
 		let console_layer = fmt::layer()
 			.with_writer(std::io::stderr) // Console output to stderr
 			.with_target(false); // Less verbose for console
-		
+
 		// Use info level for daemon by default, can be overridden with RUST_LOG
 		let filter = EnvFilter::try_from_default_env()
 			.unwrap_or_else(|_| EnvFilter::new("info,sd_core_new=debug"));
-		
+
 		// Set up comprehensive logging for the entire daemon process
 		tracing_subscriber::registry()
 			.with(filter)
 			.with(file_layer)
 			.with(console_layer)
 			.init();
-		
-		tracing::info!("Daemon logging initialized, writing to: {}", log_file.display());
+
+		tracing::info!(
+			"Daemon logging initialized, writing to: {}",
+			log_file.display()
+		);
 		tracing::info!("All Core application logs will be captured");
 		Ok(())
 	}
@@ -497,7 +543,7 @@ impl Daemon {
 	/// Start the daemon server
 	pub async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
 		// Logging is already set up in the constructor
-		
+
 		// Remove old socket if it exists
 		if self.config.socket_path.exists() {
 			std::fs::remove_file(&self.config.socket_path)?;
@@ -578,12 +624,18 @@ impl Daemon {
 	}
 
 	/// Stop a running daemon instance
-	pub async fn stop_instance(instance_name: Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+	pub async fn stop_instance(
+		instance_name: Option<String>,
+	) -> Result<(), Box<dyn std::error::Error>> {
 		let config = DaemonConfig::new(instance_name.clone());
 
 		// First check if daemon is actually running
 		if !Self::is_running_instance(instance_name) {
-			return Err(format!("Daemon instance '{}' is not running", config.instance_display_name()).into());
+			return Err(format!(
+				"Daemon instance '{}' is not running",
+				config.instance_display_name()
+			)
+			.into());
 		}
 
 		// Try to connect and send shutdown command
@@ -639,10 +691,13 @@ impl Daemon {
 						None // Default instance
 					} else {
 						// Extract instance name from spacedrive-{name}.sock
-						Some(file_str.strip_prefix("spacedrive-")
-								   .and_then(|s| s.strip_suffix(".sock"))
-								   .unwrap_or("unknown")
-								   .to_string())
+						Some(
+							file_str
+								.strip_prefix("spacedrive-")
+								.and_then(|s| s.strip_suffix(".sock"))
+								.unwrap_or("unknown")
+								.to_string(),
+						)
 					};
 
 					let is_running = Self::is_running_instance(instance_name.clone());
@@ -672,7 +727,7 @@ impl Daemon {
 /// Daemon instance information
 #[derive(Debug)]
 pub struct DaemonInstance {
-	pub name: Option<String>,  // None for default instance
+	pub name: Option<String>, // None for default instance
 	pub socket_path: PathBuf,
 	pub is_running: bool,
 }
@@ -707,7 +762,9 @@ async fn handle_client(
 		match serde_json::from_str::<DaemonCommand>(trimmed) {
 			Ok(cmd) => {
 				let is_shutdown = matches!(cmd, DaemonCommand::Shutdown);
-				let response = handle_command(cmd, &core, start_time, cli_state.clone(), data_dir.clone()).await;
+				let response =
+					handle_command(cmd, &core, start_time, cli_state.clone(), data_dir.clone())
+						.await;
 				let json = serde_json::to_string(&response)?;
 				writer.write_all(format!("{}\n", json).as_bytes()).await?;
 
@@ -769,11 +826,12 @@ async fn handle_command(
 		}
 
 		DaemonCommand::GetStatus => {
-			let current_library = if let Some(library) = get_current_library(core, cli_state.clone()).await {
-				Some(library.id())
-			} else {
-				None
-			};
+			let current_library =
+				if let Some(library) = get_current_library(core, cli_state.clone()).await {
+					Some(library.id())
+				} else {
+					None
+				};
 
 			DaemonResponse::Status(DaemonStatus {
 				version: env!("CARGO_PKG_VERSION").to_string(),
@@ -800,7 +858,11 @@ async fn handle_command(
 		}
 
 		DaemonCommand::CreateLibrary { name, path } => {
-			match core.libraries.create_library(&name, path, core.context.clone()).await {
+			match core
+				.libraries
+				.create_library(&name, path, core.context.clone())
+				.await
+			{
 				Ok(library) => {
 					// Register device in the new library
 					let db = library.db();
@@ -1060,12 +1122,12 @@ async fn handle_command(
 				// Update CLI state
 				let mut state = cli_state.write().await;
 				state.set_current_library(library.id(), library.path().to_path_buf());
-				
+
 				// Save state to disk
 				if let Err(e) = state.save(&data_dir) {
 					warn!("Failed to save CLI state: {}", e);
 				}
-				
+
 				DaemonResponse::Ok
 			} else {
 				DaemonResponse::Error("Library not found".to_string())
@@ -1087,11 +1149,18 @@ async fn handle_command(
 			DaemonResponse::Error("Job cancel not yet implemented".to_string())
 		}
 
-		DaemonCommand::Copy { sources, destination, overwrite, verify, preserve_timestamps, move_files } => {
+		DaemonCommand::Copy {
+			sources,
+			destination,
+			overwrite,
+			verify,
+			preserve_timestamps,
+			move_files,
+		} => {
 			// Get current library from CLI state
 			if let Some(library) = get_current_library(core, cli_state.clone()).await {
 				let library_id = library.id();
-				
+
 				// Create the copy input
 				let input = crate::operations::files::copy::input::FileCopyInput {
 					sources: sources.clone(),
@@ -1105,7 +1174,10 @@ async fn handle_command(
 
 				// Validate input
 				if let Err(errors) = input.validate() {
-					return DaemonResponse::Error(format!("Invalid copy operation: {}", errors.join("; ")));
+					return DaemonResponse::Error(format!(
+						"Invalid copy operation: {}",
+						errors.join("; ")
+					));
 				}
 
 				// Get the action manager
@@ -1120,16 +1192,16 @@ async fn handle_command(
 						};
 
 						// Create the full Action enum
-						let full_action = crate::infrastructure::actions::Action::FileCopy {
-							library_id,
-							action,
-						};
+						let full_action =
+							crate::infrastructure::actions::Action::FileCopy { library_id, action };
 
 						// Dispatch the action
 						match action_manager.dispatch(full_action).await {
 							Ok(output) => {
 								// Extract job ID if available
-								if let Some(job_id) = output.data.get("job_id").and_then(|v| v.as_str()) {
+								if let Some(job_id) =
+									output.data.get("job_id").and_then(|v| v.as_str())
+								{
 									if let Ok(uuid) = job_id.parse::<Uuid>() {
 										DaemonResponse::CopyStarted {
 											job_id: uuid,
@@ -1142,28 +1214,47 @@ async fn handle_command(
 									DaemonResponse::Ok
 								}
 							}
-							Err(e) => DaemonResponse::Error(format!("Failed to start copy operation: {}", e)),
+							Err(e) => DaemonResponse::Error(format!(
+								"Failed to start copy operation: {}",
+								e
+							)),
 						}
 					}
 					None => DaemonResponse::Error("Action manager not available".to_string()),
 				}
 			} else {
-				DaemonResponse::Error("No library available. Create or open a library first.".to_string())
+				DaemonResponse::Error(
+					"No library available. Create or open a library first.".to_string(),
+				)
 			}
 		}
 
 		// Indexing operations
-		DaemonCommand::QuickScan { path, scope, ephemeral } => {
+		DaemonCommand::QuickScan {
+			path,
+			scope,
+			ephemeral,
+		} => {
 			// TODO: Implement quick scan
 			DaemonResponse::Error("Quick scan not yet implemented".to_string())
 		}
 
-		DaemonCommand::Browse { path, scope, content } => {
+		DaemonCommand::Browse {
+			path,
+			scope,
+			content,
+		} => {
 			// TODO: Implement browse
 			DaemonResponse::Error("Browse not yet implemented".to_string())
 		}
 
-		DaemonCommand::IndexPath { path, mode, scope, depth, create_location } => {
+		DaemonCommand::IndexPath {
+			path,
+			mode,
+			scope,
+			depth,
+			create_location,
+		} => {
 			// TODO: Implement index path
 			DaemonResponse::Error("Index path not yet implemented".to_string())
 		}
@@ -1184,6 +1275,7 @@ async fn handle_command(
 		}
 
 		// Networking commands
+		// TODO: Pretty sure this command is pointless but we could use it to run the networking service if the core wasn't started with networking
 		DaemonCommand::InitNetworking => {
 			// Check if networking is already initialized
 			if core.networking().is_some() {
@@ -1196,12 +1288,10 @@ async fn handle_command(
 			}
 		}
 
-		DaemonCommand::StartNetworking => {
-			match core.start_networking().await {
-				Ok(_) => DaemonResponse::Ok,
-				Err(e) => DaemonResponse::Error(e.to_string()),
-			}
-		}
+		DaemonCommand::StartNetworking => match core.start_networking().await {
+			Ok(_) => DaemonResponse::Ok,
+			Err(e) => DaemonResponse::Error(e.to_string()),
+		},
 
 		DaemonCommand::StopNetworking => {
 			// TODO: Implement networking stop when available
@@ -1215,14 +1305,19 @@ async fn handle_command(
 						.into_iter()
 						.map(|device| {
 							// Get connection status from networking service
-							let (peer_id, connection_active, connected_at, bytes_sent, bytes_received) = 
-								if let Some(networking) = core.networking() {
-									// Try to get connection details - this is a simplified version
-									// In a real implementation, we'd access the connection registry
-									("unknown".to_string(), true, Some("now".to_string()), 0, 0)
-								} else {
-									("unavailable".to_string(), false, None, 0, 0)
-								};
+							let (
+								peer_id,
+								connection_active,
+								connected_at,
+								bytes_sent,
+								bytes_received,
+							) = if let Some(networking) = core.networking() {
+								// Try to get connection details - this is a simplified version
+								// In a real implementation, we'd access the connection registry
+								("unknown".to_string(), true, Some("now".to_string()), 0, 0)
+							} else {
+								("unavailable".to_string(), false, None, 0, 0)
+							};
 
 							ConnectedDeviceInfo {
 								device_id: device.device_id,
@@ -1233,7 +1328,10 @@ async fn handle_command(
 								peer_id,
 								status: "connected".to_string(),
 								connection_active,
-								last_seen: device.last_seen.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
+								last_seen: device
+									.last_seen
+									.format("%Y-%m-%d %H:%M:%S UTC")
+									.to_string(),
 								connected_at,
 								bytes_sent,
 								bytes_received,
@@ -1264,16 +1362,16 @@ async fn handle_command(
 			}
 		}
 
-		DaemonCommand::SendSpacedrop { 
-			device_id, 
-			file_path, 
-			sender_name, 
-			message 
+		DaemonCommand::SendSpacedrop {
+			device_id,
+			file_path,
+			sender_name,
+			message,
 		} => {
 			if let Some(networking) = core.networking() {
 				let service = &*networking;
-				
-				// Create spacedrop request message  
+
+				// Create spacedrop request message
 				let transfer_id = uuid::Uuid::new_v4();
 				let spacedrop_request = serde_json::json!({
 					"transfer_id": transfer_id,
@@ -1283,11 +1381,14 @@ async fn handle_command(
 					"file_size": std::fs::metadata(&file_path).map(|m| m.len()).unwrap_or(0)
 				});
 
-				match service.send_message(
-					device_id,
-					"spacedrop",
-					serde_json::to_vec(&spacedrop_request).unwrap_or_default(),
-				).await {
+				match service
+					.send_message(
+						device_id,
+						"spacedrop",
+						serde_json::to_vec(&spacedrop_request).unwrap_or_default(),
+					)
+					.await
+				{
 					Ok(_) => DaemonResponse::SpacedropStarted { transfer_id },
 					Err(e) => DaemonResponse::Error(e.to_string()),
 				}
@@ -1301,9 +1402,9 @@ async fn handle_command(
 			if let Some(networking) = core.networking() {
 				let service = &*networking;
 				match service.start_pairing_as_initiator().await {
-					Ok((code, expires_in_seconds)) => DaemonResponse::PairingCodeGenerated { 
-						code, 
-						expires_in_seconds 
+					Ok((code, expires_in_seconds)) => DaemonResponse::PairingCodeGenerated {
+						code,
+						expires_in_seconds,
 					},
 					Err(e) => DaemonResponse::Error(e.to_string()),
 				}
@@ -1328,39 +1429,54 @@ async fn handle_command(
 			if let Some(networking) = core.networking() {
 				let service = &*networking;
 				match service.get_pairing_status().await {
-				Ok(sessions) => {
-					// Convert sessions to status format for compatibility
-					if let Some(session) = sessions.first() {
-						let status = match &session.state {
-							crate::networking::PairingState::Idle => "idle",
-							crate::networking::PairingState::GeneratingCode => "generating_code",
-							crate::networking::PairingState::Broadcasting => "broadcasting",
-							crate::networking::PairingState::Scanning => "scanning",
-							crate::networking::PairingState::WaitingForConnection => "waiting_for_connection",
-							crate::networking::PairingState::Connecting => "connecting",
-							crate::networking::PairingState::Authenticating => "authenticating",
-							crate::networking::PairingState::ExchangingKeys => "exchanging_keys",
-							crate::networking::PairingState::AwaitingConfirmation => "awaiting_confirmation",
-							crate::networking::PairingState::EstablishingSession => "establishing_session",
-							crate::networking::PairingState::ChallengeReceived { .. } => "authenticating",
-							crate::networking::PairingState::ResponseSent => "authenticating",
-							crate::networking::PairingState::Completed => "completed",
-							crate::networking::PairingState::Failed { .. } => "failed",
-							crate::networking::PairingState::ResponsePending { .. } => "responding",
-						}.to_string();
-						
-						DaemonResponse::PairingStatus { 
-							status, 
-							remote_device: None // No device info available yet in new system
-						}
-					} else {
-						DaemonResponse::PairingStatus { 
-							status: "no_active_pairing".to_string(), 
-							remote_device: None 
+					Ok(sessions) => {
+						// Convert sessions to status format for compatibility
+						if let Some(session) = sessions.first() {
+							let status = match &session.state {
+								crate::networking::PairingState::Idle => "idle",
+								crate::networking::PairingState::GeneratingCode => {
+									"generating_code"
+								}
+								crate::networking::PairingState::Broadcasting => "broadcasting",
+								crate::networking::PairingState::Scanning => "scanning",
+								crate::networking::PairingState::WaitingForConnection => {
+									"waiting_for_connection"
+								}
+								crate::networking::PairingState::Connecting => "connecting",
+								crate::networking::PairingState::Authenticating => "authenticating",
+								crate::networking::PairingState::ExchangingKeys => {
+									"exchanging_keys"
+								}
+								crate::networking::PairingState::AwaitingConfirmation => {
+									"awaiting_confirmation"
+								}
+								crate::networking::PairingState::EstablishingSession => {
+									"establishing_session"
+								}
+								crate::networking::PairingState::ChallengeReceived { .. } => {
+									"authenticating"
+								}
+								crate::networking::PairingState::ResponseSent => "authenticating",
+								crate::networking::PairingState::Completed => "completed",
+								crate::networking::PairingState::Failed { .. } => "failed",
+								crate::networking::PairingState::ResponsePending { .. } => {
+									"responding"
+								}
+							}
+							.to_string();
+
+							DaemonResponse::PairingStatus {
+								status,
+								remote_device: None, // No device info available yet in new system
+							}
+						} else {
+							DaemonResponse::PairingStatus {
+								status: "no_active_pairing".to_string(),
+								remote_device: None,
+							}
 						}
 					}
-				}
-				Err(e) => DaemonResponse::Error(e.to_string()),
+					Err(e) => DaemonResponse::Error(e.to_string()),
 				}
 			} else {
 				DaemonResponse::Error("Networking not initialized".to_string())
@@ -1397,12 +1513,16 @@ async fn handle_command(
 			}
 		}
 
-		DaemonCommand::AcceptPairing { request_id: _request_id } => {
+		DaemonCommand::AcceptPairing {
+			request_id: _request_id,
+		} => {
 			// Pairing acceptance is handled automatically in the new system
 			DaemonResponse::Ok
 		}
 
-		DaemonCommand::RejectPairing { request_id: _request_id } => {
+		DaemonCommand::RejectPairing {
+			request_id: _request_id,
+		} => {
 			// For now, just acknowledge - in full implementation we'd cancel the session
 			DaemonResponse::Ok
 		}
