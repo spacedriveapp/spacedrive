@@ -153,33 +153,37 @@ impl CommandHandler for LocationHandler {
 			DaemonCommand::RescanLocation { id } => {
 				// Get current library from CLI state
 				if let Some(library) = state_service.get_current_library(core).await {
-					// For rescan, we need to get the location path first
-					use crate::infrastructure::database::entities;
-					use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+					let library_id = library.id();
 
-					match entities::location::Entity::find()
-						.filter(entities::location::Column::Uuid.eq(id))
-						.one(library.db().conn())
-						.await
-					{
-						Ok(Some(location)) => {
-							// Create an indexing job for the location
-							let job = crate::operations::indexing::job::IndexerJob::from_location(
-								id,
-								crate::shared::types::SdPath::local(PathBuf::from(location.path)),
-								crate::operations::indexing::IndexMode::Content,
-							);
+					// Get the action manager
+					match core.context.get_action_manager().await {
+						Some(action_manager) => {
+							// Create LocationRescanAction
+							let action = crate::infrastructure::actions::Action::LocationRescan {
+								library_id,
+								action: crate::operations::locations::rescan::action::LocationRescanAction {
+									location_id: id,
+									full_rescan: false,
+								},
+							};
 
-							// Dispatch the job
-							match library.jobs().dispatch(job).await {
-								Ok(_) => DaemonResponse::Ok,
-								Err(e) => {
-									DaemonResponse::Error(format!("Failed to start rescan: {}", e))
+							// Dispatch the action
+							match action_manager.dispatch(action).await {
+								Ok(output) => {
+									// Extract job ID if available
+									if let Some(job_id) = output.data.get("job_id").and_then(|v| v.as_str()) {
+										DaemonResponse::Ok
+									} else {
+										DaemonResponse::Ok
+									}
 								}
+								Err(e) => DaemonResponse::Error(format!(
+									"Failed to start rescan: {}",
+									e
+								)),
 							}
 						}
-						Ok(None) => DaemonResponse::Error("Location not found".to_string()),
-						Err(e) => DaemonResponse::Error(format!("Database error: {}", e)),
+						None => DaemonResponse::Error("Action manager not available".to_string()),
 					}
 				} else {
 					DaemonResponse::Error("No library selected".to_string())

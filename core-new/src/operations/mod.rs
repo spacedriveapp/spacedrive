@@ -8,10 +8,11 @@
 //! - Metadata operations (hierarchical tagging)
 
 pub mod content;
+pub mod devices;
 pub mod files;
+pub mod indexing;
 pub mod libraries;
 pub mod locations;
-pub mod indexing;
 pub mod media;
 pub mod metadata;
 

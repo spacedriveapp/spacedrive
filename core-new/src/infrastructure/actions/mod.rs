@@ -28,6 +28,14 @@ pub enum Action {
 	LibraryDelete(crate::operations::libraries::delete::action::LibraryDeleteAction),
 	
 	// Library-scoped actions (require library_id)
+	LibraryRename { 
+		library_id: Uuid, 
+		action: crate::operations::libraries::rename::action::LibraryRenameAction 
+	},
+	LibraryExport { 
+		library_id: Uuid, 
+		action: crate::operations::libraries::export::action::LibraryExportAction 
+	},
 	FileCopy { 
 		library_id: Uuid, 
 		action: crate::operations::files::copy::action::FileCopyAction 
@@ -57,6 +65,10 @@ pub enum Action {
 		library_id: Uuid, 
 		action: crate::operations::locations::index::action::LocationIndexAction 
 	},
+	LocationRescan { 
+		library_id: Uuid, 
+		action: crate::operations::locations::rescan::action::LocationRescanAction 
+	},
 	
 	Index { 
 		library_id: Uuid, 
@@ -77,6 +89,11 @@ pub enum Action {
 		library_id: Uuid, 
 		action: crate::operations::metadata::action::MetadataAction 
 	},
+	
+	DeviceRevoke { 
+		library_id: Uuid, 
+		action: crate::operations::devices::revoke::action::DeviceRevokeAction 
+	},
 }
 
 impl Action {
@@ -84,6 +101,8 @@ impl Action {
 	pub fn library_id(&self) -> Option<Uuid> {
 		match self {
 			Action::LibraryCreate(_) | Action::LibraryDelete(_) => None,
+			Action::LibraryRename { library_id, .. } => Some(*library_id),
+			Action::LibraryExport { library_id, .. } => Some(*library_id),
 			Action::FileCopy { library_id, .. } => Some(*library_id),
 			Action::FileDelete { library_id, .. } => Some(*library_id),
 			Action::FileValidate { library_id, .. } => Some(*library_id),
@@ -91,10 +110,12 @@ impl Action {
 			Action::LocationAdd { library_id, .. } => Some(*library_id),
 			Action::LocationRemove { library_id, .. } => Some(*library_id),
 			Action::LocationIndex { library_id, .. } => Some(*library_id),
+			Action::LocationRescan { library_id, .. } => Some(*library_id),
 			Action::Index { library_id, .. } => Some(*library_id),
 			Action::GenerateThumbnails { library_id, .. } => Some(*library_id),
 			Action::ContentAnalysis { library_id, .. } => Some(*library_id),
 			Action::MetadataOperation { library_id, .. } => Some(*library_id),
+			Action::DeviceRevoke { library_id, .. } => Some(*library_id),
 		}
 	}
 
@@ -103,6 +124,8 @@ impl Action {
 		match self {
 			Action::LibraryCreate(_) => "library.create",
 			Action::LibraryDelete(_) => "library.delete",
+			Action::LibraryRename { .. } => "library.rename",
+			Action::LibraryExport { .. } => "library.export",
 			Action::FileCopy { .. } => "file.copy",
 			Action::FileDelete { .. } => "file.delete",
 			Action::FileValidate { .. } => "file.validate",
@@ -110,10 +133,12 @@ impl Action {
 			Action::LocationAdd { .. } => "location.add",
 			Action::LocationRemove { .. } => "location.remove",
 			Action::LocationIndex { .. } => "location.index",
+			Action::LocationRescan { .. } => "location.rescan",
 			Action::Index { .. } => "indexing.index",
 			Action::GenerateThumbnails { .. } => "media.thumbnail",
 			Action::ContentAnalysis { .. } => "content.analyze",
 			Action::MetadataOperation { .. } => "metadata.extract",
+			Action::DeviceRevoke { .. } => "device.revoke",
 		}
 	}
 
@@ -125,6 +150,12 @@ impl Action {
 			}
 			Action::LibraryDelete(_action) => {
 				"Delete library".to_string()
+			}
+			Action::LibraryRename { action, .. } => {
+				format!("Rename library to '{}'", action.new_name)
+			}
+			Action::LibraryExport { action, .. } => {
+				format!("Export library to {}", action.export_path.display())
 			}
 			Action::FileCopy { action, .. } => {
 				format!(
@@ -152,6 +183,10 @@ impl Action {
 			Action::LocationIndex { action, .. } => {
 				format!("Index location {} ({:?})", action.location_id, action.mode)
 			}
+			Action::LocationRescan { action, .. } => {
+				let scan_type = if action.full_rescan { "Full" } else { "Quick" };
+				format!("{} rescan location {}", scan_type, action.location_id)
+			}
 			Action::Index { action, .. } => {
 				format!("Index {} path(s)", action.paths.len())
 			}
@@ -164,6 +199,9 @@ impl Action {
 			Action::MetadataOperation { action, .. } => {
 				format!("Extract metadata from {} file(s)", action.paths.len())
 			}
+			Action::DeviceRevoke { action, .. } => {
+				format!("Revoke device {}", action.device_id)
+			}
 		}
 	}
 
@@ -175,6 +213,16 @@ impl Action {
 				"path": action.path.as_ref().map(|p| p.display().to_string())
 			}),
 			Action::LibraryDelete(_action) => serde_json::json!({}),
+			Action::LibraryRename { action, .. } => serde_json::json!({
+				"new_name": action.new_name,
+				"library_id": action.library_id
+			}),
+			Action::LibraryExport { action, .. } => serde_json::json!({
+				"library_id": action.library_id,
+				"export_path": action.export_path.display().to_string(),
+				"include_thumbnails": action.include_thumbnails,
+				"include_previews": action.include_previews
+			}),
 			Action::FileCopy { action, .. } => serde_json::json!({
 				"sources": action.sources.iter().map(|s| s.display().to_string()).collect::<Vec<_>>(),
 				"destination": action.destination.display().to_string()
@@ -200,6 +248,10 @@ impl Action {
 				"location_id": action.location_id,
 				"mode": action.mode
 			}),
+			Action::LocationRescan { action, .. } => serde_json::json!({
+				"location_id": action.location_id,
+				"full_rescan": action.full_rescan
+			}),
 			Action::Index { action, .. } => serde_json::json!({
 				"paths": action.paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
 			}),
@@ -211,6 +263,10 @@ impl Action {
 			}),
 			Action::MetadataOperation { action, .. } => serde_json::json!({
 				"paths": action.paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>()
+			}),
+			Action::DeviceRevoke { action, .. } => serde_json::json!({
+				"device_id": action.device_id,
+				"reason": action.reason
 			}),
 		}
 	}

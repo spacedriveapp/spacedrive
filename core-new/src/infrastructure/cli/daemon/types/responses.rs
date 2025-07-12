@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use super::common::{ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo};
+use super::common::{BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo};
 
 /// Responses from the daemon
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,7 +24,16 @@ pub enum DaemonResponse {
 		location_id: Uuid,
 		job_id: String,
 	},
+	LocationIndexed {
+		location_id: Uuid,
+	},
 	Locations(Vec<LocationInfo>),
+	BrowseResults {
+		path: PathBuf,
+		entries: Vec<BrowseEntry>,
+		total_files: usize,
+		total_dirs: usize,
+	},
 	Jobs(Vec<JobInfo>),
 	JobInfo(Option<JobInfo>),
 	CopyStarted {

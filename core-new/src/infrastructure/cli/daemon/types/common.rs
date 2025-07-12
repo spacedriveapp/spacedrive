@@ -65,3 +65,13 @@ impl DaemonInstance {
 		self.name.as_deref().unwrap_or("default")
 	}
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BrowseEntry {
+	pub name: String,
+	pub path: std::path::PathBuf,
+	pub is_dir: bool,
+	pub size: Option<u64>,
+	pub modified: Option<String>,
+	pub file_type: Option<String>,
+}

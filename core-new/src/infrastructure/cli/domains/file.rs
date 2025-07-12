@@ -59,18 +59,6 @@ pub enum FileCommands {
 /// Enhanced indexing commands
 #[derive(Subcommand, Clone, Debug)]
 pub enum IndexCommands {
-    /// Quick scan of a directory (metadata only, current scope)
-    QuickScan {
-        /// Path to scan
-        path: PathBuf,
-        /// Scope: shallow or full
-        #[arg(short, long, value_enum, default_value = "shallow")]
-        scope: CliIndexScope,
-        /// Run ephemerally (no database writes)
-        #[arg(short, long)]
-        ephemeral: bool,
-    },
-
     /// Browse external paths without adding to managed locations
     Browse {
         /// Path to browse
@@ -81,27 +69,6 @@ pub enum IndexCommands {
         /// Enable content analysis
         #[arg(short, long)]
         content: bool,
-    },
-
-    /// Index a specific path
-    Path {
-        /// Path to index
-        path: PathBuf,
-        /// Indexing mode
-        #[arg(short, long, value_enum, default_value = "content")]
-        mode: CliIndexMode,
-        /// Indexing scope
-        #[arg(short, long, value_enum, default_value = "full")]
-        scope: CliIndexScope,
-        /// Maximum depth (for limited scope)
-        #[arg(short, long)]
-        depth: Option<u32>,
-        /// Create location if path doesn't exist in any
-        #[arg(short, long)]
-        create_location: bool,
-        /// Monitor the job in real-time
-        #[arg(short = 'w', long)]
-        watch: bool,
     },
 
     /// Re-index all locations
@@ -224,41 +191,6 @@ async fn handle_index_command(
     output: &mut CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        IndexCommands::QuickScan { path, scope, ephemeral } => {
-            output.info(&format!("Quick scanning {}...", path.display()))?;
-            if ephemeral {
-                output.info("Running in ephemeral mode (no database writes)")?;
-            }
-            
-            let scope_str = match scope {
-                CliIndexScope::Full => "full",
-                CliIndexScope::Shallow => "shallow",
-                CliIndexScope::Limited => "limited",
-            };
-            
-            match client
-                .send_command(DaemonCommand::QuickScan {
-                    path: path.clone(),
-                    scope: scope_str.to_string(),
-                    ephemeral,
-                })
-                .await
-            {
-                Ok(DaemonResponse::Ok) => {
-                    output.success("Quick scan completed successfully")?;
-                }
-                Ok(DaemonResponse::Error(e)) => {
-                    output.error(Message::Error(format!("Quick scan failed: {}", e)))?;
-                }
-                Err(e) => {
-                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
-                }
-                _ => {
-                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
-                }
-            }
-        }
-        
         IndexCommands::Browse { path, scope, content } => {
             output.info(&format!("Browsing {}...", path.display()))?;
             if content {
@@ -279,8 +211,18 @@ async fn handle_index_command(
                 })
                 .await
             {
-                Ok(DaemonResponse::Ok) => {
-                    output.success("Browse completed successfully")?;
+                Ok(DaemonResponse::BrowseResults { path: _, entries, total_files, total_dirs }) => {
+                    output.success(&format!("Found {} files and {} directories", total_files, total_dirs))?;
+                    
+                    // Display entries
+                    for entry in entries {
+                        if entry.is_dir {
+                            output.info(&format!("📁 {}/", entry.name))?;
+                        } else {
+                            let size = entry.size.map(|s| format!(" ({} bytes)", s)).unwrap_or_default();
+                            output.info(&format!("📄 {}{}", entry.name, size))?;
+                        }
+                    }
                 }
                 Ok(DaemonResponse::Error(e)) => {
                     output.error(Message::Error(format!("Browse failed: {}", e)))?;
@@ -293,50 +235,7 @@ async fn handle_index_command(
                 }
             }
         }
-        
-        IndexCommands::Path { path, mode, scope, depth, create_location, watch } => {
-            output.info(&format!("Indexing path {}...", path.display()))?;
-            
-            let mode_str = match mode {
-                CliIndexMode::Shallow => "shallow",
-                CliIndexMode::Content => "content",
-                CliIndexMode::Deep => "deep",
-            };
-            
-            let scope_str = match scope {
-                CliIndexScope::Full => "full",
-                CliIndexScope::Shallow => "shallow",
-                CliIndexScope::Limited => "limited",
-            };
-            
-            match client
-                .send_command(DaemonCommand::IndexPath {
-                    path: path.clone(),
-                    mode: mode_str.to_string(),
-                    scope: scope_str.to_string(),
-                    depth,
-                    create_location,
-                })
-                .await
-            {
-                Ok(DaemonResponse::Ok) => {
-                    output.success("Path indexing started successfully")?;
-                    if watch {
-                        output.info("Use 'spacedrive job monitor' to track progress")?;
-                    }
-                }
-                Ok(DaemonResponse::Error(e)) => {
-                    output.error(Message::Error(format!("Path indexing failed: {}", e)))?;
-                }
-                Err(e) => {
-                    output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
-                }
-                _ => {
-                    output.error(Message::Error("Unexpected response from daemon".to_string()))?;
-                }
-            }
-        }
-        IndexCommands::All { force, watch } => {
+IndexCommands::All { force, watch } => {
             output.info("Re-indexing all locations...")?;
             
             match client
@@ -406,33 +305,10 @@ async fn handle_scan_command(
         CliIndexMode::Deep => "deep",
     };
     
-    // Use IndexPath command with recursive scope for traditional scan
-    match client
-        .send_command(DaemonCommand::IndexPath {
-            path: path.clone(),
-            mode: mode_str.to_string(),
-            scope: "full".to_string(),
-            depth: None,
-            create_location: false,
-        })
-        .await
-    {
-        Ok(DaemonResponse::Ok) => {
-            output.success("Scan started successfully")?;
-            if watch {
-                output.info("Use 'spacedrive job monitor' to track progress")?;
-            }
-        }
-        Ok(DaemonResponse::Error(e)) => {
-            output.error(Message::Error(format!("Scan failed: {}", e)))?;
-        }
-        Err(e) => {
-            output.error(Message::Error(format!("Failed to communicate with daemon: {}", e)))?;
-        }
-        _ => {
-            output.error(Message::Error("Unexpected response from daemon".to_string()))?;
-        }
-    }
+    // Scan command is no longer supported - use add location and index instead
+    output.error(Message::Error(
+        "The 'scan' command has been removed. Please use 'location add' followed by 'file index location' instead.".to_string()
+    ))?;
     
     Ok(())
 }

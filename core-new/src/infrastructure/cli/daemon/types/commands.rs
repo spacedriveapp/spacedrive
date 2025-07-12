@@ -64,22 +64,10 @@ pub enum DaemonCommand {
 	},
 
 	// Indexing operations
-	QuickScan {
-		path: PathBuf,
-		scope: String,
-		ephemeral: bool,
-	},
 	Browse {
 		path: PathBuf,
 		scope: String,
 		content: bool,
-	},
-	IndexPath {
-		path: PathBuf,
-		mode: String,
-		scope: String,
-		depth: Option<u32>,
-		create_location: bool,
 	},
 	IndexAll {
 		force: bool,

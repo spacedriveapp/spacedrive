@@ -93,6 +93,14 @@ impl Library {
         Ok(())
     }
     
+    /// Save library configuration to disk
+    pub async fn save_config(&self, config: &LibraryConfig) -> Result<()> {
+        let config_path = self.path.join("library.json");
+        let json = serde_json::to_string_pretty(config)?;
+        tokio::fs::write(config_path, json).await?;
+        Ok(())
+    }
+    
     /// Get the thumbnail directory for this library
     pub fn thumbnails_dir(&self) -> PathBuf {
         self.path.join("thumbnails")

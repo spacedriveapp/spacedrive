@@ -21,7 +21,7 @@ impl CommandHandler for NetworkHandler {
 		&self,
 		cmd: DaemonCommand,
 		core: &Arc<Core>,
-		_state_service: &Arc<StateService>,
+		state_service: &Arc<StateService>,
 	) -> DaemonResponse {
 		match cmd {
 			DaemonCommand::InitNetworking => {
@@ -92,19 +92,35 @@ impl CommandHandler for NetworkHandler {
 			},
 
 			DaemonCommand::RevokeDevice { device_id } => {
-				if let Some(networking) = core.networking() {
-					let service = &*networking;
-					let device_registry = service.device_registry();
-					let result = {
-						let mut registry = device_registry.write().await;
-						registry.remove_device(device_id)
-					};
-					match result {
-						Ok(_) => DaemonResponse::Ok,
-						Err(e) => DaemonResponse::Error(e.to_string()),
+				// Get current library from CLI state
+				if let Some(library) = state_service.get_current_library(core).await {
+					let library_id = library.id();
+
+					// Get the action manager
+					match core.context.get_action_manager().await {
+						Some(action_manager) => {
+							// Create DeviceRevokeAction
+							let action = crate::infrastructure::actions::Action::DeviceRevoke {
+								library_id,
+								action: crate::operations::devices::revoke::action::DeviceRevokeAction {
+									device_id,
+									reason: Some("Revoked via CLI".to_string()),
+								},
+							};
+
+							// Dispatch the action
+							match action_manager.dispatch(action).await {
+								Ok(_output) => DaemonResponse::Ok,
+								Err(e) => DaemonResponse::Error(format!(
+									"Failed to revoke device: {}",
+									e
+								)),
+							}
+						}
+						None => DaemonResponse::Error("Action manager not available".to_string()),
 					}
 				} else {
-					DaemonResponse::Error("Networking not initialized".to_string())
+					DaemonResponse::Error("No library selected".to_string())
 				}
 			}
 
