@@ -2,6 +2,7 @@
 
 use super::{ProtocolEvent, ProtocolHandler};
 use crate::services::networking::{NetworkingError, Result};
+use iroh::net::key::NodeId;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -126,6 +127,74 @@ impl ProtocolHandler for MessagingProtocolHandler {
 		"messaging"
 	}
 
+	async fn handle_stream(
+		&self,
+		mut send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
+		mut recv: Box<dyn tokio::io::AsyncRead + Send + Unpin>,
+		remote_node_id: NodeId,
+	) {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+		
+		// Simple request-response messaging over streams
+		loop {
+			// Read message length (4 bytes)
+			let mut len_buf = [0u8; 4];
+			match recv.read_exact(&mut len_buf).await {
+				Ok(_) => {},
+				Err(_) => break, // Connection closed
+			}
+			let msg_len = u32::from_be_bytes(len_buf) as usize;
+			
+			// Read message
+			let mut msg_buf = vec![0u8; msg_len];
+			if let Err(e) = recv.read_exact(&mut msg_buf).await {
+				eprintln!("Failed to read message: {}", e);
+				break;
+			}
+			
+			// Deserialize and handle
+			match serde_json::from_slice::<Message>(&msg_buf) {
+				Ok(message) => {
+					// Process message based on type
+					let response = match message {
+						Message::Ping { timestamp, payload } => {
+							let pong = Message::Pong {
+								timestamp: chrono::Utc::now(),
+								original_timestamp: timestamp,
+							};
+							serde_json::to_vec(&pong).unwrap_or_default()
+						}
+						Message::Data { message_id, .. } => {
+							let ack = Message::Ack {
+								message_id,
+								success: true,
+								error: None,
+							};
+							serde_json::to_vec(&ack).unwrap_or_default()
+						}
+						_ => Vec::new(), // No response for Pong/Ack
+					};
+					
+					// Send response if any
+					if !response.is_empty() {
+						let len = response.len() as u32;
+						if send.write_all(&len.to_be_bytes()).await.is_err() {
+							break;
+						}
+						if send.write_all(&response).await.is_err() {
+							break;
+						}
+						let _ = send.flush().await;
+					}
+				}
+				Err(e) => {
+					eprintln!("Failed to deserialize message: {}", e);
+					break;
+				}
+			}
+		}
+	}
+
 	async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>> {
 		let message: Message =
 			serde_json::from_slice(&request_data).map_err(|e| NetworkingError::Serialization(e))?;
@@ -160,7 +229,7 @@ impl ProtocolHandler for MessagingProtocolHandler {
 		}
 	}
 
-	async fn handle_response(&self, _from_device: Uuid, _from_peer: libp2p::PeerId, _response_data: Vec<u8>) -> Result<()> {
+	async fn handle_response(&self, _from_device: Uuid, _from_node: NodeId, _response_data: Vec<u8>) -> Result<()> {
 		// Messaging protocol handles responses in handle_request
 		Ok(())
 	}

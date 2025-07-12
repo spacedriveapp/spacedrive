@@ -7,6 +7,7 @@ pub mod registry;
 
 use crate::services::networking::{NetworkingError, Result};
 use async_trait::async_trait;
+use iroh::net::key::NodeId;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -15,17 +16,25 @@ pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;
 
-/// Trait for handling specific protocols
+/// Trait for handling specific protocols over Iroh streams
 #[async_trait]
 pub trait ProtocolHandler: Send + Sync {
 	/// Get the protocol name
 	fn protocol_name(&self) -> &str;
 
-	/// Handle an incoming request
+	/// Handle an incoming stream (bidirectional or unidirectional)
+	async fn handle_stream(
+		&self,
+		send: Box<dyn tokio::io::AsyncWrite + Send + Unpin>,
+		recv: Box<dyn tokio::io::AsyncRead + Send + Unpin>,
+		remote_node_id: NodeId,
+	);
+
+	/// Handle an incoming request (legacy compatibility)
 	async fn handle_request(&self, from_device: Uuid, request_data: Vec<u8>) -> Result<Vec<u8>>;
 
-	/// Handle an incoming response (for request-response protocols)
-	async fn handle_response(&self, from_device: Uuid, from_peer: libp2p::PeerId, response_data: Vec<u8>) -> Result<()>;
+	/// Handle an incoming response (legacy compatibility)
+	async fn handle_response(&self, from_device: Uuid, from_node: NodeId, response_data: Vec<u8>) -> Result<()>;
 
 	/// Handle protocol-specific events
 	async fn handle_event(&self, event: ProtocolEvent) -> Result<()>;

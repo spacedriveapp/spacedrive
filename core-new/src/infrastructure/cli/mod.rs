@@ -210,7 +210,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 print_daemon_not_running(&cli.instance, &mut output)?;
                 return Ok(());
             }
-            handle_location_command(location_cmd.clone(), cli.instance.clone()).await
+            handle_location_command(location_cmd.clone(), cli.instance.clone(), output).await
         }
         Commands::Job(job_cmd) => {
             // Check if daemon is running

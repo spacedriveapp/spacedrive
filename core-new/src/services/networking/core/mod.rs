@@ -1,50 +1,52 @@
-//! Core networking engine with unified LibP2P swarm
+//! Core networking engine with Iroh P2P
 
-pub mod behavior;
-pub mod discovery;
 pub mod event_loop;
-pub mod swarm;
 
 use crate::device::DeviceManager;
 use crate::services::networking::{
 	device::{DeviceInfo, DeviceRegistry},
 	protocols::{pairing::PairingProtocolHandler, ProtocolRegistry},
-	utils::{logging::ConsoleLogger, NetworkIdentity},
+	utils::{logging::NetworkLogger, NetworkIdentity},
 	NetworkingError, Result,
 };
-use libp2p::{
-	kad::{QueryId, RecordKey},
-	Multiaddr, PeerId, Swarm,
-};
+use iroh::net::endpoint::Connection;
+use iroh::net::key::NodeId;
+use iroh::net::{Endpoint, NodeAddr};
+use iroh_net::discovery::local_swarm_discovery::LocalSwarmDiscovery;
+use iroh_net::discovery::{ConcurrentDiscovery, Discovery};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
-pub use behavior::{UnifiedBehaviour, UnifiedBehaviourEvent};
 pub use event_loop::{EventLoopCommand, NetworkingEventLoop};
+
+/// Protocol ALPN identifiers
+pub const PAIRING_ALPN: &[u8] = b"spacedrive/pairing/1";
+pub const FILE_TRANSFER_ALPN: &[u8] = b"spacedrive/filetransfer/1";
+pub const MESSAGING_ALPN: &[u8] = b"spacedrive/messaging/1";
 
 /// Central networking event types
 #[derive(Debug, Clone)]
 pub enum NetworkEvent {
 	// Discovery events
 	PeerDiscovered {
-		peer_id: PeerId,
-		addresses: Vec<Multiaddr>,
+		node_id: NodeId,
+		node_addr: NodeAddr,
 	},
 	PeerDisconnected {
-		peer_id: PeerId,
+		node_id: NodeId,
 	},
 
 	// Pairing events
 	PairingRequest {
 		session_id: Uuid,
 		device_info: DeviceInfo,
-		peer_id: PeerId,
+		node_id: NodeId,
 	},
 	PairingSessionDiscovered {
 		session_id: Uuid,
-		peer_id: PeerId,
-		addresses: Vec<Multiaddr>,
+		node_id: NodeId,
+		node_addr: NodeAddr,
 		device_info: DeviceInfo,
 	},
 	PairingCompleted {
@@ -59,11 +61,11 @@ pub enum NetworkEvent {
 	// Connection events
 	ConnectionEstablished {
 		device_id: Uuid,
-		peer_id: PeerId,
+		node_id: NodeId,
 	},
 	ConnectionLost {
 		device_id: Uuid,
-		peer_id: PeerId,
+		node_id: NodeId,
 	},
 	MessageReceived {
 		from: Uuid,
@@ -72,13 +74,19 @@ pub enum NetworkEvent {
 	},
 }
 
-/// Main networking service - single source of truth for all networking operations
+/// Main networking service using Iroh
 pub struct NetworkingService {
+	/// Iroh endpoint for all networking
+	endpoint: Option<Endpoint>,
+
 	/// Our network identity
 	identity: NetworkIdentity,
 
-	/// LibP2P swarm with unified behavior
-	swarm: Swarm<UnifiedBehaviour>,
+	/// Our Iroh node ID
+	node_id: NodeId,
+
+	/// Discovery service for finding peers
+	discovery: Option<Box<dyn Discovery>>,
 
 	/// Shutdown sender for stopping the event loop
 	shutdown_sender: Arc<RwLock<Option<mpsc::UnboundedSender<()>>>>,
@@ -97,14 +105,21 @@ pub struct NetworkingService {
 
 	/// Event receiver for subscribers
 	event_receiver: Arc<RwLock<Option<mpsc::UnboundedReceiver<NetworkEvent>>>>,
+
+	/// Active connections tracker
+	active_connections: Arc<RwLock<std::collections::HashMap<NodeId, Connection>>>,
+
+	/// Logger for networking operations
+	logger: Arc<dyn NetworkLogger>,
 }
 
 impl NetworkingService {
-	/// Create a new networking core
+	/// Create a new networking service
 	pub async fn new(
 		device_manager: Arc<DeviceManager>,
 		library_key_manager: Arc<crate::keys::library_key_manager::LibraryKeyManager>,
 		data_dir: impl AsRef<std::path::Path>,
+		logger: Arc<dyn NetworkLogger>,
 	) -> Result<Self> {
 		// Generate network identity from master key
 		let device_key = device_manager
@@ -112,58 +127,90 @@ impl NetworkingService {
 			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device key: {}", e)))?;
 		let identity = NetworkIdentity::from_device_key(&device_key).await?;
 
-		// Create LibP2P swarm
-		let swarm = swarm::create_swarm(identity.clone()).await?;
+		// Convert identity to Iroh format
+		let secret_key = identity.to_iroh_secret_key()?;
+		let node_id = secret_key.public();
 
 		// Create event channel
 		let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
 		// Create registries
 		let protocol_registry = Arc::new(RwLock::new(ProtocolRegistry::new()));
-		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(device_manager, data_dir)?));
-
-		// Note: Protocol handlers will be registered by the Core during init_networking
-		// to avoid duplicate registrations
+		let device_registry = Arc::new(RwLock::new(DeviceRegistry::new(
+			device_manager,
+			data_dir,
+			logger.clone(),
+		)?));
 
 		Ok(Self {
+			endpoint: None,
 			identity,
-			swarm,
+			node_id,
+			discovery: None,
 			shutdown_sender: Arc::new(RwLock::new(None)),
 			command_sender: None,
 			protocol_registry,
 			device_registry,
 			event_sender,
 			event_receiver: Arc::new(RwLock::new(Some(event_receiver))),
+			active_connections: Arc::new(RwLock::new(std::collections::HashMap::new())),
+			logger,
 		})
 	}
 
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
-		// Start LibP2P listeners (TCP-only to match simplified transport)
-		self.swarm
-			.listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
-			.map_err(|e| NetworkingError::Transport(e.to_string()))?;
-		// Removed QUIC UDP listener to match TCP-only transport configuration
+		// Create Iroh endpoint with discovery and relay configuration
+		let secret_key = self.identity.to_iroh_secret_key()?;
 
-		// Create and start event loop by moving the swarm
-		let swarm = std::mem::replace(&mut self.swarm, {
-			// Create a new swarm for the replace (this won't be used)
-			swarm::create_swarm(self.identity.clone()).await?
-		});
+		// Create discovery service - using local swarm discovery for now
+		let discovery = LocalSwarmDiscovery::new(self.node_id).map_err(|e| {
+			NetworkingError::Transport(format!("Failed to create discovery: {}", e))
+		})?;
 
+		// Create endpoint with discovery
+		let endpoint = Endpoint::builder()
+			.secret_key(secret_key)
+			.alpns(vec![
+				PAIRING_ALPN.to_vec(),
+				FILE_TRANSFER_ALPN.to_vec(),
+				MESSAGING_ALPN.to_vec(),
+			])
+			.relay_mode(iroh_net::relay::RelayMode::Default)
+			.discovery(Box::new(discovery))
+			.bind_addr_v4(std::net::SocketAddrV4::new(
+				std::net::Ipv4Addr::UNSPECIFIED,
+				0,
+			))
+			.bind_addr_v6(std::net::SocketAddrV6::new(
+				std::net::Ipv6Addr::UNSPECIFIED,
+				0,
+				0,
+				0,
+			))
+			.bind()
+			.await
+			.map_err(|e| NetworkingError::Transport(format!("Failed to create endpoint: {}", e)))?;
+
+		// Store endpoint reference for other methods
+		self.endpoint = Some(endpoint.clone());
+
+		// Create and start event loop
 		let event_loop = NetworkingEventLoop::new(
-			swarm,
+			endpoint,
 			self.protocol_registry.clone(),
 			self.device_registry.clone(),
 			self.event_sender.clone(),
 			self.identity.clone(),
+			self.active_connections.clone(),
+			self.logger.clone(),
 		);
 
 		// Store shutdown and command senders before starting
 		let shutdown_sender = event_loop.shutdown_sender();
 		let command_sender = event_loop.command_sender();
 
-		// Start the event processing in background (consumes event_loop)
+		// Start the event processing in background
 		event_loop.start().await?;
 
 		// Store senders for later use
@@ -185,17 +232,21 @@ impl NetworkingService {
 
 		// Load paired devices from persistence
 		let loaded_device_ids = device_registry.load_paired_devices().await?;
-		println!(
-			"📱 Loaded {} paired devices from persistence",
-			loaded_device_ids.len()
-		);
+		self.logger
+			.info(&format!(
+				"Loaded {} paired devices from persistence",
+				loaded_device_ids.len()
+			))
+			.await;
 
 		// Get devices that should auto-reconnect
 		let auto_reconnect_devices = device_registry.get_auto_reconnect_devices().await?;
-		println!(
-			"🔄 Found {} devices for auto-reconnection",
-			auto_reconnect_devices.len()
-		);
+		self.logger
+			.info(&format!(
+				"Found {} devices for auto-reconnection",
+				auto_reconnect_devices.len()
+			))
+			.await;
 
 		drop(device_registry); // Release the lock for async operations
 
@@ -216,11 +267,19 @@ impl NetworkingService {
 	) {
 		for (device_id, persisted_device) in auto_reconnect_devices {
 			let command_sender = self.command_sender.clone();
+			let endpoint = self.endpoint.clone();
+			let logger = self.logger.clone();
 
 			// Spawn a background task for each device reconnection
 			tokio::spawn(async move {
-				Self::attempt_device_reconnection(device_id, persisted_device, command_sender)
-					.await;
+				Self::attempt_device_reconnection(
+					device_id,
+					persisted_device,
+					command_sender,
+					endpoint,
+					logger,
+				)
+				.await;
 			});
 		}
 	}
@@ -230,109 +289,58 @@ impl NetworkingService {
 		device_id: Uuid,
 		persisted_device: crate::services::networking::device::PersistedPairedDevice,
 		command_sender: Option<tokio::sync::mpsc::UnboundedSender<EventLoopCommand>>,
+		endpoint: Option<Endpoint>,
+		logger: Arc<dyn NetworkLogger>,
 	) {
-		println!(
-			"🔄 Starting reconnection attempts for device: {}",
-			device_id
-		);
+		logger
+			.info(&format!(
+				"Starting reconnection attempts for device: {}",
+				device_id
+			))
+			.await;
 
-		// Try each known address with exponential backoff
-		let mut attempt = 0;
-		let max_attempts = 3;
+		if let (Some(endpoint), Some(sender)) = (endpoint, command_sender) {
+			// Try to parse node ID from the persisted device
+			if let Ok(node_id) = persisted_device
+				.device_info
+				.network_fingerprint
+				.node_id
+				.parse::<NodeId>()
+			{
+				// Build NodeAddr from persisted addresses
+				let mut node_addr = NodeAddr::new(node_id);
 
-		for address_str in &persisted_device.last_seen_addresses {
-			if attempt >= max_attempts {
-				break;
-			}
-
-			if let Ok(multiaddr) = address_str.parse::<libp2p::Multiaddr>() {
-				println!(
-					"🔍 Attempt {}: Connecting to device {} at {}",
-					attempt + 1,
-					device_id,
-					multiaddr
-				);
-
-				if let Some(ref sender) = command_sender {
-					// Extract peer ID from the persisted device info
-					if let Ok(peer_id) = persisted_device
-						.device_info
-						.network_fingerprint
-						.peer_id
-						.parse::<PeerId>()
-					{
-						// Create a one-shot channel for the response
-						let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-
-						// Send dial command to the networking event loop
-						let dial_command = EventLoopCommand::DialPeer {
-							peer_id,
-							address: multiaddr.clone(),
-							response_channel: response_tx,
-						};
-
-						if let Err(e) = sender.send(dial_command) {
-							eprintln!(
-								"Failed to send dial command for device {}: {}",
-								device_id, e
-							);
-							continue;
-						}
-
-						// Wait for the dial result
-						match tokio::time::timeout(
-							tokio::time::Duration::from_secs(10),
-							response_rx,
-						)
-						.await
-						{
-							Ok(Ok(Ok(()))) => {
-								println!(
-									"✅ Successfully connected to device {} at {}",
-									device_id, multiaddr
-								);
-								return; // Success, exit reconnection attempts
-							}
-							Ok(Ok(Err(e))) => {
-								println!(
-									"❌ Failed to connect to device {} at {}: {}",
-									device_id, multiaddr, e
-								);
-							}
-							Ok(Err(_)) => {
-								println!(
-									"❌ Channel closed while connecting to device {} at {}",
-									device_id, multiaddr
-								);
-							}
-							Err(_) => {
-								println!(
-									"⏰ Timeout connecting to device {} at {}",
-									device_id, multiaddr
-								);
-							}
-						}
-					} else {
-						eprintln!(
-							"⚠️ Invalid peer ID for device {}: {}",
-							device_id, persisted_device.device_info.network_fingerprint.peer_id
-						);
+				// Add direct addresses if available
+				for addr_str in &persisted_device.last_seen_addresses {
+					if let Ok(addr) = addr_str.parse() {
+						node_addr = node_addr.with_direct_addresses([addr]);
 					}
+				}
 
-					// Wait before next attempt with exponential backoff
-					let delay = tokio::time::Duration::from_secs(2_u64.pow(attempt as u32));
-					tokio::time::sleep(delay).await;
+				// Attempt connection with Iroh
+				match endpoint.connect(node_addr, &[]).await {
+					Ok(_conn) => {
+						logger
+							.info(&format!(
+								"✅ Successfully connected to device {}",
+								device_id
+							))
+							.await;
+
+						// Send connection established command
+						let _ = sender
+							.send(EventLoopCommand::ConnectionEstablished { device_id, node_id });
+					}
+					Err(e) => {
+						logger
+							.error(&format!(
+								"❌ Failed to connect to device {}: {}",
+								device_id, e
+							))
+							.await;
+					}
 				}
 			}
-
-			attempt += 1;
-		}
-
-		if attempt >= max_attempts {
-			println!(
-				"⚠️ Failed to reconnect to device {} after {} attempts",
-				device_id, max_attempts
-			);
 		}
 	}
 
@@ -340,9 +348,11 @@ impl NetworkingService {
 	async fn start_periodic_reconnection(&self) {
 		let device_registry = self.device_registry.clone();
 		let command_sender = self.command_sender.clone();
+		let endpoint = self.endpoint.clone();
+		let logger = self.logger.clone();
 
 		tokio::spawn(async move {
-			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30)); // Check every 30 seconds
+			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
 
 			loop {
 				interval.tick().await;
@@ -375,16 +385,22 @@ impl NetworkingService {
 						};
 
 						if is_disconnected {
-							println!(
-								"🔄 Attempting periodic reconnection to device: {}",
-								device_id
-							);
+							logger
+								.info(&format!(
+									"Attempting periodic reconnection to device: {}",
+									device_id
+								))
+								.await;
 							let cmd_sender = command_sender.clone();
+							let ep = endpoint.clone();
+							let logger_clone = logger.clone();
 							tokio::spawn(async move {
 								Self::attempt_device_reconnection(
 									device_id,
 									persisted_device,
 									cmd_sender,
+									ep,
+									logger_clone,
 								)
 								.await;
 							});
@@ -415,9 +431,9 @@ impl NetworkingService {
 		&self.identity
 	}
 
-	/// Get our peer ID
-	pub fn peer_id(&self) -> PeerId {
-		self.identity.peer_id()
+	/// Get our node ID
+	pub fn node_id(&self) -> NodeId {
+		self.node_id
 	}
 
 	/// Get connected devices
@@ -425,23 +441,10 @@ impl NetworkingService {
 		self.device_registry.read().await.get_connected_devices()
 	}
 
-	/// Get raw connected peers directly from swarm (bypasses DeviceRegistry)
-	/// This is critical for handling the race condition where connections exist
-	/// but devices haven't been registered yet
-	pub async fn get_raw_connected_peers(&self) -> Vec<PeerId> {
-		if let Some(command_sender) = &self.command_sender {
-			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-			let command = event_loop::EventLoopCommand::GetRawConnectedPeers {
-				response_channel: response_tx,
-			};
-
-			if command_sender.send(command).is_ok() {
-				if let Ok(peers) = response_rx.await {
-					return peers;
-				}
-			}
-		}
-		Vec::new()
+	/// Get raw connected nodes directly from endpoint
+	pub async fn get_raw_connected_nodes(&self) -> Vec<NodeId> {
+		let connections = self.active_connections.read().await;
+		connections.keys().cloned().collect()
 	}
 
 	/// Send a message to a device
@@ -475,58 +478,27 @@ impl NetworkingService {
 		self.device_registry.clone()
 	}
 
-	/// Publish a DHT record for pairing session discovery
-	pub async fn publish_dht_record(&self, key: RecordKey, value: Vec<u8>) -> Result<QueryId> {
-		if let Some(command_sender) = &self.command_sender {
-			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-			let command = event_loop::EventLoopCommand::PublishDhtRecord {
-				key,
-				value,
-				response_channel: response_tx,
-			};
-
-			command_sender.send(command).map_err(|_| {
-				NetworkingError::ConnectionFailed("Event loop not running".to_string())
-			})?;
-
-			response_rx.await.map_err(|_| {
-				NetworkingError::ConnectionFailed("Failed to receive DHT response".to_string())
-			})?
-		} else {
-			Err(NetworkingError::ConnectionFailed(
-				"Networking not started".to_string(),
-			))
-		}
+	/// Publish a discovery record for pairing session
+	pub async fn publish_discovery_record(&self, key: &[u8], value: Vec<u8>) -> Result<()> {
+		// For pairing, we don't need to explicitly publish with LocalSwarmDiscovery
+		// It automatically advertises our node on the local network
+		// The pairing protocol will handle session-specific discovery via direct connection
+		Ok(())
 	}
 
-	/// Query a DHT record for pairing session discovery
-	pub async fn query_dht_record(&self, key: RecordKey) -> Result<QueryId> {
-		if let Some(command_sender) = &self.command_sender {
-			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-			let command = event_loop::EventLoopCommand::QueryDhtRecord {
-				key,
-				response_channel: response_tx,
-			};
-
-			command_sender.send(command).map_err(|_| {
-				NetworkingError::ConnectionFailed("Event loop not running".to_string())
-			})?;
-
-			response_rx.await.map_err(|_| {
-				NetworkingError::ConnectionFailed("Failed to receive DHT response".to_string())
-			})?
-		} else {
-			Err(NetworkingError::ConnectionFailed(
-				"Networking not started".to_string(),
-			))
-		}
+	/// Query a discovery record for pairing session
+	pub async fn query_discovery_record(&self, key: &[u8]) -> Result<Vec<NodeAddr>> {
+		// With LocalSwarmDiscovery, we can't query specific records
+		// Instead, we'll discover all local nodes and filter by pairing session
+		// For now, return empty - pairing will use direct connection after discovery
+		Ok(Vec::new())
 	}
 
-	/// Get currently connected peers for direct pairing attempts
-	pub async fn get_connected_peers(&self) -> Vec<PeerId> {
-		// Get connected peers from device registry
+	/// Get currently connected nodes for direct pairing attempts
+	pub async fn get_connected_nodes(&self) -> Vec<NodeId> {
+		// Get connected nodes from device registry
 		let registry = self.device_registry.read().await;
-		registry.get_connected_peers()
+		registry.get_connected_nodes()
 	}
 
 	/// Get the local device ID
@@ -539,16 +511,16 @@ impl NetworkingService {
 		self.command_sender.as_ref()
 	}
 
-	/// Send message to a specific peer ID (bypassing device lookup)
-	pub async fn send_message_to_peer(
+	/// Send message to a specific node (bypassing device lookup)
+	pub async fn send_message_to_node(
 		&self,
-		peer_id: PeerId,
+		node_id: NodeId,
 		protocol: &str,
 		data: Vec<u8>,
 	) -> Result<()> {
 		if let Some(command_sender) = &self.command_sender {
-			let command = event_loop::EventLoopCommand::SendMessageToPeer {
-				peer_id,
+			let command = event_loop::EventLoopCommand::SendMessageToNode {
+				node_id,
 				protocol: protocol.to_string(),
 				data,
 			};
@@ -565,23 +537,28 @@ impl NetworkingService {
 		}
 	}
 
-	/// Dial a peer at a specific address
-	pub async fn dial_peer(&self, peer_id: PeerId, address: Multiaddr) -> Result<()> {
-		if let Some(command_sender) = &self.command_sender {
-			let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-			let command = event_loop::EventLoopCommand::DialPeer {
-				peer_id,
-				address: address.clone(),
-				response_channel: response_tx,
-			};
+	/// Connect to a node at a specific address
+	pub async fn connect_to_node(&self, node_addr: NodeAddr) -> Result<()> {
+		if let Some(endpoint) = &self.endpoint {
+			// Use pairing ALPN for initial connection during pairing
+			let conn = endpoint
+				.connect(node_addr.clone(), PAIRING_ALPN)
+				.await
+				.map_err(|e| {
+					NetworkingError::ConnectionFailed(format!("Failed to connect: {}", e))
+				})?;
 
-			command_sender.send(command).map_err(|_| {
-				NetworkingError::ConnectionFailed("Event loop not running".to_string())
-			})?;
+			// Track the outbound connection
+			let node_id = node_addr.node_id;
+			{
+				let mut connections = self.active_connections.write().await;
+				connections.insert(node_id, conn);
+				self.logger
+					.info(&format!("Tracked outbound connection to {}", node_id))
+					.await;
+			}
 
-			response_rx.await.map_err(|_| {
-				NetworkingError::ConnectionFailed("Failed to receive dial response".to_string())
-			})?
+			Ok(())
 		} else {
 			Err(NetworkingError::ConnectionFailed(
 				"Networking not started".to_string(),
@@ -589,52 +566,17 @@ impl NetworkingService {
 		}
 	}
 
-	/// Get external addresses for advertising in DHT records
-	pub async fn get_external_addresses(&self) -> Vec<Multiaddr> {
-		// Query the event loop for current listening addresses
-		if let Some(command_sender) = &self.command_sender {
-			// Retry a few times to allow swarm to establish listeners
-			for attempt in 1..=3 {
-				let (response_tx, response_rx) = tokio::sync::oneshot::channel();
-
-				let command = event_loop::EventLoopCommand::GetListeningAddresses {
-					response_channel: response_tx,
-				};
-
-				if let Err(e) = command_sender.send(command) {
-					eprintln!("Failed to send GetListeningAddresses command: {}", e);
-					return Vec::new();
-				}
-
-				match response_rx.await {
-					Ok(addresses) => {
-						if addresses.is_empty() {
-							if attempt < 3 {
-								println!(
-									"No external addresses found on attempt {}, retrying...",
-									attempt
-								);
-								tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-								continue;
-							} else {
-								eprintln!("No external addresses found after {} attempts", attempt);
-								return Vec::new();
-							}
-						} else {
-							println!("Found external addresses for advertising: {:?}", addresses);
-							return addresses;
-						}
-					}
-					Err(e) => {
-						eprintln!("Failed to receive listening addresses: {}", e);
-						return Vec::new();
-					}
-				}
-			}
-			Vec::new()
+	/// Get our node address for advertising
+	pub async fn get_node_addr(&self) -> Result<NodeAddr> {
+		if let Some(endpoint) = &self.endpoint {
+			endpoint
+				.node_addr()
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to get node addr: {}", e)))
 		} else {
-			eprintln!("Event loop not started, cannot get listening addresses");
-			Vec::new()
+			Err(NetworkingError::ConnectionFailed(
+				"Networking not started".to_string(),
+			))
 		}
 	}
 
@@ -659,57 +601,85 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
-		// Generate session ID first as canonical source of truth
+		// Generate session ID
 		let session_id = uuid::Uuid::new_v4();
 		let pairing_code =
 			crate::services::networking::protocols::pairing::PairingCode::from_session_id(
 				session_id,
 			);
 
-		// Start pairing session with the session ID and pairing code
+		// Start pairing session
 		pairing_handler
 			.start_pairing_session_with_id(session_id, pairing_code.clone())
 			.await?;
 
-		// CRITICAL FIX: Register Alice in the device registry with the session mapping
-		// This creates the session_id → device_id mapping that Bob needs to find Alice
-		let alice_device_id = self.device_id();
-		let alice_peer_id = self.peer_id();
+		// Register in device registry
+		let initiator_device_id = self.device_id();
+		let initiator_node_id = self.node_id();
 		let device_registry = self.device_registry();
 		{
 			let mut registry = device_registry.write().await;
-			registry.start_pairing(alice_device_id, alice_peer_id, session_id)?;
+			registry.start_pairing(initiator_device_id, initiator_node_id, session_id)?;
 		}
 
-		// Get external addresses for advertising
-		let external_addresses = self.get_external_addresses().await;
-		let address_strings: Vec<String> = external_addresses
-			.into_iter()
-			.map(|addr| addr.to_string())
-			.collect();
+		// Get our node address for advertising
+		let node_addr = self.get_node_addr().await?;
 
-		if address_strings.is_empty() {
-			return Err(NetworkingError::Protocol(
-				"No external addresses available for advertising - pairing cannot start"
-					.to_string(),
-			));
-		}
+		self.logger
+			.info(&format!("Node address: {:?}", node_addr))
+			.await;
+		self.logger
+			.info(&format!(
+				"Direct addresses: {:?}",
+				node_addr.direct_addresses().collect::<Vec<_>>()
+			))
+			.await;
+		self.logger
+			.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
+			.await;
 
-		// Create pairing advertisement for DHT
+		// Create pairing advertisement
+		let node_addr_info = crate::services::networking::protocols::pairing::types::NodeAddrInfo {
+			node_id: self.node_id().to_string(),
+			direct_addresses: node_addr
+				.direct_addresses()
+				.map(|addr| addr.to_string())
+				.collect(),
+			relay_url: node_addr.relay_url().map(|u| u.to_string()),
+		};
+
 		let advertisement = crate::services::networking::protocols::pairing::PairingAdvertisement {
-			peer_id: self.peer_id().to_string(),
-			addresses: address_strings,
+			node_id: self.node_id().to_string(),
+			node_addr_info,
 			device_info: pairing_handler.get_device_info().await?,
 			expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
 			created_at: chrono::Utc::now(),
 		};
 
-		// CRITICAL FIX: Use actual session ID for DHT key (not pairing code session ID)
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
+		// Publish to discovery
+		let key = session_id.as_bytes();
 		let value = serde_json::to_vec(&advertisement)
 			.map_err(|e| NetworkingError::Protocol(e.to_string()))?;
 
-		let _query_id = self.publish_dht_record(key, value).await?;
+		self.publish_discovery_record(key, value.clone()).await?;
+
+		// For local testing: also write the advertisement to a file
+		// This simulates what a DHT would do for peer discovery
+		if let Ok(temp_dir) = std::env::var("SPACEDRIVE_TEST_DIR") {
+			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
+			if let Err(e) = std::fs::write(&session_file, &value) {
+				self.logger
+					.warn(&format!(
+						"Warning: Could not write pairing session file: {}",
+						e
+					))
+					.await;
+			} else {
+				self.logger
+					.info(&format!("Wrote pairing session info to {}", session_file))
+					.await;
+			}
+		}
 
 		let expires_in = 300; // 5 minutes
 
@@ -723,7 +693,7 @@ impl NetworkingService {
 			crate::services::networking::protocols::pairing::PairingCode::from_string(code)?;
 		let session_id = pairing_code.session_id();
 
-		// CRITICAL FIX: Join Alice's pairing session using her session ID
+		// Get pairing handler
 		let registry = self.protocol_registry();
 		let pairing_handler =
 			registry
@@ -740,32 +710,85 @@ impl NetworkingService {
 				"Invalid pairing handler type".to_string(),
 			))?;
 
-		// Join Alice's pairing session using the session ID and pairing code
+		// Join pairing session
 		pairing_handler
 			.join_pairing_session(session_id, pairing_code)
 			.await?;
 
-		// Unified Pairing Flow: Support both mDNS (local) and DHT (remote) simultaneously
-		// Both methods run in parallel, first successful response completes pairing
+		// With LocalSwarmDiscovery, peers should auto-discover on the local network
+		// Wait a moment for discovery to happen
+		self.logger
+			.info("Waiting for peer discovery on local network...")
+			.await;
+		tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-		// Method 1: DHT-based remote pairing (for cross-network scenarios)
-		// Query DHT for Alice's published session record - THIS MUST BE FIRST
-		let key = libp2p::kad::RecordKey::new(&session_id.as_bytes());
-		let _ = self.query_dht_record(key).await;
+		// Query discovery for initiator's advertisement (even though it returns empty with LocalSwarmDiscovery)
+		let key = session_id.as_bytes();
+		let mut node_addrs = self.query_discovery_record(key).await?;
 
-		// Method 2: mDNS-based local pairing (already handled by event loop)
-		// The event loop automatically detects mDNS peers and schedules pairing requests
-		// This handles Alice and Bob on the same network
+		// For local testing: also check for file-based session advertisement
+		if let Ok(temp_dir) = std::env::var("SPACEDRIVE_TEST_DIR") {
+			let session_file = format!("{}/pairing_session_{}.json", temp_dir, session_id);
+			if let Ok(data) = std::fs::read(&session_file) {
+				if let Ok(advertisement) = serde_json::from_slice::<
+					crate::services::networking::protocols::pairing::PairingAdvertisement,
+				>(&data)
+				{
+					if let Ok(initiator_node_addr) = advertisement.node_addr() {
+						self.logger
+							.info("Found Initiator's session info, attempting connection...")
+							.await;
+						node_addrs.push(initiator_node_addr);
+					}
+				}
+			}
+		}
 
-		// Method 3: Wait for connections to be established and ensure pairing requests are sent
-		self.ensure_pairing_requests_sent(session_id).await?;
+		// Try to connect to discovered nodes
+		for node_addr in node_addrs {
+			self.logger.info("Attempting to connect to node...").await;
+			self.logger
+				.info(&format!("Node address: {:?}", node_addr))
+				.await;
+			self.logger
+				.info(&format!(
+					"Direct addresses: {:?}",
+					node_addr.direct_addresses().collect::<Vec<_>>()
+				))
+				.await;
+			self.logger
+				.info(&format!("Relay URL: {:?}", node_addr.relay_url()))
+				.await;
 
-		// Method 4: Direct requests to any currently connected peers (immediate attempt)
-		// This covers cases where Alice is already connected but not yet paired
-		let connected_peers = self.get_connected_peers().await;
-		if !connected_peers.is_empty() {
-			for peer_id in connected_peers {
-				// Get local device info for the joiner
+			if let Err(e) = self.connect_to_node(node_addr.clone()).await {
+				self.logger
+					.error(&format!("Failed to connect to {:?}: {}", node_addr, e))
+					.await;
+			} else {
+				self.logger.info("Successfully connected to peer!").await;
+			}
+		}
+
+		// Wait a moment for connections to be properly tracked
+		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+
+		// Send pairing request to any connected nodes
+		let connected_nodes = self.get_raw_connected_nodes().await;
+		self.logger
+			.debug(&format!(
+				"Found {} raw connected nodes",
+				connected_nodes.len()
+			))
+			.await;
+		if !connected_nodes.is_empty() {
+			self.logger
+				.info(&format!(
+					"Found {} connected nodes, sending pairing requests...",
+					connected_nodes.len()
+				))
+				.await;
+			for node_id in connected_nodes {
+				// Get local device info
 				let local_device_info = {
 					let device_registry = self.device_registry();
 					let registry = device_registry.read().await;
@@ -783,39 +806,58 @@ impl NetworkingService {
 				};
 
 				let pairing_request =
-					crate::services::networking::core::behavior::PairingMessage::PairingRequest {
+					crate::services::networking::protocols::pairing::messages::PairingMessage::PairingRequest {
 						session_id,
 						device_info: local_device_info,
 						public_key: self.identity().public_key_bytes(),
 					};
 
-				let _ = self
-					.send_message_to_peer(
-						peer_id,
-						"pairing",
-						serde_json::to_vec(&pairing_request).unwrap_or_default(),
-					)
-					.await;
+				// Send via Iroh stream using the pairing handler and wait for response
+				if let Some(endpoint) = &self.endpoint {
+					let registry = self.protocol_registry();
+					let guard = registry.read().await;
+					if let Some(handler) = guard.get_handler("pairing") {
+						if let Some(pairing_handler) =
+							handler.as_any().downcast_ref::<PairingProtocolHandler>()
+						{
+							self.logger
+								.info(&format!("Sending pairing request to node {}", node_id))
+								.await;
+							match pairing_handler
+								.send_pairing_message_to_node(endpoint, node_id, &pairing_request)
+								.await
+							{
+								Ok(Some(response)) => {
+									self.logger.info("Received response from Initiator!").await;
+									// Process the response via the trait's handle_response method
+									if let Ok(msg_bytes) = serde_json::to_vec(&response) {
+										let device_id = self.device_id(); // Joiner's own device ID
+										let _ = handler
+											.handle_response(device_id, node_id, msg_bytes)
+											.await;
+									}
+									// Stop sending more requests since we got a response
+									break;
+								}
+								Ok(None) => {
+									self.logger
+										.warn("No response received from Initiator")
+										.await;
+								}
+								Err(e) => {
+									self.logger
+										.error(&format!("Failed to send pairing request: {}", e))
+										.await;
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 
-		// Add periodic DHT retries for reliability in challenging network conditions
-		let command_sender = self.command_sender.clone();
-		let session_id_clone = session_id;
-		if let Some(command_sender) = command_sender {
-			tokio::spawn(async move {
-				for _i in 1..=3 {
-					tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
-					let key = libp2p::kad::RecordKey::new(&session_id_clone.as_bytes());
-					let (response_tx, _response_rx) = tokio::sync::oneshot::channel();
-					let command = event_loop::EventLoopCommand::QueryDhtRecord {
-						key,
-						response_channel: response_tx,
-					};
-					let _ = command_sender.send(command);
-				}
-			});
-		}
+		// Ensure pairing requests are sent with polling
+		self.ensure_pairing_requests_sent(session_id).await?;
 
 		Ok(())
 	}
@@ -851,15 +893,13 @@ impl NetworkingService {
 	}
 
 	/// Enhanced pairing request sending with robust active polling
-	/// This method continuously checks for connections and ensures requests are sent
-	/// regardless of when the connection was established (fixes race condition)
 	async fn ensure_pairing_requests_sent(&self, session_id: uuid::Uuid) -> Result<()> {
 		const MAX_WAIT_TIME: u64 = 15000; // 15 seconds
 		const POLL_INTERVAL: u64 = 500; // Check every 500ms
 		let start_time = std::time::Instant::now();
 
 		loop {
-			// First, check if the session has already advanced. If so, our job is done.
+			// First, check if the session has already advanced
 			let registry = self.protocol_registry();
 			let registry_guard = registry.read().await;
 			if let Some(pairing_handler) = registry_guard.get_handler("pairing") {
@@ -881,18 +921,17 @@ impl NetworkingService {
 			}
 			drop(registry_guard);
 
-			// If not, actively check for connected peers and send the request.
-			// CRITICAL: Use raw swarm connections, not DeviceRegistry (fixes Catch-22)
-			let connected_peers = self.get_raw_connected_peers().await;
-			if !connected_peers.is_empty() {
-				for peer_id in &connected_peers {
+			// Check for connected nodes and send the request
+			let connected_nodes = self.get_raw_connected_nodes().await;
+			if !connected_nodes.is_empty() {
+				for node_id in &connected_nodes {
 					let local_device_info = {
 						let device_registry = self.device_registry();
 						let registry = device_registry.read().await;
 						registry.get_local_device_info().unwrap_or_else(|_| {
 							crate::services::networking::device::DeviceInfo {
 								device_id: self.device_id(),
-								device_name: "Bob's Test Device".to_string(),
+								device_name: "Joiner's Test Device".to_string(),
 								device_type:
 									crate::services::networking::device::DeviceType::Desktop,
 								os_version: std::env::consts::OS.to_string(),
@@ -904,28 +943,63 @@ impl NetworkingService {
 					};
 
 					let pairing_request =
-						crate::services::networking::core::behavior::PairingMessage::PairingRequest {
+						crate::services::networking::protocols::pairing::messages::PairingMessage::PairingRequest {
 							session_id,
 							device_info: local_device_info,
 							public_key: self.identity().public_key_bytes(),
 						};
 
-					// This is an idempotent action; sending the request multiple times is okay
-					// as Alice's handler will just re-send the same challenge.
-					let _ = self
-						.send_message_to_peer(
-							*peer_id,
-							"pairing",
-							serde_json::to_vec(&pairing_request).unwrap_or_default(),
-						)
-						.await;
+					// Send via Iroh stream using the pairing handler and wait for response
+					if let Some(endpoint) = &self.endpoint {
+						let registry = self.protocol_registry();
+						let guard = registry.read().await;
+						if let Some(handler) = guard.get_handler("pairing") {
+							if let Some(pairing_handler) =
+								handler.as_any().downcast_ref::<PairingProtocolHandler>()
+							{
+								match pairing_handler
+									.send_pairing_message_to_node(
+										endpoint,
+										*node_id,
+										&pairing_request,
+									)
+									.await
+								{
+									Ok(Some(response)) => {
+										self.logger
+											.info("Received challenge response from Initiator!")
+											.await;
+										// Process the response via the trait's handle_response method
+										if let Ok(msg_bytes) = serde_json::to_vec(&response) {
+											let device_id = self.device_id(); // Joiner's own device ID
+											let _ = handler
+												.handle_response(device_id, *node_id, msg_bytes)
+												.await;
+										}
+										// Return early since we got a response
+										return Ok(());
+									}
+									Ok(None) => {
+										self.logger
+											.warn("No response received in ensure_pairing_requests_sent")
+											.await;
+									}
+									Err(e) => {
+										self.logger
+											.error(&format!("Failed to send pairing request in ensure_pairing_requests_sent: {}", e))
+											.await;
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 
 			// Check for timeout
 			if start_time.elapsed().as_millis() > MAX_WAIT_TIME as u128 {
 				return Err(NetworkingError::Protocol(
-					"Pairing timeout: Did not receive challenge from Alice.".to_string(),
+					"Pairing timeout: Did not receive challenge from Initiator.".to_string(),
 				));
 			}
 

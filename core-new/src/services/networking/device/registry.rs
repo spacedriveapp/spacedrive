@@ -2,9 +2,10 @@
 
 use super::{DeviceConnection, DeviceInfo, DeviceState, DevicePersistence, PersistedPairedDevice, SessionKeys, TrustLevel};
 use crate::device::DeviceManager;
-use crate::services::networking::{NetworkingError, Result};
+use crate::services::networking::{NetworkingError, Result, utils::logging::NetworkLogger};
 use chrono::{DateTime, Utc};
-use libp2p::{Multiaddr, PeerId};
+use iroh::net::NodeAddr;
+use iroh::net::key::NodeId;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -18,27 +19,31 @@ pub struct DeviceRegistry {
 	/// Map of device ID to current state
 	devices: HashMap<Uuid, DeviceState>,
 
-	/// Map of peer ID to device ID for quick lookup
-	peer_to_device: HashMap<PeerId, Uuid>,
+	/// Map of node ID to device ID for quick lookup
+	node_to_device: HashMap<NodeId, Uuid>,
 
 	/// Map of session ID to device ID for pairing lookup
 	session_to_device: HashMap<Uuid, Uuid>,
 
 	/// Persistence manager for paired devices
 	persistence: DevicePersistence,
+
+	/// Logger for device registry operations
+	logger: Arc<dyn NetworkLogger>,
 }
 
 impl DeviceRegistry {
 	/// Create a new device registry
-	pub fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<Path>) -> Result<Self> {
+	pub fn new(device_manager: Arc<DeviceManager>, data_dir: impl AsRef<Path>, logger: Arc<dyn NetworkLogger>) -> Result<Self> {
 		let persistence = DevicePersistence::new(data_dir)?;
 		
 		Ok(Self {
 			device_manager,
 			devices: HashMap::new(),
-			peer_to_device: HashMap::new(),
+			node_to_device: HashMap::new(),
 			session_to_device: HashMap::new(),
 			persistence,
+			logger,
 		})
 	}
 
@@ -67,38 +72,38 @@ impl DeviceRegistry {
 		self.persistence.get_auto_reconnect_devices().await
 	}
 
-	/// Add a discovered peer
-	pub fn add_discovered_peer(
+	/// Add a discovered node
+	pub fn add_discovered_node(
 		&mut self,
 		device_id: Uuid,
-		peer_id: PeerId,
-		addresses: Vec<Multiaddr>,
+		node_id: NodeId,
+		node_addr: NodeAddr,
 	) {
 		let state = DeviceState::Discovered {
-			peer_id,
-			addresses,
+			node_id,
+			node_addr,
 			discovered_at: Utc::now(),
 		};
 
 		self.devices.insert(device_id, state);
-		self.peer_to_device.insert(peer_id, device_id);
+		self.node_to_device.insert(node_id, device_id);
 	}
 
 	/// Start pairing process for a device
 	pub fn start_pairing(
 		&mut self,
 		device_id: Uuid,
-		peer_id: PeerId,
+		node_id: NodeId,
 		session_id: Uuid,
 	) -> Result<()> {
 		let state = DeviceState::Pairing {
-			peer_id,
+			node_id,
 			session_id,
 			started_at: Utc::now(),
 		};
 
 		self.devices.insert(device_id, state);
-		self.peer_to_device.insert(peer_id, device_id);
+		self.node_to_device.insert(node_id, device_id);
 		self.session_to_device.insert(session_id, device_id);
 
 		Ok(())
@@ -118,16 +123,17 @@ impl DeviceRegistry {
 		info: DeviceInfo,
 		session_keys: SessionKeys,
 	) -> Result<()> {
-		// Parse peer ID from network fingerprint
-		let addresses = if let Ok(peer_id) = info.network_fingerprint.peer_id.parse::<libp2p::PeerId>() {
-			// Add peer-to-device mapping so device can be found for messaging
-			self.peer_to_device.insert(peer_id, device_id);
-			println!("🔗 Added peer-to-device mapping: {} -> {}", peer_id, device_id);
+		// Parse node ID from network fingerprint
+		let addresses = if let Ok(node_id) = info.network_fingerprint.node_id.parse::<NodeId>() {
+			// Add node-to-device mapping so device can be found for messaging
+			self.node_to_device.insert(node_id, device_id);
+			// Successfully added node-to-device mapping: node_id -> device_id
 			
 			// Get current addresses from discovered state if available
 			match self.devices.get(&device_id) {
-				Some(DeviceState::Discovered { addresses, .. }) => {
-					addresses.iter().map(|addr| addr.to_string()).collect()
+				Some(DeviceState::Discovered { node_addr, .. }) => {
+					// Convert NodeAddr to string addresses
+					node_addr.direct_addresses().map(|addr| addr.to_string()).collect()
 				}
 				Some(DeviceState::Pairing { .. }) => {
 					vec![] // Pairing state doesn't have addresses
@@ -135,7 +141,7 @@ impl DeviceRegistry {
 				_ => vec![]
 			}
 		} else {
-			println!("⚠️ Failed to parse peer ID from network fingerprint: {}", info.network_fingerprint.peer_id);
+			// Warning: Failed to parse node ID from network fingerprint
 			vec![]
 		};
 
@@ -149,10 +155,10 @@ impl DeviceRegistry {
 
 		// Persist the paired device for future reconnection
 		if let Err(e) = self.persistence.add_paired_device(device_id, info.clone(), session_keys.clone(), addresses).await {
-			eprintln!("⚠️ Failed to persist paired device {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to persist paired device {}: {}", device_id, e)).await;
 			// Continue anyway - pairing succeeded even if persistence failed
 		} else {
-			println!("✅ Persisted paired device: {}", device_id);
+			self.logger.debug(&format!("✅ Persisted paired device: {}", device_id)).await;
 		}
 
 		Ok(())
@@ -174,7 +180,7 @@ impl DeviceRegistry {
 					"Cannot connect disconnected device without session keys".to_string(),
 				));
 			}
-			DeviceState::Discovered { peer_id, .. } => {
+			DeviceState::Discovered { node_id, .. } => {
 				// Need device info - this shouldn't happen normally
 				return Err(NetworkingError::Protocol(
 					"Cannot connect to unpaired device".to_string(),
@@ -203,7 +209,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device connected successfully
 		if let Err(e) = self.persistence.update_device_connection(device_id, true, None).await {
-			eprintln!("⚠️ Failed to update device connection status {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to update device connection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())
@@ -240,7 +246,7 @@ impl DeviceRegistry {
 
 		// Update persistence - device disconnected
 		if let Err(e) = self.persistence.update_device_connection(device_id, false, None).await {
-			eprintln!("⚠️ Failed to update device disconnection status {}: {}", device_id, e);
+			self.logger.warn(&format!("⚠️ Failed to update device disconnection status {}: {}", device_id, e)).await;
 		}
 
 		Ok(())
@@ -252,8 +258,8 @@ impl DeviceRegistry {
 	}
 
 	/// Get device ID by peer ID
-	pub fn get_device_by_peer(&self, peer_id: PeerId) -> Option<Uuid> {
-		self.peer_to_device.get(&peer_id).copied()
+	pub fn get_device_by_node(&self, node_id: NodeId) -> Option<Uuid> {
+		self.node_to_device.get(&node_id).copied()
 	}
 
 	/// Get device ID by session ID
@@ -290,8 +296,8 @@ impl DeviceRegistry {
 		if let Some(state) = self.devices.remove(&device_id) {
 			// Clean up mappings
 			match &state {
-				DeviceState::Discovered { peer_id, .. } | DeviceState::Pairing { peer_id, .. } => {
-					self.peer_to_device.remove(peer_id);
+				DeviceState::Discovered { node_id, .. } | DeviceState::Pairing { node_id, .. } => {
+					self.node_to_device.remove(node_id);
 				}
 				DeviceState::Pairing { session_id, .. } => {
 					self.session_to_device.remove(session_id);
@@ -304,42 +310,44 @@ impl DeviceRegistry {
 	}
 
 	/// Get peer ID for a device
-	pub fn get_peer_by_device(&self, device_id: Uuid) -> Option<PeerId> {
-		// Look through peer_to_device map in reverse
-		for (peer_id, &dev_id) in &self.peer_to_device {
+	pub fn get_node_by_device(&self, device_id: Uuid) -> Option<NodeId> {
+		// Look through node_to_device map in reverse
+		for (node_id, &dev_id) in &self.node_to_device {
 			if dev_id == device_id {
-				println!("🔗 REGISTRY_DEBUG: Found peer {} for device {}", peer_id, device_id);
-				return Some(*peer_id);
+				// Found node for device
+				return Some(*node_id);
 			}
 		}
-		println!("⚠️ REGISTRY_DEBUG: No peer found for device {}. Available mappings:", device_id);
-		for (peer_id, mapped_device_id) in &self.peer_to_device {
-			println!("   {} -> {}", peer_id, mapped_device_id);
-		}
+		// No peer found for device - check node_to_device mappings
 		None
+	}
+
+	/// Get node ID for a device (alias for get_node_by_device)
+	pub fn get_node_id_for_device(&self, device_id: Uuid) -> Option<NodeId> {
+		self.get_node_by_device(device_id)
 	}
 
 	/// Get session keys for a device
 	pub fn get_session_keys(&self, device_id: Uuid) -> Option<super::SessionKeys> {
 		match self.devices.get(&device_id) {
 			Some(DeviceState::Paired { session_keys, .. }) => {
-				println!("🔑 REGISTRY_DEBUG: Found session keys for paired device {}", device_id);
+				// Found session keys for paired device
 				Some(session_keys.clone())
 			}
 			Some(DeviceState::Connected { session_keys, .. }) => {
-				println!("🔑 REGISTRY_DEBUG: Found session keys for connected device {}", device_id);
+				// Found session keys for connected device
 				Some(session_keys.clone())
 			}
 			_ => {
-				println!("🔑 REGISTRY_DEBUG: Device {} not found or not paired/connected", device_id);
+				// Device not found or not paired/connected
 				None
 			}
 		}
 	}
 
 	/// Get all currently connected peer IDs
-	pub fn get_connected_peers(&self) -> Vec<PeerId> {
-		self.peer_to_device.keys().cloned().collect()
+	pub fn get_connected_nodes(&self) -> Vec<NodeId> {
+		self.node_to_device.keys().cloned().collect()
 	}
 
 
@@ -364,7 +372,7 @@ impl DeviceRegistry {
 			app_version: env!("CARGO_PKG_VERSION").to_string(),
 			network_fingerprint:
 				crate::services::networking::utils::identity::NetworkFingerprint {
-					peer_id: "placeholder".to_string(), // Will be filled in by caller
+					node_id: "placeholder".to_string(), // Will be filled in by caller
 					public_key_hash: "placeholder".to_string(),
 				},
 			last_seen: Utc::now(),
@@ -426,5 +434,40 @@ impl DeviceRegistry {
 		for session_id in session_mappings_to_remove {
 			self.session_to_device.remove(&session_id);
 		}
+	}
+
+	/// Set a device as connected with its node ID
+	pub fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId) -> Result<()> {
+		// Update the node_to_device mapping
+		self.node_to_device.insert(node_id, device_id);
+		
+		// Get the current device state to preserve info
+		if let Some(current_state) = self.devices.get(&device_id) {
+			match current_state {
+				DeviceState::Paired { info, session_keys, .. } => {
+					let state = DeviceState::Connected {
+						info: info.clone(),
+						session_keys: session_keys.clone(),
+						connected_at: Utc::now(),
+						connection: DeviceConnection {
+							addresses: Vec::new(), // Will be updated with actual addresses
+							latency_ms: None,
+							rx_bytes: 0,
+							tx_bytes: 0,
+						},
+					};
+					self.devices.insert(device_id, state);
+				}
+				_ => {
+					return Err(NetworkingError::Protocol(
+						"Device must be paired before connecting".to_string(),
+					));
+				}
+			}
+		} else {
+			return Err(NetworkingError::DeviceNotFound(device_id));
+		}
+		
+		Ok(())
 	}
 }

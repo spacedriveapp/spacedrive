@@ -5,7 +5,8 @@ use crate::services::networking::{
     utils::identity::NetworkFingerprint,
 };
 use chrono::{DateTime, Utc};
-use libp2p::PeerId;
+use iroh::net::NodeAddr;
+use iroh::net::key::NodeId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -285,7 +286,7 @@ pub enum PairingState {
     ResponsePending {
         challenge: Vec<u8>,
         response_data: Vec<u8>,
-        remote_peer_id: Option<PeerId>,
+        remote_node_id: Option<NodeId>,
     },
     ResponseSent,
     Completed,
@@ -352,13 +353,13 @@ pub enum PairingRole {
     Joiner,
 }
 
-/// DHT advertisement for pairing session discovery
+/// Discovery advertisement for pairing session
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PairingAdvertisement {
-    /// The peer ID of the initiator (as string for serialization)
-    pub peer_id: String,
-    /// The network addresses where the initiator can be reached (as strings for serialization)
-    pub addresses: Vec<String>,
+    /// The node ID of the initiator (as string for serialization)
+    pub node_id: String,
+    /// The node address components for reconstruction
+    pub node_addr_info: NodeAddrInfo,
     /// Device information of the initiator
     pub device_info: DeviceInfo,
     /// When this advertisement expires
@@ -367,29 +368,57 @@ pub struct PairingAdvertisement {
     pub created_at: DateTime<Utc>,
 }
 
+/// Serializable representation of NodeAddr
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeAddrInfo {
+    /// Node ID as string
+    pub node_id: String,
+    /// Direct socket addresses
+    pub direct_addresses: Vec<String>,
+    /// Relay URL if available
+    pub relay_url: Option<String>,
+}
+
 impl PairingAdvertisement {
-    /// Convert peer ID string back to PeerId
-    pub fn peer_id(&self) -> crate::services::networking::Result<PeerId> {
-        self.peer_id.parse().map_err(|e| {
+    /// Convert node ID string back to NodeId
+    pub fn node_id(&self) -> crate::services::networking::Result<NodeId> {
+        self.node_id.parse().map_err(|e| {
             crate::services::networking::NetworkingError::Protocol(format!(
-                "Invalid peer ID: {}",
+                "Invalid node ID: {}",
                 e
             ))
         })
     }
 
-    /// Convert address strings back to Multiaddr
-    pub fn addresses(&self) -> crate::services::networking::Result<Vec<libp2p::Multiaddr>> {
-        self.addresses
-            .iter()
-            .map(|addr| {
-                addr.parse().map_err(|e| {
-                    crate::services::networking::NetworkingError::Protocol(format!(
-                        "Invalid address: {}",
-                        e
-                    ))
-                })
-            })
-            .collect()
+    /// Convert node address info back to NodeAddr
+    pub fn node_addr(&self) -> crate::services::networking::Result<NodeAddr> {
+        // Parse node ID
+        let node_id = self.node_addr_info.node_id.parse::<NodeId>()
+            .map_err(|e| crate::services::networking::NetworkingError::Protocol(
+                format!("Invalid node ID in advertisement: {}", e)
+            ))?;
+        
+        // Start with base NodeAddr
+        let mut node_addr = NodeAddr::new(node_id);
+        
+        // Add direct addresses
+        let mut direct_addrs = Vec::new();
+        for addr_str in &self.node_addr_info.direct_addresses {
+            if let Ok(addr) = addr_str.parse() {
+                direct_addrs.push(addr);
+            }
+        }
+        if !direct_addrs.is_empty() {
+            node_addr = node_addr.with_direct_addresses(direct_addrs);
+        }
+        
+        // Add relay URL if present
+        if let Some(relay_url) = &self.node_addr_info.relay_url {
+            if let Ok(url) = relay_url.parse() {
+                node_addr = node_addr.with_relay_url(url);
+            }
+        }
+        
+        Ok(node_addr)
     }
 }

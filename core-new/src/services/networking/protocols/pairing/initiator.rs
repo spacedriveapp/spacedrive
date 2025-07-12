@@ -10,6 +10,7 @@ use crate::services::networking::{
     device::{DeviceInfo, SessionKeys},
     NetworkingError, Result,
 };
+use iroh::net::key::NodeId;
 use uuid::Uuid;
 
 impl PairingProtocolHandler {
@@ -38,10 +39,10 @@ impl PairingProtocolHandler {
 
         // Hold the write lock for the entire duration to prevent any scoping issues
         let mut sessions = self.active_sessions.write().await;
-        println!("🔍 ALICE_HANDLER_DEBUG: Looking for session {} in {} total sessions", session_id, sessions.len());
+        self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: Looking for session {} in {} total sessions", session_id, sessions.len())).await;
         
         if let Some(existing_session) = sessions.get_mut(&session_id) {
-            println!("🔍 ALICE_HANDLER_DEBUG: Found existing session {} in state {:?}", session_id, existing_session.state);
+            self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: Found existing session {} in state {:?}", session_id, existing_session.state)).await;
             self.log_debug(&format!("Transitioning existing session {} to ChallengeReceived", session_id)).await;
             
             // Update the existing session in place
@@ -52,7 +53,7 @@ impl PairingProtocolHandler {
             existing_session.remote_device_info = Some(device_info.clone());
             existing_session.remote_public_key = Some(public_key.clone());
         } else {
-            println!("🔍 ALICE_HANDLER_DEBUG: No existing session found for {}, creating new session", session_id);
+            self.log_debug(&format!("🔍 INITIATOR_HANDLER_DEBUG: No existing session found for {}, creating new session", session_id)).await;
             self.log_debug(&format!("Creating new session {} for pairing request", session_id)).await;
 
             // Create new session only if none exists
@@ -179,24 +180,24 @@ impl PairingProtocolHandler {
             ).await?;
         } // Release write lock here
 
-        // Get peer ID for device connection with separate read lock
-        let peer_id = {
+        // Get node ID for device connection with separate read lock
+        let node_id = {
             let registry = self.device_registry.read().await;
-            registry.get_peer_by_device(actual_device_id)
-                .unwrap_or_else(libp2p::PeerId::random)
+            registry.get_node_id_for_device(actual_device_id)
+                .unwrap_or_else(|| NodeId::from_bytes(&[0u8; 32]).unwrap())
         }; // Release read lock here
 
         // Mark device as connected since pairing is successful
-        let (connection, _message_receiver) =
-            crate::services::networking::device::DeviceConnection::new(
-                peer_id,
-                device_info.clone(),
-                session_keys.clone(),
-            );
+        let simple_connection = crate::services::networking::device::DeviceConnection {
+            addresses: vec![], // Will be filled in later
+            latency_ms: None,
+            rx_bytes: 0,
+            tx_bytes: 0,
+        };
 
         if let Err(e) = {
             let mut registry = self.device_registry.write().await;
-            registry.mark_connected(actual_device_id, connection).await
+            registry.mark_connected(actual_device_id, simple_connection).await
         }
         {
             self.log_warn(&format!(

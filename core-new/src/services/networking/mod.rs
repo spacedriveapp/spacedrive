@@ -69,5 +69,6 @@ pub async fn init_networking(
     library_key_manager: std::sync::Arc<crate::keys::library_key_manager::LibraryKeyManager>,
     data_dir: impl AsRef<std::path::Path>,
 ) -> Result<NetworkingService> {
-    NetworkingService::new(device_manager, library_key_manager, data_dir).await
+    let logger = std::sync::Arc::new(utils::logging::ConsoleLogger);
+    NetworkingService::new(device_manager, library_key_manager, data_dir, logger).await
 }
