@@ -6,7 +6,7 @@ use crate::infrastructure::cli::{
 };
 use colored::*;
 use indicatif::{MultiProgress, ProgressBar};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Monitor jobs through the daemon
@@ -48,6 +48,9 @@ pub async fn monitor_jobs(
                 // Get job list
                 match client.send_command(daemon::DaemonCommand::ListJobs { status: Some("running".to_string()) }).await {
                     Ok(daemon::DaemonResponse::Jobs(jobs)) => {
+                        // Track which jobs are still active
+                        let mut active_job_ids = std::collections::HashSet::new();
+                        
                         for job in &jobs {
                             // Filter by specific job if requested
                             if let Some(ref specific_id) = job_id {
@@ -55,6 +58,8 @@ pub async fn monitor_jobs(
                                     continue;
                                 }
                             }
+
+                            active_job_ids.insert(job.id.to_string());
 
                             // Create or update progress bar
                             let job_key = job.id.to_string();
@@ -80,6 +85,18 @@ pub async fn monitor_jobs(
                             } else if job.status.to_string() == "Failed" {
                                 pb.abandon_with_message(format!("❌ {}", "Failed".bright_red()));
                                 job_bars.remove(&job_key);
+                            }
+                        }
+
+                        // Clean up progress bars for jobs that are no longer active
+                        let keys_to_remove: Vec<String> = job_bars.keys()
+                            .filter(|k| !active_job_ids.contains(*k))
+                            .cloned()
+                            .collect();
+                        
+                        for key in keys_to_remove {
+                            if let Some(pb) = job_bars.remove(&key) {
+                                pb.finish_and_clear();
                             }
                         }
 

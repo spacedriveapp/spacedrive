@@ -10,7 +10,7 @@ use super::{
 	entry::EntryMetadata,
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
-	state::{IndexError, IndexerProgress, IndexerState, IndexerStats, Phase},
+	state::{IndexError, IndexerProgress, IndexerState, IndexerStats, Phase, IndexPhase},
 };
 
 /// Indexing mode determines the depth of indexing
@@ -368,6 +368,19 @@ impl JobHandler for IndexerJob {
 			}
 		}
 
+		// Send final progress update
+		let final_progress = IndexerProgress {
+			phase: IndexPhase::Finalizing,
+			current_path: "Completed".to_string(),
+			total_found: state.stats,
+			processing_rate: 0.0,
+			estimated_remaining: None,
+			scope: None,
+			persistence: None,
+			is_ephemeral: false,
+		};
+		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
+		
 		// Calculate final metrics
 		let metrics = if let Some(timer) = &self.timer {
 			IndexerMetrics::calculate(&state.stats, timer, self.db_operations, self.batch_info)

@@ -11,9 +11,8 @@ use crate::{
 	},
 	infrastructure::database::entities,
 	location::manager::LocationManager,
-	operations::indexing::{job::IndexerJob, IndexMode},
+	operations::indexing::IndexMode,
 	register_action_handler,
-	shared::types::SdPath,
 };
 use async_trait::async_trait;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -103,7 +102,7 @@ impl ActionHandler for LocationAddHandler {
 			// Store the name to use for output since we're moving it
 			let name_for_output = action.name.clone();
 
-			let (location_id, location_name) = location_manager
+			let (location_id, job_id_string) = location_manager
 				.add_location(
 					library.clone(),
 					action.path.clone(),
@@ -114,25 +113,13 @@ impl ActionHandler for LocationAddHandler {
 				.await
 				.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-			// Now dispatch an indexing job based on the mode
-			let job_id = {
-				// Use the action mode directly since it's already the correct IndexMode
-
-				// Create indexer job directly
-				let job = IndexerJob::from_location(
-					location_id,
-					SdPath::local(action.path.clone()),
-					action.mode,
-				);
-
-				// Dispatch the job directly
-				let job_handle = library
-					.jobs()
-					.dispatch(job)
-					.await
-					.map_err(ActionError::Job)?;
-
-				job_handle.id()
+			// Parse the job ID from the string returned by add_location
+			let job_id = if !job_id_string.is_empty() {
+				Uuid::parse_str(&job_id_string)
+					.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?
+			} else {
+				// If no job was created by add_location, we should handle this case
+				return Err(ActionError::Internal("Location added but indexing failed to start".to_string()));
 			};
 
 			let output = LocationAddOutput::new(location_id, action.path.clone(), name_for_output)

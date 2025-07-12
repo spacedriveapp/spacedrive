@@ -7,6 +7,7 @@
 use super::{
 	error::{JobError, JobResult},
 	types::{JobId, JobMetrics, JobStatus},
+	progress::Progress,
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{
@@ -200,6 +201,65 @@ impl JobDb {
 			_ => {}
 		}
 
+		job.update(&self.conn).await?;
+		Ok(())
+	}
+
+	/// Update job progress in database
+	pub async fn update_progress(&self, job_id: JobId, progress: &Progress) -> JobResult<()> {
+		let progress_data = rmp_serde::to_vec(progress)
+			.map_err(|e| JobError::serialization(e))?;
+		
+		let mut job = jobs::ActiveModel {
+			id: Set(job_id.to_string()),
+			progress_data: Set(Some(progress_data)),
+			..Default::default()
+		};
+		
+		job.update(&self.conn).await?;
+		Ok(())
+	}
+
+	/// Update job status and optionally progress atomically
+	pub async fn update_status_and_progress(
+		&self,
+		job_id: JobId,
+		status: JobStatus,
+		progress: Option<&Progress>,
+		error_message: Option<String>,
+	) -> JobResult<()> {
+		let mut job = jobs::ActiveModel {
+			id: Set(job_id.to_string()),
+			status: Set(status.to_string()),
+			..Default::default()
+		};
+		
+		// Update progress if provided
+		if let Some(prog) = progress {
+			let progress_data = rmp_serde::to_vec(prog)
+				.map_err(|e| JobError::serialization(e))?;
+			job.progress_data = Set(Some(progress_data));
+		}
+		
+		// Update error message if provided
+		if let Some(err_msg) = error_message {
+			job.error_message = Set(Some(err_msg));
+		}
+		
+		// Update timestamps based on status
+		match status {
+			JobStatus::Running => {
+				job.started_at = Set(Some(Utc::now()));
+			}
+			JobStatus::Paused => {
+				job.paused_at = Set(Some(Utc::now()));
+			}
+			JobStatus::Completed | JobStatus::Failed | JobStatus::Cancelled => {
+				job.completed_at = Set(Some(Utc::now()));
+			}
+			_ => {}
+		}
+		
 		job.update(&self.conn).await?;
 		Ok(())
 	}

@@ -19,6 +19,9 @@ async fn alice_pairing_scenario() {
 		return;
 	}
 
+	// Set test directory for file-based discovery
+	env::set_var("SPACEDRIVE_TEST_DIR", "/tmp/spacedrive-pairing-test");
+
 	let data_dir = PathBuf::from("/tmp/spacedrive-pairing-test/alice");
 	let device_name = "Alice's Test Device";
 
@@ -136,6 +139,9 @@ async fn bob_pairing_scenario() {
 	if env::var("TEST_ROLE").unwrap_or_default() != "bob" {
 		return;
 	}
+
+	// Set test directory for file-based discovery
+	env::set_var("SPACEDRIVE_TEST_DIR", "/tmp/spacedrive-pairing-test");
 
 	let data_dir = PathBuf::from("/tmp/spacedrive-pairing-test/bob");
 	let device_name = "Bob's Test Device";

@@ -370,7 +370,7 @@ impl EntryProcessor {
 			let new_content = entities::content_identity::ActiveModel {
 				uuid: Set(Some(deterministic_uuid)), // Deterministic UUID for sync
 				integrity_hash: Set(None),           // Generated later by validate job
-				content_hash: Set(content_hash),
+				content_hash: Set(content_hash.clone()),
 				mime_type_id: Set(mime_type_id),
 				kind_id: Set(kind_id),
 				media_data: Set(None),   // Set during media analysis
@@ -382,9 +382,36 @@ impl EntryProcessor {
 				..Default::default()
 			};
 
-			let result = new_content.insert(ctx.library_db()).await.map_err(|e| {
-				JobError::execution(format!("Failed to create content identity: {}", e))
-			})?;
+			// Try to insert, but handle unique constraint violations
+			let result = match new_content.insert(ctx.library_db()).await {
+				Ok(model) => model,
+				Err(e) => {
+					// Check if it's a unique constraint violation
+					if e.to_string().contains("UNIQUE constraint failed") {
+						// Another job created it - find and use the existing one
+						let existing = entities::content_identity::Entity::find()
+							.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
+							.one(ctx.library_db())
+							.await
+							.map_err(|e| JobError::execution(format!("Failed to find existing content identity: {}", e)))?
+							.ok_or_else(|| JobError::execution("Content identity should exist after unique constraint violation".to_string()))?;
+						
+						// Update entry count
+						let mut existing_active: entities::content_identity::ActiveModel = existing.clone().into();
+						existing_active.entry_count = Set(existing.entry_count + 1);
+						existing_active.last_verified_at = Set(chrono::Utc::now());
+						
+						existing_active
+							.update(ctx.library_db())
+							.await
+							.map_err(|e| JobError::execution(format!("Failed to update content identity: {}", e)))?;
+						
+						existing
+					} else {
+						return Err(JobError::execution(format!("Failed to create content identity: {}", e)));
+					}
+				}
+			};
 
 			result.id
 		};

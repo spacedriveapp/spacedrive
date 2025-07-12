@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use super::progress::Progress;
 
 /// Output from a completed job
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,6 +87,53 @@ impl JobOutput {
                 })
             }
             _ => None,
+        }
+    }
+    
+    /// Convert output to a progress representation (for final progress)
+    pub fn as_progress(&self) -> Option<Progress> {
+        match self {
+            Self::Success => Some(Progress::percentage(1.0)),
+            Self::FileCopy { copied_count, total_bytes } => {
+                Some(Progress::generic(
+                    crate::infrastructure::jobs::generic_progress::GenericProgress::new(
+                        1.0,
+                        "Completed",
+                        format!("Copied {} files", copied_count)
+                    ).with_bytes(*total_bytes, *total_bytes)
+                ))
+            }
+            Self::Indexed { total_files, total_dirs, total_bytes } => {
+                Some(Progress::generic(
+                    crate::infrastructure::jobs::generic_progress::GenericProgress::new(
+                        1.0,
+                        "Completed",
+                        format!("Indexed {} files, {} directories", total_files, total_dirs)
+                    ).with_bytes(*total_bytes, *total_bytes)
+                ))
+            }
+            Self::ThumbnailGeneration { generated_count, .. } => {
+                Some(Progress::generic(
+                    crate::infrastructure::jobs::generic_progress::GenericProgress::new(
+                        1.0,
+                        "Completed",
+                        format!("Generated {} thumbnails", generated_count)
+                    )
+                ))
+            }
+            Self::FileMove { moved_count, .. } => {
+                Some(Progress::percentage(1.0))
+            }
+            Self::FileDelete { deleted_count, .. } => {
+                Some(Progress::percentage(1.0))
+            }
+            Self::DuplicateDetection { duplicate_groups, .. } => {
+                Some(Progress::percentage(1.0))
+            }
+            Self::FileValidation { validated_count, .. } => {
+                Some(Progress::percentage(1.0))
+            }
+            _ => Some(Progress::percentage(1.0)),
         }
     }
 }

@@ -8,7 +8,7 @@ use super::{
     output::JobOutput,
     progress::Progress,
     traits::{Job, JobHandler},
-    types::{ErasedJob, JobId, JobMetrics},
+    types::{ErasedJob, JobId, JobMetrics, JobStatus},
 };
 use crate::library::Library;
 use async_trait::async_trait;
@@ -35,6 +35,7 @@ pub struct JobExecutorState {
     pub output: Option<JobOutput>,
     pub networking: Option<Arc<crate::services::networking::NetworkingService>>,
     pub volume_manager: Option<Arc<crate::volume::VolumeManager>>,
+    pub latest_progress: Arc<Mutex<Option<Progress>>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -64,6 +65,7 @@ impl<J: JobHandler> JobExecutor<J> {
                 output: None,
                 networking,
                 volume_manager,
+                latest_progress: Arc::new(Mutex::new(None)),
             },
         }
     }
@@ -134,9 +136,7 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
             volume_manager: self.state.volume_manager.clone(),
         };
         
-        // Forward progress to broadcast channel
-        // For now, skip this as it requires proper channel setup
-        // TODO: Implement progress forwarding properly
+        // Progress forwarding is handled by JobManager
         
         // Check if we're resuming
         // TODO: Implement proper resume detection
@@ -153,26 +153,46 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
                 // Update metrics
                 self.state.metrics = metrics_ref.lock().await.clone();
                 
-                // Update status
-                let _ = self.state.status_tx.send(super::types::JobStatus::Completed);
+                // Update status with final progress
+                info!("Job {} sending Completed status", self.state.job_id);
+                if let Err(e) = self.state.status_tx.send(JobStatus::Completed) {
+                    error!("Failed to send Completed status for job {}: {:?}", self.state.job_id, e);
+                }
                 
-                // Also persist status to database
-                if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Completed).await {
+                // Persist final status and progress to database atomically
+                let final_progress = if let Some(ref output) = self.state.output {
+                    output.as_progress()
+                } else {
+                    Some(Progress::percentage(1.0))
+                };
+                
+                if let Err(e) = self.state.job_db.update_status_and_progress(
+                    self.state.job_id,
+                    JobStatus::Completed,
+                    final_progress.as_ref(),
+                    None
+                ).await {
                     error!("Failed to update job completion status in database: {}", e);
                 }
                 
-                info!("Job {} completed successfully", self.state.job_id);
+                info!("Job {} completed successfully - status sent and DB updated", self.state.job_id);
                 Ok(ExecStatus::Done(sd_task_system::TaskOutput::Empty))
             }
             Err(e) => {
                 if e.is_interrupted() {
                     debug!("Job {} interrupted", self.state.job_id);
                     
-                    // Update status
-                    let _ = self.state.status_tx.send(super::types::JobStatus::Cancelled);
+                    // Update status with current progress
+                    let _ = self.state.status_tx.send(JobStatus::Cancelled);
                     
-                    // Also persist status to database
-                    if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Cancelled).await {
+                    // Persist cancellation status with latest progress
+                    let latest_progress = self.state.latest_progress.lock().await.clone();
+                    if let Err(e) = self.state.job_db.update_status_and_progress(
+                        self.state.job_id,
+                        JobStatus::Cancelled,
+                        latest_progress.as_ref(),
+                        None
+                    ).await {
                         error!("Failed to update job cancellation status in database: {}", e);
                     }
                     
@@ -180,12 +200,18 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
                 } else {
                     error!("Job {} failed: {}", self.state.job_id, e);
                     
-                    // Update status
-                    let _ = self.state.status_tx.send(super::types::JobStatus::Failed);
+                    // Update status with current progress
+                    let _ = self.state.status_tx.send(JobStatus::Failed);
                     
-                    // Also persist status to database
-                    if let Err(e) = self.update_job_status_in_db(super::types::JobStatus::Failed).await {
-                        error!("Failed to update job failure status in database: {}", e);
+                    // Persist failure status with latest progress and error message
+                    let latest_progress = self.state.latest_progress.lock().await.clone();
+                    if let Err(e_db) = self.state.job_db.update_status_and_progress(
+                        self.state.job_id,
+                        JobStatus::Failed,
+                        latest_progress.as_ref(),
+                        Some(e.to_string())
+                    ).await {
+                        error!("Failed to update job failure status in database: {}", e_db);
                     }
                     
                     Err(e)

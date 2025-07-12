@@ -11,21 +11,25 @@ impl ToGenericProgress for IndexerProgress {
 	fn to_generic_progress(&self) -> GenericProgress {
 		let (percentage, completion_info, phase_name) = match &self.phase {
 			IndexPhase::Discovery { dirs_queued } => {
-				// Discovery phase - indeterminate but show queue size
+				// Discovery phase - 0-20% range
 				let _message =
 					format!("Discovering files and directories ({} queued)", dirs_queued);
-				(0.0, (0, 0), "Discovery".to_string())
+				// Start at 5% to show immediate progress
+				let percentage = if *dirs_queued > 0 { 0.05 } else { 0.1 };
+				(percentage, (0, 0), "Discovery".to_string())
 			}
 			IndexPhase::Processing {
 				batch,
 				total_batches,
 			} => {
-				// Processing phase - show batch progress
-				let percentage = if *total_batches > 0 {
+				// Processing phase - show batch progress (20-60% of total)
+				let batch_progress = if *total_batches > 0 {
 					*batch as f32 / *total_batches as f32
 				} else {
 					0.0
 				};
+				// Map to 20-60% range
+				let percentage = 0.2 + (batch_progress * 0.4);
 				let _message = format!("Processing entries (batch {}/{})", batch, total_batches);
 				(
 					percentage,
@@ -34,12 +38,14 @@ impl ToGenericProgress for IndexerProgress {
 				)
 			}
 			IndexPhase::ContentIdentification { current, total } => {
-				// Content ID phase - show item progress
-				let percentage = if *total > 0 {
-					*current as f32 / *total as f32
+				// Content ID phase - show item progress (70-98% of total)
+				let content_progress = if *total > 0 {
+					(*current as f32 / *total as f32).min(1.0)
 				} else {
 					0.0
 				};
+				// Map to 70-98% range, never reach 100% in this phase
+				let percentage = 0.7 + (content_progress * 0.28);
 				let _message = format!("Generating content identities ({}/{})", current, total);
 				(
 					percentage,
@@ -48,9 +54,9 @@ impl ToGenericProgress for IndexerProgress {
 				)
 			}
 			IndexPhase::Finalizing => {
-				// Final phase - nearly complete
+				// Final phase - 99% (reserve 100% for actual completion)
 				let _message = "Finalizing index data...".to_string();
-				(0.95, (0, 0), "Finalizing".to_string())
+				(0.99, (0, 0), "Finalizing".to_string())
 			}
 		};
 

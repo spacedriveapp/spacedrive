@@ -37,9 +37,9 @@ pub async fn run_content_phase(
         
         let chunk_size = CHUNK_SIZE.min(state.entries_for_content.len());
         let chunk: Vec<_> = state.entries_for_content.drain(..chunk_size).collect();
+        let chunk_len = chunk.len();
         
-        processed += chunk.len();
-        
+        // Report progress BEFORE processing (using current processed count)
         let indexer_progress = IndexerProgress {
             phase: IndexPhase::ContentIdentification { 
                 current: processed, 
@@ -98,8 +98,11 @@ pub async fn run_content_phase(
             }
         }
         
+        // Update processed count AFTER processing chunk
+        processed += chunk_len;
+        
         // Update rate tracking
-        state.items_since_last_update += chunk_size as u64;
+        state.items_since_last_update += chunk_len as u64;
         
         // Periodic checkpoint
         if processed % 1000 == 0 || processed == total {
