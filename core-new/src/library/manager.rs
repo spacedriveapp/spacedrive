@@ -9,11 +9,12 @@ use super::{
 use crate::{
     context::CoreContext,
     infrastructure::{
-        database::Database,
+        database::{Database, entities},
         events::{Event, EventBus},
         jobs::manager::JobManager,
     },
 };
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use chrono::Utc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -230,6 +231,11 @@ impl LibraryManager {
             _lock: lock,
         });
 
+        // Ensure device is registered in this library
+        if let Err(e) = self.ensure_device_registered(&library, &context).await {
+            warn!("Failed to register device in library {}: {}", config.id, e);
+        }
+
         // Register library
         {
             let mut libraries = self.libraries.write().await;
@@ -434,6 +440,55 @@ impl LibraryManager {
             config,
             is_locked,
         })
+    }
+
+    /// Ensure the current device is registered in the library
+    async fn ensure_device_registered(
+        &self,
+        library: &Arc<Library>,
+        context: &Arc<CoreContext>,
+    ) -> Result<()> {
+        let db = library.db();
+        let device = context.device_manager.to_device()
+            .map_err(|e| LibraryError::Other(format!("Failed to get device info: {}", e)))?;
+
+        // Check if device exists
+        let existing = entities::device::Entity::find()
+            .filter(entities::device::Column::Uuid.eq(device.id))
+            .one(db.conn())
+            .await
+            .map_err(|e| LibraryError::Database(e.to_string()))?;
+
+        if existing.is_none() {
+            // Register the device
+            use sea_orm::ActiveValue::Set;
+            let device_model = entities::device::ActiveModel {
+                id: sea_orm::ActiveValue::NotSet,
+                uuid: Set(device.id),
+                name: Set(device.name.clone()),
+                os: Set(device.os.to_string()),
+                os_version: Set(None),
+                hardware_model: Set(device.hardware_model),
+                network_addresses: Set(serde_json::json!(device.network_addresses)),
+                is_online: Set(true),
+                last_seen_at: Set(device.last_seen_at),
+                capabilities: Set(serde_json::json!({
+                    "indexing": true,
+                    "p2p": true,
+                    "volume_detection": true
+                })),
+                sync_leadership: Set(serde_json::json!(device.sync_leadership)),
+                created_at: Set(device.created_at),
+                updated_at: Set(device.updated_at),
+            };
+
+            device_model.insert(db.conn()).await
+                .map_err(|e| LibraryError::Database(e.to_string()))?;
+            
+            info!("Registered device {} in library {}", device.id, library.id());
+        }
+
+        Ok(())
     }
 }
 

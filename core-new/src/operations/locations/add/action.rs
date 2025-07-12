@@ -109,7 +109,7 @@ impl ActionHandler for LocationAddHandler {
                 .map_err(|e| ActionError::Internal(e.to_string()))?;
 
             // Now dispatch an indexing job based on the mode
-            let job_handle = {
+            let job_id = {
                 // Use the action mode directly since it's already the correct IndexMode
 
                 // Create indexer job directly
@@ -122,10 +122,11 @@ impl ActionHandler for LocationAddHandler {
                     .await
                     .map_err(ActionError::Job)?;
 
-                Some(job_handle)
+                job_handle.id()
             };
 
-            let output = LocationAddOutput::new(location_id, action.path.clone(), name_for_output);
+            let output = LocationAddOutput::new(location_id, action.path.clone(), name_for_output)
+                .with_job_id(job_id);
             Ok(ActionOutput::from_trait(output))
         } else {
             Err(ActionError::InvalidActionType)

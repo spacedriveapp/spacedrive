@@ -11,6 +11,7 @@ pub struct LocationAddOutput {
     pub location_id: Uuid,
     pub path: PathBuf,
     pub name: Option<String>,
+    pub job_id: Option<Uuid>,
 }
 
 impl LocationAddOutput {
@@ -19,7 +20,13 @@ impl LocationAddOutput {
             location_id,
             path,
             name,
+            job_id: None,
         }
+    }
+
+    pub fn with_job_id(mut self, job_id: Uuid) -> Self {
+        self.job_id = Some(job_id);
+        self
     }
 }
 
