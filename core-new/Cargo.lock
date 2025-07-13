@@ -6810,6 +6810,7 @@ dependencies = [
  "snow",
  "spacedrive-jobs-derive",
  "sqlx",
+ "strum 0.26.3",
  "supports-color",
  "tempfile",
  "thiserror 1.0.69",

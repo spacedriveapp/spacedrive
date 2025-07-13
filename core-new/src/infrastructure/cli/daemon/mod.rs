@@ -342,7 +342,7 @@ async fn handle_client(
 
 		let response = match serde_json::from_str::<DaemonCommand>(trimmed) {
 			Ok(cmd) => {
-				info!("Handling daemon command: {:?}", cmd);
+				// info!("Handling daemon command: {:?}", cmd);
 				handler_registry.handle(cmd, &core, &state_service).await
 			}
 			Err(e) => DaemonResponse::Error(format!("Invalid command: {}", e)),

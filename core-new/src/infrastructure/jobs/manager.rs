@@ -12,7 +12,11 @@ use super::{
 	traits::{Job, JobHandler},
 	types::{JobId, JobInfo, JobPriority, JobStatus},
 };
-use crate::{context::CoreContext, infrastructure::events::{Event, EventBus}, library::Library};
+use crate::{
+	context::CoreContext,
+	infrastructure::events::{Event, EventBus},
+	library::Library,
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
@@ -164,12 +168,15 @@ impl JobManager {
 
 				// Emit enhanced progress event
 				use crate::infrastructure::events::Event;
-				
+
 				// Extract generic progress data if available
 				let generic_progress = match &progress {
 					Progress::Structured(value) => {
 						// Try to deserialize CopyProgress and convert to GenericProgress
-						if let Ok(copy_progress) = serde_json::from_value::<crate::operations::files::copy::CopyProgress>(value.clone()) {
+						if let Ok(copy_progress) = serde_json::from_value::<
+							crate::operations::files::copy::CopyProgress,
+						>(value.clone())
+						{
 							use crate::infrastructure::jobs::generic_progress::ToGenericProgress;
 							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
 						} else {
@@ -178,8 +185,9 @@ impl JobManager {
 					}
 					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
 					_ => None,
-				}.flatten();
-				
+				}
+				.flatten();
+
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
 					job_type: job_type_str.to_string(),
@@ -266,7 +274,10 @@ impl JobManager {
 								});
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
-								info!("Job {} completed and removed from running jobs", job_id_clone);
+								info!(
+									"Job {} completed and removed from running jobs",
+									job_id_clone
+								);
 								break;
 							}
 							JobStatus::Failed => {
@@ -287,9 +298,12 @@ impl JobManager {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.clone(),
 								});
-								// Remove from running jobs  
+								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
-								info!("Job {} cancelled and removed from running jobs", job_id_clone);
+								info!(
+									"Job {} cancelled and removed from running jobs",
+									job_id_clone
+								);
 								break;
 							}
 							_ => {} // Continue monitoring for other status changes
@@ -360,12 +374,12 @@ impl JobManager {
 		let job_id_clone = job_id.clone();
 		let job_type_str = J::NAME;
 		let job_db_clone = self.db.clone();
-		
+
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 			let mut last_db_update = std::time::Instant::now();
 			const DB_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(2);
-			
+
 			while let Some(progress) = progress_rx.recv().await {
 				// Store latest progress
 				*latest_progress_clone.lock().await = Some(progress.clone());
@@ -384,12 +398,15 @@ impl JobManager {
 
 				// Emit enhanced progress event
 				use crate::infrastructure::events::Event;
-				
+
 				// Extract generic progress data if available
 				let generic_progress = match &progress {
 					Progress::Structured(value) => {
 						// Try to deserialize CopyProgress and convert to GenericProgress
-						if let Ok(copy_progress) = serde_json::from_value::<crate::operations::files::copy::CopyProgress>(value.clone()) {
+						if let Ok(copy_progress) = serde_json::from_value::<
+							crate::operations::files::copy::CopyProgress,
+						>(value.clone())
+						{
 							use crate::infrastructure::jobs::generic_progress::ToGenericProgress;
 							Some(serde_json::to_value(copy_progress.to_generic_progress()).ok())
 						} else {
@@ -398,8 +415,9 @@ impl JobManager {
 					}
 					Progress::Generic(gp) => Some(serde_json::to_value(gp).ok()),
 					_ => None,
-				}.flatten();
-				
+				}
+				.flatten();
+
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
 					job_type: job_type_str.to_string(),
@@ -408,10 +426,13 @@ impl JobManager {
 					generic_progress,
 				});
 			}
-			
+
 			// Final progress update when channel closes
 			if let Some(final_progress) = &*latest_progress_clone.lock().await {
-				if let Err(e) = job_db_clone.update_progress(job_id_clone, final_progress).await {
+				if let Err(e) = job_db_clone
+					.update_progress(job_id_clone, final_progress)
+					.await
+				{
 					debug!("Failed to persist final job progress to database: {}", e);
 				}
 			}
@@ -449,7 +470,7 @@ impl JobManager {
 
 		// Clone status_rx for cleanup task
 		let status_rx_cleanup = status_rx.clone();
-		
+
 		// Create handle
 		let handle = JobHandle {
 			id: job_id,
@@ -498,7 +519,10 @@ impl JobManager {
 								});
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
-								info!("Job {} completed and removed from running jobs", job_id_clone);
+								info!(
+									"Job {} completed and removed from running jobs",
+									job_id_clone
+								);
 								break;
 							}
 							JobStatus::Failed => {
@@ -521,7 +545,10 @@ impl JobManager {
 								});
 								// Remove from running jobs
 								running_jobs.write().await.remove(&job_id_clone);
-								info!("Job {} cancelled and removed from running jobs", job_id_clone);
+								info!(
+									"Job {} cancelled and removed from running jobs",
+									job_id_clone
+								);
 								break;
 							}
 							_ => {} // Continue monitoring for other status changes
@@ -559,21 +586,9 @@ impl JobManager {
 		let running_jobs = self.running_jobs.read().await;
 		let mut job_infos = Vec::new();
 
-		info!(
-			"list_running_jobs: Found {} jobs in running_jobs map",
-			running_jobs.len()
-		);
-		
-		// Debug: log all jobs in the map
-		for (id, _) in running_jobs.iter() {
-			debug!("Job {} is in running_jobs map", id);
-		}
-
 		for (job_id, running_job) in running_jobs.iter() {
 			let handle = &running_job.handle;
 			let status = handle.status();
-
-			info!("Job {}: status = {:?}", job_id, status);
 
 			// Only include active jobs (running or paused)
 			if status.is_active() {
@@ -598,20 +613,9 @@ impl JobManager {
 				};
 
 				job_infos.push(job_info);
-				info!(
-					"Added active job {} to result with progress {:.1}%",
-					job_id,
-					progress_percentage * 100.0
-				);
-			} else {
-				info!(
-					"Skipping job {} with status {:?} (not active)",
-					job_id, status
-				);
 			}
 		}
 
-		info!("Returning {} active jobs", job_infos.len());
 		job_infos
 	}
 
@@ -622,39 +626,40 @@ impl JobManager {
 		// First, get running jobs from memory for accurate real-time status
 		let mut all_jobs = Vec::new();
 		let running_jobs_map = self.running_jobs.read().await;
-		
+
 		// Collect job IDs that are in memory
 		let mut in_memory_ids = std::collections::HashSet::new();
-		
+
 		for (job_id, running_job) in running_jobs_map.iter() {
 			let handle = &running_job.handle;
 			let current_status = handle.status();
-			
+
 			in_memory_ids.insert(job_id.0.to_string());
-			
+
 			// Check if status matches filter
 			if let Some(filter_status) = status {
 				if current_status != filter_status {
 					continue;
 				}
 			}
-			
+
 			// Get latest progress from memory
-			let progress_percentage = if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
-				progress.as_percentage().unwrap_or(0.0)
-			} else {
-				0.0
-			};
-			
+			let progress_percentage =
+				if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
+					progress.as_percentage().unwrap_or(0.0)
+				} else {
+					0.0
+				};
+
 			// Get job name from database for complete info
 			let job_name = match database::jobs::Entity::find_by_id(job_id.0.to_string())
 				.one(self.db.conn())
-				.await? 
+				.await?
 			{
 				Some(db_job) => db_job.name,
 				None => format!("Job {}", job_id.0),
 			};
-			
+
 			all_jobs.push(JobInfo {
 				id: job_id.0,
 				name: job_name,
@@ -684,12 +689,12 @@ impl JobManager {
 			if in_memory_ids.contains(&j.id) {
 				continue;
 			}
-			
+
 			let id = match j.id.parse::<Uuid>() {
 				Ok(id) => id,
 				Err(_) => continue,
 			};
-			
+
 			let status = match j.status.as_str() {
 				"Queued" => JobStatus::Queued,
 				"Running" => JobStatus::Running,
@@ -729,13 +734,7 @@ impl JobManager {
 	pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
 		let job_id = JobId(id);
 
-		// First check if job is running in memory (for live status and progress)
-		println!(
-			"🔍 JOB_DEBUG: Checking for job {} in running jobs memory",
-			id
-		);
 		if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
-			println!("🔍 JOB_DEBUG: Found job {} in memory with live status", id);
 			let handle = &running_job.handle;
 			let status = handle.status();
 
@@ -768,26 +767,11 @@ impl JobManager {
 			}));
 		}
 
-		// Job not in memory, check database for completed/failed jobs
-		println!(
-			"🔍 JOB_DEBUG: Job {} not in memory, looking up in database",
-			id
-		);
 		let job = database::jobs::Entity::find_by_id(id.to_string())
 			.one(self.db.conn())
 			.await?;
 
-		if job.is_some() {
-			println!("🔍 JOB_DEBUG: Found job {} in database", id);
-		} else {
-			println!("⚠️ JOB_DEBUG: Job {} NOT found in database", id);
-		}
-
 		Ok(job.and_then(|j| {
-			println!(
-				"🔍 JOB_DEBUG: Converting database job - status: {}, name: {}",
-				j.status, j.name
-			);
 			let id = j.id.parse::<Uuid>().ok()?;
 			let status = match j.status.as_str() {
 				"Queued" => JobStatus::Queued,
@@ -927,7 +911,7 @@ impl JobManager {
 								tokio::spawn(async move {
 									let mut status_rx = status_tx.subscribe();
 									while status_rx.changed().await.is_ok() {
-						let status = *status_rx.borrow();
+										let status = *status_rx.borrow();
 										match status {
 											JobStatus::Completed => {
 												// Emit completion event

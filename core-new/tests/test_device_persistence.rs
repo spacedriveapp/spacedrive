@@ -44,7 +44,8 @@ async fn alice_persistence_scenario() {
 		println!("✅ Alice: Core initialized successfully");
 
 		// Device name should be persisted
-		let current_name = core.device.get_name();
+		let device_config = core.device.config().unwrap();
+		let current_name = device_config.name;
 		println!("🏷️ Alice: Device name after restart: {}", current_name);
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
@@ -166,7 +167,7 @@ async fn alice_persistence_scenario() {
 				// Verify devices are properly persisted
 				if let Some(networking) = core.networking() {
 					let registry = networking.device_registry();
-					let paired_devices = registry.get_paired_devices().await;
+					let paired_devices = registry.read().await.get_paired_devices();
 					assert!(!paired_devices.is_empty(), "No paired devices found in registry");
 					println!("✅ Alice: {} devices persisted to registry", paired_devices.len());
 				}
@@ -224,7 +225,7 @@ async fn bob_persistence_scenario() {
 		println!("✅ Bob: Core initialized successfully");
 
 		// Device name should be persisted
-		let current_name = core.device.get_name();
+		let current_name = core.device.config().unwrap().name;
 		println!("🏷️ Bob: Device name after restart: {}", current_name);
 		assert_eq!(current_name, device_name, "Device name not persisted");
 
@@ -346,7 +347,7 @@ async fn bob_persistence_scenario() {
 				// Verify devices are properly persisted
 				if let Some(networking) = core.networking() {
 					let registry = networking.device_registry();
-					let paired_devices = registry.get_paired_devices().await;
+					let paired_devices = registry.read().await.get_paired_devices();
 					assert!(!paired_devices.is_empty(), "No paired devices found in registry");
 					println!("✅ Bob: {} devices persisted to registry", paired_devices.len());
 				}

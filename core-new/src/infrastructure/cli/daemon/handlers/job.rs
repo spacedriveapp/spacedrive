@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::Core;
 use crate::infrastructure::cli::daemon::services::StateService;
 use crate::infrastructure::cli::daemon::types::{DaemonCommand, DaemonResponse, JobInfo};
+use crate::Core;
 
 use super::CommandHandler;
 
@@ -46,14 +46,9 @@ impl CommandHandler for JobHandler {
 					}
 
 					// For other statuses, query the database
-					let status_filter = status.and_then(|s| match s.as_str() {
-						"queued" => Some(crate::infrastructure::jobs::types::JobStatus::Queued),
-						"running" => Some(crate::infrastructure::jobs::types::JobStatus::Running),
-						"completed" => Some(crate::infrastructure::jobs::types::JobStatus::Completed),
-						"failed" => Some(crate::infrastructure::jobs::types::JobStatus::Failed),
-						"paused" => Some(crate::infrastructure::jobs::types::JobStatus::Paused),
-						"cancelled" => Some(crate::infrastructure::jobs::types::JobStatus::Cancelled),
-						_ => None,
+					let status_filter = status.and_then(|s| {
+						s.parse::<crate::infrastructure::jobs::types::JobStatus>()
+							.ok()
 					});
 
 					match job_manager.list_jobs(status_filter).await {

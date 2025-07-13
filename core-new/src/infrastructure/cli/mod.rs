@@ -1,7 +1,6 @@
 pub mod adapters;
 pub mod commands;
 pub mod daemon;
-pub mod monitoring;
 pub mod output;
 pub mod pairing_ui;
 pub mod state;

@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::PathBuf,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 use uuid::Uuid;
@@ -81,7 +82,7 @@ impl JobHandler for FileCopyJob {
         ));
 
         // Phase 1: Initializing
-        ctx.progress(Progress::structured(CopyProgress {
+        let progress = CopyProgress {
             phase: CopyPhase::Initializing,
             current_file: String::new(),
             files_copied: 0,
@@ -92,7 +93,8 @@ impl JobHandler for FileCopyJob {
             estimated_remaining: None,
             preparation_complete: false,
             error_count: 0,
-        }));
+        };
+        ctx.progress(Progress::generic(progress.to_generic_progress()));
 
         // Group by device for efficient processing
         let by_device: HashMap<Uuid, Vec<SdPath>> = self
@@ -102,7 +104,6 @@ impl JobHandler for FileCopyJob {
             .map(|(device_id, paths)| (device_id, paths.into_iter().cloned().collect()))
             .collect();
 
-        let total_files = self.sources.paths.len();
         let mut copied_count = 0;
         let mut total_bytes = 0u64;
         let mut failed_copies = Vec::new();
@@ -110,7 +111,7 @@ impl JobHandler for FileCopyJob {
         let volume_manager = ctx.volume_manager();
 
         // Phase 2: Database Query - Try to get instant estimates
-        ctx.progress(Progress::structured(CopyProgress {
+        let progress = CopyProgress {
             phase: CopyPhase::DatabaseQuery,
             current_file: String::new(),
             files_copied: 0,
@@ -121,7 +122,8 @@ impl JobHandler for FileCopyJob {
             estimated_remaining: None,
             preparation_complete: false,
             error_count: 0,
-        }));
+        };
+        ctx.progress(Progress::generic(progress.to_generic_progress()));
 
         // Try to get estimates from database
         let db_estimates = {
@@ -143,21 +145,21 @@ impl JobHandler for FileCopyJob {
             }
         };
 
-        // Use database estimates if available, otherwise show preparation phase
+        // Use database estimates if available, otherwise use source path count for initial display
         let (estimated_files, estimated_bytes) = if let Some(ref estimates) = db_estimates {
             if estimates.is_complete() {
                 // We have complete information from database
                 (estimates.file_count as usize, estimates.total_size)
             } else {
                 // Partial information - still useful for initial display
-                (total_files.max(estimates.file_count as usize), estimates.total_size)
+                (self.sources.paths.len().max(estimates.file_count as usize), estimates.total_size)
             }
         } else {
-            (total_files, 0)
+            (self.sources.paths.len(), 0)
         };
 
         // Phase 3: Preparation - Calculate actual total size
-        ctx.progress(Progress::structured(CopyProgress {
+        let progress = CopyProgress {
             phase: CopyPhase::Preparation,
             current_file: String::new(),
             files_copied: 0,
@@ -172,23 +174,37 @@ impl JobHandler for FileCopyJob {
             estimated_remaining: None,
             preparation_complete: false,
             error_count: 0,
-        }));
+        };
+        ctx.progress(Progress::generic(progress.to_generic_progress()));
 
+        // Calculate actual file count and total size
+        let actual_file_count = self.count_total_files().await?;
         let estimated_total_bytes = self.calculate_total_size(&ctx).await?;
 
-        // Update progress with calculated size
-        ctx.progress(Progress::structured(CopyProgress {
+        ctx.log(format!(
+            "Preparing to copy {} files ({}) from {} source paths",
+            actual_file_count,
+            format_bytes(estimated_total_bytes),
+            self.sources.paths.len()
+        ));
+
+        // Update progress with calculated size and file count
+        let progress = CopyProgress {
             phase: CopyPhase::Preparation,
             current_file: String::new(),
             files_copied: 0,
-            total_files: total_files,
+            total_files: actual_file_count,
             bytes_copied: 0,
             total_bytes: estimated_total_bytes,
             current_operation: "Preparation complete".to_string(),
             estimated_remaining: None,
             preparation_complete: true,
             error_count: 0,
-        }));
+        };
+        ctx.progress(Progress::generic(progress.to_generic_progress()));
+
+        // Create progress aggregator for tracking overall progress
+        let mut progress_aggregator = ProgressAggregator::new(&ctx, actual_file_count, estimated_total_bytes);
 
         // Process each source using the appropriate strategy
         for (index, source) in self.sources.paths.iter().enumerate() {
@@ -197,7 +213,19 @@ impl JobHandler for FileCopyJob {
             // Skip files that have already been completed (resume logic)
             if self.completed_indices.contains(&index) {
                 ctx.log(format!("Skipping already completed file: {}", source.display()));
-                copied_count += 1; // Count as copied for progress tracking
+                
+                // Update progress aggregator to account for already completed files
+                let files_in_source = if let Some(local_path) = source.as_local_path() {
+                    let file_size = self.get_path_size(local_path).await.unwrap_or(0);
+                    let file_count = self.count_files_in_path(local_path).await.unwrap_or(1);
+                    progress_aggregator.skip_completed_file(file_size, file_count);
+                    total_bytes += file_size;
+                    file_count
+                } else {
+                    1
+                };
+                
+                copied_count += files_in_source; // Count actual files as copied for progress tracking
                 continue;
             }
 
@@ -220,25 +248,41 @@ impl JobHandler for FileCopyJob {
                 }
             };
 
-            // Update progress
-            ctx.progress(Progress::structured(CopyProgress {
+            // Count files in this source path for accurate progress tracking
+            let files_in_source = if let Some(local_path) = source.as_local_path() {
+                self.count_files_in_path(local_path).await.unwrap_or(1)
+            } else {
+                1
+            };
+
+            // Update aggregator with current file info
+            let operation_description = CopyStrategyRouter::describe_strategy(
+                source,
+                &final_destination,
+                is_move,
+                &self.options.copy_method,
+                volume_manager.as_deref(),
+            ).await;
+            
+            progress_aggregator.start_file(source.display(), operation_description);
+            progress_aggregator.set_error_count(failed_copies.len());
+
+            // Update progress - show files already completed
+            let files_completed_count = *progress_aggregator.files_completed.lock().unwrap();
+            let bytes_completed_snapshot = *progress_aggregator.bytes_completed_before_current.lock().unwrap();
+            let progress = CopyProgress {
                 phase: CopyPhase::Copying,
                 current_file: source.display(),
-                files_copied: copied_count,
-                total_files,
-                bytes_copied: total_bytes,
+                files_copied: files_completed_count,
+                total_files: actual_file_count,
+                bytes_copied: bytes_completed_snapshot,
                 total_bytes: estimated_total_bytes,
-                current_operation: CopyStrategyRouter::describe_strategy(
-                    source,
-                    &final_destination,
-                    is_move,
-                    &self.options.copy_method,
-                    volume_manager.as_deref(),
-                ).await,
+                current_operation: progress_aggregator.current_operation.clone(),
                 estimated_remaining: None,
                 preparation_complete: true,
                 error_count: failed_copies.len(),
-            }));
+            };
+            ctx.progress(Progress::generic(progress.to_generic_progress()));
 
             // 1. Select the strategy
             let strategy = CopyStrategyRouter::select_strategy(
@@ -249,10 +293,14 @@ impl JobHandler for FileCopyJob {
                 volume_manager.as_deref(),
             ).await;
 
-            // 2. Execute the strategy
-            match strategy.execute(&ctx, source, &final_destination, self.options.verify_checksum).await {
+            // 2. Execute the strategy with progress callback
+            match strategy.execute(&ctx, source, &final_destination, self.options.verify_checksum, Some(&progress_aggregator.create_callback())).await {
                 Ok(bytes) => {
-                    copied_count += 1;
+                    // Mark source as complete (bytes/files already updated by callback)
+                    progress_aggregator.complete_source();
+                    
+                    // Update totals
+                    copied_count += files_in_source;
                     total_bytes += bytes;
 
                     // Track successful completion for resume
@@ -307,18 +355,19 @@ impl JobHandler for FileCopyJob {
         }
 
         // Phase 4: Complete
-        ctx.progress(Progress::structured(CopyProgress {
+        let progress = CopyProgress {
             phase: CopyPhase::Complete,
             current_file: String::new(),
             files_copied: copied_count,
-            total_files: total_files,
+            total_files: actual_file_count,
             bytes_copied: total_bytes,
             total_bytes: estimated_total_bytes,
             current_operation: "Copy operation complete".to_string(),
             estimated_remaining: None,
             preparation_complete: true,
             error_count: failed_copies.len(),
-        }));
+        };
+        ctx.progress(Progress::generic(progress.to_generic_progress()));
 
         ctx.log(format!(
             "Copy operation completed: {} copied, {} failed",
@@ -376,6 +425,114 @@ pub struct CopyProgress {
 
 impl JobProgress for CopyProgress {}
 
+/// Progress aggregator that tracks overall copy job progress
+struct ProgressAggregator<'a> {
+    ctx: &'a JobContext<'a>,
+    current_file_index: usize,
+    total_files: usize,
+    bytes_completed_before_current: Arc<Mutex<u64>>,
+    total_bytes: u64,
+    current_file_path: String,
+    current_operation: String,
+    error_count: usize,
+    files_completed: Arc<Mutex<usize>>,
+}
+
+impl<'a> ProgressAggregator<'a> {
+    fn new(
+        ctx: &'a JobContext<'a>,
+        total_files: usize,
+        total_bytes: u64,
+    ) -> Self {
+        Self {
+            ctx,
+            current_file_index: 0,
+            total_files,
+            bytes_completed_before_current: Arc::new(Mutex::new(0)),
+            total_bytes,
+            current_file_path: String::new(),
+            current_operation: String::new(),
+            error_count: 0,
+            files_completed: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    /// Start processing a new file
+    fn start_file(&mut self, file_path: String, current_operation: String) {
+        self.current_file_path = file_path;
+        self.current_operation = current_operation;
+    }
+
+    /// Complete the current source item and update index
+    fn complete_source(&mut self) {
+        self.current_file_index += 1;
+        // Note: bytes and file counts are already updated by the callback
+    }
+    
+    /// Account for files that were already completed (for resume)
+    fn skip_completed_file(&mut self, bytes_copied: u64, files_in_operation: usize) {
+        *self.bytes_completed_before_current.lock().unwrap() += bytes_copied;
+        *self.files_completed.lock().unwrap() += files_in_operation;
+    }
+
+    /// Create a progress callback for strategy implementations
+    fn create_callback(&self) -> Box<dyn Fn(u64, u64) + Send + Sync + 'a> {
+        let ctx = self.ctx;
+        let files_completed = self.files_completed.clone();
+        let total_files = self.total_files;
+        let bytes_before = self.bytes_completed_before_current.clone();
+        let total_bytes = self.total_bytes;
+        let current_file = self.current_file_path.clone();
+        let current_operation = self.current_operation.clone();
+        let error_count = self.error_count;
+
+        Box::new(move |bytes_value: u64, signal_value: u64| {
+            // NEW SIGNAL: A signal_value of u64::MAX means a file has finished.
+            // The bytes_value will be the size of the completed file.
+            if signal_value == u64::MAX {
+                let mut files = files_completed.lock().unwrap();
+                *files += 1;
+                let mut bytes = bytes_before.lock().unwrap();
+                *bytes += bytes_value; // Add the completed file's size to the total
+                ctx.log(format!("File completed. Total files: {}/{}, Total bytes: {}", 
+                    *files, total_files, *bytes));
+                return;
+            }
+            
+            // Normal byte-level progress update
+            let bytes_before_snapshot = *bytes_before.lock().unwrap();
+            let total_bytes_copied = bytes_before_snapshot + bytes_value;
+            let files_completed_count = *files_completed.lock().unwrap();
+            
+            let copy_progress = CopyProgress {
+                phase: CopyPhase::Copying,
+                current_file: current_file.clone(),
+                files_copied: files_completed_count,
+                total_files,
+                bytes_copied: total_bytes_copied,
+                total_bytes,
+                current_operation: current_operation.clone(),
+                estimated_remaining: None,
+                preparation_complete: true,
+                error_count,
+            };
+            
+            // Log progress details every 100MB
+            if total_bytes_copied % (100 * 1024 * 1024) < bytes_value {
+                ctx.log(format!("Progress update: {} / {} bytes ({:.1}%)", 
+                    total_bytes_copied, total_bytes, 
+                    (total_bytes_copied as f64 / total_bytes as f64) * 100.0));
+            }
+            
+            ctx.progress(Progress::generic(copy_progress.to_generic_progress()));
+        })
+    }
+
+    fn set_error_count(&mut self, count: usize) {
+        self.error_count = count;
+    }
+}
+
 impl ToGenericProgress for CopyProgress {
     fn to_generic_progress(&self) -> GenericProgress {
         // Calculate percentage based on bytes if available, otherwise use file count
@@ -386,6 +543,7 @@ impl ToGenericProgress for CopyProgress {
         } else {
             0.0
         };
+        
 
         // Create appropriate message based on phase
         let message = match self.phase {
@@ -409,9 +567,19 @@ impl ToGenericProgress for CopyProgress {
         };
 
         // Build generic progress
-        let mut progress = GenericProgress::new(percentage, self.phase.as_str(), message)
-            .with_completion(self.files_copied as u64, self.total_files as u64)
-            .with_bytes(self.bytes_copied, self.total_bytes);
+        let mut progress = GenericProgress::new(percentage, self.phase.as_str(), message);
+        
+        // Only set completion if we're not using byte-based progress
+        // (to avoid overriding the percentage)
+        if self.total_bytes == 0 {
+            progress = progress.with_completion(self.files_copied as u64, self.total_files as u64);
+        } else {
+            // For byte-based progress, just set the completion counts without recalculating percentage
+            progress.completion.completed = self.files_copied as u64;
+            progress.completion.total = self.total_files as u64;
+        }
+        
+        progress = progress.with_bytes(self.bytes_copied, self.total_bytes);
 
         // Add performance metrics if we're actively copying
         if self.phase == CopyPhase::Copying && self.bytes_copied > 0 {
@@ -520,6 +688,64 @@ impl FileCopyJob {
         }
 
         Ok(total)
+    }
+
+    /// Count total number of files to be copied (including files within directories)
+    async fn count_total_files(&self) -> JobResult<usize> {
+        let mut total_count = 0;
+
+        for source in &self.sources.paths {
+            if let Some(local_path) = source.as_local_path() {
+                total_count += self.count_files_in_path(local_path).await.unwrap_or(0);
+            }
+        }
+
+        Ok(total_count)
+    }
+
+    /// Count files in a path (recursive for directories)
+    async fn count_files_in_path(&self, path: &std::path::Path) -> Result<usize, std::io::Error> {
+        let mut count = 0;
+        let mut stack = vec![path.to_path_buf()];
+
+        while let Some(current_path) = stack.pop() {
+            let metadata = tokio::fs::metadata(&current_path).await?;
+
+            if metadata.is_file() {
+                count += 1;
+            } else if metadata.is_dir() {
+                let mut dir = tokio::fs::read_dir(&current_path).await?;
+                while let Some(entry) = dir.next_entry().await? {
+                    stack.push(entry.path());
+                }
+            }
+        }
+
+        Ok(count)
+    }
+
+    /// List all files in a directory (recursive)
+    async fn list_files_in_directory(&self, path: &std::path::Path) -> JobResult<Vec<PathBuf>> {
+        let mut files = Vec::new();
+        let mut stack = vec![path.to_path_buf()];
+
+        while let Some(current_path) = stack.pop() {
+            let metadata = tokio::fs::metadata(&current_path).await
+                .map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
+
+            if metadata.is_file() {
+                files.push(current_path);
+            } else if metadata.is_dir() {
+                let mut dir = tokio::fs::read_dir(&current_path).await
+                    .map_err(|e| JobError::execution(format!("Failed to read directory: {}", e)))?;
+                while let Some(entry) = dir.next_entry().await
+                    .map_err(|e| JobError::execution(format!("Failed to read directory entry: {}", e)))? {
+                    stack.push(entry.path());
+                }
+            }
+        }
+
+        Ok(files)
     }
 
     /// Get size of a path (file or directory) using iterative approach
@@ -702,5 +928,23 @@ impl From<MoveOutput> for JobOutput {
             failed_count: output.failed_count,
             total_bytes: output.total_bytes,
         }
+    }
+}
+
+// Helper function to format bytes in human-readable format
+fn format_bytes(bytes: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+    let mut size = bytes as f64;
+    let mut unit_idx = 0;
+    
+    while size >= 1024.0 && unit_idx < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_idx += 1;
+    }
+    
+    if unit_idx == 0 {
+        format!("{} {}", size as u64, UNITS[unit_idx])
+    } else {
+        format!("{:.2} {}", size, UNITS[unit_idx])
     }
 }

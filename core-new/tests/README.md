@@ -38,6 +38,14 @@ Tests core networking initialization and basic functionality:
 
 - `cas_generation_test.rs` - Content addressable storage testing
 - `file_copy_integration_test.rs` - File operations testing
+- `copy_progress_monitor_test.rs` - **Copy progress monitoring with large files**
+  - Tests smooth byte-level progress updates for 1GB file copies
+  - Verifies progress doesn't jump in large increments
+  - Tests multi-file copy progress aggregation
+- `copy_progress_quick_test.rs` - **Quick copy progress verification**
+  - Faster variant using smaller files (50MB)
+  - Tests directory copy progress
+  - Suitable for rapid iteration during development
 - `job_registration_test.rs` - Job system testing
 - `job_system_test.rs` - Advanced job system functionality
 - `library_test.rs` - Library management testing
@@ -62,6 +70,12 @@ cargo test integration_networking
 
 # CAS tests
 cargo test cas_generation_test
+
+# Copy progress monitoring tests
+cargo test copy_progress_monitor_test
+
+# Quick progress tests (faster)
+cargo test copy_progress_quick_test
 ```
 
 ### Run Specific Test Function
@@ -122,7 +136,22 @@ cargo test --tests --exclude cli_pairing_integration
 
 # Run CLI pairing tests with shorter timeouts
 RUST_LOG=info cargo test test_cli_pairing_error_conditions -- --nocapture
+
+# Run quick copy progress test instead of the full 1GB test
+cargo test test_copy_progress_quick -- --nocapture
+
+# Run with debug logging to see detailed progress updates
+RUST_LOG=debug cargo test copy_progress_monitor_test -- --nocapture
 ```
+
+### Copy Progress Tests
+
+The copy progress tests verify smooth byte-level progress updates:
+
+- **Full test** (`copy_progress_monitor_test`): Uses 1GB files, takes 1-2 minutes
+- **Quick test** (`copy_progress_quick_test`): Uses 50MB files, takes ~10 seconds
+
+Both tests verify that progress updates smoothly rather than jumping in large increments (e.g., 25% at a time for 4 files).
 
 ## Test Data
 

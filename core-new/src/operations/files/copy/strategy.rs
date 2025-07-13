@@ -12,11 +12,15 @@ use std::path::Path;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+/// Progress callback for strategy implementations to report granular progress
+/// Parameters: bytes_copied_for_current_file, total_bytes_for_current_file
+pub type ProgressCallback<'a> = Box<dyn Fn(u64, u64) + Send + Sync + 'a>;
+
 /// Defines a method for performing a file copy operation
 #[async_trait]
 pub trait CopyStrategy: Send + Sync {
     /// Executes the copy strategy for a single source path
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64>;
+    async fn execute<'a>(&self, ctx: &JobContext<'a>, source: &SdPath, destination: &SdPath, verify_checksum: bool, progress_callback: Option<&ProgressCallback<'a>>) -> Result<u64>;
 }
 
 /// Strategy for an atomic move on the same volume
@@ -24,7 +28,7 @@ pub struct LocalMoveStrategy;
 
 #[async_trait]
 impl CopyStrategy for LocalMoveStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
+    async fn execute<'a>(&self, ctx: &JobContext<'a>, source: &SdPath, destination: &SdPath, verify_checksum: bool, progress_callback: Option<&ProgressCallback<'a>>) -> Result<u64> {
         let source_path = source.as_local_path()
             .ok_or_else(|| anyhow::anyhow!("Source path is not local"))?;
         let dest_path = destination.as_local_path()
@@ -38,6 +42,11 @@ impl CopyStrategy for LocalMoveStrategy {
             get_path_size(source_path).await?
         };
 
+        // Report progress at current offset before starting
+        if let Some(callback) = progress_callback {
+            callback(0, size);
+        }
+
         // Create destination directory if needed
         if let Some(parent) = dest_path.parent() {
             fs::create_dir_all(parent).await?;
@@ -45,6 +54,11 @@ impl CopyStrategy for LocalMoveStrategy {
 
         // Use atomic rename for same-volume moves
         fs::rename(source_path, dest_path).await?;
+
+        // Report progress at 100% after completion
+        if let Some(callback) = progress_callback {
+            callback(size, size);
+        }
 
         ctx.log(format!(
             "Atomic move: {} -> {}",
@@ -61,7 +75,7 @@ pub struct LocalStreamCopyStrategy;
 
 #[async_trait]
 impl CopyStrategy for LocalStreamCopyStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
+    async fn execute<'a>(&self, ctx: &JobContext<'a>, source: &SdPath, destination: &SdPath, verify_checksum: bool, progress_callback: Option<&ProgressCallback<'a>>) -> Result<u64> {
         let source_path = source.as_local_path()
             .ok_or_else(|| anyhow::anyhow!("Source path is not local"))?;
         let dest_path = destination.as_local_path()
@@ -81,7 +95,7 @@ impl CopyStrategy for LocalStreamCopyStrategy {
             _ => None,
         };
 
-        let bytes_copied = copy_file_streaming(source_path, dest_path, volume_info, ctx, verify_checksum).await?;
+        let bytes_copied = copy_file_streaming(source_path, dest_path, volume_info, ctx, verify_checksum, progress_callback).await?;
 
         ctx.log(format!(
             "Cross-volume streaming copy: {} -> {} ({} bytes)",
@@ -99,7 +113,7 @@ pub struct RemoteTransferStrategy;
 
 #[async_trait]
 impl CopyStrategy for RemoteTransferStrategy {
-    async fn execute(&self, ctx: &JobContext<'_>, source: &SdPath, destination: &SdPath, verify_checksum: bool) -> Result<u64> {
+    async fn execute<'a>(&self, ctx: &JobContext<'a>, source: &SdPath, destination: &SdPath, verify_checksum: bool, progress_callback: Option<&ProgressCallback<'a>>) -> Result<u64> {
         // Get networking service
         let networking = ctx.networking_service()
             .ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
@@ -188,6 +202,7 @@ impl CopyStrategy for RemoteTransferStrategy {
             file_size,
             destination.device_id,
             ctx,
+            progress_callback,
         ).await?;
 
         ctx.log(format!("Cross-device transfer completed: {} bytes", file_size));
@@ -216,25 +231,42 @@ async fn get_path_size(path: &Path) -> Result<u64, std::io::Error> {
     Ok(total)
 }
 
-/// Copy file with streaming and progress tracking for cross-volume operations
-async fn copy_file_streaming(
+/// Copy a single file with streaming and progress tracking
+async fn copy_single_file<'a>(
     source: &Path,
     destination: &Path,
     volume_info: Option<(&crate::volume::Volume, &crate::volume::Volume)>,
-    ctx: &JobContext<'_>,
+    ctx: &JobContext<'a>,
     verify_checksum: bool,
+    file_size: u64,
+    progress_callback: Option<&ProgressCallback<'a>>,
+) -> Result<u64, std::io::Error> {
+    let result = copy_single_file_with_offset(source, destination, volume_info, ctx, verify_checksum, file_size, progress_callback, 0).await?;
+    
+    // For single file copies, send completion signal
+    if let Some(callback) = progress_callback {
+        callback(result, u64::MAX);
+    }
+    
+    Ok(result)
+}
+
+/// Copy a single file with streaming and progress tracking, with byte offset for cumulative progress
+async fn copy_single_file_with_offset<'a>(
+    source: &Path,
+    destination: &Path,
+    volume_info: Option<(&crate::volume::Volume, &crate::volume::Volume)>,
+    ctx: &JobContext<'a>,
+    verify_checksum: bool,
+    file_size: u64,
+    progress_callback: Option<&ProgressCallback<'a>>,
+    byte_offset: u64,
 ) -> Result<u64, std::io::Error> {
     // Create destination directory if needed
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent).await?;
     }
 
-    let metadata = fs::metadata(source).await?;
-    if metadata.is_dir() {
-        return copy_directory_streaming(source, destination, volume_info, ctx, verify_checksum).await;
-    }
-
-    let file_size = metadata.len();
     let mut source_file = fs::File::open(source).await?;
     let mut dest_file = fs::File::create(destination).await?;
 
@@ -290,40 +322,34 @@ async fn copy_file_streaming(
             hasher.update(chunk);
         }
 
-        // Update progress every 100ms to avoid overwhelming the UI
-        if last_progress_update.elapsed() >= std::time::Duration::from_millis(100) {
-            ctx.progress(Progress::structured(super::CopyProgress {
-                phase: CopyPhase::Copying,
-                current_file: format!("Streaming {}", source.display()),
-                files_copied: 0, // Will be updated by caller
-                total_files: 1,
-                bytes_copied: total_copied,
-                total_bytes: file_size,
-                current_operation: if verify_checksum {
-                    "Cross-volume streaming (with verification)".to_string()
-                } else {
-                    "Cross-volume streaming".to_string()
-                },
-                estimated_remaining: Some({
-                    let elapsed = last_progress_update.elapsed();
-                    let rate = total_copied as f64 / elapsed.as_secs_f64();
-                    let remaining_bytes = file_size.saturating_sub(total_copied);
-                    if rate > 0.0 {
-                        std::time::Duration::from_secs_f64(remaining_bytes as f64 / rate)
-                    } else {
-                        std::time::Duration::from_secs(0)
-                    }
-                }),
-                preparation_complete: true,
-                error_count: 0,
-            }));
+        // Update progress every 50ms for smoother updates
+        if last_progress_update.elapsed() >= std::time::Duration::from_millis(50) {
+            if let Some(callback) = progress_callback {
+                // Send bytes copied within current file
+                // The aggregator will add this to the bytes_completed_before_current
+                callback(total_copied, file_size);
+                
+                // Debug log every 100MB
+                if total_copied % (100 * 1024 * 1024) < bytes_read as u64 {
+                    ctx.log(format!("Strategy progress callback: {} / {} bytes", total_copied, file_size));
+                }
+            }
             last_progress_update = std::time::Instant::now();
+            
+            // Explicitly yield to the scheduler to allow other tasks (like progress reporting) to run
+            tokio::task::yield_now().await;
         }
     }
 
     // Ensure all data is written to disk
     dest_file.flush().await?;
     dest_file.sync_all().await?;
+
+    // Final progress update to ensure we show 100%
+    if let Some(callback) = progress_callback {
+        callback(total_copied, file_size);
+        ctx.log(format!("Strategy final progress: {} / {} bytes (100%)", total_copied, file_size));
+    }
 
     // Verify checksums if enabled
     if verify_checksum {
@@ -348,37 +374,51 @@ async fn copy_file_streaming(
         }
     }
 
+    // Copy file permissions and timestamps if requested
+    let source_metadata = fs::metadata(source).await?;
+    let dest_file = fs::File::open(destination).await?;
+    
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let permissions = std::fs::Permissions::from_mode(source_metadata.permissions().mode());
+        dest_file.set_permissions(permissions).await?;
+    }
+
     Ok(total_copied)
 }
 
-/// Copy directory with streaming for cross-volume operations
-fn copy_directory_streaming<'a>(
-    source: &'a Path,
-    destination: &'a Path,
-    volume_info: Option<(&'a crate::volume::Volume, &'a crate::volume::Volume)>,
-    ctx: &'a JobContext<'_>,
+
+/// Copy file with streaming and progress tracking for cross-volume operations
+async fn copy_file_streaming<'a>(
+    source: &Path,
+    destination: &Path,
+    volume_info: Option<(&crate::volume::Volume, &crate::volume::Volume)>,
+    ctx: &JobContext<'a>,
     verify_checksum: bool,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<u64, std::io::Error>> + Send + 'a>> {
-    Box::pin(async move {
+    progress_callback: Option<&ProgressCallback<'a>>,
+) -> Result<u64, std::io::Error> {
+    // Create destination directory if needed
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent).await?;
+    }
+
+    let metadata = fs::metadata(source).await?;
+    if metadata.is_dir() {
+        // For directories, we need to accumulate progress across multiple files
         fs::create_dir_all(destination).await?;
         let mut total_size = 0u64;
+        
+        // First, collect all files to copy
+        let mut files_to_copy = Vec::new();
         let mut stack = vec![(source.to_path_buf(), destination.to_path_buf())];
-
+        
         while let Some((src_path, dest_path)) = stack.pop() {
-            // Check for cancellation
-            if let Err(_) = ctx.check_interrupt().await {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "Operation cancelled"
-                ));
-            }
-
             if src_path.is_file() {
-                total_size += copy_file_streaming(&src_path, &dest_path, volume_info, ctx, verify_checksum).await?;
+                files_to_copy.push((src_path, dest_path));
             } else if src_path.is_dir() {
                 fs::create_dir_all(&dest_path).await?;
                 let mut dir = fs::read_dir(&src_path).await?;
-
                 while let Some(entry) = dir.next_entry().await? {
                     let entry_src = entry.path();
                     let entry_dest = dest_path.join(entry.file_name());
@@ -386,9 +426,39 @@ fn copy_directory_streaming<'a>(
                 }
             }
         }
+        
+        // Now copy all files, tracking cumulative progress
+        let mut cumulative_bytes = 0u64;
+        for (src_path, dest_path) in files_to_copy {
+            // Check for cancellation
+            if let Err(_) = ctx.check_interrupt().await {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "Operation cancelled"
+                ));
+            }
+            
+            let file_metadata = fs::metadata(&src_path).await?;
+            let file_size = file_metadata.len();
+            
+            
+            // Copy the file (offset no longer needed as aggregator tracks it)
+            let bytes_copied = copy_single_file_with_offset(&src_path, &dest_path, volume_info, ctx, verify_checksum, file_size, progress_callback, 0).await?;
+            cumulative_bytes += bytes_copied;
+            total_size += bytes_copied;
+            
+            // Signal completion of this file, passing its total size
+            if let Some(callback) = progress_callback {
+                callback(bytes_copied, u64::MAX); // Send file size and MAX signal
+            }
+        }
+        
+        return Ok(total_size);
+    }
 
-        Ok(total_size)
-    })
+    let file_size = metadata.len();
+    // Use the copy_single_file helper function
+    copy_single_file(source, destination, volume_info, ctx, verify_checksum, file_size, progress_callback).await
 }
 
 /// Calculate file checksum for integrity verification
@@ -399,13 +469,14 @@ async fn calculate_file_checksum(path: &Path) -> Result<String> {
 }
 
 /// Stream file data in chunks to the remote device
-async fn stream_file_data(
+async fn stream_file_data<'a>(
     file_path: &Path,
     transfer_id: uuid::Uuid,
     file_transfer_protocol: &crate::services::networking::protocols::FileTransferProtocolHandler,
     total_size: u64,
     destination_device_id: uuid::Uuid,
-    ctx: &JobContext<'_>,
+    ctx: &JobContext<'a>,
+    progress_callback: Option<&ProgressCallback<'a>>,
 ) -> Result<()> {
     use tokio::io::AsyncReadExt;
     use blake3::Hasher;
@@ -438,18 +509,9 @@ async fn stream_file_data(
 
         // Update progress
         bytes_transferred += bytes_read as u64;
-        ctx.progress(Progress::structured(super::CopyProgress {
-            phase: CopyPhase::Copying,
-            current_file: format!("Transferring {}", file_path.display()),
-            files_copied: 0, // Will be updated by caller
-            total_files: 1,
-            bytes_copied: bytes_transferred,
-            total_bytes: total_size,
-            current_operation: format!("Chunk {}/{}", chunk_index + 1, total_chunks),
-            estimated_remaining: None,
-            preparation_complete: true,
-            error_count: 0,
-        }));
+        if let Some(callback) = progress_callback {
+            callback(bytes_transferred, total_size);
+        }
 
         // Get session keys for encryption
         let session_keys = file_transfer_protocol.get_session_keys_for_device(destination_device_id).await?;
