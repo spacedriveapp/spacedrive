@@ -71,12 +71,18 @@ async fn alice_persistence_scenario() {
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("🎉 Alice: Auto-reconnection successful!");
-				println!("✅ Alice: Connected {} devices after restart", connected_devices.len());
+				println!(
+					"✅ Alice: Connected {} devices after restart",
+					connected_devices.len()
+				);
 
 				// Verify it's Bob
 				let device_info = core.get_connected_devices_info().await.unwrap();
 				let bob_found = device_info.iter().any(|d| d.device_name.contains("Bob"));
-				assert!(bob_found, "Bob not found in connected devices after restart");
+				assert!(
+					bob_found,
+					"Bob not found in connected devices after restart"
+				);
 
 				for device in &device_info {
 					println!(
@@ -86,7 +92,11 @@ async fn alice_persistence_scenario() {
 				}
 
 				// Write success marker
-				std::fs::write("/tmp/spacedrive-persistence-test/alice_restart_success.txt", "success").unwrap();
+				std::fs::write(
+					"/tmp/spacedrive-persistence-test/alice_restart_success.txt",
+					"success",
+				)
+				.unwrap();
 				println!("✅ Alice: Device persistence test completed successfully");
 				break;
 			}
@@ -97,7 +107,10 @@ async fn alice_persistence_scenario() {
 			}
 
 			if attempts % 5 == 0 {
-				println!("🔍 Alice: Auto-reconnection check {} - waiting for Bob", attempts / 5);
+				println!(
+					"🔍 Alice: Auto-reconnection check {} - waiting for Bob",
+					attempts / 5
+				);
 			}
 		}
 	} else {
@@ -141,7 +154,10 @@ async fn alice_persistence_scenario() {
 			panic!("Networking not initialized");
 		};
 
-		println!("✅ Alice: Pairing code generated (expires in {}s)", expires_in);
+		println!(
+			"✅ Alice: Pairing code generated (expires in {}s)",
+			expires_in
+		);
 
 		// Write pairing code for Bob
 		std::fs::create_dir_all("/tmp/spacedrive-persistence-test").unwrap();
@@ -168,12 +184,22 @@ async fn alice_persistence_scenario() {
 				if let Some(networking) = core.networking() {
 					let registry = networking.device_registry();
 					let paired_devices = registry.read().await.get_paired_devices();
-					assert!(!paired_devices.is_empty(), "No paired devices found in registry");
-					println!("✅ Alice: {} devices persisted to registry", paired_devices.len());
+					assert!(
+						!paired_devices.is_empty(),
+						"No paired devices found in registry"
+					);
+					println!(
+						"✅ Alice: {} devices persisted to registry",
+						paired_devices.len()
+					);
 				}
 
 				// Write success marker
-				std::fs::write("/tmp/spacedrive-persistence-test/alice_paired.txt", "success").unwrap();
+				std::fs::write(
+					"/tmp/spacedrive-persistence-test/alice_paired.txt",
+					"success",
+				)
+				.unwrap();
 
 				// Keep running for a bit to ensure persistence completes
 				tokio::time::sleep(Duration::from_secs(3)).await;
@@ -251,12 +277,18 @@ async fn bob_persistence_scenario() {
 			let connected_devices = core.get_connected_devices().await.unwrap();
 			if !connected_devices.is_empty() {
 				println!("🎉 Bob: Auto-reconnection successful!");
-				println!("✅ Bob: Connected {} devices after restart", connected_devices.len());
+				println!(
+					"✅ Bob: Connected {} devices after restart",
+					connected_devices.len()
+				);
 
 				// Verify it's Alice
 				let device_info = core.get_connected_devices_info().await.unwrap();
 				let alice_found = device_info.iter().any(|d| d.device_name.contains("Alice"));
-				assert!(alice_found, "Alice not found in connected devices after restart");
+				assert!(
+					alice_found,
+					"Alice not found in connected devices after restart"
+				);
 
 				for device in &device_info {
 					println!(
@@ -266,7 +298,11 @@ async fn bob_persistence_scenario() {
 				}
 
 				// Write success marker
-				std::fs::write("/tmp/spacedrive-persistence-test/bob_restart_success.txt", "success").unwrap();
+				std::fs::write(
+					"/tmp/spacedrive-persistence-test/bob_restart_success.txt",
+					"success",
+				)
+				.unwrap();
 				println!("✅ Bob: Device persistence test completed successfully");
 				break;
 			}
@@ -277,7 +313,10 @@ async fn bob_persistence_scenario() {
 			}
 
 			if attempts % 5 == 0 {
-				println!("🔍 Bob: Auto-reconnection check {} - waiting for Alice", attempts / 5);
+				println!(
+					"🔍 Bob: Auto-reconnection check {} - waiting for Alice",
+					attempts / 5
+				);
 			}
 		}
 	} else {
@@ -310,7 +349,9 @@ async fn bob_persistence_scenario() {
 		// Wait for pairing code from Alice
 		println!("🔍 Bob: Looking for pairing code...");
 		let pairing_code = loop {
-			if let Ok(code) = std::fs::read_to_string("/tmp/spacedrive-persistence-test/pairing_code.txt") {
+			if let Ok(code) =
+				std::fs::read_to_string("/tmp/spacedrive-persistence-test/pairing_code.txt")
+			{
 				break code.trim().to_string();
 			}
 			tokio::time::sleep(Duration::from_millis(500)).await;
@@ -348,12 +389,19 @@ async fn bob_persistence_scenario() {
 				if let Some(networking) = core.networking() {
 					let registry = networking.device_registry();
 					let paired_devices = registry.read().await.get_paired_devices();
-					assert!(!paired_devices.is_empty(), "No paired devices found in registry");
-					println!("✅ Bob: {} devices persisted to registry", paired_devices.len());
+					assert!(
+						!paired_devices.is_empty(),
+						"No paired devices found in registry"
+					);
+					println!(
+						"✅ Bob: {} devices persisted to registry",
+						paired_devices.len()
+					);
 				}
 
 				// Write success marker
-				std::fs::write("/tmp/spacedrive-persistence-test/bob_paired.txt", "success").unwrap();
+				std::fs::write("/tmp/spacedrive-persistence-test/bob_paired.txt", "success")
+					.unwrap();
 
 				// Keep running for a bit to ensure persistence completes
 				tokio::time::sleep(Duration::from_secs(3)).await;
@@ -409,18 +457,17 @@ async fn test_device_persistence() {
 
 	// Wait for initial pairing to complete
 	let pairing_result = runner
-		.wait_for_condition(
-			Duration::from_secs(60),
-			|_| {
-				let alice_paired = std::fs::read_to_string("/tmp/spacedrive-persistence-test/alice_paired.txt")
+		.wait_for_success(|_| {
+			let alice_paired =
+				std::fs::read_to_string("/tmp/spacedrive-persistence-test/alice_paired.txt")
 					.map(|content| content.trim() == "success")
 					.unwrap_or(false);
-				let bob_paired = std::fs::read_to_string("/tmp/spacedrive-persistence-test/bob_paired.txt")
+			let bob_paired =
+				std::fs::read_to_string("/tmp/spacedrive-persistence-test/bob_paired.txt")
 					.map(|content| content.trim() == "success")
 					.unwrap_or(false);
-				alice_paired && bob_paired
-			}
-		)
+			alice_paired && bob_paired
+		})
 		.await;
 
 	if pairing_result.is_err() {
@@ -460,12 +507,15 @@ async fn test_device_persistence() {
 	// Wait for auto-reconnection
 	let reconnection_result = runner
 		.wait_for_success(|_| {
-			let alice_reconnected = std::fs::read_to_string("/tmp/spacedrive-persistence-test/alice_restart_success.txt")
-				.map(|content| content.trim() == "success")
-				.unwrap_or(false);
-			let bob_reconnected = std::fs::read_to_string("/tmp/spacedrive-persistence-test/bob_restart_success.txt")
-				.map(|content| content.trim() == "success")
-				.unwrap_or(false);
+			let alice_reconnected = std::fs::read_to_string(
+				"/tmp/spacedrive-persistence-test/alice_restart_success.txt",
+			)
+			.map(|content| content.trim() == "success")
+			.unwrap_or(false);
+			let bob_reconnected =
+				std::fs::read_to_string("/tmp/spacedrive-persistence-test/bob_restart_success.txt")
+					.map(|content| content.trim() == "success")
+					.unwrap_or(false);
 			alice_reconnected && bob_reconnected
 		})
 		.await;
