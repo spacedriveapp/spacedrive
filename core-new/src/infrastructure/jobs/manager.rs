@@ -1234,14 +1234,44 @@ impl JobManager {
 	pub async fn shutdown(&self) -> JobResult<()> {
 		info!("Shutting down job manager");
 
+		// First, pause all running jobs
+		let job_ids: Vec<JobId> = self.running_jobs.read().await.keys().copied().collect();
+		
+		info!("Pausing {} running jobs before shutdown", job_ids.len());
+		for job_id in &job_ids {
+			// Check if job is still running before pausing
+			if let Some(running_job) = self.running_jobs.read().await.get(job_id) {
+				let status = running_job.handle.status();
+				if status == JobStatus::Running {
+					info!("Pausing job {} for shutdown", job_id);
+					if let Err(e) = self.pause_job(*job_id).await {
+						warn!("Failed to pause job {} during shutdown: {}", job_id, e);
+						// Continue with shutdown even if pause fails
+					}
+				}
+			}
+		}
+
 		// Signal shutdown
 		let _ = self.shutdown_tx.send(true);
 
-		// Wait for all jobs to complete or pause
-		let job_ids: Vec<JobId> = self.running_jobs.read().await.keys().copied().collect();
-		for id in job_ids {
-			debug!("Waiting for job {} to stop", id);
-			// The task system will handle graceful shutdown
+		// Wait for all jobs to finish pausing
+		let start_time = tokio::time::Instant::now();
+		let timeout = std::time::Duration::from_secs(10);
+		
+		loop {
+			let running_count = self.running_jobs.read().await.len();
+			if running_count == 0 {
+				info!("All jobs have stopped");
+				break;
+			}
+			
+			if start_time.elapsed() > timeout {
+				warn!("Timeout waiting for {} jobs to stop", running_count);
+				break;
+			}
+			
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
 
 		Ok(())

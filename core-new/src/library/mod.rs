@@ -150,6 +150,18 @@ impl Library {
             .is_ok()
     }
     
+    /// Shutdown the library, gracefully stopping all jobs
+    pub async fn shutdown(&self) -> Result<()> {
+        // Shutdown the job manager, which will pause all running jobs
+        self.jobs.shutdown().await?;
+        
+        // Save config to ensure any updates are persisted
+        let config = self.config.read().await;
+        self.save_config(&*config).await?;
+        
+        Ok(())
+    }
+    
     /// Check if thumbnails exist for all specified sizes
     pub async fn has_all_thumbnails(&self, cas_id: &str, sizes: &[u32]) -> bool {
         for &size in sizes {

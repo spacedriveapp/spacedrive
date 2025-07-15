@@ -268,7 +268,11 @@ impl LibraryManager {
 		if let Some(library) = library {
 			let name = library.name().await;
 
-			// Job manager will be dropped with the library
+			// Shutdown the library gracefully
+			if let Err(e) = library.shutdown().await {
+				error!("Error during library shutdown: {}", e);
+				// Continue with close even if shutdown has errors
+			}
 
 			// Emit event
 			self.event_bus.emit(Event::LibraryClosed { id, name });
