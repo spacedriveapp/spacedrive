@@ -92,13 +92,33 @@ impl CommandHandler for JobHandler {
 			}
 
 			DaemonCommand::PauseJob { id } => {
-				// TODO: Implement job pause when job manager supports it
-				DaemonResponse::Error("Job pause not yet implemented".to_string())
+				// Get current library from CLI state
+				if let Some(library) = state_service.get_current_library(core).await {
+					let job_manager = library.jobs();
+					let job_id = crate::infrastructure::jobs::types::JobId(id);
+					
+					match job_manager.pause_job(job_id).await {
+						Ok(_) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(e.to_string()),
+					}
+				} else {
+					DaemonResponse::Error("No library selected".to_string())
+				}
 			}
 
 			DaemonCommand::ResumeJob { id } => {
-				// TODO: Implement job resume when job manager supports it
-				DaemonResponse::Error("Job resume not yet implemented".to_string())
+				// Get current library from CLI state
+				if let Some(library) = state_service.get_current_library(core).await {
+					let job_manager = library.jobs();
+					let job_id = crate::infrastructure::jobs::types::JobId(id);
+					
+					match job_manager.resume_job(job_id).await {
+						Ok(_) => DaemonResponse::Ok,
+						Err(e) => DaemonResponse::Error(e.to_string()),
+					}
+				} else {
+					DaemonResponse::Error("No library selected".to_string())
+				}
 			}
 
 			DaemonCommand::CancelJob { id } => {

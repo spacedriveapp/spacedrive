@@ -15,6 +15,9 @@ pub mod registry;
 pub mod traits;
 pub mod types;
 
+#[cfg(test)]
+mod manager_test;
+
 // Re-export commonly used types
 pub mod prelude {
     pub use super::{

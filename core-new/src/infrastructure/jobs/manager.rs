@@ -969,6 +969,267 @@ impl JobManager {
 		Ok(())
 	}
 
+	/// Pause a running job
+	pub async fn pause_job(&self, job_id: JobId) -> JobResult<()> {
+		let mut running_jobs = self.running_jobs.write().await;
+		
+		if let Some(running_job) = running_jobs.get_mut(&job_id) {
+			// Check if job is in a pausable state
+			let current_status = running_job.handle.status();
+			if current_status != JobStatus::Running {
+				return Err(JobError::invalid_state(&format!(
+					"Cannot pause job in {:?} state",
+					current_status
+				)));
+			}
+
+			// Update status to Paused
+			running_job.status_tx.send(JobStatus::Paused)
+				.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
+			
+			// The task will check status and interrupt itself when it sees Paused status
+			// This happens through the executor checking the status channel
+			
+			// Update database
+			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+			let mut job_model = database::jobs::ActiveModel {
+				id: Set(job_id.to_string()),
+				status: Set(JobStatus::Paused.to_string()),
+				paused_at: Set(Some(Utc::now())),
+				..Default::default()
+			};
+			job_model.update(self.db.conn()).await?;
+			
+			// Emit pause event
+			self.context.events.emit(Event::JobPaused {
+				job_id: job_id.to_string(),
+			});
+			
+			info!("Job {} paused successfully", job_id);
+			Ok(())
+		} else {
+			Err(JobError::NotFound(format!("Job {} not found", job_id)))
+		}
+	}
+
+	/// Resume a paused job
+	pub async fn resume_job(&self, job_id: JobId) -> JobResult<()> {
+		// First check if job exists in running jobs
+		let job_info = {
+			let running_jobs = self.running_jobs.read().await;
+			if let Some(running_job) = running_jobs.get(&job_id) {
+				// Check if job is paused
+				let current_status = running_job.handle.status();
+				if current_status != JobStatus::Paused {
+					return Err(JobError::invalid_state(&format!(
+						"Cannot resume job in {:?} state",
+						current_status
+					)));
+				}
+				None // Job is already in memory, just needs status update
+			} else {
+				// Job might be in database but not in memory
+				drop(running_jobs);
+				
+				// Load job from database
+				let job_record = database::jobs::Entity::find_by_id(job_id.to_string())
+					.one(self.db.conn())
+					.await?
+					.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
+				
+				// Check if job is paused
+				if job_record.status != JobStatus::Paused.to_string() {
+					return Err(JobError::invalid_state(&format!(
+						"Cannot resume job in {} state",
+						job_record.status
+					)));
+				}
+				
+				Some((job_record.name.clone(), job_record.state.clone()))
+			}
+		};
+
+		// If job was not in memory, recreate and dispatch it
+		if let Some((job_name, job_state)) = job_info {
+			// Deserialize job from binary data
+			let erased_job = REGISTRY.deserialize_job(&job_name, &job_state)?;
+			
+			// Update database status to Running
+			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+			let mut job_model = database::jobs::ActiveModel {
+				id: Set(job_id.to_string()),
+				status: Set(JobStatus::Running.to_string()),
+				paused_at: Set(None),
+				..Default::default()
+			};
+			job_model.update(self.db.conn()).await?;
+			
+			// Create channels
+			let (status_tx, status_rx) = watch::channel(JobStatus::Running);
+			let (progress_tx, progress_rx) = mpsc::unbounded_channel();
+			let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
+			
+			let latest_progress = Arc::new(Mutex::new(None));
+			
+			// Create progress forwarding task
+			let broadcast_tx_clone = broadcast_tx.clone();
+			let latest_progress_clone = latest_progress.clone();
+			let event_bus = self.context.events.clone();
+			let job_id_clone = job_id.clone();
+			let job_type_str = job_name.clone();
+			tokio::spawn(async move {
+				let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
+				while let Some(progress) = progress_rx.recv().await {
+					*latest_progress_clone.lock().await = Some(progress.clone());
+					let _ = broadcast_tx_clone.send(progress.clone());
+					
+					// Emit progress event
+					event_bus.emit(Event::JobProgress {
+						job_id: job_id_clone.to_string(),
+						job_type: job_type_str.to_string(),
+						progress: progress.as_percentage().unwrap_or(0.0) as f64,
+						message: Some(progress.to_string()),
+						generic_progress: None,
+					});
+				}
+			});
+			
+			// Get library from context
+			let library = self
+				.context
+				.library_manager
+				.get_library(self.library_id)
+				.await
+				.ok_or_else(|| {
+					JobError::invalid_state(&format!("Library {} not found", self.library_id))
+				})?;
+			
+			// Get services from context
+			let networking = self.context.get_networking().await;
+			let volume_manager = Some(self.context.volume_manager.clone());
+			
+			// Create executor
+			let executor = erased_job.create_executor(
+				job_id,
+				library,
+				self.db.clone(),
+				status_tx.clone(),
+				progress_tx,
+				broadcast_tx,
+				Arc::new(DbCheckpointHandler {
+					db: self.db.clone(),
+				}),
+				networking,
+				volume_manager,
+			);
+			
+			// Create handle
+			let handle = JobHandle {
+				id: job_id,
+				task_handle: Arc::new(Mutex::new(None)),
+				status_rx,
+				progress_rx: broadcast_rx,
+				output: Arc::new(Mutex::new(None)),
+			};
+			
+			// Dispatch to task system
+			let task_handle = self
+				.dispatcher
+				.get_dispatcher()
+				.dispatch_boxed(executor)
+				.await
+				.map_err(|e| JobError::task_system(format!("Failed to dispatch: {:?}", e)))?;
+			
+			// Track running job
+			self.running_jobs.write().await.insert(
+				job_id,
+				RunningJob {
+					handle: handle.clone(),
+					task_handle,
+					status_tx: status_tx.clone(),
+					latest_progress,
+				},
+			);
+			
+			// Spawn cleanup monitor
+			let running_jobs = self.running_jobs.clone();
+			let job_id_clone = job_id.clone();
+			let event_bus = self.context.events.clone();
+			let job_type_str = job_name.clone();
+			tokio::spawn(async move {
+				let mut status_rx = status_tx.subscribe();
+				while status_rx.changed().await.is_ok() {
+					let status = *status_rx.borrow();
+					match status {
+						JobStatus::Completed => {
+							event_bus.emit(Event::JobCompleted {
+								job_id: job_id_clone.to_string(),
+								job_type: job_type_str.clone(),
+							});
+							running_jobs.write().await.remove(&job_id_clone);
+							info!("Resumed job {} completed", job_id_clone);
+							break;
+						}
+						JobStatus::Failed => {
+							event_bus.emit(Event::JobFailed {
+								job_id: job_id_clone.to_string(),
+								job_type: job_type_str.clone(),
+								error: "Job failed".to_string(),
+							});
+							running_jobs.write().await.remove(&job_id_clone);
+							info!("Resumed job {} failed", job_id_clone);
+							break;
+						}
+						JobStatus::Cancelled => {
+							event_bus.emit(Event::JobCancelled {
+								job_id: job_id_clone.to_string(),
+								job_type: job_type_str.clone(),
+							});
+							running_jobs.write().await.remove(&job_id_clone);
+							info!("Resumed job {} cancelled", job_id_clone);
+							break;
+						}
+						_ => {}
+					}
+				}
+			});
+			
+			// Emit resume event
+			self.context.events.emit(Event::JobResumed {
+				job_id: job_id.to_string(),
+			});
+			
+			info!("Job {} resumed from database", job_id);
+		} else {
+			// Job is already in memory, just update status
+			let mut running_jobs = self.running_jobs.write().await;
+			if let Some(running_job) = running_jobs.get_mut(&job_id) {
+				// Update status to Running
+				running_job.status_tx.send(JobStatus::Running)
+					.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
+				
+				// Update database
+				use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+				let mut job_model = database::jobs::ActiveModel {
+					id: Set(job_id.to_string()),
+					status: Set(JobStatus::Running.to_string()),
+					paused_at: Set(None),
+					..Default::default()
+				};
+				job_model.update(self.db.conn()).await?;
+				
+				// Emit resume event
+				self.context.events.emit(Event::JobResumed {
+					job_id: job_id.to_string(),
+				});
+				
+				info!("Job {} resumed", job_id);
+			}
+		}
+		
+		Ok(())
+	}
+
 	/// Shutdown the job manager
 	pub async fn shutdown(&self) -> JobResult<()> {
 		info!("Shutting down job manager");

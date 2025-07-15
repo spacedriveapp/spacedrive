@@ -72,6 +72,8 @@ pub enum Event {
         error: String 
     },
     JobCancelled { job_id: String, job_type: String },
+    JobPaused { job_id: String },
+    JobResumed { job_id: String },
 
     // Indexing events
     IndexingStarted { location_id: Uuid },

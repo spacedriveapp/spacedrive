@@ -2,7 +2,7 @@
 
 use super::{
 	context::{CheckpointHandler, JobContext},
-	database::JobDb,
+	database::{self, JobDb},
 	error::{JobError, JobResult},
 	handle::JobHandle,
 	output::JobOutput,
@@ -198,29 +198,54 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 				if e.is_interrupted() {
 					debug!("Job {} interrupted", self.state.job_id);
 
-					// Update status with current progress
-					let _ = self.state.status_tx.send(JobStatus::Cancelled);
+					// Check current status to determine if this is a pause or cancel
+					let current_status = *self.state.status_tx.borrow();
+					
+					if current_status == JobStatus::Paused {
+						// Job was paused, don't update status (already set by pause_job)
+						debug!("Job {} paused", self.state.job_id);
+						
+						// Save job state for resume
+						use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+						let job_state = rmp_serde::to_vec(&self.job)
+							.map_err(|e| JobError::serialization(format!("{}", e)))?;
+						
+						let mut job_model = super::database::jobs::ActiveModel {
+							id: Set(self.state.job_id.to_string()),
+							state: Set(job_state),
+							..Default::default()
+						};
+						
+						if let Err(e) = job_model.update(self.state.job_db.conn()).await {
+							error!("Failed to save paused job state: {}", e);
+						}
+						
+						Ok(ExecStatus::Canceled)
+					} else {
+						// Job was cancelled
+						let _ = self.state.status_tx.send(JobStatus::Cancelled);
 
-					// Persist cancellation status with latest progress
-					let latest_progress = self.state.latest_progress.lock().await.clone();
-					if let Err(e) = self
-						.state
-						.job_db
-						.update_status_and_progress(
-							self.state.job_id,
-							JobStatus::Cancelled,
-							latest_progress.as_ref(),
-							None,
-						)
-						.await
-					{
-						error!(
-							"Failed to update job cancellation status in database: {}",
-							e
-						);
+						// Persist cancellation status with latest progress
+						let latest_progress = self.state.latest_progress.lock().await.clone();
+						if let Err(e) = self
+							.state
+							.job_db
+							.update_status_and_progress(
+								self.state.job_id,
+								JobStatus::Cancelled,
+								latest_progress.as_ref(),
+								None,
+							)
+							.await
+						{
+							error!(
+								"Failed to update job cancellation status in database: {}",
+								e
+							);
+						}
+
+						Ok(ExecStatus::Canceled)
 					}
-
-					Ok(ExecStatus::Canceled)
 				} else {
 					error!("Job {} failed: {}", self.state.job_id, e);
 
