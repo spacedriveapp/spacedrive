@@ -38,8 +38,8 @@ pub struct DeviceInfo {
 /// Transfer identifier for tracking operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransferId {
-	/// Job system ID for cross-device copies
-	JobId(Uuid),
+	/// Job system ID for cross-device copies with library ID
+	JobId { job_id: Uuid, library_id: Uuid },
 	/// Spacedrop session ID for ephemeral shares
 	SpacedropId(Uuid),
 }
@@ -165,6 +165,7 @@ impl FileSharingService {
 				"No active library for job dispatch".to_string(),
 			))?;
 
+
 		// Create and dispatch the FileCopyJob
 		let job_manager = library.jobs();
 		let sources = files.into_iter().map(SdPath::local).collect();
@@ -176,7 +177,12 @@ impl FileSharingService {
 			.await
 			.map_err(|e| SharingError::JobError(e.to_string()))?;
 
-		Ok(TransferId::JobId(handle.id().into()))
+		let transfer_id = TransferId::JobId {
+			job_id: handle.id().into(),
+			library_id: library.id(),
+		};
+
+		Ok(transfer_id)
 	}
 
 	/// Copy files to a paired device (trusted, automatic)
@@ -218,7 +224,10 @@ impl FileSharingService {
 			.await
 			.map_err(|e| SharingError::JobError(e.to_string()))?;
 
-		Ok(vec![TransferId::JobId(handle.id().into())])
+		Ok(vec![TransferId::JobId {
+			job_id: handle.id().into(),
+			library_id: library.id(),
+		}])
 	}
 
 	/// Share files via Spacedrop (ephemeral, requires consent)
@@ -308,14 +317,14 @@ impl FileSharingService {
 		transfer_id: &TransferId,
 	) -> Result<TransferStatus, SharingError> {
 		match transfer_id {
-			TransferId::JobId(job_id) => {
+			TransferId::JobId { job_id, library_id } => {
 				let library = self
 					.context
 					.library_manager
-					.get_primary_library()
+					.get_library(*library_id)
 					.await
 					.ok_or(SharingError::JobError(
-						"No active library for job dispatch".to_string(),
+						format!("Library {} not found", library_id),
 					))?;
 
 				let job_manager = library.jobs();
@@ -385,14 +394,14 @@ impl FileSharingService {
 	/// Cancel a transfer
 	pub async fn cancel_transfer(&self, transfer_id: &TransferId) -> Result<(), SharingError> {
 		match transfer_id {
-			TransferId::JobId(job_id) => {
+			TransferId::JobId { job_id, library_id } => {
 				let library = self
 					.context
 					.library_manager
-					.get_primary_library()
+					.get_library(*library_id)
 					.await
 					.ok_or(SharingError::JobError(
-						"No active library for job dispatch".to_string(),
+						format!("Library {} not found", library_id),
 					))?;
 
 				let job_manager = library.jobs();
@@ -446,7 +455,10 @@ impl FileSharingService {
 				};
 
 				transfers.push(TransferStatus {
-					id: TransferId::JobId(job_info.id),
+					id: TransferId::JobId {
+						job_id: job_info.id,
+						library_id: library.id(),
+					},
 					state,
 					progress: TransferProgress {
 						bytes_transferred: 0, // TODO: Extract from job progress

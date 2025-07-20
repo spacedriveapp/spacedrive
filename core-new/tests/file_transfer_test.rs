@@ -129,11 +129,17 @@ async fn alice_file_transfer_scenario() {
 			if !paired_devices.is_empty() {
 				println!("🎉 Alice: Found {} paired devices!", paired_devices.len());
 				for device in &paired_devices {
-					println!("  📱 Paired: {} (ID: {})", device.device_name, device.device_id);
+					println!(
+						"  📱 Paired: {} (ID: {})",
+						device.device_name, device.device_id
+					);
 				}
 				// Use the first paired device as the receiver
 				receiver_device_id = Some(paired_devices[0].device_id);
-				println!("🔑 Alice: Using paired device as receiver: {}", paired_devices[0].device_id);
+				println!(
+					"🔑 Alice: Using paired device as receiver: {}",
+					paired_devices[0].device_id
+				);
 				break;
 			}
 		}
@@ -458,7 +464,10 @@ async fn bob_file_transfer_scenario() {
 			if !paired_devices.is_empty() {
 				println!("🎉 Bob: Found {} paired devices!", paired_devices.len());
 				for device in &paired_devices {
-					println!("  📱 Paired: {} (ID: {})", device.device_name, device.device_id);
+					println!(
+						"  📱 Paired: {} (ID: {})",
+						device.device_name, device.device_id
+					);
 				}
 				// Even if not showing as "connected", we have paired devices, so pairing worked
 				break;
@@ -638,7 +647,7 @@ async fn bob_file_transfer_scenario() {
 
 /// Main test orchestrator - spawns cargo test subprocesses for file transfer
 #[tokio::test]
-async fn test_core_file_transfer() {
+async fn test_file_transfer() {
 	// Clean up any old test files to avoid race conditions
 	let _ = std::fs::remove_dir_all("/tmp/spacedrive-file-transfer-test");
 	let _ = std::fs::remove_dir_all("/tmp/received_files");
@@ -646,7 +655,7 @@ async fn test_core_file_transfer() {
 
 	println!("🧪 Testing Core file transfer with cargo test subprocess framework");
 
-	let mut runner = CargoTestRunner::for_test_file("test_core_file_transfer")
+	let mut runner = CargoTestRunner::for_test_file("file_transfer_test")
 		.with_timeout(Duration::from_secs(240)) // 4 minutes for file transfer test
 		.add_subprocess("alice", "alice_file_transfer_scenario")
 		.add_subprocess("bob", "bob_file_transfer_scenario");

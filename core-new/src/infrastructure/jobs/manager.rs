@@ -141,10 +141,6 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
-		println!(
-			"🔍 JOB_DEBUG: Successfully inserted job {} into database",
-			job_id
-		);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -354,10 +350,6 @@ impl JobManager {
 		};
 
 		job_model.insert(self.db.conn()).await?;
-		println!(
-			"🔍 JOB_DEBUG: Successfully inserted job {} into database",
-			job_id
-		);
 
 		// Create channels
 		let (status_tx, status_rx) = watch::channel(JobStatus::Queued);
@@ -696,12 +688,12 @@ impl JobManager {
 			};
 
 			let status = match j.status.as_str() {
-				"Queued" => JobStatus::Queued,
-				"Running" => JobStatus::Running,
-				"Paused" => JobStatus::Paused,
-				"Completed" => JobStatus::Completed,
-				"Failed" => JobStatus::Failed,
-				"Cancelled" => JobStatus::Cancelled,
+				"queued" => JobStatus::Queued,
+				"running" => JobStatus::Running,
+				"paused" => JobStatus::Paused,
+				"completed" => JobStatus::Completed,
+				"failed" => JobStatus::Failed,
+				"cancelled" => JobStatus::Cancelled,
 				_ => continue,
 			};
 
@@ -774,12 +766,12 @@ impl JobManager {
 		Ok(job.and_then(|j| {
 			let id = j.id.parse::<Uuid>().ok()?;
 			let status = match j.status.as_str() {
-				"Queued" => JobStatus::Queued,
-				"Running" => JobStatus::Running,
-				"Paused" => JobStatus::Paused,
-				"Completed" => JobStatus::Completed,
-				"Failed" => JobStatus::Failed,
-				"Cancelled" => JobStatus::Cancelled,
+				"queued" => JobStatus::Queued,
+				"running" => JobStatus::Running,
+				"paused" => JobStatus::Paused,
+				"completed" => JobStatus::Completed,
+				"failed" => JobStatus::Failed,
+				"cancelled" => JobStatus::Cancelled,
 				_ => return None,
 			};
 
