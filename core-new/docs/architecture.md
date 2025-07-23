@@ -24,11 +24,26 @@ The main orchestrator that manages all subsystems:
 
 ```rust
 pub struct Core {
-    config: Arc<RwLock<AppConfig>>,     // Application configuration
-    device: Arc<DeviceManager>,         // Device identity
-    libraries: Arc<LibraryManager>,     // Library management
-    events: Arc<EventBus>,              // Event communication
-    services: Services,                 // Background services
+    /// Application configuration
+    pub config: Arc<RwLock<AppConfig>>,
+    
+    /// Device manager
+    pub device: Arc<DeviceManager>,
+    
+    /// Library manager
+    pub libraries: Arc<LibraryManager>,
+    
+    /// Volume manager
+    pub volumes: Arc<VolumeManager>,
+    
+    /// Event bus for state changes
+    pub events: Arc<EventBus>,
+    
+    /// Container for high-level services
+    pub services: Services,
+    
+    /// Shared context for core components
+    pub context: Arc<CoreContext>,
 }
 ```
 
@@ -44,20 +59,32 @@ Libraries are the core organizational unit in Spacedrive:
 
 ```rust
 pub struct Library {
-    id: Uuid,
-    config: LibraryConfig,
-    database: Database,
-    thumbnail_manager: ThumbnailManager,
-    // ... other components
+    /// Root directory of the library (the .sdlibrary folder)
+    path: PathBuf,
+    
+    /// Library configuration
+    config: RwLock<LibraryConfig>,
+    
+    /// Database connection
+    db: Arc<Database>,
+    
+    /// Job manager for this library
+    jobs: Arc<JobManager>,
+    
+    /// Lock preventing concurrent access
+    _lock: LibraryLock,
 }
 ```
 
 **Key Features:**
 - **File-based storage** - Each library is a `.sdlibrary` directory
 - **SQLite database** - Optimized schema with SeaORM
-- **Thumbnail management** - Efficient storage and retrieval
+- **Integrated thumbnail management** - Built into Library methods (no separate ThumbnailManager)
 - **Atomic operations** - Consistent state management
 - **Locking mechanism** - Prevents concurrent access conflicts
+- **Job integration** - Dedicated job manager per library
+- **Library statistics** - Tracks files, size, locations, tags, thumbnails
+- **Device registration** - Tracks devices accessing the library
 
 ### Device Management  
 
@@ -65,10 +92,14 @@ Unified device identity (solving the Node/Device/Instance confusion):
 
 ```rust
 pub struct Device {
-    pub id: Uuid,           // Unique device identifier
-    pub name: String,       // Human-readable name
+    pub id: Uuid,                              // Unique device identifier
+    pub name: String,                          // Human-readable name
     pub os: OperatingSystem,
-    pub hardware_model: String,
+    pub hardware_model: Option<String>,        // Optional hardware model
+    pub network_addresses: Vec<String>,        // For P2P connections
+    pub is_online: bool,                       // Device online status
+    pub sync_leadership: HashMap<Uuid, SyncRole>, // Sync roles per library
+    pub last_seen_at: DateTime<Utc>,           // Last time device was seen
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -76,8 +107,9 @@ pub struct Device {
 
 **Design Principles:**
 - **One identity per installation** - No more multiple overlapping concepts
-- **Persistent across restarts** - Stable device identity
-- **OS integration** - Automatic hardware detection
+- **Persistent across restarts** - Stable device identity stored in device.json
+- **OS integration** - Automatic OS detection, partial hardware detection (macOS only)
+- **Sync coordination** - Built-in sync leadership model per library
 
 ## Domain Layer
 
@@ -88,36 +120,36 @@ Everything is an `Entry` - files and directories are treated uniformly:
 ```rust
 pub struct Entry {
     pub id: i32,                    // Database ID
-    pub uuid: Uuid,                 // Global identifier
+    pub uuid: Option<Uuid>,         // Global identifier (conditional)
     pub name: String,               // Display name
-    pub kind: EntryKind,            // File or Directory
-    pub size: u64,                  // Size in bytes
-    pub metadata_id: i32,           // Always present
+    pub kind: i32,                  // File(0), Directory(1), or Symlink(2)
+    pub size: i64,                  // Size in bytes
+    pub relative_path: String,      // Path relative to location
+    pub location_id: i32,           // Reference to location
+    pub metadata_id: Option<i32>,   // UserMetadata (created on demand)
     pub content_id: Option<i32>,    // Optional for deduplication
-    // ... timestamps and paths
+    // ... timestamps
 }
 ```
 
 **Benefits:**
-- **Immediate metadata** - Every entry can be tagged/organized from creation
+- **On-demand metadata** - UserMetadata created only when user adds tags/notes
 - **Unified operations** - Same APIs work for files and directories
 - **Flexible relationships** - Content identity separate from metadata
+- **Conditional UUIDs** - Assigned to directories immediately, files after content identification
 
-### Optimized Storage Schema
+### Storage Schema
 
-Path compression reduces storage requirements by 70%+ for large collections:
+Paths are stored as relative paths from location root:
 
 ```rust
-// Instead of storing full paths repeatedly:
-// /Users/james/Documents/file1.txt
-// /Users/james/Documents/file2.txt
-// /Users/james/Documents/subdir/file3.txt
-
-// We store materialized paths directly:
+// Paths stored relative to location:
 Entry { relative_path: "", name: "file1.txt", location_id: 1 }
 Entry { relative_path: "", name: "file2.txt", location_id: 1 }  
 Entry { relative_path: "subdir", name: "file3.txt", location_id: 1 }
 ```
+
+**Note:** Path compression mentioned in design documents is not currently implemented.
 
 ## Infrastructure Layer
 
@@ -127,14 +159,35 @@ Decoupled communication using a type-safe event system:
 
 ```rust
 pub enum Event {
+    // Core events
     CoreStarted,
     CoreShutdown,
-    LibraryCreated { id: Uuid, name: String },
-    LibraryOpened { id: Uuid },
-    LibraryClosed { id: Uuid },
+    
+    // Library events
+    LibraryCreated { id: Uuid, name: String, path: PathBuf },
+    LibraryOpened { id: Uuid, name: String, path: PathBuf },
+    LibraryClosed { id: Uuid, name: String },
+    LibraryDeleted { id: Uuid, name: String },
+    
+    // Entry events
     EntryCreated { library_id: Uuid, entry_id: Uuid },
     EntryModified { library_id: Uuid, entry_id: Uuid },
-    // ... more events
+    EntryDeleted { library_id: Uuid, entry_id: Uuid },
+    EntryMoved { library_id: Uuid, entry_id: Uuid, old_path: PathBuf, new_path: PathBuf },
+    
+    // Volume events
+    VolumeAdded(Volume),
+    VolumeRemoved(Uuid),
+    VolumeUpdated(Volume),
+    
+    // Job events
+    JobQueued { id: Uuid, name: String },
+    JobStarted { id: Uuid },
+    JobProgress { id: Uuid, progress: Progress },
+    JobCompleted { id: Uuid },
+    JobFailed { id: Uuid, error: String },
+    
+    // ... and more
 }
 ```
 
@@ -166,10 +219,13 @@ impl JobHandler for MyJob {
 ```
 
 **Key improvements over original:**
-- **50 lines vs 500+** to implement a new job
+- **50 lines vs 500-1000+** to implement a new job
 - **Automatic serialization** with MessagePack
-- **Database persistence** with checkpointing
+- **Database persistence** with checkpointing  
 - **Type-safe progress** reporting
+- **#[derive(Job)] macro** - Auto-generates registration and boilerplate
+- **Lifecycle methods** - Optional on_pause, on_resume, on_cancel
+- **Inventory-based registration** - Jobs auto-register at compile time
 
 ### Database Layer
 
@@ -275,7 +331,9 @@ type LibraryResult<T> = Result<T, LibraryError>;
 The architecture supports planned features:
 
 - **API Layer** - GraphQL/REST endpoints
-- **Sync System** - Third-party database sync
+- **Sync System** - Third-party database sync (foundation in place with sync_leadership)
 - **Plugin System** - Dynamic job registration
 - **Search Engine** - Full-text and semantic search
 - **Real-time Updates** - WebSocket event streaming
+- **Path Compression** - Implement the designed path compression for space savings
+- **Agent System** - Recently introduced agent manager design
