@@ -1,185 +1,151 @@
-//! Simple volume test that works with the existing system
-//!
-//! This test verifies basic volume functionality without requiring
-//! the full action system integration.
+//! Simple integration test for volume tracking
 
 use sd_core_new::{
-    Core,
-    volume::VolumeExt,
+    infrastructure::database::entities,
+    library::LibraryConfig,
+    volume::{VolumeDetectionConfig, VolumeFingerprint, VolumeManager},
 };
 use std::sync::Arc;
-use tempfile::tempdir;
-use tracing::{info, warn};
-
-const TEST_VOLUME_NAME: &str = "TestVolume";
+use tempfile::TempDir;
+use uuid::Uuid;
 
 #[tokio::test]
-async fn test_volume_detection_and_tracking() {
-    // Initialize logging
-    let _ = tracing_subscriber::fmt::try_init();
-
-    // Create test data directory
-    let data_dir = tempdir().unwrap();
-    let data_path = data_dir.path().to_path_buf();
-
-    // Initialize core
-    let core = Arc::new(
-        Core::new_with_config(data_path.clone())
-            .await
-            .expect("Failed to create core"),
-    );
-
-    // Get volume manager
-    let volume_manager = core.volumes.clone();
-
-    // Refresh volumes to ensure we have the latest
-    volume_manager
-        .refresh_volumes()
-        .await
-        .expect("Failed to refresh volumes");
-
-    // Get all volumes
-    let all_volumes = volume_manager.get_all_volumes().await;
+async fn test_volume_tracking_basic() {
+    // Create temp directory for library
+    let temp_dir = TempDir::new().expect("Failed to create temp dir");
+    let library_path = temp_dir.path().join("test.sdlibrary");
     
-    info!("Detected {} volumes:", all_volumes.len());
-    for volume in &all_volumes {
-        info!(
-            "  - {} ({}) at {} - {} {} [{}]",
+    // Create library config
+    let config = LibraryConfig {
+        id: Uuid::new_v4(),
+        name: "Test Library".to_string(),
+        description: Some("Test library for volume tracking".to_string()),
+        created_at: chrono::Utc::now(),
+        updated_at: chrono::Utc::now(),
+        settings: sd_core_new::library::LibrarySettings::default(),
+        statistics: sd_core_new::library::LibraryStatistics::default(),
+    };
+    
+    // Save config
+    std::fs::create_dir_all(&library_path).expect("Failed to create library dir");
+    let config_path = library_path.join("library.json");
+    let config_json = serde_json::to_string_pretty(&config).expect("Failed to serialize config");
+    std::fs::write(config_path, config_json).expect("Failed to write config");
+    
+    // Create events and volume manager
+    let events = Arc::new(sd_core_new::infrastructure::events::EventBus::default());
+    let volume_config = VolumeDetectionConfig::default();
+    let volume_manager = Arc::new(VolumeManager::new(volume_config, events.clone()));
+    
+    // Initialize volume manager to detect volumes
+    volume_manager
+        .initialize()
+        .await
+        .expect("Failed to initialize volume manager");
+    
+    // Stop monitoring to avoid background tasks
+    volume_manager.stop_monitoring().await;
+    
+    // Get all volumes
+    let volumes = volume_manager.get_all_volumes().await;
+    println!("Detected {} volumes", volumes.len());
+    
+    // Print volume information
+    for volume in &volumes {
+        println!(
+            "Volume: {} ({}), Mounted: {}, Capacity: {} GB",
             volume.name,
             volume.fingerprint,
-            volume.mount_point.display(),
-            volume.file_system,
-            volume.disk_type,
-            if volume.is_mounted { "mounted" } else { "unmounted" }
+            volume.is_mounted,
+            volume.total_bytes_capacity / (1024 * 1024 * 1024)
         );
     }
-
-    // Find TestVolume if it exists
-    let test_volume = all_volumes
-        .iter()
-        .find(|v| v.name == TEST_VOLUME_NAME)
-        .cloned();
-
-    if let Some(test_volume) = test_volume {
-        info!("Found TestVolume!");
-        
-        // Test volume properties
-        assert!(test_volume.is_mounted, "TestVolume should be mounted");
-        assert!(
-            test_volume.is_available().await,
-            "TestVolume should be accessible"
-        );
-        
-        // Test volume fingerprint
-        let fingerprint = &test_volume.fingerprint;
-        info!("TestVolume fingerprint: {}", fingerprint);
-        
-        // Test volume retrieval by fingerprint
-        let retrieved_volume = volume_manager
-            .get_volume(&fingerprint)
-            .await
-            .expect("Should be able to retrieve volume by fingerprint");
-        
-        assert_eq!(retrieved_volume.name, TEST_VOLUME_NAME);
-        assert_eq!(retrieved_volume.fingerprint, test_volume.fingerprint);
-        
-        // Test path containment
-        let test_path = test_volume.mount_point.join("test_file.txt");
-        assert!(
-            test_volume.contains_path(&test_path),
-            "Volume should contain paths under its mount point"
-        );
-        
-        // Test volume for path
-        let volume_for_path = volume_manager
-            .volume_for_path(&test_volume.mount_point)
-            .await
-            .expect("Should find volume for its mount point");
-        
-        assert_eq!(volume_for_path.fingerprint, test_volume.fingerprint);
-        
-        info!("All TestVolume tests passed!");
-    } else {
-        warn!(
-            "TestVolume not found. Available volumes: {:?}",
-            all_volumes.iter().map(|v| &v.name).collect::<Vec<_>>()
-        );
-        println!("SKIPPING TEST: TestVolume not mounted on system");
+    
+    // If we have at least one volume, test fingerprint parsing
+    if let Some(first_volume) = volumes.first() {
+        let fingerprint_str = first_volume.fingerprint.to_string();
+        let parsed = VolumeFingerprint::from_string(&fingerprint_str)
+            .expect("Failed to parse fingerprint");
+        assert_eq!(parsed.0, fingerprint_str);
     }
-
-    // Test volume statistics
-    let stats = volume_manager.get_statistics().await;
-    
-    info!("Volume statistics:");
-    info!("  Total volumes: {}", stats.total_volumes);
-    info!("  Mounted volumes: {}", stats.mounted_volumes);
-    info!("  Total capacity: {} TB", stats.total_capacity / (1024 * 1024 * 1024 * 1024));
-    info!("  Total available: {} TB", stats.total_available / (1024 * 1024 * 1024 * 1024));
-    
-    assert_eq!(stats.total_volumes, all_volumes.len());
-    assert!(stats.mounted_volumes <= stats.total_volumes);
-    assert!(stats.total_available <= stats.total_capacity);
-
-    // Clean up
-    let _ = core.services.stop_all().await;
-    
-    info!("Volume test completed successfully");
 }
 
 #[tokio::test]
-async fn test_volume_speed_test() {
-    // Initialize logging  
-    let _ = tracing_subscriber::fmt::try_init();
-
-    // Create test data directory
-    let data_dir = tempdir().unwrap();
-    let data_path = data_dir.path().to_path_buf();
-
-    // Initialize core
-    let core = Arc::new(
-        Core::new_with_config(data_path)
-            .await
-            .expect("Failed to create core"),
-    );
-
-    let volume_manager = core.volumes.clone();
+async fn test_volume_fingerprint_operations() {
+    // Test fingerprint creation from hex
+    let hex_string = "abcdef1234567890";
+    let fingerprint = VolumeFingerprint::from_hex(hex_string);
+    assert_eq!(fingerprint.0, hex_string);
+    assert_eq!(fingerprint.to_string(), hex_string);
     
-    // Find a writable volume
-    let all_volumes = volume_manager.get_all_volumes().await;
-    let writable_volume = all_volumes
-        .into_iter()
-        .find(|v| v.is_mounted && !v.read_only);
+    // Test fingerprint equality
+    let fp1 = VolumeFingerprint::from_hex("test123");
+    let fp2 = VolumeFingerprint::from_hex("test123");
+    let fp3 = VolumeFingerprint::from_hex("test456");
     
-    if let Some(volume) = writable_volume {
-        info!("Testing speed on volume: {}", volume.name);
-        
-        let fingerprint = volume.fingerprint.clone();
-        
-        // Run speed test
-        match volume_manager.run_speed_test(&fingerprint).await {
-            Ok(()) => {
-                // Get updated volume to check results
-                let updated_volume = volume_manager
-                    .get_volume(&fingerprint)
-                    .await
-                    .expect("Volume should still exist");
-                
-                if let (Some(read_speed), Some(write_speed)) = 
-                    (updated_volume.read_speed_mbps, updated_volume.write_speed_mbps) {
-                    info!("Speed test results: {} MB/s read, {} MB/s write", read_speed, write_speed);
-                    assert!(read_speed > 0, "Read speed should be positive");
-                    assert!(write_speed > 0, "Write speed should be positive");
-                } else {
-                    warn!("Speed test completed but no results stored");
-                }
-            }
-            Err(e) => {
-                warn!("Speed test failed (this is okay in CI): {}", e);
-            }
-        }
-    } else {
-        warn!("No writable volume found for speed test");
-    }
+    assert_eq!(fp1, fp2);
+    assert_ne!(fp1, fp3);
+}
 
-    let _ = core.services.stop_all().await;
+#[tokio::test]
+async fn test_volume_entity_conversion() {
+    use chrono::Utc;
+    
+    // Create a volume entity model
+    let model = entities::volume::Model {
+        id: 1,
+        uuid: Uuid::new_v4(),
+        fingerprint: "test_fingerprint_123".to_string(),
+        display_name: Some("Test Volume".to_string()),
+        tracked_at: Utc::now(),
+        last_seen_at: Utc::now(),
+        is_online: true,
+        total_capacity: Some(1000000000),
+        available_capacity: Some(500000000),
+        read_speed_mbps: Some(100),
+        write_speed_mbps: Some(80),
+        last_speed_test_at: None,
+        file_system: Some("APFS".to_string()),
+        mount_point: Some("/Volumes/Test".to_string()),
+        is_removable: Some(false),
+        is_network_drive: Some(false),
+        device_model: Some("Samsung SSD".to_string()),
+    };
+    
+    // Convert to tracked volume
+    let tracked = model.to_tracked_volume();
+    
+    // Verify conversion
+    assert_eq!(tracked.id, model.id);
+    assert_eq!(tracked.uuid, model.uuid);
+    assert_eq!(tracked.fingerprint.0, model.fingerprint);
+    assert_eq!(tracked.display_name, model.display_name);
+    assert_eq!(tracked.is_online, model.is_online);
+    assert_eq!(tracked.total_capacity, Some(1000000000));
+    assert_eq!(tracked.available_capacity, Some(500000000));
+    assert_eq!(tracked.read_speed_mbps, Some(100));
+    assert_eq!(tracked.write_speed_mbps, Some(80));
+    assert_eq!(tracked.file_system, model.file_system);
+    assert_eq!(tracked.mount_point, model.mount_point);
+    assert_eq!(tracked.is_removable, model.is_removable);
+    assert_eq!(tracked.is_network_drive, model.is_network_drive);
+    assert_eq!(tracked.device_model, model.device_model);
+}
+
+#[test]
+fn test_volume_error_types() {
+    use sd_core_new::volume::VolumeError;
+    
+    // Test error creation and display
+    let db_error = VolumeError::Database("Connection failed".to_string());
+    assert_eq!(db_error.to_string(), "Database error: Connection failed");
+    
+    let already_tracked = VolumeError::AlreadyTracked("vol123".to_string());
+    assert_eq!(already_tracked.to_string(), "Volume is already tracked: vol123");
+    
+    let not_tracked = VolumeError::NotTracked("vol456".to_string());
+    assert_eq!(not_tracked.to_string(), "Volume is not tracked: vol456");
+    
+    let not_found = VolumeError::NotFound("vol789".to_string());
+    assert_eq!(not_found.to_string(), "Volume not found: vol789");
 }

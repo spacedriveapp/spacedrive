@@ -58,6 +58,12 @@ pub struct LibrarySettings {
     
     /// Maximum file size to index (in bytes)
     pub max_file_size: Option<u64>,
+    
+    /// Whether to automatically track system volumes
+    pub auto_track_system_volumes: bool,
+    
+    /// Whether to automatically track external volumes when connected
+    pub auto_track_external_volumes: bool,
 }
 
 impl LibraryConfig {
@@ -87,6 +93,8 @@ impl Default for LibrarySettings {
                 ".part".to_string(),
             ],
             max_file_size: Some(100 * 1024 * 1024 * 1024), // 100GB
+            auto_track_system_volumes: true, // Default to true for user convenience
+            auto_track_external_volumes: false, // Default to false for privacy
         }
     }
 }

@@ -10,9 +10,11 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20240101_000001_create_initial_tables::Migration),
             Box::new(m20240102_000001_add_audit_log::Migration),
+            Box::new(m20240103_000001_create_volumes::Migration),
         ]
     }
 }
 
 mod m20240101_000001_create_initial_tables;
 mod m20240102_000001_add_audit_log;
+mod m20240103_000001_create_volumes;

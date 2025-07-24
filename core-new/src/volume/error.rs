@@ -48,6 +48,18 @@ pub enum VolumeError {
     /// Invalid volume data
     #[error("Invalid volume data: {0}")]
     InvalidData(String),
+
+    /// Database operation failed
+    #[error("Database error: {0}")]
+    Database(String),
+
+    /// Volume is already tracked
+    #[error("Volume is already tracked: {0}")]
+    AlreadyTracked(String),
+
+    /// Volume is not tracked
+    #[error("Volume is not tracked: {0}")]
+    NotTracked(String),
 }
 
 impl VolumeError {

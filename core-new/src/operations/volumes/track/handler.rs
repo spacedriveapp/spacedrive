@@ -45,12 +45,28 @@ impl ActionHandler for VolumeTrackHandler {
                     ));
                 }
                 
-                // TODO: Implement actual volume tracking in library
+                // Track the volume in the database
+                let tracked = context
+                    .volume_manager
+                    .track_volume(&library, &action.fingerprint, action.name.clone())
+                    .await
+                    .map_err(|e| match e {
+                        crate::volume::VolumeError::AlreadyTracked(_) => {
+                            ActionError::InvalidInput("Volume is already tracked in this library".to_string())
+                        }
+                        crate::volume::VolumeError::NotFound(_) => {
+                            ActionError::InvalidInput("Volume not found".to_string())
+                        }
+                        crate::volume::VolumeError::Database(msg) => {
+                            ActionError::Internal(format!("Database error: {}", msg))
+                        }
+                        _ => ActionError::Internal(e.to_string()),
+                    })?;
                 
                 Ok(ActionOutput::VolumeTracked {
                     fingerprint: action.fingerprint,
                     library_id: action.library_id,
-                    volume_name: volume.name,
+                    volume_name: tracked.display_name.unwrap_or(volume.name),
                 })
             }
             _ => Err(ActionError::InvalidActionType),

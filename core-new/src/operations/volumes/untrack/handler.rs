@@ -27,13 +27,26 @@ impl ActionHandler for VolumeUntrackHandler {
         match action {
             Action::VolumeUntrack { action } => {
                 // Verify library exists
-                let _library = context
+                let library = context
                     .library_manager
                     .get_library(action.library_id)
                     .await
                     .ok_or_else(|| ActionError::InvalidInput("Library not found".to_string()))?;
                     
-                // TODO: Implement actual volume untracking from library
+                // Untrack the volume from the database
+                context
+                    .volume_manager
+                    .untrack_volume(&library, &action.fingerprint)
+                    .await
+                    .map_err(|e| match e {
+                        crate::volume::VolumeError::NotTracked(_) => {
+                            ActionError::InvalidInput("Volume is not tracked in this library".to_string())
+                        }
+                        crate::volume::VolumeError::Database(msg) => {
+                            ActionError::Internal(format!("Database error: {}", msg))
+                        }
+                        _ => ActionError::Internal(e.to_string()),
+                    })?;
                 
                 Ok(ActionOutput::VolumeUntracked {
                     fingerprint: action.fingerprint,

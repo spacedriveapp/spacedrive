@@ -13,11 +13,13 @@ pub mod device;
 pub mod file_sharing;
 pub mod location_watcher;
 pub mod networking;
+pub mod volume_monitor;
 
 use device::DeviceService;
 use file_sharing::FileSharingService;
 use location_watcher::{LocationWatcher, LocationWatcherConfig};
 use networking::NetworkingService;
+use volume_monitor::{VolumeMonitorService, VolumeMonitorConfig};
 
 /// Container for all background services
 pub struct Services {
@@ -29,6 +31,8 @@ pub struct Services {
 	pub device: Arc<DeviceService>,
 	/// Networking service for device connections
 	pub networking: Option<Arc<NetworkingService>>,
+	/// Volume monitoring service
+	pub volume_monitor: Option<Arc<VolumeMonitorService>>,
 	/// Library key manager
 	pub library_key_manager: Arc<LibraryKeyManager>,
 	/// Shared context for all services
@@ -54,6 +58,7 @@ impl Services {
 			file_sharing,
 			device,
 			networking: None, // Initialized separately when needed
+			volume_monitor: None, // Initialized after library manager is available
 			library_key_manager,
 			context,
 		}
@@ -69,6 +74,11 @@ impl Services {
 		info!("Starting all background services");
 
 		self.location_watcher.start().await?;
+		
+		// Start volume monitor if initialized
+		if let Some(monitor) = &self.volume_monitor {
+			monitor.start().await?;
+		}
 
 		// Networking service is already started during initialization
 
@@ -84,6 +94,11 @@ impl Services {
 		info!("Stopping all background services");
 
 		self.location_watcher.stop().await?;
+		
+		// Stop volume monitor if initialized
+		if let Some(monitor) = &self.volume_monitor {
+			monitor.stop().await?;
+		}
 
 		// Stop networking service if initialized
 		if let Some(networking) = &self.networking {
@@ -136,6 +151,40 @@ impl Services {
 	/// Get networking service if initialized
 	pub fn networking(&self) -> Option<Arc<NetworkingService>> {
 		self.networking.clone()
+	}
+
+	/// Initialize volume monitor service
+	pub fn init_volume_monitor(
+		&mut self,
+		volume_manager: Arc<crate::volume::VolumeManager>,
+		library_manager: std::sync::Weak<crate::library::LibraryManager>,
+	) {
+		info!("Initializing volume monitor service");
+		
+		let config = VolumeMonitorConfig::default();
+		let volume_monitor = Arc::new(VolumeMonitorService::new(
+			volume_manager,
+			library_manager,
+			config,
+		));
+		
+		self.volume_monitor = Some(volume_monitor);
+	}
+
+	/// Start volume monitor service
+	pub async fn start_volume_monitor(&self) -> Result<()> {
+		if let Some(monitor) = &self.volume_monitor {
+			monitor.start().await?;
+		}
+		Ok(())
+	}
+
+	/// Stop volume monitor service
+	pub async fn stop_volume_monitor(&self) -> Result<()> {
+		if let Some(monitor) = &self.volume_monitor {
+			monitor.stop().await?;
+		}
+		Ok(())
 	}
 }
 

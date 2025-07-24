@@ -128,6 +128,28 @@ pub struct VolumeInfo {
 	pub error_status: Option<String>,
 }
 
+/// Information about a tracked volume in the database
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackedVolume {
+	pub id: i32,
+	pub uuid: uuid::Uuid,
+	pub fingerprint: VolumeFingerprint,
+	pub display_name: Option<String>,
+	pub tracked_at: chrono::DateTime<chrono::Utc>,
+	pub last_seen_at: chrono::DateTime<chrono::Utc>,
+	pub is_online: bool,
+	pub total_capacity: Option<u64>,
+	pub available_capacity: Option<u64>,
+	pub read_speed_mbps: Option<u32>,
+	pub write_speed_mbps: Option<u32>,
+	pub last_speed_test_at: Option<chrono::DateTime<chrono::Utc>>,
+	pub file_system: Option<String>,
+	pub mount_point: Option<String>,
+	pub is_removable: Option<bool>,
+	pub is_network_drive: Option<bool>,
+	pub device_model: Option<String>,
+}
+
 impl From<&Volume> for VolumeInfo {
 	fn from(volume: &Volume) -> Self {
 		Self {
