@@ -114,9 +114,8 @@ impl ActionManager {
             Ok(output) => {
                 active_model.status = Set(audit_log::ActionStatus::Completed);
                 active_model.completed_at = Set(Some(chrono::Utc::now()));
-                if let Some(job_id_str) = output.data.get("job_id").and_then(|v| v.as_str()) {
-                    active_model.job_id = Set(Some(job_id_str.to_string()));
-                }
+                // Extract job_id if present in certain output types
+                // TODO: Update this when we have job-based actions
                 active_model.result_payload = Set(Some(serde_json::to_string(output).unwrap_or_default()));
             }
             Err(error) => {

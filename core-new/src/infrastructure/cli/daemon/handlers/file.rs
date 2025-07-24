@@ -75,21 +75,9 @@ impl CommandHandler for FileHandler {
 							// Dispatch the action
 							match action_manager.dispatch(full_action).await {
 								Ok(output) => {
-									// Extract job ID if available
-									if let Some(job_id) =
-										output.data.get("job_id").and_then(|v| v.as_str())
-									{
-										if let Ok(uuid) = job_id.parse::<Uuid>() {
-											DaemonResponse::CopyStarted {
-												job_id: uuid,
-												sources_count: sources.len(),
-											}
-										} else {
-											DaemonResponse::Ok
-										}
-									} else {
-										DaemonResponse::Ok
-									}
+									// For now, just return success
+									// TODO: Extract job ID when FileCopy action returns it
+									DaemonResponse::Ok
 								}
 								Err(e) => DaemonResponse::Error(format!(
 									"Failed to start copy operation: {}",

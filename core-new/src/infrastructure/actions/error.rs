@@ -23,6 +23,10 @@ pub enum ActionError {
     #[error("Invalid action type for this handler")]
     InvalidActionType,
     
+    /// Invalid input provided to action
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+    
     /// Permission denied for this action
     #[error("Permission denied for action '{action}': {reason}")]
     PermissionDenied {

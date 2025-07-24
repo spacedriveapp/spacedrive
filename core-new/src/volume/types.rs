@@ -29,6 +29,11 @@ impl VolumeFingerprint {
 	pub fn from_hex(hex: impl Into<String>) -> Self {
 		Self(hex.into())
 	}
+	
+	/// Create fingerprint from string (alias for from_hex)
+	pub fn from_string(s: &str) -> Result<Self, crate::volume::VolumeError> {
+		Ok(Self(s.to_string()))
+	}
 }
 
 impl fmt::Display for VolumeFingerprint {

@@ -14,6 +14,7 @@ pub mod library;
 pub mod location;
 pub mod network;
 pub mod system;
+pub mod volume;
 
 pub use self::core::CoreHandler;
 pub use file::FileHandler;
@@ -22,6 +23,7 @@ pub use library::LibraryHandler;
 pub use location::LocationHandler;
 pub use network::NetworkHandler;
 pub use system::SystemHandler;
+pub use volume::VolumeHandler;
 
 /// Trait for command handlers
 #[async_trait]
@@ -58,6 +60,7 @@ impl HandlerRegistry {
 			Box::new(FileHandler),
 			Box::new(NetworkHandler),
 			Box::new(SystemHandler::new(data_dir)),
+			Box::new(VolumeHandler),
 		];
 
 		Self { handlers }

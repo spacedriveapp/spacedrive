@@ -3,6 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
+use crate::infrastructure::cli::commands::{
+    LibraryCommands, LocationCommands, JobCommands, FileCommands, 
+    NetworkCommands, SystemCommands, VolumeCommands
+};
 
 /// Commands that can be sent to the daemon
 #[derive(Debug, Serialize, Deserialize)]
@@ -108,4 +112,7 @@ pub enum DaemonCommand {
 	RejectPairing {
 		request_id: Uuid,
 	},
+
+	// Volume commands
+	Volume(VolumeCommands),
 }

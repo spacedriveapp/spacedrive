@@ -94,6 +94,16 @@ pub enum Action {
 		library_id: Uuid, 
 		action: crate::operations::devices::revoke::action::DeviceRevokeAction 
 	},
+	
+	VolumeTrack {
+		action: crate::operations::volumes::track::action::VolumeTrackAction
+	},
+	VolumeUntrack {
+		action: crate::operations::volumes::untrack::action::VolumeUntrackAction
+	},
+	VolumeSpeedTest {
+		action: crate::operations::volumes::speed_test::action::VolumeSpeedTestAction
+	},
 }
 
 impl Action {
@@ -116,6 +126,9 @@ impl Action {
 			Action::ContentAnalysis { library_id, .. } => Some(*library_id),
 			Action::MetadataOperation { library_id, .. } => Some(*library_id),
 			Action::DeviceRevoke { library_id, .. } => Some(*library_id),
+			Action::VolumeTrack { action } => Some(action.library_id),
+			Action::VolumeUntrack { action } => Some(action.library_id),
+			Action::VolumeSpeedTest { .. } => None,
 		}
 	}
 
@@ -139,6 +152,9 @@ impl Action {
 			Action::ContentAnalysis { .. } => "content.analyze",
 			Action::MetadataOperation { .. } => "metadata.extract",
 			Action::DeviceRevoke { .. } => "device.revoke",
+			Action::VolumeTrack { .. } => "volume.track",
+			Action::VolumeUntrack { .. } => "volume.untrack",
+			Action::VolumeSpeedTest { .. } => "volume.speed_test",
 		}
 	}
 
@@ -201,6 +217,18 @@ impl Action {
 			}
 			Action::DeviceRevoke { action, .. } => {
 				format!("Revoke device {}", action.device_id)
+			}
+			Action::VolumeTrack { action } => {
+				match &action.name {
+					Some(name) => format!("Track volume '{}' ({})", name, action.fingerprint),
+					None => format!("Track volume {}", action.fingerprint),
+				}
+			}
+			Action::VolumeUntrack { action } => {
+				format!("Untrack volume {}", action.fingerprint)
+			}
+			Action::VolumeSpeedTest { action } => {
+				format!("Speed test volume {}", action.fingerprint)
 			}
 		}
 	}
@@ -267,6 +295,18 @@ impl Action {
 			Action::DeviceRevoke { action, .. } => serde_json::json!({
 				"device_id": action.device_id,
 				"reason": action.reason
+			}),
+			Action::VolumeTrack { action } => serde_json::json!({
+				"fingerprint": action.fingerprint,
+				"library_id": action.library_id,
+				"name": action.name
+			}),
+			Action::VolumeUntrack { action } => serde_json::json!({
+				"fingerprint": action.fingerprint,
+				"library_id": action.library_id
+			}),
+			Action::VolumeSpeedTest { action } => serde_json::json!({
+				"fingerprint": action.fingerprint
 			}),
 		}
 	}

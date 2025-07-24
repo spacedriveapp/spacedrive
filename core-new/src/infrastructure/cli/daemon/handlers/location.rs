@@ -45,30 +45,9 @@ impl CommandHandler for LocationHandler {
 							// Dispatch the action
 							match action_manager.dispatch(action).await {
 								Ok(output) => {
-									// Extract location ID and job ID from the JSON output
-									let json = output.data;
-
-									let location_id = json
-										.get("location_id")
-										.and_then(|v| v.as_str())
-										.and_then(|s| s.parse::<Uuid>().ok());
-
-									let job_id = json
-										.get("job_id")
-										.and_then(|v| v.as_str())
-										.unwrap_or("unknown");
-
-									if let Some(loc_id) = location_id {
-										DaemonResponse::LocationAdded {
-											location_id: loc_id,
-											job_id: job_id.to_string(),
-										}
-									} else {
-										DaemonResponse::Error(
-											"Failed to extract location ID from response"
-												.to_string(),
-										)
-									}
+									// For now, just return success
+									// TODO: Extract location and job IDs when LocationAdd action returns them
+									DaemonResponse::Ok
 								}
 								Err(e) => {
 									DaemonResponse::Error(format!("Failed to add location: {}", e))
@@ -170,12 +149,9 @@ impl CommandHandler for LocationHandler {
 							// Dispatch the action
 							match action_manager.dispatch(action).await {
 								Ok(output) => {
-									// Extract job ID if available
-									if let Some(job_id) = output.data.get("job_id").and_then(|v| v.as_str()) {
-										DaemonResponse::Ok
-									} else {
-										DaemonResponse::Ok
-									}
+									// For now, just return success
+									// TODO: Extract job ID when LocationRescan action returns it
+									DaemonResponse::Ok
 								}
 								Err(e) => DaemonResponse::Error(format!(
 									"Failed to start rescan: {}",

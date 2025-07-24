@@ -5,6 +5,7 @@ pub mod job;
 pub mod network;
 pub mod file;
 pub mod system;
+pub mod volume;
 
 // Re-export command types for convenience
 pub use daemon::DaemonCommands;
@@ -14,3 +15,4 @@ pub use job::JobCommands;
 pub use network::NetworkCommands;
 pub use file::FileCommands;
 pub use system::SystemCommands;
+pub use volume::VolumeCommands;
