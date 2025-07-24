@@ -21,8 +21,8 @@ use std::{
 };
 use tempfile::TempDir;
 use tokio::{fs, time::timeout};
-use uuid::Uuid;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use uuid::Uuid;
 
 /// Create a large test file with specified size
 async fn create_large_test_file(
@@ -66,8 +66,10 @@ async fn test_copy_progress_monitoring_large_file() {
 	// Initialize tracing subscriber for debug logs
 	let _guard = tracing_subscriber::registry()
 		.with(tracing_subscriber::fmt::layer())
-		.with(tracing_subscriber::EnvFilter::try_from_default_env()
-			.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")))
+		.with(
+			tracing_subscriber::EnvFilter::try_from_default_env()
+				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+		)
 		.set_default();
 
 	// Setup test environment
@@ -149,9 +151,14 @@ async fn test_copy_progress_monitoring_large_file() {
 		.expect("Action dispatch should succeed");
 
 	// Extract job ID from output
-	let job_id_value = action_output.data.get("job_id").unwrap();
-	let job_id_str = job_id_value.as_str().expect("job_id should be a string");
-	let job_id = Uuid::parse_str(job_id_str).expect("job_id should be valid UUID");
+	let job_id = match &action_output {
+		sd_core_new::infrastructure::actions::output::ActionOutput::Custom { data, .. } => {
+			let job_id_value = data.get("job_id").unwrap();
+			let job_id_str = job_id_value.as_str().expect("job_id should be a string");
+			Uuid::parse_str(job_id_str).expect("job_id should be valid UUID")
+		}
+		_ => panic!("Expected Custom ActionOutput variant"),
+	};
 	println!("Monitoring job ID: {}", job_id);
 
 	// Start monitoring task
@@ -165,22 +172,26 @@ async fn test_copy_progress_monitoring_large_file() {
 
 		loop {
 			poll_count += 1;
-			
+
 			// Get job info from the job manager
 			let job_info_result = library_clone.jobs().get_job_info(job_id).await.unwrap();
 			if let Some(job_info) = job_info_result {
 				let current_progress = job_info.progress * 100.0;
-				
+
 				// Only show debug output every 100 polls to reduce noise
 				if poll_count % 100 == 0 && poll_count > 0 {
-					println!("Poll #{}: Status={:?}, Progress={:.1}%", 
-						poll_count, job_info.status, current_progress);
+					println!(
+						"Poll #{}: Status={:?}, Progress={:.1}%",
+						poll_count, job_info.status, current_progress
+					);
 				}
-				
+
 				// Debug log when we're near completion
 				if current_progress > 99.0 {
-					println!("Near completion - Poll #{}: Status={:?}, Progress={:.1}%", 
-						poll_count, job_info.status, current_progress);
+					println!(
+						"Near completion - Poll #{}: Status={:?}, Progress={:.1}%",
+						poll_count, job_info.status, current_progress
+					);
 				}
 
 				// Record snapshot if progress changed
@@ -191,8 +202,8 @@ async fn test_copy_progress_monitoring_large_file() {
 					let snapshot = ProgressSnapshot {
 						timestamp: std::time::Instant::now(),
 						percentage: current_progress,
-						bytes_copied: (expected_size_clone as f64 * (current_progress as f64 / 100.0))
-							as u64,
+						bytes_copied: (expected_size_clone as f64
+							* (current_progress as f64 / 100.0)) as u64,
 						message: format!("{:.1}%", current_progress),
 					};
 
@@ -238,16 +249,22 @@ async fn test_copy_progress_monitoring_large_file() {
 								current_progress
 							);
 						}
-						
+
 						// Fail fast if progress is stuck at 0% for too long
 						if consecutive_same_progress > 200 && current_progress == 0.0 {
-							println!("ERROR: Progress stuck at 0% for {} polls. Aborting test.", consecutive_same_progress);
+							println!(
+								"ERROR: Progress stuck at 0% for {} polls. Aborting test.",
+								consecutive_same_progress
+							);
 							break;
 						}
 					}
 				}
 			} else {
-				println!("Job info returned None for job {} (poll #{})", job_id, poll_count);
+				println!(
+					"Job info returned None for job {} (poll #{})",
+					job_id, poll_count
+				);
 				// Job might have been removed from running jobs after completion
 				// Let's assume it completed successfully
 				break;
@@ -256,7 +273,7 @@ async fn test_copy_progress_monitoring_large_file() {
 			// Poll every 50ms to catch fine-grained progress updates
 			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
-		
+
 		has_seen_progress
 	});
 
@@ -366,8 +383,10 @@ async fn test_copy_progress_multiple_files() {
 	// Initialize tracing subscriber for debug logs
 	let _guard = tracing_subscriber::registry()
 		.with(tracing_subscriber::fmt::layer())
-		.with(tracing_subscriber::EnvFilter::try_from_default_env()
-			.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")))
+		.with(
+			tracing_subscriber::EnvFilter::try_from_default_env()
+				.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+		)
 		.try_init();
 
 	// This test verifies progress tracking across multiple files
@@ -438,8 +457,13 @@ async fn test_copy_progress_multiple_files() {
 		.await
 		.expect("Action dispatch should succeed");
 
-	let job_id_str = action_output.data.get("job_id").unwrap().as_str().unwrap();
-	let job_id = Uuid::parse_str(job_id_str).unwrap();
+	let job_id = match &action_output {
+		sd_core_new::infrastructure::actions::output::ActionOutput::Custom { data, .. } => {
+			let job_id_str = data.get("job_id").unwrap().as_str().unwrap();
+			Uuid::parse_str(job_id_str).unwrap()
+		}
+		_ => panic!("Expected Custom ActionOutput variant"),
+	};
 
 	// Monitor progress
 	let library_clone = library.clone();
@@ -470,7 +494,10 @@ async fn test_copy_progress_multiple_files() {
 					panic!("Multi-file job failed!");
 				}
 			} else {
-				println!("Job info returned None for multi-file job {}. Job likely completed.", job_id);
+				println!(
+					"Job info returned None for multi-file job {}. Job likely completed.",
+					job_id
+				);
 				break;
 			}
 

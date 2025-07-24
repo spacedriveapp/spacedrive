@@ -12,44 +12,44 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(Volume::Table)
+                    .table(Volumes::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(Volume::Id)
+                        ColumnDef::new(Volumes::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(Volume::Uuid).text().not_null().unique_key())
-                    .col(ColumnDef::new(Volume::Fingerprint).text().not_null())
-                    .col(ColumnDef::new(Volume::DisplayName).text())
+                    .col(ColumnDef::new(Volumes::Uuid).text().not_null().unique_key())
+                    .col(ColumnDef::new(Volumes::Fingerprint).text().not_null())
+                    .col(ColumnDef::new(Volumes::DisplayName).text())
                     .col(
-                        ColumnDef::new(Volume::TrackedAt)
+                        ColumnDef::new(Volumes::TrackedAt)
                             .timestamp()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(Volume::LastSeenAt)
+                        ColumnDef::new(Volumes::LastSeenAt)
                             .timestamp()
                             .not_null(),
                     )
                     .col(
-                        ColumnDef::new(Volume::IsOnline)
+                        ColumnDef::new(Volumes::IsOnline)
                             .boolean()
                             .not_null()
                             .default(true),
                     )
-                    .col(ColumnDef::new(Volume::TotalCapacity).big_integer())
-                    .col(ColumnDef::new(Volume::AvailableCapacity).big_integer())
-                    .col(ColumnDef::new(Volume::ReadSpeedMbps).integer())
-                    .col(ColumnDef::new(Volume::WriteSpeedMbps).integer())
-                    .col(ColumnDef::new(Volume::LastSpeedTestAt).timestamp())
-                    .col(ColumnDef::new(Volume::FileSystem).text())
-                    .col(ColumnDef::new(Volume::MountPoint).text())
-                    .col(ColumnDef::new(Volume::IsRemovable).boolean())
-                    .col(ColumnDef::new(Volume::IsNetworkDrive).boolean())
-                    .col(ColumnDef::new(Volume::DeviceModel).text())
+                    .col(ColumnDef::new(Volumes::TotalCapacity).big_integer())
+                    .col(ColumnDef::new(Volumes::AvailableCapacity).big_integer())
+                    .col(ColumnDef::new(Volumes::ReadSpeedMbps).integer())
+                    .col(ColumnDef::new(Volumes::WriteSpeedMbps).integer())
+                    .col(ColumnDef::new(Volumes::LastSpeedTestAt).timestamp())
+                    .col(ColumnDef::new(Volumes::FileSystem).text())
+                    .col(ColumnDef::new(Volumes::MountPoint).text())
+                    .col(ColumnDef::new(Volumes::IsRemovable).boolean())
+                    .col(ColumnDef::new(Volumes::IsNetworkDrive).boolean())
+                    .col(ColumnDef::new(Volumes::DeviceModel).text())
                     .to_owned(),
             )
             .await?;
@@ -59,8 +59,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_volume_fingerprint_unique")
-                    .table(Volume::Table)
-                    .col(Volume::Fingerprint)
+                    .table(Volumes::Table)
+                    .col(Volumes::Fingerprint)
                     .unique()
                     .to_owned(),
             )
@@ -71,8 +71,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_volume_last_seen_at")
-                    .table(Volume::Table)
-                    .col(Volume::LastSeenAt)
+                    .table(Volumes::Table)
+                    .col(Volumes::LastSeenAt)
                     .to_owned(),
             )
             .await?;
@@ -82,8 +82,8 @@ impl MigrationTrait for Migration {
             .create_index(
                 Index::create()
                     .name("idx_volume_is_online")
-                    .table(Volume::Table)
-                    .col(Volume::IsOnline)
+                    .table(Volumes::Table)
+                    .col(Volumes::IsOnline)
                     .to_owned(),
             )
             .await?;
@@ -93,13 +93,13 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Volume::Table).to_owned())
+            .drop_table(Table::drop().table(Volumes::Table).to_owned())
             .await
     }
 }
 
 #[derive(DeriveIden)]
-enum Volume {
+enum Volumes {
     Table,
     Id,
     Uuid,
