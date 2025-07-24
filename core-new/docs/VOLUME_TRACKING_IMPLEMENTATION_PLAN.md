@@ -535,3 +535,45 @@ async fn test_volume_tracking_persistence() {
 4. Update the action handlers
 5. Add the volume monitor service
 6. Write integration tests
+
+## ActionOutput Design Note
+
+The current implementation uses a centralized `ActionOutput` enum for all action results. This design decision has been investigated and the following findings were documented:
+
+### Current State
+- All action handlers return `ActionResult<ActionOutput>`
+- ActionOutput serves multiple purposes:
+  - Provides standardized return type for all actions
+  - Gets serialized to JSON for audit logs (`result_payload`)
+  - Gets returned to CLI via `DaemonResponse::ActionOutput`
+  - Has both specific variants (VolumeTracked, VolumeUntracked, etc.) and a generic Custom variant
+
+### Design Pattern
+- Most actions define their own output struct implementing `ActionOutputTrait`
+- They use `ActionOutput::from_trait()` to convert to the centralized enum
+- This provides type safety while allowing flexibility
+
+### Trade-offs
+
+**Pros:**
+- Centralized enum makes it easy to handle all outputs uniformly in infrastructure code
+- Audit logging can serialize any action output
+- CLI can display any action output consistently
+- The `Custom` variant provides an escape hatch for actions that don't need specific handling
+
+**Cons:**
+- Central enum needs updating for each new action type
+- Could become a maintenance burden as more actions are added
+- Goes against open/closed principle
+
+### Recommendation
+The current approach is reasonable because:
+1. It's already implemented and working across the codebase
+2. Provides good type safety and pattern matching
+3. Makes audit logging straightforward
+4. The volume actions follow this established pattern with specific variants (VolumeTracked, VolumeUntracked, VolumeSpeedTested)
+
+Any future refactoring to remove the centralized enum would require changes to:
+- Audit log serialization
+- CLI response handling
+- Any code that pattern matches on specific output types
