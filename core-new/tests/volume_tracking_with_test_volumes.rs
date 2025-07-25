@@ -617,9 +617,14 @@ async fn test_concurrent_volume_operations() {
             .await
             .expect("Failed to get tracked volumes");
         
-        assert_eq!(tracked.len(), 1, "Library {} should have 1 tracked volume", i);
+        // Find our specific test volume (there might be auto-tracked system volumes)
+        let our_volume = tracked
+            .iter()
+            .find(|v| v.fingerprint == volume.fingerprint)
+            .expect(&format!("Library {} should have our test volume tracked", i));
+        
         assert_eq!(
-            tracked[0].display_name,
+            our_volume.display_name,
             Some(format!("Concurrent Volume {}", i)),
             "Library {} should have correct volume name", i
         );
