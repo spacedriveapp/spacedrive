@@ -79,9 +79,6 @@ pub struct SdPathSerialized {
 
     /// Normalized path on that device
     pub path: String,
-
-    /// Optional library context
-    pub library_id: Option<Uuid>,
 }
 
 impl SdPathSerialized {
@@ -90,7 +87,6 @@ impl SdPathSerialized {
         Self {
             device_id: sdpath.device_id,
             path: sdpath.path.to_string_lossy().to_string(),
-            library_id: sdpath.library_id,
         }
     }
 
@@ -99,7 +95,6 @@ impl SdPathSerialized {
         SdPath {
             device_id: self.device_id,
             path: self.path.clone().into(),
-            library_id: self.library_id,
         }
     }
 }

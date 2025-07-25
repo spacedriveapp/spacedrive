@@ -70,7 +70,6 @@ The foundation for virtual distributed file systems:
 pub struct SdPath {
     device_id: Uuid,            // Which device
     path: PathBuf,              // Path on that device
-    library_id: Option<Uuid>,   // Optional library context
 }
 
 impl SdPath {

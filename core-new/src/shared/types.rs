@@ -20,10 +20,6 @@ pub struct SdPath {
 
     /// The local path on that device
     pub path: PathBuf,
-
-    /// Optional library context
-    /// If None, uses the current active library
-    pub library_id: Option<Uuid>,
 }
 
 impl SdPath {
@@ -32,25 +28,15 @@ impl SdPath {
         Self {
             device_id,
             path: path.into(),
-            library_id: None,
         }
     }
 
-    /// Create an SdPath with a specific library
-    pub fn with_library(device_id: Uuid, path: impl Into<PathBuf>, library_id: Uuid) -> Self {
-        Self {
-            device_id,
-            path: path.into(),
-            library_id: Some(library_id),
-        }
-    }
 
     /// Create an SdPath for a local file on this device
     pub fn local(path: impl Into<PathBuf>) -> Self {
         Self {
             device_id: get_current_device_id(), // Get the current device ID
             path: path.into(),
-            library_id: None,
         }
     }
 
@@ -87,7 +73,6 @@ impl SdPath {
         self.path.parent().map(|p| SdPath {
             device_id: self.device_id,
             path: p.to_path_buf(),
-            library_id: self.library_id,
         })
     }
 
@@ -96,7 +81,6 @@ impl SdPath {
         SdPath {
             device_id: self.device_id,
             path: self.path.join(path),
-            library_id: self.library_id,
         }
     }
 
@@ -191,7 +175,6 @@ mod tests {
 
         assert_eq!(path.device_id, device_id);
         assert_eq!(path.path, PathBuf::from("/home/user/file.txt"));
-        assert_eq!(path.library_id, None);
     }
 
     #[test]

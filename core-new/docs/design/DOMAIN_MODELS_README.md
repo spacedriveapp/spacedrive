@@ -10,7 +10,7 @@ The foundation of the VDFS. Represents any file or directory that Spacedrive kno
 ```rust
 let entry = Entry {
     id: Uuid::new_v4(),
-    sd_path: SdPathSerialized { device_id, path, library_id },
+    sd_path: SdPathSerialized { device_id, path },
     name: "vacation.jpg",
     kind: EntryKind::File { extension: Some("jpg") },
     metadata_id: metadata.id,  // ALWAYS has metadata!

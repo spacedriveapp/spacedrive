@@ -231,7 +231,6 @@ pub enum CopyResult {
 pub struct SdPath {
     pub device_id: Uuid,        // ❌ Stored - should be computed
     pub path: PathBuf,
-    pub library_id: Option<Uuid>,
 }
 ```
 
@@ -243,9 +242,6 @@ pub struct SdPath {
 pub struct SdPath {
     /// The local path - this is the only stored data
     pub path: PathBuf,
-    
-    /// Optional library context
-    pub library_id: Option<Uuid>,
 }
 
 /// Extended path information - computed at runtime
@@ -263,7 +259,6 @@ pub struct SdPathInfo {
 #[derive(Serialize, Deserialize)]
 pub struct SdPathSerialized {
     pub path: PathBuf,
-    pub library_id: Option<Uuid>,
     // Note: device_id and volume info NOT serialized
 }
 
@@ -314,7 +309,6 @@ impl SdPath {
 pub struct SdPathRemote {
     pub device_id: Uuid,          // Required for remote paths
     pub path: PathBuf,
-    pub library_id: Option<Uuid>,
     pub last_known_volume: Option<VolumeFingerprint>,
 }
 ```

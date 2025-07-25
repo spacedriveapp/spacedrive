@@ -120,13 +120,12 @@ How SdPath is stored in the database:
 struct SdPathSerialized {
     device_id: Uuid,
     path: String,               // Normalized path
-    library_id: Option<Uuid>,
 }
 
 // In the database, this could be:
-// - Three columns: device_id, path, library_id
-// - Or JSON: {"device_id": "...", "path": "...", "library_id": null}
-// - Or a custom format: "device_id://path" or "library_id/device_id://path"
+// - Two columns: device_id, path
+// - Or JSON: {"device_id": "...", "path": "..."}
+// - Or a custom format: "device_id://path"
 ```
 
 ### 5. Location (Enhanced)
