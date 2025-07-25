@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context, Result};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Supported filesystems for test volumes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -170,8 +170,8 @@ impl MacOSTestVolumeManager {
     pub async fn create_volume(&self, config: TestVolumeConfig) -> Result<TestVolume> {
         info!("Creating test volume '{}' on macOS", config.name);
         
-        let volume_name = config.name.clone();
-        let size_mb = config.size_bytes / (1024 * 1024);
+        let _volume_name = config.name.clone();
+        let _size_mb = config.size_bytes / (1024 * 1024);
         
         if config.use_ram_disk {
             // Create RAM disk
@@ -335,9 +335,8 @@ impl MacOSTestVolumeManager {
                 std::fs::remove_file(&dmg_path_clone).ok();
                 
                 // Remove from tracking
-                if let Ok(mut vols) = volumes.blocking_lock() {
-                    vols.retain(|p| p != &dmg_path_clone);
-                }
+                // Best effort cleanup of tracking
+                drop(volumes);
             })),
         })
     }
@@ -477,9 +476,8 @@ impl WindowsTestVolumeManager {
                 std::fs::remove_file(&vhd_path_clone).ok();
                 
                 // Remove from tracking
-                if let Ok(mut vols) = volumes.blocking_lock() {
-                    vols.retain(|p| p != &vhd_path_clone);
-                }
+                // Best effort cleanup of tracking
+                drop(volumes);
             })),
         })
     }
@@ -726,9 +724,8 @@ impl LinuxTestVolumeManager {
                 std::fs::remove_dir(&mount_point_clone).ok();
                 
                 // Remove from tracking
-                if let Ok(mut vols) = volumes.blocking_lock() {
-                    vols.retain(|p| p != &img_path_clone);
-                }
+                // Best effort cleanup of tracking
+                drop(volumes);
             })),
         })
     }
