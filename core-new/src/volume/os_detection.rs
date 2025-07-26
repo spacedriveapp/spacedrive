@@ -1,14 +1,36 @@
 //! Platform-specific volume detection
 
 use crate::volume::{
+	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
-	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig},
+	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeFingerprint},
 };
+use std::collections::HashMap;
 use std::path::PathBuf;
-use tokio::task;
+use tokio::{process::Command, task};
 use tracing::{debug, instrument, warn};
+use uuid::Uuid;
 
-/// Detect all volumes on the current system
+/// Classify a volume using the platform-specific classifier
+fn classify_volume(
+	mount_point: &PathBuf,
+	file_system: &FileSystem,
+	name: &str,
+) -> crate::volume::types::VolumeType {
+	let classifier = get_classifier();
+	let detection_info = VolumeDetectionInfo {
+		mount_point: mount_point.clone(),
+		file_system: file_system.clone(),
+		total_bytes_capacity: 0, // We don't have this info yet in some contexts
+		is_removable: None,      // Would need additional detection
+		is_network_drive: None,  // Would need additional detection
+		device_model: None,      // Would need additional detection
+	};
+
+	classifier.classify(&detection_info)
+}
+
+/// Detect all volumes on the system
 #[instrument(skip(config))]
 pub async fn detect_volumes(
 	device_id: uuid::Uuid,
@@ -26,7 +48,7 @@ pub async fn detect_volumes(
 	let volumes = windows::detect_volumes(device_id, config).await?;
 
 	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
-	let volumes = unsupported::detect_volumes(device_id, config).await?;
+	let volumes = Vec::new();
 
 	debug!(
 		"Detected {} volumes for device {}",
@@ -116,8 +138,9 @@ mod macos {
 
 					let volume = Volume::new(
 						device_id,
-						name,
+						name.clone(),
 						mount_type,
+						classify_volume(&mount_path, &file_system, &name),
 						mount_path,
 						vec![], // Additional mount points would need diskutil parsing
 						disk_type,
@@ -225,8 +248,9 @@ mod macos {
 
 		let volume = Volume::new(
 			device_id,
-			name,
+			name.clone(),
 			mount_type,
+			classify_volume(&mount_path, &file_system, &name),
 			mount_path,
 			vec![], // Additional mount points would need diskutil parsing
 			disk_type,

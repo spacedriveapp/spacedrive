@@ -26,6 +26,12 @@ pub struct Model {
 	pub is_removable: Option<bool>,
 	pub is_network_drive: Option<bool>,
 	pub device_model: Option<String>,
+	/// Volume type classification
+	pub volume_type: Option<String>,
+	/// Whether volume is visible in default UI
+	pub is_user_visible: Option<bool>,
+	/// Whether volume is eligible for auto-tracking
+	pub auto_track_eligible: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -48,8 +54,8 @@ impl ActiveModelBehavior for ActiveModel {}
 
 impl Model {
 	/// Convert database model to tracked volume
-	pub fn to_tracked_volume(&self) -> TrackedVolume {
-		TrackedVolume {
+	pub fn to_tracked_volume(&self) -> crate::volume::types::TrackedVolume {
+		crate::volume::types::TrackedVolume {
 			id: self.id,
 			uuid: self.uuid,
 			device_id: self.device_id,
@@ -68,6 +74,9 @@ impl Model {
 			is_removable: self.is_removable,
 			is_network_drive: self.is_network_drive,
 			device_model: self.device_model.clone(),
+			volume_type: self.volume_type.as_deref().unwrap_or("Unknown").to_string(),
+			is_user_visible: self.is_user_visible,
+			auto_track_eligible: self.auto_track_eligible,
 		}
 	}
 }

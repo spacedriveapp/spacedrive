@@ -4,10 +4,11 @@
 //! across different platforms. It's designed to integrate with the copy system for optimal
 //! file operation routing.
 
-mod error;
-mod manager;
-mod os_detection;
-mod speed;
+pub mod classification;
+pub mod error;
+pub mod manager;
+pub mod os_detection;
+pub mod speed;
 pub mod types;
 
 pub use error::VolumeError;

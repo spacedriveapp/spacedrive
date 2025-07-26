@@ -7,11 +7,34 @@ use comfy_table::Table;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, clap::ValueEnum, Serialize, Deserialize)]
+pub enum VolumeTypeFilter {
+	Primary,
+	UserData,
+	External,
+	Secondary,
+	System,
+	Network,
+	Unknown,
+}
+
 /// Volume management commands
 #[derive(Debug, Clone, Subcommand, Serialize, Deserialize)]
 pub enum VolumeCommands {
 	/// List all volumes
-	List,
+	List {
+		/// Include system volumes (hidden by default)
+		#[arg(long)]
+		include_system: bool,
+
+		/// Filter by volume type
+		#[arg(long, value_enum)]
+		type_filter: Option<VolumeTypeFilter>,
+
+		/// Show volume type classifications
+		#[arg(long)]
+		show_types: bool,
+	},
 	/// Show details for a specific volume
 	Get {
 		/// Volume fingerprint
@@ -49,11 +72,19 @@ pub async fn handle_volume_command(
 	let mut client = DaemonClient::new_with_instance(instance_name.clone());
 
 	match cmd {
-		VolumeCommands::List => {
+		VolumeCommands::List {
+			include_system,
+			type_filter,
+			show_types,
+		} => {
 			output.info("Fetching volumes...")?;
 
 			match client
-				.send_command(DaemonCommand::Volume(VolumeCommands::List))
+				.send_command(DaemonCommand::Volume(VolumeCommands::List {
+					include_system,
+					type_filter: type_filter.clone(),
+					show_types,
+				}))
 				.await
 			{
 				Ok(DaemonResponse::VolumeListWithTracking(volume_infos)) => {
@@ -63,7 +94,7 @@ pub async fn handle_volume_command(
 						output.info(&format!("Found {} volume(s):", volume_infos.len()))?;
 
 						let mut table = Table::new();
-						table.set_header(vec![
+						let mut headers = vec![
 							"Name",
 							"Mount Point",
 							"File System",
@@ -71,12 +102,37 @@ pub async fn handle_volume_command(
 							"Available",
 							"Status",
 							"Tracked",
-						]);
+						];
+
+						if show_types {
+							headers.insert(3, "Type");
+						}
+
+						table.set_header(headers);
 
 						for volume_info in volume_infos {
 							let volume = volume_info["volume"].as_object().unwrap();
 							let is_tracked = volume_info["is_tracked"].as_bool().unwrap_or(false);
 							let tracked_name = volume_info["tracked_name"].as_str();
+
+							// Apply filtering based on CLI flags
+							let is_user_visible =
+								volume["is_user_visible"].as_bool().unwrap_or(true);
+							let volume_type_str =
+								volume["volume_type"].as_str().unwrap_or("Unknown");
+
+							// Skip system volumes unless --include-system is specified
+							if !include_system && !is_user_visible {
+								continue;
+							}
+
+							// Apply type filter if specified
+							if let Some(ref filter) = type_filter {
+								let filter_str = format!("{:?}", filter);
+								if volume_type_str != filter_str {
+									continue;
+								}
+							}
 
 							let name = volume["name"].as_str().unwrap_or("Unknown");
 							let mount_point = volume["mount_point"].as_str().unwrap_or("Unknown");
@@ -112,15 +168,34 @@ pub async fn handle_volume_command(
 								"No".to_string()
 							};
 
-							table.add_row(vec![
+							let mut row = vec![
 								name.to_string(),
 								mount_point.to_string(),
 								file_system.to_string(),
+							];
+
+							if show_types {
+								// Get display name for the volume type
+								let type_display = match volume_type_str {
+									"Primary" => "[PRI]",
+									"UserData" => "[USR]",
+									"External" => "[EXT]",
+									"Secondary" => "[SEC]",
+									"System" => "[SYS]",
+									"Network" => "[NET]",
+									_ => "[UNK]",
+								};
+								row.push(type_display.to_string());
+							}
+
+							row.extend(vec![
 								capacity_str,
 								available_str,
 								status.to_string(),
 								tracked_status,
 							]);
+
+							table.add_row(row);
 						}
 
 						output.section().table(table).render()?;

@@ -441,6 +441,10 @@ impl VolumeManager {
 			is_removable: Set(Some(is_removable)),
 			is_network_drive: Set(Some(is_network_drive)),
 			device_model: Set(volume.hardware_id.clone()),
+			// Save volume classification fields
+			volume_type: Set(Some(format!("{:?}", volume.volume_type))),
+			is_user_visible: Set(Some(volume.is_user_visible)),
+			auto_track_eligible: Set(Some(volume.auto_track_eligible)),
 			..Default::default()
 		};
 
@@ -648,35 +652,46 @@ impl VolumeManager {
 			.collect()
 	}
 
-	/// Automatically track system volumes for a library
-	pub async fn auto_track_system_volumes(
+	/// Automatically track user-relevant volumes for a library
+	pub async fn auto_track_user_volumes(
 		&self,
 		library: &crate::library::Library,
 	) -> VolumeResult<Vec<entities::volume::Model>> {
-		let system_volumes = self.get_system_volumes().await;
+		let eligible_volumes: Vec<_> = self
+			.volumes
+			.read()
+			.await
+			.values()
+			.filter(|v| v.auto_track_eligible)
+			.cloned()
+			.collect();
+
 		let mut tracked_volumes = Vec::new();
 
 		info!(
-			"Auto-tracking {} system volumes for library '{}'",
-			system_volumes.len(),
+			"Auto-tracking {} user-relevant volumes for library '{}'",
+			eligible_volumes.len(),
 			library.name().await
 		);
 
-		for volume in system_volumes {
+		for volume in eligible_volumes {
 			// Skip if already tracked
 			if self.is_volume_tracked(library, &volume.fingerprint).await? {
-				debug!("System volume '{}' already tracked in library", volume.name);
+				debug!(
+					"Volume '{}' ({:?}) already tracked in library",
+					volume.name, volume.volume_type
+				);
 				continue;
 			}
 
-			// Track the system volume
 			match self
 				.track_volume(library, &volume.fingerprint, Some(volume.name.clone()))
 				.await
 			{
 				Ok(tracked) => {
 					info!(
-						"Auto-tracked system volume '{}' in library '{}'",
+						"Auto-tracked {} volume '{}' in library '{}'",
+						volume.volume_type.display_name(),
 						volume.name,
 						library.name().await
 					);
@@ -684,14 +699,25 @@ impl VolumeManager {
 				}
 				Err(e) => {
 					warn!(
-						"Failed to auto-track system volume '{}': {}",
-						volume.name, e
+						"Failed to auto-track {} volume '{}': {}",
+						volume.volume_type.display_name(),
+						volume.name,
+						e
 					);
 				}
 			}
 		}
 
 		Ok(tracked_volumes)
+	}
+
+	/// Automatically track system volumes for a library (legacy - use auto_track_user_volumes instead)
+	pub async fn auto_track_system_volumes(
+		&self,
+		library: &crate::library::Library,
+	) -> VolumeResult<Vec<entities::volume::Model>> {
+		// Use the new filtered auto-tracking
+		self.auto_track_user_volumes(library).await
 	}
 
 	/// Save speed test results to all libraries where this volume is tracked

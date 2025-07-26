@@ -245,16 +245,18 @@ impl LibraryManager {
 			let mut libraries = self.libraries.write().await;
 			libraries.insert(config.id, library.clone());
 		}
-		
-		// Auto-track system volumes if enabled
-		if config.settings.auto_track_system_volumes {
-			info!("Auto-tracking system volumes for library {}", config.name);
-			if let Err(e) = context.volume_manager
-				.auto_track_system_volumes(&library)
-				.await
-			{
-				warn!("Failed to auto-track system volumes: {}", e);
-			}
+
+		// Auto-track user-relevant volumes for this library
+		info!(
+			"Auto-tracking user-relevant volumes for library {}",
+			config.name
+		);
+		if let Err(e) = context
+			.volume_manager
+			.auto_track_user_volumes(&library)
+			.await
+		{
+			warn!("Failed to auto-track user-relevant volumes: {}", e);
 		}
 
 		// Emit event

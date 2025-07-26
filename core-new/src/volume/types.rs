@@ -3,6 +3,83 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
+use uuid::Uuid;
+
+/// Classification of volume types for UX and auto-tracking decisions
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum VolumeType {
+	/// Primary system drive containing OS and user data
+	/// Examples: C:\ on Windows, / on Linux, Macintosh HD on macOS
+	Primary,
+
+	/// Dedicated user data volumes (separate from OS)
+	/// Examples: /System/Volumes/Data on macOS, separate /home on Linux
+	UserData,
+
+	/// External or removable storage devices
+	/// Examples: USB drives, external HDDs, /Volumes/* on macOS
+	External,
+
+	/// Secondary internal storage (additional drives/partitions)
+	/// Examples: D:, E: drives on Windows, additional mounted drives
+	Secondary,
+
+	/// System/OS internal volumes (hidden from normal view)
+	/// Examples: /System/Volumes/* on macOS, Recovery partitions
+	System,
+
+	/// Network attached storage
+	/// Examples: SMB mounts, NFS, cloud storage
+	Network,
+
+	/// Unknown or unclassified volumes
+	Unknown,
+}
+
+impl VolumeType {
+	/// Should this volume type be auto-tracked by default?
+	pub fn auto_track_by_default(&self) -> bool {
+		match self {
+			VolumeType::Primary
+			| VolumeType::UserData
+			| VolumeType::External
+			| VolumeType::Secondary
+			| VolumeType::Network => true,
+			VolumeType::System | VolumeType::Unknown => false,
+		}
+	}
+
+	/// Should this volume be shown in the default UI view?
+	pub fn show_by_default(&self) -> bool {
+		!matches!(self, VolumeType::System | VolumeType::Unknown)
+	}
+
+	/// User-friendly display name for the volume type
+	pub fn display_name(&self) -> &'static str {
+		match self {
+			VolumeType::Primary => "Primary Drive",
+			VolumeType::UserData => "User Data",
+			VolumeType::External => "External Drive",
+			VolumeType::Secondary => "Secondary Drive",
+			VolumeType::System => "System Volume",
+			VolumeType::Network => "Network Drive",
+			VolumeType::Unknown => "Unknown",
+		}
+	}
+
+	/// Icon/indicator for CLI display
+	pub fn icon(&self) -> &'static str {
+		match self {
+			VolumeType::Primary => "[PRI]",
+			VolumeType::UserData => "[USR]",
+			VolumeType::External => "[EXT]",
+			VolumeType::Secondary => "[SEC]",
+			VolumeType::System => "[SYS]",
+			VolumeType::Network => "[NET]",
+			VolumeType::Unknown => "[UNK]",
+		}
+	}
+}
 
 /// A fingerprint of a volume, used to identify it uniquely across sessions
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -10,18 +87,13 @@ pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
 	/// Create a new volume fingerprint from volume properties
-	pub fn new(volume: &Volume) -> Self {
+	pub fn new(device_id: uuid::Uuid, mount_point: &PathBuf, name: &str) -> Self {
 		let mut hasher = blake3::Hasher::new();
-		hasher.update(volume.device_id.as_bytes());
-		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
-		hasher.update(volume.name.as_bytes());
-		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
-		hasher.update(volume.file_system.to_string().as_bytes());
-
-		// Include hardware identifier if available
-		if let Some(ref hw_id) = volume.hardware_id {
-			hasher.update(hw_id.as_bytes());
-		}
+		hasher.update(device_id.as_bytes());
+		hasher.update(mount_point.to_string_lossy().as_bytes());
+		hasher.update(name.as_bytes());
+		hasher.update(&(mount_point.to_string_lossy().len() as u64).to_be_bytes());
+		hasher.update(&(name.len() as u64).to_be_bytes());
 
 		Self(hasher.finalize().to_hex().to_string())
 	}
@@ -87,6 +159,8 @@ pub struct Volume {
 	pub name: String,
 	/// Type of mount (system, external, etc)
 	pub mount_type: MountType,
+	/// Classification of this volume for UX decisions
+	pub volume_type: VolumeType,
 	/// Primary path where the volume is mounted
 	pub mount_point: PathBuf,
 	/// Additional mount points (for APFS volumes, etc.)
@@ -117,6 +191,12 @@ pub struct Volume {
 	pub read_speed_mbps: Option<u64>,
 	/// Write speed in megabytes per second
 	pub write_speed_mbps: Option<u64>,
+
+	/// Whether this volume should be visible in default views
+	pub is_user_visible: bool,
+
+	/// Whether this volume should be auto-tracked
+	pub auto_track_eligible: bool,
 
 	/// When this volume information was last updated
 	pub last_updated: chrono::DateTime<chrono::Utc>,
@@ -153,6 +233,9 @@ pub struct TrackedVolume {
 	pub is_removable: Option<bool>,
 	pub is_network_drive: Option<bool>,
 	pub device_model: Option<String>,
+	pub volume_type: String,
+	pub is_user_visible: Option<bool>,
+	pub auto_track_eligible: Option<bool>,
 }
 
 impl From<&Volume> for VolumeInfo {
@@ -173,6 +256,7 @@ impl Volume {
 		device_id: uuid::Uuid,
 		name: String,
 		mount_type: MountType,
+		volume_type: VolumeType,
 		mount_point: PathBuf,
 		mount_points: Vec<PathBuf>,
 		disk_type: DiskType,
@@ -182,11 +266,14 @@ impl Volume {
 		read_only: bool,
 		hardware_id: Option<String>,
 	) -> Self {
-		let volume = Self {
-			fingerprint: VolumeFingerprint::from_hex(""), // Will be set after creation
+		let fingerprint = VolumeFingerprint::new(device_id, &mount_point, &name);
+
+		Self {
+			fingerprint,
 			device_id,
 			name,
 			mount_type,
+			volume_type,
 			mount_point,
 			mount_points,
 			is_mounted: true,
@@ -199,13 +286,10 @@ impl Volume {
 			total_bytes_available,
 			read_speed_mbps: None,
 			write_speed_mbps: None,
+			is_user_visible: volume_type.show_by_default(),
+			auto_track_eligible: volume_type.auto_track_by_default(),
 			last_updated: chrono::Utc::now(),
-		};
-
-		// Generate fingerprint after creation
-		let mut volume = volume;
-		volume.fingerprint = VolumeFingerprint::new(&volume);
-		volume
+		}
 	}
 
 	/// Update volume information
@@ -428,6 +512,7 @@ mod tests {
 			uuid::Uuid::new_v4(),
 			"Test Volume".to_string(),
 			MountType::External,
+			VolumeType::External,
 			PathBuf::from("/mnt/test"),
 			vec![],
 			DiskType::SSD,
@@ -438,11 +523,13 @@ mod tests {
 			Some("test-hw-id".to_string()),
 		);
 
-		let fingerprint = VolumeFingerprint::new(&volume);
+		let fingerprint =
+			VolumeFingerprint::new(&volume.device_id, &volume.mount_point, &volume.name);
 		assert!(!fingerprint.0.is_empty());
 
 		// Same volume should produce same fingerprint
-		let fingerprint2 = VolumeFingerprint::new(&volume);
+		let fingerprint2 =
+			VolumeFingerprint::new(&volume.device_id, &volume.mount_point, &volume.name);
 		assert_eq!(fingerprint, fingerprint2);
 	}
 
@@ -452,6 +539,7 @@ mod tests {
 			uuid::Uuid::new_v4(),
 			"Test".to_string(),
 			MountType::System,
+			VolumeType::System,
 			PathBuf::from("/home"),
 			vec![PathBuf::from("/home"), PathBuf::from("/mnt/home")],
 			DiskType::SSD,

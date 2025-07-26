@@ -43,6 +43,25 @@ impl MigrationTrait for Migration {
 					.col(ColumnDef::new(Volumes::IsRemovable).boolean())
 					.col(ColumnDef::new(Volumes::IsNetworkDrive).boolean())
 					.col(ColumnDef::new(Volumes::DeviceModel).text())
+					// Volume classification fields
+					.col(
+						ColumnDef::new(Volumes::VolumeType)
+							.text()
+							.not_null()
+							.default("Unknown"),
+					)
+					.col(
+						ColumnDef::new(Volumes::IsUserVisible)
+							.boolean()
+							.not_null()
+							.default(true),
+					)
+					.col(
+						ColumnDef::new(Volumes::AutoTrackEligible)
+							.boolean()
+							.not_null()
+							.default(false),
+					)
 					.foreign_key(
 						ForeignKey::create()
 							.name("fk_volumes_device_id")
@@ -132,6 +151,10 @@ enum Volumes {
 	IsRemovable,
 	IsNetworkDrive,
 	DeviceModel,
+	// Volume classification fields
+	VolumeType,
+	IsUserVisible,
+	AutoTrackEligible,
 }
 
 #[derive(DeriveIden)]

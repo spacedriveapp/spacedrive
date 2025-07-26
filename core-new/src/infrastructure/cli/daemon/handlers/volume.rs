@@ -37,7 +37,11 @@ impl CommandHandler for VolumeHandler {
 	) -> DaemonResponse {
 		match cmd {
 			DaemonCommand::Volume(volume_cmd) => match volume_cmd {
-				VolumeCommands::List => {
+				VolumeCommands::List {
+					include_system,
+					type_filter,
+					show_types,
+				} => {
 					// Get all volumes
 					let volumes = core.volumes.get_all_volumes().await;
 
