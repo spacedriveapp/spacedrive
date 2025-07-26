@@ -14,6 +14,7 @@ use crate::infrastructure::cli::commands::{
 	location::{handle_location_command, LocationCommands},
 	network::{handle_network_command, NetworkCommands},
 	system::{handle_system_command, SystemCommands},
+	volume::{handle_volume_command, VolumeCommands},
 };
 use crate::infrastructure::cli::output::{CliOutput, Message};
 use clap::{Parser, Subcommand};
@@ -62,7 +63,7 @@ pub enum Commands {
 	/// Start the Spacedrive daemon in the background
 	Start {
 		/// Run in foreground instead of daemonizing
-		#[arg(short, long)]
+		#[arg(long)]
 		foreground: bool,
 		/// Enable networking on startup
 		#[arg(long)]
@@ -102,6 +103,10 @@ pub enum Commands {
 	/// System monitoring and information
 	#[command(subcommand)]
 	System(SystemCommands),
+
+	/// Volume management and operations
+	#[command(subcommand)]
+	Volume(VolumeCommands),
 }
 
 pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -266,6 +271,14 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 					handle_system_command(system_cmd.clone(), cli.instance.clone(), output).await
 				}
 			}
+		}
+		Commands::Volume(volume_cmd) => {
+			// Check if daemon is running
+			if !daemon::Daemon::is_running_instance(cli.instance.clone()) {
+				print_daemon_not_running(&cli.instance, &mut output)?;
+				return Ok(());
+			}
+			handle_volume_command(volume_cmd.clone(), cli.instance.clone(), output).await
 		}
 	}
 }

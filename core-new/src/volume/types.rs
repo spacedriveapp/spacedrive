@@ -12,6 +12,7 @@ impl VolumeFingerprint {
 	/// Create a new volume fingerprint from volume properties
 	pub fn new(volume: &Volume) -> Self {
 		let mut hasher = blake3::Hasher::new();
+		hasher.update(volume.device_id.as_bytes());
 		hasher.update(volume.mount_point.to_string_lossy().as_bytes());
 		hasher.update(volume.name.as_bytes());
 		hasher.update(&volume.total_bytes_capacity.to_be_bytes());
@@ -29,7 +30,7 @@ impl VolumeFingerprint {
 	pub fn from_hex(hex: impl Into<String>) -> Self {
 		Self(hex.into())
 	}
-	
+
 	/// Create fingerprint from string (alias for from_hex)
 	pub fn from_string(s: &str) -> Result<Self, crate::volume::VolumeError> {
 		Ok(Self(s.to_string()))
@@ -78,6 +79,9 @@ pub enum VolumeEvent {
 pub struct Volume {
 	/// Unique fingerprint for this volume
 	pub fingerprint: VolumeFingerprint,
+
+	/// Device this volume belongs to
+	pub device_id: uuid::Uuid,
 
 	/// Human-readable volume name
 	pub name: String,
@@ -133,6 +137,7 @@ pub struct VolumeInfo {
 pub struct TrackedVolume {
 	pub id: i32,
 	pub uuid: uuid::Uuid,
+	pub device_id: uuid::Uuid,
 	pub fingerprint: VolumeFingerprint,
 	pub display_name: Option<String>,
 	pub tracked_at: chrono::DateTime<chrono::Utc>,
@@ -165,6 +170,7 @@ impl From<&Volume> for VolumeInfo {
 impl Volume {
 	/// Create a new Volume instance
 	pub fn new(
+		device_id: uuid::Uuid,
 		name: String,
 		mount_type: MountType,
 		mount_point: PathBuf,
@@ -178,6 +184,7 @@ impl Volume {
 	) -> Self {
 		let volume = Self {
 			fingerprint: VolumeFingerprint::from_hex(""), // Will be set after creation
+			device_id,
 			name,
 			mount_type,
 			mount_point,
@@ -418,6 +425,7 @@ mod tests {
 	#[test]
 	fn test_volume_fingerprint() {
 		let volume = Volume::new(
+			uuid::Uuid::new_v4(),
 			"Test Volume".to_string(),
 			MountType::External,
 			PathBuf::from("/mnt/test"),
@@ -441,6 +449,7 @@ mod tests {
 	#[test]
 	fn test_volume_contains_path() {
 		let volume = Volume::new(
+			uuid::Uuid::new_v4(),
 			"Test".to_string(),
 			MountType::System,
 			PathBuf::from("/home"),

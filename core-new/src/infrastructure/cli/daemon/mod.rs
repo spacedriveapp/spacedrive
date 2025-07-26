@@ -156,6 +156,11 @@ impl Daemon {
 		let listener = UnixListener::bind(&self.config.socket_path)?;
 		info!("Daemon listening on {:?}", self.config.socket_path);
 
+		// Emit CoreStarted event to signal daemon is ready
+		self.core
+			.events
+			.emit(crate::infrastructure::events::Event::CoreStarted);
+
 		// Set up shutdown channel
 		let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 		*self.shutdown_tx.lock().await = Some(shutdown_tx);
@@ -268,6 +273,49 @@ impl Daemon {
 		std::fs::remove_file(&config.pid_file).ok();
 
 		Ok(())
+	}
+
+	/// Wait for daemon to be ready by attempting to connect
+	pub async fn wait_for_ready(
+		instance_name: Option<String>,
+		timeout_secs: u64,
+	) -> Result<bool, Box<dyn std::error::Error>> {
+		let config = DaemonConfig::new(instance_name);
+		let start = std::time::Instant::now();
+		let timeout = std::time::Duration::from_secs(timeout_secs);
+
+		while start.elapsed() < timeout {
+			// Try to connect to the socket
+			if let Ok(mut stream) = UnixStream::connect(&config.socket_path).await {
+				// Try to send a simple ping command to verify it's responsive
+				let cmd = DaemonCommand::Ping;
+				let json = serde_json::to_string(&cmd)?;
+
+				if stream
+					.write_all(format!("{}\n", json).as_bytes())
+					.await
+					.is_ok()
+				{
+					if stream.flush().await.is_ok() {
+						// Try to read the response
+						let mut reader = BufReader::new(stream);
+						let mut line = String::new();
+						if reader.read_line(&mut line).await.is_ok() {
+							if let Ok(response) = serde_json::from_str::<DaemonResponse>(&line) {
+								if matches!(response, DaemonResponse::Pong) {
+									return Ok(true);
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Wait a bit before retrying
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+
+		Ok(false)
 	}
 
 	/// List all daemon instances

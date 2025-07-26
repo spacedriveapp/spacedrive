@@ -165,7 +165,6 @@ impl FileSharingService {
 				"No active library for job dispatch".to_string(),
 			))?;
 
-
 		// Create and dispatch the FileCopyJob
 		let job_manager = library.jobs();
 		let sources = files.into_iter().map(SdPath::local).collect();
@@ -323,9 +322,10 @@ impl FileSharingService {
 					.library_manager
 					.get_library(*library_id)
 					.await
-					.ok_or(SharingError::JobError(
-						format!("Library {} not found", library_id),
-					))?;
+					.ok_or(SharingError::JobError(format!(
+						"Library {} not found",
+						library_id
+					)))?;
 
 				let job_manager = library.jobs();
 
@@ -400,9 +400,10 @@ impl FileSharingService {
 					.library_manager
 					.get_library(*library_id)
 					.await
-					.ok_or(SharingError::JobError(
-						format!("Library {} not found", library_id),
-					))?;
+					.ok_or(SharingError::JobError(format!(
+						"Library {} not found",
+						library_id
+					)))?;
 
 				let job_manager = library.jobs();
 
@@ -523,6 +524,7 @@ mod tests {
 			events.clone(),
 		));
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
+			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
@@ -556,6 +558,7 @@ mod tests {
 			events.clone(),
 		));
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
+			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));

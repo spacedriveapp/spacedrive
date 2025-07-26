@@ -19,6 +19,9 @@ use uuid::Uuid;
 
 /// Central manager for volume detection, monitoring, and operations
 pub struct VolumeManager {
+	/// Device ID for this manager
+	device_id: uuid::Uuid,
+
 	/// Currently known volumes, indexed by fingerprint
 	volumes: Arc<RwLock<HashMap<VolumeFingerprint, Volume>>>,
 
@@ -39,9 +42,14 @@ pub struct VolumeManager {
 }
 
 impl VolumeManager {
-	/// Create a new volume manager
-	pub fn new(config: VolumeDetectionConfig, events: Arc<EventBus>) -> Self {
+	/// Create a new VolumeManager instance
+	pub fn new(
+		device_id: uuid::Uuid,
+		config: VolumeDetectionConfig,
+		events: Arc<EventBus>,
+	) -> Self {
 		Self {
+			device_id,
 			volumes: Arc::new(RwLock::new(HashMap::new())),
 			path_cache: Arc::new(RwLock::new(HashMap::new())),
 			config,
@@ -91,6 +99,7 @@ impl VolumeManager {
 		let events = self.events.clone();
 		let config = self.config.clone();
 		let is_monitoring = self.is_monitoring.clone();
+		let device_id = self.device_id;
 
 		tokio::spawn(async move {
 			info!(
@@ -104,8 +113,14 @@ impl VolumeManager {
 			while *is_monitoring.read().await {
 				interval.tick().await;
 
-				if let Err(e) =
-					Self::refresh_volumes_internal(&volumes, &path_cache, &events, &config).await
+				if let Err(e) = Self::refresh_volumes_internal(
+					device_id,
+					&volumes,
+					&path_cache,
+					&events,
+					&config,
+				)
+				.await
 				{
 					error!("Error during volume refresh: {}", e);
 				}
@@ -124,21 +139,28 @@ impl VolumeManager {
 	/// Refresh all volumes and detect changes
 	#[instrument(skip(self))]
 	pub async fn refresh_volumes(&self) -> VolumeResult<()> {
-		Self::refresh_volumes_internal(&self.volumes, &self.path_cache, &self.events, &self.config)
-			.await
+		Self::refresh_volumes_internal(
+			self.device_id,
+			&self.volumes,
+			&self.path_cache,
+			&self.events,
+			&self.config,
+		)
+		.await
 	}
 
 	/// Internal implementation of volume refresh
 	async fn refresh_volumes_internal(
+		device_id: uuid::Uuid,
 		volumes: &Arc<RwLock<HashMap<VolumeFingerprint, Volume>>>,
 		path_cache: &Arc<RwLock<HashMap<PathBuf, VolumeFingerprint>>>,
 		events: &Arc<EventBus>,
 		config: &VolumeDetectionConfig,
 	) -> VolumeResult<()> {
-		debug!("Refreshing volumes");
+		debug!("Refreshing volumes for device {}", device_id);
 
 		// Detect current volumes
-		let detected_volumes = os_detection::detect_volumes(config).await?;
+		let detected_volumes = os_detection::detect_volumes(device_id, config).await?;
 		let mut current_volumes = volumes.write().await;
 		let mut cache = path_cache.write().await;
 
@@ -378,7 +400,7 @@ impl VolumeManager {
 		display_name: Option<String>,
 	) -> VolumeResult<entities::volume::Model> {
 		let db = library.db().conn();
-		
+
 		// Check if already tracked
 		if let Some(existing) = entities::volume::Entity::find()
 			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
@@ -388,18 +410,22 @@ impl VolumeManager {
 		{
 			return Err(VolumeError::AlreadyTracked(fingerprint.to_string()));
 		}
-		
+
 		// Get current volume info
-		let volume = self.get_volume(fingerprint).await
+		let volume = self
+			.get_volume(fingerprint)
+			.await
 			.ok_or_else(|| VolumeError::NotFound(fingerprint.to_string()))?;
-			
+
 		// Determine removability and network status
 		let is_removable = matches!(volume.mount_type, crate::volume::types::MountType::External);
-		let is_network_drive = matches!(volume.mount_type, crate::volume::types::MountType::Network);
-			
+		let is_network_drive =
+			matches!(volume.mount_type, crate::volume::types::MountType::Network);
+
 		// Create tracking record
 		let active_model = entities::volume::ActiveModel {
 			uuid: Set(Uuid::new_v4()),
+			device_id: Set(volume.device_id), // Use Uuid directly
 			fingerprint: Set(fingerprint.0.clone()),
 			display_name: Set(display_name.clone()),
 			tracked_at: Set(chrono::Utc::now()),
@@ -417,29 +443,28 @@ impl VolumeManager {
 			device_model: Set(volume.hardware_id.clone()),
 			..Default::default()
 		};
-		
+
 		let model = active_model
 			.insert(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
-			
+
 		info!(
 			"Tracked volume '{}' for library '{}'",
 			display_name.as_ref().unwrap_or(&volume.name),
 			library.name().await
 		);
-		
+
 		// Emit tracking event
-		self.events
-			.emit(Event::Custom {
-				event_type: "VolumeTracked".to_string(),
-				data: serde_json::json!({
-					"library_id": library.id(),
-					"volume_fingerprint": fingerprint.to_string(),
-					"display_name": display_name,
-				}),
-			});
-			
+		self.events.emit(Event::Custom {
+			event_type: "VolumeTracked".to_string(),
+			data: serde_json::json!({
+				"library_id": library.id(),
+				"volume_fingerprint": fingerprint.to_string(),
+				"display_name": display_name,
+			}),
+		});
+
 		Ok(model)
 	}
 
@@ -450,33 +475,32 @@ impl VolumeManager {
 		fingerprint: &VolumeFingerprint,
 	) -> VolumeResult<()> {
 		let db = library.db().conn();
-		
+
 		let result = entities::volume::Entity::delete_many()
 			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
 			.exec(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
-			
+
 		if result.rows_affected == 0 {
 			return Err(VolumeError::NotTracked(fingerprint.to_string()));
 		}
-		
+
 		info!(
 			"Untracked volume '{}' from library '{}'",
 			fingerprint.to_string(),
 			library.name().await
 		);
-		
+
 		// Emit untracking event
-		self.events
-			.emit(Event::Custom {
-				event_type: "VolumeUntracked".to_string(),
-				data: serde_json::json!({
-					"library_id": library.id(),
-					"volume_fingerprint": fingerprint.to_string(),
-				}),
-			});
-		
+		self.events.emit(Event::Custom {
+			event_type: "VolumeUntracked".to_string(),
+			data: serde_json::json!({
+				"library_id": library.id(),
+				"volume_fingerprint": fingerprint.to_string(),
+			}),
+		});
+
 		Ok(())
 	}
 
@@ -486,23 +510,23 @@ impl VolumeManager {
 		library: &crate::library::Library,
 	) -> VolumeResult<Vec<TrackedVolume>> {
 		let db = library.db().conn();
-		
+
 		let volumes = entities::volume::Entity::find()
 			.all(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
-			
+
 		let tracked_volumes: Vec<TrackedVolume> = volumes
 			.into_iter()
 			.map(|model| model.to_tracked_volume())
 			.collect();
-			
+
 		debug!(
 			"Found {} tracked volumes for library '{}'",
 			tracked_volumes.len(),
 			library.name().await
 		);
-		
+
 		Ok(tracked_volumes)
 	}
 
@@ -513,16 +537,23 @@ impl VolumeManager {
 		fingerprint: &VolumeFingerprint,
 	) -> VolumeResult<bool> {
 		let db = library.db().conn();
-		
+
+		// Get the volume to find its device_id
+		let volume = self
+			.get_volume(fingerprint)
+			.await
+			.ok_or_else(|| VolumeError::NotFound(fingerprint.to_string()))?;
+
 		let count = entities::volume::Entity::find()
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
 			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
 			.count(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
-			
+
 		Ok(count > 0)
 	}
-	
+
 	/// Update tracked volume state during refresh
 	pub async fn update_tracked_volume_state(
 		&self,
@@ -531,28 +562,81 @@ impl VolumeManager {
 		volume: &Volume,
 	) -> VolumeResult<()> {
 		let db = library.db().conn();
-		
+
 		let mut active_model: entities::volume::ActiveModel = entities::volume::Entity::find()
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
 			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
 			.one(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?
 			.ok_or_else(|| VolumeError::NotTracked(fingerprint.to_string()))?
 			.into();
-			
+
 		active_model.last_seen_at = Set(chrono::Utc::now());
 		active_model.is_online = Set(volume.is_mounted);
 		active_model.total_capacity = Set(Some(volume.total_bytes_capacity as i64));
 		active_model.available_capacity = Set(Some(volume.total_bytes_available as i64));
-		
+
 		active_model
 			.update(db)
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
-			
+
 		Ok(())
 	}
-	
+
+	/// Update display names for tracked volumes that have empty display names
+	pub async fn update_empty_display_names(
+		&self,
+		library: &crate::library::Library,
+	) -> VolumeResult<usize> {
+		let db = library.db().conn();
+
+		// Find tracked volumes with empty display names
+		let volumes_to_update = entities::volume::Entity::find()
+			.filter(
+				entities::volume::Column::DisplayName
+					.is_null()
+					.or(entities::volume::Column::DisplayName.eq("")),
+			)
+			.all(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		let mut updated_count = 0;
+
+		for tracked_volume in volumes_to_update {
+			let fingerprint = VolumeFingerprint(tracked_volume.fingerprint.clone());
+
+			// Get the current volume info to get the name
+			if let Some(volume) = self.get_volume(&fingerprint).await {
+				let volume_name = volume.name.clone();
+				let mut active_model: entities::volume::ActiveModel = tracked_volume.into();
+				active_model.display_name = Set(Some(volume.name));
+
+				match active_model.update(db).await {
+					Ok(_) => {
+						updated_count += 1;
+						info!("Updated display name for volume: {}", volume_name);
+					}
+					Err(e) => {
+						warn!(
+							"Failed to update display name for volume {}: {}",
+							fingerprint.0, e
+						);
+					}
+				}
+			}
+		}
+
+		info!(
+			"Updated display names for {} volumes in library '{}'",
+			updated_count,
+			library.name().await
+		);
+		Ok(updated_count)
+	}
+
 	/// Get all system volumes (boot/OS volumes)
 	pub async fn get_system_volumes(&self) -> Vec<Volume> {
 		self.volumes
@@ -563,7 +647,7 @@ impl VolumeManager {
 			.cloned()
 			.collect()
 	}
-	
+
 	/// Automatically track system volumes for a library
 	pub async fn auto_track_system_volumes(
 		&self,
@@ -571,25 +655,25 @@ impl VolumeManager {
 	) -> VolumeResult<Vec<entities::volume::Model>> {
 		let system_volumes = self.get_system_volumes().await;
 		let mut tracked_volumes = Vec::new();
-		
+
 		info!(
 			"Auto-tracking {} system volumes for library '{}'",
 			system_volumes.len(),
 			library.name().await
 		);
-		
+
 		for volume in system_volumes {
 			// Skip if already tracked
 			if self.is_volume_tracked(library, &volume.fingerprint).await? {
-				debug!(
-					"System volume '{}' already tracked in library",
-					volume.name
-				);
+				debug!("System volume '{}' already tracked in library", volume.name);
 				continue;
 			}
-			
+
 			// Track the system volume
-			match self.track_volume(library, &volume.fingerprint, None).await {
+			match self
+				.track_volume(library, &volume.fingerprint, Some(volume.name.clone()))
+				.await
+			{
 				Ok(tracked) => {
 					info!(
 						"Auto-tracked system volume '{}' in library '{}'",
@@ -606,8 +690,58 @@ impl VolumeManager {
 				}
 			}
 		}
-		
+
 		Ok(tracked_volumes)
+	}
+
+	/// Save speed test results to all libraries where this volume is tracked
+	pub async fn save_speed_test_results(
+		&self,
+		fingerprint: &VolumeFingerprint,
+		read_speed_mbps: u64,
+		write_speed_mbps: u64,
+		libraries: &[Arc<crate::library::Library>],
+	) -> VolumeResult<()> {
+		for library in libraries {
+			// Check if this volume is tracked in this library
+			if self.is_volume_tracked(library, fingerprint).await? {
+				let db = library.db().conn();
+
+				// Get the volume to find its device_id
+				let volume = self
+					.get_volume(fingerprint)
+					.await
+					.ok_or_else(|| VolumeError::NotFound(fingerprint.to_string()))?;
+
+				// Update the tracked volume record with speed test results
+				let now = chrono::Utc::now();
+
+				let update_result = entities::volume::Entity::update_many()
+					.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+					.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+					.set(entities::volume::ActiveModel {
+						read_speed_mbps: Set(Some(read_speed_mbps as i32)),
+						write_speed_mbps: Set(Some(write_speed_mbps as i32)),
+						last_speed_test_at: Set(Some(now)),
+						..Default::default()
+					})
+					.exec(db)
+					.await
+					.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+				if update_result.rows_affected > 0 {
+					info!(
+						"Saved speed test results for volume {} in library {}: {}MB/s read, {}MB/s write",
+						fingerprint.0,
+						library.name().await,
+						read_speed_mbps,
+						write_speed_mbps
+					);
+				}
+			}
+		}
+
+		Ok(())
 	}
 }
 
@@ -644,7 +778,7 @@ mod tests {
 	async fn test_volume_manager_creation() {
 		let config = VolumeDetectionConfig::default();
 		let events = create_test_events();
-		let manager = VolumeManager::new(config, events);
+		let manager = VolumeManager::new(Uuid::new_v4(), config, events);
 
 		let stats = manager.get_statistics().await;
 		assert_eq!(stats.total_volumes, 0);
@@ -654,7 +788,7 @@ mod tests {
 	async fn test_volume_path_lookup() {
 		let config = VolumeDetectionConfig::default();
 		let events = create_test_events();
-		let manager = VolumeManager::new(config, events);
+		let manager = VolumeManager::new(Uuid::new_v4(), config, events);
 
 		// Initially no volumes
 		let volume = manager
@@ -667,7 +801,7 @@ mod tests {
 	async fn test_same_volume_check() {
 		let config = VolumeDetectionConfig::default();
 		let events = create_test_events();
-		let manager = VolumeManager::new(config, events);
+		let manager = VolumeManager::new(Uuid::new_v4(), config, events);
 
 		// Both paths don't exist, so should return false
 		let same = manager

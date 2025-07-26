@@ -4,11 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
-use super::common::{BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo};
-use crate::{
-    infrastructure::actions::output::ActionOutput,
-    volume::Volume,
+use super::common::{
+	BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo,
 };
+use crate::{infrastructure::actions::output::ActionOutput, volume::Volume};
 
 /// Responses from the daemon
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,11 +62,12 @@ pub enum DaemonResponse {
 		remote_device: Option<ConnectedDeviceInfo>,
 	},
 	PendingPairings(Vec<PairingRequestInfo>),
-	
+
 	// Volume responses
 	VolumeList(Vec<Volume>),
+	VolumeListWithTracking(Vec<serde_json::Value>),
 	Volume(Volume),
-	
+
 	// Action output (generic for all action results)
 	ActionOutput(ActionOutput),
 }

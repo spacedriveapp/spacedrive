@@ -158,7 +158,8 @@ impl Core {
 
 		// 4. Initialize volume manager
 		let volume_config = VolumeDetectionConfig::default();
-		let volumes = Arc::new(VolumeManager::new(volume_config, events.clone()));
+		let device_id = device.device_id()?;
+		let volumes = Arc::new(VolumeManager::new(device_id, volume_config, events.clone()));
 
 		// 5. Initialize volume detection
 		info!("Initializing volume detection...");
