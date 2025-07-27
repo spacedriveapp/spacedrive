@@ -3,13 +3,19 @@
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
-	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeFingerprint},
+	types::{
+		DiskType, FileSystem, MountType, SpacedriveVolumeId, Volume, VolumeDetectionConfig,
+		VolumeFingerprint,
+	},
 };
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tokio::{process::Command, task};
+use tokio::{fs, process::Command, task};
 use tracing::{debug, instrument, warn};
 use uuid::Uuid;
+
+/// Filename for Spacedrive volume identifier files
+const SPACEDRIVE_VOLUME_ID_FILE: &str = ".spacedrive-volume-id";
 
 /// Classify a volume using the platform-specific classifier
 fn classify_volume(
@@ -108,7 +114,10 @@ mod macos {
 					let total_str = fields[1];
 					let used_str = fields[2];
 					let available_str = fields[3];
-					let mount_point = fields[8];
+					// Skip percentage field (fields[4])
+					// Skip inode fields (fields[5], fields[6], fields[7])
+					// Mount point might have spaces, so join remaining fields
+					let mount_point = fields[8..].join(" ");
 
 					// Skip certain filesystems
 					if should_skip_filesystem(filesystem) {
@@ -120,7 +129,7 @@ mod macos {
 					let total_bytes = parse_size_string(total_str).unwrap_or(0);
 					let available_bytes = parse_size_string(available_str).unwrap_or(0);
 
-					let mount_path = PathBuf::from(mount_point);
+					let mount_path = PathBuf::from(&mount_point);
 					let name = extract_volume_name(&mount_path);
 
 					let mount_type = if mount_point.starts_with("/Volumes/") {
@@ -144,11 +153,12 @@ mod macos {
 						mount_path,
 						vec![], // Additional mount points would need diskutil parsing
 						disk_type,
-						file_system,
+						file_system.clone(),
 						total_bytes,
 						available_bytes,
 						false,                        // Read-only detection would need additional checks
 						Some(filesystem.to_string()), // Use filesystem as hardware ID
+						VolumeFingerprint::new(&name, total_bytes, &file_system.to_string()), // Content-based fingerprint using intrinsic properties
 					);
 					volumes.push(volume);
 				}
@@ -251,14 +261,15 @@ mod macos {
 			name.clone(),
 			mount_type,
 			classify_volume(&mount_path, &file_system, &name),
-			mount_path,
+			mount_path.clone(),
 			vec![], // Additional mount points would need diskutil parsing
 			disk_type,
-			file_system,
+			file_system.clone(),
 			total_bytes,
 			available_bytes,
 			false,                        // Read-only detection would need additional checks
 			Some(filesystem.to_string()), // Use filesystem as hardware ID
+			VolumeFingerprint::new(&name, total_bytes, &file_system.to_string()), // Content-based fingerprint using intrinsic properties
 		);
 
 		Ok(Some(volume))

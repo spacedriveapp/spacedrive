@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use super::common::{
 	BrowseEntry, ConnectedDeviceInfo, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo,
+	VolumeListItem,
 };
 use crate::{infrastructure::actions::output::ActionOutput, volume::Volume};
 
@@ -65,7 +66,7 @@ pub enum DaemonResponse {
 
 	// Volume responses
 	VolumeList(Vec<Volume>),
-	VolumeListWithTracking(Vec<serde_json::Value>),
+	VolumeListWithTracking(Vec<VolumeListItem>),
 	Volume(Volume),
 
 	// Action output (generic for all action results)

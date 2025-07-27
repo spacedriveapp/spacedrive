@@ -5,6 +5,98 @@ use std::fmt;
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Spacedrive volume identifier file content
+/// This file is created in the root of writable volumes for persistent identification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpacedriveVolumeId {
+	/// Unique identifier for this volume
+	pub id: Uuid,
+	/// When this identifier was created
+	pub created: chrono::DateTime<chrono::Utc>,
+	/// Name of the device that created this identifier
+	pub device_name: Option<String>,
+	/// Original volume name when identifier was created
+	pub volume_name: String,
+	/// Device ID that created this identifier
+	pub device_id: Uuid,
+}
+
+/// Unique fingerprint for a storage volume
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct VolumeFingerprint(pub String);
+
+impl VolumeFingerprint {
+	/// Create a new volume fingerprint from volume properties
+	/// Uses intrinsic volume characteristics for cross-device portable identification
+	pub fn new(name: &str, total_bytes: u64, file_system: &str) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"content_based:");
+		hasher.update(name.as_bytes());
+		hasher.update(&total_bytes.to_be_bytes());
+		hasher.update(file_system.as_bytes());
+		hasher.update(&(name.len() as u64).to_be_bytes());
+
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create a fingerprint from a Spacedrive identifier UUID (preferred method)
+	/// This provides stable identification across devices, renames and remounts
+	pub fn from_spacedrive_id(spacedrive_id: Uuid) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"spacedrive_id:");
+		hasher.update(spacedrive_id.as_bytes());
+
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Generate 8-character short ID for CLI display and commands
+	pub fn short_id(&self) -> String {
+		self.0.chars().take(8).collect()
+	}
+
+	/// Generate 12-character medium ID for disambiguation
+	pub fn medium_id(&self) -> String {
+		self.0.chars().take(12).collect()
+	}
+
+	/// Create fingerprint from hex string
+	pub fn from_hex(hex: impl Into<String>) -> Self {
+		Self(hex.into())
+	}
+
+	/// Create fingerprint from string (alias for from_hex)
+	pub fn from_string(s: &str) -> Result<Self, crate::volume::VolumeError> {
+		Ok(Self(s.to_string()))
+	}
+
+	/// Check if a string could be a short ID (8 chars, hex)
+	pub fn is_short_id(s: &str) -> bool {
+		s.len() == 8 && s.chars().all(|c| c.is_ascii_hexdigit())
+	}
+
+	/// Check if a string could be a medium ID (12 chars, hex)
+	pub fn is_medium_id(s: &str) -> bool {
+		s.len() == 12 && s.chars().all(|c| c.is_ascii_hexdigit())
+	}
+
+	/// Check if this fingerprint matches a short or medium ID
+	pub fn matches_short_id(&self, short_id: &str) -> bool {
+		if Self::is_short_id(short_id) {
+			self.short_id() == short_id
+		} else if Self::is_medium_id(short_id) {
+			self.medium_id() == short_id
+		} else {
+			false
+		}
+	}
+}
+
+impl fmt::Display for VolumeFingerprint {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.0)
+	}
+}
+
 /// Classification of volume types for UX and auto-tracking decisions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VolumeType {
@@ -78,40 +170,6 @@ impl VolumeType {
 			VolumeType::Network => "[NET]",
 			VolumeType::Unknown => "[UNK]",
 		}
-	}
-}
-
-/// A fingerprint of a volume, used to identify it uniquely across sessions
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct VolumeFingerprint(pub String);
-
-impl VolumeFingerprint {
-	/// Create a new volume fingerprint from volume properties
-	pub fn new(device_id: uuid::Uuid, mount_point: &PathBuf, name: &str) -> Self {
-		let mut hasher = blake3::Hasher::new();
-		hasher.update(device_id.as_bytes());
-		hasher.update(mount_point.to_string_lossy().as_bytes());
-		hasher.update(name.as_bytes());
-		hasher.update(&(mount_point.to_string_lossy().len() as u64).to_be_bytes());
-		hasher.update(&(name.len() as u64).to_be_bytes());
-
-		Self(hasher.finalize().to_hex().to_string())
-	}
-
-	/// Create fingerprint from hex string
-	pub fn from_hex(hex: impl Into<String>) -> Self {
-		Self(hex.into())
-	}
-
-	/// Create fingerprint from string (alias for from_hex)
-	pub fn from_string(s: &str) -> Result<Self, crate::volume::VolumeError> {
-		Ok(Self(s.to_string()))
-	}
-}
-
-impl fmt::Display for VolumeFingerprint {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}", self.0)
 	}
 }
 
@@ -250,6 +308,57 @@ impl From<&Volume> for VolumeInfo {
 	}
 }
 
+impl TrackedVolume {
+	/// Convert a TrackedVolume back to a Volume for display purposes
+	/// This is used for offline volumes that aren't currently detected
+	pub fn to_offline_volume(&self) -> Volume {
+		use std::path::PathBuf;
+
+		Volume {
+			fingerprint: self.fingerprint.clone(),
+			device_id: self.device_id,
+			name: self
+				.display_name
+				.clone()
+				.unwrap_or_else(|| "Unknown".to_string()),
+			mount_type: crate::volume::types::MountType::External, // Default for tracked volumes
+			volume_type: match self.volume_type.as_str() {
+				"Primary" => VolumeType::Primary,
+				"UserData" => VolumeType::UserData,
+				"External" => VolumeType::External,
+				"Secondary" => VolumeType::Secondary,
+				"System" => VolumeType::System,
+				"Network" => VolumeType::Network,
+				_ => VolumeType::Unknown,
+			},
+			mount_point: PathBuf::from(
+				self.mount_point
+					.clone()
+					.unwrap_or_else(|| "Not connected".to_string()),
+			),
+			mount_points: vec![], // Not available for offline volumes
+			disk_type: crate::volume::types::DiskType::Unknown,
+			file_system: crate::volume::types::FileSystem::from_string(
+				&self
+					.file_system
+					.clone()
+					.unwrap_or_else(|| "Unknown".to_string()),
+			),
+			total_bytes_capacity: self.total_capacity.unwrap_or(0),
+			total_bytes_available: self.available_capacity.unwrap_or(0),
+			read_only: false, // Assume not read-only for tracked volumes
+			hardware_id: self.device_model.clone(),
+			is_mounted: false, // Offline volumes are not mounted
+			error_status: None,
+			read_speed_mbps: self.read_speed_mbps.map(|s| s as u64),
+			write_speed_mbps: self.write_speed_mbps.map(|s| s as u64),
+			last_updated: self.last_seen_at,
+			is_user_visible: self.is_user_visible.unwrap_or(true),
+			auto_track_eligible: self.auto_track_eligible.unwrap_or(false),
+		}
+	}
+}
+
 impl Volume {
 	/// Create a new Volume instance
 	pub fn new(
@@ -258,16 +367,15 @@ impl Volume {
 		mount_type: MountType,
 		volume_type: VolumeType,
 		mount_point: PathBuf,
-		mount_points: Vec<PathBuf>,
+		additional_mount_points: Vec<PathBuf>,
 		disk_type: DiskType,
 		file_system: FileSystem,
 		total_bytes_capacity: u64,
 		total_bytes_available: u64,
 		read_only: bool,
 		hardware_id: Option<String>,
+		fingerprint: VolumeFingerprint, // Accept pre-computed fingerprint
 	) -> Self {
-		let fingerprint = VolumeFingerprint::new(device_id, &mount_point, &name);
-
 		Self {
 			fingerprint,
 			device_id,
@@ -275,19 +383,19 @@ impl Volume {
 			mount_type,
 			volume_type,
 			mount_point,
-			mount_points,
+			mount_points: additional_mount_points,
 			is_mounted: true,
 			disk_type,
 			file_system,
+			total_bytes_capacity,
+			total_bytes_available,
 			read_only,
 			hardware_id,
 			error_status: None,
-			total_bytes_capacity,
-			total_bytes_available,
 			read_speed_mbps: None,
 			write_speed_mbps: None,
-			is_user_visible: volume_type.show_by_default(),
 			auto_track_eligible: volume_type.auto_track_by_default(),
+			is_user_visible: volume_type.show_by_default(),
 			last_updated: chrono::Utc::now(),
 		}
 	}
@@ -521,16 +629,22 @@ mod tests {
 			500000000,
 			false,
 			Some("test-hw-id".to_string()),
+			VolumeFingerprint::new("Test", 500000000, "ext4"),
 		);
 
-		let fingerprint =
-			VolumeFingerprint::new(&volume.device_id, &volume.mount_point, &volume.name);
+		// Test basic fingerprint creation
+		let fingerprint = VolumeFingerprint::new(
+			"Test Volume",
+			1000000000, // 1GB
+			"ext4",
+		);
 		assert!(!fingerprint.0.is_empty());
 
-		// Same volume should produce same fingerprint
-		let fingerprint2 =
-			VolumeFingerprint::new(&volume.device_id, &volume.mount_point, &volume.name);
-		assert_eq!(fingerprint, fingerprint2);
+		// Test Spacedrive ID fingerprint
+		let spacedrive_id = Uuid::new_v4();
+		let spacedrive_fingerprint = VolumeFingerprint::from_spacedrive_id(spacedrive_id);
+		assert!(!spacedrive_fingerprint.0.is_empty());
+		assert_ne!(fingerprint, spacedrive_fingerprint);
 	}
 
 	#[test]
@@ -548,6 +662,7 @@ mod tests {
 			500000,
 			false,
 			None,
+			VolumeFingerprint::new(uuid::Uuid::new_v4(), "Test"),
 		);
 
 		assert!(volume.contains_path(&PathBuf::from("/home/user/file.txt")));

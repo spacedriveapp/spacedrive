@@ -27,7 +27,11 @@ pub enum DaemonCommands {
 	},
 
 	/// Stop the Spacedrive daemon
-	Stop,
+	Stop {
+		/// Remove all data (data directory) after stopping
+		#[arg(long)]
+		reset: bool,
+	},
 
 	/// Check if the daemon is running and show status
 	Status,
@@ -70,7 +74,7 @@ pub async fn handle_daemon_command(
 			)
 			.await
 		}
-		DaemonCommands::Stop => handle_stop_daemon(instance_name, output).await,
+		DaemonCommands::Stop { reset } => handle_stop_daemon(data_dir, instance_name, reset, output).await,
 		DaemonCommands::Status => handle_daemon_status(instance_name, output).await,
 		DaemonCommands::Instance(instance_cmd) => {
 			handle_instance_command(instance_cmd, output).await
@@ -184,7 +188,9 @@ async fn handle_start_daemon(
 }
 
 async fn handle_stop_daemon(
+	data_dir: PathBuf,
 	instance_name: Option<String>,
+	reset: bool,
 	mut output: CliOutput,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	if !Daemon::is_running_instance(instance_name.clone()) {
@@ -209,6 +215,34 @@ async fn handle_stop_daemon(
 		output.print(Message::DaemonStopped {
 			instance: instance_display.to_string(),
 		})?;
+		
+		// If reset flag is set, remove the data directory
+		if reset {
+			output.warning("Removing all Spacedrive data...")?;
+			
+			if data_dir.exists() {
+				match std::fs::remove_dir_all(&data_dir) {
+					Ok(_) => {
+						output.success(&format!(
+							"Successfully removed data directory: {}",
+							data_dir.display()
+						))?;
+					}
+					Err(e) => {
+						output.error(Message::Error(format!(
+							"Failed to remove data directory: {}",
+							e
+						)))?;
+						return Err(e.into());
+					}
+				}
+			} else {
+				output.info(&format!(
+					"Data directory does not exist: {}",
+					data_dir.display()
+				))?;
+			}
+		}
 	} else {
 		output.error(Message::Error(format!(
 			"Failed to stop Spacedrive daemon instance '{}'",

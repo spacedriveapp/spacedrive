@@ -6,16 +6,51 @@ use crate::library::LibraryManager;
 use crate::volume::{
 	error::{VolumeError, VolumeResult},
 	os_detection,
-	types::{TrackedVolume, Volume, VolumeDetectionConfig, VolumeFingerprint, VolumeInfo},
+	types::{
+		SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeFingerprint,
+		VolumeInfo,
+	},
 };
+use crate::Core;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Weak};
-use std::time::Duration;
-use tokio::sync::RwLock;
+use std::time::Duration as StdDuration;
+use tokio::{fs, sync::RwLock, time::Duration};
 use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
+
+/// Filename for Spacedrive volume identifier files
+const SPACEDRIVE_VOLUME_ID_FILE: &str = ".spacedrive-volume-id";
+
+/// Get platform-specific directories to watch for volume mount changes
+fn get_volume_watch_paths() -> Vec<PathBuf> {
+	let mut paths = Vec::new();
+
+	#[cfg(target_os = "macos")]
+	{
+		paths.push(PathBuf::from("/Volumes"));
+		// Note: System volumes like / and /System/Volumes/Data are typically stable
+	}
+
+	#[cfg(target_os = "linux")]
+	{
+		paths.push(PathBuf::from("/media"));
+		paths.push(PathBuf::from("/mnt"));
+		// Note: Could also watch /proc/mounts but that's more complex
+	}
+
+	#[cfg(target_os = "windows")]
+	{
+		// Windows drive letters are harder to watch - we'll rely on polling for now
+		// Could potentially use WMI events in the future
+	}
+
+	// Filter to only existing directories
+	paths.into_iter().filter(|p| p.exists()).collect()
+}
 
 /// Central manager for volume detection, monitoring, and operations
 pub struct VolumeManager {
@@ -37,6 +72,9 @@ pub struct VolumeManager {
 	/// Whether the manager is currently running monitoring
 	is_monitoring: Arc<RwLock<bool>>,
 
+	/// File system watcher for real-time volume change detection
+	volume_watcher: Arc<RwLock<Option<RecommendedWatcher>>>,
+
 	/// Weak reference to library manager for database operations
 	library_manager: RwLock<Option<Weak<LibraryManager>>>,
 }
@@ -55,6 +93,7 @@ impl VolumeManager {
 			config,
 			events,
 			is_monitoring: Arc::new(RwLock::new(false)),
+			volume_watcher: Arc::new(RwLock::new(None)),
 			library_manager: RwLock::new(None),
 		}
 	}
@@ -94,6 +133,10 @@ impl VolumeManager {
 
 		*self.is_monitoring.write().await = true;
 
+		// Start file system watcher for real-time detection
+		self.start_volume_watcher().await;
+
+		// Continue with existing timer-based monitoring as fallback
 		let volumes = self.volumes.clone();
 		let path_cache = self.path_cache.clone();
 		let events = self.events.clone();
@@ -130,9 +173,109 @@ impl VolumeManager {
 		});
 	}
 
+	/// Start file system watcher for real-time volume change detection
+	async fn start_volume_watcher(&self) {
+		let watch_paths = get_volume_watch_paths();
+		if watch_paths.is_empty() {
+			debug!("No volume watch paths available on this platform, using timer-based monitoring only");
+			return;
+		}
+
+		let volumes = self.volumes.clone();
+		let path_cache = self.path_cache.clone();
+		let events = self.events.clone();
+		let config = self.config.clone();
+		let device_id = self.device_id;
+		let is_monitoring = self.is_monitoring.clone();
+
+		// Create the watcher
+		let (tx, mut rx) = tokio::sync::mpsc::channel(100);
+
+		let watcher = notify::recommended_watcher(move |result: notify::Result<notify::Event>| {
+			match result {
+				Ok(event) => {
+					// Send the event to our async handler
+					if let Err(_) = tx.blocking_send(event) {
+						// Channel closed, watcher is stopping
+					}
+				}
+				Err(e) => {
+					error!("Volume watcher error: {}", e);
+				}
+			}
+		});
+
+		match watcher {
+			Ok(mut watcher) => {
+				// Watch the volume directories
+				for path in &watch_paths {
+					if let Err(e) = watcher.watch(path, RecursiveMode::NonRecursive) {
+						warn!("Failed to watch {}: {}", path.display(), e);
+					} else {
+						info!("Watching {} for volume changes", path.display());
+					}
+				}
+
+				// Store the watcher
+				*self.volume_watcher.write().await = Some(watcher);
+
+				// Handle events
+				tokio::spawn(async move {
+					while let Some(event) = rx.recv().await {
+						if !*is_monitoring.read().await {
+							break;
+						}
+
+						// Check if this is a mount/unmount event
+						if event.kind.is_create() || event.kind.is_remove() {
+							debug!("Volume change detected: {:?}", event);
+
+							// Debounce rapid events (reduced from 500ms for faster response)
+							tokio::time::sleep(Duration::from_millis(200)).await;
+
+							let start_time = std::time::Instant::now();
+
+							// Trigger volume refresh
+							match Self::refresh_volumes_internal(
+								device_id,
+								&volumes,
+								&path_cache,
+								&events,
+								&config,
+							)
+							.await
+							{
+								Ok(()) => {
+									let elapsed = start_time.elapsed();
+									info!(
+										"Event-triggered volume refresh completed in {:?}",
+										elapsed
+									);
+								}
+								Err(e) => {
+									error!("Error during event-triggered volume refresh: {}", e);
+								}
+							}
+						}
+					}
+					debug!("Volume watcher event handler stopped");
+				});
+			}
+			Err(e) => {
+				warn!("Failed to create volume watcher: {}", e);
+			}
+		}
+	}
+
 	/// Stop background monitoring
 	pub async fn stop_monitoring(&self) {
 		*self.is_monitoring.write().await = false;
+
+		// Stop the file system watcher
+		if let Some(_watcher) = self.volume_watcher.write().await.take() {
+			debug!("Volume watcher stopped");
+		}
+
 		info!("Volume monitoring stopped");
 	}
 
@@ -240,7 +383,69 @@ impl VolumeManager {
 			}
 		}
 
-		debug!("Volume refresh completed");
+		// Update offline status for tracked volumes that are no longer detected
+		// Note: This requires library context, so we'll add this to a separate method
+		// that gets called from places where we have library access
+		debug!(
+			"Volume refresh completed. Detected {} volumes",
+			seen_fingerprints.len()
+		);
+
+		Ok(())
+	}
+
+	/// Mark tracked volumes as offline if they're no longer detected
+	/// This should be called after refresh_volumes_internal when we have library access
+	pub async fn update_offline_volumes(
+		&self,
+		library: &crate::library::Library,
+	) -> VolumeResult<()> {
+		let db = library.db().conn();
+		let current_volumes = self.volumes.read().await;
+		let detected_fingerprints: std::collections::HashSet<_> =
+			current_volumes.keys().cloned().collect();
+
+		// Get all tracked volumes for this device
+		let tracked_volumes = entities::volume::Entity::find()
+			.filter(entities::volume::Column::DeviceId.eq(self.device_id))
+			.all(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		let mut updated_count = 0;
+
+		for tracked_volume in tracked_volumes {
+			let fingerprint = VolumeFingerprint(tracked_volume.fingerprint.clone());
+			let is_currently_detected = detected_fingerprints.contains(&fingerprint);
+
+			// Update online status if it has changed
+			if tracked_volume.is_online != is_currently_detected {
+				let mut active_model: entities::volume::ActiveModel = tracked_volume.into();
+				active_model.is_online = Set(is_currently_detected);
+				active_model.last_seen_at = Set(chrono::Utc::now());
+
+				active_model
+					.update(db)
+					.await
+					.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+				updated_count += 1;
+
+				if is_currently_detected {
+					debug!("Marked volume {} as online", fingerprint.0);
+				} else {
+					debug!("Marked volume {} as offline", fingerprint.0);
+				}
+			}
+		}
+
+		if updated_count > 0 {
+			debug!(
+				"Updated online status for {} tracked volumes",
+				updated_count
+			);
+		}
+
 		Ok(())
 	}
 
@@ -392,30 +597,56 @@ impl VolumeManager {
 		debug!("Volume path cache cleared");
 	}
 
-	/// Track a volume in the database
+	/// Track a volume in the specified library
 	pub async fn track_volume(
 		&self,
 		library: &crate::library::Library,
 		fingerprint: &VolumeFingerprint,
 		display_name: Option<String>,
 	) -> VolumeResult<entities::volume::Model> {
-		let db = library.db().conn();
+		// Find the volume in our current detected volumes
+		let volume = {
+			let volumes = self.volumes.read().await;
+			volumes
+				.get(fingerprint)
+				.cloned()
+				.ok_or_else(|| VolumeError::NotFound(fingerprint.to_string()))?
+		};
 
-		// Check if already tracked
+		// Try to create/read identifier file for this volume
+		if let Some(spacedrive_id) = self.manage_spacedrive_identifier(&volume).await {
+			info!(
+				"Created/found Spacedrive ID {} for manually tracked volume {}",
+				spacedrive_id, volume.name
+			);
+
+			// Check if we should upgrade to Spacedrive ID-based fingerprint
+			let spacedrive_fingerprint = VolumeFingerprint::from_spacedrive_id(spacedrive_id);
+			if spacedrive_fingerprint != volume.fingerprint {
+				info!(
+					"Upgrading fingerprint for volume {} from content-based to Spacedrive ID-based",
+					volume.name
+				);
+				// Note: In a full implementation, we'd want to update the volume's fingerprint
+				// and potentially migrate database records. For now, we'll log this.
+			}
+		}
+
+		// Check if volume is already tracked
 		if let Some(existing) = entities::volume::Entity::find()
 			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
-			.one(db)
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+			.one(library.db().conn())
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?
 		{
-			return Err(VolumeError::AlreadyTracked(fingerprint.to_string()));
+			warn!(
+				"Volume {} is already tracked in library {}",
+				volume.name,
+				library.name().await
+			);
+			return Ok(existing);
 		}
-
-		// Get current volume info
-		let volume = self
-			.get_volume(fingerprint)
-			.await
-			.ok_or_else(|| VolumeError::NotFound(fingerprint.to_string()))?;
 
 		// Determine removability and network status
 		let is_removable = matches!(volume.mount_type, crate::volume::types::MountType::External);
@@ -449,7 +680,7 @@ impl VolumeManager {
 		};
 
 		let model = active_model
-			.insert(db)
+			.insert(library.db().conn())
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
 
@@ -652,7 +883,7 @@ impl VolumeManager {
 			.collect()
 	}
 
-	/// Automatically track user-relevant volumes for a library
+	/// Auto-track eligible volumes (Primary and External types)
 	pub async fn auto_track_user_volumes(
 		&self,
 		library: &crate::library::Library,
@@ -668,42 +899,29 @@ impl VolumeManager {
 
 		let mut tracked_volumes = Vec::new();
 
-		info!(
-			"Auto-tracking {} user-relevant volumes for library '{}'",
-			eligible_volumes.len(),
-			library.name().await
-		);
-
 		for volume in eligible_volumes {
-			// Skip if already tracked
-			if self.is_volume_tracked(library, &volume.fingerprint).await? {
-				debug!(
-					"Volume '{}' ({:?}) already tracked in library",
-					volume.name, volume.volume_type
+			// Try to create/read identifier file for better fingerprinting
+			if let Some(spacedrive_id) = self.manage_spacedrive_identifier(&volume).await {
+				info!(
+					"Using Spacedrive ID {} for volume {} fingerprinting",
+					spacedrive_id, volume.name
 				);
-				continue;
+				// We could update the fingerprint here, but for now we'll keep using the existing one
+				// to maintain compatibility with already tracked volumes
 			}
 
-			match self
-				.track_volume(library, &volume.fingerprint, Some(volume.name.clone()))
-				.await
-			{
-				Ok(tracked) => {
-					info!(
-						"Auto-tracked {} volume '{}' in library '{}'",
-						volume.volume_type.display_name(),
-						volume.name,
-						library.name().await
-					);
-					tracked_volumes.push(tracked);
-				}
-				Err(e) => {
-					warn!(
-						"Failed to auto-track {} volume '{}': {}",
-						volume.volume_type.display_name(),
-						volume.name,
-						e
-					);
+			if !self.is_volume_tracked(library, &volume.fingerprint).await? {
+				match self
+					.track_volume(library, &volume.fingerprint, Some(volume.name.clone()))
+					.await
+				{
+					Ok(tracked_volume) => {
+						info!("Auto-tracked volume: {}", volume.name);
+						tracked_volumes.push(tracked_volume);
+					}
+					Err(e) => {
+						warn!("Failed to auto-track volume {}: {}", volume.name, e);
+					}
 				}
 			}
 		}
@@ -768,6 +986,106 @@ impl VolumeManager {
 		}
 
 		Ok(())
+	}
+
+	/// Get volume by short ID
+	pub async fn get_volume_by_short_id(&self, short_id: &str) -> Option<Volume> {
+		if !VolumeFingerprint::is_short_id(short_id) && !VolumeFingerprint::is_medium_id(short_id) {
+			return None;
+		}
+
+		let volumes = self.volumes.read().await;
+		for volume in volumes.values() {
+			if volume.fingerprint.matches_short_id(short_id) {
+				return Some(volume.clone());
+			}
+		}
+		None
+	}
+
+	/// Get volumes that match a partial name (for smart name matching)
+	pub async fn get_volumes_by_name(&self, name: &str) -> Vec<Volume> {
+		let volumes = self.volumes.read().await;
+		let name_lower = name.to_lowercase();
+
+		volumes
+			.values()
+			.filter(|volume| volume.name.to_lowercase().contains(&name_lower))
+			.cloned()
+			.collect()
+	}
+
+	/// Create or read Spacedrive identifier file for a volume
+	/// Returns the UUID from the identifier file if successfully created/read
+	async fn manage_spacedrive_identifier(&self, volume: &Volume) -> Option<Uuid> {
+		let id_file_path = volume.mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
+
+		// Try to read existing identifier file
+		if let Ok(content) = fs::read_to_string(&id_file_path).await {
+			if let Ok(spacedrive_id) = serde_json::from_str::<SpacedriveVolumeId>(&content) {
+				debug!(
+					"Found existing Spacedrive ID {} for volume {}",
+					spacedrive_id.id, volume.name
+				);
+				return Some(spacedrive_id.id);
+			}
+		}
+
+		// Try to create new identifier file if volume is writable
+		if !volume.read_only && volume.mount_point.exists() {
+			let spacedrive_id = SpacedriveVolumeId {
+				id: Uuid::new_v4(),
+				created: chrono::Utc::now(),
+				device_name: None, // TODO: Get from DeviceManager when available
+				volume_name: volume.name.clone(),
+				device_id: volume.device_id,
+			};
+
+			if let Ok(content) = serde_json::to_string_pretty(&spacedrive_id) {
+				match fs::write(&id_file_path, content).await {
+					Ok(()) => {
+						info!(
+							"Created Spacedrive ID {} for volume {} at {}",
+							spacedrive_id.id,
+							volume.name,
+							id_file_path.display()
+						);
+						return Some(spacedrive_id.id);
+					}
+					Err(e) => {
+						debug!(
+							"Failed to write Spacedrive ID file to {}: {}",
+							id_file_path.display(),
+							e
+						);
+					}
+				}
+			}
+		}
+
+		debug!(
+			"Could not create or read Spacedrive identifier for volume {} (read_only: {}, exists: {})",
+			volume.name,
+			volume.read_only,
+			volume.mount_point.exists()
+		);
+		None
+	}
+
+	/// Read Spacedrive identifier file from a volume if it exists
+	pub async fn read_spacedrive_identifier(
+		&self,
+		mount_point: &Path,
+	) -> Option<SpacedriveVolumeId> {
+		let id_file_path = mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
+
+		if let Ok(content) = fs::read_to_string(&id_file_path).await {
+			if let Ok(spacedrive_id) = serde_json::from_str::<SpacedriveVolumeId>(&content) {
+				return Some(spacedrive_id);
+			}
+		}
+
+		None
 	}
 }
 

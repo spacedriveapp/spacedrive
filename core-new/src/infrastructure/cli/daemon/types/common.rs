@@ -1,5 +1,6 @@
 //! Common types shared between commands and responses
 
+use crate::volume::{Volume, VolumeFingerprint};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -74,4 +75,19 @@ pub struct BrowseEntry {
 	pub size: Option<u64>,
 	pub modified: Option<String>,
 	pub file_type: Option<String>,
+}
+
+/// Represents a volume in the list with tracking information
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct VolumeListItem {
+	/// The volume data (either from live detection or reconstructed from tracking info)
+	pub volume: Volume,
+	/// Whether this volume is tracked in the current library
+	pub is_tracked: bool,
+	/// Custom name assigned when tracking (if any)
+	pub tracked_name: Option<String>,
+	/// Whether the volume is currently online/connected
+	pub is_online: bool,
+	/// When the volume was last seen (for offline volumes)
+	pub last_seen_at: Option<chrono::DateTime<chrono::Utc>>,
 }

@@ -153,13 +153,13 @@ impl EventBus {
     
     /// Emit an event to all subscribers
     pub fn emit(&self, event: Event) {
-        match self.sender.send(event) {
+        match self.sender.send(event.clone()) {
             Ok(subscriber_count) => {
                 debug!("Event emitted to {} subscribers", subscriber_count);
             }
             Err(_) => {
                 // No subscribers - this is fine, just debug log it
-                debug!("Event emitted but no subscribers");
+                debug!("Event emitted but no subscribers: {:?}", event);
             }
         }
     }

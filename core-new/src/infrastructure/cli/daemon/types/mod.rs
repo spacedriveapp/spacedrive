@@ -5,5 +5,8 @@ pub mod common;
 pub mod responses;
 
 pub use commands::DaemonCommand;
-pub use common::{ConnectedDeviceInfo, DaemonInstance, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo};
+pub use common::{
+	ConnectedDeviceInfo, DaemonInstance, JobInfo, LibraryInfo, LocationInfo, PairingRequestInfo,
+	VolumeListItem,
+};
 pub use responses::{DaemonResponse, DaemonStatus};

@@ -2,6 +2,7 @@
 
 use crate::infrastructure::cli::daemon::{DaemonClient, DaemonCommand, DaemonResponse};
 use crate::infrastructure::cli::output::{CliOutput, Message};
+use crate::volume::types::VolumeFingerprint;
 use clap::Subcommand;
 use comfy_table::Table;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,10 @@ pub enum VolumeCommands {
 		/// Show volume type classifications
 		#[arg(long)]
 		show_types: bool,
+
+		/// Include tracked volumes that are currently offline/disconnected
+		#[arg(long)]
+		show_offline: bool,
 	},
 	/// Show details for a specific volume
 	Get {
@@ -76,6 +81,7 @@ pub async fn handle_volume_command(
 			include_system,
 			type_filter,
 			show_types,
+			show_offline,
 		} => {
 			output.info("Fetching volumes...")?;
 
@@ -84,17 +90,19 @@ pub async fn handle_volume_command(
 					include_system,
 					type_filter: type_filter.clone(),
 					show_types,
+					show_offline,
 				}))
 				.await
 			{
-				Ok(DaemonResponse::VolumeListWithTracking(volume_infos)) => {
-					if volume_infos.is_empty() {
+				Ok(DaemonResponse::VolumeListWithTracking(volume_items)) => {
+					if volume_items.is_empty() {
 						output.info("No volumes found")?;
 					} else {
-						output.info(&format!("Found {} volume(s):", volume_infos.len()))?;
+						output.info(&format!("Found {} volume(s):", volume_items.len()))?;
 
 						let mut table = Table::new();
 						let mut headers = vec![
+							"ID",
 							"Name",
 							"Mount Point",
 							"File System",
@@ -105,21 +113,20 @@ pub async fn handle_volume_command(
 						];
 
 						if show_types {
-							headers.insert(3, "Type");
+							headers.insert(4, "Type");
 						}
 
 						table.set_header(headers);
 
-						for volume_info in volume_infos {
-							let volume = volume_info["volume"].as_object().unwrap();
-							let is_tracked = volume_info["is_tracked"].as_bool().unwrap_or(false);
-							let tracked_name = volume_info["tracked_name"].as_str();
+						for volume_item in volume_items {
+							let volume = &volume_item.volume;
+							let is_tracked = volume_item.is_tracked;
+							let tracked_name = volume_item.tracked_name.as_deref();
+							let is_online = volume_item.is_online;
 
 							// Apply filtering based on CLI flags
-							let is_user_visible =
-								volume["is_user_visible"].as_bool().unwrap_or(true);
-							let volume_type_str =
-								volume["volume_type"].as_str().unwrap_or("Unknown");
+							let is_user_visible = volume.is_user_visible;
+							let volume_type_str = format!("{:?}", volume.volume_type);
 
 							// Skip system volumes unless --include-system is specified
 							if !include_system && !is_user_visible {
@@ -134,14 +141,21 @@ pub async fn handle_volume_command(
 								}
 							}
 
-							let name = volume["name"].as_str().unwrap_or("Unknown");
-							let mount_point = volume["mount_point"].as_str().unwrap_or("Unknown");
-							let file_system = volume["file_system"].as_str().unwrap_or("Unknown");
-							let total_capacity =
-								volume["total_bytes_capacity"].as_u64().unwrap_or(0);
-							let available_space =
-								volume["total_bytes_available"].as_u64().unwrap_or(0);
-							let is_mounted = volume["is_mounted"].as_bool().unwrap_or(false);
+							let name = &volume.name;
+							let mount_point = volume.mount_point.to_string_lossy();
+							let file_system = format!("{:?}", volume.file_system);
+							let total_capacity = volume.total_bytes_capacity;
+							let available_space = volume.total_bytes_available;
+
+							// Use is_online for tracked volumes, fall back to is_mounted for others
+							let is_connected = if is_tracked {
+								is_online
+							} else {
+								volume.is_mounted
+							};
+
+							// Get short ID from fingerprint
+							let short_id = volume.fingerprint.short_id();
 
 							// Format capacity in a human-readable way
 							let capacity_str = if total_capacity > 0 {
@@ -151,12 +165,18 @@ pub async fn handle_volume_command(
 							};
 
 							let available_str = if available_space > 0 {
-								format_bytes(available_space)
+								let formatted = format_bytes(available_space);
+								if !is_connected {
+									// For offline volumes, indicate the data is cached
+									format!("{} (cached)", formatted)
+								} else {
+									formatted
+								}
 							} else {
 								"Unknown".to_string()
 							};
 
-							let status = if is_mounted { "Mounted" } else { "Unmounted" };
+							let status = if is_connected { "Online" } else { "Offline" };
 
 							let tracked_status = if is_tracked {
 								if let Some(custom_name) = tracked_name {
@@ -169,26 +189,27 @@ pub async fn handle_volume_command(
 							};
 
 							let mut row = vec![
+								short_id,
 								name.to_string(),
 								mount_point.to_string(),
-								file_system.to_string(),
+								file_system,
 							];
 
 							if show_types {
 								// Get display name for the volume type
-								let type_display = match volume_type_str {
-									"Primary" => "[PRI]",
-									"UserData" => "[USR]",
-									"External" => "[EXT]",
-									"Secondary" => "[SEC]",
-									"System" => "[SYS]",
-									"Network" => "[NET]",
-									_ => "[UNK]",
+								let type_display = match volume.volume_type {
+									crate::volume::types::VolumeType::Primary => "[PRI]",
+									crate::volume::types::VolumeType::UserData => "[USR]",
+									crate::volume::types::VolumeType::External => "[EXT]",
+									crate::volume::types::VolumeType::Secondary => "[SEC]",
+									crate::volume::types::VolumeType::System => "[SYS]",
+									crate::volume::types::VolumeType::Network => "[NET]",
+									crate::volume::types::VolumeType::Unknown => "[UNK]",
 								};
 								row.push(type_display.to_string());
 							}
 
-							row.extend(vec![
+							row.extend_from_slice(&[
 								capacity_str,
 								available_str,
 								status.to_string(),
@@ -313,16 +334,23 @@ pub async fn handle_volume_command(
 		}
 
 		VolumeCommands::Track { fingerprint, name } => {
-			let name_display = name.as_deref().unwrap_or("(no custom name)");
-			output.info(&format!(
-				"Tracking volume {} as '{}'...",
-				fingerprint, name_display
-			))?;
+			let mut client = DaemonClient::new_with_instance(instance_name.clone());
+
+			// Check if fingerprint looks like a short ID
+			let resolved_fingerprint = if VolumeFingerprint::is_short_id(&fingerprint)
+				|| VolumeFingerprint::is_medium_id(&fingerprint)
+			{
+				// TODO: Add short ID resolution via daemon
+				output.info(&format!("🔍 Resolving short ID '{}'...", fingerprint))?;
+				fingerprint.clone() // For now, pass through - daemon will handle resolution
+			} else {
+				fingerprint.clone()
+			};
 
 			match client
 				.send_command(DaemonCommand::Volume(VolumeCommands::Track {
-					fingerprint: fingerprint.clone(),
-					name: name.clone(),
+					fingerprint: resolved_fingerprint,
+					name,
 				}))
 				.await
 			{

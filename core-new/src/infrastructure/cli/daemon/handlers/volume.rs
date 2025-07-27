@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use std::sync::Arc;
+use tracing::debug;
 
 use crate::{
 	infrastructure::{
@@ -10,7 +11,7 @@ use crate::{
 			commands::VolumeCommands,
 			daemon::{
 				services::StateService,
-				types::{DaemonCommand, DaemonResponse},
+				types::{DaemonCommand, DaemonResponse, VolumeListItem},
 			},
 		},
 	},
@@ -41,12 +42,18 @@ impl CommandHandler for VolumeHandler {
 					include_system,
 					type_filter,
 					show_types,
+					show_offline,
 				} => {
-					// Get all volumes
+					// Get all currently detected volumes
 					let volumes = core.volumes.get_all_volumes().await;
 
 					// Get current library to check track status
 					if let Some(library) = state_service.get_current_library(core).await {
+						// Update offline status for tracked volumes
+						if let Err(e) = core.volumes.update_offline_volumes(&library).await {
+							debug!("Failed to update offline volumes: {}", e);
+						}
+
 						// Get tracked volumes for this library
 						let tracked_volumes = match core.volumes.get_tracked_volumes(&library).await
 						{
@@ -56,28 +63,63 @@ impl CommandHandler for VolumeHandler {
 
 						// Create a map of fingerprint -> tracked info for quick lookup
 						let tracked_map: std::collections::HashMap<_, _> = tracked_volumes
-							.into_iter()
+							.iter()
 							.map(|tv| (tv.fingerprint.clone(), tv))
 							.collect();
 
-						// Combine volume info with track status
-						let volume_info_list: Vec<_> = volumes
-							.into_iter()
-							.map(|volume| {
-								let is_tracked = tracked_map.contains_key(&volume.fingerprint);
-								let tracked_name = tracked_map
-									.get(&volume.fingerprint)
-									.and_then(|tv| tv.display_name.clone());
+						let mut volume_list_items = Vec::new();
 
-								serde_json::json!({
-									"volume": volume,
-									"is_tracked": is_tracked,
-									"tracked_name": tracked_name
-								})
-							})
-							.collect();
+						// Add currently detected volumes
+						for volume in volumes {
+							let is_tracked = tracked_map.contains_key(&volume.fingerprint);
+							let tracked_name = tracked_map
+								.get(&volume.fingerprint)
+								.and_then(|tv| tv.display_name.clone());
 
-						DaemonResponse::VolumeListWithTracking(volume_info_list)
+							volume_list_items.push(VolumeListItem {
+								volume,
+								is_tracked,
+								tracked_name,
+								is_online: true,    // Currently detected volumes are online
+								last_seen_at: None, // Not applicable for online volumes
+							});
+						}
+
+						// Add offline tracked volumes if requested
+						if show_offline {
+							for tracked_volume in &tracked_volumes {
+								// Skip if this volume is already in the online list by fingerprint
+								if volume_list_items.iter().any(|item| {
+									item.volume.fingerprint == tracked_volume.fingerprint
+								}) {
+									continue;
+								}
+
+								// Skip if we already added this offline volume (deduplicate offline volumes only)
+								let already_added_offline = volume_list_items.iter().any(|item| {
+									!item.is_online && // Only check against other offline volumes
+									item.volume.device_id == tracked_volume.device_id &&
+									item.volume.mount_point.to_string_lossy() == tracked_volume.mount_point.clone().unwrap_or_default()
+								});
+
+								if already_added_offline {
+									continue;
+								}
+
+								// Convert tracked volume to offline volume
+								let offline_volume = tracked_volume.to_offline_volume();
+
+								volume_list_items.push(VolumeListItem {
+									volume: offline_volume,
+									is_tracked: true,
+									tracked_name: tracked_volume.display_name.clone(),
+									is_online: tracked_volume.is_online,
+									last_seen_at: Some(tracked_volume.last_seen_at),
+								});
+							}
+						}
+
+						DaemonResponse::VolumeListWithTracking(volume_list_items)
 					} else {
 						// No current library, just return basic volume list
 						DaemonResponse::VolumeList(volumes)
@@ -93,21 +135,28 @@ impl CommandHandler for VolumeHandler {
 				}
 
 				VolumeCommands::Track { fingerprint, name } => {
-					// Get current library from CLI state
 					if let Some(library) = state_service.get_current_library(core).await {
-						let library_id = library.id();
+						// Try to resolve short ID to full fingerprint
+						let resolved_fingerprint = if let Some(volume) =
+							core.volumes.get_volume_by_short_id(&fingerprint).await
+						{
+							volume.fingerprint
+						} else {
+							// Try as full fingerprint
+							VolumeFingerprint::from_hex(fingerprint)
+						};
 
 						let action = Action::VolumeTrack {
 							action: VolumeTrackAction {
-								fingerprint: VolumeFingerprint(fingerprint),
-								library_id,
+								fingerprint: resolved_fingerprint,
+								library_id: library.id(),
 								name,
 							},
 						};
 
 						match core.context.get_action_manager().await {
 							Some(action_manager) => match action_manager.dispatch(action).await {
-								Ok(output) => DaemonResponse::ActionOutput(output),
+								Ok(action_output) => DaemonResponse::ActionOutput(action_output),
 								Err(e) => {
 									DaemonResponse::Error(format!("Failed to track volume: {}", e))
 								}
@@ -117,25 +166,35 @@ impl CommandHandler for VolumeHandler {
 							}
 						}
 					} else {
-						DaemonResponse::Error("No current library set. Use 'spacedrive library switch <id>' to select a library.".to_string())
+						DaemonResponse::Error(
+							"No library selected. Use 'library switch' to select a library first."
+								.to_string(),
+						)
 					}
 				}
 
 				VolumeCommands::Untrack { fingerprint } => {
-					// Get current library from CLI state
 					if let Some(library) = state_service.get_current_library(core).await {
-						let library_id = library.id();
+						// Try to resolve short ID to full fingerprint
+						let resolved_fingerprint = if let Some(volume) =
+							core.volumes.get_volume_by_short_id(&fingerprint).await
+						{
+							volume.fingerprint
+						} else {
+							// Try as full fingerprint
+							VolumeFingerprint::from_hex(fingerprint)
+						};
 
 						let action = Action::VolumeUntrack {
 							action: VolumeUntrackAction {
-								fingerprint: VolumeFingerprint(fingerprint),
-								library_id,
+								fingerprint: resolved_fingerprint,
+								library_id: library.id(),
 							},
 						};
 
 						match core.context.get_action_manager().await {
 							Some(action_manager) => match action_manager.dispatch(action).await {
-								Ok(output) => DaemonResponse::ActionOutput(output),
+								Ok(action_output) => DaemonResponse::ActionOutput(action_output),
 								Err(e) => DaemonResponse::Error(format!(
 									"Failed to untrack volume: {}",
 									e
@@ -146,7 +205,10 @@ impl CommandHandler for VolumeHandler {
 							}
 						}
 					} else {
-						DaemonResponse::Error("No current library set. Use 'spacedrive library switch <id>' to select a library.".to_string())
+						DaemonResponse::Error(
+							"No library selected. Use 'library switch' to select a library first."
+								.to_string(),
+						)
 					}
 				}
 

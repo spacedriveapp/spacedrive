@@ -71,7 +71,11 @@ pub enum Commands {
 	},
 
 	/// Stop the Spacedrive daemon
-	Stop,
+	Stop {
+		/// Remove all data (data directory) after stopping
+		#[arg(long)]
+		reset: bool,
+	},
 
 	/// Check if the daemon is running and show status
 	Status,
@@ -194,10 +198,15 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
 			)
 			.await
 		}
-		Commands::Stop => {
+		Commands::Stop { reset } => {
 			// Handle stop command
-			handle_daemon_command(DaemonCommands::Stop, data_dir, cli.instance.clone(), output)
-				.await
+			handle_daemon_command(
+				DaemonCommands::Stop { reset: *reset },
+				data_dir,
+				cli.instance.clone(),
+				output,
+			)
+			.await
 		}
 		Commands::Status => {
 			// Handle status command

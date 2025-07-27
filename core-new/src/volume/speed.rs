@@ -278,7 +278,10 @@ async fn get_writable_directory(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::volume::types::{DiskType, FileSystem};
+	use crate::volume::{
+		types::{DiskType, FileSystem},
+		VolumeFingerprint,
+	};
 	use tempfile::TempDir;
 
 	#[tokio::test]
@@ -342,6 +345,11 @@ mod tests {
 			500000000,  // 500MB available
 			false,      // Not read-only
 			None,
+			VolumeFingerprint::new(
+				uuid::Uuid::new_v4(),
+				&temp_dir.path().to_path_buf(),
+				"Test Volume",
+			),
 		);
 
 		let config = SpeedTestConfig {

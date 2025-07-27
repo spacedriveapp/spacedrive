@@ -1,0 +1,97 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{7}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Benet(2014)]%
+        {ipfs}
+\bibfield{author}{\bibinfo{person}{Juan Benet}.} \bibinfo{year}{2014}\natexlab{}.
+\newblock \showarticletitle{IPFS - Content Addressed, Versioned, P2P File System}.
+\newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1407.3561}} (\bibinfo{year}{2014}).
+\newblock
+
+
+\bibitem[Dourish et~al\mbox{.}(1999)]%
+        {presto}
+\bibfield{author}{\bibinfo{person}{Paul Dourish}, \bibinfo{person}{W~Keith Edwards}, \bibinfo{person}{Anthony LaMarca}, {and} \bibinfo{person}{Michael Salisbury}.} \bibinfo{year}{1999}\natexlab{}.
+\newblock \showarticletitle{Presto: A content-based file system}. In \bibinfo{booktitle}{\emph{Proceedings of the 22nd annual conference on Computer-supported cooperative work}}. \bibinfo{pages}{188--197}.
+\newblock
+
+
+\bibitem[Gifford et~al\mbox{.}(1991)]%
+        {sfs}
+\bibfield{author}{\bibinfo{person}{David~K Gifford}, \bibinfo{person}{Pierre Jouvelot}, \bibinfo{person}{Mark~A Sheldon}, {and} \bibinfo{person}{James~W O'Toole~Jr}.} \bibinfo{year}{1991}\natexlab{}.
+\newblock \showarticletitle{Semantic File Systems}. In \bibinfo{booktitle}{\emph{ACM SIGOPS Operating Systems Review}}, Vol.~\bibinfo{volume}{25}. ACM, \bibinfo{pages}{16--25}.
+\newblock
+
+
+\bibitem[Houston and Ferdowsi(2008)]%
+        {dropbox}
+\bibfield{author}{\bibinfo{person}{Drew Houston} {and} \bibinfo{person}{Arash Ferdowsi}.} \bibinfo{year}{2008}\natexlab{}.
+\newblock \showarticletitle{Dropbox: Simplifying Cloud Storage}. In \bibinfo{booktitle}{\emph{Y Combinator Demo Day}}.
+\newblock
+
+
+\bibitem[Li(2018)]%
+        {alluxio_vdfs}
+\bibfield{author}{\bibinfo{person}{Haoyuan Li}.} \bibinfo{year}{2018}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Alluxio: A Virtual Distributed File System}}.
+\newblock \bibinfo{type}{{T}echnical {R}eport} UCB/EECS-2018-29. \bibinfo{institution}{EECS Department, University of California, Berkeley}.
+\newblock
+\urldef\tempurl%
+\url{http://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.html}
+\showURL{%
+\tempurl}
+
+
+\bibitem[McCormick({[n.\,d.]})]%
+        {closure_tables}
+\bibfield{author}{\bibinfo{person}{Shaun McCormick}.} \bibinfo{year}{[n.\,d.]}\natexlab{}.
+\newblock \bibinfo{title}{Closure Tables for Browsing Trees in SQL}.
+\newblock \bibinfo{howpublished}{\url{https://coderwall.com/p/lixing/closure-tables-for-browsing-trees-in-sql}}.
+\newblock
+\newblock
+\shownote{Accessed: 2025-07-27}.
+
+
+\bibitem[Weil et~al\mbox{.}(2006)]%
+        {ceph}
+\bibfield{author}{\bibinfo{person}{Sage~A Weil}, \bibinfo{person}{Scott~A Brandt}, \bibinfo{person}{Ethan~L Miller}, \bibinfo{person}{Darrell~DE Long}, {and} \bibinfo{person}{Carlos Maltzahn}.} \bibinfo{year}{2006}\natexlab{}.
+\newblock \showarticletitle{Ceph: A Scalable, High-Performance Distributed File System}. In \bibinfo{booktitle}{\emph{Proceedings of the 7th symposium on Operating systems design and implementation}}. \bibinfo{pages}{307--320}.
+\newblock
+
+
+\end{thebibliography}
