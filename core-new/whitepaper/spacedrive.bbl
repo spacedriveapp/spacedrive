@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{7}
+\begin{thebibliography}{6}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -75,16 +75,6 @@
 \url{http://www2.eecs.berkeley.edu/Pubs/TechRpts/2018/EECS-2018-29.html}
 \showURL{%
 \tempurl}
-
-
-\bibitem[McCormick({[n.\,d.]})]%
-        {closure_tables}
-\bibfield{author}{\bibinfo{person}{Shaun McCormick}.} \bibinfo{year}{[n.\,d.]}\natexlab{}.
-\newblock \bibinfo{title}{Closure Tables for Browsing Trees in SQL}.
-\newblock \bibinfo{howpublished}{\url{https://coderwall.com/p/lixing/closure-tables-for-browsing-trees-in-sql}}.
-\newblock
-\newblock
-\shownote{Accessed: 2025-07-27}.
 
 
 \bibitem[Weil et~al\mbox{.}(2006)]%

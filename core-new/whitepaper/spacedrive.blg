@@ -22,49 +22,47 @@ Warning--empty address in sfs
 Warning--empty publisher in dropbox
 Warning--empty address in dropbox
 Warning--page numbers missing in both pages and numpages fields in dropbox
-Warning--empty year in closure_tables
-Warning--using n.d. in closure_tables
 Warning--empty publisher in ceph
 Warning--empty address in ceph
-You've used 7 entries,
+You've used 6 entries,
             6056 wiz_defined-function locations,
-            1524 strings with 19046 characters,
-and the built_in function-call counts, 7280 in all, are:
-= -- 807
-> -- 207
+            1519 strings with 18879 characters,
+and the built_in function-call counts, 6583 in all, are:
+= -- 738
+> -- 190
 < -- 1
-+ -- 65
-- -- 74
-* -- 473
-:= -- 707
-add.period$ -- 36
-call.type$ -- 7
-change.case$ -- 46
-chr.to.int$ -- 7
-cite$ -- 21
-duplicate$ -- 701
-empty$ -- 495
-format.name$ -- 90
-if$ -- 1726
++ -- 61
+- -- 67
+* -- 435
+:= -- 629
+add.period$ -- 30
+call.type$ -- 6
+change.case$ -- 41
+chr.to.int$ -- 6
+cite$ -- 18
+duplicate$ -- 635
+empty$ -- 444
+format.name$ -- 83
+if$ -- 1565
 int.to.chr$ -- 2
 int.to.str$ -- 1
 missing$ -- 24
-newline$ -- 97
-num.names$ -- 49
-pop$ -- 321
+newline$ -- 87
+num.names$ -- 42
+pop$ -- 281
 preamble$ -- 1
-purify$ -- 97
+purify$ -- 89
 quote$ -- 0
-skip$ -- 253
+skip$ -- 233
 stack$ -- 0
-substring$ -- 485
-swap$ -- 58
+substring$ -- 450
+swap$ -- 54
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 196
-warning$ -- 14
-while$ -- 46
+type$ -- 166
+warning$ -- 12
+while$ -- 39
 width$ -- 0
-write$ -- 172
-(There were 14 warnings)
+write$ -- 152
+(There were 12 warnings)
