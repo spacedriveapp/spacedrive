@@ -14,55 +14,72 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
 Warning--no number and no volume in ipfs
 Warning--page numbers missing in both pages and numpages fields in ipfs
-Warning--empty publisher in presto
-Warning--empty address in presto
-Warning--can't use both volume and number fields in sfs
-Warning--empty publisher in sfs
-Warning--empty address in sfs
+Warning--no number and no volume in bergman_fragmentation_2004
+Warning--can't use both volume and number fields in dourish_presto_1999
+Warning--empty publisher in dourish_presto_1999
+Warning--empty address in dourish_presto_1999
+Warning--empty publisher in dumais_stuff_2003
+Warning--empty address in dumais_stuff_2003
+Warning--empty publisher in gifford_sfs_1991
+Warning--empty address in gifford_sfs_1991
 Warning--empty publisher in dropbox
 Warning--empty address in dropbox
 Warning--page numbers missing in both pages and numpages fields in dropbox
+Warning--empty publisher in kleppmann_localfirst_2019
+Warning--empty address in kleppmann_localfirst_2019
+Warning--page numbers missing in both pages and numpages fields in kleppmann_localfirst_2019
+Warning--empty publisher in muthitacharoen_lbfs_2001
+Warning--empty address in muthitacharoen_lbfs_2001
+Warning--empty publisher in quinlan_venti_2002
+Warning--empty address in quinlan_venti_2002
+Warning--empty publisher in shapiro_crdts_2011
+Warning--empty address in shapiro_crdts_2011
 Warning--empty publisher in ceph
 Warning--empty address in ceph
-You've used 6 entries,
+Warning--can't use both volume and number fields in weiser_ubiquitous_1991
+Warning--empty publisher in weiser_ubiquitous_1991
+Warning--empty address in weiser_ubiquitous_1991
+Warning--empty publisher in zhu_dedup_2008
+Warning--empty address in zhu_dedup_2008
+You've used 15 entries,
             6056 wiz_defined-function locations,
-            1519 strings with 18879 characters,
-and the built_in function-call counts, 6583 in all, are:
-= -- 738
-> -- 190
+            1574 strings with 20730 characters,
+and the built_in function-call counts, 16937 in all, are:
+= -- 1912
+> -- 481
 < -- 1
-+ -- 61
-- -- 67
-* -- 435
-:= -- 629
-add.period$ -- 30
-call.type$ -- 6
-change.case$ -- 41
-chr.to.int$ -- 6
-cite$ -- 18
-duplicate$ -- 635
-empty$ -- 444
-format.name$ -- 83
-if$ -- 1565
++ -- 161
+- -- 164
+* -- 1135
+:= -- 1579
+add.period$ -- 75
+call.type$ -- 15
+change.case$ -- 104
+chr.to.int$ -- 15
+cite$ -- 44
+duplicate$ -- 1655
+empty$ -- 1153
+format.name$ -- 208
+if$ -- 4059
 int.to.chr$ -- 2
 int.to.str$ -- 1
-missing$ -- 24
-newline$ -- 87
-num.names$ -- 42
-pop$ -- 281
+missing$ -- 63
+newline$ -- 164
+num.names$ -- 105
+pop$ -- 714
 preamble$ -- 1
-purify$ -- 89
+purify$ -- 224
 quote$ -- 0
-skip$ -- 233
+skip$ -- 617
 stack$ -- 0
-substring$ -- 450
-swap$ -- 54
+substring$ -- 1259
+swap$ -- 150
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 166
-warning$ -- 12
-while$ -- 39
+type$ -- 422
+warning$ -- 29
+while$ -- 98
 width$ -- 0
-write$ -- 152
-(There were 12 warnings)
+write$ -- 326
+(There were 29 warnings)
