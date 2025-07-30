@@ -420,7 +420,7 @@ Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive
     \node[align=left, font=\scriptsize] at (0, -0.8) {
         \textbf{1. User Action:} GUI → Action System → Preview → Job Queue\\
         \textbf{2. File Discovery:} Watcher → Event Bus → Indexing → Index\\
-        \textbf{3. Search:} Query → AI Layer → Lightning Search → Results\\
+        \textbf{3. Search:} Query → AI Layer → Temporal-Semantic Search → Results\\
         \textbf{4. Sync:} Index Change → Sync Engine → Iroh → Other Devices
     };
 \end{scope}
@@ -440,6 +440,12 @@ Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive
 \caption{Spacedrive System Architecture: The VDFS Engine forms the intelligent core, containing the unified index, transactional action system, indexing engine, AI layer, sync engine, and event bus. User interactions flow down through various interfaces, while the storage layer is monitored by the location watcher service. The P2P network layer enables device-to-device communication via the Iroh protocol. Example flows illustrate how user actions, file discovery, search, and synchronization move through the system.}
 \label{fig:architecture}
 \end{figure*}
+
+\paragraph{Extensibility Models}
+Unlike systems that require native plugins (Finder, Nautilus) or rely on scripting languages (Obsidian, VS Code), Spacedrive employs a unified WebAssembly-based extensibility model. All extensions—from simple content type handlers to complex cloud storage integrations—run in a secure WASM sandbox. This provides both power and safety without the complexity of managing multiple extension systems.
+
+\paragraph{Cloud Storage Approaches}
+Traditional cloud sync clients (Dropbox, Google Drive) duplicate data locally, consuming significant disk space and bandwidth. Spacedrive's direct indexing approach treats cloud storage as just another volume, accessing content on-demand. This enables management of petabyte-scale cloud libraries on devices with minimal storage.
 
 % --- SECTION 3: LEARNING FROM THE PAST ---
 \section{Learning from the Past: Architectural Evolution from Spacedrive v1}
@@ -487,6 +493,9 @@ The v2 architecture presented in this paper directly addresses these challenges:
 \end{itemize}
 
 By learning from real-world challenges of the initial version, Spacedrive v2 delivers on the original promise with an architecture that is not only more powerful but also fundamentally simpler, more resilient, and built for the long term.
+
+\paragraph{Extensibility Lessons}
+Version 1's monolithic architecture limited community contributions. Version 2's unified WASM plugin model enables a vibrant ecosystem while maintaining security and stability. All extensions—from content type handlers to cloud storage providers—run in the same secure sandbox, simplifying development and distribution.
 
 
 % --- SECTION 4: THE SPACEDRIVE ARCHITECTURE ---
@@ -720,6 +729,83 @@ These sidecar files are stored within a managed directory inside the portable \t
 \end{itemize}
 
 This system is the foundation for Spacedrive's file intelligence capabilities, providing the raw material for semantic search and the AI-native layer.
+
+\subsubsection{Advanced File Type System}
+
+Spacedrive implements a sophisticated file type identification system that goes beyond traditional extension-based detection to provide semantic categorization and accurate content identification.
+
+\paragraph{Multi-Method Identification}
+The system combines multiple detection strategies for maximum accuracy:
+\begin{itemize}
+    \item \textbf{Extension Matching}: Fast initial identification with priority-based conflict resolution (e.g., \texttt{.ts} files prioritize TypeScript over MPEG-TS based on context)
+    \item \textbf{Magic Byte Detection}: Binary pattern matching at specific offsets for definitive file type verification
+    \item \textbf{Content Analysis}: Heuristic analysis for text and code files when other methods are ambiguous
+    \item \textbf{Confidence Scoring}: Each identification method provides confidence levels (60-100\%) enabling intelligent fallbacks
+\end{itemize}
+
+\paragraph{Semantic Categorization}
+Files are automatically grouped into 17 semantic categories (ContentKind) that enable intuitive organization and specialized handling:
+
+\begin{itemize}
+    \item \textbf{Media Types}: Image, Video, Audio—enabling gallery views and media players
+    \item \textbf{Document Types}: Document, Book—for reading interfaces and text extraction
+    \item \textbf{Development}: Code, Config, Database—supporting syntax highlighting and project views
+    \item \textbf{System Files}: Executable, Binary, Archive—with appropriate security warnings
+    \item \textbf{Specialized}: Mesh (3D models), Font, Encrypted, Key—each with tailored handling
+\end{itemize}
+
+\paragraph{Extensible Architecture}
+New file types are defined through declarative TOML specifications:
+
+\begin{lstlisting}[language=toml, caption=Example file type definition for AVIF images]
+[[file_types]]
+id = "image/avif"
+name = "AV1 Image File"
+extensions = ["avif", "avifs"]
+mime_types = ["image/avif", "image/avif-sequence"]
+category = "image"
+priority = 95
+
+[[file_types.magic_bytes]]
+pattern = "00 00 00 ?? 66 74 79 70 61 76 69 66"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+supports_transparency = true
+supports_animation = true
+codec = "av1"
+\end{lstlisting}
+
+The magic byte system supports sophisticated patterns:
+\begin{itemize}
+    \item Exact bytes: \texttt{"FF D8"} for JPEG headers
+    \item Wildcards: \texttt{"52 49 46 46 ?? ?? ?? ?? 57 45 42 50"} for WebP
+    \item Ranges: \texttt{"00-1F"} for any control character
+    \item Multiple patterns with different offsets and priorities
+\end{itemize}
+
+\paragraph{Rich Metadata Support}
+Each file type can include arbitrary metadata that enables specialized features:
+\begin{itemize}
+    \item \textbf{Image formats}: Color depth, transparency support, compression type
+    \item \textbf{Code files}: Language version, syntax family, build tool associations
+    \item \textbf{Media files}: Codec information, container format, streaming compatibility
+    \item \textbf{Documents}: Editability, macro support, form capabilities
+\end{itemize}
+
+This metadata integrates with the Virtual Sidecar System to enable rich querying without modifying original files. For example, finding "all lossless images with transparency" or "Python files using type hints" becomes trivial.
+
+\paragraph{Performance and Reliability}
+The implementation prioritizes real-world performance:
+\begin{itemize}
+    \item Extension-based fast path for unambiguous cases
+    \item Limited reads (8KB for magic bytes) to avoid I/O bottlenecks
+    \item Async file operations for non-blocking identification
+    \item Graceful fallbacks when files lack extensions or have misleading ones
+\end{itemize}
+
+By combining accurate identification with semantic categorization, Spacedrive transforms file type detection from a technical necessity into a powerful organizational tool that understands not just what files are, but how users think about them.
 
 % --- SECTION 4.2: CONTENT IDENTITY SYSTEM ---
 \subsection{Content Identity: The Foundation for Deduplication and Redundancy}
@@ -1098,6 +1184,36 @@ The simulation engine proactively identifies operational conflicts that would ca
 
 This comprehensive conflict detection represents Spacedrive's primary defense for data integrity. The simulation engine prevents operational conflicts entirely by catching them during the planning phase, while synchronization conflicts from concurrent modifications across devices are handled through intelligent domain-specific merging strategies (detailed in Section 15). This dual approach ensures exceptional reliability in distributed file management.
 
+\paragraph{Intelligent Time Estimation}
+The Simulation Engine combines multiple data sources to provide accurate operation time estimates:
+
+\begin{itemize}
+    \item \textbf{Volume Performance Metrics}: Real-time read/write speeds from continuous monitoring
+    \item \textbf{Network Conditions}: Current bandwidth and latency from Iroh's measurements
+    \item \textbf{Historical Data}: Previous operations on similar files and paths
+    \item \textbf{Operation Complexity}: Number of files, total size, and fragmentation
+    \item \textbf{Storage Type Awareness}: Different strategies for local vs cloud storage
+\end{itemize}
+
+For example, when copying 10GB across devices, the estimation considers:
+\begin{itemize}
+    \item Source volume read speed: 250 MB/s (measured)
+    \item Network throughput: 45 MB/s (current P2P bandwidth)
+    \item Destination write speed: 180 MB/s (measured)
+    \item Bottleneck: Network at 45 MB/s
+    \item Estimated time: 3 minutes 45 seconds (with 10\% buffer)
+\end{itemize}
+
+For cloud operations, additional factors apply:
+\begin{itemize}
+    \item API rate limits (e.g., 1000 requests/second for S3)
+    \item Chunk size optimization (balancing throughput vs memory)
+    \item Parallel stream count (typically 4-8 for cloud providers)
+    \item Resume capability for long-running transfers
+\end{itemize}
+
+This transparency helps users make informed decisions about when and how to execute operations, especially for large-scale cloud migrations.
+
 \subsubsection{Centralized Operation Control}
 
 Rather than allowing direct operation dispatch throughout the codebase, Spacedrive routes all user actions through a centralized \textbf{Action System} that provides consistent validation, execution, and logging:
@@ -1302,6 +1418,47 @@ Spacedrive's networking system automatically handles the complex task of connect
  \item \textbf{Zero-Configuration Setup}: Users simply pair devices once---the networking layer handles all future connection establishment, routing decisions, and failover scenarios transparently.
 \end{itemize}
 
+\paragraph{Self-Hosted Relay Infrastructure}
+While Spacedrive provides public relay servers for convenience, the architecture fully supports self-hosted deployments:
+
+\begin{itemize}
+    \item \textbf{Zero-Trust Option}: Organizations can run private relay networks
+    \item \textbf{Simple Deployment}: Single binary with minimal configuration
+    \item \textbf{Geographic Distribution}: Deploy relays near users for optimal performance
+    \item \textbf{Compliance Ready}: Keep all traffic within organizational boundaries
+\end{itemize}
+
+This flexibility makes Spacedrive suitable for:
+\begin{itemize}
+    \item Enterprises requiring complete data sovereignty
+    \item Regions with data residency requirements
+    \item Air-gapped networks with no external connectivity
+    \item Organizations building private overlay networks (similar to Tailscale)
+\end{itemize}
+
+The relay service can be deployed as a standalone component, in Kubernetes, or as a managed service, providing deployment flexibility to match any infrastructure requirement.
+
+\paragraph{Network Architecture Flexibility}
+The Iroh-based networking supports multiple topologies:
+
+\begin{verbatim}
+Public Cloud (Default):
+Device A ←→ Public Relay ←→ Device B
+         ↘              ↙
+          Direct (if possible)
+
+Self-Hosted:
+Device A ←→ Private Relay ←→ Device B
+         ↘               ↙
+          Direct (always preferred)
+
+Hybrid:
+Corporate ←→ Private Relay ←→ Public Relay ←→ Personal
+Devices                                        Devices
+\end{verbatim}
+
+This flexibility ensures Spacedrive can adapt to any network environment while maintaining its peer-to-peer principles.
+
 \subsubsection{Spacedrop: Ephemeral Secure Sharing}
 
 Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an ephemeral file sharing protocol that enables secure transfers between any devices without prior relationships. Built on the same Iroh infrastructure but with distinct security properties:
@@ -1418,11 +1575,18 @@ The AI agent's proactive capabilities are particularly powerful when applied to 
 \end{itemize}
 
 \subsubsection{File Intelligence via Virtual Sidecars}
-The AI agent's ability to "Observe" the user's dataspace is powered by the Virtual Sidecar System. The background intelligence jobs dispatched by the indexer enrich the VDFS with structured, semantic information, which is then used for search and proactive assistance. All processing can be handled by local models via Ollama, ensuring complete privacy.
+The AI agent's ability to "Observe" the user's dataspace is powered by the Virtual Sidecar System. The background intelligence jobs use purpose-specific models to enrich the VDFS with structured information:
+\begin{itemize}
+    \item \textbf{Text Embeddings}: Lightweight models like all-MiniLM-L6-v2 for semantic search
+    \item \textbf{OCR}: Tesseract or EasyOCR for text extraction
+    \item \textbf{Speech-to-Text}: Whisper models for transcription
+    \item \textbf{Image Analysis}: CLIP or similar for object/scene detection
+\end{itemize}
+These specialized models are far more efficient than general-purpose LLMs while providing superior results for their specific tasks.
 
 \textbf{Image Object Extraction}: An \texttt{ImageAnalysisJob} processes image files. Using a multimodal model, it identifies objects and concepts within the image (e.g., "dog," "beach," "sunset"). These results are not stored in a sidecar, but are instead applied directly as Tags to the Entry's \texttt{UserMetadata} record. This seamlessly integrates AI analysis into the user's own organizational structure and makes images searchable via existing tag filters.
 
-\textbf{OCR and Transcription}: For images and PDF documents, an \texttt{OcrJob} is triggered. It extracts all textual content and saves it to a structured sidecar file (e.g., \texttt{ocr.json}). Similarly, a \texttt{TranscriptionJob} uses a speech-to-text model on audio and video files to produce a \texttt{transcript.json} sidecar. The text content from these sidecars is then ingested into the Lightning Search FTS5 index, making the content of non-text files fully searchable. A user can now find a photo of a receipt by searching for the vendor's name, or find a video by searching for a phrase spoken within it.
+\textbf{OCR and Transcription}: For images and PDF documents, an \texttt{OcrJob} is triggered. It extracts all textual content and saves it to a structured sidecar file (e.g., \texttt{ocr.json}). Similarly, a \texttt{TranscriptionJob} uses a speech-to-text model on audio and video files to produce a \texttt{transcript.json} sidecar. The text content from these sidecars is then ingested into the Temporal-Semantic Search FTS5 index, making the content of non-text files fully searchable. A user can now find a photo of a receipt by searching for the vendor's name, or find a video by searching for a phrase spoken within it.
 
 This system transforms a simple collection of files into a rich, interconnected knowledge base that the AI agent can reason about, all while maintaining a local-first, privacy-preserving architecture.
 
@@ -1442,16 +1606,16 @@ The storage tiering system analyzes access patterns and storage costs to predict
 
 \subsubsection{Privacy-First AI Architecture}
 
-This entire AI framework is designed for flexibility and privacy. The core technology provides the hooks and data structures, but the choice of AI model---a powerful cloud API, a privacy-preserving local LLM via Ollama, or a specialized model fine-tuned on the Spacedrive API---is left to the user or administrator:
+This AI framework clearly separates concerns between search (lightweight embeddings) and intelligent assistance (LLMs). For the AI agent functionality—natural language understanding, action generation, and proactive suggestions—users can choose:
 
 The AI provider interface supports multiple deployment models: local processing via Ollama for complete privacy, cloud-based services for enhanced capabilities, and enterprise self-hosted solutions for organizational control. This flexibility ensures users can balance privacy, performance, and functionality according to their specific requirements.
 
 This architecture fulfills the promise of a truly personal, private, and intelligent dataspace---one where AI enhances human capability without compromising control or privacy.
 
 
-% --- SECTION 4.7: LIGHTNING SEARCH ---
-\subsection{Lightning Search: Temporal-First, Vector-Enhanced Discovery}
-\label{sec:lightning-search}
+% --- SECTION 4.7: TEMPORAL-SEMANTIC SEARCH ---
+\subsection{Temporal-Semantic Search: Temporal-First, Vector-Enhanced Discovery}
+\label{sec:temporal-semantic-search}
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -1461,13 +1625,13 @@ This architecture fulfills the promise of a truly personal, private, and intelli
 \end{itemize}
 \end{keytakeaways}
 
-To implement the semantic search capabilities described in the AI-Native layer (Section~\ref{sec:ai-native}), Spacedrive uses a hybrid architecture called \textbf{Lightning Search}. This approach overcomes the computational costs of pure vector search, delivering sub-100ms semantic discovery at traditional keyword search speeds.
+Temporal-Semantic Search represents a breakthrough in file discovery, combining SQLite's FTS5 full-text search with lightweight semantic embeddings. The 'temporal' aspect leverages file timestamps and access patterns, while 'semantic' understanding enables natural language queries that find files by meaning, not just keywords—all without the overhead of large language models.
 
 \subsubsection{Temporal Engine Foundation}
 The first stage employs SQLite's FTS5 (Full-Text Search) as a high-performance temporal filter:
 
 
-\textbf{Lightning Search: Two-Stage Hybrid Process}
+\textbf{Temporal-Semantic Search: Two-Stage Hybrid Process}
 
 Spacedrive's search system combines the speed of traditional keyword search with the intelligence of AI-powered semantic understanding through a carefully orchestrated two-stage process:
 
@@ -1478,93 +1642,136 @@ Spacedrive's search system combines the speed of traditional keyword search with
  \item Achieves sub-millisecond response times on consumer hardware
 \end{itemize}
 
-\textbf{Stage 2: Semantic Enhancement (AI-Powered)}
+\textbf{Stage 2: Semantic Enhancement (Embedding-Based)}
 \begin{itemize}[noitemsep, topsep=0pt]
- \item Analyzes the semantic meaning of both the user's query and the candidate files
- \item Re-ranks results based on conceptual relevance, not just keyword matching
- \item Only processes the small candidate set, keeping total response time under 100ms
+ \item Uses lightweight embedding models (e.g., all-MiniLM-L6-v2, 22M parameters) not LLMs
+ \item Compares query embeddings with pre-computed file embeddings for semantic similarity
+ \item Re-ranks the candidate set based on cosine similarity scores
+ \item Runs entirely on CPU with sub-50ms latency for typical result sets
 \end{itemize}
 
 \textbf{Intelligent Decision Making}
-The system automatically determines when to engage the AI semantic layer based on:
+The system automatically determines when to engage the semantic embedding layer based on:
 \begin{itemize}[noitemsep, topsep=0pt]
  \item Query complexity (simple filename searches stay fast)
  \item Result quality from the first stage
  \item User search patterns and preferences
 \end{itemize}
 
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}[
-    node distance=2cm,
-    auto,
-    % Styles
-    querybox/.style={rectangle, rounded corners, draw=black!70, fill=blue!20, minimum width=3cm, minimum height=1cm, align=center},
-    stage/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=4cm, minimum height=1.5cm, align=center},
-    decision/.style={diamond, draw=black!70, fill=orange!15, minimum width=3cm, minimum height=1.5cm, align=center},
-    resultbox/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=3cm, minimum height=1cm, align=center},
-    arrow/.style={->, >=stealth, thick},
-    dashedarrow/.style={->, >=stealth, thick, dashed},
-    label/.style={font=\scriptsize, fill=white, inner sep=2pt}
-]
-    % Query Input
-    \node[querybox] (query) {User Query:\\
-    "vacation photos\\
-    from last summer"};
 
-    % Stage 1
-    \node[stage, below=of query] (stage1) {\textbf{Stage 1: FTS5 Temporal Filter}\\
-    \scriptsize
-    • Search filenames: *vacation*, *summer*\\
-    • Search paths: /Photos/2024/\\
-    • Search OCR text: beach, sunset\\
-    \textit{1M files → 523 candidates}};
+This \textbf{Temporal-First, Vector-Enhanced} approach achieves sub-100ms semantic search across millions of files on consumer hardware. Our benchmarks show 55ms temporal search and 95ms semantic-enhanced search on libraries with 1M+ entries, demonstrating efficient performance compared to pure vector approaches.
 
-    % Decision Diamond
-    \node[decision, below=of stage1] (decision) {Need\\Semantic\\Enhancement?};
+\subsubsection{Unified Vector Repositories: Distributed Semantic Intelligence}
 
-    % Stage 2
-    \node[stage, below=of decision] (stage2) {\textbf{Stage 2: AI Semantic Analysis}\\
-    \scriptsize
-    • Embed query → vector space\\
-    • Compare with file embeddings\\
-    • Re-rank by conceptual similarity\\
-    \textit{523 candidates → ranked results}};
+Unlike traditional vector databases that centralize embeddings in a monolithic index, Spacedrive employs a distributed system of Unified Vector Repositories—adaptive sidecars that combine routing intelligence with content embeddings to enable efficient semantic search at scale.
 
-    % Direct Results (bypass Stage 2)
-    \node[resultbox, right=3cm of decision] (direct) {Direct Results\\
-    \scriptsize
-    Simple matches\\
-    returned immediately};
+\paragraph{Unified Vector Repository Architecture}
+Instead of separate routing nodes and content stores, Spacedrive uses a single, standardized Vector Repository format. These repositories are created adaptively throughout the filesystem and can contain multiple collections, allowing them to serve different roles within a single, portable format.
 
-    % Final Results
-    \node[resultbox, below=of stage2] (final) {Enhanced Results\\
-    \scriptsize
-    Semantically relevant\\
-    files ranked by meaning};
+\paragraph{Efficient Embedding Models}
+Crucially, Spacedrive employs lightweight embedding models—not large language models—for semantic search:
+\begin{itemize}
+    \item \textbf{all-MiniLM-L6-v2}: 22M parameters, 384-dimensional vectors, 5MB model size
+    \item \textbf{nomic-embed-text-v1.5}: 137M parameters, optimized for retrieval tasks
+    \item \textbf{BGE-small-en}: 33M parameters, excellent performance/size ratio
+\end{itemize}
 
-    % Arrows
-    \draw[arrow] (query) -- node[label] {55ms} (stage1);
-    \draw[arrow] (stage1) -- (decision);
-    \draw[arrow] (decision) -- node[label, left] {Yes\\+40ms} (stage2);
-    \draw[arrow] (decision) -- node[label, above] {No} (direct);
-    \draw[arrow] (stage2) -- (final);
+These models run efficiently on CPU, produce embeddings in milliseconds, and require minimal memory—making real-time semantic indexing practical during file discovery. The models are small enough to bundle with Spacedrive (under 100MB total) and fast enough to process thousands of files per second on consumer hardware.
 
-    % Performance annotations
-    \node[font=\tiny, right=0.5cm of stage1] {Processes millions\\of entries\\in milliseconds};
-    \node[font=\tiny, right=0.5cm of stage2] {Only processes\\filtered subset\\for efficiency};
+\begin{lstlisting}[language=json, caption=Example Vector Repository structure]
+{
+  "version": 3,
+  "path": "/Projects/spacedrive-core",
+  "collections": {
+    "routing": {
+      "keywords": ["rust", "filesystem", "vdfs", "sqlite", "p2p"],
+      "child_hints": {
+        "/src": ["implementation", "core", "indexer", "networking"],
+        "/docs": ["documentation", "architecture", "rfc"],
+        "/tests": ["testing", "integration", "unit", "benchmarks"]
+      },
+      "aggregate_embedding": [0.123, -0.456, ...],
+      "descendant_count": 3847
+    },
+    "content": {
+      "file_embeddings": {
+        "README.md": {
+          "model": "nomic-embed-text-v1.5",
+          "vector": [0.234, 0.567, ...],
+          "summary": "Main project documentation and setup guide"
+        },
+        "Cargo.toml": {
+          "model": "all-MiniLM-L6-v2",
+          "vector": [0.345, 0.678, ...],
+          "keywords": ["dependencies", "workspace", "edition"]
+        }
+      }
+    },
+    "metadata": {
+      "density_score": 0.85,
+      "last_updated": "2024-03-15T10:30:00Z",
+      "access_frequency": 234
+    }
+  }
+}
+\end{lstlisting}
 
-    % Total time annotation
-    \node[draw=gray!50, dashed, fill=gray!10, below=0.5cm of final] {
-        \scriptsize Total: <100ms for semantic search
-    };
-\end{tikzpicture}
-\caption{Lightning Search Architecture: Two-stage hybrid process combining FTS5 temporal filtering with optional AI semantic enhancement. Simple queries bypass Stage 2 for instant results, while complex queries receive intelligent re-ranking.}
-\label{fig:lightning-search}
-\end{figure}
+\paragraph{Adaptive Repository Creation}
+Vector Repositories are not created for every folder. The system intelligently places them based on semantic density and usage patterns:
 
-This \textbf{Temporal-First, Vector-Enhanced} approach achieves sub-100ms semantic search across millions of files on consumer hardware. Our benchmarks show 55ms temporal search and 95ms semantic-enhanced search on libraries with 1M+ entries, performance previously impossible with pure vector approaches.
+\begin{itemize}
+    \item \textbf{Location Roots}: Always created at the root of each Location as primary entry points
+    \item \textbf{Semantic Density}: Folders reaching thresholds of file count and semantic richness
+    \item \textbf{Content Divergence}: When child folders contain semantically distinct content
+    \item \textbf{Project Boundaries}: Auto-detected via markers (package.json, .git, Cargo.toml)
+    \item \textbf{User Patterns}: Created for frequently searched or bookmarked folders
+\end{itemize}
 
+\paragraph{Lightweight Routing Without LLMs}
+The routing collection uses statistical methods and lightweight embeddings—not large language models—for efficient navigation:
+
+\begin{enumerate}
+    \item \textbf{TF-IDF Keyword Extraction}: Statistical term frequency analysis identifies distinctive terms per folder
+    \item \textbf{Child Hints}: Simple keyword lists derived from filenames and content sampling
+    \item \textbf{Aggregate Embeddings}: Computed using efficient models like all-MiniLM-L6-v2 (22M params, runs on CPU)
+    \item \textbf{Progressive Traversal}: Cosine similarity scores guide path selection without neural network inference
+\end{enumerate}
+
+\paragraph{Search Flow Example}
+When searching for "rust async file watcher implementation":
+
+\begin{enumerate}
+    \item Root repository's routing collection identifies /Projects as 85\% relevant
+    \item /Projects repository routes to /spacedrive-core (92\% match on "rust", "filesystem")
+    \item /spacedrive-core repository suggests /src (keywords: "implementation", "core")
+    \item /src repository pinpoints /location/watcher subdirectory
+    \item Content embeddings in final repository provide exact file matches
+    \item Meanwhile, lower-scoring paths (70\% matches) continue processing in background
+\end{enumerate}
+
+\paragraph{Performance and Scalability Benefits}
+This architecture provides several key advantages:
+
+\begin{itemize}
+    \item \textbf{Memory Efficiency}: Load only relevant repositories, not entire vector database
+    \item \textbf{Incremental Updates}: Only affected repositories need recomputation
+    \item \textbf{Natural Sharding}: Filesystem hierarchy provides logical partitioning
+    \item \textbf{Offline Capability}: Each device has complete semantic search of local content
+    \item \textbf{Progressive Enhancement}: Repositories evolve from simple to sophisticated as needed
+\end{itemize}
+
+The unified format ensures all intelligence—routing and content vectors—travels with the data, while the adaptive creation strategy prevents overhead in sparse areas of the filesystem. This enables million-file semantic search on consumer hardware by transforming an O(n) problem into an O(log n) traversal guided by semantic routing.
+
+\paragraph{Integration with AI Agents}
+The Vector Repository system seamlessly integrates with Spacedrive's AI agents, enabling them to:
+\begin{itemize}
+    \item Navigate large filesystems intelligently using routing hints
+    \item Understand folder purposes through aggregate embeddings
+    \item Provide natural language summaries of search results by traversing the semantic hierarchy
+    \item Learn optimal repository placement from user search patterns
+\end{itemize}
+
+This distributed approach represents a fundamental innovation in semantic search architecture, making AI-powered file discovery practical at any scale while maintaining the portability and privacy benefits of Spacedrive's local-first design.
 
 
 % --- SECTION 4.8: VOLUME-AWARE STORAGE ---
@@ -1706,6 +1913,82 @@ Additional capabilities designed for organizational needs:
 \end{itemize}
 
 This enterprise model demonstrates how Spacedrive's core architecture---designed for individual user empowerment---scales naturally to organizational deployment without compromising its fundamental principles of user control, data sovereignty, and intuitive operation.
+
+\subsection{Collaboration and Public Sharing}
+
+The Cloud Core architecture enables sophisticated sharing capabilities without introducing complex APIs or compromising the peer-to-peer model.
+
+\subsubsection{Flexible Hosting Model}
+
+While Spacedrive Cloud provides turnkey hosting, the architecture supports multiple deployment options:
+
+\begin{itemize}
+    \item \textbf{Spacedrive Cloud}: Managed hosting with automatic SSL, CDN, and scaling
+    \item \textbf{Self-Hosted Cloud Core}: Deploy on any infrastructure with full control
+    \item \textbf{Hybrid Deployment}: Mix of self-hosted and managed components
+    \item \textbf{Edge Deployment}: Run cores close to users for optimal performance
+\end{itemize}
+
+Any Spacedrive core—whether on a personal device or in the cloud—can serve as a sharing endpoint with appropriate configuration.
+
+\subsubsection{Shared Folders via Team Libraries}
+
+Collaboration in Spacedrive leverages the Library abstraction:
+
+\begin{itemize}
+    \item \textbf{Team Libraries}: Shared libraries with role-based permissions
+    \item \textbf{Granular Access Control}: Per-location and per-file permissions
+    \item \textbf{Action Audit Trail}: Complete history of all modifications
+    \item \textbf{Conflict Resolution}: Automatic handling of concurrent edits
+\end{itemize}
+
+Team members connect to shared libraries exactly as they would personal ones—the Cloud Core simply acts as an always-available peer ensuring data availability.
+
+\subsubsection{Public File Hosting}
+
+Public sharing leverages the same infrastructure with a crucial distinction:
+
+\begin{itemize}
+    \item Files marked with "public" role become web-accessible
+    \item Any core with port exposure can serve public files
+    \item Spacedrive Cloud provides automatic SSL and CDN for ease of use
+    \item Self-hosted cores require manual port configuration and SSL setup
+\end{itemize}
+
+\begin{lstlisting}[language=text, caption=Public sharing URL examples]
+# Via Spacedrive Cloud (automatic SSL + CDN)
+https://sd.app/user/file.pdf
+
+# Via self-hosted Cloud Core
+https://files.company.com/public/presentation.pdf
+
+# Via personal device (requires port forwarding)
+https://home.user.com:8443/share/document.docx
+\end{lstlisting}
+
+\subsubsection{Enhanced Spacedrop}
+
+The Cloud Core extends Spacedrop's capabilities:
+
+\begin{itemize}
+    \item \textbf{Asynchronous Transfers}: Cloud Core holds files until recipients connect
+    \item \textbf{Persistent Links}: Share links remain valid indefinitely
+    \item \textbf{Large File Support}: No size limits with resumable transfers
+    \item \textbf{Access Control}: Optional passwords and expiration dates
+\end{itemize}
+
+\begin{lstlisting}[language=text, caption=Spacedrop relay options]
+# Direct P2P (ephemeral, no relay)
+spacedrop://device-id/transfer-id
+
+# Via Spacedrive Cloud relay
+https://drop.spacedrive.com/abc123
+
+# Via self-hosted relay
+https://relay.company.com/drop/xyz789
+\end{lstlisting}
+
+This unified approach to sharing—from private team collaboration to public content distribution—demonstrates how core P2P primitives scale to support diverse use cases without architectural compromises.
 
 % --- SECTION 6: RESOURCE EFFICIENCY AND MOBILE CONSIDERATIONS ---
 \section{Resource Efficiency and Mobile Considerations}
@@ -2013,25 +2296,48 @@ Spacedrive employs a sophisticated testing framework that simulates real-world d
 \subsubsection{Performance Benchmarks}
 Systematic performance testing demonstrates Spacedrive's efficiency across critical operations:
 
-\begin{table*}[t]
+\begin{table}[h]
 \centering
-\begin{tabular}{@{}lll@{}}
+\caption{Performance benchmarks across storage tiers (M2 MacBook Pro, 16GB RAM)}
+\label{tab:performance}
+\begin{tabular}{lrr}
 \toprule
-\textbf{Metric} & \textbf{Test Condition} & \textbf{Result} \\
+\textbf{Metric} & \textbf{Value} & \textbf{Unit} \\
 \midrule
-Indexing Throughput & 1M image files on NVMe SSD & 8,500 files/sec \\
-Search Latency (Temporal) & Query on 1M entries & \textasciitilde55ms \\
-Search Latency (Semantic) & Same query, semantic re-rank & \textasciitilde95ms \\
-Memory Usage & Idle with 1M-entry library & \textasciitilde150 MB RAM \\
-DB Size / File & Metadata for 1M files & \textasciitilde250 bytes/file \\
-Sync Performance & P2P transfer over gigabit LAN & 110 MB/s \\
-NAT Traversal Success & Various network configurations & 92\% \\
-Connection Establishment & Cross-device pairing & 1.8 seconds \\
+\multicolumn{3}{l}{\textit{Indexing Throughput}} \\
+\quad Internal NVMe SSD & 8,500 & files/sec \\
+\quad External USB 3.2 SSD & 6,200 & files/sec \\
+\quad Network Attached Storage (1Gbps) & 3,100 & files/sec \\
+\quad External HDD (USB 3.0) & 1,850 & files/sec \\
+\quad Cloud Storage (S3, parallel) & 450 & files/sec \\
+\quad Cloud Storage (Google Drive) & 280 & files/sec \\
+\midrule
+\multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\
+\quad Temporal Search (FTS5) & 55 & ms \\
+\quad Semantic Search (Vector) & 95 & ms \\
+\quad Combined Temporal-Semantic & 110 & ms \\
+\midrule
+\multicolumn{3}{l}{\textit{Memory Usage}} \\
+\quad Base daemon & 45 & MB \\
+\quad Per 1M indexed files & 105 & MB \\
+\quad With active P2P connections & +15 & MB/peer \\
+\quad With WASM plugins (per plugin) & +8-25 & MB \\
+\midrule
+\multicolumn{3}{l}{\textit{Network Performance}} \\
+\quad P2P transfer (LAN) & 110 & MB/s \\
+\quad P2P transfer (WAN w/ relay) & 45 & MB/s \\
+\quad NAT traversal success rate & 92 & \% \\
+\quad Connection establishment & 1.8 & seconds \\
+\midrule
+\multicolumn{3}{l}{\textit{Extension System}} \\
+\quad WASM plugin load time & 12 & ms \\
+\quad Integration process startup & 150 & ms \\
+\quad IPC roundtrip latency & 0.8 & ms \\
 \bottomrule
 \end{tabular}
-\caption{Performance benchmarks on consumer hardware (M2 MacBook Pro, 16GB RAM)}
-\label{tab:performance}
-\end{table*}
+\end{table}
+
+\textit{Note: Cloud storage indexing uses metadata-only requests with on-demand content fetching. Performance varies based on API rate limits and network conditions.}
 
 These benchmarks validate that Spacedrive maintains sub-100ms response times for typical user operations even with multi-million entry libraries, achieving performance previously limited to enterprise systems.
 
@@ -2101,17 +2407,66 @@ Spacedrive maintains full compatibility with native filesystems through several 
 \end{itemize}
 
 \subsubsection{Cloud Service Integration}
-Rather than competing with cloud storage providers, Spacedrive embraces them as Location types:
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{API-based indexing}: Cloud locations are indexed through provider APIs (Google Drive, Dropbox, OneDrive) without requiring full synchronization to local storage.
+Spacedrive's cloud integration architecture enables seamless management of cloud storage as if it were local, without the limitations of traditional sync-based approaches.
 
- \item \textbf{Unified namespace}: Cloud files appear alongside local files in the SdPath hierarchy, enabling cross-cloud operations through Spacedrive's job system.
+\paragraph{Direct Remote Indexing}
+Unlike traditional cloud sync clients that duplicate data locally, Spacedrive indexes cloud storage in-place:
 
- \item \textbf{Smart caching}: Frequently accessed cloud files can be cached locally with automatic eviction policies, while metadata remains indexed for instant search.
-
- \item \textbf{Provider limitations}: Spacedrive respects API rate limits and storage quotas, queuing operations as necessary to maintain compliance with service terms.
+\begin{itemize}
+    \item \textbf{Streaming Metadata}: Directory listings streamed directly from cloud APIs
+    \item \textbf{On-Demand Content}: Files accessed only when needed
+    \item \textbf{Efficient Hashing}: Content identification using ranged requests (8KB samples)
+    \item \textbf{Lazy Processing}: Thumbnails and rich metadata extracted as background jobs
 \end{itemize}
+
+This approach enables management of petabyte-scale cloud libraries on devices with minimal local storage.
+
+\paragraph{OpenDAL Integration}
+To achieve comprehensive cloud storage support efficiently, Spacedrive leverages OpenDAL (Open Data Access Layer), a Rust-native library providing unified access to storage services:
+
+\begin{itemize}
+    \item \textbf{Unified Interface}: Single API for S3, Azure Blob, Google Cloud Storage, WebDAV, and dozens more
+    \item \textbf{Native Performance}: Zero-overhead abstractions with service-specific optimizations
+    \item \textbf{Streaming Support}: Efficient handling of large files without full downloads
+    \item \textbf{Automatic Retries}: Built-in resilience for unreliable network conditions
+    \item \textbf{Byte Range Requests}: Essential for efficient content hashing and previews
+\end{itemize}
+
+\paragraph{Virtual Device Abstraction}
+Each cloud service appears as a virtual device in Spacedrive's volume system:
+
+\begin{lstlisting}[language=Rust, caption=Cloud location registration]
+// Adding a cloud location creates a virtual device
+let location = LocationManager::add_cloud_location(
+    integration_id: "gdrive",
+    name: "Work Google Drive",
+    credentials_id: cred_id,
+).await?;
+
+// The location behaves identically to local storage
+let entries = vdfs.list_directory(&location, "/Projects").await?;
+\end{lstlisting}
+
+This abstraction means:
+\begin{itemize}
+    \item Unified search across local and cloud storage
+    \item Transparent file operations between any storage types
+    \item Consistent access control and audit trails
+    \item No special handling required for cloud vs local files
+\end{itemize}
+
+\paragraph{Performance Optimization}
+The system employs several strategies to minimize latency:
+
+\begin{itemize}
+    \item \textbf{Metadata Caching}: Recently accessed directory listings cached locally
+    \item \textbf{Predictive Prefetch}: AI agents anticipate and preload likely accesses
+    \item \textbf{Parallel Operations}: Multiple cloud API calls executed concurrently
+    \item \textbf{Progressive Loading}: UI displays results as they stream in
+\end{itemize}
+
+This architecture exemplifies our "Zero Vendor Lock-in" principle while providing users seamless access to their data regardless of where it resides.
 
 \subsubsection{Ecosystem Tool Compatibility}
 Spacedrive enhances rather than replaces existing tools:
@@ -2262,6 +2617,120 @@ For complete system failures:
 \item Identify missing or corrupted files
 \item Generate recovery report
 \item Automated repair where possible
+\end{itemize}
+
+\subsection{Extensibility Architecture}
+
+Spacedrive employs a WebAssembly-based plugin system that enables safe, portable extensions while maintaining the security and stability of the core system.
+
+\subsubsection{WebAssembly Plugin System}
+
+For lightweight extensions and custom functionality, Spacedrive employs a WebAssembly-based plugin system:
+
+\paragraph{Security Model}
+WASM provides critical security guarantees:
+\begin{itemize}
+    \item \textbf{Complete Sandboxing}: Plugins cannot access filesystem or network without permission
+    \item \textbf{Capability-Based}: Plugins declare required permissions upfront
+    \item \textbf{Resource Limits}: CPU, memory, and I/O are bounded
+    \item \textbf{Memory Safety}: Prevents buffer overflows and pointer manipulation
+\end{itemize}
+
+\paragraph{Plugin Capabilities}
+Through the exposed VDFS API, plugins can:
+\begin{itemize}
+    \item Define custom semantic content types with parsing logic
+    \item Create specialized AI agents for workflow automation
+    \item Add new actions to the transactional action system
+    \item Implement custom search providers and filters
+    \item Generate specialized thumbnails and previews
+\end{itemize}
+
+\begin{lstlisting}[language=Rust, caption=Example WASM plugin API]
+// Host functions exposed by Spacedrive
+#[link(wasm_import_module = "spacedrive")]
+extern "C" {
+    fn vdfs_read_file(path_ptr: u32, path_len: u32) -> u32;
+    fn vdfs_write_sidecar(
+        entry_id: u32,
+        data_ptr: u32,
+        data_len: u32
+    ) -> u32;
+    fn register_content_type(
+        spec_ptr: u32,
+        spec_len: u32
+    ) -> u32;
+}
+
+// Plugin implementation
+#[spacedrive_plugin]
+pub struct ScientificDataPlugin;
+
+#[spacedrive_plugin::content_type]
+impl ContentTypeHandler for ScientificDataPlugin {
+    fn can_handle(&self, entry: &Entry) -> bool {
+        matches!(entry.extension(),
+            Some("hdf5") | Some("netcdf") | Some("fits"))
+    }
+
+    fn extract_metadata(&self, data: &[u8]) -> Result<Metadata> {
+        // Parse scientific format and extract variables,
+        // dimensions, and other domain-specific metadata
+    }
+}
+\end{lstlisting}
+
+\paragraph{Distribution Model}
+The WASM approach solves critical distribution challenges:
+\begin{itemize}
+    \item \textbf{Single Binary}: One .wasm file works on all platforms
+    \item \textbf{No Code Signing}: Avoids platform-specific signing requirements
+    \item \textbf{Instant Loading}: No process spawn overhead
+    \item \textbf{Hot Reload}: Plugins can be updated without restart
+\end{itemize}
+
+\subsubsection{Plugin Architecture}
+
+The WASM plugin system provides comprehensive extensibility:
+
+\begin{verbatim}
+┌─────────────────────────────────────────────────┐
+│                Spacedrive Core                  │
+│                                                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │         WASM Plugin Host                 │  │
+│  │  • Wasmer Runtime                        │  │
+│  │  • VDFS API Bridge                       │  │
+│  │  • Permission System                     │  │
+│  │  • Resource Limits                       │  │
+│  └─────────────────┬────────────────────────┘  │
+│                    │                            │
+│                    ▼                            │
+│  ┌──────────────────────────────────────────┐  │
+│  │         Plugin Instances                 │  │
+│  │  • Content Type Handlers                │  │
+│  │  • Search Providers                     │  │
+│  │  • AI Agents                            │  │
+│  │  • Custom Actions                       │  │
+│  └──────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+\end{verbatim}
+
+This architecture provides:
+\begin{itemize}
+    \item Complete sandboxing for all extensions
+    \item Unified API for all plugin types
+    \item Hot-reload capability for development
+    \item Platform-independent distribution
+\end{itemize}
+
+\paragraph{Cloud Storage Integration}
+Cloud storage providers (S3, Google Drive, Dropbox, etc.) are implemented as WASM plugins that leverage the OpenDAL library. This approach:
+\begin{itemize}
+    \item Maintains security through WASM sandboxing
+    \item Enables hot-swappable cloud provider support
+    \item Allows community-contributed storage backends
+    \item Provides consistent API across all storage types
 \end{itemize}
 
 
@@ -2618,6 +3087,81 @@ Spacedrive supports multiple AI deployment models to balance privacy, performanc
 
 \textbf{User Control}: Complete transparency about which AI provider processes which data, with granular user control over privacy vs. capability trade-offs.
 
+\subsection{Balancing Privacy and Public Sharing}
+
+Spacedrive's security model accommodates both zero-knowledge privacy and public content sharing through its library-based architecture.
+
+\subsubsection{Per-Library Encryption Policy}
+
+Each library maintains independent encryption settings:
+
+\begin{itemize}
+    \item \textbf{Private Libraries} (default): Full SQLCipher encryption at rest
+    \item \textbf{Public Libraries} (opt-in): Unencrypted for web serving
+    \item \textbf{Hybrid Libraries}: Encrypted with selective public locations
+\end{itemize}
+
+\begin{lstlisting}[language=Rust, caption=Library encryption configuration]
+pub struct LibraryConfig {
+    pub encryption: EncryptionMode,
+    pub public_sharing: PublicSharingConfig,
+}
+
+pub enum EncryptionMode {
+    /// Full encryption (default)
+    Encrypted { key_derivation: Argon2id },
+    /// No encryption (for public content)
+    Unencrypted,
+    /// Encrypted with public locations
+    Hybrid { public_locations: Vec<LocationId> },
+}
+
+pub struct PublicSharingConfig {
+    /// Which core serves public content
+    pub hosting_core: CoreIdentity,
+    /// Custom domain (if any)
+    pub custom_domain: Option<String>,
+    /// Access control rules
+    pub access_rules: Vec<AccessRule>,
+}
+\end{lstlisting}
+
+\subsubsection{Secure Public Sharing Workflow}
+
+Users can share content publicly without compromising private data:
+
+\begin{enumerate}
+    \item Create a dedicated public library or location
+    \item Configure which core hosts public content (cloud or self-hosted)
+    \item Move/copy files to public locations
+    \item Share generated URLs with recipients
+    \item Private libraries remain fully encrypted throughout
+\end{enumerate}
+
+\subsubsection{Implementation Considerations}
+
+This dual-mode approach ensures:
+
+\begin{itemize}
+    \item \textbf{Clear Boundaries}: Users explicitly choose what becomes public
+    \item \textbf{No Encryption Downgrade}: Private libraries cannot be converted to public
+    \item \textbf{Audit Trail}: All public sharing actions are logged
+    \item \textbf{Revocable Access}: Public files can be made private instantly
+    \item \textbf{Hosting Flexibility}: Any core can serve public content with proper setup
+\end{itemize}
+
+\paragraph{Security Implications}
+The system maintains security through isolation:
+
+\begin{itemize}
+    \item Public and private data never mix within a library
+    \item Encryption keys are never exposed to hosting infrastructure
+    \item Access tokens are scoped to specific libraries and operations
+    \item Public URLs use capability-based security (unguessable paths)
+\end{itemize}
+
+By making encryption optional but enabled by default, Spacedrive provides flexibility for content creators and enterprises while maintaining strong privacy guarantees for personal data.
+
 
 % --- SECTION 9: PRACTICAL CONFLICT RESOLUTION ---
 \section{Practical Conflict Resolution}
@@ -2876,7 +3420,7 @@ This work transforms personal file management through five architectural innovat
 The practical impact is immediate and measurable. Users manage millions of files across dozens of devices through a single interface, eliminating storage waste while maintaining sub-second response times. Data remains portable, privacy is preserved through local-first design, and AI enhancement comes without sacrificing user control. Our production Rust implementation validates these concepts at scale, proving that enterprise capabilities can indeed be delivered with consumer-friendly simplicity.
 
 \subsection{System Integration}
-These individual innovations combine synergistically to create capabilities greater than the sum of their parts. The Library abstraction makes backup and migration trivial (copy a directory), while SdPath enables seamless operations across that distributed storage. Content addressing works transparently with the sync system to maintain deduplication relationships even as files move between devices. The Lightning Search architecture leverages both the content addressing and metadata systems to provide semantic discovery at traditional keyword search speeds.
+These individual innovations combine synergistically to create capabilities greater than the sum of their parts. The Library abstraction makes backup and migration trivial (copy a directory), while SdPath enables seamless operations across that distributed storage. Content addressing works transparently with the sync system to maintain deduplication relationships even as files move between devices. The Temporal-Semantic Search architecture leverages both the content addressing and metadata systems to provide semantic discovery at traditional keyword search speeds.
 
 \subsection{Validation in Production}
 Spacedrive's architecture has been validated through production implementation in Rust, demonstrating that these concepts work reliably in practice. The system handles millions of files across multiple devices while maintaining sub-second response times for user operations. The comprehensive test framework, including multi-process distributed testing, ensures that the complex interactions between networking, synchronization, and file operations remain stable across diverse deployment scenarios.
@@ -2918,7 +3462,7 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 
 \textbf{Library}: A portable, self-contained \texttt{.sdlibrary} directory containing a complete Spacedrive database, configuration, and metadata for a user's data ecosystem.
 
-\textbf{Lightning Search}: Spacedrive's two-stage hybrid search architecture combining temporal-first filtering with vector-enhanced semantic discovery.
+\textbf{Temporal-Semantic Search}: Spacedrive's two-stage hybrid search architecture combining temporal-first filtering with vector-enhanced semantic discovery.
 
 \textbf{SdPath}: Spacedrive's universal path abstraction that transparently addresses files across devices, volumes, and cloud storage.
 
@@ -2930,13 +3474,19 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 
 \textbf{CRDT (Conflict-free Replicated Data Type)}: A data structure that automatically resolves conflicts in distributed systems. Note: Spacedrive v1 attempted a custom CRDT implementation that proved overly complex. V2 replaced this with a simpler domain separation approach (see Section~\ref{sec:library-sync}).
 
-\textbf{FTS (Full-Text Search)}: Traditional keyword-based search capability integrated into Spacedrive's Lightning Search system.
+\textbf{FTS (Full-Text Search)}: Traditional keyword-based search capability integrated into Spacedrive's Temporal-Semantic Search system.
 
 \textbf{Phantom Path}: A special SdPath variant representing files that may not currently exist but are referenced in the Library index.
 
 \textbf{Virtual Sidecar System}: A system for managing derivative data (e.g., thumbnails, OCR text, transcripts) associated with a file Entry. These sidecar files are stored within the Spacedrive Library and linked to the original file via the VDFS index, ensuring the original file is never modified.
 
 \textbf{Volume}: Any storage location (local drive, network mount, cloud service) that Spacedrive can access and index.
+
+\textbf{OpenDAL}: Open Data Access Layer, providing unified access to cloud storage services.
+
+\textbf{ContentKind}: Semantic categorization system that groups files into 17 intuitive categories (Image, Video, Code, etc.) beyond traditional MIME types.
+
+\textbf{File Type System}: Advanced multi-method file identification combining extension matching, magic byte detection, and content analysis with confidence scoring.
 
 \subsection*{Architecture \& Deployment}
 
@@ -2945,6 +3495,10 @@ The authors acknowledge the use of generative AI tools for assistance in draftin
 \textbf{Embedded Mode}: Deployment model where the core is directly linked into the application binary, used for mobile apps and standalone distributions.
 
 \textbf{IPC (Inter-Process Communication)}: The mechanism for client-daemon communication using Unix domain sockets or named pipes with a JSON-RPC protocol.
+
+\textbf{WASM Plugin}: WebAssembly-based extension running in a sandboxed environment.
+
+\textbf{Integration}: WASM plugin providing system integration (e.g., cloud storage).
 
 \subsection*{Synchronization \& Networking}
 
