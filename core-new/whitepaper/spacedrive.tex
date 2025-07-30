@@ -191,7 +191,7 @@ Spacedrive introduces a Virtual Distributed File System (VDFS) that fundamentall
 \subsection*{Key Business Benefits}
 \textbf{For Individuals and Creators}:
 \begin{itemize}[noitemsep, topsep=0pt]
-\item Save 20-30\% storage through intelligent deduplication
+\item Save 20-30\% storage through automated deduplication
 \item Find any file in seconds with semantic search
 \item Protect irreplaceable memories with automated redundancy monitoring
 \item Work seamlessly across devices without manual synchronization
@@ -209,7 +209,7 @@ Spacedrive introduces a Virtual Distributed File System (VDFS) that fundamentall
 Spacedrive's architecture delivers enterprise-grade capabilities on consumer hardware:
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Performance}: Sub-100ms search across millions of files
-\item \textbf{Reliability}: 92\% success rate for peer-to-peer connections
+\item \textbf{Reliability}: High-reliability peer-to-peer connections powered by the Iroh networking stack
 \item \textbf{Efficiency}: 150MB memory footprint for 1M+ file libraries
 \item \textbf{Scalability}: From personal use to multi-petabyte deployments
 \end{itemize}
@@ -332,7 +332,7 @@ Our work synthesizes insights from these domains while addressing their individu
 \subsection{Command-Line Data Movers}
 Powerful command-line utilities like rclone~\cite{rclone_reference} excel at performing robust, scriptable data transfers between a wide variety of storage backends. These tools are highly effective for one-off data moving tasks and are a staple for technical users. However, their fundamentally stateless architecture presents limitations that Spacedrive's stateful, persistent model is designed to overcome.
 
-Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. This allows Spacedrive to perform more intelligent synchronization by leveraging global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a unified dataspace. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
+Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. Spacedrive leverages its persistent state to perform effective synchronization through global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a unified dataspace. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
 
 \subsection{System Architecture Overview}
 Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive, illustrating how the core components interact to provide a unified virtual distributed file system.
@@ -447,7 +447,7 @@ Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive
 Unlike systems that require native plugins (Finder, Nautilus) or rely on scripting languages (Obsidian, VS Code), Spacedrive employs a unified WebAssembly-based extensibility model. All extensions—from simple content type handlers to complex cloud storage integrations—run in a secure WASM sandbox. This provides both power and safety without the complexity of managing multiple extension systems.
 
 \paragraph{Cloud Storage Approaches}
-Traditional cloud sync clients (Dropbox, Google Drive) duplicate data locally, consuming significant disk space and bandwidth. Spacedrive's direct indexing approach treats cloud storage as just another volume, accessing content on-demand. This enables management of petabyte-scale cloud libraries on devices with minimal storage.
+Unlike traditional sync clients that duplicate data locally, Spacedrive treats cloud storage as just another volume through direct indexing (detailed in Section~\ref{sec:platform-integrations}).
 
 % --- SECTION 3: LEARNING FROM THE PAST ---
 \section{Learning from the Past: Architectural Evolution from Spacedrive v1}
@@ -485,7 +485,7 @@ The v2 architecture presented in this paper directly addresses these challenges:
 
     \item The new \textbf{Job System} with derive macros and automatic registration reduces boilerplate by over 90\%, fostering extensibility.
 
-    \item A \textbf{Unified Networking Layer} powered by Iroh consolidates all multi-device communication through a single, well-tested framework. Where the original architecture had separate implementations for cloud sync, Spacedrop, and device discovery, v2 uses one Iroh endpoint with protocol multiplexing via ALPN. This achieves 90\%+ NAT traversal success rates, sub-2-second connection establishment, and enables features like persistent device connections and transparent failover---all while reducing networking code complexity by over 60\%.
+    \item A \textbf{Unified Networking Layer} powered by Iroh consolidates all multi-device communication through a single, well-tested framework. Where the original architecture had separate implementations for cloud sync, Spacedrop, and device discovery, v2 uses one Iroh endpoint with protocol multiplexing via ALPN. By leveraging Iroh~\cite{iroh_networking}, a next-generation P2P stack, Spacedrive is engineered for robust NAT traversal designed to achieve significantly higher connection success rates than the ~70\% baseline of older libraries like libp2p. This architectural choice enables sub-2-second connection establishment, persistent device connections, and transparent failover---all while reducing networking code complexity by over 60\%.
 
     \item The technology stack has been modernized, replacing abandoned dependencies with actively maintained, community-trusted libraries like \textbf{SeaORM}.
 
@@ -512,7 +512,7 @@ Version 1's monolithic architecture limited community contributions. Version 2's
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's architecture represents a fundamental shift in how personal data is managed across devices. Rather than treating files as isolated entities scattered across different storage systems, Spacedrive creates a unified virtual layer that provides consistent access, intelligence management, and seamless synchronization. This section presents the core architectural components that enable this vision.
+Spacedrive's architecture represents a new approach to how personal data is managed across devices. Rather than treating files as isolated entities scattered across different storage systems, Spacedrive creates a unified virtual layer that provides consistent access, intelligence management, and seamless synchronization. This section presents the core architectural components that enable this vision.
 
 % --- SECTION 4.1: THE VDFS MODEL ---
 \subsection{The VDFS Model}
@@ -702,7 +702,7 @@ This abstraction transforms complex cross-device operations into simple, type-sa
 
 Beyond indexed content, the SdPath system extends to support live, ephemeral querying of remote filesystems. This capability allows users to browse the live filesystem of any paired device as naturally as browsing local directories. When a user navigates to a remote path, Spacedrive initiates an ephemeral indexing job on the target device, streaming back lightweight Entry records in real-time.
 
-This remote browsing integrates seamlessly with the "inline" entry model described earlier---ephemeral entries from the remote device are presented alongside any previously indexed content, creating a unified view that spans the entire distributed filesystem. Users can tag, organize, or initiate transfers for files on remote devices without requiring the remote to be formally indexed, demonstrating how Spacedrive virtualizes not just indexed data, but provides live, on-demand access to the entire distributed filesystem.
+This remote browsing integrates naturally with the "inline" entry model described earlier---ephemeral entries from the remote device are presented alongside any previously indexed content, creating a unified view that spans the entire distributed filesystem. Users can tag, organize, or initiate transfers for files on remote devices without requiring the remote to be formally indexed, demonstrating how Spacedrive virtualizes not just indexed data, but provides live, on-demand access to the entire distributed filesystem.
 
 \subsubsection{The Entry Lifecycle: Stateful Content Management}
 Unlike static file representations, Entries in Spacedrive transition through a formal lifecycle managed by an event-driven state machine:
@@ -878,7 +878,7 @@ Timeline & First found/last verified \\
 \end{table}
 
 
-This enables powerful queries like "show all instances of this photo across devices" and "calculate storage savings from deduplication." The system recognizes that \texttt{/Users/alice/vacation.jpg} and \texttt{/backup/IMG\_1234.jpg} contain identical content, presenting a unified view while maintaining the actual filesystem locations.
+Users can execute powerful queries like "show all instances of this photo across devices" and "calculate storage savings from deduplication." The system recognizes that \texttt{/Users/alice/vacation.jpg} and \texttt{/backup/IMG\_1234.jpg} contain identical content, presenting a unified view while maintaining the actual filesystem locations.
 
 \subsubsection{Data Guardian: Redundancy Intelligence}
 
@@ -971,7 +971,7 @@ A Spacedrive Library is composed of one or more \textbf{Locations}---managed dir
 
 \textbf{The Location as a Managed Entity}
 
-When a user adds a directory to a Spacedrive Library, it becomes a \texttt{Location}, a managed entity with its own configuration and lifecycle. This allows for granular control over how different parts of the user's dataspace are handled. Each \texttt{Location} has a specific \textbf{Index Mode} (\texttt{Shallow}, \texttt{Content}, or \texttt{Deep}), enabling users to apply different levels of analysis to different types of content (e.g., deep analysis for a photo library, shallow for a downloads folder).
+When a user adds a directory to a Spacedrive Library, it becomes a \texttt{Location}, a managed entity with its own configuration and lifecycle. Each Location provides granular control over how different parts of the user's dataspace are handled. Each \texttt{Location} has a specific \textbf{Index Mode} (\texttt{Shallow}, \texttt{Content}, or \texttt{Deep}), enabling users to apply different levels of analysis to different types of content (e.g., deep analysis for a photo library, shallow for a downloads folder).
 
 \textbf{The Location Watcher Service}
 
@@ -1045,7 +1045,7 @@ This hybrid approach ensures Spacedrive maintains its performance advantages whi
 \end{itemize}
 \end{keytakeaways}
 
-Traditional file management is immediate and often unforgiving. Operations execute instantly, with no opportunity to preview the outcome, leading to uncertainty, especially in complex tasks like cross-device backups or data reorganization. Spacedrive introduces a paradigm shift with its \textbf{Transactional Action System with Pre-visualization}, which treats user intent as a transactional, verifiable operation.
+Traditional file management is immediate and often unforgiving. Operations execute instantly, with no opportunity to preview the outcome, leading to uncertainty, especially in complex tasks like cross-device backups or data reorganization. Spacedrive introduces a revolutionary approach with its \textbf{Transactional Action System with Pre-visualization}, which treats user intent as a transactional, verifiable operation.
 
 This system allows any file system operation to be simulated in a "dry run" mode before execution. Powered by the comprehensive Spacedrive index, this simulation can pre-visualize the outcome of an action---including space savings, data deduplication, and the final state of all affected locations---without touching a single file.
 
@@ -1343,7 +1343,7 @@ This architecture ensures that new files are added to the user's dataspace in a 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Domain Separation}: Avoids CRDT complexity by separating index, metadata, and file operations
-\item \textbf{Unified Networking}: Single Iroh endpoint handles all protocols with 90\%+ NAT traversal
+\item \textbf{Unified Networking}: Single Iroh endpoint handles all protocols with robust NAT traversal~\cite{iroh_networking}
 \item \textbf{Intelligent Sync}: VDFS index enables instant change detection and global deduplication
 \end{itemize}
 \end{keytakeaways}
@@ -1393,7 +1393,7 @@ This separation eliminates the vast complexity of file content synchronization, 
 
 \subsubsection{Iroh-Powered Network Infrastructure}
 
-Spacedrive's networking architecture represents a fundamental shift from fragmented, protocol-specific implementations to a \textbf{unified networking layer} powered by Iroh. This consolidation eliminates the complexity of managing separate networking stacks for sync, file transfer, and device discovery, achieving enterprise-level connectivity reliability on consumer networks:
+Spacedrive's networking architecture departs from fragmented, protocol-specific implementations, introducing a \textbf{unified networking layer} powered by Iroh. This consolidation eliminates the complexity of managing separate networking stacks for sync, file transfer, and device discovery, achieving enterprise-level connectivity reliability on consumer networks:
 
 \textbf{Superior NAT Traversal}
 
@@ -1401,7 +1401,7 @@ The networking service employs a unified architecture where all protocols share 
 
 Performance improvements over the previous fragmented implementation:
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{90\%+ NAT traversal success} (versus 70\% with libp2p)
+ \item \textbf{Superior NAT traversal} leveraging Iroh's modern hole-punching techniques~\cite{iroh_networking}
  \item \textbf{Sub-2-second connection establishment} (down from 3-5 seconds)
  \item \textbf{60\% reduction in networking code} through protocol consolidation
  \item \textbf{Single connection per device pair} supporting all protocols concurrently
@@ -1512,7 +1512,7 @@ This stateful, always-on monitoring eliminates the need for periodic manual sync
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{AI-Native Design}: Your file index becomes a comprehensive "world model" that AI agents can understand and reason about
-\item \textbf{Natural Language}: Say "organize my tax documents" and watch as the AI converts your intent into safe, previewable actions
+\item \textbf{Natural Language}: Say "organize my tax documents" and the AI converts your intent into structured actions via the Action System
 \item \textbf{Privacy-First AI}: Run models locally with Ollama for complete privacy, or use cloud AI with transparent controls
 \end{itemize}
 \end{keytakeaways}
@@ -1555,7 +1555,7 @@ The Action System serves as a stable, well-defined API that can be used to fine-
 
 As we saw with Alice's request to ``find design assets from last fall that I never exported,'' the system seamlessly translates natural language into precise operations. Similarly, a command like ``Move my last 3 screen recordings from the desktop to the 'Clips' folder on my NAS'' is processed through semantic search to identify the relevant files, then translated into a structured \texttt{FileCopyAction} with appropriate source paths, destination, and move semantics.
 
-The generated action is processed through the Action System (Section~\ref{sec:action-system}), providing a preview before execution. This keeps the human in the loop, with AI serving as an interpreter rather than an opaque automaton.
+The generated action is processed through the Action System (Section~\ref{sec:action-system}), inheriting its safety guarantees including preview and durability. The AI serves as an interpreter rather than an opaque automaton.
 
 \subsubsection{Proactive Assistance and Optimization}
 
@@ -1563,10 +1563,9 @@ Beyond executing commands, the AI agent can proactively identify opportunities t
 
 \textbf{Organizational Suggestions}: As demonstrated in Alice's workflow, when the AI observed her repeatedly moving screenshots from the Desktop to project folders, it proactively offered to automate this pattern. The architecture enables such capabilities---if the indexer identifies a screen recording on the Desktop and the agent observes from historical actions that the user consistently moves such files to a \texttt{\textasciitilde/Videos/Screen Recordings} folder, it could generate a suggested \texttt{FileCopyAction} for the user to approve with a single click.
 
-\textbf{Deduplication Opportunities}: The agent can periodically scan for duplicated content across devices and suggest a "cleanup" action that consolidates files and frees up space, presenting a clear preview of the space savings.
+\textbf{Deduplication Opportunities}: The agent can periodically scan for duplicated content across devices and suggest a "cleanup" action that consolidates files and frees up space, with the Action System showing exactly what will be removed.
 
-\textbf{Data Guardian Mode}: Most importantly, the AI acts as a proactive data guardian by leveraging the redundancy intelligence provided by the Content Identity system (detailed in Section~\ref{sec:content-identity}). When Alice imports her daughter's graduation photos—irreplaceable memories captured in a single afternoon—the AI immediately recognizes these as new, unique files existing only on her laptop through the Content Identity's redundancy tracking. Understanding the importance of such content (through semantic analysis of filenames like "Emma\_Graduation\_2024"), it generates a critical suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?" The suggestion appears as a pre-visualized Action showing exactly which files will be copied and where, giving Alice confidence to protect her memories with a single click.
-
+\textbf{Data Guardian Mode}: The AI leverages the Data Guardian capability (Section~\ref{sec:content-identity}) to monitor file redundancy. When Alice imports her daughter's graduation photos, the system detects these as single-copy files. The AI generates a suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?" 
 The AI system analyzes user behavior patterns from the \texttt{audit\_log} table to identify organizational preferences, then suggests actions when files violate established patterns. Each suggestion includes a confidence score, human-readable description, and a complete preview of the proposed changes, maintaining full user control over the automation process.
 
 \paragraph{Intelligent Ingestion Sorting}
@@ -2065,7 +2064,7 @@ This unified approach to sharing—from private team collaboration to public con
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Production-Ready}: Built in Rust with memory safety guarantees • 95\%+ test coverage • Multi-process distributed testing framework
-\item \textbf{Proven Performance}: 8,500 files/sec indexing • 55ms keyword search • 95ms semantic search • 92\% NAT traversal success
+\item \textbf{Proven Performance}: 8,500 files/sec indexing • 55ms keyword search • 95ms semantic search • Reliable P2P connectivity via Iroh~\cite{iroh_networking}
 \item \textbf{Full Compatibility}: Works seamlessly with existing filesystems, cloud services, and tools---no migration required
 \end{itemize}
 \end{keytakeaways}
@@ -2237,7 +2236,6 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 \multicolumn{3}{l}{\textit{Network Performance}} \\
 \quad P2P transfer (LAN) & 110 & MB/s \\
 \quad P2P transfer (WAN w/ relay) & 45 & MB/s \\
-\quad NAT traversal success rate & 92 & \% \\
 \quad Connection establishment & 1.8 & seconds \\
 \midrule
 \multicolumn{3}{l}{\textit{Extension System}} \\
