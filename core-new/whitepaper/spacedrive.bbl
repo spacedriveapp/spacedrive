@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{17}
+\begin{thebibliography}{16}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -56,15 +56,6 @@
 \newblock \showarticletitle{IPFS - Content Addressed, Versioned, P2P File System}.
 \newblock \bibinfo{journal}{\emph{arXiv preprint arXiv:1407.3561}} (\bibinfo{year}{2014}).
 \newblock
-
-
-\bibitem[Bergman et~al\mbox{.}(2004)]%
-        {bergman_fragmentation_2004}
-\bibfield{author}{\bibinfo{person}{Ofer Bergman}, \bibinfo{person}{Ruth Beyth-Marom}, {and} \bibinfo{person}{Rafi Nachmias}.} \bibinfo{year}{2004}\natexlab{}.
-\newblock \showarticletitle{The Project Fragmentation Problem in Personal Information Management}.
-\newblock \bibinfo{journal}{\emph{CHI}} (\bibinfo{year}{2004}), \bibinfo{pages}{106--113}.
-\newblock
-\href{https://doi.org/10.1145/985692.985707}{doi:\nolinkurl{10.1145/985692.985707}}
 
 
 \bibitem[Craig-Wood(2014)]%

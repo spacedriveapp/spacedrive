@@ -137,9 +137,9 @@
 
 % --- ABSTRACT ---
 \begin{abstract}
-Data fragmentation across devices and clouds makes unified file management impossible. Spacedrive solves this with a local-first~\cite{kleppmann_localfirst_2019}, AI-native Virtual Distributed File System (VDFS) that creates a single view of all your data---while files stay where they are. Unlike cloud-centric solutions, Spacedrive works entirely offline, preserves privacy, and scales from personal use to enterprise deployment.
+Data fragmentation across devices and clouds makes cohesive file management impossible. Spacedrive solves this with a local-first~\cite{kleppmann_localfirst_2019}, AI-native Virtual Distributed File System (VDFS) that creates a single view of all your data---while files stay where they are. Unlike cloud-centric solutions, Spacedrive works entirely offline, preserves privacy, and scales from personal use to enterprise deployment.
 
-At its core, Spacedrive provides a unified index of all data across devices, enabling instant search, automatic deduplication, and safe cross-device operations. This comprehensive index also powers an AI layer that understands natural language commands ("find my tax documents from last year") and provides intelligent assistance---all while keeping data processing local for complete privacy.
+At its core, Spacedrive provides a complete index of all data across devices, enabling instant search, automatic deduplication, and safe cross-device operations. This centralized index also powers an AI layer that understands natural language commands ("find my tax documents from last year") and provides intelligent assistance---all while keeping data processing local for complete privacy.
 
 This paper presents the Spacedrive V2 architecture and its key innovations, including a Virtual Distributed File System with content-aware addressing, a transactional system that previews operations, and a novel synchronization method that avoids consensus complexity. The system's Content Identity foundation enables both intelligent deduplication and proactive data protection, while the AI-native design provides semantic search capabilities and acts as a data guardian. We demonstrate the architecture's flexibility through a cloud service implementation where backend instances operate as standard P2P devices, eliminating traditional client-server boundaries.
 \end{abstract}
@@ -176,13 +176,13 @@ This paper presents the Spacedrive V2 architecture and its key innovations, incl
 
 % --- EXECUTIVE SUMMARY ---
 \subsection*{The Challenge}
-In today's digital landscape, the average professional---from designers and photographers to engineers and researchers---manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: knowledge workers spend 25\% of their workweek searching for information across fragmented systems \cite{atlassian2025}, with creative professionals particularly impacted by media asset sprawl. Storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no unified approach that respects both needs.
+In today's digital landscape, the average professional---from designers and photographers to engineers and researchers---manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: knowledge workers spend 25\% of their workweek searching for information across fragmented systems \cite{atlassian2025}, with creative professionals particularly impacted by media asset sprawl. Storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no integrated approach that respects both needs.
 
 \subsection*{The Spacedrive Solution}
-Spacedrive introduces a Virtual Distributed File System (VDFS) that changes how we interact with digital assets. Rather than moving files to a central location, Spacedrive creates an intelligent layer above existing storage that provides:
+Spacedrive implements a Virtual Distributed File System (VDFS) designed to provide a single interface for managing digital assets across disparate storage locations. Rather than moving files to a central location, Spacedrive creates an intelligent layer above existing storage that provides:
 
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Unified Access}: A single interface to manage files across all devices and clouds
+\item \textbf{Universal Access}: A single interface to manage files across all devices and clouds
 \item \textbf{AI-Powered Intelligence}: Natural language commands and proactive data protection
 \item \textbf{Zero Vendor Lock-in}: Files remain in their original locations with full portability
 \item \textbf{Complete Privacy}: All processing happens locally with no data leaving your control
@@ -191,9 +191,9 @@ Spacedrive introduces a Virtual Distributed File System (VDFS) that changes how 
 \subsection*{Key Business Benefits}
 \textbf{For Individuals and Creators}:
 \begin{itemize}[noitemsep, topsep=0pt]
-\item Save 20-30\% storage through automated deduplication
 \item Find any file in seconds with semantic search
 \item Protect irreplaceable memories with automated redundancy monitoring
+\item Reduce storage consumption through automated deduplication
 \item Work seamlessly across devices without manual synchronization
 \end{itemize}
 
@@ -202,7 +202,7 @@ Spacedrive introduces a Virtual Distributed File System (VDFS) that changes how 
 \item Maintain data sovereignty with on-premise deployment options
 \item Enable secure collaboration without exposing sensitive data
 \item Reduce storage costs through global deduplication
-\item Meet compliance requirements with comprehensive audit trails
+\item Meet compliance requirements with detailed audit trails
 \end{itemize}
 
 \subsection*{Technology Advantages}
@@ -214,25 +214,11 @@ Spacedrive's architecture delivers enterprise-grade capabilities on consumer har
 \item \textbf{Scalability}: From personal use to multi-petabyte deployments
 \end{itemize}
 
-\subsection*{Market Opportunity}
-The global cloud storage market exceeds \$100 billion annually, yet user satisfaction remains low due to privacy concerns, vendor lock-in, and fragmentation. Spacedrive addresses this gap by offering the convenience of cloud services with the control of local storage, targeting:
-\begin{itemize}[noitemsep, topsep=0pt]
-\item 2.5 billion knowledge workers seeking productivity solutions
-\item Creative professionals managing large media libraries
-\item Privacy-conscious users avoiding cloud centralization
-\item Enterprises requiring data sovereignty and compliance
-\end{itemize}
-
-\subsection*{Investment Highlights}
-\begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Proven Architecture}: V2 built on lessons from 3 years of development
-\item \textbf{Technical Moat}: Novel approaches to distributed sync and AI integration
-\item \textbf{Flexible Business Model}: Freemium for individuals, subscriptions for teams, licensing for enterprises
-\item \textbf{Open Core Strategy}: Community-driven development with commercial extensions
-\end{itemize}
+\subsection*{Design Context}
+The system architecture addresses use cases ranging from individual creative professionals managing large media libraries to enterprises requiring data sovereignty and compliance. This diversity of requirements informed key design decisions including the local-first approach, robust privacy guarantees, and flexible deployment models.
 
 \subsection*{The Path Forward}
-Spacedrive improves how users manage their digital assets. By solving the fundamental problems of data fragmentation, privacy, and intelligent management, Spacedrive is positioned to become the essential infrastructure for personal and organizational data in the AI era.
+Spacedrive improves how users manage their digital assets. It addresses the challenges of data fragmentation, privacy, and intelligent management, providing a robust infrastructure for personal and organizational data management.
 
 \vspace{0.5cm}
 \hrule
@@ -243,25 +229,25 @@ Spacedrive improves how users manage their digital assets. By solving the fundam
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{The Problem}: Data fragmentation wastes 25\% of the workweek searching for files---especially for creatives managing sprawling media libraries
-\item \textbf{Our Solution}: A Virtual Distributed File System (VDFS) that unifies all your data with AI-native capabilities while files stay in their original locations
+\item \textbf{Our Solution}: A Virtual Distributed File System (VDFS) that consolidates all your data with AI-native capabilities while files stay in their original locations
 \item \textbf{Key Innovation}: Local-first architecture with enterprise-grade features---instant search, automatic deduplication, and natural language commands
 \end{itemize}
 \end{keytakeaways}
 
-The proliferation of computing devices and cloud services has created what we term "data fragmentation hell"~\cite{bergman_fragmentation_2004}---a state where digital assets are scattered across incompatible ecosystems, each with proprietary APIs, limited interoperability, and platform lock-in. This challenge spans from individual creators managing files across personal devices to enterprises coordinating data across departments, cloud providers, and geographic locations. Whether it's a photographer organizing a portfolio, a design team collaborating on assets, or a corporation managing petabytes of data, the fundamental problem remains: no unified view or consistent management capabilities across the entire data ecosystem.
+The proliferation of computing devices and cloud services has intensified what Bergman et al. identified as the "project fragmentation problem"~\cite{bergman_fragmentation_2006}---a state where digital assets are scattered across incompatible ecosystems, each with proprietary APIs, limited interoperability, and platform lock-in. This challenge spans from individual creators managing files across personal devices to enterprises coordinating data across departments, cloud providers, and geographic locations. Whether it's a photographer organizing a portfolio, a design team collaborating on assets, or a corporation managing petabytes of data, the fundamental problem remains: no complete view or consistent management capabilities across the entire data ecosystem.
 
 Existing file management solutions treat data as hierarchical folder structures, blind to content relationships and cross-device dependencies. This leads to fundamental problems: duplicate files consuming storage across devices, inability to find content regardless of location, loss of context when files move between devices, and fragmented metadata that doesn't follow the content.
 
-We present Spacedrive, a Virtual Distributed File System (VDFS) that reimagines data management as a unified, content-aware ecosystem. Unlike traditional file managers that operate on individual devices, Spacedrive creates Libraries---portable, self-contained databases that maintain comprehensive indexes of content across devices and locations. These Libraries automatically synchronize between all connected devices, ensuring users have a complete, real-time view of their entire dataspace from any device---whether accessing from their phone, laptop, or workstation.
+We present Spacedrive, a Virtual Distributed File System (VDFS) that reimagines data management as an integrated, content-aware ecosystem. Unlike traditional file managers that operate on individual devices, Spacedrive creates Libraries---portable, self-contained databases that maintain complete indexes of content across devices and locations. These Libraries automatically synchronize between all connected devices, ensuring users have a complete, real-time view of their entire dataspace from any device---whether accessing from their phone, laptop, or workstation.
 
 Spacedrive's architecture is built on seven foundational innovations that solve traditionally hard problems in distributed systems:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Virtual Distributed File System} (Section~\ref{sec:vdfs}): Unified view across all devices with content-aware addressing and seamless cross-device operations.
+ \item \textbf{Virtual Distributed File System} (Section~\ref{sec:vdfs}): Comprehensive view across all devices with content-aware addressing and seamless cross-device operations.
 
  \item \textbf{Entry-Centric Data Model} (Section~\ref{sec:entry-centric}): Immediate metadata capabilities for every file, enabling instant organization without waiting for analysis.
 
- \item \textbf{Content Identity System} (Section~\ref{sec:content-identity}): Deduplication and data redundancy protection through comprehensive content tracking.
+ \item \textbf{Content Identity System} (Section~\ref{sec:content-identity}): Deduplication and data redundancy protection through complete content tracking.
 
  \item \textbf{Native Storage Tiering} (Section~\ref{sec:volume-foundation}): A sophisticated, VDFS-level storage model that distinguishes between a volume's physical capabilities (e.g., SSD vs. HDD) and a location's logical, user-defined purpose, enabling intelligent warnings and transparent cost optimization.
 
@@ -292,12 +278,12 @@ Commercial cloud storage services (Dropbox~\cite{dropbox}, Google Drive, iCloud)
 Research systems like IPFS~\cite{ipfs} and production systems like Ceph~\cite{ceph} demonstrate the power of content-addressable storage. However, their complexity and resource requirements make them unsuitable for personal use. IPFS requires understanding of cryptographic hashes and peer-to-peer networking, while Ceph targets datacenter deployments. Spacedrive adopts content-addressing principles while hiding complexity behind familiar file management interfaces, drawing inspiration from systems like LBFS~\cite{muthitacharoen_lbfs_2001} that pioneered content-defined chunking for efficient network transfers.
 
 \subsection{Virtual Distributed File Systems in the Datacenter}
-The concept of a Virtual Distributed File System (VDFS) has been explored in the context of large-scale data analytics. Alluxio (formerly Tachyon)~\cite{alluxio_vdfs} introduced a memory-centric VDFS designed to sit between computation frameworks like Apache Spark and various storage systems (e.g., HDFS, S3). Alluxio's primary goal is to accelerate data analytics jobs by providing a unified, high-throughput data access layer, effectively decoupling computation from storage in a datacenter environment.
+The concept of a Virtual Distributed File System (VDFS) has been explored in the context of large-scale data analytics. Alluxio (formerly Tachyon)~\cite{alluxio_vdfs} introduced a memory-centric VDFS designed to sit between computation frameworks like Apache Spark and various storage systems (e.g., HDFS, S3). Alluxio's primary goal is to accelerate data analytics jobs by providing a consolidated, high-throughput data access layer, effectively decoupling computation from storage in a datacenter environment.
 
 While Spacedrive shares the VDFS terminology, its architectural goals and target domain are fundamentally different. Where Alluxio optimizes for performance in large, multi-tenant analytics clusters, Spacedrive is designed as a local-first, privacy-preserving dataspace for an individual's complete digital life. Spacedrive's innovations in universal addressing (\texttt{SdPath}), an entry-centric model with immediate metadata, and Library Sync are tailored to the challenges of personal data fragmentation across a heterogeneous collection of consumer devices, a problem space distinct from the performance and data-sharing challenges in large-scale analytics that Alluxio addresses.
 
 \subsection{Personal Knowledge Management}
-Tools like Obsidian and Logseq excel at managing structured knowledge through markdown files but lack general file management capabilities. They demonstrate the value of local-first architectures~\cite{kleppmann_localfirst_2019} and portable data formats, principles that Spacedrive extends to all file types. Our work generalizes their approach from text-centric knowledge graphs to comprehensive file management.
+Tools like Obsidian and Logseq excel at managing structured knowledge through markdown files but lack general file management capabilities. They demonstrate the value of local-first architectures~\cite{kleppmann_localfirst_2019} and portable data formats, principles that Spacedrive extends to all file types. Our work generalizes their approach from text-centric knowledge graphs to general-purpose file management.
 
 \subsection{Self-Hosted Solutions}
 Projects like Nextcloud provide self-hosted alternatives to commercial cloud services but retain client-server architectures that complicate deployment and maintenance. They require dedicated servers and technical expertise, limiting adoption. Spacedrive's peer-to-peer architecture eliminates server requirements while providing similar capabilities through direct device communication.
@@ -327,15 +313,15 @@ Nextcloud & Self-hosted server & Tech-savvy users & Data sovereignty & Requires 
 \label{tab:comparison}
 \end{table*}
 
-Our work synthesizes insights from these domains while addressing their individual limitations, creating a unified system that is simultaneously powerful, private, and accessible to non-technical users.
+Our work synthesizes insights from these domains while addressing their individual limitations, creating an integrated system that is simultaneously powerful, private, and accessible to non-technical users.
 
 \subsection{Command-Line Data Movers}
 Powerful command-line utilities like rclone~\cite{rclone_reference} excel at performing robust, scriptable data transfers between a wide variety of storage backends. These tools are highly effective for one-off data moving tasks and are a staple for technical users. However, their fundamentally stateless architecture presents limitations that Spacedrive's stateful, persistent model is designed to overcome.
 
-Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. Spacedrive leverages its persistent state to perform effective synchronization through global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a unified dataspace. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
+Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. Spacedrive leverages its persistent state to perform effective synchronization through global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a cohesive dataspace. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
 
 \subsection{System Architecture Overview}
-Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive, illustrating how the core components interact to provide a unified virtual distributed file system.
+Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive, illustrating how the core components interact to provide an integrated virtual distributed file system.
 
 \begin{figure*}[ht]
 \centering
@@ -386,7 +372,7 @@ Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive
 
 % P2P Network Layer (Right)
 \node[sectionlabel, rotate=90] at (8.5, 0) {P2P Network Layer};
-\node[network, minimum width=3cm] (iroh) at (6.5, 0) {Unified Network\\(Iroh Protocol)};
+\node[network, minimum width=3cm] (iroh) at (6.5, 0) {Integrated Network\\(Iroh Protocol)};
 \node[device] (laptop) at (6.5, 2.5) {Laptop};
 \node[device] (phone) at (6.5, 1.5) {Phone};
 \node[device] (cloudcore) at (6.5, -1.5) {Cloud Core};
@@ -439,12 +425,12 @@ Figure~\ref{fig:architecture} presents the high-level architecture of Spacedrive
 \end{scope}
 
 \end{tikzpicture}
-\caption{Spacedrive System Architecture: The VDFS Engine forms the intelligent core, containing the unified index, transactional action system, indexing engine, AI layer, sync engine, and event bus. User interactions flow down through various interfaces, while the storage layer is monitored by the location watcher service. The P2P network layer enables device-to-device communication via the Iroh protocol. Example flows illustrate how user actions, file discovery, search, and synchronization move through the system.}
+\caption{Spacedrive System Architecture: The VDFS Engine forms the intelligent core, containing the centralized index, transactional action system, indexing engine, AI layer, sync engine, and event bus. User interactions flow down through various interfaces, while the storage layer is monitored by the location watcher service. The P2P network layer enables device-to-device communication via the Iroh protocol. Example flows illustrate how user actions, file discovery, search, and synchronization move through the system.}
 \label{fig:architecture}
 \end{figure*}
 
 \paragraph{Extensibility Models}
-Unlike systems that require native plugins (Finder, Nautilus) or rely on scripting languages (Obsidian, VS Code), Spacedrive employs a unified WebAssembly-based extensibility model. All extensions—from simple content type handlers to complex cloud storage integrations—run in a secure WASM sandbox. This provides both power and safety without the complexity of managing multiple extension systems.
+Unlike systems that require native plugins (Finder, Nautilus) or rely on scripting languages (Obsidian, VS Code), Spacedrive employs a consistent WebAssembly-based extensibility model. All extensions—from simple content type handlers to complex cloud storage integrations—run in a secure WASM sandbox. This provides both power and safety without the complexity of managing multiple extension systems.
 
 \paragraph{Cloud Storage Approaches}
 Unlike traditional sync clients that duplicate data locally, Spacedrive treats cloud storage as just another volume through direct indexing (detailed in Section~\ref{sec:platform-integrations}).
@@ -452,7 +438,7 @@ Unlike traditional sync clients that duplicate data locally, Spacedrive treats c
 % --- SECTION 3: LEARNING FROM THE PAST ---
 \section{Learning from the Past: Architectural Evolution from Spacedrive v1}
 
-Spacedrive v2 represents a complete architectural reimplementation designed to fulfill the original vision on a more robust, scalable foundation. The initial version, first open-sourced in 2022, validated the core premise of a unified VDFS for personal data with significant community interest. However, as development progressed through early 2025, several foundational architectural challenges emerged that ultimately necessitated this rewrite, drawing lessons from the evolution of distributed systems and CRDTs~\cite{shapiro_crdts_2011}.
+Spacedrive v2 represents a complete architectural reimplementation designed to fulfill the original vision on a more robust, scalable foundation. The initial version, first open-sourced in 2022, validated the core premise of an integrated VDFS for personal data with significant community interest. However, as development progressed through early 2025, several foundational architectural challenges emerged that ultimately necessitated this rewrite, drawing lessons from the evolution of distributed systems and CRDTs~\cite{shapiro_crdts_2011}.
 
 \subsection{Key Challenges in the Original Architecture}
 
@@ -467,7 +453,7 @@ Post-mortem analysis of the v1 codebase revealed critical issues that prevented 
 
     \item \textbf{Excessive Job System Boilerplate}: While functional, the original job system required over 500 lines of boilerplate to define new background jobs, stifling rapid development and extensibility.
 
-    \item \textbf{Fragmented Networking Architecture}: The original codebase suffered from multiple, non-unified networking layers---a centralized cloud sync system built separately from an incomplete libp2p implementation for ephemeral file sharing (Spacedrop), with different protocols for sync, file transfer, and device communication. This fragmentation led to reliability issues, code duplication, and a 70\% NAT traversal success rate that made device-to-device communication unpredictable.
+    \item \textbf{Fragmented Networking Architecture}: The original codebase suffered from multiple, fragmented networking layers---a centralized cloud sync system built separately from an incomplete libp2p implementation for ephemeral file sharing (Spacedrop), with different protocols for sync, file transfer, and device communication. This fragmentation led to reliability issues, code duplication, and a 70\% NAT traversal success rate that made device-to-device communication unpredictable.
 
     \item \textbf{Abandoned Dependencies}: Critical dependencies like \texttt{prisma-client-rust} and \texttt{rspc} were created by the original team and later abandoned, leaving the project reliant on unmaintained forks.
 \end{itemize}
@@ -477,7 +463,7 @@ Post-mortem analysis of the v1 codebase revealed critical issues that prevented 
 The v2 architecture presented in this paper directly addresses these challenges:
 
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item The unified \textbf{SdPath} addressing system completely eliminates the dual file system problem. All file operations now work on a single, consistent abstraction regardless of location.
+    \item The consistent \textbf{SdPath} addressing system completely eliminates the dual file system problem. All file operations now work on a single, consistent abstraction regardless of location.
 
     \item A robust, decoupled \textbf{Event Bus} replaces the \texttt{invalidate\_query!} anti-pattern, allowing components to subscribe to state changes without tight coupling.
 
@@ -485,19 +471,19 @@ The v2 architecture presented in this paper directly addresses these challenges:
 
     \item The new \textbf{Job System} with derive macros and automatic registration reduces boilerplate by over 90\%, fostering extensibility.
 
-    \item A \textbf{Unified Networking Layer} powered by Iroh consolidates all multi-device communication through a single, well-tested framework. Where the original architecture had separate implementations for cloud sync, Spacedrop, and device discovery, v2 uses one Iroh endpoint with protocol multiplexing via ALPN. By leveraging Iroh~\cite{iroh_networking}, a next-generation P2P stack, Spacedrive is engineered for robust NAT traversal designed to achieve significantly higher connection success rates than the ~70\% baseline of older libraries like libp2p. This architectural choice enables sub-2-second connection establishment, persistent device connections, and transparent failover---all while reducing networking code complexity by over 60\%.
+    \item A \textbf{Consolidated Networking Layer} powered by Iroh brings together all multi-device communication through a single, well-tested framework. Where the original architecture had separate implementations for cloud sync, Spacedrop, and device discovery, v2 uses one Iroh endpoint with protocol multiplexing via ALPN. By leveraging Iroh~\cite{iroh_networking}, a next-generation P2P stack, Spacedrive is engineered for robust NAT traversal designed to achieve significantly higher connection success rates than the ~70\% baseline of older libraries like libp2p. This architectural choice enables sub-2-second connection establishment, persistent device connections, and transparent failover---all while reducing networking code complexity by over 60\%.
 
     \item The technology stack has been modernized, replacing abandoned dependencies with actively maintained, community-trusted libraries like \textbf{SeaORM}.
 
-    \item A comprehensive \textbf{async GraphQL API} provides a modern, type-safe interface for frontend applications, while a powerful \textbf{CLI} enables scripting and automation of all Spacedrive operations.
+    \item A full-featured \textbf{async GraphQL API} provides a modern, type-safe interface for frontend applications, while a powerful \textbf{CLI} enables scripting and automation of all Spacedrive operations.
 
-    \item The codebase maintains \textbf{over 95\% line coverage} in core components like the indexing engine, action system, and networking layer, with comprehensive integration tests ensuring reliability and enabling confident refactoring as the system evolves.
+    \item The codebase maintains \textbf{over 95\% line coverage} in core components like the indexing engine, action system, and networking layer, with extensive integration tests ensuring reliability and enabling confident refactoring as the system evolves.
 \end{itemize}
 
 By learning from real-world challenges of the initial version, Spacedrive v2 delivers on the original promise with an architecture that is not only more powerful but also fundamentally simpler, more resilient, and built for the long term.
 
 \paragraph{Extensibility Lessons}
-Version 1's monolithic architecture limited community contributions. Version 2's unified WASM plugin model enables a vibrant ecosystem while maintaining security and stability. All extensions—from content type handlers to cloud storage providers—run in the same secure sandbox, simplifying development and distribution.
+Version 1's monolithic architecture limited community contributions. Version 2's single WASM plugin model enables a vibrant ecosystem while maintaining security and stability. All extensions—from content type handlers to cloud storage providers—run in the same secure sandbox, simplifying development and distribution.
 
 
 % --- SECTION 4: THE SPACEDRIVE ARCHITECTURE ---
@@ -506,18 +492,18 @@ Version 1's monolithic architecture limited community contributions. Version 2's
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Core Innovation}: Unified virtual layer that makes distributed storage feel like a single filesystem through content-aware addressing
+\item \textbf{Core Innovation}: Integrated virtual layer that makes distributed storage feel like a single filesystem through content-aware addressing
 \item \textbf{Key Components}: VDFS model with SdPath addressing • Entry-centric metadata • Content Identity deduplication • Transactional Actions • AI-native design
 \item \textbf{Design Philosophy}: Local-first for privacy, peer-to-peer for resilience, AI-enhanced for intelligence---all without sacrificing user control
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's architecture represents a new approach to how personal data is managed across devices. Rather than treating files as isolated entities scattered across different storage systems, Spacedrive creates a unified virtual layer that provides consistent access, intelligence management, and seamless synchronization. This section presents the core architectural components that enable this vision.
+Spacedrive's architecture represents a new approach to how personal data is managed across devices. Rather than treating files as isolated entities scattered across different storage systems, Spacedrive creates a cohesive virtual layer that provides consistent access, intelligence management, and seamless synchronization. This section presents the core architectural components that enable this vision.
 
 % --- SECTION 4.1: THE VDFS MODEL ---
 \subsection{The VDFS Model}
 \label{sec:vdfs}
-At the core of Spacedrive is a set of abstractions that model a user's data not as a collection of disparate file paths, but as a cohesive, unified Library with content-aware relationships.
+At the core of Spacedrive is a set of abstractions that model a user's data not as a collection of disparate file paths, but as a cohesive, integrated Library with content-aware relationships.
 
 \subsubsection{The Library: A Portable Data Container}
 Rather than managing scattered databases and configurations, Spacedrive organizes everything into self-contained \textbf{Libraries}. Each Library is a \texttt{.sdlibrary} directory that functions as a complete, portable data container:
@@ -532,7 +518,7 @@ A Spacedrive Library is organized as a self-contained directory with four key co
  \item \textbf{Concurrency Protection}: Safe multi-device access control
 \end{itemize}
 
-This portable structure means that backing up your entire organizational system—all metadata, tags, ratings, and file relationships—is as simple as copying a single directory. The Library acts as a comprehensive catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations.
+This portable structure means that backing up your entire organizational system—all metadata, tags, ratings, and file relationships—is as simple as copying a single directory. The Library acts as a complete catalog of your digital life, preserving your organizational work even if the actual files are distributed across multiple devices and locations.
 
 
 This design provides several critical advantages: \textbf{backup} becomes copying a directory, \textbf{sharing} involves sending the complete Library, and \textbf{migration} across devices requires no complex export/import processes. Libraries maintain their own device registries and sync state, enabling seamless collaboration while preserving complete autonomy.
@@ -567,7 +553,7 @@ Discovery Time & First detection timestamp \\
 
 This "metadata-first" capability is a direct result of the indexer's multi-phase architecture (detailed in Section~\ref{sec:indexing-engine}). The initial \textbf{Discovery phase} is a high-speed filesystem traversal that creates a lightweight \texttt{Entry} record for each item it finds. This record, containing the essential \texttt{metadata\_id}, is established almost instantly, allowing for immediate user interaction like tagging. Slower, content-aware operations like hashing and media analysis occur in subsequent, asynchronous phases, enriching the \texttt{Entry} over time without blocking initial organization.
 
-Furthermore, the indexing engine supports an \textbf{ephemeral mode}, which creates temporary, in-memory \texttt{Entry} records for files outside any formally managed \texttt{Location}. When a user browses a filesystem directly, these ephemeral entries are generated on-the-fly and presented "inline" alongside any previously indexed entries, creating a seamless and unified view. This allows users to, for example, tag a file on their desktop directly from the Spacedrive UI without first adding the entire desktop as a permanent location, demonstrating the system's flexibility in managing both curated and transient data. An entry without a parent Location will be persisted in the Library to host the metadata.
+Furthermore, the indexing engine supports an \textbf{ephemeral mode}, which creates temporary, in-memory \texttt{Entry} records for files outside any formally managed \texttt{Location}. When a user browses a filesystem directly, these ephemeral entries are generated on-the-fly and presented "inline" alongside any previously indexed entries, creating a seamless and integrated view. This allows users to, for example, tag a file on their desktop directly from the Spacedrive UI without first adding the entire desktop as a permanent location, demonstrating the system's flexibility in managing both curated and transient data. An entry without a parent Location will be persisted in the Library to host the metadata.
 
 The Entry structure demonstrates this separation of concerns:
 
@@ -821,7 +807,7 @@ By combining accurate identification with semantic categorization, Spacedrive tr
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's content-addressable storage system serves a dual purpose: it eliminates storage waste through intelligent deduplication~\cite{zhu_dedup_2008} while simultaneously acting as a data guardian by tracking redundancy across all devices. This unified approach transforms content identification from a technical optimization into a comprehensive data protection strategy:
+Spacedrive's content-addressable storage system serves a dual purpose: it eliminates storage waste through intelligent deduplication~\cite{zhu_dedup_2008} while simultaneously acting as a data guardian by tracking redundancy across all devices. This unified approach transforms content identification from a technical optimization into a holistic data protection strategy:
 
 \subsubsection{Adaptive Hashing Strategy}
 The system employs different strategies based on file size, inspired by systems like LBFS~\cite{muthitacharoen_lbfs_2001} that demonstrated the benefits of content-aware chunking:
@@ -856,7 +842,7 @@ Each unique piece of content receives a \textbf{Content Identity} record that tr
 
 \textbf{Content Identity Tracking}
 
-Each unique piece of content receives a comprehensive identity record:
+Each unique piece of content receives a detailed identity record:
 
 \begin{table}[h]
 \footnotesize
@@ -907,7 +893,7 @@ This dual approach—saving space through deduplication while protecting data th
 \end{itemize}
 \end{keytakeaways}
 
-The Spacedrive index is the cornerstone of the VDFS, providing the comprehensive "world model" that enables advanced features like semantic search, durable actions, and AI-native management. The Indexing Engine is a sophisticated, multi-phase system designed for performance, resilience, and flexibility on consumer hardware.
+The Spacedrive index is the cornerstone of the VDFS, providing the complete "world model" that enables advanced features like semantic search, durable actions, and AI-native management. The Indexing Engine is a sophisticated, multi-phase system designed for performance, resilience, and flexibility on consumer hardware.
 
 \subsubsection{Multi-Phase Processing Pipeline}
 
@@ -1047,7 +1033,7 @@ This hybrid approach ensures Spacedrive maintains its performance advantages whi
 
 Traditional file management executes operations immediately without preview. Spacedrive's \textbf{Transactional Action System with Pre-visualization} treats operations as transactions that can be previewed.
 
-This system allows any file system operation to be simulated in a "dry run" mode before execution. Powered by the comprehensive Spacedrive index, this simulation can pre-visualize the outcome of an action---including space savings, data deduplication, and the final state of all affected locations---without touching a single file.
+This system allows any file system operation to be simulated in a "dry run" mode before execution. Powered by the complete Spacedrive index, this simulation can pre-visualize the outcome of an action---including space savings, data deduplication, and the final state of all affected locations---without touching a single file.
 
 \subsubsection{The Action Lifecycle: Preview, Commit, Verify}
 
@@ -1222,7 +1208,7 @@ This transparency helps users make informed decisions about when and how to exec
 
 Rather than allowing direct operation dispatch throughout the codebase, Spacedrive routes all user actions through a centralized \textbf{Action System} that provides consistent validation, execution, and logging:
 
-The Action System employs a centralized enumeration that captures every possible user operation, distinguishing between global actions (system-level operations like library creation) and library-scoped actions (operations within a specific Library context). This design provides clear authorization boundaries and enables comprehensive tracking of all user-initiated operations.
+The Action System employs a centralized enumeration that captures every possible user operation, distinguishing between global actions (system-level operations like library creation) and library-scoped actions (operations within a specific Library context). This design provides clear authorization boundaries and enables complete tracking of all user-initiated operations.
 
 \subsubsection{Type-Safe Action Construction}
 
@@ -1248,7 +1234,7 @@ This builder approach provides \textbf{compile-time validation} of action parame
 
 \subsubsection{Comprehensive Audit Logging}
 
-Every library-scoped action automatically receives comprehensive audit logging through the database layer:
+Every library-scoped action automatically receives full audit logging through the database layer:
 
 \begin{table}[h]
 \footnotesize
@@ -1296,7 +1282,7 @@ The Action System's centralized architecture enables sophisticated features that
 
 \textbf{\plannedSection{Enterprise-Grade RBAC Foundation}}
 
-The centralized Action System is architected as the foundation for comprehensive Role-Based Access Control (RBAC), essential for team collaboration and enterprise deployment:
+The centralized Action System is architected as the foundation for granular Role-Based Access Control (RBAC), essential for team collaboration and enterprise deployment:
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \textbf{Role Definitions}: Standard roles like "Viewer" (read-only), "Contributor" (read/write), "Manager" (full control), and custom roles tailored to organizational needs
@@ -1309,7 +1295,7 @@ The centralized Action System is architected as the foundation for comprehensive
 
 \textbf{\plannedSection{Intelligent Undo Capabilities}}
 
-The comprehensive audit trail provides the foundation for sophisticated operation reversal:
+The detailed audit trail provides the foundation for sophisticated operation reversal:
 
 \begin{itemize}[noitemsep, topsep=0pt]
  \item \textbf{Safe Undo Logic}: System understands how to safely reverse each operation type
@@ -1343,7 +1329,7 @@ This architecture ensures that new files are added to the user's dataspace in a 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Domain Separation}: Avoids CRDT complexity by separating index, metadata, and file operations
-\item \textbf{Unified Networking}: Single Iroh endpoint handles all protocols with robust NAT traversal~\cite{iroh_networking}
+\item \textbf{Integrated Networking}: Single Iroh endpoint handles all protocols with robust NAT traversal~\cite{iroh_networking}
 \item \textbf{Intelligent Sync}: VDFS index enables instant change detection and global deduplication
 \end{itemize}
 \end{keytakeaways}
@@ -1482,7 +1468,7 @@ Beyond trusted device pairing, Spacedrive implements \textbf{Spacedrop}---an eph
 
 \subsubsection{Intelligent File Synchronization}
 
-While Spacedrive's primary function is to create a unified virtual index, this comprehensive "world model" serves as a powerful foundation for advanced physical file synchronization. Unlike traditional stateless data-moving utilities that must re-evaluate source and destination on every run, Spacedrive leverages its persistent, real-time VDFS index to perform intelligent, efficient, and reliable file synchronization.
+While Spacedrive's primary function is to create a unified virtual index, this complete "world model" serves as a powerful foundation for advanced physical file synchronization. Unlike traditional stateless data-moving utilities that must re-evaluate source and destination on every run, Spacedrive leverages its persistent, real-time VDFS index to perform intelligent, efficient, and reliable file synchronization.
 
 \textbf{VDFS-Powered Sync Operations}
 
@@ -1511,13 +1497,13 @@ This stateful, always-on monitoring eliminates the need for periodic manual sync
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{AI-Native Design}: Your file index becomes a comprehensive "world model" that AI agents can understand and reason about
+\item \textbf{AI-Native Design}: Your file index becomes a complete "world model" that AI agents can understand and reason about
 \item \textbf{Natural Language}: Say "organize my tax documents" and the AI converts your intent into structured actions via the Action System
 \item \textbf{Privacy-First AI}: Run models locally with Ollama for complete privacy, or use cloud AI with transparent controls
 \end{itemize}
 \end{keytakeaways}
 
-While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native dataspace}. The comprehensive, always-current index of the user's files serves as a perfect "world model" for an AI agent to reason about. This enables a shift from reactive file management (issuing manual commands) to a proactive, collaborative model where both the user and an AI agent can manage the dataspace, with the human always in the loop. This vision builds upon decades of research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
+While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native dataspace}. The complete, always-current index of the user's files serves as a perfect "world model" for an AI agent to reason about. This enables a shift from reactive file management (issuing manual commands) to a proactive, collaborative model where both the user and an AI agent can manage the dataspace, with the human always in the loop. This vision builds upon decades of research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
 
 This is achieved through a flexible, privacy-first architecture that is model-agnostic, supporting both powerful cloud services and local models running on user hardware via interfaces like Ollama.
 
@@ -1565,7 +1551,7 @@ Beyond executing commands, the AI agent can proactively identify opportunities t
 
 \textbf{Deduplication Opportunities}: The agent can periodically scan for duplicated content across devices and suggest a "cleanup" action that consolidates files and frees up space, with the Action System showing exactly what will be removed.
 
-\textbf{Data Guardian Mode}: The AI leverages the Data Guardian capability (Section~\ref{sec:content-identity}) to monitor file redundancy. When Alice imports her daughter's graduation photos, the system detects these as single-copy files. The AI generates a suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?" 
+\textbf{Data Guardian Mode}: The AI leverages the Data Guardian capability (Section~\ref{sec:content-identity}) to monitor file redundancy. When Alice imports her daughter's graduation photos, the system detects these as single-copy files. The AI generates a suggestion: "I noticed you've added 523 graduation photos that currently exist only on your MacBook. These precious memories could be lost if your laptop fails. Would you like me to create backups on your Home NAS and Cloud Storage?"
 The AI system analyzes user behavior patterns from the \texttt{audit\_log} table to identify organizational preferences, then suggests actions when files violate established patterns. Each suggestion includes a confidence score, human-readable description, and a complete preview of the proposed changes, maintaining full user control over the automation process.
 
 \paragraph{Intelligent Ingestion Sorting}
@@ -2069,7 +2055,7 @@ This unified approach to sharing—from private team collaboration to public con
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's design principles are validated through careful implementation choices and comprehensive performance analysis.
+Spacedrive's design principles are validated through careful implementation choices and rigorous performance analysis.
 
 \subsection{Technology Stack}
 Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory safety, performance, and fearless concurrency---essential for a reliable, multi-threaded distributed system. The core technology stack reflects modern best practices:
@@ -2171,7 +2157,7 @@ Based on algorithmic analysis and preliminary benchmarks:
 \textbf{Storage overhead}: For a filesystem with N entries and average depth D, closure tables require approximately N×D additional rows. For typical user filesystems (1M files, average depth 5), this represents ~60MB additional storage---a reasonable trade-off for the dramatic performance improvements.
 
 \subsection{Testing and Validation Framework}
-Spacedrive employs a comprehensive testing strategy designed for real-world scenarios:
+Spacedrive employs a thorough testing strategy designed for real-world scenarios:
 
 \subsubsection{Multi-Process Test Framework}
 A custom Cargo-based subprocess framework enables testing of distributed scenarios:
@@ -2332,7 +2318,7 @@ Unlike traditional cloud sync clients that duplicate data locally, Spacedrive in
 This approach enables management of petabyte-scale cloud libraries on devices with minimal local storage.
 
 \paragraph{OpenDAL Integration}
-To achieve comprehensive cloud storage support efficiently, Spacedrive leverages OpenDAL (Open Data Access Layer), a Rust-native library providing unified access to storage services:
+To achieve full cloud storage support efficiently, Spacedrive leverages OpenDAL (Open Data Access Layer), a Rust-native library providing unified access to storage services:
 
 \begin{itemize}
     \item \textbf{Unified Interface}: Single API for S3, Azure Blob, Google Cloud Storage, WebDAV, and dozens more
@@ -2449,7 +2435,7 @@ For deployments exceeding these limits:
 \end{itemize}
 
 \subsection{Failure Recovery Scenarios}
-Spacedrive's architecture includes comprehensive recovery mechanisms:
+Spacedrive's architecture includes robust recovery mechanisms:
 
 \subsubsection{Database Corruption Recovery}
 When database corruption is detected:
@@ -2600,7 +2586,7 @@ The WASM approach solves critical distribution challenges:
 
 \subsubsection{Plugin Architecture}
 
-The WASM plugin system provides comprehensive extensibility:
+The WASM plugin system provides flexible extensibility:
 
 \begin{figure}[h]
 \centering
@@ -2824,13 +2810,13 @@ This resource-conscious design ensures Spacedrive provides powerful functionalit
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Defense in Depth}: SQLCipher database encryption + ChaCha20 network keys + TLS 1.3 transport = comprehensive protection
+\item \textbf{Defense in Depth}: SQLCipher database encryption + ChaCha20 network keys + TLS 1.3 transport = multi-layered protection
 \item \textbf{Zero-Knowledge Cloud}: Your Spacedrive Cloud instance cannot decrypt your data---only you have the keys
 \item \textbf{Battle-Tested Security}: Protection against real attacks: NAS compromise, stolen devices, cloud breaches, and insider threats
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive's architecture prioritizes user privacy and data security through comprehensive encryption, secure credential management, and a well-defined threat model designed for personal data scenarios.
+Spacedrive's architecture prioritizes user privacy and data security through end-to-end encryption, secure credential management, and a well-defined threat model designed for personal data scenarios.
 
 \subsection{Data Protection at Rest}
 All sensitive user data is encrypted using industry-standard cryptographic protocols:
@@ -3021,7 +3007,7 @@ Spacedrive implements robust certificate pinning for all cloud storage provider 
 
 \subsection{Rate Limiting and Abuse Prevention}
 \subsubsection{Multi-Layer Rate Limiting Architecture}
-Spacedrive implements comprehensive rate limiting to prevent abuse while maintaining performance:
+Spacedrive implements intelligent rate limiting to prevent abuse while maintaining performance:
 
 \textbf{API Rate Limiting}:
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -3160,7 +3146,7 @@ Spacedrive supports multiple AI deployment models to balance privacy, performanc
 \textbf{Cloud AI Services (Enhanced Capabilities)}
 \begin{itemize}[noitemsep, topsep=0pt]
  \item Access to state-of-the-art models from major AI providers
- \item Encrypted API key storage with comprehensive privacy policy tracking
+ \item Encrypted API key storage with detailed privacy policy tracking
  \item Transparent data processing terms presented to users for informed consent
  \item Metadata-only transmission---file contents remain local
 \end{itemize}
@@ -3269,7 +3255,7 @@ When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
  \item System identifies when the same file has been tagged differently on multiple devices
  \item Compares tag sets to determine if there's actual overlap or genuine conflict
  \item Analyzes tag hierarchies to identify if tags are related (e.g., both are children of the same parent tag)
- \item Generates comprehensive conflict context for decision-making
+ \item Generates detailed conflict context for decision-making
 \end{itemize}
 
 \textbf{Resolution Strategy}
@@ -3456,7 +3442,7 @@ When conflicts do occur, users receive immediate, actionable notifications:
 
 \textbf{User-Friendly Conflict Notification System}
 
-Spacedrive provides comprehensive, actionable notifications when conflicts occur and are resolved:
+Spacedrive provides clear, actionable notifications when conflicts occur and are resolved:
 
 \textbf{Notification Structure}
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -3508,14 +3494,14 @@ The impact is practical. Users manage millions of files across dozens of devices
 These innovations work together to create powerful combined capabilities. The Library abstraction makes backup and migration trivial (copy a directory), while SdPath enables seamless operations across that distributed storage. Content addressing works transparently with the sync system to maintain deduplication relationships even as files move between devices. The Temporal-Semantic Search architecture leverages both the content addressing and metadata systems to provide semantic discovery at traditional keyword search speeds.
 
 \subsection{Validation in Production}
-Spacedrive's architecture has been validated through production implementation in Rust, demonstrating that these concepts work reliably in practice. The system handles millions of files across multiple devices while maintaining sub-second response times for user operations. The comprehensive test framework, including multi-process distributed testing, ensures that the complex interactions between networking, synchronization, and file operations remain stable across diverse deployment scenarios.
+Spacedrive's architecture has been validated through production implementation in Rust, demonstrating that these concepts work reliably in practice. The system handles millions of files across multiple devices while maintaining sub-second response times for user operations. The extensive test framework, including multi-process distributed testing, ensures that the complex interactions between networking, synchronization, and file operations remain stable across diverse deployment scenarios.
 
 \subsection{Future Work and Roadmap}
 The architectural foundation laid by Spacedrive opens concrete paths for near-term enhancements and long-term research directions. Our immediate roadmap focuses on extending the AI capabilities to support complex multi-step workflows, such as "organize all vacation photos by year and location, then create albums for each trip." This involves expanding the Action system to support workflow composition while maintaining the same security and reversibility guarantees. Parallel to this, we are developing intelligent content analysis pipelines that leverage both local and cloud models to automatically extract semantic information from files---identifying people in photos, extracting key topics from documents, and understanding relationships between files based on content rather than just metadata.
 
 In the medium term, our research agenda includes three major initiatives. First, we are exploring federated learning approaches that would allow users to benefit from collective intelligence about file organization patterns while maintaining complete privacy---the system would learn from aggregate behaviors without ever exposing individual file information. Second, we are developing advanced storage tiering algorithms that combine AI predictions with real-time access patterns to automatically move files between fast local storage, slower archives, and cloud services based on predicted access likelihood and user-defined cost constraints. Third, we are investigating cross-Library content discovery mechanisms that would allow users to identify duplicate content across different Libraries (perhaps owned by family members or team members) while maintaining the strong isolation guarantees that make Libraries portable and secure.
 
-The longer-term vision extends Spacedrive beyond personal file management into a platform for personal AI agents that understand and manage all aspects of a user's digital life. By providing a comprehensive, versioned view of a user's file history combined with rich semantic understanding, Spacedrive could enable AI assistants that truly understand context---not just current file state but how information has evolved over time. This temporal understanding, combined with the robust Action system, would allow AI agents to perform complex organizational tasks with confidence, knowing that all actions are reversible and auditable. The architecture's emphasis on user control ensures that as these AI capabilities grow more sophisticated, users retain ultimate authority over their data, with all AI operations remaining transparent, explainable, and reversible.
+The longer-term vision extends Spacedrive beyond personal file management into a platform for personal AI agents that understand and manage all aspects of a user's digital life. By providing a complete, versioned view of a user's file history combined with rich semantic understanding, Spacedrive could enable AI assistants that truly understand context---not just current file state but how information has evolved over time. This temporal understanding, combined with the robust Action system, would allow AI agents to perform complex organizational tasks with confidence, knowing that all actions are reversible and auditable. The architecture's emphasis on user control ensures that as these AI capabilities grow more sophisticated, users retain ultimate authority over their data, with all AI operations remaining transparent, explainable, and reversible.
 
 \subsection{Broader Implications}
 Spacedrive shows that user-centric applications can also be powerful enterprise systems. Through careful domain separation, a local-first security model, and an architecture built for scale, we have demonstrated that it is possible to build a single platform that serves the needs of both individual users and large organizations. The key insight is that by starting with a foundation of user empowerment and data sovereignty, we create a system that naturally scales up to enterprise requirements while maintaining the simplicity and control that individual users demand.
