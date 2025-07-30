@@ -176,10 +176,10 @@ This paper presents the Spacedrive V2 architecture and its key innovations, incl
 
 % --- EXECUTIVE SUMMARY ---
 \subsection*{The Challenge}
-In today's digital landscape, the average knowledge worker manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: 23\% of work time is spent searching for files, storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no unified approach that respects both needs.
+In today's digital landscape, the average professional---from designers and photographers to engineers and researchers---manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: knowledge workers spend 25\% of their workweek searching for information across fragmented systems \cite{atlassian2025}, with creative professionals particularly impacted by media asset sprawl. Storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no unified approach that respects both needs.
 
 \subsection*{The Spacedrive Solution}
-Spacedrive introduces a Virtual Distributed File System (VDFS) that fundamentally reimagines how we interact with digital assets. Rather than moving files to a central location, Spacedrive creates an intelligent layer above existing storage that provides:
+Spacedrive introduces a Virtual Distributed File System (VDFS) that changes how we interact with digital assets. Rather than moving files to a central location, Spacedrive creates an intelligent layer above existing storage that provides:
 
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Unified Access}: A single interface to manage files across all devices and clouds
@@ -232,7 +232,7 @@ The global cloud storage market exceeds \$100 billion annually, yet user satisfa
 \end{itemize}
 
 \subsection*{The Path Forward}
-Spacedrive represents more than incremental improvement—it's a paradigm shift in how humans interact with their digital assets. By solving the fundamental problems of data fragmentation, privacy, and intelligent management, Spacedrive is positioned to become the essential infrastructure for personal and organizational data in the AI era.
+Spacedrive improves how users manage their digital assets. By solving the fundamental problems of data fragmentation, privacy, and intelligent management, Spacedrive is positioned to become the essential infrastructure for personal and organizational data in the AI era.
 
 \vspace{0.5cm}
 \hrule
@@ -242,7 +242,7 @@ Spacedrive represents more than incremental improvement—it's a paradigm shift 
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{The Problem}: Data fragmentation across devices and clouds creates a productivity crisis, with users spending 23\% of work time searching for files
+\item \textbf{The Problem}: Data fragmentation wastes 25\% of the workweek searching for files---especially for creatives managing sprawling media libraries
 \item \textbf{Our Solution}: A Virtual Distributed File System (VDFS) that unifies all your data with AI-native capabilities while files stay in their original locations
 \item \textbf{Key Innovation}: Local-first architecture with enterprise-grade features---instant search, automatic deduplication, and natural language commands
 \end{itemize}
@@ -272,13 +272,13 @@ Spacedrive's architecture is built on seven foundational innovations that solve 
  \item \textbf{AI-Native Architecture} (Section~\ref{sec:ai-native}): Natural language commands and proactive assistance through privacy-preserving AI integration.
 \end{itemize}
 
-This paper details Spacedrive's architecture through the lens of a production system---implemented in Rust with modern async patterns, tested across multiple platforms, and designed for real-world deployment. We demonstrate how careful domain separation and content-awareness enable features previously limited to enterprise storage systems: cross-device deduplication, semantic search, intelligent tiering, and conflict-free synchronization at consumer scale.
+This paper details Spacedrive's architecture as a production system implemented in Rust. We demonstrate how domain separation and content-awareness enable enterprise features at consumer scale: cross-device deduplication, semantic search, intelligent tiering, and conflict-free synchronization.
 
-Recognizing that mobile devices are central to modern computing, Spacedrive incorporates sophisticated resource management from its core architecture. The system dynamically adapts to device constraints---intelligently throttling CPU usage on battery power, respecting mobile data limits, and working within platform-specific background processing restrictions. This mobile-first approach ensures Spacedrive remains responsive and efficient whether running on a powerful desktop or a resource-constrained smartphone, making unified file management accessible across all devices without compromising battery life or performance.
+Spacedrive adapts to mobile device constraints through built-in resource management. On battery power, it reduces CPU usage. It respects data limits and platform background restrictions. The system runs efficiently on both desktops and smartphones, maintaining performance across all devices.
 
-Spacedrive's design is predicated on a key insight: the robust, privacy-preserving principles of local-first architecture~\cite{kleppmann_localfirst_2019}, when engineered for scalability, can bridge the gap between consumer-friendly design and enterprise-grade requirements. While traditional enterprise systems often sacrifice user experience for central control, and consumer tools lack the security and auditability needed for business use, Spacedrive delivers both. This architecture scales from personal use to enterprise deployment, supporting everything from individual creative workflows to team collaboration and departmental data governance---all while maintaining security, data sovereignty, and compliance requirements.
+Spacedrive applies local-first architecture~\cite{kleppmann_localfirst_2019} principles at scale. Traditional enterprise systems sacrifice user experience for control. Consumer tools lack business security features. Spacedrive provides both. It scales from personal use to enterprise deployment while maintaining security, data sovereignty, and compliance.
 
-Finally, we demonstrate the power and flexibility of this architecture by outlining a native cloud service built upon it. In this model, the cloud backend is not a privileged, centralized server with a custom API, but is instead a standard Spacedrive device that users pair with and interact with through the same secure, peer-to-peer protocols used for their local machines. This illustrates a novel hybrid approach that combines the convenience of the cloud with the privacy and control of a local-first system.
+We also outline a cloud service built on this architecture. The cloud backend runs as a standard Spacedrive device. Users pair with it using the same peer-to-peer protocols as local machines. This hybrid approach provides cloud convenience with local-first privacy and control.
 
 
 % --- SECTION 2: RELATED WORK ---
@@ -696,7 +696,7 @@ This addressing system enables operations that were previously impossible or ext
  \item \textbf{Transparent Failover}: Operations seamlessly switch to alternative sources
 \end{itemize}
 
-This abstraction transforms complex cross-device operations into simple, type-safe function calls, making the distributed nature of the filesystem completely transparent to both users and developers while providing unprecedented reliability and performance.
+This abstraction simplifies cross-device operations into type-safe function calls. The distributed filesystem appears local to users and developers.
 
 \textbf{Cross-Device Ephemeral Querying}
 
@@ -1045,7 +1045,7 @@ This hybrid approach ensures Spacedrive maintains its performance advantages whi
 \end{itemize}
 \end{keytakeaways}
 
-Traditional file management is immediate and often unforgiving. Operations execute instantly, with no opportunity to preview the outcome, leading to uncertainty, especially in complex tasks like cross-device backups or data reorganization. Spacedrive introduces a revolutionary approach with its \textbf{Transactional Action System with Pre-visualization}, which treats user intent as a transactional, verifiable operation.
+Traditional file management executes operations immediately without preview. Spacedrive's \textbf{Transactional Action System with Pre-visualization} treats operations as transactions that can be previewed.
 
 This system allows any file system operation to be simulated in a "dry run" mode before execution. Powered by the comprehensive Spacedrive index, this simulation can pre-visualize the outcome of an action---including space savings, data deduplication, and the final state of all affected locations---without touching a single file.
 
@@ -1184,7 +1184,7 @@ The simulation engine proactively identifies operational conflicts that would ca
 \item \textbf{Resource Limitations}: Estimates memory and bandwidth requirements against device capabilities
 \end{itemize}
 
-This comprehensive conflict detection represents Spacedrive's primary defense for data integrity. The simulation engine prevents operational conflicts entirely by catching them during the planning phase, while synchronization conflicts from concurrent modifications across devices are handled through intelligent domain-specific merging strategies (detailed in Section 15). This dual approach ensures exceptional reliability in distributed file management.
+The conflict detection system defends data integrity. The simulation engine catches conflicts during planning. Synchronization conflicts from concurrent modifications are handled through domain-specific merging (Section 15). This dual approach improves reliability in distributed file management.
 
 This is particularly powerful when combined with Native Storage Tiering (Section~\ref{sec:volume-foundation}). If a user attempts an operation on a Location they have marked with a \texttt{Hot} logical class, but it resides on a Volume physically classified as \texttt{Cold}, the simulation engine generates a clear warning in the preview: "⚠️ This operation targets a 'hot' location on a slow archive drive. Estimated completion time may be longer than expected." This prevents user frustration by aligning expectations with physical reality before any action is committed.
 
@@ -1397,7 +1397,7 @@ Spacedrive's networking architecture departs from fragmented, protocol-specific 
 
 \textbf{Superior NAT Traversal}
 
-The networking service employs a unified architecture where all protocols share a single Iroh endpoint. Through Application-Layer Protocol Negotiation (ALPN), different features like pairing, file transfer, and sync seamlessly multiplex over the same connections. This eliminates the need for separate networking implementations per feature---a single connection between devices supports all protocols concurrently, with automatic stream management and shared session encryption.
+All networking protocols share a single Iroh endpoint. ALPN allows pairing, file transfer, and sync to use the same connection. One connection between devices handles all protocols with automatic stream management and shared encryption.
 
 Performance improvements over the previous fragmented implementation:
 \begin{itemize}[noitemsep, topsep=0pt]
@@ -1626,7 +1626,7 @@ This architecture fulfills the promise of a truly personal, private, and intelli
 \end{itemize}
 \end{keytakeaways}
 
-Temporal-Semantic Search represents a breakthrough in file discovery, combining SQLite's FTS5 full-text search with lightweight semantic embeddings. The 'temporal' aspect leverages file timestamps and access patterns, while 'semantic' understanding enables natural language queries that find files by meaning, not just keywords—all without the overhead of large language models.
+Temporal-Semantic Search combines SQLite's FTS5 full-text search with lightweight semantic embeddings. The temporal aspect uses file timestamps and access patterns. Semantic understanding enables natural language queries that find files by meaning, not just keywords.
 
 \subsubsection{Temporal Engine Foundation}
 The first stage employs SQLite's FTS5 (Full-Text Search) as a high-performance temporal filter:
@@ -2112,7 +2112,7 @@ This approach works well for simple file operations but has performance limitati
 While effective for simple operations, this approach encounters performance limitations with deep hierarchies and complex aggregation queries.
 
 \subsection{\plannedSection{Case Study: Hierarchical Query Optimization}}
-A concrete example of Spacedrive's performance-driven evolution is the planned migration from materialized paths to a \textbf{Closure Table}\footnote{A closure table is a database design pattern that pre-computes and stores all ancestor-descendant relationships in a separate table, trading storage space for dramatically improved query performance on hierarchical data.} approach for directory hierarchies. This optimization is designed to transform O(N) operations into O(1) lookups.
+Spacedrive plans to migrate from materialized paths to a closure table\footnote{A closure table pre-stores all folder relationships, using more storage for faster queries.} for directories. This changes O(N) operations to O(1) lookups.
 
 \subsubsection{Performance Problem}
 The current materialized path approach leads to inefficient operations for complex hierarchy queries:
@@ -2125,7 +2125,7 @@ The current materialized path approach leads to inefficient operations for compl
 \end{itemize}
 
 \subsubsection{Closure Table Solution}
-The proposed closure table explicitly stores all ancestor-descendant relationships:
+The closure table stores all folder relationships:
 
 
 \textbf{Closure Table: Pre-computed Relationships}
@@ -3491,21 +3491,21 @@ This transparent, user-controlled approach to conflict resolution ensures that u
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Vision Realized}: Enterprise-grade distributed file management made accessible to everyone through careful engineering
+\item \textbf{Accessible Design}: Enterprise-grade distributed file management for all users
 \item \textbf{Production Proven}: Real implementation handling millions of files with sub-100ms response times validates every architectural decision
-\item \textbf{Future Ready}: Solid foundation for AI agents, federated learning, and the next paradigm of human-computer interaction
+\item \textbf{Future Ready}: Solid foundation for AI agents, federated learning, and evolving human-computer interaction
 \end{itemize}
 \end{keytakeaways}
 
-Spacedrive represents a fundamental rethinking of personal file management, demonstrating that sophisticated distributed systems capabilities can be made accessible to individual users through careful architectural design and practical engineering choices. Through our implementation, we have shown that personal data management can evolve beyond simple file browsers to become intelligent, distributed systems that respect user ownership while providing enterprise-level capabilities, embodying the principles of local-first software~\cite{kleppmann_localfirst_2019} and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
+Spacedrive rethinks personal file management by making distributed systems capabilities accessible to individual users. Through our implementation, we have shown that personal data management can evolve beyond simple file browsers to become intelligent, distributed systems that respect user ownership while providing enterprise-level capabilities, embodying the principles of local-first software~\cite{kleppmann_localfirst_2019} and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
 
 \subsection{Key Contributions and Real-World Impact}
-This work transforms personal file management through five architectural innovations: AI-native design for natural language operations, universal file addressing that transcends device boundaries, immediate metadata capabilities for every file, domain-separated synchronization without consensus complexity, and performance-aware deduplication for consumer hardware.
+This work transforms personal file management through five innovations: AI-native natural language operations, universal cross-device file addressing, immediate metadata for every file, domain-separated synchronization, and performance-aware deduplication.
 
-The practical impact is immediate and measurable. Users manage millions of files across dozens of devices through a single interface, eliminating storage waste while maintaining sub-second response times. Data remains portable, privacy is preserved through local-first design, and AI enhancement comes without sacrificing user control. Our production Rust implementation validates these concepts at scale, proving that enterprise capabilities can indeed be delivered with consumer-friendly simplicity.
+The impact is practical. Users manage millions of files across dozens of devices through a single interface, eliminating storage waste while maintaining sub-second response times. Data remains portable, privacy is preserved through local-first design, and AI enhancement comes without sacrificing user control. Our Rust implementation validates these concepts at scale.
 
 \subsection{System Integration}
-These individual innovations combine synergistically to create capabilities greater than the sum of their parts. The Library abstraction makes backup and migration trivial (copy a directory), while SdPath enables seamless operations across that distributed storage. Content addressing works transparently with the sync system to maintain deduplication relationships even as files move between devices. The Temporal-Semantic Search architecture leverages both the content addressing and metadata systems to provide semantic discovery at traditional keyword search speeds.
+These innovations work together to create powerful combined capabilities. The Library abstraction makes backup and migration trivial (copy a directory), while SdPath enables seamless operations across that distributed storage. Content addressing works transparently with the sync system to maintain deduplication relationships even as files move between devices. The Temporal-Semantic Search architecture leverages both the content addressing and metadata systems to provide semantic discovery at traditional keyword search speeds.
 
 \subsection{Validation in Production}
 Spacedrive's architecture has been validated through production implementation in Rust, demonstrating that these concepts work reliably in practice. The system handles millions of files across multiple devices while maintaining sub-second response times for user operations. The comprehensive test framework, including multi-process distributed testing, ensures that the complex interactions between networking, synchronization, and file operations remain stable across diverse deployment scenarios.
@@ -3518,11 +3518,11 @@ In the medium term, our research agenda includes three major initiatives. First,
 The longer-term vision extends Spacedrive beyond personal file management into a platform for personal AI agents that understand and manage all aspects of a user's digital life. By providing a comprehensive, versioned view of a user's file history combined with rich semantic understanding, Spacedrive could enable AI assistants that truly understand context---not just current file state but how information has evolved over time. This temporal understanding, combined with the robust Action system, would allow AI agents to perform complex organizational tasks with confidence, knowing that all actions are reversible and auditable. The architecture's emphasis on user control ensures that as these AI capabilities grow more sophisticated, users retain ultimate authority over their data, with all AI operations remaining transparent, explainable, and reversible.
 
 \subsection{Broader Implications}
-Spacedrive proves that the dichotomy between intuitive, user-centric applications and powerful, secure enterprise systems is a false one. Through careful domain separation, a local-first security model, and an architecture built for scale, we have demonstrated that it is possible to build a single platform that serves the needs of both individual users and large organizations. The key insight is that by starting with a foundation of user empowerment and data sovereignty, we create a system that naturally scales up to enterprise requirements while maintaining the simplicity and control that individual users demand.
+Spacedrive shows that user-centric applications can also be powerful enterprise systems. Through careful domain separation, a local-first security model, and an architecture built for scale, we have demonstrated that it is possible to build a single platform that serves the needs of both individual users and large organizations. The key insight is that by starting with a foundation of user empowerment and data sovereignty, we create a system that naturally scales up to enterprise requirements while maintaining the simplicity and control that individual users demand.
 
 This approach suggests a path forward for personal computing that moves beyond the current model of data scattered across incompatible cloud services toward truly user-controlled, portable, and intelligent data management. The native cloud service model presented in Section 7 is a clear manifestation of this principle, proving that cloud convenience does not have to come at the cost of architectural integrity or user control. By treating the cloud as just another trusted peer, Spacedrive offers a viable hybrid model for the future of personal data. By treating personal data as a unified library rather than a collection of disconnected files, users gain both the simplicity of traditional file management and the power of modern distributed systems.
 
-Spacedrive's architecture provides a robust foundation for the next generation of computing---one that bridges personal and enterprise needs seamlessly. Whether serving an individual creator, a small team, or a global enterprise, the platform delivers the same core promise: unified access to all data, intelligent assistance without sacrificing control, and a user experience that makes powerful capabilities feel effortless. This is not just the future of file management, but a new paradigm for how humans and organizations interact with their digital assets at any scale.
+Spacedrive's architecture provides a robust foundation for the next generation of computing---one that bridges personal and enterprise needs seamlessly. Whether serving an individual creator, a small team, or a global enterprise, the platform delivers the same core promise: unified access to all data, intelligent assistance without sacrificing control, and a user experience that makes powerful capabilities feel effortless. This provides a new approach for how users and organizations interact with their digital assets at any scale.
 
 
 % --- ACKNOWLEDGMENTS ---

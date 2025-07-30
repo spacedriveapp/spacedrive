@@ -41,45 +41,45 @@ Warning--empty publisher in weiser_ubiquitous_1991
 Warning--empty address in weiser_ubiquitous_1991
 Warning--empty publisher in zhu_dedup_2008
 Warning--empty address in zhu_dedup_2008
-You've used 15 entries,
+You've used 17 entries,
             6056 wiz_defined-function locations,
-            1574 strings with 20730 characters,
-and the built_in function-call counts, 16937 in all, are:
-= -- 1912
-> -- 481
+            1587 strings with 21119 characters,
+and the built_in function-call counts, 18427 in all, are:
+= -- 2082
+> -- 515
 < -- 1
-+ -- 161
-- -- 164
-* -- 1135
-:= -- 1579
-add.period$ -- 75
-call.type$ -- 15
-change.case$ -- 104
-chr.to.int$ -- 15
-cite$ -- 44
-duplicate$ -- 1655
-empty$ -- 1153
-format.name$ -- 208
-if$ -- 4059
++ -- 169
+- -- 178
+* -- 1222
+:= -- 1738
+add.period$ -- 87
+call.type$ -- 17
+change.case$ -- 115
+chr.to.int$ -- 17
+cite$ -- 46
+duplicate$ -- 1797
+empty$ -- 1254
+format.name$ -- 222
+if$ -- 4384
 int.to.chr$ -- 2
 int.to.str$ -- 1
 missing$ -- 63
-newline$ -- 164
-num.names$ -- 105
-pop$ -- 714
+newline$ -- 191
+num.names$ -- 119
+pop$ -- 757
 preamble$ -- 1
-purify$ -- 224
+purify$ -- 250
 quote$ -- 0
-skip$ -- 617
+skip$ -- 676
 stack$ -- 0
-substring$ -- 1259
-swap$ -- 150
+substring$ -- 1366
+swap$ -- 160
 text.length$ -- 1
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 422
+type$ -- 482
 warning$ -- 29
-while$ -- 98
+while$ -- 112
 width$ -- 0
-write$ -- 326
+write$ -- 373
 (There were 29 warnings)

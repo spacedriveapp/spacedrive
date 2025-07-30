@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{15}
+\begin{thebibliography}{17}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -35,6 +35,20 @@
 \providecommand\bibinfo[2]{#2}
 \providecommand\natexlab[1]{#1}
 \providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[{Atlassian}(2025)]%
+        {atlassian2025}
+\bibfield{author}{\bibinfo{person}{{Atlassian}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{State of Teams 2025}}.
+\newblock \bibinfo{type}{{T}echnical {R}eport}. \bibinfo{institution}{Atlassian}.
+\newblock
+\urldef\tempurl%
+\url{https://www.atlassian.com/blog/state-of-teams-2025}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{Knowledge workers spend 25\% of their workweek searching for information across fragmented systems}.
+
 
 \bibitem[Benet(2014)]%
         {ipfs}
@@ -123,6 +137,19 @@
 \newblock \showarticletitle{A Low-Bandwidth Network File System}. In \bibinfo{booktitle}{\emph{SOSP '01: Proceedings of the Eighteenth ACM Symposium on Operating Systems Principles}}. \bibinfo{pages}{174--187}.
 \newblock
 \href{https://doi.org/10.1145/502034.502052}{doi:\nolinkurl{10.1145/502034.502052}}
+
+
+\bibitem[{n0 Computer}(2024)]%
+        {iroh_networking}
+\bibfield{author}{\bibinfo{person}{{n0 Computer}}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{Iroh: A Toolkit for Building Distributed Applications}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/n0-computer/iroh}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{High-performance networking with 90\%+ NAT traversal success rate}.
 
 
 \bibitem[Quinlan and Dorward(2002)]%
