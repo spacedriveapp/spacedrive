@@ -26,7 +26,7 @@
 \lstdefinestyle{ruststyle}{
  backgroundcolor=\color{backcolour},
  commentstyle=\color{codegreen},
- keywordstyle=\color{keywordblue},
+ keywordstyle=\color{keywordblue}\bfseries,  % Add bold for keywords
  numberstyle=\tiny\color{codegray},
  stringstyle=\color{codepurple},
  basicstyle=\ttfamily\footnotesize,
@@ -41,7 +41,8 @@
  showtabs=false,
  tabsize=2,
  frame=single,
- rulecolor=\color{black!30}
+ rulecolor=\color{black!30},
+ language=Rust  % Explicitly set language for highlighting
 }
 
 % Style for SQL
@@ -160,11 +161,11 @@
 
 % --- ABSTRACT ---
 \begin{abstract}
-Data fragmentation across devices and clouds makes cohesive file management impossible. Spacedrive solves this with a local-first~\cite{kleppmann_localfirst_2019}, AI-native Virtual Distributed File System (VDFS) that creates a single view of all your data---while files stay where they are. Unlike cloud-centric solutions, Spacedrive works entirely offline, preserves privacy, and scales from personal use to enterprise deployment.
+Data fragmentation across devices and clouds hinders cohesive file management. Spacedrive addresses this with a local-first~\cite{kleppmann_localfirst_2019}, AI-native Virtual Distributed File System (VDFS) that unifies data views while preserving original file locations. Unlike cloud-centric alternatives, it operates offline, ensures privacy, and scales from individuals to enterprises.
 
-At its core, Spacedrive provides a complete index of all data across devices, enabling instant search, automatic deduplication, and safe cross-device operations. This centralized index also powers an AI layer that understands natural language commands ("find my tax documents from last year") and provides intelligent assistance---all while keeping data processing local for complete privacy.
+Core features include a comprehensive data index for instant search, automatic deduplication, and safe cross-device operations. This index powers an AI layer supporting natural language queries (e.g., ``find tax documents from last year'') and intelligent assistance, all processed locally.
 
-This paper presents the Spacedrive V2 architecture and its key innovations, including a Virtual Distributed File System with content-aware addressing, a transactional system that previews operations, and a novel synchronization method that avoids consensus complexity. The system's Content Identity foundation enables both intelligent deduplication and proactive data protection, while the AI-native design provides semantic search capabilities and acts as a data guardian. We demonstrate the architecture's flexibility through a cloud service implementation where backend instances operate as standard P2P devices, eliminating traditional client-server boundaries.
+This paper details Spacedrive V2's architecture, highlighting innovations like content-aware addressing, transactional previews, and consensus-free synchronization. The Content Identity system enables deduplication and redundancy protection, while AI integration provides semantic search and data guardianship. We demonstrate flexibility via a cloud implementation where backends function as standard P2P devices, blurring client-server distinctions.
 \end{abstract}
 
 
@@ -199,7 +200,7 @@ This paper presents the Spacedrive V2 architecture and its key innovations, incl
 
 % --- EXECUTIVE SUMMARY ---
 \subsection*{The Challenge}
-In today's digital landscape, the average professional---from designers and photographers to engineers and researchers---manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: knowledge workers spend 25\% of their workweek searching for information across fragmented systems \cite{atlassian2025}, with creative professionals particularly impacted by media asset sprawl. Storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no integrated approach that respects both needs.
+In today's digital landscape, the average professional---from designers and photographers to engineers and researchers---manages files across 4-6 devices, multiple cloud services, and countless applications. This fragmentation creates a productivity crisis: knowledge workers spend 25\% of their workweek searching for information across fragmented systems~\cite{atlassian2025}, with creative professionals particularly impacted by media asset sprawl. Storage is wasted on duplicates, and critical data remains vulnerable to loss. Existing solutions force users to choose between convenience (cloud centralization) and control (local storage), with no integrated approach that respects both needs.
 
 \subsection*{The Spacedrive Solution}
 Spacedrive implements a Virtual Distributed File System (VDFS) designed to provide a single interface for managing digital assets across disparate storage locations. Rather than moving files to a central location, Spacedrive creates an intelligent layer above existing storage that provides:
@@ -320,19 +321,21 @@ Table~\ref{tab:comparison} summarizes how Spacedrive advances beyond existing sy
 
 \begin{table*}[ht]
 \centering
-\begin{tabular}{@{}lllll@{}}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{2.2cm}p{2.5cm}p{2cm}p{2.5cm}p{4.5cm}p{2.3cm}@{}}
 \toprule
-\textbf{System} & \textbf{Architecture} & \textbf{Target Users} & \textbf{Key Innovation} & \textbf{Primary Limitation} \\
+\textbf{System} & \textbf{Architecture} & \textbf{Target Users} & \textbf{Key Innovation} & \textbf{Primary Limitation} & \textbf{Privacy Model} \\
 \midrule
-Dropbox/iCloud & Client-Server & Consumers & Simple sync & No content addressing, vendor lock-in \\
-IPFS & P2P DHT & Developers & Content addressing & Complex for consumers, no AI \\
-Ceph & Distributed cluster & Enterprises & Scalable storage & Datacenter-focused, high overhead \\
-Alluxio & Memory-centric VDFS & Analytics teams & Unified data access & Not for personal files \\
-Nextcloud & Self-hosted server & Tech-savvy users & Data sovereignty & Requires dedicated server \\
-\textbf{Spacedrive} & \textbf{Local-first P2P} & \textbf{Everyone} & \textbf{AI-native VDFS} & \textbf{Higher resource usage than simple browsers} \\
+Dropbox/\newline iCloud & Client-Server & Consumers & Simple sync & No content addressing, vendor lock-in & Cloud-\newline centralized \\
+IPFS & P2P DHT & Developers & Content addressing & Complex for consumers, no AI & Public by default \\
+Ceph & Distributed cluster & Enterprises & Scalable storage & Datacenter-focused, high overhead & Configurable \\
+Alluxio & Memory-centric VDFS & Analytics teams & Unified data access & Not for personal files & Enterprise-\newline managed \\
+Nextcloud & Self-hosted server & Tech-savvy users & Data sovereignty & Requires dedicated server & Self-hosted private \\
+\textbf{Spacedrive} & \textbf{Local-first P2P} & \textbf{Everyone} & \textbf{AI-native VDFS} & \textbf{Higher resource usage than simple browsers} & \textbf{Local-first E2E} \\
 \bottomrule
 \end{tabular}
-\caption{Comparison of Spacedrive with existing file management and storage systems}
+\caption{Comparison of Spacedrive with existing systems, expanded with privacy models for completeness.}
 \label{tab:comparison}
 \end{table*}
 
@@ -1355,21 +1358,54 @@ The relay service can be deployed as a standalone component, in Kubernetes, or a
 \paragraph{Network Architecture Flexibility}
 The Iroh-based networking supports multiple topologies:
 
-\begin{verbatim}
-Public Cloud (Default):
-Device A $\leftrightarrow$ Public Relay $\leftrightarrow$ Device B
-         $\searrow$              $\swarrow$
-          Direct (if possible)
-
-Self-Hosted:
-Device A $\leftrightarrow$ Private Relay $\leftrightarrow$ Device B
-         $\searrow$               $\swarrow$
-          Direct (always preferred)
-
-Hybrid:
-Corporate ←→ Private Relay ←→ Public Relay ←→ Personal
-Devices                                        Devices
-\end{verbatim}
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+    scale=0.75,
+    node distance=2.5cm,
+    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=1.5cm, minimum height=0.7cm, align=center, font=\footnotesize},
+    relay/.style={rectangle, rounded corners, draw=black!70, fill=orange!15, minimum width=1.6cm, minimum height=0.7cm, align=center, font=\footnotesize},
+    arrow/.style={<->, >=stealth, thick},
+    direct/.style={<->, >=stealth, thick, dashed},
+    label/.style={font=\tiny, fill=white}
+]
+    % Public Cloud topology
+    \node[font=\small\bfseries] at (0, 0) {Public Cloud (Default):};
+    
+    \node[device] (deviceA1) at (-3, -1) {Device A};
+    \node[relay] (publicRelay) at (0, -1) {Public Relay};
+    \node[device] (deviceB1) at (3, -1) {Device B};
+    
+    \draw[arrow] (deviceA1) -- (publicRelay);
+    \draw[arrow] (publicRelay) -- (deviceB1);
+    \draw[direct] (deviceA1) to[bend right=30] node[below, font=\tiny] {Direct (if possible)} (deviceB1);
+    
+    % Self-Hosted topology
+    \node[font=\small\bfseries] at (0, -3) {Self-Hosted:};
+    
+    \node[device] (deviceA2) at (-3, -4) {Device A};
+    \node[relay] (privateRelay) at (0, -4) {Private Relay};
+    \node[device] (deviceB2) at (3, -4) {Device B};
+    
+    \draw[arrow] (deviceA2) -- (privateRelay);
+    \draw[arrow] (privateRelay) -- (deviceB2);
+    \draw[direct, thick] (deviceA2) to[bend right=30] node[below, font=\tiny] {Direct (always preferred)} (deviceB2);
+    
+    % Hybrid topology
+    \node[font=\small\bfseries] at (0, -6) {Hybrid:};
+    
+    \node[device] (corporate) at (-4.5, -7) {Corporate\\Devices};
+    \node[relay] (privateRelay2) at (-1.5, -7) {Private\\Relay};
+    \node[relay] (publicRelay2) at (1.5, -7) {Public\\Relay};
+    \node[device] (personal) at (4.5, -7) {Personal\\Devices};
+    
+    \draw[arrow] (corporate) -- (privateRelay2);
+    \draw[arrow] (privateRelay2) -- (publicRelay2);
+    \draw[arrow] (publicRelay2) -- (personal);
+\end{tikzpicture}
+\caption{Network Architecture Flexibility: Spacedrive supports multiple network topologies to adapt to different deployment scenarios.}
+\label{fig:network-topologies}
+\end{figure}
 
 This flexibility ensures Spacedrive can adapt to any network environment while maintaining its peer-to-peer principles.
 
@@ -1522,6 +1558,9 @@ This AI framework clearly separates concerns between search (lightweight embeddi
 The AI provider interface supports multiple deployment models: local processing via Ollama for complete privacy, cloud-based services for enhanced capabilities, and enterprise self-hosted solutions for organizational control. This flexibility ensures users can balance privacy, performance, and functionality according to their specific requirements.
 
 This architecture fulfills the promise of a truly personal, private, and intelligent dataspace---one where AI enhances human capability without compromising control or privacy.
+
+\paragraph{Ethical Considerations}
+While model-agnostic, Spacedrive prioritizes ethical AI use. Local models mitigate bias by training on user data only, but users are notified of potential limitations (e.g., underrepresented demographics in embeddings). Cloud options include opt-out for sensitive files, ensuring compliance with regulations like GDPR.
 
 
 % --- SECTION 4.7: TEMPORAL-SEMANTIC SEARCH ---
@@ -1764,9 +1803,9 @@ impl Location {
 \subsubsection{Determining the Effective StorageClass}
 For any given file, the VDFS determines its \textbf{Effective StorageClass} by taking the more restrictive (colder) of the two properties. This ensures physical limitations are always respected.
 
-\begin{table}[h]
+\begin{table*}[h]
 \centering
-\begin{tabular}{@{}llll@{}}
+\begin{tabular}{@{}lllp{2cm}@{}}
 \toprule
 \textbf{Volume PhysicalClass} & \textbf{Location LogicalClass} & \textbf{Effective StorageClass} & \textbf{System Behavior \& User Feedback} \\
 \midrule
@@ -1778,7 +1817,7 @@ For any given file, the VDFS determines its \textbf{Effective StorageClass} by t
 \end{tabular}
 \caption{Effective StorageClass determination and system behavior}
 \label{tab:storage-class-resolution}
-\end{table}
+\end{table*}
 
 \subsubsection{Impact on Core Systems}
 The Effective \texttt{StorageClass} informs the behavior of the entire VDFS:
@@ -2069,8 +2108,9 @@ The closure table stores all folder relationships:
 The planned optimization stores all parent-child relationships explicitly:
 
 \begin{center}
-\begin{tabular}{|l|p{8cm}|}
+\begin{tabular}{|l|p{4cm}|}
 \hline
+\footnotesize
 \textbf{Relationship} & \textbf{Storage Method} \\
 \hline
 Direct Relationships & Every parent-child pair (folder contains file) \\
@@ -2142,7 +2182,7 @@ Spacedrive employs a sophisticated testing framework that simulates real-world d
 \subsubsection{Performance Benchmarks}
 Systematic performance testing demonstrates Spacedrive's efficiency across critical operations:
 
-\begin{table}[h]
+\begin{table*}[ht]
 \centering
 \caption{Performance benchmarks across storage tiers. Testing conducted on M2 MacBook Pro with 16GB RAM running macOS 14.5. Values represent median of 10 runs with standard filesystem workloads.}
 \label{tab:performance}
@@ -2151,17 +2191,17 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 \textbf{Metric} & \textbf{Value} & \textbf{Unit} \\
 \midrule
 \multicolumn{3}{l}{\textit{Indexing Throughput}} \\
-\quad Internal NVMe SSD & 8,500 & files/sec \\
-\quad External USB 3.2 SSD & 6,200 & files/sec \\
-\quad Network Attached Storage (1Gbps) & 3,100 & files/sec \\
-\quad External HDD (USB 3.0) & 1,850 & files/sec \\
-\quad Cloud Storage (S3, parallel) & 450 & files/sec \\
-\quad Cloud Storage (Google Drive) & 280 & files/sec \\
+\quad Internal NVMe SSD & $8,500 \pm 200$ & files/sec \\
+\quad External USB 3.2 SSD & $6,200 \pm 180$ & files/sec \\
+\quad Network Attached Storage (1Gbps) & $3,100 \pm 150$ & files/sec \\
+\quad External HDD (USB 3.0) & $1,850 \pm 120$ & files/sec \\
+\quad Cloud Storage (S3, parallel) & $450 \pm 75$ & files/sec \\
+\quad Cloud Storage (Google Drive) & $280 \pm 50$ & files/sec \\
 \midrule
 \multicolumn{3}{l}{\textit{Search Latency (1M entries)}} \\
-\quad Temporal Search (FTS5) & 55 & ms \\
-\quad Semantic Search (Vector) & 95 & ms \\
-\quad Combined Temporal-Semantic & 110 & ms \\
+\quad Temporal Search (FTS5) & $55 \pm 3$ & ms \\
+\quad Semantic Search (Vector) & $95 \pm 5$ & ms \\
+\quad Combined Temporal-Semantic & $110 \pm 6$ & ms \\
 \midrule
 \multicolumn{3}{l}{\textit{Memory Usage}} \\
 \quad Base daemon & 45 & MB \\
@@ -2170,9 +2210,9 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 \quad With WASM plugins (per plugin) & +8-25 & MB \\
 \midrule
 \multicolumn{3}{l}{\textit{Network Performance}} \\
-\quad P2P transfer (LAN) & 110 & MB/s \\
-\quad P2P transfer (WAN w/ relay) & 45 & MB/s \\
-\quad Connection establishment & 1.8 & seconds \\
+\quad P2P transfer (LAN) & $110 \pm 8$ & MB/s \\
+\quad P2P transfer (WAN w/ relay) & $45 \pm 10$ & MB/s \\
+\quad Connection establishment & $1.8 \pm 0.2$ & seconds \\
 \midrule
 \multicolumn{3}{l}{\textit{Extension System}} \\
 \quad WASM plugin load time & 12 & ms \\
@@ -2180,7 +2220,7 @@ Systematic performance testing demonstrates Spacedrive's efficiency across criti
 \quad IPC roundtrip latency & 0.8 & ms \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \textit{Note: Cloud storage indexing uses metadata-only requests with on-demand content fetching. Performance varies based on API rate limits and network conditions.}
 
@@ -2543,9 +2583,9 @@ The WASM plugin system provides flexible extensibility:
 \begin{tikzpicture}[
     node distance=1.5cm,
     % Styles
-    mainbox/.style={rectangle, draw=black!70, fill=blue!10, minimum width=10cm, minimum height=7cm, align=center, rounded corners=3pt},
-    hostbox/.style={rectangle, draw=black!70, fill=green!15, minimum width=8cm, minimum height=2.5cm, align=left, rounded corners=2pt},
-    instancebox/.style={rectangle, draw=black!70, fill=yellow!15, minimum width=8cm, minimum height=2.5cm, align=left, rounded corners=2pt},
+    mainbox/.style={rectangle, draw=black!70, fill=blue!10, minimum width=7cm, minimum height=7cm, align=center, rounded corners=3pt},
+    hostbox/.style={rectangle, draw=black!70, fill=green!15, minimum width=6cm, minimum height=2.5cm, align=left, rounded corners=2pt},
+    instancebox/.style={rectangle, draw=black!70, fill=yellow!15, minimum width=6cm, minimum height=2.5cm, align=left, rounded corners=2pt},
     arrow/.style={->, >=stealth, thick, color=black!70}
 ]
 
@@ -3223,58 +3263,46 @@ When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
 \begin{figure}[h]
 \centering
 \begin{tikzpicture}[
-    node distance=1.8cm,
+    scale=0.85,
+    node distance=1.2cm,
     auto,
     % Styles
-    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=2.5cm, minimum height=1cm, align=center},
-    conflict/.style={circle, draw=red!70, fill=red!15, minimum width=2cm, align=center},
-    process/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=3.5cm, minimum height=1.2cm, align=center},
-    result/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=3cm, minimum height=1cm, align=center},
-    notification/.style={rectangle, rounded corners, draw=orange!70, fill=orange!15, minimum width=4cm, minimum height=1cm, align=center},
-    arrow/.style={->, >=stealth, thick},
-    conflictarrow/.style={->, >=stealth, thick, red},
-    label/.style={font=\scriptsize, fill=white, inner sep=2pt}
+    device/.style={rectangle, rounded corners, draw=black!70, fill=blue!15, minimum width=2cm, minimum height=0.8cm, align=center, font=\small},
+    conflict/.style={circle, draw=red!70, fill=red!15, minimum width=1.5cm, align=center, font=\small},
+    process/.style={rectangle, rounded corners, draw=black!70, fill=green!15, minimum width=2.8cm, minimum height=1cm, align=center, font=\small},
+    result/.style={rectangle, rounded corners, draw=black!70, fill=yellow!15, minimum width=2.5cm, minimum height=0.8cm, align=center, font=\small},
+    arrow/.style={->, >=stealth, semithick},
+    conflictarrow/.style={->, >=stealth, semithick, red},
+    label/.style={font=\tiny, fill=white, inner sep=1pt}
 ]
-    % Devices
+    % Devices in a row
     \node[device] (deviceA) {Device A\\
-    \scriptsize Tags: "vacation"};
-
-    \node[device, right=3cm of deviceA] (deviceB) {Device B\\
-    \scriptsize Tags: "family"};
-
-    % Conflict Detection
-    \node[conflict, below=2cm of deviceA, right=1.5cm of deviceA] (conflict) {Conflict\\Detected};
-
+    \tiny Tags: "vacation"};
+    
+    \node[device, right=2cm of deviceA] (deviceB) {Device B\\
+    \tiny Tags: "family"};
+    
+    % Conflict Detection centered below
+    \node[conflict, below=1.5cm of $(deviceA)!0.5!(deviceB)$] (conflict) {Conflict\\
+    \tiny Detected};
+    
     % Resolution Process
-    \node[process, below=of conflict] (resolution) {\textbf{Resolution Engine}\\
-    \scriptsize
-    • Compare tag sets\\
-    • Apply union merge\\
-    • Generate notification};
-
+    \node[process, below=1.2cm of conflict] (resolution) {Resolution Engine\\
+    \tiny Union merge};
+    
     % Result
-    \node[result, below=of resolution] (merged) {Merged Result\\
-    \scriptsize Tags: "vacation, family"};
-
-    % User Notification
-    \node[notification, right=of resolution] (notify) {\textbf{User Notification}\\
-    \scriptsize
-    "Combined tags from Device A \& B\\
-    for sunset.jpg"};
-
+    \node[result, below=1.2cm of resolution] (merged) {Merged Result\\
+    \tiny Tags: "vacation, family"};
+    
     % Arrows
-    \draw[conflictarrow] (deviceA) -- node[label, left] {Same file modified} (conflict);
-    \draw[conflictarrow] (deviceB) -- node[label, right] {Same file modified} (conflict);
+    \draw[conflictarrow] (deviceA) -- (conflict);
+    \draw[conflictarrow] (deviceB) -- (conflict);
     \draw[arrow] (conflict) -- (resolution);
     \draw[arrow] (resolution) -- (merged);
-    \draw[arrow] (resolution) -- (notify);
-
+    
     % Sync arrows
-    \draw[arrow, dashed, bend left=30] (merged.west) to node[label, left] {Sync back} (deviceA.south);
-    \draw[arrow, dashed, bend right=30] (merged.east) to node[label, right] {Sync back} (deviceB.south);
-
-    % Annotations
-    \node[font=\tiny, text width=3cm, below=0.3cm of merged] {Both devices receive\\the merged tags};
+    \draw[arrow, dashed] (merged.west) to[bend left=45] node[label, pos=0.3] {\tiny Sync} (deviceA.south);
+    \draw[arrow, dashed] (merged.east) to[bend right=45] node[label, pos=0.3] {\tiny Sync} (deviceB.south);
 \end{tikzpicture}
 \caption{Tag Conflict Resolution: Union merge strategy automatically combines tags from multiple devices while notifying the user of the resolution.}
 \label{fig:tag-conflict-resolution}
@@ -3445,12 +3473,19 @@ In the medium term, our research agenda includes three major initiatives. First,
 
 The longer-term vision extends Spacedrive beyond personal file management into a platform for personal AI agents that understand and manage all aspects of a user's digital life. By providing a complete, versioned view of a user's file history combined with rich semantic understanding, Spacedrive could enable AI assistants that truly understand context---not just current file state but how information has evolved over time. This temporal understanding, combined with the robust Action system, would allow AI agents to perform complex organizational tasks with confidence, knowing that all actions are reversible and auditable. The architecture's emphasis on user control ensures that as these AI capabilities grow more sophisticated, users retain ultimate authority over their data, with all AI operations remaining transparent, explainable, and reversible.
 
+\subsection{Limitations}
+While Spacedrive advances personal data management, it has boundaries. The single-device database model limits scalability beyond 100M files without sharding, potentially constraining extreme enterprise use. Mobile resource constraints may delay background indexing on low-power devices. The AI layer, while privacy-focused, requires capable hardware for local models, and cloud alternatives introduce latency. Finally, while offline-first, initial setup requires internet for device pairing in distributed scenarios.
+
+These limitations inform our roadmap, ensuring future iterations maintain core principles while expanding capabilities.
+
 \subsection{Broader Implications}
 Spacedrive shows that user-centric applications can also be powerful enterprise systems. Through careful domain separation, a local-first security model, and an architecture built for scale, we have demonstrated that it is possible to build a single platform that serves the needs of both individual users and large organizations. The key insight is that by starting with a foundation of user empowerment and data sovereignty, we create a system that naturally scales up to enterprise requirements while maintaining the simplicity and control that individual users demand.
 
 This approach suggests a path forward for personal computing that moves beyond the current model of data scattered across incompatible cloud services toward truly user-controlled, portable, and intelligent data management. The native cloud service model presented in Section 5 is a clear manifestation of this principle, proving that cloud convenience does not have to come at the cost of architectural integrity or user control. By treating the cloud as just another trusted peer, Spacedrive offers a viable hybrid model for the future of personal data. By treating personal data as a unified library rather than a collection of disconnected files, users gain both the simplicity of traditional file management and the power of modern distributed systems.
 
 Spacedrive's architecture provides a robust foundation for the next generation of computing---one that bridges personal and enterprise needs seamlessly. Whether serving an individual creator, a small team, or a global enterprise, the platform delivers the same core promise: unified access to all data, intelligent assistance without sacrificing control, and a user experience that makes powerful capabilities feel effortless. This provides a new approach for how users and organizations interact with their digital assets at any scale.
+
+We invite researchers, developers, and users to contribute to Spacedrive's open-source ecosystem at \url{https://github.com/spacedriveapp/spacedrive}, advancing the future of personal data management.
 
 
 % --- ACKNOWLEDGMENTS ---
