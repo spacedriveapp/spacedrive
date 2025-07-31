@@ -262,7 +262,7 @@ The proliferation of computing devices and cloud services has intensified what B
 
 Existing file management solutions treat data as hierarchical folder structures, blind to content relationships and cross-device dependencies. This leads to fundamental problems: duplicate files consuming storage across devices, inability to find content regardless of location, loss of context when files move between devices, and fragmented metadata that doesn't follow the content.
 
-We present Spacedrive, a Virtual Distributed File System (VDFS) that reimagines data management as an integrated, content-aware ecosystem. Unlike traditional file managers that operate on individual devices, Spacedrive creates Libraries---portable, self-contained databases that maintain complete indexes of content across devices and locations. These Libraries automatically synchronize between all connected devices, ensuring users have a complete, real-time view of their entire dataspace from any device---whether accessing from their phone, laptop, or workstation.
+We present Spacedrive, a Virtual Distributed File System (VDFS) that reimagines data management as an integrated, content-aware ecosystem. Unlike traditional file managers that operate on individual devices, Spacedrive creates Libraries---portable, self-contained databases that maintain complete indexes of content across devices and locations. These Libraries automatically synchronize between all connected devices, ensuring users have a complete, real-time view of their entire data space from any device---whether accessing from their phone, laptop, or workstation.
 
 Spacedrive's architecture is built on seven foundational innovations that solve traditionally hard problems in distributed systems:
 
@@ -304,7 +304,7 @@ Research systems like IPFS~\cite{ipfs} and production systems like Ceph~\cite{ce
 \subsection{Virtual Distributed File Systems in the Datacenter}
 The concept of a Virtual Distributed File System (VDFS) has been explored in the context of large-scale data analytics. Alluxio (formerly Tachyon)~\cite{alluxio_vdfs} introduced a memory-centric VDFS designed to sit between computation frameworks like Apache Spark and various storage systems (e.g., HDFS, S3). Alluxio's primary goal is to accelerate data analytics jobs by providing a consolidated, high-throughput data access layer, effectively decoupling computation from storage in a datacenter environment.
 
-While Spacedrive shares the VDFS terminology, its architectural goals and target domain are fundamentally different. Where Alluxio optimizes for performance in large, multi-tenant analytics clusters, Spacedrive is designed as a local-first, privacy-preserving dataspace for an individual's complete digital life. Spacedrive's innovations in universal addressing (\texttt{SdPath}), an entry-centric model with immediate metadata, and Library Sync are tailored to the challenges of personal data fragmentation across a heterogeneous collection of consumer devices, a problem space distinct from the performance and data-sharing challenges in large-scale analytics that Alluxio addresses.
+While Spacedrive shares the VDFS terminology, its architectural goals and target domain are fundamentally different. Where Alluxio optimizes for performance in large, multi-tenant analytics clusters, Spacedrive is designed as a local-first, privacy-preserving data space for an individual's complete digital life. Spacedrive's innovations in universal addressing (\texttt{SdPath}), an entry-centric model with immediate metadata, and Library Sync are tailored to the challenges of personal data fragmentation across a heterogeneous collection of consumer devices, a problem space distinct from the performance and data-sharing challenges in large-scale analytics that Alluxio addresses.
 
 \subsection{Personal Knowledge Management}
 Tools like Obsidian and Logseq excel at managing structured knowledge through markdown files but lack general file management capabilities. They demonstrate the value of local-first architectures~\cite{kleppmann_localfirst_2019} and portable data formats, principles that Spacedrive extends to all file types. Our work generalizes their approach from text-centric knowledge graphs to general-purpose file management.
@@ -344,7 +344,7 @@ Our work synthesizes insights from these domains while addressing their individu
 \subsection{Command-Line Data Movers}
 Powerful command-line utilities like rclone~\cite{rclone_reference} excel at performing robust, scriptable data transfers between a wide variety of storage backends. These tools are highly effective for one-off data moving tasks and are a staple for technical users. However, their fundamentally stateless architecture presents limitations that Spacedrive's stateful, persistent model is designed to overcome.
 
-Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. Spacedrive leverages its persistent state to perform effective synchronization through global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a cohesive dataspace. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
+Each time a command is executed, a stateless tool must re-query both the source and destination to determine the necessary changes. Spacedrive, in contrast, operates as a data orchestrator rather than just a data mover. It maintains an always-current VDFS index, enabling it to know the state of all files across all locations in real-time. Spacedrive leverages its persistent state to perform effective synchronization through global content-aware deduplication, optimal path routing for transfers, and a "preview-then-commit" transactional model that enhances safety and reliability. While rclone is an exceptional tool for explicit data transfer, Spacedrive operates at a higher level of abstraction, integrating synchronization as a native, persistent feature of a cohesive data space. The system's approach to maintaining index integrity during offline periods is detailed in Section~\ref{sec:offline-recovery}.
 \paragraph{Extensibility Models}
 Unlike systems that require native plugins (Finder, Nautilus) or rely on scripting languages (Obsidian, VS Code), Spacedrive employs a consistent WebAssembly-based extensibility model. All extensions—from simple content type handlers to complex cloud storage integrations—run in a secure WASM sandbox. This provides both power and safety without the complexity of managing multiple extension systems.
 
@@ -884,7 +884,7 @@ A Spacedrive Library is composed of one or more \textbf{Locations}---managed dir
 
 \textbf{The Location as a Managed Entity}
 
-When a user adds a directory to a Spacedrive Library, it becomes a \texttt{Location}, a managed entity with its own configuration and lifecycle. Each Location provides granular control over how different parts of the user's dataspace are handled. Each \texttt{Location} has a specific \textbf{Index Mode} (\texttt{Shallow}, \texttt{Content}, or \texttt{Deep}), enabling users to apply different levels of analysis to different types of content (e.g., deep analysis for a photo library, shallow for a downloads folder).
+When a user adds a directory to a Spacedrive Library, it becomes a \texttt{Location}, a managed entity with its own configuration and lifecycle. Each Location provides granular control over how different parts of the user's data space are handled. Each \texttt{Location} has a specific \textbf{Index Mode} (\texttt{Shallow}, \texttt{Content}, or \texttt{Deep}), enabling users to apply different levels of analysis to different types of content (e.g., deep analysis for a photo library, shallow for a downloads folder).
 
 \textbf{The Location Watcher Service}
 
@@ -914,7 +914,7 @@ The watcher service is more than a simple event forwarder. It includes an intell
  \item \textbf{Event Bus Integration}: Processed events are published to the core \texttt{EventBus}---a centralized message routing system that enables loose coupling between services---where they trigger other components. For example, an \texttt{EntryModified} event will trigger the indexer to re-analyze a file, the search service to update its index, and the sync service to propagate the change to other devices.
 \end{itemize}
 
-This robust, real-time monitoring system is what transforms Spacedrive from a static file index into a dynamic, live dataspace that always reflects the true state of a user's files.
+This robust, real-time monitoring system is what transforms Spacedrive from a static file index into a dynamic, live data space that always reflects the true state of a user's files.
 
 \subsubsection{Offline Recovery and Stale Detection}
 \label{sec:offline-recovery}
@@ -1247,7 +1247,7 @@ At the heart of this workflow is the concept of a user-configurable \textbf{Inge
     \item Upon successful transfer, the file is written to the Ingest Location, and a new \texttt{Entry} is created in the VDFS index.
 \end{enumerate}
 
-This architecture ensures that new files are added to the user's dataspace in a transactional, reliable manner. Once the file becomes a managed \texttt{Entry}, it is immediately available for the AI layer to analyze and organize, as detailed in Section~\ref{sec:ai-native-ingestion}.
+This architecture ensures that new files are added to the user's data space in a transactional, reliable manner. Once the file becomes a managed \texttt{Entry}, it is immediately available for the AI layer to analyze and organize, as detailed in Section~\ref{sec:ai-native-ingestion}.
 
 % --- SECTION 4.5: LIBRARY SYNC & NETWORKING ---
 \subsection{Library Sync and Networking}
@@ -1371,34 +1371,34 @@ The Iroh-based networking supports multiple topologies:
 ]
     % Public Cloud topology
     \node[font=\small\bfseries] at (0, 0) {Public Cloud (Default):};
-    
+
     \node[device] (deviceA1) at (-3, -1) {Device A};
     \node[relay] (publicRelay) at (0, -1) {Public Relay};
     \node[device] (deviceB1) at (3, -1) {Device B};
-    
+
     \draw[arrow] (deviceA1) -- (publicRelay);
     \draw[arrow] (publicRelay) -- (deviceB1);
     \draw[direct] (deviceA1) to[bend right=30] node[below, font=\tiny] {Direct (if possible)} (deviceB1);
-    
+
     % Self-Hosted topology
     \node[font=\small\bfseries] at (0, -3) {Self-Hosted:};
-    
+
     \node[device] (deviceA2) at (-3, -4) {Device A};
     \node[relay] (privateRelay) at (0, -4) {Private Relay};
     \node[device] (deviceB2) at (3, -4) {Device B};
-    
+
     \draw[arrow] (deviceA2) -- (privateRelay);
     \draw[arrow] (privateRelay) -- (deviceB2);
     \draw[direct, thick] (deviceA2) to[bend right=30] node[below, font=\tiny] {Direct (always preferred)} (deviceB2);
-    
+
     % Hybrid topology
     \node[font=\small\bfseries] at (0, -6) {Hybrid:};
-    
+
     \node[device] (corporate) at (-4.5, -7) {Corporate\\Devices};
     \node[relay] (privateRelay2) at (-1.5, -7) {Private\\Relay};
     \node[relay] (publicRelay2) at (1.5, -7) {Public\\Relay};
     \node[device] (personal) at (4.5, -7) {Personal\\Devices};
-    
+
     \draw[arrow] (corporate) -- (privateRelay2);
     \draw[arrow] (privateRelay2) -- (publicRelay2);
     \draw[arrow] (publicRelay2) -- (personal);
@@ -1463,7 +1463,7 @@ This stateful, always-on monitoring eliminates the need for periodic manual sync
 \end{itemize}
 \end{keytakeaways}
 
-While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native dataspace}. The complete, always-current index of the user's files serves as a perfect "world model" for an AI agent to reason about. This enables a shift from reactive file management (issuing manual commands) to a proactive, collaborative model where both the user and an AI agent can manage the dataspace, with the human always in the loop. This vision builds upon decades of research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
+While many systems treat AI as an additive feature, Spacedrive is architected as an \textbf{AI-native data space}. The complete, always-current index of the user's files serves as a perfect "world model" for an AI agent to reason about. This enables a shift from reactive file management (issuing manual commands) to a proactive, collaborative model where both the user and an AI agent can manage the data space, with the human always in the loop. This vision builds upon decades of research in semantic file systems~\cite{gifford_sfs_1991}, information retrieval~\cite{dumais_stuff_2003}, and ubiquitous computing~\cite{weiser_ubiquitous_1991}.
 
 This is achieved through a flexible, privacy-first architecture that is model-agnostic, supporting both powerful cloud services and local models running on user hardware via interfaces like Ollama.
 
@@ -1524,7 +1524,7 @@ The AI agent's proactive capabilities are particularly powerful when applied to 
 \end{itemize}
 
 \subsubsection{File Intelligence via Virtual Sidecars}
-The AI agent's ability to "Observe" the user's dataspace is powered by the Virtual Sidecar System. The background intelligence jobs use purpose-specific models to enrich the VDFS with structured information:
+The AI agent's ability to "Observe" the user's data space is powered by the Virtual Sidecar System. The background intelligence jobs use purpose-specific models to enrich the VDFS with structured information:
 \begin{itemize}
     \item \textbf{Text Embeddings}: Lightweight models like all-MiniLM-L6-v2 for semantic search
     \item \textbf{OCR}: Tesseract or EasyOCR for text extraction
@@ -1557,7 +1557,7 @@ This AI framework clearly separates concerns between search (lightweight embeddi
 
 The AI provider interface supports multiple deployment models: local processing via Ollama for complete privacy, cloud-based services for enhanced capabilities, and enterprise self-hosted solutions for organizational control. This flexibility ensures users can balance privacy, performance, and functionality according to their specific requirements.
 
-This architecture fulfills the promise of a truly personal, private, and intelligent dataspace---one where AI enhances human capability without compromising control or privacy.
+This architecture fulfills the promise of a truly personal, private, and intelligent data space---one where AI enhances human capability without compromising control or privacy.
 
 \paragraph{Ethical Considerations}
 While model-agnostic, Spacedrive prioritizes ethical AI use. Local models mitigate bias by training on user data only, but users are notified of potential limitations (e.g., underrepresented demographics in embeddings). Cloud options include opt-out for sensitive files, ensuring compliance with regulations like GDPR.
@@ -1903,7 +1903,7 @@ copy_files(
 ).await?;
 \end{lstlisting}
 
-This demonstrates the power of the VDFS abstraction. The underlying complexity of the network transfer is handled by the unified networking layer and the durable job system, making the cloud a natural extension of the user's personal dataspace.
+This demonstrates the power of the VDFS abstraction. The underlying complexity of the network transfer is handled by the unified networking layer and the durable job system, making the cloud a natural extension of the user's personal data space.
 
 This seamless integration extends to fundamental operations like file uploads. A user accessing their Library via the Spacedrive web application can upload files directly from their browser. This action does not require a custom API endpoint; instead, it triggers the native \textbf{Ingestion Workflow} (Section~\ref{sec:ingestion-workflow}). The browser initiates a secure transfer using the same Iroh-powered P2P protocols, sending the file directly to the user's designated Ingest Location on a preferred device—which could be their Cloud Core instance itself. This illustrates the power of the unified architecture: a simple drag-and-drop in a web browser translates into a durable, transactional, and intelligent operation within the user's private VDFS, completely managed by the core engine.
 
@@ -3278,28 +3278,28 @@ When tag conflicts occur, Spacedrive follows a sophisticated resolution process:
     % Devices in a row
     \node[device] (deviceA) {Device A\\
     \tiny Tags: "vacation"};
-    
+
     \node[device, right=2cm of deviceA] (deviceB) {Device B\\
     \tiny Tags: "family"};
-    
+
     % Conflict Detection centered below
     \node[conflict, below=1.5cm of $(deviceA)!0.5!(deviceB)$] (conflict) {Conflict\\
     \tiny Detected};
-    
+
     % Resolution Process
     \node[process, below=1.2cm of conflict] (resolution) {Resolution Engine\\
     \tiny Union merge};
-    
+
     % Result
     \node[result, below=1.2cm of resolution] (merged) {Merged Result\\
     \tiny Tags: "vacation, family"};
-    
+
     % Arrows
     \draw[conflictarrow] (deviceA) -- (conflict);
     \draw[conflictarrow] (deviceB) -- (conflict);
     \draw[arrow] (conflict) -- (resolution);
     \draw[arrow] (resolution) -- (merged);
-    
+
     % Sync arrows
     \draw[arrow, dashed] (merged.west) to[bend left=45] node[label, pos=0.3] {\tiny Sync} (deviceA.south);
     \draw[arrow, dashed] (merged.east) to[bend right=45] node[label, pos=0.3] {\tiny Sync} (deviceB.south);
