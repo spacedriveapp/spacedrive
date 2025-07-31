@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{17}
+\begin{thebibliography}{22}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -35,6 +35,32 @@
 \providecommand\bibinfo[2]{#2}
 \providecommand\natexlab[1]{#1}
 \providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[{Amazon Web Services}(2025)]%
+        {aws-s3-etag-2025}
+\bibfield{author}{\bibinfo{person}{{Amazon Web Services}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Amazon S3 ETag Generation}.
+\newblock
+\urldef\tempurl%
+\url{https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{S3 ETag as MD5 for single-part uploads under 5GB}.
+
+
+\bibitem[{Apache OpenDAL Contributors}(2025)]%
+        {opendal-changelog-2025}
+\bibfield{author}{\bibinfo{person}{{Apache OpenDAL Contributors}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{OpenDAL v0.49 Changelog}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/apache/opendal/releases/tag/v0.49.0}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{Emphasizes ranged reads and metadata alignment for cloud services}.
+
 
 \bibitem[{Atlassian}(2025)]%
         {atlassian2025}
@@ -74,6 +100,19 @@
 \newblock
 \newblock
 \shownote{Accessed: 2025-07-28}.
+
+
+\bibitem[{Datafuse Labs}(2025)]%
+        {opendal-2025}
+\bibfield{author}{\bibinfo{person}{{Datafuse Labs}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{OpenDAL: Open Data Access Layer}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/apache/opendal}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{Apache OpenDAL - A unified data access layer}.
 
 
 \bibitem[Dourish et~al\mbox{.}(1999)]%
@@ -164,6 +203,30 @@
 \newblock \showarticletitle{Conflict-Free Replicated Data Types}. In \bibinfo{booktitle}{\emph{SSS 2011: Symposium on Self-Stabilizing Systems}}. \bibinfo{pages}{386--400}.
 \newblock
 \href{https://doi.org/10.1007/978-3-642-24550-3_29}{doi:\nolinkurl{10.1007/978-3-642-24550-3_29}}
+
+
+\bibitem[{Spacedrive Team}(2025)]%
+        {spacedrive-benchmarks-2025}
+\bibfield{author}{\bibinfo{person}{{Spacedrive Team}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Spacedrive Benchmarks}.
+\newblock
+\urldef\tempurl%
+\url{https://github.com/spacedriveapp/benchmarks}
+\showURL{%
+\tempurl}
+
+
+\bibitem[{W3C}(2021)]%
+        {wcag-2021}
+\bibfield{author}{\bibinfo{person}{{W3C}}.} \bibinfo{year}{2021}\natexlab{}.
+\newblock \bibinfo{title}{Web Content Accessibility Guidelines (WCAG) 2.1}.
+\newblock
+\urldef\tempurl%
+\url{https://www.w3.org/WAI/WCAG21/quickref/}
+\showURL{%
+\tempurl}
+\newblock
+\shownote{W3C Recommendation}.
 
 
 \bibitem[Weil et~al\mbox{.}(2006)]%
