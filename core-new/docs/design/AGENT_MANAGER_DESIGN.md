@@ -1,447 +1,235 @@
-# Spacedrive Agent Manager: Design Document
+# Agent Manager Design
 
-## Executive Summary
+## Overview
 
-The Agent Manager is a Spacedrive extension that transforms how teams interact with AI agents, development workflows, and collaborative processes. By leveraging Spacedrive's core infrastructure, it provides a unified interface for managing git worktrees, terminal sessions, system processes, and AI agents in a visual, spatial environment.
+The **Agent Manager** is a core component of Spacedrive's AI-native architecture. It is responsible for creating, managing, and orchestrating AI agents that can perform intelligent file management tasks. These agents translate natural language commands into verifiable operations and can proactively suggest optimizations based on user behavior.
 
-## Vision
+Agents execute tasks by generating commands for Spacedrive's native **Command Line Interface (CLI)**, which is bundled with the application and communicates with the running core via a secure IPC channel. This ensures all AI-driven operations are subject to the same safety and permission constraints as those performed by a human user.
 
-Create a comprehensive agent orchestration platform that:
-- Manages AI agents as first-class citizens alongside files and processes
-- Provides spatial visualization of complex workflows
-- Enables community-driven development with controlled agent access
-- Leverages Spacedrive's Rust foundation for performance and reliability
+## Core Components
 
-## Core Concepts
+- **Agent Manager:** The central singleton responsible for the agent lifecycle. It initializes agents, assigns them tasks, and manages their access to system resources.
+- **Agent Trait:** A common Rust `trait` that defines the capabilities of any agent, such as receiving a task, processing it, and reporting the outcome.
+- **LLM Provider Interface:** A pluggable interface for communicating with different Large Language Models, supporting both local providers (like Ollama) and cloud-based services.
+- **Execution Coordinator:** This component is responsible for spawning the `sd` CLI sidecar process with the commands formulated by an agent. It manages the process lifecycle and captures its output (stdout/stderr) for the agent to observe and parse.
 
-### 1. Agent as Entry
+## Agentic Loop (Observe-Orient-Decide-Act)
 
-Agents become a new type of Spacedrive Entry with extended metadata:
+Each agent operates on a continuous loop, enabling it to handle complex, multi-step tasks.
+
+1.  **Observe:** The agent analyzes the current state. This includes the initial user query, the file system state (via the VDFS index), and the results of previous actions. A key part of observation is **parsing the `stdout` from previously executed CLI commands** and, if necessary, querying the audit log via `sd log` to confirm the outcome.
+2.  **Orient:** The agent uses an LLM to interpret the observed state and understand the context of its task.
+3.  **Decide:** The agent formulates a plan, which may consist of one or more steps. For example, to "archive old projects," the plan would be to first _find_ the projects and then _move_ them.
+4.  **Act:** The agent executes the next step in its plan. In this architecture, "acting" means **generating a specific, validated command for the `sd` CLI and instructing the Execution Coordinator to run it.**
+
+## LLM Integration and Tooling
+
+### CLI as the Primary Tool Interface
+
+The integration between the AI layer and the Spacedrive core is intentionally decoupled for security and modularity. Instead of direct function calls, agents use the `sd` CLI as their sole tool.
+
+- **Bundling and Availability:** The `sd` CLI is packaged as a **Tauri sidecar** and bundled with every Spacedrive installation. This ensures that the Rust core can always locate and execute a compatible version of the CLI.
+- **IPC Communication:** The architecture uses a daemon-client model. The main Spacedrive core runs a **JSON-RPC server** on a local socket. When the Execution Coordinator spawns the `sd` CLI process, the CLI detects the running daemon, connects as a client, and transmits its command for execution.
+- **Schema-Aware Prompting:** The Agent Manager automatically provides the LLM with the CLI's schema, help text, and usage examples within the context prompt. This **few-shot learning** approach enables the LLM to correctly format commands for the available tools without requiring specialized fine-tuning.
+- **Safety and Sandboxing:** This model creates a robust security boundary. The LLM's capabilities are strictly limited to what the CLI exposes, which in turn is governed by the safe, verifiable, and auditable **Transactional Action System**. The AI has no direct access to internal state or the database.
+
+## Key Data Structures
 
 ```rust
-pub struct AgentEntry {
-    // Standard Entry fields
+/// Represents a task assigned to an agent by the manager.
+pub struct AgentTask {
     pub id: Uuid,
-    pub name: String,
-    pub device_id: Uuid,
-    
-    // Agent-specific fields
-    pub agent_type: AgentType,
-    pub context_window: ContextWindow,
-    pub memory_store: MemoryStoreRef,
-    pub process_info: ProcessInfo,
-    pub permissions: AgentPermissions,
-    pub statistics: AgentStatistics,
+    pub user_prompt: String, // e.g., "organize my tax documents"
+    pub status: TaskStatus,
+    pub commands_executed: Vec<String>, // Log of CLI commands run
+    pub results: String, // Final summary for the user
 }
 
-pub enum AgentType {
-    GitWorktree { repo_path: SdPath },
-    Terminal { shell: String },
-    SystemProcess { pid: u32 },
-    AIAssistant { model: String, provider: String },
-    Custom { integration_id: String },
+/// The current status of an agent's task.
+pub enum TaskStatus {
+    Pending,
+    Running,
+    AwaitingConfirmation(ActionPreview), // Paused for user approval
+    Completed,
+    Failed(String),
 }
 ```
 
-### 2. Agent Process Grid
+## Security and Sandboxing
 
-A new UI view that displays agents as interactive cards:
+Security is a primary design consideration. By forcing all AI-driven operations through the CLI, we ensure the LLM operates within the same permission and validation boundaries as a human user. It has no direct access to internal state or database connections, significantly reducing the attack surface. Every action taken by an agent is auditable through the standard system log, just like any other action.
 
-```typescript
-interface AgentCard {
-  // Front side
-  id: string;
-  name: string;
-  avatar: string;
-  type: AgentType;
-  status: 'active' | 'idle' | 'processing' | 'error';
-  badges: Badge[];
-  statistics: {
-    tokensUsed: number;
-    tasksCompleted: number;
-    uptime: Duration;
-    memoryUsage: number;
-  };
-  
-  // Back side (terminal view)
-  terminalSession?: TerminalSession;
-  accessLevel: 'read' | 'write' | 'admin';
-}
-```
+### Agent Long-Term Memory
 
-### 3. Memory System
+To enable learning and context retention across tasks, each agent instance is provided with its own private, persistent memory space managed directly by Spacedrive.
 
-Leveraging Spacedrive's database infrastructure for agent memory:
+- **Memory as a Virtual Directory:** When an agent is first initialized, the Agent Manager creates a dedicated, hidden directory for it within the `.sdlibrary` package (e.g., `.sdlibrary/agents/<agent-id>/`). This directory is the agent's exclusive long-term memory store.
+
+- **Structured Memory Files:** Within this directory, an agent maintains a set of files to store different types of information:
+
+  - `scratchpad.md`: For short-term thoughts and planning during a multi-step task.
+  - `conversation_history.json`: A log of past interactions and outcomes, helping it understand user intent over time.
+  - `learned_preferences.toml`: A file to store inferred user preferences (e.g., `default_export_format = "png"` or `project_archive_location = "sd://nas/archive/"`).
+
+- **Access via CLI:** The agent interacts with its own memory using the standard `sd` CLI, but with special permissions that restrict file operations to its own sandboxed directory. This allows it to "remember" past actions and user feedback to improve its performance on future tasks.
+
+### Agent Permissions and Scopes
+
+To ensure security and user control, agents do not have unrestricted access to the entire VDFS. Each agent operates within a clearly defined **permission scope** for the duration of its task.
+
+- **Scoped Access by Default:** Before an agent is activated, the Agent Manager, in conjunction with the user's request, defines its access rights. The user is prompted for consent if the required permissions are sensitive. For example: _"This agent needs read/write access to your 'Photos' Location to proceed. Allow?"_
+
+- **Types of Permission Scopes:**
+
+  - **Location-Based Scope:** The agent can only read or write within specified Locations (e.g., an "Ingestion Sorter" agent may only access `~/Downloads` and `~/Documents`).
+  - **Tag-Based Scope:** The agent's operations are restricted to files matching a certain tag (e.g., an agent can only modify files tagged `#ProjectX`).
+  - **Ephemeral Scope:** The agent is only granted permission to operate on a specific list of files returned from an initial search query.
+
+- **Enforcement by the Core:** These permissions are not merely advisory. When the daemon receives a command from an agent-initiated CLI process, the **Transactional Action System** first verifies that the target of the action (e.g., the source and destination paths) falls within the agent's authorized scope. If it does not, the action is rejected before execution.
+
+### The Agentic Loop with User-in-the-Loop Approval
+
+The agent's primary strength is its ability to perform complex discovery and planning, culminating in a single, large-scale action plan that the user can approve. This leverages the **Transactional Action System's** "preview-before-commit" philosophy, ensuring the user is always in control.
+
+**User Prompt:** _"Organize all my photos tagged 'Hawaii Vacation' into folders by year."_
+
+1.  **Discovery and Planning (Observe & Orient):** The agent first runs a series of non-destructive "read" operations to gather all necessary information.
+
+    - It finds all relevant files: `sd search --tag "Hawaii Vacation" --type image`
+    - It then iterates through the results, fetching metadata for each: `sd meta get <path> --select exif.date_time`
+    - During this phase, the agent builds a complete plan in its internal memory (its "scratchpad"). It determines that 50 files need to be moved into three new directories (`2022`, `2023`, `2024`).
+
+2.  **Formulate a Batch Action (Decide):** Instead of executing 50 individual moves, the agent constructs a **single, batch `FileMoveAction`**. This action encapsulates the entire plan: moving all 50 source files to their calculated final destinations.
+
+3.  **Generate a Preview for Approval (Act & Await):** This is the key step. The agent's first "Act" is not to execute the move, but to ask the system to **simulate** it.
+
+    - It submits the batch action to the **Action System** with a preview flag.
+    - The system returns a detailed `ActionPreview`, showing exactly what will happen: which folders will be created, which files will be moved, and that no files will be overwritten.
+    - The agent's task status now changes to `AwaitingConfirmation`, and it presents this preview to the user in the UI.
+
+4.  **Execute on User Approval (Final Act):** Once the user reviews the plan and clicks "Confirm," the agent is notified. Only then does it commit the batch action to the durable job queue for execution. The user's approval is the explicit trigger for the final, decisive action.
+
+This workflow is directly supported by the system's data structures, particularly the `TaskStatus` enum, which includes a state specifically for this purpose:
 
 ```rust
-pub struct AgentMemory {
-    pub short_term: Vec<MemoryEntry>,  // In-memory, context-limited
-    pub long_term: MemoryStore,        // Persisted to library database
-    pub shared: SharedMemoryPool,      // Cross-agent communication
-}
-
-pub struct MemoryEntry {
-    pub timestamp: DateTime<Utc>,
-    pub content: String,
-    pub embedding: Option<Vec<f32>>,
-    pub references: Vec<SdPath>,      // Files referenced
-    pub tags: Vec<String>,
+pub enum TaskStatus {
+    Pending,
+    Running,
+    AwaitingConfirmation(ActionPreview), // Paused for user approval
+    Completed,
+    Failed(String),
 }
 ```
 
-### 4. Space View
+This ensures that while the agent provides powerful automation, the user always has the final say before any significant changes are made to their files, perfectly aligning with Spacedrive's core principles of safety and user control.
 
-A virtual environment where Spacedrive components can be arranged spatially:
+Excellent point. Making the agent's activity transparent is key to building user trust and creating a dynamic user experience.
 
-```typescript
-interface SpaceView {
-  id: string;
-  name: string;
-  nodes: SpaceNode[];
-  connections: Connection[];
-  layout: LayoutEngine;
-}
+Here is a new section for the design document that outlines how to achieve this "follow" mode.
 
-interface SpaceNode {
-  id: string;
-  type: 'explorer' | 'agent' | 'document' | 'terminal' | 'widget';
-  position: { x: number, y: number, z?: number };
-  size: { width: number, height: number };
-  content: NodeContent;
-  permissions: NodePermissions;
-}
-```
+---
 
-## Architecture
+### Agent Activity Events and UI "Follow" Mode
 
-### Extension Integration
+To make the AI feel like a first-class citizen within the application, the UI needs to be able to observe and react to an agent's activity in real-time. This is accomplished by tagging agent-initiated commands and emitting specific events that the frontend can subscribe to.
 
-The Agent Manager builds on Spacedrive's extension system:
+- **Agent-Aware CLI Invocation:**
+  When the **Execution Coordinator** spawns the `sd` CLI sidecar for an agent, it injects a unique **Task ID** into the new process's environment. When the CLI connects to the core daemon via IPC, it passes this Task ID along with its command. This allows the core to differentiate between commands initiated by a human user and those initiated by a specific agent task.
 
-```rust
-#[async_trait]
-impl SpacedriveExtension for AgentManager {
-    async fn initialize(&mut self, context: ExtensionContext) -> Result<()> {
-        // Register agent database schema
-        context.register_schema(agent_schema())?;
-        
-        // Register new views
-        context.register_view("agent-grid", AgentGridView)?;
-        context.register_view("space", SpaceView)?;
-        
-        // Register job handlers
-        context.register_job_handler::<AgentJob>()?;
-        
-        Ok(())
-    }
-}
-```
+- **Dedicated Agent Event Stream:**
+  Once the core identifies a command as part of an agent task, it emits structured events to the main **EventBus**. The frontend can listen for these specific events to power a "follow mode."
 
-### Database Schema
-
-Extends Spacedrive's database with agent-specific tables:
-
-```sql
--- Agent registry
-CREATE TABLE agents (
-    id UUID PRIMARY KEY,
-    entry_id INTEGER REFERENCES entries(id),
-    type TEXT NOT NULL,
-    config JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Memory storage
-CREATE TABLE agent_memories (
-    id INTEGER PRIMARY KEY,
-    agent_id UUID REFERENCES agents(id),
-    type TEXT CHECK (type IN ('short_term', 'long_term', 'shared')),
-    content TEXT,
-    embedding BLOB,
-    metadata JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Space layouts
-CREATE TABLE spaces (
-    id UUID PRIMARY KEY,
-    name TEXT NOT NULL,
-    layout JSONB,
-    permissions JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-## Key Features
-
-### 1. Git Worktree Management
-
-Agents can manage git worktrees with full integration:
-
-```rust
-pub struct GitWorktreeAgent {
-    worktree_path: SdPath,
-    branch: String,
-    remote: String,
-    status: GitStatus,
-}
-
-impl Agent for GitWorktreeAgent {
-    async fn execute_command(&mut self, cmd: Command) -> Result<Output> {
-        match cmd {
-            Command::Checkout { branch } => self.checkout(branch).await,
-            Command::Commit { message } => self.commit(message).await,
-            Command::Push => self.push().await,
-            // ...
-        }
-    }
-}
-```
-
-### 2. Terminal Session Management
-
-Integrated terminal sessions with permission control:
-
-```rust
-pub struct TerminalAgent {
-    session: PtySession,
-    history: Vec<Command>,
-    permissions: TerminalPermissions,
-}
-
-impl TerminalAgent {
-    pub async fn execute(&mut self, command: &str, user: &User) -> Result<String> {
-        self.check_permissions(command, user)?;
-        self.session.write(command).await?;
-        let output = self.session.read_until_prompt().await?;
-        self.history.push(Command::new(command, output.clone()));
-        Ok(output)
-    }
-}
-```
-
-### 3. AI Agent Integration
-
-Native support for AI agents with context management:
-
-```rust
-pub struct AIAgent {
-    provider: Box<dyn AIProvider>,
-    context_window: ContextWindow,
-    memory: AgentMemory,
-    tools: Vec<Tool>,
-}
-
-impl AIAgent {
-    pub async fn process_request(&mut self, request: Request) -> Result<Response> {
-        // Load relevant memories
-        let context = self.build_context(&request).await?;
-        
-        // Execute with tools
-        let response = self.provider.complete_with_tools(
-            context,
-            &self.tools,
-        ).await?;
-        
-        // Store in memory
-        self.memory.add_interaction(&request, &response).await?;
-        
-        Ok(response)
-    }
-}
-```
-
-### 4. Community Interface
-
-Web-based interface for community interaction:
-
-```typescript
-interface CommunityPortal {
-  agents: PublicAgent[];
-  
-  async interactWithAgent(
-    agentId: string, 
-    message: string,
-    user: User
-  ): Promise<Response> {
-    // Rate limiting
-    await this.rateLimiter.check(user);
-    
-    // Permission check
-    const agent = await this.getAgent(agentId);
-    if (!agent.allowsPublicAccess(user)) {
-      throw new PermissionError();
-    }
-    
-    // Process through agent
-    return agent.process(message, user);
+  ```rust
+  // Example of events the frontend can subscribe to
+  pub enum AgentActivityEvent {
+      /// Emitted when an agent's plan is ready for user review.
+      AwaitingApproval {
+          task_id: Uuid,
+          preview: ActionPreview,
+      },
+      /// Emitted when an agent runs a new command.
+      CommandExecuted {
+          task_id: Uuid,
+          command_string: String, // e.g., "sd search --type image"
+      },
+      /// Emitted when the agent receives a result from a command.
+      CommandResultReceived {
+          task_id: Uuid,
+          stdout: Vec<String>,
+      },
+      /// Emitted when the agent provides a final summary.
+      TaskCompleted {
+          task_id: Uuid,
+          summary: String,
+      },
   }
-}
-```
+  ```
 
-### 5. Version Management
+- **Frontend "Follow Mode":**
+  By subscribing to this event stream, the frontend can create a rich, interactive experience:
 
-Integrated version control for agent states and configurations:
+  - **Live Console:** A dedicated panel can show a real-time log of the commands the agent is executing and the results it's receiving.
+  - **UI Highlighting:** The main file browser can visually highlight the files and folders the agent is currently processing.
+  - **Interactive Prompts:** When an `AwaitingApproval` event is received, the UI can display the `ActionPreview` in a modal, allowing the user to approve or deny the agent's plan.
+  - **Progress Indicators:** For long-running batch operations, the UI can display progress bars and status messages, giving the user clear insight into the agent's work.
+    Of course. Here is a new section for your Agent Manager design document that explains the asynchronous search architecture and the necessary changes to support it.
 
-```rust
-pub struct AgentVersion {
-    pub id: Uuid,
-    pub agent_id: Uuid,
-    pub version: String,
-    pub config_snapshot: JsonValue,
-    pub memory_snapshot: MemorySnapshot,
-    pub created_at: DateTime<Utc>,
-}
+---
 
-impl AgentManager {
-    pub async fn create_checkpoint(&self, agent_id: Uuid) -> Result<AgentVersion> {
-        let agent = self.get_agent(agent_id)?;
-        let version = AgentVersion {
-            id: Uuid::new_v4(),
-            agent_id,
-            version: self.next_version(&agent),
-            config_snapshot: agent.export_config(),
-            memory_snapshot: agent.export_memory().await?,
-            created_at: Utc::now(),
-        };
-        
-        self.db.save_version(&version).await?;
-        Ok(version)
-    }
-}
-```
+### 5\. Asynchronous, Agent-Driven Search
 
-### 6. Spatial Workflow Builder
+To enhance the user experience and create a more scalable, consistent, and responsive system, all search functionality will be unified into a single asynchronous workflow. This design applies to searches initiated by both the AI agent and directly by the user in the UI. It moves away from a direct query-response model and instead leverages the Job System to provide a more robust and interactive search experience.
 
-Drag-and-drop interface for building complex workflows:
+#### 5.1. The Agent's Role: Initiating and Monitoring
 
-```typescript
-class SpaceEditor {
-  async connectNodes(source: SpaceNode, target: SpaceNode) {
-    const connection = new Connection({
-      source: source.id,
-      target: target.id,
-      type: this.inferConnectionType(source, target),
-      dataFlow: this.defineDataFlow(source, target)
-    });
-    
-    await this.space.addConnection(connection);
-  }
-  
-  async executeWorkflow(space: Space) {
-    const dag = this.buildDAG(space);
-    const executor = new WorkflowExecutor(dag);
-    
-    await executor.run({
-      onNodeComplete: (node, output) => {
-        this.updateNodeVisual(node, output);
-      }
-    });
-  }
-}
-```
+The agent's primary role in the search process is to _initiate_ and _monitor_ the search, rather than directly consuming the results. This creates a clean separation of concerns and allows the agent to continue performing other tasks while the search is in progress.
 
-## Benefits from Spacedrive Integration
+1.  **New `SearchAction`**: A new `Search(String)` variant will be added to the `Action` enum. The `String` payload will contain the user's natural language search query.
+2.  **Dispatching the Action**: To initiate a search, the agent will generate a command for the `sd` CLI, such as:
+    ```bash
+    sd --action search "find all my photos from my last vacation to Japan"
+    ```
+3.  **Monitoring Job Status**: The agent will monitor the progress of the search by subscribing to events from the Job System. The agent will receive events like `JobCreated`, `JobInProgress`, and `JobCompleted`, allowing it to track the search without being blocked.
 
-### 1. Rust Performance
-- High-performance agent execution
-- Efficient memory management
-- Safe concurrent operations
+#### 5.2. The Job System: Making Search Asynchronous
 
-### 2. Filesystem Integration
-- Agents can directly access Spacedrive's indexed files
-- Automatic tracking of file operations
-- Integration with Spacedrive's tagging system
+The Job System is the core component that enables the asynchronous nature of our search functionality.
 
-### 3. Networking Infrastructure
-- Leverage Spacedrive's P2P capabilities for distributed agents
-- Secure communication channels
-- Built-in sync for agent states
+1.  **`SearchJob`**: When the `ActionManager` receives a `SearchAction`, it will not execute the search directly. Instead, it will register a new `SearchJob` with the `JobManager`.
+2.  **`query_id` Generation**: The `JobManager` will assign a unique `job_id` to the new `SearchJob`. This `job_id` will also serve as the `query_id` for the search, allowing us to track the search and its results throughout the system.
 
-### 4. Search Functionality
-- Search across agent memories
-- Find agents by capability
-- Query agent interaction history
+#### 5.3. Caching and Frontend Interaction
 
-### 5. Data Portability
-- Export agent configurations
-- Backup agent memories
-- Share agent templates
+This is where the user-facing part of the design comes into play. The frontend is responsible for fetching and rendering the search results, guided by events from the backend.
 
-## Implementation Phases
+1.  **Results Caching**: Upon completion, the `SearchJob` will not return the results to the agent. Instead, it will store the results in a cache (e.g., Redis, or a database table), using the `query_id` as the key.
+2.  **`SearchResultsReady` Event**: Once the `SearchJob` is complete, the `JobManager` will emit a `SearchResultsReady(query_id)` event. This event will be broadcast to all subscribed clients, including the frontend.
+3.  **New GraphQL Endpoint**: The frontend will have a new GraphQL query, `getSearchResults(queryId: ID!)`.
+4.  **Rendering the Results**: When the frontend receives the `SearchResultsReady` event (likely via a WebSocket connection), it will use the `query_id` from the event to call the `getSearchResults` GraphQL endpoint. This endpoint will fetch the cached results and the frontend will then render them for the user.
 
-### Phase 1: Foundation (4-5 weeks)
-- [ ] Core agent abstraction and registry
-- [ ] Basic process management
-- [ ] Database schema implementation
-- [ ] Simple grid UI
+#### 5.4. Required Changes
 
-### Phase 2: Agent Types (5-6 weeks)
-- [ ] Git worktree agent
-- [ ] Terminal session agent
-- [ ] System process agent
-- [ ] Basic AI agent framework
+To support this new asynchronous search architecture, the following changes will be required:
 
-### Phase 3: Space View (6-7 weeks)
-- [ ] Spatial layout engine
-- [ ] Node types and connections
-- [ ] Drag-and-drop interface
-- [ ] Workflow execution
+- **Action System (`src/infrastructure/actions/mod.rs`)**:
 
-### Phase 4: Community Features (4-5 weeks)
-- [ ] Web portal
-- [ ] Permission system
-- [ ] Rate limiting
-- [ ] Public agent registry
+  - Add a new `Search(String)` variant to the `Action` enum.
 
-### Phase 5: Advanced Features (6-8 weeks)
-- [ ] Version management
-- [ ] Advanced memory systems
-- [ ] Agent collaboration
-- [ ] Performance optimization
+- **Job System (`src/infrastructure/jobs/mod.rs`)**:
 
-## Security Considerations
+  - Create a new `SearchJob` type that encapsulates the logic for performing a search and caching the results.
+  - The `JobManager` must be able to handle and dispatch `SearchJob`s.
+  - A new `SearchResultsReady(query_id)` event must be added to the event system.
 
-### Agent Isolation
-- Sandboxed execution environments
-- Resource limits per agent
-- Capability-based permissions
+- **Caching Layer**:
 
-### Data Protection
-- Encrypted memory storage
-- Secure credential management
-- Audit logging
+  - A new caching mechanism will be needed to store search results. The specific implementation (e.g., Redis, in-memory cache) will need to be determined.
 
-### Community Safety
-- User authentication
-- Rate limiting
-- Content moderation hooks
-- Abuse prevention
+- **GraphQL API (`src/interfaces/graphql/mod.rs`)**:
 
-## Future Possibilities
+  - A new `getSearchResults(queryId: ID!)` query must be added to the GraphQL schema and resolver. This endpoint will be responsible for fetching the search results from the cache.
 
-### 1. Agent Marketplace
-- Share and sell agent configurations
-- Community-contributed agent types
-- Rating and review system
+- **Frontend**:
 
-### 2. Distributed Agent Networks
-- Agents across multiple machines
-- Load balancing
-- Fault tolerance
-
-### 3. Advanced AI Features
-- Multi-agent collaboration
-- Autonomous task planning
-- Learning from interactions
-
-### 4. Integration Ecosystem
-- IDE plugins
-- CI/CD integration
-- Third-party service connectors
-
-## Conclusion
-
-The Agent Manager extension transforms Spacedrive from a file management system into a comprehensive development and AI orchestration platform. By treating agents as first-class citizens and providing spatial visualization, it enables new workflows and collaboration patterns while leveraging Spacedrive's robust foundation.
-
-This design provides a clear path from basic agent management to advanced collaborative AI systems, all while maintaining the performance, security, and user experience standards that Spacedrive users expect.
+  - The frontend must be able to subscribe to backend events (e.g., via WebSockets).
+  - The frontend must be updated to handle the `SearchResultsReady` event and call the new `getSearchResults` GraphQL endpoint to render the results.
