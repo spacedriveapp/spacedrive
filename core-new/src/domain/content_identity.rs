@@ -138,11 +138,13 @@ impl ContentKind {
 	}
 }
 
-/// Current CAS algorithm version
-pub const CURRENT_CAS_VERSION: u8 = 2;
+/// Size threshold for sampling vs full hashing (100KB)
+pub const MINIMUM_FILE_SIZE: u64 = 1024 * 100;
 
-/// Size threshold for sampling vs full hashing (10MB)
-pub const SMALL_FILE_THRESHOLD: u64 = 10 * 1024 * 1024;
+/// Sample configuration constants
+const SAMPLE_COUNT: u64 = 4;
+const SAMPLE_SIZE: u64 = 1024 * 10; // 10KB
+const HEADER_OR_FOOTER_SIZE: u64 = 1024 * 8; // 8KB
 
 /// Content hash generator for content identification
 pub struct ContentHashGenerator;
@@ -154,80 +156,83 @@ impl ContentHashGenerator {
 		let metadata = tokio::fs::metadata(path).await?;
 		let file_size = metadata.len();
 
-		if file_size <= SMALL_FILE_THRESHOLD {
+		if file_size <= MINIMUM_FILE_SIZE {
 			// Small file: hash entire content
-			Self::generate_full_hash(path).await
+			Self::generate_full_hash(path, file_size).await
 		} else {
 			// Large file: use sampling algorithm
 			Self::generate_sampled_hash(path, file_size).await
 		}
 	}
 
-	/// Generate full SHA-256 hash for small files
-	pub async fn generate_full_hash(path: &std::path::Path) -> Result<String, ContentHashError> {
-		use sha2::{Digest, Sha256};
+	/// Generate full BLAKE3 hash for small files
+	pub async fn generate_full_hash(path: &std::path::Path, size: u64) -> Result<String, ContentHashError> {
+		use blake3::Hasher;
 
+		let mut hasher = Hasher::new();
+		hasher.update(&size.to_le_bytes());
+		
 		let content = tokio::fs::read(path).await?;
-		let mut hasher = Sha256::new();
 		hasher.update(&content);
-		let hash = hasher.finalize();
-
-		Ok(format!("v{}_full:{:x}", CURRENT_CAS_VERSION, hash))
+		
+		Ok(hasher.finalize().to_hex()[..16].to_string())
 	}
 
-	/// Generate sampled hash for large files
-	/// Samples from beginning, middle, and end of file
+	/// Generate sampled hash for large files using V1 algorithm
+	/// Samples header, 4 evenly spaced samples, and footer
+	#[allow(clippy::cast_possible_truncation)]
+	#[allow(clippy::cast_possible_wrap)]
 	async fn generate_sampled_hash(
 		path: &std::path::Path,
-		file_size: u64,
+		size: u64,
 	) -> Result<String, ContentHashError> {
-		use sha2::{Digest, Sha256};
+		use blake3::Hasher;
 		use tokio::io::{AsyncReadExt, AsyncSeekExt};
 
-		const SAMPLE_SIZE: u64 = 8192; // 8KB samples
-		const NUM_SAMPLES: u64 = 3;
+		let mut hasher = Hasher::new();
+		hasher.update(&size.to_le_bytes());
 
 		let mut file = tokio::fs::File::open(path).await?;
-		let mut hasher = Sha256::new();
+		let mut buf = vec![0; SAMPLE_SIZE as usize].into_boxed_slice();
 
-		// Include file size in hash to distinguish files of different sizes
-		hasher.update(&file_size.to_le_bytes());
+		// Hashing the header
+		let mut current_pos = file
+			.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
+			.await? as u64;
+		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
 
-		// Sample from beginning
-		let mut buffer = vec![0u8; SAMPLE_SIZE as usize];
-		file.seek(std::io::SeekFrom::Start(0)).await?;
-		let bytes_read = file.read(&mut buffer).await?;
-		hasher.update(&buffer[..bytes_read]);
+		// Sample hashing the inner content of the file
+		let seek_jump = (size - HEADER_OR_FOOTER_SIZE * 2) / SAMPLE_COUNT;
+		loop {
+			file.read_exact(&mut buf).await?;
+			hasher.update(&buf);
 
-		// Sample from middle (if file is large enough)
-		if file_size > SAMPLE_SIZE * 2 {
-			let middle_pos = file_size / 2 - SAMPLE_SIZE / 2;
-			file.seek(std::io::SeekFrom::Start(middle_pos)).await?;
-			let bytes_read = file.read(&mut buffer).await?;
-			hasher.update(&buffer[..bytes_read]);
+			if current_pos >= (HEADER_OR_FOOTER_SIZE + seek_jump * (SAMPLE_COUNT - 1)) {
+				break;
+			}
+
+			current_pos = file.seek(std::io::SeekFrom::Start(current_pos + seek_jump)).await?;
 		}
 
-		// Sample from end (if file is large enough)
-		if file_size > SAMPLE_SIZE * NUM_SAMPLES {
-			let end_pos = file_size.saturating_sub(SAMPLE_SIZE);
-			file.seek(std::io::SeekFrom::Start(end_pos)).await?;
-			let bytes_read = file.read(&mut buffer).await?;
-			hasher.update(&buffer[..bytes_read]);
-		}
+		// Hashing the footer
+		file.seek(std::io::SeekFrom::End(-(HEADER_OR_FOOTER_SIZE as i64)))
+			.await?;
+		file.read_exact(&mut buf[..HEADER_OR_FOOTER_SIZE as usize])
+			.await?;
+		hasher.update(&buf[..HEADER_OR_FOOTER_SIZE as usize]);
 
-		let hash = hasher.finalize();
-		Ok(format!("v{}_sampled:{:x}", CURRENT_CAS_VERSION, hash))
+		Ok(hasher.finalize().to_hex()[..16].to_string())
 	}
 
 	/// Generate content hash from raw content (for in-memory data)
 	pub fn generate_from_content(content: &[u8]) -> String {
-		use sha2::{Digest, Sha256};
+		use blake3::Hasher;
 
-		let mut hasher = Sha256::new();
+		let mut hasher = Hasher::new();
+		hasher.update(&(content.len() as u64).to_le_bytes());
 		hasher.update(content);
-		let hash = hasher.finalize();
 
-		format!("v{}_content:{:x}", CURRENT_CAS_VERSION, hash)
+		hasher.finalize().to_hex()[..16].to_string()
 	}
 
 	/// Verify a content hash matches the current content of a file
