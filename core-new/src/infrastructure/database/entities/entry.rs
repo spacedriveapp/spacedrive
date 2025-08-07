@@ -25,6 +25,7 @@ pub struct Model {
     pub accessed_at: Option<DateTimeUtc>,
     pub permissions: Option<String>,  // Unix permissions as string
     pub inode: Option<i64>,  // Platform-specific file identifier for change detection
+    pub parent_id: Option<i32>,  // Reference to parent entry for hierarchical relationships
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -47,6 +48,12 @@ pub enum Relation {
         to = "super::content_identity::Column::Id"
     )]
     ContentIdentity,
+    #[sea_orm(
+        belongs_to = "Entity",
+        from = "Column::ParentId",
+        to = "Column::Id"
+    )]
+    Parent,
 }
 
 impl Related<super::user_metadata::Entity> for Entity {

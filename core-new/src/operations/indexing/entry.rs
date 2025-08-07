@@ -4,11 +4,11 @@ use super::state::{DirEntry, EntryKind, IndexerState};
 use crate::{
 	file_type::FileTypeRegistry,
 	infrastructure::{
-		database::entities::{self},
+		database::entities::{self, entry_closure},
 		jobs::prelude::{JobContext, JobError},
 	},
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -180,6 +180,13 @@ impl EntryProcessor {
 			None // Will be assigned during content identification phase
 		};
 
+		// Find parent entry ID
+		let parent_id = if let Some(parent_path) = entry.path.parent() {
+			state.entry_id_cache.get(parent_path).copied()
+		} else {
+			None
+		};
+
 		// Create entry
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
@@ -199,13 +206,50 @@ impl EntryProcessor {
 			accessed_at: Set(None),
 			permissions: Set(None), // TODO: Could extract from metadata
 			inode: Set(entry.inode.map(|i| i as i64)),
+			parent_id: Set(parent_id),
 			..Default::default()
 		};
 
+		// Begin transaction for atomic entry creation and closure table population
+		let txn = ctx.library_db().begin().await
+			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
+
+		// Insert the entry
 		let result = new_entry
-			.insert(ctx.library_db())
+			.insert(&txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to create entry: {}", e)))?;
+
+		// Populate closure table
+		// First, insert self-reference
+		let self_closure = entry_closure::ActiveModel {
+			ancestor_id: Set(result.id),
+			descendant_id: Set(result.id),
+			depth: Set(0),
+			..Default::default()
+		};
+		self_closure
+			.insert(&txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to insert self-closure: {}", e)))?;
+
+		// If there's a parent, copy all parent's ancestors
+		if let Some(parent_id) = parent_id {
+			// Insert closure entries for all ancestors
+			txn.execute_unprepared(&format!(
+				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
+				 SELECT ancestor_id, {}, depth + 1 \
+				 FROM entry_closure \
+				 WHERE descendant_id = {}",
+				result.id, parent_id
+			))
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to populate ancestor closures: {}", e)))?;
+		}
+
+		// Commit transaction
+		txn.commit().await
+			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
 		// Cache the entry ID for potential children
 		state.entry_id_cache.insert(entry.path.clone(), result.id);
@@ -250,6 +294,101 @@ impl EntryProcessor {
 			.update(ctx.library_db())
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
+
+		Ok(())
+	}
+
+	/// Handle entry move operation with closure table updates
+	pub async fn move_entry(
+		state: &mut IndexerState,
+		ctx: &JobContext<'_>,
+		entry_id: i32,
+		old_path: &Path,
+		new_path: &Path,
+		location_root_path: &Path,
+	) -> Result<(), JobError> {
+		// Begin transaction for atomic move operation
+		let txn = ctx.library_db().begin().await
+			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
+
+		// Get the entry
+		let db_entry = entities::entry::Entity::find_by_id(entry_id)
+			.one(&txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
+			.ok_or_else(|| JobError::execution("Entry not found for move".to_string()))?;
+
+		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
+
+		// Calculate new relative path
+		let new_relative_path = if let Ok(rel_path) = new_path.strip_prefix(location_root_path) {
+			if let Some(parent) = rel_path.parent() {
+				if parent == std::path::Path::new("") {
+					String::new()
+				} else {
+					parent.to_string_lossy().to_string()
+				}
+			} else {
+				String::new()
+			}
+		} else {
+			String::new()
+		};
+
+		// Find new parent entry ID
+		let new_parent_id = if let Some(parent_path) = new_path.parent() {
+			state.entry_id_cache.get(parent_path).copied()
+		} else {
+			None
+		};
+
+		// Update entry fields
+		entry_active.relative_path = Set(new_relative_path);
+		entry_active.parent_id = Set(new_parent_id);
+		
+		// Extract new name if it changed
+		if let Some(new_name) = new_path.file_stem() {
+			entry_active.name = Set(new_name.to_string_lossy().to_string());
+		}
+
+		// Save the updated entry
+		entry_active
+			.update(&txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to update entry: {}", e)))?;
+
+		// Update closure table for the move operation
+		// Step 1: Delete all ancestor relationships for the moved subtree (except internal relationships)
+		txn.execute_unprepared(&format!(
+			"DELETE FROM entry_closure \
+			 WHERE descendant_id IN (SELECT descendant_id FROM entry_closure WHERE ancestor_id = {}) \
+			 AND ancestor_id NOT IN (SELECT descendant_id FROM entry_closure WHERE ancestor_id = {})",
+			entry_id, entry_id
+		))
+		.await
+		.map_err(|e| JobError::execution(format!("Failed to disconnect subtree: {}", e)))?;
+
+		// Step 2: If there's a new parent, reconnect the subtree
+		if let Some(new_parent_id) = new_parent_id {
+			// Connect moved subtree to new parent
+			txn.execute_unprepared(&format!(
+				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
+				 SELECT p.ancestor_id, c.descendant_id, p.depth + c.depth + 1 \
+				 FROM entry_closure p, entry_closure c \
+				 WHERE p.descendant_id = {} AND c.ancestor_id = {}",
+				new_parent_id, entry_id
+			))
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to reconnect subtree: {}", e)))?;
+		}
+
+		// Commit transaction
+		txn.commit().await
+			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+
+		// Update cache
+		state.entry_id_cache.remove(old_path);
+		state.entry_id_cache.insert(new_path.to_path_buf(), entry_id);
 
 		Ok(())
 	}

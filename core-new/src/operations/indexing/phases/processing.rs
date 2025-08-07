@@ -162,8 +162,25 @@ pub async fn run_processing_phase(
                 Some(Change::Moved { old_path, new_path, entry_id, .. }) => {
                     // Handle move - update path in database
                     ctx.log(format!("🔄 Detected move: {} -> {}", old_path.display(), new_path.display()));
-                    // TODO: Implement move handling
-                    total_processed += 1;
+                    match EntryProcessor::move_entry(state, ctx, entry_id, &old_path, &new_path, location_root_path).await {
+                        Ok(()) => {
+                            ctx.log(format!("✅ Moved entry {}: {} -> {}", entry_id, old_path.display(), new_path.display()));
+                            total_processed += 1;
+                            
+                            // Re-process content if needed for moved files
+                            if mode >= IndexMode::Content && entry.kind == EntryKind::File {
+                                state.entries_for_content.push((entry_id, new_path));
+                            }
+                        }
+                        Err(e) => {
+                            let error_msg = format!("Failed to move entry {}: {}", entry_id, e);
+                            ctx.add_non_critical_error(error_msg);
+                            state.add_error(IndexError::CreateEntry { 
+                                path: new_path.to_string_lossy().to_string(), 
+                                error: e.to_string() 
+                            });
+                        }
+                    }
                 }
                 
                 Some(Change::Deleted { .. }) => {

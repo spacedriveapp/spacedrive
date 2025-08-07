@@ -5,6 +5,7 @@ use sea_orm_migration::prelude::*;
 mod m20240101_000001_create_initial_tables;
 mod m20240102_000001_add_audit_log;
 mod m20240103_000001_create_volumes;
+mod m20240104_000001_add_closure_table;
 
 pub struct Migrator;
 
@@ -15,6 +16,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20240101_000001_create_initial_tables::Migration),
 			Box::new(m20240102_000001_add_audit_log::Migration),
 			Box::new(m20240103_000001_create_volumes::Migration),
+			Box::new(m20240104_000001_add_closure_table::Migration),
 		]
 	}
 }

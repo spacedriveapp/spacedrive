@@ -6,11 +6,11 @@
 use crate::{
 	file_type::FileTypeRegistry,
 	infrastructure::{
-		database::entities,
+		database::entities::{self, entry_closure},
 		jobs::prelude::{JobContext, JobError, JobResult},
 	},
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, JoinType, RelationTrait, Condition};
 use std::{collections::HashMap, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -228,30 +228,83 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			)));
 		};
 
-		// Build scoped query based on indexing path
-		// NOTE: This query benefits from these indexes:
-		// CREATE INDEX idx_entries_location_relative_path ON entries(location_id, relative_path);
-		// CREATE INDEX idx_entries_location_path_prefix ON entries(location_id, relative_path varchar_pattern_ops); -- PostgreSQL
-		let mut query = entities::entry::Entity::find()
-			.filter(entities::entry::Column::LocationId.eq(self.location_id));
-
-		// If indexing a subpath, filter entries to that subtree only
-		if let Some(ref rel_path) = relative_indexing_path {
-			// Include entries that are:
-			// 1. Direct children: relative_path = rel_path
-			// 2. Descendants: relative_path starts with rel_path + "/"
-			query = query.filter(
-				entities::entry::Column::RelativePath
-					.eq(rel_path)
-					.or(entities::entry::Column::RelativePath.like(format!("{}/%", rel_path)))
-					.or(entities::entry::Column::RelativePath.like(format!("{}\\%", rel_path))), // Windows paths
-			);
-		}
-
-		let existing_entries = query
-			.all(self.ctx.library_db())
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
+		// Build query using closure table for efficient hierarchical queries
+		let existing_entries = if let Some(ref rel_path) = relative_indexing_path {
+			// Indexing a subpath - need to find the root entry for that path first
+			let path_parts: Vec<&str> = rel_path.split(|c| c == '/' || c == '\\').filter(|s| !s.is_empty()).collect();
+			
+			// Find the entry at the indexing root by traversing the path
+			let mut current_parent_id: Option<i32> = None;
+			let mut found_root = false;
+			
+			for (depth, part) in path_parts.iter().enumerate() {
+				let query = if let Some(parent_id) = current_parent_id {
+					// Look for child with specific parent
+					entities::entry::Entity::find()
+						.filter(entities::entry::Column::LocationId.eq(self.location_id))
+						.filter(entities::entry::Column::ParentId.eq(parent_id))
+						.filter(entities::entry::Column::Name.eq(*part))
+				} else {
+					// Look at root level (no parent)
+					entities::entry::Entity::find()
+						.filter(entities::entry::Column::LocationId.eq(self.location_id))
+						.filter(entities::entry::Column::ParentId.is_null())
+						.filter(entities::entry::Column::Name.eq(*part))
+				};
+				
+				if let Some(entry) = query.one(self.ctx.library_db()).await
+					.map_err(|e| JobError::execution(format!("Failed to find path segment: {}", e)))? {
+					current_parent_id = Some(entry.id);
+					if depth == path_parts.len() - 1 {
+						found_root = true;
+					}
+				} else {
+					// Path doesn't exist in database yet
+					break;
+				}
+			}
+			
+			if found_root && current_parent_id.is_some() {
+				let root_id = current_parent_id.unwrap();
+				// Get the root entry and all its descendants using closure table
+				let mut entries = vec![];
+				
+				// First get the root entry itself
+				if let Some(root_entry) = entities::entry::Entity::find_by_id(root_id)
+					.one(self.ctx.library_db())
+					.await
+					.map_err(|e| JobError::execution(format!("Failed to get root entry: {}", e)))? {
+					entries.push(root_entry);
+				}
+				
+				// Then get all descendants using closure table
+				let descendants = entities::entry::Entity::find()
+					.join(
+						JoinType::InnerJoin,
+						entry_closure::Entity,
+						Condition::all()
+							.add(entry_closure::Column::DescendantId.eq(entities::entry::Column::Id))
+							.add(entry_closure::Column::AncestorId.eq(root_id))
+							.add(entry_closure::Column::Depth.gt(0)),
+					)
+					.all(self.ctx.library_db())
+					.await
+					.map_err(|e| JobError::execution(format!("Failed to query descendants: {}", e)))?;
+				
+				entries.extend(descendants);
+				entries
+			} else {
+				// Scope root not found, return empty
+				vec![]
+			}
+		} else {
+			// Indexing entire location - get all entries for this location
+			entities::entry::Entity::find()
+				.filter(entities::entry::Column::LocationId.eq(self.location_id))
+				.all(self.ctx.library_db())
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?
+		};
 
 		let mut result = HashMap::new();
 

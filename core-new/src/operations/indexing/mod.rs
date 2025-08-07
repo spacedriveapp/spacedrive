@@ -18,6 +18,7 @@ pub mod phases;
 pub mod progress;
 pub mod change_detection;
 pub mod persistence;
+pub mod hierarchy;
 
 // Re-exports for convenience
 pub use job::{
@@ -31,6 +32,10 @@ pub use filters::should_skip_path;
 pub use metrics::IndexerMetrics;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 pub use action::IndexingAction;
+pub use hierarchy::HierarchyQuery;
 
 // Rules system will be integrated here in the future
 // pub mod rules;
+
+#[cfg(test)]
+mod tests;
