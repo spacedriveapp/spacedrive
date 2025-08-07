@@ -12,6 +12,7 @@ use crate::infrastructure::database::entities::{
 	content_identity::{self, Entity as ContentIdentity, Model as ContentIdentityModel},
 	entry::{self, Entity as Entry, Model as EntryModel},
 };
+use crate::operations::indexing::PathResolver;
 
 pub use action::ContentAction;
 use crate::shared::errors::Result;
@@ -70,8 +71,9 @@ impl ContentService {
 
 		let mut instances = Vec::new();
 		for entry in entries {
-			// TODO: Replace with proper SdPath materialization once available
-			let path = format!("{}/{}", entry.relative_path, entry.name);
+			// Get the full path using PathResolver
+			let path_buf = PathResolver::get_full_path(&*self.library_db, entry.id).await?;
+			let path = path_buf.to_string_lossy().to_string();
 
 			// TODO: Get device UUID from location when that relationship is available
 			let device_uuid = Uuid::new_v4(); // Placeholder

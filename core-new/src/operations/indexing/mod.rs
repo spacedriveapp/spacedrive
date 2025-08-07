@@ -19,6 +19,7 @@ pub mod progress;
 pub mod change_detection;
 pub mod persistence;
 pub mod hierarchy;
+pub mod path_resolver;
 
 // Re-exports for convenience
 pub use job::{
@@ -33,6 +34,7 @@ pub use metrics::IndexerMetrics;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 pub use action::IndexingAction;
 pub use hierarchy::HierarchyQuery;
+pub use path_resolver::PathResolver;
 
 // Rules system will be integrated here in the future
 // pub mod rules;

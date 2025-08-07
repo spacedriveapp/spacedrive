@@ -10,7 +10,6 @@ pub struct Model {
     pub id: i32,
     pub uuid: Option<Uuid>, // None until content identification phase complete (sync readiness indicator)
     pub location_id: i32,  // References location table
-    pub relative_path: String,  // Directory path within location
     pub name: String,
     pub kind: i32,  // Entry type: 0=File, 1=Directory, 2=Symlink
     pub extension: Option<String>,  // File extension (without dot), None for directories

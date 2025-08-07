@@ -10,7 +10,7 @@ use crate::{
 		jobs::prelude::{JobContext, JobError, JobResult},
 	},
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, JoinType, RelationTrait, Condition};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, JoinType, RelationTrait, Condition, DbBackend, Statement, TransactionTrait, QuerySelect, ConnectionTrait};
 use std::{collections::HashMap, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -18,6 +18,7 @@ use uuid::Uuid;
 use super::{
 	job::{EphemeralContentIdentity, EphemeralIndex},
 	state::{DirEntry, EntryKind},
+	PathResolver,
 };
 
 /// Abstraction for storing indexing results
@@ -81,21 +82,14 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	) -> JobResult<i32> {
 		use super::entry::EntryProcessor;
 
-		// Calculate relative directory path from location root (without filename)
-		let relative_path = if let Ok(rel_path) = entry.path.strip_prefix(location_root_path) {
-			// Get parent directory relative to location root
-			if let Some(parent) = rel_path.parent() {
-				if parent == std::path::Path::new("") {
-					String::new()
-				} else {
-					parent.to_string_lossy().to_string()
-				}
-			} else {
-				String::new()
-			}
+		// Find parent entry ID
+		let parent_id = if let Some(parent_path) = entry.path.parent() {
+			let cache = self.entry_id_cache.read().await;
+			cache.get(parent_path).copied()
 		} else {
-			String::new()
+			None
 		};
+
 
 		// Extract file extension (without dot) for files, None for directories
 		let extension = match entry.kind {
@@ -146,8 +140,7 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
 			location_id: Set(self.location_id),
-			relative_path: Set(relative_path),
-			name: Set(name),
+			name: Set(name.clone()),
 			kind: Set(EntryProcessor::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
 			metadata_id: Set(None), // User metadata only created when user adds metadata
@@ -161,13 +154,69 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			accessed_at: Set(None),
 			permissions: Set(None), // TODO: Could extract from metadata
 			inode: Set(entry.inode.map(|i| i as i64)),
+			parent_id: Set(parent_id),
 			..Default::default()
 		};
 
+		// Begin transaction for atomic entry creation and closure table population
+		let txn = self.ctx.library_db().begin().await
+			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
+
+		// Insert the entry
 		let result = new_entry
-			.insert(self.ctx.library_db())
+			.insert(&txn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to create entry: {}", e)))?;
+
+		// Populate closure table
+		// First, insert self-reference
+		let self_closure = entry_closure::ActiveModel {
+			ancestor_id: Set(result.id),
+			descendant_id: Set(result.id),
+			depth: Set(0),
+			..Default::default()
+		};
+		self_closure
+			.insert(&txn)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to insert self-closure: {}", e)))?;
+
+		// If there's a parent, copy all parent's ancestors
+		if let Some(parent_id) = parent_id {
+			// Insert closure entries for all ancestors
+			txn.execute(Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
+				 SELECT ancestor_id, ?, depth + 1 \
+				 FROM entry_closure \
+				 WHERE descendant_id = ?",
+				vec![result.id.into(), parent_id.into()],
+			))
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to populate ancestor closures: {}", e)))?;
+		}
+
+		// If this is a directory, populate the directory_paths table
+		if entry.kind == EntryKind::Directory {
+			// Build the full path for this directory
+			let directory_path = PathResolver::build_directory_path(&txn, parent_id, &name).await
+				.map_err(|e| JobError::execution(format!("Failed to build directory path: {}", e)))?;
+
+			// Insert into directory_paths table
+			let dir_path_entry = entities::directory_paths::ActiveModel {
+				entry_id: Set(result.id),
+				path: Set(directory_path),
+				..Default::default()
+			};
+			dir_path_entry
+				.insert(&txn)
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to insert directory path: {}", e)))?;
+		}
+
+		// Commit transaction
+		txn.commit().await
+			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
 		// Cache the entry ID for potential children
 		{
@@ -207,11 +256,13 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
-		// Parse the location path to determine the root
-		let location_root = std::path::Path::new(&location_record.path);
+		// Get the location root path using PathResolver
+		let location_root = PathResolver::get_full_path(self.ctx.library_db(), location_record.entry_id)
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to get location path: {}", e)))?;
 
 		// Calculate the relative path being indexed
-		let relative_indexing_path = if let Ok(rel_path) = indexing_path.strip_prefix(location_root)
+		let relative_indexing_path = if let Ok(rel_path) = indexing_path.strip_prefix(&location_root)
 		{
 			if rel_path == std::path::Path::new("") {
 				// Indexing entire location - use optimized query for root
@@ -278,18 +329,27 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 				}
 				
 				// Then get all descendants using closure table
-				let descendants = entities::entry::Entity::find()
-					.join(
-						JoinType::InnerJoin,
-						entry_closure::Entity,
-						Condition::all()
-							.add(entry_closure::Column::DescendantId.eq(entities::entry::Column::Id))
-							.add(entry_closure::Column::AncestorId.eq(root_id))
-							.add(entry_closure::Column::Depth.gt(0)),
-					)
+				// First get descendant IDs from closure table
+				let descendant_ids = entry_closure::Entity::find()
+					.filter(entry_closure::Column::AncestorId.eq(root_id))
+					.filter(entry_closure::Column::Depth.gt(0))
 					.all(self.ctx.library_db())
 					.await
-					.map_err(|e| JobError::execution(format!("Failed to query descendants: {}", e)))?;
+					.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
+					.into_iter()
+					.map(|ec| ec.descendant_id)
+					.collect::<Vec<i32>>();
+				
+				// Then fetch the entries
+				let descendants = if descendant_ids.is_empty() {
+					vec![]
+				} else {
+					entities::entry::Entity::find()
+						.filter(entities::entry::Column::Id.is_in(descendant_ids))
+						.all(self.ctx.library_db())
+						.await
+						.map_err(|e| JobError::execution(format!("Failed to query descendants: {}", e)))?
+				};
 				
 				entries.extend(descendants);
 				entries
@@ -323,12 +383,10 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		}
 
 		for entry in existing_entries {
-			// Reconstruct full path from relative_path and name
-			let full_path = if entry.relative_path.is_empty() {
-				location_root.join(&entry.name)
-			} else {
-				location_root.join(&entry.relative_path).join(&entry.name)
-			};
+			// Build full path for the entry using PathResolver
+			let full_path = PathResolver::get_full_path(self.ctx.library_db(), entry.id)
+				.await
+				.unwrap_or_else(|_| location_root.join(&entry.name));
 
 			// Convert timestamp to SystemTime for comparison
 			let modified_time =

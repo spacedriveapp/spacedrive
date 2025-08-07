@@ -3,16 +3,16 @@
 use super::{LocationError, LocationResult, ManagedLocation, IndexMode};
 use crate::{
     infrastructure::{
-        database::entities,
+        database::entities::{self, entry::EntryKind},
         events::{Event, EventBus},
         jobs::{manager::JobManager, traits::Job},
     },
     library::Library,
-    operations::indexing::job::{IndexerJob, IndexerJobConfig},
+    operations::indexing::{job::{IndexerJob, IndexerJobConfig}, PathResolver},
     shared::types::SdPath,
 };
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, TransactionTrait,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio::fs;
@@ -44,15 +44,55 @@ impl LocationManager {
         // Validate the path
         self.validate_path(&path).await?;
 
-        // Check if location already exists
-        let existing = entities::location::Entity::find()
-            .filter(entities::location::Column::Path.eq(path.to_string_lossy().to_string()))
-            .one(library.db().conn())
-            .await?;
+        // Begin transaction
+        let txn = library.db().conn().begin().await?;
 
-        if existing.is_some() {
-            return Err(LocationError::LocationExists { path });
-        }
+        // Create entry for the location directory
+        let directory_name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let entry_model = entities::entry::ActiveModel {
+            uuid: Set(Some(Uuid::new_v4())),
+            location_id: Set(0), // Will be updated after location is created
+            name: Set(directory_name.clone()),
+            kind: Set(EntryKind::Directory as i32),
+            extension: Set(None),
+            metadata_id: Set(None),
+            content_id: Set(None),
+            size: Set(0),
+            aggregate_size: Set(0),
+            child_count: Set(0),
+            file_count: Set(0),
+            created_at: Set(chrono::Utc::now()),
+            modified_at: Set(chrono::Utc::now()),
+            accessed_at: Set(None),
+            permissions: Set(None),
+            inode: Set(None),
+            parent_id: Set(None), // Location root has no parent
+            ..Default::default()
+        };
+
+        let entry_record = entry_model.insert(&txn).await?;
+        let entry_id = entry_record.id;
+
+        // Add self-reference to closure table
+        let self_closure = entities::entry_closure::ActiveModel {
+            ancestor_id: Set(entry_id),
+            descendant_id: Set(entry_id),
+            depth: Set(0),
+            ..Default::default()
+        };
+        self_closure.insert(&txn).await?;
+
+        // Add to directory_paths table
+        let dir_path_entry = entities::directory_paths::ActiveModel {
+            entry_id: Set(entry_id),
+            path: Set(path.to_string_lossy().to_string()),
+            ..Default::default()
+        };
+        dir_path_entry.insert(&txn).await?;
 
         // Create the location record
         let location_id = Uuid::new_v4();
@@ -67,7 +107,7 @@ impl LocationManager {
             id: sea_orm::ActiveValue::NotSet,
             uuid: Set(location_id),
             device_id: Set(device_id),
-            path: Set(path.to_string_lossy().to_string()),
+            entry_id: Set(entry_id),
             name: Set(Some(display_name.clone())),
             index_mode: Set(index_mode.to_string()),
             scan_state: Set("pending".to_string()),
@@ -79,7 +119,15 @@ impl LocationManager {
             updated_at: Set(chrono::Utc::now()),
         };
 
-        let location_record = location_model.insert(library.db().conn()).await?;
+        let location_record = location_model.insert(&txn).await?;
+        
+        // Update the entry's location_id
+        let mut entry_active: entities::entry::ActiveModel = entry_record.into();
+        entry_active.location_id = Set(location_record.id);
+        entry_active.update(&txn).await?;
+        
+        // Commit transaction
+        txn.commit().await?;
         info!("Created location record with ID: {}", location_record.id);
 
         // Create managed location
@@ -301,10 +349,11 @@ impl LocationManager {
 
         let mut managed_locations = Vec::new();
         for loc in locations {
+            let path = PathResolver::get_full_path(library.db().conn(), loc.entry_id).await?;
             managed_locations.push(ManagedLocation {
                 id: loc.uuid,
                 name: loc.name.unwrap_or_else(|| "Unknown".to_string()),
-                path: PathBuf::from(&loc.path),
+                path,
                 device_id: loc.device_id,
                 library_id: library.id(),
                 indexing_enabled: true,
@@ -332,10 +381,12 @@ impl LocationManager {
             .await?
             .ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
+        let path = PathResolver::get_full_path(library.db().conn(), location.entry_id).await?;
+        
         let managed_location = ManagedLocation {
             id: location.uuid,
             name: location.name.unwrap_or_else(|| "Unknown".to_string()),
-            path: PathBuf::from(&location.path),
+            path,
             device_id: location.device_id,
             library_id: library.id(),
             indexing_enabled: true,

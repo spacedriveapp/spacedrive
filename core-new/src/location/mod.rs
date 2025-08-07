@@ -4,16 +4,16 @@ pub mod manager;
 
 use crate::{
 	infrastructure::{
-		database::entities,
+		database::entities::{self, entry::EntryKind},
 		events::{Event, EventBus},
 		jobs::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
 	},
 	library::Library,
-	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig},
+	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver},
 	shared::types::SdPath,
 };
 
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 use tokio::fs;
@@ -100,6 +100,8 @@ pub struct ManagedLocation {
 pub enum LocationError {
 	#[error("Database error: {0}")]
 	Database(#[from] sea_orm::DbErr),
+	#[error("Database error: {0}")]
+	DatabaseError(String),
 	#[error("Path does not exist: {path}")]
 	PathNotFound { path: PathBuf },
 	#[error("Path not accessible: {path}")]
@@ -143,13 +145,74 @@ pub async fn create_location(
 		));
 	}
 
-	// Check if location already exists
+	// Begin transaction to ensure atomicity
+	let txn = library.db().conn().begin().await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
+
+	// First, check if an entry already exists for this path
+	// We need to create a root entry for the location directory
+	let directory_name = args.path
+		.file_name()
+		.and_then(|n| n.to_str())
+		.unwrap_or("Unknown")
+		.to_string();
+
+	// Create entry for the location directory
+	let entry_model = entities::entry::ActiveModel {
+		uuid: Set(Some(Uuid::new_v4())),
+		location_id: Set(0), // Will be updated after location is created
+		name: Set(directory_name.clone()),
+		kind: Set(EntryKind::Directory as i32),
+		extension: Set(None),
+		metadata_id: Set(None),
+		content_id: Set(None),
+		size: Set(0),
+		aggregate_size: Set(0),
+		child_count: Set(0),
+		file_count: Set(0),
+		created_at: Set(chrono::Utc::now()),
+		modified_at: Set(chrono::Utc::now()),
+		accessed_at: Set(None),
+		permissions: Set(None),
+		inode: Set(None),
+		parent_id: Set(None), // Location root has no parent
+		..Default::default()
+	};
+
+	let entry_record = entry_model.insert(&txn).await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
+	let entry_id = entry_record.id;
+
+	// Add self-reference to closure table
+	let self_closure = entities::entry_closure::ActiveModel {
+		ancestor_id: Set(entry_id),
+		descendant_id: Set(entry_id),
+		depth: Set(0),
+		..Default::default()
+	};
+	self_closure.insert(&txn).await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
+
+	// Add to directory_paths table
+	let dir_path_entry = entities::directory_paths::ActiveModel {
+		entry_id: Set(entry_id),
+		path: Set(path_str.to_string()),
+		..Default::default()
+	};
+	dir_path_entry.insert(&txn).await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
+
+	// Check if a location already exists for this entry
 	let existing = entities::location::Entity::find()
-		.filter(entities::location::Column::Path.eq(path_str))
-		.one(library.db().conn())
-		.await?;
+		.filter(entities::location::Column::EntryId.eq(entry_id))
+		.one(&txn)
+		.await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	if existing.is_some() {
+		// Rollback transaction
+		txn.rollback().await
+			.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 		return Err(LocationError::LocationExists { path: args.path });
 	}
 
@@ -167,7 +230,7 @@ pub async fn create_location(
 		id: Set(0), // Auto-increment
 		uuid: Set(location_id),
 		device_id: Set(device_id),
-		path: Set(path_str.to_string()),
+		entry_id: Set(entry_id),
 		name: Set(Some(name.clone())),
 		index_mode: Set(args.index_mode.to_string()),
 		scan_state: Set("pending".to_string()),
@@ -179,8 +242,19 @@ pub async fn create_location(
 		updated_at: Set(chrono::Utc::now()),
 	};
 
-	let location_record = location_model.insert(library.db().conn()).await?;
+	let location_record = location_model.insert(&txn).await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 	let location_db_id = location_record.id;
+
+	// Update the entry's location_id now that we have it
+	let mut entry_active: entities::entry::ActiveModel = entry_record.into();
+	entry_active.location_id = Set(location_db_id);
+	entry_active.update(&txn).await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
+
+	// Commit transaction
+	txn.commit().await
+		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	info!("Created location '{}' with ID: {}", name, location_db_id);
 

@@ -4,7 +4,8 @@
 //! Spacedrive's indexed data, enabling immediate progress feedback.
 
 use crate::{
-	infrastructure::database::entities::{entry, location},
+	infrastructure::database::entities::{entry, location, Entry},
+	operations::indexing::PathResolver,
 	shared::types::SdPath,
 };
 use anyhow::Result;
@@ -49,87 +50,101 @@ impl CopyDatabaseQuery {
 	async fn get_path_estimates(&self, path: &Path) -> Result<Option<SinglePathEstimate>> {
 		let path_str = path.to_string_lossy().to_string();
 
-		// Find the location that contains this path
-		// For now, we'll do a simple prefix match
-		let locations_list = location::Entity::find().all(&self.db).await?;
-
-		let location = locations_list
-			.into_iter()
-			.filter(|loc| path_str.starts_with(&loc.path))
-			.max_by_key(|loc| loc.path.len()); // Get the most specific match
-
-		let location = match location {
-			Some(loc) => loc,
-			None => return Ok(None), // Path not in any indexed location
-		};
-
-		let location_path = PathBuf::from(&location.path);
-
-		// Calculate the relative path within the location
-		let relative_path = path
-			.strip_prefix(&location_path)
-			.map(|p| p.to_string_lossy().to_string())
-			.unwrap_or_default();
-
-		// If we're querying the entire location, use cached stats
-		if relative_path.is_empty() {
-			return Ok(Some(SinglePathEstimate {
-				file_count: location.total_file_count as u64,
-				total_size: location.total_byte_size as u64,
-			}));
-		}
-
-		// For specific paths within locations, we need to query entries
-		// This is a simplified version - in reality we'd need more complex queries
-		// to handle directory aggregation properly
-		println!("relative_path: {}", relative_path);
-
-		// Split the relative path to get parent directory and name
-		let (parent_path, name) = if let Some(pos) = relative_path.rfind('/') {
-			(
-				relative_path[..pos].to_string(),
-				relative_path[pos + 1..].to_string(),
-			)
-		} else {
-			(String::new(), relative_path)
-		};
-
-		// Query for the specific entry
-		let entry = entry::Entity::find()
-			.filter(
-				Condition::all()
-					.add(entry::Column::LocationId.eq(location.id))
-					.add(entry::Column::RelativePath.eq(parent_path))
-					.add(entry::Column::Name.eq(name)),
-			)
-			.one(&self.db)
+		// Get all locations to find which one contains this path
+		let locations = location::Entity::find()
+			.all(&self.db)
 			.await?;
 
-		match entry {
-			Some(entry) => {
-				let (file_count, total_size) = match entry.kind {
-					0 => (1u64, entry.size as u64), // File
-					1 => {
-						// Directory
-						// Use pre-calculated aggregate values
-						let files = entry.file_count as u64;
-						let size = entry.aggregate_size as u64;
-						(files, size)
-					}
-					_ => (0, 0), // Symlink or other
+		// Check each location to see if it contains this path
+		for location in locations {
+			// Get the full path of the location's root entry
+			let location_path = match PathResolver::get_full_path(&self.db, location.entry_id).await {
+				Ok(path) => path,
+				Err(_) => continue, // Skip if we can't get the path
+			};
+
+			let location_path_str = location_path.to_string_lossy().to_string();
+
+			// Check if the target path is within this location
+			if path_str.starts_with(&location_path_str) {
+				// If querying the entire location root, use cached stats
+				if path == location_path {
+					return Ok(Some(SinglePathEstimate {
+						file_count: location.total_file_count as u64,
+						total_size: location.total_byte_size as u64,
+					}));
+				}
+
+				// For paths within the location, we need to find the specific entry
+				// by traversing the hierarchy
+				let relative_path = match path.strip_prefix(&location_path) {
+					Ok(rel) => rel,
+					Err(_) => continue,
 				};
 
-				Ok(Some(SinglePathEstimate {
-					file_count,
-					total_size,
-				}))
-			}
-			None => {
-				// Path exists in location but not yet indexed
-				Ok(None)
+				// Get path components
+				let components: Vec<&str> = relative_path
+					.components()
+					.filter_map(|c| c.as_os_str().to_str())
+					.collect();
+
+				if components.is_empty() {
+					continue;
+				}
+
+				// Start from the location's root entry and traverse down
+				let mut current_parent_id = Some(location.entry_id);
+				let mut target_entry = None;
+
+				for component in components {
+					if let Some(parent_id) = current_parent_id {
+						// Find child with matching name
+						let child = entry::Entity::find()
+							.filter(entry::Column::ParentId.eq(parent_id))
+							.filter(entry::Column::Name.eq(component))
+							.one(&self.db)
+							.await?;
+
+						match child {
+							Some(c) => {
+								current_parent_id = Some(c.id);
+								target_entry = Some(c);
+							}
+							None => return Ok(None), // Path not indexed
+						}
+					} else {
+						return Ok(None);
+					}
+				}
+
+				// Found the target entry
+				if let Some(entry) = target_entry {
+					let (file_count, total_size) = match entry.kind {
+						0 => (1u64, entry.size as u64), // File
+						1 => {
+							// Directory - use pre-calculated aggregate values
+							(entry.file_count as u64, entry.aggregate_size as u64)
+						}
+						_ => (0, 0), // Symlink or other
+					};
+
+					return Ok(Some(SinglePathEstimate {
+						file_count,
+						total_size,
+					}));
+				}
 			}
 		}
+
+		Ok(None) // Path not in any indexed location
 	}
+}
+
+/// Estimates for a single path
+#[derive(Debug, Clone)]
+pub struct SinglePathEstimate {
+	pub file_count: u64,
+	pub total_size: u64,
 }
 
 /// Aggregate estimates for multiple paths
@@ -155,13 +170,6 @@ impl PathEstimates {
 			self.indexed_paths as f32 / self.total_paths as f32
 		}
 	}
-}
-
-/// Estimates for a single path
-#[derive(Debug, Clone)]
-pub struct SinglePathEstimate {
-	pub file_count: u64,
-	pub total_size: u64,
 }
 
 #[cfg(test)]

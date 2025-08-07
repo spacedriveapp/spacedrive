@@ -1,14 +1,15 @@
 //! Entry processing and metadata extraction
 
 use super::state::{DirEntry, EntryKind, IndexerState};
+use super::path_resolver::PathResolver;
 use crate::{
 	file_type::FileTypeRegistry,
 	infrastructure::{
-		database::entities::{self, entry_closure},
+		database::entities::{self, entry_closure, directory_paths},
 		jobs::prelude::{JobContext, JobError},
 	},
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait, DbBackend, Statement, IntoActiveModel};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -119,21 +120,6 @@ impl EntryProcessor {
 		device_id: i32,
 		location_root_path: &Path,
 	) -> Result<i32, JobError> {
-		// Calculate relative directory path from location root (without filename)
-		let relative_path = if let Ok(rel_path) = entry.path.strip_prefix(location_root_path) {
-			// Get parent directory relative to location root
-			if let Some(parent) = rel_path.parent() {
-				if parent == std::path::Path::new("") {
-					String::new()
-				} else {
-					parent.to_string_lossy().to_string()
-				}
-			} else {
-				String::new()
-			}
-		} else {
-			String::new()
-		};
 
 		// Extract file extension (without dot) for files, None for directories
 		let extension = match entry.kind {
@@ -191,8 +177,7 @@ impl EntryProcessor {
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
 			location_id: Set(location_id),
-			relative_path: Set(relative_path),
-			name: Set(name),
+			name: Set(name.clone()),
 			kind: Set(Self::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
 			metadata_id: Set(None), // User metadata only created when user adds metadata
@@ -245,6 +230,24 @@ impl EntryProcessor {
 			))
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to populate ancestor closures: {}", e)))?;
+		}
+
+		// If this is a directory, populate the directory_paths table
+		if entry.kind == EntryKind::Directory {
+			// Build the full path for this directory
+			let directory_path = PathResolver::build_directory_path(&txn, parent_id, &name).await
+				.map_err(|e| JobError::execution(format!("Failed to build directory path: {}", e)))?;
+
+			// Insert into directory_paths table
+			let dir_path_entry = directory_paths::ActiveModel {
+				entry_id: Set(result.id),
+				path: Set(directory_path),
+				..Default::default()
+			};
+			dir_path_entry
+				.insert(&txn)
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to insert directory path: {}", e)))?;
 		}
 
 		// Commit transaction
@@ -318,22 +321,8 @@ impl EntryProcessor {
 			.map_err(|e| JobError::execution(format!("Failed to find entry: {}", e)))?
 			.ok_or_else(|| JobError::execution("Entry not found for move".to_string()))?;
 
+		let is_directory = db_entry.kind == Self::entry_kind_to_int(EntryKind::Directory);
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
-
-		// Calculate new relative path
-		let new_relative_path = if let Ok(rel_path) = new_path.strip_prefix(location_root_path) {
-			if let Some(parent) = rel_path.parent() {
-				if parent == std::path::Path::new("") {
-					String::new()
-				} else {
-					parent.to_string_lossy().to_string()
-				}
-			} else {
-				String::new()
-			}
-		} else {
-			String::new()
-		};
 
 		// Find new parent entry ID
 		let new_parent_id = if let Some(parent_path) = new_path.parent() {
@@ -343,12 +332,14 @@ impl EntryProcessor {
 		};
 
 		// Update entry fields
-		entry_active.relative_path = Set(new_relative_path);
 		entry_active.parent_id = Set(new_parent_id);
 		
 		// Extract new name if it changed
+		let mut new_name_value = None;
 		if let Some(new_name) = new_path.file_stem() {
-			entry_active.name = Set(new_name.to_string_lossy().to_string());
+			let name_string = new_name.to_string_lossy().to_string();
+			new_name_value = Some(name_string.clone());
+			entry_active.name = Set(name_string);
 		}
 
 		// Save the updated entry
@@ -382,9 +373,58 @@ impl EntryProcessor {
 			.map_err(|e| JobError::execution(format!("Failed to reconnect subtree: {}", e)))?;
 		}
 
-		// Commit transaction
-		txn.commit().await
-			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+		// If this is a directory, update its path in directory_paths table
+		if is_directory {
+			// Get the new name from what we saved earlier
+			let new_name = new_name_value.unwrap_or_else(|| {
+				// If name didn't change, get it from the path
+				new_path.file_name()
+					.and_then(|n| n.to_str())
+					.unwrap_or("unknown")
+					.to_string()
+			});
+
+			// Build the new path
+			let new_directory_path = PathResolver::build_directory_path(&txn, new_parent_id, &new_name).await
+				.map_err(|e| JobError::execution(format!("Failed to build new directory path: {}", e)))?;
+
+			// Get the old path for descendant updates
+			let old_directory_path = PathResolver::get_directory_path(&txn, entry_id).await
+				.map_err(|e| JobError::execution(format!("Failed to get old directory path: {}", e)))?;
+
+			// Update the directory's own path
+			let mut dir_path_active = directory_paths::Entity::find_by_id(entry_id)
+				.one(&txn)
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to find directory path: {}", e)))?
+				.ok_or_else(|| JobError::execution("Directory path not found".to_string()))?
+				.into_active_model();
+			dir_path_active.path = Set(new_directory_path.clone());
+			dir_path_active.update(&txn).await
+				.map_err(|e| JobError::execution(format!("Failed to update directory path: {}", e)))?;
+
+			// Commit transaction first to ensure the move is persisted
+			txn.commit().await
+				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+
+			// Spawn a background job to update descendant paths
+			// This is done outside the transaction for performance
+			let db = ctx.library_db().clone();
+			tokio::spawn(async move {
+				if let Err(e) = PathResolver::update_descendant_paths(
+					&db,
+					entry_id,
+					&old_directory_path,
+					&new_directory_path,
+				).await {
+					tracing::error!("Failed to update descendant paths: {}", e);
+				}
+			});
+		} else {
+			// For files, just commit the transaction
+			txn.commit().await
+				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+		}
 
 		// Update cache
 		state.entry_id_cache.remove(old_path);

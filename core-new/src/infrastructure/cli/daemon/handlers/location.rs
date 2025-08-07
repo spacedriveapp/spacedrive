@@ -66,6 +66,7 @@ impl CommandHandler for LocationHandler {
 				if let Some(library) = state_service.get_current_library(core).await {
 					// For listing, we can directly query the database since it's a read operation
 					use crate::infrastructure::database::entities;
+					use crate::operations::indexing::PathResolver;
 					use sea_orm::EntityTrait;
 
 					match entities::location::Entity::find()
@@ -73,20 +74,24 @@ impl CommandHandler for LocationHandler {
 						.await
 					{
 						Ok(locations) => {
-							let infos: Vec<LocationInfo> = locations
-								.into_iter()
-								.map(|loc| LocationInfo {
+							let mut infos = Vec::new();
+							for loc in locations {
+								let path = match PathResolver::get_full_path(library.db().conn(), loc.entry_id).await {
+									Ok(p) => p,
+									Err(_) => PathBuf::from("<unknown>"),
+								};
+								infos.push(LocationInfo {
 									id: loc.uuid,
 									name: loc.name.unwrap_or_default(),
-									path: PathBuf::from(loc.path),
+									path,
 									status: if loc.scan_state == "1" {
 										"active"
 									} else {
 										"idle"
 									}
 									.to_string(),
-								})
-								.collect();
+								});
+							}
 
 							DaemonResponse::Locations(infos)
 						}

@@ -6,6 +6,7 @@ mod m20240101_000001_create_initial_tables;
 mod m20240102_000001_add_audit_log;
 mod m20240103_000001_create_volumes;
 mod m20240104_000001_add_closure_table;
+mod m20240105_000001_virtual_locations;
 
 pub struct Migrator;
 
@@ -17,6 +18,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20240102_000001_add_audit_log::Migration),
 			Box::new(m20240103_000001_create_volumes::Migration),
 			Box::new(m20240104_000001_add_closure_table::Migration),
+			Box::new(m20240105_000001_virtual_locations::Migration),
 		]
 	}
 }

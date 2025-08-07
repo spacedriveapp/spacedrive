@@ -3,7 +3,7 @@
 use crate::infrastructure::database::entities::{entry, entry_closure};
 use sea_orm::{
     ColumnTrait, DbConn, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
-    JoinType, RelationTrait, Condition,
+    JoinType, RelationTrait, Condition, PaginatorTrait,
 };
 use std::path::PathBuf;
 
@@ -28,16 +28,24 @@ impl HierarchyQuery {
         db: &DbConn,
         ancestor_id: i32,
     ) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
-        entry::Entity::find()
-            .join(
-                JoinType::InnerJoin,
-                entry_closure::Entity,
-                Condition::all()
-                    .add(entry_closure::Column::DescendantId.eq(entry::Column::Id))
-                    .add(entry_closure::Column::AncestorId.eq(ancestor_id))
-                    .add(entry_closure::Column::Depth.gt(0)),
-            )
+        // First get all descendant IDs from closure table
+        let descendant_ids = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(ancestor_id))
+            .filter(entry_closure::Column::Depth.gt(0))
             .order_by_asc(entry_closure::Column::Depth)
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|ec| ec.descendant_id)
+            .collect::<Vec<i32>>();
+
+        // Then fetch the entries
+        if descendant_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        entry::Entity::find()
+            .filter(entry::Column::Id.is_in(descendant_ids))
             .order_by_asc(entry::Column::Name)
             .all(db)
             .await
@@ -48,16 +56,24 @@ impl HierarchyQuery {
         db: &DbConn,
         descendant_id: i32,
     ) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
-        entry::Entity::find()
-            .join(
-                JoinType::InnerJoin,
-                entry_closure::Entity,
-                Condition::all()
-                    .add(entry_closure::Column::AncestorId.eq(entry::Column::Id))
-                    .add(entry_closure::Column::DescendantId.eq(descendant_id))
-                    .add(entry_closure::Column::Depth.gt(0)),
-            )
+        // First get all ancestor IDs from closure table
+        let ancestor_ids = entry_closure::Entity::find()
+            .filter(entry_closure::Column::DescendantId.eq(descendant_id))
+            .filter(entry_closure::Column::Depth.gt(0))
             .order_by_desc(entry_closure::Column::Depth)
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|ec| ec.ancestor_id)
+            .collect::<Vec<i32>>();
+
+        // Then fetch the entries
+        if ancestor_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        entry::Entity::find()
+            .filter(entry::Column::Id.is_in(ancestor_ids))
             .all(db)
             .await
     }
@@ -68,15 +84,23 @@ impl HierarchyQuery {
         ancestor_id: i32,
         depth: i32,
     ) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
+        // First get IDs at the specific depth
+        let entry_ids = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(ancestor_id))
+            .filter(entry_closure::Column::Depth.eq(depth))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|ec| ec.descendant_id)
+            .collect::<Vec<i32>>();
+
+        // Then fetch the entries
+        if entry_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
         entry::Entity::find()
-            .join(
-                JoinType::InnerJoin,
-                entry_closure::Entity,
-                Condition::all()
-                    .add(entry_closure::Column::DescendantId.eq(entry::Column::Id))
-                    .add(entry_closure::Column::AncestorId.eq(ancestor_id))
-                    .add(entry_closure::Column::Depth.eq(depth)),
-            )
+            .filter(entry::Column::Id.is_in(entry_ids))
             .order_by_asc(entry::Column::Name)
             .all(db)
             .await

@@ -2,13 +2,16 @@
 
 use crate::{
     context::CoreContext,
-    infrastructure::actions::{
-        error::{ActionError, ActionResult},
-        handler::ActionHandler,
-        output::ActionOutput,
-        Action,
+    infrastructure::{
+        actions::{
+            error::{ActionError, ActionResult},
+            handler::ActionHandler,
+            output::ActionOutput,
+            Action,
+        },
+        database::entities,
     },
-    operations::indexing::{IndexMode, job::IndexerJob},
+    operations::indexing::{IndexMode, job::IndexerJob, PathResolver},
     register_action_handler,
     shared::types::SdPath,
 };
@@ -58,7 +61,12 @@ impl ActionHandler for LocationRescanHandler {
                 .map_err(|e| ActionError::Internal(format!("Database error: {}", e)))?
                 .ok_or_else(|| ActionError::Internal(format!("Location not found: {}", action.location_id)))?;
 
-            let location_path = SdPath::local(&location.path);
+            // Get the location's path using PathResolver
+            let location_path_buf = PathResolver::get_full_path(library.db().conn(), location.entry_id)
+                .await
+                .map_err(|e| ActionError::Internal(format!("Failed to get location path: {}", e)))?;
+            let location_path_str = location_path_buf.to_string_lossy().to_string();
+            let location_path = SdPath::local(location_path_buf);
             
             // Determine index mode based on full_rescan flag
             let mode = if action.full_rescan {
@@ -85,7 +93,7 @@ impl ActionHandler for LocationRescanHandler {
 
             let output = super::output::LocationRescanOutput {
                 location_id: action.location_id,
-                location_path: location.path,
+                location_path: location_path_str,
                 job_id: job_handle.id().into(),
                 full_rescan: action.full_rescan,
             };

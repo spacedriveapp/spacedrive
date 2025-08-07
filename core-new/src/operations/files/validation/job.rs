@@ -380,7 +380,8 @@ impl ValidationJob {
 
 		// For integrity validation, we would need to compare against stored CAS ID
 		// This is a placeholder implementation
-		match ContentHashGenerator::generate_full_hash(local_path).await {
+		let file_size = file_info.size as u64;
+		match ContentHashGenerator::generate_full_hash(local_path, file_size).await {
 			Ok(current_cas_id) => {
 				// Here we would compare against the stored CAS ID from the database
 				// For now, we just verify that we can generate one

@@ -10,7 +10,7 @@ use crate::{
         state::{IndexerState, IndexPhase, Phase, IndexerProgress},
     },
 };
-use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder, DbErr, DatabaseConnection, ActiveModelTrait, ActiveValue::Set};
+use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, QueryOrder, DbErr, DatabaseConnection, ActiveModelTrait, ActiveValue::Set, DbBackend, FromQueryResult};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -40,12 +40,33 @@ pub async fn run_aggregation_phase(
         .await
         .map_err(|e| JobError::execution(format!("Failed to query directories: {}", e)))?;
     
-    // Sort by path depth (deepest first) to ensure we process children before parents
-    directories.sort_by(|a, b| {
-        let a_depth = a.relative_path.matches('/').count() + 1;
-        let b_depth = b.relative_path.matches('/').count() + 1;
-        b_depth.cmp(&a_depth)
-    });
+    // Sort directories by their depth in the hierarchy (deepest first)
+    // We'll use a simple approach: count parents
+    let mut dir_depths: Vec<(entities::entry::Model, usize)> = Vec::new();
+    
+    for directory in directories {
+        let mut depth = 0;
+        let mut current_parent_id = directory.parent_id;
+        
+        // Count the depth by following parent links
+        while let Some(parent_id) = current_parent_id {
+            depth += 1;
+            // Find the parent to get its parent_id
+            if let Ok(Some(parent)) = entities::entry::Entity::find_by_id(parent_id)
+                .one(ctx.library_db())
+                .await {
+                current_parent_id = parent.parent_id;
+            } else {
+                break;
+            }
+        }
+        
+        dir_depths.push((directory, depth));
+    }
+    
+    // Sort by depth (deepest first)
+    dir_depths.sort_by(|a, b| b.1.cmp(&a.1));
+    let directories: Vec<entities::entry::Model> = dir_depths.into_iter().map(|(dir, _)| dir).collect();
     
     let total_dirs = directories.len();
     ctx.log(format!("Found {} directories to aggregate", total_dirs));
@@ -113,17 +134,10 @@ impl DirectoryAggregator {
     
     /// Calculate aggregate size, child count, and file count for a directory
     async fn aggregate_directory(&self, directory: &entities::entry::Model) -> Result<(i64, i32, i32), DbErr> {
-        // Build the path for children of this directory
-        let children_path = if directory.relative_path.is_empty() {
-            directory.name.clone()
-        } else {
-            format!("{}/{}", directory.relative_path, directory.name)
-        };
-        
-        // Get all direct children (entries whose relative_path equals this directory's full path)
+        // Get all direct children using parent_id
         let children = entities::entry::Entity::find()
             .filter(entities::entry::Column::LocationId.eq(directory.location_id))
-            .filter(entities::entry::Column::RelativePath.eq(&children_path))
+            .filter(entities::entry::Column::ParentId.eq(directory.id))
             .all(&self.db)
             .await?;
         
@@ -161,13 +175,36 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
     for location in locations {
         tracing::info!("Migrating directory sizes for location: {}", location.name.as_deref().unwrap_or("Unknown"));
         
-        // Find all directories in this location, ordered by path depth (deepest first)
-        let directories = entities::entry::Entity::find()
+        // Find all directories in this location
+        let mut directories = entities::entry::Entity::find()
             .filter(entities::entry::Column::LocationId.eq(location.id))
             .filter(entities::entry::Column::Kind.eq(1)) // Directory
-            .order_by_desc(entities::entry::Column::RelativePath)
             .all(db)
             .await?;
+        
+        // Sort by depth (deepest first) - same logic as above
+        let mut dir_depths: Vec<(entities::entry::Model, usize)> = Vec::new();
+        
+        for directory in directories {
+            let mut depth = 0;
+            let mut current_parent_id = directory.parent_id;
+            
+            while let Some(parent_id) = current_parent_id {
+                depth += 1;
+                if let Ok(Some(parent)) = entities::entry::Entity::find_by_id(parent_id)
+                    .one(db)
+                    .await {
+                    current_parent_id = parent.parent_id;
+                } else {
+                    break;
+                }
+            }
+            
+            dir_depths.push((directory, depth));
+        }
+        
+        dir_depths.sort_by(|a, b| b.1.cmp(&a.1));
+        let directories: Vec<entities::entry::Model> = dir_depths.into_iter().map(|(dir, _)| dir).collect();
         
         let aggregator = DirectoryAggregator::new(db.clone());
         

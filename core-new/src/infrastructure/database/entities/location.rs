@@ -10,7 +10,7 @@ pub struct Model {
     pub id: i32,
     pub uuid: Uuid,
     pub device_id: i32,
-    pub path: String,
+    pub entry_id: i32,
     pub name: Option<String>,
     pub index_mode: String,  // "shallow", "content", "deep"
     pub scan_state: String,  // "pending", "scanning", "completed", "error"
@@ -30,6 +30,12 @@ pub enum Relation {
         to = "super::device::Column::Id"
     )]
     Device,
+    #[sea_orm(
+        belongs_to = "super::entry::Entity",
+        from = "Column::EntryId",
+        to = "super::entry::Column::Id"
+    )]
+    Entry,
     #[sea_orm(has_many = "super::entry::Entity")]
     Entries,
 }
