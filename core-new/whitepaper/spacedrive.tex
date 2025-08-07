@@ -379,6 +379,7 @@ Unique ID & Globally unique, immutable identifier \\
 Universal Path & Complete location with device ID \\
 Name \& Type & File/directory name and type \\
 \textbf{Metadata ID} & \textbf{Instant tagging without content analysis} \\
+Parent ID & Direct link to parent Entry for fast hierarchy traversal \\
 Content ID & Links to deduplication fingerprint \\
 Discovery Time & First detection timestamp \\
 \bottomrule
@@ -387,7 +388,7 @@ Discovery Time & First detection timestamp \\
 \label{tab:entry-fields}
 \end{table}
 
-\textbf{Key Innovation}: Entries are created immediately during the discovery phase (detailed in Section~\ref{sec:indexing-engine}), enabling near instant browsing and tagging. The \texttt{metadata\_id} field ensures every Entry can receive user metadata the moment it's discovered, while content analysis continues asynchronously in later phases. This "metadata-first" approach means users never wait to organize their files—whether browsing managed Locations or exploring external drives through ephemeral mode (Section~\ref{sec:indexing-scopes}).
+\textbf{Key Innovation}: Entries are created immediately during the discovery phase (detailed in Section~\ref{sec:indexing-engine}), enabling near instant browsing and tagging. The \texttt{metadata\_id} ensures every Entry can receive user metadata the moment it's discovered. Simultaneously, the \texttt{parent\_id} provides a direct link to its parent, allowing the system to instantly place the new file in the correct hierarchical context and transactionally update the index, while slower content analysis continues asynchronously. This "metadata-first" approach means users never wait to organize their files—whether browsing managed Locations or exploring external drives through ephemeral mode (Section~\ref{sec:indexing-scopes}).
 
 This "metadata-first" capability is a direct result of the indexer's multi-phase architecture (detailed in Section~\ref{sec:indexing-engine}). The initial \textbf{Discovery phase} is a high-speed filesystem traversal that creates a lightweight \texttt{Entry} record for each item it finds. This record, containing the essential \texttt{metadata\_id}, is established almost instantly, allowing for immediate user interaction like tagging. Slower, content-aware operations like hashing and media analysis occur in subsequent, asynchronous phases, enriching the \texttt{Entry} over time without blocking initial organization.
 
@@ -923,6 +924,13 @@ async fn hash_remote_entry(op: &Operator, entry: &Entry) -> Result<ContentId> {
 
 \footnotetext{OpenDAL v0.49 changelog emphasizes ranged reads and metadata alignment for services like S3/GCS~\cite{opendal-changelog-2025}.}
 
+\subsubsection{High-Performance Hierarchical Indexing}
+To overcome the scaling limitations of traditional path-based queries (e.g., \texttt{LIKE 'path/\%'}), Spacedrive's indexer implements a \textbf{Closure Table} for all hierarchical data. This standard database pattern pre-calculates and stores all ancestor-descendant relationships, transforming slow, un-indexable string comparisons into highly efficient, indexed integer joins.
+
+When a new entry is created, its \texttt{parent\_id} is used to transactionally populate the \texttt{entry\_closure} table with all its ancestor relationships in a single, atomic operation. This ensures the hierarchy is always consistent.
+
+A critical component of this system is the indexer's resilient change detection. To ensure data integrity, especially for offline changes, the indexer uses \textbf{inode tracking} to reliably differentiate between a file move and a delete/add operation. When a file is moved within the same volume, its inode remains constant. The indexer leverages this to identify the operation as a move, triggering a safe, transactional update of the entry's path and its position in the closure table, rather than performing a destructive and incorrect delete-and-re-add. This preserves all user metadata and ensures the integrity of the hierarchical index.
+
 % --- SECTION 4.4: THE TRANSACTIONAL ACTION SYSTEM ---
 \subsection{The Transactional Action System}
 \label{sec:action-system}
@@ -1069,7 +1077,7 @@ The simulation engine operates through a three-step process: retrieving relevant
 
 \textbf{Operational Conflict Detection}
 
-The simulation engine proactively identifies operational conflicts that would cause traditional file operations to fail:
+The closure table also dramatically accelerates the preview generation itself. When simulating a move or copy of a large directory, the system can now instantly determine the entire scope of the operation (all descendant files and folders) with a single, efficient query, rather than a slow recursive path scan. The simulation engine proactively identifies operational conflicts that would cause traditional file operations to fail:
 \begin{itemize}[noitemsep, topsep=0pt]
 \item \textbf{Storage Constraints}: Calculates exact space requirements and verifies availability on target devices
 \item \textbf{Permission Violations}: Detects write-protected locations or access-restricted files before attempting operations
@@ -1561,8 +1569,9 @@ This architecture ensures the agent's role is simply to initiate the search; it 
 The \texttt{SearchJob} executes a hybrid temporal-semantic query designed for performance on consumer hardware. This \textbf{Temporal-First, Vector-Enhanced} approach operates in two stages:
 
 \begin{enumerate}[noitemsep, topsep=0pt]
-    \item \textbf{Temporal Filtering (FTS5)}: First, SQLite's FTS5 index performs a high-speed keyword search on filenames, paths, tags, and extracted text from sidecars. This rapidly narrows millions of entries down to a small, relevant candidate set, typically in under 55ms.
-    \item \textbf{Semantic Re-ranking}: For queries requiring semantic understanding, the system computes a vector embedding of the query using a lightweight local model (e.g., \texttt{all-MiniLM-L6-v2}). It then re-ranks only the candidate set from Stage 1 by cosine similarity against their pre-computed embeddings, adding minimal latency (typically <40ms).
+    \item \textbf{Hierarchical Pre-filtering (Closure Table)}: If the search query includes a path scope (e.g., "find photos in 'Projects'"), the system first uses the closure table to get a list of all entry IDs within that scope. This provides a highly-focused candidate set before any text search occurs.
+    \item \textbf{Temporal Filtering (FTS5)}: Next, SQLite's FTS5 index performs a high-speed keyword search only on the pre-filtered candidate set. This rapidly narrows millions of entries down to a small, relevant set, typically in under 55ms.
+    \item \textbf{Semantic Re-ranking}: For queries requiring semantic understanding, the system computes a vector embedding of the query using a lightweight local model (e.g., \texttt{all-MiniLM-L6-v2}). It then re-ranks only the candidate set from Stage 2 by cosine similarity against their pre-computed embeddings, adding minimal latency (typically <40ms).
 \end{enumerate}
 
 This hybrid process provides the power of semantic search with the speed of traditional indexed search, delivering sub-100ms response times on consumer hardware for libraries with over a million entries.
@@ -1991,6 +2000,8 @@ Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory 
 
  \item \textbf{SeaORM with SQLite}: Type-safe database operations with ACID transactions and FTS
 
+ \item \textbf{O(1) Hierarchical Lookups}: Directory listings, subtree calculations, and ancestor lookups are performed in constant time via indexed closure table joins, replacing slow LIKE queries and scaling to millions of entries
+
  \item \textbf{Event-Driven Architecture}: Custom EventBus for loose coupling and state propagation
 
  \item \textbf{Job System}: MessagePack-serialized tasks with automatic resumability
@@ -2027,65 +2038,6 @@ This approach works well for simple file operations but has performance limitati
 
 While effective for simple operations, this approach encounters performance limitations with deep hierarchies and complex aggregation queries.
 
-\subsection{\plannedSection{Case Study: Hierarchical Query Optimization}}
-Spacedrive plans to migrate from materialized paths to a closure table\footnote{A closure table pre-stores all folder relationships, using more storage for faster queries.} for directories. This changes O(N) operations to O(1) lookups.
-
-\subsubsection{Performance Problem}
-The current materialized path approach leads to inefficient operations for complex hierarchy queries:
-
-\begin{itemize}
- \item \textbf{String-based path matching} for ancestor/descendant relationships
- \item \textbf{Sequential directory aggregation} requiring multiple database round-trips
- \item \textbf{O(N) LIKE queries} for subtree operations on large directory trees
- \item \textbf{Complex join patterns} for multi-level hierarchy operations
-\end{itemize}
-
-\subsubsection{Closure Table Solution}
-The closure table stores all folder relationships:
-
-
-\textbf{Closure Table: Pre-computed Relationships}
-
-The planned optimization stores all parent-child relationships explicitly:
-
-\begin{center}
-\begin{tabular}{|l|p{4cm}|}
-\hline
-\footnotesize
-\textbf{Relationship} & \textbf{Storage Method} \\
-\hline
-Direct Relationships & Every parent-child pair (folder contains file) \\
-\hline
-Indirect Relationships & Every ancestor-descendant pair with depth tracking \\
-\hline
-Performance Indexes & Optimized lookup tables for instant hierarchy queries \\
-\hline
-\end{tabular}
-\end{center}
-
-\textbf{Performance Transformation}
-
-This approach converts complex hierarchy operations into simple, fast lookups:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Directory Listing}: Instant retrieval of all files in a folder (no pattern matching)
- \item \textbf{Subtree Operations}: Get entire folder contents with single query
- \item \textbf{Size Calculations}: Calculate total folder size across all subdirectories in one operation
- \item \textbf{Ancestor Lookup}: Find the parent folder chain instantly (no path parsing)
-\end{itemize}
-
-
-\subsubsection{Performance Projections}
-Based on algorithmic analysis and preliminary benchmarks:
-
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Directory listing}: O(N) string matching → O(1) indexed lookup
- \item \textbf{Subtree traversal}: O(N) recursive queries → O(1) join operation
- \item \textbf{Ancestor lookup}: O(D) path parsing → O(1) indexed lookup
- \item \textbf{Bulk aggregation}: O(N×D) sequential → O(N) parallel processing
-\end{itemize}
-
-\textbf{Storage overhead}: For a filesystem with N entries and average depth D, closure tables require approximately N×D additional rows. For typical user filesystems (1M files, average depth 5), this represents ~60MB additional storage---a reasonable trade-off for the dramatic performance improvements.
 
 \subsection{Testing and Validation Framework}
 Spacedrive employs a thorough testing strategy designed for real-world scenarios:
