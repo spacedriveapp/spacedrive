@@ -11,7 +11,7 @@
 //! device UUID conflicts when multiple tests run in parallel
 
 use sd_core_new::{
-    infrastructure::database::entities,
+    infrastructure::database::entities::{self, entry_closure},
     location::{create_location, LocationCreateArgs, IndexMode},
     Core,
 };
@@ -83,6 +83,13 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
     
+    // Get the location record to find its entry_id
+    let location_record = entities::location::Entity::find_by_id(location_db_id)
+        .one(db.conn())
+        .await?
+        .expect("Location should exist");
+    let location_entry_id = location_record.entry_id;
+    
     // 7. Wait for indexing to complete by monitoring job status
     let start_time = tokio::time::Instant::now();
     let timeout_duration = Duration::from_secs(30);
@@ -107,16 +114,27 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
         }
         
         // Check if any entries have been created (partial progress)
-        let current_entries = entities::entry::Entity::find()
-            .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        // Use closure table to count entries under this location
+        let descendant_count = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(location_entry_id))
             .count(db.conn())
             .await?;
+        
+        let current_entries = descendant_count;
         
         println!("Job status - Total: {}, Running: {}, Entries indexed: {}", 
             all_jobs.len(), running_jobs.len(), current_entries);
         
-        // If we've seen a job and now there are no jobs, indexing likely completed
-        if job_seen && all_jobs.is_empty() && current_entries > 0 {
+        // Check for completed jobs
+        let completed_jobs = library
+            .jobs()
+            .list_jobs(Some(
+                sd_core_new::infrastructure::jobs::types::JobStatus::Completed,
+            ))
+            .await?;
+        
+        // If we've seen a job and now it's completed, indexing likely finished
+        if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0 {
             // Wait for entries to stabilize
             if current_entries == last_entry_count {
                 stable_count_iterations += 1;
@@ -139,7 +157,11 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
         
         if !failed_jobs.is_empty() {
-            panic!("Indexing job failed");
+            // Try to get more information about the failure
+            for job in &failed_jobs {
+                println!("Failed job: {:?}", job);
+            }
+            panic!("Indexing job failed with {} failures", failed_jobs.len());
         }
         
         // Check timeout
@@ -152,26 +174,39 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     // 8. Verify indexed entries in database
-    let _entry_count = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
-        .count(db.conn())
-        .await?;
+    // Helper to get all entry IDs under the location
+    let get_location_entry_ids = || async {
+        let descendant_ids = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(location_entry_id))
+            .all(db.conn())
+            .await?
+            .into_iter()
+            .map(|ec| ec.descendant_id)
+            .collect::<Vec<i32>>();
+        
+        let mut all_ids = vec![location_entry_id];
+        all_ids.extend(descendant_ids);
+        Ok::<Vec<i32>, anyhow::Error>(all_ids)
+    };
+    
+    let location_entry_ids = get_location_entry_ids().await?;
+    let _entry_count = location_entry_ids.len();
     
     let file_count = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        .filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
         .filter(entities::entry::Column::Kind.eq(0)) // Files
         .count(db.conn())
         .await?;
     
     let dir_count = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        .filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
         .filter(entities::entry::Column::Kind.eq(1)) // Directories
         .count(db.conn())
         .await?;
     
     // 9. Verify smart filtering worked
     let all_entries = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        .filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
         .all(db.conn())
         .await?;
     
@@ -187,7 +222,7 @@ async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
     
     // 11. Verify inode tracking
     let entries_with_inodes = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        .filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
         .filter(entities::entry::Column::Inode.is_not_null())
         .count(db.conn())
         .await?;
@@ -253,6 +288,13 @@ async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
     
+    // Get the location record to find its entry_id
+    let location_record = entities::location::Entity::find_by_id(location_db_id)
+        .one(db.conn())
+        .await?
+        .expect("Location should exist");
+    let location_entry_id = location_record.entry_id;
+    
     // Wait for initial indexing to complete
     let start_time = tokio::time::Instant::now();
     let timeout_duration = Duration::from_secs(10);
@@ -270,12 +312,20 @@ async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
             job_seen = true;
         }
         
-        let current_entries = entities::entry::Entity::find()
-            .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        let current_entries = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(location_entry_id))
             .count(db.conn())
             .await?;
         
-        if job_seen && running_jobs.is_empty() && current_entries > 0 {
+        // Check for completed jobs
+        let completed_jobs = library
+            .jobs()
+            .list_jobs(Some(
+                sd_core_new::infrastructure::jobs::types::JobStatus::Completed,
+            ))
+            .await?;
+            
+        if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0 {
             break;
         }
         
@@ -286,8 +336,20 @@ async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     
+    // Get all entry IDs under this location
+    let descendant_ids = entry_closure::Entity::find()
+        .filter(entry_closure::Column::AncestorId.eq(location_entry_id))
+        .all(db.conn())
+        .await?
+        .into_iter()
+        .map(|ec| ec.descendant_id)
+        .collect::<Vec<i32>>();
+    
+    let mut all_entry_ids = vec![location_entry_id];
+    all_entry_ids.extend(descendant_ids);
+    
     let initial_file_count = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_db_id))
+        .filter(entities::entry::Column::Id.is_in(all_entry_ids))
         .filter(entities::entry::Column::Kind.eq(0))
         .count(db.conn())
         .await?;

@@ -36,8 +36,6 @@ pub enum Relation {
         to = "super::entry::Column::Id"
     )]
     Entry,
-    #[sea_orm(has_many = "super::entry::Entity")]
-    Entries,
 }
 
 impl Related<super::device::Entity> for Entity {
@@ -48,7 +46,7 @@ impl Related<super::device::Entity> for Entity {
 
 impl Related<super::entry::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Entries.def()
+        Relation::Entry.def()
     }
 }
 

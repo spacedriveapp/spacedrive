@@ -8,7 +8,7 @@ use sd_core_new::{
     location::{create_location, LocationCreateArgs, IndexMode},
     Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, EntityTrait};
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::time::sleep;
@@ -130,9 +130,8 @@ async fn test_pause_and_resume_indexing_job() -> Result<(), Box<dyn std::error::
     }
     
     // Verify files were indexed
-    use sea_orm::{PaginatorTrait, QueryFilter, ColumnTrait};
+    use sea_orm::PaginatorTrait;
     let indexed_count = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(1))
         .count(db.conn())
         .await?;
     

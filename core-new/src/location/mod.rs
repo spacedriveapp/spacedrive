@@ -160,7 +160,6 @@ pub async fn create_location(
 	// Create entry for the location directory
 	let entry_model = entities::entry::ActiveModel {
 		uuid: Set(Some(Uuid::new_v4())),
-		location_id: Set(0), // Will be updated after location is created
 		name: Set(directory_name.clone()),
 		kind: Set(EntryKind::Directory as i32),
 		extension: Set(None),
@@ -245,12 +244,6 @@ pub async fn create_location(
 	let location_record = location_model.insert(&txn).await
 		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 	let location_db_id = location_record.id;
-
-	// Update the entry's location_id now that we have it
-	let mut entry_active: entities::entry::ActiveModel = entry_record.into();
-	entry_active.location_id = Set(location_db_id);
-	entry_active.update(&txn).await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
 
 	// Commit transaction
 	txn.commit().await
@@ -539,13 +532,15 @@ async fn update_location_stats(
 }
 
 /// Get device UUID for current device
-async fn get_device_uuid(library: Arc<Library>) -> LocationResult<Uuid> {
-	let device = entities::device::Entity::find()
-		.one(library.db().conn())
-		.await?
-		.ok_or_else(|| LocationError::InvalidPath("No device found".to_string()))?;
-
-	Ok(device.uuid)
+async fn get_device_uuid(_library: Arc<Library>) -> LocationResult<Uuid> {
+	// Get the current device ID from the global state
+	let device_uuid = crate::shared::types::get_current_device_id();
+	
+	if device_uuid.is_nil() {
+		return Err(LocationError::InvalidPath("Current device ID not initialized".to_string()));
+	}
+	
+	Ok(device_uuid)
 }
 
 /// List all locations for a library

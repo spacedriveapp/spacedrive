@@ -9,7 +9,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub uuid: Option<Uuid>, // None until content identification phase complete (sync readiness indicator)
-    pub location_id: i32,  // References location table
     pub name: String,
     pub kind: i32,  // Entry type: 0=File, 1=Directory, 2=Symlink
     pub extension: Option<String>,  // File extension (without dot), None for directories
@@ -29,12 +28,6 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::location::Entity",
-        from = "Column::LocationId",
-        to = "super::location::Column::Id"
-    )]
-    Location,
     #[sea_orm(
         belongs_to = "super::user_metadata::Entity",
         from = "Column::MetadataId",
@@ -64,12 +57,6 @@ impl Related<super::user_metadata::Entity> for Entity {
 impl Related<super::content_identity::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ContentIdentity.def()
-    }
-}
-
-impl Related<super::location::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Location.def()
     }
 }
 

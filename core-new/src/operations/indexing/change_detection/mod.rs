@@ -83,8 +83,18 @@ impl ChangeDetector {
 		use crate::infrastructure::jobs::prelude::JobError;
 		use super::persistence::{DatabasePersistence, IndexPersistence};
 
+		// For change detection, we need to get the location's root entry ID
+		use crate::infrastructure::database::entities;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		
+		let location_record = entities::location::Entity::find_by_id(location_id)
+			.one(ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
+			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
+		
 		// Create a database persistence instance to leverage the scoped query logic
-		let persistence = DatabasePersistence::new(ctx, location_id, 0); // device_id not needed for query
+		let persistence = DatabasePersistence::new(ctx, 0, Some(location_record.entry_id)); // device_id not needed for query
 		
 		// Use the scoped query method
 		let existing_entries = persistence.get_existing_entries(indexing_path).await?;

@@ -4,7 +4,7 @@ use crate::{
     infrastructure::{
         jobs::prelude::{JobContext, JobError, Progress},
         jobs::generic_progress::ToGenericProgress,
-        database::entities,
+        database::entities::{self, entry_closure},
     },
     operations::indexing::{
         state::{IndexerState, IndexPhase, Phase, IndexerProgress},
@@ -32,9 +32,24 @@ pub async fn run_aggregation_phase(
     
     let location_id_i32 = location_record.id;
     
-    // Find all directories in this location, ordered by path depth (deepest first)
+    // Find all directories under this location using closure table
+    // First get all descendant IDs
+    let descendant_ids = entities::entry_closure::Entity::find()
+        .filter(entities::entry_closure::Column::AncestorId.eq(location_record.entry_id))
+        .all(ctx.library_db())
+        .await
+        .map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
+        .into_iter()
+        .map(|ec| ec.descendant_id)
+        .collect::<Vec<i32>>();
+    
+    // Add the root entry itself
+    let mut all_entry_ids = vec![location_record.entry_id];
+    all_entry_ids.extend(descendant_ids);
+    
+    // Now get all directories from these entries
     let mut directories = entities::entry::Entity::find()
-        .filter(entities::entry::Column::LocationId.eq(location_id_i32))
+        .filter(entities::entry::Column::Id.is_in(all_entry_ids))
         .filter(entities::entry::Column::Kind.eq(1)) // Directory
         .all(ctx.library_db())
         .await
@@ -134,9 +149,8 @@ impl DirectoryAggregator {
     
     /// Calculate aggregate size, child count, and file count for a directory
     async fn aggregate_directory(&self, directory: &entities::entry::Model) -> Result<(i64, i32, i32), DbErr> {
-        // Get all direct children using parent_id
+        // Get all direct children using parent_id only
         let children = entities::entry::Entity::find()
-            .filter(entities::entry::Column::LocationId.eq(directory.location_id))
             .filter(entities::entry::Column::ParentId.eq(directory.id))
             .all(&self.db)
             .await?;
@@ -175,9 +189,20 @@ pub async fn migrate_directory_sizes(db: &DatabaseConnection) -> Result<(), DbEr
     for location in locations {
         tracing::info!("Migrating directory sizes for location: {}", location.name.as_deref().unwrap_or("Unknown"));
         
-        // Find all directories in this location
+        // Find all directories under this location using closure table
+        let descendant_ids = entry_closure::Entity::find()
+            .filter(entry_closure::Column::AncestorId.eq(location.entry_id))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|ec| ec.descendant_id)
+            .collect::<Vec<i32>>();
+        
+        let mut all_entry_ids = vec![location.entry_id];
+        all_entry_ids.extend(descendant_ids);
+        
         let mut directories = entities::entry::Entity::find()
-            .filter(entities::entry::Column::LocationId.eq(location.id))
+            .filter(entities::entry::Column::Id.is_in(all_entry_ids))
             .filter(entities::entry::Column::Kind.eq(1)) // Directory
             .all(db)
             .await?;

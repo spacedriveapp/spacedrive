@@ -11,7 +11,7 @@ use crate::{
 	},
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, JoinType, RelationTrait, Condition, DbBackend, Statement, TransactionTrait, QuerySelect, ConnectionTrait};
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -56,17 +56,17 @@ pub trait IndexPersistence: Send + Sync {
 /// Database-backed persistence implementation
 pub struct DatabasePersistence<'a> {
 	ctx: &'a JobContext<'a>,
-	location_id: i32,
 	device_id: i32,
+	location_root_entry_id: Option<i32>, // The root entry ID of the location being indexed
 	entry_id_cache: Arc<RwLock<HashMap<std::path::PathBuf, i32>>>,
 }
 
 impl<'a> DatabasePersistence<'a> {
-	pub fn new(ctx: &'a JobContext<'a>, location_id: i32, device_id: i32) -> Self {
+	pub fn new(ctx: &'a JobContext<'a>, device_id: i32, location_root_entry_id: Option<i32>) -> Self {
 		Self {
 			ctx,
-			location_id,
 			device_id,
+			location_root_entry_id,
 			entry_id_cache: Arc::new(RwLock::new(HashMap::new())),
 		}
 	}
@@ -137,9 +137,8 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		};
 
 		// Create entry
-		let new_entry = entities::entry::ActiveModel {
+		let mut new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
-			location_id: Set(self.location_id),
 			name: Set(name.clone()),
 			kind: Set(EntryProcessor::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),
@@ -198,14 +197,13 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 
 		// If this is a directory, populate the directory_paths table
 		if entry.kind == EntryKind::Directory {
-			// Build the full path for this directory
-			let directory_path = PathResolver::build_directory_path(&txn, parent_id, &name).await
-				.map_err(|e| JobError::execution(format!("Failed to build directory path: {}", e)))?;
+			// Use the absolute path from the DirEntry which contains the full filesystem path
+			let absolute_path = entry.path.to_string_lossy().to_string();
 
 			// Insert into directory_paths table
 			let dir_path_entry = entities::directory_paths::ActiveModel {
 				entry_id: Set(result.id),
-				path: Set(directory_path),
+				path: Set(absolute_path),
 				..Default::default()
 			};
 			dir_path_entry
@@ -249,144 +247,45 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 	{
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-		// Get location root to calculate relative path for the indexing scope
-		let location_record = entities::location::Entity::find_by_id(self.location_id)
-			.one(self.ctx.library_db())
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
-			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
-
-		// Get the location root path using PathResolver
-		let location_root = PathResolver::get_full_path(self.ctx.library_db(), location_record.entry_id)
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to get location path: {}", e)))?;
-
-		// Calculate the relative path being indexed
-		let relative_indexing_path = if let Ok(rel_path) = indexing_path.strip_prefix(&location_root)
-		{
-			if rel_path == std::path::Path::new("") {
-				// Indexing entire location - use optimized query for root
-				None
-			} else {
-				// Indexing subpath - scope the query
-				Some(rel_path.to_string_lossy().to_string())
-			}
-		} else {
-			return Err(JobError::execution(format!(
-				"Indexing path {} is not within location root {}",
-				indexing_path.display(),
-				location_root.display()
-			)));
+		// If we don't have a location root entry ID, we can't find existing entries
+		let location_root_entry_id = match self.location_root_entry_id {
+			Some(id) => id,
+			None => return Ok(HashMap::new()),
 		};
 
-		// Build query using closure table for efficient hierarchical queries
-		let existing_entries = if let Some(ref rel_path) = relative_indexing_path {
-			// Indexing a subpath - need to find the root entry for that path first
-			let path_parts: Vec<&str> = rel_path.split(|c| c == '/' || c == '\\').filter(|s| !s.is_empty()).collect();
-			
-			// Find the entry at the indexing root by traversing the path
-			let mut current_parent_id: Option<i32> = None;
-			let mut found_root = false;
-			
-			for (depth, part) in path_parts.iter().enumerate() {
-				let query = if let Some(parent_id) = current_parent_id {
-					// Look for child with specific parent
-					entities::entry::Entity::find()
-						.filter(entities::entry::Column::LocationId.eq(self.location_id))
-						.filter(entities::entry::Column::ParentId.eq(parent_id))
-						.filter(entities::entry::Column::Name.eq(*part))
-				} else {
-					// Look at root level (no parent)
-					entities::entry::Entity::find()
-						.filter(entities::entry::Column::LocationId.eq(self.location_id))
-						.filter(entities::entry::Column::ParentId.is_null())
-						.filter(entities::entry::Column::Name.eq(*part))
-				};
-				
-				if let Some(entry) = query.one(self.ctx.library_db()).await
-					.map_err(|e| JobError::execution(format!("Failed to find path segment: {}", e)))? {
-					current_parent_id = Some(entry.id);
-					if depth == path_parts.len() - 1 {
-						found_root = true;
-					}
-				} else {
-					// Path doesn't exist in database yet
-					break;
-				}
-			}
-			
-			if found_root && current_parent_id.is_some() {
-				let root_id = current_parent_id.unwrap();
-				// Get the root entry and all its descendants using closure table
-				let mut entries = vec![];
-				
-				// First get the root entry itself
-				if let Some(root_entry) = entities::entry::Entity::find_by_id(root_id)
-					.one(self.ctx.library_db())
-					.await
-					.map_err(|e| JobError::execution(format!("Failed to get root entry: {}", e)))? {
-					entries.push(root_entry);
-				}
-				
-				// Then get all descendants using closure table
-				// First get descendant IDs from closure table
-				let descendant_ids = entry_closure::Entity::find()
-					.filter(entry_closure::Column::AncestorId.eq(root_id))
-					.filter(entry_closure::Column::Depth.gt(0))
-					.all(self.ctx.library_db())
-					.await
-					.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
-					.into_iter()
-					.map(|ec| ec.descendant_id)
-					.collect::<Vec<i32>>();
-				
-				// Then fetch the entries
-				let descendants = if descendant_ids.is_empty() {
-					vec![]
-				} else {
-					entities::entry::Entity::find()
-						.filter(entities::entry::Column::Id.is_in(descendant_ids))
-						.all(self.ctx.library_db())
-						.await
-						.map_err(|e| JobError::execution(format!("Failed to query descendants: {}", e)))?
-				};
-				
-				entries.extend(descendants);
-				entries
-			} else {
-				// Scope root not found, return empty
-				vec![]
-			}
-		} else {
-			// Indexing entire location - get all entries for this location
-			entities::entry::Entity::find()
-				.filter(entities::entry::Column::LocationId.eq(self.location_id))
-				.all(self.ctx.library_db())
-				.await
-				.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?
-		};
+		// Get all descendants of the location root using the closure table
+		let descendant_ids = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(location_root_entry_id))
+			.all(self.ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
+			.into_iter()
+			.map(|ec| ec.descendant_id)
+			.collect::<Vec<i32>>();
+
+		// Add the root entry itself
+		let mut all_entry_ids = vec![location_root_entry_id];
+		all_entry_ids.extend(descendant_ids);
+
+		// Fetch all entries
+		let existing_entries = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(all_entry_ids))
+			.all(self.ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
 
 		let mut result = HashMap::new();
 
-		// Log the scope for debugging
-		if let Some(rel_path) = &relative_indexing_path {
-			self.ctx.log(format!(
-				"Loading {} existing entries for subpath: {}",
-				existing_entries.len(),
-				rel_path
-			));
-		} else {
-			self.ctx.log(format!(
-				"Loading {} existing entries for entire location",
-				existing_entries.len()
-			));
-		}
+		self.ctx.log(format!(
+			"Loading {} existing entries",
+			existing_entries.len()
+		));
 
 		for entry in existing_entries {
 			// Build full path for the entry using PathResolver
 			let full_path = PathResolver::get_full_path(self.ctx.library_db(), entry.id)
 				.await
-				.unwrap_or_else(|_| location_root.join(&entry.name));
+				.unwrap_or_else(|_| PathBuf::from(&entry.name));
 
 			// Convert timestamp to SystemTime for comparison
 			let modified_time =
@@ -535,10 +434,10 @@ impl PersistenceFactory {
 	/// Create a database persistence instance
 	pub fn database<'a>(
 		ctx: &'a JobContext<'a>,
-		location_id: i32,
 		device_id: i32,
+		location_root_entry_id: Option<i32>,
 	) -> Box<dyn IndexPersistence + 'a> {
-		Box::new(DatabasePersistence::new(ctx, location_id, device_id))
+		Box::new(DatabasePersistence::new(ctx, device_id, location_root_entry_id))
 	}
 
 	/// Create an ephemeral persistence instance

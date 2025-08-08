@@ -152,19 +152,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				}
 				Event::JobProgress {
 					job_id,
+					job_type,
 					progress,
 					message,
+					generic_progress: _,
 				} => {
 					// Show production indexer progress details
 					if let Some(msg) = message {
 						println!(
-							"   📊 Job {}: {} ({}%)",
+							"   📊 Job {} [{}]: {} ({}%)",
 							job_id,
+							job_type,
 							msg,
 							(progress * 100.0) as u8
 						);
 					} else {
-						println!("   📊 Job {}: {}%", job_id, (progress * 100.0) as u8);
+						println!("   📊 Job {} [{}]: {}%", job_id, job_type, (progress * 100.0) as u8);
 					}
 				}
 				_ => {} // Ignore other events
@@ -335,34 +338,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.await?
 		.ok_or("Location not found")?;
 
+	// Get all entry IDs under the location using closure table
+	use entities::entry_closure;
+	let location_entry_id = location_record.entry_id;
+	
+	let descendant_ids = entry_closure::Entity::find()
+		.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
+		.all(db.conn())
+		.await?
+		.into_iter()
+		.map(|ec| ec.descendant_id)
+		.collect::<Vec<i32>>();
+	
+	let mut all_entry_ids = vec![location_entry_id];
+	all_entry_ids.extend(descendant_ids);
+
 	// Get entry statistics for this location
-	let entry_count = entities::entry::Entity::find()
-		.filter(entities::entry::Column::LocationId.eq(location_db_id))
-		.count(db.conn())
-		.await?;
+	let entry_count = all_entry_ids.len();
 
 	let file_count_db = entities::entry::Entity::find()
-		.filter(entities::entry::Column::LocationId.eq(location_db_id))
+		.filter(entities::entry::Column::Id.is_in(all_entry_ids.clone()))
 		.filter(entities::entry::Column::Kind.eq(0)) // Files
 		.count(db.conn())
 		.await?;
 
 	let dir_count_db = entities::entry::Entity::find()
-		.filter(entities::entry::Column::LocationId.eq(location_db_id))
+		.filter(entities::entry::Column::Id.is_in(all_entry_ids.clone()))
 		.filter(entities::entry::Column::Kind.eq(1)) // Directories
 		.count(db.conn())
 		.await?;
 
 	// Check for entries with inodes (change detection feature)
 	let entries_with_inodes = entities::entry::Entity::find()
-		.filter(entities::entry::Column::LocationId.eq(location_db_id))
+		.filter(entities::entry::Column::Id.is_in(all_entry_ids.clone()))
 		.filter(entities::entry::Column::Inode.is_not_null())
 		.count(db.conn())
 		.await?;
 
 	// Sample some filtered paths to show filtering worked
 	let sample_entries = entities::entry::Entity::find()
-		.filter(entities::entry::Column::LocationId.eq(location_db_id))
+		.filter(entities::entry::Column::Id.is_in(all_entry_ids.clone()))
 		.limit(10)
 		.all(db.conn())
 		.await?;

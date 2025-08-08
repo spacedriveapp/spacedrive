@@ -116,7 +116,6 @@ impl EntryProcessor {
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
 		entry: &DirEntry,
-		location_id: i32,
 		device_id: i32,
 		location_root_path: &Path,
 	) -> Result<i32, JobError> {
@@ -176,7 +175,6 @@ impl EntryProcessor {
 		// Create entry
 		let new_entry = entities::entry::ActiveModel {
 			uuid: Set(entry_uuid),
-			location_id: Set(location_id),
 			name: Set(name.clone()),
 			kind: Set(Self::entry_kind_to_int(entry.kind)),
 			extension: Set(extension),

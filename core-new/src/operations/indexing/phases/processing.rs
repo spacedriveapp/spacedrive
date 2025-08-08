@@ -38,7 +38,11 @@ pub async fn run_processing_phase(
     
     let device_id = location_record.device_id;
     let location_id_i32 = location_record.id;
-    ctx.log(format!("Found location record: device_id={}, location_id={}", device_id, location_id_i32));
+    let location_entry_id = location_record.entry_id;
+    ctx.log(format!("Found location record: device_id={}, location_id={}, entry_id={}", device_id, location_id_i32, location_entry_id));
+    
+    // Add the location root entry to the cache so children can find their parent
+    state.entry_id_cache.insert(location_root_path.to_path_buf(), location_entry_id);
     
     // Load existing entries for change detection scoped to the indexing path
     // Note: location_root_path is the actual path being indexed (could be a subpath of the location)
@@ -115,7 +119,7 @@ pub async fn run_processing_phase(
             match change {
                 Some(Change::New(_)) => {
                     // Create new entry
-                    match EntryProcessor::create_entry(state, ctx, &entry, location_id_i32, device_id, location_root_path).await {
+                    match EntryProcessor::create_entry(state, ctx, &entry, device_id, location_root_path).await {
                         Ok(entry_id) => {
                             ctx.log(format!("✅ Created entry {}: {}", entry_id, entry.path.display()));
                             total_processed += 1;

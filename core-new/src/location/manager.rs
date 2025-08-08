@@ -55,7 +55,6 @@ impl LocationManager {
 
         let entry_model = entities::entry::ActiveModel {
             uuid: Set(Some(Uuid::new_v4())),
-            location_id: Set(0), // Will be updated after location is created
             name: Set(directory_name.clone()),
             kind: Set(EntryKind::Directory as i32),
             extension: Set(None),
@@ -120,11 +119,6 @@ impl LocationManager {
         };
 
         let location_record = location_model.insert(&txn).await?;
-        
-        // Update the entry's location_id
-        let mut entry_active: entities::entry::ActiveModel = entry_record.into();
-        entry_active.location_id = Set(location_record.id);
-        entry_active.update(&txn).await?;
         
         // Commit transaction
         txn.commit().await?;
