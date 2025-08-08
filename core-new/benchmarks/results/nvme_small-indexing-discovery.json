@@ -2,13 +2,16 @@
   "runs": [
     {
       "directories": 107,
-      "directories_per_s": 705.7,
+      "directories_per_s": 720.3,
       "duration_s": 0.15,
       "errors": 0,
       "files": 300,
-      "files_per_s": 1978.7,
-      "job_id": "7290b03d-9791-4a5e-b780-beba80182bc6",
-      "recipe": "benchmarks/recipes/nvme_small.yaml",
+      "files_per_s": 2019.5,
+      "id": "2ae81ac0-cf29-4a3a-8d8f-d3766d5e59bc",
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/2ae81ac0-cf29-4a3a-8d8f-d3766d5e59bc.log"
+      ],
+      "recipe_name": "nvme_small",
       "scenario": "indexing-discovery",
       "total_gb": 0.33
     }

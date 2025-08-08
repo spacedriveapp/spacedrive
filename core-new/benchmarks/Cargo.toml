@@ -23,5 +23,14 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 tempfile = "3.14"
 sd-core-new = { path = ".." }
 serde_with = { version = "3.9", features = ["json"] }
+async-trait = "0.1"
+
+[lib]
+name = "sd_bench"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sd-bench-new"
+path = "src/bin/sd-bench-new.rs"
 
 

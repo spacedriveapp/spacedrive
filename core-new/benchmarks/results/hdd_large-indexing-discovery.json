@@ -2,13 +2,16 @@
   "runs": [
     {
       "directories": 18408,
-      "directories_per_s": 751.0,
-      "duration_s": 24.51,
+      "directories_per_s": 707.7,
+      "duration_s": 26.01,
       "errors": 0,
       "files": 19858,
-      "files_per_s": 810.2,
-      "job_id": "ba8c49ea-c0d9-49ba-befc-d0c9bea4386d",
-      "recipe": "benchmarks/recipes/hdd_large.yaml",
+      "files_per_s": 763.5,
+      "id": "c23f6ebd-840d-4d46-9637-d7c50f8975a6",
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/c23f6ebd-840d-4d46-9637-d7c50f8975a6.log"
+      ],
+      "recipe_name": "hdd_large",
       "scenario": "indexing-discovery",
       "total_gb": 2129.03
     }

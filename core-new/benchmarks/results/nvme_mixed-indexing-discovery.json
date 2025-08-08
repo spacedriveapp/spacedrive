@@ -2,13 +2,16 @@
   "runs": [
     {
       "directories": 2625,
-      "directories_per_s": 778.0,
-      "duration_s": 3.37,
+      "directories_per_s": 759.7,
+      "duration_s": 3.46,
       "errors": 0,
       "files": 5000,
-      "files_per_s": 1482.0,
-      "job_id": "aac57c82-647f-4d1e-a95d-059f39443bbe",
-      "recipe": "benchmarks/recipes/nvme_mixed.yaml",
+      "files_per_s": 1447.0,
+      "id": "b177ff39-457a-4720-b3e1-91bc4488a119",
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/b177ff39-457a-4720-b3e1-91bc4488a119.log"
+      ],
+      "recipe_name": "nvme_mixed",
       "scenario": "indexing-discovery",
       "total_gb": 91.16
     }
