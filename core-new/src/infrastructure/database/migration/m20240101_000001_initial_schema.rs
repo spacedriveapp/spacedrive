@@ -94,6 +94,43 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 
+		// Create mime_types table (lookup table)
+		manager
+			.create_table(
+				Table::create()
+					.table(MimeTypes::Table)
+					.if_not_exists()
+					.col(
+						ColumnDef::new(MimeTypes::Id)
+							.integer()
+							.not_null()
+							.auto_increment()
+							.primary_key(),
+					)
+					.col(ColumnDef::new(MimeTypes::Uuid).uuid().not_null())
+					.col(ColumnDef::new(MimeTypes::MimeType).string().not_null().unique_key())
+					.col(ColumnDef::new(MimeTypes::CreatedAt).timestamp_with_time_zone().not_null())
+					.to_owned(),
+			)
+			.await?;
+
+		// Create content_kinds table (lookup table)
+		manager
+			.create_table(
+				Table::create()
+					.table(ContentKinds::Table)
+					.if_not_exists()
+					.col(
+						ColumnDef::new(ContentKinds::Id)
+							.integer()
+							.not_null()
+							.primary_key(),
+					)
+					.col(ColumnDef::new(ContentKinds::Name).string().not_null())
+					.to_owned(),
+			)
+			.await?;
+
 		// Create content_identities table
 		manager
 			.create_table(
@@ -107,17 +144,29 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(ContentIdentities::CasId).string().not_null().unique_key())
-					.col(ColumnDef::new(ContentIdentities::MimeType).string())
-					.col(ColumnDef::new(ContentIdentities::FileSize).big_integer().not_null())
-					.col(ColumnDef::new(ContentIdentities::Width).integer())
-					.col(ColumnDef::new(ContentIdentities::Height).integer())
-					.col(ColumnDef::new(ContentIdentities::Duration).integer())
-					.col(ColumnDef::new(ContentIdentities::Bitrate).integer())
-					.col(ColumnDef::new(ContentIdentities::Metadata).json())
+					.col(ColumnDef::new(ContentIdentities::Uuid).uuid())
+					.col(ColumnDef::new(ContentIdentities::IntegrityHash).string())
+					.col(ColumnDef::new(ContentIdentities::ContentHash).string().not_null().unique_key())
+					.col(ColumnDef::new(ContentIdentities::MimeTypeId).integer())
+					.col(ColumnDef::new(ContentIdentities::KindId).integer().not_null())
+					.col(ColumnDef::new(ContentIdentities::MediaData).json())
+					.col(ColumnDef::new(ContentIdentities::TextContent).text())
+					.col(ColumnDef::new(ContentIdentities::TotalSize).big_integer().not_null())
 					.col(ColumnDef::new(ContentIdentities::EntryCount).integer().not_null().default(1))
-					.col(ColumnDef::new(ContentIdentities::CreatedAt).timestamp_with_time_zone().not_null())
-					.col(ColumnDef::new(ContentIdentities::UpdatedAt).timestamp_with_time_zone().not_null())
+					.col(ColumnDef::new(ContentIdentities::FirstSeenAt).timestamp_with_time_zone().not_null())
+					.col(ColumnDef::new(ContentIdentities::LastVerifiedAt).timestamp_with_time_zone().not_null())
+					.foreign_key(
+						ForeignKey::create()
+							.from(ContentIdentities::Table, ContentIdentities::MimeTypeId)
+							.to(MimeTypes::Table, MimeTypes::Id)
+							.on_delete(ForeignKeyAction::SetNull),
+					)
+					.foreign_key(
+						ForeignKey::create()
+							.from(ContentIdentities::Table, ContentIdentities::KindId)
+							.to(ContentKinds::Table, ContentKinds::Id)
+							.on_delete(ForeignKeyAction::Restrict),
+					)
 					.to_owned(),
 			)
 			.await?;
@@ -443,9 +492,9 @@ impl MigrationTrait for Migration {
 		manager
 			.create_index(
 				Index::create()
-					.name("idx_content_identities_cas_id")
+					.name("idx_content_identities_content_hash")
 					.table(ContentIdentities::Table)
-					.col(ContentIdentities::CasId)
+					.col(ContentIdentities::ContentHash)
 					.to_owned(),
 			)
 			.await?;
@@ -487,6 +536,8 @@ impl MigrationTrait for Migration {
 		manager.drop_table(Table::drop().table(EntryClosure::Table).to_owned()).await?;
 		manager.drop_table(Table::drop().table(Entries::Table).to_owned()).await?;
 		manager.drop_table(Table::drop().table(ContentIdentities::Table).to_owned()).await?;
+		manager.drop_table(Table::drop().table(ContentKinds::Table).to_owned()).await?;
+		manager.drop_table(Table::drop().table(MimeTypes::Table).to_owned()).await?;
 		manager.drop_table(Table::drop().table(UserMetadata::Table).to_owned()).await?;
 		manager.drop_table(Table::drop().table(Devices::Table).to_owned()).await?;
 		manager.drop_table(Table::drop().table(Libraries::Table).to_owned()).await?;
@@ -528,6 +579,22 @@ enum Devices {
 }
 
 #[derive(DeriveIden)]
+enum MimeTypes {
+	Table,
+	Id,
+	Uuid,
+	MimeType,
+	CreatedAt,
+}
+
+#[derive(DeriveIden)]
+enum ContentKinds {
+	Table,
+	Id,
+	Name,
+}
+
+#[derive(DeriveIden)]
 enum UserMetadata {
 	Table,
 	Id,
@@ -551,17 +618,17 @@ enum UserMetadata {
 enum ContentIdentities {
 	Table,
 	Id,
-	CasId,
-	MimeType,
-	FileSize,
-	Width,
-	Height,
-	Duration,
-	Bitrate,
-	Metadata,
+	Uuid,
+	IntegrityHash,
+	ContentHash,
+	MimeTypeId,
+	KindId,
+	MediaData,
+	TextContent,
+	TotalSize,
 	EntryCount,
-	CreatedAt,
-	UpdatedAt,
+	FirstSeenAt,
+	LastVerifiedAt,
 }
 
 #[derive(DeriveIden)]

@@ -3,6 +3,7 @@
 use sea_orm_migration::prelude::*;
 
 mod m20240101_000001_initial_schema;
+mod m20240102_000001_populate_lookups;
 mod m20240107_000001_create_collections;
 
 pub struct Migrator;
@@ -12,6 +13,7 @@ impl MigratorTrait for Migrator {
 	fn migrations() -> Vec<Box<dyn MigrationTrait>> {
 		vec![
 			Box::new(m20240101_000001_initial_schema::Migration),
+			Box::new(m20240102_000001_populate_lookups::Migration),
 			Box::new(m20240107_000001_create_collections::Migration),
 		]
 	}
