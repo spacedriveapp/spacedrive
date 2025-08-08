@@ -6,20 +6,20 @@ Here is a design document detailing the refactor required to align the `SdPath` 
 
 ## Refactor Design: Evolving `SdPath` to a Universal Content Address
 
-### 1\. Introduction & Motivation
+### 1. Introduction & Motivation
 
-[cite\_start]The Spacedrive whitepaper, in section 4.1.3, introduces **`SdPath`** as a universal addressing system designed to make device boundaries transparent[cite: 172]. It explicitly defines `SdPath` as an `enum` supporting two distinct modes:
+[cite_start]The Spacedrive whitepaper, in section 4.1.3, introduces **`SdPath`** as a universal addressing system designed to make device boundaries transparent[cite: 172]. It explicitly defines `SdPath` as an `enum` supporting two distinct modes:
 
 - **`Physical`:** A direct pointer to a file at a specific path on a specific device.
-- [cite\_start]**`Content`:** An abstract, location-independent handle that refers to file content via its unique `ContentId`[cite: 173].
+- [cite_start]**`Content`:** An abstract, location-independent handle that refers to file content via its unique `ContentId`[cite: 173].
 
-[cite\_start]The current codebase implements `SdPath` as a `struct` representing only the physical path[cite: 1159], which is fragile. If the target device is offline, any operation using this `SdPath` will fail.
+[cite_start]The current codebase implements `SdPath` as a `struct` representing only the physical path[cite: 1159], which is fragile. If the target device is offline, any operation using this `SdPath` will fail.
 
-This refactor will evolve the `SdPath` struct into the `enum` described in the whitepaper. [cite\_start]This change is foundational to enabling many of Spacedrive's advanced features, including the **Simulation Engine**, resilient file operations, transparent failover, and optimal performance routing[cite: 182].
+This refactor will evolve the `SdPath` struct into the `enum` described in the whitepaper. [cite_start]This change is foundational to enabling many of Spacedrive's advanced features, including the **Simulation Engine**, resilient file operations, transparent failover, and optimal performance routing[cite: 182].
 
 ---
 
-### 2\. Current `SdPath` Implementation
+### 2. Current `SdPath` Implementation
 
 The existing implementation in `src/shared/types.rs` is a simple struct:
 
@@ -40,9 +40,9 @@ pub struct SdPath {
 
 ---
 
-### 3\. Proposed `SdPath` Refactor
+### 3. Proposed `SdPath` Refactor
 
-[cite\_start]We will replace the `struct` with the `enum` exactly as specified in the whitepaper[cite: 173]. This provides a single, unified type for all pathing operations.
+[cite_start]We will replace the `struct` with the `enum` exactly as specified in the whitepaper[cite: 173]. This provides a single, unified type for all pathing operations.
 
 #### 3.1. The New `SdPath` Enum
 
@@ -88,9 +88,9 @@ The existing methods will be adapted to work on the `enum`:
 
 ---
 
-### 4\. The Path Resolution Service
+### 4. The Path Resolution Service
 
-The power of the `Content` variant is unlocked by a **Path Resolution Service**. [cite\_start]This service is responsible for implementing the "optimal path resolution" described in the whitepaper[cite: 178].
+The power of the `Content` variant is unlocked by a **Path Resolution Service**. [cite_start]This service is responsible for implementing the "optimal path resolution" described in the whitepaper[cite: 178].
 
 #### 4.1. Purpose
 
@@ -163,9 +163,157 @@ A new error enum, `PathResolutionError`, will be created to handle failures, suc
 - `NoActiveLibrary`
 - `DatabaseError(String)`
 
+#### 4.4. Performant Batch Resolution
+
+Resolving paths one-by-one in a loop is inefficient and would lead to the "N+1 query problem." A performant implementation must handle batches of paths by gathering all necessary data in as few queries as possible.
+
+**Algorithm:**
+
+1.  **Partition:** Separate the input `Vec<SdPath>` into `physical_paths` and `content_paths`.
+2.  **Pre-computation:** Before querying the database, fetch live and cached metrics from the relevant system managers.
+    - Get a snapshot of all **online devices** and their network latencies from the `DeviceManager` and networking layer.
+    - Get a snapshot of all **volume metrics** (e.g., `PhysicalClass`, benchmarked speed) from the `VolumeManager`.
+3.  **Database Query:**
+    - Collect all unique `content_id`s from the `content_paths`.
+    - Execute a **single database query** using a `WHERE ... IN` clause to retrieve all physical instances for all requested `content_id`s. The query should join across tables to return tuples of `(content_id, device_id, volume_id, path)`.
+4.  **In-Memory Cost Calculation:**
+    - Group the database results by `content_id`.
+    - For each `content_id`, iterate through its potential physical instances.
+    - Filter out any instance on a device that the pre-computation step identified as offline.
+    - Calculate a `cost` for each remaining instance using the pre-computed device latencies and volume metrics.
+    - Select the instance with the lowest cost for each `content_id`.
+5.  **Assembly:** Combine the resolved `Content` paths with the verified `Physical` paths into the final result, perhaps returning a `HashMap<SdPath, Result<SdPath, PathResolutionError>>` to correlate original paths with their resolved states.
+
+**Implementation:**
+
+```rust
+// In src/vdfs/resolver.rs
+
+pub struct PathResolver {
+    // ... context or manager handles ...
+}
+
+impl PathResolver {
+    pub async fn resolve_batch(
+        &self,
+        paths: Vec<SdPath>
+    ) -> HashMap<SdPath, Result<SdPath, PathResolutionError>> {
+        // 1. Partition paths by variant (Physical vs. Content).
+        // 2. Pre-compute device online status and volume metrics in batch.
+        // 3. Collect all content_ids.
+        // 4. Execute single DB query to get all physical instances for all content_ids.
+        // 5. In memory, calculate costs and select the best instance for each content_id.
+        // 6. Verify physical paths against online device status.
+        // 7. Assemble and return the final HashMap.
+        unimplemented!()
+    }
+}
+```
+
+This batch-oriented approach ensures that resolving many paths is highly efficient, avoiding repeated queries and leveraging in-memory lookups for the cost evaluation.
+
 ---
 
-### 5\. Impact on the Codebase
+### 4.5. PathResolver Integration
+
+The `PathResolver` is a core service and should be integrated into the application's central context.
+
+- **Location:** Create the new resolver at `src/operations/indexing/path_resolver.rs`. The existing `PathResolver` struct in that file, which only handles resolving `entry_id` to a `PathBuf`, should be merged into this new, more powerful service.
+- **Integration:** An instance of the new `PathResolver` should be added to the `CoreContext` in `src/context.rs` to make it accessible to all actions and jobs.
+- [cite\_start]**Cost Function Parameters:** The "optimal path resolution" [cite: 178] should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
+  1.  Is the source on the **local device**? (lowest cost)
+  2.  What is the **network latency** to the source's device? (from the `NetworkingService`)
+  3.  What is the **benchmarked speed** of the source's volume? (from the `VolumeManager`)
+
+---
+
+### 5\. Impact on the Codebase (Expanded)
+
+This refactor will touch every part of the codebase that handles file paths. The following instructions provide specific guidance for each affected area.
+
+#### 5.1. Action and Job Contracts
+
+The fundamental principle is that **Actions receive `SdPath`s, and Jobs resolve them.**
+
+1.  **Action Definitions:** All action structs that currently accept `PathBuf` for file operations must be changed to accept `SdPath`. For example, in `src/operations/files/copy/action.rs`, `FileCopyAction` should be changed:
+
+    ```rust
+    // src/operations/files/copy/action.rs
+    pub struct FileCopyAction {
+        // BEFORE: pub sources: Vec<PathBuf>,
+        pub sources: Vec<SdPath>, // AFTER
+        // BEFORE: pub destination: PathBuf,
+        pub destination: SdPath, // AFTER
+        pub options: CopyOptions,
+    }
+    ```
+
+    This pattern applies to `FileDeleteAction`, `ValidationAction`, `DuplicateDetectionAction`, and others.
+
+2.  **Job Execution Flow:** Any job that operates on files (e.g., `FileCopyJob`, `DeleteJob`) must begin its `run` method by resolving its `SdPath` members into physical paths.
+
+    ```rust
+    // Example in src/operations/files/copy/job.rs
+    impl JobHandler for FileCopyJob {
+        async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+            // 1. RESOLVE PATHS FIRST
+            let physical_destination = self.destination.resolve(&ctx).await?;
+            let mut physical_sources = Vec::new();
+            for source in &self.sources.paths {
+                physical_sources.push(source.resolve(&ctx).await?);
+            }
+
+            // ... existing logic now uses physical_sources and physical_destination ...
+        }
+    }
+    ```
+
+3.  **Operation Target Validity:** Explicit rules must be enforced within jobs for `SdPath` variants:
+
+    - **Destination/Target:** Operations like copy, move, delete, validate, and index require a physical target. The job's `run` method must ensure the destination `SdPath` is or resolves to a `Physical` variant. An attempt to use a `Content` variant as a final destination is a logical error and should fail.
+    - **Source:** A source can be a `Content` variant, as the resolver will find a physical location for it.
+
+#### 5.2. API Layer (CLI Commands)
+
+To allow users to specify content-based paths, the CLI command layer must be updated to accept string URIs instead of just `PathBuf`.
+
+- **File:** `src/infrastructure/cli/daemon/types/commands.rs`
+- **Action:** Change enums like `DaemonCommand::Copy` to use `Vec<String>` instead of `Vec<PathBuf>`.
+  ```rust
+  // src/infrastructure/cli/daemon/types/commands.rs
+  pub enum DaemonCommand {
+      // ...
+      Copy {
+          // BEFORE: sources: Vec<PathBuf>,
+          sources: Vec<String>, // AFTER (as URIs)
+          // BEFORE: destination: PathBuf,
+          destination: String, // AFTER (as a URI)
+          // ... options
+      },
+      // ...
+  }
+  ```
+- The command handlers in `src/infrastructure/cli/daemon/handlers/` will then be responsible for parsing these string URIs into `SdPath` enums before creating and dispatching an `Action`.
+
+#### 5.3. Copy Strategy and Routing
+
+The copy strategy logic must be updated to be `SdPath` variant-aware.
+
+- **File:** `src/operations/files/copy/routing.rs`
+
+- **Action:** The `CopyStrategyRouter::select_strategy` function must be refactored. The core logic should be:
+
+  1.  Resolve the source and destination `SdPath`s first.
+  2.  After resolution, both paths will be `SdPath::Physical`.
+  3.  Compare the `device_id` of the two `Physical` paths.
+  4.  If the `device_id`s are the same, use the `VolumeManager` to check if they are on the same volume and select `LocalMoveStrategy` or `LocalStreamCopyStrategy`.
+  5.  If the `device_id`s differ, select `RemoteTransferStrategy`.
+
+- **File:** `src/operations/files/copy/strategy.rs`
+
+- **Action:** The strategy implementations (`LocalMoveStrategy`, `LocalStreamCopyStrategy`) currently call `.as_local_path()`. This is unsafe. They should be modified to only accept resolved, physical paths. Their signatures can be changed, or they should `match` on the `SdPath` variant and return an error if it is not `Physical`.
+
+### 6. Impact on the Codebase
 
 This is a significant but manageable refactor. All code that currently uses `SdPath` will need to be updated.
 
@@ -176,9 +324,9 @@ This is a significant but manageable refactor. All code that currently uses `SdP
 
 ---
 
-### 6\. Example Usage (Before & After)
+### 7. Example Usage (Before & After)
 
-[cite\_start]This example, adapted from the whitepaper, shows how resilience is achieved[cite: 174].
+[cite_start]This example, adapted from the whitepaper, shows how resilience is achieved[cite: 174].
 
 #### Before:
 
@@ -209,6 +357,4 @@ async fn copy_files(
 
 ---
 
-### 7\. Conclusion
-
-Refactoring `SdPath` from a simple `struct` to the dual-mode `enum` is a critical step in realizing the full architectural vision of Spacedrive. It replaces a fragile pointer system with a resilient, content-aware abstraction. This change directly enables the promised features of transparent failover and performance optimization, and it provides the necessary foundation for the **Simulation Engine** and other advanced, AI-native capabilities.
+### 8. Conclusion
