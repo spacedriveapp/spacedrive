@@ -9,24 +9,19 @@ use super::{
 	handle::JobHandle,
 	progress::Progress,
 	registry::REGISTRY,
-	traits::{DynJob, Job, JobHandler, Resourceful},
+	traits::{DynJob, Job, JobHandler},
 	types::{JobId, JobInfo, JobPriority, JobStatus},
 };
 use crate::{
 	context::CoreContext,
 	infrastructure::events::{Event, EventBus},
 	library::Library,
-	operations::{
-		files::copy::{FileCopyJob, MoveJob},
-		indexing::IndexerJob,
-		media::thumbnail::ThumbnailJob,
-	},
 };
 use async_trait::async_trait;
 use chrono::Utc;
 use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
-use std::{any::Any, collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
@@ -578,47 +573,6 @@ impl JobManager {
 		REGISTRY.get_schema(job_name)
 	}
 
-	/// Get a job instance by name and deserializing from raw state data
-	/// This bypasses the JobExecutor wrapper to access the raw job for downcasting
-	async fn get_raw_job_instance(
-		&self,
-		job_name: &str,
-		job_state: &[u8],
-	) -> JobResult<Box<dyn DynJob>> {
-		// We need a way to get the raw job without the JobExecutor wrapper
-		// For now, we'll implement a direct deserialization approach
-		match job_name {
-			"indexer" => {
-				let job: IndexerJob = rmp_serde::from_slice(job_state).map_err(|e| {
-					JobError::serialization(format!("Failed to deserialize IndexerJob: {}", e))
-				})?;
-				Ok(Box::new(job))
-			}
-			"thumbnail_generation" => {
-				let job: ThumbnailJob = rmp_serde::from_slice(job_state).map_err(|e| {
-					JobError::serialization(format!("Failed to deserialize ThumbnailJob: {}", e))
-				})?;
-				Ok(Box::new(job))
-			}
-			"file_copy" => {
-				let job: FileCopyJob = rmp_serde::from_slice(job_state).map_err(|e| {
-					JobError::serialization(format!("Failed to deserialize FileCopyJob: {}", e))
-				})?;
-				Ok(Box::new(job))
-			}
-			"move_files" => {
-				let job: MoveJob = rmp_serde::from_slice(job_state).map_err(|e| {
-					JobError::serialization(format!("Failed to deserialize MoveJob: {}", e))
-				})?;
-				Ok(Box::new(job))
-			}
-			_ => Err(JobError::NotFound(format!(
-				"Unknown job type: {}",
-				job_name
-			))),
-		}
-	}
-
 	/// List currently running jobs from memory (for live monitoring)
 	pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
 		let running_jobs = self.running_jobs.read().await;
@@ -702,9 +656,8 @@ impl JobManager {
 			.await?
 			.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
 
-		// Use our helper method to deserialize the raw job
-		self.get_raw_job_instance(&job_record.name, &job_record.state)
-			.await
+		// Use the REGISTRY to deserialize the job state
+		REGISTRY.deserialize_dyn_job(&job_record.name, &job_record.state)
 	}
 
 	/// List all jobs with a specific status (unified query)

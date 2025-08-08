@@ -5,19 +5,19 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Data, DataStruct};
 
 /// Derive macro for automatic job registration
-/// 
+///
 /// This macro generates the necessary code to automatically register a job type
 /// with the job registry using the `inventory` crate.
-/// 
+///
 /// Usage:
 /// ```rust
 /// use spacedrive_jobs_derive::Job;
-/// 
+///
 /// #[derive(Job, Serialize, Deserialize)]
 /// pub struct MyJob {
 ///     // job fields
 /// }
-/// 
+///
 /// impl JobHandler for MyJob {
 ///     // implementation
 /// }
@@ -26,7 +26,7 @@ use syn::{parse_macro_input, DeriveInput, Data, DataStruct};
 pub fn derive_job(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
-    
+
     // Ensure this is a struct
     let _data = match &input.data {
         Data::Struct(DataStruct { .. }) => {},
@@ -52,9 +52,13 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                     let job: #name = rmp_serde::from_slice(data)?;
                     Ok(Box::new(job))
                 },
+                deserialize_dyn_fn: |data| {
+                    let job: #name = rmp_serde::from_slice(data)?;
+                    Ok(Box::new(job))
+                },
             }
         }
-        
+
         // Implement ErasedJob for the job type
         impl crate::infrastructure::jobs::types::ErasedJob for #name {
             fn create_executor(
@@ -82,7 +86,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
                     volume_manager,
                 ))
             }
-            
+
             fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError> {
                 rmp_serde::to_vec(self)
                     .map_err(|e| crate::infrastructure::jobs::error::JobError::serialization(format!("{}", e)))

@@ -106,6 +106,12 @@ pub struct JobRegistration {
 	pub schema_fn: fn() -> JobSchema,
 	pub create_fn: fn(serde_json::Value) -> Result<Box<dyn ErasedJob>, serde_json::Error>,
 	pub deserialize_fn: fn(&[u8]) -> Result<Box<dyn ErasedJob>, rmp_serde::decode::Error>,
+	pub deserialize_dyn_fn: fn(
+		&[u8],
+	) -> Result<
+		Box<dyn crate::infrastructure::jobs::traits::DynJob>,
+		rmp_serde::decode::Error,
+	>,
 }
 
 /// Type-erased job for dynamic dispatch

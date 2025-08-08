@@ -182,7 +182,27 @@ impl EntryProcessor {
 
 		// Find parent entry ID
 		let parent_id = if let Some(parent_path) = entry.path.parent() {
-			state.entry_id_cache.get(parent_path).copied()
+			// First check the cache
+			if let Some(id) = state.entry_id_cache.get(parent_path).copied() {
+				Some(id)
+			} else {
+				// If not in cache, try to find it in the database
+				// This handles cases where parent was created in a previous run
+				let parent_path_str = parent_path.to_string_lossy().to_string();
+				if let Ok(Some(dir_path_record)) = entities::directory_paths::Entity::find()
+					.filter(entities::directory_paths::Column::Path.eq(&parent_path_str))
+					.one(ctx.library_db())
+					.await
+				{
+					// Found parent in database, cache it
+					state.entry_id_cache.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
+					Some(dir_path_record.entry_id)
+				} else {
+					// Parent not found - this shouldn't happen with proper sorting
+					ctx.log(format!("WARNING: Parent not found for {}: {}", entry.path.display(), parent_path.display()));
+					None
+				}
+			}
 		} else {
 			None
 		};
@@ -247,14 +267,13 @@ impl EntryProcessor {
 
 		// If this is a directory, populate the directory_paths table
 		if entry.kind == EntryKind::Directory {
-			// Build the full path for this directory
-			let directory_path = PathResolver::build_directory_path(&txn, parent_id, &name).await
-				.map_err(|e| JobError::execution(format!("Failed to build directory path: {}", e)))?;
+			// Use the absolute path from the DirEntry which contains the full filesystem path
+			let absolute_path = entry.path.to_string_lossy().to_string();
 
 			// Insert into directory_paths table
 			let dir_path_entry = directory_paths::ActiveModel {
 				entry_id: Set(result.id),
-				path: Set(directory_path),
+				path: Set(absolute_path),
 				..Default::default()
 			};
 			dir_path_entry
