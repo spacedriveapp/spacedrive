@@ -466,7 +466,7 @@ pub enum SdPath {
     },
     // Content-aware addressing: find optimal instance
     Content {
-        cas_id: ContentId
+        content_id: Uuid
     },
 }
 
@@ -476,8 +476,8 @@ async fn copy_files(from: Vec<SdPath>, to: SdPath) -> Result<()> {
         // Resolve content-aware paths to optimal physical paths
         let physical_source = match source {
             SdPath::Physical { .. } => source,
-            SdPath::Content { cas_id } => {
-                resolve_optimal_path(cas_id).await?
+            SdPath::Content { content_id } => {
+                resolve_optimal_path(content_id).await?
             }
         };
 
@@ -522,6 +522,14 @@ This addressing system enables operations that were previously impossible or ext
 \end{itemize}
 
 This abstraction simplifies cross-device operations into type-safe function calls. The distributed filesystem appears local to users and developers.
+
+\paragraph{Universal URI Scheme}
+To ensure that these powerful addressing modes are accessible and ergonomic for clients, APIs, and command-line interfaces, Spacedrive establishes a unified string-based URI scheme. This allows any path, whether physical or content-based, to be represented as a simple, standardized string:
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{Physical Path}: A physical location is represented as \texttt{sd://\textless{}device\_id\textgreater{}/path/to/file}.
+    \item \textbf{Content Path}: A content-aware handle is represented as \texttt{sd://content/\textless{}content\_id\textgreater{}}.
+\end{itemize}
+This design decouples clients from the complexity of path resolution. A user interface or script can operate entirely on these URI strings, passing them to the core engine, which is then responsible for parsing the URI and dispatching the appropriate resolution logic.
 
 \subsubsection{Quantum State: On-Demand Computation}
 Spacedrive treats an entry's state not as a static, stored property, but as a \textbf{quantum property that is computed only upon observation}. This design is fundamental to the VDFS's resilience, as it ensures an entry's state is always a true reflection of ongoing system operations, rather than a field that can become stale or inconsistent.
@@ -1989,8 +1997,8 @@ This unified approach to sharing—from private team collaboration to public con
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Production-Ready}: Built in Rust with memory safety guarantees • 95\%+ test coverage • Multi-process distributed testing framework
-\item \textbf{Proven Performance}: 8,500 files/sec indexing • 55ms keyword search • 95ms semantic search • Reliable P2P connectivity via Iroh~\cite{iroh_networking}
+\item \textbf{Production-Ready}: Built in Rust with memory safety guarantees \textbullet{} 95\%+ test coverage \textbullet{} Multi-process distributed testing framework
+\item \textbf{Proven Performance}: 8,500 files/sec indexing \textbullet{} 55ms keyword search \textbullet{} 95ms semantic search \textbullet{} Reliable P2P connectivity via Iroh~\cite{iroh_networking}
 \item \textbf{Full Compatibility}: Works seamlessly with existing filesystems, cloud services, and tools---no migration required
 \end{itemize}
 \end{keytakeaways}
@@ -1998,6 +2006,98 @@ This unified approach to sharing—from private team collaboration to public con
 Spacedrive's design principles are validated through careful implementation choices and rigorous performance analysis.
 
 \subsection{Technology Stack}
+
+% --- APPENDIX ---
+\appendix
+\section{Implementation Blueprint: SdPath Refactor}
+\label{sec:appendix-sdpath-refactor}
+
+The following provides a detailed, actionable blueprint for refactoring the \texttt{SdPath} struct into the content-aware enum described in Section~\ref{sec:vdfs}. This plan is intended to guide an automated or human developer through the necessary codebase modifications.
+
+\subsection{PathResolver Integration}
+The \texttt{PathResolver} is a core service and should be integrated into the application's central context.
+\begin{itemize}
+    \item \textbf{Location:} Create the new resolver at \texttt{src/operations/indexing/path_resolver.rs}. The existing \texttt{PathResolver} struct in that file, which only handles resolving \texttt{entry_id} to a \texttt{PathBuf}, should be merged into this new, more powerful service.
+    \item \textbf{Integration:} An instance of the new \texttt{PathResolver} should be added to the \texttt{CoreContext} in \texttt{src/context.rs} to make it accessible to all actions and jobs.
+    \item \textbf{Cost Function Parameters:} The "optimal path resolution" should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
+        \begin{enumerate}
+            \item Is the source on the local device? (lowest cost)
+            \item What is the network latency to the source's device? (from the \texttt{NetworkingService})
+            \item What is the benchmarked speed of the source's volume? (from the \texttt{VolumeManager})
+        \end{enumerate}
+\end{itemize}
+
+\subsection{Impact on the Codebase (Expanded)}
+This refactor will touch every part of the codebase that handles file paths. The following instructions provide specific guidance for each affected area.
+
+\subsubsection{Action and Job Contracts}
+The fundamental principle is that \textbf{Actions receive \texttt{SdPath}s, and Jobs resolve them}.
+
+\paragraph{Action Definitions} All action structs that currently accept \texttt{PathBuf} must be changed to accept \texttt{SdPath}.
+\begin{lstlisting}[language=Rust, caption={Updating FileCopyAction in src/operations/files/copy/action.rs}]
+pub struct FileCopyAction {
+    // BEFORE: pub sources: Vec<PathBuf>,
+    pub sources: Vec<SdPath>, // AFTER
+    // BEFORE: pub destination: PathBuf,
+pub destination: SdPath, // AFTER
+    pub options: CopyOptions,
+}
+\end{lstlisting}
+This pattern applies to \texttt{FileDeleteAction}, \texttt{ValidationAction}, \texttt{DuplicateDetectionAction}, and others.
+
+\paragraph{Job Execution Flow} Any job that operates on files must begin its \texttt{run} method by resolving its \texttt{SdPath} members.
+\begin{lstlisting}[language=Rust, caption={Resolving paths at the start of a Job in src/operations/files/copy/job.rs}]
+impl JobHandler for FileCopyJob {
+    async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+        // 1. RESOLVE PATHS FIRST
+        let physical_destination = self.destination.resolve(&ctx).await?;
+        let mut physical_sources = Vec::new();
+        for source in &self.sources.paths {
+            physical_sources.push(source.resolve(&ctx).await?);
+        }
+
+        // ... existing logic now uses physical_sources and physical_destination ...
+    }
+}
+\end{lstlisting}
+
+\paragraph{Operation Target Validity} Explicit rules must be enforced within jobs for \texttt{SdPath} variants:
+\begin{itemize}
+    \item \textbf{Destination/Target:} Operations like copy, move, or index require a physical target. The job must ensure the destination \texttt{SdPath} is or resolves to a \texttt{Physical} variant. An attempt to use a \texttt{Content} variant as a final destination is a logical error and should fail.
+    \item \textbf{Source:} A source can be a \texttt{Content} variant, as the resolver will find a physical location for it.
+\end{itemize}
+
+\subsubsection{API Layer (CLI Commands)}
+The CLI command layer must be updated to accept string URIs.
+\begin{itemize}
+    \item \textbf{File:} \texttt{src/infrastructure/cli/daemon/types/commands.rs}
+    \item \textbf{Action:} Change enums like \texttt{DaemonCommand::Copy} to use \texttt{Vec<String>}.
+\end{itemize}
+\begin{lstlisting}[language=Rust, caption={Updating DaemonCommand in src/infrastructure/cli/daemon/types/commands.rs}]
+pub enum DaemonCommand {
+    // ...
+    Copy {
+        // BEFORE: sources: Vec<PathBuf>,
+        sources: Vec<String>, // AFTER (as URIs)
+        // BEFORE: destination: PathBuf,
+        destination: String, // AFTER (as a URI)
+        // ... options
+    },
+    // ...
+}
+\end{lstlisting}
+The command handlers will then parse these string URIs into \texttt{SdPath} enums.
+
+\subsubsection{Copy Strategy and Routing}
+The copy strategy logic must be made \texttt{SdPath} variant-aware.
+\begin{itemize}
+    \item \textbf{File:} \texttt{src/operations/files/copy/routing.rs}
+    \item \textbf{Action:} The \texttt{CopyStrategyRouter::select_strategy} function must be refactored to resolve source and destination paths first, then compare the \texttt{device_id} of the resulting \texttt{Physical} paths to select the correct strategy.
+    \item \textbf{File:} \texttt{src/operations/files/copy/strategy.rs}
+    \item \textbf{Action:} Strategy implementations like \texttt{LocalMoveStrategy} must be modified to only accept resolved, physical paths, enforcing safety by matching the \texttt{SdPath::Physical} variant.
+\end{itemize}
+
+\end{document}
 Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory safety, performance, and fearless concurrency---essential for a reliable, multi-threaded distributed system. The core technology stack reflects modern best practices:
 
 \begin{itemize}[noitemsep, topsep=0pt]

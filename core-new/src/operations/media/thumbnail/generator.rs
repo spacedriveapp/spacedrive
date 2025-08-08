@@ -152,14 +152,14 @@ impl VideoGenerator {
             }
             
             // Use sd-ffmpeg thumbnailer with proper configuration
-            let thumbnailer = sd_ffmpeg::ThumbnailerBuilder::new()
-                .size(sd_ffmpeg::ThumbnailSize::Scale(size))
-                .quality(quality as f32)
-                .seek_percentage(0.1)
-                .map_err(|e| ThumbnailError::other(format!("Invalid seek percentage: {}", e)))?
-                .maintain_aspect_ratio(true)
-                .prefer_embedded_metadata(true)
-                .build();
+            let mut builder = sd_ffmpeg::ThumbnailerBuilder::new();
+            builder = builder.size(sd_ffmpeg::ThumbnailSize::Scale(size));
+            builder = builder.quality(quality as f32);
+            builder = builder.seek_percentage(0.1)
+                .map_err(|e| ThumbnailError::other(format!("Invalid seek percentage: {}", e)))?;
+            builder = builder.maintain_aspect_ratio(true);
+            builder = builder.prefer_embedded_metadata(true);
+            let thumbnailer = builder.build();
             
             // Generate thumbnail
             thumbnailer.process(source_path, output_path).await

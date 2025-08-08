@@ -16,6 +16,7 @@ pub mod operations;
 pub mod services;
 pub mod shared;
 pub mod test_framework;
+pub mod vdfs;
 pub mod volume;
 
 use services::networking::protocols::PairingProtocolHandler;

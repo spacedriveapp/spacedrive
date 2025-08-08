@@ -19,7 +19,7 @@ impl CopyStrategyRouter {
         volume_manager: Option<&VolumeManager>,
     ) -> Box<dyn CopyStrategy> {
         // Cross-device transfer - always use network strategy
-        if source.device_id != destination.device_id {
+        if source.device_id() != destination.device_id() {
             return Box::new(RemoteTransferStrategy);
         }
 
@@ -83,7 +83,7 @@ impl CopyStrategyRouter {
         copy_method: &CopyMethod,
         volume_manager: Option<&VolumeManager>,
     ) -> String {
-        if source.device_id != destination.device_id {
+        if source.device_id() != destination.device_id() {
             return if is_move {
                 "Cross-device move".to_string()
             } else {
@@ -157,7 +157,7 @@ impl CopyStrategyRouter {
         volume_manager: Option<&VolumeManager>,
     ) -> PerformanceEstimate {
         // Cross-device transfers always use network
-        if source.device_id != destination.device_id {
+        if source.device_id() != destination.device_id() {
             return PerformanceEstimate {
                 speed_category: SpeedCategory::Network,
                 supports_resume: true,

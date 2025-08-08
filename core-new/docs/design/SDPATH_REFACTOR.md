@@ -171,17 +171,17 @@ Resolving paths one-by-one in a loop is inefficient and would lead to the "N+1 q
 
 1.  **Partition:** Separate the input `Vec<SdPath>` into `physical_paths` and `content_paths`.
 2.  **Pre-computation:** Before querying the database, fetch live and cached metrics from the relevant system managers.
-    - Get a snapshot of all **online devices** and their network latencies from the `DeviceManager` and networking layer.
-    - Get a snapshot of all **volume metrics** (e.g., `PhysicalClass`, benchmarked speed) from the `VolumeManager`.
+    *   Get a snapshot of all **online devices** and their network latencies from the `DeviceManager` and networking layer.
+    *   Get a snapshot of all **volume metrics** (e.g., `PhysicalClass`, benchmarked speed) from the `VolumeManager`.
 3.  **Database Query:**
-    - Collect all unique `content_id`s from the `content_paths`.
-    - Execute a **single database query** using a `WHERE ... IN` clause to retrieve all physical instances for all requested `content_id`s. The query should join across tables to return tuples of `(content_id, device_id, volume_id, path)`.
+    *   Collect all unique `content_id`s from the `content_paths`.
+    *   Execute a **single database query** using a `WHERE ... IN` clause to retrieve all physical instances for all requested `content_id`s. The query should join across tables to return tuples of `(content_id, device_id, volume_id, path)`.
 4.  **In-Memory Cost Calculation:**
-    - Group the database results by `content_id`.
-    - For each `content_id`, iterate through its potential physical instances.
-    - Filter out any instance on a device that the pre-computation step identified as offline.
-    - Calculate a `cost` for each remaining instance using the pre-computed device latencies and volume metrics.
-    - Select the instance with the lowest cost for each `content_id`.
+    *   Group the database results by `content_id`.
+    *   For each `content_id`, iterate through its potential physical instances.
+    *   Filter out any instance on a device that the pre-computation step identified as offline.
+    *   Calculate a `cost` for each remaining instance using the pre-computed device latencies and volume metrics.
+    *   Select the instance with the lowest cost for each `content_id`.
 5.  **Assembly:** Combine the resolved `Content` paths with the verified `Physical` paths into the final result, perhaps returning a `HashMap<SdPath, Result<SdPath, PathResolutionError>>` to correlate original paths with their resolved states.
 
 **Implementation:**
@@ -220,14 +220,14 @@ The `PathResolver` is a core service and should be integrated into the applicati
 
 - **Location:** Create the new resolver at `src/operations/indexing/path_resolver.rs`. The existing `PathResolver` struct in that file, which only handles resolving `entry_id` to a `PathBuf`, should be merged into this new, more powerful service.
 - **Integration:** An instance of the new `PathResolver` should be added to the `CoreContext` in `src/context.rs` to make it accessible to all actions and jobs.
-- [cite\_start]**Cost Function Parameters:** The "optimal path resolution" [cite: 178] should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
+- [cite_start]**Cost Function Parameters:** The "optimal path resolution" [cite: 178] should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
   1.  Is the source on the **local device**? (lowest cost)
   2.  What is the **network latency** to the source's device? (from the `NetworkingService`)
   3.  What is the **benchmarked speed** of the source's volume? (from the `VolumeManager`)
 
 ---
 
-### 5\. Impact on the Codebase (Expanded)
+### 5. Impact on the Codebase (Expanded)
 
 This refactor will touch every part of the codebase that handles file paths. The following instructions provide specific guidance for each affected area.
 
@@ -313,18 +313,7 @@ The copy strategy logic must be updated to be `SdPath` variant-aware.
 
 - **Action:** The strategy implementations (`LocalMoveStrategy`, `LocalStreamCopyStrategy`) currently call `.as_local_path()`. This is unsafe. They should be modified to only accept resolved, physical paths. Their signatures can be changed, or they should `match` on the `SdPath` variant and return an error if it is not `Physical`.
 
-### 6. Impact on the Codebase
-
-This is a significant but manageable refactor. All code that currently uses `SdPath` will need to be updated.
-
-- **Action System:** Handlers (like `FileCopyHandler`, `FileDeleteHandler`) will become the primary consumers of path resolution. Before performing any simulation or execution, they **must** resolve their source `SdPath`s. This change centralizes the resilience logic.
-- **VDFS Indexer:** The indexing engine will continue to produce `SdPath::Physical` variants, as it operates on concrete filesystem paths.
-- **Client APIs (CLI/GUI):** Clients can now construct abstract `SdPath::Content` actions, such as "copy file with content ID X to my NAS," without needing to know where a valid copy of X resides.
-- **Error Handling:** Functions accepting an `SdPath` must be prepared to handle a `PathResolutionError` from the resolution step.
-
----
-
-### 7. Example Usage (Before & After)
+### 6. Example Usage (Before & After)
 
 [cite_start]This example, adapted from the whitepaper, shows how resilience is achieved[cite: 174].
 
@@ -357,4 +346,6 @@ async fn copy_files(
 
 ---
 
-### 8. Conclusion
+### 7. Conclusion
+
+Refactoring `SdPath` from a simple `struct` to the dual-mode `enum` is a critical step in realizing the full architectural vision of Spacedrive. It replaces a fragile pointer system with a resilient, content-aware abstraction. This change directly enables the promised features of transparent failover and performance optimization, and it provides the necessary foundation for the **Simulation Engine** and other advanced, AI-native capabilities.

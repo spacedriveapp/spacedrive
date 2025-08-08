@@ -192,7 +192,7 @@ mod tests {
 
 	#[test]
 	fn test_location_creation() {
-		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/Users/test/Documents"));
+		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/Users/test/Documents")).unwrap();
 		let location = Location::new(
 			Uuid::new_v4(),
 			"My Documents".to_string(),
@@ -208,7 +208,7 @@ mod tests {
 
 	#[test]
 	fn test_ignore_patterns() {
-		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/test"));
+		let sd_path = SdPathSerialized::from_sdpath(&SdPath::local("/test")).unwrap();
 		let location = Location::new(
 			Uuid::new_v4(),
 			"Test".to_string(),

@@ -223,19 +223,30 @@ impl JobHandler for FileCopyJob {
 		let mut progress_aggregator =
 			ProgressAggregator::new(&ctx, actual_file_count, estimated_total_bytes);
 
+		// Resolve destination path first if it's content-based
+		let resolved_destination = self.destination.resolve_in_job(&ctx).await
+			.map_err(|e| JobError::execution(format!("Failed to resolve destination path: {}", e)))?;
+		
+		// Update destination to the resolved physical path
+		self.destination = resolved_destination;
+
 		// Process each source using the appropriate strategy
 		for (index, source) in self.sources.paths.iter().enumerate() {
 			ctx.check_interrupt().await?;
+			
+			// Resolve source path if it's content-based
+			let resolved_source = source.resolve_in_job(&ctx).await
+				.map_err(|e| JobError::execution(format!("Failed to resolve source path: {}", e)))?;
 
 			// Skip files that have already been completed (resume logic)
 			if self.completed_indices.contains(&index) {
 				ctx.log(format!(
 					"Skipping already completed file: {}",
-					source.display()
+					resolved_source.display()
 				));
 
 				// Update progress aggregator to account for already completed files
-				let files_in_source = if let Some(local_path) = source.as_local_path() {
+				let files_in_source = if let Some(local_path) = resolved_source.as_local_path() {
 					let file_size = self.get_path_size(local_path).await.unwrap_or(0);
 					let file_count = self.count_files_in_path(local_path).await.unwrap_or(1);
 					progress_aggregator.skip_completed_file(file_size, file_count);
@@ -252,14 +263,14 @@ impl JobHandler for FileCopyJob {
 			let final_destination = if self.sources.paths.len() > 1 {
 				// Multiple sources: destination must be a directory
 				self.destination
-					.join(source.path.file_name().unwrap_or_default())
+					.join(resolved_source.file_name().unwrap_or_default())
 			} else {
 				// Single source: check if destination is a directory
 				if let Some(dest_path) = self.destination.as_local_path() {
 					if dest_path.is_dir() {
 						// Destination is a directory, join with source filename
 						self.destination
-							.join(source.path.file_name().unwrap_or_default())
+							.join(resolved_source.file_name().unwrap_or_default())
 					} else {
 						// Destination is a file path, use as-is
 						self.destination.clone()
@@ -271,7 +282,7 @@ impl JobHandler for FileCopyJob {
 			};
 
 			// Count files in this source path for accurate progress tracking
-			let files_in_source = if let Some(local_path) = source.as_local_path() {
+			let files_in_source = if let Some(local_path) = resolved_source.as_local_path() {
 				self.count_files_in_path(local_path).await.unwrap_or(1)
 			} else {
 				1
@@ -279,7 +290,7 @@ impl JobHandler for FileCopyJob {
 
 			// Update aggregator with current file info
 			let operation_description = CopyStrategyRouter::describe_strategy(
-				source,
+				&resolved_source,
 				&final_destination,
 				is_move,
 				&self.options.copy_method,
@@ -287,7 +298,7 @@ impl JobHandler for FileCopyJob {
 			)
 			.await;
 
-			progress_aggregator.start_file(source.display(), operation_description);
+			progress_aggregator.start_file(resolved_source.display(), operation_description);
 			progress_aggregator.set_error_count(failed_copies.len());
 
 			// Update progress - show files already completed
@@ -298,7 +309,7 @@ impl JobHandler for FileCopyJob {
 				.unwrap();
 			let progress = CopyProgress {
 				phase: CopyPhase::Copying,
-				current_file: source.display(),
+				current_file: resolved_source.display(),
 				files_copied: files_completed_count,
 				total_files: actual_file_count,
 				bytes_copied: bytes_completed_snapshot,
@@ -312,7 +323,7 @@ impl JobHandler for FileCopyJob {
 
 			// 1. Select the strategy
 			let strategy = CopyStrategyRouter::select_strategy(
-				source,
+				&resolved_source,
 				&final_destination,
 				is_move,
 				&self.options.copy_method,
@@ -324,7 +335,7 @@ impl JobHandler for FileCopyJob {
 			match strategy
 				.execute(
 					&ctx,
-					source,
+					&resolved_source,
 					&final_destination,
 					self.options.verify_checksum,
 					Some(&progress_aggregator.create_callback()),
@@ -344,19 +355,19 @@ impl JobHandler for FileCopyJob {
 
 					// If this is a move operation and the strategy didn't handle deletion,
 					// we need to delete the source after successful copy
-					if is_move && source.device_id == final_destination.device_id {
+					if is_move && resolved_source.device_id() == final_destination.device_id() {
 						// For same-device moves, LocalMoveStrategy handles deletion atomically
 						// For cross-volume moves, LocalStreamCopyStrategy needs manual deletion
 						if let Some(vm) = volume_manager.as_deref() {
 							if let (Some(source_path), Some(dest_path)) =
-								(source.as_local_path(), final_destination.as_local_path())
+								(resolved_source.as_local_path(), final_destination.as_local_path())
 							{
 								if !vm.same_volume(source_path, dest_path).await {
 									// Cross-volume move - delete source
 									if let Err(e) = self.delete_source_file(source_path).await {
 										failed_copies.push(CopyError {
-											source: source.path.clone(),
-											destination: final_destination.path.clone(),
+											source: resolved_source.path().cloned().unwrap_or_default(),
+											destination: final_destination.path().cloned().unwrap_or_default(),
 											error: format!(
 												"Copy succeeded but failed to delete source: {}",
 												e
@@ -364,7 +375,7 @@ impl JobHandler for FileCopyJob {
 										});
 										ctx.add_non_critical_error(format!(
 											"Failed to delete source after move {}: {}",
-											source.display(),
+											resolved_source.display(),
 											e
 										));
 									}
@@ -375,14 +386,14 @@ impl JobHandler for FileCopyJob {
 				}
 				Err(e) => {
 					failed_copies.push(CopyError {
-						source: source.path.clone(),
-						destination: final_destination.path.clone(),
+						source: resolved_source.path().cloned().unwrap_or_default(),
+						destination: final_destination.path().cloned().unwrap_or_default(),
 						error: e.to_string(),
 					});
 					ctx.add_non_critical_error(format!(
 						"Failed to {} {}: {}",
 						if is_move { "move" } else { "copy" },
-						source.display(),
+						resolved_source.display(),
 						e
 					));
 				}
@@ -705,7 +716,15 @@ impl FileCopyJob {
 
 	/// Create a rename operation
 	pub fn new_rename(source: SdPath, new_name: String) -> Self {
-		let destination = SdPath::new(source.device_id, source.path.with_file_name(new_name));
+		let destination = match &source {
+			SdPath::Physical { device_id, path } => {
+				SdPath::Physical {
+					device_id: *device_id,
+					path: path.with_file_name(&new_name),
+				}
+			}
+			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
+		};
 
 		Self::new_move(
 			SdPathBatch::new(vec![source]),
@@ -944,7 +963,15 @@ impl MoveJob {
 
 	/// Create a rename operation
 	pub fn rename(source: SdPath, new_name: String) -> Self {
-		let destination = SdPath::new(source.device_id, source.path.with_file_name(new_name));
+		let destination = match &source {
+			SdPath::Physical { device_id, path } => {
+				SdPath::Physical {
+					device_id: *device_id,
+					path: path.with_file_name(&new_name),
+				}
+			}
+			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
+		};
 
 		Self::new(
 			SdPathBatch::new(vec![source]),

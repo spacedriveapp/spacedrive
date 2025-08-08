@@ -115,13 +115,17 @@ impl JobHandler for DeleteJob {
 		// Process deletions
 		for (index, target) in self.targets.paths.iter().enumerate() {
 			ctx.check_interrupt().await?;
+			
+			// Resolve target path if it's content-based
+			let resolved_target = target.resolve_in_job(&ctx).await
+				.map_err(|e| JobError::execution(format!("Failed to resolve target path: {}", e)))?;
 
 			// Skip if already processed (for resumption)
 			if self.completed_deletions.contains(&index) {
 				continue;
 			}
 
-			if let Some(local_path) = target.as_local_path() {
+			if let Some(local_path) = resolved_target.as_local_path() {
 				ctx.progress(Progress::structured(DeleteProgress {
 					current_file: local_path.display().to_string(),
 					files_deleted: deleted_count,

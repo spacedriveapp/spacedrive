@@ -28,8 +28,8 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileCopyAction {
-	pub sources: Vec<PathBuf>,
-	pub destination: PathBuf,
+	pub sources: Vec<SdPath>,
+	pub destination: SdPath,
 	pub options: CopyOptions,
 }
 
@@ -161,9 +161,16 @@ impl ActionBuilder for FileCopyActionBuilder {
 		self.validate()?;
 
 		let options = self.input.to_copy_options();
+		
+		// Convert PathBuf to SdPath (local paths)
+		let sources = self.input.sources.iter()
+			.map(|p| SdPath::local(p))
+			.collect();
+		let destination = SdPath::local(&self.input.destination);
+		
 		Ok(FileCopyAction {
-			sources: self.input.sources,
-			destination: self.input.destination,
+			sources,
+			destination,
 			options,
 		})
 	}
@@ -173,6 +180,36 @@ impl FileCopyActionBuilder {
 	/// Create builder from CLI args (interface-specific convenience method)
 	pub fn from_cli_args(args: FileCopyCliArgs) -> Self {
 		Self::from_input(args.into())
+	}
+	
+	/// Create action directly from URI strings (for CLI/API use)
+	pub fn from_uris(
+		source_uris: Vec<String>,
+		destination_uri: String,
+		options: CopyOptions,
+	) -> Result<FileCopyAction, ActionBuildError> {
+		// Parse source URIs to SdPaths
+		let mut sources = Vec::new();
+		for uri in source_uris {
+			match SdPath::from_uri(&uri) {
+				Ok(path) => sources.push(path),
+				Err(e) => return Err(ActionBuildError::validation(
+					format!("Invalid source URI '{}': {:?}", uri, e)
+				)),
+			}
+		}
+		
+		// Parse destination URI
+		let destination = SdPath::from_uri(&destination_uri)
+			.map_err(|e| ActionBuildError::validation(
+				format!("Invalid destination URI '{}': {:?}", destination_uri, e)
+			))?;
+		
+		Ok(FileCopyAction {
+			sources,
+			destination,
+			options,
+		})
 	}
 }
 
@@ -258,14 +295,10 @@ impl ActionHandler for FileCopyHandler {
 			// Create job instance directly (no JSON roundtrip)
 			let sources_count = action.sources.len();
 			let destination_display = action.destination.display().to_string();
-			let sources = action
-				.sources
-				.into_iter()
-				.map(|path| SdPath::local(path))
-				.collect();
+			let sources = action.sources;
 
 			let job =
-				FileCopyJob::new(SdPathBatch::new(sources), SdPath::local(action.destination))
+				FileCopyJob::new(SdPathBatch::new(sources), action.destination)
 					.with_options(action.options);
 
 			// Dispatch job directly

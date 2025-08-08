@@ -59,8 +59,8 @@ pub enum DaemonCommand {
 
 	// File operations
 	Copy {
-		sources: Vec<PathBuf>,
-		destination: PathBuf,
+		sources: Vec<String>, // Now supports URIs like "sd://content/uuid"
+		destination: String, // Now supports URIs like "sd://device_id/path"
 		overwrite: bool,
 		verify: bool,
 		preserve_timestamps: bool,

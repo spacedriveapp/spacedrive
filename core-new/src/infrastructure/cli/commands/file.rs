@@ -129,8 +129,8 @@ async fn handle_copy_command(
 	// Send copy command to daemon
 	match client
 		.send_command(DaemonCommand::Copy {
-			sources: input.sources.clone(),
-			destination: input.destination.clone(),
+			sources: input.sources.iter().map(|p| p.display().to_string()).collect(),
+			destination: input.destination.display().to_string(),
 			overwrite: input.overwrite,
 			verify: input.verify_checksum,
 			preserve_timestamps: input.preserve_timestamps,

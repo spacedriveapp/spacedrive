@@ -130,7 +130,7 @@ impl CopyStrategy for RemoteTransferStrategy {
             "Initiating cross-device transfer: {} ({} bytes) -> device:{}",
             local_path.display(),
             file_size,
-            destination.device_id
+            destination.device_id().unwrap_or_default()
         ));
 
         // Create file metadata for transfer
@@ -160,7 +160,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 
         // Initiate transfer
         let transfer_id = file_transfer_protocol.initiate_transfer(
-            destination.device_id,
+            destination.device_id().unwrap_or_default(),
             local_path.to_path_buf(),
             crate::services::networking::protocols::TransferMode::TrustedCopy,
         ).await?;
@@ -177,19 +177,19 @@ impl CopyStrategy for RemoteTransferStrategy {
             transfer_mode: crate::services::networking::protocols::TransferMode::TrustedCopy,
             chunk_size,
             total_chunks,
-            destination_path: destination.path.to_string_lossy().to_string(),
+            destination_path: destination.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
         };
 
         let request_data = rmp_serde::to_vec(&transfer_request)?;
 
         // Send transfer request over network
         networking_guard.send_message(
-            destination.device_id,
+            destination.device_id().unwrap_or_default(),
             "file_transfer",
             request_data,
         ).await?;
 
-        ctx.log(format!("Transfer request sent to device {}", destination.device_id));
+        ctx.log(format!("Transfer request sent to device {}", destination.device_id().unwrap_or_default()));
 
         // Stream file data
         drop(networking_guard);
@@ -200,7 +200,7 @@ impl CopyStrategy for RemoteTransferStrategy {
             transfer_id,
             file_transfer_protocol,
             file_size,
-            destination.device_id,
+            destination.device_id().unwrap_or_default(),
             ctx,
             progress_callback,
         ).await?;

@@ -83,16 +83,19 @@ pub struct SdPathSerialized {
 
 impl SdPathSerialized {
     /// Create from an SdPath
-    pub fn from_sdpath(sdpath: &SdPath) -> Self {
-        Self {
-            device_id: sdpath.device_id,
-            path: sdpath.path.to_string_lossy().to_string(),
+    pub fn from_sdpath(sdpath: &SdPath) -> Option<Self> {
+        match sdpath {
+            SdPath::Physical { device_id, path } => Some(Self {
+                device_id: *device_id,
+                path: path.to_string_lossy().to_string(),
+            }),
+            SdPath::Content { .. } => None, // Can't serialize content paths to this format
         }
     }
 
     /// Convert back to SdPath
     pub fn to_sdpath(&self) -> SdPath {
-        SdPath {
+        SdPath::Physical {
             device_id: self.device_id,
             path: self.path.clone().into(),
         }
@@ -103,9 +106,7 @@ impl Entry {
     /// Create a new Entry from filesystem metadata
     pub fn new(sd_path: SdPath, metadata: std::fs::Metadata) -> Self {
         let name = sd_path
-            .path
             .file_name()
-            .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
@@ -117,8 +118,8 @@ impl Entry {
             }
         } else {
             let extension = sd_path
-                .path
-                .extension()
+                .path()
+                .and_then(|p| p.extension())
                 .and_then(|e| e.to_str())
                 .map(|e| e.to_string());
             EntryKind::File { extension }
@@ -132,7 +133,7 @@ impl Entry {
 
         Self {
             id: Uuid::new_v4(),
-            sd_path: SdPathSerialized::from_sdpath(&sd_path),
+            sd_path: SdPathSerialized::from_sdpath(&sd_path).expect("Entry requires a physical path"),
             name,
             kind,
             size,

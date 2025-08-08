@@ -36,35 +36,38 @@ impl CommandHandler for FileHandler {
 				if let Some(library) = state_service.get_current_library(core).await {
 					let library_id = library.id();
 
-					// Create the copy input
-					let input = crate::operations::files::copy::input::FileCopyInput {
-						sources: sources.clone(),
-						destination: destination.clone(),
+					// Create copy options from parameters
+					let options = crate::operations::files::copy::CopyOptions {
 						overwrite,
 						verify_checksum: verify,
 						preserve_timestamps,
-						move_files,
+						delete_after_copy: move_files,
+						move_mode: if move_files { 
+							Some(crate::operations::files::copy::MoveMode::Move)
+						} else {
+							None
+						},
 						copy_method: crate::operations::files::copy::input::CopyMethod::Auto,
 					};
 
-					// Validate input
-					if let Err(errors) = input.validate() {
-						return DaemonResponse::Error(format!(
-							"Invalid copy operation: {}",
-							errors.join("; ")
-						));
-					}
+					// Create action directly from URIs
+					let action = match crate::operations::files::copy::action::FileCopyActionBuilder::from_uris(
+						sources,
+						destination,
+						options,
+					) {
+						Ok(action) => action,
+						Err(e) => {
+							return DaemonResponse::Error(format!(
+								"Failed to create copy action: {}",
+								e
+							));
+						}
+					};
 
 					// Get the action manager
 					match core.context.get_action_manager().await {
 						Some(action_manager) => {
-							// Create the copy action
-							let action = match crate::operations::files::copy::action::FileCopyActionBuilder::from_input(input).build() {
-								Ok(action) => action,
-								Err(e) => {
-									return DaemonResponse::Error(format!("Failed to build copy action: {}", e));
-								}
-							};
 
 							// Create the full Action enum
 							let full_action = crate::infrastructure::actions::Action::FileCopy {
