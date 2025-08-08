@@ -31,13 +31,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	println!("🚀 === Spacedrive 2 Desktop Indexing Demo ===\n");
 
-	// 1. Initialize Spacedrive Core
+	// 1. Initialize Spacedrive Core with job logging enabled
 	println!("1. 🔧 Initializing Spacedrive Core...");
 	let data_dir = PathBuf::from("./data/spacedrive-desktop-demo");
+	
+	// Enable job logging by modifying the config before core initialization
+	{
+		use sd_core_new::config::{AppConfig, JobLoggingConfig};
+		let mut config = AppConfig::load_from(&data_dir).unwrap_or_else(|_| {
+			AppConfig::default_with_dir(data_dir.clone())
+		});
+		
+		// Enable job logging - hardcoded for demo
+		config.job_logging = JobLoggingConfig {
+			enabled: true,
+			log_directory: "job_logs".to_string(),
+			max_file_size: 10 * 1024 * 1024, // 10MB
+			include_debug: true, // Include debug logs for full detail
+		};
+		
+		config.save()?;
+		println!("   📝 Job logging enabled to: {}", config.job_logs_dir().display());
+	}
+	
 	let core = Core::new_with_config(data_dir.clone()).await?;
-	println!("   ✅ Core initialized");
+	println!("   ✅ Core initialized with job logging");
 	println!("   📱 Device ID: {}", core.device.device_id()?);
-	println!("   💾 Data directory: {:?}\n", data_dir);
+	println!("   💾 Data directory: {:?}", data_dir);
+	println!("   📝 Job logs directory: {:?}\n", data_dir.join("job_logs"));
 
 	// 2. Get or create library
 	println!("2. 📚 Setting up library...");
@@ -543,14 +564,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Brief pause to see final status
 	sleep(Duration::from_secs(2)).await;
 
-	// 9. Graceful shutdown
-	println!("\n9. 🛑 Shutting down gracefully...");
+	// 9. Show job logs created during the demo
+	println!("\n9. 📋 Job Logs Created:");
+	let job_logs_dir = data_dir.join("job_logs");
+	if let Ok(mut entries) = tokio::fs::read_dir(&job_logs_dir).await {
+		let mut log_files = Vec::new();
+		while let Ok(Some(entry)) = entries.next_entry().await {
+			if let Some(name) = entry.file_name().to_str() {
+				if name.ends_with(".log") {
+					log_files.push(name.to_string());
+				}
+			}
+		}
+		
+		if !log_files.is_empty() {
+			println!("   📝 Found {} job log file(s):", log_files.len());
+			for (i, log_file) in log_files.iter().enumerate() {
+				let log_path = job_logs_dir.join(log_file);
+				if let Ok(metadata) = tokio::fs::metadata(&log_path).await {
+					println!("      {} {} ({} bytes)", 
+						i + 1, 
+						log_file,
+						metadata.len()
+					);
+					
+					// Show first few lines of the first log
+					if i == 0 {
+						if let Ok(contents) = tokio::fs::read_to_string(&log_path).await {
+							let lines: Vec<&str> = contents.lines().take(5).collect();
+							println!("\n      First {} lines of {}:", lines.len(), log_file);
+							for line in lines {
+								println!("      > {}", line);
+							}
+							if contents.lines().count() > 5 {
+								println!("      ... and {} more lines", contents.lines().count() - 5);
+							}
+						}
+					}
+				}
+			}
+			println!("\n   💡 Full logs available at: {:?}", job_logs_dir);
+		} else {
+			println!("   ⚠️  No job logs found (jobs may have completed too quickly)");
+		}
+	}
+
+	// 10. Graceful shutdown
+	println!("\n10. 🛑 Shutting down gracefully...");
 	core.shutdown().await?;
 
 	println!("\n✅ === Desktop Indexing Demo Complete! ===");
 	println!("🎉 Spacedrive 2 Production Job System Working!");
 	println!();
 	println!("📁 Demo data stored at: {:?}", data_dir);
+	println!("📝 Job logs stored at: {:?}", job_logs_dir);
 	println!("🔄 Run again to see library auto-loading and job persistence!");
 	println!();
 	println!("🚀 Production system achievements:");

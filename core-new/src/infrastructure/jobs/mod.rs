@@ -8,6 +8,7 @@ pub mod error;
 pub mod executor;
 pub mod generic_progress;
 pub mod handle;
+pub mod logger;
 pub mod manager;
 pub mod output;
 pub mod progress;

@@ -221,6 +221,8 @@ impl JobManager {
 			}),
 			networking,
 			volume_manager,
+			self.context.job_logging_config.clone(),
+			self.context.job_logs_dir.clone(),
 		);
 
 		// Create handle
@@ -458,6 +460,8 @@ impl JobManager {
 			}),
 			networking,
 			volume_manager,
+			self.context.job_logging_config.clone(),
+			self.context.job_logs_dir.clone(),
 		);
 
 		// Clone status_rx for cleanup task
@@ -914,6 +918,8 @@ impl JobManager {
 							}),
 							networking,
 							volume_manager,
+							self.context.job_logging_config.clone(),
+							self.context.job_logs_dir.clone(),
 						);
 
 						// Create handle
@@ -1164,6 +1170,8 @@ impl JobManager {
 				}),
 				networking,
 				volume_manager,
+				self.context.job_logging_config.clone(),
+				self.context.job_logs_dir.clone(),
 			);
 
 			// Create handle

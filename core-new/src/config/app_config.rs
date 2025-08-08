@@ -28,6 +28,37 @@ pub struct AppConfig {
     
     /// User preferences
     pub preferences: Preferences,
+    
+    /// Job logging configuration
+    #[serde(default)]
+    pub job_logging: JobLoggingConfig,
+}
+
+/// Configuration for job-specific logging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobLoggingConfig {
+    /// Whether job logging is enabled
+    pub enabled: bool,
+    
+    /// Directory for job logs (relative to data_dir)
+    pub log_directory: String,
+    
+    /// Maximum log file size in bytes (0 = unlimited)
+    pub max_file_size: u64,
+    
+    /// Whether to include debug logs
+    pub include_debug: bool,
+}
+
+impl Default for JobLoggingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            log_directory: "job_logs".to_string(),
+            max_file_size: 10 * 1024 * 1024, // 10MB default
+            include_debug: false,
+        }
+    }
 }
 
 impl AppConfig {
@@ -80,6 +111,7 @@ impl AppConfig {
             telemetry_enabled: true,
             p2p: P2PConfig::default(),
             preferences: Preferences::default(),
+            job_logging: JobLoggingConfig::default(),
         }
     }
     
@@ -105,11 +137,19 @@ impl AppConfig {
         self.data_dir.join("libraries")
     }
     
+    /// Get the path for job logs directory
+    pub fn job_logs_dir(&self) -> PathBuf {
+        self.data_dir.join(&self.job_logging.log_directory)
+    }
+    
     /// Ensure all required directories exist
     pub fn ensure_directories(&self) -> Result<()> {
         fs::create_dir_all(&self.data_dir)?;
         fs::create_dir_all(self.logs_dir())?;
         fs::create_dir_all(self.libraries_dir())?;
+        if self.job_logging.enabled {
+            fs::create_dir_all(self.job_logs_dir())?;
+        }
         Ok(())
     }
 }
@@ -127,7 +167,7 @@ impl Migrate for AppConfig {
     }
     
     fn target_version() -> u32 {
-        1 // Current schema version
+        2 // Updated schema version for job logging
     }
     
     fn migrate(&mut self) -> Result<()> {
@@ -135,9 +175,15 @@ impl Migrate for AppConfig {
             0 => {
                 // Future migration from v0 to v1 would go here
                 self.version = 1;
+                self.migrate() // Continue migration chain
+            }
+            1 => {
+                // Migration from v1 to v2: Add job logging config
+                self.job_logging = JobLoggingConfig::default();
+                self.version = 2;
                 Ok(())
             }
-            1 => Ok(()), // Already at target version
+            2 => Ok(()), // Already at target version
             v => Err(anyhow!("Unknown config version: {}", v)),
         }
     }

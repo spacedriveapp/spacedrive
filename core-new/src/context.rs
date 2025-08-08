@@ -3,12 +3,13 @@
 //! Shared context providing access to core application components.
 
 use crate::{
+	config::JobLoggingConfig,
 	device::DeviceManager, infrastructure::events::EventBus,
 	keys::library_key_manager::LibraryKeyManager, library::LibraryManager,
 	infrastructure::actions::manager::ActionManager,
 	services::networking::NetworkingService, volume::VolumeManager,
 };
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
 /// Shared context providing access to core application components.
@@ -22,6 +23,9 @@ pub struct CoreContext {
 	// This is wrapped in an RwLock to allow it to be set after initialization
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
+	// Job logging configuration
+	pub job_logging_config: Option<JobLoggingConfig>,
+	pub job_logs_dir: Option<PathBuf>,
 }
 
 impl CoreContext {
@@ -41,7 +45,15 @@ impl CoreContext {
 			library_key_manager,
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
+			job_logging_config: None,
+			job_logs_dir: None,
 		}
+	}
+	
+	/// Set job logging configuration
+	pub fn set_job_logging(&mut self, config: JobLoggingConfig, logs_dir: PathBuf) {
+		self.job_logging_config = Some(config);
+		self.job_logs_dir = Some(logs_dir);
 	}
 
 	/// Helper method for services to get the networking service

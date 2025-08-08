@@ -133,6 +133,8 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 		>,
 		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
+		job_logging_config: Option<crate::config::JobLoggingConfig>,
+		job_logs_dir: Option<std::path::PathBuf>,
 	) -> Box<dyn sd_task_system::Task<crate::infrastructure::jobs::error::JobError>>;
 
 	fn serialize_state(&self) -> Result<Vec<u8>, crate::infrastructure::jobs::error::JobError>;

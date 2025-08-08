@@ -25,6 +25,7 @@ pub struct JobContext<'a> {
     pub(crate) child_handles: Arc<Mutex<Vec<JobHandle>>>,
     pub(crate) networking: Option<Arc<NetworkingService>>,
     pub(crate) volume_manager: Option<Arc<crate::volume::VolumeManager>>,
+    pub(crate) file_logger: Option<Arc<super::logger::FileJobLogger>>,
 }
 
 impl<'a> JobContext<'a> {
@@ -55,6 +56,11 @@ impl<'a> JobContext<'a> {
     
     /// Report progress
     pub fn progress(&self, progress: Progress) {
+        // Log progress messages to file if enabled
+        if let Some(logger) = &self.file_logger {
+            let _ = logger.log("PROGRESS", &progress.to_string());
+        }
+        
         if let Err(e) = self.progress_tx.send(progress) {
             warn!("Failed to send progress update: {}", e);
         }
@@ -62,12 +68,25 @@ impl<'a> JobContext<'a> {
     
     /// Add a warning message
     pub fn add_warning(&self, warning: impl Into<String>) {
-        self.progress(Progress::indeterminate(format!("⚠️ {}", warning.into())));
+        let msg = warning.into();
+        
+        // Log to file if enabled
+        if let Some(logger) = &self.file_logger {
+            let _ = logger.log("WARN", &msg);
+        }
+        
+        self.progress(Progress::indeterminate(format!("⚠️ {}", msg)));
     }
     
     /// Add a non-critical error
     pub fn add_non_critical_error(&self, error: impl Into<JobError>) {
         let error_msg = error.into().to_string();
+        
+        // Log to file if enabled
+        if let Some(logger) = &self.file_logger {
+            let _ = logger.log("ERROR", &error_msg);
+        }
+        
         self.progress(Progress::indeterminate(format!("❌ {}", error_msg)));
         
         // Increment error count
@@ -155,7 +174,23 @@ impl<'a> JobContext<'a> {
     
     /// Log a message
     pub fn log(&self, message: impl Into<String>) {
-        debug!(job_id = %self.id, "{}", message.into());
+        let msg = message.into();
+        debug!(job_id = %self.id, "{}", msg);
+        
+        // Also log to file if enabled
+        if let Some(logger) = &self.file_logger {
+            let _ = logger.log("INFO", &msg);
+        }
+    }
+    
+    /// Log a debug message
+    pub fn log_debug(&self, message: impl Into<String>) {
+        let msg = message.into();
+        debug!(job_id = %self.id, "{}", msg);
+        
+        if let Some(logger) = &self.file_logger {
+            let _ = logger.log("DEBUG", &msg);
+        }
     }
 }
 

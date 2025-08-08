@@ -5,17 +5,18 @@ use super::{
 	database::{self, JobDb},
 	error::{JobError, JobResult},
 	handle::JobHandle,
+	logger::FileJobLogger,
 	output::JobOutput,
 	progress::Progress,
 	traits::{Job, JobHandler, Resourceful},
 	types::{ErasedJob, JobId, JobMetrics, JobStatus},
 };
-use crate::library::Library;
+use crate::{config::JobLoggingConfig, library::Library};
 use async_trait::async_trait;
 use sd_task_system::{ExecStatus, Interrupter, Task, TaskId};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, span, Level};
 
 /// Executor that wraps a job for task system execution
 pub struct JobExecutor<J: JobHandler> {
@@ -36,6 +37,9 @@ pub struct JobExecutorState {
 	pub networking: Option<Arc<crate::services::networking::NetworkingService>>,
 	pub volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 	pub latest_progress: Arc<Mutex<Option<Progress>>>,
+	pub job_logging_config: Option<JobLoggingConfig>,
+	pub job_logs_dir: Option<PathBuf>,
+	pub file_logger: Option<Arc<super::logger::FileJobLogger>>,
 }
 
 impl<J: JobHandler> JobExecutor<J> {
@@ -50,7 +54,26 @@ impl<J: JobHandler> JobExecutor<J> {
 		checkpoint_handler: Arc<dyn CheckpointHandler>,
 		networking: Option<Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<Arc<crate::volume::VolumeManager>>,
+		job_logging_config: Option<JobLoggingConfig>,
+		job_logs_dir: Option<PathBuf>,
 	) -> Self {
+		// Create file logger if job logging is enabled
+		let file_logger = if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
+			let log_file = logs_dir.join(format!("{}.log", job_id));
+			match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
+				Ok(logger) => {
+					let _ = logger.log("INFO", &format!("Job {} ({}) starting", job_id, J::NAME));
+					Some(Arc::new(logger))
+				}
+				Err(e) => {
+					error!("Failed to create job logger: {}", e);
+					None
+				}
+			}
+		} else {
+			None
+		};
+		
 		Self {
 			job,
 			state: JobExecutorState {
@@ -66,6 +89,9 @@ impl<J: JobHandler> JobExecutor<J> {
 				networking,
 				volume_manager,
 				latest_progress: Arc::new(Mutex::new(None)),
+				job_logging_config,
+				job_logs_dir,
+				file_logger,
 			},
 		}
 	}
@@ -115,6 +141,37 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 	}
 
 	async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
+		// Log job start
+		if let Some(logger) = &self.state.file_logger {
+			let _ = logger.log("INFO", &format!("Starting job {}: {}", self.state.job_id, J::NAME));
+		}
+		
+		let result = self.run_inner(interrupter).await;
+		
+		// Log job completion
+		if let Some(logger) = &self.state.file_logger {
+			match &result {
+				Ok(ExecStatus::Done(_)) => {
+					let _ = logger.log("INFO", &format!("Job {} completed successfully", self.state.job_id));
+				}
+				Ok(ExecStatus::Canceled) => {
+					let _ = logger.log("INFO", &format!("Job {} was cancelled", self.state.job_id));
+				}
+				Ok(ExecStatus::Paused) => {
+					let _ = logger.log("INFO", &format!("Job {} was paused", self.state.job_id));
+				}
+				Err(e) => {
+					let _ = logger.log("ERROR", &format!("Job {} failed: {}", self.state.job_id, e));
+				}
+			}
+		}
+		
+		result
+	}
+}
+
+impl<J: JobHandler> JobExecutor<J> {
+	async fn run_inner(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
 		info!("Starting job {}: {}", self.state.job_id, J::NAME);
 
 		// Update status to running
@@ -139,6 +196,7 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 			child_handles: Arc::new(Mutex::new(Vec::new())),
 			networking: self.state.networking.clone(),
 			volume_manager: self.state.volume_manager.clone(),
+			file_logger: self.state.file_logger.clone(),
 		};
 
 		// Progress forwarding is handled by JobManager
@@ -307,9 +365,28 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 		checkpoint_handler: std::sync::Arc<dyn CheckpointHandler>,
 		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
+		job_logging_config: Option<crate::config::JobLoggingConfig>,
+		job_logs_dir: Option<std::path::PathBuf>,
 	) -> Box<dyn sd_task_system::Task<JobError>> {
 		// Update the executor's state with the new parameters
 		let mut executor = *self;
+		// Create file logger if job logging is enabled
+		let file_logger = if let (Some(config), Some(logs_dir)) = (&job_logging_config, &job_logs_dir) {
+			let log_file = logs_dir.join(format!("{}.log", job_id));
+			match super::logger::FileJobLogger::new(job_id, log_file, config.clone()) {
+				Ok(logger) => {
+					let _ = logger.log("INFO", &format!("Job {} starting (via create_executor)", job_id));
+					Some(Arc::new(logger))
+				}
+				Err(e) => {
+					error!("Failed to create job logger: {}", e);
+					None
+				}
+			}
+		} else {
+			None
+		};
+		
 		executor.state = JobExecutorState {
 			job_id,
 			library,
@@ -323,6 +400,9 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 			networking,
 			volume_manager,
 			latest_progress: Arc::new(Mutex::new(None)),
+			job_logging_config,
+			job_logs_dir,
+			file_logger,
 		};
 
 		Box::new(executor)

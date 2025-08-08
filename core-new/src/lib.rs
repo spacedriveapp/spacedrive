@@ -182,13 +182,25 @@ impl Core {
 		info!("Job types registered");
 
 		// 9. Create the context that will be shared with services
-		let context = Arc::new(CoreContext::new(
+		let mut context_inner = CoreContext::new(
 			events.clone(),
 			device.clone(),
 			libraries.clone(),
 			volumes.clone(),
 			library_key_manager.clone(),
-		));
+		);
+		
+		// Set job logging configuration if enabled
+		let app_config = config.read().await;
+		if app_config.job_logging.enabled {
+			context_inner.set_job_logging(
+				app_config.job_logging.clone(),
+				app_config.job_logs_dir(),
+			);
+		}
+		drop(app_config);
+		
+		let context = Arc::new(context_inner);
 
 		// 10. Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
