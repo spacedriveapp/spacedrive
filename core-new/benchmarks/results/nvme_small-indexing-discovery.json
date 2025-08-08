@@ -2,12 +2,12 @@
   "runs": [
     {
       "directories": 107,
-      "directories_per_s": 597.4,
-      "duration_s": 0.18,
+      "directories_per_s": 705.7,
+      "duration_s": 0.15,
       "errors": 0,
       "files": 300,
-      "files_per_s": 1674.9,
-      "job_id": "cbf94f90-3af8-4399-985e-78f64df8f91b",
+      "files_per_s": 1978.7,
+      "job_id": "7290b03d-9791-4a5e-b780-beba80182bc6",
       "recipe": "benchmarks/recipes/nvme_small.yaml",
       "scenario": "indexing-discovery",
       "total_gb": 0.33

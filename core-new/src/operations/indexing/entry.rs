@@ -115,6 +115,7 @@ impl EntryProcessor {
 	}
 
 	/// Create an entry record in the database using a provided connection/transaction
+	/// and collect related rows for bulk insertion by the caller.
 	pub async fn create_entry_in_conn<C: ConnectionTrait>(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
@@ -122,6 +123,8 @@ impl EntryProcessor {
 		device_id: i32,
 		location_root_path: &Path,
 		conn: &C,
+		out_self_closures: &mut Vec<entry_closure::ActiveModel>,
+		out_dir_paths: &mut Vec<directory_paths::ActiveModel>,
 	) -> Result<i32, JobError> {
 		// Extract file extension (without dot) for files, None for directories
 		let extension = match entry.kind {
@@ -251,10 +254,7 @@ impl EntryProcessor {
 			depth: Set(0),
 			..Default::default()
 		};
-		self_closure
-			.insert(conn)
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to insert self-closure: {}", e)))?;
+		out_self_closures.push(self_closure);
 
 		// If there's a parent, copy all parent's ancestors
 		if let Some(parent_id) = parent_id {
@@ -283,9 +283,7 @@ impl EntryProcessor {
 				path: Set(absolute_path),
 				..Default::default()
 			};
-			dir_path_entry.insert(conn).await.map_err(|e| {
-				JobError::execution(format!("Failed to insert directory path: {}", e))
-			})?;
+			out_dir_paths.push(dir_path_entry);
 		}
 
 		// Cache the entry ID for potential children
@@ -308,11 +306,37 @@ impl EntryProcessor {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
-		let result =
-			Self::create_entry_in_conn(state, ctx, entry, device_id, location_root_path, &txn)
-				.await;
+		let mut self_closures: Vec<entry_closure::ActiveModel> = Vec::new();
+		let mut dir_paths: Vec<directory_paths::ActiveModel> = Vec::new();
+		let result = Self::create_entry_in_conn(
+			state,
+			ctx,
+			entry,
+			device_id,
+			location_root_path,
+			&txn,
+			&mut self_closures,
+			&mut dir_paths,
+		)
+		.await;
 
 		if result.is_ok() {
+			if !self_closures.is_empty() {
+				entry_closure::Entity::insert_many(self_closures)
+					.exec(&txn)
+					.await
+					.map_err(|e| {
+						JobError::execution(format!("Failed to bulk insert self-closures: {}", e))
+					})?;
+			}
+			if !dir_paths.is_empty() {
+				directory_paths::Entity::insert_many(dir_paths)
+					.exec(&txn)
+					.await
+					.map_err(|e| {
+						JobError::execution(format!("Failed to bulk insert directory paths: {}", e))
+					})?;
+			}
 			txn.commit()
 				.await
 				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;

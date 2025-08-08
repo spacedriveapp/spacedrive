@@ -156,6 +156,10 @@ pub async fn run_processing_phase(
 			JobError::execution(format!("Failed to begin processing transaction: {}", e))
 		})?;
 
+		// Accumulate related rows for bulk insert
+		let mut bulk_self_closures: Vec<entities::entry_closure::ActiveModel> = Vec::new();
+		let mut bulk_dir_paths: Vec<entities::directory_paths::ActiveModel> = Vec::new();
+
 		// Process batch - check for changes and create/update entries
 		// (Already sorted globally by depth)
 		for entry in batch {
@@ -185,6 +189,8 @@ pub async fn run_processing_phase(
 						device_id,
 						location_root_path,
 						&txn,
+						&mut bulk_self_closures,
+						&mut bulk_dir_paths,
 					)
 					.await
 					{
@@ -200,6 +206,7 @@ pub async fn run_processing_phase(
 							if mode >= IndexMode::Content && entry.kind == EntryKind::File {
 								state.entries_for_content.push((entry_id, entry.path));
 							}
+							// end Some(Change::New)
 						}
 						Err(e) => {
 							let error_msg = format!(

@@ -3,10 +3,11 @@
 //! This test verifies that copy progress updates smoothly with byte-level
 //! granularity rather than jumping in large increments.
 
+use sd_core_new::domain::addressing::SdPath;
 use sd_core_new::{
 	infrastructure::{
 		actions::{manager::ActionManager, Action},
-		jobs::types::{JobId, JobStatus},
+		jobs::types::JobStatus,
 	},
 	operations::files::{
 		copy::{action::FileCopyAction, job::CopyOptions},
@@ -15,7 +16,6 @@ use sd_core_new::{
 	Core,
 };
 use std::{
-	path::PathBuf,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -120,8 +120,8 @@ async fn test_copy_progress_monitoring_large_file() {
 
 	// Build the copy action with the exact options from the CLI command
 	let copy_action = FileCopyAction {
-		sources: vec![source_file.clone()],
-		destination: dest_dir.clone(),
+		sources: vec![SdPath::local(source_file.clone())],
+		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
 			verify_checksum: true,     // --verify
@@ -429,8 +429,8 @@ async fn test_copy_progress_multiple_files() {
 
 	// Build copy action for multiple files
 	let copy_action = FileCopyAction {
-		sources: source_files,
-		destination: dest_dir.clone(),
+		sources: source_files.iter().cloned().map(SdPath::local).collect(),
+		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
 			verify_checksum: true,

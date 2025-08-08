@@ -1,13 +1,13 @@
 {
   "runs": [
     {
-      "directories": null,
-      "directories_per_s": null,
-      "duration_s": 4.5,
+      "directories": 2625,
+      "directories_per_s": 778.0,
+      "duration_s": 3.37,
       "errors": 0,
       "files": 5000,
-      "files_per_s": 1111.2,
-      "job_id": "688c2b4f-b121-47c5-9e64-d1db87cef402",
+      "files_per_s": 1482.0,
+      "job_id": "aac57c82-647f-4d1e-a95d-059f39443bbe",
       "recipe": "benchmarks/recipes/nvme_mixed.yaml",
       "scenario": "indexing-discovery",
       "total_gb": 91.16
