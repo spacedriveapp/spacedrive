@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use crate::shared::types::SdPath;
+use crate::domain::addressing::SdPath;
 
 /// Indexer progress information
 #[derive(Debug, Clone, Serialize, Deserialize)]

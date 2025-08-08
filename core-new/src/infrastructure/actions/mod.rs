@@ -4,7 +4,7 @@
 //! all user-initiated operations. It serves as the primary integration point
 //! for the CLI and future APIs.
 
-use crate::shared::types::SdPath;
+use crate::domain::addressing::SdPath;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;

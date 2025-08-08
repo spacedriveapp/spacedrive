@@ -16,7 +16,6 @@ pub mod operations;
 pub mod services;
 pub mod shared;
 pub mod test_framework;
-pub mod vdfs;
 pub mod volume;
 
 use services::networking::protocols::PairingProtocolHandler;
@@ -152,7 +151,7 @@ impl Core {
 		// 2. Initialize device manager
 		let device = Arc::new(DeviceManager::init_with_path(&data_dir)?);
 		// Set the global device ID for legacy compatibility
-		shared::types::set_current_device_id(device.device_id()?);
+		shared::utils::set_current_device_id(device.device_id()?);
 
 		// 3. Create event bus
 		let events = Arc::new(EventBus::default());

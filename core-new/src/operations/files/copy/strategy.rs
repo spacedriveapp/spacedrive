@@ -2,7 +2,7 @@
 
 use crate::{
     infrastructure::jobs::prelude::*,
-    shared::types::SdPath,
+    domain::addressing::SdPath,
     volume::VolumeManager,
     operations::files::copy::job::CopyPhase,
 };

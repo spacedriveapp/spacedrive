@@ -1,8 +1,7 @@
-//! SdPath Resolution Service
+//! Path resolution operations for the Virtual Distributed File System
 //!
-//! This service implements the optimal path resolution described in the whitepaper,
-//! enabling resilient file operations by resolving content-based paths to optimal
-//! physical locations at runtime.
+//! This module contains the active logic (verbs) that operates on SdPath
+//! data structures to resolve content-based paths to optimal physical locations.
 
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -10,7 +9,7 @@ use sea_orm::{prelude::*, QuerySelect};
 
 use crate::{
     context::CoreContext,
-    shared::types::{SdPath, PathResolutionError},
+    domain::addressing::{SdPath, PathResolutionError},
     infrastructure::database::entities::{
         content_identity, entry, location, device, 
         ContentIdentity, Entry, Location, Device
@@ -110,7 +109,7 @@ impl PathResolver {
         context: &CoreContext,
         device_id: Uuid,
     ) -> Result<(), PathResolutionError> {
-        let current_device_id = crate::shared::types::get_current_device_id();
+        let current_device_id = crate::shared::utils::get_current_device_id();
         
         // Local device is always "online"
         if device_id == current_device_id {
@@ -138,7 +137,7 @@ impl PathResolver {
 
     /// Get list of currently online devices
     async fn get_online_devices(&self, context: &CoreContext) -> Vec<Uuid> {
-        let mut online = vec![crate::shared::types::get_current_device_id()];
+        let mut online = vec![crate::shared::utils::get_current_device_id()];
         
         if let Some(networking) = context.get_networking().await {
             for device in networking.get_connected_devices().await {
@@ -157,7 +156,7 @@ impl PathResolver {
         let mut metrics = HashMap::new();
         
         // Local device has zero latency
-        let current_device_id = crate::shared::types::get_current_device_id();
+        let current_device_id = crate::shared::utils::get_current_device_id();
         metrics.insert(
             current_device_id,
             DeviceMetrics {
@@ -420,7 +419,7 @@ impl PathResolver {
         online_devices: &[Uuid],
         device_metrics: &HashMap<Uuid, DeviceMetrics>,
     ) -> Option<SdPath> {
-        let current_device_id = crate::shared::types::get_current_device_id();
+        let current_device_id = crate::shared::utils::get_current_device_id();
         
         let mut candidates: Vec<(f64, &ContentInstance)> = instances
             .iter()

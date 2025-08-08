@@ -11,7 +11,7 @@ use crate::{
 		Action,
 	},
 	register_action_handler,
-	shared::types::{SdPath, SdPathBatch},
+	domain::addressing::{SdPath, SdPathBatch},
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

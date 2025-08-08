@@ -5,7 +5,7 @@ use crate::{
 		prelude::*,
 		traits::{DynJob, Resourceful},
 	},
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};

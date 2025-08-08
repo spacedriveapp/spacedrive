@@ -3,7 +3,7 @@
 use sd_core_new::{
 	infrastructure::jobs::{prelude::*, registry::REGISTRY},
 	operations::files::copy::job::FileCopyJob,
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 use uuid::Uuid;
 

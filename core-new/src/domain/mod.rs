@@ -5,6 +5,7 @@
 //! - UserMetadata is always present (enabling immediate tagging)
 //! - ContentIdentity is optional (for deduplication)
 
+pub mod addressing;
 pub mod content_identity;
 pub mod device;
 pub mod entry;
@@ -13,6 +14,7 @@ pub mod user_metadata;
 pub mod volume;
 
 // Re-export commonly used types
+pub use addressing::{SdPath, SdPathBatch, PathResolutionError, SdPathParseError};
 pub use content_identity::{ContentKind, MediaData, ContentHashGenerator, ContentHashError};
 pub use device::{Device, OperatingSystem};
 pub use entry::{Entry, EntryKind, SdPathSerialized};

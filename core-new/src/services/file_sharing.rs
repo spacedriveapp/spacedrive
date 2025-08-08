@@ -4,7 +4,7 @@ use crate::{
 	context::CoreContext,
 	operations::files::copy::{CopyOptions, FileCopyJob},
 	services::networking::protocols::file_transfer::FileMetadata,
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc, time::SystemTime};

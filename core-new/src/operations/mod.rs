@@ -1,12 +1,14 @@
 //! Operations module - contains all business operations and use cases
 //!
 //! This module organizes all business operations for Spacedrive:
+//! - Addressing operations (path resolution)
 //! - File operations (copy, move, delete, validate, duplicate detection)
 //! - Indexing operations
 //! - Media processing (thumbnails, etc.)
 //! - Content operations (deduplication, statistics)
 //! - Metadata operations (hierarchical tagging)
 
+pub mod addressing;
 pub mod content;
 pub mod devices;
 pub mod entries;

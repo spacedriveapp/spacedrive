@@ -8,7 +8,7 @@ use crate::{
         output::ActionOutput,
     },
     register_action_handler,
-    shared::types::{SdPath, SdPathBatch},
+    domain::addressing::{SdPath, SdPathBatch},
 };
 use super::job::{ValidationJob, ValidationMode};
 use async_trait::async_trait;

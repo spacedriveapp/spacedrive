@@ -3,7 +3,7 @@
 //! An Entry represents any filesystem item (file, directory, symlink) that
 //! Spacedrive knows about. It's the foundation of the VDFS.
 
-use crate::shared::types::SdPath;
+use crate::domain::addressing::SdPath;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

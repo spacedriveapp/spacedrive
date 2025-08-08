@@ -3,7 +3,7 @@
 use crate::{
 	domain::content_identity::ContentHashGenerator,
 	infrastructure::jobs::prelude::*,
-	shared::types::{SdPath, SdPathBatch},
+	domain::addressing::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
 use std::{

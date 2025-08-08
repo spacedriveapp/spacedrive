@@ -3,7 +3,7 @@
 use super::state::{IndexPhase, IndexerProgress};
 use crate::{
 	infrastructure::jobs::generic_progress::{GenericProgress, ToGenericProgress},
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 use std::path::PathBuf;
 

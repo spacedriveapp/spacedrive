@@ -9,7 +9,7 @@ use crate::{
     },
     library::Library,
     operations::indexing::{job::{IndexerJob, IndexerJobConfig}, PathResolver},
-    shared::types::SdPath,
+    domain::addressing::SdPath,
 };
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, TransactionTrait,

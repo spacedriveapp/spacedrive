@@ -11,7 +11,7 @@ use crate::{
         indexing::{IndexMode, job::IndexerJob},
     },
     register_action_handler,
-    shared::types::SdPath,
+    domain::addressing::SdPath,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};

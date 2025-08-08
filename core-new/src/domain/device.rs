@@ -110,7 +110,7 @@ impl Device {
 
     /// Check if this is the current device
     pub fn is_current(&self) -> bool {
-        self.id == crate::shared::types::get_current_device_id()
+        self.id == crate::shared::utils::get_current_device_id()
     }
 
     /// Set sync role for a library

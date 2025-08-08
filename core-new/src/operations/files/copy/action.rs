@@ -18,7 +18,7 @@ use crate::{
 		cli::adapters::FileCopyCliArgs,
 	},
 	register_action_handler,
-	shared::types::{SdPath, SdPathBatch},
+	domain::addressing::{SdPath, SdPathBatch},
 };
 use async_trait::async_trait;
 use clap::Parser;

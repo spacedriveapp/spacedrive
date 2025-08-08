@@ -4,7 +4,7 @@
 //! their domain-specific progress into, making progress data compatible
 //! with the job monitoring system while preserving rich information.
 
-use crate::shared::types::SdPath;
+use crate::domain::addressing::SdPath;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 

@@ -1,6 +1,6 @@
 //! Delete job implementation
 
-use crate::{infrastructure::jobs::prelude::*, shared::types::SdPathBatch};
+use crate::{infrastructure::jobs::prelude::*, domain::addressing::SdPathBatch};
 use serde::{Deserialize, Serialize};
 use std::{
 	path::PathBuf,

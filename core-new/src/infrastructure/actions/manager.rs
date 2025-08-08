@@ -6,7 +6,7 @@ use super::{
 use crate::{
     context::CoreContext,
     infrastructure::database::entities::{audit_log, AuditLog, AuditLogActive},
-    shared::types::get_current_device_id,
+    shared::utils::get_current_device_id,
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set};
 use std::sync::Arc;

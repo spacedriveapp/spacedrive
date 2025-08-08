@@ -4,7 +4,7 @@ use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrateg
 use crate::{
 	infrastructure::jobs::generic_progress::{GenericProgress, ToGenericProgress},
 	infrastructure::jobs::{prelude::*, traits::Resourceful},
-	shared::types::{SdPath, SdPathBatch},
+	domain::addressing::{SdPath, SdPathBatch},
 };
 use serde::{Deserialize, Serialize};
 use std::{

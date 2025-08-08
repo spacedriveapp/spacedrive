@@ -1,7 +1,7 @@
 //! Library lock implementation to prevent concurrent access
 
 use super::error::{LibraryError, Result};
-use crate::shared::types::get_current_device_id;
+use crate::shared::utils::get_current_device_id;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};

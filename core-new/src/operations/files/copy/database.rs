@@ -6,7 +6,7 @@
 use crate::{
 	infrastructure::database::entities::{entry, location, Entry},
 	operations::indexing::PathResolver,
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 use anyhow::Result;
 use sea_orm::{prelude::*, Condition, DatabaseConnection, QuerySelect};

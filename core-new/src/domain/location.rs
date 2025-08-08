@@ -188,7 +188,7 @@ impl Default for IndexMode {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::shared::types::SdPath;
+	use crate::domain::addressing::SdPath;
 
 	#[test]
 	fn test_location_creation() {

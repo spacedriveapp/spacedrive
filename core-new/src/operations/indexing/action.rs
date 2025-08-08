@@ -8,7 +8,7 @@ use crate::{
         output::ActionOutput,
     },
     register_action_handler,
-    shared::types::SdPath,
+    domain::addressing::SdPath,
 };
 use super::job::{IndexerJob, IndexMode, IndexScope};
 use async_trait::async_trait;

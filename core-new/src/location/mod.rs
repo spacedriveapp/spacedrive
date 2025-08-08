@@ -10,7 +10,7 @@ use crate::{
 	},
 	library::Library,
 	operations::indexing::{IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver},
-	shared::types::SdPath,
+	domain::addressing::SdPath,
 };
 
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
@@ -534,7 +534,7 @@ async fn update_location_stats(
 /// Get device UUID for current device
 async fn get_device_uuid(_library: Arc<Library>) -> LocationResult<Uuid> {
 	// Get the current device ID from the global state
-	let device_uuid = crate::shared::types::get_current_device_id();
+	let device_uuid = crate::shared::utils::get_current_device_id();
 	
 	if device_uuid.is_nil() {
 		return Err(LocationError::InvalidPath("Current device ID not initialized".to_string()));

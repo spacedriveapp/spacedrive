@@ -4,7 +4,7 @@ use super::{
     input::CopyMethod,
     strategy::{CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy, RemoteTransferStrategy},
 };
-use crate::{shared::types::SdPath, volume::VolumeManager};
+use crate::{domain::addressing::SdPath, volume::VolumeManager};
 use std::sync::Arc;
 
 pub struct CopyStrategyRouter;
