@@ -7,7 +7,7 @@ use super::{
 	handle::JobHandle,
 	output::JobOutput,
 	progress::Progress,
-	traits::{Job, JobHandler},
+	traits::{Job, JobHandler, MaybeResourceful, Resourceful},
 	types::{ErasedJob, JobId, JobMetrics, JobStatus},
 };
 use crate::library::Library;
@@ -68,6 +68,14 @@ impl<J: JobHandler> JobExecutor<J> {
 				latest_progress: Arc::new(Mutex::new(None)),
 			},
 		}
+	}
+
+	/// Try to get affected resources if this job implements MaybeResourceful
+	pub fn try_get_affected_resources(&self) -> Option<Vec<i32>>
+	where
+		J: MaybeResourceful,
+	{
+		self.job.try_get_affected_resources()
 	}
 
 	/// Update job status in the database
@@ -200,26 +208,26 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 
 					// Check current status to determine if this is a pause or cancel
 					let current_status = *self.state.status_tx.borrow();
-					
+
 					if current_status == JobStatus::Paused {
 						// Job was paused, don't update status (already set by pause_job)
 						debug!("Job {} paused", self.state.job_id);
-						
+
 						// Save job state for resume
 						use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 						let job_state = rmp_serde::to_vec(&self.job)
 							.map_err(|e| JobError::serialization(format!("{}", e)))?;
-						
+
 						let mut job_model = super::database::jobs::ActiveModel {
 							id: Set(self.state.job_id.to_string()),
 							state: Set(job_state),
 							..Default::default()
 						};
-						
+
 						if let Err(e) = job_model.update(self.state.job_db.conn()).await {
 							error!("Failed to save paused job state: {}", e);
 						}
-						
+
 						Ok(ExecStatus::Canceled)
 					} else {
 						// Job was cancelled
@@ -283,5 +291,52 @@ impl<J: JobHandler> Task<JobError> for JobExecutor<J> {
 		}
 
 		result
+	}
+}
+
+impl<J: JobHandler + std::fmt::Debug> std::fmt::Debug for JobExecutor<J> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("JobExecutor")
+			.field("job", &self.job)
+			.field("job_id", &self.state.job_id)
+			.finish()
+	}
+}
+
+impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
+	fn create_executor(
+		self: Box<Self>,
+		job_id: JobId,
+		library: std::sync::Arc<crate::library::Library>,
+		job_db: std::sync::Arc<crate::infrastructure::jobs::database::JobDb>,
+		status_tx: tokio::sync::watch::Sender<JobStatus>,
+		progress_tx: tokio::sync::mpsc::UnboundedSender<Progress>,
+		broadcast_tx: tokio::sync::broadcast::Sender<Progress>,
+		checkpoint_handler: std::sync::Arc<dyn CheckpointHandler>,
+		networking: Option<std::sync::Arc<crate::services::networking::NetworkingService>>,
+		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
+	) -> Box<dyn sd_task_system::Task<JobError>> {
+		// Update the executor's state with the new parameters
+		let mut executor = *self;
+		executor.state = JobExecutorState {
+			job_id,
+			library,
+			job_db,
+			status_tx,
+			progress_tx,
+			broadcast_tx,
+			checkpoint_handler,
+			metrics: Default::default(),
+			output: None,
+			networking,
+			volume_manager,
+			latest_progress: Arc::new(Mutex::new(None)),
+		};
+
+		Box::new(executor)
+	}
+
+	fn serialize_state(&self) -> Result<Vec<u8>, JobError> {
+		rmp_serde::to_vec(&self.job).map_err(|e| JobError::serialization(format!("{}", e)))
 	}
 }

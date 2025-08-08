@@ -611,6 +611,56 @@ impl JobManager {
 		job_infos
 	}
 
+	/// Find jobs that are processing specific entry IDs
+	///
+	/// This is a simplified implementation that maps job types to likely affected entries.
+	/// A more sophisticated implementation would store resource mappings in the database.
+	pub async fn find_jobs_affecting_entries(&self, entry_ids: &[i32]) -> JobResult<Vec<JobInfo>> {
+		// Get all running and paused jobs
+		let active_jobs = self.list_jobs(Some(JobStatus::Running)).await?;
+		let mut paused_jobs = self.list_jobs(Some(JobStatus::Paused)).await?;
+
+		// Combine all active jobs
+		let mut all_active_jobs = active_jobs;
+		all_active_jobs.append(&mut paused_jobs);
+
+		// For now, we'll implement a basic mapping based on job names
+		// In a real implementation, this would query the job's actual resource usage
+		let mut affecting_jobs = Vec::new();
+
+		for job in all_active_jobs {
+			// Check if this job type likely affects any of the requested entries
+			let likely_affects = match job.name.as_str() {
+				name if name.contains("index") => {
+					// Indexer jobs affect all entries in their location
+					// This is a simplification - we'd need to check the actual location
+					true
+				}
+				name if name.contains("thumbnail") => {
+					// Thumbnail jobs affect image/video entries
+					// This is a simplification - we'd need to check file types
+					true
+				}
+				name if name.contains("copy") || name.contains("move") => {
+					// File operation jobs affect specific entries
+					// This is a simplification - we'd need to check the job's parameters
+					true
+				}
+				name if name.contains("validate") => {
+					// Validation jobs affect specific entries
+					true
+				}
+				_ => false, // Unknown job types don't affect entries by default
+			};
+
+			if likely_affects {
+				affecting_jobs.push(job);
+			}
+		}
+
+		Ok(affecting_jobs)
+	}
+
 	/// List all jobs with a specific status (unified query)
 	pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {
 		use sea_orm::QueryFilter;
@@ -964,7 +1014,7 @@ impl JobManager {
 	/// Pause a running job
 	pub async fn pause_job(&self, job_id: JobId) -> JobResult<()> {
 		let mut running_jobs = self.running_jobs.write().await;
-		
+
 		if let Some(running_job) = running_jobs.get_mut(&job_id) {
 			// Check if job is in a pausable state
 			let current_status = running_job.handle.status();
@@ -976,12 +1026,14 @@ impl JobManager {
 			}
 
 			// Update status to Paused
-			running_job.status_tx.send(JobStatus::Paused)
+			running_job
+				.status_tx
+				.send(JobStatus::Paused)
 				.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
-			
+
 			// The task will check status and interrupt itself when it sees Paused status
 			// This happens through the executor checking the status channel
-			
+
 			// Update database
 			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 			let mut job_model = database::jobs::ActiveModel {
@@ -991,12 +1043,12 @@ impl JobManager {
 				..Default::default()
 			};
 			job_model.update(self.db.conn()).await?;
-			
+
 			// Emit pause event
 			self.context.events.emit(Event::JobPaused {
 				job_id: job_id.to_string(),
 			});
-			
+
 			info!("Job {} paused successfully", job_id);
 			Ok(())
 		} else {
@@ -1022,13 +1074,13 @@ impl JobManager {
 			} else {
 				// Job might be in database but not in memory
 				drop(running_jobs);
-				
+
 				// Load job from database
 				let job_record = database::jobs::Entity::find_by_id(job_id.to_string())
 					.one(self.db.conn())
 					.await?
 					.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
-				
+
 				// Check if job is paused
 				if job_record.status != JobStatus::Paused.to_string() {
 					return Err(JobError::invalid_state(&format!(
@@ -1036,7 +1088,7 @@ impl JobManager {
 						job_record.status
 					)));
 				}
-				
+
 				Some((job_record.name.clone(), job_record.state.clone()))
 			}
 		};
@@ -1045,7 +1097,7 @@ impl JobManager {
 		if let Some((job_name, job_state)) = job_info {
 			// Deserialize job from binary data
 			let erased_job = REGISTRY.deserialize_job(&job_name, &job_state)?;
-			
+
 			// Update database status to Running
 			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 			let mut job_model = database::jobs::ActiveModel {
@@ -1055,14 +1107,14 @@ impl JobManager {
 				..Default::default()
 			};
 			job_model.update(self.db.conn()).await?;
-			
+
 			// Create channels
 			let (status_tx, status_rx) = watch::channel(JobStatus::Running);
 			let (progress_tx, progress_rx) = mpsc::unbounded_channel();
 			let (broadcast_tx, broadcast_rx) = broadcast::channel(100);
-			
+
 			let latest_progress = Arc::new(Mutex::new(None));
-			
+
 			// Create progress forwarding task
 			let broadcast_tx_clone = broadcast_tx.clone();
 			let latest_progress_clone = latest_progress.clone();
@@ -1074,7 +1126,7 @@ impl JobManager {
 				while let Some(progress) = progress_rx.recv().await {
 					*latest_progress_clone.lock().await = Some(progress.clone());
 					let _ = broadcast_tx_clone.send(progress.clone());
-					
+
 					// Emit progress event
 					event_bus.emit(Event::JobProgress {
 						job_id: job_id_clone.to_string(),
@@ -1085,7 +1137,7 @@ impl JobManager {
 					});
 				}
 			});
-			
+
 			// Get library from context
 			let library = self
 				.context
@@ -1095,11 +1147,11 @@ impl JobManager {
 				.ok_or_else(|| {
 					JobError::invalid_state(&format!("Library {} not found", self.library_id))
 				})?;
-			
+
 			// Get services from context
 			let networking = self.context.get_networking().await;
 			let volume_manager = Some(self.context.volume_manager.clone());
-			
+
 			// Create executor
 			let executor = erased_job.create_executor(
 				job_id,
@@ -1114,7 +1166,7 @@ impl JobManager {
 				networking,
 				volume_manager,
 			);
-			
+
 			// Create handle
 			let handle = JobHandle {
 				id: job_id,
@@ -1123,7 +1175,7 @@ impl JobManager {
 				progress_rx: broadcast_rx,
 				output: Arc::new(Mutex::new(None)),
 			};
-			
+
 			// Dispatch to task system
 			let task_handle = self
 				.dispatcher
@@ -1131,7 +1183,7 @@ impl JobManager {
 				.dispatch_boxed(executor)
 				.await
 				.map_err(|e| JobError::task_system(format!("Failed to dispatch: {:?}", e)))?;
-			
+
 			// Track running job
 			self.running_jobs.write().await.insert(
 				job_id,
@@ -1142,7 +1194,7 @@ impl JobManager {
 					latest_progress,
 				},
 			);
-			
+
 			// Spawn cleanup monitor
 			let running_jobs = self.running_jobs.clone();
 			let job_id_clone = job_id.clone();
@@ -1185,21 +1237,25 @@ impl JobManager {
 					}
 				}
 			});
-			
+
 			// Emit resume event
 			self.context.events.emit(Event::JobResumed {
 				job_id: job_id.to_string(),
 			});
-			
+
 			info!("Job {} resumed from database", job_id);
 		} else {
 			// Job is already in memory, just update status
 			let mut running_jobs = self.running_jobs.write().await;
 			if let Some(running_job) = running_jobs.get_mut(&job_id) {
 				// Update status to Running
-				running_job.status_tx.send(JobStatus::Running)
-					.map_err(|e| JobError::Other(format!("Failed to update status: {}", e).into()))?;
-				
+				running_job
+					.status_tx
+					.send(JobStatus::Running)
+					.map_err(|e| {
+						JobError::Other(format!("Failed to update status: {}", e).into())
+					})?;
+
 				// Update database
 				use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 				let mut job_model = database::jobs::ActiveModel {
@@ -1209,16 +1265,16 @@ impl JobManager {
 					..Default::default()
 				};
 				job_model.update(self.db.conn()).await?;
-				
+
 				// Emit resume event
 				self.context.events.emit(Event::JobResumed {
 					job_id: job_id.to_string(),
 				});
-				
+
 				info!("Job {} resumed", job_id);
 			}
 		}
-		
+
 		Ok(())
 	}
 
@@ -1228,7 +1284,7 @@ impl JobManager {
 
 		// First, pause all running jobs
 		let job_ids: Vec<JobId> = self.running_jobs.read().await.keys().copied().collect();
-		
+
 		info!("Pausing {} running jobs before shutdown", job_ids.len());
 		for job_id in &job_ids {
 			// Check if job is still running before pausing
@@ -1250,19 +1306,19 @@ impl JobManager {
 		// Wait for all jobs to finish pausing
 		let start_time = tokio::time::Instant::now();
 		let timeout = std::time::Duration::from_secs(10);
-		
+
 		loop {
 			let running_count = self.running_jobs.read().await.len();
 			if running_count == 0 {
 				info!("All jobs have stopped");
 				break;
 			}
-			
+
 			if start_time.elapsed() > timeout {
 				warn!("Timeout waiting for {} jobs to stop", running_count);
 				break;
 			}
-			
+
 			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 		}
 

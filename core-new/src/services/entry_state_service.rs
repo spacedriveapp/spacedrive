@@ -14,16 +14,20 @@ impl EntryStateService {
 	) -> Result<HashMap<i32, EntryState>, anyhow::Error> {
 		let mut results = HashMap::new();
 
-		// 1. Query Job System
-		let _running_jobs = job_manager
-			.list_jobs(Some(crate::infrastructure::jobs::types::JobStatus::Running))
-			.await?;
+		// 1. Query Job System for jobs affecting these entries
+		let affecting_jobs = job_manager.find_jobs_affecting_entries(entry_ids).await?;
 		let mut processed_by_job: std::collections::HashSet<i32> = std::collections::HashSet::new();
 
-		// TODO: Need to determine which entries are being processed by running jobs
-		// For now, this is a placeholder - the actual implementation would need
-		// to extract entry IDs from job metadata or parameters and populate
-		// the processed_by_job set accordingly
+		// Map jobs to entry states for entries that are being processed
+		for job in affecting_jobs {
+			// For simplicity, mark all requested entries as potentially affected by this job
+			// In a real implementation, we'd have more precise resource tracking
+			let state = Self::state_from_job(&job);
+			for &entry_id in entry_ids {
+				results.insert(entry_id, state.clone());
+				processed_by_job.insert(entry_id);
+			}
+		}
 
 		// 2. Query Database for remaining entries
 		let remaining_ids: Vec<i32> = entry_ids
