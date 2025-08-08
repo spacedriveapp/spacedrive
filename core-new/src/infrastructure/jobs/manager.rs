@@ -676,31 +676,17 @@ impl JobManager {
 				}
 			};
 
-			// Use downcasting to check if the job implements Resourceful.
-			// We need to downcast to concrete types since we can't downcast to trait objects
-			let affected_resources = if let Some(indexer_job) =
-				job_instance.as_any().downcast_ref::<IndexerJob>()
-			{
-				indexer_job.get_affected_resources()
-			} else if let Some(thumbnail_job) = job_instance.as_any().downcast_ref::<ThumbnailJob>()
-			{
-				thumbnail_job.get_affected_resources()
-			} else if let Some(copy_job) = job_instance.as_any().downcast_ref::<FileCopyJob>() {
-				copy_job.get_affected_resources()
-			} else if let Some(move_job) = job_instance.as_any().downcast_ref::<MoveJob>() {
-				move_job.get_affected_resources()
-			} else {
-				// Job doesn't implement Resourceful, skip it
-				continue;
-			};
+			// Check if the job tracks specific resources
+			if let Some(affected_resources) = job_instance.try_get_affected_resources() {
+				// Check if there is any overlap between the job's resources
+				// and the entries we are interested in.
+				let is_affected = affected_resources.iter().any(|id| entry_ids.contains(id));
 
-			// Check if there is any overlap between the job's resources
-			// and the entries we are interested in.
-			let is_affected = affected_resources.iter().any(|id| entry_ids.contains(id));
-
-			if is_affected {
-				affecting_jobs.push(job_info);
+				if is_affected {
+					affecting_jobs.push(job_info);
+				}
 			}
+			// Jobs that don't track resources (return None) are skipped
 		}
 		Ok(affecting_jobs)
 	}

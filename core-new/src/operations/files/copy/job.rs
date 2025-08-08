@@ -72,12 +72,12 @@ impl Job for FileCopyJob {
 }
 
 impl crate::infrastructure::jobs::traits::DynJob for FileCopyJob {
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
-	}
-
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
+		Some(self.get_affected_resources())
 	}
 }
 
@@ -868,12 +868,12 @@ impl Job for MoveJob {
 }
 
 impl crate::infrastructure::jobs::traits::DynJob for MoveJob {
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
-	}
-
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
+		Some(self.get_affected_resources())
 	}
 }
 

@@ -77,12 +77,12 @@ impl Job for ThumbnailJob {
 }
 
 impl crate::infrastructure::jobs::traits::DynJob for ThumbnailJob {
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
-	}
-
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
+		Some(self.get_affected_resources())
 	}
 }
 

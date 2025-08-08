@@ -81,13 +81,11 @@ impl Job for ValidationJob {
 }
 
 impl crate::infrastructure::jobs::traits::DynJob for ValidationJob {
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
-	}
-
 	fn job_name(&self) -> &'static str {
 		Self::NAME
 	}
+
+	// ValidationJob doesn't track specific entry resources, so use default None
 }
 
 #[async_trait::async_trait]

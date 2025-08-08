@@ -130,12 +130,15 @@ pub trait Resourceful {
 
 /// A dyn-compatible trait for dynamic job operations
 /// This is separate from Job to avoid serialization trait bounds
-pub trait DynJob: Any + Send + Sync {
-	/// Provides a way to downcast a DynJob trait object to a concrete type
-	fn as_any(&self) -> &dyn Any;
-
+pub trait DynJob: Send + Sync {
 	/// Job name for identification
 	fn job_name(&self) -> &'static str;
+
+	/// Try to get affected resources if this job is resourceful
+	/// Returns None if the job doesn't track specific resources
+	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
+		None // Default implementation for non-resourceful jobs
+	}
 }
 
 // Jobs that operate on specific entries should implement Resourceful

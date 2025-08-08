@@ -130,18 +130,33 @@ impl EntryProcessor {
 			EntryKind::Directory | EntryKind::Symlink => None,
 		};
 
-		// Get file name without extension (stem)
-		let name = entry
-			.path
-			.file_stem()
-			.map(|stem| stem.to_string_lossy().to_string())
-			.unwrap_or_else(|| {
+		// Get file/directory name
+		// For files: use stem (name without extension)
+		// For directories: use full name (including .app, etc.)
+		let name = match entry.kind {
+			EntryKind::File => {
+				// For files, use stem (without extension)
+				entry
+					.path
+					.file_stem()
+					.map(|stem| stem.to_string_lossy().to_string())
+					.unwrap_or_else(|| {
+						entry
+							.path
+							.file_name()
+							.map(|n| n.to_string_lossy().to_string())
+							.unwrap_or_else(|| "unknown".to_string())
+					})
+			},
+			EntryKind::Directory | EntryKind::Symlink => {
+				// For directories and symlinks, use full name
 				entry
 					.path
 					.file_name()
 					.map(|n| n.to_string_lossy().to_string())
 					.unwrap_or_else(|| "unknown".to_string())
-			});
+			}
+		};
 
 		// Convert timestamps
 		let modified_at = entry

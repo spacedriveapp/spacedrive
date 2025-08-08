@@ -228,12 +228,12 @@ impl Job for IndexerJob {
 }
 
 impl DynJob for IndexerJob {
-	fn as_any(&self) -> &dyn std::any::Any {
-		self
-	}
-
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	fn try_get_affected_resources(&self) -> Option<Vec<i32>> {
+		Some(self.get_affected_resources())
 	}
 }
 

@@ -23,42 +23,18 @@ impl EntryStateService {
 				.get_job_data_for_resourceful_check(&job_info.id)
 				.await
 			{
-				// Use downcasting to concrete types since we can't downcast to trait objects
-				let affected_resources = if let Some(indexer_job) =
-					job_instance
-						.as_any()
-						.downcast_ref::<crate::operations::indexing::IndexerJob>()
-				{
-					indexer_job.get_affected_resources()
-				} else if let Some(thumbnail_job) =
-					job_instance
-						.as_any()
-						.downcast_ref::<crate::operations::media::thumbnail::ThumbnailJob>()
-				{
-					thumbnail_job.get_affected_resources()
-				} else if let Some(copy_job) = job_instance
-					.as_any()
-					.downcast_ref::<crate::operations::files::copy::FileCopyJob>(
-				) {
-					copy_job.get_affected_resources()
-				} else if let Some(move_job) = job_instance
-					.as_any()
-					.downcast_ref::<crate::operations::files::copy::MoveJob>(
-				) {
-					move_job.get_affected_resources()
-				} else {
-					// Job doesn't implement Resourceful, skip it
-					continue;
-				};
+				// Check if the job tracks specific resources
+				if let Some(affected_resources) = job_instance.try_get_affected_resources() {
+					let state = Self::state_from_job(&job_info);
 
-				let state = Self::state_from_job(&job_info);
-
-				for entry_id in affected_resources {
-					// Only update the state for entries we were asked about.
-					if entry_ids.contains(&entry_id) {
-						results.insert(entry_id, state.clone());
+					for entry_id in affected_resources {
+						// Only update the state for entries we were asked about.
+						if entry_ids.contains(&entry_id) {
+							results.insert(entry_id, state.clone());
+						}
 					}
 				}
+				// Jobs that don't track resources (return None) are skipped
 			}
 		}
 
