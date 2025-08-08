@@ -2,7 +2,7 @@
 
 use crate::volume::{
 	error::{VolumeError, VolumeResult},
-	types::{MountType, Volume},
+	types::{MountType, Volume, VolumeType},
 };
 use std::time::Instant;
 use tokio::{
@@ -337,6 +337,7 @@ mod tests {
 			uuid::Uuid::new_v4(), // Test device ID
 			"Test Volume".to_string(),
 			MountType::External,
+			VolumeType::External,
 			temp_dir.path().to_path_buf(),
 			vec![],
 			DiskType::Unknown,
@@ -346,9 +347,9 @@ mod tests {
 			false,      // Not read-only
 			None,
 			VolumeFingerprint::new(
-				uuid::Uuid::new_v4(),
-				&temp_dir.path().to_path_buf(),
 				"Test Volume",
+				1000000000,
+				"test",
 			),
 		);
 

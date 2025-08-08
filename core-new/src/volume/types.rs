@@ -662,7 +662,7 @@ mod tests {
 			500000,
 			false,
 			None,
-			VolumeFingerprint::new(uuid::Uuid::new_v4(), "Test"),
+			VolumeFingerprint::new("Test", 1000000, "ext4"),
 		);
 
 		assert!(volume.contains_path(&PathBuf::from("/home/user/file.txt")));

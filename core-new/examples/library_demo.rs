@@ -86,12 +86,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		let inserted_device = device_model.insert(db.conn()).await?;
 		println!("   ✓ Device registered");
 
+		// Create entry for location root
+		let current_path = std::env::current_dir()?;
+		let entry = entities::entry::ActiveModel {
+			id: NotSet,
+			uuid: Set(Some(Uuid::new_v4())),
+			parent_id: Set(None), // Location root has no parent
+			name: Set(current_path.file_name()
+				.and_then(|n| n.to_str())
+				.unwrap_or("Current Directory")
+				.to_string()),
+			kind: Set(1), // 1 = Directory
+			extension: Set(None),
+			metadata_id: Set(None),
+			content_id: Set(None),
+			size: Set(0),
+			aggregate_size: Set(0),
+			child_count: Set(0),
+			file_count: Set(0),
+			created_at: Set(chrono::Utc::now()),
+			modified_at: Set(chrono::Utc::now()),
+			accessed_at: Set(None),
+			permissions: Set(None),
+			inode: Set(None),
+		};
+		let entry_record = entry.insert(db.conn()).await?;
+		
 		// Add location
 		let location = entities::location::ActiveModel {
 			id: NotSet,
 			uuid: Set(Uuid::new_v4()),
 			device_id: Set(inserted_device.id),
-			path: Set(std::env::current_dir()?.to_string_lossy().to_string()),
+			entry_id: Set(entry_record.id),
 			name: Set(Some("Current Directory".to_string())),
 			index_mode: Set("shallow".to_string()),
 			scan_state: Set("pending".to_string()),

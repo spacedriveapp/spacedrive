@@ -8,7 +8,7 @@ use sd_core_new::{
     location::{create_location, LocationCreateArgs, IndexMode},
     Core,
 };
-use sea_orm::{ActiveModelTrait, EntityTrait};
+use sea_orm::{ActiveModelTrait, EntityTrait, QueryFilter, ColumnTrait};
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::time::sleep;
