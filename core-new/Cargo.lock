@@ -6789,9 +6789,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "blake3",
  "chrono",
  "clap",
  "dirs",
+ "humantime",
  "humantime-serde",
  "indicatif",
  "rand 0.8.5",

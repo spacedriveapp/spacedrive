@@ -7,6 +7,8 @@ pub trait DatasetGenerator {
 }
 
 pub mod filesystem;
+pub mod noop;
 pub mod registry;
 
 pub use filesystem::FileSystemGenerator;
+pub use noop::NoopGenerator;

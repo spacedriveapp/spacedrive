@@ -1,19 +1,22 @@
 {
   "runs": [
     {
-      "directories": 31765,
-      "directories_per_s": 346.8,
-      "duration_s": 91.6,
+      "content_duration_s": 0.0,
+      "directories": 4929,
+      "directories_per_s": 815.1,
+      "discovery_duration_s": 6.0,
+      "duration_s": 6.05,
       "errors": 0,
-      "files": 0,
-      "files_per_s": 0.0,
-      "id": "5298161d-e62d-4c46-a368-a83e6433c6c3",
+      "files": 7866,
+      "files_per_s": 1300.8,
+      "id": "2b6dcd08-f228-40c8-b7f0-40e0a2d65d84",
+      "processing_duration_s": 5.3,
       "raw_artifacts": [
-        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/5298161d-e62d-4c46-a368-a83e6433c6c3.log"
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/2b6dcd08-f228-40c8-b7f0-40e0a2d65d84.log"
       ],
       "recipe_name": "nvme_tiny",
       "scenario": "indexing-discovery",
-      "total_gb": 0.59
+      "total_gb": 0.24
     }
   ]
 }

@@ -9,20 +9,20 @@ use crate::metrics::ScenarioResult;
 use crate::recipe::Recipe;
 
 #[derive(Default)]
-pub struct IndexingDiscoveryScenario {
+pub struct ContentIdentificationScenario {
 	job_ids: Vec<uuid::Uuid>,
 	job_logs_dir: Option<PathBuf>,
 	library: Option<Arc<sd_core_new::library::Library>>,
 }
 
 #[async_trait::async_trait]
-impl Scenario for IndexingDiscoveryScenario {
+impl Scenario for ContentIdentificationScenario {
 	fn name(&self) -> &'static str {
-		"indexing-discovery"
+		"content-identification"
 	}
 
 	fn describe(&self) -> &'static str {
-		"Index volumes and report discovery throughput"
+		"Generate content identities and report content-phase throughput"
 	}
 
 	async fn prepare(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()> {
@@ -41,14 +41,14 @@ impl Scenario for IndexingDiscoveryScenario {
 		self.job_logs_dir = Some(boot.job_logs_dir.clone());
 		self.library = Some(library.clone());
 
-		// Add locations and collect job IDs
+		// Add locations in Content mode and collect job IDs
 		for loc in &recipe.locations {
 			let action = sd_core_new::infrastructure::actions::Action::LocationAdd {
 				library_id: library.id(),
 				action: sd_core_new::operations::locations::add::action::LocationAddAction {
 					path: loc.path.clone(),
 					name: Some(format!("bench:{}", recipe.name)),
-					mode: sd_core_new::operations::indexing::IndexMode::Shallow,
+					mode: sd_core_new::operations::indexing::IndexMode::Content,
 				},
 			};
 			let handler =
@@ -77,12 +77,13 @@ impl Scenario for IndexingDiscoveryScenario {
 			return Ok(results);
 		}
 
+		// Wait for jobs to finish with periodic logs
 		let job_manager = self.library.as_ref().unwrap().jobs().clone();
 		use std::time::{Duration, Instant};
 		let start_time = Instant::now();
 		let mut last_report = Instant::now() - Duration::from_secs(10);
 		println!(
-			"Waiting for {} indexing job(s) to finish...",
+			"Waiting for {} content indexing job(s) to finish...",
 			self.job_ids.len()
 		);
 		loop {
@@ -105,7 +106,7 @@ impl Scenario for IndexingDiscoveryScenario {
 			}
 			if remaining == 0 {
 				println!(
-					"All indexing jobs finished in {:.2}s",
+					"All content jobs finished in {:.2}s",
 					start_time.elapsed().as_secs_f32()
 				);
 				break;
@@ -126,7 +127,7 @@ impl Scenario for IndexingDiscoveryScenario {
 			tokio::time::sleep(Duration::from_millis(500)).await;
 		}
 
-		// Parse metrics from job logs (temporary until structured metrics available)
+		// Parse metrics from job logs and compute content-only throughput
 		let re = Regex::new(r"Indexing completed in ([0-9.]+)s:|Files: ([0-9]+) \(([0-9.]+)/s\)|Directories: ([0-9]+) \(([0-9.]+)/s\)|Total size: ([0-9.]+) GB|Errors: ([0-9]+)|Phase timing: discovery ([0-9.]+)s, processing ([0-9.]+)s, content ([0-9.]+)s").unwrap();
 		let log_dir = self
 			.job_logs_dir
@@ -136,11 +137,11 @@ impl Scenario for IndexingDiscoveryScenario {
 		for jid in &self.job_ids {
 			let log_path = log_dir.join(format!("{}.log", jid));
 			let mut files = None;
-			let mut files_per_s = None;
+			let mut _files_per_s_total = None;
 			let mut dirs = None;
-			let mut dirs_per_s = None;
+			let mut _dirs_per_s_total = None;
 			let mut total_gb = None;
-			let mut duration_s = None;
+			let mut _duration_total = None;
 			let mut errors = None;
 			let mut discovery_duration_s = None;
 			let mut processing_duration_s = None;
@@ -148,19 +149,19 @@ impl Scenario for IndexingDiscoveryScenario {
 			if let Ok(txt) = std::fs::read_to_string(&log_path) {
 				for cap in re.captures_iter(&txt) {
 					if let Some(d) = cap.get(1) {
-						duration_s = d.as_str().parse::<f64>().ok();
+						_duration_total = d.as_str().parse::<f64>().ok();
 					}
 					if let Some(f) = cap.get(2) {
 						files = f.as_str().parse::<u64>().ok();
 					}
 					if let Some(fp) = cap.get(3) {
-						files_per_s = fp.as_str().parse::<f64>().ok();
+						_files_per_s_total = fp.as_str().parse::<f64>().ok();
 					}
 					if let Some(di) = cap.get(4) {
 						dirs = di.as_str().parse::<u64>().ok();
 					}
 					if let Some(dp) = cap.get(5) {
-						dirs_per_s = dp.as_str().parse::<f64>().ok();
+						_dirs_per_s_total = dp.as_str().parse::<f64>().ok();
 					}
 					if let Some(ts) = cap.get(6) {
 						total_gb = ts.as_str().parse::<f64>().ok();
@@ -179,18 +180,35 @@ impl Scenario for IndexingDiscoveryScenario {
 					}
 				}
 			}
+			// Compute content-only throughput and set duration to content duration
+			let files_val = files.unwrap_or_default();
+			let content_secs = content_duration_s.unwrap_or_default();
+			let files_per_s = if content_secs > 0.0 {
+				files_val as f64 / content_secs
+			} else {
+				0.0
+			};
+
 			results.push(ScenarioResult {
 				id: *jid,
 				scenario: self.name().to_string(),
 				recipe_name: recipe.name.clone(),
-				duration_s: duration_s.unwrap_or_default(),
+				duration_s: if content_secs > 0.0 {
+					content_secs
+				} else {
+					_duration_total.unwrap_or_default()
+				},
 				discovery_duration_s,
 				processing_duration_s,
 				content_duration_s,
-				files: files.unwrap_or_default(),
-				files_per_s: files_per_s.unwrap_or_default(),
+				files: files_val,
+				files_per_s,
 				directories: dirs.unwrap_or_default(),
-				directories_per_s: dirs_per_s.unwrap_or_default(),
+				directories_per_s: if content_secs > 0.0 {
+					(dirs.unwrap_or_default() as f64 / content_secs)
+				} else {
+					0.0
+				},
 				total_gb: total_gb.unwrap_or_default(),
 				errors: errors.unwrap_or_default(),
 				raw_artifacts: vec![log_path],

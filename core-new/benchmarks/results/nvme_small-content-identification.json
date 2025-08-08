@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "content_duration_s": 4.5,
+      "directories": 107,
+      "directories_per_s": 23.77777777777778,
+      "discovery_duration_s": 4.6,
+      "duration_s": 4.5,
+      "errors": 0,
+      "files": 300,
+      "files_per_s": 66.66666666666667,
+      "id": "5eedba0d-db10-4a5e-8e21-31eb5dffdfe5",
+      "processing_duration_s": 4.6,
+      "raw_artifacts": [
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/content-identification/job_logs/5eedba0d-db10-4a5e-8e21-31eb5dffdfe5.log"
+      ],
+      "recipe_name": "nvme_small",
+      "scenario": "content-identification",
+      "total_gb": 0.35
+    }
+  ]
+}

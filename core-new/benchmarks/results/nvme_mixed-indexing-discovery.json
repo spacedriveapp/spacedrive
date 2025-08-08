@@ -1,19 +1,22 @@
 {
   "runs": [
     {
+      "content_duration_s": 0.0,
       "directories": 2625,
-      "directories_per_s": 759.7,
-      "duration_s": 3.46,
+      "directories_per_s": 552.6,
+      "discovery_duration_s": 4.8,
+      "duration_s": 4.75,
       "errors": 0,
-      "files": 5000,
-      "files_per_s": 1447.0,
-      "id": "b177ff39-457a-4720-b3e1-91bc4488a119",
+      "files": 0,
+      "files_per_s": 0.0,
+      "id": "2de16bc2-1108-422e-9cca-e02cd659e6a0",
+      "processing_duration_s": 3.3,
       "raw_artifacts": [
-        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/b177ff39-457a-4720-b3e1-91bc4488a119.log"
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/2de16bc2-1108-422e-9cca-e02cd659e6a0.log"
       ],
       "recipe_name": "nvme_mixed",
       "scenario": "indexing-discovery",
-      "total_gb": 91.16
+      "total_gb": 95.45
     }
   ]
 }

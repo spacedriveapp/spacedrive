@@ -14,5 +14,9 @@ locations:
         large: { range: [5000000, 200000000], share: 0.20 }
         huge: { range: [200000000, 5000000000], share: 0.05 }
       duplicate_ratio: 0.02
+      content_gen:
+        mode: partial # zeros | partial | full
+        sample_block_size: 10240 # 10 KiB, matches ContentHashGenerator SAMPLE_SIZE
+        magic_headers: true # write registry-defined magic bytes for known types
       media_ratio: 0.05
       extensions: [txt, md, jpg, png, mp4, mkv, pdf, zip, tar]

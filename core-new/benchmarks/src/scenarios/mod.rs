@@ -13,6 +13,8 @@ pub trait Scenario {
 }
 
 pub mod indexing_discovery;
+pub mod content_identification;
 pub mod registry;
 
 pub use indexing_discovery::IndexingDiscoveryScenario;
+pub use content_identification::ContentIdentificationScenario;

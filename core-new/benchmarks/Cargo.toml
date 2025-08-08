@@ -17,6 +17,7 @@ regex = "1.10"
 walkdir = "2.5"
 indicatif = "0.17"
 humantime-serde = "1.1"
+humantime = "2.1"
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 uuid = { version = "1.11", features = ["v4", "serde"] }
@@ -24,13 +25,14 @@ tempfile = "3.14"
 sd-core-new = { path = ".." }
 serde_with = { version = "3.9", features = ["json"] }
 async-trait = "0.1"
+blake3 = "1.5"
 
 [lib]
 name = "sd_bench"
 path = "src/lib.rs"
 
 [[bin]]
-name = "sd-bench-new"
+name = "sd-bench"
 path = "src/bin/sd-bench-new.rs"
 
 

@@ -1,19 +1,22 @@
 {
   "runs": [
     {
+      "content_duration_s": 0.0,
       "directories": 2200,
-      "directories_per_s": 693.9,
-      "duration_s": 3.17,
+      "directories_per_s": 639.2,
+      "discovery_duration_s": 3.4,
+      "duration_s": 3.44,
       "errors": 0,
       "files": 5000,
-      "files_per_s": 1577.1,
-      "id": "dfe0e32c-b31c-4f95-904d-86f380d00fe3",
+      "files_per_s": 1452.8,
+      "id": "e9d939bb-b237-4afd-812c-5259254a4f36",
+      "processing_duration_s": 2.9,
       "raw_artifacts": [
-        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/dfe0e32c-b31c-4f95-904d-86f380d00fe3.log"
+        "/Users/jamespine/Library/Application Support/spacedrive-bench/indexing-discovery/job_logs/e9d939bb-b237-4afd-812c-5259254a4f36.log"
       ],
       "recipe_name": "hdd_medium",
       "scenario": "indexing-discovery",
-      "total_gb": 53.1
+      "total_gb": 74.02
     }
   ]
 }
