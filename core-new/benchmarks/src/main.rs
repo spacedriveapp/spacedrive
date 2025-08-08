@@ -33,11 +33,25 @@ enum Commands {
 		scenario: String,
 		#[arg(short, long)]
 		recipe: PathBuf,
+		#[arg(long)]
+		out_json: Option<PathBuf>,
 	},
 	/// Render reports from JSON results (stub)
 	Report {
 		#[arg(short, long)]
 		input: PathBuf,
+	},
+	/// Run all recipes in a directory sequentially and write per-recipe results
+	RunAll {
+		/// Scenario name (e.g., indexing-discovery)
+		#[arg(short, long, default_value = "indexing-discovery")]
+		scenario: String,
+		/// Directory containing recipe YAML files
+		#[arg(long, default_value = "benchmarks/recipes")]
+		recipes_dir: PathBuf,
+		/// Output directory for JSON summaries
+		#[arg(long, default_value = "benchmarks/results")]
+		out_dir: PathBuf,
 	},
 }
 
@@ -103,8 +117,17 @@ async fn main() -> Result<()> {
 	let cli = Cli::parse();
 	match cli.command {
 		Commands::Mkdata { recipe } => mkdata(recipe).await?,
-		Commands::Run { scenario, recipe } => run_scenario(scenario, recipe).await?,
+		Commands::Run {
+			scenario,
+			recipe,
+			out_json,
+		} => run_scenario(scenario, recipe, out_json).await?,
 		Commands::Report { input } => report(input).await?,
+		Commands::RunAll {
+			scenario,
+			recipes_dir,
+			out_dir,
+		} => run_all(scenario, recipes_dir, out_dir).await?,
 	}
 	Ok(())
 }
@@ -244,8 +267,12 @@ async fn mkdata(recipe_path: PathBuf) -> Result<()> {
 	Ok(())
 }
 
-async fn run_scenario(scenario: String, recipe: PathBuf) -> Result<()> {
-	info!(%scenario, recipe = %recipe.display(), "run scenario (stub)");
+async fn run_scenario(
+	scenario: String,
+	recipe_path: PathBuf,
+	out_json: Option<PathBuf>,
+) -> Result<()> {
+	info!(%scenario, recipe = %recipe_path.display(), "run scenario (stub)");
 	// Boot core in an isolated benchmark data directory to avoid user libraries
 	let bench_data_dir = dirs::data_dir()
 		.unwrap_or(std::env::temp_dir())
@@ -287,20 +314,20 @@ async fn run_scenario(scenario: String, recipe: PathBuf) -> Result<()> {
 	};
 
 	// Parse recipe (we may later auto-add locations based on recipe paths)
-	let recipe_str =
-		fs::read_to_string(&recipe).with_context(|| format!("reading recipe {recipe:?}"))?;
-	let recipe: Recipe = serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
+	let recipe_str = fs::read_to_string(&recipe_path)
+		.with_context(|| format!("reading recipe {recipe_path:?}"))?;
+	let recipe_cfg: Recipe = serde_yaml::from_str(&recipe_str).context("parsing recipe yaml")?;
 
 	// Add each recipe location via direct handler to avoid audit_log schema coupling
 	let library_id = library.id();
 
 	let mut job_ids: Vec<uuid::Uuid> = Vec::new();
-	for loc in &recipe.locations {
+	for loc in &recipe_cfg.locations {
 		let action = core::infrastructure::actions::Action::LocationAdd {
 			library_id,
 			action: core::operations::locations::add::action::LocationAddAction {
 				path: loc.path.clone(),
-				name: Some(format!("bench:{}", recipe.name)),
+				name: Some(format!("bench:{}", recipe_cfg.name)),
 				mode: core::operations::indexing::IndexMode::Shallow,
 			},
 		};
@@ -361,6 +388,7 @@ async fn run_scenario(scenario: String, recipe: PathBuf) -> Result<()> {
 
 		// Summarize metrics by parsing the job logs
 		let re = Regex::new(r"Indexing completed in ([0-9.]+)s:|Files: ([0-9]+) \(([0-9.]+)/s\)|Directories: ([0-9]+) \(([0-9.]+)/s\)|Total size: ([0-9.]+) GB|Errors: ([0-9]+)").unwrap();
+		let mut summaries: Vec<serde_json::Value> = Vec::new();
 		for jid in &job_ids {
 			let log_path = job_logs_dir.join(format!("{}.log", jid));
 			if let Ok(txt) = std::fs::read_to_string(&log_path) {
@@ -410,7 +438,27 @@ async fn run_scenario(scenario: String, recipe: PathBuf) -> Result<()> {
 				if let Some(e) = errors {
 					println!("- Errors: {}", e);
 				}
+
+				summaries.push(serde_json::json!({
+					"job_id": jid.to_string(),
+					"scenario": scenario,
+					"recipe": recipe_path.display().to_string(),
+					"duration_s": duration_s,
+					"files": files,
+					"files_per_s": files_per_s,
+					"directories": dirs,
+					"directories_per_s": dirs_per_s,
+					"total_gb": total_gb,
+					"errors": errors,
+				}));
 			}
+		}
+
+		if let Some(path) = out_json {
+			let data = serde_json::json!({ "runs": summaries });
+			std::fs::write(&path, serde_json::to_string_pretty(&data)?)
+				.with_context(|| format!("write summary {:#?}", path))?;
+			println!("\nWrote summary to {}", path.display());
 		}
 	}
 	Ok(())
@@ -419,5 +467,45 @@ async fn run_scenario(scenario: String, recipe: PathBuf) -> Result<()> {
 async fn report(input: PathBuf) -> Result<()> {
 	info!(input = %input.display(), "report (stub)");
 	// TODO: parse JSON results and render markdown/CSV
+	Ok(())
+}
+
+async fn run_all(scenario: String, recipes_dir: PathBuf, out_dir: PathBuf) -> Result<()> {
+	// Ensure output directory exists
+	fs::create_dir_all(&out_dir)?;
+
+	// List YAML files in recipes_dir
+	let mut entries: Vec<PathBuf> = Vec::new();
+	for entry in fs::read_dir(&recipes_dir)? {
+		let entry = entry?;
+		let path = entry.path();
+		if let Some(ext) = path.extension() {
+			if ext == "yaml" || ext == "yml" {
+				entries.push(path);
+			}
+		}
+	}
+	entries.sort();
+
+	if entries.is_empty() {
+		println!("No recipes found in {}", recipes_dir.display());
+		return Ok(());
+	}
+
+	for recipe in entries {
+		// mkdata for each recipe first
+		mkdata(recipe.clone()).await?;
+		// compose output path
+		let stem = recipe
+			.file_stem()
+			.unwrap_or_default()
+			.to_string_lossy()
+			.to_string();
+		let out_json = out_dir.join(format!("{}-{}.json", stem, scenario));
+		// run scenario
+		run_scenario(scenario.clone(), recipe.clone(), Some(out_json)).await?;
+	}
+
+	println!("\nCompleted RunAll for {} recipes.", scenario);
 	Ok(())
 }

@@ -8,12 +8,11 @@ locations:
     files:
       total: 100000
       size_buckets:
-        tiny:   { range: [0, 1024], share: 0.80 }
-        small:  { range: [1024, 65536], share: 0.20 }
+        tiny: { range: [0, 1024], share: 0.80 }
+        small: { range: [1024, 65536], share: 0.20 }
         medium: { range: [65536, 65536], share: 0.0 }
-        large:  { range: [65536, 65536], share: 0.0 }
-        huge:   { range: [65536, 65536], share: 0.0 }
+        large: { range: [65536, 65536], share: 0.0 }
+        huge: { range: [65536, 65536], share: 0.0 }
       duplicate_ratio: 0.05
       media_ratio: 0.00
       extensions: [txt, rs, md, json]
-

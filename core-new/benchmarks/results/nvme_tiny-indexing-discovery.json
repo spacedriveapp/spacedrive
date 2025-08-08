@@ -1,0 +1,16 @@
+{
+  "runs": [
+    {
+      "directories": null,
+      "directories_per_s": null,
+      "duration_s": null,
+      "errors": null,
+      "files": null,
+      "files_per_s": null,
+      "job_id": "affc25d2-0180-47d3-b392-86e49afd146e",
+      "recipe": "benchmarks/recipes/nvme_tiny.yaml",
+      "scenario": "indexing-discovery",
+      "total_gb": null
+    }
+  ]
+}

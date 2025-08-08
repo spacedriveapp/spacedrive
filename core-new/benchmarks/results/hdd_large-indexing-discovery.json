@@ -1,0 +1,16 @@
+{
+  "runs": [
+    {
+      "directories": null,
+      "directories_per_s": null,
+      "duration_s": null,
+      "errors": null,
+      "files": null,
+      "files_per_s": null,
+      "job_id": "6790e70a-b413-4cf8-915b-c05bf0fb8d62",
+      "recipe": "benchmarks/recipes/hdd_large.yaml",
+      "scenario": "indexing-discovery",
+      "total_gb": null
+    }
+  ]
+}

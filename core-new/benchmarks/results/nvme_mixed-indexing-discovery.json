@@ -1,0 +1,16 @@
+{
+  "runs": [
+    {
+      "directories": 2625,
+      "directories_per_s": 301.9,
+      "duration_s": 8.69,
+      "errors": 0,
+      "files": 5000,
+      "files_per_s": 575.1,
+      "job_id": "420acac6-5fb6-4bc4-a3df-76c4501ddab5",
+      "recipe": "benchmarks/recipes/nvme_mixed.yaml",
+      "scenario": "indexing-discovery",
+      "total_gb": 91.16
+    }
+  ]
+}
