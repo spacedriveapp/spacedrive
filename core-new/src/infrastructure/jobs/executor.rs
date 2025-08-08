@@ -7,7 +7,7 @@ use super::{
 	handle::JobHandle,
 	output::JobOutput,
 	progress::Progress,
-	traits::{Job, JobHandler, MaybeResourceful, Resourceful},
+	traits::{Job, JobHandler, Resourceful},
 	types::{ErasedJob, JobId, JobMetrics, JobStatus},
 };
 use crate::library::Library;
@@ -68,14 +68,6 @@ impl<J: JobHandler> JobExecutor<J> {
 				latest_progress: Arc::new(Mutex::new(None)),
 			},
 		}
-	}
-
-	/// Try to get affected resources if this job implements MaybeResourceful
-	pub fn try_get_affected_resources(&self) -> Option<Vec<i32>>
-	where
-		J: MaybeResourceful,
-	{
-		self.job.try_get_affected_resources()
 	}
 
 	/// Update job status in the database

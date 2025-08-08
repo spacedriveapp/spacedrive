@@ -82,6 +82,16 @@ impl Job for DuplicateDetectionJob {
 	const DESCRIPTION: Option<&'static str> = Some("Find duplicate files");
 }
 
+impl crate::infrastructure::jobs::traits::DynJob for DuplicateDetectionJob {
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
+	fn job_name(&self) -> &'static str {
+		Self::NAME
+	}
+}
+
 #[async_trait::async_trait]
 impl JobHandler for DuplicateDetectionJob {
 	type Output = DuplicateDetectionOutput;

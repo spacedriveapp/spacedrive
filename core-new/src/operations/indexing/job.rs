@@ -1,6 +1,12 @@
 //! Main indexer job implementation
 
-use crate::{infrastructure::jobs::prelude::*, shared::types::SdPath};
+use crate::{
+	infrastructure::jobs::{
+		prelude::*,
+		traits::{DynJob, Resourceful},
+	},
+	shared::types::SdPath,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
@@ -10,7 +16,7 @@ use super::{
 	entry::EntryMetadata,
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
-	state::{IndexError, IndexerProgress, IndexerState, IndexerStats, Phase, IndexPhase},
+	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
 };
 
 /// Indexing mode determines the depth of indexing
@@ -221,6 +227,16 @@ impl Job for IndexerJob {
 	const DESCRIPTION: Option<&'static str> = Some("Index files in a location");
 }
 
+impl DynJob for IndexerJob {
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
+	fn job_name(&self) -> &'static str {
+		Self::NAME
+	}
+}
+
 impl JobProgress for IndexerProgress {}
 
 #[async_trait::async_trait]
@@ -380,7 +396,7 @@ impl JobHandler for IndexerJob {
 			is_ephemeral: false,
 		};
 		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
-		
+
 		// Calculate final metrics
 		let metrics = if let Some(timer) = &self.timer {
 			IndexerMetrics::calculate(&state.stats, timer, self.db_operations, self.batch_info)
@@ -622,5 +638,20 @@ impl From<IndexerOutput> for JobOutput {
 			total_dirs: output.stats.dirs,
 			total_bytes: output.stats.bytes,
 		}
+	}
+}
+
+impl Resourceful for IndexerJob {
+	fn get_affected_resources(&self) -> Vec<i32> {
+		// An indexer job affects entries within its location.
+		// For now, this is a simplified implementation that returns an empty vector.
+		// A more sophisticated implementation would:
+		// 1. Query the database for the location's root entry ID
+		// 2. Query the closure table for all entries within that location
+		// 3. Return the list of all affected entry IDs
+		//
+		// This requires database access which isn't available in this context,
+		// so the JobManager will need to handle the location-to-entries mapping.
+		vec![]
 	}
 }

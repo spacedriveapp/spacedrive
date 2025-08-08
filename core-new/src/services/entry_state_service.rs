@@ -1,4 +1,4 @@
-use crate::infrastructure::jobs::manager::JobManager;
+use crate::infrastructure::jobs::{manager::JobManager, traits::Resourceful};
 use crate::operations::entries::state::EntryState;
 use sea_orm::DbConn;
 use std::collections::HashMap;
@@ -14,25 +14,59 @@ impl EntryStateService {
 	) -> Result<HashMap<i32, EntryState>, anyhow::Error> {
 		let mut results = HashMap::new();
 
-		// 1. Query Job System for jobs affecting these entries
+		// 1. Find all jobs that affect ANY of the requested entries.
 		let affecting_jobs = job_manager.find_jobs_affecting_entries(entry_ids).await?;
-		let mut processed_by_job: std::collections::HashSet<i32> = std::collections::HashSet::new();
 
-		// Map jobs to entry states for entries that are being processed
-		for job in affecting_jobs {
-			// For simplicity, mark all requested entries as potentially affected by this job
-			// In a real implementation, we'd have more precise resource tracking
-			let state = Self::state_from_job(&job);
-			for &entry_id in entry_ids {
-				results.insert(entry_id, state.clone());
-				processed_by_job.insert(entry_id);
+		// 2. For each job, get its specific resources and update the state map.
+		for job_info in affecting_jobs {
+			if let Ok(job_instance) = job_manager
+				.get_job_data_for_resourceful_check(&job_info.id)
+				.await
+			{
+				// Use downcasting to concrete types since we can't downcast to trait objects
+				let affected_resources = if let Some(indexer_job) =
+					job_instance
+						.as_any()
+						.downcast_ref::<crate::operations::indexing::IndexerJob>()
+				{
+					indexer_job.get_affected_resources()
+				} else if let Some(thumbnail_job) =
+					job_instance
+						.as_any()
+						.downcast_ref::<crate::operations::media::thumbnail::ThumbnailJob>()
+				{
+					thumbnail_job.get_affected_resources()
+				} else if let Some(copy_job) = job_instance
+					.as_any()
+					.downcast_ref::<crate::operations::files::copy::FileCopyJob>(
+				) {
+					copy_job.get_affected_resources()
+				} else if let Some(move_job) = job_instance
+					.as_any()
+					.downcast_ref::<crate::operations::files::copy::MoveJob>(
+				) {
+					move_job.get_affected_resources()
+				} else {
+					// Job doesn't implement Resourceful, skip it
+					continue;
+				};
+
+				let state = Self::state_from_job(&job_info);
+
+				for entry_id in affected_resources {
+					// Only update the state for entries we were asked about.
+					if entry_ids.contains(&entry_id) {
+						results.insert(entry_id, state.clone());
+					}
+				}
 			}
 		}
 
-		// 2. Query Database for remaining entries
+		// 3. Query the database for the physical state of all entries
+		//    that were NOT affected by a running job.
 		let remaining_ids: Vec<i32> = entry_ids
 			.iter()
-			.filter(|id| !processed_by_job.contains(id))
+			.filter(|id| !results.contains_key(id))
 			.cloned()
 			.collect();
 
@@ -43,7 +77,7 @@ impl EntryStateService {
 			results.extend(db_states);
 		}
 
-		// 3. Default any remaining to Available
+		// 4. Default any remaining entries to Available.
 		for id in entry_ids {
 			results.entry(*id).or_insert(EntryState::Available);
 		}

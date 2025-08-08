@@ -80,6 +80,16 @@ impl Job for ValidationJob {
 	const DESCRIPTION: Option<&'static str> = Some("Validate file integrity and accessibility");
 }
 
+impl crate::infrastructure::jobs::traits::DynJob for ValidationJob {
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
+	fn job_name(&self) -> &'static str {
+		Self::NAME
+	}
+}
+
 #[async_trait::async_trait]
 impl JobHandler for ValidationJob {
 	type Output = ValidationOutput;

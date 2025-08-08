@@ -8,6 +8,7 @@ use super::{
 };
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
+use std::any::Any;
 
 /// Main trait for defining a job
 pub trait Job: Serialize + DeserializeOwned + Send + Sync + 'static {
@@ -127,10 +128,14 @@ pub trait Resourceful {
 	fn get_affected_resources(&self) -> Vec<i32>;
 }
 
-/// Extension trait to support runtime detection of Resourceful jobs
-pub trait MaybeResourceful {
-	/// Try to get affected resources if this job is resourceful
-	fn try_get_affected_resources(&self) -> Option<Vec<i32>>;
+/// A dyn-compatible trait for dynamic job operations
+/// This is separate from Job to avoid serialization trait bounds
+pub trait DynJob: Any + Send + Sync {
+	/// Provides a way to downcast a DynJob trait object to a concrete type
+	fn as_any(&self) -> &dyn Any;
+
+	/// Job name for identification
+	fn job_name(&self) -> &'static str;
 }
 
-// We'll implement MaybeResourceful manually for each job type
+// Jobs that operate on specific entries should implement Resourceful

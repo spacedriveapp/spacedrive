@@ -9,19 +9,24 @@ use super::{
 	handle::JobHandle,
 	progress::Progress,
 	registry::REGISTRY,
-	traits::{Job, JobHandler},
+	traits::{DynJob, Job, JobHandler, Resourceful},
 	types::{JobId, JobInfo, JobPriority, JobStatus},
 };
 use crate::{
 	context::CoreContext,
 	infrastructure::events::{Event, EventBus},
 	library::Library,
+	operations::{
+		files::copy::{FileCopyJob, MoveJob},
+		indexing::IndexerJob,
+		media::thumbnail::ThumbnailJob,
+	},
 };
 use async_trait::async_trait;
 use chrono::Utc;
 use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{any::Any, collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
@@ -573,6 +578,47 @@ impl JobManager {
 		REGISTRY.get_schema(job_name)
 	}
 
+	/// Get a job instance by name and deserializing from raw state data
+	/// This bypasses the JobExecutor wrapper to access the raw job for downcasting
+	async fn get_raw_job_instance(
+		&self,
+		job_name: &str,
+		job_state: &[u8],
+	) -> JobResult<Box<dyn DynJob>> {
+		// We need a way to get the raw job without the JobExecutor wrapper
+		// For now, we'll implement a direct deserialization approach
+		match job_name {
+			"indexer" => {
+				let job: IndexerJob = rmp_serde::from_slice(job_state).map_err(|e| {
+					JobError::serialization(format!("Failed to deserialize IndexerJob: {}", e))
+				})?;
+				Ok(Box::new(job))
+			}
+			"thumbnail_generation" => {
+				let job: ThumbnailJob = rmp_serde::from_slice(job_state).map_err(|e| {
+					JobError::serialization(format!("Failed to deserialize ThumbnailJob: {}", e))
+				})?;
+				Ok(Box::new(job))
+			}
+			"file_copy" => {
+				let job: FileCopyJob = rmp_serde::from_slice(job_state).map_err(|e| {
+					JobError::serialization(format!("Failed to deserialize FileCopyJob: {}", e))
+				})?;
+				Ok(Box::new(job))
+			}
+			"move_files" => {
+				let job: MoveJob = rmp_serde::from_slice(job_state).map_err(|e| {
+					JobError::serialization(format!("Failed to deserialize MoveJob: {}", e))
+				})?;
+				Ok(Box::new(job))
+			}
+			_ => Err(JobError::NotFound(format!(
+				"Unknown job type: {}",
+				job_name
+			))),
+		}
+	}
+
 	/// List currently running jobs from memory (for live monitoring)
 	pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
 		let running_jobs = self.running_jobs.read().await;
@@ -612,53 +658,67 @@ impl JobManager {
 	}
 
 	/// Find jobs that are processing specific entry IDs
-	///
-	/// This is a simplified implementation that maps job types to likely affected entries.
-	/// A more sophisticated implementation would store resource mappings in the database.
+	/// Uses downcasting to check if jobs implement Resourceful for precise resource tracking
 	pub async fn find_jobs_affecting_entries(&self, entry_ids: &[i32]) -> JobResult<Vec<JobInfo>> {
-		// Get all running and paused jobs
 		let active_jobs = self.list_jobs(Some(JobStatus::Running)).await?;
-		let mut paused_jobs = self.list_jobs(Some(JobStatus::Paused)).await?;
-
-		// Combine all active jobs
-		let mut all_active_jobs = active_jobs;
-		all_active_jobs.append(&mut paused_jobs);
-
-		// For now, we'll implement a basic mapping based on job names
-		// In a real implementation, this would query the job's actual resource usage
 		let mut affecting_jobs = Vec::new();
 
-		for job in all_active_jobs {
-			// Check if this job type likely affects any of the requested entries
-			let likely_affects = match job.name.as_str() {
-				name if name.contains("index") => {
-					// Indexer jobs affect all entries in their location
-					// This is a simplification - we'd need to check the actual location
-					true
+		for job_info in active_jobs {
+			// We need the full job state to check its resources.
+			// This requires deserializing the job from the database.
+			let job_instance = match self.get_job_data_for_resourceful_check(&job_info.id).await {
+				Ok(instance) => instance,
+				Err(e) => {
+					// Log the error but continue; we don't want one bad job
+					// to stop the entire state computation.
+					tracing::warn!("Could not get instance for job {}: {}", job_info.id, e);
+					continue;
 				}
-				name if name.contains("thumbnail") => {
-					// Thumbnail jobs affect image/video entries
-					// This is a simplification - we'd need to check file types
-					true
-				}
-				name if name.contains("copy") || name.contains("move") => {
-					// File operation jobs affect specific entries
-					// This is a simplification - we'd need to check the job's parameters
-					true
-				}
-				name if name.contains("validate") => {
-					// Validation jobs affect specific entries
-					true
-				}
-				_ => false, // Unknown job types don't affect entries by default
 			};
 
-			if likely_affects {
-				affecting_jobs.push(job);
+			// Use downcasting to check if the job implements Resourceful.
+			// We need to downcast to concrete types since we can't downcast to trait objects
+			let affected_resources = if let Some(indexer_job) =
+				job_instance.as_any().downcast_ref::<IndexerJob>()
+			{
+				indexer_job.get_affected_resources()
+			} else if let Some(thumbnail_job) = job_instance.as_any().downcast_ref::<ThumbnailJob>()
+			{
+				thumbnail_job.get_affected_resources()
+			} else if let Some(copy_job) = job_instance.as_any().downcast_ref::<FileCopyJob>() {
+				copy_job.get_affected_resources()
+			} else if let Some(move_job) = job_instance.as_any().downcast_ref::<MoveJob>() {
+				move_job.get_affected_resources()
+			} else {
+				// Job doesn't implement Resourceful, skip it
+				continue;
+			};
+
+			// Check if there is any overlap between the job's resources
+			// and the entries we are interested in.
+			let is_affected = affected_resources.iter().any(|id| entry_ids.contains(id));
+
+			if is_affected {
+				affecting_jobs.push(job_info);
 			}
 		}
-
 		Ok(affecting_jobs)
+	}
+
+	/// Helper method to get job data for resourceful checking
+	pub async fn get_job_data_for_resourceful_check(
+		&self,
+		job_id: &Uuid,
+	) -> JobResult<Box<dyn DynJob>> {
+		// Load job from database
+		let job_record = database::jobs::Entity::find_by_id(job_id.to_string())
+			.one(self.db.conn())
+			.await?
+			.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
+
+		// Use our helper method to deserialize the raw job
+		self.get_raw_job_instance(&job_record.name, &job_record.state)
+			.await
 	}
 
 	/// List all jobs with a specific status (unified query)
