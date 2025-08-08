@@ -1,0 +1,18 @@
+name: hdd_large
+seed: 777
+locations:
+  - path: /Users/jamespine/Projects/spacedrive/core-new/benchdata/hdd_large
+    structure:
+      depth: 5
+      fanout_per_dir: 20
+    files:
+      total: 20000
+      size_buckets:
+        tiny: { range: [0, 1024], share: 0.10 }
+        small: { range: [1024, 65536], share: 0.20 }
+        medium: { range: [65536, 5000000], share: 0.45 }
+        large: { range: [5000000, 200000000], share: 0.20 }
+        huge: { range: [200000000, 5000000000], share: 0.05 }
+      duplicate_ratio: 0.02
+      media_ratio: 0.05
+      extensions: [txt, md, jpg, png, mp4, mkv, pdf, zip, tar]

@@ -1,0 +1,17 @@
+name: nvme_small
+seed: 42
+locations:
+  - path: /Users/jamespine/Projects/spacedrive/core-new/benchdata/nvme_small
+    structure:
+      depth: 3
+      fanout_per_dir: 5
+    files:
+      total: 300
+      size_buckets:
+        tiny: { range: [0, 1024], share: 0.40 }
+        small: { range: [1024, 65536], share: 0.40 }
+        medium: { range: [65536, 5242880], share: 0.18 }
+        large: { range: [5242880, 104857600], share: 0.02 }
+      duplicate_ratio: 0.05
+      media_ratio: 0.10
+      extensions: [txt, rs, jpg, png, mp4, pdf, zip]

@@ -2017,7 +2017,7 @@ The following provides a detailed, actionable blueprint for refactoring the \tex
 \subsection{PathResolver Integration}
 The \texttt{PathResolver} is a core service and should be integrated into the application's central context.
 \begin{itemize}
-    \item \textbf{Location:} Create the new resolver at \texttt{src/operations/indexing/path_resolver.rs}. The existing \texttt{PathResolver} struct in that file, which only handles resolving \texttt{entry_id} to a \texttt{PathBuf}, should be merged into this new, more powerful service.
+    \item \textbf{Location:} Create the new resolver at \texttt{src/operations/indexing/path\_resolver.rs}. The existing \texttt{PathResolver} struct in that file, which only handles resolving \texttt{entry\_id} to a \texttt{PathBuf}, should be merged into this new, more powerful service.
     \item \textbf{Integration:} An instance of the new \texttt{PathResolver} should be added to the \texttt{CoreContext} in \texttt{src/context.rs} to make it accessible to all actions and jobs.
     \item \textbf{Cost Function Parameters:} The "optimal path resolution" should be guided by a cost function. The implementation should prioritize sources based on the following, in order:
         \begin{enumerate}
@@ -2092,12 +2092,12 @@ The command handlers will then parse these string URIs into \texttt{SdPath} enum
 The copy strategy logic must be made \texttt{SdPath} variant-aware.
 \begin{itemize}
     \item \textbf{File:} \texttt{src/operations/files/copy/routing.rs}
-    \item \textbf{Action:} The \texttt{CopyStrategyRouter::select_strategy} function must be refactored to resolve source and destination paths first, then compare the \texttt{device_id} of the resulting \texttt{Physical} paths to select the correct strategy.
+    \item \textbf{Action:} The \texttt{CopyStrategyRouter::select\_strategy} function must be refactored to resolve source and destination paths first, then compare the \texttt{device\_id} of the resulting \texttt{Physical} paths to select the correct strategy.
     \item \textbf{File:} \texttt{src/operations/files/copy/strategy.rs}
     \item \textbf{Action:} Strategy implementations like \texttt{LocalMoveStrategy} must be modified to only accept resolved, physical paths, enforcing safety by matching the \texttt{SdPath::Physical} variant.
 \end{itemize}
 
-\end{document}
+
 Spacedrive is implemented in \textbf{Rust} to leverage its guarantees of memory safety, performance, and fearless concurrency---essential for a reliable, multi-threaded distributed system. The core technology stack reflects modern best practices:
 
 \begin{itemize}[noitemsep, topsep=0pt]

@@ -9,6 +9,9 @@ default = []
 ffmpeg = ["dep:sd-ffmpeg"]
 
 [workspace]
+members = [
+    "benchmarks",
+]
 
 [dependencies]
 # Async runtime
