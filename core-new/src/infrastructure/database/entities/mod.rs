@@ -18,6 +18,8 @@ pub use metadata_tag as user_metadata_tag; // Alias for hierarchical metadata op
 pub mod metadata_label;
 pub mod audit_log;
 pub mod volume;
+pub mod collection;
+pub mod collection_entry;
 
 // Re-export all entities
 pub use device::Entity as Device;
@@ -32,6 +34,8 @@ pub use label::Entity as Label;
 pub use metadata_tag::Entity as UserMetadataTag;
 pub use audit_log::Entity as AuditLog;
 pub use volume::Entity as Volume;
+pub use collection::Entity as Collection;
+pub use collection_entry::Entity as CollectionEntry;
 
 // Re-export active models for easy access
 pub use device::ActiveModel as DeviceActive;
@@ -46,3 +50,5 @@ pub use label::ActiveModel as LabelActive;
 pub use metadata_tag::ActiveModel as UserMetadataTagActive;
 pub use audit_log::ActiveModel as AuditLogActive;
 pub use volume::ActiveModel as VolumeActive;
+pub use collection::ActiveModel as CollectionActive;
+pub use collection_entry::ActiveModel as CollectionEntryActive;

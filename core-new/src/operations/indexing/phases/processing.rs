@@ -7,7 +7,7 @@ use crate::{
         database::entities,
     },
     operations::indexing::{
-        state::{IndexerState, IndexPhase, IndexError, EntryKind, IndexerProgress},
+        state::{IndexerState, IndexPhase, IndexError, EntryKind, IndexerProgress, DirEntry},
         entry::EntryProcessor,
         IndexMode,
         change_detection::{ChangeDetector, Change},
@@ -53,10 +53,63 @@ pub async fn run_processing_phase(
         ctx.log(format!("Loaded {} existing entries", change_detector.entry_count()));
     }
     
+    // Flatten all batches and sort globally by depth to ensure parents are always processed before children
+    ctx.log("Flattening and sorting all entries by depth...");
+    let mut all_entries: Vec<DirEntry> = Vec::new();
+    while let Some(batch) = state.entry_batches.pop() {
+        all_entries.extend(batch);
+    }
+    
+    // Sort all entries by depth first, then by type
+    all_entries.sort_by(|a, b| {
+        let a_depth = a.path.components().count();
+        let b_depth = b.path.components().count();
+        
+        // First sort by depth (parents before children)
+        match a_depth.cmp(&b_depth) {
+            std::cmp::Ordering::Equal => {
+                // Then sort by type (directories before files at same depth)
+                let a_priority = match a.kind {
+                    EntryKind::Directory => 0,
+                    EntryKind::Symlink => 1,
+                    EntryKind::File => 2,
+                };
+                let b_priority = match b.kind {
+                    EntryKind::Directory => 0,
+                    EntryKind::Symlink => 1,
+                    EntryKind::File => 2,
+                };
+                a_priority.cmp(&b_priority)
+            }
+            other => other,
+        }
+    });
+    
+    ctx.log(format!("Sorted {} total entries by depth", all_entries.len()));
+    
+    // Re-batch the sorted entries for processing
+    let batch_size = 1000; // Use a reasonable batch size
+    let mut sorted_batches: Vec<Vec<DirEntry>> = Vec::new();
+    let mut current_batch = Vec::with_capacity(batch_size);
+    
+    for entry in all_entries {
+        current_batch.push(entry);
+        if current_batch.len() >= batch_size {
+            sorted_batches.push(std::mem::replace(&mut current_batch, Vec::with_capacity(batch_size)));
+        }
+    }
+    if !current_batch.is_empty() {
+        sorted_batches.push(current_batch);
+    }
+    
+    state.entry_batches = sorted_batches;
+    let total_batches = state.entry_batches.len();
+    ctx.log(format!("Re-batched into {} sorted batches", total_batches));
+    
     let mut total_processed = 0;
     let mut batch_number = 0;
     
-    while let Some(mut batch) = state.entry_batches.pop() {
+    while let Some(batch) = state.entry_batches.pop() {
         ctx.check_interrupt().await?;
         
         batch_number += 1;
@@ -77,32 +130,8 @@ pub async fn run_processing_phase(
         };
         ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
         
-        // Sort batch by path depth first, then by type to ensure parents are processed before children
-        batch.sort_by(|a, b| {
-            let a_depth = a.path.components().count();
-            let b_depth = b.path.components().count();
-            
-            // First sort by depth (parents before children)
-            match a_depth.cmp(&b_depth) {
-                std::cmp::Ordering::Equal => {
-                    // Then sort by type (directories before files at same depth)
-                    let a_priority = match a.kind {
-                        EntryKind::Directory => 0,
-                        EntryKind::Symlink => 1,
-                        EntryKind::File => 2,
-                    };
-                    let b_priority = match b.kind {
-                        EntryKind::Directory => 0,
-                        EntryKind::Symlink => 1,
-                        EntryKind::File => 2,
-                    };
-                    a_priority.cmp(&b_priority)
-                }
-                other => other,
-            }
-        });
-        
         // Process batch - check for changes and create/update entries
+        // (Already sorted globally by depth)
         for entry in batch {
             // Get metadata for change detection
             let metadata = match std::fs::metadata(&entry.path) {

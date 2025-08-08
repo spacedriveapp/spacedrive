@@ -9,6 +9,7 @@
 
 pub mod content;
 pub mod devices;
+pub mod entries;
 pub mod files;
 pub mod indexing;
 pub mod libraries;

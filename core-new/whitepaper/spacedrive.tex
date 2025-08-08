@@ -523,20 +523,12 @@ This addressing system enables operations that were previously impossible or ext
 
 This abstraction simplifies cross-device operations into type-safe function calls. The distributed filesystem appears local to users and developers.
 
-\subsubsection{The Entry Lifecycle: Stateful Content Management}
-Unlike static file representations, Entries in Spacedrive transition through a formal lifecycle managed by an event-driven state machine:
+\subsubsection{Quantum State: On-Demand Computation}
+Spacedrive treats an entry's state not as a static, stored property, but as a \textbf{quantum property that is computed only upon observation}. This design is fundamental to the VDFS's resilience, as it ensures an entry's state is always a true reflection of ongoing system operations, rather than a field that can become stale or inconsistent.
 
-\begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Discovered}: Entry detected, basic metadata available
- \item \textbf{Processing}: Content ID, hash generation in progress
- \item \textbf{Available}: Fully indexed with rich metadata
- \item \textbf{Syncing}: Propagating changes across devices
- \item \textbf{Archived}: In cold storage, metadata retained
-\end{itemize}
+This state is derived by following a strict \textbf{hierarchy of truth}: the system first queries the \texttt{JobManager} for active operations, as these have the highest priority. If no jobs are running for a given entry, the system then queries the database for the physical state of the entry's underlying storage volume.
 
-This lifecycle approach provides several advantages: \textbf{graceful handling} of long-running operations (large file hashing, media analysis), \textbf{resumable processing} after interruptions, \textbf{clear user feedback} about file status, and \textbf{deterministic state transitions} that eliminate race conditions common in distributed systems.
-
-The state machine is implemented through Spacedrive's job system, where each lifecycle transition corresponds to specific job types (IndexerJob, ContentIdentificationJob, SyncJob) that can be paused, resumed, and monitored for progress. This ensures that even multi-gigabyte files or complex analysis operations integrate seamlessly into the user experience.
+The result of this computation is a well-defined \texttt{EntryState} enum, which serves as a clean API contract for the rest of the application. When a client observes an entry in an active state (like \texttt{Processing}), the returned state includes a \texttt{job\_id}. The client can then use this ID to subscribe to a separate, real-time stream of progress updates directly from the Job Manager. This decouples the high-level state from the high-frequency progress data, leading to a highly efficient and scalable UI.
 
 \subsubsection{The Virtual Sidecar System: Managing Derivative Data}
 Spacedrive's VDFS model extends beyond managing original user files to also include first-class support for derivative data through a Virtual Sidecar System. For any given Entry, Spacedrive can create and manage a set of associated files—such as thumbnails, OCR text data, video transcripts, or transcoded media proxies—without ever modifying the original file.
@@ -627,6 +619,19 @@ The implementation prioritizes real-world performance:
 \end{itemize}
 
 By combining accurate identification with semantic categorization, Spacedrive transforms file type detection from a technical necessity into a powerful organizational tool that understands not just what files are, but how users think about them.
+
+\subsubsection{User-Managed Collections}
+Spacedrive elevates ephemeral user actions, like selecting files, into a powerful organizational tool through \textbf{User-Managed Collections}. This architecture provides the persistence and recall features that traditional file managers lack.
+
+Ephemeral UI states, such as a user's current selection or a "cut/copy" clipboard, are managed entirely on the client-side and are not part of the core VDFS data model. However, Spacedrive provides users with the ability to persist these temporary selections into durable, named collections.
+
+This is achieved through a dedicated database schema that cleanly separates these user-created groupings from the file entries themselves:
+\begin{itemize}[noitemsep, topsep=0pt]
+    \item \textbf{`collections` table}: Stores the metadata for a collection (e.g., name: "Website Assets", "Tax Documents 2024").
+    \item \textbf{`collection\_entries` junction table}: A many-to-many link between collections and entries.
+\end{itemize}
+
+This design allows a single file to exist in multiple collections without any data duplication. It correctly models a "Saved Selection" not as a property *of a file*, but as a separate, first-class object within the user's library, similar to a photo album or a music playlist. This provides a powerful foundation for features like shareable lightboxes, project asset groups, and recallable user selections.
 
 % --- SECTION 4.2: CONTENT IDENTITY SYSTEM ---
 \subsection{Content Identity: The Foundation for Deduplication and Redundancy}
