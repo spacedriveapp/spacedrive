@@ -2,12 +2,12 @@
   "runs": [
     {
       "directories": 18408,
-      "directories_per_s": 324.0,
-      "duration_s": 56.81,
+      "directories_per_s": 486.9,
+      "duration_s": 37.8,
       "errors": 0,
       "files": 19858,
-      "files_per_s": 349.5,
-      "job_id": "93a32f2c-066b-439f-b3b6-f230564af089",
+      "files_per_s": 525.3,
+      "job_id": "f990ddd4-fe3c-4468-91a8-5d627cdca9b9",
       "recipe": "benchmarks/recipes/hdd_large.yaml",
       "scenario": "indexing-discovery",
       "total_gb": 2129.03
