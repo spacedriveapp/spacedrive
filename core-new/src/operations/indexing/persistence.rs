@@ -282,12 +282,17 @@ impl<'a> IndexPersistence for DatabasePersistence<'a> {
 		let mut all_entry_ids = vec![location_root_entry_id];
 		all_entry_ids.extend(descendant_ids);
 
-		// Fetch all entries
-		let existing_entries = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Id.is_in(all_entry_ids))
-			.all(self.ctx.library_db())
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
+        // Fetch all entries (chunked to avoid SQLite variable limit)
+        let mut existing_entries: Vec<entities::entry::Model> = Vec::new();
+        let chunk_size: usize = 900;
+        for chunk in all_entry_ids.chunks(chunk_size) {
+            let mut batch = entities::entry::Entity::find()
+                .filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
+                .all(self.ctx.library_db())
+                .await
+                .map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
+            existing_entries.append(&mut batch);
+        }
 
 		let mut result = HashMap::new();
 

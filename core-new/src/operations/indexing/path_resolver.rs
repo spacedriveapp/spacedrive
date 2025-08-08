@@ -4,11 +4,9 @@
 
 use std::path::PathBuf;
 
-use sea_orm::{prelude::*, QuerySelect, Statement, ConnectionTrait};
+use sea_orm::{prelude::*, ConnectionTrait, QuerySelect, Statement};
 
-use crate::infrastructure::database::entities::{
-	directory_paths, entry, DirectoryPaths, Entry,
-};
+use crate::infrastructure::database::entities::{directory_paths, entry, DirectoryPaths, Entry};
 
 pub struct PathResolver;
 
@@ -69,7 +67,10 @@ impl PathResolver {
 			.await?
 			.map(|dp| dp.path)
 			.ok_or_else(|| {
-				DbErr::RecordNotFound(format!("Directory path not found for entry {}", directory_id))
+				DbErr::RecordNotFound(format!(
+					"Directory path not found for entry {}",
+					directory_id
+				))
 			})
 	}
 
@@ -94,10 +95,15 @@ impl PathResolver {
 		entry_ids: Vec<i32>,
 	) -> Result<Vec<(i32, PathBuf)>, DbErr> {
 		// First, fetch all entries to determine types
-		let entries = Entry::find()
-			.filter(entry::Column::Id.is_in(entry_ids.clone()))
-			.all(db)
-			.await?;
+		let mut entries: Vec<entry::Model> = Vec::new();
+		let chunk_size: usize = 900;
+		for chunk in entry_ids.chunks(chunk_size) {
+			let mut batch = Entry::find()
+				.filter(entry::Column::Id.is_in(chunk.to_vec()))
+				.all(db)
+				.await?;
+			entries.append(&mut batch);
+		}
 
 		let mut results = Vec::with_capacity(entries.len());
 
@@ -118,10 +124,14 @@ impl PathResolver {
 
 		// Batch fetch directory paths
 		if !directory_ids.is_empty() {
-			let dir_paths = DirectoryPaths::find()
-				.filter(directory_paths::Column::EntryId.is_in(directory_ids))
-				.all(db)
-				.await?;
+			let mut dir_paths: Vec<directory_paths::Model> = Vec::new();
+			for chunk in directory_ids.chunks(chunk_size) {
+				let mut batch = DirectoryPaths::find()
+					.filter(directory_paths::Column::EntryId.is_in(chunk.to_vec()))
+					.all(db)
+					.await?;
+				dir_paths.append(&mut batch);
+			}
 
 			for dir_path in dir_paths {
 				results.push((dir_path.entry_id, PathBuf::from(dir_path.path)));
@@ -130,15 +140,16 @@ impl PathResolver {
 
 		// Handle files by fetching parent paths
 		if !file_entries.is_empty() {
-			let parent_ids: Vec<i32> = file_entries
-				.iter()
-				.filter_map(|e| e.parent_id)
-				.collect();
+			let parent_ids: Vec<i32> = file_entries.iter().filter_map(|e| e.parent_id).collect();
 
-			let parent_paths = DirectoryPaths::find()
-				.filter(directory_paths::Column::EntryId.is_in(parent_ids))
-				.all(db)
-				.await?;
+			let mut parent_paths: Vec<directory_paths::Model> = Vec::new();
+			for chunk in parent_ids.chunks(chunk_size) {
+				let mut batch = DirectoryPaths::find()
+					.filter(directory_paths::Column::EntryId.is_in(chunk.to_vec()))
+					.all(db)
+					.await?;
+				parent_paths.append(&mut batch);
+			}
 
 			// Create a map for quick lookup
 			let parent_map: std::collections::HashMap<i32, String> = parent_paths
@@ -182,11 +193,7 @@ impl PathResolver {
 			.execute(Statement::from_sql_and_values(
 				db.get_database_backend(),
 				sql,
-				vec![
-					old_path.into(),
-					new_path.into(),
-					old_path.into(),
-				],
+				vec![old_path.into(), new_path.into(), old_path.into()],
 			))
 			.await?;
 

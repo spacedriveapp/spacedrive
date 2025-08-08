@@ -1,16 +1,16 @@
 {
   "runs": [
     {
-      "directories": null,
-      "directories_per_s": null,
-      "duration_s": null,
-      "errors": null,
-      "files": null,
-      "files_per_s": null,
-      "job_id": "6790e70a-b413-4cf8-915b-c05bf0fb8d62",
+      "directories": 18408,
+      "directories_per_s": 324.0,
+      "duration_s": 56.81,
+      "errors": 0,
+      "files": 19858,
+      "files_per_s": 349.5,
+      "job_id": "93a32f2c-066b-439f-b3b6-f230564af089",
       "recipe": "benchmarks/recipes/hdd_large.yaml",
       "scenario": "indexing-discovery",
-      "total_gb": null
+      "total_gb": 2129.03
     }
   ]
 }
