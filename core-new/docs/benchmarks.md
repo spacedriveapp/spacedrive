@@ -51,9 +51,9 @@ The CLI always prints a brief stdout summary and (if applicable) the path to the
   - Generates a dataset based on a YAML recipe (see Recipe Schema below).
 - `mkdata-all [--recipes-dir <dir>]`
   - Scans a directory for `.yaml` / `.yml` and runs `mkdata` for each file.
-- `run --scenario <name> --recipe <path> [--out_json <path>]`
+- `run --scenario <name> --recipe <path> [--out-json <path>]`
   - Boots an isolated core, ensures a benchmark library, adds recipe locations, waits for jobs to finish.
-  - Summarizes metrics to stdout; optionally writes JSON summary at `--out_json`.
+  - Summarizes metrics to stdout; optionally writes JSON summary at `--out-json`.
 - `run-all [--scenario <name>] [--recipes-dir <dir>] [--out-dir <dir>] [--skip-generate]`
   - For each recipe file, runs `mkdata` then `run` and writes JSON per recipe into `--out-dir`.
   - With `--skip-generate`, it will not call `mkdata` and will instead validate that all `locations[].path` exist, skipping recipes whose dataset paths are missing.
@@ -204,3 +204,72 @@ media:
 - Metrics: `benchmarks/src/metrics/mod.rs`
 - Reporting: `benchmarks/src/reporting/`
 - Isolated core boot: `benchmarks/src/core_boot/mod.rs`
+
+---
+
+## Future Benchmarks & Roadmap
+
+The suite is designed to grow into a comprehensive performance harness that reflects the whitepaper and system goals.
+
+- **Indexing pipeline**
+
+  - Content identification (done): measure content-only throughput using phase timings.
+  - Deep indexing: include thumbnail generation and metadata extraction; track throughput and error rates.
+  - Rescan/change detection: cold vs warm cache; latency from change to consistency.
+
+- **File operations**
+
+  - Copy throughput: large vs small files, overlap detection, progressive copy correctness; bytes/s and resource usage.
+  - Delete/cleanup: large tree deletion, DB cleanup cost, vacuum.
+  - Validation/integrity: CAS verification throughput; corruption handling.
+
+- **Duplicates & de-duplication**
+
+  - Duplicate detection: time to detect N duplicates; content-identity correctness; DB write pressure.
+
+- **Search & querying**
+
+  - (If applicable) index build time and query latency (P50/P95); warm vs cold cache comparisons.
+
+- **Media pipeline**
+
+  - Thumbnail generation: per-kind throughput; GPU/CPU offload if available.
+  - Metadata extraction: EXIF/FFprobe across formats.
+
+- **Networking & transfer**
+
+  - Pairing: time-to-pair and success rate under various conditions.
+  - Cross-device transfer: LAN/WAN throughput and latency; concurrency sweeps.
+
+- **Volume & system**
+  - Volume detection and tracking: discovery latency; multi-volume scaling.
+  - Disk type profiling: HDD vs NVMe vs network FS; impact on indexing and copy.
+
+### Data generation enhancements
+
+- Media synthesis: small valid PNG/JPG/WebP; short MP4/AAC clips.
+- Rich content sets: archives (ZIP/TAR), PDFs, docs, code, text; symlinks/permissions; nested trees.
+- Change-set support: scripted add/modify/delete to exercise rescan.
+- Ground-truth manifests: emitted metadata (size, hash) to validate correctness.
+
+### Metrics & telemetry
+
+- Structured metrics export from jobs (avoid log parsing).
+- System snapshot per run: CPU/RAM, disk model/FS, OS; thermal state if available.
+- Resource usage: CPU%, RSS/peak, IO bytes/IOPS.
+
+### Reporting & analysis
+
+- Markdown/CSV reporters; baseline-diff mode for regression detection.
+- HTML dashboard for trend charts over time/history.
+
+### CLI ergonomics
+
+- `--list-scenarios`, `--list-reporters`; recipe filters; scenario parameters (mode, scope, concurrency).
+- `--timeout`, `--retries`, `--clean`/`--reuse`; max parallelism; sharding.
+
+### CI integration
+
+- PR smoke tests: tiny recipes for key scenarios; upload JSON/logs.
+- Nightly heavy runs on tagged hardware; publish time-series metrics.
+- Regression gates: fail PRs on significant metric regressions.
