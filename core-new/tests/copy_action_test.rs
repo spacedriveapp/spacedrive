@@ -3,8 +3,9 @@
 //! This test verifies that the action can be properly dispatched without
 //! requiring a full database setup or job execution.
 
+use sd_core_new::domain::addressing::SdPath;
 use sd_core_new::{
-	infrastructure::actions::{manager::ActionManager, Action},
+	infrastructure::actions::Action,
 	operations::files::{
 		copy::{
 			action::FileCopyAction,
@@ -13,7 +14,6 @@ use sd_core_new::{
 		input::CopyMethod,
 	},
 };
-use std::path::PathBuf;
 use tempfile::TempDir;
 use tokio::fs;
 use uuid::Uuid;
@@ -51,8 +51,11 @@ async fn test_copy_action_construction() {
 
 	// Test 1: Basic copy action construction
 	let copy_action = FileCopyAction {
-		sources: vec![source_file1.clone(), source_file2.clone()],
-		destination: dest_dir.clone(),
+		sources: vec![
+			SdPath::local(source_file1.clone()),
+			SdPath::local(source_file2.clone()),
+		],
+		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
 			overwrite: false,
 			copy_method: CopyMethod::Auto,
@@ -92,8 +95,8 @@ async fn test_move_action_construction() {
 
 	// Test move action (copy with delete_after_copy)
 	let move_action = FileCopyAction {
-		sources: vec![source_file.clone()],
-		destination: dest_file.clone(),
+		sources: vec![SdPath::local(source_file.clone())],
+		destination: SdPath::local(dest_file.clone()),
 		options: CopyOptions {
 			copy_method: CopyMethod::Auto,
 			overwrite: false,
@@ -123,7 +126,7 @@ async fn test_action_validation_logic() {
 	// Test empty sources validation
 	let copy_action = FileCopyAction {
 		sources: vec![], // Empty sources should be invalid
-		destination: PathBuf::from("/tmp/dest"),
+		destination: SdPath::local("/tmp/dest"),
 		options: CopyOptions::default(),
 	};
 

@@ -1,15 +1,18 @@
 //! Entry processing and metadata extraction
 
-use super::state::{DirEntry, EntryKind, IndexerState};
 use super::path_resolver::PathResolver;
+use super::state::{DirEntry, EntryKind, IndexerState};
 use crate::{
 	file_type::FileTypeRegistry,
 	infrastructure::{
-		database::entities::{self, entry_closure, directory_paths},
+		database::entities::{self, directory_paths, entry_closure},
 		jobs::prelude::{JobContext, JobError},
 	},
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait, ConnectionTrait, DbBackend, Statement, IntoActiveModel};
+use sea_orm::{
+	ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
+	IntoActiveModel, QueryFilter, QuerySelect, Statement, TransactionTrait,
+};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
@@ -111,15 +114,15 @@ impl EntryProcessor {
 		})
 	}
 
-	/// Create an entry record in the database
-	pub async fn create_entry(
+	/// Create an entry record in the database using a provided connection/transaction
+	pub async fn create_entry_in_conn<C: ConnectionTrait>(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
 		entry: &DirEntry,
 		device_id: i32,
 		location_root_path: &Path,
+		conn: &C,
 	) -> Result<i32, JobError> {
-
 		// Extract file extension (without dot) for files, None for directories
 		let extension = match entry.kind {
 			EntryKind::File => entry
@@ -147,7 +150,7 @@ impl EntryProcessor {
 							.map(|n| n.to_string_lossy().to_string())
 							.unwrap_or_else(|| "unknown".to_string())
 					})
-			},
+			}
 			EntryKind::Directory | EntryKind::Symlink => {
 				// For directories and symlinks, use full name
 				entry
@@ -195,11 +198,17 @@ impl EntryProcessor {
 					.await
 				{
 					// Found parent in database, cache it
-					state.entry_id_cache.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
+					state
+						.entry_id_cache
+						.insert(parent_path.to_path_buf(), dir_path_record.entry_id);
 					Some(dir_path_record.entry_id)
 				} else {
 					// Parent not found - this shouldn't happen with proper sorting
-					ctx.log(format!("WARNING: Parent not found for {}: {}", entry.path.display(), parent_path.display()));
+					ctx.log(format!(
+						"WARNING: Parent not found for {}: {}",
+						entry.path.display(),
+						parent_path.display()
+					));
 					None
 				}
 			}
@@ -228,13 +237,9 @@ impl EntryProcessor {
 			..Default::default()
 		};
 
-		// Begin transaction for atomic entry creation and closure table population
-		let txn = ctx.library_db().begin().await
-			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
-
 		// Insert the entry
 		let result = new_entry
-			.insert(&txn)
+			.insert(conn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to create entry: {}", e)))?;
 
@@ -247,14 +252,14 @@ impl EntryProcessor {
 			..Default::default()
 		};
 		self_closure
-			.insert(&txn)
+			.insert(conn)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to insert self-closure: {}", e)))?;
 
 		// If there's a parent, copy all parent's ancestors
 		if let Some(parent_id) = parent_id {
 			// Insert closure entries for all ancestors
-			txn.execute_unprepared(&format!(
+			conn.execute_unprepared(&format!(
 				"INSERT INTO entry_closure (ancestor_id, descendant_id, depth) \
 				 SELECT ancestor_id, {}, depth + 1 \
 				 FROM entry_closure \
@@ -262,7 +267,9 @@ impl EntryProcessor {
 				result.id, parent_id
 			))
 			.await
-			.map_err(|e| JobError::execution(format!("Failed to populate ancestor closures: {}", e)))?;
+			.map_err(|e| {
+				JobError::execution(format!("Failed to populate ancestor closures: {}", e))
+			})?;
 		}
 
 		// If this is a directory, populate the directory_paths table
@@ -276,20 +283,45 @@ impl EntryProcessor {
 				path: Set(absolute_path),
 				..Default::default()
 			};
-			dir_path_entry
-				.insert(&txn)
-				.await
-				.map_err(|e| JobError::execution(format!("Failed to insert directory path: {}", e)))?;
+			dir_path_entry.insert(conn).await.map_err(|e| {
+				JobError::execution(format!("Failed to insert directory path: {}", e))
+			})?;
 		}
-
-		// Commit transaction
-		txn.commit().await
-			.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
 		// Cache the entry ID for potential children
 		state.entry_id_cache.insert(entry.path.clone(), result.id);
 
 		Ok(result.id)
+	}
+
+	/// Create an entry, starting and committing its own transaction (single insert)
+	pub async fn create_entry(
+		state: &mut IndexerState,
+		ctx: &JobContext<'_>,
+		entry: &DirEntry,
+		device_id: i32,
+		location_root_path: &Path,
+	) -> Result<i32, JobError> {
+		let txn = ctx
+			.library_db()
+			.begin()
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
+
+		let result =
+			Self::create_entry_in_conn(state, ctx, entry, device_id, location_root_path, &txn)
+				.await;
+
+		if result.is_ok() {
+			txn.commit()
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
+		} else {
+			// Best-effort rollback
+			let _ = txn.rollback().await;
+		}
+
+		result
 	}
 
 	/// Update an existing entry
@@ -343,7 +375,10 @@ impl EntryProcessor {
 		location_root_path: &Path,
 	) -> Result<(), JobError> {
 		// Begin transaction for atomic move operation
-		let txn = ctx.library_db().begin().await
+		let txn = ctx
+			.library_db()
+			.begin()
+			.await
 			.map_err(|e| JobError::execution(format!("Failed to begin transaction: {}", e)))?;
 
 		// Get the entry
@@ -365,7 +400,7 @@ impl EntryProcessor {
 
 		// Update entry fields
 		entry_active.parent_id = Set(new_parent_id);
-		
+
 		// Extract new name if it changed
 		let mut new_name_value = None;
 		if let Some(new_name) = new_path.file_stem() {
@@ -410,19 +445,27 @@ impl EntryProcessor {
 			// Get the new name from what we saved earlier
 			let new_name = new_name_value.unwrap_or_else(|| {
 				// If name didn't change, get it from the path
-				new_path.file_name()
+				new_path
+					.file_name()
 					.and_then(|n| n.to_str())
 					.unwrap_or("unknown")
 					.to_string()
 			});
 
 			// Build the new path
-			let new_directory_path = PathResolver::build_directory_path(&txn, new_parent_id, &new_name).await
-				.map_err(|e| JobError::execution(format!("Failed to build new directory path: {}", e)))?;
+			let new_directory_path =
+				PathResolver::build_directory_path(&txn, new_parent_id, &new_name)
+					.await
+					.map_err(|e| {
+						JobError::execution(format!("Failed to build new directory path: {}", e))
+					})?;
 
 			// Get the old path for descendant updates
-			let old_directory_path = PathResolver::get_directory_path(&txn, entry_id).await
-				.map_err(|e| JobError::execution(format!("Failed to get old directory path: {}", e)))?;
+			let old_directory_path = PathResolver::get_directory_path(&txn, entry_id)
+				.await
+				.map_err(|e| {
+					JobError::execution(format!("Failed to get old directory path: {}", e))
+				})?;
 
 			// Update the directory's own path
 			let mut dir_path_active = directory_paths::Entity::find_by_id(entry_id)
@@ -432,11 +475,13 @@ impl EntryProcessor {
 				.ok_or_else(|| JobError::execution("Directory path not found".to_string()))?
 				.into_active_model();
 			dir_path_active.path = Set(new_directory_path.clone());
-			dir_path_active.update(&txn).await
-				.map_err(|e| JobError::execution(format!("Failed to update directory path: {}", e)))?;
+			dir_path_active.update(&txn).await.map_err(|e| {
+				JobError::execution(format!("Failed to update directory path: {}", e))
+			})?;
 
 			// Commit transaction first to ensure the move is persisted
-			txn.commit().await
+			txn.commit()
+				.await
 				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 
 			// Spawn a background job to update descendant paths
@@ -448,19 +493,24 @@ impl EntryProcessor {
 					entry_id,
 					&old_directory_path,
 					&new_directory_path,
-				).await {
+				)
+				.await
+				{
 					tracing::error!("Failed to update descendant paths: {}", e);
 				}
 			});
 		} else {
 			// For files, just commit the transaction
-			txn.commit().await
+			txn.commit()
+				.await
 				.map_err(|e| JobError::execution(format!("Failed to commit transaction: {}", e)))?;
 		}
 
 		// Update cache
 		state.entry_id_cache.remove(old_path);
-		state.entry_id_cache.insert(new_path.to_path_buf(), entry_id);
+		state
+			.entry_id_cache
+			.insert(new_path.to_path_buf(), entry_id);
 
 		Ok(())
 	}
@@ -606,20 +656,29 @@ impl EntryProcessor {
 							.await
 							.map_err(|e| JobError::execution(format!("Failed to find existing content identity: {}", e)))?
 							.ok_or_else(|| JobError::execution("Content identity should exist after unique constraint violation".to_string()))?;
-						
+
 						// Update entry count
-						let mut existing_active: entities::content_identity::ActiveModel = existing.clone().into();
+						let mut existing_active: entities::content_identity::ActiveModel =
+							existing.clone().into();
 						existing_active.entry_count = Set(existing.entry_count + 1);
 						existing_active.last_verified_at = Set(chrono::Utc::now());
-						
+
 						existing_active
 							.update(ctx.library_db())
 							.await
-							.map_err(|e| JobError::execution(format!("Failed to update content identity: {}", e)))?;
-						
+							.map_err(|e| {
+								JobError::execution(format!(
+									"Failed to update content identity: {}",
+									e
+								))
+							})?;
+
 						existing
 					} else {
-						return Err(JobError::execution(format!("Failed to create content identity: {}", e)));
+						return Err(JobError::execution(format!(
+							"Failed to create content identity: {}",
+							e
+						)));
 					}
 				}
 			};

@@ -13,7 +13,7 @@ use crate::{
 		IndexMode,
 	},
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use std::path::Path;
 use uuid::Uuid;
 
@@ -151,6 +151,11 @@ pub async fn run_processing_phase(
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
+		// Begin a single transaction for all new entry creations in this batch
+		let txn = ctx.library_db().begin().await.map_err(|e| {
+			JobError::execution(format!("Failed to begin processing transaction: {}", e))
+		})?;
+
 		// Process batch - check for changes and create/update entries
 		// (Already sorted globally by depth)
 		for entry in batch {
@@ -172,13 +177,14 @@ pub async fn run_processing_phase(
 
 			match change {
 				Some(Change::New(_)) => {
-					// Create new entry
-					match EntryProcessor::create_entry(
+					// Create new entry within batch transaction
+					match EntryProcessor::create_entry_in_conn(
 						state,
 						ctx,
 						&entry,
 						device_id,
 						location_root_path,
+						&txn,
 					)
 					.await
 					{
@@ -295,6 +301,11 @@ pub async fn run_processing_phase(
 				}
 			}
 		}
+
+		// Commit the batch creation transaction
+		txn.commit().await.map_err(|e| {
+			JobError::execution(format!("Failed to commit processing transaction: {}", e))
+		})?;
 
 		ctx.log(format!(
 			"Processed batch {}/{}: {} entries",
