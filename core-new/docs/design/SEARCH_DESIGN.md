@@ -56,6 +56,8 @@ CREATE TRIGGER entries_search_update AFTER UPDATE ON entries BEGIN
 END;
 ```
 
+> **Implementation Note:** These raw SQL statements for FTS5 will be executed using SeaORM's APIs (e.g., `db.execute()` and `Entity::find().from_raw_sql()`). This requires the underlying `rusqlite` database driver, which SeaORM uses, to be compiled with FTS5 support enabled via its feature flag in `Cargo.toml`.
+
 **Performance Characteristics:**
 
 - **Query Speed**: <10ms for simple queries, <30ms for complex patterns

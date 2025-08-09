@@ -22,7 +22,7 @@ async-trait = "0.1"
 # Database
 sea-orm = { version = "1.1", features = ["sqlx-sqlite", "runtime-tokio-rustls", "macros", "uuid", "with-json", "with-chrono"] }
 sea-orm-migration = { version = "1.1", features = ["runtime-tokio-rustls", "sqlx-sqlite"] }
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "sqlite-fts5"] }
 
 # API (temporarily disabled)
 # axum = "0.7"
