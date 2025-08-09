@@ -40,7 +40,7 @@ One row per content-level sidecar variant.
 - kind (text) — e.g., `thumb`, `proxy`, `embeddings`, `ocr`, `transcript`
 - variant (text) — e.g., `grid@2x`, `detail@1x`, `1080p`, `all-MiniLM-L6-v2`
 - format (text) — e.g., `webp`, `mp4`, `json`
-- rel_path (text) — path under `sidecars/`
+- rel_path (text) — path under `sidecars/` (includes sharding prefixes, e.g., `content/{h0}/{h1}/{content_uuid}/...`)
 - size (bigint)
 - checksum (text) — optional integrity for the sidecar file
 - status (text enum) — `pending | ready | failed`
@@ -77,13 +77,14 @@ Deterministic paths enable zero-DB hot reads.
 ```
 .sdlibrary/
   sidecars/
-    content/{content_uuid}/
-      thumbs/{variant}.webp
-      proxies/{profile}.mp4
-      embeddings/{model}.json
-      ocr/ocr.json
-      transcript/transcript.json
-      manifest.json
+    content/
+      {h0}/{h1}/{content_uuid}/
+        thumbs/{variant}.webp
+        proxies/{profile}.mp4
+        embeddings/{model}.json
+        ocr/ocr.json
+        transcript/transcript.json
+        manifest.json
 ```
 
 Rules:
@@ -91,12 +92,17 @@ Rules:
 - Content-level sidecars only (media derivations attached to unique content)
 - Deterministic naming by `{content_uuid}` + `{kind}` + `{variant}`
 - A small per-content `manifest.json` may be used for local inspection/debug
+- Two-level hex sharding under `content/` to bound directory fanout and keep filesystem operations healthy at scale:
+  - `{h0}` and `{h1}` are the first two byte-pairs of the canonical, lowercase hex `content_uuid` with hyphens removed (e.g., `abcd1234-...` → `h0=ab`, `h1=cd`).
+  - Shard directories are created lazily; never pre-create the full shard tree.
+  - Always use lowercase to avoid case-folding issues on case-insensitive filesystems.
+  - Paths remain fully deterministic and require no DB lookup for single-item fetches.
 
 ## Local Presence & Consistency (DB ↔ FS)
 
 To keep database and sidecar folder consistent:
 
-- Bootstrap scan: On first enable or periodic maintenance, walk `sidecars/`, infer `(content_uuid, kind, variant, format, path)`, compute size (+ optional checksum), and upsert `sidecars` rows with `status=ready`.
+- Bootstrap scan: On first enable or periodic maintenance, walk the sharded tree under `sidecars/content/`, infer `(content_uuid, kind, variant, format, path)`, compute size (+ optional checksum), and upsert `sidecars` rows with `status=ready`.
 - Watcher: Add a library-internal watcher for `sidecars/` to reflect create/rename/delete into `sidecars` in real time. For large batches, the reconcile job (below) covers race conditions.
 - Reconcile job: Periodic, compares DB rows to FS state, repairs drift (e.g., recompute checksum, remove stale DB rows, re-run generation if missing), and updates `sidecar_availability` for the local device.
 
@@ -121,7 +127,7 @@ We reuse the pairing + file sharing stack to avoid reprocessing on every device.
   - Query `sidecar_availability` for candidates on paired devices
   - If present on any device, schedule file transfer for the deterministic path
   - Otherwise schedule local generation
-- Transfer path: Use existing file-sharing protocol to fetch `sidecars/content/{content_uuid}/...`, verify checksum, write locally, upsert `sidecars` and `sidecar_availability(local)`
+- Transfer path: Use existing file-sharing protocol to fetch `sidecars/content/{h0}/{h1}/{content_uuid}/...`, verify checksum, write locally, upsert `sidecars` and `sidecar_availability(local)`
 
 ## Retrieval Strategy
 
@@ -182,6 +188,6 @@ We reuse the pairing + file sharing stack to avoid reprocessing on every device.
 
 ## Appendix: Example Paths
 
-- Grid thumbnail (2x): `sidecars/content/{content_uuid}/thumbs/grid@2x.webp`
-- 1080p proxy: `sidecars/content/{content_uuid}/proxies/1080p.mp4`
-- Embeddings (MiniLM): `sidecars/content/{content_uuid}/embeddings/all-MiniLM-L6-v2.json`
+- Grid thumbnail (2x): `sidecars/content/{h0}/{h1}/{content_uuid}/thumbs/grid@2x.webp`
+- 1080p proxy: `sidecars/content/{h0}/{h1}/{content_uuid}/proxies/1080p.mp4`
+- Embeddings (MiniLM): `sidecars/content/{h0}/{h1}/{content_uuid}/embeddings/all-MiniLM-L6-v2.json`
