@@ -1184,11 +1184,9 @@ extend type Query {
 }
 
 enum SearchMode {
-	LIGHTNING
 	FAST
-	BALANCED
-	COMPREHENSIVE
-	SEMANTIC
+	NORMAL
+	FULL
 }
 
 type SearchResponse {
@@ -1414,22 +1412,18 @@ impl LightningSearchEngine {
 
 ## Updated Search Workflow
 
-1. Indexing & Intelligence Queueing
+1.  **Indexing & Intelligence Queueing**
+    *   A file is discovered and its `content_uuid` is determined.
+    *   The indexer dispatches jobs to generate sidecars: `OcrJob`, `TextExtractionJob`, `EmbeddingJob`, etc.
 
-   - A file is discovered and its `content_uuid` is determined.
-   - The indexer dispatches jobs: `OcrJob`, `TextExtractionJob`, `EmbeddingJob`, etc.
+2.  **Sidecar Generation**
+    *   Jobs run asynchronously, creating text and embedding sidecars and populating the necessary database tables (`sidecars`, `sidecar_availability`).
 
-2. Sidecar Generation
-
-   - Jobs run asynchronously. `TextExtractionJob` updates content caches feeding FTS5.
-   - `EmbeddingJob` writes embedding sidecar files and inserts rows into `sidecars`/`sidecar_availability`.
-
-3. Search Execution (`SearchJob`)
-   - Stage 1 (Temporal Filter): Query FTS5 for a small set of candidate entry IDs (<100ms typical).
-   - Stage 2 (Semantic Re-ranking): Map entries → `content_uuid`, resolve embedding sidecars for the chosen model, load vectors, compute cosine similarity to the query vector, and rerank.
-   - Cache the final ranked list and notify the frontend.
-
-This workflow is portable, offline, and fully aligned with VSS.
+3.  **Progressive Search Execution (`SearchJob`)**
+    *   The job starts with a `Fast` search (FTS5) and immediately returns results to the UI.
+    *   It then automatically enhances the results in the background by progressing to a `Normal` search (semantic re-ranking), issuing updates to the UI as better results are found.
+    *   An optional `Full` search can be triggered for the most comprehensive results.
+    *   All results are managed in the device-local cache.
 
 ## Conclusion
 
